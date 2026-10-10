@@ -259,12 +259,13 @@ sponson = 600
 "Main Gear Rear" = 1000
 [[mass.payload]]
 name = "flight crew"
+kind = "crew"
 mass = 300                      # two pilots and a loadmaster
 position = [3.300, 0.0, 3.300]
-[[mass.payload]]
-name = "cargo"
-mass = 5000                     # 11,000 lb: with full internal fuel a mid-mission 133,000 lb (60.4 t) - the
-position = [12.300, 0.0, 1.800] # weight the flight tests fly at (the normal take-off weight is 155,000 lb)
+# Its cargo is not fixed load: a loaded pallet or an airdrop bundle is a store (assets/stores: 463l-pallet, cds-a22) on
+# one of its hold's stations (assets/payloads/c130j-store-station.json), loaded by its fit's loadouts and released over
+# the ramp (docs/hangar.md, Mass accounting). Its profile's speeds and tables were flown with 5,000 kg of cargo aboard -
+# a mid-mission 133,000 lb (60.4 t) with full internal fuel - and stand for it loaded so.
 [[mass.tank]]
 name = "left outer wing"
 position = [12.800, -12.000, 5.200]

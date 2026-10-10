@@ -308,6 +308,8 @@ struct WeaponLaunch {
     std::string name;                     ///< empty: "<launcher>-<model>-<id>"
     double offsetBodyM[3] = {0, 0, 0};    ///< its CG from the launcher's, in the launcher's body axes (x forward, y right, z down)
     double ejectionBodyMs[3] = {0, 0, 0}; ///< added to the launcher's velocity, in its body axes (an ejector rack: z down)
+    /// It leaves unarmed and unlit: a motor it has is never started (a jettison; a store that is not employable).
+    bool inert = false;
 };
 
 /// How a weapon's flight ended.

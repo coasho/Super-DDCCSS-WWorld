@@ -35,6 +35,7 @@ bool WorldMirror::open(const std::string& name) {
     name_ = name;
     vehicles_.assign(header_->capacity, MirroredVehicle{});
     inputs_.assign(header_->capacity, sim::ControlInputs{});
+    status_.assign(header_->capacity, FlightStatus{});
     tableGeneration_ = ~0ull;
     lastSequence_ = 0;
     incarnation_ = header_->incarnation.load(std::memory_order_acquire);
@@ -53,6 +54,7 @@ void WorldMirror::close() {
     memory_.close();
     vehicles_.clear();
     inputs_.clear();
+    status_.clear();
 }
 
 bool WorldMirror::publisherAlive() const noexcept {
@@ -141,6 +143,7 @@ bool WorldMirror::pollSnapshot(sim::SnapshotBatch& out) {
         for (std::uint32_t i = 0; i < n; ++i) {
             out.states[i] = v[i].state;
             inputs_[i] = v[i].inputs;
+            std::memcpy(status_[i].derived, v[i].derived, sizeof status_[i].derived);
         }
         std::atomic_thread_fence(std::memory_order_acquire);
         if (s->seq.load(std::memory_order_acquire) != s0) continue; // overwritten while copying: retry

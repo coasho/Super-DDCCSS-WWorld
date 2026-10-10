@@ -232,12 +232,12 @@ empty_cg = [11.459, 0.0, -0.400]  # loaded, 5 % of the MAC ahead of the neutral 
 gyration = [0.265, 0.430, 0.550]
 [[mass.payload]]
 name = "pilot"
+kind = "crew"
 mass = 100
 position = [4.600, 0.0, 0.700]
-[[mass.payload]]
-name = "internal missiles"    # 4 R-77M, 2 R-74M
-mass = 972
-position = [11.009, 0.0, -0.700]
+# Its bays' missiles are stores, weighed on its bay stations when its fit's loadouts hang them there
+# (docs/hangar.md, Mass accounting): no fixed load. Its profile's speeds and tables were flown with
+# them aboard as one - 4 R-77M and 2 R-74M, 972 kg heavier than it spawns now - and are that weight's.
 [[mass.tank]]
 name = "fuselage 1"           # internal fuel, 10,300 kg
 position = [9.009, 0.0, -0.200]

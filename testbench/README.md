@@ -65,7 +65,41 @@ Francisco International: its runway 28R for takeoffs and landings, the bay east 
 | FA-9 Ground operations | takeoff (any wing, any crosswind), a rotorcraft's lift, the rejected takeoff (CANCEL, button, engine failure), the taxi, a route from the ground |
 | FA-10 Recovery and landing | the recovery to 28R with CleanUp, DirtyUp and go-around buttons, the crosswind wave-off, speedbrakes, placards, a route that lands, aerobatics given up and recovered, the U-2S, a rotorcraft's recovery |
 | Platform | flown into a mountain (the terrain strike), started inside one, a sandbox to fly by hand |
+| Stability | one scenario an aircraft, all 35 (`stability.<aircraft>`), at full load or as it spawns: a takeoff by FA's launch; then in the air a level hold, heading, altitude and speed steps, an orbit each way, a route, a curve, a crosswind with gusts, and slow flight - calibrated airspeeds stepped down to the least the VI accepts (`Performance.least_cas_ms`, at the weight it has), and turns at 1.5 and 1.3 times it and at it, within the bank its airspeed leaves. Every command through the Vehicle Interface; its activities' abnormal states (LOW_ENERGY, DEVIATING, UPSET) are part of what is checked. Its numbers and checks are kept ([below](#the-stability-suites-results)) |
 | Tactics: BVR | two fifth-generation fighters (F-22A, F-35A, J-20A, Su-57) beyond visual range over the Pacific, flown by temporary decision rules standing in for OMS: radar against the other's stealth, IRST, warning receivers; notional missiles (boost, loft, datalink, seeker, notch, fuse) shot inside their reach as the target flies; crank, notch, drag, abort, egress; nobody shot down - a hit scores the kill, "knock it off", both separate, rearm and refuel, and the next set begins, until stopped |
+
+## The stability suite's results
+
+```
+fsim testbench --headless stability.                      all 35 aircraft at full load
+fsim testbench --headless stability. --option load=spawn  as each spawns
+fsim testbench --headless stability.f16c                  one
+```
+
+Each run writes `testbench/results/stability/<aircraft>_<load>.json` - what it weighed and carried, each phase's
+numbers, each check with its detail - and `SUMMARY.md` beside them, a row a result, written again from every file
+there. They are kept in the repository: a change to the flight controls or to an aircraft shows in them as a diff.
+`FSIM_STABILITY_RESULTS` names another directory for a set kept apart. `before-vi-limits/` holds the fleet as it flew
+before the Vehicle Interface's speed and turn limits followed the load (flown by the suite as it then was: eastward,
+its slow flight stepped down to `min_cas_ms` and asked to hold that speed - no aircraft passed all of it but the four
+rotorcraft).
+
+- **Full load** is what the aircraft's own files let it carry ([docs/hangar.md](../docs/hangar.md#mass-accounting)):
+  its fixed load, every tank full, and every station its fit's loadouts load - where two loadouts give a station a
+  store, the heavier - held to its design's declared maximum take-off weight where it has one (fuel left out to meet
+  it). An aircraft with no loadouts and full tanks as it spawns flies the same either way.
+- **The checks** are the same for every aircraft (the constants at the top of `suites/stability.py`, each with what it
+  asks): a hold steady within 10 m, a 90 deg turn within 5 deg of its heading and 60 m of its height, an orbit within
+  3 % of its radius and 30 m, no more than 8 deg of sideslip in a sustained turn, and so on. A check that fails is the
+  suite's finding, not its error: the run goes on, on a fresh aircraft where one was lost.
+- **Slow flight** asks what the Vehicle Interface promises ([docs/vehicle-interface.md](../docs/vehicle-interface.md),
+  7.3): at each airspeed down to the least it accepts the aircraft is level - at the airspeed, or, where it cannot
+  hold its height there, faster on its speed floor with LOW_ENERGY on its activity (within 60 m of its height: it
+  comes back up past it as its thrust comes in). A slow turn is banked no more than its airspeed leaves it - past
+  that by 5 deg for no longer than 5 s, its roll's overshoot, and never to the bank it would stall at - loses no more
+  than 60 m, and is never an UPSET.
+- It flies at 3,000 m (half its ceiling for one that does not reach 6,000 m) at its cruise speed, from 9 km east of the
+  runway: a wing west, out over the sea (an hour's flight east stands the Sierra Nevada, higher than it flies).
 
 ## Adding a suite (OMS, P2P, C2, ...)
 

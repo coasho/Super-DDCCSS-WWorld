@@ -11,7 +11,9 @@ the aircraft's empty CG, body axes. What holds a store there, by the card's carr
 - above either, a pylon from its top up to the skin - a streamlined blade, 0.12 m thick, its chord from the store's
   length - where the skin is further than the launcher's own depth above it; nearer, a rack fills the gap up into the
   skin, and a rail is the airframe's own launcher's (a wingtip's: there nothing is added).
-A station in a weapon bay (its card's name says so) has no pylon: its store hangs in the bay (shape/bays.py). The
+A station in a weapon bay (its card's name says so) has no pylon: its store hangs in the bay (shape/bays.py). A cargo
+hold's pallet position (a station that takes cargo) has nothing at all - no rack, and no bay cut into the skin: the
+hold is the fuselage as it is drawn, and its load rides inside it. The
 store a station is sized for is the largest any of the aircraft's loadouts put there (none: an AIM-120's size on a
 rail, a Mk 82's on an ejector). All of it estimated, the same way for every aircraft; drawn only - no drag, no mass
 (the stores' masses are the stations' point masses), not in the RCS tables of the clean aircraft.
@@ -36,6 +38,16 @@ def _store_card(card_id):
         return None
     with open(path, encoding="utf-8") as f:
         return json.load(f)
+
+
+def _size(card):
+    """A store's length, its diameter and its fins' span (m), from its card: a cargo store's box as the cylinder round it."""
+    par = card["parameters"]
+    if "diameter_m" not in par:
+        across = max(par["width_m"]["value"], par["height_m"]["value"])
+        return par["length_m"]["value"], across, across
+    d = par["diameter_m"]["value"]
+    return par["length_m"]["value"], d, par["span_m"]["value"] if "span_m" in par else 2.7 * d
 
 
 def stations(aircraft):
@@ -75,16 +87,18 @@ def stations(aircraft):
             kind = "rail"
         sized = missiles if kind == "rail" else stores
         if sized:
-            biggest = max(sized, key=lambda x: x["parameters"]["length_m"]["value"] * x["parameters"]["diameter_m"]["value"])
-            par = biggest["parameters"]
-            size = (par["length_m"]["value"], par["diameter_m"]["value"],
-                    par["span_m"]["value"] if "span_m" in par else 2.7 * par["diameter_m"]["value"])
+            biggest = max(sized, key=lambda x: _size(x)[0] * _size(x)[1])
+            size = _size(biggest)
         else:
             size = DEFAULT[kind]
         name = s.get("name", "")
-        bay = name[:name.find("bay") + 3] if "bay" in name else ""  # its weapon bay (src/ms/Cards.cpp's rule): "main bay"
+        # a cargo hold's pallet position (it takes cargo; named "cargo bay <n>", so that the store management opens the
+        # hold's ramp for it and gives its load no drag): inside the airframe as it is drawn - no cavity is cut for it,
+        # no door, and no rack or pylon hung
+        hold = "cargo" in s.get("takes", [])
+        bay = name[:name.find("bay") + 3] if "bay" in name and not hold else ""  # its weapon bay (src/ms/Cards.cpp's rule): "main bay"
         out.append(dict(number=s["number"], name=name, at=cg + np.array([-b[0], b[1], -b[2]]), body=b,
-                        carriage=s.get("carriage", ""), bay=bool(bay), bay_name=bay, kind=kind,
+                        carriage=s.get("carriage", ""), bay=bool(bay), bay_name=bay, kind=kind, hold=hold,
                         length=size[0], diameter=size[1], span=size[2]))
     # the bays numbered 1.. in the order of their first stations: the manifest's and the doors' (fsim:bay:<n>) numbers
     order = []
@@ -138,7 +152,7 @@ def parts(aircraft, positions, triangles):
     from .model3d import _box
     out = []
     for s in stations(aircraft):
-        if s["bay"]:
+        if s["bay"] or s["hold"]:
             continue
         P, r, L = s["at"], 0.5 * s["diameter"], s["length"]
         top = P[2] + r

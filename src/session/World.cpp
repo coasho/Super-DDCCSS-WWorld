@@ -325,6 +325,11 @@ std::uint32_t World::createVehicle(const VehicleSpec& spec) {
     if (!e->profile->control.settings.empty()) e->stack.setControllerSettings(e->profile->control.settings);
     for (const auto& [level, controller] : e->profile->control.controllers) e->stack.use(level, controller); // with the settings above
     e->host.bind(id, e->stack, *e->catalog, adapter, *e->profile, options_.dt * e->controlDivider);
+    {
+        // what it weighs as it is made: the weight its least airspeeds are its profile's at (docs/vehicle-interface.md, 7.3)
+        const sim::EnergyOnBoard energy = pool_->vehicle(slot).energy();
+        e->host.setLoad(energy.massKg, energy.fuelKg);
+    }
     e->host.setSupport(e->support.get());
     // (its endurance and terrain checks: docs/flight-autonomy.md, 4.18, 4.19; the mission data it sees, its own: AB-2c)
     e->host.setSessionView((views_[id] = std::make_unique<Answers>(*this, id)).get());
@@ -2097,8 +2102,16 @@ void World::step(unsigned n) {
         {
             // the contract layer reads what the runtimes flew (docs/control-architecture.md, 6.4)
             const auto after = pool_->states();
+            const bool weigh = (loadTick_++ & 7u) == 0;
             for (std::size_t s = 0; s < entries_.size(); ++s)
                 if (Entry* e = entries_[s].get()) {
+                    // its weight to its host, as its fuel burns (every eighth step) and once its stores have changed (their
+                    // point masses were set before this step: the flight model's weight has them now) - 7.3
+                    if (weigh || e->loadRevision != e->massRevision) {
+                        const sim::EnergyOnBoard energy = pool_->vehicle(s).energy();
+                        e->host.setLoad(energy.massKg, energy.fuelKg);
+                        e->loadRevision = e->massRevision;
+                    }
                     control::EffectorPositions positions;
                     if (e->host.awaitsPosition()) {
                         positions.gear = after[s].gearPosition;
@@ -2137,7 +2150,12 @@ void World::step(unsigned n) {
             for (std::size_t s = 0; s < entries_.size(); ++s)
                 if (entries_[s]) poolInputs_[s] = entries_[s]->inputs;
             publisher_->addSteps(liveCount_ * static_cast<std::uint64_t>(options_.frameSkip), 1);
-            if (publisher_->publish(simTime_, pool_->states(), Span<const sim::ControlInputs>(poolInputs_))) publishMission();
+            if (publisher_->due()) { // (its vehicles' flight status worked out only as a snapshot is copied)
+                fillStatus();
+                if (publisher_->publish(simTime_, pool_->states(), Span<const sim::ControlInputs>(poolInputs_), false,
+                                        Span<const ipc::FlightStatus>(poolStatus_)))
+                    publishMission();
+            }
         }
     }
 }
@@ -2146,8 +2164,33 @@ void World::publishNow() {
     if (!publisher_) return;
     for (std::size_t s = 0; s < entries_.size(); ++s)
         if (entries_[s]) poolInputs_[s] = entries_[s]->inputs;
-    publisher_->publish(simTime_, pool_->states(), Span<const sim::ControlInputs>(poolInputs_), true);
+    fillStatus();
+    publisher_->publish(simTime_, pool_->states(), Span<const sim::ControlInputs>(poolInputs_), true, Span<const ipc::FlightStatus>(poolStatus_));
     publishMission();
+}
+
+void World::fillStatus() {
+    // what the viewer shows of each vehicle's Vehicle Interface (docs/vehicle-interface.md, 7.3): its weight, the least
+    // airspeeds that leaves it, its speed floor, the bank its airspeed leaves a turn, its activities' flags
+    if (poolStatus_.size() != entries_.size()) poolStatus_.resize(entries_.size());
+    for (std::size_t s = 0; s < entries_.size(); ++s) {
+        double* d = poolStatus_[s].derived;
+        const Entry* e = entries_[s].get();
+        if (!e) {
+            std::fill(d, d + ipc::kDerivedCount, 0.0);
+            continue;
+        }
+        const control::Performance& p = e->host.performance();
+        const double mass = e->host.massKg();
+        d[ipc::kDerivedMassKg] = std::isfinite(mass) ? mass : 0.0;
+        d[ipc::kDerivedStallCasMs] = p.hovers ? std::numeric_limits<double>::quiet_NaN() : p.minCasMs;
+        d[ipc::kDerivedLeastCasMs] = p.hovers ? std::numeric_limits<double>::quiet_NaN() : p.leastCasMs();
+        d[ipc::kDerivedFloorCasMs] = e->stack.speedFloorCasMs();
+        d[ipc::kDerivedBankCapRad] = e->stack.bankCapRad();
+        d[ipc::kDerivedConstraints] = static_cast<double>(e->host.constraints());
+        d[ipc::kDerivedLoadRatio] = p.loadSpeedRatio;
+        d[7] = 0.0;
+    }
 }
 
 void World::publishMission() {
@@ -2306,6 +2349,7 @@ std::uint32_t World::launchWeapon(std::uint32_t launcher, const ms::WeaponLaunch
     for (int i = 0; i < 3; ++i) spec.initial.velocityNedMs[i] = ls.velocityNedMs[i] + spinNed[i] + push[i];
     for (int i = 0; i < 3; ++i) spec.initial.bodyRatesRadS[i] = w[i];
     spec.initial.airspeedTrueMs = ls.airspeedTrueMs;
+    spec.initial.enginesRunning = !launch.inert;
     std::string family, model;
     parseType(launch.type, family, model);
     spec.name = launch.name.empty() ? from->info.name + "-" + model + "-" + std::to_string(nextId_) : launch.name;

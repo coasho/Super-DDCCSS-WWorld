@@ -132,6 +132,7 @@ mass = 1.2
 position = [0.300, 0.0, 0.000]
 [[mass.payload]]
 name = "camera"
+kind = "equipment"
 mass = 2.0
 position = [0.200, 0.0, -0.080]
 

@@ -133,22 +133,27 @@ empty = 659.5             # 1454 lb
 empty_cg = [1.041, 0.0, 0.927]   # JSBSim c172x
 [[mass.payload]]
 name = "PILOT"
+kind = "crew"
 mass = 86.2
 position = [0.914, -0.356, 0.610]
 [[mass.payload]]
 name = "CO-PILOT"
+kind = "crew"
 mass = 63.5
 position = [0.914, 0.356, 0.610]
 [[mass.payload]]
 name = "PASSENGER 1"
+kind = "passenger"
 mass = 59.0
 position = [1.524, -0.356, 0.610]
 [[mass.payload]]
 name = "PASSENGER 2"
+kind = "passenger"
 mass = 48.1
 position = [1.524, 0.356, 0.610]
 [[mass.payload]]
 name = "LUGGAGE"
+kind = "baggage"
 mass = 54.4
 position = [2.413, 0.0, 0.610]
 [[mass.tank]]

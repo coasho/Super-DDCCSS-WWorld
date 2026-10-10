@@ -96,8 +96,10 @@ bool CapabilityHost::takeoffSpeeds(RouteGround& out) const noexcept {
     // a wing's rotation and climb speeds: 1.1 and 1.3 times its stall speed clean (its takeoff flaps' lift a margin; its
     // landing configuration's stall is its approach's: 4.63), else the envelope's least - a fly-by-wire fighter's, whose
     // limiter keeps it from stalling; false with none (a stock model's)
+    // at the weight it carries now: its profile's stall by the load's ratio, as its least airspeed is (7.3) - rotated at
+    // the speed flown light, a B-52H at its maximum take-off weight would leave the ground 20 % under its stall
     double stall = kHold;
-    if (profile_) stall = profile_->performance.stallCasMs;
+    if (profile_) stall = profile_->performance.stallCasMs * loadSpeedRatio_;
     if (!std::isfinite(stall)) stall = performance_.minCasMs;
     if (!std::isfinite(stall)) return false;
     out.rotationCasMs = 1.1 * stall, out.climbCasMs = 1.3 * stall;

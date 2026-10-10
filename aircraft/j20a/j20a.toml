@@ -235,12 +235,12 @@ empty_cg = [11.505, 0.0, -0.350]
 gyration = [0.260, 0.430, 0.540]
 [[mass.payload]]
 name = "pilot"
+kind = "crew"
 mass = 100
 position = [4.300, 0.0, 0.550]
-[[mass.payload]]
-name = "internal missiles"    # 4 PL-15, 2 PL-10
-mass = 1020
-position = [11.875, 0.0, -0.800]
+# Its bays' missiles are stores, weighed on its bay stations when its fit's loadouts hang them there
+# (docs/hangar.md, Mass accounting): no fixed load. Its profile's speeds and tables were flown with
+# them aboard as one - 4 PL-15 and 2 PL-10, 1,020 kg heavier than it spawns now - and are that weight's.
 [[mass.tank]]
 name = "fuselage 1"           # internal fuel, 10,500 kg (estimate)
 position = [9.155, 0.0, -0.200]

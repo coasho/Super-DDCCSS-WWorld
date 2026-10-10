@@ -28,9 +28,18 @@ std::uint16_t flagsOn(const RuntimeReport& report, AxisMask axes) noexcept {
         if (x & kSaturated) f |= kActivitySaturated;
         if (x & kDemandLimited) f |= kActivityDemandLimited;
         if (x & kExceeded) f |= kActivityExceeded;
+        if (x & kLowEnergy) f |= kActivityLowEnergy;
     }
     return f;
 }
+
+// An activity's abnormal states (docs/vehicle-interface.md, 7.3). Deviating: farther than this from the altitude it commands
+// and still moving away at more than kDeviationMs, for kDeviationS - a turn's dip or a step's overshoot is neither that
+// far nor that long. Upset: a wing's angle of attack this far past its limit (where its profile gives none: past
+// kUpsetAlphaRad), until it is back within the limit.
+constexpr double kDeviationM = 30.0, kDeviationRotorM = 10.0, kDeviationMs = 0.5;
+constexpr float kDeviationS = 5.0f;
+constexpr double kUpsetMarginRad = 0.14, kUpsetAlphaRad = 0.35; // 8 deg; 20 deg
 
 /// Accepted; `made` for a NEW that made an activity (A-GRA's NewActivity).
 CommandResult accepted(ActivityId activity, std::uint16_t flags = 0, bool made = false) noexcept {
@@ -79,6 +88,9 @@ void CapabilityHost::bind(std::uint32_t vehicle, ControlStack& runtime, const Ca
     profile_ = &profile;
     controlPeriodS_ = controlPeriodS;
     config_->protection = protectionFor(profile, adapter.features()); // Limit with an envelope section, else Off
+    cleanCasMinMs_ = config_->protection.clean.casMinMs, flapsCasMinMs_ = config_->protection.flaps.casMinMs; // (as flown: setLoad scales them)
+    massKg_ = referenceMassKg_ = kUnknown, loadSpeedRatio_ = 1.0, loadKg_ = 0.0, upset_ = false, lastStepS_ = kUnknown;
+    constraints_ = 0;
     config_->tables = profile.tables.empty() ? nullptr : &profile.tables; // (what a speed optimisation flies)
     // what the aircraft can do, from its profile and the loops it flies with (docs/vehicle-interface.md, 7.1)
     performance_ = adapter.performance(profile, runtime);
@@ -96,10 +108,12 @@ bool samePerformance(const Performance& a, const Performance& b) noexcept {
     auto same = [](double x, double y) { return x == y || (std::isnan(x) && std::isnan(y)); };
     const double fa[] = {a.minCasMs, a.maxCasMs, a.maxMach, a.maxTasMs, a.cruiseTasMs, a.maxGroundSpeedMs, a.ceilingM, a.maxBankRad, a.minPitchRad,
                          a.maxPitchRad, a.maxRollRateRadS, a.minLoadFactor, a.maxLoadFactor, a.maxTiltRad, a.maxAccelerationMs2, a.maxDecelerationMs2,
-                         a.maxClimbMs, a.maxDescentMs, a.altitudeGainPerS, a.headingGain, a.headingReferenceTasMs, a.bankRateRadS, a.velocityBandwidthRadS};
+                         a.maxClimbMs, a.maxDescentMs, a.altitudeGainPerS, a.headingGain, a.headingReferenceTasMs, a.bankRateRadS, a.velocityBandwidthRadS,
+                         a.loadSpeedRatio, a.loadKg};
     const double fb[] = {b.minCasMs, b.maxCasMs, b.maxMach, b.maxTasMs, b.cruiseTasMs, b.maxGroundSpeedMs, b.ceilingM, b.maxBankRad, b.minPitchRad,
                          b.maxPitchRad, b.maxRollRateRadS, b.minLoadFactor, b.maxLoadFactor, b.maxTiltRad, b.maxAccelerationMs2, b.maxDecelerationMs2,
-                         b.maxClimbMs, b.maxDescentMs, b.altitudeGainPerS, b.headingGain, b.headingReferenceTasMs, b.bankRateRadS, b.velocityBandwidthRadS};
+                         b.maxClimbMs, b.maxDescentMs, b.altitudeGainPerS, b.headingGain, b.headingReferenceTasMs, b.bankRateRadS, b.velocityBandwidthRadS,
+                         b.loadSpeedRatio, b.loadKg};
     if (a.hovers != b.hovers) return false;
     for (std::size_t i = 0; i < std::size(fa); ++i)
         if (!same(fa[i], fb[i])) return false;
@@ -111,8 +125,46 @@ bool samePerformance(const Performance& a, const Performance& b) noexcept {
 void CapabilityHost::refreshPerformance() noexcept {
     if (!runtime_ || runtime_->loopsRevision() == loopsSeen_) return;
     loopsSeen_ = runtime_->loopsRevision();
-    Performance next = adapter_->performance(*profile_, *runtime_);
+    Performance next = loaded(adapter_->performance(*profile_, *runtime_));
     if (samePerformance(next, performance_)) return;
+    next.revision = performance_.revision + 1;
+    performance_ = next;
+    config_->performance = performance_; // (guidance reads it there, from its next update)
+    ++controlRevision_;
+}
+
+Performance CapabilityHost::loaded(Performance p) const noexcept {
+    p.minCasMs *= loadSpeedRatio_; // (NaN stays NaN; 1 leaves it to the bit)
+    p.loadSpeedRatio = loadSpeedRatio_, p.loadKg = loadKg_;
+    return p;
+}
+
+void CapabilityHost::setLoad(double massKg, double fuelKg) noexcept {
+    if (!runtime_ || !(massKg > 0.0)) return;
+    massKg_ = massKg;
+    // what its performance tables weigh it at with this fuel on board: their heaviest, flown with the tanks full, less the
+    // fuel gone (optimalTasMs, topTasMs)
+    const TablesSection* t = config_->tables;
+    double tablesKg = kUnknown;
+    if (t && !t->weightKg.empty()) {
+        tablesKg = t->weightKg.back();
+        if (t->weightKg.size() > 1 && std::isfinite(t->fuelCapacityKg) && std::isfinite(fuelKg)) tablesKg += fuelKg - t->fuelCapacityKg;
+    }
+    // the weight its profile's speeds were flown at: as its tables have it with the fuel it was made with (what hangar flew:
+    // the aircraft as it spawns), else what it weighed when it was made
+    if (std::isnan(referenceMassKg_)) referenceMassKg_ = std::isfinite(tablesKg) ? tablesKg : massKg;
+    // A wing's least airspeeds by the square root of its weight - the same lift coefficient carries it - never below the
+    // profile's own, in steps of half a percent (a revision as it burns its fuel or drops a store, not every step);
+    // what it weighs beyond its tables' figure, in steps of 25 kg (a tank's fuel is drawn at 10 kg/s at most)
+    double ratio = 1.0, beyond = 0.0;
+    if (!performance_.hovers) {
+        ratio = std::round(std::sqrt(std::max(massKg / referenceMassKg_, 1.0)) * 200.0) / 200.0;
+        if (std::isfinite(tablesKg)) beyond = std::round((massKg - tablesKg) / 25.0) * 25.0;
+    }
+    if (ratio == loadSpeedRatio_ && beyond == loadKg_) return;
+    loadSpeedRatio_ = ratio, loadKg_ = beyond;
+    config_->protection.clean.casMinMs = cleanCasMinMs_ * ratio, config_->protection.flaps.casMinMs = flapsCasMinMs_ * ratio;
+    Performance next = loaded(adapter_->performance(*profile_, *runtime_));
     next.revision = performance_.revision + 1;
     performance_ = next;
     config_->performance = performance_; // (guidance reads it there, from its next update)
@@ -336,7 +388,7 @@ void CapabilityHost::optimise(double& speed, double& reference, double optimizat
     const double h = isHold(altitudeM) ? state.altitudeMslM
                                        : altitudeMslOf(altitudeM, static_cast<AltitudeReference>(static_cast<int>(orHold(altitudeReference, 0.0))), state,
                                                        &config_->altimeter);
-    const double best = optimalTasMs(config_->tables, optimization, h, state.fuelKg);
+    const double best = optimalTasMs(config_->tables, optimization, h, state.fuelKg + loadKg_);
     reference = static_cast<double>(SpeedReference::TrueAirspeed);
     speed = std::isfinite(best) ? best : state.airspeedTrueMs; // (above the altitudes flown: as it flies)
 }
@@ -354,7 +406,8 @@ void CapabilityHost::limitFlight(double& speed, double speedReference, double& a
     if (aboveGround(altitudeReference)) bound(altitude, 0.0, false, altitudeIndex, Constraint::MinAltitude, log, altitudeField);
     else if (barometric) bound(altitude, indicatedAltitudeM(config_->altimeter, f.ceilingM), true, altitudeIndex, Constraint::MaxAltitude, log, altitudeField);
     else bound(altitude, f.ceilingM, true, altitudeIndex, Constraint::MaxAltitude, log, altitudeField);
-    // the speed, within the envelope's calibrated speeds and Mach at the altitude it asks for (the
+    // the speed, within the envelope's calibrated speeds (its least with a command's margin over it, at the weight it has:
+    // Performance::leastCasMs) and Mach at the altitude it asks for (the
     // standard atmosphere's); a rotorcraft's ground speed within its fastest
     auto limit = [&](double most, bool above, Constraint constraint) { bound(speed, most, above, speedIndex, constraint, log, speedField); };
     const auto reference = static_cast<SpeedReference>(static_cast<int>(orHold(speedReference, 0.0)));
@@ -365,22 +418,22 @@ void CapabilityHost::limitFlight(double& speed, double speedReference, double& a
     }
     // the fastest through the air: a wing's profile's; a rotorcraft's, its tables' top level speed there at its weight now
     // (along its nose, as it flies an airspeed: docs/flight-autonomy.md, 4.48); fmin passes over the NaN of one not known
-    const double most = f.hovers ? std::fmin(f.maxTasMs, topTasMs(config_->tables, h, state.fuelKg)) : f.maxTasMs;
+    const double most = f.hovers ? std::fmin(f.maxTasMs, topTasMs(config_->tables, h, state.fuelKg + loadKg_)) : f.maxTasMs;
     switch (reference) {
     case SpeedReference::CalibratedAirspeed:
-        limit(f.minCasMs, false, Constraint::MinAirspeed);
+        limit(f.leastCasMs(), false, Constraint::MinAirspeed);
         limit(f.maxCasMs, true, Constraint::MaxAirspeed);
         limit(isa::calibratedFromTrue(most, h), true, Constraint::MaxAirspeed);
         return;
     case SpeedReference::TrueAirspeed:
-        limit(isa::trueFromCalibrated(f.minCasMs, h), false, Constraint::MinAirspeed);
+        limit(isa::trueFromCalibrated(f.leastCasMs(), h), false, Constraint::MinAirspeed);
         limit(isa::trueFromCalibrated(f.maxCasMs, h), true, Constraint::MaxAirspeed);
         limit(f.maxMach * isa::speedOfSound(h), true, Constraint::MaxAirspeed);
         limit(most, true, Constraint::MaxAirspeed);
         return;
     case SpeedReference::Mach: {
         const double a = isa::speedOfSound(h);
-        limit(isa::trueFromCalibrated(f.minCasMs, h) / a, false, Constraint::MinAirspeed);
+        limit(isa::trueFromCalibrated(f.leastCasMs(), h) / a, false, Constraint::MinAirspeed);
         limit(isa::trueFromCalibrated(f.maxCasMs, h) / a, true, Constraint::MaxAirspeed);
         limit(f.maxMach, true, Constraint::MaxAirspeed);
         limit(most / a, true, Constraint::MaxAirspeed);
@@ -392,7 +445,7 @@ void CapabilityHost::limitFlight(double& speed, double speedReference, double& a
 
 void CapabilityHost::limitVelocity(VelocityCommand& c, const sim::VehicleState& state, CheckLog& log) const noexcept {
     // (its field 0; a velocity over the ground, north and east, is not an airspeed)
-    bound(c.airspeedMs, topTasMs(config_->tables, state.altitudeMslM, state.fuelKg), true, 0, Constraint::MaxAirspeed, log);
+    bound(c.airspeedMs, topTasMs(config_->tables, state.altitudeMslM, state.fuelKg + loadKg_), true, 0, Constraint::MaxAirspeed, log);
 }
 
 Reason CapabilityHost::checkRoute(RouteCommand& c, Span<const Waypoint> waypoints, const sim::VehicleState& state, CheckLog& log,
@@ -690,7 +743,7 @@ double CapabilityHost::accelerationLimit(double fromMs, double toMs, double alti
     const TablesSection* t = config_->tables;
     if (!t || t->empty()) return kUnknown;
     double weight = t->weightKg.back(); // (the tables' weight with the tanks empty and the fuel on board, as optimalTasMs's)
-    if (t->weightKg.size() > 1 && std::isfinite(t->fuelCapacityKg) && std::isfinite(state.fuelKg)) weight += state.fuelKg - t->fuelCapacityKg;
+    if (t->weightKg.size() > 1 && std::isfinite(t->fuelCapacityKg) && std::isfinite(state.fuelKg)) weight += state.fuelKg + loadKg_ - t->fuelCapacityKg;
     const TablesAt level = tablesAt(*t, altitudeMslM, weight);
     if (!std::isfinite(level.minTasMs) || !std::isfinite(level.maxTasMs)) return kUnknown;
     // the least its excess power gives at nine speeds through the change, within the level speeds - full power's faster,
@@ -833,7 +886,7 @@ void CapabilityHost::limitCurveSpeeds(CurveCommand& c, CheckLog& log) const noex
     const Performance& f = performance_;
     const bool hovers = (adapter_->features() & kFeatureHover) != 0;
     const double h = orHold(c.altitudeM, 0.0);
-    const double least = hovers ? 0.0 : isa::trueFromCalibrated(f.minCasMs, h); // (NaN: no limit)
+    const double least = hovers ? 0.0 : isa::trueFromCalibrated(f.leastCasMs(), h); // (NaN: no limit)
     const double most = fastest(h);
     // a range it can fly within: no faster at its least than it flies, no slower at its most
     // (a least below its slowest, a most above its fastest, leave it room)
@@ -897,7 +950,7 @@ Reason CapabilityHost::checkCurve(CurveCommand& c, Span<const NurbsSegment> segm
     k.measure(0);
     const Performance& f = performance_;
     limitCurveSpeeds(c, log);
-    const double least = hovers ? 0.0 : isa::trueFromCalibrated(f.minCasMs, c.altitudeM);
+    const double least = hovers ? 0.0 : isa::trueFromCalibrated(f.leastCasMs(), c.altitudeM);
     const double most = fastest(c.altitudeM);
     // the fastest it flies over the ground: as now - a rotorcraft's ground speed (its
     // cruise, if still), a wing's airspeed with the wind behind it - or the speed that
@@ -2409,6 +2462,17 @@ bool CapabilityHost::afterStep(const sim::VehicleState& state, const EffectorPos
     bool outside = false;
     for (std::size_t l = 0; l < kLimitCount; ++l)
         if (report.limits[l].exceededUpdates && report.limits[l].worstExcess > kTolerance[l]) outside = true;
+    // departed controlled flight (7.3): a wing in the air, its angle of attack far past its limit - said of what flies it
+    // until it is back within the limit
+    if (!performance_.hovers && !state.onGround && !state.crashed && state.airspeedTrueMs > 5.0) {
+        const double limit = profile_ && std::isfinite(profile_->envelope.clean.alphaMaxRad) ? profile_->envelope.clean.alphaMaxRad : kUpsetAlphaRad;
+        upset_ = state.alphaRad > limit + kUpsetMarginRad || (upset_ && state.alphaRad > limit);
+    } else {
+        upset_ = false;
+    }
+    const float stepS = std::isnan(lastStepS_) ? 0.0f : static_cast<float>(std::clamp(now - lastStepS_, 0.0, 1.0));
+    lastStepS_ = now;
+    constraints_ = 0;
     for (std::size_t s = 0; s < kActivities; ++s) {
         Slot& slot = slots_[s];
         if (!slot.activity) continue; // nothing flies here (and nothing reported)
@@ -2419,12 +2483,24 @@ bool CapabilityHost::afterStep(const sim::VehicleState& state, const EffectorPos
                                             : report.updates > 0;
             if (record.state == ActivityState::Pending && flown) record.state = ActivityState::Active;
             const std::uint16_t behaviorFlags = isCascade(s) ? report.slots[s].flags : std::uint16_t{0}; // what its behaviour held back
-            const std::uint16_t flags = static_cast<std::uint16_t>(slot.flags | flagsOn(report, record.axes) | behaviorFlags);
-            record.constraints = flags;
-            record.constraintsSeen = static_cast<std::uint16_t>(record.constraintsSeen | flags);
-            slot.flags = 0;
+            std::uint16_t flags = static_cast<std::uint16_t>(slot.flags | flagsOn(report, record.axes) | behaviorFlags);
             // how far a behaviour has got, before it may complete (docs/vehicle-interface.md, 5.3)
             if (isCascade(s) && config.slots[s].level == Level::Behavior) runtime_->progress(s, record.progress);
+            // its abnormal states (7.3): the aircraft departed; a flight mode moving away from the altitude it commands
+            if (isCascade(s) && upset_) flags |= kActivityUpset;
+            bool away = false;
+            if (isCascade(s) && record.state == ActivityState::Active && !state.onGround &&
+                catalog_->descriptor(record.capability).mode != FlightMode::None && std::isfinite(record.progress.altitudeMslM)) {
+                const double error = state.altitudeMslM - record.progress.altitudeMslM, climb = -state.velocityNedMs[2];
+                const double band = performance_.hovers ? kDeviationRotorM : kDeviationM;
+                away = (error < -band && climb < -kDeviationMs) || (error > band && climb > kDeviationMs);
+            }
+            slot.deviatingS = away ? std::min(slot.deviatingS + stepS, 2.0f * kDeviationS) : 0.0f;
+            if (slot.deviatingS >= kDeviationS) flags |= kActivityDeviating;
+            record.constraints = flags;
+            record.constraintsSeen = static_cast<std::uint16_t>(record.constraintsSeen | flags);
+            if (record.state == ActivityState::Active) constraints_ = static_cast<std::uint16_t>(constraints_ | flags);
+            slot.flags = 0;
             if (outside) slot.outside = true;
             if (state.diverged || state.crashed) {
                 end(s, ActivityState::Failed, state.diverged ? Reason::Diverged : Reason::Crashed, 0, now);

@@ -7,6 +7,7 @@
 #include "fsim/Span.h"
 
 #include <array>
+#include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -26,6 +27,7 @@ struct ControllerSetting {
 // defined in the platform's src/control/Runtime.h, not part of the SDK.
 struct RuntimeConfig;
 struct RuntimeReport;
+struct SpeedFloor;
 class VehicleAdapter;
 
 /// Per-vehicle control stack (design 9.3): one controller per level and the
@@ -94,6 +96,10 @@ public:
     /// parameters (use, setControllerSettings, setParameter): what the vehicle's
     /// performance is computed from (docs/vehicle-interface.md, 7.1).
     std::uint32_t loopsRevision() const noexcept { return loopsRevision_; }
+    /// The speed floor it holds now, calibrated m/s (0: none), and the steepest bank its airspeed leaves a turn, rad
+    /// (infinite: no bound): docs/vehicle-interface.md, 7.3 - what a display shows beside its airspeed and its bank.
+    double speedFloorCasMs() const noexcept { return floorCasMs_; }
+    double bankCapRad() const noexcept { return bankCapRad_; }
     Controller* controller(Level level) noexcept { return controllers_[static_cast<std::size_t>(level)].get(); }
     const Controller* controller(Level level) const noexcept { return controllers_[static_cast<std::size_t>(level)].get(); }
 
@@ -187,6 +193,8 @@ private:
     void watch(const ControlContext& ctx, std::uint16_t limited) noexcept;
     void actuate(const ActuatorCommand& a, sim::ControlInputs& out) noexcept;
     void fail(sim::ControlInputs& out) noexcept;
+    /// The speed floor as this update's protection stage left it, kept for the next (control/Protection.h).
+    void keepFloor(const SpeedFloor& floor) noexcept;
 
     std::unique_ptr<RuntimeConfig> config_;
     std::unique_ptr<RuntimeReport> report_;
@@ -220,6 +228,11 @@ private:
     sim::ControlInputs last_;
     sim::ControlInputs initial_;
     sim::EffectorInputs effectors_;
+    // What protection keeps from one update to the next (docs/vehicle-interface.md, 7.3; control/Protection.h) - last,
+    // so that nothing above moves: the steepest bank the airspeed leaves a turn this update, and the speed floor.
+    double bankCapRad_ = std::numeric_limits<double>::infinity();
+    double floorCasMs_ = 0.0, floorSinkingS_ = 0.0, floorSteadyS_ = 0.0;
+    bool floorActive_ = false; ///< this update the floor raised the airspeed asked (reported: kLowEnergy)
 };
 
 } // namespace fsim::control

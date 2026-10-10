@@ -1,0 +1,70 @@
+{
+  "id": "an-alq-99",
+  "designation": "AN/ALQ-99",
+  "class": "pod",
+  "summary": "tactical jamming pod, its ram-air turbine at the nose (EA-18G: the mid-board wing stations and the centre line)",
+  "maker": "EDO / Harris",
+  "model": "jsbsim:analq99",
+  "powerable": false,
+  "jettisonable": true,
+  "fins": false,
+  "parameters": {
+    "mass_kg": {
+      "value": 435.0,
+      "unit": "kg",
+      "uncertainty": 45.0,
+      "basis": "assumed",
+      "note": "the EA-18G design's own estimate (aircraft/ea18g/ea18g.toml, where the pods were drawn and weighed before they were stores): about 960 lb each"
+    },
+    "length_m": {
+      "value": 4.7,
+      "unit": "m",
+      "uncertainty": 0.2,
+      "basis": "assumed",
+      "note": "the EA-18G design's own estimate (aircraft/ea18g/ea18g.toml, where the pods were drawn and weighed before they were stores): 4.7 m long, against the AGM-88 beside it in photographs"
+    },
+    "diameter_m": {
+      "value": 0.62,
+      "unit": "m",
+      "uncertainty": 0.03,
+      "basis": "assumed",
+      "note": "the EA-18G design's own estimate (aircraft/ea18g/ea18g.toml, where the pods were drawn and weighed before they were stores): 0.62 m across"
+    },
+    "drag_area_m2": {
+      "value": 0.05386,
+      "unit": "m^2",
+      "uncertainty": 0.01616,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its card, stores.py's pod profile (hangar storedrag.py: Hoerner's body of revolution 0.01771, its base 0.03615, its fins' friction 0.00000 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 1.22766,
+      "unit": "m^3",
+      "uncertainty": 0.3683,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 1.3518 m^3 from its card, stores.py's pod profile, times Lamb's k2 - k1 = 0.908 for its fineness 7.6 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.60381,
+      "unit": "m^2",
+      "uncertainty": 0.18114,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 2.35,
+      "unit": "m",
+      "uncertainty": 0.47,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "wp-ea18g": {
+      "title": "Boeing EA-18G Growler (its jamming load: the design's estimates were made against its photographs)",
+      "publisher": "Wikipedia (revision 1377595294)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_EA-18G_Growler&oldid=1377595294",
+      "date": "2026-09-30"
+    }
+  }
+}

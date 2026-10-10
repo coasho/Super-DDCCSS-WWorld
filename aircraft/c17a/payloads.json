@@ -1,45 +1,215 @@
 {
-  "aircraft": "c17a",
-  "note": "C-17A.",
-  "sources": {
-    "wp-c17a": {
-      "title": "Boeing C-17 Globemaster III",
-      "publisher": "Wikipedia (revision 1376719976)",
-      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_C-17_Globemaster_III&oldid=1376719976",
-      "date": "2026-09-25"
-    },
-    "wp-p-ale47": {
-      "title": "AN/ALE-47",
-      "publisher": "Wikipedia (revision 1329674896)",
-      "url": "https://en.wikipedia.org/w/index.php?title=AN/ALE-47&oldid=1329674896",
-      "date": "2025-12-27"
-    }
+ "aircraft": "c17a",
+ "note": "C-17A.",
+ "sources": {
+  "wp-c17a": {
+   "title": "Boeing C-17 Globemaster III",
+   "publisher": "Wikipedia (revision 1376719976)",
+   "url": "https://en.wikipedia.org/w/index.php?title=Boeing_C-17_Globemaster_III&oldid=1376719976",
+   "date": "2026-09-25"
   },
-  "payloads": [
+  "wp-p-ale47": {
+   "title": "AN/ALE-47",
+   "publisher": "Wikipedia (revision 1329674896)",
+   "url": "https://en.wikipedia.org/w/index.php?title=AN/ALE-47&oldid=1329674896",
+   "date": "2025-12-27"
+  }
+ },
+ "payloads": [
+  {
+   "name": "radar",
+   "card": "an-aps-133",
+   "source": "wp-c17a",
+   "evidence": [
+    "AN/APS-133(V) weather and mapping radar"
+   ]
+  },
+  {
+   "name": "cmds",
+   "card": "an-ale-47",
+   "source": "wp-p-ale47",
+   "evidence": [
+    "C-17 Globemaster III"
+   ]
+  },
+  {
+   "name": "mws",
+   "card": "c17a-mws",
+   "source": "wp-c17a",
+   "note": "named among the equipment India bought with its C-17s",
+   "evidence": [
+    "missile warning systems"
+   ]
+  },
+  {
+   "name": "stations",
+   "card": "c17a-store-station",
+   "count": 18,
+   "source": "wp-c17a",
+   "note": "its cargo floor's pallet positions (the last on the ramp): what it carries is a store on one of them, loaded by a loadout and released over the ramp (docs/hangar.md, Mass accounting)",
+   "evidence": [
+    "cargo airdrop over the ramp (its design's applicability: releasable_stores)"
+   ]
+  }
+ ],
+ "loadouts": [
+  {
+   "name": "pallets",
+   "source": "wp-c17a",
+   "note": "eighteen loaded 463L pallets, two abreast, 2,268 kg each (40,824 kg): a logistics load, about half its 77.5 t",
+   "stations": [
     {
-      "name": "radar",
-      "card": "an-aps-133",
-      "source": "wp-c17a",
-      "evidence": [
-        "AN/APS-133(V) weather and mapping radar"
-      ]
+     "station": 1,
+     "store": "463l-pallet"
     },
     {
-      "name": "cmds",
-      "card": "an-ale-47",
-      "source": "wp-p-ale47",
-      "evidence": [
-        "C-17 Globemaster III"
-      ]
+     "station": 2,
+     "store": "463l-pallet"
     },
     {
-      "name": "mws",
-      "card": "c17a-mws",
-      "source": "wp-c17a",
-      "note": "named among the equipment India bought with its C-17s",
-      "evidence": [
-        "missile warning systems"
-      ]
+     "station": 3,
+     "store": "463l-pallet"
+    },
+    {
+     "station": 4,
+     "store": "463l-pallet"
+    },
+    {
+     "station": 5,
+     "store": "463l-pallet"
+    },
+    {
+     "station": 6,
+     "store": "463l-pallet"
+    },
+    {
+     "station": 7,
+     "store": "463l-pallet"
+    },
+    {
+     "station": 8,
+     "store": "463l-pallet"
+    },
+    {
+     "station": 9,
+     "store": "463l-pallet"
+    },
+    {
+     "station": 10,
+     "store": "463l-pallet"
+    },
+    {
+     "station": 11,
+     "store": "463l-pallet"
+    },
+    {
+     "station": 12,
+     "store": "463l-pallet"
+    },
+    {
+     "station": 13,
+     "store": "463l-pallet"
+    },
+    {
+     "station": 14,
+     "store": "463l-pallet"
+    },
+    {
+     "station": 15,
+     "store": "463l-pallet"
+    },
+    {
+     "station": 16,
+     "store": "463l-pallet"
+    },
+    {
+     "station": 17,
+     "store": "463l-pallet"
+    },
+    {
+     "station": 18,
+     "store": "463l-pallet"
     }
-  ]
+   ]
+  },
+  {
+   "name": "airdrop",
+   "source": "wp-c17a",
+   "note": "eighteen container delivery system bundles, 998 kg each (17,964 kg), released over the ramp",
+   "stations": [
+    {
+     "station": 1,
+     "store": "cds-a22"
+    },
+    {
+     "station": 2,
+     "store": "cds-a22"
+    },
+    {
+     "station": 3,
+     "store": "cds-a22"
+    },
+    {
+     "station": 4,
+     "store": "cds-a22"
+    },
+    {
+     "station": 5,
+     "store": "cds-a22"
+    },
+    {
+     "station": 6,
+     "store": "cds-a22"
+    },
+    {
+     "station": 7,
+     "store": "cds-a22"
+    },
+    {
+     "station": 8,
+     "store": "cds-a22"
+    },
+    {
+     "station": 9,
+     "store": "cds-a22"
+    },
+    {
+     "station": 10,
+     "store": "cds-a22"
+    },
+    {
+     "station": 11,
+     "store": "cds-a22"
+    },
+    {
+     "station": 12,
+     "store": "cds-a22"
+    },
+    {
+     "station": 13,
+     "store": "cds-a22"
+    },
+    {
+     "station": 14,
+     "store": "cds-a22"
+    },
+    {
+     "station": 15,
+     "store": "cds-a22"
+    },
+    {
+     "station": 16,
+     "store": "cds-a22"
+    },
+    {
+     "station": 17,
+     "store": "cds-a22"
+    },
+    {
+     "station": 18,
+     "store": "cds-a22"
+    }
+   ]
+  }
+ ]
 }

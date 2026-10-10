@@ -1,5 +1,7 @@
 #include "ui/MissionGui.h"
 
+#include "ui/Colour.h"
+
 #include "fsim/MissionSystems.h"
 #include "ipc/WorldMirror.h"
 
@@ -15,22 +17,6 @@ namespace {
 
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kDeg = kPi / 180.0;
-
-/// Whether the ImGui renderer writes to an sRGB target, its style's colours made linear for it (the dark style's window
-/// background, 0.06, is then some 0.005): colours given here are sRGB, as everyone picks them, and made linear likewise.
-bool linearTarget() { return ImGui::GetStyle().Colors[ImGuiCol_WindowBg].x < 0.03f; }
-
-float toLinear(float c) { return c <= 0.04045f ? c / 12.92f : std::pow((c + 0.055f) / 1.055f, 2.4f); }
-
-ImVec4 tint(float r, float g, float b, float a = 1.0f) {
-    if (!linearTarget()) return ImVec4(r, g, b, a);
-    return ImVec4(toLinear(r), toLinear(g), toLinear(b), a);
-}
-
-ImU32 colour(int r, int g, int b, int a = 255) {
-    return ImGui::ColorConvertFloat4ToU32(tint(static_cast<float>(r) / 255.0f, static_cast<float>(g) / 255.0f, static_cast<float>(b) / 255.0f,
-                                               static_cast<float>(a) / 255.0f));
-}
 
 // (ms::PayloadState, ms::Family and ms::AmtiMode, as the record carries them)
 const char* stateName(std::uint8_t s) {
@@ -168,12 +154,12 @@ void MissionGui::drawPayloads() const {
     }
     // its stores (MS-7): station by station, the gone ones dimmed
     if (record_->storeCount > 0) {
-        static constexpr const char* kStatus[] = {"loaded", "powering up", "ready", "releasing", "released", "jettisoned", "powering down"};
+        static constexpr const char* kStatus[] = {"loaded", "powering up", "ready", "releasing", "released", "jettisoned", "powering down", "lost"};
         ImGui::Text("stores");
         for (std::uint32_t i = 0; i < record_->storeCount && i < ipc::kMissionStores; ++i) {
             const ipc::MissionStore& s = record_->stores[i];
-            const char* status = s.status < 7 ? kStatus[s.status] : "?";
-            const bool gone = s.status == 4 || s.status == 5;
+            const char* status = s.status < 8 ? kStatus[s.status] : "?";
+            const bool gone = s.status == 4 || s.status == 5 || s.status == 7;
             if (i > 0) ImGui::SameLine(0.0f, 14.0f * ImGui::GetIO().FontGlobalScale);
             if (ImGui::GetContentRegionAvail().x < 120.0f * ImGui::GetIO().FontGlobalScale) ImGui::NewLine();
             if (gone) ImGui::TextDisabled("%u %s", static_cast<unsigned>(s.station), s.mnemonic);

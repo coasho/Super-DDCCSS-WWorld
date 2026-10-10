@@ -294,10 +294,12 @@ sponson = 600
 "Main Gear Rear" = 1000
 [[mass.payload]]
 name = "flight crew"
+kind = "crew"
 mass = 400                      # pilots, navigator, flight engineer
 position = [3.300, 0.0, 3.300]
 [[mass.payload]]
 name = "mission crew"
+kind = "crew"
 mass = 900                      # nine at the consoles in the hold
 position = [11.000, 0.0, 2.400]
 # The C-130H's wing tanks, flown 60 % full: 59.6 t, a mission weight

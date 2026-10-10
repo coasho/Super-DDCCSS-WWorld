@@ -275,6 +275,132 @@ Included designs:
 - Bombers, tankers, transports and special-mission aircraft:
   [support aircraft](#support-aircraft).
 
+## Mass accounting
+
+Every kilogram an aircraft weighs is in one of four ledgers, and in one only:
+
+| ledger | declared in | in the flight model | changes in flight |
+|---|---|---|---|
+| empty weight | `[mass] empty` (kg). `[mass.component]` and `[[mass.item]]` place parts of it; they add nothing to it | `<emptywt>` | damage |
+| fixed load | `[[mass.payload]]`, each with its `kind` | a named `<pointmass>` each | never |
+| internal fuel | `[[mass.tank]]`: `capacity`, and `fill`, the part of it the aircraft spawns with (1 left out) | a `<tank>` each | burnt; drawn in from an external tank |
+| stores | the fit's loadouts (`payloads.json`), on the stations of its store-station card - pylons, weapon bays, a cargo hold's pallet positions; a store weighs its card's `mass_kg`, a tank its `fuel_kg` besides | a `station <n>` point mass each, empty in the file | loaded, released, jettisoned; a tank's fuel drawn |
+
+So an aircraft weighs `empty + fixed load + internal fuel + stores`, and spawns
+at the first three: its stations are empty until a scenario loads them.
+
+A fixed load is what cannot leave the aircraft as a thing of its own: its
+people, what is built into it, and what is too small to be one. Its `kind`
+says which:
+
+| `kind` | what | examples |
+|---|---|---|
+| `crew` | the people who fly and operate it | pilot, weapon systems officer, mission crew, loadmaster |
+| `passenger` | anyone else aboard | the C172's rear seats |
+| `equipment` | mission equipment built into this model, permanently | the U-2S's and RQ-4B's sensors, the Skua's camera |
+| `ammunition` | its guns' rounds: very small items, each | every fighter's |
+| `baggage` | hand baggage: very small items | the C172's luggage |
+
+**Everything else an aircraft carries is a store.** A missile, a bomb, an
+external tank, a pod, a pallet of cargo: each has a store card
+(`assets/stores/<id>.json`: its mass, its size, its class) and a JSBSim model
+of its own (the card's `model`), hangs on a station of the aircraft's
+store-station card, and is loaded by a loadout. The store management weighs it
+on its station; released or jettisoned, or gone with the part of the aircraft
+it was on, it flies on as that model - a vehicle like any other, with the
+store's mass, its inertia, its drag. `cargo` and `store` are not kinds a
+`[[mass.payload]]` may have: hangar refuses them, and says to make a store.
+
+| class | its model | made by |
+|---|---|---|
+| `aam` | its design's body and fins, by a component build-up (`aircraft/stores/<name>`, from `aircraft/<name>/<name>.toml`) | `hangar missiles`, `hangar storemodels` |
+| `bomb` | the Mk 82's is JSBSim's own (`third_party/jsbsim/aircraft/mk82`) | - |
+| `tank`, `pod` | a slender body from its card's length and diameter; a tank's fuel a point mass the world sets as it leaves | `hangar storemodels` |
+| `cargo` | a uniform box from its card's `length_m`, `width_m`, `height_m`: a block's inertia, a bluff body's drag (its `drag_cd` on each face), no parachute | `hangar storemodels` |
+
+Each also has a model for the viewer (`assets/models/<name>.glb`,
+`hangar store <name>`; a missile's is its design's).
+
+The rules that keep a kilogram out of two ledgers:
+
+- **What a station can carry is weighed on the station**, and nowhere else. A
+  weapon bay's stations are stations like the rest: the F-22A, F-35A, J-20A
+  and Su-57 spawn with their bays empty, as every fighter spawns with its
+  pylons empty, and their internal missiles come with their loadouts. (Until
+  this rule they carried them as a fixed load too, and a loaded bay weighed
+  its missiles twice: 1,084 kg on the F-22A, 608 kg on the F-35A, 1,020 kg on
+  the J-20A, 972 kg on the Su-57.)
+- **Nothing that can leave is built into an airframe.** The EA-18G's three
+  ALQ-99 jamming pods were bodies of its design - in its skin, its
+  aerodynamics and its fixed load, 435 kg each, their stations kept from any
+  other use. They are stores now (`an-alq-99`): its airframe is designed
+  without them, its "jamming pods" loadout hangs them on stations 3, 6 and 9,
+  and their drag is their stations' while they are carried.
+- **Cargo is stores in a hold.** A transport's cargo floor is a row of
+  stations (`assets/payloads/c130j-store-station.json`, `c17a-...`: one a
+  pallet position, the last on the ramp; named "cargo bay <n>", so that they
+  share the hold's doors - its ramp - and add no drag), each taking one store
+  of class `cargo`: a loaded 463L pallet (`463l-pallet`, 2,268 kg), an
+  airdrop bundle (`cds-a22`, 998 kg). A release sends it aft, out over the
+  ramp (the station's `extraction_ms`). hangar cuts no bay into the skin for
+  a station that takes cargo and hangs no rack there (`carriage.py`): the
+  hold is the fuselage as it is drawn. The C-130J's design carried 5,000 kg
+  of cargo as a fixed load; it carries none now, and its "airdrop" loadout is
+  six bundles.
+- **A tank's fuel is the tank's until it is drawn.** An external tank is hung
+  full, its fuel part of its store's weight and not of the aircraft's own
+  fuel; as the aircraft's tanks have room the fuel moves into them, off the
+  store and into the tanks by the same amount.
+- **A design's performance is flown as it spawns**: its fixed load aboard, its
+  tanks as filled, no stores. The profile's speeds and tables are that
+  weight's. The aircraft that carried what are now stores as fixed load or
+  airframe were flown again without it - flight tests, autopilot
+  identification, performance tables: the EA-18G (from its geometry on: its
+  aerodynamics, mass, model, breakup pieces and radar cross-section table
+  without the pods, and its calibration fitted again to the published clean
+  Mach 1.8 - it reached Mach 2.27 with the pods' drag gone and the old fit),
+  the C-130J, the F-22A and the J-20A. Two are the exception until hangar's
+  performance stage flies them through: the F-35A's and the Su-57's
+  profiles are still those flown with their bay missiles aboard (608 and
+  972 kg heavier than they now spawn, 2.7 and 3.3 %: least speeds and tables
+  on the safe side); their flight models were rebuilt from the mass stage on
+  (the point mass gone, the gear's springs and the fly-by-wire's schedules
+  for the lighter loaded weight). The stage's table flights end with the
+  aircraft crashed on both (`command refused: crashed`) - the F-35A's on
+  its design as it was, too: not a matter of its weight.
+
+  The EA-18G's and the F-22A's reports carry one failed check since: the
+  tables' service ceiling 5.2 % under the flight test's (the check's band is
+  5 %). The tables' best climb falls under 100 ft/min by their highest
+  altitude row - 95 % of the ceiling the flight test climbs to - where the
+  flight test still climbs: two measures of the lighter aircraft that
+  differ, why not yet found. The Vehicle Interface takes the tables': the
+  lower.
+
+What is not a store, and why: a U-2S's nose and Q-bay sensors and an RQ-4B's
+sensor suite are fitted on the ground and stay for the flight (`equipment`);
+a gun's ammunition is rounds of a few hundred grams (`ammunition`: its weight
+does not yet fall as the gun fires). Air-to-air missiles are stores with
+their models, but not `employable`: a strike with one is still refused
+(`store_not_flyable` - their powered flight is not modelled); jettisoned,
+each leaves as the inert body it then is. The B-52H's, H-6K's and UH-60's
+store-station cards have no stations yet: they carry nothing, and nothing of
+theirs is fixed load.
+
+What checks them: hangar refuses a `[[mass.payload]]` without a kind, or of
+a kind that is a store's (`mass.check_payload`).
+`tools/hangar/tests/test_mass_accounting.py` holds every design, its flight
+model and its fit to the rules, and every store card to having its flight
+model and its viewer model; `python/tests/test_mass_accounting.py` weighs
+every aircraft in the simulator - as it spawns, with each loadout, unloaded
+again, through ten minutes of a tank's fuel being drawn - and makes every
+store card's model as a vehicle of its own, weighing what its card says;
+`tests/test_stores.cpp` jettisons every store of every loadout of every
+aircraft and weighs the vehicle each becomes.
+
+A rotorcraft's weight is one figure (`[mass] weight_lb`, its tank full within
+it: [Rotorcraft](#rotorcraft)), and a multirotor's its `mass_kg`.
+
 ## Methods
 
 Every method is a published one. The tests in `tools/hangar/tests` check the
@@ -1223,13 +1349,15 @@ way, on direct (hydraulic) controls or their own fly-by-wire. Each is
   weight the model cannot hold 35,000 ft. hangar puts its neutral point at
   67 % of the MAC, likely too far aft for a 767, with the trim drag that
   follows up high.
-- The EA-18G carries its typical jamming load: three ALQ-99 pods, and the
-  ALQ-218 receivers on the wing tips. It flies through the F/A-18's
-  fly-by-wire (7.5 g, 35 deg: the lower end of the published 35-40 with
-  pods). For the published (clean) Mach 1.8, calibration takes its engines'
-  throttle ratio to the top of its range to make up the pods' wave drag.
-  The centre-line pod hangs 0.23 m lower than the drawing puts it, clear of
-  the main gear's bays.
+- The EA-18G carries the ALQ-218 receivers on its wing tips. Its typical
+  jamming load - three ALQ-99 pods - is stores (its "jamming pods" loadout:
+  [Mass accounting](#mass-accounting)), not part of its airframe. It flies
+  through the F/A-18's fly-by-wire (7.5 g, 35 deg: the lower end of the
+  published 35-40 with pods). Flown again without the pods: its calibration
+  to the published (clean) Mach 1.8 is the clean airframe's now (wave-drag
+  efficiency 2.0, throttle ratio 1.25; with the pods in its airframe the fit
+  had taken the throttle ratio to the top of its range to make up their
+  wave drag).
 - The U-2S flies at 12.6 t, half its fuel. On its bicycle gear the main and
   tail wheels share the weight by the lever rule, both pedals brake the main
   wheel, the tail wheel steers with the rudder (Methods, Gear), and parked

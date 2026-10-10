@@ -402,6 +402,17 @@ public:
     /// revision counts it, if any of it changed. After each step and before a
     /// command is checked; a query calls it first.
     void refreshPerformance() noexcept;
+    /// What the vehicle weighs now, and the fuel in its own tanks (docs/vehicle-interface.md, 7.3): the session's, as
+    /// the vehicle is made and as its steps go by. The first is the weight it was made at. From then on a wing's
+    /// least airspeeds - its performance's and protection's - follow the square root of its weight over the weight its
+    /// profile's speeds were flown at (never below the profile's own; in steps of half a percent), and its tables are
+    /// read at what it weighs: a new performance revision, counted by the control revision, when either changes.
+    void setLoad(double massKg, double fuelKg) noexcept;
+    /// What it weighs as last told (setLoad), kg; NaN before.
+    double massKg() const noexcept { return massKg_; }
+    /// The constraint flags (ActivityFlag) of every activity live after the last step, together: what a display says of
+    /// the vehicle - low on energy, deviating, upset (docs/vehicle-interface.md, 7.3).
+    std::uint16_t constraints() const noexcept { return constraints_; }
 
     // --- Authority (docs/vehicle-interface.md, 6) and availability (7.2); between steps ---
     /// Open (as ADR-26), or Granted: a policy's NEW then needs a grant for its
@@ -504,6 +515,7 @@ private:
         std::uint32_t precedenceOverride = kNoPrecedenceOverride; ///< its command's (CommandOptions::precedenceOverride)
         double firstStart = kHold; ///< a route's start as commanded: Reset flies from it (a route resumed flies from elsewhere)
         double restartAt = kUnknown; ///< a task's next run begins then (4.11); NaN: none due
+        float deviatingS = 0.0f;     ///< how long it has moved away from the altitude it commands (7.3: kActivityDeviating)
     };
 
     /// An activity waiting to start (docs/flight-autonomy.md, 4.9): its record
@@ -1131,6 +1143,17 @@ private:
     std::uint32_t controlRevision_ = 0;
     std::uint32_t loopsSeen_ = 0; ///< the runtime's loops revision performance_ is from
     bool divergedSeen_ = false;   ///< (a divergence changes every capability's availability: counted)
+    // its load and its abnormal states (docs/vehicle-interface.md, 7.3)
+    double massKg_ = kUnknown;          ///< what it weighs, as last told (setLoad)
+    double referenceMassKg_ = kUnknown; ///< the weight its profile's speeds were flown at: its tables' at the fuel it was made with, else what it weighed then
+    double loadSpeedRatio_ = 1.0;       ///< Performance::loadSpeedRatio
+    double loadKg_ = 0.0;               ///< Performance::loadKg
+    double cleanCasMinMs_ = kUnknown, flapsCasMinMs_ = kUnknown; ///< protection's least airspeeds as the profile gives them
+    bool upset_ = false;                ///< departed controlled flight (afterStep): kActivityUpset on what flies
+    std::uint16_t constraints_ = 0;     ///< its live activities' flags after the last step, together (constraints())
+    double lastStepS_ = kUnknown;       ///< the last afterStep's time, for what is timed across steps
+    /// A performance as the adapter gives it, with the load on it: its least airspeed by loadSpeedRatio_, both figures recorded.
+    Performance loaded(Performance p) const noexcept;
     CommandDetails details_{};    ///< the last answer's (details())
     std::unique_ptr<std::array<Waiting, kWaiting>> waiting_; ///< made when the first activity waits
     const SessionView* sessionView_ = nullptr; ///< the session's (setSessionView)

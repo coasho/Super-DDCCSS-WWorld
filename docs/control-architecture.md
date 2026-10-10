@@ -650,6 +650,9 @@ enum ActivityFlag : std::uint16_t {
     kActivityClamped       = 1 << 3,   ///< from the host: a setpoint was clamped to the advertised range
     kActivityAxesReduced   = 1 << 4,   ///< from the host: another activity took one of its support axes
     kActivityNavigationPerformance = 1 << 5, ///< from its behaviour: a route off its segment's RNP (ADR-29, flight-autonomy.md 4.35)
+    kActivityLowEnergy     = 1 << 6,   ///< from the report: flown faster than asked, on the speed floor (vehicle-interface.md 7.3)
+    kActivityDeviating     = 1 << 7,   ///< from the host: a flight mode moving away from the altitude it commands (7.3)
+    kActivityUpset         = 1 << 8,   ///< from the host: a wing far past its angle-of-attack limit (7.3)
 };
 
 struct ActivityRecord {

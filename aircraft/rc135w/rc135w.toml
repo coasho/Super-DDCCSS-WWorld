@@ -354,18 +354,22 @@ cheek = 900                   # both, and their antennas (estimate)
 "gear fairing" = 300
 [[mass.payload]]
 name = "pilot"
+kind = "crew"
 mass = 100
 position = [2.900, -0.500, 1.700]
 [[mass.payload]]
 name = "co-pilot"
+kind = "crew"
 mass = 100
 position = [2.900, 0.500, 1.700]
 [[mass.payload]]
 name = "navigator"
+kind = "crew"
 mass = 100
 position = [3.600, 0.0, 1.700]
 [[mass.payload]]
 name = "mission crew"          # some two dozen at their consoles
+kind = "crew"
 mass = 2400
 position = [15.000, 0.0, 1.500]
 # 131,000 lb of fuel (59.4 t, USAF fact sheet): the wing tanks (inboard,

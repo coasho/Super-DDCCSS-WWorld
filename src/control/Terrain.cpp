@@ -223,7 +223,7 @@ CommandDetails::Terrain CapabilityHost::terrain(const Command& setpoint, const s
             const bool efficient = w.climbOptimization == static_cast<double>(ClimbOptimization::ExtendedRange);
             if (!isHold(w.climbOptimization) && f.to != f.from && !(efficient && f.to < f.from)) { // (4.32: the lowest it could fly)
                 const double toMsl = msl(f.to, above, w.latitudeRad, w.longitudeRad), fromHere = above ? msl(f.from, true, l.latA, l.lonA) : f.from;
-                climbProfile(f, efficient, fromHere, toMsl, state.fuelKg);
+                climbProfile(f, efficient, fromHere, toMsl, state.fuelKg + loadKg_);
             }
             if (firstLap && p.stateAltitudes(i)) { // (through its states: 4.34)
                 f.states = &p, f.point = i, f.altimeter = &config_->altimeter;

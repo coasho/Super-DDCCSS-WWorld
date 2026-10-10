@@ -44,6 +44,7 @@ the old one - its aircraft, their trails, the focus - is dropped.
 - The world's clock (sun position and sky), wind, atmosphere and weather - its cloud drawn as volumetric clouds (see [Clouds](#clouds)).
 - The trainer's throughput (vehicle-steps/s), simulation time and the age of the last update.
 - Per vehicle: state summary and the active control level.
+- What each vehicle's Vehicle Interface says of it (see [Flight status](#flight-status)): the selected vehicle's weight, its airspeed against the least a command may ask and its stall at that weight, its speed floor and the bank its airspeed leaves it; and for every vehicle, in the list and on its label, that it is low on energy, deviating or upset.
 - The trainer's cameras (`fsim_vision`, [vision.md](vision.md)): a "cameras" window with every image the training application rendered last, live (`v` toggles it).
 - The followed vehicle's Mission Systems ([mission-systems.md](mission-systems.md#in-the-viewer)): its payloads and their states, and each radar's display (a B-scope, or a PPI for a rotodome) with its scan and detections, as the SDK's instances have them (`p` toggles them; each window collapses).
 
@@ -191,6 +192,27 @@ a clean aircraft shows none. A store in a weapon bay hangs in its bay behind the
 opens them (`StoreInfo::bayDoors`, half a second before a release from the bay) and shut after it. A live world sends
 each store's card and its bay's doors in its mission record; a recording carries the stores as they change (its `M` records, version 3), so a
 replay draws them too.
+
+Everything an aircraft carries beside its people, its built-in equipment and its small items is a store ([hangar.md](../hangar.md#mass-accounting)), drawn the same way: the F-22A's, F-35A's, J-20A's and Su-57's bay missiles in their bays, the EA-18G's three ALQ-99 jamming pods on its stations 3, 6 and 9 (its airframe's model no longer has them: as it spawns it is drawn clean, and with its "jamming pods" loadout each pod hangs under its pylon and leaves with a jettison), a missile jettisoned as the body it is. A transport's cargo - a loaded pallet, an airdrop bundle - rides on its hold's pallet positions (its manifest's stations, inside its skin: drawn there, out of sight); released over the ramp it is a vehicle of its own, drawn as its box, its pallet and its straps (`assets/models/463lpallet.glb`, `cdsa22.glb`), and listed among the vehicles. hangar cuts no bay and hangs no rack for a hold's stations: the hold is the fuselage as it is drawn.
+
+## Flight status
+
+A live world publishes, with each snapshot, what each vehicle's Vehicle Interface has of it ([vehicle-interface.md](../vehicle-interface.md), 7.3):
+
+| Shown | Where | What |
+| --- | --- | --- |
+| `16416 kg` | the line above the vehicle list, for the selected vehicle (in the monitor panel while the list is hidden) | what it weighs now: its stores and fuel in it (the tooltip: its fuel) |
+| `cas 95` | the same line | its calibrated airspeed, m/s: amber below the least a command may ask, red below its stall, in the air |
+| `least 80` `stall 73` | the same line | the least calibrated airspeed a command may ask, and where it stalls, at that weight (the tooltip: how much its load has raised them) |
+| `floor 95` | the same line, amber, while it holds | its speed floor: it sank at the airspeed commanded and is flown faster |
+| `bank <= 40` | the same line, while its airspeed leaves less than 60° | the steepest bank a turn is flown with at that airspeed; amber while it is banked 5° past it |
+| `LOW ENERGY` | the list's state column and the vehicle's label, amber | an activity of its is on the speed floor (`kActivityLowEnergy`) |
+| `DEVIATING`, `UPSET` | the list's state column and the vehicle's label, red | it is leaving the altitude it commands (`kActivityDeviating`); a wing far past its angle-of-attack limit (`kActivityUpset`). The gravest of the three is the one shown |
+
+- A selected vehicle's label keeps a white ring when it is coloured so, so that it is still told from the others. On the ground nothing is marked.
+- The values ride in each vehicle sample's eight `derived` values (`ipc::Derived`, `WorldLayout.h`), which the layout had set aside and never written: the segment is as large as it was, its version unchanged, and a viewer and a library of either age read each other's (an older library's zeros show nothing). They are filled only when a snapshot is copied - 60 times a second at most - not each step.
+- A replay carries none: its list and labels are as before.
+- Cost, measured (an RTX 5070 Ti, 3840x2160 fullscreen, the 35 designed aircraft loaded - their stores drawn - and in view with the panels and labels shown; three runs each of the viewer before these changes and after, 25 s from 15 s in): 145 to 147 frames a second before, 146 to 147 after, the application's own share of a frame 0.38 to 0.40 ms before and 0.33 to 0.37 ms after - the frame is the GPU's (5.9 ms of clouds, vapour and the scene). The simulation steps those 35 aircraft, published, at 2,730 to 2,760 world steps a second before and 2,740 to 2,765 after.
 
 ## Effects
 

@@ -344,18 +344,22 @@ rotodome = 6000               # the rotodome is quoted at 15,000 lb with its str
 "Main Gear" = 5200            # both bogies
 [[mass.payload]]
 name = "pilot"
+kind = "crew"
 mass = 95
 position = [3.200, -0.550, 0.200]
 [[mass.payload]]
 name = "copilot"
+kind = "crew"
 mass = 95
 position = [3.200, 0.550, 0.200]
 [[mass.payload]]
 name = "navigator and flight engineer"
+kind = "crew"
 mass = 190
 position = [4.300, 0.0, 0.200]
 [[mass.payload]]
 name = "mission crew"         # up to 19 (USAF)
+kind = "crew"
 mass = 1805
 position = [17.000, 0.0, 0.300]
 # 21,000 US gal (USAF) of JP-8 at 0.803 kg/l: 63,800 kg in the centre wing

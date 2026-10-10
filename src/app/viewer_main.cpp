@@ -1321,6 +1321,12 @@ int main(int argc, char** argv) {
                 l.y = static_cast<float>((ny * 0.5 + 0.5) * extent.height);
                 l.text = (i < meta.size() && !meta[i].name.empty() ? meta[i].name : "v" + std::to_string(i)) + (states[i].diverged ? " !" : "");
                 l.selected = static_cast<int>(i) == selected;
+                // (what its Vehicle Interface says of it, in the air: low on energy, deviating, upset - on its label)
+                if (mirror.valid() && i < mirror.status().size() && !states[i].onGround) {
+                    const char* word = "";
+                    l.severity = ui::MonitorGui::severity(mirror.status()[i], &word);
+                    if (l.severity > 0) l.text += "  ", l.text += word;
+                }
                 labels.push_back(std::move(l));
             }
             gui->setLabels(std::move(labels));
@@ -1412,6 +1418,7 @@ int main(int argc, char** argv) {
         if (terrain && batch && ++tileTick % 60 == 0)
             for (const auto& st : batch->states) terrain->requestAround(st.latitudeRad, st.longitudeRad);
         gui->setBatch(batch);
+        gui->setStatus(mirror.valid() ? &mirror.status() : nullptr);
         cameraPreview->update();
         {
             const std::size_t at = static_cast<std::size_t>(std::max(selected, 0));

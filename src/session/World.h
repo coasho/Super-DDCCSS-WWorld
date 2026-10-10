@@ -720,7 +720,11 @@ private:
         std::vector<ms::Host::DragPoint> drag;
         std::uint64_t dragRevision = ~0ull;
         PropertyHandle dragQbar;
+        /// The stations' mass revision its host was last told its weight for (control::CapabilityHost::setLoad).
+        std::uint64_t loadRevision = ~0ull;
     };
+    /// Counts the steps: a vehicle's host is told its weight every eighth, and the step after its stores change.
+    unsigned loadTick_ = 0;
 
     /// What the control cascades see of other vehicles during a step: each
     /// one's state as the step began (Control.h, WorldView), whichever worker
@@ -846,6 +850,8 @@ private:
     /// The vehicles' Mission Systems records for the viewers, those whose payloads or radars changed (MS-4).
     void publishMission();
     std::vector<sim::ControlInputs> poolInputs_;
+    std::vector<ipc::FlightStatus> poolStatus_; ///< each slot's flight status, filled as a snapshot is published (fillStatus)
+    void fillStatus();
     std::vector<sim::VehicleState> stepStates_;                 ///< by slot: every state as the current step began
     StepView stepView_{*this};
     std::vector<EffectFactory> worldEffects_;

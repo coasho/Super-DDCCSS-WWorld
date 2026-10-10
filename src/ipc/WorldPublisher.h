@@ -47,7 +47,10 @@ public:
     /// elapsed (or `force`). `states`/`inputs` are indexed by vehicle slot and
     /// may be shorter than the capacity. Returns true when a copy was made.
     bool publish(double simTime, Span<const sim::VehicleState> states, Span<const sim::ControlInputs> inputs,
-                 bool force = false) noexcept;
+                 bool force = false, Span<const FlightStatus> status = {}) noexcept;
+    /// Whether publish() would copy now: the publish interval has elapsed. What is worked out only to be published -
+    /// each vehicle's flight status - is worked out when it is.
+    bool due() const noexcept;
 
     /// Counters shown by the viewer's monitor.
     void addSteps(std::uint64_t vehicleSteps, std::uint64_t worldSteps = 1) noexcept;

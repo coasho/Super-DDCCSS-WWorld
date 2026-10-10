@@ -49,6 +49,7 @@ struct Station {
     std::string bay;             ///< the weapon bay it is in - its name up to "bay" ("main bay" for "main bay 2"); empty: none
     std::string launcher;        ///< the rail or rack: "LAU-129", "BRU-61"
     double ejectionMs = 0.0;     ///< an ejector's push, down
+    double extractionMs = 0.0;   ///< a cargo hold's: how fast the load leaves aft, over the ramp (drawn or rolling out)
     std::vector<std::string> takes; ///< the store classes it takes ("aam", "bomb", "tank", "pod")
     double maxKg = 0.0;          ///< the most it carries
     int capacity = 1;            ///< stores it holds (a multiple rack: more)
@@ -72,6 +73,10 @@ struct StoreCard {
     std::string id, designation, summary, maker;
     std::string storeClass;      ///< "aam", "bomb", "tank", "pod": what stations take it
     std::string model;           ///< its flight model once released ("jsbsim:mk82"); empty: not built yet
+    /// It may be released as a weapon (a strike). False: what it does after it leaves - a missile's powered flight - is
+    /// not modelled; it loads and is weighed like any store, a strike with it is refused (StoreNotFlyable), and
+    /// jettisoned it leaves as the inert body its model is.
+    bool employable = true;
     bool powerable = false;      ///< powered before release (a missile's seeker and guidance)
     bool jettisonable = true;
     std::map<std::string, Parameter> parameters; ///< mass_kg, length_m, diameter_m, power_up_s ...

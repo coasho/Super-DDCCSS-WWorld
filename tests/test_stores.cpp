@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -348,14 +349,15 @@ TEST_CASE("stores: jettison - standard with the stations powered, emergency in a
 }
 
 TEST_CASE("stores: a weapon bay's doors open before its store leaves, and shut after it", "[ms][stores]") {
-    // the F-22A's fit, its AIM-120C given a stand-in flight model (none is built yet: a store without one is never
-    // released, so no bay's doors would open), its stores management stepped by hand
+    // the F-22A's fit, its AIM-120C given a stand-in to strike with (a missile is not employable yet: a strike with one is
+    // refused, so no bay's doors would open for it), its stores management stepped by hand
     std::vector<std::string> errors;
     const auto read = ms::readFit(kSource / "aircraft" / "f22a" / "payloads.json", kSource / "assets" / "payloads", errors);
     REQUIRE(read);
     auto fit = std::make_shared<ms::Fit>(*read);
     auto card = std::make_shared<ms::StoreCard>(*fit->stores.at("aim-120c"));
     card->model = "jsbsim:mk82";
+    card->employable = true;
     fit->stores["aim-120c"] = card;
     ms::Host host;
     host.bind(1, fit);
@@ -410,42 +412,54 @@ TEST_CASE("stores: a weapon bay's doors open before its store leaves, and shut a
     CHECK(doors(station) == 0.0);
 }
 
-TEST_CASE("stores: every tank and pod a loadout carries, jettisoned, flies on as a vehicle of its own - as heavy as it was on its station",
+TEST_CASE("stores: everything a loadout carries, jettisoned, flies on as a vehicle of its own - as heavy as it was on its station",
           "[ms][stores][world]") {
-    // MS-7g: each tank's and pod's own flight model (hangar storemodels) loads and takes the store's mass, a tank's fuel
-    // with it; the aircraft is lighter by what left
-    session::World w(options("stores-jettison-fleet"));
+    // docs/hangar.md, Mass accounting: what an aircraft carries beside its people, its built-in equipment and its small
+    // items is a store with a JSBSim model of its own - a missile, a bomb, a tank, a pod, a pallet of cargo. Each loads,
+    // is weighed on its station, and leaves as that model with the store's mass (a tank's fuel with it); the aircraft is
+    // lighter by what left
     int aircraft = 0, flown = 0;
+    std::set<std::string> classes;
     for (const auto& dir : fs::directory_iterator(kSource / "aircraft")) {
         std::vector<std::string> errors;
         const auto fit = ms::readFit(dir.path() / "payloads.json", kSource / "assets" / "payloads", errors);
-        if (!fit) continue;
+        if (!fit || fit->loadouts.empty()) continue;
         const std::string type = dir.path().filename().string();
+        INFO(type);
+        for (const auto& e : errors) UNSCOPED_INFO(e);
+        CHECK(errors.empty());
+        session::World w(options(("stores-jettison-" + type).c_str()));
+        int index = 0;
         for (const auto& l : fit->loadouts) {
-            const bool tanksOrPods = !l.items.empty() && std::all_of(l.items.begin(), l.items.end(), [&](const auto& it) {
-                const std::string& c = fit->stores.at(it.store)->storeClass;
-                return c == "tank" || c == "pod";
-            });
-            if (!tanksOrPods) continue;
             INFO(type << ": " << l.name);
-            const auto id = wing(w, type, 5000.0, 200.0, aircraft++);
+            const auto id = wing(w, type, 5000.0, 200.0, index++);
             REQUIRE(id != 0);
+            ++aircraft;
+            w.step();
+            const double spawned = w.massKg(id);
             REQUIRE(w.loadLoadout(id, l.name) == ms::Reason::None);
             w.step();
             std::vector<double> carried;
+            double loaded = 0.0;
             for (const auto& s : w.stores(id)) {
-                CHECK(s.flyable);
+                const auto& card = *fit->stores.at(s.store);
+                INFO(s.store);
+                CHECK(!card.model.empty());                // (it has the model it leaves as)
+                CHECK(s.flyable == card.employable);       // (and may be released as a weapon, or not)
+                CHECK(s.jettisonable);
+                CHECK_THAT(s.massKg, WithinAbs(card.value("mass_kg", 0.0) + card.value("fuel_kg", 0.0), card.storeClass == "tank" ? 1.0 : 1e-6)); // (a tank: less the step's draw)
+                classes.insert(card.storeClass);
                 carried.push_back(s.massKg);
+                loaded += s.massKg;
             }
-            std::uint16_t station = 0;
-            for (const auto& pl : w.missionSystems(id)->payloads())
-                if (pl.family == ms::Family::StoreStation) station = pl.index;
+            REQUIRE(!carried.empty());
+            CHECK_THAT(w.massKg(id) - spawned, WithinAbs(loaded, 1.0)); // (on: the flight model has what the stations carry)
             ms::JettisonCommand all;
-            all.payload = station;
+            all.payload = stationsOf(w, id);
             all.emergency = true;
             const double before = w.massKg(id);
             REQUIRE(w.submit(id, all).accepted());
-            w.step(stepsFor(w, 0.5));
+            w.step(stepsFor(w, 4.0)); // (a weapon bay's doors, a hold's ramp, open first, and its stores leave one after another)
             const auto stores = w.stores(id);
             REQUIRE(stores.size() == carried.size());
             double gone = 0.0;
@@ -454,13 +468,85 @@ TEST_CASE("stores: every tank and pod a loadout carries, jettisoned, flies on as
                 CHECK(stores[k].status == ms::StoreStatus::Jettisoned);
                 REQUIRE(stores[k].weapon != 0);
                 const double kg = w.massKg(stores[k].weapon);
-                CHECK_THAT(kg, WithinAbs(carried[k], 0.1));
+                CHECK_THAT(kg, WithinAbs(carried[k], 0.1)); // (the vehicle it is now: as heavy as it was on its station)
+                CHECK_FALSE(w.vehicleState(stores[k].weapon)->diverged);
                 gone += kg;
                 ++flown;
             }
-            CHECK_THAT(before - w.massKg(id), WithinAbs(gone, 1.0)); // (and half a second's burn)
+            CHECK_THAT(before - w.massKg(id), WithinAbs(gone, 6.0)); // (and four seconds' burn)
+            CHECK_THAT(w.massKg(id), WithinAbs(spawned, 8.0));       // (off: as it spawned)
         }
     }
-    CHECK(aircraft >= 20); // (14 aircraft's tanks, 6 aircraft's pods)
-    CHECK(flown >= 45);
+    CHECK(aircraft >= 40);
+    CHECK(flown >= 180);
+    for (const char* c : {"aam", "tank", "pod", "cargo", "bomb"}) CHECK(classes.count(c) == 1);
+}
+
+TEST_CASE("stores: the Growler's jamming pods are stores - not part of its airframe, loaded on their stations beside its tanks", "[ms][stores]") {
+    // (they were drawn and weighed in its design: a fixed load that could not leave it, and kept its stations from use)
+    session::World w(options("stores-growler"));
+    const auto id = wing(w, "ea18g", 5000.0, 200.0);
+    REQUIRE(id != 0);
+    w.step();
+    const double spawned = w.massKg(id);
+    CHECK(w.stores(id).empty());
+    REQUIRE(w.loadLoadout(id, "jamming pods") == ms::Reason::None);
+    REQUIRE(w.loadLoadout(id, "external tanks") == ms::Reason::None);
+    w.step();
+    std::string on;
+    double pods = 0.0, tanks = 0.0;
+    for (const auto& s : w.stores(id)) {
+        on += std::to_string(s.station) + ":" + s.store + " ";
+        (std::string(s.store) == "an-alq-99" ? pods : tanks) += s.massKg;
+    }
+    CHECK(on == "3:an-alq-99 4:fpu-11 6:an-alq-99 8:fpu-11 9:an-alq-99 ");
+    CHECK_THAT(pods, WithinAbs(3 * 435.0, 1e-6));
+    CHECK_THAT(w.massKg(id) - spawned, WithinAbs(pods + tanks, 1.0));
+    // a pod's station takes a pod, and one store at a time
+    CHECK(w.loadStore(id, stationsOf(w, id), 3, "fpu-11") == ms::Reason::StationCannotTake);
+    // its drag while it is carried is the station's, not the airframe's: the clean aircraft's drag area less by three pods'
+    std::vector<ms::Host::DragPoint> drag;
+    w.missionSystems(id)->carriageDrag(drag);
+    double area = 0.0;
+    for (const auto& d : drag) area += d.areaM2;
+    CHECK(area > 3 * 0.05);
+}
+
+TEST_CASE("stores: a transport's cargo is stores in its hold - released aft over the ramp, each a body of its own", "[ms][stores][world]") {
+    session::World w(options("stores-cargo"));
+    const auto id = wing(w, "c130j", 3000.0, 110.0);
+    REQUIRE(id != 0);
+    w.step();
+    const double spawned = w.massKg(id);
+    REQUIRE(w.loadLoadout(id, "airdrop") == ms::Reason::None);
+    w.step();
+    REQUIRE(w.stores(id).size() == 6);
+    CHECK_THAT(w.massKg(id) - spawned, WithinAbs(6 * 998.0, 1.0));
+    std::vector<ms::Host::DragPoint> drag;
+    w.missionSystems(id)->carriageDrag(drag);
+    CHECK(drag.empty()); // (in its hold: no drag of its own)
+    ms::JettisonCommand drop;
+    drop.payload = stationsOf(w, id);
+    drop.emergency = true;
+    REQUIRE(w.submit(id, drop).accepted());
+    w.step(stepsFor(w, 3.0));
+    const sim::VehicleState& carrier = *w.vehicleState(id);
+    const double heading = carrier.eulerRad[2];
+    int out = 0;
+    for (const auto& s : w.stores(id)) {
+        REQUIRE(s.weapon != 0);
+        const sim::VehicleState& b = *w.vehicleState(s.weapon);
+        CHECK_THAT(w.massKg(s.weapon), WithinAbs(998.0, 0.1));
+        // behind the aircraft and below it: north and east from it, along its heading
+        const double north = (b.latitudeRad - carrier.latitudeRad) * 6371000.0;
+        const double east = (b.longitudeRad - carrier.longitudeRad) * 6371000.0 * std::cos(carrier.latitudeRad);
+        const double along = north * std::cos(heading) + east * std::sin(heading);
+        INFO("station " << s.station << ": " << along << " m along, " << b.altitudeMslM - carrier.altitudeMslM << " m up");
+        CHECK(along < -15.0);
+        CHECK(b.altitudeMslM < carrier.altitudeMslM - 5.0);
+        CHECK_FALSE(b.diverged);
+        ++out;
+    }
+    CHECK(out == 6);
+    CHECK_THAT(w.massKg(id), WithinAbs(spawned, 3.0));
 }

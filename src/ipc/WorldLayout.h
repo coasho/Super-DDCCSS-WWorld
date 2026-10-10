@@ -56,10 +56,28 @@ struct StateSlotHeader {
     std::int64_t wallNs = 0;             ///< steady clock at publish, system-wide on Windows (QPC)
 };
 
+/// A vehicle's flight status as its Vehicle Interface has it (docs/vehicle-interface.md, 7.3): a sample's `derived`
+/// values. They were set aside for a cascade summary and never written: the layout is as it was, and a publisher from
+/// before these leaves them all 0 - nothing known (kDerivedMassKg 0), and the viewer shows nothing of them.
+enum Derived : std::size_t {
+    kDerivedMassKg = 0,      ///< what it weighs now, kg (0: not known)
+    kDerivedStallCasMs = 1,  ///< a wing's least calibrated airspeed at that weight, m/s (NaN: none - a rotorcraft)
+    kDerivedLeastCasMs = 2,  ///< the least calibrated airspeed a command may ask, m/s (NaN: none)
+    kDerivedFloorCasMs = 3,  ///< its speed floor: the airspeed it is flown at to keep its height, m/s (0: none)
+    kDerivedBankCapRad = 4,  ///< the steepest bank its airspeed leaves a turn, rad (infinite: no bound)
+    kDerivedConstraints = 5, ///< its live activities' control::ActivityFlag bits, together, as a number
+    kDerivedLoadRatio = 6,   ///< what its least airspeeds are multiplied by for its load (1: as it spawns)
+    kDerivedCount = 8,
+};
+
 struct VehicleSample {
     sim::VehicleState state;
     sim::ControlInputs inputs;
-    double derived[8] = {0, 0, 0, 0, 0, 0, 0, 0}; ///< cascade summary (attitude/velocity targets), level-dependent
+    double derived[kDerivedCount] = {0, 0, 0, 0, 0, 0, 0, 0}; ///< its flight status (Derived)
+};
+/// A vehicle's `derived` values, as the publisher is given them and the mirror hands them on.
+struct FlightStatus {
+    double derived[kDerivedCount] = {0, 0, 0, 0, 0, 0, 0, 0};
 };
 
 struct alignas(64) WorldHeader {

@@ -1,0 +1,55 @@
+{
+  "id": "cds-a22",
+  "designation": "CDS bundle (A-22)",
+  "class": "cargo",
+  "summary": "a container delivery system bundle: an A-22 cargo bag on its skid board, rigged for airdrop at its limit",
+  "maker": "(US Army / Air Force container delivery system)",
+  "model": "jsbsim:cdsa22",
+  "powerable": false,
+  "jettisonable": true,
+  "parameters": {
+    "mass_kg": {
+      "value": 998.0,
+      "unit": "kg",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "2,200 lb rigged, the most an A-22 bundle is rigged to (the figure as publicly given, set down from memory: not read for this card) - a load chosen for the card; its parachute is not modelled: it falls as the box it is"
+    },
+    "length_m": {
+      "value": 1.36,
+      "unit": "m",
+      "uncertainty": 0.02,
+      "basis": "assumed",
+      "note": "its skid board 53.5 in along the hold (the figure as publicly given, set down from memory: not read for this card)"
+    },
+    "width_m": {
+      "value": 1.22,
+      "unit": "m",
+      "uncertainty": 0.02,
+      "basis": "assumed",
+      "note": "48 in across (the figure as publicly given, set down from memory: not read for this card)"
+    },
+    "height_m": {
+      "value": 1.4,
+      "unit": "m",
+      "uncertainty": 0.4,
+      "basis": "assumed",
+      "note": "the bag's height loaded: up to some 83 in (the figure as publicly given, set down from memory: not read for this card); 1.4 m taken"
+    },
+    "drag_cd": {
+      "value": 1.1,
+      "unit": "",
+      "uncertainty": 0.15,
+      "basis": "assumed",
+      "note": "a box broadside to the flow: 1.1 on its face (Hoerner, Fluid-Dynamic Drag: a cube or a short rectangular block face-on, 1.05 to 1.2), the same for each face - an estimate, as every released store's aerodynamics"
+    }
+  },
+  "sources": {
+    "wp-cds": {
+      "title": "Container Delivery System (where the A-22 bundle's size and limits are publicly given; not read for this card - its figures are from memory, and assumed)",
+      "publisher": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Container_Delivery_System",
+      "date": "2026-10-10"
+    }
+  }
+}

@@ -25,10 +25,12 @@ component fuel box centre 2.8250 0.0000 0.0046 0.3250 0.6546 0.5534 fuselage 1
 component fuel box centre 1.8000 0.0000 0.0140 0.7000 0.6525 0.4550 fuselage 2
 component fuel box centre 1.2500 0.0000 0.0320 1.3203 0.5173 0.3015 fuselage 3
 component fuel box centre -0.5500 0.0000 0.0650 5.7000 0.1187 0.0689 fuselage 4
-component fuel box left-wing -0.2024 -1.8625 -0.1645 0.8411 0.3751 0.0739 left wing
-component fuel box left-wing -0.4935 -2.7875 -0.1469 0.7121 0.3686 0.0603 left wing
-component fuel box right-wing -0.2024 1.8625 -0.1645 0.8411 0.3751 0.0739 right wing
-component fuel box right-wing -0.4935 2.7875 -0.1469 0.7121 0.3686 0.0603 right wing
+component fuel box left-wing -0.2876 -2.1333 -0.1594 0.7205 0.5544 0.0619 left wing
+component fuel box left-wing -0.7493 -3.6000 -0.1314 0.5231 0.5287 0.0423 left wing
+component fuel box left-wing -1.1007 -5.0667 -0.1033 0.3623 0.4924 0.0249 left wing
+component fuel box right-wing -0.2876 2.1333 -0.1594 0.7205 0.5544 0.0619 right wing
+component fuel box right-wing -0.7493 3.6000 -0.1314 0.5231 0.5287 0.0423 right wing
+component fuel box right-wing -1.1007 5.0667 -0.1033 0.3623 0.4924 0.0249 right wing
 component crew box nose 5.9500 0.0000 -0.8000 0.2319 0.1933 0.3479 pilot
 component crew box nose 4.5500 0.0000 -0.8800 0.3000 0.2500 0.4500 electronic warfare officer
 component control box left-wing -1.5991 -4.8574 -0.1073 0.1941 0.0485 0.0485 left wing aileron

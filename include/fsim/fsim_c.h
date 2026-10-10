@@ -476,7 +476,10 @@ typedef struct fsim_activity_info {
     int32_t reason;            /* why it ended */
     fsim_activity_id by;       /* the activity that preempted it */
     uint32_t constraints;      /* last step: 1 saturated, 2 demand limited, 4 limit exceeded, 8 clamped, 16 axes reduced, 32 (ABI 1.32)
-                                  a route off its path by more than its segment's required navigation performance */
+                                  a route off its path by more than its segment's required navigation performance; its
+                                  abnormal states (docs/vehicle-interface.md, 7.3): 64 low energy (flown faster than asked,
+                                  on the speed floor), 128 deviating (moving away from the altitude it commands), 256 upset
+                                  (a wing far past its angle-of-attack limit) */
     uint32_t constraints_seen; /* every flag since it started */
     double start_time, end_time; /* simulation seconds; end_time NaN while it runs */
 } fsim_activity_info;
@@ -1191,7 +1194,9 @@ typedef struct fsim_performance {
     uint32_t struct_size;
     uint32_t revision;       /* counts recomputations */
     int32_t hovers;          /* 1: a rotorcraft (holds a point, flies any direction over the ground) */
-    double min_cas_ms, max_cas_ms, max_mach; /* calibrated: the envelope's (the least else 1.2 times the stall speed) */
+    double min_cas_ms, max_cas_ms, max_mach; /* calibrated: the envelope's (the least else 1.2 times the stall speed). The least
+                                                is at the weight it has now: it rises with its stores and fuel. A command's
+                                                airspeed is held to 1.1 times it (docs/vehicle-interface.md, 7.3) */
     double max_tas_ms;       /* the fastest it flies (level, at full power) */
     double cruise_tas_ms;    /* what a mode flies given no speed */
     double max_ground_speed_ms; /* a rotorcraft's fastest over the ground */

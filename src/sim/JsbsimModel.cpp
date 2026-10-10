@@ -260,7 +260,7 @@ bool JsbsimModel::load(const AircraftSpec& aircraft, const InitialConditions& ic
             LOG_ERROR("sim") << "JSBSim RunIC failed for '" << aircraft.name << "'";
             return false;
         }
-        startEngines();
+        if (ic.enginesRunning) startEngines();
         settleOnGround(ic);
     } catch (const std::exception& e) {
         LOG_ERROR("sim") << "JSBSim exception in initial conditions: " << e.what();
@@ -328,7 +328,7 @@ bool JsbsimModel::reset(const InitialConditions& ic) {
             LOG_ERROR("sim") << "JSBSim RunIC failed on reset";
             return false;
         }
-        startEngines();
+        if (ic.enginesRunning) startEngines();
         settleOnGround(ic);
     } catch (const std::exception& e) {
         LOG_ERROR("sim") << "JSBSim exception on reset: " << e.what();

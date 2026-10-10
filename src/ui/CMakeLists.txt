@@ -1,6 +1,7 @@
 # ui: Dear ImGui layers drawn inside the VSG frame (design 9.5).
 add_library(fsim_ui STATIC
     ViewerControls.h
+    Colour.h
     MonitorGui.h
     MonitorGui.cpp
     KeyHandler.h

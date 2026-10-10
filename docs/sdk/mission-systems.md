@@ -22,7 +22,9 @@ A vehicle's payloads come from its aircraft's **fit**, `aircraft/<type>/payloads
 payload by its role on that aircraft (`radar`, `rwr`, `stations`) and points to the payload type's **card**,
 `assets/payloads/<card>.json`. Both files cite their public sources (ADR-30 section 6). In a fit, each payload
 quotes the passage of its cited source that names it, under `evidence`. Every passage was checked against the
-cited revision.
+cited revision. A payload that hangs on store stations and is part of the aircraft's model - drawn with it, in its
+aerodynamics, weighed as a fixed load of its design - names them under `stations`: they take no store, in a loadout
+or loaded one by one ([hangar.md](../hangar.md#mass-accounting)).
 
 Each payload gives the capabilities of its family:
 
@@ -445,10 +447,17 @@ v.jettison(emergency=True)                # the rest, unarmed, at once
 - **The stations:** each aircraft's store-station card lists its stations: number, name, place (a store's CG from the
   aircraft's, body axes), carriage (`rail`: a missile fires off it; `ejector`: the store is pushed clear, 3 m/s down;
   `rail+ejector`: a missile on its rail, anything else on its rack), the store classes it takes, its limit and
-  capacity - each with its basis. A load a station cannot take is refused (`station_cannot_take`).
+  capacity - each with its basis. A load a station cannot take is refused (`station_cannot_take`). A transport's cargo
+  floor is stations too - its pallet positions, named "cargo bay <n>" so that they share the hold's doors (its ramp)
+  and add no drag, taking the class `cargo`; their `extraction_ms` is how fast a load leaves aft, over the ramp
+  (C-130J: six positions; C-17A: eighteen).
 - **The stores:** a store card (`assets/stores/<id>.json`) is one store type, as a payload card is one payload type:
-  its class, its flight model once released, whether it is powered before release (and its `power_up_s`,
-  `power_down_s`) and can be jettisoned, its mass and dimensions with their sources.
+  its class (`aam`, `bomb`, `tank`, `pod`, `cargo`), its flight model once released, whether it is powered before
+  release (and its `power_up_s`, `power_down_s`) and can be jettisoned, its mass and dimensions with their sources.
+  Every card names a model (`model`): whatever a station carries can leave it as a JSBSim vehicle of its own, weighing
+  what its station weighed ([hangar.md](../hangar.md#mass-accounting)). `employable` (true unless the card says
+  otherwise) is whether it may be released as a weapon: an air-to-air missile is not yet - a strike with one is refused
+  (`store_not_flyable`; `StoreInfo::flyable` false) - but it is jettisoned like any other store.
 - **Loadouts:** a fit names the loads its stations may take (`loadouts`), each with its basis. An aircraft starts
   empty; a scenario loads it (`load_loadout`, `load_store`) - the flight model carries the stores' mass from the next
   step (hangar writes each station as a point mass of the aircraft's, the platform sets it to the stores on it).
@@ -463,7 +472,10 @@ v.jettison(emergency=True)                # the rest, unarmed, at once
   a second, the store leaves, they are held open a second after the bay's last release and shut in eight tenths (all
   three engineering assumptions). `StoreInfo::bayDoors` is how far they are open (0 shut .. 1), for every store in
   the bay.
-- **Jettison** (A-GRA's Jettison task): every jettisonable store, or those named, released unarmed (`jettisoned`).
+- **Jettison** (A-GRA's Jettison task): every jettisonable store, or those named, released unarmed (`jettisoned`) - and
+  unlit: a store with a motor leaves with it dead, its propellant still its mass (`WeaponLaunch::inert`; a vehicle made
+  with `InitialConditions::enginesRunning` false). It is how a transport drops its cargo: each pallet or bundle out
+  over the ramp, a vehicle of its own from then on.
   Standard: the stations powered (standby or operate), a powered store powered down first, the stores leaving 0.1 s
   apart. Emergency: at once, whatever the stations' state. A jettison takes its stores from any strike holding them.
 - **The viewer:** the mission systems window lists the stores station by station, those gone dimmed; each carried
@@ -518,8 +530,8 @@ engineering assumption, its reasoning in its note. `+` derived, `*` assumed:
 - Assumed: the AIM-9X's range and speed (classified: the family's); the PL-10's diameter and speed (its class's); the
   R-77M's mass, length and warhead (the R-77-1's: no source read gives the R-77M's).
 - Every missile's power-up and power-down time: 1 s, assumed (no source gives any).
-- Their flight models come with MS-7c (until then `flyable` is false: they load, and a strike of them is refused
-  `store_not_flyable`); the seekers, guidance and fuzes with MS-7d.
+- Their powered flight comes with MS-7c (until then `flyable` is false: they load, a strike of them is refused
+  `store_not_flyable`, and a jettison drops them inert); the seekers, guidance and fuzes with MS-7d.
 
 **Every fighter's stations and loadouts (MS-7b).** Each of the 16 other fighters with a store-station payload has its
 card's stations - its hardpoints as the English article counts them, a multi-rail pylon's rails each a station of its
@@ -584,10 +596,13 @@ it senses or jams is its payload's, not built with it yet. Its mass and size are
 only as a search result's quote is `assumed` and says so; a boxy pod's diameter is the circle's of its section's
 area. Not carded, for want of public figures or of a station on our models: the LANTIRN and Sniper pods (the F-16's
 chin stations are not modelled), the HARM targeting pod, the J-10A's and the Su-25's pods, the Sorbtsiya. The
-EA-18G's ALQ-99 pods are part of its airframe's model.
+EA-18G's ALQ-99 pods are stores like the rest (`an-alq-99`, class `pod`: its "jamming pods" loadout hangs one on each
+of stations 3, 6 and 9), no longer bodies of its airframe ([hangar.md](../hangar.md#mass-accounting)).
 
-**No flight models for the air-to-air missiles.** Their cards have no `model`, so a strike with them is refused
-(`store_not_flyable`). Building them - their motors, their powered flight - was stopped by the assistant's safety
+**No powered flight for the air-to-air missiles.** Their cards name the models they leave their stations as
+(`aircraft/stores/<name>`: the body and its mass, as every store has - [hangar.md](../hangar.md#mass-accounting)) and are
+not `employable`: a strike with them is refused (`store_not_flyable`, `StoreInfo::flyable` false), and jettisoned each
+leaves as the inert body it then is. Building them - their motors, their powered flight - was stopped by the assistant's safety
 filter on 2026-10-10 and has not been taken up again. Their mass, their drag and their sideslip figures in carriage
 are on their cards like every other store's.
 

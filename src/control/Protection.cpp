@@ -64,7 +64,40 @@ void airspeed(Clamp& k, double& tas, const EnvelopeLimits& e, const LimitState& 
     if (here.tasPerMach > 0.0) k.atMost(tas, e.machMax * here.tasPerMach, Limit::Mach);
 }
 
+/// The speed floor (Protection.h): the vehicle's, as this velocity setpoint is limited. `wantedVs`: the vertical speed
+/// asked before the energy rule held it.
+void speedFloor(Clamp& k, VelocityCommand& v, double wantedVs, const EnvelopeLimits& e, const LimitState& here) noexcept {
+    SpeedFloor& f = *here.floor;
+    const sim::VehicleState& s = *here.s;
+    f.seen = true;
+    if (!(e.casMinMs > 0.0) || s.onGround || !here.clean || isHold(v.airspeedMs) || isHold(wantedVs)) {
+        f.casMs = f.sinkingS = f.steadyS = 0.0; // (no least airspeed to judge by, on its wheels, being landed, or its speed not this loop's)
+        return;
+    }
+    const double cas = s.airspeedCalibratedMs, asked = v.airspeedMs / here.tasPerCas;
+    if (f.casMs > 0.0 && asked >= f.casMs) f.casMs = 0.0; // (a command asks at least as much: it flies its own)
+    // a slight floor, flown level at it: the airspeed asked is one it holds, and the floor a turn's or a gust's
+    const bool steady = f.casMs > 0.0 && f.casMs - asked < kFloorSlightMs && std::abs(s.eulerRad[0]) < kFloorLevelBankRad &&
+                        std::abs(s.velocityNedMs[2]) < 0.5 * kFloorSinkMs && cas > f.casMs - 1.0;
+    f.steadyS = steady ? f.steadyS + here.dt : 0.0;
+    if (f.steadyS >= kFloorSteadyS) f.casMs = f.steadyS = 0.0;
+    const bool sinking = wantedVs >= -0.5 * kFloorSinkMs && -s.velocityNedMs[2] < -kFloorSinkMs && cas < kFloorReach * e.casMinMs;
+    f.sinkingS = sinking ? f.sinkingS + here.dt : 0.0;
+    if (f.sinkingS >= kFloorDelayS)
+        f.casMs = std::min(std::max({f.casMs, asked, cas}) + kFloorRateMs2 * here.dt, kFloorMost * e.casMinMs);
+    if (f.casMs > asked) {
+        k.atLeast(v.airspeedMs, f.casMs * here.tasPerCas, Limit::CasMin);
+        f.active = true;
+    }
+}
+
 } // namespace
+
+double turnBankRadFor(double casMs, double casMinMs) noexcept {
+    if (!(casMinMs > 0.0)) return std::numeric_limits<double>::infinity();
+    const double ratio = std::max(casMs, 0.0) / casMinMs, n = ratio * ratio / kTurnMargin;
+    return std::max(n > 1.0 ? std::acos(1.0 / n) : 0.0, kTurnBankFloorRad);
+}
 
 const char* limitName(Limit limit) noexcept {
     switch (limit) {
@@ -89,6 +122,13 @@ LimitState limitState(const sim::VehicleState& s, const EnvelopeLimits& e, const
     if (known(e.machMax) && s.mach > 0.05) here.tasPerMach = s.airspeedTrueMs / s.mach;
     const bool alpha = known(e.alphaMaxRad) && !(p.lawEnforces & limitBit(Limit::AlphaMax));
     if (alpha || known(e.pitchMinRad) || known(e.pitchMaxRad)) here.bankCos = bankCos(s.eulerRad[0]);
+    // a turn's bank by its airspeed's margin over its least (7.3): in flight, a wing's, and only where it is slow enough
+    // for the margin to bound anything (six times the least airspeed's load factor: 80 deg) - the arc cosine is not
+    // taken at a cruise
+    if (p.wingborne && e.casMinMs > 0.0 && !s.onGround) {
+        const double ratio = s.airspeedCalibratedMs / e.casMinMs;
+        if (ratio * ratio < 6.0 * kTurnMargin) here.bankCapRad = turnBankRadFor(s.airspeedCalibratedMs, e.casMinMs);
+    }
     return here;
 }
 
@@ -145,9 +185,18 @@ LimitMask limitSetpoint(Command& c, const EnvelopeLimits& e, const Protection& p
         auto* a = std::get_if<AttitudeCommand>(&c);
         if (isHold(a->headingRad) || !p.wingborne) { // (a rotorcraft's heading is its yaw's: the roll stands)
             k.within(a->rollRad, e.bankMaxRad, Limit::Bank);
-        } else if (known(e.bankMaxRad)) { // the bank the heading is flown with
-            if (isHold(a->maxBankRad) && e.bankMaxRad < kLoopMaxBankRad) a->maxBankRad = e.bankMaxRad, k.hit |= limitBit(Limit::Bank);
-            else k.atMost(a->maxBankRad, e.bankMaxRad, Limit::Bank);
+            k.within(a->rollRad, here.bankCapRad, Limit::Bank); // (no steeper than its airspeed leaves it: 7.3; infinite: no bound)
+        } else {
+            if (known(e.bankMaxRad)) { // the bank the heading is flown with
+                if (isHold(a->maxBankRad) && e.bankMaxRad < kLoopMaxBankRad) a->maxBankRad = e.bankMaxRad, k.hit |= limitBit(Limit::Bank);
+                else k.atMost(a->maxBankRad, e.bankMaxRad, Limit::Bank);
+            }
+            // ... and no steeper than its airspeed leaves it (7.3). Said to limit the demand only while the turn is flown
+            // at it - banked within 2 deg of it: wings level, a bank it does not ask for is not held back
+            if (here.bankCapRad < orHold(a->maxBankRad, kLoopMaxBankRad)) {
+                a->maxBankRad = here.bankCapRad;
+                if (std::abs(s.eulerRad[0]) > here.bankCapRad - 0.035) k.hit |= limitBit(Limit::Bank);
+            }
         }
         k.atMost(a->pitchRad, e.pitchMaxRad, Limit::PitchMax);
         k.atLeast(a->pitchRad, e.pitchMinRad, Limit::PitchMin);
@@ -172,8 +221,11 @@ LimitMask limitSetpoint(Command& c, const EnvelopeLimits& e, const Protection& p
         airspeed(k, v->airspeedMs, e, here);
         if (!p.wingborne) break; // a rotorcraft: its turn rate and vertical speed are its yaw's and its thrust's
         const double tas = std::max(s.airspeedTrueMs, 10.0);
+        const double wantedVs = v->verticalSpeedMs; // (as asked: the speed floor judges a sink against it)
         if (known(e.bankMaxRad) && !isHold(v->turnRateRadS))
             k.within(v->turnRateRadS, kG * std::tan(std::min(e.bankMaxRad, 1.45)) / tas, Limit::Bank);
+        // ... and no faster than the bank its airspeed leaves it turns it (7.3)
+        if (here.bankCapRad < 1.45 && !isHold(v->turnRateRadS)) k.within(v->turnRateRadS, kG * std::tan(here.bankCapRad) / tas, Limit::Bank);
         // energy: the climb the airspeed's margin over the least affords (HSA-10; none above the margin, a descent below
         // the least), as the cas_min limit's
         if (known(e.casMinMs) && !isHold(v->verticalSpeedMs)) {
@@ -187,6 +239,8 @@ LimitMask limitSetpoint(Command& c, const EnvelopeLimits& e, const Protection& p
             if (known(e.pitchMaxRad)) k.atMost(v->verticalSpeedMs, tas * std::sin(std::clamp(e.pitchMaxRad - onPath, -1.5, 1.5)), Limit::PitchMax);
             if (known(e.pitchMinRad)) k.atLeast(v->verticalSpeedMs, tas * std::sin(std::clamp(e.pitchMinRad - onPath, -1.5, 1.5)), Limit::PitchMin);
         }
+        // the speed floor: the airspeed it holds its height at, where the one asked sinks it (7.3)
+        if (here.floor) speedFloor(k, *v, wantedVs, e, here);
         break;
     }
     case 4: airspeed(k, std::get_if<PositionCommand>(&c)->airspeedMs, e, here); break;

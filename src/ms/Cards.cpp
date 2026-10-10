@@ -87,6 +87,8 @@ std::vector<Station> readStations(const core::Json& doc, const std::map<std::str
         if (const auto b = st.name.find("bay"); b != std::string::npos) st.bay = st.name.substr(0, b + 3);
         st.launcher = s.string("launcher", "");
         st.ejectionMs = s.number("ejection_ms", st.carriage.find("ejector") != std::string::npos ? 3.0 : 0.0);
+        st.extractionMs = s.number("extraction_ms", 0.0);
+        if (st.extractionMs < 0.0) errors.push_back(at + "its extraction_ms is how fast its load leaves aft: not negative");
         if (const core::Json* t = s.find("takes"); t && t->isArray())
             for (const auto& c : t->asArray()) st.takes.push_back(c.asString());
         if (st.takes.empty()) errors.push_back(at + "takes no store class");
@@ -149,6 +151,7 @@ std::shared_ptr<const StoreCard> readStoreCard(const std::filesystem::path& file
         card->storeClass = doc->string("class", "");
         if (card->storeClass.empty()) errors.push_back(where + "a store card needs its class");
         card->model = doc->string("model", "");
+        card->employable = doc->boolean("employable", true);
         card->powerable = doc->boolean("powerable", false);
         card->jettisonable = doc->boolean("jettisonable", true);
         card->sources = readSources(*doc);

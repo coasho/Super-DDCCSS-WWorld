@@ -248,10 +248,12 @@ empty_cg = [8.880, 0.0, 0.250]
 gyration = [0.250, 0.400, 0.510]
 [[mass.payload]]
 name = "pilot"
+kind = "crew"
 mass = 100
 position = [4.000, 0.0, 1.250]
 [[mass.payload]]
 name = "gun ammunition"       # GSh-23, 200 rounds
+kind = "ammunition"
 mass = 60
 position = [6.000, 0.0, -0.100]
 [[mass.tank]]

@@ -1,36 +1,112 @@
 {
-  "aircraft": "c130j",
-  "note": "C-130J. Its missile warning and countermeasures dispensers are not named in a source found.",
-  "sources": {
-    "bae-alr56m": {
-      "title": "Delivering advanced radar warning receivers to protect U.S. Air Force aircraft",
-      "publisher": "BAE Systems",
-      "url": "https://www.baesystems.com/en-us/article/delivering-advanced-radar-warning-receivers-to-protect-u-s--air-force-aircraft",
-      "date": "2024-07-09"
-    },
-    "ng-apn241": {
-      "title": "Northrop Grumman, Dasa Intend to Collaborate on Radar for European Transport Aircraft Program",
-      "publisher": "Northrop Grumman (press release)",
-      "url": "https://www.globenewswire.com/news-release/2000/06/07/278564/189/en/Northrop-Grumman-Dasa-Intend-to-Collaborate-on-Radar-for-European-Transport-Aircraft-Program.html",
-      "date": "2000-06-07"
-    }
+ "aircraft": "c130j",
+ "note": "C-130J. Its missile warning and countermeasures dispensers are not named in a source found.",
+ "sources": {
+  "bae-alr56m": {
+   "title": "Delivering advanced radar warning receivers to protect U.S. Air Force aircraft",
+   "publisher": "BAE Systems",
+   "url": "https://www.baesystems.com/en-us/article/delivering-advanced-radar-warning-receivers-to-protect-u-s--air-force-aircraft",
+   "date": "2024-07-09"
   },
-  "payloads": [
+  "ng-apn241": {
+   "title": "Northrop Grumman, Dasa Intend to Collaborate on Radar for European Transport Aircraft Program",
+   "publisher": "Northrop Grumman (press release)",
+   "url": "https://www.globenewswire.com/news-release/2000/06/07/278564/189/en/Northrop-Grumman-Dasa-Intend-to-Collaborate-on-Radar-for-European-Transport-Aircraft-Program.html",
+   "date": "2000-06-07"
+  },
+  "wp-c130j": {
+   "title": "C-130J Super Hercules (its hold: six pallet positions, one of them the ramp's; not read for this card - set down from memory, and assumed)",
+   "publisher": "Wikipedia",
+   "url": "https://en.wikipedia.org/wiki/Lockheed_Martin_C-130J_Super_Hercules",
+   "date": "2026-10-10"
+  }
+ },
+ "payloads": [
+  {
+   "name": "rwr",
+   "card": "an-alr-56m",
+   "source": "bae-alr56m",
+   "evidence": [
+    "AN/ALR-56M Radar Warning Receiver safeguards F-16 Fighting Falcons and C-130J Super Hercules aircraft"
+   ]
+  },
+  {
+   "name": "radar",
+   "card": "an-apn-241",
+   "source": "ng-apn241",
+   "evidence": [
+    "baseline for the new C-130J, the AN/APN-241"
+   ]
+  },
+  {
+   "name": "stations",
+   "card": "c130j-store-station",
+   "count": 6,
+   "source": "wp-c130j",
+   "note": "its cargo floor's pallet positions (the last on the ramp): what it carries is a store on one of them, loaded by a loadout and released over the ramp (docs/hangar.md, Mass accounting)",
+   "evidence": [
+    "cargo airdrop over the ramp (its design's applicability: releasable_stores)"
+   ]
+  }
+ ],
+ "loadouts": [
+  {
+   "name": "pallets",
+   "source": "wp-c130j",
+   "note": "five loaded 463L pallets on the floor, 2,268 kg each (11,340 kg): a logistics load, short of its 19 t; the ramp's position left empty",
+   "stations": [
     {
-      "name": "rwr",
-      "card": "an-alr-56m",
-      "source": "bae-alr56m",
-      "evidence": [
-        "AN/ALR-56M Radar Warning Receiver safeguards F-16 Fighting Falcons and C-130J Super Hercules aircraft"
-      ]
+     "station": 1,
+     "store": "463l-pallet"
     },
     {
-      "name": "radar",
-      "card": "an-apn-241",
-      "source": "ng-apn241",
-      "evidence": [
-        "baseline for the new C-130J, the AN/APN-241"
-      ]
+     "station": 2,
+     "store": "463l-pallet"
+    },
+    {
+     "station": 3,
+     "store": "463l-pallet"
+    },
+    {
+     "station": 4,
+     "store": "463l-pallet"
+    },
+    {
+     "station": 5,
+     "store": "463l-pallet"
     }
-  ]
+   ]
+  },
+  {
+   "name": "airdrop",
+   "source": "wp-c130j",
+   "note": "six container delivery system bundles, 998 kg each (5,988 kg), released one after another over the ramp - what its design carried as a fixed 5,000 kg of cargo before its cargo was stores",
+   "stations": [
+    {
+     "station": 1,
+     "store": "cds-a22"
+    },
+    {
+     "station": 2,
+     "store": "cds-a22"
+    },
+    {
+     "station": 3,
+     "store": "cds-a22"
+    },
+    {
+     "station": 4,
+     "store": "cds-a22"
+    },
+    {
+     "station": 5,
+     "store": "cds-a22"
+    },
+    {
+     "station": 6,
+     "store": "cds-a22"
+    }
+   ]
+  }
+ ]
 }

@@ -295,10 +295,12 @@ canopy = 150
 "Main Gear" = 520
 [[mass.payload]]
 name = "pilot"
+kind = "crew"
 mass = 100
 position = [4.300, 0.0, 0.550]
 [[mass.payload]]
 name = "gun ammunition"
+kind = "ammunition"
 mass = 150
 position = [6.500, -0.600, 0.200]
 [[mass.tank]]

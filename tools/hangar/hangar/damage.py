@@ -416,6 +416,9 @@ def write(aircraft, path, origin, model=None):
             return [rounded(v) for v in x]
         return x
     text = json.dumps(rounded(data), indent=1) + "\n"
+    # (what the file holds - rounded - is what is returned: the pieces' flight models are written from it, and are those
+    # its file gives again; written from the unrounded figures, their last digits differed from the file's)
+    data = json.loads(text)
     if os.path.isfile(path):
         with open(path, encoding="utf-8") as f:
             if f.read() == text:

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ipc/WorldLayout.h"
 #include "sim/SnapshotBuffer.h"
 #include "ui/ViewerControls.h"
 
@@ -44,11 +45,20 @@ public:
     void setVehicles(std::vector<VehicleMeta> vehicles) { vehicles_ = std::move(vehicles); }
     const std::vector<VehicleMeta>& vehicles() const noexcept { return vehicles_; }
 
+    /// Each slot's flight status as the world's Vehicle Interface has it (mirror mode: the mirror's, read with the
+    /// batch; null: none known - the demo, a replay). docs/vehicle-interface.md, 7.3.
+    void setStatus(const std::vector<ipc::FlightStatus>* status) { status_ = status; }
+    /// What a status calls for: 0 nothing, 1 a caution (low on energy: flown on its speed floor), 2 a warning (it
+    /// deviates from the altitude it commands; a wing upset, far past its angle-of-attack limit). `word`, where given:
+    /// what to say of it (the gravest), empty for 0.
+    static int severity(const ipc::FlightStatus& status, const char** word = nullptr) noexcept;
+
     /// Screen-space vehicle labels for this frame (window pixels).
     struct Label {
         float x = 0.0f, y = 0.0f;
         std::string text;
         bool selected = false;
+        int severity = 0; ///< severity() of its vehicle: its label amber (1) or red (2)
     };
     void setLabels(std::vector<Label> labels) { labels_ = std::move(labels); }
     void setShowLabels(bool on) { showLabels_ = on; }
@@ -58,6 +68,8 @@ public:
 private:
     void drawMonitor() const;
     void drawVehicleList() const;
+    /// A vehicle's flight status, as items along a line; `state`: its abnormal state's word first.
+    void drawStatus(const sim::VehicleState& s, const ipc::FlightStatus& status, bool state) const;
 
     void drawLabels() const;
 
@@ -68,6 +80,7 @@ private:
     bool showLabels_ = true;
     Source source_;
     std::vector<VehicleMeta> vehicles_;
+    const std::vector<ipc::FlightStatus>* status_ = nullptr;
 };
 
 } // namespace fsim::ui

@@ -419,10 +419,12 @@ fuselage = 15900
 Outrigger = 540
 [[mass.payload]]
 name = "pilot"                # the crew of five
+kind = "crew"
 mass = 200
 position = [4.500, 0.0, 0.300]
 [[mass.payload]]
 name = "navigators and weapons officers"
+kind = "crew"
 mass = 300
 position = [6.500, 0.0, -1.200]
 # 47,975 US gal, 312,197 lb (141,610 kg) internal (Wikipedia; USAF), spread

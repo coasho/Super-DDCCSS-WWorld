@@ -97,8 +97,15 @@ double mix(double a, double b, double f) noexcept {
     return a + f * (b - a);
 }
 
+/// How far beyond the heaviest weight flown a lookup carries on, as a share of it: a full load of stores is up to half
+/// as heavy again as the aircraft with its tanks full (the B-52H at its maximum take-off weight 58 % over the weight it
+/// spawns at, within its own rows; a fighter with every station loaded 46 % over its heaviest row).
+constexpr double kBeyondHeaviest = 0.6;
+
 /// The four conditions a lookup lies between, and their weights: altitude clamped below the lowest, NaN above
-/// the highest; weight on down to the tanks empty (the zero-fuel weight: the heaviest less the capacity).
+/// the highest; weight on down to the tanks empty (the zero-fuel weight: the heaviest less the capacity), and on up
+/// beyond the heaviest flown by kBeyondHeaviest of it - linear from the last two rows: an estimate, the stores' weight
+/// in it and their drag not (docs/vehicle-interface.md, 7.3).
 struct Corners {
     std::size_t h = 0, w = 0;
     double fh = 0.0, fw = 0.0;
@@ -109,7 +116,7 @@ bool corners(const TablesSection& t, double altitudeM, double weightKg, Corners&
     if (!bracket(t.altitudeM, std::max(altitudeM, t.altitudeM.empty() ? altitudeM : t.altitudeM.front()), below, 1.0, c.h, c.fh)) return false;
     const double empty = std::isfinite(t.fuelCapacityKg) && !t.weightKg.empty() ? t.weightKg.back() - t.fuelCapacityKg : t.weightKg.front();
     const double lightest = std::min(t.weightKg.front(), empty);
-    if (!bracket(t.weightKg, weightKg, t.weightKg.front() - lightest, 1.0, c.w, c.fw)) return false;
+    if (!bracket(t.weightKg, weightKg, t.weightKg.front() - lightest, std::max(1.0, kBeyondHeaviest * t.weightKg.back()), c.w, c.fw)) return false;
     c.fh = std::clamp(c.fh, 0.0, 1.0); // (in altitude: never beyond the rows flown)
     return true;
 }

@@ -48,7 +48,7 @@ def main(argv=None):
         return showcase.main(argv[1:])
     if argv and argv[0] == "store":
         from . import stores
-        names = argv[1:] or sorted(stores.STORES) + sorted(stores.tank_cards())
+        names = argv[1:] or sorted(stores.STORES) + sorted(stores.tank_cards()) + sorted(stores.cargo_cards())
         for name in names:
             print(stores.write_store(name))
         return 0

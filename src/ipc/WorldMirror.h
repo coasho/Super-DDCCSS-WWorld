@@ -66,6 +66,8 @@ public:
     /// returned. `out.states` has `capacity()` entries; `inputs()` matches.
     bool pollSnapshot(sim::SnapshotBatch& out);
     const std::vector<sim::ControlInputs>& inputs() const noexcept { return inputs_; }
+    /// Each vehicle's flight status with that snapshot (WorldLayout.h, Derived): all 0 from a publisher that gives none.
+    const std::vector<FlightStatus>& status() const noexcept { return status_; }
     std::int64_t lastWallNs() const noexcept { return lastWallNs_; }
 
     /// Latest environment (seqlock copy).
@@ -86,6 +88,7 @@ private:
     std::string name_;
     std::vector<MirroredVehicle> vehicles_;
     std::vector<sim::ControlInputs> inputs_;
+    std::vector<FlightStatus> status_;
     std::uint64_t tableGeneration_ = ~0ull;
     std::uint64_t lastSequence_ = 0;
     std::int64_t lastWallNs_ = 0;

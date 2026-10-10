@@ -181,6 +181,7 @@ enum AxisFlag : std::uint16_t {
     kSaturated = 1u << 0,     ///< an actuator output sat at its travel limit
     kDemandLimited = 1u << 1, ///< the protection stage reduced the demand on this axis
     kExceeded = 1u << 2,      ///< the state was beyond a limit this axis flies against
+    kLowEnergy = 1u << 3,     ///< the speed floor raised the airspeed asked (the thrust axis: docs/vehicle-interface.md, 7.3)
 };
 
 enum SlotEvent : std::uint8_t { kFinished = 1u << 0, kFailed = 1u << 1 };

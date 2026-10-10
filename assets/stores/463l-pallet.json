@@ -1,0 +1,55 @@
+{
+  "id": "463l-pallet",
+  "designation": "463L pallet, loaded",
+  "class": "cargo",
+  "summary": "an HCU-6/E air cargo pallet with its load under nets, at half its limit: what a transport's hold carries, and airdrops",
+  "maker": "(US Air Force 463L system)",
+  "model": "jsbsim:463lpallet",
+  "powerable": false,
+  "jettisonable": true,
+  "parameters": {
+    "mass_kg": {
+      "value": 2268.0,
+      "unit": "kg",
+      "uncertainty": 0.0,
+      "basis": "assumed",
+      "note": "5,000 lb gross, the pallet's 290 lb and its nets' 65 lb in it: half the 10,000 lb an HCU-6/E takes (the figure as publicly given, set down from memory: not read for this card) - a load chosen for the card, as a tank's card is a full tank's"
+    },
+    "length_m": {
+      "value": 2.74,
+      "unit": "m",
+      "uncertainty": 0.01,
+      "basis": "assumed",
+      "note": "108 in, along the hold (the figure as publicly given, set down from memory: not read for this card)"
+    },
+    "width_m": {
+      "value": 2.24,
+      "unit": "m",
+      "uncertainty": 0.01,
+      "basis": "assumed",
+      "note": "88 in, across the hold (the figure as publicly given, set down from memory: not read for this card)"
+    },
+    "height_m": {
+      "value": 1.5,
+      "unit": "m",
+      "uncertainty": 0.4,
+      "basis": "assumed",
+      "note": "the load's height on the pallet: 96 in at the most (the figure as publicly given, set down from memory: not read for this card); 1.5 m taken for a half load"
+    },
+    "drag_cd": {
+      "value": 1.1,
+      "unit": "",
+      "uncertainty": 0.15,
+      "basis": "assumed",
+      "note": "a box broadside to the flow: 1.1 on its face (Hoerner, Fluid-Dynamic Drag: a cube or a short rectangular block face-on, 1.05 to 1.2), the same for each face - an estimate, as every released store's aerodynamics"
+    }
+  },
+  "sources": {
+    "wp-463l": {
+      "title": "463L master pallet (where its size and limits are publicly given; not read for this card - its figures are from memory, and assumed)",
+      "publisher": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/463L_master_pallet",
+      "date": "2026-10-10"
+    }
+  }
+}

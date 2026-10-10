@@ -6,6 +6,7 @@
 #include "session/World.h"
 
 #include "control/Atmosphere.h"
+#include "control/Protection.h"
 #include "fsim/PerformanceProfile.h"
 #include "fsim/VehicleProfile.h"
 
@@ -82,13 +83,16 @@ control::Reason World::performanceProfile(std::uint32_t id, control::FlightMode 
         lim.casMinMs = f.casMinMs; // (the clean aircraft's least speed is not the flaps')
         lim.casMaxMs = pick(f.casMaxMs, lim.casMaxMs), lim.machMax = pick(f.machMax, lim.machMax);
     }
+    lim.casMinMs *= perf.loadSpeedRatio; // (its least airspeed at the weight now: docs/vehicle-interface.md, 7.3)
     const double w = out.weightKg, hNow = s.altitudeMslM, vNow = s.airspeedTrueMs;
     const bool tables = !t.empty() && out.clean; // (flown clean: with flaps or gear out, not what it flies)
 
     // the airspeeds against altitude, at the weight now: what it flies (the tables' least and top level speeds, a
     // rotorcraft's from the hover) within what it may (the envelope's calibrated and Mach limits, the gear's placard)
     auto airspeeds = [&](double h, double flownLo, double flownHi, double endurance, double range) {
-        const double lo = out.flapsOut ? tasOfCas(lim.casMinMs, h) : most(flownLo, tasOfCas(lim.casMinMs, h));
+        // (clean: the least a command may ask - its margin over the least airspeed, as a command is checked)
+        const double lo = out.flapsOut ? tasOfCas(lim.casMinMs, h)
+                                       : most(flownLo, tasOfCas(control::Performance::kLeastSpeedMargin * lim.casMinMs, h));
         double hi = least(least(flownHi, tasOfCas(lim.casMaxMs, h)), tasOfMach(lim.machMax, h));
         if (in && in->gearDown >= 0.5) hi = least(hi, tasOfCas(env.gearCasMaxMs, h)); // (commanded down: its placard, 4.57)
         if (std::isfinite(lo)) out.minAirspeed.push_back(ProfilePoint{lo, kNone, h, w});
@@ -104,7 +108,7 @@ control::Reason World::performanceProfile(std::uint32_t id, control::FlightMode 
     } else {
         // none flown (a stock aircraft, or its flaps or gear out): its Performance's, at the altitude now
         const double flownHi = least(perf.maxTasMs, least(tasOfCas(perf.maxCasMs, hNow), tasOfMach(perf.maxMach, hNow)));
-        airspeeds(hNow, out.clean ? tasOfCas(perf.minCasMs, hNow) : kNone, out.clean ? flownHi : kNone, kNone, kNone);
+        airspeeds(hNow, out.clean ? tasOfCas(perf.leastCasMs(), hNow) : kNone, out.clean ? flownHi : kNone, kNone, kNone);
     }
     out.maxAltitudeMslM = !out.clean ? kNone : !t.empty() ? control::tablesCeilingM(t, w) : perf.ceilingM;
 
@@ -147,11 +151,15 @@ control::Reason World::performanceProfile(std::uint32_t id, control::FlightMode 
     }
 
     // at the condition now: the attitudes and rates it may fly, the fastest turn and climb guidance flies
+    // (a wing's bank within what its airspeed now leaves over its least: the turn margin, 7.3)
+    const double margin = rotor || s.onGround ? kNone : control::turnBankRadFor(s.airspeedCalibratedMs, lim.casMinMs);
+    const double bank = least(pick(lim.bankMaxRad, perf.maxBankRad), std::isfinite(margin) ? margin : kNone);
     out.maxOrientation.push_back(control::ProfileOrientation{kNone, pick(lim.pitchMaxRad, perf.maxPitchRad), pick(lim.pitchMinRad, perf.minPitchRad),
-                                                             pick(lim.bankMaxRad, perf.maxBankRad), vNow, hNow, w});
+                                                             bank, vNow, hNow, w});
     out.maxOrientationRate.push_back(control::ProfileRates{pick(lim.rollRateMaxRadS, perf.maxRollRateRadS), kNone, kNone, vNow});
     const double over = rotor ? std::hypot(s.velocityNedMs[0], s.velocityNedMs[1]) : vNow; // (a rotorcraft turns over the ground)
     out.maxTurnRateRadS = over > 0.5 ? over / perf.turnRadiusM(over) : kNone;
+    if (std::isfinite(margin) && vNow > 0.5) out.maxTurnRateRadS = least(out.maxTurnRateRadS, kG * std::tan(margin) / vNow);
     out.maxClimbRateMs = perf.maxClimbMs;
     return control::Reason::None;
 }

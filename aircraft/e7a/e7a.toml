@@ -314,10 +314,12 @@ nacelle = 900                 # both sides
 "Main Gear" = 2200
 [[mass.payload]]
 name = "flight crew"
+kind = "crew"
 mass = 200
 position = [3.000, 0.0, 0.600]
 [[mass.payload]]
 name = "mission crew"
+kind = "crew"
 mass = 1000                   # ten at the consoles
 position = [15.000, 0.0, 0.300]
 # The 737-700's 26,020 l of fuel (20.9 t): the centre tank under the cabin

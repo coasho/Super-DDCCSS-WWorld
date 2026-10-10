@@ -316,10 +316,12 @@ boom = 1500
 "Main Gear" = 6600
 [[mass.payload]]
 name = "pilots"
+kind = "crew"
 mass = 200
 position = [4.000, 0.0, 6.000]
 [[mass.payload]]
 name = "boom operator"
+kind = "crew"
 mass = 100
 position = [7.000, 0.800, 5.300]
 # 96,297 kg of fuel: the 767's wing and centre tanks (73,363 kg, Boeing) and

@@ -22,6 +22,10 @@ struct InitialConditions {
     /// Its body rates (p, q, r; rad/s) when all three are given: a piece leaving a rolling aircraft (MS-7g). Else none.
     double bodyRatesRadS[3] = {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(),
                                std::numeric_limits<double>::quiet_NaN()};
+    /// Its engines running from the first step (an airborne start with a dead engine is never what a scenario means).
+    /// False: none is started - a store that leaves its aircraft unarmed: a jettisoned missile is the dead body it then
+    /// is, its motor never lit, its propellant still its mass.
+    bool enginesRunning = true;
 };
 
 } // namespace fsim::sim

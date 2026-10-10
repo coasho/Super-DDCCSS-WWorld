@@ -365,10 +365,12 @@ sponson = 2000
 "Main Gear Aft" = 4800
 [[mass.payload]]
 name = "pilots"
+kind = "crew"
 mass = 200
 position = [3.600, 0.0, 5.300]
 [[mass.payload]]
 name = "loadmaster"
+kind = "crew"
 mass = 100
 position = [9.000, -1.500, 2.200]
 # 107,600 kg of fuel (35,546 US gal), in the wing (estimate: the split and

@@ -140,12 +140,37 @@ def c_area(surface, ctrl, n=40):
     return area * (2 if surface.mirror else 1)
 
 
+#: What a [[mass.payload]] may be (docs/hangar.md, Mass accounting): the fixed load a design carries beside its empty
+#: weight, its tanks' fuel and the stores on its stations - its people, what is built into it, and what is too small to
+#: be a thing of its own. Everything else it carries - a weapon, a tank, a pod, a pallet of cargo - is a store: a store
+#: card (assets/stores) with a JSBSim model of its own, on a station, loaded by a loadout; never a fixed load, where it
+#: could not leave the aircraft and would be weighed apart from the thing it is.
+PAYLOAD_KINDS = ("crew", "passenger", "equipment", "ammunition", "baggage")
+#: (personnel: crew, passenger; permanently fixed: equipment; very small items: a gun's rounds, hand baggage)
+STORE_KINDS = ("cargo", "store")
+
+
+def check_payload(p):
+    """A [[mass.payload]]'s kind: ValueError where it is missing, or is something that must be a store."""
+    name, kind = p.get("name"), p.get("kind")
+    if kind in STORE_KINDS:
+        raise ValueError("[[mass.payload]] %r: %s is not fixed load - make it a store (a card in assets/stores with its JSBSim model: "
+                         "python -m hangar storemodels), carried on a station and loaded by a loadout (docs/hangar.md, Mass accounting)"
+                         % (name, "cargo" if kind == "cargo" else "a store"))
+    if kind not in PAYLOAD_KINDS:
+        raise ValueError("[[mass.payload]] %r: give its kind, one of %s (docs/hangar.md, Mass accounting)" % (name, ", ".join(PAYLOAD_KINDS)))
+    if p.get("stations") is not None:
+        raise ValueError("[[mass.payload]] %r: a fixed load hangs on no station - what a station carries is a store" % name)
+
+
 class MassModel:
     def __init__(self, aircraft):
         self.aircraft = a = aircraft
         spec = a.spec.get("mass", {})
         self.spec = spec
         self.payload = [dict(p) for p in spec.get("payload", [])]
+        for p in self.payload:
+            check_payload(p)
         self.tanks = [dict(t) for t in spec.get("tank", [])]
         for t in self.tanks:
             if not 0.0 <= float(t.get("fill", 1.0)) <= 1.0:

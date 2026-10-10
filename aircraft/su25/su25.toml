@@ -248,10 +248,12 @@ mass = 595
 position = [3.100, 0.0, -0.600]
 [[mass.payload]]
 name = "pilot"
+kind = "crew"
 mass = 100
 position = [3.100, 0.0, -0.500]
 [[mass.payload]]
 name = "gun ammunition"       # 250 rounds of 30 mm (published), 0.85 kg each (estimate)
+kind = "ammunition"
 mass = 210
 position = [3.600, -0.300, -1.100]
 [[mass.tank]]

@@ -2,6 +2,7 @@
 #include "fsim/BuiltinControllers.h"
 
 #include "control/Atmosphere.h"
+#include "control/Protection.h"
 #include "control/Registry.h"
 #include "control/Route.h"
 #include "core/Geodesy.h"
@@ -59,6 +60,10 @@ double Performance::courseBandwidthRadS(double tasMs) const noexcept {
     // speed a schedule holds it at, or at the speed it flies
     const double v = std::isnan(headingReferenceTasMs) ? std::max(tasMs, 10.0) : headingReferenceTasMs;
     return std::clamp(kG * headingGain / v, 0.02, 2.0);
+}
+
+double Performance::turnBankRad(double casMs) const noexcept {
+    return hovers ? std::numeric_limits<double>::infinity() : turnBankRadFor(casMs, minCasMs);
 }
 
 double Performance::turnRadiusM(double speedMs) const noexcept {
@@ -194,7 +199,7 @@ Command HsaBehavior::update(const ControlContext& ctx, const Command& in) {
     SpeedReference reference = speedReferenceOf(h->speedReference, hovers ? SpeedReference::GroundSpeed : SpeedReference::TrueAirspeed);
     double speed = isHold(h->speed) ? speedNow(reference, s) : h->speed;
     if (!isHold(h->speedOptimization)) { // the tables' best at the altitude and weight now (where they give none: as resolved)
-        const double best = optimalTasMs(ctx.tables, h->speedOptimization, s.altitudeMslM, s.fuelKg);
+        const double best = optimalTasMs(ctx.tables, h->speedOptimization, s.altitudeMslM, s.fuelKg + perf.loadKg);
         reference = SpeedReference::TrueAirspeed;
         speed = std::isfinite(best) ? best : isHold(h->speed) ? s.airspeedTrueMs : h->speed;
     }
@@ -757,7 +762,7 @@ Command RouteBehavior::flyRoute(const ControlContext& ctx, const Command& in) {
 void RouteBehavior::chooseSpeed(const ControlContext& ctx, const Waypoint& segment, route::Steer& steer) {
     const auto& s = ctx.sensed;
     if (!isHold(segment.speedOptimization)) { // the tables' best at the altitude and weight now, as an hsa's (where they give none: as resolved)
-        const double best = optimalTasMs(ctx.tables, segment.speedOptimization, s.altitudeMslM, s.fuelKg);
+        const double best = optimalTasMs(ctx.tables, segment.speedOptimization, s.altitudeMslM, s.fuelKg + (ctx.performance ? ctx.performance->loadKg : 0.0));
         if (std::isfinite(best)) steer.speed = best, steer.reference = SpeedReference::TrueAirspeed;
     }
     if (!isHold(rampFromMs_)) { // from the speed flown as the segment began, at its acceleration, until it is reached
@@ -782,7 +787,7 @@ double RouteBehavior::climbProfile(const ControlContext& ctx, const Performance&
         climbMid_ = end;
         const double from = msl(segmentFrom_), to = msl(end);
         const double mid = segment.climbOptimization == static_cast<double>(ClimbOptimization::ExtendedRange)
-                               ? route::cheapestAltitudeM(ctx.tables, from, to, s.airspeedTrueMs, s.fuelKg)
+                               ? route::cheapestAltitudeM(ctx.tables, from, to, s.airspeedTrueMs, s.fuelKg + perf.loadKg)
                                : to;
         if (mid == from) climbMid_ = segmentFrom_;
         else if (mid != to) climbMid_ = segmentFrom_ + (end - segmentFrom_) * (mid - from) / (to - from); // (a row between, in its reference)
@@ -793,13 +798,13 @@ double RouteBehavior::climbProfile(const ControlContext& ctx, const Performance&
     // again as its altitude loop lags (route::verticalSpeedTo's time constant)
     if (!climbRest_ && climbTarget_ == climbMid_ && climbMid_ != end) {
         const double toGoM = std::max(segmentM_ - (routeM - segmentStartM_), 0.0);
-        const double halfway = route::climbRateMs(ctx.tables, perf, hovers_, up, msl(0.5 * (climbMid_ + end)), s.airspeedTrueMs, s.fuelKg);
+        const double halfway = route::climbRateMs(ctx.tables, perf, hovers_, up, msl(0.5 * (climbMid_ + end)), s.airspeedTrueMs, s.fuelKg + perf.loadKg);
         const double lagS = 1.0 / (std::isfinite(perf.altitudeGainPerS) && perf.altitudeGainPerS > 0.0 ? perf.altitudeGainPerS : hovers_ ? 0.5 : 0.25);
         climbRest_ = toGoM <= (std::abs(end - climbMid_) / std::max(halfway, 1e-3) + lagS) * std::max(groundSpeed_, 1.0);
     }
     const double goal = climbRest_ ? end : climbMid_;
     if (climbTarget_ != goal) { // at the most it climbs or descends holding its speed, now
-        const double step = route::climbRateMs(ctx.tables, perf, hovers_, up, s.altitudeMslM, s.airspeedTrueMs, s.fuelKg) * dt;
+        const double step = route::climbRateMs(ctx.tables, perf, hovers_, up, s.altitudeMslM, s.airspeedTrueMs, s.fuelKg + perf.loadKg) * dt;
         climbTarget_ = std::abs(goal - climbTarget_) <= step ? goal : climbTarget_ + std::copysign(step, goal - climbTarget_);
         if (climbTarget_ != goal && dt > 0.0) feedforward = std::copysign(step / dt, goal - climbTarget_);
     }
@@ -834,7 +839,7 @@ void RouteBehavior::scheduleArrival(const ControlContext& ctx, const Performance
     const double aim = arrivalAimS_;
     if (!isHold(aim)) {
         double least = kHold, most = kHold;
-        route::levelSpeedsMs(ctx.tables, perf, hovers_, s.altitudeMslM, s.fuelKg, least, most);
+        route::levelSpeedsMs(ctx.tables, perf, hovers_, s.altitudeMslM, s.fuelKg + perf.loadKg, least, most);
         const double lo = hovers_ ? least : least + along, hi = hovers_ ? most : most + along;
         // (its last second: the speed it asked, held; its aim past, as fast as it flies)
         speed = aim - now > 1.0 ? toGoM / (aim - now) : aim > now && !isHold(arrivalSpeedMs_) ? arrivalSpeedMs_ : hi;
@@ -1007,7 +1012,7 @@ void PatternBehavior::plan(const ControlContext& ctx, const PatternCommand& c) {
     flown_ = resolved_ = c;
     if (!isHold(c.speedOptimization)) { // planned at the optimum where it flies it, as the host resolves it
         const double h = isHold(c.altitudeM) ? s.altitudeMslM : altitudeMslOf(c.altitudeM, altitudeReferenceOf(c.altitudeReference), s, ctx.altimeter);
-        const double best = optimalTasMs(ctx.tables, c.speedOptimization, h, s.fuelKg);
+        const double best = optimalTasMs(ctx.tables, c.speedOptimization, h, s.fuelKg + perf.loadKg);
         if (std::isfinite(best)) resolved_.speed = best, resolved_.speedReference = static_cast<double>(SpeedReference::TrueAirspeed);
     }
     // its shape (docs/flight-autonomy.md, 4.23), the path store's - a route's loiter's, the route's (4.31); what it leaves
@@ -1192,7 +1197,7 @@ Command PatternBehavior::update(const ControlContext& ctx, const Command& in) {
     steer.speed = resolved_.speed;
     steer.reference = speedReferenceOf(resolved_.speedReference, hovers_ ? SpeedReference::GroundSpeed : SpeedReference::TrueAirspeed);
     if (!isHold(resolved_.speedOptimization)) { // the optimum at the altitude and weight now
-        const double best = optimalTasMs(ctx.tables, resolved_.speedOptimization, s.altitudeMslM, s.fuelKg);
+        const double best = optimalTasMs(ctx.tables, resolved_.speedOptimization, s.altitudeMslM, s.fuelKg + perf.loadKg);
         if (std::isfinite(best)) steer.speed = best, steer.reference = SpeedReference::TrueAirspeed;
     }
     speedFlown_ = steer.speed;

@@ -9,6 +9,25 @@ engine 0 5.900 0
 engine 1 5.900 0
 engine 2 5.900 0
 engine 3 5.900 0
+# store stations: <number> <x> <y> <z> (a store's CG, body axes from the origin, m) <its bay: 0 none>
+station 1 9.5000 -1.2000 2.4500 0
+station 2 9.5000 1.2000 2.4500 0
+station 3 6.6000 -1.2000 2.4500 0
+station 4 6.6000 1.2000 2.4500 0
+station 5 3.7000 -1.2000 2.4500 0
+station 6 3.7000 1.2000 2.4500 0
+station 7 0.8000 -1.2000 2.4500 0
+station 8 0.8000 1.2000 2.4500 0
+station 9 -2.1000 -1.2000 2.4500 0
+station 10 -2.1000 1.2000 2.4500 0
+station 11 -5.0000 -1.2000 2.4500 0
+station 12 -5.0000 1.2000 2.4500 0
+station 13 -7.9000 -1.2000 2.4500 0
+station 14 -7.9000 1.2000 2.4500 0
+station 15 -10.8000 -1.2000 1.9500 0
+station 16 -10.8000 1.2000 1.9500 0
+station 17 -13.7000 -1.2000 1.9500 0
+station 18 -13.7000 1.2000 1.9500 0
 # vulnerable components (MS-7g's presented areas, MS-7h's fires): <kind> <box | cylinder along x> <breakup section> <centre x y z> <half extents x y z> (body axes from the origin, m) <name>
 component engine cylinder centre 5.0444 -7.5700 0.2800 1.0929 0.5844 0.5844 F117 inboard L
 component engine cylinder centre 5.0444 7.5700 0.2800 1.0929 0.5844 0.5844 F117 inboard R

@@ -229,14 +229,17 @@ canopy = 80                   # estimate
 "Tail Gear" = 50              # estimate
 [[mass.payload]]
 name = "pilot"                # in a full pressure suit
+kind = "crew"
 mass = 110
 position = [4.400, 0.0, 0.350]
 [[mass.payload]]
 name = "nose sensors"         # 600 lb (ER-2 handbook: the nose bay)
+kind = "equipment"
 mass = 272
 position = [1.500, 0.0, 0.000]
 [[mass.payload]]
 name = "Q-bay sensors"        # 1,300 lb (ER-2 handbook: the Q-bay behind the cockpit)
+kind = "equipment"
 mass = 590
 position = [6.500, 0.0, 0.100]
 # 2,915 US gal of JP-TS at 0.79 kg/l (NASA): the main tanks inboard, the

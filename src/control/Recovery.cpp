@@ -235,9 +235,10 @@ Reason CapabilityHost::layRecovery(BehaviorCommand& b, RouteGround line, const s
         // lands at (the KC-135R 178 kt against 130 to 140)
         double vapp = line.climbCasMs;
         if (profile_) {
-            const double landing = (std::isfinite(line.tailWheelRad) ? kTailWheelShare : 1.3) * profile_->performance.stallFlapsCasMs;
+            // (each at the weight it carries now: the load's ratio on the profile's speeds, as on its stall - 7.3)
+            const double landing = (std::isfinite(line.tailWheelRad) ? kTailWheelShare : 1.3) * profile_->performance.stallFlapsCasMs * loadSpeedRatio_;
             if (landing < vapp && !(landing > profile_->envelope.flaps.casMaxMs)) vapp = landing;
-            if (profile_->performance.approachCasMs > 0.0) vapp = profile_->performance.approachCasMs;
+            if (profile_->performance.approachCasMs > 0.0) vapp = profile_->performance.approachCasMs * loadSpeedRatio_;
         }
         const WindEstimate wind = checkWind(state);
         const double vfix = kManoeuvreShare * vapp, ground = vfix + std::hypot(wind.northMs, wind.eastMs);

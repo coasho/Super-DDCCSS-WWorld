@@ -246,16 +246,17 @@ empty_cg = [10.566, 0.0, -0.350]  # loaded, 2 % of the MAC behind the neutral po
 gyration = [0.270, 0.430, 0.550]
 [[mass.payload]]
 name = "pilot"
+kind = "crew"
 mass = 100
 position = [4.900, 0.0, 0.550]
 [[mass.payload]]
-name = "internal missiles"    # 6 AIM-120, 2 AIM-9 in the bays
-mass = 1084
-position = [10.416, 0.0, -0.700]
-[[mass.payload]]
 name = "gun ammunition"       # M61A2, 480 rounds
+kind = "ammunition"
 mass = 150
 position = [9.616, 1.600, 0.000]
+# Its bays' missiles are stores, weighed on its bay stations when its fit's loadouts hang them there
+# (docs/hangar.md, Mass accounting): no fixed load. Its profile's speeds and tables were flown with
+# them aboard as one - 6 AIM-120 and 2 AIM-9, 1,084 kg heavier than it spawns now - and are that weight's.
 [[mass.tank]]
 name = "fuselage 1"           # internal fuel, 8,200 kg
 position = [8.616, 0.0, -0.200]

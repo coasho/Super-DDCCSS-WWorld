@@ -67,7 +67,7 @@ void CapabilityHost::limitArrivals(route::Plan& p, const sim::VehicleState& stat
         const double h = aboveGround(reference) ? state.altitudeMslM
                                                 : altitudeMslOf(altitudeM, static_cast<AltitudeReference>(static_cast<int>(reference)), state, &config_->altimeter);
         double least = kUnknown, most = kUnknown;
-        route::levelSpeedsMs(config_->tables, performance_, hovers, h, state.fuelKg, least, most);
+        route::levelSpeedsMs(config_->tables, performance_, hovers, h, state.fuelKg + loadKg_, least, most);
         const double d = std::max(alongM - fromM, 0.0);
         const double first = !(most > 0.0) ? earliest : p.climbCount ? earliest + p.climbTimeS(fromM, alongM, most, 0.0) : earliest + d / most;
         const double last = least > 0.0 ? latest + d / least : std::numeric_limits<double>::infinity();

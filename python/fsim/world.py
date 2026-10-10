@@ -210,13 +210,19 @@ class ActivityFlag(enum.IntFlag):
     """What held an activity back (ActivityInfo.constraints: its last world step's; constraints_seen: every one since it
     started): an effector it drives at its travel limit, protection reducing its demand, the state beyond a limit on its
     axes, a setpoint clamped to its range, a support axis another took; a route farther off its path than its segment's
-    required navigation performance (docs/flight-autonomy.md, 4.35)."""
+    required navigation performance (docs/flight-autonomy.md, 4.35). And the aircraft's abnormal states
+    (docs/vehicle-interface.md, 7.3): LOW_ENERGY - at the airspeed commanded it sank, and it is flown faster, on its
+    speed floor; DEVIATING - moving away from the altitude it commands, more than 30 m off it (a rotorcraft: 10 m) for
+    five seconds; UPSET - the aircraft has departed controlled flight, its angle of attack far past its limit."""
     SATURATED = 1
     DEMAND_LIMITED = 2
     EXCEEDED = 4
     CLAMPED = 8
     AXES_REDUCED = 16
     NAVIGATION_PERFORMANCE = 32
+    LOW_ENERGY = 64
+    DEVIATING = 128
+    UPSET = 256
 
 
 class Comparison(enum.IntEnum):
@@ -450,11 +456,31 @@ class ControlMode(enum.IntEnum):
     GRANTED = 1
 
 
-Performance = collections.namedtuple(
-    "Performance", "revision hovers min_cas_ms max_cas_ms max_mach max_tas_ms cruise_tas_ms max_ground_speed_ms ceiling_m max_bank_rad "
-                   "min_pitch_rad max_pitch_rad max_roll_rate_rad_s min_load_factor max_load_factor max_tilt_rad max_acceleration_ms2 "
-                   "max_deceleration_ms2 max_climb_ms max_descent_ms altitude_gain_per_s heading_gain heading_reference_tas_ms "
-                   "bank_rate_rad_s velocity_bandwidth_rad_s")
+class Performance(collections.namedtuple(
+        "Performance", "revision hovers min_cas_ms max_cas_ms max_mach max_tas_ms cruise_tas_ms max_ground_speed_ms ceiling_m max_bank_rad "
+                       "min_pitch_rad max_pitch_rad max_roll_rate_rad_s min_load_factor max_load_factor max_tilt_rad max_acceleration_ms2 "
+                       "max_deceleration_ms2 max_climb_ms max_descent_ms altitude_gain_per_s heading_gain heading_reference_tas_ms "
+                       "bank_rate_rad_s velocity_bandwidth_rad_s")):
+    """What a vehicle can do (docs/vehicle-interface.md, 7.1). ``min_cas_ms`` is a wing's least calibrated airspeed at the
+    weight it has now - where it stalls: it rises with the stores and fuel it carries (7.3)."""
+    __slots__ = ()
+
+    #: what a commanded airspeed keeps over ``min_cas_ms`` (control::Performance::kLeastSpeedMargin)
+    LEAST_SPEED_MARGIN = 1.1
+
+    @property
+    def least_cas_ms(self):
+        """The least calibrated airspeed a command may ask, m/s (NaN: none): a lesser one is clamped to it, or refused
+        "performance_limit" under RangePolicy.REJECT."""
+        return self.LEAST_SPEED_MARGIN * self.min_cas_ms
+
+    def turn_bank_rad(self, cas_ms):
+        """The steepest bank a turn is flown with at calibrated airspeed ``cas_ms``, rad: the load factor its least
+        airspeed leaves it there, over a margin of 1.3; 15 deg at the least. Infinite for a rotorcraft."""
+        if self.hovers or not self.min_cas_ms > 0.0:
+            return math.inf
+        n = (max(cas_ms, 0.0) / self.min_cas_ms) ** 2 / 1.3
+        return max(math.acos(1.0 / n) if n > 1.0 else 0.0, math.radians(15.0))
 Performance.__doc__ = ("What a vehicle can do, as its guidance plans with it (docs/vehicle-interface.md, 7.1; A-GRA's performance "
                        "profile): speeds (calibrated from the envelope, the fastest true airspeed, the cruise a mode flies given "
                        "none, a rotorcraft's fastest over the ground), the ceiling, attitude and rate limits, a rotorcraft's tilt and "

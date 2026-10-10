@@ -1,0 +1,137 @@
+{
+ "id": "c130j-store-station",
+ "designation": "C-130J cargo position",
+ "family": "store_station",
+ "summary": "A pallet position on the C-130J's cargo floor or ramp: one loaded pallet or airdrop bundle, released aft over the ramp",
+ "parameters": {},
+ "sources": {
+  "wp-c130j": {
+   "title": "C-130J Super Hercules (its hold: six pallet positions, one of them the ramp's; not read for this card - set down from memory, and assumed)",
+   "publisher": "Wikipedia",
+   "url": "https://en.wikipedia.org/wiki/Lockheed_Martin_C-130J_Super_Hercules",
+   "date": "2026-10-10"
+  }
+ },
+ "stations": [
+  {
+   "number": 1,
+   "name": "cargo bay 1",
+   "position_m": [
+    5.4,
+    0.0,
+    1.25
+   ],
+   "carriage": "ejector",
+   "launcher": "roller conveyors, rails and locks",
+   "ejection_ms": 0.5,
+   "extraction_ms": 6.0,
+   "takes": [
+    "cargo"
+   ],
+   "max_kg": 4536.0,
+   "capacity": 1,
+   "basis": "assumed",
+   "note": "its place from hangar's design of the aircraft (the hold's floor and length as drawn; a load's CG half a load's height above the floor), its limit the pallet position's: engineering assumptions, no source giving either. The load leaves aft, over the ramp - drawn or rolling out at its extraction_ms, dropping off the sill at its ejection_ms"
+  },
+  {
+   "number": 2,
+   "name": "cargo bay 2",
+   "position_m": [
+    3.1,
+    0.0,
+    1.25
+   ],
+   "carriage": "ejector",
+   "launcher": "roller conveyors, rails and locks",
+   "ejection_ms": 0.5,
+   "extraction_ms": 6.0,
+   "takes": [
+    "cargo"
+   ],
+   "max_kg": 4536.0,
+   "capacity": 1,
+   "basis": "assumed",
+   "note": "its place from hangar's design of the aircraft (the hold's floor and length as drawn; a load's CG half a load's height above the floor), its limit the pallet position's: engineering assumptions, no source giving either. The load leaves aft, over the ramp - drawn or rolling out at its extraction_ms, dropping off the sill at its ejection_ms"
+  },
+  {
+   "number": 3,
+   "name": "cargo bay 3",
+   "position_m": [
+    0.8,
+    0.0,
+    1.25
+   ],
+   "carriage": "ejector",
+   "launcher": "roller conveyors, rails and locks",
+   "ejection_ms": 0.5,
+   "extraction_ms": 6.0,
+   "takes": [
+    "cargo"
+   ],
+   "max_kg": 4536.0,
+   "capacity": 1,
+   "basis": "assumed",
+   "note": "its place from hangar's design of the aircraft (the hold's floor and length as drawn; a load's CG half a load's height above the floor), its limit the pallet position's: engineering assumptions, no source giving either. The load leaves aft, over the ramp - drawn or rolling out at its extraction_ms, dropping off the sill at its ejection_ms"
+  },
+  {
+   "number": 4,
+   "name": "cargo bay 4",
+   "position_m": [
+    -1.5,
+    0.0,
+    1.25
+   ],
+   "carriage": "ejector",
+   "launcher": "roller conveyors, rails and locks",
+   "ejection_ms": 0.5,
+   "extraction_ms": 6.0,
+   "takes": [
+    "cargo"
+   ],
+   "max_kg": 4536.0,
+   "capacity": 1,
+   "basis": "assumed",
+   "note": "its place from hangar's design of the aircraft (the hold's floor and length as drawn; a load's CG half a load's height above the floor), its limit the pallet position's: engineering assumptions, no source giving either. The load leaves aft, over the ramp - drawn or rolling out at its extraction_ms, dropping off the sill at its ejection_ms"
+  },
+  {
+   "number": 5,
+   "name": "cargo bay 5",
+   "position_m": [
+    -3.8,
+    0.0,
+    1.25
+   ],
+   "carriage": "ejector",
+   "launcher": "roller conveyors, rails and locks",
+   "ejection_ms": 0.5,
+   "extraction_ms": 6.0,
+   "takes": [
+    "cargo"
+   ],
+   "max_kg": 4536.0,
+   "capacity": 1,
+   "basis": "assumed",
+   "note": "its place from hangar's design of the aircraft (the hold's floor and length as drawn; a load's CG half a load's height above the floor), its limit the pallet position's: engineering assumptions, no source giving either. The load leaves aft, over the ramp - drawn or rolling out at its extraction_ms, dropping off the sill at its ejection_ms"
+  },
+  {
+   "number": 6,
+   "name": "cargo bay 6, ramp",
+   "position_m": [
+    -6.6,
+    0.0,
+    0.85
+   ],
+   "carriage": "ejector",
+   "launcher": "roller conveyors, rails and locks",
+   "ejection_ms": 0.5,
+   "extraction_ms": 6.0,
+   "takes": [
+    "cargo"
+   ],
+   "max_kg": 2268.0,
+   "capacity": 1,
+   "basis": "assumed",
+   "note": "its place from hangar's design of the aircraft (the hold's floor and length as drawn; a load's CG half a load's height above the floor), its limit the pallet position's: engineering assumptions, no source giving either. The load leaves aft, over the ramp - drawn or rolling out at its extraction_ms, dropping off the sill at its ejection_ms"
+  }
+ ]
+}

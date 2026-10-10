@@ -26,9 +26,10 @@ COMMAND_PROCESSING_STATE = {0: "ACCEPTED", 1: "REJECTED", 2: "CANCELED", 3: "ACC
 REQUIREMENT = {"effect": "EffectID", "action": "ActionID", "task": "TaskID", "command": "CapabilityCommandID"}
 
 #: Constraint flags an active activity carries: the demand limited, a value clamped, a support axis taken, a route off
-#: its required navigation performance (partly constrained); an effector at its stop, a limit exceeded (fully constrained).
-_PARTLY = 2 | 8 | 16 | 32
-_FULLY = 1 | 4
+#: its required navigation performance, flown faster than commanded on its speed floor (partly constrained); an effector
+#: at its stop, a limit exceeded, moving away from the altitude it commands, the aircraft upset (fully constrained).
+_PARTLY = 2 | 8 | 16 | 32 | 64
+_FULLY = 1 | 4 | 128 | 256
 
 #: reason names (fsim.Rejected.reason, ActivityInfo.reason) -> CannotComplyEnum
 CANNOT_COMPLY = {

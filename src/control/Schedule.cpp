@@ -244,7 +244,7 @@ void RouteBehavior::scheduleThroughLoiters(const ControlContext& ctx, const Perf
     const double aim = arrivalAimS_;
     if (!isHold(aim)) {
         double least = kHold, most = kHold;
-        route::levelSpeedsMs(ctx.tables, perf, hovers_, s.altitudeMslM, s.fuelKg, least, most);
+        route::levelSpeedsMs(ctx.tables, perf, hovers_, s.altitudeMslM, s.fuelKg + perf.loadKg, least, most);
         const double lo = hovers_ ? least : least + along, hi = hovers_ ? most : most + along;
         if (aim - now > 1.0) { // (the least that arrives by its aim: its time to go falls as it flies faster)
             const double slow = std::isfinite(lo) ? std::max(lo, 0.5) : 0.5, fast = std::isfinite(hi) ? std::max(hi, slow) : 1000.0;

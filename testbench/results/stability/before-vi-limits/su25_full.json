@@ -1,0 +1,722 @@
+{
+ "aircraft": "su25",
+ "load": "full",
+ "date": "2026-10-10",
+ "phases": {
+  "takeoff": {
+   "mass_spawned_kg": 13108.041,
+   "loading": {
+    "stores": [
+     {
+      "station": 1,
+      "store": "r-60m",
+      "count": 1,
+      "kg": 45.0,
+      "loadout": "self-defence"
+     },
+     {
+      "station": 5,
+      "store": "ptb-800",
+      "count": 1,
+      "kg": 738.0,
+      "loadout": "external tanks"
+     },
+     {
+      "station": 7,
+      "store": "ptb-800",
+      "count": 1,
+      "kg": 738.0,
+      "loadout": "external tanks"
+     },
+     {
+      "station": 11,
+      "store": "r-60m",
+      "count": 1,
+      "kg": 45.0,
+      "loadout": "self-defence"
+     }
+    ],
+    "notes": [],
+    "fuel_kg": 2999.0,
+    "stores_kg": 1566.0
+   },
+   "mass_kg": 14674.271,
+   "roll_m": 825.0,
+   "liftoff_cas_ms": 94.0,
+   "alpha_max_deg": 9.1,
+   "after": {
+    "height_swing_m": 0.2,
+    "pitch_swing_deg": 0.0,
+    "throttle": [
+     0.34,
+     0.34
+    ],
+    "cas_ms": 152.7
+   }
+  },
+  "start": {
+   "settled": true,
+   "alpha_max_deg": 5.1,
+   "sideslip_max_deg": 0.0,
+   "bank_max_deg": 0.1,
+   "cas_min_ms": 142.6,
+   "altitude_min_m": 2972.0,
+   "throttle_mean": 0.38,
+   "flags": []
+  },
+  "hold": {
+   "altitude_swing_m": 0.52,
+   "pitch_swing_deg": 0.0,
+   "roll_swing_deg": 0.0,
+   "altitude_error_m": 1.02,
+   "alpha_deg": 3.3,
+   "alpha_max_deg": 3.3,
+   "sideslip_max_deg": 0.0,
+   "bank_max_deg": 0.1,
+   "cas_min_ms": 142.8,
+   "altitude_min_m": 3000.0,
+   "throttle_mean": 0.38,
+   "flags": []
+  },
+  "heading +90": {
+   "settled": true,
+   "heading": {
+    "step": 90.0,
+    "overshoot": 0.0,
+    "settle_s": 29.6,
+    "final_error": -0.05
+   },
+   "altitude_lost_m": 8.5,
+   "bank_deg": 50.8,
+   "speed_lost_ms": 0.1,
+   "alpha_max_deg": 6.6,
+   "sideslip_max_deg": 2.8,
+   "bank_max_deg": 50.8,
+   "cas_min_ms": 142.8,
+   "altitude_min_m": 2992.0,
+   "throttle_mean": 0.42,
+   "flags": []
+  },
+  "heading -90": {
+   "settled": true,
+   "heading": {
+    "step": -90.0,
+    "overshoot": 0.0,
+    "settle_s": 29.6,
+    "final_error": 0.04
+   },
+   "altitude_lost_m": 6.2,
+   "bank_deg": 50.9,
+   "speed_lost_ms": 0.1,
+   "alpha_max_deg": 6.6,
+   "sideslip_max_deg": 2.8,
+   "bank_max_deg": 50.9,
+   "cas_min_ms": 142.8,
+   "altitude_min_m": 2994.0,
+   "throttle_mean": 0.42,
+   "flags": []
+  },
+  "climb": {
+   "settled": true,
+   "altitude": {
+    "step": 300.0,
+    "overshoot": 0.0,
+    "settle_s": 31.4,
+    "final_error": -1.83
+   },
+   "speed_lost_ms": 0.5,
+   "alpha_max_deg": 5.7,
+   "sideslip_max_deg": 0.0,
+   "bank_max_deg": 0.3,
+   "cas_min_ms": 140.7,
+   "altitude_min_m": 3004.0,
+   "throttle_mean": 0.47,
+   "flags": []
+  },
+  "descent": {
+   "settled": true,
+   "altitude": {
+    "step": -300.0,
+    "overshoot": 0.0,
+    "settle_s": 34.6,
+    "final_error": 2.04
+   },
+   "speed_lost_ms": 0.4,
+   "alpha_max_deg": 3.9,
+   "sideslip_max_deg": 0.0,
+   "bank_max_deg": 0.2,
+   "cas_min_ms": 140.7,
+   "altitude_min_m": 3002.0,
+   "throttle_mean": 0.2,
+   "flags": [
+    "SATURATED"
+   ]
+  },
+  "speed -15 %": {
+   "settled": true,
+   "speed": {
+    "step": -24.6,
+    "overshoot": 0.44,
+    "settle_s": 34.8,
+    "final_error": -0.33
+   },
+   "altitude_error_m": 2.0,
+   "alpha_max_deg": 5.1,
+   "sideslip_max_deg": 0.0,
+   "bank_max_deg": 0.1,
+   "cas_min_ms": 120.7,
+   "altitude_min_m": 3000.0,
+   "throttle_mean": 0.1,
+   "flags": [
+    "SATURATED"
+   ]
+  },
+  "speed back": {
+   "settled": true,
+   "speed": {
+    "step": 24.97,
+    "overshoot": 1.68,
+    "settle_s": 9.6,
+    "final_error": 1.54
+   },
+   "altitude_error_m": 7.5,
+   "alpha_max_deg": 5.4,
+   "sideslip_max_deg": 0.1,
+   "bank_max_deg": 0.1,
+   "cas_min_ms": 120.8,
+   "altitude_min_m": 2997.0,
+   "throttle_mean": 0.59,
+   "flags": [
+    "SATURATED"
+   ]
+  },
+  "orbit right": {
+   "radius_m": 4010.0,
+   "completed": true,
+   "off_path_m": 34.0,
+   "altitude_error_m": 5.6,
+   "sideslip_deg": 0.4,
+   "alpha_max_deg": 5.0,
+   "sideslip_max_deg": 2.1,
+   "bank_max_deg": 42.4,
+   "cas_min_ms": 142.6,
+   "altitude_min_m": 2994.0,
+   "throttle_mean": 0.41,
+   "flags": []
+  },
+  "orbit left": {
+   "radius_m": 3927.0,
+   "completed": true,
+   "off_path_m": 35.0,
+   "altitude_error_m": 1.5,
+   "sideslip_deg": 0.4,
+   "alpha_max_deg": 5.3,
+   "sideslip_max_deg": 2.2,
+   "bank_max_deg": 42.7,
+   "cas_min_ms": 142.5,
+   "altitude_min_m": 2998.0,
+   "throttle_mean": 0.41,
+   "flags": []
+  },
+  "route": {
+   "leg_m": 13127.0,
+   "completed": true,
+   "off_path_m": 8.6,
+   "altitude_error_m": 7.0,
+   "alpha_max_deg": 5.1,
+   "sideslip_max_deg": 2.2,
+   "bank_max_deg": 41.9,
+   "cas_min_ms": 142.8,
+   "altitude_min_m": 2995.0,
+   "throttle_mean": 0.39,
+   "flags": []
+  },
+  "curve": {
+   "completed": true,
+   "off_path_m": 4.2,
+   "alpha_max_deg": 3.3,
+   "sideslip_max_deg": 0.1,
+   "bank_max_deg": 11.0,
+   "cas_min_ms": 142.8,
+   "altitude_min_m": 3001.0,
+   "throttle_mean": 0.38,
+   "flags": []
+  },
+  "gusts": {
+   "crosswind_ms": 8.0,
+   "gust_ms": 6.0,
+   "altitude_error_m": 1.2,
+   "roll_swing_deg": 9.7,
+   "sideslip_deg": 2.7,
+   "alpha_max_deg": 3.5,
+   "sideslip_max_deg": 3.0,
+   "bank_max_deg": 7.3,
+   "cas_min_ms": 138.9,
+   "altitude_min_m": 2999.0,
+   "throttle_mean": 0.37,
+   "flags": []
+  },
+  "slow flight": {
+   "floor_cas_ms": 72.4,
+   "floor_as_spawned_cas_ms": 72.4,
+   "steps": [
+    {
+     "k": 1.5,
+     "cas_ms": 108.6,
+     "held": true,
+     "altitude_lost_m": 1.0,
+     "alpha_max_deg": 6.5,
+     "throttle_end": 0.38,
+     "sink_end_ms": 0.1
+    },
+    {
+     "k": 1.4,
+     "cas_ms": 101.4,
+     "held": true,
+     "altitude_lost_m": 1.0,
+     "alpha_max_deg": 7.7,
+     "throttle_end": 0.39,
+     "sink_end_ms": 0.1
+    },
+    {
+     "k": 1.3,
+     "cas_ms": 94.1,
+     "held": true,
+     "altitude_lost_m": 2.0,
+     "alpha_max_deg": 9.2,
+     "throttle_end": 0.41,
+     "sink_end_ms": 0.0
+    },
+    {
+     "k": 1.2,
+     "cas_ms": 86.9,
+     "held": true,
+     "altitude_lost_m": 3.0,
+     "alpha_max_deg": 11.1,
+     "throttle_end": 0.43,
+     "sink_end_ms": 0.0
+    },
+    {
+     "k": 1.1,
+     "cas_ms": 79.7,
+     "held": true,
+     "altitude_lost_m": 4.0,
+     "alpha_max_deg": 13.6,
+     "throttle_end": 0.45,
+     "sink_end_ms": 0.2
+    },
+    {
+     "k": 1.05,
+     "cas_ms": 76.0,
+     "held": false,
+     "altitude_lost_m": 301.0,
+     "alpha_max_deg": 14.5,
+     "throttle_end": 0.0,
+     "sink_end_ms": 10.0
+    }
+   ],
+   "slowest_held_k": 1.1,
+   "recovered": true,
+   "alpha_max_deg": 18.2,
+   "sideslip_max_deg": 0.4,
+   "bank_max_deg": 0.4,
+   "cas_min_ms": 75.5,
+   "altitude_min_m": 2670.0,
+   "throttle_mean": 0.29,
+   "flags": [
+    "SATURATED",
+    "DEMAND_LIMITED",
+    "EXCEEDED"
+   ]
+  },
+  "turn at 1.5 x its floor": {
+   "cas_ms": 108.6,
+   "at_speed": true,
+   "settled": true,
+   "altitude_lost_m": 12.0,
+   "bank_deg": 54.6,
+   "alpha_max_deg": 13.6,
+   "sideslip_max_deg": 6.4,
+   "bank_max_deg": 54.6,
+   "cas_min_ms": 107.9,
+   "altitude_min_m": 2988.0,
+   "throttle_mean": 0.18,
+   "flags": [
+    "SATURATED",
+    "DEMAND_LIMITED"
+   ]
+  },
+  "turn at 1.3 x its floor": {
+   "cas_ms": 94.1,
+   "at_speed": true,
+   "settled": true,
+   "altitude_lost_m": 82.0,
+   "bank_deg": 56.3,
+   "alpha_max_deg": 13.8,
+   "sideslip_max_deg": 9.7,
+   "bank_max_deg": 56.3,
+   "cas_min_ms": 92.6,
+   "altitude_min_m": 2918.0,
+   "throttle_mean": 0.3,
+   "flags": [
+    "SATURATED",
+    "DEMAND_LIMITED"
+   ]
+  },
+  "turn at its floor": {
+   "cas_ms": 72.4,
+   "at_speed": false,
+   "alpha_max_deg": 14.4,
+   "sideslip_max_deg": 0.1,
+   "bank_max_deg": 0.2,
+   "cas_min_ms": 73.1,
+   "altitude_min_m": 73.0,
+   "throttle_mean": 0.0,
+   "flags": [
+    "SATURATED",
+    "DEMAND_LIMITED"
+   ],
+   "lost": "descended to 25 m above the ground"
+  }
+ },
+ "checks": [
+  {
+   "phase": "takeoff",
+   "check": "its launch completes",
+   "passed": true,
+   "detail": "COMPLETED goal_reached"
+  },
+  {
+   "phase": "takeoff",
+   "check": "steady after its launch",
+   "passed": true,
+   "detail": "its height swings 0 m, from two minutes after it"
+  },
+  {
+   "phase": "takeoff",
+   "check": "kept after its launch",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "phase": "start",
+   "check": "settles on its height, heading and speed",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "phase": "start",
+   "check": "the aircraft kept",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "phase": "hold",
+   "check": "level and steady",
+   "passed": true,
+   "detail": "height 0.5 m, pitch 0.00 deg, bank 0.00 deg, peak to peak"
+  },
+  {
+   "phase": "hold",
+   "check": "the aircraft kept",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "phase": "heading +90",
+   "check": "turned onto its heading",
+   "passed": true,
+   "detail": "settled in 29.6 s, 0.0 deg past it"
+  },
+  {
+   "phase": "heading +90",
+   "check": "its height kept",
+   "passed": true,
+   "detail": "8 m lost"
+  },
+  {
+   "phase": "heading +90",
+   "check": "within its bank limit",
+   "passed": true,
+   "detail": "51 deg, its limit 50"
+  },
+  {
+   "phase": "heading +90",
+   "check": "the aircraft kept",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "phase": "heading -90",
+   "check": "turned onto its heading",
+   "passed": true,
+   "detail": "settled in 29.6 s, 0.0 deg past it"
+  },
+  {
+   "phase": "heading -90",
+   "check": "its height kept",
+   "passed": true,
+   "detail": "6 m lost"
+  },
+  {
+   "phase": "heading -90",
+   "check": "within its bank limit",
+   "passed": true,
+   "detail": "51 deg, its limit 50"
+  },
+  {
+   "phase": "heading -90",
+   "check": "the aircraft kept",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "phase": "climb",
+   "check": "reaches and holds its height",
+   "passed": true,
+   "detail": "settled in 31.4 s, 0.0 m past it"
+  },
+  {
+   "phase": "climb",
+   "check": "the aircraft kept",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "phase": "descent",
+   "check": "reaches and holds its height",
+   "passed": true,
+   "detail": "settled in 34.6 s, 0.0 m past it"
+  },
+  {
+   "phase": "descent",
+   "check": "the aircraft kept",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "phase": "speed -15 %",
+   "check": "reaches and holds its speed",
+   "passed": true,
+   "detail": "settled in 34.8 s, 0.4 m/s past it"
+  },
+  {
+   "phase": "speed -15 %",
+   "check": "the aircraft kept",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "phase": "speed back",
+   "check": "reaches and holds its speed",
+   "passed": true,
+   "detail": "settled in 9.6 s, 1.7 m/s past it"
+  },
+  {
+   "phase": "speed back",
+   "check": "the aircraft kept",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "phase": "orbit right",
+   "check": "flown round",
+   "passed": true,
+   "detail": "COMPLETED"
+  },
+  {
+   "phase": "orbit right",
+   "check": "on its circle",
+   "passed": true,
+   "detail": "34 m off, of 4010 m radius"
+  },
+  {
+   "phase": "orbit right",
+   "check": "coordinated",
+   "passed": true,
+   "detail": "0.4 deg of sideslip"
+  },
+  {
+   "phase": "orbit right",
+   "check": "the aircraft kept",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "phase": "orbit left",
+   "check": "flown round",
+   "passed": true,
+   "detail": "COMPLETED"
+  },
+  {
+   "phase": "orbit left",
+   "check": "on its circle",
+   "passed": true,
+   "detail": "35 m off, of 3927 m radius"
+  },
+  {
+   "phase": "orbit left",
+   "check": "coordinated",
+   "passed": true,
+   "detail": "0.4 deg of sideslip"
+  },
+  {
+   "phase": "orbit left",
+   "check": "the aircraft kept",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "phase": "route",
+   "check": "flown to its last point",
+   "passed": true,
+   "detail": "COMPLETED"
+  },
+  {
+   "phase": "route",
+   "check": "on its legs and turns",
+   "passed": true,
+   "detail": "9 m off at the most"
+  },
+  {
+   "phase": "route",
+   "check": "the aircraft kept",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "phase": "curve",
+   "check": "flown to its end",
+   "passed": true,
+   "detail": "COMPLETED"
+  },
+  {
+   "phase": "curve",
+   "check": "on its curve",
+   "passed": true,
+   "detail": "4 m off at the most"
+  },
+  {
+   "phase": "curve",
+   "check": "the aircraft kept",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "phase": "gusts",
+   "check": "its height kept in the gusts",
+   "passed": true,
+   "detail": "1.2 m off at the most"
+  },
+  {
+   "phase": "gusts",
+   "check": "the aircraft kept",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "phase": "slow flight",
+   "check": "holds the least speed the VI accepts, level",
+   "passed": false,
+   "detail": "held down to 1.1 times its floor of 72.4 m/s; 301 m lost at the most"
+  },
+  {
+   "phase": "slow flight",
+   "check": "the aircraft kept",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "phase": "turn at 1.5 x its floor",
+   "check": "turned, its height kept",
+   "passed": true,
+   "detail": "12 m lost, 55 deg of bank"
+  },
+  {
+   "phase": "turn at 1.5 x its floor",
+   "check": "within its bank limit",
+   "passed": true,
+   "detail": "55 deg, its limit 50"
+  },
+  {
+   "phase": "turn at 1.5 x its floor",
+   "check": "the aircraft kept",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "phase": "turn at 1.3 x its floor",
+   "check": "turned, its height kept",
+   "passed": false,
+   "detail": "82 m lost, 56 deg of bank"
+  },
+  {
+   "phase": "turn at 1.3 x its floor",
+   "check": "within its bank limit",
+   "passed": true,
+   "detail": "56 deg, its limit 50"
+  },
+  {
+   "phase": "turn at 1.3 x its floor",
+   "check": "the aircraft kept",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "phase": "turn at its floor",
+   "check": "the aircraft kept",
+   "passed": false,
+   "detail": "descended to 25 m above the ground"
+  }
+ ],
+ "mass_spawned_kg": 13108.041,
+ "mass_kg": 14674.271,
+ "loading": {
+  "stores": [
+   {
+    "station": 1,
+    "store": "r-60m",
+    "count": 1,
+    "kg": 45.0,
+    "loadout": "self-defence"
+   },
+   {
+    "station": 5,
+    "store": "ptb-800",
+    "count": 1,
+    "kg": 738.0,
+    "loadout": "external tanks"
+   },
+   {
+    "station": 7,
+    "store": "ptb-800",
+    "count": 1,
+    "kg": 738.0,
+    "loadout": "external tanks"
+   },
+   {
+    "station": 11,
+    "store": "r-60m",
+    "count": 1,
+    "kg": 45.0,
+    "loadout": "self-defence"
+   }
+  ],
+  "notes": [],
+  "fuel_kg": 2999.0,
+  "stores_kg": 1566.0
+ },
+ "flown_at": {
+  "altitude_m": 3000.0,
+  "tas_ms": 164.3,
+  "mass_kg": 14674.909
+ },
+ "performance": {
+  "min_cas_ms": 72.4,
+  "max_bank_deg": 50.0,
+  "cruise_tas_ms": 164.3
+ },
+ "passed": 45,
+ "failed": 3,
+ "simulated_s": 2433.0
+}

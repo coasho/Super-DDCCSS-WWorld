@@ -17,6 +17,13 @@ the name the viewer draws it by), written from its store card (assets/stores/<id
   side_slope_m2 and side_arm_m (a finned store's steadies it) - the figures the aircraft carrying it feels in a
   sideslip, in pitch and in yaw alike once it is free; its rotation damped as a slender body's;
 - six structure contacts round each end, so it lies on its side where it lands.
+
+A cargo store (its card's class "cargo": a loaded pallet, an airdrop bundle - what a transport's hold carries) is a
+box, `length_m` by `width_m` by `height_m`, of its card's mass_kg throughout: a uniform block's inertia; a bluff
+body's drag, its card's drag_cd on each face broadside to the flow (Hoerner: a short block face-on, 1.05 to 1.2), so
+the force along each of its axes is that face's, by the square of the flow's share along it; nothing that steadies or
+turns it but its rotation's damping (it has no parachute: it falls as the box it is); a structure contact at each
+corner, so it stands where it lands.
 """
 import json
 import math
@@ -280,14 +287,137 @@ def _template(card, v):
        qS, CMQ, qS, CLP)
 
 
+CARGO_CD = 1.1        # a box face-on, without its card's drag_cd (Hoerner: 1.05 - 1.2)
+CARGO_DAMPING = -2.0  # its rotation's damping on its length (a bluff body's, an estimate)
+
+
+def cargo_xml(card):
+    """The JSBSim definition of a cargo store on its own (None: not one, or its card lacks its size): a uniform box."""
+    if card.get("class") != "cargo" or not model_name(card):
+        return None
+    m = _value(card, "mass_kg")
+    L, W, H = _value(card, "length_m"), _value(card, "width_m"), _value(card, "height_m")
+    if not (m and L and W and H):
+        return None
+    cd = _value(card, "drag_cd", CARGO_CD)
+    k = 1.0 / IN
+    ixx, iyy, izz = m * (W * W + H * H) / 12.0, m * (L * L + H * H) / 12.0, m * (L * L + W * W) / 12.0
+    cg = 0.5 * L  # (its middle: x aft from its front face, the structural frame; y right, z up)
+    front, side, top = W * H, L * H, L * W
+    spring, damping = 20.0 * m / LB, 2.0 * m / LB  # (its weight on 1.5 cm; about critically damped), shared by its corners
+
+    def loc(name):
+        return '        <location name="%s" unit="IN"> <x> %.3f </x> <y> 0 </y> <z> 0 </z> </location>' % (name, cg * k)
+
+    corners = []
+    for i, x in enumerate((0.0, L)):
+        for j, y in enumerate((-0.5 * W, 0.5 * W)):
+            for n, z in enumerate((-0.5 * H, 0.5 * H)):
+                corners.append("""        <contact type="STRUCTURE" name="corner %d">
+            <location unit="IN"> <x> %.3f </x> <y> %.3f </y> <z> %.3f </z> </location>
+            <static_friction> 0.8 </static_friction>
+            <dynamic_friction> 0.6 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> %.0f </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> %.0f </damping_coeff>
+        </contact>""" % (4 * i + 2 * j + n + 1, x * k, y * k, z * k, spring / 4.0, damping / 4.0))
+
+    def face(name, what, area, along):
+        # the force along one body axis: q, the face's drag area, and the square of the flow's share along that axis
+        # (its sign the flow's) - cos a cos b along x, sin b along y, sin a cos b along z
+        share = {"x": "<cos><property>aero/alpha-rad</property></cos>\n                    <cos><property>aero/beta-rad</property></cos>",
+                 "y": "<sin><property>aero/beta-rad</property></sin>",
+                 "z": "<sin><property>aero/alpha-rad</property></sin>\n                    <cos><property>aero/beta-rad</property></cos>"}[along]
+        return """            <function name="aero/force/%s">
+                <description>%s</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <value> %.5f </value>
+                    %s
+                    <abs>%s</abs>
+                </product>
+            </function>
+""" % (name, what, cd * area / FT ** 2, share, share if along == "y" else "<product>" + share + "</product>")
+
+    def damp(name, rate, arm):
+        return """            <function name="aero/moment/%s">
+                <description>its rotation's damping (an estimate)</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <property>metrics/Sw-sqft</property>
+                    <value> %.4f </value>
+                    <property>aero/ci2vel</property>
+                    <property>velocities/%s-aero-rad_sec</property>
+                    <value> %.3f </value>
+                </product>
+            </function>
+""" % (name, arm / FT, rate, CARGO_DAMPING)
+
+    return """<?xml version="1.0"?>
+<!-- Written by hangar (tools/hangar/hangar/storemodels.py) from the store card %s: the cargo on its own once it has
+     left its aircraft's hold (docs/hangar.md, Mass accounting). A uniform box, a bluff body's drag - estimates, said
+     so there. Do not edit. -->
+<fdm_config name="%s" version="2.0" release="ALPHA">
+    <fileheader>
+        <author> hangar </author>
+        <description> %s, released </description>
+    </fileheader>
+    <metrics>
+        <wingarea unit="FT2"> %.4f </wingarea>
+        <wingspan unit="FT"> %.4f </wingspan>
+        <chord unit="FT"> %.4f </chord>
+        <htailarea unit="FT2"> 0 </htailarea>
+        <htailarm unit="FT"> 0 </htailarm>
+        <vtailarea unit="FT2"> 0 </vtailarea>
+        <vtailarm unit="FT"> 0 </vtailarm>
+%s
+%s
+%s
+    </metrics>
+    <mass_balance negated_crossproduct_inertia="false">
+        <ixx unit="SLUG*FT2"> %.4f </ixx>
+        <iyy unit="SLUG*FT2"> %.4f </iyy>
+        <izz unit="SLUG*FT2"> %.4f </izz>
+        <emptywt unit="LBS"> %.3f </emptywt>
+%s
+    </mass_balance>
+    <ground_reactions>
+%s
+    </ground_reactions>
+    <propulsion/>
+    <flight_control name="none"/>
+    <aerodynamics>
+        <axis name="AXIAL">
+%s        </axis>
+        <axis name="SIDE">
+%s        </axis>
+        <axis name="NORMAL">
+%s        </axis>
+        <axis name="ROLL">
+%s        </axis>
+        <axis name="PITCH">
+%s        </axis>
+        <axis name="YAW">
+%s        </axis>
+    </aerodynamics>
+</fdm_config>
+""" % (card["id"], model_name(card), card.get("designation", card["id"]), front / FT ** 2, W / FT, L / FT,
+       loc("AERORP"), loc("EYEPOINT"), loc("VRP"),
+       ixx / SLUGFT2, iyy / SLUGFT2, izz / SLUGFT2, m / LB, loc("CG"),
+       "\n".join(corners),
+       face("front", "along it: its front face's drag", front, "x"),
+       face("side", "across it: its side face's drag", -side, "y"),
+       face("top", "through it: its top face's drag", top, "z"),
+       damp("roll-damping", "p", W), damp("pitch-damping", "q", L), damp("yaw-damping", "r", L))
+
+
 def write(cards_dir, aircraft_dir):
-    """Each tank's and pod's model (<aircraft_dir>/<model>/<model>.xml); the paths written."""
+    """Each tank's, pod's and cargo store's model (<aircraft_dir>/<model>/<model>.xml); the paths written."""
     written = []
     for name in sorted(os.listdir(cards_dir)):
         if not name.endswith(".json"):
             continue
         card = _card(os.path.join(cards_dir, name))
-        text = store_xml(card)
+        text = store_xml(card) or cargo_xml(card)
         if text is None:
             continue
         model = model_name(card)

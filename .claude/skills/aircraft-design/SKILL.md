@@ -274,7 +274,16 @@ move on while a check fails or a picture looks wrong.
   fine; the platform's throttles 1-4 drive the rest.
 - **Mass.** Give `empty`, `empty_cg`, `gyration` and every tank (a tank's
   `fill` is the fuel it starts with). hangar's structural estimates for jets
-  are fighter equations: give component masses where they matter.
+  are fighter equations: give component masses where they matter. Every
+  `[[mass.payload]]` needs its `kind` (`crew`, `passenger`, `equipment`,
+  `ammunition`, `baggage`): the fixed load it spawns with - its people, what
+  is built into it, its very small items. Everything else it carries - a
+  weapon, a tank, a pod, cargo - is a store: a card in `assets/stores` with a
+  JSBSim model of its own (`hangar storemodels`, `hangar store <name>`), on a
+  station (a pylon, a bay, a hold's pallet position), loaded by the fit's
+  loadouts. Never draw one into the airframe or weigh it as fixed load: it
+  could not leave, and would be weighed twice (docs/hangar.md, Mass
+  accounting).
 - **Controls.** Direct, unless the aircraft is fly-by-wire; then
   `type = "fbw"` with its own limits (n_max 2.5-3, alpha_max 12-15 deg,
   roll 30-60 deg/s). A direct-control jet whose dutch roll is damped below

@@ -74,8 +74,8 @@ void limitClimbs(Plan& p, const sim::VehicleState& state, const TablesSection* t
             if (!isHold(ha) && d > 1.0 && hb > ha && p.climbCount < Plan::kClimbs) {
                 const double lo = msl(ha, w.altitudeReference), hi = msl(hb, w.altitudeReference), gradient = (hi - lo) / d, mid = 0.5 * (lo + hi);
                 double least = kHold, most = kHold;
-                levelSpeedsMs(tables, f, hovers, mid, state.fuelKg, least, most);
-                auto climbs = [&](double v) { return climbRateMs(tables, f, hovers, true, mid, v, state.fuelKg) >= gradient * v; };
+                levelSpeedsMs(tables, f, hovers, mid, state.fuelKg + f.loadKg, least, most);
+                auto climbs = [&](double v) { return climbRateMs(tables, f, hovers, true, mid, v, state.fuelKg + f.loadKg) >= gradient * v; };
                 if (std::isfinite(least) && std::isfinite(most) && most > least && !climbs(most)) {
                     // down from its fastest level speed: the first it climbs it at, then between that and the one above
                     const double step = (most - least) / 32.0;

@@ -207,6 +207,7 @@ nacelle = 150
 "Main Gear" = 200
 [[mass.payload]]
 name = "sensors"              # 3,000 lb: the radar, electro-optical, infrared and signals
+kind = "equipment"
 mass = 1361                   # sensors, their bays about the CG (estimate)
 position = [7.500, 0.0, -0.100]
 # 17,300 lb of fuel in the wing (the split and where each tank sits,

@@ -42,7 +42,10 @@ bool gone(StoreStatus s) noexcept {
     return s == StoreStatus::Releasing || s == StoreStatus::Released || s == StoreStatus::Jettisoned || s == StoreStatus::Lost;
 }
 
+/// It has the flight model it leaves its aircraft as (jettisoned, lost with a section) - and, `employable`, may be
+/// released as a weapon.
 bool flyable(const StoreCard& card) noexcept { return !card.model.empty(); }
+bool employable(const StoreCard& card) noexcept { return flyable(card) && card.employable; }
 
 /// How a store leaves its station: a missile under its own power off a rail where the station has one, anything else
 /// pushed clear by its rack.
@@ -68,7 +71,7 @@ void Host::rebuildStoreInfo() {
         out.carriage = offRail(*s.station, *s.card) ? "rail" : "ejector";
         out.powerable = s.card->powerable;
         out.jettisonable = s.card->jettisonable;
-        out.flyable = flyable(*s.card);
+        out.flyable = employable(*s.card);
         out.status = s.status;
         out.massKg = massOf(s);
         out.fuelKg = s.fuelKg;
@@ -160,7 +163,7 @@ CommandResult Host::submit(const StrikeCommand& command, const CommandOptions& o
                 std::count(chosen.begin(), chosen.end(), i))
                 return r.reason = Reason::InvalidParameter, r;
             if (stores_[i].activity) return r.reason = Reason::StoreBusy, r;
-            if (!flyable(*stores_[i].card)) return r.reason = Reason::StoreNotFlyable, r;
+            if (!employable(*stores_[i].card)) return r.reason = Reason::StoreNotFlyable, r;
             chosen.push_back(i);
         }
     } else {
@@ -169,7 +172,7 @@ CommandResult Host::submit(const StrikeCommand& command, const CommandOptions& o
             const StoreSlot& s = stores_[i];
             if (s.payload != command.payload || gone(s.status) || s.activity) continue;
             if (!command.store.empty() && s.card->id != command.store) continue;
-            if (!flyable(*s.card)) {
+            if (!employable(*s.card)) {
                 unflyable = true;
                 continue;
             }
@@ -373,6 +376,8 @@ void Host::advanceStrikes(double simTime) {
             out.launch.type = slot.card->model;
             for (int k = 0; k < 3; ++k) out.launch.offsetBodyM[k] = slot.station->positionM[k];
             if (!offRail(*slot.station, *slot.card)) out.launch.ejectionBodyMs[2] = slot.station->ejectionMs; // (pushed down, clear)
+            out.launch.ejectionBodyMs[0] = -slot.station->extractionMs; // (a cargo hold's load: aft, out over the ramp)
+            out.launch.inert = s.jettison || !employable(*slot.card);   // (unarmed: its motor, if it has one, stays dead)
             releases_.push_back(std::move(out));
             slot.status = StoreStatus::Releasing;
             s.nextAt += s.ripple;

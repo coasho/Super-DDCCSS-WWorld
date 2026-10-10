@@ -360,8 +360,8 @@ struct ActivityProgress {
 | `CommandStatus` Accepted, Rejected, Canceled | `CommandProcessingStateEnum` ACCEPTED, REJECTED, CANCELED. RECEIVED is not needed: every command is answered at once |
 | `ActivityState` Pending | ENABLED |
 | Active, no constraint flag | ACTIVE_UNCONSTRAINED |
-| Active with `kActivityDemandLimited`, `kActivityClamped`, `kActivityAxesReduced` or `kActivityNavigationPerformance` (a route off its required navigation performance: ADR-29 4.35) | ACTIVE_PARTIALLY_CONSTRAINED |
-| Active with `kActivitySaturated` or `kActivityExceeded` | ACTIVE_FULLY_CONSTRAINED |
+| Active with `kActivityDemandLimited`, `kActivityClamped`, `kActivityAxesReduced`, `kActivityNavigationPerformance` (a route off its required navigation performance: ADR-29 4.35) or `kActivityLowEnergy` (flown faster than asked, on the speed floor: 7.3) | ACTIVE_PARTIALLY_CONSTRAINED |
+| Active with `kActivitySaturated`, `kActivityExceeded`, `kActivityDeviating` or `kActivityUpset` (its abnormal states: 7.3) | ACTIVE_FULLY_CONSTRAINED |
 | Completed, Failed | COMPLETED, FAILED |
 | Canceled | FAILED with reason CANCELED |
 | `Reason` | `CannotComplyEnum`: the table in `fsim.agra` (Python) and Appendix B |
@@ -419,7 +419,7 @@ The adapter computes a vehicle's `Performance` when the vehicle is created, and 
 
 | Field | Wing from | Rotorcraft from |
 | --- | --- | --- |
-| minimum, maximum calibrated airspeed; maximum Mach | the envelope; else the performance section's stall speed × 1.2 | the envelope (maximum) |
+| minimum, maximum calibrated airspeed; maximum Mach | the envelope; else the performance section's stall speed × 1.2. The minimum is the profile's at the weight the profile was flown at, and rises with the weight carried beyond that (7.3) | the envelope (maximum) |
 | maximum true airspeed | the performance section's (level at full power) | — (its commands are held to its performance tables' top level speed at the altitude and weight they fly at: [flight-autonomy.md](flight-autonomy.md), 4.48) |
 | cruise speed (what a mode flies with no speed) | the plant's reference true airspeed; else the airspeed now | the position loop's `max_speed` × 0.5 |
 | maximum ground speed | — | the position loop's `max_speed` |
@@ -433,7 +433,7 @@ The adapter computes a vehicle's `Performance` when the vehicle is created, and 
 
 - **Derived limits.** Turn radius, turn rate, and climb gradient at a speed follow from these (`Performance::turnRadiusM(v)` and the like).
 - **Per mode.** The VI gives a profile per mode; here every mode shares the vehicle's, and a mode states which fields it uses. ADR-29 FA-3c works out A-GRA's per-mode profile from it and the performance tables, at the vehicle's condition now ([flight-autonomy.md](flight-autonomy.md), 4.15).
-- **Dynamic.** It is recomputed on a change, with a new revision (6.3). Configuration-dependent limits (flaps, gear) stay protection's, as ADR-26 11 has them.
+- **Dynamic.** It is recomputed on a change, with a new revision (6.3): of its loops, and of what the aircraft weighs (7.3). Configuration-dependent limits (flaps, gear) stay protection's, as ADR-26 11 has them.
   - The stack counts the changes made through it to its loops (`ControlStack::loopsRevision`): `use`, `setControllerSettings`, and `setParameter`, which the C ABI's and Python's parameter calls go through.
   - The host recomputes when that count moves: after each world step, before it checks a command, and when the performance or the revision is asked for. A change that leaves every field as it was makes no new revision.
   - A caller that sets a controller's parameter on the controller itself is not counted.
@@ -448,6 +448,66 @@ The adapter computes a vehicle's `Performance` when the vehicle is created, and 
 | a mode whose loops the aircraft lacks | absent from the catalog |
 
 Every change bumps the revision.
+
+### 7.3 Limits that follow the load, the turn margin, the speed floor and abnormal states
+
+A profile's speeds are flown by hangar with the aircraft as it spawns: its fixed load, its tanks full, nothing on its stations ([hangar.md](hangar.md), Mass accounting). Loaded - a fighter's tanks and missiles add a quarter to a third of that weight - it stalls faster, turns worse and flies outside its tables. Before this section the VI did not know: `Performance` and the envelope were the same numbers at every weight, a command at `minCasMs` was accepted and the aircraft sank under it with nothing said, and a heading change at a low airspeed was flown at the full bank limit. The stability suite ([testbench/README.md](../testbench/README.md)) measured it on all 35 aircraft at full load; `testbench/results/stability/before-vi-limits/` keeps those results.
+
+**The load.** The world tells each vehicle's host what it weighs (`CapabilityHost::setLoad`): when the vehicle is made, when its stores or fuel are changed, and every eighth step as it burns fuel.
+
+| What | Rule |
+| --- | --- |
+| reference weight | what the performance tables weigh the aircraft at with the fuel it was made with (their heaviest row, less the fuel not on board); without tables, its weight when it was made |
+| `Performance::loadSpeedRatio` | √(weight / reference weight), never below 1, in steps of 0.005: the same lift coefficient carries the heavier aircraft at that much more airspeed. 1 for a rotorcraft |
+| `Performance::minCasMs` | the profile's × the ratio. With it: protection's least calibrated airspeeds (clean and flaps), so the alpha, energy and speed protections act at the loaded speeds; the launch's rotation and climb-out speeds; the recovery's approach and landing speeds |
+| `Performance::loadKg` | the weight beyond what the tables would take it to be from its fuel alone, in steps of 25 kg (stores, mostly; negative for an aircraft lighter than its tables). Every table lookup - a speed optimisation, the level speeds, climb rates, the cheapest altitude - is made at the weight it has, not the weight its fuel implies |
+| beyond the heaviest row | the tables are extended linearly by up to 60 % of their heaviest weight (`kBeyondHeaviest`), so `performanceProfile` and the optimisations give values at full load where they gave none |
+
+An aircraft at its spawn weight has a ratio of exactly 1 and a `loadKg` of 0. A change of either is a new `Performance::revision` and a new control revision (6.3).
+
+**The least airspeed a command may ask.** `minCasMs` is where the wing stalls: a hangar aircraft's envelope gives its stall speed there, and every user of it inside the platform adds its own margin (a turn 1.3 in load factor, a scheduled arrival 1.2, protection's energy rule 1.1). Validation added none: an hsa at `minCasMs` was accepted, and flown at its stall. A command's airspeed - an hsa's, a route point's, a pattern's, a curve's speeds - is now checked against `Performance::leastCasMs()`, `kLeastSpeedMargin` (1.1) times `minCasMs` at the weight it has: the airspeed from which protection's energy rule lets it climb. A lesser one is clamped to it, or refused `PerformanceLimit` / `MinAirspeed` under `RangePolicy::Reject`. `performanceProfile`'s `minAirspeed` gives the same figure, and Python's `Performance.least_cas_ms`. Nothing that flew before asks less: the platform's own behaviours and every test and scenario command 1.25 times `minCasMs` or more.
+
+**The turn margin.** A wing in the air banks no more than its airspeed leaves it over its least. The load factor at which it would stall there is (CAS / least CAS)², and a turn may use that over 1.3 (`kTurnMargin`): `acos(1.3 / ratio²)`, 15° at the least (`control::turnBankRadFor`, `Performance::turnBankRad`). It is the rule a route's turns were already planned by (`route::mostTurnRate`); protection now applies it to what the flight modes and behaviours fly - the commands of an activity at the behaviour level. A setpoint a consumer gives at a lower level itself (the velocity, attitude or acceleration level: a policy flying by hand) is flown as given, within the envelope alone, and has no speed floor: it asked for that bank and that airspeed, and flies as it did before these limits. In a behaviour's cascade:
+
+| Command | Held to |
+| --- | --- |
+| an attitude's roll | the bank, flagged `Bank` |
+| a heading (an attitude command's `maxBankRad`: what an hsa flies) | the bank; flagged `Bank` only while the turn is flown at it |
+| a velocity's turn rate | g·tan(bank) / TAS, flagged `Bank` |
+
+| CAS / least CAS | 1.0 | 1.15 | 1.3 | 1.5 | 2.0 | ≥ 2.8 |
+| --- | --- | --- | --- | --- | --- | --- |
+| most bank | 15° | 15° | 39.7° | 54.7° | 71.0° | no bound |
+
+The activity reads `kActivityDemandLimited` while the bound holds. `performanceProfile`'s `maxOrientation` roll and `maxTurnRateRadS` report it at the airspeed now. It does not apply on the ground or to a rotorcraft. On its speed floor (below) an aircraft has no thrust to spare for a turn's drag: its bank is held to the least, 15°, while the floor stands.
+
+The bound is on what is commanded. A loaded fighter's roll overshoots it for a second or two - its attitude loop was designed at the inertia it spawns with, and tanks and missiles on its wings slow its roll's answer: the stability suite measures 10° on a fully loaded F-16C and F-22A.
+
+**The speed floor.** Scaling by √weight assumes thrust to match. An aircraft heavy with draggy stores may still not hold level at its least airspeed, and a clean one may not at altitude. Protection therefore watches a flight mode's or a behaviour's velocity command flown clean (flaps and gear up) and in the air:
+
+1. the command does not ask for a descent (its vertical speed ≥ −0.5 m/s), the aircraft sinks at more than 1 m/s, and its calibrated airspeed is under 1.3 × its least: for 3 s;
+2. the floor starts at the airspeed it has (or was asked, if more) and rises at 1 m/s per second for as long as that holds, to 1.6 × its least at the most;
+3. the airspeed commanded is raised to the floor, flagged `CasMin`; the activity reads `kActivityLowEnergy`;
+4. the floor stays until a command asks at least that airspeed, the aircraft lands, or its flaps or gear come out;
+5. a slight floor - within 2 m/s of the airspeed asked: a turn's sink, a gust's - is let go once the aircraft has flown level at it, wings level, for 15 s. The airspeed asked is one it holds.
+
+So an hsa at an airspeed the aircraft cannot hold level settles, level, at the least airspeed it can, and says so. The floor is the stack's state (`ControlStack`), cleared with its reset. A descent that is asked for, an approach and a landing never raise it.
+
+The floor works through the throttle: it raises the airspeed the speed loop holds. An aircraft with no thrust left to give - an engine out - is not made faster by it; it sinks at its airspeed, its activity reading `kActivityLowEnergy` and, 30 m down, `kActivityDeviating`. And an aircraft brought back up by it comes back past its altitude as its thrust comes in (some tens of metres, for a fighter in afterburner) and is slow to settle from there: the vertical-speed loop's integral, wound up while it sank, unwinds over a minute or two.
+
+**Abnormal states.** Three activity flags (`ActivityFlag`, the Python `fsim.ActivityFlag`) say what the existing ones could not:
+
+| Flag | Set while | A-GRA |
+| --- | --- | --- |
+| `kActivityLowEnergy` (64) | the speed floor holds the commanded airspeed up: flown faster than asked | ACTIVE_PARTIALLY_CONSTRAINED |
+| `kActivityDeviating` (128) | a flight mode (hsa, route, pattern, curve) has been more than 30 m (a rotorcraft: 10 m) from the altitude it commands and moving away at more than 0.5 m/s, for 5 s. A turn's dip and a step's overshoot are neither that far nor that long | ACTIVE_FULLY_CONSTRAINED |
+| `kActivityUpset` (256) | a wing in the air is more than 8° past its angle-of-attack limit (20° where its profile gives none), until it is back within the limit: it has departed controlled flight | ACTIVE_FULLY_CONSTRAINED |
+
+They are reports. The activity stays Active, the capability Available, and nothing is preempted: what to do about an aircraft that cannot do what it was asked is the mission autonomy's or FA's decision ([flight-autonomy.md](flight-autonomy.md)), and a crash still ends the activity `Failed(Crashed)`. `constraintsSeen` keeps them after they clear.
+
+**In the viewer.** The world publishes each vehicle's weight, its `minCasMs` and `leastCasMs()`, its speed floor, the bank its airspeed leaves it and its live activities' flags with every snapshot ([sdk/viewer.md](sdk/viewer.md#flight-status)): the viewer shows them for the selected vehicle, and marks a vehicle that is low on energy, deviating or upset in its list and on its label.
+
+**What this does not change.** The profile's speeds and tables are still those hangar flew at spawn weight. The scaling is a lift-coefficient rule, not a re-flown envelope, and a store's drag enters only through the speed floor. The F-35A and the Su-57, whose bay missiles were moved from the fixed load to stores ([hangar.md](hangar.md#mass-accounting)), keep profiles flown 608 and 972 kg heavier than they now spawn, so their ratio stays 1 until they carry more than that; the other aircraft that change touched were flown again at the weight they spawn at.
 
 ## 8. Boundary, threads, allocation
 

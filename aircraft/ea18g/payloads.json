@@ -1,88 +1,103 @@
 {
-  "aircraft": "ea18g",
-  "note": "EA-18G with the ALQ-99 pods; the ALQ-249 Next Generation Jammer replaces them from 2024 (MS-9 picks one).",
-  "sources": {
-    "wp-ea18g": {
-      "title": "Boeing EA-18G Growler",
-      "publisher": "Wikipedia (revision 1377595294)",
-      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_EA-18G_Growler&oldid=1377595294",
-      "date": "2026-09-30"
-    }
+ "aircraft": "ea18g",
+ "note": "EA-18G with the ALQ-99 pods; the ALQ-249 Next Generation Jammer replaces them from 2024 (MS-9 picks one).",
+ "sources": {
+  "wp-ea18g": {
+   "title": "Boeing EA-18G Growler",
+   "publisher": "Wikipedia (revision 1377595294)",
+   "url": "https://en.wikipedia.org/w/index.php?title=Boeing_EA-18G_Growler&oldid=1377595294",
+   "date": "2026-09-30"
+  }
+ },
+ "payloads": [
+  {
+   "name": "radar",
+   "card": "an-apg-79",
+   "source": "wp-ea18g",
+   "evidence": [
+    "AN/APG-79 AESA radar"
+   ]
   },
-  "payloads": [
+  {
+   "name": "receiver",
+   "card": "an-alq-218",
+   "source": "wp-ea18g",
+   "evidence": [
+    "AN/ALQ-218 wideband receivers on the wingtips"
+   ]
+  },
+  {
+   "name": "jammers",
+   "card": "an-alq-99",
+   "count": 3,
+   "source": "wp-ea18g",
+   "note": "the typical three-pod load (two mid-board, one on the centre line); up to five can be hung. The jammer is the payload; each pod it works through is a store (assets/stores/an-alq-99.json), hung by the 'jamming pods' loadout",
+   "evidence": [
+    "up to five ALQ-99 jamming pods"
+   ]
+  },
+  {
+   "name": "stations",
+   "card": "ea18g-store-station",
+   "count": 9,
+   "source": "wp-ea18g",
+   "note": "six under the wings, three under the fuselage; the jamming pods hang on them as stores",
+   "evidence": [
+    "9 total: 6 under-wing and 3 under-fuselage"
+   ]
+  }
+ ],
+ "loadouts": [
+  {
+   "name": "jamming pods",
+   "note": "its typical jamming load: an ALQ-99 pod on each mid-board wing station and one on the centre line - 435 kg each, stores like any other: weighed, drawn and dragging on their stations while carried, and vehicles of their own once jettisoned",
+   "source": "wp-ea18g",
+   "stations": [
     {
-      "name": "radar",
-      "card": "an-apg-79",
-      "source": "wp-ea18g",
-      "evidence": [
-        "AN/APG-79 AESA radar"
-      ]
+     "station": 3,
+     "store": "an-alq-99"
     },
     {
-      "name": "receiver",
-      "card": "an-alq-218",
-      "source": "wp-ea18g",
-      "evidence": [
-        "AN/ALQ-218 wideband receivers on the wingtips"
-      ]
+     "station": 6,
+     "store": "an-alq-99"
     },
     {
-      "name": "jammers",
-      "card": "an-alq-99",
-      "count": 3,
-      "source": "wp-ea18g",
-      "note": "the typical three-pod load its model carries and draws (two mid-board, one on the centre line); up to five can be hung",
-      "evidence": [
-        "up to five ALQ-99 jamming pods"
-      ]
-    },
-    {
-      "name": "stations",
-      "card": "ea18g-store-station",
-      "count": 9,
-      "source": "wp-ea18g",
-      "note": "six under the wings, three under the fuselage; the jamming pods hang on them",
-      "evidence": [
-        "9 total: 6 under-wing and 3 under-fuselage"
-      ]
+     "station": 9,
+     "store": "an-alq-99"
     }
-  ],
-  "loadouts": [
+   ]
+  },
+  {
+   "name": "self-protection",
+   "note": "the article's 'AIM-120 AMRAAM missiles for self-protection at the two conformal fuselage stations'",
+   "source": "wp-ea18g",
+   "stations": [
     {
-      "name": "self-protection",
-      "note": "the article's 'AIM-120 AMRAAM missiles for self-protection at the two conformal fuselage stations'",
-      "source": "wp-ea18g",
-      "stations": [
-        {
-          "payload": "stations",
-          "station": 5,
-          "store": "aim-120c"
-        },
-        {
-          "payload": "stations",
-          "station": 7,
-          "store": "aim-120c"
-        }
-      ]
+     "payload": "stations",
+     "station": 5,
+     "store": "aim-120c"
     },
     {
-      "name": "external tanks",
-      "note": "three 480 US gal tanks, the inboard pair and the centreline (ADR-30, MS-7g: a tank's fuel feeds the aircraft's own tanks; jettisoned, it flies on with what is left)",
-      "source": "wp-ea18g",
-      "stations": [
-        {
-          "station": 4,
-          "store": "fpu-11"
-        },
-        {
-          "station": 6,
-          "store": "fpu-11"
-        },
-        {
-          "station": 8,
-          "store": "fpu-11"
-        }
-      ]
+     "payload": "stations",
+     "station": 7,
+     "store": "aim-120c"
     }
-  ]
+   ]
+  },
+  {
+   "name": "external tanks",
+   "note": "two 480 US gal tanks on the inboard pair, beside the jamming pods: the centre line is left to the low-band pod (ADR-30, MS-7g: a tank's fuel feeds the aircraft's own tanks; jettisoned, it flies on with what is left)",
+   "source": "wp-ea18g",
+   "stations": [
+    {
+     "station": 4,
+     "store": "fpu-11"
+    },
+    {
+     "station": 8,
+     "store": "fpu-11"
+    }
+   ]
+  }
+ ]
 }

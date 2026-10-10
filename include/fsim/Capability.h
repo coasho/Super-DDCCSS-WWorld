@@ -630,6 +630,10 @@ enum ActivityFlag : std::uint16_t {
     kActivityClamped = 1u << 3,       ///< a setpoint was clamped to the advertised range
     kActivityAxesReduced = 1u << 4,   ///< another activity took one of its support axes
     kActivityNavigationPerformance = 1u << 5, ///< its route was farther off its path than its segment's required navigation performance
+    // What the aircraft cannot do, or has stopped doing (docs/vehicle-interface.md, 7.3): its abnormal states.
+    kActivityLowEnergy = 1u << 6, ///< flown faster than commanded: at the speed it asked the aircraft sank, and the speed floor took over
+    kActivityDeviating = 1u << 7, ///< moving away from the altitude it commands, and more than a manoeuvre's excursion off it
+    kActivityUpset = 1u << 8,     ///< the aircraft has departed controlled flight: its angle of attack far past its limit
 };
 
 /// How far an activity has got and what it commands (docs/vehicle-interface.md,
@@ -920,7 +924,28 @@ struct Performance {
     double headingReferenceTasMs = kNone; ///< ...at this true airspeed (it grows with speed); NaN: the same at every speed
     double bankRateRadS = kNone;         ///< a wing's attitude loop: the fastest it changes the bank (a turn is anticipated by it)
     double velocityBandwidthRadS = kNone; ///< a rotorcraft's velocity loop: how fast its ground velocity follows a demand
+    // its load now (docs/vehicle-interface.md, 7.3): the host works it out from what the aircraft weighs, as it changes
+    /// What its least airspeeds are multiplied by for the weight it carries now: the square root of its weight over the
+    /// weight its profile's speeds were flown at, 1 at least (in steps of half a percent). minCasMs has it already;
+    /// a speed read from the profile itself - its stall, its approach speed - is multiplied by it where it is flown.
+    double loadSpeedRatio = 1.0;
+    /// What it weighs beyond its performance tables' weight with the fuel now on board, kg: its stores (negative:
+    /// lighter than the tables were flown). A lookup in the tables by the fuel on board adds it to the fuel.
+    double loadKg = 0.0;
 
+    /// What a commanded airspeed keeps over minCasMs: at its least a wing stalls, and protection's energy rule lets it
+    /// climb only from this much above it (docs/control-architecture.md, the velocity level's limits).
+    static constexpr double kLeastSpeedMargin = 1.1;
+    /// The least calibrated airspeed a command may ask, m/s: minCasMs with that margin, at the weight it has now. What
+    /// a command's speed is checked against (a lesser one clamped, or refused MinAirspeed) and what its performance
+    /// profile gives as its least. NaN where it has no least airspeed.
+    double leastCasMs() const noexcept { return kLeastSpeedMargin * minCasMs; }
+
+    /// The steepest bank a turn may use at calibrated airspeed `casMs`, rad: what leaves the wing a margin over the
+    /// lift its least airspeed has (the load factor of its least airspeed, over 1.3), 15 deg at least - as a route's
+    /// turns are flown (route::mostTurnRate) and as protection bounds every bank demand. Infinite where it has no
+    /// least airspeed, and for a rotorcraft.
+    double turnBankRad(double casMs) const noexcept;
     /// How fast the track follows a course demand at true airspeed `tasMs`,
     /// rad/s: a wing's heading loop (g times its gain over the speed it holds
     /// at), a rotorcraft's velocity loop. A guess of 0.2 where neither is known.

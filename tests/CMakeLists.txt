@@ -26,6 +26,7 @@ add_executable(fsim_tests
     test_guidance.cpp
     test_interface.cpp
     test_modes.cpp
+    test_load_limits.cpp
     test_routes.cpp
     test_patterns.cpp
     test_pattern_shapes.cpp

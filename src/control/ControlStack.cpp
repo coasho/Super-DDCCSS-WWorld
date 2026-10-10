@@ -330,7 +330,16 @@ FSIM_ALWAYS_INLINE void ControlStack::cascade(const ControlContext& ctx, std::si
     [[maybe_unused]] const Protection& protection = config_->protection;
     [[maybe_unused]] const bool limiting = Protected && protection.mode == ProtectionMode::Limit;
     [[maybe_unused]] LimitMask limited = 0;
-    [[maybe_unused]] const LimitState here{&ctx.sensed, tasPerCas_, tasPerMach_, bankCos_};
+    [[maybe_unused]] SpeedFloor floor{floorCasMs_, floorSinkingS_, false, false, floorSteadyS_};
+    [[maybe_unused]] LimitState here{&ctx.sensed, tasPerCas_, tasPerMach_, bankCos_};
+    if constexpr (Protected) {
+        // the turn margin and the speed floor (docs/vehicle-interface.md, 7.3) are a flight mode's and a behaviour's: a
+        // setpoint given at a lower level is flown as it is given, within the envelope alone - the airspeed and the
+        // bank a consumer asked for itself
+        if (slot.level == Level::Behavior) here.bankCapRad = bankCapRad_, here.floor = &floor;
+        here.dt = ctx.dt;
+        here.clean = !(last_.flaps > protection.flapsThreshold) && !(last_.gearDown >= 0.5);
+    }
     auto limit = [&](Command& setpoint) {
         if constexpr (Protected)
             if (limiting) limited = static_cast<LimitMask>(limited | limitSetpoint(setpoint, *active_, protection, here));
@@ -423,6 +432,7 @@ FSIM_ALWAYS_INLINE void ControlStack::cascade(const ControlContext& ctx, std::si
         } else {
             actuate(std::get<ActuatorCommand>(*current), out);
         }
+        keepFloor(floor);
         watch(ctx, limited);
     } else {
         actuate(std::get<ActuatorCommand>(*current), out);
@@ -461,9 +471,13 @@ void ControlStack::flyGeneral(const ControlContext& ctx, sim::ControlInputs& out
 void ControlStack::selectLimits(const ControlContext& ctx, bool state) noexcept {
     // the configuration the aircraft flew into this update with: the flaps and the gear it was given
     active_ = &activeLimits(config_->protection, last_.flaps, last_.gearDown, geared_);
+    floorActive_ = false;
+    bankCapRad_ = std::numeric_limits<double>::infinity();
     if (!state || config_->protection.mode != ProtectionMode::Limit) return;
     const LimitState here = limitState(ctx.sensed, *active_, config_->protection); // as the loops see it
-    tasPerCas_ = here.tasPerCas, tasPerMach_ = here.tasPerMach, bankCos_ = here.bankCos;
+    tasPerCas_ = here.tasPerCas, tasPerMach_ = here.tasPerMach, bankCos_ = here.bankCos, bankCapRad_ = here.bankCapRad;
+    // (on its speed floor it has no thrust to spare for a turn's drag: its turns the shallowest - docs/vehicle-interface.md, 7.3)
+    if (floorCasMs_ > 0.0) bankCapRad_ = std::min(bankCapRad_, kTurnBankFloorRad);
 }
 
 void ControlStack::watch(const ControlContext& ctx, LimitMask limited) noexcept {
@@ -473,6 +487,7 @@ void ControlStack::watch(const ControlContext& ctx, LimitMask limited) noexcept 
         ++report.limits[l].limitedUpdates;
         report.axisFlags[static_cast<std::size_t>(limitAxis(static_cast<Limit>(l)))] |= kDemandLimited;
     }
+    if (floorActive_) report.axisFlags[static_cast<std::size_t>(Axis::Thrust)] |= kLowEnergy; // (the speed floor flies it: 7.3)
     std::array<double, kLimitCount> excess;
     const LimitMask beyond = exceeded(*active_, ctx.state, excess); // the aircraft's truth, not what its sensors say
     for (unsigned m = beyond; m; m &= m - 1) {
@@ -511,7 +526,15 @@ void ControlStack::flyMerged(const ControlContext& ctx, sim::ControlInputs& out)
     // the envelope before its loop flies it, as the loops see the state.
     const Protection& protection = c.protection;
     const bool limiting = protection.mode == ProtectionMode::Limit;
-    const LimitState here{&ctx.sensed, tasPerCas_, tasPerMach_, bankCos_};
+    SpeedFloor floor{floorCasMs_, floorSinkingS_, false, false, floorSteadyS_};
+    LimitState here{&ctx.sensed, tasPerCas_, tasPerMach_, bankCos_};
+    // (the turn margin and the speed floor: where every axis flown is a behaviour's - as cascade())
+    bool behaviours = true;
+    for (std::size_t a = 0; a < kPrimary; ++a)
+        if (from[a] && at[a] != Level::Behavior) behaviours = false;
+    if (behaviours) here.bankCapRad = bankCapRad_, here.floor = &floor;
+    here.dt = ctx.dt;
+    here.clean = !(last_.flaps > protection.flapsThreshold) && !(last_.gearDown >= 0.5);
     LimitMask limited = 0;
 
     // The vehicle default's hold (VehicleDefault::Hold) enters at the velocity
@@ -660,7 +683,16 @@ void ControlStack::flyMerged(const ControlContext& ctx, sim::ControlInputs& out)
     assembled = final;
     derived_[static_cast<std::size_t>(Level::Actuator)] = &assembled;
     actuate(final, out);
+    keepFloor(floor);
     limited_ = limited; // flyGeneral reports it, with the state's exceedances
+}
+
+void ControlStack::keepFloor(const SpeedFloor& floor) noexcept {
+    // kept while a velocity setpoint is flown; forgotten once none is (a lower level flies its own speed)
+    floorCasMs_ = floor.seen ? floor.casMs : 0.0;
+    floorSinkingS_ = floor.seen ? floor.sinkingS : 0.0;
+    floorSteadyS_ = floor.seen ? floor.steadyS : 0.0;
+    floorActive_ = floor.active;
 }
 
 void ControlStack::actuate(const ActuatorCommand& a, sim::ControlInputs& out) noexcept {
@@ -714,6 +746,7 @@ void ControlStack::reset() {
     derived_.fill(nullptr);
     holdValid_ = 0; // the default's hold captures afresh
     last_ = initial_;
+    floorCasMs_ = floorSinkingS_ = floorSteadyS_ = 0.0, floorActive_ = false;
 }
 
 } // namespace fsim::control

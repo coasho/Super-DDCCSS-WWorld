@@ -156,8 +156,12 @@ void WorldPublisher::requestFocus(std::uint32_t vehicleId) noexcept {
     header_->focusSequence.fetch_add(1, std::memory_order_release); // (the vehicle visible before the count moves)
 }
 
+bool WorldPublisher::due() const noexcept {
+    return header_ && static_cast<double>(platform::Clock::nanoseconds() - lastPublishNs_) * 1e-9 >= options_.publishIntervalSeconds;
+}
+
 bool WorldPublisher::publish(double simTime, Span<const sim::VehicleState> states, Span<const sim::ControlInputs> inputs,
-                             bool force) noexcept {
+                             bool force, Span<const FlightStatus> status) noexcept {
     if (!header_) return false;
     const std::int64_t now = platform::Clock::nanoseconds();
     if (!force && static_cast<double>(now - lastPublishNs_) * 1e-9 < options_.publishIntervalSeconds) return false;
@@ -179,6 +183,7 @@ bool WorldPublisher::publish(double simTime, Span<const sim::VehicleState> state
     for (std::uint32_t i = 0; i < n; ++i) {
         v[i].state = states[i];
         if (i < inputs.size()) v[i].inputs = inputs[i];
+        if (i < status.size()) std::memcpy(v[i].derived, status[i].derived, sizeof v[i].derived);
     }
     s->seq.fetch_add(1, std::memory_order_acq_rel);
     header_->publishSequence.store(s->sequence, std::memory_order_release);

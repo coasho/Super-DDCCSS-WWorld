@@ -107,9 +107,69 @@ def _fin(spec, radius, angle):
     return v, np.array(t)
 
 
+def cargo_cards():
+    """Each cargo store's card (assets/stores, class "cargo"), by the name it is drawn by (its id without hyphens)."""
+    import json
+    out = {}
+    d = os.path.join(pipeline.repo_root(), "assets", "stores")
+    for f in sorted(os.listdir(d)):
+        if f.endswith(".json"):
+            with open(os.path.join(d, f), encoding="utf-8") as h:
+                c = json.load(h)
+            if c.get("class") == "cargo":
+                out[c["id"].replace("-", "")] = c
+    return out
+
+
+def _box(x0, x1, y0, y1, z0, z1):
+    """A box's vertices and triangles (the design's frame: x aft, y right, z up), each face its own four vertices so
+    that its edges stay sharp."""
+    c = [(x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0), (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1)]
+    faces = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (2, 3, 7, 6), (1, 2, 6, 5), (3, 0, 4, 7)]  # outward, counter-clockwise
+    v, t = [], []
+    for f in faces:
+        n = len(v)
+        v += [c[i] for i in f]
+        t += [(n, n + 1, n + 2), (n, n + 2, n + 3)]
+    return np.array(v, float), np.array(t)
+
+
+def write_cargo(name, card, path):
+    """A cargo store for the viewer: its pallet or skid board, its load a block under it, and the straps of its net -
+    a box of its card's size, as its flight model is, its origin at its middle."""
+    p = card["parameters"]
+    L, W, H = p["length_m"]["value"], p["width_m"]["value"], p["height_m"]["value"]
+    B = model3d._Builder()
+    base = B.material("pallet", (0.68, 0.69, 0.70), metallic=0.6, rough=0.45)   # aluminium skin, or a plywood skid board
+    load = B.material("load", (0.36, 0.38, 0.26), metallic=0.0, rough=0.9)      # olive canvas
+    strap = B.material("net", (0.16, 0.17, 0.13), metallic=0.0, rough=0.85)
+    origin = np.array([0.5 * L, 0.0, 0.0])
+    slab, inset, proud, band = 0.057, 0.04, 0.012, 0.05  # m: the pallet's thickness, the load's margin on it, the straps
+    z0, z1 = -0.5 * H, 0.5 * H
+    parts = []
+
+    def add(box, material):
+        v, t = box
+        parts.append((model3d._to_gltf(v, origin), t, material))
+
+    add(_box(0.0, L, -0.5 * W, 0.5 * W, z0, z0 + slab), base)
+    add(_box(inset, L - inset, -0.5 * W + inset, 0.5 * W - inset, z0 + slab, z1 - proud), load)
+    for f in (0.3, 0.7):  # two straps round it each way, standing proud of the load
+        x = f * L
+        add(_box(x - band / 2, x + band / 2, -0.5 * W + inset - proud, 0.5 * W - inset + proud, z0 + slab, z1), strap)
+        y = (f - 0.5) * W
+        add(_box(inset - proud, L - inset + proud, y - band / 2, y + band / 2, z0 + slab, z1), strap)
+    mesh = B.mesh(name, parts)
+    node = B.node(name + "-body", mesh=mesh)
+    model3d.finish(B, [node], name, path)
+    return path
+
+
 def write_store(name, path=None):
-    s = STORES[name] if name in STORES else tank_spec(tank_cards()[name])
     path = path or os.path.join(pipeline.repo_root(), "assets", "models", name + ".glb")
+    if name not in STORES and name in cargo_cards():
+        return write_cargo(name, cargo_cards()[name], path)
+    s = STORES[name] if name in STORES else tank_spec(tank_cards()[name])
     B = model3d._Builder()
     body = B.material("body", s["colour"], metallic=0.2, rough=0.55)
     band = B.material("band", s["band"], metallic=0.1, rough=0.6) if "band" in s else None

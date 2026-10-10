@@ -321,10 +321,12 @@ fuselage = 7200
 "outboard pylon" = 150
 [[mass.payload]]
 name = "pilots"
+kind = "crew"
 mass = 200
 position = [5.000, 0.0, 0.550]
 [[mass.payload]]
 name = "navigator and weapons officer"
+kind = "crew"
 mass = 200
 position = [3.600, 0.0, -0.100]
 # The Tu-16's 36,000 kg of fuel: fuselage tanks ahead of and behind the bomb

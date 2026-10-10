@@ -204,56 +204,10 @@ stations = [
   { x = 14.000, y = 6.430, w = 0.000, top = -0.120, bottom = -0.120 },
 ]
 
-# The jamming load: ALQ-99 tactical jamming pods (the NGJ-MB pods that
-# replace them are about the size: 14 ft, 1,200 lb) - 4.7 m long (against the
-# AGM-88 beside it in photographs: estimate), 0.62 m across, the ram-air
-# turbine's hub at the nose. Two on the mid-board wing pylons (stations 3
-# and 9, 3.6 m out), one on the centre line (station 6) - hung 0.23 m lower
-# than the drawing's pylon puts it (0.29 m off the ground), clear of the
-# main gear's bays, which hollow the airframe above it.
-[[body]]
-name = "ALQ-99 pod"
-kind = "pod"
-mirror = true
-stations = [
-  { x = 9.550, y = 3.600, w = 0.000, top = -0.850, bottom = -0.850 },
-  { x = 9.700, y = 3.600, w = 0.200, top = -0.750, bottom = -0.950, n = 2.0 },
-  { x = 10.100, y = 3.600, w = 0.500, top = -0.600, bottom = -1.100, n = 2.2 },
-  { x = 10.600, y = 3.600, w = 0.620, top = -0.530, bottom = -1.170, n = 2.4 },
-  { x = 13.200, y = 3.600, w = 0.620, top = -0.530, bottom = -1.170, n = 2.4 },
-  { x = 13.900, y = 3.600, w = 0.420, top = -0.620, bottom = -1.080, n = 2.2 },
-  { x = 14.250, y = 3.600, w = 0.000, top = -0.850, bottom = -0.850 },
-]
-
-[[body]]
-name = "centre-line ALQ-99 pod"
-kind = "pod"
-stations = [
-  { x = 8.200, w = 0.000, top = -1.730, bottom = -1.730 },
-  { x = 8.350, w = 0.200, top = -1.630, bottom = -1.830, n = 2.0 },
-  { x = 8.750, w = 0.500, top = -1.480, bottom = -1.980, n = 2.2 },
-  { x = 9.250, w = 0.620, top = -1.410, bottom = -2.050, n = 2.4 },
-  { x = 11.850, w = 0.620, top = -1.410, bottom = -2.050, n = 2.4 },
-  { x = 12.550, w = 0.420, top = -1.500, bottom = -1.960, n = 2.2 },
-  { x = 12.900, w = 0.000, top = -1.730, bottom = -1.730 },
-]
-
-# The pylons (drawn; their drag is in the pods'): the mid-board wing pylons
-# and the centre-line one
-[[strut]]
-name = "wing pylon"
-from = [11.800, 3.600, -0.040]
-to = [11.800, 3.600, -0.600]
-chord = 1.900
-thickness = 0.140
-
-[[strut]]
-name = "centre-line pylon"
-mirror = false
-from = [10.550, 0.000, -0.900]
-to = [10.550, 0.000, -1.480]
-chord = 1.700
-thickness = 0.140
+# The jamming load - ALQ-99 tactical jamming pods on the mid-board wing pylons (stations 3 and 9) and the centre
+# line (station 6) - is not part of the airframe: each pod is a store (assets/stores/an-alq-99.json, its own flight
+# model once released), loaded by its fit's "jamming pods" loadout, weighed and drawn on its station, its drag the
+# station's while it is carried (docs/hangar.md, Mass accounting). The pylons are the stations' (hangar's carriage).
 
 [[engine]]
 name = "F414-GE-400"
@@ -328,28 +282,16 @@ empty_cg = [10.750, 0.0, -0.200]
 gyration = [0.275, 0.450, 0.575]
 [mass.component]              # kg
 "ALQ-218 pod" = 180           # both wing-tip pods (estimate)
-"ALQ-99 pod" = 0              # the jamming pods are payload, below
-"centre-line ALQ-99 pod" = 0
 [[mass.payload]]
 name = "pilot"
+kind = "crew"
 mass = 100
 position = [4.800, 0.0, 0.600]
 [[mass.payload]]
 name = "electronic warfare officer"
+kind = "crew"
 mass = 100
 position = [6.200, 0.0, 0.680]
-[[mass.payload]]
-name = "left ALQ-99 pod"      # about 960 lb each (estimate)
-mass = 435
-position = [11.900, -3.600, -0.850]
-[[mass.payload]]
-name = "right ALQ-99 pod"
-mass = 435
-position = [11.900, 3.600, -0.850]
-[[mass.payload]]
-name = "centre-line ALQ-99 pod"
-mass = 435
-position = [10.550, 0.0, -1.500]
 # internal fuel 13,940 lb (6,323 kg; Wikipedia): four fuselage tanks and the
 # wing tanks (the split is an estimate)
 [[mass.tank]]
