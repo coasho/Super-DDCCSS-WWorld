@@ -1757,6 +1757,8 @@ The stages run one at a time. Each is committed and checked before the next, as 
 
 Findings the stages have measured and not yet fixed. Each has a step that owns it and is accepted only when the step is: it is closed there, fixed and measured in section 14, or shown to be the model's and named there with its evidence. None is left behind because it lies outside the step that found it.
 
+Findings since - the stability suite's, the stores' and the viewer's, B-19 on - are kept in [backlog.md](backlog.md).
+
 | Item | Finding (where measured) | Owned by | Closed when |
 | --- | --- | --- | --- |
 | B-1 | **The C-130J's flight idle.** Its turboprops' flight idle gives about as much thrust as its drag, a glide of 40 to 1 with its gear and flaps out; down a 3 deg slope it gains 13 m/s, flares nose low and bounces 12 m (9 m across). The EC-130H, the same airframe, lands well (FA-10a). A hangar model's: its flight idle's thrust, its propellers' drag at flight idle. | FA-10c, with the drag devices | **closed by FA-10c2** (4.56): hangar's flight idle was a guessed 60 % of N1, a tenth of the core's power; now its ground idle's, next to none. The C-130J lands 282 m along at 1.39 m/s calm and 279 m at 1.40 m/s across, no bounce; the EC-130H lands as well, its taxi and every fleet case flown (section 14) |
