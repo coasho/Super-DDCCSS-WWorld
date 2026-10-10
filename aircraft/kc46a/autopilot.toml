@@ -1,0 +1,20 @@
+# Written by hangar autopilot (2026-09-26 00:41) for kc46a.toml: the aircraft's responses to its
+# controls, identified at a reference condition (docs/hangar.md, The autopilot). The
+# build writes them into the JSBSim aircraft's plant section; the platform designs its
+# control loops from them. Delete this file to fly the platform's shared defaults.
+[reference]   # where they were measured
+tas_ms = 197.319
+eas_ms = 172.198
+altitude_m = 3000
+
+[identified]   # the responses at the reference: per unit of aileron (roll rate, rad/s), elevator (load factor,
+               # g), rudder (sideslip, rad) and throttle (acceleration, m/s2), each with its lag (s); level
+               # flight's throttle, a surface-controlled aircraft's trim law, the zero-lift angle of attack
+roll = { gain = 0.900462, lag_s = 0.408021 }
+pitch = { gain = 3.79908, lag_s = 0.47395 }
+yaw = { gain = 0.628779 }
+speed = { gain = 2.55413, lag_s = 0.255785 }
+throttle_trim = 0.677739
+elevator_trim = 0.0773949
+elevator_trim_lift = -0.196606
+alpha_zero_lift_rad = -0.100855

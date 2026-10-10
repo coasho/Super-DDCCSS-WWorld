@@ -1,0 +1,209 @@
+{
+  "id": "j20a-store-station",
+  "designation": "J-20A store station",
+  "family": "store_station",
+  "summary": "A suspension point on the J-20A for one store or launcher: missiles, bombs, tanks, pods",
+  "parameters": {},
+  "sources": {
+    "wp-j20a": {
+      "title": "Chengdu J-20",
+      "publisher": "Wikipedia (revision 1378338980)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Chengdu_J-20&oldid=1378338980",
+      "date": "2026-10-04"
+    }
+  },
+  "stations": [
+    {
+      "number": 1,
+      "name": "left outboard",
+      "position_m": [
+        -3.873,
+        -5.204,
+        0.55
+      ],
+      "carriage": "rail+ejector",
+      "launcher": "missile rail or ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "tank",
+        "aam"
+      ],
+      "max_kg": 1000.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 2,
+      "name": "left inboard",
+      "position_m": [
+        -1.948,
+        -1.626,
+        0.344
+      ],
+      "carriage": "rail+ejector",
+      "launcher": "missile rail or ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "tank",
+        "aam"
+      ],
+      "max_kg": 1500.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 3,
+      "name": "left side bay",
+      "position_m": [
+        3.0,
+        -1.4,
+        0.3
+      ],
+      "carriage": "rail",
+      "launcher": "side-bay rail",
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 250.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 4,
+      "name": "main bay 1",
+      "position_m": [
+        0.5,
+        -0.6,
+        0.45
+      ],
+      "carriage": "ejector",
+      "launcher": "ejection launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 400.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 5,
+      "name": "main bay 2",
+      "position_m": [
+        -0.5,
+        -0.2,
+        0.45
+      ],
+      "carriage": "ejector",
+      "launcher": "ejection launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 400.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 6,
+      "name": "main bay 3",
+      "position_m": [
+        0.5,
+        0.2,
+        0.45
+      ],
+      "carriage": "ejector",
+      "launcher": "ejection launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 400.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 7,
+      "name": "main bay 4",
+      "position_m": [
+        -0.5,
+        0.6,
+        0.45
+      ],
+      "carriage": "ejector",
+      "launcher": "ejection launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 400.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 8,
+      "name": "right side bay",
+      "position_m": [
+        3.0,
+        1.4,
+        0.3
+      ],
+      "carriage": "rail",
+      "launcher": "side-bay rail",
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 250.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 9,
+      "name": "right inboard",
+      "position_m": [
+        -1.948,
+        1.626,
+        0.344
+      ],
+      "carriage": "rail+ejector",
+      "launcher": "missile rail or ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "tank",
+        "aam"
+      ],
+      "max_kg": 1500.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 10,
+      "name": "right outboard",
+      "position_m": [
+        -3.873,
+        5.204,
+        0.55
+      ],
+      "carriage": "rail+ejector",
+      "launcher": "missile rail or ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "tank",
+        "aam"
+      ],
+      "max_kg": 1000.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    }
+  ]
+}

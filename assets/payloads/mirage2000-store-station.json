@@ -1,0 +1,197 @@
+{
+  "id": "mirage2000-store-station",
+  "designation": "Mirage 2000C store station",
+  "family": "store_station",
+  "summary": "A suspension point on the Mirage 2000C for one store or launcher: missiles, bombs, tanks, pods",
+  "parameters": {},
+  "sources": {
+    "wp-mirage2000": {
+      "title": "Dassault Mirage 2000",
+      "publisher": "Wikipedia (revision 1378195004)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Dassault_Mirage_2000&oldid=1378195004",
+      "date": "2026-10-03"
+    }
+  },
+  "stations": [
+    {
+      "number": 1,
+      "name": "left outboard",
+      "position_m": [
+        -2.346,
+        -3.736,
+        0.996
+      ],
+      "carriage": "rail+ejector",
+      "launcher": "missile rail or ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 500.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 2,
+      "name": "left inboard",
+      "position_m": [
+        0.065,
+        -1.167,
+        0.93
+      ],
+      "carriage": "rail+ejector",
+      "launcher": "missile rail or ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb",
+        "tank",
+        "aam"
+      ],
+      "max_kg": 1900.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either; its limit raised to the RPL-541/542 full (~1860 kg) it is seen to carry"
+    },
+    {
+      "number": 3,
+      "name": "left fuselage, forward",
+      "position_m": [
+        1.2,
+        -0.6,
+        0.9
+      ],
+      "carriage": "ejector",
+      "launcher": "ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam",
+        "bomb"
+      ],
+      "max_kg": 1000.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 4,
+      "name": "left fuselage, aft",
+      "position_m": [
+        -1.2,
+        -0.6,
+        0.9
+      ],
+      "carriage": "ejector",
+      "launcher": "ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam",
+        "bomb"
+      ],
+      "max_kg": 1000.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 5,
+      "name": "centreline",
+      "position_m": [
+        0.0,
+        0.0,
+        0.9
+      ],
+      "carriage": "ejector",
+      "launcher": "ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "tank",
+        "bomb"
+      ],
+      "max_kg": 1500.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 6,
+      "name": "right fuselage, aft",
+      "position_m": [
+        -1.2,
+        0.6,
+        0.9
+      ],
+      "carriage": "ejector",
+      "launcher": "ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam",
+        "bomb"
+      ],
+      "max_kg": 1000.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 7,
+      "name": "right fuselage, forward",
+      "position_m": [
+        1.2,
+        0.6,
+        0.9
+      ],
+      "carriage": "ejector",
+      "launcher": "ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam",
+        "bomb"
+      ],
+      "max_kg": 1000.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 8,
+      "name": "right inboard",
+      "position_m": [
+        0.065,
+        1.167,
+        0.93
+      ],
+      "carriage": "rail+ejector",
+      "launcher": "missile rail or ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb",
+        "tank",
+        "aam"
+      ],
+      "max_kg": 1900.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either; its limit raised to the RPL-541/542 full (~1860 kg) it is seen to carry"
+    },
+    {
+      "number": 9,
+      "name": "right outboard",
+      "position_m": [
+        -2.346,
+        3.736,
+        0.996
+      ],
+      "carriage": "rail+ejector",
+      "launcher": "missile rail or ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 500.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    }
+  ]
+}

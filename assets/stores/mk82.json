@@ -1,0 +1,76 @@
+{
+  "id": "mk82",
+  "designation": "Mk 82",
+  "class": "bomb",
+  "summary": "500 lb low-drag general-purpose bomb (the Mark 80 series), unguided",
+  "maker": "General Dynamics and others",
+  "model": "jsbsim:mk82",
+  "powerable": false,
+  "jettisonable": true,
+  "parameters": {
+    "mass_kg": {
+      "value": 226.8,
+      "unit": "kg",
+      "uncertainty": 5.0,
+      "basis": "derived",
+      "source": "wp-mk82",
+      "note": "its nominal 500 lb (the article: '500-pound (230 kg)'); JSBSim's mk82 flight model weighs 500 lb"
+    },
+    "length_m": {
+      "value": 2.21,
+      "unit": "m",
+      "uncertainty": 0.02,
+      "basis": "published",
+      "source": "wp-mk82-2026-09"
+    },
+    "diameter_m": {
+      "value": 0.273,
+      "unit": "m",
+      "uncertainty": 0.002,
+      "basis": "published",
+      "source": "wp-mk82-2026-09"
+    },
+    "drag_area_m2": {
+      "value": 0.00741,
+      "unit": "m^2",
+      "uncertainty": 0.00222,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from stores.py (hangar storedrag.py: Hoerner's body of revolution 0.00407, its base 0.00195, its fins' friction 0.00139 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 0.0889,
+      "unit": "m^3",
+      "uncertainty": 0.02667,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.0969 m^3 from stores.py, times Lamb's k2 - k1 = 0.917 for its fineness 8.1 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.24693,
+      "unit": "m^2",
+      "uncertainty": 0.07408,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 1.1523,
+      "unit": "m",
+      "uncertainty": 0.221,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "wp-mk82": {
+      "title": "Mark 82 bomb",
+      "publisher": "Wikipedia (revision 1377504668)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Mark_82_bomb&oldid=1377504668",
+      "date": "2026-09-29"
+    },
+    "wp-mk82-2026-09": {
+      "title": "Mark 82 bomb (its infobox: length 2.21 m, diameter 273 mm, as hangar's store model cites it)",
+      "publisher": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Mark_82_bomb",
+      "date": "2026-09-29"
+    }
+  }
+}

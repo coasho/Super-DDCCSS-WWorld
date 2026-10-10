@@ -1,0 +1,73 @@
+{
+  "id": "an-alq-131",
+  "designation": "AN/ALQ-131(V)",
+  "class": "pod",
+  "summary": "electronic countermeasures pod (A-10, F-16)",
+  "maker": "Northrop Grumman (Westinghouse)",
+  "model": "jsbsim:analq131",
+  "powerable": false,
+  "jettisonable": true,
+  "fins": false,
+  "parameters": {
+    "mass_kg": {
+      "value": 299.2,
+      "unit": "kg",
+      "uncertainty": 30.0,
+      "basis": "assumed",
+      "source": "fi-alq131",
+      "note": "299.2 kg, as a search result quotes its source (the page not opened); its versions run from 390 to 776 lb (a forum's quotes of its manuals)"
+    },
+    "length_m": {
+      "value": 2.798,
+      "unit": "m",
+      "uncertainty": 0.1,
+      "basis": "assumed",
+      "source": "fi-alq131",
+      "note": "279.8 cm, as a search result quotes its source (the page not opened)"
+    },
+    "diameter_m": {
+      "value": 0.4864,
+      "unit": "m",
+      "uncertainty": 0.08,
+      "basis": "assumed",
+      "source": "fi-alq131",
+      "note": "the circle of its section's area: 29.5 x 63 cm, as a search result quotes its source (the page not opened)"
+    },
+    "drag_area_m2": {
+      "value": 0.03336,
+      "unit": "m^2",
+      "uncertainty": 0.01001,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its card, stores.py's pod profile (hangar storedrag.py: Hoerner's body of revolution 0.00941, its base 0.02395, its fins' friction 0.00000 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 0.42102,
+      "unit": "m^3",
+      "uncertainty": 0.12631,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.4875 m^3 from its card, stores.py's pod profile, times Lamb's k2 - k1 = 0.864 for its fineness 5.8 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.37163,
+      "unit": "m^2",
+      "uncertainty": 0.11149,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 1.399,
+      "unit": "m",
+      "uncertainty": 0.2798,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "fi-alq131": {
+      "title": "AN/ALQ-131(V) (279.8 x 29.5 x 63 cm, 299.2 kg) - read as a search result's quote",
+      "publisher": "Forecast International",
+      "url": "https://www.forecastinternational.com/archive/disp_old_pdf.cfm?ARC_ID=636",
+      "date": "2026-10-10"
+    }
+  }
+}

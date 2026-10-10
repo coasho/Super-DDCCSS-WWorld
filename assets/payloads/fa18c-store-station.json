@@ -1,0 +1,195 @@
+{
+  "id": "fa18c-store-station",
+  "designation": "F/A-18C store station",
+  "family": "store_station",
+  "summary": "A suspension point on the F/A-18C for one store or launcher: missiles, bombs, tanks, pods",
+  "parameters": {},
+  "sources": {
+    "wp-fa18c": {
+      "title": "McDonnell Douglas F/A-18 Hornet",
+      "publisher": "Wikipedia (revision 1378488706)",
+      "url": "https://en.wikipedia.org/w/index.php?title=McDonnell_Douglas_F%2FA-18_Hornet&oldid=1378488706",
+      "date": "2026-10-04"
+    }
+  },
+  "stations": [
+    {
+      "number": 1,
+      "name": "left wingtip",
+      "position_m": [
+        -2.221,
+        -5.865,
+        -0.15
+      ],
+      "carriage": "rail",
+      "launcher": "LAU-7 rail",
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 250.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 2,
+      "name": "left outboard",
+      "position_m": [
+        -1.621,
+        -4.572,
+        0.43
+      ],
+      "carriage": "rail+ejector",
+      "launcher": "missile rail or ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb",
+        "aam"
+      ],
+      "max_kg": 1000.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 3,
+      "name": "left inboard",
+      "position_m": [
+        -0.684,
+        -1.429,
+        0.375
+      ],
+      "carriage": "rail+ejector",
+      "launcher": "missile rail or ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb",
+        "tank",
+        "aam"
+      ],
+      "max_kg": 1500.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 4,
+      "name": "left fuselage",
+      "position_m": [
+        -0.3,
+        -0.9,
+        0.8
+      ],
+      "carriage": "ejector",
+      "launcher": "fuselage launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam",
+        "pod"
+      ],
+      "max_kg": 400.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either; it takes a pod too (the ATFLIR, in place of its missile)"
+    },
+    {
+      "number": 5,
+      "name": "centreline",
+      "position_m": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "carriage": "ejector",
+      "launcher": "ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "tank",
+        "pod",
+        "bomb"
+      ],
+      "max_kg": 1500.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 6,
+      "name": "right fuselage",
+      "position_m": [
+        -0.3,
+        0.9,
+        0.8
+      ],
+      "carriage": "ejector",
+      "launcher": "fuselage launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 400.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 7,
+      "name": "right inboard",
+      "position_m": [
+        -0.684,
+        1.429,
+        0.375
+      ],
+      "carriage": "rail+ejector",
+      "launcher": "missile rail or ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb",
+        "tank",
+        "aam"
+      ],
+      "max_kg": 1500.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 8,
+      "name": "right outboard",
+      "position_m": [
+        -1.621,
+        4.572,
+        0.43
+      ],
+      "carriage": "rail+ejector",
+      "launcher": "missile rail or ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb",
+        "aam"
+      ],
+      "max_kg": 1000.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 9,
+      "name": "right wingtip",
+      "position_m": [
+        -2.221,
+        5.865,
+        -0.15
+      ],
+      "carriage": "rail",
+      "launcher": "LAU-7 rail",
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 250.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    }
+  ]
+}

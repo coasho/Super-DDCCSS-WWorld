@@ -1,0 +1,15 @@
+{
+  "id": "gripen-link16",
+  "designation": "JAS 39C Link 16 terminal (model not named)",
+  "family": "comm_terminal",
+  "summary": "Link 16 tactical data link. The source names no model.",
+  "parameters": {},
+  "sources": {
+    "wp-gripen": {
+      "title": "Saab JAS 39 Gripen",
+      "publisher": "Wikipedia (revision 1378862791)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Saab_JAS_39_Gripen&oldid=1378862791",
+      "date": "2026-10-06"
+    }
+  }
+}

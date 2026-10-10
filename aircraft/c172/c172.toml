@@ -1,0 +1,212 @@
+# Cessna 172P, rebuilt by hangar from public dimensions - the calibration
+# aircraft: JSBSim ships a C172 built from flight data (c172x), so this one
+# can be flown against it.
+#
+# Frame: metres, x aft from the firewall, y right, z up from the cabin-floor
+# datum - the same origin JSBSim's c172x uses, so positions compare directly.
+# Sources: Cessna 172P Pilot's Operating Handbook (dimensions, weights,
+# control travel), Jane's All the World's Aircraft, JSBSim c172x (mass
+# properties, gear and tank locations, the tail's arm). The tail's shape is
+# measured off a three-view; its tailplane stands under the fin's leading
+# edge, 15.7 ft behind the wing's aerodynamic centre, as c172x has it.
+
+[aircraft]
+name = "c172"
+description = "Cessna 172P Skyhawk (hangar rebuild)"
+category = "light_ga"
+stands_in_for = ["c172x", "c172p", "c172r"]
+
+[[surface]]
+name = "wing"
+kind = "wing"
+airfoil = "naca2412"
+# Constant 64.8 in chord to the flap/aileron break, tapered to the tip;
+# 1.5 deg incidence at the root, -1.5 at the tip; 1.73 deg dihedral.
+sections = [
+  { le = [0.710, 0.000, 1.500], chord = 1.646, twist = 1.5 },
+  { le = [0.710, 2.553, 1.577], chord = 1.646, twist = 1.5 },
+  { le = [0.868, 5.486, 1.666], chord = 1.016, twist = -1.5 },
+]
+controls = [
+  { name = "flap", channel = "flap", kind = "fowler", span = [0.107, 0.465], chord_fraction = 0.30, limits = [0, 30] },
+  { name = "aileron", channel = "aileron", span = [0.465, 0.930], chord_fraction = 0.23, limits = [-15, 15] },
+]
+
+[[surface]]
+name = "htail"
+kind = "htail"
+airfoil = "naca0010"
+sections = [
+  { le = [5.500, 0.000, 0.920], chord = 1.270, twist = -3.0 },
+  { le = [5.720, 1.725, 0.920], chord = 0.820, twist = -3.0 },
+]
+controls = [
+  { name = "elevator", channel = "elevator", span = [0.10, 1.0], chord_fraction = 0.45, limits = [-28, 23] },
+]
+
+[[surface]]
+name = "fin"
+kind = "fin"
+airfoil = "naca0010"
+sections = [
+  { le = [5.400, 0.000, 1.000], chord = 1.600 },
+  { le = [6.450, 0.000, 2.250], chord = 0.730 },
+]
+controls = [
+  { name = "rudder", channel = "rudder", span = [0.05, 1.0], chord_fraction = 0.40, limits = [-16, 16] },
+]
+
+[[body]]
+name = "fuselage"
+kind = "fuselage"
+stations = [
+  { x = -1.020, w = 0.00, top = 0.676, bottom = 0.676 },
+  { x = -0.950, w = 0.20, top = 0.780, bottom = 0.572 },
+  { x = -0.850, w = 0.40, top = 0.880, bottom = 0.480, n = 2.0 },
+  { x = -0.600, w = 0.86, top = 1.000, bottom = 0.330, n = 2.4 },
+  { x = 0.000, w = 1.00, top = 1.120, bottom = 0.100, n = 2.8 },
+  { x = 0.350, w = 1.06, top = 1.330, bottom = 0.030, n = 3.0 },
+  { x = 0.750, w = 1.08, top = 1.500, bottom = 0.020, n = 3.0 },
+  { x = 1.900, w = 1.08, top = 1.500, bottom = 0.030, n = 3.0 },
+  { x = 2.600, w = 1.00, top = 1.400, bottom = 0.120, n = 2.8 },
+  { x = 3.600, w = 0.74, top = 1.200, bottom = 0.380, n = 2.5 },
+  { x = 5.000, w = 0.44, top = 1.060, bottom = 0.640, n = 2.2 },
+  { x = 6.300, w = 0.24, top = 1.020, bottom = 0.800, n = 2.0 },
+  { x = 7.200, w = 0.04, top = 0.975, bottom = 0.900, n = 2.0 },
+]
+
+# The dorsal fin running forward from the fin along the spine
+[[body]]
+name = "dorsal fin"
+kind = "pod"
+aero = false
+stations = [
+  { x = 4.100, w = 0.000, top = 1.170, bottom = 1.120 },
+  { x = 4.600, w = 0.060, top = 1.200, bottom = 1.000, n = 2.0 },
+  { x = 5.300, w = 0.060, top = 1.270, bottom = 0.980, n = 2.0 },
+  { x = 5.650, w = 0.000, top = 1.260, bottom = 1.000 },
+]
+
+# The wing's lift struts, from the cabin's floor to the spar
+[[strut]]
+name = "wing strut"
+from = [0.950, 0.400, 0.180]
+to = [1.150, 2.500, 1.530]
+chord = 0.16
+thickness = 0.05
+
+[[engine]]
+name = "O-320"
+type = "piston"
+power_kw = 119.3          # 160 hp
+rpm = 2700
+position = [-0.450, 0.0, 0.676]
+mass = 150.0              # installed: engine, accessories, propeller, cowling
+[engine.propeller]
+position = [-0.958, 0.0, 0.676]
+diameter = 1.905          # McCauley 1C160, 75 in
+blades = 2
+pitch = 1.448             # geometric pitch at 75 % radius: the McCauley 1C160/DTM7557's 57 in
+rotation = "cw"
+
+[[gear]]
+name = "Nose Gear"
+position = [-0.173, 0.0, -0.508]
+steerable = true
+max_steer = 10
+wheel_diameter = 0.36
+static_deflection = 0.08
+fairing = true
+attach = [-0.200, 0.0, 0.200]
+
+[[gear]]
+name = "Main Gear"
+mirror = true
+position = [1.478, 1.276, -0.469]
+wheel_diameter = 0.43
+static_deflection = 0.05
+fairing = true
+attach = [1.300, 0.500, 0.100]
+
+[mass]
+empty = 659.5             # 1454 lb
+empty_cg = [1.041, 0.0, 0.927]   # JSBSim c172x
+[[mass.payload]]
+name = "PILOT"
+mass = 86.2
+position = [0.914, -0.356, 0.610]
+[[mass.payload]]
+name = "CO-PILOT"
+mass = 63.5
+position = [0.914, 0.356, 0.610]
+[[mass.payload]]
+name = "PASSENGER 1"
+mass = 59.0
+position = [1.524, -0.356, 0.610]
+[[mass.payload]]
+name = "PASSENGER 2"
+mass = 48.1
+position = [1.524, 0.356, 0.610]
+[[mass.payload]]
+name = "LUGGAGE"
+mass = 54.4
+position = [2.413, 0.0, 0.610]
+[[mass.tank]]
+name = "left tank"
+position = [1.219, -2.845, 1.509]
+capacity = 59.0
+[[mass.tank]]
+name = "right tank"
+position = [1.219, 2.845, 1.509]
+capacity = 59.0
+
+[dimensions]                  # published, overall, gear down (Cessna 172P POH):
+length = 8.28                 # m
+span = 11.00
+height = 2.72
+
+[targets]
+# Cessna 172P POH, 2400 lb, sea level standard day
+stall_speed_kcas = 51       # flaps up
+stall_speed_flaps_kcas = 46 # flaps 30
+max_speed_ktas = 123        # full throttle, sea level
+climb_rate_fpm = 700        # best rate of climb, sea level
+service_ceiling_ft = 13000
+reference = "jsbsim:c172x"  # fly the same tests on this JSBSim aircraft and compare
+
+# The 90 deg crosswind it lands and takes off in at most (docs/flight-autonomy.md,
+# 4.54): beyond it a recovery waves off, and a launch or a taxi is refused. Source:
+# Cessna 172P POH: 15 kt, the maximum demonstrated.
+[operations]
+crosswind_kt = 15
+# Its placards (docs/flight-autonomy.md, 4.57): the most it moves its gear at
+# (the lesser of extending and retracting it), and the most with its flaps out
+# beyond flaps_above (the setting before its landing flaps), KIAS - or why there
+# are none. Source: Cessna 172S Pilot's Operating Handbook, section 2: VFE 110 KIAS to 10 deg
+# of flap, 85 from 10 to 30. Its gear is fixed.
+flaps_kt = 85
+flaps_above = 0.333
+
+# What the platform's discovery rests on (docs/flight-autonomy.md, section 5.2): the
+# aircraft's physical characteristics, each with its public source. hangar writes them into
+# the profile's applicability section and the sources into the file header. A characteristic
+# left out is not declared, and what it governs stays applicable.
+[applicability]
+vertical_flight = false
+ground_contact = "wheels"
+carrier = "none"
+retractable_gear = false
+flaps = true
+drag_devices = "none"
+releasable_stores = "none"
+aerobatic = false
+
+[applicability.sources]
+vertical_flight = "Cessna 172P Pilot's Operating Handbook: a conventional light aeroplane. Conventional take-off and landing: no rotors, lift fans or vectored lift to hover"
+ground_contact = "Cessna 172P Pilot's Operating Handbook: fixed tricycle wheeled gear"
+carrier = "Cessna 172P Pilot's Operating Handbook: a civil land aeroplane"
+retractable_gear = "Cessna 172P Pilot's Operating Handbook: fixed landing gear"
+flaps = "Cessna 172P Pilot's Operating Handbook: electrically operated single-slot flaps to 30 deg"
+drag_devices = "Cessna 172P Pilot's Operating Handbook: no spoilers or airbrakes"
+releasable_stores = "FAA type certificate data sheet 3A12 and the Pilot's Operating Handbook: no provisions for external stores"
+aerobatic = "Cessna 172P Pilot's Operating Handbook: normal and utility categories; aerobatic manoeuvres beyond the utility category's are prohibited"

@@ -1,0 +1,88 @@
+# PL-15, built by hangar from public data (ADR-30, MS-7e1) - written by `python -m hangar missiles pl15`
+# (tools/hangar/hangar/missiles.py), one rule for every missile: edit the table there and write it again.
+#
+# Frame: metres, x aft from the nose's tip, y right, z up from the body's axis. The card (assets/stores/pl-15.json)
+# holds the published figures: length 3.996 m, diameter 0.203 m, mass 210 kg; span 0.45 m (assumed from photographs (the card has none)), tip to tip across
+# opposite fins. Its surfaces fly in an X, 45 deg from the vertical, as it hangs on its launcher (assumed for all).
+# Assumed from photographs, the same way for every missile: the nose's shape and length, each surface's place,
+# chords and sweep, the motor's nozzle and burn, the CG. They only shape the picture until the aero stage runs.
+
+[aircraft]
+name = "pl15"
+description = "PL-15 (hangar build)"
+category = "missile"
+card = "pl-15"             # its store card: the published figures this design holds
+
+[analysis]
+speed = 900.0                # m/s: the Reynolds numbers (Mach 3 at altitude) - assumed
+
+# The body: an ogive radome 2.8 calibres long, the cylinder, a boattail over the nozzle (assumed)
+[[body]]
+name = "body"
+kind = "fuselage"
+stations = [
+  { x = 0.0, w = 0.0, top = 0.0, bottom = 0.0, n = 2 },
+  { x = 0.0171, w = 0.0124, top = 0.0062, bottom = -0.0062, n = 2 },
+  { x = 0.0455, w = 0.032, top = 0.016, bottom = -0.016, n = 2 },
+  { x = 0.0909, w = 0.0611, top = 0.0306, bottom = -0.0306, n = 2 },
+  { x = 0.1592, w = 0.0994, top = 0.0497, bottom = -0.0497, n = 2 },
+  { x = 0.2387, w = 0.1361, top = 0.0681, bottom = -0.0681, n = 2 },
+  { x = 0.341, w = 0.1714, top = 0.0857, bottom = -0.0857, n = 2 },
+  { x = 0.4547, w = 0.1951, top = 0.0976, bottom = -0.0976, n = 2 },
+  { x = 0.5684, w = 0.203, top = 0.1015, bottom = -0.1015, n = 2 },
+  { x = 3.8742, w = 0.203, top = 0.1015, bottom = -0.1015, n = 2 },
+  { x = 3.996, w = 0.1624, top = 0.0812, bottom = -0.0812, n = 2 },
+]
+
+# The tail fins: all-moving about their spindles; root chord 0.3 m, tip 0.14 m, 0.1235 m out from the body, their tips across the card's span (assumed from photographs)
+[[surface]]
+name = "tail fin upper"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [3.65, 0.0696, 0.0696], chord = 0.3 },
+  { le = [3.81, 0.1591, 0.1591], chord = 0.14 },
+]
+controls = [
+  { name = "tail fin upper", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
+]
+
+[[surface]]
+name = "tail fin lower"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [3.65, 0.0696, -0.0696], chord = 0.3 },
+  { le = [3.81, 0.1591, -0.1591], chord = 0.14 },
+]
+controls = [
+  { name = "tail fin lower", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
+]
+
+# The rocket motor: dual pulse (the card): a coast between. Its nozzle in the boattail, its exit 65 % of the base and its burn's phases assumed
+# (none published): only what a replay shows the plume with until a flight model burns it.
+[motor]
+exit = [3.996, 0.0, 0.0]
+exit_diameter = 0.1056
+throat_diameter = 0.0475
+cone_length = 0.1161
+smoke = "reduced"
+[[motor.phase]]
+duration_s = 4
+thrust_kn = 25
+[[motor.phase]]
+duration_s = 6
+thrust_kn = 0.0
+[[motor.phase]]
+duration_s = 4
+thrust_kn = 12
+
+[mass]
+empty = 210                 # kg, the card, motor full
+empty_cg = [1.998, 0.0, 0.0]  # assumed: half way along
+gyration = [0.0178, 0.289, 0.289]  # radii of gyration over length - assumed (a slender rod's: L/sqrt(12))
+
+[dimensions]                  # the card: the span tip to tip across opposite fins
+length = 3.996

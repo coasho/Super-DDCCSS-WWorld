@@ -1,0 +1,15 @@
+{
+  "id": "kc135r-radar",
+  "designation": "KC-135R radar (Pacer CRAG; model not named)",
+  "family": "weather_radar",
+  "summary": "the radar of the Pacer CRAG avionics upgrade (compass, radar and GPS), carded with the weather radars, a transport's navigation radar's nearest family. The source names no model.",
+  "parameters": {},
+  "sources": {
+    "wp-kc135r": {
+      "title": "Boeing KC-135 Stratotanker",
+      "publisher": "Wikipedia (revision 1375087844)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_KC-135_Stratotanker&oldid=1375087844",
+      "date": "2026-09-15"
+    }
+  }
+}

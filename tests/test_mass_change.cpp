@@ -1,0 +1,227 @@
+// A part leaving an aircraft, made physically consistent (sim::FlightModel's mass change; MS-7a's releases, MS-7g's
+// parting sections): the airframe stays where it is, its CG and state move to what is left, momentum is kept.
+#include "mode_flights.h"
+#include "ms/Host.h"
+#include "sim/JsbsimModel.h"
+
+#include <catch2/catch_test_macros.hpp>
+
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <string>
+#include <vector>
+
+using namespace fsim;
+using namespace fsim::modes;
+
+namespace {
+
+struct V {
+    double x = 0.0, y = 0.0, z = 0.0;
+    V operator+(const V& o) const { return {x + o.x, y + o.y, z + o.z}; }
+    V operator-(const V& o) const { return {x - o.x, y - o.y, z - o.z}; }
+    V operator*(double k) const { return {x * k, y * k, z * k}; }
+    double length() const { return std::sqrt(x * x + y * y + z * z); }
+};
+V cross(const V& a, const V& b) { return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; }
+
+/// An aircraft's rigid body now: its mass, CG, velocity (ECEF) and its model's origin (ECEF: its CG less its offset)
+struct Body {
+    double kg = 0.0;
+    V cg, velocity, origin;
+    sim::JsbsimModel::Rigid r;
+};
+
+Body body(sim::FlightModel& m) {
+    auto& j = dynamic_cast<sim::JsbsimModel&>(m);
+    Body b;
+    b.r = j.rigid();
+    b.kg = b.r.massKg;
+    b.cg = {b.r.cgEcef[0], b.r.cgEcef[1], b.r.cgEcef[2]};
+    b.velocity = {b.r.velocityEcef[0], b.r.velocityEcef[1], b.r.velocityEcef[2]};
+    double off[3];
+    m.cgFromOriginBodyM(off);
+    const double* T = b.r.bodyToEcef;
+    const V offset{T[0] * off[0] + T[1] * off[1] + T[2] * off[2], T[3] * off[0] + T[4] * off[1] + T[5] * off[2],
+                   T[6] * off[0] + T[7] * off[1] + T[8] * off[2]};
+    b.origin = b.cg - offset;
+    return b;
+}
+
+} // namespace
+
+TEST_CASE("a mass change: the airframe stays where it is, its CG and state move to what is left (v + w x d), a reaction on it",
+          "[damage][stores][mass]") {
+    session::World w(options("mass-change"));
+    const auto id = wing(w, "mig29a", 6000.0, 220.0);
+    w.step(stepsFor(w, 1.0));
+    sim::FlightModel& m = *w.model(id);
+    auto& j = dynamic_cast<sim::JsbsimModel&>(m);
+    // turning (so the part's point moves as more than the CG does)
+    const double rates[3] = {0.5, 0.2, -0.1};
+    j.setBodyRates(rates);
+    const Body before = body(m);
+    double cg0[3];
+    m.cgFromOriginBodyM(cg0);
+    const double* c0 = before.r.cgStructural;
+    // 500 kg off beside the left wing's tip (structural frame: x aft, y right, z up), a sideways push on what is left
+    const double kg = 500.0, at[3] = {c0[0] + 0.5, c0[1] - 5.0, c0[2] - 0.3}, impulse[3] = {0.0, 2000.0, -500.0};
+    REQUIRE(m.beginMassChange());
+    REQUIRE(m.removeMass(kg, at));
+    REQUIRE(m.endMassChange(nullptr, impulse));
+    const Body after = body(m);
+    // the airframe where it was
+    CHECK((after.origin - before.origin).length() < 1e-6);
+    // the CG where the rest's is: d = -m r / (M - m), r the part's place from the CG (body axes: x and z flipped)
+    double cg1[3];
+    m.cgFromOriginBodyM(cg1);
+    const double M = before.kg;
+    const double r[3] = {-(at[0] - c0[0]), at[1] - c0[1], -(at[2] - c0[2])};
+    for (int k = 0; k < 3; ++k) CHECK(std::abs((cg1[k] - cg0[k]) - (-kg * r[k] / (M - kg))) < 1e-4);
+    CHECK(std::abs(after.kg - (M - kg)) < 0.05);
+    // its velocity: the new CG's (w x d) and the reaction's, in body axes turned to ECEF
+    const V d{cg1[0] - cg0[0], cg1[1] - cg0[1], cg1[2] - cg0[2]};
+    const V dvBody = cross(V{rates[0], rates[1], rates[2]}, d) + V{impulse[0], impulse[1], impulse[2]} * (1.0 / after.kg);
+    const double* T = before.r.bodyToEcef;
+    const V dv{T[0] * dvBody.x + T[1] * dvBody.y + T[2] * dvBody.z, T[3] * dvBody.x + T[4] * dvBody.y + T[5] * dvBody.z,
+               T[6] * dvBody.x + T[7] * dvBody.y + T[8] * dvBody.z};
+    CHECK(((after.velocity - before.velocity) - dv).length() < 1e-6);
+}
+
+TEST_CASE("a MiG-29A's left wing parts with its missiles: it and its piece carry the aircraft's momentum, its airframe does not jump",
+          "[damage][stores][mass][world]") {
+    session::World w(options("mass-wing"));
+    const auto id = wing(w, "mig29a", 6000.0, 220.0);
+    REQUIRE(w.loadLoadout(id, "air-to-air") == ms::Reason::None);
+    w.step(stepsFor(w, 2.0));
+    const Body before = body(*w.model(id));
+    REQUIRE(w.separateSection(id, "left wing"));
+    std::uint32_t piece = 0;
+    for (const auto v : w.vehicleIds())
+        if (w.info(v)->role == ms::Role::Debris) piece = v;
+    REQUIRE(piece != 0);
+    const Body rest = body(*w.model(id)), part = body(*w.model(piece));
+    // the mass: the aircraft's, the piece's - its wing and its three missiles (two R-73s, an R-27R)
+    CHECK(std::abs(rest.kg + part.kg - before.kg) < 0.1);
+    CHECK(part.kg > 600.0);
+    // the momentum (the break's spring pushes them apart: nothing from outside)
+    const V p0 = before.velocity * before.kg, p1 = rest.velocity * rest.kg + part.velocity * part.kg;
+    CHECK((p1 - p0).length() < 1e-5 * p0.length());
+    // the airframe where it was, and their centre of mass where the aircraft's was
+    CHECK((rest.origin - before.origin).length() < 1e-4);
+    const V centre = (rest.cg * rest.kg + part.cg * part.kg) * (1.0 / (rest.kg + part.kg));
+    CHECK((centre - before.cg).length() < 0.01);
+    // the stores went with it: the aircraft's lost, none released
+    int lost = 0;
+    for (const auto& s : w.stores(id)) lost += s.status == ms::StoreStatus::Lost ? 1 : 0;
+    CHECK(lost == 3);
+}
+
+TEST_CASE("stores jettisoned: the carrier's airframe flies on without a jump, though its CG moved", "[stores][mass][world]") {
+    session::World w(options("mass-release"));
+    const auto id = wing(w, "f16c", 5000.0, 220.0);
+    REQUIRE(w.loadLoadout(id, "mk82 x4") == ms::Reason::None);
+    w.step(stepsFor(w, 1.0));
+    std::uint16_t station = 0;
+    for (const auto& pl : w.missionSystems(id)->payloads())
+        if (pl.family == ms::Family::StoreStation) station = pl.index;
+    ms::JettisonCommand all;
+    all.payload = station;
+    all.emergency = true;
+    REQUIRE(w.submit(id, all).accepted());
+    // the origin's path step by step: its second difference its acceleration's (under a millimetre a step), not the CG's
+    // shift (centimetres): what the ejectors push it by aside
+    std::vector<V> path;
+    double cgMoved = 0.0, last[3];
+    w.model(id)->cgFromOriginBodyM(last);
+    for (int k = 0; k < 40; ++k) {
+        w.step(1);
+        path.push_back(body(*w.model(id)).origin);
+        double cg[3];
+        w.model(id)->cgFromOriginBodyM(cg);
+        cgMoved = std::max(cgMoved, std::sqrt((cg[0] - last[0]) * (cg[0] - last[0]) + (cg[1] - last[1]) * (cg[1] - last[1]) +
+                                              (cg[2] - last[2]) * (cg[2] - last[2])));
+        for (int a = 0; a < 3; ++a) last[a] = cg[a];
+    }
+    CHECK(cgMoved > 0.03); // (four Mk 82s off: the CG moved centimetres)
+    double worst = 0.0;
+    for (std::size_t k = 2; k < path.size(); ++k) worst = std::max(worst, (path[k] - path[k - 1] * 2.0 + path[k - 2]).length());
+    if (std::getenv("FSIM_MASS_SHOW")) std::printf("the CG moved %.4f m; the origin's worst second difference %.5f m\n", cgMoved, worst);
+    // (the ejectors' reaction changes its velocity at once - some 2.3 mm a step - and its acceleration adds under one:
+    // well under a tenth of the CG's shift, which the airframe jumped by before)
+    CHECK(worst < 0.1 * cgMoved);
+}
+
+TEST_CASE("an F-16's external tanks feed its own as it burns - fuel moved, none made or lost; jettisoned, each flies on with what was left in it",
+          "[stores][mass][fuel][world]") {
+    session::World w(options("mass-tanks"));
+    const auto id = wing(w, "f16c", 5000.0, 220.0);
+    REQUIRE(w.loadLoadout(id, "external tanks") == ms::Reason::None);
+    w.step(1);
+    auto external = [&] {
+        double kg = 0.0;
+        for (const auto& s : w.stores(id))
+            if (s.status == ms::StoreStatus::Loaded) kg += s.fuelKg;
+        return kg;
+    };
+    const sim::EnergyOnBoard e0 = w.model(id)->energy();
+    const double x0 = external(), m0 = body(*w.model(id)).kg;
+    CHECK(std::abs(x0 - 0.8 * (2 * 370 + 300) * 3.785411784) < 0.5); // (three tanks full: the cards' 0.80 kg/L)
+    w.step(stepsFor(w, 30.0));
+    const sim::EnergyOnBoard e1 = w.model(id)->energy();
+    const double x1 = external(), m1 = body(*w.model(id)).kg;
+    const double burnt = (e0.fuelKg + x0) - (e1.fuelKg + x1);
+    if (std::getenv("FSIM_MASS_SHOW"))
+        std::printf("internal %.2f -> %.2f of %.2f kg, external %.2f -> %.2f kg, mass %.2f -> %.2f kg\n", e0.fuelKg, e1.fuelKg, e1.fuelCapacityKg, x0, x1,
+                    m0, m1);
+    CHECK(burnt > 1.0);                           // (its engine burnt some)
+    CHECK(x1 < x0 - 1.0);                         // the tanks gave it ...
+    CHECK(e1.fuelCapacityKg - e1.fuelKg < 1.0);   // ... its own kept topped up (it started full) ...
+    CHECK(std::abs((m0 - m1) - burnt) < 0.05);    // ... and the aircraft is lighter by the fuel burnt alone
+    // the wing tanks drawn alike (a symmetric load stays so)
+    double left = -1.0, right = -2.0;
+    for (const auto& s : w.stores(id)) {
+        if (s.station == 4) left = s.fuelKg;
+        if (s.station == 6) right = s.fuelKg;
+    }
+    CHECK(std::abs(left - right) < 1e-6);
+    // jettisoned: each tank is a vehicle of its own, as heavy as it was on its station; the aircraft that much lighter
+    std::vector<double> carried;
+    for (const auto& s : w.stores(id)) carried.push_back(s.massKg);
+    std::uint16_t station = 0;
+    for (const auto& pl : w.missionSystems(id)->payloads())
+        if (pl.family == ms::Family::StoreStation) station = pl.index;
+    ms::JettisonCommand all;
+    all.payload = station;
+    all.emergency = true;
+    const double before = body(*w.model(id)).kg;
+    REQUIRE(w.submit(id, all).accepted());
+    w.step(stepsFor(w, 0.5));
+    double gone = 0.0;
+    std::vector<std::uint32_t> tanks;
+    const auto stores = w.stores(id);
+    for (std::size_t k = 0; k < stores.size(); ++k) {
+        const auto& s = stores[k];
+        REQUIRE(s.status == ms::StoreStatus::Jettisoned);
+        REQUIRE(s.weapon != 0);
+        const double kg = body(*w.model(s.weapon)).kg;
+        CHECK(std::abs(kg - carried[k]) < 0.05);
+        gone += kg;
+        tanks.push_back(s.weapon);
+    }
+    const double after = body(*w.model(id)).kg;
+    CHECK(std::abs((before - after) - gone) < 0.5); // (and half a second's burn)
+    // it falls away below the aircraft (some 40 m in 3 s), behind it as its drag slows it
+    w.step(stepsFor(w, 3.0));
+    const Body tank = body(*w.model(tanks[0])), plane = body(*w.model(id));
+    const double drop = plane.cg.length() - tank.cg.length();
+    const V ahead = plane.velocity * (1.0 / plane.velocity.length());
+    const V apart = plane.cg - tank.cg;
+    const double behind = apart.x * ahead.x + apart.y * ahead.y + apart.z * ahead.z;
+    if (std::getenv("FSIM_MASS_SHOW")) std::printf("3 s after: the tank %.1f m below the aircraft, %.1f m behind it\n", drop, behind);
+    CHECK(drop > 20.0);
+    CHECK(behind > 1.0);
+}

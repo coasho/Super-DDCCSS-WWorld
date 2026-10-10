@@ -1,0 +1,105 @@
+{
+  "aircraft": "a10c",
+  "note": "A-10C. Pods (LITENING, Sniper, ALQ-131, ALQ-184) join with their stores (ADR-30, MS-7). Its radar warning receiver is not named in a source found.",
+  "sources": {
+    "wp-a10c": {
+      "title": "Fairchild Republic A-10 Thunderbolt II",
+      "publisher": "Wikipedia (revision 1378202818)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Fairchild_Republic_A-10_Thunderbolt_II&oldid=1378202818",
+      "date": "2026-10-03"
+    },
+    "dvids-a10": {
+      "title": "A-10 600 gallon Sargent Fletcher tank",
+      "publisher": "DVIDS",
+      "url": "https://www.dvidshub.net/news/printable/112609",
+      "date": "2026-10-09"
+    }
+  },
+  "payloads": [
+    {
+      "name": "gun",
+      "card": "gau-8a",
+      "source": "wp-a10c",
+      "note": "1,174 rounds",
+      "evidence": [
+        "GAU-8/A Avenger rotary cannon with 1,174 rounds"
+      ]
+    },
+    {
+      "name": "stations",
+      "card": "a10c-store-station",
+      "count": 11,
+      "source": "wp-a10c",
+      "note": "eight under the wings, three under the fuselage",
+      "evidence": [
+        "Hardpoints: 11 (8"
+      ]
+    },
+    {
+      "name": "link16",
+      "card": "a10c-link16",
+      "source": "wp-a10c",
+      "note": "with Satcom",
+      "evidence": [
+        "a modern communications suite including a Link 16 radio and Satcom"
+      ]
+    },
+    {
+      "name": "cmds",
+      "card": "a10c-cmds",
+      "source": "wp-a10c",
+      "evidence": [
+        "it carries both flares and chaff cartridges"
+      ]
+    }
+  ],
+  "loadouts": [
+    {
+      "name": "self-defence",
+      "note": "the article's 'two AIM-9 Sidewinder air-to-air missiles for self-defense under the other wing' (an ALQ-131 pod under one): two AIM-9M on the right outboard station's dual rail",
+      "source": "wp-a10c",
+      "stations": [
+        {
+          "payload": "stations",
+          "station": 11,
+          "store": "aim-9m",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "name": "external tanks",
+      "note": "three 600 US gal tanks on 4, 6, 8 (DCS's stations: a game reference) (ADR-30, MS-7g: a tank's fuel feeds the aircraft's own tanks; jettisoned, it flies on with what is left)",
+      "source": "dvids-a10",
+      "stations": [
+        {
+          "station": 4,
+          "store": "a10-tank-600gal"
+        },
+        {
+          "station": 6,
+          "store": "a10-tank-600gal"
+        },
+        {
+          "station": 8,
+          "store": "a10-tank-600gal"
+        }
+      ]
+    },
+    {
+      "name": "pods",
+      "note": "the article's ALQ-131 under one wing (its Sidewinders under the other), a LITENING under the right (which station: assumed) (ADR-30, MS-7g: a pod as a store - its mass and its drag on the aircraft; what it senses or jams is its payload's, not built with it yet)",
+      "source": "wp-a10c",
+      "stations": [
+        {
+          "station": 1,
+          "store": "an-alq-131"
+        },
+        {
+          "station": 10,
+          "store": "an-aaq-28"
+        }
+      ]
+    }
+  ]
+}

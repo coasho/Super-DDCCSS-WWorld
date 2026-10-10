@@ -1,0 +1,38 @@
+{
+  "aircraft": "e7a",
+  "note": "E-7A Wedgetail.",
+  "sources": {
+    "wp-e7a": {
+      "title": "Boeing E-7 Wedgetail",
+      "publisher": "Wikipedia (revision 1378367230)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_E-7_Wedgetail&oldid=1378367230",
+      "date": "2026-10-04"
+    }
+  },
+  "payloads": [
+    {
+      "name": "radar",
+      "card": "mesa",
+      "source": "wp-e7a",
+      "evidence": [
+        "Multi-role Electronically Scanned Array (MESA) radar"
+      ]
+    },
+    {
+      "name": "esm",
+      "card": "e7-esm",
+      "source": "wp-e7a",
+      "evidence": [
+        "Electronic Support Measures (ESM) systems"
+      ]
+    },
+    {
+      "name": "cm",
+      "card": "e7a-cm",
+      "source": "wp-e7a",
+      "evidence": [
+        "countermeasures mounted on the nose, wingtips and tail"
+      ]
+    }
+  ]
+}

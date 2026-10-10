@@ -1,0 +1,15 @@
+{
+  "id": "u2s-datalinks",
+  "designation": "U-2S data links (model not named)",
+  "family": "comm_terminal",
+  "summary": "line-of-sight and over-the-horizon data links. The source names no model.",
+  "parameters": {},
+  "sources": {
+    "wp-u2s": {
+      "title": "Lockheed U-2",
+      "publisher": "Wikipedia (revision 1376928938)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_U-2&oldid=1376928938",
+      "date": "2026-09-27"
+    }
+  }
+}

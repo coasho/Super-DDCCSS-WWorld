@@ -1,0 +1,162 @@
+{
+  "aircraft": "f22a",
+  "note": "F-22A with its MIDS-JTRS terminal (from 2021).",
+  "sources": {
+    "wp-f22a": {
+      "title": "Lockheed Martin F-22 Raptor",
+      "publisher": "Wikipedia (revision 1375913406)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_Martin_F-22_Raptor&oldid=1375913406",
+      "date": "2026-09-20"
+    },
+    "fas-f22": {
+      "title": "F-22 Raptor (four underwing hardpoints, 5,000 lb each; 600 US gal tanks, two for CAP, four to ferry)",
+      "publisher": "FAS",
+      "url": "https://man.fas.org/dod-101/sys/ac/f-22.htm",
+      "date": "2026-10-09"
+    }
+  },
+  "payloads": [
+    {
+      "name": "radar",
+      "card": "an-apg-77",
+      "source": "wp-f22a",
+      "evidence": [
+        "AN/APG-77 active electronically scanned array"
+      ]
+    },
+    {
+      "name": "ews",
+      "card": "an-alr-94",
+      "source": "wp-f22a",
+      "evidence": [
+        "AN/ALR-94 electronic warfare system"
+      ]
+    },
+    {
+      "name": "mld",
+      "card": "an-aar-56",
+      "source": "wp-f22a",
+      "evidence": [
+        "AN/AAR-56 infrared and ultraviolet Missile Launch Detector"
+      ]
+    },
+    {
+      "name": "gun",
+      "card": "m61a2",
+      "source": "wp-f22a",
+      "note": "480 rounds",
+      "evidence": [
+        "M61A2 Vulcan rotary cannon, 480 rounds"
+      ]
+    },
+    {
+      "name": "stations",
+      "card": "f22a-store-station",
+      "count": 12,
+      "source": "wp-f22a",
+      "note": "eight internal weapon stations in the weapons bays, and four external on the wings (the article's '4x AIM-120 AMRAAM (external)')",
+      "evidence": [
+        "internal weapon stations"
+      ]
+    },
+    {
+      "name": "ifdl",
+      "card": "ifdl",
+      "source": "wp-f22a",
+      "evidence": [
+        "Inter/Intra-Flight Datalink (IFDL)"
+      ]
+    },
+    {
+      "name": "mids",
+      "card": "mids-jtrs",
+      "source": "wp-f22a",
+      "note": "installed from 2021",
+      "evidence": [
+        "A MIDS-JTRS terminal, which includes Mode 5 IFF and Link 16 transmit/receive capability"
+      ]
+    },
+    {
+      "name": "flares",
+      "card": "f22a-flare-bays",
+      "count": 2,
+      "source": "wp-f22a",
+      "note": "one behind each side weapons bay",
+      "evidence": [
+        "a small bay for countermeasures such as flares is located behind each side bay"
+      ]
+    }
+  ],
+  "loadouts": [
+    {
+      "name": "air superiority",
+      "note": "the article's internal load: '6 × AIM-120C/D AMRAAM' and '2 × AIM-9M/X Sidewinder'",
+      "source": "wp-f22a",
+      "stations": [
+        {
+          "payload": "stations",
+          "station": 4,
+          "store": "aim-120c"
+        },
+        {
+          "payload": "stations",
+          "station": 5,
+          "store": "aim-120c"
+        },
+        {
+          "payload": "stations",
+          "station": 6,
+          "store": "aim-120c"
+        },
+        {
+          "payload": "stations",
+          "station": 7,
+          "store": "aim-120c"
+        },
+        {
+          "payload": "stations",
+          "station": 8,
+          "store": "aim-120c"
+        },
+        {
+          "payload": "stations",
+          "station": 9,
+          "store": "aim-120c"
+        },
+        {
+          "payload": "stations",
+          "station": 3,
+          "store": "aim-9x"
+        },
+        {
+          "payload": "stations",
+          "station": 10,
+          "store": "aim-9x"
+        }
+      ]
+    },
+    {
+      "name": "external tanks",
+      "note": "the ferry load: four 600 US gal tanks (ADR-30, MS-7g: a tank's fuel feeds the aircraft's own tanks; jettisoned, it flies on with what is left)",
+      "source": "fas-f22",
+      "stations": [
+        {
+          "station": 1,
+          "store": "f22-tank-600gal"
+        },
+        {
+          "station": 2,
+          "store": "f22-tank-600gal"
+        },
+        {
+          "station": 11,
+          "store": "f22-tank-600gal"
+        },
+        {
+          "station": 12,
+          "store": "f22-tank-600gal"
+        }
+      ]
+    }
+  ]
+}

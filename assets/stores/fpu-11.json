@@ -1,0 +1,100 @@
+{
+  "id": "fpu-11",
+  "designation": "FPU-11/A 480 US gal tank",
+  "class": "tank",
+  "summary": "the F/A-18E/F's and EA-18G's tank, inboard and centreline",
+  "maker": "Boeing",
+  "model": "jsbsim:fpu11",
+  "powerable": false,
+  "jettisonable": true,
+  "fins": false,
+  "parameters": {
+    "capacity_l": {
+      "value": 1816.9977,
+      "unit": "L",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-ea18g"
+    },
+    "fuel_kg": {
+      "value": 1453.5981,
+      "unit": "kg",
+      "uncertainty": 72.6799,
+      "basis": "derived",
+      "source": "wp-jetfuel",
+      "note": "its capacity full at 0.80 kg/L (Jet A-1 / JP-8 at 15 C lies 0.775 - 0.840): one density for every tank"
+    },
+    "mass_kg": {
+      "value": 140.6136,
+      "unit": "kg",
+      "uncertainty": 42.1841,
+      "basis": "assumed",
+      "source": "tapatalk-480",
+      "note": "310 lb dry: DTIC report ADA229844 as a forum quotes it (not read); its 3,254 lb of fuel in the quote is 0.81 kg/L"
+    },
+    "length_m": {
+      "value": 5.461,
+      "unit": "m",
+      "uncertainty": 0.1092,
+      "basis": "assumed",
+      "source": "tapatalk-480",
+      "note": "215 in long, 31.9 in across: DTIC report ADA229844 as a forum quotes it (not read)"
+    },
+    "diameter_m": {
+      "value": 0.8103,
+      "unit": "m",
+      "uncertainty": 0.0162,
+      "basis": "assumed",
+      "source": "tapatalk-480",
+      "note": "215 in long, 31.9 in across: DTIC report ADA229844 as a forum quotes it (not read)"
+    },
+    "drag_area_m2": {
+      "value": 0.02944,
+      "unit": "m^2",
+      "uncertainty": 0.00883,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its card, stores.py's tank profile (hangar storedrag.py: Hoerner's body of revolution 0.02681, its base 0.00262, its fins' friction 0.00000 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 1.88193,
+      "unit": "m^3",
+      "uncertainty": 0.56458,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 2.1116 m^3 from its card, stores.py's tank profile, times Lamb's k2 - k1 = 0.891 for its fineness 6.7 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.04125,
+      "unit": "m^2",
+      "uncertainty": 0.01238,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 2.7305,
+      "unit": "m",
+      "uncertainty": 0.5461,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "tapatalk-480": {
+      "title": "Super Hornet 480 gallon drop tank dimensions (forum quoting DTIC ADA229844: 310 lb dry, 215 in long, 31.9 in diameter)",
+      "publisher": "Warships1 forum",
+      "url": "https://www.tapatalk.com/groups/warships1discussionboards/super-hornet-480-gallon-drop-tank-dimension-t42788.html",
+      "date": "2026-10-09"
+    },
+    "wp-ea18g": {
+      "title": "Boeing EA-18G Growler (480 US gal tanks)",
+      "publisher": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Boeing_EA-18G_Growler",
+      "date": "2026-10-09"
+    },
+    "wp-jetfuel": {
+      "title": "Jet fuel (Jet A-1: density 0.804 kg/L at 15 C)",
+      "publisher": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Jet_fuel",
+      "date": "2026-10-09"
+    }
+  }
+}

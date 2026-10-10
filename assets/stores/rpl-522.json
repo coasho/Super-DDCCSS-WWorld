@@ -1,0 +1,104 @@
+{
+  "id": "rpl-522",
+  "designation": "RPL-522",
+  "class": "tank",
+  "summary": "the Mirage 2000's 1,300 L centreline tank",
+  "maker": "Dassault",
+  "model": "jsbsim:rpl522",
+  "powerable": false,
+  "jettisonable": true,
+  "fins": false,
+  "parameters": {
+    "capacity_l": {
+      "value": 1300.0,
+      "unit": "L",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "fas-m2000"
+    },
+    "fuel_kg": {
+      "value": 1040.0,
+      "unit": "kg",
+      "uncertainty": 52.0,
+      "basis": "derived",
+      "source": "wp-jetfuel",
+      "note": "its capacity full at 0.80 kg/L (Jet A-1 / JP-8 at 15 C lies 0.775 - 0.840): one density for every tank"
+    },
+    "mass_kg": {
+      "value": 97.0,
+      "unit": "kg",
+      "uncertainty": 29.1,
+      "basis": "derived",
+      "source": "am-rpl522",
+      "note": "its listed 1,135 kg less the 1,038 kg of fuel FAS gives a full one (the listing does not say full: read as full); War Thunder lists 105 kg"
+    },
+    "length_m": {
+      "value": 5.7,
+      "unit": "m",
+      "uncertainty": 0.114,
+      "basis": "published",
+      "source": "am-rpl522"
+    },
+    "diameter_m": {
+      "value": 0.63,
+      "unit": "m",
+      "uncertainty": 0.0126,
+      "basis": "published",
+      "source": "am-rpl522"
+    },
+    "drag_area_m2": {
+      "value": 0.02217,
+      "unit": "m^2",
+      "uncertainty": 0.00665,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its card, stores.py's tank profile (hangar storedrag.py: Hoerner's body of revolution 0.02077, its base 0.00140, its fins' friction 0.00000 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 1.23939,
+      "unit": "m^3",
+      "uncertainty": 0.37182,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 1.3323 m^3 from its card, stores.py's tank profile, times Lamb's k2 - k1 = 0.930 for its fineness 9.0 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.02494,
+      "unit": "m^2",
+      "uncertainty": 0.00748,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 2.85,
+      "unit": "m",
+      "uncertainty": 0.57,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "am-rpl522": {
+      "title": "RPL-522 (5,700 mm, 630 mm, 1,135 kg)",
+      "publisher": "Aviations Militaires",
+      "url": "https://aviationsmilitaires.net/v3/kb/externalload/show/947/rpl-522",
+      "date": "2026-10-09"
+    },
+    "fas-m2000": {
+      "title": "Mirage 2000 (1,300 L centreline tank: 1,038 kg of fuel; 1,700 L wing tanks)",
+      "publisher": "FAS",
+      "url": "https://man.fas.org/dod-101/sys/ac/row/mirage-2000.htm",
+      "date": "2026-10-09"
+    },
+    "wp-jetfuel": {
+      "title": "Jet fuel (Jet A-1: density 0.804 kg/L at 15 C)",
+      "publisher": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Jet_fuel",
+      "date": "2026-10-09"
+    },
+    "wt": {
+      "title": "War Thunder wiki (game reference)",
+      "publisher": "Gaijin Entertainment",
+      "url": "https://wiki.warthunder.com/",
+      "date": "2026-10-09"
+    }
+  }
+}

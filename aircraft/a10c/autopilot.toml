@@ -1,0 +1,20 @@
+# Written by hangar autopilot (2026-09-26 00:36) for a10c.toml: the aircraft's responses to its
+# controls, identified at a reference condition (docs/hangar.md, The autopilot). The
+# build writes them into the JSBSim aircraft's plant section; the platform designs its
+# control loops from them. Delete this file to fly the platform's shared defaults.
+[reference]   # where they were measured
+tas_ms = 150.616
+eas_ms = 130.769
+altitude_m = 3000
+
+[identified]   # the responses at the reference: per unit of aileron (roll rate, rad/s), elevator (load factor,
+               # g), rudder (sideslip, rad) and throttle (acceleration, m/s2), each with its lag (s); level
+               # flight's throttle, a surface-controlled aircraft's trim law, the zero-lift angle of attack
+roll = { gain = 4.08783, lag_s = 0.189688 }
+pitch = { gain = 10.6307, lag_s = 0.381037 }
+yaw = { gain = 0.481414 }
+speed = { gain = 3.66295, lag_s = 0.0986749 }
+throttle_trim = 0.807996
+elevator_trim = -0.111777
+elevator_trim_lift = -0.114644
+alpha_zero_lift_rad = -0.125614

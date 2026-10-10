@@ -1,0 +1,15 @@
+{
+  "id": "a10c-cmds",
+  "designation": "A-10C chaff and flare dispensers (model not named)",
+  "family": "countermeasures",
+  "summary": "chaff and flare cartridge dispensers. The source names no model.",
+  "parameters": {},
+  "sources": {
+    "wp-a10c": {
+      "title": "Fairchild Republic A-10 Thunderbolt II",
+      "publisher": "Wikipedia (revision 1378202818)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Fairchild_Republic_A-10_Thunderbolt_II&oldid=1378202818",
+      "date": "2026-10-03"
+    }
+  }
+}

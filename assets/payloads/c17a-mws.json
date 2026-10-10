@@ -1,0 +1,15 @@
+{
+  "id": "c17a-mws",
+  "designation": "C-17A missile warning system (model not named)",
+  "family": "passive_optical",
+  "summary": "missile warning, named among the equipment bought with C-17s. The source names no model.",
+  "parameters": {},
+  "sources": {
+    "wp-c17a": {
+      "title": "Boeing C-17 Globemaster III",
+      "publisher": "Wikipedia (revision 1376719976)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_C-17_Globemaster_III&oldid=1376719976",
+      "date": "2026-09-25"
+    }
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "aircraft": "typhoon",
+  "note": "Typhoon Tranche 2 with the mechanically scanned Captor-M.",
+  "sources": {
+    "wp-typhoon": {
+      "title": "Eurofighter Typhoon",
+      "publisher": "Wikipedia (revision 1378850990)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Eurofighter_Typhoon&oldid=1378850990",
+      "date": "2026-10-06"
+    },
+    "wp-litening": {
+      "title": "AN/AAQ-28 Litening (2.20 m, 0.406 m, 208 kg; carried by the Gripen and the Typhoon among others)",
+      "publisher": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/AN/AAQ-28_Litening",
+      "date": "2026-10-10"
+    }
+  },
+  "payloads": [
+    {
+      "name": "radar",
+      "card": "captor-m",
+      "source": "wp-typhoon",
+      "evidence": [
+        "The Captor-M has three working channels"
+      ]
+    },
+    {
+      "name": "irst",
+      "card": "pirate",
+      "source": "wp-typhoon",
+      "evidence": [
+        "PIRATE IRST"
+      ]
+    },
+    {
+      "name": "das",
+      "card": "praetorian",
+      "source": "wp-typhoon",
+      "evidence": [
+        "Defensive Aids Sub-System named Praetorian"
+      ]
+    },
+    {
+      "name": "gun",
+      "card": "bk-27",
+      "source": "wp-typhoon",
+      "note": "150 rounds",
+      "evidence": [
+        "BK-27 revolver cannon with 150 rounds"
+      ]
+    },
+    {
+      "name": "stations",
+      "card": "typhoon-store-station",
+      "count": 13,
+      "source": "wp-typhoon",
+      "note": "eight under the wings, five under the fuselage",
+      "evidence": [
+        "Total of 13"
+      ]
+    },
+    {
+      "name": "mids",
+      "card": "mids",
+      "source": "wp-typhoon",
+      "evidence": [
+        "MIDS provides a Link 16 data link"
+      ]
+    }
+  ],
+  "loadouts": [
+    {
+      "name": "air-to-air",
+      "note": "the article's typical '4 × AMRAAM, 2 × ASRAAM/IRIS-T': the AMRAAM semi-recessed under the fuselage, the ASRAAM on the outermost wing stations",
+      "source": "wp-typhoon",
+      "stations": [
+        {
+          "payload": "stations",
+          "station": 5,
+          "store": "aim-120c"
+        },
+        {
+          "payload": "stations",
+          "station": 6,
+          "store": "aim-120c"
+        },
+        {
+          "payload": "stations",
+          "station": 8,
+          "store": "aim-120c"
+        },
+        {
+          "payload": "stations",
+          "station": 9,
+          "store": "aim-120c"
+        },
+        {
+          "payload": "stations",
+          "station": 1,
+          "store": "asraam"
+        },
+        {
+          "payload": "stations",
+          "station": 13,
+          "store": "asraam"
+        }
+      ]
+    },
+    {
+      "name": "external tanks",
+      "note": "three 1,000 L tanks, the centreline and the centre-wing pair (ADR-30, MS-7g: a tank's fuel feeds the aircraft's own tanks; jettisoned, it flies on with what is left)",
+      "source": "wp-typhoon",
+      "stations": [
+        {
+          "station": 3,
+          "store": "typhoon-tank-1000l"
+        },
+        {
+          "station": 11,
+          "store": "typhoon-tank-1000l"
+        },
+        {
+          "station": 7,
+          "store": "typhoon-tank-1000l"
+        }
+      ]
+    },
+    {
+      "name": "pods",
+      "note": "a Litening on the centreline (its station there is not in a source found: assumed) (ADR-30, MS-7g: a pod as a store - its mass and its drag on the aircraft; what it senses or jams is its payload's, not built with it yet)",
+      "source": "wp-litening",
+      "stations": [
+        {
+          "station": 7,
+          "store": "an-aaq-28"
+        }
+      ]
+    }
+  ]
+}

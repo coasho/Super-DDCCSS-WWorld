@@ -1,0 +1,24 @@
+{
+  "aircraft": "uh1h",
+  "note": "UH-1H with its door guns.",
+  "sources": {
+    "wp-p-m60": {
+      "title": "M60 machine gun",
+      "publisher": "Wikipedia (revision 1378729005)",
+      "url": "https://en.wikipedia.org/w/index.php?title=M60_machine_gun&oldid=1378729005",
+      "date": "2026-10-05"
+    }
+  },
+  "payloads": [
+    {
+      "name": "guns",
+      "card": "m60d",
+      "count": 2,
+      "source": "wp-p-m60",
+      "note": "door guns, one each side",
+      "evidence": [
+        "The M60D was equipped on the UH-1D/H Huey"
+      ]
+    }
+  ]
+}

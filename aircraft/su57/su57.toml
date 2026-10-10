@@ -1,0 +1,319 @@
+# Sukhoi Su-57 (T-50), built by hangar from published dimensions and public
+# estimates. The thrust-vectoring nozzles are not modelled yet: its angle of
+# attack is held to the 26 deg its aerodynamic controls can hold. Its
+# leading-edge vortex controllers (LEVCONs) are fixed strakes here.
+#
+# Frame: metres, x aft from the nose tip, y right, z up from the wing's chord
+# plane. Sources: United Aircraft Corporation and public reference works
+# (dimensions, weights, performance); Saturn (AL-41F1). The shape is measured
+# off a three-view; the gear's layout as published (twin nose wheels folding
+# aft under the cockpit floor, the mains into the intakes' sides), its
+# positions estimated.
+
+[aircraft]
+name = "su57"
+description = "Sukhoi Su-57 (hangar build, from public data and estimates)"
+category = "fighter"
+
+[analysis]
+speed = 260.0
+
+# The wing: 78.8 m2 published, span 14.10 m, 49 deg leading edge outboard
+# of the LEVCONs, its trailing edge swept forward 10 deg (82 m2 to the centre
+# line as drawn), no dihedral. The CG sits 5 % of the MAC ahead of the
+# neutral point hangar finds: without the thrust vectoring the stabilators
+# alone hold the nose down against the LEVCONs' lift at high angles of
+# attack.
+[[surface]]
+name = "wing"
+kind = "wing"
+sections = [
+  { le = [7.400, 0.000, 0.000], chord = 9.500, airfoil = "naca64a005" },
+  { le = [10.110, 3.140, 0.000], chord = 6.610, airfoil = "naca64a004" },
+  { le = [14.570, 7.050, 0.000], chord = 1.450, airfoil = "naca64a003" },
+]
+controls = [
+  { name = "aileron", channel = "aileron", span = [0.70, 0.95], chord_fraction = 0.26, limits = [-25, 25] },
+  { name = "flaperon", channel = "aileron", mix = { flap = 1.0 }, span = [0.30, 0.70], chord_fraction = 0.20, limits = [-25, 25] },
+]
+# leading-edge flaps outboard of the root extension, scheduled with angle
+# of attack (the F-16's law stands in)
+leading = [
+  { name = "leading-edge flap", span = [0.29, 0.97], chord_fraction = 0.12, limits = [-2, 30] },
+]
+
+# The leading-edge vortex controllers: the root extensions' outer parts,
+# turning down about their rear edge with angle of attack
+[[surface]]
+name = "levcon"
+kind = "strake"
+airfoil = "plate"
+sections = [
+  { le = [5.800, 0.900, 0.050], chord = 4.400 },
+  { le = [8.000, 2.580, 0.030], chord = 2.000 },
+  { le = [10.000, 3.140, 0.000], chord = 0.100 },
+]
+leading = [
+  { name = "levcon", span = [0.10, 0.98], chord_fraction = 1.0, limits = [-5, 25] },
+]
+
+# All-moving horizontal tails on the tail booms, 49 deg leading edge; the
+# surface runs on inside the nacelles and the centre body to the centre line,
+# as the body carries the tail's lift across
+[[surface]]
+name = "htail"
+kind = "htail"
+airfoil = "naca64a004"
+sections = [
+  { le = [13.990, 0.000, -0.050], chord = 4.000 },
+  { le = [14.560, 2.000, -0.050], chord = 3.440 },
+  { le = [14.900, 2.300, -0.050], chord = 4.350 },
+  { le = [17.390, 4.500, -0.050], chord = 1.650 },
+  { le = [18.010, 5.050, -0.050], chord = 0.600 },
+]
+controls = [
+  { name = "stabilator", channel = "elevator", mix = { aileron = 0.3 }, span = [0.45, 1.0], chord_fraction = 1.0, pivot = 0.35, limits = [-25, 25] },
+]
+
+# Twin all-moving vertical tails canted 25 deg outboard, their trailing
+# edges swept forward
+[[surface]]
+name = "fin"
+kind = "fin"
+mirror = true
+airfoil = "naca64a004"
+sections = [
+  { le = [14.700, 2.450, 0.550], chord = 3.050 },
+  { le = [16.490, 3.330, 2.360], chord = 0.640 },
+]
+controls = [
+  { name = "fin", channel = "rudder", span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.40, limits = [-20, 20] },
+]
+
+[[body]]
+name = "fuselage"
+kind = "fuselage"
+stations = [
+  { x = 0.00, w = 0.00, top = -0.105, bottom = -0.145 },
+  { x = 0.50, w = 0.34, top = 0.085, bottom = -0.335, chine = -0.150, n_top = 1.9, n_bottom = 1.9 },
+  { x = 1.00, w = 0.72, top = 0.215, bottom = -0.445, chine = -0.170, n_top = 1.9, n_bottom = 1.9 },
+  { x = 1.50, w = 0.98, top = 0.355, bottom = -0.535, chine = -0.180, n_top = 2.0, n_bottom = 2.0 },
+  { x = 2.00, w = 1.22, top = 0.485, bottom = -0.585, chine = -0.180, n_top = 2.0, n_bottom = 2.1 },
+  { x = 2.50, w = 1.38, top = 0.560, bottom = -0.585, chine = -0.170, n_top = 2.1, n_bottom = 2.2 },
+  { x = 3.00, w = 1.52, top = 0.620, bottom = -0.585, chine = -0.160, n_top = 2.1, n_bottom = 2.3 },
+  { x = 4.00, w = 1.72, top = 0.700, bottom = -0.570, chine = -0.140, n_top = 2.2, n_bottom = 2.4 },
+  { x = 5.00, w = 1.86, top = 0.760, bottom = -0.560, chine = -0.120, n_top = 2.2, n_bottom = 2.5 },
+  { x = 6.00, w = 1.98, top = 0.880, bottom = -0.550, chine = -0.100, n_top = 2.2, n_bottom = 2.6 },
+  { x = 7.00, w = 2.20, top = 1.000, bottom = -0.540, chine = -0.080, n_top = 2.1, n_bottom = 2.8 },
+  { x = 8.00, w = 2.30, top = 0.905, bottom = -0.540, chine = -0.050, n_top = 2.1, n_bottom = 3.0 },
+  { x = 9.00, w = 3.00, top = 0.785, bottom = -0.570, chine = 0.000, n_top = 2.6, n_bottom = 2.6 },
+  { x = 10.00, w = 3.60, top = 0.690, bottom = -0.600, chine = 0.000, n_top = 3.0, n_bottom = 2.4 },
+  { x = 12.00, w = 3.80, top = 0.640, bottom = -0.600, chine = 0.000, n_top = 3.2, n_bottom = 2.4 },
+  { x = 14.00, w = 3.70, top = 0.640, bottom = -0.600, chine = 0.000, n_top = 3.2, n_bottom = 2.4 },
+  { x = 16.00, w = 3.00, top = 0.600, bottom = -0.580, chine = 0.000, n_top = 3.0, n_bottom = 2.4 },
+  { x = 17.30, w = 1.60, top = 0.560, bottom = -0.550, n = 2.6 },
+  { x = 18.00, w = 1.30, top = 0.500, bottom = -0.500, n = 2.4 },
+  { x = 19.00, w = 1.20, top = 0.285, bottom = -0.245, n = 2.3 },
+  { x = 19.60, w = 0.80, top = 0.215, bottom = -0.115, n = 2.2 },
+  { x = 20.17, w = 0.00, top = 0.110, bottom = 0.070 },
+]
+
+# The engine nacelles, wide apart under the LEVCONs, their intakes' mouths
+# raked back from the top lip, the outer walls sloping in
+[[intake]]
+name = "nacelle"
+mirror = true
+lip = 0.035
+rake = 50
+duct = 2.0
+duct_rise = 0.2
+duct_taper = 0.85
+stations = [
+  { x = 8.60, y = 1.250, w = 1.200, top = -0.250, bottom = -0.950, n = 4.0, lean = 20 },
+  { x = 10.00, y = 1.250, w = 1.300, top = -0.150, bottom = -1.000, n = 3.6, lean = 15 },
+  { x = 13.00, y = 1.250, w = 1.300, top = 0.000, bottom = -0.870, n = 3.2, lean = 10 },
+  { x = 16.00, y = 1.250, w = 1.250, top = 0.050, bottom = -0.720, n = 2.8 },
+  { x = 18.30, y = 1.250, w = 1.100, top = 0.000, bottom = -0.500, n = 2.4 },
+  { x = 18.70, y = 1.250, w = 1.000, top = -0.050, bottom = -0.450, n = 2.2 },
+]
+
+# The tail booms outboard of the engines: they carry the all-moving fins
+# and the stabilators' spindles
+[[body]]
+name = "boom"
+kind = "boom"
+mirror = true
+stations = [
+  { x = 12.50, y = 2.300, w = 0.200, top = 0.300, bottom = -0.100, n = 2.6 },
+  { x = 14.00, y = 2.300, w = 0.500, top = 0.700, bottom = -0.400, n = 2.6 },
+  { x = 17.40, y = 2.300, w = 0.500, top = 0.600, bottom = -0.350, n = 2.6 },
+  { x = 18.10, y = 2.300, w = 0.000, top = 0.200, bottom = -0.150 },
+]
+
+# The one-piece canopy
+[[body]]
+name = "canopy"
+kind = "pod"
+aero = false                  # part of the fuselage's top: the tables leave it out
+stations = [
+  { x = 2.300, w = 0.00, top = 0.650, bottom = 0.600 },
+  { x = 3.000, w = 0.76, top = 0.860, bottom = 0.560, n = 2.0 },
+  { x = 3.600, w = 0.90, top = 1.140, bottom = 0.580, n = 2.0 },
+  { x = 4.400, w = 0.94, top = 1.370, bottom = 0.620, n = 2.0 },
+  { x = 5.200, w = 0.88, top = 1.280, bottom = 0.680, n = 2.0 },
+  { x = 6.000, w = 0.72, top = 1.135, bottom = 0.760, n = 2.0 },
+  { x = 6.800, w = 0.40, top = 1.040, bottom = 0.860, n = 2.0 },
+  { x = 7.400, w = 0.00, top = 0.970, bottom = 0.920 },
+]
+
+[[engine]]
+name = "AL-41F1"
+type = "turbofan"
+mirror = true
+thrust_dry_kn = 88.3          # 9,000 kgf military
+thrust_wet_kn = 142.2         # 14,500 kgf afterburner
+bypass_ratio = 0.60
+tsfc_dry = 0.72
+tsfc_wet = 1.90
+design_mach = 2.0
+position = [15.600, 1.250, -0.150]
+mass = 1604
+inlet_x = 8.6
+[engine.nozzle]
+position = [18.750, 1.250, -0.150]
+diameter = 0.90               # m, as drawn
+vectoring = 15.0              # deg each way in one plane (the AL-41F1's, like
+vectoring_cant = 32.0         # the 117S's) canted 32 deg outboard: together
+                              # they pitch, differentially they yaw and roll
+
+# The gear: twin nose wheels folding aft under the cockpit floor, the mains
+# folding forward into the intakes' sides (the layout published, the
+# positions estimated), 1 m behind the CG; standing on it the fins' tips are
+# the published 4.6 m up.
+[[gear]]
+name = "Nose Gear"
+position = [6.200, 0.0, -2.390]
+steerable = true
+max_steer = 50
+wheel_diameter = 0.62
+wheel_width = 0.18
+wheels = 2
+retractable = true
+retract = "aft"
+static_deflection = 0.15
+attach = [6.100, 0.0, -0.400]
+
+[[gear]]
+name = "Main Gear"
+mirror = true
+position = [12.600, 2.100, -2.420]
+wheel_diameter = 1.03
+wheel_width = 0.32
+retractable = true
+retract = "forward"
+wheel_turn = "flat"
+static_deflection = 0.18
+attach = [12.400, 1.600, -0.500]
+
+[reference]
+aero_point = [11.426, 0.0, 0.0]    # 0.23 MAC, at the CG
+
+[flight_control]
+type = "fbw"
+n_max = 9.0
+n_min = -3.0
+alpha_max_deg = 26.0
+roll_rate_deg_s = 270.0
+
+[mass]
+empty = 18000                 # estimate
+empty_cg = [11.459, 0.0, -0.400]  # loaded, 5 % of the MAC ahead of the neutral point hangar finds
+# no published inertia: radii of gyration like the Su-27's
+gyration = [0.265, 0.430, 0.550]
+[[mass.payload]]
+name = "pilot"
+mass = 100
+position = [4.600, 0.0, 0.700]
+[[mass.payload]]
+name = "internal missiles"    # 4 R-77M, 2 R-74M
+mass = 972
+position = [11.009, 0.0, -0.700]
+[[mass.tank]]
+name = "fuselage 1"           # internal fuel, 10,300 kg
+position = [9.009, 0.0, -0.200]
+capacity = 3000
+[[mass.tank]]
+name = "fuselage 2"
+position = [11.509, 0.0, -0.150]
+capacity = 3300
+[[mass.tank]]
+name = "fuselage 3"
+position = [14.009, 0.0, -0.100]
+capacity = 2000
+[[mass.tank]]
+name = "left wing"
+position = [12.570, -3.500, 0.000]
+capacity = 1000
+[[mass.tank]]
+name = "right wing"
+position = [12.570, 3.500, 0.000]
+capacity = 1000
+
+[dimensions]                  # published, overall, gear down (Sukhoi):
+length = 20.10                 # m
+span = 14.10
+height = 4.60
+
+[targets]
+# Su-57, published
+max_mach = 2.0                # at altitude, full afterburner
+max_mach_altitude_ft = 36000
+service_ceiling_ft = 65600
+
+# Its drag device (docs/flight-autonomy.md, 4.55): no dedicated airbrake - "To
+# air-brake, the ailerons deflect up while the flaperons deflect down and the
+# vertical stabilisers toe inward to increase drag" (Aviation Week, on the T-50's
+# innovations, as Wikipedia's Su-57 article cites it): the drag of its fins at
+# 20 deg (their limit) and its ailerons and flaperons at 20 (estimates), their
+# forces cancelling. Opened on an approach.
+[[drag_device]]
+name = "surfaces"
+kind = "surfaces"
+channels = { rudder = 20, aileron = 20 }
+
+# The 90 deg crosswind it lands and takes off in at most (docs/flight-autonomy.md,
+# 4.54): beyond it a recovery waves off, and a launch or a taxi is refused. Source:
+# MIL-F-8785C 3.3.7 (Table XI): the 90 deg crosswind a Class II to IV
+# aeroplane is to take off and land in (Level 1). No limit is published for
+# the type: its flying qualities' requirement stands in for it.
+[operations]
+crosswind_kt = 30
+# Its placards (docs/flight-autonomy.md, 4.57): the most it moves its gear at
+# (the lesser of extending and retracting it), and the most with its flaps out
+# beyond flaps_above (the setting before its landing flaps), KIAS - or why there
+# are none. Source: none found.
+placards_unknown = "neither: its flight manual is not public and no other public source gives them"
+
+# What the platform's discovery rests on (docs/flight-autonomy.md, section 5.2): the
+# aircraft's physical characteristics, each with its public source. hangar writes them into
+# the profile's applicability section and the sources into the file header. A characteristic
+# left out is not declared, and what it governs stays applicable.
+[applicability]
+vertical_flight = false
+ground_contact = "wheels"
+carrier = "none"
+retractable_gear = true
+flaps = true
+releasable_stores = "weapons"
+aerobatic = true
+drag_devices = "surfaces"
+
+[applicability.sources]
+drag_devices = "Aviation Week (T-50 innovations, cited by Wikipedia's Su-57 article): no airbrake; ailerons up, flaperons down and the vertical stabilisers toed in to air-brake"
+vertical_flight = "United Aircraft Corporation data: a conventional take-off and landing fighter. Conventional take-off and landing: no rotors, lift fans or vectored lift to hover"
+ground_contact = "United Aircraft Corporation data: tricycle wheeled gear"
+carrier = "United Aircraft Corporation data: a land-based fighter"
+retractable_gear = "United Aircraft Corporation data: retractable gear"
+flaps = "United Aircraft Corporation data: flaperons on the wing's trailing edge"
+releasable_stores = "United Aircraft Corporation data: internal weapons bays"
+aerobatic = "United Aircraft Corporation data: +9 g (fsim/envelope/clean/n_max)"

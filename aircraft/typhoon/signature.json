@@ -1,0 +1,39 @@
+{
+  "aircraft": "typhoon",
+  "note": "Its documented low-observable features, each from its own article; the treatments they bring are the same for every aircraft (assets/signature/treatments.json). The figures reported for it are compared with its table, never fitted. ",
+  "sources": {
+    "wp-typhoon": {
+      "title": "Eurofighter Typhoon",
+      "publisher": "Wikipedia (revision 1378850990)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Eurofighter_Typhoon&oldid=1378850990",
+      "date": "2026-10-06"
+    }
+  },
+  "features": {
+    "ram": {
+      "value": "partial",
+      "source": "wp-typhoon",
+      "evidence": "coat many of the most significant reflectors, such as the wing leading edges, the intake edges",
+      "basis": "published"
+    },
+    "intake_concealed": {
+      "value": true,
+      "source": "wp-typhoon",
+      "evidence": "jet inlets that conceal the front of the engines",
+      "basis": "published"
+    },
+    "duct_lined": {
+      "value": true,
+      "source": "wp-typhoon",
+      "evidence": "the intake edges and interior",
+      "basis": "published"
+    },
+    "exhaust_treated": {
+      "value": false,
+      "source": null,
+      "evidence": null,
+      "basis": "not stated: none assumed"
+    }
+  },
+  "reported": []
+}

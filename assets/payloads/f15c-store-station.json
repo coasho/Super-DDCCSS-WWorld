@@ -1,0 +1,224 @@
+{
+  "id": "f15c-store-station",
+  "designation": "F-15C store station",
+  "family": "store_station",
+  "summary": "A suspension point on the F-15C for one store or launcher: missiles, bombs, tanks, pods",
+  "parameters": {},
+  "sources": {
+    "wp-f15c": {
+      "title": "McDonnell Douglas F-15 Eagle",
+      "publisher": "Wikipedia (revision 1377800910)",
+      "url": "https://en.wikipedia.org/w/index.php?title=McDonnell_Douglas_F-15_Eagle&oldid=1377800910",
+      "date": "2026-10-01"
+    }
+  },
+  "stations": [
+    {
+      "number": 1,
+      "name": "left wing pylon, outer rail",
+      "position_m": [
+        -1.017,
+        -3.236,
+        0.45
+      ],
+      "carriage": "rail",
+      "launcher": "LAU-128 rail",
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 250.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 2,
+      "name": "left wing pylon",
+      "position_m": [
+        -1.017,
+        -2.936,
+        0.3
+      ],
+      "carriage": "ejector",
+      "launcher": "ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb",
+        "tank"
+      ],
+      "max_kg": 2100.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either; its limit raised to the 610 US gal external tank (F-15) full (~2078 kg) it is seen to carry"
+    },
+    {
+      "number": 3,
+      "name": "left wing pylon, inner rail",
+      "position_m": [
+        -1.017,
+        -2.636,
+        0.45
+      ],
+      "carriage": "rail",
+      "launcher": "LAU-128 rail",
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 250.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 4,
+      "name": "left forward fuselage",
+      "position_m": [
+        1.6,
+        -1.1,
+        0.7
+      ],
+      "carriage": "ejector",
+      "launcher": "semi-recessed ejector",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 400.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 5,
+      "name": "left aft fuselage",
+      "position_m": [
+        -1.6,
+        -1.1,
+        0.7
+      ],
+      "carriage": "ejector",
+      "launcher": "semi-recessed ejector",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 400.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 6,
+      "name": "centreline",
+      "position_m": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "carriage": "ejector",
+      "launcher": "ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "tank"
+      ],
+      "max_kg": 2100.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either; its limit raised to the 610 US gal external tank (F-15) full (~2078 kg) it is seen to carry"
+    },
+    {
+      "number": 7,
+      "name": "right aft fuselage",
+      "position_m": [
+        -1.6,
+        1.1,
+        0.7
+      ],
+      "carriage": "ejector",
+      "launcher": "semi-recessed ejector",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 400.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 8,
+      "name": "right forward fuselage",
+      "position_m": [
+        1.6,
+        1.1,
+        0.7
+      ],
+      "carriage": "ejector",
+      "launcher": "semi-recessed ejector",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 400.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 9,
+      "name": "right wing pylon, inner rail",
+      "position_m": [
+        -1.017,
+        2.636,
+        0.45
+      ],
+      "carriage": "rail",
+      "launcher": "LAU-128 rail",
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 250.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 10,
+      "name": "right wing pylon",
+      "position_m": [
+        -1.017,
+        2.936,
+        0.3
+      ],
+      "carriage": "ejector",
+      "launcher": "ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb",
+        "tank"
+      ],
+      "max_kg": 2100.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either; its limit raised to the 610 US gal external tank (F-15) full (~2078 kg) it is seen to carry"
+    },
+    {
+      "number": 11,
+      "name": "right wing pylon, outer rail",
+      "position_m": [
+        -1.017,
+        3.236,
+        0.45
+      ],
+      "carriage": "rail",
+      "launcher": "LAU-128 rail",
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 250.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    }
+  ]
+}

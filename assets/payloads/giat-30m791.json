@@ -1,0 +1,16 @@
+{
+  "id": "giat-30m791",
+  "designation": "GIAT 30/M791",
+  "family": "gun",
+  "summary": "30 mm single-barrel revolver cannon",
+  "maker": "GIAT (now Nexter)",
+  "parameters": {},
+  "sources": {
+    "wp-rafale": {
+      "title": "Dassault Rafale",
+      "publisher": "Wikipedia (revision 1377238412)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Dassault_Rafale&oldid=1377238412",
+      "date": "2026-09-28"
+    }
+  }
+}

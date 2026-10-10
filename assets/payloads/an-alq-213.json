@@ -1,0 +1,15 @@
+{
+  "id": "an-alq-213",
+  "designation": "AN/ALQ-213",
+  "family": "electronic_attack",
+  "summary": "electronic warfare suite, being replaced by the AN/ALQ-257 on US Block 40/42 and 50/52 F-16s",
+  "parameters": {},
+  "sources": {
+    "wp-f16c": {
+      "title": "General Dynamics F-16 Fighting Falcon",
+      "publisher": "Wikipedia (revision 1378439894)",
+      "url": "https://en.wikipedia.org/w/index.php?title=General_Dynamics_F-16_Fighting_Falcon&oldid=1378439894",
+      "date": "2026-10-04"
+    }
+  }
+}

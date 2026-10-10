@@ -1,0 +1,22 @@
+{
+  "id": "bk-27",
+  "designation": "Mauser BK-27",
+  "family": "gun",
+  "summary": "27 mm single-barrel revolver cannon",
+  "maker": "Mauser (now Rheinmetall)",
+  "parameters": {},
+  "sources": {
+    "wp-gripen": {
+      "title": "Saab JAS 39 Gripen",
+      "publisher": "Wikipedia (revision 1378862791)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Saab_JAS_39_Gripen&oldid=1378862791",
+      "date": "2026-10-06"
+    },
+    "wp-typhoon": {
+      "title": "Eurofighter Typhoon",
+      "publisher": "Wikipedia (revision 1378850990)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Eurofighter_Typhoon&oldid=1378850990",
+      "date": "2026-10-06"
+    }
+  }
+}

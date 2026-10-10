@@ -1,0 +1,15 @@
+{
+  "id": "compass-call",
+  "designation": "Compass Call",
+  "family": "electronic_attack",
+  "summary": "communications and radar jamming system of the EC-130H",
+  "parameters": {},
+  "sources": {
+    "wp-ec130h": {
+      "title": "Lockheed EC-130H Compass Call",
+      "publisher": "Wikipedia (revision 1378861999)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_EC-130H_Compass_Call&oldid=1378861999",
+      "date": "2026-10-06"
+    }
+  }
+}

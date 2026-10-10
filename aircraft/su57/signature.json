@@ -1,0 +1,70 @@
+{
+  "aircraft": "su57",
+  "note": "Its documented low-observable features, each from its own article; the treatments they bring are the same for every aircraft (assets/signature/treatments.json). The figures reported for it are compared with its table, never fitted. Its present engines' nozzles: no radar treatment stated (the AL-51F-1's serrated nozzle is to come).",
+  "sources": {
+    "wp-su57": {
+      "title": "Sukhoi Su-57",
+      "publisher": "Wikipedia (revision 1376999114)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Sukhoi_Su-57&oldid=1376999114",
+      "date": "2026-09-27"
+    }
+  },
+  "features": {
+    "ram": {
+      "value": "full",
+      "source": "wp-su57",
+      "evidence": "radar absorbent material (RAM) coatings absorb radar emissions",
+      "basis": "published"
+    },
+    "intake_concealed": {
+      "value": true,
+      "source": "wp-su57",
+      "evidence": "the partial serpentine ducts obscure most of the engines' compressor face",
+      "basis": "published"
+    },
+    "duct_lined": {
+      "value": true,
+      "source": "wp-su57",
+      "evidence": "the walls of the inlet ducts are coated with RAM",
+      "basis": "published"
+    },
+    "exhaust_treated": {
+      "value": false,
+      "source": null,
+      "evidence": null,
+      "basis": "not stated: none assumed"
+    }
+  },
+  "reported": [
+    {
+      "aspect": "frontal",
+      "azimuth_deg": 0,
+      "elevation_deg": 0,
+      "window_deg": 20,
+      "frequency_hz": 9500000000.0,
+      "sigma_m2": [
+        0.1,
+        1.0
+      ],
+      "origin": "manufacturer",
+      "source": "wp-su57",
+      "evidence": "reduce average RCS to approximately 0.1 to 1 m2",
+      "note": "Sukhoi's patent: the design's intent, an average"
+    },
+    {
+      "aspect": "frontal",
+      "azimuth_deg": 0,
+      "elevation_deg": 0,
+      "window_deg": 20,
+      "frequency_hz": 9500000000.0,
+      "sigma_m2": [
+        0.1,
+        0.5
+      ],
+      "origin": "press",
+      "source": "wp-su57",
+      "evidence": "the Su-57 has a RCS of \"0.1 to 0.5 square meters\"",
+      "note": "quoted, its origin not given"
+    }
+  ]
+}

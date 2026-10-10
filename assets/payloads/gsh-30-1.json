@@ -1,0 +1,28 @@
+{
+  "id": "gsh-30-1",
+  "designation": "GSh-30-1",
+  "family": "gun",
+  "summary": "30 mm single-barrel cannon (9A4071K)",
+  "maker": "KBP (Gryazev-Shipunov)",
+  "parameters": {},
+  "sources": {
+    "wp-mig29a": {
+      "title": "Mikoyan MiG-29",
+      "publisher": "Wikipedia (revision 1378805039)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Mikoyan_MiG-29&oldid=1378805039",
+      "date": "2026-10-06"
+    },
+    "wp-su27s": {
+      "title": "Sukhoi Su-27",
+      "publisher": "Wikipedia (revision 1378428873)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Sukhoi_Su-27&oldid=1378428873",
+      "date": "2026-10-04"
+    },
+    "wp-su57": {
+      "title": "Sukhoi Su-57",
+      "publisher": "Wikipedia (revision 1376999114)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Sukhoi_Su-57&oldid=1376999114",
+      "date": "2026-09-27"
+    }
+  }
+}

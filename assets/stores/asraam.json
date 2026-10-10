@@ -1,0 +1,135 @@
+{
+  "id": "asraam",
+  "designation": "AIM-132 ASRAAM",
+  "class": "aam",
+  "summary": "Short-range imaging-infrared air-to-air missile, lock-on after launch",
+  "maker": "MBDA",
+  "model": "",
+  "powerable": true,
+  "jettisonable": true,
+  "seeker": "imaging_infrared",
+  "guidance": "imaging infrared homing (128 x 128 focal plane array), lock-on after launch, strapdown inertial",
+  "motor": "dual-burn high-impulse solid rocket",
+  "fuze": "laser proximity and impact",
+  "warhead": "blast-fragmentation",
+  "warhead_kind": "fragmentation",
+  "explosive": "unknown",
+  "parameters": {
+    "mass_kg": {
+      "value": 88.0,
+      "unit": "kg",
+      "uncertainty": 1.0,
+      "basis": "published",
+      "source": "wp-asraam"
+    },
+    "length_m": {
+      "value": 2.9,
+      "unit": "m",
+      "uncertainty": 0.01,
+      "basis": "published",
+      "source": "wp-asraam"
+    },
+    "diameter_m": {
+      "value": 0.166,
+      "unit": "m",
+      "uncertainty": 0.002,
+      "basis": "published",
+      "source": "wp-asraam",
+      "note": "its motor's diameter"
+    },
+    "span_m": {
+      "value": 0.45,
+      "unit": "m",
+      "uncertainty": 0.01,
+      "basis": "published",
+      "source": "wp-asraam"
+    },
+    "warhead_kg": {
+      "value": 10.0,
+      "unit": "kg",
+      "uncertainty": 1.0,
+      "basis": "published",
+      "source": "wp-asraam"
+    },
+    "range_km": {
+      "value": 25.0,
+      "unit": "km",
+      "uncertainty": 5.0,
+      "basis": "published",
+      "source": "wp-asraam",
+      "note": "'25+ km'"
+    },
+    "speed_mach": {
+      "value": 3.0,
+      "unit": "Mach",
+      "uncertainty": 0.3,
+      "basis": "published",
+      "source": "wp-asraam",
+      "note": "'Mach 3+'"
+    },
+    "power_up_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "power_down_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "explosive_kg": {
+      "value": 3.69,
+      "unit": "kg",
+      "uncertainty": 0.92,
+      "basis": "assumed",
+      "note": "no source gives its charge: 37 % of its warhead, the median share of the game reference's charges (War Thunder's) - an estimate"
+    },
+    "gurney_kms": {
+      "value": 2.6,
+      "unit": "km/s",
+      "uncertainty": 0.2,
+      "basis": "assumed",
+      "note": "no source names its explosive: as PBXN-110, a modern HMX-based fill - an estimate"
+    },
+    "drag_area_m2": {
+      "value": 0.00511,
+      "unit": "m^2",
+      "uncertainty": 0.00153,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its design (hangar storedrag.py: Hoerner's body of revolution 0.00294, its base 0.00109, its fins' friction 0.00108 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 0.05871,
+      "unit": "m^3",
+      "uncertainty": 0.01761,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.0599 m^3 from its design, times Lamb's k2 - k1 = 0.980 for its fineness 17.4 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.24878,
+      "unit": "m^2",
+      "uncertainty": 0.07464,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 1.2501,
+      "unit": "m",
+      "uncertainty": 0.2885,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "wp-asraam": {
+      "title": "ASRAAM",
+      "publisher": "Wikipedia (revision 1378404225)",
+      "url": "https://en.wikipedia.org/w/index.php?title=ASRAAM&oldid=1378404225",
+      "date": "2026-10-04"
+    }
+  }
+}

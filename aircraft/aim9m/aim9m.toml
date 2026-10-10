@@ -1,0 +1,113 @@
+# AIM-9M Sidewinder, built by hangar from public data (ADR-30, MS-7e1) - written by `python -m hangar missiles aim9m`
+# (tools/hangar/hangar/missiles.py), one rule for every missile: edit the table there and write it again.
+#
+# Frame: metres, x aft from the nose's tip, y right, z up from the body's axis. The card (assets/stores/aim-9m.json)
+# holds the published figures: length 2.87 m, diameter 0.127 m, mass 85.5 kg; span 0.63 m (the card), tip to tip across
+# opposite fins. Its surfaces fly in an X, 45 deg from the vertical, as it hangs on its launcher (assumed for all).
+# Assumed from photographs, the same way for every missile: the nose's shape and length, each surface's place,
+# chords and sweep, the motor's nozzle and burn, the CG. They only shape the picture until the aero stage runs.
+
+[aircraft]
+name = "aim9m"
+description = "AIM-9M Sidewinder (hangar build)"
+category = "missile"
+card = "aim-9m"             # its store card: the published figures this design holds
+
+[analysis]
+speed = 900.0                # m/s: the Reynolds numbers (Mach 3 at altitude) - assumed
+
+# The infrared seeker's glass dome (36 % of the body's radius - assumed), on its cone
+[[body]]
+name = "canopy seeker dome"
+kind = "pod"
+stations = [
+  { x = 0.0, w = 0.0, top = 0.0, bottom = 0.0, n = 2 },
+  { x = 0.0057, w = 0.0302, top = 0.0151, bottom = -0.0151, n = 2 },
+  { x = 0.0137, w = 0.0421, top = 0.021, bottom = -0.021, n = 2 },
+  { x = 0.0229, w = 0.0457, top = 0.0229, bottom = -0.0229, n = 2 },
+  { x = 0.032, w = 0.0457, top = 0.0229, bottom = -0.0229, n = 2 },
+]
+
+# The body: the seeker's cone, the cylinder, a boattail over the nozzle (assumed)
+[[body]]
+name = "body"
+kind = "fuselage"
+stations = [
+  { x = 0.0103, w = 0.0366, top = 0.0183, bottom = -0.0183, n = 2 },
+  { x = 0.0229, w = 0.0443, top = 0.0222, bottom = -0.0222, n = 2 },
+  { x = 0.0927, w = 0.0924, top = 0.0462, bottom = -0.0462, n = 2 },
+  { x = 0.1626, w = 0.127, top = 0.0635, bottom = -0.0635, n = 2 },
+  { x = 2.7938, w = 0.127, top = 0.0635, bottom = -0.0635, n = 2 },
+  { x = 2.87, w = 0.1016, top = 0.0508, bottom = -0.0508, n = 2 },
+]
+
+# The canards: all-moving about their spindles; root chord 0.27 m, tip 0.03 m, 0.13 m out from the body (assumed from photographs)
+[[surface]]
+name = "canard upper"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [0.38, 0.0436, 0.0436], chord = 0.27 },
+  { le = [0.62, 0.1368, 0.1368], chord = 0.03 },
+]
+controls = [
+  { name = "canard upper", channel = "elevator", gain = -1.0, mix = { rudder = -1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-20, 20] },
+]
+
+[[surface]]
+name = "canard lower"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [0.38, 0.0436, -0.0436], chord = 0.27 },
+  { le = [0.62, 0.1368, -0.1368], chord = 0.03 },
+]
+controls = [
+  { name = "canard lower", channel = "elevator", gain = -1.0, mix = { rudder = -1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-20, 20] },
+]
+
+# The tail fins: fixed; their tips' rollerons, 0.08 m across, spun by the airstream; root chord 0.4 m, tip 0.12 m, 0.2515 m out from the body, their tips across the card's span (assumed from photographs)
+[[surface]]
+name = "tail fin upper"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [2.38, 0.0436, 0.0436], chord = 0.4 },
+  { le = [2.66, 0.2227, 0.2227], chord = 0.12 },
+]
+rolleron = { radius = 0.04 }
+
+[[surface]]
+name = "tail fin lower"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [2.38, 0.0436, -0.0436], chord = 0.4 },
+  { le = [2.66, 0.2227, -0.2227], chord = 0.12 },
+]
+rolleron = { radius = 0.04 }
+
+# The rocket motor: the Mk 36 Mod 11, reduced smoke (the card). Its nozzle in the boattail, its exit 65 % of the base and its burn's phases assumed
+# (none published): only what a replay shows the plume with until a flight model burns it.
+[motor]
+exit = [2.87, 0.0, 0.0]
+exit_diameter = 0.066
+throat_diameter = 0.0297
+cone_length = 0.0726
+smoke = "reduced"
+[[motor.phase]]
+duration_s = 5
+thrust_kn = 11
+
+[mass]
+empty = 85.5                 # kg, the card, motor full
+empty_cg = [1.435, 0.0, 0.0]  # assumed: half way along
+gyration = [0.0155, 0.289, 0.289]  # radii of gyration over length - assumed (a slender rod's: L/sqrt(12))
+
+[dimensions]                  # the card: the span tip to tip across opposite fins
+length = 2.87
+span = 0.63

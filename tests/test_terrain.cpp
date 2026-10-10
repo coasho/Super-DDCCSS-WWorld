@@ -1,0 +1,270 @@
+// Headless terrain tiles: Terrarium decoding, Mercator addressing, bilinear
+// sampling and the cache/loader paths, with tiles synthesised in the test
+// (a minimal PNG writer: stored deflate blocks, so no zlib is needed).
+#include "io/TerrainTiles.h"
+
+#include "core/Units.h"
+
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
+
+#include <atomic>
+#include <chrono>
+#include <functional>
+#include <fstream>
+#include <filesystem>
+#include <cmath>
+#include <cstdint>
+#include <thread>
+#include <vector>
+
+using namespace fsim;
+
+namespace {
+
+std::uint32_t crc32(const std::uint8_t* data, std::size_t n, std::uint32_t crc = 0) {
+    crc = ~crc;
+    for (std::size_t i = 0; i < n; ++i) {
+        crc ^= data[i];
+        for (int k = 0; k < 8; ++k) crc = (crc >> 1) ^ (0xEDB88320u & (0u - (crc & 1u)));
+    }
+    return ~crc;
+}
+
+void put32(std::vector<std::uint8_t>& v, std::uint32_t x) {
+    v.push_back(static_cast<std::uint8_t>(x >> 24)); v.push_back(static_cast<std::uint8_t>(x >> 16));
+    v.push_back(static_cast<std::uint8_t>(x >> 8)); v.push_back(static_cast<std::uint8_t>(x));
+}
+
+void chunk(std::vector<std::uint8_t>& png, const char* type, const std::vector<std::uint8_t>& payload) {
+    put32(png, static_cast<std::uint32_t>(payload.size()));
+    std::vector<std::uint8_t> body(type, type + 4);
+    body.insert(body.end(), payload.begin(), payload.end());
+    png.insert(png.end(), body.begin(), body.end());
+    put32(png, crc32(body.data(), body.size()));
+}
+
+/// RGB8 PNG of `size` x `size` from a height function (Terrarium encoding).
+std::vector<std::uint8_t> terrariumPng(std::uint32_t size, const std::function<double(std::uint32_t x, std::uint32_t y)>& heightM) {
+    // Raw scanlines: filter byte 0 + RGB per pixel.
+    std::vector<std::uint8_t> raw;
+    for (std::uint32_t y = 0; y < size; ++y) {
+        raw.push_back(0);
+        for (std::uint32_t x = 0; x < size; ++x) {
+            const double v = heightM(x, y) + 32768.0;
+            const double r = std::floor(v / 256.0), g = std::floor(v - r * 256.0), b = std::floor((v - r * 256.0 - g) * 256.0);
+            raw.push_back(static_cast<std::uint8_t>(r)); raw.push_back(static_cast<std::uint8_t>(g)); raw.push_back(static_cast<std::uint8_t>(b));
+        }
+    }
+    // zlib stream with stored (uncompressed) deflate blocks.
+    std::vector<std::uint8_t> z{0x78, 0x01};
+    std::size_t pos = 0;
+    while (pos < raw.size()) {
+        const std::size_t n = std::min<std::size_t>(65535, raw.size() - pos);
+        z.push_back(pos + n == raw.size() ? 1 : 0);
+        z.push_back(static_cast<std::uint8_t>(n & 0xFF)); z.push_back(static_cast<std::uint8_t>(n >> 8));
+        z.push_back(static_cast<std::uint8_t>(~n & 0xFF)); z.push_back(static_cast<std::uint8_t>((~n >> 8) & 0xFF));
+        z.insert(z.end(), raw.begin() + static_cast<std::ptrdiff_t>(pos), raw.begin() + static_cast<std::ptrdiff_t>(pos + n));
+        pos += n;
+    }
+    std::uint32_t a = 1, b = 0;
+    for (std::uint8_t c : raw) { a = (a + c) % 65521; b = (b + a) % 65521; }
+    put32(z, (b << 16) | a);
+
+    std::vector<std::uint8_t> png{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+    std::vector<std::uint8_t> ihdr;
+    put32(ihdr, size); put32(ihdr, size);
+    ihdr.insert(ihdr.end(), {8, 2, 0, 0, 0}); // 8-bit RGB
+    chunk(png, "IHDR", ihdr);
+    chunk(png, "IDAT", z);
+    chunk(png, "IEND", {});
+    return png;
+}
+
+} // namespace
+
+TEST_CASE("Terrarium PNG decodes to metres with the sea floor clamped", "[terrain]") {
+    const auto png = terrariumPng(4, [](std::uint32_t x, std::uint32_t y) { return x == 0 && y == 0 ? -120.0 : 100.0 * x + 1000.0 * y + 0.5; });
+    const auto tile = io::decodeTerrariumPng(png);
+    REQUIRE(tile.valid());
+    REQUIRE(tile.size == 4);
+    REQUIRE(tile.heights[0] == 0.0f); // bathymetry -> sea level
+    REQUIRE_THAT(tile.heights[1], Catch::Matchers::WithinAbs(100.5, 0.01));
+    REQUIRE_THAT(tile.heights[4 * 2 + 3], Catch::Matchers::WithinAbs(2300.5, 0.01)); // row 2, column 3
+    REQUIRE_FALSE(io::decodeTerrariumPng({1, 2, 3}).valid());
+}
+
+TEST_CASE("Mercator tile addressing", "[terrain]") {
+    double tx, ty;
+    io::mercatorTile(0.0, 0.0, 1, tx, ty);
+    REQUIRE_THAT(tx, Catch::Matchers::WithinAbs(1.0, 1e-9));
+    REQUIRE_THAT(ty, Catch::Matchers::WithinAbs(1.0, 1e-9));
+    io::mercatorTile(units::degreesToRadians(37.72), units::degreesToRadians(-119.55), 12, tx, ty);
+    REQUIRE(static_cast<int>(tx) == 687);  // the Yosemite tile the viewer requests
+    REQUIRE(static_cast<int>(ty) == 1583);
+}
+
+TEST_CASE("TerrainTiles samples, caches and prefetches synthetic tiles", "[terrain]") {
+    // Every tile is a ramp: height = 10 * x + 1000 * (tile x parity)
+    std::atomic<int> fetches{0};
+    io::TerrainTiles::Options o;
+    o.zoom = 10;
+    o.cacheTiles = 8;
+    o.offline = false; // (the fetch path: an empty directory, so nothing is found on disk)
+    o.cacheDir = std::filesystem::temp_directory_path() / "fsim_terrain_fetch_test";
+    std::filesystem::remove_all(o.cacheDir);
+    io::TerrainTiles terrain(o, [&](unsigned z, unsigned x, unsigned, std::vector<std::uint8_t>& png) {
+        REQUIRE(z == 10);
+        ++fetches;
+        png = terrariumPng(16, [x](std::uint32_t px, std::uint32_t) { return 10.0 * px + 1000.0 * (x % 2); });
+        return true;
+    });
+    const double lat = units::degreesToRadians(37.0), lon = units::degreesToRadians(-120.0);
+    double tx, ty;
+    io::mercatorTile(lat, lon, 10, tx, ty);
+    // (pixel centres: pixel j's height at (j + 0.5) / 16 of the tile, as the viewer's upsampler reads a raster)
+    const double expected = 10.0 * ((tx - std::floor(tx)) * 16.0 - 0.5) + 1000.0 * (static_cast<unsigned>(tx) % 2);
+
+    const double h = terrain.heightAboveEllipsoidM(lat, lon);
+    REQUIRE_THAT(h, Catch::Matchers::WithinAbs(expected, 1e-6));
+    REQUIRE(fetches == 1);
+    REQUIRE(terrain.cachedTiles() == 1);
+    terrain.heightAboveEllipsoidM(lat, lon);
+    REQUIRE(fetches == 1); // cached
+    // what the terrain query answers (docs/flight-autonomy.md, 4.19): the same height where the tile has data
+    REQUIRE(terrain.knownHeightAboveEllipsoidM(lat, lon) == h);
+
+    // Non-blocking query: unknown tile -> nullopt, then loaded in the background.
+    const double lat2 = units::degreesToRadians(45.0), lon2 = units::degreesToRadians(10.0);
+    REQUIRE_FALSE(terrain.cachedHeightAboveEllipsoidM(lat2, lon2).has_value());
+    for (int i = 0; i < 200 && !terrain.cachedHeightAboveEllipsoidM(lat2, lon2); ++i) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    REQUIRE(terrain.cachedHeightAboveEllipsoidM(lat2, lon2).has_value());
+    REQUIRE(terrain.cachedTiles() >= 2);
+
+    // Prefetch a radius: several tiles, all cached, LRU bounded.
+    terrain.prefetch(lat, lon, 60000.0, 4);
+    REQUIRE(fetches >= 9);
+    REQUIRE(terrain.cachedTiles() <= 8);
+    REQUIRE(terrain.failures() == 0);
+}
+
+TEST_CASE("offline, a missing level is answered from the nearest ancestor on disk", "[terrain]") {
+    // The camera asks for level 12 and the Alps have elevation to 11: answering
+    // "no ground" left the focus at 0 m inside the mountains and the eye with
+    // no clearance. The nearest tile that is on disk has to answer instead.
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / "fsim_offline_ancestor_test";
+    fs::remove_all(dir);
+    const double lat = 0.30, lon = 0.40; // radians
+    double tx, ty;
+    io::mercatorTile(lat, lon, 2, tx, ty);
+    const auto x2 = static_cast<unsigned>(std::floor(tx)), y2 = static_cast<unsigned>(std::floor(ty));
+    const fs::path file = dir / "example.test" / "t" / "2" / std::to_string(x2) / (std::to_string(y2) + ".png");
+    fs::create_directories(file.parent_path());
+    {
+        // A ramp west to east across the level-2 tile, 1000 m to 2020 m.
+        const auto png = terrariumPng(256, [](std::uint32_t x, std::uint32_t) { return 1000.0 + 4.0 * x; });
+        std::ofstream(file, std::ios::binary).write(reinterpret_cast<const char*>(png.data()),
+                                                    static_cast<std::streamsize>(png.size()));
+    }
+    const double fraction = tx - std::floor(tx);
+    const double expected = 1000.0 + 4.0 * (fraction * 256.0 - 0.5);
+
+    for (const std::uint32_t mesh : {0u, 64u}) {
+        io::TerrainTiles::Options o;
+        o.urlTemplate = "https://example.test/t/{z}/{x}/{y}.png";
+        o.cacheDir = dir;
+        o.zoom = 5;             // three levels below anything on disk
+        o.offline = true;
+        o.meshDimension = mesh; // 0 = physics' raw ground, 64 = the camera's drawn surface
+        io::TerrainTiles terrain(o);
+        const double h = terrain.heightAboveEllipsoidM(lat, lon);
+        INFO("mesh " << mesh << ": " << h << " m where the ancestor says " << expected << " m");
+        REQUIRE_THAT(h, Catch::Matchers::WithinAbs(expected, 12.0));
+    }
+
+    // And with nothing on disk at any level it is still "no ground".
+    io::TerrainTiles::Options o;
+    o.urlTemplate = "https://example.test/nothing/{z}/{x}/{y}.png";
+    o.cacheDir = dir;
+    o.zoom = 5;
+    o.offline = true;
+    io::TerrainTiles empty(o);
+    REQUIRE(empty.heightAboveEllipsoidM(lat, lon) == 0.0);
+    fs::remove_all(dir);
+}
+
+TEST_CASE("offline, a sensor's point query answers what the vehicles' query does, to the bit, making no tiles", "[terrain]") {
+    // The radar's clutter asks the ground under its beam out to the horizon (MS-6b): ~200 points a dwell. Through the
+    // vehicles' query each point of a missing level made a whole tile from its ancestor (37 us) and pushed theirs out of
+    // the cache; the point query reads the four texels that tile would hold - the same heights, to the bit.
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / "fsim_point_height_test";
+    fs::remove_all(dir);
+    const double lat0 = 0.30, lon0 = 0.40; // radians
+    auto write = [&](unsigned z, double lat, double lon, const std::function<double(std::uint32_t, std::uint32_t)>& h) {
+        double tx, ty;
+        io::mercatorTile(lat, lon, z, tx, ty);
+        const fs::path file = dir / "example.test" / "t" / std::to_string(z) / std::to_string(static_cast<unsigned>(std::floor(tx))) /
+                              (std::to_string(static_cast<unsigned>(std::floor(ty))) + ".png");
+        fs::create_directories(file.parent_path());
+        const auto png = terrariumPng(256, h);
+        std::ofstream(file, std::ios::binary).write(reinterpret_cast<const char*>(png.data()), static_cast<std::streamsize>(png.size()));
+    };
+    // a level-2 tile of rough relief, a third of it below the sea (decoded as sea level), and one level-5 tile of its own
+    write(2, lat0, lon0, [](std::uint32_t x, std::uint32_t y) { return 900.0 * std::sin(0.11 * x) * std::cos(0.07 * y) + 37.0 * std::sin(1.7 * x * y) - 250.0; });
+    write(5, lat0, lon0, [](std::uint32_t x, std::uint32_t y) { return 400.0 + 3.0 * x - 2.0 * y; });
+    io::TerrainTiles::Options o;
+    o.urlTemplate = "https://example.test/t/{z}/{x}/{y}.png";
+    o.cacheDir = dir;
+    o.zoom = 5;
+    o.offline = true;
+    io::TerrainTiles vehicles(o), sensor(o);
+    // points across the level-2 tile: most in level-5 tiles made from it, some in the one on disk
+    double tx2, ty2;
+    io::mercatorTile(lat0, lon0, 2, tx2, ty2);
+    const double x2 = std::floor(tx2), y2 = std::floor(ty2), pi = 3.14159265358979323846;
+    std::uint64_t state = 12345;
+    auto uniform = [&] { return static_cast<double>((state = state * 6364136223846793005ull + 1442695040888963407ull) >> 11) * 0x1.0p-53; };
+    int sea = 0, mismatched = 0;
+    for (int k = 0; k < 4000; ++k) {
+        const double tx = x2 + uniform(), ty = y2 + uniform();
+        const double lon = (tx / 4.0 * 2.0 - 1.0) * pi, lat = std::atan(std::sinh(pi * (1.0 - 2.0 * ty / 4.0)));
+        const double point = sensor.pointHeightAboveEllipsoidM(lat, lon); // (first: the sensor's own reading, cold)
+        const double own = vehicles.heightAboveEllipsoidM(lat, lon);
+        if (!(point == own)) ++mismatched;
+        sea += own <= 0.0 ? 1 : 0;
+    }
+    CHECK(mismatched == 0);
+    CHECK(sea > 400); // (the coast is in it)
+    CHECK(sensor.cachedTiles() == 0); // (made no tiles of this level, kept none)
+    // with the vehicles' tiles cached: read from them, the same
+    for (int k = 0; k < 200; ++k) {
+        const double tx = x2 + uniform(), ty = y2 + uniform();
+        const double lon = (tx / 4.0 * 2.0 - 1.0) * pi, lat = std::atan(std::sinh(pi * (1.0 - 2.0 * ty / 4.0)));
+        const double own = vehicles.heightAboveEllipsoidM(lat, lon);
+        CHECK(vehicles.pointHeightAboveEllipsoidM(lat, lon) == own);
+    }
+    // nothing on disk at any level: sea level, as the vehicles' query reads it
+    io::TerrainTiles::Options none = o;
+    none.urlTemplate = "https://example.test/nothing/{z}/{x}/{y}.png";
+    io::TerrainTiles empty(none);
+    CHECK(empty.pointHeightAboveEllipsoidM(lat0, lon0) == 0.0);
+    fs::remove_all(dir);
+}
+
+TEST_CASE("TerrainTiles reports failures as sea level", "[terrain]") {
+    io::TerrainTiles::Options o;
+    o.zoom = 5;
+    o.offline = false;
+    o.cacheDir = std::filesystem::temp_directory_path() / "fsim_terrain_failure_test";
+    std::filesystem::remove_all(o.cacheDir);
+    io::TerrainTiles terrain(o, [](unsigned, unsigned, unsigned, std::vector<std::uint8_t>&) { return false; });
+    REQUIRE(terrain.heightAboveEllipsoidM(0.5, 0.5) == 0.0);
+    REQUIRE(terrain.failures() == 1);
+    // the terrain query tells them apart (docs/flight-autonomy.md, 4.19): no data, not sea level
+    CHECK_FALSE(terrain.knownHeightAboveEllipsoidM(0.5, 0.5).has_value());
+    // the spacing a commanded path is checked at: a zoom-5 tile's pixel at the equator
+    CHECK_THAT(terrain.resolutionM(), Catch::Matchers::WithinAbs(40075016.686 / 32.0 / 256.0, 1e-6));
+    CHECK(std::isinf(sim::FlatGround(0.0).resolutionM()));
+}

@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<!-- Written by hangar (storemodels.py): the nozzle's exit of r27r's design. Do not edit. -->
+<nozzle name="r27r nozzle">
+    <area unit="FT2"> 0.120927 </area>
+</nozzle>

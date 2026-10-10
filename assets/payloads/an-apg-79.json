@@ -1,0 +1,201 @@
+{
+  "id": "an-apg-79",
+  "designation": "AN/APG-79",
+  "family": "air_radar",
+  "summary": "X-band active electronically scanned array fire-control radar (Super Hornet, Growler)",
+  "maker": "Raytheon",
+  "parameters": {
+    "noise_figure_db": {
+      "value": 3.0,
+      "unit": "dB",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "source": "wp-r-apg79",
+      "note": "a modern receiver (assumed)"
+    },
+    "system_loss_db": {
+      "value": 8.0,
+      "unit": "dB",
+      "uncertainty": 3.0,
+      "basis": "assumed",
+      "source": "wp-r-apg79",
+      "note": "radome, ohmic, processing, straddle and CFAR losses together (assumed)"
+    },
+    "range_resolution_m": {
+      "value": 150.0,
+      "unit": "m",
+      "uncertainty": 75.0,
+      "basis": "assumed",
+      "source": "wp-r-apg79",
+      "note": "a 1 us compressed pulse (assumed)"
+    },
+    "notch_ms": {
+      "value": 25.0,
+      "unit": "m/s",
+      "uncertainty": 10.0,
+      "basis": "assumed",
+      "source": "wp-r-apg79",
+      "note": "the main-beam clutter notch, half its width in radial speed (assumed)"
+    },
+    "monopulse_slope": {
+      "value": 1.6,
+      "unit": "1",
+      "uncertainty": 0.2,
+      "basis": "assumed",
+      "source": "wp-r-apg79",
+      "note": "the monopulse error slope (assumed)"
+    },
+    "medium_prfs": {
+      "value": 8,
+      "unit": "1",
+      "uncertainty": 2,
+      "basis": "assumed",
+      "source": "wp-r-apg79",
+      "note": "medium PRF: a dwell at 8 PRFs to resolve range and velocity (assumed, as for every one)"
+    },
+    "medium_m_of_n": {
+      "value": 3,
+      "unit": "1",
+      "uncertainty": 1,
+      "basis": "assumed",
+      "source": "wp-r-apg79",
+      "note": "a detection on 3 of the 8 (assumed, as for every one)"
+    },
+    "high_prfs": {
+      "value": 3,
+      "unit": "1",
+      "uncertainty": 1,
+      "basis": "assumed",
+      "source": "wp-r-apg79",
+      "note": "high PRF (velocity search): 3 PRFs (assumed)"
+    },
+    "high_m_of_n": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "source": "wp-r-apg79",
+      "note": "a detection on any of them (assumed)"
+    },
+    "false_alarm_time_s": {
+      "value": 60.0,
+      "unit": "s",
+      "uncertainty": 30.0,
+      "basis": "published",
+      "source": "stimson",
+      "note": "the mean time between false alarms its threshold is set for: Stimson's for radars in fighter aircraft, \"a minute or so\", read as 60 s (the uncertainty covers the reading)",
+      "evidence": "a false-alarm time of a minute or so is generally considered acceptable"
+    },
+    "frequency_hz": {
+      "value": 9500000000.0,
+      "unit": "Hz",
+      "uncertainty": 1000000000.0,
+      "basis": "assumed",
+      "source": "wp-r-apg79",
+      "note": "X band (assumed)"
+    },
+    "aperture_diameter_m": {
+      "value": 0.7,
+      "unit": "m",
+      "uncertainty": 0.1,
+      "basis": "assumed",
+      "source": "wp-r-apg79",
+      "note": "the Super Hornet's radome (assumed)"
+    },
+    "electronic": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "published",
+      "source": "wp-r-apg79",
+      "note": "an AESA (its transmit/receive modules)",
+      "evidence": "transmit/receive modules"
+    },
+    "dwell_s": {
+      "value": 0.02,
+      "unit": "s",
+      "uncertainty": 0.01,
+      "basis": "assumed",
+      "source": "wp-r-apg79",
+      "note": "-"
+    },
+    "sidelobe_clutter_db": {
+      "value": 6.0,
+      "unit": "dB",
+      "uncertainty": 3.0,
+      "basis": "assumed",
+      "source": "wp-r-apg79",
+      "note": "an AESA's low side lobes (assumed)"
+    },
+    "instrumented_range_m": {
+      "value": 250000.0,
+      "unit": "m",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "source": "wp-r-apg79",
+      "note": "-"
+    },
+    "transmit_receive_modules": {
+      "value": 1545,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "derived",
+      "source": "wp-r-apg79",
+      "note": "its aperture filled at half a wavelength, as for every AESA whose count is not published"
+    },
+    "class_calibration_db": {
+      "value": 8.9,
+      "unit": "dB",
+      "uncertainty": 4.0,
+      "basis": "derived",
+      "source": "wp-r-apg79",
+      "note": "its class (gaas): minus the mean of the class's residuals against their published ranges, every radar of it alike, whoever made it: an-apg-63v3 -0.2, an-apg-77 -14.1, an-apg-81 -5.7, an-apg-79 -5.7, rbe2-aa -18.7"
+    },
+    "average_power_w": {
+      "value": 1236.0,
+      "unit": "W",
+      "uncertainty": 618.0,
+      "basis": "assumed",
+      "source": "wp-r-ps05",
+      "note": "1545 modules x 8 W peak (gaas, a commercial rating) x 0.1 duty, as for every AESA"
+    }
+  },
+  "sources": {
+    "wp-ea18g": {
+      "title": "Boeing EA-18G Growler",
+      "publisher": "Wikipedia (revision 1377595294)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_EA-18G_Growler&oldid=1377595294",
+      "date": "2026-09-30"
+    },
+    "wp-r-apg79": {
+      "title": "AN/APG-79",
+      "publisher": "Wikipedia (revision 1361080654)",
+      "url": "https://en.wikipedia.org/w/index.php?title=AN/APG-79&oldid=1361080654",
+      "date": "2026-06-25"
+    },
+    "wp-r-ps05": {
+      "title": "PS-05/A",
+      "publisher": "Wikipedia (revision 1357555494)",
+      "url": "https://en.wikipedia.org/w/index.php?title=PS-05/A&oldid=1357555494",
+      "date": "2026-06-03"
+    },
+    "stimson": {
+      "title": "G. W. Stimson, \"Introduction to Airborne Radar\", 2nd ed. (ISBN 1-891121-01-4), p. 144",
+      "publisher": "SciTech Publishing, 1998",
+      "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
+      "date": "1998",
+      "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+    }
+  },
+  "validation": [
+    {
+      "range_m": 150000.0,
+      "rcs_m2": 3.0,
+      "pd": 0.5,
+      "source": "wp-r-apg79",
+      "evidence": "range of up to 150 km",
+      "use": "check",
+      "note": "a fighter of 3 m^2, the one size its sources state (assumed alike wherever none is given)"
+    }
+  ]
+}

@@ -1,0 +1,146 @@
+{
+  "aircraft": "gripen",
+  "note": "JAS 39C. Its electronic warfare suite and missile approach warner are described, not named: fitted under designations that say so.",
+  "sources": {
+    "wp-gripen": {
+      "title": "Saab JAS 39 Gripen",
+      "publisher": "Wikipedia (revision 1378862791)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Saab_JAS_39_Gripen&oldid=1378862791",
+      "date": "2026-10-06"
+    },
+    "hushkit-gripen": {
+      "title": "Saab J 29 Tunnan and JAS 39 Gripen compared (1,100 L tanks, centreline and inboard)",
+      "publisher": "Hush-Kit",
+      "url": "https://hushkit.net/2017/05/01/saab-j-29-tunnan-and-jas-39-gripen-compared-part-2-time-twins/",
+      "date": "2026-10-09"
+    },
+    "saaf-litening": {
+      "title": "Litening III targeting pod (Gripen C/D: 2.20 m, 40.6 cm, 200 kg, on the side fuselage pylon)",
+      "publisher": "The Unofficial SAAF website",
+      "url": "https://mail.saairforce.co.za/the-airforce/weapons/71/litening-iii-targeting-pod",
+      "date": "2026-10-10"
+    }
+  },
+  "payloads": [
+    {
+      "name": "radar",
+      "card": "ps-05a",
+      "source": "wp-gripen",
+      "evidence": [
+        "PS-05/A radar"
+      ]
+    },
+    {
+      "name": "gun",
+      "card": "bk-27",
+      "source": "wp-gripen",
+      "note": "120 rounds",
+      "evidence": [
+        "BK-27 revolver cannon with 120 rounds"
+      ]
+    },
+    {
+      "name": "stations",
+      "card": "gripen-store-station",
+      "count": 8,
+      "source": "wp-gripen",
+      "note": "two under the fuselage, two under each wing, one on each wingtip",
+      "evidence": [
+        "Hardpoints: 8 (two hardpoints under fuselage"
+      ]
+    },
+    {
+      "name": "link16",
+      "card": "gripen-link16",
+      "source": "wp-gripen",
+      "evidence": [
+        "Link 16 tactical datalink"
+      ]
+    },
+    {
+      "name": "ews",
+      "card": "gripen-ews",
+      "source": "wp-gripen",
+      "evidence": [
+        "The Gripen has an advanced and integrated electronic warfare suite"
+      ]
+    },
+    {
+      "name": "maws",
+      "card": "gripen-maws",
+      "source": "wp-gripen",
+      "evidence": [
+        "a missile approach warning system passively detects and tracks incoming missiles"
+      ]
+    }
+  ],
+  "loadouts": [
+    {
+      "name": "air-to-air",
+      "note": "the article's '6 × IRIS-T (Rb.98)' and '4 × MBDA Meteor (Rb.101)' a load of: the IRIS-T on the wingtips, the Meteor under the wings (the counts, 2 and 4: assumed)",
+      "source": "wp-gripen",
+      "stations": [
+        {
+          "payload": "stations",
+          "station": 1,
+          "store": "iris-t"
+        },
+        {
+          "payload": "stations",
+          "station": 8,
+          "store": "iris-t"
+        },
+        {
+          "payload": "stations",
+          "station": 2,
+          "store": "meteor"
+        },
+        {
+          "payload": "stations",
+          "station": 3,
+          "store": "meteor"
+        },
+        {
+          "payload": "stations",
+          "station": 6,
+          "store": "meteor"
+        },
+        {
+          "payload": "stations",
+          "station": 7,
+          "store": "meteor"
+        }
+      ]
+    },
+    {
+      "name": "external tanks",
+      "note": "three 1,100 L tanks, centreline and inboard (ADR-30, MS-7g: a tank's fuel feeds the aircraft's own tanks; jettisoned, it flies on with what is left)",
+      "source": "hushkit-gripen",
+      "stations": [
+        {
+          "station": 3,
+          "store": "gripen-tank-1100l"
+        },
+        {
+          "station": 4,
+          "store": "gripen-tank-1100l"
+        },
+        {
+          "station": 6,
+          "store": "gripen-tank-1100l"
+        }
+      ]
+    },
+    {
+      "name": "pods",
+      "note": "the Litening III on the side fuselage pylon (ADR-30, MS-7g: a pod as a store - its mass and its drag on the aircraft; what it senses or jams is its payload's, not built with it yet)",
+      "source": "saaf-litening",
+      "stations": [
+        {
+          "station": 5,
+          "store": "an-aaq-28"
+        }
+      ]
+    }
+  ]
+}

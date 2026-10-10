@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>flightsim testbench</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand">flightsim <span>testbench</span></div>
+  <div class="run-state">
+    <span id="status" class="pill idle">idle</span>
+    <span id="clock" class="clock">-</span>
+  </div>
+  <div class="controls">
+    <label class="follow" title="The aircraft the viewer follows (tab in the viewer changes it too)">Viewer follows
+      <select id="follow"><option value="">-</option></select></label>
+    <button id="pause" title="Pause or resume the simulation">Pause</button>
+    <button id="stop" title="End the session: every run and every aircraft">End session</button>
+    <label class="speed">Speed <select id="speed"></select></label>
+    <label class="speed" title="The hour at SFO the session is lit for in the viewer">Time of day <select id="tod"></select></label>
+    <label class="speed" title="The cloud the viewer draws over the session (no effect on the flight models)">Sky <select id="sky"></select></label>
+    <button id="viewer" title="Start flightsim-viewer on this testbench's world">Viewer</button>
+  </div>
+</header>
+<main>
+  <nav id="sidebar">
+    <input id="search" type="search" placeholder="Filter scenarios" autocomplete="off">
+    <div id="tree"></div>
+  </nav>
+  <section id="content">
+    <div id="scenario" class="card empty">
+      <p>Choose a scenario on the left: its options appear here. <b>Run</b> starts a new session with it;
+        <b>Add to session</b> runs it beside what is already flying, its aircraft on the other runway or in another
+        stretch of sky. Every aircraft is in the viewer; pick which one it follows above, or with <b>View</b> in the
+        Vehicles table.</p>
+    </div>
+    <div class="card">
+      <h2>Session <span id="verdict" class="verdict"></span></h2>
+      <div id="runs"><p class="muted">No run yet</p></div>
+    </div>
+    <div class="card">
+      <h2>Vehicles</h2>
+      <div class="scroll">
+        <table id="vehicles"><thead><tr>
+          <th>Vehicle</th><th>Run</th><th>Level</th><th>Alt m</th><th>AGL m</th><th>CAS m/s</th><th>GS m/s</th><th>VS m/s</th><th>Hdg</th><th>Pitch</th><th>Roll</th><th>g</th><th>Gear</th><th>Flaps</th><th>Thr</th><th>Fuel kg</th><th>Runway</th><th>Along m</th><th>Across m</th><th>State</th><th>Radar</th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Activities</h2>
+      <div class="scroll">
+        <table id="activities"><thead><tr><th>Activity</th><th>Run</th><th>State</th><th>Reason</th><th>Segment</th><th>%</th><th>To go</th><th>Cross-track</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Log</h2>
+      <pre id="log"></pre>
+    </div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<!-- Written by hangar (storemodels.py): the nozzle's exit of aim9x's design. Do not edit. -->
+<nozzle name="aim9x nozzle">
+    <area unit="FT2"> 0.036825 </area>
+</nozzle>

@@ -1,0 +1,16 @@
+{
+  "id": "m61a2",
+  "designation": "M61A2 Vulcan",
+  "family": "gun",
+  "summary": "20 mm six-barrel rotary cannon, the lightened M61",
+  "maker": "General Dynamics",
+  "parameters": {},
+  "sources": {
+    "wp-f22a": {
+      "title": "Lockheed Martin F-22 Raptor",
+      "publisher": "Wikipedia (revision 1375913406)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_Martin_F-22_Raptor&oldid=1375913406",
+      "date": "2026-09-20"
+    }
+  }
+}

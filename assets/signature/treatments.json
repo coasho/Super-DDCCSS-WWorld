@@ -1,0 +1,44 @@
+{
+  "note": "The radar signature treatments (ADR-30, MS-3): one set of values for every aircraft. An aircraft takes each treatment its own documentation states it has (aircraft/<type>/signature.json), whatever its origin. Nothing is fitted to any aircraft's claimed RCS: the published figures check the result, they do not set it.",
+  "sources": {
+    "chung-2015": {
+      "title": "Radar Cross Section Analysis of Stealth Fighter Design (and J9: Key Factors and Limitation of Simulation)",
+      "publisher": "S.-S. M. Chung, Y.-H. Chou, Y.-C. Chuang (their abstracts as search indexes report them; the papers themselves not opened: ResearchGate refused)",
+      "url": "https://www.researchgate.net/publication/284733658_C188_Radar_Cross_Section_Analysis_of_Stealth_Fighter_Design",
+      "date": ""
+    },
+    "sutrakar-2025": {
+      "title": "Impact of Fasteners on the Radar Cross-Section performance of Radar Absorbing Air Intake Duct",
+      "publisher": "V. K. Sutrakar, A. P. K. (arXiv:2503.00914; its abstract read)",
+      "url": "https://arxiv.org/abs/2503.00914",
+      "date": "2025-03-02"
+    },
+    "choudhury-nal": {
+      "title": "A Multidisciplinary Approach Towards Low Radar Cross-section Air Intake Duct Design",
+      "publisher": "B. Choudhury et al., CSIR - National Aerospace Laboratories, Bangalore (COMSOL conference abstract, read)",
+      "url": "https://comsol.de/paper/download/583971/choudhury_abstract.pdf",
+      "date": ""
+    }
+  },
+  "parameters": {
+    "ram_full_loss_db": {
+      "value": 15.0, "unit": "dB", "uncertainty": 5.0, "basis": "derived", "source": "chung-2015",
+      "note": "a skin coated all over with radar-absorbent material: its specular returns lowered by this much at 4 GHz and above. Chung et al. find a bare F-22 CAD model at about 10 dBsm nose on and 0 to -10 dBsm off it, and -10 to -20 dBsm with RAM in the desired direction: 10-20 dB, its middle. A practical 6.25 mm layer gives more than 10 dB from 4 to 18 GHz (sutrakar-2025).",
+      "evidence": "With RAM applied, the RCS can be reduced to the level of -10 ~ -20 dBsm in desired direction and frequency band"
+    },
+    "ram_partial_loss_db": {
+      "value": 3.0, "unit": "dB", "uncertainty": 2.0, "basis": "assumed", "source": "chung-2015",
+      "note": "radar-absorbent material on the largest reflectors only (leading edges, intake lips): a fraction of the full coating's effect, taken as half the frontal skin's returns treated"
+    },
+    "ram_low_frequency": {
+      "value": 4e9, "unit": "Hz", "uncertainty": 1e9, "basis": "derived", "source": "sutrakar-2025",
+      "note": "below this a coating's loss falls in proportion to the frequency (assumed: a layer thin against the wavelength); from it upwards its full loss",
+      "evidence": "more than -10 dB reflection loss from 4 to 18GHz"
+    },
+    "intake_concealed_loss_db": {
+      "value": 16.0, "unit": "dB", "uncertainty": 4.0, "basis": "derived", "source": "choudhury-nal",
+      "note": "an intake whose curvature (a serpentine duct, vanes, a blocker) hides the engine face: its cavity's return lowered by this much at 9.5 GHz; less at lower frequencies, as (f / 9.5 GHz)^0.3 - about 11 dB at 3 GHz, as an MLFMM study of an S-shaped inlet is reported to find (10-12 dB at 3 GHz, about 16 at 10 GHz; a search summary, its paper not identified)",
+      "evidence": "The modified design mean RCS reduction is about 16.94 dBsm"
+    }
+  }
+}

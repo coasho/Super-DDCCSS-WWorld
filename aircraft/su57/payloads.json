@@ -1,0 +1,103 @@
+{
+  "aircraft": "su57",
+  "note": "Su-57.",
+  "sources": {
+    "wp-su57": {
+      "title": "Sukhoi Su-57",
+      "publisher": "Wikipedia (revision 1376999114)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Sukhoi_Su-57&oldid=1376999114",
+      "date": "2026-09-27"
+    }
+  },
+  "payloads": [
+    {
+      "name": "radar",
+      "card": "n036-byelka",
+      "source": "wp-su57",
+      "evidence": [
+        "N036 Byelka radar system"
+      ]
+    },
+    {
+      "name": "ecm",
+      "card": "l402-himalayas",
+      "source": "wp-su57",
+      "evidence": [
+        "L402 Himalayas electronic countermeasures (ECM) system"
+      ]
+    },
+    {
+      "name": "eo",
+      "card": "101ks-atoll",
+      "source": "wp-su57",
+      "evidence": [
+        "101KS \"Atoll\""
+      ]
+    },
+    {
+      "name": "gun",
+      "card": "gsh-30-1",
+      "source": "wp-su57",
+      "note": "150 rounds",
+      "evidence": [
+        "(GSh-30-1) 30 mm autocannon with 150 cartridges"
+      ]
+    },
+    {
+      "name": "stations",
+      "card": "su57-store-station",
+      "count": 12,
+      "source": "wp-su57",
+      "note": "six internal, six external",
+      "evidence": [
+        "12 hardpoints (6"
+      ]
+    }
+  ],
+  "loadouts": [
+    {
+      "name": "internal air-to-air",
+      "note": "the article's R-77M ('the primary medium-range missile') in the main bays, two in each (the count: the article's 'two in each main weapons bay' for the izdeliye 810)",
+      "source": "wp-su57",
+      "stations": [
+        {
+          "payload": "stations",
+          "station": 5,
+          "store": "r-77m"
+        },
+        {
+          "payload": "stations",
+          "station": 6,
+          "store": "r-77m"
+        },
+        {
+          "payload": "stations",
+          "station": 7,
+          "store": "r-77m"
+        },
+        {
+          "payload": "stations",
+          "station": 8,
+          "store": "r-77m"
+        }
+      ]
+    },
+    {
+      "name": "external tanks",
+      "note": "two PTB-2000 under the wings (the export sheet's ferry load; it says the outboard of its two pylons a wing, another source the inboard: here its heaviest wing station, assumed) (ADR-30, MS-7g: a tank's fuel feeds the aircraft's own tanks; jettisoned, it flies on with what is left)",
+      "source": "wp-su57",
+      "stations": [
+        {
+          "payload": "stations",
+          "station": 3,
+          "store": "ptb-2000"
+        },
+        {
+          "payload": "stations",
+          "station": 10,
+          "store": "ptb-2000"
+        }
+      ]
+    }
+  ]
+}

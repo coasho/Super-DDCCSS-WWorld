@@ -1,0 +1,15 @@
+{
+  "id": "uh60-store-station",
+  "designation": "UH-60A store station",
+  "family": "store_station",
+  "summary": "A suspension point on the UH-60A's External Stores Support System stub wings for one store: tanks, rocket pods, missiles",
+  "parameters": {},
+  "sources": {
+    "wp-uh60": {
+      "title": "Sikorsky UH-60 Black Hawk",
+      "publisher": "Wikipedia (revision 1376062965)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Sikorsky_UH-60_Black_Hawk&oldid=1376062965",
+      "date": "2026-09-21"
+    }
+  }
+}

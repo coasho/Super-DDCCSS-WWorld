@@ -1,0 +1,208 @@
+// The clouds' Beer shadow maps: takram-design-engineering/three-geospatial (MIT, see ../LICENSE-three-geospatial.txt)
+// packages/clouds/src/shaders/shadow.frag, as a compute shader over the cascades' texels (z: the cascade). Their
+// code, in their order; changes marked fsim: the coverage at each sample (fsim/coverage.glsl), the textures read at
+// the level a shadow texel's footprint asks for, the front depth kept a number when the transmittance underflows
+// (0 / 0 there spread through the resolve as growing black blocks), and the world being ECEF less the eye.
+
+#version 450
+layout(local_size_x = 8, local_size_y = 8) in;
+
+#define fsimClampMax P_shadowTexel.zw
+#define CASCADE_COUNT 3
+#define SHADOW 1
+#define SHAPE_DETAIL 1
+#define TURBULENCE 1
+#define TEMPORAL_PASS 1
+#define TEMPORAL_JITTER 1
+
+#include "clouds/types.glsl"
+#include "fsim/params.glsl"
+#include "fsim/prelude.glsl"
+#include "core/math.glsl"
+#include "core/raySphereIntersection.glsl"
+#include "fsim/coverage.glsl"
+
+#define resolution P_shadowTexel.zw
+#include "clouds/structuredSampling.glsl"
+#include "clouds/clouds.glsl"
+
+#define inverseShadowMatrices P_inverseShadow
+#define reprojectionMatrices P_shadowReprojection
+#define maxIterationCount int(P_shadowMarch.x)
+#define minStepSize P_shadowMarch.y
+#define maxStepSize P_shadowMarch.z
+#define opticalDepthTailScale P_shadowMarch.w
+#define minDensity P_shadowMarch2.x
+#define minExtinction P_shadowMarch2.y
+#define minTransmittance P_shadowMarch2.z
+
+layout(set = 0, binding = 12, rgba32f) uniform writeonly image2DArray outputColorImage;
+layout(set = 0, binding = 13, rgba32f) uniform writeonly image2DArray outputDepthVelocityImage;
+
+vec2 vUv;
+
+vec4 marchClouds(
+  const vec3 rayOrigin,
+  const vec3 rayDirection,
+  const float maxRayDistance,
+  const float jitter,
+  const float mipLevel
+) {
+  // Setup structured volume sampling (SVS).
+  // While SVS introduces spatial aliasing, it is indeed temporally stable,
+  // which is important for lower-resolution shadow maps where a flickering
+  // single pixel can be highly noticeable.
+  vec3 normal = getStructureNormal(rayDirection, jitter);
+  float rayDistance;
+  float stepSize;
+  intersectStructuredPlanes(
+    normal,
+    rayOrigin,
+    rayDirection,
+    clamp(maxRayDistance / float(maxIterationCount), minStepSize, maxStepSize),
+    rayDistance,
+    stepSize
+  );
+
+  #ifdef TEMPORAL_JITTER
+  rayDistance -= stepSize * jitter;
+  #endif // TEMPORAL_JITTER
+
+  float extinctionSum = 0.0;
+  float maxOpticalDepth = 0.0;
+  float maxOpticalDepthTail = 0.0;
+  float transmittanceIntegral = 1.0;
+  float weightedDistanceSum = 0.0;
+  float transmittanceSum = 0.0;
+
+  int sampleCount = 0;
+  for (int i = 0; i < maxIterationCount; ++i) {
+    if (rayDistance > maxRayDistance) {
+      break; // Termination
+    }
+
+    vec3 position = rayDistance * rayDirection + rayOrigin;
+    float height = length(position) - bottomRadius;
+
+    if (insideLayerIntervals(height)) {
+      rayDistance += stepSize;
+      continue;
+    }
+
+    // Sample rough weather.
+    vec2 uv = getGlobeUv(position);
+    fsimCoverage = fsimCoverageAt(position); // fsim
+    WeatherSample weather = sampleWeather(uv, height, mipLevel);
+
+    if (any(greaterThan(weather.density, vec4(minDensity)))) {
+      // Sample detailed participating media.
+      // Note this assumes an homogeneous medium.
+      MediaSample media = sampleMedia(weather, position, uv, mipLevel, jitter);
+      if (media.extinction > minExtinction) {
+        extinctionSum += media.extinction;
+        maxOpticalDepth += media.extinction * stepSize;
+        transmittanceIntegral *= exp(-media.extinction * stepSize);
+        weightedDistanceSum += rayDistance * transmittanceIntegral;
+        transmittanceSum += transmittanceIntegral;
+        ++sampleCount;
+      }
+    }
+
+    if (transmittanceIntegral <= minTransmittance) {
+      // A large amount of optical depth accumulates in the tail, beyond the
+      // point of minimum transmittance. The expected optical depth seems to
+      // decrease exponentially with the number of samples taken before reaching
+      // the minimum transmittance.
+      // See the discussion here: https://x.com/shotamatsuda/status/1886259549931520437
+      maxOpticalDepthTail = min(
+        opticalDepthTailScale * stepSize * exp(float(1 - sampleCount)),
+        stepSize * 0.5 // Excessive optical depth only introduces aliasing.
+      );
+      break; // Early termination
+    }
+    rayDistance += stepSize;
+  }
+
+  if (sampleCount == 0) {
+    return vec4(maxRayDistance, 0.0, 0.0, 0.0);
+  }
+  // fsim: (the first sample can take the transmittance to 0 in float: no weighted distance then)
+  float frontDepth = transmittanceSum > 0.0 ? min(weightedDistanceSum / transmittanceSum, maxRayDistance) : rayDistance;
+  float meanExtinction = extinctionSum / float(sampleCount);
+  return vec4(frontDepth, meanExtinction, maxOpticalDepth, maxOpticalDepthTail);
+}
+
+void getRayNearFar(
+  const vec3 sunPosition,
+  const vec3 rayDirection,
+  out float rayNear,
+  out float rayFar
+) {
+  vec4 firstIntersections = raySphereFirstIntersection(
+    sunPosition,
+    rayDirection,
+    vec3(0.0),
+    bottomRadius + vec4(shadowTopHeight, shadowBottomHeight, 0.0, 0.0)
+  );
+  rayNear = max(0.0, firstIntersections.x);
+  rayFar = firstIntersections.y;
+  if (rayFar < 0.0) {
+    rayFar = 1e6;
+  }
+}
+
+void cascade(
+  const int cascadeIndex,
+  const float mipLevel,
+  out vec4 outputColor,
+  out vec3 outputDepthVelocity
+) {
+  vec2 clip = vUv * 2.0 - 1.0;
+  vec4 point = inverseShadowMatrices[cascadeIndex] * vec4(clip.xy, -1.0, 1.0);
+  point /= point.w;
+  // fsim: world -> ECEF is adding the eye
+  vec3 sunPosition = point.xyz + P_camera.xyz + altitudeCorrection;
+
+  vec3 rayDirection = normalize(-sunDirection);
+  float rayNear;
+  float rayFar;
+  getRayNearFar(sunPosition, rayDirection, rayNear, rayFar);
+
+  vec3 rayOrigin = rayNear * rayDirection + sunPosition;
+  float stbn = getSTBN();
+  vec4 color = marchClouds(rayOrigin, rayDirection, rayFar - rayNear, stbn, mipLevel);
+  outputColor = color;
+
+  // Velocity for temporal resolution.
+  #ifdef TEMPORAL_PASS
+  vec3 frontPosition = color.x * rayDirection + rayOrigin;
+  vec3 frontPositionWorld = frontPosition - altitudeCorrection - P_camera.xyz; // fsim
+  vec4 prevClip = reprojectionMatrices[cascadeIndex] * vec4(frontPositionWorld, 1.0);
+  prevClip /= prevClip.w;
+  vec2 prevUv = prevClip.xy * 0.5 + 0.5;
+  vec2 velocity = (vUv - prevUv) * resolution;
+  outputDepthVelocity = vec3(color.x, velocity);
+  #else // TEMPORAL_PASS
+  outputDepthVelocity = vec3(0.0);
+  #endif // TEMPORAL_PASS
+}
+
+// TODO: Calculate from the main camera frustum perhaps?
+const float mipLevels[4] = float[4](0.0, 0.5, 1.0, 2.0);
+
+void main() {
+  ivec3 coord = ivec3(gl_GlobalInvocationID);
+  if (coord.x >= int(resolution.x) || coord.y >= int(resolution.y) || coord.z >= CASCADE_COUNT) {
+    return;
+  }
+  fsimFragCoord = vec2(coord.xy) + 0.5;
+  vUv = fsimFragCoord / resolution;
+  vec4 color;
+  vec3 depthVelocity;
+  fsimSetFootprint(P_shadowIntervals[coord.z].z); // fsim: a texel's width there
+  cascade(coord.z, mipLevels[coord.z], color, depthVelocity);
+  if (any(isnan(color)) || any(isinf(color))) color = vec4(1e6, 0.0, 0.0, 0.0); // fsim
+  if (any(isnan(depthVelocity)) || any(isinf(depthVelocity))) depthVelocity = vec3(1e6, 0.0, 0.0);
+  imageStore(outputColorImage, coord, color);
+  imageStore(outputDepthVelocityImage, coord, vec4(depthVelocity, 0.0));
+}

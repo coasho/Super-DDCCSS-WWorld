@@ -1,0 +1,16 @@
+{
+  "id": "osf",
+  "designation": "OSF (Optronique Secteur Frontal)",
+  "family": "passive_optical",
+  "summary": "front-sector electro-optical system: infrared search and track and TV/IR, visible and infrared",
+  "maker": "Thales",
+  "parameters": {},
+  "sources": {
+    "wp-rafale": {
+      "title": "Dassault Rafale",
+      "publisher": "Wikipedia (revision 1377238412)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Dassault_Rafale&oldid=1377238412",
+      "date": "2026-09-28"
+    }
+  }
+}

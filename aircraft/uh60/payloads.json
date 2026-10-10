@@ -1,0 +1,55 @@
+{
+  "aircraft": "uh60",
+  "note": "UH-60A. Its door guns as built (the M240H replaced them later); its ESSS stub wings' stations. The dispenser's source names the UH-60, not a model of it; its radar warning receiver and infrared jammer are not named in a source found.",
+  "sources": {
+    "wp-p-m60": {
+      "title": "M60 machine gun",
+      "publisher": "Wikipedia (revision 1378729005)",
+      "url": "https://en.wikipedia.org/w/index.php?title=M60_machine_gun&oldid=1378729005",
+      "date": "2026-10-05"
+    },
+    "wp-uh60": {
+      "title": "Sikorsky UH-60 Black Hawk",
+      "publisher": "Wikipedia (revision 1376062965)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Sikorsky_UH-60_Black_Hawk&oldid=1376062965",
+      "date": "2026-09-21"
+    },
+    "wp-p-ale47": {
+      "title": "AN/ALE-47",
+      "publisher": "Wikipedia (revision 1329674896)",
+      "url": "https://en.wikipedia.org/w/index.php?title=AN/ALE-47&oldid=1329674896",
+      "date": "2025-12-27"
+    }
+  },
+  "payloads": [
+    {
+      "name": "guns",
+      "card": "m60d",
+      "count": 2,
+      "source": "wp-p-m60",
+      "note": "door guns on M144 mounts",
+      "evidence": [
+        "UH-60 Black Hawk (using the M144 mount)"
+      ]
+    },
+    {
+      "name": "stations",
+      "card": "uh60-store-station",
+      "count": 4,
+      "source": "wp-uh60",
+      "note": "two on each ESSS stub wing",
+      "evidence": [
+        "Hardpoints: 4, 2 per ESSS stub wings"
+      ]
+    },
+    {
+      "name": "cmds",
+      "card": "an-ale-47",
+      "source": "wp-p-ale47",
+      "note": "the source names the UH-60, not a model of it",
+      "evidence": [
+        "CH-47 and UH-60 among others"
+      ]
+    }
+  ]
+}

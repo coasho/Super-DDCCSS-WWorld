@@ -1,0 +1,142 @@
+{
+  "id": "r-60m",
+  "designation": "R-60M",
+  "class": "aam",
+  "summary": "Short-range infrared air-to-air missile (AA-8 Aphid-B)",
+  "maker": "Vympel",
+  "model": "",
+  "powerable": true,
+  "jettisonable": true,
+  "seeker": "infrared",
+  "guidance": "infrared homing (nitrogen-cooled seeker)",
+  "motor": "solid rocket",
+  "fuze": "proximity",
+  "warhead": "rod (depleted-uranium rods, 2.8 kg)",
+  "warhead_kind": "rod",
+  "explosive": "OKFOL-20",
+  "parameters": {
+    "mass_kg": {
+      "value": 45.0,
+      "unit": "kg",
+      "uncertainty": 1.0,
+      "basis": "published",
+      "source": "wp-r60",
+      "note": "'increasing launch weight to 45 kg'"
+    },
+    "length_m": {
+      "value": 2.132,
+      "unit": "m",
+      "uncertainty": 0.01,
+      "basis": "derived",
+      "source": "wp-r60",
+      "note": "the R-60's 2,090 mm and 'the R-60M is 42 mm longer'"
+    },
+    "diameter_m": {
+      "value": 0.12,
+      "unit": "m",
+      "uncertainty": 0.002,
+      "basis": "published",
+      "source": "wp-r60"
+    },
+    "span_m": {
+      "value": 0.39,
+      "unit": "m",
+      "uncertainty": 0.01,
+      "basis": "published",
+      "source": "wp-r60"
+    },
+    "warhead_kg": {
+      "value": 3.5,
+      "unit": "kg",
+      "uncertainty": 0.2,
+      "basis": "published",
+      "source": "wp-r60"
+    },
+    "range_km": {
+      "value": 8.0,
+      "unit": "km",
+      "uncertainty": 2.0,
+      "basis": "published",
+      "source": "wp-r60",
+      "note": "the R-60's"
+    },
+    "speed_mach": {
+      "value": 2.47,
+      "unit": "Mach",
+      "uncertainty": 0.2,
+      "basis": "published",
+      "source": "wp-r60"
+    },
+    "power_up_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "power_down_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "explosive_kg": {
+      "value": 1.35,
+      "unit": "kg",
+      "uncertainty": 0.2,
+      "basis": "published",
+      "source": "wt-datamine",
+      "note": "a game reference: War Thunder's su_r_60m (OKFOL-20); no manufacturer or encyclopedia gives the charge"
+    },
+    "gurney_kms": {
+      "value": 2.9,
+      "unit": "km/s",
+      "uncertainty": 0.1,
+      "basis": "assumed",
+      "note": "OKFOL-20 (phlegmatized HMX, Russian) is not in Cooper's table: as PBX 9404 (2.90, 94 % HMX) - an estimate"
+    },
+    "drag_area_m2": {
+      "value": 0.00344,
+      "unit": "m^2",
+      "uncertainty": 0.00103,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its design (hangar storedrag.py: Hoerner's body of revolution 0.00164, its base 0.00055, its fins' friction 0.00125 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 0.02259,
+      "unit": "m^3",
+      "uncertainty": 0.00678,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.0230 m^3 from its design, times Lamb's k2 - k1 = 0.981 for its fineness 17.7 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.26379,
+      "unit": "m^2",
+      "uncertainty": 0.07914,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 0.4302,
+      "unit": "m",
+      "uncertainty": 0.2121,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "wp-r60": {
+      "title": "R-60 (missile)",
+      "publisher": "Wikipedia (revision 1378395727)",
+      "url": "https://en.wikipedia.org/w/index.php?title=R-60_(missile)&oldid=1378395727",
+      "date": "2026-10-04"
+    },
+    "wt-datamine": {
+      "title": "War Thunder datamine: rocketguns weapon files (a game reference: the game's own values, not a manufacturer's)",
+      "publisher": "gszabi99/War-Thunder-Datamine (GitHub)",
+      "url": "https://github.com/gszabi99/War-Thunder-Datamine/tree/master/aces.vromfs.bin_u/gamedata/weapons/rocketguns",
+      "date": "2026-10-09"
+    }
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "aircraft": "j20a",
+  "note": "Its documented low-observable features, each from its own article; the treatments they bring are the same for every aircraft (assets/signature/treatments.json). The figures reported for it are compared with its table, never fitted. Its own article states diverterless intakes; the S-duct article lists it among the aircraft with S-ducts, as it lists the F-22, F-35, Rafale and Typhoon. Its present engines' serrated nozzles are stated for rear-aspect stealth.",
+  "sources": {
+    "nsj-2025": {
+      "title": "China's J-20 'Mighty Dragon': Now the 'Undetectable' Stealth Fighter?",
+      "publisher": "National Security Journal (Reuben Johnson)",
+      "url": "https://nationalsecurityjournal.org/?p=21649",
+      "date": "2025-08-02"
+    },
+    "w-sduct": {
+      "title": "S-duct",
+      "publisher": "Wikipedia (revision 1378907283)",
+      "url": "https://en.wikipedia.org/w/index.php?title=S-duct&oldid=1378907283",
+      "date": "2026-10-06"
+    },
+    "wp-j20a": {
+      "title": "Chengdu J-20",
+      "publisher": "Wikipedia (revision 1378338980)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Chengdu_J-20&oldid=1378338980",
+      "date": "2026-10-04"
+    }
+  },
+  "features": {
+    "ram": {
+      "value": "full",
+      "source": "wp-j20a",
+      "evidence": "radar-absorbent coating materials",
+      "basis": "published"
+    },
+    "intake_concealed": {
+      "value": true,
+      "source": "w-sduct",
+      "evidence": "Chengdu J-20",
+      "basis": "published"
+    },
+    "duct_lined": {
+      "value": false,
+      "source": null,
+      "evidence": null,
+      "basis": "not stated: none assumed"
+    },
+    "exhaust_treated": {
+      "value": true,
+      "source": "wp-j20a",
+      "evidence": "serrated afterburner nozzles for enhanced rear-aspect stealth",
+      "basis": "published"
+    }
+  },
+  "reported": [
+    {
+      "aspect": "frontal",
+      "azimuth_deg": 0,
+      "elevation_deg": 0,
+      "window_deg": 20,
+      "frequency_hz": 10000000000.0,
+      "sigma_m2": [
+        0.05,
+        0.05
+      ],
+      "origin": "adversary assessment",
+      "source": "nsj-2025",
+      "evidence": "the RCS is calculated at 0.05 square meters",
+      "note": "Taiwanese radar specialists, as a US journal reports"
+    },
+    {
+      "aspect": "side",
+      "azimuth_deg": 90,
+      "elevation_deg": 0,
+      "window_deg": 20,
+      "frequency_hz": 10000000000.0,
+      "sigma_m2": [
+        5.0,
+        5.0
+      ],
+      "origin": "adversary assessment",
+      "source": "nsj-2025",
+      "evidence": "an RCS of approximately 5 square meters",
+      "note": "the same"
+    },
+    {
+      "aspect": "rear",
+      "azimuth_deg": 180,
+      "elevation_deg": 0,
+      "window_deg": 20,
+      "frequency_hz": 10000000000.0,
+      "sigma_m2": [
+        20.0,
+        20.0
+      ],
+      "origin": "adversary assessment",
+      "source": "nsj-2025",
+      "evidence": "from the rear aspect it is 20 square meters",
+      "note": "the same"
+    }
+  ]
+}

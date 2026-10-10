@@ -1,0 +1,107 @@
+# AIM-7M Sparrow, built by hangar from public data (ADR-30, MS-7e1) - written by `python -m hangar missiles aim7m`
+# (tools/hangar/hangar/missiles.py), one rule for every missile: edit the table there and write it again.
+#
+# Frame: metres, x aft from the nose's tip, y right, z up from the body's axis. The card (assets/stores/aim-7m.json)
+# holds the published figures: length 3.64 m, diameter 0.203 m, mass 225 kg; span 1 m (the card), tip to tip across
+# opposite fins. Its surfaces fly in an X, 45 deg from the vertical, as it hangs on its launcher (assumed for all).
+# Assumed from photographs, the same way for every missile: the nose's shape and length, each surface's place,
+# chords and sweep, the motor's nozzle and burn, the CG. They only shape the picture until the aero stage runs.
+
+[aircraft]
+name = "aim7m"
+description = "AIM-7M Sparrow (hangar build)"
+category = "missile"
+card = "aim-7m"             # its store card: the published figures this design holds
+
+[analysis]
+speed = 900.0                # m/s: the Reynolds numbers (Mach 3 at altitude) - assumed
+
+# The body: an ogive radome 3.0 calibres long, the cylinder, a boattail over the nozzle (assumed)
+[[body]]
+name = "body"
+kind = "fuselage"
+stations = [
+  { x = 0.0, w = 0.0, top = 0.0, bottom = 0.0, n = 2 },
+  { x = 0.0183, w = 0.0123, top = 0.0062, bottom = -0.0062, n = 2 },
+  { x = 0.0487, w = 0.0319, top = 0.016, bottom = -0.016, n = 2 },
+  { x = 0.0974, w = 0.0609, top = 0.0305, bottom = -0.0305, n = 2 },
+  { x = 0.1705, w = 0.0992, top = 0.0496, bottom = -0.0496, n = 2 },
+  { x = 0.2558, w = 0.136, top = 0.068, bottom = -0.068, n = 2 },
+  { x = 0.3654, w = 0.1713, top = 0.0856, bottom = -0.0856, n = 2 },
+  { x = 0.4872, w = 0.1951, top = 0.0975, bottom = -0.0975, n = 2 },
+  { x = 0.609, w = 0.203, top = 0.1015, bottom = -0.1015, n = 2 },
+  { x = 3.5182, w = 0.203, top = 0.1015, bottom = -0.1015, n = 2 },
+  { x = 3.64, w = 0.1624, top = 0.0812, bottom = -0.0812, n = 2 },
+]
+
+# The wings: all-moving about their spindles; root chord 0.62 m, tip 0.1 m, 0.3985 m out from the body, their tips across the card's span (assumed from photographs)
+[[surface]]
+name = "wing upper"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [1.3, 0.0696, 0.0696], chord = 0.62 },
+  { le = [1.82, 0.3536, 0.3536], chord = 0.1 },
+]
+controls = [
+  { name = "wing upper", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-20, 20] },
+]
+
+[[surface]]
+name = "wing lower"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [1.3, 0.0696, -0.0696], chord = 0.62 },
+  { le = [1.82, 0.3536, -0.3536], chord = 0.1 },
+]
+controls = [
+  { name = "wing lower", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-20, 20] },
+]
+
+# The tail fins: fixed; root chord 0.5 m, tip 0.18 m, 0.3 m out from the body (assumed from photographs)
+[[surface]]
+name = "tail fin upper"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [3.05, 0.0696, 0.0696], chord = 0.5 },
+  { le = [3.37, 0.2839, 0.2839], chord = 0.18 },
+]
+
+[[surface]]
+name = "tail fin lower"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [3.05, 0.0696, -0.0696], chord = 0.5 },
+  { le = [3.37, 0.2839, -0.2839], chord = 0.18 },
+]
+
+# The rocket motor: the Mk 58's boost and sustain; aluminised (its dense trail in photographs). Its nozzle in the boattail, its exit 65 % of the base and its burn's phases assumed
+# (none published): only what a replay shows the plume with until a flight model burns it.
+[motor]
+exit = [3.64, 0.0, 0.0]
+exit_diameter = 0.1056
+throat_diameter = 0.0475
+cone_length = 0.1161
+smoke = "aluminised"
+[[motor.phase]]
+duration_s = 3
+thrust_kn = 25
+[[motor.phase]]
+duration_s = 9
+thrust_kn = 3.5
+
+[mass]
+empty = 225                 # kg, the card, motor full
+empty_cg = [1.82, 0.0, 0.0]  # assumed: half way along
+gyration = [0.0195, 0.289, 0.289]  # radii of gyration over length - assumed (a slender rod's: L/sqrt(12))
+
+[dimensions]                  # the card: the span tip to tip across opposite fins
+length = 3.64
+span = 1

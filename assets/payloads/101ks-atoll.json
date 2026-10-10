@@ -1,0 +1,15 @@
+{
+  "id": "101ks-atoll",
+  "designation": "101KS Atoll",
+  "family": "passive_optical",
+  "summary": "electro-optical system: infrared search and track, missile warning, targeting",
+  "parameters": {},
+  "sources": {
+    "wp-su57": {
+      "title": "Sukhoi Su-57",
+      "publisher": "Wikipedia (revision 1376999114)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Sukhoi_Su-57&oldid=1376999114",
+      "date": "2026-09-27"
+    }
+  }
+}

@@ -1,0 +1,305 @@
+# Eurofighter EF-2000 Typhoon (Tranche 2), built by hangar from public data.
+# A canard delta, unstable in pitch at subsonic speeds by design.
+#
+# Frame: metres, x aft from the nose tip, y right, z up from the wing's
+# root chord plane. Sources: Eurofighter GmbH and Jane's (dimensions,
+# weights, performance); Eurojet (EJ200). The shape is measured off a
+# three-view scaled between the published length and span (1 % from each);
+# the gear where it draws the wheels, standing the fin's tip the published
+# 5.28 m up.
+
+[aircraft]
+name = "typhoon"
+description = "Eurofighter Typhoon (hangar build)"
+category = "fighter"
+
+[analysis]
+speed = 250.0
+
+# The wing as drawn: 51.3 m2 to the centre line (51.2 m2 published), a
+# cropped delta, 52 deg leading edge, its trailing edge swept 3 deg
+# forward, no dihedral. The balance is not published: the CG sits where
+# the drawn main wheels put a real one (below).
+[[surface]]
+name = "wing"
+kind = "wing"
+sections = [
+  { le = [4.620, 0.000, 0.000], chord = 8.390, airfoil = "naca64a004" },
+  { le = [11.500, 5.330, 0.000], chord = 1.240, airfoil = "naca64a003" },
+]
+controls = [
+  # elevons: pitch and roll together
+  { name = "inner elevon", channel = "elevator", mix = { aileron = 1.0 }, span = [0.16, 0.50], chord_fraction = 0.20, limits = [-25, 25] },
+  { name = "outer elevon", channel = "elevator", mix = { aileron = 1.0 }, span = [0.50, 0.94], chord_fraction = 0.22, limits = [-25, 25] },
+]
+# leading-edge slats, inboard and outboard, drawn as flaps turning down,
+# on the angle-of-attack schedule (the F-16's law stands in)
+leading = [
+  { name = "inner slat", span = [0.20, 0.55], chord_fraction = 0.11, limits = [-2, 25] },
+  { name = "outer slat", span = [0.55, 0.97], chord_fraction = 0.11, limits = [-2, 25] },
+]
+
+# All-moving canards beside the cockpit, 2.6 m2 exposed, 46 deg leading
+# edge, 14 deg anhedral: a nose-down command turns their trailing edges up
+# (gain -1); the surface runs on inside the fuselage to the centre line, as
+# the body carries their lift across
+[[surface]]
+name = "canard"
+kind = "canard"
+airfoil = "naca64a004"
+sections = [
+  { le = [1.850, 0.000, 0.500], chord = 1.905 },
+  { le = [2.480, 0.610, 0.500], chord = 1.460 },
+  { le = [3.870, 1.940, 0.160], chord = 0.470 },
+]
+controls = [
+  { name = "canard", channel = "elevator", gain = -1.0, span = [0.31, 1.0], chord_fraction = 1.0, pivot = 0.35, limits = [-50, 20] },
+]
+
+# One fin, 6.1 m2, 54 deg leading edge
+[[surface]]
+name = "fin"
+kind = "fin"
+airfoil = "naca64a004"
+sections = [
+  { le = [11.080, 0.000, 1.100], chord = 3.450 },
+  { le = [14.930, 0.000, 3.930], chord = 0.930 },
+]
+controls = [
+  { name = "rudder", channel = "rudder", span = [0.06, 0.80], chord_fraction = 0.28, limits = [-30, 30] },
+]
+
+# The fuselage: the radome and the cockpit high over the chin intake, the
+# spine falling to the fin, the two engines close together
+[[body]]
+name = "fuselage"
+kind = "fuselage"
+stations = [
+  { x = 0.00, w = 0.00, top = 0.410, bottom = 0.390 },
+  { x = 0.25, w = 0.22, top = 0.520, bottom = 0.310, n = 2.0 },
+  { x = 0.50, w = 0.40, top = 0.630, bottom = 0.250, n = 2.0 },
+  { x = 1.00, w = 0.66, top = 0.820, bottom = 0.170, n = 2.0 },
+  { x = 1.50, w = 0.86, top = 0.970, bottom = 0.120, n = 2.0 },
+  { x = 2.00, w = 1.02, top = 1.080, bottom = 0.110, n = 2.1 },
+  { x = 2.50, w = 1.16, top = 1.140, bottom = 0.120, n = 2.2 },
+  { x = 3.00, w = 1.26, top = 1.180, bottom = 0.120, n = 2.2 },
+  { x = 4.00, w = 1.44, top = 1.200, bottom = 0.100, n = 2.3 },
+  { x = 4.60, w = 1.60, top = 1.200, bottom = 0.000, chine = 0.450, n_top = 2.2, n_bottom = 2.4 },
+  { x = 5.00, w = 1.84, top = 1.160, bottom = 0.000, chine = 0.450, n_top = 2.2, n_bottom = 2.4 },
+  { x = 6.00, w = 2.10, top = 1.100, bottom = -0.050, chine = 0.450, n_top = 2.2, n_bottom = 2.6 },
+  { x = 8.00, w = 2.20, top = 1.100, bottom = -0.100, chine = 0.450, n_top = 2.2, n_bottom = 2.8 },
+  { x = 11.00, w = 2.20, top = 1.100, bottom = -0.100, chine = 0.450, n_top = 2.2, n_bottom = 2.8 },
+  { x = 13.00, w = 2.10, top = 1.050, bottom = -0.100, chine = 0.450, n_top = 2.2, n_bottom = 2.8 },
+  { x = 14.00, w = 1.96, top = 1.000, bottom = -0.050, chine = 0.450, n_top = 2.2, n_bottom = 2.6 },
+  { x = 14.30, w = 1.84, top = 0.950, bottom = 0.000, chine = 0.450, n_top = 2.2, n_bottom = 2.4 },
+]
+
+# The chin intake: a wide mouth under the radome, its lower lip (the
+# variable cowl) square to the flow, the duct's fairing widening aft into
+# the lower fuselage
+[[intake]]
+name = "intake"
+lip = 0.035
+rake = 0
+duct = 1.2
+duct_rise = 0.35
+duct_taper = 0.85
+stations = [
+  { x = 4.650, w = 1.800, top = 0.100, bottom = -0.600, n_top = 4.0, n_bottom = 2.6 },
+  { x = 6.000, w = 2.100, top = 0.100, bottom = -0.580, n_top = 4.0, n_bottom = 3.0 },
+  { x = 9.000, w = 2.400, top = 0.100, bottom = -0.520, n_top = 4.0, n_bottom = 3.2 },
+  { x = 12.00, w = 2.200, top = 0.100, bottom = -0.410, n = 3.0 },
+  { x = 13.50, w = 1.800, top = 0.100, bottom = -0.320, n = 2.8 },
+  { x = 14.20, w = 1.600, top = 0.100, bottom = -0.200, n = 2.6 },
+]
+
+# The spine from the canopy to the fin
+[[body]]
+name = "spine"
+kind = "pod"
+aero = false
+stations = [
+  { x = 5.200, w = 0.70, top = 1.700, bottom = 0.900, n = 2.2 },
+  { x = 6.000, w = 0.90, top = 1.640, bottom = 0.900, n = 2.2 },
+  { x = 7.000, w = 0.92, top = 1.480, bottom = 0.900, n = 2.2 },
+  { x = 8.000, w = 0.90, top = 1.380, bottom = 0.900, n = 2.2 },
+  { x = 9.000, w = 0.84, top = 1.300, bottom = 0.900, n = 2.2 },
+  { x = 10.00, w = 0.70, top = 1.240, bottom = 0.900, n = 2.2 },
+  { x = 11.00, w = 0.50, top = 1.160, bottom = 0.900, n = 2.2 },
+  { x = 11.60, w = 0.00, top = 1.300, bottom = 1.000 },
+]
+
+# The pods on the wing tips (the defensive aids' antennas)
+[[body]]
+name = "tip pod"
+kind = "pod"
+mirror = true
+aero = false
+stations = [
+  { x = 11.100, y = 5.400, w = 0.000, top = 0.050, bottom = 0.030 },
+  { x = 11.500, y = 5.400, w = 0.240, top = 0.200, bottom = -0.120, n = 2.2 },
+  { x = 12.900, y = 5.400, w = 0.260, top = 0.220, bottom = -0.130, n = 2.2 },
+  { x = 13.200, y = 5.400, w = 0.100, top = 0.100, bottom = -0.020, n = 2.2 },
+]
+
+# The framed windscreen and the bubble canopy behind it
+[[body]]
+name = "canopy"
+kind = "pod"
+frames = [2.95]
+frame_width = 0.07
+stations = [
+  { x = 2.150, w = 0.00, top = 1.110, bottom = 1.080 },
+  { x = 2.500, w = 0.64, top = 1.270, bottom = 1.050, n = 2.0 },
+  { x = 3.000, w = 0.86, top = 1.520, bottom = 1.050, n = 2.0 },
+  { x = 3.500, w = 0.96, top = 1.740, bottom = 1.050, n = 2.0 },
+  { x = 4.250, w = 1.00, top = 1.880, bottom = 1.060, n = 2.0 },
+  { x = 5.000, w = 0.96, top = 1.850, bottom = 1.080, n = 2.0 },
+  { x = 5.800, w = 0.80, top = 1.680, bottom = 1.100, n = 2.0 },
+  { x = 6.400, w = 0.00, top = 1.560, bottom = 1.480 },
+]
+
+[[engine]]
+name = "EJ200"
+type = "turbofan"
+mirror = true
+thrust_dry_kn = 60.0          # 13,500 lbf military
+thrust_wet_kn = 90.0          # 20,250 lbf afterburner
+bypass_ratio = 0.40
+tsfc_dry = 0.79
+tsfc_wet = 1.73
+design_mach = 2.0
+position = [12.600, 0.490, 0.450]
+mass = 989
+inlet_x = 4.65
+[engine.nozzle]
+position = [14.720, 0.490, 0.450]
+diameter = 0.88               # m, as drawn
+length = 0.65
+
+# The gear where the three-view draws its wheels (the axles 5.37 and 9.50 m
+# behind the nose tip): a single nose wheel folding aft under the split
+# intake, the mains on a 3.83 m track folding inward under the wing roots.
+[[gear]]
+name = "Nose Gear"
+position = [5.370, 0.0, -1.490]
+steerable = true
+max_steer = 60
+wheel_diameter = 0.47
+wheel_width = 0.18
+retractable = true
+retract = "aft"
+static_deflection = 0.14
+attach = [5.370, 0.000, -0.250]
+
+[[gear]]
+name = "Main Gear"
+mirror = true
+position = [9.500, 1.914, -1.520]
+wheel_diameter = 0.72
+wheel_width = 0.27
+retractable = true
+retract = "inward"
+static_deflection = 0.17
+attach = [9.400, 1.150, -0.050]
+
+[reference]
+aero_point = [8.800, 0.0, 0.0]     # at the CG
+
+[flight_control]
+type = "fbw"
+n_max = 9.0
+n_min = -3.0
+alpha_max_deg = 30.0
+roll_rate_deg_s = 250.0
+
+[mass]
+empty = 11000                 # Tranche 2 (Eurofighter)
+# loaded: 9.6 % of the MAC behind the neutral point hangar finds, 17 % of
+# the weight on the nose wheel
+empty_cg = [8.845, 0.0, 0.300]
+# no published inertia: radii of gyration of the class
+gyration = [0.250, 0.400, 0.510]
+[[mass.payload]]
+name = "pilot"
+mass = 100
+position = [3.900, 0.0, 1.400]
+[[mass.payload]]
+name = "gun ammunition"       # Mauser BK-27, 150 rounds
+mass = 80
+position = [8.000, 1.000, 0.000]
+[[mass.tank]]
+name = "fuselage 1"           # internal fuel, 4,996 kg
+position = [7.500, 0.0, 0.500]
+capacity = 1800
+[[mass.tank]]
+name = "fuselage 2"
+position = [9.300, 0.0, 0.500]
+capacity = 1596
+[[mass.tank]]
+name = "left wing"
+position = [9.800, -2.500, 0.000]
+capacity = 800
+[[mass.tank]]
+name = "right wing"
+position = [9.800, 2.500, 0.000]
+capacity = 800
+
+[dimensions]                  # published, overall, gear down (Eurofighter):
+length = 15.96                 # m
+span = 10.95
+height = 5.28
+
+[targets]
+# Typhoon, published
+max_mach = 2.0                # at altitude, full afterburner
+max_mach_altitude_ft = 36000
+climb_rate_fpm = 62000        # 315 m/s
+operational_ceiling_ft = 55000 # Eurofighter's figure, a clearance (65,000 ft is also quoted)
+
+# Its drag device (docs/flight-autonomy.md, 4.55): its dorsal airbrake
+# behind the canopy (Eurofighter GmbH); opened 50 deg (an estimate); sized
+# as the F-15's is to its wing (31.5 ft2 on 608 ft2: 5.2 %), 2.66 m2 - no
+# area is published - and placed after the type's description; an estimate.
+[[drag_device]]
+name = "airbrake"
+kind = "airbrake"
+area = 2.659
+position = [6.7, 0, 1]
+max_deg = 50
+
+# The 90 deg crosswind it lands and takes off in at most (docs/flight-autonomy.md,
+# 4.54): beyond it a recovery waves off, and a launch or a taxi is refused. Source:
+# MIL-F-8785C 3.3.7 (Table XI): the 90 deg crosswind a Class II to IV
+# aeroplane is to take off and land in (Level 1). No limit is published for
+# the type: its flying qualities' requirement stands in for it.
+[operations]
+crosswind_kt = 30
+# Its placards (docs/flight-autonomy.md, 4.57): the most it moves its gear at
+# (the lesser of extending and retracting it), and the most with its flaps out
+# beyond flaps_above (the setting before its landing flaps), KIAS - or why there
+# are none. Source: none found. It has no flaps.
+placards_unknown = "its gear's limit: its flight manual is not public and no other public source gives them"
+
+# What the platform's discovery rests on (docs/flight-autonomy.md, section 5.2): the
+# aircraft's physical characteristics, each with its public source. hangar writes them into
+# the profile's applicability section and the sources into the file header. A characteristic
+# left out is not declared, and what it governs stays applicable.
+[applicability]
+vertical_flight = false
+ground_contact = "wheels"
+carrier = "none"
+retractable_gear = true
+drag_devices = "devices"
+releasable_stores = "weapons"
+aerobatic = true
+# flaps: not declared. The model omits a flap function; whether the flaperons of this canard delta give one is for type data to decide (docs/flight-autonomy.md, 5.3)
+
+[applicability.sources]
+vertical_flight = "Eurofighter GmbH and Jane's: a conventional take-off and landing fighter. Conventional take-off and landing: no rotors, lift fans or vectored lift to hover"
+ground_contact = "Eurofighter GmbH: tricycle wheeled gear"
+carrier = "Eurofighter GmbH: a land-based fighter (runway arresting hook only)"
+retractable_gear = "Eurofighter GmbH: retractable gear"
+drag_devices = "Eurofighter GmbH: a dorsal airbrake behind the canopy"
+releasable_stores = "Eurofighter GmbH: thirteen hardpoints"
+aerobatic = "Eurofighter GmbH: +9 g (fsim/envelope/clean/n_max)"

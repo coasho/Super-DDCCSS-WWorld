@@ -1,0 +1,70 @@
+{
+  "id": "damocles",
+  "designation": "Damocles",
+  "class": "pod",
+  "summary": "targeting pod (Rafale, Mirage 2000D)",
+  "maker": "Thales",
+  "model": "jsbsim:damocles",
+  "powerable": false,
+  "jettisonable": true,
+  "fins": false,
+  "parameters": {
+    "mass_kg": {
+      "value": 265.0,
+      "unit": "kg",
+      "uncertainty": 10.0,
+      "basis": "published",
+      "source": "ac-damocles"
+    },
+    "length_m": {
+      "value": 2.5,
+      "unit": "m",
+      "uncertainty": 0.03,
+      "basis": "published",
+      "source": "ac-damocles"
+    },
+    "diameter_m": {
+      "value": 0.37,
+      "unit": "m",
+      "uncertainty": 0.01,
+      "basis": "published",
+      "source": "ac-damocles"
+    },
+    "drag_area_m2": {
+      "value": 0.01918,
+      "unit": "m^2",
+      "uncertainty": 0.00575,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its card, stores.py's pod profile (hangar storedrag.py: Hoerner's body of revolution 0.00629, its base 0.01289, its fins' friction 0.00000 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 0.22696,
+      "unit": "m^3",
+      "uncertainty": 0.06809,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.2545 m^3 from its card, stores.py's pod profile, times Lamb's k2 - k1 = 0.892 for its fineness 6.8 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.21504,
+      "unit": "m^2",
+      "uncertainty": 0.06451,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 1.25,
+      "unit": "m",
+      "uncertainty": 0.25,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "ac-damocles": {
+      "title": "Damocles (265 kg, 2,500 mm, 370 mm; Mirage 2000D and Rafale)",
+      "publisher": "Armed Conflicts",
+      "url": "https://www.armedconflicts.com/FRA-Damocles-t145339",
+      "date": "2026-10-10"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!-- Written by hangar (storemodels.py) from the design of aim120c: its motor's phases there (assumed: none is published),
+     38.9 kg of propellant at 245 s (assumed), burning 8.0 s. Do not edit. -->
+<rocket_engine name="aim120c motor">
+    <isp> 245.0 </isp>
+    <builduptime> 0.05 </builduptime>
+    <thrust_table name="propulsion/thrust_prop_remain" type="internal">
+        <tableData>
+            0.0000000 4945.797
+            50.4673138 4945.797
+            50.4673160 1573.663
+            85.7944334 1573.663
+        </tableData>
+    </thrust_table>
+</rocket_engine>

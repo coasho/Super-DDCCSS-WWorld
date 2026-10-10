@@ -1,0 +1,111 @@
+# IRIS-T, built by hangar from public data (ADR-30, MS-7e1) - written by `python -m hangar missiles irist`
+# (tools/hangar/hangar/missiles.py), one rule for every missile: edit the table there and write it again.
+#
+# Frame: metres, x aft from the nose's tip, y right, z up from the body's axis. The card (assets/stores/iris-t.json)
+# holds the published figures: length 2.94 m, diameter 0.127 m, mass 87.4 kg; span 0.447 m (the card), tip to tip across
+# opposite fins. Its surfaces fly in an X, 45 deg from the vertical, as it hangs on its launcher (assumed for all).
+# Assumed from photographs, the same way for every missile: the nose's shape and length, each surface's place,
+# chords and sweep, the motor's nozzle and burn, the CG. They only shape the picture until the aero stage runs.
+
+[aircraft]
+name = "irist"
+description = "IRIS-T (hangar build)"
+category = "missile"
+card = "iris-t"             # its store card: the published figures this design holds
+
+[analysis]
+speed = 900.0                # m/s: the Reynolds numbers (Mach 3 at altitude) - assumed
+
+# The infrared seeker's glass dome (36 % of the body's radius - assumed), on its cone
+[[body]]
+name = "canopy seeker dome"
+kind = "pod"
+stations = [
+  { x = 0.0, w = 0.0, top = 0.0, bottom = 0.0, n = 2 },
+  { x = 0.0057, w = 0.0302, top = 0.0151, bottom = -0.0151, n = 2 },
+  { x = 0.0137, w = 0.0421, top = 0.021, bottom = -0.021, n = 2 },
+  { x = 0.0229, w = 0.0457, top = 0.0229, bottom = -0.0229, n = 2 },
+  { x = 0.032, w = 0.0457, top = 0.0229, bottom = -0.0229, n = 2 },
+]
+
+# The body: the seeker's cone, the cylinder, a boattail over the nozzle (assumed)
+[[body]]
+name = "body"
+kind = "fuselage"
+stations = [
+  { x = 0.0103, w = 0.0366, top = 0.0183, bottom = -0.0183, n = 2 },
+  { x = 0.0229, w = 0.0443, top = 0.0222, bottom = -0.0222, n = 2 },
+  { x = 0.0927, w = 0.0924, top = 0.0462, bottom = -0.0462, n = 2 },
+  { x = 0.1626, w = 0.127, top = 0.0635, bottom = -0.0635, n = 2 },
+  { x = 2.8638, w = 0.127, top = 0.0635, bottom = -0.0635, n = 2 },
+  { x = 2.94, w = 0.1016, top = 0.0508, bottom = -0.0508, n = 2 },
+]
+
+# The strakes: fixed; root chord 1.2 m, tip 1.1 m, 0.025 m out from the body (assumed from photographs)
+[[surface]]
+name = "strake upper"
+kind = "fin"
+mirror = true
+airfoil = "plate"
+sections = [
+  { le = [0.7, 0.0436, 0.0436], chord = 1.2 },
+  { le = [0.8, 0.0626, 0.0626], chord = 1.1 },
+]
+
+[[surface]]
+name = "strake lower"
+kind = "fin"
+mirror = true
+airfoil = "plate"
+sections = [
+  { le = [0.7, 0.0436, -0.0436], chord = 1.2 },
+  { le = [0.8, 0.0626, -0.0626], chord = 1.1 },
+]
+
+# The tail fins: all-moving about their spindles; root chord 0.28 m, tip 0.15 m, 0.16 m out from the body, their tips across the card's span (assumed from photographs)
+[[surface]]
+name = "tail fin upper"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [2.62, 0.0436, 0.0436], chord = 0.28 },
+  { le = [2.75, 0.158, 0.158], chord = 0.15 },
+]
+controls = [
+  { name = "tail fin upper", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
+]
+
+[[surface]]
+name = "tail fin lower"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [2.62, 0.0436, -0.0436], chord = 0.28 },
+  { le = [2.75, 0.158, -0.158], chord = 0.15 },
+]
+controls = [
+  { name = "tail fin lower", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
+]
+
+# The rocket motor: HTPB (the card); its nozzle's thrust vanes not drawn. Its nozzle in the boattail, its exit 65 % of the base and its burn's phases assumed
+# (none published): only what a replay shows the plume with until a flight model burns it.
+[motor]
+exit = [2.94, 0.0, 0.0]
+exit_diameter = 0.066
+throat_diameter = 0.0297
+cone_length = 0.0726
+smoke = "reduced"
+[[motor.phase]]
+duration_s = 5
+thrust_kn = 12
+
+[mass]
+empty = 87.4                 # kg, the card, motor full
+empty_cg = [1.47, 0.0, 0.0]  # assumed: half way along
+gyration = [0.0151, 0.289, 0.289]  # radii of gyration over length - assumed (a slender rod's: L/sqrt(12))
+
+[dimensions]                  # the card: the span tip to tip across opposite fins
+length = 2.94
+span = 0.447

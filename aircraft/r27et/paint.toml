@@ -1,0 +1,8 @@
+# R-27ET's paint, by one rule for every missile (tools/hangar/hangar/missiles.py): light grey overall; the seeker's dome glass
+# no bands: no published colour code for its maker's munitions was found
+[paint]
+scheme = "single"
+colours = ["#c4c8cc"]
+panel_lines = 0.0
+wear = 0.03
+gloss = 0.3

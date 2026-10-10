@@ -1,0 +1,573 @@
+#pragma once
+
+// Built-in controllers and behaviours (design 9.3). Plain classes so trainer
+// code can subclass, retune (`setParameter`) or replace them by id.
+
+#include "fsim/Control.h"
+#include "fsim/Export.h"
+#include "fsim/Pid.h"
+
+#include <array>
+#include <cstdint>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+namespace fsim::control {
+
+/// name -> member pointer table shared by the built-ins.
+class FSIM_API Parameters {
+public:
+    void add(const char* name, double* value) { table_.emplace_back(name, value); }
+    bool set(std::string_view name, double value) noexcept;
+    std::optional<double> get(std::string_view name) const noexcept;
+
+private:
+    std::vector<std::pair<const char*, double*>> table_;
+};
+
+/// A gain schedule on airspeed (design 9.3). A loop's gains are as set at the
+/// reference true and equivalent airspeeds `tasMs` and `easMs`; elsewhere a
+/// channel's are multiplied by (easMs / eas)^a * (tasMs / tas)^b, where the
+/// aircraft's response to that control grows as eas^a * tas^b - so the loop
+/// stays as fast and as damped over the envelope. A surface whose moment
+/// grows with dynamic pressure has a = 2 for the load factor it pulls; a
+/// fly-by-wire law that commands the load factor has a = b = 0. Off while
+/// `tasMs` is 0 (the default): the gains are then fixed.
+struct AirspeedSchedule {
+    double tasMs = 0.0; ///< reference true airspeed, m/s; 0 = no schedule
+    double easMs = 0.0; ///< reference equivalent airspeed, m/s; 0 = the same as tasMs
+
+    bool active() const noexcept { return tasMs > 0.0; }
+    /// The factor for a channel whose response grows as eas^a * tas^b (the
+    /// calibrated airspeed stands in for the equivalent), within 0.2 .. 5.
+    double factor(const sim::VehicleState& s, double a, double b) const noexcept {
+        if (!active() || (a == 0.0 && b == 0.0)) return 1.0;
+        const double eas0 = easMs > 0.0 ? easMs : tasMs;
+        const double tas = std::max(s.airspeedTrueMs, 0.3 * tasMs);
+        const double eas = std::max(s.airspeedCalibratedMs, 0.3 * eas0);
+        return std::clamp(power(eas0 / eas, a) * power(tasMs / tas, b), 0.2, 5.0);
+    }
+    /// x^e, by multiplication for the small whole exponents a schedule has.
+    static double power(double x, double e) noexcept {
+        if (e == 0.0) return 1.0;
+        if (e == std::floor(e) && std::abs(e) <= 4.0) {
+            double r = 1.0;
+            for (int i = 0; i < static_cast<int>(std::abs(e)); ++i) r *= x;
+            return e > 0.0 ? r : 1.0 / r;
+        }
+        return std::pow(x, e);
+    }
+    /// tas / tasMs (at least 0.3), or 1 without a schedule: for gains that
+    /// turn an angle into a rate through the flight path, which grow with speed.
+    double speedRatio(const sim::VehicleState& s) const noexcept {
+        return active() ? std::max(s.airspeedTrueMs, 0.3 * tasMs) / tasMs : 1.0;
+    }
+    /// The elevator a surface-controlled aircraft holds at load factor `n`
+    /// (+ nose down): `trim` at 1 g at the reference speed, of which
+    /// `trimLift` goes with the lift - it grows as n (easMs / eas)^2.
+    double trimElevator(const sim::VehicleState& s, double n, double trim, double trimLift) const noexcept {
+        if (trim == 0.0 && trimLift == 0.0) return 0.0;
+        const double eas0 = easMs > 0.0 ? easMs : tasMs;
+        const double ratio = eas0 > 0.0 ? eas0 / std::max(s.airspeedCalibratedMs, 0.5 * eas0) : 1.0;
+        return std::clamp(trim - trimLift + trimLift * n * ratio * ratio, -1.0, 1.0);
+    }
+};
+
+/// Level::Actuator: identity (the stack clamps).
+class FSIM_API ActuatorPassthrough final : public Controller {
+public:
+    const char* id() const noexcept override { return "actuator"; }
+    Level level() const noexcept override { return Level::Actuator; }
+    bool axisAware() const noexcept override { return true; }
+    Command update(const ControlContext&, const Command& in) override { return in; }
+};
+
+/// Level::Attitude -> Actuator: roll/pitch PID with pitch trim integrator, beta
+/// feedback on the rudder, heading-to-roll outer loop, airspeed-to-throttle PI.
+/// With a schedule, the roll and pitch gains follow the airspeed and the
+/// heading gain grows with it (a bank turns the heading at g tan(bank) / tas).
+class FSIM_API AttitudeLoop final : public Controller {
+public:
+    AttitudeLoop();
+    const char* id() const noexcept override { return "pid_attitude"; }
+    Level level() const noexcept override { return Level::Attitude; }
+    bool axisAware() const noexcept override { return true; }
+    Command update(const ControlContext& ctx, const Command& in) override;
+    void reset() override;
+    bool setParameter(std::string_view name, double value) override { return params_.set(name, value); }
+    std::optional<double> parameter(std::string_view name) const override { return params_.get(name); }
+
+    Pid roll{2.0, 0.0, 0.25, 0.3};
+    Pid pitch{2.5, 0.4, 0.5, 0.5};
+    Pid airspeed{0.06, 0.02, 0.0, 0.5, 0.0, 1.0};
+    double headingGain = 1.5;      ///< rad roll per rad heading error
+    /// rudder per rad sideslip: a positive rudder yaws the nose left and a positive sideslip is the nose left of the air's
+    /// path, so it is negative - in a 30 deg bank the stock C172P slipped 1.12 deg at +1, 0.65 at -1 (docs/flight-autonomy.md,
+    /// 4.54). An aircraft's law sets its own from its rudder's measured step (Laws.cpp)
+    double rudderBetaGain = -1.0;
+    double throttleFeedforward = 0.55;
+    double maxRollRateRadS = 1.5;  ///< roll setpoint slew
+    AirspeedSchedule schedule;     ///< "schedule.tas_ms", "schedule.eas_ms"
+    double rollEasExponent = 0.0, rollTasExponent = 0.0;   ///< the roll gains' schedule (AirspeedSchedule::factor)
+    double pitchEasExponent = 0.0, pitchTasExponent = 0.0; ///< the pitch gains' schedule
+    /// "pitch.trim", "pitch.trim_lift": the elevator that holds level flight at
+    /// the reference speed and the part of it that goes with lift - fed forward
+    /// (AirspeedSchedule::trimElevator, at the load factor of a level turn), so
+    /// the integrator only trims what is left. 0 for a law that trims itself.
+    double pitchTrim = 0.0, pitchTrimLift = 0.0;
+
+private:
+    Parameters params_;
+    double rollRef_ = 0.0;
+    bool haveRef_ = false;
+    double lastTime_ = -1.0; ///< the vehicle's sim time at the last update: a loop that missed a period starts again
+};
+
+/// Level::Attitude -> Acceleration: the attitude loop over pseudo-controls
+/// (docs/control-architecture.md, step 5b). It asks the acceleration level for
+/// what every aircraft shares - a roll rate, a load factor, an acceleration
+/// along its path - and leaves how this aircraft makes them to the allocation
+/// there: its surfaces or its law's stick, its plant's gains, its trim.
+///
+/// Its own gains are in rates: rad/s of roll rate per rad of bank error, less
+/// "roll.kd" per rad/s of roll rate flown; rad/s of pitch rate per rad of
+/// pitch error (with an integral), less "pitch.kd" per rad/s the pitch
+/// changes at, turned into the load factor that pitches the path so at this
+/// bank and speed; m/s2 per m/s of airspeed error (with an integral). The
+/// damping is what the allocation's lag, and the airframe's modes it does not
+/// model, ask for. The bank setpoint slews at "roll.max_rate". A heading is
+/// the path's through the air - the nose's plus the sideslip - so the dutch
+/// roll's yawing, which leaves the path where it is, does not reach the bank.
+class FSIM_API PseudoAttitudeLoop final : public Controller {
+public:
+    PseudoAttitudeLoop();
+    const char* id() const noexcept override { return "pseudo_attitude"; }
+    Level level() const noexcept override { return Level::Attitude; }
+    bool axisAware() const noexcept override { return true; }
+    Command update(const ControlContext& ctx, const Command& in) override;
+    void reset() override;
+    bool setParameter(std::string_view name, double value) override { return params_.set(name, value); }
+    std::optional<double> parameter(std::string_view name) const override { return params_.get(name); }
+
+    double rollGain = 2.0;         ///< "roll.gain": rad/s of roll rate per rad of bank error
+    double rollDamping = 0.0;      ///< "roll.kd": rad/s of roll rate less per rad/s flown
+    double maxRollRateRadS = 1.5;  ///< "roll.max_rate": the bank setpoint's slew
+    double rollLagS = 0.0;         ///< "roll.lag_s": the roll rate's lag the bank's poles are placed on, as pitchLagS's
+    double headingGain = 1.5;      ///< "heading.gain": rad of bank per rad of heading error (at the reference speed)
+    Pid pitch{1.0, 0.1, 0.0, 0.1, -0.35, 0.35};   ///< "pitch.*": the pitch rate, rad/s, a pitch error asks (kd on the pitch's rate)
+    /// "pitch.lag_s": the load factor's lag at the schedule's reference (the allocation's, as identified), the pitch's
+    /// poles placed on it; slower, where the lag is longer, they are placed again on the lag there (0: as given)
+    double pitchLagS = 0.0;
+    Pid airspeed{0.2, 0.01, 0.0, 2.0, -5.0, 5.0}; ///< "airspeed.*": the acceleration, m/s2, an airspeed error asks
+    AirspeedSchedule schedule;     ///< "schedule.tas_ms", "schedule.eas_ms": the heading gain grows with the speed
+
+private:
+    Parameters params_;
+    double rollRef_ = 0.0;
+    bool haveRef_ = false;
+    double lastTime_ = -1.0;
+};
+
+/// Level::Acceleration -> Actuator: load-factor error to elevator, roll rate
+/// to aileron, sideslip to rudder, longitudinal acceleration to throttle.
+/// Works through any attitude (no Euler angles), so it flies loops and rolls.
+/// Optional feedforwards give the stick the command needs before any error
+/// builds: the load factor beyond what gravity asks at this attitude
+/// (cos pitch cos roll), and the roll rate; with a schedule they and the
+/// gains follow the airspeed.
+class FSIM_API AccelerationLoop final : public Controller {
+public:
+    AccelerationLoop();
+    const char* id() const noexcept override { return "pid_acceleration"; }
+    Level level() const noexcept override { return Level::Acceleration; }
+    bool axisAware() const noexcept override { return true; }
+    Command update(const ControlContext& ctx, const Command& in) override;
+    void reset() override;
+    bool setParameter(std::string_view name, double value) override { return params_.set(name, value); }
+    std::optional<double> parameter(std::string_view name) const override { return params_.get(name); }
+
+    Pid loadFactor{0.35, 0.3, 0.15, 0.6};
+    Pid rollRate{0.8, 0.2, 0.0, 0.5};
+    Pid longitudinal{0.15, 0.05, 0.0, 0.5, 0.0, 1.0};
+    double rudderBetaGain = -1.0; ///< as the attitude loop's
+    double throttleFeedforward = 0.6;
+    double loadFactorFeedforward = 0.0; ///< nose-up stick per g beyond what neutral stick gives; 0 = none
+    /// What neutral stick gives: 1 = cos(pitch) cos(roll) - it holds the flight
+    /// path, as fly-by-wire laws do; 0 = 1 g, as a trimmed surface does
+    double loadFactorPathHold = 1.0;
+    double rollRateFeedforward = 0.0;   ///< aileron per rad/s of roll rate; 0 = none
+    double longitudinalFeedforward = 0.0; ///< throttle per m/s2 of longitudinal acceleration; 0 = none
+    AirspeedSchedule schedule;          ///< "schedule.tas_ms", "schedule.eas_ms"
+    double loadFactorEasExponent = 0.0, loadFactorTasExponent = 0.0; ///< the load-factor gains' schedule
+    double rollRateEasExponent = 0.0, rollRateTasExponent = 0.0;     ///< the roll-rate gains' schedule
+    double pitchTrim = 0.0, pitchTrimLift = 0.0; ///< as AttitudeLoop's, fed forward at the load factor commanded
+
+private:
+    Parameters params_;
+};
+
+/// Level::Velocity -> Attitude: vertical speed to pitch (with trim), turn
+/// rate to bank, heading and airspeed passed to the attitude loop. With a
+/// reference speed its gains hold there and scale as 1 / tas elsewhere (a
+/// pitch change moves the vertical speed by tas times as much); with the
+/// feedforward the pitch is the flight-path angle the vertical speed needs,
+/// asin(vz / tas), plus the angle of attack the wing would fly at 1 g -
+/// alpha0 + (alpha - alpha0) / n, about its zero-lift angle alpha0 - so the
+/// integrator only trims what is left.
+class FSIM_API VelocityLoop final : public Controller {
+public:
+    VelocityLoop();
+    const char* id() const noexcept override { return "pid_velocity"; }
+    Level level() const noexcept override { return Level::Velocity; }
+    bool axisAware() const noexcept override { return true; }
+    Command update(const ControlContext& ctx, const Command& in) override;
+    void reset() override;
+    bool setParameter(std::string_view name, double value) override { return params_.set(name, value); }
+    std::optional<double> parameter(std::string_view name) const override { return params_.get(name); }
+
+    Pid verticalSpeed{0.045, 0.012, 0.0, 0.25, -0.4, 0.35};
+    double maxBankRad = 0.785;
+    double referenceSpeedMs = 0.0;      ///< "schedule.tas_ms": where the gains are as set; 0 = fixed gains
+    double flightPathFeedforward = 0.0; ///< "vertical_speed.feedforward": 1 adds asin(vz / tas) + the 1 g alpha; 0 = none
+    double alphaZeroLift = 0.0;         ///< "vertical_speed.alpha_zero_lift": the wing's zero-lift angle of attack, rad
+    /// "vertical_speed.command_lag": the commanded vertical speed is followed
+    /// through a first-order lag of this time constant (s), so a step asks for
+    /// a climb the aircraft can enter without overshoot; 0 = none
+    double commandLagS = 0.0;
+
+private:
+    /// The roll and the speed of the attitude command (whichever are engaged).
+    Command lateralAndSpeed(const ControlContext& ctx, const VelocityCommand& c, AttitudeCommand& out) const;
+
+    Parameters params_;
+    double vzRef_ = 0.0;  ///< the lagged vertical speed command
+    double alpha_ = 0.0;  ///< the 1 g angle of attack, smoothed
+    bool started_ = false;
+    double lastTime_ = -1.0;
+};
+
+/// Level::Position -> Velocity: bearing to the point becomes the heading,
+/// altitude error becomes a bounded vertical speed.
+class FSIM_API PositionLoop final : public Controller {
+public:
+    PositionLoop();
+    const char* id() const noexcept override { return "pid_position"; }
+    Level level() const noexcept override { return Level::Position; }
+    bool axisAware() const noexcept override { return true; }
+    Command update(const ControlContext& ctx, const Command& in) override;
+    bool setParameter(std::string_view name, double value) override { return params_.set(name, value); }
+    std::optional<double> parameter(std::string_view name) const override { return params_.get(name); }
+
+    double altitudeGain = 0.25;     ///< m/s vertical speed per m altitude error
+    double maxVerticalSpeedMs = 6.0;
+
+private:
+    Parameters params_;
+};
+
+// --- Behaviours -------------------------------------------------------------
+
+/// "hold": keep the altitude, heading and airspeed at the moment it started.
+/// An aircraft that hovers keeps its velocity over the ground instead (a
+/// hover stays put in wind), unless it is given an airspeed. It flies to its
+/// altitude at the aircraft's own position loop gain and vertical speeds.
+class FSIM_API HoldBehavior final : public Behavior {
+public:
+    const char* id() const noexcept override { return "hold"; }
+    void start(const ControlContext& ctx, const BehaviorCommand& command) override;
+    Command update(const ControlContext& ctx, const Command& in) override;
+    /// Its targets: the heading, the altitude, the airspeed or the velocity over the ground.
+    bool progress(ActivityProgress& out) const noexcept override;
+
+private:
+    VelocityCommand target_;
+    double altitude_ = 0.0;
+    bool hovers_ = false;
+};
+
+/// "waypoints": fly `points` in order; params: loop (0/1). Finished after the last capture.
+/// Without an airspeed a wing flies the one it had, an aircraft that hovers
+/// its position loop's own speed. A point the aircraft cannot capture is
+/// refused at NEW (admitWaypoints); one it has turned a full circle round
+/// without closing on fails it (BehaviorFailed), and it flies straight and
+/// level from there.
+class FSIM_API WaypointsBehavior final : public Behavior {
+public:
+    const char* id() const noexcept override { return "waypoints"; }
+    void start(const ControlContext& ctx, const BehaviorCommand& command) override;
+    Command update(const ControlContext& ctx, const Command& in) override;
+    bool finished() const noexcept override { return finished_; }
+    Reason failure() const noexcept override { return failed_ ? Reason::BehaviorFailed : Reason::None; }
+    std::size_t index() const noexcept { return index_; }
+    /// The point flown to, the distance and time to the last one, the course,
+    /// altitude and airspeed it asks for; a looping route's laps.
+    bool progress(ActivityProgress& out) const noexcept override;
+
+private:
+    std::size_t index_ = 0;
+    bool loop_ = false, finished_ = false, hovers_ = false, failed_ = false;
+    double airspeed_ = kHold;
+    // closing on the point flown to: the least distance so far, and how far it has turned since
+    double closest_ = kHold, turned_ = 0.0, lastHeading_ = kHold;
+    VelocityCommand fallback_; ///< straight and level, once it failed
+    // for progress(): the route (the slot's command, held by the runtime while it flies), where it started and how long it is
+    const BehaviorCommand* route_ = nullptr;
+    double startLat_ = 0.0, startLon_ = 0.0, totalM_ = 0.0;
+    double lat_ = 0.0, lon_ = 0.0, north_ = 0.0, east_ = 0.0; ///< where it was and its velocity over the ground, as of the last update
+    std::uint32_t laps_ = 0;
+};
+
+/// "loiter": circle a point. params: lat_deg, lon_deg (or `target` vehicle),
+/// radius_m (at least 100 m for a wing, 1 m for an aircraft that hovers;
+/// left out, 1500 m, or wider where the aircraft's turn needs it: 1.25 times
+/// the circle its bank and heading loop hold at its speed), altitude_m
+/// (current), clockwise (1), airspeed_ms (a wing's as it was; a rotorcraft's
+/// its cruise, no faster than it follows the circle: route::lateralLimit).
+class FSIM_API LoiterBehavior final : public Behavior {
+public:
+    const char* id() const noexcept override { return "loiter"; }
+    void start(const ControlContext& ctx, const BehaviorCommand& command) override;
+    Command update(const ControlContext& ctx, const Command& in) override;
+
+    /// TargetLost while the vehicle it follows is gone (it flies on as it can).
+    Reason failure() const noexcept override { return lost_ ? Reason::TargetLost : Reason::None; }
+    /// The laps flown, how far off the circle it is (+ right of its path), its altitude and airspeed.
+    bool progress(ActivityProgress& out) const noexcept override;
+    /// The least circle a wing holds at `tasMs` with its bank and heading loop (its default is 1.25 times it).
+    static double orbitRadiusM(const Performance& performance, double tasMs) noexcept;
+
+private:
+    bool lost_ = false;
+    double centreLat_ = 0.0, centreLon_ = 0.0, radius_ = 1500.0, altitude_ = 0.0, airspeed_ = kHold;
+    bool clockwise_ = true;
+    std::uint32_t target_ = 0;
+    double lastTheta_ = kHold, swept_ = 0.0, distance_ = kHold; ///< for progress(): the angle swept round the centre
+    double trim_ = 0.0; ///< added to the carrot's circle until the one flown is radius_
+};
+
+/// "pursuit": chase `target` with lead pursuit to a point range_m (300)
+/// behind it, and hold that range as the least: it closes no faster than it
+/// can stop closing (its deceleration), and a pursuer inside the range
+/// turns back out. params: range_m, lead_s (2), max_airspeed_ms,
+/// min_airspeed_ms.
+class FSIM_API PursuitBehavior final : public Behavior {
+public:
+    const char* id() const noexcept override { return "pursuit"; }
+    void start(const ControlContext& ctx, const BehaviorCommand& command) override;
+    Command update(const ControlContext& ctx, const Command& in) override;
+
+    /// TargetLost while the vehicle it follows is gone (it flies on as it can).
+    Reason failure() const noexcept override { return lost_ ? Reason::TargetLost : Reason::None; }
+
+private:
+    bool lost_ = false;
+    std::uint32_t target_ = 0;
+    double rangeM_ = 300.0, leadS_ = 2.0, minSpeed_ = 30.0, maxSpeed_ = 400.0;
+    // what its closing speed is designed for: a deceleration it can keep up (half its performance's; a
+    // wing's 0.25 m/s2, what a sailplane-like RQ-4B sheds at idle) and its speed loop's lag (a wing's 10 s;
+    // a rotorcraft's its velocity loop's)
+    double decelMs2_ = 0.25, lagS_ = 10.0;
+};
+
+/// "evade": fly away from `target`, descending or climbing. params:
+/// altitude_delta_m (-300), airspeed_ms (hold; a rotorcraft's at least its
+/// cruise), floor_agl_m (150): it never
+/// descends below the floor above the terrain under it (nor below the
+/// height it started at, when that is lower), and says so while the floor
+/// holds its descent (kActivityClamped).
+class FSIM_API EvadeBehavior final : public Behavior {
+public:
+    const char* id() const noexcept override { return "evade"; }
+    void start(const ControlContext& ctx, const BehaviorCommand& command) override;
+    Command update(const ControlContext& ctx, const Command& in) override;
+
+    /// TargetLost while the vehicle it follows is gone (it flies on as it can).
+    Reason failure() const noexcept override { return lost_ ? Reason::TargetLost : Reason::None; }
+    std::uint16_t constraints() const noexcept override { return floored_ ? kActivityClamped : 0; }
+
+private:
+    bool lost_ = false, floored_ = false;
+    std::uint32_t target_ = 0;
+    double altitude_ = 0.0, airspeed_ = kHold, floorAglM_ = 150.0;
+};
+
+/// "launch": A-GRA's LAUNCH from an airfield's runway (docs/flight-autonomy.md, 4.49). params: airfield and runway (their
+/// ids: the vehicle's, 4.40), complete_agl_m (450: where a wing's departure ends, climbed out and cleaned up) and hover_agl_m
+/// (10: a rotorcraft's hover). The host resolves the runway at the NEW into the parameters it flies by (its takeoff line,
+/// course and elevation; a wing's rotation and climb speeds). A wing lines up on the runway's centre line, rolls at full
+/// power steering on it with the nose wheel and the rudder and holding its wings level, rotates at its rotation speed,
+/// and climbs out on the runway's course, holding its speed with its pitch - its gear up once it climbs, its flaps up at
+/// 120 m - to complete_agl_m, all at the actuator level; then holds that height on the course at the velocity level. A
+/// rotorcraft lifts straight up to hover_agl_m over where it stood, facing the runway's course, at the position level.
+/// Below its decision speed a wing rejects its takeoff (4.50) - when it can no longer reach its rotation speed in the runway
+/// left, or loses its line - and stops on the runway: then its activity fails TakeoffRejected. Canceled by a policy on the
+/// runway, it hands the rest to FA (handOver): its rejection below the decision speed, its continuation above.
+class FSIM_API LaunchBehavior final : public Behavior {
+public:
+    enum class Phase : std::uint8_t { LineUp, Roll, Rotate, Climb, Done, Lift, Reject, Stopped };
+
+    const char* id() const noexcept override { return "launch"; }
+    void start(const ControlContext& ctx, const BehaviorCommand& command) override;
+    Command update(const ControlContext& ctx, const Command& in) override;
+    void reset() override;
+    bool finished() const noexcept override { return phase_ == Phase::Done || (phase_ == Phase::Stopped && own_); }
+    Reason failure() const noexcept override { return phase_ == Phase::Stopped && !own_ ? Reason::TakeoffRejected : failure_; }
+    bool progress(ActivityProgress& out) const noexcept override;
+    bool handOver(BehaviorCommand& out) const override;
+
+    Phase phase() const noexcept { return phase_; }
+    /// Whether it could stop on the runway from `speedMs` where it is now: a second's reaction, then its brakes.
+    bool canStop(double speedMs) const noexcept;
+    /// A takeoff as the host resolved it (its line, speeds and rotation: 4.49) into the parameters it flies by.
+    static void write(const RouteGround& resolved, BehaviorCommand& command);
+    /// A route's takeoff (4.52), as the host resolved it, climbed out at `completeAglM` (a rotorcraft's hover `hoverAglM` up) -
+    /// as start() with the parameters write() gives, nothing allocated (it starts inside a step).
+    void startResolved(const ControlContext& ctx, const RouteGround& resolved, double completeAglM, double hoverAglM);
+    /// A landing's rollout (4.53): on the runway's line (its threshold its start), as a rejected takeoff's stop - idle, its
+    /// brakes, steered onto the centre line, its nose down - FA's own: finished stopped. Nothing allocated.
+    void startRollout(const ControlContext& ctx, const RouteGround& line);
+
+private:
+    Command roll(const ControlContext& ctx);
+    Command reject(const ControlContext& ctx);
+    Command climb(const ControlContext& ctx);
+    double pitchHold(double theta, double q, double dt, bool onWheels);
+    Command lift(const ControlContext& ctx);
+    double steer(const sim::VehicleState& s, double dt);
+
+    Phase phase_ = Phase::LineUp;
+    Reason failure_ = Reason::None;
+    bool hovers_ = false, own_ = false, onGround_ = true;
+    double airfield_ = 0.0, runway_ = 0.0, parkedRad_ = 0.0, rollStartS_ = -1.0, accelMs2_ = 0.0, lastGroundSpeed_ = 0.0;
+    double stoppedS_ = 0.0, casMs_ = 0.0, noGoS_ = 0.0;
+    double startLat_ = 0.0, startLon_ = 0.0, courseRad_ = 0.0, lengthM_ = 0.0;
+    double vrCasMs_ = 0.0, climbCasMs_ = 0.0, completeAglM_ = 450.0, hoverAglM_ = 10.0, groundAglM_ = 0.0, hoverMslM_ = 0.0;
+    double rotateStartS_ = -1.0, airborneS_ = -1.0, pitchRefRad_ = 0.0, rotationRad_ = 0.0, rotateFromRad_ = 0.0, pitchIntegral_ = 0.0;
+    double crossIntegral_ = 0.0;
+    double tailWheelRad_ = kHold; ///< a tail-wheel aircraft's attitude on its main and tail wheels (4.65); NaN: not one
+    double lastS_ = -1.0;
+    double alongM_ = 0.0, crossM_ = 0.0, settledS_ = 0.0, lineUpS_ = 0.0;
+    bool gearUp_ = false, flapsUp_ = false;
+    bool derotating_ = false; ///< a landing's rollout: its nose being lowered, its brakes off
+};
+
+/// "taxi": A-GRA's taxi route, flown on the ground (docs/flight-autonomy.md, 4.51; WPT-26). points: where it taxies, in turn
+/// (BehaviorCommand::points: their latitude and longitude); params: speed_ms (8: its taxi speed, 1 to 15). The host checks
+/// the route at the NEW against the aircraft's tightest turn on its wheels and draws each corner as an arc wider than that;
+/// the behaviour steers its nose wheel along the legs and arcs, slows for the arcs and for the end, stops short of another
+/// vehicle in its way (its constraints say so while it waits), and completes stopped at the last point.
+class FSIM_API TaxiBehavior final : public Behavior {
+public:
+    static constexpr std::size_t kMaxPoints = 64;
+    /// A piece of its path: a leg from (n0, e0) on `course`, or an arc round (cn, ce) of `radius`, turning right where
+    /// `right`, from `course` - each `length` long, beginning `s` along the path.
+    struct Piece {
+        bool arc = false, right = false;
+        double n0 = 0.0, e0 = 0.0, course = 0.0, cn = 0.0, ce = 0.0, radius = 0.0, length = 0.0, s = 0.0;
+    };
+
+    const char* id() const noexcept override { return "taxi"; }
+    /// A taxi as the host resolved it (its corners and speeds: 4.51), from (lat0, lon0), into the parameters it flies by.
+    static void write(const RouteGround& resolved, double lat0, double lon0, BehaviorCommand& command);
+    void start(const ControlContext& ctx, const BehaviorCommand& command) override;
+    /// A route's taxi (4.52): from where it stands through `n` points, its corners and speeds as the host resolved them - as
+    /// start() with the parameters write() gives, nothing allocated (it starts inside a step).
+    void startResolved(const ControlContext& ctx, const RouteGround& resolved, const double* latitudes, const double* longitudes, std::size_t n);
+    Command update(const ControlContext& ctx, const Command& in) override;
+    void reset() override;
+    bool finished() const noexcept override { return done_; }
+    std::uint16_t constraints() const noexcept override { return held_ ? kActivityClamped : 0; }
+    bool progress(ActivityProgress& out) const noexcept override;
+
+    /// Its path, as the host drew it: `pieces`, from its start (north, east metres from (lat0, lon0)).
+    std::size_t pieces() const noexcept { return count_; }
+    const Piece& piece(std::size_t i) const noexcept { return path_[i]; }
+    double length() const noexcept { return count_ ? path_[count_ - 1].s + path_[count_ - 1].length : 0.0; }
+    /// Where `s` along its path is (north, east) and its course there.
+    void at(double s, double& north, double& east, double& course) const noexcept;
+
+private:
+    double nearest(double north, double east, double& cross) noexcept; ///< along the path, from where it is; across it (+ right)
+    double curvature(double s) const noexcept;                          ///< its path's at `s` along it (+ right)
+    double obstructed(const ControlContext& ctx, double along) const noexcept; ///< how far along the path another vehicle stands; inf none
+
+    std::array<Piece, 2 * kMaxPoints + 1> path_{};
+    std::size_t count_ = 0, at_ = 0;
+    double lat0_ = 0.0, lon0_ = 0.0, speedMs_ = 8.0, turnMs_ = 5.0, turnRadiusM_ = 15.0, tightestM_ = 15.0, yawAccel_ = 0.1;
+    double alongM_ = 0.0, crossM_ = 0.0, throttleI_ = 0.0, lastS_ = -1.0, stoppedS_ = 0.0;
+    bool done_ = false, held_ = false;
+};
+
+/// "formation": hold a slot relative to `target` (leader). params: ahead_m,
+/// right_m, below_m (in the leader's heading frame), closure_gain (1/s; left
+/// out, half its speed loop's bandwidth: a wing's 0.05). It closes on the slot
+/// no faster than it could stop closing there, as pursuit does; a wing flies
+/// the leader's airspeed plus that closing and joins the slot's line along a
+/// look-ahead its heading loop follows (as a route's legs are flown); a
+/// rotorcraft flies the leader's velocity over the ground plus the closing,
+/// straight to the slot, facing as the leader does.
+class FSIM_API FormationBehavior final : public Behavior {
+public:
+    const char* id() const noexcept override { return "formation"; }
+    void start(const ControlContext& ctx, const BehaviorCommand& command) override;
+    Command update(const ControlContext& ctx, const Command& in) override;
+
+    /// TargetLost while the vehicle it follows is gone (it flies on as it can).
+    Reason failure() const noexcept override { return lost_ ? Reason::TargetLost : Reason::None; }
+
+private:
+    bool lost_ = false, hovers_ = false;
+    std::uint32_t target_ = 0;
+    double ahead_ = -100.0, right_ = 60.0, below_ = 0.0;
+    double closureGain_ = 0.05, decelMs2_ = 0.25, lagS_ = 10.0;
+};
+
+/// "aerobatics": a manoeuvre flown open-loop through the acceleration level.
+/// params: manoeuvre (0 aileron roll, 1 loop, 2 immelmann, 3 split-s),
+/// load_factor_g (3.5), roll_rate_rad_s (1.5). Offered to aerobatic types
+/// (rule R10); a NEW too slow for the manoeuvre, or a split-S too low for its
+/// half loop down, is refused (admitAerobatics). Finished when the
+/// manoeuvre completes; failed (BehaviorFailed) if its airspeed falls below
+/// the aircraft's least, its angle of attack goes past the envelope's by more
+/// than 3 deg either way (a departure), or it comes within 150 m of the
+/// ground, and at its end if the state went past the envelope while it flew
+/// (BehaviorTraits::withinEnvelope); either way it then holds level flight.
+class FSIM_API AerobaticBehavior final : public Behavior {
+public:
+    enum Manoeuvre { AileronRoll = 0, Loop = 1, Immelmann = 2, SplitS = 3 };
+    const char* id() const noexcept override { return "aerobatics"; }
+    void start(const ControlContext& ctx, const BehaviorCommand& command) override;
+    Command update(const ControlContext& ctx, const Command& in) override;
+    bool finished() const noexcept override { return phase_ == Done && !failed_; }
+    Reason failure() const noexcept override { return failed_ ? Reason::BehaviorFailed : Reason::None; }
+    void reset() override;
+
+private:
+    enum Phase { Entry, Pull, Roll, PullThrough, Recover, Done } phase_ = Entry;
+    Manoeuvre manoeuvre_ = Loop;
+    double loadFactor_ = 3.5, rollRate_ = 1.5;
+    double pitchTravel_ = 0.0, rollTravel_ = 0.0, timer_ = 0.0;
+    double entryAltitude_ = 0.0, entryHeading_ = 0.0, entrySpeed_ = 0.0;
+    double minCasMs_ = kHold;   ///< the least calibrated airspeed it may fly at (the performance's), NaN unknown
+    double alphaMaxRad_ = kHold; ///< the envelope's angle of attack, NaN unknown
+    bool failed_ = false;
+};
+
+/// What a checked NEW of "waypoints" must meet (BehaviorTraits::admit): no
+/// point inside a turn circle at its arrival, farther inside than its
+/// capture radius - pursuit of it would circle it for ever. InvalidWaypoint
+/// with the point and MaxTurnRate. A rotorcraft turns on the spot: none.
+FSIM_API Reason admitWaypoints(const BehaviorCommand& command, const sim::VehicleState& state, const Performance& performance,
+                               CommandResult& detail);
+/// What a checked NEW of "aerobatics" must meet: a calibrated airspeed of at
+/// least twice the least for a loop or an Immelmann (over the top with speed
+/// to spare), the least times the square root of the load factor for a roll
+/// or a split-S, where the aircraft's least is known (a fly-by-wire
+/// fighter's comes with the performance tables, docs/flight-autonomy.md
+/// FA-3); and a split-S the height for its half loop down and 300 m.
+/// PerformanceLimit with MinAirspeed or MinAltitude.
+FSIM_API Reason admitAerobatics(const BehaviorCommand& command, const sim::VehicleState& state, const Performance& performance,
+                                CommandResult& detail);
+
+} // namespace fsim::control

@@ -1,0 +1,16 @@
+{
+  "id": "syers-2c",
+  "designation": "SYERS-2C",
+  "family": "passive_optical",
+  "summary": "Senior Year Electro-optical Reconnaissance System, multispectral camera",
+  "maker": "Collins Aerospace",
+  "parameters": {},
+  "sources": {
+    "wp-u2s": {
+      "title": "Lockheed U-2",
+      "publisher": "Wikipedia (revision 1376928938)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_U-2&oldid=1376928938",
+      "date": "2026-09-27"
+    }
+  }
+}

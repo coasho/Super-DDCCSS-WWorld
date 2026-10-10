@@ -1,0 +1,140 @@
+{
+  "id": "super-530d",
+  "designation": "Super 530D",
+  "class": "aam",
+  "summary": "Medium-range semi-active-radar air-to-air missile",
+  "maker": "Matra",
+  "model": "",
+  "powerable": true,
+  "jettisonable": true,
+  "seeker": "semi_active_radar",
+  "guidance": "semi-active radar homing",
+  "motor": "solid rocket",
+  "fuze": "RF proximity",
+  "warhead": "HE fragmentation (the Super 530F's)",
+  "warhead_kind": "fragmentation",
+  "explosive": "PBXN-3",
+  "parameters": {
+    "mass_kg": {
+      "value": 270.0,
+      "unit": "kg",
+      "uncertainty": 3.0,
+      "basis": "published",
+      "source": "wp-super530"
+    },
+    "length_m": {
+      "value": 3.8,
+      "unit": "m",
+      "uncertainty": 0.02,
+      "basis": "published",
+      "source": "wp-super530"
+    },
+    "diameter_m": {
+      "value": 0.263,
+      "unit": "m",
+      "uncertainty": 0.002,
+      "basis": "published",
+      "source": "wp-super530"
+    },
+    "span_m": {
+      "value": 0.62,
+      "unit": "m",
+      "uncertainty": 0.01,
+      "basis": "published",
+      "source": "wp-super530"
+    },
+    "warhead_kg": {
+      "value": 30.0,
+      "unit": "kg",
+      "uncertainty": 2.0,
+      "basis": "published",
+      "source": "wp-super530"
+    },
+    "range_km": {
+      "value": 40.0,
+      "unit": "km",
+      "uncertainty": 8.0,
+      "basis": "published",
+      "source": "wp-super530"
+    },
+    "speed_mach": {
+      "value": 4.6,
+      "unit": "Mach",
+      "uncertainty": 0.4,
+      "basis": "published",
+      "source": "wp-super530",
+      "note": "'Mach <5.0'"
+    },
+    "power_up_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "power_down_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "explosive_kg": {
+      "value": 8.1,
+      "unit": "kg",
+      "uncertainty": 1.21,
+      "basis": "published",
+      "source": "wt-datamine",
+      "note": "a game reference: War Thunder's fr_matra_super_530d (PBXN-3); no manufacturer or encyclopedia gives the charge"
+    },
+    "gurney_kms": {
+      "value": 2.7,
+      "unit": "km/s",
+      "uncertainty": 0.15,
+      "basis": "assumed",
+      "note": "PBXN-3 (86 % HMX in nylon) is not in Cooper's table: as Comp B (2.70) - an estimate"
+    },
+    "drag_area_m2": {
+      "value": 0.01394,
+      "unit": "m^2",
+      "uncertainty": 0.00418,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its design (hangar storedrag.py: Hoerner's body of revolution 0.00593, its base 0.00305, its fins' friction 0.00496 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 0.18333,
+      "unit": "m^3",
+      "uncertainty": 0.055,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.1888 m^3 from its design, times Lamb's k2 - k1 = 0.971 for its fineness 14.4 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.83543,
+      "unit": "m^2",
+      "uncertainty": 0.25063,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 0.9052,
+      "unit": "m",
+      "uncertainty": 0.38,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "wp-super530": {
+      "title": "Super 530",
+      "publisher": "Wikipedia (revision 1336784320)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Super_530&oldid=1336784320",
+      "date": "2026-02-05"
+    },
+    "wt-datamine": {
+      "title": "War Thunder datamine: rocketguns weapon files (a game reference: the game's own values, not a manufacturer's)",
+      "publisher": "gszabi99/War-Thunder-Datamine (GitHub)",
+      "url": "https://github.com/gszabi99/War-Thunder-Datamine/tree/master/aces.vromfs.bin_u/gamedata/weapons/rocketguns",
+      "date": "2026-10-09"
+    }
+  }
+}

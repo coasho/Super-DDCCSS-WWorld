@@ -1,0 +1,113 @@
+{
+  "aircraft": "mig29a",
+  "note": "MiG-29 9.12 (Fulcrum-A).",
+  "sources": {
+    "wp-mig29a": {
+      "title": "Mikoyan MiG-29",
+      "publisher": "Wikipedia (revision 1378805039)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Mikoyan_MiG-29&oldid=1378805039",
+      "date": "2026-10-06"
+    },
+    "wp-mig29": {
+      "title": "Mikoyan MiG-29 (a 1,500 L centreline tank between the engines; 1,150 L wing tanks on later batches)",
+      "publisher": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Mikoyan_MiG-29",
+      "date": "2026-10-09"
+    }
+  },
+  "payloads": [
+    {
+      "name": "radar",
+      "card": "n019",
+      "source": "wp-mig29a",
+      "evidence": [
+        "N019 Sapfir 29 look-down/shoot-down coherent pulse-Doppler radar"
+      ]
+    },
+    {
+      "name": "irst",
+      "card": "oeps-29",
+      "source": "wp-mig29a",
+      "evidence": [
+        "OEPS-29 optical-electronic sighting system"
+      ]
+    },
+    {
+      "name": "rwr",
+      "card": "spo-15",
+      "source": "wp-mig29a",
+      "evidence": [
+        "SPO-15 'Beryoza' RWR"
+      ]
+    },
+    {
+      "name": "gun",
+      "card": "gsh-30-1",
+      "source": "wp-mig29a",
+      "note": "150 rounds (100 on later variants)",
+      "evidence": [
+        "GSh-30-1 autocannon. Originally held 150 rounds"
+      ]
+    },
+    {
+      "name": "stations",
+      "card": "mig29a-store-station",
+      "count": 7,
+      "source": "wp-mig29a",
+      "note": "six under the wings, one under the fuselage",
+      "evidence": [
+        "Hardpoints: 7"
+      ]
+    }
+  ],
+  "loadouts": [
+    {
+      "name": "air-to-air",
+      "note": "the article's '2 x R-27s, 4 x R-73s': the R-27R on the inboard pylons ('one Vympel R-27 ... medium-range air-to-air missile'), the R-73 outboard ('the outer pylons usually carry R-73')",
+      "source": "wp-mig29a",
+      "stations": [
+        {
+          "payload": "stations",
+          "station": 3,
+          "store": "r-27r"
+        },
+        {
+          "payload": "stations",
+          "station": 5,
+          "store": "r-27r"
+        },
+        {
+          "payload": "stations",
+          "station": 1,
+          "store": "r-73"
+        },
+        {
+          "payload": "stations",
+          "station": 2,
+          "store": "r-73"
+        },
+        {
+          "payload": "stations",
+          "station": 6,
+          "store": "r-73"
+        },
+        {
+          "payload": "stations",
+          "station": 7,
+          "store": "r-73"
+        }
+      ]
+    },
+    {
+      "name": "external tanks",
+      "note": "the PTB-1500 between the engines (most 9-12s cannot take wing tanks) (ADR-30, MS-7g: a tank's fuel feeds the aircraft's own tanks; jettisoned, it flies on with what is left)",
+      "source": "wp-mig29",
+      "stations": [
+        {
+          "station": 4,
+          "store": "ptb-1500"
+        }
+      ]
+    }
+  ]
+}

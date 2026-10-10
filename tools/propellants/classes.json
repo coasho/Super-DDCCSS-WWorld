@@ -1,0 +1,158 @@
+{
+ "method": "NASA CEA (McBride and Gordon, NASA RP-1311) through RocketCEA: rocket problem, shifting equilibrium, infinite-area combustor",
+ "area_ratio": 4.94,
+ "classes": {
+  "aluminised": {
+   "composition_wt_pct": {
+    "AP": 68.0,
+    "Al": 18.0,
+    "HTPB": 14.0
+   },
+   "chamber_mpa": 10.0,
+   "chamber_k": 3455.9,
+   "throat_k": 3257.4,
+   "exit_k": 2327.0,
+   "exit_mach": 2.877,
+   "chamber_over_exit_pressure": 27.586,
+   "exit_over_sea_level_pressure": 3.578,
+   "effective_gamma": 1.1354,
+   "exit_gas_molar_mass": 26.209,
+   "isp_vacuum_s": 269.8,
+   "isp_exit_pressure_s": 240.7,
+   "exit_mass_fractions": {
+    "AL2O3(L)": 0.27759,
+    "CO": 0.26556,
+    "HCL": 0.20908,
+    "N2": 0.0823,
+    "AL2O3(a)": 0.06204,
+    "H2O": 0.05696,
+    "H2": 0.02605,
+    "CO2": 0.01796,
+    "CL": 0.00139,
+    "ALOHCL2": 0.00034,
+    "ALCL3": 0.00018,
+    "ALCL": 0.00017,
+    "H": 0.00013
+   },
+   "water_after_afterburning": 0.2898,
+   "afterburning_heat_j_per_kg": 5807000.0,
+   "hcl": 0.2091,
+   "alumina": 0.3396,
+   "sensitivity": {
+    "chamber_7_14_mpa": {
+     "chamber_k": [
+      3427.3,
+      3481.5
+     ],
+     "exit_k": [
+      2327.0,
+      2327.0
+     ],
+     "exit_mach": [
+      2.872,
+      2.882
+     ],
+     "effective_gamma": [
+      1.1323,
+      1.1381
+     ],
+     "water_after_afterburning": [
+      0.2896,
+      0.2899
+     ],
+     "hcl": [
+      0.2088,
+      0.2092
+     ],
+     "alumina": [
+      0.3396,
+      0.3396
+     ]
+    }
+   }
+  },
+  "reduced": {
+   "composition_wt_pct": {
+    "AP": 86.0,
+    "HTPB": 14.0
+   },
+   "chamber_mpa": 10.0,
+   "chamber_k": 2961.6,
+   "throat_k": 2726.1,
+   "exit_k": 1648.3,
+   "exit_mach": 2.79,
+   "chamber_over_exit_pressure": 31.912,
+   "exit_over_sea_level_pressure": 3.093,
+   "effective_gamma": 1.2037,
+   "exit_gas_molar_mass": 25.422,
+   "isp_vacuum_s": 255.8,
+   "isp_exit_pressure_s": 231.6,
+   "exit_mass_fractions": {
+    "HCL": 0.26685,
+    "H2O": 0.26027,
+    "CO2": 0.23126,
+    "CO": 0.12981,
+    "N2": 0.10376,
+    "H2": 0.00801
+   },
+   "water_after_afterburning": 0.3319,
+   "afterburning_heat_j_per_kg": 2273000.0,
+   "hcl": 0.2669,
+   "alumina": 0.0,
+   "sensitivity": {
+    "chamber_7_14_mpa": {
+     "chamber_k": [
+      2947.3,
+      2973.9
+     ],
+     "exit_k": [
+      1650.1,
+      1646.8
+     ],
+     "exit_mach": [
+      2.787,
+      2.792
+     ],
+     "effective_gamma": [
+      1.2014,
+      1.2056
+     ],
+     "water_after_afterburning": [
+      0.3319,
+      0.3319
+     ],
+     "hcl": [
+      0.2668,
+      0.2669
+     ],
+     "alumina": [
+      0.0,
+      0.0
+     ]
+    },
+    "ap_84_88_pct": {
+     "chamber_k": [
+      2795.6,
+      3068.5
+     ],
+     "exit_k": [
+      1476.7,
+      1846.8
+     ],
+     "water_after_afterburning": [
+      0.3464,
+      0.3174
+     ],
+     "afterburning_heat_j_per_kg": [
+      3375000.0,
+      1157000.0
+     ],
+     "hcl": [
+      0.2607,
+      0.2728
+     ]
+    }
+   }
+  }
+ }
+}

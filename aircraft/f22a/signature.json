@@ -1,0 +1,118 @@
+{
+  "aircraft": "f22a",
+  "note": "Its documented low-observable features, each from its own article; the treatments they bring are the same for every aircraft (assets/signature/treatments.json). The figures reported for it are compared with its table, never fitted. Its exhaust's radar treatment is not stated in its article (only the nozzles' infrared effect): left untreated, as for any aircraft whose documentation does not say.",
+  "sources": {
+    "chung-2015": {
+      "title": "Radar Cross Section Analysis of Stealth Fighter Design",
+      "publisher": "S.-S. M. Chung, Y.-H. Chou, Y.-C. Chuang (abstract as search indexes report it - not opened)",
+      "url": "https://www.researchgate.net/publication/284733658_C188_Radar_Cross_Section_Analysis_of_Stealth_Fighter_Design",
+      "date": ""
+    },
+    "perotoni-2014": {
+      "title": "Radar Cross Section of a stealthy aircraft using electromagnetic simulation in the X and in VHF/UHF Bands",
+      "publisher": "M. B. Perotoni, L. A. de Andrade, M. C. Rezende (IJRAME, 2014; as search indexes report it - not opened)",
+      "url": "https://www.researchgate.net/publication/291102887_Radar_Cross_Section_of_a_stealthy_aircraft_using_electromagnetic_simulation_in_the_X_and_in_VHFUHF_Bands",
+      "date": "2014"
+    },
+    "wp-f22a": {
+      "title": "Lockheed Martin F-22 Raptor",
+      "publisher": "Wikipedia (revision 1375913406)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_Martin_F-22_Raptor&oldid=1375913406",
+      "date": "2026-09-20"
+    },
+    "wp-su57": {
+      "title": "Sukhoi Su-57",
+      "publisher": "Wikipedia (revision 1376999114)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Sukhoi_Su-57&oldid=1376999114",
+      "date": "2026-09-27"
+    }
+  },
+  "features": {
+    "ram": {
+      "value": "full",
+      "source": "wp-f22a",
+      "evidence": "use of radar-absorbent material (RAM)",
+      "basis": "published"
+    },
+    "intake_concealed": {
+      "value": true,
+      "source": "wp-f22a",
+      "evidence": "serpentine inlet ducts and curved vanes that prevent line-of-sight of the engine fan faces",
+      "basis": "published"
+    },
+    "duct_lined": {
+      "value": false,
+      "source": null,
+      "evidence": null,
+      "basis": "not stated: none assumed"
+    },
+    "exhaust_treated": {
+      "value": false,
+      "source": null,
+      "evidence": null,
+      "basis": "not stated: none assumed"
+    }
+  },
+  "reported": [
+    {
+      "aspect": "frontal",
+      "azimuth_deg": 0,
+      "elevation_deg": 0,
+      "window_deg": 20,
+      "frequency_hz": 9500000000.0,
+      "sigma_m2": [
+        0.0001,
+        0.0001
+      ],
+      "origin": "manufacturer",
+      "source": "wp-f22a",
+      "evidence": "from certain angles the airplane has an RCS of 0.0001 m2",
+      "note": "Lockheed Martin, 2009: a best case \"from certain angles\", not a mean"
+    },
+    {
+      "aspect": "frontal",
+      "azimuth_deg": 0,
+      "elevation_deg": 0,
+      "window_deg": 20,
+      "frequency_hz": 9500000000.0,
+      "sigma_m2": [
+        0.0005,
+        0.0005
+      ],
+      "origin": "press",
+      "source": "wp-su57",
+      "evidence": "the F-22 has a RCS of \"0.0005 square meters\"",
+      "note": "quoted, its origin not given"
+    },
+    {
+      "aspect": "frontal",
+      "azimuth_deg": 0,
+      "elevation_deg": 0,
+      "window_deg": 20,
+      "frequency_hz": 2000000000.0,
+      "sigma_m2": [
+        0.01,
+        0.1
+      ],
+      "origin": "academic",
+      "source": "chung-2015",
+      "evidence": null,
+      "note": "a bare F-22 CAD model about 10 dBsm nose on (S band, MLFMM); with RAM -10 to -20 dBsm in the desired direction"
+    },
+    {
+      "aspect": "frontal",
+      "azimuth_deg": 0,
+      "elevation_deg": 0,
+      "window_deg": 0,
+      "frequency_hz": 10000000000.0,
+      "sigma_m2": [
+        0.133,
+        0.133
+      ],
+      "origin": "academic",
+      "source": "perotoni-2014",
+      "evidence": null,
+      "note": "a bare F-22 model (no RAM): frontal -8.78 dBsm, lateral 30.0, rear 27.0 (X band)"
+    }
+  ]
+}

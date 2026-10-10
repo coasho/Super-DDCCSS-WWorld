@@ -1,0 +1,16 @@
+{
+  "id": "an-alq-165",
+  "designation": "AN/ALQ-165 ASPJ",
+  "family": "electronic_attack",
+  "summary": "Airborne Self-Protection Jammer",
+  "maker": "ITT / Northrop Grumman",
+  "parameters": {},
+  "sources": {
+    "wp-fa18c": {
+      "title": "McDonnell Douglas F/A-18 Hornet",
+      "publisher": "Wikipedia (revision 1378488706)",
+      "url": "https://en.wikipedia.org/w/index.php?title=McDonnell_Douglas_F%2FA-18_Hornet&oldid=1378488706",
+      "date": "2026-10-04"
+    }
+  }
+}

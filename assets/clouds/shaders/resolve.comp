@@ -1,0 +1,197 @@
+// The clouds' temporal upscaling: takram-design-engineering/three-geospatial (MIT, see
+// ../LICENSE-three-geospatial.txt) packages/clouds/src/shaders/cloudsResolve.frag (TEMPORAL_UPSCALE, no shadow
+// length), as a compute shader over the full-size image. Their reprojection (the closest fragment's velocity, the
+// history rejected off the screen) and their variance clipping; changes marked fsim:
+// - the history is drawn on only when there is one; the low-res images are read where they are in use (they are sized
+//   for the screen, the window's part used);
+// - every pixel takes this frame's samples round it, weighted by how far from it each was marched (a low-res texel's
+//   ray goes through the full-size pixel the frame's Bayer offset picks), as a temporal upscaler does (AMD's FSR 2,
+//   Epic's TAAU), where takram gives the one pixel a sample was marched for that sample and the other fifteen only
+//   their history: in motion a pixel's history was resampled fifteen frames running (the content moving 10 px a frame
+//   behind a fighter) before it saw a sample again, and its edge went soft, then sharp, every sixteen frames;
+// - the new samples' share grows with how far the pixel has moved since the last frame (its history resampled), from
+//   STILL_ALPHA still (a still view keeps the history long: the march's jitter averaged out) to MOVING_ALPHA; takram
+//   shows each sample as it is, and the jitter stood on the screen as grain and flicker;
+// - the history is read through a Catmull-Rom filter (takram's alternative, left commented out in theirs): a bilinear
+//   read blurs it a little more every frame it is carried;
+// - the box it is held to is the variance of this frame's samples round the pixel, weighted by where each was marched,
+//   not of the low-res image read bilinearly where the pixel is: as the Bayer offset moved the samples under that, the
+//   box widened and narrowed on a sixteen-frame cycle and the edges pulsed with it.
+// Measured (scratchpad crawl.py: each 32 px tile with cloud edge matched into the next frame, what is left after the
+// shift - its blurred part 'crawl', the rest 'grain'; 0..255): behind an F-16 over broken cloud at 3 km, crawl 2.12 ->
+// 1.69 and grain 2.21 -> 1.46 with the composite's fix (composite.frag), 1.68 / 1.47 with that alone; under the cloud
+// base looking up, 2.71 -> 2.37 and 2.97 -> 2.56. Still views (30 km from scattered cloud): flicker 0.42 -> 0.41, grain
+// 3.29 -> 2.53; 400 km up, flicker 0.39 -> 0.22, grain 8.90 -> 6.92. It costs 0.03 ms more at 1600 x 900.
+
+#version 450
+layout(local_size_x = 8, local_size_y = 8) in;
+
+#define fsimClampMax P_screen.zw
+
+#include "clouds/types.glsl"
+#include "fsim/params.glsl"
+#include "fsim/prelude.glsl"
+#include "clouds/varianceClipping.glsl"
+
+layout(set = 0, binding = 15) uniform sampler2D colorBuffer;
+layout(set = 0, binding = 16) uniform sampler2D depthVelocityBuffer;
+layout(set = 0, binding = 17) uniform sampler2D colorHistoryBuffer;
+layout(set = 0, binding = 18, rgba16f) uniform writeonly image2D outputImage;
+
+const float varianceGamma = 3.0; // fsim: theirs 2, for the box of the samples round the pixel
+const float SAMPLE_SIGMA = 1.0;  // fsim: px, a sample's reach
+const float BOX_SIGMA = 3.0;     // fsim: px, the reach of those the box is made of
+const float STILL_ALPHA = 0.02;  // fsim: the share of a sample marched right on the pixel, still
+const float MOVING_ALPHA = 0.1;  // fsim: and moving MOVING_PX or more a frame
+const float MOVING_PX = 4.0;
+const float FAST_ALPHA = 0.5;    // fsim: and moving FAST_PX or more (zooming, a fast turn): its history drawn from
+const float FAST_PX = 32.0;      //   elsewhere every frame, magnified or shrunk, smeared radially as the view zoomed
+const float SMOOTH_SIGMA = 2.0;  // fsim: px, the reach of this frame's samples where no history is to be had
+
+vec2 vUv;
+
+const ivec2 neighborOffsets[9] = ivec2[9](
+  ivec2(-1, -1),
+  ivec2(-1, 0),
+  ivec2(-1, 1),
+  ivec2(0, -1),
+  ivec2(0, 0),
+  ivec2(0, 1),
+  ivec2(1, -1),
+  ivec2(1, 0),
+  ivec2(1, 1)
+);
+
+vec4 getClosestFragment(const ivec2 coord) {
+  // fsim: from no depth at all - theirs started at 1e7 (10,000 km), and from orbit every texel's cloud was further:
+  // none was picked, the velocity was taken as none, and the history stood still on the screen as the globe
+  // turned or zoomed under it - the clouds smeared round the middle of the view into a spiral
+  vec4 result = vec4(3.4e38, 0.0, 0.0, 0.0);
+  vec4 neighbor;
+  for (int i = 0; i < 9; ++i) {
+    neighbor = texelFetch(depthVelocityBuffer, fsimClampTexel(coord, neighborOffsets[i]), 0);
+    if (neighbor.r < result.r) {
+      result = neighbor;
+    }
+  }
+  return result;
+}
+
+// fsim: a uv of the window (0..1) on an image whose used part is `used` of `size` texels
+vec2 fsimImageUv(const vec2 uv, const vec2 used, const vec2 size) {
+  return uv * used / size;
+}
+
+// fsim: takram's catmullRomSampling.glsl (MJP's, MIT), read at level 0 (a compute shader has no implicit level)
+vec4 fsimCatmullRom(sampler2D tex, vec2 uv) {
+  vec2 texSize = vec2(textureSize(tex, 0));
+  vec2 samplePos = uv * texSize;
+  vec2 texPos1 = floor(samplePos - 0.5) + 0.5;
+  vec2 f = samplePos - texPos1;
+  vec2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
+  vec2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+  vec2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
+  vec2 w3 = f * f * (-0.5 + 0.5 * f);
+  vec2 w12 = w1 + w2;
+  vec2 offset12 = w2 / (w1 + w2);
+  vec2 texPos0 = (texPos1 - 1.0) / texSize;
+  vec2 texPos3 = (texPos1 + 2.0) / texSize;
+  vec2 texPos12 = (texPos1 + offset12) / texSize;
+  vec4 result = vec4(0.0);
+  result += textureLod(tex, vec2(texPos0.x, texPos0.y), 0.0) * w0.x * w0.y;
+  result += textureLod(tex, vec2(texPos12.x, texPos0.y), 0.0) * w12.x * w0.y;
+  result += textureLod(tex, vec2(texPos3.x, texPos0.y), 0.0) * w3.x * w0.y;
+  result += textureLod(tex, vec2(texPos0.x, texPos12.y), 0.0) * w0.x * w12.y;
+  result += textureLod(tex, vec2(texPos12.x, texPos12.y), 0.0) * w12.x * w12.y;
+  result += textureLod(tex, vec2(texPos3.x, texPos12.y), 0.0) * w3.x * w12.y;
+  result += textureLod(tex, vec2(texPos0.x, texPos3.y), 0.0) * w0.x * w3.y;
+  result += textureLod(tex, vec2(texPos12.x, texPos3.y), 0.0) * w12.x * w3.y;
+  result += textureLod(tex, vec2(texPos3.x, texPos3.y), 0.0) * w3.x * w3.y;
+  return max(result, vec4(0.0)); // (its lobes can go below zero at an edge)
+}
+
+// fsim: where the low-res texel t's sample was marched this frame (px, the full-size image's)
+vec2 marchedAt(const ivec2 t) {
+  return vec2(t) * 4.0 + P_frame.xy * 4.0;
+}
+
+void temporalUpscale(out vec4 outputColor) {
+  // fsim: this frame's samples round the pixel - the two nearest each way - weighted by their distance
+  ivec2 base = ivec2(floor((fsimFragCoord - P_frame.xy * 4.0) / 4.0));
+  vec4 sum = vec4(0.0);
+  float weights = 0.0;
+  for (int k = 0; k < 4; ++k) {
+    ivec2 t = clamp(base + ivec2(k & 1, k >> 1), ivec2(0), ivec2(P_screen.zw) - 1);
+    vec2 d = fsimFragCoord - marchedAt(t);
+    float w = exp(-0.5 * dot(d, d) / (SAMPLE_SIGMA * SAMPLE_SIGMA));
+    sum += w * texelFetch(colorBuffer, t, 0);
+    weights += w;
+  }
+  vec4 currentColor = sum / weights; // (the nearest is 2.9 px off at most: never all zero)
+
+  // fsim: the nine round it: the box the history is held to (below), and a smoother reconstruction, for where there is
+  // no history or it is drawn from far off (the nearest four alone made 4 x 4 blocks there: a view zooming out showed
+  // a mosaic round its edges, the part of the screen new each frame)
+  ivec2 centre = ivec2(floor((fsimFragCoord - P_frame.xy * 4.0) / 4.0 + 0.5));
+  vec4 moment1 = vec4(0.0), moment2 = vec4(0.0), smoothSum = vec4(0.0);
+  float boxWeights = 0.0, smoothWeights = 0.0;
+  for (int k = 0; k < 9; ++k) {
+    ivec2 t = clamp(centre + neighborOffsets[k], ivec2(0), ivec2(P_screen.zw) - 1);
+    vec2 d = fsimFragCoord - marchedAt(t);
+    float r2 = dot(d, d);
+    float w = exp(-0.5 * r2 / (BOX_SIGMA * BOX_SIGMA));
+    float ws = exp(-0.5 * r2 / (SMOOTH_SIGMA * SMOOTH_SIGMA));
+    vec4 c = texelFetch(colorBuffer, t, 0);
+    moment1 += w * c;
+    moment2 += w * c * c;
+    boxWeights += w;
+    smoothSum += ws * c;
+    smoothWeights += ws;
+  }
+  vec4 smoothColor = smoothSum / smoothWeights;
+
+  if (P_medium.z < 0.5) { // fsim: no history yet
+    outputColor = smoothColor;
+    return;
+  }
+
+  ivec2 lowResCoord = clamp(ivec2(fsimFragCoord / 4.0), ivec2(0), ivec2(P_screen.zw) - 1);
+  vec4 depthVelocity = getClosestFragment(lowResCoord);
+  vec2 velocity = depthVelocity.gb;
+  vec2 prevUv = vUv - velocity;
+  if (prevUv.x < 0.0 || prevUv.x > 1.0 || prevUv.y < 0.0 || prevUv.y > 1.0) {
+    outputColor = smoothColor; // fsim
+    return; // Rejection
+  }
+
+  vec4 historyColor = fsimCatmullRom(colorHistoryBuffer, fsimImageUv(prevUv, P_screen.xy, P_alloc.zw));
+  if (any(isnan(historyColor)) || any(isinf(historyColor))) historyColor = smoothColor; // fsim
+
+  // Variance clipping with a large variance gamma seems to work fine for
+  // upsampling. This increases ghosting, of course, but it's hard to notice on
+  // clouds.
+  // fsim: the box of this frame's samples round the pixel, weighted by where each was marched
+  vec4 mean = moment1 / boxWeights;
+  vec4 spread = sqrt(max(moment2 / boxWeights - mean * mean, 0.0)) * varianceGamma;
+  vec4 clippedColor = clipAABB(mean, historyColor, mean - spread, mean + spread);
+
+  // fsim: the new samples' share, by how near they were marched and how far the pixel has moved
+  float moved = length(velocity * P_screen.xy);
+  float fast = clamp((moved - MOVING_PX) / (FAST_PX - MOVING_PX), 0.0, 1.0);
+  float alpha = mix(mix(STILL_ALPHA, MOVING_ALPHA, clamp(moved / MOVING_PX, 0.0, 1.0)), FAST_ALPHA, fast);
+  outputColor = mix(clippedColor, mix(currentColor, smoothColor, fast), alpha * mix(min(weights, 1.0), 1.0, fast));
+}
+
+void main() {
+  ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+  if (coord.x >= int(P_screen.x) || coord.y >= int(P_screen.y)) {
+    return;
+  }
+  fsimFragCoord = vec2(coord) + 0.5;
+  vUv = fsimFragCoord / P_screen.xy;
+
+  vec4 outputColor;
+  temporalUpscale(outputColor);
+  if (any(isnan(outputColor)) || any(isinf(outputColor))) outputColor = vec4(0.0); // fsim
+  imageStore(outputImage, coord, outputColor);
+}

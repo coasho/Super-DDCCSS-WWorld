@@ -1,0 +1,86 @@
+{
+  "aircraft": "su27s",
+  "note": "Su-27S (Flanker-B) as built: the SM upgrade's Pastel and Khibiny are not fitted. The Sorbtsiya wingtip jamming pods join with their stores (ADR-30, MS-7).",
+  "sources": {
+    "wp-su27s": {
+      "title": "Sukhoi Su-27",
+      "publisher": "Wikipedia (revision 1378428873)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Sukhoi_Su-27&oldid=1378428873",
+      "date": "2026-10-04"
+    }
+  },
+  "payloads": [
+    {
+      "name": "radar",
+      "card": "n001",
+      "source": "wp-su27s",
+      "evidence": [
+        "N001 Myech coherent Pulse-Doppler radar"
+      ]
+    },
+    {
+      "name": "irst",
+      "card": "oeps-27",
+      "source": "wp-su27s",
+      "evidence": [
+        "OEPS-27 electro-optical targeting system"
+      ]
+    },
+    {
+      "name": "rwr",
+      "card": "spo-15",
+      "source": "wp-su27s",
+      "evidence": [
+        "SPO-15 Radar Warning Receiver"
+      ]
+    },
+    {
+      "name": "gun",
+      "card": "gsh-30-1",
+      "source": "wp-su27s",
+      "note": "150 rounds",
+      "evidence": [
+        "GSh-30-1 autocannon with 150 rounds"
+      ]
+    },
+    {
+      "name": "stations",
+      "card": "su27s-store-station",
+      "count": 10,
+      "source": "wp-su27s",
+      "note": "ten external pylons",
+      "evidence": [
+        "10 external pylons"
+      ]
+    }
+  ],
+  "loadouts": [
+    {
+      "name": "air-to-air",
+      "note": "the article's range configuration '2xR-27R1, 2xR-73E': the R-27R inboard, the R-73 on the wingtips (which: assumed)",
+      "source": "wp-su27s",
+      "stations": [
+        {
+          "payload": "stations",
+          "station": 4,
+          "store": "r-27r"
+        },
+        {
+          "payload": "stations",
+          "station": 7,
+          "store": "r-27r"
+        },
+        {
+          "payload": "stations",
+          "station": 1,
+          "store": "r-73"
+        },
+        {
+          "payload": "stations",
+          "station": 10,
+          "store": "r-73"
+        }
+      ]
+    }
+  ]
+}

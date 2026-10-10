@@ -1,0 +1,16 @@
+{
+  "id": "eiss-eoir",
+  "designation": "EISS EO/IR",
+  "family": "passive_optical",
+  "summary": "electro-optical/infrared sensors of the Enhanced Integrated Sensor Suite (RQ-4 Block 20/30)",
+  "maker": "Raytheon",
+  "parameters": {},
+  "sources": {
+    "wp-rq4b": {
+      "title": "Northrop Grumman RQ-4 Global Hawk",
+      "publisher": "Wikipedia (revision 1377672081)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Northrop_Grumman_RQ-4_Global_Hawk&oldid=1377672081",
+      "date": "2026-09-30"
+    }
+  }
+}

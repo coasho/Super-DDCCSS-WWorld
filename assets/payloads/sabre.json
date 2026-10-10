@@ -1,0 +1,15 @@
+{
+  "id": "sabre",
+  "designation": "Sabre",
+  "family": "electronic_attack",
+  "summary": "self-protection jammer",
+  "parameters": {},
+  "sources": {
+    "wp-mirage2000": {
+      "title": "Dassault Mirage 2000",
+      "publisher": "Wikipedia (revision 1378195004)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Dassault_Mirage_2000&oldid=1378195004",
+      "date": "2026-10-03"
+    }
+  }
+}

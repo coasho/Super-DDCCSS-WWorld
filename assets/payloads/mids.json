@@ -1,0 +1,15 @@
+{
+  "id": "mids",
+  "designation": "MIDS",
+  "family": "comm_terminal",
+  "summary": "Multifunctional Information Distribution System: a Link 16 data link",
+  "parameters": {},
+  "sources": {
+    "wp-typhoon": {
+      "title": "Eurofighter Typhoon",
+      "publisher": "Wikipedia (revision 1378850990)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Eurofighter_Typhoon&oldid=1378850990",
+      "date": "2026-10-06"
+    }
+  }
+}

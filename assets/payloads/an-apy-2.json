@@ -1,0 +1,215 @@
+{
+  "id": "an-apy-2",
+  "designation": "AN/APY-2",
+  "family": "air_radar",
+  "summary": "airborne early-warning surveillance radar in a hydraulically rotated rotodome, look-down to the surface",
+  "maker": "Westinghouse (now Northrop Grumman)",
+  "parameters": {
+    "system_loss_db": {
+      "value": 8.0,
+      "unit": "dB",
+      "uncertainty": 3.0,
+      "basis": "assumed",
+      "source": "wp-e3g",
+      "note": "radome, ohmic, processing, straddle and CFAR losses together (assumed)"
+    },
+    "range_resolution_m": {
+      "value": 150.0,
+      "unit": "m",
+      "uncertainty": 75.0,
+      "basis": "assumed",
+      "source": "wp-e3g",
+      "note": "a 1 us compressed pulse (assumed)"
+    },
+    "monopulse_slope": {
+      "value": 1.6,
+      "unit": "1",
+      "uncertainty": 0.2,
+      "basis": "assumed",
+      "source": "wp-e3g",
+      "note": "the monopulse error slope (assumed)"
+    },
+    "medium_prfs": {
+      "value": 8,
+      "unit": "1",
+      "uncertainty": 2,
+      "basis": "assumed",
+      "source": "wp-e3g",
+      "note": "medium PRF: a dwell at 8 PRFs to resolve range and velocity (assumed, as for every one)"
+    },
+    "medium_m_of_n": {
+      "value": 3,
+      "unit": "1",
+      "uncertainty": 1,
+      "basis": "assumed",
+      "source": "wp-e3g",
+      "note": "a detection on 3 of the 8 (assumed, as for every one)"
+    },
+    "high_prfs": {
+      "value": 3,
+      "unit": "1",
+      "uncertainty": 1,
+      "basis": "assumed",
+      "source": "wp-e3g",
+      "note": "high PRF (velocity search): 3 PRFs (assumed)"
+    },
+    "high_m_of_n": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "source": "wp-e3g",
+      "note": "a detection on any of them (assumed)"
+    },
+    "false_alarm_time_s": {
+      "value": 60.0,
+      "unit": "s",
+      "uncertainty": 30.0,
+      "basis": "assumed",
+      "source": "stimson",
+      "note": "the mean time between false alarms its threshold is set for: an engineering assumption - Stimson's figure for fighter radars (a minute or so, read as 60 s) taken for an AEW radar too, no figure for one having been found"
+    },
+    "frequency_hz": {
+      "value": 3100000000.0,
+      "unit": "Hz",
+      "uncertainty": 400000000.0,
+      "basis": "assumed",
+      "source": "airvectors",
+      "note": "S band, around 3 GHz (as reported, not opened)"
+    },
+    "aperture_width_m": {
+      "value": 7.3,
+      "unit": "m",
+      "uncertainty": 0.2,
+      "basis": "assumed",
+      "source": "airvectors",
+      "note": "a slotted planar array of 7.3 x 1.5 m (as reported, not opened)"
+    },
+    "aperture_height_m": {
+      "value": 1.5,
+      "unit": "m",
+      "uncertainty": 0.1,
+      "basis": "assumed",
+      "source": "airvectors",
+      "note": "(as reported, not opened)"
+    },
+    "taylor_sidelobe_db": {
+      "value": 40.0,
+      "unit": "dB",
+      "uncertainty": 5.0,
+      "basis": "assumed",
+      "source": "wp-e3g",
+      "note": "an ultra-low side-lobe surveillance array (assumed)"
+    },
+    "electronic": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "published",
+      "source": "wp-e3g",
+      "note": "the rotodome turns it",
+      "evidence": "rotating radar dome"
+    },
+    "rotation_rpm": {
+      "value": 6.0,
+      "unit": "rev/min",
+      "uncertainty": 0.0,
+      "basis": "derived",
+      "source": "wp-r-aewc",
+      "note": "its update every 10 seconds",
+      "evidence": "every 10 seconds, as is the case on the rotodome AWACS"
+    },
+    "noise_figure_db": {
+      "value": 3.0,
+      "unit": "dB",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "source": "wp-e3g",
+      "note": "(assumed)"
+    },
+    "notch_ms": {
+      "value": 15.0,
+      "unit": "m/s",
+      "uncertainty": 8.0,
+      "basis": "assumed",
+      "source": "wp-e3g",
+      "note": "its look-down processing (assumed)"
+    },
+    "sidelobe_clutter_db": {
+      "value": 3.0,
+      "unit": "dB",
+      "uncertainty": 2.0,
+      "basis": "assumed",
+      "source": "wp-e3g",
+      "note": "ultra-low side lobes (assumed)"
+    },
+    "instrumented_range_m": {
+      "value": 650000.0,
+      "unit": "m",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "source": "wp-e3g",
+      "note": "-"
+    },
+    "class_calibration_db": {
+      "value": -4.1,
+      "unit": "dB",
+      "uncertainty": 4.0,
+      "basis": "derived",
+      "source": "wp-e3g",
+      "note": "its class (aew): minus the mean of the class's residuals against their published ranges, every radar of it alike, whoever made it: an-apy-2 +3.2, mesa +4.9"
+    },
+    "average_power_w": {
+      "value": 10000.0,
+      "unit": "W",
+      "uncertainty": 5000.0,
+      "basis": "assumed",
+      "source": "wp-r-ps05",
+      "note": "an airborne early-warning radar's transmitter (assumed, as for every one)"
+    }
+  },
+  "sources": {
+    "wp-e3g": {
+      "title": "Boeing E-3 Sentry",
+      "publisher": "Wikipedia (revision 1378217304)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_E-3_Sentry&oldid=1378217304",
+      "date": "2026-10-03"
+    },
+    "wp-r-aewc": {
+      "title": "Airborne early warning and control",
+      "publisher": "Wikipedia (revision 1366577862)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Airborne_early_warning_and_control&oldid=1366577862",
+      "date": "2026-07-28"
+    },
+    "airvectors": {
+      "title": "Search result summarising G. Goebel, \"Radar Systems\", airvectors.net (ttradar_6)",
+      "publisher": "airvectors.net (not opened)",
+      "url": "https://vc.airvectors.net/ttradar_6.html",
+      "date": ""
+    },
+    "wp-r-ps05": {
+      "title": "PS-05/A",
+      "publisher": "Wikipedia (revision 1357555494)",
+      "url": "https://en.wikipedia.org/w/index.php?title=PS-05/A&oldid=1357555494",
+      "date": "2026-06-03"
+    },
+    "stimson": {
+      "title": "G. W. Stimson, \"Introduction to Airborne Radar\", 2nd ed. (ISBN 1-891121-01-4), p. 144",
+      "publisher": "SciTech Publishing, 1998",
+      "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
+      "date": "1998",
+      "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+    }
+  },
+  "validation": [
+    {
+      "range_m": 400000.0,
+      "rcs_m2": 3.0,
+      "pd": 0.5,
+      "source": "wp-e3g",
+      "evidence": "range of more than 250 mi (400 km) for low-flying targets",
+      "use": "check",
+      "note": "a fighter of 3 m^2, the one size its sources state (assumed alike wherever none is given)"
+    }
+  ]
+}

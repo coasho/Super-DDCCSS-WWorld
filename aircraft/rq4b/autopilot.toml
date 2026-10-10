@@ -1,0 +1,20 @@
+# Written by hangar autopilot (2026-10-01 11:18) for rq4b.toml: the aircraft's responses to its
+# controls, identified at a reference condition (docs/hangar.md, The autopilot). The
+# build writes them into the JSBSim aircraft's plant section; the platform designs its
+# control loops from them. Delete this file to fly the platform's shared defaults.
+[reference]   # where they were measured
+tas_ms = 100.821
+eas_ms = 87.1702
+altitude_m = 3000
+
+[identified]   # the responses at the reference: per unit of aileron (roll rate, rad/s), elevator (load factor,
+               # g), rudder (sideslip, rad) and throttle (acceleration, m/s2), each with its lag (s); level
+               # flight's throttle, a surface-controlled aircraft's trim law, the zero-lift angle of attack
+roll = { gain = 0.509464, lag_s = 0.118675 }
+pitch = { gain = 7.75216, lag_s = 0.668021 }
+yaw = { gain = 0.339711 }
+speed = { gain = 2.27836, lag_s = 0.271475 }
+throttle_trim = 0.490389
+elevator_trim = -0.036738
+elevator_trim_lift = -0.141053
+alpha_zero_lift_rad = -0.113975

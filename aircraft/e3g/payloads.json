@@ -1,0 +1,38 @@
+{
+  "aircraft": "e3g",
+  "note": "E-3G (Block 40/45).",
+  "sources": {
+    "wp-e3g": {
+      "title": "Boeing E-3 Sentry",
+      "publisher": "Wikipedia (revision 1378217304)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_E-3_Sentry&oldid=1378217304",
+      "date": "2026-10-03"
+    }
+  },
+  "payloads": [
+    {
+      "name": "radar",
+      "card": "an-apy-2",
+      "source": "wp-e3g",
+      "evidence": [
+        "AN/APY-2 passive electronically scanned array radar"
+      ]
+    },
+    {
+      "name": "esm",
+      "card": "e3-esm",
+      "source": "wp-e3g",
+      "evidence": [
+        "electronic support measures (ESM)"
+      ]
+    },
+    {
+      "name": "jtids",
+      "card": "jtids-2h",
+      "source": "wp-e3g",
+      "evidence": [
+        "Class 2H Joint Tactical Information Distribution System (JTIDS)"
+      ]
+    }
+  ]
+}

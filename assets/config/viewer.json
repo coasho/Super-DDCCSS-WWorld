@@ -1,0 +1,44 @@
+{
+  "_comment": [
+    "Defaults for flightsim-viewer. Read from <exe>/../config/viewer.json, which",
+    "is this file in both the build tree and an installed package. Command-line",
+    "flags override anything set here; anything omitted here keeps the built-in",
+    "default. Run the viewer with --help to see the flags."
+  ],
+
+  "window": {
+    "width": 1600,
+    "height": 900,
+    "fullscreen": false,
+    "msaa": 4,
+    "fovDeg": 30,
+    "maxFps": 0
+  },
+
+  "map": {
+    "_comment": [
+      "imagery: satellite | osm | bing | none | a {z}/{x}/{y} URL template.",
+      "elevation: terrarium | none | a {z}/{x}/{y} URL template.",
+      "tileCache: where the map tiles are. Empty means the local map set,",
+      "maps/ beside the program (in the build tree a junction to the source",
+      "tree's assets/maps, which fetch-maps.cmd fills; in a package its own",
+      "copy). Nothing is kept anywhere else. See maps/README.md.",
+      "offline: draw only what is in the map set and never fetch a tile (the",
+      "default). maxLevel and elevationMaxLevel are the deepest levels the map",
+      "plan (config/offline-map-plan.json) puts there."
+    ],
+    "imagery": "satellite",
+    "elevation": "terrarium",
+    "maxLevel": 14,
+    "elevationMaxLevel": 12,
+    "offline": true,
+    "tileCache": ""
+  },
+
+  "camera": {
+    "_comment": "zoomToCursor is osgEarth's zoomToMouse: the wheel zooms towards the pointer.",
+    "zoomToCursor": true
+  },
+
+  "gui": true
+}

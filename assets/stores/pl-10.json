@@ -1,0 +1,128 @@
+{
+  "id": "pl-10",
+  "designation": "PL-10",
+  "class": "aam",
+  "summary": "Short-range imaging-infrared air-to-air missile, lock-on after launch",
+  "maker": "China Airborne Missile Academy",
+  "model": "",
+  "powerable": true,
+  "jettisonable": true,
+  "seeker": "imaging_infrared",
+  "guidance": "lock-on after launch, imaging infrared homing with inertial guidance",
+  "motor": "solid rocket",
+  "fuze": "laser proximity",
+  "warhead": "blast-fragmentation or expanding rod",
+  "warhead_kind": "fragmentation",
+  "explosive": "unknown",
+  "parameters": {
+    "mass_kg": {
+      "value": 89.0,
+      "unit": "kg",
+      "uncertainty": 2.0,
+      "basis": "published",
+      "source": "zh-pl10",
+      "note": "89 公斤"
+    },
+    "length_m": {
+      "value": 3.0,
+      "unit": "m",
+      "uncertainty": 0.05,
+      "basis": "published",
+      "source": "zh-pl10",
+      "note": "3.0 米"
+    },
+    "diameter_m": {
+      "value": 0.16,
+      "unit": "m",
+      "uncertainty": 0.03,
+      "basis": "assumed",
+      "note": "no source read gives it: its class's (the IRIS-T 127 mm, the PL-8 160, the ASRAAM 166)"
+    },
+    "range_km": {
+      "value": 20.0,
+      "unit": "km",
+      "uncertainty": 5.0,
+      "basis": "published",
+      "source": "zh-pl10",
+      "note": "20 公里"
+    },
+    "speed_mach": {
+      "value": 3.0,
+      "unit": "Mach",
+      "uncertainty": 0.5,
+      "basis": "assumed",
+      "note": "no source read gives it: its class's (the IRIS-T and ASRAAM Mach 3)"
+    },
+    "power_up_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "power_down_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "warhead_kg": {
+      "value": 11.0,
+      "unit": "kg",
+      "uncertainty": 2.0,
+      "basis": "assumed",
+      "note": "none published: the PL-8's (11 kg), the missile it replaces - an estimate"
+    },
+    "explosive_kg": {
+      "value": 4.06,
+      "unit": "kg",
+      "uncertainty": 1.01,
+      "basis": "assumed",
+      "note": "no source gives its charge: 37 % of its warhead, the median share of the game reference's charges (War Thunder's) - an estimate"
+    },
+    "gurney_kms": {
+      "value": 2.6,
+      "unit": "km/s",
+      "uncertainty": 0.2,
+      "basis": "assumed",
+      "note": "no source names its explosive: as PBXN-110, a modern HMX-based fill - an estimate"
+    },
+    "drag_area_m2": {
+      "value": 0.00617,
+      "unit": "m^2",
+      "uncertainty": 0.00185,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its design (hangar storedrag.py: Hoerner's body of revolution 0.00291, its base 0.00098, its fins' friction 0.00228 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 0.05676,
+      "unit": "m^3",
+      "uncertainty": 0.01703,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.0578 m^3 from its design, times Lamb's k2 - k1 = 0.983 for its fineness 18.7 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.22193,
+      "unit": "m^2",
+      "uncertainty": 0.06658,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 1.0822,
+      "unit": "m",
+      "uncertainty": 0.2986,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "zh-pl10": {
+      "title": "霹雳-10",
+      "publisher": "Wikipedia, zh (revision 94655060)",
+      "url": "https://zh.wikipedia.org/w/index.php?title=%E9%9C%B9%E9%9B%B3-10&oldid=94655060",
+      "date": "2026-09-30"
+    }
+  }
+}

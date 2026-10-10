@@ -1,0 +1,54 @@
+// fsim: the inverse FFT's outputs unpacked into what the sea is drawn with: each cascade's displacement (the waves'
+// geometry, near the eye), its slopes and their squares (LEAN mapping's first and second moments, Olano & Baker 2010:
+// filtered through the mip levels, they keep the roughness the pixel's footprint holds, which the mean slope alone
+// loses) and its foam. From GodotOceanWaves (github.com/2Retr0/GodotOceanWaves, MIT, Copyright (c) 2024 Ethan Truong;
+// see LICENSE-GodotOceanWaves.txt): assets/shaders/compute/fft_unpack.glsl. Changes marked fsim: every cascade in one
+// dispatch, the slopes' moments, the foam kept in an image of its own.
+
+#version 450
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+#include "clouds/types.glsl"
+#include "fsim/params.glsl"
+#include "ocean/ocean.glsl"
+
+layout(std430, set = 0, binding = 25) buffer FFTBuffer { vec2 data[]; };
+layout(set = 0, binding = 27, rgba16f) uniform writeonly image2DArray slopes;       // sx, sz, sx^2, sz^2
+layout(set = 0, binding = 28, rgba16f) uniform image2DArray foamMap;               // foam, the Jacobian, its divergence and square
+layout(set = 0, binding = 29, rgba16f) uniform writeonly image2DArray displacement; // along U, up, along V
+
+void main() {
+  const int cascade = int(gl_WorkGroupID.z);
+  const ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+  // Multiplying output of inverse FFT by below factor is equivalent to ifftshift()
+  const float sign_shift = -2 * ((id.x & 1) ^ (id.y & 1)) + 1; // Equivalent: (-1^id.x)(-1^id.y)
+
+  vec2 t0 = data[FFT_INDEX(cascade, 1, 0, id.x, id.y)];
+  vec2 t1 = data[FFT_INDEX(cascade, 1, 1, id.x, id.y)];
+  vec2 t2 = data[FFT_INDEX(cascade, 1, 2, id.x, id.y)];
+  vec2 t3 = data[FFT_INDEX(cascade, 1, 3, id.x, id.y)];
+  float hx = t0.x * sign_shift;
+  float hy = t0.y * sign_shift;
+  float hz = t1.x * sign_shift;
+  float dhy_dx = t1.y * sign_shift;
+  float dhy_dz = t2.x * sign_shift;
+  float dhx_dx = t2.y * sign_shift;
+  float dhz_dz = t3.x * sign_shift;
+  float dhz_dx = t3.y * sign_shift;
+
+  float jacobian = (1.0 + dhx_dx) * (1.0 + dhz_dz) - dhz_dx * dhz_dx;
+  float foam_factor = -min(0.0, jacobian - OCEAN_WHITECAP);
+  float foam = imageLoad(foamMap, ivec3(id, cascade)).r;
+  if (!(foam >= 0.0 && foam <= 1.0)) foam = 0.0; // fsim: (the first frame's image holds anything)
+  foam *= exp(-OCEAN_FOAM_DECAY);
+  foam += foam_factor * OCEAN_FOAM_GROW;
+  foam = clamp(foam, 0.0, 1.0);
+
+  vec2 gradient = vec2(dhy_dx, dhy_dz) / (1.0 + abs(vec2(dhx_dx, dhz_dz)));
+  imageStore(displacement, ivec3(id, cascade), vec4(hx, hy, hz, 0.0));
+  imageStore(slopes, ivec3(id, cascade), vec4(gradient, gradient * gradient));
+  // fsim: the horizontal displacement's divergence and its square (Dupuy & Bruneton 2012's whitecaps: the Jacobian
+  // to first order is 1 + it; mipmapped, the pixel's mean and variance of it, summed over the cascades)
+  float divergence = dhx_dx + dhz_dz;
+  imageStore(foamMap, ivec3(id, cascade), vec4(foam, jacobian, divergence, divergence * divergence));
+}

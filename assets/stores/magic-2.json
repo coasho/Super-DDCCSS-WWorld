@@ -1,0 +1,142 @@
+{
+  "id": "magic-2",
+  "designation": "R.550 Magic 2",
+  "class": "aam",
+  "summary": "Short-range infrared air-to-air missile",
+  "maker": "Matra",
+  "model": "",
+  "powerable": true,
+  "jettisonable": true,
+  "seeker": "infrared",
+  "guidance": "infrared homing",
+  "motor": "Richard single-stage solid rocket",
+  "fuze": "contact and RF proximity",
+  "warhead": "pre-fragmented (controlled splinter) blast-fragmentation",
+  "warhead_kind": "fragmentation",
+  "explosive": "HBX",
+  "parameters": {
+    "mass_kg": {
+      "value": 89.0,
+      "unit": "kg",
+      "uncertainty": 1.0,
+      "basis": "published",
+      "source": "wp-magic"
+    },
+    "length_m": {
+      "value": 2.72,
+      "unit": "m",
+      "uncertainty": 0.03,
+      "basis": "published",
+      "source": "wp-magic",
+      "note": "the French article gives 2.75 m"
+    },
+    "diameter_m": {
+      "value": 0.157,
+      "unit": "m",
+      "uncertainty": 0.002,
+      "basis": "published",
+      "source": "wp-magic"
+    },
+    "span_m": {
+      "value": 0.66,
+      "unit": "m",
+      "uncertainty": 0.01,
+      "basis": "published",
+      "source": "wp-magic"
+    },
+    "warhead_kg": {
+      "value": 12.7,
+      "unit": "kg",
+      "uncertainty": 0.5,
+      "basis": "published",
+      "source": "wp-magic"
+    },
+    "range_km": {
+      "value": 20.0,
+      "unit": "km",
+      "uncertainty": 5.0,
+      "basis": "published",
+      "source": "wp-magic",
+      "note": "Magic 2"
+    },
+    "speed_mach": {
+      "value": 2.0,
+      "unit": "Mach",
+      "uncertainty": 0.5,
+      "basis": "published",
+      "source": "wp-magic",
+      "note": "'Mach 2 (Magic 2)'; the French article gives Mach 3"
+    },
+    "power_up_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "power_down_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "explosive_kg": {
+      "value": 6.0,
+      "unit": "kg",
+      "uncertainty": 0.9,
+      "basis": "published",
+      "source": "wt-datamine",
+      "note": "a game reference: War Thunder's fr_r_550_magic_2 (HBX); no manufacturer or encyclopedia gives the charge"
+    },
+    "gurney_kms": {
+      "value": 2.4,
+      "unit": "km/s",
+      "uncertainty": 0.15,
+      "basis": "assumed",
+      "note": "HBX (RDX/TNT/aluminium) is not in Cooper's table: between Tritonal (2.32) and TNT (2.44) - an estimate"
+    },
+    "drag_area_m2": {
+      "value": 0.0065,
+      "unit": "m^2",
+      "uncertainty": 0.00195,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its design (hangar storedrag.py: Hoerner's body of revolution 0.00263, its base 0.00097, its fins' friction 0.00289 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 0.04919,
+      "unit": "m^3",
+      "uncertainty": 0.01476,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.0502 m^3 from its design, times Lamb's k2 - k1 = 0.980 for its fineness 17.2 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.75854,
+      "unit": "m^2",
+      "uncertainty": 0.22756,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 0.5055,
+      "unit": "m",
+      "uncertainty": 0.2707,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "wp-magic": {
+      "title": "R.550 Magic",
+      "publisher": "Wikipedia (revision 1372790894)",
+      "url": "https://en.wikipedia.org/w/index.php?title=R.550_Magic&oldid=1372790894",
+      "date": "2026-09-02"
+    },
+    "wt-datamine": {
+      "title": "War Thunder datamine: rocketguns weapon files (a game reference: the game's own values, not a manufacturer's)",
+      "publisher": "gszabi99/War-Thunder-Datamine (GitHub)",
+      "url": "https://github.com/gszabi99/War-Thunder-Datamine/tree/master/aces.vromfs.bin_u/gamedata/weapons/rocketguns",
+      "date": "2026-10-09"
+    }
+  }
+}

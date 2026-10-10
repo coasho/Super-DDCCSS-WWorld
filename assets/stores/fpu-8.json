@@ -1,0 +1,97 @@
+{
+  "id": "fpu-8",
+  "designation": "FPU-8/A 330 US gal tank",
+  "class": "tank",
+  "summary": "the F/A-18A-D's tank, stations 3, 5 and 7",
+  "maker": "Boeing (McDonnell Douglas)",
+  "model": "jsbsim:fpu8",
+  "powerable": false,
+  "jettisonable": true,
+  "fins": false,
+  "parameters": {
+    "capacity_l": {
+      "value": 1249.1859,
+      "unit": "L",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "wp-hardpoint"
+    },
+    "fuel_kg": {
+      "value": 999.3487,
+      "unit": "kg",
+      "uncertainty": 49.9674,
+      "basis": "derived",
+      "source": "wp-jetfuel",
+      "note": "its capacity full at 0.80 kg/L (Jet A-1 / JP-8 at 15 C lies 0.775 - 0.840): one density for every tank"
+    },
+    "mass_kg": {
+      "value": 124.9186,
+      "unit": "kg",
+      "uncertainty": 43.7215,
+      "basis": "assumed",
+      "note": "its empty mass: 0.10 kg per litre of capacity, the published tanks' mean (one rule for every tank without a figure); not published: a former loader's 'around 250 lbs at most, dry' (soh-tanks)"
+    },
+    "length_m": {
+      "value": 5.3097,
+      "unit": "m",
+      "uncertainty": 1.0619,
+      "basis": "assumed",
+      "note": "its size: 8 diameters long, its fuel 0.68 of the cylinder (the four published tanks' means; one rule for every tank without one)"
+    },
+    "diameter_m": {
+      "value": 0.6637,
+      "unit": "m",
+      "uncertainty": 0.0996,
+      "basis": "assumed",
+      "note": "its size: 8 diameters long, its fuel 0.68 of the cylinder (the four published tanks' means; one rule for every tank without one)"
+    },
+    "drag_area_m2": {
+      "value": 0.02252,
+      "unit": "m^2",
+      "uncertainty": 0.00676,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its card, stores.py's tank profile (hangar storedrag.py: Hoerner's body of revolution 0.02089, its base 0.00163, its fins' friction 0.00000 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 1.26145,
+      "unit": "m^3",
+      "uncertainty": 0.37843,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 1.3774 m^3 from its card, stores.py's tank profile, times Lamb's k2 - k1 = 0.916 for its fineness 8.0 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.02768,
+      "unit": "m^2",
+      "uncertainty": 0.0083,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 2.6549,
+      "unit": "m",
+      "uncertainty": 0.531,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "soh-tanks": {
+      "title": "US/NATO aircraft drop tank weights (forum: recollections)",
+      "publisher": "Sim Outhouse forum",
+      "url": "https://sim-outhouse.org/sohforums/threads/us-nato-aircraft-drop-tank-weights.50291/",
+      "date": "2026-10-09"
+    },
+    "wp-hardpoint": {
+      "title": "Hardpoint (F/A-18C wet stations 3, 5, 7; FPU-8/A 330 US gal)",
+      "publisher": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Hardpoint",
+      "date": "2026-10-09"
+    },
+    "wp-jetfuel": {
+      "title": "Jet fuel (Jet A-1: density 0.804 kg/L at 15 C)",
+      "publisher": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Jet_fuel",
+      "date": "2026-10-09"
+    }
+  }
+}

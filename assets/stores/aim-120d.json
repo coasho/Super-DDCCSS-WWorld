@@ -1,0 +1,154 @@
+{
+  "id": "aim-120d",
+  "designation": "AIM-120D AMRAAM",
+  "class": "aam",
+  "summary": "The AIM-120C's airframe with GPS-aided navigation, a two-way datalink and a longer reach",
+  "maker": "Raytheon",
+  "model": "",
+  "powerable": true,
+  "jettisonable": true,
+  "seeker": "active_radar",
+  "guidance": "GPS-aided inertial midcourse with datalink updates, terminal active radar homing",
+  "motor": "solid rocket, booster only",
+  "fuze": "FZU-49 proximity and impact",
+  "warhead": "WDU-41/B blast-fragmentation (the C-7's: none published for the D)",
+  "warhead_kind": "fragmentation",
+  "explosive": "PBXN-110",
+  "parameters": {
+    "mass_kg": {
+      "value": 161.5,
+      "unit": "kg",
+      "uncertainty": 1.0,
+      "basis": "published",
+      "source": "usn-aim120",
+      "note": "AIM-120C-5/6/7/D: 356 lb"
+    },
+    "length_m": {
+      "value": 3.66,
+      "unit": "m",
+      "uncertainty": 0.01,
+      "basis": "published",
+      "source": "usaf-aim120"
+    },
+    "diameter_m": {
+      "value": 0.1778,
+      "unit": "m",
+      "uncertainty": 0.001,
+      "basis": "published",
+      "source": "usaf-aim120"
+    },
+    "span_m": {
+      "value": 0.483,
+      "unit": "m",
+      "uncertainty": 0.005,
+      "basis": "published",
+      "source": "usn-aim120",
+      "note": "AIM-120C/D: 19 in"
+    },
+    "warhead_kg": {
+      "value": 20.0,
+      "unit": "kg",
+      "uncertainty": 2.0,
+      "basis": "published",
+      "source": "wp-aim120"
+    },
+    "range_km": {
+      "value": 145.0,
+      "unit": "km",
+      "uncertainty": 15.0,
+      "basis": "published",
+      "source": "wp-aim120",
+      "note": "AIM-120D: 130-160 km"
+    },
+    "speed_mach": {
+      "value": 4.0,
+      "unit": "Mach",
+      "uncertainty": 0.3,
+      "basis": "published",
+      "source": "wp-aim120"
+    },
+    "power_up_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "power_down_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "explosive_kg": {
+      "value": 7.17,
+      "unit": "kg",
+      "uncertainty": 1.08,
+      "basis": "published",
+      "source": "wt-datamine",
+      "note": "a game reference: War Thunder's us_aim_120d (PBXN-110); no manufacturer or encyclopedia gives the charge"
+    },
+    "gurney_kms": {
+      "value": 2.6,
+      "unit": "km/s",
+      "uncertainty": 0.15,
+      "basis": "assumed",
+      "note": "PBXN-110 (88 % HMX in a polymer binder) is not in Cooper's table: between Comp B (2.70) and LX-14 (2.80, 95 % HMX) less its larger binder share - an estimate"
+    },
+    "drag_area_m2": {
+      "value": 0.00748,
+      "unit": "m^2",
+      "uncertainty": 0.00225,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its design (hangar storedrag.py: Hoerner's body of revolution 0.00384, its base 0.00117, its fins' friction 0.00248 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 0.08379,
+      "unit": "m^3",
+      "uncertainty": 0.02514,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.0850 m^3 from its design, times Lamb's k2 - k1 = 0.986 for its fineness 20.6 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.54077,
+      "unit": "m^2",
+      "uncertainty": 0.16223,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 0.7926,
+      "unit": "m",
+      "uncertainty": 0.366,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "usn-aim120": {
+      "title": "AIM-120 Advanced Medium-Range, Air-to-Air Missile (AMRAAM) (fact file)",
+      "publisher": "U.S. Navy",
+      "url": "https://www.navy.mil/Resources/Fact-Files/Display-FactFiles/Article/2168352/aim-120-advanced-medium-range-air-to-air-missile-amraam/",
+      "date": "2026-10-07"
+    },
+    "usaf-aim120": {
+      "title": "AIM-120 AMRAAM (fact sheet)",
+      "publisher": "U.S. Air Force",
+      "url": "https://www.af.mil/About-Us/Fact-Sheets/Display/Article/104576/aim-120-amraam/",
+      "date": "2026-10-07"
+    },
+    "wp-aim120": {
+      "title": "AIM-120 AMRAAM",
+      "publisher": "Wikipedia (revision 1377668538)",
+      "url": "https://en.wikipedia.org/w/index.php?title=AIM-120_AMRAAM&oldid=1377668538",
+      "date": "2026-09-30"
+    },
+    "wt-datamine": {
+      "title": "War Thunder datamine: rocketguns weapon files (a game reference: the game's own values, not a manufacturer's)",
+      "publisher": "gszabi99/War-Thunder-Datamine (GitHub)",
+      "url": "https://github.com/gszabi99/War-Thunder-Datamine/tree/master/aces.vromfs.bin_u/gamedata/weapons/rocketguns",
+      "date": "2026-10-09"
+    }
+  }
+}

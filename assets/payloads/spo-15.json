@@ -1,0 +1,27 @@
+{
+  "id": "spo-15",
+  "designation": "SPO-15 Beryoza",
+  "family": "esm",
+  "summary": "radar warning receiver",
+  "parameters": {},
+  "sources": {
+    "wp-mig29a": {
+      "title": "Mikoyan MiG-29",
+      "publisher": "Wikipedia (revision 1378805039)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Mikoyan_MiG-29&oldid=1378805039",
+      "date": "2026-10-06"
+    },
+    "wp-su27s": {
+      "title": "Sukhoi Su-27",
+      "publisher": "Wikipedia (revision 1378428873)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Sukhoi_Su-27&oldid=1378428873",
+      "date": "2026-10-04"
+    },
+    "wp-su25": {
+      "title": "Sukhoi Su-25",
+      "publisher": "Wikipedia (revision 1375887277)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Sukhoi_Su-25&oldid=1375887277",
+      "date": "2026-09-20"
+    }
+  }
+}

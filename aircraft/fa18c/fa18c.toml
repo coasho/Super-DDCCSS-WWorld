@@ -1,0 +1,302 @@
+# McDonnell Douglas F/A-18C Hornet, built by hangar from public data.
+#
+# Frame: metres, x aft from the nose tip, y right, z up from the wing's chord
+# plane. Sources: Jane's All the World's Aircraft and the US Navy fact sheet
+# (dimensions, weights, performance); NASA TM-4433 and the F/A-18 High Alpha
+# Research Vehicle reports (wing: NACA 65A005 root, 65A003.5 tip, 20 deg
+# quarter-chord sweep; inertia); General Electric (F404-GE-402).
+
+[aircraft]
+name = "fa18c"
+description = "McDonnell Douglas F/A-18C Hornet (hangar build)"
+category = "fighter"
+
+[analysis]
+speed = 230.0                # m/s: the Reynolds numbers
+
+# The reference wing: 37.16 m2 (400 ft2), span 11.43 m without the wingtip
+# missiles, 26.7 deg leading edge, taper 0.35 (root 4.82 m, tip 1.69 m, MAC
+# 3.50 m). The MAC's 22 % point, the CG, sits 0.65 m ahead of the main wheels
+# (wheelbase 5.42 m).
+[[surface]]
+name = "wing"
+kind = "wing"
+sections = [
+  { le = [8.220, 0.000, 0.000], chord = 4.620, airfoil = "naca65a005" },
+  { le = [11.080, 5.715, -0.100], chord = 1.730, airfoil = "naca65a004" },
+]
+controls = [
+  { name = "aileron", channel = "aileron", span = [0.60, 0.95], chord_fraction = 0.26, limits = [-25, 25] },
+  { name = "flap", channel = "flap", span = [0.14, 0.58], chord_fraction = 0.28, limits = [0, 45] },
+]
+# leading-edge flaps from the extension to the tip, scheduled with angle of
+# attack (the F-16's law stands in)
+leading = [
+  { name = "leading-edge flap", span = [0.26, 0.97], chord_fraction = 0.15, limits = [-3, 34] },
+]
+
+# The leading-edge extensions: sharp, 77.6 deg of sweep, from beside the
+# windscreen to the wing's leading edge, 3.5 m2 exposed - the vortices that
+# let the Hornet fly past 35 deg angle of attack
+[[surface]]
+name = "lex"
+kind = "strake"
+airfoil = "plate"
+sections = [
+  { le = [1.940, 0.000, 0.050], chord = 6.280 },
+  { le = [1.940, 0.500, 0.050], chord = 6.530 },
+  { le = [5.990, 1.000, 0.030], chord = 2.730 },
+  { le = [8.980, 1.520, 0.000], chord = 0.050 },
+]
+
+# All-moving stabilators, 8.2 m2 exposed, 2 deg anhedral; differential for roll
+[[surface]]
+name = "htail"
+kind = "htail"
+airfoil = "naca65a004"
+sections = [
+  { le = [12.300, 0.000, -0.150], chord = 4.000 },
+  { le = [13.700, 1.100, -0.150], chord = 2.900 },
+  { le = [14.610, 1.900, -0.180], chord = 2.110 },
+  { le = [15.790, 2.850, -0.210], chord = 1.420 },
+  { le = [16.220, 3.250, -0.230], chord = 0.650 },
+]
+controls = [
+  { name = "stabilator", channel = "elevator", mix = { aileron = 0.4 }, span = [0.33, 1.0], chord_fraction = 1.0, pivot = 0.35, limits = [-24, 10.5] },
+]
+
+# Twin vertical tails canted 20 deg outboard, 2 x 5.3 m2, 35 deg leading
+# edge, well forward over the engines
+[[surface]]
+name = "fin"
+kind = "fin"
+mirror = true
+airfoil = "naca65a004"
+sections = [
+  { le = [11.770, 1.100, 0.600], chord = 2.640 },
+  { le = [13.730, 1.820, 2.580], chord = 1.230 },
+]
+controls = [
+  { name = "rudder", channel = "rudder", span = [0.08, 0.60], chord_fraction = 0.30, limits = [-30, 30] },
+]
+
+# Fuselage with the intakes under the LEX from 6.6 m
+[[body]]
+name = "fuselage"
+kind = "fuselage"
+stations = [
+  { x = 0.00, w = 0.00, top = -0.400, bottom = -0.520 },
+  { x = 0.50, w = 0.46, top = -0.180, bottom = -0.680, n = 2.0 },
+  { x = 1.00, w = 0.72, top = 0.000, bottom = -0.770, n = 2.0 },
+  { x = 1.50, w = 0.88, top = 0.120, bottom = -0.800, n = 2.1 },
+  { x = 2.50, w = 1.02, top = 0.330, bottom = -0.800, n = 2.2 },
+  { x = 4.00, w = 1.10, top = 0.500, bottom = -0.780, n = 2.4 },
+  { x = 5.50, w = 1.25, top = 0.550, bottom = -0.780, n = 2.5 },
+  { x = 6.60, w = 1.45, top = 0.560, bottom = -0.780, n_top = 2.6, n_bottom = 2.8 },
+  { x = 8.00, w = 2.30, top = 0.520, bottom = -0.850, chine = -0.300, n_top = 3.0, n_bottom = 3.6 },
+  { x = 10.50, w = 2.40, top = 0.480, bottom = -0.950, chine = -0.300, n_top = 3.2, n_bottom = 3.6 },
+  { x = 13.00, w = 2.20, top = 0.420, bottom = -0.880, n = 3.0 },
+  { x = 15.50, w = 1.90, top = 0.300, bottom = -0.700, n = 2.6 },
+  { x = 16.70, w = 1.60, top = 0.200, bottom = -0.550, n = 2.3 },
+]
+
+# The Hornet's spine: broad and high behind the canopy, falling towards the
+# fins
+[[body]]
+name = "spine"
+kind = "pod"
+aero = false                  # part of the fuselage's top: the tables leave it out
+stations = [
+  { x = 6.300, w = 0.000, top = 0.850, bottom = 0.400 },
+  { x = 7.000, w = 1.000, top = 0.920, bottom = 0.350, n = 2.6 },
+  { x = 9.500, w = 1.100, top = 0.880, bottom = 0.300, n = 2.8 },
+  { x = 11.000, w = 1.000, top = 0.780, bottom = 0.300, n = 2.8 },
+  { x = 12.500, w = 0.860, top = 0.660, bottom = 0.250, n = 2.6 },
+  { x = 14.000, w = 0.600, top = 0.480, bottom = 0.200, n = 2.4 },
+  { x = 15.000, w = 0.000, top = 0.380, bottom = 0.200 },
+]
+
+[[intake]]
+name = "intake"
+mirror = true
+lip = 0.03
+rake = -8
+duct = 1.5
+duct_rise = 0.2
+duct_taper = 0.85
+stations = [
+  { x = 6.90, y = 0.980, w = 0.560, top = -0.120, bottom = -0.820, chine = -0.470, n_top = 3.0, n_bottom = 2.4 },
+  { x = 8.30, y = 1.000, w = 0.600, top = -0.120, bottom = -0.900, chine = -0.510, n_top = 3.0, n_bottom = 2.6 },
+  { x = 10.00, y = 0.950, w = 0.560, top = -0.150, bottom = -0.950, n_top = 3.0, n_bottom = 2.8 },
+  { x = 11.50, y = 0.800, w = 0.400, top = -0.200, bottom = -0.880, n = 2.6 },
+]
+
+# A framed windscreen ahead of the bubble
+[[body]]
+name = "canopy"
+kind = "pod"
+frames = [3.92]
+frame_width = 0.07
+stations = [
+  { x = 3.300, w = 0.00, top = 0.520, bottom = 0.500 },
+  { x = 3.900, w = 0.66, top = 0.820, bottom = 0.480, n = 2.0 },
+  { x = 4.600, w = 0.80, top = 1.140, bottom = 0.480, n = 2.0 },
+  { x = 5.100, w = 0.80, top = 1.220, bottom = 0.490, n = 2.0 },
+  { x = 5.800, w = 0.72, top = 1.120, bottom = 0.500, n = 2.0 },
+  { x = 6.600, w = 0.50, top = 0.960, bottom = 0.520, n = 2.0 },
+  { x = 7.200, w = 0.20, top = 0.900, bottom = 0.540, n = 2.0 },
+]
+
+[[engine]]
+name = "F404-GE-402"
+type = "turbofan"
+mirror = true
+thrust_dry_kn = 48.9          # 11,000 lbf military
+thrust_wet_kn = 79.2          # 17,800 lbf afterburner
+bypass_ratio = 0.34
+tsfc_dry = 0.81
+tsfc_wet = 1.74
+throttle_ratio = 1.07
+design_mach = 1.8
+position = [13.500, 0.500, -0.300]
+mass = 1035                   # 2,282 lb dry
+inlet_x = 6.6
+[engine.nozzle]
+position = [16.600, 0.500, -0.300]
+
+# The gear where NASA's three-view has its wheels (the axles 5.56 and 11.07 m
+# behind the nose; Jane's 5.42 m wheelbase), the 3.11 m track and the NATOPS
+# tyres (twin 22x6.6-10, 30x11.5-14.5), standing on the drawing's ground line.
+# The nose gear folds forward; the main legs fold aft into the fuselage, their
+# wheels turning to lie flat under the intake ducts.
+[[gear]]
+name = "Nose Gear"
+position = [5.560, 0.0, -2.270]
+steerable = true
+max_steer = 75
+wheel_diameter = 0.559
+wheel_width = 0.168
+retractable = true
+retract = "forward"
+wheels = 2
+static_deflection = 0.14
+attach = [5.560, 0.0, -0.600]
+
+[[gear]]
+name = "Main Gear"
+mirror = true
+position = [11.070, 1.555, -2.270]
+wheel_diameter = 0.762
+wheel_width = 0.292
+retractable = true
+retract = "aft"
+wheel_turn = "flat"
+static_deflection = 0.18
+attach = [10.900, 1.000, -0.650]
+
+[reference]
+aero_point = [10.200, 0.0, 0.0]    # 0.22 MAC
+
+[flight_control]
+type = "fbw"
+n_max = 7.5
+n_min = -3.0
+alpha_max_deg = 35.0
+roll_rate_deg_s = 220.0
+
+[mass]
+empty = 10810                 # 23,832 lb, F/A-18C
+empty_cg = [9.810, 0.0, -0.250]
+# radii of gyration from the F/A-18 HARV's inertia (NASA: Ixx 22,789,
+# Iyy 176,809, Izz 191,744 slug ft2 at 33,310 lb)
+gyration = [0.250, 0.450, 0.560]
+[[mass.payload]]
+name = "pilot"
+mass = 100
+position = [5.200, 0.0, 0.600]
+[[mass.payload]]
+name = "gun ammunition"       # M61A1 in the nose, 578 rounds
+mass = 180
+position = [2.800, 0.0, 0.000]
+[[mass.tank]]
+name = "fuselage 1"
+position = [8.610, 0.0, -0.200]
+capacity = 1400
+[[mass.tank]]
+name = "fuselage 2"
+position = [10.110, 0.0, -0.200]
+capacity = 1300
+[[mass.tank]]
+name = "fuselage 3"
+position = [11.610, 0.0, -0.250]
+capacity = 1100
+[[mass.tank]]
+name = "left wing"
+position = [10.410, -2.300, 0.000]
+capacity = 550
+[[mass.tank]]
+name = "right wing"
+position = [10.410, 2.300, 0.000]
+capacity = 550
+
+[dimensions]                  # published, overall, gear down (US Navy fact sheet; span without the tip missiles):
+length = 17.07                 # m
+span = 11.43
+height = 4.66
+
+[targets]
+# F/A-18C, clean, published (US Navy fact sheet; Jane's)
+max_mach = 1.8                # at altitude, full afterburner (calibrates the wave drag)
+max_mach_altitude_ft = 40000
+climb_rate_fpm = 45000
+operational_ceiling_ft = 50000 # published: the clearance, not where the climb runs out
+
+# Its drag device (docs/flight-autonomy.md, 4.55): its dorsal speed brake
+# between the fins (Jane's); opened 60 deg (an estimate); sized as the
+# F-15's is to its wing (31.5 ft2 on 608 ft2: 5.2 %), 1.88 m2 - no area is
+# published - and placed after the type's description; an estimate.
+[[drag_device]]
+name = "speed brake"
+kind = "airbrake"
+area = 1.88
+position = [12.8, 0, 0.9]
+max_deg = 60
+
+# The 90 deg crosswind it lands and takes off in at most (docs/flight-autonomy.md,
+# 4.54): beyond it a recovery waves off, and a launch or a taxi is refused. Source:
+# MIL-F-8785C 3.3.7 (Table XI): the 90 deg crosswind a Class II to IV
+# aeroplane is to take off and land in (Level 1). No limit is published for
+# the type: its flying qualities' requirement stands in for it.
+[operations]
+crosswind_kt = 30
+# Its placards (docs/flight-autonomy.md, 4.57): the most it moves its gear at
+# (the lesser of extending and retracting it), and the most with its flaps out
+# beyond flaps_above (the setting before its landing flaps), KIAS - or why there
+# are none. Source: F/A-18 NATOPS flight manual, landing configuration limitations
+# (navyflightmanuals.tpub.com): the gear and the flaps HALF and FULL 250 KCAS.
+gear_kt = 250
+flaps_kt = 250
+
+# What the platform's discovery rests on (docs/flight-autonomy.md, section 5.2): the
+# aircraft's physical characteristics, each with its public source. hangar writes them into
+# the profile's applicability section and the sources into the file header. A characteristic
+# left out is not declared, and what it governs stays applicable.
+[applicability]
+vertical_flight = false
+ground_contact = "wheels"
+carrier = "catapult_arrested"
+retractable_gear = true
+flaps = true
+drag_devices = "devices"
+releasable_stores = "weapons"
+aerobatic = true
+
+[applicability.sources]
+vertical_flight = "US Navy F/A-18 fact sheet: a conventional take-off and landing fighter. Conventional take-off and landing: no rotors, lift fans or vectored lift to hover"
+ground_contact = "US Navy F/A-18 fact sheet: tricycle wheeled gear"
+carrier = "US Navy F/A-18 fact sheet: carrier-based, with a nose-gear launch bar for the catapult and an arresting hook"
+retractable_gear = "Jane's All the World's Aircraft: retractable gear"
+flaps = "NASA TM-4433: trailing-edge flaps"
+drag_devices = "Jane's All the World's Aircraft: a dorsal speed brake"
+releasable_stores = "US Navy F/A-18 fact sheet: nine stations for air-to-air and air-to-ground weapons"
+aerobatic = "US Navy F/A-18 fact sheet: +7.5 g (fsim/envelope/clean/n_max)"

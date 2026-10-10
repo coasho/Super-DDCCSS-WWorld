@@ -1,0 +1,15 @@
+{
+  "id": "l402-himalayas",
+  "designation": "L402 Himalayas",
+  "family": "electronic_attack",
+  "summary": "electronic countermeasures system of the Sh-121 suite",
+  "parameters": {},
+  "sources": {
+    "wp-su57": {
+      "title": "Sukhoi Su-57",
+      "publisher": "Wikipedia (revision 1376999114)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Sukhoi_Su-57&oldid=1376999114",
+      "date": "2026-09-27"
+    }
+  }
+}

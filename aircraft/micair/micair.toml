@@ -1,0 +1,111 @@
+# MICA IR, built by hangar from public data (ADR-30, MS-7e1) - written by `python -m hangar missiles micair`
+# (tools/hangar/hangar/missiles.py), one rule for every missile: edit the table there and write it again.
+#
+# Frame: metres, x aft from the nose's tip, y right, z up from the body's axis. The card (assets/stores/mica-ir.json)
+# holds the published figures: length 3.1 m, diameter 0.16 m, mass 112 kg; span 0.48 m (the card), tip to tip across
+# opposite fins. Its surfaces fly in an X, 45 deg from the vertical, as it hangs on its launcher (assumed for all).
+# Assumed from photographs, the same way for every missile: the nose's shape and length, each surface's place,
+# chords and sweep, the motor's nozzle and burn, the CG. They only shape the picture until the aero stage runs.
+
+[aircraft]
+name = "micair"
+description = "MICA IR (hangar build)"
+category = "missile"
+card = "mica-ir"             # its store card: the published figures this design holds
+
+[analysis]
+speed = 900.0                # m/s: the Reynolds numbers (Mach 3 at altitude) - assumed
+
+# The infrared seeker's glass dome (40 % of the body's radius - assumed), on its cone
+[[body]]
+name = "canopy seeker dome"
+kind = "pod"
+stations = [
+  { x = 0.0, w = 0.0, top = 0.0, bottom = 0.0, n = 2 },
+  { x = 0.008, w = 0.0422, top = 0.0211, bottom = -0.0211, n = 2 },
+  { x = 0.0192, w = 0.0589, top = 0.0294, bottom = -0.0294, n = 2 },
+  { x = 0.032, w = 0.064, top = 0.032, bottom = -0.032, n = 2 },
+  { x = 0.0448, w = 0.064, top = 0.032, bottom = -0.032, n = 2 },
+]
+
+# The body: the seeker's cone, the cylinder, a boattail over the nozzle (assumed)
+[[body]]
+name = "body"
+kind = "fuselage"
+stations = [
+  { x = 0.0144, w = 0.0512, top = 0.0256, bottom = -0.0256, n = 2 },
+  { x = 0.032, w = 0.0621, top = 0.031, bottom = -0.031, n = 2 },
+  { x = 0.12, w = 0.1191, top = 0.0596, bottom = -0.0596, n = 2 },
+  { x = 0.208, w = 0.16, top = 0.08, bottom = -0.08, n = 2 },
+  { x = 3.004, w = 0.16, top = 0.08, bottom = -0.08, n = 2 },
+  { x = 3.1, w = 0.128, top = 0.064, bottom = -0.064, n = 2 },
+]
+
+# The strakes: fixed; root chord 1.4 m, tip 1.3 m, 0.06 m out from the body (assumed from photographs)
+[[surface]]
+name = "strake upper"
+kind = "fin"
+mirror = true
+airfoil = "plate"
+sections = [
+  { le = [0.95, 0.0549, 0.0549], chord = 1.4 },
+  { le = [1.05, 0.099, 0.099], chord = 1.3 },
+]
+
+[[surface]]
+name = "strake lower"
+kind = "fin"
+mirror = true
+airfoil = "plate"
+sections = [
+  { le = [0.95, 0.0549, -0.0549], chord = 1.4 },
+  { le = [1.05, 0.099, -0.099], chord = 1.3 },
+]
+
+# The tail fins: all-moving about their spindles; root chord 0.28 m, tip 0.14 m, 0.16 m out from the body, their tips across the card's span (assumed from photographs)
+[[surface]]
+name = "tail fin upper"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [2.75, 0.0549, 0.0549], chord = 0.28 },
+  { le = [2.89, 0.1697, 0.1697], chord = 0.14 },
+]
+controls = [
+  { name = "tail fin upper", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
+]
+
+[[surface]]
+name = "tail fin lower"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [2.75, 0.0549, -0.0549], chord = 0.28 },
+  { le = [2.89, 0.1697, -0.1697], chord = 0.14 },
+]
+controls = [
+  { name = "tail fin lower", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
+]
+
+# The rocket motor: the MICA EM's airframe and motor. Its nozzle in the boattail, its exit 65 % of the base and its burn's phases assumed
+# (none published): only what a replay shows the plume with until a flight model burns it.
+[motor]
+exit = [3.1, 0.0, 0.0]
+exit_diameter = 0.0832
+throat_diameter = 0.0374
+cone_length = 0.0915
+smoke = "reduced"
+[[motor.phase]]
+duration_s = 4
+thrust_kn = 15
+
+[mass]
+empty = 112                 # kg, the card, motor full
+empty_cg = [1.55, 0.0, 0.0]  # assumed: half way along
+gyration = [0.0181, 0.289, 0.289]  # radii of gyration over length - assumed (a slender rod's: L/sqrt(12))
+
+[dimensions]                  # the card: the span tip to tip across opposite fins
+length = 3.1
+span = 0.48

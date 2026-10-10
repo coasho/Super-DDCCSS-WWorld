@@ -1,0 +1,197 @@
+{
+  "id": "f16-store-station",
+  "designation": "F-16 store station",
+  "family": "store_station",
+  "summary": "The F-16's nine weapon stations: wingtip missile rails, six under the wings, the centreline",
+  "maker": "Lockheed Martin (General Dynamics)",
+  "parameters": {},
+  "sources": {
+    "usaf-f16": {
+      "title": "F-16 Fighting Falcon fact sheet",
+      "publisher": "U.S. Air Force",
+      "url": "https://www.wads.ang.af.mil/About-Us/Fact-Sheets/Article/633011/f-16-fighting-falcon/",
+      "date": ""
+    },
+    "wp-f16": {
+      "title": "General Dynamics F-16 Fighting Falcon",
+      "publisher": "Wikipedia (revision 1378439894)",
+      "url": "https://en.wikipedia.org/w/index.php?title=General_Dynamics_F-16_Fighting_Falcon&oldid=1378439894",
+      "date": "2026-10-04"
+    }
+  },
+  "stations": [
+    {
+      "number": 1,
+      "name": "left wingtip",
+      "position_m": [
+        -1.758,
+        -4.75,
+        0.0
+      ],
+      "carriage": "rail",
+      "launcher": "LAU-129",
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 192.8,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place estimated on hangar's design of the F-16C: its spanwise station judged from the type's layout (not measured), a store's CG 40 % of the local chord aft of the leading edge and 0.6 m below the wing (the centreline's 0.4 m aft of the CG and 1.3 m below it); its limit the figure commonly quoted, unconfirmed by a primary source: engineering assumptions"
+    },
+    {
+      "number": 2,
+      "name": "left outboard",
+      "position_m": [
+        -1.275,
+        -3.95,
+        0.6
+      ],
+      "carriage": "rail",
+      "launcher": "LAU-129",
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 317.5,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place estimated on hangar's design of the F-16C: its spanwise station judged from the type's layout (not measured), a store's CG 40 % of the local chord aft of the leading edge and 0.6 m below the wing (the centreline's 0.4 m aft of the CG and 1.3 m below it); its limit the figure commonly quoted, unconfirmed by a primary source: engineering assumptions"
+    },
+    {
+      "number": 3,
+      "name": "left mid",
+      "position_m": [
+        -0.822,
+        -3.05,
+        0.6
+      ],
+      "carriage": "rail+ejector",
+      "launcher": "LAU-129 or MAU-12",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam",
+        "bomb"
+      ],
+      "max_kg": 1587.6,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place estimated on hangar's design of the F-16C: its spanwise station judged from the type's layout (not measured), a store's CG 40 % of the local chord aft of the leading edge and 0.6 m below the wing (the centreline's 0.4 m aft of the CG and 1.3 m below it); its limit the figure commonly quoted, unconfirmed by a primary source: engineering assumptions"
+    },
+    {
+      "number": 4,
+      "name": "left inboard",
+      "position_m": [
+        -0.369,
+        -2.15,
+        0.6
+      ],
+      "carriage": "ejector",
+      "launcher": "MAU-12",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb",
+        "tank"
+      ],
+      "max_kg": 2041.2,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place estimated on hangar's design of the F-16C: its spanwise station judged from the type's layout (not measured), a store's CG 40 % of the local chord aft of the leading edge and 0.6 m below the wing (the centreline's 0.4 m aft of the CG and 1.3 m below it); its limit the figure commonly quoted, unconfirmed by a primary source: engineering assumptions"
+    },
+    {
+      "number": 5,
+      "name": "centreline",
+      "position_m": [
+        -0.4,
+        0.0,
+        1.3
+      ],
+      "carriage": "ejector",
+      "launcher": "MAU-12",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb",
+        "tank",
+        "pod"
+      ],
+      "max_kg": 1050.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place estimated on hangar's design of the F-16C: its spanwise station judged from the type's layout (not measured), a store's CG 40 % of the local chord aft of the leading edge and 0.6 m below the wing (the centreline's 0.4 m aft of the CG and 1.3 m below it); its limit the figure commonly quoted, unconfirmed by a primary source: engineering assumptions; its limit raised to the 300 US gal centerline tank (F-16) full (~1022 kg) it is seen to carry"
+    },
+    {
+      "number": 6,
+      "name": "right inboard",
+      "position_m": [
+        -0.369,
+        2.15,
+        0.6
+      ],
+      "carriage": "ejector",
+      "launcher": "MAU-12",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb",
+        "tank"
+      ],
+      "max_kg": 2041.2,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place estimated on hangar's design of the F-16C: its spanwise station judged from the type's layout (not measured), a store's CG 40 % of the local chord aft of the leading edge and 0.6 m below the wing (the centreline's 0.4 m aft of the CG and 1.3 m below it); its limit the figure commonly quoted, unconfirmed by a primary source: engineering assumptions"
+    },
+    {
+      "number": 7,
+      "name": "right mid",
+      "position_m": [
+        -0.822,
+        3.05,
+        0.6
+      ],
+      "carriage": "rail+ejector",
+      "launcher": "LAU-129 or MAU-12",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam",
+        "bomb"
+      ],
+      "max_kg": 1587.6,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place estimated on hangar's design of the F-16C: its spanwise station judged from the type's layout (not measured), a store's CG 40 % of the local chord aft of the leading edge and 0.6 m below the wing (the centreline's 0.4 m aft of the CG and 1.3 m below it); its limit the figure commonly quoted, unconfirmed by a primary source: engineering assumptions"
+    },
+    {
+      "number": 8,
+      "name": "right outboard",
+      "position_m": [
+        -1.275,
+        3.95,
+        0.6
+      ],
+      "carriage": "rail",
+      "launcher": "LAU-129",
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 317.5,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place estimated on hangar's design of the F-16C: its spanwise station judged from the type's layout (not measured), a store's CG 40 % of the local chord aft of the leading edge and 0.6 m below the wing (the centreline's 0.4 m aft of the CG and 1.3 m below it); its limit the figure commonly quoted, unconfirmed by a primary source: engineering assumptions"
+    },
+    {
+      "number": 9,
+      "name": "right wingtip",
+      "position_m": [
+        -1.758,
+        4.75,
+        0.0
+      ],
+      "carriage": "rail",
+      "launcher": "LAU-129",
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 192.8,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place estimated on hangar's design of the F-16C: its spanwise station judged from the type's layout (not measured), a store's CG 40 % of the local chord aft of the leading edge and 0.6 m below the wing (the centreline's 0.4 m aft of the CG and 1.3 m below it); its limit the figure commonly quoted, unconfirmed by a primary source: engineering assumptions"
+    }
+  ]
+}

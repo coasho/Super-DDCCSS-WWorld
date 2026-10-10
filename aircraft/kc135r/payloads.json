@@ -1,0 +1,23 @@
+{
+  "aircraft": "kc135r",
+  "note": "KC-135R. Its radar is named by its upgrade, not its model; its defensive systems are not named in a source found.",
+  "sources": {
+    "wp-kc135r": {
+      "title": "Boeing KC-135 Stratotanker",
+      "publisher": "Wikipedia (revision 1375087844)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_KC-135_Stratotanker&oldid=1375087844",
+      "date": "2026-09-15"
+    }
+  },
+  "payloads": [
+    {
+      "name": "radar",
+      "card": "kc135r-radar",
+      "source": "wp-kc135r",
+      "note": "the Pacer CRAG upgrade (1999-2002)",
+      "evidence": [
+        "Pacer-CRAG program (compass, radar, and GPS)"
+      ]
+    }
+  ]
+}

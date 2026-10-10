@@ -1,0 +1,110 @@
+{
+  "id": "tank-370gal",
+  "designation": "370 US gal external tank (F-16)",
+  "class": "tank",
+  "summary": "the F-16's wing tank, stations 4 and 6",
+  "maker": "Lockheed Martin",
+  "model": "jsbsim:tank370gal",
+  "powerable": false,
+  "jettisonable": true,
+  "fins": false,
+  "parameters": {
+    "capacity_l": {
+      "value": 1400.6024,
+      "unit": "L",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "f16net-370"
+    },
+    "fuel_kg": {
+      "value": 1120.4819,
+      "unit": "kg",
+      "uncertainty": 56.0241,
+      "basis": "derived",
+      "source": "wp-jetfuel",
+      "note": "its capacity full at 0.80 kg/L (Jet A-1 / JP-8 at 15 C lies 0.775 - 0.840): one density for every tank"
+    },
+    "mass_kg": {
+      "value": 201.0,
+      "unit": "kg",
+      "uncertainty": 20.1,
+      "basis": "published",
+      "source": "f16net-370",
+      "note": "443 lb (f-16.net; KSL quotes Hill AFB the same); a forum's ~700 lb is with its pylon; War Thunder lists 100 kg"
+    },
+    "length_m": {
+      "value": 5.563,
+      "unit": "m",
+      "uncertainty": 0.1113,
+      "basis": "published",
+      "source": "f16net-370"
+    },
+    "diameter_m": {
+      "value": 0.673,
+      "unit": "m",
+      "uncertainty": 0.0135,
+      "basis": "published",
+      "source": "f16net-370"
+    },
+    "drag_area_m2": {
+      "value": 0.02361,
+      "unit": "m^2",
+      "uncertainty": 0.00708,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its card, stores.py's tank profile (hangar storedrag.py: Hoerner's body of revolution 0.02195, its base 0.00166, its fins' friction 0.00000 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 1.36446,
+      "unit": "m^3",
+      "uncertainty": 0.40934,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 1.4838 m^3 from its card, stores.py's tank profile, times Lamb's k2 - k1 = 0.920 for its fineness 8.3 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.02846,
+      "unit": "m^2",
+      "uncertainty": 0.00854,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 2.7815,
+      "unit": "m",
+      "uncertainty": 0.5563,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "f16net-370": {
+      "title": "F-16 370 gallon fuel tank (443 lb empty, 18 1/4 ft long, 26 1/2 in diameter)",
+      "publisher": "F-16.net",
+      "url": "https://www.f-16.net/f-16-news-article2018.html",
+      "date": "2026-10-09"
+    },
+    "fas-f16": {
+      "title": "F-16 Fighting Falcon (1,040 US gal external fuel)",
+      "publisher": "FAS",
+      "url": "https://man.fas.org/dod-101/sys/ac/f-16.htm",
+      "date": "2026-10-09"
+    },
+    "ksl-370": {
+      "title": "Hill AFB officials on the F-16's 370 gallon tank (443 lb)",
+      "publisher": "KSL",
+      "url": "https://www.ksl.com/article/5064865",
+      "date": "2026-10-09"
+    },
+    "wp-jetfuel": {
+      "title": "Jet fuel (Jet A-1: density 0.804 kg/L at 15 C)",
+      "publisher": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Jet_fuel",
+      "date": "2026-10-09"
+    },
+    "wt": {
+      "title": "War Thunder wiki (game reference)",
+      "publisher": "Gaijin Entertainment",
+      "url": "https://wiki.warthunder.com/",
+      "date": "2026-10-09"
+    }
+  }
+}

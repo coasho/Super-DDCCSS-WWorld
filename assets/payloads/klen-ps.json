@@ -1,0 +1,15 @@
+{
+  "id": "klen-ps",
+  "designation": "Klen-PS",
+  "family": "passive_optical",
+  "summary": "nose laser rangefinder and target designator",
+  "parameters": {},
+  "sources": {
+    "wp-su25": {
+      "title": "Sukhoi Su-25",
+      "publisher": "Wikipedia (revision 1375887277)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Sukhoi_Su-25&oldid=1375887277",
+      "date": "2026-09-20"
+    }
+  }
+}

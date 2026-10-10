@@ -1,0 +1,134 @@
+{
+  "id": "meteor",
+  "designation": "Meteor",
+  "class": "aam",
+  "summary": "Long-range active-radar air-to-air missile with a throttleable ducted rocket (ramjet)",
+  "maker": "MBDA",
+  "model": "",
+  "powerable": true,
+  "jettisonable": true,
+  "seeker": "active_radar",
+  "guidance": "inertial midcourse with datalink updates, terminal active radar homing",
+  "motor": "throttleable ducted rocket (ramjet), solid fuel",
+  "fuze": "proximity and impact",
+  "warhead": "blast-fragmentation (TDW), structural",
+  "warhead_kind": "fragmentation",
+  "explosive": "unknown",
+  "parameters": {
+    "mass_kg": {
+      "value": 190.0,
+      "unit": "kg",
+      "uncertainty": 5.0,
+      "basis": "published",
+      "source": "wp-meteor",
+      "note": "the French article gives 185 kg"
+    },
+    "length_m": {
+      "value": 3.65,
+      "unit": "m",
+      "uncertainty": 0.01,
+      "basis": "published",
+      "source": "wp-meteor"
+    },
+    "diameter_m": {
+      "value": 0.178,
+      "unit": "m",
+      "uncertainty": 0.002,
+      "basis": "published",
+      "source": "wp-meteor"
+    },
+    "warhead_kg": {
+      "value": 12.0,
+      "unit": "kg",
+      "uncertainty": 2.0,
+      "basis": "published",
+      "source": "fr-meteor",
+      "note": "'12 kg de charge explosive': its explosive charge"
+    },
+    "range_km": {
+      "value": 200.0,
+      "unit": "km",
+      "uncertainty": 50.0,
+      "basis": "published",
+      "source": "wp-meteor",
+      "note": "'120 km to 200 km+'"
+    },
+    "speed_mach": {
+      "value": 4.0,
+      "unit": "Mach",
+      "uncertainty": 0.3,
+      "basis": "published",
+      "source": "wp-meteor"
+    },
+    "power_up_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "power_down_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "explosive_kg": {
+      "value": 4.43,
+      "unit": "kg",
+      "uncertainty": 1.11,
+      "basis": "assumed",
+      "note": "no source gives its charge: 37 % of its warhead, the median share of the game reference's charges (War Thunder's) - an estimate"
+    },
+    "gurney_kms": {
+      "value": 2.6,
+      "unit": "km/s",
+      "uncertainty": 0.2,
+      "basis": "assumed",
+      "note": "no source names its explosive: as PBXN-110, a modern HMX-based fill - an estimate"
+    },
+    "drag_area_m2": {
+      "value": 0.00591,
+      "unit": "m^2",
+      "uncertainty": 0.00177,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its design (hangar storedrag.py: Hoerner's body of revolution 0.00383, its base 0.00118, its fins' friction 0.00090 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 0.08329,
+      "unit": "m^3",
+      "uncertainty": 0.02499,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.0845 m^3 from its design, times Lamb's k2 - k1 = 0.986 for its fineness 20.5 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.18987,
+      "unit": "m^2",
+      "uncertainty": 0.05696,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 1.5889,
+      "unit": "m",
+      "uncertainty": 0.365,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "wp-meteor": {
+      "title": "Meteor (missile)",
+      "publisher": "Wikipedia (revision 1375651748)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Meteor_(missile)&oldid=1375651748",
+      "date": "2026-09-19"
+    },
+    "fr-meteor": {
+      "title": "Meteor (missile)",
+      "publisher": "Wikipedia, fr (revision 239384836)",
+      "url": "https://fr.wikipedia.org/w/index.php?title=Meteor_%28missile%29&oldid=239384836",
+      "date": "2026-09-10"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "id": "f22a-flare-bays",
+  "designation": "F-22A flare dispensers (model not named)",
+  "family": "countermeasures",
+  "summary": "a small countermeasures bay for flares behind each side weapons bay. The source names no model.",
+  "parameters": {},
+  "sources": {
+    "wp-f22a": {
+      "title": "Lockheed Martin F-22 Raptor",
+      "publisher": "Wikipedia (revision 1375913406)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_Martin_F-22_Raptor&oldid=1375913406",
+      "date": "2026-09-20"
+    }
+  }
+}

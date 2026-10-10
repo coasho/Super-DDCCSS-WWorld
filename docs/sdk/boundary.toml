@@ -1,0 +1,1207 @@
+# The SDK's principals (ADR-31, docs/agent-boundary.md; AB-1): every entry point, classified.
+#
+# tools/boundary/boundary.py reads the surface from the DLLs' export tables and the Python package, and matches it here.
+# A rule names its entry points exactly (`names`) or by pattern (`globs`, fnmatch, the first rule matching wins); an
+# exact name always wins over a pattern. Names: C++ qualified without parameters (`fsim::Vehicle::submit`), C as
+# exported (`fsim_vehicle_submit`), Python by the defining module (`fsim.world.Vehicle.submit`).
+#
+# principal:
+#   agent     an agent (MA's decisions) may call it, on its own platform
+#   ma_core   the MA core alone, applying A-GRA's rules (the range stands in for C2 until AB-5)
+#   range     the experiment's author: building and changing the world
+#   referee   read only, truth among it: scoring, rewards, a critic
+#   platform  inside the simulated equipment: the control runtime, plug-ins and their interfaces
+#   value     no world: names, struct initialisers, unit and physics helpers, the SDK's version
+# leaks: what an agent's call reaches today that ADR-31 keeps from agents (the register below); AB-2 closes them.
+
+[explicit]
+# Role-mixing scopes: every entry point here is classified by its name, never by a pattern, so a new call on these
+# objects fails the check until someone decides whose it is.
+scopes = [
+    "fsim::Vehicle::", "fsim::World::", "fsim::comm::Network::", "fsim::vision::Sensors::",
+    "fsim::vision::BatchCameras::",
+    "fsim::Agent::", "fsim::Referee::", "fsim.agent.",
+    "fsim_vehicle_", "fsim_world_", "fsim_activity_", "fsim_comm_", "fsim_ms_", "fsim_strike", "fsim_vision_",
+    "fsim_last_command_",
+    "fsim.world.Vehicle.", "fsim.world.World.", "fsim.world.Activity.", "fsim.vision.",
+]
+
+[leak]
+L1 = "Returns the World or the Vehicle: whoever holds an agent-facing object reaches every range call - closed for agents by AB-2a: an agent holds its own objects and handle, which refuse it"
+L2 = "Identity declared by the caller: a Source or a ControllerId it chooses (a policy may claim Override) - closed for agents by AB-2a: an agent holds its own objects and handle, which refuse it"
+L3 = "Truth labels in a report: a detection's or a track's `truth`, the entity behind it - closed for agents by AB-2a: an agent holds its own objects and handle, which refuse it"
+L4 = "Another aircraft named by entity id - a strike's, a behaviour's or a must-fly point's target, a frame following a vehicle - and flown on its true state - closed for agents by AB-2a: an agent holds its own objects and handle, which refuse it; it names its own designations - targets by track, flown on their estimates (AB-2b)"
+L5 = "Own ship as a whole VehicleState: sensor effects applied, but with fields no platform reports (crashed, diverged, step count) - closed for agents by AB-2a: an agent holds its own objects and handle, which refuse it"
+L6 = "Messages: the sender is the caller's to set, and any node's inbox is readable - closed for agents by AB-2a: an agent holds its own objects and handle, which refuse it; by AB-4a its messages go through its system's DMS, named by SystemID - no entity id in what it sends or receives"
+L11 = "World-global mission data: operational points, zones, lines, volumes and frames one agent writes are every agent's - closed by AB-2c: each MA's own, or the range's common, by owner"
+
+# --- agent -------------------------------------------------------------------------------------------------------
+
+[[rule]]
+principal = "agent"
+note = "Discovery: its capabilities, their status, support, limits and performance; how its platform is configured (read)"
+names = [
+    "fsim_vehicle_capability",
+    "fsim_vehicle_capability_accepted",
+    "fsim_vehicle_capability_count",
+    "fsim_vehicle_capability_flight_mode",
+    "fsim_vehicle_capability_limits",
+    "fsim_vehicle_capability_parameter",
+    "fsim_vehicle_capability_precedence",
+    "fsim_vehicle_capability_status",
+    "fsim_vehicle_capability_status_info",
+    "fsim_vehicle_capability_superseded",
+    "fsim_vehicle_support",
+    "fsim_vehicle_performance",
+    "fsim_vehicle_performance_profile",
+    "fsim_vehicle_control_mode",
+    "fsim_vehicle_get_default",
+    "fsim_vehicle_get_protection",
+]
+
+[[rule]]
+principal = "agent"
+note = "Control grants (VI-7): request, release, read; the controller is the caller's to name"
+names = [
+    "fsim_vehicle_request_control",
+    "fsim_vehicle_request_control_by",
+    "fsim_vehicle_release_control",
+    "fsim_vehicle_release_control_by",
+    "fsim_vehicle_control_status",
+    "fsim_vehicle_control_holder",
+    "fsim_vehicle_control_revision",
+]
+
+[[rule]]
+principal = "range"
+note = "Commands by the first entry points, per step at a control level or a behaviour: the default policy's, without options or a controller - an agent submits (NEW) and updates as itself instead; the batch layer's actions move onto those with AB-3"
+names = [
+    "fsim::Vehicle::command",
+    "fsim_vehicle_command_acceleration", "fsim_vehicle_command_actuator", "fsim_vehicle_command_attitude",
+    "fsim_vehicle_command_position", "fsim_vehicle_command_velocity", "fsim_vehicle_command_behavior",
+    "fsim.world.Vehicle.command_actuator", "fsim.world.Vehicle.command_attitude",
+    "fsim.world.Vehicle.command_acceleration", "fsim.world.Vehicle.command_velocity",
+    "fsim.world.Vehicle.command_position", "fsim.world.Vehicle.fly_to", "fsim.world.Vehicle.command_behavior",
+]
+
+[[rule]]
+principal = "agent"
+note = "Whether its running behaviour reports itself finished"
+names = [
+    "fsim_vehicle_behavior_finished",
+]
+
+[[rule]]
+principal = "agent"
+note = "Guidance modes and support commands (NEW): the options' source and controller are the caller's"
+names = [
+    "fsim_vehicle_submit_curve",
+    "fsim_vehicle_submit_mode",
+    "fsim_vehicle_submit_nurbs",
+    "fsim_vehicle_submit_route",
+    "fsim_vehicle_submit_route_extras",
+    "fsim_vehicle_submit_route_loiters",
+    "fsim_vehicle_submit_route_states",
+    "fsim_vehicle_submit_support",
+]
+
+[[rule]]
+principal = "agent"
+note = "Any command (NEW), behaviours and must flies among them - Mission Systems' commands too, through C++'s submit: a behaviour's or a must fly's target may be another vehicle's id, a strike's an entity's"
+names = [
+    "fsim_vehicle_submit",
+    "fsim_vehicle_submit_batch",
+    "fsim_vehicle_submit_behavior",
+    "fsim_vehicle_submit_must_fly",
+    "fsim_vehicle_submit_must_fly_line",
+    "fsim_vehicle_submit_must_fly_volume",
+]
+
+[[rule]]
+principal = "agent"
+note = "Its activities: read, UPDATE and CANCEL as the default policy, the last command's detail (the World's calls take any vehicle's activity id; AB-2 scopes them to its own)"
+names = [
+    "fsim_activity_cancel",
+    "fsim_activity_end_points",
+    "fsim_activity_get",
+    "fsim_activity_get_envelope",
+    "fsim_activity_get_progress",
+    "fsim_activity_get_setpoint",
+    "fsim_activity_intercept_status",
+    "fsim_activity_update",
+    "fsim_activity_update_batch",
+    "fsim_activity_update_batch_n",
+    "fsim_activity_update_curve",
+    "fsim_activity_update_nurbs",
+    "fsim_activity_update_route",
+    "fsim_activity_update_route_extras",
+    "fsim_activity_update_route_loiters",
+    "fsim_activity_update_route_states",
+    "fsim_vehicle_activity",
+    "fsim_vehicle_activity_count",
+    "fsim_vehicle_commanded",
+    "fsim_last_command_adjustment",
+    "fsim_last_command_detail",
+    "fsim_last_command_endurance",
+    "fsim_last_command_finding",
+    "fsim_last_command_terrain",
+]
+
+[[rule]]
+principal = "agent"
+note = "Its activities addressed as a declared caller (source, controller): UPDATE, CANCEL, activity commands, a route's branch"
+names = [
+    "fsim_activity_cancel_as",
+    "fsim_activity_cancel_by",
+    "fsim_activity_command",
+    "fsim_activity_command_branch",
+    "fsim_activity_update_as",
+    "fsim_activity_update_by",
+    "fsim_activity_update_curve_as",
+    "fsim_activity_update_curve_by",
+    "fsim_activity_update_nurbs_as",
+    "fsim_activity_update_nurbs_by",
+    "fsim_activity_update_route_as",
+    "fsim_activity_update_route_by",
+]
+
+[[rule]]
+principal = "agent"
+note = "UPDATE of a behaviour or a must fly, whose target may be another vehicle's id (C++'s update also takes a declared caller, as the _by forms do)"
+names = [
+    "fsim_activity_update_behavior",
+    "fsim_activity_update_behavior_by",
+    "fsim_activity_update_must_fly",
+    "fsim_activity_update_must_fly_by",
+    "fsim_activity_update_must_fly_line",
+    "fsim_activity_update_must_fly_line_by",
+    "fsim_activity_update_must_fly_volume",
+    "fsim_activity_update_must_fly_volume_by",
+]
+
+[[rule]]
+principal = "agent"
+note = "Tasks and route plans (VI 1.2.5-1.2.6): store, command, publish, validate; the airfields it was given (read)"
+names = [
+    "fsim_vehicle_store_task",
+    "fsim_vehicle_command_task",
+    "fsim_vehicle_cancel_task",
+    "fsim_vehicle_remove_task",
+    "fsim_vehicle_task_status",
+    "fsim_vehicle_task_at",
+    "fsim_vehicle_task_count",
+    "fsim_vehicle_publish_plan",
+    "fsim_vehicle_plan_command",
+    "fsim_vehicle_remove_plan",
+    "fsim_vehicle_plan_status",
+    "fsim_vehicle_plan_at",
+    "fsim_vehicle_plan_count",
+    "fsim_vehicle_get_plan",
+    "fsim_vehicle_validate_plan",
+    "fsim_vehicle_validate_stored_plan",
+    "fsim_vehicle_airfield_count",
+    "fsim_vehicle_get_airfield",
+    "fsim_vehicle_get_airfield_at",
+]
+
+[[rule]]
+principal = "agent"
+note = "Own ship through its platform's reports: navigation, state data, recovery point, QNH, mass, identity (equal to truth where the models are perfect today; read through them so an error model reaches the agent unchanged)"
+names = [
+    "fsim_vehicle_navigation_report", "fsim_vehicle_ownship",
+    "fsim_vehicle_get_navigation",
+    "fsim_vehicle_set_navigation",
+    "fsim_vehicle_set_qnh",
+    "fsim_vehicle_qnh",
+    "fsim_vehicle_state_data",
+    "fsim_vehicle_mass_kg",
+    "fsim_vehicle_name",
+    "fsim_vehicle_type",
+    "fsim_vehicle_role",
+]
+
+[[rule]]
+principal = "referee"
+note = "Own ship as sensed: a whole VehicleState through its sensor effects, with fields no platform reports (an agent reads its navigation report and state data; the batch layer's observations, AB-3)"
+names = ["fsim::Vehicle::sensed", "fsim_vehicle_sensed_ptr", "fsim.world.Vehicle.sensed"]
+
+[[rule]]
+principal = "agent"
+note = "Payloads (Mission Systems): discovery, state, BIT, search, status, their activities"
+names = [
+    "fsim_vehicle_payload",
+    "fsim_vehicle_payload_count",
+    "fsim_vehicle_payload_state",
+    "fsim_vehicle_payload_bit",
+    "fsim_vehicle_ms_activity",
+    "fsim_vehicle_ms_activity_count",
+    "fsim_vehicle_ms_capability",
+    "fsim_vehicle_ms_capability_count",
+    "fsim_vehicle_ms_capability_status",
+    "fsim_vehicle_radar_status",
+    "fsim_vehicle_amti_search",
+    "fsim_vehicle_designate",
+    "fsim_vehicle_undesignate",
+    "fsim_vehicle_designations",
+    "fsim_ms_activity_cancel",
+    "fsim_ms_activity_get",
+]
+
+[[rule]]
+principal = "agent"
+note = "Its radars' detections and tracks"
+names = [
+    "fsim_vehicle_amti_detections",
+    "fsim_vehicle_amti_tracks",
+]
+
+[[rule]]
+principal = "agent"
+note = "Stores: its inventory, strike, jettison, its strikes' status"
+names = [
+    "fsim_vehicle_store",
+    "fsim_vehicle_store_count",
+    "fsim_vehicle_strike",
+    "fsim_vehicle_jettison",
+    "fsim_strike_status_get",
+]
+
+[[rule]]
+principal = "agent"
+note = "Messages (AB-4a): its system's DMS - its SystemID and nets, sends stamped as its own (published or reliable to SystemIDs), its subscriptions, its own inbox, its sends' statuses"
+names = [
+    "fsim_dms_system", "fsim_dms_net_count", "fsim_dms_net", "fsim_dms_send", "fsim_dms_subscribe",
+    "fsim_dms_subscribe_all", "fsim_dms_subscriptions", "fsim_dms_inbox_count", "fsim_dms_inbox_get", "fsim_dms_inbox_take",
+    "fsim_dms_transmission_status", "fsim_dms_transmission_destination",
+    "fsim::Agent::system", "fsim::Agent::nets", "fsim::Agent::subscribe", "fsim::Agent::unsubscribe",
+    "fsim::Agent::subscribeAll", "fsim::Agent::subscriptions", "fsim::Agent::subscribedAll", "fsim::Agent::transmission",
+    "fsim::Agent::receive", "fsim.agent.Agent.receive",
+    "fsim.agent.Agent.system", "fsim.agent.Agent.nets", "fsim.agent.Agent.subscribe", "fsim.agent.Agent.unsubscribe",
+    "fsim.agent.Agent.subscribe_all", "fsim.agent.Agent.subscriptions", "fsim.agent.Agent.transmission",
+]
+
+[[rule]]
+principal = "agent"
+note = "C2 authority (AB-5a): as an MA, the authority over its platform - who declared which role (its own RBAC configuration's names), C2's designation, C2's direct commands; as a C2 system, A-GRA's C2 messages, typed - its role declared, designations, direct commands and their cancels - and their statuses as the MAs answered (each MA's core authorizes them)"
+names = [
+    "fsim_agent_authority", "fsim_agent_authority_operator", "fsim_agent_authority_command", "fsim_agent_role_name",
+    "fsim_c2_declare_role", "fsim_c2_designate_control", "fsim_c2_command_hsa", "fsim_c2_command_route", "fsim_c2_cancel_command",
+    "fsim_c2_command_status_count", "fsim_c2_command_status_get",
+    "fsim::Agent::authority", "fsim::Agent::declareRole", "fsim::Agent::designateControl", "fsim::Agent::commandHsa",
+    "fsim::Agent::commandRoute", "fsim::Agent::cancelCommand", "fsim::Agent::commandStatuses",
+    "fsim.agent.Agent.authority", "fsim.agent.Agent.declare_role", "fsim.agent.Agent.designate_control",
+    "fsim.agent.Agent.command_hsa", "fsim.agent.Agent.command_route", "fsim.agent.Agent.cancel_command",
+    "fsim.agent.Agent.command_statuses",
+    # AB-5b: as an MA, C2's tasks (its to decide on) and the overrides in force; as a C2 system, tasks, overrides, consent
+    "fsim_agent_c2_task_count", "fsim_agent_c2_task_get", "fsim_agent_answer_task", "fsim_agent_override_count",
+    "fsim_agent_override_get", "fsim_c2_send_task", "fsim_c2_set_override", "fsim_c2_consent_count", "fsim_c2_consent_get",
+    "fsim_c2_answer_consent",
+    "fsim::Agent::c2Tasks", "fsim::Agent::acceptTask", "fsim::Agent::rejectTask", "fsim::Agent::reportTask",
+    "fsim::Agent::overrides", "fsim::Agent::sendTask", "fsim::Agent::setOverride", "fsim::Agent::consentRequests",
+    "fsim::Agent::answerConsent",
+    "fsim.agent.Agent.c2_tasks", "fsim.agent.Agent.accept_task", "fsim.agent.Agent.reject_task", "fsim.agent.Agent.report_task",
+    "fsim.agent.Agent.overrides", "fsim.agent.Agent.send_task", "fsim.agent.Agent.set_override",
+    "fsim.agent.Agent.consent_requests", "fsim.agent.Agent.answer_consent",
+    # AB-5c: as an MA, its lost-communication state and team; as a C2 system, the contingency and teams
+    "fsim_agent_package_member", "fsim_c2_set_lost_comms", "fsim_c2_form_package", "fsim_c2_dissolve_package",
+    "fsim::Agent::setLostComms", "fsim::Agent::formPackage", "fsim::Agent::dissolvePackage",
+    "fsim.agent.Agent.comms", "fsim.agent.Agent.set_lost_comms", "fsim.agent.Agent.form_package",
+    "fsim.agent.Agent.dissolve_package",
+]
+
+[[rule]]
+principal = "agent"
+note = "A-GRA's native messages and the picture (AB-4b): its position report, heartbeat and tracks - built by its MA core from its platform's reports, sent when it chooses; each peer's last report and each track received; a received track designated as a target"
+names = [
+    "fsim_dms_publish", "fsim_dms_peer_count", "fsim_dms_peer_get", "fsim_dms_link_track_count", "fsim_dms_link_track_get",
+    "fsim_vehicle_designate_link", "fsim_vehicle_designation_source",
+    "fsim::Agent::publishPosition", "fsim::Agent::publishStatus", "fsim::Agent::publishTracks", "fsim::Agent::peers",
+    "fsim::Agent::linkTracks", "fsim::Agent::designateLink",
+    "fsim.agent.Agent.publish_position", "fsim.agent.Agent.publish_status", "fsim.agent.Agent.publish_tracks",
+    "fsim.agent.Agent.peers", "fsim.agent.Agent.link_tracks", "fsim.agent.Agent.designate_link",
+    "fsim.agent.Agent.designation_source",
+]
+
+[[rule]]
+principal = "agent"
+note = "Its clock, the on-board terrain database (VI 1.2.6.9, A-GRA's elevation request), its identity; freeing its own handle"
+names = [
+    "fsim_world_time",
+    "fsim_world_terrain",
+    "fsim_world_destroy",
+    "fsim_agent_identity",
+]
+
+[[rule]]
+principal = "agent"
+note = "Mission data (AB-2c): through an agent's handle, its own - written - and the range's common, read; through the range's, the common"
+names = [
+    "fsim_world_create_frame", "fsim_world_remove_frame", "fsim_world_set_op_point", "fsim_world_remove_op_point",
+    "fsim_world_set_op_zone", "fsim_world_remove_op_zone", "fsim_world_set_op_line", "fsim_world_remove_op_line",
+    "fsim_world_set_op_volume", "fsim_world_remove_op_volume",
+    "fsim_world_get_op_line",
+    "fsim_world_get_op_line_at",
+    "fsim_world_get_op_point",
+    "fsim_world_get_op_point_at",
+    "fsim_world_get_op_volume",
+    "fsim_world_get_op_volume_at",
+    "fsim_world_get_op_zone",
+    "fsim_world_get_op_zone_at",
+    "fsim_world_op_line_count",
+    "fsim_world_op_point_count",
+    "fsim_world_op_volume_count",
+    "fsim_world_op_zone_count",
+    "fsim_world_frame_point",
+]
+
+[[rule]]
+principal = "agent"
+note = "Its cameras' images and depth (a camera the range mounts on it; images of the world as rendered)"
+names = [
+    "fsim::vision::Sensors::image",
+    "fsim::vision::Sensors::depth",
+    "fsim::vision::Sensors::savePng",
+    "fsim::vision::Sensors::saveDepthPng",
+    "fsim::vision::BatchCameras::rgb",
+    "fsim::vision::BatchCameras::depth",
+    "fsim::vision::BatchCameras::width",
+    "fsim::vision::BatchCameras::height",
+    "fsim_vision_image",
+    "fsim_vision_depth",
+    "fsim_vision_save_png",
+    "fsim_vision_batch_rgb",
+    "fsim_vision_batch_depth",
+    "fsim.vision.Camera.image",
+    "fsim.vision.Camera.depth",
+    "fsim.vision.Camera.save_png",
+    "fsim.vision.Camera.index",
+    "fsim.vision.Camera.vehicle",
+]
+
+[[rule]]
+principal = "agent"
+note = "The agent's own object (fsim::Agent, fsim.Agent): its vehicle's reports and commands, as itself - the library refuses it what is not its own (ADR-31, AB-2a)"
+names = [
+    "fsim::Agent::activities",
+    "fsim::Agent::activity",
+    "fsim::Agent::activityCommand",
+    "fsim::Agent::activitySetpoint",
+    "fsim::Agent::airfield",
+    "fsim::Agent::airfields",
+    "fsim::Agent::amtiDetections",
+    "fsim::Agent::amtiTracks",
+    "fsim::Agent::cancel",
+    "fsim::Agent::cancelMission",
+    "fsim::Agent::cancelTask",
+    "fsim::Agent::capabilities",
+    "fsim::Agent::capabilityPrecedence",
+    "fsim::Agent::capabilityStatus",
+    "fsim::Agent::commandBranch",
+    "fsim::Agent::commandDetails",
+    "fsim::Agent::commandTask",
+    "fsim::Agent::commanded",
+    "fsim::Agent::controlMode",
+    "fsim::Agent::controlRevision",
+    "fsim::Agent::controlStatus",
+    "fsim::Agent::endPoints",
+    "fsim::Agent::inbox",
+    "fsim::Agent::interceptStatus",
+    "fsim::Agent::massKg",
+    "fsim::Agent::missionActivities",
+    "fsim::Agent::missionActivity",
+    "fsim::Agent::missionCapabilities",
+    "fsim::Agent::missionCapabilityStatus",
+    "fsim::Agent::navigation",
+    "fsim::Agent::navigationReport",
+    "fsim::Agent::designate",
+    "fsim::Agent::undesignate",
+    "fsim::Agent::designations",
+    "fsim::Agent::ownship",
+    "fsim::Agent::own",
+    "fsim::Agent::payloads",
+    "fsim::Agent::performance",
+    "fsim::Agent::performanceProfile",
+    "fsim::Agent::plan",
+    "fsim::Agent::planCommand",
+    "fsim::Agent::planStatus",
+    "fsim::Agent::plans",
+    "fsim::Agent::protection",
+    "fsim::Agent::publishPlan",
+    "fsim::Agent::qnh",
+    "fsim::Agent::radarStatus",
+    "fsim::Agent::releaseControl",
+    "fsim::Agent::removePlan",
+    "fsim::Agent::removeTask",
+    "fsim::Agent::requestControl",
+    "fsim::Agent::send",
+    "fsim::Agent::setNavigation",
+    "fsim::Agent::setQnh",
+    "fsim::Agent::stateData",
+    "fsim::Agent::storeTask",
+    "fsim::Agent::stores",
+    "fsim::Agent::strikeStatus",
+    "fsim::Agent::submit",
+    "fsim::Agent::submitBatch",
+    "fsim::Agent::support",
+    "fsim::Agent::supportTable",
+    "fsim::Agent::taskStatus",
+    "fsim::Agent::tasks",
+    "fsim::Agent::terrainHeightM",
+    "fsim::Agent::time",
+    "fsim::Agent::type",
+    "fsim::Agent::update",
+    "fsim::Agent::valid",
+    "fsim::Agent::validatePlan",
+    "fsim::Agent::vehicleDefault",
+    "fsim.agent.Agent.activities",
+    "fsim.agent.Agent.activity",
+    "fsim.agent.Agent.activity_progress",
+    "fsim.agent.Agent.activity_setpoint",
+    "fsim.agent.Agent.agent_name",
+    "fsim.agent.Agent.airfield",
+    "fsim.agent.Agent.airfields",
+    "fsim.agent.Agent.amti_detections",
+    "fsim.agent.Agent.amti_search",
+    "fsim.agent.Agent.amti_tracks",
+    "fsim.agent.Agent.availability",
+    "fsim.agent.Agent.behavior_finished",
+    "fsim.agent.Agent.cancel_mission",
+    "fsim.agent.Agent.cancel_task",
+    "fsim.agent.Agent.capabilities",
+    "fsim.agent.Agent.capability_limits",
+    "fsim.agent.Agent.capability_precedence",
+    "fsim.agent.Agent.capability_status",
+    "fsim.agent.Agent.clear_recovery",
+    "fsim.agent.Agent.command_task",
+    "fsim.agent.Agent.commanded",
+    "fsim.agent.Agent.control_mode",
+    "fsim.agent.Agent.control_revision",
+    "fsim.agent.Agent.control_status",
+    "fsim.agent.Agent.controller",
+    "fsim.agent.Agent.end_points",
+    "fsim.agent.Agent.id",
+    "fsim.agent.Agent.inbox",
+    "fsim.agent.Agent.intercept_status",
+    "fsim.agent.Agent.jettison",
+    "fsim.agent.Agent.last_command_details",
+    "fsim.agent.Agent.mass_kg",
+    "fsim.agent.Agent.mission_activities",
+    "fsim.agent.Agent.mission_activity",
+    "fsim.agent.Agent.mission_capabilities",
+    "fsim.agent.Agent.mission_capability_status",
+    "fsim.agent.Agent.name",
+    "fsim.agent.Agent.navigation",
+    "fsim.agent.Agent.navigation_report",
+    "fsim.agent.Agent.designate",
+    "fsim.agent.Agent.undesignate",
+    "fsim.agent.Agent.designations",
+    "fsim.agent.Agent.ownship",
+    "fsim.agent.Agent.payload",
+    "fsim.agent.Agent.payload_bit",
+    "fsim.agent.Agent.payloads",
+    "fsim.agent.Agent.performance",
+    "fsim.agent.Agent.performance_profile",
+    "fsim.agent.Agent.plan",
+    "fsim.agent.Agent.plan_command",
+    "fsim.agent.Agent.plan_status",
+    "fsim.agent.Agent.plans",
+    "fsim.agent.Agent.protection",
+    "fsim.agent.Agent.publish_plan",
+    "fsim.agent.Agent.qnh",
+    "fsim.agent.Agent.radar_status",
+    "fsim.agent.Agent.release_control",
+    "fsim.agent.Agent.remove_plan",
+    "fsim.agent.Agent.remove_task",
+    "fsim.agent.Agent.request_control",
+    "fsim.agent.Agent.role",
+    "fsim.agent.Agent.send",
+    "fsim.agent.Agent.set_payload_state",
+    "fsim.agent.Agent.set_qnh",
+    "fsim.agent.Agent.set_recovery",
+    "fsim.agent.Agent.state_data",
+    "fsim.agent.Agent.store_task",
+    "fsim.agent.Agent.stores",
+    "fsim.agent.Agent.strike",
+    "fsim.agent.Agent.strike_status",
+    "fsim.agent.Agent.submit",
+    "fsim.agent.Agent.submit_batch",
+    "fsim.agent.Agent.submit_behavior",
+    "fsim.agent.Agent.submit_curve",
+    "fsim.agent.Agent.submit_hsa",
+    "fsim.agent.Agent.submit_intercept",
+    "fsim.agent.Agent.submit_marshall",
+    "fsim.agent.Agent.submit_must_fly",
+    "fsim.agent.Agent.submit_pattern",
+    "fsim.agent.Agent.submit_route",
+    "fsim.agent.Agent.submit_support",
+    "fsim.agent.Agent.support",
+    "fsim.agent.Agent.support_table",
+    "fsim.agent.Agent.task_status",
+    "fsim.agent.Agent.tasks",
+    "fsim.agent.Agent.terrain",
+    "fsim.agent.Agent.time",
+    "fsim.agent.Agent.type",
+    "fsim.agent.Agent.update",
+    "fsim.agent.Agent.validate_plan",
+    "fsim.agent.Agent.vehicle_default",
+    "fsim.agent.Agent.vehicle_id",
+]
+
+[[rule]]
+principal = "agent"
+note = "Its activities as it holds them (fsim.AgentActivity): no world or vehicle behind them"
+names = [
+    "fsim.agent.AgentActivity.append",
+    "fsim.agent.AgentActivity.cancel",
+    "fsim.agent.AgentActivity.change_rank",
+    "fsim.agent.AgentActivity.clamped",
+    "fsim.agent.AgentActivity.command_branch",
+    "fsim.agent.AgentActivity.command_id",
+    "fsim.agent.AgentActivity.controller",
+    "fsim.agent.AgentActivity.deferred",
+    "fsim.agent.AgentActivity.delete",
+    "fsim.agent.AgentActivity.disable",
+    "fsim.agent.AgentActivity.enable",
+    "fsim.agent.AgentActivity.end_points",
+    "fsim.agent.AgentActivity.endurance",
+    "fsim.agent.AgentActivity.id",
+    "fsim.agent.AgentActivity.info",
+    "fsim.agent.AgentActivity.intercept_status",
+    "fsim.agent.AgentActivity.level",
+    "fsim.agent.AgentActivity.live",
+    "fsim.agent.AgentActivity.overridden",
+    "fsim.agent.AgentActivity.progress",
+    "fsim.agent.AgentActivity.reset",
+    "fsim.agent.AgentActivity.setpoint",
+    "fsim.agent.AgentActivity.source",
+    "fsim.agent.AgentActivity.state",
+    "fsim.agent.AgentActivity.unassign",
+    "fsim.agent.AgentActivity.update",
+    "fsim.agent.AgentActivity.update_curve",
+    "fsim.agent.AgentActivity.update_must_fly",
+    "fsim.agent.AgentActivity.update_route",
+]
+
+[[rule]]
+principal = "agent"
+note = "Mission data through its own object (AB-2c): its own, written and read, and the range's common, read; no other MA's"
+names = [
+    "fsim::Agent::setOpPoint", "fsim::Agent::removeOpPoint", "fsim::Agent::setOpZone", "fsim::Agent::removeOpZone",
+    "fsim::Agent::setOpLine", "fsim::Agent::removeOpLine", "fsim::Agent::setOpVolume", "fsim::Agent::removeOpVolume",
+    "fsim::Agent::createFrame", "fsim::Agent::removeFrame", "fsim::Agent::frames", "fsim::Agent::frame",
+    "fsim.agent.Agent.set_op_point", "fsim.agent.Agent.remove_op_point", "fsim.agent.Agent.set_op_zone",
+    "fsim.agent.Agent.remove_op_zone", "fsim.agent.Agent.set_op_line", "fsim.agent.Agent.remove_op_line",
+    "fsim.agent.Agent.set_op_volume", "fsim.agent.Agent.remove_op_volume", "fsim.agent.Agent.create_frame",
+    "fsim.agent.Agent.remove_frame",
+    "fsim::Agent::framePoint",
+    "fsim::Agent::opLine",
+    "fsim::Agent::opLines",
+    "fsim::Agent::opPoint",
+    "fsim::Agent::opPoints",
+    "fsim::Agent::opVolume",
+    "fsim::Agent::opVolumes",
+    "fsim::Agent::opZone",
+    "fsim::Agent::opZones",
+    "fsim.agent.Agent.frame_point",
+    "fsim.agent.Agent.op_line",
+    "fsim.agent.Agent.op_lines",
+    "fsim.agent.Agent.op_point",
+    "fsim.agent.Agent.op_points",
+    "fsim.agent.Agent.op_volume",
+    "fsim.agent.Agent.op_volumes",
+    "fsim.agent.Agent.op_zone",
+    "fsim.agent.Agent.op_zones",
+]
+
+# --- ma_core -----------------------------------------------------------------------------------------------------
+
+[[rule]]
+principal = "ma_core"
+note = "C2's control designations (A3: which capabilities MA may command) and release consent (A9); the range stands in for C2 until AB-5"
+names = [
+    "fsim::Vehicle::setAllowed", "fsim::Vehicle::strikeConsent",
+    "fsim_vehicle_set_allowed", "fsim_strike_consent",
+    "fsim.world.Vehicle.set_allowed", "fsim.world.Vehicle.strike_consent",
+]
+
+# --- range -------------------------------------------------------------------------------------------------------
+
+[[rule]]
+principal = "range"
+note = "The world: made, stepped, published, shown, closed; effects on every vehicle"
+names = [
+    "fsim::World::World", "fsim::World::~World", "fsim::World::createVehicle", "fsim::World::step",
+    "fsim::World::publishNow", "fsim::World::published", "fsim::World::focusViewer", "fsim::World::addEffectToAll",
+    "fsim_world_object", "fsim_agent_create",
+    "fsim_world_create", "fsim_world_create_vehicle", "fsim_world_remove_vehicle",
+    "fsim_world_reset_vehicle", "fsim_world_step", "fsim_world_focus_viewer", "fsim_world_published", "fsim_world_recording",
+    "fsim.world.World.create_vehicle", "fsim.world.World.step", "fsim.world.World.focus_viewer",
+    "fsim.world.World.published", "fsim.world.World.recording", "fsim.world.World.close", "fsim.world.World.add_effect",
+]
+
+[[rule]]
+principal = "range"
+note = "A vehicle's setup: its stores, FA's plans and airfields (mission planning), effects, reset, removal, its drawn model"
+names = [
+    "fsim::Vehicle::addEffect", "fsim::Vehicle::loadStore", "fsim::Vehicle::loadLoadout", "fsim::Vehicle::loadPlan",
+    "fsim::Vehicle::loadAirfield", "fsim::Vehicle::reset", "fsim::Vehicle::remove", "fsim::Vehicle::model",
+    "fsim_vehicle_add_effect", "fsim_vehicle_clear_effects", "fsim_vehicle_load_store", "fsim_vehicle_load_loadout",
+    "fsim_vehicle_load_plan", "fsim_vehicle_load_airfield",
+    "fsim.world.Vehicle.add_effect", "fsim.world.Vehicle.clear_effects", "fsim.world.Vehicle.load_store",
+    "fsim.world.Vehicle.load_loadout", "fsim.world.Vehicle.load_plan", "fsim.world.Vehicle.load_airfield",
+    "fsim.world.Vehicle.reset", "fsim.world.Vehicle.remove",
+]
+
+[[rule]]
+principal = "range"
+note = "Faults injected"
+names = ["fsim::Vehicle::failPayload", "fsim_vehicle_payload_fail", "fsim.world.Vehicle.fail_payload"]
+
+[[rule]]
+principal = "range"
+note = "The platform's configuration: control mode, precedence, envelope protection, what flies unowned axes"
+names = [
+    "fsim::Vehicle::setControlMode", "fsim::Vehicle::setCapabilityPrecedence", "fsim::Vehicle::setProtection",
+    "fsim::Vehicle::setVehicleDefault",
+    "fsim_vehicle_set_control_mode", "fsim_vehicle_set_capability_precedence", "fsim_vehicle_set_protection",
+    "fsim_vehicle_set_default",
+    "fsim.world.Vehicle.set_control_mode", "fsim.world.Vehicle.set_capability_precedence",
+    "fsim.world.Vehicle.set_protection", "fsim.world.Vehicle.set_vehicle_default",
+]
+
+[[rule]]
+principal = "range"
+note = "Mission data written: operational points, zones, lines, volumes, reference frames - the range's common (AB-2c: an MA's own through its agent)"
+names = [
+    "fsim::World::createFrame", "fsim::World::removeFrame", "fsim::World::setOpZone", "fsim::World::setOpPoint",
+    "fsim::World::setOpLine", "fsim::World::setOpVolume", "fsim::World::removeOpZone", "fsim::World::removeOpPoint",
+    "fsim::World::removeOpLine", "fsim::World::removeOpVolume",
+    "fsim.world.World.create_frame", "fsim.world.World.remove_frame", "fsim.world.World.set_op_point",
+    "fsim.world.World.remove_op_point", "fsim.world.World.set_op_zone", "fsim.world.World.remove_op_zone",
+    "fsim.world.World.set_op_line", "fsim.world.World.remove_op_line", "fsim.world.World.set_op_volume",
+    "fsim.world.World.remove_op_volume",
+]
+
+[[rule]]
+principal = "range"
+note = "The environment set: time, atmosphere, weather, wind"
+names = [
+    "fsim::Environment::set", "fsim::Environment::setAtmosphere", "fsim::Environment::setTime",
+    "fsim::Environment::setTimeFactor", "fsim::Environment::setWeather", "fsim::Environment::setWind",
+    "fsim_world_set_environment",
+    "fsim.world.World.set_environment", "fsim.world.World.set_wind",
+]
+
+[[rule]]
+principal = "range"
+note = "The communication fabric: nodes, media, protocols, bridges, and raw sends with any sender"
+names = [
+    "fsim::comm::Network::Network", "fsim::comm::Network::~Network", "fsim::comm::Network::attach",
+    "fsim::comm::Network::createNode", "fsim::comm::Network::node", "fsim::comm::Network::removeNode",
+    "fsim::comm::Network::send", "fsim::comm::Network::step", "fsim::comm::createUdpTransport",
+    "fsim::World::network",
+    "fsim_comm_attach_protocol", "fsim_comm_attach_udp_bridge", "fsim_comm_create_node", "fsim_comm_set_medium",
+    "fsim_comm_send", "fsim_comm_inbox_count", "fsim_comm_inbox_get",
+    "fsim.world.World.set_comm_medium", "fsim.world.World.create_comm_node", "fsim.world.World.send",
+    "fsim.world.World.inbox", "fsim.world.World.attach_udp_bridge", "fsim.world.Vehicle.attach_protocol",
+]
+
+[[rule]]
+principal = "range"
+note = "Scenarios and plug-ins: loaded, applied, registered"
+names = [
+    "fsim::applyScenario", "fsim::loadScenario", "fsim::parseScenario", "fsim::dumpScenario",
+    "fsim::registerAction", "fsim::registerObservation", "fsim::registerTask",
+    "fsim::control::ControllerRegistry::add", "fsim::control::ControllerRegistry::addBehavior",
+    "fsim::effects::createBuiltinEffect",
+    "fsim_scenario_apply", "fsim_scenario_destroy", "fsim_scenario_load", "fsim_scenario_parse",
+    "fsim_scenario_vehicle_count", "fsim_scenario_world_options",
+    "fsim.load_plugin", "fsim.world.World.from_scenario", "fsim.world.World.apply_scenario",
+    "fsim.world.Scenario.world_options", "fsim.world.Scenario.vehicle_count",
+]
+
+[[rule]]
+principal = "range"
+note = "The batch layer: a training harness owning its world (AB-3 puts its observations and actions on the boundary)"
+names = ["fsim_world_command_batch", "fsim.world.World.command"]
+globs = ["fsim::VecEnv::*", "fsim_vecenv_*", "fsim.vecenv.VecEnv.*", "fsim.gym.FsimVectorEnv.*", "fsim.sb3.FsimVecEnv.*"]
+
+[[rule]]
+principal = "range"
+note = "Cameras placed, removed and rendered"
+names = [
+    "fsim::vision::Sensors::Sensors", "fsim::vision::Sensors::~Sensors", "fsim::vision::Sensors::addCamera",
+    "fsim::vision::Sensors::removeCamera", "fsim::vision::Sensors::cameraCount", "fsim::vision::Sensors::render",
+    "fsim::vision::Sensors::settle", "fsim::vision::Sensors::lastRenderMs", "fsim::vision::Sensors::timing",
+    "fsim::vision::Sensors::frames",
+    "fsim::vision::BatchCameras::BatchCameras", "fsim::vision::BatchCameras::~BatchCameras",
+    "fsim::vision::BatchCameras::camera", "fsim::vision::BatchCameras::count", "fsim::vision::BatchCameras::render",
+    "fsim::vision::BatchCameras::sensors",
+    "fsim_vision_create", "fsim_vision_destroy", "fsim_vision_add_camera", "fsim_vision_remove_camera",
+    "fsim_vision_camera_count", "fsim_vision_render", "fsim_vision_settle", "fsim_vision_last_render_ms",
+    "fsim_vision_batch_create", "fsim_vision_batch_destroy", "fsim_vision_batch_count", "fsim_vision_batch_render",
+    "fsim_vision_batch_sensors",
+    "fsim.vision.Vision.add_camera", "fsim.vision.Vision.render", "fsim.vision.Vision.settle",
+    "fsim.vision.Vision.last_render_ms", "fsim.vision.Vision.camera_count", "fsim.vision.Camera.remove",
+    "fsim.vision.VisionBatch.render",
+]
+
+[[rule]]
+principal = "range"
+note = "Objects that lead back to the World or the Vehicle: the range's (an agent's own objects do not carry them)"
+names = ["fsim.world.Vehicle.world", "fsim.world.Activity.world", "fsim.world.Activity.vehicle"]
+
+[[rule]]
+principal = "range"
+note = "The range's own objects: the calls an agent makes, made on the range's World, Vehicle and activities, which an agent never holds (it makes them through fsim::Agent, fsim.Agent or its handle)"
+names = [
+    "fsim.world.Activity.append",
+    "fsim.world.Activity.cancel",
+    "fsim.world.Activity.change_rank",
+    "fsim.world.Activity.clamped",
+    "fsim.world.Activity.command_branch",
+    "fsim.world.Activity.command_id",
+    "fsim.world.Activity.controller",
+    "fsim.world.Activity.deferred",
+    "fsim.world.Activity.delete",
+    "fsim.world.Activity.disable",
+    "fsim.world.Activity.enable",
+    "fsim.world.Activity.end_points",
+    "fsim.world.Activity.endurance",
+    "fsim.world.Activity.id",
+    "fsim.world.Activity.info",
+    "fsim.world.Activity.intercept_status",
+    "fsim.world.Activity.level",
+    "fsim.world.Activity.live",
+    "fsim.world.Activity.overridden",
+    "fsim.world.Activity.progress",
+    "fsim.world.Activity.reset",
+    "fsim.world.Activity.setpoint",
+    "fsim.world.Activity.source",
+    "fsim.world.Activity.state",
+    "fsim.world.Activity.unassign",
+    "fsim.world.Activity.update",
+    "fsim.world.Activity.update_curve",
+    "fsim.world.Activity.update_must_fly",
+    "fsim.world.Activity.update_route",
+    "fsim.world.Vehicle.activities",
+    "fsim.world.Vehicle.airfield",
+    "fsim.world.Vehicle.airfields",
+    "fsim.world.Vehicle.amti_detections",
+    "fsim.world.Vehicle.amti_search",
+    "fsim.world.Vehicle.amti_tracks",
+    "fsim.world.Vehicle.availability",
+    "fsim.world.Vehicle.behavior_finished",
+    "fsim.world.Vehicle.cancel_mission",
+    "fsim.world.Vehicle.cancel_task",
+    "fsim.world.Vehicle.capabilities",
+    "fsim.world.Vehicle.capability_limits",
+    "fsim.world.Vehicle.capability_precedence",
+    "fsim.world.Vehicle.capability_status",
+    "fsim.world.Vehicle.clear_recovery",
+    "fsim.world.Vehicle.command_task",
+    "fsim.world.Vehicle.commanded",
+    "fsim.world.Vehicle.control_mode",
+    "fsim.world.Vehicle.control_revision",
+    "fsim.world.Vehicle.control_status",
+    "fsim.world.Vehicle.id",
+    "fsim.world.Vehicle.inbox",
+    "fsim.world.Vehicle.jettison",
+    "fsim.world.Vehicle.mass_kg",
+    "fsim.world.Vehicle.mission_activities",
+    "fsim.world.Vehicle.mission_activity",
+    "fsim.world.Vehicle.mission_capabilities",
+    "fsim.world.Vehicle.mission_capability_status",
+    "fsim.world.Vehicle.name",
+    "fsim.world.Vehicle.navigation",
+    "fsim.world.Vehicle.navigation_report",
+    "fsim.world.Vehicle.designate",
+    "fsim.world.Vehicle.undesignate",
+    "fsim.world.Vehicle.designations",
+    "fsim.world.Vehicle.ownship",
+    "fsim.world.Vehicle.payload",
+    "fsim.world.Vehicle.payload_bit",
+    "fsim.world.Vehicle.payloads",
+    "fsim.world.Vehicle.performance",
+    "fsim.world.Vehicle.performance_profile",
+    "fsim.world.Vehicle.plan",
+    "fsim.world.Vehicle.plan_command",
+    "fsim.world.Vehicle.plan_status",
+    "fsim.world.Vehicle.plans",
+    "fsim.world.Vehicle.protection",
+    "fsim.world.Vehicle.publish_plan",
+    "fsim.world.Vehicle.qnh",
+    "fsim.world.Vehicle.radar_status",
+    "fsim.world.Vehicle.release_control",
+    "fsim.world.Vehicle.remove_plan",
+    "fsim.world.Vehicle.remove_task",
+    "fsim.world.Vehicle.request_control",
+    "fsim.world.Vehicle.role",
+    "fsim.world.Vehicle.send",
+    "fsim.world.Vehicle.set_payload_state",
+    "fsim.world.Vehicle.set_qnh",
+    "fsim.world.Vehicle.set_recovery",
+    "fsim.world.Vehicle.state_data",
+    "fsim.world.Vehicle.store_task",
+    "fsim.world.Vehicle.stores",
+    "fsim.world.Vehicle.strike",
+    "fsim.world.Vehicle.strike_status",
+    "fsim.world.Vehicle.submit",
+    "fsim.world.Vehicle.submit_batch",
+    "fsim.world.Vehicle.submit_behavior",
+    "fsim.world.Vehicle.submit_curve",
+    "fsim.world.Vehicle.submit_hsa",
+    "fsim.world.Vehicle.submit_intercept",
+    "fsim.world.Vehicle.submit_marshall",
+    "fsim.world.Vehicle.submit_must_fly",
+    "fsim.world.Vehicle.submit_pattern",
+    "fsim.world.Vehicle.submit_route",
+    "fsim.world.Vehicle.submit_support",
+    "fsim.world.Vehicle.support",
+    "fsim.world.Vehicle.support_table",
+    "fsim.world.Vehicle.task_status",
+    "fsim.world.Vehicle.tasks",
+    "fsim.world.Vehicle.type",
+    "fsim.world.Vehicle.validate_plan",
+    "fsim.world.Vehicle.vehicle_default",
+    "fsim.world.World.activity",
+    "fsim.world.World.activity_progress",
+    "fsim.world.World.activity_setpoint",
+    "fsim.world.World.end_points",
+    "fsim.world.World.frame_point",
+    "fsim.world.World.intercept_status",
+    "fsim.world.World.last_command_details",
+    "fsim.world.World.op_line",
+    "fsim.world.World.op_lines",
+    "fsim.world.World.op_point",
+    "fsim.world.World.op_points",
+    "fsim.world.World.op_volume",
+    "fsim.world.World.op_volumes",
+    "fsim.world.World.op_zone",
+    "fsim.world.World.op_zones",
+    "fsim.world.World.terrain",
+    "fsim.world.World.time",
+    "fsim.world.World.update",
+    "fsim::Vehicle::activities",
+    "fsim::Vehicle::airfield",
+    "fsim::Vehicle::airfields",
+    "fsim::Vehicle::amtiDetections",
+    "fsim::Vehicle::amtiTracks",
+    "fsim::Vehicle::cancelMission",
+    "fsim::Vehicle::cancelTask",
+    "fsim::Vehicle::capabilities",
+    "fsim::Vehicle::capabilityPrecedence",
+    "fsim::Vehicle::capabilityStatus",
+    "fsim::Vehicle::commandDetails",
+    "fsim::Vehicle::commandTask",
+    "fsim::Vehicle::commanded",
+    "fsim::Vehicle::controlMode",
+    "fsim::Vehicle::controlRevision",
+    "fsim::Vehicle::controlStatus",
+    "fsim::Vehicle::massKg",
+    "fsim::Vehicle::missionActivities",
+    "fsim::Vehicle::missionActivity",
+    "fsim::Vehicle::missionCapabilities",
+    "fsim::Vehicle::missionCapabilityStatus",
+    "fsim::Vehicle::name",
+    "fsim::Vehicle::navigation",
+    "fsim::Vehicle::navigationReport",
+    "fsim::Vehicle::designate",
+    "fsim::Vehicle::undesignate",
+    "fsim::Vehicle::designations",
+    "fsim::Vehicle::ownship",
+    "fsim::Vehicle::node",
+    "fsim::Vehicle::payloads",
+    "fsim::Vehicle::performance",
+    "fsim::Vehicle::performanceProfile",
+    "fsim::Vehicle::plan",
+    "fsim::Vehicle::planCommand",
+    "fsim::Vehicle::planStatus",
+    "fsim::Vehicle::plans",
+    "fsim::Vehicle::protection",
+    "fsim::Vehicle::publishPlan",
+    "fsim::Vehicle::qnh",
+    "fsim::Vehicle::radarStatus",
+    "fsim::Vehicle::releaseControl",
+    "fsim::Vehicle::removePlan",
+    "fsim::Vehicle::removeTask",
+    "fsim::Vehicle::requestControl",
+    "fsim::Vehicle::role",
+    "fsim::Vehicle::setNavigation",
+    "fsim::Vehicle::setQnh",
+    "fsim::Vehicle::stateData",
+    "fsim::Vehicle::storeTask",
+    "fsim::Vehicle::stores",
+    "fsim::Vehicle::strikeStatus",
+    "fsim::Vehicle::submit",
+    "fsim::Vehicle::submitBatch",
+    "fsim::Vehicle::support",
+    "fsim::Vehicle::supportTable",
+    "fsim::Vehicle::taskStatus",
+    "fsim::Vehicle::tasks",
+    "fsim::Vehicle::type",
+    "fsim::Vehicle::valid",
+    "fsim::Vehicle::validatePlan",
+    "fsim::Vehicle::vehicleDefault",
+    "fsim::World::activity",
+    "fsim::World::activityCommand",
+    "fsim::World::activitySetpoint",
+    "fsim::World::cancel",
+    "fsim::World::commandBranch",
+    "fsim::World::endPoints",
+    "fsim::World::frame",
+    "fsim::World::framePoint",
+    "fsim::World::framePose",
+    "fsim::World::interceptStatus",
+    "fsim::World::opLine",
+    "fsim::World::opLines",
+    "fsim::World::opPoint",
+    "fsim::World::opPoints",
+    "fsim::World::opVolume",
+    "fsim::World::opVolumes",
+    "fsim::World::opZone",
+    "fsim::World::opZones",
+    "fsim::World::terrainHeightM",
+    "fsim::World::time",
+    "fsim::World::update",
+]
+
+[[rule]]
+principal = "range"
+note = "Agents made, and the referee's view handed out"
+names = [
+    "fsim.world.World.create_agent",
+    "fsim.world.World.referee",
+    "fsim::World::createAgent",
+]
+
+# --- referee -----------------------------------------------------------------------------------------------------
+
+[[rule]]
+principal = "referee"
+note = "Truth: entity states, the world's vehicles and weapons, who launched a weapon"
+names = [
+    "fsim::Vehicle::state", "fsim::Vehicle::launcher", "fsim::World::vehicle", "fsim::World::vehicleCount",
+    "fsim::World::vehicles", "fsim::World::vehicleSteps", "fsim::World::worldSteps", "fsim::World::weapons",
+    "fsim_vehicle_state_ptr", "fsim_world_find_vehicle", "fsim_world_gather_states", "fsim_world_vehicle_count",
+    "fsim_world_vehicle_ids", "fsim_world_vehicle_steps", "fsim_world_weapon", "fsim_world_weapon_count",
+    "fsim.world.Vehicle.state", "fsim.world.Vehicle.launcher", "fsim.world.World.vehicle_steps",
+    "fsim.world.World.vehicle", "fsim.world.World.vehicle_ids", "fsim.world.World.vehicles",
+    "fsim.world.World.weapons", "fsim.world.World.ids", "fsim.world.World.states", "fsim.vecenv.VecEnv.states",
+    "fsim_world_designation_truth",
+]
+
+[[rule]]
+principal = "referee"
+note = "Physics between arbitrary entities: radio paths, radar cross sections"
+names = [
+    "fsim::World::radioPath", "fsim::World::radarCrossSection", "fsim_world_radio_path",
+    "fsim_world_radar_cross_section", "fsim.world.World.radio_path", "fsim.world.World.radar_cross_section",
+]
+
+[[rule]]
+principal = "referee"
+note = "The environment as it is"
+names = [
+    "fsim::Environment::state", "fsim::Environment::utcSeconds", "fsim_world_get_environment",
+    "fsim.world.World.environment",
+]
+
+[[rule]]
+principal = "referee"
+note = "Envelope protection's count of exceedances (instrumentation)"
+names = ["fsim::Vehicle::envelope", "fsim_vehicle_envelope", "fsim.world.Vehicle.envelope"]
+
+[[rule]]
+principal = "referee"
+note = "Labels: cameras' segmentation, the entity behind each pixel"
+names = [
+    "fsim::vision::Sensors::segmentation", "fsim::vision::Sensors::segmentationId",
+    "fsim::vision::Sensors::saveSegmentationPng", "fsim::vision::BatchCameras::segmentation",
+    "fsim_vision_segmentation", "fsim_vision_segmentation_id", "fsim_vision_save_segmentation_png",
+    "fsim_vision_batch_segmentation",
+    "fsim.vision.Camera.segmentation", "fsim.vision.Camera.save_segmentation_png", "fsim.vision.Vision.segmentation_id",
+]
+
+[[rule]]
+principal = "referee"
+note = "Recordings, read back"
+globs = ["fsim::Recording::*", "fsim_recording_*", "fsim.recording.Recording.*"]
+
+[[rule]]
+principal = "referee"
+note = "The referee's view (fsim::Referee, fsim.Referee): every vehicle's truth, the weapons, radio paths, cross sections, the entity behind a track or detection, the agents made"
+names = [
+    "fsim::Referee::agents",
+    "fsim::Referee::detectionTruth",
+    "fsim::Referee::designationTruth",
+    "fsim::Referee::radarCrossSection",
+    "fsim::Referee::radioPath",
+    "fsim::Referee::state",
+    "fsim::Referee::time",
+    "fsim::Referee::trackTruth",
+    "fsim::Referee::vehicles",
+    "fsim::Referee::weapons",
+    "fsim.agent.Referee.agents",
+    "fsim.agent.Referee.detection_truth",
+    "fsim.agent.Referee.designation_truth",
+    "fsim.agent.Referee.environment",
+    "fsim.agent.Referee.radar_cross_section",
+    "fsim.agent.Referee.radio_path",
+    "fsim.agent.Referee.sensed",
+    "fsim.agent.Referee.state",
+    "fsim.agent.Referee.time",
+    "fsim.agent.Referee.track_truth",
+    "fsim.agent.Referee.vehicles",
+    "fsim.agent.Referee.weapons",
+]
+
+[[rule]]
+principal = "range"
+note = "Systems, nets and C2 nodes (AB-4a): mission planning - C2 nodes, nets, who is on them, SystemIDs and tail numbers; each system's Data Dissemination Plan (AB-4b); each platform's RBAC configuration (AB-5a)"
+names = [
+    "fsim::World::createC2Node", "fsim::World::removeC2Node", "fsim::World::c2Nodes", "fsim::World::createNet",
+    "fsim::World::joinNet", "fsim::World::leaveNet", "fsim::World::assignSystem",
+    "fsim_world_create_c2_node", "fsim_world_remove_c2_node", "fsim_world_create_net", "fsim_world_join_net",
+    "fsim_world_leave_net", "fsim_world_assign_system",
+    "fsim.world.World.create_c2_node", "fsim.world.World.remove_c2_node", "fsim.world.World.create_net",
+    "fsim.world.World.join_net", "fsim.world.World.leave_net", "fsim.world.World.assign_system",
+    "fsim::World::setDissemination", "fsim_world_set_dissemination", "fsim.world.World.set_dissemination",
+    "fsim::World::setRbac", "fsim::World::rbac", "fsim_world_set_rbac", "fsim_world_rbac_role_count", "fsim_world_rbac_role",
+    "fsim.world.World.set_rbac", "fsim.world.World.rbac",
+    "fsim_world_set_strike_policy", "fsim_world_strike_policy", "fsim.world.World.set_strike_policy",
+    "fsim.world.World.strike_policy",
+]
+
+[[rule]]
+principal = "referee"
+note = "Systems and nets (AB-4a): the entity behind a SystemID, each net's traffic, the C2 nodes; the entity behind a received track (AB-4b)"
+names = [
+    "fsim::Referee::systemEntity", "fsim::Referee::entitySystem", "fsim::Referee::tailNumber", "fsim::Referee::nets",
+    "fsim::Referee::netStats", "fsim::Referee::c2Nodes", "fsim::Referee::c2Node",
+    "fsim_world_system_entity", "fsim_world_entity_system", "fsim_world_net_count", "fsim_world_net_stats",
+    "fsim.agent.Referee.system_entity", "fsim.agent.Referee.entity_system", "fsim.agent.Referee.nets",
+    "fsim.agent.Referee.net_stats",
+    "fsim::Referee::linkTrackTruth", "fsim_world_link_track_truth", "fsim.agent.Referee.link_track_truth",
+]
+
+[[rule]]
+principal = "range"
+note = "Isolation (AB-6, tier 3): the range runs each MA in a process of its own - made with its agent, called to decide, its agent's calls served from here; the MA's process holds only that channel (fsim.isolation.RemoteAgent: fsim.Agent's calls and nothing else)"
+names = ["fsim.isolation.AgentProcess.call", "fsim.isolation.AgentProcess.step", "fsim.isolation.AgentProcess.close"]
+
+[[rule]]
+principal = "value"
+note = "Isolation's whitelist: what an isolated MA may call - fsim.Agent's and fsim.AgentActivity's members"
+names = ["fsim.isolation.agent_calls", "fsim.isolation.activity_calls"]
+
+[[rule]]
+principal = "range"
+note = "The sealed run (AB-2d): the range seals its handle and goes on through the one the seal gives; the sealed one answers nothing"
+names = ["fsim_world_seal", "fsim.world.World.seal"]
+
+[[rule]]
+principal = "referee"
+note = "The audit (AB-2d): every call each agent made, and those refused it"
+names = ["fsim_world_agent_audit", "fsim_world_agent_count", "fsim::Referee::audit", "fsim.agent.Referee.audit"]
+
+# --- platform ----------------------------------------------------------------------------------------------------
+
+[[rule]]
+principal = "platform"
+note = "The control runtime: its stack, loops, behaviours, registry, parameters and properties"
+names = [
+    "fsim::Vehicle::controls", "fsim::Vehicle::use", "fsim::Vehicle::inputs", "fsim::Vehicle::activeLevel",
+    "fsim::Vehicle::profile", "fsim::Vehicle::property",
+    "fsim_vehicle_use_controller", "fsim_vehicle_controller_parameter", "fsim_vehicle_set_controller_parameter",
+    "fsim_vehicle_get_property", "fsim_vehicle_set_property", "fsim_vehicle_active_level",
+    "fsim_vehicle_profile_section", "fsim_vehicle_profile_value",
+    "fsim.world.Vehicle.get_property", "fsim.world.Vehicle.set_property", "fsim.world.Vehicle.use_controller",
+    "fsim.world.Vehicle.controller_parameter", "fsim.world.Vehicle.set_controller_parameter",
+    "fsim.world.Vehicle.active_level", "fsim.world.Vehicle.profile_value", "fsim.world.Vehicle.profile_section",
+]
+globs = [
+    "fsim::control::*Behavior::*", "fsim::control::*Loop::*", "fsim::control::Rotor*::*",
+    "fsim::control::ControlStack::*", "fsim::control::ControllerRegistry::*", "fsim::control::Parameters::*",
+    "fsim::control::WindEstimate::*", "fsim::sim::PropertyHandle::*",
+]
+
+[[rule]]
+principal = "platform"
+note = "FA's own acts: revoking MA's control, restricting a capability, deactivating a plan"
+names = [
+    "fsim::Vehicle::revokeControl", "fsim::Vehicle::setAvailability", "fsim::Vehicle::abortPlan",
+    "fsim_vehicle_revoke_control", "fsim_vehicle_set_availability", "fsim_vehicle_set_availability_ex",
+    "fsim_vehicle_abort_plan",
+    "fsim.world.Vehicle.revoke_control", "fsim.world.Vehicle.set_availability", "fsim.world.Vehicle.abort_plan",
+]
+
+[[rule]]
+principal = "platform"
+note = "Weapons released: the Mission Systems host's call on a strike's release (a range may launch one too)"
+names = ["fsim::World::launchWeapon", "fsim_world_launch_weapon", "fsim.world.World.launch_weapon"]
+
+[[rule]]
+principal = "platform"
+note = "Equipment the range attaches: effects (sensor models, gusts), communication protocols and media"
+globs = ["fsim::effects::*", "fsim::comm::*Protocol::*", "fsim::comm::LinkModel::*"]
+
+# --- value -------------------------------------------------------------------------------------------------------
+
+[[rule]]
+principal = "value"
+note = "Names, descriptions and struct initialisers"
+names = [
+    "fsim_activity_basis_name", "fsim_activity_command_name", "fsim_activity_state_name", "fsim_activity_wait_name",
+    "fsim_activity_envelope_init", "fsim_activity_progress_init", "fsim_ms_activity_info_init",
+    "fsim_ms_capability_info_init", "fsim_ms_options_init", "fsim_ms_result_init", "fsim_ms_reason_name",
+    "fsim_ms_reason_description", "fsim_ms_capability_type_id", "fsim_strike_command_init", "fsim_strike_phase_name",
+    "fsim_strike_status_init", "fsim_world_options_init", "fsim_vehicle_spec_init", "fsim_vision_options_init",
+    "fsim::control::activityBasisName", "fsim::control::activityCommandName", "fsim::control::activityStateName",
+    "fsim::control::activityWaitName", "fsim::control::availabilityName", "fsim::control::characteristicName",
+    "fsim::control::constraintName", "fsim::control::contingencyName", "fsim::control::endPointKindName",
+    "fsim::control::energyName", "fsim::control::flightModeName", "fsim::control::levelName",
+    "fsim::control::limitName", "fsim::control::planCommandName", "fsim::control::planExecutionName",
+    "fsim::control::planStateName", "fsim::control::pointSourceName", "fsim::control::reasonDescription",
+    "fsim::control::reasonName", "fsim::control::requirementKindName", "fsim::control::ruleDescription",
+    "fsim::control::ruleName", "fsim::control::sectionHeader", "fsim::control::supportName",
+    "fsim::control::taskStateName", "fsim::control::timeCriticalityName",
+    "fsim::ms::amtiModeName", "fsim::ms::capabilityTypeId", "fsim::ms::familyName", "fsim::ms::payloadStateName",
+    "fsim::ms::reasonDescription", "fsim::ms::reasonName", "fsim::ms::roleName", "fsim::ms::storeStatusName",
+    "fsim::ms::strikePhaseName", "fsim::ms::weaponEndName",
+]
+globs = ["fsim_*_init", "fsim_*_name", "fsim_*_description"]
+
+[[rule]]
+principal = "value"
+note = "The SDK: its version, errors, logging, threads"
+names = [
+    "fsim::version", "fsim_abi_version", "fsim_version", "fsim_last_error", "fsim_set_last_error", "fsim_log_level",
+    "fsim_set_log_level", "fsim_vision_set_log_level", "fsim.set_log_level", "fsim._threads.torch_threads",
+    "fsim._threads.short_openmp_spin", "fsim._convert.as_array",
+]
+
+[[rule]]
+principal = "value"
+note = "Functions of their arguments alone: atmosphere, air data, magnetism, frames, performance tables, wire formats, id lists"
+names = [
+    "fsim::control::admitAerobatics", "fsim::control::admitWaypoints", "fsim::control::altitudeMslOf",
+    "fsim::control::altitudeNow", "fsim::control::altitudeOfPressureM", "fsim::control::barometricMslM",
+    "fsim::control::carried", "fsim::control::decimalYear", "fsim::control::declares", "fsim::control::declinationRad",
+    "fsim::control::framePoint", "fsim::control::framePose", "fsim::control::indicatedAltitudeM",
+    "fsim::control::indicatedRateMs", "fsim::control::magneticField", "fsim::control::magneticYear",
+    "fsim::control::optimalTasMs", "fsim::control::pressureIndicatingPa", "fsim::control::profileValue",
+    "fsim::control::speedNow", "fsim::control::staticPressurePa", "fsim::control::staticTemperatureK",
+    "fsim::control::supportFeature", "fsim::control::supportFeatureCount", "fsim::control::tablesAt",
+    "fsim::control::tablesCeilingM", "fsim::control::thrustLoadFactor", "fsim::control::topTasMs",
+    "fsim::control::trueAirspeedOf", "fsim::control::vehiclePose",
+    "fsim::comm::decodeWire", "fsim::comm::encodeWire", "fsim::utcToUnixSeconds",
+    "fsim::actionIds", "fsim::observationIds", "fsim::taskIds", "fsim::vecEnvOptions",
+    "fsim::World::name", "fsim::World::stepSeconds",
+    "fsim_hold", "fsim_magnetic_field_at", "fsim_decimal_year", "fsim_registered_id", "fsim_command_field_count",
+    "fsim_command_field_count_full", "fsim_mode_field_count", "fsim_support_feature", "fsim_support_feature_count",
+    "fsim_world_magnetic_year", "fsim_world_step_seconds",
+    "fsim.world.decimal_year", "fsim.world.magnetic_field", "fsim.world.World.magnetic_year",
+    "fsim.world.World.step_seconds", "fsim.actions", "fsim.observations", "fsim.tasks",
+]
+globs = ["fsim::comm::JsonCodec::*", "fsim.agra.*", "fsim._state.*", "fsim.world.BatchCommand.*"]

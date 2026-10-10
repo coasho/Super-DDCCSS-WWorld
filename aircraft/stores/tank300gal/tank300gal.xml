@@ -1,0 +1,260 @@
+<?xml version="1.0"?>
+<!-- Written by hangar (tools/hangar/hangar/storemodels.py) from the store card tank-300gal: the store flying on its own once it
+     is released or jettisoned (MS-7g). Its aerodynamics a slender body's - estimates, said so there. Do not edit. -->
+<fdm_config name="tank300gal" version="2.0" release="ALPHA">
+    <fileheader>
+        <author> hangar </author>
+        <description> 300 US gal centerline tank (F-16), released </description>
+    </fileheader>
+    <metrics>
+        <wingarea unit="FT2"> 3.4953 </wingarea>
+        <wingspan unit="FT"> 2.1096 </wingspan>
+        <chord unit="FT"> 16.8757 </chord>
+        <htailarea unit="FT2"> 0 </htailarea>
+        <htailarm unit="FT"> 0 </htailarm>
+        <vtailarea unit="FT2"> 0 </vtailarea>
+        <vtailarm unit="FT"> 0 </vtailarm>
+        <location name="AERORP" unit="IN"> <x> 98.893 </x> <y> 0 </y> <z> 0 </z> </location>
+        <location name="EYEPOINT" unit="IN"> <x> 101.254 </x> <y> 0 </y> <z> 0 </z> </location>
+        <location name="VRP" unit="IN"> <x> 101.254 </x> <y> 0 </y> <z> 0 </z> </location>
+    </metrics>
+    <mass_balance negated_crossproduct_inertia="false">
+        <ixx unit="SLUG*FT2"> 8.6576 </ixx>
+        <iyy unit="SLUG*FT2"> 189.0017 </iyy>
+        <izz unit="SLUG*FT2"> 189.0017 </izz>
+        <emptywt unit="LBS"> 250.362 </emptywt>
+        <location name="CG" unit="IN"> <x> 101.254 </x> <y> 0 </y> <z> 0 </z> </location>
+        <pointmass name="fuel">
+            <form shape="cylinder">
+                <radius unit="IN"> 12.025 </radius>
+                <length unit="IN"> 162.006 </length>
+            </form>
+            <weight unit="LBS"> 0 </weight>
+            <location unit="IN"> <x> 101.254 </x> <y> 0 </y> <z> 0 </z> </location>
+        </pointmass>
+    </mass_balance>
+    <ground_reactions>
+        <contact type="STRUCTURE" name="nose 1">
+            <location unit="IN"> <x> 20.251 </x> <y> 10.962 </y> <z> 6.329 </z> </location>
+            <static_friction> 0.8 </static_friction>
+            <dynamic_friction> 0.5 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 7511 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 751 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="nose 2">
+            <location unit="IN"> <x> 20.251 </x> <y> 0.000 </y> <z> 12.657 </z> </location>
+            <static_friction> 0.8 </static_friction>
+            <dynamic_friction> 0.5 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 7511 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 751 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="nose 3">
+            <location unit="IN"> <x> 20.251 </x> <y> -10.962 </y> <z> 6.329 </z> </location>
+            <static_friction> 0.8 </static_friction>
+            <dynamic_friction> 0.5 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 7511 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 751 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="nose 4">
+            <location unit="IN"> <x> 20.251 </x> <y> -10.962 </y> <z> -6.329 </z> </location>
+            <static_friction> 0.8 </static_friction>
+            <dynamic_friction> 0.5 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 7511 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 751 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="nose 5">
+            <location unit="IN"> <x> 20.251 </x> <y> -0.000 </y> <z> -12.657 </z> </location>
+            <static_friction> 0.8 </static_friction>
+            <dynamic_friction> 0.5 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 7511 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 751 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="nose 6">
+            <location unit="IN"> <x> 20.251 </x> <y> 10.962 </y> <z> -6.329 </z> </location>
+            <static_friction> 0.8 </static_friction>
+            <dynamic_friction> 0.5 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 7511 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 751 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="tail 1">
+            <location unit="IN"> <x> 182.257 </x> <y> 10.962 </y> <z> 6.329 </z> </location>
+            <static_friction> 0.8 </static_friction>
+            <dynamic_friction> 0.5 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 7511 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 751 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="tail 2">
+            <location unit="IN"> <x> 182.257 </x> <y> 0.000 </y> <z> 12.657 </z> </location>
+            <static_friction> 0.8 </static_friction>
+            <dynamic_friction> 0.5 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 7511 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 751 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="tail 3">
+            <location unit="IN"> <x> 182.257 </x> <y> -10.962 </y> <z> 6.329 </z> </location>
+            <static_friction> 0.8 </static_friction>
+            <dynamic_friction> 0.5 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 7511 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 751 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="tail 4">
+            <location unit="IN"> <x> 182.257 </x> <y> -10.962 </y> <z> -6.329 </z> </location>
+            <static_friction> 0.8 </static_friction>
+            <dynamic_friction> 0.5 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 7511 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 751 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="tail 5">
+            <location unit="IN"> <x> 182.257 </x> <y> -0.000 </y> <z> -12.657 </z> </location>
+            <static_friction> 0.8 </static_friction>
+            <dynamic_friction> 0.5 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 7511 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 751 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="tail 6">
+            <location unit="IN"> <x> 182.257 </x> <y> 10.962 </y> <z> -6.329 </z> </location>
+            <static_friction> 0.8 </static_friction>
+            <dynamic_friction> 0.5 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 7511 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 751 </damping_coeff>
+        </contact>
+    </ground_reactions>
+    <propulsion/>
+    <flight_control name="none"/>
+    <aerodynamics>
+        <axis name="AXIAL">
+            <function name="aero/coefficient/CA">
+                <description>along it: a streamlined body's drag on its frontal area, its transonic rise (an estimate)</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <property>metrics/Sw-sqft</property>
+                    <cos><property>aero/alpha-rad</property></cos>
+                    <value> 0.0653 </value>
+                    <table>
+                        <independentVar>velocities/mach</independentVar>
+                        <tableData>
+                            0.00 1.00
+                            0.80 1.00
+                            0.90 1.02
+                            0.95 1.07
+                            1.00 1.28
+                            1.05 2.12
+                            1.10 2.37
+                            1.20 2.43
+                            1.50 2.20
+                            2.00 1.80
+                        </tableData>
+                    </table>
+                </product>
+            </function>
+        </axis>
+        <axis name="NORMAL">
+            <function name="aero/force/fins-normal">
+                <description>its fins' and base's force across it (its card's side_slope_m2)</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <value> 0.27965 </value>
+                    <sin><property>aero/alpha-rad</property></sin>
+                </product>
+            </function>
+            <function name="aero/coefficient/CN">
+                <description>its crossflow: a cylinder's broadside drag on its planform, at its centre of pressure -0.060 m behind its CG (an estimate)</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <property>metrics/Sw-sqft</property>
+                    <sin><property>aero/alpha-rad</property></sin>
+                    <abs><sin><property>aero/alpha-rad</property></sin></abs>
+                    <value> 10.2100 </value>
+                </product>
+            </function>
+        </axis>
+        <axis name="SIDE">
+            <function name="aero/force/fins-side">
+                <description>its fins' and base's force across it, sideways</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <value> -0.27965 </value>
+                    <sin><property>aero/beta-rad</property></sin>
+                </product>
+            </function>
+            <function name="aero/coefficient/CY">
+                <description>its crossflow sideways</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <property>metrics/Sw-sqft</property>
+                    <sin><property>aero/beta-rad</property></sin>
+                    <abs><sin><property>aero/beta-rad</property></sin></abs>
+                    <value> -10.2100 </value>
+                </product>
+            </function>
+        </axis>
+        <axis name="PITCH">
+            <function name="aero/moment/munk-pitch">
+                <description>its body's unstable moment (Munk's couple: its card's munk_volume_m3)</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <value> 40.50451 </value>
+                    <sin><product><value> 2 </value><property>aero/alpha-rad</property></product></sin>
+                </product>
+            </function>
+            <function name="aero/moment/fins-pitch">
+                <description>its fins' and base's force, behind the reference point</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <value> -2.41457 </value>
+                    <sin><property>aero/alpha-rad</property></sin>
+                </product>
+            </function>
+            <function name="aero/coefficient/Cmq">
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <property>metrics/Sw-sqft</property>
+                    <property>metrics/cbarw-ft</property>
+                    <property>aero/ci2vel</property>
+                    <property>velocities/q-aero-rad_sec</property>
+                    <value> -6.000 </value>
+                </product>
+            </function>
+        </axis>
+        <axis name="YAW">
+            <function name="aero/moment/munk-yaw">
+                <description>its body's unstable moment, in yaw</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <value> -40.50451 </value>
+                    <sin><product><value> 2 </value><property>aero/beta-rad</property></product></sin>
+                </product>
+            </function>
+            <function name="aero/moment/fins-yaw">
+                <description>its fins' and base's side force, behind the reference point</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <value> 2.41457 </value>
+                    <sin><property>aero/beta-rad</property></sin>
+                </product>
+            </function>
+            <function name="aero/coefficient/Cnr">
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <property>metrics/Sw-sqft</property>
+                    <property>metrics/cbarw-ft</property>
+                    <property>aero/ci2vel</property>
+                    <property>velocities/r-aero-rad_sec</property>
+                    <value> -6.000 </value>
+                </product>
+            </function>
+        </axis>
+        <axis name="ROLL">
+            <function name="aero/coefficient/Clp">
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <property>metrics/Sw-sqft</property>
+                    <property>metrics/bw-ft</property>
+                    <property>aero/bi2vel</property>
+                    <property>velocities/p-aero-rad_sec</property>
+                    <value> -0.500 </value>
+                </product>
+            </function>
+        </axis>
+    </aerodynamics>
+</fdm_config>

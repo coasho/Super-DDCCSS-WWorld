@@ -1,0 +1,959 @@
+{
+ "aircraft": "skua",
+ "frame": "body axes from the model's origin (the empty CG): x forward, y right, z down; m, kg",
+ "origin_design_m": [
+  0.71329,
+  0.0,
+  0.02295
+ ],
+ "design_mass_kg": 23.0,
+ "n_limit": [
+  -1.52,
+  3.8
+ ],
+ "n_ultimate": [
+  -2.28,
+  5.7
+ ],
+ "basis": {
+  "limits": "estimate: FAR 23.337's normal category",
+  "strength": "the design's ultimate load (1.5 x the flight control's n limits) at its design mass, flown symmetrically; tails and nose by the same rule (estimate)",
+  "skin_share": 0.35,
+  "shares": "hangar's strip model: dN/dalpha and dY/dbeta per section"
+ },
+ "sections": [
+  {
+   "name": "nose",
+   "mass_kg": 0.0,
+   "cg": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "inertia": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "tanks": [],
+   "stations": [],
+   "normal_share": 0.0,
+   "side_share": -0.0,
+   "normal_cp": null,
+   "side_cp": null,
+   "root": null,
+   "skin_area_m2": 0,
+   "skin_kg": 0.0
+  },
+  {
+   "name": "centre",
+   "mass_kg": 16.11615,
+   "cg": [
+    0.10398,
+    0.0,
+    0.02883
+   ],
+   "inertia": [
+    0.28249,
+    2.07151,
+    2.18297,
+    0.0,
+    0.10395,
+    -0.0
+   ],
+   "tanks": [],
+   "stations": [],
+   "normal_share": 0.09013,
+   "side_share": 0.22235,
+   "normal_cp": [
+    0.07335,
+    -0.0,
+    -0.09736
+   ],
+   "side_cp": [
+    0.07335,
+    -0.03422,
+    -0.0977
+   ],
+   "root": null,
+   "skin_area_m2": 1.83256,
+   "skin_kg": 5.64065
+  },
+  {
+   "name": "left wing",
+   "mass_kg": 1.87111,
+   "cg": [
+    -0.01856,
+    -0.87716,
+    -0.07575
+   ],
+   "inertia": [
+    0.57358,
+    0.06614,
+    0.5378,
+    -0.01711,
+    -0.00515,
+    0.09892
+   ],
+   "tanks": [],
+   "stations": [],
+   "normal_share": 0.38822,
+   "side_share": 0.02084,
+   "normal_cp": [
+    0.07333,
+    -0.9605,
+    -0.14523
+   ],
+   "side_cp": [
+    0.07332,
+    -1.01579,
+    -0.14822
+   ],
+   "root": {
+    "at": [
+     -0.01671,
+     -0.1888,
+     -0.09705
+    ],
+    "axes": [
+     [
+      1.0,
+      0.0,
+      0.0
+     ]
+    ]
+   },
+   "skin_area_m2": 1.29778,
+   "skin_kg": 0.65489,
+   "strength_nm": [
+    313.17308
+   ]
+  },
+  {
+   "name": "right wing",
+   "mass_kg": 1.87111,
+   "cg": [
+    -0.01856,
+    0.87716,
+    -0.07575
+   ],
+   "inertia": [
+    0.57358,
+    0.06614,
+    0.5378,
+    0.01711,
+    -0.00515,
+    -0.09892
+   ],
+   "tanks": [],
+   "stations": [],
+   "normal_share": 0.38822,
+   "side_share": 0.01502,
+   "normal_cp": [
+    0.07333,
+    0.9605,
+    -0.14523
+   ],
+   "side_cp": [
+    0.07332,
+    1.05038,
+    -0.1501
+   ],
+   "root": {
+    "at": [
+     -0.01671,
+     0.1888,
+     -0.09705
+    ],
+    "axes": [
+     [
+      1.0,
+      0.0,
+      0.0
+     ]
+    ]
+   },
+   "skin_area_m2": 1.29778,
+   "skin_kg": 0.65489,
+   "strength_nm": [
+    313.17308
+   ]
+  },
+  {
+   "name": "tail",
+   "mass_kg": 1.14164,
+   "cg": [
+    -1.407,
+    -0.0,
+    -0.15866
+   ],
+   "inertia": [
+    0.26347,
+    0.03084,
+    0.27684,
+    -0.0,
+    0.00228,
+    0.0
+   ],
+   "tanks": [],
+   "stations": [],
+   "normal_share": 0.13342,
+   "side_share": 0.74179,
+   "normal_cp": [
+    -1.4017,
+    -0.0,
+    -0.09801
+   ],
+   "side_cp": [
+    -1.39497,
+    0.0006,
+    -0.27528
+   ],
+   "root": {
+    "at": [
+     -0.97671,
+     -0.0,
+     0.02295
+    ],
+    "axes": [
+     [
+      0.0,
+      1.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      1.0
+     ]
+    ]
+   },
+   "skin_area_m2": 0.79,
+   "skin_kg": 0.39957,
+   "strength_nm": [
+    72.90031,
+    63.39574
+   ]
+  }
+ ],
+ "panels": [
+  {
+   "section": "right wing",
+   "kind": "surface",
+   "surface": "wing",
+   "corners": [
+    [
+     0.16329,
+     -0.0,
+     -0.09705
+    ],
+    [
+     -0.01671,
+     -0.0,
+     -0.09705
+    ],
+    [
+     -0.01671,
+     0.8,
+     -0.13905
+    ],
+    [
+     0.16329,
+     0.8,
+     -0.13905
+    ]
+   ],
+   "thickness_m": 0.0432,
+   "area_m2": 0.2884
+  },
+  {
+   "section": "left wing",
+   "kind": "surface",
+   "surface": "wing",
+   "corners": [
+    [
+     0.16329,
+     -0.0,
+     -0.09705
+    ],
+    [
+     -0.01671,
+     -0.0,
+     -0.09705
+    ],
+    [
+     -0.01671,
+     -0.8,
+     -0.13905
+    ],
+    [
+     0.16329,
+     -0.8,
+     -0.13905
+    ]
+   ],
+   "thickness_m": 0.0432,
+   "area_m2": 0.2884
+  },
+  {
+   "section": "right wing",
+   "kind": "surface",
+   "surface": "wing",
+   "corners": [
+    [
+     -0.01671,
+     -0.0,
+     -0.09705
+    ],
+    [
+     -0.19671,
+     -0.0,
+     -0.09705
+    ],
+    [
+     -0.19671,
+     0.8,
+     -0.13905
+    ],
+    [
+     -0.01671,
+     0.8,
+     -0.13905
+    ]
+   ],
+   "thickness_m": 0.0432,
+   "area_m2": 0.2884
+  },
+  {
+   "section": "left wing",
+   "kind": "surface",
+   "surface": "wing",
+   "corners": [
+    [
+     -0.01671,
+     -0.0,
+     -0.09705
+    ],
+    [
+     -0.19671,
+     -0.0,
+     -0.09705
+    ],
+    [
+     -0.19671,
+     -0.8,
+     -0.13905
+    ],
+    [
+     -0.01671,
+     -0.8,
+     -0.13905
+    ]
+   ],
+   "thickness_m": 0.0432,
+   "area_m2": 0.2884
+  },
+  {
+   "section": "right wing",
+   "kind": "surface",
+   "surface": "wing",
+   "corners": [
+    [
+     0.16329,
+     0.8,
+     -0.13905
+    ],
+    [
+     -0.01671,
+     0.8,
+     -0.13905
+    ],
+    [
+     0.01329,
+     2.0,
+     -0.20205
+    ],
+    [
+     0.13329,
+     2.0,
+     -0.20205
+    ]
+   ],
+   "thickness_m": 0.036,
+   "area_m2": 0.3605
+  },
+  {
+   "section": "left wing",
+   "kind": "surface",
+   "surface": "wing",
+   "corners": [
+    [
+     0.16329,
+     -0.8,
+     -0.13905
+    ],
+    [
+     -0.01671,
+     -0.8,
+     -0.13905
+    ],
+    [
+     0.01329,
+     -2.0,
+     -0.20205
+    ],
+    [
+     0.13329,
+     -2.0,
+     -0.20205
+    ]
+   ],
+   "thickness_m": 0.036,
+   "area_m2": 0.3605
+  },
+  {
+   "section": "right wing",
+   "kind": "surface",
+   "surface": "wing",
+   "corners": [
+    [
+     -0.01671,
+     0.8,
+     -0.13905
+    ],
+    [
+     -0.19671,
+     0.8,
+     -0.13905
+    ],
+    [
+     -0.10671,
+     2.0,
+     -0.20205
+    ],
+    [
+     0.01329,
+     2.0,
+     -0.20205
+    ]
+   ],
+   "thickness_m": 0.036,
+   "area_m2": 0.3605
+  },
+  {
+   "section": "left wing",
+   "kind": "surface",
+   "surface": "wing",
+   "corners": [
+    [
+     -0.01671,
+     -0.8,
+     -0.13905
+    ],
+    [
+     -0.19671,
+     -0.8,
+     -0.13905
+    ],
+    [
+     -0.10671,
+     -2.0,
+     -0.20205
+    ],
+    [
+     0.01329,
+     -2.0,
+     -0.20205
+    ]
+   ],
+   "thickness_m": 0.036,
+   "area_m2": 0.3605
+  },
+  {
+   "section": "tail",
+   "kind": "surface",
+   "surface": "htail",
+   "corners": [
+    [
+     -1.34671,
+     -0.0,
+     -0.09705
+    ],
+    [
+     -1.45671,
+     -0.0,
+     -0.09705
+    ],
+    [
+     -1.45671,
+     0.55,
+     -0.09705
+    ],
+    [
+     -1.34671,
+     0.55,
+     -0.09705
+    ]
+   ],
+   "thickness_m": 0.022,
+   "area_m2": 0.121
+  },
+  {
+   "section": "tail",
+   "kind": "surface",
+   "surface": "htail",
+   "corners": [
+    [
+     -1.34671,
+     -0.0,
+     -0.09705
+    ],
+    [
+     -1.45671,
+     -0.0,
+     -0.09705
+    ],
+    [
+     -1.45671,
+     -0.55,
+     -0.09705
+    ],
+    [
+     -1.34671,
+     -0.55,
+     -0.09705
+    ]
+   ],
+   "thickness_m": 0.022,
+   "area_m2": 0.121
+  },
+  {
+   "section": "tail",
+   "kind": "surface",
+   "surface": "htail",
+   "corners": [
+    [
+     -1.45671,
+     -0.0,
+     -0.09705
+    ],
+    [
+     -1.56671,
+     -0.0,
+     -0.09705
+    ],
+    [
+     -1.56671,
+     0.55,
+     -0.09705
+    ],
+    [
+     -1.45671,
+     0.55,
+     -0.09705
+    ]
+   ],
+   "thickness_m": 0.022,
+   "area_m2": 0.121
+  },
+  {
+   "section": "tail",
+   "kind": "surface",
+   "surface": "htail",
+   "corners": [
+    [
+     -1.45671,
+     -0.0,
+     -0.09705
+    ],
+    [
+     -1.56671,
+     -0.0,
+     -0.09705
+    ],
+    [
+     -1.56671,
+     -0.55,
+     -0.09705
+    ],
+    [
+     -1.45671,
+     -0.55,
+     -0.09705
+    ]
+   ],
+   "thickness_m": 0.022,
+   "area_m2": 0.121
+  },
+  {
+   "section": "tail",
+   "kind": "surface",
+   "surface": "fin",
+   "corners": [
+    [
+     -1.27671,
+     0.55,
+     -0.12705
+    ],
+    [
+     -1.43171,
+     0.55,
+     -0.12705
+    ],
+    [
+     -1.48671,
+     0.55,
+     -0.42705
+    ],
+    [
+     -1.38671,
+     0.55,
+     -0.42705
+    ]
+   ],
+   "thickness_m": 0.0255,
+   "area_m2": 0.0765
+  },
+  {
+   "section": "tail",
+   "kind": "surface",
+   "surface": "fin",
+   "corners": [
+    [
+     -1.27671,
+     -0.55,
+     -0.12705
+    ],
+    [
+     -1.43171,
+     -0.55,
+     -0.12705
+    ],
+    [
+     -1.48671,
+     -0.55,
+     -0.42705
+    ],
+    [
+     -1.38671,
+     -0.55,
+     -0.42705
+    ]
+   ],
+   "thickness_m": 0.0255,
+   "area_m2": 0.0765
+  },
+  {
+   "section": "tail",
+   "kind": "surface",
+   "surface": "fin",
+   "corners": [
+    [
+     -1.43171,
+     0.55,
+     -0.12705
+    ],
+    [
+     -1.58671,
+     0.55,
+     -0.12705
+    ],
+    [
+     -1.58671,
+     0.55,
+     -0.42705
+    ],
+    [
+     -1.48671,
+     0.55,
+     -0.42705
+    ]
+   ],
+   "thickness_m": 0.0255,
+   "area_m2": 0.0765
+  },
+  {
+   "section": "tail",
+   "kind": "surface",
+   "surface": "fin",
+   "corners": [
+    [
+     -1.43171,
+     -0.55,
+     -0.12705
+    ],
+    [
+     -1.58671,
+     -0.55,
+     -0.12705
+    ],
+    [
+     -1.58671,
+     -0.55,
+     -0.42705
+    ],
+    [
+     -1.48671,
+     -0.55,
+     -0.42705
+    ]
+   ],
+   "thickness_m": 0.0255,
+   "area_m2": 0.0765
+  },
+  {
+   "section": "centre",
+   "kind": "body",
+   "body": "pod",
+   "centre": [
+    0.33829,
+    -0.0,
+    0.02001
+   ],
+   "half": [
+    0.375,
+    0.13618,
+    0.13912
+   ],
+   "area_m2": 0.64867
+  },
+  {
+   "section": "centre",
+   "kind": "body",
+   "body": "pod",
+   "centre": [
+    -0.41171,
+    -0.0,
+    0.01783
+   ],
+   "half": [
+    0.375,
+    0.12525,
+    0.12239
+   ],
+   "area_m2": 0.58351
+  },
+  {
+   "section": "centre",
+   "kind": "body",
+   "body": "booms",
+   "centre": [
+    -0.40171,
+    0.55,
+    -0.12705
+   ],
+   "half": [
+    0.415,
+    0.02992,
+    0.02992
+   ],
+   "area_m2": 0.15602
+  },
+  {
+   "section": "centre",
+   "kind": "body",
+   "body": "booms",
+   "centre": [
+    -0.40171,
+    -0.55,
+    -0.12705
+   ],
+   "half": [
+    0.415,
+    0.02992,
+    0.02992
+   ],
+   "area_m2": 0.15602
+  },
+  {
+   "section": "centre",
+   "kind": "body",
+   "body": "booms",
+   "centre": [
+    -1.23171,
+    0.55,
+    -0.12705
+   ],
+   "half": [
+    0.415,
+    0.02764,
+    0.02764
+   ],
+   "area_m2": 0.14417
+  },
+  {
+   "section": "centre",
+   "kind": "body",
+   "body": "booms",
+   "centre": [
+    -1.23171,
+    -0.55,
+    -0.12705
+   ],
+   "half": [
+    0.415,
+    0.02764,
+    0.02764
+   ],
+   "area_m2": 0.14417
+  }
+ ],
+ "components": [
+  {
+   "kind": "engine",
+   "shape": "box",
+   "section": "centre",
+   "name": "motor",
+   "centre": [
+    -0.72671,
+    -0.0,
+    0.02295
+   ],
+   "half": [
+    0.03784,
+    0.03039,
+    0.03039
+   ],
+   "engine": 0
+  },
+  {
+   "kind": "control",
+   "shape": "box",
+   "section": "centre",
+   "name": "left wing flap",
+   "centre": [
+    -0.02391,
+    -0.17,
+    -0.10598
+   ],
+   "half": [
+    0.04565,
+    0.01141,
+    0.01141
+   ],
+   "channel": "flap"
+  },
+  {
+   "kind": "control",
+   "shape": "box",
+   "section": "centre",
+   "name": "right wing flap",
+   "centre": [
+    -0.02391,
+    0.17,
+    -0.10598
+   ],
+   "half": [
+    0.04565,
+    0.01141,
+    0.01141
+   ],
+   "channel": "flap"
+  },
+  {
+   "kind": "control",
+   "shape": "box",
+   "section": "left wing",
+   "name": "left wing aileron",
+   "centre": [
+    -0.02616,
+    -1.0,
+    -0.14955
+   ],
+   "half": [
+    0.03806,
+    0.00951,
+    0.00951
+   ],
+   "channel": "aileron"
+  },
+  {
+   "kind": "control",
+   "shape": "box",
+   "section": "right wing",
+   "name": "right wing aileron",
+   "centre": [
+    -0.02616,
+    1.0,
+    -0.14955
+   ],
+   "half": [
+    0.03806,
+    0.00951,
+    0.00951
+   ],
+   "channel": "aileron"
+  },
+  {
+   "kind": "control",
+   "shape": "box",
+   "section": "tail",
+   "name": "left htail elevator",
+   "centre": [
+    -1.44956,
+    -0.055,
+    -0.09705
+   ],
+   "half": [
+    0.02823,
+    0.00706,
+    0.00706
+   ],
+   "channel": "elevator"
+  },
+  {
+   "kind": "control",
+   "shape": "box",
+   "section": "tail",
+   "name": "right htail elevator",
+   "centre": [
+    -1.44956,
+    0.055,
+    -0.09705
+   ],
+   "half": [
+    0.02823,
+    0.00706,
+    0.00706
+   ],
+   "channel": "elevator"
+  },
+  {
+   "kind": "control",
+   "shape": "box",
+   "section": "tail",
+   "name": "left fin rudder",
+   "centre": [
+    -1.41628,
+    -0.55,
+    -0.15705
+   ],
+   "half": [
+    0.04477,
+    0.01119,
+    0.01119
+   ],
+   "channel": "rudder"
+  },
+  {
+   "kind": "control",
+   "shape": "box",
+   "section": "tail",
+   "name": "right fin rudder",
+   "centre": [
+    -1.41628,
+    0.55,
+    -0.15705
+   ],
+   "half": [
+    0.04477,
+    0.01119,
+    0.01119
+   ],
+   "channel": "rudder"
+  }
+ ]
+}

@@ -1,0 +1,166 @@
+# World and vehicles
+
+`#include <fsim/World.h>`
+
+## `fsim::World`
+
+One `World` is one simulation session: a set of vehicles stepped in lockstep,
+one environment, one clock, one message fabric, and one shared-memory
+publisher that makes the world visible to viewers.
+
+```cpp
+struct WorldOptions {
+    std::string name = "default";          // viewers attach by this name; use one per experiment
+    double dt = 1.0 / 120.0;               // flight-dynamics step (s)
+    int frameSkip = 4;                     // FDM steps per World::step() -> 30 Hz world steps
+    unsigned workers = 0;                  // simulation threads; 0 = physical cores - 2
+    bool pinWorkers = true;                // one worker per physical core (stable throughput)
+    std::uint64_t seed = 0;
+    std::uint32_t capacity = 256;          // vehicle slots visible to viewers
+    bool publish = true;                   // false: never visible to viewers
+    double publishIntervalSeconds = 1/60.; // wall-clock rate limit of the viewer feed
+    std::string jsbsimRoot;                // empty = auto-detect
+    bool terrain = false;                  // physics ground from the public elevation tiles the viewer draws
+    std::string terrainUrl;                // XYZ template; empty = AWS Terrarium
+    unsigned terrainZoom = 15;             // ~3.8 m/px: the raster the viewer draws close up (12: ~38 m/px, 1/64 the tiles)
+    bool terrainOffline = false;           // the tiles from the cache alone, never fetched
+    std::shared_ptr<GroundProvider> ground;// or your own height model (overrides `terrain`)
+    std::string recordPath;                // non-empty: record the run for flightsim-viewer --replay
+    double recordIntervalSeconds = 0;      // simulation time between frames; 0 = every world step
+};
+```
+
+With `terrain = true` the ground under every vehicle is the same relief the
+viewer renders (AWS Terrarium tiles, sea clamped to 0 m): gear contact, AGL
+and `onGround` spawns use it - level 15, the raster the viewer draws close up, read as the viewer reads it, so a
+vehicle stands on the ground on screen to a metre or better ([flight-autonomy.md](../flight-autonomy.md), 4.68).
+Tiles are read from the local map set - `maps/` beside the program, the
+viewer's own (`assets/maps` in the source tree, filled by `fetch-maps.cmd`;
+`FSIM_MAPS_DIR` overrides) - loaded around each new vehicle (blocking,
+1.5 km) and kept warm around moving vehicles by background loaders, so
+training steps rarely wait. `terrainOffline` (`terrain_offline`) is true by
+default: nothing is ever fetched - a tile not in the set is answered by its
+nearest ancestor there, else as sea level, and paths checked over it see no
+data there. Set it false to download what is missing, into the same set; add
+a region to it beforehand with `tile_prefetch --lat .. --lon .. --radius-km ..`
+(elevation and imagery for the whole level pyramid). `storeDrag` (`store_drag`, true by default) gives
+carried stores and their pylons their drag on the aircraft ([mission-systems.md](mission-systems.md#stores-and-weapon-employment-ms-7a));
+false leaves them their mass only. Implement `fsim::GroundProvider` for a custom
+height model (a single virtual, thread-safe call). The same ground answers `World::terrainHeightM(lat, lon)` - empty where
+the provider has no data, which the physics reads as sea level - and every route, pattern, curve and hsa a vehicle is
+commanded is checked against it: a path into the ground is refused `terrain_conflict`, the place it would meet it named
+([flight-autonomy.md](../flight-autonomy.md), 4.19). A provider may also override `knownHeightAboveEllipsoidM` (to say
+where it has no data) and `resolutionM` (its data's spacing, which paths are sampled at: 30 m unless it says).
+
+A vehicle that strikes the ground - a point of it more than 1 m into it, deeper than any gear gives - is stopped where it
+struck, on the surface, at rest, with `crashed` set in its state, until it is reset; its activities end Failed `crashed`.
+One started in the air under the ground is stopped on its surface as it starts
+([flight-autonomy.md](../flight-autonomy.md), 4.68).
+
+With `recordPath` set the world appends every vehicle's state (and each
+creation, reset and removal) to a `.fsrec` file as it steps, independent of
+whether a viewer is attached: `flightsim-viewer.exe --replay run.fsrec` plays
+it back later with pause, single-step and time-factor controls. Recording
+is a sequential write of ~150 bytes per vehicle per frame (a 60 s run of
+5 vehicles at 30 Hz is ~5 MB); raise `recordIntervalSeconds` for long
+trainings.
+
+A recording is also data (`#include <fsim/Recording.h>`):
+`fsim::Recording::load(path)` returns the frames - per frame the simulation
+time, one `Sample{slot, state, inputs}` per live vehicle and the vehicle
+events (creation, reset, control-level change, removal) - and
+`rec.track(slot)` collects one vehicle's states and actuator inputs over
+time: trajectories of the built-in behaviours for imitation learning,
+evaluation logs, regression baselines.
+
+| Call | Meaning |
+| --- | --- |
+| `Vehicle createVehicle(const VehicleSpec&)` | Load a vehicle; throws `fsim::Error` if the type is unknown, the aircraft fails to load or the name exists |
+| `Vehicle vehicle(id)` / `vehicle("name")` / `vehicles()` / `vehicleCount()` | Look-ups; an invalid handle has `valid() == false` |
+| `void step(unsigned n = 1)` | Advance every vehicle by `n` world steps (`frameSkip` FDM steps each). Controls, effects and messaging run inside |
+| `double time()` / `stepSeconds()` | Simulation seconds since creation; seconds per world step |
+| `Environment& environment()` | Real-time environment control ([environment.md](environment.md)) |
+| `comm::Network& network()` | The message fabric ([environment.md](environment.md#communication)) |
+| `addEffectToAll<E>(args...)` | Every vehicle, present and future, gets its own `E` instance |
+| `published()`, `name()`, `vehicleSteps()`, `worldSteps()`, `publishNow()` | Introspection; `publishNow()` pushes the state to viewers immediately |
+| `focusViewer(id)` | The viewers attached to the world follow that vehicle, as a `tab` to it would - once: the user's own choice stands after it (a viewer attaching later follows the last request). False if it is not alive or the world is not published |
+
+Several worlds may coexist in one process (each publishes under its own name).
+Two processes publishing the same name: the second is not visible until the
+first exits (a warning is logged).
+
+## `fsim::VehicleSpec`
+
+```cpp
+struct VehicleSpec {
+    std::string name;                      // unique in the world; empty = "<aircraft>-<id>"
+    std::string type = "jsbsim:c172x";     // "<flight model>:<aircraft>" - a stock JSBSim aircraft or a hangar design
+    InitialConditions initial;             // latitudeDeg, longitudeDeg, altitudeMslM, headingDeg, pitchDeg, rollDeg, airspeedTrueMs, onGround
+    std::string model;                     // optional glTF for the viewer (default: models/<type>.glb, else the platform's aircraft)
+    unsigned controlDivider = 1;           // run the control stack every N FDM steps
+};
+```
+
+`onGround = true` places the vehicle on the terrain (JSBSim ground trim) with
+brakes and idle power; otherwise it starts airborne at `airspeedTrueMs` with
+engines running.
+
+`jsbsim:<name>` looks for the aircraft `<name>` in the directories listed in
+`FSIM_AIRCRAFT_PATH` (`;`-separated folders of aircraft folders, which may
+shadow a stock aircraft), then among JSBSim's stock aircraft, then among the
+aircraft designed with hangar: `aircraft/` in the source tree for a
+development build, `share/flightsim/aircraft` in a package. The fighters and
+support aircraft of [hangar.md](../hangar.md) are
+`jsbsim:f16c`, `jsbsim:b52h` and so on.
+
+## `fsim::Vehicle`
+
+A copyable handle (id + world). It stays valid until `remove()`.
+
+| Call | Meaning |
+| --- | --- |
+| `id()`, `name()`, `type()`, `valid()` | Identity |
+| `const VehicleState& state()` | Truth after the last step: ECEF position, quaternion + body->ECEF rotation, geodetic position, altitudes (MSL and AGL), Euler angles, body/NED velocities, rates, accelerations, air data (TAS, CAS, Mach, alpha, beta, load factor), control surface positions, leading-edge flaps, engines (throttle, thrust, propeller rpm, a turbine's N2, nozzle and afterburner), the wheels (each strut's compression, steering angle, rolling speed), fuel, `onGround`, `diverged`, `crashed` (it struck the terrain, stopped there until reset) |
+| `const effects::SensedState& sensed()` | What the vehicle's sensors report: `state` after the sensor effects, plus `gnssValid`, `airDataValid`, `positionErrorM` |
+| `const ControlInputs& inputs()` | The actuator inputs the control cascade produced last step |
+| `command(cmd)` | Command at any level; the level of the command becomes the active level ([control.md](control.md)) |
+| `controls()`, `activeLevel()`, `use(level, id)` | The control stack: swap a loop, tune gains, inspect derived commands |
+| `reset()` / `reset(initial)` | Re-apply initial conditions; controllers and effects reset; viewers see a new "generation" |
+| `remove()` | Remove from the world (its slot may be reused by a later vehicle of the same aircraft) |
+| `addEffect<E>(args...)` / `addEffect(unique_ptr)` | Attach a disturbance or sensor model ([environment.md](environment.md#effects)) |
+| `property("path")` | Raw flight-model property (JSBSim property tree), e.g. `property("propulsion/engine/thrust-lbs").get()` |
+| `node()` | This vehicle's communication endpoint |
+
+`state()` and `sensed()` return references into world-owned storage that are
+overwritten every step: read what you need before the next `step()`.
+
+## A vehicle's step, in order
+
+For each of the `frameSkip` FDM sub-steps, on the worker thread that owns the vehicle:
+
+1. **Effects** run with the truth state: they may add wind, push forces, write properties and perturb the *sensed* state.
+2. **Control cascade** runs from the active level down to the actuators using the sensed state (so noisy sensors affect the built-in loops exactly as they affect your policy).
+3. The **flight model** steps.
+
+Then, once per world step on the caller's thread: the **network** delivers messages and the **publisher** copies the world to viewers if the publish interval has elapsed.
+
+## Determinism and threads
+
+Vehicles are partitioned across workers in a fixed order and share nothing:
+results are bit-identical for any worker count. Each vehicle has its own
+random stream (`Rng`, seeded from `WorldOptions::seed` and the vehicle id) used
+by effects and JSBSim's turbulence. Behaviours that look at other vehicles
+read the *previous* step's states, so they are deterministic too.
+
+A start depends on its conditions alone. `Vehicle::reset` (each `VecEnv`
+episode), or a new vehicle in the slot a removed one of the same aircraft left
+(the world keeps its flight model loaded, so it is quick), starts and flies as
+the same start in a new world, to the bit - whatever that model flew before,
+and in the world's wind and air (design 7.2). So a reset also puts the
+aircraft's own properties back as it loaded them, a value you wrote to one with
+`Vehicle::property` included: write it again after the reset. The vehicle's
+random stream goes on through a reset, unless the reset is given a seed:
+`Vehicle::reset(initial, seed)` restarts it from that seed as a new vehicle's
+starts from the world's (the world's own seed gives a new vehicle's, to the
+bit). Each `VecEnv` episode seeds its vehicles so, from the seed and episode
+number its start comes from: with turbulence, an episode's gusts are its own.

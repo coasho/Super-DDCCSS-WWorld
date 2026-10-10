@@ -1,0 +1,94 @@
+{
+  "aircraft": "j10a",
+  "note": "J-10A (early Type 1473 radar).",
+  "sources": {
+    "wp-j10a": {
+      "title": "Chengdu J-10",
+      "publisher": "Wikipedia (revision 1378859868)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Chengdu_J-10&oldid=1378859868",
+      "date": "2026-10-06"
+    },
+    "aerospaceweb-j10": {
+      "title": "Chengdu J-10 (two 1,600 L and one 800 L tanks)",
+      "publisher": "Aerospaceweb",
+      "url": "https://aerospaceweb.org/aircraft/fighter/j10/",
+      "date": "2026-10-09"
+    }
+  },
+  "payloads": [
+    {
+      "name": "radar",
+      "card": "type-1473",
+      "source": "wp-j10a",
+      "evidence": [
+        "Type 1473 pulse-Doppler radar"
+      ]
+    },
+    {
+      "name": "gun",
+      "card": "gsh-23",
+      "source": "wp-j10a",
+      "evidence": [
+        "Gryazev-Shipunov GSh-23 twin-barrel cannon"
+      ]
+    },
+    {
+      "name": "stations",
+      "card": "j10a-store-station",
+      "count": 11,
+      "source": "wp-j10a",
+      "note": "six under the wings, two under the intake, three under the fuselage",
+      "evidence": [
+        "11 in total (6"
+      ]
+    }
+  ],
+  "loadouts": [
+    {
+      "name": "air-to-air",
+      "note": "the article's PL-8 and PL-12 (J-10A): two of each, the PL-8 outboard (the counts and stations: assumed)",
+      "source": "wp-j10a",
+      "stations": [
+        {
+          "payload": "stations",
+          "station": 1,
+          "store": "pl-8"
+        },
+        {
+          "payload": "stations",
+          "station": 11,
+          "store": "pl-8"
+        },
+        {
+          "payload": "stations",
+          "station": 2,
+          "store": "pl-12"
+        },
+        {
+          "payload": "stations",
+          "station": 10,
+          "store": "pl-12"
+        }
+      ]
+    },
+    {
+      "name": "external tanks",
+      "note": "two 1,600 L tanks inboard, the 800 L on the centreline (the centreline's is a forum's claim) (ADR-30, MS-7g: a tank's fuel feeds the aircraft's own tanks; jettisoned, it flies on with what is left)",
+      "source": "aerospaceweb-j10",
+      "stations": [
+        {
+          "station": 3,
+          "store": "j10-tank-1600l"
+        },
+        {
+          "station": 9,
+          "store": "j10-tank-1600l"
+        },
+        {
+          "station": 6,
+          "store": "j10-tank-800l"
+        }
+      ]
+    }
+  ]
+}

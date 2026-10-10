@@ -1,0 +1,16 @@
+{
+  "id": "an-alq-128",
+  "designation": "AN/ALQ-128 EWWS",
+  "family": "esm",
+  "summary": "Electronic Warfare Warning Set, part of the F-15's Tactical Electronic Warfare System (TEWS)",
+  "maker": "Magnavox",
+  "parameters": {},
+  "sources": {
+    "wp-f15c": {
+      "title": "McDonnell Douglas F-15 Eagle",
+      "publisher": "Wikipedia (revision 1377800910)",
+      "url": "https://en.wikipedia.org/w/index.php?title=McDonnell_Douglas_F-15_Eagle&oldid=1377800910",
+      "date": "2026-10-01"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": "an-aps-133",
+  "designation": "AN/APS-133(V)",
+  "family": "weather_radar",
+  "summary": "weather and mapping radar",
+  "maker": "AlliedSignal (now Honeywell)",
+  "parameters": {},
+  "sources": {
+    "wp-c17a": {
+      "title": "Boeing C-17 Globemaster III",
+      "publisher": "Wikipedia (revision 1376719976)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_C-17_Globemaster_III&oldid=1376719976",
+      "date": "2026-09-25"
+    }
+  }
+}

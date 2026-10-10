@@ -1,0 +1,15 @@
+{
+  "id": "an-asq-151",
+  "designation": "AN/ASQ-151 EVS",
+  "family": "passive_optical",
+  "summary": "Electro-optical Viewing System: an AN/AAQ-6 forward-looking infrared with an AN/AVQ-22 low-light-level television, in blisters under the nose",
+  "parameters": {},
+  "sources": {
+    "wp-b52h": {
+      "title": "Boeing B-52 Stratofortress",
+      "publisher": "Wikipedia (revision 1378364860)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_B-52_Stratofortress&oldid=1378364860",
+      "date": "2026-10-04"
+    }
+  }
+}

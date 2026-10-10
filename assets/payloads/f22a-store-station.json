@@ -1,0 +1,247 @@
+{
+  "id": "f22a-store-station",
+  "designation": "F-22A store station",
+  "family": "store_station",
+  "summary": "A suspension point on the F-22A for one store or launcher: missiles, bombs, tanks, pods",
+  "parameters": {},
+  "sources": {
+    "wp-f22a": {
+      "title": "Lockheed Martin F-22 Raptor",
+      "publisher": "Wikipedia (revision 1375913406)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_Martin_F-22_Raptor&oldid=1375913406",
+      "date": "2026-09-20"
+    }
+  },
+  "stations": [
+    {
+      "number": 1,
+      "name": "left outboard",
+      "position_m": [
+        -2.101,
+        -5.424,
+        0.416
+      ],
+      "carriage": "rail+ejector",
+      "launcher": "missile rail or ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "tank",
+        "aam"
+      ],
+      "max_kg": 2268.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either; its limit FAS's 5,000 lb per underwing hardpoint (a 600 US gal tank full, ~2044 kg, is carried there)"
+    },
+    {
+      "number": 2,
+      "name": "left inboard",
+      "position_m": [
+        -0.542,
+        -1.695,
+        0.302
+      ],
+      "carriage": "rail+ejector",
+      "launcher": "missile rail or ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "tank",
+        "aam"
+      ],
+      "max_kg": 2268.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either; its limit FAS's 5,000 lb per underwing hardpoint (a 600 US gal tank full, ~2044 kg, is carried there)"
+    },
+    {
+      "number": 3,
+      "name": "left side bay",
+      "position_m": [
+        2.5,
+        -1.3,
+        0.3
+      ],
+      "carriage": "rail",
+      "launcher": "LAU-141 trapeze rail",
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 250.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 4,
+      "name": "main bay 1",
+      "position_m": [
+        0.6,
+        -0.75,
+        0.4
+      ],
+      "carriage": "ejector",
+      "launcher": "LAU-142 ejection launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 400.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 5,
+      "name": "main bay 2",
+      "position_m": [
+        -0.6,
+        -0.45,
+        0.4
+      ],
+      "carriage": "ejector",
+      "launcher": "LAU-142 ejection launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 400.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 6,
+      "name": "main bay 3",
+      "position_m": [
+        0.6,
+        -0.15,
+        0.4
+      ],
+      "carriage": "ejector",
+      "launcher": "LAU-142 ejection launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 400.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 7,
+      "name": "main bay 4",
+      "position_m": [
+        -0.6,
+        0.15,
+        0.4
+      ],
+      "carriage": "ejector",
+      "launcher": "LAU-142 ejection launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 400.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 8,
+      "name": "main bay 5",
+      "position_m": [
+        0.6,
+        0.45,
+        0.4
+      ],
+      "carriage": "ejector",
+      "launcher": "LAU-142 ejection launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 400.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 9,
+      "name": "main bay 6",
+      "position_m": [
+        -0.6,
+        0.75,
+        0.4
+      ],
+      "carriage": "ejector",
+      "launcher": "LAU-142 ejection launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 400.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 10,
+      "name": "right side bay",
+      "position_m": [
+        2.5,
+        1.3,
+        0.3
+      ],
+      "carriage": "rail",
+      "launcher": "LAU-141 trapeze rail",
+      "takes": [
+        "aam"
+      ],
+      "max_kg": 250.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either"
+    },
+    {
+      "number": 11,
+      "name": "right inboard",
+      "position_m": [
+        -0.542,
+        1.695,
+        0.302
+      ],
+      "carriage": "rail+ejector",
+      "launcher": "missile rail or ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "tank",
+        "aam"
+      ],
+      "max_kg": 2268.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either; its limit FAS's 5,000 lb per underwing hardpoint (a 600 US gal tank full, ~2044 kg, is carried there)"
+    },
+    {
+      "number": 12,
+      "name": "right outboard",
+      "position_m": [
+        -2.101,
+        5.424,
+        0.416
+      ],
+      "carriage": "rail+ejector",
+      "launcher": "missile rail or ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "tank",
+        "aam"
+      ],
+      "max_kg": 2268.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "note": "its place derived from hangar's design of the aircraft by the platform's one rule (wing pylons evenly from 25 % to 80 % of the semi-span, 40 % of the local chord aft of the leading edge, 0.6 m below the wing; wingtip rails 0.15 m beyond the tip; fuselage and bay stations at offsets from the CG), its limit by its kind: engineering assumptions, no source giving either; its limit FAS's 5,000 lb per underwing hardpoint (a 600 US gal tank full, ~2044 kg, is carried there)"
+    }
+  ]
+}

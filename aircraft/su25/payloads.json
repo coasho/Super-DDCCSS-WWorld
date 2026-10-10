@@ -1,0 +1,99 @@
+{
+  "aircraft": "su25",
+  "note": "Su-25 late production (baseline and SM avionics).",
+  "sources": {
+    "wp-su25": {
+      "title": "Sukhoi Su-25",
+      "publisher": "Wikipedia (revision 1375887277)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Sukhoi_Su-25&oldid=1375887277",
+      "date": "2026-09-20"
+    },
+    "16va-su25": {
+      "title": "Su-25: two, later four, wing pylons plumbed for tanks",
+      "publisher": "16va.be",
+      "url": "https://16va.be/3.3_appui_tactique_part9_eng.html",
+      "date": "2026-10-09"
+    }
+  },
+  "payloads": [
+    {
+      "name": "laser",
+      "card": "klen-ps",
+      "source": "wp-su25",
+      "evidence": [
+        "Klen-PS laser target designator"
+      ]
+    },
+    {
+      "name": "rwr",
+      "card": "spo-15",
+      "source": "wp-su25",
+      "evidence": [
+        "SPO-15 radar warning receiver"
+      ]
+    },
+    {
+      "name": "cmds",
+      "card": "aso-2v",
+      "source": "wp-su25",
+      "note": "up to 250 flares and chaff",
+      "evidence": [
+        "ASO-2V decoy dispensers (chaff and flare)",
+        "up to 250 flares and dipole chaff"
+      ]
+    },
+    {
+      "name": "gun",
+      "card": "gsh-30-2",
+      "source": "wp-su25",
+      "note": "250 rounds",
+      "evidence": [
+        "GSh-30-2 autocannon (250-round magazine)"
+      ]
+    },
+    {
+      "name": "stations",
+      "card": "su25-store-station",
+      "count": 11,
+      "source": "wp-su25",
+      "note": "eleven hardpoints",
+      "evidence": [
+        "Hardpoints: 11 hardpoints"
+      ]
+    }
+  ],
+  "loadouts": [
+    {
+      "name": "self-defence",
+      "note": "the article's R-60: two, on the outermost pylons (the count and stations: assumed)",
+      "source": "wp-su25",
+      "stations": [
+        {
+          "payload": "stations",
+          "station": 1,
+          "store": "r-60m"
+        },
+        {
+          "payload": "stations",
+          "station": 11,
+          "store": "r-60m"
+        }
+      ]
+    },
+    {
+      "name": "external tanks",
+      "note": "two PTB-800 on the inner pylons (which pylons are plumbed is not published: assumed) (ADR-30, MS-7g: a tank's fuel feeds the aircraft's own tanks; jettisoned, it flies on with what is left)",
+      "source": "16va-su25",
+      "stations": [
+        {
+          "station": 5,
+          "store": "ptb-800"
+        },
+        {
+          "station": 7,
+          "store": "ptb-800"
+        }
+      ]
+    }
+  ]
+}

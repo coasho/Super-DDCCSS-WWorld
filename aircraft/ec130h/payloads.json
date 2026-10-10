@@ -1,0 +1,22 @@
+{
+  "aircraft": "ec130h",
+  "note": "EC-130H Compass Call.",
+  "sources": {
+    "wp-ec130h": {
+      "title": "Lockheed EC-130H Compass Call",
+      "publisher": "Wikipedia (revision 1378861999)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_EC-130H_Compass_Call&oldid=1378861999",
+      "date": "2026-10-06"
+    }
+  },
+  "payloads": [
+    {
+      "name": "ea",
+      "card": "compass-call",
+      "source": "wp-ec130h",
+      "evidence": [
+        "Compass Call is an electronic attack aircraft"
+      ]
+    }
+  ]
+}

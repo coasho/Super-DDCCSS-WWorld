@@ -1,0 +1,15 @@
+{
+  "id": "oeps-29",
+  "designation": "OEPS-29",
+  "family": "passive_optical",
+  "summary": "optical-electronic sighting system: infrared search and track with laser rangefinder",
+  "parameters": {},
+  "sources": {
+    "wp-mig29a": {
+      "title": "Mikoyan MiG-29",
+      "publisher": "Wikipedia (revision 1378805039)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Mikoyan_MiG-29&oldid=1378805039",
+      "date": "2026-10-06"
+    }
+  }
+}

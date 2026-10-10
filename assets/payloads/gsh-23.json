@@ -1,0 +1,15 @@
+{
+  "id": "gsh-23",
+  "designation": "GSh-23",
+  "family": "gun",
+  "summary": "23 mm twin-barrel cannon",
+  "parameters": {},
+  "sources": {
+    "wp-j10a": {
+      "title": "Chengdu J-10",
+      "publisher": "Wikipedia (revision 1378859868)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Chengdu_J-10&oldid=1378859868",
+      "date": "2026-10-06"
+    }
+  }
+}

@@ -1,0 +1,103 @@
+{
+  "aircraft": "f35a",
+  "note": "F-35A.",
+  "sources": {
+    "wp-f35a": {
+      "title": "Lockheed Martin F-35 Lightning II",
+      "publisher": "Wikipedia (revision 1378856932)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_Martin_F-35_Lightning_II&oldid=1378856932",
+      "date": "2026-10-06"
+    }
+  },
+  "payloads": [
+    {
+      "name": "radar",
+      "card": "an-apg-81",
+      "source": "wp-f35a",
+      "evidence": [
+        "AN/APG-81 active electronically scanned array"
+      ]
+    },
+    {
+      "name": "ews",
+      "card": "an-asq-239",
+      "source": "wp-f35a",
+      "evidence": [
+        "AN/ASQ-239 Barracuda electronic warfare system"
+      ]
+    },
+    {
+      "name": "eots",
+      "card": "an-aaq-40",
+      "source": "wp-f35a",
+      "evidence": [
+        "AN/AAQ-40 Electro-Optical Targeting System"
+      ]
+    },
+    {
+      "name": "das",
+      "card": "an-aaq-37",
+      "source": "wp-f35a",
+      "evidence": [
+        "AN/AAQ-37 Electro-optical Distributed Aperture System"
+      ]
+    },
+    {
+      "name": "gun",
+      "card": "gau-22a",
+      "source": "wp-f35a",
+      "note": "182 rounds",
+      "evidence": [
+        "mounted internally near the left wing root with 182 rounds"
+      ]
+    },
+    {
+      "name": "stations",
+      "card": "f35a-store-station",
+      "count": 10,
+      "source": "wp-f35a",
+      "note": "four internal, six external on the wings",
+      "evidence": [
+        "internal stations, 6"
+      ]
+    },
+    {
+      "name": "cni",
+      "card": "an-asq-242",
+      "source": "wp-f35a",
+      "note": "MADL, Link 16, IFF and radios",
+      "evidence": [
+        "AN/ASQ-242 CNI suite"
+      ]
+    }
+  ],
+  "loadouts": [
+    {
+      "name": "internal air-to-air",
+      "note": "the article's 'typical internal capacity of 4 x AIM-120': the AIM-120C on the four bay stations",
+      "source": "wp-f35a",
+      "stations": [
+        {
+          "payload": "stations",
+          "station": 4,
+          "store": "aim-120c"
+        },
+        {
+          "payload": "stations",
+          "station": 5,
+          "store": "aim-120c"
+        },
+        {
+          "payload": "stations",
+          "station": 7,
+          "store": "aim-120c"
+        },
+        {
+          "payload": "stations",
+          "station": 8,
+          "store": "aim-120c"
+        }
+      ]
+    }
+  ]
+}

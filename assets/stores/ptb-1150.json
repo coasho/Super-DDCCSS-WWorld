@@ -1,0 +1,91 @@
+{
+  "id": "ptb-1150",
+  "designation": "PTB-1150",
+  "class": "tank",
+  "summary": "a 1,150 L wing tank: the MiG-29's later batches, the Su-25's",
+  "maker": "Mikoyan / Sukhoi",
+  "model": "jsbsim:ptb1150",
+  "powerable": false,
+  "jettisonable": true,
+  "fins": false,
+  "parameters": {
+    "capacity_l": {
+      "value": 1150.0,
+      "unit": "L",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "ac-ptb1150"
+    },
+    "fuel_kg": {
+      "value": 920.0,
+      "unit": "kg",
+      "uncertainty": 46.0,
+      "basis": "derived",
+      "source": "wp-jetfuel",
+      "note": "its capacity full at 0.80 kg/L (Jet A-1 / JP-8 at 15 C lies 0.775 - 0.840): one density for every tank"
+    },
+    "mass_kg": {
+      "value": 115.0,
+      "unit": "kg",
+      "uncertainty": 40.25,
+      "basis": "assumed",
+      "note": "its empty mass: 0.10 kg per litre of capacity, the published tanks' mean (one rule for every tank without a figure); not published"
+    },
+    "length_m": {
+      "value": 5.1653,
+      "unit": "m",
+      "uncertainty": 1.0331,
+      "basis": "assumed",
+      "note": "its size: 8 diameters long, its fuel 0.68 of the cylinder (the four published tanks' means; one rule for every tank without one)"
+    },
+    "diameter_m": {
+      "value": 0.6457,
+      "unit": "m",
+      "uncertainty": 0.0968,
+      "basis": "assumed",
+      "note": "its size: 8 diameters long, its fuel 0.68 of the cylinder (the four published tanks' means; one rule for every tank without one)"
+    },
+    "drag_area_m2": {
+      "value": 0.02139,
+      "unit": "m^2",
+      "uncertainty": 0.00642,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its card, stores.py's tank profile (hangar storedrag.py: Hoerner's body of revolution 0.01985, its base 0.00154, its fins' friction 0.00000 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 1.16147,
+      "unit": "m^3",
+      "uncertainty": 0.34844,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 1.2682 m^3 from its card, stores.py's tank profile, times Lamb's k2 - k1 = 0.916 for its fineness 8.0 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.0262,
+      "unit": "m^2",
+      "uncertainty": 0.00786,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 2.5827,
+      "unit": "m",
+      "uncertainty": 0.5165,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "ac-ptb1150": {
+      "title": "PTB-1150 (1,150 L)",
+      "publisher": "Armed Conflicts",
+      "url": "https://www.armedconflicts.com/-t101778",
+      "date": "2026-10-09"
+    },
+    "wp-jetfuel": {
+      "title": "Jet fuel (Jet A-1: density 0.804 kg/L at 15 C)",
+      "publisher": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Jet_fuel",
+      "date": "2026-10-09"
+    }
+  }
+}

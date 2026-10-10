@@ -1,0 +1,36 @@
+{
+  "aircraft": "c130j",
+  "note": "C-130J. Its missile warning and countermeasures dispensers are not named in a source found.",
+  "sources": {
+    "bae-alr56m": {
+      "title": "Delivering advanced radar warning receivers to protect U.S. Air Force aircraft",
+      "publisher": "BAE Systems",
+      "url": "https://www.baesystems.com/en-us/article/delivering-advanced-radar-warning-receivers-to-protect-u-s--air-force-aircraft",
+      "date": "2024-07-09"
+    },
+    "ng-apn241": {
+      "title": "Northrop Grumman, Dasa Intend to Collaborate on Radar for European Transport Aircraft Program",
+      "publisher": "Northrop Grumman (press release)",
+      "url": "https://www.globenewswire.com/news-release/2000/06/07/278564/189/en/Northrop-Grumman-Dasa-Intend-to-Collaborate-on-Radar-for-European-Transport-Aircraft-Program.html",
+      "date": "2000-06-07"
+    }
+  },
+  "payloads": [
+    {
+      "name": "rwr",
+      "card": "an-alr-56m",
+      "source": "bae-alr56m",
+      "evidence": [
+        "AN/ALR-56M Radar Warning Receiver safeguards F-16 Fighting Falcons and C-130J Super Hercules aircraft"
+      ]
+    },
+    {
+      "name": "radar",
+      "card": "an-apn-241",
+      "source": "ng-apn241",
+      "evidence": [
+        "baseline for the new C-130J, the AN/APN-241"
+      ]
+    }
+  ]
+}

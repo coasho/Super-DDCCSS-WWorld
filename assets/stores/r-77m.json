@@ -1,0 +1,135 @@
+{
+  "id": "r-77m",
+  "designation": "R-77M",
+  "class": "aam",
+  "summary": "Long-range active-radar air-to-air missile (izdeliye 180): AESA seeker, dual-pulse motor, conventional fins",
+  "maker": "Vympel",
+  "model": "",
+  "powerable": true,
+  "jettisonable": true,
+  "seeker": "active_radar",
+  "guidance": "inertial with midcourse datalink updates, terminal active radar homing (AESA seeker)",
+  "motor": "dual-pulse solid rocket",
+  "fuze": "laser proximity",
+  "warhead": "rod, paired rods with shaped-charge elements (the R-77's)",
+  "warhead_kind": "rod",
+  "explosive": "TGAF-5",
+  "parameters": {
+    "mass_kg": {
+      "value": 190.0,
+      "unit": "kg",
+      "uncertainty": 25.0,
+      "basis": "assumed",
+      "note": "no source read gives it: the R-77-1's published 190 kg, wide (a dual-pulse motor and new fins)"
+    },
+    "length_m": {
+      "value": 3.71,
+      "unit": "m",
+      "uncertainty": 0.25,
+      "basis": "assumed",
+      "note": "no source read gives it: the R-77-1's published 3.71 m"
+    },
+    "diameter_m": {
+      "value": 0.2,
+      "unit": "m",
+      "uncertainty": 0.01,
+      "basis": "published",
+      "source": "wp-r77",
+      "note": "the R-77 family's 200 mm"
+    },
+    "warhead_kg": {
+      "value": 22.5,
+      "unit": "kg",
+      "uncertainty": 2.0,
+      "basis": "assumed",
+      "note": "the R-77 and R-77-1's 22.5 kg: the R-77M's own not given"
+    },
+    "range_km": {
+      "value": 190.0,
+      "unit": "km",
+      "uncertainty": 30.0,
+      "basis": "published",
+      "source": "wp-r77",
+      "note": "R-77M, RVV-SDM"
+    },
+    "speed_mach": {
+      "value": 4.0,
+      "unit": "Mach",
+      "uncertainty": 0.5,
+      "basis": "published",
+      "source": "wp-r77",
+      "note": "the family's Mach 4"
+    },
+    "power_up_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "power_down_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "explosive_kg": {
+      "value": 9.725,
+      "unit": "kg",
+      "uncertainty": 1.46,
+      "basis": "published",
+      "source": "wt-datamine",
+      "note": "a game reference: War Thunder's su_r_77_1 (the R-77-1's) (TGAF-5); no manufacturer or encyclopedia gives the charge"
+    },
+    "gurney_kms": {
+      "value": 2.4,
+      "unit": "km/s",
+      "uncertainty": 0.15,
+      "basis": "assumed",
+      "note": "TGAF-5 (TNT/RDX/aluminium, Russian) is not in Cooper's table: as HBX, its nearest composition - an estimate"
+    },
+    "drag_area_m2": {
+      "value": 0.00924,
+      "unit": "m^2",
+      "uncertainty": 0.00277,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its design (hangar storedrag.py: Hoerner's body of revolution 0.00438, its base 0.00156, its fins' friction 0.00330 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 0.10629,
+      "unit": "m^3",
+      "uncertainty": 0.03189,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.1082 m^3 from its design, times Lamb's k2 - k1 = 0.982 for its fineness 18.5 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.39385,
+      "unit": "m^2",
+      "uncertainty": 0.11815,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 1.4875,
+      "unit": "m",
+      "uncertainty": 0.371,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "wp-r77": {
+      "title": "R-77",
+      "publisher": "Wikipedia (revision 1376710629)",
+      "url": "https://en.wikipedia.org/w/index.php?title=R-77&oldid=1376710629",
+      "date": "2026-09-25"
+    },
+    "wt-datamine": {
+      "title": "War Thunder datamine: rocketguns weapon files (a game reference: the game's own values, not a manufacturer's)",
+      "publisher": "gszabi99/War-Thunder-Datamine (GitHub)",
+      "url": "https://github.com/gszabi99/War-Thunder-Datamine/tree/master/aces.vromfs.bin_u/gamedata/weapons/rocketguns",
+      "date": "2026-10-09"
+    }
+  }
+}

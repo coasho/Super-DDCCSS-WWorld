@@ -1,0 +1,138 @@
+# PL-8, built by hangar from public data (ADR-30, MS-7e1) - written by `python -m hangar missiles pl8`
+# (tools/hangar/hangar/missiles.py), one rule for every missile: edit the table there and write it again.
+#
+# Frame: metres, x aft from the nose's tip, y right, z up from the body's axis. The card (assets/stores/pl-8.json)
+# holds the published figures: length 2.95 m, diameter 0.16 m, mass 115 kg; span 0.8 m (the card), tip to tip across
+# opposite fins. Its surfaces fly in an X, 45 deg from the vertical, as it hangs on its launcher (assumed for all).
+# Assumed from photographs, the same way for every missile: the nose's shape and length, each surface's place,
+# chords and sweep, the motor's nozzle and burn, the CG. They only shape the picture until the aero stage runs.
+
+[aircraft]
+name = "pl8"
+description = "PL-8 (hangar build)"
+category = "missile"
+card = "pl-8"             # its store card: the published figures this design holds
+
+[analysis]
+speed = 900.0                # m/s: the Reynolds numbers (Mach 3 at altitude) - assumed
+
+# The infrared seeker's glass dome (36 % of the body's radius - assumed), on its cone
+[[body]]
+name = "canopy seeker dome"
+kind = "pod"
+stations = [
+  { x = 0.0, w = 0.0, top = 0.0, bottom = 0.0, n = 2 },
+  { x = 0.0072, w = 0.038, top = 0.019, bottom = -0.019, n = 2 },
+  { x = 0.0173, w = 0.053, top = 0.0265, bottom = -0.0265, n = 2 },
+  { x = 0.0288, w = 0.0576, top = 0.0288, bottom = -0.0288, n = 2 },
+  { x = 0.0403, w = 0.0576, top = 0.0288, bottom = -0.0288, n = 2 },
+]
+
+# The body: the seeker's cone, the cylinder, a boattail over the nozzle (assumed)
+[[body]]
+name = "body"
+kind = "fuselage"
+stations = [
+  { x = 0.013, w = 0.0461, top = 0.023, bottom = -0.023, n = 2 },
+  { x = 0.0288, w = 0.0559, top = 0.0279, bottom = -0.0279, n = 2 },
+  { x = 0.1168, w = 0.1164, top = 0.0582, bottom = -0.0582, n = 2 },
+  { x = 0.2048, w = 0.16, top = 0.08, bottom = -0.08, n = 2 },
+  { x = 2.854, w = 0.16, top = 0.08, bottom = -0.08, n = 2 },
+  { x = 2.95, w = 0.128, top = 0.064, bottom = -0.064, n = 2 },
+]
+
+# The canards: fixed; root chord 0.12 m, tip 0.04 m, 0.06 m out from the body (assumed from photographs)
+[[surface]]
+name = "canard upper"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [0.3, 0.0549, 0.0549], chord = 0.12 },
+  { le = [0.38, 0.099, 0.099], chord = 0.04 },
+]
+
+[[surface]]
+name = "canard lower"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [0.3, 0.0549, -0.0549], chord = 0.12 },
+  { le = [0.38, 0.099, -0.099], chord = 0.04 },
+]
+
+# The canards: all-moving about their spindles; root chord 0.3 m, tip 0.06 m, 0.13 m out from the body (assumed from photographs)
+[[surface]]
+name = "canard upper"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [0.45, 0.0549, 0.0549], chord = 0.3 },
+  { le = [0.69, 0.1485, 0.1485], chord = 0.06 },
+]
+controls = [
+  { name = "canard upper", channel = "elevator", gain = -1.0, mix = { rudder = -1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-20, 20] },
+]
+
+[[surface]]
+name = "canard lower"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [0.45, 0.0549, -0.0549], chord = 0.3 },
+  { le = [0.69, 0.1485, -0.1485], chord = 0.06 },
+]
+controls = [
+  { name = "canard lower", channel = "elevator", gain = -1.0, mix = { rudder = -1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-20, 20] },
+]
+
+# The tail fins: fixed, with ailerons along their trailing edges; root chord 0.62 m, tip 0.2 m, 0.32 m out from the body, their tips across the card's span (assumed from photographs)
+[[surface]]
+name = "tail fin upper"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [2.2, 0.0549, 0.0549], chord = 0.62 },
+  { le = [2.62, 0.2828, 0.2828], chord = 0.2 },
+]
+controls = [
+  { name = "aileron upper", channel = "aileron", span = [0.05, 0.95], chord_fraction = 0.3, limits = [-20, 20] },
+]
+
+[[surface]]
+name = "tail fin lower"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [2.2, 0.0549, -0.0549], chord = 0.62 },
+  { le = [2.62, 0.2828, -0.2828], chord = 0.2 },
+]
+controls = [
+  { name = "aileron lower", channel = "aileron", span = [0.05, 0.95], chord_fraction = 0.3, limits = [-20, 20] },
+]
+
+# The rocket motor: solid (the card); its smoke assumed. Its nozzle in the boattail, its exit 65 % of the base and its burn's phases assumed
+# (none published): only what a replay shows the plume with until a flight model burns it.
+[motor]
+exit = [2.95, 0.0, 0.0]
+exit_diameter = 0.0832
+throat_diameter = 0.0374
+cone_length = 0.0915
+smoke = "reduced"
+[[motor.phase]]
+duration_s = 3
+thrust_kn = 20
+
+[mass]
+empty = 115                 # kg, the card, motor full
+empty_cg = [1.475, 0.0, 0.0]  # assumed: half way along
+gyration = [0.019, 0.289, 0.289]  # radii of gyration over length - assumed (a slender rod's: L/sqrt(12))
+
+[dimensions]                  # the card: the span tip to tip across opposite fins
+length = 2.95
+span = 0.8

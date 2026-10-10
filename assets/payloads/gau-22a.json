@@ -1,0 +1,16 @@
+{
+  "id": "gau-22a",
+  "designation": "GAU-22/A",
+  "family": "gun",
+  "summary": "25 mm four-barrel rotary cannon, a lighter variant of the GAU-12/U Equalizer",
+  "maker": "General Dynamics",
+  "parameters": {},
+  "sources": {
+    "wp-f35a": {
+      "title": "Lockheed Martin F-35 Lightning II",
+      "publisher": "Wikipedia (revision 1378856932)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_Martin_F-35_Lightning_II&oldid=1378856932",
+      "date": "2026-10-06"
+    }
+  }
+}

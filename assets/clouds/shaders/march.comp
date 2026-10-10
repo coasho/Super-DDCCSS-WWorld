@@ -1,0 +1,744 @@
+// The clouds' march: takram-design-engineering/three-geospatial (MIT, see ../LICENSE-three-geospatial.txt)
+// packages/clouds/src/shaders/clouds.frag and clouds.vert, as a compute shader over the quarter-size image their
+// temporal upscaling marches (CloudsPass, CloudsMaterial). Their code, in their order, with these changes (marked fsim):
+// - the ray of a texel: the full-size pixel the frame's Bayer offset picks, unprojected with this frame's matrices
+//   (what their jittered inverse projection gives); the per-vertex values computed here per texel;
+// - the rays do not end at the scene: nothing has its depth before this pass, and ending them at the vehicles'
+//   depth cut an aircraft-shaped hole in the cloud that the quarter-size march and the reprojection moved off the
+//   aircraft; what is in front of the cloud hides it when it is drawn (depth-tested where it starts, world::Clouds);
+// - the textures read at the level a pixel's footprint there asks for (fsimSetFootprint; their 3D noise has no
+//   levels, and from far off it aliased into separate flickering puffs);
+// - nothing that is not a number kept (it spread through the temporal resolve);
+// - the mip level of the weather from the differences to the next texels' ray origins (their dFdx/dFdy);
+// - the coverage at each sample from fsim/coverage.glsl;
+// - the first step no longer than their longest (views from far off), and no step across the layers longer than 60 m
+//   vertically, the gaps between them skipped to their edge (with the march's jitter): from high up, steps of up to
+//   a kilometre through layers 650 m deep found a cloud or missed it by chance, and a pixel flickered between the two
+//   (400 km up: flicker 1.30 -> 0.64, the clouds found over 14 % of the view rather than 8 %; no cost in a chase);
+// - far off, Skybolt's far clouds (Prograda/Skybolt, MPL-2.0: Assets/Core/Shaders/VolumeClouds.frag; its method, not
+//   its code): as a pixel spans more of the weather texture the march gives way to the global cloud map lit as a
+//   layer - its cover at the footprint's level, times the sun's and the sky's light / 4 pi, 1.3 times (their match to
+//   the march), desaturated by 15 % - and is not made at all past it; marched from far off, the layers' few samples a
+//   pixel fell in or out of a cloud by chance, and the globe sparkled with separate puffs. The hand-over is from the
+//   texture's level 0.75 to 2 (Skybolt's 2 to 6, for a coarser texture of theirs): the march resolves takram's cumulus
+//   (1 - 2 km, 5 - 10 texels) while each spans three pixels or more, and the layer - the cover a pixel's area holds,
+//   what a camera records of clouds smaller than its pixels - takes over as they shrink to one; from 1000 km up the
+//   march had drawn every cloud mass as a speckle of separate puffs a pixel or two across;
+// - haze and light shafts (shadow length) are not made: both are for their own atmosphere's sky and ground, which
+//   the viewer does not draw - the terrain's and sky's own haze are there (world/Scattering, world/SkyDome);
+// - the cloud's shadow on the ground is not made here: the composite takes it from the Beer shadow maps for each pixel
+//   (composite.frag, MODE 0).
+
+#version 450
+layout(local_size_x = 8, local_size_y = 8) in;
+
+#define fsimClampMax P_screen.zw
+#define SHADOW_CASCADE_COUNT 3
+#define SHADOW_SAMPLE_COUNT 8
+#define SCATTER_ANISOTROPY_1 0.7
+#define SCATTER_ANISOTROPY_2 -0.2
+#define SCATTER_ANISOTROPY_MIX 0.5
+#define MULTI_SCATTERING_OCTAVES 8
+#define SHAPE_DETAIL 1
+#define FSIM_LAYER_STEP 60.0 // fsim: m, vertically
+#define TURBULENCE 1
+#define ACCURATE_SUN_SKY_LIGHT 1
+#define GROUND_BOUNCE 1
+#define POWDER 1
+
+#include "clouds/types.glsl"
+#include "fsim/params.glsl"
+#include "fsim/prelude.glsl"
+#include "core/math.glsl"
+#include "core/raySphereIntersection.glsl"
+#include "core/cascadedShadowMaps.glsl"
+#include "core/interleavedGradientNoise.glsl"
+#include "core/vogelDisk.glsl"
+#include "fsim/atmosphere.glsl"
+#include "fsim/coverage.glsl"
+
+// the march's resolution in takram's sense: the low-res image's size times 4
+#define resolution (P_screen.zw * 4.0)
+#include "clouds/clouds.glsl"
+
+#if !defined(RECIPROCAL_PI4)
+#define RECIPROCAL_PI4 0.07957747154594767
+#endif // !defined(RECIPROCAL_PI4)
+
+layout(set = 0, binding = 9) uniform sampler2DArray shadowBuffer;
+layout(set = 0, binding = 12, rgba16f) uniform writeonly image2D outputColorImage;
+layout(set = 0, binding = 13, rgba32f) uniform writeonly image2D outputDepthVelocityImage;
+
+#define viewMatrix P_view
+#define reprojectionMatrix P_reprojection
+#define viewReprojectionMatrix P_viewReprojection
+#define cameraNear P_nearFar.x
+#define cameraFar P_nearFar.y
+#define cameraHeight P_camera.w
+#define mipLevelScale P_frame.w
+#define skyLightScale P_light.x
+#define groundBounceScale P_light.y
+#define powderScale P_light.z
+#define powderExponent P_light.w
+#define maxIterationCount int(P_march2.w)
+#define minStepSize P_march2.x
+#define maxStepSize P_march2.y
+#define maxRayDistance P_march.w
+#define perspectiveStepScale P_march2.z
+#define minDensity P_march.x
+#define minExtinction P_march.y
+#define minTransmittance P_march.z
+#define maxIterationCountToSun int(P_secondary.x)
+#define maxIterationCountToGround int(P_secondary.y)
+#define minSecondaryStepSize P_secondary.z
+#define secondaryStepScale P_secondary.w
+#define shadowTexelSize P_shadowTexel.xy
+#define shadowMatrices P_shadow
+#define shadowFar P_nearFar.z
+#define maxShadowFilterRadius P_nearFar.w
+
+// Scattering
+const vec2 scatterAnisotropy = vec2(SCATTER_ANISOTROPY_1, SCATTER_ANISOTROPY_2);
+const float scatterAnisotropyMix = SCATTER_ANISOTROPY_MIX;
+
+vec2 shadowIntervals[SHADOW_CASCADE_COUNT];
+
+// fsim: their varyings, per texel
+vec2 vUv;
+vec3 vCameraPosition;
+vec3 vCameraDirection; // Direction to the center of screen
+vec3 vRayDirection; // Direction to the texel
+vec3 vViewPosition;
+GroundIrradiance vGroundIrradiance;
+CloudsIrradiance vCloudsIrradiance;
+vec2 temporalJitter; // (only for the shadow filter's noise: the frame's offset in full-size uv)
+
+// fsim: world is ECEF less the eye
+vec3 ecefToWorld(const vec3 positionECEF) {
+  return positionECEF - altitudeCorrection - P_camera.xyz;
+}
+
+vec2 getShadowUv(const vec3 worldPosition, const int cascadeIndex) {
+  vec4 clip = shadowMatrices[cascadeIndex] * vec4(worldPosition, 1.0);
+  clip /= clip.w;
+  return clip.xy * 0.5 + 0.5;
+}
+
+float getDistanceToShadowTop(const vec3 rayPosition) {
+  // Distance to the top of the shadows along the sun direction, which matches
+  // the ray origin of BSM.
+  return raySphereSecondIntersection(
+    rayPosition,
+    sunDirection,
+    vec3(0.0),
+    bottomRadius + shadowTopHeight
+  );
+}
+
+float readShadowOpticalDepth(
+  const vec2 uv,
+  const float distanceToTop,
+  const float distanceOffset,
+  const int cascadeIndex
+) {
+  // r: frontDepth, g: meanExtinction, b: maxOpticalDepth, a: maxOpticalDepthTail
+  // Also see the discussion here: https://x.com/shotamatsuda/status/1885322308908442106
+  vec4 shadow = textureLod(shadowBuffer, vec3(uv, float(cascadeIndex)), 0.0);
+  float distanceToFront = max(0.0, distanceToTop - distanceOffset - shadow.r);
+  return min(shadow.b + shadow.a, shadow.g * distanceToFront);
+}
+
+float sampleShadowOpticalDepthPCF(
+  const vec3 worldPosition,
+  const float distanceToTop,
+  const float distanceOffset,
+  const float radius,
+  const int cascadeIndex
+) {
+  vec2 uv = getShadowUv(worldPosition, cascadeIndex);
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+    return 0.0;
+  }
+  if (radius < 0.1) {
+    return readShadowOpticalDepth(uv, distanceToTop, distanceOffset, cascadeIndex);
+  }
+  float sum = 0.0;
+  vec2 offset;
+  for (int i = 0; i < SHADOW_SAMPLE_COUNT; ++i) {
+    offset = vogelDisk(
+      i,
+      SHADOW_SAMPLE_COUNT,
+      interleavedGradientNoise(fsimFragCoord + temporalJitter * resolution) * PI2
+    );
+    sum += readShadowOpticalDepth(
+      uv + offset * radius * shadowTexelSize,
+      distanceToTop,
+      distanceOffset,
+      cascadeIndex
+    );
+  }
+  return sum / float(SHADOW_SAMPLE_COUNT);
+}
+
+float sampleShadowOpticalDepth(
+  const vec3 rayPosition,
+  const float distanceOffset,
+  const float radius,
+  const float jitter
+) {
+  float distanceToTop = getDistanceToShadowTop(rayPosition);
+  if (distanceToTop <= 0.0) {
+    return 0.0;
+  }
+  vec3 worldPosition = ecefToWorld(rayPosition);
+  int cascadeIndex = getFadedCascadeIndex(
+    viewMatrix,
+    worldPosition,
+    shadowIntervals,
+    cameraNear,
+    shadowFar,
+    jitter
+  );
+  return cascadeIndex >= 0
+    ? sampleShadowOpticalDepthPCF(
+      worldPosition,
+      distanceToTop,
+      distanceOffset,
+      radius,
+      cascadeIndex
+    )
+    : 0.0;
+}
+
+vec2 henyeyGreenstein(const vec2 g, const float cosTheta) {
+  vec2 g2 = g * g;
+  // prettier-ignore
+  return RECIPROCAL_PI4 *
+    ((1.0 - g2) / max(vec2(1e-7), pow(1.0 + g2 - 2.0 * g * cosTheta, vec2(1.5))));
+}
+
+float phaseFunction(const float cosTheta, const float attenuation) {
+  const vec2 g = scatterAnisotropy;
+  const vec2 weights = vec2(1.0 - scatterAnisotropyMix, scatterAnisotropyMix);
+  // A similar approximation is described in the Frostbite's paper, where phase
+  // angle is attenuated instead of anisotropy.
+  return dot(henyeyGreenstein(g * attenuation, cosTheta), weights);
+}
+
+float phaseFunction(const float cosTheta) {
+  return phaseFunction(cosTheta, 1.0);
+}
+
+float marchOpticalDepth(
+  const vec3 rayOrigin,
+  const vec3 rayDirection,
+  const int maxIterationCount_,
+  const float mipLevel,
+  const float jitter,
+  out float rayDistance
+) {
+  int iterationCount = int(
+    max(0.0, remap(mipLevel, 0.0, 1.0, float(maxIterationCount_ + 1), 1.0) - jitter)
+  );
+  if (iterationCount == 0) {
+    // Fudge factor to approximate the mean optical depth.
+    // TODO: Remove it.
+    return 0.5;
+  }
+  float stepSize = minSecondaryStepSize / float(iterationCount);
+  float nextDistance = stepSize * jitter;
+  float opticalDepth = 0.0;
+  for (int i = 0; i < iterationCount; ++i) {
+    rayDistance = nextDistance;
+    vec3 position = rayDistance * rayDirection + rayOrigin;
+    vec2 uv = getGlobeUv(position);
+    float height = length(position) - bottomRadius;
+    fsimCoverage = fsimCoverageAt(position); // fsim
+    WeatherSample weather = sampleWeather(uv, height, mipLevel);
+    MediaSample media = sampleMedia(weather, position, uv, mipLevel, jitter);
+    opticalDepth += media.extinction * stepSize;
+    nextDistance += stepSize;
+    stepSize *= secondaryStepScale;
+  }
+  return opticalDepth;
+}
+
+float marchOpticalDepth(
+  const vec3 rayOrigin,
+  const vec3 rayDirection,
+  const int maxIterationCount_,
+  const float mipLevel,
+  const float jitter
+) {
+  float rayDistance;
+  return marchOpticalDepth(
+    rayOrigin,
+    rayDirection,
+    maxIterationCount_,
+    mipLevel,
+    jitter,
+    rayDistance
+  );
+}
+
+float approximateMultipleScattering(const float opticalDepth, const float cosTheta) {
+  // Multiple scattering approximation
+  // See: https://fpsunflower.github.io/ckulla/data/oz_volumes.pdf
+  // a: attenuation, b: contribution, c: phase attenuation
+  vec3 coeffs = vec3(1.0); // [a, b, c]
+  const vec3 attenuation = vec3(0.5, 0.5, 0.5); // Should satisfy a <= b
+  float scattering = 0.0;
+  float beerLambert;
+  for (int i = 0; i < MULTI_SCATTERING_OCTAVES; ++i) {
+    beerLambert = exp(-opticalDepth * coeffs.y);
+    scattering += coeffs.x * beerLambert * phaseFunction(cosTheta, coeffs.z);
+    coeffs *= attenuation;
+  }
+  return scattering;
+}
+
+// TODO: Construct spherical harmonics of degree 2 using 2 sample points
+// positioned near the horizon occlusion points on the sun direction plane.
+vec3 getGroundSunSkyIrradiance(
+  const vec3 position,
+  const vec3 surfaceNormal,
+  const float height,
+  out vec3 skyIrradiance
+) {
+  #ifdef ACCURATE_SUN_SKY_LIGHT
+  return GetSunAndSkyIrradiance(
+    (position - surfaceNormal * height) * METER_TO_LENGTH_UNIT,
+    surfaceNormal,
+    sunDirection,
+    skyIrradiance
+  );
+  #else // ACCURATE_SUN_SKY_LIGHT
+  skyIrradiance = vGroundIrradiance.sky;
+  return vGroundIrradiance.sun;
+  #endif // ACCURATE_SUN_SKY_LIGHT
+}
+
+vec3 getCloudsSunSkyIrradiance(const vec3 position, const float height, out vec3 skyIrradiance) {
+  #ifdef ACCURATE_SUN_SKY_LIGHT
+  return GetSunAndSkyScalarIrradiance(position * METER_TO_LENGTH_UNIT, sunDirection, skyIrradiance);
+  #else // ACCURATE_SUN_SKY_LIGHT
+  float alpha = remapClamped(height, minHeight, maxHeight);
+  skyIrradiance = mix(vCloudsIrradiance.minSky, vCloudsIrradiance.maxSky, alpha);
+  return mix(vCloudsIrradiance.minSun, vCloudsIrradiance.maxSun, alpha);
+  #endif // ACCURATE_SUN_SKY_LIGHT
+}
+
+#ifdef GROUND_BOUNCE
+vec3 approximateRadianceFromGround(
+  const vec3 position,
+  const vec3 surfaceNormal,
+  const float height,
+  const float mipLevel,
+  const float jitter
+) {
+  float opticalDepthToGround = marchOpticalDepth(
+    position,
+    -surfaceNormal,
+    maxIterationCountToGround,
+    mipLevel,
+    jitter
+  );
+  vec3 skyIrradiance;
+  vec3 sunIrradiance = getGroundSunSkyIrradiance(position, surfaceNormal, height, skyIrradiance);
+  const float groundAlbedo = 0.3;
+  vec3 groundIrradiance = skyIrradiance + (1.0 - coverage) * sunIrradiance;
+  vec3 bouncedRadiance = groundAlbedo * RECIPROCAL_PI * groundIrradiance;
+  return bouncedRadiance * exp(-opticalDepthToGround);
+}
+#endif // GROUND_BOUNCE
+
+vec4 marchClouds(
+  const vec3 rayOrigin,
+  const vec3 rayDirection,
+  const vec2 rayNearFar,
+  const float cosTheta,
+  const float jitter,
+  const float rayStartTexelsPerPixel,
+  out float frontDepth,
+  out float lightDepth,
+  out ivec3 sampleCount
+) {
+  vec3 radianceIntegral = vec3(0.0);
+  float transmittanceIntegral = 1.0;
+  float weightedDistanceSum = 0.0;
+  float transmittanceSum = 0.0;
+  float lightDistanceSum = 0.0, lightSum = 0.0; // fsim
+
+  float maxRayDistance_ = rayNearFar.y - rayNearFar.x;
+  // fsim: no longer than their longest step (from far off - from orbit - theirs grew past the layers' depth and
+  // stepped over them; takram draws no views from space)
+  float stepSize = min(minStepSize + (perspectiveStepScale - 1.0) * rayNearFar.x, maxStepSize);
+  // I don't understand why spatial aliasing remains unless doubling the jitter.
+  float rayDistance = stepSize * jitter * 2.0;
+
+  // fsim: the angle a full-size pixel spans (the temporal upscaling resolves to it)
+  float pixelAngle = 1.0 / (P_screen.y * 0.5 * abs(P_projection[1][1]));
+  for (int i = 0; i < maxIterationCount; ++i) {
+    if (rayDistance > maxRayDistance_) {
+      break; // Termination
+    }
+
+    vec3 position = rayDistance * rayDirection + rayOrigin;
+    float height = length(position) - bottomRadius;
+    float mipLevel = log2(max(1.0, rayStartTexelsPerPixel + rayDistance * 1e-5));
+    fsimSetFootprint((rayNearFar.x + rayDistance) * pixelAngle); // fsim
+
+    // fsim: steps no longer across the layers than a tenth of their depth (FSIM_LAYER_STEP, vertically); in the gaps
+    // between them, no further than the gap's edge
+    float mu = abs(dot(position, rayDirection)) / max(length(position), 1.0);
+    float layerCap = FSIM_LAYER_STEP / max(mu, 1e-3);
+    if (insideLayerIntervals(height)) {
+      stepSize *= perspectiveStepScale;
+      float edge = 1e9;
+      for (int k = 0; k < 3; ++k) {
+        if (height > minIntervalHeights[k] && height < maxIntervalHeights[k]) {
+          bool up = dot(position, rayDirection) > 0.0;
+          edge = (up ? maxIntervalHeights[k] - height : height - minIntervalHeights[k]) / max(mu, 1e-3) + jitter * min(stepSize, layerCap);
+        }
+      }
+      rayDistance += min(mix(stepSize, maxStepSize, min(1.0, mipLevel)), edge);
+      continue;
+    }
+
+    // Sample rough weather.
+    vec2 uv = getGlobeUv(position);
+    fsimCoverage = fsimCoverageAt(position); // fsim
+    WeatherSample weather = sampleWeather(uv, height, mipLevel);
+
+    if (!any(greaterThan(weather.density, vec4(minDensity)))) {
+      // Step longer in empty space.
+      // TODO: This produces banding artifacts.
+      // Possible improvement: Binary search refinement
+      stepSize *= perspectiveStepScale;
+      rayDistance += min(mix(stepSize, maxStepSize, min(1.0, mipLevel)), layerCap);
+      continue;
+    }
+    float stepNow = min(stepSize, layerCap); // fsim
+
+    // Sample detailed participating media.
+    MediaSample media = sampleMedia(weather, position, uv, mipLevel, jitter, sampleCount);
+
+    if (media.extinction > minExtinction) {
+      vec3 skyIrradiance;
+      vec3 sunIrradiance = getCloudsSunSkyIrradiance(position, height, skyIrradiance);
+      vec3 surfaceNormal = normalize(position);
+
+      // March optical depth to the sun for finer details, which BSM lacks.
+      float sunRayDistance = 0.0;
+      float opticalDepth = marchOpticalDepth(
+        position,
+        sunDirection,
+        maxIterationCountToSun,
+        mipLevel,
+        jitter,
+        sunRayDistance
+      );
+
+      if (height < shadowTopHeight) {
+        // Obtain the optical depth from BSM at the ray position.
+        opticalDepth += sampleShadowOpticalDepth(
+          position,
+          // Take account of only positions further than the marched ray
+          // distance.
+          sunRayDistance,
+          // Apply PCF only when the sun is close to the horizon.
+          maxShadowFilterRadius * remapClamped(dot(sunDirection, surfaceNormal), 0.1, 0.0),
+          jitter
+        );
+      }
+
+      vec3 radiance = sunIrradiance * approximateMultipleScattering(opticalDepth, cosTheta);
+
+      #ifdef GROUND_BOUNCE
+      // Fudge factor for the irradiance from ground.
+      if (height < shadowTopHeight && mipLevel < 0.5) {
+        fsimCoverage = fsimCoverageAt(position); // fsim (the ground march above set its own)
+        vec3 groundRadiance = approximateRadianceFromGround(
+          position,
+          surfaceNormal,
+          height,
+          mipLevel,
+          jitter
+        );
+        radiance += groundRadiance * RECIPROCAL_PI4 * groundBounceScale;
+      }
+      #endif // GROUND_BOUNCE
+
+      // Crude approximation of sky gradient. Better than none in the shadows.
+      float skyGradient = dot(weather.heightFraction * 0.5 + 0.5, media.weight);
+      radiance += skyIrradiance * RECIPROCAL_PI4 * skyGradient * skyLightScale;
+
+      // Finally multiply by scattering.
+      radiance *= media.scattering;
+
+      #ifdef POWDER
+      radiance *= 1.0 - powderScale * exp(-media.extinction * powderExponent);
+      #endif // POWDER
+
+      // Energy-conserving analytical integration of scattered light
+      // See 5.6.3 in https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/s2016-pbs-frostbite-sky-clouds-new.pdf
+      float transmittance = exp(-media.extinction * stepNow);
+      float clampedExtinction = max(media.extinction, 1e-7);
+      vec3 scatteringIntegral = (radiance - radiance * transmittance) / clampedExtinction;
+      radianceIntegral += transmittanceIntegral * scatteringIntegral;
+      // fsim: where the pixel's light comes from - each step weighted by the cover it adds
+      float added = transmittanceIntegral * (1.0 - transmittance);
+      lightDistanceSum += rayDistance * added;
+      lightSum += added;
+      transmittanceIntegral *= transmittance;
+
+      // Aerial perspective affecting clouds
+      // See 5.9.1 in https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/s2016-pbs-frostbite-sky-clouds-new.pdf
+      weightedDistanceSum += rayDistance * transmittanceIntegral;
+      transmittanceSum += transmittanceIntegral;
+    }
+
+    if (transmittanceIntegral <= minTransmittance) {
+      break; // Early termination
+    }
+
+    // Take a shorter step because we've already hit the clouds.
+    stepSize *= perspectiveStepScale;
+    rayDistance += min(stepSize, layerCap); // fsim
+  }
+
+  // The final product of 5.9.1 and we'll evaluate this in aerial perspective.
+  frontDepth = transmittanceSum > 0.0 ? weightedDistanceSum / transmittanceSum : -1.0;
+  lightDepth = lightSum > 0.0 ? lightDistanceSum / lightSum : frontDepth;
+
+  return vec4(radianceIntegral, remapClamped(transmittanceIntegral, 1.0, minTransmittance));
+}
+
+void applyAerialPerspective(
+  const vec3 cameraPosition,
+  const vec3 frontPosition,
+  const float shadowLength,
+  inout vec4 color
+) {
+  vec3 transmittance;
+  vec3 inscatter = GetSkyRadianceToPoint(
+    cameraPosition * METER_TO_LENGTH_UNIT,
+    frontPosition * METER_TO_LENGTH_UNIT,
+    shadowLength * METER_TO_LENGTH_UNIT,
+    sunDirection,
+    transmittance
+  );
+  color.rgb = color.rgb * transmittance + inscatter * color.a;
+}
+
+bool rayIntersectsGround(const vec3 cameraPosition, const vec3 rayDirection) {
+  float r = length(cameraPosition);
+  float mu = dot(cameraPosition, rayDirection) / r;
+  return mu < 0.0 && r * r * (mu * mu - 1.0) + bottomRadius * bottomRadius >= 0.0;
+}
+
+struct IntersectionResult {
+  bool ground;
+  vec4 first;
+  vec4 second;
+};
+
+IntersectionResult getIntersections(const vec3 cameraPosition, const vec3 rayDirection) {
+  IntersectionResult intersections;
+  intersections.ground = rayIntersectsGround(cameraPosition, rayDirection);
+  raySphereIntersections(
+    cameraPosition,
+    rayDirection,
+    bottomRadius + vec4(0.0, minHeight, maxHeight, shadowTopHeight),
+    intersections.first,
+    intersections.second
+  );
+  return intersections;
+}
+
+vec2 getRayNearFar(const IntersectionResult intersections) {
+  vec2 nearFar;
+  if (cameraHeight < minHeight) {
+    // View below the clouds
+    if (intersections.ground) {
+      nearFar = vec2(-1.0); // No clouds to the ground
+    } else {
+      nearFar = vec2(intersections.second.y, intersections.second.z);
+      nearFar.y = min(nearFar.y, maxRayDistance);
+    }
+  } else if (cameraHeight < maxHeight) {
+    // View inside the total cloud layer
+    if (intersections.ground) {
+      nearFar = vec2(cameraNear, intersections.first.y);
+    } else {
+      nearFar = vec2(cameraNear, intersections.second.z);
+    }
+  } else {
+    // View above the clouds
+    nearFar = vec2(intersections.first.z, intersections.second.z);
+    if (intersections.ground) {
+      // Clamp the ray at the min height.
+      nearFar.y = intersections.first.y;
+    }
+  }
+  return nearFar;
+}
+
+// fsim: the view ray through a point of the window (uv 0..1, Vulkan: y down), in view space and in ECEF
+vec3 fsimViewRay(const vec2 uv) {
+  vec4 h = P_inverseProjection * vec4(uv * 2.0 - 1.0, 1.0, 1.0);
+  return normalize(h.xyz / h.w);
+}
+
+// fsim: where the ray through a window point first meets the cloud layer (as getRayNearFar), for the mip level
+vec2 fsimGlobeUvAtRayStart(const vec2 uv, const vec3 cameraPosition) {
+  vec3 dir = normalize((P_inverseView * vec4(fsimViewRay(uv), 0.0)).xyz);
+  IntersectionResult intersections = getIntersections(cameraPosition, dir);
+  vec2 nearFar = getRayNearFar(intersections);
+  return getGlobeUv(max(nearFar.x, 0.0) * dir + cameraPosition);
+}
+
+void main() {
+  ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+  if (coord.x >= int(P_screen.z) || coord.y >= int(P_screen.w)) {
+    return;
+  }
+  fsimFragCoord = vec2(coord) + 0.5;
+  for (int i = 0; i < SHADOW_CASCADE_COUNT; ++i) {
+    shadowIntervals[i] = P_shadowIntervals[i].xy;
+  }
+
+  // fsim: clouds.vert, at the full-size pixel this frame's Bayer offset picks in the texel's 4 x 4 block
+  vec2 pixel = vec2(coord) * 4.0 + P_frame.xy * 4.0;
+  vUv = pixel / P_screen.xy;
+  temporalJitter = (P_frame.xy - 0.5) * 4.0 / P_screen.xy;
+  vec3 viewRay = fsimViewRay(vUv);
+  vViewPosition = viewRay / -viewRay.z;
+  vCameraPosition = P_camera.xyz;
+  vCameraDirection = normalize((P_inverseView * vec4(0.0, 0.0, -1.0, 0.0)).xyz);
+  vRayDirection = (P_inverseView * vec4(viewRay, 0.0)).xyz;
+  {
+    vec3 positionECEF = vCameraPosition + altitudeCorrection;
+    vGroundIrradiance.sun = GetSunAndSkyScalarIrradiance(positionECEF * METER_TO_LENGTH_UNIT, sunDirection, vGroundIrradiance.sky);
+    vec3 surfaceNormal = normalize(positionECEF);
+    vec2 radii = (bottomRadius + vec2(minHeight, maxHeight)) * METER_TO_LENGTH_UNIT;
+    vCloudsIrradiance.minSun = GetSunAndSkyScalarIrradiance(surfaceNormal * radii.x, sunDirection, vCloudsIrradiance.minSky);
+    vCloudsIrradiance.maxSun = GetSunAndSkyScalarIrradiance(surfaceNormal * radii.y, sunDirection, vCloudsIrradiance.maxSky);
+  }
+
+  vec3 cameraPosition = vCameraPosition + altitudeCorrection;
+  vec3 rayDirection = normalize(vRayDirection);
+  float cosTheta = dot(sunDirection, rayDirection);
+
+  IntersectionResult intersections = getIntersections(cameraPosition, rayDirection);
+  vec2 rayNearFar = getRayNearFar(intersections);
+
+  float sceneViewZ = 0.0; // fsim: (no scene depth)
+
+  bool intersectsGround = any(lessThan(rayNearFar, vec2(0.0)));
+  bool intersectsScene = rayNearFar.y < rayNearFar.x;
+
+  float stbn = getSTBN();
+
+  vec4 color = vec4(0.0);
+  float frontDepth = rayNearFar.y;
+  vec3 depthVelocity = vec3(0.0);
+  float shadowLength = 0.0;
+  bool hitClouds = false;
+
+  if (!intersectsGround && !intersectsScene) {
+    vec3 rayOrigin = rayNearFar.x * rayDirection + cameraPosition;
+
+    vec2 globeUv = getGlobeUv(rayOrigin);
+
+    // fsim: Skybolt's blend to the global map, by the weather texture's level where the ray starts
+    float pixelAngle = 1.0 / (P_screen.y * 0.5 * abs(P_projection[1][1]));
+    fsimSetFootprint(rayNearFar.x * pixelAngle);
+    float lowResBlend = P_global.x > 0.5 ? (fsimWeatherLod - 0.75) * 0.8 : 0.0;
+
+    // fsim: the differences to the next texels' (their dFdx/dFdy)
+    vec2 texelUv = vec2(4.0) / P_screen.xy;
+    vec2 uvDx = fsimGlobeUvAtRayStart(vUv + vec2(texelUv.x, 0.0), cameraPosition) - globeUv;
+    vec2 uvDy = fsimGlobeUvAtRayStart(vUv + vec2(0.0, texelUv.y), cameraPosition) - globeUv;
+    float mipLevel = getMipLevel(uvDx * localWeatherRepeat, uvDy * localWeatherRepeat) * mipLevelScale;
+    mipLevel = mix(0.0, mipLevel, min(1.0, 0.2 * cameraHeight / maxHeight));
+
+    float marchedFrontDepth = -1.0, marchedLightDepth = -1.0;
+    ivec3 sampleCount = ivec3(0);
+    if (lowResBlend < 1.0) { // fsim
+      color = marchClouds(
+        rayOrigin,
+        rayDirection,
+        rayNearFar,
+        cosTheta,
+        stbn,
+        pow(2.0, mipLevel),
+        marchedFrontDepth,
+        marchedLightDepth,
+        sampleCount
+      );
+    }
+
+    // Front depth will be -1.0 when no samples are accumulated.
+    hitClouds = marchedFrontDepth >= 0.0;
+    if (hitClouds) {
+      frontDepth = rayNearFar.x + marchedFrontDepth;
+
+      // Apply aerial perspective.
+      vec3 frontPosition = cameraPosition + frontDepth * rayDirection;
+      applyAerialPerspective(cameraPosition, frontPosition, shadowLength, color);
+
+      // Velocity for temporal resolution. fsim: of where the light comes from - the cover each step adds - not of
+      // takram's front depth (each step weighted by the light left after it): through a thin layer, the cirrus,
+      // over a dense one, that sat in the thin one the ray crosses with nearly all its light, and the dense layer -
+      // most of what the pixel shows - was carried with the thin one's parallax: as the camera moved it trailed
+      vec3 frontPositionWorld = ecefToWorld(cameraPosition + (rayNearFar.x + marchedLightDepth) * rayDirection);
+      vec4 prevClip = reprojectionMatrix * vec4(frontPositionWorld, 1.0);
+      prevClip /= prevClip.w;
+      vec2 prevUv = prevClip.xy * 0.5 + 0.5;
+      vec2 velocity = vUv - prevUv;
+      depthVelocity = vec3(rayNearFar.x + marchedLightDepth, velocity); // (fsim: the resolve takes the nearest of these)
+    }
+
+    // fsim: Skybolt's far clouds: the global map's cover where the ray enters the layers, lit as a layer
+    if (lowResBlend > 0.0) {
+      fsimSetFootprint(rayNearFar.x * pixelAngle);
+      vec3 ecef = rayOrigin - altitudeCorrection;
+      vec3 n = normalize(ecef);
+      vec2 mapUv = vec2(atan(n.y, n.x) * RECIPROCAL_PI2 + 0.5, 0.5 - asin(n.z) * RECIPROCAL_PI);
+      float alpha = clamp(textureLod(globalCoverageTexture, mapUv, fsimGlobalLod).r * 1.3 - 0.001, 0.0, 1.0);
+      vec3 skyIrradiance;
+      vec3 sunIrradiance = GetSunAndSkyScalarIrradiance(rayOrigin * METER_TO_LENGTH_UNIT, sunDirection, skyIrradiance);
+      vec3 lowRes = (sunIrradiance + skyIrradiance) * alpha * RECIPROCAL_PI4;
+      lowRes = mix(lowRes, vec3(length(lowRes)), 0.15) * 1.3;
+      color = mix(color, vec4(lowRes, alpha * 1.3), min(1.0, lowResBlend));
+      color.a = min(color.a, 1.0);
+      if (!hitClouds && color.a > 0.0) {
+        hitClouds = true;
+        frontDepth = rayNearFar.x;
+        vec4 prevClip = reprojectionMatrix * vec4(ecefToWorld(rayOrigin), 1.0);
+        prevClip /= prevClip.w;
+        depthVelocity = vec3(frontDepth, vUv - (prevClip.xy * 0.5 + 0.5));
+      }
+    }
+  }
+
+  if (!hitClouds) {
+    // Velocity for temporal resolution. Here reproject in the view space for
+    // greatly reducing the precision errors.
+    frontDepth = sceneViewZ < 0.0 ? -sceneViewZ : cameraFar;
+    vec3 frontView = vViewPosition * frontDepth;
+    vec4 prevClip = viewReprojectionMatrix * vec4(frontView, 1.0);
+    prevClip /= prevClip.w;
+    vec2 prevUv = prevClip.xy * 0.5 + 0.5;
+    vec2 velocity = vUv - prevUv;
+    depthVelocity = vec3(frontDepth, velocity);
+  }
+
+  // fsim: nothing that is not a number kept
+  if (any(isnan(color)) || any(isinf(color))) color = vec4(0.0);
+  if (any(isnan(depthVelocity)) || any(isinf(depthVelocity))) depthVelocity = vec3(cameraFar, 0.0, 0.0);
+  imageStore(outputColorImage, coord, color);
+  // (x: their depth for the resolve's nearest texel; yz: velocity; w: fsim: where the cloud starts, for the draw)
+  imageStore(outputDepthVelocityImage, coord, vec4(depthVelocity, hitClouds ? frontDepth : 1e9));
+}

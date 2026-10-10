@@ -1,0 +1,15 @@
+{
+  "id": "b52h-store-station",
+  "designation": "B-52H store station",
+  "family": "store_station",
+  "summary": "A suspension point on the B-52H for one store or launcher: missiles, bombs, tanks, pods",
+  "parameters": {},
+  "sources": {
+    "wp-b52h": {
+      "title": "Boeing B-52 Stratofortress",
+      "publisher": "Wikipedia (revision 1378364860)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_B-52_Stratofortress&oldid=1378364860",
+      "date": "2026-10-04"
+    }
+  }
+}

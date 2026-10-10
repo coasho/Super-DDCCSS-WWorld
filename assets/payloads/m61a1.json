@@ -1,0 +1,28 @@
+{
+  "id": "m61a1",
+  "designation": "M61A1 Vulcan",
+  "family": "gun",
+  "summary": "20 mm six-barrel rotary cannon",
+  "maker": "General Dynamics (now General Dynamics OTS)",
+  "parameters": {},
+  "sources": {
+    "usaf-f16": {
+      "title": "F-16 Fighting Falcon fact sheet",
+      "publisher": "U.S. Air Force",
+      "url": "https://www.wads.ang.af.mil/About-Us/Fact-Sheets/Article/633011/f-16-fighting-falcon/",
+      "date": ""
+    },
+    "wp-f15c": {
+      "title": "McDonnell Douglas F-15 Eagle",
+      "publisher": "Wikipedia (revision 1377800910)",
+      "url": "https://en.wikipedia.org/w/index.php?title=McDonnell_Douglas_F-15_Eagle&oldid=1377800910",
+      "date": "2026-10-01"
+    },
+    "wp-fa18c": {
+      "title": "McDonnell Douglas F/A-18 Hornet",
+      "publisher": "Wikipedia (revision 1378488706)",
+      "url": "https://en.wikipedia.org/w/index.php?title=McDonnell_Douglas_F%2FA-18_Hornet&oldid=1378488706",
+      "date": "2026-10-04"
+    }
+  }
+}

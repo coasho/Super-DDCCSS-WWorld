@@ -1,0 +1,1286 @@
+<?xml version="1.0"?>
+<fdm_config name="uh60" version="2.0" release="BETA">
+  <fileheader>
+    <author> hangar (tools/hangar), from aircraft/uh60/uh60.toml </author>
+    <description> Sikorsky UH-60A Black Hawk - four blades, articulated, canted tail rotor, stabilator (NASA TM-85890) </description>
+    <note> Written by hangar's rotorcraft pipeline from the design file, whose comments cite every number's source. </note>
+    <reference refID="fsim/applicability/aerobatic" author="the design" title="The platform's aerobatics are a wing's manoeuvres flown by load factor (docs/flight-autonomy.md, rule R10)" date="n/a"/>
+    <reference refID="fsim/applicability/carrier" author="the design" title="A helicopter takes off and lands vertically, as on a ship's deck" date="n/a"/>
+    <reference refID="fsim/applicability/drag_devices" author="the design" title="US Army TM 1-1520-237-10: a helicopter, with no spoilers or airbrakes" date="n/a"/>
+    <reference refID="fsim/applicability/flaps" author="the design" title="US Army TM 1-1520-237-10: a helicopter, with no flaps" date="n/a"/>
+    <reference refID="fsim/applicability/ground_contact" author="the design" title="US Army TM 1-1520-237-10: fixed main wheels and a tail wheel" date="n/a"/>
+    <reference refID="fsim/applicability/releasable_stores" author="the design" title="US Army FM 20-32 (mine/countermine operations): the Volcano (M139) mine dispenser on the UH-60A/L; external stores support system stations" date="n/a"/>
+    <reference refID="fsim/applicability/retractable_gear" author="the design" title="US Army TM 1-1520-237-10: fixed landing gear" date="n/a"/>
+    <reference refID="fsim/applicability/vertical_flight" author="the design" title="US Army TM 1-1520-237-10 (UH-60A operator's manual): a helicopter that hovers" date="n/a"/>
+  </fileheader>
+  <metrics>
+    <wingarea unit="FT2"> 2261.472 </wingarea>
+    <wingspan unit="FT"> 53.66 </wingspan>
+    <chord unit="FT"> 1.73 </chord>
+    <htailarea unit="FT2"> 0 </htailarea> <htailarm unit="FT"> 0 </htailarm>
+    <vtailarea unit="FT2"> 0 </vtailarea> <vtailarm unit="FT"> 0 </vtailarm>
+    <location name="AERORP" unit="IN"> <x> 360.4 </x> <y> 0 </y> <z> 247.2 </z> </location>
+    <location name="EYEPOINT" unit="IN"> <x> 360.4 </x> <y> 0 </y> <z> 247.2 </z> </location>
+    <location name="VRP" unit="IN"> <x> 0 </x> <y> 0 </y> <z> 0 </z> </location>
+  </metrics>
+  <mass_balance negated_crossproduct_inertia="false">
+    <ixx unit="SLUG*FT2"> 5629 </ixx>
+    <iyy unit="SLUG*FT2"> 40000 </iyy>
+    <izz unit="SLUG*FT2"> 37200 </izz>
+    <ixz unit="SLUG*FT2"> 1670 </ixz>
+    <emptywt unit="LBS"> 14060 </emptywt>
+    <location name="CG" unit="IN"> <x> 360.4 </x> <y> 0 </y> <z> 247.2 </z> </location>
+  </mass_balance>
+  <ground_reactions>
+    <contact type="BOGEY" name="wheel 0">
+      <location unit="IN"> <x> 294.2 </x> <y> -55.8 </y> <z> 183.5 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.5 </dynamic_friction>
+      <rolling_friction> 0.02 </rolling_friction>
+      <spring_coeff unit="LBS/FT"> 60000 </spring_coeff>
+      <damping_coeff unit="LBS/FT/SEC"> 10000 </damping_coeff>
+      <max_steer unit="DEG"> 0 </max_steer>
+      <brake_group> LEFT </brake_group>
+      <retractable> 0 </retractable>
+    </contact>
+    <contact type="BOGEY" name="wheel 1">
+      <location unit="IN"> <x> 294.2 </x> <y> 55.8 </y> <z> 183.5 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.5 </dynamic_friction>
+      <rolling_friction> 0.02 </rolling_friction>
+      <spring_coeff unit="LBS/FT"> 60000 </spring_coeff>
+      <damping_coeff unit="LBS/FT/SEC"> 10000 </damping_coeff>
+      <max_steer unit="DEG"> 0 </max_steer>
+      <brake_group> RIGHT </brake_group>
+      <retractable> 0 </retractable>
+    </contact>
+    <contact type="BOGEY" name="wheel 2">
+      <location unit="IN"> <x> 641.3 </x> <y> 0 </y> <z> 182.9 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.5 </dynamic_friction>
+      <rolling_friction> 0.02 </rolling_friction>
+      <spring_coeff unit="LBS/FT"> 20000 </spring_coeff>
+      <damping_coeff unit="LBS/FT/SEC"> 3333 </damping_coeff>
+      <max_steer unit="DEG"> 360 </max_steer>
+      <brake_group> NONE </brake_group>
+      <retractable> 0 </retractable>
+    </contact>
+    <contact type="STRUCTURE" name="deck front">
+      <location unit="IN"> <x> 215 </x> <y> 3.4543315 </y> <z> 270.41478 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.6 </dynamic_friction>
+      <spring_coeff unit="N/M"> 595396 </spring_coeff>
+      <damping_coeff unit="N/M/SEC"> 19847 </damping_coeff>
+      <damping_coeff_rebound unit="N/M/SEC"> 19847 </damping_coeff_rebound>
+    </contact>
+    <contact type="STRUCTURE" name="drag beam left front">
+      <location unit="IN"> <x> 290.55118 </x> <y> -47.007874 </y> <z> 196.85039 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.6 </dynamic_friction>
+      <spring_coeff unit="N/M"> 752880 </spring_coeff>
+      <damping_coeff unit="N/M/SEC"> 25096 </damping_coeff>
+      <damping_coeff_rebound unit="N/M/SEC"> 25096 </damping_coeff_rebound>
+    </contact>
+    <contact type="STRUCTURE" name="drag beam right front">
+      <location unit="IN"> <x> 290.55118 </x> <y> 47.007874 </y> <z> 196.85039 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.6 </dynamic_friction>
+      <spring_coeff unit="N/M"> 752880 </spring_coeff>
+      <damping_coeff unit="N/M/SEC"> 25096 </damping_coeff>
+      <damping_coeff_rebound unit="N/M/SEC"> 25096 </damping_coeff_rebound>
+    </contact>
+    <contact type="STRUCTURE" name="fuselage left front">
+      <location unit="IN"> <x> 214.29134 </x> <y> -39.484847 </y> <z> 252.39966 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.6 </dynamic_friction>
+      <spring_coeff unit="N/M"> 536377 </spring_coeff>
+      <damping_coeff unit="N/M/SEC"> 17879 </damping_coeff>
+      <damping_coeff_rebound unit="N/M/SEC"> 17879 </damping_coeff_rebound>
+    </contact>
+    <contact type="STRUCTURE" name="fuselage left front 2">
+      <location unit="IN"> <x> 181.85039 </x> <y> -38.084555 </y> <z> 214.25722 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.6 </dynamic_friction>
+      <spring_coeff unit="N/M"> 311071 </spring_coeff>
+      <damping_coeff unit="N/M/SEC"> 10369 </damping_coeff>
+      <damping_coeff_rebound unit="N/M/SEC"> 10369 </damping_coeff_rebound>
+    </contact>
+    <contact type="STRUCTURE" name="fuselage left front 3">
+      <location unit="IN"> <x> 158.30709 </x> <y> -17.429796 </y> <z> 222.08318 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.6 </dynamic_friction>
+      <spring_coeff unit="N/M"> 315043 </spring_coeff>
+      <damping_coeff unit="N/M/SEC"> 10501 </damping_coeff>
+      <damping_coeff_rebound unit="N/M/SEC"> 10501 </damping_coeff_rebound>
+    </contact>
+    <contact type="STRUCTURE" name="fuselage rear">
+      <location unit="IN"> <x> 593.8189 </x> <y> -2.3913571e-13 </y> <z> 206.33858 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.6 </dynamic_friction>
+      <spring_coeff unit="N/M"> 416834 </spring_coeff>
+      <damping_coeff unit="N/M/SEC"> 13894 </damping_coeff>
+      <damping_coeff_rebound unit="N/M/SEC"> 13894 </damping_coeff_rebound>
+    </contact>
+    <contact type="STRUCTURE" name="fuselage right front">
+      <location unit="IN"> <x> 158.30709 </x> <y> 17.429796 </y> <z> 222.08318 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.6 </dynamic_friction>
+      <spring_coeff unit="N/M"> 315043 </spring_coeff>
+      <damping_coeff unit="N/M/SEC"> 10501 </damping_coeff>
+      <damping_coeff_rebound unit="N/M/SEC"> 10501 </damping_coeff_rebound>
+    </contact>
+    <contact type="STRUCTURE" name="fuselage right front 2">
+      <location unit="IN"> <x> 181.85039 </x> <y> 38.084555 </y> <z> 214.25722 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.6 </dynamic_friction>
+      <spring_coeff unit="N/M"> 311071 </spring_coeff>
+      <damping_coeff unit="N/M/SEC"> 10369 </damping_coeff>
+      <damping_coeff_rebound unit="N/M/SEC"> 10369 </damping_coeff_rebound>
+    </contact>
+    <contact type="STRUCTURE" name="fuselage right front 3">
+      <location unit="IN"> <x> 214.29134 </x> <y> 39.484847 </y> <z> 252.39966 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.6 </dynamic_friction>
+      <spring_coeff unit="N/M"> 536377 </spring_coeff>
+      <damping_coeff unit="N/M/SEC"> 17879 </damping_coeff>
+      <damping_coeff_rebound unit="N/M/SEC"> 17879 </damping_coeff_rebound>
+    </contact>
+    <contact type="STRUCTURE" name="main rotor hub front">
+      <location unit="IN"> <x> 340.56228 </x> <y> 0 </y> <z> 327.16834 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.6 </dynamic_friction>
+      <spring_coeff unit="N/M"> 1246543 </spring_coeff>
+      <damping_coeff unit="N/M/SEC"> 41551 </damping_coeff>
+      <damping_coeff_rebound unit="N/M/SEC"> 41551 </damping_coeff_rebound>
+    </contact>
+    <contact type="STRUCTURE" name="nacelle left front">
+      <location unit="IN"> <x> 320.27339 </x> <y> -47.722985 </y> <z> 285.85886 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.6 </dynamic_friction>
+      <spring_coeff unit="N/M"> 1756033 </spring_coeff>
+      <damping_coeff unit="N/M/SEC"> 58534 </damping_coeff>
+      <damping_coeff_rebound unit="N/M/SEC"> 58534 </damping_coeff_rebound>
+    </contact>
+    <contact type="STRUCTURE" name="nacelle right front">
+      <location unit="IN"> <x> 320.27339 </x> <y> 47.722985 </y> <z> 285.85886 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.6 </dynamic_friction>
+      <spring_coeff unit="N/M"> 1756033 </spring_coeff>
+      <damping_coeff unit="N/M/SEC"> 58534 </damping_coeff>
+      <damping_coeff_rebound unit="N/M/SEC"> 58534 </damping_coeff_rebound>
+    </contact>
+    <contact type="STRUCTURE" name="stabilator left rear">
+      <location unit="IN"> <x> 718.18898 </x> <y> -86.338583 </y> <z> 240.7874 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.6 </dynamic_friction>
+      <spring_coeff unit="N/M"> 378462 </spring_coeff>
+      <damping_coeff unit="N/M/SEC"> 12615 </damping_coeff>
+      <damping_coeff_rebound unit="N/M/SEC"> 12615 </damping_coeff_rebound>
+    </contact>
+    <contact type="STRUCTURE" name="stabilator rear">
+      <location unit="IN"> <x> 735.82677 </x> <y> 0 </y> <z> 240.7874 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.6 </dynamic_friction>
+      <spring_coeff unit="N/M"> 448634 </spring_coeff>
+      <damping_coeff unit="N/M/SEC"> 14954 </damping_coeff>
+      <damping_coeff_rebound unit="N/M/SEC"> 14954 </damping_coeff_rebound>
+    </contact>
+    <contact type="STRUCTURE" name="stabilator right rear">
+      <location unit="IN"> <x> 718.18898 </x> <y> 86.338583 </y> <z> 240.7874 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.6 </dynamic_friction>
+      <spring_coeff unit="N/M"> 378462 </spring_coeff>
+      <damping_coeff unit="N/M/SEC"> 12615 </damping_coeff>
+      <damping_coeff_rebound unit="N/M/SEC"> 12615 </damping_coeff_rebound>
+    </contact>
+    <contact type="STRUCTURE" name="tail rotor gearbox rear">
+      <location unit="IN"> <x> 766.14173 </x> <y> 2.992126 </y> <z> 324.01575 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.6 </dynamic_friction>
+      <spring_coeff unit="N/M"> 175963 </spring_coeff>
+      <damping_coeff unit="N/M/SEC"> 5865 </damping_coeff>
+      <damping_coeff_rebound unit="N/M/SEC"> 5865 </damping_coeff_rebound>
+    </contact>
+    <contact type="STRUCTURE" name="tail rotor hub right rear">
+      <location unit="IN"> <x> 732 </x> <y> 18.793852 </y> <z> 331.5404 </z> </location>
+      <static_friction> 0.8 </static_friction>
+      <dynamic_friction> 0.6 </dynamic_friction>
+      <spring_coeff unit="N/M"> 192417 </spring_coeff>
+      <damping_coeff unit="N/M/SEC"> 6414 </damping_coeff>
+      <damping_coeff_rebound unit="N/M/SEC"> 6414 </damping_coeff_rebound>
+    </contact>
+  </ground_reactions>
+  <external_reactions>
+    <!-- The airframe feels the rotors' drive, not their blades. JSBSim applies each rotor's aerodynamic
+         torque to the airframe, as though the airframe held the rotor's speed; here the rotor speed is a
+         state of the flight control system - the engine's torque less the rotors' spins them up - and the
+         engine drives through a freewheel. What the drive does not carry (the rotors' spin-up, and all of
+         an air-driven rotor's torque) is given back about the main rotor's shaft. -->
+    <moment name="rotor-drive" frame="BODY">
+      <function> <product> <value> 1 </value> <property> fcs/uh60/armed </property>
+        <difference> <property> fcs/uh60/drive-torque </property>
+          <sum> <property> propulsion/engine[0]/torque-lbsft </property>
+            <product> <property> propulsion/engine[1]/torque-lbsft </property> <value> 4.6154443 </value> </product> </sum>
+        </difference> </product> </function>
+      <direction> <x> -0.052335956 </x> <y> 0 </y> <z> 0.99862953 </z> </direction>
+    </moment>
+  </external_reactions>
+  <propulsion>
+    <engine file="uh60_engine">
+        <feed>0</feed>
+      <thruster file="uh60_rotor">
+        <location unit="IN"> <x> 341.2 </x> <y> 0 </y> <z> 315 </z> </location>
+        <orient unit="DEG"> <roll> 0 </roll> <pitch> 87 </pitch> <yaw> 0 </yaw> </orient>
+        <sense> 1 </sense>
+      </thruster>
+    </engine>
+    <engine file="uh60_tail_drive">
+      <thruster file="uh60_tail_rotor">
+        <location unit="IN"> <x> 732 </x> <y> 0 </y> <z> 324.7 </z> </location>
+        <orient unit="DEG"> <roll> 0 </roll> <pitch> 20 </pitch> <yaw> 90 </yaw> </orient>
+        <sense> 1 </sense>
+      </thruster>
+    </engine>
+    <tank type="FUEL">
+      <location unit="IN"> <x> 360.4 </x> <y> 0 </y> <z> 247.2 </z> </location>
+      <capacity unit="LBS"> 2340 </capacity>
+      <contents unit="LBS"> 2340 </contents>
+    </tank>
+  </propulsion>
+  <flight_control name="uh60">
+    <!-- the aircraft's profile for the platform (docs/control-architecture.md, section 7, and
+         docs/rotorcraft.md): what hangar knows of it - its design and its flight tests -->
+    <property value="2">fsim/identity/version</property>
+    <property value="1">fsim/identity/provenance</property>
+    <property value="12">fsim/identity/class</property>
+    <property value="3">fsim/identity/family</property>
+    <property value="2">fsim/effectors/version</property>
+    <property value="1">fsim/effectors/provenance</property>
+    <property value="0">fsim/effectors/flaps</property>
+    <property value="0">fsim/effectors/neutral</property>
+    <property value="3">fsim/effectors/pitch</property>
+    <property value="0">fsim/effectors/pitch_trim</property>
+    <property value="0">fsim/effectors/retractable_gear</property>
+    <property value="2">fsim/effectors/roll</property>
+    <property value="0">fsim/effectors/speedbrake</property>
+    <property value="1">fsim/effectors/thrust</property>
+    <property value="1">fsim/effectors/wheel_brakes</property>
+    <property value="2">fsim/effectors/yaw</property>
+    <property value="1">fsim/envelope/version</property>
+    <property value="1">fsim/envelope/provenance</property>
+    <property value="45">fsim/envelope/clean/bank_max_deg</property>
+    <property value="99.2877">fsim/envelope/clean/cas_max_ms</property>
+    <property value="30">fsim/envelope/clean/pitch_max_deg</property>
+    <property value="-30">fsim/envelope/clean/pitch_min_deg</property>
+    <property value="60">fsim/envelope/clean/roll_rate_max_deg_s</property>
+    <property value="23.15">fsim/envelope/crosswind_max_ms</property>
+    <property value="2">fsim/propulsion/version</property>
+    <property value="1">fsim/propulsion/provenance</property>
+    <property value="2">fsim/propulsion/engines</property>
+    <property value="5">fsim/propulsion/type</property>
+    <property value="1">fsim/hover/version</property>
+    <property value="1">fsim/hover/provenance</property>
+    <property value="0.028791">fsim/hover/aileron_trim</property>
+    <property value="100">fsim/hover/altitude_m</property>
+    <property value="-0.0448501">fsim/hover/elevator_trim</property>
+    <property value="0.626216">fsim/hover/heave/damping</property>
+    <property value="0.072">fsim/hover/heave/lag_s</property>
+    <property value="26.6652">fsim/hover/heave/power</property>
+    <property value="7438.91">fsim/hover/mass_kg</property>
+    <property value="1.10754">fsim/hover/pitch/damping</property>
+    <property value="0.072">fsim/hover/pitch/lag_s</property>
+    <property value="-1.72983">fsim/hover/pitch/power</property>
+    <property value="4.78471">fsim/hover/pitch_attitude_deg</property>
+    <property value="3.32997">fsim/hover/roll/damping</property>
+    <property value="0.072">fsim/hover/roll/lag_s</property>
+    <property value="6.42911">fsim/hover/roll/power</property>
+    <property value="-2.22732">fsim/hover/roll_attitude_deg</property>
+    <property value="0.401595">fsim/hover/rudder_trim</property>
+    <property value="0.579932">fsim/hover/throttle_trim</property>
+    <property value="0.462173">fsim/hover/yaw/damping</property>
+    <property value="0.0380055">fsim/hover/yaw/lag_s</property>
+    <property value="-1.99819">fsim/hover/yaw/power</property>
+    <property value="1">fsim/tables/version</property>
+    <property value="1">fsim/tables/provenance</property>
+    <property value="100">fsim/tables/altitude_m/h0</property>
+    <property value="1000">fsim/tables/altitude_m/h1</property>
+    <property value="2000">fsim/tables/altitude_m/h2</property>
+    <property value="3000">fsim/tables/altitude_m/h3</property>
+    <property value="0.0593383">fsim/tables/best_endurance_fuel_kg_s/h0/w0</property>
+    <property value="0.063097">fsim/tables/best_endurance_fuel_kg_s/h0/w1</property>
+    <property value="0.0669786">fsim/tables/best_endurance_fuel_kg_s/h0/w2</property>
+    <property value="0.0587004">fsim/tables/best_endurance_fuel_kg_s/h1/w0</property>
+    <property value="0.0626236">fsim/tables/best_endurance_fuel_kg_s/h1/w1</property>
+    <property value="0.0666873">fsim/tables/best_endurance_fuel_kg_s/h1/w2</property>
+    <property value="0.0582729">fsim/tables/best_endurance_fuel_kg_s/h2/w0</property>
+    <property value="0.0624073">fsim/tables/best_endurance_fuel_kg_s/h2/w1</property>
+    <property value="0.0667473">fsim/tables/best_endurance_fuel_kg_s/h2/w2</property>
+    <property value="0.0582049">fsim/tables/best_endurance_fuel_kg_s/h3/w0</property>
+    <property value="0.0625853">fsim/tables/best_endurance_fuel_kg_s/h3/w1</property>
+    <property value="0.0671302">fsim/tables/best_endurance_fuel_kg_s/h3/w2</property>
+    <property value="34.8559">fsim/tables/best_endurance_tas_ms/h0/w0</property>
+    <property value="36.4462">fsim/tables/best_endurance_tas_ms/h0/w1</property>
+    <property value="37.9264">fsim/tables/best_endurance_tas_ms/h0/w2</property>
+    <property value="36.7871">fsim/tables/best_endurance_tas_ms/h1/w0</property>
+    <property value="38.3755">fsim/tables/best_endurance_tas_ms/h1/w1</property>
+    <property value="39.829">fsim/tables/best_endurance_tas_ms/h1/w2</property>
+    <property value="38.9796">fsim/tables/best_endurance_tas_ms/h2/w0</property>
+    <property value="40.5108">fsim/tables/best_endurance_tas_ms/h2/w1</property>
+    <property value="42.1151">fsim/tables/best_endurance_tas_ms/h2/w2</property>
+    <property value="41.2185">fsim/tables/best_endurance_tas_ms/h3/w0</property>
+    <property value="42.9555">fsim/tables/best_endurance_tas_ms/h3/w1</property>
+    <property value="44.5599">fsim/tables/best_endurance_tas_ms/h3/w2</property>
+    <property value="0.0756064">fsim/tables/best_range_fuel_kg_s/h0/w0</property>
+    <property value="0.0797928">fsim/tables/best_range_fuel_kg_s/h0/w1</property>
+    <property value="0.0842317">fsim/tables/best_range_fuel_kg_s/h0/w2</property>
+    <property value="0.0740733">fsim/tables/best_range_fuel_kg_s/h1/w0</property>
+    <property value="0.0785965">fsim/tables/best_range_fuel_kg_s/h1/w1</property>
+    <property value="0.0832794">fsim/tables/best_range_fuel_kg_s/h1/w2</property>
+    <property value="0.0729489">fsim/tables/best_range_fuel_kg_s/h2/w0</property>
+    <property value="0.077656">fsim/tables/best_range_fuel_kg_s/h2/w1</property>
+    <property value="0.0827611">fsim/tables/best_range_fuel_kg_s/h2/w2</property>
+    <property value="0.0721583">fsim/tables/best_range_fuel_kg_s/h3/w0</property>
+    <property value="0.0773658">fsim/tables/best_range_fuel_kg_s/h3/w1</property>
+    <property value="0.082649">fsim/tables/best_range_fuel_kg_s/h3/w2</property>
+    <property value="60.1614">fsim/tables/best_range_tas_ms/h0/w0</property>
+    <property value="61.5725">fsim/tables/best_range_tas_ms/h0/w1</property>
+    <property value="62.9196">fsim/tables/best_range_tas_ms/h0/w2</property>
+    <property value="61.8465">fsim/tables/best_range_tas_ms/h1/w0</property>
+    <property value="63.3031">fsim/tables/best_range_tas_ms/h1/w1</property>
+    <property value="64.6897">fsim/tables/best_range_tas_ms/h1/w2</property>
+    <property value="63.832">fsim/tables/best_range_tas_ms/h2/w0</property>
+    <property value="65.3178">fsim/tables/best_range_tas_ms/h2/w1</property>
+    <property value="67.0566">fsim/tables/best_range_tas_ms/h2/w2</property>
+    <property value="65.9378">fsim/tables/best_range_tas_ms/h3/w0</property>
+    <property value="67.9082">fsim/tables/best_range_tas_ms/h3/w1</property>
+    <property value="69.5611">fsim/tables/best_range_tas_ms/h3/w2</property>
+    <property value="22.4013">fsim/tables/climb_tas_ms/h0/w0</property>
+    <property value="23.2793">fsim/tables/climb_tas_ms/h0/w1</property>
+    <property value="24.2633">fsim/tables/climb_tas_ms/h0/w2</property>
+    <property value="22.8984">fsim/tables/climb_tas_ms/h1/w0</property>
+    <property value="23.8005">fsim/tables/climb_tas_ms/h1/w1</property>
+    <property value="24.8587">fsim/tables/climb_tas_ms/h1/w2</property>
+    <property value="23.4215">fsim/tables/climb_tas_ms/h2/w0</property>
+    <property value="24.3924">fsim/tables/climb_tas_ms/h2/w1</property>
+    <property value="25.461">fsim/tables/climb_tas_ms/h2/w2</property>
+    <property value="23.5241">fsim/tables/climb_tas_ms/h3/w0</property>
+    <property value="24.9601">fsim/tables/climb_tas_ms/h3/w1</property>
+    <property value="26.1409">fsim/tables/climb_tas_ms/h3/w2</property>
+    <property value="1061.41">fsim/tables/fuel_capacity_kg</property>
+    <property value="0.103968">fsim/tables/fuel_kg_s/h0/w0/v0</property>
+    <property value="0.0980373">fsim/tables/fuel_kg_s/h0/w0/v1</property>
+    <property value="0.07752">fsim/tables/fuel_kg_s/h0/w0/v10</property>
+    <property value="0.0868997">fsim/tables/fuel_kg_s/h0/w0/v11</property>
+    <property value="0.0984445">fsim/tables/fuel_kg_s/h0/w0/v12</property>
+    <property value="0.113533">fsim/tables/fuel_kg_s/h0/w0/v13</property>
+    <property value="0.137322">fsim/tables/fuel_kg_s/h0/w0/v14</property>
+    <property value="0.160945">fsim/tables/fuel_kg_s/h0/w0/v15</property>
+    <property value="0.0851617">fsim/tables/fuel_kg_s/h0/w0/v2</property>
+    <property value="0.0719352">fsim/tables/fuel_kg_s/h0/w0/v3</property>
+    <property value="0.0626653">fsim/tables/fuel_kg_s/h0/w0/v4</property>
+    <property value="0.0597587">fsim/tables/fuel_kg_s/h0/w0/v5</property>
+    <property value="0.0594649">fsim/tables/fuel_kg_s/h0/w0/v6</property>
+    <property value="0.0612022">fsim/tables/fuel_kg_s/h0/w0/v7</property>
+    <property value="0.0647325">fsim/tables/fuel_kg_s/h0/w0/v8</property>
+    <property value="0.0701659">fsim/tables/fuel_kg_s/h0/w0/v9</property>
+    <property value="0.112913">fsim/tables/fuel_kg_s/h0/w1/v0</property>
+    <property value="0.106597">fsim/tables/fuel_kg_s/h0/w1/v1</property>
+    <property value="0.0804012">fsim/tables/fuel_kg_s/h0/w1/v10</property>
+    <property value="0.089768">fsim/tables/fuel_kg_s/h0/w1/v11</property>
+    <property value="0.101317">fsim/tables/fuel_kg_s/h0/w1/v12</property>
+    <property value="0.116471">fsim/tables/fuel_kg_s/h0/w1/v13</property>
+    <property value="0.139891">fsim/tables/fuel_kg_s/h0/w1/v14</property>
+    <property value="0.162314">fsim/tables/fuel_kg_s/h0/w1/v15</property>
+    <property value="0.0928993">fsim/tables/fuel_kg_s/h0/w1/v2</property>
+    <property value="0.0782611">fsim/tables/fuel_kg_s/h0/w1/v3</property>
+    <property value="0.0676267">fsim/tables/fuel_kg_s/h0/w1/v4</property>
+    <property value="0.0639285">fsim/tables/fuel_kg_s/h0/w1/v5</property>
+    <property value="0.0631144">fsim/tables/fuel_kg_s/h0/w1/v6</property>
+    <property value="0.0644933">fsim/tables/fuel_kg_s/h0/w1/v7</property>
+    <property value="0.0678039">fsim/tables/fuel_kg_s/h0/w1/v8</property>
+    <property value="0.0731085">fsim/tables/fuel_kg_s/h0/w1/v9</property>
+    <property value="0.122218">fsim/tables/fuel_kg_s/h0/w2/v0</property>
+    <property value="0.115585">fsim/tables/fuel_kg_s/h0/w2/v1</property>
+    <property value="0.0832357">fsim/tables/fuel_kg_s/h0/w2/v10</property>
+    <property value="0.0925071">fsim/tables/fuel_kg_s/h0/w2/v11</property>
+    <property value="0.103966">fsim/tables/fuel_kg_s/h0/w2/v12</property>
+    <property value="0.119053">fsim/tables/fuel_kg_s/h0/w2/v13</property>
+    <property value="0.141928">fsim/tables/fuel_kg_s/h0/w2/v14</property>
+    <property value="0.163374">fsim/tables/fuel_kg_s/h0/w2/v15</property>
+    <property value="0.101108">fsim/tables/fuel_kg_s/h0/w2/v2</property>
+    <property value="0.0849976">fsim/tables/fuel_kg_s/h0/w2/v3</property>
+    <property value="0.0736117">fsim/tables/fuel_kg_s/h0/w2/v4</property>
+    <property value="0.0683958">fsim/tables/fuel_kg_s/h0/w2/v5</property>
+    <property value="0.0669898">fsim/tables/fuel_kg_s/h0/w2/v6</property>
+    <property value="0.0679502">fsim/tables/fuel_kg_s/h0/w2/v7</property>
+    <property value="0.0709742">fsim/tables/fuel_kg_s/h0/w2/v8</property>
+    <property value="0.0760797">fsim/tables/fuel_kg_s/h0/w2/v9</property>
+    <property value="0.105451">fsim/tables/fuel_kg_s/h1/w0/v0</property>
+    <property value="0.0995724">fsim/tables/fuel_kg_s/h1/w0/v1</property>
+    <property value="0.0745058">fsim/tables/fuel_kg_s/h1/w0/v10</property>
+    <property value="0.0831507">fsim/tables/fuel_kg_s/h1/w0/v11</property>
+    <property value="0.093822">fsim/tables/fuel_kg_s/h1/w0/v12</property>
+    <property value="0.107878">fsim/tables/fuel_kg_s/h1/w0/v13</property>
+    <property value="0.129484">fsim/tables/fuel_kg_s/h1/w0/v14</property>
+    <property value="0.152244">fsim/tables/fuel_kg_s/h1/w0/v15</property>
+    <property value="0.08684">fsim/tables/fuel_kg_s/h1/w0/v2</property>
+    <property value="0.0730925">fsim/tables/fuel_kg_s/h1/w0/v3</property>
+    <property value="0.0630609">fsim/tables/fuel_kg_s/h1/w0/v4</property>
+    <property value="0.0595462">fsim/tables/fuel_kg_s/h1/w0/v5</property>
+    <property value="0.0587081">fsim/tables/fuel_kg_s/h1/w0/v6</property>
+    <property value="0.0599109">fsim/tables/fuel_kg_s/h1/w0/v7</property>
+    <property value="0.0629211">fsim/tables/fuel_kg_s/h1/w0/v8</property>
+    <property value="0.0677885">fsim/tables/fuel_kg_s/h1/w0/v9</property>
+    <property value="0.114854">fsim/tables/fuel_kg_s/h1/w1/v0</property>
+    <property value="0.10866">fsim/tables/fuel_kg_s/h1/w1/v1</property>
+    <property value="0.0773708">fsim/tables/fuel_kg_s/h1/w1/v10</property>
+    <property value="0.0859118">fsim/tables/fuel_kg_s/h1/w1/v11</property>
+    <property value="0.0964783">fsim/tables/fuel_kg_s/h1/w1/v12</property>
+    <property value="0.110466">fsim/tables/fuel_kg_s/h1/w1/v13</property>
+    <property value="0.13157">fsim/tables/fuel_kg_s/h1/w1/v14</property>
+    <property value="0.15351">fsim/tables/fuel_kg_s/h1/w1/v15</property>
+    <property value="0.0951605">fsim/tables/fuel_kg_s/h1/w1/v2</property>
+    <property value="0.079933">fsim/tables/fuel_kg_s/h1/w1/v3</property>
+    <property value="0.0694422">fsim/tables/fuel_kg_s/h1/w1/v4</property>
+    <property value="0.0640908">fsim/tables/fuel_kg_s/h1/w1/v5</property>
+    <property value="0.0626496">fsim/tables/fuel_kg_s/h1/w1/v6</property>
+    <property value="0.0634242">fsim/tables/fuel_kg_s/h1/w1/v7</property>
+    <property value="0.0661386">fsim/tables/fuel_kg_s/h1/w1/v8</property>
+    <property value="0.0707985">fsim/tables/fuel_kg_s/h1/w1/v9</property>
+    <property value="0.124639">fsim/tables/fuel_kg_s/h1/w2/v0</property>
+    <property value="0.118122">fsim/tables/fuel_kg_s/h1/w2/v1</property>
+    <property value="0.0804194">fsim/tables/fuel_kg_s/h1/w2/v10</property>
+    <property value="0.0888523">fsim/tables/fuel_kg_s/h1/w2/v11</property>
+    <property value="0.0993451">fsim/tables/fuel_kg_s/h1/w2/v12</property>
+    <property value="0.113291">fsim/tables/fuel_kg_s/h1/w2/v13</property>
+    <property value="0.134101">fsim/tables/fuel_kg_s/h1/w2/v14</property>
+    <property value="0.15481">fsim/tables/fuel_kg_s/h1/w2/v15</property>
+    <property value="0.103858">fsim/tables/fuel_kg_s/h1/w2/v2</property>
+    <property value="0.0871936">fsim/tables/fuel_kg_s/h1/w2/v3</property>
+    <property value="0.0758853">fsim/tables/fuel_kg_s/h1/w2/v4</property>
+    <property value="0.0689343">fsim/tables/fuel_kg_s/h1/w2/v5</property>
+    <property value="0.066852">fsim/tables/fuel_kg_s/h1/w2/v6</property>
+    <property value="0.0671687">fsim/tables/fuel_kg_s/h1/w2/v7</property>
+    <property value="0.0695656">fsim/tables/fuel_kg_s/h1/w2/v8</property>
+    <property value="0.0740022">fsim/tables/fuel_kg_s/h1/w2/v9</property>
+    <property value="0.107617">fsim/tables/fuel_kg_s/h2/w0/v0</property>
+    <property value="0.101873">fsim/tables/fuel_kg_s/h2/w0/v1</property>
+    <property value="0.0713758">fsim/tables/fuel_kg_s/h2/w0/v10</property>
+    <property value="0.0791366">fsim/tables/fuel_kg_s/h2/w0/v11</property>
+    <property value="0.0887646">fsim/tables/fuel_kg_s/h2/w0/v12</property>
+    <property value="0.101556">fsim/tables/fuel_kg_s/h2/w0/v13</property>
+    <property value="0.120724">fsim/tables/fuel_kg_s/h2/w0/v14</property>
+    <property value="0.140632">fsim/tables/fuel_kg_s/h2/w0/v15</property>
+    <property value="0.0893613">fsim/tables/fuel_kg_s/h2/w0/v2</property>
+    <property value="0.0750087">fsim/tables/fuel_kg_s/h2/w0/v3</property>
+    <property value="0.0654933">fsim/tables/fuel_kg_s/h2/w0/v4</property>
+    <property value="0.0598422">fsim/tables/fuel_kg_s/h2/w0/v5</property>
+    <property value="0.0583293">fsim/tables/fuel_kg_s/h2/w0/v6</property>
+    <property value="0.0588854">fsim/tables/fuel_kg_s/h2/w0/v7</property>
+    <property value="0.0612549">fsim/tables/fuel_kg_s/h2/w0/v8</property>
+    <property value="0.0654309">fsim/tables/fuel_kg_s/h2/w0/v9</property>
+    <property value="0.117575">fsim/tables/fuel_kg_s/h2/w1/v0</property>
+    <property value="0.111535">fsim/tables/fuel_kg_s/h2/w1/v1</property>
+    <property value="0.0743206">fsim/tables/fuel_kg_s/h2/w1/v10</property>
+    <property value="0.0818922">fsim/tables/fuel_kg_s/h2/w1/v11</property>
+    <property value="0.0913526">fsim/tables/fuel_kg_s/h2/w1/v12</property>
+    <property value="0.103946">fsim/tables/fuel_kg_s/h2/w1/v13</property>
+    <property value="0.122486">fsim/tables/fuel_kg_s/h2/w1/v14</property>
+    <property value="0.141401">fsim/tables/fuel_kg_s/h2/w1/v15</property>
+    <property value="0.0983116">fsim/tables/fuel_kg_s/h2/w1/v2</property>
+    <property value="0.0825773">fsim/tables/fuel_kg_s/h2/w1/v3</property>
+    <property value="0.071573">fsim/tables/fuel_kg_s/h2/w1/v4</property>
+    <property value="0.0648747">fsim/tables/fuel_kg_s/h2/w1/v5</property>
+    <property value="0.062667">fsim/tables/fuel_kg_s/h2/w1/v6</property>
+    <property value="0.0627179">fsim/tables/fuel_kg_s/h2/w1/v7</property>
+    <property value="0.0647123">fsim/tables/fuel_kg_s/h2/w1/v8</property>
+    <property value="0.0686021">fsim/tables/fuel_kg_s/h2/w1/v9</property>
+    <property value="0.127941">fsim/tables/fuel_kg_s/h2/w2/v0</property>
+    <property value="0.121644">fsim/tables/fuel_kg_s/h2/w2/v1</property>
+    <property value="0.0773092">fsim/tables/fuel_kg_s/h2/w2/v10</property>
+    <property value="0.0846119">fsim/tables/fuel_kg_s/h2/w2/v11</property>
+    <property value="0.0938179">fsim/tables/fuel_kg_s/h2/w2/v12</property>
+    <property value="0.106114">fsim/tables/fuel_kg_s/h2/w2/v13</property>
+    <property value="0.123756">fsim/tables/fuel_kg_s/h2/w2/v14</property>
+    <property value="0.141879">fsim/tables/fuel_kg_s/h2/w2/v15</property>
+    <property value="0.107727">fsim/tables/fuel_kg_s/h2/w2/v2</property>
+    <property value="0.0907253">fsim/tables/fuel_kg_s/h2/w2/v3</property>
+    <property value="0.0781381">fsim/tables/fuel_kg_s/h2/w2/v4</property>
+    <property value="0.0703158">fsim/tables/fuel_kg_s/h2/w2/v5</property>
+    <property value="0.0673333">fsim/tables/fuel_kg_s/h2/w2/v6</property>
+    <property value="0.0668115">fsim/tables/fuel_kg_s/h2/w2/v7</property>
+    <property value="0.0683599">fsim/tables/fuel_kg_s/h2/w2/v8</property>
+    <property value="0.0718916">fsim/tables/fuel_kg_s/h2/w2/v9</property>
+    <property value="0.110365">fsim/tables/fuel_kg_s/h3/w0/v0</property>
+    <property value="0.104767">fsim/tables/fuel_kg_s/h3/w0/v1</property>
+    <property value="0.0686421">fsim/tables/fuel_kg_s/h3/w0/v10</property>
+    <property value="0.0754913">fsim/tables/fuel_kg_s/h3/w0/v11</property>
+    <property value="0.0841107">fsim/tables/fuel_kg_s/h3/w0/v12</property>
+    <property value="0.095583">fsim/tables/fuel_kg_s/h3/w0/v13</property>
+    <property value="0.112192">fsim/tables/fuel_kg_s/h3/w0/v14</property>
+    <property value="0.129036">fsim/tables/fuel_kg_s/h3/w0/v15</property>
+    <property value="0.092492">fsim/tables/fuel_kg_s/h3/w0/v2</property>
+    <property value="0.0777229">fsim/tables/fuel_kg_s/h3/w0/v3</property>
+    <property value="0.0671662">fsim/tables/fuel_kg_s/h3/w0/v4</property>
+    <property value="0.0607526">fsim/tables/fuel_kg_s/h3/w0/v5</property>
+    <property value="0.0585047">fsim/tables/fuel_kg_s/h3/w0/v6</property>
+    <property value="0.0583708">fsim/tables/fuel_kg_s/h3/w0/v7</property>
+    <property value="0.0600556">fsim/tables/fuel_kg_s/h3/w0/v8</property>
+    <property value="0.0635024">fsim/tables/fuel_kg_s/h3/w0/v9</property>
+    <property value="0.12093">fsim/tables/fuel_kg_s/h3/w1/v0</property>
+    <property value="0.115104">fsim/tables/fuel_kg_s/h3/w1/v1</property>
+    <property value="0.071605">fsim/tables/fuel_kg_s/h3/w1/v10</property>
+    <property value="0.0781209">fsim/tables/fuel_kg_s/h3/w1/v11</property>
+    <property value="0.0863926">fsim/tables/fuel_kg_s/h3/w1/v12</property>
+    <property value="0.0974801">fsim/tables/fuel_kg_s/h3/w1/v13</property>
+    <property value="0.113149">fsim/tables/fuel_kg_s/h3/w1/v14</property>
+    <property value="0.129164">fsim/tables/fuel_kg_s/h3/w1/v15</property>
+    <property value="0.102159">fsim/tables/fuel_kg_s/h3/w1/v2</property>
+    <property value="0.0861942">fsim/tables/fuel_kg_s/h3/w1/v3</property>
+    <property value="0.0740854">fsim/tables/fuel_kg_s/h3/w1/v4</property>
+    <property value="0.0664127">fsim/tables/fuel_kg_s/h3/w1/v5</property>
+    <property value="0.0633475">fsim/tables/fuel_kg_s/h3/w1/v6</property>
+    <property value="0.062598">fsim/tables/fuel_kg_s/h3/w1/v7</property>
+    <property value="0.0637871">fsim/tables/fuel_kg_s/h3/w1/v8</property>
+    <property value="0.0668232">fsim/tables/fuel_kg_s/h3/w1/v9</property>
+    <property value="0.131934">fsim/tables/fuel_kg_s/h3/w2/v0</property>
+    <property value="0.12589">fsim/tables/fuel_kg_s/h3/w2/v1</property>
+    <property value="0.0748259">fsim/tables/fuel_kg_s/h3/w2/v10</property>
+    <property value="0.0809964">fsim/tables/fuel_kg_s/h3/w2/v11</property>
+    <property value="0.0889615">fsim/tables/fuel_kg_s/h3/w2/v12</property>
+    <property value="0.0997334">fsim/tables/fuel_kg_s/h3/w2/v13</property>
+    <property value="0.114309">fsim/tables/fuel_kg_s/h3/w2/v14</property>
+    <property value="0.129483">fsim/tables/fuel_kg_s/h3/w2/v15</property>
+    <property value="0.112313">fsim/tables/fuel_kg_s/h3/w2/v2</property>
+    <property value="0.0952029">fsim/tables/fuel_kg_s/h3/w2/v3</property>
+    <property value="0.0816012">fsim/tables/fuel_kg_s/h3/w2/v4</property>
+    <property value="0.0724792">fsim/tables/fuel_kg_s/h3/w2/v5</property>
+    <property value="0.0685725">fsim/tables/fuel_kg_s/h3/w2/v6</property>
+    <property value="0.0671638">fsim/tables/fuel_kg_s/h3/w2/v7</property>
+    <property value="0.067823">fsim/tables/fuel_kg_s/h3/w2/v8</property>
+    <property value="0.0704222">fsim/tables/fuel_kg_s/h3/w2/v9</property>
+    <property value="19.5239">fsim/tables/max_climb_ms/h0/w0</property>
+    <property value="17.7176">fsim/tables/max_climb_ms/h0/w1</property>
+    <property value="16.0449">fsim/tables/max_climb_ms/h0/w2</property>
+    <property value="19.5416">fsim/tables/max_climb_ms/h1/w0</property>
+    <property value="17.663">fsim/tables/max_climb_ms/h1/w1</property>
+    <property value="15.9467">fsim/tables/max_climb_ms/h1/w2</property>
+    <property value="19.4759">fsim/tables/max_climb_ms/h2/w0</property>
+    <property value="17.5254">fsim/tables/max_climb_ms/h2/w1</property>
+    <property value="15.7339">fsim/tables/max_climb_ms/h2/w2</property>
+    <property value="19.1629">fsim/tables/max_climb_ms/h3/w0</property>
+    <property value="17.2863">fsim/tables/max_climb_ms/h3/w1</property>
+    <property value="15.4233">fsim/tables/max_climb_ms/h3/w2</property>
+    <property value="95.5">fsim/tables/max_tas_ms/h0/w0</property>
+    <property value="96">fsim/tables/max_tas_ms/h0/w1</property>
+    <property value="96.25">fsim/tables/max_tas_ms/h0/w2</property>
+    <property value="96.25">fsim/tables/max_tas_ms/h1/w0</property>
+    <property value="96.5">fsim/tables/max_tas_ms/h1/w1</property>
+    <property value="96.75">fsim/tables/max_tas_ms/h1/w2</property>
+    <property value="96.75">fsim/tables/max_tas_ms/h2/w0</property>
+    <property value="96.75">fsim/tables/max_tas_ms/h2/w1</property>
+    <property value="96.5">fsim/tables/max_tas_ms/h2/w2</property>
+    <property value="97">fsim/tables/max_tas_ms/h3/w0</property>
+    <property value="96.5">fsim/tables/max_tas_ms/h3/w1</property>
+    <property value="96">fsim/tables/max_tas_ms/h3/w2</property>
+    <property value="0">fsim/tables/min_tas_ms/h0/w0</property>
+    <property value="0">fsim/tables/min_tas_ms/h0/w1</property>
+    <property value="0">fsim/tables/min_tas_ms/h0/w2</property>
+    <property value="0">fsim/tables/min_tas_ms/h1/w0</property>
+    <property value="0">fsim/tables/min_tas_ms/h1/w1</property>
+    <property value="0">fsim/tables/min_tas_ms/h1/w2</property>
+    <property value="0">fsim/tables/min_tas_ms/h2/w0</property>
+    <property value="0">fsim/tables/min_tas_ms/h2/w1</property>
+    <property value="0">fsim/tables/min_tas_ms/h2/w2</property>
+    <property value="0">fsim/tables/min_tas_ms/h3/w0</property>
+    <property value="0">fsim/tables/min_tas_ms/h3/w1</property>
+    <property value="0">fsim/tables/min_tas_ms/h3/w2</property>
+    <property value="18.2176">fsim/tables/ps_full_ms/h0/w0/v0</property>
+    <property value="18.631">fsim/tables/ps_full_ms/h0/w0/v1</property>
+    <property value="13.895">fsim/tables/ps_full_ms/h0/w0/v11</property>
+    <property value="12.2883">fsim/tables/ps_full_ms/h0/w0/v12</property>
+    <property value="10.0979">fsim/tables/ps_full_ms/h0/w0/v13</property>
+    <property value="7.38583">fsim/tables/ps_full_ms/h0/w0/v14</property>
+    <property value="19.0637">fsim/tables/ps_full_ms/h0/w0/v2</property>
+    <property value="19.2844">fsim/tables/ps_full_ms/h0/w0/v3</property>
+    <property value="19.4383">fsim/tables/ps_full_ms/h0/w0/v4</property>
+    <property value="18.3667">fsim/tables/ps_full_ms/h0/w0/v5</property>
+    <property value="18.0522">fsim/tables/ps_full_ms/h0/w0/v6</property>
+    <property value="16.1491">fsim/tables/ps_full_ms/h0/w1/v0</property>
+    <property value="16.5462">fsim/tables/ps_full_ms/h0/w1/v1</property>
+    <property value="14.1865">fsim/tables/ps_full_ms/h0/w1/v10</property>
+    <property value="12.9073">fsim/tables/ps_full_ms/h0/w1/v11</property>
+    <property value="11.4067">fsim/tables/ps_full_ms/h0/w1/v12</property>
+    <property value="9.33948">fsim/tables/ps_full_ms/h0/w1/v13</property>
+    <property value="6.80137">fsim/tables/ps_full_ms/h0/w1/v14</property>
+    <property value="17.0269">fsim/tables/ps_full_ms/h0/w1/v2</property>
+    <property value="17.3955">fsim/tables/ps_full_ms/h0/w1/v3</property>
+    <property value="17.6814">fsim/tables/ps_full_ms/h0/w1/v4</property>
+    <property value="16.8196">fsim/tables/ps_full_ms/h0/w1/v5</property>
+    <property value="16.633">fsim/tables/ps_full_ms/h0/w1/v6</property>
+    <property value="16.0589">fsim/tables/ps_full_ms/h0/w1/v7</property>
+    <property value="15.3514">fsim/tables/ps_full_ms/h0/w1/v8</property>
+    <property value="14.1008">fsim/tables/ps_full_ms/h0/w1/v9</property>
+    <property value="14.1337">fsim/tables/ps_full_ms/h0/w2/v0</property>
+    <property value="14.5366">fsim/tables/ps_full_ms/h0/w2/v1</property>
+    <property value="13.2058">fsim/tables/ps_full_ms/h0/w2/v10</property>
+    <property value="12.0256">fsim/tables/ps_full_ms/h0/w2/v11</property>
+    <property value="10.6277">fsim/tables/ps_full_ms/h0/w2/v12</property>
+    <property value="8.69482">fsim/tables/ps_full_ms/h0/w2/v13</property>
+    <property value="6.32852">fsim/tables/ps_full_ms/h0/w2/v14</property>
+    <property value="15.1282">fsim/tables/ps_full_ms/h0/w2/v2</property>
+    <property value="15.6227">fsim/tables/ps_full_ms/h0/w2/v3</property>
+    <property value="16.0404">fsim/tables/ps_full_ms/h0/w2/v4</property>
+    <property value="15.4082">fsim/tables/ps_full_ms/h0/w2/v5</property>
+    <property value="15.3256">fsim/tables/ps_full_ms/h0/w2/v6</property>
+    <property value="14.4876">fsim/tables/ps_full_ms/h0/w2/v8</property>
+    <property value="14.1637">fsim/tables/ps_full_ms/h0/w2/v9</property>
+    <property value="18.1122">fsim/tables/ps_full_ms/h1/w0/v0</property>
+    <property value="18.5185">fsim/tables/ps_full_ms/h1/w0/v1</property>
+    <property value="12.6063">fsim/tables/ps_full_ms/h1/w0/v10</property>
+    <property value="14.4874">fsim/tables/ps_full_ms/h1/w0/v11</property>
+    <property value="13.0023">fsim/tables/ps_full_ms/h1/w0/v12</property>
+    <property value="10.6693">fsim/tables/ps_full_ms/h1/w0/v13</property>
+    <property value="7.52839">fsim/tables/ps_full_ms/h1/w0/v14</property>
+    <property value="4.1013">fsim/tables/ps_full_ms/h1/w0/v15</property>
+    <property value="18.9794">fsim/tables/ps_full_ms/h1/w0/v2</property>
+    <property value="19.2589">fsim/tables/ps_full_ms/h1/w0/v3</property>
+    <property value="19.4779">fsim/tables/ps_full_ms/h1/w0/v4</property>
+    <property value="18.4678">fsim/tables/ps_full_ms/h1/w0/v5</property>
+    <property value="18.2265">fsim/tables/ps_full_ms/h1/w0/v6</property>
+    <property value="17.3718">fsim/tables/ps_full_ms/h1/w0/v7</property>
+    <property value="15.9433">fsim/tables/ps_full_ms/h1/w1/v0</property>
+    <property value="16.3388">fsim/tables/ps_full_ms/h1/w1/v1</property>
+    <property value="14.6363">fsim/tables/ps_full_ms/h1/w1/v10</property>
+    <property value="13.4724">fsim/tables/ps_full_ms/h1/w1/v11</property>
+    <property value="12.0978">fsim/tables/ps_full_ms/h1/w1/v12</property>
+    <property value="10.0914">fsim/tables/ps_full_ms/h1/w1/v13</property>
+    <property value="7.15038">fsim/tables/ps_full_ms/h1/w1/v14</property>
+    <property value="3.91343">fsim/tables/ps_full_ms/h1/w1/v15</property>
+    <property value="16.8534">fsim/tables/ps_full_ms/h1/w1/v2</property>
+    <property value="17.2898">fsim/tables/ps_full_ms/h1/w1/v3</property>
+    <property value="17.646">fsim/tables/ps_full_ms/h1/w1/v4</property>
+    <property value="16.8684">fsim/tables/ps_full_ms/h1/w1/v5</property>
+    <property value="16.7527">fsim/tables/ps_full_ms/h1/w1/v6</property>
+    <property value="16.2873">fsim/tables/ps_full_ms/h1/w1/v7</property>
+    <property value="15.672">fsim/tables/ps_full_ms/h1/w1/v8</property>
+    <property value="14.4317">fsim/tables/ps_full_ms/h1/w1/v9</property>
+    <property value="13.8298">fsim/tables/ps_full_ms/h1/w2/v0</property>
+    <property value="14.2381">fsim/tables/ps_full_ms/h1/w2/v1</property>
+    <property value="13.597">fsim/tables/ps_full_ms/h1/w2/v10</property>
+    <property value="12.5271">fsim/tables/ps_full_ms/h1/w2/v11</property>
+    <property value="11.2492">fsim/tables/ps_full_ms/h1/w2/v12</property>
+    <property value="9.4424">fsim/tables/ps_full_ms/h1/w2/v13</property>
+    <property value="6.71989">fsim/tables/ps_full_ms/h1/w2/v14</property>
+    <property value="3.67985">fsim/tables/ps_full_ms/h1/w2/v15</property>
+    <property value="14.8833">fsim/tables/ps_full_ms/h1/w2/v2</property>
+    <property value="15.4467">fsim/tables/ps_full_ms/h1/w2/v3</property>
+    <property value="15.9465">fsim/tables/ps_full_ms/h1/w2/v4</property>
+    <property value="15.3884">fsim/tables/ps_full_ms/h1/w2/v5</property>
+    <property value="15.3899">fsim/tables/ps_full_ms/h1/w2/v6</property>
+    <property value="15.0381">fsim/tables/ps_full_ms/h1/w2/v7</property>
+    <property value="14.7758">fsim/tables/ps_full_ms/h1/w2/v8</property>
+    <property value="17.9005">fsim/tables/ps_full_ms/h2/w0/v0</property>
+    <property value="18.2991">fsim/tables/ps_full_ms/h2/w0/v1</property>
+    <property value="12.3888">fsim/tables/ps_full_ms/h2/w0/v12</property>
+    <property value="9.84489">fsim/tables/ps_full_ms/h2/w0/v13</property>
+    <property value="6.89162">fsim/tables/ps_full_ms/h2/w0/v14</property>
+    <property value="3.62199">fsim/tables/ps_full_ms/h2/w0/v15</property>
+    <property value="18.7942">fsim/tables/ps_full_ms/h2/w0/v2</property>
+    <property value="19.1425">fsim/tables/ps_full_ms/h2/w0/v3</property>
+    <property value="19.4405">fsim/tables/ps_full_ms/h2/w0/v4</property>
+    <property value="18.5198">fsim/tables/ps_full_ms/h2/w0/v5</property>
+    <property value="18.0936">fsim/tables/ps_full_ms/h2/w0/v6</property>
+    <property value="17.5576">fsim/tables/ps_full_ms/h2/w0/v7</property>
+    <property value="17.6034">fsim/tables/ps_full_ms/h2/w0/v8</property>
+    <property value="15.6115">fsim/tables/ps_full_ms/h2/w1/v0</property>
+    <property value="16.0063">fsim/tables/ps_full_ms/h2/w1/v1</property>
+    <property value="13.6672">fsim/tables/ps_full_ms/h2/w1/v11</property>
+    <property value="11.7284">fsim/tables/ps_full_ms/h2/w1/v12</property>
+    <property value="9.31233">fsim/tables/ps_full_ms/h2/w1/v13</property>
+    <property value="6.51545">fsim/tables/ps_full_ms/h2/w1/v14</property>
+    <property value="3.43418">fsim/tables/ps_full_ms/h2/w1/v15</property>
+    <property value="16.5668">fsim/tables/ps_full_ms/h2/w1/v2</property>
+    <property value="17.0786">fsim/tables/ps_full_ms/h2/w1/v3</property>
+    <property value="17.5199">fsim/tables/ps_full_ms/h2/w1/v4</property>
+    <property value="16.8518">fsim/tables/ps_full_ms/h2/w1/v5</property>
+    <property value="16.8213">fsim/tables/ps_full_ms/h2/w1/v6</property>
+    <property value="16.5583">fsim/tables/ps_full_ms/h2/w1/v7</property>
+    <property value="13.377">fsim/tables/ps_full_ms/h2/w2/v0</property>
+    <property value="13.7934">fsim/tables/ps_full_ms/h2/w2/v1</property>
+    <property value="14.0245">fsim/tables/ps_full_ms/h2/w2/v10</property>
+    <property value="12.9253">fsim/tables/ps_full_ms/h2/w2/v11</property>
+    <property value="11.1065">fsim/tables/ps_full_ms/h2/w2/v12</property>
+    <property value="8.8237">fsim/tables/ps_full_ms/h2/w2/v13</property>
+    <property value="6.18322">fsim/tables/ps_full_ms/h2/w2/v14</property>
+    <property value="3.27118">fsim/tables/ps_full_ms/h2/w2/v15</property>
+    <property value="14.4996">fsim/tables/ps_full_ms/h2/w2/v2</property>
+    <property value="15.1396">fsim/tables/ps_full_ms/h2/w2/v3</property>
+    <property value="15.7308">fsim/tables/ps_full_ms/h2/w2/v4</property>
+    <property value="15.3014">fsim/tables/ps_full_ms/h2/w2/v5</property>
+    <property value="15.3946">fsim/tables/ps_full_ms/h2/w2/v6</property>
+    <property value="15.2158">fsim/tables/ps_full_ms/h2/w2/v7</property>
+    <property value="15.0344">fsim/tables/ps_full_ms/h2/w2/v8</property>
+    <property value="14.1906">fsim/tables/ps_full_ms/h2/w2/v9</property>
+    <property value="17.5766">fsim/tables/ps_full_ms/h3/w0/v0</property>
+    <property value="17.9695">fsim/tables/ps_full_ms/h3/w0/v1</property>
+    <property value="13.2313">fsim/tables/ps_full_ms/h3/w0/v11</property>
+    <property value="11.3142">fsim/tables/ps_full_ms/h3/w0/v12</property>
+    <property value="8.93559">fsim/tables/ps_full_ms/h3/w0/v13</property>
+    <property value="6.19175">fsim/tables/ps_full_ms/h3/w0/v14</property>
+    <property value="3.15212">fsim/tables/ps_full_ms/h3/w0/v15</property>
+    <property value="18.5013">fsim/tables/ps_full_ms/h3/w0/v2</property>
+    <property value="18.9233">fsim/tables/ps_full_ms/h3/w0/v3</property>
+    <property value="19.1363">fsim/tables/ps_full_ms/h3/w0/v4</property>
+    <property value="18.4947">fsim/tables/ps_full_ms/h3/w0/v5</property>
+    <property value="18.1049">fsim/tables/ps_full_ms/h3/w0/v6</property>
+    <property value="17.5842">fsim/tables/ps_full_ms/h3/w0/v7</property>
+    <property value="15.1545">fsim/tables/ps_full_ms/h3/w1/v0</property>
+    <property value="15.5528">fsim/tables/ps_full_ms/h3/w1/v1</property>
+    <property value="13.2095">fsim/tables/ps_full_ms/h3/w1/v10</property>
+    <property value="12.4834">fsim/tables/ps_full_ms/h3/w1/v11</property>
+    <property value="10.6727">fsim/tables/ps_full_ms/h3/w1/v12</property>
+    <property value="8.4511">fsim/tables/ps_full_ms/h3/w1/v13</property>
+    <property value="5.88743">fsim/tables/ps_full_ms/h3/w1/v14</property>
+    <property value="3.06741">fsim/tables/ps_full_ms/h3/w1/v15</property>
+    <property value="16.1659">fsim/tables/ps_full_ms/h3/w1/v2</property>
+    <property value="16.7516">fsim/tables/ps_full_ms/h3/w1/v3</property>
+    <property value="17.2863">fsim/tables/ps_full_ms/h3/w1/v4</property>
+    <property value="16.7491">fsim/tables/ps_full_ms/h3/w1/v5</property>
+    <property value="16.8392">fsim/tables/ps_full_ms/h3/w1/v6</property>
+    <property value="16.4388">fsim/tables/ps_full_ms/h3/w1/v7</property>
+    <property value="12.7991">fsim/tables/ps_full_ms/h3/w2/v0</property>
+    <property value="13.2192">fsim/tables/ps_full_ms/h3/w2/v1</property>
+    <property value="13.2156">fsim/tables/ps_full_ms/h3/w2/v10</property>
+    <property value="11.7141">fsim/tables/ps_full_ms/h3/w2/v11</property>
+    <property value="9.99764">fsim/tables/ps_full_ms/h3/w2/v12</property>
+    <property value="7.91421">fsim/tables/ps_full_ms/h3/w2/v13</property>
+    <property value="5.50882">fsim/tables/ps_full_ms/h3/w2/v14</property>
+    <property value="2.88092">fsim/tables/ps_full_ms/h3/w2/v15</property>
+    <property value="13.9903">fsim/tables/ps_full_ms/h3/w2/v2</property>
+    <property value="14.7136">fsim/tables/ps_full_ms/h3/w2/v3</property>
+    <property value="15.4021">fsim/tables/ps_full_ms/h3/w2/v4</property>
+    <property value="15.1206">fsim/tables/ps_full_ms/h3/w2/v5</property>
+    <property value="15.3102">fsim/tables/ps_full_ms/h3/w2/v6</property>
+    <property value="15.2693">fsim/tables/ps_full_ms/h3/w2/v7</property>
+    <property value="15.1723">fsim/tables/ps_full_ms/h3/w2/v8</property>
+    <property value="95.5">fsim/tables/reach_tas_ms/h0/w0</property>
+    <property value="96">fsim/tables/reach_tas_ms/h0/w1</property>
+    <property value="96.25">fsim/tables/reach_tas_ms/h0/w2</property>
+    <property value="96.25">fsim/tables/reach_tas_ms/h1/w0</property>
+    <property value="96.5">fsim/tables/reach_tas_ms/h1/w1</property>
+    <property value="96.75">fsim/tables/reach_tas_ms/h1/w2</property>
+    <property value="96.75">fsim/tables/reach_tas_ms/h2/w0</property>
+    <property value="96.75">fsim/tables/reach_tas_ms/h2/w1</property>
+    <property value="96.5">fsim/tables/reach_tas_ms/h2/w2</property>
+    <property value="97">fsim/tables/reach_tas_ms/h3/w0</property>
+    <property value="96.5">fsim/tables/reach_tas_ms/h3/w1</property>
+    <property value="96">fsim/tables/reach_tas_ms/h3/w2</property>
+    <property value="0">fsim/tables/speed_fraction/v0</property>
+    <property value="0.0666667">fsim/tables/speed_fraction/v1</property>
+    <property value="0.666667">fsim/tables/speed_fraction/v10</property>
+    <property value="0.733333">fsim/tables/speed_fraction/v11</property>
+    <property value="0.8">fsim/tables/speed_fraction/v12</property>
+    <property value="0.866667">fsim/tables/speed_fraction/v13</property>
+    <property value="0.933333">fsim/tables/speed_fraction/v14</property>
+    <property value="1">fsim/tables/speed_fraction/v15</property>
+    <property value="0.133333">fsim/tables/speed_fraction/v2</property>
+    <property value="0.2">fsim/tables/speed_fraction/v3</property>
+    <property value="0.266667">fsim/tables/speed_fraction/v4</property>
+    <property value="0.333333">fsim/tables/speed_fraction/v5</property>
+    <property value="0.4">fsim/tables/speed_fraction/v6</property>
+    <property value="0.466667">fsim/tables/speed_fraction/v7</property>
+    <property value="0.533333">fsim/tables/speed_fraction/v8</property>
+    <property value="0.6">fsim/tables/speed_fraction/v9</property>
+    <property value="6483.65">fsim/tables/weight_kg/w0</property>
+    <property value="6961.28">fsim/tables/weight_kg/w1</property>
+    <property value="7438.91">fsim/tables/weight_kg/w2</property>
+    <property value="1">fsim/applicability/version</property>
+    <property value="1">fsim/applicability/provenance</property>
+    <property value="0">fsim/applicability/aerobatic</property>
+    <property value="3">fsim/applicability/carrier</property>
+    <property value="1">fsim/applicability/drag_devices</property>
+    <property value="0">fsim/applicability/flaps</property>
+    <property value="1">fsim/applicability/ground_contact</property>
+    <property value="4">fsim/applicability/releasable_stores</property>
+    <property value="0">fsim/applicability/retractable_gear</property>
+    <property value="1">fsim/applicability/vertical_flight</property>
+    <channel name="pilot">
+      <!-- the controls in inches: stick and pedals from the centre, + forward, + right, + right
+           pedal; the collective from the bottom -->
+      <pure_gain name="fcs/uh60/long-in"> <input> fcs/elevator-cmd-norm </input> <gain> 5 </gain> </pure_gain>
+      <pure_gain name="fcs/uh60/lat-in"> <input> fcs/aileron-cmd-norm </input> <gain> 5 </gain> </pure_gain>
+      <pure_gain name="fcs/uh60/pedal-in"> <input> fcs/rudder-cmd-norm </input> <gain> -3.5 </gain> </pure_gain>
+      <pure_gain name="fcs/uh60/coll-in"> <input> fcs/throttle-cmd-norm[0] </input> <gain> 10 </gain>
+        <clipto> <min> 0 </min> <max> 10 </max> </clipto> </pure_gain>
+    </channel>
+    <channel name="pitch bias actuator">
+      <!-- TM-85890 figure 11: pitch attitude, pitch rate and airspeed (80 to 180 kt) to an actuator
+           of 15 % authority, 3 %/s, added to the longitudinal cyclic (0.1 in per % aft) -->
+      <fcs_function name="fcs/uh60/q-deg"> <function> <todegrees> <property> velocities/q-rad_sec </property> </todegrees> </function> </fcs_function>
+      <lag_filter name="fcs/uh60/airspeed-kt"> <input> fcs/uh60/u-kt </input> <c1> 2.5126 </c1> </lag_filter>
+      <fcs_function name="fcs/uh60/pba-cmd-pct">
+        <function> <sum>
+          <product> <value> -0.375 </value> <max> <value> -20 </value> <min> <value> 20 </value> <property> attitude/theta-deg </property> </min> </max> </product>
+          <product> <value> -0.13125 </value> <max> <value> -34.5 </value> <min> <value> 34.5 </value> <property> fcs/uh60/q-deg </property> </min> </max> </product>
+          <product> <value> 0.0525 </value> <max> <value> 0 </value> <min> <value> 100 </value> <difference> <property> fcs/uh60/airspeed-kt </property> <value> 80 </value> </difference> </min> </max> </product>
+          <value> -4.9 </value>
+        </sum> </function>
+      </fcs_function>
+      <actuator name="fcs/uh60/pba-pct"> <input> fcs/uh60/pba-cmd-pct </input>
+        <lag> 10 </lag> <rate_limit> 3 </rate_limit> <clipto> <min> -15 </min> <max> 15 </max> </clipto> </actuator>
+      <pure_gain name="fcs/uh60/pba-in"> <input> fcs/uh60/pba-pct </input> <gain> -0.1000122 </gain> </pure_gain>
+    </channel>
+    <channel name="stabilator">
+      <!-- TM-85890 figure 10: the incidence (deg, + trailing edge down) from pitch rate, lateral
+           acceleration, airspeed and collective, through the servo, a rate and a position limit -->
+      <second_order_filter name="fcs/uh60/ay-sensed"> <input> accelerations/a-pilot-y-ft_sec2 </input>
+        <c1> 0 </c1> <c2> 0 </c2> <c3> 1 </c3> <c4> 0.0254 </c4> <c5> 0.233 </c5> <c6> 1 </c6> </second_order_filter>
+      <fcs_function name="fcs/uh60/coll-pct"> <function> <product> <property> fcs/uh60/coll-in </property> <value> 10 </value> </product> </function> </fcs_function>
+      <fcs_function name="fcs/uh60/stab-cmd-deg">
+        <function> <sum>
+          <value> 42 </value>
+          <product> <value> 0.16 </value> <property> fcs/uh60/q-deg </property> </product>
+          <product> <value> -0.0433 </value> <property> fcs/uh60/ay-sensed </property>
+            <max> <value> 0 </value> <min> <value> 30 </value> <difference> <property> fcs/uh60/airspeed-kt </property> <value> 30 </value> </difference> </min> </max> </product>
+          <product> <value> -1 </value>
+            <max> <value> 0 </value> <min> <value> 50 </value> <difference> <property> fcs/uh60/airspeed-kt </property> <value> 30 </value> </difference> </min> </max>
+            <sum> <value> 0.67 </value>
+              <product> <value> 0.003286 </value> <max> <value> 0 </value> <min> <value> 50 </value> <difference> <value> 50 </value> <property> fcs/uh60/coll-pct </property> </difference> </min> </max> </product>
+              <product> <value> 0.003286 </value> <max> <value> 0 </value> <min> <value> 20 </value> <difference> <value> 70 </value> <property> fcs/uh60/coll-pct </property> </difference> </min> </max> </product>
+            </sum> </product>
+          <product> <value> -0.1119 </value>
+            <max> <value> 0 </value> <min> <value> 67 </value> <difference> <property> fcs/uh60/airspeed-kt </property> <value> 80 </value> </difference> </min> </max> </product>
+        </sum> </function>
+      </fcs_function>
+      <second_order_filter name="fcs/uh60/stab-servo"> <input> fcs/uh60/stab-cmd-deg </input>
+        <c1> 0 </c1> <c2> 0 </c2> <c3> 1 </c3> <c4> 0.0254 </c4> <c5> 0.223 </c5> <c6> 1 </c6> </second_order_filter>
+      <actuator name="fcs/uh60/stab-deg"> <input> fcs/uh60/stab-servo </input>
+        <rate_limit> 7 </rate_limit> <clipto> <min> -8 </min> <max> 39 </max> </clipto> </actuator>
+      <fcs_function name="fcs/uh60/stab-rad"> <function> <toradians> <property> fcs/uh60/stab-deg </property> </toradians> </function>
+        <output> fcs/elevator-pos-rad </output> <!-- the platform reports it (VehicleState::elevatorRad); the model's stabilator follows -->
+      </fcs_function>
+    </channel>
+    <channel name="swashplate">
+      <fcs_function name="fcs/uh60/long-mixed"> <function> <sum> <property> fcs/uh60/long-in </property> <property> fcs/uh60/pba-in </property> <product> <value> 0.164 </value> <property> fcs/uh60/coll-in </property> </product> <product> <value> 0.5746 </value> <property> fcs/uh60/pedal-in </property> </product> <product> <value> 0.88 </value> <property> velocities/p-rad_sec </property> </product> </sum> </function> </fcs_function>
+      <fcs_function name="fcs/uh60/lat-mixed"> <function> <sum> <property> fcs/uh60/lat-in </property> <product> <value> -0.16 </value> <property> fcs/uh60/coll-in </property> </product> <product> <value> 1.3 </value> <property> velocities/q-rad_sec </property> </product> </sum> </function> </fcs_function>
+      <fcs_function name="fcs/uh60/pedal-mixed"> <function> <sum> <property> fcs/uh60/pedal-in </property> <product> <value> -0.2889 </value> <property> fcs/uh60/coll-in </property> </product> </sum> </function> </fcs_function>
+      <fcs_function name="fcs/uh60/b1c-rad"> <function> <product> <value> 0.04939 </value> <property> fcs/uh60/long-mixed </property> </product> </function> </fcs_function>
+      <fcs_function name="fcs/uh60/a1c-rad"> <function> <product> <value> 0.02792 </value> <property> fcs/uh60/lat-mixed </property> </product> </function> </fcs_function>
+      <lag_filter name="fcs/uh60/b1s-lag"> <input> fcs/uh60/b1c-rad </input> <c1> 13.888889 </c1> </lag_filter>
+      <lag_filter name="fcs/uh60/a1s-lag"> <input> fcs/uh60/a1c-rad </input> <c1> 13.888889 </c1> </lag_filter>
+      <fcs_function name="fcs/uh60/b1s-rad">
+        <function> <sum> <property> fcs/uh60/b1s-lag </property> <value> 0 </value> </sum> </function>
+        <output> propulsion/engine[0]/longitudinal-ctrl-rad </output>
+      </fcs_function>
+      <fcs_function name="fcs/uh60/a1s-rad">
+        <function> <sum> <property> fcs/uh60/a1s-lag </property> <value> 0 </value> </sum> </function>
+        <output> propulsion/engine[0]/lateral-ctrl-rad </output>
+      </fcs_function>
+      <fcs_function name="fcs/uh60/theta0-root-rad">
+        <function> <sum> <value> 0.2286 </value> <product> <value> 0.02792 </value> <property> fcs/uh60/coll-in </property> </product> </sum> </function>
+        <output> propulsion/engine[0]/collective-ctrl-rad </output>
+      </fcs_function>
+      <fcs_function name="fcs/uh60/theta-tr-rad">
+        <function> <sum> <value> 0.1743 </value> <product> <value> -0.07734 </value> <property> fcs/uh60/pedal-mixed </property> </product> </sum> </function>
+        <output> propulsion/engine[1]/antitorque-ctrl-rad </output>
+      </fcs_function>
+    </channel>
+    <channel name="blade strike">
+      <!-- the shaft's up component (its angle from the vertical's cosine) and the hub's height above the ground;
+           a strike counts once the flight has begun (a start's ground trim, at time 0, searches through the
+           ground) -->
+      <fcs_function name="fcs/uh60/shaft-up">
+        <function> <sum>
+          <product> <sin> <property> attitude/theta-rad </property> </sin> <value> 0.052335956 </value> </product>
+          <product> <cos> <property> attitude/phi-rad </property> </cos> <cos> <property> attitude/theta-rad </property> </cos> <value> 0.99862953 </value> </product>
+        </sum> </function>
+      </fcs_function>
+      <fcs_function name="fcs/uh60/hub-agl-ft">
+        <function> <difference> <property> position/h-agl-ft </property> <sum>
+          <product> <value> -1.6 </value> <sin> <property> attitude/theta-rad </property> </sin> </product>
+          <product> <value> 0 </value> <sin> <property> attitude/phi-rad </property> </sin> <cos> <property> attitude/theta-rad </property> </cos> </product>
+          <product> <value> -5.65 </value> <cos> <property> attitude/phi-rad </property> </cos> <cos> <property> attitude/theta-rad </property> </cos> </product>
+        </sum> </difference> </function>
+      </fcs_function>
+      <fcs_function name="fcs/uh60/blades-strike">
+        <function> <and> <gt> <property> simulation/sim-time-sec </property> <value> 0 </value> </gt>
+          <lt> <property> fcs/uh60/hub-agl-ft </property> <product> <value> 26.83 </value>
+          <sqrt> <max> <value> 0 </value> <difference> <value> 1 </value> <product> <property> fcs/uh60/shaft-up </property> <property> fcs/uh60/shaft-up </property> </product> </difference> </max> </sqrt>
+        </product> </lt> </and> </function>
+      </fcs_function>
+      <!-- held once struck: the integral of the strike, clipped at 1 (a reset clears it) -->
+      <pid name="fcs/uh60/blades-struck-sum"> <input> fcs/uh60/blades-strike </input>
+        <kp> 0 </kp> <ki> 1000 </ki> <kd> 0 </kd> <clipto> <min> 0 </min> <max> 1 </max> </clipto> </pid>
+      <fcs_function name="fcs/uh60/blades-struck">
+        <function> <gt> <property> fcs/uh60/blades-struck-sum </property> <value> 0 </value> </gt> </function>
+      </fcs_function>
+    </channel>
+    <channel name="engine">
+      <!-- The rotor speed is a state here: the engine's power less the rotors' drives it through the
+           drive's inertia; a governor holds the design's rpm, the load fed forward. 'armed' is 0 on
+           the first frame after a load or a reset, 1 after: JSBSim resets the components' states but
+           not their output properties, nor the rotors' torques, so what the channel reads from the
+           previous frame is gated by it then. -->
+      <fcs_function name="fcs/uh60/one"> <function> <value> 1 </value> </function> </fcs_function>
+      <lag_filter name="fcs/uh60/armed-lag"> <input> fcs/uh60/one </input> <c1> 1000 </c1> </lag_filter>
+      <fcs_function name="fcs/uh60/armed"> <function> <gt> <property> fcs/uh60/armed-lag </property> <value> 0.5 </value> </gt> </function> </fcs_function>
+      <fcs_function name="fcs/uh60/delta-omega-prev">
+        <function> <product> <property> fcs/uh60/armed </property> <property> fcs/uh60/delta-omega </property> </product> </function>
+      </fcs_function>
+      <fcs_function name="fcs/uh60/omega">
+        <function> <sum> <value> 26.999894 </value> <property> fcs/uh60/delta-omega-prev </property> </sum> </function>
+      </fcs_function>
+      <fcs_function name="fcs/uh60/rpm-error"> <function> <product> <value> -1 </value> <property> fcs/uh60/delta-omega-prev </property> </product> </function> </fcs_function>
+      <pid name="fcs/uh60/governor"> <input> fcs/uh60/rpm-error </input>
+        <kp> 1.2376 </kp> <ki> 1.547 </ki> <kd> 0.3094 </kd>
+        <trigger> fcs/uh60/power-saturated </trigger> </pid>
+      <lag_filter name="fcs/uh60/governor-power"> <input> fcs/uh60/governor </input> <c1> 0.8 </c1> </lag_filter>
+      <fcs_function name="fcs/uh60/load-power">
+        <function> <quotient> <product> <property> fcs/uh60/armed </property> <property> fcs/uh60/omega </property> <sum>
+          <property> propulsion/engine[0]/torque-lbsft </property>
+          <product> <property> propulsion/engine[1]/torque-lbsft </property> <value> 4.6154443 </value> </product>
+        </sum> </product> <value> 1555400 </value> </quotient> </function>
+      </fcs_function>
+      <fcs_function name="fcs/uh60/power-demand">
+        <function> <sum> <property> fcs/uh60/load-power </property> <property> fcs/uh60/governor-power </property> </sum> </function>
+      </fcs_function>
+      <fcs_function name="fcs/uh60/power">
+        <function> <product> <difference> <value> 1 </value> <property> fcs/uh60/blades-struck </property> </difference>
+          <max> <value> 0 </value> <min> <value> 1 </value> <property> fcs/uh60/power-demand </property> </min> </max> </product> </function>
+        <output> fcs/throttle-pos-norm[0] </output>
+      </fcs_function>
+      <fcs_function name="fcs/uh60/power-saturated">
+        <function> <gt> <abs> <difference> <property> fcs/uh60/power-demand </property> <property> fcs/uh60/power </property> </difference> </abs> <value> 1e-9 </value> </gt> </function>
+      </fcs_function>
+      <pure_gain name="fcs/uh60/tail-drive-throttle"> <input> fcs/uh60/power </input> <gain> 0 </gain>
+        <output> fcs/throttle-pos-norm[1] </output> </pure_gain>
+      <fcs_function name="fcs/uh60/fed">
+        <function> <gt> <property> propulsion/total-fuel-lbs </property> <value> 0 </value> </gt> </function>
+      </fcs_function>
+      <fcs_function name="fcs/uh60/net-torque">
+        <function> <product> <property> fcs/uh60/armed </property> <difference>
+          <quotient> <product> <property> fcs/uh60/power </property> <value> 1555400 </value> <property> fcs/uh60/fed </property> </product>
+            <max> <value> 1 </value> <property> fcs/uh60/omega </property> </max> </quotient>
+          <sum> <property> propulsion/engine[0]/torque-lbsft </property>
+            <product> <property> propulsion/engine[1]/torque-lbsft </property> <value> 4.6154443 </value> </product> </sum>
+          <product> <property> fcs/uh60/blades-struck </property> <value> 91953.4 </value> </product>
+        </difference> </product> </function>
+      </fcs_function>
+      <!-- the rotor speed stops where the rotors' do (FGRotor's minimum and 130 %): past it, and pushed further,
+           it is held there, the integration stopped -->
+      <fcs_function name="fcs/uh60/omega-stop">
+        <function> <or>
+          <and> <ge> <property> fcs/uh60/delta-omega </property> <value> 8.0999683 </value> </ge>
+            <gt> <property> fcs/uh60/net-torque </property> <value> 0 </value> </gt> </and>
+          <and> <le> <property> fcs/uh60/delta-omega </property> <value> -26.895175 </value> </le>
+            <lt> <property> fcs/uh60/net-torque </property> <value> 0 </value> </lt> </and>
+        </or> </function>
+      </fcs_function>
+      <pid name="fcs/uh60/delta-omega"> <input> fcs/uh60/net-torque </input>
+        <kp> 0 </kp> <ki type="trap"> 0.00014681292 </ki> <kd> 0 </kd>
+        <trigger> fcs/uh60/omega-stop </trigger> <clipto> <min> -26.895175 </min> <max> 8.0999683 </max> </clipto> </pid>
+      <!-- the engine's torque on the main rotor's shaft: what the airframe feels of the rotors (the
+           external reaction rotor-drive) -->
+      <fcs_function name="fcs/uh60/drive-torque">
+        <function> <quotient> <product> <property> fcs/uh60/power </property> <value> 1555400 </value> <property> fcs/uh60/fed </property> </product>
+          <max> <value> 1 </value> <property> fcs/uh60/omega </property> </max> </quotient> </function>
+      </fcs_function>
+      <fcs_function name="fcs/uh60/rotor-rpm">
+        <function> <product> <sum> <value> 26.999894 </value> <property> fcs/uh60/delta-omega </property> </sum> <value> 9.5492966 </value> </product> </function>
+        <output> propulsion/engine[0]/x-rpm-dict </output>
+      </fcs_function>
+    </channel>
+  </flight_control>
+  <aerodynamics>
+    <!-- the main rotor's wake: its skew angle chi from the vertical, tan chi = mu / -lambda -->
+    <function name="aero/uh60/wake-tan-chi">
+      <quotient> <property> propulsion/engine[0]/advance-ratio </property>
+        <max> <value> 0.002 </value> <abs> <property> propulsion/engine[0]/inflow-ratio </property> </abs> </max> </quotient>
+    </function>
+    <function name="aero/uh60/wake-fus">
+      <description> fus: 0.4 ft aft of the hub, 6.8 ft below it </description>
+      <product>
+        <max> <value> 0 </value> <min> <value> 1 </value>
+          <quotient> <difference> <sum> <value> 26.83 </value> <product> <value> 6.75 </value> <property> aero/uh60/wake-tan-chi </property> </product> </sum> <value> 0.3583333333333343 </value> </difference> <value> 2 </value> </quotient> </min> </max>
+        <max> <value> 0 </value> <min> <value> 1 </value>
+          <quotient> <difference> <value> 0.3583333333333343 </value> <difference> <product> <value> 6.75 </value> <property> aero/uh60/wake-tan-chi </property> </product> <value> 26.83 </value> </difference> </difference> <value> 2 </value> </quotient> </min> </max>
+      </product>
+    </function>
+    <function name="aero/uh60/wake-hs">
+      <description> hs: 29.9 ft aft of the hub, 5.9 ft below it </description>
+      <product>
+        <max> <value> 0 </value> <min> <value> 1 </value>
+          <quotient> <difference> <sum> <value> 26.83 </value> <product> <value> 5.916666666666667 </value> <property> aero/uh60/wake-tan-chi </property> </product> </sum> <value> 29.933333333333334 </value> </difference> <value> 2 </value> </quotient> </min> </max>
+        <max> <value> 0 </value> <min> <value> 1 </value>
+          <quotient> <difference> <value> 29.933333333333334 </value> <difference> <product> <value> 5.916666666666667 </value> <property> aero/uh60/wake-tan-chi </property> </product> <value> 26.83 </value> </difference> </difference> <value> 2 </value> </quotient> </min> </max>
+      </product>
+    </function>
+    <function name="aero/uh60/wake-vf">
+      <description> vf: 29.5 ft aft of the hub, 3.5 ft below it </description>
+      <product>
+        <max> <value> 0 </value> <min> <value> 1 </value>
+          <quotient> <difference> <sum> <value> 26.83 </value> <product> <value> 3.5 </value> <property> aero/uh60/wake-tan-chi </property> </product> </sum> <value> 29.483333333333334 </value> </difference> <value> 2 </value> </quotient> </min> </max>
+        <max> <value> 0 </value> <min> <value> 1 </value>
+          <quotient> <difference> <value> 29.483333333333334 </value> <difference> <product> <value> 3.5 </value> <property> aero/uh60/wake-tan-chi </property> </product> <value> 26.83 </value> </difference> </difference> <value> 2 </value> </quotient> </min> </max>
+      </product>
+    </function>
+    <function name="fcs/uh60/u-kt"> <product> <property> velocities/u-aero-fps </property> <value> 0.592484 </value> </product> </function>
+    <!-- TM-85890's fuselage: its angles with the rotor's downwash and the rates at its reference point -->
+    <function name="aero/uh60/fus-w">
+      <sum> <property> velocities/w-aero-fps </property>
+        <product> <value> -1.2416667 </value> <property> velocities/q-aero-rad_sec </property> </product>
+        <product> <value> -1 </value> <property> aero/uh60/wake-fus </property> <property> propulsion/engine[0]/vi-fps </property> </product> </sum>
+    </function>
+    <function name="aero/uh60/fus-v">
+      <sum> <property> velocities/v-aero-fps </property> <product> <value> 1.2416667 </value> <property> velocities/r-aero-rad_sec </property> </product> </sum>
+    </function>
+    <function name="aero/uh60/fus-vmag">
+      <max> <value> 1 </value> <sqrt> <sum> <pow> <property> velocities/u-aero-fps </property> <value> 2 </value> </pow>
+        <pow> <property> aero/uh60/fus-v </property> <value> 2 </value> </pow> <pow> <property> aero/uh60/fus-w </property> <value> 2 </value> </pow> </sum> </sqrt> </max>
+    </function>
+    <function name="aero/uh60/fus-qbar">
+      <product> <value> 0.5 </value> <property> atmosphere/rho-slugs_ft3 </property> <pow> <property> aero/uh60/fus-vmag </property> <value> 2 </value> </pow> </product>
+    </function>
+    <function name="aero/uh60/alpha-f-deg">
+      <todegrees> <atan2> <property> aero/uh60/fus-w </property> <abs> <property> velocities/u-aero-fps </property> </abs> </atan2> </todegrees>
+    </function>
+    <function name="aero/uh60/psi-w-deg">
+      <product> <value> -1 </value> <todegrees> <atan2> <property> aero/uh60/fus-v </property>
+        <sqrt> <sum> <pow> <property> velocities/u-aero-fps </property> <value> 2 </value> </pow> <pow> <property> aero/uh60/fus-w </property> <value> 2 </value> </pow> </sum> </sqrt> </atan2> </todegrees> </product>
+    </function>
+    <function name="aero/uh60/fus-a"> <toradians> <property> aero/uh60/alpha-f-deg </property> </toradians> </function>
+    <function name="aero/uh60/fus-p"> <toradians> <property> aero/uh60/psi-w-deg </property> </toradians> </function>
+    <function name="aero/uh60/fus-d">
+      <description> D/q = 90.0555 sin^2 a - 41.5604 cos a + 2.94684 cos 4p - 103.141 cos 2p - 0.535350e-6 p^4 + 160.2049 </description>
+      <product> <property> aero/uh60/fus-qbar </property> <sum>
+        <product> <value> 90.0555 </value> <pow> <sin> <property> aero/uh60/fus-a </property> </sin> <value> 2 </value> </pow> </product>
+        <product> <value> -41.5604 </value> <cos> <property> aero/uh60/fus-a </property> </cos> </product>
+        <product> <value> 2.94684 </value> <cos> <product> <value> 4 </value> <property> aero/uh60/fus-p </property> </product> </cos> </product>
+        <product> <value> -103.141 </value> <cos> <product> <value> 2 </value> <property> aero/uh60/fus-p </property> </product> </cos> </product>
+        <product> <value> -0.535350e-6 </value> <pow> <property> aero/uh60/psi-w-deg </property> <value> 4 </value> </pow> </product>
+        <value> 160.2049 </value> </sum> </product>
+    </function>
+    <function name="aero/uh60/fus-lift">
+      <description> L/q = 29.3616 sin a + 43.4680 sin 2a - 81.8924 sin^2 a - 84.1469 cos a - 0.0821406 p + 3.00102 sin 4p + 0.0323477 p^2 + 85.3496 </description>
+      <product> <property> aero/uh60/fus-qbar </property> <sum>
+        <product> <value> 29.3616 </value> <sin> <property> aero/uh60/fus-a </property> </sin> </product>
+        <product> <value> 43.4680 </value> <sin> <product> <value> 2 </value> <property> aero/uh60/fus-a </property> </product> </sin> </product>
+        <product> <value> -81.8924 </value> <pow> <sin> <property> aero/uh60/fus-a </property> </sin> <value> 2 </value> </pow> </product>
+        <product> <value> -84.1469 </value> <cos> <property> aero/uh60/fus-a </property> </cos> </product>
+        <product> <value> -0.0821406 </value> <property> aero/uh60/psi-w-deg </property> </product>
+        <product> <value> 3.00102 </value> <sin> <product> <value> 4 </value> <property> aero/uh60/fus-p </property> </product> </sin> </product>
+        <product> <value> 0.0323477 </value> <pow> <property> aero/uh60/psi-w-deg </property> <value> 2 </value> </pow> </product>
+        <value> 85.3496 </value> </sum> </product>
+    </function>
+    <function name="aero/uh60/fus-side">
+      <description> Y/q = 35.3999 sin p + 71.8019 sin 2p - 8.04823 sin 4p </description>
+      <product> <property> aero/uh60/fus-qbar </property> <sum>
+        <product> <value> 35.3999 </value> <sin> <property> aero/uh60/fus-p </property> </sin> </product>
+        <product> <value> 71.8019 </value> <sin> <product> <value> 2 </value> <property> aero/uh60/fus-p </property> </product> </sin> </product>
+        <product> <value> -8.04823 </value> <sin> <product> <value> 4 </value> <property> aero/uh60/fus-p </property> </product> </sin> </product> </sum> </product>
+    </function>
+    <function name="aero/uh60/fus-pitch">
+      <description> M/q = 2.37925 a(deg) + 728.026 sin 2a + 426.760 sin^2 a + 348.072 cos a - 510.581 cos^3 p + 56.111 </description>
+      <product> <property> aero/uh60/fus-qbar </property> <sum>
+        <product> <value> 2.37925 </value> <property> aero/uh60/alpha-f-deg </property> </product>
+        <product> <value> 728.026 </value> <sin> <product> <value> 2 </value> <property> aero/uh60/fus-a </property> </product> </sin> </product>
+        <product> <value> 426.760 </value> <pow> <sin> <property> aero/uh60/fus-a </property> </sin> <value> 2 </value> </pow> </product>
+        <product> <value> 348.072 </value> <cos> <property> aero/uh60/fus-a </property> </cos> </product>
+        <product> <value> -510.581 </value> <pow> <cos> <property> aero/uh60/fus-p </property> </cos> <value> 3 </value> </pow> </product>
+        <value> 56.111 </value> </sum> </product>
+    </function>
+    <function name="aero/uh60/fus-roll">
+      <description> l/q by |p|: 0 to 10 deg; to 25: sgn p (455.707 cos^4 p - 428.639); to 90: 614.797 sin p + sgn p (-47.7213 cos 4p - 290.504 cos^3 p + 735.507 cos^4 p - 669.266) </description>
+      <product> <property> aero/uh60/fus-qbar </property>
+        <ifthen> <le> <abs> <property> aero/uh60/psi-w-deg </property> </abs> <value> 10 </value> </le> <value> 0 </value>
+          <ifthen> <le> <abs> <property> aero/uh60/psi-w-deg </property> </abs> <value> 25 </value> </le>
+            <product> <sign> <property> aero/uh60/fus-p </property> </sign>
+              <sum> <product> <value> 455.707 </value> <pow> <cos> <property> aero/uh60/fus-p </property> </cos> <value> 4 </value> </pow> </product> <value> -428.639 </value> </sum> </product>
+            <sum> <product> <value> 614.797 </value> <sin> <property> aero/uh60/fus-p </property> </sin> </product>
+              <product> <sign> <property> aero/uh60/fus-p </property> </sign> <sum>
+                <product> <value> -47.7213 </value> <cos> <product> <value> 4 </value> <property> aero/uh60/fus-p </property> </product> </cos> </product>
+                <product> <value> -290.504 </value> <pow> <cos> <property> aero/uh60/fus-p </property> </cos> <value> 3 </value> </pow> </product>
+                <product> <value> 735.507 </value> <pow> <cos> <property> aero/uh60/fus-p </property> </cos> <value> 4 </value> </pow> </product>
+                <value> -669.266 </value> </sum> </product> </sum>
+          </ifthen>
+        </ifthen> </product>
+    </function>
+    <function name="aero/uh60/fus-yaw">
+      <description> N/q: |p| to 20 deg: -278.133 sin 2p + 422.644 sin 4p - 1.83172; beyond: 220.0 sin 2p + sgn p (671.0 cos^4 p - 429.0) </description>
+      <product> <property> aero/uh60/fus-qbar </property>
+        <ifthen> <le> <abs> <property> aero/uh60/psi-w-deg </property> </abs> <value> 20 </value> </le>
+          <sum> <product> <value> -278.133 </value> <sin> <product> <value> 2 </value> <property> aero/uh60/fus-p </property> </product> </sin> </product>
+            <product> <value> 422.644 </value> <sin> <product> <value> 4 </value> <property> aero/uh60/fus-p </property> </product> </sin> </product>
+            <value> -1.83172 </value> </sum>
+          <sum> <product> <value> 220.0 </value> <sin> <product> <value> 2 </value> <property> aero/uh60/fus-p </property> </product> </sin> </product>
+            <product> <sign> <property> aero/uh60/fus-p </property> </sign>
+              <sum> <product> <value> 671.0 </value> <pow> <cos> <property> aero/uh60/fus-p </property> </cos> <value> 4 </value> </pow> </product> <value> -429.0 </value> </sum> </product> </sum>
+        </ifthen> </product>
+    </function>
+    <!-- wind to body: drag along the local wind, lift normal to it in the plane of symmetry, the side force along y -->
+    <function name="aero/uh60/fus-x">
+      <sum> <product> <value> -1 </value> <property> aero/uh60/fus-d </property> <quotient> <property> velocities/u-aero-fps </property> <property> aero/uh60/fus-vmag </property> </quotient> </product>
+        <product> <property> aero/uh60/fus-lift </property> <sin> <property> aero/uh60/fus-a </property> </sin> </product> </sum>
+    </function>
+    <function name="aero/uh60/fus-y">
+      <sum> <product> <value> -1 </value> <property> aero/uh60/fus-d </property> <quotient> <property> aero/uh60/fus-v </property> <property> aero/uh60/fus-vmag </property> </quotient> </product>
+        <property> aero/uh60/fus-side </property> </sum>
+    </function>
+    <function name="aero/uh60/fus-z">
+      <sum> <product> <value> -1 </value> <property> aero/uh60/fus-d </property> <quotient> <property> aero/uh60/fus-w </property> <property> aero/uh60/fus-vmag </property> </quotient> </product>
+        <product> <value> -1 </value> <property> aero/uh60/fus-lift </property> <cos> <property> aero/uh60/fus-a </property> </cos> </product> </sum>
+    </function>
+    <function name="aero/uh60/hs-u"> <property> velocities/u-aero-fps </property> </function>
+    <function name="aero/uh60/hs-v"> <sum> <property> velocities/v-aero-fps </property> <product> <value> -28.333333 </value> <property> velocities/r-aero-rad_sec </property> </product> </sum> </function>
+    <function name="aero/uh60/hs-w"> <sum> <property> velocities/w-aero-fps </property> <product> <value> 28.333333 </value> <property> velocities/q-aero-rad_sec </property> </product>
+        <product> <value> -1.8 </value> <property> aero/uh60/wake-hs </property> <property> propulsion/engine[0]/vi-fps </property> </product> </sum> </function>
+    <function name="aero/uh60/hs-vmag">
+      <max> <value> 0.1 </value> <sqrt> <sum> <pow> <property> aero/uh60/hs-u </property> <value> 2 </value> </pow>
+        <pow> <property> aero/uh60/hs-v </property> <value> 2 </value> </pow> <pow> <property> aero/uh60/hs-w </property> <value> 2 </value> </pow> </sum> </sqrt> </max>
+    </function>
+    <function name="aero/uh60/hs-alpha-raw">
+      <description> + the stabilator's incidence (leading edge up: trailing edge down) </description>
+      <sum> <atan2> <property> aero/uh60/hs-w </property> <property> aero/uh60/hs-u </property> </atan2> <property> fcs/uh60/stab-rad </property> </sum>
+    </function>
+    <function name="aero/uh60/hs-alpha"> <atan2> <sin> <property> aero/uh60/hs-alpha-raw </property> </sin> <cos> <property> aero/uh60/hs-alpha-raw </property> </cos> </atan2> </function>
+    <function name="aero/uh60/hs-beta"> <asin> <quotient> <property> aero/uh60/hs-v </property> <property> aero/uh60/hs-vmag </property> </quotient> </asin> </function>
+    <function name="aero/uh60/hs-a">
+      <product> <value> 4.3791898 </value> <pow> <cos> <property> aero/uh60/hs-beta </property> </cos> <value> 2 </value> </pow> </product>
+    </function>
+    <function name="aero/uh60/hs-alpha-s">
+      <min> <quotient> <value> 1.03 </value> <property> aero/uh60/hs-a </property> </quotient> <value> 0.785398 </value> </min>
+    </function>
+    <function name="aero/uh60/hs-clm"> <product> <property> aero/uh60/hs-alpha-s </property> <property> aero/uh60/hs-a </property> </product> </function>
+    <function name="aero/uh60/hs-alpha-i">
+      <description> the angle folded into 0..90 deg </description>
+      <ifthen> <le> <abs> <property> aero/uh60/hs-alpha </property> </abs> <value> 1.570796 </value> </le>
+        <abs> <property> aero/uh60/hs-alpha </property> </abs>
+        <difference> <value> 3.141593 </value> <abs> <property> aero/uh60/hs-alpha </property> </abs> </difference>
+      </ifthen>
+    </function>
+    <function name="aero/uh60/hs-cl0">
+      <ifthen> <lt> <property> aero/uh60/hs-alpha-i </property> <property> aero/uh60/hs-alpha-s </property> </lt>
+        <product> <property> aero/uh60/hs-a </property> <property> aero/uh60/hs-alpha-i </property> </product>
+        <ifthen> <lt> <property> aero/uh60/hs-alpha-i </property> <product> <value> 1.2 </value> <property> aero/uh60/hs-alpha-s </property> </product> </lt>
+          <difference> <property> aero/uh60/hs-clm </property>
+            <product> <property> aero/uh60/hs-a </property> <difference> <property> aero/uh60/hs-alpha-i </property> <property> aero/uh60/hs-alpha-s </property> </difference> </product> </difference>
+          <product> <value> 0.8 </value> <property> aero/uh60/hs-clm </property>
+            <difference> <value> 1 </value>
+              <pow> <quotient>
+                <difference> <property> aero/uh60/hs-alpha-i </property> <product> <value> 1.2 </value> <property> aero/uh60/hs-alpha-s </property> </product> </difference>
+                <difference> <value> 1.570796 </value> <product> <value> 1.2 </value> <property> aero/uh60/hs-alpha-s </property> </product> </difference>
+              </quotient> <value> 2 </value> </pow> </difference> </product>
+        </ifthen>
+      </ifthen>
+    </function>
+    <function name="aero/uh60/hs-cl">
+      <product> <property> aero/uh60/hs-cl0 </property>
+        <ifthen> <le> <abs> <property> aero/uh60/hs-alpha </property> </abs> <value> 1.570796 </value> </le>
+          <sign> <property> aero/uh60/hs-alpha </property> </sign>
+          <product> <value> -0.8 </value> <sign> <property> aero/uh60/hs-alpha </property> </sign> </product>
+        </ifthen> </product>
+    </function>
+    <function name="aero/uh60/hs-cd">
+      <sum>
+        <ifthen> <le> <property> aero/uh60/hs-alpha-i </property> <value> 0.35 </value> </le>
+          <sum> <value> 0.009 </value> <product> <value> 0.11 </value> <property> aero/uh60/hs-alpha-i </property> <property> aero/uh60/hs-alpha-i </property> </product> </sum>
+          <sum> <value> -0.1254 </value> <product> <value> 0.9415 </value> <property> aero/uh60/hs-alpha-i </property> </product>
+            <product> <value> 0.977525 </value> <pow> <sin> <property> aero/uh60/hs-alpha-i </property> </sin> <value> 2 </value> </pow> </product> </sum>
+        </ifthen>
+        <quotient> <product> <property> aero/uh60/hs-cl </property> <property> aero/uh60/hs-cl </property> </product> <value> 11.561061 </value> </quotient>
+      </sum>
+    </function>
+    <function name="aero/uh60/hs-f">
+      <product> <value> 0.5 </value> <property> atmosphere/rho-slugs_ft3 </property> <pow> <property> aero/uh60/hs-vmag </property> <value> 2 </value> </pow> <value> 18 </value> </product>
+    </function>
+    <function name="aero/uh60/hs-x">
+      <product> <property> aero/uh60/hs-f </property> <sum>
+        <product> <value> -1 </value> <property> aero/uh60/hs-cd </property> <cos> <property> aero/uh60/hs-beta </property> </cos> <cos> <property> aero/uh60/hs-alpha </property> </cos> </product>
+        <product> <property> aero/uh60/hs-cl </property> <sin> <property> aero/uh60/hs-alpha </property> </sin> </product> </sum> </product>
+    </function>
+    <function name="aero/uh60/hs-y"> <product> <value> -1 </value> <property> aero/uh60/hs-f </property> <property> aero/uh60/hs-cd </property> <sin> <property> aero/uh60/hs-beta </property> </sin> </product> </function>
+    <function name="aero/uh60/hs-z">
+      <product> <property> aero/uh60/hs-f </property> <sum>
+        <product> <value> -1 </value> <property> aero/uh60/hs-cl </property> <cos> <property> aero/uh60/hs-alpha </property> </cos> </product>
+        <product> <value> -1 </value> <property> aero/uh60/hs-cd </property> <cos> <property> aero/uh60/hs-beta </property> </cos> <sin> <property> aero/uh60/hs-alpha </property> </sin> </product> </sum> </product>
+    </function>
+    <function name="aero/uh60/vf-u"> <property> velocities/u-aero-fps </property> </function>
+    <function name="aero/uh60/vf-v"> <sum> <property> velocities/v-aero-fps </property> <product> <value> -27.883333 </value> <property> velocities/r-aero-rad_sec </property> </product>
+        <product> <value> 0.93969262 </value> <property> propulsion/engine[1]/vi-fps </property> </product> </sum> </function>
+    <function name="aero/uh60/vf-w"> <sum> <property> velocities/w-aero-fps </property> <product> <value> 27.883333 </value> <property> velocities/q-aero-rad_sec </property> </product>
+        <product> <value> -1 </value> <property> aero/uh60/wake-vf </property> <property> propulsion/engine[0]/vi-fps </property> </product> </sum> </function>
+    <function name="aero/uh60/vf-vmag">
+      <max> <value> 0.1 </value> <sqrt> <sum> <pow> <property> aero/uh60/vf-u </property> <value> 2 </value> </pow>
+        <pow> <property> aero/uh60/vf-v </property> <value> 2 </value> </pow> <pow> <property> aero/uh60/vf-w </property> <value> 2 </value> </pow> </sum> </sqrt> </max>
+    </function>
+    <function name="aero/uh60/vf-alpha"> <atan2> <property> aero/uh60/vf-v </property> <property> aero/uh60/vf-u </property> </atan2> </function>
+    <function name="aero/uh60/vf-beta"> <asin> <quotient> <property> aero/uh60/vf-w </property> <property> aero/uh60/vf-vmag </property> </quotient> </asin> </function>
+    <function name="aero/uh60/vf-a">
+      <product> <value> 3.0774785 </value> <pow> <cos> <sum> <property> aero/uh60/vf-beta </property> <value> 0.7156 </value> </sum> </cos> <value> 2 </value> </pow> </product>
+    </function>
+    <function name="aero/uh60/vf-alpha-s">
+      <min> <quotient> <value> 0.89 </value> <property> aero/uh60/vf-a </property> </quotient> <value> 0.785398 </value> </min>
+    </function>
+    <function name="aero/uh60/vf-clm"> <product> <property> aero/uh60/vf-alpha-s </property> <property> aero/uh60/vf-a </property> </product> </function>
+    <function name="aero/uh60/vf-alpha-i">
+      <description> the angle folded into 0..90 deg </description>
+      <ifthen> <le> <abs> <property> aero/uh60/vf-alpha </property> </abs> <value> 1.570796 </value> </le>
+        <abs> <property> aero/uh60/vf-alpha </property> </abs>
+        <difference> <value> 3.141593 </value> <abs> <property> aero/uh60/vf-alpha </property> </abs> </difference>
+      </ifthen>
+    </function>
+    <function name="aero/uh60/vf-cl0">
+      <ifthen> <lt> <property> aero/uh60/vf-alpha-i </property> <property> aero/uh60/vf-alpha-s </property> </lt>
+        <product> <property> aero/uh60/vf-a </property> <property> aero/uh60/vf-alpha-i </property> </product>
+        <ifthen> <lt> <property> aero/uh60/vf-alpha-i </property> <product> <value> 1.2 </value> <property> aero/uh60/vf-alpha-s </property> </product> </lt>
+          <difference> <property> aero/uh60/vf-clm </property>
+            <product> <property> aero/uh60/vf-a </property> <difference> <property> aero/uh60/vf-alpha-i </property> <property> aero/uh60/vf-alpha-s </property> </difference> </product> </difference>
+          <product> <value> 0.8 </value> <property> aero/uh60/vf-clm </property>
+            <difference> <value> 1 </value>
+              <pow> <quotient>
+                <difference> <property> aero/uh60/vf-alpha-i </property> <product> <value> 1.2 </value> <property> aero/uh60/vf-alpha-s </property> </product> </difference>
+                <difference> <value> 1.570796 </value> <product> <value> 1.2 </value> <property> aero/uh60/vf-alpha-s </property> </product> </difference>
+              </quotient> <value> 2 </value> </pow> </difference> </product>
+        </ifthen>
+      </ifthen>
+    </function>
+    <function name="aero/uh60/vf-cl">
+      <product> <property> aero/uh60/vf-cl0 </property>
+        <ifthen> <le> <abs> <property> aero/uh60/vf-alpha </property> </abs> <value> 1.570796 </value> </le>
+          <sign> <property> aero/uh60/vf-alpha </property> </sign>
+          <product> <value> -0.8 </value> <sign> <property> aero/uh60/vf-alpha </property> </sign> </product>
+        </ifthen> </product>
+    </function>
+    <function name="aero/uh60/vf-cd">
+      <sum>
+        <ifthen> <le> <property> aero/uh60/vf-alpha-i </property> <value> 0.35 </value> </le>
+          <sum> <value> 0.009 </value> <product> <value> 0.11 </value> <property> aero/uh60/vf-alpha-i </property> <property> aero/uh60/vf-alpha-i </property> </product> </sum>
+          <sum> <value> -0.1254 </value> <product> <value> 0.9415 </value> <property> aero/uh60/vf-alpha-i </property> </product>
+            <product> <value> 0.977525 </value> <pow> <sin> <property> aero/uh60/vf-alpha-i </property> </sin> <value> 2 </value> </pow> </product> </sum>
+        </ifthen>
+        <quotient> <product> <property> aero/uh60/vf-cl </property> <property> aero/uh60/vf-cl </property> </product> <value> 4.8254863 </value> </quotient>
+      </sum>
+    </function>
+    <function name="aero/uh60/vf-f">
+      <product> <value> 0.5 </value> <property> atmosphere/rho-slugs_ft3 </property> <pow> <property> aero/uh60/vf-vmag </property> <value> 2 </value> </pow> <value> 21.0273 </value> </product>
+    </function>
+    <function name="aero/uh60/vf-x">
+      <product> <property> aero/uh60/vf-f </property> <sum>
+        <product> <value> -1 </value> <property> aero/uh60/vf-cd </property> <cos> <property> aero/uh60/vf-beta </property> </cos> <cos> <property> aero/uh60/vf-alpha </property> </cos> </product>
+        <product> <property> aero/uh60/vf-cl </property> <sin> <property> aero/uh60/vf-alpha </property> </sin> </product> </sum> </product>
+    </function>
+    <function name="aero/uh60/vf-y">
+      <product> <property> aero/uh60/vf-f </property> <sum>
+        <product> <value> -1 </value> <property> aero/uh60/vf-cl </property> <cos> <property> aero/uh60/vf-alpha </property> </cos> </product>
+        <product> <value> -1 </value> <property> aero/uh60/vf-cd </property> <cos> <property> aero/uh60/vf-beta </property> </cos> <sin> <property> aero/uh60/vf-alpha </property> </sin> </product> </sum> </product>
+    </function>
+    <function name="aero/uh60/vf-z"> <product> <value> -1 </value> <property> aero/uh60/vf-f </property> <property> aero/uh60/vf-cd </property> <sin> <property> aero/uh60/vf-beta </property> </sin> </product> </function>
+    <axis name="X"> <function name="aero/force/uh60-x"> <sum> <property> aero/uh60/fus-x </property> <property> aero/uh60/hs-x </property> <property> aero/uh60/vf-x </property> </sum> </function> </axis>
+    <axis name="Y"> <function name="aero/force/uh60-y"> <sum> <property> aero/uh60/fus-y </property> <property> aero/uh60/hs-y </property> <property> aero/uh60/vf-y </property> </sum> </function> </axis>
+    <axis name="Z"> <function name="aero/force/uh60-z"> <sum> <property> aero/uh60/fus-z </property> <property> aero/uh60/hs-z </property> <property> aero/uh60/vf-z </property> </sum> </function> </axis>
+    <axis name="ROLL"> <function name="aero/moment/uh60-l"> <sum> <property> aero/uh60/fus-roll </property> <product> <value> -1.1 </value> <property> aero/uh60/fus-y </property> </product> <product> <value> -0.26666667 </value> <property> aero/uh60/hs-y </property> </product> <product> <value> 2.15 </value> <property> aero/uh60/vf-y </property> </product> </sum> </function> </axis>
+    <axis name="PITCH"> <function name="aero/moment/uh60-m"> <sum> <property> aero/uh60/fus-pitch </property> <product> <value> 1.1 </value> <property> aero/uh60/fus-x </property> </product> <product> <value> -1.2416667 </value> <property> aero/uh60/fus-z </property> </product> <product> <value> 0.26666667 </value> <property> aero/uh60/hs-x </property> </product> <product> <value> 28.333333 </value> <property> aero/uh60/hs-z </property> </product> <product> <value> -2.15 </value> <property> aero/uh60/vf-x </property> </product> <product> <value> 27.883333 </value> <property> aero/uh60/vf-z </property> </product> </sum> </function> </axis>
+    <axis name="YAW"> <function name="aero/moment/uh60-n"> <sum> <property> aero/uh60/fus-yaw </property> <product> <value> 1.2416667 </value> <property> aero/uh60/fus-y </property> </product> <product> <value> -28.333333 </value> <property> aero/uh60/hs-y </property> </product> <product> <value> -27.883333 </value> <property> aero/uh60/vf-y </property> </product> </sum> </function> </axis>
+  </aerodynamics>
+</fdm_config>

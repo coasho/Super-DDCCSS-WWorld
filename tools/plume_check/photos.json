@@ -1,0 +1,149 @@
+{
+ "about": "Launch photographs of missiles in their boost, measured with measure.py (2026-10-09): Wikimedia Commons files, U.S. government works (public domain); not kept in the repository. 'nozzle' and 'nose' are the points measured from, in the full-size file's pixels; diameter and length are the missile's (m). The AIM-120 at dusk (F-14A AIM-120 Test 2.JPEG) is read by eye only - an aircraft behind its plume spoils the sky beside it: a bright orange flame some 0.75 L long, saturated in its long exposure. 'F-22 fires AIM-9M Sidewinder ... March 2005.jpg' shows the missile still on its launcher, its flame on the launcher: not a free plume, left out.",
+ "photos": [
+  {
+   "file": "An air-to-air left side view of an F-15 Eagle aircraft firing an AIM-7 Sparrow missile - DPLA - a71c2748c856e407c8857c213ceec61e.jpeg",
+   "missile": "AIM-7",
+   "smoke": "aluminised",
+   "nozzle": [
+    722,
+    1294
+   ],
+   "nose": [
+    356,
+    1290
+   ],
+   "diameter_m": 0.203,
+   "length_m": 3.66,
+   "measured": {
+    "sat_from": 0.0,
+    "sat_to": 2.32,
+    "width": [
+     2.0,
+     3.2,
+     4.1
+    ],
+    "gap": 0.58,
+    "contrast": [
+     0.54,
+     0.69,
+     0.71,
+     0.66,
+     1.03
+    ],
+    "edge": [
+     1.03,
+     0.97
+    ]
+   }
+  },
+  {
+   "file": "F-15 firing AIM-7Ms.jpg",
+   "missile": "AIM-7M",
+   "smoke": "aluminised",
+   "nozzle": [
+    612,
+    1106
+   ],
+   "nose": [
+    266,
+    1079
+   ],
+   "diameter_m": 0.203,
+   "length_m": 3.66,
+   "measured": {
+    "sat_from": 0.0,
+    "sat_to": 1.6,
+    "width": [
+     1.5,
+     2.3,
+     3.2
+    ],
+    "gap": 0.89,
+    "contrast": [
+     2.64,
+     2.64,
+     2.67,
+     2.56,
+     0.95
+    ],
+    "edge": [
+     0.99,
+     1.14
+    ]
+   }
+  },
+  {
+   "file": "Australian F-18A Hornet launches Sparrow missile c1990 (cropped).jpg",
+   "missile": "AIM-7M",
+   "smoke": "aluminised",
+   "nozzle": [
+    1719,
+    924
+   ],
+   "nose": [
+    1940,
+    1009
+   ],
+   "diameter_m": 0.203,
+   "length_m": 3.66,
+   "measured": {
+    "sat_from": 0.02,
+    "sat_to": 1.66,
+    "width": [
+     1.7,
+     2.9,
+     3.8
+    ],
+    "gap": 0.81,
+    "contrast": [
+     7.69,
+     7.93,
+     7.81,
+     7.09,
+     1.46
+    ],
+    "edge": [
+     1.22,
+     0.83
+    ]
+   }
+  },
+  {
+   "file": "An F-35A launches a missile. (9034663832).jpg",
+   "missile": "AIM-120",
+   "smoke": "reduced",
+   "nozzle": [
+    3016,
+    2256
+   ],
+   "nose": [
+    3469,
+    2240
+   ],
+   "diameter_m": 0.178,
+   "length_m": 3.66,
+   "measured": {
+    "sat_from": 0.0,
+    "sat_to": 0.02,
+    "width": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "gap": 0.4,
+    "contrast": [
+     0.51,
+     0.31,
+     0.25,
+     0.23,
+     0.13
+    ],
+    "edge": [
+     0.88,
+     1.28
+    ]
+   }
+  }
+ ]
+}

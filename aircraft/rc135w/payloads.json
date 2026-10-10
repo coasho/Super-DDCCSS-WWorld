@@ -1,0 +1,22 @@
+{
+  "aircraft": "rc135w",
+  "note": "RC-135W Rivet Joint.",
+  "sources": {
+    "wp-rc135w": {
+      "title": "Boeing RC-135",
+      "publisher": "Wikipedia (revision 1368721505)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_RC-135&oldid=1368721505",
+      "date": "2026-08-10"
+    }
+  },
+  "payloads": [
+    {
+      "name": "sigint",
+      "card": "rivet-joint",
+      "source": "wp-rc135w",
+      "evidence": [
+        "RC-135V/W is the USAF's standard airborne SIGINT platform"
+      ]
+    }
+  ]
+}

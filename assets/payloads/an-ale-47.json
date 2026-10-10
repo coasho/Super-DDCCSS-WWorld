@@ -1,0 +1,22 @@
+{
+  "id": "an-ale-47",
+  "designation": "AN/ALE-47",
+  "family": "countermeasures",
+  "summary": "Airborne countermeasures dispenser system: chaff and flare cartridges, cued by the RWR and missile warning",
+  "maker": "BAE Systems",
+  "parameters": {},
+  "sources": {
+    "bae-ale47": {
+      "title": "ALE-47 Airborne Countermeasures Dispenser System",
+      "publisher": "BAE Systems",
+      "url": "https://www.baesystems.com/en-us/product/ale47-airborne-countermeasures-dispenser-system",
+      "date": ""
+    },
+    "wp-p-ale47": {
+      "title": "AN/ALE-47",
+      "publisher": "Wikipedia (revision 1329674896)",
+      "url": "https://en.wikipedia.org/w/index.php?title=AN/ALE-47&oldid=1329674896",
+      "date": "2025-12-27"
+    }
+  }
+}

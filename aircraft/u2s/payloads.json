@@ -1,0 +1,38 @@
+{
+  "aircraft": "u2s",
+  "note": "U-2S. Its wet-film camera is not a payload of ADR-30's set.",
+  "sources": {
+    "wp-u2s": {
+      "title": "Lockheed U-2",
+      "publisher": "Wikipedia (revision 1376928938)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_U-2&oldid=1376928938",
+      "date": "2026-09-27"
+    }
+  },
+  "payloads": [
+    {
+      "name": "sar",
+      "card": "asars-2",
+      "source": "wp-u2s",
+      "evidence": [
+        "Raytheon ASARS-2"
+      ]
+    },
+    {
+      "name": "eo",
+      "card": "syers-2c",
+      "source": "wp-u2s",
+      "evidence": [
+        "SYERS-2C cameras"
+      ]
+    },
+    {
+      "name": "datalinks",
+      "card": "u2s-datalinks",
+      "source": "wp-u2s",
+      "evidence": [
+        "It can use both line-of-sight and over-horizon data links"
+      ]
+    }
+  ]
+}

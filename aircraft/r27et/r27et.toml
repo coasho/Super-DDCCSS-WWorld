@@ -1,0 +1,143 @@
+# R-27ET, built by hangar from public data (ADR-30, MS-7e1) - written by `python -m hangar missiles r27et`
+# (tools/hangar/hangar/missiles.py), one rule for every missile: edit the table there and write it again.
+#
+# Frame: metres, x aft from the nose's tip, y right, z up from the body's axis. The card (assets/stores/r-27et.json)
+# holds the published figures: length 4.49 m, diameter 0.26 m, mass 348 kg; span 0.803 m (the card), tip to tip across
+# opposite fins. Its surfaces fly in an X, 45 deg from the vertical, as it hangs on its launcher (assumed for all).
+# Assumed from photographs, the same way for every missile: the nose's shape and length, each surface's place,
+# chords and sweep, the motor's nozzle and burn, the CG. They only shape the picture until the aero stage runs.
+
+[aircraft]
+name = "r27et"
+description = "R-27ET (hangar build)"
+category = "missile"
+card = "r-27et"             # its store card: the published figures this design holds
+
+[analysis]
+speed = 900.0                # m/s: the Reynolds numbers (Mach 3 at altitude) - assumed
+
+# The infrared seeker's glass dome (45 % of the body's radius - assumed), on its cone
+[[body]]
+name = "canopy seeker dome"
+kind = "pod"
+stations = [
+  { x = 0.0, w = 0.0, top = 0.0, bottom = 0.0, n = 2 },
+  { x = 0.0129, w = 0.0683, top = 0.0342, bottom = -0.0342, n = 2 },
+  { x = 0.0311, w = 0.0952, top = 0.0476, bottom = -0.0476, n = 2 },
+  { x = 0.0518, w = 0.1035, top = 0.0518, bottom = -0.0518, n = 2 },
+  { x = 0.0725, w = 0.1035, top = 0.0518, bottom = -0.0518, n = 2 },
+]
+
+# The body: the seeker's cone, the cylinder, a wider motor section from x 1.67 m (the card's diameter is the motor's), a boattail over the nozzle (assumed)
+[[body]]
+name = "body"
+kind = "fuselage"
+stations = [
+  { x = 0.0233, w = 0.0828, top = 0.0414, bottom = -0.0414, n = 2 },
+  { x = 0.0518, w = 0.1004, top = 0.0502, bottom = -0.0502, n = 2 },
+  { x = 0.1783, w = 0.1762, top = 0.0881, bottom = -0.0881, n = 2 },
+  { x = 0.3048, w = 0.23, top = 0.115, bottom = -0.115, n = 2 },
+  { x = 1.55, w = 0.23, top = 0.115, bottom = -0.115, n = 2 },
+  { x = 1.67, w = 0.26, top = 0.13, bottom = -0.13, n = 2 },
+  { x = 4.334, w = 0.26, top = 0.13, bottom = -0.13, n = 2 },
+  { x = 4.49, w = 0.208, top = 0.104, bottom = -0.104, n = 2 },
+]
+
+# The canards: fixed; root chord 0.2 m, tip 0.08 m, 0.085 m out from the body (assumed from photographs)
+[[surface]]
+name = "canard upper"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [0.42, 0.0789, 0.0789], chord = 0.2 },
+  { le = [0.54, 0.1414, 0.1414], chord = 0.08 },
+]
+
+[[surface]]
+name = "canard lower"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [0.42, 0.0789, -0.0789], chord = 0.2 },
+  { le = [0.54, 0.1414, -0.1414], chord = 0.08 },
+]
+
+# The wings: all-moving about their spindles; root chord 0.25 m, tip 0.55 m, 0.2865 m out from the body, their tips across the card's span (assumed from photographs)
+[[surface]]
+name = "wing upper"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [1.42, 0.0789, 0.0789], chord = 0.25 },
+  { le = [1.27, 0.2839, 0.2839], chord = 0.55 },
+]
+controls = [
+  { name = "wing upper", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-20, 20] },
+]
+
+[[surface]]
+name = "wing lower"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [1.42, 0.0789, -0.0789], chord = 0.25 },
+  { le = [1.27, 0.2839, -0.2839], chord = 0.55 },
+]
+controls = [
+  { name = "wing lower", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.5, limits = [-20, 20] },
+]
+
+# The tail fins: fixed, with ailerons along their trailing edges; root chord 0.48 m, tip 0.2 m, 0.22 m out from the body (assumed from photographs)
+[[surface]]
+name = "tail fin upper"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [3.96, 0.0892, 0.0892], chord = 0.48 },
+  { le = [4.24, 0.2475, 0.2475], chord = 0.2 },
+]
+controls = [
+  { name = "aileron upper", channel = "aileron", span = [0.05, 0.95], chord_fraction = 0.3, limits = [-20, 20] },
+]
+
+[[surface]]
+name = "tail fin lower"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [3.96, 0.0892, -0.0892], chord = 0.48 },
+  { le = [4.24, 0.2475, -0.2475], chord = 0.2 },
+]
+controls = [
+  { name = "aileron lower", channel = "aileron", span = [0.05, 0.95], chord_fraction = 0.3, limits = [-20, 20] },
+]
+
+# The rocket motor: the R-27ER's motor. Its nozzle in the boattail, its exit 65 % of the base and its burn's phases assumed
+# (none published): only what a replay shows the plume with until a flight model burns it.
+[motor]
+exit = [4.49, 0.0, 0.0]
+exit_diameter = 0.1352
+throat_diameter = 0.0608
+cone_length = 0.1487
+smoke = "aluminised"
+[[motor.phase]]
+duration_s = 3
+thrust_kn = 35
+[[motor.phase]]
+duration_s = 7
+thrust_kn = 9
+
+[mass]
+empty = 348                 # kg, the card, motor full
+empty_cg = [2.245, 0.0, 0.0]  # assumed: half way along
+gyration = [0.0203, 0.289, 0.289]  # radii of gyration over length - assumed (a slender rod's: L/sqrt(12))
+
+[dimensions]                  # the card: the span tip to tip across opposite fins
+length = 4.49
+span = 0.803

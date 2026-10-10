@@ -1,0 +1,16 @@
+{
+  "id": "an-alr-56m",
+  "designation": "AN/ALR-56M",
+  "family": "esm",
+  "summary": "Advanced radar warning receiver: broad-band threat detection and identification (F-16, C-130J)",
+  "maker": "BAE Systems",
+  "parameters": {},
+  "sources": {
+    "bae-alr56m": {
+      "title": "Delivering advanced radar warning receivers to protect U.S. Air Force aircraft",
+      "publisher": "BAE Systems",
+      "url": "https://www.baesystems.com/en-us/article/delivering-advanced-radar-warning-receivers-to-protect-u-s--air-force-aircraft",
+      "date": "2024-07-09"
+    }
+  }
+}

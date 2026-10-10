@@ -1,0 +1,156 @@
+{
+  "aircraft": "b52h",
+  "note": "B-52H as its specification lists its avionics. Its AN/APQ-166 attack radar is fitted as a ground-mapping radar: A-GRA has no capability for it, so its status only. The AN/APQ-188 and the other B-52J changes are not fitted; the LITENING and Sniper pods join with their stores (MS-7).",
+  "sources": {
+    "wp-b52h": {
+      "title": "Boeing B-52 Stratofortress",
+      "publisher": "Wikipedia (revision 1378364860)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_B-52_Stratofortress&oldid=1378364860",
+      "date": "2026-10-04"
+    }
+  },
+  "payloads": [
+    {
+      "name": "ecm",
+      "card": "an-alq-172",
+      "source": "wp-b52h",
+      "evidence": [
+        "AN/ALQ-172(V)"
+      ]
+    },
+    {
+      "name": "rwr",
+      "card": "an-alr-46",
+      "source": "wp-b52h",
+      "evidence": [
+        "AN/ALR-46"
+      ]
+    },
+    {
+      "name": "panoramic",
+      "card": "an-alr-20a",
+      "source": "wp-b52h",
+      "evidence": [
+        "AN/ALR-20A"
+      ]
+    },
+    {
+      "name": "flares",
+      "card": "an-ale-20",
+      "count": 12,
+      "source": "wp-b52h",
+      "note": "192 expendables in all",
+      "evidence": [
+        "AN/ALE-20",
+        "12 systems installed totaling 192 expendables"
+      ]
+    },
+    {
+      "name": "chaff",
+      "card": "an-ale-24",
+      "count": 8,
+      "source": "wp-b52h",
+      "note": "1,125 chaff bundles in all",
+      "evidence": [
+        "AN/ALE-24",
+        "8 systems installed with 1,125 chaff bundles"
+      ]
+    },
+    {
+      "name": "stations",
+      "card": "b52h-store-station",
+      "count": 3,
+      "source": "wp-b52h",
+      "note": "two under-wing pylons and the bomb bay's rotary launcher",
+      "evidence": [
+        "missiles on underwing pylons",
+        "rotary launcher fitted in the bomb bay"
+      ]
+    },
+    {
+      "name": "pave_mint",
+      "card": "an-alq-117",
+      "source": "wp-b52h",
+      "evidence": [
+        "Pave Mint active electronic countermeasures system"
+      ]
+    },
+    {
+      "name": "false_targets",
+      "card": "an-alq-122",
+      "source": "wp-b52h",
+      "evidence": [
+        "Motorola multiple false target generator"
+      ]
+    },
+    {
+      "name": "tail_warning",
+      "card": "an-alq-153",
+      "source": "wp-b52h",
+      "evidence": [
+        "Northrop Grumman tail missile approach warning system"
+      ]
+    },
+    {
+      "name": "jammer_power",
+      "card": "an-alq-155",
+      "source": "wp-b52h",
+      "evidence": [
+        "Northrop Grumman jammer power management system"
+      ]
+    },
+    {
+      "name": "barrage_jammer",
+      "card": "an-alt-16",
+      "source": "wp-b52h",
+      "note": "driven by the AN/ALQ-122",
+      "evidence": [
+        "Barrage jamming transmitter, driven by AN/ALQ-122"
+      ]
+    },
+    {
+      "name": "jammer",
+      "card": "an-alt-28",
+      "source": "wp-b52h",
+      "evidence": [
+        "Electronic countermeasures jamming transmitter"
+      ]
+    },
+    {
+      "name": "noise_jammer",
+      "card": "an-alt-32",
+      "source": "wp-b52h",
+      "evidence": [
+        "AN/ALT-32",
+        "Noise jammer"
+      ]
+    },
+    {
+      "name": "evs",
+      "card": "an-asq-151",
+      "source": "wp-b52h",
+      "note": "its blisters stay until the B-52J upgrade",
+      "evidence": [
+        "Electro-optical Viewing System (EVS) comprised AN/AAQ-6 paired with AN/AVQ-22"
+      ]
+    },
+    {
+      "name": "radar",
+      "card": "an-apq-166",
+      "source": "wp-b52h",
+      "note": "its status only: A-GRA has no ground-mapping capability",
+      "evidence": [
+        "mechanically scanning AN/APQ-166 attack radar"
+      ]
+    },
+    {
+      "name": "radio",
+      "card": "an-arc-210",
+      "source": "wp-b52h",
+      "note": "the CONECT upgrade",
+      "evidence": [
+        "AN/ARC-210 Warrior beyond-line-of-sight software programmable radio"
+      ]
+    }
+  ]
+}

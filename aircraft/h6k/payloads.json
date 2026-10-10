@@ -1,0 +1,41 @@
+{
+  "aircraft": "h6k",
+  "note": "H-6K. Its nose radar and electro-optical system are described, not named: fitted under designations that say so; the radar as a ground-mapping radar (no A-GRA capability: its status only).",
+  "sources": {
+    "wp-h6k": {
+      "title": "Xi'an H-6",
+      "publisher": "Wikipedia (revision 1378388125)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Xi%27an_H-6&oldid=1378388125",
+      "date": "2026-10-04"
+    }
+  },
+  "payloads": [
+    {
+      "name": "stations",
+      "card": "h6k-store-station",
+      "count": 6,
+      "source": "wp-h6k",
+      "note": "six under-wing hardpoints for CJ-10A cruise missiles",
+      "evidence": [
+        "Six underwing hardpoints for CJ-10A cruise missiles"
+      ]
+    },
+    {
+      "name": "radar",
+      "card": "h6k-radar",
+      "source": "wp-h6k",
+      "note": "its status only: A-GRA has no ground-mapping capability",
+      "evidence": [
+        "a new nose radome housing a modern air-to-ground radar"
+      ]
+    },
+    {
+      "name": "eots",
+      "card": "h6k-eots",
+      "source": "wp-h6k",
+      "evidence": [
+        "An electro-optical targeting system is fitted under the nose"
+      ]
+    }
+  ]
+}

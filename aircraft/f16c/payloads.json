@@ -1,0 +1,173 @@
+{
+  "aircraft": "f16c",
+  "note": "F-16C Block 52 (USAF) as built, before its AESA retrofit. Pods it may carry on a station (targeting, jamming, HARM targeting) join with their stores (ADR-30, MS-7).",
+  "sources": {
+    "usaf-f16": {
+      "title": "F-16 Fighting Falcon fact sheet",
+      "publisher": "U.S. Air Force",
+      "url": "https://www.wads.ang.af.mil/About-Us/Fact-Sheets/Article/633011/f-16-fighting-falcon/",
+      "date": ""
+    },
+    "du-apg68v9": {
+      "title": "APG-68(V)9 Radar for Block 50/52 F-16",
+      "publisher": "Defense Update",
+      "url": "https://defense-update.com/?p=8720",
+      "date": ""
+    },
+    "bae-alr56m": {
+      "title": "Delivering advanced radar warning receivers to protect U.S. Air Force aircraft",
+      "publisher": "BAE Systems",
+      "url": "https://www.baesystems.com/en-us/article/delivering-advanced-radar-warning-receivers-to-protect-u-s--air-force-aircraft",
+      "date": "2024-07-09"
+    },
+    "bae-ale47": {
+      "title": "ALE-47 Airborne Countermeasures Dispenser System",
+      "publisher": "BAE Systems",
+      "url": "https://www.baesystems.com/en-us/product/ale47-airborne-countermeasures-dispenser-system",
+      "date": ""
+    },
+    "wp-f16c": {
+      "title": "General Dynamics F-16 Fighting Falcon",
+      "publisher": "Wikipedia (revision 1378439894)",
+      "url": "https://en.wikipedia.org/w/index.php?title=General_Dynamics_F-16_Fighting_Falcon&oldid=1378439894",
+      "date": "2026-10-04"
+    },
+    "fas-f16": {
+      "title": "F-16 Fighting Falcon (1,040 US gal external fuel)",
+      "publisher": "FAS",
+      "url": "https://man.fas.org/dod-101/sys/ac/f-16.htm",
+      "date": "2026-10-09"
+    },
+    "rand-mr1216": {
+      "title": "A Global Access Strategy for the U.S. Air Force, appendix A (F-16C configurations: 1 x ALQ-184 pod, 471 lb, drag index 18; pylon/adapter 217 lb, 11)",
+      "publisher": "RAND MR-1216-AF (DTIC ADA411700)",
+      "url": "https://archive.org/stream/DTIC_ADA411700/DTIC_ADA411700_djvu.txt",
+      "date": "2026-10-10"
+    }
+  },
+  "payloads": [
+    {
+      "name": "radar",
+      "card": "an-apg-68v9",
+      "source": "du-apg68v9"
+    },
+    {
+      "name": "rwr",
+      "card": "an-alr-56m",
+      "source": "bae-alr56m"
+    },
+    {
+      "name": "cmds",
+      "card": "an-ale-47",
+      "source": "bae-ale47"
+    },
+    {
+      "name": "gun",
+      "card": "m61a1",
+      "source": "usaf-f16",
+      "note": "500 rounds"
+    },
+    {
+      "name": "stations",
+      "card": "f16-store-station",
+      "count": 9,
+      "source": "usaf-f16",
+      "note": "nine external stations: two wingtip, six under the wings, one centreline"
+    },
+    {
+      "name": "ews",
+      "card": "an-alq-213",
+      "source": "wp-f16c",
+      "note": "being replaced by the AN/ALQ-257",
+      "evidence": [
+        "AN/ALQ-213 electronic warfare suite"
+      ]
+    }
+  ],
+  "loadouts": [
+    {
+      "name": "air superiority",
+      "note": "the article's missiles: the AIM-120 on the wingtips ('US aircraft often mount that missile on their wingtips'), the AIM-9X on the outboard stations, two more AIM-120 on the mid stations (the mix of the article's '6 x AIM-120 AMRAAM' and '6 x AIM-9 Sidewinder': assumed)",
+      "source": "wp-f16c",
+      "stations": [
+        {
+          "station": 1,
+          "store": "aim-120c"
+        },
+        {
+          "station": 9,
+          "store": "aim-120c"
+        },
+        {
+          "station": 2,
+          "store": "aim-9x"
+        },
+        {
+          "station": 8,
+          "store": "aim-9x"
+        },
+        {
+          "station": 3,
+          "store": "aim-120c"
+        },
+        {
+          "station": 7,
+          "store": "aim-120c"
+        }
+      ]
+    },
+    {
+      "name": "mk82 x4",
+      "note": "Four Mk 82s on the mid and inboard wing stations: the F-16 carries the Mk 82 (the article's armament: 'Mark 82 GP bombs'); which stations is an engineering assumption (MS-7a's test of store management, the missiles following with their cards, MS-7b)",
+      "source": "wp-f16c",
+      "stations": [
+        {
+          "station": 3,
+          "store": "mk82"
+        },
+        {
+          "station": 4,
+          "store": "mk82"
+        },
+        {
+          "station": 6,
+          "store": "mk82"
+        },
+        {
+          "station": 7,
+          "store": "mk82"
+        }
+      ]
+    },
+    {
+      "name": "external tanks",
+      "note": "the standard three tanks: 370 US gal on 4 and 6, 300 on the centreline (FAS: 1,040 US gal external) (ADR-30, MS-7g: a tank's fuel feeds the aircraft's own tanks; jettisoned, it flies on with what is left)",
+      "source": "fas-f16",
+      "stations": [
+        {
+          "station": 4,
+          "store": "tank-370gal"
+        },
+        {
+          "station": 6,
+          "store": "tank-370gal"
+        },
+        {
+          "station": 5,
+          "store": "tank-300gal"
+        }
+      ]
+    },
+    {
+      "name": "pods",
+      "note": "an ALQ-184 on the centreline, as RAND's F-16C configurations carry one (ADR-30, MS-7g: a pod as a store - its mass and its drag on the aircraft; what it senses or jams is its payload's, not built with it yet)",
+      "source": "rand-mr1216",
+      "stations": [
+        {
+          "station": 5,
+          "store": "an-alq-184"
+        }
+      ]
+    }
+  ]
+}

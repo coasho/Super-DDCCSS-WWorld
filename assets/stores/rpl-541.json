@@ -1,0 +1,92 @@
+{
+  "id": "rpl-541",
+  "designation": "RPL-541/542",
+  "class": "tank",
+  "summary": "the Mirage 2000's 2,000 L wing tank",
+  "maker": "Dassault",
+  "model": "jsbsim:rpl541",
+  "powerable": false,
+  "jettisonable": true,
+  "fins": false,
+  "parameters": {
+    "capacity_l": {
+      "value": 2000.0,
+      "unit": "L",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "am-rpl541"
+    },
+    "fuel_kg": {
+      "value": 1600.0,
+      "unit": "kg",
+      "uncertainty": 80.0,
+      "basis": "derived",
+      "source": "wp-jetfuel",
+      "note": "its capacity full at 0.80 kg/L (Jet A-1 / JP-8 at 15 C lies 0.775 - 0.840): one density for every tank"
+    },
+    "mass_kg": {
+      "value": 260.0,
+      "unit": "kg",
+      "uncertainty": 78.0,
+      "basis": "derived",
+      "source": "am-rpl541",
+      "note": "its listed 1,840 kg less 1,580 kg of fuel (half of the 3,160 kg Techno-Science gives two: read as full)"
+    },
+    "length_m": {
+      "value": 6.3,
+      "unit": "m",
+      "uncertainty": 0.126,
+      "basis": "published",
+      "source": "am-rpl541"
+    },
+    "diameter_m": {
+      "value": 0.8,
+      "unit": "m",
+      "uncertainty": 0.016,
+      "basis": "published",
+      "source": "am-rpl541"
+    },
+    "drag_area_m2": {
+      "value": 0.03162,
+      "unit": "m^2",
+      "uncertainty": 0.00949,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its card, stores.py's tank profile (hangar storedrag.py: Hoerner's body of revolution 0.02920, its base 0.00242, its fins' friction 0.00000 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 2.16916,
+      "unit": "m^3",
+      "uncertainty": 0.65075,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 2.3745 m^3 from its card, stores.py's tank profile, times Lamb's k2 - k1 = 0.914 for its fineness 7.9 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.04021,
+      "unit": "m^2",
+      "uncertainty": 0.01206,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 3.15,
+      "unit": "m",
+      "uncertainty": 0.63,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "am-rpl541": {
+      "title": "RPL-541/542 (6,300 mm, 800 mm, 1,840 kg)",
+      "publisher": "Aviations Militaires",
+      "url": "https://aviationsmilitaires.net/v3/kb/externalload/show/1207/dassault-rpl-541542",
+      "date": "2026-10-09"
+    },
+    "wp-jetfuel": {
+      "title": "Jet fuel (Jet A-1: density 0.804 kg/L at 15 C)",
+      "publisher": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Jet_fuel",
+      "date": "2026-10-09"
+    }
+  }
+}

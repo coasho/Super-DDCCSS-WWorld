@@ -1,0 +1,56 @@
+// fsim: the spectrum carried to this moment and its displacements and gradients packed for the inverse FFT. From
+// GodotOceanWaves (github.com/2Retr0/GodotOceanWaves, MIT, Copyright (c) 2024 Ethan Truong; see
+// LICENSE-GodotOceanWaves.txt): assets/shaders/compute/spectrum_modulate.glsl. Changes marked fsim: every cascade in one
+// dispatch (the workgroup's z), the clock and depth from the clouds' uniform block, a clock that loops.
+//
+// Sources: Jerry Tessendorf - Simulating Ocean Water; Robert Matusiak - Implementing Fast Fourier Transform Algorithms
+// of Real-Valued Sequences With the TMS320 DSP Platform
+
+#version 450
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+#include "clouds/types.glsl"
+#include "fsim/params.glsl"
+#include "ocean/ocean.glsl"
+
+layout(set = 0, binding = 24, rgba16f) uniform readonly image2DArray spectrum;
+layout(std430, set = 0, binding = 25) buffer FFTBuffer { vec2 data[]; };
+
+vec2 exp_complex(in float x) { return vec2(cos(x), sin(x)); }
+vec2 mul_complex(in vec2 a, in vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x); }
+vec2 conj_complex(in vec2 x) { return vec2(x.x, -x.y); }
+float dispersion_relation(in float k) { return sqrt(G * k * tanh(k * OCEAN_SPECTRUM_DEPTH)); }
+
+void main() {
+  const int cascade = int(gl_WorkGroupID.z);
+  const ivec2 dims = imageSize(spectrum).xy;
+  const ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+
+  vec2 k_vec = (vec2(id) - vec2(dims) * 0.5) * 2.0 * PI / P_cascade[cascade].x;
+  float k = length(k_vec) + 1e-6;
+  vec2 k_unit = k_vec / k;
+
+  vec4 h0 = imageLoad(spectrum, ivec3(id, cascade)); // xy=h0(k), zw=conj(h0(-k))
+  // fsim: each wave's frequency a whole multiple of the clock's period's (Tessendorf's looping in time, 4.4), so the
+  // clock wraps at that period with no seam and the phase stays as exact as a float can hold a time under it
+  const float w0 = 2.0 * PI / OCEAN_PERIOD;
+  float dispersion = floor(dispersion_relation(k) / w0) * w0 * OCEAN_TIME;
+  vec2 modulation = exp_complex(dispersion);
+  vec2 h = mul_complex(h0.xy, modulation) + mul_complex(h0.zw, conj_complex(modulation));
+  vec2 h_inv = vec2(-h.y, h.x);
+
+  vec2 hx = h_inv * k_unit.y;
+  vec2 hy = h;
+  vec2 hz = h_inv * k_unit.x;
+
+  vec2 dhy_dx = h_inv * k_vec.y;
+  vec2 dhy_dz = h_inv * k_vec.x;
+  vec2 dhx_dx = -h * k_vec.y * k_unit.y;
+  vec2 dhz_dz = -h * k_vec.x * k_unit.x;
+  vec2 dhz_dx = -h * k_vec.y * k_unit.x;
+
+  data[FFT_INDEX(cascade, 0, 0, id.x, id.y)] = vec2(hx.x - hy.y, hx.y + hy.x);
+  data[FFT_INDEX(cascade, 0, 1, id.x, id.y)] = vec2(hz.x - dhy_dx.y, hz.y + dhy_dx.x);
+  data[FFT_INDEX(cascade, 0, 2, id.x, id.y)] = vec2(dhy_dz.x - dhx_dx.y, dhy_dz.y + dhx_dx.x);
+  data[FFT_INDEX(cascade, 0, 3, id.x, id.y)] = vec2(dhz_dz.x - dhz_dx.y, dhz_dz.y + dhz_dx.x);
+}

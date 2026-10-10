@@ -1,0 +1,15 @@
+{
+  "id": "h6k-store-station",
+  "designation": "H-6K store station",
+  "family": "store_station",
+  "summary": "A suspension point on the H-6K for one store or launcher: missiles, bombs, tanks, pods",
+  "parameters": {},
+  "sources": {
+    "wp-h6k": {
+      "title": "Xi'an H-6",
+      "publisher": "Wikipedia (revision 1378388125)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Xi%27an_H-6&oldid=1378388125",
+      "date": "2026-10-04"
+    }
+  }
+}

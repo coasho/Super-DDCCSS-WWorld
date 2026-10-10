@@ -1,0 +1,78 @@
+{
+  "id": "an-alq-184",
+  "designation": "AN/ALQ-184(V)",
+  "class": "pod",
+  "summary": "electronic countermeasures pod, the two-band one (F-16, A-10)",
+  "maker": "Raytheon",
+  "model": "jsbsim:analq184",
+  "powerable": false,
+  "jettisonable": true,
+  "fins": false,
+  "parameters": {
+    "mass_kg": {
+      "value": 213.642,
+      "unit": "kg",
+      "uncertainty": 10.0,
+      "basis": "published",
+      "source": "rand-mr1216"
+    },
+    "length_m": {
+      "value": 2.9413,
+      "unit": "m",
+      "uncertainty": 0.1,
+      "basis": "assumed",
+      "source": "fi-alq184",
+      "note": "115.8 in, as a search result quotes its source (the page not opened)"
+    },
+    "diameter_m": {
+      "value": 0.4736,
+      "unit": "m",
+      "uncertainty": 0.08,
+      "basis": "assumed",
+      "source": "fi-alq184",
+      "note": "the circle of its section's area: 13 in wide (as a search result quotes its source (the page not opened)), 21 in high (its (V)9's there: taken for this one's too)"
+    },
+    "drag_area_m2": {
+      "value": 0.03152,
+      "unit": "m^2",
+      "uncertainty": 0.00946,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its card, stores.py's pod profile (hangar storedrag.py: Hoerner's body of revolution 0.00939, its base 0.02212, its fins' friction 0.00000 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 0.42866,
+      "unit": "m^3",
+      "uncertainty": 0.1286,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.4882 m^3 from its card, stores.py's pod profile, times Lamb's k2 - k1 = 0.878 for its fineness 6.2 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.35232,
+      "unit": "m^2",
+      "uncertainty": 0.1057,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 1.4706,
+      "unit": "m",
+      "uncertainty": 0.2941,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "rand-mr1216": {
+      "title": "A Global Access Strategy for the U.S. Air Force, appendix A (F-16C configurations: 1 x ALQ-184 pod, 471 lb, drag index 18; pylon/adapter 217 lb, 11)",
+      "publisher": "RAND MR-1216-AF (DTIC ADA411700)",
+      "url": "https://archive.org/stream/DTIC_ADA411700/DTIC_ADA411700_djvu.txt",
+      "date": "2026-10-10"
+    },
+    "fi-alq184": {
+      "title": "AN/ALQ-184(V) (two-band: 115.8 in, 461 lb, 13 in wide; (V)9: 156 in, 21 in high, 18 in wide) - read as a search result's quote",
+      "publisher": "Forecast International",
+      "url": "https://www.forecastinternational.com/archive/disp_old_pdf.cfm?ARC_ID=1254",
+      "date": "2026-10-10"
+    }
+  }
+}

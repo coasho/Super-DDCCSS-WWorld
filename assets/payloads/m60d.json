@@ -1,0 +1,15 @@
+{
+  "id": "m60d",
+  "designation": "M60D",
+  "family": "gun",
+  "summary": "7.62 mm machine gun, the M60 on an aircraft mount",
+  "parameters": {},
+  "sources": {
+    "wp-p-m60": {
+      "title": "M60 machine gun",
+      "publisher": "Wikipedia (revision 1378729005)",
+      "url": "https://en.wikipedia.org/w/index.php?title=M60_machine_gun&oldid=1378729005",
+      "date": "2026-10-05"
+    }
+  }
+}

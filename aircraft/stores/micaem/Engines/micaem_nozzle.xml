@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<!-- Written by hangar (storemodels.py): the nozzle's exit of micaem's design. Do not edit. -->
+<nozzle name="micaem nozzle">
+    <area unit="FT2"> 0.058520 </area>
+</nozzle>

@@ -1,0 +1,91 @@
+// The Beer shadow maps' temporal resolve: takram-design-engineering/three-geospatial (MIT, see
+// ../LICENSE-three-geospatial.txt) packages/clouds/src/shaders/shadowResolve.frag, as a compute shader. Their code;
+// changes marked fsim: the history is drawn on only when there is one (their render targets start cleared), and the
+// neighbours are read clamped to the map.
+
+#version 450
+layout(local_size_x = 8, local_size_y = 8) in;
+
+#define fsimClampMax P_shadowTexel.zw
+#define CASCADE_COUNT 3
+#define VARIANCE_9_SAMPLES 1
+#define VARIANCE_SAMPLER_ARRAY 1
+
+#include "clouds/types.glsl"
+#include "fsim/params.glsl"
+#include "fsim/prelude.glsl"
+#include "clouds/varianceClipping.glsl"
+
+layout(set = 0, binding = 15) uniform sampler2DArray inputBuffer;
+layout(set = 0, binding = 16) uniform sampler2DArray depthVelocityBuffer; // fsim: their inputBuffer's upper layers
+layout(set = 0, binding = 17) uniform sampler2DArray historyBuffer;
+layout(set = 0, binding = 18, rgba32f) uniform writeonly image2DArray outputImage;
+
+#define texelSize P_shadowTexel.xy
+const float varianceGamma = 1.0;
+// Use a very slow alpha because a single flickering pixel can be highly noticeable in shadow maps.
+const float temporalAlpha = 0.01;
+
+vec2 vUv;
+
+const ivec2 neighborOffsets[9] = ivec2[9](
+  ivec2(-1, -1),
+  ivec2(-1, 0),
+  ivec2(-1, 1),
+  ivec2(0, -1),
+  ivec2(0, 0),
+  ivec2(0, 1),
+  ivec2(1, -1),
+  ivec2(1, 0),
+  ivec2(1, 1)
+);
+
+vec4 getClosestFragment(const ivec3 coord) {
+  // fsim: from no depth at all - theirs started at 1e7 (10,000 km), and from orbit every texel's cloud was further:
+  // none was picked, the velocity was taken as none, and the history stood still on the screen as the globe
+  // turned or zoomed under it - the clouds smeared round the middle of the view into a spiral
+  vec4 result = vec4(3.4e38, 0.0, 0.0, 0.0);
+  vec4 neighbor;
+  for (int i = 0; i < 9; ++i) {
+    neighbor = texelFetch(depthVelocityBuffer, fsimClampTexel(coord, neighborOffsets[i]), 0);
+    if (neighbor.r < result.r) {
+      result = neighbor;
+    }
+  }
+  return result;
+}
+
+void cascade(const int cascadeIndex, out vec4 outputColor) {
+  ivec3 coord = ivec3(ivec2(fsimFragCoord), cascadeIndex);
+  vec4 current = texelFetch(inputBuffer, coord, 0);
+  if (P_medium.w < 0.5) {
+    outputColor = current; // fsim: no history yet
+    return;
+  }
+
+  vec4 depthVelocity = getClosestFragment(coord);
+  vec2 velocity = depthVelocity.gb * texelSize;
+  vec2 prevUv = vUv - velocity;
+  if (prevUv.x < 0.0 || prevUv.x > 1.0 || prevUv.y < 0.0 || prevUv.y > 1.0) {
+    outputColor = current;
+    return; // Rejection
+  }
+
+  vec4 history = textureLod(historyBuffer, vec3(prevUv, float(cascadeIndex)), 0.0);
+  if (any(isnan(history)) || any(isinf(history))) history = current; // fsim
+  vec4 clippedHistory = varianceClipping(inputBuffer, coord, current, history, varianceGamma);
+  outputColor = mix(clippedHistory, current, temporalAlpha);
+}
+
+void main() {
+  ivec3 coord = ivec3(gl_GlobalInvocationID);
+  if (coord.x >= int(P_shadowTexel.z) || coord.y >= int(P_shadowTexel.w) || coord.z >= CASCADE_COUNT) {
+    return;
+  }
+  fsimFragCoord = vec2(coord.xy) + 0.5;
+  vUv = fsimFragCoord * texelSize;
+  vec4 color;
+  cascade(coord.z, color);
+  if (any(isnan(color)) || any(isinf(color))) color = vec4(1e6, 0.0, 0.0, 0.0); // fsim
+  imageStore(outputImage, coord, color);
+}

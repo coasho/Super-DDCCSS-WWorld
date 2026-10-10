@@ -1,0 +1,14 @@
+# AIM-7M Sparrow's paint, by one rule for every missile (tools/hangar/hangar/missiles.py): light grey overall; a radar seeker's radome a lighter grey
+# a yellow band on the warhead (a live round) and a brown one on the motor - the maker's colour code (MIL-STD-1168, STANAG 2953); the bands' places assumed
+[paint]
+scheme = "single"
+colours = ["#c4c8cc"]
+radome = "#d8dadc"
+radome_x = 0.609
+bands = [
+  { x = [1.2376, 1.2876], colour = "#c8a020" },
+  { x = [2.2932, 2.3432], colour = "#6b4a2b" },
+]
+panel_lines = 0.0
+wear = 0.03
+gloss = 0.3

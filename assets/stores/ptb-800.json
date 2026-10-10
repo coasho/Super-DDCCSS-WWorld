@@ -1,0 +1,97 @@
+{
+  "id": "ptb-800",
+  "designation": "PTB-800",
+  "class": "tank",
+  "summary": "the Su-25's 820 L wing tank",
+  "maker": "Sukhoi",
+  "model": "jsbsim:ptb800",
+  "powerable": false,
+  "jettisonable": true,
+  "fins": false,
+  "parameters": {
+    "capacity_l": {
+      "value": 820.0,
+      "unit": "L",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "ac-ptb800"
+    },
+    "fuel_kg": {
+      "value": 656.0,
+      "unit": "kg",
+      "uncertainty": 32.8,
+      "basis": "derived",
+      "source": "wp-jetfuel",
+      "note": "its capacity full at 0.80 kg/L (Jet A-1 / JP-8 at 15 C lies 0.775 - 0.840): one density for every tank"
+    },
+    "mass_kg": {
+      "value": 82.0,
+      "unit": "kg",
+      "uncertainty": 28.7,
+      "basis": "assumed",
+      "note": "its empty mass: 0.10 kg per litre of capacity, the published tanks' mean (one rule for every tank without a figure); not published; War Thunder lists 59.4 kg"
+    },
+    "length_m": {
+      "value": 4.6146,
+      "unit": "m",
+      "uncertainty": 0.9229,
+      "basis": "assumed",
+      "note": "its size: 8 diameters long, its fuel 0.68 of the cylinder (the four published tanks' means; one rule for every tank without one)"
+    },
+    "diameter_m": {
+      "value": 0.5768,
+      "unit": "m",
+      "uncertainty": 0.0865,
+      "basis": "assumed",
+      "note": "its size: 8 diameters long, its fuel 0.68 of the cylinder (the four published tanks' means; one rule for every tank without one)"
+    },
+    "drag_area_m2": {
+      "value": 0.01732,
+      "unit": "m^2",
+      "uncertainty": 0.0052,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its card, stores.py's tank profile (hangar storedrag.py: Hoerner's body of revolution 0.01610, its base 0.00122, its fins' friction 0.00000 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 0.82802,
+      "unit": "m^3",
+      "uncertainty": 0.24841,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.9041 m^3 from its card, stores.py's tank profile, times Lamb's k2 - k1 = 0.916 for its fineness 8.0 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.0209,
+      "unit": "m^2",
+      "uncertainty": 0.00627,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 2.3073,
+      "unit": "m",
+      "uncertainty": 0.4615,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "ac-ptb800": {
+      "title": "PTB-800 (820 L)",
+      "publisher": "Armed Conflicts",
+      "url": "https://www.armedconflicts.com/-t77809",
+      "date": "2026-10-09"
+    },
+    "wp-jetfuel": {
+      "title": "Jet fuel (Jet A-1: density 0.804 kg/L at 15 C)",
+      "publisher": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Jet_fuel",
+      "date": "2026-10-09"
+    },
+    "wt": {
+      "title": "War Thunder wiki (game reference)",
+      "publisher": "Gaijin Entertainment",
+      "url": "https://wiki.warthunder.com/",
+      "date": "2026-10-09"
+    }
+  }
+}

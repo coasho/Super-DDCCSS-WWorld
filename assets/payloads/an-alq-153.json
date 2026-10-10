@@ -1,0 +1,16 @@
+{
+  "id": "an-alq-153",
+  "designation": "AN/ALQ-153",
+  "family": "esm",
+  "summary": "tail missile approach warning system: an active tail-warning radar, carded with the warning receivers, its nearest family",
+  "maker": "Northrop Grumman",
+  "parameters": {},
+  "sources": {
+    "wp-b52h": {
+      "title": "Boeing B-52 Stratofortress",
+      "publisher": "Wikipedia (revision 1378364860)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_B-52_Stratofortress&oldid=1378364860",
+      "date": "2026-10-04"
+    }
+  }
+}

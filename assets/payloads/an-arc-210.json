@@ -1,0 +1,15 @@
+{
+  "id": "an-arc-210",
+  "designation": "AN/ARC-210 Warrior",
+  "family": "comm_terminal",
+  "summary": "software-programmable radio, voice and data beyond line of sight (the CONECT upgrade)",
+  "parameters": {},
+  "sources": {
+    "wp-b52h": {
+      "title": "Boeing B-52 Stratofortress",
+      "publisher": "Wikipedia (revision 1378364860)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_B-52_Stratofortress&oldid=1378364860",
+      "date": "2026-10-04"
+    }
+  }
+}

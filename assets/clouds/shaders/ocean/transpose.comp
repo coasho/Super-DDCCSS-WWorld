@@ -1,0 +1,29 @@
+// fsim: the FFT's rows turned into columns between its two passes (out -> in) - a coalesced transpose through shared
+// memory. From GodotOceanWaves (github.com/2Retr0/GodotOceanWaves, MIT, Copyright (c) 2024 Ethan Truong; see
+// LICENSE-GodotOceanWaves.txt): assets/shaders/compute/transpose.glsl, after NVIDIA's "An Efficient Matrix Transpose in
+// CUDA C/C++". Changes marked fsim: every cascade and spectrum in one dispatch (z = cascade * 4 + spectrum).
+
+#version 450
+
+#include "clouds/types.glsl"
+#include "fsim/params.glsl"
+#include "ocean/ocean.glsl"
+
+#define TILE_SIZE 32U
+layout(local_size_x = TILE_SIZE, local_size_y = TILE_SIZE, local_size_z = 1) in;
+
+layout(std430, set = 0, binding = 25) buffer FFTBuffer { vec2 data[]; };
+
+shared vec2 tile[TILE_SIZE][TILE_SIZE + 1];
+
+void main() {
+  const uvec2 id_block = gl_WorkGroupID.xy;
+  const uvec2 id_local = gl_LocalInvocationID.xy;
+  const int cascade = int(gl_WorkGroupID.z) / OCEAN_SPECTRA, layer = int(gl_WorkGroupID.z) % OCEAN_SPECTRA;
+
+  uvec2 id = gl_GlobalInvocationID.xy;
+  tile[id_local.y][id_local.x] = data[FFT_INDEX(cascade, 1, layer, id.x, id.y)];
+  barrier();
+  id = id_block.yx * TILE_SIZE + id_local.xy;
+  data[FFT_INDEX(cascade, 0, layer, id.x, id.y)] = tile[id_local.x][id_local.y];
+}

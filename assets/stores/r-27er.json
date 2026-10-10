@@ -1,0 +1,149 @@
+{
+  "id": "r-27er",
+  "designation": "R-27ER",
+  "class": "aam",
+  "summary": "Extended-range semi-active-radar R-27 (AA-10 Alamo-C): a larger dual-mode motor",
+  "maker": "Vympel",
+  "model": "",
+  "powerable": true,
+  "jettisonable": true,
+  "seeker": "semi_active_radar",
+  "guidance": "inertial with radio correction, terminal semi-active radar homing",
+  "motor": "dual-mode solid rocket (260 mm)",
+  "fuze": "radar proximity and impact",
+  "warhead": "continuous rod",
+  "warhead_kind": "rod",
+  "explosive": "TGAF-5",
+  "parameters": {
+    "mass_kg": {
+      "value": 350.0,
+      "unit": "kg",
+      "uncertainty": 5.0,
+      "basis": "published",
+      "source": "ru-r27",
+      "note": "the table's extended-range missile: 350 kg"
+    },
+    "length_m": {
+      "value": 4.78,
+      "unit": "m",
+      "uncertainty": 0.08,
+      "basis": "derived",
+      "source": "ru-r27",
+      "note": "the table's extended-range 4,490 mm taken as the infrared R-27ET's, plus the radar seeker's extra length (the R-27R's 4.08 m less the R-27T's 3.795): 4.78 m"
+    },
+    "diameter_m": {
+      "value": 0.26,
+      "unit": "m",
+      "uncertainty": 0.003,
+      "basis": "published",
+      "source": "ru-r27",
+      "note": "its motor's: 260 mm"
+    },
+    "span_m": {
+      "value": 0.803,
+      "unit": "m",
+      "uncertainty": 0.005,
+      "basis": "published",
+      "source": "ru-r27"
+    },
+    "warhead_kg": {
+      "value": 39.0,
+      "unit": "kg",
+      "uncertainty": 1.0,
+      "basis": "published",
+      "source": "wp-r27"
+    },
+    "range_km": {
+      "value": 130.0,
+      "unit": "km",
+      "uncertainty": 20.0,
+      "basis": "published",
+      "source": "wp-r27"
+    },
+    "speed_mach": {
+      "value": 4.5,
+      "unit": "Mach",
+      "uncertainty": 0.5,
+      "basis": "published",
+      "source": "ru-r27",
+      "note": "Скорость ракеты 4,5 М"
+    },
+    "power_up_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "power_down_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "explosive_kg": {
+      "value": 15.0,
+      "unit": "kg",
+      "uncertainty": 2.25,
+      "basis": "published",
+      "source": "wt-datamine",
+      "note": "a game reference: War Thunder's su_r_27er (TGAF-5); no manufacturer or encyclopedia gives the charge"
+    },
+    "gurney_kms": {
+      "value": 2.4,
+      "unit": "km/s",
+      "uncertainty": 0.15,
+      "basis": "assumed",
+      "note": "TGAF-5 (TNT/RDX/aluminium, Russian) is not in Cooper's table: as HBX, its nearest composition - an estimate"
+    },
+    "drag_area_m2": {
+      "value": 0.01608,
+      "unit": "m^2",
+      "uncertainty": 0.00482,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its design (hangar storedrag.py: Hoerner's body of revolution 0.00707, its base 0.00270, its fins' friction 0.00631 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 0.21575,
+      "unit": "m^3",
+      "uncertainty": 0.06472,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.2197 m^3 from its design, times Lamb's k2 - k1 = 0.982 for its fineness 18.4 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 1.47933,
+      "unit": "m^2",
+      "uncertainty": 0.4438,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 0.3847,
+      "unit": "m",
+      "uncertainty": 0.478,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "wp-r27": {
+      "title": "R-27 (air-to-air missile)",
+      "publisher": "Wikipedia (revision 1357188539)",
+      "url": "https://en.wikipedia.org/w/index.php?title=R-27_(air-to-air_missile)&oldid=1357188539",
+      "date": "2026-06-01"
+    },
+    "ru-r27": {
+      "title": "Р-27 (авиационная ракета)",
+      "publisher": "Wikipedia, ru (revision 154454224)",
+      "url": "https://ru.wikipedia.org/w/index.php?title=%D0%A0-27_%28%D0%B0%D0%B2%D0%B8%D0%B0%D1%86%D0%B8%D0%BE%D0%BD%D0%BD%D0%B0%D1%8F_%D1%80%D0%B0%D0%BA%D0%B5%D1%82%D0%B0%29&oldid=154454224",
+      "date": "2026-08-15"
+    },
+    "wt-datamine": {
+      "title": "War Thunder datamine: rocketguns weapon files (a game reference: the game's own values, not a manufacturer's)",
+      "publisher": "gszabi99/War-Thunder-Datamine (GitHub)",
+      "url": "https://github.com/gszabi99/War-Thunder-Datamine/tree/master/aces.vromfs.bin_u/gamedata/weapons/rocketguns",
+      "date": "2026-10-09"
+    }
+  }
+}

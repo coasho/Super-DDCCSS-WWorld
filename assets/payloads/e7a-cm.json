@@ -1,0 +1,15 @@
+{
+  "id": "e7a-cm",
+  "designation": "E-7A countermeasures (model not named)",
+  "family": "countermeasures",
+  "summary": "countermeasures on the nose, wingtips and tail. The source names no model.",
+  "parameters": {},
+  "sources": {
+    "wp-e7a": {
+      "title": "Boeing E-7 Wedgetail",
+      "publisher": "Wikipedia (revision 1378367230)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_E-7_Wedgetail&oldid=1378367230",
+      "date": "2026-10-04"
+    }
+  }
+}

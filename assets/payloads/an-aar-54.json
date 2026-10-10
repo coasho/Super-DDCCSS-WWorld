@@ -1,0 +1,15 @@
+{
+  "id": "an-aar-54",
+  "designation": "AN/AAR-54",
+  "family": "passive_optical",
+  "summary": "ultraviolet missile warning sensor, part of LAIRCM",
+  "parameters": {},
+  "sources": {
+    "crec-s5949": {
+      "title": "Arms sales notification, Transmittal No. 16-46: Japan - KC-46A aerial refueling aircraft",
+      "publisher": "Congressional Record - Senate, vol. 162, p. S5949 (U.S. Government Publishing Office)",
+      "url": "https://www.govinfo.gov/link/crec/162/s/5949",
+      "date": "2016-09-21"
+    }
+  }
+}

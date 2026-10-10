@@ -1,0 +1,15 @@
+{
+  "id": "eord-31",
+  "designation": "EORD-31",
+  "family": "passive_optical",
+  "summary": "infrared search and track (a reported attribution, not an official one)",
+  "parameters": {},
+  "sources": {
+    "wp-j20a": {
+      "title": "Chengdu J-20",
+      "publisher": "Wikipedia (revision 1378338980)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Chengdu_J-20&oldid=1378338980",
+      "date": "2026-10-04"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": "an-apn-241",
+  "designation": "AN/APN-241",
+  "family": "weather_radar",
+  "summary": "navigation and weather radar: ground mapping, windshear detection, all-weather aerial delivery",
+  "maker": "Northrop Grumman",
+  "parameters": {},
+  "sources": {
+    "ng-apn241": {
+      "title": "Northrop Grumman, Dasa Intend to Collaborate on Radar for European Transport Aircraft Program",
+      "publisher": "Northrop Grumman (press release)",
+      "url": "https://www.globenewswire.com/news-release/2000/06/07/278564/189/en/Northrop-Grumman-Dasa-Intend-to-Collaborate-on-Radar-for-European-Transport-Aircraft-Program.html",
+      "date": "2000-06-07"
+    }
+  }
+}

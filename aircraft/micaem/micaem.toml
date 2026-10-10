@@ -1,0 +1,104 @@
+# MICA EM, built by hangar from public data (ADR-30, MS-7e1) - written by `python -m hangar missiles micaem`
+# (tools/hangar/hangar/missiles.py), one rule for every missile: edit the table there and write it again.
+#
+# Frame: metres, x aft from the nose's tip, y right, z up from the body's axis. The card (assets/stores/mica-em.json)
+# holds the published figures: length 3.1 m, diameter 0.16 m, mass 112 kg; span 0.48 m (the card), tip to tip across
+# opposite fins. Its surfaces fly in an X, 45 deg from the vertical, as it hangs on its launcher (assumed for all).
+# Assumed from photographs, the same way for every missile: the nose's shape and length, each surface's place,
+# chords and sweep, the motor's nozzle and burn, the CG. They only shape the picture until the aero stage runs.
+
+[aircraft]
+name = "micaem"
+description = "MICA EM (hangar build)"
+category = "missile"
+card = "mica-em"             # its store card: the published figures this design holds
+
+[analysis]
+speed = 900.0                # m/s: the Reynolds numbers (Mach 3 at altitude) - assumed
+
+# The body: an ogive radome 2.6 calibres long, the cylinder, a boattail over the nozzle (assumed)
+[[body]]
+name = "body"
+kind = "fuselage"
+stations = [
+  { x = 0.0, w = 0.0, top = 0.0, bottom = 0.0, n = 2 },
+  { x = 0.0125, w = 0.0098, top = 0.0049, bottom = -0.0049, n = 2 },
+  { x = 0.0333, w = 0.0254, top = 0.0127, bottom = -0.0127, n = 2 },
+  { x = 0.0666, w = 0.0484, top = 0.0242, bottom = -0.0242, n = 2 },
+  { x = 0.1165, w = 0.0785, top = 0.0393, bottom = -0.0393, n = 2 },
+  { x = 0.1747, w = 0.1075, top = 0.0537, bottom = -0.0537, n = 2 },
+  { x = 0.2496, w = 0.1352, top = 0.0676, bottom = -0.0676, n = 2 },
+  { x = 0.3328, w = 0.1538, top = 0.0769, bottom = -0.0769, n = 2 },
+  { x = 0.416, w = 0.16, top = 0.08, bottom = -0.08, n = 2 },
+  { x = 3.004, w = 0.16, top = 0.08, bottom = -0.08, n = 2 },
+  { x = 3.1, w = 0.128, top = 0.064, bottom = -0.064, n = 2 },
+]
+
+# The strakes: fixed; root chord 1.4 m, tip 1.3 m, 0.06 m out from the body (assumed from photographs)
+[[surface]]
+name = "strake upper"
+kind = "fin"
+mirror = true
+airfoil = "plate"
+sections = [
+  { le = [0.95, 0.0549, 0.0549], chord = 1.4 },
+  { le = [1.05, 0.099, 0.099], chord = 1.3 },
+]
+
+[[surface]]
+name = "strake lower"
+kind = "fin"
+mirror = true
+airfoil = "plate"
+sections = [
+  { le = [0.95, 0.0549, -0.0549], chord = 1.4 },
+  { le = [1.05, 0.099, -0.099], chord = 1.3 },
+]
+
+# The tail fins: all-moving about their spindles; root chord 0.28 m, tip 0.14 m, 0.16 m out from the body, their tips across the card's span (assumed from photographs)
+[[surface]]
+name = "tail fin upper"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [2.75, 0.0549, 0.0549], chord = 0.28 },
+  { le = [2.89, 0.1697, 0.1697], chord = 0.14 },
+]
+controls = [
+  { name = "tail fin upper", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
+]
+
+[[surface]]
+name = "tail fin lower"
+kind = "fin"
+mirror = true
+airfoil = "biconvex4"
+sections = [
+  { le = [2.75, 0.0549, -0.0549], chord = 0.28 },
+  { le = [2.89, 0.1697, -0.1697], chord = 0.14 },
+]
+controls = [
+  { name = "tail fin lower", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
+]
+
+# The rocket motor: solid (the card); its smoke assumed. Its nozzle in the boattail, its exit 65 % of the base and its burn's phases assumed
+# (none published): only what a replay shows the plume with until a flight model burns it.
+[motor]
+exit = [3.1, 0.0, 0.0]
+exit_diameter = 0.0832
+throat_diameter = 0.0374
+cone_length = 0.0915
+smoke = "reduced"
+[[motor.phase]]
+duration_s = 4
+thrust_kn = 15
+
+[mass]
+empty = 112                 # kg, the card, motor full
+empty_cg = [1.55, 0.0, 0.0]  # assumed: half way along
+gyration = [0.0181, 0.289, 0.289]  # radii of gyration over length - assumed (a slender rod's: L/sqrt(12))
+
+[dimensions]                  # the card: the span tip to tip across opposite fins
+length = 3.1
+span = 0.48

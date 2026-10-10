@@ -1,0 +1,16 @@
+{
+  "id": "an-aar-56",
+  "designation": "AN/AAR-56",
+  "family": "passive_optical",
+  "summary": "infrared and ultraviolet missile launch detector: six sensors, full spherical coverage",
+  "maker": "Martin Marietta (now Lockheed Martin)",
+  "parameters": {},
+  "sources": {
+    "wp-f22a": {
+      "title": "Lockheed Martin F-22 Raptor",
+      "publisher": "Wikipedia (revision 1375913406)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_Martin_F-22_Raptor&oldid=1375913406",
+      "date": "2026-09-20"
+    }
+  }
+}

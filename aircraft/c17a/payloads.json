@@ -1,0 +1,45 @@
+{
+  "aircraft": "c17a",
+  "note": "C-17A.",
+  "sources": {
+    "wp-c17a": {
+      "title": "Boeing C-17 Globemaster III",
+      "publisher": "Wikipedia (revision 1376719976)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_C-17_Globemaster_III&oldid=1376719976",
+      "date": "2026-09-25"
+    },
+    "wp-p-ale47": {
+      "title": "AN/ALE-47",
+      "publisher": "Wikipedia (revision 1329674896)",
+      "url": "https://en.wikipedia.org/w/index.php?title=AN/ALE-47&oldid=1329674896",
+      "date": "2025-12-27"
+    }
+  },
+  "payloads": [
+    {
+      "name": "radar",
+      "card": "an-aps-133",
+      "source": "wp-c17a",
+      "evidence": [
+        "AN/APS-133(V) weather and mapping radar"
+      ]
+    },
+    {
+      "name": "cmds",
+      "card": "an-ale-47",
+      "source": "wp-p-ale47",
+      "evidence": [
+        "C-17 Globemaster III"
+      ]
+    },
+    {
+      "name": "mws",
+      "card": "c17a-mws",
+      "source": "wp-c17a",
+      "note": "named among the equipment India bought with its C-17s",
+      "evidence": [
+        "missile warning systems"
+      ]
+    }
+  ]
+}

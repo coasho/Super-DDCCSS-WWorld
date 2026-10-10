@@ -1,0 +1,76 @@
+{
+  "id": "an-aaq-28",
+  "designation": "AN/AAQ-28 LITENING",
+  "class": "pod",
+  "summary": "targeting pod (A-10C, Gripen C/D, Typhoon and others)",
+  "maker": "Rafael / Northrop Grumman",
+  "model": "jsbsim:anaaq28",
+  "powerable": false,
+  "jettisonable": true,
+  "fins": false,
+  "parameters": {
+    "mass_kg": {
+      "value": 208.0,
+      "unit": "kg",
+      "uncertainty": 8.0,
+      "basis": "published",
+      "source": "wp-litening"
+    },
+    "length_m": {
+      "value": 2.2,
+      "unit": "m",
+      "uncertainty": 0.02,
+      "basis": "published",
+      "source": "wp-litening"
+    },
+    "diameter_m": {
+      "value": 0.406,
+      "unit": "m",
+      "uncertainty": 0.005,
+      "basis": "published",
+      "source": "wp-litening"
+    },
+    "drag_area_m2": {
+      "value": 0.02326,
+      "unit": "m^2",
+      "uncertainty": 0.00698,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its card, stores.py's pod profile (hangar storedrag.py: Hoerner's body of revolution 0.00650, its base 0.01676, its fins' friction 0.00000 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 0.22648,
+      "unit": "m^3",
+      "uncertainty": 0.06794,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.2660 m^3 from its card, stores.py's pod profile, times Lamb's k2 - k1 = 0.852 for its fineness 5.4 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.25892,
+      "unit": "m^2",
+      "uncertainty": 0.07768,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 1.1,
+      "unit": "m",
+      "uncertainty": 0.22,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "wp-litening": {
+      "title": "AN/AAQ-28 Litening (2.20 m, 0.406 m, 208 kg; carried by the Gripen and the Typhoon among others)",
+      "publisher": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/AN/AAQ-28_Litening",
+      "date": "2026-10-10"
+    },
+    "saaf-litening": {
+      "title": "Litening III targeting pod (Gripen C/D: 2.20 m, 40.6 cm, 200 kg, on the side fuselage pylon)",
+      "publisher": "The Unofficial SAAF website",
+      "url": "https://mail.saairforce.co.za/the-airforce/weapons/71/litening-iii-targeting-pod",
+      "date": "2026-10-10"
+    }
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "aircraft": "mirage2000",
+  "note": "Mirage 2000C (late, RDI radar).",
+  "sources": {
+    "wp-mirage2000": {
+      "title": "Dassault Mirage 2000",
+      "publisher": "Wikipedia (revision 1378195004)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Dassault_Mirage_2000&oldid=1378195004",
+      "date": "2026-10-03"
+    },
+    "fas-m2000": {
+      "title": "Mirage 2000 (1,300 L centreline tank: 1,038 kg of fuel; 1,700 L wing tanks)",
+      "publisher": "FAS",
+      "url": "https://man.fas.org/dod-101/sys/ac/row/mirage-2000.htm",
+      "date": "2026-10-09"
+    }
+  },
+  "payloads": [
+    {
+      "name": "radar",
+      "card": "thomson-csf-rdi",
+      "source": "wp-mirage2000",
+      "evidence": [
+        "Thomson-CSF RDI (Radar Doppler"
+      ]
+    },
+    {
+      "name": "rwr",
+      "card": "serval",
+      "source": "wp-mirage2000",
+      "evidence": [
+        "Serval/Sabre/Spirale units"
+      ]
+    },
+    {
+      "name": "ecm",
+      "card": "sabre",
+      "source": "wp-mirage2000",
+      "evidence": [
+        "Serval/Sabre/Spirale units"
+      ]
+    },
+    {
+      "name": "cmds",
+      "card": "spirale",
+      "source": "wp-mirage2000",
+      "evidence": [
+        "Serval/Sabre/Spirale units"
+      ]
+    },
+    {
+      "name": "guns",
+      "card": "defa-554",
+      "count": 2,
+      "source": "wp-mirage2000",
+      "note": "125 rounds per gun",
+      "evidence": [
+        "DEFA 554 revolver cannon, 125 rounds per gun"
+      ]
+    },
+    {
+      "name": "stations",
+      "card": "mirage2000-store-station",
+      "count": 9,
+      "source": "wp-mirage2000",
+      "note": "four under the wings, five under the fuselage",
+      "evidence": [
+        "nine total (four under-wing and five under-fuselage)"
+      ]
+    }
+  ],
+  "loadouts": [
+    {
+      "name": "air defence",
+      "note": "the article's '2 × Matra R550 Magic-II and 2 × Matra Super 530D (Mirage 2000 C, Mirage 2000 H)': the Magic on the outer wing stations, the Super 530D on the inner (which: assumed)",
+      "source": "wp-mirage2000",
+      "stations": [
+        {
+          "payload": "stations",
+          "station": 1,
+          "store": "magic-2"
+        },
+        {
+          "payload": "stations",
+          "station": 9,
+          "store": "magic-2"
+        },
+        {
+          "payload": "stations",
+          "station": 2,
+          "store": "super-530d"
+        },
+        {
+          "payload": "stations",
+          "station": 8,
+          "store": "super-530d"
+        }
+      ]
+    },
+    {
+      "name": "external tanks",
+      "note": "two 2,000 L wing tanks and the 1,300 L centreline tank (ADR-30, MS-7g: a tank's fuel feeds the aircraft's own tanks; jettisoned, it flies on with what is left)",
+      "source": "fas-m2000",
+      "stations": [
+        {
+          "station": 2,
+          "store": "rpl-541"
+        },
+        {
+          "station": 8,
+          "store": "rpl-541"
+        },
+        {
+          "station": 5,
+          "store": "rpl-522"
+        }
+      ]
+    }
+  ]
+}

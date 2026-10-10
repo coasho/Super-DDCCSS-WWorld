@@ -1,0 +1,16 @@
+{
+  "id": "gau-8a",
+  "designation": "GAU-8/A Avenger",
+  "family": "gun",
+  "summary": "30 mm seven-barrel rotary cannon",
+  "maker": "General Electric (now General Dynamics)",
+  "parameters": {},
+  "sources": {
+    "wp-a10c": {
+      "title": "Fairchild Republic A-10 Thunderbolt II",
+      "publisher": "Wikipedia (revision 1378202818)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Fairchild_Republic_A-10_Thunderbolt_II&oldid=1378202818",
+      "date": "2026-10-03"
+    }
+  }
+}

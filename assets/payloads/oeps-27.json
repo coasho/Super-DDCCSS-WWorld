@@ -1,0 +1,15 @@
+{
+  "id": "oeps-27",
+  "designation": "OEPS-27",
+  "family": "passive_optical",
+  "summary": "electro-optical targeting system: OLS-27 infrared search and track and laser rangefinder",
+  "parameters": {},
+  "sources": {
+    "wp-su27s": {
+      "title": "Sukhoi Su-27",
+      "publisher": "Wikipedia (revision 1378428873)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Sukhoi_Su-27&oldid=1378428873",
+      "date": "2026-10-04"
+    }
+  }
+}

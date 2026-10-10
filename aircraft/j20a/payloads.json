@@ -1,0 +1,99 @@
+{
+  "aircraft": "j20a",
+  "note": "J-20A. Its radar and electro-optical systems are reported attributions, not official ones.",
+  "sources": {
+    "wp-j20a": {
+      "title": "Chengdu J-20",
+      "publisher": "Wikipedia (revision 1378338980)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Chengdu_J-20&oldid=1378338980",
+      "date": "2026-10-04"
+    }
+  },
+  "payloads": [
+    {
+      "name": "radar",
+      "card": "type-1475",
+      "source": "wp-j20a",
+      "note": "attributed by analysts (Janes among them)",
+      "evidence": [
+        "Type 1475 (KLJ-5)"
+      ]
+    },
+    {
+      "name": "stations",
+      "card": "j20a-store-station",
+      "count": 10,
+      "source": "wp-j20a",
+      "note": "four in the main bay, one in each lateral bay, and four wing hardpoints ('The wings include four hardpoints')",
+      "evidence": [
+        "main bay may carry four medium/long-range AAMs, with each lateral bay carrying a short-range missile"
+      ]
+    },
+    {
+      "name": "eots",
+      "card": "eots-86",
+      "source": "wp-j20a",
+      "note": "a reported attribution",
+      "evidence": [
+        "EOTS-86 electro-optical targeting system (EOTS)"
+      ]
+    },
+    {
+      "name": "irst",
+      "card": "eord-31",
+      "source": "wp-j20a",
+      "note": "a reported attribution",
+      "evidence": [
+        "EORD-31 infrared search and track"
+      ]
+    },
+    {
+      "name": "das",
+      "card": "j20a-das",
+      "source": "wp-j20a",
+      "note": "six windows",
+      "evidence": [
+        "Six passive electro-optical sensor windows are mounted around the fuselage for an omnidirectional view"
+      ]
+    }
+  ],
+  "loadouts": [
+    {
+      "name": "internal air-to-air",
+      "note": "the article's main bay for 'long-range air-to-air missiles (PL-15)' and side bays for 'short-range AAMs (PL-10)': four PL-15 (six possible 'with modified rail launchers') and two PL-10",
+      "source": "wp-j20a",
+      "stations": [
+        {
+          "payload": "stations",
+          "station": 4,
+          "store": "pl-15"
+        },
+        {
+          "payload": "stations",
+          "station": 5,
+          "store": "pl-15"
+        },
+        {
+          "payload": "stations",
+          "station": 6,
+          "store": "pl-15"
+        },
+        {
+          "payload": "stations",
+          "station": 7,
+          "store": "pl-15"
+        },
+        {
+          "payload": "stations",
+          "station": 3,
+          "store": "pl-10"
+        },
+        {
+          "payload": "stations",
+          "station": 8,
+          "store": "pl-10"
+        }
+      ]
+    }
+  ]
+}

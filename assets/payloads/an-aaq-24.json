@@ -1,0 +1,16 @@
+{
+  "id": "an-aaq-24",
+  "designation": "AN/AAQ-24(V) LAIRCM",
+  "family": "electronic_attack",
+  "summary": "Large Aircraft Infrared Countermeasures: missile warning and directed laser jamming of infrared seekers",
+  "maker": "Northrop Grumman",
+  "parameters": {},
+  "sources": {
+    "crec-s5949": {
+      "title": "Arms sales notification, Transmittal No. 16-46: Japan - KC-46A aerial refueling aircraft",
+      "publisher": "Congressional Record - Senate, vol. 162, p. S5949 (U.S. Government Publishing Office)",
+      "url": "https://www.govinfo.gov/link/crec/162/s/5949",
+      "date": "2016-09-21"
+    }
+  }
+}

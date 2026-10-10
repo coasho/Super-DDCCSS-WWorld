@@ -1,0 +1,135 @@
+{
+  "id": "r-37m",
+  "designation": "R-37M",
+  "class": "aam",
+  "summary": "Very long-range active-radar air-to-air missile (AA-13 Axehead)",
+  "maker": "Vympel",
+  "model": "",
+  "powerable": true,
+  "jettisonable": true,
+  "seeker": "active_radar",
+  "guidance": "inertial with midcourse updates, terminal active radar homing",
+  "motor": "dual-pulse solid rocket",
+  "fuze": "proximity",
+  "warhead": "HE fragmentation",
+  "warhead_kind": "fragmentation",
+  "explosive": "unknown",
+  "parameters": {
+    "mass_kg": {
+      "value": 510.0,
+      "unit": "kg",
+      "uncertainty": 50.0,
+      "basis": "published",
+      "source": "wp-r37",
+      "note": "the Russian article gives 600 kg (the R-37's)"
+    },
+    "length_m": {
+      "value": 4.06,
+      "unit": "m",
+      "uncertainty": 0.02,
+      "basis": "published",
+      "source": "wp-r37"
+    },
+    "diameter_m": {
+      "value": 0.38,
+      "unit": "m",
+      "uncertainty": 0.005,
+      "basis": "published",
+      "source": "wp-r37"
+    },
+    "span_m": {
+      "value": 0.72,
+      "unit": "m",
+      "uncertainty": 0.01,
+      "basis": "published",
+      "source": "wp-r37"
+    },
+    "warhead_kg": {
+      "value": 60.0,
+      "unit": "kg",
+      "uncertainty": 2.0,
+      "basis": "published",
+      "source": "wp-r37"
+    },
+    "range_km": {
+      "value": 350.0,
+      "unit": "km",
+      "uncertainty": 50.0,
+      "basis": "published",
+      "source": "wp-r37",
+      "note": "R-37M: 300-400 km"
+    },
+    "speed_mach": {
+      "value": 6.0,
+      "unit": "Mach",
+      "uncertainty": 0.5,
+      "basis": "published",
+      "source": "wp-r37",
+      "note": "'Mach 6+'"
+    },
+    "power_up_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "power_down_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "explosive_kg": {
+      "value": 22.14,
+      "unit": "kg",
+      "uncertainty": 5.54,
+      "basis": "assumed",
+      "note": "no source gives its charge: 37 % of its warhead, the median share of the game reference's charges (War Thunder's) - an estimate"
+    },
+    "gurney_kms": {
+      "value": 2.6,
+      "unit": "km/s",
+      "uncertainty": 0.2,
+      "basis": "assumed",
+      "note": "no source names its explosive: as PBXN-110, a modern HMX-based fill - an estimate"
+    },
+    "drag_area_m2": {
+      "value": 0.02037,
+      "unit": "m^2",
+      "uncertainty": 0.00611,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its design (hangar storedrag.py: Hoerner's body of revolution 0.00923, its base 0.00738, its fins' friction 0.00376 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 0.38958,
+      "unit": "m^3",
+      "uncertainty": 0.11687,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.4114 m^3 from its design, times Lamb's k2 - k1 = 0.947 for its fineness 10.7 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.60057,
+      "unit": "m^2",
+      "uncertainty": 0.18017,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 1.6371,
+      "unit": "m",
+      "uncertainty": 0.406,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "wp-r37": {
+      "title": "R-37 (missile)",
+      "publisher": "Wikipedia (revision 1375531811)",
+      "url": "https://en.wikipedia.org/w/index.php?title=R-37_(missile)&oldid=1375531811",
+      "date": "2026-09-18"
+    }
+  }
+}

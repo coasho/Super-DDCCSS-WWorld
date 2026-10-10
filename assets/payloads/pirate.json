@@ -1,0 +1,16 @@
+{
+  "id": "pirate",
+  "designation": "PIRATE",
+  "family": "passive_optical",
+  "summary": "infrared search and track and forward-looking infrared",
+  "maker": "Eurofirst",
+  "parameters": {},
+  "sources": {
+    "wp-typhoon": {
+      "title": "Eurofighter Typhoon",
+      "publisher": "Wikipedia (revision 1378850990)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Eurofighter_Typhoon&oldid=1378850990",
+      "date": "2026-10-06"
+    }
+  }
+}

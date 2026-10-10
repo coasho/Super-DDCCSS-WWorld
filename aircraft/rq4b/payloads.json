@@ -1,0 +1,32 @@
+{
+  "aircraft": "rq4b",
+  "note": "RQ-4B Block 20 (the aerodynamic model's block), with the Enhanced Integrated Sensor Suite.",
+  "sources": {
+    "wp-rq4b": {
+      "title": "Northrop Grumman RQ-4 Global Hawk",
+      "publisher": "Wikipedia (revision 1377672081)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Northrop_Grumman_RQ-4_Global_Hawk&oldid=1377672081",
+      "date": "2026-09-30"
+    }
+  },
+  "payloads": [
+    {
+      "name": "sar",
+      "card": "eiss-sar",
+      "source": "wp-rq4b",
+      "evidence": [
+        "Enhanced Integrated Sensor Suite (EISS)",
+        "synthetic aperture radar (SAR)"
+      ]
+    },
+    {
+      "name": "eoir",
+      "card": "eiss-eoir",
+      "source": "wp-rq4b",
+      "evidence": [
+        "Enhanced Integrated Sensor Suite (EISS)",
+        "electro-optical/infrared (EO/IR) sensors"
+      ]
+    }
+  ]
+}

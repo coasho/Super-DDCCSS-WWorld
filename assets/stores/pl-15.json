@@ -1,0 +1,136 @@
+{
+  "id": "pl-15",
+  "designation": "PL-15",
+  "class": "aam",
+  "summary": "Long-range active-radar air-to-air missile with a dual-pulse motor",
+  "maker": "China Airborne Missile Academy",
+  "model": "",
+  "powerable": true,
+  "jettisonable": true,
+  "seeker": "active_radar",
+  "guidance": "inertial with midcourse datalink updates, terminal active radar homing",
+  "motor": "dual-pulse solid rocket",
+  "fuze": "proximity",
+  "warhead": "HE fragmentation",
+  "warhead_kind": "fragmentation",
+  "explosive": "unknown",
+  "parameters": {
+    "mass_kg": {
+      "value": 210.0,
+      "unit": "kg",
+      "uncertainty": 10.0,
+      "basis": "published",
+      "source": "zh-pl15",
+      "note": "'≤210 kg (PL-15E)': its export version's, at most"
+    },
+    "length_m": {
+      "value": 3.996,
+      "unit": "m",
+      "uncertainty": 0.01,
+      "basis": "published",
+      "source": "wp-pl15",
+      "note": "399.6 cm (PL-15E)"
+    },
+    "diameter_m": {
+      "value": 0.203,
+      "unit": "m",
+      "uncertainty": 0.002,
+      "basis": "published",
+      "source": "wp-pl15",
+      "note": "20.3 cm (PL-15E)"
+    },
+    "range_km": {
+      "value": 175.0,
+      "unit": "km",
+      "uncertainty": 25.0,
+      "basis": "published",
+      "source": "wp-pl15",
+      "note": "'150-200 km (PL-15)'; the Chinese article gives 200-300 km"
+    },
+    "speed_mach": {
+      "value": 5.0,
+      "unit": "Mach",
+      "uncertainty": 0.5,
+      "basis": "published",
+      "source": "wp-pl15",
+      "note": "'Mach 5+'"
+    },
+    "power_up_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "power_down_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "warhead_kg": {
+      "value": 22.5,
+      "unit": "kg",
+      "uncertainty": 2.5,
+      "basis": "assumed",
+      "note": "no official figure: the press's estimate of 20 - 25 kg (Overt Defense, 2025), its middle - an estimate"
+    },
+    "explosive_kg": {
+      "value": 8.3,
+      "unit": "kg",
+      "uncertainty": 2.08,
+      "basis": "assumed",
+      "note": "no source gives its charge: 37 % of its warhead, the median share of the game reference's charges (War Thunder's) - an estimate"
+    },
+    "gurney_kms": {
+      "value": 2.6,
+      "unit": "km/s",
+      "uncertainty": 0.2,
+      "basis": "assumed",
+      "note": "no source names its explosive: as PBXN-110, a modern HMX-based fill - an estimate"
+    },
+    "drag_area_m2": {
+      "value": 0.00723,
+      "unit": "m^2",
+      "uncertainty": 0.00217,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its design (hangar storedrag.py: Hoerner's body of revolution 0.00472, its base 0.00157, its fins' friction 0.00093 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 0.11809,
+      "unit": "m^3",
+      "uncertainty": 0.03543,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.1200 m^3 from its design, times Lamb's k2 - k1 = 0.984 for its fineness 19.7 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.23458,
+      "unit": "m^2",
+      "uncertainty": 0.07037,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 1.8183,
+      "unit": "m",
+      "uncertainty": 0.3996,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "wp-pl15": {
+      "title": "PL-15",
+      "publisher": "Wikipedia (revision 1372170557)",
+      "url": "https://en.wikipedia.org/w/index.php?title=PL-15&oldid=1372170557",
+      "date": "2026-08-30"
+    },
+    "zh-pl15": {
+      "title": "霹靂-15",
+      "publisher": "Wikipedia, zh (revision 94654220)",
+      "url": "https://zh.wikipedia.org/w/index.php?title=%E9%9C%B9%E9%9D%82-15&oldid=94654220",
+      "date": "2026-09-29"
+    }
+  }
+}

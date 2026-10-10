@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<!-- Written by hangar (storemodels.py): the nozzle's exit of pl12's design. Do not edit. -->
+<nozzle name="pl12 nozzle">
+    <area unit="FT2"> 0.094273 </area>
+</nozzle>

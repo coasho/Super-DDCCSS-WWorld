@@ -1,0 +1,15 @@
+{
+  "id": "j20a-das",
+  "designation": "J-20A distributed electro-optical sensors (model not named)",
+  "family": "passive_optical",
+  "summary": "six passive electro-optical windows around the fuselage for an omnidirectional view. The source names no model.",
+  "parameters": {},
+  "sources": {
+    "wp-j20a": {
+      "title": "Chengdu J-20",
+      "publisher": "Wikipedia (revision 1378338980)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Chengdu_J-20&oldid=1378338980",
+      "date": "2026-10-04"
+    }
+  }
+}

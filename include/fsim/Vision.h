@@ -1,0 +1,167 @@
+#pragma once
+
+// fsim vision SDK (design 8.4 "Vision observations"): cameras mounted on
+// vehicles, rendered offscreen with the same Earth, sky and vehicle models the
+// viewer draws, read back as RGB images for learners that see. Lives in its
+// own library (fsim_vision.dll) because it needs Vulkan; the core SDK stays
+// headless.
+//
+//   fsim::World world(options);
+//   fsim::vision::Sensors sensors(world);                    // opens a Vulkan device, no window
+//   fsim::vision::CameraSpec cam; cam.width = 160; cam.height = 120; cam.fovDeg = 70;
+//   const unsigned nose = sensors.addCamera(vehicle, cam);   // mounted on the vehicle
+//   for (;;) {
+//       world.step();
+//       sensors.render();                                    // every camera, one submission
+//       auto img = sensors.image(nose);                      // img.rgb: height x width x 3, top row first
+//   }
+//
+// Rendering is explicit (render()) so a trainer pays for images only when it
+// wants them. Terrain and imagery are read from the local map set (maps/
+// beside the program; fetch-maps.cmd fills it) - nothing is downloaded.
+
+#include "fsim/Export.h"
+#include "fsim/VecEnv.h"
+#include "fsim/World.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <string>
+
+namespace fsim::vision {
+
+/// A camera rigidly mounted on a vehicle. Body frame: x forward, y right, z down.
+struct CameraSpec {
+    unsigned width = 128, height = 128;
+    double fovDeg = 60.0;                    ///< vertical field of view
+    double offsetBodyM[3] = {0.0, 0.0, 0.0}; ///< mount position relative to the body origin
+    double yawDeg = 0.0, pitchDeg = 0.0, rollDeg = 0.0; ///< mount attitude relative to the body (yaw right, pitch up, roll right)
+    bool hideOwnVehicle = true;              ///< do not draw the aircraft the camera is mounted on (up to 31 such vehicles)
+    bool depth = false;                      ///< also deliver depth (metres along the view axis) through Sensors::depth()
+    bool segmentation = false;               ///< also deliver per-pixel vehicle ids through Sensors::segmentation() (needs Options::segmentation)
+};
+
+struct Options {
+    bool earth = true;                ///< the globe (false: sky and vehicles only; tests, synthetic tasks)
+    bool imagery = true;              ///< satellite imagery (else a plain shaded globe)
+    bool elevation = true;            ///< terrain relief
+    std::string imageryUrl;           ///< XYZ template; empty = Esri World Imagery
+    std::string elevationUrl;         ///< XYZ template; empty = AWS Terrarium
+    unsigned maxLevel = 15;           ///< deepest tile level
+    bool sky = true;                  ///< sky dome and sun light from the world's clock
+    unsigned maxVehicles = 64;        ///< vehicles drawn (others are invisible to cameras)
+    bool segmentation = false;        ///< build the id-coloured copy of the vehicles, so cameras may ask for segmentation
+    std::string assetDir;             ///< extra asset directory (models/<type>.glb); empty = the platform's
+    bool debugLayer = false;          ///< Vulkan validation
+    bool publish = true;              ///< share the images with viewers of a published world (shared memory; a copy per render)
+};
+
+/// One RGB image, tightly packed, top row first.
+struct Image {
+    const std::uint8_t* rgb = nullptr;
+    unsigned width = 0, height = 0;
+    std::size_t size() const noexcept { return static_cast<std::size_t>(width) * height * 3; }
+};
+
+/// Depth in metres along the view axis per pixel, top row first; the sky
+/// (nothing drawn) reads as the far plane, i.e. very large.
+struct DepthImage {
+    const float* metres = nullptr;
+    unsigned width = 0, height = 0;
+    std::size_t size() const noexcept { return static_cast<std::size_t>(width) * height; }
+};
+
+/// Which vehicle each pixel belongs to, top row first: `Sensors::
+/// segmentationId(vehicle)` for a vehicle, 0 for terrain, sky or anything
+/// else. Vehicles hidden behind terrain are occluded exactly as in the RGB
+/// image, because the pass reuses its depth.
+struct SegmentationImage {
+    const std::uint16_t* ids = nullptr;
+    unsigned width = 0, height = 0;
+    std::size_t size() const noexcept { return static_cast<std::size_t>(width) * height; }
+};
+
+class FSIM_VISION_API Sensors {
+public:
+    /// Opens a Vulkan device and builds the scene. Throws fsim::Error when no
+    /// device is available.
+    explicit Sensors(World& world, const Options& options = {});
+    ~Sensors();
+    Sensors(const Sensors&) = delete;
+    Sensors& operator=(const Sensors&) = delete;
+
+    /// Mount a camera; returns its index. Cameras can be added at any time
+    /// (the scene is recompiled at the next render); those of a removed
+    /// vehicle keep rendering from its last known pose.
+    unsigned addCamera(const Vehicle& vehicle, const CameraSpec& spec);
+    /// Stop rendering a camera; its index stays valid but image() is empty.
+    void removeCamera(unsigned camera);
+    std::size_t cameraCount() const noexcept; ///< cameras mounted so far (including removed ones)
+
+    /// Draw every camera from the world's current state and read the images
+    /// back. Blocks until they are ready (a few ms for a handful of small cameras).
+    void render();
+    /// The last rendered image of a camera (valid until the next render()).
+    Image image(unsigned camera) const noexcept;
+    /// The last depth image of a camera added with `CameraSpec::depth` (empty otherwise).
+    DepthImage depth(unsigned camera) const noexcept;
+    /// The last id image of a camera added with `CameraSpec::segmentation` (empty otherwise).
+    SegmentationImage segmentation(unsigned camera) const noexcept;
+    /// The id a vehicle is painted with in segmentation images; 0 if it is not
+    /// drawn (beyond `Options::maxVehicles`). Stable while the vehicle lives.
+    unsigned segmentationId(const Vehicle& vehicle) const noexcept;
+
+    /// Write the last image of a camera as PNG (debugging, datasets).
+    bool savePng(unsigned camera, const std::string& path) const;
+    /// Write the last depth image as an 8-bit PNG: near = white, `farM` and beyond = black (log scale).
+    bool saveDepthPng(unsigned camera, const std::string& path, double farM = 5000.0) const;
+    /// Write the last id image as a PNG that a human can read: a distinct
+    /// colour per id, black where there is no vehicle.
+    bool saveSegmentationPng(unsigned camera, const std::string& path) const;
+
+    double lastRenderMs() const noexcept;  ///< wall time of the last render()
+    /// Where the last render() went (milliseconds): frame bookkeeping, tile
+    /// merges, command recording + submit, GPU wait, host copy.
+    struct Timing {
+        double advance = 0.0, update = 0.0, record = 0.0, wait = 0.0, readback = 0.0;
+    };
+    Timing timing() const noexcept;
+    std::uint64_t frames() const noexcept; ///< render() calls so far
+    /// Advance tile streaming without rendering (call between episodes to let
+    /// the pager settle after a jump to a new region).
+    void settle(unsigned frames = 30);
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
+/// One camera per batch vehicle of a VecEnv (batch order, index = env * K +
+/// vehicle) with the images packed into tensors: `rgb()` is [N][H][W][3]
+/// bytes, `depth()` [N][H][W] floats when the spec asks for depth. The
+/// pixel observation that goes next to StepResult::observations.
+class FSIM_VISION_API BatchCameras {
+public:
+    BatchCameras(VecEnv& env, const CameraSpec& spec, const Options& options = {});
+    ~BatchCameras();
+    BatchCameras(const BatchCameras&) = delete;
+    BatchCameras& operator=(const BatchCameras&) = delete;
+
+    /// Render every vehicle's camera and pack the tensors (call after step()).
+    void render();
+    ConstSpan<std::uint8_t> rgb() const noexcept;   ///< N*H*W*3
+    ConstSpan<float> depth() const noexcept;        ///< N*H*W, empty without CameraSpec::depth
+    ConstSpan<std::uint16_t> segmentation() const noexcept; ///< N*H*W, empty without CameraSpec::segmentation
+    std::size_t count() const noexcept;             ///< N
+    unsigned width() const noexcept;
+    unsigned height() const noexcept;
+    Sensors& sensors() noexcept;                    ///< the underlying cameras (savePng, timing, extra cameras)
+    unsigned camera(std::size_t vehicle) const noexcept; ///< camera index of a batch vehicle
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
+} // namespace fsim::vision

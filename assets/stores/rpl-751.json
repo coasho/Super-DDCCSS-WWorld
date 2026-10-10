@@ -1,0 +1,98 @@
+{
+  "id": "rpl-751",
+  "designation": "RPL-751",
+  "class": "tank",
+  "summary": "the Rafale's 2,000 L tank",
+  "maker": "Dassault",
+  "model": "jsbsim:rpl751",
+  "powerable": false,
+  "jettisonable": true,
+  "fins": false,
+  "parameters": {
+    "capacity_l": {
+      "value": 2000.0,
+      "unit": "L",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "am-rpl751"
+    },
+    "fuel_kg": {
+      "value": 1600.0,
+      "unit": "kg",
+      "uncertainty": 80.0,
+      "basis": "derived",
+      "source": "wp-jetfuel",
+      "note": "its capacity full at 0.80 kg/L (Jet A-1 / JP-8 at 15 C lies 0.775 - 0.840): one density for every tank"
+    },
+    "mass_kg": {
+      "value": 170.0,
+      "unit": "kg",
+      "uncertainty": 17.0,
+      "basis": "published",
+      "source": "am-rpl751",
+      "note": "War Thunder lists 116 kg"
+    },
+    "length_m": {
+      "value": 6.2116,
+      "unit": "m",
+      "uncertainty": 1.2423,
+      "basis": "assumed",
+      "note": "its size: 8 diameters long, its fuel 0.68 of the cylinder (the four published tanks' means; one rule for every tank without one)"
+    },
+    "diameter_m": {
+      "value": 0.7765,
+      "unit": "m",
+      "uncertainty": 0.1165,
+      "basis": "assumed",
+      "note": "its size: 8 diameters long, its fuel 0.68 of the cylinder (the four published tanks' means; one rule for every tank without one)"
+    },
+    "drag_area_m2": {
+      "value": 0.03021,
+      "unit": "m^2",
+      "uncertainty": 0.00906,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its card, stores.py's tank profile (hangar storedrag.py: Hoerner's body of revolution 0.02795, its base 0.00226, its fins' friction 0.00000 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 2.01993,
+      "unit": "m^3",
+      "uncertainty": 0.60598,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 2.2056 m^3 from its card, stores.py's tank profile, times Lamb's k2 - k1 = 0.916 for its fineness 8.0 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.03788,
+      "unit": "m^2",
+      "uncertainty": 0.01137,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 3.1058,
+      "unit": "m",
+      "uncertainty": 0.6212,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "am-rpl751": {
+      "title": "RPL-751 (2,000 L; 170 kg empty, 1,850 kg)",
+      "publisher": "Aviations Militaires",
+      "url": "https://aviationsmilitaires.net/v3/kb/externalload/show/949/rpl-751",
+      "date": "2026-10-09"
+    },
+    "wp-jetfuel": {
+      "title": "Jet fuel (Jet A-1: density 0.804 kg/L at 15 C)",
+      "publisher": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Jet_fuel",
+      "date": "2026-10-09"
+    },
+    "wt": {
+      "title": "War Thunder wiki (game reference)",
+      "publisher": "Gaijin Entertainment",
+      "url": "https://wiki.warthunder.com/",
+      "date": "2026-10-09"
+    }
+  }
+}

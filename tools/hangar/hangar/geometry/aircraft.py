@@ -1,0 +1,423 @@
+"""An aircraft design: its spec file and the geometry built from it.
+
+The spec is TOML (aircraft/<name>/<name>.toml). Coordinates are metres in the
+design frame - x aft, y right, z up - which is JSBSim's structural frame, so
+positions go into the JSBSim file unchanged (as unit="M").
+"""
+import os
+import tomllib
+
+import numpy as np
+
+from .body import Body, Intake
+from .surface import Surface
+
+
+class Strut:
+    """A bracing strut ([[strut]]): a streamlined bar from one point to
+    another, a high wing's lift strut. Drawn only: its drag is part of the
+    design's extra drag area."""
+
+    def __init__(self, spec):
+        self.name = spec.get("name", "strut")
+        if "from" not in spec or "to" not in spec:
+            raise ValueError("strut %r: 'from' and 'to' (its ends) are required" % self.name)
+        self.a = np.asarray(spec["from"], float)
+        self.b = np.asarray(spec["to"], float)
+        self.chord = float(spec.get("chord", 0.15))
+        self.thickness = float(spec.get("thickness", 0.35 * self.chord))
+        self.mirror = bool(spec.get("mirror", True))
+        if np.linalg.norm(self.b - self.a) < 1e-6 or not 0.0 < self.thickness <= self.chord:
+            raise ValueError("strut %r: its ends must differ, its thickness lie in (0, chord]" % self.name)
+
+
+class Motor:
+    """A missile's solid rocket motor ([motor]; docs/hangar.md, Missiles): drawn only - its nozzle's exit cone cut into
+    the body's aft end, lined in the hot section's metal, its throat dark - and named for the viewer's exhaust: a node
+    at the exit (fsim:afterburner:0) and the manifest's `rocket` line, its smoke by the propellant. Its burn's phases
+    ([[motor.phase]]: how long, what thrust) are what a replay drives the plume with until a flight model burns it."""
+
+    SMOKE = ("minimum", "reduced", "aluminised")  # no visible exhaust; HCl's secondary smoke only; Al2O3's dense trail
+
+    def __init__(self, spec):
+        if "exit" not in spec or "exit_diameter" not in spec:
+            raise ValueError("motor: 'exit' (the nozzle exit's centre) and 'exit_diameter' are required")
+        self.exit = np.asarray(spec["exit"], float)
+        self.exit_diameter = float(spec["exit_diameter"])
+        self.throat_diameter = float(spec.get("throat_diameter", 0.4 * self.exit_diameter))
+        self.cone_length = float(spec.get("cone_length", 1.2 * self.exit_diameter))  # the exit cone, exit to throat
+        self.smoke = spec.get("smoke", "reduced")
+        if self.smoke not in self.SMOKE:
+            raise ValueError("motor: smoke must be one of %s" % ", ".join(self.SMOKE))
+        if not 0.0 < self.throat_diameter < self.exit_diameter or self.cone_length <= 0.0:
+            raise ValueError("motor: the throat is narrower than the exit, and the cone has a length")
+        self.phases = [(float(p["duration_s"]), float(p["thrust_kn"])) for p in spec.get("phase", [])]
+        if any(d <= 0.0 or t < 0.0 for d, t in self.phases):
+            raise ValueError("motor: each phase lasts some time at a thrust of zero or more")
+
+
+def part(spec, colours=None):
+    """A shape the stations along x cannot give ([[part]]): one of the mesher's primitives
+    (native/sdf.cpp: cylinder a, b, r[, round]; capsule a, b, r; box centre, half, axes[,
+    round]; ellipsoid centre, radii, axes; torus; revolve; plate origin, axes [u, v],
+    outline [[u, v], ...], thickness[, round]), metres in the design frame, joined to the
+    airframe - a mast, a swashplate, an exhaust, a quadrotor's circuit board. Drawn only.
+    fillet (m, default 0.02) is how far its joint to the rest is blended - a millimetre for a
+    nano quadrotor's parts; colour paints it flat in a colour of its own, not the livery
+    (colours, a list, gathers the aircraft's: a part's material is then its index past
+    hangar's own)."""
+    from ..shape import airframe as sh
+    p = dict(spec)
+    if "colour" in p:
+        c = p.pop("colour")
+        if colours is None:
+            raise ValueError("part %r: a colour needs the aircraft's list of part colours" % spec.get("name"))
+        if c not in colours:
+            colours.append(c)
+        p["material"] = len(sh.MATERIALS) + colours.index(c)
+    else:
+        p["material"] = sh.MATERIALS.index(p.get("material", "skin"))
+    p.pop("name", None)
+    return p
+
+
+class Gear:
+    def __init__(self, spec):
+        self.spec = spec
+        self.name = spec.get("name", "gear")
+        if "position" not in spec:
+            raise ValueError("gear %r: 'position' (the wheel's ground contact point) is required" % self.name)
+        self.position = np.asarray(spec["position"], float)
+        self.mirror = bool(spec.get("mirror", False))
+        self.wheel_diameter = float(spec.get("wheel_diameter", 0.38))
+        self.wheel_width = float(spec.get("wheel_width", 0.13))
+        self.steerable = bool(spec.get("steerable", False))
+        self.max_steer_deg = float(spec.get("max_steer", 10.0 if self.steerable else 0.0))
+        self.brake = spec.get("brake", "auto")  # auto: mains brake, nose/tail wheels do not
+        self.retractable = bool(spec.get("retractable", False))
+        self.fairing = bool(spec.get("fairing", False))
+        self.attach = np.asarray(spec["attach"], float) if "attach" in spec else None
+        self.static_deflection = float(spec.get("static_deflection", 0.10))
+
+    def positions(self):
+        if self.mirror:
+            p = self.position.copy()
+            q = p * np.array([1.0, -1.0, 1.0])
+            return [("Left " + self.name, q), ("Right " + self.name, p)] if p[1] > 0 else [(self.name, p)]
+        return [(self.name, self.position)]
+
+
+class Engine:
+    """A piston engine or electric motor with its propeller, a turboprop with
+    its constant-speed propeller, or a turbofan (with or without afterburner)
+    and its nozzle. For a turbofan the "propeller" fields describe the
+    nozzle: where the thrust acts and which way it points, and there is no
+    disc."""
+
+    def __init__(self, spec):
+        self.name = spec.get("name", "engine")
+        self.type = spec.get("type", "piston")
+        if self.type not in ("piston", "electric", "turbofan", "turboprop"):
+            raise ValueError("engine %r: type must be piston, electric, turbofan or turboprop" % self.name)
+        self.position = np.asarray(spec.get("position", [0.0, 0.0, 0.0]), float)
+        self.mass = spec.get("mass")
+        self.mirror = bool(spec.get("mirror", False))
+        self.handed = True
+        self.prop_mass = None
+        if self.type == "turbofan":
+            if "thrust_dry_kn" not in spec:
+                raise ValueError("engine %r: a turbofan needs thrust_dry_kn (sea-level static, military power)" % self.name)
+            self.thrust_dry_kn = float(spec["thrust_dry_kn"])
+            self.thrust_wet_kn = float(spec["thrust_wet_kn"]) if "thrust_wet_kn" in spec else None  # afterburner
+            if self.thrust_wet_kn is not None and self.thrust_wet_kn <= self.thrust_dry_kn:
+                raise ValueError("engine %r: thrust_wet_kn must exceed thrust_dry_kn" % self.name)
+            # a flat-rated engine: what its core makes at sea-level static when
+            # not held to its rating (thrust_dry_kn), which it keeps higher up
+            self.thermo_thrust_kn = float(spec.get("thermodynamic_thrust_kn", self.thrust_dry_kn))
+            if self.thermo_thrust_kn < self.thrust_dry_kn:
+                raise ValueError("engine %r: thermodynamic_thrust_kn is at least thrust_dry_kn (the rating)" % self.name)
+            self.bypass_ratio = float(spec.get("bypass_ratio", 0.5))
+            self.tsfc_dry = float(spec.get("tsfc_dry", 0.8))    # kg/(kgf h) = lb/(lbf h)
+            self.tsfc_wet = float(spec.get("tsfc_wet", 2.0))
+            self.throttle_ratio = float(spec.get("throttle_ratio", 1.2))   # Mattingly's TR: where the lapse turns
+            self.design_mach = float(spec.get("design_mach", 2.0))
+            self.inlet_x = float(spec["inlet_x"]) if "inlet_x" in spec else None  # where the intake captures its air
+            self.power_kw = 0.0
+            self.rpm = 0.0
+            nozzle = spec.get("nozzle", {})
+            self.prop_position = np.asarray(nozzle.get("position", self.position), float)
+            self.prop_diameter = 0.0
+            self.prop_blades = 0
+            self.prop_pitch = None
+            self.prop_sense = "cw"
+            self.prop_orient = np.radians(np.asarray(nozzle.get("orient", [0.0, 0.0, 0.0]), float))
+            self.prop_spec = nozzle
+            # thrust vectoring: the nozzle turns up to `vectoring` deg each way in
+            # one plane, canted `vectoring_cant` deg outboard from the vertical
+            # (0: pitch only, the F-22's; the Su-57's 32 deg give yaw and roll too)
+            self.vectoring = float(nozzle.get("vectoring", 0.0))
+            self.vectoring_cant = float(nozzle.get("vectoring_cant", 0.0))
+            if not 0.0 <= self.vectoring <= 45.0:
+                raise ValueError("engine %r: nozzle vectoring must be 0-45 deg" % self.name)
+            if not 0.0 <= self.vectoring_cant < 90.0:
+                raise ValueError("engine %r: nozzle vectoring_cant must be 0-90 deg" % self.name)
+            return
+        self.vectoring = 0.0
+        self.vectoring_cant = 0.0
+        self.inlet_x = None
+        if "power_kw" not in spec:
+            raise ValueError("engine %r: power_kw is required" % self.name)
+        self.power_kw = float(spec["power_kw"])
+        prop = spec.get("propeller", {})
+        # the reduction gearbox: the engine's rpm over the propeller's, as JSBSim takes it
+        self.gear_ratio = float(prop.get("gear_ratio", 1.0))
+        if self.gear_ratio <= 0.0:
+            raise ValueError("engine %r: gear_ratio must be positive" % self.name)
+        if self.type == "turboprop":
+            self._turboprop(spec, prop)
+        else:
+            self.rpm = float(spec.get("rpm", 2700.0))
+            self.prop_rpm = self.rpm / self.gear_ratio
+        self.prop_position = np.asarray(prop.get("position", self.position), float)
+        self.prop_diameter = float(prop.get("diameter", 1.8))
+        self.prop_blades = int(prop.get("blades", 2))
+        self.prop_pitch = prop.get("pitch")  # geometric pitch (m) at 75 % radius, fixed pitch
+        self.prop_sense = prop.get("rotation", "cw")  # seen from behind: cw = JSBSim sense 1
+        # a mirrored engine's copy turns the other way (handed propellers) unless handed = false
+        self.handed = bool(prop.get("handed", True))
+        # the propeller's own mass (kg): at its hub, apart from the engine's, and its spin inertia
+        self.prop_mass = float(prop["mass"]) if "mass" in prop else None
+        self.prop_orient = np.radians(np.asarray(prop.get("orient", [0.0, 0.0, 0.0]), float))  # roll, pitch, yaw
+        self.prop_spec = prop
+
+    def _turboprop(self, spec, prop):
+        """A gas turbine driving a constant-speed propeller through a reduction
+        gearbox: its published shaft power (power_kw, the rating), its power
+        specific fuel consumption at that power (psfc, kg/(kW h)), and the
+        propeller's governed speed (rpm), gear ratio and blade-angle range
+        (blade_angle = [low, high], deg at 75 % radius: the governor turns the
+        blades between them). thermodynamic_power_kw: what the engine's core
+        makes at sea-level static when it is not held to its rating - a
+        flat-rated engine keeps its rating to a greater height - and
+        throttle_ratio, Mattingly's TR: where hot air starts to cut the power."""
+        if "rpm" not in prop:
+            raise ValueError("engine %r: a turboprop's [engine.propeller] needs rpm (its governed speed)" % self.name)
+        if "blade_angle" not in prop:
+            raise ValueError("engine %r: a turboprop's [engine.propeller] needs blade_angle = [low, high] "
+                             "(deg at 75 %% radius)" % self.name)
+        self.prop_rpm = float(prop["rpm"])
+        self.rpm = self.prop_rpm * self.gear_ratio      # the engine's output shaft
+        self.psfc = float(spec.get("psfc", 0.30))
+        self.thermo_power_kw = float(spec.get("thermodynamic_power_kw", self.power_kw))
+        self.throttle_ratio = float(spec.get("throttle_ratio", 1.0))
+        lo, hi = (float(v) for v in prop["blade_angle"])
+        self.blade_angle = (lo, hi)
+        if not (self.prop_rpm > 0.0 and self.power_kw > 0.0 and self.psfc > 0.0):
+            raise ValueError("engine %r: rpm, power_kw and psfc must be positive" % self.name)
+        if self.thermo_power_kw < self.power_kw:
+            raise ValueError("engine %r: thermodynamic_power_kw is at least power_kw (the rating)" % self.name)
+        if not -30.0 <= lo < hi <= 95.0:
+            raise ValueError("engine %r: blade_angle = [low, high], low below high, within -30..95 deg" % self.name)
+        if not 0.8 <= self.throttle_ratio <= 1.5:
+            raise ValueError("engine %r: throttle_ratio must be 0.8-1.5" % self.name)
+
+    @property
+    def has_propeller(self):
+        return self.type != "turbofan"
+
+    def jet_size(self):
+        """Length and diameter (m) of an afterburning turbofan from its
+        thrust (Raymer 10.1-10.2, scaled: L = 0.255 T^0.4 M^0.2 ft, D = 0.024
+        T^0.5 e^(0.04 BPR) ft, T in lbf)."""
+        t = (self.thrust_wet_kn or self.thrust_dry_kn) * 1000.0 / 4.448222
+        return (0.255 * t ** 0.4 * self.design_mach ** 0.2 * 0.3048,
+                0.024 * t ** 0.5 * np.exp(0.04 * self.bypass_ratio) * 0.3048)
+
+    def copies(self):
+        if self.mirror:
+            flip = np.array([1.0, -1.0, 1.0])
+            other = ("ccw" if self.prop_sense == "cw" else "cw") if self.handed else self.prop_sense
+            return [(self.name + " L", self.position * flip, self.prop_position * flip, other),
+                    (self.name + " R", self.position, self.prop_position, self.prop_sense)]
+        return [(self.name, self.position, self.prop_position, self.prop_sense)]
+
+
+class Aircraft:
+    """The parsed design. `spec` keeps the raw TOML for the later stages
+    (mass, propulsion, targets)."""
+
+    def __init__(self, spec, path=None):
+        self.path = path
+        self.dir = os.path.dirname(os.path.abspath(path)) if path else os.getcwd()
+        self.spec = spec
+        a = spec.get("aircraft", {})
+        self.name = a.get("name") or (os.path.splitext(os.path.basename(path))[0] if path else "design")
+        self.description = a.get("description", "")
+        self.category = a.get("category", "light_ga")
+        self.surfaces = [Surface(s, self.dir) for s in spec.get("surface", [])]
+        self.bodies = [Body(b) for b in spec.get("body", [])] + [Intake(i) for i in spec.get("intake", [])]
+        # shapes the 3D model draws and nothing else sees - no drag, no mass, no area (docs/hangar.md, Fairings)
+        self.fairings = [Body(b) for b in spec.get("fairing", [])]
+        self.gear = [Gear(g) for g in spec.get("gear", [])]
+        self.engines = [Engine(e) for e in spec.get("engine", [])]
+        self.motor = Motor(spec["motor"]) if "motor" in spec else None  # a missile's rocket (drawn only)
+        # the mesher's cell (m) when the design sets one ([model] cell_m: a missile's lattice fins' thin walls)
+        self.cell = spec.get("model", {}).get("cell_m")
+        self.struts = [Strut(s) for s in spec.get("strut", [])]
+        if not self.surfaces:
+            raise ValueError("%s: no [[surface]] defined" % self.name)
+        schedules = sorted({tuple(d.schedule) for _, d in self.leading_devices()})
+        if len(schedules) > 1:
+            raise ValueError("%s: the leading-edge devices follow one schedule (the flight controls' "
+                             "fcs/lef-pos-deg), not %s" % (self.name, " and ".join(map(str, schedules))))
+        wings = [s for s in self.surfaces if s.kind == "wing"]
+        self.wing = wings[0] if wings else self.surfaces[0]
+        ref = spec.get("reference", {})
+        mac, mac_le = self.wing.mac
+        self.S = float(ref.get("area", self.wing.area))
+        self.b = float(ref.get("span", self.wing.span))
+        self.c = float(ref.get("chord", mac))
+        self.mac_le = mac_le
+        default_rp = np.array([mac_le[0] + 0.25 * mac, 0.0, mac_le[2]])
+        self.aero_point = np.asarray(ref.get("aero_point", default_rp), float)
+        self.calibration = {}
+
+    @classmethod
+    def shape(cls, spec, path=None):
+        """A design's shape alone - its bodies, surfaces, struts and gear, in
+        the design frame - for an aircraft that is not a fixed wing (a
+        rotorcraft's airframe, hangar/rotorcraft): no wing is required, and
+        nothing aerodynamic is derived from it."""
+        a = cls.__new__(cls)
+        a.path = path
+        a.dir = os.path.dirname(os.path.abspath(path)) if path else os.getcwd()
+        a.spec = spec
+        info = spec.get("aircraft", {})
+        a.name = info.get("name") or (os.path.splitext(os.path.basename(path))[0] if path else "design")
+        a.description = info.get("description", "")
+        a.category = info.get("category", "rotorcraft")
+        a.surfaces = [Surface(s, a.dir) for s in spec.get("surface", [])]
+        a.bodies = [Body(b) for b in spec.get("body", [])] + [Intake(i) for i in spec.get("intake", [])]
+        a.fairings = [Body(b) for b in spec.get("fairing", [])]
+        a.gear = [Gear(g) for g in spec.get("gear", [])]
+        a.engines = []
+        a.motor = None
+        a.struts = [Strut(s) for s in spec.get("strut", [])]
+        a.part_colours = []
+        a.parts = [part(p, a.part_colours) for p in spec.get("part", [])]
+        a.wing = a.surfaces[0] if a.surfaces else None
+        a.calibration = {}
+        # the mesher's cell (m) when the design sets it: a nano quadrotor's millimetres
+        a.cell = spec.get("model", {}).get("cell_m")
+        return a
+
+    @classmethod
+    def load(cls, path):
+        with open(path, "rb") as f:
+            spec = tomllib.load(f)
+        a = cls(spec, path)
+        cal = os.path.join(os.path.dirname(os.path.abspath(path)), "calibration.toml")
+        a.calibration = {}
+        if os.path.isfile(cal):
+            with open(cal, "rb") as f:
+                a.calibration = tomllib.load(f).get("calibration", {})
+            for e, pitch in zip(a.engines, a.calibration.get("propeller_pitch_m", [])):
+                e.prop_pitch = float(pitch)
+            if "throttle_ratio" in a.calibration:
+                for e in a.engines:
+                    if e.type == "turbofan":
+                        e.throttle_ratio = float(a.calibration["throttle_ratio"])
+        return a
+
+    # -- components -----------------------------------------------------------------------------
+    def surface(self, kind):
+        return [s for s in self.surfaces if s.kind == kind]
+
+    def controls(self):
+        """(surface, control) pairs of every control surface."""
+        return [(s, c) for s in self.surfaces for c in s.controls]
+
+    def leading_devices(self):
+        """(surface, device) pairs of every leading-edge flap or slat."""
+        return [(s, d) for s in self.surfaces for d in s.leading]
+
+    @property
+    def span_overall(self):
+        """Tip-to-tip span of the widest mirrored surface (m)."""
+        return max([s.span for s in self.surfaces if s.mirror] or [self.b])
+
+    @property
+    def length_overall(self):
+        """Nose to tail, over the bodies and surfaces (m)."""
+        xs = [b.x[0] for b in self.bodies] + [b.x[-1] for b in self.bodies]
+        for s in self.surfaces:
+            xs += [sec.le[0] for sec in s.sections] + [sec.le[0] + sec.chord for sec in s.sections]
+        return float(max(xs) - min(xs)) if xs else 5.0 * self.c
+
+    def channels(self):
+        return sorted({ch for _, c in self.controls() for ch in c.channels})
+
+    def channel_limits(self, channel):
+        """(min, max) deflection (deg) of a channel: as far as the controls it
+        drives first follow it (one with gain g, to its limits / g; each stops
+        at its own limits), else as far as those that mix it in."""
+        own = [c for _, c in self.controls() if c.channel == channel]
+        mixed = [c for _, c in self.controls() if channel in c.mix]
+        spans = [sorted((c.min_deg / c.channels[channel], c.max_deg / c.channels[channel]))
+                 for c in own or mixed if abs(c.channels[channel]) > 1e-9]
+        return min(s[0] for s in spans), max(s[1] for s in spans)
+
+    def summary(self):
+        """The geometric numbers a designer checks first."""
+        out = {
+            "reference": {"area_m2": self.S, "span_m": self.b, "chord_m": self.c,
+                          "aero_point_m": [round(v, 4) for v in self.aero_point]},
+            "surfaces": {},
+            "bodies": {},
+        }
+        for s in self.surfaces:
+            mac, le = s.mac
+            out["surfaces"][s.name] = {
+                "kind": s.kind, "area_m2": s.area, "span_m": s.span, "aspect_ratio": s.aspect_ratio,
+                "taper": s.taper, "mac_m": mac, "mac_le_m": [round(v, 4) for v in le],
+                "sweep_le_deg": s.sweep_deg(0.0), "sweep_c4_deg": s.sweep_deg(0.25), "dihedral_deg": s.dihedral_deg,
+                "thickness": s.thickness_ratio,
+                "airfoils": sorted({sec.airfoil.name for sec in s.sections}),
+                "controls": {c.name: {"channel": c.channel, "span": [c.eta0, c.eta1],
+                                      "chord_fraction": [c.cf0, c.cf1], "limits_deg": [c.min_deg, c.max_deg]}
+                             for c in s.controls},
+            }
+        for b in self.bodies:
+            top, side = b.planform_area
+            out["bodies"][b.name] = {"length_m": b.length, "max_width_m": b.max_width, "max_height_m": b.max_height,
+                                     "volume_m3": b.volume, "fineness": b.fineness, "top_area_m2": top,
+                                     "side_area_m2": side, "copies": len(b.copies())}
+        # tail volume coefficients: the classic sizing check
+        xw = self.aero_point[0]
+        for s in self.surfaces:
+            if s.kind in ("htail", "canard"):
+                mac, le = s.mac
+                arm = (le[0] + 0.25 * mac) - xw
+                out["surfaces"][s.name]["arm_m"] = arm
+                out["surfaces"][s.name]["volume_coefficient"] = s.area * arm / (self.S * self.c)
+            elif s.kind in ("fin", "vtail"):
+                mac, le = s.mac
+                arm = (le[0] + 0.25 * mac) - xw
+                out["surfaces"][s.name]["arm_m"] = arm
+                out["surfaces"][s.name]["volume_coefficient"] = s.area * arm / (self.S * self.b)
+        return out
+
+    def mesh(self, fine=True):
+        """Every component's skin: list of (name, kind, vertices, triangles, tags)."""
+        parts = []
+        for s in self.surfaces:
+            v, t, g = s.skin(48 if fine else 20, 28 if fine else 14)
+            parts.append((s.name, s.kind, v, t, g))
+        for b in self.bodies:
+            v, t, g = b.skin(72 if fine else 32, 40 if fine else 20)
+            parts.append((b.name, b.kind, v, t, g))
+        return parts
+
+    def extent(self):
+        pts = np.vstack([p[2] for p in self.mesh(fine=False)])
+        return pts.min(axis=0), pts.max(axis=0)

@@ -1,0 +1,49 @@
+{
+  "aircraft": "kc46a",
+  "note": "KC-46A, its defensive systems and GPS as the US Government notified them for Japan's (Transmittal No. 16-46): delivered installed.",
+  "sources": {
+    "crec-s5949": {
+      "title": "Arms sales notification, Transmittal No. 16-46: Japan - KC-46A aerial refueling aircraft",
+      "publisher": "Congressional Record - Senate, vol. 162, p. S5949 (U.S. Government Publishing Office)",
+      "url": "https://www.govinfo.gov/link/crec/162/s/5949",
+      "date": "2016-09-21"
+    }
+  },
+  "payloads": [
+    {
+      "name": "rwr",
+      "card": "an-alr-69a",
+      "source": "crec-s5949",
+      "evidence": [
+        "Raytheon's ALR-69A Radar Warning Receiver"
+      ]
+    },
+    {
+      "name": "laircm",
+      "card": "an-aaq-24",
+      "source": "crec-s5949",
+      "note": "three Guardian laser terminals",
+      "evidence": [
+        "Northrop Grumman's AN/AAQ-24(V) Large Aircraft Infrared Countermeasures"
+      ]
+    },
+    {
+      "name": "mws",
+      "card": "an-aar-54",
+      "count": 6,
+      "source": "crec-s5949",
+      "note": "LAIRCM's missile warning sensors",
+      "evidence": [
+        "six (6) Ultra-Violet Missile Warning System (UVMWS) Sensors AN/AAR-54"
+      ]
+    },
+    {
+      "name": "gps",
+      "card": "magr-2k",
+      "source": "crec-s5949",
+      "evidence": [
+        "Miniaturized Airborne GPS Receiver (MAGR) 2000 (2K)"
+      ]
+    }
+  ]
+}

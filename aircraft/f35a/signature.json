@@ -1,0 +1,97 @@
+{
+  "aircraft": "f35a",
+  "note": "Its documented low-observable features, each from its own article; the treatments they bring are the same for every aircraft (assets/signature/treatments.json). The figures reported for it are compared with its table, never fitted. ",
+  "sources": {
+    "mattei-2024": {
+      "title": "RCS of a F-35 Stealth Aircraft: Statistical Analyses of a POFACETS Model",
+      "publisher": "F. Mattei, L. Pallotta, D. Accardo, A. De Maio (TechDefence 2024; read)",
+      "url": "https://iris.unibas.it/bitstream/11563/196355/1/89_Mattei_TechDefence2024_RCS_of_a_F-35_Stealth_Aircraft.pdf",
+      "date": "2024"
+    },
+    "wp-f35a": {
+      "title": "Lockheed Martin F-35 Lightning II",
+      "publisher": "Wikipedia (revision 1378856932)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_Martin_F-35_Lightning_II&oldid=1378856932",
+      "date": "2026-10-06"
+    },
+    "wp-su57": {
+      "title": "Sukhoi Su-57",
+      "publisher": "Wikipedia (revision 1376999114)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Sukhoi_Su-57&oldid=1376999114",
+      "date": "2026-09-27"
+    }
+  },
+  "features": {
+    "ram": {
+      "value": "full",
+      "source": "wp-f35a",
+      "evidence": "the use of radar-absorbent materials (RAM)",
+      "basis": "published"
+    },
+    "intake_concealed": {
+      "value": true,
+      "source": "wp-f35a",
+      "evidence": "the masking of the engine face and turbine",
+      "basis": "published"
+    },
+    "duct_lined": {
+      "value": false,
+      "source": null,
+      "evidence": null,
+      "basis": "not stated: none assumed"
+    },
+    "exhaust_treated": {
+      "value": true,
+      "source": "wp-f35a",
+      "evidence": "sawtooth pattern at the trailing edge, which reduces radar signature",
+      "basis": "published"
+    }
+  },
+  "reported": [
+    {
+      "aspect": "frontal",
+      "azimuth_deg": 0,
+      "elevation_deg": 0,
+      "window_deg": 20,
+      "frequency_hz": 9500000000.0,
+      "sigma_m2": [
+        0.005,
+        0.005
+      ],
+      "origin": "press",
+      "source": "wp-su57",
+      "evidence": "the F-35 has a RCS of \"around 0.005 square meters\"",
+      "note": "quoted, its origin not given"
+    },
+    {
+      "aspect": "frontal",
+      "azimuth_deg": 0,
+      "elevation_deg": 0,
+      "window_deg": 0,
+      "frequency_hz": 9500000000.0,
+      "sigma_m2": [
+        0.001,
+        0.003
+      ],
+      "origin": "manufacturer",
+      "source": "wp-f35a",
+      "evidence": "lower than a metal golf ball at certain frequencies and angles",
+      "note": "a golf ball's 43 mm sphere: pi r^2 = 0.0015 m^2; \"at certain frequencies and angles\", a best case"
+    },
+    {
+      "aspect": "frontal",
+      "azimuth_deg": 0,
+      "elevation_deg": 0,
+      "window_deg": 0,
+      "frequency_hz": 10000000000.0,
+      "sigma_m2": [
+        0.1,
+        1.0
+      ],
+      "origin": "academic",
+      "source": "mattei-2024",
+      "evidence": null,
+      "note": "a bare POFACETS F-35 model (physical optics, no RAM): nose on up to a few dBsm, which its authors expect at least 10 dB lower in service"
+    }
+  ]
+}

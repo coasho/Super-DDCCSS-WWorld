@@ -1,0 +1,15 @@
+{
+  "id": "h6k-eots",
+  "designation": "H-6K electro-optical targeting system (model not named)",
+  "family": "passive_optical",
+  "summary": "electro-optical targeting system under the nose. The source names no model.",
+  "parameters": {},
+  "sources": {
+    "wp-h6k": {
+      "title": "Xi'an H-6",
+      "publisher": "Wikipedia (revision 1378388125)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Xi%27an_H-6&oldid=1378388125",
+      "date": "2026-10-04"
+    }
+  }
+}

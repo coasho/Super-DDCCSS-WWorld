@@ -1,0 +1,16 @@
+{
+  "id": "an-aaq-40",
+  "designation": "AN/AAQ-40 EOTS",
+  "family": "passive_optical",
+  "summary": "electro-optical targeting system behind a faceted window under the nose: FLIR, IRST, laser designation",
+  "maker": "Lockheed Martin",
+  "parameters": {},
+  "sources": {
+    "wp-f35a": {
+      "title": "Lockheed Martin F-35 Lightning II",
+      "publisher": "Wikipedia (revision 1378856932)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_Martin_F-35_Lightning_II&oldid=1378856932",
+      "date": "2026-10-06"
+    }
+  }
+}

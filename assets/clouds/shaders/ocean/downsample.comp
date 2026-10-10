@@ -1,0 +1,27 @@
+// fsim: one mip level of the sea's maps (its slopes' moments, its foam, its displacement) from the level above it,
+// each texel the mean of the four under it (the maps repeat, and 256 halves evenly to 1): the slopes' moments stay
+// moments - a mean of squares, not a square of means - which is what keeps a far-off sea as rough as the waves it no
+// longer resolves; the displacement's mean goes to nothing as the waves get smaller than a vertex's spacing.
+
+#version 450
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(set = 0, binding = 1, rgba16f) uniform readonly image2DArray slopesAbove;
+layout(set = 0, binding = 2, rgba16f) uniform writeonly image2DArray slopes;
+layout(set = 0, binding = 3, rgba16f) uniform readonly image2DArray foamAbove;
+layout(set = 0, binding = 4, rgba16f) uniform writeonly image2DArray foam;
+layout(set = 0, binding = 5, rgba16f) uniform readonly image2DArray displacementAbove;
+layout(set = 0, binding = 6, rgba16f) uniform writeonly image2DArray displacement;
+
+#define mean4(image, s, layer)                                                                                      \
+  (0.25 * (imageLoad(image, ivec3(s, layer)) + imageLoad(image, ivec3((s) + ivec2(1, 0), layer)) +                   \
+           imageLoad(image, ivec3((s) + ivec2(0, 1), layer)) + imageLoad(image, ivec3((s) + ivec2(1, 1), layer))))
+
+void main() {
+  const ivec3 id = ivec3(gl_GlobalInvocationID);
+  const ivec2 size = imageSize(slopes).xy;
+  if (id.x >= size.x || id.y >= size.y) return;
+  imageStore(slopes, id, mean4(slopesAbove, id.xy * 2, id.z));
+  imageStore(foam, id, mean4(foamAbove, id.xy * 2, id.z));
+  imageStore(displacement, id, mean4(displacementAbove, id.xy * 2, id.z));
+}

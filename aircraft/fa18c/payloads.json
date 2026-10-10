@@ -1,0 +1,148 @@
+{
+  "aircraft": "fa18c",
+  "note": "F/A-18C after the 1992 radar change. Pods (targeting, ATFLIR) join with their stores (ADR-30, MS-7).",
+  "sources": {
+    "wp-fa18c": {
+      "title": "McDonnell Douglas F/A-18 Hornet",
+      "publisher": "Wikipedia (revision 1378488706)",
+      "url": "https://en.wikipedia.org/w/index.php?title=McDonnell_Douglas_F%2FA-18_Hornet&oldid=1378488706",
+      "date": "2026-10-04"
+    },
+    "wp-hardpoint": {
+      "title": "Hardpoint (F/A-18C wet stations 3, 5, 7; FPU-8/A 330 US gal)",
+      "publisher": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Hardpoint",
+      "date": "2026-10-09"
+    },
+    "wp-atflir": {
+      "title": "AN/ASQ-228 ATFLIR (72 in, 420 lb; on a fuselage station otherwise used for an AIM-120)",
+      "publisher": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/AN/ASQ-228_ATFLIR",
+      "date": "2026-10-10"
+    }
+  },
+  "payloads": [
+    {
+      "name": "radar",
+      "card": "an-apg-73",
+      "source": "wp-fa18c",
+      "evidence": [
+        "AN/APG-73"
+      ]
+    },
+    {
+      "name": "rwr",
+      "card": "an-alr-67v3",
+      "source": "wp-fa18c",
+      "evidence": [
+        "AN/ALR-67(V)3"
+      ]
+    },
+    {
+      "name": "ecm",
+      "card": "an-alq-165",
+      "source": "wp-fa18c",
+      "evidence": [
+        "Airborne Self-Protection Jammer) jamming pod ALQ-165"
+      ]
+    },
+    {
+      "name": "gun",
+      "card": "m61a1",
+      "source": "wp-fa18c",
+      "note": "578 rounds",
+      "evidence": [
+        "M61A1 Vulcan nose mounted 6-barrel rotary cannon, 578 rounds"
+      ]
+    },
+    {
+      "name": "stations",
+      "card": "fa18c-store-station",
+      "count": 9,
+      "source": "wp-fa18c",
+      "note": "two wingtip missile rails, four under the wings, three under the fuselage",
+      "evidence": [
+        "9 total: 2"
+      ]
+    }
+  ],
+  "loadouts": [
+    {
+      "name": "air-to-air",
+      "note": "the article's '2 × AIM-9 Sidewinder on wingtips' with '2 × AIM-7 Sparrow' on the fuselage stations, and the AIM-120 it carries on the wing stations (four: assumed, a single one a station)",
+      "source": "wp-fa18c",
+      "stations": [
+        {
+          "payload": "stations",
+          "station": 1,
+          "store": "aim-9m"
+        },
+        {
+          "payload": "stations",
+          "station": 9,
+          "store": "aim-9m"
+        },
+        {
+          "payload": "stations",
+          "station": 4,
+          "store": "aim-7m"
+        },
+        {
+          "payload": "stations",
+          "station": 6,
+          "store": "aim-7m"
+        },
+        {
+          "payload": "stations",
+          "station": 2,
+          "store": "aim-120c"
+        },
+        {
+          "payload": "stations",
+          "station": 3,
+          "store": "aim-120c"
+        },
+        {
+          "payload": "stations",
+          "station": 7,
+          "store": "aim-120c"
+        },
+        {
+          "payload": "stations",
+          "station": 8,
+          "store": "aim-120c"
+        }
+      ]
+    },
+    {
+      "name": "external tanks",
+      "note": "three FPU-8/A on the wet stations 3, 5, 7 (ADR-30, MS-7g: a tank's fuel feeds the aircraft's own tanks; jettisoned, it flies on with what is left)",
+      "source": "wp-hardpoint",
+      "stations": [
+        {
+          "station": 3,
+          "store": "fpu-8"
+        },
+        {
+          "station": 5,
+          "store": "fpu-8"
+        },
+        {
+          "station": 7,
+          "store": "fpu-8"
+        }
+      ]
+    },
+    {
+      "name": "pods",
+      "note": "the ATFLIR on the left fuselage station, in place of its missile (ADR-30, MS-7g: a pod as a store - its mass and its drag on the aircraft; what it senses or jams is its payload's, not built with it yet)",
+      "source": "wp-atflir",
+      "stations": [
+        {
+          "station": 4,
+          "store": "an-asq-228"
+        }
+      ]
+    }
+  ]
+}

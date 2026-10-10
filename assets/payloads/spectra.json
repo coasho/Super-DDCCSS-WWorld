@@ -1,0 +1,16 @@
+{
+  "id": "spectra",
+  "designation": "SPECTRA",
+  "family": "esm",
+  "summary": "integrated self-protection suite: radar, laser and missile warning, jamming and decoys",
+  "maker": "Thales / MBDA",
+  "parameters": {},
+  "sources": {
+    "wp-rafale": {
+      "title": "Dassault Rafale",
+      "publisher": "Wikipedia (revision 1377238412)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Dassault_Rafale&oldid=1377238412",
+      "date": "2026-09-28"
+    }
+  }
+}

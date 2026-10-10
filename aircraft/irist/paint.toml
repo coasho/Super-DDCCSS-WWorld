@@ -1,0 +1,12 @@
+# IRIS-T's paint, by one rule for every missile (tools/hangar/hangar/missiles.py): light grey overall; the seeker's dome glass
+# a yellow band on the warhead (a live round) and a brown one on the motor - the maker's colour code (MIL-STD-1168, STANAG 2953); the bands' places assumed
+[paint]
+scheme = "single"
+colours = ["#c4c8cc"]
+bands = [
+  { x = [0.9996, 1.0496], colour = "#c8a020" },
+  { x = [1.8522, 1.9022], colour = "#6b4a2b" },
+]
+panel_lines = 0.0
+wear = 0.03
+gloss = 0.3

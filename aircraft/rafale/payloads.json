@@ -1,0 +1,128 @@
+{
+  "aircraft": "rafale",
+  "note": "Rafale C (F3-R standard, RBE2 AA radar).",
+  "sources": {
+    "wp-rafale": {
+      "title": "Dassault Rafale",
+      "publisher": "Wikipedia (revision 1377238412)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Dassault_Rafale&oldid=1377238412",
+      "date": "2026-09-28"
+    },
+    "omnirole-rafale": {
+      "title": "Rafale performances (1,250 L supersonic tanks; Mach 1.6 with four MICA and one)",
+      "publisher": "Omnirole Rafale",
+      "url": "https://omnirole-rafale.com/performances/",
+      "date": "2026-10-09"
+    },
+    "ac-damocles": {
+      "title": "Damocles (265 kg, 2,500 mm, 370 mm; Mirage 2000D and Rafale)",
+      "publisher": "Armed Conflicts",
+      "url": "https://www.armedconflicts.com/FRA-Damocles-t145339",
+      "date": "2026-10-10"
+    }
+  },
+  "payloads": [
+    {
+      "name": "radar",
+      "card": "rbe2-aa",
+      "source": "wp-rafale",
+      "evidence": [
+        "RBE2 AA active electronically scanned array"
+      ]
+    },
+    {
+      "name": "ews",
+      "card": "spectra",
+      "source": "wp-rafale",
+      "evidence": [
+        "SPECTRA electronic warfare suite"
+      ]
+    },
+    {
+      "name": "osf",
+      "card": "osf",
+      "source": "wp-rafale",
+      "evidence": [
+        "Optronique Secteur Frontal (OSF)"
+      ]
+    },
+    {
+      "name": "gun",
+      "card": "giat-30m791",
+      "source": "wp-rafale",
+      "note": "125 rounds",
+      "evidence": [
+        "GIAT 30/M791 autocannon with 125 rounds"
+      ]
+    },
+    {
+      "name": "stations",
+      "card": "rafale-store-station",
+      "count": 14,
+      "source": "wp-rafale",
+      "note": "fourteen external hardpoints (Rafale B/C)",
+      "evidence": [
+        "14 External hardpoints"
+      ]
+    }
+  ],
+  "loadouts": [
+    {
+      "name": "air-to-air",
+      "note": "the article's 'armed with four MICA air-to-air missiles' (Libya): the MICA IR on the wingtips, the MICA EM on the outboard wing stations (which: assumed)",
+      "source": "wp-rafale",
+      "stations": [
+        {
+          "payload": "stations",
+          "station": 1,
+          "store": "mica-ir"
+        },
+        {
+          "payload": "stations",
+          "station": 14,
+          "store": "mica-ir"
+        },
+        {
+          "payload": "stations",
+          "station": 2,
+          "store": "mica-em"
+        },
+        {
+          "payload": "stations",
+          "station": 13,
+          "store": "mica-em"
+        }
+      ]
+    },
+    {
+      "name": "external tanks",
+      "note": "two 2,000 L tanks inboard, a 1,250 L under the belly (which goes where: a forum's, unverified; its forward centreline station assumed) (ADR-30, MS-7g: a tank's fuel feeds the aircraft's own tanks; jettisoned, it flies on with what is left)",
+      "source": "omnirole-rafale",
+      "stations": [
+        {
+          "station": 4,
+          "store": "rpl-751"
+        },
+        {
+          "station": 11,
+          "store": "rpl-751"
+        },
+        {
+          "station": 7,
+          "store": "rpl-701"
+        }
+      ]
+    },
+    {
+      "name": "pods",
+      "note": "a Damocles under the fuselage (its station is not in a source found: assumed) (ADR-30, MS-7g: a pod as a store - its mass and its drag on the aircraft; what it senses or jams is its payload's, not built with it yet)",
+      "source": "ac-damocles",
+      "stations": [
+        {
+          "station": 7,
+          "store": "damocles"
+        }
+      ]
+    }
+  ]
+}

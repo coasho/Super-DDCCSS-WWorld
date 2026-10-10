@@ -1,0 +1,15 @@
+{
+  "id": "e3-esm",
+  "designation": "E-3 ESM",
+  "family": "esm",
+  "summary": "electronic support measures: passive detection and identification of emitters",
+  "parameters": {},
+  "sources": {
+    "wp-e3g": {
+      "title": "Boeing E-3 Sentry",
+      "publisher": "Wikipedia (revision 1378217304)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_E-3_Sentry&oldid=1378217304",
+      "date": "2026-10-03"
+    }
+  }
+}

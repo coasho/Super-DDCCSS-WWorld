@@ -1,0 +1,16 @@
+{
+  "id": "asars-2",
+  "designation": "ASARS-2",
+  "family": "sar",
+  "summary": "Advanced Synthetic Aperture Radar System",
+  "maker": "Raytheon",
+  "parameters": {},
+  "sources": {
+    "wp-u2s": {
+      "title": "Lockheed U-2",
+      "publisher": "Wikipedia (revision 1376928938)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_U-2&oldid=1376928938",
+      "date": "2026-09-27"
+    }
+  }
+}

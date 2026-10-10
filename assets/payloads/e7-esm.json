@@ -1,0 +1,16 @@
+{
+  "id": "e7-esm",
+  "designation": "E-7 ESM",
+  "family": "esm",
+  "summary": "electronic support measures",
+  "maker": "BAE Systems Australia",
+  "parameters": {},
+  "sources": {
+    "wp-e7a": {
+      "title": "Boeing E-7 Wedgetail",
+      "publisher": "Wikipedia (revision 1378367230)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_E-7_Wedgetail&oldid=1378367230",
+      "date": "2026-10-04"
+    }
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "id": "a10-tank-600gal",
+  "designation": "600 US gal external tank (A-10)",
+  "class": "tank",
+  "summary": "the A-10's tank (Sargent Fletcher), stations 4, 6 and 8",
+  "maker": "Sargent Fletcher",
+  "model": "jsbsim:a10tank600gal",
+  "powerable": false,
+  "jettisonable": true,
+  "fins": false,
+  "parameters": {
+    "capacity_l": {
+      "value": 2271.2471,
+      "unit": "L",
+      "uncertainty": 0.0,
+      "basis": "published",
+      "source": "dvids-a10"
+    },
+    "fuel_kg": {
+      "value": 1816.9977,
+      "unit": "kg",
+      "uncertainty": 90.8499,
+      "basis": "derived",
+      "source": "wp-jetfuel",
+      "note": "its capacity full at 0.80 kg/L (Jet A-1 / JP-8 at 15 C lies 0.775 - 0.840): one density for every tank"
+    },
+    "mass_kg": {
+      "value": 227.1247,
+      "unit": "kg",
+      "uncertainty": 79.4936,
+      "basis": "assumed",
+      "note": "its empty mass: 0.10 kg per litre of capacity, the published tanks' mean (one rule for every tank without a figure); not published; War Thunder lists 175 kg"
+    },
+    "length_m": {
+      "value": 6.4806,
+      "unit": "m",
+      "uncertainty": 1.2961,
+      "basis": "assumed",
+      "note": "its size: 8 diameters long, its fuel 0.68 of the cylinder (the four published tanks' means; one rule for every tank without one)"
+    },
+    "diameter_m": {
+      "value": 0.8101,
+      "unit": "m",
+      "uncertainty": 0.1215,
+      "basis": "assumed",
+      "note": "its size: 8 diameters long, its fuel 0.68 of the cylinder (the four published tanks' means; one rule for every tank without one)"
+    },
+    "drag_area_m2": {
+      "value": 0.0327,
+      "unit": "m^2",
+      "uncertainty": 0.00981,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its card, stores.py's tank profile (hangar storedrag.py: Hoerner's body of revolution 0.03024, its base 0.00247, its fins' friction 0.00000 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 2.29375,
+      "unit": "m^3",
+      "uncertainty": 0.68812,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 2.5046 m^3 from its card, stores.py's tank profile, times Lamb's k2 - k1 = 0.916 for its fineness 8.0 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.04123,
+      "unit": "m^2",
+      "uncertainty": 0.01237,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 3.2403,
+      "unit": "m",
+      "uncertainty": 0.6481,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "dvids-a10": {
+      "title": "A-10 600 gallon Sargent Fletcher tank",
+      "publisher": "DVIDS",
+      "url": "https://www.dvidshub.net/news/printable/112609",
+      "date": "2026-10-09"
+    },
+    "wp-jetfuel": {
+      "title": "Jet fuel (Jet A-1: density 0.804 kg/L at 15 C)",
+      "publisher": "Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Jet_fuel",
+      "date": "2026-10-09"
+    },
+    "wt": {
+      "title": "War Thunder wiki (game reference)",
+      "publisher": "Gaijin Entertainment",
+      "url": "https://wiki.warthunder.com/",
+      "date": "2026-10-09"
+    }
+  }
+}

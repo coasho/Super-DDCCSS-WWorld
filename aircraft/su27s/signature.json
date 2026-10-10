@@ -1,0 +1,61 @@
+{
+  "aircraft": "su27s",
+  "note": "Its documented low-observable features, each from its own article; the treatments they bring are the same for every aircraft (assets/signature/treatments.json). The figures reported for it are compared with its table, never fitted. Untreated: its bare-metal model as it is.",
+  "sources": {
+    "wp-su27s": {
+      "title": "Sukhoi Su-27",
+      "publisher": "Wikipedia (revision 1378428873)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Sukhoi_Su-27&oldid=1378428873",
+      "date": "2026-10-04"
+    },
+    "wp-su57": {
+      "title": "Sukhoi Su-57",
+      "publisher": "Wikipedia (revision 1376999114)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Sukhoi_Su-57&oldid=1376999114",
+      "date": "2026-09-27"
+    }
+  },
+  "features": {
+    "ram": {
+      "value": "none",
+      "source": null,
+      "evidence": null,
+      "basis": "not stated: none assumed"
+    },
+    "intake_concealed": {
+      "value": false,
+      "source": null,
+      "evidence": null,
+      "basis": "not stated: none assumed"
+    },
+    "duct_lined": {
+      "value": false,
+      "source": null,
+      "evidence": null,
+      "basis": "not stated: none assumed"
+    },
+    "exhaust_treated": {
+      "value": false,
+      "source": null,
+      "evidence": null,
+      "basis": "not stated: none assumed"
+    }
+  },
+  "reported": [
+    {
+      "aspect": "frontal",
+      "azimuth_deg": 0,
+      "elevation_deg": 0,
+      "window_deg": 20,
+      "frequency_hz": 9500000000.0,
+      "sigma_m2": [
+        10.0,
+        15.0
+      ],
+      "origin": "press",
+      "source": "wp-su57",
+      "evidence": "the Su-27's RCS of approximately 10 to 15 m2",
+      "note": "quoted, its origin not given"
+    }
+  ]
+}

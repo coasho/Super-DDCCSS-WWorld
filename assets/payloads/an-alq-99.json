@@ -1,0 +1,16 @@
+{
+  "id": "an-alq-99",
+  "designation": "AN/ALQ-99",
+  "family": "electronic_attack",
+  "summary": "high- and low-band tactical jamming pod",
+  "maker": "EDO (now L3Harris)",
+  "parameters": {},
+  "sources": {
+    "wp-ea18g": {
+      "title": "Boeing EA-18G Growler",
+      "publisher": "Wikipedia (revision 1377595294)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_EA-18G_Growler&oldid=1377595294",
+      "date": "2026-09-30"
+    }
+  }
+}

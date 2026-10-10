@@ -1,0 +1,45 @@
+{
+  "aircraft": "rafale",
+  "note": "Its documented low-observable features, each from its own article; the treatments they bring are the same for every aircraft (assets/signature/treatments.json). The figures reported for it are compared with its table, never fitted. Its article states RAM added to its demonstrator and a gold-plated canopy, not where: taken as its largest reflectors. The S-duct article lists it among the aircraft with S-ducts.",
+  "sources": {
+    "w-sduct": {
+      "title": "S-duct",
+      "publisher": "Wikipedia (revision 1378907283)",
+      "url": "https://en.wikipedia.org/w/index.php?title=S-duct&oldid=1378907283",
+      "date": "2026-10-06"
+    },
+    "wp-rafale": {
+      "title": "Dassault Rafale",
+      "publisher": "Wikipedia (revision 1377238412)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Dassault_Rafale&oldid=1377238412",
+      "date": "2026-09-28"
+    }
+  },
+  "features": {
+    "ram": {
+      "value": "partial",
+      "source": "wp-rafale",
+      "evidence": "the addition of radar-absorbent materials",
+      "basis": "published"
+    },
+    "intake_concealed": {
+      "value": true,
+      "source": "w-sduct",
+      "evidence": "Dassault Rafale",
+      "basis": "published"
+    },
+    "duct_lined": {
+      "value": false,
+      "source": null,
+      "evidence": null,
+      "basis": "not stated: none assumed"
+    },
+    "exhaust_treated": {
+      "value": false,
+      "source": null,
+      "evidence": null,
+      "basis": "not stated: none assumed"
+    }
+  },
+  "reported": []
+}

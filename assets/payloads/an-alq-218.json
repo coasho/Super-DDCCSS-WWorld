@@ -1,0 +1,16 @@
+{
+  "id": "an-alq-218",
+  "designation": "AN/ALQ-218",
+  "family": "esm",
+  "summary": "wideband receivers in wingtip pods: emitter detection, identification and location",
+  "maker": "Northrop Grumman",
+  "parameters": {},
+  "sources": {
+    "wp-ea18g": {
+      "title": "Boeing EA-18G Growler",
+      "publisher": "Wikipedia (revision 1377595294)",
+      "url": "https://en.wikipedia.org/w/index.php?title=Boeing_EA-18G_Growler&oldid=1377595294",
+      "date": "2026-09-30"
+    }
+  }
+}

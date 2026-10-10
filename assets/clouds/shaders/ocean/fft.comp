@@ -1,0 +1,42 @@
+// fsim: one pass of the inverse FFT along the rows - a coalesced decimation-in-time Stockham kernel, each row in one
+// workgroup. From GodotOceanWaves (github.com/2Retr0/GodotOceanWaves, MIT, Copyright (c) 2024 Ethan Truong; see
+// LICENSE-GodotOceanWaves.txt): assets/shaders/compute/fft_compute.glsl, after OTFFT's Stockham kernel (Takuya Okahisa,
+// MIT). Changes marked fsim: the workgroup is the map's width (256), every cascade and spectrum in one dispatch
+// (z = cascade * 4 + spectrum); the butterflies are worked out on the CPU (world::Clouds) and passed as a buffer.
+
+#version 450
+
+#include "clouds/types.glsl"
+#include "fsim/params.glsl"
+#include "ocean/ocean.glsl"
+
+layout(local_size_x = OCEAN_MAP_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, set = 0, binding = 25) buffer FFTBuffer { vec2 data[]; };
+layout(std430, set = 0, binding = 26) readonly buffer ButterflyFactorBuffer { vec4 butterfly[]; }; // log2(size) x size
+
+shared vec2 row_shared[2 * OCEAN_MAP_SIZE];
+
+vec2 mul_complex(in vec2 a, in vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x); }
+
+#define ROW_SHARED(col, pingpong) (row_shared[(pingpong) * OCEAN_MAP_SIZE + (col)])
+void main() {
+  const uint map_size = OCEAN_MAP_SIZE;
+  const uint num_stages = findMSB(map_size);
+  const uint col = gl_GlobalInvocationID.x;
+  const uint row = gl_GlobalInvocationID.y;
+  const int cascade = int(gl_WorkGroupID.z) / OCEAN_SPECTRA, layer = int(gl_WorkGroupID.z) % OCEAN_SPECTRA;
+
+  ROW_SHARED(col, 0) = data[FFT_INDEX(cascade, 0, layer, col, row)];
+  for (uint stage = 0U; stage < num_stages; ++stage) {
+    barrier();
+    uvec2 buf_idx = uvec2(stage % 2, (stage + 1) % 2);
+    vec4 butterfly_data = butterfly[stage * map_size + col];
+    uvec2 read_indices = uvec2(floatBitsToUint(butterfly_data.xy));
+    vec2 twiddle_factor = butterfly_data.zw;
+    vec2 upper = ROW_SHARED(read_indices[0], buf_idx[0]);
+    vec2 lower = ROW_SHARED(read_indices[1], buf_idx[0]);
+    ROW_SHARED(col, buf_idx[1]) = upper + mul_complex(lower, twiddle_factor);
+  }
+  data[FFT_INDEX(cascade, 1, layer, col, row)] = ROW_SHARED(col, num_stages % 2);
+}

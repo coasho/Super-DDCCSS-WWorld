@@ -1,0 +1,152 @@
+{
+  "id": "aim-9x",
+  "designation": "AIM-9X Sidewinder",
+  "class": "aam",
+  "summary": "Short-range imaging-infrared air-to-air missile with jet-vane thrust vectoring, high off-boresight",
+  "maker": "Raytheon",
+  "model": "",
+  "powerable": true,
+  "jettisonable": true,
+  "seeker": "imaging_infrared",
+  "guidance": "imaging infrared homing (128 x 128 focal plane array), jet-vane thrust vectoring",
+  "motor": "the AIM-9M's motor (Mk 36): 'the same rocket motor and warhead as the AIM-9M'",
+  "fuze": "active optical target detector",
+  "warhead": "WDU-17/B annular blast-fragmentation (the AIM-9M's)",
+  "warhead_kind": "fragmentation",
+  "explosive": "PBXN-3",
+  "parameters": {
+    "mass_kg": {
+      "value": 84.0,
+      "unit": "kg",
+      "uncertainty": 1.0,
+      "basis": "published",
+      "source": "usn-aim9x"
+    },
+    "length_m": {
+      "value": 3.018,
+      "unit": "m",
+      "uncertainty": 0.02,
+      "basis": "published",
+      "source": "usn-aim9x",
+      "note": "9.9 ft"
+    },
+    "diameter_m": {
+      "value": 0.127,
+      "unit": "m",
+      "uncertainty": 0.002,
+      "basis": "published",
+      "source": "usn-aim9x"
+    },
+    "span_m": {
+      "value": 0.45,
+      "unit": "m",
+      "uncertainty": 0.01,
+      "basis": "published",
+      "source": "usn-aim9x"
+    },
+    "warhead_kg": {
+      "value": 9.36,
+      "unit": "kg",
+      "uncertainty": 0.1,
+      "basis": "published",
+      "source": "usn-aim9x"
+    },
+    "range_km": {
+      "value": 35.0,
+      "unit": "km",
+      "uncertainty": 10.0,
+      "basis": "assumed",
+      "note": "the Sidewinder family's range (the article's '0.6 to 22 mi', 'not verified in body'): the AIM-9X's own is classified"
+    },
+    "speed_mach": {
+      "value": 2.5,
+      "unit": "Mach",
+      "uncertainty": 0.3,
+      "basis": "assumed",
+      "note": "the family's 'Mach 2.5+': the AIM-9X's own is classified, its motor the AIM-9M's"
+    },
+    "power_up_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "power_down_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "explosive_kg": {
+      "value": 3.58,
+      "unit": "kg",
+      "uncertainty": 0.54,
+      "basis": "published",
+      "source": "wt-datamine",
+      "note": "a game reference: War Thunder's us_aim9m_sidewinder (the AIM-9M's) (PBXN-3); no manufacturer or encyclopedia gives the charge"
+    },
+    "gurney_kms": {
+      "value": 2.7,
+      "unit": "km/s",
+      "uncertainty": 0.15,
+      "basis": "assumed",
+      "note": "PBXN-3 (86 % HMX in nylon) is not in Cooper's table: as Comp B (2.70) - an estimate"
+    },
+    "drag_area_m2": {
+      "value": 0.00392,
+      "unit": "m^2",
+      "uncertainty": 0.00118,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its design (hangar storedrag.py: Hoerner's body of revolution 0.00231, its base 0.00055, its fins' friction 0.00106 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 0.03654,
+      "unit": "m^3",
+      "uncertainty": 0.01096,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.0369 m^3 from its design, times Lamb's k2 - k1 = 0.989 for its fineness 23.7 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 0.26296,
+      "unit": "m^2",
+      "uncertainty": 0.07889,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 1.0985,
+      "unit": "m",
+      "uncertainty": 0.3008,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  },
+  "sources": {
+    "usn-aim9x": {
+      "title": "AIM-9X Sidewinder Missile (fact file)",
+      "publisher": "U.S. Navy",
+      "url": "https://www.navy.mil/Resources/Fact-Files/Display-FactFiles/Article/2168989/aim-9x-sidewinder-missile/",
+      "date": "2026-10-07"
+    },
+    "usaf-aim9": {
+      "title": "AIM-9 Sidewinder (fact sheet)",
+      "publisher": "U.S. Air Force",
+      "url": "https://www.af.mil/About-Us/Fact-Sheets/Display/Article/104557/aim-9-sidewinder/",
+      "date": "2026-10-07"
+    },
+    "wp-aim9": {
+      "title": "AIM-9 Sidewinder",
+      "publisher": "Wikipedia (revision 1378928938)",
+      "url": "https://en.wikipedia.org/w/index.php?title=AIM-9_Sidewinder&oldid=1378928938",
+      "date": "2026-10-06"
+    },
+    "wt-datamine": {
+      "title": "War Thunder datamine: rocketguns weapon files (a game reference: the game's own values, not a manufacturer's)",
+      "publisher": "gszabi99/War-Thunder-Datamine (GitHub)",
+      "url": "https://github.com/gszabi99/War-Thunder-Datamine/tree/master/aces.vromfs.bin_u/gamedata/weapons/rocketguns",
+      "date": "2026-10-09"
+    }
+  }
+}
