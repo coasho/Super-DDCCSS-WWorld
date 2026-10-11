@@ -4,9 +4,9 @@ up +z
 scale 1.0
 # lifting surfaces, right half, root to tip: <kind> then per section its leading edge (body axes from the origin, m) and chord
 wing 7.5900 0.0000 -0.2600 7.9200 3.2330 5.0000 0.0460 5.5630 1.6400 6.8100 0.1570 4.9330 -5.3210 16.4400 0.7450 3.0000
-# jet engines by index: <bypass ratio> <afterburner 0|1>
-engine 0 2.240 0
-engine 1 2.240 0
+# jet engines by index: <bypass ratio> <afterburner 0|1> <dry thrust, kN> <thrust with reheat, kN (0: none)> <fuel a second for each kN, dry and with reheat, g/(kN s)>
+engine 0 2.240 0 117.68 0.00 13.879 56.651
+engine 1 2.240 0 117.68 0.00 13.879 56.651
 # vulnerable components (MS-7g's presented areas, MS-7h's fires): <kind> <box | cylinder along x> <breakup section> <centre x y z> <half extents x y z> (body axes from the origin, m) <name>
 component engine cylinder centre -1.2760 -1.8700 0.1000 2.7240 0.5675 0.5675 D-30KP-2 L
 component engine cylinder centre -1.2760 1.8700 0.1000 2.7240 0.5675 0.5675 D-30KP-2 R

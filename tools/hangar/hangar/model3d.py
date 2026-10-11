@@ -1285,7 +1285,8 @@ def write_glb(aircraft, path, origin, report=None, solid=None):
     if solid:
         top = _breakup(aircraft, B, top, origin, report if report is not None else {})
     from .carriage import station_lines
-    return finish(B, top, aircraft.name, path, surface_lines(aircraft, origin) + engine_lines(aircraft) + station_lines(aircraft, origin), anims)
+    return finish(B, top, aircraft.name, path,
+                  surface_lines(aircraft, origin) + engine_lines(aircraft) + exhaust_lines(aircraft, origin) + station_lines(aircraft, origin), anims)
 
 
 def _breakup(aircraft, B, top, origin, report):
@@ -1386,6 +1387,67 @@ def finish(B, top, name, path, manifest=(), anims=None):
     return path
 
 
+#: An engine that turns a propeller or a rotor has no nozzle on the model: where its exhaust leaves it, without the
+#: design's own `[engine.exhaust]` (position, diameter) - behind its place by so much (m), below it by so much, its
+#: pipe so wide (m; a turbine's from its power, sqrt(kW / 1000) times this) - estimates
+EXHAUST = {"turboprop": (1.2, 0.3, 0.12), "turboshaft": (0.8, -0.2, 0.12), "piston": (0.6, 0.35, 0.03)}
+
+
+def exhaust_lines(aircraft, origin):
+    """The manifest's lines for the engines without a nozzle on the model (a turboprop's, a turboshaft's, a piston
+    engine's): `exhaust <engine index> <x> <y> <z> <radius>`, where its exhaust leaves it (body axes from the origin,
+    m) and how wide - the design's `[engine.exhaust]`, else EXHAUST's estimate from its place. The viewer lays its
+    contrail from there, as from a jet's nozzle (world::Airflow), from what the simulation says it burns."""
+    lines, seen, i = [], set(), 0
+    for e in aircraft.engines:
+        for _, position, _, _ in e.copies():
+            k = _engine_joint(i)
+            i += 1
+            if e.type not in EXHAUST or (k, round(float(position[1]), 3)) in seen:
+                continue
+            seen.add((k, round(float(position[1]), 3)))
+            behind, below, wide = EXHAUST[e.type]
+            given = e.spec.get("exhaust", {}) if hasattr(e, "spec") else {}
+            at = np.asarray(position, float) + np.array([behind, 0.0, -below])
+            if "position" in given:
+                at = np.asarray(given["position"], float)
+                at[1] = abs(at[1]) * (1.0 if position[1] >= 0.0 else -1.0)  # (a mirrored engine's: on its own side)
+            power = float(getattr(e, "power_kw", 0.0) or getattr(e, "power", 0.0) or 0.0)
+            radius = 0.5 * float(given["diameter"]) if "diameter" in given else (wide if e.type == "piston" else wide * math.sqrt(max(power, 100.0) / 1000.0))
+            q = at - np.asarray(origin, float)
+            if not lines:
+                lines.append("# exhausts of engines without a nozzle on the model, by engine index: <x> <y> <z> <radius> (body axes from the origin, m)")
+            lines.append("exhaust %d %.3f %.3f %.3f %.3f" % (k, -q[0], q[1], -q[2], radius))
+    return lines
+
+
+def refresh_engine_lines(aircraft, manifest, origin=None):
+    """The engines' lines of an existing manifest made again from the design (its engines' ratings and its exhausts'
+    places are not its model's shape: an edit to them re-meshes nothing). True when the file changed."""
+    with open(manifest, encoding="utf-8") as f:
+        old = f.read()
+    mine = ("engine ", "# jet engines", "exhaust ", "# exhausts of engines")
+    jets = [line for line in engine_lines(aircraft) if line.startswith(mine)]
+    if origin is not None:
+        jets += exhaust_lines(aircraft, origin)
+    out, placed = [], False
+    for line in old.splitlines():
+        if line.startswith(mine):
+            if not placed:
+                out += jets
+                placed = True
+            continue
+        out.append(line)
+    if not placed and jets:
+        out += jets
+    text = "\n".join(out) + "\n"
+    if text == old:
+        return False
+    with open(manifest, "w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
+    return True
+
+
 def engine_lines(aircraft):
     """The manifest's lines for the jets' kinds, the exhaust the viewer draws
     at their fsim:afterburner nodes: `engine <index> <bypass ratio>
@@ -1400,8 +1462,14 @@ def engine_lines(aircraft):
             continue
         seen.add(k)
         if not lines:
-            lines.append("# jet engines by index: <bypass ratio> <afterburner 0|1>")
-        lines.append("engine %d %.3f %d" % (k, float(getattr(e, "bypass_ratio", 0.0) or 0.0), 1 if e.thrust_wet_kn else 0))
+            lines.append("# jet engines by index: <bypass ratio> <afterburner 0|1> <dry thrust, kN> <thrust with reheat, kN (0: none)>"
+                         " <fuel a second for each kN, dry and with reheat, g/(kN s)>")
+        # (its ratings, the design's: what its plume is drawn from - a reheat's temperature from the thrust it adds;
+        # its specific fuel consumption lb/(lbf h) in SI)
+        tsfc = lambda v: float(v or 0.0) * 0.45359237 / (4.4482216152605 * 3600.0) * 1e6  # noqa: E731
+        lines.append("engine %d %.3f %d %.2f %.2f %.3f %.3f" % (
+            k, float(getattr(e, "bypass_ratio", 0.0) or 0.0), 1 if e.thrust_wet_kn else 0, float(e.thrust_dry_kn or 0.0),
+            float(e.thrust_wet_kn or 0.0), tsfc(getattr(e, "tsfc_dry", 0.0)), tsfc(getattr(e, "tsfc_wet", 0.0))))
     m = getattr(aircraft, "motor", None)
     if m is not None:
         # a missile's motor at its fsim:afterburner:0 node: `rocket <index> <smoke> <exit diameter m> <boost thrust kN>`

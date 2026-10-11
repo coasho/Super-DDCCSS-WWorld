@@ -135,12 +135,21 @@ double Airflow::acidMassFraction(double rh) {
     return w[std::size(w) - 1];
 }
 
+double Airflow::Smoke::massFlow() const {
+    return flowKgS > 0.0 ? flowKgS : thrustN / (propellant(kind).ispS * kG0);
+}
+
+double Airflow::engineEfficiency(double thrustN, double speedMs, double fuelFlowKgS) {
+    if (!(fuelFlowKgS > 0.0) || !(thrustN > 0.0) || !(speedMs > 0.0)) return kEngineEfficiency;
+    return std::clamp(thrustN * speedMs / (fuelFlowKgS * kQFuel), 0.1, 0.5);
+}
+
 Airflow::SmokeExtinction Airflow::smokeExtinction(const Smoke& m, const cocip::Air& air) {
     SmokeExtinction e;
     if (!(m.thrustN > 0.0) || !(m.speed > 1.0)) return e;
     const int kind = std::clamp(m.kind, 0, 2);
     const Propellant& p = propellant(kind);
-    const double perMetre = m.thrustN / (p.ispS * kG0) / m.speed; // kg of exhaust per metre of trail
+    const double perMetre = m.massFlow() / m.speed; // kg of exhaust per metre of trail
     e.primary = perMetre * (kind == 2 ? p.alumina * kAluminaExtinction : kResidueShare[kind] * kResidueExtinction);
     if (!(p.hcl > 0.0)) return e; // (no perchlorate: no HCl)
     const double rh = cocip::rh(air.specificHumidity, air.temperature, air.pressure);
@@ -182,7 +191,7 @@ Airflow::Sample Airflow::laySmoke(const Smoke& m, double altitude, const cocip::
     const cocip::Air a = air(altitude);
     const cocip::Formation f = iceFormation(m, a);
     if (f.forms) {
-        const double perMetre = m.thrustN / (propellant(m.kind).ispS * kG0) / m.speed;
+        const double perMetre = m.massFlow() / m.speed;
         s.ice.altitude = altitude;
         s.ice.width = s.plume.width;
         s.ice.depth = s.plume.depth;
@@ -349,7 +358,9 @@ void Airflow::smokeFrom(std::size_t i, const sim::VehicleState& st, const Vehicl
                 if (k >= half || k % 2 == 0) kept.push_back(src->samples[k]);
             src->samples.swap(kept);
         }
-        const Smoke m{rocket.smoke, thrust, V, 0.5 * rocket.exitDiameterM};
+        // (its propellant flow the simulation's, where it says it)
+        const double burnt = i < flows_.size() && engine >= 0 && engine < sim::VehicleState::kMaxEngines ? flows_[i][static_cast<std::size_t>(engine)] : 0.0;
+        const Smoke m{rocket.smoke, thrust, V, 0.5 * rocket.exitDiameterM, std::isfinite(burnt) ? std::max(burnt, 0.0) : 0.0};
         const cocip::Shear shear{kShear, kShear * 2.0 / 3.14159265358979323846};
         Sample s = laySmoke(m, altitude, shear, air, at, now);
         s.flown = src->samples.empty() ? 0.0 : src->samples.back().flown + vsg::length(at - src->samples.back().at);
@@ -514,7 +525,7 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
     const std::size_t n = std::min({states.size(), alive.size(), visuals.count()});
 
     // the world's clock: from the vehicles, the same for all of them
-    double now = std::numeric_limits<double>::quiet_NaN();
+    double now = clock_;
     for (std::size_t i = 0; i < n && !std::isfinite(now); ++i)
         if (alive[i] && std::isfinite(states[i].simTime)) now = states[i].simTime;
     if (!std::isfinite(now)) now = lastTime_ >= 0.0 ? lastTime_ : 0.0;
@@ -556,8 +567,15 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
             if (e >= 0 && e < st.engineCount && e < sim::VehicleState::kMaxEngines) thrust += std::max(finite(st.thrustN[e]), 0.0);
         }
         mid = mid / static_cast<double>(shape.jets.size());
-        // the fuel flow: the thrust's power over the fuel's energy at the engines' efficiency
-        const double fuelFlow = thrust * V / (kEngineEfficiency * kQFuel);
+        // the fuel flow: what its engines burn as the simulation has it; not told (a recording from before it was),
+        // the thrust's power over the fuel's energy at pycontrails' engine efficiency
+        double burnt = 0.0;
+        if (i < flows_.size())
+            for (int e = 0; e < std::min(st.engineCount, sim::VehicleState::kMaxEngines); ++e)
+                burnt += std::isfinite(flows_[i][static_cast<std::size_t>(e)]) ? std::max(flows_[i][static_cast<std::size_t>(e)], 0.0) : 0.0;
+        // (engines past the state's four burn as the four do)
+        if (st.engineCount > sim::VehicleState::kMaxEngines) burnt *= static_cast<double>(st.engineCount) / sim::VehicleState::kMaxEngines;
+        const double fuelFlow = burnt > 0.0 ? burnt : thrust * V / (kEngineEfficiency * kQFuel);
         const vsg::dvec2 known = i < aircraft_.size() ? aircraft_[i] : vsg::dvec2(0.0, 0.0);
         const double span = known.x > 0.0 ? known.x : std::max(2.0 * std::abs(shape.tip.y), 2.0);
         const double mass = (known.y > 0.0 ? known.y : 120.0 * span * span) + std::max(finite(st.fuelKg), 0.0);
@@ -571,7 +589,8 @@ void Airflow::update(Span<const sim::VehicleState> states, const std::vector<uns
         }
         const cocip::Shear shear{kShear, kShear * across};
         const cocip::Aircraft ac{span, mass, V, fuelFlow};
-        const auto sac = cocip::formation(air(altitude), kEngineEfficiency);
+        // (the criterion at the efficiency it flies at: its thrust's power over what it burns, where that is told)
+        const auto sac = cocip::formation(air(altitude), engineEfficiency(thrust, V, burnt));
         const bool forms = sac.forms && fuelFlow > 0.0 && V > 30.0;
         Source* src = source(static_cast<int>(i), forms);
         if (!src) continue;

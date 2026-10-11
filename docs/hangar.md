@@ -43,6 +43,7 @@ fsim demo --aircraft mine             watch it fly
 fsim hangar f16c                      a fighter: NASA's wind-tunnel data as reference
 fsim hangar tank370gal                a store: the same stages, each a store's own (Stores)
 fsim hangar stores                    every store through them, a line each
+fsim hangar effects                   what each model gives the viewer's effects, and what is missing (docs/hangar-effects.md)
 ```
 
 `fsim python examples\python\control_surfaces.py` flies the C172 and the

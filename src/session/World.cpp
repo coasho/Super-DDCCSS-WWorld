@@ -427,6 +427,13 @@ bool World::resetVehicle(std::uint32_t id, const sim::InitialConditions* ic, std
     e->stack.reset();
     e->host.onReset();
     for (auto& fx : e->effects) fx->onReset();
+    // whole again: what a hit or a ground strike broke, holed and set alight is forgotten with the flight it was in
+    // (its flight model's reset put its mass and its inertia back)
+    e->damage.reset();
+    e->damageReads = {};
+    e->fireRates.clear();
+    e->wreckFireUntilS = 0.0;
+    e->wreckFireName.clear();
     poolInputs_[e->slot] = e->inputs;
     model.state(e->working);
     e->sensed.state = e->working;
@@ -2127,10 +2134,17 @@ void World::step(unsigned n) {
                 if (Entry* e = entries_[s].get(); e && e->info.role == ms::Role::Weapon && after[s].crashed) {
                     sim::VehicleState at = after[s]; // (where it struck; its speed as the step began: the strike stopped it)
                     std::copy(std::begin(stepStates_[s].velocityNedMs), std::end(stepStates_[s].velocityNedMs), std::begin(at.velocityNedMs));
+                    // (a store's strike is a strike: what it does - a tank's fuel left bursting into fire - is told
+                    // before it ends there)
+                    if (s < stepStates_.size() && !stepStates_[s].crashed) impacted(*e, stepStates_[s], after[s]);
                     endWeapon(*e, ms::WeaponEnd::Impact, at);
                     impacts.push_back(e->info.id);
                 }
             for (const std::uint32_t id : impacts) removeVehicle(id);
+            // an aircraft, or a piece of one, that struck the ground: what the strike does to it (MS-7g)
+            for (std::size_t s = 0; s < entries_.size() && s < stepStates_.size(); ++s)
+                if (Entry* e = entries_[s].get(); e && e->info.role != ms::Role::Weapon && after[s].crashed && !stepStates_[s].crashed)
+                    impacted(*e, stepStates_[s], after[s]);
             flyReleases(); // (the stores the store management released this step)
             stepDamage();  // (the damaged: their leaks, fires and loads - MS-7g)
         }
@@ -2190,7 +2204,10 @@ void World::fillStatus() {
         d[ipc::kDerivedConstraints] = static_cast<double>(e->host.constraints());
         d[ipc::kDerivedLoadRatio] = p.loadSpeedRatio;
         // where its CG is from its model's origin: what the viewer hangs its picture from (its stores on their stations)
-        pool_->vehicle(e->slot).cgFromOriginBodyM(d + ipc::kDerivedCgFromOriginM);
+        const auto& model = pool_->vehicle(e->slot);
+        model.cgFromOriginBodyM(d + ipc::kDerivedCgFromOriginM);
+        // what each engine burns: what the viewer lays its contrails and its smoke from
+        for (int k = 0; k < sim::VehicleState::kMaxEngines; ++k) d[ipc::kDerivedFuelFlowKgS + static_cast<std::size_t>(k)] = model.engineFuelFlowKgS(k);
     }
 }
 
@@ -2557,7 +2574,9 @@ void World::recordFrame() {
         v.state = states[s];
         v.inputs = entries_[s]->inputs;
         // (a replay draws it as a live viewer does: its model hung from its origin)
-        pool_->vehicle(entries_[s]->slot).cgFromOriginBodyM(v.derived + ipc::kDerivedCgFromOriginM);
+        const auto& model = pool_->vehicle(entries_[s]->slot);
+        model.cgFromOriginBodyM(v.derived + ipc::kDerivedCgFromOriginM);
+        for (int k = 0; k < sim::VehicleState::kMaxEngines; ++k) v.derived[ipc::kDerivedFuelFlowKgS + static_cast<std::size_t>(k)] = model.engineFuelFlowKgS(k);
         samples.emplace_back(static_cast<std::uint32_t>(s), v);
     }
 

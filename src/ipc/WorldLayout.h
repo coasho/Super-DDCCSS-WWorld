@@ -16,9 +16,10 @@
 namespace fsim::ipc {
 
 constexpr std::uint32_t kMagic = 0x4D495346u; // "FSIM"
-constexpr std::uint32_t kLayoutVersion = 8; // 2: VehicleState grew (engines' and moving parts' state); 3: Mission Systems records; 4: their tracks;
+constexpr std::uint32_t kLayoutVersion = 9; // 2: VehicleState grew (engines' and moving parts' state); 3: Mission Systems records; 4: their tracks;
                                             // 5: a radar's range-Doppler map; 6: the stores; 7: each store's card (the viewer draws it);
-                                            // 8: a sample's CG from its model's origin (two more `derived` values)
+                                            // 8: a sample's CG from its model's origin (two more `derived` values);
+                                            // 9: each engine's fuel flow (four more), the engagement's events (a ring)
 constexpr std::uint32_t kNameLength = 64;
 constexpr std::uint32_t kTypeLength = 64;
 constexpr std::uint32_t kPathLength = 256;
@@ -73,19 +74,23 @@ enum Derived : std::size_t {
     /// CG's, which moves in the airframe as its fuel burns and its stores leave: the viewer hangs its model that far
     /// back from the position (originEcef), so a store is drawn on its station where the simulation releases it.
     kDerivedCgFromOriginM = 7,
-    kDerivedCount = 10,
+    /// What each engine burns now, kg/s (VehicleState::kMaxEngines values from here; an engine past them is not told):
+    /// a turbine's or a piston's fuel, a rocket motor's propellant - the simulation's own figure, which the viewer's
+    /// contrails and smoke trails are laid from (world::Airflow) instead of one worked back from the thrust.
+    kDerivedFuelFlowKgS = 10,
+    kDerivedCount = 14,
 };
-/// The `derived` values a sample had before layout 8 (and a recording before its version 6).
-constexpr std::size_t kDerivedCountV7 = 8;
+/// The `derived` values a sample had before layout 8 (and a recording before its version 6), and at layout 8 (version 6).
+constexpr std::size_t kDerivedCountV7 = 8, kDerivedCountV8 = 10;
 
 struct VehicleSample {
     sim::VehicleState state;
     sim::ControlInputs inputs;
-    double derived[kDerivedCount] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; ///< its flight status (Derived)
+    double derived[kDerivedCount] = {}; ///< its flight status (Derived)
 };
 /// A vehicle's `derived` values, as the publisher is given them and the mirror hands them on.
 struct FlightStatus {
-    double derived[kDerivedCount] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    double derived[kDerivedCount] = {};
 };
 
 /// Where a vehicle's model origin is (ECEF, m): its state's position - its CG's - less its CG's place from the origin
@@ -133,6 +138,7 @@ struct alignas(64) WorldHeader {
     sim::EnvironmentState environment;
     std::uint64_t missionOffset = 0;     ///< MissionRecord[capacity], missionStride apart (layout 3)
     std::uint64_t missionStride = 0;
+    std::uint64_t engagementOffset = 0;  ///< EngagementRing (layout 9)
 };
 
 // --- Mission Systems (ADR-30, MS-4) ---------------------------------------------
@@ -241,6 +247,13 @@ enum class EngagementKind : std::uint8_t {
     Separated = 7,   ///< a breakup section's root failed and it left: `name` the section
     Hit = 8,         ///< the fragments struck it: `target` the weapon's slot + 1 (0: none), `index` how many struck,
                      ///< `name` the weapon's store card's id
+    /// A vehicle struck the ground (ms/damage/Impact.h): `slot` the vehicle's, at `positionEcef` where it lies, moving at
+    /// `velocityEcef` as it struck, `massKg` its mass, `normalEcef` the ground's normal there, `energyJ` its kinetic
+    /// energy, `angleRad` its path below the surface (0 along it, pi/2 straight in), `loadG` the deceleration stopping it
+    /// across the surface took, in g, `index` the sections that broke off it, `amountKg` its fuel that burnt at once
+    /// and `rateKgS` what burns on (a Fire event says where and carries the fireball's own motion), `name` what it
+    /// struck ("ground")
+    Impact = 9,
 };
 
 struct EngagementEvent {
@@ -256,6 +269,20 @@ struct EngagementEvent {
     double massKg = 0.0;
     double rateKgS = 0.0;
     char name[32] = {};
+    // (since the Impact kind; a reader of an older record leaves them 0)
+    double normalEcef[3] = {};    ///< a surface's unit normal (Impact: the ground's)
+    double energyJ = 0.0;         ///< the kinetic energy it came with (Impact)
+    double angleRad = 0.0;        ///< its path below that surface (Impact)
+    double loadG = 0.0;           ///< the deceleration across it, g (Impact)
+};
+
+/// The engagement's events as they happen, for a live viewer (layout 9): the last kEngagementRing of them, each written
+/// to its place (its count modulo the ring) before `written` says it is there. A reader copies those it has not seen
+/// and looks at `written` again: one overwritten while it was copied is dropped (more than a ring's worth at once).
+constexpr std::uint32_t kEngagementRing = 256;
+struct EngagementRing {
+    std::atomic<std::uint64_t> written{0}; ///< events ever written
+    EngagementEvent events[kEngagementRing];
 };
 
 struct MissionRecord {
@@ -283,7 +310,8 @@ struct Layout {
     static std::size_t slotOffset(std::uint32_t capacity) noexcept { return tableOffset() + tableSize(capacity); }
     static std::size_t missionOffset(std::uint32_t capacity) noexcept { return slotOffset(capacity) + slotStride(capacity) * kSlots; }
     static std::size_t missionStride() noexcept { return align(sizeof(MissionRecord)); }
-    static std::size_t totalSize(std::uint32_t capacity) noexcept { return missionOffset(capacity) + missionStride() * capacity; }
+    static std::size_t engagementOffset(std::uint32_t capacity) noexcept { return missionOffset(capacity) + missionStride() * capacity; }
+    static std::size_t totalSize(std::uint32_t capacity) noexcept { return engagementOffset(capacity) + align(sizeof(EngagementRing)); }
 };
 
 /// Registry of live worlds for discovery (a tiny separate mapping).

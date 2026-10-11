@@ -17,3 +17,5 @@ component control box right-wing -0.7264 2.8061 -0.6577 0.1500 0.0375 0.0375 rig
 component control box tail -4.9786 -0.3278 0.0070 0.1007 0.0252 0.0252 left htail elevator
 component control box tail -4.9786 0.3278 0.0070 0.1007 0.0252 0.0252 right htail elevator
 component control box tail -5.2161 0.0000 -0.2542 0.1500 0.0375 0.0375 fin rudder
+# exhausts of engines without a nozzle on the model, by engine index: <x> <y> <z> <radius> (body axes from the origin, m)
+exhaust 0 0.891 0.000 0.601 0.030

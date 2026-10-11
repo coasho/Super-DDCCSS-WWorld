@@ -55,7 +55,22 @@ public:
         bool rocket = false;
         enum Smoke { Minimum, Reduced, Aluminised } smoke = Reduced;
         double peakThrustN = 0.0; ///< its boost's thrust (the plume at full pressure); 0 unknown: any thrust is full
+        /// A jet engine's ratings, its design's (the manifest's `engine` line): its thrust at full dry power and with
+        /// reheat (N; 0: not said - the preset's reheat). Its reheat's temperature is drawn from the thrust it adds.
+        double dryThrustN = 0.0, reheatThrustN = 0.0;
     };
+    /// The total temperature (K) of an augmented engine's exhaust with its reheat lit, from its own ratings: lit, its
+    /// burner heats the same flow at the same pressure, so the thrust goes as the jet's speed - the square root of its
+    /// temperature - and T_reheat = T_dry (F_reheat / F_dry)^2 (less the fuel's own mass, kFuelMassShare of the
+    /// thrust). T_dry its mixed exhaust's at full dry power: the turbine's exit gas (kTurbineExitK) and its bypass air
+    /// (kBypassK) by its bypass ratio. Kept to what a burner at its full reheat reaches (kLeastReheatK .. kMostReheatK:
+    /// the least a rating is written for - an engine whose dry exhaust is hotter than the type's adds less thrust for
+    /// the same flame - and kerosene's stoichiometric flame less its cooling air; estimates). 0: the ratings do not
+    /// say (the preset's).
+    static double reheatTotalK(double bypassRatio, double dryThrustN, double reheatThrustN);
+    static constexpr double kTurbineExitK = 1050.0, kBypassK = 430.0; ///< at full dry power (estimates: typical of the type)
+    static constexpr double kFuelMassShare = 0.04;                    ///< the reheat's fuel in the jet's mass (an estimate)
+    static constexpr double kLeastReheatK = 1850.0, kMostReheatK = 2300.0;
 
     /// What engine `engine` of `state` shows this frame, for a nozzle this
     /// wide and high (half its width and height, m: a two-dimensional

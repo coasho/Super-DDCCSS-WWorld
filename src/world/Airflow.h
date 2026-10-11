@@ -9,9 +9,11 @@
 
 #include <vsg/all.h>
 
+#include <array>
 #include <cstddef>
 #include <filesystem>
 #include <iterator>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -172,6 +174,17 @@ public:
     /// fuel burns there; 0 puts it out. A fire on a vehicle no longer there goes out with it.
     void ignite(std::size_t slot, const std::string& component, double rateKgS, double now, double mistKgS = 0.0);
     void clearFires() { fires_.clear(); }
+    /// The world's clock for the next update (s): given, the trails are laid and aged by it; not given (NaN), by the
+    /// first live vehicle's own - which stops with a vehicle that has struck the ground, and every trail with it.
+    void setClock(double now) noexcept { clock_ = now; }
+    /// What each slot's engines burn now, kg/s, as the simulation has it (a sample's `derived` from
+    /// ipc::kDerivedFuelFlowKgS): a contrail's fuel and a motor's smoke are laid from it. A slot it has none for
+    /// (all 0, or past the end: a recording from before it was said) is laid from its thrust - a jet's at
+    /// pycontrails' engine efficiency, a motor's at its class's specific impulse.
+    void setFuelFlows(const std::vector<std::array<double, sim::VehicleState::kMaxEngines>>& flows) { flows_ = flows; }
+    /// The overall efficiency a jet flies at (its thrust's power over its fuel's heat) where its fuel flow is known -
+    /// what the Schmidt-Appleman criterion takes - else pycontrails' 0.3. Kept to what an engine can be (0.1 - 0.5).
+    static double engineEfficiency(double thrustN, double speedMs, double fuelFlowKgS);
     /// The fires' far trails only, from where a near field drawn elsewhere (world::FlowVolumes) thins at this rate (1/s:
     /// its smoke's e-fold; 0 - the default - the whole fire here: its flame, its smoke, its mist).
     void setFireHandOver(double perSecond) noexcept { fireHandOver_ = perSecond; }
@@ -205,6 +218,11 @@ public:
     struct Smoke {
         int kind = 1;
         double thrustN = 0.0, speed = 0.0, exitRadius = 0.05;
+        /// The propellant it burns now, kg/s, as the simulation has it (0: not told - its thrust over its class's
+        /// specific impulse, as before the simulation said).
+        double flowKgS = 0.0;
+        /// kg of exhaust a second: the simulation's figure, else the thrust's.
+        double massFlow() const;
     };
     /// The smoke it lays per metre of trail in this air: each part's extinction per metre (m, the integral of its
     /// extinction over the trail's section, as Drawn's) - the primary smoke, the secondary.
@@ -263,6 +281,8 @@ private:
     SunlitBlackbody blackbody_; ///< a flame's light against the sun's (its table after the samples, for the shaders)
     std::vector<Source> sources_;
     std::vector<vsg::dvec2> aircraft_; ///< per slot: wingspan, mass without fuel
+    double clock_ = std::numeric_limits<double>::quiet_NaN();
+    std::vector<std::array<double, sim::VehicleState::kMaxEngines>> flows_; ///< per slot: each engine's fuel flow, kg/s
     Air air_;
     bool visible_ = true;
     double lastTime_ = -1.0;

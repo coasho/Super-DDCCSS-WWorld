@@ -45,3 +45,8 @@ component control box tail -14.1308 0.0000 -2.1928 0.3928 0.0982 0.0982 fin rudd
 # chaff and flare dispensers (MS-9a, MS-7h), placed from public sources (hangar/dispensers.py TYPES): <section> <place x y z> <direction x y z> (body axes from the origin, m) <name>
 dispenser centre -6.5700 -1.8241 1.3903 0.0000 -0.8660 0.5000 left aft fuselage sides
 dispenser centre -6.5700 1.8241 1.3903 0.0000 0.8660 0.5000 right aft fuselage sides
+# exhausts of engines without a nozzle on the model, by engine index: <x> <y> <z> <radius> (body axes from the origin, m)
+exhaust 0 0.500 -5.080 -0.350 0.223
+exhaust 1 0.500 5.080 -0.350 0.223
+exhaust 2 0.450 -10.250 -0.590 0.223
+exhaust 3 0.450 10.250 -0.590 0.223

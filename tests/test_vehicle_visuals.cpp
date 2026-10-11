@@ -956,3 +956,38 @@ TEST_CASE("an airframe's breakup sections are joints at their breaks, what is mo
     REQUIRE(shape.jets.size() == 1);
     CHECK(std::abs(shape.jets[0].exit.x + 6.0) < 0.05);
 }
+
+TEST_CASE("a reheat's temperature is its engine's own: from the thrust its ratings say it adds", "[render][visuals][exhaust]") {
+    using world::Exhaust;
+    // lit, the burner heats the same flow at the same pressure: the thrust goes as the square root of the temperature.
+    // The F100-PW-229 (79.2 kN dry, 129.4 kN with reheat, bypass 0.36): its mixed exhaust 886 K dry, 2,187 K lit
+    const double dry = (Exhaust::kTurbineExitK + 0.36 * Exhaust::kBypassK) / 1.36;
+    const double ratio = 129.4 / 79.2 / (1.0 + Exhaust::kFuelMassShare);
+    CHECK(std::abs(Exhaust::reheatTotalK(0.36, 79200.0, 129400.0) - dry * ratio * ratio) < 1e-9);
+    CHECK(std::abs(Exhaust::reheatTotalK(0.36, 79200.0, 129400.0) - 2187.0) < 5.0);
+    // an engine that adds more burns hotter, up to what kerosene's flame reaches; one that adds little is held at the
+    // least a full reheat is rated for (the F119's 116 to 156 kN: its dry exhaust is hotter than the type's)
+    CHECK(Exhaust::reheatTotalK(0.59, 74500.0, 122600.0) > Exhaust::reheatTotalK(0.36, 64300.0, 95100.0));
+    CHECK(Exhaust::reheatTotalK(0.3, 116000.0, 156000.0) == Exhaust::kLeastReheatK);
+    CHECK(Exhaust::reheatTotalK(0.0, 50000.0, 120000.0) == Exhaust::kMostReheatK);
+    // ratings that do not say: the preset's
+    CHECK(Exhaust::reheatTotalK(0.36, 0.0, 129400.0) == 0.0);
+    CHECK(Exhaust::reheatTotalK(0.36, 79200.0, 0.0) == 0.0);
+    CHECK(Exhaust::reheatTotalK(6.0, 96200.0, 0.0) == 0.0); // (a tanker's: no reheat)
+}
+
+TEST_CASE("a trail is laid from what its engine burns as the simulation says it", "[render][visuals][exhaust]") {
+    using world::Airflow;
+    // a missile's smoke: the propellant its motor burns - told, that; not told, its thrust over its class's specific impulse
+    Airflow::Smoke told{1, 22000.0, 300.0, 0.046, 9.16}, untold{1, 22000.0, 300.0, 0.046, 0.0};
+    CHECK(told.massFlow() == 9.16);
+    CHECK(std::abs(untold.massFlow() - 22000.0 / (world::propellant(1).ispS * 9.80665)) < 1e-9);
+    const world::cocip::Air air{226.0, 26500.0, 2e-5};
+    CHECK(Airflow::smokeExtinction(told, air).primary < Airflow::smokeExtinction(untold, air).primary); // (it burns less than the class's impulse says)
+    CHECK(std::abs(Airflow::smokeExtinction(told, air).primary / Airflow::smokeExtinction(untold, air).primary - told.massFlow() / untold.massFlow()) < 1e-9);
+    // a jet's contrail: its overall efficiency is its thrust's power over its fuel's heat (43 MJ/kg), where its fuel
+    // flow is told - an airliner's cruise 0.35, a fighter's dry cruise 0.2, in reheat less (held to 0.1 - 0.5)
+    CHECK(std::abs(Airflow::engineEfficiency(50000.0, 240.0, 0.8) - 50000.0 * 240.0 / (0.8 * 43e6)) < 0.01);
+    CHECK(Airflow::engineEfficiency(120000.0, 300.0, 9.0) == 0.1);
+    CHECK(Airflow::engineEfficiency(50000.0, 240.0, 0.0) == 0.3); // (not told: pycontrails')
+}

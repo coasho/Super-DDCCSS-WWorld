@@ -200,8 +200,12 @@ void FlowVolumes::add(const ipc::EngagementEvent& event, const vsg::EllipsoidMod
     if (!available()) return;
     const bool fire = event.kind == static_cast<std::uint8_t>(ipc::EngagementKind::Fire);
     if (event.kind != static_cast<std::uint8_t>(ipc::EngagementKind::Detonation) && !fire) return;
-    const vsg::dvec3 at(event.positionEcef[0], event.positionEcef[1], event.positionEcef[2]);
+    vsg::dvec3 at(event.positionEcef[0], event.positionEcef[1], event.positionEcef[2]);
     const vsg::dvec3 velocity(event.velocityEcef[0], event.velocityEcef[1], event.velocityEcef[2]);
+    // a ground strike's spill (its Fire event has the ground's normal): its cloud of fuel stands on the surface, not
+    // half in it - the solver has no ground, and what it puts below the surface is lost to the fireball
+    if (const vsg::dvec3 normal(event.normalEcef[0], event.normalEcef[1], event.normalEcef[2]); fire && event.amountKg > 0.0 && vsg::length(normal) > 0.5)
+        at += vsg::normalize(normal) * std::cbrt(event.amountKg); // (the spill's cloud is M^(1/3) m round: world/FlowFires.h)
     origin(at, event.simTime, ellipsoid);
     const double altitude = ellipsoid.convertECEFToLatLongAltitude(at).z;
     const double pressure = Detonations::pressureAt(air_, altitude);

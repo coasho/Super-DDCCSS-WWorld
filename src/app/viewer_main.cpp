@@ -926,6 +926,31 @@ int main(int argc, char** argv) {
 
     // --- Source state shared by both modes -----------------------------------------
     world::Interpolator interpolator(slots);
+    // An engagement's event as it is drawn - a replay's from its recording, a live world's from its segment's ring:
+    // a detonation's and a spill's fireball, a fire burning on from its component, a section that left hidden on its
+    // aircraft (its piece flies in a slot of its own)
+    const auto showEvent = [&](const ipc::EngagementEvent& e) {
+        if (flow) flow->add(e, *ellipsoid);
+        else detonations.add(e, *ellipsoid); // (a fire's spill: its fireball)
+        // (with Flow, its flame and near smoke burn there and the trail is the far smoke only; else the fire trail, its
+        // flame and its mist)
+        if (e.kind == static_cast<std::uint8_t>(ipc::EngagementKind::Fire))
+            airflow.ignite(e.slot, std::string(e.name, ::strnlen(e.name, sizeof e.name)), e.rateKgS, e.simTime, e.massKg - e.rateKgS); // (what does not burn: its mist)
+        if (e.kind == static_cast<std::uint8_t>(ipc::EngagementKind::Separated))
+            visuals.hideSection(e.slot, std::string(e.name, ::strnlen(e.name, sizeof e.name)));
+    };
+    const auto forgetEvents = [&] {
+        detonations.clear(), airflow.clearFires(), visuals.clearSections();
+        if (flow) flow->clear();
+    };
+    std::vector<ipc::EngagementEvent> liveEvents;
+    std::vector<std::uint64_t> generationSeen; // (each slot's vehicle as the table last had it)
+    // what each slot's engines burn, as the simulation says it with each sample: the trails are laid from it
+    std::vector<std::array<double, sim::VehicleState::kMaxEngines>> fuelFlows(slots);
+    const auto fuelFlowOf = [&](std::size_t slot, const double* derived) {
+        if (slot < fuelFlows.size())
+            for (std::size_t k = 0; k < fuelFlows[slot].size(); ++k) fuelFlows[slot][k] = derived[ipc::kDerivedFuelFlowKgS + k];
+    };
     std::vector<unsigned char> alive(slots, opt.demo ? 1 : 0);
     std::vector<ui::MonitorGui::VehicleMeta> meta;
     const sim::SnapshotBatch* batch = nullptr;  // latest raw batch (demo: runner's; mirror: `mirrored`)
@@ -1071,20 +1096,9 @@ int main(int argc, char** argv) {
                         trails.setEnabled(slot, row.alive != 0);
                     }
                 if (from == 0) replayEnvironment.reset(); // (from the start again: a seek, a loop)
-                if (from == 0) detonations.clear(), airflow.clearFires(), visuals.clearSections();
-                if (from == 0 && flow) flow->clear();
+                if (from == 0) forgetEvents();
                 for (std::size_t f = from; f <= target; ++f)
-                    for (const auto& e : frames[f].events) {
-                        if (flow) flow->add(e, *ellipsoid);
-                        else detonations.add(e, *ellipsoid); // (a fire's spill: its fireball)
-                        // (with Flow, its flame and near smoke burn there and the trail is the far smoke only; else the
-                        // fire trail, its flame and its mist)
-                        if (e.kind == static_cast<std::uint8_t>(ipc::EngagementKind::Fire))
-                            airflow.ignite(e.slot, std::string(e.name, ::strnlen(e.name, sizeof e.name)), e.rateKgS, e.simTime,
-                                           e.massKg - e.rateKgS); // (what does not burn: its mist)
-                        if (e.kind == static_cast<std::uint8_t>(ipc::EngagementKind::Separated)) // (its piece flies in a slot of its own)
-                            visuals.hideSection(e.slot, std::string(e.name, ::strnlen(e.name, sizeof e.name)));
-                    }
+                    for (const auto& e : frames[f].events) showEvent(e);
                 for (std::size_t f = from; f <= target; ++f)
                     if (frames[f].environment) replayEnvironment = frames[f].environment;
                 for (std::size_t f = from; f <= target; ++f)
@@ -1097,8 +1111,12 @@ int main(int argc, char** argv) {
                 replayFrame = target;
                 const auto& frame = frames[target];
                 if (mirrored.states.size() != slots) mirrored.states.resize(slots);
+                for (auto& f : fuelFlows) f.fill(0.0);
                 for (const auto& [slot, sample] : frame.samples)
-                    if (slot < slots) mirrored.states[slot] = drawnState(sample.state, sample.derived);
+                    if (slot < slots) {
+                        mirrored.states[slot] = drawnState(sample.state, sample.derived);
+                        fuelFlowOf(slot, sample.derived);
+                    }
                 mirrored.simTime = frame.simTime;
                 mirrored.wallNs = 0; // interpolate in simulation time, paced by the time factor
                 ++mirrored.sequence;
@@ -1159,6 +1177,8 @@ int main(int argc, char** argv) {
                                                                      << "; only the first " << std::min<std::size_t>(slots, mirror.capacity()) << " slots are shown";
                     LOG_INFO("app") << "attached to world '" << pick << "'";
                     focusSeen = 0; // (its last request that viewers follow a vehicle, if any, is followed on attaching)
+                    forgetEvents(); // (another world's fires are not this one's)
+                    for (auto& f : fuelFlows) f.fill(0.0);
                     cameraPreview->attach(pick);
                     interpolator = world::Interpolator(slots);
                     for (std::size_t i = 0; i < slots; ++i) trails.setEnabled(i, false);
@@ -1180,6 +1200,12 @@ int main(int argc, char** argv) {
                         if (v.alive) {
                             visuals.setModel(i, v.model, v.type);
                             describeAircraft(i, v.type);
+                        }
+                        // (made, reset or removed since it was last seen: whole again - what broke off it before is back)
+                        if (generationSeen.size() != slots) generationSeen.assign(slots, ~0ull);
+                        if (generationSeen[i] != v.generation) {
+                            generationSeen[i] = v.generation;
+                            visuals.restoreSections(i);
                         }
                         visuals.setVisible(i, v.alive);
                         trails.setEnabled(i, v.alive);
@@ -1216,8 +1242,14 @@ int main(int argc, char** argv) {
                 if (mirror.pollSnapshot(mirrored)) {
                     if (mirrored.states.size() != slots) mirrored.states.resize(slots);
                     // each picture hung from its model's origin, where the simulation has its airframe (drawnState)
-                    for (std::size_t i = 0; i < mirrored.states.size() && i < mirror.status().size(); ++i)
+                    for (std::size_t i = 0; i < mirrored.states.size() && i < mirror.status().size(); ++i) {
                         mirrored.states[i] = drawnState(mirrored.states[i], mirror.status()[i].derived);
+                        fuelFlowOf(i, mirror.status()[i].derived);
+                    }
+                    // the engagement's events since the last look: its detonations, its fires, what broke off
+                    liveEvents.clear();
+                    mirror.pollEvents(liveEvents);
+                    for (const auto& e : liveEvents) showEvent(e);
                     batch = &mirrored;
                     interpBatch = mirrored;
                     interpBatch.simTime = static_cast<double>(mirrored.wallNs) * 1e-9; // interpolate in wall time: the trainer's pace is arbitrary
@@ -1382,11 +1414,20 @@ int main(int argc, char** argv) {
             vapour.setScreen(viewer.window()->extent2D().width, viewer.window()->extent2D().height);
             if (batch) {
                 const Span<const sim::VehicleState> drawn(opt.interpolate ? interpolator.states() : batch->states);
-                airflow.update(drawn, alive, visuals, viewer.camera()->projectionMatrix->transform(), viewer.lookAt()->eye, *ellipsoid, sunDir);
                 // (the world's clock as drawn: a vehicle's, else the snapshot's)
+                // (the snapshot's time, less how far behind it the drawn states are - as a vehicle that still moves
+                // shows it: one that has struck the ground is stopped, its own clock with it, and an engagement's
+                // fire drawn by that clock never grew)
                 double drawnTime = batch->simTime;
-                for (std::size_t i = 0; i < drawn.size() && i < alive.size(); ++i)
-                    if (alive[i] && std::isfinite(drawn[i].simTime)) { drawnTime = drawn[i].simTime; break; }
+                for (std::size_t i = 0; i < drawn.size() && i < alive.size() && i < batch->states.size(); ++i)
+                    if (alive[i] && !drawn[i].crashed && !batch->states[i].crashed && std::isfinite(drawn[i].simTime) &&
+                        std::isfinite(batch->states[i].simTime)) {
+                        drawnTime = batch->simTime + std::min(drawn[i].simTime - batch->states[i].simTime, 0.0);
+                        break;
+                    }
+                airflow.setFuelFlows(fuelFlows);
+                airflow.setClock(drawnTime);
+                airflow.update(drawn, alive, visuals, viewer.camera()->projectionMatrix->transform(), viewer.lookAt()->eye, *ellipsoid, sunDir);
                 detonations.update(drawnTime, viewer.camera()->projectionMatrix->transform(), viewer.lookAt()->eye, *ellipsoid, sunDir);
                 if (flow) {
                     flow->update(drawnTime, drawn, alive, visuals, viewer.camera()->projectionMatrix->transform(), viewer.lookAt()->eye,

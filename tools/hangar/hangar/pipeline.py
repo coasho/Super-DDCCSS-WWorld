@@ -752,7 +752,8 @@ class Design:
         # dispensers.py: not the model's shape - outside its key, so an edit to them re-meshes nothing); a store is
         # not a target that has them
         if not self.store:
-            from . import damage, vulnerability
+            from . import damage, model3d, vulnerability
+            model3d.refresh_engine_lines(self.aircraft, glb + ".manifest", origin)
             vulnerability.refresh_manifest(self.aircraft, glb + ".manifest", origin)
             # and its damage data beside it (damage.py: the world's damage chain's - outside the key the same way)
             data = damage.write(self.aircraft, os.path.join(self.dir, self.aircraft.name + ".damage.json"), origin,

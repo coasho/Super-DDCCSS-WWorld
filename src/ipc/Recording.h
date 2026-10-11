@@ -8,7 +8,8 @@
 //     'T': u32 slot, VehicleRecord (without the seqlock word)
 //     'S': SnapshotHead{double simTime; u32 count}, count x {u32 slot, VehicleSample}
 //          (version 6: a sample ends with its CG's place from its model's origin - two more `derived` values; an
-//          older file's samples are that much shorter and read with those 0)
+//          older file's samples are that much shorter and read with those 0; version 7: four more, each engine's
+//          fuel flow)
 //     'M': u32 slot, u32 count, count x MissionStore - a vehicle's stores as they are from the next snapshot on
 //          (version 3)
 //     'E': u32 size, size bytes of sim::EnvironmentState - the world's environment (its air, wind, weather, clock) as

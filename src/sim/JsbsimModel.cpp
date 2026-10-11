@@ -17,6 +17,7 @@
 #include <math/FGQuaternion.h>
 #include <models/FGAccelerations.h>
 #include <models/FGAtmosphere.h>
+#include <models/propulsion/FGRocket.h>
 #include <models/FGAuxiliary.h>
 #include <models/FGExternalReactions.h>
 #include <models/atmosphere/FGWinds.h>
@@ -508,12 +509,30 @@ bool JsbsimModel::endMassChange(const double partInertia[6], const double impuls
         // sums with nothing of its own, against what it sums with it - JSBSim does not say)
         constexpr double kSlugFt2PerKgM2 = 0.737562149277;
         if (baseJ_.empty()) {
-            const JSBSim::FGMatrix33 full = mb->GetJ();
-            mb->SetAircraftBaseInertias(JSBSim::FGMatrix33());
+            // its base inertia as it was loaded, to the bit (a reset puts it back, and a vehicle reset after a part
+            // left it must fly as a new one does): what the mass balance sums with nothing aboard - every point mass
+            // at no weight, every tank empty - is the base inertia alone. (The whole less the rest, as it was taken
+            // before, is the same number to a rounding - and a reset aircraft then flew a few bits off a new one.)
+            auto pm = fdm_->GetPropertyManager();
+            auto propulsion = fdm_->GetPropulsion();
+            std::vector<double> weights, contents;
+            for (int k = 0;; ++k) {
+                const std::string name = "inertia/pointmass-weight-lbs[" + std::to_string(k) + "]";
+                if (!pm->GetNode(name, false)) break;
+                weights.push_back(fdm_->GetPropertyValue(name));
+                fdm_->SetPropertyValue(name, 0.0);
+            }
+            for (unsigned i = 0; i < propulsion->GetNumTanks(); ++i) {
+                contents.push_back(propulsion->GetTank(i)->GetContents());
+                propulsion->GetTank(i)->SetContents(0.0);
+            }
             runMassBalance();
-            const JSBSim::FGMatrix33 rest = mb->GetJ();
+            const JSBSim::FGMatrix33 base = mb->GetJ();
             for (unsigned r = 1; r <= 3; ++r)
-                for (unsigned c = 1; c <= 3; ++c) loadedBaseJ_.push_back(full(r, c) - rest(r, c));
+                for (unsigned c = 1; c <= 3; ++c) loadedBaseJ_.push_back(base(r, c));
+            for (std::size_t k = 0; k < weights.size(); ++k) fdm_->SetPropertyValue("inertia/pointmass-weight-lbs[" + std::to_string(k) + "]", weights[k]);
+            for (unsigned i = 0; i < propulsion->GetNumTanks(); ++i) propulsion->GetTank(i)->SetContents(contents[i]);
+            runMassBalance();
             baseJ_ = loadedBaseJ_;
         }
         const double* I = partInertia;
@@ -968,6 +987,18 @@ void JsbsimModel::state(VehicleState& out) const {
     const JSBSim::FGMatrix33& tb2ec = prop->GetTb2ec(); // body -> ECEF
     for (unsigned r = 1; r <= 3; ++r)
         for (unsigned c = 1; c <= 3; ++c) out.rotationBodyToEcef[(r - 1) * 3 + (c - 1)] = tb2ec(r, c);
+}
+
+double JsbsimModel::engineFuelFlowKgS(int engine) const {
+    if (!fdm_ || engine < 0) return 0.0;
+    const auto& propulsion = fdm_->GetPropulsion();
+    if (static_cast<unsigned>(engine) >= propulsion->GetNumEngines()) return 0.0;
+    const auto e = propulsion->GetEngine(static_cast<unsigned>(engine));
+    // (a rocket's propellant: its fuel's and its oxidiser's, of which a solid motor's grain is all the first)
+    double flow = e->GetFuelFlowRate();
+    if (e->GetType() == JSBSim::FGEngine::etRocket) flow += static_cast<const JSBSim::FGRocket*>(e.get())->GetOxiFlowRate();
+    constexpr double kKgPerLb = 0.45359237;
+    return std::isfinite(flow) ? std::max(flow, 0.0) * kKgPerLb : 0.0;
 }
 
 EnergyOnBoard JsbsimModel::energy() const {

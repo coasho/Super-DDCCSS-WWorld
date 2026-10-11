@@ -96,6 +96,9 @@ public:
     virtual void setEffectors(const EffectorInputs& effectors) { (void)effectors; }
     /// What it flies on now: its fuel or its battery (none known by default).
     virtual EnergyOnBoard energy() const { return {}; }
+    /// What engine `engine` burns now, kg/s: a turbine's or a piston's fuel, a rocket motor's propellant (0: none, or
+    /// no such engine).
+    virtual double engineFuelFlowKgS(int engine) const { (void)engine; return 0.0; }
 
     // Damage (MS-7g): what a hit breaks, each undone by a reset (a reused slot starts whole).
     /// Its engine seized: no thrust, and no relight however it windmills.

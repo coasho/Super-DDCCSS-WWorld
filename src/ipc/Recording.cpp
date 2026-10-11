@@ -16,17 +16,20 @@ constexpr char kRecMagic[5] = {'F', 'S', 'R', 'E', 'C'};
 // 5: engagement events ('V' records: MS-7h); an older file has none
 // 6: a sample's CG from its model's origin (two more `derived` values, at its end); an older file's samples are that
 //    much shorter and theirs 0 - drawn as they were, each model's origin at its CG
-constexpr std::uint8_t kVersion = 6;
+// 7: each engine's fuel flow (four more `derived` values); an older file's are 0 - its trails laid as they were, from
+//    the thrust
+constexpr std::uint8_t kVersion = 7;
 constexpr std::size_t kStateV1 = offsetof(sim::VehicleState, engineRpm);
 static_assert(offsetof(VehicleSample, state) == 0, "a sample starts with its state");
 /// A sample's bytes before version 6: all but the `derived` values added since (they are its last).
 constexpr std::size_t kSampleV5 = offsetof(VehicleSample, derived) + kDerivedCountV7 * sizeof(double);
 static_assert(kSampleV5 + (kDerivedCount - kDerivedCountV7) * sizeof(double) == sizeof(VehicleSample), "a sample ends with its derived values");
 
-/// A version 2 to 5 sample: as it is now, less the values at its end.
-bool readSampleV5(std::FILE* f, VehicleSample& sample) {
+/// A version 2 to 6 sample: as it is now, less the `derived` values added since it (they are its last).
+bool readSampleShort(std::FILE* f, VehicleSample& sample, std::uint8_t version) {
     sample = VehicleSample{};
-    return std::fread(static_cast<void*>(&sample), 1, kSampleV5, f) == kSampleV5;
+    const std::size_t size = offsetof(VehicleSample, derived) + (version < 6 ? kDerivedCountV7 : kDerivedCountV8) * sizeof(double);
+    return std::fread(static_cast<void*>(&sample), 1, size, f) == size;
 }
 
 /// A version 1 sample: the old state, then the rest of the sample as it was.
@@ -194,7 +197,7 @@ bool Recording::load(const std::filesystem::path& path, std::string* error) {
             bool ok = true;
             for (auto& [slot, sample] : frame.samples) {
                 const bool read = std::fread(&slot, sizeof(slot), 1, f) == 1 &&
-                                  (version == 1 ? readSampleV1(f, sample) : version < 6 ? readSampleV5(f, sample) : std::fread(&sample, sizeof(sample), 1, f) == 1);
+                                  (version == 1 ? readSampleV1(f, sample) : version < kVersion ? readSampleShort(f, sample, version) : std::fread(&sample, sizeof(sample), 1, f) == 1);
                 if (!read) { ok = false; break; }
             }
             if (!ok) break;

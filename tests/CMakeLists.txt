@@ -13,6 +13,7 @@ set(FSIM_CATCH_DISCOVERY DISCOVERY_MODE PRE_TEST)
 add_executable(fsim_tests
     test_units.cpp
     test_damage.cpp
+    test_impact.cpp
     test_mass_change.cpp
     test_store_drag.cpp
     test_rng.cpp

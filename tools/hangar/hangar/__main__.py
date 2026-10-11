@@ -7,6 +7,7 @@
     python -m hangar register                  the viewer's stand-ins for stock aircraft (aircraft/models.txt)
     python -m hangar storedesigns [<name> ..]  the tanks', pods', bombs' and cargo's designs, from their cards (hangar/storedesigns.py)
     python -m hangar stores [<stage> ...]      every store - missiles too - through its stages (hangar/storestages.py)
+    python -m hangar effects [--record FILE]   what each model gives the viewer's effects, and what is missing (hangar/effects.py)
     python -m hangar storemodels               the tanks' and pods' flight models once released (hangar/storemodels.py)
     python -m hangar storedrag                 each store card's drag in carriage, isolated (hangar/storedrag.py)
 
@@ -59,6 +60,9 @@ def main(argv=None):
     if argv and argv[0] == "showcase":
         from . import showcase
         return showcase.main(argv[1:])
+    if argv and argv[0] == "effects":
+        from . import effects
+        return effects.main(argv[1:])
     if argv and argv[0] == "storedesigns":
         from . import storedesigns
         return storedesigns.main(argv[1:])

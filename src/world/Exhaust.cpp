@@ -61,7 +61,14 @@ constexpr double kNightExposure = 120.0, kDayExposure = 26.4616;
 // preset, a tanker's or a bomber's nozzles glowed orange: the preset's turbine at 1,200 K at cruise
 Engine engineOf(const Exhaust::Kind& kind) {
     Engine e;
-    if (kind.augmented) return e;
+    if (kind.augmented) {
+        // its reheat as hot as its own ratings make it (Exhaust::reheatTotalK): the gas at its exit, where the preset's
+        // 1,700 K is 2,236 K of total temperature at its exit's Mach number - an engine that adds less thrust burns
+        // cooler and shows a shorter, redder flame; one that adds more, a longer and whiter one
+        const double total = Exhaust::reheatTotalK(kind.bypassRatio, kind.dryThrustN, kind.reheatThrustN);
+        if (total > 0.0) e.exitTemperatureK = total / (1.0 + 0.5 * (e.gamma - 1.0) * e.exitMach * e.exitMach);
+        return e;
+    }
     const double bypass = std::isfinite(kind.bypassRatio) ? std::max(kind.bypassRatio, 0.0) : 0.0;
     e.exitMach = 1.0;
     e.pressureRatio = 1.1; // (a convergent nozzle a little underexpanded, at most)
@@ -697,6 +704,14 @@ vec4 marchFlame(int which, vec3 origin, vec3 dir, float tier, float budgetIn, ve
 )";
 
 } // namespace
+
+double Exhaust::reheatTotalK(double bypassRatio, double dryThrustN, double reheatThrustN) {
+    if (!(dryThrustN > 0.0) || !(reheatThrustN > dryThrustN)) return 0.0;
+    const double bypass = std::isfinite(bypassRatio) ? std::max(bypassRatio, 0.0) : 0.0;
+    const double dryK = (kTurbineExitK + bypass * kBypassK) / (1.0 + bypass);
+    const double speed = reheatThrustN / dryThrustN / (1.0 + kFuelMassShare); // (the jet's speed with reheat over dry)
+    return std::clamp(dryK * speed * speed, kLeastReheatK, kMostReheatK);
+}
 
 double Exhaust::flameLength(double radius, double afterburner) {
     const double a = std::clamp(afterburner, 0.0, 1.0);

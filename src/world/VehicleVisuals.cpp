@@ -745,6 +745,8 @@ bool VehicleVisuals::applyManifest(Settings& settings) {
     std::string line;
     settings.surfaces.clear();
     settings.engines.clear();
+    settings.engineRatings.clear();
+    settings.exhausts.clear();
     settings.rockets.clear();
     settings.stations.clear();
     settings.components.clear();
@@ -767,13 +769,24 @@ bool VehicleVisuals::applyManifest(Settings& settings) {
             if (s.sections.size() >= 2 && v.size() % 4 == 0) settings.surfaces.push_back(std::move(s));
             else LOG_WARN("world") << "manifest: '" << key << "' needs sections of x y z chord, two or more, in " << settings.modelPath << ".manifest";
         } else if (key == "engine") {
-            // engine <index> <bypass ratio> <afterburner 0|1>
+            // engine <index> <bypass ratio> <afterburner 0|1> [<dry thrust kN> <thrust with reheat kN> <fuel g/(kN s) dry> <with reheat>]
             std::istringstream values(line.substr(line.find(key) + key.size()));
             int index = -1, augmented = 1;
             double bypass = 0.0;
-            if (values >> index >> bypass >> augmented && index >= 0 && index < sim::VehicleState::kMaxEngines)
+            if (values >> index >> bypass >> augmented && index >= 0 && index < sim::VehicleState::kMaxEngines) {
                 settings.engines[index] = {bypass, augmented != 0};
-            else LOG_WARN("world") << "manifest: 'engine' needs <index> <bypass ratio> <afterburner 0|1> in " << settings.modelPath << ".manifest";
+                double dryKn = 0.0, wetKn = 0.0, fuelDry = 0.0, fuelWet = 0.0;
+                if (values >> dryKn >> wetKn) {
+                    values >> fuelDry >> fuelWet; // (g/(kN s) is mg/(N s): 1e-6 kg/(N s))
+                    settings.engineRatings[index] = {1000.0 * dryKn, 1000.0 * wetKn, 1e-6 * fuelDry, 1e-6 * fuelWet};
+                }
+            } else LOG_WARN("world") << "manifest: 'engine' needs <index> <bypass ratio> <afterburner 0|1> in " << settings.modelPath << ".manifest";
+        } else if (key == "exhaust") {
+            // exhaust <engine index> <x> <y> <z> <radius>: an engine without a nozzle on the model
+            std::istringstream values(line.substr(line.find(key) + key.size()));
+            Settings::ExhaustAt e;
+            if (values >> e.engine >> e.at.x >> e.at.y >> e.at.z >> e.radius && e.engine >= 0 && e.radius > 0.0) settings.exhausts.push_back(e);
+            else LOG_WARN("world") << "manifest: 'exhaust' needs <engine index> <x> <y> <z> <radius> in " << settings.modelPath << ".manifest";
         } else if (key == "rocket") {
             // rocket <index> <smoke: minimum | reduced | aluminised> <exit diameter m> [<peak thrust kN>]
             std::istringstream values(line.substr(line.find(key) + key.size()));
@@ -878,7 +891,17 @@ VehicleVisuals::Shape VehicleVisuals::measure(const vsg::ref_ptr<vsg::Node>& mod
         jet.engine = j.engine;
         shape.jets.push_back(jet);
     }
+    // and the exhausts the manifest places (engines that turn a propeller: no nozzle node): a jet for the trails, aft
+    for (const auto& e : s.exhausts) {
+        Shape::Jet jet;
+        jet.exit = s.modelOffset + e.at * s.modelScale;
+        jet.direction = vsg::dvec3(-1.0, 0.0, 0.0);
+        jet.radius = e.radius * s.modelScale;
+        jet.engine = e.engine;
+        shape.jets.push_back(jet);
+    }
     shape.engines = s.engines;
+    shape.engineRatings = s.engineRatings;
     shape.rockets = s.rockets;
     for (auto [number, st] : s.stations) { // moved and scaled as the model is
         st.at = s.modelOffset + st.at * s.modelScale;
@@ -1049,6 +1072,10 @@ void VehicleVisuals::clearSections() {
     for (auto& g : sectionsGone_) g.clear();
 }
 
+void VehicleVisuals::restoreSections(std::size_t index) {
+    if (index < sectionsGone_.size()) sectionsGone_[index].clear();
+}
+
 void VehicleVisuals::setModel(std::size_t index, const std::string& modelPath, const std::string& typeIn) {
     if (index >= transforms_.size()) return;
     // a piece that left an aircraft ("debris:<aircraft>:<section>:<x>,<y>,<z>"): its aircraft's model, its section
@@ -1070,7 +1097,7 @@ void VehicleVisuals::setModel(std::size_t index, const std::string& modelPath, c
     assign(index, modelFor(key));
     if (!sectionOnly_[index].empty()) {
         Shape piece = slotModels_[index] ? slotModels_[index]->shape : Shape{};
-        piece.jets.clear(), piece.surfaces.clear(), piece.engines.clear(), piece.rockets.clear();
+        piece.jets.clear(), piece.surfaces.clear(), piece.engines.clear(), piece.engineRatings.clear(), piece.rockets.clear();
         piece.stations.clear(), piece.components.clear(), piece.dispensers.clear();
         piece.valid = false; // (no effect hangs on it: not its aircraft's wing tips' vortices either)
         pieceShapes_[index] = piece;
@@ -1232,6 +1259,8 @@ void VehicleVisuals::update(Span<const sim::VehicleState> states) {
             if (i < slotModels_.size() && slotModels_[i]) {
                 const auto& engines = slotModels_[i]->shape.engines;
                 if (const auto at = engines.find(joint.engine); at != engines.end()) kind = Exhaust::Kind{at->second.first, at->second.second};
+                const auto& ratings = slotModels_[i]->shape.engineRatings;
+                if (const auto at = ratings.find(joint.engine); at != ratings.end()) kind.dryThrustN = at->second[0], kind.reheatThrustN = at->second[1];
                 const auto& rockets = slotModels_[i]->shape.rockets;
                 if (const auto at = rockets.find(joint.engine); at != rockets.end()) {
                     // a missile's motor: its node carries no flame to size it by; its exit is the manifest's

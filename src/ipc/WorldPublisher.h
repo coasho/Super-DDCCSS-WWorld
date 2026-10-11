@@ -51,6 +51,8 @@ public:
     /// Whether publish() would copy now: the publish interval has elapsed. What is worked out only to be published -
     /// each vehicle's flight status - is worked out when it is.
     bool due() const noexcept;
+    /// An engagement's event as it happens (WorldLayout.h, EngagementRing): a live viewer draws it.
+    void publishEvent(const EngagementEvent& event) noexcept;
 
     /// Counters shown by the viewer's monitor.
     void addSteps(std::uint64_t vehicleSteps, std::uint64_t worldSteps = 1) noexcept;

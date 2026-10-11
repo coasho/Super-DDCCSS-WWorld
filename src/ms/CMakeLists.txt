@@ -13,6 +13,8 @@ add_library(fsim_ms STATIC
     damage/State.cpp
     damage/Debris.h
     damage/Debris.cpp
+    damage/Impact.h
+    damage/Impact.cpp
     rf/Antenna.h
     rf/Antenna.cpp
     rf/Ntia.h

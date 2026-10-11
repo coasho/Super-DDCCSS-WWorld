@@ -38,6 +38,7 @@ bool WorldMirror::open(const std::string& name) {
     status_.assign(header_->capacity, FlightStatus{});
     tableGeneration_ = ~0ull;
     lastSequence_ = 0;
+    eventsSeen_ = 0;
     incarnation_ = header_->incarnation.load(std::memory_order_acquire);
     const_cast<WorldHeader*>(header_)->readers.fetch_add(1, std::memory_order_relaxed);
     attached_ = true;
@@ -124,6 +125,25 @@ bool WorldMirror::pollTable() {
     }
     tableGeneration_ = generation;
     return true;
+}
+
+std::size_t WorldMirror::pollEvents(std::vector<EngagementEvent>& out) {
+    if (!header_ || header_->engagementOffset == 0) return 0;
+    const auto* ring = reinterpret_cast<const EngagementRing*>(base_ + header_->engagementOffset);
+    const std::uint64_t written = ring->written.load(std::memory_order_acquire);
+    if (written < eventsSeen_) eventsSeen_ = 0; // (a world begun again)
+    if (written == eventsSeen_) return 0;
+    std::uint64_t from = std::max(eventsSeen_, written > kEngagementRing ? written - kEngagementRing : 0);
+    const std::size_t before = out.size();
+    for (std::uint64_t k = from; k < written; ++k) out.push_back(ring->events[k % kEngagementRing]);
+    // (any the writer went round onto while they were copied: dropped)
+    const std::uint64_t now = ring->written.load(std::memory_order_acquire);
+    if (now > from + kEngagementRing) {
+        const std::size_t lost = static_cast<std::size_t>(std::min<std::uint64_t>(now - kEngagementRing - from, written - from));
+        out.erase(out.begin() + static_cast<std::ptrdiff_t>(before), out.begin() + static_cast<std::ptrdiff_t>(before + lost));
+    }
+    eventsSeen_ = written;
+    return out.size() - before;
 }
 
 bool WorldMirror::pollSnapshot(sim::SnapshotBatch& out) {

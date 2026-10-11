@@ -705,6 +705,8 @@ private:
             std::vector<PropertyHandle> tanks;
         } damageReads;
         std::map<int, double> fireRates;   ///< each burning tank's leak as last recorded (kg/s)
+        double wreckFireUntilS = 0.0;      ///< a ground strike's fire burns on until then (0: none)
+        std::string wreckFireName;         ///< the component its Fire events name
         bool crewLost = false;             ///< its controls held where they were
         ms::WeaponRecord origin;           ///< a weapon's: the store it was (MS-7; store, station, activity, target, jettisoned)
         /// Its stations' point masses in its flight model (MS-7: "station N", hangar's), each set to the stores on it.
@@ -809,11 +811,23 @@ private:
         double cgFromOrigin[3] = {0.0, 0.0, 0.0};
         double fuelKg = 0.0;
         std::vector<std::pair<int, double>> stations;
+        double pushBody[3] = {0.0, 0.0, 0.0}; ///< what it leaves its aircraft with (m/s, body axes): the break's spring, a hit's push
+    };
+    /// What a hit gave a section that it breaks off: the impulse on the section's own panels (N s, body axes) and the
+    /// velocity the whole aircraft took from the hit (m/s) - the section leaves with the difference.
+    struct Thrown {
+        double impulseBody[3] = {0.0, 0.0, 0.0};
+        double sharedBody[3] = {0.0, 0.0, 0.0};
     };
     std::uint32_t launchPiece(Entry& from, int section, const Parting& part);
     void stepDamage();
     bool ensureDamage(Entry& e);  ///< its damage begun (its data, its stream, what it reads); false: it takes none
-    void separated(Entry& e, int section);
+    /// A section fails at its root and leaves. `as`: the aircraft's state to launch it from, where the pool's is not
+    /// it (a ground strike's wreck is stopped: its pieces leave with what the strike left them).
+    void separated(Entry& e, int section, const sim::VehicleState* as = nullptr, const Thrown* thrown = nullptr);
+    /// A vehicle that is no weapon struck the ground this step: what the strike does to it (ms/damage/Impact.h) - its
+    /// sections that break off thrown on, its fuel's fireball and the fire that burns on, the engagement's events.
+    void impacted(Entry& e, const sim::VehicleState& before, const sim::VehicleState& after);
     void engage(const ipc::EngagementEvent& event); ///< kept for takeEngagementEvents, and recorded (MS-7g, G7)
     void damageFlight(Entry& e, ms::damage::Flight& out);
     ipc::EngagementEvent engagementEvent(const Entry& e, ipc::EngagementKind kind, const std::string& name) const;

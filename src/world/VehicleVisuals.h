@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <functional>
 #include <limits>
+#include <array>
 #include <map>
 #include <memory>
 #include <string>
@@ -104,6 +105,17 @@ public:
         std::vector<Surface> surfaces;   ///< from the manifest
         /// the engines' kinds by their index (the manifest's `engine` lines; none given, Exhaust::Kind's default)
         std::map<int, std::pair<double, bool>> engines;
+        /// each one's ratings where its manifest gives them: its thrust dry and with reheat (N), the fuel a second each
+        /// newton takes, dry and with reheat (kg/(N s)); 0: not said
+        std::map<int, std::array<double, 4>> engineRatings;
+        /// engines without a nozzle on the model (a turboprop's, a piston engine's exhaust: the manifest's `exhaust`
+        /// lines): the engine's index, where its exhaust leaves it (body axes from the model's origin, m), its radius
+        struct ExhaustAt {
+            int engine = 0;
+            vsg::dvec3 at;
+            double radius = 0.1;
+        };
+        std::vector<ExhaustAt> exhausts;
         /// a missile's rocket motors by their index (the manifest's `rocket` lines)
         std::map<int, Rocket> rockets;
         /// its store stations by number (the manifest's `station` lines)
@@ -179,6 +191,8 @@ public:
     void hideSection(std::size_t index, const std::string& section);
     /// Every vehicle whole again (a replay sought back).
     void clearSections();
+    /// One vehicle's sections back on it (it was reset: whole again).
+    void restoreSections(std::size_t index);
 
     /// Traversal mask of a visible vehicle (default MASK_ALL): a vsg::View whose
     /// mask does not overlap it skips the vehicle (a camera hiding its own aircraft).
@@ -210,6 +224,7 @@ public:
         };
         std::vector<Jet> jets;          ///< the fsim:afterburner nodes at rest
         std::vector<Surface> surfaces;  ///< from the manifest
+        std::map<int, std::array<double, 4>> engineRatings; ///< from the manifest: thrust dry, with reheat (N); fuel per newton-second, dry, reheat
         std::map<int, std::pair<double, bool>> engines; ///< from the manifest: by index, the bypass ratio and an afterburner
         std::map<int, Rocket> rockets;                  ///< from the manifest: a missile's rocket motors, by index
         std::map<int, Station> stations;                ///< from the manifest: its store stations, by number (moved as the model is)

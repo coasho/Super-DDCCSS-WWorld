@@ -435,3 +435,137 @@ TEST_CASE("every aircraft's pieces load and fall in JSBSim", "[damage]") {
     }
     CHECK(loaded >= 120);
 }
+
+TEST_CASE("a hit in the air follows where it came from: a holed tank's fuel is thrown to the far side of the burst, a section it "
+          "breaks off away from it - each on top of the aircraft's own motion",
+          "[damage][world][impact]") {
+    // the same burst mirrored: 3 m off a MiG-29A's left side, then its right, the missile overtaking from behind
+    struct Seen {
+        int spills = 0, pieces = 0;
+        double spillSide = 0.0, spillAlong = 0.0; ///< the fireball's motion from the aircraft's: to its right, along its path (m/s)
+        double pieceSide = 0.0;                   ///< the broken-off sections' motion from the aircraft's, to its right, summed
+        double own = 0.0;
+    };
+    auto hitAt = [](double side, double aft, double off, double below) {
+        fsim::session::World w(fsim::modes::options(side < 0.0 ? "damage-left" : "damage-right"));
+        const auto id = fsim::modes::wing(w, "mig29a", 6000.0, 220.0);
+        w.step(fsim::modes::stepsFor(w, 3.0));
+        const fsim::sim::VehicleState s = *w.vehicleState(id);
+        const double* R = s.rotationBodyToEcef;
+        auto ecef = [](const fsim::sim::VehicleState& v) {
+            const double* T = v.rotationBodyToEcef;
+            return V3{T[0] * v.velocityBodyMs[0] + T[1] * v.velocityBodyMs[1] + T[2] * v.velocityBodyMs[2],
+                      T[3] * v.velocityBodyMs[0] + T[4] * v.velocityBodyMs[1] + T[5] * v.velocityBodyMs[2],
+                      T[6] * v.velocityBodyMs[0] + T[7] * v.velocityBodyMs[1] + T[8] * v.velocityBodyMs[2]};
+        };
+        const V3 right{R[1], R[4], R[7]}, ahead{R[0], R[3], R[6]}, own = ecef(s);
+        Seen seen;
+        seen.own = fsim::ms::damage::length(own);
+        const auto events = w.detonate(burstBeside(s, {-aft, side * off, below}, {600.0, -side * 80.0, -30.0}));
+        for (const auto& ev : events)
+            if (ev.kind == static_cast<std::uint8_t>(fsim::ipc::EngagementKind::Fire) && ev.amountKg > 0.0) {
+                const V3 rel = V3{ev.velocityEcef[0], ev.velocityEcef[1], ev.velocityEcef[2]} - own;
+                ++seen.spills;
+                seen.spillSide += fsim::ms::damage::dot(rel, right);
+                seen.spillAlong += fsim::ms::damage::dot(V3{ev.velocityEcef[0], ev.velocityEcef[1], ev.velocityEcef[2]}, ahead);
+            }
+        const V3 after = ecef(*w.vehicleState(id));
+        for (const auto v : w.vehicleIds())
+            if (w.info(v)->role == fsim::ms::Role::Debris) {
+                ++seen.pieces;
+                seen.pieceSide += fsim::ms::damage::dot(ecef(*w.vehicleState(v)) - after, right);
+            }
+        return seen;
+    };
+    // (where the fragments go is drawn at random: the first of a few bursts beside it that holes a tank and sets its
+    // fuel alight, on each side)
+    auto hit = [&](double side) {
+        Seen seen;
+        for (const double aft : {1.0, 0.0, 2.5, -1.5})
+            for (const double off : {3.0, 2.0, 4.0})
+                for (const double below : {0.3, -0.4}) {
+                    seen = hitAt(side, aft, off, below);
+                    if (seen.spills > 0) return seen;
+                }
+        return seen;
+    };
+    const Seen left = hit(-1.0), right = hit(1.0);
+    if (std::getenv("FSIM_DAMAGE_SHOW"))
+        for (const Seen* s : {&left, &right})
+            std::printf("spills %d: thrown %.1f m/s to its right, %.1f m/s along its path (it flies %.1f); pieces %d, %.1f m/s to its right\n",
+                        s->spills, s->spills ? s->spillSide / s->spills : 0.0, s->spills ? s->spillAlong / s->spills : 0.0, s->own, s->pieces,
+                        s->pieceSide);
+    // a burst that near holes its tanks from either side
+    REQUIRE(left.spills > 0);
+    REQUIRE(right.spills > 0);
+    // the fuel thrown out goes on with the aircraft - along its path at its speed, near enough - and off to the side
+    // away from the burst: to its right from a burst on its left, to its left from one on its right
+    CHECK(left.spillSide / left.spills > 5.0);
+    CHECK(right.spillSide / right.spills < -5.0);
+    CHECK(left.spillAlong / left.spills > 0.8 * left.own);
+    CHECK(right.spillAlong / right.spills > 0.8 * right.own);
+    // (some tens of metres a second: a few per cent of the fragments' speed, not the fragments' own)
+    CHECK(std::abs(left.spillSide / left.spills) < 120.0);
+    // a section it breaks off at once leaves away from the burst too (the break's spring alone pushes a wing outboard
+    // at 5 m/s: towards a burst on its own side)
+    if (left.pieces > 0) CHECK(left.pieceSide > -4.0 * left.pieces);
+    if (right.pieces > 0) CHECK(right.pieceSide < 4.0 * right.pieces);
+}
+
+TEST_CASE("a section a burst breaks off is thrown away from the burst: up from one below its wing, down from one above it",
+          "[damage][world][impact]") {
+    // a MiG-29A's left wing, an AIM-120C bursting close under it and close over it: where the break's spring alone
+    // would push the wing straight outboard either time, it now leaves with the blast's and the fragments' push on it
+    struct Seen {
+        int pieces = 0;
+        double down = 0.0, out = 0.0; ///< the pieces' motion from the aircraft's: down, and to its left (m/s), summed
+        double momentum = 0.0;        ///< what the world's momentum changed by as they left (kg m/s)
+    };
+    auto hitAt = [](double below, double span, double aft) {
+        fsim::session::World w(fsim::modes::options(below > 0.0 ? "damage-under" : "damage-over"));
+        const auto id = fsim::modes::wing(w, "mig29a", 6000.0, 220.0);
+        w.step(fsim::modes::stepsFor(w, 3.0));
+        const fsim::sim::VehicleState s = *w.vehicleState(id);
+        const double* R = s.rotationBodyToEcef;
+        auto ecef = [](const fsim::sim::VehicleState& v) {
+            const double* T = v.rotationBodyToEcef;
+            return V3{T[0] * v.velocityBodyMs[0] + T[1] * v.velocityBodyMs[1] + T[2] * v.velocityBodyMs[2],
+                      T[3] * v.velocityBodyMs[0] + T[4] * v.velocityBodyMs[1] + T[5] * v.velocityBodyMs[2],
+                      T[6] * v.velocityBodyMs[0] + T[7] * v.velocityBodyMs[1] + T[8] * v.velocityBodyMs[2]};
+        };
+        const V3 right{R[1], R[4], R[7]}, down{R[2], R[5], R[8]};
+        w.detonate(burstBeside(s, {-aft, -span, below}, {600.0, 0.0, 0.0}));
+        const V3 after = ecef(*w.vehicleState(id));
+        Seen seen;
+        for (const auto v : w.vehicleIds())
+            if (w.info(v)->role == fsim::ms::Role::Debris) {
+                const V3 rel = ecef(*w.vehicleState(v)) - after;
+                ++seen.pieces;
+                seen.down += fsim::ms::damage::dot(rel, down);
+                seen.out -= fsim::ms::damage::dot(rel, right);
+            }
+        return seen;
+    };
+    auto hit = [&](double sign) {
+        Seen seen;
+        for (const double gap : {1.0, 0.7, 1.5})
+            for (const double span : {3.0, 2.2, 4.0})
+                for (const double aft : {1.5, 0.5, 2.5}) {
+                    seen = hitAt(sign * gap, span, aft);
+                    if (seen.pieces > 0) return seen;
+                }
+        return seen;
+    };
+    const Seen under = hit(1.0), over = hit(-1.0);
+    if (std::getenv("FSIM_DAMAGE_SHOW"))
+        std::printf("under its wing: %d piece(s), %.1f m/s down, %.1f m/s outboard; over it: %d piece(s), %.1f m/s down, %.1f m/s outboard\n",
+                    under.pieces, under.down, under.out, over.pieces, over.down, over.out);
+    REQUIRE(under.pieces > 0);
+    REQUIRE(over.pieces > 0);
+    // away from the burst: up from the one under it, down from the one over it - by more than the spring's 5 m/s
+    CHECK(under.down / under.pieces < -5.0);
+    CHECK(over.down / over.pieces > 5.0);
+    // and no faster than a whole section is thrown
+    CHECK(std::abs(under.down / under.pieces) < 61.0);
+    CHECK(std::abs(over.down / over.pieces) < 61.0);
+}

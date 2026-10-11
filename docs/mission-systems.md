@@ -911,6 +911,12 @@ as a physical chain in the world - the kill probabilities and kill levels stay w
 - **G6, the loads and the breakup:** each section's root bending each step from its lift share and the load factor
   less its own inertia relief, against its remaining strength; a section that fails separates as a body of its own
   (its mass, inertia, drag; tumbling), the rest flown on.
+- **The ground strike (2026-10-10).** An aircraft or a piece that strikes the ground raises an `Impact` event
+  (`ipc::EngagementKind::Impact`: its velocity as it struck, the ground's normal, its angle below the surface, its
+  kinetic energy, the load stopping it took in g, the sections that broke off) and, where its tanks burst, a `Fire`
+  event for the fireball and the fire that burns on (`ms/damage/Impact.h`, `World::impacted`;
+  [viewer.md](sdk/viewer.md#a-ground-strike)). The events are also written to the world's segment as they happen
+  (`ipc::EngagementRing`), so a live viewer draws them.
 - **G7, the record:** the world writes the engagement's events (the detonation, each hit, a fire's start, rate and
   end, a section's separation) and the debris' poses into the recording; the referee reads them (AB-7's record).
 - **G8, the effects from the chain:** the burst oriented by the fragment belt (the ring photographed off the T-33),

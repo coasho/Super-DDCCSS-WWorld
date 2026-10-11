@@ -49,6 +49,7 @@ public:
     int failChannel(const std::string& channel) override;
     bool removeMass(double kg, const double structuralM[3]) override;
     bool cgFromOriginBodyM(double out[3]) const override;
+    double engineFuelFlowKgS(int engine) const override;
     double refuel(double kg) override;
     bool beginMassChange() override;
     bool applyImpulse(const double linearBodyNs[3], const double angularBodyNms[3]) override;

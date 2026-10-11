@@ -61,9 +61,11 @@ WorldPublisher::WorldPublisher(const Options& options) : options_(options) {
     h->totalSize = size;
     h->missionOffset = Layout::missionOffset(options_.capacity);
     h->missionStride = Layout::missionStride();
+    h->engagementOffset = Layout::engagementOffset(options_.capacity);
     for (std::uint32_t i = 0; i < options_.capacity; ++i) new (base_ + h->tableOffset + sizeof(VehicleRecord) * i) VehicleRecord();
     for (std::uint32_t s = 0; s < kSlots; ++s) new (base_ + h->slotOffset + h->slotStride * s) StateSlotHeader();
     for (std::uint32_t i = 0; i < options_.capacity; ++i) new (base_ + h->missionOffset + h->missionStride * i) MissionRecord();
+    new (base_ + h->engagementOffset) EngagementRing();
     h->alive.store(1, std::memory_order_release);
     h->incarnation.store(incarnation, std::memory_order_release);
     std::atomic_thread_fence(std::memory_order_seq_cst);
@@ -87,6 +89,14 @@ VehicleRecord* WorldPublisher::row(std::uint32_t index) noexcept {
 
 StateSlotHeader* WorldPublisher::slot(std::uint32_t index) noexcept {
     return reinterpret_cast<StateSlotHeader*>(base_ + header_->slotOffset + header_->slotStride * index);
+}
+
+void WorldPublisher::publishEvent(const EngagementEvent& event) noexcept {
+    if (!header_ || header_->engagementOffset == 0) return;
+    auto* ring = reinterpret_cast<EngagementRing*>(base_ + header_->engagementOffset);
+    const std::uint64_t n = ring->written.load(std::memory_order_relaxed);
+    ring->events[n % kEngagementRing] = event;
+    ring->written.store(n + 1, std::memory_order_release);
 }
 
 VehicleSample* WorldPublisher::samples(std::uint32_t index) noexcept {

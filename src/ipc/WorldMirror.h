@@ -69,6 +69,9 @@ public:
     /// Each vehicle's flight status with that snapshot (WorldLayout.h, Derived): all 0 from a publisher that gives none.
     const std::vector<FlightStatus>& status() const noexcept { return status_; }
     std::int64_t lastWallNs() const noexcept { return lastWallNs_; }
+    /// The engagement's events written since the last call, appended to `out` in their order (the first call: those
+    /// still in the ring - a viewer that attaches to a fire sees it); how many.
+    std::size_t pollEvents(std::vector<EngagementEvent>& out);
 
     /// Latest environment (seqlock copy).
     sim::EnvironmentState environment() const noexcept;
@@ -89,6 +92,7 @@ private:
     std::vector<MirroredVehicle> vehicles_;
     std::vector<sim::ControlInputs> inputs_;
     std::vector<FlightStatus> status_;
+    std::uint64_t eventsSeen_ = 0;
     std::uint64_t tableGeneration_ = ~0ull;
     std::uint64_t lastSequence_ = 0;
     std::int64_t lastWallNs_ = 0;

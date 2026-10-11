@@ -5,9 +5,9 @@ scale 1.0
 # lifting surfaces, right half, root to tip: <kind> then per section its leading edge (body axes from the origin, m) and chord
 wing 2.9760 -0.0001 0.0000 7.2000 -2.3440 5.2499 0.3000 1.4800
 canard 4.7460 -0.0001 -0.3700 2.0900 3.5360 1.3999 -0.3700 1.2900 2.4460 2.6499 -0.5400 0.5600
-# jet engines by index: <bypass ratio> <afterburner 0|1>
-engine 0 0.300 1
-engine 1 0.300 1
+# jet engines by index: <bypass ratio> <afterburner 0|1> <dry thrust, kN> <thrust with reheat, kN (0: none)> <fuel a second for each kN, dry and with reheat, g/(kN s)>
+engine 0 0.300 1 50.00 75.00 22.660 48.720
+engine 1 0.300 1 50.00 75.00 22.660 48.720
 # store stations: <number> <x> <y> <z> (a store's CG, body axes from the origin, m) <its bay: 0 none>
 station 1 -3.1580 -5.4000 0.3000 0
 station 2 -2.3300 -4.2000 0.8400 0

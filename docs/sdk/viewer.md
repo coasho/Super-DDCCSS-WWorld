@@ -256,7 +256,96 @@ added to `VehicleState` for them - after the effects DCS World shows:
 | Leading-edge vortices: tubes over a strake or a swept wing at a high angle of attack, bursting into a fatter, fainter wake further up the wing the higher the angle | the vortex lift of a sharp or highly swept edge (Polhamus), vortex breakdown after Wentz and Kohlman's deltas | `alphaRad`, `airspeedTrueMs` |
 | Vapour over the wing: a sheet on its upper surface in a pull, ended by a hard edge where a transonic shock stands on it, marching aft as the speed climbs; near Mach 1 under the wing too | the section's thin-airfoil suction (its loading along the span from a vortex lattice over the model's planform; the thickness draws suction on both surfaces, the lift on the upper and presses the lower), Karman-Tsien on the flow normal to the sweep, a supersonic rooftop ended by the shock, the outer 30 % of the span relieved by the flow round the tip; it reaches higher off the wing the nearer Mach 1 | `alphaRad`, `airspeedTrueMs`, `altitudeMslM` |
 | The vapour cone: a bell round the fuselage, soft in front and ended at the shock behind it, its vapour evaporating just behind | the slender body's transonic pocket past its critical Mach number, its shock running aft to the tail by Mach 1 (and behind it, swept aft away from the body); gone by Mach 1.15 | `airspeedTrueMs`, `altitudeMslM` |
-| Contrails: CoCiP's plume (the contrail cirrus prediction model, as pycontrails has it) - dense and narrow behind the jets, carried down and widened by the wake's vortex pair, then, in air supersaturated with respect to ice, persisting and spreading with the shear and turbulence, its ice settling and mixing out; in drier air gone within a kilometre or two | the Schmidt-Appleman criterion, from the air at the aircraft (the world's standard atmosphere and humidity), its fuel flow (from its thrust) and an engine efficiency of 0.3 | `altitudeMslM`, `airspeedTrueMs`, `thrustN`, `fuelKg`, `velocityNedMs`; the aircraft's span and empty mass from its JSBSim file |
+| Contrails: CoCiP's plume (the contrail cirrus prediction model, as pycontrails has it) - dense and narrow behind the jets, carried down and widened by the wake's vortex pair, then, in air supersaturated with respect to ice, persisting and spreading with the shear and turbulence, its ice settling and mixing out; in drier air gone within a kilometre or two | the Schmidt-Appleman criterion, from the air at the aircraft (the world's standard atmosphere and humidity), its fuel flow as the simulation has it (each sample says what each engine burns) and the efficiency it flies at - its thrust's power over that fuel's heat, held to 0.1 - 0.5; a recording from before the simulation said it: the thrust's power at an efficiency of 0.3 | `altitudeMslM`, `airspeedTrueMs`, `thrustN`, `fuelKg`, `velocityNedMs`; the aircraft's span and empty mass from its JSBSim file |
+
+### What the plumes and trails are drawn from
+
+The jet's and the trail's physics are the viewer's; the numbers they start from are the simulation's and the design's,
+not the viewer's own guesses:
+
+| What | From | Before |
+| --- | --- | --- |
+| A contrail's fuel, and the engine efficiency the Schmidt-Appleman criterion takes | what each engine burns now, kg/s - each sample's `derived` values from `kDerivedFuelFlowKgS` (`ipc/WorldLayout.h`, layout 9; JSBSim's own fuel flow), and the thrust's power over that fuel's heat | the thrust's power over the fuel's heat at 0.3 for every engine at every power |
+| A missile's smoke and its ice contrail (exhaust per metre of trail) | the propellant its motor burns now, the same values (a rocket's propellant flow) | its thrust over its propellant class's specific impulse - 11 % more than the flight model burns |
+| A reheat's flame: its temperature, so its colour, its brightness and its length | the engine's own ratings, its design's through its model's manifest (`engine <index> <bypass> <afterburner> <dry kN> <reheat kN> <fuel g/(kN s) dry> <reheat>`): lit, the burner heats the same flow at the same pressure, so T_reheat = T_dry (F_reheat / F_dry)^2 less the fuel's mass (`Exhaust::reheatTotalK`), T_dry its turbine's exit gas and its bypass air mixed by its bypass ratio; held to 1,850 - 2,300 K. An F100-PW-229's 2,187 K, an AL-31F's 2,053 K, an RD-33's 2,124 K, an M53's and an F119's at the least | one preset, 2,236 K, for every augmented engine |
+| A dry jet, a nozzle's glow, a rocket's plume | as before: the engine's kind (its bypass ratio, its afterburner) and a motor's propellant class, exit and boost thrust from the manifest; the state's core speed, afterburner and thrust | |
+
+An engine that turns a propeller has no nozzle on its model, so until now the viewer had nowhere to start its
+exhaust from: a C-130J or an EC-130H laid no contrail however high and cold it flew. Its manifest now says where its
+exhaust leaves it (`exhaust <engine index> <x> <y> <z> <radius>`, body axes from the origin: the design's
+`[engine.exhaust]` position and diameter, else an estimate behind and below the engine's place, its pipe's width from
+its power), and the trail is laid from there with what the simulation says the engine burns and the thrust its
+propeller makes - a C-130J at 10,500 m trails four contrails. (Its hot gas has no flame to draw; its heat haze is not
+drawn: [backlog](../backlog.md), B-59.)
+
+What every model gives the viewer - each design's moving surfaces, its propellers, its nozzles and placed exhausts,
+its rocket's line, its lifting surfaces - is listed in [hangar-effects.md](../hangar-effects.md), written by `python -m
+hangar effects --record docs/hangar-effects.md` from the designs, the models' nodes and the manifests, with what a
+design has that its model gives nothing for; a test holds that list empty for all 87 designs
+(`tools/hangar/tests/test_effects.py`). Every fixed-wing design's control surfaces and drag devices have their joints;
+a missile's fins have theirs and stand still, because its flight model has no controls to move them
+([backlog](../backlog.md), B-36); a tank, a pod, a bomb and a cargo store are rigid bodies with nothing to move.
+
+hangar writes the manifest's engine and exhaust lines with the model, and again whenever the model stage runs - an
+edit to an engine's ratings or its exhaust's place re-meshes nothing (`model3d.refresh_engine_lines`). The clock the trails and the fires are drawn by is
+the world's: a vehicle that has struck the ground is stopped, its own clock with it, and by that clock every trail
+froze and a fire never grew.
+
+### A hit in the air
+
+What a burst does to an aircraft was already worked out from where it was - the fragments that reach it, the blast on
+each face, the push and the turn they give the whole aircraft (`ms::damage::assess`, MS-7g). Two things it left out of
+what is then drawn, so that a hit from the left looked like a hit from the right:
+
+- **A section the burst breaks off** left its root at the break's 5 m/s, straight outboard, whichever side the burst
+  was on. It now leaves with its own share of the hit: the fragments' momentum on its own panels and the blast's
+  impulse on its faces, away from the burst, over its mass - less what the whole aircraft took, which is already in
+  its motion - and the aircraft takes the reaction (momentum is kept). No faster than 60 m/s from the aircraft (an
+  estimate: a lighter part tears, it is not thrown whole).
+- **A holed tank's fireball** was laid along the aircraft's path alone. The fuel thrown out at once now goes the way
+  the fragments went through the tank - from the burst, out of its far wall (hydrodynamic ram) - at 3 % of their speed
+  (an estimate: some 50 m/s behind fragments at 1.7 km/s), on top of the aircraft's own velocity: the fireball is still
+  drawn out down the flight path, and off it to the side away from the burst.
+
+Both are in the engagement's events (the `Fire` event's velocity, the piece's own state), so a replay, a live viewer
+and the SDK see the same. `tests/test_damage.cpp` mirrors one burst left and right of a MiG-29A and holds each to its
+side. What an aircraft does not do in the air is explode as a whole (a tank's vapour, its weapons): it burns and breaks
+where it is hit ([backlog](../backlog.md), B-58).
+
+### A ground strike
+
+An aircraft that flies into the ground is no longer simply stopped there. The world works out what the strike does
+(`ms/damage/Impact.h`, `session::World::impacted`) from how it came in, and the viewer draws what the world says:
+
+- **Its angle.** Its velocity is split across and along the ground (the ground's own slope: a level flight path into a
+  hillside is a strike). Across it, it is stopped within what it has to crush - its mean deceleration v_n^2 / 2d; along
+  it the ground can only drag it (Coulomb's impulse). What leaves the strike keeps the rest: a 60 deg dive's wreckage has
+  no way on and lies within some 25 m; a 7 deg strike's goes on down its track at nine tenths of its speed - a piece
+  1.2 km on.
+- **Its forces.** That deceleration is handed to the damage model as an accelerometer's reading: each section whose
+  root cannot hold it breaks off, as under a flight load, and flies on as the piece it is (its own flight model), from
+  where it lay, with what the strike left it. An F-16C's dive at 233 m/s: 1,470 g, wings, nose and tail off; its
+  shallow strike at 200 m/s: 23 g, two sections.
+- **Its fuel.** Tanks hold to MIL-STD-1290's design impact (12.8 m/s into the ground) and all burst by 45 m/s; a share
+  of what spills, up to 0.4, burns at once as mist - the fireball, a `Fire` event moving with the wreckage - and the
+  rest burns on where the wreck lies until it is gone (the dive's 1,270 kg at once; the shallow strike's 210 kg, its
+  fireball drawn out down its track).
+
+A released store that strikes the ground is a strike too. It ended there without a trace; now its `Impact` is told
+before it ends, and a jettisoned tank's fuel left - the point mass the world set as it left its station - bursts and
+burns as an aircraft's does (an F-16C's three tanks let go at 400 m: three fireballs, 339 kg burnt at once; its two
+Mk 82s' bodies have no fuel to burn). Nothing of it burns on: the store is gone.
+
+The fire is the engagement's fire: NVIDIA Flow's spill and leak, its cloud of fuel stood on the surface (the solver has
+no ground). The strike itself is an `Impact` event (its angle, its energy, its load in g, the ground's normal, what
+broke) for a recording and the SDK. A live viewer is given the engagement's events as they happen - a ring of the last
+256 in the world's segment (`ipc::EngagementRing`, layout 9) - so a live world shows its detonations, fires and
+breakups as a replay does; before, only a replay did. The estimates (the crush depth from the mass alone, the ground's
+friction 0.6 and restitution 0.1, the mist's share) are said in `Impact.h`; none is fitted to a crash.
+
+The viewer needs Flow for this (`-DFSIM_FLOW_DIR`, `tools/flow/build-flow.sh`). Without it the log says "NVIDIA Flow
+not running" and the fires fall back to the earlier sphere fireballs (`--fire spheres`), which are kept only so that a
+build without Flow shows something: they are not held to anything since.
 
 ### A missile's plume held to launch photographs
 
