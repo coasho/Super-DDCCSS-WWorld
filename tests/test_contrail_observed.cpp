@@ -4,7 +4,7 @@
 // EA, the optical depth integrated over the width), how it is shared between the primary and the secondary wake, how
 // wide and deep it is - for the aircraft and air of the observations.
 #include "world/Airflow.h"
-#include "world/Detonations.h"
+#include "world/FlowFires.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -307,60 +307,29 @@ TEST_CASE("a missile's ice contrail: by its exhaust's water and heat, short in d
     CHECK(w.plumeDrop > 0.0); // its ice settles
 }
 
-TEST_CASE("a detonation's fireball and smoke against measured explosions", "[contrail-observed][detonation]") {
-    using fsim::world::Detonations;
+TEST_CASE("a detonation's and a fuel fire's fireball against measured explosions", "[contrail-observed][detonation]") {
+    namespace flowfires = fsim::world::flowfires;
     const auto near = [](double a, double b, double tol) { return std::abs(a - b) <= tol; };
     // the fireball's greatest diameter: 5.89 m for 1 kg of TNT and 12.05 m for 10 kg (high-speed photography, sea
     // level, fired at the ground: hemispheres) - in free air a sphere holding as much, 2^(-1/3) as wide; larger where
     // the air is thinner (the products expand to its pressure)
-    CHECK(near(Detonations::fireballDiameter(1.0, 101325.0) * std::cbrt(2.0), 5.89, 0.05));
-    CHECK(near(Detonations::fireballDiameter(10.0, 101325.0) * std::cbrt(2.0), 12.05, 0.25));
-    const double p6km = Detonations::pressureAt(Detonations::Air{}, 6000.0);
+    CHECK(near(flowfires::detonationDiameter(1.0, 101325.0) * std::cbrt(2.0), 5.89, 0.05));
+    CHECK(near(flowfires::detonationDiameter(10.0, 101325.0) * std::cbrt(2.0), 12.05, 0.25));
+    const double p6km = flowfires::pressureAt(flowfires::Air{}, 6000.0);
     CHECK(near(p6km, 47181.0, 470.0)); // (the standard atmosphere's)
-    CHECK(near(Detonations::fireballDiameter(8.0, p6km) / Detonations::fireballDiameter(8.0, 101325.0), std::cbrt(101325.0 / p6km), 1e-9));
-
-    // an AIM-120's warhead (8 kg of explosive) at 6 km: out to its size in milliseconds, glowing at TNT's surface
-    // temperature while it afterburns, its light gone within a fifth of a second; its soot then a puff, opaque at
-    // first, that spreads and thins
-    const double kg = 8.0;
-    const auto first = Detonations::at(kg, p6km, 0.001), grown = Detonations::at(kg, p6km, 0.03);
-    const double rMax = 0.5 * Detonations::fireballDiameter(kg, p6km);
-    CHECK(first.temperature > 3000.0);                // (the products' heat at first: the flash)
-    CHECK(grown.radius > 0.95 * rMax);
-    CHECK(near(grown.temperature, Detonations::kSurfaceK, 1e-9));
-    CHECK(Detonations::at(kg, p6km, 0.25).temperature == 0.0);
-    const auto puff = Detonations::at(kg, p6km, 1.0), later = Detonations::at(kg, p6km, 60.0);
-    const auto tau = [](const Detonations::Burst& b) { return b.smokeE / (2.0 * 3.141592653589793 * b.smokeSigma * b.smokeSigma); };
-    CHECK(tau(puff) > 3.0);                            // (black)
-    CHECK(later.smokeSigma > 2.5 * puff.smokeSigma);   // (spread: as t^(1/4), 60^(1/4) = 2.8)
-    CHECK(tau(later) < tau(puff) / 6.0);
-    CHECK_FALSE(later.gone);
-    CHECK(Detonations::at(kg, p6km, Detonations::kLongestS + 1.0).gone);
-    CHECK(Detonations::at(0.0, p6km, 0.01).radius == 0.0); // (no explosive, nothing)
-}
-
-TEST_CASE("a hit aircraft's fire: its fuel's fireball, the flame and the soot it streams", "[contrail-observed][detonation]") {
-    using fsim::world::Detonations;
-    const auto near = [](double a, double b, double tol) { return std::abs(a - b) <= tol; };
+    CHECK(near(flowfires::detonationDiameter(8.0, p6km) / flowfires::detonationDiameter(8.0, 101325.0), std::cbrt(101325.0 / p6km), 1e-9));
+    CHECK(flowfires::detonationDiameter(0.0, p6km) == 0.0); // (no explosive, nothing)
     // a fuel fireball (CCPS; Roberts 1981): 5.8 M^(1/3) m across and 0.45 M^(1/3) s long for M kg of fuel, larger in
     // thinner air as the detonation's
-    CHECK(near(Detonations::fuelFireballDiameter(1.0, 101325.0), 5.8, 1e-9));
-    CHECK(near(Detonations::fuelFireballDiameter(20.0, 101325.0), 5.8 * std::cbrt(20.0), 1e-9));
-    const double p6km = Detonations::pressureAt(Detonations::Air{}, 6000.0);
-    CHECK(near(Detonations::fuelFireballDiameter(20.0, p6km) / Detonations::fuelFireballDiameter(20.0, 101325.0), std::cbrt(101325.0 / p6km), 1e-9));
-    // 20 kg spilt at 6 km: out to its size over its first third, burning at its emissive power's temperature, out by
-    // its end; its soot left as a puff
-    const double kg = 20.0, duration = Detonations::kFuelDuration1Kg * std::cbrt(kg), rMax = 0.5 * Detonations::fuelFireballDiameter(kg, p6km);
-    const auto growing = Detonations::fuelAt(kg, p6km, duration / 12.0), grown = Detonations::fuelAt(kg, p6km, duration / 3.0);
-    CHECK(near(growing.radius, 0.5 * rMax, 1e-9)); // (as sqrt of its age)
-    CHECK(near(grown.radius, rMax, 1e-9));
-    CHECK(near(grown.temperature, Detonations::kFuelK, 1e-9));
-    CHECK(Detonations::fuelAt(kg, p6km, duration * 1.01).temperature == 0.0);
-    const auto after = Detonations::fuelAt(kg, p6km, duration);
-    CHECK(near(after.smokeE, Detonations::kFuelSootYield * kg * Detonations::kSootAbsorption, 1e-9));
-    CHECK_FALSE(after.gone);
-    CHECK(Detonations::fuelAt(0.0, p6km, 0.1).radius == 0.0);
+    CHECK(near(flowfires::ccpsDiameter(1.0, 101325.0), 5.8, 1e-9));
+    CHECK(near(flowfires::ccpsDiameter(20.0, 101325.0), 5.8 * std::cbrt(20.0), 1e-9));
+    CHECK(near(flowfires::ccpsDiameter(20.0, p6km) / flowfires::ccpsDiameter(20.0, 101325.0), std::cbrt(101325.0 / p6km), 1e-9));
+    CHECK(near(flowfires::ccpsDuration(20.0), 0.45 * std::cbrt(20.0), 1e-9));
+    CHECK(flowfires::ccpsDiameter(0.0, p6km) == 0.0);
+}
 
+TEST_CASE("a hit aircraft's fire: the flame and the soot it streams", "[contrail-observed][detonation]") {
+    const auto near = [](double a, double b, double tol) { return std::abs(a - b) <= tol; };
     // the trail: what burns each second over the metres flown in it - 2 kg/s at 220 m/s, 2.7 m^2 of soot's absorption
     // per metre of trail, from a section 1.5 m across: near opaque where it leaves (as the T-33's)
     const cocip::Shear shear{0.002, 0.0013};

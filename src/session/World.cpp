@@ -1869,6 +1869,13 @@ double World::massKg(std::uint32_t id) const {
     return e ? pool_->vehicle(e->slot).energy().massKg : std::numeric_limits<double>::quiet_NaN();
 }
 
+bool World::cgFromOriginBodyM(std::uint32_t id, double out[3]) const {
+    const Entry* e = entry(id);
+    if (!e) return false;
+    pool_->vehicle(e->slot).cgFromOriginBodyM(out);
+    return true;
+}
+
 ms::Reason World::strikeConsent(ms::ActivityId activity, bool granted) {
     Entry* e = entry(static_cast<std::uint32_t>(activity >> 32));
     return e ? e->ms.strikeConsent(activity, granted, simTime_) : ms::Reason::UnknownActivity;
@@ -2568,15 +2575,15 @@ void World::recordFrame() {
     const auto states = pool_->states();
     std::vector<std::pair<std::uint32_t, ipc::VehicleSample>> samples;
     samples.reserve(liveCount_);
+    // (a replay shows of each vehicle what a live viewer is told: its flight status - its weight, its least airspeeds,
+    // its floor, its flags - its model hung from its origin, what its engines burn)
+    fillStatus();
     for (std::size_t s = 0; s < entries_.size(); ++s) {
         if (!entries_[s]) continue;
         ipc::VehicleSample v;
         v.state = states[s];
         v.inputs = entries_[s]->inputs;
-        // (a replay draws it as a live viewer does: its model hung from its origin)
-        const auto& model = pool_->vehicle(entries_[s]->slot);
-        model.cgFromOriginBodyM(v.derived + ipc::kDerivedCgFromOriginM);
-        for (int k = 0; k < sim::VehicleState::kMaxEngines; ++k) v.derived[ipc::kDerivedFuelFlowKgS + static_cast<std::size_t>(k)] = model.engineFuelFlowKgS(k);
+        std::copy(poolStatus_[s].derived, poolStatus_[s].derived + ipc::kDerivedCount, v.derived);
         samples.emplace_back(static_cast<std::uint32_t>(s), v);
     }
 

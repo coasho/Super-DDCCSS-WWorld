@@ -16,10 +16,15 @@
 //   kSpillReleaseS along the hole's path with kSpillCarry of its speed, a cloud M^(1/3) m round of fuel kSpillFuel
 //   M^(1/3) (its burning time); its products' volume, kSpillVolume (100 / M)^0.2 of the fireball's (a fit), made in the
 //   cloud over the fireball's first third. Measured 3 - 1000 kg: diameter 0.86 - 1.05 of CCPS's, duration 0.90 - 1.10.
-// - A detonation (W kg TNT): its fireball at the photographed free-air size (world::Detonations::fireballDiameter),
-//   from a core half as wide, hot and sooty, expanding to kDetonationVolume (W / 8)^0.15 of its volume (a fit) in two
-//   steps, burning on for kDetonationBurnS W^(1/3) (an estimate: TNT's afterburning). Measured 1 - 30 kg: diameter
-//   0.88 - 0.97, duration 0.97 - 1.11 of the estimate 0.06 W^(1/3) s.
+// - A detonation (W kg TNT): its fireball at the photographed size - 5.89 m for 1 kg and 12.05 m for 10 kg in
+//   high-speed photography, fired at the ground: hemispheres, which hold the products a sphere 2^(-1/3) as wide holds
+//   in free air; larger where the air is thinner by (p0 / p)^(1/3), the products expanding to its pressure (Sachs) -
+//   from a core half as wide (wider in thin air: by kDetonationCoreByAir's power of that), hot and sooty, expanding to
+//   kDetonationVolume (W / 8)^kDetonationVolumeByMass of its volume (a fit; more in thin air, kDetonationVolumeByAir)
+//   over kDetonationGrowSteps steps, burning on for kDetonationBurnS W^(1/3) (an estimate: TNT's afterburning).
+//   Measured 1 - 30 kg and 8 kg at 6 km: diameter 0.89 - 1.03, duration 0.97 - 1.11 of the estimate 0.06 W^(1/3) s.
+//   (Fitted again 2026-10-11: until then the free-air size was taken a second 2^(-1/3) smaller than photographed -
+//   3.71 W^0.31 m for 4.67 - so a warhead's fireball was drawn at some 0.73 of its size.)
 // - A leak (R kg/s from a hole at airspeed V): a jet flame, API RP 521's length L = 0.00326 (R 43 MJ/kg)^0.478 m
 //   (a flame in still air: a stand-in for one blown back at airspeed); the hole lays lit fuel along its path, burning
 //   for what of L its swept tube does not make. Measured 5 - 20 kg/s at 100 - 200 m/s: 0.94 - 1.04 of L.
@@ -44,7 +49,11 @@ constexpr double kSpillReleaseS = 0.1;
 constexpr double kSpillCarry = 0.3;           ///< the spray's share of the hole's speed as it leaves (an estimate)
 constexpr double kSpillFuel = 0.4;            ///< per kg^(1/3)
 constexpr double kSpillVolume = 0.85;
-constexpr double kDetonationVolume = 2.4, kDetonationBurnS = 0.055, kDetonationCore = 0.5;
+constexpr double kDetonationVolume = 2.6, kDetonationBurnS = 0.055, kDetonationCore = 0.5;
+/// the fit's powers: the expansion's of W / 8 kg and of the thin air's (p0 / p)^(1/3), the core's of that; and the
+/// solver's steps the expansion is given over
+constexpr double kDetonationVolumeByMass = 0.12, kDetonationVolumeByAir = 0.8, kDetonationCoreByAir = 0.5;
+constexpr double kDetonationGrowSteps = 3.0;
 constexpr double kLeakRadiusM = 1.5;          ///< the hole's spray (an estimate: a few cells)
 constexpr double kSootYield = 0.04, kTntSoot = 0.05;
 constexpr double kSootExtinction = 9375.0;    ///< m^2 per kg of soot
@@ -53,10 +62,17 @@ constexpr double kSmokeDilution = 0.4;        ///< the smoke's share lost a seco
 constexpr double kVelocityDamping = 0.2;      ///< the gas's motion's share lost a second (an estimate)
 constexpr double kProductsM3PerKg = 102.0;    ///< a spill's fireball's volume per kg at sea level (CCPS's diameter)
 
+/// The air a fire burns in, and the wind that carries its smoke (from, deg; m/s).
+struct Air {
+    double seaLevelK = 288.15, seaLevelPa = 101325.0, windFromDeg = 0.0, windMs = 0.0;
+};
+/// The pressure (Pa) at a height in that air (the standard atmosphere from the sea level's).
+double pressureAt(const Air& air, double altitudeM);
+
 // what is observed
 double ccpsDiameter(double fuelKg, double pressurePa);
 double ccpsDuration(double fuelKg);
-double detonationDiameter(double tntKg, double pressurePa); ///< world::Detonations::fireballDiameter's
+double detonationDiameter(double tntKg, double pressurePa); ///< in free air: 5.89 W^0.31 m fired at the ground, 2^(-1/3) of it (4.67 W^0.31)
 double detonationDuration(double tntKg);                    ///< (an estimate)
 double jetFlameLength(double rateKgS);                      ///< API RP 521
 

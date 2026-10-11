@@ -248,8 +248,7 @@ added to `VehicleState` for them - after the effects DCS World shows:
 | A missile's motor: its plume - a supersonic jet out of a highly expanded nozzle (Mach 2.8 - 2.9, its exit 3 - 3.6 times sea level's pressure at full thrust), its throat white-hot seen from astern, the H2 and CO in its exhaust burning in the air round it - following the thrust: wider and longer at the boost, narrower at a sustain, gone at burn-out; under-expanded more the higher it flies; bright from its nozzle, its core holding its exit's temperature through its unresolved shock train; by its propellant: an aluminised motor's hotter (2,327 K at the exit, its alumina freezing) and its alumina dense - a white flame some 1.9 missile lengths long, widening to 3.5 diameters and closing like a tongue; a reduced-smoke motor's (1,648 K) its core's glow, its carbon burnt in its shear layer - a white core into its trail's haze, longer the higher it flies; a minimum-smoke motor's cooler and fainter. Its gas and its exhaust's composition by its propellant class through NASA's equilibrium code (CEA: [world/Propellants.h](../../src/world/Propellants.h), `tools/propellants`). Held to launch photographs ([below](#a-missiles-plume-held-to-launch-photographs)) | while it makes thrust: its model's manifest names it a `rocket` (hangar's `[motor]`), its nozzle's exit and its boost's thrust | `thrustN`, `altitudeMslM`, `airspeedTrueMs` |
 | A missile's smoke trail: white smoke laid behind its motor while it burns, spreading with the air's turbulence and the wind's shear, drifting with the wind, lit as the contrails are, gone once it can no longer be seen (optical depth 0.02). Its primary smoke from its propellant's particles - an aluminised motor's alumina (34 % of its exhaust, NASA CEA; 250 m2/kg), dense: about 1.6 across the trail behind an AIM-7M's boost at 6 km, seen for some four minutes; a reduced-smoke motor's catalysts and carbon, a haze (0.15); a minimum-smoke motor's next to nothing. Its secondary smoke - an ammonium perchlorate motor's HCl taking up the air's water into droplets - only where the air is humid enough, more readily cold than warm: none on a typical day at 6 km, a thick trail in humid air (about 16 across behind a reduced-smoke motor at 90 %; its HCl 27 % of its exhaust, an aluminised motor's 21 %, NASA CEA). The motor's mass flow from its class's specific impulse (CEA's ideal, 95 % of it delivered); where the numbers are estimates (that efficiency, the residue's share, the HCl's onset and how much of it condenses) the code says so; 0.05 ms of GPU time with the camera in the trail | while its motor makes thrust (no wake of its own: a missile's is too small to see) | `thrustN`, `airspeedTrueMs`, `altitudeMslM`, the world's humidity and wind |
 | A missile's ice contrail: where the air is cold enough, its exhaust's water freezes into a contrail in the same trail, as a jet's does - whether by the Schmidt-Appleman criterion for a rocket's exhaust (its water once its hydrogen has burnt in the air - 0.33 kg per kg of a reduced-smoke propellant, 0.29 of an aluminised one, NASA CEA - against the heat it brings the plume: its sensible heat, its afterburning and the jet's kinetic energy relative to the air - some 5.9 and 10.8 MJ/kg. The mixing line's slope at 10.5 km: a reduced-smoke motor's 2.22 Pa/K against a jet's 1.61, so it forms in air some 3 K warmer than a jet's contrail does; an aluminised motor's 1.06, so it needs colder air - on a typical day the tropopause's, not 10.5 km), how much by CoCiP's initial ice over the trail's section on the exhaust's particles, and then CoCiP's plume: on a typical day it sublimates as the trail takes in the air (an AIM-120C's sustain's for some 25 s at 10.5 km, an AIM-7M's boost's for some 70 s at 11.5 km), where the air is ice-supersaturated it persists and spreads (some 540 m wide after 15 minutes at 110 %). A reduced-smoke motor's haze becomes a dense white line (an optical depth of several across it). The crystals' number (1e15 per kg, CoCiP's for a jet's soot) is an estimate, said so in the code; no GPU time of its own (the smoke trail's draw, 0.009 ms with a trail in view at 1920 x 1080) | while its motor makes thrust, where the criterion holds | `thrustN`, `airspeedTrueMs`, `altitudeMslM`, the world's temperature and humidity |
-| A warhead's detonation (MS-7h): a flash, then a fireball glowing as the hot products burn in the air, then the black soot it leaves - a puff that billows, spreads and drifts with the wind. The fireball's greatest diameter 4.67 W^0.31 m for W kg of explosive in free air (a 1 kg TNT charge's 5.89 m and a 10 kg one's 12.05 m in high-speed photography, fired at the ground - hemispheres, which hold the products of a sphere 2^(-1/3) as wide), larger in thinner air by (p0 / p)^(1/3) (the products expand to the air's pressure): an AIM-120's 8 kg some 11.5 m across at 6 km, a Sidewinder's some 8 m at 4 km (the China Lake photographs' white flash some 5 m, a halo round it); near TNT's measured surface temperature, 2,000 K, while it afterburns, its light Planck's at its temperature against the sun's disk in the atmosphere's own units, then cooling - gone within a fifth of a second; its soot (5 % of the charge, an estimate) absorbing 7.5 m2/g (fresh soot, Bond and Bergstrom 2006) with an albedo of 0.2 (a little higher in the red: brown-black), reflecting as an absorbing half-space does - 5.6 % of the sky's light, so near black as the test photographs show it (an AIM-54's, a Sidewinder's on a QT-33), not grey - a Gaussian puff the fireball's size growing as a decaying turbulent puff (t^(1/4)), lit as the contrails are (world/Detonations.h; assets/clouds/shaders/detonation.frag). Its timing and the soot's share and growth are estimates, said so; its fragments are not drawn. 0.6 - 0.75 ms of GPU time with the puff filling much of a 3840 x 2160 screen from 60 m (shaded 2 x 2 pixels a fragment there, as the contrails are; 3.4 ms a pixel each), far less from further off. Its aerial perspective is bounded by the path's own transmittance: over tens of metres the atmosphere's tables gave a blue wash (their interpolation's error), which turned the black puff grey | an engagement event (a recording's `V` record: MS-7d's fuze writes it; a showcase's `--detonate-s` now), its explosive's mass | `EngagementEvent`: where, when, `amountKg`; the world's air and wind |
-| An engagement's fire and smoke solved as a fluid (MS-7h; with Flow built - `FSIM_FLOW_DIR` - the default, `--fire spheres` for the row above): NVIDIA Flow 2's combustion solver on its own Vulkan device, its sources a detonation's charge, a holed tank's spill and the leak burning on from its component along the hole's path, held to CCPS's fuel fireballs, the photographed TNT fireballs and API RP 521's jet flames (`flightsim-flow-calibrate check`: 12 cases within 15 % of their size, 20 % of their duration); its smoke and temperature read back each frame, packed as bricks in a 3D texture, drawn page by page (32 m) as radiative transfer through soot with the atmosphere's light - the flame at CCPS's 1,600 K, soot near black. The solver's near field: a leak's smoke thins in some 8 s (world/FlowFires.h, world/FlowVolumes.h; assets/clouds/shaders/flow.frag). 130 - 158 fps at 3840 x 2160 through the AIM-120C showcase's burst and two 5 kg/s leaks; the solver 2.5 - 3.5 ms of GPU, the packing 1.5 - 2 ms of CPU | the engagement's Detonation and Fire events (a fire's `rateKgS` as it changes), the burning component's place on the drawn vehicle | `EngagementEvent`; the vehicles as drawn; the world's air and wind |
+| An engagement's fire and smoke solved as a fluid (MS-7h): NVIDIA Flow 2's combustion solver on its own Vulkan device - the one way a detonation, a fuel fireball and a burning leak are drawn (the fireballs pieced from spheres are gone, 2026-10-11: no `--fire` option, and a viewer cannot be built without Flow). Its sources: a warhead's charge - its fireball the photographed one, 5.89 m for 1 kg of TNT and 12.05 m for 10 kg fired at the ground, in free air a sphere holding as much (4.67 W^0.31 m), larger in thin air by (p0 / p)^(1/3): an AIM-120's 8 kg some 11.5 m across at 6 km - a holed tank's spill (CCPS's fireball) and the leak burning on from its component along the hole's path (API RP 521's jet flame), each held to its observation by `flightsim-flow-calibrate check`: 12 cases, sizes within 15 %, durations within 20 % (a detonation's 0.89 - 1.03 of the photographed diameter; until 2026-10-11 it was fitted to a size a second 2^(-1/3) smaller, and drawn at 0.73 of it). The solver has a thread of its own and is given each of its steps as it falls due - 60 a second, each with its sources where they are then, as the calibration steps it (given a step a frame, a leak's flame at 160 frames a second was 0.85 of its length and half its smoke) - its smoke and temperature read back each step, packed as bricks in a 3D texture, drawn page by page (32 m) as radiative transfer through soot with the atmosphere's light - the flame at CCPS's 1,600 K, soot near black. The solver's near field: a leak's smoke thins in some 8 s; once nothing burns and nothing is left of it the solver rests (world/FlowFires.h, world/FlowVolumes.h; assets/clouds/shaders/flow.frag). Its cost: [the frame rate](#the-frame-rate) | the engagement's Detonation and Fire events (a fire's `rateKgS` as it changes), the burning component's place on the drawn vehicle | `EngagementEvent`; the vehicles as drawn; the world's air and wind |
 | A hit aircraft (MS-7g's damage chain, MS-7h): what the world's damage made of it - its holed tanks' fires streaming from where they are on it (the flame its soot hot, glowing as much as it absorbs, its temperature fluctuating 20 % rms with the eddies as a turbulent fire's does - bright patches over a darker mean, the mean the black body's of a jet fire's 250 kW/m2 - then its black smoke, soot per metre the leak's over the airspeed), a spill's fuel fireball (CCPS: 5.8 M^(1/3) m across, 0.45 M^(1/3) s long, 350 kW/m2, released over 0.15 s from the moving aircraft as five lobes along its path - the QF-4B's fireball, stretched aft), the sections that failed gone from it, each a piece of its own tumbling down (its aircraft's model, its section alone) | the engagement's events (`Fire` with its rate and spill, `Separated`) and the pieces' states in their own slots (type `debris:<aircraft>:<section>`), as the world (World::detonate, its damage stepped) or a showcase's world run writes them | `EngagementEvent`; the pieces' `VehicleState`s; the model's breakup sections (fsim:section:<name>) |
 | Heat haze: the scene behind an engine's exhaust bent and shimmering | whenever an engine runs, idle included: the hot gas's index of refraction (Gladstone and Dale, n = 1 + 2.26e-4 m3/kg x its density) - its mean profile across the jet's mixing layer a lens, its eddies' density fluctuations (rms 15 % of the deficit) the shimmer, each ray turned by the gradient integrated along it (the eddies' turns adding as a random walk over the eddies a ray crosses, as long along it as they are drawn: streaked down the jet); the lens a pixel or two near the nozzle at a normal field of view, as the physics gives, the shimmer drawn 8 times what the eddies give (as given, 0.05 px a frame at a 40 m chase: an engine flying showed nothing) - an Su-57 seen from 25 m astern shimmers 0.3 px over its nozzles at idle, 0.7 px at military power, the turbine and flameholders up its nozzles moving behind it; seen against the airframe, the ground and the horizon, not against a clear sky | `engineN2`, `afterburner`, `altitudeMslM`, `airspeedTrueMs` |
 | Wing tip vortices: thin tubes trailing from the tips, laid in the air the aircraft flew through (straight in level flight, curving through a turn, a corkscrew in a roll), rolling inboard, sinking, swelling and thinning until they no longer fog | where the vortex's core expands the air past its dew point: its circulation is the wing's lift (DATCOM's lift slope over the model's own planform, Polhamus's vortex lift) over the airspeed, a Scully vortex round a core a few per cent of the span across - a hard pull at speed in humid air; a roll loads the downgoing wing, a sideslip the windward one | `alphaRad`, `betaRad`, `airspeedTrueMs`, `angularRateBodyRadS`, `flapsRad`, `altitudeMslM` |
@@ -343,9 +342,10 @@ broke) for a recording and the SDK. A live viewer is given the engagement's even
 breakups as a replay does; before, only a replay did. The estimates (the crush depth from the mass alone, the ground's
 friction 0.6 and restitution 0.1, the mist's share) are said in `Impact.h`; none is fitted to a crash.
 
-The viewer needs Flow for this (`-DFSIM_FLOW_DIR`, `tools/flow/build-flow.sh`). Without it the log says "NVIDIA Flow
-not running" and the fires fall back to the earlier sphere fireballs (`--fire spheres`), which are kept only so that a
-build without Flow shows something: they are not held to anything since.
+The viewer draws no fire without Flow, and is not built without it: its headers and its two libraries are in
+`third_party/flow` (2.2.0, built by `tools/flow/build-flow.sh`), so a clone has them; `-DFSIM_FLOW_DIR` names another
+built checkout. Should its libraries be missing beside the viewer at run time, the log says so as an error ("no fire
+solver ... NOT drawn") - nothing stands in for it.
 
 ### A missile's plume held to launch photographs
 
@@ -681,6 +681,70 @@ fetched (OpenStreetMap's land polygons, a 0.9 GB download from osmdata.openstree
 same run, and the changed tiles' originals are kept in the backup directory):
 
     python tools/ocean_map/sea_mask_tiles.py land_polygons.shp assets/maps/s3.amazonaws.com/elevation-tiles-prod/terrarium terrarium-backup
+
+## The frame rate
+
+The target is the display's refresh at its full size: 160 frames a second at 3840 x 2160, fullscreen, with the fire
+solver running - and never by drawing less. `tools/viewer_perf/viewer_perf.py` holds four scenes to it, each a world
+the simulation flies (or a recording of one) drawn by `flightsim-viewer --stats`:
+
+| Scene | What it is |
+| --- | --- |
+| fleet | all 35 aircraft with their loads, line abreast at 3,000 m, turning together; the camera 900 m off |
+| strike | an F-16C flown into the sea at 60 deg and 233 m/s: 1,270 kg of fuel a fireball, then the fire that burns on; the camera 160 m off |
+| hit | a MiG-29A hit from its left by an AIM-120C: the burst, the spilt fuel's fireball, a 5 kg/s leak burning down its path, its sections parting; the camera 70 m off |
+| reheat | an F-16C in full reheat through the transonic from 35 m: its flame, its shock train, its vapour cone |
+
+A scene passes when, after its first five seconds, every second's mean rate is within 1 % of the target and no frame
+took more than two refresh intervals (12.5 ms). `--stats` prints, each second, the frames' median and 99th percentile
+and how many took longer than `--stats-budget`. The picture is held with the rate: `viewer_perf.py --shots <label>`
+replays each scene's recording on its own clock and saves frames at fixed times of it, `--compare` sets two such sets
+side by side - what moves from run to run in one viewer (the clouds' temporal noise, the fire's turbulence: up to
+0.9 % and 5 % of a frame's pixels more than 8 of 255 apart) is the floor a change is read against.
+
+Measured 2026-10-11 on an RTX 5070 Ti, the sun at midday (`before`: the viewer at 12fb394):
+
+| Scene | | fps (mean) | lowest second | worst frame, ms | frames over 12.5 ms | the viewer's passes on the GPU, ms | the frame's thread outside the draw, ms |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| fleet | before | 142.0 | 105.2 | 27.7 | 15 of 4988 | 6.07 | 0.35 |
+|  | now | 160.0 | 159.5 | 18.0 | 1 of 5619 | 3.81 | 0.34 |
+| strike | before | 143.9 | 114.5 | 123.8 | 6 of 3031 | 5.40 | 2.91 |
+|  | now | 159.0 | 146.3 | 12.9 | 3 of 3349 | 3.72 | 0.10 |
+| hit | before | 154.2 | 119.0 | 18.9 | 6 of 4490 | 3.72 | 3.72 |
+|  | now | 160.0 | 158.0 | 19.0 | 2 of 4653 | 2.46 | 0.15 |
+| reheat | before | 160.0 | 159.9 | 7.8 | 0 of 3373 | 4.03 | 0.11 |
+|  | now | 160.0 | 160.0 | 7.2 | 0 of 3377 | 3.97 | 0.11 |
+
+What changed, none of it what is drawn:
+
+- **The gas round the aircraft is marched only where it can be.** The vapour's and the exhausts' march ran every
+  pixel of the window through every aircraft's box - 8.3 million rays at 3840 x 2160, each looking for 40 boxes, to
+  find nothing over most of the screen: 2.7 ms with the fleet in view. Each box's outline on the window is now worked
+  out (a ray meets a box only inside it), the march runs over the rectangle round them and looks for each box only
+  inside its own outline, and the composite lays it on only there: 0.35 ms, the same picture (the texels the
+  composite's filter reads round the outlines are still marched).
+- **The fire solver has a thread of its own** (world::FlowVolumes). Its recording, its readback and the packing of
+  its fields into the texture were in the frame - 3 to 7 ms of the frame's thread with a fireball, spikes to 28 ms -
+  and a brick texture of 12 MB was packed again every frame whether or not the solver had stepped. The frame's thread
+  now gives the solver its steps and takes the newest packed fields: 0.01 ms.
+- **A piece of a broken aircraft shares its aircraft's model.** Each piece read and compiled the whole model file
+  again as it broke off: a frame of 100 to 124 ms at a ground strike. The file is read once.
+- **The leaves' hash is an eighth full** (it was half), and a ray keeps the leaf its last sample was in: fewer looks
+  a sample in the fire's march.
+
+What is left, and why:
+
+- **A large fireball's peak.** For the two seconds a 1.27 t fuel fireball is at its largest and fills a quarter of
+  the screen, the rate is 146 to 150: its march costs 3 ms of the GPU then, and the solver - 2.4 to 4.4 ms of the
+  same GPU a step for a fire that size, sixty steps a second, measured alone - has to share it. Both are what they
+  were: the march's steps and the solver's half-metre cells are the picture's detail and are not coarsened for the
+  rate. A warhead's burst with a burning leak (the hit) holds 160.
+- **The solver's steps land in some frames.** With several thousand leaves alive a step takes 5 to 7 ms of the GPU
+  as the two take turns, and the frame it lands in is late: a few frames a second of 9 to 13 ms through the strike's
+  fire. The driver gives neither device a priority over the other (VK_KHR_global_priority: a higher one for the
+  frame's queue is refused without elevation, a lower one for the solver's changed nothing - tried and taken out).
+- **A first use.** The first time a kind of thing is drawn - a missile leaving its rail, the vapour at a first turn -
+  one frame takes 13 to 19 ms; the second time, in the same run, none does.
 
 ## Screenshots
 

@@ -2026,6 +2026,19 @@ int main(int argc, char** argv) {
             fsim_performance_init(&perf);
             CHECK(perf.struct_size == sizeof perf);
             CHECK(fsim_vehicle_performance(world, a, &perf) == FSIM_OK && perf.hovers == 0 && perf.max_bank_rad > 0.0);
+            /* ABI 1.68: its load's limits - the least airspeed a command may ask is 1.1 times its least, at its weight now */
+            /* (an aircraft with no envelope of its own has no least airspeed: both are NaN) */
+            CHECK(perf.min_cas_ms != perf.min_cas_ms ? perf.least_cas_ms != perf.least_cas_ms
+                                                     : fabs(perf.least_cas_ms - 1.1 * perf.min_cas_ms) < 1e-9);
+            CHECK(perf.load_speed_ratio >= 1.0 && perf.load_kg == perf.load_kg);
+            {
+                /* a caller built before them gives the size it knows: nothing is written past it */
+                fsim_performance old;
+                memset(&old, 0, sizeof old);
+                old.struct_size = (uint32_t)offsetof(fsim_performance, least_cas_ms);
+                old.least_cas_ms = -7.0;
+                CHECK(fsim_vehicle_performance(world, a, &old) == FSIM_OK && old.max_bank_rad == perf.max_bank_rad && old.least_cas_ms == -7.0);
+            }
             CHECK(fsim_vehicle_performance(world, 999, &perf) != FSIM_OK);
             /* a loop's parameter changed: the performance computed afresh, and the revision counts it */
             CHECK(fsim_vehicle_controller_parameter(world, a, FSIM_LEVEL_VELOCITY, "max_bank", &bank0) == FSIM_OK);

@@ -4,6 +4,7 @@ import html
 import json
 import os
 import time
+from ..files import open_write
 
 STAGE_TITLES = {"geometry": "Geometry", "aero": "Aerodynamics", "mass": "Mass and balance", "propulsion": "Propulsion",
                 "build": "JSBSim aircraft", "verify": "JSBSim flies the tables", "fly": "Flight tests",
@@ -72,6 +73,6 @@ figure{margin:12px 0}img{max-width:100%%;height:auto;border:1px solid var(--line
 </style></head><body>%s%s<p class=when>hangar, %s</p></body></html>""" % (html.escape(d.name), head, "".join(parts),
                                                                            time.strftime("%Y-%m-%d %H:%M"))
     path = os.path.join(d.out, "report.html")
-    with open(path, "w", encoding="utf-8") as f:
+    with open_write(path, "w", encoding="utf-8") as f:
         f.write(page)
     return path

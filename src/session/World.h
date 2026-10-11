@@ -502,6 +502,9 @@ public:
     /// The vehicle's whole mass as its flight model last worked it out (kg; its fuel and stores among it): a load shows
     /// after the next step. NaN if unknown.
     double massKg(std::uint32_t id) const;
+    /// Where its CG is now from its model's origin (body axes x forward, y right, z down; m): what its picture is hung
+    /// back by from its state's position. False: no such vehicle (out left alone).
+    bool cgFromOriginBodyM(std::uint32_t id, double out[3]) const;
 
     // --- Weapons in flight and the radio path (ADR-30, MS-2) ------------------------
     /// Release a store from an aircraft: a new entity at its station, with its velocity, attitude and the

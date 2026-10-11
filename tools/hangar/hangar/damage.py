@@ -30,6 +30,7 @@ import json
 import math
 
 import numpy as np
+from .files import open_write
 
 G0 = 9.80665
 PANEL_SPAN = 1.5      # m: the widest skin panel along a surface's span
@@ -423,6 +424,6 @@ def write(aircraft, path, origin, model=None):
         with open(path, encoding="utf-8") as f:
             if f.read() == text:
                 return data  # (as it was: the file left alone)
-    with open(path, "w", encoding="utf-8", newline="\n") as f:
+    with open_write(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
     return data

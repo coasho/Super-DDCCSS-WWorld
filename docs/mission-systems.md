@@ -663,6 +663,10 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   noise: an engagement's fire and smoke are now solved by NVIDIA Flow 2.2 (BSD-3, NVIDIA-Omniverse/PhysX `flow/`, pinned
   at 6dc5358; built by `tools/flow/build-flow.sh`, configured with `FSIM_FLOW_DIR` - optional, not in the default
   build), a real-time sparse-voxel combustion solver, on its own Vulkan device (world::FlowSolver, its C interface).
+  (2026-10-11: the sphere fireballs - world::Detonations, `--fire spheres` - are removed; Flow's headers and libraries
+  are in `third_party/flow` and a viewer is not built without them; the solver runs on a thread of its own, stepped
+  at its own rate; a warhead's fireball is fitted to the photographed size, which it was 27 % under:
+  [sdk/viewer.md](sdk/viewer.md#effects).)
   - Its sources are the damage chain's events (world/FlowFires.h): a warhead's detonation, a holed tank's spill, and
     the leak burning on from its component, laid along the hole's path as the aircraft flies; held to what is observed
     of fires - CCPS's fuel fireballs (Roberts 1981: diameter 5.8 M^(1/3) m, 0.45 M^(1/3) s), the photographed TNT

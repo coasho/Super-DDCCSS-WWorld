@@ -55,11 +55,21 @@ double along(const FlowSolver::Sphere& s, const double moved[3], std::uint64_t l
 
 } // namespace
 
+double pressureAt(const Air& air, double altitudeM) {
+    // the standard atmosphere's troposphere and lower stratosphere, from the day's sea level
+    const double h = std::max(altitudeM, -500.0);
+    const double T0 = air.seaLevelK, lapse = 0.0065, g = 9.80665, R = 287.053;
+    const double tropopause = 11000.0;
+    if (h <= tropopause) return air.seaLevelPa * std::pow(1.0 - lapse * h / T0, g / (R * lapse));
+    const double p11 = air.seaLevelPa * std::pow(1.0 - lapse * tropopause / T0, g / (R * lapse));
+    return p11 * std::exp(-g * (h - tropopause) / (R * (T0 - lapse * tropopause)));
+}
+
 double ccpsDiameter(double fuelKg, double pressurePa) { return 5.8 * std::cbrt(std::max(fuelKg, 0.0)) * thinner(pressurePa); }
 double ccpsDuration(double fuelKg) { return 0.45 * std::cbrt(std::max(fuelKg, 0.0)); }
 double detonationDiameter(double tntKg, double pressurePa) {
-    // (world::Detonations: 4.67 W^0.31 m fired at the ground, 2^(-1/3) of it in free air)
-    return 4.67 / std::cbrt(2.0) * std::pow(std::max(tntKg, 0.0), 0.31) * thinner(pressurePa);
+    // (5.89 W^0.31 m fired at the ground - a hemisphere - and 2^(-1/3) of it in free air: 4.67 W^0.31 m)
+    return 5.89 / std::cbrt(2.0) * std::pow(std::max(tntKg, 0.0), 0.31) * thinner(pressurePa);
 }
 double detonationDuration(double tntKg) { return 0.06 * std::cbrt(std::max(tntKg, 0.0)); }
 double jetFlameLength(double rateKgS) { return 0.00326 * std::pow(std::max(rateKgS, 0.0) * 43.0e6, 0.478); }
@@ -87,13 +97,14 @@ bool detonation(double tntKg, const double at[3], const double drift[3], double 
     if (!(tntKg > 0.0) || age > burn || age < -dt) return age <= burn;
     const double R = 0.5 * detonationDiameter(tntKg, pressurePa);
     FlowSolver::Sphere s;
-    s.radius = std::max(kDetonationCore * R, 1.0);
+    s.radius = std::max(kDetonationCore * std::pow(thinner(pressurePa), kDetonationCoreByAir) * R, 1.0);
     for (int a = 0; a < 3; ++a) s.at[a] = at[a] + drift[a] * std::max(age, 0.0), s.velocity[a] = drift[a];
     s.velocityRate = kRate;
     s.temperature = 1.0, s.temperatureRate = kRate;
     s.smoke = soot(kTntSoot * tntKg, sphereVolume(R)), s.smokeRate = kRate;
-    if (age < 2.0 * kStepS) {
-        s.divergence = kDetonationVolume * std::pow(tntKg / 8.0, 0.15) * sphereVolume(R) / (2.0 * kStepS) / sphereVolume(s.radius);
+    if (age < kDetonationGrowSteps * kStepS) {
+        s.divergence = kDetonationVolume * std::pow(tntKg / 8.0, kDetonationVolumeByMass) * std::pow(thinner(pressurePa), kDetonationVolumeByAir) *
+                       sphereVolume(R) / (kDetonationGrowSteps * kStepS) / sphereVolume(s.radius);
         s.divergenceRate = kRate;
     }
     s.luid = luid;

@@ -24,6 +24,7 @@ import os
 import numpy as np
 
 from ..applicability import references_xml
+from ..files import open_write
 
 N_PER_LBF, M_PER_FT, KG_PER_SLUG, LB_PER_KG = 4.448222, 0.3048, 14.593903, 2.204623
 RPM_PER_RADS = 60 / (2 * math.pi)
@@ -130,7 +131,7 @@ def write(spec, out_dir, profile_xml=""):
     r, m = spec["rotors"], spec["mass"]
     t_max = kT * wmax ** 2
     weight = m["mass_kg"] * 9.80665
-    with open(os.path.join(out_dir, "Engines", name + "_motor.xml"), "w", encoding="utf-8", newline="\n") as f:
+    with open_write(os.path.join(out_dir, "Engines", name + "_motor.xml"), "w", encoding="utf-8", newline="\n") as f:
         f.write("""<?xml version="1.0"?>
 <!-- a motor and its rotor as JSBSim sees them: an electric engine whose power is the thrust (a
      direct thruster's thrust is its engine's power in ft lb/s), metered by the flight control
@@ -139,7 +140,7 @@ def write(spec, out_dir, profile_xml=""):
   <power unit="WATTS"> %s </power>
 </electric_engine>
 """ % (_f(t_max), name, _f(t_max / N_PER_LBF * 745.7 / 550.0)))
-    with open(os.path.join(out_dir, "Engines", name + "_rotor.xml"), "w", encoding="utf-8", newline="\n") as f:
+    with open_write(os.path.join(out_dir, "Engines", name + "_rotor.xml"), "w", encoding="utf-8", newline="\n") as f:
         f.write('<?xml version="1.0"?>\n<direct name="%s rotor"/>\n' % name)
     battery = spec.get("battery")
     if battery:
@@ -312,7 +313,7 @@ def write(spec, out_dir, profile_xml=""):
            w3=" ".join("<pow> <property> fcs/%s/omega[%d] </property> <value> 3 </value> </pow>" % (name, i) for i in range(len(rows))))
                     ) if battery else "",
            yaw=" ".join(yaw), drag=drag, ge=ground_effect)
-    with open(os.path.join(out_dir, name + ".xml"), "w", encoding="utf-8", newline="\n") as f:
+    with open_write(os.path.join(out_dir, name + ".xml"), "w", encoding="utf-8", newline="\n") as f:
         f.write(xml)
     return dict(kT=kT, kQ=kQ, omega_max=wmax, thrust_max_n=t_max, hover=weight / 4 / t_max,
                 hover_rpm=math.sqrt(weight / 4 / kT) * RPM_PER_RADS, thrust_to_weight=4 * t_max / weight,

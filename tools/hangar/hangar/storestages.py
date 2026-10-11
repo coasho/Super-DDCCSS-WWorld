@@ -43,6 +43,7 @@ import tomllib
 
 from . import pipeline
 from .pipeline import check, info
+from .files import open_write
 
 DEFAULT = ("geometry", "aero", "mass", "propulsion", "build", "model", "verify", "fly", "report")
 NOT_A_STORES = {"calibrate": "it has no published performance to fit", "autopilot": "it has no control loops",
@@ -778,7 +779,7 @@ def main(argv):
     if target:
         path = target if os.path.isabs(target) else os.path.join(pipeline.repo_root(), target)
         pipeline.write_text(path, record_text(rows, stages, forced, jobs))
-        with open(os.path.splitext(path)[0] + ".json", "w", encoding="utf-8", newline="\n") as f:
+        with open_write(os.path.splitext(path)[0] + ".json", "w", encoding="utf-8", newline="\n") as f:
             json.dump({"stages": stages, "forced": forced, "jobs": jobs, "stores": rows}, f, indent=1)
             f.write("\n")
         print("recorded: %s" % pipeline.shown(path))

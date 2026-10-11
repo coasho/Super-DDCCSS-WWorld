@@ -1205,6 +1205,11 @@ typedef struct fsim_performance {
     double max_tilt_rad, max_acceleration_ms2, max_deceleration_ms2; /* a rotorcraft's */
     double max_climb_ms, max_descent_ms;                             /* what guidance asks for */
     double altitude_gain_per_s, heading_gain, heading_reference_tas_ms, bank_rate_rad_s, velocity_bandwidth_rad_s; /* how fast it answers */
+    /* ABI 1.68, where struct_size reaches them: its load now (docs/vehicle-interface.md, 7.3) */
+    double least_cas_ms;     /* the least calibrated airspeed a command may ask, at the weight it has now: a lesser one is
+                                clamped to it or refused "performance_limit" (NaN: it has none) */
+    double load_speed_ratio; /* what its least airspeeds are multiplied by for the weight it carries now (1 at least) */
+    double load_kg;          /* what it weighs beyond its performance tables' weight with the fuel now on board, kg */
 } fsim_performance;
 FSIM_API void fsim_performance_init(fsim_performance* performance);
 FSIM_API int fsim_vehicle_performance(fsim_world* world, uint32_t id, fsim_performance* out);

@@ -1,7 +1,7 @@
 {
  "aircraft": "e7a",
  "load": "full",
- "date": "2026-10-10",
+ "date": "2026-10-11",
  "phases": {
   "takeoff": {
    "mass_spawned_kg": 60341.186,

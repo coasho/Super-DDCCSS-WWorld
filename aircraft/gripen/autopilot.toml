@@ -1,20 +1,20 @@
-# Written by hangar autopilot (2026-09-26 00:39) for gripen.toml: the aircraft's responses to its
+# Written by hangar autopilot (2026-10-11 04:16) for gripen.toml: the aircraft's responses to its
 # controls, identified at a reference condition (docs/hangar.md, The autopilot). The
 # build writes them into the JSBSim aircraft's plant section; the platform designs its
 # control loops from them. Delete this file to fly the platform's shared defaults.
 [reference]   # where they were measured
 tas_ms = 140.016
-eas_ms = 122.237
+eas_ms = 122.653
 altitude_m = 3000
 
 [identified]   # the responses at the reference: per unit of aileron (roll rate, rad/s), elevator (load factor,
                # g), rudder (sideslip, rad) and throttle (acceleration, m/s2), each with its lag (s); level
                # flight's throttle, a surface-controlled aircraft's trim law, the zero-lift angle of attack
-roll = { gain = 4.34675, lag_s = 0.157969 }
-pitch = { gain = 10.2822, lag_s = 1.00372 }
-yaw = { gain = 0.00520127 }
-speed = { gain = 5.62236, lag_s = 0.15887 }
-throttle_trim = 0.330104
+roll = { gain = 4.4427, lag_s = 0.165206 }
+pitch = { gain = 11.2274, lag_s = 1.14132 }
+yaw = { gain = 0.0518625 }
+speed = { gain = 5.62087, lag_s = 0.15887 }
+throttle_trim = 0.329747
 elevator_trim = 0.0
 elevator_trim_lift = 0.0
-alpha_zero_lift_rad = -0.00810588
+alpha_zero_lift_rad = -0.0121938

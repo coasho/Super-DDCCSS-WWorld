@@ -128,7 +128,24 @@ struct Sensors::Impl {
             const std::size_t s = slotFor(v);
             if (s < seen.size()) {
                 seen[s] = 1;
+                // its picture hangs from its model's origin, its CG's place back from the position - as the viewer's
+                // (ipc::originEcef): its stores are then on their stations where the simulation releases them
                 states[s] = v.state();
+                const std::array<double, 3> cg = v.cgFromModelOriginM();
+                const double* R = states[s].rotationBodyToEcef; // (row-major: its columns the body's axes)
+                for (int r = 0; r < 3; ++r) states[s].positionEcef[r] -= R[r * 3 + 0] * cg[0] + R[r * 3 + 1] * cg[1] + R[r * 3 + 2] * cg[2];
+                // and what it carries: each store on its station while it is on it, its bay's doors as they stand
+                std::vector<world::VehicleVisuals::Carried> carried;
+                std::vector<std::pair<int, double>> doors;
+                for (const ms::StoreInfo& store : v.stores()) {
+                    doors.emplace_back(store.station, store.bayDoors);
+                    if (!*store.store || store.status == ms::StoreStatus::Releasing || store.status == ms::StoreStatus::Released ||
+                        store.status == ms::StoreStatus::Jettisoned)
+                        continue;
+                    carried.push_back({store.station, world::VehicleVisuals::storeType(store.store)});
+                }
+                visuals->setStores(s, carried);
+                visuals->setBayDoors(s, doors);
             }
         }
         for (std::size_t s = 0; s < slotVehicle.size(); ++s)

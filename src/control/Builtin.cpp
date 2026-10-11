@@ -913,7 +913,11 @@ Reason admitAerobatics(const BehaviorCommand& c, const sim::VehicleState& s, con
     const int manoeuvre = static_cast<int>(c.param("manoeuvre", 1.0));
     const double n = std::max(c.param("load_factor_g", 3.5), 1.0);
     const bool overTheTop = manoeuvre == AerobaticBehavior::Loop || manoeuvre == AerobaticBehavior::Immelmann;
-    const double needed = perf.minCasMs * (overTheTop ? 2.0 : std::sqrt(n));
+    // the airspeed its pull needs: twice its least over the top, sqrt(n) of it for a split-S's half loop at n g. An
+    // aileron roll has no pull - it is flown at 0.9 g (AerobaticBehavior::update) - and needs what any command does,
+    // the least airspeed with its margin: judged by the loop's 3.5 g it asked 1.87 times the least, which a Mirage
+    // 2000 at its cruise had by 0.1 m/s, or lacked by 0.6, as its stall speed came out of its design's build
+    const double needed = manoeuvre == AerobaticBehavior::AileronRoll ? perf.leastCasMs() : perf.minCasMs * (overTheTop ? 2.0 : std::sqrt(n));
     if (s.airspeedCalibratedMs < needed) {
         detail.constraint = Constraint::MinAirspeed;
         return Reason::PerformanceLimit;

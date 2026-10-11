@@ -24,6 +24,7 @@
 #include "fsim/VehicleProfile.h"
 #include "fsim/VehicleState.h"
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <limits>
@@ -402,6 +403,12 @@ public:
     std::optional<ms::StrikeStatus> strikeStatus(ms::ActivityId activity) const;
     /// Its whole mass as its flight model last worked it out (kg; fuel and stores among it).
     double massKg() const;
+    /// Where its centre of gravity is now from its model's origin - its empty CG, what its picture, its stations and
+    /// its parts are measured from - in body axes (x forward, y right, z down; m). Its state's position is its CG's,
+    /// which moves in the airframe as its fuel burns and its stores leave: a picture of it is hung this far back from
+    /// the position (the viewer does, and the camera sensors), so a store is drawn on its station where the simulation
+    /// releases it.
+    std::array<double, 3> cgFromModelOriginM() const;
     /// What the vehicle knows about its aircraft: identity, effectors, envelope,
     /// propulsion, plant, performance, control (docs/control-architecture.md, 7).
     const control::VehicleProfile& profile() const;

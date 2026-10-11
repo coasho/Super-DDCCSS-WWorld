@@ -840,7 +840,9 @@ bool VehicleVisuals::applyManifest(Settings& settings) {
 }
 
 vsg::ref_ptr<vsg::Node> VehicleVisuals::loadModel(const Settings& s, vsg::ref_ptr<vsg::Options> options) const {
-    auto node = vsg::read_cast<vsg::Node>(s.modelPath, options);
+    vsg::ref_ptr<vsg::Node>& read = files_[s.modelPath];
+    if (!read) read = vsg::read_cast<vsg::Node>(s.modelPath, options);
+    vsg::ref_ptr<vsg::Node> node = read;
     if (!node) {
         LOG_WARN("world") << "could not load vehicle model '" << s.modelPath << "', using placeholder";
         return {};

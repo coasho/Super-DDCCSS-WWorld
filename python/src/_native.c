@@ -3077,7 +3077,7 @@ static PyObject* world_set_availability_ex(PyObject* o, PyObject* const* args, P
     Py_RETURN_NONE;
 }
 
-/* performance(id) -> (revision, hovers, 23 floats in fsim_performance's order) */
+/* performance(id) -> (revision, hovers, 26 floats in fsim_performance's order) */
 static PyObject* world_performance(PyObject* o, PyObject* const* args, Py_ssize_t n) {
     WorldObject* self = (WorldObject*)o;
     uint32_t id;
@@ -3085,10 +3085,11 @@ static PyObject* world_performance(PyObject* o, PyObject* const* args, Py_ssize_
     if (!check_args(n, 1, 1, "performance") || !as_u32(args[0], &id)) return NULL;
     fsim_performance_init(&p);
     if (fsim_vehicle_performance(self->world, id, &p) != FSIM_OK) return fail();
-    return Py_BuildValue("(Iiddddddddddddddddddddddd)", p.revision, p.hovers, p.min_cas_ms, p.max_cas_ms, p.max_mach, p.max_tas_ms, p.cruise_tas_ms,
+    return Py_BuildValue("(Iidddddddddddddddddddddddddd)", p.revision, p.hovers, p.min_cas_ms, p.max_cas_ms, p.max_mach, p.max_tas_ms, p.cruise_tas_ms,
                          p.max_ground_speed_ms, p.ceiling_m, p.max_bank_rad, p.min_pitch_rad, p.max_pitch_rad, p.max_roll_rate_rad_s, p.min_load_factor,
                          p.max_load_factor, p.max_tilt_rad, p.max_acceleration_ms2, p.max_deceleration_ms2, p.max_climb_ms, p.max_descent_ms,
-                         p.altitude_gain_per_s, p.heading_gain, p.heading_reference_tas_ms, p.bank_rate_rad_s, p.velocity_bandwidth_rad_s);
+                         p.altitude_gain_per_s, p.heading_gain, p.heading_reference_tas_ms, p.bank_rate_rad_s, p.velocity_bandwidth_rad_s,
+                         p.least_cas_ms, p.load_speed_ratio, p.load_kg);
 }
 
 /* control_revision(id) -> int */

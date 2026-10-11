@@ -195,6 +195,13 @@ constexpr std::uint32_t kMaxFlames = 32, kFlameRows = 5;
 // (as the exhaust's own box had them, afterburner-batch.ts: the detail by distance, the near steps shared out past
 // a share of the screen, too small to read below a share of its height)
 constexpr double kDetailDistance = 900.0, kCheapDistance = 3000.0, kPlumeStepArea = 0.3, kMinScreenFraction = 0.001;
+// The Screen block's rows before the boxes' outlines (screen, info, the inverse projection's four, depth terms, the
+// march's region, the composite's), and what the outlines and the regions are widened by: a pixel round an outline
+// (its corners' rounding), kRegionTexels texels round the march's region for the composite's filter (a pixel's four by
+// four texels, and an edge pixel's neighbours), kLaidTexels round where the composite lays it on.
+constexpr std::uint32_t kScreenRects = 9;
+constexpr double kOutlinePx = 1.0;
+constexpr int kLaidTexels = 3, kRegionTexels = 6;
 
 } // namespace
 
@@ -1483,7 +1490,10 @@ vec4 march(int base, vec3 camera, vec3 direction, float solid, float jitter, out
 // composited front to back; where the cloud starts (m along the ray, 0 none).
 const char* kCompute = R"(
 layout(set = 0, binding = 1) uniform sampler2D solid; // the vehicles' depth (render::Viewer::depthPrepass)
-layout(set = 0, binding = 2) uniform Screen { vec4 screen; vec4 info; mat4 inverseProjection; vec4 depthTerms; };
+// (region: the march's texels this frame, x0, y0, x1, y1; laid: the window's pixels the composite lays it on;
+// rects: where on the window each vapour's box and then each exhaust's can be, x0, y0, x1, y1 px)
+layout(set = 0, binding = 2) uniform Screen { vec4 screen; vec4 info; mat4 inverseProjection; vec4 depthTerms; vec4 region; vec4 laid;
+                                              vec4 rects[SCREEN_RECTS]; };
 layout(set = 0, binding = 3, rgba16f) uniform writeonly image2D colorOut;
 layout(set = 0, binding = 4, r32f) uniform writeonly image2D frontOut;
 layout(set = 0, binding = 7, rgba16f) uniform writeonly image2D edgeColorOut;
@@ -1541,6 +1551,8 @@ vec4 shade(vec2 pixel, float solidZ, out float front, out vec3 haze) {
     front = 1e30;
     int count = int(info.y);
     for (int k = 0; k < count; ++k) {
+        vec4 where = rects[k]; // (the ray passes its box only inside the box's own outline on the window)
+        if (pixel.x < where.x || pixel.y < where.y || pixel.x > where.z || pixel.y > where.w) continue;
         int base = k * ROWS_PER;
         mat4 fromView = mat4(data[base + ROW_FRAME + 7], data[base + ROW_FRAME + 8], data[base + ROW_FRAME + 9], data[base + ROW_FRAME + 10]);
         vec3 camera = fromView[3].xyz;
@@ -1554,6 +1566,8 @@ vec4 shade(vec2 pixel, float solidZ, out float front, out vec3 haze) {
     }
     int flames = int(screen.z);
     for (int f = 0; f < flames; ++f) {
+        vec4 where = rects[VAPOUR_RECTS + f];
+        if (pixel.x < where.x || pixel.y < where.y || pixel.x > where.z || pixel.y > where.w) continue;
         int row = f * FLAME_ROWS;
         mat4 fromView = mat4(flameRows[row], flameRows[row + 1], flameRows[row + 2], flameRows[row + 3]);
         vec4 how = flameRows[row + 4];
@@ -1610,8 +1624,9 @@ void marchPixel(ivec2 p) {
 const char* kMarchMain = R"(
 layout(local_size_x = 8, local_size_y = 8) in;
 void main() {
-    ivec2 c = ivec2(gl_GlobalInvocationID.xy);
-    if (c.x >= int(info.z) || c.y >= int(info.w)) return;
+    // (the texels the boxes can reach, and those round them the composite reads: the rest are not marched, not read)
+    ivec2 c = ivec2(gl_GlobalInvocationID.xy) + ivec2(region.xy);
+    if (c.x >= int(region.z) || c.y >= int(region.w)) return;
     float scale = info.x;
     if (scale < 1.001) {
         float front;
@@ -1696,7 +1711,10 @@ void main() {
 )";
 const char* kCompositeFragment = R"(
 layout(set = 0, binding = 1) uniform sampler2D solid;
-layout(set = 0, binding = 2) uniform Screen { vec4 screen; vec4 info; mat4 inverseProjection; vec4 depthTerms; };
+// (region: the march's texels this frame, x0, y0, x1, y1; laid: the window's pixels the composite lays it on;
+// rects: where on the window each vapour's box and then each exhaust's can be, x0, y0, x1, y1 px)
+layout(set = 0, binding = 2) uniform Screen { vec4 screen; vec4 info; mat4 inverseProjection; vec4 depthTerms; vec4 region; vec4 laid;
+                                              vec4 rects[SCREEN_RECTS]; };
 layout(set = 0, binding = 5) uniform sampler2D colorTex;
 layout(set = 0, binding = 6) uniform sampler2D frontTex;
 layout(set = 0, binding = 7) uniform sampler2D edgeColorTex;
@@ -1708,6 +1726,8 @@ layout(location = 0) out vec4 outColor;
 
 void main() {
     vec2 pixel = gl_FragCoord.xy;
+    // (beyond what the boxes can reach nothing was marched: nothing to lay on)
+    if (pixel.x < laid.x || pixel.y < laid.y || pixel.x >= laid.z || pixel.y >= laid.w) discard;
     vec4 h = inverseProjection * vec4(pixel / screen.xy * 2.0 - 1.0, 1.0, 1.0);
     vec3 ray = normalize(h.xyz / h.w);
     float scale = info.x;
@@ -1801,6 +1821,7 @@ std::string header() {
     std::string s = "#version 450\nlayout(push_constant) uniform PushConstants { mat4 projection; mat4 modelView; } pc;\n"
                     "layout(std430, set = 0, binding = 0) readonly buffer Data { vec4 data[]; };\n";
     s += "#define MAX_EDGES " + std::to_string(kMaxEdges) + "\nconst int FLAME_ROWS = " + std::to_string(kFlameRows) + ";\n";
+    s += "#define SCREEN_RECTS " + std::to_string(kInstances + kMaxFlames) + "\n#define VAPOUR_RECTS " + std::to_string(kInstances) + "\n";
     s += "const int ROWS_PER = " + std::to_string(kRowsPer) + ", ROW_FRAME = " + std::to_string(kRowFrame) +
          ", ROW_SHAPE = " + std::to_string(kRowShape) + ", ROW_LOADING = " + std::to_string(kRowLoading) +
          ", ROW_PATH = " + std::to_string(kRowPath) + ", ROW_TRAILS = " + std::to_string(kRowTrails) +
@@ -1843,7 +1864,8 @@ bool WingVapour::build(vsg::ref_ptr<vsg::ImageInfo> depth, std::uint32_t width, 
     auto edgeMarch = vsg::ShaderStage::create(VK_SHADER_STAGE_COMPUTE_BIT, "main", gas + kEdgesMain);
     auto edgeReset = vsg::ShaderStage::create(VK_SHADER_STAGE_COMPUTE_BIT, "main", std::string(kEdgesReset));
     auto vertex = vsg::ShaderStage::create(VK_SHADER_STAGE_VERTEX_BIT, "main", std::string("#version 450\n") + kCompositeVertex);
-    auto fragment = vsg::ShaderStage::create(VK_SHADER_STAGE_FRAGMENT_BIT, "main", std::string("#version 450\n") + kCompositeFragment);
+    auto fragment = vsg::ShaderStage::create(VK_SHADER_STAGE_FRAGMENT_BIT, "main", std::string("#version 450\n#define SCREEN_RECTS ") +
+                                                                                      std::to_string(kInstances + kMaxFlames) + "\n" + kCompositeFragment);
     auto shaderCompiler = vsg::ShaderCompiler::create();
     vsg::ShaderStages one{march}, two{vertex, fragment}, three{edgeMarch}, four{edgeReset};
     if (!shaderCompiler->supported() || !shaderCompiler->compile(one) || !shaderCompiler->compile(two) || !shaderCompiler->compile(three) ||
@@ -1873,7 +1895,8 @@ bool WingVapour::build(vsg::ref_ptr<vsg::ImageInfo> depth, std::uint32_t width, 
     vsg::ref_ptr<vsg::Data> exhaustRows = exhaust ? vsg::ref_ptr<vsg::Data>(exhaust->rows()) : vsg::ref_ptr<vsg::Data>(vsg::vec4Array::create(Exhaust::kRows));
     vsg::ref_ptr<vsg::Data> blackbody = exhaust ? vsg::ref_ptr<vsg::Data>(exhaust->blackbodyTable()) : vsg::ref_ptr<vsg::Data>(vsg::vec4Array::create(256));
     vsg::ref_ptr<vsg::Data> exhaustFrame = exhaust ? vsg::ref_ptr<vsg::Data>(exhaust->frame()) : vsg::ref_ptr<vsg::Data>(vsg::vec4Value::create());
-    screen_ = vsg::vec4Array::create(7, vsg::vec4(1.0f, 1.0f, 0.0f, 0.0f)); // screen, info, inverse projection, depth terms
+    // screen, info, inverse projection, depth terms; the march's region, the composite's, each box's outline
+    screen_ = vsg::vec4Array::create(static_cast<std::uint32_t>(kScreenRects + kInstances + kMaxFlames), vsg::vec4(1.0f, 1.0f, 0.0f, 0.0f));
     screen_->properties.dataVariance = vsg::DYNAMIC_DATA;
     if (!depth) {
         auto sampler = vsg::Sampler::create();
@@ -2096,6 +2119,10 @@ void WingVapour::update(Span<const sim::VehicleState> states, const std::vector<
     const double day = clampd(daylight, 0.0, 1.0);
     std::size_t shown = 0;
     double coveredSum = 0.0;
+    // where on the window each vapour's box and each exhaust's can be (clip space: left, bottom, right, top): a ray
+    // meets a box only inside the box's own outline, so the march looks for each only there - and not at all where no
+    // outline is
+    std::array<vsg::dvec4, kInstances + kMaxFlames> outlines;
     for (const auto& [distance, i] : order) {
         if (shown >= kInstances) break;
         const auto& st = states[i];
@@ -2173,6 +2200,7 @@ void WingVapour::update(Span<const sim::VehicleState> states, const std::vector<
         const double height = behind ? 2.0 : std::max(std::min(sTop, 1.0) - std::max(sBottom, -1.0), 0.0);
         const double covered = width * height / 4.0;
         const double stepScale = 1.0;
+        outlines[shown] = behind ? vsg::dvec4(-1.0, -1.0, 1.0, 1.0) : vsg::dvec4(sLeft, sBottom, sRight, sTop);
         const double detail = height / 2.0 > kDetailHeight ? 1.0 : 0.0;
 
         // the light (types.ts default_vapor_look by day; apps/docs stage.tsx's NIGHT look by night): the sun's colour
@@ -2264,6 +2292,24 @@ void WingVapour::update(Span<const sim::VehicleState> states, const std::vector<
             const double height = behind ? 2.0 : std::max(std::min(sTop, 1.0) - std::max(sBottom, -1.0), 0.0);
             if (width <= 0.0 || height <= 0.0) continue;
             coveredSum += width * height / 4.0;
+            // its outline for the march: round the cylinder it is marched in (marchFlame: its far radius all along)
+            vsg::dvec4 outline(-1.0, -1.0, 1.0, 1.0);
+            if (!behind) {
+                const double rc = std::max(outerFar, outerNear);
+                bool back = false;
+                double oLeft = 1e30, oRight = -1e30, oBottom = 1e30, oTop = -1e30;
+                for (int k = 0; k < 8 && !back; ++k) {
+                    const vsg::dvec4 q = toClip * vsg::dvec4((k & 1) ? reach : 0.0, (k & 2) ? rc : -rc, (k & 4) ? rc : -rc, 1.0);
+                    if (q.w <= 0.0) {
+                        back = true;
+                        break;
+                    }
+                    oLeft = std::min(oLeft, q.x / q.w), oRight = std::max(oRight, q.x / q.w);
+                    oBottom = std::min(oBottom, q.y / q.w), oTop = std::max(oTop, q.y / q.w);
+                }
+                if (!back) outline = vsg::dvec4(oLeft, oBottom, oRight, oTop);
+            }
+            outlines[kInstances + flameCount] = outline;
             const vsg::dmat4 fromView = vsg::inverse(modelView);
             const vsg::dvec3 eyeLocal(fromView[3][0], fromView[3][1], fromView[3][2]);
             const double tier = distance > kCheapDistance ? 2.0 : distance > kDetailDistance ? 1.0 : 0.0;
@@ -2281,18 +2327,39 @@ void WingVapour::update(Span<const sim::VehicleState> states, const std::vector<
         if (flameCount > 0) flames_->dirty();
     }
 
-    const bool any = shown > 0 || flameCount > 0;
+    // the outlines on the window (px, a pixel wider), and the rectangle round them all: beyond it nothing is marched
+    const std::uint32_t ww = std::min(alloc_.x, static_cast<std::uint32_t>(window_.x)), wh = std::min(alloc_.y, static_cast<std::uint32_t>(window_.y));
+    double uLeft = 1e30, uBottom = 1e30, uRight = -1e30, uTop = -1e30;
+    const auto outlined = [&](std::size_t at, const vsg::dvec4& o) {
+        const double x0 = std::max((o.x * 0.5 + 0.5) * ww - kOutlinePx, 0.0), x1 = std::min((o.z * 0.5 + 0.5) * ww + kOutlinePx, static_cast<double>(ww));
+        const double y0 = std::max((o.y * 0.5 + 0.5) * wh - kOutlinePx, 0.0), y1 = std::min((o.w * 0.5 + 0.5) * wh + kOutlinePx, static_cast<double>(wh));
+        screen_->set(kScreenRects + static_cast<std::uint32_t>(at), vsg::vec4(static_cast<float>(std::floor(x0)), static_cast<float>(std::floor(y0)),
+                                                                             static_cast<float>(std::ceil(x1)), static_cast<float>(std::ceil(y1))));
+        if (x1 > x0 && y1 > y0) uLeft = std::min(uLeft, x0), uBottom = std::min(uBottom, y0), uRight = std::max(uRight, x1), uTop = std::max(uTop, y1);
+    };
+    for (std::size_t k = 0; k < shown; ++k) outlined(k, outlines[k]);
+    for (std::size_t k = 0; k < flameCount; ++k) outlined(kInstances + k, outlines[kInstances + k]);
+    const bool any = (shown > 0 || flameCount > 0) && uRight > uLeft && uTop > uBottom;
     wantsSolid_ = any;
     computeSwitch_->setAllChildren(any);
     drawSwitch_->setAllChildren(any);
     if (any) {
         // the march's share of the window's pixels, and its size
-        const std::uint32_t ww = std::min(alloc_.x, static_cast<std::uint32_t>(window_.x)), wh = std::min(alloc_.y, static_cast<std::uint32_t>(window_.y));
         const double rays = std::min(coveredSum, 1.0) * static_cast<double>(ww) * static_cast<double>(wh);
         const double scale = std::clamp(std::sqrt(rays / kRayBudget), 1.0, kMaxScale);
         const auto uw = static_cast<std::uint32_t>(std::ceil(ww / scale)), uh = static_cast<std::uint32_t>(std::ceil(wh / scale));
-        dispatch_->groupCountX = (uw + 7) / 8;
-        dispatch_->groupCountY = (uh + 7) / 8;
+        // the texels marched: those the outlines reach, and kRegionTexels round them (all zero, and marched so: the
+        // composite's filter reads them); the pixels it is laid on: kLaidTexels round - every texel those read is one
+        // marched this frame, and no pixel outside them could have had anything laid on it
+        const int tx0 = static_cast<int>(std::floor(uLeft / scale)), ty0 = static_cast<int>(std::floor(uBottom / scale));
+        const int tx1 = static_cast<int>(std::ceil(uRight / scale)), ty1 = static_cast<int>(std::ceil(uTop / scale));
+        const int rx0 = std::max(tx0 - kRegionTexels, 0), ry0 = std::max(ty0 - kRegionTexels, 0);
+        const int rx1 = std::min(tx1 + kRegionTexels, static_cast<int>(uw)), ry1 = std::min(ty1 + kRegionTexels, static_cast<int>(uh));
+        dispatch_->groupCountX = static_cast<std::uint32_t>(rx1 - rx0 + 7) / 8;
+        dispatch_->groupCountY = static_cast<std::uint32_t>(ry1 - ry0 + 7) / 8;
+        screen_->set(7, vsg::vec4(static_cast<float>(rx0), static_cast<float>(ry0), static_cast<float>(rx1), static_cast<float>(ry1)));
+        screen_->set(8, vsg::vec4(static_cast<float>(std::floor((tx0 - kLaidTexels) * scale)), static_cast<float>(std::floor((ty0 - kLaidTexels) * scale)),
+                                  static_cast<float>(std::ceil((tx1 + kLaidTexels) * scale)), static_cast<float>(std::ceil((ty1 + kLaidTexels) * scale))));
         const vsg::dmat4 inverseProjection = vsg::inverse(projection);
         screen_->set(0, vsg::vec4(static_cast<float>(ww), static_cast<float>(wh), static_cast<float>(flameCount), 0.0f));
         screen_->set(1, vsg::vec4(static_cast<float>(scale), static_cast<float>(shown), static_cast<float>(uw), static_cast<float>(uh)));

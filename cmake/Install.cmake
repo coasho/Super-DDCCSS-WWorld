@@ -92,6 +92,9 @@ if(TARGET flightsim-viewer)
     endif()
     install(TARGETS ${_fsim_viewer_targets} RUNTIME DESTINATION bin COMPONENT viewer)
     fsim_install_runtime_deps(viewer ${_fsim_viewer_runtime})
+    if(FSIM_HAS_FLOW) # (opened by name at run time: no import the dependency scan would find)
+        install(FILES ${FSIM_FLOW_RUNTIME} DESTINATION bin COMPONENT viewer)
+    endif()
 
     # Assets, found at runtime through io::AssetResolver's <exe>/../share/flightsim.
     install(DIRECTORY ${CMAKE_BINARY_DIR}/share/flightsim/ DESTINATION share/flightsim COMPONENT viewer)

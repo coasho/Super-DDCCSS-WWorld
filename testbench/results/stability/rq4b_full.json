@@ -1,7 +1,7 @@
 {
  "aircraft": "rq4b",
  "load": "full",
- "date": "2026-10-10",
+ "date": "2026-10-11",
  "phases": {
   "takeoff": {
    "mass_spawned_kg": 10496.29,

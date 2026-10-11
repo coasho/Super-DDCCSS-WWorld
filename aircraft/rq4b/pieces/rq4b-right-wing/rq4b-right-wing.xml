@@ -29,7 +29,7 @@
         <location name="CG" unit="IN"> <x> 331.379 </x> <y> 308.577 </y> <z> -0.563 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 320.284 </x> <y> 286.417 </y> <z> 4.102 </z> </location>
+            <location unit="IN"> <x> 320.284 </x> <y> 286.417 </y> <z> 4.721 </z> </location>
         </pointmass>
 <!-- no store station -->
     </mass_balance>

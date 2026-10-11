@@ -223,10 +223,13 @@ def sideslip_gain(tabs, aircraft, inertia, mach, alpha_deg):
     makes the airframe's weathercock stability at the CG up to
     SIDESLIP_FEEDBACK_CNB with the rudder's yaw power: (target - Cn_beta) /
     -Cn_rudder, both moved to the CG as yaw_plant moves them; 0 where it has
-    that of its own, at most LIMITS["k_yaw_beta"]."""
+    that of its own, at most LIMITS["k_yaw_beta"]. The airframe's is taken with
+    the most its loadouts hang on it (carriage.directional_load: its stores'
+    bodies turn its nose from the wind)."""
+    from .carriage import directional_load
     d = derivatives_at(tabs, alpha_deg, mach)
     dx = inertia[1][0] - aircraft.aero_point[0]
-    cnb = d["Cnb"] + d["CYb"] * dx / aircraft.b
+    cnb = d["Cnb"] + d["CYb"] * dx / aircraft.b + directional_load(aircraft) / (aircraft.S * aircraft.b)
     power = -(d.get("Cn_rudder", 0.0) + d.get("CY_rudder", 0.0) * dx / aircraft.b)
     if cnb >= SIDESLIP_FEEDBACK_CNB or abs(power) < 1e-6:
         return 0.0
@@ -480,7 +483,16 @@ def design_point(tabs, aircraft, inertia, qbar_pa, mach, opt, cma_line=None):
     Ndr = Q * S * b * d.get("Cn_rudder", 0.0) / Izz
     Nb_s = Nb * math.cos(ar) - Lb * math.sin(ar)       # dynamic directional stability (stability axes)
     w_dr = max(opt["dutch_roll_omega"], math.sqrt(max(Nb_s, 0.0)))
-    kb = (Nb_s - w_dr * w_dr) / Ndr if abs(Ndr) > 1e-9 and Nb_s < w_dr * w_dr else 0.0
+    # The sideslip feedback makes the stiffness up to the law's, for the aircraft with the most its loadouts hang
+    # on it: its stores' bodies turn its nose from the wind (carriage.directional_load: a Gripen's three tanks, its
+    # pod and its missiles take 0.03 /rad of Cn_beta - what a delta at 10 deg has left), and a law sized for the clean
+    # airframe then lets the sideslip of a sustained turn grow until it departs. Clean, it is that much stiffer.
+    from .carriage import directional_load
+    Nb_loaded = Nb + Q * directional_load(aircraft) / Izz
+    Nb_s_loaded = Nb_loaded * math.cos(ar) - Lb * math.sin(ar)
+    w_law = opt["dutch_roll_omega"]
+    short = min(Nb_s - w_dr * w_dr, Nb_s_loaded - w_law * w_law, 0.0)  # (1/s^2: what the airframe lacks, loaded or not)
+    kb = short / Ndr if abs(Ndr) > 1e-9 else 0.0
     kr = (2 * opt["dutch_roll_zeta"] * w_dr + Yb / V + Nr) / Ndr if abs(Ndr) > 1e-9 else 0.0
     if kr * Ndr <= 0:       # the airframe damps enough by itself
         kr = 0.0
@@ -493,7 +505,7 @@ def design_point(tabs, aircraft, inertia, qbar_pa, mach, opt, cma_line=None):
                "k_i_m": float(k_i * Md), "k_roll_m": max(1.0 / tau + Lp, 0.0), "k_roll_ff_m": -Lp,
                "k_roll_i_m": 1.0 / opt["bank_hold_s"] ** 2, "p_per": 0.8 * da_max / max(-Lp, 1e-6),
                "k_yaw_r_m": max(2 * opt["dutch_roll_zeta"] * w_dr + Yb / V + Nr, 0.0),
-               "k_yaw_beta_m": min(Nb_s - w_dr * w_dr, 0.0), "k_pedal_m": -Nb * beta_max,
+               "k_yaw_beta_m": short, "k_pedal_m": -Nb * beta_max,
                "md": Md, "lda": Lda, "ndr": Ndr}
     out = {"qbar_psf": Q / PSF, "mach": mach, "speed_ms": V, "alpha_deg": alpha, "n_alpha": n_alpha,
            "k_alpha": float(ka), "k_q": float(kq), "k_ff": float(k_ff), "k_i": float(k_i),

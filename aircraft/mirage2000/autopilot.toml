@@ -1,20 +1,20 @@
-# Written by hangar autopilot (2026-09-26 00:42) for mirage2000.toml: the aircraft's responses to its
+# Written by hangar autopilot (2026-10-11 03:15) for mirage2000.toml: the aircraft's responses to its
 # controls, identified at a reference condition (docs/hangar.md, The autopilot). The
 # build writes them into the JSBSim aircraft's plant section; the platform designs its
 # control loops from them. Delete this file to fly the platform's shared defaults.
 [reference]   # where they were measured
 tas_ms = 126.953
-eas_ms = 111.043
+eas_ms = 111.41
 altitude_m = 3000
 
 [identified]   # the responses at the reference: per unit of aileron (roll rate, rad/s), elevator (load factor,
                # g), rudder (sideslip, rad) and throttle (acceleration, m/s2), each with its lag (s); level
                # flight's throttle, a surface-controlled aircraft's trim law, the zero-lift angle of attack
-roll = { gain = 4.65791, lag_s = 0.209934 }
-pitch = { gain = 11.7419, lag_s = 1.5025 }
-yaw = { gain = 0.105033 }
-speed = { gain = 5.68185, lag_s = 0.168615 }
-throttle_trim = 0.32817
+roll = { gain = 4.68633, lag_s = 0.209934 }
+pitch = { gain = 15.7179, lag_s = 2.35482 }
+yaw = { gain = 0.105611 }
+speed = { gain = 5.69369, lag_s = 0.168615 }
+throttle_trim = 0.328749
 elevator_trim = 0.0
 elevator_trim_lift = 0.0
-alpha_zero_lift_rad = -0.0128946
+alpha_zero_lift_rad = -0.0182556

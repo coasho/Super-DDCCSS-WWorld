@@ -14,22 +14,22 @@
         <htailarm unit="FT"> 0 </htailarm>
         <vtailarea unit="FT2"> 0 </vtailarea>
         <vtailarm unit="FT"> 0 </vtailarm>
-        <location name="AERORP" unit="IN"> <x> 222.920 </x> <y> -0.016 </y> <z> -9.406 </z> </location>
-        <location name="EYEPOINT" unit="IN"> <x> 222.920 </x> <y> -0.016 </y> <z> -9.406 </z> </location>
-        <location name="VRP" unit="IN"> <x> 222.920 </x> <y> -0.016 </y> <z> -9.406 </z> </location>
+        <location name="AERORP" unit="IN"> <x> 223.094 </x> <y> -0.015 </y> <z> -9.411 </z> </location>
+        <location name="EYEPOINT" unit="IN"> <x> 223.094 </x> <y> -0.015 </y> <z> -9.411 </z> </location>
+        <location name="VRP" unit="IN"> <x> 223.094 </x> <y> -0.015 </y> <z> -9.411 </z> </location>
     </metrics>
     <mass_balance negated_crossproduct_inertia="false">
-        <ixx unit="SLUG*FT2"> 2331.9021 </ixx>
-        <iyy unit="SLUG*FT2"> 17651.5620 </iyy>
-        <izz unit="SLUG*FT2"> 17840.0931 </izz>
-        <ixy unit="SLUG*FT2"> -5.4981 </ixy>
-        <ixz unit="SLUG*FT2"> -135.0960 </ixz>
-        <iyz unit="SLUG*FT2"> 0.9236 </iyz>
-        <emptywt unit="LBS"> 12163.375 </emptywt>
-        <location name="CG" unit="IN"> <x> 222.920 </x> <y> -0.016 </y> <z> -9.406 </z> </location>
+        <ixx unit="SLUG*FT2"> 2307.1289 </ixx>
+        <iyy unit="SLUG*FT2"> 17594.0121 </iyy>
+        <izz unit="SLUG*FT2"> 17783.2279 </izz>
+        <ixy unit="SLUG*FT2"> -5.4271 </ixy>
+        <ixz unit="SLUG*FT2"> -134.4386 </ixz>
+        <iyz unit="SLUG*FT2"> 0.9127 </iyz>
+        <emptywt unit="LBS"> 12142.614 </emptywt>
+        <location name="CG" unit="IN"> <x> 223.094 </x> <y> -0.015 </y> <z> -9.411 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 222.920 </x> <y> -0.016 </y> <z> -9.406 </z> </location>
+            <location unit="IN"> <x> 223.094 </x> <y> -0.015 </y> <z> -9.411 </z> </location>
         </pointmass>
 <!-- no store station -->
     </mass_balance>
@@ -38,15 +38,15 @@
             <location unit="IN"> <x> 357.087 </x> <y> -149.606 </y> <z> 39.160 </z> </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.5 </dynamic_friction>
-            <spring_coeff unit="LBS/FT"> 243268 </spring_coeff>
-            <damping_coeff unit="LBS/FT/SEC"> 24327 </damping_coeff>
+            <spring_coeff unit="LBS/FT"> 242852 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 24285 </damping_coeff>
         </contact>
         <contact type="STRUCTURE" name="end 2">
             <location unit="IN"> <x> -61.024 </x> <y> 149.606 </y> <z> -51.056 </z> </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.5 </dynamic_friction>
-            <spring_coeff unit="LBS/FT"> 243268 </spring_coeff>
-            <damping_coeff unit="LBS/FT/SEC"> 24327 </damping_coeff>
+            <spring_coeff unit="LBS/FT"> 242852 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 24285 </damping_coeff>
         </contact>
     </ground_reactions>
     <propulsion/>

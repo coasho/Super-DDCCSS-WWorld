@@ -370,6 +370,11 @@ std::optional<ms::StrikeStatus> Vehicle::strikeStatus(ms::ActivityId activity) c
 }
 
 double Vehicle::massKg() const { return world_ ? world_->impl_->massKg(id_) : std::numeric_limits<double>::quiet_NaN(); }
+std::array<double, 3> Vehicle::cgFromModelOriginM() const {
+    std::array<double, 3> cg{0.0, 0.0, 0.0};
+    if (world_) world_->impl_->cgFromOriginBodyM(id_, cg.data());
+    return cg;
+}
 
 ms::RadarStatus Vehicle::radarStatus(std::uint16_t payload) const {
     return world_ ? world_->impl_->radarStatus(id_, payload) : ms::RadarStatus{};

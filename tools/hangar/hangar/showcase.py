@@ -16,6 +16,7 @@ import subprocess
 
 from . import pipeline
 from .geometry.aircraft import Aircraft
+from .files import open_write
 
 CRUISE_MS = 230.0  # the carrier's speed: some Mach 0.72 at 6 km (assumed: a typical launch)
 
@@ -130,7 +131,7 @@ def main(argv):
     out = os.path.join(pipeline.repo_root(), "aircraft", a.name, "out")
     os.makedirs(out, exist_ok=True)
     js, rec = os.path.join(out, "showcase.json"), os.path.join(out, "showcase.fsrec")
-    with open(js, "w", encoding="utf-8", newline="\n") as f:
+    with open_write(js, "w", encoding="utf-8", newline="\n") as f:
         json.dump(s, f, indent=2)
     exe = os.path.join(pipeline.repo_root(), "build", "ucrt64-release", "bin", "flightsim-showcase.exe")
     if not os.path.isfile(exe):

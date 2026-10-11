@@ -566,6 +566,9 @@ TEST_CASE("a recording made before the vehicle state grew still reads", "[world]
         REQUIRE(std::memcmp(&a, &c, kSampleV5) == 0);
         for (std::size_t k = ipc::kDerivedCountV7; k < ipc::kDerivedCount; ++k) REQUIRE(c.derived[k] == 0.0);
         for (std::size_t k = 0; k < 3; ++k) placed = placed || a.derived[ipc::kDerivedCgFromOriginM + k] != 0.0;
+        // (and its flight status, as a live viewer is told it: a replay shows its weight and its least airspeeds)
+        REQUIRE(a.derived[ipc::kDerivedMassKg] > 500.0);
+        REQUIRE(a.derived[ipc::kDerivedLoadRatio] >= 1.0); // (JSBSim's own C172 has no envelope: no least airspeeds to tell)
     }
     REQUIRE(placed); // (the new recording says where its CG is from its model's origin: a loaded C172's is not at it)
     std::filesystem::remove(v5);

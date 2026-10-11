@@ -43,17 +43,17 @@ ExternalProject_Add(vsg
         -DVSG_SUPPORTS_ShaderOptimizer=OFF
         -DVSG_SUPPORTS_Windowing=ON
         -DBUILD_TESTING=OFF
-    BUILD_ALWAYS OFF)
+    BUILD_ALWAYS ON) # (the sources are in the tree: an edit there is built, nothing changed costs a moment)
 
 ExternalProject_Add(vsgXchange
     SOURCE_DIR ${_third_party}/vsgXchange
     DEPENDS vsg
     CMAKE_ARGS ${_common_args}
         -DBUILD_vsgXchange_applications=OFF   # no vsgconv binary
-    BUILD_ALWAYS OFF)
+    BUILD_ALWAYS ON) # (the sources are in the tree: an edit there is built, nothing changed costs a moment)
 
 ExternalProject_Add(vsgImGui
     SOURCE_DIR ${_third_party}/vsgImGui
     DEPENDS vsg
     CMAKE_ARGS ${_common_args}
-    BUILD_ALWAYS OFF)
+    BUILD_ALWAYS ON) # (the sources are in the tree: an edit there is built, nothing changed costs a moment)

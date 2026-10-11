@@ -43,7 +43,6 @@
 #include "ui/ViewerControls.h"
 #include "world/Airflow.h"
 #include "world/WingVapour.h"
-#include "world/Detonations.h"
 #include "world/FlowVolumes.h"
 #include "world/CameraController.h"
 #include "world/Clouds.h"
@@ -117,7 +116,6 @@ struct ViewerOptions {
     bool offline = true;
     bool gui = true;   ///< panels, labels and trails; --no-gui leaves only the rendered scene
     bool effects = true; ///< exhaust, condensation, vapour and contrails (--no-effects, key e)
-    std::string fire = "flow"; ///< --fire flow|spheres: an engagement's fire and smoke solved by NVIDIA Flow, or the fireballs
     std::string clouds = "world"; ///< --clouds: the world's weather, or a sky of our own (key k)
     double seaWindMs = -1.0;      ///< --sea-wind: the wind the sea is made for, whatever the weather says (< 0: the weather's)
     bool zoomToCursor = true; ///< wheel zooms towards the pointer rather than straight in
@@ -137,6 +135,7 @@ struct ViewerOptions {
     bool chaseElevationSet = false; // --chase-elevation given: keep it, even attached to a world
     bool probe = false;
     double stats = 0.0;   // --stats <seconds>: print per-second frame statistics, exit after this long
+    double statsBudgetMs = 6.875; ///< --stats-budget: a frame over this is counted (a 160 Hz refresh and a tenth)
     std::string screenshot;      // --screenshot <file.png>: save the frame after --screenshot-after seconds, then exit
     double screenshotAfter = 3.0;
     int screenshotFrames = 1;    // --screenshot-frames <n>: n frames, <file>_000.png on, --screenshot-every <s> apart
@@ -212,8 +211,7 @@ void usageAll(const char* prog) {
         "  --terrain-zoom <z>       tile level used for physics ground height (15, the level drawn close up)\n"
         "  --probe                  print motion smoothness statistics after ~5 s and exit\n"
         "  --stats <seconds>        print per-second frame statistics (fps, frame-time breakdown, CPU; the GPU's time per pass) and exit\n"
-        "  --fire flow|spheres      an engagement's fire and smoke: solved by NVIDIA Flow (the default, when built with it) or\n"
-        "                           drawn as fireballs and puffs\n"
+        "  --stats-budget <ms>      the frame time --stats counts frames over (6.875: a 160 Hz refresh and a tenth)\n"
         "  --screenshot <file.png>  save the window after --screenshot-after seconds (3) and exit\n"
         "  --screenshot-frames <n>  save n frames instead, <file>_000.png on, --screenshot-every <s> (0.1) apart\n"
         "  --screenshot-clock wall|replay  what --screenshot-after and -every count: the window's seconds (wall, the\n"
@@ -392,7 +390,6 @@ bool parse(int argc, char** argv, ViewerOptions& o) {
             else if (a == "--no-zoom-to-cursor") o.zoomToCursor = false;
             else if (a == "--no-gui") o.gui = false;
             else if (a == "--no-effects") o.effects = false;
-            else if (a == "--fire") o.fire = next();
             else if (a == "--clouds") o.clouds = next();
             else if (a == "--sea-wind") o.seaWindMs = std::atof(next());
             else if (a == "--no-sun") o.sun = false;
@@ -426,6 +423,7 @@ bool parse(int argc, char** argv, ViewerOptions& o) {
                 o.cameraMode = v == "orbit" ? 1 : v == "overview" ? 2 : v == "free" ? 3 : 0;
             } else if (a == "--probe") o.probe = true;
             else if (a == "--stats") o.stats = std::stod(next());
+            else if (a == "--stats-budget") o.statsBudgetMs = std::stod(next());
             else if (a == "--screenshot") o.screenshot = next();
             else if (a == "--screenshot-after") o.screenshotAfter = std::stod(next());
             else if (a == "--screenshot-frames") o.screenshotFrames = std::max(1, std::stoi(next()));
@@ -745,19 +743,16 @@ int main(int argc, char** argv) {
         if (flow) flow->setAircraft(slot, m ? m->wingspanM : 0.0, m ? m->emptyMassKg + m->pointMassKg : 0.0);
     };
     scene->addChild(airflow.node());
-    // the engagement's detonations (MS-7h): their fireballs and smoke, drawn as the contrails are
-    world::Detonations detonations(viewer.options(), cloudFiles ? *cloudFiles / "shaders" : std::filesystem::path{}, clouds.atmosphere(),
-                                   viewer.coarseShading());
-    scene->addChild(detonations.node());
-    // ... or solved as a fluid (NVIDIA Flow, when built with it): the fireballs then not drawn
-    if (opt.fire == "flow") {
-        flow = std::make_unique<world::FlowVolumes>(viewer.options(), cloudFiles ? *cloudFiles / "shaders" : std::filesystem::path{},
-                                                    clouds.atmosphere(), viewer.coarseShading());
-        if (flow->available()) {
-            scene->addChild(flow->node());
-            airflow.setFireHandOver(world::FlowVolumes::nearFieldThinning());
-        }
-        else flow.reset();
+    // the engagement's detonations and fires (MS-7h), solved as a fluid by NVIDIA Flow: the one way they are drawn
+    flow = std::make_unique<world::FlowVolumes>(viewer.options(), cloudFiles ? *cloudFiles / "shaders" : std::filesystem::path{},
+                                                clouds.atmosphere(), viewer.coarseShading());
+    if (flow->available()) {
+        scene->addChild(flow->node());
+        airflow.setFireHandOver(world::FlowVolumes::nearFieldThinning());
+    }
+    else {
+        LOG_ERROR("viewer") << "no fire solver (NVIDIA Flow: cmake/Flow.cmake): detonations and fireballs are NOT drawn";
+        flow.reset();
     }
     world::WingVapour vapour(slots, viewer.options());
     // (the gas round the aircraft is drawn over the scene: Viewer::setScene's overScene)
@@ -931,19 +926,19 @@ int main(int argc, char** argv) {
     // aircraft (its piece flies in a slot of its own)
     const auto showEvent = [&](const ipc::EngagementEvent& e) {
         if (flow) flow->add(e, *ellipsoid);
-        else detonations.add(e, *ellipsoid); // (a fire's spill: its fireball)
-        // (with Flow, its flame and near smoke burn there and the trail is the far smoke only; else the fire trail, its
-        // flame and its mist)
+        // (Flow's flame and near smoke burn there; the trail is the far smoke)
         if (e.kind == static_cast<std::uint8_t>(ipc::EngagementKind::Fire))
             airflow.ignite(e.slot, std::string(e.name, ::strnlen(e.name, sizeof e.name)), e.rateKgS, e.simTime, e.massKg - e.rateKgS); // (what does not burn: its mist)
         if (e.kind == static_cast<std::uint8_t>(ipc::EngagementKind::Separated))
             visuals.hideSection(e.slot, std::string(e.name, ::strnlen(e.name, sizeof e.name)));
     };
     const auto forgetEvents = [&] {
-        detonations.clear(), airflow.clearFires(), visuals.clearSections();
+        airflow.clearFires(), visuals.clearSections();
         if (flow) flow->clear();
     };
     std::vector<ipc::EngagementEvent> liveEvents;
+    // each vehicle's flight status as a replay's samples have it (a recording from before they did: zeros, nothing shown)
+    std::vector<ipc::FlightStatus> replayStatus(replay ? slots : 0);
     std::vector<std::uint64_t> generationSeen; // (each slot's vehicle as the table last had it)
     // what each slot's engines burn, as the simulation says it with each sample: the trails are laid from it
     std::vector<std::array<double, sim::VehicleState::kMaxEngines>> fuelFlows(slots);
@@ -964,9 +959,24 @@ int main(int argc, char** argv) {
     std::uint64_t lastVehicleSteps = 0;
     double lastStepsWall = 0.0, publishedSps = 0.0;
 
+    // The demo's vehicles hang from their models' origins as a world's do (drawnState): each one's CG's place from its
+    // origin read once, before the simulation's thread runs - its fuel then moves it some centimetres more, which a
+    // world's flight status tells and the demo's snapshots do not.
+    std::vector<std::array<double, ipc::kDerivedCount>> demoDerived;
+    sim::SnapshotBatch demoDrawn;
+    const auto demoBatch = [&](const sim::SnapshotBatch* fresh) -> const sim::SnapshotBatch* {
+        demoDrawn = *fresh;
+        for (std::size_t i = 0; i < demoDrawn.states.size() && i < demoDerived.size(); ++i)
+            demoDrawn.states[i] = drawnState(fresh->states[i], demoDerived[i].data());
+        return &demoDrawn;
+    };
     if (runner) {
+        demoDerived.assign(runner->vehicles(), {});
+        for (std::size_t i = 0; i < demoDerived.size(); ++i)
+            runner->pool().vehicle(i).cgFromOriginBodyM(demoDerived[i].data() + ipc::kDerivedCgFromOriginM);
         runner->start();
         if (const auto* first = runner->snapshots().acquire()) {
+            first = demoBatch(first);
             batch = first;
             interpolator.push(*first);
             visuals.update(Span<const sim::VehicleState>(first->states));
@@ -979,13 +989,16 @@ int main(int argc, char** argv) {
     double wallSeconds = 0.0;
     int shots = 0; // frames saved (--screenshot-frames)
     const bool shotsOnReplay = replay && opt.screenshotReplayClock && !opt.screenshot.empty();
+    if (flow) flow->setSynchronous(shotsOnReplay); // (each shot the fire as it is at its time, the same every run)
     struct Stats {
         double window = 0.0, cpu0 = platform::processCpuSeconds(), maxFrame = 0.0;
         int frames = 0, late = 0;
         double lastMean = 0.0;
         render::Viewer::FrameTiming sum, worst;
+        std::vector<float> each; ///< the window's frames (ms): its 99th percentile, its frames over --stats-budget
         // NVIDIA Flow's (world::FlowVolumes::Cost)
-        double flowGpu = 0.0, flowCpu = 0.0, flowPack = 0.0, flowGpuMax = 0.0, flowCpuMax = 0.0;
+        double flowGpu = 0.0, flowCpu = 0.0, flowPack = 0.0, flowGpuMax = 0.0, flowCpuMax = 0.0, flowWorker = 0.0, flowWorkerMax = 0.0;
+        std::uint64_t flowWaiting = 0;
         std::uint64_t flowLeaves = 0, flowPages = 0;
         int flowFrames = 0;
     } stats;
@@ -1012,8 +1025,7 @@ int main(int argc, char** argv) {
             a.windFromDeg = std::isfinite(env.windDirectionDeg) ? env.windDirectionDeg : 0.0;
             a.windMs = std::isfinite(env.windSpeedMs) ? env.windSpeedMs : 0.0;
             airflow.setAir(a);
-            detonations.setAir(world::Detonations::Air{a.seaLevelK, a.seaLevelPa, a.windFromDeg, a.windMs});
-            if (flow) flow->setAir(world::Detonations::Air{a.seaLevelK, a.seaLevelPa, a.windFromDeg, a.windMs});
+            if (flow) flow->setAir(world::flowfires::Air{a.seaLevelK, a.seaLevelPa, a.windFromDeg, a.windMs});
         }
         if (std::isfinite(env.temperatureSeaLevelK) && env.temperatureSeaLevelK > 150.0)
             vapour.setAir(env.temperatureSeaLevelK, env.humidity); // what the air round the aircraft condenses
@@ -1026,6 +1038,8 @@ int main(int argc, char** argv) {
         }
     };
     while (viewer.active() && !controls->quit.load(std::memory_order_relaxed)) {
+        // each vehicle's flight status: a live world's from its segment, a replay's from its samples
+        const std::vector<ipc::FlightStatus>* flightStatus = mirror.valid() ? &mirror.status() : replay ? &replayStatus : nullptr;
         wallSeconds += viewer.frameSeconds();
         bool paused = false;
         double timeFactor = 1.0;
@@ -1037,8 +1051,8 @@ int main(int argc, char** argv) {
             runner->setTimeFactor(timeFactor);
             if (controls->singleStep.exchange(false)) runner->singleStep();
             if (const auto* fresh = runner->snapshots().acquire()) {
-                batch = fresh;
-                interpolator.push(*fresh);
+                batch = demoBatch(fresh);
+                interpolator.push(*batch);
             }
             controls->simThroughput.store(runner->throughput(), std::memory_order_relaxed);
             if (batch) controls->simTime.store(batch->simTime, std::memory_order_relaxed);
@@ -1116,6 +1130,7 @@ int main(int argc, char** argv) {
                     if (slot < slots) {
                         mirrored.states[slot] = drawnState(sample.state, sample.derived);
                         fuelFlowOf(slot, sample.derived);
+                        std::copy(sample.derived, sample.derived + ipc::kDerivedCount, replayStatus[slot].derived);
                     }
                 mirrored.simTime = frame.simTime;
                 mirrored.wallNs = 0; // interpolate in simulation time, paced by the time factor
@@ -1367,9 +1382,9 @@ int main(int argc, char** argv) {
                 l.text = (i < meta.size() && !meta[i].name.empty() ? meta[i].name : "v" + std::to_string(i)) + (states[i].diverged ? " !" : "");
                 l.selected = static_cast<int>(i) == selected;
                 // (what its Vehicle Interface says of it, in the air: low on energy, deviating, upset - on its label)
-                if (mirror.valid() && i < mirror.status().size() && !states[i].onGround) {
+                if (flightStatus && i < flightStatus->size() && !states[i].onGround) {
                     const char* word = "";
-                    l.severity = ui::MonitorGui::severity(mirror.status()[i], &word);
+                    l.severity = ui::MonitorGui::severity((*flightStatus)[i], &word);
                     if (l.severity > 0) l.text += "  ", l.text += word;
                 }
                 labels.push_back(std::move(l));
@@ -1404,8 +1419,6 @@ int main(int argc, char** argv) {
             visuals.setDaylight(light);
             airflow.setVisible(controls->showEffects.load(std::memory_order_relaxed));
             airflow.setScreen(viewer.window()->extent2D().width, viewer.window()->extent2D().height);
-            detonations.setVisible(controls->showEffects.load(std::memory_order_relaxed));
-            detonations.setScreen(viewer.window()->extent2D().width, viewer.window()->extent2D().height);
             if (flow) {
                 flow->setVisible(controls->showEffects.load(std::memory_order_relaxed));
                 flow->setScreen(viewer.window()->extent2D().width, viewer.window()->extent2D().height);
@@ -1428,7 +1441,6 @@ int main(int argc, char** argv) {
                 airflow.setFuelFlows(fuelFlows);
                 airflow.setClock(drawnTime);
                 airflow.update(drawn, alive, visuals, viewer.camera()->projectionMatrix->transform(), viewer.lookAt()->eye, *ellipsoid, sunDir);
-                detonations.update(drawnTime, viewer.camera()->projectionMatrix->transform(), viewer.lookAt()->eye, *ellipsoid, sunDir);
                 if (flow) {
                     flow->update(drawnTime, drawn, alive, visuals, viewer.camera()->projectionMatrix->transform(), viewer.lookAt()->eye,
                                  *ellipsoid, sunDir);
@@ -1436,6 +1448,8 @@ int main(int argc, char** argv) {
                         const auto& c = flow->cost();
                         stats.flowGpu += c.solverGpuMs, stats.flowCpu += c.cpuMs, stats.flowPack += c.packMs;
                         stats.flowGpuMax = std::max(stats.flowGpuMax, c.solverGpuMs), stats.flowCpuMax = std::max(stats.flowCpuMax, c.cpuMs);
+                        stats.flowWorker += c.workerMs, stats.flowWorkerMax = std::max(stats.flowWorkerMax, c.workerMs);
+                        stats.flowWaiting = std::max<std::uint64_t>(stats.flowWaiting, c.waiting);
                         stats.flowLeaves = std::max<std::uint64_t>(stats.flowLeaves, c.leaves);
                         stats.flowPages = std::max<std::uint64_t>(stats.flowPages, c.pages);
                         ++stats.flowFrames;
@@ -1472,7 +1486,7 @@ int main(int argc, char** argv) {
         if (terrain && batch && ++tileTick % 60 == 0)
             for (const auto& st : batch->states) terrain->requestAround(st.latitudeRad, st.longitudeRad);
         gui->setBatch(batch);
-        gui->setStatus(mirror.valid() ? &mirror.status() : nullptr);
+        gui->setStatus(flightStatus);
         cameraPreview->update();
         {
             const std::size_t at = static_cast<std::size_t>(std::max(selected, 0));
@@ -1512,6 +1526,7 @@ int main(int argc, char** argv) {
             // late: over 1.5 refresh intervals (the last window's mean frame, when it was vsync-bound)
             if (stats.lastMean > 0.0 && viewer.frameSeconds() > 1.5 * stats.lastMean) ++stats.late;
             ++stats.frames;
+            stats.each.push_back(static_cast<float>(viewer.frameSeconds() * 1e3));
             stats.sum.app += t.app; stats.sum.advance += t.advance; stats.sum.events += t.events; stats.sum.update += t.update;
             stats.sum.record += t.record; stats.sum.present += t.present; stats.sum.sleep += t.sleep;
             if (stats.window >= 1.0) {
@@ -1526,11 +1541,21 @@ int main(int argc, char** argv) {
                 std::printf("worst | app %.2f advance %.2f events %.2f update %.2f record %.2f present %.2f sleep %.2f ms | %d late\n",
                             w.app * 1e3, w.advance * 1e3, w.events * 1e3, w.update * 1e3, w.record * 1e3, w.present * 1e3, w.sleep * 1e3,
                             stats.late);
+                {
+                    // the window's frames one by one: its 99th percentile, and how many took longer than the budget
+                    // (--stats-budget, ms: a refresh interval and a tenth - a frame the display showed a beat late)
+                    std::sort(stats.each.begin(), stats.each.end());
+                    const std::size_t at = std::min(stats.each.size() - 1, static_cast<std::size_t>(0.99 * static_cast<double>(stats.each.size())));
+                    const auto slow = stats.each.end() - std::upper_bound(stats.each.begin(), stats.each.end(), static_cast<float>(opt.statsBudgetMs));
+                    std::printf("frames | p50 %.2f p99 %.2f ms | %d of %d over %.2f ms\n", static_cast<double>(stats.each[stats.each.size() / 2]),
+                                static_cast<double>(stats.each[at]), static_cast<int>(slow), stats.frames, opt.statsBudgetMs);
+                }
                 if (!gpuTimer.empty()) std::printf("%s\n", gpuTimer.report().c_str());
                 if (stats.flowFrames > 0) {
                     const double m = static_cast<double>(stats.flowFrames);
-                    std::printf("flow | solver gpu avg %.2f max %.2f ms | cpu avg %.2f max %.2f ms (packing %.2f) | leaves %llu, pages %llu\n",
-                                stats.flowGpu / m, stats.flowGpuMax, stats.flowCpu / m, stats.flowCpuMax, stats.flowPack / m,
+                    std::printf("flow | solver gpu avg %.2f max %.2f ms | frame thread avg %.3f max %.2f ms | solver thread avg %.2f max %.2f ms (packing %.2f), %llu waiting | leaves %llu, pages %llu\n",
+                                stats.flowGpu / m, stats.flowGpuMax, stats.flowCpu / m, stats.flowCpuMax, stats.flowWorker / m, stats.flowWorkerMax,
+                                stats.flowPack / m, static_cast<unsigned long long>(stats.flowWaiting),
                                 static_cast<unsigned long long>(stats.flowLeaves), static_cast<unsigned long long>(stats.flowPages));
                 }
                 std::fflush(stdout);

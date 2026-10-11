@@ -35,6 +35,7 @@ import os
 import time
 
 import numpy as np
+from .files import open_write
 
 G0 = 9.80665
 FT = 0.3048
@@ -249,7 +250,7 @@ def write_toml(d, ident, date=None):
     text = "\n".join(lines) + "\n"
     if date is None:
         text = keep_date(path, text, WRITTEN_DATE)
-    with open(path, "w", encoding="utf-8", newline="\n") as f:
+    with open_write(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
     return path
 

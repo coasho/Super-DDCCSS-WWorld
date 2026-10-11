@@ -23,6 +23,7 @@ import math
 import os
 
 import numpy as np
+from .files import open_write
 
 LB, FT, IN = 0.45359237, 0.3048, 0.0254
 SLUGFT2 = 1.35581795  # kg m^2 per slug ft^2
@@ -300,7 +301,7 @@ def write(data, aircraft_dir):
                 if f.read() == text:
                     written.append(path)
                     continue
-        with open(path, "w", encoding="utf-8", newline="\n") as f:
+        with open_write(path, "w", encoding="utf-8", newline="\n") as f:
             f.write(text)
         written.append(path)
     return written

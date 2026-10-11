@@ -1,7 +1,7 @@
 {
  "aircraft": "kc135r",
  "load": "full",
- "date": "2026-10-10",
+ "date": "2026-10-11",
  "phases": {
   "takeoff": {
    "mass_spawned_kg": 99737.39,
@@ -287,7 +287,7 @@
      "cas_end_ms": 111.3,
      "altitude_lost_m": 2.0,
      "alpha_max_deg": 8.8,
-     "throttle_end": 0.69,
+     "throttle_end": 0.7,
      "sink_end_ms": -0.3,
      "held": true
     },
@@ -300,7 +300,7 @@
      ],
      "cas_end_ms": 101.9,
      "altitude_lost_m": 4.0,
-     "alpha_max_deg": 11.1,
+     "alpha_max_deg": 11.2,
      "throttle_end": 0.74,
      "sink_end_ms": -0.8,
      "held": true

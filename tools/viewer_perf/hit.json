@@ -1,0 +1,65 @@
+{
+ "target": {
+  "type": "jsbsim:mig29a",
+  "name": "MIG29A",
+  "speed_ms": 220.0,
+  "heading_deg": 270.0,
+  "miss_m": [
+   -2.5,
+   0.0,
+   -0.8
+  ],
+  "seed": 1
+ },
+ "name": "aim120c showcase",
+ "duration_s": 40.0,
+ "rate_hz": 60,
+ "start": {
+  "lat_deg": 36.25,
+  "lon_deg": -115.03,
+  "alt_m": 6000.0,
+  "heading_deg": 90.0
+ },
+ "carrier": {
+  "type": "jsbsim:f16c",
+  "name": "F16C",
+  "speed_ms": 230.0,
+  "thrust_n": 45000.0,
+  "n2": 92.0
+ },
+ "missiles": [
+  {
+   "type": "jsbsim:aim120c",
+   "card": "aim-120c",
+   "name": "AIM-120C-7 AMRAAM",
+   "station": [
+    -1.758,
+    4.75,
+    0.0
+   ],
+   "station_number": 9,
+   "launch_s": 6.0,
+   "launch": "rail",
+   "bay": false,
+   "eject_ms": 0.0,
+   "ignition_delay_s": 0.0,
+   "mass_kg": 161.5,
+   "diameter_m": 0.1778,
+   "cd": 0.35,
+   "phases": [
+    [
+     2.5,
+     22000.0
+    ],
+    [
+     5.5,
+     7000.0
+    ]
+   ],
+   "fin_deg": 20.0,
+   "detonate_s": 6.0,
+   "warhead_kg": 20.0,
+   "explosive_kg": 7.17
+  }
+ ]
+}

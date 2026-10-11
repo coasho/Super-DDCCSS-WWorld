@@ -163,6 +163,8 @@ class _Fleet:
         and lateral axes, and the throttle owns the thrust (the loop's airspeed hold would pace the acceleration).
         The velocity loop's activity."""
         Axis = self.fsim.Axis
+        if veh.state.crashed:
+            return None  # (it struck the ground while it settled: a wreck takes no command - its run is one on the ground)
         act = veh.submit(self.fsim.Level.VELOCITY, vertical_speed_ms=0.0, heading_rad=0.0, axes=Axis.LATERAL | Axis.PITCH)
         veh.submit(self.fsim.Level.ACTUATOR, throttle=float(throttle), axes=Axis.THRUST)
         return act
@@ -171,13 +173,21 @@ class _Fleet:
     def hold(act, h_ref, h, **fields):
         """The height held: the vertical speed the velocity loop's activity asks for, from the height it is off
         (fields: the activity's others, an airspeed)."""
-        act.update(vertical_speed_ms=float(np.clip(HOLD_GAIN * (h_ref - h), -HOLD_MAX_MS, HOLD_MAX_MS)), heading_rad=0.0, **fields)
+        if act is None:
+            return  # (a wreck's: power() gave it none)
+        try:
+            act.update(vertical_speed_ms=float(np.clip(HOLD_GAIN * (h_ref - h), -HOLD_MAX_MS, HOLD_MAX_MS)), heading_rad=0.0, **fields)
+        except Exception:  # noqa: BLE001
+            # (a vehicle that has struck the ground since is a wreck: its activity ended and it takes no command - its
+            # run reads as on the ground, _grounded; anything else refused is an error)
+            if not act.vehicle.state.crashed:
+                raise
 
 
 def _grounded(st):
     """Whether a vehicle is on the ground, or as good as: on its wheels, or its centre of gravity within
     GROUND_CLEARANCE_M of it (a fighter flies with its gear up: on its belly the wheels report nothing)."""
-    return bool(st.on_ground) or st.altitude_agl_m < GROUND_CLEARANCE_M
+    return bool(st.on_ground) or bool(st.crashed) or st.altitude_agl_m < GROUND_CLEARANCE_M
 
 
 def _rate(t, x, window):

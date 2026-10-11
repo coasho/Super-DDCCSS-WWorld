@@ -1,20 +1,20 @@
-# Written by hangar autopilot (2026-09-26 00:39) for f35a.toml: the aircraft's responses to its
+# Written by hangar autopilot (2026-10-11 02:11) for f35a.toml: the aircraft's responses to its
 # controls, identified at a reference condition (docs/hangar.md, The autopilot). The
 # build writes them into the JSBSim aircraft's plant section; the platform designs its
 # control loops from them. Delete this file to fly the platform's shared defaults.
 [reference]   # where they were measured
-tas_ms = 179.245
-eas_ms = 157.108
+tas_ms = 176.792
+eas_ms = 155.296
 altitude_m = 3000
 
 [identified]   # the responses at the reference: per unit of aileron (roll rate, rad/s), elevator (load factor,
                # g), rudder (sideslip, rad) and throttle (acceleration, m/s2), each with its lag (s); level
                # flight's throttle, a surface-controlled aircraft's trim law, the zero-lift angle of attack
-roll = { gain = 4.12773, lag_s = 0.19887 }
-pitch = { gain = 9.34723, lag_s = 0.737082 }
-yaw = { gain = 0.101451 }
-speed = { gain = 5.32879, lag_s = 0.189934 }
-throttle_trim = 0.308447
+roll = { gain = 4.1203, lag_s = 0.19887 }
+pitch = { gain = 10.3218, lag_s = 0.737082 }
+yaw = { gain = 0.10479 }
+speed = { gain = 5.2644, lag_s = 0.15887 }
+throttle_trim = 0.294504
 elevator_trim = 0.0
 elevator_trim_lift = 0.0
-alpha_zero_lift_rad = -0.0147172
+alpha_zero_lift_rad = -0.0149579

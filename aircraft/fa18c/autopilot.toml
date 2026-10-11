@@ -1,20 +1,20 @@
-# Written by hangar autopilot (2026-09-26 00:39) for fa18c.toml: the aircraft's responses to its
+# Written by hangar autopilot (2026-10-11 04:12) for fa18c.toml: the aircraft's responses to its
 # controls, identified at a reference condition (docs/hangar.md, The autopilot). The
 # build writes them into the JSBSim aircraft's plant section; the platform designs its
 # control loops from them. Delete this file to fly the platform's shared defaults.
 [reference]   # where they were measured
 tas_ms = 164.776
-eas_ms = 144.172
+eas_ms = 144.724
 altitude_m = 3000
 
 [identified]   # the responses at the reference: per unit of aileron (roll rate, rad/s), elevator (load factor,
                # g), rudder (sideslip, rad) and throttle (acceleration, m/s2), each with its lag (s); level
                # flight's throttle, a surface-controlled aircraft's trim law, the zero-lift angle of attack
-roll = { gain = 3.66331, lag_s = 0.181037 }
-pitch = { gain = 7.35694, lag_s = 0.711822 }
-yaw = { gain = 0.0966993 }
-speed = { gain = 5.96576, lag_s = 0.168615 }
-throttle_trim = 0.322846
+roll = { gain = 3.70035, lag_s = 0.181037 }
+pitch = { gain = 7.40736, lag_s = 0.711822 }
+yaw = { gain = 0.123502 }
+speed = { gain = 5.96256, lag_s = 0.168615 }
+throttle_trim = 0.322394
 elevator_trim = 0.0
 elevator_trim_lift = 0.0
-alpha_zero_lift_rad = -0.00914364
+alpha_zero_lift_rad = -0.00937658

@@ -1,0 +1,76 @@
+# Builds the headless platform (the simulation, the SDK, the Python package, hangar) with the project's toolchain and
+# runs every test. The viewer is not built here: it needs a GPU, and its frame rate is held on a machine with one
+# (tools/viewer_perf/viewer_perf.py).
+#
+# Written 2026-10-11 and not yet run on GitHub: the first run's failures are this file's, not the tree's.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  headless:
+    runs-on: windows-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      # A CPython from python.org (the Python SDK is built against python3.dll, which MSYS2's own does not ship)
+      - uses: actions/setup-python@v5
+        id: python
+        with:
+          python-version: "3.13"
+      - name: Python packages (hangar, the tests)
+        run: python -m pip install numpy scipy matplotlib pillow
+
+      # The mandated toolchain: MSYS2 UCRT64 (cmake/toolchains/ucrt64.cmake takes the shell's prefix)
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          path-type: inherit
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-curl
+
+      - name: Configure
+        shell: msys2 {0}
+        run: cmake --preset ucrt64-headless -DFSIM_PYTHON_EXECUTABLE="$(cygpath -m '${{ steps.python.outputs.python-path }}')"
+
+      - name: Build
+        shell: msys2 {0}
+        run: cmake --build --preset ucrt64-headless
+
+      - name: Test
+        shell: msys2 {0}
+        run: ctest --preset ucrt64-headless -j 4 --timeout 3600
+
+      # The generated files in the repository are what the tool makes (docs/hangar.md, "Built again"): every store
+      # through hangar's pipeline, what each design gives the viewer's effects, and one aircraft through every stage
+      # (all 35 take hours: tools/hangar/rebuild_all.py, on a developer's machine before a release)
+      - name: hangar - built again
+        shell: msys2 {0}
+        run: |
+          export PYTHONPATH="$(cygpath -w "$PWD/build/ucrt64-headless/python");$(cygpath -w "$PWD/tools/hangar")"
+          export FSIM_BIN="$(cygpath -w "$PWD/build/ucrt64-headless/bin")"
+          python -m hangar stores
+          python -m hangar effects
+          python tools/hangar/rebuild_all.py --jobs 1 --only c172
+          git status --short -- aircraft assets/stores
+          git diff --exit-code -- aircraft assets/stores
+
+      - name: The test log, when a step failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-log
+          path: build/ucrt64-headless/Testing/Temporary/LastTest.log

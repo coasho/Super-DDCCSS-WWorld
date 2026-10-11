@@ -40,6 +40,52 @@ def _store_card(card_id):
         return json.load(f)
 
 
+#: of a carried store's own fins' and base's side force, what they give on a station (src/ms/HostStores.cpp kCarriedFins)
+CARRIED_FINS = 0.5
+
+
+def directional_load(aircraft):
+    """What the stores an aircraft's loadouts hang on it take from its weathercock stability, at the most: its yawing
+    moment per unit of dynamic pressure and of sideslip (m^3; negative: the nose turned away from the wind), the sum
+    over its stations of the worst store its loadouts put on each. As the world works a carried store's moment out
+    (session/World.cpp, ms::Host::carriageDrag): its body's unstable couple, -2 x its Munk volume, and its fins' and
+    base's side force - half its card's slope, as carried - acting its side arm behind its station, the station's
+    place from the empty aircraft's CG; a missile in a fuselage well and a store in a bay or a hold give none (in the
+    fuselage's outline). A store that steadies it (fins well behind the CG) is not counted: it may not be carried.
+    0 without stations or loadouts. Divided by the wing's area and span, the change of Cn_beta."""
+    fit = os.path.join(aircraft.dir, "payloads.json")
+    if not os.path.isfile(fit):
+        return 0.0
+    with open(fit, encoding="utf-8") as f:
+        fit = json.load(f)
+    card = None
+    for p in fit.get("payloads", []):
+        path = os.path.join(pipeline.repo_root(), "assets", "payloads", p.get("card", "") + ".json")
+        if os.path.isfile(path):
+            with open(path, encoding="utf-8") as f:
+                c = json.load(f)
+            if c.get("family") == "store_station" and "stations" in c:
+                card = c
+    if card is None:
+        return 0.0
+    places = {s["number"]: s for s in card["stations"]}
+    worst = {}
+    for lo in fit.get("loadouts", []):
+        for e in lo.get("stations", []):
+            st, store = places.get(e.get("station")), _store_card(e.get("store", ""))
+            if st is None or store is None:
+                continue
+            name = st.get("name", "")
+            if "bay" in name or "cargo" in st.get("takes", []) or (store.get("class") == "aam" and "fuselage" in name):
+                continue
+            par = store["parameters"]
+            value = lambda key: float(par[key]["value"]) if key in par else 0.0  # noqa: E731
+            slope = CARRIED_FINS * value("side_slope_m2")
+            moment = -(float(st["position_m"][0]) - value("side_arm_m")) * slope - 2.0 * value("munk_volume_m3")
+            worst[st["number"]] = min(worst.get(st["number"], 0.0), moment * int(e.get("count", 1)))
+    return float(sum(worst.values()))
+
+
 def _size(card):
     """A store's length, its diameter and its fins' span (m), from its card: a cargo store's box as the cylinder round it."""
     par = card["parameters"]

@@ -460,19 +460,17 @@ class Performance(collections.namedtuple(
         "Performance", "revision hovers min_cas_ms max_cas_ms max_mach max_tas_ms cruise_tas_ms max_ground_speed_ms ceiling_m max_bank_rad "
                        "min_pitch_rad max_pitch_rad max_roll_rate_rad_s min_load_factor max_load_factor max_tilt_rad max_acceleration_ms2 "
                        "max_deceleration_ms2 max_climb_ms max_descent_ms altitude_gain_per_s heading_gain heading_reference_tas_ms "
-                       "bank_rate_rad_s velocity_bandwidth_rad_s")):
+                       "bank_rate_rad_s velocity_bandwidth_rad_s least_cas_ms load_speed_ratio load_kg")):
     """What a vehicle can do (docs/vehicle-interface.md, 7.1). ``min_cas_ms`` is a wing's least calibrated airspeed at the
-    weight it has now - where it stalls: it rises with the stores and fuel it carries (7.3)."""
+    weight it has now - where it stalls: it rises with the stores and fuel it carries (7.3). ``least_cas_ms`` is the least
+    calibrated airspeed a command may ask, m/s (NaN: none) - a lesser one is clamped to it, or refused
+    "performance_limit" under RangePolicy.REJECT; ``load_speed_ratio`` what its least airspeeds are multiplied by for the
+    weight it carries now (1 at least); ``load_kg`` what it weighs beyond its performance tables' weight with the fuel now
+    on board. All three are the platform's own figures (control::Performance), read through the C ABI."""
     __slots__ = ()
 
-    #: what a commanded airspeed keeps over ``min_cas_ms`` (control::Performance::kLeastSpeedMargin)
+    #: what ``least_cas_ms`` keeps over ``min_cas_ms`` (control::Performance::kLeastSpeedMargin)
     LEAST_SPEED_MARGIN = 1.1
-
-    @property
-    def least_cas_ms(self):
-        """The least calibrated airspeed a command may ask, m/s (NaN: none): a lesser one is clamped to it, or refused
-        "performance_limit" under RangePolicy.REJECT."""
-        return self.LEAST_SPEED_MARGIN * self.min_cas_ms
 
     def turn_bank_rad(self, cas_ms):
         """The steepest bank a turn is flown with at calibrated airspeed ``cas_ms``, rad: the load factor its least

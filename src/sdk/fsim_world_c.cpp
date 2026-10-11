@@ -1177,6 +1177,7 @@ FSIM_API int fsim_vehicle_performance(fsim_world* world, uint32_t id, fsim_perfo
     c.max_climb_ms = p->maxClimbMs, c.max_descent_ms = p->maxDescentMs;
     c.altitude_gain_per_s = p->altitudeGainPerS, c.heading_gain = p->headingGain, c.heading_reference_tas_ms = p->headingReferenceTasMs;
     c.bank_rate_rad_s = p->bankRateRadS, c.velocity_bandwidth_rad_s = p->velocityBandwidthRadS;
+    c.least_cas_ms = p->leastCasMs(), c.load_speed_ratio = p->loadSpeedRatio, c.load_kg = p->loadKg;
     return copyOut(c, out) ? FSIM_OK : FSIM_INVALID_ARGUMENT;
 }
 

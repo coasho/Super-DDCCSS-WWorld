@@ -35,6 +35,25 @@ class Carriage(unittest.TestCase):
         bays = [s for s in carriage.stations(_design("f22a")) if s["bay"]]
         self.assertEqual(len(bays), 8)  # the F-22A's main and side bays
 
+    def test_directional_load(self):
+        # what its stores take from an aircraft's weathercock stability at the most (the control law is sized for it:
+        # fcs.design_point). A Gripen's three 1,100 l tanks alone: -2 x 1.111 m^3 each of Munk's couple, and their small
+        # fins' side force about the CG; with its pod and missiles some -7.5 m^3 - 0.03 /rad of Cn_beta on its 30 m^2
+        # and 8.4 m, what the law's stiffness is. An F-22A's missiles are in its bays (none of them counted): its two
+        # 600 gal tanks under its wings are. No loadouts: none.
+        gripen = carriage.directional_load(_design("gripen"))
+        self.assertLess(gripen, -6.5)
+        self.assertGreater(gripen, -9.0)
+        a = _design("gripen")
+        self.assertAlmostEqual(gripen / (a.S * a.b), -0.03, delta=0.008)
+        f22 = carriage.directional_load(_design("f22a"))
+        self.assertLess(f22, -10.0)
+        self.assertGreater(f22, -25.0)
+        self.assertEqual(carriage.directional_load(_design("c172")), 0.0)
+        # nothing that steadies it is counted (a store it may not be carrying): never positive
+        for name in ("f16c", "mig29a", "a10c", "c17a"):
+            self.assertLessEqual(carriage.directional_load(_design(name)), 0.0, name)
+
     def test_skin_above(self):
         p, t = _plate(2.0)
         self.assertAlmostEqual(carriage._skin_above(p, t, 0.0, 0.0, 1.0), 2.0)

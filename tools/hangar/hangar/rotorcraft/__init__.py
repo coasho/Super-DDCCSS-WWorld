@@ -22,6 +22,7 @@ import time
 import tomllib
 
 from .. import __version__
+from ..files import open_write
 
 KINDS = ("helicopter", "multirotor")
 STAGES = ("build", "model", "fly", "performance", "report")
@@ -56,7 +57,7 @@ class Rotorcraft:
     # -- results ---------------------------------------------------------------------------------
     def save(self, stage, data):
         data = dict(data, stage=stage, hangar=__version__, time=time.strftime("%Y-%m-%d %H:%M:%S"))
-        with open(os.path.join(self.out, stage + ".json"), "w", encoding="utf-8") as f:
+        with open_write(os.path.join(self.out, stage + ".json"), "w", encoding="utf-8") as f:
             json.dump(data, f, indent=1, default=float)
         return data
 
@@ -167,7 +168,7 @@ class Rotorcraft:
                 axis, g(section[axis + "/power"]), g(section[axis + "/damping"]), g(section[axis + "/lag_s"])))
         path = os.path.join(self.dir, "hover.toml")
         text = keep_date(path, "\n".join(lines) + "\n", WRITTEN_DATE)
-        with open(path, "w", encoding="utf-8", newline="\n") as f:
+        with open_write(path, "w", encoding="utf-8", newline="\n") as f:
             f.write(text)
 
     def profile_xml(self, indent="    "):

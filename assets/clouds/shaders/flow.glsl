@@ -57,16 +57,28 @@ int flowBrick(ivec3 L) {
 
 // The fields at a point given in voxels from the index's zero (the solver's values at whole voxels), and whether its
 // leaf is drawn (the ray may step over a leaf that is not)
+// (a ray's samples follow one another through a leaf: the leaf found for the last is the next one's, mostly)
+ivec3 flowLastLeaf = ivec3(-2147483647);
+int flowLastBrick = -1;
 vec2 flowAt(vec3 u, out bool drawn) {
   ivec3 L = ivec3(floor(u)) >> 3;
-  int b = flowBrick(L);
+  if (L != flowLastLeaf) {
+    flowLastLeaf = L;
+    flowLastBrick = flowBrick(L);
+  }
+  int b = flowLastBrick;
   drawn = b >= 0;
   if (b < 0) return vec2(0.0);
   ivec3 base = ivec3(b % FLOW_BRICKS, (b / FLOW_BRICKS) % FLOW_BRICKS, b / (FLOW_BRICKS * FLOW_BRICKS)) * FLOW_BRICK;
   vec3 texel = vec3(base) + (u - vec3(L * 8)) + 0.5;
   return texture(flowAtlas, texel / float(FLOW_BRICKS * FLOW_BRICK)).rg;
 }
+// (the light's samples: each a step of its own away, looked up as it is - the ray's own leaf is kept for the ray)
 vec2 flowAt(vec3 u) {
-  bool drawn;
-  return flowAt(u, drawn);
+  ivec3 L = ivec3(floor(u)) >> 3;
+  int b = L == flowLastLeaf ? flowLastBrick : flowBrick(L);
+  if (b < 0) return vec2(0.0);
+  ivec3 base = ivec3(b % FLOW_BRICKS, (b / FLOW_BRICKS) % FLOW_BRICKS, b / (FLOW_BRICKS * FLOW_BRICKS)) * FLOW_BRICK;
+  vec3 texel = vec3(base) + (u - vec3(L * 8)) + 0.5;
+  return texture(flowAtlas, texel / float(FLOW_BRICKS * FLOW_BRICK)).rg;
 }

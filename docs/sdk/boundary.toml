@@ -899,6 +899,7 @@ names = [
     "fsim::Vehicle::controlRevision",
     "fsim::Vehicle::controlStatus",
     "fsim::Vehicle::massKg",
+    "fsim::Vehicle::cgFromModelOriginM",
     "fsim::Vehicle::missionActivities",
     "fsim::Vehicle::missionActivity",
     "fsim::Vehicle::missionCapabilities",

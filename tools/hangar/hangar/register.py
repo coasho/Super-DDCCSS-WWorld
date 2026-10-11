@@ -16,6 +16,7 @@ import numpy as np
 from . import rotorcraft
 from .geometry.aircraft import Aircraft
 from .mass import MassModel
+from .files import open_write
 
 HEADER = """# The viewer's models for stock JSBSim aircraft - written by: fsim hangar register
 # <stock type> <design> <forward> <right> <down>: the viewer draws jsbsim:<stock type> with
@@ -86,7 +87,7 @@ def register(root, log=print):
                 offset = stock_mains(world, stock) - ours
                 rows.append((stock, a.name, offset))
                 log("  jsbsim:%-8s drawn with %-10s moved %+.2f forward, %+.2f down" % (stock, a.name, offset[0], offset[2]))
-    with open(os.path.join(root, "models.txt"), "w", encoding="utf-8", newline="\n") as f:
+    with open_write(os.path.join(root, "models.txt"), "w", encoding="utf-8", newline="\n") as f:
         f.write(HEADER)
         for stock, design, o in rows:
             f.write("%s %s %.3f %.3f %.3f\n" % (stock, design, o[0], o[1], o[2]))

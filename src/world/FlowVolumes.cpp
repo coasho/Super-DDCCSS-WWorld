@@ -10,6 +10,8 @@
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#include <functional>
+#include <future>
 #include <thread>
 
 namespace fsim::world {
@@ -18,7 +20,7 @@ namespace ff = flowfires;
 
 namespace {
 
-constexpr double kBottomRadius = 6360000.0; // (the clouds' atmosphere, as world::Detonations')
+constexpr double kBottomRadius = 6360000.0; // (the clouds' atmosphere)
 constexpr double kExposure = 10.0;
 constexpr std::uint32_t kRows = 8;          // the frame's rows before the black body's table (assets/clouds/shaders/flow.glsl)
 constexpr std::uint32_t kPagesAt = kRows + SunlitBlackbody::kRows;
@@ -48,7 +50,129 @@ std::uint32_t leafHash(int x, int y, int z) {
     return (static_cast<std::uint32_t>(x) * 73856093u) ^ (static_cast<std::uint32_t>(y) * 19349663u) ^ (static_cast<std::uint32_t>(z) * 83492791u);
 }
 
+double msSince(std::chrono::steady_clock::time_point t0) {
+    return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+}
+
 } // namespace
+
+/// The packing's hands: a few threads that stay, each given a share of a range (and the caller one), all waited for.
+class FlowVolumes::Pool {
+public:
+    explicit Pool(unsigned threads) {
+        for (unsigned t = 0; t < threads; ++t) threads_.emplace_back([this, t] { run(t); });
+    }
+    ~Pool() {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            quit_ = true;
+        }
+        start_.notify_all();
+        for (auto& t : threads_) t.join();
+    }
+    /// fn(first, last) over [0, count), in as many shares as there are hands and the caller.
+    void each(std::uint32_t count, const std::function<void(std::uint32_t, std::uint32_t)>& fn) {
+        const auto shares = static_cast<std::uint32_t>(threads_.size()) + 1u;
+        if (count < 256 || shares == 1) {
+            fn(0, count);
+            return;
+        }
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            fn_ = &fn, count_ = count, left_ = static_cast<unsigned>(threads_.size());
+            ++round_;
+        }
+        start_.notify_all();
+        fn(0, count / shares);
+        std::unique_lock<std::mutex> lock(mutex_);
+        done_.wait(lock, [this] { return left_ == 0; });
+    }
+
+private:
+    void run(unsigned t) {
+        std::uint64_t seen = 0;
+        std::unique_lock<std::mutex> lock(mutex_);
+        for (;;) {
+            start_.wait(lock, [&] { return quit_ || round_ != seen; });
+            if (quit_) return;
+            seen = round_;
+            const auto shares = static_cast<std::uint32_t>(threads_.size()) + 1u;
+            const std::uint32_t first = count_ * (t + 1) / shares, last = count_ * (t + 2) / shares;
+            const auto* fn = fn_;
+            lock.unlock();
+            (*fn)(first, last);
+            lock.lock();
+            if (--left_ == 0) done_.notify_one();
+        }
+    }
+    std::vector<std::thread> threads_;
+    std::mutex mutex_;
+    std::condition_variable start_, done_;
+    const std::function<void(std::uint32_t, std::uint32_t)>* fn_ = nullptr;
+    std::uint32_t count_ = 0;
+    unsigned left_ = 0;
+    std::uint64_t round_ = 0;
+    bool quit_ = false;
+};
+
+FlowVolumes::~FlowVolumes() {
+    if (worker_.joinable()) {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            quit_ = true;
+        }
+        wake_.notify_all();
+        worker_.join();
+    }
+    // (the texture's data was a buffer of ours: the scene may outlive this, and must not be left pointing at it)
+    if (atlas_) atlas_->assign(0, 0, 0, nullptr, atlas_->properties);
+}
+
+void FlowVolumes::setSynchronous(bool on) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    synchronous_ = on;
+}
+
+void FlowVolumes::work(std::shared_ptr<void> started, FlowSolver::Settings settings) {
+    // the solver is this thread's from its making to its end: Flow's device and context are used from here alone
+    FlowSolver solver;
+    const bool ok = solver.start(settings);
+    static_cast<std::promise<bool>*>(started.get())->set_value(ok);
+    if (!ok) return;
+    std::unique_lock<std::mutex> lock(mutex_);
+    for (;;) {
+        wake_.wait(lock, [this] { return quit_ || !jobs_.empty(); });
+        if (quit_) break;
+        Job job = std::move(jobs_.front());
+        jobs_.pop_front();
+        // (a step asked before a clear() is not the grid's any more; of several waiting - a slow frame caught up -
+        // only the last one's fields are drawn)
+        const bool wanted = job.epoch == epoch_;
+        const bool last = jobs_.empty() || jobs_.front().epoch != job.epoch;
+        const bool wait = synchronous_;
+        busy_ = true;
+        lock.unlock();
+        if (wanted) {
+            const auto t0 = std::chrono::steady_clock::now();
+            solver.step(job.dt, job.sources, job.clear, wait);
+            if (last) {
+                const auto p0 = std::chrono::steady_clock::now();
+                pack(solver.fields(), vsg::dvec3(job.eye[0], job.eye[1], job.eye[2]), *back_);
+                back_->epoch = job.epoch;
+                back_->solverGpuMs = solver.gpuMs();
+                back_->packMs = msSince(p0);
+                back_->workerMs = msSince(t0);
+            }
+        }
+        lock.lock();
+        if (wanted && last) {
+            std::swap(back_, ready_);
+            fresh_ = true;
+        }
+        busy_ = false;
+        if (jobs_.empty()) idle_.notify_all();
+    }
+}
 
 FlowVolumes::FlowVolumes(vsg::ref_ptr<const vsg::Options> options, const std::filesystem::path& shaders, const AtmosphereTables& tables,
                          bool coarseShading) {
@@ -61,13 +185,26 @@ FlowVolumes::FlowVolumes(vsg::ref_ptr<const vsg::Options> options, const std::fi
         LOG_WARN("world") << "no Flow volumes drawn: the clouds' shaders, noises or the atmosphere's tables are missing";
         return;
     }
-    FlowSolver::Settings settings;
-    settings.cellM = kCellM;
-    settings.combustion = ff::combustion();
-    if (!solver_.start(settings)) {
-        LOG_INFO("world") << "NVIDIA Flow not running (not built with it, or nvflow.dll, nvflowext.dll not beside the viewer)";
+    settings_.cellM = kCellM;
+    settings_.combustion = ff::combustion();
+    for (Packed& b : buffers_) {
+        b.atlas.assign(static_cast<std::size_t>(kAtlas) * kAtlas * kAtlas, vsg::usvec2(0, 0));
+        b.hash.assign(kHash, vsg::uivec4(0, 0, 0, 0));
+    }
+    front_ = &buffers_[0], ready_ = &buffers_[1], back_ = &buffers_[2];
+    {
+        // the solver's thread, and Flow made in it; its answer waited for here, once
+        auto started = std::make_shared<std::promise<bool>>();
+        std::future<bool> answer = started->get_future();
+        worker_ = std::thread(&FlowVolumes::work, this, std::static_pointer_cast<void>(started), settings_);
+        running_ = answer.get();
+    }
+    if (!running_) {
+        worker_.join();
+        LOG_INFO("world") << "NVIDIA Flow not running (nvflow.dll, nvflowext.dll not beside the viewer, or no device for it)";
         return;
     }
+    pool_ = std::make_unique<Pool>(std::clamp<unsigned>(std::thread::hardware_concurrency() / 2, 1, 8) - 1);
     const std::string cap = "#define BLACKBODY_AT " + std::to_string(kRows) + "\n#define BLACKBODY_ROWS " + std::to_string(SunlitBlackbody::kRows) +
                             "\n#define PAGES_AT " + std::to_string(kPagesAt) + "\n#define FLOW_BRICKS " + std::to_string(kBricks) +
                             "\n#define FLOW_BRICK " + std::to_string(kBrick) + "\n#define FLOW_HASH " + std::to_string(kHash) + "\n";
@@ -92,9 +229,14 @@ FlowVolumes::FlowVolumes(vsg::ref_ptr<const vsg::Options> options, const std::fi
     blackbody_.write(*rows_, kRows);
     frame_ = vsg::vec4Array::create(4, vsg::vec4(0.0f, 0.0f, 0.0f, 0.0f));
     hash_ = vsg::uivec4Array::create(kHash, vsg::uivec4(0, 0, 0, 0));
-    atlas_ = vsg::usvec2Array3D::create(kAtlas, kAtlas, kAtlas, vsg::usvec2(0, 0), vsg::Data::Properties{VK_FORMAT_R16G16_SFLOAT});
-    for (vsg::Data* d : {static_cast<vsg::Data*>(rows_.get()), static_cast<vsg::Data*>(frame_.get()), static_cast<vsg::Data*>(hash_.get()),
-                         static_cast<vsg::Data*>(atlas_.get())})
+    {
+        // the texture's data is the front buffer's own memory (not a copy: 12 MB a step is then copied once, to the GPU)
+        vsg::Data::Properties properties{VK_FORMAT_R16G16_SFLOAT};
+        properties.dataVariance = vsg::DYNAMIC_DATA;
+        properties.allocatorType = vsg::ALLOCATOR_TYPE_NO_DELETE;
+        atlas_ = vsg::usvec2Array3D::create(kAtlas, kAtlas, kAtlas, front_->atlas.data(), properties);
+    }
+    for (vsg::Data* d : {static_cast<vsg::Data*>(rows_.get()), static_cast<vsg::Data*>(frame_.get()), static_cast<vsg::Data*>(hash_.get())})
         d->properties.dataVariance = vsg::DYNAMIC_DATA;
     auto sampler = vsg::Sampler::create();
     sampler->minFilter = sampler->magFilter = VK_FILTER_LINEAR;
@@ -164,7 +306,15 @@ void FlowVolumes::clear() {
     leaks_.clear();
     haveOrigin_ = false;
     lastTime_ = -1.0;
+    stepIndex_ = -1;
+    quietSince_ = -1.0;
     cleared_ = true;
+    {
+        // what the solver was asked and has packed since is of the grid before
+        std::lock_guard<std::mutex> lock(mutex_);
+        ++epoch_;
+        jobs_.clear();
+    }
     if (draw_) draw_->instanceCount = 0;
 }
 
@@ -208,7 +358,7 @@ void FlowVolumes::add(const ipc::EngagementEvent& event, const vsg::EllipsoidMod
         at += vsg::normalize(normal) * std::cbrt(event.amountKg); // (the spill's cloud is M^(1/3) m round: world/FlowFires.h)
     origin(at, event.simTime, ellipsoid);
     const double altitude = ellipsoid.convertECEFToLatLongAltitude(at).z;
-    const double pressure = Detonations::pressureAt(air_, altitude);
+    const double pressure = flowfires::pressureAt(air_, altitude);
     const vsg::dvec3 p = toAir(at, event.simTime), v = velocityToAir(velocity);
     if (fire) {
         // what leaks and burns on, from its component (written again as it changes; 0: it is out)
@@ -255,12 +405,29 @@ void FlowVolumes::update(double now, Span<const sim::VehicleState> states, const
     const auto t0 = std::chrono::steady_clock::now();
     // (a replay's seek back: start over)
     if (lastTime_ >= 0.0 && now < lastTime_ - 0.25) clear();
-    // the time to step: since the last frame (a second at most: a longer gap - a seek forward - is not caught up)
-    const double gap = lastTime_ < 0.0 ? 1.0 / 60.0 : std::clamp(now - lastTime_, 0.0, 1.0);
-    const double start = now - gap;
     lastTime_ = now;
 
-    if (gap > 0.0 && (haveOrigin_ || cleared_)) {
+    // the leaks that burn now: each its component on its aircraft
+    struct Burning {
+        const Leak* leak;
+        const sim::VehicleState* state;
+        vsg::dvec3 at; ///< the component (body axes)
+    };
+    std::vector<Burning> burning;
+    for (const Leak& l : leaks_) {
+        if (!(l.rateKgS > 0.0) || now < l.since || l.slot >= states.size() || l.slot >= alive.size() || !alive[l.slot]) continue;
+        const VehicleVisuals::Shape& shape = visuals.shape(l.slot);
+        if (!shape.valid) continue;
+        for (const auto& c : shape.components)
+            if (c.name == l.component) {
+                burning.push_back(Burning{&l, &states[l.slot], c.at});
+                break;
+            }
+    }
+    // (a leak burning on after the solver was left to rest: its frame made again, where the aircraft is now)
+    if (!haveOrigin_ && !burning.empty()) origin(positionEcef(*burning.front().state), now, ellipsoid);
+
+    if (haveOrigin_ || cleared_) {
         // the leaks' holes now, and how they move (through the air)
         struct Hole {
             const Leak* leak;
@@ -275,61 +442,138 @@ void FlowVolumes::update(double now, Span<const sim::VehicleState> states, const
             double pressure, airK;
         };
         std::vector<Wake> wakes;
-        for (const Leak& l : leaks_) {
-            if (!(l.rateKgS > 0.0) || now < l.since || l.slot >= states.size() || l.slot >= alive.size() || !alive[l.slot]) continue;
-            const VehicleVisuals::Shape& shape = visuals.shape(l.slot);
-            if (!shape.valid) continue;
-            for (const auto& c : shape.components) {
-                if (c.name != l.component) continue;
-                const sim::VehicleState& st = states[l.slot];
+        if (haveOrigin_)
+            for (const Burning& fire : burning) {
+                const Leak& l = *fire.leak;
+                const sim::VehicleState& st = *fire.state;
                 const vsg::dvec3 v = bodyAxisEcef(st, 0) * st.velocityBodyMs[0] + bodyAxisEcef(st, 1) * st.velocityBodyMs[1] +
                                      bodyAxisEcef(st, 2) * st.velocityBodyMs[2];
-                holes.push_back(Hole{&l, toAir(bodyToEcef(st) * c.at, now), velocityToAir(v), Detonations::pressureAt(air_, st.altitudeMslM)});
+                holes.push_back(Hole{&l, toAir(bodyToEcef(st) * fire.at, now), velocityToAir(v), flowfires::pressureAt(air_, st.altitudeMslM)});
                 bool laid = false;
                 for (const Wake& w : wakes) laid = laid || w.slot == l.slot;
                 if (!laid && l.slot < aircraft_.size() && aircraft_[l.slot].x > 0.0) {
                     const auto axis = [&](const vsg::dvec3& e) { return vsg::dvec3(vsg::dot(e, east_), vsg::dot(e, north_), vsg::dot(e, up_)); };
                     wakes.push_back(Wake{l.slot, toAir(positionEcef(st), now), velocityToAir(v), axis(bodyAxisEcef(st, 1)), -axis(bodyAxisEcef(st, 2)),
-                                         Detonations::pressureAt(air_, st.altitudeMslM),
+                                         flowfires::pressureAt(air_, st.altitudeMslM),
                                          std::max(216.65, air_.seaLevelK - 0.0065 * st.altitudeMslM)});
                 }
-                break;
             }
-        }
-        // stepped in calls of two of the solver's steps at most (Flow's maxStepsPerSimulate), each with its sources
-        // where they were then: a slow frame (a screenshot saved, a hitch) caught up, not left behind
-        const double call = 2.0 / solver_.settings().stepsPerSecond;
-        const int calls = std::max(1, static_cast<int>(std::ceil(gap / call - 1e-9)));
-        for (int k = 0; k < calls; ++k) {
-            const double t = start + gap * (k + 1) / calls, dt = gap / calls;
+        // The solver's steps that have fallen due, each given with its sources where they are at its time (the
+        // calibration's way: one call a step, world/FlowFires.h). The steps stand on a grid of the world's time, so a
+        // replay's fire is stepped at the same times every run. After a slow frame (a screenshot saved, a hitch) the
+        // steps missed are given together, a second of them at most (a longer gap - a seek forward - is not caught up).
+        const double step = 1.0 / settings_.stepsPerSecond;
+        const auto due = static_cast<std::int64_t>(std::floor(now / step + 1e-9));
+        if (stepIndex_ < 0) stepIndex_ = due - 1;
+        stepIndex_ = std::max(stepIndex_, due - static_cast<std::int64_t>(settings_.stepsPerSecond));
+        const vsg::dvec3 eyeLocal = haveOrigin_ ? toAir(eye, now) : vsg::dvec3(0.0, 0.0, 0.0);
+        std::vector<Job> given;
+        while (stepIndex_ < due) {
+            ++stepIndex_;
+            const double t = static_cast<double>(stepIndex_) * step;
             sources_.clear();
             bursts_.erase(std::remove_if(bursts_.begin(), bursts_.end(),
                                          [&](const Burst& b) {
                                              const double age = t - b.time;
-                                             return b.detonation ? !ff::detonation(b.amountKg, b.at, b.motion, b.pressurePa, age, dt, b.luid, sources_)
-                                                                 : !ff::spill(b.amountKg, b.at, b.motion, b.pressurePa, age, dt, b.luid, sources_);
+                                             return b.detonation ? !ff::detonation(b.amountKg, b.at, b.motion, b.pressurePa, age, step, b.luid, sources_)
+                                                                 : !ff::spill(b.amountKg, b.at, b.motion, b.pressurePa, age, step, b.luid, sources_);
                                          }),
                           bursts_.end());
             for (const Wake& w : wakes) {
                 const vsg::dvec3 a = w.at - w.velocity * (now - t);
                 const double at[3] = {a.x, a.y, a.z}, velocity[3] = {w.velocity.x, w.velocity.y, w.velocity.z};
                 const double right[3] = {w.right.x, w.right.y, w.right.z}, up[3] = {w.up.x, w.up.y, w.up.z};
-                ff::wake(aircraft_[w.slot].y, aircraft_[w.slot].x, at, velocity, right, up, w.pressure, w.airK, dt,
+                ff::wake(aircraft_[w.slot].y, aircraft_[w.slot].x, at, velocity, right, up, w.pressure, w.airK, step,
                          (1u << 20) + w.slot, sources_);
             }
             for (const Hole& h : holes) {
                 const vsg::dvec3 a = h.at - h.velocity * (now - t);
                 const double at[3] = {a.x, a.y, a.z}, velocity[3] = {h.velocity.x, h.velocity.y, h.velocity.z};
-                ff::leak(h.leak->rateKgS, at, velocity, h.pressure, dt, h.leak->luid, sources_);
+                ff::leak(h.leak->rateKgS, at, velocity, h.pressure, step, h.leak->luid, sources_);
             }
-            solver_.step(dt, sources_, cleared_);
+            Job job;
+            job.dt = step;
+            job.sources = sources_;
+            job.clear = cleared_;
+            job.epoch = epoch_;
+            job.eye[0] = eyeLocal.x, job.eye[1] = eyeLocal.y, job.eye[2] = eyeLocal.z;
+            given.push_back(std::move(job));
             cleared_ = false;
         }
-        cost_.solverGpuMs = solver_.gpuMs();
+        if (!given.empty()) {
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                for (Job& job : given) jobs_.push_back(std::move(job));
+            }
+            wake_.notify_one();
+        }
     }
-    const auto p0 = std::chrono::steady_clock::now();
-    if (haveOrigin_) pack(toAir(eye, now));
-    cost_.packMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - p0).count();
+    else stepIndex_ = -1; // (at rest: the next fire's steps start at its own time, none owed for the time between)
+
+    // the newest fields the solver's thread has packed: its buffer the texture's from here on, the one the texture
+    // had its to pack into after the next
+    bool taken = false;
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        if (synchronous_) idle_.wait(lock, [this] { return jobs_.empty() && !busy_; });
+        if (fresh_) {
+            std::swap(front_, ready_);
+            fresh_ = false;
+            taken = true;
+        }
+        cost_.waiting = jobs_.size();
+    }
+    const bool drawn = haveOrigin_ && front_->epoch == epoch_;
+    if (taken && drawn) {
+        vsg::Data::Properties properties = atlas_->properties;
+        atlas_->assign(kAtlas, kAtlas, kAtlas, front_->atlas.data(), properties); // (and dirty: uploaded this frame)
+        std::copy(front_->hash.begin(), front_->hash.end(), hash_->begin());
+        hash_->dirty();
+        cost_.solverGpuMs = front_->solverGpuMs, cost_.workerMs = front_->workerMs, cost_.packMs = front_->packMs;
+        cost_.leaves = front_->leaves, cost_.leavesRead = front_->leavesRead, cost_.readbackBytes = front_->bytes;
+    }
+    if (drawn && front_->leaves > 0 && front_->voxel > 0.0) {
+        // the pages (8^3 leaves): each the box round its leaves, drawn far to near from where the eye is now
+        const Packed& f = *front_;
+        const vsg::dvec3 eyeLocal = toAir(eye, now);
+        const double leafM = 8.0 * f.voxel;
+        std::vector<std::pair<double, const Page*>> order;
+        order.reserve(f.pages.size());
+        for (const Page& page : f.pages) {
+            // (by the page's own cell's middle, not its box's: equal cells of a grid, far to near, are drawn in order)
+            vsg::dvec3 c;
+            for (std::size_t a = 0; a < 3; ++a) c[a] = f.zero[a] + ((page.lo[a] >> 3) * 8 + 4) * leafM;
+            order.emplace_back(vsg::length(c - eyeLocal), &page);
+        }
+        std::sort(order.begin(), order.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+        if (order.size() > kPages) order.erase(order.begin(), order.begin() + static_cast<std::ptrdiff_t>(order.size() - kPages));
+        const auto F = [](double v) { return static_cast<float>(v); };
+        for (std::uint32_t k = 0; k < order.size(); ++k) {
+            const Page& p = *order[k].second;
+            vsg::dvec3 lo, size;
+            for (std::size_t a = 0; a < 3; ++a) lo[a] = f.zero[a] + p.lo[a] * leafM, size[a] = (p.hi[a] - p.lo[a] + 1) * leafM;
+            rows_->set(kPagesAt + 2 * k, vsg::vec4(F(lo.x), F(lo.y), F(lo.z), 1.0f));
+            rows_->set(kPagesAt + 2 * k + 1, vsg::vec4(F(size.x), F(size.y), F(size.z), 0.0f));
+        }
+        cost_.pages = order.size();
+        draw_->instanceCount = static_cast<std::uint32_t>(order.size());
+    }
+    else {
+        draw_->instanceCount = 0;
+        cost_.pages = 0;
+        if (!drawn) cost_.leaves = cost_.leavesRead = 0;
+    }
+    // Nothing burning and nothing left of what did (its smoke thinned away, the solver's blocks freed): the solver is
+    // left to rest - no step asked of it, its frame given up, made again round the next fire - until there is one.
+    if (haveOrigin_ && bursts_.empty() && burning.empty() && drawn && front_->leavesRead == 0 && cost_.waiting == 0) {
+        if (quietSince_ < 0.0) quietSince_ = now;
+        else if (now - quietSince_ > kRestAfterS) {
+            haveOrigin_ = false;
+            cleared_ = true; // (one more step, emptying the grid of what moves in it unseen)
+            quietSince_ = -1.0;
+        }
+    }
+    else quietSince_ = -1.0;
 
     {
         // the frame, as a detonation's: the eye, a pixel's angle, the altitude correction, the sun, the night light
@@ -355,7 +599,7 @@ void FlowVolumes::update(double now, Span<const sim::VehicleState> states, const
         const auto F = [](double v) { return static_cast<float>(v); };
         const vsg::dvec3 w = windLocal() * (now - originTime_);
         const vsg::dvec3 from = origin_ + east_ * w.x + north_ * w.y + up_ * w.z - eye;
-        const FlowSolver::Fields& f = solver_.fields();
+        const Packed& f = *front_;
         rows_->set(0, vsg::vec4(F(from.x), F(from.y), F(from.z), F(f.voxel)));
         rows_->set(1, vsg::vec4(F(east_.x), F(east_.y), F(east_.z), 0.0f));
         rows_->set(2, vsg::vec4(F(north_.x), F(north_.y), F(north_.z), 0.0f));
@@ -369,18 +613,17 @@ void FlowVolumes::update(double now, Span<const sim::VehicleState> states, const
         rows_->dirty();
     }
     at_->matrix = vsg::translate(eye);
-    cost_.cpuMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+    cost_.cpuMs = msSince(t0);
 }
 
-void FlowVolumes::pack(const vsg::dvec3& eyeLocal) {
-    const FlowSolver::Fields& f = solver_.fields();
-    cost_.leavesRead = f.leaves.size();
-    cost_.readbackBytes = f.bytes;
-    if (f.leaves.empty() || !(f.voxel > 0.0)) {
-        draw_->instanceCount = 0;
-        cost_.leaves = cost_.pages = 0;
-        return;
-    }
+void FlowVolumes::pack(const FlowSolver::Fields& f, const vsg::dvec3& eyeLocal, Packed& out) {
+    out.leavesRead = f.leaves.size();
+    out.bytes = f.bytes;
+    out.voxel = f.voxel;
+    std::copy(f.zero, f.zero + 3, out.zero);
+    out.pages.clear();
+    out.leaves = 0;
+    if (f.leaves.empty() || !(f.voxel > 0.0)) return;
     // the leaves drawn: all, or the nearest that fit
     const std::size_t most = static_cast<std::size_t>(kBricks) * kBricks * kBricks;
     std::vector<const FlowSolver::Leaf*> drawn;
@@ -394,20 +637,19 @@ void FlowVolumes::pack(const vsg::dvec3& eyeLocal) {
                          [&](const FlowSolver::Leaf* a, const FlowSolver::Leaf* b) { return vsg::length2(middle(a) - eyeLocal) < vsg::length2(middle(b) - eyeLocal); });
         drawn.resize(most);
     }
-    cost_.leaves = drawn.size();
+    out.leaves = drawn.size();
     // their bricks, and the hash the shader finds them by
     slots_.clear();
-    std::fill(hash_->begin(), hash_->end(), vsg::uivec4(0, 0, 0, 0));
+    std::fill(out.hash.begin(), out.hash.end(), vsg::uivec4(0, 0, 0, 0));
     for (std::uint32_t s = 0; s < drawn.size(); ++s) {
         const int* o = drawn[s]->origin;
         const int L[3] = {o[0] >> 3, o[1] >> 3, o[2] >> 3};
         slots_[leafKey(L[0], L[1], L[2])] = s;
         std::uint32_t h = leafHash(L[0], L[1], L[2]) & (kHash - 1);
-        while ((*hash_)[h].w != 0) h = (h + 1) & (kHash - 1);
-        (*hash_)[h] = vsg::uivec4(static_cast<std::uint32_t>(L[0]), static_cast<std::uint32_t>(L[1]), static_cast<std::uint32_t>(L[2]), s + 1);
+        while (out.hash[h].w != 0) h = (h + 1) & (kHash - 1);
+        out.hash[h] = vsg::uivec4(static_cast<std::uint32_t>(L[0]), static_cast<std::uint32_t>(L[1]), static_cast<std::uint32_t>(L[2]), s + 1);
     }
-    hash_->dirty();
-    vsg::usvec2* atlas = atlas_->data();
+    vsg::usvec2* atlas = out.atlas.data();
     const auto texel = [&](std::uint32_t x, std::uint32_t y, std::uint32_t z) { return (static_cast<std::size_t>(z) * kAtlas + y) * kAtlas + x; };
     // (the bricks shared among threads: each its own, the map only read)
     const auto fill = [&](std::uint32_t first, std::uint32_t last) {
@@ -435,51 +677,24 @@ void FlowVolumes::pack(const vsg::dvec3& eyeLocal) {
                 }
     }
     };
-    const auto count = static_cast<std::uint32_t>(drawn.size());
-    const std::uint32_t threads = std::clamp<std::uint32_t>(std::thread::hardware_concurrency() / 2, 1, 8);
-    if (count < 256 || threads == 1) fill(0, count);
-    else {
-        std::vector<std::thread> pool;
-        for (std::uint32_t t = 1; t < threads; ++t) pool.emplace_back(fill, count * t / threads, count * (t + 1) / threads);
-        fill(0, count / threads);
-        for (auto& t : pool) t.join();
-    }
-    atlas_->dirty();
-    // the pages (8^3 leaves): each the box round its leaves, drawn far to near
-    struct Page {
-        int lo[3], hi[3];
-        double distance;
-    };
+    pool_->each(static_cast<std::uint32_t>(drawn.size()), fill);
+    // the pages (8^3 leaves): each the box round its leaves
     std::unordered_map<std::uint64_t, Page> pages;
     for (const FlowSolver::Leaf* l : drawn) {
         const int L[3] = {l->origin[0] >> 3, l->origin[1] >> 3, l->origin[2] >> 3};
-        auto [it, fresh] = pages.try_emplace(leafKey(L[0] >> 3, L[1] >> 3, L[2] >> 3), Page{{L[0], L[1], L[2]}, {L[0], L[1], L[2]}, 0.0});
+        auto [it, fresh] = pages.try_emplace(leafKey(L[0] >> 3, L[1] >> 3, L[2] >> 3), Page{{L[0], L[1], L[2]}, {L[0], L[1], L[2]}});
         if (!fresh)
             for (int a = 0; a < 3; ++a) it->second.lo[a] = std::min(it->second.lo[a], L[a]), it->second.hi[a] = std::max(it->second.hi[a], L[a]);
     }
-    std::vector<Page> order;
-    order.reserve(pages.size());
-    const double leafM = 8.0 * f.voxel;
-    for (auto& [key, page] : pages) {
+    out.pages.reserve(pages.size());
+    for (const auto& [key, page] : pages) {
         (void)key;
-        // (by the page's own cell's middle, not its box's: equal cells of a grid, far to near, are drawn in order)
-        vsg::dvec3 c;
-        for (std::size_t a = 0; a < 3; ++a) c[a] = f.zero[a] + ((page.lo[a] >> 3) * 8 + 4) * leafM;
-        page.distance = vsg::length(c - eyeLocal);
-        order.push_back(page);
+        out.pages.push_back(page);
     }
-    std::sort(order.begin(), order.end(), [](const Page& a, const Page& b) { return a.distance > b.distance; });
-    if (order.size() > kPages) order.erase(order.begin(), order.begin() + static_cast<std::ptrdiff_t>(order.size() - kPages));
-    const auto F = [](double v) { return static_cast<float>(v); };
-    for (std::uint32_t k = 0; k < order.size(); ++k) {
-        const Page& p = order[k];
-        vsg::dvec3 lo, size;
-        for (std::size_t a = 0; a < 3; ++a) lo[a] = f.zero[a] + p.lo[a] * leafM, size[a] = (p.hi[a] - p.lo[a] + 1) * leafM;
-        rows_->set(kPagesAt + 2 * k, vsg::vec4(F(lo.x), F(lo.y), F(lo.z), 1.0f));
-        rows_->set(kPagesAt + 2 * k + 1, vsg::vec4(F(size.x), F(size.y), F(size.z), 0.0f));
-    }
-    cost_.pages = order.size();
-    draw_->instanceCount = static_cast<std::uint32_t>(order.size());
+    // (in an order of their own, whatever the map's: equal distances then sort alike every run)
+    std::sort(out.pages.begin(), out.pages.end(), [](const Page& a, const Page& b) {
+        return std::lexicographical_compare(a.lo, a.lo + 3, b.lo, b.lo + 3);
+    });
 }
 
 } // namespace fsim::world

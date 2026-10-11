@@ -384,6 +384,9 @@ private:
     Compiler compiler_;
     Model default_;
     std::map<std::string, Model> library_; ///< by resolved path; an empty Model = failed to load
+    /// Each model file as read, by its path: a piece of an aircraft (the same file, hung from another point) shares
+    /// its aircraft's geometry instead of reading and compiling the file again as it breaks off
+    mutable std::map<std::string, vsg::ref_ptr<vsg::Node>> files_;
     std::map<std::string, StandIn> standIns_; ///< stock types drawn with a design's model (models.txt)
     std::vector<std::string> slotModel_;
     std::vector<const Model*> slotModels_; ///< what each slot draws (its shape)

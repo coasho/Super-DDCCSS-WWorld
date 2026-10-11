@@ -14,8 +14,6 @@ add_library(fsim_world STATIC
     Exhaust.cpp
     Airflow.h
     Airflow.cpp
-    Detonations.h
-    Detonations.cpp
     FlowVolumes.h
     FlowVolumes.cpp
     ShadingRate.h

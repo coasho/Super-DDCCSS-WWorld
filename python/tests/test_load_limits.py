@@ -21,7 +21,8 @@ def seconds(w, s):
 def loaded_f16c(w, altitude_m=3000.0):
     v = w.create_vehicle("viper", "jsbsim:f16c", latitude_deg=40.0, longitude_deg=0.0, altitude_msl_m=altitude_m, airspeed_ms=165.0, heading_deg=90.0)
     w.step()
-    spawned = types.SimpleNamespace(mass_kg=v.mass_kg, min_cas_ms=v.performance.min_cas_ms, revision=v.control_revision)
+    spawned = types.SimpleNamespace(mass_kg=v.mass_kg, min_cas_ms=v.performance.min_cas_ms, revision=v.control_revision,
+                                    load_speed_ratio=v.performance.load_speed_ratio, load_kg=v.performance.load_kg)
     v.load_loadout("air superiority")
     v.load_loadout("external tanks")
     w.step(2)
@@ -46,6 +47,11 @@ class LoadLimits(unittest.TestCase):
         # the least a command may ask keeps its margin over that: one below is refused under REJECT, one at it flown
         least = v.performance.least_cas_ms
         self.assertAlmostEqual(least, 1.1 * v.performance.min_cas_ms, places=9)
+        # the platform's own figures for its load, through the C ABI (1.68): the ratio its least airspeeds are multiplied
+        # by (in steps of half a percent), and what it weighs beyond its tables' weight
+        self.assertAlmostEqual(v.performance.load_speed_ratio, ratio, delta=0.006)
+        self.assertEqual(spawned.load_speed_ratio, 1.0)
+        self.assertAlmostEqual(v.performance.load_kg - spawned.load_kg, v.mass_kg - spawned.mass_kg, delta=5.0)
         for below in (spawned.min_cas_ms, v.performance.min_cas_ms, least - 0.5):
             with self.assertRaises(fsim.Rejected) as refused:
                 v.submit_hsa(speed=below, speed_reference="calibrated_airspeed", range=fsim.RangePolicy.REJECT)

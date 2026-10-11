@@ -21,6 +21,7 @@ import math
 import os
 
 from . import pipeline
+from .files import open_write
 
 R45 = math.sqrt(0.5)
 # An AIM-9's rollerons: wheels some 8 cm across (assumed from photographs). A free-rolling tail's turns: two a kilometre
@@ -334,7 +335,7 @@ def write(name):
     d = os.path.join(pipeline.repo_root(), "aircraft", name)
     os.makedirs(d, exist_ok=True)
     for fn, text in ((name + ".toml", toml), ("paint.toml", paint)):
-        with open(os.path.join(d, fn), "w", encoding="utf-8", newline="\n") as f:
+        with open_write(os.path.join(d, fn), "w", encoding="utf-8", newline="\n") as f:
             f.write(text)
     return os.path.join(d, name + ".toml")
 

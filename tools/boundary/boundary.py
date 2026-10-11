@@ -249,6 +249,30 @@ def render(result, data):
     return "\n".join(lines) + "\n"
 
 
+def listed(text):
+    """A rendered page's entries: (principal's section, group, surface, name)."""
+    out, section, group = set(), "", ""
+    for line in text.splitlines():
+        if line.startswith("## "):
+            section = line
+        elif line.startswith("- **"):
+            group = line
+        elif line.startswith("  - "):
+            surface, _, names = line[4:].partition(": ")
+            out |= {(section, group, surface, n) for n in re.findall(r"`([^`]+)`", names)}
+    return out
+
+
+def same_page(committed, rendered, absent):
+    """Whether the committed page is what this build renders. The page is rendered from the full build; a build
+    without the vision library (`absent`: its names' prefixes) renders the same page less those names, so there it is
+    held entry by entry: nothing of this build missing or moved, nothing more on the page but the vision library's."""
+    if not absent:
+        return committed == rendered
+    page, here = listed(committed), listed(rendered)
+    return here <= page and all(name.startswith(absent) for _, _, _, name in page - here)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("action", choices=("check", "render"))
@@ -271,7 +295,7 @@ def main():
     else:
         try:
             with open(DOC, encoding="utf-8") as f:
-                if f.read() != text:
+                if not same_page(f.read(), text, absent):
                     errors.append("docs/sdk/boundary.md is out of date: run tools/boundary/boundary.py render")
         except FileNotFoundError:
             errors.append("docs/sdk/boundary.md is missing: run tools/boundary/boundary.py render")

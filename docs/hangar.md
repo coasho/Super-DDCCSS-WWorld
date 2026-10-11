@@ -55,6 +55,42 @@ eight of one type at a speed that suits it.
 
 `aircraft\mine\out\report.html` collects everything on one page.
 
+### Built again
+
+What is in the repository is what the tool makes: a design run again with nothing changed leaves every file it
+writes as it was, byte for byte (a file's date is kept when nothing else in it changes). Held three ways:
+
+- `python tools/hangar/rebuild_all.py --jobs 7` runs every aircraft design through every stage, several at a time
+  (about an hour on 16 cores; a fighter 15 to 40 minutes, a light aircraft two), and says for each how it ended, the
+  checks that failed and - once all are done - which of its files the run changed. `--only f16c c172` and a list of
+  stages narrow it. hangar holds the Python package's libraries open while it runs: for a long run point
+  `PYTHONPATH` and `FSIM_BIN` at a copy of `build/<preset>/python` and `bin`, and the build stays free.
+- CI (`.github/workflows/ci.yml`) runs every store through its stages, the effects' audit and one aircraft (the
+  C172) through all of them, and fails if `git diff` shows a generated file changed.
+- 2026-10-11: all 35 aircraft were built again with the tool as it is. They had drifted - the F-16C's files were of
+  2026-09-26 (pitch gain 9.56; the tool gives 10.22), and most designs' flight models, damage data or models were
+  not what a rebuild gave. Six of them built a second time, every stage, left all 868 generated files as they were.
+
+Two things stopped a rebuild and are mended:
+
+- The performance stage ended `command refused: crashed` (later `activity_ended`) on the F-35A and the Su-57, and
+  on the F-16C too once flown at its spawn weight: a table point flown at the ground strikes it, and a wreck takes
+  no command. Such a vehicle's run now reads as one on the ground, which the stage already knew how to count
+  (`performance.py`: `Fleet.power`, `Fleet.hold`, `_grounded`).
+- On Windows a file another program holds mapped cannot be opened for writing ("Invalid argument"); whatever watches
+  the repository - a version-control client's status cache, an editor's index, a virus scanner - does that to a file
+  just written, for tens of milliseconds, and one design in ten then stopped minutes into its run as a stage wrote
+  its aircraft's file again. Every file hangar writes is now opened through `files.open_write`, which waits such a
+  refusal out (20 s at most). `rebuild_all.py` asks git what changed only once every design is done, for the same
+  reason.
+
+What the rebuild shows and does not mend ([backlog](backlog.md), B-29): the tables' service ceiling is 5.1 to 5.4 %
+under the flight test's on seven fighters (the check's band is 5 %), 6.2 % on the C-17A and 15 % on the Mirage 2000.
+The tables' highest altitude is 0.95 of the flight test's ceiling, and at its spawn weight a fighter still climbs
+there by the flight test's measure (the best excess power of 20 s level runs at any Mach number) but not by the
+tables' (a band of speeds it holds level at): the tables' ceiling then comes out at their top row. The Su-25's short
+period damping is 0.287 against MIL-F-8785C's 0.3.
+
 ## The loop
 
 Each stage reads the design and what the stages before it wrote. It writes
@@ -770,7 +806,20 @@ For fighters:
     in a steady coordinated turn, a roll about the flight path and a steady
     sideslip, so the damper coordinates those for as long as they last. A
     damper on the washed-out stability-axis yaw rate stopped coordinating a
-    sustained roll.
+    sustained roll. Sideslip is fed back to the rudder where the airframe's
+    dynamic directional stiffness is short of the law's dutch roll (1.5
+    rad/s) - and the airframe is taken with the most its loadouts hang on
+    it (`carriage.directional_load`): its stores' bodies turn its nose from
+    the wind (Munk's couple, twice their Munk volume, less what their fins
+    give behind the CG, as the world works a carried store's moment out). A
+    Gripen's three 1,100 l tanks, its pod and its missiles take 0.028 /rad
+    of Cn_beta, an F-16C's stores 0.030, a Mirage 2000's 0.028: about what
+    a delta at 10 deg of angle of attack has left. Sized for the clean
+    airframe (until 2026-10-11) the law had no feedback, and at full load a
+    Gripen's sideslip in a sustained 45 deg turn grew from 2 to 10 deg in 45
+    s and then departed; with it, 1 deg, steady. Clean, the aircraft is that
+    much stiffer than the law asks. The direct-control aircraft's yaw
+    damper counts its stores the same way (`fcs.sideslip_gain`).
   - Thrust vectoring: the nozzles turn with the surfaces - through their
     travel as the elevator goes through its own, differentially through half
     of it with the ailerons, and with the rudder when their plane leans
