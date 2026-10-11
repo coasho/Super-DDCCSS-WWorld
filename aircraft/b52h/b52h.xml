@@ -75,6 +75,166 @@
           <z> -1.2000 </z>
         </location>
       </pointmass>
+      <pointmass name="station 1">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 16.9160 </x>
+          <y> -6.0000 </y>
+          <z> -2.3700 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 2">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 16.9160 </x>
+          <y> -5.6600 </y>
+          <z> -2.0700 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 3">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 16.9160 </x>
+          <y> -6.3400 </y>
+          <z> -2.0700 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 4">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 19.4160 </x>
+          <y> -6.0000 </y>
+          <z> -2.3700 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 5">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 19.4160 </x>
+          <y> -5.6600 </y>
+          <z> -2.0700 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 6">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 19.4160 </x>
+          <y> -6.3400 </y>
+          <z> -2.0700 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 7">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 16.9160 </x>
+          <y> 6.0000 </y>
+          <z> -2.3700 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 8">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 16.9160 </x>
+          <y> 5.6600 </y>
+          <z> -2.0700 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 9">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 16.9160 </x>
+          <y> 6.3400 </y>
+          <z> -2.0700 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 10">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 19.4160 </x>
+          <y> 6.0000 </y>
+          <z> -2.3700 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 11">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 19.4160 </x>
+          <y> 5.6600 </y>
+          <z> -2.0700 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 12">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 19.4160 </x>
+          <y> 6.3400 </y>
+          <z> -2.0700 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 13">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 21.3000 </x>
+          <y> -0.0000 </y>
+          <z> -2.9070 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 14">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 21.3000 </x>
+          <y> 0.2660 </y>
+          <z> -2.7960 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 15">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 21.3000 </x>
+          <y> 0.3770 </y>
+          <z> -2.5300 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 16">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 21.3000 </x>
+          <y> 0.2660 </y>
+          <z> -2.2640 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 17">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 21.3000 </x>
+          <y> -0.0000 </y>
+          <z> -2.1530 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 18">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 21.3000 </x>
+          <y> -0.2660 </y>
+          <z> -2.2640 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 19">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 21.3000 </x>
+          <y> -0.3770 </y>
+          <z> -2.5300 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 20">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 21.3000 </x>
+          <y> -0.2660 </y>
+          <z> -2.7960 </z>
+        </location>
+      </pointmass>
     </mass_balance>
     <ground_reactions>
       <contact type="BOGEY" name="Left Forward Main Gear">
@@ -624,6 +784,7 @@
       <property value="9.83">fsim/envelope/ground_pitch_max_deg</property>
       <property value="41.83">fsim/envelope/ground_turn_radius_m</property>
       <property value="0.1106">fsim/envelope/ground_yaw_accel_rad_s2</property>
+      <property value="221353">fsim/envelope/max_takeoff_kg</property>
       <property value="1">fsim/propulsion/version</property>
       <property value="1">fsim/propulsion/provenance</property>
       <property value="0.0">fsim/propulsion/afterburner</property>

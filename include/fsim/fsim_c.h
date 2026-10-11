@@ -165,6 +165,10 @@ typedef struct fsim_vehicle_spec {
     int32_t on_ground;
     const char* model;           /* optional glTF for the viewer */
     uint32_t control_divider;    /* control stack every N FDM steps (1) */
+    /* ABI 1.69, where struct_size reaches it: its fuel tanks' contents, each this fraction of what it holds (0..1);
+       NaN (fsim_vehicle_spec_init's): its design's own fill. An aircraft that is to carry a heavy load starts with
+       less: a load past its maximum take-off weight is refused (over_max_weight). */
+    double fuel_fraction;
 } fsim_vehicle_spec;
 
 /* Same layout as fsim::VehicleState (checked at build time). */

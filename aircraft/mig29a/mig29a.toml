@@ -238,6 +238,7 @@ alpha_max_deg = 26.0
 roll_rate_deg_s = 240.0
 
 [mass]
+max_takeoff = 18000           # kg, its maximum take-off weight: the article's MiG-29 (Wikipedia, revision 1378805039). A load beyond it is refused
 empty = 11000                 # MiG-29A (Jane's)
 empty_cg = [9.262, 0.0, -0.350]
 # no published inertia: radii of gyration of the class (F-16 and F-15)

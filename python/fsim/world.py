@@ -3020,7 +3020,7 @@ class Vehicle:
     def reset(self, **initial):
         """Back to its initial conditions, or to new ones (latitude_deg,
         longitude_deg, altitude_msl_m, heading_deg, pitch_deg, roll_deg,
-        airspeed_ms, on_ground)."""
+        airspeed_ms, on_ground, fuel_fraction)."""
         self._h.reset_vehicle(self.id, _options(**initial) or None)
 
     def remove(self):
@@ -3132,13 +3132,16 @@ class World:
     # --- vehicles --------------------------------------------------------------------
     def create_vehicle(self, name=None, type="jsbsim:c172x", *, latitude_deg=None, longitude_deg=None,
                        altitude_msl_m=None, heading_deg=None, pitch_deg=None, roll_deg=None, airspeed_ms=None,
-                       on_ground=None, model=None, control_divider=None):
+                       on_ground=None, model=None, control_divider=None, fuel_fraction=None):
         """Load a vehicle: "<flight model>:<aircraft>", e.g. "jsbsim:f16". Raises
-        fsim.Error if it cannot be loaded (unknown aircraft, duplicate name)."""
+        fsim.Error if it cannot be loaded (unknown aircraft, duplicate name). ``fuel_fraction``: its fuel tanks each
+        that full (0..1) - its design's own fill when not given; an aircraft that is to carry a heavy load starts with
+        less (a load past its maximum take-off weight is refused ``over_max_weight``)."""
         vid = self._h.create_vehicle(_options(
             name=name, type=type, latitude_deg=latitude_deg, longitude_deg=longitude_deg,
             altitude_msl_m=altitude_msl_m, heading_deg=heading_deg, pitch_deg=pitch_deg, roll_deg=roll_deg,
-            airspeed_ms=airspeed_ms, on_ground=on_ground, model=model, control_divider=control_divider))
+            airspeed_ms=airspeed_ms, on_ground=on_ground, model=model, control_divider=control_divider,
+            fuel_fraction=fuel_fraction))
         return self._vehicle(vid)
 
     def _vehicle(self, vid):

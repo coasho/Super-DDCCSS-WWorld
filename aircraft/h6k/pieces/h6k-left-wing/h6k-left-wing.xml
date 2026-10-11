@@ -31,7 +31,18 @@
             <weight unit="LBS"> 0 </weight>
             <location unit="IN"> <x> 686.632 </x> <y> -280.020 </y> <z> -2.955 </z> </location>
         </pointmass>
-<!-- no store station -->
+        <pointmass name="station 1">
+            <weight unit="LBS"> 0 </weight>
+            <location unit="IN"> <x> 750.079 </x> <y> -374.016 </y> <z> -45.276 </z> </location>
+        </pointmass>
+        <pointmass name="station 2">
+            <weight unit="LBS"> 0 </weight>
+            <location unit="IN"> <x> 685.512 </x> <y> -275.591 </y> <z> -41.339 </z> </location>
+        </pointmass>
+        <pointmass name="station 3">
+            <weight unit="LBS"> 0 </weight>
+            <location unit="IN"> <x> 614.961 </x> <y> -177.165 </y> <z> -38.976 </z> </location>
+        </pointmass>
     </mass_balance>
     <ground_reactions>
         <contact type="STRUCTURE" name="end 1">

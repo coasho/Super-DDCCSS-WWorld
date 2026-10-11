@@ -7,6 +7,13 @@ wing 7.5900 0.0000 -0.2600 7.9200 3.2330 5.0000 0.0460 5.5630 1.6400 6.8100 0.15
 # jet engines by index: <bypass ratio> <afterburner 0|1> <dry thrust, kN> <thrust with reheat, kN (0: none)> <fuel a second for each kN, dry and with reheat, g/(kN s)>
 engine 0 2.240 0 117.68 0.00 13.879 56.651
 engine 1 2.240 0 117.68 0.00 13.879 56.651
+# store stations: <number> <x> <y> <z> (a store's CG, body axes from the origin, m) <its bay: 0 none>
+station 1 -2.0520 -9.5000 1.2500 0
+station 2 -0.4120 -7.0000 1.1500 0
+station 3 1.3800 -4.5000 1.0900 0
+station 4 1.3800 4.5000 1.0900 0
+station 5 -0.4120 7.0000 1.1500 0
+station 6 -2.0520 9.5000 1.2500 0
 # vulnerable components (MS-7g's presented areas, MS-7h's fires): <kind> <box | cylinder along x> <breakup section> <centre x y z> <half extents x y z> (body axes from the origin, m) <name>
 component engine cylinder centre -1.2760 -1.8700 0.1000 2.7240 0.5675 0.5675 D-30KP-2 L
 component engine cylinder centre -1.2760 1.8700 0.1000 2.7240 0.5675 0.5675 D-30KP-2 R

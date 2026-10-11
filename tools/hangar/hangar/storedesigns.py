@@ -174,7 +174,7 @@ def design(name):
     lines += store + body + fins
     lines += ["[mass]",
               "empty = %s                 # kg, the card%s" % (_f(M), ": its structure, dry" if card["class"] == "tank" else ""),
-              "empty_cg = [%s, 0.0, 0.0]  # %s" % (_f(cg), "JSBSim's mk82.xml, the flight model it is drawn for" if card["class"] == "bomb" else "assumed: half way along"),
+              "empty_cg = [%s, 0.0, 0.0]  # %s" % (_f(cg), "JSBSim's mk82.xml, the flight model it is drawn for" if name == "mk82" else "its shape's (stores.py: estimated)" if card["class"] == "bomb" else "assumed: half way along"),
               "gyration = [%s, %s, %s]  # %s" % (_f(g[0]), _f(g[1]), _f(g[2]),
                                                  "a uniform block's (assumed)" if card["class"] == "cargo" else note),
               "", "[dimensions]                  # the card", "length = %s" % _f(L)]

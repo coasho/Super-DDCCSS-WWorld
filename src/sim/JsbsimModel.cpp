@@ -739,6 +739,15 @@ void JsbsimModel::applyInitialConditions(const InitialConditions& ic) {
         for (const char* path : {"gear/gear-cmd-norm", "gear/gear-pos-norm"})
             if (auto* n = pm->GetNode(path)) n->setDoubleValue(0.0);
     }
+    if (std::isfinite(ic.fuelFraction)) {
+        // its fuel tanks each that full (a load's and a reset's own are its design's: FGTank::ResetToIC)
+        const double fraction = std::clamp(ic.fuelFraction, 0.0, 1.0);
+        const auto& propulsion = fdm_->GetPropulsion();
+        for (unsigned i = 0; i < propulsion->GetNumTanks(); ++i) {
+            const auto tank = propulsion->GetTank(i);
+            if (tank->GetType() == JSBSim::FGTank::ttFUEL) tank->SetContents(fraction * tank->GetCapacity());
+        }
+    }
 }
 
 void JsbsimModel::settleOnGround(const InitialConditions& ic) {

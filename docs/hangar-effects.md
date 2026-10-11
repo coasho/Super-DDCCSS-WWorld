@@ -21,12 +21,13 @@ viewer's own. `tools/hangar/tests/test_effects.py` holds the last column empty.
 | `analq99` | store | - | a rigid body: nothing on it moves or burns | - |
 | `anasq228` | store | - | a rigid body: nothing on it moves or burns | - |
 | `asraam` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: elevator+aileron | - |
-| `b52h` | bomber | turbofan x8 | exhaust: 8 nozzle(s); moving surfaces: aileron, elevator, flaps, rudder, speedbrake; gear; wing vapour and vortices | - |
+| `b52h` | bomber | turbofan x8 | exhaust: 8 nozzle(s); moving surfaces: aileron, elevator, flaps, rudder, speedbrake; gear; weapon-bay doors; wing vapour and vortices | - |
 | `c130j` | transport | turboprop x4 | exhaust: 0 nozzle(s), 4 placed by its manifest; 4 propeller(s) or rotor(s) turning at their engines' rpm; moving surfaces: aileron, elevator, flaps, rudder; gear; wing vapour and vortices | - |
 | `c172` | light_ga | piston x1 | exhaust: 0 nozzle(s), 1 placed by its manifest; 1 propeller(s) or rotor(s) turning at their engines' rpm; moving surfaces: aileron, elevator, flaps, rudder; wing vapour and vortices | - |
 | `c17a` | transport | turbofan x4 | exhaust: 4 nozzle(s); moving surfaces: aileron, elevator, flaps, rudder, speedbrake; gear; wing vapour and vortices | - |
 | `cdsa22` | store | - | a rigid body: nothing on it moves or burns | - |
 | `cf2` | multirotor | - | 4 propeller(s) or rotor(s) turning at their engines' rpm | - |
+| `cj10a` | store | - | a rigid body: nothing on it moves or burns | - |
 | `damocles` | store | - | a rigid body: nothing on it moves or burns | - |
 | `e3g` | transport | turbofan x4 | exhaust: 4 nozzle(s); moving surfaces: aileron, elevator, flaps, rudder, speedbrake; gear; wing vapour and vortices | - |
 | `e7a` | aew | turbofan x2 | exhaust: 2 nozzle(s); moving surfaces: aileron, elevator, flaps, rudder, speedbrake; gear; wing vapour and vortices | - |
@@ -95,4 +96,4 @@ viewer's own. `tools/hangar/tests/test_effects.py` holds the last column empty.
 | `uh1h` | helicopter | turboshaft x1 | no exhaust anchor (a rotorcraft's own pipeline: docs/backlog.md, B-59); 2 propeller(s) or rotor(s) turning at their engines' rpm; moving surfaces: elevator | - |
 | `uh60` | helicopter | turboshaft x1 | no exhaust anchor (a rotorcraft's own pipeline: docs/backlog.md, B-59); 2 propeller(s) or rotor(s) turning at their engines' rpm; moving surfaces: elevator | - |
 
-87 designs; 0 with something missing.
+88 designs; 0 with something missing.

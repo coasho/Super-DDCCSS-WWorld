@@ -37,5 +37,38 @@
         "An electro-optical targeting system is fitted under the nose"
       ]
     }
+  ],
+  "loadouts": [
+    {
+      "name": "cj-10a x6",
+      "source": "wp-h6k",
+      "note": "a cruise missile on each of its six pylons ('Six underwing hardpoints for CJ-10A cruise missiles'): 10,800 kg",
+      "stations": [
+        {
+          "station": 1,
+          "store": "cj-10a"
+        },
+        {
+          "station": 2,
+          "store": "cj-10a"
+        },
+        {
+          "station": 3,
+          "store": "cj-10a"
+        },
+        {
+          "station": 4,
+          "store": "cj-10a"
+        },
+        {
+          "station": 5,
+          "store": "cj-10a"
+        },
+        {
+          "station": 6,
+          "store": "cj-10a"
+        }
+      ]
+    }
   ]
 }

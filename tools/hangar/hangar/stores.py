@@ -30,6 +30,18 @@ STORES = {
                  "sweep_deg": 20.0, "thickness": 0.006},  # estimated
         "colour": (0.30, 0.33, 0.24), "band": (0.85, 0.75, 0.15), "band_at": (0.55, 0.62),
     },
+    # CJ-10A land-attack cruise missile as an H-6K carries it: length 6.4 m without its boost motor, diameter 0.75 m (the
+    # Hong Niao family's, CSIS Missile Threat: its card). A body on its pylon and, released, an inert one - its wings
+    # folded under it, its turbofan and its guidance not modelled. Its ogive nose, its boattail, its cruciform tail fins
+    # and its CG at 45 % of its length are estimated (a cruise missile of the Tomahawk's layout).
+    "cj10a": {
+        "length": 6.4, "diameter": 0.75, "cg": 0.45 * 6.4,
+        "profile": [(0.00, 0.00), (0.15, 0.30), (0.40, 0.62), (0.75, 0.88), (1.10, 1.00), (5.40, 1.00), (5.90, 0.90),
+                    (6.40, 0.62)],  # (station m, radius / max radius) - estimated
+        "fins": {"count": 4, "roll_deg": 45.0, "root_le": 5.45, "root_chord": 0.75, "tip_chord": 0.40, "span": 0.45,
+                 "sweep_deg": 30.0, "thickness": 0.012},  # estimated
+        "colour": (0.62, 0.64, 0.66), "band": None, "band_at": None,
+    },
 }
 
 

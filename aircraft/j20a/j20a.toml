@@ -229,6 +229,7 @@ alpha_max_deg = 30.0
 roll_rate_deg_s = 250.0
 
 [mass]
+max_takeoff = 37000           # kg, its maximum take-off weight: the article's estimate (Wikipedia, revision 1378338980). A load beyond it is refused
 empty = 19400                 # estimate
 empty_cg = [11.505, 0.0, -0.350]
 # no published inertia: radii of gyration of the class

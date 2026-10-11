@@ -66,7 +66,7 @@ Without installing, point `PYTHONPATH` at the build tree's staged package,
 | --- | --- |
 | `World(name, **options)` | `dt`, `frame_skip`, `workers`, `pin_workers`, `seed`, `capacity`, `publish`, `publish_interval_s`, `jsbsim_root`, `terrain`, `terrain_url`, `terrain_zoom`, `terrain_offline`, `record_path`, `record_interval_s`, `store_drag`: [world.md](world.md). What is not given keeps the platform's default |
 | `world.step(n=1)` | the native call itself - nothing in between |
-| `world.create_vehicle(name, type="jsbsim:c172x", latitude_deg=, longitude_deg=, altitude_msl_m=, heading_deg=, pitch_deg=, roll_deg=, airspeed_ms=, on_ground=, model=, control_divider=)` | a `Vehicle`; `fsim.Error` if it cannot be loaded |
+| `world.create_vehicle(name, type="jsbsim:c172x", latitude_deg=, longitude_deg=, altitude_msl_m=, heading_deg=, pitch_deg=, roll_deg=, airspeed_ms=, on_ground=, model=, control_divider=, fuel_fraction=)` | a `Vehicle`; `fsim.Error` if it cannot be loaded |
 | `world.vehicle(id or name)`, `world.vehicles()`, `len(world)`, `name in world` | |
 | `world.time`, `step_seconds`, `vehicle_steps`, `published` | |
 | `world.focus_viewer(vehicle)` | the viewers follow that vehicle (a `Vehicle` or its id), as a `tab` to it would - once; `fsim.Error` if it is not alive or the world is not published |

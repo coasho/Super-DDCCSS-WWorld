@@ -1177,6 +1177,26 @@ flown JSBSim's own `mk82`, whose drag is on 2.54 ft2 (four times its frontal are
 times a body's of its mass and size; `io::AssetResolver::findAircraft` now looks in `aircraft/stores` before JSBSim's
 aircraft, so a card's `jsbsim:mk82` is the one built from its design.
 
+## The most an aircraft may weigh
+
+A design declares its maximum take-off weight under `[mass]`: `max_takeoff`, kg - or `mtow`, which is also the weight
+its structure is estimated for (Raymer's design gross weight: a transport's; a fighter's estimate stays on the weight it
+spawns at, so its `max_takeoff` is a limit and nothing else). The build writes it into the flight model's envelope
+(`fsim/envelope/max_takeoff_kg`; `VehicleProfile::envelope.maxTakeoffKg`), and the store management holds a load to it:
+a station's load, or a whole loadout, that would take the aircraft past it is refused `over_max_weight` and nothing is
+changed ([sdk/mission-systems.md](sdk/mission-systems.md)). 28 of the 35 declare one (2026-10-11), each with the figure's
+source beside it - a fact sheet's where the design already cited one, else the type's Wikipedia article at the revision
+named. Not declared: the J-10A (its article gives none), the C172, the Skua and the two multirotors (they carry no
+stores), the two helicopters (no stations yet). A C-17A as it spawns (236.0 t) is refused its eighteen pallets (40.8 t
+more: 265.4 t is its most) and takes its eighteen airdrop bundles; an A-10C with its internal tanks full (17.2 t) is
+refused its three 600 gal ferry tanks (6.1 t: 23.1 t is its most - the Air Force's fact sheet's 51,000 lb; its Wikipedia
+article's 46,000 lb is less than its empty weight, its fuel and those tanks). Either takes its load with less fuel
+aboard, as the aircraft itself would: a start says what its tanks hold - `InitialConditions::fuelFraction`, each fuel
+tank that fraction of what it holds (`fuel_fraction` in a scenario's `initial`, in `fsim_vehicle_spec` and in
+`World.create_vehicle`; a reset is to the same); not given, the design's own fill. With half its fuel the C-17A takes
+all eighteen pallets. What the limit does not hold: the fuel itself (a start heavier than the limit, an external tank's
+fuel drawn into the aircraft's own tanks changes nothing), and a design that spawns heavier than its own limit.
+
 ## The carriage on the stations
 
 An aircraft with a store-station card (`payloads.json` names it) gets its stations' carriage in its model
@@ -1189,6 +1209,17 @@ hangs in the bay, below). Each station is sized for the largest store the loadou
 a Mk 82's on a rack). Drawn only, the same way for every aircraft, and left out of the clean aircraft's RCS table
 (`tools/rcs` skips the nodes). The manifest lists every station (`station <n> <x> <y> <z> <bay>`, its weapon bay's number or 0) for the viewer
 to hang the stores on. The model stage reports which stations have carriage.
+
+A multiple rack is several stations that name one `rack` in the card ("left pylon"): each a store's own place, loaded,
+drawn and released by itself - and one beam along them with one pylon up into the skin over its middle, drawn with
+each of its stations so that whichever is loaded shows them, and one pylon's drag between them (`ms::Host::carriageDrag`).
+The B-52H's two under-wing pylons are such: six places each, two rows of three (one under the beam, one on each
+shoulder) - the six a pylon its source gives the cruise missiles. Its bomb bay's rotary launcher is eight bay stations
+round an axis; each store leaves from its own place (a real launcher turns the next one to the bottom). With a
+loadout of twenty Mk 82s it is no longer a bomber whose full load is its fuel; the H-6K has its six pylons and a
+CJ-10A on each - a bomb-class store (`stores.py`), a body on its station and an inert one once released: its turbofan,
+its wings and its guidance are not modelled. The UH-60's stub wings are still bare: a rotorcraft's own pipeline draws no
+carriage and writes no station lines ([backlog](backlog.md), B-32).
 
 A station whose name says "bay" is in a weapon bay (the stations whose names agree up to "bay" share it: the F-22A's
 "main bay 1" to "6"). Each bay is cut into the airframe's underside as a dark cavity

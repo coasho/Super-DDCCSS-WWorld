@@ -1,0 +1,68 @@
+# CJ-10A, a store built by hangar from its card (docs/hangar.md, Stores) - written by `python -m hangar storedesigns cj10a`
+# (tools/hangar/hangar/storedesigns.py), one rule for every bomb: edit stores.py's shape and write it again.
+#
+# Frame: metres, x aft from its nose, y right, z up from its axis. The card (assets/stores/cj-10a.json) holds its
+# figures: 6.4 m long, 0.75 m across, 1800 kg. Its shape is its class's, the same for every bomb (assumed from
+# photographs: stores.py) - it shapes the picture, the build-up's drag and where its fins act.
+
+[aircraft]
+name = "cj10a"
+description = "CJ-10A (hangar build)"
+category = "store"
+card = "cj-10a"             # its store card: the published figures this design holds
+
+[analysis]
+speed = 250.0                # m/s: the Reynolds numbers of its carriage - assumed
+
+[reference]                  # a store's: its frontal area and its diameter (its width), as its flight model's
+area = 0.441786
+span = 0.75
+chord = 0.75
+aero_point = [2.88, 0.0, 0.0]
+
+[model]
+triangles = 10000             # its model's at most: a store's, drawn on every station that carries one
+
+# Its body: a body of revolution, its radius along it its class's profile
+[[body]]
+name = "body"
+kind = "fuselage"
+stations = [
+  { x = 0, w = 0, top = 0, bottom = 0, n = 2 },
+  { x = 0.15, w = 0.225, top = 0.1125, bottom = -0.1125, n = 2 },
+  { x = 0.4, w = 0.465, top = 0.2325, bottom = -0.2325, n = 2 },
+  { x = 0.75, w = 0.66, top = 0.33, bottom = -0.33, n = 2 },
+  { x = 1.1, w = 0.75, top = 0.375, bottom = -0.375, n = 2 },
+  { x = 5.4, w = 0.75, top = 0.375, bottom = -0.375, n = 2 },
+  { x = 5.9, w = 0.675, top = 0.3375, bottom = -0.3375, n = 2 },
+  { x = 6.4, w = 0.465, top = 0.2325, bottom = -0.2325, n = 2 },
+]
+
+# Its fins: 4 round its tail (assumed from photographs)
+[[surface]]
+name = "fin 1"
+kind = "fin"
+mirror = true
+airfoil = "plate"
+sections = [
+  { le = [5.45, 0.237773, 0.237773], chord = 0.75 },
+  { le = [5.709808, 0.560824, 0.560824], chord = 0.4 },
+]
+
+[[surface]]
+name = "fin 2"
+kind = "fin"
+mirror = true
+airfoil = "plate"
+sections = [
+  { le = [5.45, 0.237773, -0.237773], chord = 0.75 },
+  { le = [5.709808, 0.560824, -0.560824], chord = 0.4 },
+]
+
+[mass]
+empty = 1800                 # kg, the card
+empty_cg = [2.88, 0.0, 0.0]  # its shape's (stores.py: estimated)
+gyration = [0.472813, 0.580316, 0.987555]  # a solid cylinder's (assumed)
+
+[dimensions]                  # the card
+length = 6.4

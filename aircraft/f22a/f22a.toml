@@ -240,6 +240,7 @@ alpha_max_deg = 40.0
 roll_rate_deg_s = 240.0
 
 [mass]
+max_takeoff = 38000           # kg, its maximum take-off weight: the article's F-22A: 83,500 lb (Wikipedia, revision 1379596369). A load beyond it is refused
 empty = 19700                 # 43,340 lb (USAF)
 empty_cg = [10.566, 0.0, -0.350]  # loaded, 2 % of the MAC behind the neutral point hangar finds
 # no published inertia: radii of gyration like the F-15's

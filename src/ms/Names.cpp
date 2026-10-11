@@ -58,6 +58,7 @@ constexpr ReasonText kReasons[] = {
     {"station_cannot_take", "the station cannot take that load: its store classes, capacity or limit"},
     {"not_awaiting_consent", "the strike is not asking for release consent"},
     {"consent_denied", "release consent was refused"},
+    {"over_max_weight", "the load would take the aircraft past its maximum take-off weight"},
 };
 static_assert(sizeof(kReasons) / sizeof(kReasons[0]) == static_cast<std::size_t>(Reason::Count));
 

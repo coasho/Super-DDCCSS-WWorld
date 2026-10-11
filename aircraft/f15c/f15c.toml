@@ -232,6 +232,7 @@ alpha_max_deg = 30.0
 roll_rate_deg_s = 270.0
 
 [mass]
+max_takeoff = 30844           # kg, its maximum take-off weight: the article's F-15C: 68,000 lb (Wikipedia, revision 1379278179). A load beyond it is refused
 empty = 12700                 # 28,000 lb (JSBSim's f15 and Jane's)
 empty_cg = [11.000, 0.0, -0.350]
 # radii of gyration from the inertia of JSBSim's f15 (NASA's F-15 simulation):

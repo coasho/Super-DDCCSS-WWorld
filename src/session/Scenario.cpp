@@ -325,6 +325,9 @@ Scenario parseScenario(std::string_view json, std::string_view source) {
                 i.rollDeg = ic.number("roll_deg", i.rollDeg);
                 i.airspeedTrueMs = ic.number("airspeed_ms", i.airspeedTrueMs);
                 i.onGround = ic.boolean("on_ground", i.onGround);
+                i.fuelFraction = ic.number("fuel_fraction", i.fuelFraction);
+                if (std::isfinite(i.fuelFraction) && (i.fuelFraction < 0.0 || i.fuelFraction > 1.0))
+                    throw Error(where + ": 'initial.fuel_fraction' must be from 0 to 1");
                 const Json& cmd = v.child("command");
                 if (!cmd.isNull()) {
                     if (!cmd.isObject()) throw Error(where + ": 'command' must be an object");
@@ -416,6 +419,7 @@ std::string dumpScenario(const Scenario& sc) {
         if (i.rollDeg != 0.0) ic.set("roll_deg", i.rollDeg);
         ic.set("airspeed_ms", i.airspeedTrueMs);
         if (i.onGround) ic.set("on_ground", true);
+        if (std::isfinite(i.fuelFraction)) ic.set("fuel_fraction", i.fuelFraction);
         v.set("initial", std::move(ic));
         if (sv.command) v.set("command", dumpCommand(*sv.command, sv.commandTarget));
         if (!sv.effects.empty()) v.set("effects", dumpEffects(sv.effects));

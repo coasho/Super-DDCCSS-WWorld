@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -36,8 +37,11 @@ inline session::WorldOptions options(const char* name) {
 inline unsigned stepsFor(const session::World& w, double seconds) { return static_cast<unsigned>(std::lround(seconds / (w.dt() * w.frameSkip()))); }
 
 /// A fixed wing flying east at its altitude and speed; `index` spaces vehicles 3 km apart north.
-inline std::uint32_t wing(session::World& w, const std::string& type, double altitudeM, double tasMs, int index = 0) {
+/// `fuelFraction`: its tanks each that full; not given, its design's own fill.
+inline std::uint32_t wing(session::World& w, const std::string& type, double altitudeM, double tasMs, int index = 0,
+                          double fuelFraction = std::numeric_limits<double>::quiet_NaN()) {
     session::VehicleSpec s;
+    s.initial.fuelFraction = fuelFraction;
     s.name = type + "-" + std::to_string(index);
     s.type = "jsbsim:" + type;
     s.initial.latitudeDeg += 0.03 * index;
@@ -47,6 +51,24 @@ inline std::uint32_t wing(session::World& w, const std::string& type, double alt
     const auto id = w.createVehicle(s);
     REQUIRE(id != 0);
     return id;
+}
+
+/// The fuel a fixed wing of that type starts with to have room for `loadKg` under its maximum take-off weight
+/// (docs/hangar.md, The most an aircraft may weigh): its design's own (NaN) where that leaves the room, else the
+/// fraction of its tanks that does - 50 kg to spare.
+inline double fuelWithRoomFor(session::World& w, const std::string& type, double loadKg) {
+    const auto probe = wing(w, type, 5000.0, 200.0, 97);
+    w.step();
+    const auto* profile = w.profile(probe);
+    const double most = profile ? profile->envelope.maxTakeoffKg : std::numeric_limits<double>::quiet_NaN();
+    const double mass = w.massKg(probe);
+    const auto nav = w.navigationReport(probe);
+    REQUIRE(w.removeVehicle(probe));
+    if (!std::isfinite(most) || mass + loadKg + 50.0 <= most) return std::numeric_limits<double>::quiet_NaN();
+    REQUIRE(nav.capacity > 0.0);
+    const double fraction = (most - 50.0 - loadKg - (mass - nav.fuelKg)) / nav.capacity;
+    REQUIRE(fraction > 0.0);
+    return fraction;
 }
 
 /// A rotorcraft hovering at 100 m, spawned at its hover attitude and held still over the ground for `settleS`.

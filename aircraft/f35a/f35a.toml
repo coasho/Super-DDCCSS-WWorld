@@ -271,6 +271,7 @@ alpha_max_deg = 20.0
 roll_rate_deg_s = 240.0
 
 [mass]
+max_takeoff = 29900           # kg, its maximum take-off weight: the article's F-35A: 65,918 lb (Wikipedia, revision 1379595853). A load beyond it is refused
 empty = 13290                 # 29,300 lb (USAF)
 empty_cg = [8.955, 0.0, -0.300]
 # no published inertia: radii of gyration of the class

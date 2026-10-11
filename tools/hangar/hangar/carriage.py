@@ -145,7 +145,7 @@ def stations(aircraft):
         bay = name[:name.find("bay") + 3] if "bay" in name and not hold else ""  # its weapon bay (src/ms/Cards.cpp's rule): "main bay"
         out.append(dict(number=s["number"], name=name, at=cg + np.array([-b[0], b[1], -b[2]]), body=b,
                         carriage=s.get("carriage", ""), bay=bool(bay), bay_name=bay, kind=kind, hold=hold,
-                        length=size[0], diameter=size[1], span=size[2]))
+                        length=size[0], diameter=size[1], span=size[2], rack=s.get("rack", "")))
     # the bays numbered 1.. in the order of their first stations: the manifest's and the doors' (fsim:bay:<n>) numbers
     order = []
     for s in out:
@@ -192,13 +192,51 @@ def _blade(x0, x1, y, z0, z1, thick, n=12):
     return v, np.array(t)
 
 
+def _rack(group, positions, triangles):
+    """A multiple rack's beam and its one pylon (design frame): the beam along its places, between its upper stores (its
+    under side on its lowest place's rack, its top above its highest stores'), and a pylon from the beam up into the
+    skin over its middle. [] where no skin is above it."""
+    from .model3d import _box
+    at = np.array([s["at"] for s in group])
+    r = max(0.5 * s["diameter"] for s in group)
+    half = 0.5 * max(s["length"] for s in group)
+    x0, x1 = at[:, 0].min() - 0.8 * half, at[:, 0].max() + 0.8 * half
+    y = float(np.mean(at[:, 1]))
+    bottom = at[:, 2].min() + r + RACK["depth"] - 0.01          # on the lowest places' racks
+    top = at[:, 2].max() + r + RACK["depth"] + 0.08             # over the highest places' racks
+    width = max(0.22, float(np.ptp(at[:, 1])) - 2.0 * r + 0.10)  # between the shoulders' stores
+    pieces = [_box([x0, y, 0.5 * (bottom + top)], [x1, y, 0.5 * (bottom + top)], width, top - bottom)]
+    chord = float(np.clip(0.6 * (x1 - x0), 1.2, 3.5))
+    xm = 0.5 * (x0 + x1)
+    p0, p1 = xm - 0.55 * chord, xm + 0.45 * chord
+    hits = [_skin_above(positions, triangles, x, y, top) for x in np.linspace(p0, p1, 5)]
+    hits = [h for h in hits if h is not None]
+    if hits:
+        pieces.append(_blade(p0, p1, y, top - 0.01, max(hits) + EMBED, 1.5 * PYLON_THICK))
+    return pieces
+
+
 def parts(aircraft, positions, triangles):
     """Each station's carriage: (number, [(vertices design frame, triangles), ...]) - its launcher or rack, and its
     pylon where the skin is further above than the launcher's depth."""
     from .model3d import _box
     out = []
-    for s in stations(aircraft):
+    every = stations(aircraft)
+    racks = {}
+    for s in every:
+        if s["rack"] and not (s["bay"] or s["hold"]):
+            racks.setdefault(s["rack"], []).append(s)
+    beams = {name: _rack(group, positions, triangles) for name, group in racks.items()}
+    for s in every:
         if s["bay"] or s["hold"]:
+            continue
+        if s["rack"]:
+            # a place on a multiple rack: its own ejector rack on its store, and the beam and the pylon it shares with
+            # the rack's other places - drawn with each of them, so that whichever is loaded shows them
+            P, r = s["at"], 0.5 * s["diameter"]
+            bx, bt = _box([P[0] - 0.5 * RACK["length"], P[1], P[2] + r + 0.5 * RACK["depth"]],
+                          [P[0] + 0.5 * RACK["length"], P[1], P[2] + r + 0.5 * RACK["depth"]], RACK["width"], RACK["depth"])
+            out.append((s["number"], [(bx, bt)] + beams[s["rack"]]))
             continue
         P, r, L = s["at"], 0.5 * s["diameter"], s["length"]
         top = P[2] + r

@@ -308,6 +308,7 @@ n_max = 7.33
 yaw_damper = true
 
 [mass]
+max_takeoff = 23133           # kg, its maximum take-off weight: 51,000 lb (U.S. Air Force fact sheet, A-10C Thunderbolt II, af.mil; its Wikipedia article's 46,000 lb, revision 1379322496, is less than its empty weight, fuel and three ferry tanks). A load beyond it is refused
 empty = 11321                 # 24,959 lb (Wikipedia, A-10C)
 empty_cg = [8.090, 0.0, 0.250]  # estimate: placed from the neutral point (see the checks)
 [[mass.item]]

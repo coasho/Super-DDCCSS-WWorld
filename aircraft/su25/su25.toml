@@ -237,6 +237,7 @@ type = "direct"
 n_max = 6.5
 
 [mass]
+max_takeoff = 19300           # kg, its maximum take-off weight: the article's Su-25/Su-25K, late production (Wikipedia, revision 1375887277). A load beyond it is refused
 empty = 9800                  # Wikipedia (late production)
 empty_cg = [7.120, 0.0, -0.450]  # estimate: placed from the neutral point and the gear (see the checks):
                                  # 7 % of the loaded weight on the nose wheel, 1 % empty (at 7.20 m, with

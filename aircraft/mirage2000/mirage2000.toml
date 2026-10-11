@@ -180,6 +180,7 @@ alpha_max_deg = 29.0
 roll_rate_deg_s = 270.0
 
 [mass]
+max_takeoff = 17000           # kg, its maximum take-off weight: the article's Mirage 2000 (Wikipedia, revision 1378195004). A load beyond it is refused
 empty = 7500                  # Mirage 2000C (Dassault)
 empty_cg = [8.431, 0.0, 0.300]
 # no published inertia: radii of gyration of the class

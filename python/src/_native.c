@@ -116,7 +116,8 @@ static const fsim_py_field world_fields[] = {
 static const fsim_py_field spec_fields[] = {
     SF(name, FSIM_PY_STR), SF(type, FSIM_PY_STR), SF(latitude_deg, FSIM_PY_F64), SF(longitude_deg, FSIM_PY_F64),
     SF(altitude_msl_m, FSIM_PY_F64), SF(heading_deg, FSIM_PY_F64), SF(pitch_deg, FSIM_PY_F64), SF(roll_deg, FSIM_PY_F64),
-    SF(airspeed_ms, FSIM_PY_F64), SF(on_ground, FSIM_PY_I32), SF(model, FSIM_PY_STR), SF(control_divider, FSIM_PY_U32)};
+    SF(airspeed_ms, FSIM_PY_F64), SF(on_ground, FSIM_PY_I32), SF(model, FSIM_PY_STR), SF(control_divider, FSIM_PY_U32),
+    SF(fuel_fraction, FSIM_PY_F64)};
 #undef SF
 
 #define EF(f) FSIM_PY_FIELD(fsim_environment, f, FSIM_PY_F64)

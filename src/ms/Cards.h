@@ -48,6 +48,9 @@ struct Station {
                                  ///< "rail+ejector": a missile on its rail, any other store on its rack
     std::string bay;             ///< the weapon bay it is in - its name up to "bay" ("main bay" for "main bay 2"); empty: none
     std::string launcher;        ///< the rail or rack: "LAU-129", "BRU-61"
+    /// The multiple rack it is a place on ("left pylon"): the stations that name the same one hang from one pylon and
+    /// beam - one pylon's drag between them, one pylon drawn. Empty: a pylon of its own.
+    std::string rack;
     double ejectionMs = 0.0;     ///< an ejector's push, down
     double extractionMs = 0.0;   ///< a cargo hold's: how fast the load leaves aft, over the ramp (drawn or rolling out)
     std::vector<std::string> takes; ///< the store classes it takes ("aam", "bomb", "tank", "pod")

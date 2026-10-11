@@ -27,6 +27,15 @@ namespace {
 namespace fs = std::filesystem;
 const fs::path kSource = fs::path(FSIM_TEST_JSBSIM_ROOT).parent_path().parent_path();
 
+/// What a loadout hangs on the aircraft, kg: each store's mass, a tank's with the fuel it is loaded with.
+double loadoutKg(const ms::Fit& fit, const ms::Loadout& l) {
+    double kg = 0.0;
+    for (const auto& it : l.items)
+        if (const auto card = fit.stores.find(it.store); card != fit.stores.end())
+            kg += it.count * (card->second->value("mass_kg", 0.0) + card->second->value("fuel_kg", 0.0));
+    return kg;
+}
+
 std::uint16_t stationsOf(const session::World& w, std::uint32_t id) {
     const ms::Host* host = w.missionSystems(id);
     REQUIRE(host != nullptr);
@@ -95,7 +104,11 @@ TEST_CASE("stores: every aircraft with stations loads each of its loadouts - its
         INFO(type);
         for (const auto& e : errors) UNSCOPED_INFO(e);
         CHECK(errors.empty());
-        const auto id = wing(w, type, 5000.0, 150.0, aircraft);
+        // (with the fuel that leaves room for its heaviest loadout under its maximum take-off weight: an A-10C's three
+        // ferry tanks and a C-17A's eighteen pallets are refused with the tanks full)
+        double heaviest = 0.0;
+        for (const auto& l : fit->loadouts) heaviest = std::max(heaviest, loadoutKg(*fit, l));
+        const auto id = wing(w, type, 5000.0, 150.0, aircraft, fuelWithRoomFor(w, type, heaviest));
         REQUIRE(id != 0);
         ++aircraft;
         for (const auto& l : fit->loadouts) {
@@ -432,7 +445,7 @@ TEST_CASE("stores: everything a loadout carries, jettisoned, flies on as a vehic
         int index = 0;
         for (const auto& l : fit->loadouts) {
             INFO(type << ": " << l.name);
-            const auto id = wing(w, type, 5000.0, 200.0, index++);
+            const auto id = wing(w, type, 5000.0, 200.0, index++, fuelWithRoomFor(w, type, loadoutKg(*fit, l)));
             REQUIRE(id != 0);
             ++aircraft;
             w.step();

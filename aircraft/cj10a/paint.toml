@@ -1,0 +1,7 @@
+# CJ-10A's paint, by one rule for every bomb (tools/hangar/hangar/storedesigns.py): one colour overall
+[paint]
+scheme = "single"
+colours = ["#9ea3a8"]
+panel_lines = 0.0
+wear = 0.03
+gloss = 0.3

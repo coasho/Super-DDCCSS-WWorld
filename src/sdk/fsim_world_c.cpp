@@ -102,7 +102,18 @@ fsim::sim::InitialConditions initialOf(const fsim_vehicle_spec& s) {
     ic.rollDeg = s.roll_deg;
     ic.airspeedTrueMs = s.airspeed_ms;
     ic.onGround = s.on_ground != 0;
+    ic.fuelFraction = s.fuel_fraction;
     return ic;
+}
+
+/// The caller's spec whole: what its struct_size does not reach is as fsim_vehicle_spec_init leaves it (a caller built
+/// before the field was there). False: none, or one shorter than the first there was.
+bool wholeSpec(const fsim_vehicle_spec* given, fsim_vehicle_spec& whole) {
+    if (!given || given->struct_size < offsetof(fsim_vehicle_spec, fuel_fraction)) return false;
+    fsim_vehicle_spec_init(&whole);
+    std::memcpy(&whole, given, std::min<std::size_t>(given->struct_size, sizeof(whole)));
+    whole.struct_size = sizeof(whole);
+    return true;
 }
 
 const fsim_vehicle_state* asC(const fsim::sim::VehicleState* s) noexcept { return reinterpret_cast<const fsim_vehicle_state*>(s); }
@@ -157,6 +168,7 @@ FSIM_API void fsim_vehicle_spec_init(fsim_vehicle_spec* s) {
     s->heading_deg = ic.headingDeg;
     s->airspeed_ms = ic.airspeedTrueMs;
     s->control_divider = 1;
+    s->fuel_fraction = ic.fuelFraction;
 }
 
 FSIM_API void fsim_environment_init(fsim_environment* e) {
@@ -389,7 +401,9 @@ FSIM_API int fsim_world_focus_viewer(fsim_world* world, uint32_t id) {
 
 FSIM_API int fsim_world_create_vehicle(fsim_world* world, const fsim_vehicle_spec* spec, uint32_t* id) {
     FSIM_NOT_AGENT(world, FSIM_NOT_ALLOWED);
-    if (!world || !spec || !id || spec->struct_size < sizeof(fsim_vehicle_spec)) return fail(FSIM_INVALID_ARGUMENT, "fsim_world_create_vehicle: bad arguments");
+    fsim_vehicle_spec whole;
+    if (!world || !id || !wholeSpec(spec, whole)) return fail(FSIM_INVALID_ARGUMENT, "fsim_world_create_vehicle: bad arguments");
+    spec = &whole;
     *id = 0;
     return guard("fsim_world_create_vehicle", [&] {
         fsim::session::VehicleSpec s;
@@ -412,10 +426,12 @@ FSIM_API int fsim_world_remove_vehicle(fsim_world* world, uint32_t id) {
 FSIM_API int fsim_world_reset_vehicle(fsim_world* world, uint32_t id, const fsim_vehicle_spec* spec) {
     FSIM_NOT_AGENT(world, FSIM_NOT_ALLOWED);
     if (!world) return FSIM_INVALID_ARGUMENT;
+    fsim_vehicle_spec whole;
+    if (spec && !wholeSpec(spec, whole)) return fail(FSIM_INVALID_ARGUMENT, "fsim_world_reset_vehicle: bad arguments");
     return guard("fsim_world_reset_vehicle", [&] {
         bool ok;
         if (spec) {
-            const auto ic = initialOf(*spec);
+            const auto ic = initialOf(whole);
             ok = world->world.resetVehicle(id, &ic);
         } else {
             ok = world->world.resetVehicle(id);

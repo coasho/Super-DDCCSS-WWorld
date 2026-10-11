@@ -9,6 +9,27 @@ engine 0 1.420 0 75.60 0.00 14.729 56.651
 engine 1 1.420 0 75.60 0.00 14.729 56.651
 engine 2 1.420 0 75.60 0.00 14.729 56.651
 engine 3 1.420 0 75.60 0.00 14.729 56.651
+# store stations: <number> <x> <y> <z> (a store's CG, body axes from the origin, m) <its bay: 0 none>
+station 1 4.3840 -6.0000 1.5700 0
+station 2 4.3840 -5.6600 1.2700 0
+station 3 4.3840 -6.3400 1.2700 0
+station 4 1.8840 -6.0000 1.5700 0
+station 5 1.8840 -5.6600 1.2700 0
+station 6 1.8840 -6.3400 1.2700 0
+station 7 4.3840 6.0000 1.5700 0
+station 8 4.3840 5.6600 1.2700 0
+station 9 4.3840 6.3400 1.2700 0
+station 10 1.8840 6.0000 1.5700 0
+station 11 1.8840 5.6600 1.2700 0
+station 12 1.8840 6.3400 1.2700 0
+station 13 -0.0000 0.0000 2.1070 1
+station 14 -0.0000 0.2660 1.9960 1
+station 15 -0.0000 0.3770 1.7300 1
+station 16 -0.0000 0.2660 1.4640 1
+station 17 -0.0000 0.0000 1.3530 1
+station 18 -0.0000 -0.2660 1.4640 1
+station 19 -0.0000 -0.3770 1.7300 1
+station 20 -0.0000 -0.2660 1.9960 1
 # vulnerable components (MS-7g's presented areas, MS-7h's fires): <kind> <box | cylinder along x> <breakup section> <centre x y z> <half extents x y z> (body axes from the origin, m) <name>
 component engine cylinder centre 5.4072 -9.5500 0.7300 1.8072 0.4636 0.4636 TF33 1 L
 component engine cylinder centre 5.4072 9.5500 0.7300 1.8072 0.4636 0.4636 TF33 1 R
@@ -20,7 +41,7 @@ component engine cylinder centre -0.5028 -18.7700 1.0600 1.8072 0.4636 0.4636 TF
 component engine cylinder centre -0.5028 18.7700 1.0600 1.8072 0.4636 0.4636 TF33 4 R
 component fuel box centre 9.0250 0.0000 0.3903 11.8250 0.1806 0.2400 forward body
 component fuel box centre 4.7500 0.0000 0.4584 1.8500 1.1301 1.5150 center wing
-component fuel box centre 0.3250 0.0000 0.5074 1.7250 1.0956 1.4925 mid body
+component fuel box centre 3.1250 0.0000 0.5074 5.9250 0.3924 0.5346 mid body
 component fuel box centre -12.8250 0.0000 0.5933 7.1054 0.4856 0.7127 aft body
 component fuel box left-wing 4.2414 -4.1100 -1.2690 0.5915 0.1714 0.1235 left inboard wing
 component fuel box left-wing 3.3760 -5.4300 -1.1933 0.5786 0.1735 0.1184 left inboard wing

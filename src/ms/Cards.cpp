@@ -86,6 +86,7 @@ std::vector<Station> readStations(const core::Json& doc, const std::map<std::str
         // agree up to "bay" share its doors
         if (const auto b = st.name.find("bay"); b != std::string::npos) st.bay = st.name.substr(0, b + 3);
         st.launcher = s.string("launcher", "");
+        st.rack = s.string("rack", "");
         st.ejectionMs = s.number("ejection_ms", st.carriage.find("ejector") != std::string::npos ? 3.0 : 0.0);
         st.extractionMs = s.number("extraction_ms", 0.0);
         if (st.extractionMs < 0.0) errors.push_back(at + "its extraction_ms is how fast its load leaves aft: not negative");

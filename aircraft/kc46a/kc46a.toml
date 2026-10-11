@@ -299,6 +299,7 @@ chord = 6.81                  # m: the reference trapezoid's mean aerodynamic ch
 aero_point = [22.20, 0.0, 4.10]   # at the loaded CG
 
 [mass]
+max_takeoff = 188241           # kg, its maximum take-off weight: 415,000 lb (the figures above). A load beyond it is refused
 empty = 82377                 # kg: 181,610 lb (USAF, Boeing)
 empty_cg = [23.30, 0.0, 4.10] # estimate: placed from the neutral point the aero stage finds
 # radii of gyration (estimate): a twin-engined jet transport's (Roskam)

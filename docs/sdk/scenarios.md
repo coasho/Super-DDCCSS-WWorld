@@ -57,7 +57,8 @@ comments (`//`, `/* */`) and trailing commas are accepted.
       "control_divider": 1,
       "count": 4, "spacing_m": 60, // instances abreast, to the right of the heading
       "initial": { "lat_deg": 37.62, "lon_deg": -122.40, "alt_msl_m": 1500, "heading_deg": 90,
-                   "pitch_deg": 0, "roll_deg": 0, "airspeed_ms": 60, "on_ground": false },
+                   "pitch_deg": 0, "roll_deg": 0, "airspeed_ms": 60, "on_ground": false,
+                   "fuel_fraction": 0.6 },  // optional: each fuel tank that full (0..1); absent, its design's own fill
       "command": { "level": "attitude", "roll_deg": 0, "pitch_deg": 2, "airspeed_ms": 60 },
       "effects": [ { "id": "sensor_latency", "delay_steps": 12 } ]
     }

@@ -74,6 +74,54 @@
           <z> -0.1000 </z>
         </location>
       </pointmass>
+      <pointmass name="station 1">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 19.0520 </x>
+          <y> -9.5000 </y>
+          <z> -1.1500 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 2">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 17.4120 </x>
+          <y> -7.0000 </y>
+          <z> -1.0500 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 3">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 15.6200 </x>
+          <y> -4.5000 </y>
+          <z> -0.9900 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 4">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 15.6200 </x>
+          <y> 4.5000 </y>
+          <z> -0.9900 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 5">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 17.4120 </x>
+          <y> 7.0000 </y>
+          <z> -1.0500 </z>
+        </location>
+      </pointmass>
+      <pointmass name="station 6">
+        <weight unit="KG"> 0.00 </weight>
+        <location unit="M">
+          <x> 19.0520 </x>
+          <y> 9.5000 </y>
+          <z> -1.1500 </z>
+        </location>
+      </pointmass>
     </mass_balance>
     <ground_reactions>
       <contact type="BOGEY" name="Nose Gear">
@@ -372,6 +420,7 @@
       <property value="11.25">fsim/envelope/ground_pitch_max_deg</property>
       <property value="8.02">fsim/envelope/ground_turn_radius_m</property>
       <property value="0.0553">fsim/envelope/ground_yaw_accel_rad_s2</property>
+      <property value="95000">fsim/envelope/max_takeoff_kg</property>
       <property value="1">fsim/propulsion/version</property>
       <property value="1">fsim/propulsion/provenance</property>
       <property value="0.0">fsim/propulsion/afterburner</property>

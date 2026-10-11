@@ -276,6 +276,7 @@ alpha_max_deg = 25.0
 roll_rate_deg_s = 308.0
 
 [mass]
+max_takeoff = 19187           # kg, its maximum take-off weight: the article's F-16C Block 50 and 52: 42,300 lb (Wikipedia, revision 1378439894). A load beyond it is refused
 empty = 8670                  # 19,100 lb, F-16C Block 52
 empty_cg = [8.000, 0.0, 0.000]
 # radii of gyration from NASA TP-1538's inertia (Ixx 9,496, Iyy 55,814,

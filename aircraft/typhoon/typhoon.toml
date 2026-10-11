@@ -214,6 +214,7 @@ alpha_max_deg = 30.0
 roll_rate_deg_s = 250.0
 
 [mass]
+max_takeoff = 23500           # kg, its maximum take-off weight: the article's (Wikipedia, revision 1379493859). A load beyond it is refused
 empty = 11000                 # Tranche 2 (Eurofighter)
 # loaded: 9.6 % of the MAC behind the neutral point hangar finds, 17 % of
 # the weight on the nose wheel

@@ -344,6 +344,7 @@ chord = 7.86                  # m: the reference trapezoid's mean aerodynamic ch
 aero_point = [20.10, 0.0, 4.60]   # at the loaded CG
 
 [mass]
+max_takeoff = 265352           # kg, its maximum take-off weight: 585,000 lb (the figures above: its fact sheet's). A load beyond it is refused
 empty = 128100                # kg: 282,500 lb operating empty
 empty_cg = [20.50, 0.0, 4.30] # estimate: placed from the neutral point the aero stage finds
 # radii of gyration (estimate): the Boeing 747's (Heffley and Jewell, NASA

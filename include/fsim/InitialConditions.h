@@ -26,6 +26,10 @@ struct InitialConditions {
     /// False: none is started - a store that leaves its aircraft unarmed: a jettisoned missile is the dead body it then
     /// is, its motor never lit, its propellant still its mass.
     bool enginesRunning = true;
+    /// Its fuel tanks' contents when given: each that fraction of what it holds (0..1). Else its design's own fill -
+    /// most are full. What an aircraft that is to carry a heavy load starts with: the store management holds a load to
+    /// its maximum take-off weight (docs/hangar.md, The most an aircraft may weigh).
+    double fuelFraction = std::numeric_limits<double>::quiet_NaN();
 };
 
 } // namespace fsim::sim

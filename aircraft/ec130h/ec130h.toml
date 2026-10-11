@@ -279,6 +279,7 @@ static_deflection = 0.15
 attach = [13.820, 2.000, 2.000]
 
 [mass]
+max_takeoff = 70307           # kg, its maximum take-off weight: 155,000 lb (the figures above). A load beyond it is refused
 empty = 45813                   # 101,000 lb (Wikipedia): the Compass Call's equipment
 empty_cg = [12.300, 0.0, 3.300]  # estimate: about 22 % MAC
 [mass.component]                # kg (estimates: a transport's group weights)

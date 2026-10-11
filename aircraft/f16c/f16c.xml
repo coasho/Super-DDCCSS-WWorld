@@ -423,6 +423,7 @@
       <property value="1">fsim/envelope/law_alpha</property>
       <property value="1">fsim/envelope/law_load_factor</property>
       <property value="1">fsim/envelope/law_roll_rate</property>
+      <property value="19187">fsim/envelope/max_takeoff_kg</property>
       <property value="1">fsim/propulsion/version</property>
       <property value="1">fsim/propulsion/provenance</property>
       <property value="1">fsim/propulsion/afterburner</property>

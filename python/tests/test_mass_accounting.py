@@ -50,8 +50,18 @@ class MassAccounting(unittest.TestCase):
                 self.assertAlmostEqual(spawned, mass["empty"] + fixed + fuel, delta=max(1.0, 1e-4 * spawned))
                 self.assertAlmostEqual(v.state.fuel_kg, fuel, delta=max(1.0, 1e-4 * fuel))
                 self.assertEqual(v.stores, [])  # (its stations empty: what a station carries, a loadout puts there)
+                heavy = []
                 for lo in fit.get("loadouts", []):
-                    v.load_loadout(lo["name"])
+                    held = v.stores
+                    try:
+                        v.load_loadout(lo["name"])
+                    except fsim.MissionRejected as refused:
+                        # past its maximum take-off weight with its tanks as its design fills them: none of it loaded
+                        self.assertTrue(str(refused).startswith("over_max_weight"), refused)
+                        self.assertIn(name, ("a10c", "c17a"))
+                        self.assertEqual(v.stores, held)
+                        heavy.append(lo["name"])
+                        continue
                     w.step(2)
                     stores = v.stores
                     self.assertTrue(all(s.status == "loaded" for s in stores))
@@ -62,6 +72,21 @@ class MassAccounting(unittest.TestCase):
                 w.step(2)
                 self.assertAlmostEqual(v.mass_kg, spawned, delta=2.0)
                 v.remove()
+                if heavy:
+                    # with a quarter of its fuel it takes them: each tank that fraction of what it holds
+                    v = w.create_vehicle(name + "-light", "jsbsim:" + name, latitude_deg=40.0, longitude_deg=0.0, altitude_msl_m=3000.0,
+                                         airspeed_ms=150.0, fuel_fraction=0.25)
+                    w.step()
+                    capacity = sum(t["capacity"] for t in mass.get("tank", []))
+                    light = v.mass_kg
+                    self.assertAlmostEqual(light, mass["empty"] + fixed + 0.25 * capacity, delta=max(1.0, 1e-4 * light))
+                    self.assertAlmostEqual(v.state.fuel_kg, 0.25 * capacity, delta=max(1.0, 1e-4 * capacity))
+                    for lo in heavy:
+                        v.load_loadout(lo)
+                    w.step(2)
+                    self.assertAlmostEqual(v.mass_kg - light, sum(s.mass_kg for s in v.stores), delta=2.0)
+                    self.assertLessEqual(v.mass_kg, mass.get("max_takeoff", mass.get("mtow")) + 1.0)
+                    v.remove()
 
     def test_the_growler_s_pods_are_stores(self):
         # its three ALQ-99 pods were part of its airframe and a fixed load; they are stores now, on their stations

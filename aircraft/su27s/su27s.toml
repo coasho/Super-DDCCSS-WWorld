@@ -261,6 +261,7 @@ alpha_max_deg = 26.0
 roll_rate_deg_s = 270.0
 
 [mass]
+max_takeoff = 33000           # kg, its maximum take-off weight: the article's Su-27SK - the export aircraft's; it gives none for the Su-27S (Wikipedia, revision 1378428873). A load beyond it is refused
 empty = 16380                 # Su-27S (Jane's)
 empty_cg = [12.840, 0.0, -0.450]
 # no published inertia: radii of gyration like the F-15's (the same class,

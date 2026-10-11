@@ -385,6 +385,53 @@ int main(int argc, char** argv) {
         fsim_recording_destroy(NULL);
         remove("c-abi-test.fsrec");
     }
+    /* A start's fuel (ABI 1.69): each tank the fraction of what it holds the spec gives - its design's own fill where it
+       gives none, or where the caller's struct is from before the field; one shorter than the first there was is refused */
+    {
+        fsim_world_options wo;
+        fsim_world* world = NULL;
+        fsim_vehicle_spec spec;
+        uint32_t full = 0, half = 0, old = 0, none = 0;
+        double design;
+        fsim_world_options_init(&wo);
+        wo.name = "c-fuel";
+        wo.publish = 0;
+        wo.workers = 1;
+        wo.pin_workers = 0;
+        wo.jsbsim_root = argc > 1 ? argv[1] : NULL;
+        CHECK(fsim_world_create(&wo, &world) == FSIM_OK);
+        fsim_vehicle_spec_init(&spec);
+        CHECK(spec.struct_size == sizeof spec && isnan(spec.fuel_fraction));
+        spec.name = "full";
+        spec.altitude_msl_m = 1500.0;
+        CHECK(fsim_world_create_vehicle(world, &spec, &full) == FSIM_OK);
+        design = fsim_vehicle_state_ptr(world, full)->fuel_kg;
+        CHECK(design > 0.0);
+        spec.name = "half";
+        spec.latitude_deg += 0.02;
+        spec.fuel_fraction = 1.0;
+        CHECK(fsim_world_create_vehicle(world, &spec, &half) == FSIM_OK);
+        {
+            const double capacity = fsim_vehicle_state_ptr(world, half)->fuel_kg;
+            CHECK(capacity >= design - 1e-6);
+            spec.fuel_fraction = 0.5;
+            CHECK(fsim_world_reset_vehicle(world, half, &spec) == FSIM_OK);
+            CHECK(fabs(fsim_vehicle_state_ptr(world, half)->fuel_kg - 0.5 * capacity) < 1e-6 * capacity);
+            CHECK(fsim_world_reset_vehicle(world, half, NULL) == FSIM_OK); /* (to the same start: its tanks as given) */
+            CHECK(fabs(fsim_vehicle_state_ptr(world, half)->fuel_kg - 0.5 * capacity) < 1e-6 * capacity);
+        }
+        spec.name = "old";
+        spec.latitude_deg += 0.02;
+        spec.fuel_fraction = 0.1; /* (not read: past the size the caller gives) */
+        spec.struct_size = (uint32_t)offsetof(fsim_vehicle_spec, fuel_fraction);
+        CHECK(fsim_world_create_vehicle(world, &spec, &old) == FSIM_OK);
+        CHECK(fabs(fsim_vehicle_state_ptr(world, old)->fuel_kg - design) < 1e-6 * design);
+        spec.name = "none";
+        spec.struct_size = (uint32_t)offsetof(fsim_vehicle_spec, control_divider);
+        CHECK(fsim_world_create_vehicle(world, &spec, &none) == FSIM_INVALID_ARGUMENT);
+        CHECK(fsim_world_reset_vehicle(world, old, &spec) == FSIM_INVALID_ARGUMENT);
+        fsim_world_destroy(world);
+    }
     /* The terrain read offline (ABI 1.46): a caller's struct from before it - its struct_size short of the field - still
        creates a world, one shorter still is refused; offline, a tile on no disk is no data (NaN), and nothing is fetched
        (its host does not exist: fetched, it would fail the same way, only slowly). */

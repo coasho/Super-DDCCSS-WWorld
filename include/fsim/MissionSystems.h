@@ -87,6 +87,7 @@ enum class Reason : std::uint16_t {
     StationCannotTake,  ///< a load the station cannot take: its classes, capacity or limit
     NotAwaitingConsent, ///< release consent for a strike that is not asking for it
     ConsentDenied,      ///< a strike ended: its release consent refused
+    OverMaxWeight,      ///< a load that would take the aircraft past its maximum take-off weight
     Count
 };
 /// "unknown_payload", "payload_standby", "goal_reached", ...

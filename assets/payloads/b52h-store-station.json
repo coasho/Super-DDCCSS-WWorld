@@ -2,7 +2,7 @@
   "id": "b52h-store-station",
   "designation": "B-52H store station",
   "family": "store_station",
-  "summary": "A suspension point on the B-52H for one store or launcher: missiles, bombs, tanks, pods",
+  "summary": "A place for one store on the B-52H: six on each of its two under-wing pylons, eight on the rotary launcher in its bomb bay",
   "parameters": {},
   "sources": {
     "wp-b52h": {
@@ -11,5 +11,419 @@
       "url": "https://en.wikipedia.org/w/index.php?title=Boeing_B-52_Stratofortress&oldid=1378364860",
       "date": "2026-10-04"
     }
-  }
+  },
+  "stations": [
+    {
+      "number": 1,
+      "name": "left pylon, forward lower",
+      "position_m": [
+        4.384,
+        -6.0,
+        1.57
+      ],
+      "carriage": "ejector",
+      "launcher": "Heavy Stores Adapter Beam",
+      "rack": "left pylon",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "six stores a pylon, as the article has the cruise missiles ('12 missiles on underwing pylons'): two rows of three in tandem - one under the beam, one on each shoulder. Its place estimated on hangar's design of the B-52H: the pylon 6.0 m out (between the fuselage and the inboard engine pods, judged from the type's layout, not measured), the stores' middle 40 % of the local chord aft of the leading edge, the shoulders 1.3 m and the lower store 1.6 m below the wing's under side; the rows 2.5 m apart (a 500 lb bomb is 2.21 m long). Its limit a 2,000 lb class store's: engineering assumptions"
+    },
+    {
+      "number": 2,
+      "name": "left pylon, forward inboard",
+      "position_m": [
+        4.384,
+        -5.66,
+        1.27
+      ],
+      "carriage": "ejector",
+      "launcher": "Heavy Stores Adapter Beam",
+      "rack": "left pylon",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "six stores a pylon, as the article has the cruise missiles ('12 missiles on underwing pylons'): two rows of three in tandem - one under the beam, one on each shoulder. Its place estimated on hangar's design of the B-52H: the pylon 6.0 m out (between the fuselage and the inboard engine pods, judged from the type's layout, not measured), the stores' middle 40 % of the local chord aft of the leading edge, the shoulders 1.3 m and the lower store 1.6 m below the wing's under side; the rows 2.5 m apart (a 500 lb bomb is 2.21 m long). Its limit a 2,000 lb class store's: engineering assumptions"
+    },
+    {
+      "number": 3,
+      "name": "left pylon, forward outboard",
+      "position_m": [
+        4.384,
+        -6.34,
+        1.27
+      ],
+      "carriage": "ejector",
+      "launcher": "Heavy Stores Adapter Beam",
+      "rack": "left pylon",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "six stores a pylon, as the article has the cruise missiles ('12 missiles on underwing pylons'): two rows of three in tandem - one under the beam, one on each shoulder. Its place estimated on hangar's design of the B-52H: the pylon 6.0 m out (between the fuselage and the inboard engine pods, judged from the type's layout, not measured), the stores' middle 40 % of the local chord aft of the leading edge, the shoulders 1.3 m and the lower store 1.6 m below the wing's under side; the rows 2.5 m apart (a 500 lb bomb is 2.21 m long). Its limit a 2,000 lb class store's: engineering assumptions"
+    },
+    {
+      "number": 4,
+      "name": "left pylon, aft lower",
+      "position_m": [
+        1.884,
+        -6.0,
+        1.57
+      ],
+      "carriage": "ejector",
+      "launcher": "Heavy Stores Adapter Beam",
+      "rack": "left pylon",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "six stores a pylon, as the article has the cruise missiles ('12 missiles on underwing pylons'): two rows of three in tandem - one under the beam, one on each shoulder. Its place estimated on hangar's design of the B-52H: the pylon 6.0 m out (between the fuselage and the inboard engine pods, judged from the type's layout, not measured), the stores' middle 40 % of the local chord aft of the leading edge, the shoulders 1.3 m and the lower store 1.6 m below the wing's under side; the rows 2.5 m apart (a 500 lb bomb is 2.21 m long). Its limit a 2,000 lb class store's: engineering assumptions"
+    },
+    {
+      "number": 5,
+      "name": "left pylon, aft inboard",
+      "position_m": [
+        1.884,
+        -5.66,
+        1.27
+      ],
+      "carriage": "ejector",
+      "launcher": "Heavy Stores Adapter Beam",
+      "rack": "left pylon",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "six stores a pylon, as the article has the cruise missiles ('12 missiles on underwing pylons'): two rows of three in tandem - one under the beam, one on each shoulder. Its place estimated on hangar's design of the B-52H: the pylon 6.0 m out (between the fuselage and the inboard engine pods, judged from the type's layout, not measured), the stores' middle 40 % of the local chord aft of the leading edge, the shoulders 1.3 m and the lower store 1.6 m below the wing's under side; the rows 2.5 m apart (a 500 lb bomb is 2.21 m long). Its limit a 2,000 lb class store's: engineering assumptions"
+    },
+    {
+      "number": 6,
+      "name": "left pylon, aft outboard",
+      "position_m": [
+        1.884,
+        -6.34,
+        1.27
+      ],
+      "carriage": "ejector",
+      "launcher": "Heavy Stores Adapter Beam",
+      "rack": "left pylon",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "six stores a pylon, as the article has the cruise missiles ('12 missiles on underwing pylons'): two rows of three in tandem - one under the beam, one on each shoulder. Its place estimated on hangar's design of the B-52H: the pylon 6.0 m out (between the fuselage and the inboard engine pods, judged from the type's layout, not measured), the stores' middle 40 % of the local chord aft of the leading edge, the shoulders 1.3 m and the lower store 1.6 m below the wing's under side; the rows 2.5 m apart (a 500 lb bomb is 2.21 m long). Its limit a 2,000 lb class store's: engineering assumptions"
+    },
+    {
+      "number": 7,
+      "name": "right pylon, forward lower",
+      "position_m": [
+        4.384,
+        6.0,
+        1.57
+      ],
+      "carriage": "ejector",
+      "launcher": "Heavy Stores Adapter Beam",
+      "rack": "right pylon",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "six stores a pylon, as the article has the cruise missiles ('12 missiles on underwing pylons'): two rows of three in tandem - one under the beam, one on each shoulder. Its place estimated on hangar's design of the B-52H: the pylon 6.0 m out (between the fuselage and the inboard engine pods, judged from the type's layout, not measured), the stores' middle 40 % of the local chord aft of the leading edge, the shoulders 1.3 m and the lower store 1.6 m below the wing's under side; the rows 2.5 m apart (a 500 lb bomb is 2.21 m long). Its limit a 2,000 lb class store's: engineering assumptions"
+    },
+    {
+      "number": 8,
+      "name": "right pylon, forward inboard",
+      "position_m": [
+        4.384,
+        5.66,
+        1.27
+      ],
+      "carriage": "ejector",
+      "launcher": "Heavy Stores Adapter Beam",
+      "rack": "right pylon",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "six stores a pylon, as the article has the cruise missiles ('12 missiles on underwing pylons'): two rows of three in tandem - one under the beam, one on each shoulder. Its place estimated on hangar's design of the B-52H: the pylon 6.0 m out (between the fuselage and the inboard engine pods, judged from the type's layout, not measured), the stores' middle 40 % of the local chord aft of the leading edge, the shoulders 1.3 m and the lower store 1.6 m below the wing's under side; the rows 2.5 m apart (a 500 lb bomb is 2.21 m long). Its limit a 2,000 lb class store's: engineering assumptions"
+    },
+    {
+      "number": 9,
+      "name": "right pylon, forward outboard",
+      "position_m": [
+        4.384,
+        6.34,
+        1.27
+      ],
+      "carriage": "ejector",
+      "launcher": "Heavy Stores Adapter Beam",
+      "rack": "right pylon",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "six stores a pylon, as the article has the cruise missiles ('12 missiles on underwing pylons'): two rows of three in tandem - one under the beam, one on each shoulder. Its place estimated on hangar's design of the B-52H: the pylon 6.0 m out (between the fuselage and the inboard engine pods, judged from the type's layout, not measured), the stores' middle 40 % of the local chord aft of the leading edge, the shoulders 1.3 m and the lower store 1.6 m below the wing's under side; the rows 2.5 m apart (a 500 lb bomb is 2.21 m long). Its limit a 2,000 lb class store's: engineering assumptions"
+    },
+    {
+      "number": 10,
+      "name": "right pylon, aft lower",
+      "position_m": [
+        1.884,
+        6.0,
+        1.57
+      ],
+      "carriage": "ejector",
+      "launcher": "Heavy Stores Adapter Beam",
+      "rack": "right pylon",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "six stores a pylon, as the article has the cruise missiles ('12 missiles on underwing pylons'): two rows of three in tandem - one under the beam, one on each shoulder. Its place estimated on hangar's design of the B-52H: the pylon 6.0 m out (between the fuselage and the inboard engine pods, judged from the type's layout, not measured), the stores' middle 40 % of the local chord aft of the leading edge, the shoulders 1.3 m and the lower store 1.6 m below the wing's under side; the rows 2.5 m apart (a 500 lb bomb is 2.21 m long). Its limit a 2,000 lb class store's: engineering assumptions"
+    },
+    {
+      "number": 11,
+      "name": "right pylon, aft inboard",
+      "position_m": [
+        1.884,
+        5.66,
+        1.27
+      ],
+      "carriage": "ejector",
+      "launcher": "Heavy Stores Adapter Beam",
+      "rack": "right pylon",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "six stores a pylon, as the article has the cruise missiles ('12 missiles on underwing pylons'): two rows of three in tandem - one under the beam, one on each shoulder. Its place estimated on hangar's design of the B-52H: the pylon 6.0 m out (between the fuselage and the inboard engine pods, judged from the type's layout, not measured), the stores' middle 40 % of the local chord aft of the leading edge, the shoulders 1.3 m and the lower store 1.6 m below the wing's under side; the rows 2.5 m apart (a 500 lb bomb is 2.21 m long). Its limit a 2,000 lb class store's: engineering assumptions"
+    },
+    {
+      "number": 12,
+      "name": "right pylon, aft outboard",
+      "position_m": [
+        1.884,
+        6.34,
+        1.27
+      ],
+      "carriage": "ejector",
+      "launcher": "Heavy Stores Adapter Beam",
+      "rack": "right pylon",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "six stores a pylon, as the article has the cruise missiles ('12 missiles on underwing pylons'): two rows of three in tandem - one under the beam, one on each shoulder. Its place estimated on hangar's design of the B-52H: the pylon 6.0 m out (between the fuselage and the inboard engine pods, judged from the type's layout, not measured), the stores' middle 40 % of the local chord aft of the leading edge, the shoulders 1.3 m and the lower store 1.6 m below the wing's under side; the rows 2.5 m apart (a 500 lb bomb is 2.21 m long). Its limit a 2,000 lb class store's: engineering assumptions"
+    },
+    {
+      "number": 13,
+      "name": "bomb bay 1",
+      "position_m": [
+        -0.0,
+        0.0,
+        2.107
+      ],
+      "carriage": "ejector",
+      "launcher": "rotary launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "eight stores on the bay's rotary launcher ('another eight missiles on a rotary launcher fitted in the bomb bay'): round its axis, 45 deg apart, each released from its own place (a real launcher turns the next store to the bottom: not modelled). Its place estimated on hangar's design: the launcher's axis on the centreline at the empty CG's station, 0.8 m above the belly; its ring's radius a 500 lb bomb's eight just touching. Its limit a 2,000 lb class store's: engineering assumptions"
+    },
+    {
+      "number": 14,
+      "name": "bomb bay 2",
+      "position_m": [
+        -0.0,
+        0.266,
+        1.996
+      ],
+      "carriage": "ejector",
+      "launcher": "rotary launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "eight stores on the bay's rotary launcher ('another eight missiles on a rotary launcher fitted in the bomb bay'): round its axis, 45 deg apart, each released from its own place (a real launcher turns the next store to the bottom: not modelled). Its place estimated on hangar's design: the launcher's axis on the centreline at the empty CG's station, 0.8 m above the belly; its ring's radius a 500 lb bomb's eight just touching. Its limit a 2,000 lb class store's: engineering assumptions"
+    },
+    {
+      "number": 15,
+      "name": "bomb bay 3",
+      "position_m": [
+        -0.0,
+        0.377,
+        1.73
+      ],
+      "carriage": "ejector",
+      "launcher": "rotary launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "eight stores on the bay's rotary launcher ('another eight missiles on a rotary launcher fitted in the bomb bay'): round its axis, 45 deg apart, each released from its own place (a real launcher turns the next store to the bottom: not modelled). Its place estimated on hangar's design: the launcher's axis on the centreline at the empty CG's station, 0.8 m above the belly; its ring's radius a 500 lb bomb's eight just touching. Its limit a 2,000 lb class store's: engineering assumptions"
+    },
+    {
+      "number": 16,
+      "name": "bomb bay 4",
+      "position_m": [
+        -0.0,
+        0.266,
+        1.464
+      ],
+      "carriage": "ejector",
+      "launcher": "rotary launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "eight stores on the bay's rotary launcher ('another eight missiles on a rotary launcher fitted in the bomb bay'): round its axis, 45 deg apart, each released from its own place (a real launcher turns the next store to the bottom: not modelled). Its place estimated on hangar's design: the launcher's axis on the centreline at the empty CG's station, 0.8 m above the belly; its ring's radius a 500 lb bomb's eight just touching. Its limit a 2,000 lb class store's: engineering assumptions"
+    },
+    {
+      "number": 17,
+      "name": "bomb bay 5",
+      "position_m": [
+        -0.0,
+        0.0,
+        1.353
+      ],
+      "carriage": "ejector",
+      "launcher": "rotary launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "eight stores on the bay's rotary launcher ('another eight missiles on a rotary launcher fitted in the bomb bay'): round its axis, 45 deg apart, each released from its own place (a real launcher turns the next store to the bottom: not modelled). Its place estimated on hangar's design: the launcher's axis on the centreline at the empty CG's station, 0.8 m above the belly; its ring's radius a 500 lb bomb's eight just touching. Its limit a 2,000 lb class store's: engineering assumptions"
+    },
+    {
+      "number": 18,
+      "name": "bomb bay 6",
+      "position_m": [
+        -0.0,
+        -0.266,
+        1.464
+      ],
+      "carriage": "ejector",
+      "launcher": "rotary launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "eight stores on the bay's rotary launcher ('another eight missiles on a rotary launcher fitted in the bomb bay'): round its axis, 45 deg apart, each released from its own place (a real launcher turns the next store to the bottom: not modelled). Its place estimated on hangar's design: the launcher's axis on the centreline at the empty CG's station, 0.8 m above the belly; its ring's radius a 500 lb bomb's eight just touching. Its limit a 2,000 lb class store's: engineering assumptions"
+    },
+    {
+      "number": 19,
+      "name": "bomb bay 7",
+      "position_m": [
+        -0.0,
+        -0.377,
+        1.73
+      ],
+      "carriage": "ejector",
+      "launcher": "rotary launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "eight stores on the bay's rotary launcher ('another eight missiles on a rotary launcher fitted in the bomb bay'): round its axis, 45 deg apart, each released from its own place (a real launcher turns the next store to the bottom: not modelled). Its place estimated on hangar's design: the launcher's axis on the centreline at the empty CG's station, 0.8 m above the belly; its ring's radius a 500 lb bomb's eight just touching. Its limit a 2,000 lb class store's: engineering assumptions"
+    },
+    {
+      "number": 20,
+      "name": "bomb bay 8",
+      "position_m": [
+        -0.0,
+        -0.266,
+        1.996
+      ],
+      "carriage": "ejector",
+      "launcher": "rotary launcher",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 907.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-b52h",
+      "note": "eight stores on the bay's rotary launcher ('another eight missiles on a rotary launcher fitted in the bomb bay'): round its axis, 45 deg apart, each released from its own place (a real launcher turns the next store to the bottom: not modelled). Its place estimated on hangar's design: the launcher's axis on the centreline at the empty CG's station, 0.8 m above the belly; its ring's radius a 500 lb bomb's eight just touching. Its limit a 2,000 lb class store's: engineering assumptions"
+    }
+  ]
 }

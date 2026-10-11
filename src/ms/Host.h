@@ -10,6 +10,7 @@
 #include "ms/radar/Radar.h"
 
 #include <deque>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -79,9 +80,15 @@ public:
     /// Load a station (the ground crew's - a scenario's, not a Mission Systems command): `count` stores of a type, or
     /// none (an empty `store`: unloaded). Refused while its stores are in a strike or jettison, or where the station
     /// cannot take them.
-    Reason load(std::uint16_t payload, int station, const std::string& store, int count = 1);
-    /// The fit's loadout of that name: each station it names loaded as it says (the others left as they are).
-    Reason loadLoadout(const std::string& name);
+    /// `roomKg`: what the aircraft may still take on before its maximum take-off weight (infinite: none held) - a
+    /// load heavier than what it replaces by more is refused OverMaxWeight, nothing changed.
+    Reason load(std::uint16_t payload, int station, const std::string& store, int count = 1,
+                double roomKg = std::numeric_limits<double>::infinity());
+    /// The fit's loadout of that name: each station it names loaded as it says (the others left as they are). Held to
+    /// `roomKg` as a whole: all of it, or none.
+    Reason loadLoadout(const std::string& name, double roomKg = std::numeric_limits<double>::infinity());
+    /// What it carries now, kg: every store on its stations (a tank's with its fuel).
+    double storesMassKg() const noexcept;
     /// Strike (A-GRA's Strike task): its activity powers the stores up, asks for consent, releases them.
     CommandResult submit(const StrikeCommand& command, const CommandOptions& options, double simTime);
     /// Jettison (A-GRA's Jettison task): its activity releases the stores unarmed.

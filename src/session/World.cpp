@@ -1831,10 +1831,19 @@ std::vector<ms::StoreInfo> World::stores(std::uint32_t id) const {
     return e ? e->ms.stores() : std::vector<ms::StoreInfo>{};
 }
 
+double World::weightRoomKg(Entry& e) {
+    const double most = e.profile ? e.profile->envelope.maxTakeoffKg : std::numeric_limits<double>::quiet_NaN();
+    const double weighed = pool_->vehicle(e.slot).energy().massKg; // (as of its last step: loads since are not in it)
+    if (!std::isfinite(most) || !std::isfinite(weighed)) return std::numeric_limits<double>::infinity();
+    const double carried = e.ms.storesMassKg();
+    if (e.storesStamp != loadTick_) e.storesKgAtStep = carried, e.storesStamp = loadTick_; // (the first load since that step)
+    return most - (weighed - e.storesKgAtStep + carried);
+}
+
 ms::Reason World::loadStore(std::uint32_t id, std::uint16_t payload, int station, const std::string& store, int count) {
     Entry* e = entry(id);
     if (!e) return ms::Reason::UnknownVehicle;
-    const ms::Reason r = e->ms.load(payload, station, store, count);
+    const ms::Reason r = e->ms.load(payload, station, store, count, weightRoomKg(*e));
     applyStoreMasses(); // (the flight model's masses at once: a load is between steps)
     return r;
 }
@@ -1842,7 +1851,7 @@ ms::Reason World::loadStore(std::uint32_t id, std::uint16_t payload, int station
 ms::Reason World::loadLoadout(std::uint32_t id, const std::string& loadout) {
     Entry* e = entry(id);
     if (!e) return ms::Reason::UnknownVehicle;
-    const ms::Reason r = e->ms.loadLoadout(loadout);
+    const ms::Reason r = e->ms.loadLoadout(loadout, weightRoomKg(*e));
     applyStoreMasses();
     return r;
 }

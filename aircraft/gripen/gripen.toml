@@ -201,6 +201,7 @@ alpha_max_deg = 28.0
 roll_rate_deg_s = 280.0
 
 [mass]
+max_takeoff = 14000           # kg, its maximum take-off weight: the article's JAS 39C/D (the E's: 16,500 kg) (Wikipedia, revision 1379407463). A load beyond it is refused
 empty = 6800                  # JAS 39C (Saab)
 empty_cg = [7.844, 0.0, -0.200]
 # no published inertia: radii of gyration of the class

@@ -244,6 +244,7 @@ static_deflection = 0.15
 attach = [13.820, 2.000, 2.000]
 
 [mass]
+max_takeoff = 74389           # kg, its maximum take-off weight: the article's C-130J: 164,000 lb, at 2.5 g (Wikipedia, revision 1377214978). A load beyond it is refused
 empty = 34274                   # 75,562 lb (Lockheed Martin)
 empty_cg = [12.300, 0.0, 3.300]  # estimate: about 22 % MAC
 [mass.component]                # kg (estimates: a transport's group weights)

@@ -341,3 +341,63 @@ TEST_CASE("a missile's model origin is its launch CG: full, its CG is at its ori
         w.step();
     }
 }
+
+TEST_CASE("a load is held to the aircraft's maximum take-off weight: what would take it past is refused, nothing changed; "
+          "a bomber carries its bombs",
+          "[stores][mass][world]") {
+    session::World w(options("mass-most"));
+    // a C-17A as it spawns: 235,996 kg of its 265,352 kg. Eighteen 463L pallets (40,824 kg) would take it past: refused
+    // as a whole, none loaded. Its airdrop bundles (17,964 kg) fit.
+    const auto c17 = wing(w, "c17a", 6000.0, 200.0);
+    w.step(stepsFor(w, 0.5));
+    REQUIRE(w.profile(c17) != nullptr);
+    const double most = w.profile(c17)->envelope.maxTakeoffKg;
+    CHECK(std::abs(most - 265352.0) < 1.0);
+    const double spawned = w.massKg(c17), full = w.navigationReport(c17).fuelKg;
+    REQUIRE(spawned + 40824.0 > most);
+    CHECK(w.loadLoadout(c17, "pallets") == ms::Reason::OverMaxWeight);
+    CHECK(std::string(ms::reasonName(ms::Reason::OverMaxWeight)) == "over_max_weight");
+    for (const auto& s : w.stores(c17)) CHECK(std::string(s.store).empty());
+    REQUIRE(w.loadLoadout(c17, "airdrop") == ms::Reason::None);
+    w.step(stepsFor(w, 0.5));
+    CHECK(std::abs(w.massKg(c17) - spawned - 17964.0) < 30.0); // (less the fuel of a second)
+    // station by station to the limit: pallets go on until the next would pass it (two loads between steps are both
+    // counted: the flight model has not weighed the first yet)
+    REQUIRE(!w.stores(c17).empty());
+    const std::uint16_t hold = w.stores(c17).front().payload;
+    int taken = 0;
+    for (int station = 1; station <= 18; ++station) { // (each pallet replaces a 998 kg bundle: 1,270 kg more)
+        const ms::Reason r = w.loadStore(c17, hold, station, "463l-pallet");
+        if (r == ms::Reason::None) ++taken;
+        else CHECK(r == ms::Reason::OverMaxWeight);
+    }
+    w.step(stepsFor(w, 0.5));
+    CHECK(w.massKg(c17) <= most + 1.0);
+    CHECK(w.massKg(c17) > most - 1300.0);
+    CHECK(taken > 0);
+    CHECK(taken < 18);
+    // with half its fuel it takes all eighteen: what a start's tanks hold is the scenario's to say
+    // (InitialConditions::fuelFraction - each tank that fraction of what it holds)
+    const auto light = wing(w, "c17a", 6000.0, 200.0, 2, 0.5);
+    w.step(stepsFor(w, 0.5));
+    const auto nav = w.navigationReport(light);
+    CHECK(std::abs(nav.fuelKg - 0.5 * nav.capacity) < 0.001 * nav.capacity);
+    CHECK(std::abs((spawned - w.massKg(light)) - (full - nav.fuelKg)) < 30.0); // (lighter by the fuel it has not)
+    REQUIRE(w.loadLoadout(light, "pallets") == ms::Reason::None);
+    w.step(stepsFor(w, 0.5));
+    CHECK(w.massKg(light) < most);
+    REQUIRE(w.resetVehicle(light)); // (a reset is to the same start: its tanks as they were given)
+    w.step(stepsFor(w, 0.5));
+    CHECK(std::abs(w.navigationReport(light).fuelKg - nav.fuelKg) < 30.0);
+
+    // the B-52H: six bombs on each pylon and eight on its bay's launcher, 4,536 kg - one pylon's drag a pylon
+    const auto buff = wing(w, "b52h", 6000.0, 220.0);
+    w.step(stepsFor(w, 0.5));
+    const double clean = w.massKg(buff);
+    REQUIRE(w.loadLoadout(buff, "mk82 x20") == ms::Reason::None);
+    w.step(stepsFor(w, 0.5));
+    CHECK(std::abs(w.massKg(buff) - clean - 20.0 * 226.8) < 60.0);
+    int carried = 0;
+    for (const auto& s : w.stores(buff)) carried += std::string(s.store) == "mk82" ? 1 : 0;
+    CHECK(carried == 20);
+}

@@ -2,7 +2,7 @@
   "id": "h6k-store-station",
   "designation": "H-6K store station",
   "family": "store_station",
-  "summary": "A suspension point on the H-6K for one store or launcher: missiles, bombs, tanks, pods",
+  "summary": "An under-wing pylon of the H-6K: one cruise missile",
   "parameters": {},
   "sources": {
     "wp-h6k": {
@@ -11,5 +11,127 @@
       "url": "https://en.wikipedia.org/w/index.php?title=Xi%27an_H-6&oldid=1378388125",
       "date": "2026-10-04"
     }
-  }
+  },
+  "stations": [
+    {
+      "number": 1,
+      "name": "left outboard",
+      "position_m": [
+        -2.052,
+        -9.5,
+        1.25
+      ],
+      "carriage": "ejector",
+      "launcher": "pylon ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 2500.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-h6k",
+      "note": "its place estimated on hangar's design of the H-6K: the six pylons 4.5, 7.0 and 9.5 m out (judged from the type's layout, not measured), a store's CG 40 % of the local chord aft of the leading edge and 0.65 m below the wing's under side. Its limit the heaviest of the missile family's launch weights with a margin: engineering assumptions"
+    },
+    {
+      "number": 2,
+      "name": "left middle",
+      "position_m": [
+        -0.412,
+        -7.0,
+        1.15
+      ],
+      "carriage": "ejector",
+      "launcher": "pylon ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 2500.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-h6k",
+      "note": "its place estimated on hangar's design of the H-6K: the six pylons 4.5, 7.0 and 9.5 m out (judged from the type's layout, not measured), a store's CG 40 % of the local chord aft of the leading edge and 0.65 m below the wing's under side. Its limit the heaviest of the missile family's launch weights with a margin: engineering assumptions"
+    },
+    {
+      "number": 3,
+      "name": "left inboard",
+      "position_m": [
+        1.38,
+        -4.5,
+        1.09
+      ],
+      "carriage": "ejector",
+      "launcher": "pylon ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 2500.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-h6k",
+      "note": "its place estimated on hangar's design of the H-6K: the six pylons 4.5, 7.0 and 9.5 m out (judged from the type's layout, not measured), a store's CG 40 % of the local chord aft of the leading edge and 0.65 m below the wing's under side. Its limit the heaviest of the missile family's launch weights with a margin: engineering assumptions"
+    },
+    {
+      "number": 4,
+      "name": "right inboard",
+      "position_m": [
+        1.38,
+        4.5,
+        1.09
+      ],
+      "carriage": "ejector",
+      "launcher": "pylon ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 2500.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-h6k",
+      "note": "its place estimated on hangar's design of the H-6K: the six pylons 4.5, 7.0 and 9.5 m out (judged from the type's layout, not measured), a store's CG 40 % of the local chord aft of the leading edge and 0.65 m below the wing's under side. Its limit the heaviest of the missile family's launch weights with a margin: engineering assumptions"
+    },
+    {
+      "number": 5,
+      "name": "right middle",
+      "position_m": [
+        -0.412,
+        7.0,
+        1.15
+      ],
+      "carriage": "ejector",
+      "launcher": "pylon ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 2500.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-h6k",
+      "note": "its place estimated on hangar's design of the H-6K: the six pylons 4.5, 7.0 and 9.5 m out (judged from the type's layout, not measured), a store's CG 40 % of the local chord aft of the leading edge and 0.65 m below the wing's under side. Its limit the heaviest of the missile family's launch weights with a margin: engineering assumptions"
+    },
+    {
+      "number": 6,
+      "name": "right outboard",
+      "position_m": [
+        -2.052,
+        9.5,
+        1.25
+      ],
+      "carriage": "ejector",
+      "launcher": "pylon ejector rack",
+      "ejection_ms": 3.0,
+      "takes": [
+        "bomb"
+      ],
+      "max_kg": 2500.0,
+      "capacity": 1,
+      "basis": "assumed",
+      "source": "wp-h6k",
+      "note": "its place estimated on hangar's design of the H-6K: the six pylons 4.5, 7.0 and 9.5 m out (judged from the type's layout, not measured), a store's CG 40 % of the local chord aft of the leading edge and 0.65 m below the wing's under side. Its limit the heaviest of the missile family's launch weights with a margin: engineering assumptions"
+    }
+  ]
 }

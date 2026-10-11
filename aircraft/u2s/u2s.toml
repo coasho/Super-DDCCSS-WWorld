@@ -216,6 +216,7 @@ retract = "forward"
 attach = [15.000, 0.0, -0.500]
 
 [mass]
+max_takeoff = 18144           # kg, its maximum take-off weight: 40,000 lb (the figures above). A load beyond it is refused
 empty = 7257                  # 16,000 lb (Jane's; USAF)
 empty_cg = [9.100, 0.0, 0.000]    # first guess: set from the neutral point below
 [mass.component]              # kg

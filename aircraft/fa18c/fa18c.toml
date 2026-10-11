@@ -205,6 +205,7 @@ alpha_max_deg = 35.0
 roll_rate_deg_s = 220.0
 
 [mass]
+max_takeoff = 23541           # kg, its maximum take-off weight: the article's F/A-18C/D: 51,900 lb (Wikipedia, revision 1379009436). A load beyond it is refused
 empty = 10810                 # 23,832 lb, F/A-18C
 empty_cg = [9.810, 0.0, -0.250]
 # radii of gyration from the F/A-18 HARV's inertia (NASA: Ixx 22,789,

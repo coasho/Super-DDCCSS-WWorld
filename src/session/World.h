@@ -720,6 +720,8 @@ private:
         };
         std::vector<StationMass> stationMass;
         std::uint64_t massRevision = ~0ull; ///< the store revision its point masses were last set for
+        double storesKgAtStep = 0.0;        ///< what its stations held when its flight model last weighed itself (weightRoomKg)
+        unsigned storesStamp = ~0u;         ///< the step that was taken at
         /// Where its stores and their carriage add drag (ms::Host::carriageDrag), for the store revision dragRevision;
         /// the dynamic pressure they read.
         std::vector<ms::Host::DragPoint> drag;
@@ -730,6 +732,10 @@ private:
     };
     /// Counts the steps: a vehicle's host is told its weight every eighth, and the step after its stores change.
     unsigned loadTick_ = 0;
+    /// What a vehicle may still take on before its maximum take-off weight, kg (infinite: its profile declares none):
+    /// that limit less what it weighs now - its flight model's mass at the last step, and what its stations have
+    /// taken on or lost since.
+    double weightRoomKg(Entry& e);
 
     /// What the control cascades see of other vehicles during a step: each
     /// one's state as the step began (Control.h, WorldView), whichever worker

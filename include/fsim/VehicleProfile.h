@@ -102,6 +102,9 @@ struct EnvelopeSection {
     EnvelopeLimits clean, flaps;   ///< flaps: beyond `flapsThreshold`
     double flapsThreshold = 0.05;  ///< normalised flap position
     double gearCasMaxMs = kUnknown;
+    /// The most it may weigh, kg: its design's maximum take-off weight (hangar: `[mass] max_takeoff`, else its `mtow`).
+    /// The store management refuses a load that would take it past this (ms::Reason::OverMaxWeight). Unknown: none held.
+    double maxTakeoffKg = kUnknown;
     /// On its wheels: the pitch attitude its tail touches at, pivoting on its aftmost wheels (a launch rotates short of it).
     double groundPitchMaxRad = kUnknown;
     /// On its wheels, a tail-wheel aircraft's: the pitch attitude it rests at on its main and tail wheels together (its

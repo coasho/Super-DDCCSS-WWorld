@@ -168,6 +168,11 @@ def sections(aircraft, fbw, reference, identified, flown, tables=None, tail_down
         # flown at, which energy management keeps a margin over)
         clean["cas_min_ms"] = spawn_stall(tables)
     envelope = dict({"clean/" + k: v for k, v in clean.items()}, **law)
+    # the most it may weigh: its design's maximum take-off weight, where it declares one ([mass] max_takeoff; else its
+    # mtow, which is also the weight its structure is estimated for) - the store management holds a load to it
+    declared = aircraft.spec.get("mass", {})
+    if declared.get("max_takeoff", declared.get("mtow")):
+        envelope["max_takeoff_kg"] = float(declared.get("max_takeoff", declared.get("mtow")))
     # on the wheels: the pitch attitude the tail touches at, pivoting on the aftmost
     # wheels (a launch rotates short of it)
     if tail_down is not None and 0.0 < tail_down < 90.0:

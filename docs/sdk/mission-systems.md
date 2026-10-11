@@ -448,7 +448,11 @@ v.jettison(emergency=True)                # the rest, unarmed, at once
 - **The stations:** each aircraft's store-station card lists its stations: number, name, place (a store's CG from the
   aircraft's, body axes), carriage (`rail`: a missile fires off it; `ejector`: the store is pushed clear, 3 m/s down;
   `rail+ejector`: a missile on its rail, anything else on its rack), the store classes it takes, its limit and
-  capacity - each with its basis. A load a station cannot take is refused (`station_cannot_take`). A transport's cargo
+  capacity - each with its basis. A load a station cannot take is refused (`station_cannot_take`), and one that would
+  take the aircraft past its design's maximum take-off weight `over_max_weight` (a loadout as a whole: all of it or
+  none; `profile_value("envelope", "max_takeoff_kg")` is the limit, where the design declares one; an aircraft that is
+  to carry more starts with less fuel - `fuel_fraction` at its creation). A bomber's multiple
+  rack is a station a store's place (the B-52H: six on each pylon, eight on its bay's launcher). A transport's cargo
   floor is stations too - its pallet positions, named "cargo bay <n>" so that they share the hold's doors (its ramp)
   and add no drag, taking the class `cargo`; their `extraction_ms` is how fast a load leaves aft, over the ramp
   (C-130J: six positions; C-17A: eighteen).

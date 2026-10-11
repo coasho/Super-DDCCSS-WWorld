@@ -59,9 +59,9 @@
     {
       "name": "stations",
       "card": "b52h-store-station",
-      "count": 3,
+      "count": 20,
       "source": "wp-b52h",
-      "note": "two under-wing pylons and the bomb bay's rotary launcher",
+      "note": "two under-wing pylons, six stores each, and the bomb bay's rotary launcher's eight: a station a store's place (the card's)",
       "evidence": [
         "missiles on underwing pylons",
         "rotary launcher fitted in the bomb bay"
@@ -150,6 +150,95 @@
       "note": "the CONECT upgrade",
       "evidence": [
         "AN/ARC-210 Warrior beyond-line-of-sight software programmable radio"
+      ]
+    }
+  ],
+  "loadouts": [
+    {
+      "name": "mk82 x20",
+      "source": "wp-b52h",
+      "note": "twenty 500 lb bombs: six on each pylon and eight on the bay's launcher, the stations the article gives the cruise missiles (its 'twenty-four GBU-38 500-pound guided bombs' is a later fit's); 4,536 kg of its 'up to 70,000 pounds (32,000 kg) of weapons'. The Mk 82 is the one bomb the store library has: assumed",
+      "stations": [
+        {
+          "station": 1,
+          "store": "mk82"
+        },
+        {
+          "station": 2,
+          "store": "mk82"
+        },
+        {
+          "station": 3,
+          "store": "mk82"
+        },
+        {
+          "station": 4,
+          "store": "mk82"
+        },
+        {
+          "station": 5,
+          "store": "mk82"
+        },
+        {
+          "station": 6,
+          "store": "mk82"
+        },
+        {
+          "station": 7,
+          "store": "mk82"
+        },
+        {
+          "station": 8,
+          "store": "mk82"
+        },
+        {
+          "station": 9,
+          "store": "mk82"
+        },
+        {
+          "station": 10,
+          "store": "mk82"
+        },
+        {
+          "station": 11,
+          "store": "mk82"
+        },
+        {
+          "station": 12,
+          "store": "mk82"
+        },
+        {
+          "station": 13,
+          "store": "mk82"
+        },
+        {
+          "station": 14,
+          "store": "mk82"
+        },
+        {
+          "station": 15,
+          "store": "mk82"
+        },
+        {
+          "station": 16,
+          "store": "mk82"
+        },
+        {
+          "station": 17,
+          "store": "mk82"
+        },
+        {
+          "station": 18,
+          "store": "mk82"
+        },
+        {
+          "station": 19,
+          "store": "mk82"
+        },
+        {
+          "station": 20,
+          "store": "mk82"
+        }
       ]
     }
   ]

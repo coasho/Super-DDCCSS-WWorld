@@ -226,6 +226,7 @@ alpha_max_deg = 26.0
 roll_rate_deg_s = 270.0
 
 [mass]
+max_takeoff = 34000           # kg, its maximum take-off weight: the article's Su-57E (Wikipedia, revision 1379035134). A load beyond it is refused
 empty = 18000                 # estimate
 empty_cg = [11.459, 0.0, -0.400]  # loaded, 5 % of the MAC ahead of the neutral point hangar finds
 # no published inertia: radii of gyration like the Su-27's

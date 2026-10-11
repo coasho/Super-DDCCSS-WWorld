@@ -82,7 +82,14 @@ void Host::rebuildStoreInfo() {
     }
 }
 
-Reason Host::load(std::uint16_t payload, int station, const std::string& store, int count) {
+double Host::storesMassKg() const noexcept {
+    double kg = 0.0;
+    for (const auto& s : stores_)
+        if (!gone(s.status)) kg += massOf(s);
+    return kg;
+}
+
+Reason Host::load(std::uint16_t payload, int station, const std::string& store, int count, double roomKg) {
     if (payload >= payloads_.size()) return Reason::UnknownPayload;
     const Card& card = *cards_[payload];
     const Station* st = card.station(station);
@@ -98,6 +105,9 @@ Reason Host::load(std::uint16_t payload, int station, const std::string& store, 
     }
     for (const auto& s : stores_)
         if (s.payload == payload && s.station == st && s.activity) return Reason::StoreBusy;
+    // the aircraft's weight: what the load adds over what it replaces, within what it may still take on (a kilogram's grace)
+    if (type && count * (type->value("mass_kg", 0.0) + type->value("fuel_kg", 0.0)) - stationMassKg(payload, station) > roomKg + 1.0)
+        return Reason::OverMaxWeight;
     // the station's stores replaced (those gone - released, jettisoned - forgotten with them), the order kept: payload,
     // then station number, then place on the rack
     stores_.erase(std::remove_if(stores_.begin(), stores_.end(), [&](const StoreSlot& s) { return s.payload == payload && s.station == st; }),
@@ -127,12 +137,27 @@ Reason Host::load(std::uint16_t payload, int station, const std::string& store, 
     return Reason::None;
 }
 
-Reason Host::loadLoadout(const std::string& name) {
+Reason Host::loadLoadout(const std::string& name, double roomKg) {
     const Loadout* l = fit_ ? fit_->loadout(name) : nullptr;
     if (!l) return Reason::InvalidParameter;
-    for (const auto& item : l->items) {
+    const auto payloadOf = [&](const Loadout::Item& item) {
         std::uint16_t payload = 0;
         while (payload < payloads_.size() && item.payload != payloads_[payload].name) ++payload;
+        return payload;
+    };
+    if (std::isfinite(roomKg)) {
+        // the whole loadout against the aircraft's weight first: what it hangs, less what its stations hold now
+        double added = 0.0;
+        for (const auto& item : l->items) {
+            const std::uint16_t payload = payloadOf(item);
+            const auto type = fit_->stores.find(item.store);
+            if (payload >= payloads_.size() || type == fit_->stores.end()) continue; // (refused for itself below)
+            added += item.count * (type->second->value("mass_kg", 0.0) + type->second->value("fuel_kg", 0.0)) - stationMassKg(payload, item.station);
+        }
+        if (added > roomKg + 1.0) return Reason::OverMaxWeight;
+    }
+    for (const auto& item : l->items) {
+        const std::uint16_t payload = payloadOf(item);
         if (payload >= payloads_.size()) return Reason::UnknownPayload;
         if (const Reason r = load(payload, item.station, item.store, item.count); r != Reason::None) return r;
     }
@@ -486,11 +511,18 @@ double Host::stationMassKg(std::uint16_t payload, int station) const noexcept {
 void Host::carriageDrag(std::vector<DragPoint>& out) const {
     out.clear();
     auto lost = [&](const Station* st) { return std::find(lostStations_.begin(), lostStations_.end(), st->number) != lostStations_.end(); };
+    std::vector<const std::string*> racks; // (the multiple racks counted so far: one pylon each, whatever hangs on its places)
     for (const auto& c : carriage_) {
         if (!c.station->bay.empty() || lost(c.station)) continue;
         DragPoint p;
         for (int k = 0; k < 3; ++k) p.positionM[k] = c.station->positionM[k];
         p.areaM2 = c.mount == Mount::Pylon ? kPylonCdsM2 : c.mount == Mount::Rail && c.station->name.find("tip") == std::string::npos ? kRailCdsM2 : 0.0;
+        if (c.mount == Mount::Pylon && !c.station->rack.empty()) {
+            // a place on a multiple rack: its pylon's drag with the first of its places met, the others' only their stores'
+            const bool counted = std::any_of(racks.begin(), racks.end(), [&](const std::string* r) { return *r == c.station->rack; });
+            if (counted) p.areaM2 = 0.0;
+            else racks.push_back(&c.station->rack);
+        }
         double sideMoment = 0.0;
         for (const auto& s : stores_)
             if (s.payload == c.payload && s.station == c.station && !gone(s.status)) {

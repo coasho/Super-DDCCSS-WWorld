@@ -498,6 +498,7 @@
       <property value="13.43">fsim/envelope/ground_pitch_max_deg</property>
       <property value="20.27">fsim/envelope/ground_turn_radius_m</property>
       <property value="0.0402">fsim/envelope/ground_yaw_accel_rad_s2</property>
+      <property value="70307">fsim/envelope/max_takeoff_kg</property>
       <property value="1">fsim/propulsion/version</property>
       <property value="1">fsim/propulsion/provenance</property>
       <property value="0.0">fsim/propulsion/afterburner</property>

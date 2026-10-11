@@ -5,11 +5,11 @@ What `fsim testbench --headless stability.` last found, a row an aircraft and lo
 
 | aircraft | load | flown | kg | kg as spawned | checks passed | failed |
 |---|---|---|---|---|---|---|
-| a10c | full | 2026-10-11 | 24041 | 17231 | 54 of 54 | - |
-| b52h | full | 2026-10-11 | 221350 | 140390 | 53 of 54 | takeoff: steady after its launch (its height swings 86 m, from two minutes after it) |
+| a10c | full | 2026-10-11 | 17909 | 17231 | 54 of 54 | - |
+| b52h | full | 2026-10-11 | 221350 | 140390 | 53 of 54 | takeoff: steady after its launch (its height swings 88 m, from two minutes after it) |
 | c130j | full | 2026-10-11 | 67731 | 55394 | 54 of 54 | - |
 | c172 | full | 2026-10-11 | 1089 | 1089 | 54 of 54 | - |
-| c17a | full | 2026-10-11 | 276822 | 235996 | 54 of 54 | - |
+| c17a | full | 2026-10-11 | 253962 | 235996 | 54 of 54 | - |
 | cf2 | full | 2026-10-11 | 0.027 | 0.027 | 37 of 37 | - |
 | e3g | full | 2026-10-11 | 149897 | 149895 | 54 of 54 | - |
 | e7a | full | 2026-10-11 | 68699 | 60341 | 54 of 54 | - |
@@ -21,7 +21,7 @@ What `fsim testbench --headless stability.` last found, a row an aircraft and lo
 | f35a | full | 2026-10-11 | 22405 | 21758 | 54 of 54 | - |
 | fa18c | full | 2026-10-11 | 20306 | 15989 | 54 of 54 | - |
 | gripen | full | 2026-10-11 | 13092 | 9359 | 54 of 54 | - |
-| h6k | full | 2026-10-11 | 73599 | 59198 | 54 of 54 | - |
+| h6k | full | 2026-10-11 | 84399 | 59198 | 54 of 54 | - |
 | iris | full | 2026-10-11 | 1.5 | 1.5 | 37 of 37 | - |
 | j10a | full | 2026-10-11 | 19049 | 14859 | 54 of 54 | - |
 | j20a | full | 2026-10-11 | 31017 | 29998 | 54 of 54 | - |

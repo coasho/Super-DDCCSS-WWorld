@@ -1,0 +1,86 @@
+{
+  "id": "cj-10a",
+  "designation": "CJ-10A",
+  "class": "bomb",
+  "summary": "Land-attack cruise missile (the Hong Niao / DH-10 family's), as the H-6K carries it under its wings. A body on its station and, released, an inert one: its turbofan, its wings and its guidance are not modelled",
+  "maker": "CASIC",
+  "model": "jsbsim:cj10a",
+  "powerable": false,
+  "jettisonable": true,
+  "sources": {
+    "csis-hn": {
+      "title": "Hong Niao Series (HN-1/-2/-3)",
+      "publisher": "CSIS Missile Threat (last updated April 23, 2024)",
+      "url": "https://missilethreat.csis.org/missile/hong-niao/",
+      "date": "2026-10-11"
+    },
+    "wp-cj10": {
+      "title": "CJ-10 (missile)",
+      "publisher": "Wikipedia (revision 1371980611)",
+      "url": "https://en.wikipedia.org/w/index.php?title=CJ-10_(missile)&oldid=1371980611",
+      "date": "2026-10-11"
+    }
+  },
+  "parameters": {
+    "mass_kg": {
+      "value": 1800.0,
+      "unit": "kg",
+      "uncertainty": 400.0,
+      "basis": "derived",
+      "source": "csis-hn",
+      "note": "the family's heaviest (the page: 'the HN-3 at 0.75 m and 1,800 kg'; its table's HN-1, 'Launch Weight: 1,200 kg'); DH-10 and CJ-10 are its alternate names there, no figure given for the CJ-10A by name"
+    },
+    "length_m": {
+      "value": 6.4,
+      "unit": "m",
+      "uncertainty": 0.4,
+      "basis": "derived",
+      "source": "csis-hn",
+      "note": "the page's table: 'Length: 6.4 m (7.2 m inc. boost motor)' - air-launched, without the boost motor"
+    },
+    "diameter_m": {
+      "value": 0.75,
+      "unit": "m",
+      "uncertainty": 0.1,
+      "basis": "derived",
+      "source": "csis-hn",
+      "note": "the HN-3's (the table's HN-1: 0.5 m)"
+    },
+    "warhead_kg": {
+      "value": 500.0,
+      "unit": "kg",
+      "uncertainty": 50.0,
+      "basis": "published",
+      "source": "wp-cj10",
+      "note": "'500 kg (1,100 lb)'"
+    },
+    "drag_area_m2": {
+      "value": 0.05455,
+      "unit": "m^2",
+      "uncertainty": 0.01636,
+      "basis": "assumed",
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its design (hangar storedrag.py: Hoerner's body of revolution 0.02748, its base 0.01975, its fins' friction 0.00732 m^2): an estimate by one method for every store"
+    },
+    "munk_volume_m3": {
+      "value": 2.28894,
+      "unit": "m^3",
+      "uncertainty": 0.68668,
+      "basis": "assumed",
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 2.4792 m^3 from its design, times Lamb's k2 - k1 = 0.923 for its fineness 8.5 (hangar storedrag.py): an estimate by one method for every store"
+    },
+    "side_slope_m2": {
+      "value": 2.67514,
+      "unit": "m^2",
+      "uncertainty": 0.80254,
+      "basis": "assumed",
+      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+    },
+    "side_arm_m": {
+      "value": 2.9219,
+      "unit": "m",
+      "uncertainty": 0.64,
+      "basis": "assumed",
+      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    }
+  }
+}

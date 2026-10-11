@@ -8,7 +8,8 @@ launch); nothing below them is commanded. A rotorcraft flies its own set from th
 
 Full load is what the aircraft's own files let it carry (docs/hangar.md, Mass accounting): its fixed load, every tank
 full, and every station its fit's loadouts load - where two give a station a store, the heavier - held to its design's
-declared maximum take-off weight where it has one (fuel left out to meet it).
+declared maximum take-off weight where it has one: a loadout that would take it past is refused by the store management
+as it is loaded (at the fuel it spawns with) and left off, and fuel is left out to meet the weight.
 
 Each run's numbers and checks are kept: testbench/results/stability/<aircraft>_<load>.json, and SUMMARY.md beside them,
 written again from every result there.
@@ -186,9 +187,10 @@ class Flight:
             capacity = sum(t["capacity"] for t in tanks)
             share = 1.0
             fixed = sum(p["mass"] for p in mass.get("payload", []))
-            if mass.get("mtow") and mass["empty"] + fixed + capacity + stores > mass["mtow"]:
-                share = max(0.0, (mass["mtow"] - mass["empty"] - fixed - stores) / capacity)
-                info["notes"].append("fuel %.0f %% of capacity: held to its declared maximum take-off weight, %.0f kg" % (100.0 * share, mass["mtow"]))
+            most = mass.get("max_takeoff", mass.get("mtow"))  # (its design's maximum take-off weight, where it declares one)
+            if most and mass["empty"] + fixed + capacity + stores > most:
+                share = max(0.0, (most - mass["empty"] - fixed - stores) / capacity)
+                info["notes"].append("fuel %.0f %% of capacity: held to its declared maximum take-off weight, %.0f kg" % (100.0 * share, most))
             for i, t in enumerate(tanks):
                 v.set_property("propulsion/tank[%d]/contents-lbs" % i, share * t["capacity"] / KG_PER_LB)
             info["fuel_kg"] = fin(share * capacity, 0)
