@@ -107,7 +107,9 @@ engines running.
 
 `jsbsim:<name>` looks for the aircraft `<name>` in the directories listed in
 `FSIM_AIRCRAFT_PATH` (`;`-separated folders of aircraft folders, which may
-shadow a stock aircraft), then among JSBSim's stock aircraft, then among the
+shadow a stock aircraft), then among the stores hangar builds (`aircraft/stores`:
+a store card's model, so `jsbsim:mk82` is the Mk 82 built from its design), then
+among JSBSim's stock aircraft, then among the
 aircraft designed with hangar: `aircraft/` in the source tree for a
 development build, `share/flightsim/aircraft` in a package. The fighters and
 support aircraft of [hangar.md](../hangar.md) are

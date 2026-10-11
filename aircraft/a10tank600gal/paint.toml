@@ -1,0 +1,7 @@
+# 600 US gal external tank (A-10)'s paint, by one rule for every tank (tools/hangar/hangar/storedesigns.py): one colour overall
+[paint]
+scheme = "single"
+colours = ["#9ea3a6"]
+panel_lines = 0.0
+wear = 0.03
+gloss = 0.3

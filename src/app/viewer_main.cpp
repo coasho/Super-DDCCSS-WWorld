@@ -73,6 +73,16 @@
 using namespace fsim;
 
 namespace {
+/// A vehicle's state as its picture is hung: its position its model's origin (ipc::originEcef), not its CG's - the
+/// point its model, its stations and its parts are measured from, which the simulation keeps still in its airframe
+/// while its CG moves with its fuel and its stores. Its other values (its latitude, its height: what the panels show)
+/// are its state's own.
+sim::VehicleState drawnState(const sim::VehicleState& state, const double* derived) {
+    sim::VehicleState drawn = state;
+    ipc::originEcef(state, derived, drawn.positionEcef);
+    return drawn;
+}
+
 
 struct ViewerOptions {
     // Source
@@ -1088,7 +1098,7 @@ int main(int argc, char** argv) {
                 const auto& frame = frames[target];
                 if (mirrored.states.size() != slots) mirrored.states.resize(slots);
                 for (const auto& [slot, sample] : frame.samples)
-                    if (slot < slots) mirrored.states[slot] = sample.state;
+                    if (slot < slots) mirrored.states[slot] = drawnState(sample.state, sample.derived);
                 mirrored.simTime = frame.simTime;
                 mirrored.wallNs = 0; // interpolate in simulation time, paced by the time factor
                 ++mirrored.sequence;
@@ -1099,7 +1109,7 @@ int main(int argc, char** argv) {
                     static sim::SnapshotBatch ahead;
                     ahead = mirrored;
                     for (const auto& [slot, sample] : frames[target + 1].samples)
-                        if (slot < slots) ahead.states[slot] = sample.state;
+                        if (slot < slots) ahead.states[slot] = drawnState(sample.state, sample.derived);
                     ahead.simTime = frames[target + 1].simTime;
                     interpolator.push(ahead);
                 }
@@ -1205,6 +1215,9 @@ int main(int argc, char** argv) {
                 }
                 if (mirror.pollSnapshot(mirrored)) {
                     if (mirrored.states.size() != slots) mirrored.states.resize(slots);
+                    // each picture hung from its model's origin, where the simulation has its airframe (drawnState)
+                    for (std::size_t i = 0; i < mirrored.states.size() && i < mirror.status().size(); ++i)
+                        mirrored.states[i] = drawnState(mirrored.states[i], mirror.status()[i].derived);
                     batch = &mirrored;
                     interpBatch = mirrored;
                     interpBatch.simTime = static_cast<double>(mirrored.wallNs) * 1e-9; // interpolate in wall time: the trainer's pace is arbitrary

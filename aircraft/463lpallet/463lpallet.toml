@@ -1,0 +1,45 @@
+# 463L pallet, loaded, a store built by hangar from its card (docs/hangar.md, Stores) - written by `python -m hangar storedesigns 463lpallet`
+# (tools/hangar/hangar/storedesigns.py), one rule for every cargo: edit stores.py's shape and write it again.
+#
+# Frame: metres, x aft from its nose, y right, z up from its axis. The card (assets/stores/463l-pallet.json) holds its
+# figures: 2.74 m long, 2.24 m wide, 1.5 m high, 2268 kg as loaded. A box of that size, its mass throughout (assumed).
+
+[aircraft]
+name = "463lpallet"
+description = "463L pallet, loaded (hangar build)"
+category = "store"
+card = "463l-pallet"             # its store card: the published figures this design holds
+
+[analysis]
+speed = 250.0                # m/s: the Reynolds numbers of its carriage - assumed
+
+[reference]                  # a store's: its frontal area and its diameter (its width), as its flight model's
+area = 3.36
+span = 2.24
+chord = 2.24
+aero_point = [1.37, 0.0, 0.0]
+
+[store]
+shape = "box"            # a bluff body: its faces' drag (its card's drag_cd), not a body of revolution's
+width = 2.24
+height = 1.5
+
+# Its box: a rectangle the whole way (a superellipse of a high power: its edges sharp)
+[[body]]
+name = "load"
+kind = "fuselage"
+stations = [
+  { x = 0, w = 0, top = 0, bottom = 0, n = 16 },
+  { x = 0.002, w = 2.24, top = 0.75, bottom = -0.75, n = 16 },
+  { x = 2.738, w = 2.24, top = 0.75, bottom = -0.75, n = 16 },
+  { x = 2.74, w = 0, top = 0, bottom = 0, n = 16 },
+]
+
+[mass]
+empty = 2268                 # kg, the card
+empty_cg = [1.37, 0.0, 0.0]  # assumed: half way along
+gyration = [0.694843, 0.658204, 0.820602]  # a uniform block's (assumed)
+
+[dimensions]                  # the card
+length = 2.74
+span = 2.24

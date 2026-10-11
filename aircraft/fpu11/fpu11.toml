@@ -1,0 +1,48 @@
+# FPU-11/A 480 US gal tank, a store built by hangar from its card (docs/hangar.md, Stores) - written by `python -m hangar storedesigns fpu11`
+# (tools/hangar/hangar/storedesigns.py), one rule for every tank: edit stores.py's shape and write it again.
+#
+# Frame: metres, x aft from its nose, y right, z up from its axis. The card (assets/stores/fpu-11.json) holds its
+# figures: 5.461 m long, 0.8103 m across, 140.6136 kg empty (its fuel is what its station holds). Its shape is its class's, the same for every tank (assumed from
+# photographs: stores.py) - it shapes the picture, the build-up's drag and where its fins act.
+
+[aircraft]
+name = "fpu11"
+description = "FPU-11/A 480 US gal tank (hangar build)"
+category = "store"
+card = "fpu-11"             # its store card: the published figures this design holds
+
+[analysis]
+speed = 250.0                # m/s: the Reynolds numbers of its carriage - assumed
+
+[reference]                  # a store's: its frontal area and its diameter (its width), as its flight model's
+area = 0.515682
+span = 0.8103
+chord = 0.8103
+aero_point = [2.7305, 0.0, 0.0]
+
+[model]
+triangles = 6000             # its model's at most: a store's, drawn on every station that carries one
+
+# Its body: a body of revolution, its radius along it its class's profile
+[[body]]
+name = "body"
+kind = "fuselage"
+stations = [
+  { x = 0, w = 0.064824, top = 0.032412, bottom = -0.032412, n = 2 },
+  { x = 0.21844, w = 0.364635, top = 0.182318, bottom = -0.182318, n = 2 },
+  { x = 0.5461, w = 0.607725, top = 0.303863, bottom = -0.303863, n = 2 },
+  { x = 0.92837, w = 0.753579, top = 0.37679, bottom = -0.37679, n = 2 },
+  { x = 1.36525, w = 0.8103, top = 0.40515, bottom = -0.40515, n = 2 },
+  { x = 3.54965, w = 0.8103, top = 0.40515, bottom = -0.40515, n = 2 },
+  { x = 4.3688, w = 0.688755, top = 0.344378, bottom = -0.344378, n = 2 },
+  { x = 5.02412, w = 0.445665, top = 0.222833, bottom = -0.222833, n = 2 },
+  { x = 5.461, w = 0.16206, top = 0.08103, bottom = -0.08103, n = 2 },
+]
+
+[mass]
+empty = 140.6136                 # kg, the card: its structure, dry
+empty_cg = [2.7305, 0.0, 0.0]  # assumed: half way along
+gyration = [1, 0.586806, 1.021973]  # a thin shell's, as its flight model's (assumed)
+
+[dimensions]                  # the card
+length = 5.461

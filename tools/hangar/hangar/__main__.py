@@ -5,7 +5,8 @@
     python -m hangar new <name> [--like c172]  start a design from another
     python -m hangar list                      the designs in aircraft/
     python -m hangar register                  the viewer's stand-ins for stock aircraft (aircraft/models.txt)
-    python -m hangar store <name>              a store's model for the viewer (assets/models/<name>.glb; hangar/stores.py)
+    python -m hangar storedesigns [<name> ..]  the tanks', pods', bombs' and cargo's designs, from their cards (hangar/storedesigns.py)
+    python -m hangar stores [<stage> ...]      every store - missiles too - through its stages (hangar/storestages.py)
     python -m hangar storemodels               the tanks' and pods' flight models once released (hangar/storemodels.py)
     python -m hangar storedrag                 each store card's drag in carriage, isolated (hangar/storedrag.py)
 
@@ -27,12 +28,24 @@ from . import pipeline
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and argv[0] == "list":
+        import json
+        import tomllib
+        from . import storestages
         root = os.path.join(pipeline.repo_root(), "aircraft")
         for name in sorted(os.listdir(root)):
             toml = os.path.join(root, name, name + ".toml")
             if os.path.isfile(toml):
                 built = os.path.isfile(os.path.join(root, name, name + ".xml"))
-                print("%-16s %s" % (name, "built" if built else "not built"))
+                what = ""
+                if storestages.is_store(toml):
+                    # a store's flight model is apart from its design (aircraft/stores/<name>), or JSBSim's own
+                    with open(toml, "rb") as f:
+                        card = tomllib.load(f)["aircraft"].get("card", "")
+                    with open(os.path.join(pipeline.repo_root(), "assets", "stores", card + ".json"), encoding="utf-8") as f:
+                        card = json.load(f)
+                    built = os.path.isfile(storestages.flight_model(card)[0])
+                    what = "  store (%s)" % card.get("class", "")
+                print("%-16s %s%s" % (name, "built" if built else "not built", what))
         return 0
     if argv and argv[0] == "register":
         from . import register
@@ -46,12 +59,12 @@ def main(argv=None):
     if argv and argv[0] == "showcase":
         from . import showcase
         return showcase.main(argv[1:])
-    if argv and argv[0] == "store":
-        from . import stores
-        names = argv[1:] or sorted(stores.STORES) + sorted(stores.tank_cards()) + sorted(stores.cargo_cards())
-        for name in names:
-            print(stores.write_store(name))
-        return 0
+    if argv and argv[0] == "storedesigns":
+        from . import storedesigns
+        return storedesigns.main(argv[1:])
+    if argv and argv[0] == "stores":
+        from . import storestages
+        return storestages.main(argv[1:])
     if argv and argv[0] == "storedrag":
         from . import storedrag
         storedrag.main()
@@ -81,7 +94,7 @@ def main(argv=None):
     p.add_argument("design")
     p.add_argument("stages", nargs="*", default=["all"])
     p.add_argument("--reference", help="a JSBSim aircraft to fly the same tests on (e.g. jsbsim:c172x)")
-    p.add_argument("--force", action="store_true", help="rebuild the aerodynamic tables even if cached")
+    p.add_argument("--force", action="store_true", help="rebuild the aerodynamic tables even if cached; a store's model and flight model")
     p.add_argument("--quick", action="store_true", help="coarse tables and short flight tests: a first look")
     a = p.parse_args(argv)
     path = pipeline.find_design(a.design)
@@ -95,6 +108,10 @@ def main(argv=None):
         fails = sum(1 for r in done.values() if isinstance(r, dict) for c in r.get("checks", []) if c["status"] == "fail")
         return 1 if fails else 0
     stages = list(pipeline.DEFAULT) if a.stages == ["all"] else a.stages
+    if a.stages == ["all"]:
+        from . import storestages
+        if storestages.is_store(path):
+            stages = list(storestages.DEFAULT)  # (a store's: no autopilot to design, no performance to table)
     for s in stages:
         if s not in pipeline.STAGES:
             raise SystemExit("unknown stage %r (stages: %s)" % (s, " ".join(pipeline.STAGES)))

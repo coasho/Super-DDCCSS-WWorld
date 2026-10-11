@@ -1,0 +1,48 @@
+# RPL-522, a store built by hangar from its card (docs/hangar.md, Stores) - written by `python -m hangar storedesigns rpl522`
+# (tools/hangar/hangar/storedesigns.py), one rule for every tank: edit stores.py's shape and write it again.
+#
+# Frame: metres, x aft from its nose, y right, z up from its axis. The card (assets/stores/rpl-522.json) holds its
+# figures: 5.7 m long, 0.63 m across, 97 kg empty (its fuel is what its station holds). Its shape is its class's, the same for every tank (assumed from
+# photographs: stores.py) - it shapes the picture, the build-up's drag and where its fins act.
+
+[aircraft]
+name = "rpl522"
+description = "RPL-522 (hangar build)"
+category = "store"
+card = "rpl-522"             # its store card: the published figures this design holds
+
+[analysis]
+speed = 250.0                # m/s: the Reynolds numbers of its carriage - assumed
+
+[reference]                  # a store's: its frontal area and its diameter (its width), as its flight model's
+area = 0.311725
+span = 0.63
+chord = 0.63
+aero_point = [2.85, 0.0, 0.0]
+
+[model]
+triangles = 6000             # its model's at most: a store's, drawn on every station that carries one
+
+# Its body: a body of revolution, its radius along it its class's profile
+[[body]]
+name = "body"
+kind = "fuselage"
+stations = [
+  { x = 0, w = 0.0504, top = 0.0252, bottom = -0.0252, n = 2 },
+  { x = 0.228, w = 0.2835, top = 0.14175, bottom = -0.14175, n = 2 },
+  { x = 0.57, w = 0.4725, top = 0.23625, bottom = -0.23625, n = 2 },
+  { x = 0.969, w = 0.5859, top = 0.29295, bottom = -0.29295, n = 2 },
+  { x = 1.425, w = 0.63, top = 0.315, bottom = -0.315, n = 2 },
+  { x = 3.705, w = 0.63, top = 0.315, bottom = -0.315, n = 2 },
+  { x = 4.56, w = 0.5355, top = 0.26775, bottom = -0.26775, n = 2 },
+  { x = 5.244, w = 0.3465, top = 0.17325, bottom = -0.17325, n = 2 },
+  { x = 5.7, w = 0.126, top = 0.063, bottom = -0.063, n = 2 },
+]
+
+[mass]
+empty = 97                 # kg, the card: its structure, dry
+empty_cg = [2.85, 0.0, 0.0]  # assumed: half way along
+gyration = [1, 0.582616, 1.049261]  # a thin shell's, as its flight model's (assumed)
+
+[dimensions]                  # the card
+length = 5.7

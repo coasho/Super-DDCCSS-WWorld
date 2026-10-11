@@ -276,6 +276,14 @@ bool JsbsimModel::load(const AircraftSpec& aircraft, const InitialConditions& ic
                                                fdm_->GetPropulsion()->GetTanksMoment() -
                                                mb->in.GasMoment;
         for (unsigned k = 0; k < 3; ++k) baseCgIn_[k] = mb->GetEmptyWeight() > 0.0 ? moment(k + 1) / mb->GetEmptyWeight() : mb->GetXYZcg(static_cast<int>(k + 1));
+        // unless its file says where its model's origin is (fsim/model/origin-*-in, its structural frame): a missile's
+        // is its CG as it is launched, its motor full - what its picture is drawn about and what a station holds -
+        // while its empty CG is its structure's, burnt out (hangar's storebodies.py)
+        auto pm = fdm_->GetPropertyManager();
+        static const char* const kOrigin[3] = {"fsim/model/origin-x-in", "fsim/model/origin-y-in", "fsim/model/origin-z-in"};
+        if (pm->GetNode(kOrigin[0], false))
+            for (unsigned k = 0; k < 3; ++k)
+                if (auto node = pm->GetNode(kOrigin[k], false)) baseCgIn_[k] = node->getDoubleValue();
     }
     checkSpawnInTerrain(ic);
     LOG_DEBUG("sim") << "loaded '" << aircraft.name << "', " << fdm_->GetPropulsion()->GetNumEngines()

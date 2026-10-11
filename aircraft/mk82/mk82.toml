@@ -1,0 +1,70 @@
+# Mk 82, a store built by hangar from its card (docs/hangar.md, Stores) - written by `python -m hangar storedesigns mk82`
+# (tools/hangar/hangar/storedesigns.py), one rule for every bomb: edit stores.py's shape and write it again.
+#
+# Frame: metres, x aft from its nose, y right, z up from its axis. The card (assets/stores/mk82.json) holds its
+# figures: 2.21 m long, 0.273 m across, 226.8 kg. Its shape is its class's, the same for every bomb (assumed from
+# photographs: stores.py) - it shapes the picture, the build-up's drag and where its fins act.
+
+[aircraft]
+name = "mk82"
+description = "Mk 82 (hangar build)"
+category = "store"
+card = "mk82"             # its store card: the published figures this design holds
+
+[analysis]
+speed = 250.0                # m/s: the Reynolds numbers of its carriage - assumed
+
+[reference]                  # a store's: its frontal area and its diameter (its width), as its flight model's
+area = 0.058535
+span = 0.273
+chord = 0.273
+aero_point = [0.7874, 0.0, 0.0]
+
+[model]
+triangles = 10000             # its model's at most: a store's, drawn on every station that carries one
+
+# Its body: a body of revolution, its radius along it its class's profile
+[[body]]
+name = "body"
+kind = "fuselage"
+stations = [
+  { x = 0, w = 0, top = 0, bottom = 0, n = 2 },
+  { x = 0.1, w = 0.06825, top = 0.034125, bottom = -0.034125, n = 2 },
+  { x = 0.25, w = 0.15015, top = 0.075075, bottom = -0.075075, n = 2 },
+  { x = 0.45, w = 0.22386, top = 0.11193, bottom = -0.11193, n = 2 },
+  { x = 0.65, w = 0.26481, top = 0.132405, bottom = -0.132405, n = 2 },
+  { x = 0.8, w = 0.273, top = 0.1365, bottom = -0.1365, n = 2 },
+  { x = 1.7, w = 0.273, top = 0.1365, bottom = -0.1365, n = 2 },
+  { x = 1.85, w = 0.25389, top = 0.126945, bottom = -0.126945, n = 2 },
+  { x = 2, w = 0.19656, top = 0.09828, bottom = -0.09828, n = 2 },
+  { x = 2.21, w = 0.15015, top = 0.075075, bottom = -0.075075, n = 2 },
+]
+
+# Its fins: 4 round its tail (assumed from photographs)
+[[surface]]
+name = "fin 1"
+kind = "fin"
+mirror = true
+airfoil = "plate"
+sections = [
+  { le = [1.78, 0.068767, 0.068767], chord = 0.43 },
+  { le = [1.827316, 0.162094, 0.162094], chord = 0.3 },
+]
+
+[[surface]]
+name = "fin 2"
+kind = "fin"
+mirror = true
+airfoil = "plate"
+sections = [
+  { le = [1.78, 0.068767, -0.068767], chord = 0.43 },
+  { le = [1.827316, 0.162094, -0.162094], chord = 0.3 },
+]
+
+[mass]
+empty = 226.8                 # kg, the card
+empty_cg = [0.7874, 0.0, 0.0]  # JSBSim's mk82.xml, the flight model it is drawn for
+gyration = [0.595458, 0.580645, 1.01273]  # a solid cylinder's (assumed)
+
+[dimensions]                  # the card
+length = 2.21

@@ -1,0 +1,48 @@
+# RPL-541/542, a store built by hangar from its card (docs/hangar.md, Stores) - written by `python -m hangar storedesigns rpl541`
+# (tools/hangar/hangar/storedesigns.py), one rule for every tank: edit stores.py's shape and write it again.
+#
+# Frame: metres, x aft from its nose, y right, z up from its axis. The card (assets/stores/rpl-541.json) holds its
+# figures: 6.3 m long, 0.8 m across, 260 kg empty (its fuel is what its station holds). Its shape is its class's, the same for every tank (assumed from
+# photographs: stores.py) - it shapes the picture, the build-up's drag and where its fins act.
+
+[aircraft]
+name = "rpl541"
+description = "RPL-541/542 (hangar build)"
+category = "store"
+card = "rpl-541"             # its store card: the published figures this design holds
+
+[analysis]
+speed = 250.0                # m/s: the Reynolds numbers of its carriage - assumed
+
+[reference]                  # a store's: its frontal area and its diameter (its width), as its flight model's
+area = 0.502655
+span = 0.8
+chord = 0.8
+aero_point = [3.15, 0.0, 0.0]
+
+[model]
+triangles = 6000             # its model's at most: a store's, drawn on every station that carries one
+
+# Its body: a body of revolution, its radius along it its class's profile
+[[body]]
+name = "body"
+kind = "fuselage"
+stations = [
+  { x = 0, w = 0.064, top = 0.032, bottom = -0.032, n = 2 },
+  { x = 0.252, w = 0.36, top = 0.18, bottom = -0.18, n = 2 },
+  { x = 0.63, w = 0.6, top = 0.3, bottom = -0.3, n = 2 },
+  { x = 1.071, w = 0.744, top = 0.372, bottom = -0.372, n = 2 },
+  { x = 1.575, w = 0.8, top = 0.4, bottom = -0.4, n = 2 },
+  { x = 4.095, w = 0.8, top = 0.4, bottom = -0.4, n = 2 },
+  { x = 5.04, w = 0.68, top = 0.34, bottom = -0.34, n = 2 },
+  { x = 5.796, w = 0.44, top = 0.22, bottom = -0.22, n = 2 },
+  { x = 6.3, w = 0.16, top = 0.08, bottom = -0.08, n = 2 },
+]
+
+[mass]
+empty = 260                 # kg, the card: its structure, dry
+empty_cg = [3.15, 0.0, 0.0]  # assumed: half way along
+gyration = [1, 0.584291, 1.036911]  # a thin shell's, as its flight model's (assumed)
+
+[dimensions]                  # the card
+length = 6.3

@@ -37,7 +37,7 @@ class Data(unittest.TestCase):
                 a = Aircraft.load(toml)
             except (ValueError, AttributeError):  # (a rotorcraft's design: no lifting surfaces)
                 continue
-            if a.category != "missile" and any(s.kind == "wing" for s in a.surfaces):
+            if a.category not in ("missile", "store") and any(s.kind == "wing" for s in a.surfaces):
                 self.assertIn(name, names, "%s: no %s.damage.json (fsim hangar %s --stage model)" % (name, name, name))
 
     def test_shares_whole_and_strengths_positive(self):

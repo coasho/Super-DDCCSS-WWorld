@@ -1,0 +1,10 @@
+# Mk 82's paint, by one rule for every bomb (tools/hangar/hangar/storedesigns.py): one colour overall; a yellow band behind its nose (a live bomb: MIL-STD-1168), its place assumed
+[paint]
+scheme = "single"
+colours = ["#4c543d"]
+bands = [
+  { x = [0.55, 0.62], colour = "#d9bf26" },
+]
+panel_lines = 0.0
+wear = 0.03
+gloss = 0.3

@@ -178,6 +178,12 @@ class Design:
         self.targets = self.aircraft.spec.get("targets", {})
 
     @property
+    def store(self):
+        """A store - a missile, a bomb, a tank, a pod, cargo: what a station carries. Built by the same stages as an
+        aircraft, each a store's own where an aircraft's would say nothing of it (hangar/storestages.py)."""
+        return self.aircraft.category in ("missile", "store")
+
+    @property
     def quick(self):
         """[analysis] quick = true (or hangar --quick): coarse tables and
         shorter flight tests - a first look in a fraction of the time."""
@@ -236,9 +242,11 @@ class Design:
             if key in t:
                 checks.append(check(label, value, 0.97 * t[key], 1.03 * t[key], "m2" if "area" in key else "m",
                                     note="target %.3g" % t[key]))
-        if a.category == "missile":
-            # a missile: its fins in a cross, no wing or tail in an aircraft's sense - the aircraft's ratios say nothing
-            checks.append(info("span across the fins", missile_span(a), "m", note="tip to tip across opposite fins"))
+        if self.store:
+            # a store: its fins in a cross if it has any, no wing or tail in an aircraft's sense - the aircraft's ratios
+            # say nothing
+            if a.surfaces:
+                checks.append(info("span across the fins", missile_span(a), "m", note="tip to tip across opposite fins"))
             return self.save("geometry", {"summary": s, "checks": checks, "images": ["threeview.png", "views.png"]})
         fighter = a.spec.get("aircraft", {}).get("category") == "fighter"
         checks.append(check("wing aspect ratio", a.b**2 / a.S, 1.5 if fighter else 3.0, 30.0, level="warn",
@@ -689,7 +697,7 @@ class Design:
         from .shape import meshkit
         if origin is None:
             origin = MassModel(self.aircraft).empty()["cg"]
-        blob = self.spec_hash("aircraft", "surface", "body", "intake", "fairing", "strut", "gear", "engine", "motor", "mass", "drag_device",
+        blob = self.spec_hash("aircraft", "surface", "body", "intake", "fairing", "strut", "gear", "engine", "motor", "mass", "drag_device", "model",
                               code=("geometry", "shape"))
         blob += "origin %.6f %.6f %.6f" % tuple(origin)
         # what model3d borrows from elsewhere: the channels' sign conventions,
@@ -741,9 +749,9 @@ class Design:
 
     def _components(self, glb, origin):
         # the vulnerable components' and the dispensers' lines in its manifest, made or not (vulnerability.py,
-        # dispensers.py: not the model's shape - outside its key, so an edit to them re-meshes nothing); a missile is
+        # dispensers.py: not the model's shape - outside its key, so an edit to them re-meshes nothing); a store is
         # not a target that has them
-        if self.aircraft.category != "missile":
+        if not self.store:
             from . import damage, vulnerability
             vulnerability.refresh_manifest(self.aircraft, glb + ".manifest", origin)
             # and its damage data beside it (damage.py: the world's damage chain's - outside the key the same way)
@@ -841,7 +849,7 @@ class Design:
         ground = min((float(p[2]) + g.static_deflection for g in self.aircraft.gear for _, p in g.positions()),
                      default=float(lo[2]))
         got = {"length": hi[0] - lo[0], "span": hi[1] - lo[1], "height": hi[2] - ground}
-        if self.aircraft.category == "missile":
+        if self.store and self.aircraft.surfaces:
             # its span as published: tip to tip across opposite fins, which an X puts on the diagonals
             got["span"] = missile_span(self.aircraft)
         pitch = float(af.get("parked_pitch_deg", 0.0))
@@ -1891,7 +1899,10 @@ def run(design, stages, log=print, reference=None, force=False, quick=False):
     for st in stages:
         t0 = time.time()
         log("%s: %s" % (d.name, st))
-        if st == "aero":
+        if d.store:
+            from . import storestages
+            done[st] = storestages.run(d, st, force=force)
+        elif st == "aero":
             done[st] = d.aero(force=force)
         elif st == "fly":
             done[st] = d.fly(reference)

@@ -1,0 +1,7 @@
+# AN/ALQ-184(V)'s paint, by one rule for every pod (tools/hangar/hangar/storedesigns.py): one colour overall
+[paint]
+scheme = "single"
+colours = ["#6b7075"]
+panel_lines = 0.0
+wear = 0.03
+gloss = 0.3

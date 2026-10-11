@@ -113,16 +113,9 @@ def _side(sets, profile, cg, r_base):
 
 
 def _design(card_id):
-    """The missile design whose card this is (its toml), or None."""
-    root = os.path.join(pipeline.repo_root(), "aircraft")
-    for name in sorted(os.listdir(root)):
-        path = os.path.join(root, name, name + ".toml")
-        if os.path.isfile(path):
-            with open(path, "rb") as f:
-                d = tomllib.load(f)
-            if d.get("aircraft", {}).get("card") == card_id:
-                return d
-    return None
+    """The design whose card this is (its toml), or None."""
+    from . import storeaero
+    return storeaero.design_of(card_id)
 
 
 def _from_design(d):
@@ -149,7 +142,9 @@ def _from_design(d):
         radius = math.hypot(a["le"][1], a["le"][2])
         sets.append((span, a["chord"], b["chord"], a["le"][0] - st[0]["x"], b["le"][0] - a["le"][0], radius))
     cg = d.get("mass", {}).get("empty_cg", [0.5 * L])[0] - st[0]["x"]
-    return L, D, profile, panels, sets, cg, profile[-1][1]
+    # its base: where its body ends - or its wake's, where its design says its rounded tail's flow leaves it ([store] wake)
+    wake = d.get("store", {}).get("wake")
+    return L, D, profile, panels, sets, cg, 0.5 * wake if wake else profile[-1][1]
 
 
 def _from_shape(s):
@@ -175,6 +170,8 @@ def _radius_at(profile, x):
 def build_up(card):
     """(CD S m^2, its parts) of the card's store, or None without its geometry."""
     d = _design(card["id"])
+    if d and d.get("store", {}).get("shape") == "box":
+        return None  # (a cargo store: a bluff box, its faces' drag its card's drag_cd - no body of revolution's build-up)
     if d:
         geo, src = _from_design(d), "its design"
     else:

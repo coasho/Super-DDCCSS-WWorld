@@ -112,9 +112,10 @@ There are no ground entities (ADR-30, D7).
 `launchWeapon` is the platform's release, as `failPayload` is the platform's contingency. A commanded release (A-GRA's
 Strike and Store Management) comes with MS-7. The store starts at its station, given as an offset from the launcher's
 CG in the launcher's body axes. It takes the launcher's attitude and its velocity over the earth, plus the ejection's
-push. Until MS-7 brings real stores, JSBSim's own `mk82` is the store to release. Its flight model describes itself as
-built from public data and guesses. Its model in the viewer is written by `python -m hangar store mk82`
-(`tools/hangar/hangar/stores.py`) from the published length and diameter; the fins are estimated.
+push. The Mk 82 (`jsbsim:mk82`) is the store to release: its flight model and its model in the viewer are built from its
+design by hangar (`aircraft/mk82`, `python -m hangar mk82`: [hangar.md](../hangar.md#stores)) - the published length,
+diameter and mass, the fins estimated, its aerodynamics a component build-up. (Until 2026-10-10 the platform flew
+JSBSim's own `mk82` for it; a store's model now comes before a stock aircraft of its name.)
 
 ```python
 jet = w.create_vehicle("viper", "jsbsim:f16c", latitude_deg=37.55, longitude_deg=-122.85, altitude_msl_m=1200.0, airspeed_ms=170.0)
@@ -576,11 +577,12 @@ development contract); the J-20A's four are photographed but their capacity is a
 Su-27S carries none. A tank is loaded full. Its fuel is part of its mass (`StoreInfo::massKg`; `StoreInfo::fuelKg` what is
 left). As the engines burn, the aircraft draws it into its own tanks, from every tank alike, at up to 10 kg/s (an
 estimate): its own stay topped up, and it is lighter by the fuel burnt alone. A tank jettisoned flies on as a JSBSim
-vehicle of its own (`aircraft/stores/<card id without hyphens>/`, written by `python -m hangar storemodels`: a slender
+vehicle of its own (`aircraft/stores/<card id without hyphens>/`, written by its design's build stage - `python -m hangar <name> build`,
+[hangar.md](../hangar.md#stores): a slender
 body's aerodynamics - estimates), with the fuel that was left in it. Unfinned, it tumbles: its body's unstable
 moment swings it broadside (143 deg from the air within 6 s of leaving an F-16; a finned Mk 82 stays within 6 deg), and
 broadside its drag is tens of kN (61 m below and 77 m behind the aircraft 3 s after). Its drawn model is
-`assets/models/<name>.glb` (`python -m hangar store`). One rule sets every card:
+its design's (`aircraft/<name>/<name>.glb`, its model stage). One rule sets every card:
 - the capacity is the published one, and the fuel 0.80 kg/L of it;
 - the empty mass is published, else derived from published figures, else 0.10 kg per litre (the mean of the three
   published dry masses per litre); a forum's or a game's figure is noted, never used;

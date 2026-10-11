@@ -40,8 +40,9 @@ public:
     /// first aircraftDirs() entry with <name>/<name>.xml (FSIM_AIRCRAFT_PATH
     /// comes before the JSBSim root, so it can override one). Empty: use the
     /// root's own aircraft/ (or nothing has it, and loading reports that).
-    /// After the aircraft, each entry's stores/ (a released tank's or pod's
-    /// own flight model, hangar's storemodels.py).
+    /// Each entry's stores/ comes before the JSBSim root too: a store's own
+    /// flight model, written by its hangar design's build stage (the Mk 82 a
+    /// store card names is that one, not JSBSim's stock mk82).
     std::filesystem::path findAircraft(const std::string& name, const std::filesystem::path& jsbsimRoot) const;
 
     const std::vector<std::filesystem::path>& searchPaths() const noexcept { return paths_; }

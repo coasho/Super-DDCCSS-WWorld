@@ -1,13 +1,13 @@
-"""Stores' models for the viewer (ADR-30: weapons in flight are entities the viewer draws).
+"""The stores' shapes, one for each class (docs/hangar.md, Stores): what no card gives.
 
-    python -m hangar store <name>     writes assets/models/<name>.glb (the viewer's model for jsbsim:<name>)
-    python -m hangar store            every one: the STORES below and each tank's and pod's card (assets/stores)
+A store's published figures are its card's (assets/stores/<id>.json); its shape is its class's, entered here - the Mk 82's
+profile and fins, a tank's ogive, cylinder and cone, a pod's two half-spheres - in the design frame (x aft from the nose,
+y right, z up). storedesigns.py writes each store's design from them (aircraft/<name>/<name>.toml), and the pipeline
+builds that as it builds an aircraft: its model is model3d's, its build-up reads its design. What no source gives is
+marked as estimated.
 
-A store is a body of revolution - its radius along its length - with a ring of
-fins, built in the design frame (x aft from the nose, y right, z up) and
-written the way model3d writes an aircraft: origin at the CG, forward -y and up
-+z after the viewer's import. Each store's numbers cite their source; what no
-source gives is marked as estimated, and only shapes the picture.
+A cargo store's picture alone is drawn here (write_cargo: its pallet, its load and its straps - a box the mesher has
+nothing to add to), by its model stage.
 """
 import math
 import os
@@ -34,8 +34,8 @@ STORES = {
 
 
 # An external fuel tank's shape from its card (its length and diameter): an ogive nose over its first quarter, the
-# cylinder to 0.65 of its length, a cone to a small tail - the same for every tank (assumed from photographs: the
-# shape only shapes the picture; its flight model is storemodels.py's), its CG at its middle; no fins (its card's).
+# cylinder to 0.65 of its length, a cone to a small tail - the same for every tank (assumed from photographs), its CG
+# at its middle; fins when its card says so.
 TANK_PROFILE = [(0.00, 0.08), (0.04, 0.45), (0.10, 0.75), (0.17, 0.93), (0.25, 1.00), (0.65, 1.00), (0.80, 0.85),
                 (0.92, 0.55), (1.00, 0.20)]
 TANK_FINS = {"count": 3, "roll_deg": 90.0, "root_le": 0.80, "root_chord": 0.16, "tip_chord": 0.08, "span": 0.35,
@@ -85,26 +85,6 @@ def tank_spec(card):
         f["span"] *= D
         s["fins"] = f
     return s
-
-
-def _fin(spec, radius, angle):
-    """One fin's plate: its root on the body at `radius`, out along the direction at `angle` (rad, from +y towards +z)."""
-    f = spec
-    out = np.array([0.0, math.cos(angle), math.sin(angle)])
-    side = np.cross([1.0, 0.0, 0.0], out)
-    le = f["root_le"]
-    sweep = math.tan(math.radians(f["sweep_deg"])) * f["span"]
-    root = [(le, radius), (le + f["root_chord"], radius)]
-    tip = [(le + sweep + f["tip_chord"], radius + f["span"]), (le + sweep, radius + f["span"])]
-    outline = root + tip
-    v = []
-    for s in (-0.5, 0.5):
-        for x, r in outline:
-            v.append(np.array([x, 0.0, 0.0]) + r * out + s * f["thickness"] * side)
-    v = np.array(v)
-    t = [(0, 1, 2), (0, 2, 3), (4, 6, 5), (4, 7, 6),  # the two faces
-         (0, 4, 5), (0, 5, 1), (1, 5, 6), (1, 6, 2), (2, 6, 7), (2, 7, 3), (3, 7, 4), (3, 4, 0)]
-    return v, np.array(t)
 
 
 def cargo_cards():
@@ -159,45 +139,6 @@ def write_cargo(name, card, path):
         add(_box(x - band / 2, x + band / 2, -0.5 * W + inset - proud, 0.5 * W - inset + proud, z0 + slab, z1), strap)
         y = (f - 0.5) * W
         add(_box(inset - proud, L - inset + proud, y - band / 2, y + band / 2, z0 + slab, z1), strap)
-    mesh = B.mesh(name, parts)
-    node = B.node(name + "-body", mesh=mesh)
-    model3d.finish(B, [node], name, path)
-    return path
-
-
-def write_store(name, path=None):
-    path = path or os.path.join(pipeline.repo_root(), "assets", "models", name + ".glb")
-    if name not in STORES and name in cargo_cards():
-        return write_cargo(name, cargo_cards()[name], path)
-    s = STORES[name] if name in STORES else tank_spec(tank_cards()[name])
-    B = model3d._Builder()
-    body = B.material("body", s["colour"], metallic=0.2, rough=0.55)
-    band = B.material("band", s["band"], metallic=0.1, rough=0.6) if "band" in s else None
-    origin = np.array([s["cg"], 0.0, 0.0])
-    st = np.array([p[0] for p in s["profile"]])
-    r = np.array([p[1] for p in s["profile"]]) * s["diameter"] / 2.0
-    # the body, with its nose band (a fused bomb's yellow ring) as its own part
-    lo, hi = s.get("band_at", (None, None))
-    parts = []
-    if lo is not None:
-        cuts = sorted(set(st.tolist() + [lo, hi]))
-        rr = np.interp(cuts, st, r)
-        v, t = model3d._revolve_mesh(np.array(cuts), rr, n=40)
-        n = 40
-        ring = [k for k, x in enumerate(cuts[:-1]) if lo <= x < hi]
-        mask = np.zeros(len(t), bool)
-        for k in ring:
-            mask[k * 2 * n:(k + 1) * 2 * n] = True
-        g = model3d._to_gltf(v, origin)
-        parts += [(g, t[~mask], body), (g, t[mask], band)]
-    else:
-        v, t = model3d._revolve_mesh(st, r, n=40)
-        parts.append((model3d._to_gltf(v, origin), t, body))
-    f = s.get("fins") or {"count": 0, "root_le": 0.0, "root_chord": 0.0}
-    root_r = float(np.interp(f["root_le"] + f["root_chord"] / 2, st, r))
-    for k in range(f["count"]):
-        v, t = _fin(f, root_r * 0.98, math.radians(f["roll_deg"]) + 2 * math.pi * k / f["count"])
-        parts.append((model3d._to_gltf(v, origin), t, body))
     mesh = B.mesh(name, parts)
     node = B.node(name + "-body", mesh=mesh)
     model3d.finish(B, [node], name, path)

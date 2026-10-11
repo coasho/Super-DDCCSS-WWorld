@@ -263,19 +263,28 @@ class Aircraft:
         self.motor = Motor(spec["motor"]) if "motor" in spec else None  # a missile's rocket (drawn only)
         # the mesher's cell (m) when the design sets one ([model] cell_m: a missile's lattice fins' thin walls)
         self.cell = spec.get("model", {}).get("cell_m")
+        # its airframe's triangles at most, when the design sets them ([model] triangles: a store's, a body of a few
+        # metres that an aircraft's budget would only over-draw - hangar/storedesigns.py)
+        self.triangles = spec.get("model", {}).get("triangles")
         self.struts = [Strut(s) for s in spec.get("strut", [])]
-        if not self.surfaces:
+        # a store (a tank, a pod, a pallet of cargo) may have no fin: its reference is its [reference] then - its
+        # frontal area and its diameter, as its flight model's (hangar/storedesigns.py)
+        if not self.surfaces and not (self.category in ("store", "missile") and "area" in spec.get("reference", {})):
             raise ValueError("%s: no [[surface]] defined" % self.name)
         schedules = sorted({tuple(d.schedule) for _, d in self.leading_devices()})
         if len(schedules) > 1:
             raise ValueError("%s: the leading-edge devices follow one schedule (the flight controls' "
                              "fcs/lef-pos-deg), not %s" % (self.name, " and ".join(map(str, schedules))))
         wings = [s for s in self.surfaces if s.kind == "wing"]
-        self.wing = wings[0] if wings else self.surfaces[0]
+        self.wing = wings[0] if wings else self.surfaces[0] if self.surfaces else None
         ref = spec.get("reference", {})
-        mac, mac_le = self.wing.mac
-        self.S = float(ref.get("area", self.wing.area))
-        self.b = float(ref.get("span", self.wing.span))
+        if self.wing is None:
+            mac, mac_le = float(ref["chord"]), np.asarray(ref.get("aero_point", [0.0, 0.0, 0.0]), float)
+            mac_le = mac_le - np.array([0.25 * mac, 0.0, 0.0])
+        else:
+            mac, mac_le = self.wing.mac
+        self.S = float(ref.get("area", self.wing.area if self.wing else 0.0))
+        self.b = float(ref.get("span", self.wing.span if self.wing else 0.0))
         self.c = float(ref.get("chord", mac))
         self.mac_le = mac_le
         default_rp = np.array([mac_le[0] + 0.25 * mac, 0.0, mac_le[2]])
@@ -309,6 +318,7 @@ class Aircraft:
         a.calibration = {}
         # the mesher's cell (m) when the design sets it: a nano quadrotor's millimetres
         a.cell = spec.get("model", {}).get("cell_m")
+        a.triangles = spec.get("model", {}).get("triangles")
         return a
 
     @classmethod

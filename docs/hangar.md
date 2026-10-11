@@ -41,6 +41,8 @@ fsim hangar mine autopilot            tune the platform's control loops for it (
 fsim hangar mine performance          fly its performance and fuel tables (in every full run; rebuilds)
 fsim demo --aircraft mine             watch it fly
 fsim hangar f16c                      a fighter: NASA's wind-tunnel data as reference
+fsim hangar tank370gal                a store: the same stages, each a store's own (Stores)
+fsim hangar stores                    every store through them, a line each
 ```
 
 `fsim python examples\python\control_surfaces.py` flies the C172 and the
@@ -311,15 +313,21 @@ it was on, it flies on as that model - a vehicle like any other, with the
 store's mass, its inertia, its drag. `cargo` and `store` are not kinds a
 `[[mass.payload]]` may have: hangar refuses them, and says to make a store.
 
-| class | its model | made by |
-|---|---|---|
-| `aam` | its design's body and fins, by a component build-up (`aircraft/stores/<name>`, from `aircraft/<name>/<name>.toml`) | `hangar missiles`, `hangar storemodels` |
-| `bomb` | the Mk 82's is JSBSim's own (`third_party/jsbsim/aircraft/mk82`) | - |
-| `tank`, `pod` | a slender body from its card's length and diameter; a tank's fuel a point mass the world sets as it leaves | `hangar storemodels` |
-| `cargo` | a uniform box from its card's `length_m`, `width_m`, `height_m`: a block's inertia, a bluff body's drag (its `drag_cd` on each face), no parachute | `hangar storemodels` |
+Every store is a design the pipeline builds as it builds an aircraft
+(`aircraft/<name>/<name>.toml`, `fsim hangar <name>`: [Stores](#stores)), its
+card the published figures the design holds:
 
-Each also has a model for the viewer (`assets/models/<name>.glb`,
-`hangar store <name>`; a missile's is its design's).
+| class | its design | its flight model (`aircraft/stores/<name>/<name>.xml`) |
+|---|---|---|
+| `aam` | `hangar missiles`: the table in `missiles.py` | its design's body and fins by a component build-up, tabled over Mach; its motor's grain and nozzle from the design's phases (`Engines/`) - a body with a motor, no controls |
+| `bomb` | `hangar storedesigns`: the Mk 82's profile and fins (`stores.py`) | the same build-up of its design, unpowered (before JSBSim's own `mk82`, which the platform no longer flies for the card) |
+| `tank`, `pod` | `hangar storedesigns`: its class's shape at its card's length and diameter | a slender body; a tank's fuel a point mass the world sets as it leaves |
+| `cargo` | `hangar storedesigns`: a box of its card's `length_m`, `width_m`, `height_m` | a block's inertia, a bluff body's drag (its `drag_cd` on each face), no parachute |
+
+Every one is written by its design's build stage, and none by hand.
+
+Its model for the viewer is its design's, as an aircraft's is
+(`aircraft/<name>/<name>.glb`, the model stage).
 
 The rules that keep a kilogram out of two ledgers:
 
@@ -1043,6 +1051,81 @@ at 0.9 a reduced-smoke motor's HCl takes up the air's water into a white smoke t
 `--dive-deg`, -30 by default) pitches it down that long after its launch, to the ground: it ends where it strikes the
 map set's terrain (the tiles the physics stands on, offline), as World ends a weapon that does - its vehicle removed
 that step - until MS-7d's fuze decides what it does there.
+
+## Stores
+
+Every store - the 24 missiles, the Mk 82, the 19 tanks, the 6 pods and the 2 cargo stores on the cards in
+`assets/stores` - is a design in `aircraft/<name>/` and goes through the stages an aircraft does, by the same command
+(`tools/hangar/hangar/storestages.py`). `[aircraft] card = "<id>"` names its card, whose published figures the design
+holds; its name is the card's `model` (`jsbsim:<name>`), so the platform makes it, the viewer draws it and hangar
+files it under one name.
+
+```bat
+fsim hangar storedesigns [<name> ..]   write the tanks', pods', bombs' and cargo's designs from their cards
+fsim hangar missiles [<name> ..]       the missiles' (Missiles, above)
+fsim hangar tank370gal [stage ..]      one store through its stages
+fsim hangar stores [stage ..]          every store, several at once: a line each - its failed checks, its warnings
+fsim hangar stores --force --jobs 1 --record docs/hangar-stores-build.md
+                                       every output made again, one store at a time, and what each took and weighs recorded
+```
+
+`--force` makes a store's outputs again whatever is cached: its model meshed anew, its flight model's files removed
+and written. Each run notes what its model and its flight model took to make and what they weigh (`out/model.json`,
+`out/build.json`: `seconds`, `triangles`, `bytes`); `--record` writes every store's as a table -
+[hangar-stores-build.md](hangar-stores-build.md) is the last full run's, with its `.json` beside it. `--jobs 1` runs
+one store at a time, so that no store's time is another's.
+
+A tank's, a pod's, a bomb's and a cargo store's design is written by one rule for its class
+(`tools/hangar/hangar/storedesigns.py`), as a missile's is by `missiles.py`: its length, its diameter (a cargo store's
+width and height) and its mass are the card's; its shape is its class's (`stores.py`: a tank's ogive, cylinder and
+cone, with three fins when its card says `fins`; a pod's two half-spheres; the Mk 82's estimated profile and its four
+fins; a cargo store's box), assumed and said so in the file. A store's design differs from an aircraft's in three
+things: `category = "store"` (a missile's is `"missile"`); `[reference]` is its frontal area and its diameter, as its
+flight model's, so it needs no `[[surface]]`; and `[store]` says what the build-up cannot read from its body -
+`wake = <m>`, a pod's rounded tail's separated flow as a blunt base of that diameter, or `shape = "box"` with `width`
+and `height`, a cargo store's bluff faces. `[model] triangles = <n>` sets its model's triangles at most - 6,000 for a
+tank or a pod, 10,000 for the bomb: a body of a few metres is round to 1.5 mm in them, where an aircraft's 75,000
+would be drawn for nothing on every station that carries one.
+
+| stage | a store's | checked against |
+|---|---|---|
+| geometry | the aircraft's summary and views (no tail volumes or aspect ratio: not a store's) | its length, and its diameter or width, within 0.5 % of its card's |
+| aero | its build-up from the design (`storeaero.py`: slender body, Barrowman, Jorgensen; `storedrag.py`: Hoerner) - what its flight model flies on and what its aircraft feels while it carries it; a cargo store's faces | the card's `drag_area_m2`, `munk_volume_m3`, `side_slope_m2` and `side_arm_m` equal to the design's (`fsim hangar storedrag` writes them) |
+| mass | the aircraft's mass model: `[mass] empty`, its CG, its inertia from `gyration` (a thin shell's for a tank and a pod, a solid cylinder's for a bomb, a uniform block's for cargo: assumed) | its mass within 10 g of its card's (a tank's dry: its fuel is its station's) |
+| propulsion | none - or a missile's motor as its flight model burns it (`storebodies.py`): its design's phases (assumed: none is published), the propellant their impulse takes at its smoke's specific impulse (245 s; an aluminised one's 255 s - assumed), a cylindrical grain with a bore in the body ahead of its nozzle (1,750 kg/m3, nine tenths of the body's radius, a bore of 15 % of its section: assumed); a pulse motor's coast a phase of 2 N | its grain behind the first three tenths of its body |
+| build | `aircraft/stores/<name>/<name>.xml`, written: a tank's, a pod's and a cargo store's from its card (`storemodels.py`); a missile's and a bomb's from its design (`storebodies.py`), a missile's `Engines/<name>_motor.xml` and `_nozzle.xml` with it | its mass its card's within 20 g (a missile's its structure and its propellant); its inertia its design's within 2 % (a missile's with its grain, about its launch CG, which is the design's within 2 mm); a missile's and a bomb's lift and moment slopes over Mach the aero stage's within 0.5 % |
+| model | `aircraft/<name>/<name>.glb`, the aircraft's mesher and paint; a cargo store's pallet, load and straps (`stores.py`) | the aircraft's: one closed solid, no crack, its length against `[dimensions]`. And its picture against its flight model, measured on the written file's own vertices: its nose and its tail from its origin are its CG's (within 4 mm or 0.3 % of its length), across it its card's diameter or its fins' reach tip to tip (within 3 %: a thin tip is meshed a few millimetres short; a rolleron stands out past its tip), its axis through its origin - the viewer hangs the model's origin where the simulation has the store ([viewer.md](sdk/viewer.md#where-a-picture-is-hung)) |
+| verify | the platform makes it as a vehicle | what it weighs, its card's; its CG, the design's |
+| fly | carried and released: hung on a station of an aircraft that takes it (one whose loadouts hang it, else any whose station takes its class and weight), jettisoned at 1,500 m and followed to the ground | the station's mass and the aircraft's change, its card's; the released vehicle as heavy and its mass constant (inert); no faster than a body falling from its release; its flight model holds; it reaches the ground and comes to rest. A missile's motor too: made on its own (the platform lights it) at 8,000 m and 250 m/s, it burns its design's propellant within 2 %, burns out at its phases' time, gains between 0.45 and 1.02 of the speed its impulse gives it without drag, and holds together |
+| report | `out/report.html` | |
+
+`calibrate`, `autopilot`, `performance` and `ground` say they are not a store's: it has no published performance to
+fit, no loops, no tables and no wheels. A store has no vulnerable components, no damage data and no breakup pieces.
+
+The build's staging copies a store's model with the aircraft's (`cmake/StageDesigns.cmake`): a design with a model
+and no `<name>.xml` of its own beside it. Nothing of a store is kept in `assets/models`; the viewer looks there before
+a design's folder, so a file left there would stand in for the design's (`tools/hangar/tests/test_stores.py` holds
+every card to a design, each written file to its writer, each card's figures to its design and each model to its
+budget).
+
+A missile's and a bomb's flight model is a finned body's in body axes (`tools/hangar/hangar/storebodies.py`): its
+normal and side force and their moments about its launch CG - the build-up's slopes over Mach times sin cos of its
+incidence, and its crossflow's times sin |sin| - its damping in pitch, yaw and roll, and along it its card's drag area
+with the transonic rise a carried store has. JSBSim takes the forces' moment about the CG from the launch CG (the
+AERORP), so a missile steadies as its motor burns and its CG moves forward. A missile's `[mass] gyration` is over its
+length (a slender rod's 0.289: `missiles.py`), a store's Roskam's over half of it (`storedesigns.py`); the mass and
+build stages read each so. Nothing guides it and nothing moves its fins (`flight_control name="none"`): it is a body
+that the world lights or leaves unlit, not a weapon ([backlog](backlog.md), B-36). Its file's empty CG is its
+structure's, burnt out, so it says where its model's origin is (`fsim/model/origin-x-in`, its launch CG): the
+platform measures its CG's place from there, and its picture stays on its airframe as its motor burns.
+
+The writer was made again from the files it had once written (it was not in the repository): the twelve radar
+missiles' files came out of it byte for byte (before each was given its model's origin, below). The twelve infrared missiles' changed, as they had to - their moments
+had been taken about a point 1 cm behind their designs' CG (the dome ahead of the body had not been counted: 5 - 14 %
+in the moment slope), and their inertia over the body's length without the dome. The Mk 82's is new: the platform had
+flown JSBSim's own `mk82`, whose drag is on 2.54 ft2 (four times its frontal area) and whose pitch inertia is nine
+times a body's of its mass and size; `io::AssetResolver::findAircraft` now looks in `aircraft/stores` before JSBSim's
+aircraft, so a card's `jsbsim:mk82` is the one built from its design.
 
 ## The carriage on the stations
 

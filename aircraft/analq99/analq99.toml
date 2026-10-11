@@ -1,0 +1,52 @@
+# AN/ALQ-99, a store built by hangar from its card (docs/hangar.md, Stores) - written by `python -m hangar storedesigns analq99`
+# (tools/hangar/hangar/storedesigns.py), one rule for every pod: edit stores.py's shape and write it again.
+#
+# Frame: metres, x aft from its nose, y right, z up from its axis. The card (assets/stores/an-alq-99.json) holds its
+# figures: 4.7 m long, 0.62 m across, 435 kg. Its shape is its class's, the same for every pod (assumed from
+# photographs: stores.py) - it shapes the picture, the build-up's drag and where its fins act.
+
+[aircraft]
+name = "analq99"
+description = "AN/ALQ-99 (hangar build)"
+category = "store"
+card = "an-alq-99"             # its store card: the published figures this design holds
+
+[analysis]
+speed = 250.0                # m/s: the Reynolds numbers of its carriage - assumed
+
+[reference]                  # a store's: its frontal area and its diameter (its width), as its flight model's
+area = 0.301907
+span = 0.62
+chord = 0.62
+aero_point = [2.35, 0.0, 0.0]
+
+[model]
+triangles = 6000             # its model's at most: a store's, drawn on every station that carries one
+
+[store]
+wake = 0.62                # m: its rounded tail's separated flow, a blunt base's of this diameter to its drag (stores.py)
+
+# Its body: a body of revolution, its radius along it its class's profile
+[[body]]
+name = "body"
+kind = "fuselage"
+stations = [
+  { x = 0, w = 0, top = 0, bottom = 0, n = 2 },
+  { x = 0.023597, w = 0.237264, top = 0.118632, bottom = -0.118632, n = 2 },
+  { x = 0.090797, w = 0.438406, top = 0.219203, bottom = -0.219203, n = 2 },
+  { x = 0.191368, w = 0.572805, top = 0.286403, bottom = -0.286403, n = 2 },
+  { x = 0.31, w = 0.62, top = 0.31, bottom = -0.31, n = 2 },
+  { x = 4.39, w = 0.62, top = 0.31, bottom = -0.31, n = 2 },
+  { x = 4.508632, w = 0.572805, top = 0.286403, bottom = -0.286403, n = 2 },
+  { x = 4.609203, w = 0.438406, top = 0.219203, bottom = -0.219203, n = 2 },
+  { x = 4.676403, w = 0.237264, top = 0.118632, bottom = -0.118632, n = 2 },
+  { x = 4.7, w = 0, top = 0, bottom = 0, n = 2 },
+]
+
+[mass]
+empty = 435                 # kg, the card
+empty_cg = [2.35, 0.0, 0.0]  # assumed: half way along
+gyration = [1, 0.584837, 1.033358]  # a thin shell's, as its flight model's (assumed)
+
+[dimensions]                  # the card
+length = 4.7

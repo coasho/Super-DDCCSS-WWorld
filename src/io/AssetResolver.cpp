@@ -86,12 +86,14 @@ fs::path AssetResolver::findAircraft(const std::string& name, const fs::path& js
     // an explicit FSIM_AIRCRAFT_PATH may shadow a stock aircraft; the rest may not
     for (const auto& dir : environmentAircraftDirs())
         if (has(dir)) return fs::weakly_canonical(dir, ec);
+    // a store's own flight model (hangar's build stage: a missile's, a bomb's, a tank's, a pod's, cargo's), apart
+    // from the aircraft - and before a stock aircraft of its name: the Mk 82 a store card names is the one built
+    // from its design, not JSBSim's own mk82
+    for (const auto& dir : aircraftDirs())
+        if (has(dir / "stores")) return fs::weakly_canonical(dir / "stores", ec);
     if (!jsbsimRoot.empty() && has(jsbsimRoot / "aircraft")) return {};
     for (const auto& dir : aircraftDirs())
         if (has(dir)) return fs::weakly_canonical(dir, ec);
-    // a released store's own flight model (a tank's, a pod's: hangar's storemodels.py), apart from the aircraft
-    for (const auto& dir : aircraftDirs())
-        if (has(dir / "stores")) return fs::weakly_canonical(dir / "stores", ec);
     return {};
 }
 

@@ -106,8 +106,10 @@ foreach(_d aircraft engine systems)
         COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${FSIM_JSBSIM_DATA_DIR}/${_d} ${_fsim_py_share}/jsbsim/${_d})
 endforeach()
 if(TARGET fsim_vision AND EXISTS ${CMAKE_BINARY_DIR}/share/flightsim/models)
+    # (a copy of the build's, no more: a model gone from there is not left here to stand in for a design's)
     list(APPEND _fsim_py_stage_commands
-        COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${CMAKE_BINARY_DIR}/share/flightsim/models ${_fsim_py_share}/models)
+        COMMAND ${CMAKE_COMMAND} -E rm -rf ${_fsim_py_share}/models
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_BINARY_DIR}/share/flightsim/models ${_fsim_py_share}/models)
 endif()
 list(APPEND _fsim_py_stage_commands
     COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${CMAKE_SOURCE_DIR}/assets/payloads ${_fsim_py_share}/payloads

@@ -464,6 +464,8 @@ TEST_CASE("a recording made before the vehicle state grew still reads", "[world]
     }
     constexpr std::size_t kState = offsetof(sim::VehicleState, engineRpm);
     constexpr std::size_t kInputs = offsetof(ipc::VehicleSample, inputs);
+    // (a sample before version 6: without the derived values added since, which are its last)
+    constexpr std::size_t kSampleV5 = offsetof(ipc::VehicleSample, derived) + ipc::kDerivedCountV7 * sizeof(double);
     constexpr std::size_t kInputsV1 =
         (kState + alignof(sim::ControlInputs) - 1) / alignof(sim::ControlInputs) * alignof(sim::ControlInputs);
     struct SnapshotHead {
@@ -497,7 +499,7 @@ TEST_CASE("a recording made before the vehicle state grew still reads", "[world]
         for (std::uint32_t i = 0; i < head.count; ++i, p += sizeof(std::uint32_t) + sizeof(ipc::VehicleSample)) {
             copy(p, sizeof(std::uint32_t) + kState); // the slot, the old state
             out.resize(out.size() + (kInputsV1 - kState), 0);
-            copy(p + sizeof(std::uint32_t) + kInputs, sizeof(ipc::VehicleSample) - kInputs);
+            copy(p + sizeof(std::uint32_t) + kInputs, kSampleV5 - kInputs); // (and the rest as it was: the derived values it had)
         }
     }
     {
@@ -516,11 +518,57 @@ TEST_CASE("a recording made before the vehicle state grew still reads", "[world]
         const auto& b = old.frames()[i].samples[0].second;
         REQUIRE(std::memcmp(&a.state, &b.state, kState) == 0);
         REQUIRE(std::memcmp(&a.inputs, &b.inputs, sizeof(a.inputs)) == 0);
-        REQUIRE(std::memcmp(a.derived, b.derived, sizeof(a.derived)) == 0);
+        REQUIRE(std::memcmp(a.derived, b.derived, ipc::kDerivedCountV7 * sizeof(double)) == 0);
+        for (std::size_t k = ipc::kDerivedCountV7; k < ipc::kDerivedCount; ++k) REQUIRE(b.derived[k] == 0.0); // (its CG at its origin: as it was drawn)
         REQUIRE(a.state.engineRpm[0] > 0.0);
         REQUIRE(b.state.engineRpm[0] == 0.0);
         REQUIRE(b.state.leadingEdgeFlapRad == 0.0);
     }
+    // and one from before version 6 (a sample's CG from its model's origin: two more derived values at its end): the
+    // same recording with each sample that much shorter reads back the same, each model's origin at its CG
+    const auto v5 = std::filesystem::temp_directory_path() / "fsim-test-record-v5.fsrec";
+    {
+        p = 6 + sizeof(ipc::RecordingHeader);
+        out.assign(in.begin(), in.begin() + static_cast<std::ptrdiff_t>(p));
+        out[5] = 5;
+        while (p < in.size()) {
+            if (in[p] == 'E' || in[p] == 'V') {
+                std::uint32_t size = 0;
+                std::memcpy(&size, &in[p + 1], sizeof(size));
+                copy(p, 1 + sizeof(size) + size);
+                p += 1 + sizeof(size) + size;
+                continue;
+            }
+            if (in[p] == 'T') {
+                copy(p, 1 + sizeof(std::uint32_t) + sizeof(ipc::RecordedVehicle));
+                p += 1 + sizeof(std::uint32_t) + sizeof(ipc::RecordedVehicle);
+                continue;
+            }
+            REQUIRE(in[p] == 'S');
+            SnapshotHead head{};
+            std::memcpy(&head, &in[p + 1], sizeof(head));
+            copy(p, 1 + sizeof(head));
+            p += 1 + sizeof(head);
+            for (std::uint32_t i = 0; i < head.count; ++i, p += sizeof(std::uint32_t) + sizeof(ipc::VehicleSample))
+                copy(p, sizeof(std::uint32_t) + kSampleV5);
+        }
+        std::ofstream f(v5, std::ios::binary);
+        f.write(out.data(), static_cast<std::streamsize>(out.size()));
+    }
+    ipc::Recording five;
+    REQUIRE(five.load(v5, &error));
+    REQUIRE(five.frames().size() == now.frames().size());
+    bool placed = false;
+    for (std::size_t i = 0; i < now.frames().size(); ++i) {
+        REQUIRE(five.frames()[i].samples.size() == 1);
+        const auto& a = now.frames()[i].samples[0].second;
+        const auto& c = five.frames()[i].samples[0].second;
+        REQUIRE(std::memcmp(&a, &c, kSampleV5) == 0);
+        for (std::size_t k = ipc::kDerivedCountV7; k < ipc::kDerivedCount; ++k) REQUIRE(c.derived[k] == 0.0);
+        for (std::size_t k = 0; k < 3; ++k) placed = placed || a.derived[ipc::kDerivedCgFromOriginM + k] != 0.0;
+    }
+    REQUIRE(placed); // (the new recording says where its CG is from its model's origin: a loaded C172's is not at it)
+    std::filesystem::remove(v5);
     std::filesystem::remove(v1);
     std::filesystem::remove(v2);
 }

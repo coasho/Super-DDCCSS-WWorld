@@ -5,11 +5,20 @@ set(FSIM_SHARE_DIR ${CMAKE_BINARY_DIR}/share/flightsim)
 file(MAKE_DIRECTORY ${FSIM_SHARE_DIR}/models)
 
 # Copy manifests / notices from the source tree.
-# (and the models made here: the stores' - tools/hangar/hangar/stores.py)
+# (a store's model is its design's, aircraft/<name>/<name>.glb: cmake/StageDesigns.cmake)
 file(GLOB _fsim_model_manifests ${CMAKE_SOURCE_DIR}/assets/models/*.manifest ${CMAKE_SOURCE_DIR}/assets/models/*.glb ${CMAKE_SOURCE_DIR}/assets/models/*.rcs.bin
      ${CMAKE_SOURCE_DIR}/assets/models/NOTICE.md)
 foreach(_m ${_fsim_model_manifests})
     configure_file(${_m} ${FSIM_SHARE_DIR}/models/ COPYONLY)
+endforeach()
+# A model the source tree no longer has is taken out of the build's copy: the viewer looks in models/ before a
+# design's folder, so one left behind would stand in for the design's (the stores' were here until hangar built them).
+file(GLOB _fsim_staged_models ${FSIM_SHARE_DIR}/models/*.manifest ${FSIM_SHARE_DIR}/models/*.glb ${FSIM_SHARE_DIR}/models/*.rcs.bin)
+foreach(_m ${_fsim_staged_models})
+    get_filename_component(_name ${_m} NAME)
+    if(NOT _name STREQUAL "Cesium_Air.glb" AND NOT EXISTS ${CMAKE_SOURCE_DIR}/assets/models/${_name})
+        file(REMOVE ${_m})
+    endif()
 endforeach()
 
 # Sample aircraft model (Apache-2.0, CesiumGS/cesium sample data), fetched once.

@@ -232,7 +232,7 @@ Each payload of each aircraft type has a card: one file per payload and type, wi
     - `launchWeapon` releases a store at its station with its launcher's velocity, attitude and an ejection push.
     - The store is flown by its own model, its flight capabilities `restricted`. It ends at impact, and the world
       keeps its record.
-    - JSBSim's `mk82` is the store until MS-7; its viewer model comes from `hangar store`.
+    - The Mk 82 is the store until MS-7: its flight model and its viewer model built from its design (`hangar mk82`; JSBSim's own `mk82` until 2026-10-10).
     - Through C++, the C ABI (1.50) and Python, with `radioPath` between any two entities.
   - **Tests:**
     - `test_rf_path.cpp`: NTIA's examples, P.838's table, the apertures' closed forms, P.526's J(v), masking, rain,

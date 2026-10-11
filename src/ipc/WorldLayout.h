@@ -16,8 +16,9 @@
 namespace fsim::ipc {
 
 constexpr std::uint32_t kMagic = 0x4D495346u; // "FSIM"
-constexpr std::uint32_t kLayoutVersion = 7; // 2: VehicleState grew (engines' and moving parts' state); 3: Mission Systems records; 4: their tracks;
-                                            // 5: a radar's range-Doppler map; 6: the stores; 7: each store's card (the viewer draws it)
+constexpr std::uint32_t kLayoutVersion = 8; // 2: VehicleState grew (engines' and moving parts' state); 3: Mission Systems records; 4: their tracks;
+                                            // 5: a radar's range-Doppler map; 6: the stores; 7: each store's card (the viewer draws it);
+                                            // 8: a sample's CG from its model's origin (two more `derived` values)
 constexpr std::uint32_t kNameLength = 64;
 constexpr std::uint32_t kTypeLength = 64;
 constexpr std::uint32_t kPathLength = 256;
@@ -67,18 +68,34 @@ enum Derived : std::size_t {
     kDerivedBankCapRad = 4,  ///< the steepest bank its airspeed leaves a turn, rad (infinite: no bound)
     kDerivedConstraints = 5, ///< its live activities' control::ActivityFlag bits, together, as a number
     kDerivedLoadRatio = 6,   ///< what its least airspeeds are multiplied by for its load (1: as it spawns)
-    kDerivedCount = 8,
+    /// Where its CG is now from its model's origin (its empty CG: what its picture, its stations and its parts are
+    /// measured from), body axes x forward, y right, z down, m - three values from here. Its state's position is its
+    /// CG's, which moves in the airframe as its fuel burns and its stores leave: the viewer hangs its model that far
+    /// back from the position (originEcef), so a store is drawn on its station where the simulation releases it.
+    kDerivedCgFromOriginM = 7,
+    kDerivedCount = 10,
 };
+/// The `derived` values a sample had before layout 8 (and a recording before its version 6).
+constexpr std::size_t kDerivedCountV7 = 8;
 
 struct VehicleSample {
     sim::VehicleState state;
     sim::ControlInputs inputs;
-    double derived[kDerivedCount] = {0, 0, 0, 0, 0, 0, 0, 0}; ///< its flight status (Derived)
+    double derived[kDerivedCount] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; ///< its flight status (Derived)
 };
 /// A vehicle's `derived` values, as the publisher is given them and the mirror hands them on.
 struct FlightStatus {
-    double derived[kDerivedCount] = {0, 0, 0, 0, 0, 0, 0, 0};
+    double derived[kDerivedCount] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 };
+
+/// Where a vehicle's model origin is (ECEF, m): its state's position - its CG's - less its CG's place from the origin
+/// (`derived` from kDerivedCgFromOriginM, body axes). The state with its position there is what a picture of it is
+/// hung from.
+inline void originEcef(const sim::VehicleState& state, const double* derived, double out[3]) noexcept {
+    const double* cg = derived + kDerivedCgFromOriginM;
+    const double* R = state.rotationBodyToEcef; // row-major, columns are body axes
+    for (int r = 0; r < 3; ++r) out[r] = state.positionEcef[r] - (R[r * 3 + 0] * cg[0] + R[r * 3 + 1] * cg[1] + R[r * 3 + 2] * cg[2]);
+}
 
 struct alignas(64) WorldHeader {
     std::uint32_t magic = 0;

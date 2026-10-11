@@ -38,7 +38,7 @@ the old one - its aircraft, their trails, the focus - is dropped.
 - Every live vehicle, as a 3D model over full-Earth satellite imagery (to level 19, ~0.3 m/px) and terrain (30 m data to level 15, smoothly refined below it so the imagery keeps sharpening at low altitude), with a label, a trail and a chase/orbit/overview camera (`tab` cycles vehicles; left drag rotates the view around its focus (middle drag too); space + left drag pans - detached (camera mode "free", or before any vehicle exists) it moves the globe so the ground follows the cursor, including across the poles, and locked to a vehicle the camera only rotates about it; the wheel zooms from 6 m to the whole Earth and changes nothing but the distance (`--zoom-to-cursor` for osgEarth's zoomToMouse); space alone, released without a drag, pauses; the right button is not a camera control; the camera never enters the terrain).
 - Vehicle creation, reset (new "generation") and removal, as they happen.
 - Several training applications at once: the monitor lists every live world and switches between them (`--world <name>` picks one at start).
-- Per-type models: a vehicle of type `jsbsim:f16` is drawn with `models/f16.glb` (or `.gltf`) if such a file exists in an asset directory (`<exe>/../share/flightsim/models`, the source tree's `assets/models`, or a `--assets` path), else with the platform's default aircraft; `VehicleSpec::model` names a file explicitly. Files are loaded once, on first use, and shared by every vehicle of that type; a `<file>.manifest` (`forward`, `up`, `scale`) fixes axes and size. Aircraft made with [hangar](../hangar.md) carry their own model (`aircraft/<name>/<name>.glb`), found the same way.
+- Per-type models: a vehicle of type `jsbsim:f16` is drawn with `models/f16.glb` (or `.gltf`) if such a file exists in an asset directory (`<exe>/../share/flightsim/models`, the source tree's `assets/models`, or a `--assets` path), else with the platform's default aircraft; `VehicleSpec::model` names a file explicitly. Files are loaded once, on first use, and shared by every vehicle of that type; a `<file>.manifest` (`forward`, `up`, `scale`) fixes axes and size. Aircraft made with [hangar](../hangar.md) carry their own model (`aircraft/<name>/<name>.glb`), found the same way - and so does every store (a missile, a bomb, a tank, a pod, cargo: each a design of its own, [hangar.md](../hangar.md#stores)).
 - Moving control surfaces, for models that mark them (see below): ailerons, elevator, rudder and flaps follow each vehicle's deflections, from the trainer or the replay.
 - What the engines and the air do (see [Effects](#effects)): afterburner flames, glowing nozzles and hot exhaust; wing tip vortices; condensation on the airframe - over the wings and canards, in the leading-edge extensions' vortices - and the transonic vapour cone; contrails high up.
 - The world's clock (sun position and sky), wind, atmosphere and weather - its cloud drawn as volumetric clouds (see [Clouds](#clouds)).
@@ -193,7 +193,29 @@ opens them (`StoreInfo::bayDoors`, half a second before a release from the bay) 
 each store's card and its bay's doors in its mission record; a recording carries the stores as they change (its `M` records, version 3), so a
 replay draws them too.
 
-Everything an aircraft carries beside its people, its built-in equipment and its small items is a store ([hangar.md](../hangar.md#mass-accounting)), drawn the same way: the F-22A's, F-35A's, J-20A's and Su-57's bay missiles in their bays, the EA-18G's three ALQ-99 jamming pods on its stations 3, 6 and 9 (its airframe's model no longer has them: as it spawns it is drawn clean, and with its "jamming pods" loadout each pod hangs under its pylon and leaves with a jettison), a missile jettisoned as the body it is. A transport's cargo - a loaded pallet, an airdrop bundle - rides on its hold's pallet positions (its manifest's stations, inside its skin: drawn there, out of sight); released over the ramp it is a vehicle of its own, drawn as its box, its pallet and its straps (`assets/models/463lpallet.glb`, `cdsa22.glb`), and listed among the vehicles. hangar cuts no bay and hangs no rack for a hold's stations: the hold is the fuselage as it is drawn.
+Everything an aircraft carries beside its people, its built-in equipment and its small items is a store ([hangar.md](../hangar.md#mass-accounting)), drawn the same way: the F-22A's, F-35A's, J-20A's and Su-57's bay missiles in their bays, the EA-18G's three ALQ-99 jamming pods on its stations 3, 6 and 9 (its airframe's model no longer has them: as it spawns it is drawn clean, and with its "jamming pods" loadout each pod hangs under its pylon and leaves with a jettison), a missile jettisoned as the body it is. A transport's cargo - a loaded pallet, an airdrop bundle - rides on its hold's pallet positions (its manifest's stations, inside its skin: drawn there, out of sight); released over the ramp it is a vehicle of its own, drawn as its box, its pallet and its straps (`aircraft/463lpallet/463lpallet.glb`, `aircraft/cdsa22/cdsa22.glb`), and listed among the vehicles. hangar cuts no bay and hangs no rack for a hold's stations: the hold is the fuselage as it is drawn.
+
+### Where a picture is hung
+
+A vehicle's state is its centre of gravity's: where it is, how it moves. Its model, its stations and its parts are
+measured from its model's origin - its empty CG, the point hangar builds its picture about - and the two are not the
+same point: the CG moves in the airframe as fuel burns and stores leave (0.1 to 0.35 m in a loaded fighter, 0.7 m up in
+a C-17A or a C-130J with their fuel, 1.1 m ahead in a KC-46A). The simulation releases a store from its station as
+measured from the origin, and keeps the airframe still when a store's leaving moves the CG.
+
+The viewer draws the same thing. Each published sample says where the vehicle's CG is from its model's origin (its
+`derived` values from `kDerivedCgFromOriginM`, body axes: `ipc/WorldLayout.h`, layout 8), and the viewer hangs the
+model that far back from the state's position (`ipc::originEcef`; `drawnState` in `app/viewer_main.cpp`) - the model,
+the stores on its stations, its flames and its vapour with it. So a store is drawn on its station exactly where it
+becomes a vehicle of its own (within 4 mm as an F-16C's five stores leave: `tests/test_mass_change.cpp`), and the
+airframe does not hop as they go. The panels' figures (height, position) stay the state's own. A recording carries the
+same values (format version 6); one made before has none and is drawn as it was, each model's origin at its CG.
+
+A store's own model has its origin at its CG as it hangs on a station: a tank's, a pod's and a cargo store's middle,
+the Mk 82's CG, a missile's CG with its motor full. A missile's file says so (`fsim/model/origin-x-in`), since its
+empty CG is its structure's, burnt out: lit, its CG moves 0.2 to 0.5 m ahead as its motor burns, and its picture stays
+on its airframe. hangar's model stage holds every store's model to this - its nose and its tail from its origin, its
+length, its width or its fins' reach measured on the mesh's own vertices ([hangar.md](../hangar.md#stores)).
 
 ## Flight status
 

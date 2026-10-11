@@ -32,9 +32,11 @@ THICKNESS = {"biconvex4": 0.04, "plate": 0.03}
 
 
 def design_of(card_id):
-    """The missile design whose card this is (its toml), or None."""
+    """The design whose card this is (its toml), or None."""
     root = os.path.join(pipeline.repo_root(), "aircraft")
-    for name in sorted(os.listdir(root)):
+    # (a store's design is filed under its card's id without its hyphens - looked at first; any other is searched for)
+    first = card_id.replace("-", "")
+    for name in [first] + sorted(n for n in os.listdir(root) if n != first):
         path = os.path.join(root, name, name + ".toml")
         if os.path.isfile(path):
             with open(path, "rb") as f:
@@ -47,6 +49,8 @@ def design_of(card_id):
 def geometry(card):
     """Its shape: {x, r (m, from its nose), fins, cg, length, diameter, from}; None without one."""
     d = design_of(card["id"])
+    if d and d.get("store", {}).get("shape") == "box":
+        return None  # (a cargo store: no body of revolution)
     if d:
         body = next(b for b in d["body"] if b.get("kind") == "fuselage")
         st = body["stations"]

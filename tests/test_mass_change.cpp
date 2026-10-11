@@ -1,6 +1,9 @@
 // A part leaving an aircraft, made physically consistent (sim::FlightModel's mass change; MS-7a's releases, MS-7g's
 // parting sections): the airframe stays where it is, its CG and state move to what is left, momentum is kept.
 #include "mode_flights.h"
+#include "io/AssetResolver.h"
+#include "ipc/WorldLayout.h"
+#include "ipc/WorldMirror.h"
 #include "ms/Host.h"
 #include "sim/JsbsimModel.h"
 
@@ -11,6 +14,9 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
+#include <map>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -224,4 +230,114 @@ TEST_CASE("an F-16's external tanks feed its own as it burns - fuel moved, none 
     if (std::getenv("FSIM_MASS_SHOW")) std::printf("3 s after: the tank %.1f m below the aircraft, %.1f m behind it\n", drop, behind);
     CHECK(drop > 20.0);
     CHECK(behind > 1.0);
+}
+
+TEST_CASE("the viewer's picture: an airframe hung from its model's origin has each store on its station where the simulation "
+          "releases it - and the published sample says where that origin is",
+          "[stores][mass][world][viewer]") {
+    // what the viewer draws (app/viewer_main.cpp, drawnState): each model's origin at its state's position less its
+    // CG's place from the origin (ipc::originEcef, the sample's `derived`), each carried store's model at its
+    // aircraft's manifest's `station` line. Released, the store is a vehicle of its own: it must be where it hung.
+    session::WorldOptions o = options("mass-picture");
+    o.publish = true;
+    session::World w(o);
+    const auto id = wing(w, "f16c", 5000.0, 220.0);
+    REQUIRE(w.loadLoadout(id, "mk82 x4") == ms::Reason::None);
+    REQUIRE(w.loadLoadout(id, "external tanks") == ms::Reason::None);
+    w.step(stepsFor(w, 1.0));
+    // loaded, its CG is not at its origin: decimetres
+    double cg[3];
+    w.model(id)->cgFromOriginBodyM(cg);
+    CHECK(std::sqrt(cg[0] * cg[0] + cg[1] * cg[1] + cg[2] * cg[2]) > 0.1);
+    // the sample the viewer reads says so, and its origin is the model's
+    w.publishNow();
+    ipc::WorldMirror mirror;
+    REQUIRE(mirror.open("mass-picture"));
+    sim::SnapshotBatch batch;
+    REQUIRE(mirror.pollSnapshot(batch));
+    REQUIRE(!mirror.status().empty());
+    const double* d = mirror.status()[0].derived;
+    for (int k = 0; k < 3; ++k) CHECK(std::abs(d[ipc::kDerivedCgFromOriginM + static_cast<std::size_t>(k)] - cg[k]) < 1e-9);
+    double origin[3];
+    ipc::originEcef(batch.states[0], d, origin);
+    const Body before = body(*w.model(id));
+    CHECK((V{origin[0], origin[1], origin[2]} - before.origin).length() < 1e-6);
+
+    // the stations' places as the viewer has them: its model's manifest
+    std::map<int, V> stations;
+    for (const auto& dir : io::AssetResolver{}.aircraftDirs()) {
+        std::ifstream in(dir / "f16c" / "f16c.glb.manifest");
+        std::string line;
+        while (std::getline(in, line)) {
+            std::istringstream fields(line);
+            std::string key;
+            int number = 0;
+            V at;
+            if (fields >> key >> number >> at.x >> at.y >> at.z && key == "station") stations.emplace(number, at);
+        }
+        if (!stations.empty()) break;
+    }
+    REQUIRE(stations.size() == 9);
+
+    std::uint16_t payload = 0;
+    for (const auto& pl : w.missionSystems(id)->payloads())
+        if (pl.family == ms::Family::StoreStation) payload = pl.index;
+    ms::JettisonCommand all;
+    all.payload = payload;
+    all.emergency = true;
+    REQUIRE(w.submit(id, all).accepted());
+    std::map<std::uint32_t, bool> seen;
+    int released = 0;
+    double worst = 0.0;
+    for (unsigned k = 0; k < stepsFor(w, 4.0) && released < 5; ++k) {
+        w.step(1);
+        for (const auto& rec : w.weapons()) {
+            if (rec.launcher != id || seen[rec.id]) continue;
+            seen[rec.id] = true;
+            ++released;
+            // the store's origin from its aircraft's, in the aircraft's body axes, the step it became a vehicle
+            const Body a = body(*w.model(id)), s = body(*w.model(rec.id));
+            const V r = s.origin - a.origin;
+            const double* T = a.r.bodyToEcef;
+            const V at{T[0] * r.x + T[3] * r.y + T[6] * r.z, T[1] * r.x + T[4] * r.y + T[7] * r.z, T[2] * r.x + T[5] * r.y + T[8] * r.z};
+            REQUIRE(stations.count(rec.station));
+            INFO("station " << rec.station << " (" << rec.store << "): " << at.x << ", " << at.y << ", " << at.z);
+            // within what its ejector moved it in that step (some 5 m/s for a 120th of a second) and a centimetre
+            const double off = (at - stations.at(rec.station)).length();
+            CHECK(off < 0.08);
+            worst = std::max(worst, off);
+        }
+    }
+    CHECK(released == 5); // (two bombs, three tanks: the tanks' loadout had the inboard stations first)
+    // (hung from its CG instead - as the viewer drew it before - each would have left its station's picture by the
+    // CG's place from the origin as it was loaded: the decimetres checked above)
+    if (std::getenv("FSIM_MASS_SHOW")) std::printf("stores from their stations as they leave: %.4f m at most\n", worst);
+}
+
+TEST_CASE("a missile's model origin is its launch CG: full, its CG is at its origin; as its motor burns its CG moves ahead of it",
+          "[stores][mass][world][viewer]") {
+    // its file's empty CG is its structure's, burnt out - some decimetres ahead of its CG as it hangs on a station.
+    // Its picture's origin and what a station holds is its launch CG, which its file says (fsim/model/origin-x-in:
+    // hangar's storebodies.py): a missile jettisoned full is drawn where it is, not a third of a metre off
+    session::World w(options("mass-missile-origin"));
+    const auto lit = wing(w, "aim120c", 8000.0, 250.0); // (made on its own: the platform lights its motor)
+    double cg[3];
+    w.model(lit)->cgFromOriginBodyM(cg);
+    CHECK(std::abs(cg[0]) < 0.002);
+    CHECK(std::abs(cg[1]) < 1e-6);
+    CHECK(std::abs(cg[2]) < 1e-6);
+    w.step(stepsFor(w, 10.0)); // (its 8 s of burn, and on)
+    w.model(lit)->cgFromOriginBodyM(cg);
+    // burnt out: its structure's CG, 1.497 m from its nose where its launch CG was 1.83 m (its design's and its grain's)
+    CHECK(cg[0] > 0.31);
+    CHECK(cg[0] < 0.36);
+    // a tank's, a bomb's: its CG is its origin (nothing burns)
+    for (const char* type : {"tank370gal", "mk82", "463lpallet"}) {
+        const auto id = wing(w, type, 6000.0, 200.0, 2);
+        w.model(id)->cgFromOriginBodyM(cg);
+        INFO(type);
+        CHECK(std::sqrt(cg[0] * cg[0] + cg[1] * cg[1] + cg[2] * cg[2]) < 0.002);
+        w.removeVehicle(id);
+        w.step();
+    }
 }

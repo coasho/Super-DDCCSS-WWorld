@@ -3,7 +3,7 @@ external fuel tank or a pod, jettisoned, flies on as a JSBSim vehicle - the same
 every other - from aircraft/stores/<model>/<model>.xml (its card's model, "jsbsim:<model>": the card's id without its hyphens,
 the name the viewer draws it by), written from its store card (assets/stores/<id>.json):
 
-    python -m hangar storemodels        writes every tank's and pod's
+    python -m hangar storemodels        writes every store's (each design's build stage writes its own: storestages.py)
 
 - its mass the card's empty mass (its dry structure), a shell `length_m` long and `diameter_m` across; a point mass
   "fuel" at no weight that the world sets as it leaves - the fuel left in it (a tank's), a solid cylinder filling it;
@@ -410,22 +410,33 @@ def cargo_xml(card):
        damp("roll-damping", "p", W), damp("pitch-damping", "q", L), damp("yaw-damping", "r", L))
 
 
+def files(card):
+    """The store's flight model as its files, {path under aircraft/stores/<model>/: text}: a tank's, a pod's and a cargo
+    store's definition from its card; a missile's and a bomb's from its design, a missile's with its motor's and its
+    nozzle's (storebodies.py). None: its card lacks what it is written from."""
+    text = store_xml(card) or cargo_xml(card)
+    if text is not None:
+        return {model_name(card) + ".xml": text}
+    from . import storebodies
+    return storebodies.files(card)
+
+
 def write(cards_dir, aircraft_dir):
-    """Each tank's, pod's and cargo store's model (<aircraft_dir>/<model>/<model>.xml); the paths written."""
+    """Every store's model (<aircraft_dir>/<model>/<model>.xml, a missile's Engines/ beside it); the paths written."""
+    from . import pipeline
     written = []
     for name in sorted(os.listdir(cards_dir)):
         if not name.endswith(".json"):
             continue
         card = _card(os.path.join(cards_dir, name))
-        text = store_xml(card) or cargo_xml(card)
-        if text is None:
+        out = files(card)
+        if out is None:
             continue
-        model = model_name(card)
-        path = os.path.join(aircraft_dir, model, model + ".xml")
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        from . import pipeline
-        pipeline.write_text(path, text)
-        written.append(path)
+        for rel, text in out.items():
+            path = os.path.join(aircraft_dir, model_name(card), *rel.split("/"))
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            pipeline.write_text(path, text)
+            written.append(path)
     return written
 
 

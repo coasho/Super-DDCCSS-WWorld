@@ -279,7 +279,8 @@ move on while a check fails or a picture looks wrong.
   `ammunition`, `baggage`): the fixed load it spawns with - its people, what
   is built into it, its very small items. Everything else it carries - a
   weapon, a tank, a pod, cargo - is a store: a card in `assets/stores` with a
-  JSBSim model of its own (`hangar storemodels`, `hangar store <name>`), on a
+  JSBSim model of its own and a design the same stages build (`hangar
+  storedesigns`, `hangar <store>`, `hangar stores`: docs/hangar.md, Stores), on a
   station (a pylon, a bay, a hold's pallet position), loaded by the fit's
   loadouts. Never draw one into the airframe or weigh it as fixed load: it
   could not leave, and would be weighed twice (docs/hangar.md, Mass

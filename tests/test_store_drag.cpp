@@ -152,14 +152,15 @@ TEST_CASE("in a sideslip an F-16's tanks turn its nose from the wind: their bodi
     CHECK(dCnBeta < -0.02);
     CHECK(dCnBeta > -0.05);
     // a finned bomb: its fins' force behind its station at half its card's (carried fins measure half the isolated
-    // theory: NASA TN D-3582) - free, they outweigh its body's moment (its card's 0.2469 x 1.152 against 2 x 0.0889)
+    // theory: NASA TN D-3582) - free, they outweigh its body's moment (its card's 0.2506 x 1.152 against 2 x 0.0889: its design's
+    // build-up, hangar's aero stage)
     const auto bomber = wing(w, "f16c", 5000.0, 220.0, 1);
     REQUIRE(w.loadLoadout(bomber, "mk82 x4") == ms::Reason::None);
     w.missionSystems(bomber)->carriageDrag(points);
     REQUIRE(points.size() == 4);
     for (const auto& p : points) {
-        CHECK(std::abs(p.sideSlopeM2 - 0.5 * 0.24693) < 1e-4);
-        CHECK(std::abs(p.sideArmM - 1.1523) < 1e-3);
+        CHECK(std::abs(p.sideSlopeM2 - 0.5 * 0.25061) < 1e-4);
+        CHECK(std::abs(p.sideArmM - 1.1517) < 1e-3);
         CHECK(std::abs(p.munkM3 - 0.0889) < 1e-4);
         CHECK(2.0 * p.sideSlopeM2 * p.sideArmM > 2.0 * p.munkM3); // (free: steady)
     }

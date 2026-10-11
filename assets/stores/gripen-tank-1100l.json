@@ -50,14 +50,14 @@
       "unit": "m^2",
       "uncertainty": 0.00624,
       "basis": "assumed",
-      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its card, stores.py's tank profile (hangar storedrag.py: Hoerner's body of revolution 0.01931, its base 0.00150, its fins' friction 0.00000 m^2): an estimate by one method for every store"
+      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its design (hangar storedrag.py: Hoerner's body of revolution 0.01931, its base 0.00150, its fins' friction 0.00000 m^2): an estimate by one method for every store"
     },
     "munk_volume_m3": {
       "value": 1.11095,
       "unit": "m^3",
       "uncertainty": 0.33329,
       "basis": "assumed",
-      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 1.2131 m^3 from its card, stores.py's tank profile, times Lamb's k2 - k1 = 0.916 for its fineness 8.0 (hangar storedrag.py): an estimate by one method for every store"
+      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 1.2131 m^3 from its design, times Lamb's k2 - k1 = 0.916 for its fineness 8.0 (hangar storedrag.py): an estimate by one method for every store"
     },
     "side_slope_m2": {
       "value": 0.02543,

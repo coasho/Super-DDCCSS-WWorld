@@ -20,92 +20,92 @@
         <location name="VRP" unit="IN"> <x> 61.024 </x> <y> 0 </y> <z> 0 </z> </location>
     </metrics>
     <mass_balance negated_crossproduct_inertia="false">
-        <ixx unit="SLUG*FT2"> 0.20276 </ixx>
-        <iyy unit="SLUG*FT2"> 44.26786 </iyy>
-        <izz unit="SLUG*FT2"> 44.26786 </izz>
+        <ixx unit="SLUG*FT2"> 0.20517 </ixx>
+        <iyy unit="SLUG*FT2"> 44.88241 </iyy>
+        <izz unit="SLUG*FT2"> 44.88241 </izz>
         <emptywt unit="LBS"> 191.8625 </emptywt>
         <location name="CG" unit="IN"> <x> 50.708 </x> <y> 0 </y> <z> 0 </z> </location>
     </mass_balance>
     <ground_reactions>
         <contact type="STRUCTURE" name="nose 1">
-            <location unit="IN"> <x> 12.148 </x> <y> 2.728 </y> <z> 1.575 </z> </location>
+            <location unit="IN"> <x> 12.715 </x> <y> 2.728 </y> <z> 1.575 </z> </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.5 </dynamic_friction>
             <spring_coeff unit="LBS/FT"> 823 </spring_coeff>
             <damping_coeff unit="LBS/FT/SEC"> 82 </damping_coeff>
         </contact>
         <contact type="STRUCTURE" name="nose 2">
-            <location unit="IN"> <x> 12.148 </x> <y> 0.000 </y> <z> 3.150 </z> </location>
+            <location unit="IN"> <x> 12.715 </x> <y> 0.000 </y> <z> 3.150 </z> </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.5 </dynamic_friction>
             <spring_coeff unit="LBS/FT"> 823 </spring_coeff>
             <damping_coeff unit="LBS/FT/SEC"> 82 </damping_coeff>
         </contact>
         <contact type="STRUCTURE" name="nose 3">
-            <location unit="IN"> <x> 12.148 </x> <y> -2.728 </y> <z> 1.575 </z> </location>
+            <location unit="IN"> <x> 12.715 </x> <y> -2.728 </y> <z> 1.575 </z> </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.5 </dynamic_friction>
             <spring_coeff unit="LBS/FT"> 823 </spring_coeff>
             <damping_coeff unit="LBS/FT/SEC"> 82 </damping_coeff>
         </contact>
         <contact type="STRUCTURE" name="nose 4">
-            <location unit="IN"> <x> 12.148 </x> <y> -2.728 </y> <z> -1.575 </z> </location>
+            <location unit="IN"> <x> 12.715 </x> <y> -2.728 </y> <z> -1.575 </z> </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.5 </dynamic_friction>
             <spring_coeff unit="LBS/FT"> 823 </spring_coeff>
             <damping_coeff unit="LBS/FT/SEC"> 82 </damping_coeff>
         </contact>
         <contact type="STRUCTURE" name="nose 5">
-            <location unit="IN"> <x> 12.148 </x> <y> -0.000 </y> <z> -3.150 </z> </location>
+            <location unit="IN"> <x> 12.715 </x> <y> -0.000 </y> <z> -3.150 </z> </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.5 </dynamic_friction>
             <spring_coeff unit="LBS/FT"> 823 </spring_coeff>
             <damping_coeff unit="LBS/FT/SEC"> 82 </damping_coeff>
         </contact>
         <contact type="STRUCTURE" name="nose 6">
-            <location unit="IN"> <x> 12.148 </x> <y> 2.728 </y> <z> -1.575 </z> </location>
+            <location unit="IN"> <x> 12.715 </x> <y> 2.728 </y> <z> -1.575 </z> </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.5 </dynamic_friction>
             <spring_coeff unit="LBS/FT"> 823 </spring_coeff>
             <damping_coeff unit="LBS/FT/SEC"> 82 </damping_coeff>
         </contact>
         <contact type="STRUCTURE" name="tail 1">
-            <location unit="IN"> <x> 109.332 </x> <y> 2.728 </y> <z> 1.575 </z> </location>
+            <location unit="IN"> <x> 109.899 </x> <y> 2.728 </y> <z> 1.575 </z> </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.5 </dynamic_friction>
             <spring_coeff unit="LBS/FT"> 823 </spring_coeff>
             <damping_coeff unit="LBS/FT/SEC"> 82 </damping_coeff>
         </contact>
         <contact type="STRUCTURE" name="tail 2">
-            <location unit="IN"> <x> 109.332 </x> <y> 0.000 </y> <z> 3.150 </z> </location>
+            <location unit="IN"> <x> 109.899 </x> <y> 0.000 </y> <z> 3.150 </z> </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.5 </dynamic_friction>
             <spring_coeff unit="LBS/FT"> 823 </spring_coeff>
             <damping_coeff unit="LBS/FT/SEC"> 82 </damping_coeff>
         </contact>
         <contact type="STRUCTURE" name="tail 3">
-            <location unit="IN"> <x> 109.332 </x> <y> -2.728 </y> <z> 1.575 </z> </location>
+            <location unit="IN"> <x> 109.899 </x> <y> -2.728 </y> <z> 1.575 </z> </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.5 </dynamic_friction>
             <spring_coeff unit="LBS/FT"> 823 </spring_coeff>
             <damping_coeff unit="LBS/FT/SEC"> 82 </damping_coeff>
         </contact>
         <contact type="STRUCTURE" name="tail 4">
-            <location unit="IN"> <x> 109.332 </x> <y> -2.728 </y> <z> -1.575 </z> </location>
+            <location unit="IN"> <x> 109.899 </x> <y> -2.728 </y> <z> -1.575 </z> </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.5 </dynamic_friction>
             <spring_coeff unit="LBS/FT"> 823 </spring_coeff>
             <damping_coeff unit="LBS/FT/SEC"> 82 </damping_coeff>
         </contact>
         <contact type="STRUCTURE" name="tail 5">
-            <location unit="IN"> <x> 109.332 </x> <y> -0.000 </y> <z> -3.150 </z> </location>
+            <location unit="IN"> <x> 109.899 </x> <y> -0.000 </y> <z> -3.150 </z> </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.5 </dynamic_friction>
             <spring_coeff unit="LBS/FT"> 823 </spring_coeff>
             <damping_coeff unit="LBS/FT/SEC"> 82 </damping_coeff>
         </contact>
         <contact type="STRUCTURE" name="tail 6">
-            <location unit="IN"> <x> 109.332 </x> <y> 2.728 </y> <z> -1.575 </z> </location>
+            <location unit="IN"> <x> 109.899 </x> <y> 2.728 </y> <z> -1.575 </z> </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.5 </dynamic_friction>
             <spring_coeff unit="LBS/FT"> 823 </spring_coeff>
@@ -131,7 +131,13 @@
             <contents unit="LBS"> 55.05525 </contents>
         </tank>
     </propulsion>
-    <flight_control name="none"/>
+    <flight_control name="none">
+        <!-- no controls. Its model's origin in this frame (in): its CG as it is launched, its motor full - its picture's
+             origin and what a station holds; the CG above is its structure's, burnt out -->
+        <property value="61.024">fsim/model/origin-x-in</property>
+        <property value="0">fsim/model/origin-y-in</property>
+        <property value="0">fsim/model/origin-z-in</property>
+    </flight_control>
     <aerodynamics>
         <axis name="AXIAL">
             <function name="aero/coefficient/CA">
@@ -255,25 +261,25 @@
                             <table>
                             <independentVar lookup="row">velocities/mach</independentVar>
                             <tableData>
-                                0.00 -51.29710
-                                0.60 -54.83728
-                                0.80 -58.07424
-                                0.90 -60.93977
-                                1.00 -62.27660
-                                1.10 -63.61835
-                                1.20 -64.96500
-                                1.30 -66.31656
-                                1.60 -66.16158
-                                2.00 -49.85299
-                                2.50 -35.43296
-                                3.00 -26.03828
-                                4.00 -14.39320
-                                5.00 -7.39156
+                                0.00 -52.41428
+                                0.60 -55.99367
+                                0.80 -59.26648
+                                0.90 -62.15673
+                                1.00 -63.50132
+                                1.10 -64.85082
+                                1.20 -66.20522
+                                1.30 -67.56454
+                                1.60 -67.38719
+                                2.00 -50.87857
+                                2.50 -36.30548
+                                3.00 -26.81109
+                                4.00 -15.04241
+                                5.00 -7.96646
                             </tableData>
                         </table>
                         </product>
                         <product>
-                            <value> -43.79258 </value>
+                            <value> -46.87733 </value>
                             <sin><property>aero/alpha-rad</property></sin>
                             <abs><sin><property>aero/alpha-rad</property></sin></abs>
                         </product>
@@ -291,20 +297,20 @@
                     <table>
                         <independentVar lookup="row">velocities/mach</independentVar>
                         <tableData>
-                            0.00 -1377.58544
-                            0.60 -1435.22988
-                            0.80 -1487.93482
-                            0.90 -1532.29859
-                            1.00 -1552.11947
-                            1.10 -1572.36818
-                            1.20 -1593.04560
-                            1.30 -1614.15258
-                            1.60 -1609.13046
-                            2.00 -1332.02599
-                            2.50 -1087.47818
-                            3.00 -928.15495
-                            4.00 -730.66721
-                            5.00 -611.92733
+                            0.00 -1406.71457
+                            0.60 -1465.64053
+                            0.80 -1519.51723
+                            0.90 -1564.91704
+                            1.00 -1585.22057
+                            1.10 -1605.95371
+                            1.20 -1627.11732
+                            1.30 -1648.71226
+                            1.60 -1643.63032
+                            2.00 -1360.61875
+                            2.50 -1110.85218
+                            3.00 -948.12892
+                            4.00 -746.42670
+                            5.00 -625.15285
                         </tableData>
                     </table>
                 </product>
@@ -312,7 +318,7 @@
             <function name="aero/coefficient/Cmq2">
                 <description>the body's crossflow as it turns</description>
                 <product>
-                    <value> -17.435621 </value>
+                    <value> -17.354816 </value>
                     <property>atmosphere/rho-slugs_ft3</property>
                     <property>velocities/q-aero-rad_sec</property>
                     <abs><property>velocities/q-aero-rad_sec</property></abs>
@@ -333,25 +339,25 @@
                             <table>
                             <independentVar lookup="row">velocities/mach</independentVar>
                             <tableData>
-                                0.00 -51.29710
-                                0.60 -54.83728
-                                0.80 -58.07424
-                                0.90 -60.93977
-                                1.00 -62.27660
-                                1.10 -63.61835
-                                1.20 -64.96500
-                                1.30 -66.31656
-                                1.60 -66.16158
-                                2.00 -49.85299
-                                2.50 -35.43296
-                                3.00 -26.03828
-                                4.00 -14.39320
-                                5.00 -7.39156
+                                0.00 -52.41428
+                                0.60 -55.99367
+                                0.80 -59.26648
+                                0.90 -62.15673
+                                1.00 -63.50132
+                                1.10 -64.85082
+                                1.20 -66.20522
+                                1.30 -67.56454
+                                1.60 -67.38719
+                                2.00 -50.87857
+                                2.50 -36.30548
+                                3.00 -26.81109
+                                4.00 -15.04241
+                                5.00 -7.96646
                             </tableData>
                         </table>
                         </product>
                         <product>
-                            <value> 43.79258 </value>
+                            <value> 46.87733 </value>
                             <sin><property>aero/beta-rad</property></sin>
                             <abs><sin><property>aero/beta-rad</property></sin></abs>
                         </product>
@@ -368,27 +374,27 @@
                     <table>
                         <independentVar lookup="row">velocities/mach</independentVar>
                         <tableData>
-                            0.00 -1377.58544
-                            0.60 -1435.22988
-                            0.80 -1487.93482
-                            0.90 -1532.29859
-                            1.00 -1552.11947
-                            1.10 -1572.36818
-                            1.20 -1593.04560
-                            1.30 -1614.15258
-                            1.60 -1609.13046
-                            2.00 -1332.02599
-                            2.50 -1087.47818
-                            3.00 -928.15495
-                            4.00 -730.66721
-                            5.00 -611.92733
+                            0.00 -1406.71457
+                            0.60 -1465.64053
+                            0.80 -1519.51723
+                            0.90 -1564.91704
+                            1.00 -1585.22057
+                            1.10 -1605.95371
+                            1.20 -1627.11732
+                            1.30 -1648.71226
+                            1.60 -1643.63032
+                            2.00 -1360.61875
+                            2.50 -1110.85218
+                            3.00 -948.12892
+                            4.00 -746.42670
+                            5.00 -625.15285
                         </tableData>
                     </table>
                 </product>
             </function>
             <function name="aero/coefficient/Cnr2">
                 <product>
-                    <value> -17.435621 </value>
+                    <value> -17.354816 </value>
                     <property>atmosphere/rho-slugs_ft3</property>
                     <property>velocities/r-aero-rad_sec</property>
                     <abs><property>velocities/r-aero-rad_sec</property></abs>

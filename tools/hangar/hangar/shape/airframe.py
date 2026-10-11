@@ -673,8 +673,8 @@ def airframe(aircraft, cell=None, error=None, gear=None, flaps=None, skin=None, 
                                      "root": {"op": "intersect", "k": 0.0, "children": [solid, region]}}))
         solid = {"op": "subtract", "k": 0.0, "a": solid, "b": union([region for _, region, _ in bays]),
                  "cut_material": METAL}
-    return {"cell": h, "error": error or 0.25 * h, "safety": 3.0, "sharp_deg": 48.0, "max_triangles": 75000,
-            "foils": foils.entries, "root": solid}
+    return {"cell": h, "error": error or 0.25 * h, "safety": 3.0, "sharp_deg": 48.0,
+            "max_triangles": int(getattr(aircraft, "triangles", None) or 75000), "foils": foils.entries, "root": solid}
 
 
 def control_pieces(aircraft, cell=None, error=None):

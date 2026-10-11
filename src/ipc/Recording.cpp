@@ -14,14 +14,25 @@ constexpr char kRecMagic[5] = {'F', 'S', 'R', 'E', 'C'};
 // 3: the vehicles' stores ('M' records); an older file has none
 // 4: the world's environment ('E' records); an older file has none
 // 5: engagement events ('V' records: MS-7h); an older file has none
-constexpr std::uint8_t kVersion = 5;
+// 6: a sample's CG from its model's origin (two more `derived` values, at its end); an older file's samples are that
+//    much shorter and theirs 0 - drawn as they were, each model's origin at its CG
+constexpr std::uint8_t kVersion = 6;
 constexpr std::size_t kStateV1 = offsetof(sim::VehicleState, engineRpm);
 static_assert(offsetof(VehicleSample, state) == 0, "a sample starts with its state");
+/// A sample's bytes before version 6: all but the `derived` values added since (they are its last).
+constexpr std::size_t kSampleV5 = offsetof(VehicleSample, derived) + kDerivedCountV7 * sizeof(double);
+static_assert(kSampleV5 + (kDerivedCount - kDerivedCountV7) * sizeof(double) == sizeof(VehicleSample), "a sample ends with its derived values");
 
-/// A version 1 sample: the old state, then the rest of the sample as it is.
+/// A version 2 to 5 sample: as it is now, less the values at its end.
+bool readSampleV5(std::FILE* f, VehicleSample& sample) {
+    sample = VehicleSample{};
+    return std::fread(static_cast<void*>(&sample), 1, kSampleV5, f) == kSampleV5;
+}
+
+/// A version 1 sample: the old state, then the rest of the sample as it was.
 bool readSampleV1(std::FILE* f, VehicleSample& sample) {
     sample = VehicleSample{};
-    constexpr std::size_t rest = sizeof(VehicleSample) - offsetof(VehicleSample, inputs);
+    constexpr std::size_t rest = kSampleV5 - offsetof(VehicleSample, inputs);
     constexpr std::size_t oldInputs = (kStateV1 + alignof(sim::ControlInputs) - 1) / alignof(sim::ControlInputs) *
                                       alignof(sim::ControlInputs);
     unsigned char buffer[sizeof(VehicleSample)];
@@ -183,7 +194,7 @@ bool Recording::load(const std::filesystem::path& path, std::string* error) {
             bool ok = true;
             for (auto& [slot, sample] : frame.samples) {
                 const bool read = std::fread(&slot, sizeof(slot), 1, f) == 1 &&
-                                  (version == 1 ? readSampleV1(f, sample) : std::fread(&sample, sizeof(sample), 1, f) == 1);
+                                  (version == 1 ? readSampleV1(f, sample) : version < 6 ? readSampleV5(f, sample) : std::fread(&sample, sizeof(sample), 1, f) == 1);
                 if (!read) { ok = false; break; }
             }
             if (!ok) break;

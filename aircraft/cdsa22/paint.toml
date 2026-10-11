@@ -1,0 +1,7 @@
+# CDS bundle (A-22)'s paint, by one rule for every cargo (tools/hangar/hangar/storedesigns.py): one colour overall
+[paint]
+scheme = "single"
+colours = ["#5c6142"]
+panel_lines = 0.0
+wear = 0.03
+gloss = 0.3

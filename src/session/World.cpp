@@ -2189,7 +2189,8 @@ void World::fillStatus() {
         d[ipc::kDerivedBankCapRad] = e->stack.bankCapRad();
         d[ipc::kDerivedConstraints] = static_cast<double>(e->host.constraints());
         d[ipc::kDerivedLoadRatio] = p.loadSpeedRatio;
-        d[7] = 0.0;
+        // where its CG is from its model's origin: what the viewer hangs its picture from (its stores on their stations)
+        pool_->vehicle(e->slot).cgFromOriginBodyM(d + ipc::kDerivedCgFromOriginM);
     }
 }
 
@@ -2555,6 +2556,8 @@ void World::recordFrame() {
         ipc::VehicleSample v;
         v.state = states[s];
         v.inputs = entries_[s]->inputs;
+        // (a replay draws it as a live viewer does: its model hung from its origin)
+        pool_->vehicle(entries_[s]->slot).cgFromOriginBodyM(v.derived + ipc::kDerivedCgFromOriginM);
         samples.emplace_back(static_cast<std::uint32_t>(s), v);
     }
 
