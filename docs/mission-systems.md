@@ -647,7 +647,6 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
     - Pods as stores: five cards (ALQ-184, ALQ-131, LITENING, ATFLIR, Damocles), a `pods` loadout on six aircraft,
       their own flight models once jettisoned. An ALQ-184 on an F-16C's centreline: 22.4 against RAND's 29.
     - Every tank and pod of every loadout, jettisoned, flies on with its mass (tests/test_stores.cpp: 46 stores).
-    - Not built: flight models for the air-to-air missiles (stopped by the assistant's safety filter, 2026-10-10).
 - **MS-7h, the detonation (2026-10-09).** The engagement's events in a recording (`V` records, format 5:
   `ipc::EngagementEvent`, one plain layout for every kind - a detonation now, a component's failure, a breakup and chaff
   to come), as MS-7d's fuze will write them; the showcase scripts one (`--detonate-s`: the missile ends there, as
@@ -730,6 +729,37 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   wings and tail - triangle by triangle, so whole it is as it was - each closed over its break, a node at its break
   with what is mounted on it ([hangar.md](hangar.md#the-3d-model)): the pieces MS-7g's structural kill and MS-7h's
   breakup part. The rule is one estimate for every aircraft (no structural data).
+
+- **MS-4b done (2026-10-11): the radar's engagement modes**
+  ([sdk/mission-systems.md](sdk/mission-systems.md#engagement-modes-ms-4b)). A-GRA's AMTI capabilities beside the
+  volume search, read from its schema (`AMTI_CapabilityEnum`: VOLUME, CUED, TRACK; `TargetVolume` a sensor volume or
+  an entity; the sub-capability ACTIVE_TRACK_UPDATE):
+  - **Track:** one of the radar's tracks followed - the scan's volume kept on it (track-while-scan; an electronic
+    array's own looks at it between its search dwells), or every dwell on it (single-target track).
+  - **Cued:** a small volume searched and what is found acquired - a detection looked at again until its track is
+    confirmed, then tracked alone. A fighter's boresight and vertical scan are such volumes (`ms::acmCommand`).
+  - **Illumination:** single-target track may light its target for a semi-active missile - the SDK's own field,
+    said so (A-GRA has none). It ends with the track: the missile loses its target when the radar does.
+  - **Loss:** a dwell on a track is the radar equation, the clutter and the draw of any dwell. A target in the notch,
+    past the antenna's stop or masked is not detected; its track is kept for the memory time (3 s, assumed) and then
+    dropped, the activity failed `track_lost`, the radar stopped. Nothing reverts by itself (ADR-31, B6: what to do
+    next is the agent's decision).
+  - **Found on the way:** a step's dwells measured the step's places and stamped them with their own earlier times -
+    metres of range at a closing speed, more than a strong return's error; every dwell on one target, its detections
+    no longer fell inside its own track. Each dwell now takes the places back along their velocities to its time.
+  - **The SDK:** `AmtiCommand`'s task, track, illumination and volume height; `RadarStatus`'s task, designated track,
+    acquisition and illumination; C ABI 1.70; Python `amti_track`, `amti_acquire`; the agents' calls. The viewer's
+    radar window marks the followed track and names the mode, the acquisition and the illumination (the shared
+    record's reserved fields: no layout change).
+  - **Tests** (`test_radar_modes.cpp`, 7 cases; `test_c_abi.c`; `test_radar.py`): the beam on the target within a
+    quarter of its width and a detection every dwell; one track, not several; the track 5 times better than a scan's;
+    lost at the memory time after the target is notched, kept through the same turn above the horizon; lost at the
+    antenna's stop; a track-while-scan volume following a target out of where a fixed one loses it; an electronic
+    array's update every second; boresight, vertical scan, the nearer of two, nothing where nothing is; through the
+    World, the status, the viewers' record, the activity's failure, the same run from the same seed.
+  - **Left:** the modes at the signal level; an angle error's floor for strong returns (backlog B-66); the cards give
+    no memory time or track-update interval of their own (the assumptions above); the air-combat volumes' figures
+    are not from a primary source (B-67).
 
 ### MS-7 planned (2026-10-07)
 
@@ -830,7 +860,7 @@ the missiles, their detonations, the hit aircraft's fire and smoke, the chaff (M
 
 **What M1 needs that no stage held** (found comparing the platform with DCS World, War Thunder and Ace Combat):
 
-- **MS-4b - radar engagement modes.** Section 5 lists RWS, TWS, STT and ACM; MS-4 built the search modes only
+- **MS-4b - radar engagement modes (done 2026-10-11, above).** Section 5 lists RWS, TWS, STT and ACM; MS-4 built the search modes only
   (`AmtiMode`). Added: a designated track the radar follows (a TWS volume kept on it), single-target track with
   illumination (what a semi-active missile homes on; the missile loses its target when the radar does), and ACM
   acquisition (boresight and vertical scan). Carried in A-GRA's AMTI command where it has the content, an SDK extension

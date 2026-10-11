@@ -379,7 +379,8 @@ or hides the windows; each window collapses from its title bar):
   Detections fade over two frames, green closing and amber opening; hover one for its range, angles, rate and SNR.
   Its tracks are boxes with their numbers, a line along each one's course (its length the speed), fading when a
   track has gone two frames without an update; hover one for its updates, range, angles, rates and uncertainty. The
-  "hits" box hides the detections, leaving the tracks.
+  "hits" box hides the detections, leaving the tracks. The track the radar follows (MS-4b) carries a diamond, and the
+  header its number, an acquisition's state and the illumination ([engagement modes](#engagement-modes-ms-4b)).
 
 The windows read the world's shared memory: each vehicle's record holds its payloads, its radars' newest 96
 detections and their first 48 tracks, and the first radar at the signal level's range-Doppler map, written by the
@@ -424,6 +425,84 @@ In C++: `Vehicle::amtiTracks(payload)` (`ms::AmtiTrack`, its ECEF state and cova
 - **`truth`** names the entity whose detection last updated the track (0: a false alarm) - for scoring.
 - **Deferred:** an IMM (Stone Soup 1.9.1 has none to check a port against) and fusion across sensors, which needs a
   second sensor or a data link (MS-9 to MS-11).
+
+## Engagement modes (MS-4b)
+
+A radar that holds a track can be told to follow it, and one that holds none to find a target and take it: A-GRA's
+other two AMTI capabilities beside the volume search (`AMTI_CapabilityEnum`: VOLUME, CUED, TRACK; a command's
+`TargetVolume` a sensor-referenced volume or an entity).
+
+```python
+track = min(v.amti_tracks("radar"), key=lambda t: t.range_m)
+v.amti_track(track, mode="track_while_scan",              # the scan's volume kept on it
+             azimuth_half_width_rad=math.radians(10), bars=2)
+a = v.amti_track(track, illuminate=True)                  # single-target track: every dwell on it, the target lit
+s = v.radar_status("radar")                               # s.task TRACK, s.mode SINGLE_TARGET_TRACK,
+                                                          # s.designated_track == track.id, s.illuminating
+v.amti_acquire("radar", pattern="boresight")              # air-combat acquisition: what is on the nose, to 10 nmi
+v.amti_acquire("radar", pattern="vertical_scan")          # 10 deg wide, 10 deg below the nose to 50 deg above
+v.amti_acquire("radar", track=track.id,                   # a small volume about a track it holds
+               azimuth_half_width_rad=math.radians(3), range_scale_m=80e3)
+v.mission_activity(a).reason                              # "track_lost" once the radar has lost the target
+```
+
+In C++: `ms::AmtiCommand`'s `task` (`ms::AmtiTask`), `track`, `illuminate` and `elevationHalfWidthRad`,
+`ms::acmCommand(payload, pattern)`, and `ms::RadarStatus`'s `task`, `designatedTrack`, `acquiring`, `illuminating`
+and `trackMemoryS`. In C (ABI 1.70): the same fields in `fsim_amti_command` and `fsim_radar_status`,
+`fsim_amti_command_acm`, `fsim_amti_task_name`; `fsim_vehicle_amti_search` carries all three tasks (a caller's
+struct from before them is a volume's search). An agent has the same calls (`Agent.amti_track`, `amti_acquire`).
+
+- **Track, track-while-scan:** the scan goes on - its width and bars as the command gives them - and each frame's
+  volume is put about the track, inside the antenna's reach; the other targets in the volume are tracked too. An
+  electronic array also looks at the track between two of its search dwells, no longer apart than its card's
+  `track_update_s` (1 s, an assumption) - A-GRA's ACTIVE_TRACK_UPDATE; a mechanical antenna sees it once a frame.
+  An F-22A's radar searching +-60 deg in 4 bars (a 4.6 s frame) updates its designated track every second; the same
+  scan without one left that track up to 3.5 s between updates.
+- **Track, single-target track:** every dwell on the track, the beam where the track says the target is - as far as
+  the antenna reaches. An F-16C's radar on a fighter at 34 km: 24 detections a second, its track's position to 4 m
+  where the scan's had it to 23 m (`test_radar_modes.cpp`). The other track files lapse: the radar no longer looks
+  at them.
+- **Cued:** a small volume searched for one target - as the command gives it, or put about a track the radar holds.
+  The nearest detection of a dwell is looked at again, the beam on where it was measured, until its track is confirmed
+  (3 detections) or 8 dwells have gone by; confirmed, that track is followed alone: the task becomes Track, the mode
+  single-target track, the activity the same one. Of several confirmed in one dwell the nearest is taken (or the
+  track cued on). `acmCommand` gives a fighter's air-combat volumes: boresight (one beam along the nose) and vertical
+  scan (10 deg wide, from 10 deg below the nose to 50 deg above it), both to 10 nmi - the F-16's ACM submodes as
+  public descriptions give them, not read from a primary source. A volume taller than eight bars gives its half
+  height (`elevation_half_width_rad`): as many bars as cover it.
+- **Nothing is given to a track.** A dwell on a track is a dwell: the same radar equation, clutter and draw as a
+  search's. So a target that turns across the line of sight below the horizon is notched out with the ground the
+  beam meets; one that passes the antenna's stop leaves the beam; one behind a ridge returns nothing. Its track is
+  then kept for the radar's memory time (`RadarStatus.track_memory_s`; the card's `track_memory_s`, 3 s where it
+  gives none - an assumption: public descriptions of fighter radars' memory give a few seconds) and the beam goes on
+  pointing where the track says. Not updated in that time the track is dropped, the radar stops, and the activity
+  ends Failed, `track_lost`. What the radar does next is its controller's decision: nothing reverts to a search by
+  itself. A fighter 25 km ahead and 4 km below, turning 6 g across the line of sight, is notched 4.8 s into its turn
+  and lost 3.0 s later; the same turn 4 km above - no ground in the beam - is followed, the same track through it.
+  One that passes the antenna's 60 deg stop is lost 3.8 s after (its last detections in the beam's skirt).
+- **Illumination** (`illuminate`; an SDK extension - A-GRA's AMTI command has nothing for it): in single-target track
+  the radar lights its target for a semi-active missile. `RadarStatus.illuminating` says so; it lasts while the track
+  does - through the memory time too, the beam still on the track - and ends with it. The illumination is the
+  radar's own waveform at its average power through its antenna (no separate continuous-wave transmitter is
+  modelled: an assumption, after the pulse-Doppler illumination the later Sparrows and the R-27R are described as
+  using). MS-7d's semi-active seeker reads it; a scan lights nothing (`invalid_parameter`).
+- **Refusals:** `unknown_track` - a track or cued command naming a track the radar does not hold; `invalid_parameter`
+  - a track command without a track or in a search mode, a volume in single-target track, a cued search in velocity
+  search (high PRF: no range, no tracks), illumination outside single-target track, any of them for a rotodome (an
+  early-warning radar searches) or at the signal level.
+- **A dwell's own time.** A step's dwells are all given the step's states; a dwell that ended earlier in the step
+  now takes each place back along its velocity to its own time. Before, a detection's range was that of up to a step
+  later than its stamp - the closing speed times the difference, metres - where a strong return is measured to less
+  than one: nothing a scan's tracks noticed, but dwell after dwell on one target its detections fell outside the
+  track they had made and began others.
+- **Not yet:** the modes at the signal level (MS-6's samples and processing: the detection level only); an angle
+  error's floor - a strong return's track is as good as its SNR says, with no glint and no boresight error
+  ([backlog](../backlog.md), B-66); a home-on-jam or flood mode; what the tracked aircraft's warning receiver makes of
+  being tracked (MS-9a).
+
+In the viewer the radar's window names the mode (STT) and, for an acquisition, whether it searches or looks again at
+a detection; the track it follows carries a diamond and its number is in the header, with ILLUMINATING while the
+radar lights it; every dwell on one place, the header gives the dwell in place of the frame.
 
 ## Stores and weapon employment (MS-7a)
 

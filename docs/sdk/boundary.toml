@@ -461,7 +461,9 @@ names = [
     "fsim.agent.Agent.airfield",
     "fsim.agent.Agent.airfields",
     "fsim.agent.Agent.amti_detections",
+    "fsim.agent.Agent.amti_acquire",
     "fsim.agent.Agent.amti_search",
+    "fsim.agent.Agent.amti_track",
     "fsim.agent.Agent.amti_tracks",
     "fsim.agent.Agent.availability",
     "fsim.agent.Agent.behavior_finished",
@@ -788,7 +790,9 @@ names = [
     "fsim.world.Vehicle.airfield",
     "fsim.world.Vehicle.airfields",
     "fsim.world.Vehicle.amti_detections",
+    "fsim.world.Vehicle.amti_acquire",
     "fsim.world.Vehicle.amti_search",
+    "fsim.world.Vehicle.amti_track",
     "fsim.world.Vehicle.amti_tracks",
     "fsim.world.Vehicle.availability",
     "fsim.world.Vehicle.behavior_finished",
@@ -1154,7 +1158,7 @@ principal = "value"
 note = "Names, descriptions and struct initialisers"
 names = [
     "fsim_activity_basis_name", "fsim_activity_command_name", "fsim_activity_state_name", "fsim_activity_wait_name",
-    "fsim_activity_envelope_init", "fsim_activity_progress_init", "fsim_ms_activity_info_init",
+    "fsim_activity_envelope_init", "fsim_activity_progress_init", "fsim_amti_command_acm", "fsim_ms_activity_info_init",
     "fsim_ms_capability_info_init", "fsim_ms_options_init", "fsim_ms_result_init", "fsim_ms_reason_name",
     "fsim_ms_reason_description", "fsim_ms_capability_type_id", "fsim_strike_command_init", "fsim_strike_phase_name",
     "fsim_strike_status_init", "fsim_world_options_init", "fsim_vehicle_spec_init", "fsim_vision_options_init",
@@ -1167,7 +1171,7 @@ names = [
     "fsim::control::reasonName", "fsim::control::requirementKindName", "fsim::control::ruleDescription",
     "fsim::control::ruleName", "fsim::control::sectionHeader", "fsim::control::supportName",
     "fsim::control::taskStateName", "fsim::control::timeCriticalityName",
-    "fsim::ms::amtiModeName", "fsim::ms::capabilityTypeId", "fsim::ms::familyName", "fsim::ms::payloadStateName",
+    "fsim::ms::acmCommand", "fsim::ms::amtiModeName", "fsim::ms::amtiTaskName", "fsim::ms::capabilityTypeId", "fsim::ms::familyName", "fsim::ms::payloadStateName",
     "fsim::ms::reasonDescription", "fsim::ms::reasonName", "fsim::ms::roleName", "fsim::ms::storeStatusName",
     "fsim::ms::strikePhaseName", "fsim::ms::weaponEndName",
 ]

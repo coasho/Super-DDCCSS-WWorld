@@ -5359,6 +5359,19 @@ FSIM_API void fsim_amti_command_init(fsim_amti_command* command) {
     command->mode = static_cast<int32_t>(d.mode), command->bars = d.bars;
     command->azimuth_centre_rad = d.azimuthCentreRad, command->azimuth_half_width_rad = d.azimuthHalfWidthRad;
     command->elevation_centre_rad = d.elevationCentreRad, command->range_scale_m = d.rangeScaleM;
+    command->task = static_cast<int32_t>(d.task), command->elevation_half_width_rad = d.elevationHalfWidthRad;
+}
+
+FSIM_API int fsim_amti_command_acm(fsim_amti_command* command, int pattern) {
+    if (!command || command->struct_size < sizeof(fsim_amti_command) || pattern < 0 ||
+        pattern > static_cast<int>(fsim::ms::AcmPattern::VerticalScan))
+        return fail(FSIM_INVALID_ARGUMENT, "fsim_amti_command_acm: bad arguments");
+    const fsim::ms::AmtiCommand d = fsim::ms::acmCommand(0, static_cast<fsim::ms::AcmPattern>(pattern));
+    command->mode = static_cast<int32_t>(d.mode), command->bars = d.bars, command->task = static_cast<int32_t>(d.task);
+    command->azimuth_centre_rad = d.azimuthCentreRad, command->azimuth_half_width_rad = d.azimuthHalfWidthRad;
+    command->elevation_centre_rad = d.elevationCentreRad, command->elevation_half_width_rad = d.elevationHalfWidthRad;
+    command->range_scale_m = d.rangeScaleM, command->signal_level = 0, command->track = 0;
+    return FSIM_OK;
 }
 FSIM_API void fsim_amti_detection_init(fsim_amti_detection* detection) {
     if (detection) *detection = fsim_amti_detection{}, detection->struct_size = sizeof *detection;
@@ -5376,13 +5389,20 @@ FSIM_API int fsim_vehicle_amti_search(fsim_world* world, uint32_t id, const fsim
         return fail(FSIM_INVALID_ARGUMENT, "fsim_vehicle_amti_search: bad arguments");
     fsim::ms::AmtiCommand c;
     c.payload = static_cast<std::uint16_t>(command->payload);
-    if (command->mode < 0 || command->mode > static_cast<int32_t>(fsim::ms::AmtiMode::Surveillance))
+    if (command->mode < 0 || command->mode > static_cast<int32_t>(fsim::ms::AmtiMode::SingleTargetTrack))
         return fail(FSIM_INVALID_ARGUMENT, "fsim_vehicle_amti_search: unknown mode");
     c.mode = static_cast<fsim::ms::AmtiMode>(command->mode);
     c.bars = command->bars;
     c.azimuthCentreRad = command->azimuth_centre_rad, c.azimuthHalfWidthRad = command->azimuth_half_width_rad;
     c.elevationCentreRad = command->elevation_centre_rad, c.rangeScaleM = command->range_scale_m;
     if (command->struct_size >= offsetof(fsim_amti_command, signal_level) + sizeof command->signal_level) c.signalLevel = command->signal_level != 0;
+    // (a caller from before ABI 1.70 has none of MS-4b's: a volume's search)
+    if (command->struct_size >= offsetof(fsim_amti_command, elevation_half_width_rad) + sizeof command->elevation_half_width_rad) {
+        if (command->task < 0 || command->task > static_cast<int32_t>(fsim::ms::AmtiTask::Track))
+            return fail(FSIM_INVALID_ARGUMENT, "fsim_vehicle_amti_search: unknown task");
+        c.task = static_cast<fsim::ms::AmtiTask>(command->task);
+        c.track = command->track, c.illuminate = command->illuminate != 0, c.elevationHalfWidthRad = command->elevation_half_width_rad;
+    }
     return msResult(world->world.submit(id, c, msOptions(world, options)), result);
 }
 
@@ -5405,6 +5425,8 @@ FSIM_API int fsim_vehicle_radar_status(const fsim_world* world, uint32_t id, uin
     c.dwells = s.dwells, c.detections = s.detections;
     c.false_alarms = s.falseAlarms, c.tracks = s.tracks, c.tentative_tracks = s.tentativeTracks;
     c.signal_level = s.signalLevel ? 1 : 0;
+    c.task = static_cast<int32_t>(s.task), c.designated_track = s.designatedTrack;
+    c.acquiring = s.acquiring ? 1 : 0, c.illuminating = s.illuminating ? 1 : 0, c.track_memory_s = s.trackMemoryS;
     return copyOut(c, out) ? FSIM_OK : FSIM_INVALID_ARGUMENT;
 }
 
@@ -5464,8 +5486,13 @@ FSIM_API int fsim_vehicle_amti_detections(const fsim_world* world, uint32_t id, 
 }
 
 FSIM_API const char* fsim_amti_mode_name(int mode) {
-    if (mode < 0 || mode > static_cast<int>(fsim::ms::AmtiMode::Surveillance)) return "";
+    if (mode < 0 || mode > static_cast<int>(fsim::ms::AmtiMode::SingleTargetTrack)) return "";
     return fsim::ms::amtiModeName(static_cast<fsim::ms::AmtiMode>(mode));
+}
+
+FSIM_API const char* fsim_amti_task_name(int task) {
+    if (task < 0 || task > static_cast<int>(fsim::ms::AmtiTask::Track)) return "";
+    return fsim::ms::amtiTaskName(static_cast<fsim::ms::AmtiTask>(task));
 }
 
 // --- Radar cross section (ABI 1.51; ADR-30 MS-3) ---------------------------------------

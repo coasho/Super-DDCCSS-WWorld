@@ -64,6 +64,7 @@ add_executable(fsim_tests
     test_stores.cpp
     test_rcs_table.cpp
     test_radar.cpp
+    test_radar_modes.cpp
     test_rf_terrain_profile.cpp
     test_track.cpp
     test_signal.cpp

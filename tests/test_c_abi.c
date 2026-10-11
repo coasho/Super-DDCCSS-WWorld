@@ -3050,6 +3050,59 @@ int main(int argc, char** argv) {
         CHECK(fsim_vehicle_radar_status(world, jet, 0, &rs) == FSIM_OK);
         CHECK(fsim_ms_activity_cancel(world, rs.activity, NULL, &mr) == FSIM_OK && mr.status == FSIM_COMMAND_CANCELED);
         CHECK(fsim_vehicle_radar_status(world, jet, 0, &rs) == FSIM_OK && rs.searching == 0 && rs.activity == 0);
+        /* ABI 1.70 (MS-4b): its engagement modes - a track it holds followed alone and lit; a track it does not hold
+           refused; a caller's command from before them a volume's search; an air-combat acquisition's command */
+        {
+            fsim_amti_command tc, old;
+            uint64_t tid = 0;
+            CHECK(fsim_vehicle_amti_tracks(world, jet, 0, trk, 8, &count) == FSIM_OK);
+            for (k = 0; k < count && k < 8; ++k)
+                if (trk[k].truth == other) tid = trk[k].id;
+            CHECK(tid != 0);
+            fsim_amti_command_init(&tc);
+            CHECK(tc.struct_size == sizeof tc && tc.task == FSIM_AMTI_VOLUME && tc.track == 0 && tc.illuminate == 0 &&
+                  isnan(tc.elevation_half_width_rad));
+            tc.task = FSIM_AMTI_TRACK, tc.mode = FSIM_AMTI_SINGLE_TARGET_TRACK, tc.track = tid + 1000;
+            CHECK(fsim_vehicle_amti_search(world, jet, &tc, NULL, &mr) == FSIM_OK && mr.status == FSIM_COMMAND_REJECTED &&
+                  strcmp(fsim_ms_reason_name(mr.reason), "unknown_track") == 0);
+            tc.track = tid, tc.illuminate = 1;
+            CHECK(fsim_vehicle_amti_search(world, jet, &tc, NULL, &mr) == FSIM_OK && mr.status == FSIM_COMMAND_ACCEPTED && mr.activity != 0);
+            CHECK(fsim_world_step(world, 60) == FSIM_OK);
+            fsim_radar_status_init(&rs);
+            CHECK(fsim_vehicle_radar_status(world, jet, 0, &rs) == FSIM_OK && rs.searching == 1 && rs.activity == mr.activity &&
+                  rs.mode == FSIM_AMTI_SINGLE_TARGET_TRACK && rs.task == FSIM_AMTI_TRACK && rs.designated_track == tid &&
+                  rs.illuminating == 1 && rs.acquiring == 0 && rs.track_memory_s == 3.0 && rs.bars == 1);
+            CHECK(strcmp(fsim_amti_mode_name(rs.mode), "single_target_track") == 0 && strcmp(fsim_amti_task_name(rs.task), "track") == 0);
+            CHECK(strcmp(fsim_amti_task_name(FSIM_AMTI_CUED), "cued") == 0 && strcmp(fsim_amti_task_name(9), "") == 0);
+            {
+                /* a caller built before them writes none: its status as it was, to the size it gives */
+                fsim_radar_status before;
+                memset(&before, 0, sizeof before);
+                before.struct_size = (uint32_t)offsetof(fsim_radar_status, task);
+                before.designated_track = 5;
+                CHECK(fsim_vehicle_radar_status(world, jet, 0, &before) == FSIM_OK && before.mode == FSIM_AMTI_SINGLE_TARGET_TRACK &&
+                      before.designated_track == 5);
+            }
+            old = tc; /* (its struct ends before the task: what lies past it is not read) */
+            old.struct_size = (uint32_t)offsetof(fsim_amti_command, reserved);
+            old.mode = FSIM_AMTI_RANGE_WHILE_SEARCH;
+            CHECK(fsim_vehicle_amti_search(world, jet, &old, NULL, &mr) == FSIM_OK && mr.status == FSIM_COMMAND_ACCEPTED);
+            CHECK(fsim_vehicle_radar_status(world, jet, 0, &rs) == FSIM_OK && rs.searching == 1 && rs.task == FSIM_AMTI_VOLUME &&
+                  rs.mode == FSIM_AMTI_RANGE_WHILE_SEARCH && rs.designated_track == 0 && rs.illuminating == 0);
+            fsim_amti_command_init(&tc);
+            tc.payload = 0;
+            CHECK(fsim_amti_command_acm(&tc, FSIM_ACM_VERTICAL_SCAN) == FSIM_OK && tc.task == FSIM_AMTI_CUED && tc.range_scale_m == 18520.0 &&
+                  tc.elevation_half_width_rad > 0.5 && tc.elevation_centre_rad > 0.3 && tc.struct_size == sizeof tc);
+            CHECK(fsim_amti_command_acm(&tc, 7) == FSIM_INVALID_ARGUMENT);
+            CHECK(fsim_amti_command_acm(&tc, FSIM_ACM_BORESIGHT) == FSIM_OK && isnan(tc.elevation_half_width_rad) && tc.bars == 1);
+            /* (the bandit is beyond the acquisition's 10 nmi: it searches, and has nothing yet) */
+            CHECK(fsim_vehicle_amti_search(world, jet, &tc, NULL, &mr) == FSIM_OK && mr.status == FSIM_COMMAND_ACCEPTED);
+            CHECK(fsim_world_step(world, 30) == FSIM_OK);
+            CHECK(fsim_vehicle_radar_status(world, jet, 0, &rs) == FSIM_OK && rs.searching == 1 && rs.task == FSIM_AMTI_CUED &&
+                  rs.designated_track == 0 && rs.illuminating == 0);
+            CHECK(fsim_ms_activity_cancel(world, rs.activity, NULL, &mr) == FSIM_OK && mr.status == FSIM_COMMAND_CANCELED);
+            CHECK(fsim_vehicle_radar_status(world, jet, 0, &rs) == FSIM_OK && rs.searching == 0);
+        }
         /* ABI 1.56 (MS-7a): its stores - empty, then its loadout; a strike asking for consent, given; an emergency jettison */
         {
             const uint32_t stations = 4; /* (the F-16C's fit: radar, rwr, cmds, gun, stations, ews) */

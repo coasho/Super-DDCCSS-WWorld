@@ -102,6 +102,9 @@ Spec specOf(const Card& c) {
     s.trackGate = c.value("track_gate", s.trackGate);
     s.trackConfirm = static_cast<int>(c.value("track_confirm", s.trackConfirm));
     s.trackDropLooks = static_cast<int>(c.value("track_drop_looks", s.trackDropLooks));
+    s.trackMemoryS = c.value("track_memory_s", s.trackMemoryS);
+    s.trackUpdateS = c.value("track_update_s", s.trackUpdateS);
+    s.acquireDwells = static_cast<int>(c.value("acquire_dwells", s.acquireDwells));
     s.ok = true;
     return s;
 }
@@ -177,13 +180,93 @@ void Radar::clearTracks() {
 
 void Radar::search(const Search& s, double simTime) {
     search_ = s;
-    if (spec_.rotationRpm > 0.0) search_.mode = Mode::Surveillance;
+    if (spec_.rotationRpm > 0.0) search_.mode = Mode::Surveillance, search_.task = Task::Volume;
+    task_ = search_.task;
+    designated_ = task_ == Task::Track ? search_.track : 0;
+    lost_ = acquiring_ = false;
+    acquireLeft_ = 0;
     plan();
-    // a track not updated for its drop looks' frames, and one more, is dropped - one that left the scan's coverage too
-    tracker_.setCoast((spec_.trackDropLooks + 1) * framePeriod_);
+    waveform_ = signal::mediumPrf(spec_.frequencyHz, dwellS_, spec_.mediumPrfs, spec_.mediumM, spec_.rangeResolutionM, kDuty);
+    // a track not updated for its drop looks' frames, and one more, is dropped - one that left the scan's coverage too.
+    // Every dwell on one track, it goes by the radar's memory time instead; an acquisition's small volume (a frame of
+    // a few dwells) keeps the tracks it had for that long at least.
+    const double scan = (spec_.trackDropLooks + 1) * framePeriod_;
+    tracker_.setCoast(staring() ? spec_.trackMemoryS : task_ == Task::Volume ? scan : std::max(scan, spec_.trackMemoryS));
     if (!active_) clock_ = simTime; // (a running scan carries on from where it is: its next dwell on the new pattern)
     next_ = 0;
+    trackDwellAt_ = clock_;
     active_ = true;
+}
+
+const track::Track* Radar::held(std::uint64_t id) const noexcept {
+    if (id)
+        for (const auto& t : tracker_.tracks())
+            if (t.id == id) return &t;
+    return nullptr;
+}
+
+bool Radar::hasTrack(std::uint64_t id) const noexcept { return held(id) != nullptr; }
+
+bool Radar::bearing(std::uint64_t id, double time, const sim::VehicleState& own, double& az, double& el) const {
+    const track::Track* t = held(id);
+    if (!t) return false;
+    const track::Gaussian& g = t->state();
+    const double dt = time - g.t;
+    double d[3];
+    for (std::size_t i = 0; i < 3; ++i) d[i] = g.x.a[2 * i] + g.x.a[2 * i + 1] * dt - own.positionEcef[i];
+    double r[9];
+    sim::attitude::bodyToEcefFromQuaternion(own.attitudeEcefToBody, r);
+    const double db[3] = {r[0] * d[0] + r[3] * d[1] + r[6] * d[2], r[1] * d[0] + r[4] * d[1] + r[7] * d[2], r[2] * d[0] + r[5] * d[1] + r[8] * d[2]};
+    az = std::atan2(db[1], db[0]);
+    el = std::atan2(-db[2], std::hypot(db[0], db[1]));
+    return true;
+}
+
+void Radar::recentre(double az, double el) {
+    const double limAz = spec_.azimuthLimitDeg * kDeg, limEl = spec_.elevationLimitDeg * kDeg;
+    const double half = std::min(search_.azimuthHalfWidthRad, limAz);
+    search_.azimuthCentreRad = std::clamp(az, -limAz + half, limAz - half); // (the whole volume inside its field of regard)
+    search_.elevationCentreRad = std::clamp(el, -limEl, limEl);
+    plan();
+}
+
+void Radar::stare(std::uint64_t id) {
+    task_ = Task::Track;
+    search_.mode = Mode::SingleTargetTrack;
+    designated_ = id;
+    acquiring_ = false;
+    tracker_.setCoast(spec_.trackMemoryS);
+}
+
+void Radar::acquire(double time, const sim::VehicleState& own, std::uint64_t firstNew) {
+    // acquired: a confirmed track this dwell updated - the one it was cued on, else the nearest
+    const track::Track* best = nullptr;
+    double bestRange = std::numeric_limits<double>::infinity();
+    for (const auto& t : tracker_.tracks()) {
+        if (t.lastUpdateT != time) continue;
+        if (search_.track && t.id == search_.track) {
+            best = &t;
+            break;
+        }
+        const track::Gaussian& g = t.state();
+        const double d[3] = {g.x.a[0] - own.positionEcef[0], g.x.a[2] - own.positionEcef[1], g.x.a[4] - own.positionEcef[2]};
+        const double range = std::sqrt(dot(d, d));
+        if (range < bestRange) bestRange = range, best = &t;
+    }
+    if (best) return stare(best->id);
+    // not yet: the dwell's nearest detection is looked at again, where it was measured - for a few dwells, each with a
+    // detection moving the beam onto it; then the scan again, from where it left it
+    const Detection* nearest = nullptr;
+    for (auto it = detections_.rbegin(); it != detections_.rend() && it->serial >= firstNew; ++it)
+        if (!nearest || it->rangeM < nearest->rangeM) nearest = &*it;
+    const bool was = acquiring_;
+    if (nearest) {
+        const double limAz = spec_.azimuthLimitDeg * kDeg, limEl = spec_.elevationLimitDeg * kDeg;
+        if (!was) acquireLeft_ = std::max(1, spec_.acquireDwells);
+        acquiring_ = true;
+        acquireAz_ = std::clamp(nearest->azimuthRad, -limAz, limAz), acquireEl_ = std::clamp(nearest->elevationRad, -limEl, limEl);
+    }
+    if (was && --acquireLeft_ <= 0) acquiring_ = false;
 }
 
 double Radar::nominalDwellS() const noexcept {
@@ -200,7 +283,10 @@ void Radar::plan() {
     const bool electronic = spec_.aperture.electronic && spec_.rotationRpm <= 0.0;
     const double stepAz = (electronic ? 0.8 : 1.0) * bwAz, stepEl = 0.8 * bwEl;
     const double limAz = spec_.azimuthLimitDeg * kDeg, limEl = spec_.elevationLimitDeg * kDeg;
-    const int bars = std::max(1, search_.bars);
+    int bars = std::max(1, search_.bars);
+    if (std::isfinite(search_.elevationHalfWidthRad) && spec_.rotationRpm <= 0.0) // (a volume's height given: the bars that cover it)
+        bars = std::clamp(static_cast<int>(std::ceil(2.0 * search_.elevationHalfWidthRad / stepEl - 1e-9)), 1, 64);
+    bars_ = bars;
     if (spec_.rotationRpm > 0.0) { // a rotodome: 360 deg, its bars stacked electronically at each azimuth
         const auto n = static_cast<int>(std::ceil(2.0 * kPi / stepAz));
         for (int i = 0; i < n; ++i)
@@ -222,7 +308,6 @@ void Radar::plan() {
         dwellS_ = nominalDwellS();
     }
     framePeriod_ = dwellS_ * static_cast<double>(positions_.size());
-    waveform_ = signal::mediumPrf(spec_.frequencyHz, dwellS_, spec_.mediumPrfs, spec_.mediumM, spec_.rangeResolutionM, kDuty);
 }
 
 double Radar::snrDb(double sigma, double range) const noexcept {
@@ -282,17 +367,52 @@ double Radar::detectionRangeM(double sigma, double pd, int fluctuation, Mode mod
     return 1000.0 * std::pow(10.0, (snrDb(sigma, 1000.0) - need) / 40.0);
 }
 
-void Radar::step(double simTime, const sim::VehicleState& own, const Scene& scene) {
+void Radar::step(double simTime, const sim::VehicleState& carrier, const Scene& scene) {
     if (!active_ || positions_.empty()) return;
     // the dwells that end by now, each at its beam position (a mechanical antenna's sweep taken a beamwidth at a time)
+    const double limAz = spec_.rotationRpm > 0.0 ? kPi : spec_.azimuthLimitDeg * kDeg, limEl = spec_.elevationLimitDeg * kDeg;
+    // the carrier at each dwell's own time: its state is the step's, a dwell ends up to a step before it (lag_)
+    const sim::VehicleState& now = carrier;
+    sim::VehicleState own = now;
+    double vNow[3];
+    velocityEcef(now, vNow);
     int guard = 0;
     while (clock_ + dwellS_ <= simTime + 1e-12 && guard++ < 100000) {
         clock_ += dwellS_;
-        const auto& [az, el] = positions_[next_];
+        lag_ = std::max(0.0, simTime - clock_);
+        for (int i = 0; i < 3; ++i) own.positionEcef[i] = now.positionEcef[i] - vNow[i] * lag_;
+        double az = 0.0, el = 0.0;
+        if (staring()) {
+            // single-target track: the beam where the track says the target is - as far as the antenna reaches
+            if (!bearing(designated_, clock_, own, az, el)) return lose();
+            az = std::clamp(az, -limAz, limAz), el = std::clamp(el, -limEl, limEl);
+        } else if (acquiring_) {
+            az = acquireAz_, el = acquireEl_;
+        } else {
+            if (designated_ && !held(designated_)) return lose(); // (the track its scan was kept on is gone)
+            // a scan about a track - the one it follows, or the one a cued search was given: each frame's volume on it
+            const std::uint64_t about = designated_ ? designated_ : task_ == Task::Cued ? search_.track : 0;
+            double trackAz = 0.0, trackEl = 0.0;
+            const bool have = about && bearing(about, clock_, own, trackAz, trackEl);
+            if (have && next_ == 0) recentre(trackAz, trackEl);
+            if (have && designated_ && spec_.aperture.electronic && clock_ - trackDwellAt_ >= spec_.trackUpdateS - 1e-9) {
+                // an electronic array's look at its designated track, between two of its search dwells
+                az = std::clamp(trackAz, -limAz, limAz), el = std::clamp(trackEl, -limEl, limEl);
+                trackDwellAt_ = clock_;
+            } else {
+                az = positions_[next_].first, el = positions_[next_].second;
+                next_ = (next_ + 1) % positions_.size();
+            }
+        }
         beamAz_ = az, beamEl_ = el;
+        const std::uint64_t firstNew = detectionCount_;
         dwell(clock_, az, el, own, scene);
         ++dwells_;
-        next_ = (next_ + 1) % positions_.size();
+        if (staring()) {
+            if (!held(designated_)) return lose(); // (not updated for its memory time: the tracker let it go)
+        } else if (task_ == Task::Cued) {
+            acquire(clock_, own, firstNew);
+        }
     }
 }
 
@@ -333,7 +453,10 @@ void Radar::dwell(double time, double az, double el, const sim::VehicleState& ow
     };
     for (std::size_t k = 0; k < n; ++k) {
         const sim::VehicleState& t = *states[k];
-        double d[3] = {t.positionEcef[0] - own.positionEcef[0], t.positionEcef[1] - own.positionEcef[1], t.positionEcef[2] - own.positionEcef[2]};
+        double vt[3];
+        velocityEcef(t, vt);
+        double d[3] = {t.positionEcef[0] - vt[0] * lag_ - own.positionEcef[0], t.positionEcef[1] - vt[1] * lag_ - own.positionEcef[1],
+                       t.positionEcef[2] - vt[2] * lag_ - own.positionEcef[2]}; // (where it was at the dwell's time: lag_)
         const double range = std::sqrt(dot(d, d));
         if (!(range > 1.0) || range > search_.rangeScaleM) continue;
         for (double& c : d) c /= range;
@@ -356,8 +479,6 @@ void Radar::dwell(double time, double az, double el, const sim::VehicleState& ow
         double fluct = 1.0;
         const double sigma = scene.sigma(ids[k], spec_.frequencyHz, spec_.polarizationRad, fluct);
         if (!(sigma > 0.0)) continue;
-        double vt[3];
-        velocityEcef(t, vt);
         const double rate = (vt[0] - vOwn[0]) * d[0] + (vt[1] - vOwn[1]) * d[1] + (vt[2] - vOwn[2]) * d[2]; // positive opening
         // pulse-Doppler clutter
         if (mainBeamClutter && std::fabs(rate - clutterRate) < spec_.notchMs) continue;     // notched with the main beam's
@@ -446,7 +567,10 @@ void Radar::dwellSignal(double time, double az, double el, const sim::VehicleSta
     std::vector<signal::Echo> echoes;
     for (std::size_t k = 0; k < n; ++k) {
         const sim::VehicleState& t = *states[k];
-        double d[3] = {t.positionEcef[0] - own.positionEcef[0], t.positionEcef[1] - own.positionEcef[1], t.positionEcef[2] - own.positionEcef[2]};
+        double vt[3];
+        velocityEcef(t, vt);
+        double d[3] = {t.positionEcef[0] - vt[0] * lag_ - own.positionEcef[0], t.positionEcef[1] - vt[1] * lag_ - own.positionEcef[1],
+                       t.positionEcef[2] - vt[2] * lag_ - own.positionEcef[2]}; // (where it was at the dwell's time: lag_)
         const double range = std::sqrt(dot(d, d));
         if (!(range > 1.0)) continue;
         for (double& c : d) c /= range;
@@ -468,10 +592,8 @@ void Radar::dwellSignal(double time, double az, double el, const sim::VehicleSta
         double fluct = 1.0;
         const double sigma = scene.sigma(ids[k], spec_.frequencyHz, spec_.polarizationRad, fluct);
         if (!(sigma > 0.0)) continue;
-        double vt[3];
-        velocityEcef(t, vt);
         const double loss = scene.pathLossDb(ids[k], spec_.frequencyHz);
-        const double snr = 10.0 * std::log10(spec_.averagePowerW) + 2.0 * gain + 10.0 * std::log10(4.0 * kPi * sigma / (lambda * lambda)) - 2.0 * loss +
+        const double snr =10.0 * std::log10(spec_.averagePowerW) + 2.0 * gain + 10.0 * std::log10(4.0 * kPi * sigma / (lambda * lambda)) - 2.0 * loss +
                            10.0 * std::log10(dwellS_) - kKT0DbW - spec_.noiseFigureDb - spec_.systemLossDb + spec_.classCalibrationDb;
         signal::Echo e;
         e.rangeM = range;
@@ -811,6 +933,7 @@ void Radar::track(double time, double az, double el, const sim::VehicleState& ow
     double beam[3];
     for (std::size_t i = 0; i < 3; ++i) beam[i] = r[3 * i] * beamBody[0] + r[3 * i + 1] * beamBody[1] + r[3 * i + 2] * beamBody[2];
     const double cone = std::cos(std::min(kPi, 1.5 * (bwAz + bwEl) + 1e-9));
+    const bool byTime = staring() || acquiring_;
     auto looked = [&](const track::Track& tr) {
         const track::Gaussian& g = tr.state();
         const double dt = time - g.t;
@@ -825,7 +948,11 @@ void Radar::track(double time, double az, double el, const sim::VehicleState& ow
         if (rotodome) dAz = std::remainder(dAz, 2.0 * kPi);
         const double dEl = std::atan2(-db[2], std::hypot(db[0], db[1])) - el;
         const double off = std::hypot(dAz / bwAz, dEl / bwEl); // (in beamwidths)
-        return off <= 0.5 ? track::MultiTargetTracker::Expected : off <= 1.5 ? track::MultiTargetTracker::Possible : track::MultiTargetTracker::Not;
+        // (a dwell after a dwell on one place - single-target track, an acquisition's looks: a confirmed track's miss is
+        // not counted, it goes when it has not been updated for the memory time. One not yet confirmed is held to its
+        // looks as in a scan: a stray detection's is gone two dwells on, not seconds)
+        if (off <= 0.5 && (!byTime || static_cast<int>(tr.updates) < spec_.trackConfirm)) return track::MultiTargetTracker::Expected;
+        return off <= 1.5 ? track::MultiTargetTracker::Possible : track::MultiTargetTracker::Not;
     };
     tracker_.step(time, dets, looked);
 }

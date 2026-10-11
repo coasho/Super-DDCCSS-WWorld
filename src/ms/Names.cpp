@@ -59,6 +59,8 @@ constexpr ReasonText kReasons[] = {
     {"not_awaiting_consent", "the strike is not asking for release consent"},
     {"consent_denied", "release consent was refused"},
     {"over_max_weight", "the load would take the aircraft past its maximum take-off weight"},
+    {"unknown_track", "the radar holds no track of that number"},
+    {"track_lost", "the radar lost the target it tracked"},
 };
 static_assert(sizeof(kReasons) / sizeof(kReasons[0]) == static_cast<std::size_t>(Reason::Count));
 
@@ -80,8 +82,35 @@ const char* amtiModeName(AmtiMode m) noexcept {
     case AmtiMode::VelocitySearch: return "velocity_search";
     case AmtiMode::TrackWhileScan: return "track_while_scan";
     case AmtiMode::Surveillance: return "surveillance";
+    case AmtiMode::SingleTargetTrack: return "single_target_track";
     }
     return "";
+}
+
+const char* amtiTaskName(AmtiTask t) noexcept {
+    switch (t) {
+    case AmtiTask::Volume: return "volume";
+    case AmtiTask::Cued: return "cued";
+    case AmtiTask::Track: return "track";
+    }
+    return "";
+}
+
+AmtiCommand acmCommand(std::uint16_t payload, AcmPattern pattern) noexcept {
+    constexpr double kDeg = 3.14159265358979323846 / 180.0;
+    AmtiCommand c;
+    c.payload = payload;
+    c.task = AmtiTask::Cued;
+    c.mode = AmtiMode::RangeWhileSearch;
+    c.rangeScaleM = 18520.0; // (10 nmi)
+    c.bars = 1;
+    if (pattern == AcmPattern::VerticalScan) {
+        c.azimuthHalfWidthRad = 5.0 * kDeg;
+        c.elevationCentreRad = 20.0 * kDeg, c.elevationHalfWidthRad = 30.0 * kDeg; // (-10 to +50 deg)
+    } else {
+        c.azimuthHalfWidthRad = 0.1 * kDeg; // (one beam position, on the nose)
+    }
+    return c;
 }
 
 const char* storeStatusName(StoreStatus status) noexcept {

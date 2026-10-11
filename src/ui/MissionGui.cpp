@@ -43,13 +43,13 @@ const char* familyName(std::uint8_t f) {
 }
 
 const char* modeName(std::uint8_t m) {
-    static const char* names[] = {"RWS", "VS", "TWS", "SURV"};
-    return m < 4 ? names[m] : "?";
+    static const char* names[] = {"RWS", "VS", "TWS", "SURV", "STT"};
+    return m < 5 ? names[m] : "?";
 }
 
 const char* modeLong(std::uint8_t m) {
-    static const char* names[] = {"range while search", "velocity search", "track while scan", "surveillance"};
-    return m < 4 ? names[m] : "?";
+    static const char* names[] = {"range while search", "velocity search", "track while scan", "surveillance", "single-target track"};
+    return m < 5 ? names[m] : "?";
 }
 
 /// Where the radar windows first open: one column down the right edge, under the payloads window, out of the middle
@@ -188,11 +188,22 @@ void MissionGui::drawRadar(const ipc::MissionRadar& r) const {
         ImGui::TextColored(tint(0.4f, 1.0f, 0.45f), "%s", modeName(r.mode));
         ImGui::SameLine();
         ImGui::Text("%s  %.0f km", modeLong(r.mode), static_cast<double>(r.rangeScaleM) / 1e3);
+        // its engagement modes (MS-4b): an acquisition's search and its second looks, the track it follows, its illumination
+        if (r.task == 1) {
+            ImGui::SameLine();
+            ImGui::TextColored(tint(1.0f, 0.85f, 0.35f), r.acquiring ? "ACQ  a detection" : "ACQ  searching");
+        } else if (r.task == 2 && r.trackCount > 0 && (r.tracks[0].flags & ipc::kMissionTrackDesignated)) {
+            ImGui::SameLine();
+            ImGui::TextColored(tint(1.0f, 0.85f, 0.35f), r.illuminating ? "track %u  ILLUMINATING" : "track %u", static_cast<unsigned>(r.tracks[0].id));
+        }
         if (!r.rotodome) {
             ImGui::Text("az %+.0f +-%.0f deg  %u bar%s  el %+.1f deg", r.azimuthCentreRad / kDeg, r.azimuthHalfWidthRad / kDeg,
                         static_cast<unsigned>(r.bars), r.bars == 1 ? "" : "s", r.elevationCentreRad / kDeg);
         }
-        ImGui::TextDisabled("frame %.1f s  %.2f GHz  %s%s", static_cast<double>(r.framePeriodS), r.frequencyHz / 1e9,
+        // (a scan's frame in seconds; every dwell on one place - single-target track, an acquisition's looks - its dwell)
+        const bool dwelling = r.framePeriodS < 0.2f;
+        ImGui::TextDisabled(dwelling ? "dwell %.0f ms  %.2f GHz  %s%s" : "frame %.1f s  %.2f GHz  %s%s",
+                            static_cast<double>(r.framePeriodS) * (dwelling ? 1e3 : 1.0), r.frequencyHz / 1e9,
                             r.rotodome ? "rotodome" : r.electronic ? "AESA" : "mechanical", r.signalLevel ? "  signal level" : "");
     } else {
         ImGui::TextColored(stateColour(p ? p->state : 0), "%s", operating ? "not searching" : p ? stateName(p->state) : "?");
@@ -241,6 +252,11 @@ void MissionGui::drawRadar(const ipc::MissionRadar& r) const {
         const float h = 5.0f * k, len = (8.0f + 22.0f * std::min(t.speedMs / 300.0f, 2.0f)) * k;
         dl->AddRect(ImVec2(x - h, y - h), ImVec2(x + h, y + h), c, 0.0f, 0, 1.5f * k);
         dl->AddLine(ImVec2(x, y), ImVec2(x + len * std::sin(t.headingRad), y - len * std::cos(t.headingRad)), c, 1.5f * k);
+        if (t.flags & ipc::kMissionTrackDesignated) { // the track the radar follows: a diamond about its box
+            const float d = 2.0f * h;
+            const ImVec2 diamond[4] = {ImVec2(x, y - d), ImVec2(x + d, y), ImVec2(x, y + d), ImVec2(x - d, y)};
+            dl->AddPolyline(diamond, 4, colour(255, 215, 90, 255), ImDrawFlags_Closed, 1.8f * k);
+        }
         char id[16];
         std::snprintf(id, sizeof id, "%u", static_cast<unsigned>(t.id));
         dl->AddText(ImVec2(x + h + 2.0f * k, y - h - ImGui::GetTextLineHeight() * 0.5f), c, id);
@@ -304,9 +320,10 @@ void MissionGui::drawRadar(const ipc::MissionRadar& r) const {
             }
     }
     if (tipTrack)
-        ImGui::SetTooltip("track %u (%u updates, %.1f s ago)\nrange %.1f km  az %+.1f deg  el %+.1f deg\nrange rate %+.0f m/s  speed %.0f m/s\n"
+        ImGui::SetTooltip("track %u%s (%u updates, %.1f s ago)\nrange %.1f km  az %+.1f deg  el %+.1f deg\nrange rate %+.0f m/s  speed %.0f m/s\n"
                           "course %+.0f deg off the nose\nuncertainty %.0f m",
-                          static_cast<unsigned>(tipTrack->id), static_cast<unsigned>(tipTrack->updates), static_cast<double>(tipTrack->sinceUpdateS),
+                          static_cast<unsigned>(tipTrack->id), (tipTrack->flags & ipc::kMissionTrackDesignated) ? ", followed" : "",
+                          static_cast<unsigned>(tipTrack->updates), static_cast<double>(tipTrack->sinceUpdateS),
                           static_cast<double>(tipTrack->rangeM) / 1e3, tipTrack->azimuthRad / kDeg, tipTrack->elevationRad / kDeg,
                           static_cast<double>(tipTrack->rangeRateMs), static_cast<double>(tipTrack->speedMs), tipTrack->headingRad / kDeg,
                           static_cast<double>(tipTrack->sigmaM));

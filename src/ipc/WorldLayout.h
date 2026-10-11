@@ -174,8 +174,10 @@ struct MissionTrack {
     float headingRad = 0.0f;     ///< its course relative to the carrier's nose (right positive)
     float speedMs = 0.0f, sigmaM = 0.0f, sinceUpdateS = 0.0f;
     std::uint32_t truth = 0;
-    std::uint32_t reserved = 0;
+    /// MS-4b, in what was reserved (a publisher from before it leaves 0): bit 0, the track the radar follows.
+    std::uint32_t flags = 0;
 };
+constexpr std::uint32_t kMissionTrackDesignated = 1u;
 
 struct MissionRadar {
     std::uint16_t payload = 0;
@@ -188,7 +190,10 @@ struct MissionRadar {
     double frequencyHz = 0.0;
     std::uint64_t dwells = 0, detections = 0; ///< ever
     std::uint32_t recentCount = 0;            ///< of `recent`, oldest first
-    std::uint32_t reserved2 = 0;
+    /// MS-4b, in what was reserved (a publisher from before it leaves them 0): its task (ms::AmtiTask), whether it
+    /// looks again at a detection to acquire it, and whether it lights its designated target for a semi-active missile.
+    /// The track it follows is flagged among `tracks`, the first of them.
+    std::uint8_t task = 0, acquiring = 0, illuminating = 0, reserved2 = 0;
     MissionDetection recent[kMissionDetections];
     std::uint64_t falseAlarms = 0;
     std::uint32_t trackCount = 0, tentativeTracks = 0; ///< of `tracks`, and those not confirmed yet

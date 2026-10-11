@@ -258,12 +258,17 @@ TEST_CASE("radar clutter: the main beam's notch and the side lobes' band", "[ms]
         scene.states = {at(0.5, 20.0, 5000.0, 1), at(0.5, 20.0, 5000.0, 2)}; // (one place: the same beam positions, the same gains)
         for (int i = 0; i < 3; ++i) scene.states[0].velocityNedMs[i] = -self.velocityNedMs[i]; // 1 head on: closing at twice its speed
         for (int i = 0; i < 3; ++i) scene.states[1].velocityNedMs[i] = self.velocityNedMs[i];  // 2 in pursuit: the same speed
+        // (stepped a dwell or so at a time: the scene's places are the step's, and a dwell takes each back along its
+        // velocity to its own time - a still scene looked at across 30 s in one step would not be the same place twice)
+        auto look = [&](radar::Radar& radar) {
+            for (double t = 0.05; t <= 30.0 + 1e-9; t += 0.05) radar.step(t, self, scene);
+        };
         radar::Radar r(spec, 7);
         radar::Search s;
         s.azimuthHalfWidthRad = 20 * kDeg;
         s.bars = 1;
         r.search(s, 0.0);
-        r.step(30.0, self, scene);
+        look(r);
         const auto [headOn, nHead] = best(r, 1);
         const auto [pursuit, nPursuit] = best(r, 2);
         REQUIRE(nHead > 0);
@@ -273,7 +278,7 @@ TEST_CASE("radar clutter: the main beam's notch and the side lobes' band", "[ms]
         radar::Radar v(spec, 7);
         s.mode = radar::Mode::VelocitySearch;
         v.search(s, 0.0);
-        v.step(30.0, self, scene);
+        look(v);
         CHECK(best(v, 1).second > 0);
         CHECK(best(v, 2).second == 0);
     }

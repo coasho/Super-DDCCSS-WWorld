@@ -210,7 +210,9 @@ the terrain, rain); `world.radar_cross_section(observer, target, frequency_hz=..
 as a radar on another entity sees it (`RadarCrossSection`). `vehicle.amti_search("radar", "range_while_search", ...)` starts a
 radar's search (its activity's id); `amti_detections("radar", since=...)` reads what it detected (`AmtiDetection`),
 `amti_tracks("radar")` its tracks (`AmtiTrack`), and `radar_status("radar")` its picture (`RadarStatus`);
-`amti_search(..., signal_level=True)` searches at the signal level (MS-6). Its stores (MS-7): `vehicle.stores`
+`amti_search(..., signal_level=True)` searches at the signal level (MS-6); `amti_track(track, illuminate=...)` follows
+one of its tracks (single-target track, or `mode="track_while_scan"`) and `amti_acquire(pattern="boresight")` finds a
+target and takes it (MS-4b: `AmtiTask`, `AcmPattern`). Its stores (MS-7): `vehicle.stores`
 (`StoreInfo`), `load_loadout(name)`, `load_store(station, store)`, `strike(store, quantity, target=..., consent=...)`,
 `strike_consent(activity)`, `strike_status(activity)` (`StrikeStatus`), `jettison(stores=None, emergency=...)`,
 `vehicle.mass_kg`. See

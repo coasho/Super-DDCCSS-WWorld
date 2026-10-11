@@ -46,7 +46,7 @@ the old one - its aircraft, their trails, the focus - is dropped.
 - Per vehicle: state summary and the active control level.
 - What each vehicle's Vehicle Interface says of it (see [Flight status](#flight-status)): the selected vehicle's weight, its airspeed against the least a command may ask and its stall at that weight, its speed floor and the bank its airspeed leaves it; and for every vehicle, in the list and on its label, that it is low on energy, deviating or upset.
 - The trainer's cameras (`fsim_vision`, [vision.md](vision.md)): a "cameras" window with every image the training application rendered last, live (`v` toggles it).
-- The followed vehicle's Mission Systems ([mission-systems.md](mission-systems.md#in-the-viewer)): its payloads and their states, and each radar's display (a B-scope, or a PPI for a rotodome) with its scan and detections, as the SDK's instances have them (`p` toggles them; each window collapses).
+- The followed vehicle's Mission Systems ([mission-systems.md](mission-systems.md#in-the-viewer)): its payloads and their states, and each radar's display (a B-scope, or a PPI for a rotodome) with its scan, detections and tracks - the one it follows marked, its acquisition and illumination named - as the SDK's instances have them (`p` toggles them; each window collapses).
 
 ## How it works (design 9.7)
 

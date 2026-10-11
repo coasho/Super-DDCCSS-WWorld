@@ -38,7 +38,8 @@ AGENT_VEHICLE_CALLS = (
     "mass_kg",
     # Mission Systems
     "payloads", "payload", "mission_capabilities", "mission_capability_status", "set_payload_state", "payload_bit",
-    "cancel_mission", "mission_activity", "mission_activities", "amti_search", "radar_status", "amti_detections",
+    "cancel_mission", "mission_activity", "mission_activities", "amti_search", "amti_track", "amti_acquire", "radar_status",
+    "amti_detections",
     "designate", "undesignate", "designations",
     "amti_tracks", "stores", "strike", "jettison", "strike_status",
 )

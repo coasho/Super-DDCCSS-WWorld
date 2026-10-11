@@ -88,6 +88,9 @@ enum class Reason : std::uint16_t {
     NotAwaitingConsent, ///< release consent for a strike that is not asking for it
     ConsentDenied,      ///< a strike ended: its release consent refused
     OverMaxWeight,      ///< a load that would take the aircraft past its maximum take-off weight
+    // a radar's track (MS-4b)
+    UnknownTrack,       ///< a cue or a track command for a track the radar does not hold
+    TrackLost,          ///< a track activity ended: the radar lost its target
     Count
 };
 /// "unknown_payload", "payload_standby", "goal_reached", ...
@@ -195,13 +198,32 @@ enum class AmtiMode : std::uint8_t {
     VelocitySearch,   ///< high PRF: closing targets clear of the side lobes' clutter band only, at the longest range
     TrackWhileScan,   ///< as range-while-search over a smaller volume (its tracks: MS-5)
     Surveillance,     ///< an airborne early-warning radar's 360 deg search (a rotodome's only mode)
+    /// (MS-4b) Every dwell on its one designated target, the beam following it: its track updated a dwell at a time,
+    /// every other track file left to lapse. What a semi-active missile's illumination needs.
+    SingleTargetTrack,
 };
-/// "range_while_search", "velocity_search", "track_while_scan", "surveillance".
+/// "range_while_search", "velocity_search", "track_while_scan", "surveillance", "single_target_track".
 FSIM_API const char* amtiModeName(AmtiMode mode) noexcept;
 
-/// Search a volume (A-GRA's AMTI_Command): the radar payload must be operating.
-/// A new one for the same radar supersedes the one it runs; the activity runs
-/// until canceled, superseded or the payload stops operating.
+/// What an AMTI command asks of the radar: A-GRA's AMTI_CapabilityEnum (MS-4b).
+enum class AmtiTask : std::uint8_t {
+    Volume, ///< VOLUME: search a volume, many beams, until told otherwise (MS-4)
+    /// CUED: search a small volume for one target and acquire it - its first detection looked at again until its
+    /// track is confirmed, then tracked alone (the task becomes Track, the mode SingleTargetTrack). A fighter's
+    /// air-combat acquisition modes are such volumes (acmCommand).
+    Cued,
+    /// TRACK: track one of its tracks. Mode TrackWhileScan: the scan's volume kept on it, the others in the volume
+    /// tracked with it (an electronic array looks at it between its search dwells too: A-GRA's ACTIVE_TRACK_UPDATE).
+    /// Mode SingleTargetTrack: every dwell on it.
+    Track,
+};
+/// "volume", "cued", "track".
+FSIM_API const char* amtiTaskName(AmtiTask task) noexcept;
+
+/// Search a volume, acquire a target or track one (A-GRA's AMTI_Command): the radar payload must be operating.
+/// A new one for the same radar supersedes the one it runs; the activity runs until canceled, superseded or the
+/// payload stops operating - and a Cued or Track one fails, TrackLost, when the radar loses its target (its track
+/// not updated for the radar's memory time: the target notched out, masked, out of its field of regard or its range).
 struct AmtiCommand {
     std::uint16_t payload = 0;
     AmtiMode mode = AmtiMode::RangeWhileSearch;      ///< Surveillance for a rotodome, one of the others for a fighter's radar
@@ -211,9 +233,28 @@ struct AmtiCommand {
     int bars = 2;                                    ///< elevation bars, 1-8
     double rangeScaleM = 150e3;                      ///< targets beyond it are not reported (and the main beam's clutter beyond it not met)
     /// MS-6: the search at the signal level - each dwell through the radar's samples and processing, the ground's
-    /// clutter among them - instead of the detection level's closed forms. Medium-PRF modes (not velocity search).
+    /// clutter among them - instead of the detection level's closed forms. Medium-PRF modes (not velocity search);
+    /// a Volume task only.
     bool signalLevel = false;
+    // MS-4b (A-GRA's AMTI_CapabilityEnum, and its TargetVolume: a sensor-referenced volume or an entity)
+    AmtiTask task = AmtiTask::Volume;
+    /// Track: the radar's own track to follow (AmtiTrack::id; A-GRA's TargetVolume's EntityID). Cued: a track to cue
+    /// on - the volume kept about it until it is acquired - or 0, the volume as the command gives it. Volume: 0.
+    std::uint64_t track = 0;
+    /// The volume's half height when given (rad): as many bars as cover it (64 at most), `bars` not read. An
+    /// acquisition volume taller than eight bars needs it (a vertical scan's 60 deg).
+    double elevationHalfWidthRad = std::numeric_limits<double>::quiet_NaN();
+    /// Track, SingleTargetTrack (or Cued, once it has acquired): light the target for a semi-active missile - an SDK
+    /// extension, A-GRA's AMTI command has no such content. The radar's own waveform is the illumination, at its
+    /// average power through its antenna; it stops when the track is lost (RadarStatus::illuminating).
+    bool illuminate = false;
 };
+
+/// A fighter radar's air-combat acquisition volumes, as Cued commands (range scale 10 nmi, 18.52 km):
+/// Boresight, one beam along the nose; VerticalScan, 10 deg wide from 10 deg below the nose to 50 deg above it.
+/// The figures are the F-16's ACM submodes' as public descriptions give them - not read from a primary source.
+enum class AcmPattern : std::uint8_t { Boresight, VerticalScan };
+FSIM_API AmtiCommand acmCommand(std::uint16_t payload, AcmPattern pattern) noexcept;
 
 /// One detection: a look that crossed the radar's threshold, measured with
 /// errors that shrink as its signal-to-noise ratio grows.
@@ -270,6 +311,12 @@ struct RadarStatus {
     std::uint32_t tracks = 0;    ///< confirmed tracks (MS-5)
     std::uint32_t tentativeTracks = 0; ///< tracks not yet confirmed
     bool signalLevel = false;    ///< it searches at the signal level (MS-6)
+    // MS-4b
+    AmtiTask task = AmtiTask::Volume; ///< what it does now (a Cued task that acquired its target: Track)
+    std::uint64_t designatedTrack = 0; ///< the track it follows (AmtiTrack::id; 0: none - a Volume task, a Cued one still searching)
+    bool acquiring = false;      ///< Cued: it looks again at a detection, to confirm its track
+    bool illuminating = false;   ///< it lights its designated target for a semi-active missile now
+    double trackMemoryS = 0.0;   ///< how long it keeps a track it cannot update, in single-target track and in acquisition
 };
 
 // --- Activities ----------------------------------------------------------------

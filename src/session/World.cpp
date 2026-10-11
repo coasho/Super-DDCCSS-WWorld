@@ -2299,6 +2299,7 @@ void World::publishMission() {
             out.searching = st.searching ? 1 : 0, out.mode = static_cast<std::uint8_t>(st.mode);
             out.rotodome = st.rotodome ? 1 : 0, out.electronic = st.electronic ? 1 : 0, out.bars = static_cast<std::uint8_t>(st.bars);
             out.signalLevel = st.signalLevel ? 1 : 0;
+            out.task = static_cast<std::uint8_t>(st.task), out.acquiring = st.acquiring ? 1 : 0, out.illuminating = st.illuminating ? 1 : 0;
             if (st.searching && st.signalLevel && r->snapshot().kept && m.rangeDoppler.radar == 0xFF)
                 publishRangeDoppler(*r, static_cast<std::uint8_t>(m.radarCount - 1), m.rangeDoppler);
             out.beamAzimuthRad = static_cast<float>(st.beamAzimuthRad), out.beamElevationRad = static_cast<float>(st.beamElevationRad);
@@ -2326,10 +2327,15 @@ void World::publishMission() {
             const sim::VehicleState& own = pool_->states()[s];
             double rb[9];
             sim::attitude::bodyToEcefFromQuaternion(own.attitudeEcefToBody, rb);
-            for (const ms::AmtiTrack& t : host.amtiTracks(i, simTime_, own)) {
+            auto tracks = host.amtiTracks(i, simTime_, own);
+            // (the track it follows first: shown whatever the display's count)
+            const auto followed = std::find_if(tracks.begin(), tracks.end(), [&](const ms::AmtiTrack& t) { return st.designatedTrack && t.id == st.designatedTrack; });
+            if (followed != tracks.end()) std::rotate(tracks.begin(), followed, followed + 1);
+            for (const ms::AmtiTrack& t : tracks) {
                 if (out.trackCount >= ipc::kMissionTracks) break;
                 ipc::MissionTrack& o = out.tracks[out.trackCount++];
                 o.id = static_cast<std::uint32_t>(t.id), o.updates = t.updates, o.truth = t.truth;
+                o.flags = st.designatedTrack && t.id == st.designatedTrack ? ipc::kMissionTrackDesignated : 0u;
                 o.rangeM = static_cast<float>(t.rangeM), o.azimuthRad = static_cast<float>(t.azimuthRad);
                 o.elevationRad = static_cast<float>(t.elevationRad), o.rangeRateMs = static_cast<float>(t.rangeRateMs);
                 const double v[3] = {t.stateEcef[1], t.stateEcef[3], t.stateEcef[5]};

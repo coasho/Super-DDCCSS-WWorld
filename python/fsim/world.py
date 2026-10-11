@@ -1938,11 +1938,29 @@ and bouncing rays over its model - at the aspect between them: ``sigma_m2`` the 
 class AmtiMode(enum.IntEnum):
     """How a radar searches (MS-4): RANGE_WHILE_SEARCH (medium PRF: every aspect; a slow target meets the side lobes'
     clutter), VELOCITY_SEARCH (high PRF: closing targets clear of that clutter only, the longest range),
-    TRACK_WHILE_SCAN, SURVEILLANCE (a rotodome's 360 deg search, its only mode)."""
+    TRACK_WHILE_SCAN, SURVEILLANCE (a rotodome's 360 deg search, its only mode), SINGLE_TARGET_TRACK (MS-4b: every
+    dwell on its one designated target - ``Vehicle.amti_track``)."""
     RANGE_WHILE_SEARCH = 0
     VELOCITY_SEARCH = 1
     TRACK_WHILE_SCAN = 2
     SURVEILLANCE = 3
+    SINGLE_TARGET_TRACK = 4
+
+
+class AmtiTask(enum.IntEnum):
+    """What a radar does (MS-4b; A-GRA's AMTI_CapabilityEnum): VOLUME, it searches one (``Vehicle.amti_search``); CUED,
+    it searches a small one for a target to acquire (``amti_acquire``); TRACK, it follows one of its tracks
+    (``amti_track``, or an acquisition that found its target)."""
+    VOLUME = 0
+    CUED = 1
+    TRACK = 2
+
+
+class AcmPattern(enum.IntEnum):
+    """A fighter radar's air-combat acquisition volumes (``Vehicle.amti_acquire``): BORESIGHT, one beam along the nose;
+    VERTICAL_SCAN, 10 deg wide from 10 deg below the nose to 50 deg above it. Both to 10 nmi."""
+    BORESIGHT = 0
+    VERTICAL_SCAN = 1
 
 
 AmtiDetection = collections.namedtuple(
@@ -1955,10 +1973,13 @@ RadarStatus = collections.namedtuple(
     "RadarStatus", "searching activity mode bars rotodome electronic beam_azimuth_rad beam_elevation_rad frame_period_s "
     "azimuth_centre_rad azimuth_half_width_rad elevation_centre_rad range_scale_m azimuth_limit_rad elevation_limit_rad "
     "instrumented_range_m frequency_hz beamwidth_azimuth_rad beamwidth_elevation_rad dwells detections false_alarms tracks "
-    "tentative_tracks signal_level")
+    "tentative_tracks signal_level task designated_track acquiring illuminating track_memory_s")
 RadarStatus.__doc__ = """A radar payload's picture (MS-4): whether it searches and its AMTI activity, its mode and
 volume, where the beam points now (body axes), a frame's period, its limits and beamwidths, and its counts (``detections``
-is the next detection's serial)."""
+is the next detection's serial). MS-4b: its ``task`` now (fsim.AmtiTask; an acquisition that found its target is TRACK),
+the track it follows (``designated_track``: an AmtiTrack's id, 0 for none), whether an acquisition looks again at a
+detection (``acquiring``), whether it lights its target for a semi-active missile (``illuminating``), and how long it
+keeps a track it cannot update in single-target track (``track_memory_s``)."""
 
 
 AmtiTrack = collections.namedtuple(
@@ -2793,24 +2814,63 @@ class Vehicle:
 
     def amti_search(self, payload="radar", mode=AmtiMode.RANGE_WHILE_SEARCH, *, azimuth_centre_rad=0.0,
                     azimuth_half_width_rad=math.radians(60.0), elevation_centre_rad=0.0, bars=2, range_scale_m=150e3,
-                    signal_level=False, source=Source.POLICY, controller=0, command_id=0):
+                    signal_level=False, elevation_half_width_rad=None, source=Source.POLICY, controller=0, command_id=0):
         """Search with a radar payload (its AMTI capability, MS-4), the payload operating: a volume about the nose
         (a rotodome's: always 360 deg, SURVEILLANCE). Supersedes the radar's last search; the activity runs until
         canceled or the payload stops operating. ``signal_level``: each dwell through the radar's samples and
-        processing, the ground's clutter among them (MS-6; not velocity search). Returns the activity's id; raises
+        processing, the ground's clutter among them (MS-6; not velocity search). ``elevation_half_width_rad``: the
+        volume's half height - as many bars as cover it, ``bars`` not read. Returns the activity's id; raises
         fsim.MissionRejected."""
+        return self._amti(payload, mode, AmtiTask.VOLUME, 0, False, azimuth_centre_rad, azimuth_half_width_rad, elevation_centre_rad,
+                          bars, elevation_half_width_rad, range_scale_m, signal_level, source, controller, command_id)
+
+    def _amti(self, payload, mode, task, track, illuminate, azimuth_centre_rad, azimuth_half_width_rad, elevation_centre_rad, bars,
+              elevation_half_width_rad, range_scale_m, signal_level, source, controller, command_id):
         mode = AmtiMode[mode.upper()] if isinstance(mode, str) else AmtiMode(mode)
+        tall = float("nan") if elevation_half_width_rad is None else float(elevation_half_width_rad)
         return _ms_checked(self._h.amti_search(self.id, self._payload_index(payload), int(mode), float(azimuth_centre_rad),
                                                float(azimuth_half_width_rad), float(elevation_centre_rad), int(bars),
                                                float(range_scale_m), int(bool(signal_level)), int(source), int(controller),
-                                               int(command_id)))
+                                               int(command_id), int(task), int(getattr(track, "id", track)), tall,
+                                               int(bool(illuminate))))
+
+    def amti_track(self, track, payload="radar", mode=AmtiMode.SINGLE_TARGET_TRACK, *, illuminate=False,
+                   azimuth_half_width_rad=math.radians(25.0), bars=3, elevation_half_width_rad=None, range_scale_m=150e3,
+                   source=Source.POLICY, controller=0, command_id=0):
+        """Track one of the radar's tracks (MS-4b; A-GRA's AMTI TRACK): ``track`` an fsim.AmtiTrack or its id. Mode
+        SINGLE_TARGET_TRACK: every dwell on it, the beam following it - and ``illuminate`` lights it for a semi-active
+        missile (an SDK extension). Mode TRACK_WHILE_SCAN: the scan's volume (its half width and bars as given) kept
+        on it, the other targets in the volume tracked too; an electronic array also looks at it between its search
+        dwells. The activity fails ``track_lost`` when the radar loses the target - its track not updated for the
+        radar's memory time (``RadarStatus.track_memory_s``): notched out, masked, or out of its reach. Raises
+        fsim.MissionRejected (``unknown_track``: the radar holds no such track)."""
+        return self._amti(payload, mode, AmtiTask.TRACK, track, illuminate, 0.0, azimuth_half_width_rad, 0.0, bars,
+                          elevation_half_width_rad, range_scale_m, False, source, controller, command_id)
+
+    def amti_acquire(self, payload="radar", pattern=None, *, track=0, mode=AmtiMode.RANGE_WHILE_SEARCH, azimuth_centre_rad=0.0,
+                     azimuth_half_width_rad=math.radians(5.0), elevation_centre_rad=0.0, bars=1, elevation_half_width_rad=None,
+                     range_scale_m=18520.0, illuminate=False, source=Source.POLICY, controller=0, command_id=0):
+        """Search a small volume for one target and acquire it (MS-4b; A-GRA's AMTI CUED): the first detection is
+        looked at again until its track is confirmed, then the radar tracks it alone (``RadarStatus.task`` TRACK, its
+        mode SINGLE_TARGET_TRACK, ``designated_track`` the track; ``illuminate`` as ``amti_track``'s). ``pattern``: a
+        fighter radar's air-combat volume - fsim.AcmPattern or its name ("boresight", "vertical_scan") - in place of
+        the volume's arguments; or ``track``, a track to cue on (the volume kept about it). The nearest target in the
+        volume is the one acquired. Runs until canceled; fails ``track_lost`` if the acquired target is lost."""
+        if pattern is not None:
+            pattern = AcmPattern[pattern.upper()] if isinstance(pattern, str) else AcmPattern(pattern)
+            (mode, azimuth_centre_rad, azimuth_half_width_rad, elevation_centre_rad, bars, range_scale_m,
+             tall) = _native.amti_acm(int(pattern))
+            elevation_half_width_rad = None if math.isnan(tall) else tall
+        return self._amti(payload, mode, AmtiTask.CUED, track, illuminate, azimuth_centre_rad, azimuth_half_width_rad,
+                          elevation_centre_rad, bars, elevation_half_width_rad, range_scale_m, False, source, controller, command_id)
 
     def radar_status(self, payload="radar"):
         """A radar payload's picture (fsim.RadarStatus), or None for a payload that is not a radar."""
         t = self._h.radar_status(self.id, self._payload_index(payload))
         if t is None:
             return None
-        return RadarStatus(bool(t[0]), t[1], AmtiMode(t[2]), t[3], bool(t[4]), bool(t[5]), *t[6:-1], bool(t[-1]))
+        return RadarStatus(bool(t[0]), t[1], AmtiMode(t[2]), t[3], bool(t[4]), bool(t[5]), *t[6:24], bool(t[24]),
+                           AmtiTask(t[25]), t[26], bool(t[27]), bool(t[28]), t[29])
 
     def amti_tracks(self, payload="radar"):
         """A radar payload's confirmed tracks (fsim.AmtiTrack), predicted to the world's time."""

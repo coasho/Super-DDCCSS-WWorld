@@ -5200,6 +5200,8 @@ static PyObject* world_amti_search(PyObject* o, PyObject* const* args, Py_ssize_
 static PyObject* world_radar_status(PyObject* o, PyObject* const* args, Py_ssize_t n);
 static PyObject* world_amti_detections(PyObject* o, PyObject* const* args, Py_ssize_t n);
 static PyObject* mod_amti_mode_name(PyObject* m, PyObject* const* args, Py_ssize_t n);
+static PyObject* mod_amti_task_name(PyObject* m, PyObject* const* args, Py_ssize_t n);
+static PyObject* mod_amti_acm(PyObject* m, PyObject* const* args, Py_ssize_t n);
 static PyObject* world_amti_tracks(PyObject* o, PyObject* const* args, Py_ssize_t n);
 
 static PyMethodDef world_methods[] = {
@@ -6122,24 +6124,29 @@ static PyObject* mod_role_name(PyObject* m, PyObject* const* args, Py_ssize_t n)
 }
 
 /* amti_search(id, payload, mode, az_centre, az_half_width, el_centre, bars, range_scale, signal_level, source=0, controller=0,
- * command_id=0) */
+ * command_id=0, task=0, track=0, el_half_width=NaN, illuminate=0) */
 static PyObject* world_amti_search(PyObject* o, PyObject* const* args, Py_ssize_t n) {
     WorldObject* self = (WorldObject*)o;
     uint32_t id, payload;
-    int32_t mode, bars, signal;
-    double v[3], scale;
+    int32_t mode, bars, signal, task = 0, illuminate = 0;
+    uint64_t track = 0;
+    double v[3], scale, tall = Py_NAN;
     fsim_amti_command c;
     fsim_ms_options opts;
     fsim_ms_result r;
-    if (!check_args(n, 9, 12, "amti_search") || !as_u32(args[0], &id) || !as_u32(args[1], &payload) || !as_int(args[2], &mode) ||
+    if (!check_args(n, 9, 16, "amti_search") || !as_u32(args[0], &id) || !as_u32(args[1], &payload) || !as_int(args[2], &mode) ||
         !as_doubles(args, 3, 3, v) || !as_int(args[6], &bars) || !as_doubles(args, 7, 1, &scale) || !as_int(args[8], &signal))
         return NULL;
-    if (!ms_options_from(args, 9, n, &opts)) return NULL;
+    if (!ms_options_from(args, 9, n < 12 ? n : 12, &opts)) return NULL;
     Py_DECREF(Py_None);
+    if ((n > 12 && !as_int(args[12], &task)) || (n > 13 && !as_u64(args[13], &track)) || (n > 14 && !as_doubles(args, 14, 1, &tall)) ||
+        (n > 15 && !as_int(args[15], &illuminate)))
+        return NULL;
     fsim_amti_command_init(&c);
     c.payload = payload, c.mode = mode, c.bars = bars;
     c.azimuth_centre_rad = v[0], c.azimuth_half_width_rad = v[1], c.elevation_centre_rad = v[2], c.range_scale_m = scale;
     c.signal_level = signal;
+    c.task = task, c.track = track, c.elevation_half_width_rad = tall, c.illuminate = illuminate;
     fsim_ms_result_init(&r);
     if (fsim_vehicle_amti_search(self->world, id, &c, &opts, &r) != FSIM_OK) return fail();
     return ms_result_tuple(&r);
@@ -6154,11 +6161,12 @@ static PyObject* world_radar_status(PyObject* o, PyObject* const* args, Py_ssize
     if (!check_args(n, 2, 2, "radar_status") || !as_u32(args[0], &id) || !as_u32(args[1], &payload)) return NULL;
     fsim_radar_status_init(&s);
     if (fsim_vehicle_radar_status(self->world, id, payload, &s) != FSIM_OK) Py_RETURN_NONE;
-    return Py_BuildValue("(iKiiii" "ddddddddddddd" "KKKIIi)", s.searching, (unsigned long long)s.activity, s.mode, s.bars, s.rotodome, s.electronic,
+    return Py_BuildValue("(iKiiii" "ddddddddddddd" "KKKIIi" "iKiid)", s.searching, (unsigned long long)s.activity, s.mode, s.bars, s.rotodome, s.electronic,
                          s.beam_azimuth_rad, s.beam_elevation_rad, s.frame_period_s, s.azimuth_centre_rad, s.azimuth_half_width_rad,
                          s.elevation_centre_rad, s.range_scale_m, s.azimuth_limit_rad, s.elevation_limit_rad, s.instrumented_range_m,
                          s.frequency_hz, s.beamwidth_azimuth_rad, s.beamwidth_elevation_rad, (unsigned long long)s.dwells,
-                         (unsigned long long)s.detections, (unsigned long long)s.false_alarms, s.tracks, s.tentative_tracks, s.signal_level);
+                         (unsigned long long)s.detections, (unsigned long long)s.false_alarms, s.tracks, s.tentative_tracks, s.signal_level,
+                         s.task, (unsigned long long)s.designated_track, s.acquiring, s.illuminating, s.track_memory_s);
 }
 
 /* amti_detections(id, payload, since) -> [(serial, payload, time, truth, range, az, el, rate, snr, lat, lon, h)] */
@@ -6235,6 +6243,26 @@ static PyObject* mod_amti_mode_name(PyObject* m, PyObject* const* args, Py_ssize
     (void)m;
     if (!check_args(n, 1, 1, "amti_mode_name") || !as_int(args[0], &code)) return NULL;
     return PyUnicode_FromString(fsim_amti_mode_name(code));
+}
+
+static PyObject* mod_amti_task_name(PyObject* m, PyObject* const* args, Py_ssize_t n) {
+    int code;
+    (void)m;
+    if (!check_args(n, 1, 1, "amti_task_name") || !as_int(args[0], &code)) return NULL;
+    return PyUnicode_FromString(fsim_amti_task_name(code));
+}
+
+/* amti_acm(pattern) -> (mode, az_centre, az_half_width, el_centre, bars, range_scale, el_half_width): a fighter radar's
+ * air-combat acquisition volume (fsim_acm_pattern), a cued task's */
+static PyObject* mod_amti_acm(PyObject* m, PyObject* const* args, Py_ssize_t n) {
+    int pattern;
+    fsim_amti_command c;
+    (void)m;
+    if (!check_args(n, 1, 1, "amti_acm") || !as_int(args[0], &pattern)) return NULL;
+    fsim_amti_command_init(&c);
+    if (fsim_amti_command_acm(&c, pattern) != FSIM_OK) return fail();
+    return Py_BuildValue("(idddidd)", c.mode, c.azimuth_centre_rad, c.azimuth_half_width_rad, c.elevation_centre_rad, c.bars, c.range_scale_m,
+                         c.elevation_half_width_rad);
 }
 
 static PyObject* mod_store_status_name(PyObject* m, PyObject* const* args, Py_ssize_t n) {
@@ -6431,7 +6459,10 @@ static PyMethodDef module_methods[] = {
     FAST("weapon_end_name", mod_weapon_end_name, "weapon_end_name(code): in_flight, impact or removed"),
     FAST("store_status_name", mod_store_status_name, "store_status_name(code): loaded, powering_up, ready, releasing, released, jettisoned, powering_down"),
     FAST("strike_phase_name", mod_strike_phase_name, "strike_phase_name(code): powering_up, awaiting_consent, releasing, done"),
-    FAST("amti_mode_name", mod_amti_mode_name, "amti_mode_name(code): range_while_search, velocity_search, track_while_scan or surveillance"),
+    FAST("amti_mode_name", mod_amti_mode_name,
+         "amti_mode_name(code): range_while_search, velocity_search, track_while_scan, surveillance or single_target_track"),
+    FAST("amti_task_name", mod_amti_task_name, "amti_task_name(code): volume, cued or track"),
+    FAST("amti_acm", mod_amti_acm, "amti_acm(pattern) -> (mode, az_centre, az_half_width, el_centre, bars, range_scale, el_half_width)"),
     FAST("ms_reason_description", mod_ms_reason_description, "ms_reason_description(code)"),
     FAST("payload_family_name", mod_payload_family_name, "payload_family_name(code): \"air_radar\" ..."),
     FAST("payload_state_name", mod_payload_state_name, "payload_state_name(code): \"off\" ..."),

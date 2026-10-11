@@ -15,6 +15,18 @@
 // the probability its SNR, the false-alarm rate and the target's fluctuation
 // give (Detection.h), drawn from the radar's own seeded stream; what it detects
 // it measures, with errors that shrink as the SNR grows.
+//
+// Its engagement modes (MS-4b; A-GRA's AMTI_CapabilityEnum): a track it is told
+// to follow - the scan's volume kept on it (track-while-scan; an electronic
+// array looks at it between its search dwells too), or every dwell on it
+// (single-target track, with which it can light the target for a semi-active
+// missile) - and a cued search that acquires what it finds: the first
+// detection looked at again until its track is confirmed, then tracked alone
+// (a fighter's air-combat modes are such volumes). Nothing is given to a
+// track: each dwell on it is the same radar equation, the same clutter, the
+// same draw as a search dwell's - so a target that turns into the notch, drops
+// behind a ridge or leaves the antenna's reach stops being detected, and its
+// track goes when the radar's memory time is up.
 
 #include "fsim/MissionSystems.h"
 #include "ms/radar/Detection.h"
@@ -79,15 +91,32 @@ struct Spec {
     int trackConfirm = 3;                ///< updates that confirm a track (M of its first looks)
     int trackDropLooks = 3;              ///< expected looks without an update that drop a track (and, looked at or not, that many frames and one more)
     double trackVelocitySigma = 300.0;   ///< a new track's velocity uncertainty across the line of sight, m/s an axis
+    // Its engagement modes (MS-4b)
+    /// How long it keeps a track it cannot update, in single-target track and in acquisition (a scan's tracks go by
+    /// their looks, above): an assumption - 3 s, of the few seconds public descriptions of fighter radars' memory
+    /// (coast) give; no card has its own radar's.
+    double trackMemoryS = 3.0;
+    /// An electronic array's look at its designated track between its search dwells, track-while-scan: no longer
+    /// apart than this (an assumption: 1 s; a mechanical antenna sees it once a frame).
+    double trackUpdateS = 1.0;
+    /// Acquisition: the dwells it looks again at a detection for, before it takes up its scan where it left it.
+    int acquireDwells = 8;
     bool ok = false;                     ///< the card gives a radar (AMTI supported)
 };
 
 /// The card's radar (empty `ok` if it lacks one).
 Spec specOf(const Card& card);
 
+/// What the radar is told to do: search a volume, acquire a target in one, or track one of its tracks.
+using Task = AmtiTask;
+
 /// What the radar is told to search (A-GRA's AMTI command: its volume and mode).
 struct Search {
     Mode mode = Mode::RangeWhileSearch;
+    Task task = Task::Volume;
+    std::uint64_t track = 0;             ///< Track: the track to follow; Cued: one to cue on (0: the volume as given)
+    double elevationHalfWidthRad = std::numeric_limits<double>::quiet_NaN(); ///< given: the bars that cover it
+    bool illuminate = false;             ///< single-target track: light the target (a semi-active missile's)
     double azimuthCentreRad = 0.0;       ///< from the nose, right positive
     double azimuthHalfWidthRad = 1.047;  ///< (+-60 deg)
     double elevationCentreRad = 0.0;     ///< above the body's x-y plane
@@ -143,7 +172,21 @@ public:
     const rf::Pattern& pattern() const noexcept { return pattern_; }
     /// Start searching (a new or updated AMTI activity); stop.
     void search(const Search& search, double simTime);
-    void stop() noexcept { active_ = false; }
+    void stop() noexcept { active_ = false, designated_ = 0, acquiring_ = false; }
+    /// Whether it holds a confirmed track of that number.
+    bool hasTrack(std::uint64_t id) const noexcept;
+    /// What it does now: its command's task - a Cued one Track once it has acquired its target.
+    Task task() const noexcept { return task_; }
+    /// The track it follows (0: none - a Volume task, a Cued one still searching).
+    std::uint64_t designated() const noexcept { return designated_; }
+    /// Cued: it looks again at a detection, to confirm its track.
+    bool acquiring() const noexcept { return acquiring_; }
+    /// It lost the target it tracked (and stopped): its activity's end.
+    bool lost() const noexcept { return lost_; }
+    /// It lights its designated target for a semi-active missile now: told to, and in single-target track - its beam
+    /// on the track, through its memory time too (it points where the track says; what comes back from there is the
+    /// seeker's to find). It ends with the track.
+    bool illuminating() const noexcept { return active_ && search_.illuminate && staring(); }
     /// Its random stream restarts from `seed` (a vehicle reset with a seed).
     void reseed(std::uint64_t seed) { rng_.seed(seed), signalStream_.reseed(seed ^ kSignalStream); }
     bool active() const noexcept { return active_; }
@@ -156,6 +199,8 @@ public:
     double beamAzimuthRad() const noexcept { return beamAz_; }
     double beamElevationRad() const noexcept { return beamEl_; }
     double framePeriodS() const noexcept { return framePeriod_; }
+    /// The elevation bars its scan has (those its command gave, or those that cover the height it gave).
+    int bars() const noexcept { return bars_; }
     std::uint64_t dwells() const noexcept { return dwells_; }
 
     /// Detections, oldest first (the last 2048), and the count ever made (false alarms among them, truth 0).
@@ -215,6 +260,32 @@ public:
 private:
     void plan();
     void dwell(double time, double az, double el, const sim::VehicleState& own, const Scene& scene);
+    // --- its engagement modes (MS-4b)
+    bool staring() const noexcept { return task_ == Task::Track && search_.mode == Mode::SingleTargetTrack; }
+    const track::Track* held(std::uint64_t id) const noexcept;
+    /// Where a track is from the carrier at `time`, body axes; false: the radar does not hold it.
+    bool bearing(std::uint64_t id, double time, const sim::VehicleState& own, double& az, double& el) const;
+    /// The scan's volume about a track (a frame's start), within the field of regard.
+    void recentre(double az, double el);
+    /// Cued, after a dwell: a detection to look at again, or the track that makes the target acquired.
+    void acquire(double time, const sim::VehicleState& own, std::uint64_t firstNew);
+    /// Every dwell on the track from now: single-target track.
+    void stare(std::uint64_t id);
+    /// Its target is gone: it stops, its activity's end to report.
+    void lose() noexcept { lost_ = true, active_ = false, acquiring_ = false, designated_ = 0; }
+    Task task_ = Task::Volume;
+    std::uint64_t designated_ = 0;
+    bool lost_ = false;
+    bool acquiring_ = false;
+    double acquireAz_ = 0.0, acquireEl_ = 0.0;
+    int acquireLeft_ = 0;
+    double trackDwellAt_ = 0.0;   ///< the last dwell an electronic array gave its designated track (track-while-scan)
+    /// How long before the states it is given a dwell ends (a step's dwells all see the step's states): each place is
+    /// taken back along its velocity by it, so that a detection's range is its stamp's - not that of up to a step
+    /// later, off by the closing speed times the difference: metres, where a strong return measures to less than one,
+    /// and dwell after dwell on one target that is a track its own detections no longer fall inside.
+    double lag_ = 0.0;
+    int bars_ = 0;
     /// The dwell's detections to its tracker (MS-5): the carrier's pose (r: body to ECEF) and velocity at the dwell.
     void track(double time, double az, double el, const sim::VehicleState& own, const double r[9], const double vOwn[3],
                const std::vector<Detection>& found);

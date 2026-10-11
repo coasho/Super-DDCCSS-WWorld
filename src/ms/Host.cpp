@@ -307,10 +307,27 @@ CommandResult Host::submit(const AmtiCommand& command, const CommandOptions& opt
     const bool rotodome = radar.spec().rotationRpm > 0.0;
     const bool finite = std::isfinite(command.azimuthCentreRad) && std::isfinite(command.azimuthHalfWidthRad) &&
                         std::isfinite(command.elevationCentreRad) && std::isfinite(command.rangeScaleM);
-    if (!finite || !(command.azimuthHalfWidthRad > 0.0) || command.bars < 1 || command.bars > 8 || !(command.rangeScaleM > 0.0) ||
-        static_cast<unsigned>(command.mode) > static_cast<unsigned>(AmtiMode::Surveillance) ||
-        rotodome != (command.mode == AmtiMode::Surveillance) || (command.signalLevel && command.mode == AmtiMode::VelocitySearch))
-        return r.reason = Reason::InvalidParameter, r;
+    const bool tall = std::isfinite(command.elevationHalfWidthRad); // (the volume's height given: its bars from it)
+    bool valid = finite && command.azimuthHalfWidthRad > 0.0 && command.rangeScaleM > 0.0 &&
+                 (tall ? command.elevationHalfWidthRad > 0.0 : command.bars >= 1 && command.bars <= 8) &&
+                 static_cast<unsigned>(command.mode) <= static_cast<unsigned>(AmtiMode::SingleTargetTrack) &&
+                 static_cast<unsigned>(command.task) <= static_cast<unsigned>(AmtiTask::Track);
+    const bool scans = command.mode == AmtiMode::RangeWhileSearch || command.mode == AmtiMode::TrackWhileScan; // (medium PRF: it tracks)
+    if (valid) switch (command.task) {
+        case AmtiTask::Volume:
+            valid = command.mode != AmtiMode::SingleTargetTrack && rotodome == (command.mode == AmtiMode::Surveillance) &&
+                    !(command.signalLevel && command.mode == AmtiMode::VelocitySearch) && command.track == 0 && !command.illuminate;
+            break;
+        case AmtiTask::Cued: // (a fighter's radar; what it acquires, it tracks alone)
+            valid = !rotodome && scans && !command.signalLevel;
+            break;
+        case AmtiTask::Track: // (a fighter's radar; its scan kept on the track, or every dwell on it - and then it may light it)
+            valid = !rotodome && (command.mode == AmtiMode::TrackWhileScan || command.mode == AmtiMode::SingleTargetTrack) &&
+                    !command.signalLevel && command.track != 0 && (!command.illuminate || command.mode == AmtiMode::SingleTargetTrack);
+            break;
+        }
+    if (!valid) return r.reason = Reason::InvalidParameter, r;
+    if (command.track != 0 && !radar.hasTrack(command.track)) return r.reason = Reason::UnknownTrack, r;
     Payload& p = state_[command.payload];
     if (p.amti) end(p.amti, control::ActivityState::Canceled, Reason::Superseded, simTime);
     ActivityRecord& a = start(static_cast<std::size_t>(capability), command.payload, options, simTime);
@@ -324,6 +341,10 @@ CommandResult Host::submit(const AmtiCommand& command, const CommandOptions& opt
     s.bars = command.bars;
     s.rangeScaleM = command.rangeScaleM;
     s.signalLevel = command.signalLevel;
+    s.task = command.task;
+    s.track = command.track;
+    s.elevationHalfWidthRad = command.elevationHalfWidthRad;
+    s.illuminate = command.illuminate;
     radar.search(s, simTime);
     r.status = control::CommandStatus::Accepted;
     r.activity = a.id;
@@ -475,8 +496,20 @@ RadarStatus Host::radarStatus(std::uint16_t payload) const noexcept {
     out.azimuthCentreRad = out.rotodome ? 0.0 : std::clamp(s.azimuthCentreRad, -out.azimuthLimitRad, out.azimuthLimitRad);
     out.azimuthHalfWidthRad = out.rotodome ? kPi : s.azimuthHalfWidthRad;
     out.elevationCentreRad = s.elevationCentreRad;
-    out.bars = s.bars;
+    out.bars = r->bars();
     out.rangeScaleM = s.rangeScaleM;
+    out.task = r->active() ? r->task() : AmtiTask::Volume;
+    out.designatedTrack = r->active() ? r->designated() : 0;
+    out.acquiring = r->active() && r->acquiring();
+    out.illuminating = r->illuminating();
+    out.trackMemoryS = spec.trackMemoryS;
+    if (r->active() && (s.mode == AmtiMode::SingleTargetTrack || out.acquiring)) {
+        // every dwell on one place: its volume is its beam, its frame a dwell
+        out.azimuthCentreRad = out.beamAzimuthRad, out.elevationCentreRad = out.beamElevationRad;
+        out.azimuthHalfWidthRad = 0.5 * r->pattern().beamwidthRad(false);
+        out.bars = 1;
+        out.framePeriodS = r->nominalDwellS();
+    }
     out.instrumentedRangeM = spec.instrumentedRangeM;
     out.frequencyHz = spec.frequencyHz;
     out.beamwidthAzimuthRad = r->pattern().beamwidthRad(false);
@@ -509,8 +542,14 @@ bool Host::sensing() const noexcept {
 }
 
 void Host::sense(double simTime, const sim::VehicleState& own, const radar::Scene& scene) {
-    for (auto& r : radars_)
-        if (r && r->active()) r->step(simTime, own, scene);
+    for (std::size_t i = 0; i < radars_.size(); ++i) {
+        auto& r = radars_[i];
+        if (!r || !r->active()) continue;
+        r->step(simTime, own, scene);
+        // the target it tracked is lost: its activity failed (the radar has stopped; what it does next is its
+        // controller's to say)
+        if (r->lost() && state_[i].amti) end(state_[i].amti, control::ActivityState::Failed, Reason::TrackLost, simTime);
+    }
 }
 
 } // namespace fsim::ms

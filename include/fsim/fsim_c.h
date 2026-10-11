@@ -2677,7 +2677,20 @@ enum fsim_amti_mode {
     FSIM_AMTI_RANGE_WHILE_SEARCH = 0, /* medium PRF: every aspect; a slow target meets the side lobes' clutter */
     FSIM_AMTI_VELOCITY_SEARCH = 1,    /* high PRF: closing targets clear of the side lobes' clutter band only */
     FSIM_AMTI_TRACK_WHILE_SCAN = 2,
-    FSIM_AMTI_SURVEILLANCE = 3        /* a rotodome's 360 deg search (its only mode) */
+    FSIM_AMTI_SURVEILLANCE = 3,       /* a rotodome's 360 deg search (its only mode) */
+    FSIM_AMTI_SINGLE_TARGET_TRACK = 4 /* ABI 1.70 (MS-4b): every dwell on its one designated target */
+};
+/* ABI 1.70 (MS-4b): what an AMTI command asks of the radar - A-GRA's AMTI_CapabilityEnum. */
+enum fsim_amti_task {
+    FSIM_AMTI_VOLUME = 0, /* search a volume until told otherwise */
+    FSIM_AMTI_CUED = 1,   /* search a small volume for one target and acquire it: then it is tracked alone (the task becomes
+                             track, the mode single-target track). A fighter's air-combat modes: fsim_amti_command_acm */
+    FSIM_AMTI_TRACK = 2   /* track one of its tracks: mode track-while-scan, the scan's volume kept on it; mode single-target
+                             track, every dwell on it */
+};
+enum fsim_acm_pattern {
+    FSIM_ACM_BORESIGHT = 0,    /* one beam along the nose, to 10 nmi */
+    FSIM_ACM_VERTICAL_SCAN = 1 /* 10 deg wide, from 10 deg below the nose to 50 deg above it, to 10 nmi */
 };
 
 typedef struct fsim_amti_command {
@@ -2691,6 +2704,15 @@ typedef struct fsim_amti_command {
     double range_scale_m;             /* (150 km) */
     int32_t signal_level;             /* ABI 1.55 (MS-6): 1, the search at the signal level (medium-PRF modes); read where
                                          the caller's struct_size has it */
+    int32_t reserved;
+    /* ABI 1.70 (MS-4b), read where the caller's struct_size has them */
+    int32_t task;                     /* fsim_amti_task (0: a volume's search) */
+    int32_t illuminate;               /* task track, mode single-target track (or cued, once it has acquired): light the
+                                         target for a semi-active missile - an SDK extension, not A-GRA's */
+    uint64_t track;                   /* task track: the radar's own track to follow (fsim_amti_track.id); task cued: a track to
+                                         cue on, or 0 - the volume as given */
+    double elevation_half_width_rad;  /* the volume's half height when given: the bars that cover it (64 at most), `bars`
+                                         not read. NaN (fsim_amti_command_init's): `bars` */
 } fsim_amti_command;
 
 typedef struct fsim_amti_detection {
@@ -2721,6 +2743,12 @@ typedef struct fsim_radar_status {
     uint64_t false_alarms;            /* ABI 1.53 (MS-5): of the detections, false alarms */
     uint32_t tracks, tentative_tracks; /* confirmed tracks, and those not yet confirmed */
     int32_t signal_level;             /* ABI 1.55 (MS-6): it searches at the signal level */
+    /* ABI 1.70 (MS-4b), written where the caller's struct_size has them */
+    int32_t task;                     /* fsim_amti_task: what it does now (a cued task that acquired its target: track) */
+    uint64_t designated_track;        /* the track it follows (0: none - a volume's search, an acquisition still searching) */
+    int32_t acquiring;                /* task cued: it looks again at a detection, to confirm its track */
+    int32_t illuminating;             /* it lights its designated target for a semi-active missile now */
+    double track_memory_s;            /* how long it keeps a track it cannot update, in single-target track and acquisition */
 } fsim_radar_status;
 
 /* ABI 1.53 (MS-5): a radar's track - Stone Soup's GNN tracker (an unscented Kalman filter on a nearly-constant-velocity model) on its
@@ -2743,8 +2771,10 @@ typedef struct fsim_amti_track {
 FSIM_API void fsim_amti_command_init(fsim_amti_command* command);
 FSIM_API void fsim_amti_detection_init(fsim_amti_detection* detection);
 FSIM_API void fsim_radar_status_init(fsim_radar_status* status);
-/* Search: a new AMTI activity, superseding the radar's last; it runs until canceled (fsim_ms_activity_cancel),
- * superseded, or the payload stops operating. Refusals in `result` (payload_off, not_supported, invalid_parameter...). */
+/* The AMTI command - search a volume, acquire a target in one, track one of its tracks (`task`): a new AMTI activity,
+ * superseding the radar's last; it runs until canceled (fsim_ms_activity_cancel), superseded, or the payload stops
+ * operating - and a cued or track one fails, track_lost, when the radar loses its target. Refusals in `result`
+ * (payload_off, not_supported, invalid_parameter, unknown_track...). */
 FSIM_API int fsim_vehicle_amti_search(fsim_world* world, uint32_t id, const fsim_amti_command* command, const fsim_ms_options* options,
                                       fsim_ms_result* result);
 /* A radar payload's picture. FSIM_INVALID_ARGUMENT for an unknown vehicle or a payload that is not a radar. */
@@ -2753,7 +2783,13 @@ FSIM_API int fsim_vehicle_radar_status(const fsim_world* world, uint32_t id, uin
  * `out` (`out[0].struct_size` bytes apart), `*count` how many (all of them: more than `max` when it had more). */
 FSIM_API int fsim_vehicle_amti_detections(const fsim_world* world, uint32_t id, uint32_t payload, uint64_t since, fsim_amti_detection* out,
                                           uint32_t max, uint32_t* count);
-FSIM_API const char* fsim_amti_mode_name(int mode); /* "range_while_search", "velocity_search", "track_while_scan", "surveillance" */
+FSIM_API const char* fsim_amti_mode_name(int mode); /* "range_while_search", "velocity_search", "track_while_scan", "surveillance",
+                                                       "single_target_track" */
+/* ABI 1.70 (MS-4b) */
+FSIM_API const char* fsim_amti_task_name(int task); /* "volume", "cued", "track" */
+/* `command` as a fighter radar's air-combat acquisition (fsim_acm_pattern): a cued task, its volume and its range scale;
+ * its struct_size, payload and illuminate are kept. FSIM_INVALID_ARGUMENT for an unknown pattern. */
+FSIM_API int fsim_amti_command_acm(fsim_amti_command* command, int pattern);
 FSIM_API void fsim_amti_track_init(fsim_amti_track* track);
 /* ABI 1.53: a radar payload's confirmed tracks: `max` at most into `out` (`out[0].struct_size` bytes apart), `*count` how
  * many there are. */
