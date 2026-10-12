@@ -71,6 +71,7 @@ add_executable(fsim_tests
     test_axes.cpp
     test_capabilities.cpp
     test_conformance.cpp
+    test_ma_lifecycle.cpp
     test_control.cpp
     test_guidance.cpp
     test_interface.cpp

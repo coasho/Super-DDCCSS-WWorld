@@ -103,6 +103,10 @@ Architecture acceptance is registered by [cmake/ArchitectureChecks.cmake](../cma
 
 When splitting C adapters, preserve the first principal guard, shared last-error state, borrowed output lifetime and `struct_size` behavior. `sdk_guard_checker` exercises source-discovery/coverage failures without loading the SDK; `sdk_boundary` still checks the actual DLL/Python surface and generated inventory. `launch_eligibility` and the stores' `[launch-policy]` cases characterize the private weapon admission seam; native engagement acceptance retains worker/event determinism. Avoid changing defaults or refusal order while moving ownership.
 
+DMS/C2 adapter owners are `src/sdk/fsim_links_c.cpp` and `python/src/_native_dms.c`. Keep the Python World method/type tables in `_native.c` and public identities in `world.py`; `_native_world.h` shares the private handle layout and call support. Compare moved bodies, registration tables, native exports and `test_binding_compatibility` alongside agent/isolation/buffer acceptance when splitting another domain.
+
+MA removal has a narrower contract than deleting its State: publicly queryable tasks, authority, overrides and borrowed RBAC names remain in place, as do controller mappings. `MaConsentLedger` owns private pending requests; answered/automatic records are reclaimed while unanswered ended strikes retain late-reply semantics. Retirement releases private consent storage and stops maintenance after the existing observable transitions settle. Reset retains MA state. `[ma][lifecycle]` and `[agents][c2][lifecycle]` cases exercise these boundaries; see the [A2 design](superpowers/specs/2026-10-12-architecture-lifecycle-design.md) before changing history retention.
+
 ## Long-running work and evidence
 
 A background command must write raw output directly to its log. Never end it with `| grep`, `| sed`, `| awk` or `| head`: block buffering can hide completed work until the process exits. Read and filter the saved log separately. If an unavoidable live pipeline needs filtering, use explicit line buffering (`grep --line-buffered`, `awk '{print; fflush()}'`, or `python -u`); `head` does not fix buffering.

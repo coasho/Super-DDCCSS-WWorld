@@ -86,6 +86,7 @@ function(fsim_python_module target name source library)
 endfunction()
 
 fsim_python_module(fsim_python _native src/_native.c fsim::sdk)
+target_sources(fsim_python PRIVATE src/_native_dms.c src/_native_world.h)
 set(_fsim_py_modules fsim_python)
 set(_fsim_py_exes "$<TARGET_FILE:fsim_python>")
 # The platform's own DLLs change with every build; the dependency walk below

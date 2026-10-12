@@ -9,6 +9,7 @@
 
 #include "fsim/Capability.h"
 #include "fsim/Comm.h"
+#include "session/MaConsentLedger.h"
 
 #include <cstdint>
 #include <string>
@@ -69,6 +70,9 @@ public:
     /// After the DMS's step: each platform's C2 messages handled, each C2 activity that ended reported, its strikes'
     /// release consent asked for as its policy says (AB-5b), expired overrides cleared.
     void step(World& world);
+    /// A removed entity keeps its public records in place; only its private consent storage is released now.
+    /// Its existing C2, override and lost-communication transitions still settle on their original steps.
+    void retireEntity(std::uint32_t entity) noexcept;
 
     // AB-5b: tasks to the agent, overrides on its flight, release consent over the link
     const std::vector<comm::ReceivedTask>* tasks(std::uint32_t entity) const noexcept;
@@ -108,14 +112,13 @@ private:
         std::uint64_t nextCommand = 1; ///< (as a C2 system: its commands' ids)
         std::vector<comm::ReceivedTask> tasks;          ///< (AB-5b) C2's tasks for its agent
         std::vector<comm::ActiveOverride> overrides;
-        struct Consent {
-            control::ActivityId strike = 0;
-            std::uint64_t requestId = 0;  ///< 0: decided by the policy alone
-            std::vector<comm::SystemId> asked;
-        };
-        std::vector<Consent> consents;                  ///< its strikes whose consent it handled
+        MaConsentLedger consents;                     ///< unanswered requests, including ended strikes' late answers
         std::uint64_t nextRequest = 1;
+        bool retired = false;
     };
+    static bool needsMaintenance(const State& s) noexcept {
+        return !s.retired || !s.overrides.empty() || !s.authority.c2.empty() || (s.authority.lostCommsSet && !s.authority.lost);
+    }
     void consents(World& world, std::uint32_t entity, State& s);
     void watchComms(World& world, std::uint32_t entity, State& s);
     /// What a team's leader may send its members: anything but role configuration (Peer 1.1).

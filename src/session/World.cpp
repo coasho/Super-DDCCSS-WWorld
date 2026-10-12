@@ -387,6 +387,7 @@ bool World::removeVehicle(std::uint32_t id) {
     pool_->setActive(slot, false);
     network_.removeNode(id);
     dms_.removeEntity(id); // (off its nets; its SystemID stays the referee's)
+    maCore_.retireEntity(id);
     views_.erase(id); // (its host goes with it; its own mission data stays the referee's to read, named by nobody)
     if (publisher_) {
         publisher_->clearVehicle(static_cast<std::uint32_t>(slot));
@@ -513,6 +514,7 @@ bool World::removeC2Node(std::uint32_t id) {
     if (!c2Node(id)) return false;
     c2Nodes_[id - kC2Nodes - 1].alive = false;
     dms_.removeEntity(id);
+    maCore_.retireEntity(id);
     return true;
 }
 

@@ -664,6 +664,204 @@ TEST_CASE("agents: C2 authority (AB-5b) - a task decided by the agent, its answe
     CHECK(st->reason == 7);
 }
 
+TEST_CASE("agents: MA removal retains history and settles C2, overrides and lost communication at their existing steps",
+          "[agents][c2][lifecycle]") {
+    World w(options("agents-ma-removal"));
+    Vehicle a = aircraft(w, "viper", "f16c", 0.0, 0.0, 6000.0, 0.0, 230.0);
+    const auto node = w.createC2Node(c2At("boss", -40.0, 0.0, 200.0));
+    const auto net = w.createNet({});
+    REQUIRE(w.joinNet(a.id(), net));
+    REQUIRE(w.joinNet(node, net));
+    Agent blue = w.createAgent(a, "blue");
+    Agent boss = w.createAgent(node, "boss");
+    REQUIRE(boss.declareRole(2, "QB"));
+    w.step(10);
+
+    comm::TaskOrder patrol;
+    patrol.type = comm::TaskOrder::Patrol;
+    std::strcpy(patrol.text, "retained patrol");
+    const auto completed = boss.sendTask(blue.system(), patrol);
+    const auto pending = boss.sendTask(blue.system(), patrol);
+    REQUIRE(completed != 0);
+    REQUIRE(pending != 0);
+    w.step(15);
+    REQUIRE(blue.acceptTask(boss.system(), completed));
+    REQUIRE(blue.reportTask(boss.system(), completed, comm::ReceivedTask::Completed, 100.0));
+    REQUIRE(statusOf(w, boss, completed, comm::topic::kTask, comm::CommandStatus::Completed));
+
+    comm::OverrideCommand finite;
+    finite.kind = comm::OverrideCommand::Altitude;
+    finite.value = 7000.0;
+    finite.expiryS = w.time() + 4.0;
+    REQUIRE(statusOf(w, boss, boss.setOverride(blue.system(), finite), comm::topic::kOverride));
+    comm::OverrideCommand indefinite;
+    indefinite.kind = comm::OverrideCommand::Speed;
+    indefinite.value = 240.0; // NaN expiry: retained until canceled.
+    REQUIRE(statusOf(w, boss, boss.setOverride(blue.system(), indefinite), comm::topic::kOverride));
+    const auto lostSettings = boss.setLostComms(blue.system(), 5.0);
+    REQUIRE(statusOf(w, boss, lostSettings, comm::topic::kLostComms));
+    const auto direct = boss.commandHsa(blue.system(), hsa(30.0));
+    const auto accepted = statusOf(w, boss, direct, comm::topic::kFlightCommand, comm::CommandStatus::Accepted);
+    REQUIRE(accepted);
+    const auto system = blue.system();
+    const auto before = blue.authority();
+    REQUIRE(before.commands.size() == 1);
+    REQUIRE(blue.overrides().size() == 2);
+    REQUIRE_FALSE(before.lost);
+    const auto tasksBefore = blue.c2Tasks();
+    REQUIRE(tasksBefore.size() == 2);
+
+    REQUIRE(a.remove());
+    CHECK(blue.system() == system);
+    CHECK(blue.authority().commands.size() == 1); // C2 clearing remains deferred to MA's next step.
+    CHECK(blue.authority().operators.size() == 1);
+    CHECK(blue.c2Tasks().size() == 2);
+    CHECK(blue.overrides().size() == 2);
+    CHECK_FALSE(w.joinNet(a.id(), net));
+    REQUIRE(blue.acceptTask(boss.system(), pending)); // Local history still changes although its reply cannot send.
+    CHECK_FALSE(blue.acceptTask(boss.system(), completed));
+    CHECK(blue.c2Tasks()[0].state == comm::ReceivedTask::Completed);
+    CHECK(blue.c2Tasks()[1].state == comm::ReceivedTask::Accepted);
+    CHECK(blue.c2Tasks()[0].percent == 100.0);
+
+    w.step();
+    CHECK(blue.authority().commands.empty());
+    CHECK(blue.overrides().size() == 2);
+    CHECK_FALSE(blue.authority().lost);
+    for (const auto& status : boss.commandStatuses())
+        if (status.status.commandId == direct && status.status.topic == comm::topic::kFlightCommand)
+            CHECK(status.status.state == comm::CommandStatus::Accepted); // A removed sender cannot send its final status.
+
+    while (w.time() + w.stepSeconds() < finite.expiryS) w.step();
+    REQUIRE(blue.overrides().size() == 2);
+    w.step();
+    REQUIRE(blue.overrides().size() == 1);
+    CHECK(std::isnan(blue.overrides()[0].expiryS));
+    while (!blue.authority().lost && w.time() < before.lostSinceS + 20.0) w.step();
+    const auto lost = blue.authority();
+    CHECK(lost.lost);
+    CHECK(lost.alerts == before.alerts + 1);
+    CHECK(w.time() - lost.lostSinceS > 5.0);
+    CHECK(w.time() - w.stepSeconds() - lost.lostSinceS <= 5.0);
+    w.step(10);
+    CHECK(blue.authority().alerts == lost.alerts);
+    CHECK(blue.authority().lostSinceS == lost.lostSinceS);
+
+    Vehicle replacement = aircraft(w, "replacement", "f16c", 0.0, 0.0, 6000.0, 0.0, 230.0);
+    CHECK(replacement.id() != a.id());
+    REQUIRE(w.joinNet(replacement.id(), net));
+    Agent fresh = w.createAgent(replacement, "fresh");
+    CHECK(fresh.c2Tasks().empty());
+    CHECK(fresh.overrides().empty());
+    CHECK(fresh.authority().operators.empty());
+    CHECK(blue.c2Tasks().size() == 2);
+    CHECK(w.removeC2Node(node));
+    CHECK(boss.system() != comm::kNoSystem);
+    CHECK_FALSE(boss.commandStatuses().empty());
+    comm::DmsReason why = comm::DmsReason::None;
+    CHECK(boss.sendTask(fresh.system(), patrol, &why) == 0);
+    CHECK(why == comm::DmsReason::NoSystem);
+}
+
+TEST_CASE("agents: reset preserves MA authority, tasks, overrides and C2 ownership", "[agents][c2][lifecycle]") {
+    World w(options("agents-ma-reset"));
+    Vehicle a = aircraft(w, "viper", "f16c", 0.0, 0.0, 6000.0, 0.0, 230.0);
+    const auto node = w.createC2Node(c2At("boss", -40.0, 0.0, 200.0));
+    const auto net = w.createNet({});
+    REQUIRE(w.joinNet(a.id(), net));
+    REQUIRE(w.joinNet(node, net));
+    Agent blue = w.createAgent(a, "blue");
+    Agent boss = w.createAgent(node, "boss");
+    REQUIRE(boss.declareRole(2, "QB"));
+    w.step(10);
+    const auto modes = 1u << static_cast<unsigned>(control::FlightMode::HsaCsa);
+    REQUIRE(statusOf(w, boss, boss.designateControl(blue.system(), modes), comm::topic::kControlDesignation));
+    comm::TaskOrder patrol;
+    REQUIRE(boss.sendTask(blue.system(), patrol) != 0);
+    comm::OverrideCommand high;
+    high.kind = comm::OverrideCommand::Altitude;
+    high.value = 7000.0;
+    REQUIRE(statusOf(w, boss, boss.setOverride(blue.system(), high), comm::topic::kOverride));
+    REQUIRE(statusOf(w, boss, boss.setLostComms(blue.system(), 30.0), comm::topic::kLostComms));
+    const auto direct = boss.commandHsa(blue.system(), hsa(20.0));
+    const auto status = statusOf(w, boss, direct, comm::topic::kFlightCommand, comm::CommandStatus::Accepted);
+    REQUIRE(status);
+    REQUIRE(blue.c2Tasks().size() == 1);
+    const auto before = blue.authority();
+    REQUIRE(a.reset());
+    const auto after = blue.authority();
+    CHECK(after.designatedModes == modes);
+    CHECK(after.designatedBy == before.designatedBy);
+    CHECK(after.operators.size() == before.operators.size());
+    CHECK(after.lostCommsSet);
+    CHECK(after.alerts == before.alerts);
+    REQUIRE(after.commands.size() == 1);
+    CHECK(after.commands[0].activity == status->activity);
+    CHECK(blue.c2Tasks()[0].state == comm::ReceivedTask::Received);
+    CHECK(blue.overrides()[0].value == 7000.0);
+    REQUIRE(w.activity(status->activity));
+    CHECK(w.activity(status->activity)->state == control::ActivityState::Pending);
+    CHECK(blue.cancel(status->activity).reason == control::Reason::NotAllowed);
+    w.step();
+    CHECK(w.activity(status->activity)->live());
+    CHECK(blue.authority().commands.size() == 1);
+}
+
+TEST_CASE("agents: consent keeps first-answer and late unanswered reply status", "[agents][c2][lifecycle]") {
+    World w(options("agents-ma-consent-history"));
+    Vehicle a = aircraft(w, "viper", "f16c", 0.0, 0.0, 6000.0, 0.0, 230.0);
+    REQUIRE(a.loadLoadout("mk82 x4") == ms::Reason::None);
+    const auto firstNode = w.createC2Node(c2At("first", -40.0, 0.0, 200.0));
+    const auto secondNode = w.createC2Node(c2At("second", -45.0, 0.0, 200.0));
+    const auto net = w.createNet({});
+    for (const auto entity : {a.id(), firstNode, secondNode}) REQUIRE(w.joinNet(entity, net));
+    Agent blue = w.createAgent(a, "blue");
+    Agent first = w.createAgent(firstNode, "first");
+    Agent second = w.createAgent(secondNode, "second");
+    REQUIRE(first.declareRole(2, "QB1"));
+    REQUIRE(second.declareRole(2, "QB2"));
+    w.step(10);
+    REQUIRE(blue.submit(ms::StateCommand{4, ms::PayloadState::Operate}).accepted());
+    w.step();
+    ms::StrikeCommand strike;
+    strike.payload = 4;
+    strike.store = "mk82";
+    strike.quantity = 1;
+    const auto r = blue.submit(strike);
+    REQUIRE(r.accepted());
+    w.step(static_cast<unsigned>(std::lround(3.0 / w.stepSeconds())));
+    REQUIRE(first.consentRequests().size() == 1);
+    REQUIRE(second.consentRequests().size() == 1);
+    const auto request = first.consentRequests()[0].request.requestId;
+    CHECK(second.consentRequests()[0].request.requestId == request);
+    REQUIRE(first.answerConsent(blue.system(), request, true));
+    const auto accepted = statusOf(w, first, request, comm::topic::kConsentAnswer, comm::CommandStatus::Accepted);
+    REQUIRE(accepted);
+    REQUIRE(second.answerConsent(blue.system(), request, false)); // The first answer has arrived despite link jitter.
+    const auto duplicate = statusOf(w, second, request, comm::topic::kConsentAnswer, comm::CommandStatus::Unauthorized);
+    REQUIRE(duplicate);
+    CHECK(duplicate->reason == static_cast<std::uint32_t>(control::Reason::NotAllowed));
+    CHECK_FALSE(first.answerConsent(blue.system(), request, true));
+    CHECK(first.consentRequests()[0].answered);
+    CHECK(second.consentRequests()[0].answered);
+
+    const auto lateStrike = blue.submit(strike);
+    REQUIRE(lateStrike.accepted());
+    w.step(static_cast<unsigned>(std::lround(3.0 / w.stepSeconds())));
+    REQUIRE(first.consentRequests().size() == 2);
+    const auto late = first.consentRequests()[1].request.requestId;
+    REQUIRE(blue.cancelMission(lateStrike.activity).status == control::CommandStatus::Canceled);
+    w.step(2); // The unanswered request must remain addressable after its strike ends.
+    REQUIRE(first.answerConsent(blue.system(), late, true));
+    const auto rejected = statusOf(w, first, late, comm::topic::kConsentAnswer, comm::CommandStatus::Rejected);
+    REQUIRE(rejected);
+    CHECK(rejected->reason == static_cast<std::uint32_t>(ms::Reason::ActivityEnded));
+    CHECK(rejected->activity == lateStrike.activity);
+    CHECK(first.consentRequests().size() == 2);
+    CHECK(second.consentRequests().size() == 2);
+    CHECK_FALSE(second.consentRequests()[1].answered);
+}
+
 TEST_CASE("agents: C2 authority (AB-5b) - overrides on the agent's flight; release consent over the link", "[agents][c2]") {
     World w(options("agents-c2-consent"));
     Vehicle a = aircraft(w, "viper", "f16c", 0.0, 0.0, 6000.0, 0.0, 230.0);

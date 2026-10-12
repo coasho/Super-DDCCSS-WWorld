@@ -23,7 +23,7 @@ int fail(int code, const std::string& message) noexcept {
     return code;
 }
 
-int guard(const char* what, const std::function<int()>& fn) noexcept {
+[[maybe_unused]] int guard(const char* what, const std::function<int()>& fn) noexcept {
     try {
         const int r = fn();
         if (r == FSIM_OK) fsim::sdk::lastError().clear();

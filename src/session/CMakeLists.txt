@@ -16,6 +16,7 @@ add_library(fsim_session STATIC
     Dms.cpp
     MaCore.h
     MaCore.cpp
+    MaConsentLedger.h
     Frames.cpp
     Geometry.cpp
     Marshalls.cpp

@@ -89,6 +89,7 @@ static inline void fsim_py_buffer_dealloc(PyObject* self) {
     Py_DECREF(tp);
 }
 
+#ifndef FSIM_PY_NO_BUFFER_TYPE
 static PyType_Slot fsim_py_buffer_slots[] = {
     {Py_tp_dealloc, (void*)fsim_py_buffer_dealloc},
     {Py_bf_getbuffer, (void*)fsim_py_buffer_get},
@@ -97,6 +98,7 @@ static PyType_Slot fsim_py_buffer_slots[] = {
     {0, NULL}};
 
 static PyType_Spec fsim_py_buffer_spec = {"fsim._Buffer", sizeof(fsim_py_buffer), 0, Py_TPFLAGS_DEFAULT, fsim_py_buffer_slots};
+#endif /* FSIM_PY_NO_BUFFER_TYPE */
 
 /* A new buffer over [data, data + len) owned by `owner`; NULL data gives None. */
 static inline PyObject* fsim_py_buffer_new(PyTypeObject* type, PyObject* owner, const void* data, Py_ssize_t len, int readonly) {

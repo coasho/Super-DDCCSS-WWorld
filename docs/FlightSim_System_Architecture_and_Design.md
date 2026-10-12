@@ -172,6 +172,17 @@ World continues owning authority, inventory ordering, simulation stages and even
 in core with the existing sim forwarding interface. The [A1 design and remaining architecture work](superpowers/specs/2026-10-11-architecture-maintenance-design.md)
 records the limited refactor and deferred stateful/GPU work.
 
+The [A2 lifecycle and adapter slice](superpowers/specs/2026-10-12-architecture-lifecycle-design.md) assigns DMS/C2 C
+entry points to `src/sdk/fsim_links_c.cpp` and Python native handlers to `python/src/_native_dms.c`. Both remain
+in their existing SDK/module binaries. Python method/type registration and the public object model remain in
+their original owners; `_native_world.h` shares only the private World layout and call support.
+
+MA retirement separates private consent bookkeeping from retained public history. Successful vehicle/C2 removal
+releases private consent storage, then existing C2 completion, override expiry and lost-communication transitions
+settle at their original steps. RBAC names, tasks, authority and controller mappings stay in place. This preserves
+post-removal reads and unordered traversal; it does not bound aggregate public history or redesign iteration to
+visit only live entities.
+
 ## 6. Runtime model
 
 The simulation is driven in lockstep by the caller (`VecEnv::step()` from the trainer's C++ code, the C ABI, or the shared-memory server), not by a clock: each call advances every vehicle by a fixed number of JSBSim steps across a worker pool, then builds observations; the optional viewer runs on its own thread at display rate and reads immutable snapshots, so visualisation never slows training.

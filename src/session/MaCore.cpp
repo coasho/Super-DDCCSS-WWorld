@@ -65,6 +65,13 @@ void MaCore::reply(World& world, std::uint32_t entity, comm::SystemId to, const 
     world.dms().send(entity, m, world.simTime(), why, true); // (unreachable now: the sender learns nothing - as over the air)
 }
 
+void MaCore::retireEntity(std::uint32_t entity) noexcept {
+    const auto it = states_.find(entity);
+    if (it == states_.end()) return;
+    it->second.retired = true;
+    it->second.consents.release();
+}
+
 void MaCore::step(World& world) {
     for (const std::uint32_t entity : world.dms().coreWaiting())
         for (const comm::DmsReceived& m : world.dms().takeCore(entity)) {
@@ -75,9 +82,10 @@ void MaCore::step(World& world) {
     for (const std::uint32_t entity : world.dms().entities())
         if (world.vehicleState(entity) && world.missionSystems(entity)) consents(world, entity, state(entity));
     for (auto& [entity, s] : states_)
-        if (s.authority.lostCommsSet) watchComms(world, entity, s);
+        if (needsMaintenance(s) && s.authority.lostCommsSet) watchComms(world, entity, s);
     // C2's activities that ended: how, to the C2 that commanded them; overrides that expired
     for (auto& [entity, s] : states_) {
+        if (!needsMaintenance(s)) continue;
         s.overrides.erase(std::remove_if(s.overrides.begin(), s.overrides.end(),
                                          [&](const comm::ActiveOverride& o) { return o.expiryS <= world.simTime(); }),
                           s.overrides.end());
@@ -211,18 +219,18 @@ void MaCore::handle(World& world, std::uint32_t entity, const comm::DmsReceived&
         if (!comm::decode(m.bytes, a)) return;
         st.commandId = a.requestId;
         const comm::Role* role = roleOf(s, m.source);
-        auto it = std::find_if(s.consents.begin(), s.consents.end(), [&](const State::Consent& c) { return c.requestId == a.requestId; });
+        const auto* request = s.consents.findRequest(a.requestId);
         // the approving roles alone, and the systems it asked
-        const bool asked = it != s.consents.end() && std::find(it->asked.begin(), it->asked.end(), m.source) != it->asked.end();
+        const bool asked = request && std::find(request->asked.begin(), request->asked.end(), m.source) != request->asked.end();
         if (!role || !role->approvesStrikes || !(role->permissions & needs) || !asked) {
             st.state = comm::CommandStatus::Unauthorized, st.reason = static_cast<std::uint32_t>(control::Reason::NotAllowed);
             reply(world, entity, m.source, st);
             return;
         }
-        const ms::Reason r = world.strikeConsent(it->strike, a.granted != 0);
+        const ms::Reason r = world.strikeConsent(request->strike, a.granted != 0);
         st.state = r == ms::Reason::None ? comm::CommandStatus::Accepted : comm::CommandStatus::Rejected;
-        st.reason = static_cast<std::uint32_t>(r), st.activity = it->strike;
-        it->asked.clear(), it->asked.push_back(comm::kNoSystem); // (answered: not asked again)
+        st.reason = static_cast<std::uint32_t>(r), st.activity = request->strike;
+        s.consents.complete(a.requestId); // (answered: later approving senders are unauthorized)
         reply(world, entity, m.source, st);
         return;
     }
@@ -443,11 +451,9 @@ void MaCore::consents(World& world, std::uint32_t entity, State& s) {
     for (const control::ActivityId id : waiting) {
         const auto strike = world.strikeStatus(id);
         if (!strike) continue;
-        auto it = std::find_if(s.consents.begin(), s.consents.end(), [&](const State::Consent& c) { return c.strike == id; });
-        if (it != s.consents.end() && !it->asked.empty()) continue; // (asked: waiting for an answer)
+        if (s.consents.findStrike(id)) continue; // (asked: waiting for an answer)
         if (s.rbac.strikePolicy != comm::StrikePolicy::RequiresApproval) { // (MA answers itself, as its policy says)
             world.strikeConsent(id, s.rbac.strikePolicy == comm::StrikePolicy::AutoApprove);
-            s.consents.push_back({id, 0, {}});
             continue;
         }
         // the systems whose declared role approves strikes - none yet: asked again when one declares
@@ -473,8 +479,7 @@ void MaCore::consents(World& world, std::uint32_t entity, State& s) {
         m.topic = comm::topic::kConsentRequest, m.bytes = comm::encode(q), m.destinations = approvers;
         comm::DmsReason why;
         if (!world.dms().send(entity, m, world.simTime(), why, true)) continue;
-        if (it != s.consents.end()) it->requestId = q.requestId, it->asked = approvers;
-        else s.consents.push_back({id, q.requestId, approvers});
+        s.consents.record({id, q.requestId, approvers});
     }
 }
 
