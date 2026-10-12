@@ -210,6 +210,12 @@ target_compile_definitions(fsim_sdk_tests PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_
 fsim_set_warnings(fsim_sdk_tests)
 catch_discover_tests(fsim_sdk_tests ${FSIM_CATCH_DISCOVERY})
 
+# Public C control/Mission adapter behavior across the shared SDK boundary.
+add_executable(fsim_adapter_compatibility_test test_adapter_compatibility.cpp)
+target_link_libraries(fsim_adapter_compatibility_test PRIVATE fsim::sdk)
+fsim_set_warnings(fsim_adapter_compatibility_test)
+add_test(NAME adapter_compatibility COMMAND fsim_adapter_compatibility_test)
+
 # The public C ABI, consumed from a plain C translation unit against fsim.dll.
 add_executable(fsim_c_abi_test test_c_abi.c)
 target_link_libraries(fsim_c_abi_test PRIVATE fsim::sdk)

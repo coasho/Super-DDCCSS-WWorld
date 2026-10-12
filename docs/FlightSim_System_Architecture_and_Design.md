@@ -177,6 +177,14 @@ entry points to `src/sdk/fsim_links_c.cpp` and Python native handlers to `python
 in their existing SDK/module binaries. Python method/type registration and the public object model remain in
 their original owners; `_native_world.h` shares only the private World layout and call support.
 
+The [A3 control and Mission slice](superpowers/specs/2026-10-12-architecture-adapters-design.md) assigns C control/VI
+entry points to `src/sdk/fsim_control_c.cpp`, with the unchanged parameter conversion in private
+`CParameterSupport.h`. Python control and Mission handlers belong to `_native_control.c` and `_native_mission.c`;
+the original `_native.c` continues owning lifecycle, shared conversions, Error, BufferType and all registration.
+These source owners link into the same SDK and Python binaries, using the original handle layout and principal
+guards. Splitting ownership preserves validation order, command side effects, borrowed lifetimes and the existing
+busy/GIL boundaries.
+
 MA retirement separates private consent bookkeeping from retained public history. Successful vehicle/C2 removal
 releases private consent storage, then existing C2 completion, override expiry and lost-communication transitions
 settle at their original steps. RBAC names, tasks, authority and controller mappings stay in place. This preserves
