@@ -249,10 +249,11 @@ names = [
 
 [[rule]]
 principal = "agent"
-note = "Its radars' detections and tracks"
+note = "Its radars' detections and tracks; its warning receiver's contacts"
 names = [
     "fsim_vehicle_amti_detections",
     "fsim_vehicle_amti_tracks",
+    "fsim_vehicle_contacts",
 ]
 
 [[rule]]
@@ -724,6 +725,11 @@ names = [
 
 [[rule]]
 principal = "range"
+note = "The catalog: what the platform carries - aircraft, their fits and loadouts, the cards, the drawn models - read without a world (the data a World loads from; nothing of a world's state)"
+globs = ["fsim.catalog.*"]
+
+[[rule]]
+principal = "range"
 note = "The batch layer: a training harness owning its world (AB-3 puts its observations and actions on the boundary)"
 names = ["fsim_world_command_batch", "fsim.world.World.command"]
 globs = ["fsim::VecEnv::*", "fsim_vecenv_*", "fsim.vecenv.VecEnv.*", "fsim.gym.FsimVectorEnv.*", "fsim.sb3.FsimVecEnv.*"]
@@ -795,6 +801,7 @@ names = [
     "fsim.world.Vehicle.amti_track",
     "fsim.world.Vehicle.amti_tracks",
     "fsim.world.Vehicle.availability",
+    "fsim.world.Vehicle.contacts",
     "fsim.world.Vehicle.behavior_finished",
     "fsim.world.Vehicle.cancel_mission",
     "fsim.world.Vehicle.cancel_task",
@@ -892,6 +899,7 @@ names = [
     "fsim::Vehicle::amtiDetections",
     "fsim::Vehicle::amtiTracks",
     "fsim::Vehicle::cancelMission",
+    "fsim::Vehicle::contacts",
     "fsim::Vehicle::cancelTask",
     "fsim::Vehicle::capabilities",
     "fsim::Vehicle::capabilityPrecedence",
@@ -1174,6 +1182,7 @@ names = [
     "fsim::ms::acmCommand", "fsim::ms::amtiModeName", "fsim::ms::amtiTaskName", "fsim::ms::capabilityTypeId", "fsim::ms::familyName", "fsim::ms::payloadStateName",
     "fsim::ms::reasonDescription", "fsim::ms::reasonName", "fsim::ms::roleName", "fsim::ms::storeStatusName",
     "fsim::ms::strikePhaseName", "fsim::ms::weaponEndName",
+    "fsim::ms::contactKindName", "fsim::ms::emitterModeName", "fsim::ms::taskKindName", "fsim::ms::weaponPhaseName",
 ]
 globs = ["fsim_*_init", "fsim_*_name", "fsim_*_description"]
 
@@ -1210,3 +1219,26 @@ names = [
     "fsim.world.World.step_seconds", "fsim.actions", "fsim.observations", "fsim.tasks",
 ]
 globs = ["fsim::comm::JsonCodec::*", "fsim.agra.*", "fsim._state.*", "fsim.world.BatchCommand.*"]
+
+[[rule]]
+principal = "agent"
+note = "Own-platform dispenser commands and inventory; launch zones require an own designation on agent handles"
+names = ["fsim_world_dispense", "fsim_world_countermeasures", "fsim_world_launch_zone"]
+
+[[rule]]
+principal = "range"
+note = "World engagement commands and advisory queries; on-rail entity observations are unavailable on agent handles"
+names = [
+    "fsim_world_seeker_target",
+    "fsim::World::dispense", "fsim::World::countermeasures", "fsim::World::launchZone", "fsim::World::seekerTarget",
+    "fsim.world.World.dispense", "fsim.world.World.countermeasures", "fsim.world.World.launch_zone", "fsim.world.World.seeker_target",
+]
+
+[[rule]]
+principal = "referee"
+note = "Read-only weapon engagement history and decoy truth; agent handles are refused"
+names = [
+    "fsim_world_engagement_count", "fsim_world_engagement", "fsim_world_decoy_count", "fsim_world_decoy",
+    "fsim::World::engagementEvents", "fsim::World::decoys",
+    "fsim.world.World.engagement_events", "fsim.world.World.decoys",
+]

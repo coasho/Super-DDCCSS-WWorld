@@ -10,6 +10,17 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
 # list their tests during the build would fail.
 set(FSIM_CATCH_DISCOVERY DISCOVERY_MODE PRE_TEST)
 
+foreach(core weapon_guidance countermeasure_core)
+    add_executable(fsim_${core}_test test_${core}.cpp)
+    target_link_libraries(fsim_${core}_test PRIVATE fsim::ms)
+    add_test(NAME ${core} COMMAND fsim_${core}_test)
+endforeach()
+
+add_executable(fsim_engagement_native_test test_engagement_native.cpp)
+target_link_libraries(fsim_engagement_native_test PRIVATE fsim::session)
+target_compile_definitions(fsim_engagement_native_test PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
+add_test(NAME engagement_native COMMAND fsim_engagement_native_test)
+
 add_executable(fsim_tests
     test_units.cpp
     test_damage.cpp
@@ -65,6 +76,7 @@ add_executable(fsim_tests
     test_rcs_table.cpp
     test_radar.cpp
     test_radar_modes.cpp
+    test_esm.cpp
     test_rf_terrain_profile.cpp
     test_track.cpp
     test_signal.cpp

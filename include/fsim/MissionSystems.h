@@ -83,7 +83,6 @@ enum class Reason : std::uint16_t {
     // stores (MS-7)
     NoStore,            ///< no store of the type asked for is free on the payload (or not as many)
     StoreBusy,          ///< a store asked for is in another strike or jettison
-    StoreNotFlyable,    ///< the store's flight model is not built yet
     StationCannotTake,  ///< a load the station cannot take: its classes, capacity or limit
     NotAwaitingConsent, ///< release consent for a strike that is not asking for it
     ConsentDenied,      ///< a strike ended: its release consent refused
@@ -91,6 +90,12 @@ enum class Reason : std::uint16_t {
     // a radar's track (MS-4b)
     UnknownTrack,       ///< a cue or a track command for a track the radar does not hold
     TrackLost,          ///< a track activity ended: the radar lost its target
+    // the other payloads' tasks (MS-9 to MS-11)
+    UnknownContact,     ///< a task naming a contact the vehicle's sensors do not hold
+    Expended,           ///< nothing left to do it with: a gun's rounds, a dispenser's cartridges
+    OutOfReach,         ///< a place or a direction the payload cannot reach: its field of regard, its range, the terrain
+    ContactLost,        ///< a track task ended: the sensor lost what it held
+    StoreNotFlyable,    ///< the store's flight model is not built; appended to preserve existing reason values
     Count
 };
 /// "unknown_payload", "payload_standby", "goal_reached", ...
@@ -356,7 +361,6 @@ struct WeaponLaunch {
     std::string name;                     ///< empty: "<launcher>-<model>-<id>"
     double offsetBodyM[3] = {0, 0, 0};    ///< its CG from the launcher's, in the launcher's body axes (x forward, y right, z down)
     double ejectionBodyMs[3] = {0, 0, 0}; ///< added to the launcher's velocity, in its body axes (an ejector rack: z down)
-    /// It leaves unarmed and unlit: a motor it has is never started (a jettison; a store that is not employable).
     bool inert = false;
 };
 
@@ -365,9 +369,22 @@ enum class WeaponEnd : std::uint8_t {
     InFlight, ///< not yet
     Impact,   ///< it struck the terrain (or the sea)
     Removed,  ///< taken out of the world
+    Detonated, ///< its fuze set its warhead off (MS-7d): at a target, or what it took for one
+    Expired,   ///< its flight was over with nothing to fuze on: out of energy or time, it destroyed itself
 };
-/// "in_flight", "impact", "removed".
+/// "in_flight", "impact", "removed", "detonated", "expired".
 FSIM_API const char* weaponEndName(WeaponEnd end) noexcept;
+
+/// Where a guided weapon's flight is (MS-7d; A-GRA's EngagementState, as far as the weapon has one).
+enum class WeaponPhase : std::uint8_t {
+    Unguided, ///< it has no seeker, or was released unarmed: it falls, or flies straight
+    Midcourse, ///< flown on what its launcher knows of the target - the designated track's estimate, sent up to it
+    Seeking,  ///< its seeker looks for the target (an active radar's search, an infrared seeker's) and holds nothing
+    Homing,   ///< its seeker holds something and it flies at it
+    Lost,     ///< its seeker lost what it held (or the illumination it rode): it flies on, looking
+};
+/// "unguided", "midcourse", "seeking", "homing", "lost".
+FSIM_API const char* weaponPhaseName(WeaponPhase phase) noexcept;
 
 struct WeaponRecord {
     std::uint32_t id = 0;
@@ -386,7 +403,41 @@ struct WeaponRecord {
     double endLongitudeRad = std::numeric_limits<double>::quiet_NaN();
     double endHeightM = std::numeric_limits<double>::quiet_NaN();
     double endSpeedMs = std::numeric_limits<double>::quiet_NaN();
+    // (MS-7d) its guidance
+    WeaponPhase phase = WeaponPhase::Unguided;
+    std::string seeker;           ///< its store card's: "active_radar", "semi_active_radar", "infrared"; empty: none
+    /// What its seeker holds now, or held last (the simulation's knowledge: an aircraft, a decoy's id from
+    /// kDecoyIds, 0 nothing) - for scoring.
+    std::uint32_t holding = 0;
+    double missM = std::numeric_limits<double>::quiet_NaN(); ///< Detonated: the burst from what it fuzed on
+    bool burning = false;        ///< motor producing thrust now
+    bool tracking = false;       ///< seeker holds an observation now
+    bool supported = false;      ///< launcher provides a valid midcourse update or illumination now
+    double timeToGoS = std::numeric_limits<double>::quiet_NaN();
+    double timeToActiveS = std::numeric_limits<double>::quiet_NaN();
 };
+
+/// Referee/presentation events retained for the world's lifetime; reads do not consume them.
+struct EngagementEvent {
+    std::uint64_t serial = 0;
+    double timeS = 0.0;
+    std::string kind, reason;
+    std::uint32_t entity = 0, launcher = 0, target = 0;
+    double positionEcef[3] = {0, 0, 0}, velocityEcef[3] = {0, 0, 0};
+    bool destroyed = false; ///< actual crew loss, not inferred from a detonation
+};
+struct CountermeasureInventory { unsigned chaff = 0, flare = 0; };
+struct DecoyState {
+    std::uint32_t id = 0, owner = 0;
+    bool flare = false;
+    double ageS = 0.0;
+    double positionEcef[3] = {0, 0, 0};
+};
+struct LaunchZone { double maximumM = 0.0, noEscapeM = 0.0, minimumM = 900.0; };
+
+/// Decoys - chaff clouds and flares (MS-9a) - are numbered from here in what a sensor's `truth` names: clear of the
+/// vehicles', the C2 nodes' and the designations'.
+inline constexpr std::uint32_t kDecoyIds = 0x70000000u;
 
 // --- Stores and weapon employment (MS-7) ---------------------------------------
 // A-GRA's Store Management and Weapon Employment sequences as SDK calls: the
@@ -473,6 +524,111 @@ struct JettisonCommand {
     std::uint16_t payload = 0;
     std::vector<std::uint16_t> stores; ///< StoreInfo::index; empty: every jettisonable store on the payload
     bool emergency = false;
+};
+
+// --- Tasks, contacts and reports: the other payloads (MS-9 to MS-11) -------------------
+// What every payload beyond the radar and the store stations is asked to do, what its
+// sensors hold and what it says of itself - one command, one kind of contact and one
+// report for all of them, so that a family added later adds no entry point. A task is
+// its capability's activity (a gun's burst its strike capability's, a dispenser's
+// programme and a jammer's its electronic attack's, a sensor's its own); a payload
+// that only listens or reports (a warning receiver, a navigation set, a terminal) works
+// while it operates and takes none.
+
+/// What a payload is asked to do.
+enum class TaskKind : std::uint8_t {
+    Dispense, ///< countermeasures: chaff and flares, `salvos` of them `intervalS` apart
+    Fire,     ///< a gun: a burst of `rounds` (0: until canceled, or empty)
+    Jam,      ///< electronic attack: noise on a frequency - a contact's (its emitter followed), or the one given
+    Search,   ///< a sensor's volume: an infrared search and track set's, a weather radar's, a ground map's, SMTI's
+    Track,    ///< passive optical: one of its contacts held (and ranged, where it has a laser)
+    Image,    ///< synthetic aperture radar: a spot about a place
+    Count
+};
+/// "dispense", "fire", "jam", "search", "track", "image".
+FSIM_API const char* taskKindName(TaskKind kind) noexcept;
+
+struct PayloadTask {
+    std::uint16_t payload = 0;
+    TaskKind kind = TaskKind::Search;
+    /// Track: the contact to hold. Jam: a contact of any of the vehicle's passive sensors - a warning receiver's
+    /// emitter (its frequency and bearing followed), a missile warner's missile (a directed infrared jammer's) -
+    /// or 0: the frequency and sector given.
+    std::uint64_t contact = 0;
+    int chaff = 0, flares = 0;        ///< Dispense: of each, a salvo
+    int salvos = 1;                   ///< Dispense
+    double intervalS = 0.5;           ///< Dispense: between salvos
+    int rounds = 0;                   ///< Fire
+    double azimuthCentreRad = 0.0;    ///< Search, Jam: from the nose, right positive
+    double elevationCentreRad = 0.0;  ///< above the body's x-y plane
+    double azimuthHalfWidthRad = std::numeric_limits<double>::quiet_NaN();   ///< NaN: the payload's own field
+    double elevationHalfWidthRad = std::numeric_limits<double>::quiet_NaN();
+    double rangeScaleM = std::numeric_limits<double>::quiet_NaN();           ///< NaN: the payload's own
+    double frequencyHz = std::numeric_limits<double>::quiet_NaN();           ///< Jam: the centre (NaN with no contact: its whole band)
+    double bandwidthHz = std::numeric_limits<double>::quiet_NaN();           ///< Jam: the noise's width (NaN: a spot's, or the band's)
+    double latitudeRad = std::numeric_limits<double>::quiet_NaN();           ///< Image: the place
+    double longitudeRad = std::numeric_limits<double>::quiet_NaN();
+    double resolutionM = std::numeric_limits<double>::quiet_NaN();           ///< Image: asked for (NaN: its finest)
+    double durationS = std::numeric_limits<double>::quiet_NaN();             ///< how long (NaN: until it is done, or canceled)
+};
+
+/// What a contact is.
+enum class ContactKind : std::uint8_t {
+    Emitter,  ///< a transmitter a warning receiver or ESM set intercepts
+    Infrared, ///< a hot object a passive optical sensor sees (an aircraft, a missile, a flare)
+    Weather,  ///< precipitation a weather radar sees along a bearing
+    Surface,  ///< a mover on the surface (SMTI), or a thing standing on it in an image
+    Terrain,  ///< the ground a mapping radar sees along a bearing
+    Image,    ///< a finished SAR image: its place and resolution
+    Count
+};
+/// "emitter", "infrared", "weather", "surface", "terrain", "image".
+FSIM_API const char* contactKindName(ContactKind kind) noexcept;
+
+/// What an intercepted emitter is doing, as far as its signal says.
+enum class EmitterMode : std::uint8_t {
+    Unknown,
+    Search,       ///< its beam passes over the receiver as it scans (a track-while-scan's track looks the same)
+    Lock,         ///< its beam stays on the receiver: single-target track
+    Illumination, ///< locked, and lighting the receiver for a semi-active missile
+    Seeker,       ///< a missile's own radar
+    Jammer,
+    Datalink,
+    Count
+};
+/// "unknown", "search", "lock", "illumination", "seeker", "jammer", "datalink".
+FSIM_API const char* emitterModeName(EmitterMode mode) noexcept;
+
+/// One thing a passive or mapping sensor holds: where it is from the carrier, as well as the sensor knows.
+struct Contact {
+    std::uint64_t id = 0;        ///< the vehicle's own numbering: its payload in the high 16 bits
+    std::uint16_t payload = 0;
+    ContactKind kind = ContactKind::Emitter;
+    EmitterMode mode = EmitterMode::Unknown; ///< an emitter's
+    /// A threat to the carrier itself: a radar locked on it or lighting it, a missile's seeker, a missile coming.
+    bool warning = false;
+    double firstTimeS = 0.0, timeS = 0.0; ///< first held, last seen
+    double azimuthRad = 0.0;     ///< from the nose, right positive (body axes), as measured
+    double elevationRad = 0.0;   ///< above the body's x-y plane
+    double bearingSigmaRad = 0.0; ///< the measurement's standard deviation
+    double rangeM = std::numeric_limits<double>::quiet_NaN();     ///< NaN: not measured (a passive sensor without a laser)
+    double rangeRateMs = std::numeric_limits<double>::quiet_NaN();
+    double latitudeRad = std::numeric_limits<double>::quiet_NaN(), longitudeRad = std::numeric_limits<double>::quiet_NaN();
+    double heightM = std::numeric_limits<double>::quiet_NaN();    ///< where it is, where the range is measured (or the ground's)
+    /// An emitter's received power (dBm); an infrared contact's signal-to-noise ratio (dB); weather's reflectivity
+    /// (dBZ); a surface contact's signal-to-noise ratio (dB); an image's noise-equivalent sigma zero (dB).
+    double strengthDb = 0.0;
+    double frequencyHz = std::numeric_limits<double>::quiet_NaN(); ///< an emitter's
+    double sizeM = std::numeric_limits<double>::quiet_NaN();       ///< an image's resolution; a weather cell's depth along the beam
+    std::uint32_t truth = 0;     ///< the entity behind it: the simulation's knowledge, not the sensor's (for scoring)
+};
+
+/// One figure of a payload's report (its rounds left, its cartridges, its navigation error ...): the names are the
+/// family's, listed in docs/sdk/mission-systems.md. Its strings are constants.
+struct PayloadValue {
+    const char* name = "";
+    double value = 0.0;
+    const char* unit = "";
 };
 
 // --- The radio path (MS-2; src/ms/rf) ----------------------------------------------

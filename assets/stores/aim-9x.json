@@ -5,7 +5,7 @@
   "summary": "Short-range imaging-infrared air-to-air missile with jet-vane thrust vectoring, high off-boresight",
   "maker": "Raytheon",
   "model": "jsbsim:aim9x",
-  "employable": false,
+
   "powerable": true,
   "jettisonable": true,
   "seeker": "imaging_infrared",

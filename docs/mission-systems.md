@@ -875,6 +875,10 @@ the missiles, their detonations, the hit aircraft's fire and smoke, the chaff (M
 - **MS-9a - the RWR, launch warning and chaff** ahead of the rest of MS-9: the one-way equation from the world's radars
   (an active seeker going active among them), the launch warning, chaff clouds' RCS from the published dipole-cloud
   forms and their bloom and fall. Jammers and the full ESM stay in MS-9b.
+  **Built so far (2026-10-11):** the receiver's emitter contacts from the world's radars - a search, a lock, an
+  illumination - through the payload model's interface (`src/ms/Model.h`, `src/ms/esm`;
+  [sdk/mission-systems.md](sdk/mission-systems.md#the-warning-receiver-ms-9a)). The launch warning waits for the
+  weapons' seekers (MS-7d); chaff is not built.
 - **AB-7 (ADR-31's range side) - the referee's rules and the scenario's payloads.** The referee's engagement record
   (shots, the weapons' ends, kills and their credit), end conditions, the outcome; the scenario format for loadouts and
   payload states at the start (closes section 10's open question).

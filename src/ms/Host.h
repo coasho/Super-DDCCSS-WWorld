@@ -7,6 +7,7 @@
 // world, deterministic.
 
 #include "ms/Cards.h"
+#include "ms/Model.h"
 #include "ms/radar/Radar.h"
 
 #include <deque>
@@ -29,6 +30,9 @@ public:
     const std::vector<PayloadInfo>& payloads() const noexcept { return payloads_; }
     const std::vector<CapabilityInfo>& capabilities() const noexcept { return capabilities_; }
     const Card* card(std::uint16_t payload) const noexcept;
+    const StoreCard* storeCard(std::uint16_t index) const noexcept {
+        return index < stores_.size() ? stores_[index].card.get() : nullptr;
+    }
     /// A capability by its instance id ("fsim.ms.amti:radar"); -1 if none.
     int find(std::string_view id) const noexcept;
     /// Why a capability this vehicle does not offer is refused: NotSupported for
@@ -71,8 +75,21 @@ public:
     std::vector<AmtiTrack> amtiTracks(std::uint16_t payload, double now, const sim::VehicleState& own) const;
     /// Whether a sensor runs (sense() has work).
     bool sensing() const noexcept;
-    /// After each world step: the sensors' looks up to `simTime`, at the carrier's state `own`, against `scene`.
+    /// After each world step: the sensors' looks up to `simTime`, at the carrier's state `own`, against `scene` -
+    /// the radars', then the other payloads' models (MS-9a: a warning receiver's).
+    void sense(double simTime, const sim::VehicleState& own, const Scene& scene);
+    /// The radars alone, against a scene that has only what a radar needs.
     void sense(double simTime, const sim::VehicleState& own, const radar::Scene& scene);
+
+    // --- The other payloads' models (MS-9 to MS-11; ms/Model.h) ---
+    /// What the vehicle radiates now, as a receiver meets it: each radar that is on - the volume its main beam goes
+    /// through, its power, what it does. Added to `out`; `own` (its carrier's state) must outlive what reads them.
+    void emissions(const sim::VehicleState& own, double now, std::vector<Emission>& out) const;
+    /// What a payload's sensor holds (a warning receiver's emitters): none for a payload with no such model, or not
+    /// operating.
+    std::vector<Contact> contacts(std::uint16_t payload) const;
+    /// A payload's own figures (its model's report): none for a payload without a model.
+    std::vector<PayloadValue> report(std::uint16_t payload) const;
 
     // --- Stores (MS-7; HostStores.cpp) ---
     /// The installed stores, station by station (A-GRA's MA_StrikeCapability inventory).
@@ -212,6 +229,8 @@ private:
     std::vector<Payload> state_;
     std::vector<const Card*> cards_;
     std::vector<std::unique_ptr<radar::Radar>> radars_; ///< by payload: a radar's model, null for the rest
+    std::vector<std::unique_ptr<Model>> models_;        ///< by payload: its model beyond its state (MS-9a on), null for the rest
+    std::vector<Rng> modelRng_;                         ///< by payload: its model's own stream
     std::vector<int> amtiCapability_;                  ///< by payload: its AMTI capability, -1 for none
     std::vector<CapabilityInfo> capabilities_;
     std::vector<std::string> ids_; ///< the capabilities' instance ids (their strings)

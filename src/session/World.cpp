@@ -399,6 +399,7 @@ bool World::removeVehicle(std::uint32_t id) {
         recorder_.writeVehicle(static_cast<std::uint32_t>(slot), r);
     }
     idToSlot_.erase(id);
+    if (e->dispenser && !e->dispenser->decoys().empty()) retiredDispensers_.push_back(std::move(e->dispenser));
     entries_[slot].reset();
     freeSlots_.push_back(slot);
     --liveCount_;
@@ -1688,7 +1689,7 @@ void World::applyEnvironment(sim::FlightModel& model) const {
 void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim::ControlInputs& inputs) {
     Entry* e = entries_[slot].get();
     if (!e) return;
-    const bool needState = !e->effects.empty() || e->stack.activeLevel() != control::Level::Actuator;
+    const bool needState = e->guidance || !e->effects.empty() || e->stack.activeLevel() != control::Level::Actuator;
     if (needState) model.state(e->working);
     else e->working = pool_->states()[slot];
     const double t = simTime_ + subStep * options_.dt;
@@ -1760,6 +1761,30 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
                 turn[2] += (r[0] - p.sideArmM) * Y - q0 * p.munkM3 * 2.0 * wind[1] * cb;
             }
             pushed = true;
+        }
+    }
+    if (e->guidance) {
+        // basis: assumed. A bounded ideal fin servo supplies the guidance command;
+        // JSBSim keeps axial aerodynamics, propulsion, mass, inertia and all six integration axes.
+        const auto& s = e->working;
+        double acceleration[3];
+        ms::geom::toBody(s, e->guidanceForce, acceleration);
+        const double mass = model.energy().massKg;
+        if (std::isfinite(mass) && mass > 0.0) {
+            const double speed = std::max(ms::geom::norm3(s.velocityBodyMs), 1.0);
+            const double along = ms::geom::dot3(acceleration, s.velocityBodyMs)/speed;
+            for (int k=0;k<3;++k) acceleration[k] -= along*s.velocityBodyMs[k]/speed;
+            // The ideal fins replace existing normal aerodynamic forces, never axial drag.
+            push[1] += mass*acceleration[1] - e->guidanceReads[1].get()*4.4482216152605;
+            push[2] += mass*acceleration[2] - e->guidanceReads[2].get()*4.4482216152605;
+            const double desired[3] = {0.0, -std::atan2(s.velocityBodyMs[2],std::max(s.velocityBodyMs[0],1.0))/.12,
+                                      std::atan2(s.velocityBodyMs[1],std::max(s.velocityBodyMs[0],1.0))/.12};
+            for (int k=0;k<3;++k) {
+                const double inertia=std::max(e->guidanceReads[static_cast<std::size_t>(6+k)].get()*1.3558179483314,.01);
+                const double angularAcceleration=std::clamp((desired[k]-s.angularRateBodyRadS[k])/.08,-100.0,100.0);
+                turn[k] += inertia*angularAcceleration-e->guidanceReads[static_cast<std::size_t>(3+k)].get()*1.3558179483314;
+            }
+            pushed=true;
         }
     }
     if (pushed) {
@@ -1864,6 +1889,30 @@ ms::CommandResult World::submit(std::uint32_t id, const ms::StrikeCommand& comma
                 return ms::CommandResult{control::CommandStatus::Rejected, ms::Reason::NotAllowed, 0, options.commandId};
     Entry* e = entry(id);
     if (!e) return ms::CommandResult{control::CommandStatus::Rejected, ms::Reason::UnknownVehicle, 0, options.commandId};
+    if (command.target) {
+        for (const auto& store : e->ms.stores()) {
+            const bool selected = command.stores.empty() ? (command.store.empty() || store.store==command.store) :
+                std::find(command.stores.begin(),command.stores.end(),store.index)!=command.stores.end();
+            const auto* card=e->ms.storeCard(store.index);
+            if (!selected || !card || card->storeClass!="aam") continue;
+            const auto* target=vehicleState(command.target);
+            if (!target) return ms::CommandResult{control::CommandStatus::Rejected,ms::Reason::UnknownTrack,0,options.commandId};
+            const auto& own=pool_->states()[e->slot];
+            double ray[3],body[3]; for(int k=0;k<3;++k) ray[k]=target->positionEcef[k]-own.positionEcef[k];
+            ms::geom::toBody(own,ray,body);
+            const double off=std::acos(std::clamp(body[0]/std::max(ms::geom::norm3(ray),1.0),-1.0,1.0));
+            const bool heat=card->seeker.find("infrared")!=std::string::npos;
+            if (off>card->value("launch_fov_deg",heat?25.0:55.0)*units::kPi/180.0)
+                return ms::CommandResult{control::CommandStatus::Rejected,ms::Reason::OutOfReach,0,options.commandId};
+            if (card->seeker=="semi_active_radar") {
+                const auto* d=designation(command.target);
+                const auto radar=d?e->ms.radarStatus(d->payload):ms::RadarStatus{};
+                if (!d || d->owner!=id || !radar.illuminating || radar.designatedTrack!=d->track)
+                    return ms::CommandResult{control::CommandStatus::Rejected,ms::Reason::UnknownTrack,0,options.commandId};
+            }
+            break;
+        }
+    }
     return e->ms.submit(command, options, simTime_);
 }
 
@@ -1945,6 +1994,7 @@ void World::flyReleases() {
             double cg[3];
             pool_->vehicle(e->slot).cgFromOriginBodyM(cg);
             for (int k = 0; k < 3; ++k) r.launch.offsetBodyM[k] -= cg[k];
+            const ms::StoreCard* releasedCard = e->ms.storeCard(r.store);
             const std::uint32_t weapon = launchWeapon(launcher, r.launch);
             if (Entry* w = weapon ? entry(weapon) : nullptr) {
                 const auto& info = entry(launcher)->ms.stores();
@@ -1953,6 +2003,26 @@ void World::flyReleases() {
                 w->origin.activity = r.activity;
                 w->origin.target = r.target;
                 w->origin.jettisoned = r.jettisoned;
+                if (!r.jettisoned && releasedCard && releasedCard->storeClass == "aam" && !releasedCard->seeker.empty()) {
+                    ms::weapon::Spec guidance;
+                    guidance.seeker = releasedCard->seeker;
+                    const bool infrared = guidance.seeker.find("infrared") != std::string::npos;
+                    const bool semi = guidance.seeker == "semi_active_radar";
+                    guidance.acquireM = releasedCard->value("seeker_acquire_m", infrared ? 13000.0 : (semi ? 60000.0 : 17000.0));
+                    guidance.gimbalRad = releasedCard->value("seeker_gimbal_deg", infrared ? 45.0 : 60.0) * units::kPi / 180.0;
+                    guidance.maxG = releasedCard->value("guidance_max_g", infrared ? 40.0 : 35.0);
+                    guidance.lifeS = releasedCard->value("guidance_life_s", infrared ? 45.0 : 110.0);
+                    guidance.loftRad = infrared ? 0.0 : 20.0 * units::kPi / 180.0;
+                    guidance.fuzeM = releasedCard->value("fuze_radius_m", 7.0 + std::sqrt(releasedCard->value("warhead_kg", 12.0)));
+                    w->guidance = std::make_unique<ms::weapon::Guidance>(guidance);
+                    const char* paths[9] = {"forces/fbx-aero-lbs","forces/fby-aero-lbs","forces/fbz-aero-lbs",
+                        "moments/l-aero-lbsft","moments/m-aero-lbsft","moments/n-aero-lbsft",
+                        "inertia/ixx-slugs_ft2","inertia/iyy-slugs_ft2","inertia/izz-slugs_ft2"};
+                    for (std::size_t k=0;k<9;++k) w->guidanceReads[k]=pool_->vehicle(w->slot).property(paths[k]);
+                    w->origin.seeker = guidance.seeker;
+                    w->origin.phase = infrared ? ms::WeaponPhase::Seeking : ms::WeaponPhase::Midcourse;
+                }
+                recordEngagement("launch", *w, r.target);
                 // a tank leaves with the fuel left in it (its model's "fuel" point mass; its own CG moved to it)
                 const double fuel = entry(launcher)->ms.storeFuelKg(r.store);
                 if (fuel > 0.0) {
@@ -2019,9 +2089,15 @@ std::vector<ms::AmtiTrack> World::amtiTracks(std::uint32_t id, std::uint16_t pay
     return e->ms.amtiTracks(payload, simTime_, pool_->states()[e->slot]);
 }
 
+std::vector<ms::Contact> World::contacts(std::uint32_t id, std::uint16_t payload) const {
+    const Entry* e = entry(id);
+    return e ? e->ms.contacts(payload) : std::vector<ms::Contact>{};
+}
+
 void World::sense() {
-    // the world each radar looks into: the other entities as the step left them
-    struct Scene final : ms::radar::Scene {
+    // the world each radar looks into, and each of the other payloads' models listens to: the other entities as the
+    // step left them, and what they radiate
+    struct Scene final : ms::Scene {
         const World& world;
         std::uint32_t own = 0;
         Span<const sim::VehicleState> states;
@@ -2077,12 +2153,38 @@ void World::sense() {
             // missing level's tile made from its ancestor for each point, and kept, cost 37 us a point and evicted theirs)
             return world.ground_ ? world.ground_->pointHeightAboveEllipsoidM(latitudeRad, longitudeRad) : std::numeric_limits<double>::quiet_NaN();
         }
+        const std::vector<ms::Emission>& emissions() const override { return world.emissions_; }
+        const sim::EnvironmentState& environment() const override { return world.environment_; }
+        ms::Role role(std::uint32_t id) const override {
+            const Entry* e = world.entry(id);
+            return e ? e->info.role : ms::Role::Aircraft;
+        }
+        std::uint32_t launcher(std::uint32_t id) const override {
+            const Entry* e = world.entry(id);
+            return e ? e->info.launcher : 0;
+        }
     };
     const auto states = pool_->states();
     sensing_.clear();
     for (std::size_t s = 0; s < entries_.size(); ++s)
         if (Entry* e = entries_[s].get(); e && e->ms.sensing()) sensing_.push_back(s);
     if (sensing_.empty()) return;
+    // what radiates, gathered before the workers start: a receiver reads this, never a radar another worker steps
+    // (so what it hears is the scan the step before left - the same for any number of workers)
+    emissions_.clear();
+    for (std::size_t s = 0; s < entries_.size(); ++s)
+        if (const Entry* e = entries_[s].get()) e->ms.emissions(states[s], simTime_, emissions_);
+    for (const auto& e : entries_) if (e && e->guidance &&
+            e->origin.phase != ms::WeaponPhase::Midcourse && e->origin.phase != ms::WeaponPhase::Unguided &&
+            e->origin.seeker == "active_radar") {
+        ms::Emission emission;
+        emission.entity=e->info.id; emission.mode=ms::EmitterMode::Seeker;
+        emission.state=&states[e->slot]; emission.target=e->origin.holding;
+        // basis: assumed. Low-power seeker transmitter; the receiver measures its own bearing and strength.
+        emission.powerW=20; emission.peakGainDbi=25; emission.sidelobeDbi=-15;
+        emission.azimuthHalfWidthRad=emission.elevationHalfWidthRad=.35;
+        emissions_.push_back(emission);
+    }
     // each radar looks on its own (its stream, its detections), on the workers - a contiguous share of them each, in
     // order: the answers are the same for any number of workers
     pool_->forEach(sensing_.size(), [&](std::size_t k) {
@@ -2116,6 +2218,7 @@ void World::step(unsigned n) {
         }
         // behaviours that follow another vehicle read it as the step began (StepView); a designated track, its estimate
         if (!designations_.empty()) refreshDesignations();
+        prepareEngagements();
         const auto before = pool_->states();
         std::copy(before.begin(), before.end(), stepStates_.begin());
         transferFuel();
@@ -2124,7 +2227,9 @@ void World::step(unsigned n) {
         simTime_ += options_.dt * options_.frameSkip;
         {
             // the contract layer reads what the runtimes flew (docs/control-architecture.md, 6.4)
-            const auto after = pool_->states();
+            const auto liveAfter = pool_->states();
+            afterStates_.assign(liveAfter.begin(),liveAfter.end());
+            const auto& after=afterStates_;
             const bool weigh = (loadTick_++ & 7u) == 0;
             for (std::size_t s = 0; s < entries_.size(); ++s)
                 if (Entry* e = entries_[s].get()) {
@@ -2144,10 +2249,11 @@ void World::step(unsigned n) {
                     e->ms.step(simTime_);
                 }
             sense();
+            finishEngagements();
             // a weapon that struck the ground has ended (its fuze and warhead: MS-7)
             std::vector<std::uint32_t> impacts;
             for (std::size_t s = 0; s < entries_.size(); ++s)
-                if (Entry* e = entries_[s].get(); e && e->info.role == ms::Role::Weapon && after[s].crashed) {
+                if (Entry* e = entries_[s].get(); e && s < after.size() && e->info.role == ms::Role::Weapon && after[s].crashed) {
                     sim::VehicleState at = after[s]; // (where it struck; its speed as the step began: the strike stopped it)
                     std::copy(std::begin(stepStates_[s].velocityNedMs), std::end(stepStates_[s].velocityNedMs), std::begin(at.velocityNedMs));
                     // (a store's strike is a strike: what it does - a tank's fuel left bursting into fire - is told
@@ -2158,7 +2264,7 @@ void World::step(unsigned n) {
                 }
             for (const std::uint32_t id : impacts) removeVehicle(id);
             // an aircraft, or a piece of one, that struck the ground: what the strike does to it (MS-7g)
-            for (std::size_t s = 0; s < entries_.size() && s < stepStates_.size(); ++s)
+            for (std::size_t s = 0; s < entries_.size() && s < after.size() && s < stepStates_.size(); ++s)
                 if (Entry* e = entries_[s].get(); e && e->info.role != ms::Role::Weapon && after[s].crashed && !stepStates_[s].crashed)
                     impacted(*e, stepStates_[s], after[s]);
             flyReleases(); // (the stores the store management released this step)
@@ -2403,6 +2509,8 @@ std::uint32_t World::launchWeapon(std::uint32_t launcher, const ms::WeaponLaunch
     for (std::size_t c = 0; c < e->catalog->size(); ++c)
         e->host.setAvailability(c, control::Availability::Unavailable, control::Reason::Restricted);
     e->inputs = sim::ControlInputs{};
+    e->inputs.gearDown=0;
+    if (!launch.inert) e->inputs.setThrottleAll(1.0);
     poolInputs_[e->slot] = e->inputs;
     LOG_INFO("session") << "weapon " << id << " '" << e->info.name << "' (" << e->info.type << ") released by vehicle " << launcher;
     return id;
@@ -2410,8 +2518,10 @@ std::uint32_t World::launchWeapon(std::uint32_t launcher, const ms::WeaponLaunch
 
 void World::endWeapon(Entry& e, ms::WeaponEnd end, const sim::VehicleState& state) {
     if (e.weaponEnded) return;
+    if (end==ms::WeaponEnd::Impact) recordEngagement("impact",e,0,"ground_impact");
+    if (end==ms::WeaponEnd::Removed) recordEngagement("removal",e,0,"removed");
     e.weaponEnded = true;
-    ms::WeaponRecord w;
+    ms::WeaponRecord w = e.origin;
     w.id = e.info.id;
     w.launcher = e.info.launcher;
     w.name = e.info.name;
@@ -2438,7 +2548,7 @@ std::vector<ms::WeaponRecord> World::weapons() const {
         if (e && e->info.role == ms::Role::Weapon) live.push_back(e.get());
     std::sort(live.begin(), live.end(), [](const Entry* a, const Entry* b) { return a->info.id < b->info.id; });
     for (const Entry* e : live) {
-        ms::WeaponRecord w;
+        ms::WeaponRecord w = e->origin;
         w.id = e->info.id;
         w.launcher = e->info.launcher;
         w.name = e->info.name;

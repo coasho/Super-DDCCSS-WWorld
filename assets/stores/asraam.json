@@ -5,7 +5,7 @@
   "summary": "Short-range imaging-infrared air-to-air missile, lock-on after launch",
   "maker": "MBDA",
   "model": "jsbsim:asraam",
-  "employable": false,
+
   "powerable": true,
   "jettisonable": true,
   "seeker": "imaging_infrared",

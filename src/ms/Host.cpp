@@ -36,6 +36,7 @@ Reason unavailableFor(PayloadState state) noexcept {
 }
 
 constexpr double kPi = 3.14159265358979323846;
+constexpr std::uint64_t kModelStream = 0x6D6F64656C73ull; // (the models' streams apart from the radars')
 
 } // namespace
 
@@ -43,7 +44,7 @@ void Host::bind(std::uint32_t vehicle, std::shared_ptr<const Fit> fit, std::uint
     vehicle_ = vehicle;
     fit_ = std::move(fit);
     payloads_.clear(), state_.clear(), cards_.clear(), capabilities_.clear(), ids_.clear(), control_.clear(), statusCapability_.clear();
-    radars_.clear(), amtiCapability_.clear();
+    radars_.clear(), amtiCapability_.clear(), models_.clear(), modelRng_.clear();
     live_.clear(), ended_.clear();
     strikeCapability_.clear(), storeCapability_.clear(), stores_.clear(), storeInfo_.clear(), strikes_.clear(), endedStrikes_.clear(),
         releases_.clear(), carriage_.clear(), lostStations_.clear();
@@ -68,6 +69,8 @@ void Host::bind(std::uint32_t vehicle, std::shared_ptr<const Fit> fit, std::uint
         cards_.push_back(&card);
         const radar::Spec spec = radar::specOf(card);
         radars_.push_back(spec.ok ? std::make_unique<radar::Radar>(spec, radarSeed(seed, p.index)) : nullptr);
+        models_.push_back(spec.ok ? nullptr : makeModel(card, static_cast<std::uint16_t>(p.count)));
+        modelRng_.emplace_back(radarSeed(seed ^ kModelStream, p.index));
         amtiCapability_.push_back(-1);
         strikeCapability_.push_back(-1), storeCapability_.push_back(-1);
     }
@@ -87,6 +90,8 @@ void Host::bind(std::uint32_t vehicle, std::shared_ptr<const Fit> fit, std::uint
                 c.support = control::Support::Supported, c.stage = 0;
                 amtiCapability_[p.index] = static_cast<int>(capabilities_.size());
             }
+            // a warning receiver (MS-9a): its emitter contacts modelled
+            if (type == CapabilityType::Esm && models_[p.index]) c.support = control::Support::Supported, c.stage = 0;
             // a store station its card describes (MS-7a): its inventory and releases modelled; launch zones, and the
             // weapons' seekers and guidance, to come
             if (p.family == Family::StoreStation && !cards_[p.index]->stations.empty() &&
@@ -108,6 +113,7 @@ Reason Host::unavailableReason(PayloadState state) noexcept { return unavailable
 void Host::reseed(std::uint64_t seed) {
     for (std::uint16_t i = 0; i < radars_.size(); ++i)
         if (radars_[i]) radars_[i]->reseed(radarSeed(seed, i));
+    for (std::uint16_t i = 0; i < modelRng_.size(); ++i) modelRng_[i] = Rng(radarSeed(seed ^ kModelStream, i));
 }
 
 const Card* Host::card(std::uint16_t payload) const noexcept { return payload < cards_.size() ? cards_[payload] : nullptr; }
@@ -230,6 +236,8 @@ void Host::setState(std::uint16_t payload, PayloadState state) {
     if (state != PayloadState::Operate && state_[payload].amti)
         end(state_[payload].amti, state == PayloadState::Failed ? control::ActivityState::Failed : control::ActivityState::Canceled,
             unavailableFor(state), now_);
+    // a model's payload no longer operating: what it held is gone
+    if (state != PayloadState::Operate && payload < models_.size() && models_[payload]) models_[payload]->idle(now_);
     stationStateChanged(payload, state);
 }
 
@@ -538,7 +546,67 @@ std::vector<AmtiTrack> Host::amtiTracks(std::uint16_t payload, double now, const
 bool Host::sensing() const noexcept {
     for (const auto& r : radars_)
         if (r && r->active()) return true;
+    for (std::size_t i = 0; i < models_.size(); ++i)
+        if (models_[i] && state_[i].state == PayloadState::Operate) return true;
     return false;
+}
+
+void Host::sense(double simTime, const sim::VehicleState& own, const Scene& scene) {
+    sense(simTime, own, static_cast<const radar::Scene&>(scene));
+    for (std::size_t i = 0; i < models_.size(); ++i)
+        if (models_[i] && state_[i].state == PayloadState::Operate) models_[i]->step(simTime, own, scene, modelRng_[i]);
+}
+
+void Host::emissions(const sim::VehicleState& own, double now, std::vector<Emission>& out) const {
+    for (std::size_t i = 0; i < radars_.size(); ++i) {
+        const radar::Radar* r = radars_[i].get();
+        if (!r || !r->active()) continue;
+        const radar::Spec& spec = r->spec();
+        const radar::Search& s = r->searching();
+        const double beamAz = r->pattern().beamwidthRad(false), beamEl = r->pattern().beamwidthRad(true);
+        const bool staring = s.mode == AmtiMode::SingleTargetTrack || r->acquiring();
+        Emission e;
+        e.entity = vehicle_;
+        e.payload = static_cast<std::uint16_t>(i);
+        e.mode = r->illuminating() ? EmitterMode::Illumination
+                 : r->task() == AmtiTask::Track && s.mode == AmtiMode::SingleTargetTrack ? EmitterMode::Lock : EmitterMode::Search;
+        e.frequencyHz = spec.frequencyHz;
+        e.powerW = spec.averagePowerW;
+        e.peakPowerW = spec.averagePowerW / radar::Radar::kDuty;
+        e.peakGainDbi = r->pattern().peakGainDbi();
+        e.sidelobeDbi = spec.aperture.floorDbi;
+        e.allRound = spec.rotationRpm > 0.0;
+        if (staring) { // every dwell on one place: its volume is its beam
+            e.azimuthCentreRad = r->beamAzimuthRad(), e.elevationCentreRad = r->beamElevationRad();
+            e.azimuthHalfWidthRad = 0.5 * beamAz, e.elevationHalfWidthRad = 0.5 * beamEl;
+            e.allRound = false;
+        } else { // its scan's volume, half a beam beyond its edges
+            const double limit = spec.azimuthLimitDeg * kPi / 180.0;
+            e.azimuthCentreRad = std::clamp(s.azimuthCentreRad, -limit, limit);
+            e.azimuthHalfWidthRad = s.azimuthHalfWidthRad + 0.5 * beamAz;
+            e.elevationCentreRad = s.elevationCentreRad;
+            e.elevationHalfWidthRad = std::isnan(s.elevationHalfWidthRad) ? 0.5 * r->bars() * beamEl : s.elevationHalfWidthRad + 0.5 * beamEl;
+        }
+        if (r->designated())
+            for (const auto& t : r->tracks())
+                if (t.id == r->designated()) e.target = r->report(t, now, own).truth;
+        e.state = &own;
+        out.push_back(e);
+    }
+}
+
+std::vector<Contact> Host::contacts(std::uint16_t payload) const {
+    std::vector<Contact> out;
+    if (payload >= models_.size() || !models_[payload] || state_[payload].state != PayloadState::Operate) return out;
+    models_[payload]->contacts(out);
+    for (Contact& c : out) c.payload = payload, c.id |= static_cast<std::uint64_t>(payload) << 48;
+    return out;
+}
+
+std::vector<PayloadValue> Host::report(std::uint16_t payload) const {
+    std::vector<PayloadValue> out;
+    if (payload < models_.size() && models_[payload]) models_[payload]->report(out);
+    return out;
 }
 
 void Host::sense(double simTime, const sim::VehicleState& own, const radar::Scene& scene) {

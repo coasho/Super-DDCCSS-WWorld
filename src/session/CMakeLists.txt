@@ -4,6 +4,7 @@ add_library(fsim_session STATIC
     World.h
     World.cpp
     WorldDamage.cpp
+    WorldEngagements.cpp
     AgentRules.h
     AgentRules.cpp
     Scenario.h

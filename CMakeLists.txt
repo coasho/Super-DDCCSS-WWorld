@@ -107,7 +107,7 @@ endforeach()
 
 if(FSIM_BUILD_TESTS)
     set(_fsim_test_exes "")
-    foreach(_t fsim_tests fsim_sdk_tests fsim_c_abi_test fsim_crash_test
+    foreach(_t fsim_engagement_native_test fsim_weapon_guidance_test fsim_countermeasure_core_test fsim_tests fsim_sdk_tests fsim_c_abi_test fsim_crash_test
                fsim_render_tests fsim_vision_test fsim_vision_c_abi_test)
         if(TARGET ${_t})
             set(_fsim_test_exes "${_fsim_test_exes};$<TARGET_FILE:${_t}>")
@@ -123,7 +123,7 @@ if(FSIM_BUILD_TESTS)
             -P ${CMAKE_SOURCE_DIR}/cmake/DeployRuntime.cmake
         COMMENT "Staging runtime DLLs in tests/"
         VERBATIM)
-    foreach(_t fsim_tests fsim_sdk_tests fsim_c_abi_test fsim_crash_test
+    foreach(_t fsim_engagement_native_test fsim_weapon_guidance_test fsim_countermeasure_core_test fsim_tests fsim_sdk_tests fsim_c_abi_test fsim_crash_test
                fsim_render_tests fsim_vision_test fsim_vision_c_abi_test)
         if(TARGET ${_t})
             add_dependencies(deploy-tests ${_t})

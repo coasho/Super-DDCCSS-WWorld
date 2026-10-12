@@ -152,7 +152,7 @@ std::shared_ptr<const StoreCard> readStoreCard(const std::filesystem::path& file
         card->storeClass = doc->string("class", "");
         if (card->storeClass.empty()) errors.push_back(where + "a store card needs its class");
         card->model = doc->string("model", "");
-        card->employable = doc->boolean("employable", true);
+        card->seeker = doc->string("seeker", "");
         card->powerable = doc->boolean("powerable", false);
         card->jettisonable = doc->boolean("jettisonable", true);
         card->sources = readSources(*doc);

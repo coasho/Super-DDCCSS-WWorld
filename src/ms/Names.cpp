@@ -54,13 +54,17 @@ constexpr ReasonText kReasons[] = {
     {"bit_failed", "the built-in test found a fault"},
     {"no_store", "no store of that type is free on the payload, or not as many"},
     {"store_busy", "a store asked for is in another strike or jettison"},
-    {"store_not_flyable", "the store's flight model is not built yet"},
     {"station_cannot_take", "the station cannot take that load: its store classes, capacity or limit"},
     {"not_awaiting_consent", "the strike is not asking for release consent"},
     {"consent_denied", "release consent was refused"},
     {"over_max_weight", "the load would take the aircraft past its maximum take-off weight"},
     {"unknown_track", "the radar holds no track of that number"},
     {"track_lost", "the radar lost the target it tracked"},
+    {"unknown_contact", "the vehicle's sensors hold no contact of that number"},
+    {"expended", "nothing left to do it with"},
+    {"out_of_reach", "the payload cannot reach there: its field of regard, its range, the terrain"},
+    {"contact_lost", "the sensor lost what it held"},
+    {"store_not_flyable", "the store's flight model is not built yet"},
 };
 static_assert(sizeof(kReasons) / sizeof(kReasons[0]) == static_cast<std::size_t>(Reason::Count));
 
@@ -144,8 +148,42 @@ const char* weaponEndName(WeaponEnd end) noexcept {
     case WeaponEnd::InFlight: return "in_flight";
     case WeaponEnd::Impact: return "impact";
     case WeaponEnd::Removed: return "removed";
+    case WeaponEnd::Detonated: return "detonated";
+    case WeaponEnd::Expired: return "expired";
     }
     return "";
+}
+
+const char* weaponPhaseName(WeaponPhase phase) noexcept {
+    switch (phase) {
+    case WeaponPhase::Unguided: return "unguided";
+    case WeaponPhase::Midcourse: return "midcourse";
+    case WeaponPhase::Seeking: return "seeking";
+    case WeaponPhase::Homing: return "homing";
+    case WeaponPhase::Lost: return "lost";
+    }
+    return "";
+}
+
+const char* taskKindName(TaskKind kind) noexcept {
+    static constexpr const char* kNames[] = {"dispense", "fire", "jam", "search", "track", "image"};
+    static_assert(sizeof(kNames) / sizeof(kNames[0]) == static_cast<std::size_t>(TaskKind::Count));
+    const auto i = static_cast<std::size_t>(kind);
+    return i < static_cast<std::size_t>(TaskKind::Count) ? kNames[i] : "";
+}
+
+const char* contactKindName(ContactKind kind) noexcept {
+    static constexpr const char* kNames[] = {"emitter", "infrared", "weather", "surface", "terrain", "image"};
+    static_assert(sizeof(kNames) / sizeof(kNames[0]) == static_cast<std::size_t>(ContactKind::Count));
+    const auto i = static_cast<std::size_t>(kind);
+    return i < static_cast<std::size_t>(ContactKind::Count) ? kNames[i] : "";
+}
+
+const char* emitterModeName(EmitterMode mode) noexcept {
+    static constexpr const char* kNames[] = {"unknown", "search", "lock", "illumination", "seeker", "jammer", "datalink"};
+    static_assert(sizeof(kNames) / sizeof(kNames[0]) == static_cast<std::size_t>(EmitterMode::Count));
+    const auto i = static_cast<std::size_t>(mode);
+    return i < static_cast<std::size_t>(EmitterMode::Count) ? kNames[i] : "";
 }
 
 const char* capabilityTypeId(CapabilityType type) noexcept {

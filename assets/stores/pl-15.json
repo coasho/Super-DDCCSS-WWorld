@@ -5,7 +5,7 @@
   "summary": "Long-range active-radar air-to-air missile with a dual-pulse motor",
   "maker": "China Airborne Missile Academy",
   "model": "jsbsim:pl15",
-  "employable": false,
+
   "powerable": true,
   "jettisonable": true,
   "seeker": "active_radar",
@@ -128,7 +128,7 @@
       "date": "2026-08-30"
     },
     "zh-pl15": {
-      "title": "霹靂-15",
+      "title": "PL-15",
       "publisher": "Wikipedia, zh (revision 94654220)",
       "url": "https://zh.wikipedia.org/w/index.php?title=%E9%9C%B9%E9%9D%82-15&oldid=94654220",
       "date": "2026-09-29"

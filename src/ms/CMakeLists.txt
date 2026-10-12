@@ -6,7 +6,13 @@ add_library(fsim_ms STATIC
     Host.h
     Host.cpp
     HostStores.cpp
+    Model.h
+    Model.cpp
     Names.cpp
+    weapon/Guidance.cpp
+    countermeasure/Dispenser.cpp
+    esm/Receiver.h
+    esm/Receiver.cpp
     damage/Damage.h
     damage/Damage.cpp
     damage/State.h

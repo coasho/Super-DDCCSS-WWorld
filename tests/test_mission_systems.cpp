@@ -145,14 +145,18 @@ TEST_CASE("mission systems: the F-16C's payloads from its fit, discovered honest
     CHECK(host->find("fsim.ms.strike:stations") >= 0);
     const int esm = host->find("fsim.ms.esm:rwr");
     REQUIRE(esm >= 0);
-    CHECK(caps[static_cast<std::size_t>(esm)].support == control::Support::NotImplemented);
-    CHECK(caps[static_cast<std::size_t>(esm)].stage == 9);
+    CHECK(caps[static_cast<std::size_t>(esm)].support == control::Support::Supported); // (its warning receiver: MS-9a)
+    CHECK(caps[static_cast<std::size_t>(esm)].stage == 0);
+    const int ea = host->find("fsim.ms.ea:cmds");
+    REQUIRE(ea >= 0);
+    CHECK(caps[static_cast<std::size_t>(ea)].support == control::Support::NotImplemented);
+    CHECK(caps[static_cast<std::size_t>(ea)].stage == 9);
 
     // availability: the radar off; not implemented yet; a type the aircraft does not carry; nothing of the kind
     ms::CapabilityStatus s = w.missionCapabilityStatus(v, "fsim.ms.amti:radar");
     CHECK(s.availability == control::Availability::TemporarilyUnavailable);
     CHECK(s.reason == ms::Reason::PayloadOff);
-    s = w.missionCapabilityStatus(v, "fsim.ms.esm:rwr");
+    s = w.missionCapabilityStatus(v, "fsim.ms.ea:cmds");
     CHECK(s.availability == control::Availability::Unavailable);
     CHECK(s.reason == ms::Reason::NotImplemented);
     s = w.missionCapabilityStatus(v, "fsim.ms.sar:radar");
@@ -246,7 +250,7 @@ TEST_CASE("mission systems: grants through the control calls, by a capability's 
     REQUIRE(w.submit(v, on, o).accepted());
     CHECK(w.missionSystems(v)->payloads()[0].state == ms::PayloadState::Standby);
     // a capability carried but not modelled: no grant for it yet
-    CHECK(w.requestControl(v, "fsim.ms.esm:rwr", 2) == control::Reason::NotImplemented);
+    CHECK(w.requestControl(v, "fsim.ms.ea:cmds", 2) == control::Reason::NotImplemented);
     CHECK(w.requestControl(v, "fsim.ms.sar:radar", 2) == control::Reason::NotSupported);
     // released: the grant ends
     CHECK(w.releaseControl(v, status, 2) == control::Reason::None);

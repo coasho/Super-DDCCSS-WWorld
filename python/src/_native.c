@@ -5181,6 +5181,12 @@ static PyObject* world_ms_activities(PyObject* o, PyObject* const* args, Py_ssiz
 static PyObject* world_payload_fail(PyObject* o, PyObject* const* args, Py_ssize_t n);
 static PyObject* world_launch_weapon(PyObject* o, PyObject* const* args, Py_ssize_t n);
 static PyObject* world_weapons(PyObject* o, PyObject* const* args, Py_ssize_t n);
+static PyObject* world_dispense(PyObject* o, PyObject* const* args, Py_ssize_t n);
+static PyObject* world_countermeasures(PyObject* o, PyObject* const* args, Py_ssize_t n);
+static PyObject* world_engagement_events(PyObject* o, PyObject* const* args, Py_ssize_t n);
+static PyObject* world_decoys(PyObject* o, PyObject* const* args, Py_ssize_t n);
+static PyObject* world_launch_zone(PyObject* o, PyObject* const* args, Py_ssize_t n);
+static PyObject* world_seeker_target(PyObject* o, PyObject* const* args, Py_ssize_t n);
 static PyObject* world_stores(PyObject* o, PyObject* const* args, Py_ssize_t n);
 static PyObject* world_load_store(PyObject* o, PyObject* const* args, Py_ssize_t n);
 static PyObject* world_load_loadout(PyObject* o, PyObject* const* args, Py_ssize_t n);
@@ -5203,6 +5209,7 @@ static PyObject* mod_amti_mode_name(PyObject* m, PyObject* const* args, Py_ssize
 static PyObject* mod_amti_task_name(PyObject* m, PyObject* const* args, Py_ssize_t n);
 static PyObject* mod_amti_acm(PyObject* m, PyObject* const* args, Py_ssize_t n);
 static PyObject* world_amti_tracks(PyObject* o, PyObject* const* args, Py_ssize_t n);
+static PyObject* world_contacts(PyObject* o, PyObject* const* args, Py_ssize_t n);
 
 static PyMethodDef world_methods[] = {
     FAST("step", world_step, "step(n=1): advance every vehicle by n world steps"),
@@ -5328,6 +5335,12 @@ static PyMethodDef world_methods[] = {
     FAST("ms_activities", world_ms_activities, "ms_activities(id) -> [tuple]"),
     FAST("payload_fail", world_payload_fail, "payload_fail(id, payload, failed)"),
     FAST("launch_weapon", world_launch_weapon, "launch_weapon(launcher, type, name, ox, oy, oz, ex, ey, ez) -> id"),
+    FAST("dispense", world_dispense, "dispense(vehicle, flare) -> None"),
+    FAST("countermeasures", world_countermeasures, "countermeasures(vehicle) -> chaff, flare"),
+    FAST("engagement_events", world_engagement_events, "engagement_events(since) -> referee events"),
+    FAST("decoys", world_decoys, "decoys() -> decoy states"),
+    FAST("launch_zone", world_launch_zone, "launch_zone(vehicle, store, target) -> maximum, no_escape, minimum"),
+    FAST("seeker_target", world_seeker_target, "seeker_target(vehicle, store) -> observation id or zero"),
     FAST("weapons", world_weapons,
          "weapons() -> [(id, launcher, name, type, launch_time, end_time, end, lat, lon, height, speed, store, station, jettisoned, "
          "activity, target)]"),
@@ -5347,6 +5360,7 @@ static PyMethodDef world_methods[] = {
          "command_id=0) -> result"),
     FAST("radar_status", world_radar_status, "radar_status(id, payload) -> tuple, or None for a payload that is not a radar"),
     FAST("amti_tracks", world_amti_tracks, "amti_tracks(id, payload) -> [(id, payload, time, last_update, updates, truth, lat, lon, h, vn, ve, vd, sp, sv, range, az, el, rate)]"),
+    FAST("contacts", world_contacts, "contacts(id, payload) -> [(id, payload, kind, mode, warning, truth, first, time, az, el, sigma, range, rate, lat, lon, h, strength, frequency, size)]"),
     FAST("amti_detections", world_amti_detections, "amti_detections(id, payload, since) -> [(serial, payload, time, truth, range, az, el, rate, snr, lat, lon, h)]"),
     FAST("radar_cross_section", world_radar_cross_section,
          "radar_cross_section(observer, target, frequency_hz, tx_rad, rx_rad) -> (modelled, sigma_m2, fluctuation, az_rad, el_rad)"),
@@ -5896,15 +5910,74 @@ static PyObject* world_weapons(PyObject* o, PyObject* const* args, Py_ssize_t n)
             Py_DECREF(list);
             return fail();
         }
-        PyObject* t = Py_BuildValue("(IIssddiddddsiiKI)", w.id, w.launcher, w.name, w.type, w.launch_time_s, w.end_time_s, w.end,
+        PyObject* t = Py_BuildValue("(IIssddiddddsiiKIisIdiiidd)", w.id, w.launcher, w.name, w.type, w.launch_time_s, w.end_time_s, w.end,
                                     w.end_latitude_rad, w.end_longitude_rad, w.end_height_m, w.end_speed_ms, w.store ? w.store : "",
-                                    w.station, w.jettisoned, (unsigned long long)w.activity, w.target);
+                                    w.station, w.jettisoned, (unsigned long long)w.activity, w.target, w.phase, w.seeker,
+                                    w.holding, w.miss_m, w.burning, w.tracking, w.supported,w.time_to_go_s,w.time_to_active_s);
         if (!t || PyList_Append(list, t) < 0) {
             Py_XDECREF(t);
             Py_CLEAR(list);
             break;
         }
         Py_DECREF(t);
+    }
+    return list;
+}
+
+static PyObject* world_dispense(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self=(WorldObject*)o; uint32_t id; int flare;
+    if (!check_args(n,2,2,"dispense") || !as_u32(args[0],&id)) return NULL;
+    flare=PyObject_IsTrue(args[1]); if(flare<0) return NULL;
+    if(fsim_world_dispense(self->world,id,flare)!=FSIM_OK) return fail();
+    Py_RETURN_NONE;
+}
+static PyObject* world_countermeasures(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self=(WorldObject*)o; uint32_t id,chaff,flare;
+    if(!check_args(n,1,1,"countermeasures") || !as_u32(args[0],&id)) return NULL;
+    if(fsim_world_countermeasures(self->world,id,&chaff,&flare)!=FSIM_OK) return fail();
+    return Py_BuildValue("(II)",chaff,flare);
+}
+static PyObject* world_launch_zone(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self=(WorldObject*)o; uint32_t id,target; const char* store;
+    if(!check_args(n,3,3,"launch_zone") || !as_u32(args[0],&id) || !as_u32(args[2],&target)) return NULL;
+    store=PyUnicode_AsUTF8AndSize(args[1],NULL); if(!store) return NULL;
+    fsim_launch_zone zone; fsim_launch_zone_init(&zone);
+    if(fsim_world_launch_zone(self->world,id,store,target,&zone)!=FSIM_OK) return fail();
+    return Py_BuildValue("(ddd)",zone.maximum_m,zone.no_escape_m,zone.minimum_m);
+}
+static PyObject* world_seeker_target(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self=(WorldObject*)o; uint32_t id,target; const char* store;
+    if(!check_args(n,2,2,"seeker_target") || !as_u32(args[0],&id)) return NULL;
+    store=PyUnicode_AsUTF8AndSize(args[1],NULL); if(!store) return NULL;
+    if(fsim_world_seeker_target(self->world,id,store,&target)!=FSIM_OK) return fail();
+    return PyLong_FromUnsignedLong(target);
+}
+static PyObject* world_engagement_events(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self=(WorldObject*)o; unsigned long long since;
+    if(!check_args(n,1,1,"engagement_events")) return NULL;
+    since=PyLong_AsUnsignedLongLong(args[0]); if(PyErr_Occurred()) return NULL;
+    const uint32_t count=fsim_world_engagement_count(self->world,since);
+    PyObject* list=PyList_New(0);
+    for(uint32_t i=0;list && i<count;++i) {
+        fsim_engagement_event event; fsim_engagement_event_init(&event);
+        if(fsim_world_engagement(self->world,i,&event)!=FSIM_OK) {Py_DECREF(list);return fail();}
+        PyObject* item=Py_BuildValue("(KdssIII(ddd)(ddd)i)",(unsigned long long)event.serial,event.time_s,event.kind,event.reason,
+            event.entity,event.launcher,event.target,event.position_ecef[0],event.position_ecef[1],event.position_ecef[2],
+            event.velocity_ecef[0],event.velocity_ecef[1],event.velocity_ecef[2],event.destroyed);
+        if(!item || PyList_Append(list,item)<0) {Py_XDECREF(item);Py_CLEAR(list);break;} Py_DECREF(item);
+    }
+    return list;
+}
+static PyObject* world_decoys(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self=(WorldObject*)o; (void)args;
+    if(!check_args(n,0,0,"decoys")) return NULL;
+    const uint32_t count=fsim_world_decoy_count(self->world);
+    PyObject* list=PyList_New(0);
+    for(uint32_t i=0;list && i<count;++i) {
+        fsim_decoy_state d;fsim_decoy_state_init(&d);
+        if(fsim_world_decoy(self->world,i,&d)!=FSIM_OK) {Py_DECREF(list);return fail();}
+        PyObject* item=Py_BuildValue("(IIid(ddd))",d.id,d.owner,d.flare,d.age_s,d.position_ecef[0],d.position_ecef[1],d.position_ecef[2]);
+        if(!item || PyList_Append(list,item)<0) {Py_XDECREF(item);Py_CLEAR(list);break;} Py_DECREF(item);
     }
     return list;
 }
@@ -6227,6 +6300,40 @@ static PyObject* world_amti_tracks(PyObject* o, PyObject* const* args, Py_ssize_
                                     t[i].truth, t[i].latitude_rad, t[i].longitude_rad, t[i].height_m, t[i].velocity_ned_ms[0], t[i].velocity_ned_ms[1],
                                     t[i].velocity_ned_ms[2], t[i].position_sigma_m, t[i].velocity_sigma_ms, t[i].range_m, t[i].azimuth_rad,
                                     t[i].elevation_rad, t[i].range_rate_ms);
+        if (!x || PyList_Append(list, x) < 0) {
+            Py_XDECREF(x);
+            Py_CLEAR(list);
+            break;
+        }
+        Py_DECREF(x);
+    }
+    PyMem_Free(t);
+    return list;
+}
+
+/* contacts(id, payload) -> [(id, payload, kind, mode, warning, truth, first, time, az, el, sigma, range, rate, lat, lon, h, strength, frequency, size)] */
+static PyObject* world_contacts(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self = (WorldObject*)o;
+    uint32_t id, payload, count = 0;
+    if (!check_args(n, 2, 2, "contacts") || !as_u32(args[0], &id) || !as_u32(args[1], &payload)) return NULL;
+    if (fsim_vehicle_contacts(self->world, id, payload, NULL, 0, &count) != FSIM_OK) return fail();
+    fsim_contact* t = count ? (fsim_contact*)PyMem_Malloc(sizeof(fsim_contact) * count) : NULL;
+    if (count && !t) return PyErr_NoMemory();
+    if (count) {
+        fsim_contact_init(&t[0]);
+        uint32_t got = 0;
+        if (fsim_vehicle_contacts(self->world, id, payload, t, count, &got) != FSIM_OK) {
+            PyMem_Free(t);
+            return fail();
+        }
+        if (got < count) count = got;
+    }
+    PyObject* list = PyList_New(0);
+    for (uint32_t i = 0; list && i < count; ++i) {
+        PyObject* x = Py_BuildValue("(KIiiiI" "ddddddd" "dddddd)", (unsigned long long)t[i].id, t[i].payload, (int)t[i].kind, (int)t[i].mode,
+                                    (int)t[i].warning, t[i].truth, t[i].first_time_s, t[i].time_s, t[i].azimuth_rad, t[i].elevation_rad,
+                                    t[i].bearing_sigma_rad, t[i].range_m, t[i].range_rate_ms, t[i].latitude_rad, t[i].longitude_rad, t[i].height_m,
+                                    t[i].strength_db, t[i].frequency_hz, t[i].size_m);
         if (!x || PyList_Append(list, x) < 0) {
             Py_XDECREF(x);
             Py_CLEAR(list);

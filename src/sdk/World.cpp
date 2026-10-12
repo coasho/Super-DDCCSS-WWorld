@@ -388,6 +388,10 @@ std::vector<ms::AmtiTrack> Vehicle::amtiTracks(std::uint16_t payload) const {
     return world_ ? world_->impl_->amtiTracks(id_, payload) : std::vector<ms::AmtiTrack>{};
 }
 
+std::vector<ms::Contact> Vehicle::contacts(std::uint16_t payload) const {
+    return world_ ? world_->impl_->contacts(id_, payload) : std::vector<ms::Contact>{};
+}
+
 ms::CommandResult Vehicle::cancelMission(ms::ActivityId activity, control::Caller caller) {
     if (world_) return world_->impl_->cancelMission(id_, caller, activity);
     return ms::CommandResult{control::CommandStatus::Rejected, ms::Reason::UnknownVehicle, activity, 0};
@@ -663,6 +667,14 @@ Vehicle World::launchWeapon(const Vehicle& launcher, const ms::WeaponLaunch& lau
 }
 
 std::vector<ms::WeaponRecord> World::weapons() const { return impl_->weapons(); }
+ms::Reason World::dispense(std::uint32_t vehicle, bool flare) { return impl_->dispense(vehicle,flare); }
+std::uint32_t World::seekerTarget(std::uint32_t vehicle,const std::string& store) const { return impl_->seekerTarget(vehicle,store); }
+ms::CountermeasureInventory World::countermeasures(std::uint32_t vehicle) const { return impl_->countermeasures(vehicle); }
+std::vector<ms::DecoyState> World::decoys() const { return impl_->decoys(); }
+std::vector<ms::EngagementEvent> World::engagementEvents(std::uint64_t since) const { return impl_->engagementEvents(since); }
+ms::LaunchZone World::launchZone(std::uint32_t vehicle,const std::string& store,std::uint32_t target) const {
+    return impl_->launchZone(vehicle,store,target);
+}
 
 std::optional<ms::RadioPath> World::radioPath(const Vehicle& from, const Vehicle& to, const ms::RadioPathOptions& options) const {
     return impl_->radioPath(from.id(), to.id(), options);

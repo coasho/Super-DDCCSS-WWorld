@@ -5,7 +5,7 @@
   "summary": "Long-range active-radar air-to-air missile (izdeliye 180): AESA seeker, dual-pulse motor, conventional fins",
   "maker": "Vympel",
   "model": "jsbsim:r77m",
-  "employable": false,
+
   "powerable": true,
   "jettisonable": true,
   "seeker": "active_radar",

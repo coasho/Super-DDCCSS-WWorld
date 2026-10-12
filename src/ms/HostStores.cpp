@@ -42,10 +42,7 @@ bool gone(StoreStatus s) noexcept {
     return s == StoreStatus::Releasing || s == StoreStatus::Released || s == StoreStatus::Jettisoned || s == StoreStatus::Lost;
 }
 
-/// It has the flight model it leaves its aircraft as (jettisoned, lost with a section) - and, `employable`, may be
-/// released as a weapon.
 bool flyable(const StoreCard& card) noexcept { return !card.model.empty(); }
-bool employable(const StoreCard& card) noexcept { return flyable(card) && card.employable; }
 
 /// How a store leaves its station: a missile under its own power off a rail where the station has one, anything else
 /// pushed clear by its rack.
@@ -71,7 +68,7 @@ void Host::rebuildStoreInfo() {
         out.carriage = offRail(*s.station, *s.card) ? "rail" : "ejector";
         out.powerable = s.card->powerable;
         out.jettisonable = s.card->jettisonable;
-        out.flyable = employable(*s.card);
+        out.flyable = flyable(*s.card);
         out.status = s.status;
         out.massKg = massOf(s);
         out.fuelKg = s.fuelKg;
@@ -182,25 +179,22 @@ CommandResult Host::submit(const StrikeCommand& command, const CommandOptions& o
         return r.reason = Reason::InvalidParameter, r;
     // the stores: those named, or as many free ones of the type as asked for
     std::vector<std::uint16_t> chosen;
+    bool unflyable = false;
     if (!command.stores.empty()) {
         for (const std::uint16_t i : command.stores) {
             if (i >= stores_.size() || stores_[i].payload != command.payload || gone(stores_[i].status) ||
                 std::count(chosen.begin(), chosen.end(), i))
                 return r.reason = Reason::InvalidParameter, r;
             if (stores_[i].activity) return r.reason = Reason::StoreBusy, r;
-            if (!employable(*stores_[i].card)) return r.reason = Reason::StoreNotFlyable, r;
+            if (!flyable(*stores_[i].card)) return r.reason = Reason::StoreNotFlyable, r;
             chosen.push_back(i);
         }
     } else {
-        bool unflyable = false;
         for (std::uint16_t i = 0; i < stores_.size() && chosen.size() < static_cast<std::size_t>(command.quantity); ++i) {
             const StoreSlot& s = stores_[i];
             if (s.payload != command.payload || gone(s.status) || s.activity) continue;
             if (!command.store.empty() && s.card->id != command.store) continue;
-            if (!employable(*s.card)) {
-                unflyable = true;
-                continue;
-            }
+            if (!flyable(*s.card)) { unflyable = true; continue; }
             chosen.push_back(i);
         }
         if (chosen.size() < static_cast<std::size_t>(command.quantity))
@@ -399,10 +393,10 @@ void Host::advanceStrikes(double simTime) {
             out.target = s.target;
             out.jettisoned = s.jettison;
             out.launch.type = slot.card->model;
+            out.launch.inert = s.jettison;
             for (int k = 0; k < 3; ++k) out.launch.offsetBodyM[k] = slot.station->positionM[k];
             if (!offRail(*slot.station, *slot.card)) out.launch.ejectionBodyMs[2] = slot.station->ejectionMs; // (pushed down, clear)
             out.launch.ejectionBodyMs[0] = -slot.station->extractionMs; // (a cargo hold's load: aft, out over the ramp)
-            out.launch.inert = s.jettison || !employable(*slot.card);   // (unarmed: its motor, if it has one, stays dead)
             releases_.push_back(std::move(out));
             slot.status = StoreStatus::Releasing;
             s.nextAt += s.ripple;

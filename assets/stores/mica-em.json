@@ -5,7 +5,7 @@
   "summary": "Medium-range air-to-air missile, active radar seeker (MICA's radar version)",
   "maker": "MBDA",
   "model": "jsbsim:micaem",
-  "employable": false,
+
   "powerable": true,
   "jettisonable": true,
   "seeker": "active_radar",

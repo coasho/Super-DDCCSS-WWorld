@@ -215,8 +215,24 @@ one of its tracks (single-target track, or `mode="track_while_scan"`) and `amti_
 target and takes it (MS-4b: `AmtiTask`, `AcmPattern`). Its stores (MS-7): `vehicle.stores`
 (`StoreInfo`), `load_loadout(name)`, `load_store(station, store)`, `strike(store, quantity, target=..., consent=...)`,
 `strike_consent(activity)`, `strike_status(activity)` (`StrikeStatus`), `jettison(stores=None, emergency=...)`,
-`vehicle.mass_kg`. See
+`vehicle.mass_kg`. Its warning receiver (MS-9a): `vehicle.contacts("rwr")` - the radars it hears while it operates,
+each an `fsim.Contact` (the bearing as measured, the power it arrives with, `mode` an `fsim.EmitterMode` - SEARCH, LOCK,
+ILLUMINATION - and `warning` for those on the aircraft itself). See
 [mission-systems.md](mission-systems.md).
+
+## The catalog
+
+`import fsim.catalog` - what the platform carries, read without a world: for a menu, a planner, a viewer of your own.
+
+| | |
+| --- | --- |
+| `fsim.catalog.aircraft()` | every type with a payload fit, by name (a World's `"jsbsim:<name>"`) |
+| `fsim.catalog.fit(name)`, `loadouts(name)` | its fit - `payloads` (name, card, count) - and the loads it names for its stations: `Loadout(name, note, stores)`, `stores` (station, store id) each; `Vehicle.load_loadout(name)` loads one |
+| `fsim.catalog.store(id)`, `stores()`; `payload(id)`, `payloads()` | a store's or a payload's card as a dict (designation, class or family, parameters with their values, bases and sources), and every id |
+| `fsim.catalog.model(name)`, `manifest(name)` | the path of a type's drawn model (glTF binary; None where it has none) and its manifest - `Manifest(forward, up, scale, engines, rockets, stations, components, dispensers, surfaces)`, the places in body axes: where each station's store hangs, where the crew sit |
+
+It reads the package's own data (`fsim/share/flightsim`: what a World loads from), so it says what a World of the same
+package flies. A name that is not one raises `ValueError`, an unknown one `KeyError`.
 
 ## Cameras
 

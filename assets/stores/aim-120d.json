@@ -5,7 +5,7 @@
   "summary": "The AIM-120C's airframe with GPS-aided navigation, a two-way datalink and a longer reach",
   "maker": "Raytheon",
   "model": "jsbsim:aim120d",
-  "employable": false,
+
   "powerable": true,
   "jettisonable": true,
   "seeker": "active_radar",

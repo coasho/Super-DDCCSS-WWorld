@@ -381,6 +381,11 @@ public:
     /// A radar payload's confirmed tracks (MS-5: Stone Soup's GNN tracker on its detections, false alarms among them),
     /// predicted to the world's time.
     std::vector<ms::AmtiTrack> amtiTracks(std::uint16_t payload) const;
+    /// What a payload's passive sensor holds (MS-9a): a warning receiver's emitters - each a bearing with its error,
+    /// the power it arrives with, and what the emitter does as far as its signal says (ms::Contact: a search, a lock,
+    /// an illumination; `warning` for those on the carrier itself). Empty for a payload with no such sensor, or not
+    /// operating.
+    std::vector<ms::Contact> contacts(std::uint16_t payload) const;
     ms::CommandResult cancelMission(ms::ActivityId activity, control::Caller caller = {});
     std::optional<ms::ActivityRecord> missionActivity(ms::ActivityId activity) const;
     /// Live Mission Systems activities, then the ended ones it remembers, newest first.
@@ -505,6 +510,16 @@ public:
     Vehicle launchWeapon(const Vehicle& launcher, const ms::WeaponLaunch& launch = {});
     /// The weapons in flight (by id), then those that ended, newest first (the last 256).
     std::vector<ms::WeaponRecord> weapons() const;
+    /// Accepted cartridges and native decoys. Requires an operating countermeasure payload.
+    ms::Reason dispense(std::uint32_t vehicle, bool flare = false);
+    ms::CountermeasureInventory countermeasures(std::uint32_t vehicle) const;
+    std::vector<ms::DecoyState> decoys() const;
+    /// Referee/presentation stream; serial cursor is exclusive and reads never consume events.
+    std::vector<ms::EngagementEvent> engagementEvents(std::uint64_t since = 0) const;
+    /// Advisory envelope from a carried store and target estimate. Prefer a track designation as target.
+    ms::LaunchZone launchZone(std::uint32_t vehicle, const std::string& store, std::uint32_t target) const;
+    /// The on-rail infrared seeker observation, or zero without a tone. No position/truth state is returned.
+    std::uint32_t seekerTarget(std::uint32_t vehicle, const std::string& store) const;
     /// The radio path between two entities over the world's ground; empty for an unknown one.
     std::optional<ms::RadioPath> radioPath(const Vehicle& from, const Vehicle& to, const ms::RadioPathOptions& options = {}) const;
     /// The radar cross section of `target` as a radar on `observer` sees it (MS-3): its type's table at the aspect

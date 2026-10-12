@@ -104,7 +104,6 @@ class Missile:
                 self.notch = 0.0
         if self.lost:
             self.est_pos = add(self.est_pos, self.est_vel, dt)
-        # proportional navigation (N 4) on the aim point - lofted while far
         aim = self.est_pos
         rng_est = norm(sub(aim, self.pos))
         if rng_est > 25000.0 and not self.active:

@@ -1901,9 +1901,22 @@ ActivityState; ``reason``, why it ended ("goal_reached", "requested", "supersede
 BIT's progress, 0..100."""
 
 
+class WeaponPhase(enum.IntEnum):
+    """Native guidance phases. This enum does not imply that a weapon has a modelled seeker."""
+    UNGUIDED = 0
+    MIDCOURSE = 1
+    SEEKING = 2
+    HOMING = 3
+    LOST = 4
+
+
+CountermeasureInventory = collections.namedtuple("CountermeasureInventory", "chaff flare")
+DecoyState = collections.namedtuple("DecoyState", "id owner kind age_s position_ecef")
+EngagementEvent = collections.namedtuple("EngagementEvent", "serial time_s kind reason entity launcher target position_ecef velocity_ecef destroyed")
+LaunchZone = collections.namedtuple("LaunchZone", "maximum_m no_escape_m minimum_m")
 WeaponRecord = collections.namedtuple(
     "WeaponRecord", "id launcher name type launch_time_s end_time_s end end_latitude_rad end_longitude_rad end_height_m end_speed_ms "
-                    "store station jettisoned activity target")
+    "store station jettisoned activity target phase seeker holding miss_m burning tracking supported time_to_go_s time_to_active_s")
 WeaponRecord.__doc__ = """A weapon released into the world (ADR-30, MS-2): ``end`` "in_flight", "impact" or "removed";
 where it ended and how fast (NaN in flight). The store it was (MS-7), where an aircraft's store management released it:
 its card's id, station, the strike or jettison activity, the strike's target; ``jettisoned`` released unarmed (``store``
@@ -1989,6 +2002,41 @@ AmtiTrack.__doc__ = """A radar's track (MS-5): Stone Soup's GNN tracker - an uns
 detections, false alarms among them, predicted to the world's time: position and NED velocity, their uncertainties,
 range, angles and range rate from the carrier. ``truth`` is the entity whose detection last updated it (0: a false
 alarm): the simulation's knowledge, for scoring."""
+
+
+class ContactKind(enum.IntEnum):
+    """What a contact is (MS-9 to MS-11): EMITTER, a transmitter a warning receiver intercepts - the one kind built so
+    far; INFRARED, WEATHER, SURFACE, TERRAIN and IMAGE are the other sensors', to come."""
+    EMITTER = 0
+    INFRARED = 1
+    WEATHER = 2
+    SURFACE = 3
+    TERRAIN = 4
+    IMAGE = 5
+
+
+class EmitterMode(enum.IntEnum):
+    """What an intercepted emitter does, as far as its signal says (MS-9a): SEARCH, its beam passes over the receiver as
+    it scans (a track-while-scan's track looks the same) - or a side lobe of one pointed elsewhere; LOCK, its beam stays
+    on the receiver: single-target track; ILLUMINATION, locked and lighting the receiver for a semi-active missile.
+    SEEKER, JAMMER and DATALINK are transmitters not built yet."""
+    UNKNOWN = 0
+    SEARCH = 1
+    LOCK = 2
+    ILLUMINATION = 3
+    SEEKER = 4
+    JAMMER = 5
+    DATALINK = 6
+
+
+Contact = collections.namedtuple(
+    "Contact", "id payload kind mode warning truth first_time_s time_s azimuth_rad elevation_rad bearing_sigma_rad range_m "
+    "range_rate_ms latitude_rad longitude_rad height_m strength_db frequency_hz size_m")
+Contact.__doc__ = """What a passive sensor holds (MS-9a): a warning receiver's emitter - its bearing as measured (azimuth from
+the nose, right positive, and elevation, in the carrier's body axes; ``bearing_sigma_rad`` the measurement's standard
+deviation), the power it arrives with (``strength_db``, dBm), its frequency, what it does (``mode``: fsim.EmitterMode) and
+whether that is a threat to the carrier itself (``warning``: locked on it, lighting it). A receiver measures no range:
+``range_m`` and the place are NaN. ``truth`` is the emitter's carrier: the simulation's knowledge, for scoring."""
 
 
 class MissionRejected(_native.Error):
@@ -2877,6 +2925,13 @@ class Vehicle:
         return [AmtiTrack(t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8], (t[9], t[10], t[11]), *t[12:])
                 for t in self._h.amti_tracks(self.id, self._payload_index(payload))]
 
+    def contacts(self, payload="rwr"):
+        """What a payload's passive sensor holds (fsim.Contact; MS-9a): a warning receiver's emitters - every radar
+        whose signal reaches it above what it can detect, while the payload operates. It takes no command: power it to
+        operate (``set_payload_state``) and read. Empty for a payload with no such sensor, or not operating."""
+        return [Contact(t[0], t[1], ContactKind(t[2]), EmitterMode(t[3]), bool(t[4]), *t[5:])
+                for t in self._h.contacts(self.id, self._payload_index(payload))]
+
     def amti_detections(self, payload="radar", since=0):
         """A radar payload's detections (fsim.AmtiDetection) with serial >= ``since`` that it still keeps (its last
         2048), oldest first: pass the last one's serial + 1 to read only what is new."""
@@ -3236,8 +3291,36 @@ class World:
     @property
     def weapons(self):
         """[WeaponRecord]: the weapons in flight (by id), then those that ended, newest first (the last 256)."""
-        return [WeaponRecord(w[0], w[1], w[2], w[3], w[4], w[5], _native.weapon_end_name(w[6]), *w[7:13], bool(w[13]), *w[14:])
+        return [WeaponRecord(w[0], w[1], w[2], w[3], w[4], w[5], _native.weapon_end_name(w[6]), *w[7:13], bool(w[13]),
+                             w[14], w[15], WeaponPhase(w[16]), w[17], w[18], w[19], bool(w[20]), bool(w[21]), bool(w[22]),w[23],w[24])
                 for w in self._h.weapons()]
+
+    def dispense(self, vehicle, kind="chaff"):
+        """Request a native cartridge release. Rejection leaves inventory unchanged."""
+        if kind not in ("chaff", "flare"):
+            raise ValueError("kind must be chaff or flare")
+        self._h.dispense(vehicle.id if isinstance(vehicle, Vehicle) else int(vehicle), kind == "flare")
+
+    def seeker_target(self, vehicle, store):
+        """On-rail infrared seeker observation ID, or zero without a tone."""
+        return self._h.seeker_target(vehicle.id if isinstance(vehicle, Vehicle) else int(vehicle), store)
+
+    def countermeasures(self, vehicle):
+        """Native remaining cartridge counts; independent of presentation effects."""
+        return CountermeasureInventory(*self._h.countermeasures(vehicle.id if isinstance(vehicle, Vehicle) else int(vehicle)))
+
+    def decoys(self):
+        """Referee positions of live native chaff/flare; never feed these to an AI policy."""
+        return [DecoyState(d[0], d[1], "flare" if d[2] else "chaff", d[3], d[4]) for d in self._h.decoys()]
+
+    def engagement_events(self, since=0):
+        """Referee/presentation events newer than the serial cursor; repeatable, non-consuming."""
+        return [EngagementEvent(*e[:-1], bool(e[-1])) for e in self._h.engagement_events(int(since))]
+
+    def launch_zone(self, vehicle, store, target):
+        """Advisory launch envelope; pass an own-radar designation to avoid target truth."""
+        return LaunchZone(*self._h.launch_zone(vehicle.id if isinstance(vehicle, Vehicle) else int(vehicle), store,
+                                             target.id if isinstance(target, Vehicle) else int(target)))
 
     def radar_cross_section(self, observer, target, *, frequency_hz=9.5e9, polarization="vertical", receive=None):
         """The radar cross section of ``target`` as a radar on ``observer`` sees it (RadarCrossSection): its

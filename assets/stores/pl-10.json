@@ -5,7 +5,7 @@
   "summary": "Short-range imaging-infrared air-to-air missile, lock-on after launch",
   "maker": "China Airborne Missile Academy",
   "model": "jsbsim:pl10",
-  "employable": false,
+
   "powerable": true,
   "jettisonable": true,
   "seeker": "imaging_infrared",
@@ -22,7 +22,7 @@
       "uncertainty": 2.0,
       "basis": "published",
       "source": "zh-pl10",
-      "note": "89 公斤"
+      "note": "89 kilograms"
     },
     "length_m": {
       "value": 3.0,
@@ -30,7 +30,7 @@
       "uncertainty": 0.05,
       "basis": "published",
       "source": "zh-pl10",
-      "note": "3.0 米"
+      "note": "3.0 metres"
     },
     "diameter_m": {
       "value": 0.16,
@@ -45,7 +45,7 @@
       "uncertainty": 5.0,
       "basis": "published",
       "source": "zh-pl10",
-      "note": "20 公里"
+      "note": "20 kilometres"
     },
     "speed_mach": {
       "value": 3.0,
@@ -120,7 +120,7 @@
   },
   "sources": {
     "zh-pl10": {
-      "title": "霹雳-10",
+      "title": "PL-10",
       "publisher": "Wikipedia, zh (revision 94655060)",
       "url": "https://zh.wikipedia.org/w/index.php?title=%E9%9C%B9%E9%9B%B3-10&oldid=94655060",
       "date": "2026-09-30"

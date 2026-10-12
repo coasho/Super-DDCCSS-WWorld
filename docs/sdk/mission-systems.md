@@ -12,6 +12,8 @@ at **MS-4**:
 - weapons in flight as entities, and the radio path between any two of them;
 - each aircraft's radar cross section, as one entity's radar sees another (MS-3);
 - air search radars: AMTI searches commanded through the SDK, their detections, and the viewer's displays of them (MS-4).
+- warning receivers: the radars whose signal reaches them, as emitter contacts - a search, a lock, an illumination
+  (MS-9a, its first part).
 
 The models behind the other capabilities (tracking, ESM, missiles, ...) come in the later stages. Until a
 stage lands, its capability is advertised `not_implemented`, together with the stage that builds it.
@@ -33,7 +35,7 @@ Each payload gives the capabilities of its family:
 | `air_radar` | `fsim.ms.status`, `fsim.ms.amti` (MS-4) |
 | `weather_radar` | status, `fsim.ms.weather_radar` (MS-11) |
 | `sar` / `smti` | status, `fsim.ms.sar` / `fsim.ms.smti` (MS-11) |
-| `esm` | status, `fsim.ms.esm` (MS-9) |
+| `esm` | status, `fsim.ms.esm` (a warning receiver's contacts: built, MS-9a; the rest MS-9) |
 | `electronic_attack`, `countermeasures` | status, `fsim.ms.ea` (MS-9) |
 | `passive_optical` | status, `fsim.ms.po` (MS-10) |
 | `store_station` | status, `fsim.ms.store_management`, `fsim.ms.strike` (MS-7) |
@@ -70,7 +72,7 @@ for (const auto& p : v.payloads())                         // radar AN/APG-68(V)
     std::printf("%s %s %s\n", p.name, p.designation, fsim::ms::familyName(p.family));
 auto r = v.submit(fsim::ms::StateCommand{0, fsim::ms::PayloadState::Operate});
 if (r.status == fsim::control::CommandStatus::Rejected) std::puts(fsim::ms::reasonName(r.reason));
-auto esm = v.missionCapabilityStatus("fsim.ms.esm:rwr");     // unavailable, not_implemented (MS-9)
+auto ea = v.missionCapabilityStatus("fsim.ms.ea:cmds");      // unavailable, not_implemented (MS-9)
 ```
 
 ## C
@@ -95,7 +97,7 @@ v.payload("radar").designation             # 'AN/APG-68(V)9'
 a = v.set_payload_state("radar", "operate", command_id=42)
 v.mission_activity(a).state                # ActivityState.COMPLETED (no warm-up on its card yet)
 v.payload_bit("radar"); v.fail_payload("radar"); v.fail_payload("radar", failed=False)
-v.mission_capability_status("fsim.ms.esm:rwr")     # (Availability.UNAVAILABLE, 'not_implemented', nan): MS-9
+v.mission_capability_status("fsim.ms.ea:cmds")     # (Availability.UNAVAILABLE, 'not_implemented', nan): MS-9
 ```
 
 A refused command raises `fsim.MissionRejected`, whose `.reason` holds the reason's name.
@@ -497,12 +499,68 @@ struct from before them is a volume's search). An agent has the same calls (`Age
   track they had made and began others.
 - **Not yet:** the modes at the signal level (MS-6's samples and processing: the detection level only); an angle
   error's floor - a strong return's track is as good as its SNR says, with no glint and no boresight error
-  ([backlog](../backlog.md), B-66); a home-on-jam or flood mode; what the tracked aircraft's warning receiver makes of
-  being tracked (MS-9a).
+  ([backlog](../backlog.md), B-66); a home-on-jam or flood mode. (What the tracked aircraft's warning receiver makes of
+  being tracked: [the warning receiver](#the-warning-receiver-ms-9a).)
 
 In the viewer the radar's window names the mode (STT) and, for an acquisition, whether it searches or looks again at
 a detection; the track it follows carries a diamond and its number is in the header, with ILLUMINATING while the
 radar lights it; every dwell on one place, the header gives the dwell in place of the frame.
+
+## The warning receiver (MS-9a)
+
+A warning receiver (payload family `esm`: the F-16C's `rwr`, the Su-27S's SPO-15 ...) listens while its payload
+operates. It takes no command. What it holds are **contacts**: every radar in the world whose signal reaches its
+antennas above what it can detect - a bearing, the power it arrives with, and what the emitter is doing as far as its
+signal says. Its capability, `fsim.ms.esm:<payload>`, is `supported`.
+
+```python
+v.set_payload_state("rwr", "operate")
+for c in v.contacts("rwr"):                               # Contact
+    c.mode, c.warning                                     # EmitterMode.SEARCH / LOCK / ILLUMINATION; a threat to v itself
+    c.azimuth_rad, c.elevation_rad, c.bearing_sigma_rad   # as measured, body axes: from the nose, right positive
+    c.strength_db, c.frequency_hz                         # dBm at its antenna; the emitter's frequency
+    c.id, c.first_time_s, c.time_s, c.truth               # its number while it is held; the emitter's carrier (scoring)
+```
+
+In C++: `Vehicle::contacts(payload)` (`ms::Contact`, `ms::EmitterMode`). In C (ABI 1.71): `fsim_vehicle_contacts`
+(`fsim_contact`), `fsim_emitter_mode_name`, `fsim_contact_kind_name`.
+
+- **What radiates:** each radar that is on, as its command and its scan had it at the end of the step before: its
+  frequency, its pulses' power (its card's average over the radar model's duty, 0.1), its antenna's peak gain and
+  side-lobe floor, and the volume its main beam goes through - its scan's (half a beam beyond its edges; every azimuth
+  for a rotodome) or, in single-target track and in an acquisition, the beam itself where it points.
+- **What arrives:** the one-way equation - the pulse's power, the emitter's gain towards the receiver (its main beam's
+  inside that volume, its side-lobe floor outside), the radio path (MS-2: free space, the gases, the terrain's mask -
+  the same path, worked out once, that the radar's own look at the receiver's carrier uses) and the receiver's
+  antenna. At or above the receiver's sensitivity it is a contact.
+- **What the emitter does** (`EmitterMode`), as its signal says: `SEARCH` - its beam passes as it scans (a
+  track-while-scan's track looks the same), or the receiver is in a side lobe of one pointed elsewhere; `LOCK` - its
+  beam stays on the receiver: single-target track; `ILLUMINATION` - locked, and lighting it for a semi-active missile.
+  `warning` is set for the last two: the threat is to the carrier itself.
+- **The bearing** is the true one with an error of `bearing_sigma_rad` an axis, drawn anew once a second from the
+  payload's own stream (the world's seed and the vehicle's id: the same world gives the same bearings, for any number
+  of workers). A receiver measures no range: `range_m` and the contact's place are NaN.
+- **Held and forgotten:** a contact keeps its number while its emitter is heard; not heard for 3 s it is dropped. The
+  payload leaving `operate` drops them all. The carrier's own radars are blanked.
+- **The cards say nothing yet** (`"parameters": {}` on all nineteen): no maker publishes a fielded receiver's figures.
+  Until a card gives its own, every receiver flies its class's, the same for every country - engineering assumptions,
+  each replaced by the card's parameter of that name:
+
+  | Parameter | Value | |
+  | --- | --- | --- |
+  | `sensitivity_dbm` | -60 dBm | the weakest pulse at its antenna it detects |
+  | `antenna_gain_dbi` | 0 dBi | a broad spiral's |
+  | `frequency_min_hz`, `frequency_max_hz` | 2 - 18 GHz | the band warning receivers are described as covering |
+  | `bearing_sigma_deg` | 10 deg | amplitude comparison between four antennas |
+  | `measure_s`, `memory_s` | 1 s, 3 s | a bearing measured anew; an emitter not heard kept |
+
+  With them an F-16C's receiver takes -40 dBm from another F-16C's main beam at 40 km, -48 dBm at 100 km and -58 dBm
+  at 300 km (both at 8 km: in sight of each other), and hears its side lobes inside about 5 km: a radar is heard much
+  further than it sees, as the one-way equation has it.
+- **Not yet:** each pass of a scanning beam as an event - a search is heard for as long as the receiver is in the
+  volume scanned, not once a frame; missiles' seekers and the launch warning (they come with the weapons' seekers:
+  MS-7d); the emitter's type - a contact names none, `truth` is the simulation's; chaff; jammers and the full ESM
+  (MS-9b); the viewer's display; an agent's own call (`fsim::Agent`: the range's `Vehicle` only).
 
 ## Stores and weapon employment (MS-7a)
 

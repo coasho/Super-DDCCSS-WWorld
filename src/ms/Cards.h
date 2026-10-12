@@ -76,10 +76,8 @@ struct StoreCard {
     std::string id, designation, summary, maker;
     std::string storeClass;      ///< "aam", "bomb", "tank", "pod": what stations take it
     std::string model;           ///< its flight model once released ("jsbsim:mk82"); empty: not built yet
-    /// It may be released as a weapon (a strike). False: what it does after it leaves - a missile's powered flight - is
-    /// not modelled; it loads and is weighed like any store, a strike with it is refused (StoreNotFlyable), and
+    std::string seeker;          ///< active_radar, semi_active_radar, infrared or imaging_infrared
     /// jettisoned it leaves as the inert body its model is.
-    bool employable = true;
     bool powerable = false;      ///< powered before release (a missile's seeker and guidance)
     bool jettisonable = true;
     std::map<std::string, Parameter> parameters; ///< mass_kg, length_m, diameter_m, power_up_s ...

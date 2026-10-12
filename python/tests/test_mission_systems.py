@@ -30,12 +30,13 @@ class MissionSystemsTest(unittest.TestCase):
         caps = {c.id: c for c in v.mission_capabilities}
         self.assertEqual(caps["fsim.ms.status:radar"].support, "supported")
         self.assertEqual(caps["fsim.ms.amti:radar"].support, "supported")  # (its card describes the radar: MS-4)
-        self.assertEqual(caps["fsim.ms.esm:rwr"].support, "not_implemented")
-        self.assertEqual(caps["fsim.ms.esm:rwr"].stage, 9)
+        self.assertEqual(caps["fsim.ms.esm:rwr"].support, "supported")  # (its warning receiver: MS-9a)
+        self.assertEqual(caps["fsim.ms.ea:cmds"].support, "not_implemented")
+        self.assertEqual(caps["fsim.ms.ea:cmds"].stage, 9)
         availability, reason, _ = v.mission_capability_status("fsim.ms.amti:radar")
         self.assertEqual(availability, fsim.Availability.TEMPORARILY_UNAVAILABLE)
         self.assertEqual(reason, "payload_off")
-        availability, reason, _ = v.mission_capability_status("fsim.ms.esm:rwr")
+        availability, reason, _ = v.mission_capability_status("fsim.ms.ea:cmds")
         self.assertEqual(availability, fsim.Availability.UNAVAILABLE)
         self.assertEqual(reason, "not_implemented")
         self.assertEqual(v.mission_capability_status("fsim.ms.sar:radar")[1], "not_supported")
@@ -77,7 +78,7 @@ class MissionSystemsTest(unittest.TestCase):
         self.assertEqual(v.payload("rwr").state, fsim.PayloadState.OPERATE)
         # (a capability carried but not modelled yet: the authority calls say why, as for a flight capability the vehicle lacks)
         with self.assertRaises(fsim.Error) as later:
-            v.request_control("fsim.ms.esm:rwr", controller=5)
+            v.request_control("fsim.ms.ea:cmds", controller=5)
         self.assertIn("not_implemented", str(later.exception))
 
 

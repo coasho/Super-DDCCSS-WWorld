@@ -455,7 +455,8 @@ TEST_CASE("radar for the viewers: each vehicle's payloads and radar picture in t
     CHECK(std::string(m.payloads[0].designation) == "AN/APG-68(V)9");
     CHECK(m.payloads[0].state == static_cast<std::uint8_t>(ms::PayloadState::Operate));
     CHECK(std::string(m.payloads[0].capabilities) == "amti");
-    CHECK(std::string(m.payloads[1].capabilities).find("esm (MS-9)") != std::string::npos);
+    CHECK(std::string(m.payloads[1].capabilities) == "esm"); // (its warning receiver: built, MS-9a)
+    CHECK(std::string(m.payloads[2].capabilities).find("(MS-9)") != std::string::npos); // (its dispenser: not yet)
     REQUIRE(m.radarCount == 1);
     const ipc::MissionRadar& r = m.radars[0];
     const ms::RadarStatus st = w.radarStatus(own, 0);

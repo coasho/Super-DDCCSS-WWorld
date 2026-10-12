@@ -2573,7 +2573,10 @@ FSIM_API const char* fsim_ms_reason_description(int reason);
 /* fsim_vehicle_role's `role` */
 enum fsim_role { FSIM_ROLE_AIRCRAFT = 0, FSIM_ROLE_WEAPON };
 /* fsim_weapon_info.end */
-enum fsim_weapon_end { FSIM_WEAPON_IN_FLIGHT = 0, FSIM_WEAPON_IMPACT, FSIM_WEAPON_REMOVED };
+enum fsim_weapon_end { FSIM_WEAPON_IN_FLIGHT = 0, FSIM_WEAPON_IMPACT, FSIM_WEAPON_REMOVED,
+                       FSIM_WEAPON_DETONATED, FSIM_WEAPON_EXPIRED };
+enum fsim_weapon_phase { FSIM_WEAPON_UNGUIDED = 0, FSIM_WEAPON_MIDCOURSE, FSIM_WEAPON_SEEKING,
+                        FSIM_WEAPON_HOMING, FSIM_WEAPON_LOST };
 
 typedef struct fsim_weapon_launch {
     uint32_t struct_size;          /* fsim_weapon_launch_init */
@@ -2597,7 +2600,46 @@ typedef struct fsim_weapon_info {
     int32_t jettisoned;            /* 1: released unarmed */
     uint64_t activity;             /* the strike or jettison that released it */
     uint32_t target;               /* the strike's target (0: none) */
+    /* Appended telemetry; holding/target are referee truth, not player observations. */
+    int32_t phase;                 /* fsim_weapon_phase */
+    const char* seeker;            /* "" for an unguided weapon; valid while the world lives */
+    uint32_t holding;
+    double miss_m;                /* NaN unless a proximity detonation has measured it */
+    int32_t burning, tracking, supported;
+    double time_to_go_s, time_to_active_s;
 } fsim_weapon_info;
+
+typedef struct fsim_engagement_event {
+    uint32_t struct_size;
+    uint64_t serial;
+    double time_s;
+    const char* kind;
+    const char* reason;
+    uint32_t entity, launcher, target;
+    double position_ecef[3], velocity_ecef[3];
+    int32_t destroyed;
+} fsim_engagement_event;
+typedef struct fsim_decoy_state {
+    uint32_t struct_size, id, owner;
+    int32_t flare;
+    double age_s, position_ecef[3];
+} fsim_decoy_state;
+typedef struct fsim_launch_zone {
+    uint32_t struct_size;
+    double maximum_m, no_escape_m, minimum_m;
+} fsim_launch_zone;
+FSIM_API void fsim_engagement_event_init(fsim_engagement_event* event);
+FSIM_API void fsim_decoy_state_init(fsim_decoy_state* decoy);
+FSIM_API void fsim_launch_zone_init(fsim_launch_zone* zone);
+/* Referee stream: count snapshots the events newer than since. Repeated reads do not consume events. */
+FSIM_API uint32_t fsim_world_engagement_count(fsim_world* world, uint64_t since);
+FSIM_API int fsim_world_engagement(const fsim_world* world, uint32_t index, fsim_engagement_event* event);
+FSIM_API uint32_t fsim_world_decoy_count(fsim_world* world);
+FSIM_API int fsim_world_decoy(const fsim_world* world, uint32_t index, fsim_decoy_state* decoy);
+FSIM_API int fsim_world_dispense(fsim_world* world, uint32_t vehicle, int32_t flare);
+FSIM_API int fsim_world_seeker_target(const fsim_world* world, uint32_t vehicle, const char* store, uint32_t* target);
+FSIM_API int fsim_world_countermeasures(const fsim_world* world, uint32_t vehicle, uint32_t* chaff, uint32_t* flare);
+FSIM_API int fsim_world_launch_zone(const fsim_world* world, uint32_t vehicle, const char* store, uint32_t target, fsim_launch_zone* zone);
 
 typedef struct fsim_radio_path_options {
     uint32_t struct_size;          /* fsim_radio_path_options_init */
@@ -2640,6 +2682,7 @@ FSIM_API int fsim_world_radio_path(const fsim_world* world, uint32_t from, uint3
                                    fsim_radio_path* out);
 FSIM_API const char* fsim_role_name(int role);              /* "aircraft", "weapon" */
 FSIM_API const char* fsim_weapon_end_name(int end);         /* "in_flight", "impact", "removed" */
+FSIM_API const char* fsim_weapon_phase_name(int phase);     /* "unguided", "midcourse", "seeking", "homing", "lost" */
 
 /* ---------------------------------------------------------------------------
  * Radar cross section (ABI 1.51; ADR-30 MS-3, docs/sdk/mission-systems.md):
@@ -2795,6 +2838,60 @@ FSIM_API void fsim_amti_track_init(fsim_amti_track* track);
  * many there are. */
 FSIM_API int fsim_vehicle_amti_tracks(const fsim_world* world, uint32_t id, uint32_t payload, fsim_amti_track* out, uint32_t max,
                                       uint32_t* count);
+
+/* ---------------------------------------------------------------------------
+ * Contacts (ABI 1.71; ADR-30 MS-9a): what a payload's passive sensor holds. Built so far: a warning receiver's
+ * emitters (payload family "esm") - the radars whose signal reaches it, each a bearing, the power it arrives with
+ * and what the emitter does as far as its signal says. The receiver takes no command: it listens while its payload
+ * operates (fsim_vehicle_payload_state).
+ * ------------------------------------------------------------------------- */
+
+/* fsim_contact.kind */
+enum fsim_contact_kind {
+    FSIM_CONTACT_EMITTER = 0, /* a transmitter a warning receiver intercepts */
+    FSIM_CONTACT_INFRARED,
+    FSIM_CONTACT_WEATHER,
+    FSIM_CONTACT_SURFACE,
+    FSIM_CONTACT_TERRAIN,
+    FSIM_CONTACT_IMAGE
+};
+/* fsim_contact.mode: what an emitter does */
+enum fsim_emitter_mode {
+    FSIM_EMITTER_UNKNOWN = 0,
+    FSIM_EMITTER_SEARCH,       /* its beam passes over the receiver as it scans (a track-while-scan's track looks the same) */
+    FSIM_EMITTER_LOCK,         /* its beam stays on the receiver: single-target track */
+    FSIM_EMITTER_ILLUMINATION, /* locked, and lighting the receiver for a semi-active missile */
+    FSIM_EMITTER_SEEKER,
+    FSIM_EMITTER_JAMMER,
+    FSIM_EMITTER_DATALINK
+};
+
+typedef struct fsim_contact {
+    uint32_t struct_size;      /* fsim_contact_init */
+    uint32_t payload;
+    uint64_t id;               /* the vehicle's own numbering: its payload in the high 16 bits */
+    int32_t kind;              /* fsim_contact_kind */
+    int32_t mode;              /* fsim_emitter_mode (an emitter's) */
+    int32_t warning;           /* a threat to the carrier itself: locked on it, lighting it */
+    uint32_t truth;            /* the entity behind it: the simulation's knowledge, 0 for an agent (ADR-31) */
+    double first_time_s, time_s;
+    double azimuth_rad;        /* from the nose, right positive (body axes), as measured */
+    double elevation_rad;      /* above the body's x-y plane */
+    double bearing_sigma_rad;  /* the measurement's standard deviation */
+    double range_m;            /* NaN: not measured (a passive sensor) */
+    double range_rate_ms;      /* NaN likewise */
+    double latitude_rad, longitude_rad, height_m; /* NaN where the range is not measured */
+    double strength_db;        /* an emitter's received power, dBm */
+    double frequency_hz;       /* an emitter's */
+    double size_m;             /* NaN for an emitter */
+} fsim_contact;
+
+FSIM_API void fsim_contact_init(fsim_contact* contact);
+/* A payload's contacts: `max` at most into `out` (`out[0].struct_size` bytes apart), `*count` how many there are.
+ * None for a payload with no such sensor, or not operating. */
+FSIM_API int fsim_vehicle_contacts(const fsim_world* world, uint32_t id, uint32_t payload, fsim_contact* out, uint32_t max, uint32_t* count);
+FSIM_API const char* fsim_contact_kind_name(int kind); /* "emitter", "infrared", "weather", "surface", "terrain", "image" */
+FSIM_API const char* fsim_emitter_mode_name(int mode); /* "unknown", "search", "lock", "illumination", "seeker", "jammer", "datalink" */
 
 /* ---------------------------------------------------------------------------
  * Stores and weapon employment (ABI 1.56; ADR-30 MS-7a, docs/sdk/mission-systems.md):

@@ -5,7 +5,7 @@
   "summary": "MICA with an imaging infrared seeker",
   "maker": "MBDA",
   "model": "jsbsim:micair",
-  "employable": false,
+
   "powerable": true,
   "jettisonable": true,
   "seeker": "imaging_infrared",

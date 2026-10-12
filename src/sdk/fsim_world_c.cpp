@@ -5262,6 +5262,9 @@ FSIM_API void fsim_weapon_info_init(fsim_weapon_info* info) {
     if (!info) return;
     *info = fsim_weapon_info{}, info->struct_size = sizeof *info;
     info->end_time_s = info->end_latitude_rad = info->end_longitude_rad = info->end_height_m = info->end_speed_ms = std::nan("");
+    info->miss_m = std::nan("");
+    info->time_to_go_s = info->time_to_active_s = std::nan("");
+    info->seeker = "";
 }
 FSIM_API void fsim_radio_path_options_init(fsim_radio_path_options* options) {
     if (!options) return;
@@ -5309,6 +5312,11 @@ FSIM_API int fsim_world_weapon(const fsim_world* world, uint32_t index, fsim_wea
     c.end_latitude_rad = w.endLatitudeRad, c.end_longitude_rad = w.endLongitudeRad, c.end_height_m = w.endHeightM, c.end_speed_ms = w.endSpeedMs;
     c.store = strings.insert(w.store).first->c_str(); // (ABI 1.56: copied where the caller's struct_size reaches)
     c.station = w.station, c.jettisoned = w.jettisoned ? 1 : 0, c.activity = w.activity, c.target = w.target;
+    c.phase = static_cast<int32_t>(w.phase);
+    c.seeker = strings.insert(w.seeker).first->c_str();
+    c.holding = w.holding, c.miss_m = w.missM;
+    c.burning = w.burning, c.tracking = w.tracking, c.supported = w.supported;
+    c.time_to_go_s=w.timeToGoS, c.time_to_active_s=w.timeToActiveS;
     return copyOut(c, out) ? FSIM_OK : FSIM_INVALID_ARGUMENT;
 }
 
@@ -5347,7 +5355,82 @@ FSIM_API int fsim_world_radio_path(const fsim_world* world, uint32_t from, uint3
 
 FSIM_API const char* fsim_role_name(int role) { return fsim::ms::roleName(static_cast<fsim::ms::Role>(role == 1 ? 1 : 0)); }
 FSIM_API const char* fsim_weapon_end_name(int end) {
-    return end >= 0 && end <= 2 ? fsim::ms::weaponEndName(static_cast<fsim::ms::WeaponEnd>(end)) : "";
+    return end >= 0 && end <= static_cast<int>(fsim::ms::WeaponEnd::Expired) ? fsim::ms::weaponEndName(static_cast<fsim::ms::WeaponEnd>(end)) : "";
+}
+FSIM_API const char* fsim_weapon_phase_name(int phase) {
+    return fsim::ms::weaponPhaseName(static_cast<fsim::ms::WeaponPhase>(phase));
+}
+
+FSIM_API void fsim_engagement_event_init(fsim_engagement_event* out) {
+    if (!out) return;
+    std::memset(out,0,sizeof *out); out->struct_size=sizeof *out; out->kind=out->reason="";
+}
+FSIM_API void fsim_decoy_state_init(fsim_decoy_state* out) {
+    if (!out) return;
+    std::memset(out,0,sizeof *out); out->struct_size=sizeof *out;
+}
+FSIM_API void fsim_launch_zone_init(fsim_launch_zone* out) {
+    if (!out) return;
+    std::memset(out,0,sizeof *out); out->struct_size=sizeof *out;
+}
+FSIM_API uint32_t fsim_world_engagement_count(fsim_world* world,uint64_t since) {
+    FSIM_NOT_AGENT(world,0);
+    if (!world) return 0;
+    world->combatEvents=world->world.engagementEvents(since);
+    return static_cast<uint32_t>(world->combatEvents.size());
+}
+FSIM_API int fsim_world_engagement(const fsim_world* world,uint32_t index,fsim_engagement_event* out) {
+    FSIM_NOT_AGENT(world,FSIM_NOT_ALLOWED);
+    if (!world || !out || index>=world->combatEvents.size()) return fail(FSIM_INVALID_ARGUMENT,"engagement: bad index");
+    const auto& event=world->combatEvents[index];
+    fsim_engagement_event c; fsim_engagement_event_init(&c);
+    c.serial=event.serial; c.time_s=event.timeS;
+    c.kind=const_cast<fsim_world*>(world)->intern(event.kind); c.reason=const_cast<fsim_world*>(world)->intern(event.reason);
+    c.entity=event.entity; c.launcher=event.launcher; c.target=event.target; c.destroyed=event.destroyed;
+    std::copy_n(event.positionEcef,3,c.position_ecef); std::copy_n(event.velocityEcef,3,c.velocity_ecef);
+    return copyOut(c,out)?FSIM_OK:FSIM_INVALID_ARGUMENT;
+}
+FSIM_API uint32_t fsim_world_decoy_count(fsim_world* world) {
+    FSIM_NOT_AGENT(world,0);
+    if (!world) return 0;
+    world->decoys=world->world.decoys(); return static_cast<uint32_t>(world->decoys.size());
+}
+FSIM_API int fsim_world_decoy(const fsim_world* world,uint32_t index,fsim_decoy_state* out) {
+    FSIM_NOT_AGENT(world,FSIM_NOT_ALLOWED);
+    if (!world || !out || index>=world->decoys.size()) return fail(FSIM_INVALID_ARGUMENT,"decoy: bad index");
+    const auto& decoy=world->decoys[index]; fsim_decoy_state c; fsim_decoy_state_init(&c);
+    c.id=decoy.id; c.owner=decoy.owner; c.flare=decoy.flare; c.age_s=decoy.ageS;
+    std::copy_n(decoy.positionEcef,3,c.position_ecef);
+    return copyOut(c,out)?FSIM_OK:FSIM_INVALID_ARGUMENT;
+}
+FSIM_API int fsim_world_dispense(fsim_world* world,uint32_t vehicle,int32_t flare) {
+    FSIM_AGENT_VEHICLE(world,vehicle,FSIM_NOT_ALLOWED);
+    if (!world || (flare!=0 && flare!=1)) return fail(FSIM_INVALID_ARGUMENT,"dispense: invalid kind");
+    const auto reason=world->world.dispense(vehicle,flare!=0);
+    return reason==fsim::ms::Reason::None?FSIM_OK:fail(FSIM_INVALID_ARGUMENT,fsim::ms::reasonName(reason));
+}
+FSIM_API int fsim_world_countermeasures(const fsim_world* world,uint32_t vehicle,uint32_t* chaff,uint32_t* flare) {
+    FSIM_AGENT_VEHICLE(world,vehicle,FSIM_NOT_ALLOWED);
+    if (!world || !chaff || !flare || !world->world.alive(vehicle)) return fail(FSIM_INVALID_ARGUMENT,"countermeasures: unknown vehicle");
+    const auto inventory=world->world.countermeasures(vehicle); *chaff=inventory.chaff; *flare=inventory.flare; return FSIM_OK;
+}
+FSIM_API int fsim_world_seeker_target(const fsim_world* world,uint32_t vehicle,const char* store,uint32_t* target) {
+    FSIM_NOT_AGENT(world,FSIM_NOT_ALLOWED);
+    if (!world || !store || !target || !world->world.alive(vehicle)) return fail(FSIM_INVALID_ARGUMENT,"seeker: unknown vehicle");
+    *target=world->world.seekerTarget(vehicle,store); return FSIM_OK;
+}
+FSIM_API int fsim_world_launch_zone(const fsim_world* world,uint32_t vehicle,const char* store,uint32_t target,fsim_launch_zone* out) {
+    FSIM_AGENT_VEHICLE(world,vehicle,FSIM_NOT_ALLOWED);
+    if (!world || !store || !out || !world->world.alive(vehicle)) return fail(FSIM_INVALID_ARGUMENT,"launch zone: invalid launcher");
+    // An agent may use only its own designation, never another aircraft's true state.
+    if (world->agent) {
+        const auto* designation=world->world.designation(target);
+        if (!designation || designation->owner!=vehicle) return fail(FSIM_NOT_ALLOWED,"launch zone: own designation required");
+    }
+    if (!world->world.vehicleState(target)) return fail(FSIM_INVALID_ARGUMENT,"launch zone: unknown target");
+    const auto zone=world->world.launchZone(vehicle,store,target); fsim_launch_zone c; fsim_launch_zone_init(&c);
+    c.maximum_m=zone.maximumM; c.no_escape_m=zone.noEscapeM; c.minimum_m=zone.minimumM;
+    return copyOut(c,out)?FSIM_OK:FSIM_INVALID_ARGUMENT;
 }
 
 // --- AMTI (ABI 1.52; ADR-30 MS-4) -------------------------------------------------------
@@ -5460,6 +5543,46 @@ FSIM_API int fsim_vehicle_amti_tracks(const fsim_world* world, uint32_t id, uint
         *count = static_cast<uint32_t>(list.size());
         return FSIM_OK;
     });
+}
+
+// --- Contacts (ABI 1.71; ADR-30 MS-9a) --------------------------------------------------
+
+FSIM_API void fsim_contact_init(fsim_contact* contact) {
+    if (contact) *contact = fsim_contact{}, contact->struct_size = sizeof *contact;
+}
+
+FSIM_API int fsim_vehicle_contacts(const fsim_world* world, uint32_t id, uint32_t payload, fsim_contact* out, uint32_t max, uint32_t* count) {
+    FSIM_AGENT_VEHICLE(world, id, FSIM_NOT_ALLOWED);
+    if (!world || !count || payload > 0xFFFFu || (max && (!out || out[0].struct_size < sizeof(uint32_t)))) return FSIM_INVALID_ARGUMENT;
+    return guard("fsim_vehicle_contacts", [&]() -> int {
+        const auto list = world->world.contacts(id, static_cast<std::uint16_t>(payload));
+        const uint32_t stride = max ? out[0].struct_size : 0;
+        for (std::size_t i = 0; i < list.size() && i < max; ++i) {
+            const fsim::ms::Contact& t = list[i];
+            fsim_contact c;
+            fsim_contact_init(&c);
+            c.payload = t.payload, c.id = t.id, c.kind = static_cast<int32_t>(t.kind), c.mode = static_cast<int32_t>(t.mode);
+            c.warning = t.warning ? 1 : 0;
+            c.truth = world->agent ? 0 : t.truth; // (ADR-31: the referee's)
+            c.first_time_s = t.firstTimeS, c.time_s = t.timeS;
+            c.azimuth_rad = t.azimuthRad, c.elevation_rad = t.elevationRad, c.bearing_sigma_rad = t.bearingSigmaRad;
+            c.range_m = t.rangeM, c.range_rate_ms = t.rangeRateMs;
+            c.latitude_rad = t.latitudeRad, c.longitude_rad = t.longitudeRad, c.height_m = t.heightM;
+            c.strength_db = t.strengthDb, c.frequency_hz = t.frequencyHz, c.size_m = t.sizeM;
+            auto* slot = reinterpret_cast<fsim_contact*>(reinterpret_cast<char*>(out) + i * stride);
+            slot->struct_size = stride;
+            copyOut(c, slot);
+        }
+        *count = static_cast<uint32_t>(list.size());
+        return FSIM_OK;
+    });
+}
+
+FSIM_API const char* fsim_contact_kind_name(int kind) {
+    return kind >= 0 && kind < static_cast<int>(fsim::ms::ContactKind::Count) ? fsim::ms::contactKindName(static_cast<fsim::ms::ContactKind>(kind)) : "";
+}
+FSIM_API const char* fsim_emitter_mode_name(int mode) {
+    return mode >= 0 && mode < static_cast<int>(fsim::ms::EmitterMode::Count) ? fsim::ms::emitterModeName(static_cast<fsim::ms::EmitterMode>(mode)) : "";
 }
 
 FSIM_API int fsim_vehicle_amti_detections(const fsim_world* world, uint32_t id, uint32_t payload, uint64_t since, fsim_amti_detection* out,

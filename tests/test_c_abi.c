@@ -2933,6 +2933,18 @@ int main(int argc, char** argv) {
         CHECK(fsim_world_weapon_count(world) == 1);
         fsim_weapon_info_init(&info);
         CHECK(fsim_world_weapon(world, 0, &info) == FSIM_OK && info.id == bomb && info.end == FSIM_WEAPON_IN_FLIGHT && info.end_time_s != info.end_time_s);
+        CHECK(info.phase == FSIM_WEAPON_UNGUIDED && strcmp(info.seeker, "") == 0 && info.holding == 0);
+        CHECK(!info.tracking && !info.supported && isnan(info.miss_m));
+        CHECK(strcmp(fsim_weapon_phase_name(FSIM_WEAPON_HOMING), "homing") == 0);
+        CHECK(strcmp(fsim_weapon_end_name(FSIM_WEAPON_DETONATED), "detonated") == 0);
+        {
+            /* A legacy caller stops at target. Appended fields must leave its sentinel intact. */
+            fsim_weapon_info legacy;
+            memset(&legacy, 0xA5, sizeof legacy);
+            legacy.struct_size = (uint32_t)offsetof(fsim_weapon_info, phase);
+            CHECK(fsim_world_weapon(world, 0, &legacy) == FSIM_OK && legacy.id == bomb);
+            CHECK((uint32_t)legacy.phase == 0xA5A5A5A5u);
+        }
         CHECK(fsim_world_weapon(world, 1, &info) != FSIM_OK);
 
         CHECK(fsim_world_step(world, 30) == FSIM_OK);

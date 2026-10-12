@@ -5,7 +5,7 @@
   "summary": "Short-range, all-aspect infrared-homing air-to-air missile (the L's airframe, a reduced-smoke motor)",
   "maker": "Raytheon",
   "model": "jsbsim:aim9m",
-  "employable": false,
+
   "powerable": true,
   "jettisonable": true,
   "seeker": "infrared",

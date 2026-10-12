@@ -12,6 +12,8 @@
 #include "control/ControlStack.h"
 #include "ms/Host.h"
 #include "ms/damage/State.h"
+#include "ms/weapon/Guidance.h"
+#include "ms/countermeasure/Dispenser.h"
 #include "ms/rcs/Table.h"
 #include "control/Features.h"
 #include "session/Dms.h"
@@ -104,6 +106,7 @@ struct Detonation {
     double velocityEcef[3] = {0, 0, 0};   ///< the missile's (m/s)
     double axisEcef[3] = {1, 0, 0};       ///< its nose
     std::uint32_t weapon = 0;             ///< the weapon's vehicle (0: none in the world - a scripted one)
+    double stepFraction = std::numeric_limits<double>::quiet_NaN(); ///< swept encounter fraction; NaN: current world state
 };
 
 class World final : public control::WorldView {
@@ -487,6 +490,8 @@ public:
     std::vector<ms::AmtiDetection> amtiDetections(std::uint32_t id, std::uint16_t payload, std::uint64_t since = 0) const;
     /// A radar payload's confirmed tracks (MS-5), predicted to now.
     std::vector<ms::AmtiTrack> amtiTracks(std::uint32_t id, std::uint16_t payload) const;
+    /// What a payload's passive sensor holds (MS-9a: a warning receiver's emitters).
+    std::vector<ms::Contact> contacts(std::uint32_t id, std::uint16_t payload) const;
     ms::CommandResult cancelMission(std::uint32_t id, control::Caller caller, ms::ActivityId activity);
     /// The platform fails a payload (a contingency), or repairs it (back to off).
     ms::Reason failPayload(std::uint32_t id, std::uint16_t payload, bool failed);
@@ -518,6 +523,12 @@ public:
     void transferFuel();
     /// The weapons in flight (by id), then those that ended, newest first (the last 256).
     std::vector<ms::WeaponRecord> weapons() const;
+    ms::Reason dispense(std::uint32_t vehicle, bool flare);
+    ms::CountermeasureInventory countermeasures(std::uint32_t vehicle) const;
+    std::vector<ms::DecoyState> decoys() const;
+    std::vector<ms::EngagementEvent> engagementEvents(std::uint64_t since = 0) const;
+    ms::LaunchZone launchZone(std::uint32_t vehicle, const std::string& store, std::uint32_t target) const;
+    std::uint32_t seekerTarget(std::uint32_t vehicle, const std::string& store) const;
     /// The radio path between two entities, over the world's ground (the physics terrain, else sea level).
     std::optional<ms::RadioPath> radioPath(std::uint32_t from, std::uint32_t to, const ms::RadioPathOptions& options) const;
     /// The radar cross section of `target` as `observer` sees it (MS-3): its type's table at the aspect between them.
@@ -712,6 +723,10 @@ private:
         std::string wreckFireName;         ///< the component its Fire events name
         bool crewLost = false;             ///< its controls held where they were
         ms::WeaponRecord origin;           ///< a weapon's: the store it was (MS-7; store, station, activity, target, jettisoned)
+        std::unique_ptr<ms::weapon::Guidance> guidance;
+        double guidanceForce[3] = {0, 0, 0}, guidanceMoment[3] = {0, 0, 0};
+        std::array<sim::PropertyHandle, 9> guidanceReads;
+        std::unique_ptr<ms::countermeasure::Dispenser> dispenser;
         /// Its stations' point masses in its flight model (MS-7: "station N", hangar's), each set to the stores on it.
         struct StationMass {
             std::uint16_t payload = 0;
@@ -830,6 +845,20 @@ private:
     };
     std::uint32_t launchPiece(Entry& from, int section, const Parting& part);
     void stepDamage();
+    void prepareEngagements();
+    void finishEngagements();
+    void recordEngagement(const std::string& kind, const Entry& entity, std::uint32_t target = 0,
+                          const std::string& reason = "", bool destroyed = false);
+    std::vector<ms::EngagementEvent> combatEvents_;
+    std::uint64_t nextCombatSerial_ = 1;
+    std::uint32_t nextDecoyId_ = ms::kDecoyIds;
+    std::vector<std::unique_ptr<ms::countermeasure::Dispenser>> retiredDispensers_;
+    std::vector<ms::countermeasure::Dispenser*> dispensers() const {
+        std::vector<ms::countermeasure::Dispenser*> out;
+        for (const auto& e : entries_) if (e && e->dispenser) out.push_back(e->dispenser.get());
+        for (const auto& d : retiredDispensers_) out.push_back(d.get());
+        return out;
+    }
     bool ensureDamage(Entry& e);  ///< its damage begun (its data, its stream, what it reads); false: it takes none
     /// A section fails at its root and leaves. `as`: the aircraft's state to launch it from, where the pool's is not
     /// it (a ground strike's wreck is stopped: its pieces leave with what the strike left them).
@@ -867,6 +896,7 @@ private:
     mutable std::unordered_map<PathKey, PathExcess, PathKeyHash> pathExcess_;
     mutable std::mutex pathExcessMutex_; ///< (the radars look in parallel)
     std::vector<std::size_t> sensing_;   ///< the slots whose sensors look this step
+    std::vector<ms::Emission> emissions_; ///< what radiates this step: every vehicle's radars, as the step before left them
     std::unique_ptr<ipc::MissionRecord> missionScratch_; ///< publishMission's record, reused
     /// The sensors' looks after a step (MS-4).
     void sense();
@@ -876,6 +906,7 @@ private:
     std::vector<ipc::FlightStatus> poolStatus_; ///< each slot's flight status, filled as a snapshot is published (fillStatus)
     void fillStatus();
     std::vector<sim::VehicleState> stepStates_;                 ///< by slot: every state as the current step began
+    std::vector<sim::VehicleState> afterStates_;                ///< stable end-step snapshot, reused without steady-state allocation
     StepView stepView_{*this};
     std::vector<EffectFactory> worldEffects_;
     sim::EnvironmentState environment_;

@@ -5,7 +5,7 @@
   "summary": "Medium-range semi-active-radar air-to-air missile",
   "maker": "Raytheon",
   "model": "jsbsim:aim7m",
-  "employable": false,
+
   "powerable": true,
   "jettisonable": true,
   "seeker": "semi_active_radar",

@@ -179,8 +179,7 @@ TEST_CASE("stores: an F-16C's inventory - empty as created, its loadout, loads i
     CHECK(w.loadStore(f16, st, 5, "") == ms::Reason::None);     // (unloaded)
     CHECK(w.stores(f16).size() == 4);
 
-    // a missile (MS-7b): on a wingtip rail, its carriage the rail; its flight model to come (MS-7c), so a strike of it
-    // is refused until then
+    // A missile on a wingtip rail has its native flight model and can enter release preparation.
     REQUIRE(w.loadStore(f16, st, 1, "aim-120c") == ms::Reason::None);
     REQUIRE(w.loadStore(f16, st, 9, "aim-9x") == ms::Reason::None);
     CHECK(w.loadStore(f16, st, 4, "aim-120c") == ms::Reason::StationCannotTake); // (an inboard station: bombs and tanks)
@@ -189,7 +188,7 @@ TEST_CASE("stores: an F-16C's inventory - empty as created, its loadout, loads i
     CHECK(stores.front().station == 1);
     CHECK(std::string(stores.front().carriage) == "rail");
     CHECK(std::string(stores.front().storeClass) == "aam");
-    CHECK_FALSE(stores.front().flyable);
+    CHECK(stores.front().flyable);
     CHECK_THAT(stores.front().massKg, WithinAbs(161.5, 0.1));
     w.step();
     ms::StateCommand arm;
@@ -200,7 +199,7 @@ TEST_CASE("stores: an F-16C's inventory - empty as created, its loadout, loads i
     ms::StrikeCommand missile;
     missile.payload = st;
     missile.store = "aim-120c";
-    CHECK(w.submit(f16, missile).reason == ms::Reason::StoreNotFlyable);
+    CHECK(w.submit(f16, missile).accepted());
 }
 
 TEST_CASE("stores: the stores' mass is the flight model's - four Mk 82s on, then jettisoned", "[ms][stores]") {
@@ -362,15 +361,12 @@ TEST_CASE("stores: jettison - standard with the stations powered, emergency in a
 }
 
 TEST_CASE("stores: a weapon bay's doors open before its store leaves, and shut after it", "[ms][stores]") {
-    // the F-22A's fit, its AIM-120C given a stand-in to strike with (a missile is not employable yet: a strike with one is
-    // refused, so no bay's doors would open for it), its stores management stepped by hand
     std::vector<std::string> errors;
     const auto read = ms::readFit(kSource / "aircraft" / "f22a" / "payloads.json", kSource / "assets" / "payloads", errors);
     REQUIRE(read);
     auto fit = std::make_shared<ms::Fit>(*read);
     auto card = std::make_shared<ms::StoreCard>(*fit->stores.at("aim-120c"));
     card->model = "jsbsim:mk82";
-    card->employable = true;
     fit->stores["aim-120c"] = card;
     ms::Host host;
     host.bind(1, fit);
@@ -458,7 +454,6 @@ TEST_CASE("stores: everything a loadout carries, jettisoned, flies on as a vehic
                 const auto& card = *fit->stores.at(s.store);
                 INFO(s.store);
                 CHECK(!card.model.empty());                // (it has the model it leaves as)
-                CHECK(s.flyable == card.employable);       // (and may be released as a weapon, or not)
                 CHECK(s.jettisonable);
                 CHECK_THAT(s.massKg, WithinAbs(card.value("mass_kg", 0.0) + card.value("fuel_kg", 0.0), card.storeClass == "tank" ? 1.0 : 1e-6)); // (a tank: less the step's draw)
                 classes.insert(card.storeClass);

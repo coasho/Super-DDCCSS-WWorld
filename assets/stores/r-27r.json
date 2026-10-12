@@ -5,7 +5,7 @@
   "summary": "Medium-range semi-active-radar air-to-air missile (AA-10 Alamo-A)",
   "maker": "Vympel",
   "model": "jsbsim:r27r",
-  "employable": false,
+
   "powerable": true,
   "jettisonable": true,
   "seeker": "semi_active_radar",

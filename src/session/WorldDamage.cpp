@@ -100,8 +100,15 @@ std::vector<ipc::EngagementEvent> World::detonate(const Detonation& d) {
 
     ms::damage::Burst b;
     b.at = v3(d.positionEcef), b.velocity = v3(d.velocityEcef), b.axis = v3(d.axisEcef);
-    const auto states = pool_->states();
-    for (std::size_t slot = 0; slot < entries_.size(); ++slot) {
+    const auto liveStates = pool_->states();
+    std::vector<sim::VehicleState> states(liveStates.begin(), liveStates.end());
+    if (std::isfinite(d.stepFraction)) {
+        const double f=std::clamp(d.stepFraction,0.0,1.0);
+        for(std::size_t slot=0;slot<states.size() && slot<stepStates_.size();++slot)
+            for(int k=0;k<3;++k) states[slot].positionEcef[k]=stepStates_[slot].positionEcef[k]+f*(states[slot].positionEcef[k]-stepStates_[slot].positionEcef[k]);
+    }
+    // A burst may create debris. Freeze the victim set and its states before any slot can be appended.
+    for (std::size_t slot = 0; slot < states.size(); ++slot) {
         Entry* e = entries_[slot].get();
         if (!e || e == weapon || e->info.role != ms::Role::Aircraft) continue;
         const auto af = airframes_.find(e->info.aircraft);

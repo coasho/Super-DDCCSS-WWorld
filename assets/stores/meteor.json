@@ -5,7 +5,7 @@
   "summary": "Long-range active-radar air-to-air missile with a throttleable ducted rocket (ramjet)",
   "maker": "MBDA",
   "model": "jsbsim:meteor",
-  "employable": false,
+
   "powerable": true,
   "jettisonable": true,
   "seeker": "active_radar",

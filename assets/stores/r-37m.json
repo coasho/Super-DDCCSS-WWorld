@@ -5,7 +5,7 @@
   "summary": "Very long-range active-radar air-to-air missile (AA-13 Axehead)",
   "maker": "Vympel",
   "model": "jsbsim:r37m",
-  "employable": false,
+
   "powerable": true,
   "jettisonable": true,
   "seeker": "active_radar",

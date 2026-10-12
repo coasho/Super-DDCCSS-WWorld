@@ -34,6 +34,8 @@ struct fsim_world {
     std::unique_ptr<fsim::World> object;          ///< the C++ view handed out by fsim_world_object(), made on demand
     std::unordered_set<std::string> strings;      ///< strings handed out (capability ids, parameter names): stable until the world goes
     std::vector<fsim::ms::WeaponRecord> weapons;  ///< the weapons as fsim_world_weapon_count last took them
+    std::vector<fsim::ms::EngagementEvent> combatEvents;
+    std::vector<fsim::ms::DecoyState> decoys;
     fsim::control::CommandResult last;             ///< the last answer to a NEW, UPDATE or CANCEL (fsim_last_command_detail)
     uint32_t lastVehicle = 0;                      ///< the vehicle that gave it: its details (World::commandDetails) are the last command's
     std::vector<fsim::control::Waypoint> waypoints; ///< a route's, as given (reused: a route updated every step allocates nothing once it has room)

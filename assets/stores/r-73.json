@@ -5,7 +5,7 @@
   "summary": "Short-range all-aspect infrared air-to-air missile (AA-11 Archer)",
   "maker": "Vympel",
   "model": "jsbsim:r73",
-  "employable": false,
+
   "powerable": true,
   "jettisonable": true,
   "seeker": "infrared",

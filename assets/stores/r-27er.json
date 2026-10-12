@@ -5,7 +5,7 @@
   "summary": "Extended-range semi-active-radar R-27 (AA-10 Alamo-C): a larger dual-mode motor",
   "maker": "Vympel",
   "model": "jsbsim:r27er",
-  "employable": false,
+
   "powerable": true,
   "jettisonable": true,
   "seeker": "semi_active_radar",
