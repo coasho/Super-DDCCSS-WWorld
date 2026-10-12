@@ -63,6 +63,7 @@ add_executable(fsim_tests
     test_damage.cpp
     test_impact.cpp
     test_mass_change.cpp
+    test_store_binding.cpp
     test_store_drag.cpp
     test_rng.cpp
     test_registry.cpp

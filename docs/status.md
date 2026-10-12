@@ -4,6 +4,7 @@ Reviewed: 2026-10-12. First maintenance pass: `2b83f24` (implementation baseline
 Second maintenance pass: `f8cfec9`; Architecture A1: `6652584`; Architecture A2: `34e5516`; Architecture A3: `e79f268`;
 Architecture A4: `e708b87`; Architecture A5: `2efea05`, on
 `codex/architecture-vecenv-recording`.
+Architecture A6 is delivered on `codex/architecture-world-store-binding`, based on `39be3c1`.
 
 This is the entry point for what exists now, which delivery it belongs to, and what remains open. The first
 maintenance pass consolidated documentation and development guidance, corrected outdated descriptions, and retired
@@ -14,7 +15,8 @@ to the weapon module. A2 retires private MA consent bookkeeping and separates C/
 while retaining public history and original state-transition timing. A3 separates C control/VI and Python native
 control/Mission handlers, retaining shared handles, errors and registration. A4 separates C Scenario/Environment
 and Python World/Scenario/Environment handlers while retaining core runtime ownership. A5 separates C/Python
-VecEnv/Recording handlers, retaining C++ wrappers and coupled type/buffer callbacks. Public interfaces, ABI layouts,
+VecEnv/Recording handlers, retaining C++ wrappers and coupled type/buffer callbacks. A6 starts World state-owner
+decomposition with private store-to-flight-model bindings, retaining lifecycle and simulation order. Public interfaces, ABI layouts,
 physics and aircraft model bytes remain unchanged.
 
 Use the [documentation index](README.md) to find reference material, the [development guide](development.md) for
@@ -72,15 +74,17 @@ preserved, but never use an unqualified `M1` to select work.
 | **Architecture A3** | C control/VI and Python control/Mission adapter separation. | Committed as `e79f268` and locally verified below against the [A3 design](superpowers/specs/2026-10-12-architecture-adapters-design.md): 548 functional cases plus three architecture checks, unchanged exports/runtime descriptors and installed-consumer/distribution acceptance. |
 | **Architecture A4** | C Scenario/Environment and Python World/Scenario/Environment adapter separation. | Committed as `e708b87` and locally verified below against the [A4 design](superpowers/specs/2026-10-12-architecture-world-adapters-design.md): 549 functional cases plus three architecture checks, unchanged public exports/native identities and installed-consumer/distribution acceptance. |
 | **Architecture A5** | C/Python VecEnv and Recording adapter separation with retained C++ and runtime type owners. | Committed as `2efea05` and locally verified below against the [A5 design](superpowers/specs/2026-10-12-architecture-batch-recording-design.md): 550 functional cases plus three architecture checks, unchanged exports/native identities and installed-consumer/distribution acceptance. |
+| **Architecture A6** | World store-to-flight-model binding state ownership. | Implemented and locally verified below against the [A6 design](superpowers/specs/2026-10-12-architecture-store-binding-design.md): 553 functional cases plus three architecture checks, exact eight-variant baseline replay, unchanged exports/native identities and installed-consumer/distribution acceptance. Delivered on the current branch at the user's request. |
 
 The third maintenance pass includes bounded A1,
 [A2 lifecycle/adapter](superpowers/specs/2026-10-12-architecture-lifecycle-design.md) and
 [A3 control/Mission](superpowers/specs/2026-10-12-architecture-adapters-design.md) and
 [A4 World/Scenario/Environment](superpowers/specs/2026-10-12-architecture-world-adapters-design.md) and
-[A5 VecEnv/Recording slices](superpowers/specs/2026-10-12-architecture-batch-recording-design.md).
+[A5 VecEnv/Recording](superpowers/specs/2026-10-12-architecture-batch-recording-design.md) and
+[A6 store-binding slices](superpowers/specs/2026-10-12-architecture-store-binding-design.md).
 The remaining [architecture queue](superpowers/specs/2026-10-11-architecture-maintenance-design.md#subsequent-work)
-includes World state-owner decomposition, a public-history retention contract, retained C World and Python core/type/buffer
-ownership, finer control ownership, store bindings, operational geometry, weapon observations, viewer/platform
+includes further World state-owner decomposition, a public-history retention contract, retained C World and Python core/type/buffer
+ownership, finer control ownership, operational geometry, weapon observations, viewer/platform
 boundaries and DLL export ownership. A2 retains map traversal,
 controller mappings and post-removal history; it does not bound aggregate State storage or unanswered ended-strike
 requests. These candidates require their own acceptance; architecture maintenance does not close a flight,
@@ -371,6 +375,57 @@ scope/export/distribution and documentation checks. Eight focused ABI, boundary,
 passed again before commit. Unchanged Hangar generation retains first-pass evidence and was not rerun.
 Renderer/GPU, render SDK installation, CPack ZIP and remote CI were not exercised. This adapter slice does not close
 separate physics, sensor, weapon, history-retention or public-release milestones.
+
+### Architecture A6 verification, 2026-10-12
+
+Fresh checks were collected on `codex/architecture-world-store-binding`, against A5 delivery baseline `39be3c1`.
+The [A6 design](superpowers/specs/2026-10-12-architecture-store-binding-design.md) and
+[implementation plan](superpowers/plans/2026-10-12-architecture-store-binding.md) describe the first World state-owner
+slice. Builds used the existing UCRT64 headless Release preset, warnings as errors and CPython 3.13.12, with
+TMP/TEMP/TORCH_EXTENSIONS_DIR under `D:/ENV/tmp`. No dependencies were installed.
+
+| Check | Result |
+| --- | --- |
+| A5 characterization before extraction | Three new production-path cases passed with 2,655 assertions after correcting the fixture's initial Host revision assumption. Eight worker/frameSkip/drag variants recorded reset, reuse, between-step inventory edits, external fuel, tick boundaries and asymmetric release |
+| Source extraction | The missing-owner verifier failed before implementation. After extraction, all five owned production files and complete World/CMake remainders match explicit baseline-derived expectations; WorldDamage remains unchanged |
+| Headless build | Passed with warnings as errors; the new private owner compiles into the existing session target, without new libraries or external dependencies |
+| Post-extraction characterization and replay | The same three cases and 2,655 assertions passed. All eight before/after traces match exactly: 67,553 lines, 2,641,139 bytes, SHA-256 `2d6e061a2dd7b7b84f0ec02ba32d83ff6b1e6ec9a80b99204861d731b7f32df5`. State fields use explicit scalar encodings, including float speedbrake, without structure padding |
+| ABI, principal, adapter and architecture gates | All eight passed in 7.41 s: C ABI, SDK boundary, three C adapter compatibility consumers and three architecture checks |
+| Full applicable functional suite | `ctest --preset ucrt64-headless -LE 'hangar\|architecture' -j 10 --timeout 3600 --output-on-failure` passed 553/553 in 325.59 s, including 18 fleet cases, lifecycle/principal/thread/buffer checks, native engagement determinism, Python, launcher and both package/installed-consumer gates |
+| Exports, protected scope and inventory | SHA-256 matches all 3,720 protected files; all 1,338 SDK export names, sole Python `PyInit__native` export, 246 native descriptors, 32 module functions and four type layouts match A5. The exact 13-file diff scope passes. All 593 existing CTest names remain, with three new store-binding cases bringing registration to 596 |
+| Installed consumer, dist and distributed Python | Both package gates passed in the functional suite. `cmake --build --preset ucrt64-headless --target dist -j 10` passed; all 1,230 runtime manifest entries and SDK/JSBSim DLL bytes match the tested installed consumer. Staged/distributed native and public Python wrapper bytes match; all four binding compatibility suites passed 25/25 against the distributed module |
+| Independent review and documentation | Complete source/test diff independently reviewed with no actionable findings. Six changed/new Markdown files, 175 local links and five anchors pass; all five PowerShell blocks parse. English text, new-file endings and diff checks pass; development skill copies remain byte-identical |
+
+Raw logs and replay files are under `D:/ENV/tmp`: `architecture-a6-build.log`,
+`architecture-a6-characterization-baseline.log`, `architecture-a6-characterization-baseline-corrected.log`,
+`architecture-a6-characterization-after.log`, `architecture-a6-replay-baseline.txt`, `architecture-a6-replay-after.txt`,
+`architecture-a6-focused-tests.log`, `architecture-a6-functional-tests.log`, `architecture-a6-dist.log` and
+`architecture-a6-python-dist-compatibility.log`. Final scope/export/resource results are in
+`architecture-a6-final-verification.json`; documentation checks are in `architecture-a6-doc-verification.log` and
+`architecture-a6-doc-commands.log`. The functional and architecture runs cover 556 distinct CTest cases.
+Baselines are under `a6-baseline`;
+explicit extraction expectations, original bytes and RED/GREEN evidence are under `a6-owner`. Independent source
+review is in `architecture-a6-independent-review.md`. Installed-consumer evidence remains under
+`build/ucrt64-headless/package-consumer`.
+
+The first fixture incorrectly expected zero fresh Host revisions; Host::bind advances storeRevision. Its 18 failed
+assertions were corrected against unchanged A5 source by comparing original/fresh Host revisions, then the baseline
+passed. The first failure remains in its log. No production initialization or reset behavior was changed to pass;
+post-extraction acceptance had no failures.
+
+StoreFlightBinding owns Entry's station property handles, mass/drag revisions, between-step carried-mass stamp,
+cached drag points/qbar and load-report revision. It borrows model property nodes and receives Host/model inputs
+explicitly, retaining no World, Host or model pointer. World retains model/Entry lifetime, aircraft station-name
+cache, traversal, permission checks, loadTick, control publication and release/damage mass transactions.
+Separate store/fuel revisions, lazy qbar acquisition, refused-load synchronization, non-finite weight-room return,
+fuel dt/threshold/draw/refuel order and force summation remain unchanged. Loaded reset retains inventory and
+binding state; same-aircraft reuse creates a fresh Entry/Host/binding around the retained model, including its
+original pre-synchronization mass transient.
+
+A6 was initially left uncommitted for review, then delivered at the user's request. This initial acceptance retained
+the first pass's unchanged Hangar generation evidence and did not rerun it.
+Renderer/GPU, render SDK installation, CPack ZIP and remote CI were not exercised. This slice does not close the
+remaining World state-owner work or separate physics, sensor, weapon, history-retention and public-release milestones.
 
 ### Earlier delivery evidence
 

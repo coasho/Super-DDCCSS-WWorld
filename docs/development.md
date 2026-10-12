@@ -117,6 +117,16 @@ Python control and Mission handlers belong to `_native_control.c` and `_native_m
 
 MA removal has a narrower contract than deleting its State: publicly queryable tasks, authority, overrides and borrowed RBAC names remain in place, as do controller mappings. `MaConsentLedger` owns private pending requests; answered/automatic records are reclaimed while unanswered ended strikes retain late-reply semantics. Retirement releases private consent storage and stops maintenance after the existing observable transitions settle. Reset retains MA state. `[ma][lifecycle]` and `[agents][c2][lifecycle]` cases exercise these boundaries; see the [A2 design](superpowers/specs/2026-10-12-architecture-lifecycle-design.md) before changing history retention.
 
+World's private `src/session/StoreFlightBinding.h/.cpp` owns carried-store property bindings and their mass/drag,
+weight-room and reported-load caches. Keep `loadTick_`, aircraft pointmass-name caching, entity/model lifecycle,
+permission checks, traversal, host publication and mass-change transactions in World. The binding borrows property
+nodes and takes explicit Host/model inputs; it must not retain model pointers or add reset invalidation. Preserve
+fuel transfer before mass application before pool stepping, the single-dt transfer cap, separate store/fuel revisions,
+lazy qbar binding and force summation after damage/before guidance. `store binding:` cases pin loaded reset and slot
+reuse, and their optional `FSIM_STORE_BINDING_TRACE` replay emits explicit field bits without structure padding.
+Compare replay bytes against the pre-extraction build alongside existing mass/drag/load, determinism and principal
+gates. See the [A6 design](superpowers/specs/2026-10-12-architecture-store-binding-design.md) for the preservation contract.
+
 ## Long-running work and evidence
 
 A background command must write raw output directly to its log. Never end it with `| grep`, `| sed`, `| awk` or `| head`: block buffering can hide completed work until the process exits. Read and filter the saved log separately. If an unavoidable live pipeline needs filtering, use explicit line buffering (`grep --line-buffered`, `awk '{print; fflush()}'`, or `python -u`); `head` does not fix buffering.

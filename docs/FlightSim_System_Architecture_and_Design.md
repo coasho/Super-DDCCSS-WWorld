@@ -204,6 +204,14 @@ registration/runtime pointers and the three coupled callbacks: VecEnv buffers, V
 Recording sample buffers. Constructors and other operations move literally, retaining scratch conversion,
 busy/GIL phases and owner retention. Public Python wrappers and C++ interfaces stay in their existing files.
 
+The [A6 store binding slice](superpowers/specs/2026-10-12-architecture-store-binding-design.md) gives each simulation
+Entry a private `StoreFlightBinding` owner for station property handles, mass/drag revisions, between-step weight-room
+stamps, drag points/qbar and the reported-load revision. Its operations take explicit Host/model references and retain
+no model pointer. World still owns entities/models, pointmass-name caches, global weighing cadence, authorization,
+iteration, control-host publication and release/damage mass-change transactions. Reset retains the existing binding
+state; a reused slot gets a new Entry/binding on its reset model. This is the first World state-owner decomposition,
+not a change to store inventory, flight dynamics, fuel/drag formulas or update ordering.
+
 MA retirement separates private consent bookkeeping from retained public history. Successful vehicle/C2 removal
 releases private consent storage, then existing C2 completion, override expiry and lost-communication transitions
 settle at their original steps. RBAC names, tasks, authority and controller mappings stay in place. This preserves

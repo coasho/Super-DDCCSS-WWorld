@@ -3,6 +3,8 @@
 add_library(fsim_session STATIC
     World.h
     World.cpp
+    StoreFlightBinding.h
+    StoreFlightBinding.cpp
     WorldDamage.cpp
     WorldEngagements.cpp
     AgentRules.h

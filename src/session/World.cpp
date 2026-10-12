@@ -336,21 +336,8 @@ std::uint32_t World::createVehicle(const VehicleSpec& spec) {
     e->host.setSessionView((views_[id] = std::make_unique<Answers>(*this, id)).get());
     e->host.setAltimeter(control::Altimeter{air(), control::Altimeter::kStandardPa}); // (until its QNH is set: 4.20)
     e->ms.bind(id, fits_[aircraft], Rng::forVehicle(options_.seed, kSensorStream, id).next());
-    // its stations' point masses (MS-7): hangar's "station N", found by name among its definition's
-    e->stationMass.clear(), e->massRevision = ~0ull;
-    if (const auto names = pointMasses_.find(aircraft); names != pointMasses_.end())
-        for (const auto& p : e->ms.payloads()) {
-            const ms::Card* card = e->ms.card(p.index);
-            if (p.family != ms::Family::StoreStation || !card) continue;
-            for (const auto& st : card->stations) {
-                const auto it = std::find(names->second.begin(), names->second.end(), "station " + std::to_string(st.number));
-                if (it == names->second.end()) continue;
-                const std::size_t index = static_cast<std::size_t>(it - names->second.begin());
-                PropertyHandle h = pool_->vehicle(slot).property(index ? "inertia/pointmass-weight-lbs[" + std::to_string(index) + "]"
-                                                                       : std::string("inertia/pointmass-weight-lbs"));
-                if (h.valid()) e->stationMass.push_back(Entry::StationMass{p.index, st.number, h});
-            }
-        }
+    const auto names = pointMasses_.find(aircraft);
+    e->storeFlight.bind(e->ms, pool_->vehicle(slot), names != pointMasses_.end() ? &names->second : nullptr);
     (void)rcsTable(aircraft); // (its RCS table read with the vehicle: the radars then only look it up, in parallel)
     e->flapsPosition = pool_->vehicle(slot).property("fcs/flap-pos-norm");
     for (int k = 0; k < 3; ++k) // (its state data's: docs/flight-autonomy.md, 4.21)
@@ -1736,36 +1723,7 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
         turn[0] += M.x, turn[1] += M.y, turn[2] += M.z;
         pushed = true;
     }
-    if (options_.storeDrag && !e->drag.empty() && e->dragQbar.valid()) {
-        // its stores' and their carriage's drag (MS-7g): each against its airflow, at its station - its moment about the
-        // CG (a store below it pitches the nose down; one wing's alone yaws it)
-        constexpr double kPsfToPa = 47.880258888889;
-        const sim::VehicleState& s = e->working;
-        const double q0 = e->dragQbar.get() * kPsfToPa;
-        const double q = q0 * ms::Host::storeDragMachFactor(s.mach);
-        if (q > 0.0) {
-            const double ca = std::cos(s.alphaRad), cb = std::cos(s.betaRad);
-            const double wind[3] = {ca * cb, std::sin(s.betaRad), std::sin(s.alphaRad) * cb}; // (the air's way past it, body axes)
-            double cg[3];
-            model.cgFromOriginBodyM(cg);
-            for (const auto& p : e->drag) {
-                const double d = q * p.areaM2;
-                const double F[3] = {-d * wind[0], -d * wind[1], -d * wind[2]};
-                const double r[3] = {p.positionM[0] - cg[0], p.positionM[1] - cg[1], p.positionM[2] - cg[2]};
-                for (int k = 0; k < 3; ++k) push[k] += F[k];
-                turn[0] += r[1] * F[2] - r[2] * F[1];
-                turn[1] += r[2] * F[0] - r[0] * F[2];
-                turn[2] += r[0] * F[1] - r[1] * F[0];
-                // in a sideslip: its stores' bodies turn the nose away from the wind (Munk's couple), their fins and
-                // bases push across it, behind the station
-                const double Y = -q0 * p.sideSlopeM2 * wind[1];
-                push[1] += Y;
-                turn[0] += -r[2] * Y;
-                turn[2] += (r[0] - p.sideArmM) * Y - q0 * p.munkM3 * 2.0 * wind[1] * cb;
-            }
-            pushed = true;
-        }
-    }
+    if (options_.storeDrag && e->storeFlight.addDrag(e->working, model, push, turn)) pushed = true;
     if (e->guidance) {
         // basis: assumed. A bounded ideal fin servo supplies the guidance command;
         // JSBSim keeps axial aerodynamics, propulsion, mass, inertia and all six integration axes.
@@ -1864,8 +1822,7 @@ double World::weightRoomKg(Entry& e) {
     const double weighed = pool_->vehicle(e.slot).energy().massKg; // (as of its last step: loads since are not in it)
     if (!std::isfinite(most) || !std::isfinite(weighed)) return std::numeric_limits<double>::infinity();
     const double carried = e.ms.storesMassKg();
-    if (e.storesStamp != loadTick_) e.storesKgAtStep = carried, e.storesStamp = loadTick_; // (the first load since that step)
-    return most - (weighed - e.storesKgAtStep + carried);
+    return e.storeFlight.weightRoomKg(most, weighed, carried, loadTick_);
 }
 
 ms::Reason World::loadStore(std::uint32_t id, std::uint16_t payload, int station, const std::string& store, int count) {
@@ -1947,18 +1904,10 @@ std::optional<ms::StrikeStatus> World::strikeStatus(ms::ActivityId activity) con
 }
 
 void World::transferFuel() {
-    // an aircraft's external tanks topping its own as it burns (their fuel the first it uses): as much as its tanks
-    // have room for, at kTransferKgS at most - the mass moving from its stations into its tanks, none made or lost
-    constexpr double kTransferKgS = 10.0; // (an estimate: above a fighter's fuel flow at full reheat, some 7 kg/s)
     for (auto& e : entries_) {
-        if (!e || e->stationMass.empty() || !(e->ms.externalFuelKg() > 0.0)) continue;
+        if (!e || !e->storeFlight.hasStations() || !(e->ms.externalFuelKg() > 0.0)) continue;
         auto& model = pool_->vehicle(e->slot);
-        const sim::EnergyOnBoard energy = model.energy();
-        const double room = energy.fuelCapacityKg - energy.fuelKg;
-        if (!(room > 0.01)) continue;
-        const double drawn = e->ms.drawExternalFuel(std::min(room, kTransferKgS * options_.dt));
-        const double put = model.refuel(drawn);
-        (void)put;
+        e->storeFlight.transferFuel(e->ms, model, options_.dt);
     }
 }
 
@@ -1968,15 +1917,7 @@ void World::applyStoreMasses() {
 }
 
 void World::applyStoreMasses(Entry& e) {
-    constexpr double kLbPerKg = 2.2046226218487757;
-    if (e.dragRevision != e.ms.storeRevision()) { // (where its stores and carriage add drag: stepEntry pushes it)
-        e.ms.carriageDrag(e.drag);
-        e.dragRevision = e.ms.storeRevision();
-        if (!e.drag.empty() && !e.dragQbar.valid()) e.dragQbar = pool_->vehicle(e.slot).property("aero/qbar-psf");
-    }
-    if (e.stationMass.empty() || e.massRevision == e.ms.massRevision()) return;
-    for (auto& m : e.stationMass) m.weightLbs.set(e.ms.stationMassKg(m.payload, m.station) * kLbPerKg);
-    e.massRevision = e.ms.massRevision();
+    e.storeFlight.applyMasses(e.ms, pool_->vehicle(e.slot));
 }
 
 void World::flyReleases() {
@@ -2237,10 +2178,10 @@ void World::step(unsigned n) {
                 if (Entry* e = entries_[s].get()) {
                     // its weight to its host, as its fuel burns (every eighth step) and once its stores have changed (their
                     // point masses were set before this step: the flight model's weight has them now) - 7.3
-                    if (weigh || e->loadRevision != e->massRevision) {
+                    if (weigh || e->storeFlight.loadChanged()) {
                         const sim::EnergyOnBoard energy = pool_->vehicle(s).energy();
                         e->host.setLoad(energy.massKg, energy.fuelKg);
-                        e->loadRevision = e->massRevision;
+                        e->storeFlight.loadPublished();
                     }
                     control::EffectorPositions positions;
                     if (e->host.awaitsPosition()) {

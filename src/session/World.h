@@ -18,6 +18,7 @@
 #include "control/Features.h"
 #include "session/Dms.h"
 #include "session/MaCore.h"
+#include "session/StoreFlightBinding.h"
 #include "fsim/VehicleProfile.h"
 #include "effects/Effect.h"
 #include "fsim/EnvironmentState.h"
@@ -727,23 +728,7 @@ private:
         double guidanceForce[3] = {0, 0, 0}, guidanceMoment[3] = {0, 0, 0};
         std::array<sim::PropertyHandle, 9> guidanceReads;
         std::unique_ptr<ms::countermeasure::Dispenser> dispenser;
-        /// Its stations' point masses in its flight model (MS-7: "station N", hangar's), each set to the stores on it.
-        struct StationMass {
-            std::uint16_t payload = 0;
-            int station = 0;
-            PropertyHandle weightLbs;
-        };
-        std::vector<StationMass> stationMass;
-        std::uint64_t massRevision = ~0ull; ///< the store revision its point masses were last set for
-        double storesKgAtStep = 0.0;        ///< what its stations held when its flight model last weighed itself (weightRoomKg)
-        unsigned storesStamp = ~0u;         ///< the step that was taken at
-        /// Where its stores and their carriage add drag (ms::Host::carriageDrag), for the store revision dragRevision;
-        /// the dynamic pressure they read.
-        std::vector<ms::Host::DragPoint> drag;
-        std::uint64_t dragRevision = ~0ull;
-        PropertyHandle dragQbar;
-        /// The stations' mass revision its host was last told its weight for (control::CapabilityHost::setLoad).
-        std::uint64_t loadRevision = ~0ull;
+        StoreFlightBinding storeFlight;
     };
     /// Counts the steps: a vehicle's host is told its weight every eighth, and the step after its stores change.
     unsigned loadTick_ = 0;
