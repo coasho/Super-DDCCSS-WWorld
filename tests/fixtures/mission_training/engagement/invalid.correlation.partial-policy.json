@@ -1,0 +1,9 @@
+{
+  "schema": "engagement.correlation.v1",
+  "ma_system_id": "2",
+  "consent_request_id": "1",
+  "activity_id": "9007199254740993",
+  "policy_id": "1",
+  "policy_revision": null,
+  "reason_domain": "ms"
+}

@@ -1,0 +1,24 @@
+{
+  "schema": "ma.actions.v1",
+  "episode": {
+    "env_id": "9007199254740993",
+    "episode_generation": "3",
+    "local_episode_index": "41"
+  },
+  "service_id": "1",
+  "tick": "62",
+  "requests": [
+    {
+      "request_id": "9007199254740993",
+      "kind": "strike",
+      "operation": "new",
+      "parameters": {
+        "payload": "2",
+        "target_id": "1048577",
+        "store": "fixture_store",
+        "quantity": 1,
+        "consent": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "request_id": "7",
+  "kind": "engagement_policy",
+  "operation": "activate",
+  "parameters": {
+    "ma_system_id": "2",
+    "policy_id": "9007199254740993",
+    "revision": "1"
+  }
+}

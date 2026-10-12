@@ -1,0 +1,9 @@
+{
+  "schema": "engagement.correlation.v1",
+  "ma_system_id": "2",
+  "consent_request_id": null,
+  "activity_id": null,
+  "policy_id": null,
+  "policy_revision": null,
+  "reason_domain": "dms"
+}

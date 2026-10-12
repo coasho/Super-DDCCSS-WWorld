@@ -1,0 +1,8 @@
+{
+  "request_id": "2",
+  "kind": "strike",
+  "operation": "cancel",
+  "parameters": {
+    "activity_id": "9007199254740993"
+  }
+}

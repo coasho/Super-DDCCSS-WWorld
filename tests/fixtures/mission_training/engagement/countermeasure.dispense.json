@@ -1,0 +1,8 @@
+{
+  "request_id": "4",
+  "kind": "countermeasure",
+  "operation": "dispense",
+  "parameters": {
+    "kind": "flare"
+  }
+}

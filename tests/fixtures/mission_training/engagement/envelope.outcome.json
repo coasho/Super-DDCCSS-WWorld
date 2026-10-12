@@ -1,0 +1,112 @@
+{
+  "schema": "ma.outcome.v1",
+  "episode": {
+    "env_id": "9007199254740993",
+    "episode_generation": "3",
+    "local_episode_index": "41"
+  },
+  "tick": "62",
+  "time_s": 62.0,
+  "episode_done": false,
+  "reason": null,
+  "criteria": [
+    {
+      "id": "time",
+      "kind": "tick_limit",
+      "outcome": "truncated",
+      "satisfied": false,
+      "satisfied_tick": null
+    },
+    {
+      "id": "patrol-point",
+      "kind": "region_reached",
+      "outcome": "success",
+      "satisfied": true,
+      "satisfied_tick": "58"
+    },
+    {
+      "id": "task-done",
+      "kind": "c2_task_state",
+      "outcome": "success",
+      "satisfied": false,
+      "satisfied_tick": null
+    }
+  ],
+  "roles": [
+    {
+      "service_id": "1",
+      "active": true,
+      "terminated": false,
+      "truncated": false,
+      "final_observation": false,
+      "bootstrap": false
+    },
+    {
+      "service_id": "2",
+      "active": true,
+      "terminated": false,
+      "truncated": false,
+      "final_observation": false,
+      "bootstrap": false
+    },
+    {
+      "service_id": "4",
+      "active": true,
+      "terminated": false,
+      "truncated": false,
+      "final_observation": false,
+      "bootstrap": false
+    },
+    {
+      "service_id": "9007199254740995",
+      "active": true,
+      "terminated": false,
+      "truncated": false,
+      "final_observation": false,
+      "bootstrap": false
+    }
+  ],
+  "extensions": {
+    "engagement.outcome.v1": {
+      "schema": "engagement.outcome.v1",
+      "events": [
+        {
+          "serial": "9007199254740993",
+          "time_s": 19.5,
+          "kind": "damage",
+          "reason": "warhead",
+          "entity_id": "3",
+          "launcher_id": "1",
+          "target_id": "2",
+          "crew_lost": true,
+          "position_ecef_m": [
+            1.0,
+            2.0,
+            3.0
+          ],
+          "velocity_ecef_ms": [
+            1.0,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "signals": [
+        {
+          "kind": "crew_loss",
+          "subject_id": "2",
+          "availability": "available",
+          "value": true,
+          "event_serial": "9007199254740993"
+        },
+        {
+          "kind": "crash",
+          "subject_id": "2",
+          "availability": "unavailable",
+          "value": null,
+          "event_serial": null
+        }
+      ]
+    }
+  }
+}

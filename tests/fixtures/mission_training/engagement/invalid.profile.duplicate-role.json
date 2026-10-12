@@ -1,0 +1,21 @@
+{
+  "schema": "training.authorization.v1",
+  "profiles": [
+    {
+      "platform": "lead",
+      "policy_id": "9007199254740993",
+      "revision": "1",
+      "initially_active": false,
+      "strike_policy": "requires_approval",
+      "request_validity_s": 8.0,
+      "authorizer_role_ids": [
+        "2",
+        "2"
+      ],
+      "activation_role_ids": [
+        "1",
+        "2"
+      ]
+    }
+  ]
+}

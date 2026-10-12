@@ -1,0 +1,9 @@
+{
+  "request_id": "5",
+  "kind": "equipment",
+  "operation": "launch_zone",
+  "parameters": {
+    "store": "fixture_store",
+    "target_id": "1048577"
+  }
+}

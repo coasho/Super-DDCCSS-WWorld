@@ -1,0 +1,12 @@
+{
+  "request_id": "9007199254740993",
+  "kind": "strike",
+  "operation": "new",
+  "parameters": {
+    "payload": "2",
+    "target_id": "1048577",
+    "store": "fixture_store",
+    "quantity": 1,
+    "source": "Agent"
+  }
+}

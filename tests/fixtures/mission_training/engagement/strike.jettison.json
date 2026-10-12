@@ -1,0 +1,12 @@
+{
+  "request_id": "3",
+  "kind": "strike",
+  "operation": "jettison",
+  "parameters": {
+    "payload": "2",
+    "stores": [
+      "1"
+    ],
+    "emergency": false
+  }
+}

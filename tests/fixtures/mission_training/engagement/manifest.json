@@ -1,0 +1,271 @@
+{
+  "schema": "ma.engagement.fixtures.v1",
+  "files": [
+    {
+      "file": "strike.new.json",
+      "kind": "request",
+      "expect": "valid"
+    },
+    {
+      "file": "strike.cancel.json",
+      "kind": "request",
+      "expect": "valid"
+    },
+    {
+      "file": "strike.jettison.json",
+      "kind": "request",
+      "expect": "valid"
+    },
+    {
+      "file": "countermeasure.dispense.json",
+      "kind": "request",
+      "expect": "valid"
+    },
+    {
+      "file": "equipment.launch-zone.json",
+      "kind": "request",
+      "expect": "valid"
+    },
+    {
+      "file": "consent.answer.json",
+      "kind": "request",
+      "expect": "valid"
+    },
+    {
+      "file": "policy.activate.json",
+      "kind": "request",
+      "expect": "valid"
+    },
+    {
+      "file": "authorization.json",
+      "kind": "extension",
+      "expect": "valid",
+      "reference": "training.authorization.v1",
+      "container": "config"
+    },
+    {
+      "file": "training.json",
+      "kind": "extension",
+      "expect": "valid",
+      "reference": "training.combat.v1",
+      "container": "config"
+    },
+    {
+      "file": "reports.json",
+      "kind": "extension",
+      "expect": "valid",
+      "reference": "engagement.reports.v1",
+      "container": "observation"
+    },
+    {
+      "file": "correlation.json",
+      "kind": "extension",
+      "expect": "valid",
+      "reference": "engagement.correlation.v1",
+      "container": "receipt"
+    },
+    {
+      "file": "correlation.unauthorized-consent.json",
+      "kind": "extension",
+      "expect": "valid",
+      "reference": "engagement.correlation.v1",
+      "container": "receipt"
+    },
+    {
+      "file": "correlation.dms-send-refusal.json",
+      "kind": "extension",
+      "expect": "valid",
+      "reference": "engagement.correlation.v1",
+      "container": "receipt"
+    },
+    {
+      "file": "launch-zone.json",
+      "kind": "extension",
+      "expect": "valid",
+      "reference": "engagement.launch_zone.v1",
+      "container": "receipt"
+    },
+    {
+      "file": "launch-zone.unavailable.json",
+      "kind": "extension",
+      "expect": "valid",
+      "reference": "engagement.launch_zone.v1",
+      "container": "receipt"
+    },
+    {
+      "file": "outcome.json",
+      "kind": "extension",
+      "expect": "valid",
+      "reference": "engagement.outcome.v1",
+      "container": "outcome"
+    },
+    {
+      "file": "truth.json",
+      "kind": "extension",
+      "expect": "valid",
+      "reference": "engagement.truth.v1",
+      "container": "truth"
+    },
+    {
+      "file": "invalid.strike.consent.json",
+      "kind": "request",
+      "expect": "invalid",
+      "error_contains": "unknown field consent"
+    },
+    {
+      "file": "invalid.strike.controller_id.json",
+      "kind": "request",
+      "expect": "invalid",
+      "error_contains": "unknown field controller_id"
+    },
+    {
+      "file": "invalid.strike.source.json",
+      "kind": "request",
+      "expect": "invalid",
+      "error_contains": "unknown field source"
+    },
+    {
+      "file": "invalid.strike.platform.json",
+      "kind": "request",
+      "expect": "invalid",
+      "error_contains": "unknown field platform"
+    },
+    {
+      "file": "invalid.strike.numeric-id.json",
+      "kind": "request",
+      "expect": "invalid",
+      "error_contains": "not string"
+    },
+    {
+      "file": "invalid.strike.duplicate-store.json",
+      "kind": "request",
+      "expect": "invalid",
+      "error_contains": "duplicate identity"
+    },
+    {
+      "file": "invalid.profile.zero-validity.json",
+      "kind": "extension",
+      "expect": "invalid",
+      "reference": "training.authorization.v1",
+      "container": "config",
+      "error_contains": "not above 0"
+    },
+    {
+      "file": "invalid.profile.duplicate-role.json",
+      "kind": "extension",
+      "expect": "invalid",
+      "reference": "training.authorization.v1",
+      "container": "config",
+      "error_contains": "duplicate identity"
+    },
+    {
+      "file": "invalid.reports.count.json",
+      "kind": "extension",
+      "expect": "invalid",
+      "reference": "engagement.reports.v1",
+      "container": "observation",
+      "error_contains": "count does not match"
+    },
+    {
+      "file": "invalid.reports.seeker-truth.json",
+      "kind": "extension",
+      "expect": "invalid",
+      "reference": "engagement.reports.v1",
+      "container": "observation",
+      "error_contains": "not null"
+    },
+    {
+      "file": "invalid.truth.actor-container.json",
+      "kind": "extension",
+      "expect": "invalid",
+      "reference": "engagement.truth.v1",
+      "container": "observation",
+      "error_contains": "not allowed in observation"
+    },
+    {
+      "file": "invalid.zone.fake-probability.json",
+      "kind": "extension",
+      "expect": "invalid",
+      "reference": "engagement.launch_zone.v1",
+      "container": "receipt",
+      "error_contains": "unknown field hit_probability"
+    },
+    {
+      "file": "invalid.zone.unknown-as-zero.json",
+      "kind": "extension",
+      "expect": "invalid",
+      "reference": "engagement.launch_zone.v1",
+      "container": "receipt",
+      "error_contains": "distance exactly when available"
+    },
+    {
+      "file": "invalid.correlation.partial-policy.json",
+      "kind": "extension",
+      "expect": "invalid",
+      "reference": "engagement.correlation.v1",
+      "container": "receipt",
+      "error_contains": "known together"
+    },
+    {
+      "file": "invalid.outcome.detonation-is-crew-loss.json",
+      "kind": "extension",
+      "expect": "invalid",
+      "reference": "engagement.outcome.v1",
+      "container": "outcome",
+      "error_contains": "matching native damage evidence"
+    },
+    {
+      "file": "invalid.truth.in-flight-has-end.json",
+      "kind": "extension",
+      "expect": "invalid",
+      "reference": "engagement.truth.v1",
+      "container": "truth",
+      "error_contains": "terminal time exactly when ended"
+    },
+    {
+      "file": "invalid.generic-c2-activation.json",
+      "kind": "request",
+      "expect": "invalid",
+      "error_contains": "unregistered extension request kind"
+    },
+    {
+      "file": "invalid.dotted-kind.json",
+      "kind": "request",
+      "expect": "invalid",
+      "error_contains": "unregistered extension request kind"
+    },
+    {
+      "file": "envelope.actions.json",
+      "kind": "document",
+      "expect": "valid"
+    },
+    {
+      "file": "invalid.envelope.actor-consent.json",
+      "kind": "document",
+      "expect": "invalid",
+      "error_contains": "unknown field consent"
+    },
+    {
+      "file": "envelope.config.json",
+      "kind": "document",
+      "expect": "valid"
+    },
+    {
+      "file": "invalid.envelope.unknown-platform.json",
+      "kind": "document",
+      "expect": "invalid",
+      "error_contains": "unknown configured platform"
+    },
+    {
+      "file": "envelope.outcome.json",
+      "kind": "document",
+      "expect": "valid"
+    },
+    {
+      "file": "invalid.envelope.implicit-termination.json",
+      "kind": "document",
+      "expect": "invalid",
+      "error_contains": "but its criteria give"
+    }
+  ]
+}

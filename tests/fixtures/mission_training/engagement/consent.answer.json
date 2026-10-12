@@ -1,0 +1,10 @@
+{
+  "request_id": "6",
+  "kind": "consent",
+  "operation": "answer",
+  "parameters": {
+    "ma_system_id": "2",
+    "consent_request_id": "1",
+    "granted": false
+  }
+}

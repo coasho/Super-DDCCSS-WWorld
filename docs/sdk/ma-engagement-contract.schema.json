@@ -1,0 +1,1519 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fsim:ma-engagement-contract:v1",
+  "title": "Proposed engagement extension contract v1",
+  "$comment": "Repository contract only: no runtime registration, API implementation or simulation evidence. Common definitions must equal frozen generic M0 definitions.",
+  "$defs": {
+    "u64": {
+      "$comment": "A 64-bit identity or correlation: unsigned decimal, no sign, no leading zero, at most 18446744073709551615.",
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]{0,18}|1[0-7][0-9]{18}|18[0-3][0-9]{17}|184[0-3][0-9]{16}|1844[0-5][0-9]{15}|18446[0-6][0-9]{14}|184467[0-3][0-9]{13}|1844674[0-3][0-9]{12}|184467440[0-6][0-9]{10}|1844674407[0-2][0-9]{9}|18446744073[0-6][0-9]{8}|1844674407370[0-8][0-9]{6}|18446744073709[0-4][0-9]{5}|184467440737095[0-4][0-9]{4}|18446744073709550[0-9]{3}|18446744073709551[0-5][0-9]{2}|1844674407370955160[0-9]{1}|1844674407370955161[0-4]|18446744073709551615)$"
+    },
+    "u64_nonzero": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/u64"
+        },
+        {
+          "not": {
+            "const": "0"
+          }
+        }
+      ]
+    },
+    "u32": {
+      "$comment": "A 32-bit identity (entity, controller, system, net, topic, designation, package, role): unsigned decimal string, at most 4294967295.",
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]{0,8}|[1-3][0-9]{9}|4[0-1][0-9]{8}|42[0-8][0-9]{7}|429[0-3][0-9]{6}|4294[0-8][0-9]{5}|42949[0-5][0-9]{4}|429496[0-6][0-9]{3}|4294967[0-1][0-9]{2}|42949672[0-8][0-9]{1}|429496729[0-4]|4294967295)$"
+    },
+    "u32_nonzero": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/u32"
+        },
+        {
+          "not": {
+            "const": "0"
+          }
+        }
+      ]
+    },
+    "u16": {
+      "$comment": "A payload index: unsigned decimal string, at most 65535.",
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]{1}|6553[0-4]|65535)$"
+    },
+    "component": {
+      "$comment": "Upper-layer provenance, echoed in the receipt. Never read for authorization: the service is the endpoint's.",
+      "type": "object",
+      "required": [
+        "component_id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "component_id": {
+          "$ref": "#/$defs/u64"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 63
+        }
+      }
+    },
+    "meta": {
+      "$comment": "Where a report came from and how old it is. Times are simulation seconds; null where the source gives none.",
+      "type": "object",
+      "required": [
+        "source",
+        "validity",
+        "sample_time_s",
+        "receive_time_s",
+        "age_s"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "enum": [
+            "own_navigation",
+            "own_sensor",
+            "own_platform",
+            "ma_core",
+            "dms",
+            "link"
+          ]
+        },
+        "system_id": {
+          "$ref": "#/$defs/u32"
+        },
+        "net_id": {
+          "$ref": "#/$defs/u32"
+        },
+        "payload": {
+          "$ref": "#/$defs/u16"
+        },
+        "validity": {
+          "enum": [
+            "valid",
+            "stale",
+            "invalid",
+            "unknown"
+          ]
+        },
+        "sample_time_s": {
+          "$ref": "#/$defs/number_or_null"
+        },
+        "receive_time_s": {
+          "$ref": "#/$defs/number_or_null"
+        },
+        "age_s": {
+          "$ref": "#/$defs/number_or_null"
+        }
+      }
+    },
+    "availability": {
+      "enum": [
+        "available",
+        "unavailable",
+        "not_applicable",
+        "not_owner"
+      ]
+    },
+    "native_name": {
+      "$comment": "A name the SDK's own name function gives (reasonName, activityStateName, familyName ...): transported, not redefined here.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 63
+    },
+    "number_or_null": {
+      "$comment": "A reported quantity, or null where the bound Agent does not know it (a native NaN, a value not measured, a report not held). Never NaN, never a substitute zero.",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 63,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+    },
+    "request_strike": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_id",
+        "kind",
+        "operation",
+        "parameters"
+      ],
+      "properties": {
+        "request_id": {
+          "$ref": "#/$defs/u64_nonzero"
+        },
+        "kind": {
+          "const": "strike"
+        },
+        "operation": {
+          "enum": [
+            "new",
+            "cancel",
+            "jettison"
+          ]
+        },
+        "parameters": {
+          "type": "object"
+        },
+        "component": {
+          "$ref": "#/$defs/component"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "new"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "parameters": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "payload",
+                  "target_id"
+                ],
+                "properties": {
+                  "payload": {
+                    "$ref": "#/$defs/u16"
+                  },
+                  "target_id": {
+                    "$ref": "#/$defs/u32"
+                  },
+                  "store": {
+                    "type": "string",
+                    "minLength": 0,
+                    "maxLength": 63
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "stores": {
+                    "type": "array",
+                    "minItems": 0,
+                    "maxItems": 256,
+                    "items": {
+                      "$ref": "#/$defs/u16"
+                    }
+                  },
+                  "ripple_s": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "cancel"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "parameters": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "activity_id"
+                ],
+                "properties": {
+                  "activity_id": {
+                    "$ref": "#/$defs/u64_nonzero"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "jettison"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "parameters": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "payload"
+                ],
+                "properties": {
+                  "payload": {
+                    "$ref": "#/$defs/u16"
+                  },
+                  "stores": {
+                    "type": "array",
+                    "minItems": 0,
+                    "maxItems": 256,
+                    "items": {
+                      "$ref": "#/$defs/u16"
+                    }
+                  },
+                  "emergency": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "request_countermeasure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_id",
+        "kind",
+        "operation",
+        "parameters"
+      ],
+      "properties": {
+        "request_id": {
+          "$ref": "#/$defs/u64_nonzero"
+        },
+        "kind": {
+          "const": "countermeasure"
+        },
+        "operation": {
+          "enum": [
+            "dispense"
+          ]
+        },
+        "parameters": {
+          "type": "object"
+        },
+        "component": {
+          "$ref": "#/$defs/component"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "dispense"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "parameters": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "chaff",
+                      "flare"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "request_equipment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_id",
+        "kind",
+        "operation",
+        "parameters"
+      ],
+      "properties": {
+        "request_id": {
+          "$ref": "#/$defs/u64_nonzero"
+        },
+        "kind": {
+          "const": "equipment"
+        },
+        "operation": {
+          "enum": [
+            "launch_zone"
+          ]
+        },
+        "parameters": {
+          "type": "object"
+        },
+        "component": {
+          "$ref": "#/$defs/component"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "launch_zone"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "parameters": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "store",
+                  "target_id"
+                ],
+                "properties": {
+                  "store": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 63
+                  },
+                  "target_id": {
+                    "$ref": "#/$defs/u32_nonzero"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "request_consent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_id",
+        "kind",
+        "operation",
+        "parameters"
+      ],
+      "properties": {
+        "request_id": {
+          "$ref": "#/$defs/u64_nonzero"
+        },
+        "kind": {
+          "const": "consent"
+        },
+        "operation": {
+          "enum": [
+            "answer"
+          ]
+        },
+        "parameters": {
+          "type": "object"
+        },
+        "component": {
+          "$ref": "#/$defs/component"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "answer"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "parameters": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "ma_system_id",
+                  "consent_request_id",
+                  "granted"
+                ],
+                "properties": {
+                  "ma_system_id": {
+                    "$ref": "#/$defs/u32_nonzero"
+                  },
+                  "consent_request_id": {
+                    "$ref": "#/$defs/u64_nonzero"
+                  },
+                  "granted": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "request_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_id",
+        "kind",
+        "operation",
+        "parameters"
+      ],
+      "properties": {
+        "request_id": {
+          "$ref": "#/$defs/u64_nonzero"
+        },
+        "kind": {
+          "const": "engagement_policy"
+        },
+        "operation": {
+          "enum": [
+            "activate"
+          ]
+        },
+        "parameters": {
+          "type": "object"
+        },
+        "component": {
+          "$ref": "#/$defs/component"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "activate"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "parameters": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "ma_system_id",
+                  "policy_id",
+                  "revision"
+                ],
+                "properties": {
+                  "ma_system_id": {
+                    "$ref": "#/$defs/u32_nonzero"
+                  },
+                  "policy_id": {
+                    "$ref": "#/$defs/u64_nonzero"
+                  },
+                  "revision": {
+                    "$ref": "#/$defs/u64_nonzero"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "authorization_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "policy_id",
+        "revision",
+        "initially_active",
+        "strike_policy",
+        "request_validity_s",
+        "authorizer_role_ids",
+        "activation_role_ids"
+      ],
+      "properties": {
+        "platform": {
+          "$ref": "#/$defs/name"
+        },
+        "policy_id": {
+          "$ref": "#/$defs/u64_nonzero"
+        },
+        "revision": {
+          "$ref": "#/$defs/u64_nonzero"
+        },
+        "initially_active": {
+          "type": "boolean"
+        },
+        "strike_policy": {
+          "enum": [
+            "auto_approve",
+            "auto_reject",
+            "requires_approval"
+          ]
+        },
+        "request_validity_s": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "authorizer_role_ids": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/u32"
+          }
+        },
+        "activation_role_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/u32"
+          }
+        }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "profiles"
+      ],
+      "properties": {
+        "schema": {
+          "const": "training.authorization.v1"
+        },
+        "profiles": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/authorization_profile"
+          }
+        }
+      }
+    },
+    "combat_criterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "platform",
+        "outcome"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/u64_nonzero"
+        },
+        "kind": {
+          "enum": [
+            "damage",
+            "crew_loss",
+            "incapacitation",
+            "collision",
+            "friendly_damage",
+            "weapon_end"
+          ]
+        },
+        "platform": {
+          "$ref": "#/$defs/name"
+        },
+        "launcher": {
+          "$ref": "#/$defs/name"
+        },
+        "outcome": {
+          "enum": [
+            "success",
+            "failure"
+          ]
+        },
+        "weapon_end": {
+          "enum": [
+            "impact",
+            "removed",
+            "detonated",
+            "expired"
+          ]
+        }
+      }
+    },
+    "training": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "criteria"
+      ],
+      "properties": {
+        "schema": {
+          "const": "training.combat.v1"
+        },
+        "criteria": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/combat_criterion"
+          }
+        },
+        "rewards": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {
+            "damage": {
+              "type": "number"
+            },
+            "crew_loss": {
+              "type": "number"
+            },
+            "incapacitation": {
+              "type": "number"
+            },
+            "collision": {
+              "type": "number"
+            },
+            "friendly_damage": {
+              "type": "number"
+            },
+            "miss": {
+              "type": "number"
+            },
+            "mission_success": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "store": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "payload",
+        "station",
+        "station_name",
+        "store",
+        "mnemonic",
+        "class",
+        "carriage",
+        "powerable",
+        "jettisonable",
+        "flyable",
+        "status",
+        "mass_kg",
+        "weapon_id"
+      ],
+      "properties": {
+        "index": {
+          "$ref": "#/$defs/u16"
+        },
+        "payload": {
+          "$ref": "#/$defs/u16"
+        },
+        "station": {
+          "type": "integer"
+        },
+        "station_name": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 63
+        },
+        "store": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 63
+        },
+        "mnemonic": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 63
+        },
+        "class": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 63
+        },
+        "carriage": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 63
+        },
+        "powerable": {
+          "type": "boolean"
+        },
+        "jettisonable": {
+          "type": "boolean"
+        },
+        "flyable": {
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "loaded",
+            "powering_up",
+            "ready",
+            "releasing",
+            "released",
+            "jettisoned",
+            "powering_down",
+            "lost"
+          ]
+        },
+        "mass_kg": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "weapon_id": {
+          "$ref": "#/$defs/u32"
+        }
+      }
+    },
+    "strike_status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "activity_id",
+        "phase",
+        "jettison",
+        "target_id",
+        "stores",
+        "weapon_ids"
+      ],
+      "properties": {
+        "activity_id": {
+          "$ref": "#/$defs/u64_nonzero"
+        },
+        "phase": {
+          "enum": [
+            "powering_up",
+            "awaiting_consent",
+            "releasing",
+            "done"
+          ]
+        },
+        "jettison": {
+          "type": "boolean"
+        },
+        "target_id": {
+          "$ref": "#/$defs/u32"
+        },
+        "stores": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/u16"
+          }
+        },
+        "weapon_ids": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/u32_nonzero"
+          }
+        }
+      }
+    },
+    "consent_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from_system_id",
+        "consent_request_id",
+        "activity_id",
+        "answered",
+        "store",
+        "quantity",
+        "target_source_system_id",
+        "target_payload",
+        "target_track_id",
+        "latitude_rad",
+        "longitude_rad",
+        "altitude_msl_m",
+        "request_time_s",
+        "receive_time_s"
+      ],
+      "properties": {
+        "from_system_id": {
+          "$ref": "#/$defs/u32_nonzero"
+        },
+        "consent_request_id": {
+          "$ref": "#/$defs/u64_nonzero"
+        },
+        "activity_id": {
+          "$ref": "#/$defs/u64_nonzero"
+        },
+        "answered": {
+          "type": "boolean"
+        },
+        "store": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 23
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "target_source_system_id": {
+          "$ref": "#/$defs/u32"
+        },
+        "target_payload": {
+          "$ref": "#/$defs/u32"
+        },
+        "target_track_id": {
+          "$ref": "#/$defs/u64"
+        },
+        "latitude_rad": {
+          "$ref": "#/$defs/number_or_null"
+        },
+        "longitude_rad": {
+          "$ref": "#/$defs/number_or_null"
+        },
+        "altitude_msl_m": {
+          "$ref": "#/$defs/number_or_null"
+        },
+        "request_time_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "receive_time_s": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "chaff",
+        "flare"
+      ],
+      "properties": {
+        "chaff": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "flare": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        }
+      }
+    },
+    "weapon_feedback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "availability",
+        "reason",
+        "holding_id",
+        "tracking",
+        "supported",
+        "miss_m",
+        "time_to_go_s",
+        "time_to_active_s"
+      ],
+      "properties": {
+        "availability": {
+          "const": "unavailable"
+        },
+        "reason": {
+          "const": "no_modeled_feedback"
+        },
+        "holding_id": {
+          "type": "null"
+        },
+        "tracking": {
+          "type": "null"
+        },
+        "supported": {
+          "type": "null"
+        },
+        "miss_m": {
+          "type": "null"
+        },
+        "time_to_go_s": {
+          "type": "null"
+        },
+        "time_to_active_s": {
+          "type": "null"
+        }
+      }
+    },
+    "reports": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "stores",
+        "strikes",
+        "countermeasures",
+        "consents",
+        "weapon_feedback"
+      ],
+      "properties": {
+        "schema": {
+          "const": "engagement.reports.v1"
+        },
+        "stores": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "availability",
+            "meta",
+            "count",
+            "items"
+          ],
+          "properties": {
+            "availability": {
+              "$ref": "#/$defs/availability"
+            },
+            "meta": {
+              "$ref": "#/$defs/meta"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4096
+            },
+            "items": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/store"
+              }
+            }
+          }
+        },
+        "strikes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "availability",
+            "meta",
+            "count",
+            "items"
+          ],
+          "properties": {
+            "availability": {
+              "$ref": "#/$defs/availability"
+            },
+            "meta": {
+              "$ref": "#/$defs/meta"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4096
+            },
+            "items": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/strike_status"
+              }
+            }
+          }
+        },
+        "countermeasures": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "availability",
+            "meta",
+            "inventory"
+          ],
+          "properties": {
+            "availability": {
+              "$ref": "#/$defs/availability"
+            },
+            "meta": {
+              "$ref": "#/$defs/meta"
+            },
+            "inventory": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/inventory"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "consents": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "availability",
+            "meta",
+            "count",
+            "items"
+          ],
+          "properties": {
+            "availability": {
+              "$ref": "#/$defs/availability"
+            },
+            "meta": {
+              "$ref": "#/$defs/meta"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4096
+            },
+            "items": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 4096,
+              "items": {
+                "$ref": "#/$defs/consent_request"
+              }
+            }
+          }
+        },
+        "weapon_feedback": {
+          "$ref": "#/$defs/weapon_feedback"
+        }
+      }
+    },
+    "correlation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "ma_system_id",
+        "consent_request_id",
+        "activity_id",
+        "policy_id",
+        "policy_revision",
+        "reason_domain"
+      ],
+      "properties": {
+        "schema": {
+          "const": "engagement.correlation.v1"
+        },
+        "ma_system_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/u32_nonzero"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "consent_request_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/u64_nonzero"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "activity_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/u64_nonzero"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "policy_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/u64_nonzero"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "policy_revision": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/u64_nonzero"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason_domain": {
+          "enum": [
+            "ms",
+            "dms",
+            "control",
+            "policy",
+            null
+          ]
+        }
+      }
+    },
+    "launch_zone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "store",
+        "target_id",
+        "basis",
+        "availability",
+        "maximum_m",
+        "no_escape_m",
+        "minimum_m"
+      ],
+      "properties": {
+        "schema": {
+          "const": "engagement.launch_zone.v1"
+        },
+        "store": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 63
+        },
+        "target_id": {
+          "$ref": "#/$defs/u32_nonzero"
+        },
+        "basis": {
+          "const": "assumed"
+        },
+        "availability": {
+          "$ref": "#/$defs/availability"
+        },
+        "maximum_m": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "no_escape_m": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "minimum_m": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "serial",
+        "time_s",
+        "kind",
+        "reason",
+        "entity_id",
+        "launcher_id",
+        "target_id",
+        "crew_lost",
+        "position_ecef_m",
+        "velocity_ecef_ms"
+      ],
+      "properties": {
+        "serial": {
+          "$ref": "#/$defs/u64"
+        },
+        "time_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "kind": {
+          "$ref": "#/$defs/native_name"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 63
+        },
+        "entity_id": {
+          "$ref": "#/$defs/u32"
+        },
+        "launcher_id": {
+          "$ref": "#/$defs/u32"
+        },
+        "target_id": {
+          "$ref": "#/$defs/u32"
+        },
+        "crew_lost": {
+          "type": "boolean"
+        },
+        "position_ecef_m": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "number"
+          }
+        },
+        "velocity_ecef_ms": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "subject_id",
+        "availability",
+        "value",
+        "event_serial"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "damage",
+            "crew_loss",
+            "incapacitation",
+            "collision",
+            "friendly_damage",
+            "structural_breakup",
+            "crash",
+            "miss"
+          ]
+        },
+        "subject_id": {
+          "$ref": "#/$defs/u32_nonzero"
+        },
+        "availability": {
+          "$ref": "#/$defs/availability"
+        },
+        "value": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "event_serial": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/u64"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "events",
+        "signals"
+      ],
+      "properties": {
+        "schema": {
+          "const": "engagement.outcome.v1"
+        },
+        "events": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/event"
+          }
+        },
+        "signals": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/signal"
+          }
+        }
+      }
+    },
+    "weapon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "launcher_id",
+        "activity_id",
+        "target_id",
+        "end",
+        "end_time_s",
+        "phase",
+        "holding_id",
+        "miss_m",
+        "tracking",
+        "supported",
+        "time_to_go_s",
+        "time_to_active_s"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/u32_nonzero"
+        },
+        "launcher_id": {
+          "$ref": "#/$defs/u32"
+        },
+        "activity_id": {
+          "$ref": "#/$defs/u64"
+        },
+        "target_id": {
+          "$ref": "#/$defs/u32"
+        },
+        "end": {
+          "enum": [
+            "in_flight",
+            "impact",
+            "removed",
+            "detonated",
+            "expired"
+          ]
+        },
+        "end_time_s": {
+          "$ref": "#/$defs/number_or_null"
+        },
+        "phase": {
+          "enum": [
+            "unguided",
+            "midcourse",
+            "seeking",
+            "homing",
+            "lost"
+          ]
+        },
+        "holding_id": {
+          "$ref": "#/$defs/u32"
+        },
+        "miss_m": {
+          "$ref": "#/$defs/number_or_null"
+        },
+        "tracking": {
+          "type": "boolean"
+        },
+        "supported": {
+          "type": "boolean"
+        },
+        "time_to_go_s": {
+          "$ref": "#/$defs/number_or_null"
+        },
+        "time_to_active_s": {
+          "$ref": "#/$defs/number_or_null"
+        }
+      }
+    },
+    "truth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "events",
+        "weapons"
+      ],
+      "properties": {
+        "schema": {
+          "const": "engagement.truth.v1"
+        },
+        "events": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/event"
+          }
+        },
+        "weapons": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/weapon"
+          }
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/authorization"
+    },
+    {
+      "$ref": "#/$defs/training"
+    },
+    {
+      "$ref": "#/$defs/reports"
+    },
+    {
+      "$ref": "#/$defs/correlation"
+    },
+    {
+      "$ref": "#/$defs/launch_zone"
+    },
+    {
+      "$ref": "#/$defs/outcome"
+    },
+    {
+      "$ref": "#/$defs/truth"
+    }
+  ]
+}

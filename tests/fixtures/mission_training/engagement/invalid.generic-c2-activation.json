@@ -1,0 +1,10 @@
+{
+  "request_id": "3",
+  "kind": "c2",
+  "operation": "activate_policy",
+  "parameters": {
+    "ma_system_id": "2",
+    "policy_id": "1",
+    "revision": "1"
+  }
+}

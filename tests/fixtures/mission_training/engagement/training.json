@@ -1,0 +1,15 @@
+{
+  "schema": "training.combat.v1",
+  "criteria": [
+    {
+      "id": "1",
+      "kind": "crew_loss",
+      "platform": "target",
+      "outcome": "success"
+    }
+  ],
+  "rewards": {
+    "crew_loss": 1.0,
+    "friendly_damage": -1.0
+  }
+}

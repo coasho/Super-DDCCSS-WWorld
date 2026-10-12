@@ -1,0 +1,10 @@
+{
+  "schema": "engagement.launch_zone.v1",
+  "store": "fixture_store",
+  "target_id": "1048577",
+  "basis": "assumed",
+  "availability": "available",
+  "maximum_m": 4000.0,
+  "no_escape_m": 2000.0,
+  "minimum_m": 900.0
+}

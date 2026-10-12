@@ -1,0 +1,6 @@
+{
+  "request_id": "3",
+  "kind": "engagement.policy.v1",
+  "operation": "activate",
+  "parameters": {}
+}

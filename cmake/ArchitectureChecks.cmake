@@ -36,3 +36,9 @@ add_test(NAME ma_contract
 add_test(NAME ma_contract_checker
     COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/ma_contract/test_check.py")
 set_tests_properties(ma_contract ma_contract_checker PROPERTIES LABELS ma-training TIMEOUT 120)
+# Separate versioned extension contracts; these checks do not execute SDK handlers.
+add_test(NAME ma_engagement_contract
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/ma_engagement/check.py" --repo "${CMAKE_SOURCE_DIR}")
+add_test(NAME ma_engagement_checker
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/ma_engagement/test_check.py")
+set_tests_properties(ma_engagement_contract ma_engagement_checker PROPERTIES LABELS ma-training TIMEOUT 120)

@@ -1,0 +1,80 @@
+{
+  "schema": "engagement.reports.v1",
+  "stores": {
+    "availability": "available",
+    "meta": {
+      "source": "own_platform",
+      "validity": "valid",
+      "sample_time_s": 1.0,
+      "receive_time_s": 1.0,
+      "age_s": 0.0
+    },
+    "count": 1,
+    "items": [
+      {
+        "index": "1",
+        "payload": "2",
+        "station": 1,
+        "station_name": "left",
+        "store": "fixture_store",
+        "mnemonic": "Fixture",
+        "class": "aam",
+        "carriage": "rail",
+        "powerable": true,
+        "jettisonable": true,
+        "flyable": true,
+        "status": "loaded",
+        "mass_kg": 100.0,
+        "weapon_id": "0"
+      }
+    ]
+  },
+  "strikes": {
+    "availability": "available",
+    "meta": {
+      "source": "own_platform",
+      "validity": "valid",
+      "sample_time_s": 1.0,
+      "receive_time_s": 1.0,
+      "age_s": 0.0
+    },
+    "count": 0,
+    "items": []
+  },
+  "countermeasures": {
+    "availability": "available",
+    "meta": {
+      "source": "own_platform",
+      "validity": "valid",
+      "sample_time_s": 1.0,
+      "receive_time_s": 1.0,
+      "age_s": 0.0
+    },
+    "inventory": {
+      "chaff": 30,
+      "flare": 15
+    }
+  },
+  "consents": {
+    "availability": "available",
+    "meta": {
+      "source": "dms",
+      "validity": "valid",
+      "sample_time_s": 1.0,
+      "receive_time_s": 1.0,
+      "age_s": 0.0
+    },
+    "count": 0,
+    "items": []
+  },
+  "weapon_feedback": {
+    "availability": "unavailable",
+    "reason": "no_modeled_feedback",
+    "holding_id": "2",
+    "tracking": null,
+    "supported": null,
+    "miss_m": null,
+    "time_to_go_s": null,
+    "time_to_active_s": null
+  }
+}

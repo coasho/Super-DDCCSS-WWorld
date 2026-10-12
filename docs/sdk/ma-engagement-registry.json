@@ -1,0 +1,81 @@
+{
+  "schema": "ma.engagement.registry.v1",
+  "runtime_installed": false,
+  "common_definitions": [
+    "u64",
+    "u64_nonzero",
+    "u32",
+    "u32_nonzero",
+    "u16",
+    "component",
+    "meta",
+    "availability",
+    "native_name",
+    "number_or_null",
+    "name"
+  ],
+  "extensions": {
+    "training.authorization.v1": {
+      "definition": "authorization",
+      "container": "config"
+    },
+    "training.combat.v1": {
+      "definition": "training",
+      "container": "config"
+    },
+    "engagement.reports.v1": {
+      "definition": "reports",
+      "container": "observation"
+    },
+    "engagement.correlation.v1": {
+      "definition": "correlation",
+      "container": "receipt"
+    },
+    "engagement.launch_zone.v1": {
+      "definition": "launch_zone",
+      "container": "receipt"
+    },
+    "engagement.outcome.v1": {
+      "definition": "outcome",
+      "container": "outcome"
+    },
+    "engagement.truth.v1": {
+      "definition": "truth",
+      "container": "truth"
+    }
+  },
+  "requests": {
+    "strike": {
+      "definition": "request_strike",
+      "operations": {
+        "new": "Agent::submit(ms::StrikeCommand)",
+        "cancel": "Agent::cancelMission",
+        "jettison": "Agent::submit(ms::JettisonCommand)"
+      }
+    },
+    "countermeasure": {
+      "definition": "request_countermeasure",
+      "operations": {
+        "dispense": "fsim_world_dispense on an Agent-scoped handle; C++/Python Agent parity proposed"
+      }
+    },
+    "equipment": {
+      "definition": "request_equipment",
+      "operations": {
+        "launch_zone": "fsim_world_launch_zone on an Agent-scoped handle; C++/Python Agent parity proposed"
+      }
+    },
+    "consent": {
+      "definition": "request_consent",
+      "operations": {
+        "answer": "Agent::answerConsent"
+      }
+    },
+    "engagement_policy": {
+      "definition": "request_policy",
+      "operations": {
+        "activate": "activateEngagementPolicy typed Agent helper; proposed"
+      }
+    }
+  }
+}
