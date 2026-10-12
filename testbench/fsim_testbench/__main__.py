@@ -22,12 +22,11 @@ ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 
 def find_viewer(given=None):
-    candidates = [given] if given else []
-    if os.environ.get("FSIM_BIN"):
-        candidates.append(os.path.join(os.environ["FSIM_BIN"], "flightsim-viewer.exe"))
-    for d in ("build/ucrt64-release/bin", "build/ucrt64-release/dist/viewer/bin", "build/ucrt64-debug/bin"):
-        candidates.append(os.path.join(ROOT, d, "flightsim-viewer.exe"))
-    return next((c for c in candidates if c and os.path.isfile(c)), None)
+    if given:
+        return given if os.path.isfile(given) else None
+    selected_bin = os.environ.get("FSIM_BIN") or os.path.join(ROOT, "build", "ucrt64-headless", "bin")
+    candidate = os.path.join(selected_bin, "flightsim-viewer.exe")
+    return candidate if os.path.isfile(candidate) else None
 
 
 def find_edge(given=None):
@@ -64,7 +63,10 @@ class App:
         edge = find_edge(self.args.browser)
         if edge:
             # (the window's browser profile beside the program, with its logs - nothing in the user's profile)
-            runtime = os.path.dirname(os.path.dirname(self.viewer_path)) if self.viewer_path else os.path.join(ROOT, "build")
+            selected_bin = os.environ.get("FSIM_BIN")
+            runtime = (os.path.dirname(selected_bin) if selected_bin else
+                       os.path.dirname(os.path.dirname(self.viewer_path)) if self.viewer_path else
+                       os.path.join(ROOT, "build", "ucrt64-headless"))
             profile = os.path.join(runtime, "logs", "testbench-window")
             cmd = [edge, "--app=" + url, "--window-size=1280,900", "--user-data-dir=" + profile, "--no-first-run",
                    "--no-default-browser-check"]
@@ -174,7 +176,7 @@ def main(argv=None):
         if app.viewer_path:
             app.start_viewer()
         else:
-            print("flightsim-viewer.exe not found: build it (fsim build) or pass --viewer", flush=True)
+            print("flightsim-viewer.exe unavailable for this build: running the testbench window without it", flush=True)
     if not args.no_window:
         app.open_window(url)
     try:

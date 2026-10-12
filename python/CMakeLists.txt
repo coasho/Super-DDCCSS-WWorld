@@ -61,6 +61,10 @@ set(FSIM_PY_PACKAGE ${FSIM_PY_STAGE}/fsim)
 # with the staged package on its path.
 file(WRITE ${FSIM_PY_STAGE}/fsim-python.cmd
      "@echo off\r\nset \"PYTHONPATH=%~dp0;%PYTHONPATH%\"\r\n\"${FSIM_PYTHON}\" %*\r\n")
+# Repository launchers call this interpreter directly so Python arguments do
+# not undergo a second CMD parse. Keep the batch entry for direct users.
+file(WRITE ${FSIM_PY_STAGE}/fsim-python.json
+     "{\n  \"executable\": \"${FSIM_PYTHON}\"\n}\n")
 
 # fsim_python_module(<target> <module name> <source> <library>)
 function(fsim_python_module target name source library)

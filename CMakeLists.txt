@@ -74,6 +74,9 @@ if(FSIM_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
+# Remove stale interpreter entries even when Python is disabled or its next
+# interpreter probe fails. A successful Python configure recreates both.
+include(ResetPythonEntries)
 if(FSIM_BUILD_PYTHON)
     add_subdirectory(python)
 endif()

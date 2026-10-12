@@ -17,14 +17,19 @@ stages, the file format and the methods. This skill is the working loop.
 
 ## Run it
 
-Use the configured build and CPython environment described in
-`docs/development.md`. The launcher requires an existing application and
-Python SDK; use direct CMake commands there for the first configure/build.
+Use the preset and CPython environment described in `docs/development.md`.
+`.\fsim.cmd --preset ucrt64-headless build` configures an empty build tree
+before compiling. If Python discovery needs an explicit interpreter, run
+`.\fsim.cmd --preset ucrt64-headless configure -DFSIM_PYTHON_EXECUTABLE=...`
+first. Hangar needs that preset's Python SDK and dependencies. Selection is
+explicit `--preset` before the
+command, then `FSIM_PRESET`, then `ucrt64-headless`; no other build is searched.
 A full run's duration depends on the aircraft and stages; do not reuse old
 quick-run timings as full-corpus estimates.
 
 ```powershell
 $designName = 'my-aircraft'                # choose the design name
+$env:FSIM_PRESET = 'ucrt64-headless'       # use the same build for every stage
 .\fsim.cmd hangar list
 .\fsim.cmd hangar new $designName --like skua # or --like c172
 .\fsim.cmd hangar $designName geometry     # any stage, or several in order
@@ -151,13 +156,16 @@ move on while a check fails or a picture looks wrong.
     Leading-edge flaps and slats go in the surface's `leading` list.
 - **In the viewer.** Take a screenshot, then inspect the PNG:
 
-  ```bash
-  build/ucrt64-release/bin/flightsim-viewer.exe --demo --vehicles 2 --aircraft <name> --alt 400 --screenshot <scratchpad>/<name>.png --screenshot-after 10
+  ```powershell
+  $screenshotPath = "D:/ENV/tmp/$designName.png"
+  .\fsim.cmd --preset ucrt64-release viewer --demo --vehicles 2 --aircraft $designName --alt 400 --screenshot $screenshotPath --screenshot-after 10
   ```
 
   The log line "vehicle model: …<name>.glb" confirms the viewer used the
   design's own model, and "N moving control surface(s)" that its hinges
-  were found. `ctest -R "control surface"` checks the hinge directions.
+  were found. `.\fsim.cmd --preset ucrt64-release test -R "control surface"`
+  checks the hinge directions. Build that render preset and its dependencies
+  before visual validation.
   To look at deflections, publish a world where the aircraft holds its
   controls, stop stepping it, then attach
   `--world <name> --camera chase --chase-distance 12`.
@@ -365,7 +373,8 @@ move on while a check fails or a picture looks wrong.
 
 ## 6. Finish
 
-- Run `ctest --test-dir build/ucrt64-release -R hangar`.
+- Run `.\fsim.cmd --preset ucrt64-headless test -L hangar`; use the selected
+  render preset for viewer checks.
 - Show the user three things: the three-view, a viewer screenshot, and the
   failed or warned checks with what they mean.
 - Link `aircraft/<name>/out/report.html`.
@@ -380,5 +389,7 @@ move on while a check fails or a picture looks wrong.
   calibrate dates its `calibration.toml` every run.)
 - The aircraft is `jsbsim:<name>` everywhere on the platform, with no copying:
   in the viewer, the C++ and Python SDKs, and scenario files. Build and
-  installation staging copy its runtime products automatically; standalone
-  SDK data provision follows `docs/resources.md`.
+  installation staging copy its runtime products automatically, including
+  damage definitions and piece models. The standalone SDK includes runtime
+  data; installed path selection and package acceptance follow
+  `docs/resources.md`.

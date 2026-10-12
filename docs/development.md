@@ -19,12 +19,12 @@ The toolchain defaults to `D:/ENV/DevLanguages/Cpp/msys2/ucrt64`. Override `FSIM
 
 The Python SDK requires 64-bit **CPython >= 3.11 from python.org or conda**, with `python3.dll` and `Python.h`. MSYS2 Python does not satisfy this stable-ABI integration. [python/CMakeLists.txt](../python/CMakeLists.txt) probes the interpreter named by `FSIM_PYTHON_EXECUTABLE`, or the Windows `py -3` launcher if none is supplied. A failed probe skips the Python SDK even when `FSIM_BUILD_PYTHON=ON`; read the configure output. Its native modules use the CPython 3.11 stable ABI. Hangar and its tests use numpy, scipy, matplotlib and Pillow; provision them in the selected environment under `D:\ENV`, with caches there too.
 
-JSBSim and the VSG stack are tracked vendored sources in `third_party/`, as recorded in `.gitmodules`; there are no Git submodules to initialize. Configure a fresh checkout directly:
+JSBSim and the VSG stack are tracked vendored sources in `third_party/`, as recorded in `.gitmodules`; there are no Git submodules to initialize. Configure a fresh checkout with an explicit Python interpreter:
 
 ```powershell
-cmake --preset ucrt64-headless -DFSIM_PYTHON_EXECUTABLE=D:/ENV/python/3.13/python.exe
-cmake --build --preset ucrt64-headless
-ctest --preset ucrt64-headless
+.\fsim.cmd --preset ucrt64-headless configure -DFSIM_PYTHON_EXECUTABLE=D:/ENV/python/3.13/python.exe
+.\fsim.cmd --preset ucrt64-headless build
+.\fsim.cmd --preset ucrt64-headless test
 ```
 
 The interpreter path is an example matching the local installation; select the actual supported interpreter. The three main presets are:
@@ -35,32 +35,40 @@ The interpreter path is an example matching the local installation; select the a
 | `ucrt64-release` | Release | On |
 | `ucrt64-debug` | Debug | On |
 
-Tests, examples, command-line tools and the Python SDK are enabled by default. `FSIM_WITH_RENDER` defaults off outside presets. Use the build's own preset throughout; do not mix binaries from different build directories.
+Tests, examples, command-line tools and the Python SDK are enabled by default. `FSIM_WITH_RENDER` defaults off outside presets. Use the build's own preset throughout; do not mix binaries from different build directories. The equivalent direct commands are `cmake --preset <preset>`, `cmake --build --preset <preset>` and `ctest --preset <preset>`.
 
 For rendering, the actual dependency entry point is the [deps superbuild](../deps/CMakeLists.txt), not a vcpkg recipe:
 
 ```powershell
 cmake -S deps --preset deps-ucrt64
 cmake --build build/deps-ucrt64
-cmake --preset ucrt64-release -DFSIM_PYTHON_EXECUTABLE=D:/ENV/python/3.13/python.exe
-cmake --build --preset ucrt64-release
-ctest --preset ucrt64-release
+.\fsim.cmd --preset ucrt64-release configure -DFSIM_PYTHON_EXECUTABLE=D:/ENV/python/3.13/python.exe
+.\fsim.cmd --preset ucrt64-release build
+.\fsim.cmd --preset ucrt64-release test
 ```
 
 It builds the checked-out vsg, vsgXchange and vsgImGui sequentially into `build/deps-ucrt64/install`, which the main presets put on `CMAKE_PREFIX_PATH`. The UCRT64 Vulkan headers/loader, glslang and the dependencies required by those upstream projects must be available. Consult each checked-out upstream README and its version support matrix before changing compiler, library or language-standard versions. Rendering also requires the bundled NVIDIA Flow headers and DLLs; [cmake/Flow.cmake](../cmake/Flow.cmake) rejects a renderer configure without them. An alternate built checkout can be selected with `FSIM_FLOW_DIR`; rebuilding Flow uses `tools/flow/build-flow.sh` and its pinned upstream version. Do not treat a render configure or a headless test as GPU validation.
 
-## Direct commands and launcher limits
+## Preset selection and launch
 
-Configure and build directly with CMake on a fresh checkout. `fsim.cmd` checks for an existing application before dispatching any command, including `build`; consequently `fsim build` cannot bootstrap an empty build tree. It prefers release, then headless, packaged release viewer and debug binaries. Its `build`, `test` and `dist` actions always target release rather than the binary it selected. A headless selection has no viewer. These are current launcher limitations, not fixes completed by documentation.
+The Windows entry point is `fsim.cmd [--preset NAME] COMMAND [ARGS]`, delegated to [tools/launch/fsim.ps1](../tools/launch/fsim.ps1). The global `--preset` option belongs before the command; options after the command are forwarded to that command. Selection is explicit `--preset`, then `FSIM_PRESET`, then `ucrt64-headless`. It selects only `build/<preset>` and never scans or falls back to another build. `help` and `where` work with no cache or executable.
 
-After the relevant build exists, `fsim.cmd where`, `fsim.cmd python <script>` and `fsim.cmd hangar ...` are useful shortcuts. For an explicit build, use `build/<preset>/python/fsim-python.cmd` and put `tools/hangar` on PYTHONPATH. See [hangar.md](hangar.md) for stages; resource regeneration is a separate task from writing documentation.
+`configure` forwards CMake configure flags, such as `-DFSIM_PYTHON_EXECUTABLE=...`. `build` and `dist` configure the selected preset when `CMakeCache.txt` is absent; configure first when you need custom options. Their remaining arguments go to `cmake --build`. `test` forwards arguments to CTest and requires an existing configuration; an unconfigured tree produces the matching build hint. Application commands use that preset's executable or configured Python interpreter and return its exit code. Python configuration writes `build/<preset>/python/fsim-python.json`; the shared launcher reads this metadata and invokes the interpreter directly with the selected package on PYTHONPATH.
 
 ```powershell
-cmake --build --preset ucrt64-release --target dist
+.\fsim.cmd --preset ucrt64-headless help
+.\fsim.cmd --preset ucrt64-headless where
+.\fsim.cmd --preset ucrt64-headless build --parallel 8
+.\fsim.cmd --preset ucrt64-headless test -L launcher
+.\fsim.cmd --preset ucrt64-headless hangar list
+.\fsim.cmd --preset ucrt64-release demo
+.\fsim.cmd --preset ucrt64-release dist
 cmake --install build/ucrt64-release --component viewer --prefix D:/ENV/fsim-viewer
 ```
 
-The `dist` target produces separate SDK, tools, examples, viewer (when enabled) and Python (when available) trees. The SDK component currently contains DLLs, headers, CMake exports and SDK documentation, but does **not** install the JSBSim data tree or designed aircraft/cards. A standalone SDK consumer therefore needs explicit runtime data provision; finding `fsim::sdk` alone does not prove a self-contained simulator package. See [resources.md](resources.md#staging-and-runtime-search).
+For direct staged Python use, `build/<preset>/python/fsim-python.cmd` selects that package; Hangar also needs `tools/hangar` on PYTHONPATH. See [hangar.md](hangar.md) for stages; resource regeneration is a separate task from writing documentation. `Testbench.cmd` uses the same preset selection: explicit arguments run synchronously and return the testbench exit code; a no-argument launch opens a minimized console. The headless preset opens the testbench window alone; a viewer requires a render preset. See [testbench setup](../testbench/README.md#how-to-open-it).
+
+The `dist` target builds enabled install targets and produces separate SDK, tools, examples, viewer (when enabled) and Python (when available) trees. The standalone SDK component includes DLLs, headers, CMake exports, runtime JSBSim data, designed aircraft/store models, payload/store cards and notices. Render SDKs also include optional vision model/cloud resources. Installation copies generated products rather than running Hangar. See [resources.md](resources.md#staging-and-runtime-search) and the [installed-consumer guidance](sdk/README.md#building-against-the-sdk).
 
 ## Change invariants and verification
 
@@ -78,9 +86,15 @@ Use the existing layers in [tests/CMakeLists.txt](../tests/CMakeLists.txt) and [
 | Control conformance | `ctest --preset ucrt64-headless -L conformance` | Lifecycle, allocation gate and adapter checks |
 | Advertised fleet capabilities | `ctest --preset ucrt64-headless -L fleet` | Aircraft-specific acceptance cases; includes shards |
 | Hangar methods and pipeline | `ctest --preset ucrt64-headless -L hangar` | Theory/data comparisons and stage checks |
+| Windows launchers | `.\fsim.cmd --preset ucrt64-headless test -L launcher` | Preset precedence, first-build configuration, argument forwarding and exit codes |
+| Installed SDK package | `.\fsim.cmd --preset ucrt64-headless test -L package` | SDK-only install, installed DLL/data provenance and API load-rejection probes |
 | Renderer, RCS and cameras | Render preset cases; viewer screenshots/performance tools | Visual and GPU behavior on capable hardware |
 
-Start with tests relevant to the change, then run the full applicable preset suite for behavioral changes. Record skips: camera tests may skip without a Vulkan device, and RCS tests may skip without ray queries. Viewer validation requires reading the captured image and confirming the model used in logs. A historical green suite, a workflow file, or a current test listing is not a fresh pass. The headless CI workflow itself notes that it was written before its first GitHub run; check actual run evidence before claiming CI success.
+Start with tests relevant to the change, then run the full applicable preset suite for behavioral changes. Record skips: camera tests may skip without a Vulkan device, and RCS tests may skip without ray queries. Viewer validation requires reading the captured image and confirming the model used in logs. A historical green suite, a workflow file, or a current test listing is not a fresh pass. Check actual workflow-run evidence before claiming CI success.
+
+The `package_consumer` CTest gate installs only `sdk` into `build/<preset>/package-consumer/installed SDK`, builds the [external consumer](../tests/package_consumer/CMakeLists.txt) using only installed `fsim::sdk`, checks DLL locations and a SHA256 runtime-data manifest, then exercises stock `c172x`, custom `f16c`, its Mk 82 loadout and a released store. It poisons the installed stock, custom and released-store XML in turn; each probe must produce API rejection exit 42. The gate restores exact bytes before its final positive run and keeps its logs/manifest in the private package-consumer directory. Optional vision export checks do not open a GPU device.
+
+The `dist_components` gate builds tiny independent targets directly through `dist`, checks that an enabled example is compiled before installation, and removes obsolete executables/wheels when components are disabled. It checks the fixed `bin`, `lib` and `share/flightsim` package layout and protects cleanup outside the owned build's distribution tree. SDK CMake exports describe that actual layout and remain relocatable with the installation prefix.
 
 ## Long-running work and evidence
 

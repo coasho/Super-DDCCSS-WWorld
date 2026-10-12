@@ -1,9 +1,10 @@
 # fsim SDK guide
 
 Start with the [root build/run guide](../../README.md), [current capabilities and limits](../status.md),
-and the C++ tour below. After a render build, `./fsim.cmd demo` opens a visual demonstration;
+and the C++ tour below. After a render build, `.\fsim.cmd --preset ucrt64-release demo` opens a visual demonstration;
 headless consumers can run `build/ucrt64-headless/examples/minimal_trainer.exe` directly.
-The launcher chooses among existing builds; see the root guide when you need a specific preset.
+The launcher uses only `build/<preset>`: explicit `--preset` before the command, then `FSIM_PRESET`,
+then `ucrt64-headless`. `.\fsim.cmd build` configures the selected preset on its first build.
 
 The `fsim` SDK is how a training application drives the platform. You write a
 C++ program (or a Python one, `import fsim`, or any language with a C FFI,
@@ -60,10 +61,14 @@ int main() {
 ## Building against the SDK
 
 - Headers: `include/fsim/*.h` (C++17; the `{.field = ...}` designated initialisers in these pages are C++20 sugar - assign the fields instead in C++17). Only these are stable; anything under `src/` may change.
-- Library: `libfsim.dll` (+ import library) and `libJSBSim.dll` next to your executable.
-- Data: the JSBSim aircraft tree is found relative to the executable (`../share/flightsim/jsbsim`) or in the source tree; override with `WorldOptions::jsbsimRoot`. Hangar designs and payload/store cards are staged under `share/flightsim`; see the [resource guide](../resources.md).
-- CMake in this repository: `target_link_libraries(my_trainer PRIVATE fsim::sdk)` (see `examples/`); from an installed package: `find_package(fsim CONFIG REQUIRED)` gives `fsim::sdk`, plus `fsim::vision` only when built with rendering (`tests/package_consumer`). See [Install and package](../../README.md#install-and-package) for `dist`, component installation and CPack.
+- Library: `libfsim.dll` (+ import library), `libJSBSim.dll` and their runtime dependencies in the installed `bin/` directory. Place your executable there or arrange DLL lookup for that directory.
+- Data: the standalone SDK installs stock JSBSim data under `share/flightsim/jsbsim`, designed aircraft and released-store models under `share/flightsim/aircraft`, and payload/store cards under `share/flightsim`. Damage definitions and JSBSim piece models accompany the designs. Notices and JSBSim source changes are under `share/doc/flightsim`. A render SDK also includes optional vision model/cloud resources; map tiles require separate provision. See the [resource guide](../resources.md).
+- CMake in this repository: `target_link_libraries(my_trainer PRIVATE fsim::sdk)` (see `examples/`); from an installed package: `find_package(fsim CONFIG REQUIRED COMPONENTS sdk)` gives `fsim::sdk`. Request `vision` when needed; `fsim::vision` is available only when built with rendering. See [Install and package](../../README.md#install-and-package) for `dist`, component installation and CPack.
 - Platform development and validation: [development guide](../development.md). Current capability and verification boundaries: [status](../status.md).
+
+The installed CMake configuration exports `fsim_BIN_DIR`, `fsim_DATA_DIR`, `fsim_JSBSIM_ROOT` and `fsim_AIRCRAFT_DIR`, resolved relative to its installed prefix. Pass `fsim_JSBSIM_ROOT` to your application's `WorldOptions::jsbsimRoot`, and set `FSIM_AIRCRAFT_PATH` to `<prefix>/share/flightsim/aircraft;<prefix>/share/flightsim/aircraft/stores`. This explicitly selects installed stock, custom and released-store data even when the development checkout is present. Development defaults also search source paths; package validation must prove the selected data is used.
+
+After building, `.\fsim.cmd --preset ucrt64-headless test -L package` installs only the SDK into a separate prefix containing spaces and builds the [consumer example](../../tests/package_consumer/CMakeLists.txt) against installed `fsim::sdk`. It checks loaded DLL locations and runtime-data hashes, creates stock `c172x` and custom `f16c`, loads four Mk 82s and releases a store. Three probes poison installed stock/custom/store XML and require public-API rejection exit 42, then restore exact bytes and repeat the positive run. Logs and the manifest are retained under `build/<preset>/package-consumer`. This acceptance gate does not exercise GPU rendering or establish fleet stability.
 
 ## Conventions
 

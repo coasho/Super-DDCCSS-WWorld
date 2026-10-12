@@ -16,7 +16,10 @@
         "CMAKE_PREFIX_PATH": "${sourceDir}/build/deps-ucrt64/install"
       },
       "environment": {
-        "PATH": "D:/ENV/DevLanguages/Cpp/msys2/ucrt64/bin;$penv{PATH}"
+        "PATH": "D:/ENV/DevLanguages/Cpp/msys2/ucrt64/bin;$penv{PATH}",
+        "TMP": "D:/ENV/tmp",
+        "TEMP": "D:/ENV/tmp",
+        "TORCH_EXTENSIONS_DIR": "D:/ENV/tmp"
       },
       "condition": {
         "type": "equals",

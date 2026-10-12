@@ -1,8 +1,8 @@
 # Builds the headless platform (the simulation, the SDK, the Python package, hangar) with the project's toolchain and
-# runs every test. The viewer is not built here: it needs a GPU, and its frame rate is held on a machine with one
+# runs every test, including launcher and installed SDK acceptance. The viewer is not built here: it needs a GPU, and its frame rate is held on a machine with one
 # (tools/viewer_perf/viewer_perf.py).
 #
-# Written 2026-10-11 and not yet run on GitHub: the first run's failures are this file's, not the tree's.
+# Written 2026-10-11; local headless entry points are verified, but this workflow has not run on GitHub.
 name: ci
 
 on:
@@ -19,8 +19,20 @@ jobs:
   headless:
     runs-on: windows-latest
     timeout-minutes: 180
+    env:
+      FSIM_PRESET: ucrt64-headless
+      RUNNER_TOOL_CACHE: D:/ENV/tool-cache
+      AGENT_TOOLSDIRECTORY: D:/ENV/tool-cache
+      PIP_CACHE_DIR: D:/ENV/cache/pip
+      TMP: D:/ENV/tmp
+      TEMP: D:/ENV/tmp
+      TORCH_EXTENSIONS_DIR: D:/ENV/tmp
     steps:
       - uses: actions/checkout@v4
+
+      - name: Prepare environment directories
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force D:/ENV/tmp, D:/ENV/tool-cache, D:/ENV/cache/pip | Out-Null
 
       # A CPython from python.org (the Python SDK is built against python3.dll, which MSYS2's own does not ship)
       - uses: actions/setup-python@v5
@@ -30,9 +42,11 @@ jobs:
       - name: Python packages (hangar, the tests)
         run: python -m pip install numpy scipy matplotlib pillow
 
-      # The mandated toolchain: MSYS2 UCRT64 (cmake/toolchains/ucrt64.cmake takes the shell's prefix)
+      # Keep the UCRT64 installation under D:/ENV and pass its actual prefix to the launcher.
       - uses: msys2/setup-msys2@v2
+        id: msys2
         with:
+          location: D:/ENV/msys2
           msystem: UCRT64
           update: true
           path-type: inherit
@@ -42,29 +56,41 @@ jobs:
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-curl
 
+      - name: Select toolchain
+        shell: pwsh
+        run: |
+          $ucrtPrefix = '${{ steps.msys2.outputs.msys2-location }}/ucrt64'
+          "FSIM_UCRT64_ROOT=$ucrtPrefix" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "$ucrtPrefix/bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
       - name: Configure
-        shell: msys2 {0}
-        run: cmake --preset ucrt64-headless -DFSIM_PYTHON_EXECUTABLE="$(cygpath -m '${{ steps.python.outputs.python-path }}')"
+        shell: pwsh
+        run: .\fsim.cmd configure "-DFSIM_PYTHON_EXECUTABLE=${{ steps.python.outputs.python-path }}"
 
       - name: Build
-        shell: msys2 {0}
-        run: cmake --build --preset ucrt64-headless
+        shell: pwsh
+        run: .\fsim.cmd build
 
       - name: Test
-        shell: msys2 {0}
-        run: ctest --preset ucrt64-headless -j 4 --timeout 3600
+        shell: pwsh
+        run: .\fsim.cmd test -j 4 --timeout 3600
+
+      - name: Stage enabled distributions
+        shell: pwsh
+        run: .\fsim.cmd dist
 
       # The generated files in the repository are what the tool makes (docs/hangar.md, "Built again"): every store
       # through hangar's pipeline, what each design gives the viewer's effects, and one aircraft through every stage
       # (all 35 take hours: tools/hangar/rebuild_all.py, on a developer's machine before a release)
       - name: hangar - built again
-        shell: msys2 {0}
+        shell: pwsh
         run: |
-          export PYTHONPATH="$(cygpath -w "$PWD/build/ucrt64-headless/python");$(cygpath -w "$PWD/tools/hangar")"
-          export FSIM_BIN="$(cygpath -w "$PWD/build/ucrt64-headless/bin")"
-          python -m hangar stores
-          python -m hangar effects
-          python tools/hangar/rebuild_all.py --jobs 1 --only c172
+          .\fsim.cmd hangar stores
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\fsim.cmd hangar effects
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\fsim.cmd python tools/hangar/rebuild_all.py --jobs 1 --only c172
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git status --short -- aircraft assets/stores
           git diff --exit-code -- aircraft assets/stores
 

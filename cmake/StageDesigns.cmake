@@ -2,7 +2,8 @@
 #
 # Copies what tools/hangar builds for each design - aircraft/<name>/<name>.xml,
 # its Engines/ and the <name>.glb model with its manifest - and its payload fit
-# (payloads.json, ADR-30) and its radar cross section (rcs.bin, MS-3) to DEST/<name>
+# (payloads.json, ADR-30), radar cross section (rcs.bin, MS-3), and damage data
+# (<name>.damage.json and pieces/, MS-7g) to DEST/<name>
 # (and models.txt, the viewer's stand-ins for stock aircraft, to DEST),
 # where io::AssetResolver::findAircraft finds it in a package. A store's design
 # (a missile, a bomb, a tank, a pod, cargo: hangar/storestages.py) has its
@@ -29,10 +30,12 @@ foreach(_d IN LISTS _designs)
     else()
         math(EXPR _stores "${_stores} + 1")
     endif()
-    if(EXISTS "${_d}/Engines")
-        file(COPY "${_d}/Engines" DESTINATION "${_to}")
-    endif()
-    foreach(_f "${_name}.glb" "${_name}.glb.manifest" "payloads.json" "rcs.bin")
+    foreach(_dir Engines pieces)
+        if(IS_DIRECTORY "${_d}/${_dir}")
+            file(COPY "${_d}/${_dir}" DESTINATION "${_to}")
+        endif()
+    endforeach()
+    foreach(_f "${_name}.glb" "${_name}.glb.manifest" "payloads.json" "rcs.bin" "${_name}.damage.json")
         if(EXISTS "${_d}/${_f}")
             file(COPY "${_d}/${_f}" DESTINATION "${_to}")
         endif()

@@ -17,7 +17,7 @@ The 2026-10-11 documentation snapshot contains **35 aircraft designs and 53 stor
 | Released store flight physics | Store card and generated design; store build-up modules | `hangar/storestages.py`, `storemodels.py`, `storedrag.py` | `aircraft/stores/<name>/<name>.xml` and missile `Engines/`; carriage drag fields in cards |
 | Stock-aircraft visual stand-ins | Aircraft `stands_in_for` declarations and generated geometry/CG | `python -m hangar register` | `aircraft/models.txt`; viewer stand-in mapping, not replacement stock flight physics |
 | Flight/control profile | Design, calibration and stage observations | Hangar fly, autopilot, performance and profile writers | `autopilot.toml`, rotorcraft `hover.toml`, profile properties and performance/fuel tables embedded in XML |
-| Damage and breakup geometry | Design mass/structure, geometry and vulnerability inputs | Hangar model stage, `damage.py` and `vulnerability.py` | `<name>.damage.json`, GLB sections and manifest components; world's damage chain and viewer |
+| Damage and breakup geometry | Design mass/structure, geometry and vulnerability inputs | Hangar model stage, `damage.py` and `vulnerability.py` | `<name>.damage.json`, JSBSim `pieces/`, GLB sections and manifest components; world's damage chain and viewer |
 | Radar cross section | Generated closed geometry; `aircraft/<name>/signature.json` and `assets/signature/treatments.json` | `tools/rcs` / `flightsim-rcs` | `aircraft/<name>/rcs.bin`; mission-system RCS lookup |
 | Stage checks and aircraft report | The design and actual stage run | Hangar stages and HTML report writer | `aircraft/<name>/out/<stage>.json`, images, `report.html`; review evidence, not shipped design inputs |
 | Store build report | Actual store generation run | `hangar stores --record docs/hangar-stores-build.md` | [hangar-stores-build.md](hangar-stores-build.md) and JSON companion; generated dated evidence |
@@ -37,21 +37,19 @@ Missile and other store TOMLs have an additional generation layer. Their headers
 
 Autopilot and performance files are derived aircraft data, not global controller presets. A change to aerodynamics, mass, propulsion, controls or calibration can make them stale; use the stage order documented in [hangar.md](hangar.md). Rotorcraft have their own stage dispatch and hover identification. Preserve generated XML dates when content is unchanged and compare GLB bytes for unexplained churn. Keep source citations, explicitly assumed values and generator provenance visible.
 
-The following are **regeneration examples**, not commands to run for a documentation-only change. They assume the selected build already contains the Python SDK and dependencies. In PowerShell, use the build explicitly:
+The following are **regeneration examples**, not commands to run for a documentation-only change. They assume the selected build already contains the Python SDK and dependencies. In PowerShell, select the preset before the command:
 
 ```powershell
-$env:PYTHONPATH = "$PWD/tools/hangar;$PWD/build/ucrt64-headless/python"
-$env:FSIM_BIN = "$PWD/build/ucrt64-headless/bin"
-& build/ucrt64-headless/python/fsim-python.cmd -m hangar list
-& build/ucrt64-headless/python/fsim-python.cmd -m hangar missiles aim120c
-& build/ucrt64-headless/python/fsim-python.cmd -m hangar storedesigns tank370gal
-& build/ucrt64-headless/python/fsim-python.cmd -m hangar aim120c
-& build/ucrt64-headless/python/fsim-python.cmd -m hangar register
-& build/ucrt64-headless/python/fsim-python.cmd -m hangar stores --jobs 1 --record docs/hangar-stores-build.md
-& build/ucrt64-headless/python/fsim-python.cmd -m hangar effects
+.\fsim.cmd --preset ucrt64-headless hangar list
+.\fsim.cmd --preset ucrt64-headless hangar missiles aim120c
+.\fsim.cmd --preset ucrt64-headless hangar storedesigns tank370gal
+.\fsim.cmd --preset ucrt64-headless hangar aim120c
+.\fsim.cmd --preset ucrt64-headless hangar register
+.\fsim.cmd --preset ucrt64-headless hangar stores --jobs 1 --record docs/hangar-stores-build.md
+.\fsim.cmd --preset ucrt64-headless hangar effects
 ```
 
-For a full aircraft campaign, `python tools/hangar/rebuild_all.py --jobs 6` runs each design in its own process and retains raw per-design logs in `build/hangar-rebuild`; `--only f16c c172` narrows the corpus. It is a potentially long regeneration, not a documentation validation step. For a long run, Hangar's native libraries stay loaded: point PYTHONPATH and FSIM_BIN at a deliberate copy of the selected build's Python package and bin directory if rebuilding that build concurrently. Record the copy's provenance.
+For a full aircraft campaign, set `$env:PYTHONPATH = "$PWD/tools/hangar"`, then run `.\fsim.cmd --preset ucrt64-headless python tools/hangar/rebuild_all.py --jobs 6`. It runs each design in its own process and retains raw per-design logs in `build/hangar-rebuild`; `--only f16c c172` narrows the corpus. It is a potentially long regeneration, not a documentation validation step. For a long run, Hangar's native libraries stay loaded: point PYTHONPATH and FSIM_BIN at a deliberate copy of the selected build's Python package and bin directory and use that copy's staged Python launcher if rebuilding the original build concurrently. Record the copy's provenance.
 
 The store report's `--force` option forces model and flight-model regeneration; use it only when that evidence is intended. The report rows and JSON companion belong to the tool. Update current status separately after reviewing the run, failures and generated diffs.
 
@@ -79,9 +77,13 @@ RCS generation is separate from Hangar and needs rendering dependencies plus a V
 
 ## Staging and runtime search
 
-Build staging and installation copy products; they do not run Hangar. [cmake/Assets.cmake](../cmake/Assets.cmake) stages model assets at configure time and copies clouds/cards on builds. [cmake/StageDesigns.cmake](../cmake/StageDesigns.cmake) copies aircraft XML, Engines, GLB/manifest, payload fit, RCS tables, released-store flight models and `models.txt`. It leaves design TOMLs, paint, signature inputs and `out/` behind. The existing copy list also **omits `<name>.damage.json`**: source-tree damage availability does not prove equivalent behavior in staged or installed layouts.
+Build staging and installation copy products; they do not run Hangar. [cmake/Assets.cmake](../cmake/Assets.cmake) stages model assets at configure time and copies clouds/cards on builds. [cmake/StageDesigns.cmake](../cmake/StageDesigns.cmake) copies aircraft XML, Engines, GLB/manifest, payload fit, RCS tables, `<name>.damage.json`, JSBSim `pieces/`, released-store flight models and `models.txt`. It leaves design TOMLs, paint, signature inputs and `out/` behind.
 
-[cmake/Install.cmake](../cmake/Install.cmake) installs these data for viewer/tools; [python/CMakeLists.txt](../python/CMakeLists.txt) stages stock JSBSim data, designs and cards inside the Python package. The SDK component currently installs no such runtime data. Explicitly provision and test data for a standalone SDK consumer rather than assuming the exported CMake package includes it. The packaged viewer copies `assets/maps` to `maps/`; its packaged configuration is intended for offline tiles. A stale or incomplete package must be tested on its own, away from source-tree fallbacks.
+[cmake/Install.cmake](../cmake/Install.cmake) installs stock JSBSim aircraft/engine/systems data, designs, released-store models and payload/store cards for each standalone `sdk`, `viewer` and `tools` component. The SDK also carries notices and the shipped JSBSim source changes; a render SDK includes optional vision model/cloud resources. [python/CMakeLists.txt](../python/CMakeLists.txt) stages stock JSBSim data, designs and cards inside the Python package. The packaged viewer copies `assets/maps` to `maps/`; its packaged configuration is intended for offline tiles. Map tiles are viewer/user resources and are not included in the SDK.
+
+Python configuration also generates `build/<preset>/python/fsim-python.json` with the selected interpreter path, plus `fsim-python.cmd` for direct terminal use. These are local build outputs, not distributable interpreter installations. `fsim.cmd` reads the metadata and launches that interpreter directly so Python arguments are not parsed through another batch file.
+
+The installed CMake package exports `fsim_BIN_DIR`, `fsim_DATA_DIR`, `fsim_JSBSIM_ROOT` and `fsim_AIRCRAFT_DIR`. For an isolated installed consumer, set `WorldOptions::jsbsimRoot` to `fsim_JSBSIM_ROOT` and `FSIM_AIRCRAFT_PATH` to the installed aircraft and `aircraft/stores` directories. `.\fsim.cmd --preset ucrt64-headless test -L package` runs the [SDK-only consumer gate](../cmake/RunPackageConsumer.cmake): hashes shipped runtime files against their owners, checks the loaded DLL prefix, and exercises stock/custom/store data. Poisoned installed XML must fail through the public API rather than load a development copy; the gate restores the bytes and repeats the positive run. Its logs and `runtime-data.sha256` remain under `build/<preset>/package-consumer`. Inspect fresh results before claiming installed-package acceptance.
 
 Runtime ordering is defined in [src/io/AssetResolver.cpp](../src/io/AssetResolver.cpp) and the viewer:
 

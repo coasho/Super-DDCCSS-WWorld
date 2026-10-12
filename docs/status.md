@@ -1,11 +1,13 @@
 # Current capabilities and milestone status
 
-Reviewed: 2026-10-11. Starting implementation revision: `32e78a6`; this maintenance pass is a working-tree change.
+Reviewed: 2026-10-11. First maintenance pass: `2b83f24` (implementation baseline `32e78a6`).
+The second maintenance pass is a working-tree change based on `2b83f24`.
 
 This is the entry point for what exists now, which delivery it belongs to, and what remains open. The first
-maintenance pass consolidates documentation and development guidance, corrects outdated descriptions, and retires
-the obsolete tactical prototype and orphan visual/compiler artifacts. It does not refactor native modules, change
-the SDK's ABI or physics, repair packaging/launcher behavior, or regenerate models.
+maintenance pass consolidated documentation and development guidance, corrected outdated descriptions, and retired
+the obsolete tactical prototype and orphan visual/compiler artifacts. The second pass aligns build/run/test presets
+and repairs standalone SDK packaging and consumer acceptance. Neither pass refactors native modules, changes the
+SDK's ABI or physics, or regenerates aircraft models.
 
 Use the [documentation index](README.md) to find reference material, the [development guide](development.md) for
 build and contribution procedures, and the [resource guide](resources.md) before editing generated assets.
@@ -56,19 +58,21 @@ preserved, but never use an unqualified `M1` to select work.
 | **Native engagement delivery** | SDK ownership of game-assumption missile engagements and countermeasures; native integration and client-state consumption. | Recorded local delivery: [contract](sdk/engagement.md), [validation record](sdk/engagement-validation.md), [design](superpowers/specs/2026-10-11-sdk-missile-engagement-design.md). Its browser-client results do not cover the retired testbench prototype or a rebuilt native viewer. |
 | **Agent boundary AB-1 to AB-6** | Classification, scoped handles, designations, mission data, messaging/authority, and process isolation. | Recorded completed migration in [ADR-31](agent-boundary.md). Later engagement records do not by themselves prove every original referee/reward-scoring requirement. |
 | **First maintenance pass** | README/navigation, current capability and milestone status, development guidance, resource-generation ownership and removal of confirmed obsolete content. | Completed and locally verified below. Retired the tactical prototype, deleted orphan visual/compiler artifacts and corrected descriptions/tests/report wording. No architecture refactor, launcher/packaging repair, model regeneration or additional feature milestone is included. |
+| **Second maintenance pass** | Consistent configure/build/run/test/dist presets, first-build entry, independent SDK runtime data and installed-consumer acceptance. | Completed and locally verified below: 535 functional CTest cases, real launch/build/dist commands and independent installed consumers. Native module architecture and simulation models are unchanged. |
 
-The next implementation milestone has not been selected by this documentation pass. Preserve the original roadmap
-and its acceptance criteria; select a bounded next task explicitly before expanding the queue.
+The selected second maintenance task is build/run/test and SDK package consistency. It does not advance a flight,
+sensor or weapon-model milestone. Preserve the original roadmap and its acceptance criteria before expanding the queue.
 
 ## Known workflow and reporting gaps
 
-These are documented observations for follow-up, not fixes delivered by this pass.
+The first pass recorded these workflow gaps. The second pass repairs the first three; Python availability remains
+an environment-dependent condition.
 
-| Gap | Observed source behavior | Consequence and follow-up |
+| Workflow | Current behavior | Acceptance and limits |
 | --- | --- | --- |
-| Launcher bootstrap/configuration | `fsim.cmd` checks for an existing executable before dispatching `build` or `help`; its build/test/dist commands use Release while runtime discovery can select other builds. `Testbench.cmd` also expects Release. | Use the explicit preset commands in [development](development.md). A future launcher change should make first-build and selected-preset behavior consistent. |
-| Independent SDK data contract | The SDK install component does not install `share/flightsim`, but `cmake/fsimConfig.cmake.in` requires that directory. | Static packaging inconsistency; an independent SDK consumer failure has not been reproduced in this pass. Define data ownership and verify a clean component install before claiming standalone SDK delivery. |
-| Direct `dist` dependencies and consumers | `dist` depends on deployment and optional Python staging, while its installation includes examples. The existing `tests/package_consumer` is not registered in current CTest/CI. | Clean direct packaging and component-consumer acceptance require follow-up; a prior whole-tree build can hide missing dependencies. |
+| Launcher bootstrap/configuration | Explicit `--preset` precedes `FSIM_PRESET`, then `ucrt64-headless`. Configure/build/run/test/dist and Testbench use the selected build. First build/dist configure automatically; help/where work before binaries exist. | `launcher_contract` exercises the real Windows batch entry, argument preservation, failures, first build and configuration isolation. Testbench viewer/profile regressions run inside `python_sdk`. |
+| Independent SDK data contract | SDK installs stock JSBSim, designed aircraft/store models, cards, damage/pieces, notices and applicable vision resources. Exports describe the actual relocatable `bin` and `share/flightsim` layout. | `package_consumer` verifies complete runtime-file hashes, installed DLL locations, stock/custom/store flight and poisoned-XML rejection. The development resolver's source fallback remains; probes prove use of existing installed models. Vision resources are checked without GPU rendering. |
+| Direct `dist` dependencies and consumers | `dist` builds all enabled installed targets, selects present components and removes inactive components' obsolete generated files. Only viewer maps are retained as reusable data. | `dist_components` builds a small independent fixture directly through dist, checks disabled-component cleanup, CMake exports and cleanup ownership. CTest/CI register both package gates. |
 | Optional Python checks | Python discovery can return from `python/CMakeLists.txt` before registering Python, Hangar and `sdk_boundary` checks. | Check that required tests actually exist in the configured tree before interpreting a green CTest summary. |
 
 ## Cleanup decisions
@@ -87,9 +91,9 @@ These are documented observations for follow-up, not fixes delivered by this pas
 
 ## Verification records and update rules
 
-### Maintenance verification, 2026-10-11
+### First maintenance verification, 2026-10-11
 
-Fresh local checks for this working-tree change:
+Local checks for the change committed as `2b83f24`:
 
 | Check | Result |
 | --- | --- |
@@ -105,6 +109,30 @@ Raw build and test logs are local artifacts at `D:/ENV/tmp/project-cleanup-build
 `D:/ENV/tmp/project-cleanup-tests.log`. This maintenance check did not rebuild the Vulkan viewer, perform GPU
 visual acceptance, reproduce the external browser-client checks, or install/test standalone SDK components.
 
+### Second maintenance verification, 2026-10-11
+
+Fresh local checks on `codex/build-run-sdk-packaging`, based on `2b83f24`, using UCRT64 Release headless and
+CPython 3.13.12. All compiler temporary directories use `D:/ENV/tmp`.
+
+| Check | Result |
+| --- | --- |
+| `.\fsim.cmd --preset ucrt64-headless configure -DFSIM_PYTHON_EXECUTABLE:FILEPATH=D:/ENV/python/3.13/python.exe` and `build -j 10` | Passed; typed CMake flags preserved and current Python entry metadata regenerated |
+| `.\fsim.cmd --preset ucrt64-headless test -LE hangar -j 10 --timeout 3600` | All 535 functional cases passed, including 18 fleet cases, Python SDK, SDK boundary, launcher and both package gates; elapsed 346.02 seconds |
+| `launcher_contract` | 79 checks passed through real CMD/PowerShell entry points; includes empty/quoted/metacharacter arguments, preset precedence, first-build bootstrap, process failures and stale Python entry invalidation using real CMake |
+| `package_consumer` | SDK-only install under a prefix containing spaces; 1,230 runtime-file hashes, installed fsim/JSBSim DLL provenance, stock/custom flight, four Mk 82 stores and native weapon stepping passed. All three poisoned-model probes rejected with exit 42; restored positive run passed |
+| `dist_components` | Direct dist compiled an initially unbuilt example; disabling components removed obsolete executables/wheels, retained viewer map data and rejected cleanup outside the owned distribution tree. Independent CMake exports matched actual fixed paths with nondefault GNUInstallDirs cache values |
+| Actual launch commands | Headless simulator stepped two C172s; direct configured Python created/stepped an SDK world; synchronous Testbench `fa1.support` passed |
+| `.\fsim.cmd --preset ucrt64-headless dist -j 10` | Passed; SDK, tools, examples and Python trees plus wheel produced. Actual SDK distribution matched all 1,230 consumer manifest entries and tested runtime DLL bytes |
+| Documentation and review | Nine changed/new Markdown files, local links/anchors, PowerShell blocks, preset JSON and CI YAML checked; skill copies matched. Independent review passed after export-layout and stale-entry fixes |
+| Scope | No native implementation/public-header, aircraft, store-source or third-party changes; no architecture refactor |
+
+Logs are `D:/ENV/tmp/preset-sdk-configure.log`, `preset-sdk-build.log`, `preset-sdk-functional-tests.log`,
+`preset-sdk-headless-run.log`, `preset-sdk-python-run.log`, `preset-sdk-testbench.log` and `preset-sdk-dist.log`.
+Installed-consumer logs and `runtime-data.sha256` are under `build/ucrt64-headless/package-consumer`.
+The unchanged 40 Hangar cases retain the first pass's full-suite evidence and were not rerun in this pass.
+The renderer/GPU, render SDK installation, CPack ZIP and remote GitHub workflow were not exercised. Headless
+package acceptance does not close Platform M5's public-release or GPU target matrix.
+
 ### Earlier delivery evidence
 
 The [native-engagement validation record](sdk/engagement-validation.md) reports a repaired functional suite, an
@@ -113,9 +141,9 @@ records the initial allocation failure and the limits of the final checks. Prese
 rewriting it as one uninterrupted green run.
 
 The checked-in [CI workflow](../.github/workflows/ci.yml) configures a Windows UCRT64 headless build, runs CTest, and
-rebuilds store/effect outputs plus one aircraft. It does not build the Vulkan viewer or perform component-install
-consumer acceptance. Its header records that it had not yet run on GitHub when written; no remote run was inspected
-for this documentation review.
+rebuilds store/effect outputs plus one aircraft. The second maintenance pass adds launcher, distribution and SDK-only
+component-install consumer acceptance through the same preset entry point. It does not build the Vulkan viewer.
+Its header records that it had not yet run on GitHub when written; no remote run was inspected for this maintenance work.
 
 When updating status:
 

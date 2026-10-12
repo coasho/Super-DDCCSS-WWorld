@@ -7,6 +7,31 @@
 # The runtime DLLs (fsim, fsim_vision, JSBSim, the MinGW runtime) are in the
 # package's bin/ directory; the JSBSim data tree and the models in share/flightsim.
 include("${CMAKE_CURRENT_LIST_DIR}/fsimTargets.cmake")
-set_and_check(fsim_BIN_DIR "@PACKAGE_CMAKE_INSTALL_BINDIR@")
-set_and_check(fsim_DATA_DIR "@PACKAGE_CMAKE_INSTALL_DATADIR@/flightsim")
+# AssetResolver uses bin/../share/flightsim. These paths describe the fixed
+# runtime layout and remain relative to the relocated package prefix.
+set_and_check(fsim_BIN_DIR "${PACKAGE_PREFIX_DIR}/bin")
+set_and_check(fsim_DATA_DIR "${PACKAGE_PREFIX_DIR}/share/flightsim")
+set_and_check(fsim_JSBSIM_ROOT "${fsim_DATA_DIR}/jsbsim")
+set_and_check(fsim_AIRCRAFT_DIR "${fsim_DATA_DIR}/aircraft")
+foreach(_dir aircraft engine systems)
+    set_and_check(fsim_JSBSIM_${_dir}_DIR "${fsim_JSBSIM_ROOT}/${_dir}")
+endforeach()
+foreach(_dir payloads stores)
+    set_and_check(fsim_${_dir}_DIR "${fsim_DATA_DIR}/${_dir}")
+endforeach()
+set(fsim_sdk_FOUND FALSE)
+set(fsim_vision_FOUND FALSE)
+if(TARGET fsim::sdk)
+    set(fsim_sdk_FOUND TRUE)
+endif()
+if(TARGET fsim::vision)
+    set(fsim_vision_FOUND TRUE)
+endif()
+# Unknown requested components must fail REQUIRED, rather than accidentally
+# succeeding because the base target is available.
+foreach(_component IN LISTS fsim_FIND_COMPONENTS)
+    if(NOT _component STREQUAL "sdk" AND NOT _component STREQUAL "vision")
+        set(fsim_${_component}_FOUND FALSE)
+    endif()
+endforeach()
 check_required_components(fsim)

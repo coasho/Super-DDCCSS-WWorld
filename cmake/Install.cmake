@@ -22,7 +22,8 @@
 #
 # Consumers: find_package(fsim CONFIG) -> fsim::sdk (and fsim::vision when
 # the package was built with the viewer stack).
-include(GNUInstallDirs)
+# The runtime layout is fixed: bin/ alongside share/flightsim/. AssetResolver
+# and the exported package paths use this layout regardless of GNUInstallDirs.
 
 # Resolving "which DLLs does this need" is the same walk the deploy target
 # makes; both call the one function so the two can never disagree.
@@ -72,13 +73,54 @@ fsim_install_runtime_deps(sdk ${_fsim_sdk_runtime})
 # Aircraft designed with tools/hangar (aircraft/<name>/): their JSBSim files
 # and model, to share/flightsim/aircraft/<name> (cmake/StageDesigns.cmake).
 function(fsim_install_designs component)
-    install(CODE "execute_process(COMMAND \"${CMAKE_COMMAND}\" -DSRC=${CMAKE_SOURCE_DIR}/aircraft
+    install(CODE "execute_process(COMMAND \"${CMAKE_COMMAND}\" \"-DSRC=${CMAKE_SOURCE_DIR}/aircraft\"
                                   \"-DDEST=\${CMAKE_INSTALL_PREFIX}/share/flightsim/aircraft\"
-                                  -P ${CMAKE_SOURCE_DIR}/cmake/StageDesigns.cmake)" COMPONENT ${component})
+                                  -P \"${CMAKE_SOURCE_DIR}/cmake/StageDesigns.cmake\"
+                                  RESULT_VARIABLE _fsim_stage_result)
+                  if(NOT _fsim_stage_result EQUAL 0)
+                      message(FATAL_ERROR \"Aircraft runtime data staging failed\")
+                  endif()" COMPONENT ${component})
     # their payloads' cards (ADR-30): the fits staged above name them
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/assets/payloads DESTINATION share/flightsim COMPONENT ${component})
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/assets/stores DESTINATION share/flightsim COMPONENT ${component}) # (the stores' cards, MS-7)
 endfunction()
+
+# Simulation is usable with any one of these components installed on its own.
+# Vision additionally needs models/clouds; terrain map tiles remain viewer/user
+# resources and are not bundled into the SDK.
+function(fsim_install_simulation_data component)
+    install(DIRECTORY ${FSIM_JSBSIM_DATA_DIR}/aircraft ${FSIM_JSBSIM_DATA_DIR}/engine ${FSIM_JSBSIM_DATA_DIR}/systems
+            DESTINATION share/flightsim/jsbsim COMPONENT ${component})
+    fsim_install_designs(${component})
+endfunction()
+fsim_install_simulation_data(sdk)
+if(TARGET fsim_vision)
+    install(DIRECTORY ${CMAKE_BINARY_DIR}/share/flightsim/models ${CMAKE_SOURCE_DIR}/assets/clouds
+            DESTINATION share/flightsim COMPONENT sdk)
+endif()
+
+# Notices accompany the SDK DLLs as well as the viewer distribution.
+function(fsim_install_notices component)
+    install(FILES ${CMAKE_SOURCE_DIR}/README.md ${CMAKE_SOURCE_DIR}/LICENSE ${CMAKE_SOURCE_DIR}/THIRD_PARTY_NOTICES.md
+            DESTINATION share/doc/flightsim COMPONENT ${component} OPTIONAL)
+    install(FILES ${CMAKE_SOURCE_DIR}/third_party/jsbsim/COPYING
+            DESTINATION share/doc/flightsim RENAME LICENSE-JSBSim.txt COMPONENT ${component} OPTIONAL)
+    # JSBSim is LGPL: the files flightsim changes, as built, and how (THIRD_PARTY_NOTICES.md)
+    install(FILES ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGLGear.cpp
+                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGAccelerations.cpp
+                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGRotor.h
+                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGRotor.cpp
+                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGElectric.cpp
+                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGPropeller.cpp
+                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGTransmission.h
+                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/flight_control/FGActuator.cpp
+                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGAerodynamics.cpp
+                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGMassBalance.cpp
+                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGAuxiliary.cpp
+                  ${CMAKE_SOURCE_DIR}/cmake/JsbsimPatches.cmake
+            DESTINATION share/doc/flightsim/jsbsim-changes COMPONENT ${component})
+endfunction()
+fsim_install_notices(sdk)
 
 # ---------------------------------------------------------------- viewer
 if(TARGET flightsim-viewer)
@@ -98,9 +140,7 @@ if(TARGET flightsim-viewer)
 
     # Assets, found at runtime through io::AssetResolver's <exe>/../share/flightsim.
     install(DIRECTORY ${CMAKE_BINARY_DIR}/share/flightsim/ DESTINATION share/flightsim COMPONENT viewer)
-    install(DIRECTORY ${FSIM_JSBSIM_DATA_DIR}/aircraft ${FSIM_JSBSIM_DATA_DIR}/engine ${FSIM_JSBSIM_DATA_DIR}/systems
-            DESTINATION share/flightsim/jsbsim COMPONENT viewer)
-    fsim_install_designs(viewer)
+    fsim_install_simulation_data(viewer)
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/examples/scenarios DESTINATION share/flightsim COMPONENT viewer)
 
     # Configuration, read from <exe>/../config/viewer.json in both the build
@@ -126,31 +166,12 @@ if(TARGET flightsim-viewer)
         install(CODE "message(WARNING \"assets/maps is empty - run fetch-maps.cmd, or the package has no terrain\")"
                 COMPONENT viewer)
     endif()
-    install(FILES ${CMAKE_SOURCE_DIR}/README.md ${CMAKE_SOURCE_DIR}/LICENSE ${CMAKE_SOURCE_DIR}/THIRD_PARTY_NOTICES.md
-            DESTINATION share/doc/flightsim COMPONENT viewer OPTIONAL)
-    install(FILES ${CMAKE_SOURCE_DIR}/third_party/jsbsim/COPYING
-            DESTINATION share/doc/flightsim RENAME LICENSE-JSBSim.txt COMPONENT viewer OPTIONAL)
-    # JSBSim is LGPL: the files flightsim changes, as built, and how (THIRD_PARTY_NOTICES.md)
-    install(FILES ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGLGear.cpp
-                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGAccelerations.cpp
-                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGRotor.h
-                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGRotor.cpp
-                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGElectric.cpp
-                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGPropeller.cpp
-                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGTransmission.h
-                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/flight_control/FGActuator.cpp
-                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGAerodynamics.cpp
-                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGMassBalance.cpp
-                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGAuxiliary.cpp
-                  ${CMAKE_SOURCE_DIR}/cmake/JsbsimPatches.cmake
-            DESTINATION share/doc/flightsim/jsbsim-changes COMPONENT viewer)
+    fsim_install_notices(viewer)
 endif()
 
 # ---------------------------------------------------------------- tools
 install(TARGETS flightsim RUNTIME DESTINATION bin COMPONENT tools)
-install(DIRECTORY ${FSIM_JSBSIM_DATA_DIR}/aircraft ${FSIM_JSBSIM_DATA_DIR}/engine ${FSIM_JSBSIM_DATA_DIR}/systems
-        DESTINATION share/flightsim/jsbsim COMPONENT tools)
-fsim_install_designs(tools)
+fsim_install_simulation_data(tools)
 fsim_install_runtime_deps(tools "flightsim.exe")
 
 # ---------------------------------------------------------------- examples
@@ -173,8 +194,7 @@ include(CMakePackageConfigHelpers)
 install(EXPORT fsimTargets NAMESPACE fsim:: DESTINATION lib/cmake/fsim COMPONENT sdk)
 configure_package_config_file(${CMAKE_SOURCE_DIR}/cmake/fsimConfig.cmake.in
     ${CMAKE_BINARY_DIR}/fsimConfig.cmake
-    INSTALL_DESTINATION lib/cmake/fsim
-    PATH_VARS CMAKE_INSTALL_BINDIR CMAKE_INSTALL_DATADIR)
+    INSTALL_DESTINATION lib/cmake/fsim)
 write_basic_package_version_file(${CMAKE_BINARY_DIR}/fsimConfigVersion.cmake
     VERSION ${PROJECT_VERSION} COMPATIBILITY SameMajorVersion)
 install(FILES ${CMAKE_BINARY_DIR}/fsimConfig.cmake ${CMAKE_BINARY_DIR}/fsimConfigVersion.cmake
@@ -182,7 +202,10 @@ install(FILES ${CMAKE_BINARY_DIR}/fsimConfig.cmake ${CMAKE_BINARY_DIR}/fsimConfi
 
 # ---------------------------------------------------------------- dist/
 # One target that writes every component into its own directory under dist/.
-set(_fsim_components sdk tools examples)
+set(_fsim_components sdk tools)
+if(_fsim_example_targets)
+    list(APPEND _fsim_components examples)
+endif()
 if(TARGET flightsim-viewer)
     list(APPEND _fsim_components viewer)
 endif()
@@ -190,12 +213,32 @@ if(TARGET fsim_python)
     list(APPEND _fsim_components python)
 endif()
 set(_fsim_package_commands "")
+# These directories are generated component outputs. When a component is
+# disabled after an earlier configure, remove its obsolete distribution too.
+# Keep a viewer's map cache available for a later render-enabled build.
+foreach(_c sdk tools examples viewer python)
+    if(NOT _c IN_LIST _fsim_components)
+        set(_fsim_keep "")
+        if(_c STREQUAL "viewer")
+            set(_fsim_keep maps)
+        endif()
+        list(APPEND _fsim_package_commands
+            COMMAND ${CMAKE_COMMAND} "-DDIR=${CMAKE_BINARY_DIR}/dist/${_c}"
+                    "-DBUILD_ROOT=${CMAKE_BINARY_DIR}" "-DKEEP=${_fsim_keep}"
+                    -P ${CMAKE_SOURCE_DIR}/cmake/CleanDist.cmake)
+    endif()
+endforeach()
 foreach(_c ${_fsim_components})
     # Clear everything but maps/: it is gigabytes of tiles that install() will
     # skip if they are already identical, and deleting it first would turn
     # every package build into a full re-copy.
+    set(_fsim_keep "")
+    if(_c STREQUAL "viewer")
+        set(_fsim_keep maps)
+    endif()
     list(APPEND _fsim_package_commands
-        COMMAND ${CMAKE_COMMAND} -DDIR=${CMAKE_BINARY_DIR}/dist/${_c} -DKEEP=maps
+        COMMAND ${CMAKE_COMMAND} "-DDIR=${CMAKE_BINARY_DIR}/dist/${_c}"
+                "-DBUILD_ROOT=${CMAKE_BINARY_DIR}" "-DKEEP=${_fsim_keep}"
                 -P ${CMAKE_SOURCE_DIR}/cmake/CleanDist.cmake)
     if(_c STREQUAL "viewer")
         # Mirror, not accumulate: drop tiles the map plan no longer has.
@@ -213,7 +256,13 @@ add_custom_target(dist
     ${_fsim_package_commands}
     COMMENT "Packaging into dist/: ${_fsim_components}"
     VERBATIM)
-add_dependencies(dist deploy)
+add_dependencies(dist deploy ${_fsim_export_targets} flightsim)
+if(_fsim_example_targets)
+    add_dependencies(dist ${_fsim_example_targets})
+endif()
+if(TARGET flightsim-viewer)
+    add_dependencies(dist ${_fsim_viewer_targets} fsim_cloud_assets)
+endif()
 if(TARGET python_package)
     add_dependencies(dist python_package)
 endif()

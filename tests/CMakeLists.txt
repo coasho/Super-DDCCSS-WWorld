@@ -1,5 +1,37 @@
 include(Catch)
 
+# Exercise the user-facing entry points and a separately installed SDK. The
+# consumer must link and run against the install tree, including runtime data.
+if(WIN32)
+    find_program(FSIM_POWERSHELL powershell REQUIRED)
+    add_test(NAME launcher_contract
+        COMMAND ${FSIM_POWERSHELL} -NoLogo -NoProfile -ExecutionPolicy Bypass
+            -File ${CMAKE_SOURCE_DIR}/tests/test_launchers.ps1
+            -SourceRoot ${CMAKE_SOURCE_DIR})
+    set_tests_properties(launcher_contract PROPERTIES LABELS launcher TIMEOUT 180)
+endif()
+add_test(NAME package_consumer
+    COMMAND ${CMAKE_COMMAND}
+        "-DSOURCE_DIR=${CMAKE_SOURCE_DIR}"
+        "-DBUILD_DIR=${CMAKE_BINARY_DIR}"
+        "-DTOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
+        "-DGENERATOR=${CMAKE_GENERATOR}"
+        "-DCONFIG=$<CONFIG>"
+        "-DJSBSIM_DATA_DIR=${FSIM_JSBSIM_DATA_DIR}"
+        "-DUCRT64_ROOT=${FSIM_UCRT64_ROOT}"
+        "-DMAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}"
+        -P ${CMAKE_SOURCE_DIR}/cmake/RunPackageConsumer.cmake)
+set_tests_properties(package_consumer PROPERTIES LABELS package TIMEOUT 600)
+add_test(NAME dist_components
+    COMMAND ${CMAKE_COMMAND}
+        "-DSOURCE_DIR=${CMAKE_SOURCE_DIR}"
+        "-DTOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
+        "-DUCRT64_ROOT=${FSIM_UCRT64_ROOT}"
+        "-DGENERATOR=${CMAKE_GENERATOR}"
+        "-DMAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}"
+        -P ${CMAKE_SOURCE_DIR}/cmake/TestDistComponents.cmake)
+set_tests_properties(dist_components PROPERTIES LABELS package TIMEOUT 120)
+
 # Test executables are not part of any shipped package, so they are kept out of
 # bin/ (which holds the applications) and out of the dist/ trees entirely. The
 # runtime DLLs they need are staged beside them by the `deploy` target.

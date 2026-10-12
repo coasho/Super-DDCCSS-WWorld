@@ -9,11 +9,13 @@ aircraft in flightsim-viewer while the window shows its checks, its vehicles' st
 
 ## How to open it
 
-**Double-click [Testbench.cmd](../Testbench.cmd)** in this repository's root after completing the
-[development setup and build](../docs/development.md). An existing **"flightsim testbench"** desktop shortcut
-may also run it; verify that its target points at this checkout.
+Complete the [development setup](../docs/development.md), including the selected preset's Python SDK,
+then **double-click [Testbench.cmd](../Testbench.cmd)** in the repository root. The default `ucrt64-headless`
+preset opens the testbench window alone. For a viewer too, run `.\Testbench.cmd --preset ucrt64-release`,
+or ensure a double-click launch inherits `FSIM_PRESET=ucrt64-release` after building that render preset.
+An existing **"flightsim testbench"** desktop shortcut may also run it; verify its checkout and preset arguments.
 
-1. Two windows open: the testbench, and the viewer beside it.
+1. The testbench opens; with a render preset, the viewer opens beside it.
 2. In the testbench, pick a scenario on the left (the groups FA-1 to FA-10 open when clicked), set its options, and
    press **Run (new session)**.
 3. For more aircraft at once, pick another scenario (or the same one, or **Sandbox** for an aircraft you fly with
@@ -38,18 +40,32 @@ may also run it; verify that its target points at this checkout.
    detection level alone.
 6. Close the testbench window to stop: the viewer closes with it, and the minimised console goes by itself.
 
-From a terminal it is `fsim testbench` with the same options:
+From PowerShell, select the preset before the command; scenario options follow `testbench`:
 
-```
-fsim testbench                         the window and the viewer
-fsim testbench --online                also download map tiles the local map set lacks (by default nothing is fetched)
-fsim testbench --run fa10.recovery     start a scenario at once
-fsim testbench --list                  the scenarios
-fsim testbench --headless fa9.,fa10.   run scenarios as fast as they go, no window; exit 1 if any fails
+```powershell
+.\fsim.cmd --preset ucrt64-release testbench                       # window and viewer
+.\fsim.cmd --preset ucrt64-release testbench --online              # fetch map tiles missing locally
+.\fsim.cmd --preset ucrt64-release testbench --run fa10.recovery    # start a scenario at once
+.\fsim.cmd --preset ucrt64-headless testbench --list                # list scenarios
+.\fsim.cmd --preset ucrt64-headless testbench --headless "fa9.,fa10." # no window; exit 1 if any fails
+.\fsim.cmd --preset ucrt64-headless testbench --no-viewer           # testbench window alone
 ```
 
-`Testbench.cmd` takes them too (`Testbench.cmd --run fa10.recovery`). It needs the project built once using the direct
-CMake commands in [development](../docs/development.md); use those for a fresh checkout before the launcher.
+`Testbench.cmd` takes the same preset and scenario options:
+
+```powershell
+.\Testbench.cmd --preset ucrt64-release --run fa10.recovery
+.\Testbench.cmd --preset ucrt64-headless --headless stability.f16c
+```
+
+Explicit arguments run synchronously and return the testbench's exit code. A no-argument launch opens a minimized
+console with the preset selected by `FSIM_PRESET`, or `ucrt64-headless` when unset. The launcher uses only that
+preset's Python package and viewer. A headless GUI works without a viewer; a missing render-preset viewer or
+explicit `--viewer` produces a build hint, with no search of other presets. Use `--headless`, `--list` or
+`--no-viewer` when a viewer is not needed. When invoking the Python module directly, `FSIM_BIN` restricts
+viewer lookup to that directory; `--viewer` selects an exact file. The launcher sets `FSIM_BIN` from its preset.
+`.\fsim.cmd --preset <preset> build`
+configures a fresh build automatically; configure first to select a CPython interpreter if needed.
 The window is a Microsoft Edge app window (no address bar or tabs) on a page the testbench serves on
 127.0.0.1; nothing is installed and nothing leaves the machine. Without Edge the default browser opens the page.
 
@@ -80,10 +96,10 @@ does not introduce a replacement testbench combat scenario.
 
 ## The stability suite's results
 
-```
-fsim testbench --headless stability.                      all 35 aircraft at full load
-fsim testbench --headless stability. --option load=spawn  as each spawns
-fsim testbench --headless stability.f16c                  one
+```powershell
+.\fsim.cmd --preset ucrt64-headless testbench --headless stability.                     # full load
+.\fsim.cmd --preset ucrt64-headless testbench --headless stability. --option load=spawn # as spawned
+.\fsim.cmd --preset ucrt64-headless testbench --headless stability.f16c                 # one aircraft
 ```
 
 Each run writes `testbench/results/stability/<aircraft>_<load>.json` - what it weighed and carried, each phase's
