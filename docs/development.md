@@ -2,6 +2,13 @@
 
 This is the working guide for this checkout. [status.md](status.md) is the sole current capability and milestone summary; [resources.md](resources.md) identifies editable inputs and generated outputs. Design rationale remains in the architecture and ADR documents. Commands below run from the repository root in PowerShell unless stated otherwise.
 
+## Branch and delivery policy
+
+Use the existing `main` branch for implementation, documentation, commits and pushes. Create another branch or
+worktree only when the user explicitly requests it. Fetch `origin` and inspect local/remote ancestry before
+integrating existing work; use fast-forward updates when possible and push `main` after appropriate validation.
+Branch names in dated delivery records describe their original execution context, not the current workflow.
+
 ## Environment and supported build
 
 The maintained Windows build uses MSYS2 **UCRT64**, GCC, Ninja and CMake 3.25 or newer, with C++17. The presets and [toolchain](../cmake/toolchains/ucrt64.cmake) are the implementation of this contract. MSVC branches in CMake are not evidence of a verified alternative toolchain.

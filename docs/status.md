@@ -2,9 +2,9 @@
 
 Reviewed: 2026-10-12. First maintenance pass: `2b83f24` (implementation baseline `32e78a6`).
 Second maintenance pass: `f8cfec9`; Architecture A1: `6652584`; Architecture A2: `34e5516`; Architecture A3: `e79f268`;
-Architecture A4: `e708b87`; Architecture A5: `2efea05`, on
-`codex/architecture-vecenv-recording`.
-Architecture A6: `b57947d`, delivered on `codex/architecture-world-store-binding`, based on `39be3c1`.
+Architecture A4: `e708b87`; Architecture A5: `2efea05`; Architecture A6: `b57947d`, based on `39be3c1`.
+Current development and delivery use `main`, including both maintenance passes and Architecture A1 through A6.
+Branch names in the dated verification records identify their original execution context.
 
 This is the entry point for what exists now, which delivery it belongs to, and what remains open. The first
 maintenance pass consolidated documentation and development guidance, corrected outdated descriptions, and retired
@@ -453,6 +453,25 @@ Post-push logs are under `D:/ENV/tmp`: `architecture-a6-delivery-build.log`,
 `architecture-a6-delivery-push.json`; the fresh trace is `architecture-a6-delivery-replay-after.txt`. Committed-scope
 results are in `architecture-a6-delivery-final-verification.json`; documentation results are in
 `architecture-a6-delivery-doc-verification.log` and `architecture-a6-delivery-doc-commands.log`.
+
+### Main integration, 2026-10-12
+
+At the user's request, the existing `main` was fast-forwarded to the fully validated `03f512f` delivery, bringing
+both maintenance passes and Architecture A1 through A6 into `main`. Remote main was an ancestor with no divergent
+commits. Before the workflow documentation update, main's complete tree was identical to `03f512f`:
+`29fc31b2513fd9e36be5e8b7ac2d15baad8d8c21`.
+
+Only this status page and the [development workflow](development.md) change after integration. Source, tests,
+public headers, Python, build configuration and resources retain the exact validated tree. The 596/596 full-suite
+and 25/25 distributed Python results above remain applicable; they are not represented as new runs on main.
+Fresh ABI, boundary, adapter and architecture gates passed 8/8 in 7.27 seconds. Protected source/resource hashes,
+exports, Python identities and distribution provenance match the recorded A6 delivery. Both changed Markdown
+files, 82 local links, four anchors and five PowerShell blocks pass, together with source identity and diff checks.
+Logs are under `D:/ENV/tmp`: `architecture-a6-main-focused-tests.log`,
+`architecture-a6-main-protected-verification.log`, `architecture-a6-main-doc-verification.log` and
+`architecture-a6-main-doc-commands.log`.
+Future implementation, documentation, commits and pushes use the existing `main`; another branch or worktree
+requires an explicit user request.
 
 ### Earlier delivery evidence
 
