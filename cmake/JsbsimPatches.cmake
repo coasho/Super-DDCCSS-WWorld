@@ -1,6 +1,6 @@
 # Fixes to JSBSim that flightsim carries.
 #
-# The submodule stays exactly as upstream ships it. Each fixed file is
+# The vendored source stays unchanged. Each fixed file is
 # generated into the build tree - the upstream source with the edits below,
 # each marked "flightsim patch" in the code - and compiled in place of the
 # original (JSBSim is LGPL-2.1; see THIRD_PARTY_NOTICES.md). Every edit names

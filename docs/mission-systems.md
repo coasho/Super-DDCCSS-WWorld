@@ -1,5 +1,12 @@
 # ADR-30: Mission Systems — high-fidelity payloads behind A-GRA's Mission Systems interface
 
+This is the accepted design and dated implementation history, not the current capability checklist.
+[Status](status.md) is the sole current capability and milestone table; [development](development.md) documents
+the supported workflow and [resources](resources.md) locates dependencies and references. Dated plans and progress
+below preserve their original goals and evidence. They do not establish present completion or supersede the
+[native engagement API](sdk/engagement.md). Its game assumptions do not complete the high-fidelity
+SU2/VSPAERO/RocketPy stages or the original Mission Systems M1 acceptance criteria.
+
 | | |
 | --- | --- |
 | Status | Accepted 2026-10-06: the owner approved it with one change - no ground entities (D7) - and asked for implementation in the order of section 8. Transport feasibility was checked (section 3.3) |
@@ -66,11 +73,11 @@ The MS volume groups 67 interactions into ten packages. Its minimum message set 
 | P3 | No classified, export-controlled or restricted data, ever: public sources only, each cited on its payload card (section 6) |
 | P4 | Gaps are stated, not hidden. Where public data does not pin a parameter, the card gives the physical derivation, the assumption and its uncertainty |
 
-## 3. What exists
+## 3. Starting point and component study (historical, 2026-10-06)
 
 ### 3.1 In the platform
 
-- **Entities:** every vehicle in a world, with its full state. There are no weapons in flight and no emitters.
+- **Entities at adoption:** every vehicle in a world, with its full state; weapon entities and emitters had not yet landed on 2026-10-06. They were introduced by the later stages below and are present in the current SDK.
 - **Physics:** JSBSim (LGPL-2.1) for flight; the hangar's geometry pipeline (tools/hangar), with each aircraft's 3D model; terrain from the map set; Bruneton's atmosphere; the exhaust's Planck emission (world/Exhaust.cpp).
 - **SDK:** the VI pattern and its machinery (ADR-28/29): capability host, commands, statuses, activities, grants, and C ABI and Python parity.
 
@@ -186,6 +193,9 @@ Each payload of each aircraft type has a card: one file per payload and type, wi
 
 ## 8. Stages
 
+The stage table records the approved roadmap. Current delivery and remaining work are tracked in
+[status](status.md); a native game engagement is not automatic closure of MS-7c, MS-7d, MS-8 or M1.
+
 | Stage | What | Depends on |
 | --- | --- | --- |
 | MS-1 | Mission Systems host: `fsim.ms.*` capabilities, discovery, support states, commands, command status, activities, grants, C ABI and Python; payload cards' format and loader | - |
@@ -202,6 +212,12 @@ Each payload of each aircraft type has a card: one file per payload and type, wi
 | MS-12 | OMS bridge: LA-CAL client (OWP over WebSocket), A-GRA 6.0a messages generated from the schema, the MS minimum message set mapped onto the SDK, ServiceStatus and SubsystemStatus heartbeats; sleet and la-cal-harness in the tests. Closes ADR-29's XPT-01 to XPT-08 | MS-1 ... |
 
 ### 8.1 Progress
+
+The following entries are dated implementation and validation records. Test counts, measurements and statements
+about what was absent apply to the recorded revision and environment. The later native engagement delivery is
+documented by its [API contract](sdk/engagement.md) and [historical local validation](sdk/engagement-validation.md).
+That delivery verified the headless SDK and browser client; it did not rebuild the native Vulkan viewer or
+calibrate real-world missile performance. See [status](status.md) for the current assessment.
 
 - **MS-1 done (2026-10-06).**
   - **Code:** `src/ms` (the host, the cards and fits loader, the names). `include/fsim/MissionSystems.h` and
@@ -230,16 +246,16 @@ Each payload of each aircraft type has a card: one file per payload and type, wi
       space, with electronic steering, scan loss, a side-lobe floor and a back lobe.
   - **Weapons in flight as entities:**
     - `launchWeapon` releases a store at its station with its launcher's velocity, attitude and an ejection push.
-    - The store is flown by its own model, its flight capabilities `restricted`. It ends at impact, and the world
-      keeps its record.
-    - The Mk 82 is the store until MS-7: its flight model and its viewer model built from its design (`hangar mk82`; JSBSim's own `mk82` until 2026-10-10).
+    - The store is flown by its own model, its flight capabilities `restricted`. MS-2 recorded impact endings;
+      current armed engagement also records detonation and expiry/removal outcomes ([engagement](sdk/engagement.md)).
+    - The Mk 82 was the initial MS-2 store: its flight model and its viewer model are built from its design (`hangar mk82`; JSBSim's own `mk82` until 2026-10-10). Later stages added the other store models and native armed missiles.
     - Through C++, the C ABI (1.50) and Python, with `radioPath` between any two entities.
   - **Tests:**
     - `test_rf_path.cpp`: NTIA's examples, P.838's table, the apertures' closed forms, P.526's J(v), masking, rain,
       the layer tables against the exact computation.
     - `test_weapons.cpp`: the release, the fall and the impact, the record, and the same flight twice to the bit.
     - The C ABI test and `python/tests/test_weapons.py`.
-  - **The emitter registry** (which payload transmits what, where) comes with the first emitters, the radars at
+  - **The emitter registry** (which payload transmits what, where) was introduced with the first emitters, the radars at
     MS-4.
 - **MS-3 done (2026-10-06).**
   - **The engine** (`tools/rcs`, `flightsim-rcs`): shooting and bouncing rays on the GPU (Vulkan ray queries
@@ -295,9 +311,9 @@ Each payload of each aircraft type has a card: one file per payload and type, wi
     record in the world's shared memory (layout 3), written by the SDK's own instances. Externally visible payloads
     are drawn by the airframes' models (the E-3G's rotodome, the E-7A's top hat, the EA-18G's pods, the Typhoon's tip
     pods, the EC-130H's and RC-135W's antennas). The EA-18G's fit now counts the three ALQ-99 pods its model carries.
-    Stores on stations come with MS-7.
+    Later MS-7 work added stores on stations.
   - **The emitter registry:** the radars searching are the hosts' (`Host::radar`, `RadarStatus.searching`). ESM reads
-    them at MS-9.
+    them in the MS-9a receiver implementation.
   - **Tests:** `test_radar.cpp` covers the Pd closed forms (13.2 / 17.3 / 21.1 dB at Pd 0.9), M of N, the radar
     equation, every card against its published ranges, clutter, the World round trip with determinism, and the shared
     memory. Also the C ABI test and `python/tests/test_radar.py`.
@@ -472,7 +488,7 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   and named for the viewer (`rocket` in the manifest), its paint and markings bands. The viewer draws a motor's plume
   from its thrust (the exhaust's jet as a solid rocket's: [sdk/viewer.md](sdk/viewer.md#effects)), and
   `fsim hangar showcase <missile>` shows one on its carrier's station and launched, on a scripted recording
-  (`tools/showcase`) until it flies. Every other design's model re-meshed unchanged (the mesh bytes identical; three
+  (`tools/showcase`), a visual prototype separate from current native flight. Every other design's model re-meshed unchanged (the mesh bytes identical; three
   propeller aircraft's gear rotations differ by sign alone, as before - restored). The plume's look was
   held to launch photographs since (below).
 - **MS-7e2, the smoke trail (2026-10-08).** A missile's motor lays smoke where it burns, drawn as the contrails'
@@ -529,7 +545,8 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   interpolator extrapolating and snapping back - a Sidewinder drawn ahead of its rail, then behind it. The missile's end
   at the ground: World already ends a weapon that strikes it (its vehicle removed that step); the showcase dives one
   there (`--dive-s`, the map set's terrain) - the viewer draws it to the strike and no further, its trail left in the
-  air. What it does there is MS-7d's fuze and MS-7h's detonation.
+  air. Current native armed engagements also terminate through their fuze or expiry; the scripted showcase remains
+  a visual preview, and this dated viewer evidence does not verify a viewer rebuilt against the engagement delivery.
 - **MS-7e1, the vulnerable components (2026-10-09).** Every fixed-wing design's engines, fuel, crew and flight
   controls placed from its design by one rule ([hangar.md](hangar.md#the-3d-model), `hangar/vulnerability.py`): a
   turbofan by Raymer's statistical sizing from its thrust, bypass ratio and design Mach (within 40 % of five published
@@ -648,8 +665,8 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
       their own flight models once jettisoned. An ALQ-184 on an F-16C's centreline: 22.4 against RAND's 29.
     - Every tank and pod of every loadout, jettisoned, flies on with its mass (tests/test_stores.cpp: 46 stores).
 - **MS-7h, the detonation (2026-10-09).** The engagement's events in a recording (`V` records, format 5:
-  `ipc::EngagementEvent`, one plain layout for every kind - a detonation now, a component's failure, a breakup and chaff
-  to come), as MS-7d's fuze will write them; the showcase scripts one (`--detonate-s`: the missile ends there, as
+  `ipc::EngagementEvent`, one plain layout for every kind - the initial detonation record, with later component
+  failure, breakup and chaff records). The showcase scripts one (`--detonate-s`: the missile ends there, as
   World ends a weapon; its explosive 40 % of the card's warhead, an estimate). The viewer draws it
   ([sdk/viewer.md](sdk/viewer.md#effects), world/Detonations): the flash, the fireball (4.67 W^0.31 m across in free air, from a 1 kg
   and a 10 kg TNT charge's measured diameters at the ground; larger in thin air; at TNT's measured 2,000 K, its glow
@@ -708,7 +725,7 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   faults it showed are fixed for every trail: a store's first frame, interpolated from its empty slot at the Earth's
   centre, began its trail there (world::Interpolator now takes a vehicle new to a snapshot where the newer has it), and
   the young trail between laid samples left a climbing trail's plume at the older sample's height - drawn in steps.
-  `fsim hangar showcase <missile> --altitude 10500` flies the shot in cold air.
+  `fsim hangar showcase <missile> --altitude 10500` records the scripted shot in cold air.
 - **MS-7e1, the carriage and the stores on their stations (2026-10-08).** Each aircraft's stations' pylons, launcher
   rails and racks in its model (fsim:station:<n> nodes, a pylon up to the skin found by a ray against the airframe's
   mesh; [hangar.md](hangar.md#the-carriage-on-the-stations)), shown once a store has been there; the stations' places
@@ -763,6 +780,10 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
 
 ### MS-7 planned (2026-10-07)
 
+This section preserves the original plan, including the dated visual-only sequencing decision. The current native
+game engagement uses assumed parameters and ideal fin actuation; it does not replace the planned aerodynamic,
+motor and sensor calibration or demonstrate this plan's full acceptance criteria.
+
 MS-7 in six parts, each committed when its tests pass and runnable when it is (a demo for each). What no source gives
 is estimated where a value is needed - from the closest published sibling, the class, or the physics - and marked as an
 estimate (basis `assumed`, its reasoning in its note) wherever it appears:
@@ -793,7 +814,8 @@ estimate (basis `assumed`, its reasoning in its note) wherever it appears:
     wave or interrupted, as the card says), and the missile loses it when it does not.
   - An infrared seeker sees the target's signature through a first IR model (the engines' plume and hot parts, the
     airframe's aerodynamic heating, the atmosphere's transmission; MS-10 completes it), with its field of regard,
-    gimbal and track rate limits; flares come with MS-9.
+    gimbal and track rate limits. Native game-assumption infrared seekers and flares now exist; calibrated
+    signatures, imaging classification and full sensor fidelity remain this plan's separate goal.
   - Proportional navigation and its augmented forms, loft, the autopilot's fin commands within the airframe's limits;
     proximity fuze and warhead lethality; the weapons' flyout state (A-GRA's EngagementState).
 - **MS-7e - the missiles as models, then their effects in the viewer** (the owner, 2026-10-08, approved: the models
@@ -803,11 +825,10 @@ estimate (basis `assumed`, its reasoning in its note) wherever it appears:
   lattice, slender bodies, Mach effects), the mass and the JSBSim model; what is drawn and not in the tables says so
   (`aero = false`, its drag in the calibrated extra drag area, as the F-16C's tip launchers and the A-10C's pylons are).
 
-  **The focus now (the owner, 2026-10-08, after the plan's approval): the models, their mechanical animations and the
-  visual effects only, for every missile and its variants.** The first flight models, a carried store's drag and the
-  stages after MS-7e2 wait. Until a missile flies, its animations and effects are shown on a replay
-  (`flightsim-viewer --replay`) whose states - the fins' deflections, the motor's thrust through its burn - are written
-  from the card, not flown; the same states a flight model writes later.
+  **The visual-only focus chosen on 2026-10-08:** models, mechanical animations and visual effects for every missile
+  and its variants preceded flight work. The scripted replay (`flightsim-viewer --replay`) writes card-based fin
+  deflections and motor thrust as a visual preview. Store flight models and native armed engagement now exist;
+  the replay does not validate them, and solver-derived model calibration is still separate work.
   - **MS-7e1 - the models:**
     - each of the 24 missiles a hangar design, its card's length, diameter, span and mass held (a check fails the build
       outside the card's uncertainty), its external shape from public drawings and photographs: the nose (a radome, or
@@ -815,10 +836,12 @@ estimate (basis `assumed`, its reasoning in its note) wherever it appears:
       on their spindles, each `fsim:` node mixing the pitch, yaw and roll channels with its gains and stops; the
       nozzle's exit (the motor's port, a rocket's line in the manifest); the lugs or hooks and markings bands drawn
       only; what no source gives estimated and said so;
-    - (waits: the focus above) from the same design, a first flight model by hangar's own methods, extended where a missile needs them
+    - Original first-flight task: from the same design, a first flight model by hangar's own methods, extended where a missile needs them
       (cruciform fins, a body's lift at high incidence, the Mach range to the card's top speed): a solid rocket's
       thrust and propellant from the card, the CG moving as it burns, a fin mixer and limits in its FCS - enough to
-      launch and fly it unguided, its fly stage's tests passed; MS-7c replaces its tables and motor with SU2's,
+      launch and fly it unguided, its fly stage's tests passed. Generated powered models now exist, while native
+      guidance uses ideal force/moment actuation rather than establishing this planned fin-control calibration.
+      MS-7c's remaining goal is to replace the tables and motor with SU2's,
       VSPAERO's and RocketPy's, cross-checked against these;
     - the carriage in each fighter's design, as its fixed launchers already are: the pylons, launch rails and ejector
       launchers (LAU-127, LAU-7, LAU-106 and their counterparts) at the store-station card's places, drawn only; the
@@ -840,12 +863,18 @@ estimate (basis `assumed`, its reasoning in its note) wherever it appears:
     - the control surfaces moving: each missile's fins from its FCS (MS-7d's autopilot drives the same channels), the
       bay doors opening for a launch and closing after it;
     - the launch: off its rail under its own power (the rail's flash and smoke), or ejected and lighting a moment
-      after; its end at the fuze (until MS-7d's fuze, its end at the ground).
+      after; its end at the fuze or the ground. Native fuze outcomes now exist; rebuilt native-viewer acceptance
+      for the engagement delivery is not established.
 - **MS-7f - validation and a runnable engagement:** range, time of flight and no-escape range against the published
   figures; a 4-against-4 engagement in real time, measured per payload family; `examples/python` demos of each part,
   and one engagement from radar track to launch, flyout, seeker acquisition and the fuze, in the viewer.
 
-### Milestone M1 - the autonomous end-to-end loop (the owner, 2026-10-07; its stages approved)
+### Mission Systems M1 - the autonomous end-to-end loop (the owner, 2026-10-07; its stages approved)
+
+All uses of M1 in this ADR refer to **Mission Systems M1**, distinct from **Platform M1** (multi-vehicle FDM and
+terrain data) in the [system design](FlightSim_System_Architecture_and_Design.md#15-roadmap-and-milestones).
+The original milestone goal and sequencing below are retained; the browser game delivery is not a claim that
+the high-fidelity autonomous demo and native viewer acceptance have been completed.
 
 The owner's direction: build the underlying infrastructure first; when the foundations are in place, a simple autonomous
 demo runs the basic end-to-end loop once and marks the milestone. Player interaction and human play (flight controls,
@@ -877,8 +906,9 @@ the missiles, their detonations, the hit aircraft's fire and smoke, the chaff (M
   forms and their bloom and fall. Jammers and the full ESM stay in MS-9b.
   **Built so far (2026-10-11):** the receiver's emitter contacts from the world's radars - a search, a lock, an
   illumination - through the payload model's interface (`src/ms/Model.h`, `src/ms/esm`;
-  [sdk/mission-systems.md](sdk/mission-systems.md#the-warning-receiver-ms-9a)). The launch warning waits for the
-  weapons' seekers (MS-7d); chaff is not built.
+  [sdk/mission-systems.md](sdk/mission-systems.md#the-warning-receiver-ms-9a)). Current native engagement adds
+  active-seeker emissions through that receiver and native chaff/flare behavior; those game assumptions do not
+  establish completion of the original full warning/ESM model.
 - **AB-7 (ADR-31's range side) - the referee's rules and the scenario's payloads.** The referee's engagement record
   (shots, the weapons' ends, kills and their credit), end conditions, the outcome; the scenario format for loadouts and
   payload states at the start (closes section 10's open question).
@@ -911,11 +941,13 @@ error).** Each is said so where it is used:
 **The visual focus kept (the owner, 2026-10-09).** MS-7e's models and effects done but two items (below), the owner
 chose to keep the focus on the visuals: finish MS-7e, then build MS-7h's effects ahead of the stages that make their
 state - on scripted replays, as MS-7e2's were (the showcase writes the states a flight would: a detonation at a time and
-place, a component failed, chaff dispensed), each effect drawn from the state it will read once MS-7g and MS-9a write
-it, so wiring them later changes no effect. The flight models, MS-7c and the stages after it wait. The sequence:
+place, a component failed, chaff dispensed), each effect drawn from a shared state layout. That choice deferred
+flight work at the time; generated flight models and native engagement states now exist, while MS-7c's
+high-fidelity solver cross-checks remain open. The original visual sequence was:
 
 1. MS-7e2, the launch: a rail launch's flash and the smoke cloud round the launcher as the motor lights (an ejected
-   one already falls clear before it lights); the missile's end - at the ground, until MS-7d's fuze.
+   one already falls clear before it lights); the prototype's end at the ground. Current native engagements also
+   have fuze outcomes, separately from this scripted preview.
 2. MS-7e1, for MS-7g and MS-7h: each aircraft's vulnerable components placed from its design (engines, fuel tanks,
    cockpit, flight controls) and its chaff and flare dispensers, in its model's manifest.
 3. MS-7h, on scripted replays: the detonation (flash, fireball, smoke puff by the warhead's explosive mass; the
@@ -936,7 +968,7 @@ as a physical chain in the world - the kill probabilities and kill levels stay w
   vulnerable components (kind, box, section, a tank's fuel, an engine's index, a control's channel), the breakup
   sections (their masses from the mass model, their lift share, spanwise centre of pressure and bending per g from the
   strip model, the root's strength from the design's ultimate load factor), the skin over each section.
-- **G3, the impact:** `World::detonate` (what MS-7d's fuze will call; a range call until then) - the fragment field
+- **G3, the impact:** `World::detonate` and the damage chain now used by native fuze outcomes, also available as a range call - the fragment field
   (Gurney velocity, the spray's belt tilted by the missile's velocity, fragments slowed by the air) and the blast
   (free-air overpressure and impulse, scaled for altitude) laid across the target's components and skin in its
   attitude; each hit's penetration; the damage drawn from the vehicle's own damage stream, deterministic.
@@ -962,23 +994,27 @@ as a physical chain in the world - the kill probabilities and kill levels stay w
   fireball attached and stretched aft), the trail gusting as the leak burns, the skin panels torn off on the burst's
   side, the sections parting and the debris falling - each held to the photographs again.
 
-The showcase becomes a world run: the target flown by its own JSBSim model under its autopilot, the missile scripted
-until MS-7d, `World::detonate` at its burst.
+The showcase's world-run preview flies the target under its JSBSim autopilot and scripts the missile and its burst.
+Current armed engagement instead integrates the missile in native JSBSim and owns its fuze and damage outcomes;
+the showcase remains a visual prototype rather than a native encounter test.
 
-Then the flight models (MS-7e1's waiting part) and MS-7c onwards, as below.
+The original sequence then called for first flight models and MS-7c onwards. Generated models and the narrower
+native game engagement are now delivered; high-fidelity work retains the criteria below.
 
 **The order to M1** (the owner, 2026-10-08, approved: the 3-D models first, then their visual effects; the models
 built as the aircraft are, one design for the picture and the aerodynamics): MS-7e1 (the missiles as hangar designs, their first
 flight models, the carriage, the stores on the stations), MS-7e2 (their effects: plumes, smoke trails, the control
 surfaces moving, the launch), MS-7c (SU2's, VSPAERO's and RocketPy's tables and motors on the same designs), MS-4b,
-MS-7d (active and semi-active seekers, guidance, the midcourse uplink, fuzes; the infrared seeker after M1), MS-7g,
+MS-7d (active and semi-active seekers, guidance, the midcourse uplink, fuzes; the original sequence deferred calibrated infrared work), MS-7g,
 MS-8 (launch zones), MS-9a, MS-7h (the engagement's effects), AB-7, then M1's demo as MS-7f's engagement. Each stage
 keeps the verification of section 7. The order before (2026-10-07) put the viewer's stages last: MS-7c, 4b, 7d, 7g,
 8, 9a, AB-7, 7e, 7h.
 
-**After M1, not in it:** IFF (no friendlies in a 1-against-1; it gets a payload family before any 2-against-2), guns,
+**Originally excluded from Mission Systems M1:** IFF (no friendlies in a 1-against-1; it gets a payload family before any 2-against-2), guns,
 infrared missiles, IRST and flares (MS-10), jammers and ESM (MS-9b), comms and datalinks beyond the launcher's uplink
-(MS-11), the OMS bridge (MS-12), human play.
+(MS-11), the OMS bridge (MS-12), human play. Native infrared/imaging seekers, flares and the browser game now
+exist within the narrower game-assumption delivery. Their presence does not change the original autonomous
+milestone's goal or complete its calibrated infrared, IRST, ESM or OMS criteria.
 
 ## 9. Licensing
 

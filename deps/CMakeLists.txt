@@ -3,7 +3,7 @@
 # vsgXchange and vsgImGui locate VSG with find_package(), so the three are
 # built and installed in sequence into one prefix; the main project then finds
 # them with CMAKE_PREFIX_PATH=<prefix>. JSBSim is not here: it is part of the
-# main build because its data tree lives in the same submodule.
+# main build alongside its tracked vendored data tree.
 #
 #   cmake -S deps --preset deps-ucrt64 && cmake --build build/deps-ucrt64
 #

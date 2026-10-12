@@ -5,7 +5,7 @@ with the following components; each keeps its own licence.
 
 | Component | Use | Licence | Shipped as |
 | --- | --- | --- | --- |
-| [JSBSim](https://github.com/JSBSim-Team/jsbsim) | flight dynamics (`src/sim`) and the aircraft data tree (`share/flightsim/jsbsim`) | LGPL-2.1 | `libJSBSim.dll` (shared library, source in `third_party/jsbsim`), built with one fix of flightsim's - see below |
+| [JSBSim](https://github.com/JSBSim-Team/jsbsim) | flight dynamics (`src/sim`) and the aircraft data tree (`share/flightsim/jsbsim`) | LGPL-2.1 | `libJSBSim.dll` (shared library, vendored source in `third_party/jsbsim`), with project patches generated at build time - see below |
 | [VulkanSceneGraph](https://github.com/vsg-dev/VulkanSceneGraph) | viewer and vision rendering | MIT (c) 2018 Robert Osfield | statically linked into `flightsim-viewer.exe` and `libfsim_vision.dll` |
 | [vsgXchange](https://github.com/vsg-dev/vsgXchange) | model/image loading, tile fetching | MIT (c) 2019 Robert Osfield | statically linked |
 | [vsgImGui](https://github.com/vsg-dev/vsgImGui), [Dear ImGui](https://github.com/ocornut/imgui), [ImPlot](https://github.com/epezent/implot) | viewer UI | MIT | statically linked into `flightsim-viewer.exe` |
@@ -57,8 +57,8 @@ them locally; using them is subject to the providers' terms:
 
 ## Changes to JSBSim
 
-flightsim builds JSBSim 1.3.1 from the unmodified submodule in `third_party/jsbsim`, with
-these changes:
+flightsim builds JSBSim 1.3.1 from the tracked vendored source in `third_party/jsbsim`, with
+the following changes generated into the build tree by `cmake/JsbsimPatches.cmake`:
 
 - In `src/models/FGLGear.cpp`, the projection of a wheel's strut on the ground normal is
   bounded at 45 degrees. Upstream divides the wheel's compression and ground force by that

@@ -1,12 +1,17 @@
 # testbench
 
+Use [status](../docs/status.md) for current capability and milestone scope, [development](../docs/development.md)
+for setup and direct build commands, and [resources](../docs/resources.md) for dependencies. Results retained here
+are historical scenario evidence, not a new acceptance run.
+
 A window for testing the platform's features by eye: choose a scenario, set its options, run it, and watch the
 aircraft in flightsim-viewer while the window shows its checks, its vehicles' state and its activities as they fly.
 
 ## How to open it
 
-**Double-click `Testbench.cmd`** in the repository root (`D:\Projects\Rust\DecisionDRLTest\Testbench.cmd`), or the
-**"flightsim testbench"** shortcut on the desktop, which runs it.
+**Double-click [Testbench.cmd](../Testbench.cmd)** in this repository's root after completing the
+[development setup and build](../docs/development.md). An existing **"flightsim testbench"** desktop shortcut
+may also run it; verify that its target points at this checkout.
 
 1. Two windows open: the testbench, and the viewer beside it.
 2. In the testbench, pick a scenario on the left (the groups FA-1 to FA-10 open when clicked), set its options, and
@@ -43,8 +48,9 @@ fsim testbench --list                  the scenarios
 fsim testbench --headless fa9.,fa10.   run scenarios as fast as they go, no window; exit 1 if any fails
 ```
 
-`Testbench.cmd` takes them too (`Testbench.cmd --run tactics.bvr`). It needs the project built once (`fsim build`); it says
-so if it is not. The window is a Microsoft Edge app window (no address bar or tabs) on a page the testbench serves on
+`Testbench.cmd` takes them too (`Testbench.cmd --run fa10.recovery`). It needs the project built once using the direct
+CMake commands in [development](../docs/development.md); use those for a fresh checkout before the launcher.
+The window is a Microsoft Edge app window (no address bar or tabs) on a page the testbench serves on
 127.0.0.1; nothing is installed and nothing leaves the machine. Without Edge the default browser opens the page.
 
 ## What it covers
@@ -66,7 +72,11 @@ Francisco International: its runway 28R for takeoffs and landings, the bay east 
 | FA-10 Recovery and landing | the recovery to 28R with CleanUp, DirtyUp and go-around buttons, the crosswind wave-off, speedbrakes, placards, a route that lands, aerobatics given up and recovered, the U-2S, a rotorcraft's recovery |
 | Platform | flown into a mountain (the terrain strike), started inside one, a sandbox to fly by hand |
 | Stability | one scenario an aircraft, all 35 (`stability.<aircraft>`), at full load or as it spawns: a takeoff by FA's launch; then in the air a level hold, heading, altitude and speed steps, an orbit each way, a route, a curve, a crosswind with gusts, and slow flight - calibrated airspeeds stepped down to the least the VI accepts (`Performance.least_cas_ms`, at the weight it has), and turns at 1.5 and 1.3 times it and at it, within the bank its airspeed leaves. Every command through the Vehicle Interface; its activities' abnormal states (LOW_ENERGY, DEVIATING, UPSET) are part of what is checked. Its numbers and checks are kept ([below](#the-stability-suites-results)) |
-| Tactics: BVR | two fifth-generation fighters (F-22A, F-35A, J-20A, Su-57) beyond visual range over the Pacific, flown by temporary decision rules standing in for OMS: radar against the other's stealth, IRST, warning receivers; notional missiles (boost, loft, datalink, seeker, notch, fuse) shot inside their reach as the target flies; crank, notch, drag, abort, egress; nobody shot down - a hit scores the kill, "knock it off", both separate, rearm and refuel, and the next set begins, until stopped |
+
+The former `tactics.bvr` prototype has been retired along with its Python missile, sensor and random kill-scoring
+logic. It is no longer registered or offered by the testbench. Use the [native engagement contract](../docs/sdk/engagement.md)
+and its [recorded delivery evidence](../docs/sdk/engagement-validation.md) for SDK-owned engagements. This cleanup
+does not introduce a replacement testbench combat scenario.
 
 ## The stability suite's results
 

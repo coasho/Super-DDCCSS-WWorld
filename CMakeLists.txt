@@ -56,8 +56,8 @@ include(Assets)
 include(Flow)
 
 # Location of the JSBSim data tree (aircraft/, engine/, systems/) used by default
-# when no --jsbsim-root is given. Points at the submodule in development builds
-# and at share/jsbsim in installed layouts (resolved at runtime, see io::Paths).
+# when no --jsbsim-root is given. Points at vendored data in development builds
+# and at share/flightsim/jsbsim in installed layouts (resolved by io::AssetResolver).
 set(FSIM_JSBSIM_DATA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/jsbsim)
 
 add_subdirectory(src)

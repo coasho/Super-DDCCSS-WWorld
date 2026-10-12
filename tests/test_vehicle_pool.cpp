@@ -1,4 +1,4 @@
-// Integration tests against the real JSBSim data tree (submodule). They are
+// Integration tests against the tracked vendored JSBSim data tree. They are
 // the M1 exit criteria in miniature: vehicles load, fly, and produce
 // bit-identical trajectories regardless of how many workers step them.
 

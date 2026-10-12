@@ -954,16 +954,19 @@ does.
 const SupportInfo* s = v.support("fsim.guidance.hover");   // on an F-16C:
 // s->support == Support::NotSupported, s->rules == ruleBit(Rule::Hover) ("R1"),
 // s->evidence == "vertical_flight = false: USAF F-16 fact sheet: a conventional take-off and landing fighter. ..."
-v.support("fsim.guidance.hsa/direction/magnetic_north");  // NotImplemented, stage 4 (FA-4)
-v.support("fsim.guidance.hsa");                           // Partial: its `missing` says what is not built yet
+v.support("fsim.guidance.hsa/direction/magnetic_north");  // Supported on this F-16C (FA-4)
+v.support("fsim.guidance.hsa");                           // Supported on this F-16C
+v.support("fsim.guidance.curve/discretized");             // NotImplemented, stage 17 (FA-17)
+v.support("fsim.guidance.route/conditional_segment");     // Partial: mission-critical/lost-comms conditions remain FA-16 work
 for (const SupportInfo& row : v.supportTable()) { ... }   // every public feature, in supportFeature()'s order
 ```
 
 - **The public features** are the SDK's own identifiers: each capability's id
-  (`fsim.guidance.hsa`, `fsim.support.gear`), the flight capability types not
-  built yet (`fsim.guidance.must_fly`, `marshall`, `launch`, `recovery`,
-  `intercept`, `taxi`), the finer features of a capability after a slash
-  (`fsim.guidance.pattern/entry/teardrop`), and the command interface's own
+  (`fsim.guidance.hsa`, `fsim.support.gear`), the implemented flight capability types
+  (`fsim.guidance.must_fly`, `marshall`, runway `launch` and `recovery`,
+  `intercept`, `taxi`), and remaining features such as carrier launch/recovery and
+  formation templates, whose support is reported separately. Identifiers also include finer capability features
+  after a slash (`fsim.guidance.pattern/entry/teardrop`) and command-interface features
   (`fsim.command/time_window`, `fsim.activity/disable`). `supportFeatureCount()`
   and `supportFeature(i)` list them; an identifier never changes meaning.
 - **Supported, partial, not implemented, not supported.** Partial names what

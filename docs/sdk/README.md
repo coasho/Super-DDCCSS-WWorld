@@ -1,16 +1,16 @@
 # fsim SDK guide
 
-> **New here?** Run `fsim demo` from the repository root to see what the platform does, then read
-> the ten-line tour below. The pages in the table are reference material - reach for the one that
-> matches what you are building, rather than reading them in order.
+Start with the [root build/run guide](../../README.md), [current capabilities and limits](../status.md),
+and the C++ tour below. After a render build, `./fsim.cmd demo` opens a visual demonstration;
+headless consumers can run `build/ucrt64-headless/examples/minimal_trainer.exe` directly.
+The launcher chooses among existing builds; see the root guide when you need a specific preset.
 
 The `fsim` SDK is how a training application drives the platform. You write a
 C++ program (or a Python one, `import fsim`, or any language with a C FFI,
 through `fsim_c.h`), link `libfsim.dll`, create a **World**, create **vehicles** by name, type and initial
 state, command them at whichever **control level** your experiment needs, and
-step the world. Visualisation is somebody else's job: start
-`flightsim-viewer.exe` at any time and it mirrors your world through shared
-memory without your program noticing (see [viewer.md](viewer.md)).
+step the world. Start `flightsim-viewer.exe` from a render build and it mirrors a
+published world through shared memory (see [viewer.md](viewer.md)).
 
 | Document | Contents |
 | --- | --- |
@@ -22,12 +22,14 @@ memory without your program noticing (see [viewer.md](viewer.md)).
 | [agents.md](agents.md) | agents and the referee: an MA's own objects, what they refuse, the referee's view (ADR-31) |
 | [boundary.md](boundary.md) | which principal each entry point belongs to - agent (an MA's decisions), MA core, range, referee, platform - and the calls an agent may not yet trust (ADR-31) |
 | [mission-systems.md](mission-systems.md) | the payloads each aircraft carries (radars, warning receivers, jammers, sensors, guns, stations): discovery, power states, BIT, grants (ADR-30) |
+| [engagement.md](engagement.md) | native missile release, flight, seekers, countermeasures, events, damage, compatibility and modeling assumptions |
+| [engagement-validation.md](engagement-validation.md) | dated local regression and encounter evidence, reproduction paths and validation limits |
 | [vision.md](vision.md) | cameras on vehicles: offscreen RGB images of the same Earth the viewer draws (`fsim_vision.dll`) |
 | [vecenv.md](vecenv.md) | the batch (gym-style) layer for vectorised RL, built on the same object model; registering your own task, observation space and action space |
 | [c_abi.md](c_abi.md) | the C ABI for other languages |
 | [python.md](python.md) | the Python SDK: the same object model, batch layer and cameras as numpy arrays, Gymnasium and Stable-Baselines3 adapters, and what it costs |
 
-## Ten-line tour
+## C++ tour
 
 ```cpp
 #include <fsim/World.h>
@@ -59,8 +61,9 @@ int main() {
 
 - Headers: `include/fsim/*.h` (C++17; the `{.field = ...}` designated initialisers in these pages are C++20 sugar - assign the fields instead in C++17). Only these are stable; anything under `src/` may change.
 - Library: `libfsim.dll` (+ import library) and `libJSBSim.dll` next to your executable.
-- Data: the JSBSim aircraft tree is found automatically next to the executable (`share/jsbsim`) or in the source tree; override with `WorldOptions::jsbsimRoot`.
-- CMake in this repository: `target_link_libraries(my_trainer PRIVATE fsim::sdk)` (see `examples/`); from an installed package: `find_package(fsim CONFIG)` gives `fsim::sdk` and `fsim::vision` (`tests/package_consumer`). `cmake --install` and `cpack` produce the package (README "Install and package").
+- Data: the JSBSim aircraft tree is found relative to the executable (`../share/flightsim/jsbsim`) or in the source tree; override with `WorldOptions::jsbsimRoot`. Hangar designs and payload/store cards are staged under `share/flightsim`; see the [resource guide](../resources.md).
+- CMake in this repository: `target_link_libraries(my_trainer PRIVATE fsim::sdk)` (see `examples/`); from an installed package: `find_package(fsim CONFIG REQUIRED)` gives `fsim::sdk`, plus `fsim::vision` only when built with rendering (`tests/package_consumer`). See [Install and package](../../README.md#install-and-package) for `dist`, component installation and CPack.
+- Platform development and validation: [development guide](../development.md). Current capability and verification boundaries: [status](../status.md).
 
 ## Conventions
 
@@ -68,4 +71,4 @@ int main() {
 - `fsim::control::kHold` (NaN) in an optional command field means "keep the current value / let the controller decide".
 - Every `World` call runs on the caller's thread; `step()` is the only call that does work. Nothing is asynchronous, nothing is hidden.
 - Load-time failures throw `fsim::Error`; runtime calls return `bool`/handles and log through the platform logger.
-- Determinism: same seed, same calls, same trajectories, for any number of worker threads.
+- Determinism is a contract for the same seed, fixed simulation step and call sequence across worker counts; validate changes with the relevant determinism checks described in the [development guide](../development.md).

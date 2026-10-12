@@ -4506,11 +4506,11 @@ Key: **W** works, **P** partial, **M** missing (not implemented yet), **X** phys
 
 ## Appendix C: per-aircraft evidence for the physical exceptions
 
-Model evidence cites the aircraft files at caf03c9. "Not probative" means the model cannot show the exception, because no aircraft models the feature yet. The type facts are what FA-1 records with a public source in each aircraft's `[applicability]` declaration (5.2). Until a source is recorded, discovery reports the item as applicable (not implemented), never as not supported. "Pending" rows are not exceptions yet: type data decides them.
+Model evidence below is the historical snapshot of aircraft files at caf03c9. In that revision, "Not probative" meant the model could not show the exception because no aircraft modelled the feature yet. The type facts were those FA-1 recorded with a public source in each aircraft's `[applicability]` declaration (5.2). Until a source was recorded, discovery reported the item as applicable (not implemented), never as not supported. "Pending" rows were not exceptions at that revision: type data decided them. The table preserves that evidence rather than describing the current models or discovery state.
 
-120 exceptions established on the evidence below, 4 pending.
+At caf03c9, 120 exceptions were established on the evidence below, with 4 pending.
 
-| Aircraft | Rule | Excluded | Model evidence | Type fact (FA-1 records its source) |
+| Aircraft | Rule | Excluded | Model evidence at caf03c9 | Type fact (FA-1 recorded its source) |
 | --- | --- | --- | --- | --- |
 | a10c (A-10C) | R1 | LTR-15 hover loiter; ASM-01's hover option; vertical deck operations (R4) | `aircraft/a10c/a10c.xml:361` family 1 (direct) | Conventional takeoff and landing type: no rotors, lift fans or vectored lift for hovering |
 |  | R3, R5 | LCH-05 to LCH-07, RCV-05 to RCV-07, RCV-09, RCV-10 (catapult, arrested landing, arrester hook) | Not probative: no aircraft models a hook or launch bar yet | USAF land-based close-support type |

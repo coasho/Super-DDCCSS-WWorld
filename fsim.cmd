@@ -75,7 +75,7 @@ if not exist "%PYSTAGE%\fsim-python.cmd" (
     echo The Python SDK is not built: it needs a CPython 3.11 or later from python.org or conda.
     echo Point the build at one and rebuild:
     echo.
-    echo     cmake --preset ucrt64-release -DFSIM_PYTHON_EXECUTABLE=C:/path/to/python.exe
+    echo     cmake --preset ucrt64-release -DFSIM_PYTHON_EXECUTABLE=D:/ENV/python/3.13/python.exe
     echo     fsim build
     exit /b 1
 )

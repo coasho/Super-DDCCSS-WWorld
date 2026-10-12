@@ -26,7 +26,7 @@ public:
     /// Root of a JSBSim data tree (contains aircraft/, engine/, systems/):
     /// `explicitRoot` if given and valid, else the first search path that has
     /// a `jsbsim/aircraft` or `aircraft` directory, else the build-time
-    /// submodule location.
+    /// vendored source-tree location.
     std::optional<std::filesystem::path> jsbsimRoot(const std::filesystem::path& explicitRoot = {}) const;
 
     /// Directories of aircraft folders (<dir>/<name>/<name>.xml) beyond a

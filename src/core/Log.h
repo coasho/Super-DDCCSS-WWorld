@@ -18,7 +18,8 @@ struct Record {
 };
 
 /// Where records go. The default sink writes "[level] category: message" to
-/// stderr. A trainer embedding the SDK may install its own (design 13).
+/// stderr. Internal applications may install their own; the stable SDK
+/// exposes log-level control, not this sink callback.
 using Sink = std::function<void(const Record&)>;
 
 void setSink(Sink sink);

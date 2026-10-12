@@ -1,9 +1,14 @@
 # Mission Systems: the payloads a vehicle carries
 
+Use [status](../status.md) for the current capability and milestone table, [development](../development.md) for
+build and validation practice, and [resources](../resources.md) for dependencies and references. This page
+documents payload and radar APIs and preserves dated data provenance. The [native engagement contract](engagement.md)
+is authoritative for current missile release, seekers, guidance, countermeasures, fuzes, damage and launch-zone
+estimates. Its [validation record](engagement-validation.md) is historical local evidence, not a fresh test run.
+
 [ADR-30](../mission-systems.md) puts A-GRA's Mission Systems (MS) interface on the platform. Each aircraft carries the
 real payloads of its type: radars, warning receivers, jammers, electro-optical sensors, guns, store stations and
-countermeasures. The SDK commands them the way the Vehicle Interface commands flight. This page covers what exists
-at **MS-4**:
+countermeasures. The SDK commands them the way the Vehicle Interface commands flight. This page covers:
 
 - the payloads each aircraft carries, from its fit;
 - the capabilities they give, discovered honestly;
@@ -15,8 +20,9 @@ at **MS-4**:
 - warning receivers: the radars whose signal reaches them, as emitter contacts - a search, a lock, an illumination
   (MS-9a, its first part).
 
-The models behind the other capabilities (tracking, ESM, missiles, ...) come in the later stages. Until a
-stage lands, its capability is advertised `not_implemented`, together with the stage that builds it.
+Tracking and native missile engagement are implemented; see the sections below and [engagement](engagement.md).
+The full ADR-30 roadmap still contains unimplemented or partial capabilities. Read discovery together with
+[status](../status.md), which records known discrepancies and distinguishes current delivery from planned fidelity.
 
 ## Payloads and capabilities
 
@@ -106,13 +112,14 @@ A refused command raises `fsim.MissionRejected`, whose `.reason` holds the reaso
 
 A store released by an aircraft becomes an entity of the world (by the platform's `launchWeapon`, or by its store
 management: [Stores and weapon employment](#stores-and-weapon-employment-ms-7a)). It has a vehicle id, which the state
-calls read, and the viewer draws it. Sensors will see it too. It is flown by its own model; the flight capabilities report it
-`unavailable` with reason `restricted`, and its seeker and guidance arrive with the missiles at MS-7. It ends where
-it strikes the ground or the sea, and the world keeps its record: when and where it ended, and how fast it was going.
+calls read, and the viewer draws it. It is flown by its own JSBSim model; the flight capabilities report it
+`unavailable` with reason `restricted`. Armed missiles use the native seeker, guidance and fuze chain described in
+[engagement](engagement.md); a jettisoned store remains inert. Terminal records include impact, detonation and
+expiry/removal outcomes, with the native final state retained for observation.
 There are no ground entities (ADR-30, D7).
 
 `launchWeapon` is the platform's release, as `failPayload` is the platform's contingency. A commanded release (A-GRA's
-Strike and Store Management) comes with MS-7. The store starts at its station, given as an offset from the launcher's
+Strike and Store Management) uses the strike calls below. The store starts at its station, given as an offset from the launcher's
 CG in the launcher's body axes. It takes the launcher's attitude and its velocity over the earth, plus the ejection's
 push. The Mk 82 (`jsbsim:mk82`) is the store to release: its flight model and its model in the viewer are built from its
 design by hangar (`aircraft/mk82`, `python -m hangar mk82`: [hangar.md](../hangar.md#stores)) - the published length,
@@ -487,7 +494,7 @@ struct from before them is a volume's search). An agent has the same calls (`Age
   does - through the memory time too, the beam still on the track - and ends with it. The illumination is the
   radar's own waveform at its average power through its antenna (no separate continuous-wave transmitter is
   modelled: an assumption, after the pulse-Doppler illumination the later Sparrows and the R-27R are described as
-  using). MS-7d's semi-active seeker reads it; a scan lights nothing (`invalid_parameter`).
+  using). The native semi-active seeker reads it ([engagement](engagement.md)); a scan lights nothing (`invalid_parameter`).
 - **Refusals:** `unknown_track` - a track or cued command naming a track the radar does not hold; `invalid_parameter`
   - a track command without a track or in a search mode, a volume in single-target track, a cued search in velocity
   search (high PRF: no range, no tracks), illumination outside single-target track, any of them for a rotodome (an
@@ -557,17 +564,20 @@ In C++: `Vehicle::contacts(payload)` (`ms::Contact`, `ms::EmitterMode`). In C (A
   With them an F-16C's receiver takes -40 dBm from another F-16C's main beam at 40 km, -48 dBm at 100 km and -58 dBm
   at 300 km (both at 8 km: in sight of each other), and hears its side lobes inside about 5 km: a radar is heard much
   further than it sees, as the one-way equation has it.
-- **Not yet:** each pass of a scanning beam as an event - a search is heard for as long as the receiver is in the
-  volume scanned, not once a frame; missiles' seekers and the launch warning (they come with the weapons' seekers:
-  MS-7d); the emitter's type - a contact names none, `truth` is the simulation's; chaff; jammers and the full ESM
-  (MS-9b); the viewer's display; an agent's own call (`fsim::Agent`: the range's `Vehicle` only).
+- **Initial MS-9a limitations (historical):** the first receiver did not provide per-pass scanning-beam events,
+  missile-seeker emissions, chaff, full ESM/jamming, a viewer display or an agent-scoped call. Current native
+  engagement supplies active-seeker emissions through the receiver and native chaff/flare behavior; clients
+  consume measured receiver contacts ([engagement](engagement.md)). The original full ESM/jamming roadmap and
+  remaining limitations are assessed in [status](../status.md), without treating that narrower delivery as MS-9 completion.
 
 ## Stores and weapon employment (MS-7a)
 
 A-GRA's Store Management and Weapon Employment sequences as SDK calls: the inventory (its MA_StrikeCapability), strike
 with release consent, abort, jettison. A store station payload (`stations` in a fit) gives two capabilities:
-`fsim.ms.store_management` (the inventory, consent) and `fsim.ms.strike` (strike, jettison) - both partly built: the
-weapons' seekers, guidance and fuzes come with MS-7d, launch zones with MS-8.
+`fsim.ms.store_management` (the inventory, consent) and `fsim.ms.strike` (strike, jettison). Flyable air-to-air
+stores can be struck through this API. Native seekers, guidance, fuzes, damage, countermeasures and advisory
+launch-zone estimates are documented in [engagement](engagement.md). They use game assumptions; the original
+MS-7c/MS-7d/MS-8 high-fidelity goals remain separately assessed in [status](../status.md).
 
 ```python
 v = w.create_vehicle("viper", "jsbsim:f16c", ...)
@@ -598,13 +608,14 @@ v.jettison(emergency=True)                # the rest, unarmed, at once
   release (and its `power_up_s`, `power_down_s`) and can be jettisoned, its mass and dimensions with their sources.
   Every card names a model (`model`): whatever a station carries can leave it as a JSBSim vehicle of its own, weighing
   what its station weighed ([hangar.md](../hangar.md#mass-accounting)). `employable` (true unless the card says
-  otherwise) is whether it may be released as a weapon: an air-to-air missile is not yet - a strike with one is refused
-  (`store_not_flyable`; `StoreInfo::flyable` false) - but it is jettisoned like any other store.
+  otherwise) is whether it may be released as a weapon. A flyable air-to-air missile supports strike; a store with
+  `StoreInfo::flyable` false is refused (`store_not_flyable`). Jettison always releases an inert body, without an
+  armed motor or fuze, including when that store supports armed strike.
 - **Loadouts:** a fit names the loads its stations may take (`loadouts`), each with its basis. An aircraft starts
   empty; a scenario loads it (`load_loadout`, `load_store`) - the flight model carries the stores' mass from the next
   step (hangar writes each station as a point mass of the aircraft's, the platform sets it to the stores on it).
 - **Strike** (A-GRA's Strike task, then its TaskCommand): a store type and a quantity - or the stores by index - and a
-  target (for a guided weapon's seeker, MS-7d). The stations must operate (the master arm). Powerable stores power up;
+  target (a guided missile's designation follows [engagement](engagement.md)). The stations must operate (the master arm). Powerable stores power up;
   then the activity asks for release consent (A-GRA's StrikeConsentRequest) unless the command gives it (MA's weapons
   release authority answering itself); then the stores leave a ripple interval apart, each a weapon entity at its
   station (`launchWeapon`), its record naming the store, station, activity and target. The activity completes when the
@@ -626,10 +637,11 @@ v.jettison(emergency=True)                # the rest, unarmed, at once
 - `examples/python/stores.py` shows it: an F-16C loads four Mk 82s, strikes two with consent given a few seconds
   later, and jettisons the other two.
 
-**Data so far:** the F-16C's nine stations (the article's hardpoints, numbered left to right; their places derived from
+**Initial MS-7a data (historical):** the F-16C's nine stations (the article's hardpoints, numbered left to right; their places derived from
 hangar's design of it, their limits the figures commonly quoted, which no primary source found confirms - engineering
 assumptions, said so on the card) and its loadout of four Mk 82s; the Mk 82's store card (its flight model JSBSim's
-`mk82`). The missiles' cards and every aircraft's stations came with MS-7b (below), their flight models come with MS-7c.
+`mk82`). The missiles' cards and every aircraft's stations came with MS-7b (below). Current store models come from
+Hangar; armed missile behavior follows [engagement](engagement.md), separately from MS-7c's planned solver calibration.
 
 **The missiles' cards (MS-7b).** The fighters' air-to-air missiles, 24 cards in `assets/stores` (class `aam`), each with
 its seeker, guidance, motor and fuze in words and its numbers with their sources. One method for every nation's: each
@@ -672,8 +684,9 @@ engineering assumption, its reasoning in its note. `+` derived, `*` assumed:
 - Assumed: the AIM-9X's range and speed (classified: the family's); the PL-10's diameter and speed (its class's); the
   R-77M's mass, length and warhead (the R-77-1's: no source read gives the R-77M's).
 - Every missile's power-up and power-down time: 1 s, assumed (no source gives any).
-- Their powered flight comes with MS-7c (until then `flyable` is false: they load, a strike of them is refused
-  `store_not_flyable`, and a jettison drops them inert); the seekers, guidance and fuzes with MS-7d.
+- The original MS-7b cards preceded powered flight and armed strike. Current flyable air-to-air stores support
+  native powered engagement; jettison remains inert. Solver-derived tables and real-world calibration are still
+  distinct MS-7c/MS-7d goals, not established by that native game implementation.
 
 **Every fighter's stations and loadouts (MS-7b).** Each of the 16 other fighters with a store-station payload has its
 card's stations - its hardpoints as the English article counts them, a multi-rail pylon's rails each a station of its
@@ -742,12 +755,12 @@ chin stations are not modelled), the HARM targeting pod, the J-10A's and the Su-
 EA-18G's ALQ-99 pods are stores like the rest (`an-alq-99`, class `pod`: its "jamming pods" loadout hangs one on each
 of stations 3, 6 and 9), no longer bodies of its airframe ([hangar.md](../hangar.md#mass-accounting)).
 
-**No powered flight for the air-to-air missiles.** Their cards name the models they leave their stations as
-(`aircraft/stores/<name>`: the body and its mass, as every store has - [hangar.md](../hangar.md#mass-accounting)) and are
-not `employable`: a strike with them is refused (`store_not_flyable`, `StoreInfo::flyable` false), and jettisoned each
-leaves as the inert body it then is. Building them - their motors, their powered flight - was stopped by the assistant's safety
-filter on 2026-10-10 and has not been taken up again. Their mass, their drag and their sideslip figures in carriage
-are on their cards like every other store's.
+**Powered air-to-air engagement.** Store cards name the released JSBSim models (`aircraft/stores/<name>`:
+[Hangar mass accounting](../hangar.md#mass-accounting)). Flyable air-to-air stores support armed strike, native motor
+state, seekers, guidance and fuzes under the [engagement contract](engagement.md). Jettison creates an inert body.
+The earlier 2026-10-10 interruption is historical; it does not describe current support. Carriage mass, drag and
+sideslip figures remain card data. This implementation uses assumed game parameters and ideal fin actuation,
+without calibrated real-world missile performance or closure of the original solver-based plan.
 
 **What leaves an aircraft keeps the physics whole** (sim::FlightModel's mass change). A store released or jettisoned,
 a section parting, a tank's fuel drawn: the airframe stays where it is while its CG moves to what is left, and its

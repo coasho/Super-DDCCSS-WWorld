@@ -92,12 +92,13 @@ void Host::bind(std::uint32_t vehicle, std::shared_ptr<const Fit> fit, std::uint
             }
             // a warning receiver (MS-9a): its emitter contacts modelled
             if (type == CapabilityType::Esm && models_[p.index]) c.support = control::Support::Supported, c.stage = 0;
-            // a store station its card describes (MS-7a): its inventory and releases modelled; launch zones, and the
-            // weapons' seekers and guidance, to come
+            // Native store lifecycle, engagements and advisory launch zones exist. The original calibrated
+            // weapon and launch-zone acceptance remains partial (MS-7/MS-8).
             if (p.family == Family::StoreStation && !cards_[p.index]->stations.empty() &&
                 (type == CapabilityType::Strike || type == CapabilityType::StoreManagement)) {
                 c.support = control::Support::Partial, c.stage = 7;
-                c.missing = type == CapabilityType::Strike ? "the weapons' seekers, guidance and fuzes (MS-7d)" : "launch zones (MS-8)";
+                c.missing = type == CapabilityType::Strike ? "calibrated weapon performance and seeker/fuze fidelity (MS-7)"
+                                                          : "validated launch-zone envelopes (MS-8)";
                 (type == CapabilityType::Strike ? strikeCapability_ : storeCapability_)[p.index] = static_cast<int>(capabilities_.size());
             }
             if (type == CapabilityType::Status) statusCapability_.push_back(capabilities_.size());

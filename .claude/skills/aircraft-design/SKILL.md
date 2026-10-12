@@ -1,9 +1,15 @@
 ---
 name: aircraft-design
-description: Design, analyse and validate a new aircraft for JSBSim with hangar (tools/hangar), from a description, drawing or photo to a flight-tested jsbsim:<name> - light aircraft, UAVs, jet fighters with fly-by-wire, and bombers, transports and other support aircraft. Use when asked to model an aircraft that has no JSBSim model or wind-tunnel data, to change a design's geometry, mass or engine, or to explain how a design flies.
+description: Design, analyse and validate a new aircraft for JSBSim with hangar (tools/hangar), from a description, drawing or photo to a flight-tested jsbsim aircraft - light aircraft, UAVs, jet fighters with fly-by-wire, and bombers, transports and other support aircraft. Use when asked to model an aircraft that has no JSBSim model or wind-tunnel data, to change a design's geometry, mass or engine, or to explain how a design flies.
 ---
 
 # Aircraft design with hangar
+
+> Provenance: maintained in `.agents/skills/aircraft-design/SKILL.md`; the
+> `.claude/skills/aircraft-design/SKILL.md` file is a byte-identical synchronized
+> discovery copy. The consolidated workflow retains the fuller existing Claude
+> version and the applicable shared guidance. Update both in the same change;
+> see `docs/development.md` for synchronization checks.
 
 hangar turns one TOML file (`aircraft/<name>/<name>.toml`) into a JSBSim
 aircraft, a glTF model and a validation report. docs/hangar.md covers the
@@ -11,16 +17,23 @@ stages, the file format and the methods. This skill is the working loop.
 
 ## Run it
 
-```bash
-./fsim.cmd hangar list
-./fsim.cmd hangar new <name> --like skua     # or --like c172
-./fsim.cmd hangar <name> geometry            # any stage, or several in order
-./fsim.cmd hangar <name> --quick             # all stages, coarse tables: ~30 s
-./fsim.cmd hangar <name>                     # all stages, full tables: ~2-3 min
-./fsim.cmd hangar <name> calibrate           # only with real performance data
-./fsim.cmd hangar <name> autopilot           # the platform's control loops tuned for it (~10-90 s)
-./fsim.cmd hangar <name> performance         # its performance and fuel tables, into the .xml (~20-50 s)
-./fsim.cmd hangar uh60 performance           # a rotorcraft's too: from the hover, after its fly stage (~10-40 s)
+Use the configured build and CPython environment described in
+`docs/development.md`. The launcher requires an existing application and
+Python SDK; use direct CMake commands there for the first configure/build.
+A full run's duration depends on the aircraft and stages; do not reuse old
+quick-run timings as full-corpus estimates.
+
+```powershell
+$designName = 'my-aircraft'                # choose the design name
+.\fsim.cmd hangar list
+.\fsim.cmd hangar new $designName --like skua # or --like c172
+.\fsim.cmd hangar $designName geometry     # any stage, or several in order
+.\fsim.cmd hangar $designName --quick      # all stages, coarse tables: a first look
+.\fsim.cmd hangar $designName              # all stages, full tables and flight checks
+.\fsim.cmd hangar $designName calibrate    # only with real performance data
+.\fsim.cmd hangar $designName autopilot    # tune the platform's control loops for it
+.\fsim.cmd hangar $designName performance  # its performance and fuel tables, into the .xml
+.\fsim.cmd hangar uh60 performance         # a rotorcraft's too: from the hover, after its fly stage
 ```
 
 The outputs go to `aircraft/<name>/out/`: `<stage>.json` (the numbers and
@@ -57,7 +70,7 @@ checks), the PNGs, and `report.html`. A fail makes the exit code 1.
 
 ## 2. Look after every stage
 
-Read the images with the Read tool and compare them with the sources. Don't
+Open the generated images and compare them with the sources. Don't
 move on while a check fails or a picture looks wrong.
 
 - **geometry.** Read `threeview.png` and `views.png` next to the reference
@@ -136,7 +149,7 @@ move on while a check fails or a picture looks wrong.
   - Shape: intakes are `[[intake]]` bodies (lip, rake, sweep, duct). Bellies
     and chines come from `chine`, `n_top`, `n_bottom`. Canopies take `frames`.
     Leading-edge flaps and slats go in the surface's `leading` list.
-- **In the viewer.** Take a screenshot, then Read the PNG:
+- **In the viewer.** Take a screenshot, then inspect the PNG:
 
   ```bash
   build/ucrt64-release/bin/flightsim-viewer.exe --demo --vehicles 2 --aircraft <name> --alt 400 --screenshot <scratchpad>/<name>.png --screenshot-after 10
@@ -366,4 +379,6 @@ move on while a check fails or a picture looks wrong.
   not have changed is a bug to chase, not a file to check out. (Only
   calibrate dates its `calibration.toml` every run.)
 - The aircraft is `jsbsim:<name>` everywhere on the platform, with no copying:
-  in the viewer, the C++ and Python SDKs, and scenario files.
+  in the viewer, the C++ and Python SDKs, and scenario files. Build and
+  installation staging copy its runtime products automatically; standalone
+  SDK data provision follows `docs/resources.md`.

@@ -52,8 +52,8 @@ bool enabled(Level l) noexcept { return static_cast<int>(l) >= g_level.load(std:
 void write(Level l, std::string_view category, std::string_view message) {
     if (!enabled(l)) return;
     const Record record{l, category, message, platform::Clock::nanoseconds()};
-    // A mutex is acceptable here: the hot paths never log (design 12.2). The
-    // lock-free ring buffer from design 13 replaces this when the viewer lands.
+    // Sink callbacks are serialized on the caller's thread. Logging remains
+    // outside the allocation-free steady-state path.
     std::lock_guard<std::mutex> lock(g_sinkMutex);
     sink()(record);
 }

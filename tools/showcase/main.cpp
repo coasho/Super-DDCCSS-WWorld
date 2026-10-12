@@ -1,14 +1,13 @@
-// flightsim-showcase: a recording that shows a store's model, its moving parts and its effects before any flight model
-// flies it (ADR-30, MS-7e: docs/mission-systems.md). It writes the states a flight would - a carrier flying level, a
-// missile carried on its station (the carrier's stores, as a World records them), then launched, a vehicle of its own
-// from then on as World::launchWeapon makes it: its motor's thrust through its burn's phases, its fins as a scripted
-// manoeuvre deflects them - and the viewer plays them back (flightsim-viewer --replay). Nothing here is flown: the
-// motion is scripted, kinematic, and said so; the states are the ones a flight model writes later, so what the viewer
-// draws from them is what it will draw then.
+// flightsim-showcase: a scripted recording for a store's model, moving parts and rendering effects
+// (ADR-30, MS-7e: docs/mission-systems.md). The carrier and missile motion is kinematic: level carriage, release,
+// motor phases and commanded fin deflections are written directly into the recording's vehicle states. The viewer
+// plays those states back through its normal rendering path (flightsim-viewer --replay). An optional target aircraft
+// is flown by World through its JSBSim flight model and damage chain. This fixture checks rendering from supplied
+// states; it does not validate native missile flight, guidance, seekers or fuze outcomes.
 //
 //   flightsim-showcase <script.json> <out.fsrec>
 //
-// The script (written by `fsim hangar <missile> showcase` from the design):
+// The script (written by `fsim hangar showcase <missile>` from the design):
 //   { "name": ..., "duration_s": 30, "rate_hz": 60,
 //     "start": { "lat_deg", "lon_deg", "alt_m", "heading_deg" },
 //     "carrier": { "type": "jsbsim:f16c", "name", "speed_ms", "thrust_n", "n2" },

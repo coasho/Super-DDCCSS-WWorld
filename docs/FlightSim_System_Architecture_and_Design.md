@@ -2,6 +2,13 @@
 
 2026-09-19 · @Someone
 
+This document preserves the system design, owner decisions, targets and dated progress history.
+[Status](status.md) is the sole current capability and milestone table. Use [development](development.md) for
+the supported setup/build/validation workflow and [resources](resources.md) for dependency provenance and tools.
+Historical measurements below apply to their recorded revision and hardware; design targets are not current
+acceptance evidence. Current missile behavior is defined by [native engagement](sdk/engagement.md), whose game
+assumptions do not complete ADR-30's high-fidelity modeling roadmap.
+
 ## 1. Purpose and scope
 
 This document defines the architecture of a pure C++ flight-simulation platform for AI and reinforcement-learning (RL) training: JSBSim computes flight dynamics for many vehicles at once, VulkanSceneGraph (VSG) renders a full-Earth scene for visualisation and for vision-based observations, and a C++ SDK with a stable C ABI is the primary interface. It is the reference for structure, boundaries and major technical decisions; implementation details live in code and per-module design notes.
@@ -31,11 +38,11 @@ Secondary requirements that follow from the four drivers and the owner decisions
 - Open source: the platform is released under MIT; every dependency is MIT, Apache-2.0, BSD, Zlib or LGPL (JSBSim), with JSBSim linked as a shared library.
 - JSBSim as-is: stock aircraft, engines, systems and XML scripts from the JSBSim repository; flight-control automation uses JSBSim's own FCS/autopilot definitions; no custom FDM code in v1.
 
-## 3. Technology stack baseline
+## 3. Technology stack baseline and historical selection
 
 Licensing consequence: JSBSim's LGPL-2.1 is the only copyleft component. Dynamic linking of JSBSim, or shipping object files to allow relinking, keeps the application's own licence free. All other core components are MIT/Zlib/Apache.
 
-The fixed stack is C++17, VSG 1.1.x and JSBSim 1.3.x, with vsgXchange for model loading and HTTP tile fetching and vsgImGui for the viewer UI; nothing else is required at runtime. All components are actively maintained and MIT/LGPL licensed; CMake is the build system because every dependency already uses it. Status checked 2026-09-19.
+The original stack selection was C++17, VSG 1.1.x and JSBSim 1.3.x, with vsgXchange for model loading and HTTP tile fetching and vsgImGui for the viewer UI. The version/release snapshot below was checked 2026-09-19; it is historical provenance rather than a current dependency inventory. Current source, runtime prerequisites and licenses are listed in [resources](resources.md) and `THIRD_PARTY_NOTICES.md`; CMake is the build system.
 
 | Component | Version | License | Last release / push | Role | Notes |
 | --- | --- | --- | --- | --- | --- |
@@ -45,7 +52,7 @@ The fixed stack is C++17, VSG 1.1.x and JSBSim 1.3.x, with vsgXchange for model 
 | [JSBSim](https://github.com/JSBSim-Team/jsbsim) | 1.3.1 | LGPL-2.1 | 2026-05-17 (push 2026-09-15) | Flight dynamics (`FGFDMExec`), stock aircraft/engines/systems, XML scripts, property tree | Linked as a DLL; one instance per vehicle |
 | [vsgImGui](https://github.com/vsg-dev/vsgImGui) | 0.8.0 | MIT | 2026-08-21 | Dear ImGui + ImPlot debug/monitor UI inside the VSG frame | Viewer only |
 | libcurl (via vsgXchange) | current | MIT-style | active | HTTP(S) fetch of imagery/elevation tiles when a remote pyramid is used | not needed for file-based pyramids |
-| CMake + vcpkg | ≥ 3.25 / manifest mode | BSD-3 / MIT | — | Build and dependency management | vcpkg has ports for every dependency above |
+| CMake | ≥ 3.25 | BSD-3 | — | Build and dependency management | The original vcpkg proposal is superseded; current source dependencies are vendored, with Catch2 fetched for tests and platform packages supplied by MSYS2 |
 | Offline tooling only: GDAL | current | MIT | active | `tools/tile_builder` converts DEM and imagery sources into the tile pyramid | never linked into the platform; runs at data-preparation time |
 
 Compiler and platform for v1 (owner decision 2026-09-19): MSYS2 **UCRT64** — GCC 16.2, mingw-w64, UCRT — on Windows 10/11 x64; CMake 4.1 and Ninja from the same environment; Vulkan headers/loader, glslang, SPIRV-Tools, assimp and curl from MSYS2 packages. The MSYS2 installation must be kept consistent with `pacman -Syu` (partial upgrades break newly installed packages). MSVC is not used. A Linux build is not a v1 deliverable but nothing in the stack prevents it.
@@ -99,53 +106,60 @@ Scale 1 (poor) to 5 (excellent); weights follow the driver priority in section 2
 
 ## 5. System architecture overview
 
-The platform is a set of statically linked C++ modules in five layers with strictly downward dependencies, exposed through the `fsim` library (C++ SDK + C ABI) and two thin executables. VSG's object model (`vsg::Object`, `vsg::ref_ptr`, visitors, `vsg::Input/Output`) is the single object model for the codebase; the `env` layer, which turns simulations into RL environments, sits above `sim` and knows nothing about rendering.
+The native implementation is split into internal CMake targets behind the `fsim` SDK. `session::World` coordinates simulation; `src/world` composes optional rendered scenes. Core simulation and SDK state are plain C++ data, not VSG objects. The following diagram shows major relationships; the target CMake files define the complete link graph.
 
 ```mermaid
 flowchart TD
-    SDK[fsim library<br/>C++ SDK + C ABI] --> ENV
-    EXE[app<br/>flightsim.exe, viewer] --> ENV[env<br/>VecEnv, tasks, observations]
-    EXE --> WORLD[world<br/>earth tiles, vehicles, cameras]
-    EXE --> UI[ui<br/>ImGui viewer layers]
-    ENV --> SIM[sim<br/>vehicle pool, JSBSim adapters]
-    WORLD --> SIM
-    WORLD --> RENDER[render<br/>VSG viewer, offscreen]
-    UI --> RENDER
-    SIM --> CORE[core<br/>registry, bus, properties, jobs]
-    RENDER --> CORE
-    CORE --> IO[io<br/>assets, config, tile cache]
-    CORE --> PLATFORM[platform<br/>Win32 isolation]
-    EXT[ext/*<br/>env_server, recorder, ...] -.-> CORE
+    SDK[SDK<br/>C++, C ABI, Python bindings] --> ENV[env<br/>VecEnv and tasks]
+    SDK --> SESSION[session<br/>simulation World]
+    ENV --> SESSION
+    SESSION --> CONTROL[control<br/>VI and activities]
+    SESSION --> MS[ms<br/>sensors, stores, engagements, damage]
+    SESSION --> SIM[sim<br/>vehicle pool and JSBSim]
+    SESSION --> IPC[ipc<br/>publication and recording]
+    SESSION --> SERVICES[effects and comm]
+    CONTROL --> SIM
+    SIM --> IO[io<br/>assets and terrain data]
+    IO --> CORE[core<br/>data utilities, logging, registries]
+    CORE --> PLATFORM[platform<br/>Windows services]
+    VIEWER[viewer application] --> UI[ui]
+    VIEWER --> IPC
+    UI --> WORLD[world<br/>rendered scene]
+    WORLD --> RENDER[render<br/>VSG and Vulkan]
+    VISION[optional vision SDK] --> WORLD
+    VISION --> SDK
 ```
 
-Reading the diagram: the `fsim` SDK (object model in `sim`/`control`/`comm`, batch layer in `env`) is the only thing a trainer sees; `ipc` publishes the world for the viewer; `world` and `render` are optional and attach to a running `sim` to visualise it or to produce vision observations; `core` knows neither JSBSim nor Vulkan and runs headless.
+Trainers use public SDK objects. The viewer reads IPC snapshots in its own process; optional vision cameras use the public SDK plus rendering. The two meanings of world are intentional: simulation ownership is in `session`, scene composition in `world`. The directory map below describes existing targets, not the superseded `ext/*` proposal.
 
-| Module | Responsibility | Depends on | External libs |
-| --- | --- | --- | --- |
-| `fsim` (SDK) | Public C++ headers (`fsim/World.h`, `fsim/Vehicle.h`, `fsim/Control.h`, `fsim/Environment.h`, `fsim/Effects.h`, `fsim/Comm.h`, `fsim/VecEnv.h`) and the `extern "C"` layer `fsim_c.h`; the only exported symbols of `fsim.dll` | `env`, `control`, `comm`, `ipc` | — |
-| `control` | Multi-level control stack: command types per level, `Controller`/`Behavior` interfaces, cascade, built-in PID loops and behaviours, controller registry | `sim`, `core` | — |
-| `comm` | Communication abstractions: nodes, messages, codecs, protocols, delivery media | `core` | — |
-| `ipc` | Shared-memory world segment: publisher (in `fsim.dll`) and read-only mirror (viewer), registry of live worlds | `sim`, `platform` | Win32 file mapping |
-| `vision` | `fsim_vision.dll`: vehicle cameras rendered offscreen (headless `vsg::Viewer`, one framebuffer per camera, RGB + depth readback, own-vehicle masking) over the public `World`; C ABI `fsim_vision_c.h` | `world`, `render`, `io`, `sdk` | VSG, Vulkan |
-| `app` | `flightsim.exe` (headless runs, benchmark, record, `--serve`) and `flightsim-viewer.exe`; command line, configuration, module wiring | all | — |
-| `env` | `VecEnv` batching M environments over the object model; observation and action builders (actions are commands at a chosen control level); task/reward/termination interface; seeding; episode bookkeeping | `control`, `sim`, `core` | — |
-| `session` | `World` implementation: vehicle registry by name/type over the pool, per-step environment application, effects pipeline and control cascades on the owning worker, message fabric, shared-memory publisher | `control`, `effects`, `comm`, `ipc`, `sim` | — |
-| `effects` | Effect/EffectContext (wind, force, property, sensed-state channels), built-in effects | `sim`, `core` | — |
-| `sim` | `VehiclePool` (N `FlightModel` instances stepped in parallel by a worker pool in lockstep, one worker per physical core, pre-step hook for cascades and effects), JSBSim adapter with wind/turbulence/atmosphere/external-force/seed channels, `GroundProvider` reading elevation tiles | `core`, `io` | JSBSim |
-| `world` | Scene composition: `vsg::TileDatabase` Earth (imagery + elevation layers), vehicle visuals and part animation, cameras (chase, orbit, free, per-vehicle sensor cameras), sun and sky; maps sim snapshots to scene transforms | `sim`, `render`, `core` | VSG |
-| `render` | Window and offscreen render targets, viewer, render/command graphs, shader sets, GPU→host readback for vision observations, frame statistics | `core` | VSG, vsgXchange |
-| `ui` | ImGui layers: monitor (throughput, episode stats), telemetry plots, property browser, camera and vehicle selection, scenario controls | `render`, `core` | vsgImGui |
-| `io` | Asset resolver, config, JSBSim aircraft path management, tile pyramid access and disk cache (shared by physics and rendering), recording files | `platform` | vsgXchange (curl, image readers) |
-| `core` | Module registry and lifecycle, event bus, property store, deterministic RNG streams, job system, logging, profiler | `io`, `platform` | VSG core |
-| `platform` | Win32 specifics: paths, high-resolution clock, thread naming/affinity, shared memory, HTTP, UDP, crash handler (minidump via dbghelp, installed by the executables only) | — | Win32 |
-| `ext/*` | Optional modules: `env_server` (shared memory), `recorder`, `web_dashboard`, extra sensors, scripted traffic | `core` + what they need | per module |
+| Directory | Current responsibility | Target definition |
+| --- | --- | --- |
+| `include/fsim` | Stable C++ and C ABI declarations; `World.h` includes vehicle/environment objects | [Public headers](../include/fsim/) |
+| `src/sdk` | Public object wrappers, C ABI conversion/guards and the SDK shared library | [CMake](../src/sdk/CMakeLists.txt) |
+| `src/session` | Simulation World, MA core/DMS, stepping, engagement/damage coordination and publication | [CMake](../src/session/CMakeLists.txt) |
+| `src/control` | Control runtime, capability host, VI commands, activities, navigation and routes | [CMake](../src/control/CMakeLists.txt) |
+| `src/ms` | Payload host/cards, RF, RCS lookup, radar/tracking, seekers, countermeasures and damage | [CMake](../src/ms/CMakeLists.txt) |
+| `src/sim` | JSBSim adapter, flight-model interface, vehicle pool and worker stepping | [CMake](../src/sim/CMakeLists.txt) |
+| `src/env` | VecEnv, tasks, observations/actions and episode bookkeeping | [CMake](../src/env/CMakeLists.txt) |
+| `src/effects` | Simulation effects and sensed-state channels | [CMake](../src/effects/CMakeLists.txt) |
+| `src/comm` | Message fabric, codecs, protocols and media | [CMake](../src/comm/CMakeLists.txt) |
+| `src/ipc` | Shared-memory publication/mirroring, registries and custom binary recordings | [CMake](../src/ipc/CMakeLists.txt) |
+| `src/io` | Asset resolution, aircraft-file inspection and terrain data access | [CMake](../src/io/CMakeLists.txt) |
+| `src/core` | Plain C++ utilities, JSON, units/RNG, logging, registries and lifecycle helpers | [CMake](../src/core/CMakeLists.txt) |
+| `src/platform` | Paths, clocks/threads, HTTP, UDP, shared memory and minidumps | [CMake](../src/platform/CMakeLists.txt) |
+| `src/render` | Optional VSG viewer/render graphs, screenshots and GPU timers | [CMake](../src/render/CMakeLists.txt) |
+| `src/world` | Optional scene, terrain/sky/clouds, vehicle/store visuals, trails and Flow rendering | [CMake](../src/world/CMakeLists.txt) |
+| `src/ui` | Optional native monitor, mission panels, key and viewer controls | [CMake](../src/ui/CMakeLists.txt) |
+| `src/vision` | Optional offscreen cameras over the public SDK, with a separate C ABI/library | [CMake](../src/vision/CMakeLists.txt) |
+| `src/app` | Headless and native-viewer command-line entrypoints | [CMake](../src/app/CMakeLists.txt) |
+| `python/fsim`, `python/src` | Python wrappers and stable-ABI native bindings | [Python build](../python/CMakeLists.txt) |
 
-Dependency rules, enforced by CMake target visibility and a CI check:
+Dependency conventions and current limits:
 
 1. No module includes a header from a layer above it; `env` never includes `render` or `world`.
-2. JSBSim headers appear only inside `sim`; Vulkan and `vsg::` GPU types only inside `render`, `world` and `ui`; Win32 headers only inside `platform`.
-3. Hot-path communication (stepping, snapshots, observations) uses typed buffers described in section 6, never the event bus.
-4. Optional modules are compiled in via CMake options and self-register through `core::ModuleRegistry`; the headless configuration (`sim` + `env` + `fsim`, no `render`/`world`/`ui`) builds and runs without the Vulkan SDK.
+2. Public SDK headers keep JSBSim and Vulkan implementation types private. Rendering implementation lives in `render`, `world`, `ui` and `vision`. Most Win32 services live in `platform`; `world/FlowSolver.cpp` also uses Win32 for the NVIDIA Flow runtime.
+3. Stepping, snapshots and observations use typed buffers. There is no implemented shared `EventBus` contract.
+4. CMake options assemble optional targets. `fsim::ModuleRegistry` provides internal lifecycle support, but does not automatically register every CMake module. The headless configuration excludes rendering and vision targets and needs no Vulkan SDK.
 5. Only `fsim/*.h` and `fsim_c.h` are public; everything else may change without notice.
 
 ## 6. Runtime model
@@ -508,34 +522,33 @@ Extension happens at four levels — data, SDK registration, built-in modules an
 
 | Level | Mechanism | Examples | Requires platform rebuild |
 | --- | --- | --- | --- |
-| Data | `.vsgt`/JSON scenarios and manifests resolved through `io::AssetResolver`; JSBSim XML; tile pyramids | new aircraft (JSBSim XML + glTF + manifest), scenarios, IC distributions, sensor definitions, quality presets, training regions | no |
+| Data | JSON scenarios/cards, TOML design inputs, generated JSBSim XML, GLB/manifests and offline map tiles; runtime lookup through `io::AssetResolver` | aircraft/store designs, payload fits, scenarios and map regions | no; regenerate/stage owned products when needed |
 | SDK registration | trainer code implements `fsim::Controller`, `fsim::Behavior`, `fsim::Effect`, `fsim::comm::Codec`/`Protocol`/`Medium`, `fsim::Task`, `fsim::ObservationBuilder` or `fsim::ActionMapper` and registers it by id through the SDK | a new control loop or manoeuvre, sensor noise or damage model, a message format, curriculum, reward shaping, custom observation stacks | no (trainer rebuild only) |
-| Registries | `core::Registry<T>` keyed by string id, populated in module `init()` | tasks, observation builders, action mappers, flight-model implementations, camera controllers, sensors, UI layers | yes (static) |
-| Modules | `core::Module` interface (`init / start / update(phase) / stop / shutdown`), compiled in behind a CMake option, self-registering | `ext/env_server`, `ext/recorder`, `ext/web_dashboard`, `ext/lidar`, `ext/traffic` | yes |
-| Dynamic plugins | same `Module` interface exported through `extern "C" Module* createModule()`, loaded from a plugin directory | third-party sensors or tasks without source access | no (post-v1) |
+| Internal registries | Typed registries and subsystem-owned registration, with lookup/refusal rules defined by each consumer | control/effect/communication and VecEnv registrations; see the corresponding public interfaces | internal changes require rebuild |
+| Internal lifecycle | `fsim::Module` provides `init / start / stop / shutdown`; `fsim::ModuleRegistry` starts in registration order and shuts down in reverse | lifecycle services for explicitly registered modules; no `update(phase)` hook or automatic CMake registration | yes |
+| VecEnv plugins | The SDK's VecEnv plugin loader and registration API | [compiled task example](../examples/python/plugin/climb_task.cpp) and [VecEnv guide](sdk/vecenv.md) | plugin/trainer rebuild; public contract unchanged |
 
 ### 10.2 Core interfaces modules use
 
-- `EventBus`: typed publish/subscribe (`bus.subscribe<VehicleLoaded>(...)`) for low-rate events: load, reset, pause, camera change, device hot-plug. Dispatch is on the render thread between frames; the sim thread posts, never dispatches.
-- `PropertyStore`: string-addressed tree of scalars and strings mirroring the JSBSim tree plus application values (`/app/time-factor`, `/render/fps`). Handles are resolved once and read lock-free; this is how UI, telemetry, recorder and scripting reach any value without new APIs.
-- `Registry<T>`: id → factory; unknown ids produce a logged error and a no-op default, never a crash.
-- `JobSystem`: `submit(fn)` and `submitOnRender(fn)` for work that must land on the render thread.
-- `Context`: what `init()` receives — the services above, the `vsg::Viewer` (may be null when headless), the asset resolver and configuration.
+- `Context`: the current internal lifecycle context carries the JSBSim root, seed and headless flag (`src/core/Context.h`). It does not expose a viewer, event bus, property store or general job system.
+- Registries and public plugin interfaces expose their own typed contracts; their callers decide how unknown identifiers are rejected. Do not assume a universal no-op fallback.
+- Vehicle property handles address native flight-model properties through the SDK. They are not an implemented shared application `PropertyStore`.
+- World snapshots, engagement records and scenario APIs are the implemented data paths. Consult [the SDK index](sdk/README.md) rather than the former `ext/*`, `EventBus`, `JobSystem` or dynamic `createModule` proposals.
 
 ### 10.3 Stability rules
 
 1. Headers under `include/fsim/` are the SDK; anything else is internal and may change without notice.
-2. Modules never include each other's headers; they communicate through the bus, the property store or registries.
-3. The core compiles with every `ext/*` option off, and CI builds that configuration.
+2. Internal targets include lower-layer headers according to the dependency graph; stable consumers use `include/fsim`. There is no shared bus/property-store implementation replacing these dependencies.
+3. The headless preset builds without rendering targets; `ext/*` is not a directory or option family in the current implementation.
 4. `VehicleState` may only gain fields, appended, so recorders and network consumers stay compatible.
 
 ### 10.4 No scripting runtime
 
-The platform embeds no scripting language. Behaviour that would be scripted elsewhere is either data (scenarios, JSBSim XML scripts and autopilots, which are used unchanged) or compiled C++ registered through the SDK. External orchestration — sweeps, curricula, evaluation — lives in the trainer program, which talks to the platform through the C++ SDK, the C ABI or the shared-memory server.
+The native simulator embeds no general scripting interpreter. Scenarios and JSBSim files are data; controllers and effects use compiled interfaces. External orchestration may use C++, the C ABI or the Python SDK. Agent process isolation and read-only viewer IPC are implemented contracts; a generic shared-memory environment server is not an implemented `ext/env_server` module.
 
 ## 11. Build, dependencies and packaging
 
-A single CMake super-project builds Windows x64 with MSVC 2022, resolves dependencies through a vcpkg manifest with pinned baseline, produces the `fsim` library (headers + DLL + import lib), two executables and the offline tile tool, and is released under MIT. As built: the toolchain is MSYS2 UCRT64 GCC (section 3; MSVC is not used) and there is no vcpkg - VSG, vsgXchange and vsgImGui are submodules built as static libraries by a CMake superbuild (`deps/`), JSBSim is a submodule built as a DLL by the main project, Catch2 is fetched at configure time and the rest comes from MSYS2 packages. The build also produces `fsim_vision.dll`, the examples and the Python package.
+The supported build is Windows x64 with MSYS2 UCRT64 GCC, CMake and Ninja; the presets in `CMakePresets.json` cover headless Release and rendered Release/Debug. MSVC and Linux are not verified delivery configurations. The original MSVC 2022/vcpkg proposal is historical and superseded. JSBSim and the VSG stack are tracked vendored sources in `third_party/`, not Git submodules (`.gitmodules` records this). The `deps/` superbuild builds the VSG stack as static libraries; the main build builds JSBSim as a DLL. Catch2 is still fetched at configure time when tests are enabled (`cmake/Dependencies.cmake`); other platform libraries come from MSYS2 packages. The build produces the SDK, applications, examples and Python package, with vision conditional on rendering. See [development](development.md) for direct commands and [resources](resources.md) for provenance.
 
 ### 11.1 Repository layout
 
@@ -548,7 +561,7 @@ flightsim/
 ├─ fetch-maps.cmd          the offline map tiles, into assets/maps
 ├─ cmake/                  toolchain, warnings, dependencies, assets, install and packaging
 ├─ deps/                   superbuild for the VSG stack (static)
-├─ third_party/            submodules: JSBSim (DLL; its data tree too), VSG, vsgXchange, vsgImGui; stb
+├─ third_party/            vendored sources: JSBSim (DLL; its data tree too), VSG, vsgXchange, vsgImGui; stb
 ├─ include/fsim/           public C++ SDK headers + fsim_c.h (section 10.3)
 ├─ src/{platform,core,io,sim,control,effects,comm,ipc,session,env,sdk,vision,render,world,ui,app}/
 ├─ python/                 the Python SDK: C extension modules over the C ABI, the fsim package, tests, wheel
@@ -560,7 +573,7 @@ flightsim/
 └─ docs/                   this document, hangar's guide, sdk/ (the SDK guide)
 ```
 
-The first revision's `vcpkg.json`, `ext/`, top-level `shaders/` and `scenarios/` were not needed: dependencies are submodules and MSYS2 packages (above), `ext/`'s environment server became the world segment and the UDP comm bridges and its recorder the SDK's recording (section 15), the viewer's GLSL lives in its sources, and scenarios are JSON (9.13). `tools/tile_builder`, a scenario validator and an asset packer are not built.
+The first revision's `vcpkg.json`, `ext/`, top-level `shaders/` and `scenarios/` were not needed: dependencies use vendored sources, Catch2 FetchContent and MSYS2 packages (above), `ext/`'s environment server became the world segment and the UDP comm bridges and its recorder the SDK's recording (section 15), the viewer's GLSL lives in its sources, and scenarios are JSON (9.13). `tools/tile_builder`, a scenario validator and an asset packer are not built.
 
 ### 11.2 Dependency budget
 
@@ -575,23 +588,23 @@ The first revision's `vcpkg.json`, `ext/`, top-level `shaders/` and `scenarios/`
 | GDAL | `tools/tile_builder` only | separate exe | not shipped with the platform |
 | Vulkan loader | system | `vulkan-1.dll` from the driver | 0 |
 
-Headless `fsim.dll`: \~5 MB. Viewer executable: \~9–12 MB. Total install well under the 20 MB target; LTO and `/OPT:REF,ICF` on for release. M0 note: JSBSim is built from the submodule's own `src/` CMake tree (it must ship its data tree anyway) and Catch2 is fetched at configure time; the vcpkg manifest arrives with the VSG dependencies in M3.
+The original budget estimates were a \~5 MB headless DLL and a \~9–12 MB viewer executable, under 20 MB excluding data. These are historical planning figures, not current install measurements. The original MSVC LTO and `/OPT:REF,ICF` prescription does not describe UCRT64: LTO is disabled for the JSBSim DLL compatibility issue below. JSBSim is built from its vendored `src/` CMake tree and ships its data; Catch2 is fetched for tests. No vcpkg manifest is required by the current build.
 
 ### 11.3 Platform notes (Windows 10/11 x64)
 
 | Topic | Decision |
 | --- | --- |
 | Toolchain | MSYS2 UCRT64: GCC 16.2, CMake ≥ 3.25, Ninja, MSYS2 pacman packages (vulkan-headers, vulkan-loader, glslang, spirv-tools, assimp, curl); toolchain file cmake/toolchains/ucrt64.cmake; LTO off (GCC LTO collides with dllexport vtables in JSBSim.dll) |
-| CRT | dynamic UCRT, `/MD`; the C ABI carries no CRT types so trainers built with other compilers or runtimes can link `fsim.dll` |
-| Distribution | zip with `bin/` (`fsim.dll`, `fsim_vision.dll`, `JSBSim.dll`, `flightsim.exe`, `flightsim-viewer.exe`, tools, the MinGW runtime), `include/fsim/`, `lib/` (import libraries), `share/flightsim/` (models, JSBSim data, scenarios), `share/doc/`, CMake package config for `find_package(fsim)` -> `fsim::sdk`, `fsim::vision`. Implemented in `cmake/Install.cmake` (`cmake --install`, `cpack` ZIP, ~27 MB); `tests/package_consumer` builds against it. As built since: `fsim dist` lays out five separate trees - `viewer` (standalone, with its maps), `sdk`, `python` (the package and a cp311-abi3 wheel), `tools`, `examples` - and the zip carries hangar's aircraft too, about 480 MB from CI (which has no maps) |
-| GPU matrix | NVIDIA (RTX), AMD (RDNA), Intel Arc drivers tested in the viewer/vision CI job |
-| Future Linux | no Win32 outside `platform/` (shared memory and semaphores get a POSIX implementation); every dependency supports Linux, so a port is a CI job plus `platform/linux` |
+| CRT | UCRT64 runtime; `/MD` belonged to the historical MSVC proposal. The C ABI carries no CRT types so trainers built with other compilers or runtimes can link the SDK DLL |
+| Distribution | Packaging definitions are in `cmake/Install.cmake`: SDK headers/import libraries, binaries, data and CMake package configuration. Historical records describe a ~27 MB CPack ZIP and a later five-tree `fsim dist` layout (`viewer`, `sdk`, `python`, `tools`, `examples`), about 480 MB with Hangar aircraft and without maps. Those figures and earlier CI artifacts are revision-specific; the current workflow produces no distribution artifact. Clean standalone/component acceptance and launcher gaps are tracked in [status](status.md), rather than established by the packaging definitions |
+| GPU matrix | NVIDIA (RTX), AMD (RDNA) and Intel Arc coverage is a validation target. The current hosted workflow is headless and establishes no GPU vendor matrix or viewer/vision acceptance |
+| Future Linux | Historical portability goal: isolate Win32 and provide POSIX equivalents. A Linux port is future work, with no supported preset or acceptance evidence in the current delivery |
 
 ### 11.4 Continuous integration
 
-GitHub Actions on `windows-2022`: configure and build headless and viewer configurations (Debug/Release); Catch2 suites; a 60-second headless golden-trajectory test per stock aircraft (tolerance 1e-6 relative); determinism test across worker counts; a throughput benchmark with regression gate (−10 % fails); C ABI test compiled as plain C; the `examples/minimal_trainer` built against the installed package; a 200-frame offscreen render with Vulkan validation layers on a software device (SwiftShader/Lavapipe) using a tiny bundled tile pyramid; binary size check against the budget.
+**Original CI target (historical plan):** headless and viewer Debug/Release configurations, golden trajectories, worker-count determinism, a throughput regression gate, plain-C ABI and package-consumer tests, offscreen rendering with validation layers, and a binary-size gate. This paragraph preserves the target; it is not evidence that those jobs exist or passed.
 
-As built (`.github/workflows/ci.yml`, on every push): one job on `windows-2022` with MSYS2 UCRT64, about 13-19 minutes. The VSG stack is built once and cached by its submodules' commits; the release configuration (viewer and headless together) is configured and built; `ctest` runs the Catch2 suites, the C ABI tests compiled as C, the Python SDK against a python.org CPython 3.12 and hangar's own tests; a headless smoke run and a 32-vehicle throughput benchmark follow (reported, not gated); then `cmake --install` and `cpack`, a smoke run of the installed copy, and the zip kept as the run's artifact (`flightsim-win64`) - a `v*` tag publishes it as a release. Not built yet: the Debug build, golden trajectories, the offscreen render test, the size check and the benchmark gate.
+**Current configured workflow:** `.github/workflows/ci.yml` defines one `windows-latest` headless job with MSYS2 UCRT64 and python.org CPython 3.13. It configures/builds `ucrt64-headless`, runs `ctest`, rebuilds stores, audits model effects and rebuilds the C172, then fails on generated aircraft/store differences. It triggers on pushes to `main`, pull requests and manual dispatch, and uploads the test log on failure. The file explicitly records that its 2026-10-11 revision has not yet run on GitHub (backlog B-65). It has no viewer/GPU job, package/release upload, Debug matrix, offscreen-render validation, measured throughput regression gate or binary-size gate. Historical CI/release claims in section 15 refer to earlier revisions. [Status](status.md) separates configured checks from verified local evidence; no hosted-run result is asserted here.
 
 ## 12. Performance design
 
@@ -599,7 +612,7 @@ Performance means training throughput: vehicle-steps per second with the trainer
 
 ### 12.1 Budgets and measurements
 
-| Metric | Target | Measured by | Fails CI when |
+| Metric | Design target | Planned measurement | Planned CI failure condition |
 | --- | --- | --- | --- |
 | Headless throughput, state observations | ≥ 100,000 vehicle-steps/s on 16 physical cores (c172x); ≥ 60,000 (f16). Measured at M0: 1,138,000 (c172x, 16 workers), 757,000 (f16, 6 workers) | `flightsim.exe --benchmark`, CSV | −10 % vs. last release |
 | `step()` overhead excluding JSBSim | < 2 µs per vehicle (task + observation assembly) | profiler scopes | > 4 µs |
@@ -635,15 +648,15 @@ Configuration, logging, errors and tests all follow one rule: no new dependency,
 
 | Concern | Design |
 | --- | --- |
-| Configuration | One schema, versioned, stored as `.vsgt` or JSON; sources merged in order: built-in defaults → `config.vsgt` in `%LOCALAPPDATA%\flightsim` → `--config` / `VecEnvOptions` → command-line flags. Scenario files are separate from configuration (what to simulate vs. how to run) |
-| Logging | `core::Log` with levels and per-module categories, lock-free ring buffer drained by a job-pool thread to stderr and a rotating file; JSBSim (`FGLogger`) and VSG (`vsg::Logger`) redirected into it; the SDK exposes a log callback so trainers can route records into their own logging |
-| Errors | Exceptions only at load-time boundaries (scenario, JSBSim model, Vulkan device); `step()` never throws for simulation reasons — a diverged or crashed vehicle marks its environment `terminated` with an `info` code and auto-resets. The C ABI converts every exception to an error code. Vulkan validation layers in Debug; device-lost triggers a controlled viewer shutdown, the simulation continues |
-| Determinism checks | CI replays a recorded episode with different `nWorkers` values and asserts bit-identical trajectories; a vehicle reset, or made in a reused slot, after a parked, crashed or far-flown one starts and flies as on a new model, to the bit (`test_sdk`, 7.2) |
-| Crash handling | Minimal Win32 crash handler writes the last 2 s of the log ring and the current snapshot batch to `logs/crash` beside the program |
-| Recording and replay | `ext/recorder` writes snapshots + actions at agent rate to a compact binary stream (`.fsrec`, VSG binary serialisation); replay feeds `KinematicModel`s, so the viewer shows recorded episodes through the same code path |
-| Testing | Catch2 for `core`, `sim` conversions, `env` builders and the SDK; C ABI tests compiled as C; headless golden trajectories per stock aircraft; offscreen render + validation layers; throughput benchmark with regression gate |
-| Licensing | Platform under MIT; `THIRD_PARTY_LICENSES.md` generated from vcpkg SPDX data at build time; JSBSim as a DLL satisfies LGPL-2.1 |
-| Data access | Any property-store value can be observed, plotted or recorded without code changes |
+| Configuration | The viewer reads built-in defaults, then `--config <file>` or `<exe>/../config/viewer.json`, then command-line overrides. Scenario JSON and SDK/VecEnv options configure simulation separately; there is no shared `.vsgt`/LOCALAPPDATA merge pipeline |
+| Logging | `core::Log` emits level/category records synchronously through a mutex-protected internal sink, defaulting to stderr. The public SDK exposes log-level control; it does not expose `core::Log::setSink` as a stable callback API. No asynchronous log ring or rotating-file sink is implemented |
+| Errors | SDK load/validation failures and C ABI error translation follow the published contracts. World flight status reports crashes/divergence; VecEnv owns episodic termination/reset behavior. Do not apply VecEnv's reset semantics to every World caller. The optional viewer remains a separate process |
+| Determinism checks | Test suites check worker-count determinism and reset/slot reuse. The configured headless CI runs those suites; a current hosted result is not yet established (11.4). Dated local evidence remains revision-specific |
+| Crash handling | The executable-installed Win32 handler writes a timestamped `.dmp` under the configured directory or `logs/crash` using dbghelp. It does not append a log ring or a custom world snapshot stream |
+| Recording and replay | `ipc::RecordWriter` writes the versioned custom `.fsrec` binary format: vehicle information, snapshots, stores, environment and engagement events. SDK recording APIs and viewer replay consume it; there is no `ext/recorder` module or VSG serialization dependency in the format |
+| Testing | Catch2 for `core`, `sim` conversions, `env` builders and the SDK; C ABI tests compiled as C; Python and Hangar tests. Golden-trajectory, offscreen-render and performance-gate coverage remain design targets unless current evidence establishes them (11.4) |
+| Licensing | Platform under MIT; current notices and upstream references are in `THIRD_PARTY_NOTICES.md` and vendored source trees. The vcpkg SPDX-generated notice proposal is historical; JSBSim is shipped as a DLL under LGPL-2.1 |
+| Data access | Consumers read SDK state/reports, native flight-model property handles and the defined camera/recording interfaces. Arbitrary shared application properties or automatic plot/record registration are not implemented |
 
 ## 14. Risks and mitigations
 
@@ -664,6 +677,12 @@ The largest risks are the ones the stack does not already solve: building and ho
 | Dependency budget creeps | medium | size, build time | every new library needs an ADR and the size check must pass |
 
 ## 15. Roadmap and milestones
+
+This section preserves dated progress and the original platform roadmap. Its `M0` to `M5` identifiers belong to
+the **Platform** domain: **Platform M1** means multi-vehicle FDM and terrain data, distinct from **Mission Systems M1**
+in [ADR-30](mission-systems.md). Earlier counts, throughput, package sizes and CI/release reports below remain
+historical evidence, not present acceptance or a declaration that the current workflow is green. Use [status](status.md)
+for current milestone state; no original exit criterion is removed by this documentation reconciliation.
 
 Six milestones take the project from an empty repository to a v1 release. Re-planned 2026-09-19 at the owner's direction: visualisation is the most important component and comes first (M0 skeleton, then the viewer), the RL API follows, vision observations and release last. Status (2026-09-20): M0 done; the viewer delivered (full-Earth satellite imagery over real relief, terrain physics, N vehicles, glTF models, chase/orbit/overview mouse cameras, sky, trails, labels, ImGui monitor, interpolated motion); M2 delivered (the Rust C ABI example, `examples/rust_trainer`, followed 2026-09-21; the PPO exit criterion is met by `examples/ppo_trainer`, a dependency-free C++ PPO that trains altitude/heading hold on the c172x through the SDK in ~2 minutes) (`env::VecEnv`, two tasks, `state`/`surfaces` spaces, `libfsim.dll` with the C++ SDK and C ABI v1, `examples/minimal_trainer` PD baseline at ~0.7 M vehicle-steps/s through the SDK, C ABI tested from C99). M2b delivered 2026-09-20: `World`/`Vehicle` object model, the six-level control stack with built-in loops and behaviours, real-time environment, effects and comm interfaces with v1 implementations, `ipc` world segment, viewer mirror mode with discovery, `VecEnv` re-based on the object model with actions at any level, world C ABI, `docs/sdk/`, `examples/multi_level_control`; 64 vehicles with cascades and effects at ~760k vehicle-steps/s, within a few percent with a viewer attached. Follow-ups delivered 2026-09-20: headless terrain physics in the SDK, recording/replay (`WorldOptions::recordPath`, `flightsim-viewer --replay` with timeline seek), per-type vehicle models in the viewer, scenario files (9.13), comm bridges over UDP (9.6) and `tools/tile_prefetch`. M4 (vision observations, 8.4) delivered 2026-09-21 as `fsim_vision.dll`: RGB + depth cameras on vehicles at 64 cameras per ~8 ms step, `BatchCameras` for VecEnv, a C ABI, the viewer's live camera preview through shared memory; the `ext/env_server` item is superseded by the world segment and the UDP comm bridges. M5 items done the same day: `cmake --install` + CPack zip + `find_package(fsim)`, third-party notices, crash handler, CI green with the package as an artifact and releases on `v*` tags. The 10.1 "SDK registration" row is complete for the environment layer since 2026-09-21: `fsim::Task`, `fsim::ObservationBuilder` and `fsim::ActionMapper` are public interfaces in `fsim/VecEnvPlugins.h`, registered by id through `registerTask()` / `registerObservation()` / `registerAction()`, and the built-ins are registered against the same interfaces. Each milestone ends with CI green and the section 12 metrics recorded. Durations assume one to two developers.
 
@@ -712,7 +731,7 @@ M5's release is still to come: no `v*` tag yet.
 | # | Milestone | Deliverable | Exit criteria | Duration |
 | --- | --- | --- | --- | --- |
 | M0 | Skeleton | CMake + vcpkg project, `core` services, headless `Application`, CI on Windows | headless exe steps one JSBSim vehicle | 2 weeks |
-| M1 | Multi-vehicle FDM + terrain data | `JsbsimModel`, `VehiclePool` with workers, unit conversions, `io::TilePyramid` + `GroundProvider`, `tools/tile_builder` (90 m global + one 30 m region), golden trajectories, recorder | 64 vehicles headless over real terrain; determinism across worker counts; throughput measured | 4 weeks |
+| Platform M1 (original M1) | Multi-vehicle FDM + terrain data | `JsbsimModel`, `VehiclePool` with workers, unit conversions, `io::TilePyramid` + `GroundProvider`, `tools/tile_builder` (90 m global + one 30 m region), golden trajectories, recorder | 64 vehicles headless over real terrain; determinism across worker counts; throughput measured | 4 weeks |
 | M2 | RL API | `env` layer (`VecEnv`, tasks, state observations, action mappers), `fsim` SDK + C ABI, install/export package, `examples/minimal_trainer`, benchmark mode | a C++ PPO (LibTorch example) trains altitude-hold on c172x through the SDK; the C ABI example steps from Rust; ≥ 100k vehicle-steps/s | 3 weeks |
 | M2b | Vehicle SDK + transparent viewer | `World`/`Vehicle` object model, control stack (all six levels, built-in loops and behaviours), environment control, effects and comm interfaces with v1 implementations, `ipc` world segment, viewer mirror mode with discovery, `VecEnv` re-based on the object model, SDK docs (`docs/sdk/`), examples (`multi_level_control`, `dogfight_behaviors`) | a trainer creates vehicles and commands them at every level while the prebuilt viewer, started separately, mirrors them with no measurable change in trainer throughput | 4 weeks |
 | M3 | Viewer | `render`, `world` with `vsg::TileDatabase` full-Earth from the pyramid, vehicle models driven by snapshots, cameras, ImGui monitor/vehicle list/telemetry, `attachViewer()` | watch 64 training vehicles anywhere on Earth at 60 fps without slowing `step()` | 4 weeks |
@@ -739,7 +758,7 @@ Each major choice, its alternatives and the driver that decided it; status "acce
 | ADR-10 | `FlightModel` interface hides JSBSim; SI + ECEF metres at the boundary | JSBSim types used directly | extensibility, testability | proposed |
 | ADR-11 | ECEF double world frame; `TileDatabase` handles Earth precision; floating origin for vehicle subgraphs | flat local tangent plane | full-Earth correctness | proposed |
 | ADR-12 | Windows x64 / MSYS2 UCRT64 (GCC) only for v1 (section 3; first written as MSVC 2022); Win32 confined to `platform/` | Linux from day one | owner decision | accepted |
-| ADR-13 | vcpkg manifest as the dependency manager; static linking except JSBSim DLL and `fsim.dll` itself | `FetchContent`, system packages | Windows build reproducibility, LGPL | superseded: submodules (the VSG stack built static by the `deps/` superbuild, JSBSim as a DLL in the main build), Catch2 fetched at configure time, the rest from MSYS2 packages (section 11) |
+| ADR-13 | Original proposal: vcpkg manifest as the dependency manager; static linking except JSBSim DLL and `fsim.dll` itself | `FetchContent`, system packages | Windows build reproducibility, LGPL | superseded: tracked vendored sources (formerly submodules); VSG stack built static by `deps/`, JSBSim as a DLL in the main build, Catch2 still fetched for tests, remaining platform libraries from MSYS2 packages (section 11) |
 | ADR-14 | MIT licence; JSBSim as DLL | GPL, Apache-2.0 | owner decision | accepted |
 | ADR-15 | No scripting runtime anywhere; data + compiled C++ only | Lua/Python module | owner decision, lightweight | accepted |
 | ADR-16 | Shaders compiled to SPIR-V at build time | runtime glslang | size, startup | proposed |

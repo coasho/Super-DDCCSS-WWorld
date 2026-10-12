@@ -1,5 +1,11 @@
 # hangar: JSBSim aircraft from a design file
 
+This is the design pipeline guide. [Status](status.md) is the sole current capability and milestone table;
+[development](development.md) documents build and validation practice, and [resources](resources.md) locates tools
+and dependencies. Dated rebuilds, flight checks and visual measurements below are historical evidence for their
+recorded configuration. They are not a fresh verification of current viewer compatibility or frame rate.
+For current armed missile behavior, use the [native engagement API](sdk/engagement.md).
+
 JSBSim flies an aircraft from tables of aerodynamic coefficients. For an
 aircraft that only exists on paper, nobody has those tables. With hangar you
 describe the aircraft in one TOML file: its surfaces, bodies, engine, gear
@@ -65,8 +71,9 @@ writes as it was, byte for byte (a file's date is kept when nothing else in it c
   checks that failed and - once all are done - which of its files the run changed. `--only f16c c172` and a list of
   stages narrow it. hangar holds the Python package's libraries open while it runs: for a long run point
   `PYTHONPATH` and `FSIM_BIN` at a copy of `build/<preset>/python` and `bin`, and the build stays free.
-- CI (`.github/workflows/ci.yml`) runs every store through its stages, the effects' audit and one aircraft (the
-  C172) through all of them, and fails if `git diff` shows a generated file changed.
+- The configured CI workflow (`.github/workflows/ci.yml`) runs every store through its stages, the effects' audit
+  and one aircraft (the C172) through all of them, and fails if `git diff` shows a generated file changed. A
+  successful hosted run is not established by the configuration; see [status](status.md) and backlog B-65.
 - 2026-10-11: all 35 aircraft were built again with the tool as it is. They had drifted - the F-16C's files were of
   2026-09-26 (pitch gain 9.56; the tool gives 10.22), and most designs' flight models, damage data or models were
   not what a rebuild gave. Six of them built a second time, every stage, left all 868 generated files as they were.
@@ -356,7 +363,7 @@ card the published figures the design holds:
 
 | class | its design | its flight model (`aircraft/stores/<name>/<name>.xml`) |
 |---|---|---|
-| `aam` | `hangar missiles`: the table in `missiles.py` | its design's body and fins by a component build-up, tabled over Mach; its motor's grain and nozzle from the design's phases (`Engines/`) - a body with a motor, no controls |
+| `aam` | `hangar missiles`: the table in `missiles.py` | its design's body and fins by a component build-up, tabled over Mach; its motor's grain and nozzle from the design's assumed phases (`Engines/`); native armed engagement adds ideal fin actuation through JSBSim force/moment hooks, rather than calibrated fin aerodynamics |
 | `bomb` | `hangar storedesigns`: the Mk 82's profile and fins (`stores.py`) | the same build-up of its design, unpowered (before JSBSim's own `mk82`, which the platform no longer flies for the card) |
 | `tank`, `pod` | `hangar storedesigns`: its class's shape at its card's length and diameter | a slender body; a tank's fuel a point mass the world sets as it leaves |
 | `cargo` | `hangar storedesigns`: a box of its card's `length_m`, `width_m`, `height_m` | a block's inertia, a bluff body's drag (its `drag_cd` on each face), no parachute |
@@ -425,12 +432,11 @@ The rules that keep a kilogram out of two ledgers:
 What is not a store, and why: a U-2S's nose and Q-bay sensors and an RQ-4B's
 sensor suite are fitted on the ground and stay for the flight (`equipment`);
 a gun's ammunition is rounds of a few hundred grams (`ammunition`: its weight
-does not yet fall as the gun fires). Air-to-air missiles are stores with
-their models, but not `employable`: a strike with one is still refused
-(`store_not_flyable` - their powered flight is not modelled); jettisoned,
-each leaves as the inert body it then is. The B-52H's, H-6K's and UH-60's
-store-station cards have no stations yet: they carry nothing, and nothing of
-theirs is fixed load.
+does not yet fall as the gun fires). Flyable air-to-air stores support armed
+strike, native motor state, guidance, seekers and fuzes; [engagement](sdk/engagement.md)
+defines the current behavior and its game assumptions. Jettison releases an inert
+body without an armed motor or fuze. The B-52H and H-6K have store stations and
+loadouts; the UH-60's stations and carriage remain backlog B-32.
 
 What checks them: hangar refuses a `[[mass.payload]]` without a kind, or of
 a kind that is a store's (`mass.check_payload`).
@@ -1083,24 +1089,26 @@ every nation's missiles are drawn the same way:
   dark; a node at the exit (`fsim:afterburner:0`, no flame mesh) and the manifest's line `rocket <index> <smoke>
   <exit diameter m> <boost thrust kN>` - its smoke by the propellant: `minimum`, `reduced` (no aluminium: AP/HTPB)
   or `aluminised` - from which the viewer draws its plume. Its burn's phases (`[[motor.phase]]`, seconds and kN) are
-  assumed until a motor model gives them.
+  assumed game/model inputs; solver-derived motor calibration remains open (backlog B-36).
 - **Paint:** light grey overall, a radar seeker's radome lighter; on US and NATO rounds a yellow band on the warhead
   and a brown one on the motor (MIL-STD-1168, STANAG 2953: `bands` in `paint.toml`); no bands where no published code
   for the maker's munitions was found.
 
 The geometry, mass and model stages run (`fsim hangar <name> geometry mass model`); the aircraft's checks of tail
-volumes and aspect ratio are not a missile's and are left out. Until a flight model flies one, `fsim hangar showcase
+volumes and aspect ratio are not a missile's and are left out. The visual prototype command `fsim hangar showcase
 <name> [--carrier f16c] [--station N]` writes a recording that shows it in the viewer: the carrier flying level with
 the missile on a station its loadouts put it on, the launch (off a rail, or ejected and lit a quarter second later),
-its motor's thrust through its phases, its fins deflected by a scripted manoeuvre - kinematic, not flown, the states a
-flight model writes later (`tools/showcase`, `flightsim-showcase`). It prints the viewer's command:
+its motor's thrust through its phases, its fins deflected by a scripted manoeuvre - kinematic, not flown
+(`tools/showcase`, `flightsim-showcase`). This preview remains separate from current native JSBSim engagement;
+it is not guidance, fuze or flight validation. It prints the viewer's command:
 `flightsim-viewer --replay aircraft/<name>/out/showcase.fsrec --fullscreen --camera chase --follow 1`.
 `--altitude <m>` sets the carrier's height (6,000 m by default; 10,500 m is cold enough for the motor's ice contrail);
 `--humidity <0..1>` the day's humidity over water, recorded as the world's environment (none: the viewer's typical day) -
 at 0.9 a reduced-smoke motor's HCl takes up the air's water into a white smoke trail. `--dive-s <s>` (with
 `--dive-deg`, -30 by default) pitches it down that long after its launch, to the ground: it ends where it strikes the
-map set's terrain (the tiles the physics stands on, offline), as World ends a weapon that does - its vehicle removed
-that step - until MS-7d's fuze decides what it does there.
+map set's terrain (the tiles the physics stands on, offline), as World ends an impacting weapon - its vehicle removed
+that step. Current native armed engagements can also terminate through the fuze or expiry;
+see [engagement](sdk/engagement.md). The native Vulkan viewer was not rebuilt for that delivery.
 
 ## Stores
 

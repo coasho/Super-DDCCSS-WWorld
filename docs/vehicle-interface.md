@@ -537,16 +537,23 @@ The C ABI changes additively only (ADR-26 C3): new calls, new structs with a `st
 
 ## 10. Non-goals and deferred work
 
-| Not done | Why | Revisit when |
+The original ADR-28 exclusions below have been reconciled with later ADR-29 and Mission Systems work.
+An implemented command still depends on the aircraft's applicability and data; use its support and availability
+reports rather than interpreting this table as universal fleet support. [Status](status.md) is the current
+capability and milestone summary.
+
+| Original scope item | Current disposition | Reference or remaining boundary |
 | --- | --- | --- |
-| UCI/A-GRA messages, the XSD, a transport, RECEIVED, heartbeats | D1 | an external MA must connect: a bridge over the SDK, outside the core |
-| Ranking, `InterruptOtherActivities`, start/end time windows | sources decide precedence; no plan engine (ADR-26 5) | a plan layer is built |
-| Stored route plans, their activation and query (A-GRA's route plan package) | a route travels with its command, as the VI's waypoint following does | a plan layer is built |
-| Validation against geofences, terrain, traffic, endurance | no such models in the platform | the platform models them |
-| Magnetic headings, barometric altitudes, speed optimisation | no magnetic model, altimeter setting or drag polar | a consumer needs them and the data exists |
-| MUST_FLY, ALTITUDE_STACKED_MARSHALL, LAUNCH, RECOVERY, ROUTE_INTERCEPT, formation templates, taxi routes, conditional path branches | beyond the VI's three flight modes and loiter | asked for |
-| Contingencies (failsafe plans, fault reports) | no fault model | effects model faults |
-| Holding on relinquish | D5 | the owner asks |
+| UCI/A-GRA schema-generated interfaces, transport and protocol acknowledgments | The native SDK does not claim standards conformance. Native C2/peer messages, dissemination heartbeats and agent process isolation are implemented separately | [Agents, links and C2 authority](sdk/agents.md); the full OMS/LA-CAL bridge remains ADR-30 MS-12 work, outside the VI core |
+| Ranking, `InterruptOtherActivities`, start/end time windows | Implemented by ADR-29 FA-2 | [Ranks, queues and time windows](sdk/control.md#ranks-queues-and-time-windows) and [activity commands](sdk/control.md#activity-commands) |
+| Stored route plans, activation and query | Implemented by ADR-29 FA-7: plans retained by ID/version, validated, activated and queried | [Route plans](sdk/control.md#route-plans) |
+| Validation against geofences, terrain, traffic and endurance | Terrain-path and endurance checks are implemented by FA-3/FA-4. Geofence/traffic validation and automatic terrain/collision avoidance are not completed FA-15 work | [Command validation](sdk/control.md#the-command-envelope-ids-findings-validation-batches), [navigation/endurance](sdk/control.md#the-navigation-report-fuel-endurance-playtime), and [ADR-29](flight-autonomy.md) sections 4.18-4.19 and FA-15 |
+| Magnetic headings, barometric altitudes and speed optimisation | Implemented by ADR-29 FA-3/FA-4; speed optimisation requires the aircraft's performance tables | [HSA/CSA references and speed optimisation](sdk/control.md#hsacsa-a-heading-or-a-course-a-speed-an-altitude) |
+| MUST_FLY, ALTITUDE_STACKED_MARSHALL and ROUTE_INTERCEPT | Implemented by ADR-29 FA-8 | [Must fly](sdk/control.md#must-fly-a-location-flown-over), [stacked marshall](sdk/control.md#altitude-stacked-marshall-a-slot-in-a-stack), and [route intercept](sdk/control.md#route-intercept-joining-a-kept-plan) |
+| LAUNCH, RECOVERY, taxi routes and conditional path branches | Runway launch/recovery, taxi and route branches are implemented by FA-6/FA-9/FA-10. Carrier launch/recovery remains FA-11 work; mission-critical/lost-comms route conditions remain partial | [Routes and branches](sdk/control.md#routes-waypoint-following), [route plans](sdk/control.md#route-plans), and [support/availability](sdk/control.md#support-and-availability-what-a-vehicle-can-do-at-all-and-now) |
+| Formation templates | A leader-relative offset formation behaviour is implemented; the full A-GRA templates, package and keep-in-zone semantics remain FA-12 work | [Built-in formation](sdk/control.md#built-in-behaviours) and [ADR-29](flight-autonomy.md) FA-12 |
+| Contingencies, failsafe plans and flight fault reports | Navigation reports implement fuel/endurance and a low-fuel FlightCritical indication. Full FA fault injection, emergency procedures and failsafe-plan handling remain FA-16 work; native payload failures/damage and MA lost-link policy do not close that stage | [Navigation report](sdk/control.md#the-navigation-report-fuel-endurance-playtime), [Mission Systems failures](sdk/mission-systems.md#payloads-and-capabilities), and [C2 authority](sdk/agents.md#c2-authority) |
+| Holding on relinquish | Explicit `VehicleDefault::Hold` is implemented. D5 still makes neutral the default; relinquishing does not implicitly select Hold | [Letting go and vehicle defaults](sdk/control.md#capabilities-and-activities) and section 6.4 here |
 
 ## 11. Compatibility
 

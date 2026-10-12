@@ -1,9 +1,15 @@
 ---
 name: aircraft-design
-description: Design, analyse and validate a new aircraft for JSBSim with hangar (tools/hangar), from a description, drawing or photo to a flight-tested jsbsim:<name> - light aircraft, UAVs and jet fighters with fly-by-wire. Use when asked to model an aircraft that has no JSBSim model or wind-tunnel data, to change a design's geometry, mass or engine, or to explain how a design flies.
+description: Design, analyse and validate a new aircraft for JSBSim with hangar (tools/hangar), from a description, drawing or photo to a flight-tested jsbsim aircraft - light aircraft, UAVs, jet fighters with fly-by-wire, and bombers, transports and other support aircraft. Use when asked to model an aircraft that has no JSBSim model or wind-tunnel data, to change a design's geometry, mass or engine, or to explain how a design flies.
 ---
 
 # Aircraft design with hangar
+
+> Provenance: maintained in `.agents/skills/aircraft-design/SKILL.md`; the
+> `.claude/skills/aircraft-design/SKILL.md` file is a byte-identical synchronized
+> discovery copy. The consolidated workflow retains the fuller existing Claude
+> version and the applicable shared guidance. Update both in the same change;
+> see `docs/development.md` for synchronization checks.
 
 hangar turns one TOML file (`aircraft/<name>/<name>.toml`) into a JSBSim
 aircraft, a glTF model and a validation report. docs/hangar.md covers the
@@ -11,13 +17,23 @@ stages, the file format and the methods. This skill is the working loop.
 
 ## Run it
 
-```bash
-./fsim.cmd hangar list
-./fsim.cmd hangar new <name> --like skua     # or --like c172
-./fsim.cmd hangar <name> geometry            # any stage, or several in order
-./fsim.cmd hangar <name> --quick             # all stages, coarse tables: ~30 s
-./fsim.cmd hangar <name>                     # all stages, full tables: ~1-2 min
-./fsim.cmd hangar <name> calibrate           # only with real performance data
+Use the configured build and CPython environment described in
+`docs/development.md`. The launcher requires an existing application and
+Python SDK; use direct CMake commands there for the first configure/build.
+A full run's duration depends on the aircraft and stages; do not reuse old
+quick-run timings as full-corpus estimates.
+
+```powershell
+$designName = 'my-aircraft'                # choose the design name
+.\fsim.cmd hangar list
+.\fsim.cmd hangar new $designName --like skua # or --like c172
+.\fsim.cmd hangar $designName geometry     # any stage, or several in order
+.\fsim.cmd hangar $designName --quick      # all stages, coarse tables: a first look
+.\fsim.cmd hangar $designName              # all stages, full tables and flight checks
+.\fsim.cmd hangar $designName calibrate    # only with real performance data
+.\fsim.cmd hangar $designName autopilot    # tune the platform's control loops for it
+.\fsim.cmd hangar $designName performance  # its performance and fuel tables, into the .xml
+.\fsim.cmd hangar uh60 performance         # a rotorcraft's too: from the hover, after its fly stage
 ```
 
 The outputs go to `aircraft/<name>/out/`: `<stage>.json` (the numbers and
@@ -30,11 +46,23 @@ checks), the PNGs, and `report.html`. A fail makes the exit code 1.
   mass, CG range, engine power and rpm, propeller diameter and pitch.
 - Collect the performance targets too: stall speed, top speed, climb rate
   and ceiling. They go in `[targets]`.
+- **Energy on board.** Give an electric aircraft its battery, `[battery]
+  capacity_wh` (the pack's mass is a `[[mass.item]]`); without it the
+  platform's navigation report cannot say how long it flies. A fuel burner
+  gives each tank as a `[[mass.tank]]`.
 - **From a picture.** Read it, find one known dimension (span, length or
   wheelbase) and scale everything else from it. Note the scaling in a
   comment.
 - Every number in the TOML gets a comment: its source, or "assumed" with the
   reason. The design file is the record.
+- **Declare what the aircraft physically is** in `[applicability]`, each
+  field with its public source in `[applicability.sources]` (a fact sheet, a
+  flight manual, a type certificate data sheet): whether it hovers, what it
+  stands on, carrier operations, retractable gear, flaps, drag devices,
+  releasable stores, aerobatic clearance (docs/hangar.md, "Applicability").
+  No source, no declaration: leave a field out, with a comment, until a
+  source decides it. Never declare a feature absent because the model lacks
+  it - extend the model.
 - **Frame.** Metres, with x aft, y right and z up. Put the origin where the
   sources measure from; JSBSim uses the same frame. Give wings and tails for
   the right half; they are mirrored. Fins and bodies are mirrored only with
@@ -42,7 +70,7 @@ checks), the PNGs, and `report.html`. A fail makes the exit code 1.
 
 ## 2. Look after every stage
 
-Read the images with the Read tool and compare them with the sources. Don't
+Open the generated images and compare them with the sources. Don't
 move on while a check fails or a picture looks wrong.
 
 - **geometry.** Read `threeview.png` and `views.png` next to the reference
@@ -81,7 +109,47 @@ move on while a check fails or a picture looks wrong.
   should need well under 1 m², and the pitch should land near the real
   propeller's. A large correction means the geometry is wrong. Fix that
   instead.
-- **In the viewer.** Take a screenshot, then Read the PNG:
+- **autopilot.** Tunes the platform's built-in loops (attitude, acceleration,
+  velocity, position) for the aircraft, writes `autopilot.toml` and rebuilds
+  the `.xml` with them as `fsim/control` properties, then flies the aircraft
+  as built through steps at three speeds. Run it after any change to the
+  aerodynamics, mass, controls or engines - and after calibrate, whose drag
+  moves the trim - or the gains are stale (the `.xml` keeps whatever
+  `autopilot.toml` says). No manoeuvre may lose control at the reference
+  speed; warnings at 0.7x or 1.5x are the aircraft's limits (a heavy's roll
+  or load factor there) more often than the loops'. Look at
+  `out/autopilot.png`: the steps should rise without ringing.
+  `autopilot.toml` also keeps what it identified (`[identified]`). The build
+  writes that, with the design's law limits and the flight tests' stall and
+  performance, into the `.xml` as the aircraft's profile (`fsim/<section>`
+  properties, `hangar/profile.py`; docs/hangar.md, The profile). State a
+  law's limits in `[flight_control]` (`n_max`, `n_min`, `alpha_max_deg`,
+  `roll_rate_deg_s`) only from published figures: they become the envelope
+  the platform limits commands to.
+- **performance.** Flies the performance and fuel tables the platform plans
+  with (docs/hangar.md, Performance and fuel) and builds them into the
+  `.xml`'s `tables` section. Run it after fly, since its altitudes come from
+  the flight tests' ceiling, and after any change that moves the performance.
+  Every check must lie within 5 % of the flight tests, and the tables must
+  agree with themselves: the lighter weight climbs better and flies higher.
+  A breach means a run went wrong unseen. Look at `out/performance.png`.
+- **model.** The `.glb`. Its checks must pass: no open, pinched or
+  misturned edge, the airframe in one piece, every moving part closed, the
+  stowed gear inside the skin (under 3 cm), length, span and height within
+  3 % of `[dimensions]`.
+  - The stage re-meshes only when the geometry, the mass (the CG), the
+    paint or the code that shapes the model changes, never for an aero
+    edit. The mesher is deterministic: a `.glb` that git shows as modified
+    has changed, and one that should not have is a bug to chase.
+  - A loose piece is usually a fin or boom standing off its body. Give the
+    surface a body under it (a tail boom), or move it onto one.
+  - Gear outside the skin: move the `attach` (the trunnion) up inside the
+    structure, where the real one is; a leg hinged below the skin cannot fold
+    in. Give `retract` from the real aircraft.
+  - Shape: intakes are `[[intake]]` bodies (lip, rake, sweep, duct). Bellies
+    and chines come from `chine`, `n_top`, `n_bottom`. Canopies take `frames`.
+    Leading-edge flaps and slats go in the surface's `leading` list.
+- **In the viewer.** Take a screenshot, then inspect the PNG:
 
   ```bash
   build/ucrt64-release/bin/flightsim-viewer.exe --demo --vehicles 2 --aircraft <name> --alt 400 --screenshot <scratchpad>/<name>.png --screenshot-after 10
@@ -133,25 +201,42 @@ move on while a check fails or a picture looks wrong.
   Mass and size come from Raymer if not given.
 - **Flight controls.** `[flight_control] type = "fbw"` with `n_max`,
   `n_min`, `alpha_max_deg` and `roll_rate_deg_s` from the real aircraft.
-  - Build checks the short period at every design point.
-  - Fly checks the limiter (full aft stick), a 3 g step and the roll.
+  - Build checks the short period at every design point, and how far past
+    `alpha_max_deg` full nose-down control still brings the nose down.
+  - Fly checks the limiter (full aft stick), a 3 g step from trim and the
+    roll.
+  - A 3 g step that overshoots is a gain problem, not a balance one: the
+    control law already cancels the pitching moment's kinks (fcs.py).
 - **Balance.** Real CGs are rarely published. Place the CG from the neutral
-  point the aero stage finds, not from a guessed % MAC: canard deltas about
-  10 % MAC unstable, relaxed-stability fighters 0-5 %. Move `empty_cg`, the
-  tanks and `aero_point` together. Then check the nose-down margin: with the
-  pitch channel at its nose-down end, Cm about the loaded CG must stay
-  negative a few degrees past `alpha_max_deg`. If it does not, the limiter
-  test departs; move the CG forward or lower `alpha_max_deg`.
+  point the aero stage finds, not from a guessed % MAC: canard deltas 3-10 %
+  MAC unstable, relaxed-stability fighters 0-5 %. The main wheels bound it:
+  at least 15 deg tip-back (the CG's height against its distance ahead of
+  the main wheels), 8-20 % of the weight on the nose wheel. Move
+  `empty_cg`, the tanks and `aero_point` (at the CG) together. Build then
+  checks the nose-down reach: full nose-down control must bring the nose
+  down at least 2 deg past `alpha_max_deg`, or the limiter can let the
+  aircraft hang there. If it does not, move the CG forward or check
+  `alpha_max_deg` against the real aircraft's published limit. Say in the
+  file that the CG comes from the neutral point: when a change to the
+  aerodynamic model moves it, those CGs move with it, their `.glb` is made
+  again (its origin is the CG) and `fsim hangar register` is run again.
+  The main wheels still bound them: check the tip-back angle and the nose
+  wheel's share again (the Mirage 2000's CG stops at 15 deg tip-back).
 - **Targets.** Give `max_mach` and `max_mach_altitude_ft`: calibrate fits
   the engine's throttle ratio to them, then the wave drag if the engine
   alone cannot. `max_speed_ktas` (sea level), `climb_rate_fpm`,
   `service_ceiling_ft` and `sustained_turn_deg_s` stay checks. Published
-  climb rates are loose, so don't fit to them.
+  climb rates are loose, so don't fit to them. A published ceiling of
+  50,000 ft is usually a clearance, not where the climb runs out: give it
+  as `operational_ceiling_ft`, which the model must reach.
 - **Reference.** `reference = "jsbsim:<name>"` plots that aircraft's
   coefficients against the design's (`reference.png`). It is worth doing
   only when the JSBSim model comes from wind-tunnel data: of those shipped,
   only `f16` does (the f15's and f22's headers say performance data). Check
   its control tables' units first: see the f16c's `reference_control_scale`.
+  The comparison takes the reference's moments about the design's
+  `aero_point`, so keep that at the reference's moment point (the f16c's:
+  NASA's 0.35 MAC), not at the CG.
 - **Read after aero:**
   - `reference.png`, if there is a reference.
   - `mach.png`: K_L should peak near Mach 0.9-1.0. The neutral point
@@ -159,17 +244,141 @@ move on while a check fails or a picture looks wrong.
   - `coefficients.png`: CL max 1.5-2.0 at 30-40° is normal for vortex-lift
     fighters.
 - **Read after fly:** `fly_fighter.png`, for the excess power at sea level
-  and 36,000 ft and the turn.
+  and at the top speed's height, the turn, and the best excess power over
+  height (the ceiling).
+- **The model's shape.** Build it from the real aircraft's drawings, not
+  from a template: its own intakes (a chin intake, D-shaped side intakes,
+  carets, nacelle mouths), its canopy's frames, its tail booms. Measure a
+  public three-view: scale it by the published length (with the probe when
+  the length includes one) and check its span and height against the
+  published ones; read heights from its ground line or the published
+  height, with the wing root's chord plane as z = 0; put the wheels where
+  it draws them, then compare the model's silhouettes with the drawing's.
+  Check the control layout against the type: a tailless canard delta has
+  elevons along its whole trailing edge, not flaps; most fighters carry
+  leading-edge flaps or slats. Read the four-view screenshots against
+  photos of the real one.
 - **Known model limits.** Tails on booms beside the engines (Su-27, MiG-29)
   come out too stable: the lattice carries the tail across the gap between
   them. High-thrust engines fitted to Mach 2.5 at altitude are too fast at
-  sea level. Thrust vectoring is not modelled.
+  sea level. Leading-edge devices move in the 3D model only; the tables do
+  not model them.
+- **Thrust vectoring.** `[engine.nozzle] vectoring` (deg each way) and
+  `vectoring_cant` (deg its plane leans outboard; 0 pitch only): the
+  nozzles turn with the surfaces and the fly-by-wire scales its gains with
+  the thrust (the F-22A, the Su-57). The angle-of-attack limit stays the
+  aerodynamic one.
 
-## 5. Finish
+## 5. Large aircraft (bombers, transports, tankers, AEW&C)
+
+- **Induced drag.** Give `[analysis] induced_drag = "trefftz"`: the strips'
+  own tilt makes a swept transport wing's lift-to-drag ratio a quarter low.
+- **Wings.** A thick, round-nosed wing does not make vortex lift, however
+  swept: give its surfaces `vortex = false`, or a 35 deg wing will not stall
+  (CL max above 2).
+- **Engines.** High-bypass turbofans: `type = "turbofan"`, no
+  `thrust_wet_kn`, the real `bypass_ratio`; a flat-rated one's
+  `thermodynamic_thrust_kn` where its maximum is published above its
+  rating. Turboprops: `type =
+  "turboprop"` with `power_kw`, `psfc`, and `[engine.propeller]` `rpm`,
+  `gear_ratio`, `blade_angle`; the spin inertia counts the power turbine
+  and gears (the C-130J's `ixx = 650`), or JSBSim's start march wanders. Pods on pylons: a nacelle body
+  (or an `[[intake]]` with a lip) on `[[strut]]`s. More than four engines is
+  fine; the platform's throttles 1-4 drive the rest.
+- **Mass.** Give `empty`, `empty_cg`, `gyration` and every tank (a tank's
+  `fill` is the fuel it starts with). hangar's structural estimates for jets
+  are fighter equations: give component masses where they matter. Every
+  `[[mass.payload]]` needs its `kind` (`crew`, `passenger`, `equipment`,
+  `ammunition`, `baggage`): the fixed load it spawns with - its people, what
+  is built into it, its very small items. Everything else it carries - a
+  weapon, a tank, a pod, cargo - is a store: a card in `assets/stores` with a
+  JSBSim model of its own and a design the same stages build (`hangar
+  storedesigns`, `hangar <store>`, `hangar stores`: docs/hangar.md, Stores), on a
+  station (a pylon, a bay, a hold's pallet position), loaded by the fit's
+  loadouts. Never draw one into the airframe or weigh it as fixed load: it
+  could not leave, and would be weighed twice (docs/hangar.md, Mass
+  accounting).
+- **Controls.** Direct, unless the aircraft is fly-by-wire; then
+  `type = "fbw"` with its own limits (n_max 2.5-3, alpha_max 12-15 deg,
+  roll 30-60 deg/s). A direct-control jet whose dutch roll is damped below
+  0.08 gets `yaw_damper = true` (most swept jets have one). hangar's
+  fly-by-wire tests are a fighter's: a slow aircraft (a HALE UAV) flies
+  direct controls with a yaw damper, whatever its real flight controls.
+  A cambered wing behind a small tail can stall on the elevator's stop
+  (the fly stage says "elevator limit"): move the CG aft, or give the tail
+  a negative incidence (`twist`).
+- **Trimmable stabilizers.** One all-moving surface can stand for the
+  stabilizer and its elevator: give it the stabilizer's travel plus the
+  elevator's worth. A published travel ("13 deg, 9 up, 4 down") is the
+  leading edge's, so up is nose down; check the direction against a real
+  trim reading (an accident report, a flight manual). Rig its zero (the
+  tail's `twist`, with the leading edge moved so it turns about its
+  `pivot`) so that cruise trims where the real one does. A tail rigged at
+  zero on a fuselage that cruises nose down (a high-incidence wing) trims
+  far nose down and has no travel left for its flaps. Then fly flaps down
+  at approach speeds, and at cruise, under the velocity loop: the
+  stabilizer must stay off its stop.
+- **Gear.** A four-wheel truck is one leg: `wheels = 2`, `axles = 2`,
+  `axle_spacing`. Its bay needs room: `door_reach` (m) lets its doors move
+  out further. Where the real gear has no doors, or hangar's doors cannot
+  clear it (thin wingtips, the A-10's pods, a bogie swinging inward),
+  `doors = false` gives an open well. Give `retract_axis` and `retract_deg`
+  when the drawing shows how the leg folds; the fit then only turns the
+  wheel. A leg that cannot fold inside needs its trunnion where the airframe
+  is deep enough: a few degrees of splay, or a fuller wing-body fairing.
+  A bogie that turns on its pivot as the leg folds (the Tu-16's, over onto
+  its back in a slim gondola): `bogie_deg = "over"` (or `"level"`, or
+  degrees); a raked leg needs `retract_deg` to stow its strut level (the
+  fit tries 10 deg steps). Doors on a tapering pod wrap its sides above
+  their hinges and swing in against the leg: give the pod an open well.
+  Hangar hinges each door along its own edge on the skin (a sloping belly's,
+  a tapering nose's: not level), on gooseneck arms out from the skin where a
+  door wrapping a curved side would otherwise turn into it, and lays the
+  doors of a bay and its mirror image on one lattice, so they match. A door
+  opens as far as the leg needs to pass; where that reaches the ground
+  under the wheels (a low airframe's: the C-17's, the Typhoon's), it turns
+  on once the leg is down - closing back, or on past hanging up beside the
+  airframe - to the nearest angle clear of the ground, the leg and the
+  airframe (a second joint on its hinge, gear 0.9..1).
+- **Thin parts.** A pod, pylon or tail cone may end in a knife edge (w = 0
+  with height). Until 2026-09-25 the mesher measured a knife edge by the
+  distance across it alone, so a fillet nearby grew phantom material and
+  broke the mesh; some designs from before then end theirs 0.1 m wide.
+  Plates thinner than about 0.1 m (a boom's ruddevators) are `[[strut]]`s,
+  drawn only.
+- **Dorsal surfaces.** A radar's plank (the E-7A's MESA) or a rotodome's
+  struts are `kind = "fin"` surfaces, so their side force counts; ventral
+  fins are fins whose tips hang below their roots (`mirror = true` for a
+  canted pair). Only the aftmost upright fin is checked as the tail's.
+- **Windows.** A transport has no canopy body: paint its cockpit windows
+  (`windows`, `windows_x`, `windows_z`, `windscreen_x` in paint.toml).
+- **Targets.** `max_mach` at `max_mach_altitude_ft` below 1: calibrate fits
+  Korn's kappa_A (0.87 conventional sections, 0.95 supercritical), more
+  wave drag if even 0.87 is too fast. A top speed below the wing's drag
+  rise (the E-3's, the A-10's) is fitted with an extra drag area instead; a
+  sea-level one (`max_mach_altitude_ft = 0`) is flown at 100 m. A
+  certified altitude is `operational_ceiling_ft`, reached or not.
+- **Sections.** hangar's maximum-lift trend runs high for thick, highly
+  cambered sections: hold it with `[analysis.airfoil.<name>] clmax` where
+  the aircraft's CL max passes 2.1.
+
+
+## 6. Finish
 
 - Run `ctest --test-dir build/ucrt64-release -R hangar`.
 - Show the user three things: the three-view, a viewer screenshot, and the
   failed or warned checks with what they mean.
 - Link `aircraft/<name>/out/report.html`.
+- Check `git status`. A generated file shown as modified has changed: the
+  build writes its `.xml` files as git keeps them (LF), a rebuild that
+  changes nothing keeps the aircraft's date, and the mesher gives the same
+  `.glb` every time. The flight tests fly without the platform's envelope
+  protection, so they never measure the envelope the last run wrote: fly
+  and autopilot run again leave the `.xml` and `autopilot.toml` (a
+  rotorcraft's `hover.toml`) as they were, dates and all. One that should
+  not have changed is a bug to chase, not a file to check out. (Only
+  calibrate dates its `calibration.toml` every run.)
 - The aircraft is `jsbsim:<name>` everywhere on the platform, with no copying:
-  in the viewer, the C++ and Python SDKs, and scenario files.
+  in the viewer, the C++ and Python SDKs, and scenario files. Build and
+  installation staging copy its runtime products automatically; standalone
+  SDK data provision follows `docs/resources.md`.

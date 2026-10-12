@@ -77,7 +77,7 @@ void main() {
   // fsim: only of the parts that hold ice at either end (the fragments march no other): CoCiP's plume has its size
   // from the start, but no ice until the wake has dissolved into it - sized by it, the young trail's boxes were
   // hundreds of metres across, a camera near the aircraft stood inside dozens of them, and every pixel of the screen
-  // marched through each (behind tactics.bvr's fighters, 18 screens' worth of fragments for a puff of trail)
+  // marched through each (in a historical two-fighter capture, 18 screens' worth of fragments for a puff of trail)
   bool wakeIce = max(max(ma.z, mb.z), max(ta.z, tb.z)) > 0.0, plumeIce = max(pa.w, pb.w) > 0.0;
   float tube = max(ma.x, mb.x) + sigmaPixel;
   float crow = max(wa.z, wb.z);

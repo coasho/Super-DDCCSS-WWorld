@@ -36,6 +36,13 @@ Encounter diagnostics were unchanged by the allocation repair. Guidance and coun
 
 ## Game integration evidence
 
+The checks in this section were recorded against an external browser-game client. Its adapter tests and
+`tools/server_smoke.py`, `tools/all_missions.py` and `tools/client_smoke.mjs` are not files in this SDK repository.
+The original record did not identify the client checkout, commit or working directory, so these commands are
+retained as historical evidence rather than advertised as reproducible commands here. Reverification requires
+identifying that client revision first. This section does not validate the retired testbench tactical prototype
+or the optional native Vulkan viewer.
+
 | Check | Verified result |
 | --- | --- |
 | `python -m unittest discover -s tests -v` | Five adapter regressions passed: refusal, stale cues, lost stores, designation reuse and damage without automatic kills |

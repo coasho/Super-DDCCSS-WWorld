@@ -5,6 +5,9 @@ An **agent** is a mission autonomy's decisions bound to one aircraft - a script,
 made by the **range**: whoever holds the `World` (ADR-31, [agent-boundary.md](../agent-boundary.md)). Which entry
 point belongs to whom is in [boundary.md](boundary.md).
 
+Current capability and milestone scope is tracked in [status](../status.md). Native missile engagement access,
+designation requirements and range-only observations are defined in [engagement](engagement.md).
+
 ```python
 w = fsim.World("engagement")
 viper = w.create_vehicle("viper", "jsbsim:f16c", ...)
@@ -55,7 +58,7 @@ blue.undesignate(target)
   target was removed (a pursuit holds its heading and speed).
 - **Its own:** a designation is its vehicle's; another vehicle's agent may not name it. The range may designate too
   (`Vehicle::designate`), and its own scripts may still name entities.
-- **A strike** may name its designation: its weapons' records carry it as their target (MS-7d's seekers are cued by
+- **A strike** may name its designation: its weapons' records carry it as their target (native missile seekers are cued by
   it), and the referee resolves it.
 
 ## Mission data
@@ -87,7 +90,7 @@ blue.submit_must_fly(location="op_zone", target=2)  # (named as it sees it)
 | As itself (L2) | options or a caller claiming another source than the policy's, or another controller than its own (0 means its own) |
 | Its own vehicle (L1) | another vehicle's calls, another vehicle's activities (an activity of another reads empty) |
 | No entity ids (L4) | a behaviour's target, a must fly's `Entity`, a strike's target naming another aircraft by its entity id, or another vehicle's designation: an agent names its own designations (targets by track). A frame following another aircraft reads empty |
-| Consent is C2's (A9) | a strike giving its own release consent: it asks, and the range (standing in for C2 until AB-5) answers |
+| Consent is C2's (A9) | a strike giving its own release consent: it asks; the MA core routes approval through configured C2 roles over the links. For a platform outside a net, the range supplies consent directly. See [C2 authority](#c2-authority) |
 | Reports, not truth (L3, L5) | the entity behind a detection or a track (`truth` is 0); the whole sensed state (an agent reads its navigation report and state data) |
 | Its own system (L6) | sending as another system, reading another's inbox, the range's message fabric (`fsim_comm_*`); a native message type's topic (the MA core's) |
 | The first entry points | the per-step `command_*` calls (the default policy's, without options): an agent submits and updates as itself |
@@ -106,8 +109,9 @@ scripted adversary is the range's.
 - **The sealed run:** before handing agents over, the range may seal its handle: `range = w.seal()` (C:
   `fsim_world_seal`). The World returned is the range's from then on - the same world, its agents going on - and the
   old one answers nothing, nor do vehicles and activities got from it: code that kept them, an agent's by mistake, can no
-  longer change the world or read its truth. Keep the new one out of agents' reach. (The C++ World is the program's own,
-  unsealed: a C++ MA runs as the range's code, in its process; agents in a process of their own come with AB-6.)
+  longer change the world or read its truth. Keep the new one out of agents' reach. The C++ World remains unsealed;
+  MA code must receive its scoped Agent rather than the range's World. [Process isolation](#isolation) is implemented
+  by `fsim.isolation.AgentProcess` for runs requiring the stronger boundary.
 
 ```python
 blue = w.create_agent(viper, "blue-1")
@@ -126,7 +130,7 @@ C2 node has a Decentralized Messaging Service, and messages go DMS to DMS.
   entity id. An agent reads its own (`agent.system`); the referee maps one to its entity (`system_entity`).
 - **C2 nodes:** `world.create_c2_node(name, latitude_deg, longitude_deg, altitude_m)` - a compute and communications node
   with a position, no flight model. `world.create_agent(node)` gives it an agent: its DMS, its clock, the terrain and
-  mission data. Its authority over others comes with AB-5.
+  mission data. Its authority over others uses the implemented [C2 authority](#c2-authority) rules (AB-5).
 - **Nets:** `world.create_net(name, **spec)` and `world.join_net(entity, net)` - the range's (mission planning). A net
   carries a message when the receiver is within its range, in line of sight (the radio path over the earth's curvature
   and the terrain, MS-2), and its loss draw passes, after its sender's share of the net's data rate, the latency and

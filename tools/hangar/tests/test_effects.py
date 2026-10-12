@@ -1,6 +1,6 @@
-"""Every design's model gives the viewer what its effects are drawn from (hangar/effects.py): an exhaust for each
-engine that burns, a jet's kind and ratings, a rocket's line, a propeller that turns, its lifting surfaces - nothing a
-design has is left for the viewer to guess."""
+"""The current model-anchor and manifest invariants in hangar/effects.py: exhausts, jet ratings, rocket lines,
+propellers and lifting surfaces where the audit requires them. Rotorcraft exhaust and lifting-surface exceptions
+remain explicit; empty missing lists do not prove complete physical effects or rendered appearance."""
 import unittest
 
 from hangar import effects

@@ -1,9 +1,8 @@
 # Third-party dependencies.
 #
-# Headless milestones (M0-M2) need only JSBSim, which ships as a git submodule
-# because the platform also needs its data tree (aircraft/, engine/, systems/).
-# The viewer milestones add VSG, vsgXchange and vsgImGui through vcpkg (see
-# design section 11). Catch2 is fetched for tests only.
+# JSBSim and its data tree (aircraft/, engine/, systems/) are tracked vendored
+# sources in third_party/. The optional VSG stack is built by deps/ and found
+# through CMAKE_PREFIX_PATH. Catch2 is fetched for tests only.
 
 include(FetchContent)
 
@@ -13,7 +12,7 @@ include(FetchContent)
 set(FSIM_JSBSIM_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/jsbsim)
 if(NOT EXISTS ${FSIM_JSBSIM_SOURCE_DIR}/src/FGFDMExec.h)
     message(FATAL_ERROR
-        "JSBSim submodule is missing. Run: git submodule update --init --recursive")
+        "Vendored JSBSim source is missing. Restore third_party/jsbsim from a complete project checkout.")
 endif()
 
 # Only libJSBSim's own subtree is added; JSBSim's top-level CMakeLists pulls in

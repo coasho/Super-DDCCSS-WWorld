@@ -1,12 +1,13 @@
-"""A missile design shown in the viewer before anything flies it (ADR-30, MS-7e): a scripted recording.
+"""A missile design's model, moving parts and effects shown through a scripted recording (ADR-30, MS-7e).
 
     python -m hangar showcase <missile> [--carrier f16c] [--station N] [--launch-s 6] [--duration 30]
 
 writes aircraft/<missile>/out/showcase.json (the script) and showcase.fsrec (the recording, by flightsim-showcase), and
 prints the viewer's command that plays it: the carrier flying level with the missile on a station its loadouts put it
 on, then the launch - off the rail, or ejected - its motor's thrust through the design's [[motor.phase]]s, its fins
-deflected by a scripted manoeuvre. The motion is scripted, not flown: the states are those a flight model writes, so
-the viewer draws the model, its moving parts and its effects from them as it will from a flight.
+deflected by a scripted manoeuvre. Carrier and missile motion is kinematic; the viewer uses its normal rendering
+path for the supplied states. An optional target is flown by World with its JSBSim flight model and damage chain.
+This visual fixture does not validate native missile flight, guidance, seekers or fuze outcomes.
 """
 import argparse
 import json

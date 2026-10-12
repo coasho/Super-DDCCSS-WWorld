@@ -162,7 +162,7 @@ TEST_CASE("stores: an F-16C's inventory - empty as created, its loadout, loads i
         CHECK_THAT(s.massKg, WithinAbs(226.8, 0.1));
     }
     CHECK(stations == std::vector<int>{3, 4, 6, 7});
-    // the strike and store management capabilities: offered, partly built (seekers and guidance, launch zones to come)
+    // Native engagements and advisory launch zones exist; calibrated full-fidelity acceptance remains partial.
     const ms::Host* host = w.missionSystems(f16);
     int strike = -1;
     for (const auto& c : host->capabilities())

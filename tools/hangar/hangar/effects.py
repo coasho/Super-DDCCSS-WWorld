@@ -106,8 +106,14 @@ def text(rows):
     lines = ["# What each model gives the viewer's effects", "",
              "Written by `python -m hangar effects --record docs/hangar-effects.md` from the designs, their models' nodes and",
              "their manifests ([viewer.md](sdk/viewer.md#effects)): what the viewer has to draw each vehicle's and each payload's",
-             "moving parts, plumes and trails from. The simulation's state says how far, how hot and how much; nothing is the",
-             "viewer's own. `tools/hangar/tests/test_effects.py` holds the last column empty.", "",
+             "moving parts, plumes and trails from. The simulation supplies the state; this audit checks model anchors and",
+             "manifest data, not rendered appearance or flight behavior. `tools/hangar/tests/test_effects.py` checks the",
+             "current rules' `missing` lists.", "",
+             "**Current audit exclusions.** Rotorcraft without exhaust anchors are reported in `what it gives`, not counted",
+             "as `missing`; rotorcraft also bypass the lifting-surface requirement. Rotorcraft exhaust, rotor wake and tip",
+             "vortices remain [B-59](backlog.md). Propeller heat haze and tip vortices, and a released store's continuing",
+             "wreck fire, are also outside these inventory checks. A zero `missing` count means zero failures under these",
+             "rules, not complete physical-effects coverage or a fresh visual acceptance run.", "",
              "| design | category | engines | what it gives | missing |", "| --- | --- | --- | --- | --- |"]
     for r in rows:
         engines = ", ".join("%s x%d" % kv for kv in sorted(r["engines"].items())) + (" rocket motor" if r["motor"] else "")

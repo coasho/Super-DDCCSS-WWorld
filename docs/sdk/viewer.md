@@ -169,7 +169,9 @@ their segmentation images show the same deflections.
 A designed aircraft's model is split into the sections a structural kill breaks it into - `fsim:section:nose`,
 `centre`, `left-wing`, `right-wing`, `tail` (hangar's, [hangar.md](../hangar.md#the-3d-model)) - each node at its
 break, what is mounted on it (its control surfaces, gear, pylons, nozzles) below it. Whole, they are at rest; the
-engagement's breakup (MS-7h) will part them.
+damage chain's `Separated` events hide the failed sections, while debris entities draw those sections alone at
+their own simulated poses. This is implemented in `VehicleVisuals::hideSection` and the viewer's event handling.
+The native engagement delivery did not rebuild this optional viewer; source support is not fresh viewer acceptance.
 
 ### Parts the airstream turns
 
@@ -237,6 +239,12 @@ A live world publishes, with each snapshot, what each vehicle's Vehicle Interfac
 - Cost, measured (an RTX 5070 Ti, 3840x2160 fullscreen, the 35 designed aircraft loaded - their stores drawn - and in view with the panels and labels shown; three runs each of the viewer before these changes and after, 25 s from 15 s in): 145 to 147 frames a second before, 146 to 147 after, the application's own share of a frame 0.38 to 0.40 ms before and 0.33 to 0.37 ms after - the frame is the GPU's (5.9 ms of clouds, vapour and the scene). The simulation steps those 35 aircraft, published, at 2,730 to 2,760 world steps a second before and 2,740 to 2,765 after.
 
 ## Effects
+
+Current armed missile behavior is defined by the [native engagement contract](engagement.md). The Hangar
+showcase and `flightsim-showcase` recordings are scripted visual fixtures: their missile motion, fin deflections
+and scheduled bursts are not native flight, seeker or fuze acceptance. The dated visual calibration and timing
+results below retain their recorded scope. The [engagement validation record](engagement-validation.md) did not
+rebuild or test the native Vulkan viewer.
 
 Drawn from each vehicle's state as the simulation reports it - nothing is
 added to `VehicleState` for them - after the effects DCS World shows:
@@ -348,6 +356,9 @@ built checkout. Should its libraries be missing beside the viewer at run time, t
 solver ... NOT drawn") - nothing stands in for it.
 
 ### A missile's plume held to launch photographs
+
+These comparisons check rendered plume shape and brightness against photographs. The missile states are scripted
+visual fixtures; the comparison does not calibrate missile trajectories, motor performance, guidance or seekers.
 
 Four launch photographs on Wikimedia Commons (U.S. government works; their files, the points measured from and the
 numbers in [tools/plume_check/photos.json](../../tools/plume_check/photos.json)) measured by
@@ -523,8 +534,8 @@ viewer's, and why:
 | --- | --- |
 | Through the vortex phase (its depth at the pair's initial descent speed) the ice is CoCiP's initial ice for the jets' size as drawn, going to its plume's | CoCiP's, spread over the vortex's whole plume at once, left none in air below ice saturation |
 | The young trail (its first 1.5 s: the ice condensing, the wake rolling up) drawn from samples at fixed ages - 0.03 s apart to 0.3 s, further apart to 1.55 s - between those laid every 0.25 s, along the path between them | drawn between the samples laid alone, whose ages moved on every frame until the next was laid, the trail behind the jets faded and filled again four times a second: behind an F-16 from 40 m, the trail's mean brightness swung 7 grey levels at 4 Hz, and a fifth of its pixels changed by more than 4 levels a frame (after: 2.2, no period; a tenth, most of it the trail's texture going by) |
-| On a window of 2 million pixels or more, the trail is shaded a fragment to 2 x 2 pixels (VK_KHR_fragment_shading_rate, the draw's own rate, where the device has it; its edges, depth and coverage still each pixel's, its noises filtered for the coarser fragment) | its march is the costliest thing the frame draws, each pixel through every stretch of trail in front of it, and its cost goes with the pixels: fullscreen at 3840 x 2160, inside a fighter's trail in tactics.bvr, 7.3 ms of an 11.5 ms frame (83 fps). After, 2.0 ms of 6.0 ms (155 fps); the ice is soft - the step from one 2 x 2 block to the next averages 0.09 grey levels |
-| Each stretch of trail is drawn as the box round the parts that hold ice at its ends | the box was sized by CoCiP's plume too, which has its size from the start but no ice until the wake has dissolved into it: the young trail's boxes were hundreds of metres across, a camera near an aircraft stood inside dozens of them and every pixel marched through each - 18 screens' worth of fragments behind tactics.bvr's fighters for a puff of trail, the contrails' cost ten times larger looking along the trails than across them (2.5 ms against 0.24). Measured on the same views: 2.47 -> 0.25 ms (40 m ahead looking back), 1.63 -> 0.11, 1.13 -> 0.17, 0.51 -> 0.07 (chase, 60 m); a six-minute-old trail 0.71 -> 0.56, 0.56 -> 0.19; the frames as before (within the difference two captures of one moment make) |
+| On a window of 2 million pixels or more, the trail is shaded a fragment to 2 x 2 pixels (VK_KHR_fragment_shading_rate, the draw's own rate, where the device has it; its edges, depth and coverage still each pixel's, its noises filtered for the coarser fragment) | historical measurement using the retired `tactics.bvr` prototype: fullscreen at 3840 x 2160, inside a fighter's trail, the march took 7.3 ms of an 11.5 ms frame (83 fps). After, 2.0 ms of 6.0 ms (155 fps); the ice is soft - the step from one 2 x 2 block to the next averages 0.09 grey levels. This prototype is not a current scenario entry point or native-engagement benchmark |
+| Each stretch of trail is drawn as the box round the parts that hold ice at its ends | the box was sized by CoCiP's plume too, which has its size from the start but no ice until the wake has dissolved into it: the young trail's boxes were hundreds of metres across, a camera near an aircraft stood inside dozens of them and every pixel marched through each - a historical view of the retired `tactics.bvr` prototype measured 18 screens' worth of fragments behind its fighters for a puff of trail, the contrails' cost ten times larger looking along the trails than across them (2.5 ms against 0.24). Measured on the same views: 2.47 -> 0.25 ms (40 m ahead looking back), 1.63 -> 0.11, 1.13 -> 0.17, 0.51 -> 0.07 (chase, 60 m); a six-minute-old trail 0.71 -> 0.56, 0.56 -> 0.19; the frames as before (within the difference two captures of one moment make) |
 | The wake's tubes and curtain lie in the frame the aircraft was banked in as it laid them (its up, each sample's); the plume's section stays CoCiP's, horizontal and vertical | they were laid level whatever the bank: beside a banked aircraft's nozzles, not behind them |
 | The secondary wake holds 0.24 / (0.24 + 1.18) of the young contrail's ice, and keeps it at the flight level while the air there is ice-supersaturated | the B747-400's optical depths over equal sections at 50 s; its primary wake sublimated in the descent, its secondary persisted (Sussmann and Gierens 1999) |
 | The jets' ice is seen from half of 0.3 s of age, all of it from 0.3 s | an ATTAS's contrail was seen 25-35 m behind its engines at 200 m/s; within one to two spans behind an airliner |
@@ -692,7 +703,7 @@ the simulation flies (or a recording of one) drawn by `flightsim-viewer --stats`
 | --- | --- |
 | fleet | all 35 aircraft with their loads, line abreast at 3,000 m, turning together; the camera 900 m off |
 | strike | an F-16C flown into the sea at 60 deg and 233 m/s: 1,270 kg of fuel a fireball, then the fire that burns on; the camera 160 m off |
-| hit | a MiG-29A hit from its left by an AIM-120C: the burst, the spilt fuel's fireball, a 5 kg/s leak burning down its path, its sections parting; the camera 70 m off |
+| hit | a visual recording made by `flightsim-showcase` from `tools/viewer_perf/hit.json`: scripted missile motion and scheduled detonation against a native JSBSim MiG-29A, with native damage and a Flow-solved fuel fireball, a 5 kg/s leak burning down its path, and its sections parting; the camera 70 m off. This fixture measures rendering, not native missile guidance or fuze behavior |
 | reheat | an F-16C in full reheat through the transonic from 35 m: its flame, its shock train, its vapour cone |
 
 A scene passes when, after its first five seconds, every second's mean rate is within 1 % of the target and no frame
@@ -703,6 +714,9 @@ side by side - what moves from run to run in one viewer (the clouds' temporal no
 0.9 % and 5 % of a frame's pixels more than 8 of 255 apart) is the floor a change is read against.
 
 Measured 2026-10-11 on an RTX 5070 Ti, the sun at midday (`before`: the viewer at 12fb394):
+
+The `now` rows refer to the revision measured in that dated comparison. They are not a fresh benchmark of the
+current checkout or proof of viewer compatibility with the later native engagement delivery.
 
 | Scene | | fps (mean) | lowest second | worst frame, ms | frames over 12.5 ms | the viewer's passes on the GPU, ms | the frame's thread outside the draw, ms |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |

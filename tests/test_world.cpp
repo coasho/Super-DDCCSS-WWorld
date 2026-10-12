@@ -683,7 +683,7 @@ TEST_CASE("a recording carries the vehicles' stores as they change", "[world][ip
 }
 
 TEST_CASE("a recording carries the engagement's events, each with the snapshot after it", "[world][ipc]") {
-    // (version 5: 'V' records - MS-7h's detonations, as MS-7d's fuze will write them; the showcase scripts them now)
+    // Version 5 'V' records carry engagement events from native fuzes or explicit range/scripted fixtures.
     const auto path = std::filesystem::temp_directory_path() / "fsim-test-record-events.fsrec";
     {
         ipc::RecordingHeader header;
