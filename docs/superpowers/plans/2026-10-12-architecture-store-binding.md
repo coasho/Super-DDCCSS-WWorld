@@ -92,3 +92,22 @@ existing World/Host/model interfaces. Source workers do not configure/build, mod
   references, six Markdown files, 175 local links, five anchors, five PowerShell blocks and diff formatting pass.
   A6 was initially left uncommitted for review; the user subsequently requested delivery and fresh validation.
   No renderer/GPU, render SDK installation, CPack ZIP or remote CI acceptance is claimed.
+
+## Delivery and fresh validation
+
+- The user requested push followed by validation. Committed the reviewed 13-file slice as
+  b57947d75ea85e998e0af40fa9daf7828b5f9cd5 and pushed codex/architecture-world-store-binding to origin.
+  A remote-head query matches local HEAD; the checkout is clean.
+- Fresh pre-push build, 11 focused CTest cases, source/protected/export/runtime checks and documentation validation
+  pass. A second build after push passes through fsim.cmd.
+- Full registered headless CTest passes 596/596 in 887.51 seconds, including all 40 Hangar classes in addition to
+  the original functional/architecture gates. TMP/TEMP/TORCH_EXTENSIONS_DIR and MPLCONFIGDIR remain under D:/ENV/tmp.
+- Fresh store-binding characterization passes all 2,655 assertions in three cases. The eight-variant replay remains
+  byte-identical to the original baseline; all protected source/resource bytes retain their captured hashes.
+- Refreshed dist after the full suite. All 1,230 runtime manifest entries and SDK/JSBSim DLL bytes match the freshly
+  tested installed consumer; distributed Python native/wrapper bytes match staging. Distributed binding compatibility
+  passes 25/25 in 1.195 seconds. The exact 13-file committed scope, 3,720 protected hashes, exports, runtime identities,
+  six Markdown files, 175 links, five anchors and five PowerShell blocks pass. Source/test bytes are unchanged from
+  implementation commit b57947d; only the delivery evidence is updated after validation.
+- Logs and delivery identity are under D:/ENV/tmp/architecture-a6-delivery-*. Hangar uses isolated generation
+  outputs; full canonical aircraft regeneration, GPU/render acceptance, CPack ZIP and remote CI remain outside this run.

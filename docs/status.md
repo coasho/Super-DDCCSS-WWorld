@@ -4,7 +4,7 @@ Reviewed: 2026-10-12. First maintenance pass: `2b83f24` (implementation baseline
 Second maintenance pass: `f8cfec9`; Architecture A1: `6652584`; Architecture A2: `34e5516`; Architecture A3: `e79f268`;
 Architecture A4: `e708b87`; Architecture A5: `2efea05`, on
 `codex/architecture-vecenv-recording`.
-Architecture A6 is delivered on `codex/architecture-world-store-binding`, based on `39be3c1`.
+Architecture A6: `b57947d`, delivered on `codex/architecture-world-store-binding`, based on `39be3c1`.
 
 This is the entry point for what exists now, which delivery it belongs to, and what remains open. The first
 maintenance pass consolidated documentation and development guidance, corrected outdated descriptions, and retired
@@ -74,7 +74,7 @@ preserved, but never use an unqualified `M1` to select work.
 | **Architecture A3** | C control/VI and Python control/Mission adapter separation. | Committed as `e79f268` and locally verified below against the [A3 design](superpowers/specs/2026-10-12-architecture-adapters-design.md): 548 functional cases plus three architecture checks, unchanged exports/runtime descriptors and installed-consumer/distribution acceptance. |
 | **Architecture A4** | C Scenario/Environment and Python World/Scenario/Environment adapter separation. | Committed as `e708b87` and locally verified below against the [A4 design](superpowers/specs/2026-10-12-architecture-world-adapters-design.md): 549 functional cases plus three architecture checks, unchanged public exports/native identities and installed-consumer/distribution acceptance. |
 | **Architecture A5** | C/Python VecEnv and Recording adapter separation with retained C++ and runtime type owners. | Committed as `2efea05` and locally verified below against the [A5 design](superpowers/specs/2026-10-12-architecture-batch-recording-design.md): 550 functional cases plus three architecture checks, unchanged exports/native identities and installed-consumer/distribution acceptance. |
-| **Architecture A6** | World store-to-flight-model binding state ownership. | Implemented and locally verified below against the [A6 design](superpowers/specs/2026-10-12-architecture-store-binding-design.md): 553 functional cases plus three architecture checks, exact eight-variant baseline replay, unchanged exports/native identities and installed-consumer/distribution acceptance. Delivered on the current branch at the user's request. |
+| **Architecture A6** | World store-to-flight-model binding state ownership. | Committed as `b57947d` and pushed at the user's request. Locally verified below against the [A6 design](superpowers/specs/2026-10-12-architecture-store-binding-design.md): all 596 headless CTest cases, including 40 Hangar cases, exact eight-variant baseline replay, unchanged exports/native identities and installed-consumer/distribution acceptance. |
 
 The third maintenance pass includes bounded A1,
 [A2 lifecycle/adapter](superpowers/specs/2026-10-12-architecture-lifecycle-design.md) and
@@ -426,6 +426,33 @@ A6 was initially left uncommitted for review, then delivered at the user's reque
 the first pass's unchanged Hangar generation evidence and did not rerun it.
 Renderer/GPU, render SDK installation, CPack ZIP and remote CI were not exercised. This slice does not close the
 remaining World state-owner work or separate physics, sensor, weapon, history-retention and public-release milestones.
+
+### Architecture A6 post-push validation, 2026-10-12
+
+The user requested delivery followed by fresh validation. Implementation commit
+`b57947d75ea85e998e0af40fa9daf7828b5f9cd5` was pushed to
+`origin/codex/architecture-world-store-binding`; an independent remote-head query matched local HEAD.
+The checkout was clean. The existing UCRT64 headless Release build retained warnings as errors and CPython 3.13.12.
+TMP/TEMP/TORCH_EXTENSIONS_DIR and Matplotlib's configuration/cache directory were under `D:/ENV/tmp`.
+
+| Check | Result |
+| --- | --- |
+| Before commit/push | `fsim.cmd` build passed; 11 focused CTest cases passed in 7.22 s. Literal extraction, protected files, exports/runtime identities, exact scope and documentation checks passed |
+| Build after push | `.\fsim.cmd --preset ucrt64-headless build -j 10` passed |
+| Full registered headless suite | `ctest --preset ucrt64-headless -j 10 --timeout 3600 --output-on-failure` passed 596/596 in 887.51 s: 553 functional cases, three architecture checks and all 40 Hangar classes. This includes 18 fleet cases, native engagement determinism, lifecycle/principals, Python, launcher and both installed-consumer/package gates |
+| Fresh production-path replay | All three store-binding cases passed with 2,655 assertions. Eight worker/frameSkip/drag variants reproduce the original 67,553-line, 2,641,139-byte baseline exactly, with the same SHA-256 recorded above |
+| Distribution after the full suite | `.\fsim.cmd --preset ucrt64-headless dist -j 10` passed. All 1,230 runtime manifest entries and SDK/JSBSim DLL bytes match the freshly tested installed consumer; distributed Python native/wrapper bytes match staging |
+| Distributed Python compatibility | All four binding compatibility suites passed 25/25 in 1.195 s against the actual distributed native module |
+| Protected scope and documentation | All 3,720 protected hashes, 1,338 SDK export names, sole Python export, 246 descriptors, 32 functions and four type layouts match the A5 baseline. The committed A6 slice retains its exact 13-file scope. Six Markdown files, 175 local links, five anchors and five PowerShell blocks pass |
+
+The Hangar run validates existing geometry/manifests, mass, carriage, effects, vulnerability and temporary-copy
+generation/startup cases. It does not rebuild all canonical aircraft assets or validate GPU rendering.
+Post-push logs are under `D:/ENV/tmp`: `architecture-a6-delivery-build.log`,
+`architecture-a6-delivery-full-tests.log`, `architecture-a6-delivery-characterization.log`,
+`architecture-a6-delivery-dist.log` and `architecture-a6-delivery-python-dist-compatibility.log`. Remote identity is in
+`architecture-a6-delivery-push.json`; the fresh trace is `architecture-a6-delivery-replay-after.txt`. Committed-scope
+results are in `architecture-a6-delivery-final-verification.json`; documentation results are in
+`architecture-a6-delivery-doc-verification.log` and `architecture-a6-delivery-doc-commands.log`.
 
 ### Earlier delivery evidence
 
