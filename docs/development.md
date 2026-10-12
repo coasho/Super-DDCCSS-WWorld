@@ -55,6 +55,8 @@ The Windows entry point is `fsim.cmd [--preset NAME] COMMAND [ARGS]`, delegated 
 
 `configure` forwards CMake configure flags, such as `-DFSIM_PYTHON_EXECUTABLE=...`. `build` and `dist` configure the selected preset when `CMakeCache.txt` is absent; configure first when you need custom options. Their remaining arguments go to `cmake --build`. `test` forwards arguments to CTest and requires an existing configuration; an unconfigured tree produces the matching build hint. Application commands use that preset's executable or configured Python interpreter and return its exit code. Python configuration writes `build/<preset>/python/fsim-python.json`; the shared launcher reads this metadata and invokes the interpreter directly with the selected package on PYTHONPATH.
 
+For CTest expressions containing shell operators such as `|`, invoke `ctest --preset <preset>` directly from PowerShell. The batch entry passes through CMD, which can reinterpret such expressions even when the PowerShell argument is quoted. For example, `ctest --preset ucrt64-headless -LE 'hangar|architecture' -j 10` selects the functional suite without either label.
+
 ```powershell
 .\fsim.cmd --preset ucrt64-headless help
 .\fsim.cmd --preset ucrt64-headless where
@@ -83,6 +85,7 @@ Use the existing layers in [tests/CMakeLists.txt](../tests/CMakeLists.txt) and [
 | Core, mission systems, integration | CTest cases, focused `-R` selection | Native behavior and scenario regressions |
 | Public C++ and C ABI | SDK cases and `c_abi` | Consumer contracts against the shared library |
 | Python and principals | `python_sdk`, `sdk_boundary` | Python behavior and classified exports |
+| Native architecture and scanner regressions | `.\fsim.cmd test -L architecture` | Module ownership/dependencies, public/private and GPU boundaries, principal scanner coverage and negative fixtures |
 | Control conformance | `ctest --preset ucrt64-headless -L conformance` | Lifecycle, allocation gate and adapter checks |
 | Advertised fleet capabilities | `ctest --preset ucrt64-headless -L fleet` | Aircraft-specific acceptance cases; includes shards |
 | Hangar methods and pipeline | `ctest --preset ucrt64-headless -L hangar` | Theory/data comparisons and stage checks |
@@ -95,6 +98,10 @@ Start with tests relevant to the change, then run the full applicable preset sui
 The `package_consumer` CTest gate installs only `sdk` into `build/<preset>/package-consumer/installed SDK`, builds the [external consumer](../tests/package_consumer/CMakeLists.txt) using only installed `fsim::sdk`, checks DLL locations and a SHA256 runtime-data manifest, then exercises stock `c172x`, custom `f16c`, its Mk 82 loadout and a released store. It poisons the installed stock, custom and released-store XML in turn; each probe must produce API rejection exit 42. The gate restores exact bytes before its final positive run and keeps its logs/manifest in the private package-consumer directory. Optional vision export checks do not open a GPU device.
 
 The `dist_components` gate builds tiny independent targets directly through `dist`, checks that an enabled example is compiled before installation, and removes obsolete executables/wheels when components are disabled. It checks the fixed `bin`, `lib` and `share/flightsim` package layout and protects cleanup outside the owned build's distribution tree. SDK CMake exports describe that actual layout and remain relocatable with the installation prefix.
+
+Architecture acceptance is registered by [cmake/ArchitectureChecks.cmake](../cmake/ArchitectureChecks.cmake), independently of `FSIM_BUILD_PYTHON` or native Python module discovery. It needs only Python 3.11+ standard-library support; `FSIM_CHECK_PYTHON` can select its interpreter. When none is available, configure explicitly warns that these checks are unavailable; do not count that configuration as architecture acceptance. The [architecture checker guide](../tools/architecture/README.md) documents the permitted CMake subset and module/source policy. Extend its negative fixtures alongside any new native dependency or declaration form.
+
+When splitting C adapters, preserve the first principal guard, shared last-error state, borrowed output lifetime and `struct_size` behavior. `sdk_guard_checker` exercises source-discovery/coverage failures without loading the SDK; `sdk_boundary` still checks the actual DLL/Python surface and generated inventory. `launch_eligibility` and the stores' `[launch-policy]` cases characterize the private weapon admission seam; native engagement acceptance retains worker/event determinism. Avoid changing defaults or refusal order while moving ownership.
 
 ## Long-running work and evidence
 

@@ -4,7 +4,7 @@
 #include "ms/Cards.h"
 #include "ms/radar/Detection.h"
 #include "ms/rf/Path.h"
-#include "sim/Attitude.h"
+#include "core/Attitude.h"
 
 #include <algorithm>
 #include <chrono>
@@ -155,7 +155,7 @@ AmtiTrack Radar::report(const track::Track& tr, double now, const sim::VehicleSt
     out.velocitySigmaMs = std::sqrt((g.p(1, 1) + g.p(3, 3) + g.p(5, 5)) / 3.0);
     // from the carrier, in its body axes
     double r[9];
-    sim::attitude::bodyToEcefFromQuaternion(own.attitudeEcefToBody, r);
+    core::attitude::bodyToEcefFromQuaternion(own.attitudeEcefToBody, r);
     double rel[3] = {p[0] - own.positionEcef[0], p[1] - own.positionEcef[1], p[2] - own.positionEcef[2]};
     out.rangeM = std::sqrt(dot(rel, rel));
     if (out.rangeM > 0.0) {
@@ -215,7 +215,7 @@ bool Radar::bearing(std::uint64_t id, double time, const sim::VehicleState& own,
     double d[3];
     for (std::size_t i = 0; i < 3; ++i) d[i] = g.x.a[2 * i] + g.x.a[2 * i + 1] * dt - own.positionEcef[i];
     double r[9];
-    sim::attitude::bodyToEcefFromQuaternion(own.attitudeEcefToBody, r);
+    core::attitude::bodyToEcefFromQuaternion(own.attitudeEcefToBody, r);
     const double db[3] = {r[0] * d[0] + r[3] * d[1] + r[6] * d[2], r[1] * d[0] + r[4] * d[1] + r[7] * d[2], r[2] * d[0] + r[5] * d[1] + r[8] * d[2]};
     az = std::atan2(db[1], db[0]);
     el = std::atan2(-db[2], std::hypot(db[0], db[1]));
@@ -423,7 +423,7 @@ void Radar::dwell(double time, double az, double el, const sim::VehicleState& ow
     const sim::VehicleState* states[kMax];
     const std::size_t n = scene.targets(ids, states, kMax);
     double r[9];
-    sim::attitude::bodyToEcefFromQuaternion(own.attitudeEcefToBody, r); // ecef = r body
+    core::attitude::bodyToEcefFromQuaternion(own.attitudeEcefToBody, r); // ecef = r body
     const double beamBody[3] = {std::cos(el) * std::cos(az), std::cos(el) * std::sin(az), -std::sin(el)};
     double beam[3];
     for (int i = 0; i < 3; ++i) beam[i] = r[3 * i] * beamBody[0] + r[3 * i + 1] * beamBody[1] + r[3 * i + 2] * beamBody[2];
@@ -554,7 +554,7 @@ void Radar::dwellSignal(double time, double az, double el, const sim::VehicleSta
     const sim::VehicleState* states[kMax];
     const std::size_t n = scene.targets(ids, states, kMax);
     double r[9];
-    sim::attitude::bodyToEcefFromQuaternion(own.attitudeEcefToBody, r); // ecef = r body
+    core::attitude::bodyToEcefFromQuaternion(own.attitudeEcefToBody, r); // ecef = r body
     const double beamBody[3] = {std::cos(el) * std::cos(az), std::cos(el) * std::sin(az), -std::sin(el)};
     double vOwn[3];
     velocityEcef(own, vOwn);

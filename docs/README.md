@@ -36,6 +36,8 @@ These documents explain rationale, intended contracts and domain plans. A roadma
 | [Agents and authority (ADR-31)](agent-boundary.md) | Mission autonomy, platform and range authority decisions |
 | [Backlog](backlog.md) | Measured findings, priorities and closure conditions |
 | [SDK missile engagement design](superpowers/specs/2026-10-11-sdk-missile-engagement-design.md) | Dated implementation specification and its starting assumptions |
+| [Architecture A1 maintenance](superpowers/specs/2026-10-11-architecture-maintenance-design.md) | Third-pass findings, initial boundary/domain refactor and prioritized remaining architecture work |
+| [Native dependency acceptance](../tools/architecture/README.md) | Executable module policy, checker scope and regression fixtures |
 
 ## Recorded and generated evidence
 

@@ -46,7 +46,7 @@ add_library(fsim_world STATIC
 add_library(fsim::world ALIAS fsim_world)
 
 target_include_directories(fsim_world PUBLIC ${CMAKE_SOURCE_DIR}/src)
-target_link_libraries(fsim_world PUBLIC fsim::sim fsim::render fsim::core vsg::vsg)
+target_link_libraries(fsim_world PUBLIC fsim::sim fsim::render fsim::core fsim::ipc vsg::vsg)
 target_link_libraries(fsim_world PRIVATE fsim::io) # (PNG reading: the clouds' textures)
 # NVIDIA Flow's solver (world::FlowSolver): a library of its own, the calibration tool's too (tools/flow_calibrate)
 add_library(fsim_flow STATIC FlowSolver.h FlowSolver.cpp FlowFires.h FlowFires.cpp)

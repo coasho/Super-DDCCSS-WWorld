@@ -1,13 +1,15 @@
 # Current capabilities and milestone status
 
 Reviewed: 2026-10-11. First maintenance pass: `2b83f24` (implementation baseline `32e78a6`).
-The second maintenance pass is a working-tree change based on `2b83f24`.
+Second maintenance pass: `f8cfec9`. Architecture A1 is a working-tree change based on `f8cfec9`, on
+`codex/architecture-boundaries`.
 
 This is the entry point for what exists now, which delivery it belongs to, and what remains open. The first
 maintenance pass consolidated documentation and development guidance, corrected outdated descriptions, and retired
 the obsolete tactical prototype and orphan visual/compiler artifacts. The second pass aligns build/run/test presets
-and repairs standalone SDK packaging and consumer acceptance. Neither pass refactors native modules, changes the
-SDK's ABI or physics, or regenerates aircraft models.
+and repairs standalone SDK packaging and consumer acceptance. Architecture A1 starts the third pass by enforcing
+native module dependencies, separating the Mission Systems C adapter and assigning stateless launch eligibility
+to the weapon module. Public interfaces, ABI layouts, physics and aircraft model bytes remain unchanged.
 
 Use the [documentation index](README.md) to find reference material, the [development guide](development.md) for
 build and contribution procedures, and the [resource guide](resources.md) before editing generated assets.
@@ -59,14 +61,19 @@ preserved, but never use an unqualified `M1` to select work.
 | **Agent boundary AB-1 to AB-6** | Classification, scoped handles, designations, mission data, messaging/authority, and process isolation. | Recorded completed migration in [ADR-31](agent-boundary.md). Later engagement records do not by themselves prove every original referee/reward-scoring requirement. |
 | **First maintenance pass** | README/navigation, current capability and milestone status, development guidance, resource-generation ownership and removal of confirmed obsolete content. | Completed and locally verified below. Retired the tactical prototype, deleted orphan visual/compiler artifacts and corrected descriptions/tests/report wording. No architecture refactor, launcher/packaging repair, model regeneration or additional feature milestone is included. |
 | **Second maintenance pass** | Consistent configure/build/run/test/dist presets, first-build entry, independent SDK runtime data and installed-consumer acceptance. | Completed and locally verified below: 535 functional CTest cases, real launch/build/dist commands and independent installed consumers. Native module architecture and simulation models are unchanged. |
+| **Architecture A1** | Executable native dependency boundaries, Mission Systems C adapter separation and weapon-owned launch eligibility. | Implemented and locally verified below: 538 functional cases plus three architecture checks; 1,338 DLL export names match the baseline. Internal ownership changes preserve public interfaces and simulation behavior. The broader architecture queue remains open. |
 
-The selected second maintenance task is build/run/test and SDK package consistency. It does not advance a flight,
-sensor or weapon-model milestone. Preserve the original roadmap and its acceptance criteria before expanding the queue.
+The third maintenance pass starts with the bounded A1 slice in the
+[architecture maintenance design](superpowers/specs/2026-10-11-architecture-maintenance-design.md).
+Its remaining queue prioritizes MA state retirement and further C ABI/Python domain separation, followed by
+store bindings, operational geometry, weapon observations, viewer/platform boundaries and DLL export ownership.
+These candidates require their own characterization and acceptance; A1 does not close a flight, sensor or
+weapon-model milestone.
 
 ## Known workflow and reporting gaps
 
-The first pass recorded these workflow gaps. The second pass repairs the first three; Python availability remains
-an environment-dependent condition.
+The first pass recorded these workflow gaps. The second pass repairs the first three; Python SDK availability remains
+an environment-dependent condition. A1 makes architecture acceptance independent of SDK binding discovery.
 
 | Workflow | Current behavior | Acceptance and limits |
 | --- | --- | --- |
@@ -74,6 +81,7 @@ an environment-dependent condition.
 | Independent SDK data contract | SDK installs stock JSBSim, designed aircraft/store models, cards, damage/pieces, notices and applicable vision resources. Exports describe the actual relocatable `bin` and `share/flightsim` layout. | `package_consumer` verifies complete runtime-file hashes, installed DLL locations, stock/custom/store flight and poisoned-XML rejection. The development resolver's source fallback remains; probes prove use of existing installed models. Vision resources are checked without GPU rendering. |
 | Direct `dist` dependencies and consumers | `dist` builds all enabled installed targets, selects present components and removes inactive components' obsolete generated files. Only viewer maps are retained as reusable data. | `dist_components` builds a small independent fixture directly through dist, checks disabled-component cleanup, CMake exports and cleanup ownership. CTest/CI register both package gates. |
 | Optional Python checks | Python discovery can return from `python/CMakeLists.txt` before registering Python, Hangar and `sdk_boundary` checks. | Check that required tests actually exist in the configured tree before interpreting a green CTest summary. |
+| Native architecture checks | Three standard-library checks register independently of the Python SDK, using Python 3.11+ or `FSIM_CHECK_PYTHON`. | Repository imports and declaration policy, module checker fixtures and C guard scanner fixtures are exercised. Configure warns when no supported interpreter is available; that configuration has no architecture acceptance. |
 
 ## Cleanup decisions
 
@@ -111,7 +119,7 @@ visual acceptance, reproduce the external browser-client checks, or install/test
 
 ### Second maintenance verification, 2026-10-11
 
-Fresh local checks on `codex/build-run-sdk-packaging`, based on `2b83f24`, using UCRT64 Release headless and
+Local checks for the change committed as `f8cfec9`, based on `2b83f24`, using UCRT64 Release headless and
 CPython 3.13.12. All compiler temporary directories use `D:/ENV/tmp`.
 
 | Check | Result |
@@ -132,6 +140,40 @@ Installed-consumer logs and `runtime-data.sha256` are under `build/ucrt64-headle
 The unchanged 40 Hangar cases retain the first pass's full-suite evidence and were not rerun in this pass.
 The renderer/GPU, render SDK installation, CPack ZIP and remote GitHub workflow were not exercised. Headless
 package acceptance does not close Platform M5's public-release or GPU target matrix.
+
+### Architecture A1 verification, 2026-10-11
+
+Fresh local checks on `codex/architecture-boundaries`, based on `f8cfec9`, using UCRT64 Release headless and
+CPython 3.13.12. Compiler temporary directories remain under `D:/ENV/tmp`.
+
+| Check | Result |
+| --- | --- |
+| Headless configure and `build -j 10` through `fsim.cmd` | Passed; libraries, native tests and Python package rebuilt |
+| `ctest --preset ucrt64-headless -LE 'hangar\|architecture' -j 10 --timeout 3600` | All 538 functional cases passed, including 18 fleet cases, Python/principal checks, launcher and both installed-package gates; elapsed 325.27 seconds |
+| `.\fsim.cmd --preset ucrt64-headless test -L architecture --output-on-failure` | All three checks passed in 2.94 seconds: repository policy covers 19 modules and 332 source/header files, with 33 module fixtures and 22 C guard scanner test methods |
+| Architecture checks with `FSIM_BUILD_PYTHON=OFF` | All three passed in 5.24 seconds in an independent headless configuration. This establishes registration without Python SDK bindings; the independent configuration was not used for a native build |
+| World launch characterization and focused native acceptance | Before extraction, two new World cases passed with 443 assertions. After extraction, all 17 selected cases passed in 65.97 seconds, covering launch eligibility, stores, quaternion/JSBSim comparisons, C ABI and native engagement/worker determinism |
+| Adapter and ABI comparison | The extracted 710-line MS block contains 78 exported definitions and is byte-identical to its baseline. Existing error/guard/copy helpers are unchanged; all 1,338 rebuilt DLL export names, including 466 C exports, match the captured baseline |
+| `.\fsim.cmd --preset ucrt64-headless dist -j 10` | Passed; distribution refreshed from the rebuilt SDK. All 1,230 runtime manifest entries and both fsim/JSBSim DLL bytes match the independent installed consumer |
+| Independent review | Three checker gaps were reproduced and fixed: target include-search imports, qualified world-handle inputs and non-enforcing guard macros. Final negative fixtures and repository checks passed; no remaining actionable finding in the reviewed A1 scope |
+| Documentation | Eight changed/new Markdown files, 164 local links and five anchors checked with no errors; all 11 PowerShell command blocks parsed and development skill copies remained byte-identical |
+| Scope | No changes under public `include/`, aircraft, store-source or third-party paths; no generated model changes |
+
+The functional and architecture runs cover 541 distinct CTest cases. Raw logs are local artifacts at
+`D:/ENV/tmp/architecture-a1-configure.log`, `architecture-a1-build.log`, `architecture-a1-functional-tests.log`,
+`architecture-a1-architecture-checks.log`, `architecture-a1-focused-tests.log` and
+`architecture-a1-no-python-sdk-checks.log`. Distribution output is in `D:/ENV/tmp/architecture-a1-dist.log`;
+manifest, DLL and scope comparison results are in `D:/ENV/tmp/architecture-a1-final-verification.json`.
+Adapter comparison evidence is in
+`D:/ENV/tmp/architecture-a1-sdk-extraction-check.json`; installed-consumer logs and runtime hashes are under
+`build/ucrt64-headless/package-consumer`.
+
+The first functional command through the batch wrapper failed before CTest started because CMD interpreted the
+combined label expression's pipe. The successful recorded run invoked CTest directly with the same preset and
+selection; the initial shell failure remains in `D:/ENV/tmp/architecture-a1-functional-tests-shell.log`.
+Unchanged Hangar generation retains the first pass's 40-case evidence. Renderer/GPU behavior, render SDK
+installation, CPack ZIP and remote CI were not exercised. The dependency gate scans renderer source declarations
+in a headless checkout; that is source acceptance, not a renderer build.
 
 ### Earlier delivery evidence
 

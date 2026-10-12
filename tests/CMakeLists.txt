@@ -48,6 +48,11 @@ foreach(core weapon_guidance countermeasure_core)
     add_test(NAME ${core} COMMAND fsim_${core}_test)
 endforeach()
 
+add_executable(fsim_launch_eligibility_test test_launch_eligibility.cpp)
+target_link_libraries(fsim_launch_eligibility_test PRIVATE fsim::ms)
+fsim_set_warnings(fsim_launch_eligibility_test)
+add_test(NAME launch_eligibility COMMAND fsim_launch_eligibility_test)
+
 add_executable(fsim_engagement_native_test test_engagement_native.cpp)
 target_link_libraries(fsim_engagement_native_test PRIVATE fsim::session)
 target_compile_definitions(fsim_engagement_native_test PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")

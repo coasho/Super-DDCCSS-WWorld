@@ -12,6 +12,7 @@
 #include "sim/JsbsimModel.h"
 #include "ms/radar/Radar.h"
 #include "ms/rf/Path.h"
+#include "ms/weapon/LaunchEligibility.h"
 #include "sim/Attitude.h"
 
 #include <fstream>
@@ -1896,19 +1897,18 @@ ms::CommandResult World::submit(std::uint32_t id, const ms::StrikeCommand& comma
             const auto* card=e->ms.storeCard(store.index);
             if (!selected || !card || card->storeClass!="aam") continue;
             const auto* target=vehicleState(command.target);
-            if (!target) return ms::CommandResult{control::CommandStatus::Rejected,ms::Reason::UnknownTrack,0,options.commandId};
             const auto& own=pool_->states()[e->slot];
-            double ray[3],body[3]; for(int k=0;k<3;++k) ray[k]=target->positionEcef[k]-own.positionEcef[k];
-            ms::geom::toBody(own,ray,body);
-            const double off=std::acos(std::clamp(body[0]/std::max(ms::geom::norm3(ray),1.0),-1.0,1.0));
-            const bool heat=card->seeker.find("infrared")!=std::string::npos;
-            if (off>card->value("launch_fov_deg",heat?25.0:55.0)*units::kPi/180.0)
-                return ms::CommandResult{control::CommandStatus::Rejected,ms::Reason::OutOfReach,0,options.commandId};
-            if (card->seeker=="semi_active_radar") {
+            const auto eligibility=ms::weapon::checkLaunchEligibility(*card,own,target);
+            if (eligibility.reason!=ms::Reason::None)
+                return ms::CommandResult{control::CommandStatus::Rejected,eligibility.reason,0,options.commandId};
+            if (eligibility.illuminationRequired) {
                 const auto* d=designation(command.target);
                 const auto radar=d?e->ms.radarStatus(d->payload):ms::RadarStatus{};
-                if (!d || d->owner!=id || !radar.illuminating || radar.designatedTrack!=d->track)
-                    return ms::CommandResult{control::CommandStatus::Rejected,ms::Reason::UnknownTrack,0,options.commandId};
+                const ms::weapon::IlluminationFacts facts{d!=nullptr,d?d->owner:0,d?d->track:0,
+                                                         radar.illuminating,radar.designatedTrack};
+                const auto reason=ms::weapon::checkLaunchIllumination(id,facts);
+                if (reason!=ms::Reason::None)
+                    return ms::CommandResult{control::CommandStatus::Rejected,reason,0,options.commandId};
             }
             break;
         }

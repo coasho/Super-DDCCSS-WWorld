@@ -156,11 +156,21 @@ Trainers use public SDK objects. The viewer reads IPC snapshots in its own proce
 
 Dependency conventions and current limits:
 
-1. No module includes a header from a layer above it; `env` never includes `render` or `world`.
+1. No module includes a header from a layer above it; `env` never includes `render` or `world`. [Native architecture acceptance](../tools/architecture/README.md) checks registered module/source ownership, declared CMake dependency closure, cycles, public/private leakage and headless GPU imports across all native conditional branches. Broad internal include directories remain; the executable check enforces the convention.
 2. Public SDK headers keep JSBSim and Vulkan implementation types private. Rendering implementation lives in `render`, `world`, `ui` and `vision`. Most Win32 services live in `platform`; `world/FlowSolver.cpp` also uses Win32 for the NVIDIA Flow runtime.
 3. Stepping, snapshots and observations use typed buffers. There is no implemented shared `EventBus` contract.
 4. CMake options assemble optional targets. `fsim::ModuleRegistry` provides internal lifecycle support, but does not automatically register every CMake module. The headless configuration excludes rendering and vision targets and needs no Vulkan SDK.
 5. Only `fsim/*.h` and `fsim_c.h` are public; everything else may change without notice.
+
+The first architecture maintenance slice separates Mission Systems C entry points into `src/sdk/fsim_mission_c.cpp`,
+using private `CAbiSupport.h` helpers and the same SDK library. Principal checks discover every native C adapter and
+require coverage of exported world-handle entry points. Their exact exported names and public layouts remain stable.
+
+Weapon launch eligibility belongs to `src/ms/weapon/LaunchEligibility`; session World supplies resolved target and
+illumination facts. The two-phase check retains target/FOV refusal before illumination lookup and Host admission.
+World continues owning authority, inventory ordering, simulation stages and events. Shared quaternion math lives
+in core with the existing sim forwarding interface. The [A1 design and remaining architecture work](superpowers/specs/2026-10-11-architecture-maintenance-design.md)
+records the limited refactor and deferred stateful/GPU work.
 
 ## 6. Runtime model
 

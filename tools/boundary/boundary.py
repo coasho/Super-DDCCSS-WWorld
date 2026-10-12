@@ -24,6 +24,7 @@ import importlib
 import inspect
 import os
 import pkgutil
+from pathlib import Path
 import re
 import subprocess
 import sys
@@ -163,28 +164,62 @@ def classify(surface, data, absent=()):
     return result, errors
 
 
-C_SOURCES = ("src/sdk/fsim_world_c.cpp", "src/sdk/fsim.cpp")
-GUARD = re.compile(r"FSIM_API\s+[^(;{]*?\b(fsim_\w+)\s*\(([^)]*)\)\s*\{\s*(FSIM_(?:NOT_AGENT|AGENT_\w+))\(")
+GUARD = re.compile(r"\s*(FSIM_NOT_AGENT|FSIM_AGENT_(?:CALL|VEHICLE|ACTIVITY|RELEASE))\(")
+# RELEASE performs no principal check. Only the existing own-handle release and identity calls may open with it,
+# including on sealed handles; claims-only AS and arbitrary AGENT_ macros are never principal guards.
+RELEASE_FUNCTIONS = frozenset(("fsim_world_destroy", "fsim_agent_identity"))
 DEFINITION = re.compile(r"FSIM_API\s+[^(;{]*?\b(fsim_\w+)\s*\(([^)]*)\)\s*\{")
+DECLARATION = re.compile(r"FSIM_API\s+[^(;{]*?\b(fsim_\w+)\s*\(([^)]*)\)\s*;")
+WORLD_INPUT = re.compile(r"\bfsim_world\s*(?:(?:const|volatile)\b\s*)*\*\s*"
+                         r"(?:(?:const|volatile)\b\s*)*(?!(?:const|volatile)\b)[A-Za-z_]\w*")
+COMMENT_OR_LITERAL = re.compile(r"//[^\n]*|/\*.*?\*/|\"(?:\\.|[^\"\\])*\"|(?<![\w'])'(?:\\.|[^'\\\n])*'", re.DOTALL)
 
 
-def guards(result, data):
+def c_text(path):
+    """Ignore comments and literals when finding declarations or the first statement of a definition."""
+    text = path.read_text(encoding="utf-8")
+    return COMMENT_OR_LITERAL.sub(lambda m: re.sub(r"[^\n]", " ", m.group()), text)
+
+
+def guards(result, data, surface=None):
     """Every C function an fsim_world* reaches opens by saying whose call it is (FSIM_NOT_AGENT, FSIM_AGENT_*), as its
     principal says: an agent's handle is refused, or scoped, by the library itself (ADR-31, AB-2a)."""
     principal = {name: data["rule"][i]["principal"] for (s, name), i in result.items() if s == "c"}
+    exported = {name for s, name in (result if surface is None else surface) if s == "c"}
     errors = []
-    for path in C_SOURCES:
-        text = open(os.path.join(REPO, path), encoding="utf-8").read()
-        opened = {m.group(1): m.group(3) for m in GUARD.finditer(text)}
+    definitions = {}
+    # Discover adapters across the native source tree, rather than keeping a second hand-maintained CMake source
+    # list here. A newly compiled FSIM_API adapter is inspected even when it lives outside src/sdk.
+    for source in sorted((Path(REPO) / "src").rglob("*.cpp")):
+        text = c_text(source)
+        path = source.relative_to(REPO).as_posix()
         for m in DEFINITION.finditer(text):
             name, params = m.group(1), m.group(2)
-            if not re.search(r"\bfsim_world\s*\*\s*\w+", params) or name not in principal:
+            if name not in exported or not WORLD_INPUT.search(params):
                 continue
-            guard = opened.get(name)
+            opened = GUARD.match(text, m.end())
+            if opened and opened.group(1) == "FSIM_AGENT_RELEASE" and name not in RELEASE_FUNCTIONS:
+                opened = None
+            definitions.setdefault(name, []).append((path, opened.group(1) if opened else None))
+    # Only FSIM_API single-world-pointer inputs need this check. FSIM_VISION_API delegates through the guarded
+    # fsim_world_object adapter; world** outputs and world* return values do not consume an agent's handle.
+    expected = set(definitions)
+    for header in sorted((Path(REPO) / "include" / "fsim").rglob("*.h")):
+        for m in DECLARATION.finditer(c_text(header)):
+            name, params = m.group(1), m.group(2)
+            if name in exported and WORLD_INPUT.search(params):
+                expected.add(name)
+    for name in sorted(expected):
+        found = definitions.get(name, [])
+        if not found:
+            errors.append("%s takes an fsim_world* but has no inspected definition in the native C adapters" % name)
+        elif len(found) > 1:
+            errors.append("%s has duplicate inspected definitions: %s" % (name, ", ".join(path for path, _ in found)))
+        for path, guard in found:
             if guard is None:
-                errors.append("%s: %s takes an fsim_world* but does not open with its guard (FSIM_NOT_AGENT or FSIM_AGENT_*)"
+                errors.append("%s: %s takes an fsim_world* but does not open with its guard (FSIM_NOT_AGENT or FSIM_AGENT_CALL/VEHICLE/ACTIVITY)"
                               % (path, name))
-            elif (principal[name] == "agent") != guard.startswith("FSIM_AGENT_"):
+            elif name in principal and (principal[name] == "agent") != guard.startswith("FSIM_AGENT_"):
                 errors.append("%s: %s is %s's, but opens with %s" % (path, name, principal[name], guard))
     return errors
 
@@ -287,7 +322,7 @@ def main():
     data = load_rules()
     absent = () if a.vision_dll else VISION
     result, errors = classify(surface, data, absent)
-    errors += guards(result, data)
+    errors += guards(result, data, surface)
     text = render(result, data)
     if a.action == "render":
         with open(DOC, "w", encoding="utf-8", newline="\n") as f:

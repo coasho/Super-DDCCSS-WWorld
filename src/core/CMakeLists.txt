@@ -1,5 +1,6 @@
 # core: services shared by every module. Knows neither JSBSim nor Vulkan.
 add_library(fsim_core STATIC
+    Attitude.h
     Context.h
     Geodesy.h
     HeightGrid.h

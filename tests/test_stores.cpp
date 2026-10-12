@@ -59,6 +59,64 @@ int count(const std::vector<ms::StoreInfo>& stores, ms::StoreStatus status) {
     return static_cast<int>(std::count_if(stores.begin(), stores.end(), [&](const ms::StoreInfo& s) { return s.status == status; }));
 }
 
+/// A real target near the launcher's east-facing nose, without advancing either flight model.
+std::uint32_t launchTarget(session::World& w, std::uint32_t launcher, double angleDeg) {
+    const auto* own = w.vehicleState(launcher);
+    REQUIRE(own != nullptr);
+    session::VehicleSpec target;
+    target.name = "launch-target-" + std::to_string(angleDeg);
+    target.type = "jsbsim:f16c";
+    target.initial.latitudeDeg = own->latitudeRad / kDeg + 1000.0 * std::sin(angleDeg * kDeg) / kEarthM / kDeg;
+    target.initial.longitudeDeg = own->longitudeRad / kDeg +
+        1000.0 * std::cos(angleDeg * kDeg) / (kEarthM * std::cos(own->latitudeRad)) / kDeg;
+    target.initial.altitudeMslM = own->altitudeMslM;
+    target.initial.headingDeg = 90.0;
+    target.initial.airspeedTrueMs = 220.0;
+    const auto id = w.createVehicle(target);
+    REQUIRE(id != 0);
+    return id;
+}
+
+/// A refused launch must not start preparation, create an activity, or publish combat events.
+void launchRejectedUnchanged(session::World& w, std::uint32_t launcher, const ms::StrikeCommand& strike,
+                             ms::Reason expected) {
+    const auto* host = w.missionSystems(launcher);
+    REQUIRE(host != nullptr);
+    const auto before = w.stores(launcher);
+    const auto revision = host->storeRevision();
+    REQUIRE(host->activities().empty());
+    REQUIRE_FALSE(host->releasing());
+    REQUIRE(w.weapons().empty());
+    REQUIRE(w.engagementEvents().empty());
+    REQUIRE(w.takeEngagementEvents().empty());
+    ms::CommandOptions command;
+    command.commandId = 713;
+    const auto result = w.submit(launcher, strike, command);
+    CHECK(result.status == control::CommandStatus::Rejected);
+    CHECK(result.reason == expected);
+    CHECK(result.activity == 0);
+    CHECK(result.commandId == command.commandId);
+    CHECK(host->activities().empty());
+    CHECK_FALSE(host->releasing());
+    CHECK(host->storeRevision() == revision);
+    CHECK(w.weapons().empty());
+    CHECK(w.engagementEvents().empty());
+    CHECK(w.takeEngagementEvents().empty());
+    const auto after = w.stores(launcher);
+    REQUIRE(after.size() == before.size());
+    for (std::size_t i = 0; i < after.size(); ++i) {
+        CHECK(after[i].index == before[i].index);
+        CHECK(after[i].payload == before[i].payload);
+        CHECK(after[i].station == before[i].station);
+        CHECK(std::string(after[i].store) == before[i].store);
+        CHECK(after[i].status == before[i].status);
+        CHECK(after[i].massKg == before[i].massKg);
+        CHECK(after[i].fuelKg == before[i].fuelKg);
+        CHECK(after[i].weapon == before[i].weapon);
+        CHECK(after[i].bayDoors == before[i].bayDoors);
+    }
+}
+
 } // namespace
 
 TEST_CASE("stores: the F-16C's stations, its store cards and loadouts read clean", "[ms][stores]") {
@@ -200,6 +258,68 @@ TEST_CASE("stores: an F-16C's inventory - empty as created, its loadout, loads i
     missile.payload = st;
     missile.store = "aim-120c";
     CHECK(w.submit(f16, missile).accepted());
+}
+
+TEST_CASE("stores: launch target and FOV refusals precede host admission without changing preparation",
+          "[ms][stores][world][launch-policy]") {
+    session::World w(options("stores-launch-policy"));
+    const auto launcher = wing(w, "f16c", 5000.0, 220.0);
+    const auto stations = stationsOf(w, launcher);
+    REQUIRE(w.loadStore(launcher, stations, 1, "aim-120c") == ms::Reason::None);
+    REQUIRE(w.loadStore(launcher, stations, 9, "aim-9x") == ms::Reason::None);
+    const auto betweenDefaults = launchTarget(w, launcher, 40.0);
+    const auto behind = launchTarget(w, launcher, 180.0);
+    ms::StrikeCommand strike;
+    strike.payload = stations;
+    strike.target = betweenDefaults;
+
+    // The imaging-infrared default is 25 degrees; the radar default is 55.
+    strike.store = "aim-9x";
+    launchRejectedUnchanged(w, launcher, strike, ms::Reason::OutOfReach);
+    strike.store = "aim-120c";
+    launchRejectedUnchanged(w, launcher, strike, ms::Reason::PayloadOff);
+
+    // Explicit indices override the named type. Inventory order wins over request order,
+    // and only its first selected AAM is checked even when both stores are requested.
+    strike.stores = {1};
+    launchRejectedUnchanged(w, launcher, strike, ms::Reason::OutOfReach);
+    strike.store = "aim-9x";
+    strike.stores = {1, 0};
+    launchRejectedUnchanged(w, launcher, strike, ms::Reason::PayloadOff);
+    strike.stores.clear();
+    strike.store.clear();
+    strike.quantity = 2;
+    launchRejectedUnchanged(w, launcher, strike, ms::Reason::PayloadOff);
+
+    strike.store = "aim-120c";
+    strike.target = 0xfffffffeu;
+    launchRejectedUnchanged(w, launcher, strike, ms::Reason::UnknownTrack);
+    strike.target = behind;
+    launchRejectedUnchanged(w, launcher, strike, ms::Reason::OutOfReach);
+    strike.target = launcher; // coincident: acos(0 / max(norm, 1)) is 90 degrees
+    launchRejectedUnchanged(w, launcher, strike, ms::Reason::OutOfReach);
+    strike.target = 0; // no target, or no selected AAM: host admission remains the next owner
+    launchRejectedUnchanged(w, launcher, strike, ms::Reason::PayloadOff);
+    strike.target = 0xfffffffeu;
+    strike.store = "no-selected-store";
+    launchRejectedUnchanged(w, launcher, strike, ms::Reason::PayloadOff);
+}
+
+TEST_CASE("stores: SAR launch FOV precedes illumination refusal without starting preparation",
+          "[ms][stores][world][launch-policy]") {
+    session::World w(options("stores-launch-illumination"));
+    const auto launcher = wing(w, "fa18c", 5000.0, 220.0);
+    const auto stations = stationsOf(w, launcher);
+    REQUIRE(w.loadStore(launcher, stations, 4, "aim-7m") == ms::Reason::None);
+    ms::StrikeCommand strike;
+    strike.payload = stations;
+    strike.store = "aim-7m";
+    strike.target = launchTarget(w, launcher, 0.0); // a real entity supplies no radar designation
+    launchRejectedUnchanged(w, launcher, strike, ms::Reason::UnknownTrack);
+    strike.target = launchTarget(w, launcher, 180.0);
+    launchRejectedUnchanged(w, launcher, strike, ms::Reason::OutOfReach);
+    strike.target = 0xfffffffeu;
+    launchRejectedUnchanged(w, launcher, strike, ms::Reason::UnknownTrack);
 }
 
 TEST_CASE("stores: the stores' mass is the flight model's - four Mk 82s on, then jettisoned", "[ms][stores]") {

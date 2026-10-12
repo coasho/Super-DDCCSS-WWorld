@@ -1,0 +1,24 @@
+{
+  "modules": {
+    "platform": {"target": "fsim_platform", "aliases": ["fsim::platform"], "directories": ["src/platform"], "files": [], "headless": true, "allowed_dependencies": []},
+    "core": {"target": "fsim_core", "aliases": ["fsim::core"], "directories": ["src/core"], "files": [], "headless": true, "allowed_dependencies": ["platform"]},
+    "io": {"target": "fsim_io", "aliases": ["fsim::io"], "directories": ["src/io"], "files": [], "headless": true, "allowed_dependencies": ["core"]},
+    "sim": {"target": "fsim_sim", "aliases": ["fsim::sim"], "directories": ["src/sim"], "files": [], "headless": true, "allowed_dependencies": ["core", "io"]},
+    "ipc": {"target": "fsim_ipc", "aliases": ["fsim::ipc"], "directories": ["src/ipc"], "files": [], "headless": true, "allowed_dependencies": ["sim", "core", "platform"]},
+    "control": {"target": "fsim_control", "aliases": ["fsim::control"], "directories": ["src/control"], "files": [], "headless": true, "allowed_dependencies": ["sim", "core"]},
+    "effects": {"target": "fsim_effects", "aliases": ["fsim::effects"], "directories": ["src/effects"], "files": [], "headless": true, "allowed_dependencies": ["sim", "core"]},
+    "comm": {"target": "fsim_comm", "aliases": ["fsim::comm"], "directories": ["src/comm"], "files": [], "headless": true, "allowed_dependencies": ["control", "core", "platform"]},
+    "ms": {"target": "fsim_ms", "aliases": ["fsim::ms"], "directories": ["src/ms"], "files": [], "headless": true, "allowed_dependencies": ["core"]},
+    "session": {"target": "fsim_session", "aliases": ["fsim::session"], "directories": ["src/session"], "files": [], "headless": true, "allowed_dependencies": ["ms", "control", "effects", "comm", "ipc", "sim", "io", "core"]},
+    "env": {"target": "fsim_env", "aliases": ["fsim::env"], "directories": ["src/env"], "files": [], "headless": true, "allowed_dependencies": ["session", "control", "sim", "io", "core"]},
+    "sdk": {"target": "fsim", "aliases": ["fsim::sdk"], "directories": ["src/sdk"], "files": [], "headless": true, "allowed_dependencies": ["env", "session", "ms", "control", "effects", "comm", "ipc", "sim", "io", "core", "platform"]},
+    "render": {"target": "fsim_render", "aliases": ["fsim::render"], "directories": ["src/render"], "files": [], "headless": false, "allowed_dependencies": ["core"]},
+    "world": {"target": "fsim_world", "aliases": ["fsim::world"], "directories": ["src/world"], "files": [], "headless": false, "allowed_dependencies": ["sim", "render", "core", "io", "flow", "ipc"]},
+    "flow": {"target": "fsim_flow", "aliases": ["fsim::flow"], "directories": [], "files": ["src/world/FlowSolver.h", "src/world/FlowSolver.cpp", "src/world/FlowFires.h", "src/world/FlowFires.cpp"], "headless": false, "allowed_dependencies": ["core"]},
+    "ui": {"target": "fsim_ui", "aliases": ["fsim::ui"], "directories": ["src/ui"], "files": [], "headless": false, "allowed_dependencies": ["sim", "render", "world", "ipc", "core"]},
+    "vision": {"target": "fsim_vision", "aliases": ["fsim::vision"], "directories": ["src/vision"], "files": [], "headless": false, "allowed_dependencies": ["sdk", "world", "ipc", "io", "core", "platform"]},
+    "app": {"target": "flightsim", "aliases": [], "directories": ["src/app"], "files": [], "headless": true, "allowed_dependencies": ["sim", "io", "core", "platform"]},
+    "viewer": {"target": "flightsim-viewer", "aliases": [], "directories": [], "files": ["src/app/viewer_main.cpp", "src/app/DemoAutopilot.h"], "headless": false, "allowed_dependencies": ["ui", "world", "render", "ipc", "control", "sim", "io", "core", "platform"]}
+  },
+  "external_targets": ["fsim::jsbsim", "libJSBSim", "fsim_flow_headers", "winmm", "winhttp", "ws2_32", "vsg::vsg", "vsgXchange::vsgXchange", "vsgImGui::vsgImGui"]
+}

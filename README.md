@@ -55,7 +55,7 @@ The demo and viewer require a built render preset. With the selected preset's Py
 | `src/` | Native implementation, applications, optional renderer and vision module |
 | `python/` | Python bindings and training adapters over the native SDK |
 | `examples/` | SDK consumers, trainers, Python examples and scenario JSON |
-| `tests/` | Native/C ABI tests, fixtures and an explicit package-consumer example; Python/boundary checks are registered from `python/` |
+| `tests/` | Native/C ABI tests, fixtures and installed-package consumers; architecture checks register independently of optional Python bindings |
 | `testbench/` | Scenario runner, local browser UI and recorded flight-stability results |
 | `aircraft/` | Hangar design inputs, generated models, JSBSim definitions and reports |
 | `assets/` | Runtime configuration, payload/store cards, textures, shaders and map assets |

@@ -80,6 +80,9 @@ include(ResetPythonEntries)
 if(FSIM_BUILD_PYTHON)
     add_subdirectory(python)
 endif()
+if(FSIM_BUILD_TESTS)
+    include(ArchitectureChecks)
+endif()
 
 # Staging the build tree (design 11.3 "Distribution"). Every directory that
 # something is run from gets the DLLs it needs, so bin/ and tests/ both work
