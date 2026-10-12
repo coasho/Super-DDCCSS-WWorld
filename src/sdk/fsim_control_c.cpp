@@ -1627,17 +1627,6 @@ FSIM_API int fsim_last_command_terrain(const fsim_world* world, fsim_command_ter
     return copyOut(t, out) ? FSIM_OK : FSIM_INVALID_ARGUMENT;
 }
 
-FSIM_API int fsim_world_terrain(const fsim_world* world, uint32_t count, const double* latitude_rad, const double* longitude_rad, double* height_m) {
-    FSIM_AGENT_CALL(world, FSIM_NOT_ALLOWED);
-    if (!world || (count && (!latitude_rad || !longitude_rad || !height_m))) return FSIM_INVALID_ARGUMENT;
-    int known = 0;
-    for (uint32_t i = 0; i < count; ++i) {
-        const std::optional<double> h = world->world.terrainHeightM(latitude_rad[i], longitude_rad[i]);
-        height_m[i] = h ? *h : std::numeric_limits<double>::quiet_NaN();
-        known += h ? 1 : 0;
-    }
-    return known;
-}
 
 FSIM_API void fsim_command_finding_init(fsim_command_finding* f) {
     if (!f) return;
@@ -2894,33 +2883,6 @@ FSIM_API int fsim_vehicle_state_data(const fsim_world* world, uint32_t id, fsim_
     return copyOut(d, out) ? FSIM_OK : FSIM_INVALID_ARGUMENT;
 }
 
-FSIM_API void fsim_magnetic_field_init(fsim_magnetic_field* field) {
-    if (!field) return;
-    std::memset(field, 0, sizeof *field);
-    field->struct_size = sizeof *field;
-    field->north_nt = field->east_nt = field->down_nt = field->horizontal_nt = field->total_nt = std::numeric_limits<double>::quiet_NaN();
-    field->declination_rad = field->inclination_rad = std::numeric_limits<double>::quiet_NaN();
-}
-
-FSIM_API int fsim_magnetic_field_at(double latitude_rad, double longitude_rad, double height_m, double decimal_year, fsim_magnetic_field* out) {
-    if (!std::isfinite(latitude_rad) || std::abs(latitude_rad) > 0.5 * 3.14159265358979323846 || !std::isfinite(longitude_rad) ||
-        !std::isfinite(height_m) || !std::isfinite(decimal_year))
-        return FSIM_INVALID_ARGUMENT;
-    const fsim::control::MagneticField m = fsim::control::magneticField(latitude_rad, longitude_rad, height_m, decimal_year);
-    fsim_magnetic_field f;
-    fsim_magnetic_field_init(&f);
-    f.north_nt = m.northNt, f.east_nt = m.eastNt, f.down_nt = m.downNt, f.horizontal_nt = m.horizontalNt, f.total_nt = m.totalNt;
-    f.declination_rad = m.declinationRad, f.inclination_rad = m.inclinationRad;
-    return copyOut(f, out) ? FSIM_OK : FSIM_INVALID_ARGUMENT;
-}
-
-FSIM_API double fsim_decimal_year(double unix_seconds) { return fsim::control::decimalYear(unix_seconds); }
-
-FSIM_API double fsim_world_magnetic_year(const fsim_world* world) {
-    FSIM_NOT_AGENT(world, std::numeric_limits<double>::quiet_NaN());
-    if (!world) return std::numeric_limits<double>::quiet_NaN();
-    return fsim::control::magneticYear(world->world.environment().epochUtcSeconds + world->world.simTime());
-}
 
 FSIM_API void fsim_frame_spec_init(fsim_frame_spec* spec) {
     if (!spec) return;

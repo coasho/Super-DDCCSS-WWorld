@@ -185,6 +185,16 @@ These source owners link into the same SDK and Python binaries, using the origin
 guards. Splitting ownership preserves validation order, command side effects, borrowed lifetimes and the existing
 busy/GIL boundaries.
 
+The [A4 World, Scenario and Environment slice](superpowers/specs/2026-10-12-architecture-world-adapters-design.md)
+assigns C Scenario entry points to `src/sdk/fsim_scenario_c.cpp` and Environment, terrain and magnetic entry
+points to `fsim_environment_c.cpp`. The latter includes five definitions previously in the control owner.
+`fsim_world_c.cpp` retains lifecycle, handle and remaining World operations. Python handlers belong to
+`_native_world.c`, `_native_scenario.c` and `_native_environment.c`; `_native_world_options.h` shares unchanged
+private option metadata between core and Scenario. Core retains runtime type ownership, World construction,
+borrowing/destruction, agent creation/sealing, state buffers, scenario application, VecEnv/Recording and all
+registration. These source moves preserve Scenario string borrowing and partial application, versioned output
+writes, Environment error retention and the existing busy/GIL/buffer boundaries.
+
 MA retirement separates private consent bookkeeping from retained public history. Successful vehicle/C2 removal
 releases private consent storage, then existing C2 completion, override expiry and lost-communication transitions
 settle at their original steps. RBAC names, tasks, authority and controller mappings stay in place. This preserves

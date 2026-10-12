@@ -19,6 +19,7 @@
  * 3.11 on. Built with the project's own GCC for the python.org / conda
  * CPython (MSVC) - the interface between them is C and both use the UCRT. */
 #include "_native_world.h"
+#include "_native_world_options.h"
 
 #include <math.h>
 
@@ -99,31 +100,6 @@ static const fsim_py_field vecenv_fields[] = {
     OF(publish, FSIM_PY_I32), OF(terrain, FSIM_PY_I32), OF(scenario_path, FSIM_PY_STR)};
 #undef OF
 
-#define WF(f, k) FSIM_PY_FIELD(fsim_world_options, f, k)
-static const fsim_py_field world_fields[] = {
-    WF(name, FSIM_PY_STR), WF(dt, FSIM_PY_F64), WF(frame_skip, FSIM_PY_I32), WF(workers, FSIM_PY_U32),
-    WF(pin_workers, FSIM_PY_I32), WF(seed, FSIM_PY_U64), WF(capacity, FSIM_PY_U32), WF(publish, FSIM_PY_I32),
-    WF(publish_interval_s, FSIM_PY_F64), WF(jsbsim_root, FSIM_PY_STR), WF(terrain, FSIM_PY_I32),
-    WF(terrain_url, FSIM_PY_STR), WF(terrain_zoom, FSIM_PY_U32), WF(record_path, FSIM_PY_STR),
-    WF(record_interval_s, FSIM_PY_F64), WF(terrain_offline, FSIM_PY_I32), WF(store_drag, FSIM_PY_I32)};
-#undef WF
-
-#define SF(f, k) FSIM_PY_FIELD(fsim_vehicle_spec, f, k)
-static const fsim_py_field spec_fields[] = {
-    SF(name, FSIM_PY_STR), SF(type, FSIM_PY_STR), SF(latitude_deg, FSIM_PY_F64), SF(longitude_deg, FSIM_PY_F64),
-    SF(altitude_msl_m, FSIM_PY_F64), SF(heading_deg, FSIM_PY_F64), SF(pitch_deg, FSIM_PY_F64), SF(roll_deg, FSIM_PY_F64),
-    SF(airspeed_ms, FSIM_PY_F64), SF(on_ground, FSIM_PY_I32), SF(model, FSIM_PY_STR), SF(control_divider, FSIM_PY_U32),
-    SF(fuel_fraction, FSIM_PY_F64)};
-#undef SF
-
-#define EF(f) FSIM_PY_FIELD(fsim_environment, f, FSIM_PY_F64)
-static const fsim_py_field environment_fields[] = {
-    EF(epoch_utc_seconds), EF(time_factor), EF(temperature_sl_k), EF(pressure_sl_pa), EF(humidity),
-    EF(wind_direction_deg), EF(wind_speed_ms), EF(wind_gust_ms), EF(turbulence), EF(visibility_m),
-    EF(cloud_base_m), EF(cloud_cover), EF(precipitation)};
-#undef EF
-
-#define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
 /* ==========================================================================
  * VecEnv
@@ -436,19 +412,6 @@ static void world_dealloc(PyObject* o) {
     Py_DECREF(tp);
 }
 
-static PyObject* world_step(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    uint32_t steps = 1;
-    if (!check_args(n, 0, 1, "step") || (n == 1 && !as_u32(args[0], &steps)) || !WORLD_IDLE(self)) return NULL;
-    int rc;
-    *self->busy = 1;
-    Py_BEGIN_ALLOW_THREADS
-    rc = fsim_world_step(self->world, steps);
-    Py_END_ALLOW_THREADS
-    *self->busy = 0;
-    if (rc != FSIM_OK) return fail();
-    Py_RETURN_NONE;
-}
 
 /* ADR-31: an agent's handle for one of this world's aircraft - a World object answering an agent's calls alone. */
 static PyObject* world_create_agent(PyObject* o, PyObject* const* args, Py_ssize_t n) {
@@ -496,168 +459,7 @@ static PyObject* world_seal(PyObject* o, PyObject* const* args, Py_ssize_t n) {
     return (PyObject*)range;
 }
 
-/* agent_audit() -> [(vehicle, controller, name, [(call, calls, refused), ...]), ...] (the referee's; AB-2d) */
-static PyObject* world_agent_audit(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    fsim_world* w = ((WorldObject*)o)->world;
-    uint32_t count, i, k;
-    PyObject* out;
-    (void)args;
-    if (!check_args(n, 0, 0, "agent_audit")) return NULL;
-    count = fsim_world_agent_count(w);
-    out = PyList_New(0);
-    if (!out) return NULL;
-    for (i = 0; i < count; ++i) {
-        fsim_agent_audit a;
-        fsim_audit_call* calls;
-        PyObject *list, *row;
-        fsim_agent_audit_init(&a);
-        if (fsim_world_agent_audit(w, i, &a, NULL, 0) != FSIM_OK) {
-            Py_DECREF(out);
-            return fail();
-        }
-        calls = (fsim_audit_call*)PyMem_Malloc(sizeof(fsim_audit_call) * (a.call_count ? a.call_count : 1u));
-        if (!calls) {
-            Py_DECREF(out);
-            return PyErr_NoMemory();
-        }
-        if (fsim_world_agent_audit(w, i, &a, calls, a.call_count) != FSIM_OK) {
-            PyMem_Free(calls);
-            Py_DECREF(out);
-            return fail();
-        }
-        list = PyList_New(0);
-        for (k = 0; list && k < a.call_count; ++k) {
-            PyObject* t = Py_BuildValue("(sKK)", calls[k].call, (unsigned long long)calls[k].calls, (unsigned long long)calls[k].refused);
-            if (!t || PyList_Append(list, t) < 0) {
-                Py_XDECREF(t);
-                Py_CLEAR(list);
-                break;
-            }
-            Py_DECREF(t);
-        }
-        PyMem_Free(calls);
-        if (!list) {
-            Py_DECREF(out);
-            return NULL;
-        }
-        row = Py_BuildValue("(IIsN)", a.vehicle, a.controller, a.name, list);
-        if (!row || PyList_Append(out, row) < 0) {
-            Py_XDECREF(row);
-            Py_DECREF(out);
-            return NULL;
-        }
-        Py_DECREF(row);
-    }
-    return out;
-}
 
-static PyObject* world_agent_identity(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    (void)args;
-    if (!check_args(n, 0, 0, "agent_identity")) return NULL;
-    uint32_t vehicle = 0, controller = 0;
-    const char* name = "";
-    if (!fsim_agent_identity(((WorldObject*)o)->world, &vehicle, &controller, &name)) Py_RETURN_NONE;
-    return Py_BuildValue("(IIs)", vehicle, controller, name);
-}
-
-static PyObject* world_info(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    (void)args;
-    if (!check_args(n, 0, 0, "info")) return NULL;
-    return Py_BuildValue("{s:d,s:d,s:K,s:O,s:O,s:I}", "time", fsim_world_time(self->world), "step_seconds",
-                         fsim_world_step_seconds(self->world), "vehicle_steps",
-                         (unsigned long long)fsim_world_vehicle_steps(self->world), "published",
-                         fsim_world_published(self->world) ? Py_True : Py_False, "recording",
-                         fsim_world_recording(self->world) ? Py_True : Py_False, "vehicle_count",
-                         fsim_world_vehicle_count(self->world));
-}
-
-static PyObject* world_time(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    (void)args;
-    if (!check_args(n, 0, 0, "time")) return NULL;
-    return PyFloat_FromDouble(fsim_world_time(((WorldObject*)o)->world));
-}
-
-static PyObject* world_create_vehicle(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    if (!check_args(n, 1, 1, "create_vehicle") || !WORLD_IDLE(self)) return NULL;
-    fsim_vehicle_spec spec;
-    fsim_vehicle_spec_init(&spec);
-    if (fsim_py_set_fields(args[0], &spec, spec_fields, COUNT(spec_fields), "vehicle") < 0) return NULL;
-    uint32_t id = 0;
-    int rc;
-    *self->busy = 1;
-    Py_BEGIN_ALLOW_THREADS
-    rc = fsim_world_create_vehicle(self->world, &spec, &id);
-    Py_END_ALLOW_THREADS
-    *self->busy = 0;
-    if (rc != FSIM_OK) return fail();
-    return PyLong_FromUnsignedLong(id);
-}
-
-static PyObject* world_remove_vehicle(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    uint32_t id;
-    if (!check_args(n, 1, 1, "remove_vehicle") || !as_u32(args[0], &id) || !WORLD_IDLE(self)) return NULL;
-    if (fsim_world_remove_vehicle(self->world, id) != FSIM_OK) return fail();
-    Py_RETURN_NONE;
-}
-
-/* focus_viewer(id): the viewers follow the vehicle, once (ABI 1.47). */
-static PyObject* world_focus_viewer(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    uint32_t id;
-    if (!check_args(n, 1, 1, "focus_viewer") || !as_u32(args[0], &id)) return NULL;
-    if (fsim_world_focus_viewer(self->world, id) != FSIM_OK) return fail();
-    Py_RETURN_NONE;
-}
-
-/* reset_vehicle(id, spec=None): spec's initial-state fields, or the vehicle's own. */
-static PyObject* world_reset_vehicle(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    uint32_t id;
-    if (!check_args(n, 1, 2, "reset_vehicle") || !as_u32(args[0], &id) || !WORLD_IDLE(self)) return NULL;
-    fsim_vehicle_spec spec;
-    const fsim_vehicle_spec* p = NULL;
-    if (n == 2 && args[1] != Py_None) {
-        fsim_vehicle_spec_init(&spec);
-        if (fsim_py_set_fields(args[1], &spec, spec_fields, COUNT(spec_fields), "vehicle") < 0) return NULL;
-        p = &spec;
-    }
-    int rc;
-    *self->busy = 1;
-    Py_BEGIN_ALLOW_THREADS
-    rc = fsim_world_reset_vehicle(self->world, id, p);
-    Py_END_ALLOW_THREADS
-    *self->busy = 0;
-    if (rc != FSIM_OK) return fail();
-    Py_RETURN_NONE;
-}
-
-static PyObject* world_find_vehicle(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    if (!check_args(n, 1, 1, "find_vehicle")) return NULL;
-    const char* name = as_str(args[0], "name");
-    if (!name) return NULL;
-    return PyLong_FromUnsignedLong(fsim_world_find_vehicle(((WorldObject*)o)->world, name));
-}
-
-static PyObject* world_vehicle_ids(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    (void)args;
-    if (!check_args(n, 0, 0, "vehicle_ids")) return NULL;
-    const uint32_t count = fsim_world_vehicle_ids(self->world, NULL, 0);
-    PyObject* bytes = PyBytes_FromStringAndSize(NULL, (Py_ssize_t)count * 4);
-    if (!bytes) return NULL;
-    fsim_world_vehicle_ids(self->world, (uint32_t*)PyBytes_AsString(bytes), count);
-    return bytes;
-}
-
-static PyObject* world_vehicle_info(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    uint32_t id;
-    if (!check_args(n, 1, 1, "vehicle_info") || !as_u32(args[0], &id)) return NULL;
-    return Py_BuildValue("(ss)", fsim_vehicle_name(self->world, id), fsim_vehicle_type(self->world, id));
-}
 
 /* state_buffer(id, sensed): the vehicle's live state struct, without a copy.
  * Writable only so that ctypes can map a struct over it; it is the
@@ -675,33 +477,6 @@ static PyObject* world_state_buffer(PyObject* o, PyObject* const* args, Py_ssize
     return fsim_py_buffer_new(BufferType, o, s, (Py_ssize_t)sizeof(fsim_vehicle_state), 0);
 }
 
-/* gather_states(ids uint32[n], out bytes[n * sizeof(state)], sensed) */
-static PyObject* world_gather_states(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    int sensed = 0;
-    if (!check_args(n, 2, 3, "gather_states") || (n == 3 && !as_int(args[2], &sensed)) || !WORLD_IDLE(self)) return NULL;
-    Py_buffer ids, out;
-    if (!get_array(args[0], &ids, 0, "IL", 4, "gather_states ids")) return NULL;
-    if (PyObject_GetBuffer(args[1], &out, PyBUF_C_CONTIGUOUS | PyBUF_WRITABLE) < 0) {
-        PyBuffer_Release(&ids);
-        PyErr_Clear();
-        PyErr_SetString(PyExc_TypeError, "gather_states: out must be a writable C-contiguous array");
-        return NULL;
-    }
-    const Py_ssize_t count = ids.len / 4;
-    if (out.len != count * (Py_ssize_t)sizeof(fsim_vehicle_state)) {
-        PyErr_Format(PyExc_ValueError, "gather_states: out holds %zd bytes, %zd vehicles need %zd", out.len, count,
-                     count * (Py_ssize_t)sizeof(fsim_vehicle_state));
-        PyBuffer_Release(&ids);
-        PyBuffer_Release(&out);
-        return NULL;
-    }
-    const int rc = fsim_world_gather_states(self->world, (const uint32_t*)ids.buf, (uint32_t)count, sensed, (fsim_vehicle_state*)out.buf);
-    PyBuffer_Release(&ids);
-    PyBuffer_Release(&out);
-    if (rc != FSIM_OK) return fail();
-    Py_RETURN_NONE;
-}
 
 int as_u64(PyObject* o, uint64_t* out) {
     const unsigned long long v = PyLong_AsUnsignedLongLong(o);
@@ -710,177 +485,9 @@ int as_u64(PyObject* o, uint64_t* out) {
     return 1;
 }
 
-/* magnetic_year() -> the date the World Magnetic Model is read at for this world now (ABI 1.20) */
-static PyObject* world_magnetic_year(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    (void)args;
-    if (!check_args(n, 0, 0, "magnetic_year")) return NULL;
-    return PyFloat_FromDouble(fsim_world_magnetic_year(self->world));
-}
 
-static PyObject* world_get_property(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    uint32_t id;
-    if (!check_args(n, 2, 2, "get_property") || !as_u32(args[0], &id) || !WORLD_IDLE(self)) return NULL;
-    const char* path = as_str(args[1], "property path");
-    double v = 0.0;
-    if (!path) return NULL;
-    if (fsim_vehicle_get_property(self->world, id, path, &v) != FSIM_OK) return fail();
-    return PyFloat_FromDouble(v);
-}
 
-static PyObject* world_set_property(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    uint32_t id;
-    if (!check_args(n, 3, 3, "set_property") || !as_u32(args[0], &id) || !WORLD_IDLE(self)) return NULL;
-    const char* path = as_str(args[1], "property path");
-    const double v = path ? PyFloat_AsDouble(args[2]) : 0.0;
-    if (!path || (v == -1.0 && PyErr_Occurred())) return NULL;
-    if (fsim_vehicle_set_property(self->world, id, path, v) != FSIM_OK) return fail();
-    Py_RETURN_NONE;
-}
 
-static PyObject* world_get_environment(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    (void)args;
-    if (!check_args(n, 0, 0, "get_environment")) return NULL;
-    fsim_environment e;
-    fsim_environment_init(&e);
-    if (fsim_world_get_environment(((WorldObject*)o)->world, &e) != FSIM_OK) return fail();
-    return fsim_py_get_fields(&e, environment_fields, COUNT(environment_fields));
-}
-
-/* set_environment(changes): the current environment with `changes` applied. */
-static PyObject* world_set_environment(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    if (!check_args(n, 1, 1, "set_environment") || !WORLD_IDLE(self)) return NULL;
-    fsim_environment e;
-    fsim_environment_init(&e);
-    if (fsim_world_get_environment(self->world, &e) != FSIM_OK) return fail();
-    if (fsim_py_set_fields(args[0], &e, environment_fields, COUNT(environment_fields), "environment") < 0) return NULL;
-    if (fsim_world_set_environment(self->world, &e) != FSIM_OK) return fail();
-    Py_RETURN_NONE;
-}
-
-static PyObject* world_add_effect(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    uint32_t id;
-    if (!check_args(n, 2, 3, "add_effect") || !as_u32(args[0], &id) || !WORLD_IDLE(self)) return NULL;
-    const char* effect = as_str(args[1], "effect id");
-    fsim_py_params p;
-    if (!effect || fsim_py_params_read(n == 3 ? args[2] : NULL, &p) < 0) {
-        if (effect) fsim_py_params_free(&p);
-        return NULL;
-    }
-    const int rc = fsim_vehicle_add_effect(self->world, id, effect, p.names, p.values, p.count);
-    fsim_py_params_free(&p);
-    if (rc != FSIM_OK) return fail();
-    Py_RETURN_NONE;
-}
-
-static PyObject* world_clear_effects(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    uint32_t id;
-    if (!check_args(n, 1, 1, "clear_effects") || !as_u32(args[0], &id) || !WORLD_IDLE(self)) return NULL;
-    if (fsim_vehicle_clear_effects(self->world, id) != FSIM_OK) return fail();
-    Py_RETURN_NONE;
-}
-
-static PyObject* world_comm_create_node(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    uint32_t address;
-    if (!check_args(n, 1, 1, "comm_create_node") || !as_u32(args[0], &address) || !WORLD_IDLE(self)) return NULL;
-    if (fsim_comm_create_node(self->world, address) != FSIM_OK) return fail();
-    Py_RETURN_NONE;
-}
-
-/* comm_send(from, to, channel, format, data: bytes-like) */
-static PyObject* world_comm_send(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    uint32_t from, to, channel, format;
-    if (!check_args(n, 5, 5, "comm_send") || !as_u32(args[0], &from) || !as_u32(args[1], &to) || !as_u32(args[2], &channel) ||
-        !as_u32(args[3], &format) || !WORLD_IDLE(self))
-        return NULL;
-    Py_buffer data;
-    if (PyObject_GetBuffer(args[4], &data, PyBUF_C_CONTIGUOUS) < 0) return NULL;
-    const int rc = fsim_comm_send(self->world, from, to, channel, format, data.buf, (size_t)data.len);
-    PyBuffer_Release(&data);
-    if (rc != FSIM_OK) return fail();
-    Py_RETURN_NONE;
-}
-
-/* comm_inbox(node) -> [(from, to, channel, format, time_sent, time_delivered, bytes)] */
-static PyObject* world_comm_inbox(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    uint32_t node;
-    if (!check_args(n, 1, 1, "comm_inbox") || !as_u32(args[0], &node)) return NULL;
-    const uint32_t count = fsim_comm_inbox_count(self->world, node);
-    PyObject* list = PyList_New((Py_ssize_t)count);
-    if (!list) return NULL;
-    for (uint32_t i = 0; i < count; ++i) {
-        fsim_message m;
-        memset(&m, 0, sizeof m);
-        if (fsim_comm_inbox_get(self->world, node, i, &m) != FSIM_OK) {
-            Py_DECREF(list);
-            return fail();
-        }
-        PyObject* t = Py_BuildValue("(IIIIddy#)", m.from, m.to, m.channel, m.format, m.time_sent, m.time_delivered,
-                                    (const char*)m.bytes, (Py_ssize_t)m.length);
-        if (!t) {
-            Py_DECREF(list);
-            return NULL;
-        }
-        PyList_SetItem(list, (Py_ssize_t)i, t);
-    }
-    return list;
-}
-
-static PyObject* world_comm_set_medium(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    if (!check_args(n, 1, 2, "comm_set_medium") || !WORLD_IDLE(self)) return NULL;
-    const char* medium = as_str(args[0], "medium id");
-    fsim_py_params p;
-    if (!medium || fsim_py_params_read(n == 2 ? args[1] : NULL, &p) < 0) {
-        if (medium) fsim_py_params_free(&p);
-        return NULL;
-    }
-    const int rc = fsim_comm_set_medium(self->world, medium, p.names, p.values, p.count);
-    fsim_py_params_free(&p);
-    if (rc != FSIM_OK) return fail();
-    Py_RETURN_NONE;
-}
-
-static PyObject* world_comm_attach_protocol(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    uint32_t node;
-    if (!check_args(n, 2, 3, "comm_attach_protocol") || !as_u32(args[0], &node) || !WORLD_IDLE(self)) return NULL;
-    const char* protocol = as_str(args[1], "protocol id");
-    fsim_py_params p;
-    if (!protocol || fsim_py_params_read(n == 3 ? args[2] : NULL, &p) < 0) {
-        if (protocol) fsim_py_params_free(&p);
-        return NULL;
-    }
-    const int rc = fsim_comm_attach_protocol(self->world, node, protocol, p.names, p.values, p.count);
-    fsim_py_params_free(&p);
-    if (rc != FSIM_OK) return fail();
-    Py_RETURN_NONE;
-}
-
-static PyObject* world_comm_attach_udp_bridge(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    uint32_t node, local, remote;
-    if (!check_args(n, 4, 4, "comm_attach_udp_bridge") || !as_u32(args[0], &node) || !as_u32(args[1], &local) ||
-        !as_u32(args[3], &remote) || !WORLD_IDLE(self))
-        return NULL;
-    const char* host = as_str(args[2], "remote host");
-    if (!host) return NULL;
-    if (fsim_comm_attach_udp_bridge(self->world, node, (uint16_t)local, host, (uint16_t)remote) != FSIM_OK) return fail();
-    Py_RETURN_NONE;
-}
-
-typedef struct {
-    PyObject_HEAD
-    fsim_scenario* scenario;
-} ScenarioObject;
 
 static PyObject* world_apply_scenario(PyObject* o, PyObject* const* args, Py_ssize_t n) {
     WorldObject* self = (WorldObject*)o;
@@ -909,62 +516,7 @@ static PyObject* world_apply_scenario(PyObject* o, PyObject* const* args, Py_ssi
     return bytes;
 }
 
-static PyObject* world_capsule(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    (void)args;
-    if (!check_args(n, 0, 0, "_capsule")) return NULL;
-    return PyCapsule_New(&((WorldObject*)o)->ref, FSIM_PY_WORLD_CAPSULE, NULL);
-}
 
-static PyObject* world_borrowed_flag(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    (void)args;
-    if (!check_args(n, 0, 0, "borrowed")) return NULL;
-    return PyBool_FromLong(((WorldObject*)o)->owner != NULL);
-}
-
-/* terrain(latitudes_rad, longitudes_rad) -> [height_m or None]: the ground's height above the WGS-84 ellipsoid at each
- * place - the physics' own - None where it has no data (ABI 1.17) */
-static PyObject* world_terrain(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    WorldObject* self = (WorldObject*)o;
-    if (!check_args(n, 2, 2, "terrain")) return NULL;
-    const Py_ssize_t count = PySequence_Size(args[0]);
-    if (count < 0) return NULL;
-    if (PySequence_Size(args[1]) != count || count > (Py_ssize_t)UINT32_MAX) {
-        if (!PyErr_Occurred()) PyErr_SetString(PyExc_ValueError, "terrain: as many longitudes as latitudes");
-        return NULL;
-    }
-    double* v = (double*)PyMem_Malloc(sizeof(double) * 3 * (size_t)(count ? count : 1));
-    if (!v) return PyErr_NoMemory();
-    for (Py_ssize_t i = 0; i < count && !PyErr_Occurred(); ++i)
-        for (int k = 0; k < 2; ++k) {
-            PyObject* item = PySequence_GetItem(args[k], i);
-            v[k * count + i] = item ? PyFloat_AsDouble(item) : 0.0;
-            Py_XDECREF(item);
-        }
-    PyObject* list = NULL;
-    if (!PyErr_Occurred()) {
-        if (fsim_world_terrain(self->world, (uint32_t)count, v, v + count, v + 2 * count) < 0) {
-            PyErr_SetString(PyExc_RuntimeError, "terrain: the query failed");
-        } else {
-            list = PyList_New(count);
-            for (Py_ssize_t i = 0; list && i < count; ++i) {
-                const double h = v[2 * count + i];
-                PyObject* x = NULL;
-                if (isnan(h)) {
-                    Py_INCREF(Py_None);
-                    x = Py_None;
-                } else {
-                    x = PyFloat_FromDouble(h);
-                }
-                if (!x || PyList_SetItem(list, i, x) < 0) { /* (it takes x) */
-                    Py_DECREF(list);
-                    list = NULL;
-                }
-            }
-        }
-    }
-    PyMem_Free(v);
-    return list;
-}
 
 /* Mission Systems (ADR-30): defined further down */
 
@@ -1225,59 +777,6 @@ static PyType_Spec world_spec = {"fsim._native.World", sizeof(WorldObject), 0, P
 /* ==========================================================================
  * Scenario
  * ======================================================================== */
-/* Scenario(path) or Scenario(None, json, source_name) */
-static PyObject* scenario_new(PyTypeObject* type, PyObject* args, PyObject* kwargs) {
-    PyObject *path = Py_None, *json = Py_None;
-    const char* source = "inline";
-    if (kwargs && PyDict_Size(kwargs)) {
-        PyErr_SetString(PyExc_TypeError, "Scenario(path) or Scenario(None, json, source)");
-        return NULL;
-    }
-    if (!PyArg_ParseTuple(args, "|OOs:Scenario", &path, &json, &source)) return NULL;
-    fsim_scenario* sc = NULL;
-    int rc;
-    if (path != Py_None) {
-        const char* p = as_str(path, "path");
-        if (!p) return NULL;
-        rc = fsim_scenario_load(p, &sc);
-    } else {
-        const char* text = as_str(json, "json");
-        if (!text) return NULL;
-        rc = fsim_scenario_parse(text, source, &sc);
-    }
-    if (rc != FSIM_OK) return fail();
-    allocfunc alloc = (allocfunc)PyType_GetSlot(type, Py_tp_alloc);
-    ScenarioObject* self = (ScenarioObject*)alloc(type, 0);
-    if (!self) {
-        fsim_scenario_destroy(sc);
-        return NULL;
-    }
-    self->scenario = sc;
-    return (PyObject*)self;
-}
-
-static void scenario_dealloc(PyObject* o) {
-    PyTypeObject* tp = Py_TYPE(o);
-    fsim_scenario_destroy(((ScenarioObject*)o)->scenario);
-    freefunc f = (freefunc)PyType_GetSlot(tp, Py_tp_free);
-    f(o);
-    Py_DECREF(tp);
-}
-
-static PyObject* scenario_world_options(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    (void)args;
-    if (!check_args(n, 0, 0, "world_options")) return NULL;
-    fsim_world_options wo;
-    fsim_world_options_init(&wo);
-    if (fsim_scenario_world_options(((ScenarioObject*)o)->scenario, &wo) != FSIM_OK) return fail();
-    return fsim_py_get_fields(&wo, world_fields, COUNT(world_fields));
-}
-
-static PyObject* scenario_vehicle_count(PyObject* o, PyObject* const* args, Py_ssize_t n) {
-    (void)args;
-    if (!check_args(n, 0, 0, "vehicle_count")) return NULL;
-    return PyLong_FromUnsignedLong(fsim_scenario_vehicle_count(((ScenarioObject*)o)->scenario));
-}
 
 static PyMethodDef scenario_methods[] = {
     FAST("world_options", scenario_world_options, "the scenario's world section as World options"),
@@ -1421,31 +920,6 @@ static PyObject* mod_registered_ids(PyObject* m, PyObject* const* args, Py_ssize
     return list;
 }
 
-/* magnetic_field(latitude_rad, longitude_rad, height_m, decimal_year) -> (north_nt, east_nt, down_nt, horizontal_nt,
- * total_nt, declination_rad, inclination_rad): the World Magnetic Model 2025 (ABI 1.20) */
-static PyObject* mod_magnetic_field(PyObject* m, PyObject* const* args, Py_ssize_t n) {
-    (void)m;
-    if (!check_args(n, 4, 4, "magnetic_field")) return NULL;
-    double v[4];
-    for (int k = 0; k < 4; ++k) v[k] = PyFloat_AsDouble(args[k]);
-    if (PyErr_Occurred()) return NULL;
-    fsim_magnetic_field f;
-    fsim_magnetic_field_init(&f);
-    if (fsim_magnetic_field_at(v[0], v[1], v[2], v[3], &f) != FSIM_OK) {
-        PyErr_SetString(PyExc_ValueError, "magnetic_field: a place or date not finite, or a latitude off the Earth");
-        return NULL;
-    }
-    return Py_BuildValue("(ddddddd)", f.north_nt, f.east_nt, f.down_nt, f.horizontal_nt, f.total_nt, f.declination_rad, f.inclination_rad);
-}
-
-/* decimal_year(unix_seconds) -> the year and the part of it gone (ABI 1.20) */
-static PyObject* mod_decimal_year(PyObject* m, PyObject* const* args, Py_ssize_t n) {
-    (void)m;
-    if (!check_args(n, 1, 1, "decimal_year")) return NULL;
-    const double t = PyFloat_AsDouble(args[0]);
-    if (PyErr_Occurred()) return NULL;
-    return PyFloat_FromDouble(fsim_decimal_year(t));
-}
 
 int as_doubles(PyObject* const* args, Py_ssize_t from, Py_ssize_t count, double* out) {
     for (Py_ssize_t i = 0; i < count; ++i) {

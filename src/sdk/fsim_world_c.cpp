@@ -118,24 +118,6 @@ FSIM_API void fsim_vehicle_spec_init(fsim_vehicle_spec* s) {
     s->fuel_fraction = ic.fuelFraction;
 }
 
-FSIM_API void fsim_environment_init(fsim_environment* e) {
-    if (!e) return;
-    const fsim::sim::EnvironmentState d;
-    e->struct_size = sizeof(*e);
-    e->epoch_utc_seconds = d.epochUtcSeconds;
-    e->time_factor = d.timeFactor;
-    e->temperature_sl_k = d.temperatureSeaLevelK;
-    e->pressure_sl_pa = d.pressureSeaLevelPa;
-    e->humidity = d.humidity;
-    e->wind_direction_deg = d.windDirectionDeg;
-    e->wind_speed_ms = d.windSpeedMs;
-    e->wind_gust_ms = d.windGustMs;
-    e->turbulence = d.turbulence;
-    e->visibility_m = d.visibilityM;
-    e->cloud_base_m = d.cloudBaseM;
-    e->cloud_cover = d.cloudCover;
-    e->precipitation = d.precipitation;
-}
 
 FSIM_API int fsim_world_create(const fsim_world_options* options, fsim_world** out) {
     // (a caller's struct before 1.46 ends at record_interval_s)
@@ -476,28 +458,6 @@ FSIM_API int fsim_world_gather_states(const fsim_world* world, const uint32_t* i
 }
 
 
-FSIM_API int fsim_world_get_environment(const fsim_world* world, fsim_environment* out) {
-    FSIM_NOT_AGENT(world, FSIM_NOT_ALLOWED);
-    if (!world || !out || out->struct_size < sizeof(fsim_environment)) return FSIM_INVALID_ARGUMENT;
-    const auto& d = world->world.environment();
-    out->epoch_utc_seconds = d.epochUtcSeconds; out->time_factor = d.timeFactor;
-    out->temperature_sl_k = d.temperatureSeaLevelK; out->pressure_sl_pa = d.pressureSeaLevelPa; out->humidity = d.humidity;
-    out->wind_direction_deg = d.windDirectionDeg; out->wind_speed_ms = d.windSpeedMs; out->wind_gust_ms = d.windGustMs; out->turbulence = d.turbulence;
-    out->visibility_m = d.visibilityM; out->cloud_base_m = d.cloudBaseM; out->cloud_cover = d.cloudCover; out->precipitation = d.precipitation;
-    return FSIM_OK;
-}
-
-FSIM_API int fsim_world_set_environment(fsim_world* world, const fsim_environment* e) {
-    FSIM_NOT_AGENT(world, FSIM_NOT_ALLOWED);
-    if (!world || !e || e->struct_size < sizeof(fsim_environment)) return FSIM_INVALID_ARGUMENT;
-    auto d = world->world.environment();
-    d.epochUtcSeconds = e->epoch_utc_seconds; d.timeFactor = e->time_factor;
-    d.temperatureSeaLevelK = e->temperature_sl_k; d.pressureSeaLevelPa = e->pressure_sl_pa; d.humidity = e->humidity;
-    d.windDirectionDeg = e->wind_direction_deg; d.windSpeedMs = e->wind_speed_ms; d.windGustMs = e->wind_gust_ms; d.turbulence = e->turbulence;
-    d.visibilityM = e->visibility_m; d.cloudBaseM = e->cloud_base_m; d.cloudCover = e->cloud_cover; d.precipitation = e->precipitation;
-    world->world.setEnvironment(d);
-    return FSIM_OK;
-}
 
 FSIM_API int fsim_vehicle_add_effect(fsim_world* world, uint32_t id, const char* effectId, const char* const* names, const double* values, uint32_t count) {
     FSIM_NOT_AGENT(world, FSIM_NOT_ALLOWED);
@@ -604,75 +564,6 @@ FSIM_API int fsim_comm_attach_udp_bridge(fsim_world* world, uint32_t node, uint1
 
 } // extern "C"
 
-// --- Scenarios -------------------------------------------------------------------------
-
-struct fsim_scenario {
-    fsim::Scenario scenario;
-};
-
-FSIM_API int fsim_scenario_load(const char* path, fsim_scenario** out) {
-    if (!path || !out) return fail(FSIM_INVALID_ARGUMENT, "fsim_scenario_load: bad arguments");
-    *out = nullptr;
-    return guard("fsim_scenario_load", [&] {
-        *out = new fsim_scenario{fsim::loadScenario(path)};
-        return FSIM_OK;
-    });
-}
-
-FSIM_API int fsim_scenario_parse(const char* json, const char* source_name, fsim_scenario** out) {
-    if (!json || !out) return fail(FSIM_INVALID_ARGUMENT, "fsim_scenario_parse: bad arguments");
-    *out = nullptr;
-    return guard("fsim_scenario_parse", [&] {
-        *out = new fsim_scenario{fsim::parseScenario(json, source_name ? source_name : "scenario")};
-        return FSIM_OK;
-    });
-}
-
-FSIM_API void fsim_scenario_destroy(fsim_scenario* scenario) { delete scenario; }
-
-FSIM_API int fsim_scenario_world_options(const fsim_scenario* scenario, fsim_world_options* out) {
-    constexpr std::size_t kBeforeOffline = offsetof(fsim_world_options, record_interval_s) + sizeof(double);
-    if (!scenario || !out || out->struct_size < kBeforeOffline) return fail(FSIM_INVALID_ARGUMENT, "fsim_scenario_world_options: bad arguments");
-    const auto& o = scenario->scenario.world;
-    out->name = o.name.c_str();
-    out->dt = o.dt;
-    out->frame_skip = o.frameSkip;
-    out->workers = o.workers;
-    out->pin_workers = o.pinWorkers ? 1 : 0;
-    out->seed = o.seed;
-    out->capacity = o.capacity;
-    out->publish = o.publish ? 1 : 0;
-    out->publish_interval_s = o.publishIntervalSeconds;
-    out->jsbsim_root = o.jsbsimRoot.empty() ? nullptr : o.jsbsimRoot.c_str();
-    out->terrain = o.terrain ? 1 : 0;
-    out->terrain_url = o.terrainUrl.empty() ? nullptr : o.terrainUrl.c_str();
-    out->terrain_zoom = o.terrainZoom;
-    out->record_path = o.recordPath.empty() ? nullptr : o.recordPath.c_str();
-    out->record_interval_s = o.recordIntervalSeconds;
-    if (out->struct_size >= offsetof(fsim_world_options, terrain_offline) + sizeof(int32_t)) out->terrain_offline = o.terrainOffline ? 1 : 0;
-    if (out->struct_size >= offsetof(fsim_world_options, store_drag) + sizeof(int32_t)) out->store_drag = o.storeDrag ? 1 : 0;
-    return FSIM_OK;
-}
-
-FSIM_API uint32_t fsim_scenario_vehicle_count(const fsim_scenario* scenario) {
-    if (!scenario) return 0;
-    uint32_t n = 0;
-    for (const auto& v : scenario->scenario.vehicles) n += v.count;
-    return n;
-}
-
-FSIM_API int fsim_scenario_apply(fsim_world* world, const fsim_scenario* scenario, uint32_t* ids, size_t capacity, size_t* count) {
-    FSIM_NOT_AGENT(world, FSIM_NOT_ALLOWED);
-    if (!world || !scenario) return fail(FSIM_INVALID_ARGUMENT, "fsim_scenario_apply: bad arguments");
-    if (count) *count = 0;
-    return guard("fsim_scenario_apply", [&] {
-        const auto created = fsim::session::applyScenario(world->world, scenario->scenario);
-        if (ids)
-            for (size_t i = 0; i < created.size() && i < capacity; ++i) ids[i] = created[i];
-        if (count) *count = created.size();
-        return FSIM_OK;
-    });
-}
 
 // --- Recordings ---------------------------------------------------------------------------
 

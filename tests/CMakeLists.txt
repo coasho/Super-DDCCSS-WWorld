@@ -216,6 +216,12 @@ target_link_libraries(fsim_adapter_compatibility_test PRIVATE fsim::sdk)
 fsim_set_warnings(fsim_adapter_compatibility_test)
 add_test(NAME adapter_compatibility COMMAND fsim_adapter_compatibility_test)
 
+# Public World, Scenario and Environment adapter behavior across the SDK boundary.
+add_executable(fsim_world_adapter_compatibility_test test_world_adapter_compatibility.cpp)
+target_link_libraries(fsim_world_adapter_compatibility_test PRIVATE fsim::sdk)
+fsim_set_warnings(fsim_world_adapter_compatibility_test)
+add_test(NAME world_adapter_compatibility COMMAND fsim_world_adapter_compatibility_test)
+
 # The public C ABI, consumed from a plain C translation unit against fsim.dll.
 add_executable(fsim_c_abi_test test_c_abi.c)
 target_link_libraries(fsim_c_abi_test PRIVATE fsim::sdk)

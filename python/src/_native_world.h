@@ -8,6 +8,7 @@
 
 /* Largest command row accepted by the native control bindings. */
 #define FSIM_PY_VALUES 40
+#define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
 typedef struct {
     PyObject_HEAD
@@ -19,6 +20,11 @@ typedef struct {
     int* busy;
     fsim_py_ref ref;
 } WorldObject;
+
+typedef struct {
+    PyObject_HEAD
+    fsim_scenario* scenario;
+} ScenarioObject;
 
 #define WORLD_IDLE(self) fsim_py_idle((self)->busy, "this World")
 
@@ -257,5 +263,42 @@ PyObject* mod_ms_reason_description(PyObject* o, PyObject* const* args, Py_ssize
 PyObject* mod_payload_family_name(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* mod_payload_state_name(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* mod_ms_capability_type_id(PyObject* o, PyObject* const* args, Py_ssize_t n);
+
+/* Additional World, Scenario and Environment callbacks. */
+PyObject* world_step(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_agent_audit(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_agent_identity(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_info(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_time(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_create_vehicle(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_remove_vehicle(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_focus_viewer(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_reset_vehicle(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_find_vehicle(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_vehicle_ids(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_vehicle_info(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_gather_states(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_get_property(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_set_property(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_comm_create_node(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_comm_send(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_comm_inbox(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_comm_set_medium(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_comm_attach_protocol(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_comm_attach_udp_bridge(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_capsule(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_borrowed_flag(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* scenario_new(PyTypeObject* type, PyObject* args, PyObject* kwargs);
+void scenario_dealloc(PyObject* o);
+PyObject* scenario_world_options(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* scenario_vehicle_count(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_magnetic_year(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_get_environment(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_set_environment(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_add_effect(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_clear_effects(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_terrain(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* mod_magnetic_field(PyObject* m, PyObject* const* args, Py_ssize_t n);
+PyObject* mod_decimal_year(PyObject* m, PyObject* const* args, Py_ssize_t n);
 
 #endif /* FSIM_NATIVE_WORLD_H */

@@ -1,8 +1,8 @@
 # Current capabilities and milestone status
 
 Reviewed: 2026-10-12. First maintenance pass: `2b83f24` (implementation baseline `32e78a6`).
-Second maintenance pass: `f8cfec9`; Architecture A1: `6652584`; Architecture A2: `34e5516`.
-Architecture A3 is a working-tree change based on `34e5516`, on `codex/architecture-adapters`.
+Second maintenance pass: `f8cfec9`; Architecture A1: `6652584`; Architecture A2: `34e5516`; Architecture A3: `e79f268`.
+Architecture A4 is a working-tree change based on `e79f268`, on `codex/architecture-world-adapters`.
 
 This is the entry point for what exists now, which delivery it belongs to, and what remains open. The first
 maintenance pass consolidated documentation and development guidance, corrected outdated descriptions, and retired
@@ -11,7 +11,8 @@ and repairs standalone SDK packaging and consumer acceptance. Architecture A1 st
 native module dependencies, separating the Mission Systems C adapter and assigning stateless launch eligibility
 to the weapon module. A2 retires private MA consent bookkeeping and separates C/Python native DMS/C2 adapters
 while retaining public history and original state-transition timing. A3 separates C control/VI and Python native
-control/Mission handlers, retaining shared handles, errors and registration. Public interfaces, ABI layouts,
+control/Mission handlers, retaining shared handles, errors and registration. A4 separates C Scenario/Environment
+and Python World/Scenario/Environment handlers while retaining core runtime ownership. Public interfaces, ABI layouts,
 physics and aircraft model bytes remain unchanged.
 
 Use the [documentation index](README.md) to find reference material, the [development guide](development.md) for
@@ -66,14 +67,16 @@ preserved, but never use an unqualified `M1` to select work.
 | **Second maintenance pass** | Consistent configure/build/run/test/dist presets, first-build entry, independent SDK runtime data and installed-consumer acceptance. | Completed and locally verified below: 535 functional CTest cases, real launch/build/dist commands and independent installed consumers. Native module architecture and simulation models are unchanged. |
 | **Architecture A1** | Executable native dependency boundaries, Mission Systems C adapter separation and weapon-owned launch eligibility. | Implemented and locally verified below: 538 functional cases plus three architecture checks; 1,338 DLL export names match the baseline. Internal ownership changes preserve public interfaces and simulation behavior. The broader architecture queue remains open. |
 | **Architecture A2** | MA private consent retirement and C/Python native DMS/C2 adapter separation. | Committed as `34e5516` and locally verified below: 547 functional cases plus three architecture checks, unchanged exports and installed-consumer/distribution acceptance. Public history remains queryable; aggregate history reclamation is deferred. |
-| **Architecture A3** | C control/VI and Python control/Mission adapter separation. | Implemented and locally verified below against the [A3 design](superpowers/specs/2026-10-12-architecture-adapters-design.md): 548 functional cases plus three architecture checks, unchanged exports/runtime descriptors and installed-consumer/distribution acceptance. Working-tree change remains uncommitted. |
+| **Architecture A3** | C control/VI and Python control/Mission adapter separation. | Committed as `e79f268` and locally verified below against the [A3 design](superpowers/specs/2026-10-12-architecture-adapters-design.md): 548 functional cases plus three architecture checks, unchanged exports/runtime descriptors and installed-consumer/distribution acceptance. |
+| **Architecture A4** | C Scenario/Environment and Python World/Scenario/Environment adapter separation. | Implemented and locally verified below against the [A4 design](superpowers/specs/2026-10-12-architecture-world-adapters-design.md): 549 functional cases plus three architecture checks, unchanged public exports/native identities and installed-consumer/distribution acceptance. Uncommitted on the current branch. |
 
 The third maintenance pass includes bounded A1,
 [A2 lifecycle/adapter](superpowers/specs/2026-10-12-architecture-lifecycle-design.md) and
-[A3 control/Mission slices](superpowers/specs/2026-10-12-architecture-adapters-design.md).
+[A3 control/Mission](superpowers/specs/2026-10-12-architecture-adapters-design.md) and
+[A4 World/Scenario/Environment slices](superpowers/specs/2026-10-12-architecture-world-adapters-design.md).
 The remaining [architecture queue](superpowers/specs/2026-10-11-architecture-maintenance-design.md#subsequent-work)
-includes World state-owner decomposition, a public-history retention contract, remaining world/scenario/environment
-adapters and finer control ownership, store bindings, operational geometry, weapon observations, viewer/platform
+includes World state-owner decomposition, a public-history retention contract, retained C World/core Python lifecycle
+operations and VecEnv/Recording adapters, finer control ownership, store bindings, operational geometry, weapon observations, viewer/platform
 boundaries and DLL export ownership. A2 retains map traversal,
 controller mappings and post-removal history; it does not bound aggregate State storage or unanswered ended-strike
 requests. These candidates require their own acceptance; architecture maintenance does not close a flight,
@@ -232,7 +235,8 @@ were not exercised. This architecture slice does not close a flight, sensor, wea
 
 ### Architecture A3 verification, 2026-10-12
 
-Fresh local checks apply to the uncommitted `codex/architecture-adapters` tree based on A2 commit `34e5516`.
+Fresh local checks for A3, subsequently committed as `e79f268`, were collected on `codex/architecture-adapters`
+against A2 commit `34e5516`.
 The [A3 design](superpowers/specs/2026-10-12-architecture-adapters-design.md) and
 [implementation plan](superpowers/plans/2026-10-12-architecture-adapters.md) record the extraction seams and scope.
 All commands used the existing Windows x64 UCRT64 headless Release preset and CPython 3.13.12, with compilation
@@ -269,9 +273,50 @@ restoring all existing test discovery. The EOF formatting failure is retained in
 
 A3 preserves direct/guarded error clearing, null/short-result side effects, command readback and borrowed lifetime
 distinctions. Mission's existing busy-check policy and simulation/domain behavior are unchanged. The working tree
-is left uncommitted for review. Unchanged Hangar generation retains the first pass's 40-case evidence and was not
-rerun. Renderer/GPU, render SDK installation, CPack ZIP and remote CI were not exercised. This slice does not close
+was left uncommitted for review, then committed at the user's request. Unchanged Hangar generation retains the first
+pass's 40-case evidence and was not rerun. Renderer/GPU, render SDK installation, CPack ZIP and remote CI were not exercised. This slice does not close
 the separate physics, sensor, weapon or public-release milestones.
+
+### Architecture A4 verification, 2026-10-12
+
+Fresh checks were collected on `codex/architecture-world-adapters`, against committed A3 `e79f268`.
+The [A4 design](superpowers/specs/2026-10-12-architecture-world-adapters-design.md) and
+[implementation plan](superpowers/plans/2026-10-12-architecture-world-adapters.md) record the selected ownership
+and stopping point. All builds used the existing UCRT64 headless Release preset, warnings as errors and CPython
+3.13.12, with TMP/TEMP/TORCH_EXTENSIONS_DIR under `D:/ENV/tmp`. No dependencies were installed.
+
+| Check | Result |
+| --- | --- |
+| A3 characterization before extraction | Public C consumer passed 1/1 and six new Python cases passed 6/6. A final C assertion refinement checks borrowed string content instead of unspecified pointer identity; its A3 baseline passed again. Both missing-owner source verifiers failed as expected before the new files existed |
+| Headless build through `fsim.cmd` | Passed with warnings as errors; both new C owners and all three new Python owners compiled and linked into the existing SDK/module, and Python staging refreshed |
+| Focused C/Python and architecture acceptance | C ABI, Python SDK, SDK boundary and both C adapter compatibility gates passed 5/5 in 83.69 s. Three architecture gates passed in 2.32 s |
+| Full applicable functional suite | `ctest --preset ucrt64-headless -LE 'hangar\|architecture' -j 10 --timeout 3600 --output-on-failure` passed 549/549 in 325.02 s, including 18 fleet cases, principal/isolation/thread/buffer checks, lifecycle, native engagement determinism, launcher and both package gates |
+| C source comparison | Six Scenario and eight Environment exports are literal extractions, including all five moved first principal guards. World retains 56 definitions and control retains 228. Original remainders and prior Mission/DMS owners, Handles, CAbiSupport and CParameterSupport remain byte-identical to A3 |
+| Python source/runtime comparison | The 23 World, four Scenario and eight Environment callbacks, field metadata and shared layouts retain their bodies. Core remainder, eight shared helpers, 14 registration initializers, four type specs and PyInit match A3. All 246 native descriptors across World/Scenario/VecEnv/Recording, 32 module functions and four type layouts/flags match; busy/GIL/buffer operations retain their original positions |
+| Exports, protected scope and inventory | All 1,338 SDK export names match A3; Python exports only PyInit__native. SHA-256 matches all 3,692 protected files. The exact 22-file diff scope passes. All 591 A3 CTest names remain; the new standalone compatibility gate brings registration to 592, including 40 unchanged Hangar cases |
+| Installed consumer, dist and distributed Python | Both package gates passed. Dist refreshed successfully; all 1,230 resource manifest entries and both SDK/JSBSim DLL bytes match the tested installed consumer. Distributed native/object-model bytes match staging, and all three binding compatibility suites passed 19/19 against the distributed module |
+| Independent review and documentation | Complete C/Python/test diff independently reviewed with no actionable regression. English content, local links/anchors, PowerShell examples, exact new-file endings and diff checks pass; development skill copies remain byte-identical |
+
+The functional and architecture runs cover 552 distinct CTest cases. Raw logs are under `D:/ENV/tmp`:
+`architecture-a4-build.log`, `architecture-a4-focused-tests.log`, `architecture-a4-architecture-tests.log`,
+`architecture-a4-functional-tests.log`, `architecture-a4-c-characterization-baseline.log`,
+`architecture-a4-python-characterization-baseline.log`, `architecture-a4-characterization-final-baseline.log`,
+`architecture-a4-dist.log` and `architecture-a4-python-dist-compatibility.log`. Final scope/export/resource results
+are in `architecture-a4-final-verification.json`. Baselines are under `a4-baseline`; literal extraction evidence
+and expected missing-owner failures are under `a4-c-adapters` and `a4-python-adapters`. Installed-consumer logs and
+runtime hashes remain under `build/ucrt64-headless/package-consumer`.
+
+No baseline behavior fixture or post-extraction acceptance failed. Existing native Scenario tests cover a later
+command error retaining earlier creation/environment side effects; the new C consumer separately covers success,
+borrowed strings, versioned options, truncated IDs and principal refusal. Scenario's borrowed C strings, Python
+type ownership, partial application, Environment error/NaN distinctions and existing busy/GIL behavior remain
+unchanged. Session World state ownership is unchanged. Python runtime construction/destruction, agent
+creation/sealing, state buffers, scenario application, VecEnv/Recording and public object identities remain in
+their established owners.
+
+A4 is left uncommitted for review. Unchanged Hangar generation retains first-pass evidence and was not rerun.
+Renderer/GPU, render SDK installation, CPack ZIP and remote CI were not exercised. This adapter slice does not close
+separate physics, sensor, weapon, history-retention or public-release milestones.
 
 ### Earlier delivery evidence
 

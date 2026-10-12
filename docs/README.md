@@ -39,6 +39,7 @@ These documents explain rationale, intended contracts and domain plans. A roadma
 | [Architecture A1 maintenance](superpowers/specs/2026-10-11-architecture-maintenance-design.md) | Third-pass findings, initial boundary/domain refactor and prioritized remaining architecture work |
 | [Architecture A2 maintenance](superpowers/specs/2026-10-12-architecture-lifecycle-design.md) | MA retirement with retained public history and C/Python native DMS/C2 ownership |
 | [Architecture A3 maintenance](superpowers/specs/2026-10-12-architecture-adapters-design.md) | C control/VI and Python control/Mission ownership with unchanged public contracts |
+| [Architecture A4 maintenance](superpowers/specs/2026-10-12-architecture-world-adapters-design.md) | World, Scenario and Environment adapters with retained runtime and registration ownership |
 | [Native dependency acceptance](../tools/architecture/README.md) | Executable module policy, checker scope and regression fixtures |
 
 ## Recorded and generated evidence
