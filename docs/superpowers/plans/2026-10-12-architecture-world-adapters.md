@@ -101,7 +101,9 @@ _native.c, _native_world.h and Python CMake.
 - Distribution refreshed. All 1,230 runtime manifest entries and tested installed-consumer SDK/JSBSim DLL bytes
   match dist; staged/distributed Python native and object-model files match. Three binding compatibility suites
   passed 19/19 against dist. All 1,338 SDK exports, the sole Python export and 3,692 protected file hashes match A3.
-- Acceptance reached on codex/architecture-world-adapters; A4 remains uncommitted. Architecture/development/status
+- Acceptance reached on codex/architecture-world-adapters; A4 was left uncommitted at that stopping point. Architecture/development/status
   and navigation documents describe the retained runtime owners and remaining queue. No simulation/domain, public
   object-model, generated-resource or dependency work was added. Hangar generation, renderer/GPU, render SDK
   installation, CPack ZIP and remote CI were not exercised.
+- Subsequently committed as e708b87 at the user's request after fresh literal source/runtime, protected scope,
+  exports/distribution, documentation and focused architecture/C verification. No push was performed.

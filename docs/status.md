@@ -1,8 +1,9 @@
 # Current capabilities and milestone status
 
 Reviewed: 2026-10-12. First maintenance pass: `2b83f24` (implementation baseline `32e78a6`).
-Second maintenance pass: `f8cfec9`; Architecture A1: `6652584`; Architecture A2: `34e5516`; Architecture A3: `e79f268`.
-Architecture A4 is a working-tree change based on `e79f268`, on `codex/architecture-world-adapters`.
+Second maintenance pass: `f8cfec9`; Architecture A1: `6652584`; Architecture A2: `34e5516`; Architecture A3: `e79f268`;
+Architecture A4: `e708b87`. Architecture A5 is a working-tree change based on `e708b87`, on
+`codex/architecture-vecenv-recording`.
 
 This is the entry point for what exists now, which delivery it belongs to, and what remains open. The first
 maintenance pass consolidated documentation and development guidance, corrected outdated descriptions, and retired
@@ -12,7 +13,8 @@ native module dependencies, separating the Mission Systems C adapter and assigni
 to the weapon module. A2 retires private MA consent bookkeeping and separates C/Python native DMS/C2 adapters
 while retaining public history and original state-transition timing. A3 separates C control/VI and Python native
 control/Mission handlers, retaining shared handles, errors and registration. A4 separates C Scenario/Environment
-and Python World/Scenario/Environment handlers while retaining core runtime ownership. Public interfaces, ABI layouts,
+and Python World/Scenario/Environment handlers while retaining core runtime ownership. A5 separates C/Python
+VecEnv/Recording handlers, retaining C++ wrappers and coupled type/buffer callbacks. Public interfaces, ABI layouts,
 physics and aircraft model bytes remain unchanged.
 
 Use the [documentation index](README.md) to find reference material, the [development guide](development.md) for
@@ -68,15 +70,17 @@ preserved, but never use an unqualified `M1` to select work.
 | **Architecture A1** | Executable native dependency boundaries, Mission Systems C adapter separation and weapon-owned launch eligibility. | Implemented and locally verified below: 538 functional cases plus three architecture checks; 1,338 DLL export names match the baseline. Internal ownership changes preserve public interfaces and simulation behavior. The broader architecture queue remains open. |
 | **Architecture A2** | MA private consent retirement and C/Python native DMS/C2 adapter separation. | Committed as `34e5516` and locally verified below: 547 functional cases plus three architecture checks, unchanged exports and installed-consumer/distribution acceptance. Public history remains queryable; aggregate history reclamation is deferred. |
 | **Architecture A3** | C control/VI and Python control/Mission adapter separation. | Committed as `e79f268` and locally verified below against the [A3 design](superpowers/specs/2026-10-12-architecture-adapters-design.md): 548 functional cases plus three architecture checks, unchanged exports/runtime descriptors and installed-consumer/distribution acceptance. |
-| **Architecture A4** | C Scenario/Environment and Python World/Scenario/Environment adapter separation. | Implemented and locally verified below against the [A4 design](superpowers/specs/2026-10-12-architecture-world-adapters-design.md): 549 functional cases plus three architecture checks, unchanged public exports/native identities and installed-consumer/distribution acceptance. Uncommitted on the current branch. |
+| **Architecture A4** | C Scenario/Environment and Python World/Scenario/Environment adapter separation. | Committed as `e708b87` and locally verified below against the [A4 design](superpowers/specs/2026-10-12-architecture-world-adapters-design.md): 549 functional cases plus three architecture checks, unchanged public exports/native identities and installed-consumer/distribution acceptance. |
+| **Architecture A5** | C/Python VecEnv and Recording adapter separation with retained C++ and runtime type owners. | Implemented and locally verified below against the [A5 design](superpowers/specs/2026-10-12-architecture-batch-recording-design.md): 550 functional cases plus three architecture checks, unchanged exports/native identities and installed-consumer/distribution acceptance. Uncommitted on the current branch. |
 
 The third maintenance pass includes bounded A1,
 [A2 lifecycle/adapter](superpowers/specs/2026-10-12-architecture-lifecycle-design.md) and
 [A3 control/Mission](superpowers/specs/2026-10-12-architecture-adapters-design.md) and
-[A4 World/Scenario/Environment slices](superpowers/specs/2026-10-12-architecture-world-adapters-design.md).
+[A4 World/Scenario/Environment](superpowers/specs/2026-10-12-architecture-world-adapters-design.md) and
+[A5 VecEnv/Recording slices](superpowers/specs/2026-10-12-architecture-batch-recording-design.md).
 The remaining [architecture queue](superpowers/specs/2026-10-11-architecture-maintenance-design.md#subsequent-work)
-includes World state-owner decomposition, a public-history retention contract, retained C World/core Python lifecycle
-operations and VecEnv/Recording adapters, finer control ownership, store bindings, operational geometry, weapon observations, viewer/platform
+includes World state-owner decomposition, a public-history retention contract, retained C World and Python core/type/buffer
+ownership, finer control ownership, store bindings, operational geometry, weapon observations, viewer/platform
 boundaries and DLL export ownership. A2 retains map traversal,
 controller mappings and post-removal history; it does not bound aggregate State storage or unanswered ended-strike
 requests. These candidates require their own acceptance; architecture maintenance does not close a flight,
@@ -314,7 +318,55 @@ unchanged. Session World state ownership is unchanged. Python runtime constructi
 creation/sealing, state buffers, scenario application, VecEnv/Recording and public object identities remain in
 their established owners.
 
-A4 is left uncommitted for review. Unchanged Hangar generation retains first-pass evidence and was not rerun.
+A4 was left uncommitted for review, then committed as e708b87 at the user's request after fresh source/runtime,
+scope/export/distribution, documentation and focused architecture/C verification.
+Unchanged Hangar generation retains first-pass evidence and was not rerun.
+Renderer/GPU, render SDK installation, CPack ZIP and remote CI were not exercised. This adapter slice does not close
+separate physics, sensor, weapon, history-retention or public-release milestones.
+
+### Architecture A5 verification, 2026-10-12
+
+Fresh checks were collected on `codex/architecture-vecenv-recording`, against committed A4 `e708b87`.
+The [A5 design](superpowers/specs/2026-10-12-architecture-batch-recording-design.md) and
+[implementation plan](superpowers/plans/2026-10-12-architecture-batch-recording.md) record the selected split and
+retained ownership. Builds used the existing UCRT64 headless Release preset with warnings as errors and CPython
+3.13.12. Compilation TMP/TEMP/TORCH_EXTENSIONS_DIR remained under `D:/ENV/tmp`; no dependencies were installed.
+
+| Check | Result |
+| --- | --- |
+| A4 characterization before extraction | New public C consumer passed 1/1 in 0.30 s; six Python cases passed 6/6 in 0.206 s. Both missing-owner source verifiers failed as expected before production moves |
+| Headless build through `fsim.cmd` | Passed with warnings as errors. New C/Python owners linked into the existing binaries, C++ wrappers remained in fsim.cpp and the Python package restaged |
+| Focused C/Python and architecture acceptance | C ABI, Python SDK, SDK boundary and all three C adapter compatibility gates passed 6/6 in 83.51 s. Three architecture gates passed in 2.41 s |
+| Full applicable functional suite | `ctest --preset ucrt64-headless -LE 'hangar\|architecture' -j 10 --timeout 3600 --output-on-failure` passed 550/550 in 324.74 s, including 18 fleet cases, principals, thread/buffer/lifecycle checks, native engagement determinism, launcher and both package gates |
+| C source comparison | All 14 VecEnv and nine Recording C definitions retain their original bodies. VecEnv's three local helpers and opaque layout match A4; C++ Impl/methods/toOptions/span/toResult, lastError, log/version/registry and original C linkage are retained. Recording's layout/assertions and borrowed views are preserved. World recording/lifecycle guards remain core; only exposed EOF blank lines were normalized |
+| Python source/runtime comparison | All 11 VecEnv and five Recording callbacks, option metadata, names_list and exact private layouts match A4. Core retains three coupled callbacks, 14 registration initializers, four type specs, eight shared helpers and PyInit. All 246 descriptors, 32 module functions and four type layouts/flags match; existing GIL/busy/buffer/reference operations retain their positions |
+| Exports, protected scope and inventory | All 1,338 SDK export names match A4; Python exports only PyInit__native. SHA-256 matches all 3,701 protected files. Exact 22-file diff scope passes. All 592 A4 CTest names remain; the new standalone consumer brings registration to 593, including 40 unchanged Hangar cases |
+| Installed consumer, dist and distributed Python | Both package gates passed. Dist refreshed; all 1,230 runtime manifest entries and fsim/JSBSim DLL bytes match the tested installed consumer. Staged/distributed native and public Python wrappers, including VecEnv/Recording, match. All four binding compatibility suites passed 25/25 against distributed Python |
+| Independent review and documentation | Complete adapter/test diff independently reviewed with no actionable regression, including independent expected/frozen hash checks. English content, links/anchors, PowerShell examples, exact new-file endings and diff checks pass; development skill copies remain byte-identical |
+
+The functional and architecture runs cover 553 distinct CTest cases. Raw logs are under `D:/ENV/tmp`:
+`architecture-a5-build.log`, `architecture-a5-c-characterization-baseline.log`, `a5-binding-baseline-final.log`,
+`architecture-a5-focused-tests.log`, `architecture-a5-architecture-tests.log`, `architecture-a5-functional-tests.log`,
+`architecture-a5-c-source-check.log`, `architecture-a5-python-source-check.log`, `architecture-a5-runtime-check.log`,
+`architecture-a5-dist.log` and `architecture-a5-python-dist-compatibility.log`. Final scope/export/resource results
+are in `architecture-a5-final-verification.json`. Baselines and exact source expectations are under `a5-baseline`,
+`a5-c-adapters` and `a5-python-adapters`. Installed-consumer logs and runtime hashes remain under
+`build/ucrt64-headless/package-consumer`.
+
+The first Python fixture used World's nine pointer words as VecEnv's size; A4's VecEnv actually has eight. It was
+corrected before production moves; the first failure remains in `a5-binding-baseline-first.log`, followed by
+corrected/final baseline logs. Committed tests use standard temporary-directory discovery; local runs select
+`D:/ENV/tmp` through the environment. C extraction exposed two extra EOF newlines in World; only those bytes were
+normalized before rebuilding. The original formatting failure remains in `architecture-a5-formatting-failure.log`,
+with pre-normalization expected bytes/metadata retained by the C verifier. Post-extraction acceptance had no failures.
+
+VecEnv's original void-return guard remains distinct from the shared int-return guard; direct LastError retention
+and guarded success clearing are unchanged. The cached borrowed World and zero-copy VecEnv/Recording views retain
+their owner lifetime. C++ VecEnv wrappers and shared LastError remain core. Python buffers/borrowed World/sample
+callbacks, all runtime type pointers and registration remain core; other callbacks have focused owners. Public
+headers/object models, native simulation/domain sources and resource bytes remain unchanged.
+
+A5 is left uncommitted for review. Unchanged Hangar generation retains first-pass evidence and was not rerun.
 Renderer/GPU, render SDK installation, CPack ZIP and remote CI were not exercised. This adapter slice does not close
 separate physics, sensor, weapon, history-retention or public-release milestones.
 

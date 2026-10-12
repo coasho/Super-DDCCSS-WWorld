@@ -180,7 +180,7 @@ their original owners; `_native_world.h` shares only the private World layout an
 The [A3 control and Mission slice](superpowers/specs/2026-10-12-architecture-adapters-design.md) assigns C control/VI
 entry points to `src/sdk/fsim_control_c.cpp`, with the unchanged parameter conversion in private
 `CParameterSupport.h`. Python control and Mission handlers belong to `_native_control.c` and `_native_mission.c`;
-the original `_native.c` continues owning lifecycle, shared conversions, Error, BufferType and all registration.
+the original `_native.c` continues owning World lifecycle, shared conversions, Error, BufferType and all registration.
 These source owners link into the same SDK and Python binaries, using the original handle layout and principal
 guards. Splitting ownership preserves validation order, command side effects, borrowed lifetimes and the existing
 busy/GIL boundaries.
@@ -191,9 +191,18 @@ points to `fsim_environment_c.cpp`. The latter includes five definitions previou
 `fsim_world_c.cpp` retains lifecycle, handle and remaining World operations. Python handlers belong to
 `_native_world.c`, `_native_scenario.c` and `_native_environment.c`; `_native_world_options.h` shares unchanged
 private option metadata between core and Scenario. Core retains runtime type ownership, World construction,
-borrowing/destruction, agent creation/sealing, state buffers, scenario application, VecEnv/Recording and all
+borrowing/destruction, agent creation/sealing, state buffers, scenario application and all
 registration. These source moves preserve Scenario string borrowing and partial application, versioned output
 writes, Environment error retention and the existing busy/GIL/buffer boundaries.
+
+The [A5 VecEnv and Recording slice](superpowers/specs/2026-10-12-architecture-batch-recording-design.md) assigns
+C entry points to `fsim_vecenv_c.cpp` and `fsim_recording_c.cpp`. `VecEnvHandles.h` shares the original private
+handle layout while C++ VecEnv wrappers/conversions and lastError stay in `fsim.cpp`. VecEnv keeps its original
+void-return guard; Recording uses unchanged CAbiSupport and retains borrowed sample/event/string storage.
+Python `_native_vecenv.c` and `_native_recording.c` use focused private layout headers. Core keeps all type
+registration/runtime pointers and the three coupled callbacks: VecEnv buffers, VecEnv's borrowed World and
+Recording sample buffers. Constructors and other operations move literally, retaining scratch conversion,
+busy/GIL phases and owner retention. Public Python wrappers and C++ interfaces stay in their existing files.
 
 MA retirement separates private consent bookkeeping from retained public history. Successful vehicle/C2 removal
 releases private consent storage, then existing C2 completion, override expiry and lost-communication transitions

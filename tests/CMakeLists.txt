@@ -222,6 +222,12 @@ target_link_libraries(fsim_world_adapter_compatibility_test PRIVATE fsim::sdk)
 fsim_set_warnings(fsim_world_adapter_compatibility_test)
 add_test(NAME world_adapter_compatibility COMMAND fsim_world_adapter_compatibility_test)
 
+# Public VecEnv and Recording adapter lifetimes and error behavior.
+add_executable(fsim_batch_recording_adapter_compatibility_test test_batch_recording_adapter_compatibility.cpp)
+target_link_libraries(fsim_batch_recording_adapter_compatibility_test PRIVATE fsim::sdk)
+fsim_set_warnings(fsim_batch_recording_adapter_compatibility_test)
+add_test(NAME batch_recording_adapter_compatibility COMMAND fsim_batch_recording_adapter_compatibility_test "${FSIM_JSBSIM_DATA_DIR}")
+
 # The public C ABI, consumed from a plain C translation unit against fsim.dll.
 add_executable(fsim_c_abi_test test_c_abi.c)
 target_link_libraries(fsim_c_abi_test PRIVATE fsim::sdk)
