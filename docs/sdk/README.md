@@ -21,6 +21,9 @@ published world through shared memory (see [viewer.md](viewer.md)).
 | [viewer.md](viewer.md) | transparent visualisation: how the prebuilt viewer discovers and mirrors a world |
 | [scenarios.md](scenarios.md) | scenario files: the world, environment, vehicles, commands and effects as a JSON document |
 | [agents.md](agents.md) | agents and the referee: an MA's own objects, what they refuse, the referee's view (ADR-31) |
+| [mission-training.md](mission-training.md) | the mission training contract, version 1: identities, service binding, observation, request, receipt and referee documents, limits and errors - frozen, not implemented |
+| [ma-composition.md](ma-composition.md) | composing an upper-layer MA system over one endpoint: the gateway rule, example-only component interfaces, arbitration and lifecycle - frozen, not implemented |
+| [ma-compatibility-baseline.md](ma-compatibility-baseline.md) | what existing consumers rely on, captured before the mission family: exports, layouts, test inventory and frozen C++, C99 and Python consumers |
 | [boundary.md](boundary.md) | which principal each entry point belongs to - agent (an MA's decisions), MA core, range, referee, platform - and the calls an agent may not yet trust (ADR-31) |
 | [mission-systems.md](mission-systems.md) | the payloads each aircraft carries (radars, warning receivers, jammers, sensors, guns, stations): discovery, power states, BIT, grants (ADR-30) |
 | [engagement.md](engagement.md) | native missile release, flight, seekers, countermeasures, events, damage, compatibility and modeling assumptions |

@@ -29,3 +29,10 @@ add_test(NAME sdk_guard_checker
     COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/boundary/test_boundary.py")
 set_tests_properties(architecture_boundary architecture_checker sdk_guard_checker
     PROPERTIES LABELS architecture TIMEOUT 120)
+# The mission-training contract (docs/sdk/mission-training.md): its schema's dialect, its fixtures and its pages, and
+# the checker's own refusals. They hold the contract's documents to the contract; no SDK binary is loaded.
+add_test(NAME ma_contract
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/ma_contract/check.py" --repo "${CMAKE_SOURCE_DIR}")
+add_test(NAME ma_contract_checker
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/ma_contract/test_check.py")
+set_tests_properties(ma_contract ma_contract_checker PROPERTIES LABELS ma-training TIMEOUT 120)

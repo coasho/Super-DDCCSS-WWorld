@@ -1,0 +1,69 @@
+{
+  "schema": "ma.outcome.v1",
+  "episode": {
+    "env_id": "9007199254740993",
+    "episode_generation": "3",
+    "local_episode_index": "41"
+  },
+  "tick": "62",
+  "time_s": 62.0,
+  "episode_done": false,
+  "reason": null,
+  "criteria": [
+    {
+      "id": "time",
+      "kind": "tick_limit",
+      "outcome": "truncated",
+      "satisfied": false,
+      "satisfied_tick": null
+    },
+    {
+      "id": "patrol-point",
+      "kind": "region_reached",
+      "outcome": "success",
+      "satisfied": true,
+      "satisfied_tick": "58"
+    },
+    {
+      "id": "task-done",
+      "kind": "c2_task_state",
+      "outcome": "success",
+      "satisfied": false,
+      "satisfied_tick": null
+    }
+  ],
+  "roles": [
+    {
+      "service_id": "1",
+      "active": true,
+      "terminated": false,
+      "truncated": false,
+      "final_observation": false,
+      "bootstrap": false
+    },
+    {
+      "service_id": "2",
+      "active": true,
+      "terminated": false,
+      "truncated": false,
+      "final_observation": false,
+      "bootstrap": false
+    },
+    {
+      "service_id": "4",
+      "active": true,
+      "terminated": false,
+      "truncated": false,
+      "final_observation": false,
+      "bootstrap": false
+    },
+    {
+      "service_id": "9007199254740995",
+      "active": true,
+      "terminated": false,
+      "truncated": false,
+      "final_observation": false,
+      "bootstrap": false
+    }
+  ]
+}

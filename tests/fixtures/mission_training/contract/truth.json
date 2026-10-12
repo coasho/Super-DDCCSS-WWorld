@@ -1,0 +1,109 @@
+{
+  "schema": "ma.truth.v1",
+  "episode": {
+    "env_id": "9007199254740993",
+    "episode_generation": "3",
+    "local_episode_index": "41"
+  },
+  "tick": "62",
+  "time_s": 62.0,
+  "entities": [
+    {
+      "entity_id": "1",
+      "name": "lead",
+      "kind": "vehicle",
+      "alive": true,
+      "system_id": "1392508929",
+      "state": {
+        "latitude_rad": 0.6283,
+        "longitude_rad": -2.0071,
+        "altitude_msl_m": 7003.2,
+        "velocity_ned_ms": [
+          230.0,
+          0.0,
+          0.0
+        ],
+        "euler_rad": [
+          0.0,
+          0.03,
+          0.0
+        ],
+        "airspeed_true_ms": 230.0,
+        "on_ground": false
+      }
+    },
+    {
+      "entity_id": "2",
+      "name": "wing",
+      "kind": "vehicle",
+      "alive": true,
+      "system_id": "1392508930",
+      "state": {
+        "latitude_rad": 0.6281,
+        "longitude_rad": -2.0073,
+        "altitude_msl_m": 7001.4,
+        "velocity_ned_ms": [
+          229.9,
+          1.1,
+          -0.3
+        ],
+        "euler_rad": [
+          0.01,
+          0.03,
+          0.002
+        ],
+        "airspeed_true_ms": 230.1,
+        "on_ground": false
+      }
+    },
+    {
+      "entity_id": "1610612737",
+      "name": "crc",
+      "kind": "c2_node",
+      "alive": true,
+      "system_id": "1392508931",
+      "state": null
+    }
+  ],
+  "services": [
+    {
+      "service_id": "1",
+      "name": "lead-flight",
+      "entity_id": "1",
+      "controller_id": "1073741825"
+    },
+    {
+      "service_id": "2",
+      "name": "lead-sensors",
+      "entity_id": "1",
+      "controller_id": "1073741826"
+    },
+    {
+      "service_id": "4",
+      "name": "crc-c2",
+      "entity_id": "1610612737",
+      "controller_id": "1073741827"
+    },
+    {
+      "service_id": "9007199254740995",
+      "name": "wing-ma",
+      "entity_id": "2",
+      "controller_id": "1073741828"
+    }
+  ],
+  "nets": [
+    {
+      "net_id": "1",
+      "name": "l16-a",
+      "transmissions": "384",
+      "delivered": "767",
+      "duplicates": "0",
+      "out_of_range": "0",
+      "masked": "0",
+      "lost": "0",
+      "queue_dropped": "0",
+      "failed": "0",
+      "overflowed": "0"
+    }
+  ]
+}

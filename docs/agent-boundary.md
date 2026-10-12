@@ -76,6 +76,10 @@ Current [MaCore state](../src/session/MaCore.h) is keyed by entity; [World](../s
 An upper-layer MA may contain multiple actors, behavior trees, algorithms and internal services behind an endpoint.
 Explicit configured service/capability/DMS ownership is a planned additive extension in the
 [MA integration design](superpowers/specs/2026-10-12-ma-system-training-readiness-design.md); it is not implemented by creating more Agent handles.
+Its identities, ownership rules and principals are frozen, and still unimplemented, in the
+[mission training contract](sdk/mission-training.md#9-service-binding). Until that binding exists a C2 control
+designation's grants, a C2 override applied to a live HSA and a lost-communication plan activation go to the
+platform's most recently created Agent; that legacy behaviour stays as it is for Worlds that configure no binding.
 
 A C2 node is a principal-bearing node like a platform: a compute and communications node with a position and
 communication endpoints (the owner, 2026-10-07), not a ground vehicle, so D7 (no ground entities) is unaffected. A C2

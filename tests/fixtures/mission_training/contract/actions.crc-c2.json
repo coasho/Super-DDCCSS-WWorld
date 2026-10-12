@@ -1,0 +1,146 @@
+{
+  "schema": "ma.actions.v1",
+  "episode": {
+    "env_id": "9007199254740993",
+    "episode_generation": "3",
+    "local_episode_index": "41"
+  },
+  "service_id": "4",
+  "tick": "62",
+  "requests": [
+    {
+      "request_id": "20",
+      "kind": "c2",
+      "operation": "declare_role",
+      "parameters": {
+        "role_id": "2",
+        "callsign": "CRC LEAD"
+      }
+    },
+    {
+      "request_id": "21",
+      "kind": "c2",
+      "operation": "designate_control",
+      "parameters": {
+        "ma_system_id": "1392508930",
+        "modes_mask": 6
+      }
+    },
+    {
+      "request_id": "22",
+      "kind": "c2",
+      "operation": "command_hsa",
+      "parameters": {
+        "ma_system_id": "1392508930",
+        "heading_rad": 3.141592653589793,
+        "speed": 230.0,
+        "altitude_m": 6500.0
+      }
+    },
+    {
+      "request_id": "23",
+      "kind": "c2",
+      "operation": "command_route",
+      "parameters": {
+        "ma_system_id": "1392508930",
+        "points": [
+          {
+            "latitude_rad": 0.63,
+            "longitude_rad": -2.0,
+            "altitude_m": 6500.0
+          },
+          {
+            "latitude_rad": 0.64,
+            "longitude_rad": -2.0,
+            "altitude_m": 6500.0,
+            "speed": 220.0
+          }
+        ]
+      }
+    },
+    {
+      "request_id": "24",
+      "kind": "c2",
+      "operation": "cancel_command",
+      "parameters": {
+        "ma_system_id": "1392508930",
+        "command_id": "3"
+      }
+    },
+    {
+      "request_id": "25",
+      "kind": "c2",
+      "operation": "send_task",
+      "parameters": {
+        "ma_system_id": "1392508930",
+        "type": "patrol",
+        "priority": 1,
+        "latitude_rad": 0.6370451769779303,
+        "longitude_rad": -2.007128639793479,
+        "altitude_m": null,
+        "radius_m": 3000.0,
+        "target": {
+          "source_system_id": "1392508929",
+          "payload": "0",
+          "track_id": "18446744073709551615"
+        },
+        "text": "patrol north point"
+      }
+    },
+    {
+      "request_id": "26",
+      "kind": "c2",
+      "operation": "set_override",
+      "parameters": {
+        "ma_system_id": "1392508930",
+        "override": "altitude",
+        "value": 7500.0,
+        "expiry_s": null
+      }
+    },
+    {
+      "request_id": "27",
+      "kind": "c2",
+      "operation": "set_override",
+      "parameters": {
+        "ma_system_id": "1392508930",
+        "override": "speed",
+        "cancel": true
+      }
+    },
+    {
+      "request_id": "28",
+      "kind": "c2",
+      "operation": "set_lost_comms",
+      "parameters": {
+        "ma_system_id": "1392508930",
+        "threshold_s": 60.0,
+        "plan_id": "9007199254740993"
+      }
+    },
+    {
+      "request_id": "29",
+      "kind": "c2",
+      "operation": "form_package",
+      "parameters": {
+        "package_id": "7",
+        "leader_system_id": "1392508929",
+        "member_system_ids": [
+          "1392508930"
+        ]
+      }
+    },
+    {
+      "request_id": "30",
+      "kind": "c2",
+      "operation": "dissolve_package",
+      "parameters": {
+        "package_id": "7",
+        "system_ids": [
+          "1392508929",
+          "1392508930"
+        ]
+      }
+    }
+  ]
+}

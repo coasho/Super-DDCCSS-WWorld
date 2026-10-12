@@ -289,6 +289,12 @@ an agent's observation (a centralised critic may use them in training, as ADR-31
 
 ## Not yet
 
+- Mission episodes: explicit MA-service binding, one World per episode, immutable per-tick snapshots and queued
+  requests through an endpoint of its own. Their contract is frozen and nothing of it is built: see the
+  [mission training contract](mission-training.md) and [composing an MA system](ma-composition.md). An Agent stays
+  what this page describes; several Agents on one platform are not several configured services: a C2 control
+  designation's grants, a C2 override applied to a live HSA and a lost-communication plan activation go to the
+  platform's most recently created Agent until a binding says otherwise.
 - A C or C++ MA in a process of its own (the isolation channel's client in those languages); approval of autonomous
   actions other than strikes (A-GRA's approval
   policy for plans and responses), role configuration in flight (an Admin's), overrides within zones; fusion of received

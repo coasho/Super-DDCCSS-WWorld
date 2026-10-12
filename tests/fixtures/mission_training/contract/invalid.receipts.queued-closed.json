@@ -1,0 +1,119 @@
+{
+  "schema": "ma.receipts.v1",
+  "episode": {
+    "env_id": "9007199254740993",
+    "episode_generation": "3",
+    "local_episode_index": "41"
+  },
+  "service_id": "9007199254740995",
+  "tick": "62",
+  "submission": {
+    "tick": "62",
+    "accepted": true,
+    "reason": null,
+    "requests": [
+      {
+        "request_id": "9007199254740995",
+        "status": "duplicate",
+        "reason": null
+      },
+      {
+        "request_id": "9007199254740996",
+        "status": "queued",
+        "reason": null
+      },
+      {
+        "request_id": "9007199254740997",
+        "status": "rejected",
+        "reason": "unsupported_kind"
+      }
+    ]
+  },
+  "receipts": [
+    {
+      "request_id": "9007199254740993",
+      "kind": "sensor",
+      "operation": "designate_link",
+      "component": {
+        "component_id": "2",
+        "label": "planner"
+      },
+      "submitted_tick": "60",
+      "updated_tick": "61",
+      "state": "accepted",
+      "closed": true,
+      "gateway_reason": null,
+      "native": {
+        "domain": "designation",
+        "status": "designated",
+        "reason": null,
+        "reason_code": null,
+        "ids": {
+          "target_id": "2147483649"
+        }
+      }
+    },
+    {
+      "request_id": "9007199254740994",
+      "kind": "flight",
+      "operation": "new",
+      "submitted_tick": "60",
+      "updated_tick": "61",
+      "state": "rejected",
+      "closed": true,
+      "gateway_reason": null,
+      "native": {
+        "domain": "vi",
+        "status": "rejected",
+        "reason": "authority_held",
+        "reason_code": 9,
+        "ids": {
+          "activity_id": "0",
+          "other_activity_id": "8589934597",
+          "command_id": "9007199254740994"
+        }
+      }
+    },
+    {
+      "request_id": "9007199254740995",
+      "kind": "dms",
+      "operation": "send",
+      "submitted_tick": "61",
+      "updated_tick": "62",
+      "state": "pending",
+      "closed": false,
+      "gateway_reason": null,
+      "native": {
+        "domain": "dms",
+        "status": "pending",
+        "reason": null,
+        "reason_code": 0,
+        "ids": {
+          "message_id": "9"
+        }
+      }
+    },
+    {
+      "request_id": "9007199254740996",
+      "kind": "task",
+      "operation": "accept",
+      "submitted_tick": "62",
+      "updated_tick": "62",
+      "state": "queued",
+      "closed": true,
+      "gateway_reason": null,
+      "native": null
+    },
+    {
+      "request_id": "9007199254740997",
+      "kind": "strike",
+      "operation": "new",
+      "submitted_tick": "62",
+      "updated_tick": "62",
+      "state": "rejected",
+      "closed": true,
+      "gateway_reason": "unsupported_kind",
+      "native": null
+    }
+  ]
+}

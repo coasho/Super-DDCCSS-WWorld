@@ -1,0 +1,525 @@
+{
+  "schema": "ma.observation.v1",
+  "episode": {
+    "env_id": "9007199254740993",
+    "episode_generation": "3",
+    "local_episode_index": "41"
+  },
+  "service": {
+    "service_id": "9007199254740995",
+    "name": "wing-ma",
+    "platform_kind": "vehicle",
+    "platform_id": "2",
+    "controller_id": "1073741828",
+    "system_id": "1392508930",
+    "alive": true
+  },
+  "tick": "62",
+  "time_s": 62.0,
+  "reports": {
+    "navigation": {
+      "availability": "available",
+      "meta": {
+        "source": "own_navigation",
+        "validity": "valid",
+        "sample_time_s": 62.0,
+        "receive_time_s": 62.0,
+        "age_s": 0.0
+      },
+      "own_ship": {
+        "time_s": 62.0,
+        "latitude_rad": 0.6281,
+        "longitude_rad": -2.0073,
+        "altitude_msl_m": 7001.5,
+        "altitude_agl_m": null,
+        "velocity_ned_ms": [
+          229.8,
+          1.2,
+          -0.3
+        ],
+        "euler_rad": [
+          0.01,
+          0.03,
+          0.002
+        ],
+        "angular_rate_body_rad_s": [
+          0.0,
+          0.001,
+          0.0
+        ],
+        "acceleration_body_ms2": [
+          0.1,
+          0.0,
+          -9.8
+        ],
+        "airspeed_true_ms": 230.1,
+        "airspeed_calibrated_ms": 160.4,
+        "mach": 0.74,
+        "alpha_rad": 0.04,
+        "beta_rad": 0.0,
+        "load_factor": 1.0,
+        "fuel_kg": 2100.0,
+        "on_ground": false,
+        "gnss_valid": true,
+        "air_data_valid": true,
+        "throttle": 0.62
+      },
+      "endurance": {
+        "energy": "fuel",
+        "fuel_kg": 2100.0,
+        "remaining": 2100.0,
+        "capacity": 3200.0,
+        "percent": 65.625,
+        "consumption": 0.9,
+        "endurance_s": 2333.3,
+        "endurance_unbounded": false,
+        "reserve": 320.0,
+        "playtime_s": null,
+        "playtime_unbounded": false,
+        "return_distance_m": null,
+        "return_tas_ms": null,
+        "return_consumption": null,
+        "contingency": "NORMAL",
+        "starved": false
+      }
+    },
+    "capabilities": {
+      "availability": "available",
+      "count": 3,
+      "items": [
+        {
+          "capability": "fsim.guidance.hsa",
+          "domain": "vi",
+          "owner_service_id": "9007199254740995",
+          "availability": "available",
+          "reason": "none",
+          "allowed": true,
+          "granted": false
+        },
+        {
+          "capability": "fsim.guidance.route",
+          "domain": "vi",
+          "owner_service_id": "9007199254740995",
+          "availability": "available",
+          "reason": "none",
+          "allowed": true,
+          "granted": false
+        },
+        {
+          "capability": "fsim.ms.amti:radar",
+          "domain": "ms",
+          "owner_service_id": "9007199254740995",
+          "availability": "unavailable",
+          "reason": "payload_off",
+          "allowed": true,
+          "granted": false
+        }
+      ]
+    },
+    "sensors": {
+      "availability": "available",
+      "count": 2,
+      "items": [
+        {
+          "payload": "0",
+          "name": "radar",
+          "card": "an-apg-68v9",
+          "family": "air_radar",
+          "state": "off",
+          "radar": {
+            "searching": false,
+            "activity_id": null,
+            "mode": "range_while_search",
+            "task": "volume",
+            "designated_track_id": null,
+            "tracks": 0,
+            "tentative_tracks": 0
+          }
+        },
+        {
+          "payload": "1",
+          "name": "rwr",
+          "family": "esm",
+          "state": "operate",
+          "radar": null
+        }
+      ]
+    },
+    "tracks": {
+      "availability": "available",
+      "count": 0,
+      "items": []
+    },
+    "contacts": {
+      "availability": "unavailable",
+      "count": 0,
+      "items": []
+    },
+    "link_tracks": {
+      "availability": "available",
+      "count": 2,
+      "items": [
+        {
+          "source_system_id": "1392508929",
+          "net_id": "1",
+          "payload": "0",
+          "track_id": "18446744073709551615",
+          "meta": {
+            "source": "link",
+            "validity": "valid",
+            "sample_time_s": 60.5,
+            "receive_time_s": 60.75,
+            "age_s": 1.5,
+            "system_id": "1392508929",
+            "net_id": "1"
+          },
+          "updates": 14,
+          "latitude_rad": 0.6402,
+          "longitude_rad": -2.0071,
+          "height_m": 6400.0,
+          "velocity_ned_ms": [
+            -210.0,
+            5.0,
+            0.0
+          ],
+          "position_sigma_m": 85.0,
+          "velocity_sigma_ms": 6.5
+        },
+        {
+          "source_system_id": "1392508929",
+          "net_id": "1",
+          "payload": "0",
+          "track_id": "9007199254740993",
+          "meta": {
+            "source": "link",
+            "validity": "stale",
+            "sample_time_s": 51.0,
+            "receive_time_s": 51.25,
+            "age_s": 11.0,
+            "system_id": "1392508929",
+            "net_id": "1"
+          },
+          "updates": 3,
+          "latitude_rad": 0.6451,
+          "longitude_rad": -2.0102,
+          "height_m": -Infinity,
+          "velocity_ned_ms": null,
+          "position_sigma_m": 240.0,
+          "velocity_sigma_ms": null
+        }
+      ]
+    },
+    "peers": {
+      "availability": "available",
+      "count": 2,
+      "items": [
+        {
+          "system_id": "1392508929",
+          "net_id": "1",
+          "meta": {
+            "source": "link",
+            "validity": "valid",
+            "sample_time_s": 61.0,
+            "receive_time_s": 61.125,
+            "age_s": 1.0,
+            "system_id": "1392508929",
+            "net_id": "1"
+          },
+          "tail_number": null,
+          "position": {
+            "time_s": 61.0,
+            "latitude_rad": 0.6283,
+            "longitude_rad": -2.0071,
+            "altitude_msl_m": 7003.0,
+            "velocity_ned_ms": [
+              230.0,
+              0.0,
+              0.0
+            ],
+            "heading_rad": 0.0,
+            "airspeed_true_ms": 230.0,
+            "airspeed_calibrated_ms": 160.0,
+            "mach": 0.74
+          }
+        },
+        {
+          "system_id": "1392508931",
+          "net_id": "1",
+          "meta": {
+            "source": "link",
+            "validity": "valid",
+            "sample_time_s": null,
+            "receive_time_s": 60.125,
+            "age_s": null,
+            "system_id": "1392508931",
+            "net_id": "1"
+          },
+          "tail_number": "CRC-1",
+          "position": null
+        }
+      ]
+    },
+    "designations": {
+      "availability": "available",
+      "count": 1,
+      "items": [
+        {
+          "target_id": "2147483649",
+          "payload": "0",
+          "track_id": "18446744073709551615",
+          "valid": true,
+          "source_system_id": "1392508929"
+        }
+      ]
+    },
+    "activities": {
+      "availability": "available",
+      "count": 1,
+      "items": [
+        {
+          "domain": "vi",
+          "activity_id": "8589934597",
+          "capability": "fsim.guidance.hsa",
+          "state": "active",
+          "reason": "none",
+          "controller_id": "805306369",
+          "command_id": "3",
+          "owner_service_id": null,
+          "start_time_s": 40.125,
+          "end_time_s": null,
+          "percent": null
+        }
+      ]
+    },
+    "nets": {
+      "availability": "available",
+      "count": 1,
+      "items": [
+        {
+          "net_id": "1",
+          "name": "l16-a",
+          "max_payload_bytes": 1024
+        }
+      ]
+    },
+    "transmissions": {
+      "availability": "available",
+      "count": 1,
+      "items": [
+        {
+          "message_id": "9",
+          "request_id": "9007199254740995",
+          "topic": "1001",
+          "time_sent_s": 61.0,
+          "published": false,
+          "reached": 0,
+          "queue_dropped": false,
+          "destinations": [
+            {
+              "system_id": "1392508931",
+              "delivery": "pending"
+            }
+          ]
+        }
+      ]
+    },
+    "authority": {
+      "availability": "available",
+      "meta": {
+        "source": "ma_core",
+        "validity": "valid",
+        "sample_time_s": 62.0,
+        "receive_time_s": 62.0,
+        "age_s": 0.0
+      },
+      "operators": [
+        {
+          "system_id": "1392508931",
+          "role_id": "2",
+          "role": "QB",
+          "callsign": "CRC LEAD"
+        }
+      ],
+      "designated": false,
+      "designated_modes_mask": 0,
+      "designated_by_system_id": null,
+      "designated_time_s": null,
+      "commands": [
+        {
+          "activity_id": "8589934597",
+          "system_id": "1392508931",
+          "command_id": "3"
+        }
+      ],
+      "lost_comms": {
+        "configured": true,
+        "threshold_s": 60.0,
+        "plan_id": null,
+        "lost": false,
+        "lost_since_s": null,
+        "alerts": 0
+      },
+      "package": {
+        "package_id": "7",
+        "leader_system_id": "1392508929",
+        "member_system_ids": [
+          "1392508930"
+        ]
+      }
+    },
+    "tasks": {
+      "availability": "available",
+      "count": 1,
+      "items": [
+        {
+          "from_system_id": "1392508931",
+          "task_id": "5",
+          "meta": {
+            "source": "link",
+            "validity": "valid",
+            "sample_time_s": null,
+            "receive_time_s": 57.125,
+            "age_s": null,
+            "system_id": "1392508931"
+          },
+          "state": "received",
+          "percent": null,
+          "order": {
+            "type": "patrol",
+            "priority": 1,
+            "latitude_rad": 0.6370451769779303,
+            "longitude_rad": -2.007128639793479,
+            "altitude_m": null,
+            "radius_m": 3000.0,
+            "start_s": null,
+            "end_s": null,
+            "target": {
+              "source_system_id": "1392508929",
+              "payload": "0",
+              "track_id": "18446744073709551615"
+            },
+            "text": "patrol north point"
+          }
+        }
+      ]
+    },
+    "overrides": {
+      "availability": "available",
+      "count": 1,
+      "items": [
+        {
+          "from_system_id": "1392508931",
+          "override": "altitude",
+          "value": 7500.0,
+          "expiry_s": null
+        }
+      ]
+    },
+    "command_statuses": {
+      "availability": "available",
+      "count": 0,
+      "items": []
+    }
+  },
+  "messages": {
+    "availability": "available",
+    "count": 3,
+    "items": [
+      {
+        "message_id": "17",
+        "source_system_id": "1392508931",
+        "topic": "1001",
+        "net_id": "1",
+        "time_sent_s": 61.0,
+        "time_delivered_s": 61.125,
+        "byte_length": 7,
+        "data_b64": "//4AgMMoQQ=="
+      },
+      {
+        "message_id": "131",
+        "source_system_id": "1392508929",
+        "topic": "2",
+        "net_id": "1",
+        "time_sent_s": 61.0,
+        "time_delivered_s": 61.125,
+        "byte_length": 88,
+        "data_b64": "AAAAAACATkAldQKaCBvkP61p3nGKDgDAAAAAAABbu0AAAAAAAMBsQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwGxAAAAAAAAAZECuR+F6FK7nPw=="
+      },
+      {
+        "message_id": "18",
+        "source_system_id": "1392508931",
+        "topic": "1002",
+        "net_id": "1",
+        "time_sent_s": 61.0,
+        "time_delivered_s": 61.25,
+        "byte_length": 0,
+        "data_b64": ""
+      }
+    ]
+  },
+  "receipts": [
+    {
+      "request_id": "9007199254740993",
+      "kind": "sensor",
+      "operation": "designate_link",
+      "component": {
+        "component_id": "2",
+        "label": "planner"
+      },
+      "submitted_tick": "60",
+      "updated_tick": "61",
+      "state": "accepted",
+      "closed": true,
+      "gateway_reason": null,
+      "native": {
+        "domain": "designation",
+        "status": "designated",
+        "reason": null,
+        "reason_code": null,
+        "ids": {
+          "target_id": "2147483649"
+        }
+      }
+    },
+    {
+      "request_id": "9007199254740994",
+      "kind": "flight",
+      "operation": "new",
+      "submitted_tick": "60",
+      "updated_tick": "61",
+      "state": "rejected",
+      "closed": true,
+      "gateway_reason": null,
+      "native": {
+        "domain": "vi",
+        "status": "rejected",
+        "reason": "authority_held",
+        "reason_code": 9,
+        "ids": {
+          "activity_id": "0",
+          "other_activity_id": "8589934597",
+          "command_id": "9007199254740994"
+        }
+      }
+    },
+    {
+      "request_id": "9007199254740995",
+      "kind": "dms",
+      "operation": "send",
+      "submitted_tick": "61",
+      "updated_tick": "62",
+      "state": "pending",
+      "closed": false,
+      "gateway_reason": null,
+      "native": {
+        "domain": "dms",
+        "status": "pending",
+        "reason": null,
+        "reason_code": 0,
+        "ids": {
+          "message_id": "9"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,184 @@
+{
+  "schema": "ma.config.v1",
+  "env_id": "9007199254740993",
+  "base_seed": "18446744073709551615",
+  "timing": {
+    "dt_s": 0.008333333333333333,
+    "frame_skip": 4,
+    "decision_steps": 30
+  },
+  "scenario": {
+    "world": {
+      "name": "two-ship-c2",
+      "capacity": 8,
+      "terrain": false
+    },
+    "vehicles": [
+      {
+        "name": "lead",
+        "type": "jsbsim:f16c",
+        "initial": {
+          "lat_deg": 36.0,
+          "lon_deg": -115.0,
+          "alt_msl_m": 7000,
+          "heading_deg": 0,
+          "airspeed_ms": 230
+        }
+      },
+      {
+        "name": "wing",
+        "type": "jsbsim:f16c",
+        "initial": {
+          "lat_deg": 35.99,
+          "lon_deg": -115.01,
+          "alt_msl_m": 7000,
+          "heading_deg": 0,
+          "airspeed_ms": 230
+        }
+      }
+    ]
+  },
+  "c2_nodes": [
+    {
+      "name": "crc",
+      "latitude_rad": 0.6283185307179586,
+      "longitude_rad": -2.007128639793479,
+      "altitude_msl_m": 600.0
+    }
+  ],
+  "systems": [
+    {
+      "platform": "lead",
+      "system_id": "1392508929",
+      "tail_number": "AF-01"
+    },
+    {
+      "platform": "wing",
+      "system_id": "1392508930",
+      "tail_number": "AF-02"
+    },
+    {
+      "platform": "crc",
+      "system_id": "1392508931",
+      "tail_number": "CRC-1"
+    }
+  ],
+  "nets": [
+    {
+      "name": "l16-a",
+      "members": [
+        "lead",
+        "wing",
+        "crc"
+      ],
+      "spec": {
+        "latency_s": 0.1,
+        "max_payload_bytes": 1024
+      }
+    }
+  ],
+  "dissemination": [
+    {
+      "platform": "lead",
+      "position_period_s": 1.0,
+      "tracks_period_s": 2.0
+    },
+    {
+      "platform": "wing",
+      "position_period_s": 1.0
+    },
+    {
+      "platform": "crc",
+      "status_period_s": 10.0
+    }
+  ],
+  "services": [
+    {
+      "service_id": "1",
+      "name": "lead-flight",
+      "platform": "lead",
+      "command_capabilities": [
+        "fsim.guidance.hsa",
+        "fsim.guidance.route",
+        "fsim.guidance.pursuit"
+      ],
+      "owns_dms_ingress": true,
+      "owns_dms_egress": true
+    },
+    {
+      "service_id": "2",
+      "name": "lead-sensors",
+      "platform": "lead",
+      "command_capabilities": [
+        "fsim.ms.status:radar",
+        "fsim.ms.amti:radar",
+        "fsim.guidance.hsa"
+      ],
+      "owns_dms_ingress": false,
+      "owns_dms_egress": false
+    },
+    {
+      "service_id": "4",
+      "name": "crc-c2",
+      "platform": "crc",
+      "command_capabilities": [],
+      "owns_dms_ingress": true,
+      "owns_dms_egress": true
+    },
+    {
+      "service_id": "9007199254740995",
+      "name": "wing-ma",
+      "platform": "wing",
+      "command_capabilities": [
+        "*"
+      ],
+      "owns_dms_ingress": true,
+      "owns_dms_egress": true
+    }
+  ],
+  "reports": {
+    "stale_after_s": 10.0
+  },
+  "limits": {
+    "completed_request_retention_ticks": 64,
+    "max_in_flight_requests": 256,
+    "max_requests_per_document": 64,
+    "max_document_bytes": 1048576,
+    "max_message_bytes": 1024
+  },
+  "task": {
+    "criteria": [
+      {
+        "id": "time",
+        "kind": "tick_limit",
+        "outcome": "truncated",
+        "max_ticks": 600
+      },
+      {
+        "id": "patrol-point",
+        "kind": "region_reached",
+        "outcome": "success",
+        "platform": "wing",
+        "latitude_rad": 0.6370451769779303,
+        "longitude_rad": -2.007128639793479,
+        "radius_m": 3000.0,
+        "altitude_min_m": 5000.0,
+        "altitude_max_m": 9000.0,
+        "dwell_s": 10.0
+      },
+      {
+        "id": "task-done",
+        "kind": "c2_task_state",
+        "outcome": "success",
+        "platform": "wing",
+        "from_platform": "crc",
+        "state": "completed"
+      }
+    ]
+  },
+  "execution": {
+    "workers": 1,
+    "diagnostic": false,
+    "publish": false
+  }
+}

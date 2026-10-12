@@ -93,6 +93,7 @@ Use the existing layers in [tests/CMakeLists.txt](../tests/CMakeLists.txt) and [
 | Public C++ and C ABI | SDK cases and `c_abi` | Consumer contracts against the shared library |
 | Python and principals | `python_sdk`, `sdk_boundary` | Python behavior and classified exports |
 | Native architecture and scanner regressions | `.\fsim.cmd test -L architecture` | Module ownership/dependencies, public/private and GPU boundaries, principal scanner coverage and negative fixtures |
+| Mission-training contract | `ctest --preset ucrt64-headless -L ma-training --no-tests=error` | The [contract](sdk/mission-training.md)'s schema dialect, fixtures, page tables and local links ([check.py](../tools/ma_contract/check.py)); not evidence of any implemented mission interface |
 | Control conformance | `ctest --preset ucrt64-headless -L conformance` | Lifecycle, allocation gate and adapter checks |
 | Advertised fleet capabilities | `ctest --preset ucrt64-headless -L fleet` | Aircraft-specific acceptance cases; includes shards |
 | Hangar methods and pipeline | `ctest --preset ucrt64-headless -L hangar` | Theory/data comparisons and stage checks |

@@ -1,0 +1,212 @@
+{
+  "schema": "ma.actions.v1",
+  "episode": {
+    "env_id": "9007199254740993",
+    "episode_generation": "3",
+    "local_episode_index": "41"
+  },
+  "service_id": "9007199254740995",
+  "tick": "62",
+  "requests": [
+    {
+      "request_id": "9007199254740998",
+      "kind": "sensor",
+      "operation": "designate_link",
+      "component": {
+        "component_id": "2",
+        "label": "planner"
+      },
+      "parameters": {
+        "source_system_id": "1392508929",
+        "payload": "0"
+      }
+    },
+    {
+      "request_id": "9007199254740999",
+      "kind": "flight",
+      "operation": "new",
+      "component": {
+        "component_id": "1"
+      },
+      "parameters": {
+        "mode": "behavior",
+        "behavior": "pursuit",
+        "target_id": "2147483649",
+        "interrupt": true
+      }
+    },
+    {
+      "request_id": "9007199254741000",
+      "kind": "flight",
+      "operation": "update",
+      "parameters": {
+        "mode": "hsa",
+        "activity_id": "8589934601",
+        "altitude_m": 7500.0,
+        "altitude_reference": "msl"
+      }
+    },
+    {
+      "request_id": "9007199254741001",
+      "kind": "flight",
+      "operation": "new",
+      "parameters": {
+        "mode": "route",
+        "projection": "great_circle",
+        "end": "loiter",
+        "waypoints": [
+          {
+            "latitude_rad": 0.63,
+            "longitude_rad": -2.0071,
+            "altitude_m": 7000.0,
+            "speed": 230.0,
+            "speed_reference": "true_airspeed",
+            "waypoint_id": "9007199254740993"
+          },
+          {
+            "latitude_rad": 0.637,
+            "longitude_rad": -2.0071,
+            "turn": "fly_over"
+          }
+        ]
+      }
+    },
+    {
+      "request_id": "9007199254741002",
+      "kind": "flight",
+      "operation": "cancel",
+      "parameters": {
+        "activity_id": "8589934601"
+      }
+    },
+    {
+      "request_id": "9007199254741003",
+      "kind": "sensor",
+      "operation": "set_state",
+      "parameters": {
+        "payload": "0",
+        "state": "operate"
+      }
+    },
+    {
+      "request_id": "9007199254741004",
+      "kind": "sensor",
+      "operation": "search",
+      "parameters": {
+        "payload": "0",
+        "mode": "range_while_search",
+        "bars": 4,
+        "range_scale_m": 150000.0
+      }
+    },
+    {
+      "request_id": "9007199254741005",
+      "kind": "sensor",
+      "operation": "designate",
+      "parameters": {
+        "payload": "0",
+        "track_id": "12"
+      }
+    },
+    {
+      "request_id": "9007199254741006",
+      "kind": "sensor",
+      "operation": "undesignate",
+      "parameters": {
+        "target_id": "2147483650"
+      }
+    },
+    {
+      "request_id": "9007199254741007",
+      "kind": "sensor",
+      "operation": "cancel",
+      "parameters": {
+        "activity_id": "10737418241"
+      }
+    },
+    {
+      "request_id": "9007199254741008",
+      "kind": "dms",
+      "operation": "send",
+      "parameters": {
+        "topic": "1001",
+        "destination_system_ids": [
+          "1392508931"
+        ],
+        "byte_length": 7,
+        "data_b64": "//4AgMMoQQ=="
+      }
+    },
+    {
+      "request_id": "9007199254741009",
+      "kind": "dms",
+      "operation": "publish_native",
+      "parameters": {
+        "report": "tracks",
+        "payload": "0"
+      }
+    },
+    {
+      "request_id": "9007199254741010",
+      "kind": "dms",
+      "operation": "subscribe_all",
+      "parameters": {
+        "enabled": false
+      }
+    },
+    {
+      "request_id": "9007199254741011",
+      "kind": "dms",
+      "operation": "subscribe",
+      "parameters": {
+        "topic": "1001"
+      }
+    },
+    {
+      "request_id": "9007199254741012",
+      "kind": "dms",
+      "operation": "unsubscribe",
+      "parameters": {
+        "topic": "1002"
+      }
+    },
+    {
+      "request_id": "9007199254741013",
+      "kind": "task",
+      "operation": "accept",
+      "parameters": {
+        "from_system_id": "1392508931",
+        "task_id": "5"
+      }
+    },
+    {
+      "request_id": "9007199254741014",
+      "kind": "task",
+      "operation": "report",
+      "parameters": {
+        "from_system_id": "1392508931",
+        "task_id": "5",
+        "state": "accepted",
+        "percent": 40.0
+      }
+    },
+    {
+      "request_id": "9007199254741015",
+      "kind": "task",
+      "operation": "reject",
+      "parameters": {
+        "from_system_id": "1392508931",
+        "task_id": "6",
+        "code": 3
+      }
+    },
+    {
+      "request_id": "9007199254741016",
+      "kind": "gateway",
+      "operation": "close",
+      "parameters": {
+        "request_id": "9007199254740995"
+      }
+    }
+  ]
+}

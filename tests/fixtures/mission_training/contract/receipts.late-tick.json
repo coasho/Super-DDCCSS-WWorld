@@ -1,0 +1,17 @@
+{
+  "schema": "ma.receipts.v1",
+  "episode": {
+    "env_id": "9007199254740993",
+    "episode_generation": "3",
+    "local_episode_index": "41"
+  },
+  "service_id": "1",
+  "tick": "62",
+  "submission": {
+    "tick": "61",
+    "accepted": false,
+    "reason": "late_tick",
+    "requests": []
+  },
+  "receipts": []
+}

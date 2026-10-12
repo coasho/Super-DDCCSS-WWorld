@@ -1,0 +1,1605 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fsim:ma-contract:v1",
+  "title": "fsim mission-training documents, version 1",
+  "$comment": "Frozen by generic M0 (docs/sdk/mission-training.md). A local SDK contract, not an ASK/UCI wire format. The dialect is JSON Schema 2020-12, restricted to the keywords tools/ma_contract/check.py lists; the SDK itself needs no schema library. Rules a schema cannot state (decoded base64 length, request-id order, cross references, limits a configuration sets) are in mission-training.md and checked by tools/ma_contract/check.py.",
+  "oneOf": [
+    {"$ref": "#/$defs/config"},
+    {"$ref": "#/$defs/observation"},
+    {"$ref": "#/$defs/actions"},
+    {"$ref": "#/$defs/receipts"},
+    {"$ref": "#/$defs/outcome"},
+    {"$ref": "#/$defs/truth"}
+  ],
+  "$defs": {
+    "u64": {
+      "$comment": "A 64-bit identity or correlation: unsigned decimal, no sign, no leading zero, at most 18446744073709551615.",
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]{0,18}|1[0-7][0-9]{18}|18[0-3][0-9]{17}|184[0-3][0-9]{16}|1844[0-5][0-9]{15}|18446[0-6][0-9]{14}|184467[0-3][0-9]{13}|1844674[0-3][0-9]{12}|184467440[0-6][0-9]{10}|1844674407[0-2][0-9]{9}|18446744073[0-6][0-9]{8}|1844674407370[0-8][0-9]{6}|18446744073709[0-4][0-9]{5}|184467440737095[0-4][0-9]{4}|18446744073709550[0-9]{3}|18446744073709551[0-5][0-9]{2}|1844674407370955160[0-9]{1}|1844674407370955161[0-4]|18446744073709551615)$"
+    },
+    "u32": {
+      "$comment": "A 32-bit identity (entity, controller, system, net, topic, designation, package, role): unsigned decimal string, at most 4294967295.",
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]{0,8}|[1-3][0-9]{9}|4[0-1][0-9]{8}|42[0-8][0-9]{7}|429[0-3][0-9]{6}|4294[0-8][0-9]{5}|42949[0-5][0-9]{4}|429496[0-6][0-9]{3}|4294967[0-1][0-9]{2}|42949672[0-8][0-9]{1}|429496729[0-4]|4294967295)$"
+    },
+    "u16": {
+      "$comment": "A payload index: unsigned decimal string, at most 65535.",
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]{1}|6553[0-4]|65535)$"
+    },
+    "u64_nonzero": {"allOf": [{"$ref": "#/$defs/u64"}, {"not": {"const": "0"}}]},
+    "u32_nonzero": {"allOf": [{"$ref": "#/$defs/u32"}, {"not": {"const": "0"}}]},
+    "u64_or_null": {"anyOf": [{"$ref": "#/$defs/u64"}, {"type": "null"}]},
+    "u32_or_null": {"anyOf": [{"$ref": "#/$defs/u32"}, {"type": "null"}]},
+    "number_or_null": {
+      "$comment": "A reported quantity, or null where the bound Agent does not know it (a native NaN, a value not measured, a report not held). Never NaN, never a substitute zero.",
+      "type": ["number", "null"]
+    },
+    "vector3": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+    "vector3_or_null": {"anyOf": [{"$ref": "#/$defs/vector3"}, {"type": "null"}]},
+    "name": {"type": "string", "minLength": 1, "maxLength": 63, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"},
+    "native_name": {
+      "$comment": "A name the SDK's own name function gives (reasonName, activityStateName, familyName ...): transported, not redefined here.",
+      "type": "string", "minLength": 1, "maxLength": 63
+    },
+    "base64": {
+      "$comment": "RFC 4648 section 4: the standard alphabet, padded, no line breaks, canonical (unused bits zero). At most 65536 decoded bytes in any document; a configuration's max_message_bytes and each net's own limit are lower.",
+      "type": "string",
+      "maxLength": 87384,
+      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+    },
+    "extensions": {
+      "$comment": "The integration seam for frozen extension definitions, each in a file of its own: a key is its registered schema reference (<family>.<name>.v<N>), its value that definition's document. A reference no handler registered fails explicitly (unsupported_extension).",
+      "type": "object",
+      "propertyNames": {"pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+\\.v[1-9][0-9]*$"},
+      "additionalProperties": {"type": "object"}
+    },
+    "episode_key": {
+      "type": "object",
+      "required": ["env_id", "episode_generation", "local_episode_index"],
+      "additionalProperties": false,
+      "properties": {
+        "env_id": {"$ref": "#/$defs/u64"},
+        "episode_generation": {"$ref": "#/$defs/u64_nonzero"},
+        "local_episode_index": {"$ref": "#/$defs/u64"}
+      }
+    },
+    "meta": {
+      "$comment": "Where a report came from and how old it is. Times are simulation seconds; null where the source gives none.",
+      "type": "object",
+      "required": ["source", "validity", "sample_time_s", "receive_time_s", "age_s"],
+      "additionalProperties": false,
+      "properties": {
+        "source": {"enum": ["own_navigation", "own_sensor", "own_platform", "ma_core", "dms", "link"]},
+        "system_id": {"$ref": "#/$defs/u32"},
+        "net_id": {"$ref": "#/$defs/u32"},
+        "payload": {"$ref": "#/$defs/u16"},
+        "validity": {"enum": ["valid", "stale", "invalid", "unknown"]},
+        "sample_time_s": {"$ref": "#/$defs/number_or_null"},
+        "receive_time_s": {"$ref": "#/$defs/number_or_null"},
+        "age_s": {"$ref": "#/$defs/number_or_null"}
+      }
+    },
+    "availability": {"enum": ["available", "unavailable", "not_applicable", "not_owner"]},
+
+    "config": {
+      "type": "object",
+      "required": ["schema", "env_id", "base_seed", "timing", "scenario", "services"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {"const": "ma.config.v1"},
+        "env_id": {"$ref": "#/$defs/u64"},
+        "base_seed": {"$ref": "#/$defs/u64"},
+        "timing": {
+          "type": "object",
+          "required": ["dt_s", "frame_skip", "decision_steps"],
+          "additionalProperties": false,
+          "properties": {
+            "dt_s": {"type": "number", "exclusiveMinimum": 0, "maximum": 0.1},
+            "frame_skip": {"type": "integer", "minimum": 1, "maximum": 1000},
+            "decision_steps": {"type": "integer", "minimum": 1, "maximum": 100000}
+          }
+        },
+        "scenario": {
+          "$comment": "An existing scenario document (fsim/Scenario.h, docs/sdk/scenarios.md), in that format's own units. Its world section may name the world and its data only: timing, seed, workers, publication and recording are this configuration's.",
+          "type": "object",
+          "required": ["vehicles"],
+          "properties": {
+            "world": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {"$ref": "#/$defs/name"},
+                "capacity": {"type": "integer", "minimum": 1, "maximum": 65536},
+                "jsbsim_root": {"type": "string", "maxLength": 1024},
+                "terrain": {"type": "boolean"},
+                "terrain_url": {"type": "string", "maxLength": 1024},
+                "terrain_zoom": {"type": "integer", "minimum": 0, "maximum": 24},
+                "terrain_offline": {"type": "boolean"}
+              }
+            },
+            "environment": {"type": "object"},
+            "effects": {"type": "array", "items": {"type": "object"}},
+            "vehicles": {"type": "array", "minItems": 0, "maxItems": 4096, "items": {"type": "object", "required": ["name"]}},
+            "vecenv": false
+          },
+          "additionalProperties": false
+        },
+        "c2_nodes": {
+          "type": "array", "maxItems": 64,
+          "items": {
+            "type": "object",
+            "required": ["name", "latitude_rad", "longitude_rad", "altitude_msl_m"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {"$ref": "#/$defs/name"},
+              "latitude_rad": {"type": "number", "minimum": -1.5707963267948966, "maximum": 1.5707963267948966},
+              "longitude_rad": {"type": "number", "minimum": -3.141592653589793, "maximum": 3.141592653589793},
+              "altitude_msl_m": {"type": "number"}
+            }
+          }
+        },
+        "systems": {
+          "type": "array", "maxItems": 4160,
+          "items": {
+            "type": "object",
+            "required": ["platform", "system_id"],
+            "additionalProperties": false,
+            "properties": {
+              "platform": {"$ref": "#/$defs/name"},
+              "system_id": {"$ref": "#/$defs/u32_nonzero"},
+              "tail_number": {"type": "string", "maxLength": 23}
+            }
+          }
+        },
+        "nets": {
+          "type": "array", "maxItems": 64,
+          "items": {
+            "type": "object",
+            "required": ["name", "members"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {"$ref": "#/$defs/name"},
+              "members": {"type": "array", "maxItems": 4160, "items": {"$ref": "#/$defs/name"}},
+              "spec": {
+                "$comment": "comm::NetSpec; a field left out keeps its native default.",
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "range_m": {"type": "number", "exclusiveMinimum": 0},
+                  "frequency_hz": {"type": "number", "exclusiveMinimum": 0},
+                  "line_of_sight": {"type": "boolean"},
+                  "latency_s": {"type": "number", "minimum": 0},
+                  "jitter_s": {"type": "number", "minimum": 0},
+                  "loss_probability": {"type": "number", "minimum": 0, "maximum": 1},
+                  "data_rate_bps": {"type": "number", "exclusiveMinimum": 0},
+                  "max_queue_s": {"type": "number", "minimum": 0},
+                  "reliable_timeout_s": {"type": "number", "minimum": 0},
+                  "retry_s": {"type": "number", "exclusiveMinimum": 0},
+                  "max_payload_bytes": {"type": "integer", "minimum": 1, "maximum": 65536},
+                  "header_bytes": {"type": "integer", "minimum": 0, "maximum": 65536}
+                }
+              }
+            }
+          }
+        },
+        "dissemination": {
+          "type": "array", "maxItems": 4160,
+          "items": {
+            "$comment": "comm::DisseminationPlan; a period of 0 publishes nothing; a field left out keeps its native default.",
+            "type": "object",
+            "required": ["platform"],
+            "additionalProperties": false,
+            "properties": {
+              "platform": {"$ref": "#/$defs/name"},
+              "position_period_s": {"type": "number", "minimum": 0},
+              "status_period_s": {"type": "number", "minimum": 0},
+              "tracks_period_s": {"type": "number", "minimum": 0},
+              "peer_timeout_s": {"type": "number", "exclusiveMinimum": 0},
+              "track_timeout_s": {"type": "number", "exclusiveMinimum": 0}
+            }
+          }
+        },
+        "rbac": {
+          "type": "array", "maxItems": 4160,
+          "items": {
+            "$comment": "comm::RbacConfig's roles for one platform; a platform not listed keeps the native A-GRA defaults. Its strike policy is not generic configuration.",
+            "type": "object",
+            "required": ["platform", "roles"],
+            "additionalProperties": false,
+            "properties": {
+              "platform": {"$ref": "#/$defs/name"},
+              "roles": {
+                "type": "array", "minItems": 1, "maxItems": 32,
+                "items": {
+                  "type": "object",
+                  "required": ["role_id", "name", "permissions"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "role_id": {"$ref": "#/$defs/u32_nonzero"},
+                    "name": {"type": "string", "minLength": 1, "maxLength": 23},
+                    "permissions": {"type": "array", "maxItems": 8, "items": {"enum": ["flight", "control", "task", "weapons", "override", "settings", "package", "roles"]}},
+                    "approves_strikes": {"type": "boolean"}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "services": {
+          "type": "array", "minItems": 1, "maxItems": 256,
+          "items": {"$ref": "#/$defs/service_binding"}
+        },
+        "reports": {
+          "$comment": "stale_after_s: a held report whose age_s is above it is marked stale. Left out: nothing is.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {"stale_after_s": {"type": "number", "exclusiveMinimum": 0}}
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "completed_request_retention_ticks": {"type": "integer", "minimum": 1, "maximum": 65536},
+            "max_in_flight_requests": {"type": "integer", "minimum": 1, "maximum": 65536},
+            "max_requests_per_document": {"type": "integer", "minimum": 1, "maximum": 1024},
+            "max_document_bytes": {"type": "integer", "minimum": 1024, "maximum": 16777216},
+            "max_message_bytes": {"type": "integer", "minimum": 1, "maximum": 65536}
+          }
+        },
+        "task": {
+          "type": "object",
+          "required": ["criteria"],
+          "additionalProperties": false,
+          "properties": {
+            "criteria": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/criterion"}}
+          }
+        },
+        "execution": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "workers": {"type": "integer", "minimum": 1, "maximum": 256},
+            "diagnostic": {"type": "boolean"},
+            "publish": {"type": "boolean"},
+            "record_dir": {"type": "string", "minLength": 1, "maxLength": 1024}
+          },
+          "$comment": "Defaults: workers 1, diagnostic false, publish false, no recording. publish true or a record_dir requires diagnostic true: such an episode is labelled non-isolated.",
+          "allOf": [
+            {"if": {"required": ["publish"], "properties": {"publish": {"const": true}}}, "then": {"required": ["diagnostic"], "properties": {"diagnostic": {"const": true}}}},
+            {"if": {"required": ["record_dir"]}, "then": {"required": ["diagnostic"], "properties": {"diagnostic": {"const": true}}}}
+          ]
+        },
+        "extensions": {"$ref": "#/$defs/extensions"}
+      }
+    },
+    "service_binding": {
+      "$comment": "MAServiceBindingV1 as a document: its controller is minted by the range when the episode makes the service's Agent, never named here.",
+      "type": "object",
+      "required": ["service_id", "name", "platform", "command_capabilities", "owns_dms_ingress", "owns_dms_egress"],
+      "additionalProperties": false,
+      "properties": {
+        "service_id": {"$ref": "#/$defs/u64_nonzero"},
+        "name": {"$ref": "#/$defs/name"},
+        "platform": {"$ref": "#/$defs/name"},
+        "command_capabilities": {
+          "type": "array", "maxItems": 256,
+          "items": {"type": "string", "pattern": "^(?:\\*|[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+(?::[A-Za-z0-9 _.-]+)?)$", "maxLength": 127}
+        },
+        "owns_dms_ingress": {"type": "boolean"},
+        "owns_dms_egress": {"type": "boolean"}
+      }
+    },
+    "criterion": {
+      "type": "object",
+      "required": ["id", "kind", "outcome"],
+      "properties": {
+        "id": {"$ref": "#/$defs/name"},
+        "kind": {"enum": ["tick_limit", "region_reached", "c2_task_state"]},
+        "outcome": {"enum": ["success", "failure", "truncated"]}
+      },
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "required": ["id", "kind", "outcome", "max_ticks"],
+          "properties": {
+            "id": true,
+            "kind": {"const": "tick_limit"},
+            "outcome": {"const": "truncated"},
+            "max_ticks": {"type": "integer", "minimum": 1, "maximum": 2147483647}
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["id", "kind", "outcome", "platform", "latitude_rad", "longitude_rad", "radius_m"],
+          "properties": {
+            "id": true,
+            "kind": {"const": "region_reached"},
+            "outcome": {"enum": ["success", "failure"]},
+            "platform": {"$ref": "#/$defs/name"},
+            "latitude_rad": {"type": "number", "minimum": -1.5707963267948966, "maximum": 1.5707963267948966},
+            "longitude_rad": {"type": "number", "minimum": -3.141592653589793, "maximum": 3.141592653589793},
+            "radius_m": {"type": "number", "exclusiveMinimum": 0},
+            "altitude_min_m": {"type": "number"},
+            "altitude_max_m": {"type": "number"},
+            "dwell_s": {"type": "number", "minimum": 0}
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["id", "kind", "outcome", "platform", "from_platform", "state"],
+          "properties": {
+            "id": true,
+            "kind": {"const": "c2_task_state"},
+            "outcome": {"enum": ["success", "failure"]},
+            "platform": {"$ref": "#/$defs/name"},
+            "from_platform": {"$ref": "#/$defs/name"},
+            "state": {"enum": ["accepted", "rejected", "completed", "failed"]}
+          }
+        }
+      ]
+    },
+
+    "observation": {
+      "type": "object",
+      "required": ["schema", "episode", "service", "tick", "time_s", "reports", "messages", "receipts"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {"const": "ma.observation.v1"},
+        "episode": {"$ref": "#/$defs/episode_key"},
+        "service": {
+          "type": "object",
+          "required": ["service_id", "name", "platform_kind", "platform_id", "controller_id", "system_id", "alive"],
+          "additionalProperties": false,
+          "properties": {
+            "service_id": {"$ref": "#/$defs/u64_nonzero"},
+            "name": {"$ref": "#/$defs/name"},
+            "platform_kind": {"enum": ["vehicle", "c2_node"]},
+            "platform_id": {"$ref": "#/$defs/u32_nonzero"},
+            "controller_id": {"$ref": "#/$defs/u32_nonzero"},
+            "system_id": {"$ref": "#/$defs/u32_or_null"},
+            "alive": {"type": "boolean"}
+          }
+        },
+        "tick": {"$ref": "#/$defs/u64"},
+        "time_s": {"type": "number", "minimum": 0},
+        "reports": {
+          "type": "object",
+          "required": ["navigation", "capabilities", "sensors", "tracks", "contacts", "link_tracks", "peers", "designations", "activities", "nets", "transmissions", "authority", "tasks", "overrides", "command_statuses"],
+          "additionalProperties": false,
+          "properties": {
+            "navigation": {"$ref": "#/$defs/navigation_report"},
+            "capabilities": {"$ref": "#/$defs/collection_capabilities"},
+            "sensors": {"$ref": "#/$defs/collection_sensors"},
+            "tracks": {"$ref": "#/$defs/collection_tracks"},
+            "contacts": {"$ref": "#/$defs/collection_contacts"},
+            "link_tracks": {"$ref": "#/$defs/collection_link_tracks"},
+            "peers": {"$ref": "#/$defs/collection_peers"},
+            "designations": {"$ref": "#/$defs/collection_designations"},
+            "activities": {"$ref": "#/$defs/collection_activities"},
+            "nets": {"$ref": "#/$defs/collection_nets"},
+            "transmissions": {"$ref": "#/$defs/collection_transmissions"},
+            "authority": {"$ref": "#/$defs/authority_report"},
+            "tasks": {"$ref": "#/$defs/collection_tasks"},
+            "overrides": {"$ref": "#/$defs/collection_overrides"},
+            "command_statuses": {"$ref": "#/$defs/collection_command_statuses"}
+          }
+        },
+        "messages": {"$ref": "#/$defs/collection_messages"},
+        "receipts": {"type": "array", "maxItems": 131072, "items": {"$ref": "#/$defs/receipt"}},
+        "extensions": {"$ref": "#/$defs/extensions"}
+      }
+    },
+    "navigation_report": {
+      "type": "object",
+      "required": ["availability", "meta", "own_ship", "endurance"],
+      "additionalProperties": false,
+      "properties": {
+        "availability": {"$ref": "#/$defs/availability"},
+        "meta": {"$ref": "#/$defs/meta"},
+        "own_ship": {
+          "$comment": "fsim::OwnShip, as the platform's navigation and air data report it. null for a C2 node or a platform no longer alive.",
+          "type": ["object", "null"],
+          "required": ["time_s", "latitude_rad", "longitude_rad", "altitude_msl_m", "altitude_agl_m", "velocity_ned_ms", "euler_rad", "angular_rate_body_rad_s", "acceleration_body_ms2", "airspeed_true_ms", "airspeed_calibrated_ms", "mach", "alpha_rad", "beta_rad", "load_factor", "fuel_kg", "on_ground", "gnss_valid", "air_data_valid", "throttle"],
+          "additionalProperties": false,
+          "properties": {
+            "time_s": {"$ref": "#/$defs/number_or_null"},
+            "latitude_rad": {"$ref": "#/$defs/number_or_null"},
+            "longitude_rad": {"$ref": "#/$defs/number_or_null"},
+            "altitude_msl_m": {"$ref": "#/$defs/number_or_null"},
+            "altitude_agl_m": {"$ref": "#/$defs/number_or_null"},
+            "velocity_ned_ms": {"$ref": "#/$defs/vector3_or_null"},
+            "euler_rad": {"$ref": "#/$defs/vector3_or_null"},
+            "angular_rate_body_rad_s": {"$ref": "#/$defs/vector3_or_null"},
+            "acceleration_body_ms2": {"$ref": "#/$defs/vector3_or_null"},
+            "airspeed_true_ms": {"$ref": "#/$defs/number_or_null"},
+            "airspeed_calibrated_ms": {"$ref": "#/$defs/number_or_null"},
+            "mach": {"$ref": "#/$defs/number_or_null"},
+            "alpha_rad": {"$ref": "#/$defs/number_or_null"},
+            "beta_rad": {"$ref": "#/$defs/number_or_null"},
+            "load_factor": {"$ref": "#/$defs/number_or_null"},
+            "fuel_kg": {"$ref": "#/$defs/number_or_null"},
+            "on_ground": {"type": "boolean"},
+            "gnss_valid": {"type": "boolean"},
+            "air_data_valid": {"type": "boolean"},
+            "throttle": {"$ref": "#/$defs/number_or_null"}
+          }
+        },
+        "endurance": {
+          "$comment": "control::NavigationReport. A native infinite endurance or playtime is null with its *_unbounded flag true.",
+          "type": ["object", "null"],
+          "required": ["energy", "fuel_kg", "remaining", "capacity", "percent", "consumption", "endurance_s", "endurance_unbounded", "reserve", "playtime_s", "playtime_unbounded", "return_distance_m", "return_tas_ms", "return_consumption", "contingency", "starved"],
+          "additionalProperties": false,
+          "properties": {
+            "energy": {"$ref": "#/$defs/native_name"},
+            "fuel_kg": {"$ref": "#/$defs/number_or_null"},
+            "remaining": {"$ref": "#/$defs/number_or_null"},
+            "capacity": {"$ref": "#/$defs/number_or_null"},
+            "percent": {"$ref": "#/$defs/number_or_null"},
+            "consumption": {"$ref": "#/$defs/number_or_null"},
+            "endurance_s": {"$ref": "#/$defs/number_or_null"},
+            "endurance_unbounded": {"type": "boolean"},
+            "reserve": {"$ref": "#/$defs/number_or_null"},
+            "playtime_s": {"$ref": "#/$defs/number_or_null"},
+            "playtime_unbounded": {"type": "boolean"},
+            "return_distance_m": {"$ref": "#/$defs/number_or_null"},
+            "return_tas_ms": {"$ref": "#/$defs/number_or_null"},
+            "return_consumption": {"$ref": "#/$defs/number_or_null"},
+            "contingency": {"$ref": "#/$defs/native_name"},
+            "starved": {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "collection_capabilities": {
+      "type": "object",
+      "required": ["availability", "count", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "availability": {"$ref": "#/$defs/availability"},
+        "count": {"type": "integer", "minimum": 0, "maximum": 65536},
+        "items": {
+          "type": "array", "maxItems": 65536,
+          "items": {
+            "$comment": "One command capability of the bound platform: a VI capability (control::CapabilityDescriptor, CapabilityStatus, ControlStatus) or an MS capability instance (ms::CapabilityInfo, CapabilityStatus). owner_service_id: the configured service it is bound to; null: none.",
+            "type": "object",
+            "required": ["capability", "domain", "owner_service_id", "availability", "reason", "allowed", "granted"],
+            "additionalProperties": false,
+            "properties": {
+              "capability": {"type": "string", "minLength": 1, "maxLength": 127},
+              "domain": {"enum": ["vi", "ms"]},
+              "owner_service_id": {"$ref": "#/$defs/u64_or_null"},
+              "availability": {"$ref": "#/$defs/native_name"},
+              "reason": {"$ref": "#/$defs/native_name"},
+              "allowed": {"type": "boolean"},
+              "granted": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    },
+    "collection_sensors": {
+      "type": "object",
+      "required": ["availability", "count", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "availability": {"$ref": "#/$defs/availability"},
+        "count": {"type": "integer", "minimum": 0, "maximum": 65536},
+        "items": {
+          "type": "array", "maxItems": 65536,
+          "items": {
+            "$comment": "ms::PayloadInfo, and for an air radar a part of ms::RadarStatus.",
+            "type": "object",
+            "required": ["payload", "name", "family", "state", "radar"],
+            "additionalProperties": false,
+            "properties": {
+              "payload": {"$ref": "#/$defs/u16"},
+              "name": {"type": "string", "maxLength": 127},
+              "card": {"type": "string", "maxLength": 127},
+              "family": {"$ref": "#/$defs/native_name"},
+              "state": {"$ref": "#/$defs/native_name"},
+              "radar": {
+                "type": ["object", "null"],
+                "required": ["searching", "activity_id", "mode", "task", "designated_track_id", "tracks", "tentative_tracks"],
+                "additionalProperties": false,
+                "properties": {
+                  "searching": {"type": "boolean"},
+                  "activity_id": {"$ref": "#/$defs/u64_or_null"},
+                  "mode": {"$ref": "#/$defs/native_name"},
+                  "task": {"$ref": "#/$defs/native_name"},
+                  "designated_track_id": {"$ref": "#/$defs/u64_or_null"},
+                  "tracks": {"type": "integer", "minimum": 0},
+                  "tentative_tracks": {"type": "integer", "minimum": 0}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "collection_tracks": {
+      "type": "object",
+      "required": ["availability", "count", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "availability": {"$ref": "#/$defs/availability"},
+        "count": {"type": "integer", "minimum": 0, "maximum": 65536},
+        "items": {
+          "type": "array", "maxItems": 65536,
+          "items": {
+            "$comment": "ms::AmtiTrack of the bound platform's own radar, without the entity behind it.",
+            "type": "object",
+            "required": ["track_id", "payload", "meta", "updates", "latitude_rad", "longitude_rad", "height_m", "velocity_ned_ms", "position_sigma_m", "velocity_sigma_ms", "range_m", "azimuth_rad", "elevation_rad", "range_rate_ms"],
+            "additionalProperties": false,
+            "properties": {
+              "track_id": {"$ref": "#/$defs/u64"},
+              "payload": {"$ref": "#/$defs/u16"},
+              "meta": {"$ref": "#/$defs/meta"},
+              "updates": {"type": "integer", "minimum": 0},
+              "latitude_rad": {"$ref": "#/$defs/number_or_null"},
+              "longitude_rad": {"$ref": "#/$defs/number_or_null"},
+              "height_m": {"$ref": "#/$defs/number_or_null"},
+              "velocity_ned_ms": {"$ref": "#/$defs/vector3_or_null"},
+              "position_sigma_m": {"$ref": "#/$defs/number_or_null"},
+              "velocity_sigma_ms": {"$ref": "#/$defs/number_or_null"},
+              "range_m": {"$ref": "#/$defs/number_or_null"},
+              "azimuth_rad": {"$ref": "#/$defs/number_or_null"},
+              "elevation_rad": {"$ref": "#/$defs/number_or_null"},
+              "range_rate_ms": {"$ref": "#/$defs/number_or_null"}
+            }
+          }
+        }
+      }
+    },
+    "collection_contacts": {
+      "type": "object",
+      "required": ["availability", "count", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "availability": {"$ref": "#/$defs/availability"},
+        "count": {"type": "integer", "minimum": 0, "maximum": 65536},
+        "items": {
+          "type": "array", "maxItems": 65536,
+          "items": {
+            "$comment": "ms::Contact of the bound platform's own passive or mapping sensors, without the entity behind it.",
+            "type": "object",
+            "required": ["contact_id", "payload", "meta", "kind", "mode", "warning", "first_time_s", "azimuth_rad", "elevation_rad", "bearing_sigma_rad", "range_m", "range_rate_ms", "latitude_rad", "longitude_rad", "height_m", "strength_db", "frequency_hz", "size_m"],
+            "additionalProperties": false,
+            "properties": {
+              "contact_id": {"$ref": "#/$defs/u64"},
+              "payload": {"$ref": "#/$defs/u16"},
+              "meta": {"$ref": "#/$defs/meta"},
+              "kind": {"$ref": "#/$defs/native_name"},
+              "mode": {"$ref": "#/$defs/native_name"},
+              "warning": {"type": "boolean"},
+              "first_time_s": {"$ref": "#/$defs/number_or_null"},
+              "azimuth_rad": {"$ref": "#/$defs/number_or_null"},
+              "elevation_rad": {"$ref": "#/$defs/number_or_null"},
+              "bearing_sigma_rad": {"$ref": "#/$defs/number_or_null"},
+              "range_m": {"$ref": "#/$defs/number_or_null"},
+              "range_rate_ms": {"$ref": "#/$defs/number_or_null"},
+              "latitude_rad": {"$ref": "#/$defs/number_or_null"},
+              "longitude_rad": {"$ref": "#/$defs/number_or_null"},
+              "height_m": {"$ref": "#/$defs/number_or_null"},
+              "strength_db": {"$ref": "#/$defs/number_or_null"},
+              "frequency_hz": {"$ref": "#/$defs/number_or_null"},
+              "size_m": {"$ref": "#/$defs/number_or_null"}
+            }
+          }
+        }
+      }
+    },
+    "collection_link_tracks": {
+      "type": "object",
+      "required": ["availability", "count", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "availability": {"$ref": "#/$defs/availability"},
+        "count": {"type": "integer", "minimum": 0, "maximum": 65536},
+        "items": {
+          "type": "array", "maxItems": 65536,
+          "items": {
+            "$comment": "comm::LinkTrack: a track received over a link, as its source system's report said when it arrived.",
+            "type": "object",
+            "required": ["source_system_id", "net_id", "payload", "track_id", "meta", "updates", "latitude_rad", "longitude_rad", "height_m", "velocity_ned_ms", "position_sigma_m", "velocity_sigma_ms"],
+            "additionalProperties": false,
+            "properties": {
+              "source_system_id": {"$ref": "#/$defs/u32_nonzero"},
+              "net_id": {"$ref": "#/$defs/u32"},
+              "payload": {"$ref": "#/$defs/u32"},
+              "track_id": {"$ref": "#/$defs/u64"},
+              "meta": {"$ref": "#/$defs/meta"},
+              "updates": {"type": "integer", "minimum": 0},
+              "latitude_rad": {"$ref": "#/$defs/number_or_null"},
+              "longitude_rad": {"$ref": "#/$defs/number_or_null"},
+              "height_m": {"$ref": "#/$defs/number_or_null"},
+              "velocity_ned_ms": {"$ref": "#/$defs/vector3_or_null"},
+              "position_sigma_m": {"$ref": "#/$defs/number_or_null"},
+              "velocity_sigma_ms": {"$ref": "#/$defs/number_or_null"}
+            }
+          }
+        }
+      }
+    },
+    "collection_peers": {
+      "type": "object",
+      "required": ["availability", "count", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "availability": {"$ref": "#/$defs/availability"},
+        "count": {"type": "integer", "minimum": 0, "maximum": 65536},
+        "items": {
+          "type": "array", "maxItems": 65536,
+          "items": {
+            "$comment": "comm::PeerReport: a peer's last position report and heartbeat, as they arrived.",
+            "type": "object",
+            "required": ["system_id", "net_id", "meta", "tail_number", "position"],
+            "additionalProperties": false,
+            "properties": {
+              "system_id": {"$ref": "#/$defs/u32_nonzero"},
+              "net_id": {"$ref": "#/$defs/u32"},
+              "meta": {"$ref": "#/$defs/meta"},
+              "tail_number": {"type": ["string", "null"], "maxLength": 23},
+              "position": {
+                "type": ["object", "null"],
+                "required": ["time_s", "latitude_rad", "longitude_rad", "altitude_msl_m", "velocity_ned_ms", "heading_rad", "airspeed_true_ms", "airspeed_calibrated_ms", "mach"],
+                "additionalProperties": false,
+                "properties": {
+                  "time_s": {"$ref": "#/$defs/number_or_null"},
+                  "latitude_rad": {"$ref": "#/$defs/number_or_null"},
+                  "longitude_rad": {"$ref": "#/$defs/number_or_null"},
+                  "altitude_msl_m": {"$ref": "#/$defs/number_or_null"},
+                  "velocity_ned_ms": {"$ref": "#/$defs/vector3_or_null"},
+                  "heading_rad": {"$ref": "#/$defs/number_or_null"},
+                  "airspeed_true_ms": {"$ref": "#/$defs/number_or_null"},
+                  "airspeed_calibrated_ms": {"$ref": "#/$defs/number_or_null"},
+                  "mach": {"$ref": "#/$defs/number_or_null"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "collection_designations": {
+      "type": "object",
+      "required": ["availability", "count", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "availability": {"$ref": "#/$defs/availability"},
+        "count": {"type": "integer", "minimum": 0, "maximum": 65536},
+        "items": {
+          "type": "array", "maxItems": 65536,
+          "items": {
+            "$comment": "fsim::Designation: the bound platform's own target designation, by track. source_system_id null: its own radar's track.",
+            "type": "object",
+            "required": ["target_id", "payload", "track_id", "valid", "source_system_id"],
+            "additionalProperties": false,
+            "properties": {
+              "target_id": {"$ref": "#/$defs/u32_nonzero"},
+              "payload": {"$ref": "#/$defs/u16"},
+              "track_id": {"$ref": "#/$defs/u64"},
+              "valid": {"type": "boolean"},
+              "source_system_id": {"$ref": "#/$defs/u32_or_null"}
+            }
+          }
+        }
+      }
+    },
+    "collection_activities": {
+      "type": "object",
+      "required": ["availability", "count", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "availability": {"$ref": "#/$defs/availability"},
+        "count": {"type": "integer", "minimum": 0, "maximum": 65536},
+        "items": {
+          "type": "array", "maxItems": 65536,
+          "items": {
+            "$comment": "control::ActivityRecord (domain vi) or ms::ActivityRecord (domain ms) of the bound platform. owner_service_id null: not made through a configured service's request (C2's direct command, the platform's own).",
+            "type": "object",
+            "required": ["domain", "activity_id", "state", "reason", "controller_id", "command_id", "owner_service_id", "start_time_s", "end_time_s", "percent"],
+            "additionalProperties": false,
+            "properties": {
+              "domain": {"enum": ["vi", "ms"]},
+              "activity_id": {"$ref": "#/$defs/u64_nonzero"},
+              "capability": {"type": "string", "maxLength": 127},
+              "payload": {"$ref": "#/$defs/u16"},
+              "state": {"$ref": "#/$defs/native_name"},
+              "reason": {"$ref": "#/$defs/native_name"},
+              "controller_id": {"$ref": "#/$defs/u32"},
+              "command_id": {"$ref": "#/$defs/u64"},
+              "owner_service_id": {"$ref": "#/$defs/u64_or_null"},
+              "start_time_s": {"$ref": "#/$defs/number_or_null"},
+              "end_time_s": {"$ref": "#/$defs/number_or_null"},
+              "percent": {"$ref": "#/$defs/number_or_null"}
+            }
+          }
+        }
+      }
+    },
+    "collection_nets": {
+      "type": "object",
+      "required": ["availability", "count", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "availability": {"$ref": "#/$defs/availability"},
+        "count": {"type": "integer", "minimum": 0, "maximum": 64},
+        "items": {
+          "type": "array", "maxItems": 64,
+          "items": {
+            "type": "object",
+            "required": ["net_id", "name", "max_payload_bytes"],
+            "additionalProperties": false,
+            "properties": {
+              "net_id": {"$ref": "#/$defs/u32_nonzero"},
+              "name": {"type": "string", "maxLength": 63},
+              "max_payload_bytes": {"type": "integer", "minimum": 0, "maximum": 4294967295}
+            }
+          }
+        }
+      }
+    },
+    "collection_transmissions": {
+      "type": "object",
+      "required": ["availability", "count", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "availability": {"$ref": "#/$defs/availability"},
+        "count": {"type": "integer", "minimum": 0, "maximum": 65536},
+        "items": {
+          "type": "array", "maxItems": 65536,
+          "items": {
+            "$comment": "comm::DmsTransmission of a send this service's request made and its receipt still holds.",
+            "type": "object",
+            "required": ["message_id", "request_id", "topic", "time_sent_s", "published", "reached", "queue_dropped", "destinations"],
+            "additionalProperties": false,
+            "properties": {
+              "message_id": {"$ref": "#/$defs/u64_nonzero"},
+              "request_id": {"$ref": "#/$defs/u64_nonzero"},
+              "topic": {"$ref": "#/$defs/u32"},
+              "time_sent_s": {"type": "number"},
+              "published": {"type": "boolean"},
+              "reached": {"type": "integer", "minimum": 0},
+              "queue_dropped": {"type": "boolean"},
+              "destinations": {
+                "type": "array", "maxItems": 4160,
+                "items": {
+                  "type": "object",
+                  "required": ["system_id", "delivery"],
+                  "additionalProperties": false,
+                  "properties": {"system_id": {"$ref": "#/$defs/u32_nonzero"}, "delivery": {"enum": ["pending", "delivered", "failed"]}}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "authority_report": {
+      "$comment": "fsim::C2Authority: the authority over the bound platform, as its MA core keeps it.",
+      "type": "object",
+      "required": ["availability", "meta", "operators", "designated", "designated_modes_mask", "designated_by_system_id", "designated_time_s", "commands", "lost_comms", "package"],
+      "additionalProperties": false,
+      "properties": {
+        "availability": {"$ref": "#/$defs/availability"},
+        "meta": {"$ref": "#/$defs/meta"},
+        "operators": {
+          "type": "array", "maxItems": 4160,
+          "items": {
+            "type": "object",
+            "required": ["system_id", "role_id", "role", "callsign"],
+            "additionalProperties": false,
+            "properties": {
+              "system_id": {"$ref": "#/$defs/u32_nonzero"},
+              "role_id": {"$ref": "#/$defs/u32"},
+              "role": {"type": "string", "maxLength": 63},
+              "callsign": {"type": "string", "maxLength": 27}
+            }
+          }
+        },
+        "designated": {"type": "boolean"},
+        "designated_modes_mask": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+        "designated_by_system_id": {"$ref": "#/$defs/u32_or_null"},
+        "designated_time_s": {"$ref": "#/$defs/number_or_null"},
+        "commands": {
+          "type": "array", "maxItems": 65536,
+          "items": {
+            "type": "object",
+            "required": ["activity_id", "system_id", "command_id"],
+            "additionalProperties": false,
+            "properties": {
+              "activity_id": {"$ref": "#/$defs/u64_nonzero"},
+              "system_id": {"$ref": "#/$defs/u32_nonzero"},
+              "command_id": {"$ref": "#/$defs/u64"}
+            }
+          }
+        },
+        "lost_comms": {
+          "type": "object",
+          "required": ["configured", "threshold_s", "plan_id", "lost", "lost_since_s", "alerts"],
+          "additionalProperties": false,
+          "properties": {
+            "configured": {"type": "boolean"},
+            "threshold_s": {"$ref": "#/$defs/number_or_null"},
+            "plan_id": {"$ref": "#/$defs/u64_or_null"},
+            "lost": {"type": "boolean"},
+            "lost_since_s": {"$ref": "#/$defs/number_or_null"},
+            "alerts": {"type": "integer", "minimum": 0, "maximum": 4294967295}
+          }
+        },
+        "package": {
+          "type": ["object", "null"],
+          "required": ["package_id", "leader_system_id", "member_system_ids"],
+          "additionalProperties": false,
+          "properties": {
+            "package_id": {"$ref": "#/$defs/u32_nonzero"},
+            "leader_system_id": {"$ref": "#/$defs/u32_or_null"},
+            "member_system_ids": {"type": "array", "maxItems": 16, "items": {"$ref": "#/$defs/u32_nonzero"}}
+          }
+        }
+      }
+    },
+    "task_order": {
+      "$comment": "comm::TaskOrder. A target is a network track - its source system, radar and number - never an entity.",
+      "type": "object",
+      "required": ["type", "priority", "latitude_rad", "longitude_rad", "altitude_m", "radius_m", "start_s", "end_s", "target", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {"enum": ["patrol", "strike", "reconnaissance", "escort", "transit", "other"]},
+        "priority": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+        "latitude_rad": {"$ref": "#/$defs/number_or_null"},
+        "longitude_rad": {"$ref": "#/$defs/number_or_null"},
+        "altitude_m": {"$ref": "#/$defs/number_or_null"},
+        "radius_m": {"$ref": "#/$defs/number_or_null"},
+        "start_s": {"$ref": "#/$defs/number_or_null"},
+        "end_s": {"$ref": "#/$defs/number_or_null"},
+        "target": {"anyOf": [{"$ref": "#/$defs/track_reference"}, {"type": "null"}]},
+        "text": {"type": "string", "maxLength": 63}
+      }
+    },
+    "track_reference": {
+      "type": "object",
+      "required": ["source_system_id", "payload", "track_id"],
+      "additionalProperties": false,
+      "properties": {
+        "source_system_id": {"$ref": "#/$defs/u32_nonzero"},
+        "payload": {"$ref": "#/$defs/u32"},
+        "track_id": {"$ref": "#/$defs/u64"}
+      }
+    },
+    "collection_tasks": {
+      "type": "object",
+      "required": ["availability", "count", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "availability": {"$ref": "#/$defs/availability"},
+        "count": {"type": "integer", "minimum": 0, "maximum": 65536},
+        "items": {
+          "type": "array", "maxItems": 65536,
+          "items": {
+            "$comment": "comm::ReceivedTask: a C2 task as the MA holds it.",
+            "type": "object",
+            "required": ["from_system_id", "task_id", "meta", "state", "percent", "order"],
+            "additionalProperties": false,
+            "properties": {
+              "from_system_id": {"$ref": "#/$defs/u32_nonzero"},
+              "task_id": {"$ref": "#/$defs/u64_nonzero"},
+              "meta": {"$ref": "#/$defs/meta"},
+              "state": {"enum": ["received", "accepted", "rejected", "completed", "failed"]},
+              "percent": {"$ref": "#/$defs/number_or_null"},
+              "order": {"$ref": "#/$defs/task_order"}
+            }
+          }
+        }
+      }
+    },
+    "collection_overrides": {
+      "type": "object",
+      "required": ["availability", "count", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "availability": {"$ref": "#/$defs/availability"},
+        "count": {"type": "integer", "minimum": 0, "maximum": 64},
+        "items": {
+          "type": "array", "maxItems": 64,
+          "items": {
+            "$comment": "comm::ActiveOverride. expiry_s null: until canceled.",
+            "type": "object",
+            "required": ["from_system_id", "override", "value", "expiry_s"],
+            "additionalProperties": false,
+            "properties": {
+              "from_system_id": {"$ref": "#/$defs/u32_nonzero"},
+              "override": {"enum": ["speed", "altitude"]},
+              "value": {"type": "number"},
+              "expiry_s": {"$ref": "#/$defs/number_or_null"}
+            }
+          }
+        }
+      }
+    },
+    "collection_command_statuses": {
+      "type": "object",
+      "required": ["availability", "count", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "availability": {"$ref": "#/$defs/availability"},
+        "count": {"type": "integer", "minimum": 0, "maximum": 65536},
+        "items": {
+          "type": "array", "maxItems": 65536,
+          "items": {
+            "$comment": "comm::CommandStatusEntry: the last status an MA answered for a C2 command this system sent. A role declaration's answer carries command id 0.",
+            "type": "object",
+            "required": ["from_system_id", "command_id", "meta", "topic", "state", "reason_code", "activity_id", "percent"],
+            "additionalProperties": false,
+            "properties": {
+              "from_system_id": {"$ref": "#/$defs/u32_nonzero"},
+              "command_id": {"$ref": "#/$defs/u64"},
+              "meta": {"$ref": "#/$defs/meta"},
+              "topic": {"$ref": "#/$defs/u32"},
+              "state": {"enum": ["accepted", "rejected", "unauthorized", "completed", "failed", "canceled"]},
+              "reason_code": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+              "activity_id": {"$ref": "#/$defs/u64_or_null"},
+              "percent": {"$ref": "#/$defs/number_or_null"}
+            }
+          }
+        }
+      }
+    },
+    "collection_messages": {
+      "$comment": "What reached the bound system's DMS since the previous decision tick's snapshot, ingested once by the gateway. dropped: messages the native inbox let go before ingestion is not known to an agent and is not reported.",
+      "type": "object",
+      "required": ["availability", "count", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "availability": {"$ref": "#/$defs/availability"},
+        "count": {"type": "integer", "minimum": 0, "maximum": 1024},
+        "items": {
+          "type": "array", "maxItems": 1024,
+          "items": {
+            "$comment": "comm::DmsReceived.",
+            "type": "object",
+            "required": ["message_id", "source_system_id", "topic", "net_id", "time_sent_s", "time_delivered_s", "byte_length", "data_b64"],
+            "additionalProperties": false,
+            "properties": {
+              "message_id": {"$ref": "#/$defs/u64_nonzero"},
+              "source_system_id": {"$ref": "#/$defs/u32_nonzero"},
+              "topic": {"$ref": "#/$defs/u32"},
+              "net_id": {"$ref": "#/$defs/u32"},
+              "time_sent_s": {"type": "number"},
+              "time_delivered_s": {"type": "number"},
+              "byte_length": {"type": "integer", "minimum": 0, "maximum": 65536},
+              "data_b64": {"$ref": "#/$defs/base64"}
+            }
+          }
+        }
+      }
+    },
+
+    "gateway_reason": {
+      "enum": ["stale_generation", "late_tick", "future_tick", "wrong_service", "request_id_reuse", "retry_expired", "capacity", "unsupported_kind", "capability_not_bound", "dms_ingress_not_owned", "dms_egress_not_owned", "message_too_large", "not_applicable", "service_not_alive", "unknown_request"]
+    },
+    "component": {
+      "$comment": "Upper-layer provenance, echoed in the receipt. Never read for authorization: the service is the endpoint's.",
+      "type": "object",
+      "required": ["component_id"],
+      "additionalProperties": false,
+      "properties": {
+        "component_id": {"$ref": "#/$defs/u64"},
+        "label": {"type": "string", "maxLength": 63}
+      }
+    },
+    "actions": {
+      "type": "object",
+      "required": ["schema", "episode", "service_id", "tick", "requests"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {"const": "ma.actions.v1"},
+        "episode": {"$ref": "#/$defs/episode_key"},
+        "service_id": {"$ref": "#/$defs/u64_nonzero"},
+        "tick": {"$ref": "#/$defs/u64"},
+        "requests": {"type": "array", "maxItems": 1024, "items": {"$ref": "#/$defs/request"}}
+      }
+    },
+    "request": {
+      "type": "object",
+      "required": ["request_id", "kind", "operation", "parameters"],
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {"$ref": "#/$defs/u64_nonzero"},
+        "kind": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$", "maxLength": 31},
+        "operation": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$", "maxLength": 31},
+        "parameters": {"type": "object"},
+        "component": {"$ref": "#/$defs/component"}
+      },
+      "allOf": [
+        {"if": {"properties": {"kind": {"const": "flight"}}}, "then": {"$ref": "#/$defs/request_flight"}},
+        {"if": {"properties": {"kind": {"const": "sensor"}}}, "then": {"$ref": "#/$defs/request_sensor"}},
+        {"if": {"properties": {"kind": {"const": "dms"}}}, "then": {"$ref": "#/$defs/request_dms"}},
+        {"if": {"properties": {"kind": {"const": "task"}}}, "then": {"$ref": "#/$defs/request_task"}},
+        {"if": {"properties": {"kind": {"const": "c2"}}}, "then": {"$ref": "#/$defs/request_c2"}},
+        {"if": {"properties": {"kind": {"const": "gateway"}}}, "then": {"$ref": "#/$defs/request_gateway"}}
+      ]
+    },
+    "request_gateway": {
+      "$comment": "The transport's own: close stops following an earlier request of this service. It commands nothing natively - what that request started goes on under native semantics.",
+      "properties": {
+        "operation": {"enum": ["close"]},
+        "parameters": {
+          "required": ["request_id"], "additionalProperties": false,
+          "properties": {"request_id": {"$ref": "#/$defs/u64_nonzero"}}
+        }
+      }
+    },
+    "speed_reference": {"enum": ["true_airspeed", "calibrated_airspeed", "ground_speed", "mach"]},
+    "altitude_reference": {"enum": ["msl", "above_ground", "ellipsoid", "barometric"]},
+    "flight_command": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {"mode": {"enum": ["hsa", "route", "behavior"]}},
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "mode": {"const": "hsa"},
+            "activity_id": true, "interrupt": true,
+            "heading_rad": {"type": "number"},
+            "course_rad": {"type": "number"},
+            "speed": {"type": "number", "minimum": 0},
+            "speed_reference": {"$ref": "#/$defs/speed_reference"},
+            "altitude_m": {"type": "number"},
+            "altitude_reference": {"$ref": "#/$defs/altitude_reference"},
+            "speed_optimization": {"enum": ["long_range_cruise", "max_endurance"]},
+            "direction_reference": {"enum": ["true_north", "magnetic_north"]}
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["mode", "waypoints"],
+          "properties": {
+            "mode": {"const": "route"},
+            "activity_id": true, "interrupt": true,
+            "projection": {"enum": ["great_circle", "rhumb"]},
+            "repeat": {"type": "boolean"},
+            "end": {"enum": ["continue", "loiter"]},
+            "start": {"type": "integer", "minimum": 0, "maximum": 255},
+            "waypoints": {
+              "type": "array", "minItems": 1, "maxItems": 256,
+              "items": {
+                "$comment": "A part of control::Waypoint; every other native field is left out (kHold, a fly-by turn).",
+                "type": "object",
+                "required": ["latitude_rad", "longitude_rad"],
+                "additionalProperties": false,
+                "properties": {
+                  "latitude_rad": {"type": "number", "minimum": -1.5707963267948966, "maximum": 1.5707963267948966},
+                  "longitude_rad": {"type": "number", "minimum": -3.141592653589793, "maximum": 3.141592653589793},
+                  "altitude_m": {"type": "number"},
+                  "altitude_reference": {"$ref": "#/$defs/altitude_reference"},
+                  "speed": {"type": "number", "minimum": 0},
+                  "speed_reference": {"$ref": "#/$defs/speed_reference"},
+                  "turn": {"enum": ["fly_by", "fly_over"]},
+                  "waypoint_id": {"$ref": "#/$defs/u64"}
+                }
+              }
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["mode", "behavior"],
+          "properties": {
+            "mode": {"const": "behavior"},
+            "activity_id": true, "interrupt": true,
+            "behavior": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$", "maxLength": 63},
+            "target_id": {"$ref": "#/$defs/u32_nonzero"},
+            "params": {"type": "object", "maxProperties": 32, "propertyNames": {"pattern": "^[a-z][a-z0-9_]*$", "maxLength": 63}, "additionalProperties": {"type": "number"}}
+          }
+        }
+      ]
+    },
+    "request_flight": {
+      "properties": {"operation": {"enum": ["new", "update", "cancel"]}},
+      "allOf": [
+        {
+          "if": {"properties": {"operation": {"const": "new"}}},
+          "then": {"properties": {"parameters": {"allOf": [
+            {"$ref": "#/$defs/flight_command"},
+            {"properties": {"activity_id": false, "interrupt": {"type": "boolean"}}}
+          ]}}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "update"}}},
+          "then": {"properties": {"parameters": {"allOf": [
+            {"$ref": "#/$defs/flight_command"},
+            {"required": ["activity_id"], "properties": {"activity_id": {"$ref": "#/$defs/u64_nonzero"}, "interrupt": false, "target_id": false}}
+          ]}}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "cancel"}}},
+          "then": {"properties": {"parameters": {
+            "required": ["activity_id"], "additionalProperties": false,
+            "properties": {"activity_id": {"$ref": "#/$defs/u64_nonzero"}}
+          }}}
+        }
+      ]
+    },
+    "request_sensor": {
+      "properties": {"operation": {"enum": ["set_state", "search", "cancel", "designate", "designate_link", "undesignate"]}},
+      "allOf": [
+        {
+          "if": {"properties": {"operation": {"const": "set_state"}}},
+          "then": {"properties": {"parameters": {
+            "required": ["payload", "state"], "additionalProperties": false,
+            "properties": {"payload": {"$ref": "#/$defs/u16"}, "state": {"enum": ["off", "standby", "operate"]}}
+          }}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "search"}}},
+          "then": {"properties": {"parameters": {
+            "$comment": "ms::AmtiCommand without its illumination, which is not a generic operation. A field left out keeps its native default.",
+            "required": ["payload", "mode"], "additionalProperties": false,
+            "properties": {
+              "payload": {"$ref": "#/$defs/u16"},
+              "mode": {"enum": ["range_while_search", "velocity_search", "track_while_scan", "surveillance", "single_target_track"]},
+              "task": {"enum": ["volume", "cued", "track"]},
+              "track_id": {"$ref": "#/$defs/u64"},
+              "azimuth_centre_rad": {"type": "number"},
+              "azimuth_half_width_rad": {"type": "number", "exclusiveMinimum": 0},
+              "elevation_centre_rad": {"type": "number"},
+              "elevation_half_width_rad": {"type": "number", "exclusiveMinimum": 0},
+              "bars": {"type": "integer", "minimum": 1, "maximum": 8},
+              "range_scale_m": {"type": "number", "exclusiveMinimum": 0},
+              "signal_level": {"type": "boolean"}
+            }
+          }}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "cancel"}}},
+          "then": {"properties": {"parameters": {
+            "required": ["activity_id"], "additionalProperties": false,
+            "properties": {"activity_id": {"$ref": "#/$defs/u64_nonzero"}}
+          }}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "designate"}}},
+          "then": {"properties": {"parameters": {
+            "required": ["payload", "track_id"], "additionalProperties": false,
+            "properties": {"payload": {"$ref": "#/$defs/u16"}, "track_id": {"$ref": "#/$defs/u64"}}
+          }}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "designate_link"}}},
+          "then": {"properties": {"parameters": {
+            "required": ["source_system_id", "payload", "track_id"], "additionalProperties": false,
+            "properties": {"source_system_id": {"$ref": "#/$defs/u32_nonzero"}, "payload": {"$ref": "#/$defs/u16"}, "track_id": {"$ref": "#/$defs/u64"}}
+          }}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "undesignate"}}},
+          "then": {"properties": {"parameters": {
+            "required": ["target_id"], "additionalProperties": false,
+            "properties": {"target_id": {"$ref": "#/$defs/u32_nonzero"}}
+          }}}
+        }
+      ]
+    },
+    "system_list": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/u32_nonzero"}},
+    "request_dms": {
+      "properties": {"operation": {"enum": ["send", "publish_native", "subscribe", "unsubscribe", "subscribe_all"]}},
+      "allOf": [
+        {
+          "if": {"properties": {"operation": {"const": "send"}}},
+          "then": {"properties": {"parameters": {
+            "$comment": "comm::DmsMessage. No destinations: published. topic at least 1000 (comm::topic::kFreeForm); a native type's topic is refused natively.",
+            "required": ["topic", "byte_length", "data_b64"], "additionalProperties": false,
+            "properties": {
+              "topic": {"$ref": "#/$defs/u32"},
+              "byte_length": {"type": "integer", "minimum": 0, "maximum": 65536},
+              "data_b64": {"$ref": "#/$defs/base64"},
+              "destination_system_ids": {"$ref": "#/$defs/system_list"}
+            }
+          }}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "publish_native"}}},
+          "then": {"properties": {"parameters": {
+            "required": ["report"], "additionalProperties": false,
+            "properties": {
+              "report": {"enum": ["position", "status", "tracks"]},
+              "payload": {"$ref": "#/$defs/u16"},
+              "destination_system_ids": {"$ref": "#/$defs/system_list"}
+            }
+          }}}
+        },
+        {
+          "if": {"properties": {"operation": {"enum": ["subscribe", "unsubscribe"]}}},
+          "then": {"properties": {"parameters": {
+            "required": ["topic"], "additionalProperties": false,
+            "properties": {"topic": {"$ref": "#/$defs/u32"}}
+          }}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "subscribe_all"}}},
+          "then": {"properties": {"parameters": {
+            "required": ["enabled"], "additionalProperties": false,
+            "properties": {"enabled": {"type": "boolean"}}
+          }}}
+        }
+      ]
+    },
+    "request_task": {
+      "properties": {"operation": {"enum": ["accept", "reject", "report"]}},
+      "allOf": [
+        {
+          "if": {"properties": {"operation": {"const": "accept"}}},
+          "then": {"properties": {"parameters": {
+            "required": ["from_system_id", "task_id"], "additionalProperties": false,
+            "properties": {"from_system_id": {"$ref": "#/$defs/u32_nonzero"}, "task_id": {"$ref": "#/$defs/u64_nonzero"}}
+          }}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "reject"}}},
+          "then": {"properties": {"parameters": {
+            "required": ["from_system_id", "task_id", "code"], "additionalProperties": false,
+            "properties": {"from_system_id": {"$ref": "#/$defs/u32_nonzero"}, "task_id": {"$ref": "#/$defs/u64_nonzero"}, "code": {"type": "integer", "minimum": 0, "maximum": 4294967295}}
+          }}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "report"}}},
+          "then": {"properties": {"parameters": {
+            "$comment": "state accepted: progress; completed or failed: its end. percent left out or null: the native NaN (none).",
+            "required": ["from_system_id", "task_id", "state"], "additionalProperties": false,
+            "properties": {
+              "from_system_id": {"$ref": "#/$defs/u32_nonzero"}, "task_id": {"$ref": "#/$defs/u64_nonzero"},
+              "state": {"enum": ["accepted", "completed", "failed"]},
+              "percent": {"type": ["number", "null"], "minimum": 0, "maximum": 100}
+            }
+          }}}
+        }
+      ]
+    },
+    "request_c2": {
+      "properties": {"operation": {"enum": ["declare_role", "designate_control", "command_hsa", "command_route", "cancel_command", "send_task", "set_override", "set_lost_comms", "form_package", "dissolve_package"]}},
+      "allOf": [
+        {
+          "if": {"properties": {"operation": {"const": "declare_role"}}},
+          "then": {"properties": {"parameters": {
+            "required": ["role_id", "callsign"], "additionalProperties": false,
+            "properties": {
+              "role_id": {"$ref": "#/$defs/u32_nonzero"},
+              "callsign": {"type": "string", "maxLength": 27},
+              "destination_system_ids": {"$ref": "#/$defs/system_list"}
+            }
+          }}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "designate_control"}}},
+          "then": {"properties": {"parameters": {
+            "required": ["ma_system_id", "modes_mask"], "additionalProperties": false,
+            "properties": {"ma_system_id": {"$ref": "#/$defs/u32_nonzero"}, "modes_mask": {"type": "integer", "minimum": 0, "maximum": 4294967295}}
+          }}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "command_hsa"}}},
+          "then": {"properties": {"parameters": {
+            "$comment": "The six fields a C2 direct command carries (comm::FlightCommand); one left out is the native kHold.",
+            "required": ["ma_system_id"], "additionalProperties": false,
+            "properties": {
+              "ma_system_id": {"$ref": "#/$defs/u32_nonzero"},
+              "heading_rad": {"type": "number"},
+              "course_rad": {"type": "number"},
+              "speed": {"type": "number", "minimum": 0},
+              "speed_reference": {"$ref": "#/$defs/speed_reference"},
+              "altitude_m": {"type": "number"},
+              "altitude_reference": {"$ref": "#/$defs/altitude_reference"}
+            }
+          }}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "command_route"}}},
+          "then": {"properties": {"parameters": {
+            "required": ["ma_system_id", "points"], "additionalProperties": false,
+            "properties": {
+              "ma_system_id": {"$ref": "#/$defs/u32_nonzero"},
+              "points": {
+                "type": "array", "minItems": 1, "maxItems": 16,
+                "items": {
+                  "type": "object",
+                  "required": ["latitude_rad", "longitude_rad", "altitude_m"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "latitude_rad": {"type": "number", "minimum": -1.5707963267948966, "maximum": 1.5707963267948966},
+                    "longitude_rad": {"type": "number", "minimum": -3.141592653589793, "maximum": 3.141592653589793},
+                    "altitude_m": {"type": "number"},
+                    "speed": {"type": "number", "minimum": 0}
+                  }
+                }
+              }
+            }
+          }}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "cancel_command"}}},
+          "then": {"properties": {"parameters": {
+            "required": ["ma_system_id", "command_id"], "additionalProperties": false,
+            "properties": {"ma_system_id": {"$ref": "#/$defs/u32_nonzero"}, "command_id": {"$ref": "#/$defs/u64_nonzero"}}
+          }}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "send_task"}}},
+          "then": {"properties": {"parameters": {
+            "$comment": "comm::TaskOrder; its task id is the sender's MA core's, returned in the receipt. A field left out or null is the native NaN (not given).",
+            "required": ["ma_system_id", "type"], "additionalProperties": false,
+            "properties": {
+              "ma_system_id": {"$ref": "#/$defs/u32_nonzero"},
+              "type": {"enum": ["patrol", "strike", "reconnaissance", "escort", "transit", "other"]},
+              "priority": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+              "latitude_rad": {"type": ["number", "null"], "minimum": -1.5707963267948966, "maximum": 1.5707963267948966},
+              "longitude_rad": {"type": ["number", "null"], "minimum": -3.141592653589793, "maximum": 3.141592653589793},
+              "altitude_m": {"type": ["number", "null"]},
+              "radius_m": {"type": ["number", "null"], "minimum": 0},
+              "start_s": {"type": ["number", "null"]},
+              "end_s": {"type": ["number", "null"]},
+              "target": {"anyOf": [{"$ref": "#/$defs/track_reference"}, {"type": "null"}]},
+              "text": {"type": "string", "maxLength": 63}
+            }
+          }}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "set_override"}}},
+          "then": {"properties": {"parameters": {
+            "$comment": "comm::OverrideCommand. cancel true clears the override of that kind; otherwise its value is required. expiry_s left out or null: until canceled.",
+            "required": ["ma_system_id", "override"], "additionalProperties": false,
+            "anyOf": [{"required": ["value"]}, {"required": ["cancel"], "properties": {"cancel": {"const": true}}}],
+            "properties": {
+              "ma_system_id": {"$ref": "#/$defs/u32_nonzero"},
+              "override": {"enum": ["speed", "altitude"]},
+              "cancel": {"type": "boolean"},
+              "value": {"type": "number"},
+              "expiry_s": {"type": ["number", "null"]}
+            }
+          }}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "set_lost_comms"}}},
+          "then": {"properties": {"parameters": {
+            "required": ["ma_system_id", "threshold_s"], "additionalProperties": false,
+            "properties": {
+              "ma_system_id": {"$ref": "#/$defs/u32_nonzero"},
+              "threshold_s": {"type": "number", "minimum": 0},
+              "plan_id": {"$ref": "#/$defs/u64"}
+            }
+          }}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "form_package"}}},
+          "then": {"properties": {"parameters": {
+            "required": ["package_id", "leader_system_id", "member_system_ids"], "additionalProperties": false,
+            "properties": {
+              "package_id": {"$ref": "#/$defs/u32_nonzero"},
+              "leader_system_id": {"$ref": "#/$defs/u32_nonzero"},
+              "member_system_ids": {"type": "array", "maxItems": 16, "items": {"$ref": "#/$defs/u32_nonzero"}}
+            }
+          }}}
+        },
+        {
+          "if": {"properties": {"operation": {"const": "dissolve_package"}}},
+          "then": {"properties": {"parameters": {
+            "required": ["package_id", "system_ids"], "additionalProperties": false,
+            "properties": {
+              "package_id": {"$ref": "#/$defs/u32_nonzero"},
+              "system_ids": {"type": "array", "minItems": 1, "maxItems": 17, "items": {"$ref": "#/$defs/u32_nonzero"}}
+            }
+          }}}
+        }
+      ]
+    },
+
+    "receipt": {
+      "$comment": "One request's standing. state says what the transport and the native call did - never that a mission succeeded. closed: the gateway follows it no longer; it is kept for the configured retention ticks, then forgotten.",
+      "type": "object",
+      "required": ["request_id", "kind", "operation", "submitted_tick", "updated_tick", "state", "closed", "gateway_reason", "native"],
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {"$ref": "#/$defs/u64_nonzero"},
+        "kind": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$", "maxLength": 31},
+        "operation": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$", "maxLength": 31},
+        "component": {"$ref": "#/$defs/component"},
+        "submitted_tick": {"$ref": "#/$defs/u64"},
+        "updated_tick": {"$ref": "#/$defs/u64"},
+        "state": {"enum": ["queued", "rejected", "accepted", "pending", "executing", "completed", "failed", "canceled"]},
+        "closed": {"type": "boolean"},
+        "gateway_reason": {"anyOf": [{"$ref": "#/$defs/gateway_reason"}, {"type": "null"}]},
+        "native": {
+          "$comment": "The native answer, transported: null until the request is dispatched, or where the gateway refused it.",
+          "type": ["object", "null"],
+          "required": ["domain", "status", "reason", "reason_code", "ids"],
+          "additionalProperties": false,
+          "properties": {
+            "domain": {"enum": ["vi", "ms", "dms", "c2", "designation", "task"]},
+            "status": {"$ref": "#/$defs/native_name"},
+            "reason": {"type": ["string", "null"], "maxLength": 63},
+            "reason_code": {"type": ["integer", "null"], "minimum": 0, "maximum": 4294967295},
+            "ids": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "activity_id": {"$ref": "#/$defs/u64"},
+                "other_activity_id": {"$ref": "#/$defs/u64"},
+                "message_id": {"$ref": "#/$defs/u64"},
+                "message_count": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+                "command_id": {"$ref": "#/$defs/u64"},
+                "task_id": {"$ref": "#/$defs/u64"},
+                "from_system_id": {"$ref": "#/$defs/u32"},
+                "target_id": {"$ref": "#/$defs/u32"}
+              }
+            }
+          }
+        },
+        "extensions": {"$ref": "#/$defs/extensions"}
+      }
+    },
+    "receipts": {
+      "type": "object",
+      "required": ["schema", "episode", "service_id", "tick", "submission", "receipts"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {"const": "ma.receipts.v1"},
+        "episode": {"$ref": "#/$defs/episode_key"},
+        "service_id": {"$ref": "#/$defs/u64_nonzero"},
+        "tick": {"$ref": "#/$defs/u64"},
+        "submission": {
+          "$comment": "The acknowledgment of this endpoint's latest submit in the current generation: null before the first. A document the gateway refused as a whole queued nothing.",
+          "type": ["object", "null"],
+          "required": ["tick", "accepted", "reason", "requests"],
+          "additionalProperties": false,
+          "properties": {
+            "tick": {"$ref": "#/$defs/u64"},
+            "accepted": {"type": "boolean"},
+            "reason": {"anyOf": [{"enum": ["stale_generation", "late_tick", "future_tick", "wrong_service"]}, {"type": "null"}]},
+            "requests": {
+              "type": "array", "maxItems": 1024,
+              "items": {
+                "type": "object",
+                "required": ["request_id", "status", "reason"],
+                "additionalProperties": false,
+                "properties": {
+                  "request_id": {"$ref": "#/$defs/u64_nonzero"},
+                  "status": {"enum": ["queued", "duplicate", "rejected"]},
+                  "reason": {"anyOf": [{"enum": ["request_id_reuse", "retry_expired", "capacity", "unsupported_kind", "message_too_large"]}, {"type": "null"}]}
+                }
+              }
+            }
+          }
+        },
+        "receipts": {"type": "array", "maxItems": 131072, "items": {"$ref": "#/$defs/receipt"}}
+      }
+    },
+
+    "outcome": {
+      "$comment": "The referee's: never part of an actor's observation, mask or infos.",
+      "type": "object",
+      "required": ["schema", "episode", "tick", "time_s", "episode_done", "reason", "criteria", "roles"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {"const": "ma.outcome.v1"},
+        "episode": {"$ref": "#/$defs/episode_key"},
+        "tick": {"$ref": "#/$defs/u64"},
+        "time_s": {"type": "number", "minimum": 0},
+        "episode_done": {"type": "boolean"},
+        "reason": {"enum": [null, "success", "failure", "truncated"]},
+        "criteria": {
+          "type": "array", "maxItems": 64,
+          "items": {
+            "type": "object",
+            "required": ["id", "kind", "outcome", "satisfied", "satisfied_tick"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {"$ref": "#/$defs/name"},
+              "kind": {"enum": ["tick_limit", "region_reached", "c2_task_state"]},
+              "outcome": {"enum": ["success", "failure", "truncated"]},
+              "satisfied": {"type": "boolean"},
+              "satisfied_tick": {"$ref": "#/$defs/u64_or_null"}
+            }
+          }
+        },
+        "roles": {
+          "type": "array", "maxItems": 256,
+          "items": {
+            "type": "object",
+            "required": ["service_id", "active", "terminated", "truncated", "final_observation", "bootstrap"],
+            "additionalProperties": false,
+            "properties": {
+              "service_id": {"$ref": "#/$defs/u64_nonzero"},
+              "active": {"type": "boolean"},
+              "terminated": {"type": "boolean"},
+              "truncated": {"type": "boolean"},
+              "final_observation": {"type": "boolean"},
+              "bootstrap": {"type": "boolean"}
+            }
+          }
+        },
+        "extensions": {"$ref": "#/$defs/extensions"}
+      }
+    },
+    "truth": {
+      "$comment": "The referee's truth, for a reward or a centralised critic: never part of an actor's observation, mask or infos.",
+      "type": "object",
+      "required": ["schema", "episode", "tick", "time_s", "entities", "services", "nets"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {"const": "ma.truth.v1"},
+        "episode": {"$ref": "#/$defs/episode_key"},
+        "tick": {"$ref": "#/$defs/u64"},
+        "time_s": {"type": "number", "minimum": 0},
+        "entities": {
+          "type": "array", "maxItems": 65536,
+          "items": {
+            "type": "object",
+            "required": ["entity_id", "name", "kind", "alive", "system_id", "state"],
+            "additionalProperties": false,
+            "properties": {
+              "entity_id": {"$ref": "#/$defs/u32_nonzero"},
+              "name": {"type": "string", "maxLength": 127},
+              "kind": {"enum": ["vehicle", "c2_node"]},
+              "alive": {"type": "boolean"},
+              "system_id": {"$ref": "#/$defs/u32_or_null"},
+              "state": {
+                "$comment": "A part of fsim::VehicleState (truth). null for a C2 node, whose position is its specification's.",
+                "type": ["object", "null"],
+                "required": ["latitude_rad", "longitude_rad", "altitude_msl_m", "velocity_ned_ms", "euler_rad", "airspeed_true_ms", "on_ground"],
+                "additionalProperties": false,
+                "properties": {
+                  "latitude_rad": {"type": "number"},
+                  "longitude_rad": {"type": "number"},
+                  "altitude_msl_m": {"type": "number"},
+                  "velocity_ned_ms": {"$ref": "#/$defs/vector3"},
+                  "euler_rad": {"$ref": "#/$defs/vector3"},
+                  "airspeed_true_ms": {"type": "number"},
+                  "on_ground": {"type": "boolean"}
+                }
+              }
+            }
+          }
+        },
+        "services": {
+          "type": "array", "maxItems": 256,
+          "items": {
+            "type": "object",
+            "required": ["service_id", "name", "entity_id", "controller_id"],
+            "additionalProperties": false,
+            "properties": {
+              "service_id": {"$ref": "#/$defs/u64_nonzero"},
+              "name": {"$ref": "#/$defs/name"},
+              "entity_id": {"$ref": "#/$defs/u32_nonzero"},
+              "controller_id": {"$ref": "#/$defs/u32_nonzero"}
+            }
+          }
+        },
+        "nets": {
+          "type": "array", "maxItems": 64,
+          "items": {
+            "$comment": "comm::NetStats.",
+            "type": "object",
+            "required": ["net_id", "name", "transmissions", "delivered", "duplicates", "out_of_range", "masked", "lost", "queue_dropped", "failed", "overflowed"],
+            "additionalProperties": false,
+            "properties": {
+              "net_id": {"$ref": "#/$defs/u32_nonzero"},
+              "name": {"type": "string", "maxLength": 63},
+              "transmissions": {"$ref": "#/$defs/u64"},
+              "delivered": {"$ref": "#/$defs/u64"},
+              "duplicates": {"$ref": "#/$defs/u64"},
+              "out_of_range": {"$ref": "#/$defs/u64"},
+              "masked": {"$ref": "#/$defs/u64"},
+              "lost": {"$ref": "#/$defs/u64"},
+              "queue_dropped": {"$ref": "#/$defs/u64"},
+              "failed": {"$ref": "#/$defs/u64"},
+              "overflowed": {"$ref": "#/$defs/u64"}
+            }
+          }
+        },
+        "extensions": {"$ref": "#/$defs/extensions"}
+      }
+    }
+  }
+}

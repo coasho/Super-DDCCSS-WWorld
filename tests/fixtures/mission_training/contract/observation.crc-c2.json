@@ -1,0 +1,286 @@
+{
+  "schema": "ma.observation.v1",
+  "episode": {
+    "env_id": "9007199254740993",
+    "episode_generation": "3",
+    "local_episode_index": "41"
+  },
+  "service": {
+    "service_id": "4",
+    "name": "crc-c2",
+    "platform_kind": "c2_node",
+    "platform_id": "1610612737",
+    "controller_id": "1073741827",
+    "system_id": "1392508931",
+    "alive": true
+  },
+  "tick": "62",
+  "time_s": 62.0,
+  "reports": {
+    "navigation": {
+      "availability": "not_applicable",
+      "meta": {
+        "source": "own_platform",
+        "validity": "unknown",
+        "sample_time_s": null,
+        "receive_time_s": null,
+        "age_s": null
+      },
+      "own_ship": null,
+      "endurance": null
+    },
+    "capabilities": {
+      "availability": "not_applicable",
+      "count": 0,
+      "items": []
+    },
+    "sensors": {
+      "availability": "not_applicable",
+      "count": 0,
+      "items": []
+    },
+    "tracks": {
+      "availability": "not_applicable",
+      "count": 0,
+      "items": []
+    },
+    "contacts": {
+      "availability": "not_applicable",
+      "count": 0,
+      "items": []
+    },
+    "link_tracks": {
+      "availability": "available",
+      "count": 0,
+      "items": []
+    },
+    "peers": {
+      "availability": "available",
+      "count": 0,
+      "items": []
+    },
+    "designations": {
+      "availability": "not_applicable",
+      "count": 0,
+      "items": []
+    },
+    "activities": {
+      "availability": "not_applicable",
+      "count": 0,
+      "items": []
+    },
+    "nets": {
+      "availability": "available",
+      "count": 1,
+      "items": [
+        {
+          "net_id": "1",
+          "name": "l16-a",
+          "max_payload_bytes": 1024
+        }
+      ]
+    },
+    "transmissions": {
+      "availability": "available",
+      "count": 1,
+      "items": [
+        {
+          "message_id": "17",
+          "request_id": "13",
+          "topic": "1001",
+          "time_sent_s": 61.0,
+          "published": false,
+          "reached": 1,
+          "queue_dropped": false,
+          "destinations": [
+            {
+              "system_id": "1392508930",
+              "delivery": "delivered"
+            },
+            {
+              "system_id": "1392508929",
+              "delivery": "pending"
+            }
+          ]
+        }
+      ]
+    },
+    "authority": {
+      "availability": "not_applicable",
+      "meta": {
+        "source": "ma_core",
+        "validity": "unknown",
+        "sample_time_s": null,
+        "receive_time_s": null,
+        "age_s": null
+      },
+      "operators": [],
+      "designated": false,
+      "designated_modes_mask": 0,
+      "designated_by_system_id": null,
+      "designated_time_s": null,
+      "commands": [],
+      "lost_comms": {
+        "configured": false,
+        "threshold_s": null,
+        "plan_id": null,
+        "lost": false,
+        "lost_since_s": null,
+        "alerts": 0
+      },
+      "package": null
+    },
+    "tasks": {
+      "availability": "not_applicable",
+      "count": 0,
+      "items": []
+    },
+    "overrides": {
+      "availability": "not_applicable",
+      "count": 0,
+      "items": []
+    },
+    "command_statuses": {
+      "availability": "available",
+      "count": 2,
+      "items": [
+        {
+          "from_system_id": "1392508930",
+          "command_id": "0",
+          "meta": {
+            "source": "link",
+            "validity": "stale",
+            "sample_time_s": 5.0,
+            "receive_time_s": 5.125,
+            "age_s": 57.0,
+            "system_id": "1392508930"
+          },
+          "topic": "10",
+          "state": "accepted",
+          "reason_code": 0,
+          "activity_id": null,
+          "percent": null
+        },
+        {
+          "from_system_id": "1392508930",
+          "command_id": "3",
+          "meta": {
+            "source": "link",
+            "validity": "stale",
+            "sample_time_s": 40.125,
+            "receive_time_s": 40.25,
+            "age_s": 21.875,
+            "system_id": "1392508930"
+          },
+          "topic": "12",
+          "state": "accepted",
+          "reason_code": 0,
+          "activity_id": "8589934597",
+          "percent": null
+        }
+      ]
+    }
+  },
+  "messages": {
+    "availability": "available",
+    "count": 0,
+    "items": []
+  },
+  "receipts": [
+    {
+      "request_id": "9",
+      "kind": "c2",
+      "operation": "set_lost_comms",
+      "submitted_tick": "3",
+      "updated_tick": "30",
+      "state": "pending",
+      "closed": true,
+      "gateway_reason": null,
+      "native": {
+        "domain": "c2",
+        "status": "sent",
+        "reason": null,
+        "reason_code": 0,
+        "ids": {
+          "command_id": "1"
+        }
+      }
+    },
+    {
+      "request_id": "10",
+      "kind": "c2",
+      "operation": "declare_role",
+      "submitted_tick": "4",
+      "updated_tick": "5",
+      "state": "accepted",
+      "closed": true,
+      "gateway_reason": null,
+      "native": {
+        "domain": "c2",
+        "status": "sent",
+        "reason": null,
+        "reason_code": 0,
+        "ids": {}
+      }
+    },
+    {
+      "request_id": "11",
+      "kind": "c2",
+      "operation": "command_hsa",
+      "submitted_tick": "39",
+      "updated_tick": "41",
+      "state": "executing",
+      "closed": false,
+      "gateway_reason": null,
+      "native": {
+        "domain": "c2",
+        "status": "accepted",
+        "reason": null,
+        "reason_code": 0,
+        "ids": {
+          "command_id": "3",
+          "from_system_id": "1392508930",
+          "activity_id": "8589934597"
+        }
+      }
+    },
+    {
+      "request_id": "12",
+      "kind": "c2",
+      "operation": "send_task",
+      "submitted_tick": "56",
+      "updated_tick": "57",
+      "state": "pending",
+      "closed": false,
+      "gateway_reason": null,
+      "native": {
+        "domain": "c2",
+        "status": "sent",
+        "reason": null,
+        "reason_code": 0,
+        "ids": {
+          "task_id": "5"
+        }
+      }
+    },
+    {
+      "request_id": "13",
+      "kind": "dms",
+      "operation": "send",
+      "submitted_tick": "61",
+      "updated_tick": "62",
+      "state": "pending",
+      "closed": false,
+      "gateway_reason": null,
+      "native": {
+        "domain": "dms",
+        "status": "pending",
+        "reason": null,
+        "reason_code": 0,
+        "ids": {
+          "message_id": "17"
+        }
+      }
+    }
+  ]
+}
