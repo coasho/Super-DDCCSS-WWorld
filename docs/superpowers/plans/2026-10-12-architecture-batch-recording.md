@@ -14,7 +14,8 @@ type/buffer/borrowed-World ownership in their original core owners.
 
 ## Constraints
 
-- Baseline e708b87; branch codex/architecture-vecenv-recording. Leave A5 uncommitted until requested.
+- Baseline e708b87; branch codex/architecture-vecenv-recording. Initially stop before commit; the user subsequently
+  requested commit and push after acceptance.
 - Public API/ABI, principal checks, native behavior, resources and existing object models/tests stay unchanged.
 - Do not replace VecEnv's void-return guard with the int-return shared guard or normalize LastError semantics.
 - Keep C++ VecEnv bodies, core type ownership, all registration and the three coupled Python callbacks literal.
@@ -66,7 +67,7 @@ python/tests/test_batch_recording_binding_compatibility.py; root registers the s
 - [x] Run full applicable functional suite with principal, determinism, lifecycle, fleet and package coverage.
 - [x] Refresh dist; compare protected files/exports, consumer DLL bytes and runtime manifest; test distributed Python.
 - [x] Verify English, exact endings, local links/anchors, PowerShell examples and exact diff scope.
-- [x] Record A4 commit, A5 acceptance, limits and remaining queue; leave A5 uncommitted.
+- [x] Record A4 commit, A5 acceptance, limits and remaining queue; retain the initial review stop before commit.
 
 ## Progress and decisions
 
@@ -104,7 +105,10 @@ python/tests/test_batch_recording_binding_compatibility.py; root registers the s
 - Distribution refreshed. All 1,230 runtime manifest entries and tested installed-consumer fsim/JSBSim DLL bytes
   match dist; native and public Python wrapper bytes match staging, including VecEnv/Recording. Four binding
   compatibility suites passed 25/25 against distributed Python. All 1,338 SDK exports and 3,701 protected hashes match.
-- Acceptance reached on codex/architecture-vecenv-recording; A5 remains uncommitted. English architecture/development,
+- Acceptance reached on codex/architecture-vecenv-recording; A5 was initially left uncommitted. English architecture/development,
   navigation and status describe current owners, acceptance and the remaining queue. No dependency installation,
   resource generation or new simulation/domain feature was added. Hangar generation, renderer/GPU, render SDK
   installation, CPack ZIP and remote CI were not exercised.
+- At the user's subsequent request, A5 was committed as 2efea05 after fresh exact-source/runtime, protected-file,
+  export, distribution and documentation comparisons passed. Eight focused ABI, boundary, adapter and architecture
+  gates passed again before commit. This delivery does not change the validated native source or simulation behavior.

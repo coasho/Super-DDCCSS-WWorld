@@ -2,7 +2,7 @@
 
 Reviewed: 2026-10-12. First maintenance pass: `2b83f24` (implementation baseline `32e78a6`).
 Second maintenance pass: `f8cfec9`; Architecture A1: `6652584`; Architecture A2: `34e5516`; Architecture A3: `e79f268`;
-Architecture A4: `e708b87`. Architecture A5 is a working-tree change based on `e708b87`, on
+Architecture A4: `e708b87`; Architecture A5: `2efea05`, on
 `codex/architecture-vecenv-recording`.
 
 This is the entry point for what exists now, which delivery it belongs to, and what remains open. The first
@@ -71,7 +71,7 @@ preserved, but never use an unqualified `M1` to select work.
 | **Architecture A2** | MA private consent retirement and C/Python native DMS/C2 adapter separation. | Committed as `34e5516` and locally verified below: 547 functional cases plus three architecture checks, unchanged exports and installed-consumer/distribution acceptance. Public history remains queryable; aggregate history reclamation is deferred. |
 | **Architecture A3** | C control/VI and Python control/Mission adapter separation. | Committed as `e79f268` and locally verified below against the [A3 design](superpowers/specs/2026-10-12-architecture-adapters-design.md): 548 functional cases plus three architecture checks, unchanged exports/runtime descriptors and installed-consumer/distribution acceptance. |
 | **Architecture A4** | C Scenario/Environment and Python World/Scenario/Environment adapter separation. | Committed as `e708b87` and locally verified below against the [A4 design](superpowers/specs/2026-10-12-architecture-world-adapters-design.md): 549 functional cases plus three architecture checks, unchanged public exports/native identities and installed-consumer/distribution acceptance. |
-| **Architecture A5** | C/Python VecEnv and Recording adapter separation with retained C++ and runtime type owners. | Implemented and locally verified below against the [A5 design](superpowers/specs/2026-10-12-architecture-batch-recording-design.md): 550 functional cases plus three architecture checks, unchanged exports/native identities and installed-consumer/distribution acceptance. Uncommitted on the current branch. |
+| **Architecture A5** | C/Python VecEnv and Recording adapter separation with retained C++ and runtime type owners. | Committed as `2efea05` and locally verified below against the [A5 design](superpowers/specs/2026-10-12-architecture-batch-recording-design.md): 550 functional cases plus three architecture checks, unchanged exports/native identities and installed-consumer/distribution acceptance. |
 
 The third maintenance pass includes bounded A1,
 [A2 lifecycle/adapter](superpowers/specs/2026-10-12-architecture-lifecycle-design.md) and
@@ -366,7 +366,9 @@ their owner lifetime. C++ VecEnv wrappers and shared LastError remain core. Pyth
 callbacks, all runtime type pointers and registration remain core; other callbacks have focused owners. Public
 headers/object models, native simulation/domain sources and resource bytes remain unchanged.
 
-A5 is left uncommitted for review. Unchanged Hangar generation retains first-pass evidence and was not rerun.
+A5 was left uncommitted for review, then committed as `2efea05` at the user's request after fresh source/runtime,
+scope/export/distribution and documentation checks. Eight focused ABI, boundary, adapter and architecture gates
+passed again before commit. Unchanged Hangar generation retains first-pass evidence and was not rerun.
 Renderer/GPU, render SDK installation, CPack ZIP and remote CI were not exercised. This adapter slice does not close
 separate physics, sensor, weapon, history-retention or public-release milestones.
 
