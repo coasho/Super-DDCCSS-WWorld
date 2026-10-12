@@ -5,7 +5,7 @@
 | Status | **Accepted** (the owner, 2026-10-07; section 9). AB-1 to AB-6 done (the migration of section 8 complete) |
 | Scope | System-wide: the SDK (C++, the C ABI, Python), the VI (ADR-28/29), Mission Systems (ADR-30), communication (ADR-22/25), the batch layer (`VecEnv`), the environment server (ADR-17) |
 | Owner's direction (2026-10-07) | The boundary between MA, the VI/MS SDK, the platform's internals and the scenario/referee is foundational: it decides what a future DRL policy may observe and control. No ground truth, scenario authority or platform-internal capability may leak into MA's interface, and no MA decision logic into the SDK. It must hold beyond one platform - for P2P and C2: what one MA may learn from another platform, what must arrive over simulated links, what authority C2 has over its subordinates, how commands, tasks and grants are represented, how local autonomy meets external direction - and an MA must not bypass those boundaries because everything runs in one process |
-| Reference | A-GRA ASK 6.0a (D:/Projects/Rust/oms-ref/a-gra): the VI, C2 and Peer interface volumes, the MA L1 compliance document. Read for semantics; nothing of them is in this repository |
+| Reference | A-GRA ASK 6.0a (D:/Projects/Cpp/oms-ref/a-gra): the VI, C2 and Peer interface volumes, the MA L1 compliance document. Read for semantics; nothing of them is in this repository |
 
 ## 1. Why now
 
@@ -69,8 +69,13 @@ in the simulated world.
 | **Range** | The experiment's author: a scenario file, a test, a training harness's setup. It also stands for mission planning: it loads each MA's mission data, its RBAC configuration and its nets | Build and change the world: create entities and C2 nodes, load stores, set the weather, inject faults, configure nets and roles; create agents; step the clock |
 | **Referee** | The experiment's judge: scoring, rewards, termination, a centralised critic, logging | Read everything, including truth and the labels that tie a track to the entity behind it. Change nothing |
 | **Platform** | The simulated equipment of one entity: its flight model, FA behind the VI, its Mission Systems host and payloads, its terminals and DMS, its weapons once released | Read truth only as its physics needs it (a radar's echo comes from the target's true position); expose to its MA only what its models produce |
-| **MA core** | The part of A-GRA's MA that is rules, not decisions (A6-A12): it authenticates and authorizes received messages, forwards C2's control designations to FA, executes authorized direct commands and overrides, applies the approval policy and the weapons authorization policy, runs C2's lost-communication responses, answers what is unauthorized. Built into the SDK, one per agent | Exactly what A-GRA requires of an MA, on its agent's behalf. It never chooses among targets, tasks or courses of action |
-| **Agent** | MA's decision-making, bound to one platform: a script, a planner, a trained policy, or a human operator. Together with its MA core it is A-GRA's MA | Read what its platform and its MA core report to it, and act through them (section 6). Nothing else |
+| **MA core** | The part of A-GRA's MA that applies rules (A6-A12): it authenticates and authorizes received messages, forwards C2's control designations to FA, executes authorized direct commands and overrides, applies the approval and weapons authorization policies, runs C2's lost-communication responses and answers unauthorized requests. The SDK World owns this runtime with entity-keyed state | Apply native authority rules on behalf of the bound service; target/task/course-of-action decisions belong in the upper layer |
+| **Agent** | A permission-scoped SDK endpoint minted by Range for one platform or C2 entity. Upper-layer scripts, planners, learned actors, human operators or a composite MA use its reports and commands | Read what its bound platform/system and MA core report to it, and act through their permitted interfaces (section 6) |
+
+Current [MaCore state](../src/session/MaCore.h) is keyed by entity; [World](../src/session/World.h) owns the runtime.
+An upper-layer MA may contain multiple actors, behavior trees, algorithms and internal services behind an endpoint.
+Explicit configured service/capability/DMS ownership is a planned additive extension in the
+[MA integration design](superpowers/specs/2026-10-12-ma-system-training-readiness-design.md); it is not implemented by creating more Agent handles.
 
 A C2 node is a principal-bearing node like a platform: a compute and communications node with a position and
 communication endpoints (the owner, 2026-10-07), not a ground vehicle, so D7 (no ground entities) is unaffected. A C2
