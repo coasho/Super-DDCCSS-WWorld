@@ -51,6 +51,7 @@ Evidence applies to the date, build, scenario and scope it records. Source inspe
 | Evidence | What it records |
 | --- | --- |
 | [Engagement delivery validation](sdk/engagement-validation.md) | Dated local build/regression and native/browser encounter results, reproduction paths and exclusions |
+| [Native viewer validation](sdk/viewer-validation.md) | Dated fullscreen native GPU checks, renderer lifecycle regressions, scene and performance evidence, and exclusions |
 | [Stores build report](hangar-stores-build.md), [JSON record](hangar-stores-build.json) | Store pipeline outputs, sizes and timings from a recorded generation run |
 | [Model effects inventory](hangar-effects.md) | Generated visual nodes and effect metadata available to consumers |
 | [Flight-stability results](../testbench/results/stability/SUMMARY.md) | Per-aircraft recorded checks, with raw JSON beside the summary |

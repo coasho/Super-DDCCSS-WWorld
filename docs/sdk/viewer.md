@@ -4,6 +4,10 @@
 by itself, shows it, and follows every change. Your training application
 contains no visualisation code and does not know whether a viewer is running.
 
+The [2026-10-12 native viewer validation record](viewer-validation.md) separates current fullscreen GPU
+evidence, renderer lifecycle regressions and remaining checks from the older measurements below. Native
+viewer acceptance runs use `--fullscreen`; Vision cameras and RCS are offscreen GPU tests.
+
 ## What you do
 
 Nothing. Create a `World` (with `publish = true`, the default) and step it. To turn the viewer to a vehicle from
@@ -171,7 +175,8 @@ A designed aircraft's model is split into the sections a structural kill breaks 
 break, what is mounted on it (its control surfaces, gear, pylons, nozzles) below it. Whole, they are at rest; the
 damage chain's `Separated` events hide the failed sections, while debris entities draw those sections alone at
 their own simulated poses. This is implemented in `VehicleVisuals::hideSection` and the viewer's event handling.
-The native engagement delivery did not rebuild this optional viewer; source support is not fresh viewer acceptance.
+The native engagement delivery did not rebuild this optional viewer. Later native runtime evidence is scoped
+in the [viewer validation record](viewer-validation.md).
 
 ### Parts the airstream turns
 
@@ -241,10 +246,51 @@ A live world publishes, with each snapshot, what each vehicle's Vehicle Interfac
 ## Effects
 
 Current armed missile behavior is defined by the [native engagement contract](engagement.md). The Hangar
-showcase and `flightsim-showcase` recordings are scripted visual fixtures: their missile motion, fin deflections
-and scheduled bursts are not native flight, seeker or fuze acceptance. The dated visual calibration and timing
-results below retain their recorded scope. The [engagement validation record](engagement-validation.md) did not
-rebuild or test the native Vulkan viewer.
+showcase and `flightsim-showcase <scene.json> <out.fsrec> [--live]` record SDK Worlds: native JSBSim flight and SDK
+observations, consent, guidance, seekers, fuzes and damage supply the states and events. Missing support fails the
+scene instead of substituting missile poses or a scheduled burst. The dated scripted-fixture visual calibration
+and timing results below used the retired generator and retain their recorded scope. The
+[engagement validation record](engagement-validation.md) did not
+rebuild or test the native Vulkan viewer; the later [native viewer record](viewer-validation.md) covers the
+separate GPU validation effort.
+
+Native showcase recordings default to 30 Hz. The scene's capture rate accepts positive integer divisors of
+30 Hz; it selects snapshots while preserving the SDK's 120 Hz JSBSim integration and 30 Hz World guidance,
+fuze and damage steps. It does not retime simulation to match the viewer's display rate. See the
+[Hangar scene contract](../hangar.md#missiles) for the supported rates and generated evidence files.
+
+For continuous live observation, start one fullscreen viewer waiting for the exact World, then run the native
+scene with `--live` in another terminal. For Hangar's default AIM-120C scene:
+
+```powershell
+# Terminal 1
+.\fsim.cmd --preset ucrt64-release viewer --world "aim120c native encounter" --fullscreen --camera chase
+
+# Terminal 2
+.\fsim.cmd --preset ucrt64-release hangar showcase aim120c --live
+```
+
+The scene publishes the same World and paces all native steps, including preparation, through its default 40 s.
+It requests focus on the carrier, the actual released missile and the actual target only after matching native
+warhead damage. Expiry, removal or a nondamaging detonation do not request target focus. Keep that viewer window
+open through the full flight and aftermath. This is a distinct acceptance check
+from screenshots or short replay captures; successful continuous runs must be recorded with their build and
+hardware scope in the [viewer validation record](viewer-validation.md).
+
+For the maintained full strike acceptance, use one entry point:
+
+```powershell
+python tools/viewer_perf/strike_acceptance.py --build build/ucrt64-release --out D:/ENV/tmp/native-strike-acceptance
+```
+
+It records a native preflight for precise launch/hit anchors, then runs the same SDK scene live in one fullscreen
+viewer. The camera follows the launcher before release, the actual missile throughout flight, and the target
+only after the live viewer receives that missile's matching fragment Hit. It saves exactly two 4K images,
+at launch + 1 second and actual hit + 0.3 seconds, and continues through the full 40 seconds. Capture timing,
+camera transitions and full native recording readback are saved with the result. The scoped viewer option is
+`--strike-capture <native.engagement.json> --screenshot <prefix.png>`; it requires a named live world and
+fullscreen. Missing events, early destructive effects, wrong identities or missed captures fail acceptance.
+See the [validation record](viewer-validation.md) for the selected scenario and actual snapshot timestamps.
 
 Drawn from each vehicle's state as the simulation reports it - nothing is
 added to `VehicleState` for them - after the effects DCS World shows:
@@ -257,7 +303,7 @@ added to `VehicleState` for them - after the effects DCS World shows:
 | A missile's smoke trail: white smoke laid behind its motor while it burns, spreading with the air's turbulence and the wind's shear, drifting with the wind, lit as the contrails are, gone once it can no longer be seen (optical depth 0.02). Its primary smoke from its propellant's particles - an aluminised motor's alumina (34 % of its exhaust, NASA CEA; 250 m2/kg), dense: about 1.6 across the trail behind an AIM-7M's boost at 6 km, seen for some four minutes; a reduced-smoke motor's catalysts and carbon, a haze (0.15); a minimum-smoke motor's next to nothing. Its secondary smoke - an ammonium perchlorate motor's HCl taking up the air's water into droplets - only where the air is humid enough, more readily cold than warm: none on a typical day at 6 km, a thick trail in humid air (about 16 across behind a reduced-smoke motor at 90 %; its HCl 27 % of its exhaust, an aluminised motor's 21 %, NASA CEA). The motor's mass flow from its class's specific impulse (CEA's ideal, 95 % of it delivered); where the numbers are estimates (that efficiency, the residue's share, the HCl's onset and how much of it condenses) the code says so; 0.05 ms of GPU time with the camera in the trail | while its motor makes thrust (no wake of its own: a missile's is too small to see) | `thrustN`, `airspeedTrueMs`, `altitudeMslM`, the world's humidity and wind |
 | A missile's ice contrail: where the air is cold enough, its exhaust's water freezes into a contrail in the same trail, as a jet's does - whether by the Schmidt-Appleman criterion for a rocket's exhaust (its water once its hydrogen has burnt in the air - 0.33 kg per kg of a reduced-smoke propellant, 0.29 of an aluminised one, NASA CEA - against the heat it brings the plume: its sensible heat, its afterburning and the jet's kinetic energy relative to the air - some 5.9 and 10.8 MJ/kg. The mixing line's slope at 10.5 km: a reduced-smoke motor's 2.22 Pa/K against a jet's 1.61, so it forms in air some 3 K warmer than a jet's contrail does; an aluminised motor's 1.06, so it needs colder air - on a typical day the tropopause's, not 10.5 km), how much by CoCiP's initial ice over the trail's section on the exhaust's particles, and then CoCiP's plume: on a typical day it sublimates as the trail takes in the air (an AIM-120C's sustain's for some 25 s at 10.5 km, an AIM-7M's boost's for some 70 s at 11.5 km), where the air is ice-supersaturated it persists and spreads (some 540 m wide after 15 minutes at 110 %). A reduced-smoke motor's haze becomes a dense white line (an optical depth of several across it). The crystals' number (1e15 per kg, CoCiP's for a jet's soot) is an estimate, said so in the code; no GPU time of its own (the smoke trail's draw, 0.009 ms with a trail in view at 1920 x 1080) | while its motor makes thrust, where the criterion holds | `thrustN`, `airspeedTrueMs`, `altitudeMslM`, the world's temperature and humidity |
 | An engagement's fire and smoke solved as a fluid (MS-7h): NVIDIA Flow 2's combustion solver on its own Vulkan device - the one way a detonation, a fuel fireball and a burning leak are drawn (the fireballs pieced from spheres are gone, 2026-10-11: no `--fire` option, and a viewer cannot be built without Flow). Its sources: a warhead's charge - its fireball the photographed one, 5.89 m for 1 kg of TNT and 12.05 m for 10 kg fired at the ground, in free air a sphere holding as much (4.67 W^0.31 m), larger in thin air by (p0 / p)^(1/3): an AIM-120's 8 kg some 11.5 m across at 6 km - a holed tank's spill (CCPS's fireball) and the leak burning on from its component along the hole's path (API RP 521's jet flame), each held to its observation by `flightsim-flow-calibrate check`: 12 cases, sizes within 15 %, durations within 20 % (a detonation's 0.89 - 1.03 of the photographed diameter; until 2026-10-11 it was fitted to a size a second 2^(-1/3) smaller, and drawn at 0.73 of it). The solver has a thread of its own and is given each of its steps as it falls due - 60 a second, each with its sources where they are then, as the calibration steps it (given a step a frame, a leak's flame at 160 frames a second was 0.85 of its length and half its smoke) - its smoke and temperature read back each step, packed as bricks in a 3D texture, drawn page by page (32 m) as radiative transfer through soot with the atmosphere's light - the flame at CCPS's 1,600 K, soot near black. The solver's near field: a leak's smoke thins in some 8 s; once nothing burns and nothing is left of it the solver rests (world/FlowFires.h, world/FlowVolumes.h; assets/clouds/shaders/flow.frag). Its cost: [the frame rate](#the-frame-rate) | the engagement's Detonation and Fire events (a fire's `rateKgS` as it changes), the burning component's place on the drawn vehicle | `EngagementEvent`; the vehicles as drawn; the world's air and wind |
-| A hit aircraft (MS-7g's damage chain, MS-7h): what the world's damage made of it - its holed tanks' fires streaming from where they are on it (the flame its soot hot, glowing as much as it absorbs, its temperature fluctuating 20 % rms with the eddies as a turbulent fire's does - bright patches over a darker mean, the mean the black body's of a jet fire's 250 kW/m2 - then its black smoke, soot per metre the leak's over the airspeed), a spill's fuel fireball (CCPS: 5.8 M^(1/3) m across, 0.45 M^(1/3) s long, 350 kW/m2, released over 0.15 s from the moving aircraft as five lobes along its path - the QF-4B's fireball, stretched aft), the sections that failed gone from it, each a piece of its own tumbling down (its aircraft's model, its section alone) | the engagement's events (`Fire` with its rate and spill, `Separated`) and the pieces' states in their own slots (type `debris:<aircraft>:<section>`), as the world (World::detonate, its damage stepped) or a showcase's world run writes them | `EngagementEvent`; the pieces' `VehicleState`s; the model's breakup sections (fsim:section:<name>) |
+| A hit aircraft (MS-7g's damage chain, MS-7h): what the world's damage made of it - its holed tanks' fires streaming from where they are on it (the flame its soot hot, glowing as much as it absorbs, its temperature fluctuating 20 % rms with the eddies as a turbulent fire's does - bright patches over a darker mean, the mean the black body's of a jet fire's 250 kW/m2 - then its black smoke, soot per metre the leak's over the airspeed), a spill's fuel fireball (CCPS: 5.8 M^(1/3) m across, 0.45 M^(1/3) s long, 350 kW/m2, released over 0.15 s from the moving aircraft as five lobes along its path - the QF-4B's fireball, stretched aft), the sections that failed gone from it, each a piece of its own tumbling down (its aircraft's model, its section alone) | the engagement's events (`Fire` with its rate and spill, `Separated`) and the pieces' states in their own slots (type `debris:<aircraft>:<section>`), as the SDK World reports and records its damage outcomes | `EngagementEvent`; the pieces' `VehicleState`s; the model's breakup sections (fsim:section:<name>) |
 | Heat haze: the scene behind an engine's exhaust bent and shimmering | whenever an engine runs, idle included: the hot gas's index of refraction (Gladstone and Dale, n = 1 + 2.26e-4 m3/kg x its density) - its mean profile across the jet's mixing layer a lens, its eddies' density fluctuations (rms 15 % of the deficit) the shimmer, each ray turned by the gradient integrated along it (the eddies' turns adding as a random walk over the eddies a ray crosses, as long along it as they are drawn: streaked down the jet); the lens a pixel or two near the nozzle at a normal field of view, as the physics gives, the shimmer drawn 8 times what the eddies give (as given, 0.05 px a frame at a 40 m chase: an engine flying showed nothing) - an Su-57 seen from 25 m astern shimmers 0.3 px over its nozzles at idle, 0.7 px at military power, the turbine and flameholders up its nozzles moving behind it; seen against the airframe, the ground and the horizon, not against a clear sky | `engineN2`, `afterburner`, `altitudeMslM`, `airspeedTrueMs` |
 | Wing tip vortices: thin tubes trailing from the tips, laid in the air the aircraft flew through (straight in level flight, curving through a turn, a corkscrew in a roll), rolling inboard, sinking, swelling and thinning until they no longer fog | where the vortex's core expands the air past its dew point: its circulation is the wing's lift (DATCOM's lift slope over the model's own planform, Polhamus's vortex lift) over the airspeed, a Scully vortex round a core a few per cent of the span across - a hard pull at speed in humid air; a roll loads the downgoing wing, a sideslip the windward one | `alphaRad`, `betaRad`, `airspeedTrueMs`, `angularRateBodyRadS`, `flapsRad`, `altitudeMslM` |
 | Leading-edge vortices: tubes over a strake or a swept wing at a high angle of attack, bursting into a fatter, fainter wake further up the wing the higher the angle | the vortex lift of a sharp or highly swept edge (Polhamus), vortex breakdown after Wentz and Kohlman's deltas | `alphaRad`, `airspeedTrueMs` |
@@ -357,14 +403,18 @@ solver ... NOT drawn") - nothing stands in for it.
 
 ### A missile's plume held to launch photographs
 
-These comparisons check rendered plume shape and brightness against photographs. The missile states are scripted
-visual fixtures; the comparison does not calibrate missile trajectories, motor performance, guidance or seekers.
+These historical MS-7e2 comparisons were recorded on 2026-10-09 with the retired scripted missile-state fixtures.
+They check rendered plume shape and brightness against photographs; they do not calibrate missile trajectories,
+motor performance, guidance or seekers. Current `tools/plume_check/check.py` obtains its recording from the
+native SDK showcase. A new run is separate evidence and does not relabel the values below as native results.
 
 Four launch photographs on Wikimedia Commons (U.S. government works; their files, the points measured from and the
 numbers in [tools/plume_check/photos.json](../../tools/plume_check/photos.json)) measured by
 [tools/plume_check/measure.py](../../tools/plume_check/measure.py), along the missile's axis in missile lengths L - and
-the viewer's plumes measured the same way, side-on from 30 m a second into the boost at 6 km
-(`python tools/plume_check/check.py`; a check run by hand, it needs the viewer and a display):
+the viewer's plumes were measured the same way, side-on from 30 m a second into the boost at 6 km. The maintained
+check is `python tools/plume_check/check.py --at 1`; `--at` is seconds after the actual SDK launch recorded in the
+engagement sidecar, rather than a fixed replay timestamp. The check uses the recorded weapon slot and replay
+clock. It needs the viewer and a display and is run by hand:
 
 | | saturated from .. to | its width at 0.1 / 0.5 / 1 L | dark behind the nozzle |
 | --- | --- | --- | --- |
@@ -703,20 +753,37 @@ the simulation flies (or a recording of one) drawn by `flightsim-viewer --stats`
 | --- | --- |
 | fleet | all 35 aircraft with their loads, line abreast at 3,000 m, turning together; the camera 900 m off |
 | strike | an F-16C flown into the sea at 60 deg and 233 m/s: 1,270 kg of fuel a fireball, then the fire that burns on; the camera 160 m off |
-| hit | a visual recording made by `flightsim-showcase` from `tools/viewer_perf/hit.json`: scripted missile motion and scheduled detonation against a native JSBSim MiG-29A, with native damage and a Flow-solved fuel fireball, a 5 kg/s leak burning down its path, and its sections parting; the camera 70 m off. This fixture measures rendering, not native missile guidance or fuze behavior |
+| hit | a native SDK recording made by `flightsim-showcase` from `tools/viewer_perf/hit.json`: an F-16C releases an AIM-120C through its own radar-track designation and strike consent. JSBSim flies the weapon; SDK guidance, seeker observations, the fuze and damage determine what happens. The viewer follows the actual target slot from 70 m and draws the recorded events with Flow. Fire, breakup and a kill are not injected or guaranteed |
 | reheat | an F-16C in full reheat through the transonic from 35 m: its flame, its shock train, its vapour cone |
 
-A scene passes when, after its first five seconds, every second's mean rate is within 1 % of the target and no frame
+A scene passes when, after its first five seconds, every second's mean rate reaches at least 99 % of the target and no frame
 took more than two refresh intervals (12.5 ms). `--stats` prints, each second, the frames' median and 99th percentile
 and how many took longer than `--stats-budget`. The picture is held with the rate: `viewer_perf.py --shots <label>`
 replays each scene's recording on its own clock and saves frames at fixed times of it, `--compare` sets two such sets
 side by side - what moves from run to run in one viewer (the clouds' temporal noise, the fire's turbulence: up to
 0.9 % and 5 % of a frame's pixels more than 8 of 255 apart) is the floor a change is read against.
+Compare labels only when they use the same recording source. Cached recordings from the retired scripted `hit`
+fixture are historical inputs; regenerate them for native scene checks rather than presenting them as new SDK
+guidance evidence.
+
+For evidence frames across the native hit sequence, run `python tools/viewer_perf/viewer_perf.py --scene hit --shots native-hit`.
+The release frame follows the actual carrier at launch + 0.1 s; the flight and approach frames follow the actual
+weapon at launch + 1.0 s and burst - 0.25 s. Aftermath frames follow the target at burst + 0.05, 0.3, 0.8, 1.5,
+3, 6 and 10 s, keeping only times before the recording ends. These are offsets from the SDK's actual release
+and terminal times. `hit.frames.json` beside the PNGs records each phase, replay time and camera slot with the
+native recording's source and scene hash. A missing guided hit or insufficient flight interval fails the capture
+plan; the tool does not substitute a burst.
+Each screenshot uses a separate replay capture. These frames support visual inspection at the recorded times;
+they do not establish continuous live flight acceptance in one fullscreen viewer window.
 
 Measured 2026-10-11 on an RTX 5070 Ti, the sun at midday (`before`: the viewer at 12fb394):
 
-The `now` rows refer to the revision measured in that dated comparison. They are not a fresh benchmark of the
-current checkout or proof of viewer compatibility with the later native engagement delivery.
+The `now` rows refer to the revision measured in that dated comparison. Its `hit` scene used the retired scripted
+missile path and scheduled detonation. These rows are not a fresh benchmark of the current checkout or native
+replacement scenes, or proof of viewer compatibility with the later native engagement delivery.
+
+Fresh measurements, named gate failures and hardware scope belong to the dated
+[native viewer validation record](viewer-validation.md); they do not replace or relabel this historical table.
 
 | Scene | | fps (mean) | lowest second | worst frame, ms | frames over 12.5 ms | the viewer's passes on the GPU, ms | the frame's thread outside the draw, ms |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -762,7 +829,7 @@ What is left, and why:
 
 ## Screenshots
 
-`flightsim-viewer.exe --screenshot shot.png [--screenshot-after 5]` saves the
+`flightsim-viewer.exe --fullscreen --screenshot shot.png [--screenshot-after 5]` saves the
 window as PNG after the given number of seconds and exits (any mode: mirror,
 `--demo`, `--replay`); the copy is taken from the swapchain, so it works on a
 locked desktop and in scripts. `--screenshot-frames 8 --screenshot-every 0.034`
@@ -788,7 +855,8 @@ the air held there until the view is dragged (it was put on the ground under it)
 black. `--camera chase --chase-distance 15` starts right behind the selected
 vehicle, also when attached to a trainer's world (which otherwise starts with
 a regional view); `--chase-azimuth` and `--chase-elevation` move the camera
-around it; `--follow <slot>` starts on that vehicle instead of the first, or goes to it when it appears (a showcase's missile, 1, from its launch).
+around it; `--follow <slot>` starts on that vehicle instead of the first, or goes to it when it appears. Use the
+released weapon's actual recording slot rather than assuming a fixed slot across scenes.
 
 ## If it crashes
 

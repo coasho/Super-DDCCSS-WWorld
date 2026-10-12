@@ -382,7 +382,9 @@ model's own check (`test_radar.cpp`).
 The viewer shows the Mission Systems of the vehicle it follows (`tab` switches; `p`, or "payloads" in the monitor, shows
 or hides the windows; each window collapses from its title bar):
 - **mission systems:** each payload, its type and state (a warm-up's or BIT's progress), and the capabilities it
-  gives; those not modelled yet show the stage that builds them.
+  gives; partial or unimplemented capabilities carry their stage, such as `(MS-7)` or `(MS-9)`.
+  A stage marker does not mean the capability is absent: native store release and strike are partial, while
+  their remaining model limits are reported by the SDK support queries.
 - **one window per radar:** its mode, volume and frame; a B-scope for a fighter's radar (azimuth across its field of
   regard, range up, the volume searched shaded, the beam's position) or a PPI for a rotodome (heading up, the sweep).
   Detections fade over two frames, green closing and amber opening; hover one for its range, angles, rate and SNR.

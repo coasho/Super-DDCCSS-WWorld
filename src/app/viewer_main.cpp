@@ -8,6 +8,7 @@
 // thread instead (development, screenshots).
 
 #include "app/DemoAutopilot.h"
+#include "app/StrikeCapture.h"
 
 #include <fstream>
 #include <map>
@@ -137,6 +138,7 @@ struct ViewerOptions {
     double stats = 0.0;   // --stats <seconds>: print per-second frame statistics, exit after this long
     double statsBudgetMs = 6.875; ///< --stats-budget: a frame over this is counted (a 160 Hz refresh and a tenth)
     std::string screenshot;      // --screenshot <file.png>: save the frame after --screenshot-after seconds, then exit
+    std::string strikeEvidence;  // --strike-capture: two event-relative captures during one complete live encounter
     double screenshotAfter = 3.0;
     int screenshotFrames = 1;    // --screenshot-frames <n>: n frames, <file>_000.png on, --screenshot-every <s> apart
     double screenshotEvery = 0.1;
@@ -214,6 +216,8 @@ void usageAll(const char* prog) {
         "  --stats-budget <ms>      the frame time --stats counts frames over (6.875: a 160 Hz refresh and a tenth)\n"
         "  --screenshot <file.png>  save the window after --screenshot-after seconds (3) and exit\n"
         "  --screenshot-frames <n>  save n frames instead, <file>_000.png on, --screenshot-every <s> (0.1) apart\n"
+        "  --strike-capture <native.engagement.json>  validate one live strike, follow launcher/weapon/hit target;\n"
+        "                           use --screenshot as a prefix for launch+1 s and hit+0.3 s, then finish the entire run\n"
         "  --screenshot-clock wall|replay  what --screenshot-after and -every count: the window's seconds (wall, the\n"
         "                           default) or a replay's own time, each frame drawn at its time however long saving takes\n"
         "  --screenshot-zoom <x>    zoom while they are saved: the camera's distance times x a second (0.5 in, 2 out),\n"
@@ -250,7 +254,7 @@ void usageAll(const char* prog) {
         "  --chase-distance <m>     start this far from the vehicle (40; attached to a world the view\n"
         "                           starts regional unless this is given)\n"
         "  --chase-azimuth <deg>  --chase-elevation <deg>   where the camera sits (180 = behind, 14 up)\n"
-        "  --follow <slot>          start on that vehicle, or go to it when it appears (its slot: 0 the first; a showcase's missile, 1, from its launch)\n"
+        "  --follow <slot>          start on that vehicle, or go to it when it appears (zero-based recording slot; native scene evidence reports entity slots)\n"
         "  --log-level <lvl>\n"
         "Keys: space pause (demo), . step (demo), tab next vehicle, c camera, -/= zoom, r reset view, [ ] time factor (demo),\n"
         "      l list, m monitor, n labels, t trails, e effects, k clouds, esc quit\n"
@@ -425,6 +429,7 @@ bool parse(int argc, char** argv, ViewerOptions& o) {
             else if (a == "--stats") o.stats = std::stod(next());
             else if (a == "--stats-budget") o.statsBudgetMs = std::stod(next());
             else if (a == "--screenshot") o.screenshot = next();
+            else if (a == "--strike-capture") o.strikeEvidence = next();
             else if (a == "--screenshot-after") o.screenshotAfter = std::stod(next());
             else if (a == "--screenshot-frames") o.screenshotFrames = std::max(1, std::stoi(next()));
             else if (a == "--screenshot-every") o.screenshotEvery = std::max(0.0, std::stod(next()));
@@ -487,6 +492,30 @@ int main(int argc, char** argv) {
         if (worlds.empty()) std::printf("no published worlds\n");
         for (const auto& w : worlds) std::printf("%-32s pid %llu\n", w.name.c_str(), static_cast<unsigned long long>(w.pid));
         return 0;
+    }
+
+    std::optional<app::StrikeCapture> strikeCapture;
+    bool strikeFailed = false;
+    if (!opt.strikeEvidence.empty()) {
+        try {
+            if (opt.demo || !opt.replayPath.empty() || opt.worldName.empty() || opt.screenshot.empty() || !opt.window.fullscreen)
+                throw std::runtime_error("--strike-capture requires --world, --fullscreen and --screenshot, using a live native world");
+            std::ifstream input(opt.strikeEvidence, std::ios::binary);
+            if (!input) throw std::runtime_error("cannot read native strike evidence: " + opt.strikeEvidence);
+            const std::string text{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+            const auto evidence = core::Json::parse(text, opt.strikeEvidence);
+            if (evidence.string("name", "") != opt.worldName)
+                throw std::runtime_error("native strike evidence belongs to a different world");
+            strikeCapture.emplace(evidence);
+            const auto& plan = strikeCapture->plan();
+            if (plan.carrierSlot >= opt.capacity || plan.weaponSlot >= opt.capacity || plan.targetSlot >= opt.capacity)
+                throw std::runtime_error("strike subjects exceed viewer capacity");
+            opt.interpolate = false; // Capture and camera use the same authoritative native snapshot and event clock.
+            opt.cameraMode = 0;
+        } catch (const std::exception& error) {
+            LOG_ERROR("strike") << error.what();
+            return 2;
+        }
     }
 
     // --- Rendering (window first: the terrain ground provider uses VSG's readers) ---
@@ -925,6 +954,18 @@ int main(int argc, char** argv) {
     // a detonation's and a spill's fireball, a fire burning on from its component, a section that left hidden on its
     // aircraft (its piece flies in a slot of its own)
     const auto showEvent = [&](const ipc::EngagementEvent& e) {
+        if (strikeCapture) {
+            try { strikeCapture->observe(e); }
+            catch (const std::exception& error) {
+                LOG_ERROR("strike") << error.what();
+                strikeFailed = true;
+                return;
+            }
+            if (e.kind == static_cast<std::uint8_t>(ipc::EngagementKind::CrewLost)) {
+                std::printf("strike crew lost time=%.9f slot=%u\n", e.simTime, e.slot);
+                std::fflush(stdout);
+            }
+        }
         if (flow) flow->add(e, *ellipsoid);
         // (Flow's flame and near smoke burn there; the trail is the far smoke)
         if (e.kind == static_cast<std::uint8_t>(ipc::EngagementKind::Fire))
@@ -940,6 +981,7 @@ int main(int argc, char** argv) {
     // each vehicle's flight status as a replay's samples have it (a recording from before they did: zeros, nothing shown)
     std::vector<ipc::FlightStatus> replayStatus(replay ? slots : 0);
     std::vector<std::uint64_t> generationSeen; // (each slot's vehicle as the table last had it)
+    std::vector<std::uint32_t> visualVehicleSeen(slots, 0); // entity identity, independent of reset generations
     // what each slot's engines burn, as the simulation says it with each sample: the trails are laid from it
     std::vector<std::array<double, sim::VehicleState::kMaxEngines>> fuelFlows(slots);
     const auto fuelFlowOf = [&](std::size_t slot, const double* derived) {
@@ -988,8 +1030,9 @@ int main(int argc, char** argv) {
     // --- Frame loop ------------------------------------------------------------------
     double wallSeconds = 0.0;
     int shots = 0; // frames saved (--screenshot-frames)
+    bool screenshotFailed = false;
     const bool shotsOnReplay = replay && opt.screenshotReplayClock && !opt.screenshot.empty();
-    if (flow) flow->setSynchronous(shotsOnReplay); // (each shot the fire as it is at its time, the same every run)
+    if (flow) flow->setSynchronous(shotsOnReplay || strikeCapture.has_value()); // Event captures draw the fire at the native snapshot's time.
     struct Stats {
         double window = 0.0, cpu0 = platform::processCpuSeconds(), maxFrame = 0.0;
         int frames = 0, late = 0;
@@ -1037,6 +1080,8 @@ int main(int argc, char** argv) {
             if (atmosphere) atmosphere->setSun(sunDir);
         }
     };
+    int strikeSelected = -1;
+    if (strikeCapture) LOG_INFO("strike") << "capture ready; waiting for native world '" << opt.worldName << "'";
     while (viewer.active() && !controls->quit.load(std::memory_order_relaxed)) {
         // each vehicle's flight status: a live world's from its segment, a replay's from its samples
         const std::vector<ipc::FlightStatus>* flightStatus = mirror.valid() ? &mirror.status() : replay ? &replayStatus : nullptr;
@@ -1084,6 +1129,10 @@ int main(int argc, char** argv) {
                 replayTime = frames.front().simTime; // loop
                 replayFrame = static_cast<std::size_t>(-1);
                 interpolator = world::Interpolator(slots);
+                std::fill(alive.begin(), alive.end(), 0);
+                meta.assign(slots, ui::MonitorGui::VehicleMeta{});
+                for (auto& m : meta) m.alive = false;
+                for (std::size_t i = 0; i < slots; ++i) { visuals.setVisible(i, false); trails.setEnabled(i, false); }
             }
             std::size_t target = replayFrame == static_cast<std::size_t>(-1) ? 0 : replayFrame;
             while (target + 1 < frames.size() && frames[target + 1].simTime <= replayTime) ++target;
@@ -1094,7 +1143,8 @@ int main(int argc, char** argv) {
                     meta.assign(slots, ui::MonitorGui::VehicleMeta{});
                     for (auto& m : meta) m.alive = false; // only recorded rows are vehicles
                 }
-                for (std::size_t f = from; f <= target; ++f)
+                if (from == 0) std::fill(visualVehicleSeen.begin(), visualVehicleSeen.end(), 0);
+                for (std::size_t f = from; f <= target; ++f) {
                     for (const auto& [slot, row] : frames[f].tableChanges) {
                         if (slot >= slots) continue;
                         alive[slot] = row.alive;
@@ -1103,24 +1153,30 @@ int main(int argc, char** argv) {
                         meta[slot].type.assign(row.type, ::strnlen(row.type, ipc::kTypeLength));
                         meta[slot].level = control::levelName(static_cast<control::Level>(row.controlLevel));
                         if (row.alive) {
+                            if (visualVehicleSeen[slot] != row.id) {
+                                visualVehicleSeen[slot] = row.id;
+                                visuals.resetCarriage(slot);
+                                visuals.restoreSections(slot);
+                            }
                             visuals.setModel(slot, std::string(row.model, ::strnlen(row.model, ipc::kPathLength)), meta[slot].type);
                             describeAircraft(slot, meta[slot].type);
                         }
                         visuals.setVisible(slot, row.alive != 0);
                         trails.setEnabled(slot, row.alive != 0);
                     }
+                    // Keep each frame's stores with its entity table, including frames skipped during playback.
+                    for (const auto& [slot, stores] : frames[f].storeChanges)
+                        if (slot < slots) {
+                            visuals.setStores(slot, carriedOf(stores.data(), stores.size()));
+                            visuals.setBayDoors(slot, doorsOf(stores.data(), stores.size()));
+                        }
+                }
                 if (from == 0) replayEnvironment.reset(); // (from the start again: a seek, a loop)
                 if (from == 0) forgetEvents();
                 for (std::size_t f = from; f <= target; ++f)
                     for (const auto& e : frames[f].events) showEvent(e);
                 for (std::size_t f = from; f <= target; ++f)
                     if (frames[f].environment) replayEnvironment = frames[f].environment;
-                for (std::size_t f = from; f <= target; ++f)
-                    for (const auto& [slot, stores] : frames[f].storeChanges)
-                        if (slot < slots) {
-                            visuals.setStores(slot, carriedOf(stores.data(), stores.size()));
-                            visuals.setBayDoors(slot, doorsOf(stores.data(), stores.size()));
-                        }
                 gui->setVehicles(meta);
                 replayFrame = target;
                 const auto& frame = frames[target];
@@ -1192,6 +1248,8 @@ int main(int argc, char** argv) {
                                                                      << "; only the first " << std::min<std::size_t>(slots, mirror.capacity()) << " slots are shown";
                     LOG_INFO("app") << "attached to world '" << pick << "'";
                     focusSeen = 0; // (its last request that viewers follow a vehicle, if any, is followed on attaching)
+                    std::fill(visualVehicleSeen.begin(), visualVehicleSeen.end(), 0);
+                    generationSeen.assign(slots, ~0ull);
                     forgetEvents(); // (another world's fires are not this one's)
                     for (auto& f : fuelFlows) f.fill(0.0);
                     cameraPreview->attach(pick);
@@ -1213,6 +1271,11 @@ int main(int argc, char** argv) {
                         meta[i].alive = v.alive;
                         meta[i].level = control::levelName(static_cast<control::Level>(v.controlLevel));
                         if (v.alive) {
+                            if (visualVehicleSeen[i] != v.id) {
+                                visualVehicleSeen[i] = v.id;
+                                visuals.resetCarriage(i);
+                                visuals.restoreSections(i);
+                            }
                             visuals.setModel(i, v.model, v.type);
                             describeAircraft(i, v.type);
                         }
@@ -1332,6 +1395,27 @@ int main(int argc, char** argv) {
             for (std::size_t i = 0; i < slots; ++i)
                 if (alive[i]) { selected = static_cast<int>(i); break; }
         }
+        if (strikeCapture && batch && mirror.valid() && std::any_of(alive.begin(), alive.end(), [](unsigned char a) { return a != 0; })) {
+            followPending = false;
+            selected = static_cast<int>(strikeCapture->selectedSlot(batch->simTime));
+            const auto& table = mirror.vehicles();
+            const auto& plan = strikeCapture->plan();
+            const std::uint32_t expected = selected == static_cast<int>(plan.carrierSlot) ? plan.carrierId
+                : selected == static_cast<int>(plan.weaponSlot) ? plan.weaponId : plan.targetId;
+            if (selected < 0 || static_cast<std::size_t>(selected) >= slots || static_cast<std::size_t>(selected) >= table.size() ||
+                !table[static_cast<std::size_t>(selected)].alive || table[static_cast<std::size_t>(selected)].id != expected) {
+                LOG_ERROR("strike") << "native camera subject is missing or differs from preflight evidence at " << batch->simTime;
+                strikeFailed = true;
+            }
+            controls->cameraMode.store(0, std::memory_order_relaxed);
+            if (selected != strikeSelected) {
+                std::printf("strike camera time=%.9f slot=%d entity=%u\n", batch->simTime, selected, expected);
+                std::fflush(stdout);
+                strikeSelected = selected;
+                camera->resetView();
+            }
+        }
+        if (strikeFailed) { screenshotFailed = true; break; }
         controls->selectedVehicle.store(selected, std::memory_order_relaxed);
 
         // Sim -> scene
@@ -1504,18 +1588,46 @@ int main(int argc, char** argv) {
             camera->zoom(std::pow(opt.screenshotZoom, viewer.frameSeconds()));
         if (!opt.screenshot.empty() && opt.screenshotOrbit != 0.0 && wallSeconds >= opt.screenshotAfter - 1.0)
             camera->turn(opt.screenshotOrbit * viewer.frameSeconds() * 3.141592653589793 / 180.0);
-        if (!opt.screenshot.empty() &&
+        if (strikeCapture && batch) {
+            try {
+                if (const auto index = strikeCapture->dueCapture(batch->simTime)) {
+                    const std::filesystem::path path(opt.screenshot);
+                    const auto output = (path.parent_path() / (path.stem().string() +
+                        (*index == 0 ? "_launch_plus_1s" : "_hit_plus_0.3s") + path.extension().string())).string();
+                    if (!viewer.screenshot(output)) throw std::runtime_error("could not save native strike capture: " + output);
+                    strikeCapture->acknowledge(*index, batch->simTime);
+                    std::printf("strike capture index=%u time=%.9f slot=%d file=%s\n", *index, batch->simTime, selected, output.c_str());
+                    std::fflush(stdout);
+                }
+                if (strikeCapture->completed(batch->simTime)) {
+                    std::printf("strike complete time=%.9f; two captures; native hit observed\n", batch->simTime);
+                    std::fflush(stdout);
+                    break;
+                }
+            } catch (const std::exception& error) {
+                LOG_ERROR("strike") << error.what();
+                screenshotFailed = true;
+                break;
+            }
+        }
+        if (!strikeCapture && !opt.screenshot.empty() &&
             (shotsOnReplay ? replayTime >= opt.screenshotAfter + shots * opt.screenshotEvery - 1e-9
                            : wallSeconds >= opt.screenshotAfter + shots * opt.screenshotEvery)) {
             if (opt.screenshotFrames == 1) {
-                viewer.screenshot(opt.screenshot);
+                screenshotFailed = !viewer.screenshot(opt.screenshot);
+                if (screenshotFailed) LOG_ERROR("viewer") << "could not save screenshot: " << opt.screenshot;
                 break;
             }
             // a sequence: <stem>_000<ext>, <stem>_001<ext>, ...
             const std::filesystem::path path(opt.screenshot);
             char number[16];
             std::snprintf(number, sizeof number, "_%03d", shots);
-            viewer.screenshot((path.parent_path() / (path.stem().string() + number + path.extension().string())).string());
+            const auto output = (path.parent_path() / (path.stem().string() + number + path.extension().string())).string();
+            if (!viewer.screenshot(output)) {
+                screenshotFailed = true;
+                LOG_ERROR("viewer") << "could not save screenshot: " << output;
+                break;
+            }
             if (++shots >= opt.screenshotFrames) break;
         }
 
@@ -1604,6 +1716,11 @@ int main(int argc, char** argv) {
         }
     }
 
+    if (strikeCapture && (!batch || !strikeCapture->completed(batch->simTime))) {
+        LOG_ERROR("strike") << "native strike ended before complete acceptance";
+        screenshotFailed = true;
+    }
+
     if (runner) runner->stop();
 
     // Leave without unwinding. Freeing a deep tile pyramid takes seconds -
@@ -1619,5 +1736,5 @@ int main(int argc, char** argv) {
     // the GPU resources and the handles.
     viewer.quiesce();
     std::fflush(nullptr); // the log and any --probe/--stats output go to stdio
-    std::_Exit(0);
+    std::_Exit(screenshotFailed ? 1 : 0);
 }

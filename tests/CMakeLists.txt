@@ -58,6 +58,22 @@ target_link_libraries(fsim_engagement_native_test PRIVATE fsim::session)
 target_compile_definitions(fsim_engagement_native_test PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
 add_test(NAME engagement_native COMMAND fsim_engagement_native_test)
 
+add_executable(fsim_strike_capture_test test_strike_capture.cpp)
+target_link_libraries(fsim_strike_capture_test PRIVATE fsim::ipc fsim::core)
+fsim_set_warnings(fsim_strike_capture_test)
+add_test(NAME strike_capture COMMAND fsim_strike_capture_test)
+set_tests_properties(strike_capture PROPERTIES LABELS "showcase;native-engagement")
+
+if(TARGET flightsim-showcase)
+    add_executable(fsim_showcase_native_test test_showcase_native.cpp)
+    target_link_libraries(fsim_showcase_native_test PRIVATE fsim::ipc fsim::core fsim::sdk)
+    fsim_set_warnings(fsim_showcase_native_test)
+    add_test(NAME showcase_native COMMAND fsim_showcase_native_test
+        $<TARGET_FILE:flightsim-showcase> ${CMAKE_BINARY_DIR}/showcase-native-test)
+    set_tests_properties(showcase_native PROPERTIES LABELS "showcase;native-engagement"
+        TIMEOUT 120 WORKING_DIRECTORY $<TARGET_FILE_DIR:flightsim-showcase>)
+endif()
+
 add_executable(fsim_tests
     test_units.cpp
     test_damage.cpp
@@ -267,6 +283,13 @@ if(FSIM_WITH_RENDER)
     fsim_set_warnings(fsim_render_tests)
     fsim_relax_third_party_warnings(fsim_render_tests)
     catch_discover_tests(fsim_render_tests ${FSIM_CATCH_DISCOVERY})
+    # Fullscreen screenshot readback must capture the frame just presented (needs a Vulkan window).
+    add_executable(fsim_viewer_screenshot_test test_viewer_screenshot.cpp)
+    target_link_libraries(fsim_viewer_screenshot_test PRIVATE fsim::render vsgXchange::vsgXchange)
+    fsim_set_warnings(fsim_viewer_screenshot_test)
+    fsim_relax_third_party_warnings(fsim_viewer_screenshot_test)
+    add_test(NAME viewer_screenshot COMMAND fsim_viewer_screenshot_test "${CMAKE_BINARY_DIR}/viewer-screenshot-test")
+    set_tests_properties(viewer_screenshot PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE TIMEOUT 60)
     # The RCS engine (ADR-30, MS-3; tools/rcs) against the closed forms: on a GPU with ray queries, else skipped.
     if(TARGET fsim_rcs_engine)
         add_executable(fsim_rcs_tests ${CMAKE_SOURCE_DIR}/tools/rcs/test_rcs.cpp)

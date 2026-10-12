@@ -370,7 +370,7 @@ enum class WeaponEnd : std::uint8_t {
     Impact,   ///< it struck the terrain (or the sea)
     Removed,  ///< taken out of the world
     Detonated, ///< its fuze set its warhead off (MS-7d): at a target, or what it took for one
-    Expired,   ///< its flight was over with nothing to fuze on: out of energy or time, it destroyed itself
+    Expired,   ///< out of energy or time with nothing to fuze on; removed without detonation
 };
 /// "in_flight", "impact", "removed", "detonated", "expired".
 FSIM_API const char* weaponEndName(WeaponEnd end) noexcept;

@@ -219,6 +219,17 @@ documented by its [API contract](sdk/engagement.md) and [historical local valida
 That delivery verified the headless SDK and browser client; it did not rebuild the native Vulkan viewer or
 calibrate real-world missile performance. See [status](status.md) for the current assessment.
 
+The scripted showcase and plume-check fixtures in the entries below are retired. Their supplied missile poses,
+timed bursts and injected target outcomes describe the recorded revision, not the maintained scene generator.
+Current [Hangar showcase](hangar.md#missiles) records SDK Worlds: JSBSim flight, observations, consent, guidance,
+seekers, fuzes and damage determine the outcome. Missing native support fails instead of substituting a scripted
+trajectory. Historical commands and measurements below are retained as evidence of the earlier visual work;
+they do not validate the replacement scenes.
+The maintained showcase also offers `--live`: the same SDK World is published and paced in real time, with one
+fullscreen viewer following the carrier, actual released weapon and target through the native run. Screenshots
+alone do not establish continuous live acceptance; its completed runs and limits belong to the dated
+[viewer validation record](sdk/viewer-validation.md).
+
 - **MS-1 done (2026-10-06).**
   - **Code:** `src/ms` (the host, the cards and fits loader, the names). `include/fsim/MissionSystems.h` and
     `Vehicle`'s payload calls. C ABI 1.49. Python's `payloads`, `set_payload_state`, `payload_bit`,
@@ -486,9 +497,9 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   by one rule from one table ([hangar.md](hangar.md#missiles)): each card's length, diameter, span and mass held, its
   shape assumed from photographs and said so; its control surfaces moving (`fsim:` nodes), its motor's nozzle cut in
   and named for the viewer (`rocket` in the manifest), its paint and markings bands. The viewer draws a motor's plume
-  from its thrust (the exhaust's jet as a solid rocket's: [sdk/viewer.md](sdk/viewer.md#effects)), and
-  `fsim hangar showcase <missile>` shows one on its carrier's station and launched, on a scripted recording
-  (`tools/showcase`), a visual prototype separate from current native flight. Every other design's model re-meshed unchanged (the mesh bytes identical; three
+  from its thrust (the exhaust's jet as a solid rocket's: [sdk/viewer.md](sdk/viewer.md#effects)).
+  The then-scripted `fsim hangar showcase <missile>` showed one on its carrier's station and launched
+  (`tools/showcase`, the retired visual prototype). Every other design's model re-meshed unchanged (the mesh bytes identical; three
   propeller aircraft's gear rotations differ by sign alone, as before - restored). The plume's look was
   held to launch photographs since (below).
 - **MS-7e2, the smoke trail (2026-10-08).** A missile's motor lays smoke where it burns, drawn as the contrails'
@@ -523,7 +534,7 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
 - **MS-7e2, a humid day's trail in a replay (2026-10-09).** A recording now carries the world's environment as it
   changes (`E` records, format 4: World writes it, the viewer's replay applies it as a live world's - clouds, the air
   the contrails, smoke and vapour form in, the sun by its clock), so a replay's trails form in the recorded air; before,
-  every replay was drawn on a typical day. `fsim hangar showcase <missile> --humidity 0.9` records a humid day: the
+  every replay was drawn on a typical day. The retired scripted showcase recorded a humid day at 0.9: the
   AIM-120C's reduced smoke at 6 km, next to nothing on a typical day, lays a white trail of its HCl's droplets there
   ([sdk/viewer.md](sdk/viewer.md#effects)). Test: test_world (the environment recorded as it changes).
 - **MS-7e2, the plume held to launch photographs (2026-10-09).** Four launch photographs (three AIM-7s, aluminised;
@@ -543,10 +554,10 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   trail, the flame splashed on a launcher, the reduced-smoke glow at 1 L (now two photographs). To compare them the
   viewer saves screenshots on a replay's clock (`--screenshot-clock replay`): on the window's, a slow frame left the
   interpolator extrapolating and snapping back - a Sidewinder drawn ahead of its rail, then behind it. The missile's end
-  at the ground: World already ends a weapon that strikes it (its vehicle removed that step); the showcase dives one
-  there (`--dive-s`, the map set's terrain) - the viewer draws it to the strike and no further, its trail left in the
-  air. Current native armed engagements also terminate through their fuze or expiry; the scripted showcase remains
-  a visual preview, and this dated viewer evidence does not verify a viewer rebuilt against the engagement delivery.
+  at the ground: World already ended a weapon that struck it (its vehicle removed that step); the retired showcase
+  supplied a dive into the map set's terrain. The viewer drew it to the strike and no further, its trail left in the
+  air. Current native armed engagements also terminate through their fuze or expiry; this dated scripted-preview
+  evidence does not verify the replacement scene or a viewer rebuilt against the engagement delivery.
 - **MS-7e1, the vulnerable components (2026-10-09).** Every fixed-wing design's engines, fuel, crew and flight
   controls placed from its design by one rule ([hangar.md](hangar.md#the-3d-model), `hangar/vulnerability.py`): a
   turbofan by Raymer's statistical sizing from its thrust, bypass ratio and design Mach (within 40 % of five published
@@ -621,8 +632,9 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
     its root's peak moment the impulse's moment times the mode's frequency (from its tip bending 5 % of its reach at
     its ultimate load - an estimate), so a burst beside a wing breaks it, one astern only pushes the tail; densely
     holed skin loses what cracks link (1 - exp(-20 n a / A): an estimate).
-  - **G7:** every event recorded as it happens; the showcase's world run (`--target`, its trials flying the target's
-    own model to the burst within half a metre; `--miss-m`, `--seed`, `--separate` a scenario's injected failure).
+  - **G7:** every event recorded as it happened; the retired showcase's world run flew the target's own model to a
+    preset burst within half a metre and allowed injected section failures. These were damage/rendering fixtures,
+    not a guided encounter.
   - **G8 begun:** the viewer hides a parted section, draws a piece as its section alone; a spill's fireball is five
     lobes along the path over 0.15 s; a fire burns at most 5 kg/s of its leak, its flame and section growing as the
     square root of what it burns, the rest a white fuel mist (100 um droplets, evaporating over 2 s - estimates).
@@ -666,8 +678,8 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
     - Every tank and pod of every loadout, jettisoned, flies on with its mass (tests/test_stores.cpp: 46 stores).
 - **MS-7h, the detonation (2026-10-09).** The engagement's events in a recording (`V` records, format 5:
   `ipc::EngagementEvent`, one plain layout for every kind - the initial detonation record, with later component
-  failure, breakup and chaff records). The showcase scripts one (`--detonate-s`: the missile ends there, as
-  World ends a weapon; its explosive 40 % of the card's warhead, an estimate). The viewer draws it
+  failure, breakup and chaff records). The retired showcase supplied a timed burst and ended the missile there,
+  as World ends a weapon; its explosive was 40 % of the card's warhead, an estimate. The viewer drew it
   ([sdk/viewer.md](sdk/viewer.md#effects), world/Detonations): the flash, the fireball (4.67 W^0.31 m across in free air, from a 1 kg
   and a 10 kg TNT charge's measured diameters at the ground; larger in thin air; at TNT's measured 2,000 K, its glow
   Planck's against the sun's disk), and the soot it leaves, a billowing brown-black puff (soot's albedo, reflecting as
@@ -725,14 +737,14 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   faults it showed are fixed for every trail: a store's first frame, interpolated from its empty slot at the Earth's
   centre, began its trail there (world::Interpolator now takes a vehicle new to a snapshot where the newer has it), and
   the young trail between laid samples left a climbing trail's plume at the older sample's height - drawn in steps.
-  `fsim hangar showcase <missile> --altitude 10500` records the scripted shot in cold air.
+  The retired showcase recorded the scripted shot in cold air at 10,500 m.
 - **MS-7e1, the carriage and the stores on their stations (2026-10-08).** Each aircraft's stations' pylons, launcher
   rails and racks in its model (fsim:station:<n> nodes, a pylon up to the skin found by a ray against the airframe's
   mesh; [hangar.md](hangar.md#the-carriage-on-the-stations)), shown once a store has been there; the stations' places
   in its manifest. The viewer draws each carried store with its own design's model on its station
   ([sdk/viewer.md](sdk/viewer.md#stores-on-their-stations)), from the live world's mission records (each store's
-  card now in them: ipc layout 7) or a recording's store records (format version 3); the showcase carries its missile
-  as the carrier's store until it is launched, a vehicle of its own from then.
+  card then in them: ipc layout 7) or a recording's store records (format version 3); the retired showcase carried
+  its missile as the carrier's store until it launched, a vehicle of its own from then.
 - **MS-7e1, the weapon bays and their doors (2026-10-08).** The F-22A's, F-35A's, J-20A's and Su-57's bays cut into
   their underside, their doors cut from the skin over them, hinged on their outer edges
   ([hangar.md](hangar.md#the-carriage-on-the-stations)); the store management opens a bay's doors before releasing
@@ -826,9 +838,10 @@ estimate (basis `assumed`, its reasoning in its note) wherever it appears:
   (`aero = false`, its drag in the calibrated extra drag area, as the F-16C's tip launchers and the A-10C's pylons are).
 
   **The visual-only focus chosen on 2026-10-08:** models, mechanical animations and visual effects for every missile
-  and its variants preceded flight work. The scripted replay (`flightsim-viewer --replay`) writes card-based fin
-  deflections and motor thrust as a visual preview. Store flight models and native armed engagement now exist;
-  the replay does not validate them, and solver-derived model calibration is still separate work.
+  and its variants preceded flight work. The retired generator wrote card-based fin deflections and motor thrust
+  into a scripted visual recording, played by `flightsim-viewer --replay`. Store flight models and native armed
+  engagement now exist; that historical recording does not validate them. Maintained scenes use SDK states and
+  outcomes, while solver-derived model calibration remains separate work.
   - **MS-7e1 - the models:**
     - each of the 24 missiles a hangar design, its card's length, diameter, span and mass held (a check fails the build
       outside the card's uncertainty), its external shape from public drawings and photographs: the nose (a radome, or
@@ -940,14 +953,14 @@ error).** Each is said so where it is used:
 
 **The visual focus kept (the owner, 2026-10-09).** MS-7e's models and effects done but two items (below), the owner
 chose to keep the focus on the visuals: finish MS-7e, then build MS-7h's effects ahead of the stages that make their
-state - on scripted replays, as MS-7e2's were (the showcase writes the states a flight would: a detonation at a time and
+state - on scripted replays, as MS-7e2's were (the retired showcase wrote supplied states: a detonation at a time and
 place, a component failed, chaff dispensed), each effect drawn from a shared state layout. That choice deferred
 flight work at the time; generated flight models and native engagement states now exist, while MS-7c's
 high-fidelity solver cross-checks remain open. The original visual sequence was:
 
 1. MS-7e2, the launch: a rail launch's flash and the smoke cloud round the launcher as the motor lights (an ejected
    one already falls clear before it lights); the prototype's end at the ground. Current native engagements also
-   have fuze outcomes, separately from this scripted preview.
+   have fuze outcomes, separately from this retired scripted preview.
 2. MS-7e1, for MS-7g and MS-7h: each aircraft's vulnerable components placed from its design (engines, fuel tanks,
    cockpit, flight controls) and its chaff and flare dispensers, in its model's manifest.
 3. MS-7h, on scripted replays: the detonation (flash, fireball, smoke puff by the warhead's explosive mass; the
@@ -994,9 +1007,10 @@ as a physical chain in the world - the kill probabilities and kill levels stay w
   fireball attached and stretched aft), the trail gusting as the leak burns, the skin panels torn off on the burst's
   side, the sections parting and the debris falling - each held to the photographs again.
 
-The showcase's world-run preview flies the target under its JSBSim autopilot and scripts the missile and its burst.
-Current armed engagement instead integrates the missile in native JSBSim and owns its fuze and damage outcomes;
-the showcase remains a visual prototype rather than a native encounter test.
+The retired showcase's world-run preview flew the target under its JSBSim autopilot and scripted the missile and
+its burst. Current showcase and viewer hit scenes use a real SDK release through observations and consent;
+native JSBSim integrates the missile, and SDK guidance, seekers, fuzes and damage own its outcome. The historical
+visual records above retain their scripted scope and do not establish acceptance of that replacement.
 
 The original sequence then called for first flight models and MS-7c onwards. Generated models and the narrower
 native game engagement are now delivered; high-fidelity work retains the criteria below.

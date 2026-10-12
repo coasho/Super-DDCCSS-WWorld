@@ -111,7 +111,10 @@ struct Sensors::Impl {
             if (slotVehicle[s] == 0) {
                 slotVehicle[s] = v.id();
                 vehicleSlot[v.id()] = s;
+                visuals->resetCarriage(s);
                 visuals->setModel(s, v.model(), v.type());
+                // A cached model's segmentation copy may not have been drawn before.
+                offscreen.sceneChanged();
                 const auto bit = ownBit.find(v.id());
                 visuals->setMask(s, bit != ownBit.end() ? bit->second : vsg::MASK_ALL);
                 visuals->setVisible(s, true);
@@ -257,6 +260,11 @@ Sensors::Sensors(World& world, const Options& options) : impl_(std::make_unique<
 
     impl_->offscreen.setScene(scene, impl_->ellipsoid);
     if (options.segmentation) impl_->offscreen.setSegmentationScene(impl_->visuals->segmentationNode());
+    impl_->visuals->setCompiler([impl = impl_.get()](vsg::ref_ptr<vsg::Node>) {
+        // syncVehicles attaches the complete model/store graph before render compiles it.
+        impl->offscreen.sceneChanged();
+        return true;
+    });
   } catch (const vsg::Exception& e) {
     rethrow("scene", e);
   }

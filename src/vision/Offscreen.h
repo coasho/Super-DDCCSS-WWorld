@@ -55,6 +55,9 @@ public:
     /// again (by render/advance) whenever cameras were added or removed.
     bool compile(std::string* error);
 
+    /// Compile newly attached scene resources before the next render or advance.
+    void sceneChanged() noexcept { dirty_ = true; }
+
     /// Drop a camera: its index stays valid but it is no longer drawn.
     void removeCamera(unsigned camera);
     bool active(unsigned camera) const { return camera < cameras_.size() && cameras_[camera].active; }
@@ -115,7 +118,7 @@ private:
     vsg::ref_ptr<vsg::CommandGraph> commandGraph_;
     std::vector<Camera> cameras_;
     bool compiled_ = false;
-    bool dirty_ = true; ///< cameras changed since the last compile()
+    bool dirty_ = true; ///< cameras or scene resources changed since the last compile()
     std::uint64_t frames_ = 0;
     Timing timing_;
 };

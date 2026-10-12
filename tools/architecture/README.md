@@ -35,7 +35,7 @@ build inputs. Explicit file ownership takes precedence in two shared directories
 | Module | Shared directory ownership |
 | --- | --- |
 | `flow` / `fsim_flow` | `src/world/FlowSolver.{h,cpp}` and `src/world/FlowFires.{h,cpp}` |
-| `viewer` / `flightsim-viewer` | `src/app/viewer_main.cpp` and `src/app/DemoAutopilot.h` |
+| `viewer` / `flightsim-viewer` | `src/app/viewer_main.cpp`, `src/app/DemoAutopilot.h` and `src/app/StrikeCapture.h` |
 
 Flow has its own core dependency closure and does not inherit world dependencies.
 It is an optional GPU module, including the existing Win32 Flow loader; isolating

@@ -31,9 +31,9 @@ bool Viewer::screenshot(const std::string& path) {
         return false;
     }
 
-    // The image presented last frame (imageIndex(1) once a frame has been presented).
+    // frame() has already presented the current image; acquisition has not advanced to the next one.
     viewer_->deviceWaitIdle();
-    const std::size_t index = window_->imageIndex(1) < window_->numFrames() ? window_->imageIndex(1) : window_->imageIndex(0);
+    const std::size_t index = window_->imageIndex();
     if (index >= window_->numFrames()) return false;
     auto source = window_->imageView(index)->image;
 

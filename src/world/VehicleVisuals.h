@@ -249,6 +249,9 @@ public:
     /// fsim:station:<n> node: the pylon and launcher stay when the store leaves); a store in a bay is drawn in it, behind
     /// its doors (setBayDoors).
     void setStores(std::size_t index, const std::vector<Carried>& stores);
+    /// A different entity now owns this slot: discard the previous entity's carriage history.
+    /// Ordinary releases and resets of the same entity keep that history.
+    void resetCarriage(std::size_t index);
     /// How far open each station's weapon-bay doors are (0 shut .. 1), station by station, as the store management
     /// has them: the doors of the station's bay (its fsim:bay:<bay>:<deg> nodes) turn that far.
     void setBayDoors(std::size_t index, const std::vector<std::pair<int, double>>& stationDoors);

@@ -55,8 +55,14 @@ The store report's `--force` option forces model and flight-model regeneration; 
 
 The generated effects inventory reports missing entries under the generator's current audit rules. Rotorcraft
 exhaust/wake omissions are excluded from that count and remain B-59 in [backlog.md](backlog.md). A zero count does
-not establish complete physical effect coverage. Showcase and plume-check recordings are scripted visual fixtures,
-not native guidance or trajectory validation.
+not establish complete physical effect coverage. Current showcase and plume-check recordings use SDK Worlds:
+JSBSim flies the launcher, target and released weapon, and the SDK owns guidance, seekers, fuzes and damage.
+Missing native support fails the scene instead of substituting a scripted trajectory or scheduled burst. The
+plume comparison measures rendered shape and brightness; it does not calibrate real-world missile performance.
+Older scripted-fixture measurements retain their original dates and scope in the [viewer guide](sdk/viewer.md).
+For continuous live viewer acceptance, use [Hangar's `--live` launcher](hangar.md#missiles) with one fullscreen
+viewer attached to the exact published World for the entire native run. Captured frames are evidence for their
+individual times, not proof that the complete live release, flight and aftermath were observed.
 
 For the SDK inventory, edit TOML and render against the actual public binaries and staged Python package:
 

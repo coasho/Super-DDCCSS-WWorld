@@ -50,7 +50,7 @@ criterion. Update this page and the affected reference together when a capabilit
 | Native missile engagements | Implemented release, native motor/flight state, radar and infrared seeker observations, guidance, countermeasures, fuzes, damage, terminal records and replayable events. Recorded delivery at the implementation baseline. | [Engagement contract](sdk/engagement.md), [delivery validation](sdk/engagement-validation.md), `tests/test_engagement_native.cpp`. | Guidance, fin response, seekers, decoys and launch-zone parameters are game estimates. This is not completion of the original high-fidelity MS-7c/MS-7d/MS-7f criteria. |
 | Launch zones and countermeasures | Implemented advisory launch-zone queries and native chaff/flare inventory, releases, motion and expiry. | [Engagement contract](sdk/engagement.md), `tests/test_countermeasure_core.cpp`, `tests/test_weapon_guidance.cpp`. | Advisory envelopes do not guarantee intercepts or satisfy MS-8's original published-range acceptance. Direct dispenser APIs do not mean every electronic-attack capability is implemented. |
 | Warning receivers and other sensors | ESM/RWR contacts are implemented. Other payload families retain their own support states and staged modeling work. | [Mission Systems API](sdk/mission-systems.md), `src/ms/esm/`, [remaining MS stages](mission-systems.md). | Native seeker and dispenser support is not a claim that full IRST imagery, IFF, jamming, all guns, PNT, or the OMS bridge is complete. |
-| Native viewer, effects and vision | Optional Vulkan/VSG viewer and vision modules exist, with terrain, aircraft/store visuals and engagement effects. | [Viewer](sdk/viewer.md), [vision](sdk/vision.md), [Hangar effects](hangar-effects.md). | The native Vulkan viewer was not rebuilt for the native-engagement delivery. Older GPU observations retain their original hardware and build scope. |
+| Native viewer, effects and vision | Optional Vulkan/VSG viewer and vision modules exist, with terrain, aircraft/store visuals and engagement effects. Native fullscreen lifecycle and screenshot corrections have passed focused GPU checks. | [Viewer](sdk/viewer.md), [vision](sdk/vision.md), [current viewer validation](sdk/viewer-validation.md), [Hangar effects](hangar-effects.md). | The viewer-correction baseline failed the 4K performance gate for three of four scenes; performance of the replacement native hit fixture has not been remeasured. Aircraft materials retain existing detail; aircraft cast shadows are not enabled. Current acceptance is scoped by the linked record; older GPU observations retain their original hardware and build scope. |
 | Testbench | Flight Autonomy, platform and stability scenarios remain active. The obsolete `tactics.bvr` prototype and its independent Python simulation have been removed. | [Testbench guide](../testbench/README.md), `testbench/fsim_testbench/registry.py`. | Native engagement acceptance is provided by SDK tests and its delivery record; no replacement testbench combat scenario is introduced here. |
 
 ## Milestones
@@ -111,9 +111,14 @@ an environment-dependent condition. A1 makes architecture acceptance independent
   Referenced design/source photographs and dated control/performance evidence remain attached to their scope.
 - Corrected strike/store capability descriptions to name the remaining calibrated weapon and launch-zone fidelity
   rather than claiming native guidance, seekers and fuzes do not exist. `Partial` support remains intentional.
-- Kept showcase/plume fixtures because current model tests and viewer-performance tools consume them. Their
-  carrier/missile poses and detonation timing are scripted; native target flight, damage and Flow fire do not
-  establish native missile-flight acceptance.
+- Replaced the maintained showcase, plume-check and viewer `hit` scene's scripted missile motion with SDK
+  release and native JSBSim flight. Their scenes use observations and consent; SDK guidance, seekers, fuzes and
+  damage determine the outcome. Missing support fails instead of falling back to supplied poses or timed bursts.
+  Dated scripted-fixture images and performance records keep their original scope; they are not evidence for
+  the replacement scenes.
+  The optional native `--live` run publishes and paces the same scene for continuous fullscreen observation;
+  captured frames alone do not establish full-flight acceptance. Completed live runs are scoped by the
+  [viewer validation record](sdk/viewer-validation.md).
 - Clarified the generated effects audit: zero missing entries is a result under its current exclusions, not proof
   that every physical effect exists. Rotorcraft exhaust/wake gaps remain B-59 in the [backlog](backlog.md).
 

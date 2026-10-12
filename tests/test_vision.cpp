@@ -182,6 +182,75 @@ int main(int argc, char** argv) {
         CHECK(sensors.cameraCount() == 5);
     }
 
+    // Reusing a render slot for the same model must not carry the old aircraft's pylons into a clean one.
+    {
+        WorldOptions lifecycleOptions = wo;
+        lifecycleOptions.name = "vision-slot-lifecycle";
+        World lifecycleWorld(lifecycleOptions);
+        VehicleSpec fighter = spec;
+        fighter.name = "fighter";
+        fighter.type = "jsbsim:f16c";
+        fighter.initial.airspeedTrueMs = 220.0;
+        Vehicle original = lifecycleWorld.createVehicle(fighter);
+        CHECK(original.stores().empty());
+
+        vision::Options lifecycleVision = vo;
+        lifecycleVision.sky = false;
+        lifecycleVision.maxVehicles = 1; // removing and rendering frees the only slot for its replacement
+        vision::Sensors lifecycleSensors(lifecycleWorld, lifecycleVision);
+        vision::CameraSpec side;
+        side.width = 256;
+        side.height = 192;
+        side.offsetBodyM[1] = 18.0;
+        side.offsetBodyM[2] = 4.0;
+        side.yawDeg = -90.0;
+        side.pitchDeg = 12.5;
+        side.hideOwnVehicle = false;
+        side.depth = true;
+        const unsigned camera = lifecycleSensors.addCamera(original, side);
+        lifecycleSensors.render();
+        const auto baselineImage = lifecycleSensors.depth(camera);
+        CHECK(baselineImage.metres != nullptr);
+        const std::vector<float> baseline(baselineImage.metres, baselineImage.metres + baselineImage.size());
+        CHECK(std::count_if(baseline.begin(), baseline.end(), [](float metres) { return metres < 1000.0f; }) > 100);
+
+        CHECK(original.loadLoadout("mk82 x4") == ms::Reason::None);
+        const auto stores = original.stores();
+        CHECK(stores.size() == 4);
+        std::fprintf(stderr, "vision slot lifecycle: rendering newly loaded stores\n");
+        lifecycleSensors.render();
+        std::fprintf(stderr, "vision slot lifecycle: newly loaded stores rendered\n");
+        auto extraPixels = [&]() {
+            const auto image = lifecycleSensors.depth(camera);
+            std::size_t extra = 0;
+            for (std::size_t i = 0; i < baseline.size(); ++i)
+                extra += baseline[i] >= 1000.0f && image.metres[i] < 1000.0f ? 1u : 0u;
+            return extra;
+        };
+        CHECK(extraPixels() > 0); // the loaded stores actually appear in this view
+        for (const auto& store : stores)
+            CHECK(original.loadStore(store.payload, store.station, "") == ms::Reason::None);
+        CHECK(original.stores().empty());
+        lifecycleSensors.render();
+        CHECK(extraPixels() > 0); // the original aircraft keeps its carriage after the stores leave
+
+        CHECK(original.remove());
+        lifecycleSensors.render(); // the camera retains its pose, and the sole vehicle slot becomes free
+        const auto empty = lifecycleSensors.depth(camera);
+        CHECK(std::all_of(empty.metres, empty.metres + empty.size(), [](float metres) { return metres >= 1000.0f; }));
+        Vehicle replacement = lifecycleWorld.createVehicle(fighter);
+        CHECK(replacement.id() != original.id());
+        CHECK(replacement.stores().empty());
+        lifecycleSensors.render(); // no World::step(): both clean aircraft have exactly the same initial pose
+        const auto clean = lifecycleSensors.depth(camera);
+        CHECK(clean.size() == baseline.size());
+        std::size_t stalePixels = 0;
+        for (std::size_t i = 0; i < baseline.size(); ++i)
+            stalePixels += (baseline[i] < 1000.0f) != (clean.metres[i] < 1000.0f) ? 1u : 0u;
+        std::fprintf(stderr, "same-model slot reuse: %zu unexpected silhouette pixels\n", stalePixels);
+        CHECK(stalePixels == 0);
+    }
+
     // A VecEnv exposes its world: one camera per batch vehicle.
     {
         VecEnvOptions vo2;

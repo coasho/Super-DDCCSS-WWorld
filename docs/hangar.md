@@ -1095,20 +1095,51 @@ every nation's missiles are drawn the same way:
   for the maker's munitions was found.
 
 The geometry, mass and model stages run (`fsim hangar <name> geometry mass model`); the aircraft's checks of tail
-volumes and aspect ratio are not a missile's and are left out. The visual prototype command `fsim hangar showcase
-<name> [--carrier f16c] [--station N]` writes a recording that shows it in the viewer: the carrier flying level with
-the missile on a station its loadouts put it on, the launch (off a rail, or ejected and lit a quarter second later),
-its motor's thrust through its phases, its fins deflected by a scripted manoeuvre - kinematic, not flown
-(`tools/showcase`, `flightsim-showcase`). This preview remains separate from current native JSBSim engagement;
-it is not guidance, fuze or flight validation. It prints the viewer's command:
-`flightsim-viewer --replay aircraft/<name>/out/showcase.fsrec --fullscreen --camera chase --follow 1`.
-`--altitude <m>` sets the carrier's height (6,000 m by default; 10,500 m is cold enough for the motor's ice contrail);
-`--humidity <0..1>` the day's humidity over water, recorded as the world's environment (none: the viewer's typical day) -
-at 0.9 a reduced-smoke motor's HCl takes up the air's water into a white smoke trail. `--dive-s <s>` (with
-`--dive-deg`, -30 by default) pitches it down that long after its launch, to the ground: it ends where it strikes the
-map set's terrain (the tiles the physics stands on, offline), as World ends an impacting weapon - its vehicle removed
-that step. Current native armed engagements can also terminate through the fuze or expiry;
-see [engagement](sdk/engagement.md). The native Vulkan viewer was not rebuilt for that delivery.
+volumes and aspect ratio are not a missile's and are left out. `fsim hangar showcase <name> [--carrier f16c]
+[--station N] [--target f16c] [--target-range 5000] [--live]` generates a native SDK scene and recording with
+`flightsim-showcase <scene.json> <out.fsrec> [--live]`. A World flies the launcher, target and released store with JSBSim.
+The launcher uses its own radar-track designation, prepares the station and supplies strike consent; the SDK
+owns subsequent guidance, seeker observations, fuze decisions and damage. Unsupported stores, missing sensor
+support or failed release stop the scene; there is no scripted missile path or scheduled detonation fallback.
+
+The default encounter configures both aircraft at 250 m/s and 6,000 m altitude, heading towards each other.
+After the launcher settles, an F-16C target is created 5,000 m ahead of its current pose. `--launch-s` requests
+strike submission no earlier than 12 s by default; observations, preparation and consent determine the actual
+release time. `--duration` records 40 s by default, `--target-range` sets separation at target creation in metres,
+`--target-altitude-offset` the target's height relative to the launcher, and `--seed` the World's seed.
+`--altitude <m>` sets the launcher's height; `--humidity <0..1>` sets the day's humidity over water in the
+recorded environment (none: the viewer's typical day). These select the scene, rather than controlling a missile's
+motion or outcome. See the [native engagement contract](sdk/engagement.md) for the model's assumptions and limits.
+
+`--live` publishes the same native World and paces every World step against real time. Payload preparation,
+stable flight, release, guided flight and the remaining aftermath all belong to the requested duration; the default
+is 40 s from simulation time zero. Start one fullscreen viewer in a terminal first, waiting for the exact World
+name, then launch the scene in a second terminal:
+
+```powershell
+# Terminal 1: keep this viewer open through the entire encounter.
+.\fsim.cmd --preset ucrt64-release viewer --world "aim120c native encounter" --fullscreen --camera chase
+
+# Terminal 2: publish and fly the native scene; --duration defaults to 40 s.
+.\fsim.cmd --preset ucrt64-release hangar showcase aim120c --live
+```
+
+Hangar names this World `<name> native encounter`; a custom scene uses its JSON `name`. The live tool requests
+camera focus on the carrier, then the actual released weapon, then the actual target after that weapon's native
+fragment damage on that target. Keep the same viewer window open for the full run. Screenshots and replay frames support review
+of individual states; they do not establish that the continuous live flight was observed. Completed live acceptance
+and its remaining limits belong to the dated [viewer validation record](sdk/viewer-validation.md).
+
+The scene's `rate_hz` selects recording samples only. It defaults to 30 Hz and accepts the positive integer
+divisors of 30: 1, 2, 3, 5, 6, 10, 15 and 30 Hz. Native stepping keeps the SDK defaults, `dt = 1/120 s` and
+`frameSkip = 4`: JSBSim integrates at 120 Hz, and the World steps guidance, fuzes and damage at 30 Hz. Changing
+capture frequency does not change those cadences; 60 Hz and non-divisor rates are rejected.
+
+Outputs are `aircraft/<name>/out/showcase.json`, `showcase.fsrec` and `showcase.fsrec.engagement.json`. The last
+records the actual launch time and released weapon slot; the printed replay command uses that slot. Do not assume
+that slot 1 is a missile in every scene. Old recordings generated by the retired scripted tool are historical
+visual fixtures and should not be reused as evidence for native guidance or fuze behavior. The
+[viewer validation record](sdk/viewer-validation.md) distinguishes its recorded scenes and hardware scope.
 
 ## Stores
 

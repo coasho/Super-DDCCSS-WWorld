@@ -154,7 +154,7 @@ constexpr std::uint32_t kMissionTracks = 48;      ///< a radar's tracks shown (i
 struct MissionPayload {
     char name[24] = {};          ///< in the fit: "radar"
     char designation[40] = {};   ///< "AN/APG-68(V)9"
-    char capabilities[64] = {};  ///< its family's capabilities, those not built yet with their stage: "amti", "esm (MS-9)"
+    char capabilities[64] = {};  ///< family capabilities; partial or unimplemented ones carry their stage: "amti", "esm (MS-9)"
     std::uint8_t family = 0;     ///< ms::Family
     std::uint8_t state = 0;      ///< ms::PayloadState
     std::uint16_t count = 0;

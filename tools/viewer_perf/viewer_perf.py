@@ -9,8 +9,8 @@ per-second statistics are read and held to the target:
     fleet    all 35 aircraft with their loads, line abreast, turning together (live; no fire)
     strike   an F-16C flown into the sea at 60 deg and 233 m/s: its fireball and the fire that burns on (live; NVIDIA
              Flow solving from the strike)
-    hit      a MiG-29A hit from its left by an AIM-120C: the burst, the spilt fuel's fireball, the leak burning down
-             its path, its sections parting (a recording made by flightsim-showcase from hit.json; Flow solving)
+    hit      an SDK AIM-120C radar engagement against a native F-16C: release, guidance and fuze events recorded
+             by flightsim-showcase from hit.json; damage and any fire or breakup come from the SDK outcome
     reheat   an F-16C in full reheat through the transonic, close: its flame, shock train and vapour cone (live)
 
 The picture is held as well as the rate (an optimisation that changes what is drawn is not one):
@@ -20,12 +20,15 @@ The picture is held as well as the rate (an optimisation that changes what is dr
     viewer_perf.py --compare <label> <label>  the two sets frame by frame: the mean and the 99.9th percentile of the
                                               pixels' difference (of 255), and the share of pixels more than 8 apart
 
-The scenes' recordings are made once (<out>/shots/<scene>.fsrec) and replayed for every label, so two sets differ by
-the viewer alone. What moves from run to run in one viewer - the clouds' and the vapour's temporal noise, the fire
+The scenes' recordings are cached (<out>/shots/<scene>.fsrec) and replayed for every label. The hit cache requires
+native SDK provenance matching its input and the current tool build; an old mechanical fixture is regenerated.
+The hit captures include native release, weapon flight and approach before its burst, followed by the target's
+aftermath. Their actual clocks and camera slots are recorded in hit.frames.json beside the frames.
+What moves from run to run in one viewer - the clouds' and the vapour's temporal noise, the fire
 solver's own timing - is the floor: take two sets from the same build to see it.
 
 A scene passes when, after its first seconds (the viewer loading its tiles and models: --warmup), every one-second
-window's mean rate is within 1 % of the target and no frame took longer than twice the target's interval. Exit code
+window's mean rate is at least 99 % of the target (158.4 fps for 160) and no frame took longer than twice its interval. Exit code
 1 when a scene fails. The machine must be idle: anything else on its CPU or GPU is in these numbers.
 """
 import argparse
@@ -47,7 +50,7 @@ SCENES = {
     "fleet": ("vi-fleet", "live", ["--follow", "9", "--camera", "chase", "--chase-distance", "900"], 40.0),
     "strike": ("vi-strike", "live", ["--follow", "0", "--camera", "chase", "--chase-distance", "160", "--chase-elevation", "10",
                                      "--chase-azimuth", "70"], 26.0),
-    "hit": ("", "replay", ["--follow", "2", "--camera", "chase", "--chase-distance", "70", "--chase-elevation", "35", "--chase-azimuth", "0"], 34.0),
+    "hit": ("", "replay", ["--camera", "chase", "--chase-distance", "70", "--chase-elevation", "35", "--chase-azimuth", "0"], 34.0),
     "reheat": ("vi-reheat", "live", ["--follow", "0", "--camera", "chase", "--chase-distance", "35", "--chase-elevation", "8",
                                      "--chase-azimuth", "50"], 26.0),
 }
@@ -58,10 +61,109 @@ SHOTS = {
     "fleet": ([6.0, 9.0, 12.0], [["--follow", "9", "--camera", "chase", "--chase-distance", "900"],
                                  ["--follow", "12", "--camera", "chase", "--chase-distance", "45", "--chase-elevation", "12", "--chase-azimuth", "140"]]),
     "strike": ([9.15, 9.4, 9.8, 10.6, 12.0, 15.0, 20.0], [SCENES["strike"][2]]),
-    "hit": ([12.05, 12.3, 12.8, 13.5, 15.0, 18.0, 22.0], [SCENES["hit"][2]]),
     "reheat": ([16.0, 19.0, 22.0], [SCENES["reheat"][2]]),
 }
 RECORD_S = {"fleet": 14.0, "strike": 22.0, "reheat": 24.0}
+
+
+def native_metadata(rec, scene_path):
+    """Read native provenance for this input, refusing legacy or unrelated recordings."""
+    try:
+        with open(scene_path, "rb") as f:
+            raw = f.read()
+        scene = json.loads(raw)
+        digest = 0xcbf29ce484222325
+        for byte in raw:
+            digest = ((digest ^ byte) * 0x100000001b3) & 0xffffffffffffffff
+        with open(rec + ".engagement.json", encoding="utf-8") as f:
+            data = json.load(f)
+        if (scene.get("schema") != "native-engagement-v1" or data.get("schema") != "native-engagement-v1" or
+                data.get("source") != "native-sdk" or data.get("scene_hash") != "%016x" % digest or
+                not os.path.isfile(rec) or os.path.getsize(rec) == 0 or not data.get("weapons")):
+            raise ValueError("missing or mismatched native provenance")
+        return data
+    except (OSError, ValueError, TypeError, AttributeError) as error:
+        raise RuntimeError("no verified native SDK recording: %s (%s)" % (rec, error)) from error
+
+
+def hit_weapon(data):
+    """Select a weapon whose native guidance, fuze and damage events establish an actual hit."""
+    target = data.get("target_id")
+    if not isinstance(target, int) or target <= 0 or not isinstance(data.get("target_slot"), int) or data["target_slot"] < 0:
+        raise RuntimeError("native hit recording has no target identity/slot")
+    for weapon in data.get("weapons", []):
+        end, launch = weapon.get("end_time_s"), weapon.get("launch_time_s")
+        if (weapon.get("terminal_kind") != "detonated" or weapon.get("holding_id") != target or not weapon.get("acquired") or
+                not isinstance(end, (int, float)) or not math.isfinite(end) or not isinstance(launch, (int, float)) or
+                not math.isfinite(launch) or end <= launch):
+            continue
+        events = [e for e in data.get("engagements", []) if e.get("entity") == weapon.get("id") and e.get("target") == target]
+        if not any(e.get("kind") == "detonation" and e.get("time_s") == end for e in events):
+            continue
+        if not any(e.get("kind") == "damage" for e in events):
+            continue
+        duration = data.get("duration_s")
+        if not isinstance(duration, (int, float)) or not math.isfinite(duration) or duration <= end:
+            raise RuntimeError("native hit recording ends before its visual aftermath")
+        times = [end + dt for dt in (0.05, 0.3, 0.8, 1.5, 3.0, 6.0, 10.0) if end + dt < duration]
+        if not times:
+            raise RuntimeError("native hit recording contains no aftermath frame")
+        return weapon
+    raise RuntimeError("native SDK encounter did not produce a guided hit; no substitute burst is permitted")
+
+
+def hit_reference(data):
+    """Follow the actual opponent and capture relative to an authoritative native hit."""
+    weapon = hit_weapon(data)
+    end = weapon["end_time_s"]
+    times = [end + dt for dt in (0.05, 0.3, 0.8, 1.5, 3.0, 6.0, 10.0) if end + dt < data["duration_s"]]
+    return times, [["--follow", str(data["target_slot"])] + SCENES["hit"][2]]
+
+
+def hit_capture_plan(data):
+    """Show the released native weapon before its burst, then show SDK damage on the target."""
+    weapon = hit_weapon(data)
+    launch, end = weapon["launch_time_s"], weapon["end_time_s"]
+    carrier_slot, weapon_slot = data.get("carrier_slot"), weapon.get("weapon_slot")
+    if not isinstance(carrier_slot, int) or carrier_slot < 0 or not isinstance(weapon_slot, int) or weapon_slot < 0:
+        raise RuntimeError("native hit recording has no carrier/weapon camera slots")
+    if end - 0.25 <= launch + 1.0:
+        raise RuntimeError("native hit weapon interval is too short for the requested flight captures")
+    carrier = ["--follow", str(carrier_slot), "--camera", "chase", "--chase-distance", "35", "--chase-elevation", "12", "--chase-azimuth", "140"]
+    missile = ["--follow", str(weapon_slot), "--camera", "chase", "--chase-distance", "30", "--chase-elevation", "0", "--chase-azimuth", "270"]
+    plan = [{"phase": "release", "time_s": launch + 0.1, "camera": carrier},
+            {"phase": "flight", "time_s": launch + 1.0, "camera": missile},
+            {"phase": "approach", "time_s": end - 0.25, "camera": missile}]
+    times, cameras = hit_reference(data)
+    plan.extend({"phase": "aftermath", "time_s": t, "camera": cameras[0]} for t in times)
+    return plan
+
+
+def make_native_recording(scene_path, rec, bin_dir, reuse=False):
+    """Regenerate stale recordings and validate native outcome before a viewer can consume them."""
+    exe = os.path.join(bin_dir, "flightsim-showcase.exe")
+    if reuse:
+        try:
+            data = native_metadata(rec, scene_path)
+            inputs = [scene_path, exe, os.path.join(bin_dir, "libfsim.dll")]
+            if all(os.path.isfile(path) and os.path.getmtime(path) <= os.path.getmtime(rec) for path in inputs):
+                hit_reference(data)
+                return data
+        except RuntimeError:
+            pass
+    try:
+        if os.path.isfile(rec + ".engagement.json"):
+            os.remove(rec + ".engagement.json")  # Invalidate prior success before an overwrite attempt.
+        made = subprocess.run([exe, scene_path, rec], cwd=bin_dir, capture_output=True, text=True)
+    except OSError as error:
+        raise RuntimeError("native SDK showcase cannot run: %s" % error) from error
+    with open(rec + ".scene.out", "w", encoding="utf-8") as f:
+        f.write(made.stdout + made.stderr)
+    if made.returncode != 0:
+        raise RuntimeError("native SDK showcase failed: " + made.stdout[-1000:] + made.stderr[-1000:])
+    data = native_metadata(rec, scene_path)
+    hit_reference(data)
+    return data
 
 
 # --- the scenes' worlds (each run as a process of its own: `viewer_perf.py --publish <scene> <ready file> <seconds>
@@ -206,17 +308,18 @@ def run(scene, args, out):
         source = ["--world", world]
     else:
         rec = stem + ".fsrec"
-        made = subprocess.run([os.path.join(bin_dir, "flightsim-showcase.exe"), os.path.join(HERE, scene + ".json"), rec], cwd=bin_dir,
-                              capture_output=True, text=True)
-        if made.returncode != 0 or not os.path.isfile(rec):
-            raise RuntimeError("flightsim-showcase failed: " + made.stdout[-1000:] + made.stderr[-1000:])
+        data = make_native_recording(os.path.join(HERE, scene + ".json"), rec, bin_dir)
+        _, cameras = hit_reference(data)
+        view = cameras[0]
         source = ["--replay", rec]
     command = [os.path.join(bin_dir, args.exe)] + source + view + [
         "--offline", "--width", str(WIDTH), "--height", str(HEIGHT), "--fullscreen", "--stats", str(seconds), *SUN,
         "--stats-budget", "%.4f" % (2000.0 / args.target)] + args.viewer
     try:
         with open(stem + ".out", "w") as o, open(stem + ".err", "w") as e:
-            subprocess.run(command, cwd=bin_dir, stdout=o, stderr=e, timeout=seconds + 120.0)
+            measured = subprocess.run(command, cwd=bin_dir, stdout=o, stderr=e, timeout=seconds + 120.0)
+        if measured.returncode != 0:
+            raise RuntimeError("viewer process failed (%d): see %s.err" % (measured.returncode, stem))
     finally:
         if publisher is not None:
             publisher.kill()
@@ -237,12 +340,12 @@ def recording(scene, args):
     folder = os.path.join(args.out, "shots")
     os.makedirs(folder, exist_ok=True)
     rec = os.path.join(folder, scene + ".fsrec")
-    if os.path.isfile(rec):
+    if os.path.isfile(rec) and SCENES[scene][1] != "replay":
         return rec
     bin_dir = os.path.join(args.build, "bin")
     if SCENES[scene][1] == "replay":
-        made = subprocess.run([os.path.join(bin_dir, "flightsim-showcase.exe"), os.path.join(HERE, scene + ".json"), rec], cwd=bin_dir,
-                              capture_output=True, text=True)
+        make_native_recording(os.path.join(HERE, scene + ".json"), rec, bin_dir, reuse=True)
+        return rec
     else:
         env = dict(os.environ, PYTHONPATH=os.path.join(args.build, "python"), FSIM_BIN=bin_dir)
         made = subprocess.run([sys.executable, os.path.abspath(__file__), "--publish", scene, rec + ".ready", str(RECORD_S[scene]), rec], env=env,
@@ -258,17 +361,37 @@ def shots(args):
     os.makedirs(folder, exist_ok=True)
     for scene in args.scene:
         rec = recording(scene, args)
-        times, cameras = SHOTS[scene]
-        for c, camera in enumerate(cameras):
-            stem = os.path.join(folder, scene if c == 0 else "%s%d" % (scene, c + 1))
-            for k, t in enumerate(times):  # (a viewer a frame: -every is one interval, the times are not evenly apart)
+        if scene == "hit":
+            data = native_metadata(rec, os.path.join(HERE, scene + ".json"))
+            plans = [(scene, hit_capture_plan(data))]
+            manifest_path = os.path.join(folder, "hit.frames.json")
+            if os.path.isfile(manifest_path):
+                os.remove(manifest_path)
+        else:
+            times, cameras = SHOTS[scene]
+            plans = [(scene if c == 0 else "%s%d" % (scene, c + 1),
+                      [{"phase": scene, "time_s": t, "camera": camera} for t in times]) for c, camera in enumerate(cameras)]
+        frames = []
+        for name, plan in plans:
+            stem = os.path.join(folder, name)
+            for k, frame in enumerate(plan):  # (a viewer a frame: the reference clocks are not evenly apart)
+                t, camera = frame["time_s"], frame["camera"]
                 png = "%s_%03d.png" % (stem, k)
                 command = [os.path.join(bin_dir, args.exe), "--replay", rec] + camera + [
                     "--offline", "--no-gui", "--width", str(WIDTH), "--height", str(HEIGHT), "--fullscreen", *SUN, "--screenshot", png,
                     "--screenshot-clock", "replay", "--screenshot-after", "%.3f" % t] + args.viewer
+                if os.path.isfile(png):
+                    os.remove(png)
                 with open(stem + ".log", "a") as log:
-                    subprocess.run(command, cwd=bin_dir, stdout=log, stderr=subprocess.STDOUT, timeout=180.0)
-                print("%s %s" % ("saved" if os.path.isfile(png) else "MISSING", png), flush=True)
+                    captured = subprocess.run(command, cwd=bin_dir, stdout=log, stderr=subprocess.STDOUT, timeout=180.0)
+                if captured.returncode != 0 or not os.path.isfile(png):
+                    raise RuntimeError("viewer screenshot failed (%d): see %s.log" % (captured.returncode, stem))
+                frames.append({"file": png, **frame})
+                print("saved %s" % png, flush=True)
+        if scene == "hit":
+            with open(manifest_path, "w", encoding="utf-8") as manifest:
+                json.dump({"schema": data["schema"], "source": data["source"], "scene_hash": data["scene_hash"],
+                           "recording": rec, "frames": frames}, manifest, indent=2)
     return 0
 
 

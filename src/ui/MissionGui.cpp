@@ -167,7 +167,7 @@ void MissionGui::drawPayloads() const {
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("station %u: %s, %s", static_cast<unsigned>(s.station), s.mnemonic, status);
         }
     }
-    ImGui::TextDisabled("as the SDK commands them; (MS-n): not modelled yet");
+    ImGui::TextDisabled("SDK support: (MS-n) means partial or unimplemented");
     ImGui::End();
 }
 

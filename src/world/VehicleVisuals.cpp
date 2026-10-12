@@ -1113,6 +1113,14 @@ std::string VehicleVisuals::storeType(const std::string& card) {
     return name.empty() ? std::string() : "jsbsim:" + name;
 }
 
+void VehicleVisuals::resetCarriage(std::size_t index) {
+    if (index >= carried_.size()) return;
+    carried_[index].clear();
+    stationsShown_[index].clear();
+    bayOpen_[index].clear();
+    storeSwitch_[index]->children[0].node = vsg::Group::create();
+}
+
 void VehicleVisuals::setStores(std::size_t index, const std::vector<Carried>& stores) {
     if (index >= carried_.size()) return;
     auto same = [](const Carried& a, const Carried& b) { return a.station == b.station && a.type == b.type; };
@@ -1153,12 +1161,7 @@ void VehicleVisuals::assign(std::size_t index, const Model& m) {
     Pose& pose = poses_[index];
     pose = Pose{};
     slotModels_[index] = &m;
-    if (index < carried_.size()) { // another model: its stations bare, nothing on them
-        carried_[index].clear();
-        stationsShown_[index].clear();
-        bayOpen_[index].clear();
-        storeSwitch_[index]->children[0].node = vsg::Group::create();
-    }
+    resetCarriage(index); // another model: its stations bare, nothing on them
     vsg::ref_ptr<vsg::Node> normal = m.normal;
     if (!m.rig.joints.empty()) {
         if (auto copy = m.rig.copy(m.normal, pose.transforms)) {

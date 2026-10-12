@@ -100,7 +100,7 @@ Use the existing layers in [tests/CMakeLists.txt](../tests/CMakeLists.txt) and [
 | Installed SDK package | `.\fsim.cmd --preset ucrt64-headless test -L package` | SDK-only install, installed DLL/data provenance and API load-rejection probes |
 | Renderer, RCS and cameras | Render preset cases; viewer screenshots/performance tools | Visual and GPU behavior on capable hardware |
 
-Start with tests relevant to the change, then run the full applicable preset suite for behavioral changes. Record skips: camera tests may skip without a Vulkan device, and RCS tests may skip without ray queries. Viewer validation requires reading the captured image and confirming the model used in logs. A historical green suite, a workflow file, or a current test listing is not a fresh pass. Check actual workflow-run evidence before claiming CI success.
+Start with tests relevant to the change, then run the full applicable preset suite for behavioral changes. Record skips: camera tests may skip without a Vulkan device, and RCS tests may skip without ray queries. All native viewer acceptance runs must use `--fullscreen`, including screenshots, live/replay lifecycle checks and performance scenes. Confirm the captured dimensions against the display's full resolution, read the image and confirm the model used in logs. Vision/RCS render into offscreen GPU targets, and scene-graph tests have no native viewer window. The [viewer validation record](sdk/viewer-validation.md) identifies actual runtime evidence and exclusions. A historical green suite, a workflow file, or a current test listing is not a fresh pass. Check actual workflow-run evidence before claiming CI success.
 
 The `package_consumer` CTest gate installs only `sdk` into `build/<preset>/package-consumer/installed SDK`, builds the [external consumer](../tests/package_consumer/CMakeLists.txt) using only installed `fsim::sdk`, checks DLL locations and a SHA256 runtime-data manifest, then exercises stock `c172x`, custom `f16c`, its Mk 82 loadout and a released store. It poisons the installed stock, custom and released-store XML in turn; each probe must produce API rejection exit 42. The gate restores exact bytes before its final positive run and keeps its logs/manifest in the private package-consumer directory. Optional vision export checks do not open a GPU device.
 
@@ -147,6 +147,18 @@ Report the checkout/commit, preset, command, environment, elapsed time, tested s
 [status.md](status.md) owns current capability and milestone status. Keep architecture documents as design/rationale, roadmap documents as sequencing/history, [backlog.md](backlog.md) as unresolved work, and generated reports as dated evidence. Update cross-links instead of copying another live status table. A documented limitation stays unresolved until implementation and acceptance evidence support changing it.
 
 `docs/sdk/boundary.toml` is the editable principal inventory; `docs/sdk/boundary.md` is rendered output. `docs/hangar-stores-build.md` and its JSON companion are generated build evidence; regenerate them with their owning tool rather than hand-editing rows. [resources.md](resources.md) lists the other owners.
+
+Regenerate the canonical boundary page from the render build with both native DLLs and its Python package:
+
+```powershell
+python tools/boundary/boundary.py render --fsim-dll build/ucrt64-release/bin/libfsim.dll --vision-dll build/ucrt64-release/bin/libfsim_vision.dll --python-path build/ucrt64-release/python
+ctest --preset ucrt64-release -R '^sdk_boundary$'
+ctest --preset ucrt64-headless -R '^sdk_boundary$'
+```
+
+Headless checking verifies its available API subset, but headless rendering would remove optional Vision
+groups from the canonical page. Retain the complete renderer inventory even when the implementation change
+was validated primarily with a headless build.
 
 The aircraft design skill is maintained at `.agents/skills/aircraft-design/SKILL.md`. `.claude/skills/aircraft-design/SKILL.md` is a byte-identical synchronized copy for Claude discovery. Change the maintenance source, sync the copy in the same change, and verify:
 

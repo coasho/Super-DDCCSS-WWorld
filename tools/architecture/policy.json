@@ -18,7 +18,7 @@
     "ui": {"target": "fsim_ui", "aliases": ["fsim::ui"], "directories": ["src/ui"], "files": [], "headless": false, "allowed_dependencies": ["sim", "render", "world", "ipc", "core"]},
     "vision": {"target": "fsim_vision", "aliases": ["fsim::vision"], "directories": ["src/vision"], "files": [], "headless": false, "allowed_dependencies": ["sdk", "world", "ipc", "io", "core", "platform"]},
     "app": {"target": "flightsim", "aliases": [], "directories": ["src/app"], "files": [], "headless": true, "allowed_dependencies": ["sim", "io", "core", "platform"]},
-    "viewer": {"target": "flightsim-viewer", "aliases": [], "directories": [], "files": ["src/app/viewer_main.cpp", "src/app/DemoAutopilot.h"], "headless": false, "allowed_dependencies": ["ui", "world", "render", "ipc", "control", "sim", "io", "core", "platform"]}
+    "viewer": {"target": "flightsim-viewer", "aliases": [], "directories": [], "files": ["src/app/viewer_main.cpp", "src/app/DemoAutopilot.h", "src/app/StrikeCapture.h"], "headless": false, "allowed_dependencies": ["ui", "world", "render", "ipc", "control", "sim", "io", "core", "platform"]}
   },
   "external_targets": ["fsim::jsbsim", "libJSBSim", "fsim_flow_headers", "winmm", "winhttp", "ws2_32", "vsg::vsg", "vsgXchange::vsgXchange", "vsgImGui::vsgImGui"]
 }

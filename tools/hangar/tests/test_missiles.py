@@ -1,9 +1,16 @@
 """The air-to-air missiles as hangar designs (hangar/missiles.py, ADR-30 MS-7e1): each design is what the table writes,
-holds its card's published figures, and carries its motor to the viewer; the showcase's script launches it from a
-station its carrier's loadouts put it on."""
+holds its card's published figures, and carries its motor to the viewer. A native encounter selects a real carrier
+station and records the SDK release."""
 import json
+import importlib.util
+import io
 import os
+import pathlib
+import tempfile
+import types
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
+from unittest import mock
 
 import numpy as np
 
@@ -60,33 +67,198 @@ class Missiles(unittest.TestCase):
 
     def test_showcase_script(self):
         s = showcase.script("aim120c")
+        self.assertEqual(s.get("schema"), "native-engagement-v1")
+        self.assertEqual(s["rate_hz"], 30)
         m = s["missiles"][0]
         # the F-16C's loadouts put the AIM-120C on its wingtip rails (stations 1 and 9): a rail launch
         self.assertIn(m["station_number"], (1, 9))
-        self.assertEqual(m["launch"], "rail")
-        self.assertEqual(m["type"], "jsbsim:aim120c")
-        a = Aircraft.load(_design("aim120c"))
-        self.assertEqual(m["phases"], [[d, 1000.0 * t] for d, t in a.motor.phases])
-        self.assertEqual(m["fin_deg"], 20.0)
-        # no dive, no ground: it flies its manoeuvre to the recording's end
-        self.assertNotIn("dive_s", m)
-        self.assertNotIn("ground", s)
+        self.assertEqual(m["card"], "aim-120c")
+        self.assertEqual(m["launch_s"], 12.0)
+        self.assertEqual(set(m), {"card", "station_number", "name", "launch_s"})
+        self.assertEqual(s["target"]["type"], "jsbsim:f16c")
+        self.assertEqual(s["target"]["range_m"], 5000.0)
+        self.assertEqual(s["carrier"]["speed_ms"], 250.0)
+        self.assertNotIn("thrust_n", s["carrier"])
+        self.assertNotIn("n2", s["carrier"])
 
-    def test_showcase_detonation(self):
-        # its warhead goes off detonate_s after its launch: the card's warhead mass and its charge (the card's
-        # explosive_kg, MS-7g's G1)
-        s = showcase.script("aim120c", detonate_s=6.0)
-        m = s["missiles"][0]
-        self.assertEqual(m["detonate_s"], 6.0)
-        self.assertEqual(m["warhead_kg"], 20.0)
-        self.assertAlmostEqual(m["explosive_kg"], 7.17)
+    def test_showcase_rejects_legacy_motion_controls(self):
+        for field, value in (("detonate_s", 6.0), ("dive_s", 4.0), ("dive_deg", -25.0),
+                             ("miss_m", (0.0, 5.0, 0.0)), ("separate", "left wing")):
+            with self.subTest(field=field), self.assertRaises(TypeError):
+                showcase.script("aim120c", **{field: value})
 
-    def test_showcase_dive_to_the_ground(self):
-        # a dive: it ends where it strikes the map set's terrain, as World ends a weapon
-        s = showcase.script("aim9m", "fa18c", dive_s=4.0, dive_deg=-25.0)
-        m = s["missiles"][0]
-        self.assertEqual((m["dive_s"], m["dive_deg"]), (4.0, -25.0))
-        self.assertIs(s["ground"], True)
+    def test_showcase_default_participants_have_distinct_native_names(self):
+        s = showcase.script("aim120c")
+        self.assertNotEqual(s["carrier"]["name"], s["target"]["name"], "World rejects duplicate vehicle names")
+
+    def test_showcase_selects_station_that_can_take_sparrow_mass(self):
+        s = showcase.script("aim7m")
+        # The 225 kg AIM-7M exceeds the F-16's 192.8 kg wingtip limits; the outboard/mid rails can take it.
+        self.assertIn(s["missiles"][0]["station_number"], (2, 3, 7, 8))
+
+    def test_showcase_explicit_station_is_not_replaced(self):
+        s = showcase.script("aim7m", station=1)
+        self.assertEqual(s["missiles"][0]["station_number"], 1, "the native SDK must assess an explicit requested station")
+
+    def test_showcase_target_is_initial_encounter_geometry(self):
+        s = showcase.script("aim9m", "fa18c", target="mig29a", target_range=7000.0, target_altitude_offset=200.0, seed=7)
+        self.assertEqual(s["target"], {"type": "jsbsim:mig29a", "name": "MIG29A-TARGET", "speed_ms": 250.0,
+                                       "heading_deg": 270.0, "range_m": 7000.0, "altitude_offset_m": 200.0})
+        self.assertEqual(s["seed"], 7)
+
+    def test_showcase_cli_forwards_live_only_when_requested(self):
+        scene = showcase.script("aim120c")
+        for options, live in (([], False), (["--live"], True)):
+            with self.subTest(live=live), tempfile.TemporaryDirectory() as folder:
+                bin_dir = pathlib.Path(folder) / "bin"
+                bin_dir.mkdir()
+                exe = bin_dir / "flightsim-showcase.exe"
+                exe.write_bytes(b"native tool fixture")
+                transcript = io.StringIO()
+                attach = 'fsim --preset ucrt64-release viewer --world "aim120c native encounter" --fullscreen --camera chase'
+
+                def native_tool(command, **kwargs):
+                    self.assertEqual(command[0], str(exe))
+                    self.assertEqual(command[3:], ["--live"] if live else [])
+                    self.assertEqual(kwargs, {"check": True})
+                    with open(command[1], encoding="utf-8") as f:
+                        self.assertEqual(json.load(f), scene, "live must use the same native scene")
+                    self.assertEqual(attach in transcript.getvalue(), live, "live attach command must print before blocking")
+                    with open(command[2] + ".engagement.json", "w", encoding="utf-8") as f:
+                        json.dump({"schema": showcase.SCHEMA, "source": "native-sdk", "weapons": [
+                            {"launch_time_s": 13.0, "terminal_kind": "detonated", "weapon_slot": 6}]}, f)
+                    return types.SimpleNamespace(returncode=0)
+
+                with mock.patch.object(showcase, "script", return_value=scene), \
+                        mock.patch.object(showcase.pipeline, "repo_root", return_value=folder), \
+                        mock.patch.dict(os.environ, {"FSIM_BIN": str(bin_dir), "FSIM_PRESET": "ucrt64-release"}), \
+                        mock.patch.object(showcase.subprocess, "run", side_effect=native_tool) as child, \
+                        redirect_stdout(transcript), redirect_stderr(transcript):
+                    self.assertEqual(showcase.main(["aim120c"] + options), 0)
+                self.assertEqual(child.call_count, 1, "Hangar must not spawn a second simulation or viewer")
+                self.assertIn("play it: fsim --preset ucrt64-release viewer --replay", transcript.getvalue())
+
+
+def _tool(name, relative):
+    spec = importlib.util.spec_from_file_location(name, os.path.join(pipeline.repo_root(), relative))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class NativeShowcaseConsumers(unittest.TestCase):
+    def test_screenshot_consumer_rejects_failed_viewer_process(self):
+        perf = _tool("viewer_perf_test", "tools/viewer_perf/viewer_perf.py")
+        with tempfile.TemporaryDirectory() as folder:
+            cache = pathlib.Path(folder) / "shots"
+            cache.mkdir()
+            (cache / "reheat.fsrec").write_bytes(b"SDK recording fixture")
+            args = types.SimpleNamespace(out=folder, shots="unit", scene=["reheat"], build=folder,
+                                         exe="flightsim-viewer.exe", viewer=[])
+            with mock.patch.object(perf.subprocess, "run", return_value=types.SimpleNamespace(returncode=7)):
+                with self.assertRaisesRegex(RuntimeError, "viewer.*failed"):
+                    perf.shots(args)
+
+    def test_hit_recording_refuses_stale_mechanical_cache(self):
+        perf = _tool("viewer_perf_test", "tools/viewer_perf/viewer_perf.py")
+        with tempfile.TemporaryDirectory() as folder:
+            cache = pathlib.Path(folder) / "shots"
+            cache.mkdir()
+            (cache / "hit.fsrec").write_bytes(b"obsolete mechanical recording")
+            args = types.SimpleNamespace(out=folder, build=os.path.join(folder, "missing-build"))
+            with self.assertRaisesRegex(RuntimeError, "native"):
+                perf.recording("hit", args)
+
+    def test_hit_reference_uses_native_target_and_fuze_time(self):
+        perf = _tool("viewer_perf_test", "tools/viewer_perf/viewer_perf.py")
+        data = {"target_id": 8, "target_slot": 5, "duration_s": 40.0,
+                "weapons": [{"id": 12, "terminal_kind": "detonated", "end_time_s": 18.5,
+                              "launch_time_s": 13.0, "holding_id": 8, "acquired": True}],
+                "engagements": [{"kind": "detonation", "entity": 12, "target": 8, "time_s": 18.5},
+                                {"kind": "damage", "entity": 12, "target": 8, "time_s": 18.5}]}
+        times, cameras = perf.hit_reference(data)
+        self.assertEqual(times, [18.55, 18.8, 19.3, 20.0, 21.5, 24.5, 28.5])
+        self.assertEqual(cameras[0][:2], ["--follow", "5"])
+        data["weapons"][0]["terminal_kind"] = "expired"
+        with self.assertRaisesRegex(RuntimeError, "native.*hit"):
+            perf.hit_reference(data)
+
+    def test_hit_capture_plan_shows_actual_weapon_before_native_burst(self):
+        perf = _tool("viewer_perf_test", "tools/viewer_perf/viewer_perf.py")
+        data = {"carrier_slot": 2, "target_id": 8, "target_slot": 5, "duration_s": 40.0,
+                "weapons": [{"id": 99, "weapon_slot": 9, "terminal_kind": "in_flight", "end_time_s": None},
+                            {"id": 12, "weapon_slot": 6, "terminal_kind": "detonated", "end_time_s": 18.5,
+                             "launch_time_s": 13.0, "holding_id": 8, "acquired": True}],
+                "engagements": [{"kind": "detonation", "entity": 12, "target": 8, "time_s": 18.5},
+                                {"kind": "damage", "entity": 12, "target": 8, "time_s": 18.5}]}
+        plan = perf.hit_capture_plan(data)
+        self.assertEqual(len(plan), 10)
+        self.assertEqual([frame["phase"] for frame in plan[:3]], ["release", "flight", "approach"])
+        self.assertEqual([frame["time_s"] for frame in plan[:3]], [13.1, 14.0, 18.25])
+        self.assertEqual(plan[0]["camera"][:2], ["--follow", "2"])
+        self.assertEqual(plan[1]["camera"][:2], ["--follow", "6"])
+        self.assertEqual(plan[2]["camera"][:2], ["--follow", "6"])
+        self.assertTrue(all(frame["time_s"] < 18.5 for frame in plan[:3]))
+        self.assertTrue(all(frame["camera"][:2] == ["--follow", "5"] for frame in plan[3:]))
+        data["weapons"][1]["terminal_kind"] = "expired"
+        with self.assertRaisesRegex(RuntimeError, "native.*hit"):
+            perf.hit_capture_plan(data)
+
+    def test_hit_capture_plan_rejects_nonchronological_short_flight(self):
+        perf = _tool("viewer_perf_test", "tools/viewer_perf/viewer_perf.py")
+        data = {"carrier_slot": 2, "target_id": 8, "target_slot": 5, "duration_s": 40.0,
+                "weapons": [{"id": 12, "weapon_slot": 6, "terminal_kind": "detonated", "end_time_s": 14.1,
+                             "launch_time_s": 13.0, "holding_id": 8, "acquired": True}],
+                "engagements": [{"kind": "detonation", "entity": 12, "target": 8, "time_s": 14.1},
+                                {"kind": "damage", "entity": 12, "target": 8, "time_s": 14.1}]}
+        for end in (14.1, 14.25):
+            with self.subTest(end=end):
+                data["weapons"][0]["end_time_s"] = end
+                for event in data["engagements"]:
+                    event["time_s"] = end
+                with self.assertRaisesRegex(RuntimeError, "too short"):
+                    perf.hit_capture_plan(data)
+
+    def test_plume_frame_uses_replay_clock_and_native_weapon_slot(self):
+        plume = _tool("plume_check_test", "tools/plume_check/check.py")
+        def capture(command, **kwargs):
+            plume.Image.new("RGB", (4, 4)).save(command[command.index("--screenshot") + 1])
+            return types.SimpleNamespace(returncode=0)
+        with tempfile.TemporaryDirectory() as folder, mock.patch.object(plume.subprocess, "run", side_effect=capture) as renderer:
+            plume.render("native.fsrec", os.path.join(folder, "frame.png"), 17.25, True, slot=6)
+        command = renderer.call_args.args[0]
+        self.assertEqual(command[command.index("--follow") + 1], "6")
+        self.assertEqual(command[command.index("--screenshot-clock") + 1], "replay")
+        self.assertEqual(command[command.index("--screenshot-after") + 1], "17.25")
+
+    def test_plume_does_not_reuse_stale_png_when_capture_writes_nothing(self):
+        plume = _tool("plume_check_test", "tools/plume_check/check.py")
+        with tempfile.TemporaryDirectory() as folder:
+            out = pathlib.Path(folder) / "old-scripted-frame.png"
+            plume.Image.new("RGB", (4, 4)).save(out)
+            with mock.patch.object(plume.subprocess, "run", return_value=types.SimpleNamespace(returncode=0)):
+                with self.assertRaisesRegex(RuntimeError, "screenshot"):
+                    plume.render("native.fsrec", out, 17.25, True, slot=6)
+            self.assertFalse(out.exists(), "old mechanical capture must not survive as native evidence")
+
+    def test_plume_rejects_undecodable_png(self):
+        plume = _tool("plume_check_test", "tools/plume_check/check.py")
+        with tempfile.TemporaryDirectory() as folder:
+            out = pathlib.Path(folder) / "broken.png"
+            def capture(command, **kwargs):
+                out.write_bytes(b"not a PNG")
+                return types.SimpleNamespace(returncode=0)
+            with mock.patch.object(plume.subprocess, "run", side_effect=capture):
+                with self.assertRaisesRegex(RuntimeError, "screenshot"):
+                    plume.render("native.fsrec", out, 17.25, True, slot=6)
+
+    def test_plume_rejects_failed_viewer_process(self):
+        plume = _tool("plume_check_test", "tools/plume_check/check.py")
+        with tempfile.TemporaryDirectory() as folder:
+            out = pathlib.Path(folder) / "frame.png"
+            with mock.patch.object(plume.subprocess, "run", return_value=types.SimpleNamespace(returncode=7)):
+                with self.assertRaisesRegex(RuntimeError, "viewer.*failed"):
+                    plume.render("native.fsrec", out, 17.25, True, slot=6)
 
 
 class Lattice(unittest.TestCase):
