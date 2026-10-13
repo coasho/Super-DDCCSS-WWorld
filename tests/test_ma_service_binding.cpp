@@ -786,3 +786,55 @@ TEST_CASE("ma service binding: an agent of another world is refused, though its 
     CHECK(maServiceBindings(two).size() == 1);
     CHECK(a2.controlMode() == control::ControlMode::Granted);
 }
+
+TEST_CASE("ma service binding: a capability two controllers act on is taken back whole - the owner's activity too", "[ma][binding][transition]") {
+    // A revoke is of a capability, not of a controller: it ends every policy activity of that capability. So the
+    // owner-to-be keeps what it flies only where no other controller holds a grant of, or acts on, that same capability.
+    World w(options("ma-binding-mixed-controllers"));
+    Vehicle a = aircraft(w, "viper", 0.0);
+    Agent owner = w.createAgent(a, "owner");
+    Agent other = w.createAgent(a, "other");
+    REQUIRE(a.controlMode() == control::ControlMode::Open);
+    const control::CommandResult active = owner.submit(hsa(90.0));
+    REQUIRE(active.accepted());
+    control::CommandOptions later;
+    later.window.startNotBefore = w.time() + 600.0;
+    const control::CommandResult waiting = other.submit(hsa(180.0), later); // (the same capability, another controller, not yet flying)
+    REQUIRE(waiting.accepted());
+    w.step(5);
+    REQUIRE(owner.activity(active.activity)->live());
+    REQUIRE(other.activity(waiting.activity)->live());
+    REQUIRE(other.activity(waiting.activity)->waiting != control::ActivityWait::None);
+    REQUIRE_FALSE(a.controlStatus(kHsa).granted);
+
+    std::string error;
+    REQUIRE(bindMAService(w, owner, 1, {kHsa}, true, true, &error));
+    // both end as a revoked capability's activities do - the owner's own among them
+    CHECK(endedAs(owner.activity(active.activity), control::Reason::Revoked));
+    CHECK(endedAs(other.activity(waiting.activity), control::Reason::Revoked));
+    // ownership and the grant are the binding's all the same, and the owner commands anew
+    CHECK(a.controlMode() == control::ControlMode::Granted);
+    CHECK(maCapabilityOwner(w, a.id(), kHsa) == owner.controller());
+    CHECK(a.controlStatus(kHsa).granted);
+    CHECK(a.controlStatus(kHsa).holder == owner.controller());
+    const control::CommandResult again = owner.submit(hsa(90.0));
+    REQUIRE(again.accepted());
+    CHECK(owner.activity(again.activity)->live());
+    CHECK_FALSE(other.submit(hsa(180.0), later).accepted());
+
+    // bound before either acts, nothing is taken from anyone: the owner's activity is never at stake
+    World early(options("ma-binding-bound-first"));
+    Vehicle b = aircraft(early, "viper", 0.0);
+    Agent first = early.createAgent(b, "owner");
+    Agent second = early.createAgent(b, "other");
+    REQUIRE(bindMAService(early, first, 1, {kHsa}, true, true, &error));
+    const control::CommandResult flown = first.submit(hsa(90.0));
+    REQUIRE(flown.accepted());
+    const control::CommandResult refused = second.submit(hsa(180.0), later);
+    CHECK_FALSE(refused.accepted());
+    CHECK(refused.reason == control::Reason::NotGranted);
+    REQUIRE(bindMAService(early, second, 2, {kRoute}, false, false, &error)); // (a later binding of another capability)
+    early.step(5);
+    CHECK(first.activity(flown.activity)->live());
+    CHECK(b.controlStatus(kHsa).holder == first.controller());
+}

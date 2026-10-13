@@ -176,6 +176,28 @@ class MAServiceTest(unittest.TestCase):
         self.assertEqual(value(a.control_mode), fsim.ControlMode.GRANTED)
         self.assertEqual(a.control_status(HSA).holder, owner.controller)
 
+    def test_a_capability_two_controllers_act_on_is_taken_back_whole(self):
+        # A revoke is of a capability, not of a controller: the owner-to-be keeps what it flies only where no other
+        # controller holds a grant of, or acts on, that same capability.
+        w, a, crc = world("py-ma-binding-mixed-controllers")
+        owner, other = w.create_agent(a, "owner"), w.create_agent(a, "other")
+        active = owner.submit_hsa(heading_rad=1.0, speed=230.0, altitude_m=6000.0)
+        waiting = other.submit_hsa(heading_rad=2.0, speed=230.0, altitude_m=6000.0, window=fsim.TimeWindow(start_not_before=w.time + 600.0))
+        w.step(5)
+        self.assertTrue(value(active.live) and value(waiting.live))
+        w.bind_ma_service(owner, 1, (HSA,))
+        for ended in (active, waiting):  # (both, the owner's own among them)
+            self.assertFalse(value(ended.live))
+            record = w.activity(ended.id)
+            self.assertIs(record.state, fsim.ActivityState.CANCELED)
+            self.assertEqual(record.reason, "revoked")
+        self.assertEqual(a.control_status(HSA).holder, owner.controller)
+        self.assertEqual(w.ma_capability_owner(a, HSA), owner.controller)
+        again = owner.submit_hsa(heading_rad=1.0, speed=230.0, altitude_m=6000.0)  # (its to command anew)
+        self.assertTrue(value(again.live))
+        with self.assertRaises(fsim.Error):
+            other.submit_hsa(heading_rad=2.0, speed=230.0, altitude_m=6000.0)
+
     def test_an_agent_of_another_world_is_refused_and_nothing_changes(self):
         (first, a1, _), (second, a2, _) = world("py-ma-binding-world-one"), world("py-ma-binding-world-two")
         one, two = first.create_agent(a1, "one"), second.create_agent(a2, "two")

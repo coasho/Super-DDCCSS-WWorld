@@ -320,8 +320,9 @@ sensors.receive()                                # the inbox: the ingress owner'
 - **What stood before gives way:** a grant another controller held when a binding is made, and any policy activity
   that is not its capability's owner's - flown under a grant or, on an open platform, without one - is taken back by
   the platform: the grant revoked, that capability's policy activities ended `revoked`, flight and Mission Systems
-  alike, an unowned capability's too. The newly bound service's own activities go on. Bind a platform's services
-  before they act and nothing is taken from anyone.
+  alike, an unowned capability's too. The revoke is of the capability: it ends every controller's policy activities
+  of it, so the newly bound service's own go on only on a capability no other controller held or acted on. Bind every
+  service of a platform before any of them acts and nothing is taken from anyone.
 - **Reports are shared:** every agent of the platform reads its navigation, sensors, picture, tasks and authority
   alike. Sharing a report grants no command.
 - **Not bound, not changed:** a platform the range binds nothing on behaves exactly as before. Removing a platform

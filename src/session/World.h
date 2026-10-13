@@ -616,7 +616,8 @@ public:
     /// capability's no one's; and no live or waiting policy activity is a controller's that does not own its
     /// capability. What stood in the way before - another controller's grant, the default policy's among them, or a
     /// policy activity flown without one - is taken back by the platform's existing act: the grant revoked, that
-    /// capability's policy activities ended Canceled(Revoked). The new owner's own activities go on under its grant.
+    /// capability's policy activities ended Canceled(Revoked) - every controller's, the new owner's own among them: its
+    /// activities go on under its grant only on a capability no other controller held or acted on.
     /// From then on only a capability's owner is granted it (requestControl by any other controller: NotAllowed); C2's
     /// control designation, a live override and a lost-communication plan go to the owners, and the DMS answers its
     /// ingress and egress owners alone. A capability the platform does not allow or cannot give when it is bound is

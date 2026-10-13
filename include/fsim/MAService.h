@@ -47,9 +47,13 @@ struct MAServiceBindingV1 {
 /// What stood in the way before the binding - a grant another controller held, the default policy's (controller 0)
 /// among them, or a policy activity flown without one while the platform was open - is taken back as the platform
 /// takes anything back: the grant revoked, that capability's policy activities ended Canceled(Revoked), flight and
-/// Mission Systems alike. The newly bound service's own activities go on under its grant. A capability the platform
-/// does not allow or cannot give at that moment stays ungranted, its owner's to request later. Bind a platform's
-/// services before they act, and nothing is taken from anyone. From then on:
+/// Mission Systems alike. A revoke is of a capability, not of a controller: it ends every policy activity of that
+/// capability, the newly bound owner's own among them. So the owner's activities go on under its grant only on a
+/// capability no other controller held a grant of or had a live or waiting policy activity on; where one did, the
+/// owner's activities of that capability end Canceled(Revoked) with the other's, and the owner, granted, commands
+/// anew. A capability the platform does not allow or cannot give at that moment stays ungranted, its owner's to
+/// request later. Bind every service of a platform before any of them acts, and nothing is taken from anyone. From
+/// then on:
 ///  - only a capability's owner is granted it (Agent::requestControl or Vehicle::requestControl by any other
 ///    controller: NotAllowed), so only its owner commands it, and one service does not update or cancel another's
 ///    activity; the platform's own sources (autopilot, override) need no grant, as ever;

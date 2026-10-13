@@ -2409,10 +2409,11 @@ FSIM_API int fsim_c2_dissolve_package(fsim_world* world, uint32_t entity, uint32
  * grant is its bound owner's or no one's; an unowned capability's is no one's. What stood in the way before - another
  * controller's grant, the default policy's (controller 0) among them, or a policy activity flown without one - is
  * taken back as the platform takes anything back: the grant revoked, that capability's policy activities ended
- * canceled(revoked). The new owner's own activities go on under its grant; a capability the platform does not allow
- * or cannot give then is its owner's to request later. From then on only a capability's owner is granted it
- * (fsim_vehicle_request_control_by of any other controller: not_allowed); C2's control designation, a live override and
- * a lost-communication plan go to the bound
+ * canceled(revoked) - every controller's, the new owner's own among them: its activities go on under its grant only
+ * on a capability no other controller held or acted on. Bind every service of a platform before any of them acts and
+ * nothing is taken from anyone. A capability the platform does not allow or cannot give then is its owner's to
+ * request later. From then on only a capability's owner is granted it (fsim_vehicle_request_control_by of any other
+ * controller: not_allowed); C2's control designation, a live override and a lost-communication plan go to the bound
  * owners; an agent that is not the ingress owner reads an empty inbox and may not take or subscribe
  * (FSIM_NOT_ALLOWED); one that is not the egress owner may not send (FSIM_NOT_ALLOWED, *reason FSIM_DMS_NOT_OWNER).
  * Every agent of the platform still reads its reports alike. A platform the range binds nothing on is as before.

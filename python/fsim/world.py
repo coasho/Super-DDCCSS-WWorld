@@ -3672,10 +3672,11 @@ class World:
         ControlMode.GRANTED and stays there (set_control_mode to another: fsim.Error): only a capability's owner holds its
         grant - and so commands it - not another agent, not the default policy (controller 0). A grant another controller
         held when the binding is made, and any policy activity that is not its capability's owner's, is taken back by the
-        platform: revoked, its activities ended "revoked"; the bound service's own activities go on. C2's control
-        designation, a live override and a lost-communication plan go to the bound owners; an agent that is not the
-        ingress owner reads an empty inbox, and one that is not the egress owner may not send. Every agent of the platform
-        still reads its reports alike.
+        platform: revoked, every policy activity of that capability ended "revoked" - the bound service's own among them,
+        which go on only on a capability no other controller held or acted on. Bind every service of a platform before
+        any of them acts, and nothing is taken from anyone. C2's control designation, a live override and a
+        lost-communication plan go to the bound owners; an agent that is not the ingress owner reads an empty inbox, and
+        one that is not the egress owner may not send. Every agent of the platform still reads its reports alike.
 
         Raises fsim.Error, and changes nothing, for anything that is not an fsim.Agent of this very World - another
         World's agent has the same vehicle id and controller number, and is refused all the same - an unknown capability,

@@ -529,9 +529,11 @@ void World::settleMaOwnership(Entry& e, std::uint32_t platform, control::Control
     // is taken back as the platform takes anything back: the grant revoked, the policy's activities of that capability
     // ending Canceled(Revoked). An unowned capability has no owner: no controller's grant or policy activity stands,
     // the default policy's (controller 0) no more than another's. What the newly bound service owns is then asked
-    // for in its name - its own activities, flown before the platform was under grants, go on under it; a capability
-    // the platform does not allow or cannot give now stays ungranted, its owner's to ask for later. Last, the platform
-    // is under grants. The platform's own sources (autopilot, override) need no grant and are not touched.
+    // for in its name. Its own activities, flown before the platform was under grants, go on under it on a capability
+    // nothing was taken back from; where another controller held or acted on the same capability, the revoke - which
+    // is of the capability, every controller's activities - ended the owner's with the other's. A capability the
+    // platform does not allow or cannot give now stays ungranted, its owner's to ask for later. Last, the platform is
+    // under grants. The platform's own sources (autopilot, override) need no grant and are not touched.
     const auto others = [&](const control::ControlStatus& status, control::ControllerId owner) {
         return status.granted && (owner == 0 || status.holder != owner);
     };

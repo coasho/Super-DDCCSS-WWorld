@@ -357,13 +357,19 @@ What the binding does natively, using only mechanisms the SDK already had:
   Systems alike, a grant held by a controller that is not its bound owner, or a live or waiting policy activity of
   such a controller, is revoked by the platform's existing act - the grant ends and that capability's policy
   activities end `canceled`, reason `revoked`. That covers another Agent's grant, the default policy's, a grant on a
-  capability no service owns, and what an open platform's policies flew without any grant. The newly bound service's
-  own activities go on under its grant. The platform's own sources are not policy and are not touched. A capability
+  capability no service owns, and what an open platform's policies flew without any grant. The revoke is of the
+  capability, not of a controller: it ends every policy activity of that capability, the newly bound owner's own
+  among them. The owner's activities therefore go on under its grant only on a capability no other controller held a
+  grant of or had a live or waiting policy activity on. Where one did - the owner flying an HSA on an open platform
+  while another controller has an HSA scheduled, say - a successful binding ends both controllers' activities of that
+  capability `canceled`, reason `revoked`, and the owner, now granted, commands anew. The platform's own sources are
+  not policy and are not touched. A capability
   the platform does not allow or cannot give when it is bound - one flown on the ground only, say - stays ungranted
   and is its owner's to request later. So a successful binding always leaves ownership, grants and activities
-  agreeing; a refused one changes none of them. Because a platform's services are bound one at a time, bind them
-  before they act: a service flying before its own binding is made is ended by an earlier binding of the same
-  platform, and granted again by its own.
+  agreeing; a refused one changes none of them. Bind every service of a platform before any of them acts, and no
+  activity is ever at stake: services are bound one at a time, so a service flying before its own binding is made is
+  ended by an earlier binding of the same platform and granted again by its own, and an owner sharing a capability
+  with another controller loses its activity to the revoke that removes the other's.
 - **C2 reaches the owners.** A control designation's grants go to each allowed capability's bound owner, a C2
   override is applied to each bound service's own live HSA, and a lost-communication plan is activated as the owner
   of the platform's waypoint-following capability (with no such owner, the alert alone).
