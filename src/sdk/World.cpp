@@ -1,6 +1,7 @@
 // fsim SDK: World / Vehicle / Environment over session::World.
 
 #include "fsim/World.h"
+#include "fsim/MAService.h"
 
 #include "core/Log.h"
 #include "core/Time.h"
@@ -883,5 +884,29 @@ bool World::focusViewer(std::uint32_t id) noexcept { return impl_->focusViewer(i
 std::uint64_t World::vehicleSteps() const noexcept { return impl_->vehicleSteps(); }
 std::uint64_t World::worldSteps() const noexcept { return impl_->worldSteps(); }
 void World::publishNow() { impl_->publishNow(); }
+
+// --- MA services (fsim/MAService.h; docs/sdk/mission-training.md, section 9) --------------------------------------------
+
+bool bindMAService(World& world, const MAServiceBindingV1& binding, std::string* error) {
+    session::MaServiceBinding b;
+    b.serviceId = binding.serviceId, b.platform = binding.platform, b.controller = binding.controller;
+    b.capabilities = binding.commandCapabilities;
+    b.ownsDmsIngress = binding.ownsDmsIngress, b.ownsDmsEgress = binding.ownsDmsEgress;
+    std::string why;
+    const bool bound = world.impl().bindMaService(b, why);
+    if (error) *error = bound ? std::string() : why;
+    return bound;
+}
+
+std::vector<MAServiceBindingV1> maServiceBindings(World& world) {
+    std::vector<MAServiceBindingV1> out;
+    for (const session::MaServiceBinding& b : world.impl().maServices().all())
+        out.push_back({b.serviceId, b.platform, b.controller, b.capabilities, b.ownsDmsIngress, b.ownsDmsEgress});
+    return out;
+}
+
+control::ControllerId maCapabilityOwner(World& world, std::uint32_t platform, const std::string& capability) {
+    return world.impl().maServices().owner(platform, capability);
+}
 
 } // namespace fsim

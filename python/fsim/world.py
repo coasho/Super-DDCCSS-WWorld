@@ -89,6 +89,8 @@ ROLE_ADMIN, ROLE_QB, ROLE_AVC, ROLE_LRE, ROLE_OBSERVER = 1, 2, 3, 4, 5
 C2_ACCEPTED, C2_REJECTED, C2_UNAUTHORIZED, C2_COMPLETED, C2_FAILED, C2_CANCELED = 0, 1, 2, 3, 4, 5
 TOPIC_OPERATOR, TOPIC_CONTROL_DESIGNATION, TOPIC_FLIGHT_COMMAND, TOPIC_OPERATOR_ROLE, TOPIC_COMMAND_STATUS = 10, 11, 12, 50, 51
 Role = collections.namedtuple("Role", "id name permissions approves_strikes")
+# One MA service of a platform and what it owns there (docs/sdk/mission-training.md, section 9).
+MAService = collections.namedtuple("MAService", "service_id platform controller command_capabilities owns_dms_ingress owns_dms_egress")
 C2Authority = collections.namedtuple("C2Authority", "designated designated_modes designated_by designated_s operators commands")
 CommandStatus = collections.namedtuple("CommandStatus", "source received_s command_id topic state reason activity time_s percent")
 # AB-5b: C2's tasks, overrides, release consent
@@ -3648,6 +3650,30 @@ class World:
         each - permissions fsim.PERMISSION_* bits. A-GRA's five default roles until it is set."""
         self._h.set_rbac(entity.id if isinstance(entity, Vehicle) else int(entity),
                          [(int(r[0]), str(r[1]), int(r[2]), bool(r[3])) for r in roles])
+
+    def bind_ma_service(self, agent, service_id, command_capabilities=("*",), owns_dms_ingress=True, owns_dms_egress=True):
+        """Bind one MA service (docs/sdk/mission-training.md, section 9): ``agent`` - an fsim.Agent this World made - is
+        service ``service_id`` of its platform and owns the ``command_capabilities`` given (discovery ids as the platform
+        reports them, or ``("*",)`` for all of them), its DMS ingress (the inbox and subscriptions) and its DMS egress (its
+        sends, native publications, task answers and C2 messages). The range's alone.
+
+        Ownership follows the bindings, never the order the agents were made in. A platform's first binding puts it under
+        ControlMode.GRANTED: from then on an agent of that platform holds a grant - and so commands - only what is bound
+        to it; C2's control designation, a live override and a lost-communication plan go to the bound owners; an agent
+        that is not the ingress owner reads an empty inbox, and one that is not the egress owner may not send. Every agent
+        of the platform still reads its reports alike. Raises fsim.Error, and changes nothing, for a controller this World
+        did not mint for that platform, an unknown capability, and anything a service bound earlier already owns. A
+        platform nothing is bound on behaves as before."""
+        self._h.bind_ma_service(int(service_id), int(agent.vehicle_id), int(agent.controller), [str(c) for c in command_capabilities],
+                                bool(owns_dms_ingress), bool(owns_dms_egress))
+
+    def ma_services(self):
+        """Every MA service bound, in ascending service id: fsim.MAService each."""
+        return [MAService(*s) for s in self._h.ma_services()]
+
+    def ma_capability_owner(self, platform, capability):
+        """The controller that owns a command capability of a platform (0: no bound service does)."""
+        return self._h.ma_capability_owner(platform.id if isinstance(platform, Vehicle) else int(platform), str(capability))
 
     def set_strike_policy(self, entity, policy):
         """A platform's policy for its strikes' release consent (AB-5b): fsim.STRIKE_REQUIRES_APPROVAL (the default: the

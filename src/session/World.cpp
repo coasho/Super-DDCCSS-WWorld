@@ -375,6 +375,7 @@ bool World::removeVehicle(std::uint32_t id) {
     network_.removeNode(id);
     dms_.removeEntity(id); // (off its nets; its SystemID stays the referee's)
     maCore_.retireEntity(id);
+    maServices_.release(id); // (its services' ownership ends with it: an entity made later binds afresh)
     views_.erase(id); // (its host goes with it; its own mission data stays the referee's to read, named by nobody)
     if (publisher_) {
         publisher_->clearVehicle(static_cast<std::uint32_t>(slot));
@@ -485,6 +486,44 @@ control::ControllerId World::mintAgent(std::uint32_t vehicle, const std::string&
     return controller;
 }
 
+bool World::bindMaService(const MaServiceBinding& binding, std::string& error) {
+    const auto refuse = [&](std::string why) {
+        error = "MA service " + std::to_string(binding.serviceId) + ": " + std::move(why);
+        return false;
+    };
+    const AgentRecord* agent = nullptr;
+    for (const AgentRecord& a : agents_)
+        if (a.controller == binding.controller) agent = &a;
+    if (!agent) return refuse("controller " + std::to_string(binding.controller) + " is not one this world minted for an agent");
+    if (agent->vehicle != binding.platform)
+        return refuse("controller " + std::to_string(binding.controller) + " was minted for entity " + std::to_string(agent->vehicle) +
+                      ", not for platform " + std::to_string(binding.platform));
+    Entry* e = entry(binding.platform);
+    if (!e && !c2Node(binding.platform)) return refuse("platform " + std::to_string(binding.platform) + " is gone");
+    // What the platform offers for command: its flight capabilities and its Mission Systems capability instances.
+    std::vector<std::string> offered;
+    if (e) {
+        for (const control::CapabilityDescriptor& d : e->catalog->descriptors())
+            if ((d.interactions & control::kCommand) && d.kind != control::CapabilityKind::Status) offered.push_back(d.id);
+        for (const ms::CapabilityInfo& c : e->ms.capabilities()) offered.emplace_back(c.id);
+    }
+    for (const std::string& c : binding.capabilities) {
+        if (c == "*") {
+            if (!e) return refuse("a C2 node has no command capability to bind");
+            continue;
+        }
+        if (std::find(offered.begin(), offered.end(), c) == offered.end())
+            return refuse(c + " is not a command capability of platform " + std::to_string(binding.platform));
+    }
+    if (std::string why = maServices_.refusal(binding); !why.empty()) return refuse(std::move(why));
+    const bool first = !maServices_.bound(binding.platform);
+    maServices_.add(binding);
+    if (!e) return true; // (a C2 node: its DMS sides alone)
+    if (first) setControlMode(binding.platform, control::ControlMode::Granted);
+    for (const std::string& c : binding.all() ? offered : binding.capabilities) requestControl(binding.platform, c, binding.controller);
+    return true;
+}
+
 // --- Systems, nets and the DMS (ADR-31, AB-4) -----------------------------------------------------------------------
 
 std::uint32_t World::createC2Node(const comm::C2NodeSpec& spec) {
@@ -502,6 +541,7 @@ bool World::removeC2Node(std::uint32_t id) {
     c2Nodes_[id - kC2Nodes - 1].alive = false;
     dms_.removeEntity(id);
     maCore_.retireEntity(id);
+    maServices_.release(id);
     return true;
 }
 
@@ -1554,6 +1594,9 @@ control::ControlMode World::controlMode(std::uint32_t id) const noexcept {
 control::Reason World::requestControl(std::uint32_t id, std::string_view capability, control::ControllerId controller) {
     Entry* e = entry(id);
     if (!e) return control::Reason::UnknownVehicle;
+    // On a platform with configured MA services an agent holds a grant only for what is bound to it.
+    if (controller > kAgentControllers && maServices_.bound(id) && maServices_.owner(id, capability) != controller) [[unlikely]]
+        return control::Reason::NotAllowed;
     if (isMission(capability)) return missionControl(e->ms, capability, [&](std::size_t i) { return e->ms.requestControl(i, controller); });
     const int index = e->catalog->find(capability);
     if (index < 0) return e->support->refusal(capability);

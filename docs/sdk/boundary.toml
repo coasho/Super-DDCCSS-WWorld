@@ -1087,6 +1087,15 @@ names = [
 ]
 
 [[rule]]
+principal = "range"
+note = "MA services (docs/sdk/mission-training.md, section 9): which of a platform's agents owns each command capability and each side of its DMS - binding them, and reading the bindings back"
+names = [
+    "fsim::bindMAService", "fsim::maServiceBindings", "fsim::maCapabilityOwner",
+    "fsim_world_bind_ma_service", "fsim_world_ma_service_count", "fsim_world_ma_service", "fsim_world_ma_capability_owner",
+    "fsim.world.World.bind_ma_service", "fsim.world.World.ma_services", "fsim.world.World.ma_capability_owner",
+]
+
+[[rule]]
 principal = "referee"
 note = "Systems and nets (AB-4a): the entity behind a SystemID, each net's traffic, the C2 nodes; the entity behind a received track (AB-4b)"
 names = [

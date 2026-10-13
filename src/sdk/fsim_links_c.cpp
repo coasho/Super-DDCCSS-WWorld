@@ -116,6 +116,7 @@ FSIM_API int fsim_dms_net(const fsim_world* world, uint32_t entity, uint32_t ind
 FSIM_API int fsim_dms_send(fsim_world* world, uint32_t entity, uint32_t topic, const void* bytes, size_t length,
                            const uint32_t* destinations, uint32_t destination_count, uint64_t* message, int32_t* reason) {
     FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED); // (ADR-31: as its own system alone)
+    FSIM_MA_EGRESS(world, reason, FSIM_NOT_ALLOWED);
     if (!world || (length && !bytes) || (destination_count && !destinations)) return FSIM_INVALID_ARGUMENT;
     fsim::comm::DmsMessage m;
     m.topic = topic;
@@ -130,11 +131,13 @@ FSIM_API int fsim_dms_send(fsim_world* world, uint32_t entity, uint32_t topic, c
 
 FSIM_API int fsim_dms_subscribe(fsim_world* world, uint32_t entity, uint32_t topic, int32_t on) {
     FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED);
+    FSIM_MA_INGRESS(world, FSIM_NOT_ALLOWED);
     return world && world->world.dms().subscribe(entity, topic, on != 0) ? FSIM_OK : FSIM_INVALID_ARGUMENT;
 }
 
 FSIM_API int fsim_dms_subscribe_all(fsim_world* world, uint32_t entity, int32_t on) {
     FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED);
+    FSIM_MA_INGRESS(world, FSIM_NOT_ALLOWED);
     return world && world->world.dms().subscribeAll(entity, on != 0) ? FSIM_OK : FSIM_INVALID_ARGUMENT;
 }
 
@@ -149,12 +152,14 @@ FSIM_API uint32_t fsim_dms_subscriptions(const fsim_world* world, uint32_t entit
 
 FSIM_API uint32_t fsim_dms_inbox_count(const fsim_world* world, uint32_t entity) {
     FSIM_AGENT_VEHICLE(world, entity, 0); // (its own system's inbox alone)
+    FSIM_MA_INGRESS(world, 0);
     const auto* in = world ? world->world.dms().inbox(entity) : nullptr;
     return in ? static_cast<uint32_t>(in->size()) : 0;
 }
 
 FSIM_API int fsim_dms_inbox_get(const fsim_world* world, uint32_t entity, uint32_t index, fsim_dms_received* out) {
     FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED);
+    FSIM_MA_INGRESS(world, FSIM_NOT_ALLOWED);
     const auto* in = world && out ? world->world.dms().inbox(entity) : nullptr;
     if (!in || index >= in->size()) return FSIM_INVALID_ARGUMENT;
     const auto& r = (*in)[index];
@@ -166,6 +171,7 @@ FSIM_API int fsim_dms_inbox_get(const fsim_world* world, uint32_t entity, uint32
 
 FSIM_API int fsim_dms_inbox_take(fsim_world* world, uint32_t entity, uint32_t count) {
     FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED);
+    FSIM_MA_INGRESS(world, FSIM_NOT_ALLOWED);
     if (!world || !world->world.dms().inbox(entity)) return FSIM_INVALID_ARGUMENT;
     world->world.dms().take(entity, count);
     return FSIM_OK;
@@ -251,6 +257,7 @@ FSIM_API int fsim_world_set_dissemination(fsim_world* world, uint32_t entity, co
 FSIM_API int fsim_dms_publish(fsim_world* world, uint32_t entity, uint32_t topic, uint32_t payload, const uint32_t* destinations,
                               uint32_t destination_count, uint64_t* first, uint32_t* sent, int32_t* reason) {
     FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED); // (as its own system; the MA core builds them from its reports)
+    FSIM_MA_EGRESS(world, reason, FSIM_NOT_ALLOWED);
     if (!world || (destination_count && !destinations)) return FSIM_INVALID_ARGUMENT;
     const std::vector<fsim::comm::SystemId> to(destinations, destinations + destination_count);
     fsim::comm::DmsReason why = fsim::comm::DmsReason::None;
@@ -412,6 +419,7 @@ FSIM_API int fsim_agent_authority_command(const fsim_world* world, uint32_t enti
 FSIM_API int fsim_c2_declare_role(fsim_world* world, uint32_t entity, uint32_t role_id, const char* callsign, const uint32_t* destinations,
                                   uint32_t destination_count, int32_t* reason) {
     FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED); // (as its own system)
+    FSIM_MA_EGRESS(world, reason, FSIM_NOT_ALLOWED);
     if (!world || (destination_count && !destinations)) return FSIM_INVALID_ARGUMENT;
     fsim::comm::DmsReason why = fsim::comm::DmsReason::None;
     const bool sent = world->world.maCore().declareRole(world->world, entity, role_id, callsign ? callsign : "",
@@ -422,6 +430,7 @@ FSIM_API int fsim_c2_declare_role(fsim_world* world, uint32_t entity, uint32_t r
 
 FSIM_API int fsim_c2_designate_control(fsim_world* world, uint32_t entity, uint32_t ma, uint32_t modes, uint64_t* command_id, int32_t* reason) {
     FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED);
+    FSIM_MA_EGRESS(world, reason, FSIM_NOT_ALLOWED);
     if (!world) return FSIM_INVALID_ARGUMENT;
     fsim::comm::DmsReason why = fsim::comm::DmsReason::None;
     const uint64_t id = world->world.maCore().designateControl(world->world, entity, ma, modes, why);
@@ -432,6 +441,7 @@ FSIM_API int fsim_c2_designate_control(fsim_world* world, uint32_t entity, uint3
 
 FSIM_API int fsim_c2_command_hsa(fsim_world* world, uint32_t entity, uint32_t ma, const double* hsa, uint64_t* command_id, int32_t* reason) {
     FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED);
+    FSIM_MA_EGRESS(world, reason, FSIM_NOT_ALLOWED);
     if (!world || !hsa) return FSIM_INVALID_ARGUMENT;
     fsim::comm::FlightCommand c;
     c.kind = fsim::comm::FlightCommand::Hsa;
@@ -446,6 +456,7 @@ FSIM_API int fsim_c2_command_hsa(fsim_world* world, uint32_t entity, uint32_t ma
 FSIM_API int fsim_c2_command_route(fsim_world* world, uint32_t entity, uint32_t ma, const double* points, uint32_t count, uint64_t* command_id,
                                    int32_t* reason) {
     FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED);
+    FSIM_MA_EGRESS(world, reason, FSIM_NOT_ALLOWED);
     if (!world || !points || count == 0 || count > 16) return FSIM_INVALID_ARGUMENT;
     fsim::comm::FlightCommand c;
     c.kind = fsim::comm::FlightCommand::Waypoints, c.pointCount = count;
@@ -460,6 +471,7 @@ FSIM_API int fsim_c2_command_route(fsim_world* world, uint32_t entity, uint32_t 
 
 FSIM_API int fsim_c2_cancel_command(fsim_world* world, uint32_t entity, uint32_t ma, uint64_t command_id, int32_t* reason) {
     FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED);
+    FSIM_MA_EGRESS(world, reason, FSIM_NOT_ALLOWED);
     if (!world) return FSIM_INVALID_ARGUMENT;
     fsim::comm::FlightCommand c;
     c.kind = fsim::comm::FlightCommand::Cancel, c.commandId = command_id;
@@ -544,6 +556,7 @@ FSIM_API int fsim_agent_c2_task_get(const fsim_world* world, uint32_t entity, ui
 
 FSIM_API int fsim_agent_answer_task(fsim_world* world, uint32_t entity, uint32_t from, uint64_t task_id, int state, uint32_t code, double percent) {
     FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED);
+    FSIM_MA_EGRESS(world, static_cast<int32_t*>(nullptr), FSIM_NOT_ALLOWED);
     if (!world || state < 1 || state > 4) return FSIM_INVALID_ARGUMENT;
     const bool ok = world->world.maCore().answerTask(world->world, entity, from, task_id, static_cast<fsim::comm::ReceivedTask::State>(state),
                                                     code, percent);
@@ -571,6 +584,7 @@ FSIM_API int fsim_agent_override_get(const fsim_world* world, uint32_t entity, u
 
 FSIM_API int fsim_c2_send_task(fsim_world* world, uint32_t entity, uint32_t ma, const fsim_c2_task* task, uint64_t* task_id, int32_t* reason) {
     FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED);
+    FSIM_MA_EGRESS(world, reason, FSIM_NOT_ALLOWED);
     if (!world || !task || task->struct_size < sizeof(fsim_c2_task)) return FSIM_INVALID_ARGUMENT;
     fsim::comm::TaskOrder t;
     t.type = task->type, t.priority = task->priority;
@@ -589,6 +603,7 @@ FSIM_API int fsim_c2_send_task(fsim_world* world, uint32_t entity, uint32_t ma, 
 FSIM_API int fsim_c2_set_override(fsim_world* world, uint32_t entity, uint32_t ma, int kind, int32_t cancel, double value, double expiry_s,
                                   uint64_t* command_id, int32_t* reason) {
     FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED);
+    FSIM_MA_EGRESS(world, reason, FSIM_NOT_ALLOWED);
     if (!world || kind < 0 || kind > 1) return FSIM_INVALID_ARGUMENT;
     fsim::comm::OverrideCommand c;
     c.kind = static_cast<uint32_t>(kind), c.cancel = cancel ? 1u : 0u, c.value = value, c.expiryS = expiry_s;
@@ -621,6 +636,7 @@ FSIM_API int fsim_c2_consent_get(const fsim_world* world, uint32_t entity, uint3
 
 FSIM_API int fsim_c2_answer_consent(fsim_world* world, uint32_t entity, uint32_t ma, uint64_t request_id, int32_t granted, int32_t* reason) {
     FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED);
+    FSIM_MA_EGRESS(world, reason, FSIM_NOT_ALLOWED);
     if (!world) return FSIM_INVALID_ARGUMENT;
     fsim::comm::DmsReason why = fsim::comm::DmsReason::None;
     const bool sent = world->world.maCore().answerConsent(world->world, entity, ma, request_id, granted != 0, why);
@@ -641,6 +657,7 @@ FSIM_API int fsim_agent_package_member(const fsim_world* world, uint32_t entity,
 FSIM_API int fsim_c2_set_lost_comms(fsim_world* world, uint32_t entity, uint32_t ma, double threshold_s, uint64_t plan_id, uint64_t* command_id,
                                     int32_t* reason) {
     FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED);
+    FSIM_MA_EGRESS(world, reason, FSIM_NOT_ALLOWED);
     if (!world) return FSIM_INVALID_ARGUMENT;
     fsim::comm::LostCommsSettings l;
     l.thresholdS = threshold_s, l.activatePlan = plan_id ? 1u : 0u, l.planId = plan_id;
@@ -654,6 +671,7 @@ FSIM_API int fsim_c2_set_lost_comms(fsim_world* world, uint32_t entity, uint32_t
 FSIM_API int fsim_c2_form_package(fsim_world* world, uint32_t entity, uint32_t package_id, uint32_t leader, const uint32_t* members, uint32_t count,
                                   uint64_t* command_id, int32_t* reason) {
     FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED);
+    FSIM_MA_EGRESS(world, reason, FSIM_NOT_ALLOWED);
     if (!world || (count && !members)) return FSIM_INVALID_ARGUMENT;
     fsim::comm::DmsReason why = fsim::comm::DmsReason::None;
     const uint64_t id = world->world.maCore().formPackage(world->world, entity, package_id, leader, std::vector<uint32_t>(members, members + count), why);
@@ -665,12 +683,66 @@ FSIM_API int fsim_c2_form_package(fsim_world* world, uint32_t entity, uint32_t p
 FSIM_API int fsim_c2_dissolve_package(fsim_world* world, uint32_t entity, uint32_t package_id, const uint32_t* systems, uint32_t count,
                                       uint64_t* command_id, int32_t* reason) {
     FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED);
+    FSIM_MA_EGRESS(world, reason, FSIM_NOT_ALLOWED);
     if (!world || (count && !systems)) return FSIM_INVALID_ARGUMENT;
     fsim::comm::DmsReason why = fsim::comm::DmsReason::None;
     const uint64_t id = world->world.maCore().dissolvePackage(world->world, entity, package_id, std::vector<uint32_t>(systems, systems + count), why);
     if (command_id) *command_id = id;
     if (reason) *reason = static_cast<int32_t>(why);
     return id ? FSIM_OK : fail(FSIM_ERROR, "fsim_c2_dissolve_package: not sent");
+}
+
+// --- MA services (ABI 1.72; docs/sdk/mission-training.md, section 9) ----------------------------------------------------
+
+FSIM_API void fsim_ma_service_binding_init(fsim_ma_service_binding* binding) {
+    if (!binding) return;
+    std::memset(binding, 0, sizeof *binding);
+    binding->struct_size = sizeof *binding;
+}
+
+FSIM_API int fsim_world_bind_ma_service(fsim_world* world, const fsim_ma_service_binding* binding) {
+    FSIM_NOT_AGENT(world, FSIM_NOT_ALLOWED);
+    if (!world || !binding || binding->struct_size < sizeof(fsim_ma_service_binding) ||
+        (binding->command_capability_count && !binding->command_capabilities))
+        return FSIM_INVALID_ARGUMENT;
+    fsim::session::MaServiceBinding b;
+    b.serviceId = binding->service_id, b.platform = binding->platform, b.controller = binding->controller;
+    for (uint32_t i = 0; i < binding->command_capability_count; ++i) {
+        if (!binding->command_capabilities[i]) return FSIM_INVALID_ARGUMENT;
+        b.capabilities.emplace_back(binding->command_capabilities[i]);
+    }
+    b.ownsDmsIngress = binding->owns_dms_ingress != 0, b.ownsDmsEgress = binding->owns_dms_egress != 0;
+    std::string why;
+    if (!world->world.bindMaService(b, why)) return fail(FSIM_INVALID_ARGUMENT, "fsim_world_bind_ma_service: " + why);
+    fsim::sdk::lastError().clear();
+    return FSIM_OK;
+}
+
+FSIM_API uint32_t fsim_world_ma_service_count(fsim_world* world) {
+    FSIM_NOT_AGENT(world, 0);
+    return world ? static_cast<uint32_t>(world->world.maServices().all().size()) : 0;
+}
+
+FSIM_API int fsim_world_ma_service(fsim_world* world, uint32_t index, fsim_ma_service_binding* out) {
+    FSIM_NOT_AGENT(world, FSIM_NOT_ALLOWED);
+    if (!world || !out) return FSIM_INVALID_ARGUMENT;
+    const auto& all = world->world.maServices().all();
+    if (index >= all.size()) return FSIM_INVALID_ARGUMENT;
+    const fsim::session::MaServiceBinding& b = all[index];
+    world->serviceCapabilities.clear();
+    for (const std::string& c : b.capabilities) world->serviceCapabilities.push_back(world->intern(c));
+    fsim_ma_service_binding local;
+    fsim_ma_service_binding_init(&local);
+    local.platform = b.platform, local.service_id = b.serviceId, local.controller = b.controller;
+    local.command_capability_count = static_cast<uint32_t>(world->serviceCapabilities.size());
+    local.command_capabilities = world->serviceCapabilities.empty() ? nullptr : world->serviceCapabilities.data();
+    local.owns_dms_ingress = b.ownsDmsIngress ? 1 : 0, local.owns_dms_egress = b.ownsDmsEgress ? 1 : 0;
+    return copyOut(local, out) ? FSIM_OK : FSIM_INVALID_ARGUMENT;
+}
+
+FSIM_API uint32_t fsim_world_ma_capability_owner(fsim_world* world, uint32_t platform, const char* capability) {
+    FSIM_NOT_AGENT(world, 0);
+    return world && capability ? world->world.maServices().owner(platform, capability) : 0;
 }
 
 } // extern "C"

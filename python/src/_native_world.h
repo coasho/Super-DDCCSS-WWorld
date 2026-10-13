@@ -68,6 +68,9 @@ PyObject* world_c2_set_override(PyObject* o, PyObject* const* args, Py_ssize_t n
 PyObject* world_c2_consents(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_c2_answer_consent(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_set_rbac(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_bind_ma_service(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_ma_services(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_ma_capability_owner(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_rbac(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_agent_authority(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_agent_comms(PyObject* o, PyObject* const* args, Py_ssize_t n);

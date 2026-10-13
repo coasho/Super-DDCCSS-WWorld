@@ -86,6 +86,8 @@ struct fsim_world {
     std::vector<fsim_line_vertex> lineReadback;
     /// The performance profile last asked for (fsim_vehicle_performance_profile): what its arrays point into.
     fsim::control::PerformanceProfile profile;
+    /// An MA service's capabilities as last read back (fsim_world_ma_service): what its array points into.
+    std::vector<const char*> serviceCapabilities;
 
     const char* intern(const std::string& s) { return strings.insert(s).first->c_str(); }
 
@@ -142,6 +144,16 @@ inline bool agentClaims(const fsim_world* w, const fsim_ms_options* o, const cha
     uint32_t controller = o->struct_size >= sizeof(uint32_t) * 3 ? o->controller : 0;
     return agentClaims(w, source, controller, call);
 }
+/// An agent's handle on a platform with configured MA services (docs/sdk/mission-training.md, section 9), calling on a
+/// DMS side another service owns: refused, counted in its audit, fsim_last_error saying whose it is.
+inline bool notDmsOwner(const fsim_world* w, bool egress, const char* call) {
+    if (!w || !w->agent) [[likely]]
+        return false;
+    if (egress ? session::agentDmsEgress(*w->agent, w->world) : session::agentDmsIngress(*w->agent, w->world)) return false;
+    w->world.auditRefusal(w->agent->record, session::auditCall(call));
+    lastError() = std::string(call) + ": the platform's DMS " + (egress ? "egress" : "ingress") + " is another configured MA service's";
+    return true;
+}
 /// An agent's handle addressing another vehicle's activity (a batch's: each).
 inline bool outsideAgentActivity(const fsim_world* w, uint64_t activity, const char* call) {
     if (!w || !w->agent || agentActivity(*w->agent, activity, &w->world)) [[likely]]
@@ -197,6 +209,19 @@ enum class Guard : std::uint8_t { NotAgent, Call, Vehicle, Activity };
 #define FSIM_AGENT_VEHICLE(w, id, ...) FSIM_GUARD_(w, Vehicle, static_cast<std::uint64_t>(id), __VA_ARGS__)
 /// An agent's, on its own vehicle's activities alone.
 #define FSIM_AGENT_ACTIVITY(w, activity, ...) FSIM_GUARD_(w, Activity, static_cast<std::uint64_t>(activity), __VA_ARGS__)
+/// After its guard: a call on its platform's DMS ingress (its inbox, its subscriptions) or egress (its sends), refused an
+/// agent that is not that side's configured owner. `...` is what the refused call returns.
+#define FSIM_MA_INGRESS(w, ...)                                                                                             \
+    do {                                                                                                                    \
+        if (::fsim::sdk::notDmsOwner((w), false, __func__)) return __VA_ARGS__;                                            \
+    } while (0)
+#define FSIM_MA_EGRESS(w, reason, ...)                                                                                      \
+    do {                                                                                                                    \
+        if (::fsim::sdk::notDmsOwner((w), true, __func__)) {                                                               \
+            if (reason) *(reason) = FSIM_DMS_NOT_OWNER;                                                                     \
+            return __VA_ARGS__;                                                                                             \
+        }                                                                                                                   \
+    } while (0)
 /// Any handle's, sealed or not: its own release, its identity.
 #define FSIM_AGENT_RELEASE(w) ((void)(w))
 /// An agent's handle: a declared source and controller must be its own (`controller` 0 becomes its own; the

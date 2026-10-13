@@ -280,6 +280,45 @@ altitude override its MA's own commands fly; an observer post's command is answe
   what its team's leader sends as C2's - C2's commands relayed - besides authorized C2; a leader cannot remake its team.
   Who leads and how a team divides its work are the agents' decisions.
 
+## MA services
+
+A platform may carry several agents - several MA services, each a controller of its own. By themselves they are not
+configured: any of them may command any capability, any of them may take the shared inbox, and a C2 control
+designation's grants, a C2 override on a live HSA and a lost-communication plan go to whichever agent was made last.
+A **binding** makes the ownership explicit (`fsim/MAService.h`; [contract](mission-training.md#9-service-binding)):
+
+```python
+flight, sensors = w.create_agent(viper, "flight"), w.create_agent(viper, "sensors")
+w.bind_ma_service(flight, 1, ("fsim.guidance.hsa", "fsim.guidance.route"), owns_dms_ingress=False, owns_dms_egress=True)
+w.bind_ma_service(sensors, 2, ("fsim.ms.amti:radar",), owns_dms_ingress=True, owns_dms_egress=False)
+w.ma_services()                                  # [MAService(service_id=1, ...), MAService(service_id=2, ...)]
+flight.submit_hsa(heading_rad=1.2)               # its capability: flown
+sensors.submit_hsa(heading_rad=2.0)              # fsim.Error: not_granted - not its capability
+sensors.request_control("fsim.guidance.hsa")     # fsim.Rejected: not_allowed
+sensors.send(1001, b"contact")                   # fsim.Error: the DMS egress is the flight service's
+sensors.receive()                                # the inbox: the ingress owner's alone (flight.receive() == [])
+```
+
+- **The range's:** `bindMAService(world, binding, &error)` (C++), `fsim_world_bind_ma_service` (C),
+  `world.bind_ma_service(agent, service_id, command_capabilities, owns_dms_ingress, owns_dms_egress)` (Python). It
+  names a controller the world minted for one of the platform's agents and creates none. `maServiceBindings`,
+  `fsim_world_ma_service`, `world.ma_services()` read the bindings back in ascending service id.
+- **Ownership is the bindings':** it does not depend on the order the agents were made in, or the order they were
+  bound in. Command capabilities are named by their discovery ids, or `"*"` for all of them; a capability, the DMS
+  ingress and the DMS egress each have at most one owner on a platform, and a binding that overlaps another - or names
+  a controller that is not one of the platform's own, or a capability the platform does not offer - is refused with
+  the reason, and nothing changes.
+- **What it uses:** the first binding puts the platform under `ControlMode.GRANTED` and asks for the grants of what is
+  bound. Only an owner is granted its capability, so only it commands it; another service reads an activity but may
+  not update or cancel it (`authority_held`). C2's designation, overrides and lost-communication plan go to the
+  owners. The default policy (controller 0) holds no grant there.
+- **Reports are shared:** every agent of the platform reads its navigation, sensors, picture, tasks and authority
+  alike. Sharing a report grants no command.
+- **Not bound, not changed:** a platform the range binds nothing on behaves exactly as before. Removing a platform
+  ends its bindings; the legacy `reset` keeps them.
+
+`examples/python/ma_services.py` runs it: one aircraft, two services, the agents made in either order.
+
 ## The referee
 
 `fsim::Referee` / `fsim.Referee`: every vehicle's true state (and sensed state), the vehicles, the weapons, radio
@@ -289,12 +328,9 @@ an agent's observation (a centralised critic may use them in training, as ADR-31
 
 ## Not yet
 
-- Mission episodes: explicit MA-service binding, one World per episode, immutable per-tick snapshots and queued
-  requests through an endpoint of its own. Their contract is frozen and nothing of it is built: see the
-  [mission training contract](mission-training.md) and [composing an MA system](ma-composition.md). An Agent stays
-  what this page describes; several Agents on one platform are not several configured services: a C2 control
-  designation's grants, a C2 override applied to a live HSA and a lost-communication plan activation go to the
-  platform's most recently created Agent until a binding says otherwise.
+- Mission episodes: one World per episode, immutable per-tick snapshots and queued requests through an endpoint of
+  its own. Their contract is frozen and not built: see the [mission training contract](mission-training.md) and
+  [composing an MA system](ma-composition.md). [MA services](#ma-services) are the part that is.
 - A C or C++ MA in a process of its own (the isolation channel's client in those languages); approval of autonomous
   actions other than strikes (A-GRA's approval
   policy for plans and responses), role configuration in flight (an Admin's), overrides within zones; fusion of received

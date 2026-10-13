@@ -252,6 +252,7 @@ enum class DmsReason : std::uint8_t {
     ReservedTopic, ///< a native type's topic: the MA core's to send (AB-4b)
     TooLarge,      ///< larger than a net it would travel on allows
     UnknownSystem, ///< a destination no net it is on reaches
+    NotOwner,      ///< its platform has configured MA services, and its DMS egress is another's (fsim/MAService.h)
 };
 
 /// What arrived (MA_RxDataPayloadMT): its sender as the DMS stamped it, once however many paths it came by.

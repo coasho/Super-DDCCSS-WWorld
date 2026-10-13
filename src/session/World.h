@@ -18,6 +18,7 @@
 #include "control/Features.h"
 #include "session/Dms.h"
 #include "session/MaCore.h"
+#include "session/MaServiceBindings.h"
 #include "session/StoreFlightBinding.h"
 #include "fsim/VehicleProfile.h"
 #include "effects/Effect.h"
@@ -600,6 +601,20 @@ public:
     /// Make an agent for a live aircraft (not a weapon): its controller, or 0 for a vehicle that cannot have one.
     control::ControllerId mintAgent(std::uint32_t vehicle, const std::string& name);
     const std::vector<AgentRecord>& agents() const noexcept { return agents_; }
+
+    // --- MA services (docs/sdk/mission-training.md, section 9) ----------------------
+    /// Bind one MA service - one of a platform's agents, by the controller minted for it - to the command
+    /// capabilities and the DMS sides it owns. The range's alone. False, `error` saying why, and nothing changed for:
+    /// a controller this world did not mint or minted for another platform, a platform that is gone, a capability the
+    /// platform does not offer for command, and anything another bound service already owns.
+    ///
+    /// A platform's first binding puts it under ControlMode::Granted, the existing mode in which only a grant's holder
+    /// commands a capability; from then on its agents may hold a grant only for a capability bound to them (another's
+    /// request: NotAllowed), C2's control designation, a live override and a lost-communication plan go to those
+    /// owners, and its DMS answers its ingress and egress owners alone. The binding asks for the grants of what it
+    /// binds at once; one unavailable then is its owner's to request later. A platform never bound is untouched.
+    bool bindMaService(const MaServiceBinding& binding, std::string& error);
+    const MaServiceBindings& maServices() const noexcept { return maServices_; }
     /// Count an agent's call in its audit (its record's index, the call's), refused or not.
     void audit(std::size_t record, std::uint16_t call, bool refused) {
         if (record >= agents_.size()) return;
@@ -899,6 +914,7 @@ private:
     comm::Network network_;
     Dms dms_;      ///< (ADR-31, AB-4) systems, nets, each system's DMS
     MaCore maCore_; ///< (AB-5) each platform's MA core
+    MaServiceBindings maServices_; ///< explicit MA-service ownership, where the range configured it
     Rng dmsRng_;   ///< its draws (loss, jitter): a stream of its own, so a world without nets flies as before
     struct C2Node {
         comm::C2NodeSpec spec;

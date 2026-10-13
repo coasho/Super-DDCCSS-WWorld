@@ -818,3 +818,71 @@ PyObject* world_link_track_truth(PyObject* o, PyObject* const* args, Py_ssize_t 
         return NULL;
     return PyLong_FromUnsignedLong(fsim_world_link_track_truth(self->world, source, payload, track));
 }
+
+/* --- MA services (ABI 1.72; docs/sdk/mission-training.md, section 9) ---------------------------------------------- */
+
+/* bind_ma_service(service_id, platform, controller, capabilities: sequence of str, owns_dms_ingress, owns_dms_egress) */
+PyObject* world_bind_ma_service(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self = (WorldObject*)o;
+    fsim_ma_service_binding b;
+    fsim_ma_service_binding_init(&b);
+    if (!check_args(n, 6, 6, "bind_ma_service") || !as_u64(args[0], &b.service_id) || !as_u32(args[1], &b.platform) ||
+        !as_u32(args[2], &b.controller) || !WORLD_IDLE(self))
+        return NULL;
+    PyObject* names = PySequence_Tuple(args[3]); /* (holds each name while its text is borrowed) */
+    if (!names) return NULL;
+    const Py_ssize_t count = PyTuple_Size(names);
+    const char** list = count ? (const char**)PyMem_Malloc(sizeof(const char*) * (size_t)count) : NULL;
+    int ok = count == 0 || list != NULL;
+    for (Py_ssize_t i = 0; ok && i < count; ++i) ok = (list[i] = as_str(PyTuple_GetItem(names, i), "a command capability")) != NULL;
+    const int ingress = ok ? PyObject_IsTrue(args[4]) : -1, egress = ok ? PyObject_IsTrue(args[5]) : -1;
+    int rc = FSIM_INVALID_ARGUMENT;
+    if (ok && ingress >= 0 && egress >= 0) {
+        b.command_capability_count = (uint32_t)count;
+        b.command_capabilities = list;
+        b.owns_dms_ingress = ingress, b.owns_dms_egress = egress;
+        rc = fsim_world_bind_ma_service(self->world, &b);
+    } else if (!PyErr_Occurred() && !list && count) {
+        PyErr_NoMemory();
+    }
+    PyMem_Free((void*)list);
+    Py_DECREF(names);
+    if (PyErr_Occurred()) return NULL;
+    if (rc != FSIM_OK) return fail();
+    Py_RETURN_NONE;
+}
+
+/* ma_services() -> [(service_id, platform, controller, (capability, ...), owns_dms_ingress, owns_dms_egress)], by service id */
+PyObject* world_ma_services(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self = (WorldObject*)o;
+    (void)args;
+    if (!check_args(n, 0, 0, "ma_services") || !WORLD_IDLE(self)) return NULL;
+    const uint32_t count = fsim_world_ma_service_count(self->world);
+    PyObject* list = PyList_New(0);
+    for (uint32_t i = 0; list && i < count; ++i) {
+        fsim_ma_service_binding b;
+        fsim_ma_service_binding_init(&b);
+        if (fsim_world_ma_service(self->world, i, &b) != FSIM_OK) continue;
+        PyObject* names = PyTuple_New((Py_ssize_t)b.command_capability_count);
+        for (uint32_t k = 0; names && k < b.command_capability_count; ++k) {
+            PyObject* name = PyUnicode_FromString(b.command_capabilities[k]);
+            if (!name || PyTuple_SetItem(names, (Py_ssize_t)k, name) < 0) Py_CLEAR(names);
+        }
+        PyObject* item = names ? Py_BuildValue("(KIINOO)", (unsigned long long)b.service_id, (unsigned int)b.platform, (unsigned int)b.controller,
+                                               names, b.owns_dms_ingress ? Py_True : Py_False, b.owns_dms_egress ? Py_True : Py_False)
+                               : NULL;
+        if (!item || PyList_Append(list, item) < 0) Py_CLEAR(list);
+        Py_XDECREF(item);
+    }
+    return list;
+}
+
+/* ma_capability_owner(platform, capability) -> the owning controller (0: none) */
+PyObject* world_ma_capability_owner(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self = (WorldObject*)o;
+    uint32_t platform;
+    if (!check_args(n, 2, 2, "ma_capability_owner") || !as_u32(args[0], &platform) || !WORLD_IDLE(self)) return NULL;
+    const char* capability = as_str(args[1], "capability");
+    if (!capability) return NULL;
+    return PyLong_FromUnsignedLong(fsim_world_ma_capability_owner(self->world, platform, capability));
+}

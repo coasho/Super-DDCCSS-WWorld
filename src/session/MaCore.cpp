@@ -264,6 +264,10 @@ void MaCore::handle(World& world, std::uint32_t entity, const comm::DmsReceived&
 void MaCore::designate(World& world, std::uint32_t entity, State& s, comm::SystemId by, std::uint32_t modes) {
     // forwarded to FA (1.2.7.23; VI 1.2.2.9): the flight modes MA may command allowed, the rest revoked; control of the
     // allowed ones - and of the platform's own capabilities, which C2 does not designate - granted to MA's controller
+    // (with configured MA services, each capability's own: docs/sdk/mission-training.md, 9; else, as before, the
+    // platform's agent made last)
+    const MaServiceBindings& services = world.maServices();
+    const bool bound = services.bound(entity);
     control::ControllerId ma = 0;
     for (const auto& a : world.agents())
         if (a.vehicle == entity) ma = a.controller;
@@ -273,7 +277,9 @@ void MaCore::designate(World& world, std::uint32_t entity, State& s, comm::Syste
         // (an A-GRA flight mode: as designated; the platform's levels, behaviours and support effectors: MA's still)
         const bool allowed = d.mode == control::FlightMode::None || (modes & (1u << static_cast<unsigned>(d.mode)));
         world.setAllowed(entity, d.id, allowed);
-        if (allowed) world.requestControl(entity, d.id, ma);
+        if (!allowed) continue;
+        if (!bound) world.requestControl(entity, d.id, ma);
+        else if (const control::ControllerId owner = services.owner(entity, d.id)) world.requestControl(entity, d.id, owner);
     }
     s.authority.designated = true, s.authority.designatedModes = modes, s.authority.designatedBy = by;
     s.authority.designatedS = world.simTime();
@@ -424,11 +430,19 @@ void MaCore::applyOverrides(std::uint32_t entity, std::vector<control::Waypoint>
 
 void MaCore::overrideLive(World& world, std::uint32_t entity, const State& s) {
     // the agent's live HSA flies the overrides now (an UPDATE as its own: the fields left out kept)
+    // (with configured MA services, each bound service's own live HSA; else the platform's agent made last)
+    const MaServiceBindings& services = world.maServices();
+    const bool bound = services.bound(entity);
     control::ControllerId ma = 0;
     for (const auto& a : world.agents())
         if (a.vehicle == entity) ma = a.controller;
     if (ma == 0) return;
     for (const control::ActivityRecord& r : world.activities(entity)) {
+        if (bound) {
+            const MaServiceBinding* service = services.ofController(r.controller);
+            if (!service || service->platform != entity) continue;
+            ma = r.controller;
+        }
         if (!r.live() || r.controller != ma || r.source != control::Source::Policy) continue;
         control::Setpoint setpoint;
         if (!world.activitySetpoint(r.id, setpoint)) continue;
@@ -539,6 +553,13 @@ void MaCore::watchComms(World& world, std::uint32_t entity, State& s) {
     control::ControllerId ma = 0;
     for (const auto& ag : world.agents())
         if (ag.vehicle == entity) ma = ag.controller;
+    if (world.maServices().bound(entity)) {
+        // (configured MA services: the plan is its waypoint-following capability's owner's; with none, the alert alone)
+        ma = 0;
+        for (const control::CapabilityDescriptor& d : world.capabilities(entity))
+            if (d.mode == control::FlightMode::WaypointFollowing && ma == 0) ma = world.maServices().owner(entity, d.id);
+        if (ma == 0) return;
+    }
     control::CommandOptions o;
     o.controller = ma; // (MA's own response: its plan, as its agent would fly it)
     world.planCommand(entity, a.lostComms.planId, control::PlanCommand::PrepareForActivation, o);

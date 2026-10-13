@@ -2125,7 +2125,8 @@ FSIM_API int fsim_comm_attach_udp_bridge(fsim_world* world, uint32_t node, uint1
  * ------------------------------------------------------------------------- */
 /* Topics below FSIM_TOPIC_FREE_FORM are A-GRA's native types, the MA core's to send (AB-4b). */
 enum fsim_topic { FSIM_TOPIC_SYSTEM_STATUS = 1, FSIM_TOPIC_POSITION_REPORT = 2, FSIM_TOPIC_ENTITY = 3, FSIM_TOPIC_FREE_FORM = 1000 };
-enum fsim_dms_reason { FSIM_DMS_OK = 0, FSIM_DMS_NO_SYSTEM = 1, FSIM_DMS_RESERVED_TOPIC = 2, FSIM_DMS_TOO_LARGE = 3, FSIM_DMS_UNKNOWN_SYSTEM = 4 };
+enum fsim_dms_reason { FSIM_DMS_OK = 0, FSIM_DMS_NO_SYSTEM = 1, FSIM_DMS_RESERVED_TOPIC = 2, FSIM_DMS_TOO_LARGE = 3, FSIM_DMS_UNKNOWN_SYSTEM = 4,
+                       FSIM_DMS_NOT_OWNER = 5 /* ABI 1.72: its platform has configured MA services, and its DMS egress is another's */ };
 enum fsim_delivery { FSIM_DELIVERY_PENDING = 0, FSIM_DELIVERY_DELIVERED = 1, FSIM_DELIVERY_FAILED = 2 };
 
 /* A net (fsim_net_spec_init: a Link 16 net's published range, band and rate; the rest estimates - fsim/Comm.h). */
@@ -2394,6 +2395,40 @@ FSIM_API int fsim_c2_form_package(fsim_world* world, uint32_t entity, uint32_t p
                                   uint64_t* command_id, int32_t* reason);
 FSIM_API int fsim_c2_dissolve_package(fsim_world* world, uint32_t entity, uint32_t package_id, const uint32_t* systems, uint32_t count,
                                       uint64_t* command_id, int32_t* reason);
+
+/* ---------------------------------------------------------------------------
+ * MA services (ABI 1.72; docs/sdk/mission-training.md, section 9; fsim/MAService.h). A platform may carry several
+ * agents - several MA services. A binding, the range's to make, says which one owns each command capability, the
+ * platform's DMS ingress (its inbox and subscriptions) and its DMS egress (its sends, native publications, task
+ * answers and C2 messages). Ownership follows the bindings, never the order the agents were made in.
+ *
+ * A platform's first binding puts it under FSIM_CONTROL_GRANTED and asks for the grants of what each binding names.
+ * From then on an agent of that platform is granted only a capability bound to it (fsim_vehicle_request_control_by of
+ * another's: not_allowed); C2's control designation, a live override and a lost-communication plan go to the bound
+ * owners; an agent that is not the ingress owner reads an empty inbox and may not take or subscribe
+ * (FSIM_NOT_ALLOWED); one that is not the egress owner may not send (FSIM_NOT_ALLOWED, *reason FSIM_DMS_NOT_OWNER).
+ * Every agent of the platform still reads its reports alike. A platform the range binds nothing on is as before.
+ * ------------------------------------------------------------------------- */
+typedef struct fsim_ma_service_binding {
+    uint32_t struct_size;                    /* fsim_ma_service_binding_init */
+    uint32_t platform;                       /* the vehicle's or C2 node's entity id */
+    uint64_t service_id;                     /* nonzero, unique in the world */
+    uint32_t controller;                     /* as fsim_agent_create minted it for this service's agent (fsim_agent_identity) */
+    uint32_t command_capability_count;
+    const char* const* command_capabilities; /* discovery ids as the platform reports them, or the single entry "*" */
+    int32_t owns_dms_ingress, owns_dms_egress;
+} fsim_ma_service_binding;
+FSIM_API void fsim_ma_service_binding_init(fsim_ma_service_binding* binding);
+/* The range's. FSIM_INVALID_ARGUMENT, fsim_last_error() saying why, and nothing changed for: a controller this world
+ * did not mint or minted for another platform, a platform that is gone, a capability the platform does not offer for
+ * command, and anything a service bound earlier already owns. */
+FSIM_API int fsim_world_bind_ma_service(fsim_world* world, const fsim_ma_service_binding* binding);
+/* The bindings, in ascending service id. command_capabilities points into the handle: valid until the next
+ * fsim_world_ma_service on it. */
+FSIM_API uint32_t fsim_world_ma_service_count(fsim_world* world);
+FSIM_API int fsim_world_ma_service(fsim_world* world, uint32_t index, fsim_ma_service_binding* out);
+/* The controller that owns a command capability of a platform: 0 where no bound service does. */
+FSIM_API uint32_t fsim_world_ma_capability_owner(fsim_world* world, uint32_t platform, const char* capability);
 
 /* ---------------------------------------------------------------------------
  * Recordings (design 9.5): an .fsrec file written by fsim_world_options.record_path,

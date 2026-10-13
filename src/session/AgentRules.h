@@ -51,6 +51,11 @@ control::Reason agentMustFly(const AgentIdentity& agent, const control::MustFlyC
 /// A strike whose target is none or its own designation, and that asks for consent rather than giving it: release
 /// consent is C2's (A-GRA's weapons authorization policy, A9; the range stands in for C2 until AB-5).
 ms::Reason agentStrike(const AgentIdentity& agent, const ms::StrikeCommand& strike, const World* world) noexcept;
+/// The DMS of a platform with configured MA services (docs/sdk/mission-training.md, section 9): its inbox and its
+/// subscriptions are its ingress owner's, its sends - free-form, native publications, task answers, C2 messages - its
+/// egress owner's. True for the owner, and for any agent of a platform the range bound no service on.
+bool agentDmsIngress(const AgentIdentity& agent, const World& world) noexcept;
+bool agentDmsEgress(const AgentIdentity& agent, const World& world) noexcept;
 /// A report as an agent reads it: the entity behind a detection or a track is the referee's (0).
 void agentReport(ms::AmtiDetection& detection) noexcept;
 void agentReport(ms::AmtiTrack& track) noexcept;

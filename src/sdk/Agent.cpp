@@ -42,6 +42,18 @@ void auditOf(World* w, control::ControllerId controller, std::uint16_t call, boo
 #define FSIM_AGENT_REFUSED (world_ ? world_->impl().auditRefusal(controller_ - session::World::kAgentControllers - 1, fsim_call_) : void())
 
 #define FSIM_AGENT_IDENTITY session::AgentIdentity{vehicle_, controller_, {}}
+/// On a platform with configured MA services (docs/sdk/mission-training.md, section 9) its DMS ingress and its DMS egress
+/// are each one service's: another's call is refused (session::agentDmsIngress, agentDmsEgress). `why`, where the call
+/// has one, says NotOwner.
+#define FSIM_AGENT_INGRESS(refusal)                                                                                           \
+    if (world_ && !session::agentDmsIngress(FSIM_AGENT_IDENTITY, world_->impl())) return FSIM_AGENT_REFUSED, refusal
+#define FSIM_AGENT_EGRESS(refusal)                                                                                            \
+    if (world_ && !session::agentDmsEgress(FSIM_AGENT_IDENTITY, world_->impl())) return FSIM_AGENT_REFUSED, refusal
+#define FSIM_AGENT_EGRESS_WHY(why, refusal)                                                                                   \
+    if (world_ && !session::agentDmsEgress(FSIM_AGENT_IDENTITY, world_->impl())) {                                            \
+        if (why) *why = comm::DmsReason::NotOwner;                                                                            \
+        return FSIM_AGENT_REFUSED, refusal;                                                                                   \
+    }
 #define FSIM_AGENT_VEHICLE_OF world_->vehicle(vehicle_)
 /// Its options as its own (session::agentOptions), else the call is refused.
 #define FSIM_AGENT_OPTIONS(opts, refuse)                                                                                       \
@@ -525,6 +537,7 @@ std::vector<comm::NetInfo> Agent::nets() const {
 }
 std::uint64_t Agent::send(const comm::DmsMessage& message, comm::DmsReason* why) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_EGRESS_WHY(why, 0);
     comm::DmsReason reason = comm::DmsReason::NoSystem;
     const std::uint64_t id = world_ ? world_->impl().dms().send(vehicle_, message, world_->time(), reason) : 0;
     if (why) *why = reason;
@@ -533,14 +546,17 @@ std::uint64_t Agent::send(const comm::DmsMessage& message, comm::DmsReason* why)
 }
 bool Agent::subscribe(comm::Topic topic) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_INGRESS(false);
     return world_ && world_->impl().dms().subscribe(vehicle_, topic, true);
 }
 bool Agent::unsubscribe(comm::Topic topic) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_INGRESS(false);
     return world_ && world_->impl().dms().subscribe(vehicle_, topic, false);
 }
 bool Agent::subscribeAll(bool all) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_INGRESS(false);
     return world_ && world_->impl().dms().subscribeAll(vehicle_, all);
 }
 std::vector<comm::Topic> Agent::subscriptions() const {
@@ -553,11 +569,13 @@ bool Agent::subscribedAll() const {
 }
 std::vector<comm::DmsReceived> Agent::inbox() const {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_INGRESS(std::vector<comm::DmsReceived>{});
     const auto* in = world_ ? world_->impl().dms().inbox(vehicle_) : nullptr;
     return in ? std::vector<comm::DmsReceived>(in->begin(), in->end()) : std::vector<comm::DmsReceived>{};
 }
 std::vector<comm::DmsReceived> Agent::receive() {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_INGRESS(std::vector<comm::DmsReceived>{});
     return world_ ? world_->impl().dms().take(vehicle_) : std::vector<comm::DmsReceived>{};
 }
 std::optional<comm::DmsTransmission> Agent::transmission(std::uint64_t message) const {
@@ -566,6 +584,7 @@ std::optional<comm::DmsTransmission> Agent::transmission(std::uint64_t message) 
 }
 std::uint64_t Agent::publishPosition(const std::vector<comm::SystemId>& destinations, comm::DmsReason* why) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_EGRESS_WHY(why, 0);
     comm::DmsReason reason = comm::DmsReason::NoSystem;
     const auto ids = world_ ? world_->impl().publishNative(vehicle_, comm::topic::kPositionReport, 0, destinations, reason)
                             : std::vector<std::uint64_t>{};
@@ -575,6 +594,7 @@ std::uint64_t Agent::publishPosition(const std::vector<comm::SystemId>& destinat
 }
 std::uint64_t Agent::publishStatus(const std::vector<comm::SystemId>& destinations, comm::DmsReason* why) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_EGRESS_WHY(why, 0);
     comm::DmsReason reason = comm::DmsReason::NoSystem;
     const auto ids = world_ ? world_->impl().publishNative(vehicle_, comm::topic::kSystemStatus, 0, destinations, reason)
                             : std::vector<std::uint64_t>{};
@@ -584,6 +604,7 @@ std::uint64_t Agent::publishStatus(const std::vector<comm::SystemId>& destinatio
 }
 std::vector<std::uint64_t> Agent::publishTracks(std::uint16_t payload, const std::vector<comm::SystemId>& destinations, comm::DmsReason* why) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_EGRESS_WHY(why, std::vector<std::uint64_t>{});
     comm::DmsReason reason = comm::DmsReason::NoSystem;
     auto ids = world_ ? world_->impl().publishNative(vehicle_, comm::topic::kEntity, payload, destinations, reason)
                       : std::vector<std::uint64_t>{};
@@ -627,6 +648,7 @@ C2Authority Agent::authority() const {
 }
 bool Agent::declareRole(std::uint32_t roleId, std::string_view callsign, const std::vector<comm::SystemId>& destinations, comm::DmsReason* why) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_EGRESS_WHY(why, false);
     comm::DmsReason reason = comm::DmsReason::NoSystem;
     const bool sent = world_ && world_->impl().maCore().declareRole(world_->impl(), vehicle_, roleId, std::string(callsign), destinations, reason);
     if (why) *why = reason;
@@ -634,6 +656,7 @@ bool Agent::declareRole(std::uint32_t roleId, std::string_view callsign, const s
 }
 std::uint64_t Agent::designateControl(comm::SystemId ma, std::uint32_t modes, comm::DmsReason* why) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_EGRESS_WHY(why, 0);
     comm::DmsReason reason = comm::DmsReason::NoSystem;
     const std::uint64_t id = world_ ? world_->impl().maCore().designateControl(world_->impl(), vehicle_, ma, modes, reason) : 0;
     if (why) *why = reason;
@@ -641,6 +664,7 @@ std::uint64_t Agent::designateControl(comm::SystemId ma, std::uint32_t modes, co
 }
 std::uint64_t Agent::commandHsa(comm::SystemId ma, const control::HsaCommand& command, comm::DmsReason* why) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_EGRESS_WHY(why, 0);
     comm::FlightCommand c;
     c.kind = comm::FlightCommand::Hsa;
     c.headingRad = command.headingRad, c.courseRad = command.courseRad, c.speed = command.speed;
@@ -652,6 +676,7 @@ std::uint64_t Agent::commandHsa(comm::SystemId ma, const control::HsaCommand& co
 }
 std::uint64_t Agent::commandRoute(comm::SystemId ma, Span<const control::Waypoint> waypoints, comm::DmsReason* why) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_EGRESS_WHY(why, 0);
     if (waypoints.size() == 0 || waypoints.size() > 16) {
         if (why) *why = comm::DmsReason::TooLarge;
         return 0;
@@ -670,6 +695,7 @@ std::uint64_t Agent::commandRoute(comm::SystemId ma, Span<const control::Waypoin
 }
 std::uint64_t Agent::cancelCommand(comm::SystemId ma, std::uint64_t commandId, comm::DmsReason* why) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_EGRESS_WHY(why, 0);
     comm::FlightCommand c;
     c.kind = comm::FlightCommand::Cancel, c.commandId = commandId;
     comm::DmsReason reason = comm::DmsReason::NoSystem;
@@ -689,16 +715,19 @@ std::vector<comm::ReceivedTask> Agent::c2Tasks() const {
 }
 bool Agent::acceptTask(comm::SystemId from, std::uint64_t taskId) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_EGRESS(false);
     return world_ && world_->impl().maCore().answerTask(world_->impl(), vehicle_, from, taskId, comm::ReceivedTask::Accepted, 0,
                                                        std::numeric_limits<double>::quiet_NaN());
 }
 bool Agent::rejectTask(comm::SystemId from, std::uint64_t taskId, std::uint32_t code) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_EGRESS(false);
     return world_ && world_->impl().maCore().answerTask(world_->impl(), vehicle_, from, taskId, comm::ReceivedTask::Rejected, code,
                                                        std::numeric_limits<double>::quiet_NaN());
 }
 bool Agent::reportTask(comm::SystemId from, std::uint64_t taskId, comm::ReceivedTask::State state, double percent) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_EGRESS(false);
     return world_ && world_->impl().maCore().answerTask(world_->impl(), vehicle_, from, taskId, state, 0, percent);
 }
 std::vector<comm::ActiveOverride> Agent::overrides() const {
@@ -708,6 +737,7 @@ std::vector<comm::ActiveOverride> Agent::overrides() const {
 }
 std::uint64_t Agent::sendTask(comm::SystemId ma, const comm::TaskOrder& task, comm::DmsReason* why) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_EGRESS_WHY(why, 0);
     comm::DmsReason reason = comm::DmsReason::NoSystem;
     const std::uint64_t id = world_ ? world_->impl().maCore().sendTask(world_->impl(), vehicle_, ma, task, reason) : 0;
     if (why) *why = reason;
@@ -715,6 +745,7 @@ std::uint64_t Agent::sendTask(comm::SystemId ma, const comm::TaskOrder& task, co
 }
 std::uint64_t Agent::setOverride(comm::SystemId ma, const comm::OverrideCommand& command, comm::DmsReason* why) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_EGRESS_WHY(why, 0);
     comm::DmsReason reason = comm::DmsReason::NoSystem;
     const std::uint64_t id = world_ ? world_->impl().maCore().sendOverride(world_->impl(), vehicle_, ma, command, reason) : 0;
     if (why) *why = reason;
@@ -727,6 +758,7 @@ std::vector<comm::PendingConsent> Agent::consentRequests() const {
 }
 std::uint64_t Agent::setLostComms(comm::SystemId ma, double thresholdS, std::uint64_t planId, comm::DmsReason* why) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_EGRESS_WHY(why, 0);
     comm::LostCommsSettings l;
     l.thresholdS = thresholdS, l.activatePlan = planId ? 1u : 0u, l.planId = planId;
     comm::DmsReason reason = comm::DmsReason::NoSystem;
@@ -736,6 +768,7 @@ std::uint64_t Agent::setLostComms(comm::SystemId ma, double thresholdS, std::uin
 }
 std::uint64_t Agent::formPackage(std::uint32_t packageId, comm::SystemId leader, const std::vector<comm::SystemId>& members, comm::DmsReason* why) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_EGRESS_WHY(why, 0);
     comm::DmsReason reason = comm::DmsReason::NoSystem;
     const std::uint64_t id = world_ ? world_->impl().maCore().formPackage(world_->impl(), vehicle_, packageId, leader, members, reason) : 0;
     if (why) *why = reason;
@@ -743,6 +776,7 @@ std::uint64_t Agent::formPackage(std::uint32_t packageId, comm::SystemId leader,
 }
 std::uint64_t Agent::dissolvePackage(std::uint32_t packageId, const std::vector<comm::SystemId>& systems, comm::DmsReason* why) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_EGRESS_WHY(why, 0);
     comm::DmsReason reason = comm::DmsReason::NoSystem;
     const std::uint64_t id = world_ ? world_->impl().maCore().dissolvePackage(world_->impl(), vehicle_, packageId, systems, reason) : 0;
     if (why) *why = reason;
@@ -750,6 +784,7 @@ std::uint64_t Agent::dissolvePackage(std::uint32_t packageId, const std::vector<
 }
 bool Agent::answerConsent(comm::SystemId ma, std::uint64_t requestId, bool granted, comm::DmsReason* why) {
     FSIM_AGENT_AUDIT;
+    FSIM_AGENT_EGRESS_WHY(why, false);
     comm::DmsReason reason = comm::DmsReason::NoSystem;
     const bool sent = world_ && world_->impl().maCore().answerConsent(world_->impl(), vehicle_, ma, requestId, granted, reason);
     if (why) *why = reason;

@@ -1,15 +1,19 @@
 # Mission training contract, version 1
 
-Status: **frozen contract, proposed interfaces**. Generic M0 froze this page, its
+Status: **frozen contract, implemented in part**. Generic M0 froze this page, its
 [schema](ma-contract.schema.json) and its [fixtures](../../tests/fixtures/mission_training/contract/manifest.json) on
 2026-10-12 against main `e1945b98732586a31b8a8d05c276fc34f4a2d737` (delivered baseline
-`baf476f841970f1f3c90b8de0bf630e8a5478738`). **Nothing on this page is implemented.** None of the proposed headers,
-exports, C functions or Python classes of [section 3](#3-principals-and-proposed-entry-points) exists in the SDK
-today (`fsim.isolation` exists with its present `AgentProcess` only); the [SDK's principals](boundary.md) list what
-does. The only code this phase added is the repository check of [section 17](#17-checks-and-evidence). Each
-package of the [implementation plan](../superpowers/plans/2026-10-12-ma-system-training-readiness.md) implements its
-part against this contract and moves its entry points from "proposed" here into
-[boundary.toml](boundary.toml) when they are exported.
+`baf476f841970f1f3c90b8de0bf630e8a5478738`). Each package of the
+[implementation plan](../superpowers/plans/2026-10-12-ma-system-training-readiness.md) implements its part against
+this contract and moves its entry points from "proposed" here into [boundary.toml](boundary.toml) when they are
+exported.
+
+| Part | State |
+| --- | --- |
+| Explicit MA-service binding ([section 9](#9-service-binding)) | **Implemented** (M1) in C++, C and Python |
+| Everything else: the mission episode, endpoint and referee family, every `ma.*.v1` document, the gateway, receipts, criteria, isolation | **Proposed.** No header, export, C function or Python class for it exists; `fsim.isolation` has its present `AgentProcess` only |
+
+The [SDK's principals](boundary.md) list what the SDK really exports.
 
 This is a local SDK contract for the [accepted design](../superpowers/specs/2026-10-12-ma-system-training-readiness-design.md).
 It is not an ASK or UCI wire format and claims no ASK compliance. The upper-layer side - components, arbitration and
@@ -65,13 +69,21 @@ components, a C2 node's service has no aircraft, and no count implies another.
 
 ## 3. Principals and proposed entry points
 
-Every proposed entry point belongs to one principal of [ADR-31](../agent-boundary.md). These rows become
-`boundary.toml` rules, by exact name, in the package that exports them; `sdk_boundary` rejects a rule for a name the
-SDK does not have, so they are not in that file yet.
+Every entry point of this contract belongs to one principal of [ADR-31](../agent-boundary.md).
+
+Implemented, exported and classified in `boundary.toml`:
+
+| Entry point | Principal | Package |
+| --- | --- | --- |
+| `fsim::bindMAService`, `fsim::maServiceBindings`, `fsim::maCapabilityOwner` (`fsim/MAService.h`) | range | M1 |
+| `fsim_world_bind_ma_service`, `fsim_world_ma_service_count`, `fsim_world_ma_service`, `fsim_world_ma_capability_owner` (`fsim/fsim_c.h`; `fsim_ma_service_binding_init` is a value initialiser) | range | M1 |
+| `fsim.World.bind_ma_service`, `ma_services`, `ma_capability_owner` (`fsim.MAService` is their record) | range | M1 |
+
+Proposed. These rows become `boundary.toml` rules, by exact name, in the package that exports them; `sdk_boundary`
+rejects a rule for a name the SDK does not have, so they are not in that file yet:
 
 | Proposed entry point | Principal | Package |
 | --- | --- | --- |
-| `fsim::bindMAService(World&, const MAServiceBindingV1&, std::string*)` (`fsim/MAService.h`) | range | M1 |
 | `fsim::MissionEpisode`: constructor from `std::string_view`, destructor, move construction and assignment, `reset`, `step`, `endpoint`, `referee` (`fsim/MissionEpisode.h`) | range | M4, M5 core |
 | `fsim::MissionEndpoint`: destructor, moves, `observationJsonV1`, `submitJsonV1`, `receiptsJsonV1` | agent | M5 core |
 | `fsim::MissionReferee`: destructor, moves, `outcomeJsonV1`, `truthJsonV1` | referee | M5 core |
@@ -299,7 +311,9 @@ vectors, and `next(0)` is `16294208416658607535`.
 
 ## 9. Service binding
 
-`MAServiceBindingV1` (`fsim/MAService.h`, proposed) is the native form of one `services` entry:
+Implemented by M1. `MAServiceBindingV1` ([fsim/MAService.h](../../include/fsim/MAService.h)) is the native form of
+one `services` entry; `fsim_ma_service_binding` and `fsim.World.bind_ma_service` are the same binding in C and
+Python:
 
     struct MAServiceBindingV1 {
         std::uint64_t serviceId;
@@ -310,9 +324,38 @@ vectors, and `next(0)` is `16294208416658607535`.
         bool ownsDmsEgress;
     };
     bool bindMAService(World&, const MAServiceBindingV1&, std::string* error);
+    std::vector<MAServiceBindingV1> maServiceBindings(World&);                        // ascending service id
+    control::ControllerId maCapabilityOwner(World&, std::uint32_t platform, const std::string& capability);
 
 `bindMAService` is the range's. It accepts only a controller the World minted for an Agent of that platform, creates
-no controller identity, and refuses (false, with the reason) a binding that overlaps one already made.
+no controller identity, and refuses (false, with the reason; nothing changed) a binding that overlaps one already
+made, a platform that is gone, and a capability the platform does not offer for command. The two read calls were
+added with the implementation; an Agent's handle reaches none of the three.
+
+What the binding does natively, using only mechanisms the SDK already had:
+
+- **Grants carry ownership.** A platform's first binding puts it under the existing `ControlMode::Granted`, in which
+  only a grant's holder commands a capability, and each binding asks at once for the grants of what it names. An
+  Agent of a bound platform is granted only a capability bound to it: its `requestControl` of another's is
+  `not_allowed`, so another service's NEW is refused `not_granted` and its UPDATE or CANCEL of an activity
+  `authority_held`, all existing reasons. A capability unavailable when it is bound - one flown on the ground only,
+  say - is its owner's to request later. The default policy (controller 0) holds no grant on a bound platform; a
+  range script there commands as the platform's own source or binds itself a service.
+- **C2 reaches the owners.** A control designation's grants go to each allowed capability's bound owner, a C2
+  override is applied to each bound service's own live HSA, and a lost-communication plan is activated as the owner
+  of the platform's waypoint-following capability (with no such owner, the alert alone).
+- **Each DMS side has one owner.** The inbox and subscriptions answer the ingress owner alone: any other Agent of
+  the platform reads an empty inbox and may not take or subscribe. Sends of every kind answer the egress owner alone:
+  another's is refused with the new `comm::DmsReason::NotOwner` (`FSIM_DMS_NOT_OWNER`, 5), and its task answer
+  returns false. The range's own handle is no service and is not restricted.
+- **Lifetime.** Removing a platform ends its bindings; a platform made later binds afresh, with new controllers. The
+  legacy vehicle reset keeps bindings, control mode and ownership, as it keeps the rest of the authority state.
+
+The native bind accepts at most one ingress and one egress owner per platform. That each bound platform has exactly
+one of each is the configuration's rule ([section 7](#7-maconfigv1-configuration)), checked by the episode. The
+gateway reasons `capability_not_bound`, `dms_ingress_not_owned` and `dms_egress_not_owned` of
+[section 12](#12-mareceiptsv1-acknowledgments-and-receipts) are the gateway's own check before dispatch (M5); the
+native refusals above stand behind them.
 
 | Rule | Contract |
 | --- | --- |

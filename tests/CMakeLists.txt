@@ -227,6 +227,21 @@ target_compile_definitions(fsim_sdk_tests PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_
 fsim_set_warnings(fsim_sdk_tests)
 catch_discover_tests(fsim_sdk_tests ${FSIM_CATCH_DISCOVERY})
 
+# Explicit MA-service binding through the public C++ SDK (docs/sdk/mission-training.md, section 9): configured
+# ownership whatever order the agents were made in, refused overlaps and foreign controllers, the legacy path as it was.
+add_executable(fsim_ma_service_binding_test test_ma_service_binding.cpp)
+target_link_libraries(fsim_ma_service_binding_test PRIVATE fsim::sdk Catch2::Catch2WithMain)
+fsim_set_warnings(fsim_ma_service_binding_test)
+add_test(NAME ma_service_binding COMMAND fsim_ma_service_binding_test)
+set_tests_properties(ma_service_binding PROPERTIES LABELS ma-training TIMEOUT 300)
+
+# The same contracts through the C ABI, from a plain C99 translation unit.
+add_executable(fsim_ma_c_abi_test test_ma_c_abi.c)
+target_link_libraries(fsim_ma_c_abi_test PRIVATE fsim::sdk)
+set_target_properties(fsim_ma_c_abi_test PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON)
+add_test(NAME ma_c_abi COMMAND fsim_ma_c_abi_test "${FSIM_JSBSIM_DATA_DIR}")
+set_tests_properties(ma_c_abi PROPERTIES LABELS ma-training TIMEOUT 300)
+
 # Public C control/Mission adapter behavior across the shared SDK boundary.
 add_executable(fsim_adapter_compatibility_test test_adapter_compatibility.cpp)
 target_link_libraries(fsim_adapter_compatibility_test PRIVATE fsim::sdk)

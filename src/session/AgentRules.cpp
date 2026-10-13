@@ -75,6 +75,15 @@ ms::Reason agentStrike(const AgentIdentity& agent, const ms::StrikeCommand& stri
     return namesOther(agent, static_cast<double>(strike.target), world) ? ms::Reason::NotAllowed : ms::Reason::None;
 }
 
+bool agentDmsIngress(const AgentIdentity& agent, const World& world) noexcept {
+    const MaServiceBindings& services = world.maServices();
+    return !services.bound(agent.vehicle) || services.ingressOwner(agent.vehicle) == agent.controller;
+}
+bool agentDmsEgress(const AgentIdentity& agent, const World& world) noexcept {
+    const MaServiceBindings& services = world.maServices();
+    return !services.bound(agent.vehicle) || services.egressOwner(agent.vehicle) == agent.controller;
+}
+
 void agentReport(ms::AmtiDetection& detection) noexcept { detection.truth = 0; }
 void agentReport(ms::AmtiTrack& track) noexcept { track.truth = 0; }
 
