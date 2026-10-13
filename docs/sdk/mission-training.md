@@ -76,12 +76,12 @@ Implemented, exported and classified in `boundary.toml`:
 
 | Entry point | Principal | Package |
 | --- | --- | --- |
-| `fsim::bindMAService`, `fsim::maServiceBindings`, `fsim::maCapabilityOwner` (`fsim/MAService.h`) | range | M1 |
-| `fsim_world_bind_ma_service`, `fsim_world_ma_service_count`, `fsim_world_ma_service`, `fsim_world_ma_capability_owner` (`fsim/fsim_c.h`; `fsim_ma_service_binding_init` is a value initialiser) | range | M1 |
+| `fsim::bindMAService` (by binding, and by `Agent`), `fsim::maServiceBindings`, `fsim::maCapabilityOwner` (`fsim/MAService.h`) | range | M1 |
+| `fsim_world_bind_ma_service`, `fsim_world_bind_ma_service_agent`, `fsim_world_ma_service_count`, `fsim_world_ma_service`, `fsim_world_ma_capability_owner` (`fsim/fsim_c.h`; `fsim_ma_service_binding_init` is a value initialiser) | range | M1 |
 | `fsim.World.bind_ma_service`, `ma_services`, `ma_capability_owner` (`fsim.MAService` is their record) | range | M1 |
-| `fsim::Agent::contacts`, `reportNavigation`, `reportTracks`, `reportContacts`, `reportLinkTracks`, `reportPeers`, `reportTasks`, `reportAuthority` (`fsim/Agent.h`; their records in `fsim/MAReports.h`) | agent | noncombat M2 |
+| `fsim::Agent::contacts`, `reportNavigation`, `reportTracks`, `reportContacts`, `reportLinkTracks`, `reportPeers`, `reportPeerHeartbeats`, `reportTasks`, `reportAuthority` (`fsim/Agent.h`; their records in `fsim/MAReports.h`) | agent | noncombat M2 |
 | `fsim_agent_report`, `fsim_agent_operator_callsign` (`fsim/fsim_c.h`; `fsim_report_meta_init` and the three `fsim_report_*_name` functions are values) | agent | noncombat M2 |
-| `fsim.Agent.contacts`, `report_navigation`, `report_tracks`, `report_contacts`, `report_link_tracks`, `report_peers`, `report_tasks`, `report_authority`, `operator_callsigns` (`fsim.Report`, `ReportCollection`, `ReportItem`, `ReportMeta` are their records) | agent | noncombat M2 |
+| `fsim.Agent.contacts`, `report_navigation`, `report_tracks`, `report_contacts`, `report_link_tracks`, `report_peers`, `report_peer_heartbeats`, `report_tasks`, `report_authority`, `operator_callsigns` (`fsim.Report`, `ReportCollection`, `ReportItem`, `ReportMeta` are their records) | agent | noncombat M2 |
 
 Proposed. These rows become `boundary.toml` rules, by exact name, in the package that exports them; `sdk_boundary`
 rejects a rule for a name the SDK does not have, so they are not in that file yet:
@@ -327,6 +327,8 @@ Python:
         bool ownsDmsEgress;
     };
     bool bindMAService(World&, const MAServiceBindingV1&, std::string* error);
+    bool bindMAService(World&, const Agent&, std::uint64_t serviceId, const std::vector<std::string>& commandCapabilities,
+                       bool ownsDmsIngress, bool ownsDmsEgress, std::string* error);
     std::vector<MAServiceBindingV1> maServiceBindings(World&);                        // ascending service id
     control::ControllerId maCapabilityOwner(World&, std::uint32_t platform, const std::string& capability);
 
@@ -335,15 +337,33 @@ no controller identity, and refuses (false, with the reason; nothing changed) a 
 made, a platform that is gone, and a capability the platform does not offer for command. The two read calls were
 added with the implementation; an Agent's handle reaches none of the three.
 
+Two Worlds mint the same entity ids and controller numbers, so numbers alone cannot say whose an Agent is. The forms
+that take the Agent itself - `bindMAService(world, agent, ...)`, `fsim_world_bind_ma_service_agent(world, agent_handle,
+&binding)` and Python's `world.bind_ma_service(agent, ...)`, which has no other - read the platform and the controller
+from the Agent and refuse one another World made, and anything that is not an Agent, with nothing changed. The forms
+that take numbers bind the controller of that number in the World they are called on.
+
 What the binding does natively, using only mechanisms the SDK already had:
 
-- **Grants carry ownership.** A platform's first binding puts it under the existing `ControlMode::Granted`, in which
-  only a grant's holder commands a capability, and each binding asks at once for the grants of what it names. An
-  Agent of a bound platform is granted only a capability bound to it: its `requestControl` of another's is
-  `not_allowed`, so another service's NEW is refused `not_granted` and its UPDATE or CANCEL of an activity
-  `authority_held`, all existing reasons. A capability unavailable when it is bound - one flown on the ground only,
-  say - is its owner's to request later. The default policy (controller 0) holds no grant on a bound platform; a
-  range script there commands as the platform's own source or binds itself a service.
+- **Grants carry ownership.** A bound platform is under the existing `ControlMode::Granted`, in which only a grant's
+  holder commands a capability, and stays there: setting another mode is refused `not_allowed` while it is bound.
+  Each command capability's grant is its bound owner's or no one's, and an unowned capability's is no one's. Only the
+  owner is granted a capability: `requestControl` by any other controller - another Agent, the default policy
+  (controller 0), a number of the range's choosing - is `not_allowed`, so another service's NEW is refused
+  `not_granted` and its UPDATE or CANCEL of an activity `authority_held`, all existing reasons. A range script there
+  commands as the platform's own source, which needs no grant, or binds itself a service.
+- **What stood before a binding gives way to it.** Each binding asks at once for the grants of what it names, and
+  first takes back whatever is not the bindings': for every command capability of the platform, flight and Mission
+  Systems alike, a grant held by a controller that is not its bound owner, or a live or waiting policy activity of
+  such a controller, is revoked by the platform's existing act - the grant ends and that capability's policy
+  activities end `canceled`, reason `revoked`. That covers another Agent's grant, the default policy's, a grant on a
+  capability no service owns, and what an open platform's policies flew without any grant. The newly bound service's
+  own activities go on under its grant. The platform's own sources are not policy and are not touched. A capability
+  the platform does not allow or cannot give when it is bound - one flown on the ground only, say - stays ungranted
+  and is its owner's to request later. So a successful binding always leaves ownership, grants and activities
+  agreeing; a refused one changes none of them. Because a platform's services are bound one at a time, bind them
+  before they act: a service flying before its own binding is made is ended by an earlier binding of the same
+  platform, and granted again by its own.
 - **C2 reaches the owners.** A control designation's grants go to each allowed capability's bound owner, a C2
   override is applied to each bound service's own live HSA, and a lost-communication plan is activated as the owner
   of the platform's waypoint-following capability (with no such owner, the alert alone).
@@ -398,7 +418,7 @@ Agent can legally read; the table names the source of each part. No referee call
 | `reports.tracks` | `Agent::amtiTracks` for each air radar | The entity behind a track is never present |
 | `reports.contacts` | `Agent::contacts` (`fsim_vehicle_contacts`, `agent.contacts`) for each payload | `first_time_s` is when it was first held, the sample time when it was last seen. The entity behind a contact is never present |
 | `reports.link_tracks` | `Agent::linkTracks` | Present only after modelled delivery; dropped when the native picture drops them |
-| `reports.peers` | `Agent::peers` | `position` null until a position report arrived; `tail_number` null until a heartbeat did |
+| `reports.peers` | `Agent::peers` | `position` null until a position report arrived; `tail_number` null until a heartbeat did. The item's `net_id` is the net the peer was last heard by, whichever message that was. Its `meta` is one message's alone: the position report it holds - that report's net, delivery time and sample time - or, for a peer heard only by its heartbeat, that heartbeat's net and delivery time with a null sample time. A later heartbeat by another net does not relabel a held position |
 | `reports.designations` | `Agent::designations` | `source_system_id` null for its own radar's track |
 | `reports.activities` | `Agent::activities`, `missionActivities` | `owner_service_id` from the gateway's own records; null for C2's and the platform's own |
 | `reports.nets` | `Agent::nets` | |
@@ -452,13 +472,19 @@ Seven of the parts above exist today as calls on an Agent, in all three language
 existing reads give, by the same paths and under the same rules, each with the `meta` of this section. Nothing else
 feeds them: no referee call, no `VehicleState`, no other platform's Agent.
 
+A `meta` describes one report and never mixes two. A peer is the one item made of two messages - a position report
+and a heartbeat, which may arrive by different nets at different times - so it has two calls: one for the position
+it holds, one for its last heartbeat. The native `comm::PeerReport` (`fsim_peer_report`, `fsim.PeerReport`) is
+unchanged: its `net` and `receivedS` remain those of whichever message was heard last.
+
 | Part | C++ (`fsim/Agent.h`) | C kind (`fsim_agent_report`) | Python (`fsim.Agent`) | `meta` |
 | --- | --- | --- | --- | --- |
 | `reports.navigation` | `reportNavigation` | `FSIM_REPORT_NAVIGATION` | `report_navigation` | `own_navigation`; sampled at the own ship's reported time; `invalid` while `gnss_valid` or `air_data_valid` is false |
 | `reports.tracks` | `reportTracks` | `FSIM_REPORT_TRACKS` | `report_tracks` | `own_sensor` with the radar's `payload`; sampled at the track's last update |
 | `reports.contacts` | `reportContacts` | `FSIM_REPORT_CONTACTS` | `report_contacts` | `own_sensor` with the `payload`; sampled when last seen |
 | `reports.link_tracks` | `reportLinkTracks` | `FSIM_REPORT_LINK_TRACKS` | `report_link_tracks` | `link` with the source `system_id`, the `net_id` and the source's `payload`; sampled at the source's report time, received at delivery |
-| `reports.peers` | `reportPeers` | `FSIM_REPORT_PEERS` | `report_peers` | `link` with `system_id` and `net_id`; sampled at the peer's position report time, null for a peer heard only by its heartbeat |
+| `reports.peers` | `reportPeers` | `FSIM_REPORT_PEERS` | `report_peers` | The position report each peer holds: `link` with `system_id` and the `net_id` that report came by, sampled at its own time, received when it was delivered. For a peer heard only by its heartbeat: that heartbeat's net and delivery, the sample time null |
+| `reports.peers` | `reportPeerHeartbeats` | `FSIM_REPORT_PEER_HEARTBEATS` | `report_peer_heartbeats` | Each peer's last heartbeat, beside the peers index for index: `link` with `system_id` and the `net_id` it came by, sampled at the time it states, received when it was delivered. `unknown`, its times null, for a peer no heartbeat was heard from |
 | `reports.tasks` | `reportTasks` | `FSIM_REPORT_TASKS` | `report_tasks` | `link` with the sending `system_id`; received at delivery; the sample time null, so never `stale` |
 | `reports.authority` | `reportAuthority` | `FSIM_REPORT_AUTHORITY` | `report_authority` | `ma_core`; sampled at the time read |
 

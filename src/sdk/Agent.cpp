@@ -971,6 +971,12 @@ ma::Collection<comm::PeerReport> Agent::reportPeers(const ma::ReportOptions& opt
     return collected(FSIM_AGENT_METAS(Peers), world_->impl().dms().peers(vehicle_));
 }
 
+ma::Collection<comm::PeerReport> Agent::reportPeerHeartbeats(const ma::ReportOptions& options) const {
+    FSIM_AGENT_AUDIT;
+    if (!world_) return {};
+    return collected(FSIM_AGENT_METAS(PeerHeartbeats), world_->impl().dms().peers(vehicle_));
+}
+
 ma::Collection<comm::ReceivedTask> Agent::reportTasks(const ma::ReportOptions& options) const {
     FSIM_AGENT_AUDIT;
     if (!world_) return {};

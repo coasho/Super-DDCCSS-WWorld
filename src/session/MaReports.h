@@ -19,13 +19,15 @@ namespace fsim::session {
 class World;
 
 /// The kinds, numbered as the C ABI's fsim_report_kind.
-enum class MaReportKind : std::uint8_t { Navigation = 0, Tracks, Contacts, LinkTracks, Peers, Tasks, Authority, Count };
+enum class MaReportKind : std::uint8_t { Navigation = 0, Tracks, Contacts, LinkTracks, Peers, Tasks, Authority, PeerHeartbeats, Count };
 
 struct MaReportMetas {
     ma::Availability availability = ma::Availability::Unavailable;
     /// Navigation, Authority: one where available. Tracks: Agent::amtiTracks of each air radar, in payload order.
     /// Contacts: World::contacts of each payload, in payload order. LinkTracks, Peers: the DMS picture's order. Tasks:
-    /// the MA core's order.
+    /// the MA core's order. PeerHeartbeats: beside Peers, index for index. A peer's two reports - its position and its
+    /// heartbeat - arrive as two messages: Peers gives the delivery of the position it holds, PeerHeartbeats that of its
+    /// last heartbeat, and neither borrows the other's net or time.
     std::vector<ma::ReportMeta> metas;
 };
 

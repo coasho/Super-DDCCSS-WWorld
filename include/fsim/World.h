@@ -284,11 +284,14 @@ public:
     /// Open (the default: as ever) or Granted: a policy's NEW then needs a
     /// grant for its capability; what the policy flies without one ends
     /// Canceled(NotGranted). The platform's own sources never need one.
+    /// A platform with bound MA services (fsim/MAService.h) stays Granted: NotAllowed for another mode, nothing changed.
     control::Reason setControlMode(control::ControlMode mode);
     control::ControlMode controlMode() const;
     /// A policy's controller (0, the default policy) asks for control of a
     /// capability (by id): Reason::None if granted, else NotAllowed, why it is
-    /// unavailable, or AuthorityHeld while another controller holds it.
+    /// unavailable, or AuthorityHeld while another controller holds it. On a
+    /// platform with bound MA services (fsim/MAService.h) only a capability's
+    /// bound owner is granted it: NotAllowed for every other controller, 0 included.
     control::Reason requestControl(std::string_view capability, control::ControllerId controller = 0);
     /// A controller lets go: its live activities of the capability end
     /// Canceled(Released). NotGranted, and nothing changes, for another's grant.

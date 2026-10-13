@@ -19,6 +19,7 @@
 #include "fsim/Export.h"
 #include "fsim/Frames.h"
 #include "fsim/MAReports.h"
+#include "fsim/MAService.h"
 #include "fsim/MissionSystems.h"
 #include "fsim/PerformanceProfile.h"
 #include "fsim/Span.h"
@@ -369,9 +370,15 @@ public:
     /// The tracks its links delivered (linkTracks()): each from its source system, sampled at the source's report time
     /// and received when it was delivered - present only after delivery, gone when its picture drops it.
     ma::Collection<comm::LinkTrack> reportLinkTracks(const ma::ReportOptions& options = {}) const;
-    /// The peers it heard (peers()): sampled at a peer's position report's time, unknown for one heard only by its
-    /// heartbeat.
+    /// The peers it heard (peers()), each with the provenance of the position report it holds: the net that report
+    /// came by and when it was delivered, sampled at its own time - whatever a later heartbeat came by (which is what
+    /// comm::PeerReport's own `net` and `receivedS`, the last of either message, may say). A peer heard only by its
+    /// heartbeat holds no position: that heartbeat's delivery, and no sample time.
     ma::Collection<comm::PeerReport> reportPeers(const ma::ReportOptions& options = {}) const;
+    /// The same peers, index for index, each with the provenance of its last heartbeat: the net it came by, when it
+    /// was delivered, sampled at the time it states. Validity Unknown, its times unknown, for a peer no heartbeat was
+    /// heard from.
+    ma::Collection<comm::PeerReport> reportPeerHeartbeats(const ma::ReportOptions& options = {}) const;
     /// C2's tasks (c2Tasks()): each from the system that sent it, received when it was delivered.
     ma::Collection<comm::ReceivedTask> reportTasks(const ma::ReportOptions& options = {}) const;
     /// The authority over its platform (authority()), as its MA core keeps it now.
@@ -379,6 +386,10 @@ public:
 
 private:
     friend class World;
+    /// (the range's binding by Agent reads which World made it: fsim/MAService.h)
+    friend FSIM_API bool bindMAService(World& world, const Agent& agent, std::uint64_t serviceId,
+                                       const std::vector<std::string>& commandCapabilities, bool ownsDmsIngress, bool ownsDmsEgress,
+                                       std::string* error);
     Agent(World* world, std::uint32_t vehicle, control::ControllerId controller, std::string name)
         : world_(world), vehicle_(vehicle), controller_(controller), name_(std::move(name)) {}
     bool own(control::ActivityId activity) const noexcept;

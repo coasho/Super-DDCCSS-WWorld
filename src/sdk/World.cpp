@@ -898,6 +898,17 @@ bool bindMAService(World& world, const MAServiceBindingV1& binding, std::string*
     return bound;
 }
 
+bool bindMAService(World& world, const Agent& agent, std::uint64_t serviceId, const std::vector<std::string>& commandCapabilities,
+                   bool ownsDmsIngress, bool ownsDmsEgress, std::string* error) {
+    // (two Worlds mint the same vehicle ids and controllers: whose an Agent is, only the World that made it says)
+    if (!agent.world_ || &agent.world_->impl() != &world.impl()) {
+        if (error) *error = "MA service " + std::to_string(serviceId) + ": the agent is not one this world made";
+        return false;
+    }
+    return bindMAService(world, MAServiceBindingV1{serviceId, agent.vehicle(), agent.controller(), commandCapabilities, ownsDmsIngress, ownsDmsEgress},
+                         error);
+}
+
 std::vector<MAServiceBindingV1> maServiceBindings(World& world) {
     std::vector<MAServiceBindingV1> out;
     for (const session::MaServiceBinding& b : world.impl().maServices().all())

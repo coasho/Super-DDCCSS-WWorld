@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -69,6 +70,19 @@ public:
     std::optional<comm::DmsTransmission> transmission(std::uint32_t entity, std::uint64_t message) const;
     /// Its picture (AB-4b): each peer it heard - its last position report and heartbeat - and each track received.
     std::vector<comm::PeerReport> peers(std::uint32_t entity) const;
+    /// How each of a peer's two reports arrived (docs/sdk/mission-training.md, section 10). comm::PeerReport has one
+    /// `net` and one `receivedS`, those of whichever message was heard last; a position delivered over one net and a
+    /// later heartbeat over another are two deliveries, kept apart here.
+    struct PeerProvenance {
+        comm::NetId positionNet = 0;   ///< the net its held position report came by (0: none held)
+        double positionReceivedS = std::numeric_limits<double>::quiet_NaN();
+        bool heartbeat = false;        ///< a heartbeat was heard
+        comm::NetId heartbeatNet = 0;  ///< the net its last heartbeat came by
+        double heartbeatReceivedS = std::numeric_limits<double>::quiet_NaN();
+        double heartbeatTimeS = std::numeric_limits<double>::quiet_NaN(); ///< the time that heartbeat states
+    };
+    /// Beside peers(entity), index for index.
+    std::vector<PeerProvenance> peerProvenance(std::uint32_t entity) const;
     std::vector<comm::LinkTrack> linkTracks(std::uint32_t entity) const;
     /// What arrived for its MA core (topics 10 to 49: C2's commands, AB-5) - taken by the core, never the agent's inbox.
     std::vector<comm::DmsReceived> takeCore(std::uint32_t entity);
@@ -139,6 +153,7 @@ private:
         comm::DisseminationPlan plan;
         double nextPosition = 0.0, nextStatus = 0.0, nextTracks = 0.0;
         std::vector<comm::PeerReport> peers;     ///< its picture (AB-4b)
+        std::vector<PeerProvenance> peerFrom;    ///< beside `peers`, index for index: how each one's reports arrived
         std::vector<comm::LinkTrack> linkTracks;
         std::deque<comm::DmsReceived> core;              ///< for its MA core (AB-5)
         std::vector<comm::CommandStatusEntry> commands;  ///< its commands' last statuses (AB-5)

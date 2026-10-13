@@ -770,7 +770,10 @@ bool validReason(int reason) { return reason >= 0 && reason < static_cast<int>(f
 FSIM_API int fsim_vehicle_set_control_mode(fsim_world* world, uint32_t id, int mode) {
     FSIM_NOT_AGENT(world, FSIM_NOT_ALLOWED);
     if (!world || mode < FSIM_CONTROL_OPEN || mode > FSIM_CONTROL_GRANTED) return fail(FSIM_INVALID_ARGUMENT, "fsim_vehicle_set_control_mode: bad arguments");
-    return authority("fsim_vehicle_set_control_mode", world->world.setControlMode(id, static_cast<fsim::control::ControlMode>(mode)));
+    const fsim::control::Reason r = world->world.setControlMode(id, static_cast<fsim::control::ControlMode>(mode));
+    if (r == fsim::control::Reason::NotAllowed) // (the one refusal it has: docs/sdk/mission-training.md, section 9)
+        return fail(FSIM_NOT_ALLOWED, "fsim_vehicle_set_control_mode: a platform with bound MA services stays under grants");
+    return authority("fsim_vehicle_set_control_mode", r);
 }
 
 FSIM_API int fsim_vehicle_control_mode(const fsim_world* world, uint32_t id, int32_t* mode) {

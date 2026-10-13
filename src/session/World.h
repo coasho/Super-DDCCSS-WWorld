@@ -449,11 +449,13 @@ public:
     // --- Authority and availability (docs/vehicle-interface.md, 6 and 7.2) ---------
     /// Open (as ADR-26, the default) or Granted: a policy's NEW then needs a
     /// grant for its capability, and what the policy flies without one ends.
+    /// NotAllowed, nothing changed, for a mode other than Granted on a platform with bound MA services (bindMaService).
     control::Reason setControlMode(std::uint32_t id, control::ControlMode mode);
     control::ControlMode controlMode(std::uint32_t id) const noexcept;
     /// A policy's controller asks for control of a capability (by id):
     /// Reason::None if granted; else NotAllowed, the reason it is unavailable,
-    /// AuthorityHeld (another controller holds it), UnknownCapability.
+    /// AuthorityHeld (another controller holds it), UnknownCapability. On a platform with bound MA services only a
+    /// capability's bound owner is granted it: NotAllowed for every other controller, the default policy's included.
     control::Reason requestControl(std::uint32_t id, std::string_view capability, control::ControllerId controller = 0);
     /// A controller lets go: the grant ends, and its live activities of the
     /// capability end Canceled(Released). NotGranted for another's grant.
@@ -608,11 +610,17 @@ public:
     /// a controller this world did not mint or minted for another platform, a platform that is gone, a capability the
     /// platform does not offer for command, and anything another bound service already owns.
     ///
-    /// A platform's first binding puts it under ControlMode::Granted, the existing mode in which only a grant's holder
-    /// commands a capability; from then on its agents may hold a grant only for a capability bound to them (another's
-    /// request: NotAllowed), C2's control designation, a live override and a lost-communication plan go to those
-    /// owners, and its DMS answers its ingress and egress owners alone. The binding asks for the grants of what it
-    /// binds at once; one unavailable then is its owner's to request later. A platform never bound is untouched.
+    /// A binding accepted, the platform is consistent with every binding made on it so far: it is under
+    /// ControlMode::Granted, the existing mode in which only a grant's holder commands a capability, and stays there
+    /// (setControlMode to another: NotAllowed); each capability's grant is its bound owner's or no one's, an unowned
+    /// capability's no one's; and no live or waiting policy activity is a controller's that does not own its
+    /// capability. What stood in the way before - another controller's grant, the default policy's among them, or a
+    /// policy activity flown without one - is taken back by the platform's existing act: the grant revoked, that
+    /// capability's policy activities ended Canceled(Revoked). The new owner's own activities go on under its grant.
+    /// From then on only a capability's owner is granted it (requestControl by any other controller: NotAllowed); C2's
+    /// control designation, a live override and a lost-communication plan go to the owners, and the DMS answers its
+    /// ingress and egress owners alone. A capability the platform does not allow or cannot give when it is bound is
+    /// its owner's to request later. A platform never bound is untouched.
     bool bindMaService(const MaServiceBinding& binding, std::string& error);
     const MaServiceBindings& maServices() const noexcept { return maServices_; }
     /// Count an agent's call in its audit (its record's index, the call's), refused or not.
@@ -791,6 +799,8 @@ private:
     };
 
     Entry* entry(std::uint32_t id) noexcept;
+    /// After a binding was recorded: the platform's grants and policy activities made the bindings' (bindMaService).
+    void settleMaOwnership(Entry& e, std::uint32_t platform, control::ControllerId bound);
     const Entry* entry(std::uint32_t id) const noexcept;
     /// A marshall's slot (4.46; Marshalls.cpp): into `m`'s altitude - the one asked for, clear of the others, or the lowest of
     /// its stack clear of every other aircraft's live or waiting marshall round the same point - else StackFull.

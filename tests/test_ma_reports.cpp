@@ -61,14 +61,16 @@ bool same(const T& a, const T& b) {
 /// The same time, an unknown one equal to an unknown one.
 bool sameTime(double a, double b) { return a == b || (std::isnan(a) && std::isnan(b)); }
 
+/// The same provenance.
+bool same(const ma::ReportMeta& m, const ma::ReportMeta& n) {
+    return m.source == n.source && m.validity == n.validity && m.system == n.system && m.net == n.net && m.payload == n.payload &&
+           sameTime(m.sampleTimeS, n.sampleTimeS) && sameTime(m.receiveTimeS, n.receiveTimeS) && sameTime(m.ageS, n.ageS);
+}
+
 /// The same report with the same provenance.
 template <typename T>
 bool same(const ma::Reported<T>& a, const ma::Reported<T>& b) {
-    const ma::ReportMeta& m = a.meta;
-    const ma::ReportMeta& n = b.meta;
-    return same(a.value, b.value) && m.source == n.source && m.validity == n.validity && m.system == n.system && m.net == n.net &&
-           m.payload == n.payload && sameTime(m.sampleTimeS, n.sampleTimeS) && sameTime(m.receiveTimeS, n.receiveTimeS) &&
-           sameTime(m.ageS, n.ageS);
+    return same(a.value, b.value) && same(a.meta, b.meta);
 }
 
 /// A lead searching with its radar and sharing its tracks, a wingman with its radar off, a bandit ahead of them.
@@ -348,6 +350,16 @@ TEST_CASE("ma reports: a C2 task and the authority over a platform; a C2 node ha
     CHECK(unknown(peers.items[0].meta.ageS));
     CHECK(peers.items[0].meta.receiveTimeS == peers.items[0].value.receivedS);
     CHECK(peers.items[0].meta.validity == ma::Validity::Valid);
+    // that heartbeat's own provenance says the time it states
+    const ma::Collection<comm::PeerReport> beats = blue.reportPeerHeartbeats();
+    REQUIRE(beats.items.size() == 1);
+    CHECK(beats.items[0].meta.source == ma::Source::Link);
+    CHECK(beats.items[0].meta.system == boss.system());
+    CHECK(beats.items[0].meta.net == net);
+    CHECK(beats.items[0].meta.receiveTimeS == peers.items[0].value.receivedS);
+    CHECK(beats.items[0].meta.sampleTimeS <= beats.items[0].meta.receiveTimeS);
+    CHECK(beats.items[0].meta.ageS == w.time() - beats.items[0].meta.sampleTimeS);
+    CHECK(beats.items[0].meta.validity == ma::Validity::Valid);
 
     // the C2 node: no navigation, no sensors, no tasks, no authority over it - not applicable, none of it zero
     CHECK(boss.reportNavigation().availability == ma::Availability::NotApplicable);
@@ -359,6 +371,7 @@ TEST_CASE("ma reports: a C2 task and the authority over a platform; a C2 node ha
     CHECK(boss.reportAuthority().availability == ma::Availability::NotApplicable);
     CHECK(boss.reportLinkTracks().availability == ma::Availability::Available);
     CHECK(boss.reportPeers().availability == ma::Availability::Available);
+    CHECK(boss.reportPeerHeartbeats().availability == ma::Availability::Available);
 
     // a platform gone: unavailable, and nothing listed
     REQUIRE(a.remove());
@@ -420,4 +433,118 @@ TEST_CASE("ma reports: a passive contact, as its receiver measured it - no range
     CHECK(std::string(ma::validityName(ma::Validity::Stale)) == "stale");
     CHECK(std::string(ma::sourceName(ma::Source::OwnNavigation)) == "own_navigation");
     CHECK(std::string(ma::sourceName(ma::Source::Link)) == "link");
+}
+
+TEST_CASE("ma reports: a peer's position keeps the delivery it came by when its heartbeat comes another way", "[ma][reports]") {
+    World w(options("ma-reports-peer-provenance"));
+    Vehicle sender = aircraft(w, "sender", 0.0, 0.0, 6000.0, 0.0);
+    Vehicle receiver = aircraft(w, "receiver", 2.0, 0.0, 6000.0, 0.0);
+    Agent tx = w.createAgent(sender, "sender");
+    Agent rx = w.createAgent(receiver, "receiver");
+    comm::NetSpec spec;
+    spec.latencyS = 0.05, spec.jitterS = 0.0;
+    spec.name = "position-net";
+    const comm::NetId netA = w.createNet(spec);
+    spec.name = "heartbeat-net";
+    const comm::NetId netB = w.createNet(spec);
+    REQUIRE(w.joinNet(receiver.id(), netA));
+    REQUIRE(w.joinNet(receiver.id(), netB));
+    REQUIRE(w.joinNet(sender.id(), netA));
+    // its position, over the one net
+    REQUIRE(tx.publishPosition({rx.system()}) != 0);
+    w.step(30);
+    const ma::Collection<comm::PeerReport> before = rx.reportPeers();
+    REQUIRE(before.items.size() == 1);
+    REQUIRE(before.items[0].value.hasPosition);
+    const ma::ReportMeta position = before.items[0].meta;
+    CHECK(position.source == ma::Source::Link);
+    CHECK(position.system == tx.system());
+    CHECK(position.net == netA);
+    CHECK(position.sampleTimeS == before.items[0].value.position.timeS);
+    CHECK(position.receiveTimeS == before.items[0].value.receivedS);
+    CHECK(position.receiveTimeS > position.sampleTimeS);
+    // no heartbeat was heard from it: of that, nothing is held - unknown, not the position's delivery under another name
+    const ma::Collection<comm::PeerReport> silent = rx.reportPeerHeartbeats();
+    REQUIRE(silent.availability == ma::Availability::Available);
+    REQUIRE(silent.items.size() == 1);
+    CHECK(silent.items[0].meta.source == ma::Source::Link);
+    CHECK(silent.items[0].meta.system == tx.system());
+    CHECK(silent.items[0].meta.validity == ma::Validity::Unknown);
+    CHECK(silent.items[0].meta.net == 0);
+    CHECK(unknown(silent.items[0].meta.sampleTimeS));
+    CHECK(unknown(silent.items[0].meta.receiveTimeS));
+    CHECK(unknown(silent.items[0].meta.ageS));
+    // then its heartbeat, over the other: the position it holds is the same report, delivered when and how it was
+    REQUIRE(w.leaveNet(sender.id(), netA));
+    REQUIRE(w.joinNet(sender.id(), netB));
+    REQUIRE(tx.publishStatus({rx.system()}) != 0);
+    w.step(30);
+    const double now = w.time();
+    const ma::Collection<comm::PeerReport> after = rx.reportPeers();
+    REQUIRE(after.items.size() == 1);
+    const comm::PeerReport& held = after.items[0].value;
+    CHECK(held.tailNumber == before.items[0].value.tailNumber); // (no tail number was assigned: its heartbeat says none)
+    REQUIRE(held.hasPosition);
+    CHECK(same(held.position, before.items[0].value.position));
+    // the raw peer is as it always was: the net and the time it was last heard by, whatever the message
+    CHECK(held.net == netB);
+    CHECK(held.receivedS > position.receiveTimeS);
+    CHECK(rx.peers()[0].net == netB);
+    CHECK(rx.peers()[0].receivedS == held.receivedS);
+    // the position's provenance is the position's own
+    const ma::ReportMeta& meta = after.items[0].meta;
+    CHECK(meta.net == netA);
+    CHECK(meta.system == tx.system());
+    CHECK(meta.sampleTimeS == position.sampleTimeS);
+    CHECK(meta.receiveTimeS == position.receiveTimeS);
+    CHECK(meta.ageS == now - position.sampleTimeS);
+    CHECK(meta.validity == ma::Validity::Valid);
+    // and the heartbeat's is the heartbeat's: the other net, its own delivery, the time it states
+    const ma::Collection<comm::PeerReport> beats = rx.reportPeerHeartbeats();
+    REQUIRE(beats.items.size() == 1);
+    const ma::ReportMeta heartbeat = beats.items[0].meta;
+    CHECK(same(beats.items[0].value.position, held.position)); // (the same peer, beside it)
+    CHECK(heartbeat.source == ma::Source::Link);
+    CHECK(heartbeat.system == tx.system());
+    CHECK(heartbeat.net == netB);
+    CHECK(heartbeat.receiveTimeS == held.receivedS);
+    CHECK(heartbeat.receiveTimeS > position.receiveTimeS);
+    CHECK(heartbeat.sampleTimeS > position.sampleTimeS);
+    CHECK(heartbeat.sampleTimeS < heartbeat.receiveTimeS);
+    CHECK(heartbeat.ageS == now - heartbeat.sampleTimeS);
+    CHECK(heartbeat.validity == ma::Validity::Valid);
+    // each stale by its own age
+    ma::ReportOptions strict;
+    strict.staleAfterS = (meta.ageS + heartbeat.ageS) / 2.0; // (between the two: the position is the older report)
+    CHECK(rx.reportPeers(strict).items[0].meta.validity == ma::Validity::Stale);
+    CHECK(rx.reportPeerHeartbeats(strict).items[0].meta.validity == ma::Validity::Valid);
+    // read again, and again: the same, and nothing taken
+    for (int k = 0; k < 3; ++k) {
+        const ma::Collection<comm::PeerReport> again = rx.reportPeers();
+        REQUIRE(again.items.size() == 1);
+        CHECK(same(again.items[0].meta, meta));
+        CHECK(again.items[0].value.net == netB);
+        const ma::Collection<comm::PeerReport> beating = rx.reportPeerHeartbeats();
+        REQUIRE(beating.items.size() == 1);
+        CHECK(same(beating.items[0].meta, heartbeat));
+    }
+    // a new position, over the net it is on now: the position's provenance moves with it, the heartbeat's stays
+    REQUIRE(tx.publishPosition({rx.system()}) != 0);
+    w.step(30);
+    const ma::Collection<comm::PeerReport> moved = rx.reportPeers();
+    REQUIRE(moved.items.size() == 1);
+    CHECK(moved.items[0].meta.net == netB);
+    CHECK(moved.items[0].meta.sampleTimeS == moved.items[0].value.position.timeS);
+    CHECK(moved.items[0].meta.sampleTimeS > position.sampleTimeS);
+    CHECK(moved.items[0].meta.receiveTimeS == moved.items[0].value.receivedS);
+    CHECK(moved.items[0].meta.receiveTimeS > heartbeat.receiveTimeS);
+    const ma::ReportMeta still = rx.reportPeerHeartbeats().items[0].meta;
+    CHECK(still.net == heartbeat.net);
+    CHECK(still.sampleTimeS == heartbeat.sampleTimeS);
+    CHECK(still.receiveTimeS == heartbeat.receiveTimeS);
+    // the peer timed out of the picture: gone from both, together
+    w.step(steps(w, 31.0));
+    CHECK(rx.reportPeers().items.empty());
+    CHECK(rx.reportPeerHeartbeats().items.empty());
+    CHECK(rx.reportPeerHeartbeats().availability == ma::Availability::Available);
 }

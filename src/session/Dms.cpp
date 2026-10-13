@@ -230,6 +230,13 @@ std::vector<comm::PeerReport> Dms::peers(std::uint32_t entity) const {
     return s ? s->peers : std::vector<comm::PeerReport>{};
 }
 
+std::vector<Dms::PeerProvenance> Dms::peerProvenance(std::uint32_t entity) const {
+    const System* s = system(entity);
+    std::vector<PeerProvenance> out = s ? s->peerFrom : std::vector<PeerProvenance>{};
+    out.resize(s ? s->peers.size() : 0); // (index for index, whatever else)
+    return out;
+}
+
 std::vector<comm::LinkTrack> Dms::linkTracks(std::uint32_t entity) const {
     const System* s = system(entity);
     return s ? s->linkTracks : std::vector<comm::LinkTrack>{};
@@ -441,24 +448,31 @@ void Dms::deliver(const InFlight& f, double now) {
 }
 
 void Dms::picture(System& to, const comm::DmsReceived& r) {
-    auto peer = [&]() -> comm::PeerReport& {
-        for (auto& p : to.peers)
-            if (p.system == r.source) return p;
+    auto peer = [&]() -> std::size_t { // (its index, in `peers` and in `peerFrom` beside it)
+        to.peerFrom.resize(to.peers.size());
+        for (std::size_t i = 0; i < to.peers.size(); ++i)
+            if (to.peers[i].system == r.source) return i;
         to.peers.emplace_back();
         to.peers.back().system = r.source;
-        return to.peers.back();
+        to.peerFrom.emplace_back();
+        return to.peers.size() - 1;
     };
     if (r.topic == comm::topic::kPositionReport) {
         comm::PositionReport p;
         if (!comm::decode(r.bytes, p)) return;
-        comm::PeerReport& e = peer();
+        const std::size_t i = peer();
+        comm::PeerReport& e = to.peers[i];
         e.net = r.net, e.receivedS = r.timeDelivered, e.hasPosition = true, e.position = p;
+        to.peerFrom[i].positionNet = r.net, to.peerFrom[i].positionReceivedS = r.timeDelivered;
     } else if (r.topic == comm::topic::kSystemStatus) {
         comm::SystemStatusReport h;
         if (!comm::decode(r.bytes, h)) return;
-        comm::PeerReport& e = peer();
+        const std::size_t i = peer();
+        comm::PeerReport& e = to.peers[i];
         e.net = r.net, e.receivedS = r.timeDelivered;
         e.tailNumber.assign(h.tailNumber, strnlen(h.tailNumber, sizeof h.tailNumber));
+        PeerProvenance& from = to.peerFrom[i];
+        from.heartbeat = true, from.heartbeatNet = r.net, from.heartbeatReceivedS = r.timeDelivered, from.heartbeatTimeS = h.timeS;
     } else if (r.topic == comm::topic::kConsentRequest) {
         comm::ConsentRequest c;
         if (!comm::decode(r.bytes, c)) return;
@@ -489,9 +503,14 @@ void Dms::picture(System& to, const comm::DmsReceived& r) {
 void Dms::step(double now, const Locator& where, const sim::GroundProvider* ground, Rng& rng) {
     for (System& s : systems_) {
         // the picture keeps what is fresh enough
-        s.peers.erase(std::remove_if(s.peers.begin(), s.peers.end(),
-                                     [&](const comm::PeerReport& p) { return now - p.receivedS > s.plan.peerTimeoutS; }),
-                      s.peers.end());
+        s.peerFrom.resize(s.peers.size());
+        std::size_t kept = 0;
+        for (std::size_t i = 0; i < s.peers.size(); ++i) {
+            if (now - s.peers[i].receivedS > s.plan.peerTimeoutS) continue;
+            if (kept != i) s.peers[kept] = std::move(s.peers[i]), s.peerFrom[kept] = s.peerFrom[i];
+            ++kept;
+        }
+        s.peers.resize(kept), s.peerFrom.resize(kept);
         s.linkTracks.erase(std::remove_if(s.linkTracks.begin(), s.linkTracks.end(),
                                           [&](const comm::LinkTrack& t) { return now - t.receivedS > s.plan.trackTimeoutS; }),
                            s.linkTracks.end());

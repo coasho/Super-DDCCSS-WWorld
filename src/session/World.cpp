@@ -516,12 +516,51 @@ bool World::bindMaService(const MaServiceBinding& binding, std::string& error) {
             return refuse(c + " is not a command capability of platform " + std::to_string(binding.platform));
     }
     if (std::string why = maServices_.refusal(binding); !why.empty()) return refuse(std::move(why));
-    const bool first = !maServices_.bound(binding.platform);
+    // Nothing above changed anything; nothing below can fail.
     maServices_.add(binding);
     if (!e) return true; // (a C2 node: its DMS sides alone)
-    if (first) setControlMode(binding.platform, control::ControlMode::Granted);
-    for (const std::string& c : binding.all() ? offered : binding.capabilities) requestControl(binding.platform, c, binding.controller);
+    settleMaOwnership(*e, binding.platform, binding.controller);
     return true;
+}
+
+void World::settleMaOwnership(Entry& e, std::uint32_t platform, control::ControllerId bound) {
+    // What stood before a binding gives way to it. For each capability a policy can hold a grant of - flight and
+    // Mission Systems alike - a grant that is not its bound owner's, or a live or waiting policy activity that is not,
+    // is taken back as the platform takes anything back: the grant revoked, the policy's activities of that capability
+    // ending Canceled(Revoked). An unowned capability has no owner: no controller's grant or policy activity stands,
+    // the default policy's (controller 0) no more than another's. What the newly bound service owns is then asked
+    // for in its name - its own activities, flown before the platform was under grants, go on under it; a capability
+    // the platform does not allow or cannot give now stays ungranted, its owner's to ask for later. Last, the platform
+    // is under grants. The platform's own sources (autopilot, override) need no grant and are not touched.
+    const auto others = [&](const control::ControlStatus& status, control::ControllerId owner) {
+        return status.granted && (owner == 0 || status.holder != owner);
+    };
+    const auto settle = [&](const std::string& id, bool taken, control::ControllerId owner) {
+        if (taken) revokeControl(platform, id);
+        if (owner != 0 && owner == bound) requestControl(platform, id, owner);
+    };
+    const std::vector<control::ActivityRecord> flown = e.host.activities(); // (flying, waiting, then ended)
+    const auto& descriptors = e.catalog->descriptors();
+    for (std::size_t i = 0; i < descriptors.size(); ++i) {
+        if (!(descriptors[i].interactions & control::kCommand)) continue;
+        const std::string id = descriptors[i].id;
+        const control::ControllerId owner = maServices_.owner(platform, id);
+        bool taken = others(e.host.controlStatus(i), owner);
+        for (const control::ActivityRecord& r : flown)
+            taken = taken || (r.live() && r.capability == i && r.source == control::Source::Policy && (owner == 0 || r.controller != owner));
+        settle(id, taken, owner);
+    }
+    const std::vector<ms::ActivityRecord> working = e.ms.activities();
+    const auto& instances = e.ms.capabilities();
+    for (std::size_t i = 0; i < instances.size(); ++i) {
+        const std::string id = instances[i].id;
+        const control::ControllerId owner = maServices_.owner(platform, id);
+        bool taken = others(e.ms.controlStatus(i), owner);
+        for (const ms::ActivityRecord& r : working)
+            taken = taken || (r.live() && r.capability == i && r.source == control::Source::Policy && (owner == 0 || r.controller != owner));
+        settle(id, taken, owner);
+    }
+    setControlMode(platform, control::ControlMode::Granted);
 }
 
 // --- Systems, nets and the DMS (ADR-31, AB-4) -----------------------------------------------------------------------
@@ -1580,6 +1619,8 @@ const control::Performance* World::performance(std::uint32_t id) noexcept {
 control::Reason World::setControlMode(std::uint32_t id, control::ControlMode mode) {
     Entry* e = entry(id);
     if (!e) return control::Reason::UnknownVehicle;
+    // A platform with configured MA services stays under grants: open, every controller would command every capability.
+    if (mode != control::ControlMode::Granted && maServices_.bound(id)) [[unlikely]] return control::Reason::NotAllowed;
     e->host.setControlMode(mode, pool_->states()[e->slot], simTime_);
     e->ms.setControlMode(mode);
     levelChanged(*e); // (what the policy flew without a grant has ended)
@@ -1594,9 +1635,14 @@ control::ControlMode World::controlMode(std::uint32_t id) const noexcept {
 control::Reason World::requestControl(std::uint32_t id, std::string_view capability, control::ControllerId controller) {
     Entry* e = entry(id);
     if (!e) return control::Reason::UnknownVehicle;
-    // On a platform with configured MA services an agent holds a grant only for what is bound to it.
-    if (controller > kAgentControllers && maServices_.bound(id) && maServices_.owner(id, capability) != controller) [[unlikely]]
-        return control::Reason::NotAllowed;
+    // On a platform with configured MA services a capability's grant is its bound owner's or no one's: not another
+    // agent's, not the default policy's (controller 0), not any number's; an unowned capability's is no one's.
+    // (A capability the platform does not have is refused as ever, by what follows.)
+    if (maServices_.bound(id)) [[unlikely]] {
+        const bool known = isMission(capability) ? e->ms.find(capability) >= 0 : e->catalog->find(capability) >= 0;
+        const control::ControllerId owner = maServices_.owner(id, capability);
+        if (known && (owner == 0 || owner != controller)) return control::Reason::NotAllowed;
+    }
     if (isMission(capability)) return missionControl(e->ms, capability, [&](std::size_t i) { return e->ms.requestControl(i, controller); });
     const int index = e->catalog->find(capability);
     if (index < 0) return e->support->refusal(capability);

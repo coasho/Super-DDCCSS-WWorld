@@ -303,15 +303,25 @@ sensors.receive()                                # the inbox: the ingress owner'
   `world.bind_ma_service(agent, service_id, command_capabilities, owns_dms_ingress, owns_dms_egress)` (Python). It
   names a controller the world minted for one of the platform's agents and creates none. `maServiceBindings`,
   `fsim_world_ma_service`, `world.ma_services()` read the bindings back in ascending service id.
+- **By the agent itself:** two worlds mint the same vehicle ids and controller numbers, so an agent is told from
+  another world's only by the world that made it. `bindMAService(world, agent, service_id, capabilities, ingress,
+  egress, &error)` (C++), `fsim_world_bind_ma_service_agent(world, agent_handle, &binding)` (C) and Python's
+  `bind_ma_service` take the agent, read its platform and controller from it, and refuse an agent of another world
+  and anything that is not an agent - nothing changed.
 - **Ownership is the bindings':** it does not depend on the order the agents were made in, or the order they were
   bound in. Command capabilities are named by their discovery ids, or `"*"` for all of them; a capability, the DMS
   ingress and the DMS egress each have at most one owner on a platform, and a binding that overlaps another - or names
   a controller that is not one of the platform's own, or a capability the platform does not offer - is refused with
   the reason, and nothing changes.
-- **What it uses:** the first binding puts the platform under `ControlMode.GRANTED` and asks for the grants of what is
-  bound. Only an owner is granted its capability, so only it commands it; another service reads an activity but may
-  not update or cancel it (`authority_held`). C2's designation, overrides and lost-communication plan go to the
-  owners. The default policy (controller 0) holds no grant there.
+- **What it uses:** a bound platform is under `ControlMode.GRANTED` and stays there (`set_control_mode` to another:
+  refused). Only an owner is granted its capability - not another agent, not the default policy (controller 0), not
+  any other controller - so only it commands it; another service reads an activity but may not update or cancel it
+  (`authority_held`). C2's designation, overrides and lost-communication plan go to the owners.
+- **What stood before gives way:** a grant another controller held when a binding is made, and any policy activity
+  that is not its capability's owner's - flown under a grant or, on an open platform, without one - is taken back by
+  the platform: the grant revoked, that capability's policy activities ended `revoked`, flight and Mission Systems
+  alike, an unowned capability's too. The newly bound service's own activities go on. Bind a platform's services
+  before they act and nothing is taken from anyone.
 - **Reports are shared:** every agent of the platform reads its navigation, sensors, picture, tasks and authority
   alike. Sharing a report grants no command.
 - **Not bound, not changed:** a platform the range binds nothing on behaves exactly as before. Removing a platform
@@ -340,6 +350,11 @@ boss.report_navigation()                         # Report("not_applicable", None
 - **Seven reports:** `reportNavigation`, `reportTracks`, `reportContacts`, `reportLinkTracks`, `reportPeers`,
   `reportTasks`, `reportAuthority` (C++); `fsim_agent_report(world, entity, FSIM_REPORT_*, ...)`, which gives the
   metadata item for item beside the existing getters (C); `report_navigation()` ... `report_authority()` (Python).
+- **A peer is two messages:** its position report and its heartbeat may come by different nets at different times.
+  `report_peers()` gives the provenance of the position each peer holds - the net that report came by and when it
+  was delivered - and `report_peer_heartbeats()` (`reportPeerHeartbeats`, `FSIM_REPORT_PEER_HEARTBEATS`) that of its
+  last heartbeat, index for index. Neither borrows the other's. `PeerReport.net` and `received_s` themselves are
+  unchanged: those of whichever message was heard last.
 - **Nothing more than it may know:** the values are those of `ownship`, `amti_tracks`, `contacts`, `link_tracks`,
   `peers`, `c2_tasks` and `authority`, under the same rules - no entity behind a track or a contact, no other
   platform's reports, nothing from the referee. A report its links did not deliver is not there, and one its picture

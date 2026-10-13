@@ -376,6 +376,13 @@ int main(int argc, char** argv) {
         CHECK(fsim_agent_report(blue, a, FSIM_REPORT_PEERS, NAN, &availability, &small.meta, 1, &count) == FSIM_OK);
         CHECK(small.meta.struct_size == 24 && small.meta.source == FSIM_REPORT_LINK && small.meta.system == peer.system);
         CHECK(small.bytes[24] == 0xAB && small.bytes[sizeof small - 1] == 0xAB); /* (nothing written past its size) */
+        /* that heartbeat's own provenance, beside the peer index for index: its net, its delivery, the time it states */
+        fsim_report_meta_init(&meta);
+        CHECK(fsim_agent_report(blue, a, FSIM_REPORT_PEER_HEARTBEATS, NAN, &availability, &meta, 1, &count) == FSIM_OK);
+        CHECK(availability == FSIM_REPORT_AVAILABLE && count == 1 && count == fsim_dms_peer_count(blue, a));
+        CHECK(meta.source == FSIM_REPORT_LINK && meta.system == peer.system && meta.net == net && meta.validity == FSIM_REPORT_VALID);
+        CHECK(meta.receive_time_s == peer.received_s && meta.sample_time_s <= meta.receive_time_s &&
+              meta.age_s == fsim_world_time(world) - meta.sample_time_s);
         /* a smaller buffer than it has: what fits, and the whole count */
         CHECK(fsim_agent_report(blue, a, FSIM_REPORT_AUTHORITY, NAN, &availability, NULL, 0, &count) == FSIM_OK && count == 1);
         CHECK(fsim_agent_report(blue, a, FSIM_REPORT_AUTHORITY, NAN, &availability, &meta, 1, &count) == FSIM_OK &&
@@ -396,7 +403,7 @@ int main(int argc, char** argv) {
         CHECK(count == 99 && availability == -7);
         CHECK(strcmp(fsim_agent_operator_callsign(stranger, a, 0), "") == 0);
         /* a kind there is none of, a buffer with no size */
-        CHECK(fsim_agent_report(blue, a, FSIM_REPORT_AUTHORITY + 1, NAN, &availability, NULL, 0, &count) == FSIM_INVALID_ARGUMENT);
+        CHECK(fsim_agent_report(blue, a, FSIM_REPORT_PEER_HEARTBEATS + 1, NAN, &availability, NULL, 0, &count) == FSIM_INVALID_ARGUMENT);
         CHECK(fsim_agent_report(blue, a, -1, NAN, &availability, NULL, 0, &count) == FSIM_INVALID_ARGUMENT);
         CHECK(fsim_agent_report(blue, a, FSIM_REPORT_PEERS, NAN, &availability, NULL, 1, &count) == FSIM_INVALID_ARGUMENT);
         CHECK(fsim_agent_report(blue, a, FSIM_REPORT_PEERS, NAN, &availability, NULL, 0, NULL) == FSIM_INVALID_ARGUMENT);
@@ -415,6 +422,87 @@ int main(int argc, char** argv) {
         fsim_world_destroy(stranger);
         fsim_world_destroy(boss);
         fsim_world_destroy(blue);
+        fsim_world_destroy(world);
+    }
+
+    {
+        /* two worlds mint the same numbers: a binding by an agent's handle takes only an agent of the world it is made in */
+        fsim_world* one = make_world("c-ma-world-one", jsbsim_root);
+        fsim_world* two = make_world("c-ma-world-two", jsbsim_root);
+        fsim_world* mine = NULL;
+        fsim_world* theirs = NULL;
+        fsim_ma_service_binding b;
+        const char* hsa[1];
+        uint32_t a1, a2, holder = 0;
+        int32_t mode = -1, granted = -1;
+        hsa[0] = kHsa;
+        CHECK(one != NULL && two != NULL);
+        a1 = make_aircraft(one, "viper", 0.0);
+        a2 = make_aircraft(two, "viper", 0.0);
+        CHECK(a1 != 0 && fsim_agent_create(one, a1, "mine", &mine) == FSIM_OK && fsim_agent_create(two, a2, "theirs", &theirs) == FSIM_OK);
+        CHECK(a1 == a2 && controller_of(mine) == controller_of(theirs)); /* (indistinguishable by number) */
+        fsim_ma_service_binding_init(&b);
+        b.service_id = 1, b.command_capabilities = hsa, b.command_capability_count = 1, b.owns_dms_ingress = 1, b.owns_dms_egress = 1;
+        CHECK(fsim_world_bind_ma_service_agent(one, theirs, &b) == FSIM_INVALID_ARGUMENT && strstr(fsim_last_error(), "another world") != NULL);
+        CHECK(fsim_world_bind_ma_service_agent(one, one, &b) == FSIM_INVALID_ARGUMENT && strstr(fsim_last_error(), "not an agent") != NULL);
+        CHECK(fsim_world_bind_ma_service_agent(one, two, &b) == FSIM_INVALID_ARGUMENT);
+        CHECK(fsim_world_bind_ma_service_agent(one, NULL, &b) == FSIM_INVALID_ARGUMENT);
+        CHECK(fsim_world_bind_ma_service_agent(mine, mine, &b) == FSIM_NOT_ALLOWED); /* (the range's to make, not an agent's) */
+        b.controller = controller_of(mine) + 1;
+        CHECK(fsim_world_bind_ma_service_agent(one, mine, &b) == FSIM_INVALID_ARGUMENT); /* (not the handle's own) */
+        b.controller = 0, b.platform = a1 + 1;
+        CHECK(fsim_world_bind_ma_service_agent(one, mine, &b) == FSIM_INVALID_ARGUMENT);
+        /* nothing changed in either world */
+        CHECK(fsim_world_ma_service_count(one) == 0 && fsim_world_ma_service_count(two) == 0);
+        CHECK(fsim_vehicle_control_mode(one, a1, &mode) == FSIM_OK && mode == FSIM_CONTROL_OPEN);
+        CHECK(fsim_vehicle_control_holder(one, a1, kHsa, &granted, &holder) == FSIM_OK && granted == 0);
+        /* its own agent binds, by the handle alone or with its own numbers said again */
+        b.platform = 0;
+        CHECK(fsim_world_bind_ma_service_agent(one, mine, &b) == FSIM_OK);
+        b.platform = a2, b.controller = controller_of(theirs);
+        CHECK(fsim_world_bind_ma_service_agent(two, theirs, &b) == FSIM_OK);
+        CHECK(fsim_world_ma_service_count(one) == 1 && fsim_world_ma_service_count(two) == 1);
+        CHECK(fsim_world_ma_capability_owner(one, a1, kHsa) == controller_of(mine));
+        CHECK(fsim_vehicle_control_holder(one, a1, kHsa, &granted, &holder) == FSIM_OK && granted == 1 && holder == controller_of(mine));
+        fsim_world_destroy(theirs);
+        fsim_world_destroy(mine);
+        fsim_world_destroy(two);
+        fsim_world_destroy(one);
+    }
+    {
+        /* what stood before a binding: another agent's grant is taken back, the owner granted, the platform kept under grants */
+        fsim_world* world = make_world("c-ma-transition", jsbsim_root);
+        fsim_world* legacy = NULL;
+        fsim_world* owner = NULL;
+        fsim_command_result cr;
+        const char* hsa[1];
+        uint32_t a, holder = 0;
+        int32_t reason = -1, granted = 0, mode = -1;
+        hsa[0] = kHsa;
+        CHECK(world != NULL);
+        a = make_aircraft(world, "viper", 0.0);
+        CHECK(a != 0 && fsim_agent_create(world, a, "legacy", &legacy) == FSIM_OK && fsim_agent_create(world, a, "owner", &owner) == FSIM_OK);
+        CHECK(fsim_vehicle_request_control_by(legacy, a, kHsa, 0, &reason) == FSIM_OK && reason == 0);
+        CHECK(fsim_vehicle_request_control_by(legacy, a, kRoute, 0, &reason) == FSIM_OK && reason == 0); /* (left unowned) */
+        CHECK(fly(legacy, a, 1.0, &cr) == FSIM_OK && cr.status == FSIM_COMMAND_ACCEPTED);
+        CHECK(fsim_vehicle_control_holder(world, a, kHsa, &granted, &holder) == FSIM_OK && granted == 1 && holder == controller_of(legacy));
+        CHECK(bind(world, 1, a, owner, hsa, 1, 1, 1) == FSIM_OK);
+        CHECK(fsim_world_ma_capability_owner(world, a, kHsa) == controller_of(owner));
+        CHECK(fsim_vehicle_control_holder(world, a, kHsa, &granted, &holder) == FSIM_OK && granted == 1 && holder == controller_of(owner));
+        CHECK(fsim_vehicle_control_holder(world, a, kRoute, &granted, &holder) == FSIM_OK && granted == 0 && holder == 0);
+        CHECK(fly(legacy, a, 2.0, &cr) != FSIM_OK || cr.status != FSIM_COMMAND_ACCEPTED);
+        CHECK(fsim_vehicle_request_control_by(legacy, a, kHsa, 0, &reason) == FSIM_OK && strcmp(fsim_reason_name(reason), "not_allowed") == 0);
+        CHECK(fsim_vehicle_request_control_by(legacy, a, kRoute, 0, &reason) == FSIM_OK && strcmp(fsim_reason_name(reason), "not_allowed") == 0);
+        CHECK(fly(owner, a, 1.0, &cr) == FSIM_OK && cr.status == FSIM_COMMAND_ACCEPTED);
+        /* not the default policy either, nor a controller of the range's choosing; and the platform stays under grants */
+        CHECK(fsim_vehicle_request_control(world, a, kHsa, &reason) == FSIM_OK && strcmp(fsim_reason_name(reason), "not_allowed") == 0);
+        CHECK(fsim_vehicle_request_control_by(world, a, kRoute, 7, &reason) == FSIM_OK && strcmp(fsim_reason_name(reason), "not_allowed") == 0);
+        CHECK(fsim_vehicle_set_control_mode(world, a, FSIM_CONTROL_OPEN) == FSIM_NOT_ALLOWED);
+        CHECK(fsim_vehicle_control_mode(world, a, &mode) == FSIM_OK && mode == FSIM_CONTROL_GRANTED);
+        CHECK(fsim_vehicle_set_control_mode(world, a, FSIM_CONTROL_GRANTED) == FSIM_OK);
+        CHECK(fsim_vehicle_control_holder(world, a, kHsa, &granted, &holder) == FSIM_OK && granted == 1 && holder == controller_of(owner));
+        fsim_world_destroy(owner);
+        fsim_world_destroy(legacy);
         fsim_world_destroy(world);
     }
 

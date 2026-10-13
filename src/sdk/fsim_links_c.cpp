@@ -706,22 +706,46 @@ FSIM_API void fsim_ma_service_binding_init(fsim_ma_service_binding* binding) {
     binding->struct_size = sizeof *binding;
 }
 
-FSIM_API int fsim_world_bind_ma_service(fsim_world* world, const fsim_ma_service_binding* binding) {
-    FSIM_NOT_AGENT(world, FSIM_NOT_ALLOWED);
-    if (!world || !binding || binding->struct_size < sizeof(fsim_ma_service_binding) ||
-        (binding->command_capability_count && !binding->command_capabilities))
-        return FSIM_INVALID_ARGUMENT;
+namespace {
+
+/// One binding, for a platform and a controller already established as the caller means them.
+int bindService(fsim_world* world, const fsim_ma_service_binding* binding, uint32_t platform, uint32_t controller, const char* call) {
     fsim::session::MaServiceBinding b;
-    b.serviceId = binding->service_id, b.platform = binding->platform, b.controller = binding->controller;
+    b.serviceId = binding->service_id, b.platform = platform, b.controller = controller;
     for (uint32_t i = 0; i < binding->command_capability_count; ++i) {
         if (!binding->command_capabilities[i]) return FSIM_INVALID_ARGUMENT;
         b.capabilities.emplace_back(binding->command_capabilities[i]);
     }
     b.ownsDmsIngress = binding->owns_dms_ingress != 0, b.ownsDmsEgress = binding->owns_dms_egress != 0;
     std::string why;
-    if (!world->world.bindMaService(b, why)) return fail(FSIM_INVALID_ARGUMENT, "fsim_world_bind_ma_service: " + why);
+    if (!world->world.bindMaService(b, why)) return fail(FSIM_INVALID_ARGUMENT, std::string(call) + ": " + why);
     fsim::sdk::lastError().clear();
     return FSIM_OK;
+}
+
+bool wellFormed(const fsim_ma_service_binding* binding) {
+    return binding && binding->struct_size >= sizeof(fsim_ma_service_binding) &&
+           !(binding->command_capability_count && !binding->command_capabilities);
+}
+
+} // namespace
+
+FSIM_API int fsim_world_bind_ma_service(fsim_world* world, const fsim_ma_service_binding* binding) {
+    FSIM_NOT_AGENT(world, FSIM_NOT_ALLOWED);
+    if (!world || !wellFormed(binding)) return FSIM_INVALID_ARGUMENT;
+    return bindService(world, binding, binding->platform, binding->controller, "fsim_world_bind_ma_service");
+}
+
+FSIM_API int fsim_world_bind_ma_service_agent(fsim_world* world, const fsim_world* agent, const fsim_ma_service_binding* binding) {
+    FSIM_NOT_AGENT(world, FSIM_NOT_ALLOWED);
+    if (!world || !wellFormed(binding)) return FSIM_INVALID_ARGUMENT;
+    const std::string service = "fsim_world_bind_ma_service_agent: MA service " + std::to_string(binding->service_id) + ": ";
+    // (two worlds mint the same numbers: whose an agent is, only its handle's own world says)
+    if (!agent || !agent->agent) return fail(FSIM_INVALID_ARGUMENT, service + "the handle given is not an agent's");
+    if (&agent->world != &world->world) return fail(FSIM_INVALID_ARGUMENT, service + "the agent is another world's, not one this world made");
+    if ((binding->platform && binding->platform != agent->agent->vehicle) || (binding->controller && binding->controller != agent->agent->controller))
+        return fail(FSIM_INVALID_ARGUMENT, service + "the platform or controller given is not the agent's own");
+    return bindService(world, binding, agent->agent->vehicle, agent->agent->controller, "fsim_world_bind_ma_service_agent");
 }
 
 FSIM_API uint32_t fsim_world_ma_service_count(fsim_world* world) {

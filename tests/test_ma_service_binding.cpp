@@ -511,3 +511,278 @@ TEST_CASE("ma service binding: a reset keeps the bindings; a removed platform's 
     CHECK(maServiceBindings(w).size() == 1);
     CHECK(again.submit(hsa(90.0)).accepted());
 }
+
+// --- What stood before a binding ------------------------------------------------------------------------------------
+//
+// A binding is the range configuring who owns what. Whatever grant or policy activity stood in its way is taken back by
+// the platform as it takes anything back (revoked), and after it every grant is its capability's owner's or no one's.
+
+namespace {
+
+/// A radar switched on while the platform is open, so that a search can be commanded on it.
+void operate(World& w, Vehicle& v) {
+    REQUIRE(v.submit(ms::StateCommand{radarOf(v), ms::PayloadState::Operate}).accepted());
+    w.step(60);
+    for (const ms::PayloadInfo& p : v.payloads())
+        if (p.index == radarOf(v)) REQUIRE(p.state == ms::PayloadState::Operate);
+}
+
+ms::AmtiCommand search(const Vehicle& v) {
+    ms::AmtiCommand c;
+    c.payload = radarOf(v);
+    return c;
+}
+
+bool endedAs(const std::optional<control::ActivityRecord>& r, control::Reason why) {
+    return r && !r->live() && r->state == control::ActivityState::Canceled && r->reason == why;
+}
+
+} // namespace
+
+TEST_CASE("ma service binding: a grant another agent held is taken back, its activities end, and the owner is granted", "[ma][binding][transition]") {
+    for (const bool granted : {false, true}) { // (the platform open, or under grants already)
+        CAPTURE(granted);
+        World w(options(granted ? "ma-binding-held-granted" : "ma-binding-held-open"));
+        Vehicle a = aircraft(w, "viper", 0.0);
+        Agent legacy = w.createAgent(a, "legacy");
+        Agent owner = w.createAgent(a, "owner");
+        if (granted) REQUIRE(a.setControlMode(control::ControlMode::Granted) == control::Reason::None);
+        REQUIRE(legacy.requestControl(kHsa) == control::Reason::None);
+        REQUIRE(legacy.requestControl(kRoute) == control::Reason::None); // (a capability the binding leaves unowned)
+        const control::CommandResult flown = legacy.submit(hsa(90.0));
+        REQUIRE(flown.accepted());
+        control::CommandOptions later;
+        later.window.startNotBefore = w.time() + 600.0;
+        const control::CommandResult waits = legacy.submit(hsa(180.0), later);
+        REQUIRE(waits.accepted());
+        w.step(5);
+        REQUIRE(legacy.activity(flown.activity)->live());
+        REQUIRE(legacy.activity(waits.activity)->live());
+        REQUIRE(legacy.activity(waits.activity)->waiting != control::ActivityWait::None);
+
+        std::string error;
+        REQUIRE(bindMAService(w, binding(1, owner, {kHsa}, true, true), &error));
+        CHECK(a.controlMode() == control::ControlMode::Granted);
+        // the grant is the owner's, as the binding says
+        CHECK(maCapabilityOwner(w, a.id(), kHsa) == owner.controller());
+        CHECK(a.controlStatus(kHsa).granted);
+        CHECK(a.controlStatus(kHsa).holder == owner.controller());
+        // what the other flew and what it had waiting ended, as a revoked grant's activities do
+        CHECK(endedAs(legacy.activity(flown.activity), control::Reason::Revoked));
+        CHECK(endedAs(legacy.activity(waits.activity), control::Reason::Revoked));
+        // an unowned capability is no one's
+        CHECK(maCapabilityOwner(w, a.id(), kRoute) == 0);
+        CHECK_FALSE(a.controlStatus(kRoute).granted);
+        // and from now on: the owner commands, the other does not and cannot ask
+        const control::CommandResult stolen = legacy.submit(hsa(0.0));
+        CHECK_FALSE(stolen.accepted());
+        CHECK(stolen.reason == control::Reason::NotGranted);
+        CHECK(legacy.requestControl(kHsa) == control::Reason::NotAllowed);
+        CHECK(legacy.requestControl(kRoute) == control::Reason::NotAllowed);
+        const control::CommandResult own = owner.submit(hsa(45.0));
+        REQUIRE(own.accepted());
+        CHECK(legacy.update(own.activity, hsa(0.0)).reason == control::Reason::AuthorityHeld);
+        CHECK(legacy.cancel(own.activity).reason == control::Reason::AuthorityHeld);
+        CHECK(owner.activity(own.activity)->live());
+        // a later binding takes nothing from the first
+        REQUIRE(bindMAService(w, binding(2, legacy, {kRoute}, false, false), &error));
+        CHECK(a.controlStatus(kHsa).holder == owner.controller());
+        CHECK(owner.activity(own.activity)->live());
+        CHECK(a.controlStatus(kRoute).granted);
+        CHECK(a.controlStatus(kRoute).holder == legacy.controller());
+        CHECK(owner.requestControl(kRoute) == control::Reason::NotAllowed);
+    }
+}
+
+TEST_CASE("ma service binding: what an open platform's agents flew without a grant - the owner's goes on, another's ends", "[ma][binding][transition]") {
+    World w(options("ma-binding-open-activities"));
+    Vehicle a = aircraft(w, "viper", 0.0);
+    Agent owner = w.createAgent(a, "owner");
+    Agent other = w.createAgent(a, "other");
+    operate(w, a);
+    // open, no grant asked for: the owner-to-be flies, the other searches with the radar
+    REQUIRE(a.controlMode() == control::ControlMode::Open);
+    const control::CommandResult flown = owner.submit(hsa(90.0));
+    REQUIRE(flown.accepted());
+    const ms::CommandResult searching = other.submit(search(a));
+    REQUIRE(searching.accepted());
+    w.step(5);
+    REQUIRE(owner.activity(flown.activity)->live());
+    REQUIRE(other.missionActivity(searching.activity)->live());
+    const std::string amti = amtiOf(a);
+    REQUIRE_FALSE(a.controlStatus(kHsa).granted);
+
+    std::string error;
+    REQUIRE(bindMAService(w, binding(1, owner, {kHsa}, true, true), &error)); // (the radar's search left unowned)
+    CHECK(a.controlMode() == control::ControlMode::Granted);
+    // the owner's own flight goes on, now under its grant, and is its to change
+    CHECK(a.controlStatus(kHsa).holder == owner.controller());
+    REQUIRE(owner.activity(flown.activity));
+    CHECK(owner.activity(flown.activity)->live());
+    CHECK(owner.update(flown.activity, hsa(45.0)).accepted());
+    // the other's search is of a capability no service owns: ended, and no one's to command
+    const auto ended = other.missionActivity(searching.activity);
+    REQUIRE(ended);
+    CHECK_FALSE(ended->live());
+    CHECK(ended->state == control::ActivityState::Canceled);
+    CHECK(ended->reason == ms::Reason::Revoked);
+    CHECK_FALSE(a.controlStatus(amti).granted);
+    CHECK_FALSE(other.submit(search(a)).accepted());
+    CHECK(other.requestControl(amti) == control::Reason::NotAllowed);
+    CHECK_FALSE(owner.submit(search(a)).accepted()); // (not the flight service's either)
+}
+
+TEST_CASE("ma service binding: a Mission Systems grant and its live activity follow the binding", "[ma][binding][transition]") {
+    World w(options("ma-binding-ms-grant"));
+    Vehicle a = aircraft(w, "viper", 0.0);
+    Agent legacy = w.createAgent(a, "legacy");
+    Agent owner = w.createAgent(a, "owner");
+    operate(w, a);
+    const std::string amti = amtiOf(a);
+    REQUIRE(a.setControlMode(control::ControlMode::Granted) == control::Reason::None);
+    REQUIRE(legacy.requestControl(amti) == control::Reason::None);
+    const ms::CommandResult searching = legacy.submit(search(a));
+    REQUIRE(searching.accepted());
+    w.step(5);
+    REQUIRE(legacy.missionActivity(searching.activity)->live());
+    REQUIRE(a.controlStatus(amti).holder == legacy.controller());
+
+    std::string error;
+    REQUIRE(bindMAService(w, binding(1, owner, {amti}, true, true), &error));
+    CHECK(maCapabilityOwner(w, a.id(), amti) == owner.controller());
+    CHECK(a.controlStatus(amti).granted);
+    CHECK(a.controlStatus(amti).holder == owner.controller());
+    const auto ended = legacy.missionActivity(searching.activity);
+    REQUIRE(ended);
+    CHECK_FALSE(ended->live());
+    CHECK(ended->reason == ms::Reason::Revoked);
+    CHECK_FALSE(legacy.submit(search(a)).accepted());
+    CHECK(legacy.requestControl(amti) == control::Reason::NotAllowed);
+    const ms::CommandResult mine = owner.submit(search(a));
+    REQUIRE(mine.accepted());
+    CHECK(legacy.cancelMission(mine.activity).reason == ms::Reason::AuthorityHeld);
+    CHECK(owner.missionActivity(mine.activity)->live());
+}
+
+TEST_CASE("ma service binding: the default policy holds no grant on a bound platform, and the platform stays under grants", "[ma][binding][transition]") {
+    World w(options("ma-binding-controller-0"));
+    Vehicle a = aircraft(w, "viper", 0.0);
+    Agent owner = w.createAgent(a, "owner");
+    // the range's own policy (controller 0) holds the grants and flies, as a range script may
+    REQUIRE(a.setControlMode(control::ControlMode::Granted) == control::Reason::None);
+    REQUIRE(a.requestControl(kHsa) == control::Reason::None);
+    REQUIRE(a.requestControl(kRoute) == control::Reason::None);
+    const control::CommandResult flown = a.submit(hsa(90.0));
+    REQUIRE(flown.accepted());
+    w.step(5);
+    REQUIRE(a.controlStatus(kHsa).granted);
+    REQUIRE(a.controlStatus(kHsa).holder == 0);
+
+    std::string error;
+    REQUIRE(bindMAService(w, binding(1, owner, {kHsa}, true, true), &error));
+    CHECK(a.controlStatus(kHsa).granted);
+    CHECK(a.controlStatus(kHsa).holder == owner.controller());
+    CHECK_FALSE(a.controlStatus(kRoute).granted); // (unowned: no one's, the default policy's neither)
+    CHECK(endedAs(w.activity(flown.activity), control::Reason::Revoked));
+    CHECK_FALSE(a.submit(hsa(0.0)).accepted());
+    // no controller but a capability's owner is granted it: not the default policy, not a number of the range's choosing
+    CHECK(a.requestControl(kHsa) == control::Reason::NotAllowed);
+    CHECK(a.requestControl(kRoute) == control::Reason::NotAllowed);
+    CHECK(a.requestControl(kHsa, 7) == control::Reason::NotAllowed);
+    CHECK(a.requestControl(kRoute, 7) == control::Reason::NotAllowed);
+    CHECK(a.controlStatus(kHsa).holder == owner.controller());
+    // the platform takes a grant back as before; only its owner has it again
+    const control::CommandResult own = owner.submit(hsa(45.0));
+    REQUIRE(own.accepted());
+    REQUIRE(a.revokeControl(kHsa) == control::Reason::None);
+    CHECK_FALSE(a.controlStatus(kHsa).granted);
+    CHECK(endedAs(owner.activity(own.activity), control::Reason::Revoked));
+    CHECK(a.requestControl(kHsa) == control::Reason::NotAllowed);
+    CHECK(owner.requestControl(kHsa) == control::Reason::None);
+    CHECK(owner.submit(hsa(45.0)).accepted());
+    // and it cannot be opened again while it is bound: an open platform would answer every controller
+    CHECK(a.setControlMode(control::ControlMode::Open) == control::Reason::NotAllowed);
+    CHECK(a.controlMode() == control::ControlMode::Granted);
+    CHECK(a.setControlMode(control::ControlMode::Granted) == control::Reason::None);
+    // the platform's own sources command as ever: they need no grant
+    control::CommandOptions platform;
+    platform.source = control::Source::Override;
+    CHECK(a.submit(hsa(10.0), platform).accepted());
+
+    // a platform nothing is bound on: its modes and its grants as before
+    Vehicle b = aircraft(w, "wing", 2.0);
+    CHECK(b.setControlMode(control::ControlMode::Granted) == control::Reason::None);
+    CHECK(b.requestControl(kHsa) == control::Reason::None);
+    CHECK(b.requestControl(kRoute, 7) == control::Reason::None);
+    CHECK(b.setControlMode(control::ControlMode::Open) == control::Reason::None);
+    CHECK(b.controlMode() == control::ControlMode::Open);
+    CHECK(b.controlStatus(kHsa).granted); // (a grant outlives the mode, as it always did)
+    // a capability no platform has is refused for what it is, bound or not: not as an ownership matter
+    CHECK(b.requestControl("fsim.guidance.no_such") != control::Reason::None);
+    CHECK(a.requestControl("fsim.guidance.no_such") == b.requestControl("fsim.guidance.no_such"));
+    CHECK(owner.requestControl("fsim.guidance.no_such") == b.requestControl("fsim.guidance.no_such"));
+    CHECK(a.requestControl("fsim.ms.no_such:radar") == b.requestControl("fsim.ms.no_such:radar"));
+}
+
+TEST_CASE("ma service binding: a refused binding leaves grants, mode and activities as they were", "[ma][binding][transition]") {
+    World w(options("ma-binding-refused-transition"));
+    Vehicle a = aircraft(w, "viper", 0.0);
+    Vehicle b = aircraft(w, "wing", 2.0);
+    Agent legacy = w.createAgent(a, "legacy");
+    Agent owner = w.createAgent(a, "owner");
+    Agent stranger = w.createAgent(b, "stranger");
+    REQUIRE(legacy.requestControl(kHsa) == control::Reason::None);
+    const control::CommandResult flown = legacy.submit(hsa(90.0));
+    REQUIRE(flown.accepted());
+    w.step(5);
+    std::string error;
+    MAServiceBindingV1 foreign = binding(1, stranger, {kHsa}, true, true);
+    foreign.platform = a.id();
+    CHECK_FALSE(bindMAService(w, foreign, &error));
+    CHECK_FALSE(bindMAService(w, binding(1, owner, {kHsa, "fsim.guidance.no_such"}, true, true), &error));
+    CHECK_FALSE(bindMAService(w, binding(0, owner, {kHsa}, true, true), &error));
+    CHECK(maServiceBindings(w).empty());
+    CHECK(a.controlMode() == control::ControlMode::Open);
+    CHECK(a.controlStatus(kHsa).granted);
+    CHECK(a.controlStatus(kHsa).holder == legacy.controller());
+    CHECK(legacy.activity(flown.activity)->live());
+    CHECK(legacy.update(flown.activity, hsa(45.0)).accepted());
+    CHECK(a.setControlMode(control::ControlMode::Granted) == control::Reason::None); // (unbound: the range's to set)
+    CHECK(a.setControlMode(control::ControlMode::Open) == control::Reason::None);
+}
+
+TEST_CASE("ma service binding: an agent of another world is refused, though its numbers are this world's too", "[ma][binding]") {
+    World one(options("ma-binding-world-one"));
+    World two(options("ma-binding-world-two"));
+    Vehicle a1 = aircraft(one, "viper", 0.0);
+    Vehicle a2 = aircraft(two, "viper", 0.0);
+    Agent mine = one.createAgent(a1, "mine");
+    Agent theirs = two.createAgent(a2, "theirs");
+    // each world minted the same ids: by number, the other world's agent is indistinguishable from this one's
+    REQUIRE(a1.id() == a2.id());
+    REQUIRE(mine.controller() == theirs.controller());
+    std::string error;
+    CHECK_FALSE(bindMAService(one, theirs, 1, {kHsa}, true, true, &error));
+    CHECK(error.find("MA service 1") != std::string::npos);
+    CHECK_FALSE(bindMAService(one, Agent{}, 1, {kHsa}, true, true, &error));
+    CHECK_FALSE(bindMAService(one, mine, 0, {kHsa}, true, true, &error));                 // (and what the binding itself refuses)
+    CHECK_FALSE(bindMAService(one, mine, 1, {"fsim.guidance.no_such"}, true, true, &error));
+    // nothing changed, in either world
+    CHECK(maServiceBindings(one).empty());
+    CHECK(maServiceBindings(two).empty());
+    CHECK(a1.controlMode() == control::ControlMode::Open);
+    CHECK_FALSE(a1.controlStatus(kHsa).granted);
+    CHECK(maCapabilityOwner(one, a1.id(), kHsa) == 0);
+    CHECK(mine.submit(hsa(90.0)).accepted()); // (open still)
+    // its own agent binds, each world its own
+    REQUIRE(bindMAService(one, mine, 1, {kHsa}, true, true, &error));
+    CHECK(error.empty());
+    REQUIRE(bindMAService(two, theirs, 1, {"*"}, true, true));
+    REQUIRE(maServiceBindings(one).size() == 1);
+    CHECK(maServiceBindings(one)[0].platform == a1.id());
+    CHECK(maServiceBindings(one)[0].controller == mine.controller());
+    CHECK(maServiceBindings(one)[0].commandCapabilities == std::vector<std::string>{kHsa});
+    CHECK(a1.controlStatus(kHsa).holder == mine.controller());
+    CHECK(maServiceBindings(two).size() == 1);
+    CHECK(a2.controlMode() == control::ControlMode::Granted);
+}

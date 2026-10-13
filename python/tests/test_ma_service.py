@@ -150,6 +150,57 @@ class MAServiceTest(unittest.TestCase):
         designate_everything(w, boss, first.system)
         self.assertEqual(a.control_status(HSA).holder, last.controller)  # (the agent made last, as ever)
 
+    def test_a_grant_another_agent_held_follows_the_binding(self):
+        w, a, crc = world("py-ma-binding-existing-grant")
+        legacy, owner = w.create_agent(a, "legacy"), w.create_agent(a, "owner")
+        legacy.request_control(HSA)
+        flown = legacy.submit_hsa(heading_rad=1.0, speed=230.0, altitude_m=6000.0)
+        self.assertEqual(a.control_status(HSA).holder, legacy.controller)
+        w.bind_ma_service(owner, 1, (HSA,))
+        self.assertEqual(w.ma_capability_owner(a, HSA), owner.controller)
+        self.assertEqual(a.control_status(HSA).holder, owner.controller)  # (the grant is the configured owner's)
+        self.assertEqual(value(a.control_mode), fsim.ControlMode.GRANTED)
+        self.assertFalse(value(flown.live))
+        with self.assertRaises(fsim.Rejected) as refused:
+            legacy.submit_hsa(heading_rad=2.0, speed=230.0, altitude_m=6000.0)
+        self.assertIn("not_granted", str(refused.exception))
+        with self.assertRaises(fsim.Rejected) as refused:
+            legacy.request_control(HSA)
+        self.assertIn("not_allowed", str(refused.exception))
+        owner.submit_hsa(heading_rad=1.0, speed=230.0, altitude_m=6000.0)
+        # neither the default policy nor an open mode gets around it
+        with self.assertRaises(fsim.Error):
+            a.request_control(HSA)
+        with self.assertRaises(fsim.Error):
+            a.set_control_mode(fsim.ControlMode.OPEN)
+        self.assertEqual(value(a.control_mode), fsim.ControlMode.GRANTED)
+        self.assertEqual(a.control_status(HSA).holder, owner.controller)
+
+    def test_an_agent_of_another_world_is_refused_and_nothing_changes(self):
+        (first, a1, _), (second, a2, _) = world("py-ma-binding-world-one"), world("py-ma-binding-world-two")
+        one, two = first.create_agent(a1, "one"), second.create_agent(a2, "two")
+        # the two worlds minted the same numbers: only the agent's own world tells them apart
+        self.assertEqual((a1.id, one.controller), (a2.id, two.controller))
+        with self.assertRaises(fsim.Error) as refused:
+            first.bind_ma_service(two, 1, (HSA,))
+        self.assertIn("MA service 1", str(refused.exception))
+        self.assertEqual(first.ma_services(), [])
+        self.assertEqual(second.ma_services(), [])
+        self.assertEqual(value(a1.control_mode), fsim.ControlMode.OPEN)
+        self.assertEqual(first.ma_capability_owner(a1, HSA), 0)
+        self.assertFalse(a1.control_status(HSA).granted)
+        one.submit_hsa(heading_rad=1.0, speed=230.0, altitude_m=6000.0)  # (still open: nothing was bound)
+        # neither the range's own handle nor something that only looks like an agent is one
+        with self.assertRaises(fsim.Error):
+            first.bind_ma_service(first, 1, (HSA,))
+        self.assertEqual(first.ma_services(), [])
+        # its own agent binds, each world its own
+        first.bind_ma_service(one, 1, (HSA,))
+        second.bind_ma_service(two, 1, (HSA,))
+        self.assertEqual([(s.service_id, s.platform, s.controller) for s in first.ma_services()], [(1, a1.id, one.controller)])
+        self.assertEqual([(s.service_id, s.platform, s.controller) for s in second.ma_services()], [(1, a2.id, two.controller)])
+        self.assertEqual(a1.control_status(HSA).holder, one.controller)
+
 
 if __name__ == "__main__":
     unittest.main()

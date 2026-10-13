@@ -821,27 +821,35 @@ PyObject* world_link_track_truth(PyObject* o, PyObject* const* args, Py_ssize_t 
 
 /* --- MA services (ABI 1.72; docs/sdk/mission-training.md, section 9) ---------------------------------------------- */
 
-/* bind_ma_service(service_id, platform, controller, capabilities: sequence of str, owns_dms_ingress, owns_dms_egress) */
-PyObject* world_bind_ma_service(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+/* bind_ma_service_agent(agent's handle, service_id, capabilities: sequence of str, owns_dms_ingress, owns_dms_egress): the
+ * service is the agent whose native handle is given - its platform and controller read from that handle, which the
+ * library holds to this very world. Python binds by the agent alone, never by its numbers: two worlds mint the same
+ * vehicle ids and controllers. Anything that is not an agent's handle of this world is refused as an fsim.Error. */
+PyObject* world_bind_ma_service_agent(PyObject* o, PyObject* const* args, Py_ssize_t n) {
     WorldObject* self = (WorldObject*)o;
     fsim_ma_service_binding b;
     fsim_ma_service_binding_init(&b);
-    if (!check_args(n, 6, 6, "bind_ma_service") || !as_u64(args[0], &b.service_id) || !as_u32(args[1], &b.platform) ||
-        !as_u32(args[2], &b.controller) || !WORLD_IDLE(self))
-        return NULL;
-    PyObject* names = PySequence_Tuple(args[3]); /* (holds each name while its text is borrowed) */
+    if (!check_args(n, 5, 5, "bind_ma_service_agent") || !as_u64(args[1], &b.service_id) || !WORLD_IDLE(self)) return NULL;
+    if (!PyObject_TypeCheck(args[0], Py_TYPE(o)) || !((WorldObject*)args[0])->world) {
+        char why[128];
+        PyOS_snprintf(why, sizeof why, "bind_ma_service: MA service %llu: not an fsim.Agent of this World", (unsigned long long)b.service_id);
+        fsim_set_last_error(why);
+        return fail();
+    }
+    const fsim_world* agent = ((WorldObject*)args[0])->world;
+    PyObject* names = PySequence_Tuple(args[2]); /* (holds each name while its text is borrowed) */
     if (!names) return NULL;
     const Py_ssize_t count = PyTuple_Size(names);
     const char** list = count ? (const char**)PyMem_Malloc(sizeof(const char*) * (size_t)count) : NULL;
     int ok = count == 0 || list != NULL;
     for (Py_ssize_t i = 0; ok && i < count; ++i) ok = (list[i] = as_str(PyTuple_GetItem(names, i), "a command capability")) != NULL;
-    const int ingress = ok ? PyObject_IsTrue(args[4]) : -1, egress = ok ? PyObject_IsTrue(args[5]) : -1;
+    const int ingress = ok ? PyObject_IsTrue(args[3]) : -1, egress = ok ? PyObject_IsTrue(args[4]) : -1;
     int rc = FSIM_INVALID_ARGUMENT;
     if (ok && ingress >= 0 && egress >= 0) {
         b.command_capability_count = (uint32_t)count;
         b.command_capabilities = list;
         b.owns_dms_ingress = ingress, b.owns_dms_egress = egress;
-        rc = fsim_world_bind_ma_service(self->world, &b);
+        rc = fsim_world_bind_ma_service_agent(self->world, agent, &b);
     } else if (!PyErr_Occurred() && !list && count) {
         PyErr_NoMemory();
     }

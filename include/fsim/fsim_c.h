@@ -1222,7 +1222,9 @@ FSIM_API int fsim_vehicle_performance(fsim_world* world, uint32_t id, fsim_perfo
  * the default, is as ever; Granted: a policy's NEW (and the fsim_vehicle_command_*
  * calls) needs a grant for its capability - else "not_granted" - and what the
  * policy flies without one ends canceled(not_granted). The platform's own
- * sources (autopilot, override) never need one. Capabilities by id. */
+ * sources (autopilot, override) never need one. Capabilities by id. A platform with bound MA services
+ * (fsim_world_bind_ma_service) stays granted: fsim_vehicle_set_control_mode to FSIM_CONTROL_OPEN returns
+ * FSIM_NOT_ALLOWED there, and a request by any controller but a capability's bound owner answers "not_allowed". */
 enum fsim_control_mode { FSIM_CONTROL_OPEN = 0, FSIM_CONTROL_GRANTED };
 FSIM_API int fsim_vehicle_set_control_mode(fsim_world* world, uint32_t id, int mode);
 FSIM_API int fsim_vehicle_control_mode(const fsim_world* world, uint32_t id, int32_t* mode);
@@ -2402,9 +2404,15 @@ FSIM_API int fsim_c2_dissolve_package(fsim_world* world, uint32_t entity, uint32
  * platform's DMS ingress (its inbox and subscriptions) and its DMS egress (its sends, native publications, task
  * answers and C2 messages). Ownership follows the bindings, never the order the agents were made in.
  *
- * A platform's first binding puts it under FSIM_CONTROL_GRANTED and asks for the grants of what each binding names.
- * From then on an agent of that platform is granted only a capability bound to it (fsim_vehicle_request_control_by of
- * another's: not_allowed); C2's control designation, a live override and a lost-communication plan go to the bound
+ * A binding accepted, the platform is consistent with every binding made on it so far. It is under
+ * FSIM_CONTROL_GRANTED and stays there (fsim_vehicle_set_control_mode to another: FSIM_NOT_ALLOWED). Each capability's
+ * grant is its bound owner's or no one's; an unowned capability's is no one's. What stood in the way before - another
+ * controller's grant, the default policy's (controller 0) among them, or a policy activity flown without one - is
+ * taken back as the platform takes anything back: the grant revoked, that capability's policy activities ended
+ * canceled(revoked). The new owner's own activities go on under its grant; a capability the platform does not allow
+ * or cannot give then is its owner's to request later. From then on only a capability's owner is granted it
+ * (fsim_vehicle_request_control_by of any other controller: not_allowed); C2's control designation, a live override and
+ * a lost-communication plan go to the bound
  * owners; an agent that is not the ingress owner reads an empty inbox and may not take or subscribe
  * (FSIM_NOT_ALLOWED); one that is not the egress owner may not send (FSIM_NOT_ALLOWED, *reason FSIM_DMS_NOT_OWNER).
  * Every agent of the platform still reads its reports alike. A platform the range binds nothing on is as before.
@@ -2423,6 +2431,12 @@ FSIM_API void fsim_ma_service_binding_init(fsim_ma_service_binding* binding);
  * did not mint or minted for another platform, a platform that is gone, a capability the platform does not offer for
  * command, and anything a service bound earlier already owns. */
 FSIM_API int fsim_world_bind_ma_service(fsim_world* world, const fsim_ma_service_binding* binding);
+/* The same binding for the service whose agent's handle is `agent` (ABI 1.74). Two worlds mint the same entity ids and
+ * controller numbers, so numbers alone cannot say whose an agent is: this form reads the platform and the controller
+ * from the handle and binds only an agent's handle of this very world. binding->platform and binding->controller are
+ * left 0, or must be the handle's own. FSIM_INVALID_ARGUMENT, fsim_last_error() saying why, and nothing changed for:
+ * a handle that is not an agent's, an agent of another world, and whatever fsim_world_bind_ma_service refuses. */
+FSIM_API int fsim_world_bind_ma_service_agent(fsim_world* world, const fsim_world* agent, const fsim_ma_service_binding* binding);
 /* The bindings, in ascending service id. command_capabilities points into the handle: valid until the next
  * fsim_world_ma_service on it. */
 FSIM_API uint32_t fsim_world_ma_service_count(fsim_world* world);
@@ -2939,13 +2953,19 @@ FSIM_API const char* fsim_emitter_mode_name(int mode); /* "unknown", "search", "
  *   FSIM_REPORT_TRACKS       fsim_vehicle_amti_tracks of each air radar, in payload order (meta.payload says which)
  *   FSIM_REPORT_CONTACTS     fsim_vehicle_contacts of each payload, in payload order (meta.payload says which)
  *   FSIM_REPORT_LINK_TRACKS  fsim_dms_link_track_get, by index
- *   FSIM_REPORT_PEERS        fsim_dms_peer_get, by index
+ *   FSIM_REPORT_PEERS        fsim_dms_peer_get, by index: the position report each holds
  *   FSIM_REPORT_TASKS        fsim_agent_c2_task_get, by index
  *   FSIM_REPORT_AUTHORITY    one: fsim_agent_authority
  * ------------------------------------------------------------------------- */
 enum fsim_report_kind {
     FSIM_REPORT_NAVIGATION = 0, FSIM_REPORT_TRACKS, FSIM_REPORT_CONTACTS, FSIM_REPORT_LINK_TRACKS, FSIM_REPORT_PEERS, FSIM_REPORT_TASKS,
-    FSIM_REPORT_AUTHORITY
+    FSIM_REPORT_AUTHORITY,
+    /* ABI 1.74. A peer's position report and its heartbeat are two messages, and may come by different nets at
+     * different times. FSIM_REPORT_PEERS is the delivery of the position a peer holds (for a peer heard only by its
+     * heartbeat: that heartbeat's, with no sample time); this is the delivery of its last heartbeat, beside
+     * fsim_dms_peer_get index for index - validity FSIM_REPORT_UNKNOWN, its times NaN, for a peer none was heard from.
+     * fsim_peer_report's own net and received_s stay those of whichever message was heard last. */
+    FSIM_REPORT_PEER_HEARTBEATS
 };
 enum fsim_report_availability {
     FSIM_REPORT_AVAILABLE = 0,

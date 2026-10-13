@@ -3050,7 +3050,8 @@ class Vehicle:
 
     def set_control_mode(self, mode):
         """OPEN or GRANTED (fsim.ControlMode or its name). Switching to GRANTED ends what the policy flies without a
-        grant: its activities end canceled, "not_granted"; the platform's own sources are never gated."""
+        grant: its activities end canceled, "not_granted"; the platform's own sources are never gated. A platform with
+        bound MA services (World.bind_ma_service) stays GRANTED: fsim.Error for OPEN there."""
         self._h.set_control_mode(self.id, int(ControlMode[mode.upper()] if isinstance(mode, str) else mode))
 
     def request_control(self, capability, controller=0):
@@ -3667,15 +3668,24 @@ class World:
         reports them, or ``("*",)`` for all of them), its DMS ingress (the inbox and subscriptions) and its DMS egress (its
         sends, native publications, task answers and C2 messages). The range's alone.
 
-        Ownership follows the bindings, never the order the agents were made in. A platform's first binding puts it under
-        ControlMode.GRANTED: from then on an agent of that platform holds a grant - and so commands - only what is bound
-        to it; C2's control designation, a live override and a lost-communication plan go to the bound owners; an agent
-        that is not the ingress owner reads an empty inbox, and one that is not the egress owner may not send. Every agent
-        of the platform still reads its reports alike. Raises fsim.Error, and changes nothing, for a controller this World
-        did not mint for that platform, an unknown capability, and anything a service bound earlier already owns. A
-        platform nothing is bound on behaves as before."""
-        self._h.bind_ma_service(int(service_id), int(agent.vehicle_id), int(agent.controller), [str(c) for c in command_capabilities],
-                                bool(owns_dms_ingress), bool(owns_dms_egress))
+        Ownership follows the bindings, never the order the agents were made in. A bound platform is under
+        ControlMode.GRANTED and stays there (set_control_mode to another: fsim.Error): only a capability's owner holds its
+        grant - and so commands it - not another agent, not the default policy (controller 0). A grant another controller
+        held when the binding is made, and any policy activity that is not its capability's owner's, is taken back by the
+        platform: revoked, its activities ended "revoked"; the bound service's own activities go on. C2's control
+        designation, a live override and a lost-communication plan go to the bound owners; an agent that is not the
+        ingress owner reads an empty inbox, and one that is not the egress owner may not send. Every agent of the platform
+        still reads its reports alike.
+
+        Raises fsim.Error, and changes nothing, for anything that is not an fsim.Agent of this very World - another
+        World's agent has the same vehicle id and controller number, and is refused all the same - an unknown capability,
+        and anything a service bound earlier already owns. A platform nothing is bound on behaves as before."""
+        # (by the agent's own native handle, never by its numbers: two Worlds mint the same vehicle ids and controllers,
+        # and only the handle says which World an agent is of - the library refuses another World's, and anything that
+        # is not an agent's handle)
+        handle = getattr(getattr(agent, "_world", None), "_h", None)
+        self._h.bind_ma_service_agent(handle, int(service_id), [str(c) for c in command_capabilities], bool(owns_dms_ingress),
+                                      bool(owns_dms_egress))
 
     def ma_services(self):
         """Every MA service bound, in ascending service id: fsim.MAService each."""

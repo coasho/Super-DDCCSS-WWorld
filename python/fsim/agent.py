@@ -309,7 +309,8 @@ class Agent:
     # --- legal reports with their provenance (docs/sdk/mission-training.md, section 10) --------------------------------
     # Nothing more than the reads above give - the same values, by the same paths - each with where it came from, when,
     # and how old it is. An unknown is None; nothing is filled in from truth.
-    _REPORT_KINDS = {"navigation": 0, "tracks": 1, "contacts": 2, "link_tracks": 3, "peers": 4, "tasks": 5, "authority": 6}
+    _REPORT_KINDS = {"navigation": 0, "tracks": 1, "contacts": 2, "link_tracks": 3, "peers": 4, "tasks": 5, "authority": 6,
+                     "peer_heartbeats": 7}
 
     def _report(self, kind, stale_after_s):
         availability, metas = self._world._h.agent_report(self.vehicle_id, self._REPORT_KINDS[kind],
@@ -349,8 +350,16 @@ class Agent:
         return self._collection("link_tracks", stale_after_s, self.link_tracks)
 
     def report_peers(self, stale_after_s=None):
-        """The peers it heard - ReportItem(meta, PeerReport): the sample time None for one heard only by its heartbeat."""
+        """The peers it heard - ReportItem(meta, PeerReport), the meta that of the position report each holds: the net it
+        came by and when it was delivered, whatever a later heartbeat came by (PeerReport's own ``net`` and
+        ``received_s`` are those of the message heard last). For a peer heard only by its heartbeat: that heartbeat's
+        delivery, the sample time None."""
         return self._collection("peers", stale_after_s, self.peers)
+
+    def report_peer_heartbeats(self, stale_after_s=None):
+        """The same peers, index for index, the meta that of each one's last heartbeat: its net, its delivery, the time it
+        states. Validity "unknown", its times None, for a peer no heartbeat was heard from."""
+        return self._collection("peer_heartbeats", stale_after_s, self.peers)
 
     def report_tasks(self, stale_after_s=None):
         """C2's tasks - ReportItem(meta, C2Task): each from the meta's system, received when it was delivered."""

@@ -127,10 +127,11 @@ static int ownership(const char* jsbsim_root, int flight_first, uint64_t owners[
     const char* guidance[2];
     const char* hsa[1];
     const char* all[1];
+    fsim_ma_service_binding by_handle;
     const unsigned char raw[1] = {0x01};
-    uint32_t viper, wing, i, dest = 1;
+    uint32_t viper, wing, i, dest = 1, holder = 0;
     uint64_t msg = 0;
-    int32_t reason = -1;
+    int32_t reason = -1, granted = 0, mode = -1;
     guidance[0] = kHsa, guidance[1] = kRoute, hsa[0] = kHsa, all[0] = "*";
     CHECK(world != NULL);
     viper = make_aircraft(world, "viper", 0.0);
@@ -141,11 +142,24 @@ static int ownership(const char* jsbsim_root, int flight_first, uint64_t owners[
           fsim_agent_create(world, wing, "other", &other) == FSIM_OK);
     flight = flight_first ? first : second;
     comms = flight_first ? second : first;
+    /* before anything is bound, the other service holds the grant and flies: the binding, not that, decides */
+    CHECK(fsim_vehicle_request_control_by(comms, viper, kHsa, 0, &reason) == FSIM_OK && reason == 0);
+    CHECK(fly(comms, viper, &cr) == FSIM_OK && cr.status == FSIM_COMMAND_ACCEPTED);
+    /* (the comms service by its agent's handle, the flight service by its numbers) */
+    fsim_ma_service_binding_init(&by_handle);
+    by_handle.service_id = 2, by_handle.owns_dms_ingress = 1, by_handle.owns_dms_egress = 1;
+    CHECK(fsim_world_bind_ma_service_agent(world, world, &by_handle) == FSIM_INVALID_ARGUMENT); /* (not an agent's handle) */
     if (flight_first) {
-        CHECK(bind(world, 1, viper, flight, guidance, 2, 0, 0) == FSIM_OK && bind(world, 2, viper, comms, NULL, 0, 1, 1) == FSIM_OK);
+        CHECK(bind(world, 1, viper, flight, guidance, 2, 0, 0) == FSIM_OK && fsim_world_bind_ma_service_agent(world, comms, &by_handle) == FSIM_OK);
     } else {
-        CHECK(bind(world, 2, viper, comms, NULL, 0, 1, 1) == FSIM_OK && bind(world, 1, viper, flight, guidance, 2, 0, 0) == FSIM_OK);
+        CHECK(fsim_world_bind_ma_service_agent(world, comms, &by_handle) == FSIM_OK && bind(world, 1, viper, flight, guidance, 2, 0, 0) == FSIM_OK);
     }
+    /* what stood before the bindings gave way to them */
+    CHECK(fsim_vehicle_control_holder(world, viper, kHsa, &granted, &holder) == FSIM_OK && granted == 1 && holder == controller_of(flight));
+    CHECK(fsim_vehicle_request_control_by(comms, viper, kHsa, 0, &reason) == FSIM_OK && strcmp(fsim_reason_name(reason), "not_allowed") == 0);
+    CHECK(fsim_vehicle_request_control(world, viper, kHsa, &reason) == FSIM_OK && strcmp(fsim_reason_name(reason), "not_allowed") == 0);
+    CHECK(fsim_vehicle_set_control_mode(world, viper, FSIM_CONTROL_OPEN) == FSIM_NOT_ALLOWED);
+    CHECK(fsim_vehicle_control_mode(world, viper, &mode) == FSIM_OK && mode == FSIM_CONTROL_GRANTED);
     /* an exclusive ownership twice, another platform's controller: refused, nothing changed */
     CHECK(bind(world, 3, viper, comms, hsa, 1, 0, 0) == FSIM_INVALID_ARGUMENT && strlen(fsim_last_error()) > 0);
     CHECK(bind(world, 4, viper, other, all, 1, 0, 0) == FSIM_INVALID_ARGUMENT && strlen(fsim_last_error()) > 0);
@@ -167,6 +181,35 @@ static int ownership(const char* jsbsim_root, int flight_first, uint64_t owners[
     fsim_world_destroy(second);
     fsim_world_destroy(first);
     fsim_world_destroy(world);
+    return 0;
+}
+
+/* Two worlds mint the same numbers: an agent's handle binds only in the world that made it. */
+static int worlds(const char* jsbsim_root) {
+    fsim_world* one = make_world("installed-c-world-one", jsbsim_root);
+    fsim_world* two = make_world("installed-c-world-two", jsbsim_root);
+    fsim_world* mine = NULL;
+    fsim_world* theirs = NULL;
+    fsim_ma_service_binding b;
+    const char* hsa[1];
+    uint32_t a1, a2;
+    int32_t mode = -1;
+    hsa[0] = kHsa;
+    CHECK(one != NULL && two != NULL);
+    a1 = make_aircraft(one, "viper", 0.0);
+    a2 = make_aircraft(two, "viper", 0.0);
+    CHECK(a1 != 0 && fsim_agent_create(one, a1, "mine", &mine) == FSIM_OK && fsim_agent_create(two, a2, "theirs", &theirs) == FSIM_OK);
+    CHECK(a1 == a2 && controller_of(mine) == controller_of(theirs));
+    fsim_ma_service_binding_init(&b);
+    b.service_id = 1, b.command_capabilities = hsa, b.command_capability_count = 1, b.owns_dms_ingress = 1, b.owns_dms_egress = 1;
+    CHECK(fsim_world_bind_ma_service_agent(one, theirs, &b) == FSIM_INVALID_ARGUMENT && strlen(fsim_last_error()) > 0);
+    CHECK(fsim_world_ma_service_count(one) == 0 && fsim_vehicle_control_mode(one, a1, &mode) == FSIM_OK && mode == FSIM_CONTROL_OPEN);
+    CHECK(fsim_world_bind_ma_service_agent(one, mine, &b) == FSIM_OK && fsim_world_ma_service_count(one) == 1 &&
+          fsim_world_ma_capability_owner(one, a1, kHsa) == controller_of(mine));
+    fsim_world_destroy(theirs);
+    fsim_world_destroy(mine);
+    fsim_world_destroy(two);
+    fsim_world_destroy(one);
     return 0;
 }
 
@@ -231,6 +274,9 @@ static int reports(const char* jsbsim_root) {
     CHECK(fsim_agent_report(boss, crc, FSIM_REPORT_NAVIGATION, NAN, &availability, NULL, 0, &count) == FSIM_OK &&
           availability == FSIM_REPORT_NOT_APPLICABLE && count == 0);
     CHECK(fsim_agent_report(boss, crc, FSIM_REPORT_PEERS, NAN, &availability, NULL, 0, &count) == FSIM_OK && availability == FSIM_REPORT_AVAILABLE);
+    /* a peer's heartbeat has its own provenance, beside the peers index for index */
+    CHECK(fsim_agent_report(blue, viper, FSIM_REPORT_PEER_HEARTBEATS, NAN, &availability, NULL, 0, &count) == FSIM_OK &&
+          availability == FSIM_REPORT_AVAILABLE && count == fsim_dms_peer_count(blue, viper));
     CHECK(fsim_agent_report(boss, viper, FSIM_REPORT_NAVIGATION, NAN, &availability, NULL, 0, &count) == FSIM_NOT_ALLOWED);
     CHECK(fsim_world_remove_vehicle(world, viper) == FSIM_OK);
     CHECK(fsim_agent_report(blue, viper, FSIM_REPORT_NAVIGATION, NAN, &availability, NULL, 0, &count) == FSIM_OK &&
@@ -255,6 +301,7 @@ int main(int argc, char** argv) {
     if (ownership(jsbsim_root, 1, a) != 0 || ownership(jsbsim_root, 0, b) != 0) return 1;
     CHECK(memcmp(a, b, sizeof a) == 0); /* (the order the agents were made in decides nothing) */
     CHECK(a[0] == 1 && a[1] == 1 && a[2] == 2 && a[3] == 2);
+    if (worlds(jsbsim_root) != 0) return 1;
     if (reports(jsbsim_root) != 0) return 1;
     printf("fsim ABI %u installed C99 consumer: the same ownership in either creation order; legal reports with provenance\n",
            (unsigned)fsim_abi_version());

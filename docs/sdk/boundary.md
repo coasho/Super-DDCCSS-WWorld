@@ -14,9 +14,9 @@ A **leak** is an agent's call that reaches what ADR-31 keeps from agents; those 
 
 | Principal | C++ | C | Python |
 | --- | ---: | ---: | ---: |
-| agent | 142 | 217 | 191 |
+| agent | 143 | 217 | 192 |
 | ma_core | 2 | 2 | 2 |
-| range | 192 | 85 | 243 |
+| range | 192 | 86 | 243 |
 | referee | 41 | 38 | 41 |
 | platform | 264 | 13 | 12 |
 | value | 87 | 147 | 103 |
@@ -66,9 +66,9 @@ A **leak** is an agent's call that reaches what ADR-31 keeps from agents; those 
 - **Its radars' detections and tracks; its warning receiver's contacts**
   - C: `fsim_vehicle_amti_detections`, `fsim_vehicle_amti_tracks`, `fsim_vehicle_contacts`
 - **Legal reports with their provenance (docs/sdk/mission-training.md, section 10): what its own reads give - its own ship, its radars' tracks, its payloads' contacts (their entity the referee's: truth 0), the tracks and peers its links delivered, C2's tasks, the authority over it - each with its source, its sample and receive times, its age and its validity; an operator's declared callsign**
-  - C++: `fsim::Agent::contacts`, `fsim::Agent::reportAuthority`, `fsim::Agent::reportContacts`, `fsim::Agent::reportLinkTracks`, `fsim::Agent::reportNavigation`, `fsim::Agent::reportPeers`, `fsim::Agent::reportTasks`, `fsim::Agent::reportTracks`
+  - C++: `fsim::Agent::contacts`, `fsim::Agent::reportAuthority`, `fsim::Agent::reportContacts`, `fsim::Agent::reportLinkTracks`, `fsim::Agent::reportNavigation`, `fsim::Agent::reportPeerHeartbeats`, `fsim::Agent::reportPeers`, `fsim::Agent::reportTasks`, `fsim::Agent::reportTracks`
   - C: `fsim_agent_operator_callsign`, `fsim_agent_report`
-  - Python: `fsim.agent.Agent.contacts`, `fsim.agent.Agent.operator_callsigns`, `fsim.agent.Agent.report_authority`, `fsim.agent.Agent.report_contacts`, `fsim.agent.Agent.report_link_tracks`, `fsim.agent.Agent.report_navigation`, `fsim.agent.Agent.report_peers`, `fsim.agent.Agent.report_tasks`, `fsim.agent.Agent.report_tracks`
+  - Python: `fsim.agent.Agent.contacts`, `fsim.agent.Agent.operator_callsigns`, `fsim.agent.Agent.report_authority`, `fsim.agent.Agent.report_contacts`, `fsim.agent.Agent.report_link_tracks`, `fsim.agent.Agent.report_navigation`, `fsim.agent.Agent.report_peer_heartbeats`, `fsim.agent.Agent.report_peers`, `fsim.agent.Agent.report_tasks`, `fsim.agent.Agent.report_tracks`
 - **Messages (AB-4a): its system's DMS - its SystemID and nets, sends stamped as its own (published or reliable to SystemIDs), its subscriptions, its own inbox, its sends' statuses**
   - C++: `fsim::Agent::nets`, `fsim::Agent::receive`, `fsim::Agent::subscribe`, `fsim::Agent::subscribeAll`, `fsim::Agent::subscribedAll`, `fsim::Agent::subscriptions`, `fsim::Agent::system`, `fsim::Agent::transmission`, `fsim::Agent::unsubscribe`
   - C: `fsim_dms_inbox_count`, `fsim_dms_inbox_get`, `fsim_dms_inbox_take`, `fsim_dms_net`, `fsim_dms_net_count`, `fsim_dms_send`, `fsim_dms_subscribe`, `fsim_dms_subscribe_all`, `fsim_dms_subscriptions`, `fsim_dms_system`, `fsim_dms_transmission_destination`, `fsim_dms_transmission_status`
@@ -128,7 +128,7 @@ A **leak** is an agent's call that reaches what ADR-31 keeps from agents; those 
   - Python: `fsim.isolation.AgentProcess.call`, `fsim.isolation.AgentProcess.close`, `fsim.isolation.AgentProcess.step`
 - **MA services (docs/sdk/mission-training.md, section 9): which of a platform's agents owns each command capability and each side of its DMS - binding them, and reading the bindings back**
   - C++: `fsim::bindMAService`, `fsim::maCapabilityOwner`, `fsim::maServiceBindings`
-  - C: `fsim_world_bind_ma_service`, `fsim_world_ma_capability_owner`, `fsim_world_ma_service`, `fsim_world_ma_service_count`
+  - C: `fsim_world_bind_ma_service`, `fsim_world_bind_ma_service_agent`, `fsim_world_ma_capability_owner`, `fsim_world_ma_service`, `fsim_world_ma_service_count`
   - Python: `fsim.world.World.bind_ma_service`, `fsim.world.World.ma_capability_owner`, `fsim.world.World.ma_services`
 - **Mission data written: operational points, zones, lines, volumes, reference frames - the range's common (AB-2c: an MA's own through its agent)**
   - C++: `fsim::World::createFrame`, `fsim::World::removeFrame`, `fsim::World::removeOpLine`, `fsim::World::removeOpPoint`, `fsim::World::removeOpVolume`, `fsim::World::removeOpZone`, `fsim::World::setOpLine`, `fsim::World::setOpPoint`, `fsim::World::setOpVolume`, `fsim::World::setOpZone`

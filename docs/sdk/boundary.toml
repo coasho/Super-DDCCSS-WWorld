@@ -1091,10 +1091,12 @@ principal = "agent"
 note = "Legal reports with their provenance (docs/sdk/mission-training.md, section 10): what its own reads give - its own ship, its radars' tracks, its payloads' contacts (their entity the referee's: truth 0), the tracks and peers its links delivered, C2's tasks, the authority over it - each with its source, its sample and receive times, its age and its validity; an operator's declared callsign"
 names = [
     "fsim::Agent::contacts", "fsim::Agent::reportNavigation", "fsim::Agent::reportTracks", "fsim::Agent::reportContacts",
-    "fsim::Agent::reportLinkTracks", "fsim::Agent::reportPeers", "fsim::Agent::reportTasks", "fsim::Agent::reportAuthority",
+    "fsim::Agent::reportLinkTracks", "fsim::Agent::reportPeers", "fsim::Agent::reportPeerHeartbeats", "fsim::Agent::reportTasks",
+    "fsim::Agent::reportAuthority",
     "fsim_agent_report", "fsim_agent_operator_callsign",
     "fsim.agent.Agent.contacts", "fsim.agent.Agent.report_navigation", "fsim.agent.Agent.report_tracks",
     "fsim.agent.Agent.report_contacts", "fsim.agent.Agent.report_link_tracks", "fsim.agent.Agent.report_peers",
+    "fsim.agent.Agent.report_peer_heartbeats",
     "fsim.agent.Agent.report_tasks", "fsim.agent.Agent.report_authority", "fsim.agent.Agent.operator_callsigns",
 ]
 
@@ -1103,7 +1105,8 @@ principal = "range"
 note = "MA services (docs/sdk/mission-training.md, section 9): which of a platform's agents owns each command capability and each side of its DMS - binding them, and reading the bindings back"
 names = [
     "fsim::bindMAService", "fsim::maServiceBindings", "fsim::maCapabilityOwner",
-    "fsim_world_bind_ma_service", "fsim_world_ma_service_count", "fsim_world_ma_service", "fsim_world_ma_capability_owner",
+    "fsim_world_bind_ma_service", "fsim_world_bind_ma_service_agent", "fsim_world_ma_service_count", "fsim_world_ma_service",
+    "fsim_world_ma_capability_owner",
     "fsim.world.World.bind_ma_service", "fsim.world.World.ma_services", "fsim.world.World.ma_capability_owner",
 ]
 

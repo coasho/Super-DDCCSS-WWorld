@@ -94,6 +94,13 @@ std::string ownership(const fs::path& data, bool flightFirst) {
     Agent& comms = flightFirst ? second : first;
     Agent other = w.createAgent(wing, "other");
     std::string error;
+    // before anything is bound, the other service holds the grant and flies: the binding, not that, decides
+    control::HsaCommand hsa;
+    hsa.headingRad = 1.0, hsa.speed = 230.0, hsa.altitudeM = 6000.0;
+    require(comms.requestControl(kHsa) == control::Reason::None && comms.requestControl(kRoute) == control::Reason::None,
+            "an open platform refused a grant");
+    const control::CommandResult before = comms.submit(hsa);
+    require(before.accepted(), "an open platform refused a command");
     // bound in the opposite order as well: neither order decides anything
     const MAServiceBindingV1 one = binding(1, flight, {kHsa, kRoute}, false, false);
     const MAServiceBindingV1 two = binding(2, comms, {}, true, true);
@@ -105,9 +112,19 @@ std::string ownership(const fs::path& data, bool flightFirst) {
     error.clear();
     require(!bindMAService(w, foreign, &error) && !error.empty(), "another platform's controller was bound");
     require(maServiceBindings(w).size() == 2, "a refused binding changed the bindings");
+    // what stood before the bindings gave way to them: the grant its owner's, the other's flight ended as revoked
+    const auto ended = comms.activity(before.activity);
+    require(ended && !ended->live() && ended->reason == control::Reason::Revoked, "another service's flight outlived the binding");
+    require(viper.controlStatus(kHsa).granted && viper.controlStatus(kHsa).holder == flight.controller() &&
+                viper.controlStatus(kRoute).holder == flight.controller(),
+            "a grant held before the binding is not its owner's after it");
+    require(comms.requestControl(kHsa) == control::Reason::NotAllowed && viper.requestControl(kHsa) == control::Reason::NotAllowed &&
+                viper.requestControl(kHsa, 7) == control::Reason::NotAllowed,
+            "a controller that does not own a capability was granted it");
+    require(viper.setControlMode(control::ControlMode::Open) == control::Reason::NotAllowed &&
+                viper.controlMode() == control::ControlMode::Granted,
+            "a bound platform was opened");
     // its capability its owner's to command, and no one else's
-    control::HsaCommand hsa;
-    hsa.headingRad = 1.0, hsa.speed = 230.0, hsa.altitudeM = 6000.0;
     require(flight.submit(hsa).accepted(), "the owner's command was refused");
     require(!comms.submit(hsa).accepted(), "another service commanded a capability it does not own");
     require(flight.controlStatus(kHsa).granted && flight.controlStatus(kHsa).holder == flight.controller(), "the grant is not the owner's");
@@ -123,6 +140,24 @@ std::string ownership(const fs::path& data, bool flightFirst) {
     for (const MAServiceBindingV1& b : maServiceBindings(w))
         if (b.ownsDmsEgress) out += std::string(" ") + name(b.controller);
     return out;
+}
+
+/// Two worlds mint the same numbers: an Agent binds only in the world that made it.
+void worlds(const fs::path& data) {
+    World one(options("installed-ma-world-one", data));
+    World two(options("installed-ma-world-two", data));
+    Vehicle a1 = aircraft(one, "viper", 0.0);
+    Vehicle a2 = aircraft(two, "viper", 0.0);
+    Agent mine = one.createAgent(a1, "mine");
+    Agent theirs = two.createAgent(a2, "theirs");
+    require(a1.id() == a2.id() && mine.controller() == theirs.controller(), "the two worlds minted different numbers");
+    std::string error;
+    require(!bindMAService(one, theirs, 1, {kHsa}, true, true, &error) && !error.empty(), "another world's agent was bound");
+    require(maServiceBindings(one).empty() && a1.controlMode() == control::ControlMode::Open && !a1.controlStatus(kHsa).granted,
+            "a refused binding changed the world");
+    require(bindMAService(one, mine, 1, {kHsa}, true, true, &error) && maServiceBindings(one).size() == 1 &&
+                a1.controlStatus(kHsa).holder == mine.controller(),
+            "its own agent was not bound");
 }
 
 void reports(const fs::path& data) {
@@ -170,6 +205,14 @@ void reports(const fs::path& data) {
     require(std::isnan(meta.sampleTimeS) && std::isnan(meta.ageS) && std::isnan(tasks.items[0].value.order.altitudeM),
             "an unknown was given a value");
     require(blue.reportTasks().items.size() == 1 && blue.c2Tasks().size() == 1, "reading a report consumed it");
+    // the peer it heard and that peer's heartbeat: two provenances, index for index
+    const ma::Collection<comm::PeerReport> peers = blue.reportPeers();
+    const ma::Collection<comm::PeerReport> beats = blue.reportPeerHeartbeats();
+    require(beats.availability == ma::Availability::Available && beats.items.size() == peers.items.size(),
+            "the heartbeats are not beside the peers");
+    for (std::size_t i = 0; i < beats.items.size(); ++i)
+        require(beats.items[i].meta.source == ma::Source::Link && beats.items[i].meta.system == peers.items[i].value.system,
+                "a heartbeat's provenance is not its peer's");
     const ma::Report<C2Authority> authority = blue.reportAuthority();
     require(authority.availability == ma::Availability::Available && authority.meta.source == ma::Source::MaCore &&
                 authority.value.operators.size() == 1 && authority.value.operators[0].callsign == "CRC LEAD",
@@ -201,6 +244,7 @@ int main(int argc, char** argv) {
         const std::string a = ownership(data, true), b = ownership(data, false);
         require(a == b, "ownership depends on the order the agents were made in");
         require(a == "flight flight comms comms", "ownership is not the bindings'");
+        worlds(data);
         reports(data);
         std::printf("fsim %s installed C++ consumer: ownership \"%s\" in either creation order; legal reports with provenance\n",
                     fsim::version(), a.c_str());

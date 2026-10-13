@@ -50,14 +50,17 @@ def ownership(flight_first):
     else:
         comms, flight = w.create_agent(viper, "comms"), w.create_agent(viper, "flight")
     other = w.create_agent(wing, "other")
+    # before anything is bound, the other service holds the grant and flies: the binding, not that, decides
+    comms.request_control(HSA)
+    before = comms.submit_hsa(heading_rad=1.0, speed=230.0, altitude_m=6000.0)
     bindings = [(flight, 1, (HSA, ROUTE), False, False), (comms, 2, (), True, True)]
     for agent, service, capabilities, ingress, egress in (bindings if flight_first else reversed(bindings)):
         w.bind_ma_service(agent, service, capabilities, owns_dms_ingress=ingress, owns_dms_egress=egress)
 
-    class Foreign:  # (another platform's controller, named for this one)
+    class Lookalike:  # (the numbers of an agent, and no agent: only an fsim.Agent of this World binds)
         vehicle_id, controller = viper.id, other.controller
 
-    for agent, service, capabilities in ((comms, 3, (HSA,)), (Foreign, 4, ("*",))):
+    for agent, service, capabilities in ((comms, 3, (HSA,)), (Lookalike, 4, ("*",)), (w, 4, ("*",))):
         try:
             w.bind_ma_service(agent, service, capabilities, owns_dms_ingress=False, owns_dms_egress=False)
         except fsim.Error as refused:
@@ -66,6 +69,19 @@ def ownership(flight_first):
             require(False, "service %d was bound" % service)
     services = w.ma_services()
     require([s.service_id for s in services] == [1, 2], "a refused binding changed the bindings")
+    # what stood before the bindings gave way to them
+    live = before.live
+    require(not (live() if callable(live) else live), "another service's flight outlived the binding")
+    require(viper.control_status(HSA).holder == flight.controller, "a grant held before the binding is not its owner's after it")
+    for refused in (lambda: comms.request_control(HSA), lambda: viper.request_control(HSA), lambda: viper.set_control_mode("open")):
+        try:
+            refused()
+        except fsim.Error:
+            pass
+        else:
+            require(False, "a bound platform's ownership was got around")
+    mode = viper.control_mode
+    require((mode() if callable(mode) else mode) == fsim.ControlMode.GRANTED, "a bound platform was opened")
     flight.submit_hsa(heading_rad=1.0, speed=230.0, altitude_m=6000.0)
     for refused, why in ((lambda: comms.submit_hsa(heading_rad=2.0, speed=230.0, altitude_m=6000.0), ""),
                          (lambda: flight.send(fsim.TOPIC_FREE_FORM + 1, b"\x01"), "DMS egress")):
@@ -78,6 +94,23 @@ def ownership(flight_first):
     by_controller = {s.controller: s.service_id for s in services}
     return (by_controller.get(w.ma_capability_owner(viper, HSA), 0), by_controller.get(w.ma_capability_owner(viper, ROUTE), 0),
             next(s.service_id for s in services if s.owns_dms_ingress), next(s.service_id for s in services if s.owns_dms_egress))
+
+
+def worlds():
+    """Two Worlds mint the same numbers: an agent binds only in the World that made it."""
+    one, two = make_world("installed-py-world-one"), make_world("installed-py-world-two")
+    a1, a2 = aircraft(one, "viper"), aircraft(two, "viper")
+    mine, theirs = one.create_agent(a1, "mine"), two.create_agent(a2, "theirs")
+    require((a1.id, mine.controller) == (a2.id, theirs.controller), "the two worlds minted different numbers")
+    try:
+        one.bind_ma_service(theirs, 1, (HSA,))
+    except fsim.Error as refused:
+        require("MA service 1" in str(refused), "a refused binding gave no reason")
+    else:
+        require(False, "another world's agent was bound")
+    require(one.ma_services() == [] and two.ma_services() == [] and not a1.control_status(HSA).granted, "a refused binding changed a world")
+    one.bind_ma_service(mine, 1, (HSA,))
+    require([(s.platform, s.controller) for s in one.ma_services()] == [(a1.id, mine.controller)], "its own agent was not bound")
 
 
 def reports():
@@ -109,6 +142,9 @@ def reports():
             "the task's provenance is not its delivery's")
     require(meta.sample_time_s is None and meta.age_s is None and math.isnan(items[0].value.altitude_m), "an unknown was given a value")
     require(len(blue.report_tasks().items) == 1 and len(blue.c2_tasks()) == 1, "reading a report consumed it")
+    peers, beats = blue.report_peers().items, blue.report_peer_heartbeats().items
+    require(len(beats) == len(peers) and all(b.meta.source == "link" and b.meta.system == p.value.system for b, p in zip(beats, peers)),
+            "the heartbeats are not beside the peers")
     require(blue.report_authority().meta.source == "ma_core" and blue.operator_callsigns() == ["CRC LEAD"],
             "authority: not what its MA core keeps")
     require(boss.report_navigation() == fsim.Report("not_applicable", None, None) and boss.report_peers().availability == "available",
@@ -129,6 +165,7 @@ def main(argv):
     a, b = ownership(True), ownership(False)
     require(a == b, "ownership depends on the order the agents were made in: %r, %r" % (a, b))
     require(a == (1, 1, 2, 2), "ownership is not the bindings': %r" % (a,))
+    worlds()
     reports()
     print("fsim %s installed Python consumer: ownership %r in either creation order; legal reports with provenance" % (fsim.__version__, a))
     return 0

@@ -216,12 +216,14 @@ class MAReportsTest(unittest.TestCase):
             self.assertEqual(report(), fsim.ReportCollection("not_applicable", []))
         self.assertEqual(boss.report_link_tracks().availability, "available")
         self.assertEqual(boss.report_peers().availability, "available")
+        self.assertEqual(boss.report_peer_heartbeats().availability, "available")
 
         # a platform gone: unavailable, and nothing listed
         a.remove()
         self.assertEqual(blue.report_navigation(), fsim.Report("unavailable", None, None))
         self.assertEqual(blue.report_authority(), fsim.Report("unavailable", None, None))
-        for report in (blue.report_tracks, blue.report_contacts, blue.report_link_tracks, blue.report_peers, blue.report_tasks):
+        for report in (blue.report_tracks, blue.report_contacts, blue.report_link_tracks, blue.report_peers, blue.report_peer_heartbeats,
+                       blue.report_tasks):
             self.assertEqual(report(), fsim.ReportCollection("unavailable", []))
 
     def test_a_passive_contact_as_its_receiver_measured_it(self):
@@ -257,6 +259,56 @@ class MAReportsTest(unittest.TestCase):
             red._world._h.agent_report(own.id, 2, math.nan)
         with self.assertRaises(fsim.Error):
             red._world._h.agent_report(own.id, 0, math.nan)
+
+    def test_a_peers_position_keeps_the_delivery_it_came_by(self):
+        w = make_world("py-ma-reports-peer-provenance")
+        sender, receiver = aircraft(w, "sender", 0.0, 0.0, 6000.0, 0.0), aircraft(w, "receiver", 2.0, 0.0, 6000.0, 0.0)
+        tx, rx = w.create_agent(sender, "sender"), w.create_agent(receiver, "receiver")
+        net_a = w.create_net("position-net", latency_s=0.05, jitter_s=0.0)
+        net_b = w.create_net("heartbeat-net", latency_s=0.05, jitter_s=0.0)
+        self.assertTrue(w.join_net(receiver, net_a) and w.join_net(receiver, net_b) and w.join_net(sender, net_a))
+        self.assertTrue(tx.publish_position([rx.system]))
+        w.step(30)
+        [before] = rx.report_peers().items
+        self.assertTrue(before.value.has_position)
+        self.assertEqual((before.meta.source, before.meta.system, before.meta.net), ("link", tx.system, net_a))
+        self.assertEqual((before.meta.sample_time_s, before.meta.receive_time_s), (before.value.time_s, before.value.received_s))
+        [silent] = rx.report_peer_heartbeats().items  # (no heartbeat heard: of that, nothing is held)
+        self.assertEqual(silent.meta, fsim.ReportMeta("link", "unknown", tx.system, None, None, None, None, None))
+        self.assertEqual(silent.value, before.value)
+        # its heartbeat comes over the other net: the position it holds is the same report, delivered as it was
+        self.assertTrue(w.leave_net(sender, net_a) and w.join_net(sender, net_b))
+        self.assertTrue(tx.publish_status([rx.system]))
+        w.step(30)
+        [after] = rx.report_peers().items
+        self.assertEqual(after.value[4:], before.value[4:])  # (the position: unchanged)
+        self.assertEqual(after.value.net, net_b)  # (the raw peer: last heard by, as it always was)
+        self.assertGreater(after.value.received_s, before.value.received_s)
+        self.assertEqual(rx.peers()[0], after.value)
+        self.assertEqual((after.meta.net, after.meta.system), (net_a, tx.system))
+        self.assertEqual((after.meta.sample_time_s, after.meta.receive_time_s), (before.meta.sample_time_s, before.meta.receive_time_s))
+        self.assertEqual(after.meta.age_s, w.time - before.meta.sample_time_s)
+        [beat] = rx.report_peer_heartbeats().items  # (the heartbeat's own: the other net, its delivery, the time it states)
+        self.assertEqual((beat.meta.source, beat.meta.validity, beat.meta.system, beat.meta.net), ("link", "valid", tx.system, net_b))
+        self.assertEqual(beat.meta.receive_time_s, after.value.received_s)
+        self.assertGreater(beat.meta.sample_time_s, after.meta.sample_time_s)
+        self.assertLess(beat.meta.sample_time_s, beat.meta.receive_time_s)
+        self.assertEqual(beat.meta.age_s, w.time - beat.meta.sample_time_s)
+        between = (after.meta.age_s + beat.meta.age_s) / 2.0  # (each stale by its own age: the position is the older)
+        self.assertEqual(rx.report_peers(stale_after_s=between).items[0].meta.validity, "stale")
+        self.assertEqual(rx.report_peer_heartbeats(stale_after_s=between).items[0].meta.validity, "valid")
+        for _ in range(3):  # (read again: the same, and nothing taken)
+            self.assertEqual(rx.report_peers().items, [after])
+            self.assertEqual(rx.report_peer_heartbeats().items, [beat])
+        # a new position over the net it is on now: the position's provenance moves with it, the heartbeat's stays
+        self.assertTrue(tx.publish_position([rx.system]))
+        w.step(30)
+        [moved] = rx.report_peers().items
+        self.assertEqual(moved.meta.net, net_b)
+        self.assertEqual((moved.meta.sample_time_s, moved.meta.receive_time_s), (moved.value.time_s, moved.value.received_s))
+        self.assertGreater(moved.meta.receive_time_s, beat.meta.receive_time_s)
+        still = rx.report_peer_heartbeats().items[0].meta
+        self.assertEqual((still.net, still.sample_time_s, still.receive_time_s), (beat.meta.net, beat.meta.sample_time_s, beat.meta.receive_time_s))
 
 
 if __name__ == "__main__":

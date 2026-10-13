@@ -1,5 +1,6 @@
 #include "session/MaReports.h"
 
+#include "session/Dms.h"
 #include "session/World.h"
 
 #include <cmath>
@@ -127,14 +128,38 @@ MaReportMetas reportMetas(const World& world, const AgentIdentity& agent, MaRepo
             out.metas.push_back(m);
         }
         break;
-    case MaReportKind::Peers:
-        for (const comm::PeerReport& p : world.dms().peers(id)) {
-            // (a peer heard only by its heartbeat states no sample time: held, its age unknown)
-            ma::ReportMeta m = held(ma::Source::Link, p.hasPosition ? p.position.timeS : ma::kUnknown, p.receivedS, now, options);
-            m.system = p.system, m.net = p.net;
+    case MaReportKind::Peers: {
+        // The position report a peer holds, by the delivery that brought it - not by a later heartbeat's, which
+        // comm::PeerReport's own net and receivedS would give. A peer heard only by its heartbeat holds no position:
+        // that heartbeat's delivery, and no sample time.
+        const std::vector<comm::PeerReport> peers = world.dms().peers(id);
+        const std::vector<Dms::PeerProvenance> from = world.dms().peerProvenance(id);
+        for (std::size_t i = 0; i < peers.size(); ++i) {
+            const comm::PeerReport& p = peers[i];
+            ma::ReportMeta m = p.hasPosition ? held(ma::Source::Link, p.position.timeS, from[i].positionReceivedS, now, options)
+                                             : held(ma::Source::Link, ma::kUnknown, from[i].heartbeatReceivedS, now, options);
+            m.system = p.system, m.net = p.hasPosition ? from[i].positionNet : from[i].heartbeatNet;
             out.metas.push_back(m);
         }
         break;
+    }
+    case MaReportKind::PeerHeartbeats: {
+        // Each peer's last heartbeat, by its own delivery; for a peer no heartbeat was heard from, nothing is held.
+        const std::vector<comm::PeerReport> peers = world.dms().peers(id);
+        const std::vector<Dms::PeerProvenance> from = world.dms().peerProvenance(id);
+        for (std::size_t i = 0; i < peers.size(); ++i) {
+            ma::ReportMeta m;
+            if (from[i].heartbeat) {
+                m = held(ma::Source::Link, from[i].heartbeatTimeS, from[i].heartbeatReceivedS, now, options);
+                m.net = from[i].heartbeatNet;
+            } else {
+                m.source = ma::Source::Link; // (validity Unknown, its times unknown)
+            }
+            m.system = peers[i].system;
+            out.metas.push_back(m);
+        }
+        break;
+    }
     case MaReportKind::Tasks: {
         if (!vehicle) {
             out.availability = ma::Availability::NotApplicable; // (an MA core gives a C2 node no task)
