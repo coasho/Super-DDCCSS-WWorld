@@ -18,6 +18,7 @@
 #include "fsim/Control.h"
 #include "fsim/Export.h"
 #include "fsim/Frames.h"
+#include "fsim/MAReports.h"
 #include "fsim/MissionSystems.h"
 #include "fsim/PerformanceProfile.h"
 #include "fsim/Span.h"
@@ -94,6 +95,14 @@ struct C2Authority {
     comm::SystemId leader = comm::kNoSystem;
     std::vector<comm::SystemId> members;
 };
+
+namespace ma {
+/// What a platform's navigation reports: its own ship, and its endurance.
+struct Navigation {
+    OwnShip ownShip;
+    control::NavigationReport endurance;
+};
+} // namespace ma
 
 class FSIM_API Agent {
 public:
@@ -344,6 +353,29 @@ public:
     std::vector<control::OpVolumeId> opVolumes() const;
     std::optional<control::OpVolume> opVolume(control::OpVolumeId id) const;
     std::optional<control::GeoPoint> framePoint(control::FrameId id, const control::FrameOffset& offset, double timeS) const;
+
+    // Legal reports with their provenance (fsim/MAReports.h; docs/sdk/mission-training.md, section 10). Nothing more
+    // than the reads above give - the same values, by the same paths - each with where it came from, when, and how
+    // old it is: an unknown stays unknown, and nothing is filled in from truth.
+    /// What a payload's passive or mapping sensor holds, `truth` 0: the entity behind a contact is the referee's.
+    std::vector<ms::Contact> contacts(std::uint16_t payload) const;
+    /// Its own ship and its endurance (ownship(), navigationReport()): Invalid while a navigation or air data sensor
+    /// of its own says so; NotApplicable for a C2 node.
+    ma::Report<ma::Navigation> reportNavigation(const ma::ReportOptions& options = {}) const;
+    /// Its air radars' tracks (amtiTracks() of each, in payload order): sampled at each track's last update.
+    ma::Collection<ms::AmtiTrack> reportTracks(const ma::ReportOptions& options = {}) const;
+    /// Its payloads' contacts (contacts() of each, in payload order): sampled when each was last seen.
+    ma::Collection<ms::Contact> reportContacts(const ma::ReportOptions& options = {}) const;
+    /// The tracks its links delivered (linkTracks()): each from its source system, sampled at the source's report time
+    /// and received when it was delivered - present only after delivery, gone when its picture drops it.
+    ma::Collection<comm::LinkTrack> reportLinkTracks(const ma::ReportOptions& options = {}) const;
+    /// The peers it heard (peers()): sampled at a peer's position report's time, unknown for one heard only by its
+    /// heartbeat.
+    ma::Collection<comm::PeerReport> reportPeers(const ma::ReportOptions& options = {}) const;
+    /// C2's tasks (c2Tasks()): each from the system that sent it, received when it was delivered.
+    ma::Collection<comm::ReceivedTask> reportTasks(const ma::ReportOptions& options = {}) const;
+    /// The authority over its platform (authority()), as its MA core keeps it now.
+    ma::Report<C2Authority> reportAuthority(const ma::ReportOptions& options = {}) const;
 
 private:
     friend class World;

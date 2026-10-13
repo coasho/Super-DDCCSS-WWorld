@@ -31,6 +31,19 @@ add_test(NAME dist_components
         "-DMAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}"
         -P ${CMAKE_SOURCE_DIR}/cmake/TestDistComponents.cmake)
 set_tests_properties(dist_components PROPERTIES LABELS package TIMEOUT 120)
+# The MA training interfaces through installed packages alone, in C++, C99 and Python (the Python package's
+# interpreter is read from the build's own record at test time).
+add_test(NAME mission_package_consumer
+    COMMAND ${CMAKE_COMMAND}
+        "-DSOURCE_DIR=${CMAKE_SOURCE_DIR}"
+        "-DBUILD_DIR=${CMAKE_BINARY_DIR}"
+        "-DTOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
+        "-DGENERATOR=${CMAKE_GENERATOR}"
+        "-DCONFIG=$<CONFIG>"
+        "-DUCRT64_ROOT=${FSIM_UCRT64_ROOT}"
+        "-DMAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}"
+        -P ${CMAKE_SOURCE_DIR}/cmake/RunMissionPackageConsumer.cmake)
+set_tests_properties(mission_package_consumer PROPERTIES LABELS "ma-training;package" TIMEOUT 600)
 
 # Test executables are not part of any shipped package, so they are kept out of
 # bin/ (which holds the applications) and out of the dist/ trees entirely. The
@@ -234,6 +247,14 @@ target_link_libraries(fsim_ma_service_binding_test PRIVATE fsim::sdk Catch2::Cat
 fsim_set_warnings(fsim_ma_service_binding_test)
 add_test(NAME ma_service_binding COMMAND fsim_ma_service_binding_test)
 set_tests_properties(ma_service_binding PROPERTIES LABELS ma-training TIMEOUT 300)
+
+# Legal reports with their provenance through the public C++ SDK (docs/sdk/mission-training.md, section 10): unknown,
+# stale, unavailable and undelivered stay what they are, and hidden truth changes nothing an agent reads.
+add_executable(fsim_ma_reports_test test_ma_reports.cpp)
+target_link_libraries(fsim_ma_reports_test PRIVATE fsim::sdk Catch2::Catch2WithMain)
+fsim_set_warnings(fsim_ma_reports_test)
+add_test(NAME ma_reports COMMAND fsim_ma_reports_test)
+set_tests_properties(ma_reports PROPERTIES LABELS ma-training TIMEOUT 300)
 
 # The same contracts through the C ABI, from a plain C99 translation unit.
 add_executable(fsim_ma_c_abi_test test_ma_c_abi.c)

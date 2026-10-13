@@ -4,6 +4,7 @@
 
 #include "sdk/CAbiSupport.h"
 #include "sdk/Handles.h"
+#include "session/MaReports.h"
 
 #include <algorithm>
 #include <cmath>
@@ -721,4 +722,55 @@ FSIM_API const char* fsim_store_status_name(int status) {
 }
 FSIM_API const char* fsim_strike_phase_name(int phase) {
     return phase < 0 || phase > static_cast<int>(fsim::ms::StrikePhase::Done) ? "" : fsim::ms::strikePhaseName(static_cast<fsim::ms::StrikePhase>(phase));
+}
+
+// --- Legal reports with their provenance (ABI 1.73; docs/sdk/mission-training.md, section 10) -------------------------
+
+FSIM_API void fsim_report_meta_init(fsim_report_meta* meta) {
+    if (!meta) return;
+    *meta = fsim_report_meta{};
+    meta->struct_size = sizeof *meta;
+    meta->validity = FSIM_REPORT_UNKNOWN, meta->payload = 0xFFFFu;
+    meta->sample_time_s = meta->receive_time_s = meta->age_s = std::numeric_limits<double>::quiet_NaN();
+}
+
+FSIM_API int fsim_agent_report(const fsim_world* world, uint32_t entity, int kind, double stale_after_s, int32_t* availability,
+                               fsim_report_meta* metas, uint32_t max, uint32_t* count) {
+    FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED);
+    if (!world || !count || kind < 0 || kind >= static_cast<int>(fsim::session::MaReportKind::Count) ||
+        (max && (!metas || metas[0].struct_size < sizeof(uint32_t))))
+        return FSIM_INVALID_ARGUMENT;
+    return guard("fsim_agent_report", [&]() -> int {
+        fsim::ma::ReportOptions options;
+        options.staleAfterS = stale_after_s;
+        // (an agent's handle: its own identity; the range's: the entity it names, as any agent of it would read)
+        const fsim::session::AgentIdentity who = world->agent ? *world->agent : fsim::session::AgentIdentity{entity, 0, {}};
+        const fsim::session::MaReportMetas found =
+            fsim::session::reportMetas(world->world, who, static_cast<fsim::session::MaReportKind>(kind), options);
+        const uint32_t stride = max ? metas[0].struct_size : 0;
+        for (std::size_t i = 0; i < found.metas.size() && i < max; ++i) {
+            const fsim::ma::ReportMeta& m = found.metas[i];
+            fsim_report_meta c;
+            fsim_report_meta_init(&c);
+            c.source = static_cast<int32_t>(m.source), c.validity = static_cast<int32_t>(m.validity);
+            c.system = m.system, c.net = m.net, c.payload = m.payload;
+            c.sample_time_s = m.sampleTimeS, c.receive_time_s = m.receiveTimeS, c.age_s = m.ageS;
+            auto* slot = reinterpret_cast<fsim_report_meta*>(reinterpret_cast<char*>(metas) + i * stride);
+            slot->struct_size = stride;
+            copyOut(c, slot);
+        }
+        *count = static_cast<uint32_t>(found.metas.size());
+        if (availability) *availability = static_cast<int32_t>(found.availability);
+        return FSIM_OK;
+    });
+}
+
+FSIM_API const char* fsim_report_availability_name(int availability) {
+    return availability >= 0 && availability <= FSIM_REPORT_NOT_OWNER ? fsim::ma::availabilityName(static_cast<fsim::ma::Availability>(availability)) : "";
+}
+FSIM_API const char* fsim_report_validity_name(int validity) {
+    return validity >= 0 && validity <= FSIM_REPORT_UNKNOWN ? fsim::ma::validityName(static_cast<fsim::ma::Validity>(validity)) : "";
+}
+FSIM_API const char* fsim_report_source_name(int source) {
+    return source >= 0 && source <= FSIM_REPORT_LINK ? fsim::ma::sourceName(static_cast<fsim::ma::Source>(source)) : "";
 }

@@ -11,6 +11,7 @@ exported.
 | Part | State |
 | --- | --- |
 | Explicit MA-service binding ([section 9](#9-service-binding)) | **Implemented** (M1) in C++, C and Python |
+| Legal noncombat reports with their provenance ([section 10](#legal-report-calls-noncombat-m2)): navigation, own tracks, passive contacts, link tracks, peers, tasks and authority as Agent calls | **Implemented** (noncombat M2) in C++, C and Python. The `ma.observation.v1` document that carries them is not |
 | Everything else: the mission episode, endpoint and referee family, every `ma.*.v1` document, the gateway, receipts, criteria, isolation | **Proposed.** No header, export, C function or Python class for it exists; `fsim.isolation` has its present `AgentProcess` only |
 
 The [SDK's principals](boundary.md) list what the SDK really exports.
@@ -78,6 +79,9 @@ Implemented, exported and classified in `boundary.toml`:
 | `fsim::bindMAService`, `fsim::maServiceBindings`, `fsim::maCapabilityOwner` (`fsim/MAService.h`) | range | M1 |
 | `fsim_world_bind_ma_service`, `fsim_world_ma_service_count`, `fsim_world_ma_service`, `fsim_world_ma_capability_owner` (`fsim/fsim_c.h`; `fsim_ma_service_binding_init` is a value initialiser) | range | M1 |
 | `fsim.World.bind_ma_service`, `ma_services`, `ma_capability_owner` (`fsim.MAService` is their record) | range | M1 |
+| `fsim::Agent::contacts`, `reportNavigation`, `reportTracks`, `reportContacts`, `reportLinkTracks`, `reportPeers`, `reportTasks`, `reportAuthority` (`fsim/Agent.h`; their records in `fsim/MAReports.h`) | agent | noncombat M2 |
+| `fsim_agent_report`, `fsim_agent_operator_callsign` (`fsim/fsim_c.h`; `fsim_report_meta_init` and the three `fsim_report_*_name` functions are values) | agent | noncombat M2 |
+| `fsim.Agent.contacts`, `report_navigation`, `report_tracks`, `report_contacts`, `report_link_tracks`, `report_peers`, `report_tasks`, `report_authority`, `operator_callsigns` (`fsim.Report`, `ReportCollection`, `ReportItem`, `ReportMeta` are their records) | agent | noncombat M2 |
 
 Proposed. These rows become `boundary.toml` rules, by exact name, in the package that exports them; `sdk_boundary`
 rejects a rule for a name the SDK does not have, so they are not in that file yet:
@@ -96,7 +100,6 @@ rejects a rule for a name the SDK does not have, so they are not in that file ye
 | `fsim.mission.MissionReferee`: `outcome_json`, `truth_json`, `close` | referee | M5 core |
 | `fsim.isolation.MissionEndpointProcess` (the range's side of a process boundary) | range | M5 core |
 | `fsim.isolation.RemoteMissionEndpoint`: `observation_json`, `submit_json`, `receipts_json` (the actor's side) | agent | M5 core |
-| `Agent::contacts` and `fsim.Agent.contacts` (parity with the existing `fsim_vehicle_contacts`) | agent | noncombat M2 |
 
 `receiptsJsonV1` is one addition to the plan's C++ sketch: the same non-consuming read the C function gives. The
 batch family of M7 (`fsim/MissionBatch.h`) is not frozen here; it consumes these documents unchanged.
@@ -393,7 +396,7 @@ Agent can legally read; the table names the source of each part. No referee call
 | `reports.capabilities` | `Agent::capabilities`, `capabilityStatus`, `controlStatus`; `missionCapabilities`, `missionCapabilityStatus` | Each command capability by its discovery id, its availability and reason as native names, whether the policy is allowed it and holds its grant, and `owner_service_id` from the binding. What a C2 designation revoked shows here |
 | `reports.sensors` | `Agent::payloads`, `radarStatus` | `radar` null for a payload that is not an air radar |
 | `reports.tracks` | `Agent::amtiTracks` for each air radar | The entity behind a track is never present |
-| `reports.contacts` | `fsim_vehicle_contacts` today; `Agent::contacts` from noncombat M2 | `unavailable` until M2 delivers the C++ and Python calls. `first_time_s` is when it was first held, the sample time when it was last seen. The entity behind a contact is never present |
+| `reports.contacts` | `Agent::contacts` (`fsim_vehicle_contacts`, `agent.contacts`) for each payload | `first_time_s` is when it was first held, the sample time when it was last seen. The entity behind a contact is never present |
 | `reports.link_tracks` | `Agent::linkTracks` | Present only after modelled delivery; dropped when the native picture drops them |
 | `reports.peers` | `Agent::peers` | `position` null until a position report arrived; `tail_number` null until a heartbeat did |
 | `reports.designations` | `Agent::designations` | `source_system_id` null for its own radar's track |
@@ -442,6 +445,47 @@ so neither is a snapshot.
 
 **Masks.** Version 1 defines no SDK-computed action mask. A mask an adapter builds may depend only on the fields of
 this document.
+
+### Legal report calls (noncombat M2)
+
+Seven of the parts above exist today as calls on an Agent, in all three languages. They are the values the Agent's
+existing reads give, by the same paths and under the same rules, each with the `meta` of this section. Nothing else
+feeds them: no referee call, no `VehicleState`, no other platform's Agent.
+
+| Part | C++ (`fsim/Agent.h`) | C kind (`fsim_agent_report`) | Python (`fsim.Agent`) | `meta` |
+| --- | --- | --- | --- | --- |
+| `reports.navigation` | `reportNavigation` | `FSIM_REPORT_NAVIGATION` | `report_navigation` | `own_navigation`; sampled at the own ship's reported time; `invalid` while `gnss_valid` or `air_data_valid` is false |
+| `reports.tracks` | `reportTracks` | `FSIM_REPORT_TRACKS` | `report_tracks` | `own_sensor` with the radar's `payload`; sampled at the track's last update |
+| `reports.contacts` | `reportContacts` | `FSIM_REPORT_CONTACTS` | `report_contacts` | `own_sensor` with the `payload`; sampled when last seen |
+| `reports.link_tracks` | `reportLinkTracks` | `FSIM_REPORT_LINK_TRACKS` | `report_link_tracks` | `link` with the source `system_id`, the `net_id` and the source's `payload`; sampled at the source's report time, received at delivery |
+| `reports.peers` | `reportPeers` | `FSIM_REPORT_PEERS` | `report_peers` | `link` with `system_id` and `net_id`; sampled at the peer's position report time, null for a peer heard only by its heartbeat |
+| `reports.tasks` | `reportTasks` | `FSIM_REPORT_TASKS` | `report_tasks` | `link` with the sending `system_id`; received at delivery; the sample time null, so never `stale` |
+| `reports.authority` | `reportAuthority` | `FSIM_REPORT_AUTHORITY` | `report_authority` | `ma_core`; sampled at the time read |
+
+- **C++** returns the value with its metadata: `ma::Report<T>` (availability, `meta`, value) for the singular
+  reports, `ma::Collection<T>` (availability, items of `meta` and value) for the others. An unknown time is NaN
+  (`ma::kUnknown`), no payload `ma::kNoPayload`, no system or net 0.
+- **C** returns the metadata, item for item beside the existing getters: `fsim_agent_report(world, entity, kind,
+  stale_after_s, &availability, metas, max, &count)` fills up to `max` `fsim_report_meta`, `metas[0].struct_size`
+  bytes apart, and `*count` with how many there are; `metas` NULL with `max` 0 gives the count alone. Item `i` is
+  item `i` of `fsim_vehicle_amti_tracks` (each air radar in payload order), `fsim_vehicle_contacts` (each payload in
+  order), `fsim_dms_link_track_get`, `fsim_dms_peer_get` or `fsim_agent_c2_task_get`; the singular kinds have one.
+- **Python** returns `fsim.Report(availability, meta, value)` and `fsim.ReportCollection(availability, items)` of
+  `fsim.ReportItem(meta, value)`; `fsim.ReportMeta` holds None where the contract has null.
+- **Availability** is `available`, `unavailable` once the platform is gone, or `not_applicable` for what a C2 node
+  does not have (navigation, tracks, contacts, tasks, authority). `not_owner` is not produced by these seven: every
+  Agent of a platform reads them alike ([section 9](#9-service-binding)).
+- **`stale`** takes the caller's threshold (`ma::ReportOptions::staleAfterS`, `stale_after_s`); the gateway will pass
+  the configured `reports.stale_after_s`. With none (NaN, None) nothing is marked. A report with no sample time has no
+  age and is never stale.
+- **Reading consumes nothing** and changes nothing, however often a report is read, in any language.
+- `Agent::contacts` and `fsim.Agent.contacts` are the Agent's read of `fsim_vehicle_contacts`, with `truth` 0 as
+  for its detections and tracks. An operator's declared callsign is `C2Authority::Operator::callsign` in C++,
+  `fsim_agent_operator_callsign` in C and `agent.operator_callsigns()` in Python.
+
+The other parts of the table - capabilities, sensors, designations, activities, nets, transmissions, overrides,
+command statuses, messages and receipts - have their existing native reads and no report call of their own; the
+gateway assembles them, and the document, in M5.
 
 ## 11. `ma.actions.v1`: requests
 
@@ -718,11 +762,15 @@ non-isolated, and neither kind of run is evidence for the other.
 
 - `ctest --preset ucrt64-headless -L ma-training --no-tests=error` runs `ma_contract` (the schema's dialect, every
   fixture's expectation, read-back, the seed vectors, this page's tables against the schema, ASCII and local links)
-  and `ma_contract_checker` (the checker's own refusals).
+  and `ma_contract_checker` (the checker's own refusals), and the implemented parts' own acceptance:
+  `ma_service_binding` (C++), `ma_reports` (C++), `ma_c_abi` (C99) and `mission_package_consumer` (C++, C99 and
+  Python consumers built and run against installed packages alone). The Python cases are `test_ma_service` and
+  `test_ma_reports` of `python_sdk`.
 - The fixtures cover identities above 2^53 up to 2^64 - 1, null numeric reports with their validity, message bytes
   that are not UTF-8, every generic operation, an extension kind and an oversize message as per-request refusals of
   a well-formed document, and one malformed document per rule above.
 - The [compatibility baseline](ma-compatibility-baseline.md) records what existing consumers rely on.
 
-These checks hold the contract's documents to the contract. They are not evidence that any interface here exists or
-works: that is each implementing package's own acceptance.
+The document checks hold the contract's documents to the contract. They are not evidence that an interface exists
+or works: that is each implementing package's own acceptance, which today covers the service binding and the legal
+report calls and nothing proposed.

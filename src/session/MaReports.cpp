@@ -1,0 +1,163 @@
+#include "session/MaReports.h"
+
+#include "session/World.h"
+
+#include <cmath>
+
+namespace fsim::ma {
+
+const char* availabilityName(Availability availability) noexcept {
+    switch (availability) {
+    case Availability::Available: return "available";
+    case Availability::Unavailable: return "unavailable";
+    case Availability::NotApplicable: return "not_applicable";
+    case Availability::NotOwner: return "not_owner";
+    }
+    return "?";
+}
+
+const char* validityName(Validity validity) noexcept {
+    switch (validity) {
+    case Validity::Valid: return "valid";
+    case Validity::Stale: return "stale";
+    case Validity::Invalid: return "invalid";
+    case Validity::Unknown: return "unknown";
+    }
+    return "?";
+}
+
+const char* sourceName(Source source) noexcept {
+    switch (source) {
+    case Source::OwnNavigation: return "own_navigation";
+    case Source::OwnSensor: return "own_sensor";
+    case Source::OwnPlatform: return "own_platform";
+    case Source::MaCore: return "ma_core";
+    case Source::Dms: return "dms";
+    case Source::Link: return "link";
+    }
+    return "?";
+}
+
+} // namespace fsim::ma
+
+namespace fsim::session {
+
+namespace {
+
+/// A held report sampled at `sample` (unknown: its source states none), reached at `receive`, read at `now`.
+ma::ReportMeta held(ma::Source source, double sample, double receive, double now, const ma::ReportOptions& options) {
+    ma::ReportMeta m;
+    m.source = source;
+    m.validity = ma::Validity::Valid;
+    m.sampleTimeS = sample, m.receiveTimeS = receive;
+    if (std::isfinite(sample)) {
+        m.ageS = now - sample;
+        if (std::isfinite(options.staleAfterS) && m.ageS > options.staleAfterS) m.validity = ma::Validity::Stale;
+    }
+    return m;
+}
+
+} // namespace
+
+std::vector<std::uint16_t> payloadIndices(const World& world, std::uint32_t vehicle) {
+    std::vector<std::uint16_t> out;
+    if (const ms::Host* host = world.missionSystems(vehicle))
+        for (const ms::PayloadInfo& p : host->payloads()) out.push_back(p.index);
+    return out;
+}
+
+std::vector<std::uint16_t> radarPayloads(const World& world, std::uint32_t vehicle) {
+    std::vector<std::uint16_t> out;
+    if (const ms::Host* host = world.missionSystems(vehicle))
+        for (const ms::PayloadInfo& p : host->payloads())
+            if (p.family == ms::Family::AirRadar) out.push_back(p.index);
+    return out;
+}
+
+MaReportMetas reportMetas(const World& world, const AgentIdentity& agent, MaReportKind kind, const ma::ReportOptions& options) {
+    MaReportMetas out;
+    const std::uint32_t id = agent.vehicle;
+    const bool node = world.c2Node(id) != nullptr;
+    const VehicleInfo* info = world.info(id);
+    const bool vehicle = info && info->alive;
+    if (!node && !vehicle) return out; // (its platform is gone: Unavailable, nothing listed)
+    const double now = world.simTime();
+    out.availability = ma::Availability::Available;
+    switch (kind) {
+    case MaReportKind::Navigation: {
+        const effects::SensedState* sensed = vehicle ? world.sensedState(id) : nullptr;
+        if (!sensed) {
+            out.availability = node ? ma::Availability::NotApplicable : ma::Availability::Unavailable;
+            break;
+        }
+        ma::ReportMeta m = held(ma::Source::OwnNavigation, sensed->state.simTime, now, now, options);
+        if (!sensed->gnssValid || !sensed->airDataValid) m.validity = ma::Validity::Invalid; // (its own sensors say so)
+        out.metas.push_back(m);
+        break;
+    }
+    case MaReportKind::Tracks:
+        if (!vehicle) {
+            out.availability = ma::Availability::NotApplicable;
+            break;
+        }
+        for (const std::uint16_t payload : radarPayloads(world, id))
+            for (const ms::AmtiTrack& t : world.amtiTracks(id, payload)) {
+                ma::ReportMeta m = held(ma::Source::OwnSensor, t.lastUpdateS, now, now, options);
+                m.payload = payload;
+                out.metas.push_back(m);
+            }
+        break;
+    case MaReportKind::Contacts:
+        if (!vehicle) {
+            out.availability = ma::Availability::NotApplicable;
+            break;
+        }
+        for (const std::uint16_t payload : payloadIndices(world, id))
+            for (const ms::Contact& c : world.contacts(id, payload)) {
+                ma::ReportMeta m = held(ma::Source::OwnSensor, c.timeS, now, now, options);
+                m.payload = payload;
+                out.metas.push_back(m);
+            }
+        break;
+    case MaReportKind::LinkTracks:
+        for (const comm::LinkTrack& t : world.dms().linkTracks(id)) {
+            ma::ReportMeta m = held(ma::Source::Link, t.report.timeS, t.receivedS, now, options);
+            m.system = t.source, m.net = t.net;
+            m.payload = static_cast<std::uint16_t>(t.report.payload);
+            out.metas.push_back(m);
+        }
+        break;
+    case MaReportKind::Peers:
+        for (const comm::PeerReport& p : world.dms().peers(id)) {
+            // (a peer heard only by its heartbeat states no sample time: held, its age unknown)
+            ma::ReportMeta m = held(ma::Source::Link, p.hasPosition ? p.position.timeS : ma::kUnknown, p.receivedS, now, options);
+            m.system = p.system, m.net = p.net;
+            out.metas.push_back(m);
+        }
+        break;
+    case MaReportKind::Tasks: {
+        if (!vehicle) {
+            out.availability = ma::Availability::NotApplicable; // (an MA core gives a C2 node no task)
+            break;
+        }
+        if (const auto* tasks = world.maCore().tasks(id))
+            for (const comm::ReceivedTask& t : *tasks) {
+                ma::ReportMeta m = held(ma::Source::Link, ma::kUnknown, t.receivedS, now, options); // (an order states no time of its own)
+                m.system = t.from;
+                out.metas.push_back(m);
+            }
+        break;
+    }
+    case MaReportKind::Authority:
+        if (!vehicle) {
+            out.availability = ma::Availability::NotApplicable;
+            break;
+        }
+        out.metas.push_back(held(ma::Source::MaCore, now, now, now, options)); // (its MA core's state, as it stands now)
+        break;
+    case MaReportKind::Count: out.availability = ma::Availability::Unavailable; break;
+    }
+    return out;
+}
+
+} // namespace fsim::session

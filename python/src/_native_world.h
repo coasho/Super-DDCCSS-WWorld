@@ -255,6 +255,8 @@ PyObject* world_radar_status(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_amti_detections(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_amti_tracks(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_contacts(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_agent_report(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_agent_operator_callsign(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* mod_amti_mode_name(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* mod_amti_task_name(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* mod_amti_acm(PyObject* o, PyObject* const* args, Py_ssize_t n);

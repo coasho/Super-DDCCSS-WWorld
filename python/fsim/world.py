@@ -89,6 +89,16 @@ ROLE_ADMIN, ROLE_QB, ROLE_AVC, ROLE_LRE, ROLE_OBSERVER = 1, 2, 3, 4, 5
 C2_ACCEPTED, C2_REJECTED, C2_UNAUTHORIZED, C2_COMPLETED, C2_FAILED, C2_CANCELED = 0, 1, 2, 3, 4, 5
 TOPIC_OPERATOR, TOPIC_CONTROL_DESIGNATION, TOPIC_FLIGHT_COMMAND, TOPIC_OPERATOR_ROLE, TOPIC_COMMAND_STATUS = 10, 11, 12, 50, 51
 Role = collections.namedtuple("Role", "id name permissions approves_strikes")
+# A legal report's provenance and age (docs/sdk/mission-training.md, section 10): source "own_navigation", "own_sensor",
+# "own_platform", "ma_core", "dms" or "link"; validity "valid", "stale", "invalid" or "unknown"; the system it came
+# from and the net it came by where a link delivered it, the payload whose report it is, and its times in simulation
+# seconds - each None where there is none or the source states none.
+ReportMeta = collections.namedtuple("ReportMeta", "source validity system net payload sample_time_s receive_time_s age_s")
+# One item of a report collection, a collection ("available", "unavailable", "not_applicable" or "not_owner"; no items
+# unless available), and a single report (meta and value None unless available).
+ReportItem = collections.namedtuple("ReportItem", "meta value")
+ReportCollection = collections.namedtuple("ReportCollection", "availability items")
+Report = collections.namedtuple("Report", "availability meta value")
 # One MA service of a platform and what it owns there (docs/sdk/mission-training.md, section 9).
 MAService = collections.namedtuple("MAService", "service_id platform controller command_capabilities owns_dms_ingress owns_dms_egress")
 C2Authority = collections.namedtuple("C2Authority", "designated designated_modes designated_by designated_s operators commands")

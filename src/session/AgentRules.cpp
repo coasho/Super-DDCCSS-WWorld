@@ -86,6 +86,7 @@ bool agentDmsEgress(const AgentIdentity& agent, const World& world) noexcept {
 
 void agentReport(ms::AmtiDetection& detection) noexcept { detection.truth = 0; }
 void agentReport(ms::AmtiTrack& track) noexcept { track.truth = 0; }
+void agentReport(ms::Contact& contact) noexcept { contact.truth = 0; }
 
 OwnShip ownShipOf(const effects::SensedState& sensed) noexcept {
     const sim::VehicleState& s = sensed.state;

@@ -274,6 +274,150 @@ int main(int argc, char** argv) {
         fsim_world_destroy(world);
     }
 
+    {
+        /* legal reports with their provenance: what the getters give, each with where it came from and when */
+        fsim_world* world = make_world("c-ma-reports", jsbsim_root);
+        fsim_world* blue = NULL;
+        fsim_world* boss = NULL;
+        fsim_world* stranger = NULL;
+        fsim_net_spec ns;
+        fsim_c2_node_spec cs;
+        fsim_dissemination_plan plan;
+        fsim_ownship own;
+        fsim_c2_task order, held;
+        fsim_peer_report peer;
+        fsim_report_meta meta;
+        struct { fsim_report_meta meta; double beyond; } wide[2]; /* (a newer caller's wider record) */
+        union { fsim_report_meta meta; unsigned char bytes[sizeof(fsim_report_meta)]; } small; /* (an older caller's, shorter) */
+        uint32_t a, other, crc = 0, net = 0, count = 99, n, mine, c2;
+        uint64_t task = 0;
+        int32_t availability = -1, reason = -1;
+        double now, sent;
+        int kind;
+        CHECK(world != NULL);
+        a = make_aircraft(world, "viper", 0.0);
+        other = make_aircraft(world, "other", 0.3);
+        fsim_ownship_init(&own);
+        CHECK(a != 0 && other != 0 && fsim_vehicle_ownship(world, a, &own) == FSIM_OK);
+        fsim_c2_node_spec_init(&cs); /* (some 40 km south of it) */
+        cs.name = "crc", cs.latitude_rad = own.latitude_rad - 0.0063, cs.longitude_rad = own.longitude_rad, cs.altitude_msl_m = 200.0;
+        fsim_net_spec_init(&ns);
+        fsim_dissemination_plan_init(&plan);
+        plan.status_period_s = 2.0;
+        CHECK(fsim_world_create_c2_node(world, &cs, &crc) == FSIM_OK && fsim_world_create_net(world, &ns, &net) == FSIM_OK);
+        CHECK(fsim_world_join_net(world, a, net) == FSIM_OK && fsim_world_join_net(world, crc, net) == FSIM_OK &&
+              fsim_world_set_dissemination(world, crc, &plan) == FSIM_OK);
+        CHECK(fsim_agent_create(world, a, "blue-1", &blue) == FSIM_OK && fsim_agent_create(world, crc, "crc", &boss) == FSIM_OK &&
+              fsim_agent_create(world, other, "red-1", &stranger) == FSIM_OK);
+        mine = fsim_dms_system(blue, a);
+        c2 = fsim_dms_system(boss, crc);
+        CHECK(mine != 0 && c2 != 0);
+        CHECK(fsim_c2_declare_role(boss, crc, 2, "CRC LEAD", NULL, 0, &reason) == FSIM_OK);
+        CHECK(fsim_world_step(world, 360) == FSIM_OK);
+        now = fsim_world_time(world);
+
+        /* navigation: one, its own, sampled when its sensors said */
+        fsim_ownship_init(&own);
+        fsim_report_meta_init(&meta);
+        CHECK(meta.struct_size == sizeof meta);
+        CHECK(fsim_vehicle_ownship(blue, a, &own) == FSIM_OK);
+        CHECK(fsim_agent_report(blue, a, FSIM_REPORT_NAVIGATION, NAN, &availability, NULL, 0, &count) == FSIM_OK);
+        CHECK(availability == FSIM_REPORT_AVAILABLE && count == 1); /* (the count alone) */
+        CHECK(fsim_agent_report(blue, a, FSIM_REPORT_NAVIGATION, NAN, &availability, &meta, 1, &count) == FSIM_OK && count == 1);
+        CHECK(meta.struct_size == sizeof meta && meta.source == FSIM_REPORT_OWN_NAVIGATION && meta.validity == FSIM_REPORT_VALID);
+        CHECK(meta.system == 0 && meta.net == 0 && meta.payload == 0xFFFF);
+        CHECK(meta.sample_time_s == own.time_s && meta.receive_time_s == now && meta.age_s == now - own.time_s);
+        CHECK(fsim_agent_report(blue, a, FSIM_REPORT_NAVIGATION, -1.0, &availability, &meta, 1, &count) == FSIM_OK &&
+              meta.validity == FSIM_REPORT_STALE);
+        /* its sensors off, its picture empty: available, and none - not an error, not zero-filled */
+        for (kind = FSIM_REPORT_TRACKS; kind <= FSIM_REPORT_LINK_TRACKS; ++kind) {
+            count = 99, availability = -1;
+            CHECK(fsim_agent_report(blue, a, kind, NAN, &availability, NULL, 0, &count) == FSIM_OK);
+            CHECK(availability == FSIM_REPORT_AVAILABLE && count == 0);
+        }
+
+        /* a task: not there until delivered; then from C2's system, received when it arrived, its sample time unknown */
+        fsim_c2_task_init(&order);
+        order.type = FSIM_C2_TASK_PATROL;
+        order.latitude_rad = own.latitude_rad + 0.005, order.longitude_rad = own.longitude_rad;
+        sent = fsim_world_time(world);
+        CHECK(fsim_c2_send_task(boss, crc, mine, &order, &task, &reason) == FSIM_OK && task != 0);
+        CHECK(fsim_agent_report(blue, a, FSIM_REPORT_TASKS, NAN, &availability, NULL, 0, &count) == FSIM_OK && count == 0);
+        CHECK(fsim_world_step(world, 240) == FSIM_OK);
+        CHECK(fsim_agent_report(blue, a, FSIM_REPORT_TASKS, 0.0, &availability, &meta, 1, &count) == FSIM_OK);
+        CHECK(availability == FSIM_REPORT_AVAILABLE && count == 1 && count == fsim_agent_c2_task_count(blue, a));
+        fsim_c2_task_init(&held);
+        CHECK(fsim_agent_c2_task_get(blue, a, 0, &held) == FSIM_OK && held.task_id == task && held.state == FSIM_C2_TASK_RECEIVED);
+        CHECK(meta.source == FSIM_REPORT_LINK && meta.system == c2 && meta.system == held.from);
+        CHECK(meta.receive_time_s == held.received_s && meta.receive_time_s > sent);
+        CHECK(isnan(meta.sample_time_s) && isnan(meta.age_s) && meta.validity == FSIM_REPORT_VALID); /* (no age: never stale) */
+        CHECK(isnan(held.altitude_m) && isnan(held.radius_m)); /* (unknown stays unknown) */
+        /* reading takes nothing: the same again, and the task still there */
+        for (n = 0; n < 3; ++n) {
+            fsim_report_meta again;
+            fsim_report_meta_init(&again);
+            CHECK(fsim_agent_report(blue, a, FSIM_REPORT_TASKS, 0.0, &availability, &again, 1, &count) == FSIM_OK && count == 1);
+            CHECK(again.system == meta.system && again.receive_time_s == meta.receive_time_s && isnan(again.sample_time_s));
+        }
+        CHECK(fsim_agent_c2_task_count(blue, a) == 1);
+
+        /* the peer it heard, by its heartbeat alone; the records as far apart as the caller's struct_size says */
+        fsim_peer_report_init(&peer);
+        CHECK(fsim_dms_peer_count(blue, a) == 1 && fsim_dms_peer_get(blue, a, 0, &peer) == FSIM_OK && !peer.has_position);
+        memset(wide, 0, sizeof wide);
+        wide[0].meta.struct_size = sizeof wide[0];
+        wide[0].beyond = wide[1].beyond = 7.0;
+        CHECK(fsim_agent_report(blue, a, FSIM_REPORT_PEERS, NAN, &availability, &wide[0].meta, 2, &count) == FSIM_OK && count == 1);
+        CHECK(wide[0].meta.source == FSIM_REPORT_LINK && wide[0].meta.system == peer.system && wide[0].meta.net == net);
+        CHECK(wide[0].meta.receive_time_s == peer.received_s && isnan(wide[0].meta.sample_time_s) && isnan(wide[0].meta.age_s));
+        CHECK(wide[0].beyond == 7.0 && wide[1].beyond == 7.0 && wide[1].meta.struct_size == 0); /* (nothing written past it) */
+        memset(&small, 0xAB, sizeof small);
+        small.meta.struct_size = 24; /* (as far as its payload) */
+        CHECK(fsim_agent_report(blue, a, FSIM_REPORT_PEERS, NAN, &availability, &small.meta, 1, &count) == FSIM_OK);
+        CHECK(small.meta.struct_size == 24 && small.meta.source == FSIM_REPORT_LINK && small.meta.system == peer.system);
+        CHECK(small.bytes[24] == 0xAB && small.bytes[sizeof small - 1] == 0xAB); /* (nothing written past its size) */
+        /* a smaller buffer than it has: what fits, and the whole count */
+        CHECK(fsim_agent_report(blue, a, FSIM_REPORT_AUTHORITY, NAN, &availability, NULL, 0, &count) == FSIM_OK && count == 1);
+        CHECK(fsim_agent_report(blue, a, FSIM_REPORT_AUTHORITY, NAN, &availability, &meta, 1, &count) == FSIM_OK &&
+              meta.source == FSIM_REPORT_MA_CORE && meta.sample_time_s == fsim_world_time(world));
+        CHECK(strcmp(fsim_agent_operator_callsign(blue, a, 0), "CRC LEAD") == 0 && strcmp(fsim_agent_operator_callsign(blue, a, 9), "") == 0);
+
+        /* a C2 node: no navigation, no sensors - not applicable; its links' picture as any platform's */
+        CHECK(fsim_agent_report(boss, crc, FSIM_REPORT_NAVIGATION, NAN, &availability, NULL, 0, &count) == FSIM_OK &&
+              availability == FSIM_REPORT_NOT_APPLICABLE && count == 0);
+        CHECK(fsim_agent_report(boss, crc, FSIM_REPORT_CONTACTS, NAN, &availability, NULL, 0, &count) == FSIM_OK &&
+              availability == FSIM_REPORT_NOT_APPLICABLE);
+        CHECK(fsim_agent_report(boss, crc, FSIM_REPORT_PEERS, NAN, &availability, NULL, 0, &count) == FSIM_OK &&
+              availability == FSIM_REPORT_AVAILABLE);
+        /* another platform's: refused, nothing written */
+        count = 99, availability = -7;
+        CHECK(fsim_agent_report(stranger, a, FSIM_REPORT_NAVIGATION, NAN, &availability, NULL, 0, &count) == FSIM_NOT_ALLOWED);
+        CHECK(fsim_agent_report(blue, other, FSIM_REPORT_TASKS, NAN, &availability, NULL, 0, &count) == FSIM_NOT_ALLOWED);
+        CHECK(count == 99 && availability == -7);
+        CHECK(strcmp(fsim_agent_operator_callsign(stranger, a, 0), "") == 0);
+        /* a kind there is none of, a buffer with no size */
+        CHECK(fsim_agent_report(blue, a, FSIM_REPORT_AUTHORITY + 1, NAN, &availability, NULL, 0, &count) == FSIM_INVALID_ARGUMENT);
+        CHECK(fsim_agent_report(blue, a, -1, NAN, &availability, NULL, 0, &count) == FSIM_INVALID_ARGUMENT);
+        CHECK(fsim_agent_report(blue, a, FSIM_REPORT_PEERS, NAN, &availability, NULL, 1, &count) == FSIM_INVALID_ARGUMENT);
+        CHECK(fsim_agent_report(blue, a, FSIM_REPORT_PEERS, NAN, &availability, NULL, 0, NULL) == FSIM_INVALID_ARGUMENT);
+        /* its platform gone: unavailable */
+        CHECK(fsim_world_remove_vehicle(world, a) == FSIM_OK);
+        CHECK(fsim_agent_report(blue, a, FSIM_REPORT_NAVIGATION, NAN, &availability, NULL, 0, &count) == FSIM_OK &&
+              availability == FSIM_REPORT_UNAVAILABLE && count == 0);
+        CHECK(fsim_agent_report(blue, a, FSIM_REPORT_TASKS, NAN, &availability, NULL, 0, &count) == FSIM_OK &&
+              availability == FSIM_REPORT_UNAVAILABLE && count == 0);
+        /* the names are the contract's */
+        CHECK(strcmp(fsim_report_availability_name(FSIM_REPORT_NOT_APPLICABLE), "not_applicable") == 0 &&
+              strcmp(fsim_report_availability_name(FSIM_REPORT_NOT_OWNER), "not_owner") == 0 && strcmp(fsim_report_availability_name(9), "") == 0);
+        CHECK(strcmp(fsim_report_validity_name(FSIM_REPORT_STALE), "stale") == 0 && strcmp(fsim_report_validity_name(FSIM_REPORT_UNKNOWN), "unknown") == 0);
+        CHECK(strcmp(fsim_report_source_name(FSIM_REPORT_OWN_NAVIGATION), "own_navigation") == 0 &&
+              strcmp(fsim_report_source_name(FSIM_REPORT_LINK), "link") == 0 && strcmp(fsim_report_source_name(-1), "") == 0);
+        fsim_world_destroy(stranger);
+        fsim_world_destroy(boss);
+        fsim_world_destroy(blue);
+        fsim_world_destroy(world);
+    }
+
     printf("ma c abi ok\n");
     return 0;
 }

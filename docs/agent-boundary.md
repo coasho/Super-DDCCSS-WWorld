@@ -82,6 +82,9 @@ Its identities, ownership rules and principals are in the
 effects and each side of the DMS follow the bindings. On a platform it binds nothing on, a C2 control designation's
 grants, a C2 override applied to a live HSA and a lost-communication plan activation still go to the platform's most
 recently created Agent; that legacy behaviour is unchanged.
+An Agent's reports also come with their provenance (`fsim/MAReports.h`, `fsim_agent_report`, `agent.report_*`): the
+values its reads already give, each with its source, sample and receive times, age and validity, and nothing the
+referee alone knows ([legal report calls](sdk/mission-training.md#legal-report-calls-noncombat-m2)).
 
 A C2 node is a principal-bearing node like a platform: a compute and communications node with a position and
 communication endpoints (the owner, 2026-10-07), not a ground vehicle, so D7 (no ground entities) is unaffected. A C2

@@ -397,6 +397,12 @@ FSIM_API int fsim_agent_authority_operator(const fsim_world* world, uint32_t ent
     return FSIM_OK;
 }
 
+FSIM_API const char* fsim_agent_operator_callsign(fsim_world* world, uint32_t entity, uint32_t index) {
+    FSIM_AGENT_VEHICLE(world, entity, "");
+    const auto* a = world ? world->world.maCore().authority(entity) : nullptr;
+    return a && index < a->operators.size() ? a->operators[index].callsign.c_str() : "";
+}
+
 FSIM_API const char* fsim_agent_role_name(fsim_world* world, uint32_t entity, uint32_t role_id) {
     FSIM_AGENT_VEHICLE(world, entity, "");
     if (!world) return "";

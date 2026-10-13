@@ -2929,6 +2929,64 @@ FSIM_API const char* fsim_contact_kind_name(int kind); /* "emitter", "infrared",
 FSIM_API const char* fsim_emitter_mode_name(int mode); /* "unknown", "search", "lock", "illumination", "seeker", "jammer", "datalink" */
 
 /* ---------------------------------------------------------------------------
+ * Legal reports with their provenance (ABI 1.73; docs/sdk/mission-training.md, section 10; fsim/MAReports.h). An agent
+ * already reads its platform's reports - its own ship, its radars' tracks, its payloads' contacts, the tracks and peers
+ * its links delivered, C2's tasks, the authority over it. fsim_agent_report adds nothing to what it may know: it says
+ * whether a kind of report can be given and, item by item in the order the existing read gives them, where each came
+ * from, when, and how old it is. An unknown time is NaN; nothing is filled in from truth. Each kind beside its read:
+ *
+ *   FSIM_REPORT_NAVIGATION   one: fsim_vehicle_ownship, fsim_vehicle_navigation_report
+ *   FSIM_REPORT_TRACKS       fsim_vehicle_amti_tracks of each air radar, in payload order (meta.payload says which)
+ *   FSIM_REPORT_CONTACTS     fsim_vehicle_contacts of each payload, in payload order (meta.payload says which)
+ *   FSIM_REPORT_LINK_TRACKS  fsim_dms_link_track_get, by index
+ *   FSIM_REPORT_PEERS        fsim_dms_peer_get, by index
+ *   FSIM_REPORT_TASKS        fsim_agent_c2_task_get, by index
+ *   FSIM_REPORT_AUTHORITY    one: fsim_agent_authority
+ * ------------------------------------------------------------------------- */
+enum fsim_report_kind {
+    FSIM_REPORT_NAVIGATION = 0, FSIM_REPORT_TRACKS, FSIM_REPORT_CONTACTS, FSIM_REPORT_LINK_TRACKS, FSIM_REPORT_PEERS, FSIM_REPORT_TASKS,
+    FSIM_REPORT_AUTHORITY
+};
+enum fsim_report_availability {
+    FSIM_REPORT_AVAILABLE = 0,
+    FSIM_REPORT_UNAVAILABLE,    /* the SDK cannot give it now: its platform is gone */
+    FSIM_REPORT_NOT_APPLICABLE, /* its platform has no such thing: a C2 node's navigation, its sensors */
+    FSIM_REPORT_NOT_OWNER       /* another configured MA service of the platform holds it */
+};
+enum fsim_report_validity {
+    FSIM_REPORT_VALID = 0, /* held now, and its source reports it good */
+    FSIM_REPORT_STALE,     /* held now, older than the caller's stale_after_s */
+    FSIM_REPORT_INVALID,   /* its own source flags it: navigation with a sensor invalid */
+    FSIM_REPORT_UNKNOWN    /* it holds nothing */
+};
+enum fsim_report_source {
+    FSIM_REPORT_OWN_NAVIGATION = 0, FSIM_REPORT_OWN_SENSOR, FSIM_REPORT_OWN_PLATFORM, FSIM_REPORT_MA_CORE, FSIM_REPORT_DMS, FSIM_REPORT_LINK
+};
+typedef struct fsim_report_meta {
+    uint32_t struct_size;  /* fsim_report_meta_init */
+    int32_t source;        /* fsim_report_source */
+    int32_t validity;      /* fsim_report_validity */
+    uint32_t system, net;  /* the system it came from and the net it came by, where a link delivered it (0: none) */
+    uint32_t payload;      /* the payload whose report it is (0xFFFF: none) */
+    double sample_time_s;  /* when its source measured or stated it (NaN: the source states none) */
+    double receive_time_s; /* when it reached this platform: a link's delivery time; an own report's, the time read */
+    double age_s;          /* the time read less sample_time_s (NaN exactly when that is) */
+} fsim_report_meta;
+FSIM_API void fsim_report_meta_init(fsim_report_meta* meta);
+/* An agent's, on its own platform (`entity`). *availability the kind's fsim_report_availability; *count how many items
+ * it has (none unless available); up to `max` of their metadata into `metas`, metas[0].struct_size bytes apart (NULL
+ * with max 0: the count alone). stale_after_s: an item older than it is FSIM_REPORT_STALE; NaN: none is. Reading it
+ * takes nothing and changes nothing, however often it is called. */
+FSIM_API int fsim_agent_report(const fsim_world* world, uint32_t entity, int kind, double stale_after_s, int32_t* availability,
+                               fsim_report_meta* metas, uint32_t max, uint32_t* count);
+FSIM_API const char* fsim_report_availability_name(int availability); /* "available", "unavailable", "not_applicable", "not_owner" */
+FSIM_API const char* fsim_report_validity_name(int validity);         /* "valid", "stale", "invalid", "unknown" */
+FSIM_API const char* fsim_report_source_name(int source); /* "own_navigation", "own_sensor", "own_platform", "ma_core", "dms", "link" */
+/* The callsign an operator declared with its role, by its index in fsim_agent_authority's operators ("" for none):
+ * valid until the next world step. */
+FSIM_API const char* fsim_agent_operator_callsign(fsim_world* world, uint32_t entity, uint32_t index);
+
+/* ---------------------------------------------------------------------------
  * Stores and weapon employment (ABI 1.56; ADR-30 MS-7a, docs/sdk/mission-systems.md):
  * A-GRA's Store Management and Weapon Employment sequences as calls. A store
  * station payload's stores (its inventory), loads (a scenario's), strike with

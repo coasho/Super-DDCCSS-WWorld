@@ -16,7 +16,8 @@ import math
 import types
 
 from .world import (Activity, ActiveOverride, C2Authority, C2Task, CommandStatus, CommsState, ConsentRequest, DmsReceived,
-                    DmsTransmission, LinkTrack, NetStats, PeerReport, Vehicle, World)
+                    DmsTransmission, LinkTrack, NetStats, PeerReport, Report, ReportCollection, ReportItem, ReportMeta, Vehicle,
+                    World)
 
 # The Vehicle calls an agent makes on its own vehicle (docs/sdk/boundary.toml's agent principal), by name.
 AGENT_VEHICLE_CALLS = (
@@ -41,7 +42,7 @@ AGENT_VEHICLE_CALLS = (
     "cancel_mission", "mission_activity", "mission_activities", "amti_search", "amti_track", "amti_acquire", "radar_status",
     "amti_detections",
     "designate", "undesignate", "designations",
-    "amti_tracks", "stores", "strike", "jettison", "strike_status",
+    "amti_tracks", "contacts", "stores", "strike", "jettison", "strike_status",
 )
 # The World calls an agent makes: its clock, the terrain, its activities by id, mission data read.
 AGENT_WORLD_CALLS = (
@@ -304,6 +305,67 @@ class Agent:
 
     def dissolve_package(self, package_id, systems):
         return self._world._h.c2_package(self.vehicle_id, int(package_id), 0, [int(m) for m in systems], True)
+
+    # --- legal reports with their provenance (docs/sdk/mission-training.md, section 10) --------------------------------
+    # Nothing more than the reads above give - the same values, by the same paths - each with where it came from, when,
+    # and how old it is. An unknown is None; nothing is filled in from truth.
+    _REPORT_KINDS = {"navigation": 0, "tracks": 1, "contacts": 2, "link_tracks": 3, "peers": 4, "tasks": 5, "authority": 6}
+
+    def _report(self, kind, stale_after_s):
+        availability, metas = self._world._h.agent_report(self.vehicle_id, self._REPORT_KINDS[kind],
+                                                          math.nan if stale_after_s is None else float(stale_after_s))
+        known = lambda x: None if x != x else x
+        return availability, [ReportMeta(m[0], m[1], m[2] or None, m[3] or None, None if m[4] == 0xFFFF else m[4], known(m[5]),
+                                         known(m[6]), known(m[7])) for m in metas]
+
+    def _collection(self, kind, stale_after_s, values):
+        availability, metas = self._report(kind, stale_after_s)
+        if availability != "available":
+            return ReportCollection(availability, [])
+        return ReportCollection(availability, [ReportItem(m, v) for m, v in zip(metas, values())])
+
+    def report_navigation(self, stale_after_s=None):
+        """Its own ship and its endurance - fsim.Report(availability, meta, (OwnShip, NavigationReport)): "invalid" while a
+        navigation or air data sensor of its own says so; "not_applicable", with no meta or value, for a C2 node. A report
+        older than ``stale_after_s`` (None: never) is "stale"."""
+        availability, metas = self._report("navigation", stale_after_s)
+        if availability != "available" or not metas:
+            return Report(availability, None, None)
+        return Report(availability, metas[0], (self.ownship(), self.navigation_report()))
+
+    def report_tracks(self, stale_after_s=None):
+        """Its air radars' tracks - fsim.ReportCollection of ReportItem(meta, AmtiTrack), in payload order: each sampled
+        at its last update, its ``truth`` 0."""
+        return self._collection("tracks", stale_after_s,
+                                lambda: [t for p in self.payloads if p.family == "air_radar" for t in self.amti_tracks(p.index)])
+
+    def report_contacts(self, stale_after_s=None):
+        """Its payloads' contacts - ReportItem(meta, Contact), in payload order: each sampled when it was last seen."""
+        return self._collection("contacts", stale_after_s, lambda: [c for p in self.payloads for c in self.contacts(p.index)])
+
+    def report_link_tracks(self, stale_after_s=None):
+        """The tracks its links delivered - ReportItem(meta, LinkTrack): from the meta's system over its net, sampled at
+        the source's report time and received when delivered; present only after delivery."""
+        return self._collection("link_tracks", stale_after_s, self.link_tracks)
+
+    def report_peers(self, stale_after_s=None):
+        """The peers it heard - ReportItem(meta, PeerReport): the sample time None for one heard only by its heartbeat."""
+        return self._collection("peers", stale_after_s, self.peers)
+
+    def report_tasks(self, stale_after_s=None):
+        """C2's tasks - ReportItem(meta, C2Task): each from the meta's system, received when it was delivered."""
+        return self._collection("tasks", stale_after_s, self.c2_tasks)
+
+    def report_authority(self, stale_after_s=None):
+        """The authority over its platform, as its MA core keeps it now - fsim.Report(availability, meta, C2Authority)."""
+        availability, metas = self._report("authority", stale_after_s)
+        if availability != "available" or not metas:
+            return Report(availability, None, None)
+        return Report(availability, metas[0], self.authority())
+
+    def operator_callsigns(self):
+        """The callsign each operator of authority().operators declared, in their order ("" for none)."""
+        return [self._world._h.agent_operator_callsign(self.vehicle_id, i) for i in range(len(self.authority().operators))]
 
     def designation_source(self, target):
         """A designation's source system (0: its own radar's track)."""

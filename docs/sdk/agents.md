@@ -319,6 +319,41 @@ sensors.receive()                                # the inbox: the ingress owner'
 
 `examples/python/ma_services.py` runs it: one aircraft, two services, the agents made in either order.
 
+## Legal reports
+
+An agent's reads say what it holds. The report calls say the same things with where each came from, when, and how old
+it is (`fsim/MAReports.h`; [contract](mission-training.md#legal-report-calls-noncombat-m2)) - what a policy needs to
+tell a fresh measurement from an old delivery:
+
+```python
+nav = blue.report_navigation()                   # Report(availability="available", meta, (OwnShip, NavigationReport))
+nav.meta                                         # ReportMeta(source="own_navigation", validity="valid", ...)
+for item in blue.report_link_tracks(stale_after_s=6.0).items:
+    item.meta.system, item.meta.net              # who reported it, over which net
+    item.meta.sample_time_s                      # when its source measured it
+    item.meta.receive_time_s, item.meta.age_s    # when the link delivered it; how old it is now
+    item.meta.validity                           # "stale" once older than 6 s; never without a threshold
+    item.value                                   # the LinkTrack itself, as blue.link_tracks() gives it
+boss.report_navigation()                         # Report("not_applicable", None, None): a C2 node has none
+```
+
+- **Seven reports:** `reportNavigation`, `reportTracks`, `reportContacts`, `reportLinkTracks`, `reportPeers`,
+  `reportTasks`, `reportAuthority` (C++); `fsim_agent_report(world, entity, FSIM_REPORT_*, ...)`, which gives the
+  metadata item for item beside the existing getters (C); `report_navigation()` ... `report_authority()` (Python).
+- **Nothing more than it may know:** the values are those of `ownship`, `amti_tracks`, `contacts`, `link_tracks`,
+  `peers`, `c2_tasks` and `authority`, under the same rules - no entity behind a track or a contact, no other
+  platform's reports, nothing from the referee. A report its links did not deliver is not there, and one its picture
+  dropped is gone.
+- **Unknown stays unknown:** a time its source does not state is NaN in C++ and C and None in Python (a task's sample
+  time, a peer heard only by its heartbeat); a quantity a sensor does not measure stays NaN (a warning receiver's
+  range). Navigation a sensor of its own calls invalid is passed on as reported and marked `invalid`.
+- **Availability:** `available`; `unavailable` once its platform is gone; `not_applicable` for what a C2 node does not
+  have. Every agent of a platform reads these alike, bound or not.
+- **Reading takes nothing.** `agent.contacts(payload)` (`Agent::contacts`) is new with these: the agent's read of its
+  payloads' contacts, `truth` 0.
+
+`examples/python/ma_reports.py` runs it: a lead sharing its radar's tracks with a wingman, and what each then holds.
+
 ## The referee
 
 `fsim::Referee` / `fsim.Referee`: every vehicle's true state (and sensed state), the vehicles, the weapons, radio
@@ -330,7 +365,8 @@ an agent's observation (a centralised critic may use them in training, as ADR-31
 
 - Mission episodes: one World per episode, immutable per-tick snapshots and queued requests through an endpoint of
   its own. Their contract is frozen and not built: see the [mission training contract](mission-training.md) and
-  [composing an MA system](ma-composition.md). [MA services](#ma-services) are the part that is.
+  [composing an MA system](ma-composition.md). [MA services](#ma-services) and [legal reports](#legal-reports) are
+  the parts that are.
 - A C or C++ MA in a process of its own (the isolation channel's client in those languages); approval of autonomous
   actions other than strikes (A-GRA's approval
   policy for plans and responses), role configuration in flight (an Admin's), overrides within zones; fusion of received

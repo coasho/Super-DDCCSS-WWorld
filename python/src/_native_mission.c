@@ -778,3 +778,47 @@ PyObject* mod_ms_capability_type_id(PyObject* m, PyObject* const* args, Py_ssize
     if (!check_args(n, 1, 1, "ms_capability_type_id") || !as_int(args[0], &code)) return NULL;
     return PyUnicode_FromString(fsim_ms_capability_type_id(code));
 }
+
+/* --- Legal reports with their provenance (ABI 1.73; docs/sdk/mission-training.md, section 10) ----------------------- */
+
+/* agent_report(entity, kind, stale_after_s) -> (availability name,
+ *     [(source name, validity name, system, net, payload, sample_time_s, receive_time_s, age_s)]) */
+PyObject* world_agent_report(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self = (WorldObject*)o;
+    uint32_t entity, kind, count = 0;
+    if (!check_args(n, 3, 3, "agent_report") || !as_u32(args[0], &entity) || !as_u32(args[1], &kind)) return NULL;
+    const double stale = PyFloat_AsDouble(args[2]);
+    if (PyErr_Occurred()) return NULL;
+    int32_t availability = FSIM_REPORT_UNAVAILABLE;
+    if (fsim_agent_report(self->world, entity, (int)kind, stale, &availability, NULL, 0, &count) != FSIM_OK) return fail();
+    fsim_report_meta* m = count ? (fsim_report_meta*)PyMem_Malloc(sizeof(fsim_report_meta) * count) : NULL;
+    if (count && !m) return PyErr_NoMemory();
+    if (count) {
+        fsim_report_meta_init(&m[0]);
+        uint32_t got = 0;
+        if (fsim_agent_report(self->world, entity, (int)kind, stale, &availability, m, count, &got) != FSIM_OK) {
+            PyMem_Free(m);
+            return fail();
+        }
+        if (got < count) count = got;
+    }
+    PyObject* list = PyList_New(0);
+    for (uint32_t i = 0; list && i < count; ++i) {
+        PyObject* x = Py_BuildValue("(ssIIIddd)", fsim_report_source_name(m[i].source), fsim_report_validity_name(m[i].validity),
+                                    (unsigned int)m[i].system, (unsigned int)m[i].net, (unsigned int)m[i].payload, m[i].sample_time_s,
+                                    m[i].receive_time_s, m[i].age_s);
+        if (!x || PyList_Append(list, x) < 0) Py_CLEAR(list);
+        Py_XDECREF(x);
+    }
+    PyMem_Free(m);
+    if (!list) return NULL;
+    return Py_BuildValue("(sN)", fsim_report_availability_name(availability), list);
+}
+
+/* agent_operator_callsign(entity, index) -> the callsign an operator declared ("" for none) */
+PyObject* world_agent_operator_callsign(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self = (WorldObject*)o;
+    uint32_t entity, index;
+    if (!check_args(n, 2, 2, "agent_operator_callsign") || !as_u32(args[0], &entity) || !as_u32(args[1], &index)) return NULL;
+    return PyUnicode_FromString(fsim_agent_operator_callsign(self->world, entity, index));
+}

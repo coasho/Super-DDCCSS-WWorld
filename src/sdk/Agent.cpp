@@ -5,7 +5,10 @@
 #include "fsim/World.h"
 
 #include "session/AgentRules.h"
+#include "session/MaReports.h"
 #include "session/World.h"
+
+#include <algorithm>
 
 namespace fsim {
 
@@ -888,6 +891,106 @@ std::optional<control::GeoPoint> Agent::framePoint(control::FrameId id, const co
     if (!frame(id)) return std::nullopt;
     return FSIM_AGENT_SESSION.framePoint(id, offset, timeS, vehicle_);
 }
+
+// --- Legal reports with their provenance (fsim/MAReports.h; docs/sdk/mission-training.md, section 10) ----------------
+//
+// Each value is what the agent's own read gives - the same session call, masked by the same rule (session::agentReport) -
+// and its metadata comes from session::reportMetas, which reads those same reports and nothing else.
+
+namespace {
+
+template <typename T>
+ma::Collection<T> collected(const session::MaReportMetas& metas, std::vector<T> values) {
+    ma::Collection<T> out;
+    out.availability = metas.availability;
+    if (metas.availability != ma::Availability::Available) return out;
+    const std::size_t n = std::min(values.size(), metas.metas.size()); // (one of each, read from one state)
+    out.items.reserve(n);
+    for (std::size_t i = 0; i < n; ++i) out.items.push_back({metas.metas[i], std::move(values[i])});
+    return out;
+}
+
+} // namespace
+
+#define FSIM_AGENT_METAS(kind) session::reportMetas(world_->impl(), FSIM_AGENT_IDENTITY, session::MaReportKind::kind, options)
+
+std::vector<ms::Contact> Agent::contacts(std::uint16_t payload) const {
+    FSIM_AGENT_AUDIT;
+    if (!world_) return {};
+    auto list = world_->impl().contacts(vehicle_, payload);
+    for (auto& c : list) session::agentReport(c);
+    return list;
+}
+
+ma::Report<ma::Navigation> Agent::reportNavigation(const ma::ReportOptions& options) const {
+    FSIM_AGENT_AUDIT;
+    ma::Report<ma::Navigation> out;
+    if (!world_) return out;
+    const session::MaReportMetas metas = FSIM_AGENT_METAS(Navigation);
+    out.availability = metas.availability;
+    if (metas.availability != ma::Availability::Available || metas.metas.empty()) return out;
+    out.meta = metas.metas.front();
+    out.value.ownShip = FSIM_AGENT_VEHICLE_OF.ownship();
+    out.value.endurance = FSIM_AGENT_VEHICLE_OF.navigationReport();
+    return out;
+}
+
+ma::Collection<ms::AmtiTrack> Agent::reportTracks(const ma::ReportOptions& options) const {
+    FSIM_AGENT_AUDIT;
+    if (!world_) return {};
+    std::vector<ms::AmtiTrack> values;
+    for (const std::uint16_t payload : session::radarPayloads(world_->impl(), vehicle_))
+        for (ms::AmtiTrack& t : world_->impl().amtiTracks(vehicle_, payload)) {
+            session::agentReport(t);
+            values.push_back(std::move(t));
+        }
+    return collected(FSIM_AGENT_METAS(Tracks), std::move(values));
+}
+
+ma::Collection<ms::Contact> Agent::reportContacts(const ma::ReportOptions& options) const {
+    FSIM_AGENT_AUDIT;
+    if (!world_) return {};
+    std::vector<ms::Contact> values;
+    for (const std::uint16_t payload : session::payloadIndices(world_->impl(), vehicle_))
+        for (ms::Contact& c : world_->impl().contacts(vehicle_, payload)) {
+            session::agentReport(c);
+            values.push_back(std::move(c));
+        }
+    return collected(FSIM_AGENT_METAS(Contacts), std::move(values));
+}
+
+ma::Collection<comm::LinkTrack> Agent::reportLinkTracks(const ma::ReportOptions& options) const {
+    FSIM_AGENT_AUDIT;
+    if (!world_) return {};
+    return collected(FSIM_AGENT_METAS(LinkTracks), world_->impl().dms().linkTracks(vehicle_));
+}
+
+ma::Collection<comm::PeerReport> Agent::reportPeers(const ma::ReportOptions& options) const {
+    FSIM_AGENT_AUDIT;
+    if (!world_) return {};
+    return collected(FSIM_AGENT_METAS(Peers), world_->impl().dms().peers(vehicle_));
+}
+
+ma::Collection<comm::ReceivedTask> Agent::reportTasks(const ma::ReportOptions& options) const {
+    FSIM_AGENT_AUDIT;
+    if (!world_) return {};
+    const auto* tasks = world_->impl().maCore().tasks(vehicle_);
+    return collected(FSIM_AGENT_METAS(Tasks), tasks ? *tasks : std::vector<comm::ReceivedTask>{});
+}
+
+ma::Report<C2Authority> Agent::reportAuthority(const ma::ReportOptions& options) const {
+    FSIM_AGENT_AUDIT;
+    ma::Report<C2Authority> out;
+    if (!world_) return out;
+    const session::MaReportMetas metas = FSIM_AGENT_METAS(Authority);
+    out.availability = metas.availability;
+    if (metas.availability != ma::Availability::Available || metas.metas.empty()) return out;
+    out.meta = metas.metas.front();
+    out.value = authority();
+    return out;
+}
+#undef FSIM_AGENT_METAS
+
 #undef FSIM_AGENT_SESSION
 
 #undef FSIM_AGENT_REFUSED

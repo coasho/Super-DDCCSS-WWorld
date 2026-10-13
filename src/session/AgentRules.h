@@ -59,6 +59,7 @@ bool agentDmsEgress(const AgentIdentity& agent, const World& world) noexcept;
 /// A report as an agent reads it: the entity behind a detection or a track is the referee's (0).
 void agentReport(ms::AmtiDetection& detection) noexcept;
 void agentReport(ms::AmtiTrack& track) noexcept;
+void agentReport(ms::Contact& contact) noexcept;
 
 /// Its own ship from its sensed state: what a platform reports of it.
 OwnShip ownShipOf(const effects::SensedState& sensed) noexcept;
