@@ -10,7 +10,9 @@ Checks, with the Python standard library alone:
                 NaN or Infinity, no duplicate key), validated against the schema, held to the rules a schema cannot
                 state (rules()), and written out and read back unchanged - and fails exactly as its entry expects;
                 together the valid ones must carry an identity above 2^53, an unknown numeric report and message
-                bytes that are not UTF-8;
+                bytes that are not UTF-8. A fixture is malformed (parse_refused, schema_invalid, rule_invalid: its
+                document is refused whole) or valid, and a valid ma.actions.v1 may still hold requests the gateway
+                refuses one by one (request_refusals: unsupported_kind, message_too_large);
   the pages     the contract's pages are printable ASCII, their local links and anchors resolve, and the request
                 operations and gateway reasons mission-training.md tabulates are the schema's.
 
@@ -308,15 +310,31 @@ def decoded(text, where, errors):
     return data
 
 
-def message_bytes(holder, where, limit, errors):
+def message_bytes(holder, where, errors):
+    """A message's bytes, or the reason its document is malformed: base64 that is not canonical, or a byte_length that
+    is not the decoded length. Its size against a configured limit is not this: see refusals()."""
     data = decoded(holder["data_b64"], where + ".data_b64", errors)
     if data is None:
         return None
     if len(data) != holder["byte_length"]:
         errors.append("%s: byte_length %d, but %d bytes decoded" % (where, holder["byte_length"], len(data)))
-    if len(data) > limit:
-        errors.append("%s: %d decoded bytes, over the %d the configuration allows" % (where, len(data), limit))
     return data
+
+
+def refusals(document, limits=None):
+    """The requests of a well-formed ma.actions.v1 that the gateway refuses one by one at submit, as far as the
+    document and its limits alone show: {request_id: gateway reason}. The document itself is accepted, its other
+    requests are queued, and each refused request gets a closed, rejected receipt."""
+    limits = dict(DEFAULT_LIMITS, **(limits or {}))
+    refused = {}
+    for request in document["requests"] if document.get("schema") == "ma.actions.v1" else []:
+        if request["kind"] not in GENERIC_KINDS:
+            refused[request["request_id"]] = "unsupported_kind"
+        elif request["kind"] == "dms" and request["operation"] == "send":
+            data = decoded(request["parameters"]["data_b64"], "", [])
+            if data is not None and len(data) > limits["max_message_bytes"]:
+                refused[request["request_id"]] = "message_too_large"
+    return refused
 
 
 def platforms(config):
@@ -411,7 +429,9 @@ def receipt_rules(receipts, where, errors):
 
 
 def rules(document, limits=None):
-    """What v1 requires of a schema-valid document beyond its schema: (errors, unsupported request operations)."""
+    """What v1 requires of a schema-valid document beyond its schema: (why it is malformed, its request operations no
+    generic definition handles). A malformed document is refused whole, as an error of the call. A request that is
+    merely refused - refusals() - leaves its document well-formed."""
     limits = dict(DEFAULT_LIMITS, **(limits or {}))
     errors, unsupported = [], []
     name = document["schema"]
@@ -428,7 +448,7 @@ def rules(document, limits=None):
             if request["kind"] not in GENERIC_KINDS:
                 unsupported.append("%s.%s" % (request["kind"], request["operation"]))
             elif request["kind"] == "dms" and request["operation"] == "send":
-                message_bytes(request["parameters"], "$.requests[%d].parameters" % i, limits["max_message_bytes"], errors)
+                message_bytes(request["parameters"], "$.requests[%d].parameters" % i, errors)
     elif name == "ma.observation.v1":
         now = document["time_s"]
         for key, report in document["reports"].items():
@@ -458,7 +478,7 @@ def rules(document, limits=None):
         if messages["availability"] != "available" and messages["items"]:
             errors.append("$.messages: %s, yet it lists items" % messages["availability"])
         for i, message in enumerate(messages["items"]):
-            message_bytes(message, "$.messages.items[%d]" % i, limits["max_message_bytes"], errors)
+            message_bytes(message, "$.messages.items[%d]" % i, errors)  # (a delivered message's size is its net's)
         receipt_rules(document["receipts"], "$.receipts", errors)
     elif name == "ma.receipts.v1":
         receipt_rules(document["receipts"], "$.receipts", errors)
@@ -550,9 +570,11 @@ def check_fixture(schema, path, entry):
         wanted = entry.get("error_contains", "")
         return ([] if any(wanted in e for e in found) else ["expected a rule to refuse it for %r: %s" % (wanted, found[:2])]), None
     errors = ["rule: " + e for e in found]
-    if unsupported != entry.get("unsupported_kind", []):
-        errors.append("unsupported request operations %s, expected %s" % (unsupported, entry.get("unsupported_kind", [])))
-    if expect not in ("valid", "valid_unsupported_kind"):
+    refused = refusals(document, entry.get("limits"))
+    if refused != entry.get("request_refusals", {}):
+        errors.append("request refusals %s, expected %s" % (json.dumps(refused, sort_keys=True),
+                                                           json.dumps(entry.get("request_refusals", {}), sort_keys=True)))
+    if expect != "valid":
         errors.append("unknown expectation %r" % expect)
     if parse(dump(document).encode("utf-8")) != document or not same(parse(dump(document)), document):
         errors.append("does not read back as it was written")

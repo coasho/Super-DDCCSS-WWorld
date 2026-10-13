@@ -80,10 +80,17 @@ class Unknowns(unittest.TestCase):
 
 
 class Bytes(unittest.TestCase):
-    def errors(self, parameters, limit=1024):
+    def errors(self, parameters):
         found = []
-        check.message_bytes(parameters, "$", limit, found)
+        check.message_bytes(parameters, "$", found)
         return found
+
+    def refused(self, size, limits=None):
+        actions = fixture("actions.wing-ma.json")
+        actions["requests"][10]["parameters"].update({"byte_length": size, "data_b64": base64.b64encode(bytes(size)).decode()})
+        self.assertEqual(SCHEMA.validate(actions), [])
+        self.assertEqual(check.rules(actions, limits), ([], []), "a message over a configured limit is not a malformed document")
+        return check.refusals(actions, limits)
 
     def test_round_trip_of_bytes_that_are_not_text(self):
         raw = bytes(range(256))
@@ -100,12 +107,21 @@ class Bytes(unittest.TestCase):
         self.assertTrue(self.errors({"byte_length": 2, "data_b64": "QQ=="}), "length disagrees")
 
     def test_bound_is_on_decoded_bytes(self):
-        at = {"byte_length": 1024, "data_b64": base64.b64encode(b"\x00" * 1024).decode()}
-        over = {"byte_length": 1025, "data_b64": base64.b64encode(b"\x00" * 1025).decode()}
-        self.assertEqual(self.errors(at), [])
-        self.assertTrue(self.errors(over))
-        self.assertEqual(self.errors(over, limit=2048), [])
+        self.assertEqual(self.refused(1024), {})
+        self.assertEqual(self.refused(1025), {"9007199254741008": "message_too_large"})
+        self.assertEqual(self.refused(1025, {"max_message_bytes": 2048}), {})
+        self.assertEqual(self.refused(0), {})
         self.assertEqual(self.errors({"byte_length": 0, "data_b64": ""}), [])
+
+    def test_a_malformed_message_is_not_a_refused_request(self):
+        actions = fixture("actions.wing-ma.json")
+        actions["requests"][10]["parameters"]["byte_length"] += 1
+        errors, _ = check.rules(actions)
+        self.assertTrue(any("bytes decoded" in e for e in errors), "its document is refused whole")
+        self.assertEqual(check.refusals(actions), {})
+        observation = fixture("observation.wing-ma.json")
+        observation["messages"]["items"][0].update({"byte_length": 2000, "data_b64": base64.b64encode(bytes(2000)).decode()})
+        self.assertEqual(check.rules(observation), ([], []), "a delivered message is as large as its net let it be")
 
 
 class Dialect(unittest.TestCase):
@@ -157,6 +173,7 @@ class Rules(unittest.TestCase):
         self.refused(actions, "over the 4", {"max_requests_per_document": 4})
         extension = fixture("actions.extension-kind.json")
         self.assertEqual(check.rules(extension), ([], ["strike.new"]))
+        self.assertEqual(check.refusals(extension), {"31": "unsupported_kind"})
 
     def test_a_request_cannot_name_its_sender(self):
         actions = fixture("actions.wing-ma.json")
@@ -257,7 +274,10 @@ class Manifest(unittest.TestCase):
         problems, _ = check.check_fixture(SCHEMA, FIXTURES / "actions.wait.json", {"file": "x", "expect": "schema_invalid"})
         self.assertEqual(problems, ["schema-valid, expected schema_invalid"])
         problems, _ = check.check_fixture(SCHEMA, FIXTURES / "actions.extension-kind.json", entry)
-        self.assertTrue(any("unsupported request operations" in p for p in problems))
+        self.assertTrue(any("request refusals" in p for p in problems))
+        for name in ("actions.extension-kind.json", "actions.message-too-large.json"):
+            entry = next(e for e in check.parse((FIXTURES / "manifest.json").read_bytes())["fixtures"] if e["file"] == name)
+            self.assertEqual(check.check_fixture(SCHEMA, FIXTURES / name, entry)[0], [], name)
 
     def test_required_coverage(self):
         found = set()

@@ -17,8 +17,8 @@ lifecycle hooks - is in [ma-composition.md](ma-composition.md). What the SDK was
 [compatibility baseline](ma-compatibility-baseline.md).
 
 Words used with one meaning throughout: **frozen** - a later package may not change it without a new version;
-**proposed** - named and specified here, not yet built; **pending** - waits for an input this repository does not
-hold yet ([section 15](#15-extension-seam-and-pending-gates)); **native** - what the existing SDK does today, which
+**proposed** - named and specified here, not yet built; **pending** - waits for an input or a runtime that is not
+in place yet ([section 15](#15-extension-seam-and-pending-gates)); **native** - what the existing SDK does today, which
 this contract transports and never redefines.
 
 ## 1. Scope
@@ -29,11 +29,12 @@ designations, activities, nets, authority, C2 tasks, overrides, its own sends an
 designation, P2P messages, MA task decisions, typed C2 commands); receipts; the referee's outcome and truth
 documents; configuration, capacity limits, errors, lifetime and seed streams.
 
-Not in version 1, and refused explicitly until a frozen definition is supplied: strike and jettison requests,
-countermeasure inventory and dispense, launch-zone queries, stores and strike status reports, release consent
-requests and answers, strike policy and the `training.authorization.v1` profile, weapon and engagement truth, and
-reward definitions. They enter through the extension seam of [section 15](#15-extension-seam-and-pending-gates)
-without changing a version 1 field.
+Not in version 1: strike and jettison requests, countermeasure inventory and dispense, launch-zone queries, stores
+and strike status reports, release consent requests and answers, strike policy and the `training.authorization.v1`
+profile, weapon and engagement truth, and reward definitions. Their documents are frozen separately in the
+[engagement extension contract](ma-engagement-contract.md); their runtime is not installed, so each stays refused
+explicitly. They enter through the extension seam of [section 15](#15-extension-seam-and-pending-gates) without
+changing a version 1 field.
 
 ## 2. Identities
 
@@ -155,8 +156,8 @@ shared between episodes; nothing mutable is.
 - **Construction** parses and validates `ma.config.v1` and builds no World: generation 0. `endpoint` and `referee`
   fail until the first reset.
 - **`reset(local_episode_index)`** destroys the owned World, if any, and constructs a fresh one from the
-  configuration's recipe: scenario, C2 nodes, systems, nets, dissemination, RBAC, then one Agent per service in
-  ascending `service_id` and its binding. The generation becomes the previous one plus 1, the tick 0, and snapshot 0
+  configuration's recipe: scenario, C2 nodes, systems, nets, dissemination, RBAC, each array in its own order, then
+  one Agent per service in ascending `service_id` and its binding. The generation becomes the previous one plus 1, the tick 0, and snapshot 0
   is frozen. It never calls the legacy vehicle reset in place of reconstruction; `Vehicle.reset` and
   `fsim_world_reset_vehicle` keep their existing semantics for existing callers. C++ returns the schema's
   `episode_key` object; C reports it in the first observation.
@@ -181,14 +182,14 @@ Failures of the API and of lifetime are errors of the call. Refusals of a well-f
 
 | Condition | C++ | C (`enum fsim_status`, `fsim_last_error()` set) | Python | Effect |
 | --- | --- | --- | --- | --- |
-| Not UTF-8, not strict JSON, schema-invalid, an unknown field, a non-finite number, over `max_document_bytes`, a rule of [section 6](#6-documents) broken | `std::invalid_argument` | `FSIM_INVALID_ARGUMENT` | `fsim.Error` | nothing queued, nothing changed |
+| A malformed document ([section 6](#6-documents)): not UTF-8, not strict JSON, schema-invalid, an unknown field, a non-finite number, over `max_document_bytes`, base64 that is not canonical, a `byte_length` that is not the decoded length, request ids that do not strictly increase, more requests than `max_requests_per_document` | `std::invalid_argument` | `FSIM_INVALID_ARGUMENT` | `fsim.Error` | nothing queued, nothing changed |
 | Null handle or output pointer; buffer too small for a document | n/a | `FSIM_INVALID_ARGUMENT`, no partial document | n/a | nothing consumed |
 | Episode not yet reset; handle closed, moved-from or of an earlier generation | `std::runtime_error` | `FSIM_INVALID_ARGUMENT` | `fsim.Error` | nothing |
 | The episode's boundary is held by another call | `std::runtime_error` | `FSIM_ERROR` | `fsim.Error` | nothing; retry is the caller's |
 | A live handle of another principal's kind | not expressible | `FSIM_NOT_ALLOWED` | not expressible | nothing |
 | A service the configuration does not bind (`endpoint`) | `std::invalid_argument` | `FSIM_INVALID_ARGUMENT` | `fsim.Error` | nothing |
 | A well-formed document for another generation, tick or service | returns `ma.receipts.v1`, `submission.accepted` false | `FSIM_OK`; the same document through `_receipts_json` | returns it | nothing queued |
-| A well-formed request the gateway or the native SDK refuses | a receipt, `state` `rejected` | the same | the same | as the receipt says |
+| A well-formed request the gateway or the native SDK refuses, among them a message whose decoded bytes exceed `max_message_bytes` (`message_too_large`) | a receipt, `state` `rejected` | the same | the same | as the receipt says; the document's other requests are queued |
 
 `destroy` and `close` accept null and an already closed object. A destroyed C handle must not be used again;
 separately live children stay safe after their parent is destroyed. No new status value is added to `fsim_status`.
@@ -217,8 +218,12 @@ code written to this page.
   field left out keeps the native hold or default; `null` is accepted in a request only where the schema says so and
   means the same as leaving it out.
 - **Bytes are bounded base64.** RFC 4648 section 4: standard alphabet, padded, no line breaks, canonical. Each carries
-  `byte_length`, which must equal the decoded length. The bound is on decoded bytes: at most
-  `limits.max_message_bytes`, and at send time the native limit of each net the message travels on.
+  `byte_length`, which must equal the decoded length. A document that breaks one of those rules, or whose text
+  decodes to more than the schema's 65,536 bytes, is malformed and refused whole. Size against a limit is a
+  different matter and never makes a document malformed: a `dms.send` whose decoded bytes exceed the configured
+  `limits.max_message_bytes` is that one request's refusal (`message_too_large`, a rejected receipt), and a message
+  within it that a net's own `max_payload_bytes` cannot carry is the native send's refusal (`too_large`). A
+  delivered message in a snapshot is as large as its net let it be; `max_message_bytes` does not apply to it.
 - **Closed objects.** A document that comes in (`ma.config.v1`, `ma.actions.v1`) with a member this version does not
   define is refused whole. A document that goes out carries only version 1 members; additions arrive as a new
   version or under `extensions`, whose unknown keys a consumer ignores.
@@ -253,8 +258,18 @@ Given once to the episode's constructor. Every field is explicit; the only defau
 | `extensions` | no | [Section 15](#15-extension-seam-and-pending-gates). A key no installed definition registered fails construction |
 
 A platform is named by its scenario vehicle's or C2 node's name; names are unique across both. The recipe is
-applied in the table's order, and services are made in ascending `service_id`, so neither the order of a
-configuration's arrays nor the order in which the range later opens endpoints changes what is built.
+applied section by section in the table's order. Two kinds of order must not be confused:
+
+- **Array order is native creation order.** Within `scenario.vehicles`, `c2_nodes` and `nets`, entries are created
+  in the order the array gives, and the native ids follow it: a vehicle's entity id, a C2 node's entity id (from
+  `0x60000001`), a net's id (from 1), and a SystemID the range does not assign (the next free one when the platform
+  first joins a net, so the order of `nets` and of each net's `members` matters too). Reordering one of these arrays
+  is a different configuration with different native ids. Documents name platforms by name and systems by the
+  SystemID a snapshot reports, never by an assumed position.
+- **Service order decides nothing.** The order of `services`, the order in which their Agents happen to be created
+  and the order in which the range later opens endpoints never determine who owns a capability, the DMS ingress or
+  the DMS egress: the binding does, by `service_id`. The episode creates the Agents in ascending `service_id`, which
+  fixes each minted `controller_id`; reorder the array and every owner, grant and controller is the same.
 
 No field presets a package: a team exists natively only through a C2 system's `c2.form_package` message, authorised
 by its role, so a configured C2 service forms it at run time. No field declares a role for a C2 service either: it
@@ -598,7 +613,7 @@ versioned rewards, are extension content.
 | `limits.max_requests_per_document` | 64 | 1 to 1,024 | `ma.actions.v1.requests` |
 | `limits.max_in_flight_requests` | 256 | 1 to 65,536 | Open receipts of one service; over it, `capacity` |
 | `limits.completed_request_retention_ticks` | 64 | 1 to 65,536 | How long a closed receipt is kept and deduplicated |
-| `limits.max_message_bytes` | 1,024 | 1 to 65,536 | Decoded bytes of one message. The native `NetSpec::maxPayloadBytes` (default 1,024) of each net applies as well |
+| `limits.max_message_bytes` | 1,024 | 1 to 65,536 | Decoded bytes of one message a service sends; over it, that request is refused `message_too_large`. The native `NetSpec::maxPayloadBytes` (default 1,024) of each net applies as well |
 | Services in a configuration | - | 1 to 256 | `services` |
 | Nets, C2 nodes | - | up to 64 each | `nets`, `c2_nodes` |
 | Criteria | - | up to 64 | `task.criteria` |
@@ -624,16 +639,28 @@ all by registered reference `<family>.<name>.v<N>`:
 - a handler registration that maps the kind to an existing permission-scoped Agent path and returns native
   receipts, whose validation, authority and correlation semantics the gateway preserves.
 
-Until a frozen definition and its handler are installed, an extension key fails construction and an extension
-request is refused `unsupported_kind`. No provisional behaviour stands in.
+Until a frozen definition and its handler are both installed, an extension key fails construction and an extension
+request is refused `unsupported_kind`. A frozen definition without its runtime changes neither. No provisional
+behaviour stands in.
 
-| Pending input | Needed by | State on 2026-10-12 |
+Supplied since M0 (main `c23adf4`), as documents only: the
+[engagement extension contract](ma-engagement-contract.md), its [schema](ma-engagement-contract.schema.json), its
+[registration manifest](ma-engagement-registry.json) and fixtures. They freeze seven registrations
+(`training.authorization.v1`, `training.combat.v1`, `engagement.reports.v1`, `engagement.correlation.v1`,
+`engagement.launch_zone.v1`, `engagement.outcome.v1`, `engagement.truth.v1`) and five request kinds (`strike`,
+`countermeasure`, `equipment`, `consent`, `engagement_policy`) with their operations and strict parameters, and a
+language-independent handler boundary (validate, dispatch, refresh, close). The manifest states
+`runtime_installed: false`. None of it executes: every row below that says pending still decides what the SDK does.
+
+| Input | Needed by | State on 2026-10-12 |
 | --- | --- | --- |
-| Frozen extension schemas and request-kind names (strike, countermeasure, consent, policy, stores and weapon reports, combat outcomes and rewards) | full M5, full M7 | Not supplied. Reserved here, undefined |
-| Handler signatures and native receipt/outcome contracts for those kinds | full M5 | Not supplied. The registration seam's signature is frozen jointly before facade integration |
-| `training.authorization.v1` profile definition | full M5 | Not supplied |
-| Full native-state reset fixture (crew loss, fire, an in-flight weapon, a decoy, a consumed store, pending C2 tasks and consent, queued messages, a removed entity) | full M4, M5 core, first package | Not supplied |
-| Dated combat joint and Viewer acceptance evidence (J5, J9, combat J10, the rest of J3 and J8) | full M8 | Not supplied; the [Viewer record](viewer-validation.md) is a diagnostic baseline only |
+| Extension schemas, registrations and request-kind names | full M5, full M7 | **Supplied, frozen as documents.** Not installed: an extension key still fails construction, and a request of those kinds is still refused `unsupported_kind` |
+| `training.authorization.v1` profile and `training.combat.v1` criteria and reward configuration shapes | full M5, full M7 | **Supplied, frozen as documents.** The range-side profile loading and the typed activation operation are proposed there and do not exist |
+| Runtime handlers for the five request kinds, and the concrete C++ ownership and registration seam for them | full M5 | **Pending.** The supplied contract fixes the handler's four steps and leaves the seam to be confirmed before facade integration; no handler is installed |
+| Actor report producers for `engagement.reports.v1` (stores, strikes, countermeasures, delivered consent requests; C++ and Python Agent parity for countermeasure and launch-zone calls) | full M5 | **Pending.** Only the report shapes are frozen |
+| Outcome reduction: evaluated combat criteria, rewards, team classification and termination from native evidence | full M7 | **Pending.** The supplied contract freezes inputs and evidence only and requires a separately agreed, versioned reduction contract. The generic `reason` and `episode_done` rule of [section 13](#13-referee-documents) is unchanged |
+| Full native-state reset fixture (crew loss, fire, an in-flight weapon, a decoy, a consumed store, pending C2 tasks and consent, queued messages, a removed entity) | full M4, M5 core, first package | **Pending.** Not supplied |
+| Dated combat joint and Viewer acceptance evidence (J5, J9, combat J10, the rest of J3 and J8) | full M8 | **Pending.** Not supplied; the [Viewer record](viewer-validation.md) is a diagnostic baseline only |
 
 ## 16. Isolation
 
@@ -650,7 +677,8 @@ non-isolated, and neither kind of run is evidence for the other.
   fixture's expectation, read-back, the seed vectors, this page's tables against the schema, ASCII and local links)
   and `ma_contract_checker` (the checker's own refusals).
 - The fixtures cover identities above 2^53 up to 2^64 - 1, null numeric reports with their validity, message bytes
-  that are not UTF-8, every generic operation, an extension kind, and one refused document per rule above.
+  that are not UTF-8, every generic operation, an extension kind and an oversize message as per-request refusals of
+  a well-formed document, and one malformed document per rule above.
 - The [compatibility baseline](ma-compatibility-baseline.md) records what existing consumers rely on.
 
 These checks hold the contract's documents to the contract. They are not evidence that any interface here exists or

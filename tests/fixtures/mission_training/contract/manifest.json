@@ -1,5 +1,5 @@
 {
-  "$comment": "Read by tools/ma_contract/check.py. expect: valid; valid_unsupported_kind (schema-valid: the listed request operations are an extension's and are refused unsupported_kind until it is installed); schema_invalid; rule_invalid (schema-valid, refused by a rule of docs/sdk/mission-training.md); parse_refused (not strict JSON). The valid fixtures describe one two-ship and C2 scenario at tick 62; they are examples written by hand to the contract, not output of an implementation.",
+  "$comment": "Read by tools/ma_contract/check.py. expect: valid (a well-formed document; request_refusals lists the requests the gateway still refuses one by one at submit, by request id: unsupported_kind for an extension not installed, message_too_large for decoded bytes over the configured limit); schema_invalid, rule_invalid and parse_refused (a malformed document, refused whole: against the schema, against a rule of docs/sdk/mission-training.md, or as strict JSON). The valid fixtures describe one two-ship and C2 scenario at tick 62; they are examples written by hand to the contract, not output of an implementation.",
   "requires": [
     "identity_above_2_53",
     "unknown_numeric_report",
@@ -134,10 +134,17 @@
     },
     {
       "file": "actions.extension-kind.json",
-      "expect": "valid_unsupported_kind",
-      "unsupported_kind": [
-        "strike.new"
-      ]
+      "expect": "valid",
+      "request_refusals": {
+        "31": "unsupported_kind"
+      }
+    },
+    {
+      "file": "actions.message-too-large.json",
+      "expect": "valid",
+      "request_refusals": {
+        "9007199254741008": "message_too_large"
+      }
     },
     {
       "file": "receipts.wing-ma.json",
@@ -145,6 +152,10 @@
     },
     {
       "file": "receipts.retry-expired.json",
+      "expect": "valid"
+    },
+    {
+      "file": "receipts.message-too-large.json",
       "expect": "valid"
     },
     {
@@ -232,11 +243,6 @@
       "file": "invalid.actions.base64-noncanonical.json",
       "expect": "rule_invalid",
       "error_contains": "not canonical"
-    },
-    {
-      "file": "invalid.actions.message-too-large.json",
-      "expect": "rule_invalid",
-      "error_contains": "over the 1024"
     },
     {
       "file": "invalid.actions.ids-not-increasing.json",
