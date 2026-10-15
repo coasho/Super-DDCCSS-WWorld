@@ -14,14 +14,21 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
+#include <exception>
 #include <filesystem>
 #include <fstream>
+#include <functional>
+#include <future>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -137,6 +144,72 @@ double privateBytes() {
         return static_cast<double>(counters.PrivateUsage);
 #endif
     return 0.0;
+}
+
+
+/// Run f on its own thread and wait for it at most `seconds`: false if it did not finish (then it is left running).
+bool finishes(double seconds, std::function<void()> f) {
+    auto task = std::make_shared<std::packaged_task<void()>>(std::move(f));
+    auto done = task->get_future();
+    std::thread([task] { (*task)(); }).detach();
+    if (done.wait_for(std::chrono::duration<double>(seconds)) != std::future_status::ready) return false;
+    done.get(); // (rethrows)
+    return true;
+}
+
+/// A judge whose destruction is observable: the episode's own state, torn down with its World.
+struct Witness : env::EpisodeJudge {
+    std::shared_ptr<std::atomic<bool>> destroyed;
+    explicit Witness(std::shared_ptr<std::atomic<bool>> d) : destroyed(std::move(d)) {}
+    ~Witness() override { destroyed->store(true); }
+};
+
+/// A C2-only episode with one service and a witness judge - quick to build, no flight model.
+env::EpisodeConfig c2Episode(const char* name, std::shared_ptr<std::atomic<bool>> destroyed) {
+    env::EpisodeConfig c;
+    c.name = name;
+    c.c2Nodes = {{"crc", 0.7, 0.0, 200.0}};
+    c.services = {{1, "crc", {}, true, true}};
+    c.judge = [destroyed](const session::World&) {
+        destroyed->store(false);
+        return std::make_unique<Witness>(destroyed);
+    };
+    return c;
+}
+
+/// Thread-safe (no assertions): the fixture scenario run on an episode, sampled after each listed step count.
+std::vector<fixture::Snapshot> trace(MissionEpisode& episode, const fixture::Scenario& scenario, std::uint64_t local, const std::vector<unsigned>& steps) {
+    std::vector<fixture::Snapshot> out;
+    episode.reset(local);
+    const auto sample = [&] {
+        fixture::Snapshot shot;
+        if (episode.range([&](session::World& world) {
+                const std::unique_ptr<World> facade(World::borrowed(world));
+                shot = fixture::capture(*facade);
+            }) != EpisodeStatus::Ok)
+            throw std::runtime_error("trace: the episode refused a capture");
+        out.push_back(std::move(shot));
+    };
+    if (episode.range([&](session::World& world) {
+            const std::unique_ptr<World> facade(World::borrowed(world));
+            fixture::requireDirty(*facade, scenario, fixture::contaminate(*facade, scenario));
+        }) != EpisodeStatus::Ok)
+        throw std::runtime_error("trace: the episode refused contamination");
+    sample();
+    for (const unsigned n : steps) {
+        for (unsigned k = 0; k < n; ++k)
+            if (episode.step() != EpisodeStatus::Ok) throw std::runtime_error("trace: a step was refused");
+        sample();
+    }
+    return out;
+}
+
+void sameTrace(const std::vector<fixture::Snapshot>& a, const std::vector<fixture::Snapshot>& b) {
+    REQUIRE(a.size() == b.size());
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        CAPTURE(i);
+        equivalent(a[i], b[i]);
+    }
 }
 
 } // namespace
@@ -731,4 +804,354 @@ TEST_CASE("mission episode: initialization time and memory, measured", "[ma][epi
                 kResets,
                 (withWorld - before) / 1048576.0, (afterResets - before) / 1048576.0, kResets);
     CHECK(episode.generation() == kResets + 1);
+}
+
+// --- the review of 8254d7e: disposal from a callback, opening during a reset, terrain, worker and thread schedules ----
+
+TEST_CASE("mission episode: disposing of the parent inside a callback neither deadlocks nor frees the World it uses", "[ma][episode][handles][dispose]") {
+    // Each path, bounded: a deadlock fails the case instead of hanging the gate.
+    const auto path = [](const char* name, auto&& body) {
+        INFO(name);
+        auto destroyed = std::make_shared<std::atomic<bool>>(false);
+        auto owner = std::make_unique<MissionEpisode>(c2Episode(name, destroyed));
+        owner->reset(0);
+        auto service = owner->service(1);
+        auto referee = owner->referee();
+        struct Seen {
+            bool aliveAfterDisposal = false, worldUsable = false;
+            EpisodeStatus result = EpisodeStatus::Closed;
+        };
+        auto seen = std::make_shared<Seen>();
+        const bool finished = finishes(10.0, [&] { body(owner, service, referee, destroyed, *seen); });
+        REQUIRE(finished);
+        CHECK(seen->result == EpisodeStatus::Ok);
+        CHECK(seen->aliveAfterDisposal); // (the episode's state outlived the parent until the callback returned)
+        CHECK(seen->worldUsable);        // (and so did the World the callback holds)
+        CHECK(destroyed->load());        // (then it went)
+        CHECK(service.status() == EpisodeStatus::Closed);
+        CHECK(referee.status() == EpisodeStatus::Closed);
+    };
+    path("dispose-from-referee", [](auto& owner, auto&, auto& referee, auto& destroyed, auto& seen) {
+        seen.result = referee.inspect([&](const session::World& world) {
+            owner.reset();
+            seen.aliveAfterDisposal = !destroyed->load();
+            seen.worldUsable = world.c2Nodes().size() == 1 && world.simTime() == 0.0;
+        });
+    });
+    path("dispose-from-service", [](auto& owner, auto& service, auto&, auto& destroyed, auto& seen) {
+        seen.result = service.use([&](session::World& world, const session::AgentIdentity& agent) {
+            owner.reset();
+            seen.aliveAfterDisposal = !destroyed->load();
+            world.step();
+            seen.worldUsable = world.c2Node(agent.vehicle) != nullptr && world.worldSteps() == 1;
+        });
+    });
+    path("dispose-from-range", [](auto& owner, auto&, auto&, auto& destroyed, auto& seen) {
+        MissionEpisode* parent = owner.get();
+        seen.result = parent->range([&](session::World& world) {
+            owner.reset();
+            seen.aliveAfterDisposal = !destroyed->load();
+            world.step(2);
+            seen.worldUsable = world.worldSteps() == 2;
+        });
+    });
+    path("dispose-from-judge", [](auto& owner, auto&, auto&, auto& destroyed, auto& seen) {
+        MissionEpisode* parent = owner.get();
+        seen.result = parent->withJudge([&](env::EpisodeJudge& judge) {
+            owner.reset();
+            seen.aliveAfterDisposal = !destroyed->load();
+            seen.worldUsable = dynamic_cast<Witness*>(&judge) != nullptr;
+        });
+    });
+    path("move-assign-into-active-parent", [](auto& owner, auto&, auto&, auto& destroyed, auto& seen) {
+        auto other = std::make_shared<std::atomic<bool>>(false);
+        MissionEpisode replacement(c2Episode("move-assign-replacement", other));
+        replacement.reset(0);
+        auto kept = replacement.service(1);
+        MissionEpisode* parent = owner.get();
+        seen.result = parent->range([&](session::World& world) {
+            *parent = std::move(replacement); // (the active parent's own episode ends; its World must not, yet)
+            seen.aliveAfterDisposal = !destroyed->load();
+            world.step();
+            seen.worldUsable = world.worldSteps() == 1;
+        });
+        // the parent now is the replacement: its children work, its World is the replacement's
+        if (kept.status() != EpisodeStatus::Ok || parent->step() != EpisodeStatus::Ok || other->load()) seen.worldUsable = false;
+        owner.reset();
+    });
+}
+
+TEST_CASE("mission episode: disposing of the parent while another thread is in a callback returns at once", "[ma][episode][handles][dispose]") {
+    auto destroyed = std::make_shared<std::atomic<bool>>(false);
+    auto owner = std::make_unique<MissionEpisode>(c2Episode("dispose-elsewhere", destroyed));
+    owner->reset(0);
+    auto service = owner->service(1);
+    std::promise<void> entered, release;
+    auto gate = release.get_future().share();
+    std::atomic<bool> worldUsable{false}, aliveAfterDisposal{false};
+    std::thread caller([&] {
+        service.use([&](session::World& world, const session::AgentIdentity&) {
+            entered.set_value();
+            gate.wait(); // (the parent is disposed of meanwhile)
+            aliveAfterDisposal = !destroyed->load();
+            world.step();
+            worldUsable = world.worldSteps() == 1;
+        });
+    });
+    entered.get_future().wait();
+    const bool disposed = finishes(10.0, [&] { owner.reset(); });
+    release.set_value();
+    caller.join();
+    CHECK(disposed);
+    CHECK(aliveAfterDisposal.load());
+    CHECK(worldUsable.load());
+    CHECK(destroyed->load());
+    CHECK(service.status() == EpisodeStatus::Closed);
+}
+
+TEST_CASE("mission episode: a child opened while a reset is building its World answers once the reset is done", "[ma][episode][handles][concurrency]") {
+    for (const bool fails : {false, true}) {
+        CAPTURE(fails);
+        auto destroyed = std::make_shared<std::atomic<bool>>(false);
+        env::EpisodeConfig config = c2Episode("open-during-reset", destroyed);
+        std::promise<void> entered, release;
+        auto gate = release.get_future().share();
+        auto first = std::make_shared<std::atomic<bool>>(true);
+        config.native = [&, first](session::World&) {
+            if (!first->exchange(false)) return; // (only the first reset pauses)
+            entered.set_value();
+            gate.wait();
+            if (fails) throw std::runtime_error("the recipe failed");
+        };
+        MissionEpisode owner(config);
+        std::thread resetter([&] {
+            try {
+                owner.reset(0);
+            } catch (const env::EpisodeError&) {
+            }
+        });
+        entered.get_future().wait();
+        auto service = owner.service(1);
+        auto referee = owner.referee();
+        const EpisodeStatus during = owner.step();
+        release.set_value();
+        resetter.join();
+        CHECK(during == EpisodeStatus::Busy);
+        bool called = false;
+        const EpisodeStatus used = service.use([&](session::World&, const session::AgentIdentity&) { called = true; });
+        const EpisodeStatus inspected = referee.inspect([&](const session::World&) {});
+        if (!fails) {
+            CHECK(used == EpisodeStatus::Ok); // (it belongs to the generation being built, and that generation now has its World)
+            CHECK(called);
+            CHECK(inspected == EpisodeStatus::Ok);
+        } else {
+            CHECK(used == EpisodeStatus::NotReset); // (the generation has no World)
+            CHECK_FALSE(called);
+            CHECK(inspected == EpisodeStatus::NotReset);
+            owner.reset(1);
+            CHECK(service.status() == EpisodeStatus::Stale);
+        }
+    }
+}
+
+TEST_CASE("mission episode: the scenario's terrain is the World's on every reset, offline", "[ma][episode][recipe][terrain]") {
+    env::EpisodeConfig config;
+    config.name = "episode-terrain";
+    Scenario scenario;
+    scenario.source = "episode-terrain";
+    scenario.world.terrain = true;
+    scenario.world.terrainOffline = true; // (local tiles only: nothing is fetched)
+    scenario.world.terrainZoom = 12;
+    scenario.world.terrainUrl = "file:///D:/ENV/tmp/m4-no-terrain-tiles/{z}/{x}/{y}.png";
+    config.scenario = scenario;
+    MissionEpisode episode(config);
+    for (const std::uint64_t local : {0u, 1u}) {
+        episode.reset(local);
+        bool terrain = false;
+        unsigned zoom = 0;
+        double height = std::numeric_limits<double>::quiet_NaN();
+        REQUIRE(episode.range([&](session::World& world) {
+            terrain = world.terrain() != nullptr;
+            if (terrain) zoom = world.terrain()->zoom(), height = world.terrain()->heightAboveEllipsoidM(0.7, 0.1);
+        }) == EpisodeStatus::Ok);
+        CHECK(terrain);
+        CHECK(zoom == 12);
+        CHECK(std::isfinite(height)); // (no tile on disk: the provider still answers, offline)
+    }
+}
+
+TEST_CASE("mission episode: the World's worker count does not change an episode's native sequence", "[ma][episode][seed][workers]") {
+    const std::vector<unsigned> steps{1, 4, 30};
+    std::vector<fixture::Snapshot> reference;
+    for (const unsigned workers : {1u, 2u, 4u}) {
+        CAPTURE(workers);
+        FixtureEpisode e(7, 99);
+        e.config.workers = workers;
+        MissionEpisode episode(e.config);
+        const auto samples = trace(episode, *e.scenario, 2, steps);
+        if (reference.empty()) reference = samples;
+        else sameTrace(samples, reference);
+    }
+}
+
+TEST_CASE("mission episode: episodes on their own threads, resetting at their own times, keep their sequences", "[ma][episode][seed][concurrency]") {
+    const std::vector<unsigned> steps{1, 4, 30};
+    // serial references, one episode at a time
+    const auto alone = [&](std::uint64_t envId, std::uint64_t local) {
+        FixtureEpisode e(envId, 99);
+        MissionEpisode episode(e.config);
+        return trace(episode, *e.scenario, local, steps);
+    };
+    const auto referenceA = alone(7, 2), referenceB = alone(8, 3);
+    // the same episodes on threads of their own, while a third resets and steps without pause
+    std::vector<fixture::Snapshot> tracedA, tracedB;
+    std::exception_ptr failure;
+    std::atomic<bool> running{true};
+    std::atomic<unsigned> churned{0};
+    const auto guarded = [&](auto&& body) {
+        return [&, body] {
+            try {
+                body();
+            } catch (...) {
+                failure = std::current_exception();
+            }
+        };
+    };
+    std::thread a(guarded([&] {
+        FixtureEpisode e(7, 99);
+        MissionEpisode episode(e.config);
+        tracedA = trace(episode, *e.scenario, 2, steps);
+    }));
+    std::thread b(guarded([&] {
+        FixtureEpisode e(8, 99);
+        MissionEpisode episode(e.config);
+        episode.reset(0); // (resets of its own first, at other local episodes)
+        episode.reset(9);
+        tracedB = trace(episode, *e.scenario, 3, steps);
+    }));
+    std::thread churn(guarded([&] {
+        FixtureEpisode e(9, 5);
+        MissionEpisode episode(e.config);
+        for (std::uint64_t k = 0; running.load(); ++k) {
+            episode.reset(k);
+            episode.range([&](session::World& world) {
+                const std::unique_ptr<World> facade(World::borrowed(world));
+                fixture::contaminate(*facade, *e.scenario);
+            });
+            for (int j = 0; j < 3; ++j) episode.step();
+            ++churned;
+        }
+    }));
+    a.join();
+    b.join();
+    running = false;
+    churn.join();
+    if (failure) std::rethrow_exception(failure);
+    CHECK(churned.load() > 0);
+    sameTrace(tracedA, referenceA);
+    sameTrace(tracedB, referenceB);
+}
+
+TEST_CASE("mission episode: metadata is published whole - read at any time, from any thread, during resets and steps", "[ma][episode][handles][concurrency]") {
+    auto destroyed = std::make_shared<std::atomic<bool>>(false);
+    env::EpisodeConfig config = c2Episode("snapshot", destroyed);
+    config.diagnostic = true; // (the World's name carries the generation: name and generation must agree)
+    config.envId = 4;
+    MissionEpisode episode(config);
+    std::atomic<bool> running{true};
+    std::atomic<unsigned> reads{0}, incoherent{0};
+    std::thread reader([&] {
+        while (running.load()) {
+            const auto i = episode.info();
+            const bool open = i->status == EpisodeStatus::Ok;
+            const std::string expected = "snapshot-e4-g" + std::to_string(i->generation);
+            if (open && (i->building || i->worldName != expected || i->worldSeed != env::episode_seeds::world(0, 4, i->localEpisodeIndex))) ++incoherent;
+            if (!open && (!i->worldName.empty() || i->tick != 0)) ++incoherent;
+            if (i->building && i->status != EpisodeStatus::NotReset) ++incoherent;
+            ++reads;
+            // the parent's own getters read one snapshot each; a child opened meanwhile binds to a generation
+            (void)episode.generation(), (void)episode.tick(), (void)episode.worldName(), (void)episode.open();
+            const auto child = episode.service(1);
+            if (child.status() == EpisodeStatus::Ok && child.generation() == 0) ++incoherent;
+        }
+    });
+    for (std::uint64_t k = 0; k < 12; ++k) {
+        episode.reset(k);
+        for (int j = 0; j < 5; ++j) REQUIRE(episode.step() == EpisodeStatus::Ok);
+    }
+    running = false;
+    reader.join();
+    CHECK(reads.load() > 0);
+    CHECK(incoherent.load() == 0);
+    const auto last = episode.info();
+    CHECK(last->status == EpisodeStatus::Ok);
+    CHECK(last->generation == 12);
+    CHECK(last->localEpisodeIndex == 11);
+    CHECK(last->tick == 5);
+    CHECK(last->worldName == "snapshot-e4-g12");
+    CHECK_FALSE(last->building);
+    // a child opened inside a callback binds to the current generation and answers once that call is over
+    std::optional<env::EpisodeService> inside;
+    CHECK(episode.range([&](session::World&) { inside = episode.service(1); }) == EpisodeStatus::Ok);
+    REQUIRE(inside);
+    CHECK(inside->generation() == 12);
+    CHECK(inside->use([](session::World&, const session::AgentIdentity&) {}) == EpisodeStatus::Ok);
+    // ended: Closed, from the parent's own metadata as from its children
+    auto referee = episode.referee();
+    MissionEpisode taken(std::move(episode));
+    CHECK(episode.info()->status == EpisodeStatus::Closed); // NOLINT(bugprone-use-after-move)
+    CHECK(taken.info()->generation == 12);
+    CHECK(referee.status() == EpisodeStatus::Ok);
+}
+
+TEST_CASE("mission episode: World construction inputs - the scenario's admitted keys or the episode's own, never dropped", "[ma][episode][recipe][terrain]") {
+    // without a scenario: the episode's own construction inputs, terrain among them, on every reset
+    env::EpisodeConfig own;
+    own.name = "episode-terrain-own";
+    own.world.terrain = true;
+    own.world.terrainOffline = true;
+    own.world.terrainZoom = 11;
+    own.world.terrainUrl = "file:///D:/ENV/tmp/m4-no-terrain-tiles/{z}/{x}/{y}.png";
+    own.world.capacity = 64;
+    MissionEpisode episode(own);
+    for (const std::uint64_t local : {0u, 3u}) {
+        episode.reset(local);
+        unsigned zoom = 0;
+        REQUIRE(episode.range([&](session::World& world) { zoom = world.terrain() ? world.terrain()->zoom() : 0; }) == EpisodeStatus::Ok);
+        CHECK(zoom == 11);
+    }
+    // a scenario world section that sets what the recipe does not admit is refused, not ignored
+    const auto refused = [](auto change) {
+        env::EpisodeConfig c;
+        c.name = "episode-world-refused";
+        Scenario scenario;
+        scenario.source = "episode-world-refused";
+        change(scenario.world, c);
+        c.scenario = scenario;
+        CHECK_THROWS_AS(MissionEpisode(c), env::EpisodeError);
+    };
+    refused([](WorldOptions& w, env::EpisodeConfig&) { w.dt = 1.0 / 60.0; });
+    refused([](WorldOptions& w, env::EpisodeConfig&) { w.frameSkip = 2; });
+    refused([](WorldOptions& w, env::EpisodeConfig&) { w.workers = 3; });
+    refused([](WorldOptions& w, env::EpisodeConfig&) { w.seed = 5; });
+    refused([](WorldOptions& w, env::EpisodeConfig&) { w.publish = false; });
+    refused([](WorldOptions& w, env::EpisodeConfig&) { w.recordPath = "D:/ENV/tmp/x.fsrec"; });
+    refused([](WorldOptions& w, env::EpisodeConfig&) { w.name = "another"; });
+    refused([](WorldOptions& w, env::EpisodeConfig& c) { w.terrain = true, c.world.terrainZoom = 12; }); // (two sources)
+    // the admitted keys, and the World's name when it is the episode's own, are accepted
+    env::EpisodeConfig fine;
+    fine.name = "episode-world-fine";
+    Scenario scenario;
+    scenario.source = "episode-world-fine";
+    scenario.world.name = "episode-world-fine";
+    scenario.world.capacity = 32;
+    scenario.world.terrain = true;
+    scenario.world.terrainZoom = 10;
+    scenario.world.terrainUrl = "file:///D:/ENV/tmp/m4-no-terrain-tiles/{z}/{x}/{y}.png";
+    fine.scenario = scenario;
+    MissionEpisode accepted(fine);
+    accepted.reset(0);
+    unsigned zoom = 0;
+    REQUIRE(accepted.range([&](session::World& world) { zoom = world.terrain() ? world.terrain()->zoom() : 0; }) == EpisodeStatus::Ok);
+    CHECK(zoom == 10);
 }

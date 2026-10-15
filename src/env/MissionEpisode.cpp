@@ -7,7 +7,6 @@
 
 #include <algorithm>
 #include <filesystem>
-#include <thread>
 
 namespace fsim::env {
 
@@ -52,7 +51,7 @@ void EpisodeJudge::afterStep(const session::World&, std::uint64_t) {}
 // --- the owner's state ----------------------------------------------------------------------------------------------
 
 struct Episode {
-    EpisodeConfig config;
+    std::shared_ptr<const EpisodeConfig> config;
     std::uint64_t localIndex = 0, tick = 0;
     std::string worldName, recordPath;
     std::unique_ptr<EpisodeJudge> judge;
@@ -68,12 +67,17 @@ struct Episode {
         worldName.clear(), recordPath.clear();
         tick = 0;
     }
+    ~Episode() { teardown(); }
 };
 
-session::World* episodeWorld(Episode& episode) noexcept { return episode.world.get(); }
+EpisodeControl::EpisodeControl() : info(std::make_shared<const EpisodeInfo>()) {}
+EpisodeControl::~EpisodeControl() = default;
 
-const session::AgentIdentity* episodeService(Episode& episode, std::uint64_t serviceId) noexcept {
-    for (const auto& [id, agent] : episode.agents)
+session::World* episodeWorld(const EpisodeControl& control) noexcept { return control.episode ? control.episode->world.get() : nullptr; }
+
+const session::AgentIdentity* episodeService(const EpisodeControl& control, std::uint64_t serviceId) noexcept {
+    if (!control.episode) return nullptr;
+    for (const auto& [id, agent] : control.episode->agents)
         if (id == serviceId) return &agent;
     return nullptr;
 }
@@ -81,6 +85,24 @@ const session::AgentIdentity* episodeService(Episode& episode, std::uint64_t ser
 namespace {
 
 [[noreturn]] void refuse(EpisodeStatus status, const std::string& why) { throw EpisodeError(status, "mission episode: " + why); }
+
+/// Publish metadata unless the episode has ended: the Closed snapshot is the last one, whatever a call still finishing does.
+void publish(EpisodeControl& control, EpisodeInfo info) {
+    auto next = std::make_shared<const EpisodeInfo>(std::move(info));
+    const std::lock_guard<std::mutex> lock(control.handoff);
+    if (!control.closed.load()) std::atomic_store(&control.info, std::move(next));
+}
+std::shared_ptr<const EpisodeInfo> published(const EpisodeControl& control) { return std::atomic_load(&control.info); }
+
+/// The metadata of an open (or failed) generation, as its state now is.
+EpisodeInfo infoOf(const Episode& e, std::uint64_t generation) {
+    EpisodeInfo i;
+    i.status = e.world ? EpisodeStatus::Ok : EpisodeStatus::NotReset;
+    i.generation = generation, i.localEpisodeIndex = e.localIndex, i.tick = e.tick;
+    i.worldSeed = generation ? episode_seeds::world(e.config->baseSeed, e.config->envId, e.localIndex) : 0;
+    i.worldName = e.worldName, i.recordPath = e.recordPath;
+    return i;
+}
 
 /// A platform of the recipe by its name: a vehicle's or a C2 node's, unique across both.
 std::uint32_t platformOf(const session::World& world, const std::string& name) {
@@ -115,36 +137,77 @@ void applyRecipe(session::World& world, const EpisodeConfig& c) {
     if (c.native) c.native(world);
 }
 
+/// A scenario's world section, held to what the recipe admits: its construction inputs taken (EpisodeWorld), and
+/// anything else it would set refused rather than dropped.
+void admitScenarioWorld(EpisodeConfig& c) {
+    if (!c.scenario) return;
+    const WorldOptions& w = c.scenario->world;
+    const WorldOptions d;
+    if (w.dt != d.dt || w.frameSkip != d.frameSkip || w.workers != d.workers || w.pinWorkers != d.pinWorkers || w.seed != d.seed ||
+        w.publish != d.publish || w.publishIntervalSeconds != d.publishIntervalSeconds || w.storeDrag != d.storeDrag || w.ground ||
+        !w.recordPath.empty() || w.recordIntervalSeconds != d.recordIntervalSeconds)
+        refuse(EpisodeStatus::Ok, "the scenario's world section may set only its name, capacity, JSBSim root and terrain: timing, workers, "
+                                  "seed, publication, recording and ground are the episode's");
+    if (w.name != d.name && w.name != c.name) refuse(EpisodeStatus::Ok, "the scenario names its World '" + w.name + "', the episode '" + c.name + "'");
+    if (c.world != EpisodeWorld{}) refuse(EpisodeStatus::Ok, "with a scenario, its world section gives the construction inputs: leave the episode's own at their defaults");
+    c.world.capacity = w.capacity;
+    c.world.jsbsimRoot = w.jsbsimRoot;
+    c.world.terrain = w.terrain;
+    c.world.terrainUrl = w.terrainUrl;
+    c.world.terrainZoom = w.terrainZoom;
+    c.world.terrainOffline = w.terrainOffline;
+}
+
 } // namespace
 
 // --- the boundary and the children ----------------------------------------------------------------------------------
 
-EpisodeBoundary::EpisodeBoundary(EpisodeControl& control) noexcept : control_(control) {
+EpisodeBoundary::EpisodeBoundary(std::shared_ptr<EpisodeControl> control) noexcept : control_(std::move(control)) {
     bool expected = false;
-    held_ = control_.busy.compare_exchange_strong(expected, true, std::memory_order_acq_rel);
+    held_ = control_->busy.compare_exchange_strong(expected, true);
 }
 
 EpisodeBoundary::~EpisodeBoundary() {
-    if (held_) control_.busy.store(false, std::memory_order_release);
+    if (!held_) return;
+    std::unique_ptr<Episode> retired;
+    {
+        // (under the hand-off lock: an ending episode either finds the boundary still held, and hands its state to
+        // this release, or finds it free and ends the state itself)
+        const std::lock_guard<std::mutex> lock(control_->handoff);
+        retired = std::move(control_->retired);
+        if (retired) control_->episode = nullptr; // (the state it pointed to ends below)
+        control_->busy.store(false);
+    }
+    // The episode ended during this call: its World goes now that the call no longer uses it.
 }
 
 namespace {
-EpisodeStatus childStatus(const EpisodeControl* control, std::uint64_t generation, EpisodeStatus opened) noexcept {
-    if (!control || control->closed.load(std::memory_order_acquire)) return EpisodeStatus::Closed;
-    if (control->generation.load(std::memory_order_acquire) != generation) return EpisodeStatus::Stale;
-    return opened;
+/// From the published state, without the boundary.
+EpisodeStatus childStatus(const EpisodeControl* control, std::uint64_t generation, bool known) noexcept {
+    if (!control || control->closed.load()) return EpisodeStatus::Closed;
+    if (control->generation.load() != generation) return EpisodeStatus::Stale;
+    if (!known) return EpisodeStatus::UnknownService;
+    const auto info = published(*control);
+    return info->generation == generation && info->status == EpisodeStatus::Ok ? EpisodeStatus::Ok : EpisodeStatus::NotReset;
+}
+/// Under the boundary: from the state itself.
+EpisodeStatus childChecked(const EpisodeControl* control, std::uint64_t generation, bool known) noexcept {
+    if (!control || control->closed.load() || !control->episode) return EpisodeStatus::Closed;
+    if (control->generation.load() != generation) return EpisodeStatus::Stale;
+    if (!known) return EpisodeStatus::UnknownService;
+    return control->episode->world ? EpisodeStatus::Ok : EpisodeStatus::NotReset;
 }
 } // namespace
 
-EpisodeStatus EpisodeService::status() const noexcept { return childStatus(control_.get(), generation_, opened_); }
-EpisodeStatus EpisodeService::checked() const noexcept { return childStatus(control_.get(), generation_, opened_); }
-EpisodeStatus EpisodeReferee::status() const noexcept { return childStatus(control_.get(), generation_, opened_); }
-EpisodeStatus EpisodeReferee::checked() const noexcept { return childStatus(control_.get(), generation_, opened_); }
+EpisodeStatus EpisodeService::status() const noexcept { return childStatus(control_.get(), generation_, known_); }
+EpisodeStatus EpisodeService::checked() const noexcept { return childChecked(control_.get(), generation_, known_); }
+EpisodeStatus EpisodeReferee::status() const noexcept { return childStatus(control_.get(), generation_, true); }
+EpisodeStatus EpisodeReferee::checked() const noexcept { return childChecked(control_.get(), generation_, true); }
 
 // --- the owner --------------------------------------------------------------------------------------------------------
 
 MissionEpisode::MissionEpisode(EpisodeConfig config) : control_(std::make_shared<EpisodeControl>()), state_(std::make_unique<Episode>()) {
-    const EpisodeConfig& c = config;
+    EpisodeConfig& c = config;
     if (c.name.empty()) refuse(EpisodeStatus::Ok, "a World name is required");
     if (!(c.dtS > 0.0) || c.frameSkip < 1 || c.decisionSteps < 1 || c.workers < 1)
         refuse(EpisodeStatus::Ok, "dt must be positive, and frame skip, decision steps and workers at least 1");
@@ -156,21 +219,24 @@ MissionEpisode::MissionEpisode(EpisodeConfig config) : control_(std::make_shared
         if (std::find(ids.begin(), ids.end(), s.serviceId) != ids.end()) refuse(EpisodeStatus::Ok, "service " + std::to_string(s.serviceId) + " given twice");
         ids.push_back(s.serviceId);
     }
-    state_->config = std::move(config);
+    admitScenarioWorld(c);
     // (services bound in ascending id whatever the order given: the order decides nothing, section 7)
-    std::sort(state_->config.services.begin(), state_->config.services.end(),
-              [](const ServiceSpec& a, const ServiceSpec& b) { return a.serviceId < b.serviceId; });
+    std::sort(c.services.begin(), c.services.end(), [](const ServiceSpec& a, const ServiceSpec& b) { return a.serviceId < b.serviceId; });
+    config_ = std::make_shared<const EpisodeConfig>(std::move(config));
+    state_->config = config_;
     control_->episode = state_.get();
 }
 
 MissionEpisode::~MissionEpisode() { close(); }
 
-MissionEpisode::MissionEpisode(MissionEpisode&& other) noexcept : control_(std::move(other.control_)), state_(std::move(other.state_)) {}
+MissionEpisode::MissionEpisode(MissionEpisode&& other) noexcept
+    : control_(std::move(other.control_)), config_(std::move(other.config_)), state_(std::move(other.state_)) {}
 
 MissionEpisode& MissionEpisode::operator=(MissionEpisode&& other) noexcept {
     if (this != &other) {
         close();
         control_ = std::move(other.control_);
+        config_ = std::move(other.config_);
         state_ = std::move(other.state_);
     }
     return *this;
@@ -178,52 +244,64 @@ MissionEpisode& MissionEpisode::operator=(MissionEpisode&& other) noexcept {
 
 void MissionEpisode::close() noexcept {
     if (!control_) return;
-    // Closed first, under the boundary: a child still held - or a call in progress elsewhere, waited out here - never
-    // reaches the World after this. Then the World goes. (Destroying an episode from inside its own call deadlocks.)
-    for (;;) {
-        EpisodeBoundary boundary(*control_);
-        if (boundary.held()) {
-            control_->closed.store(true, std::memory_order_release);
-            control_->episode = nullptr;
-            break;
-        }
-        std::this_thread::yield();
+    std::shared_ptr<EpisodeControl> control = std::move(control_);
+    std::unique_ptr<Episode> state = std::move(state_);
+    config_.reset();
+    {
+        const std::lock_guard<std::mutex> lock(control->handoff);
+        // Closed first: no call that takes the boundary from here on reaches the state.
+        control->closed.store(true);
+        // A call in progress - its callback perhaps this very disposal - still holds the World: it ends it on release.
+        if (control->busy.load()) control->retired = std::move(state);
+        else control->episode = nullptr;
+        EpisodeInfo closed;
+        closed.status = EpisodeStatus::Closed;
+        std::atomic_store(&control->info, std::make_shared<const EpisodeInfo>(std::move(closed)));
     }
-    if (state_) state_->teardown();
-    state_.reset();
-    control_.reset();
+    // (with the boundary free, the state ends here; `episode` is cleared above under the lock, and a call taking the
+    // boundary after that finds `closed` and touches nothing)
+    state.reset();
 }
 
 EpisodeStatus MissionEpisode::enter(const EpisodeBoundary& boundary, session::World*& world) const noexcept {
     if (!boundary.held()) return EpisodeStatus::Busy;
-    if (control_->closed.load(std::memory_order_acquire) || !state_) return EpisodeStatus::Closed;
-    world = state_->world.get();
+    if (control_->closed.load() || !control_->episode) return EpisodeStatus::Closed;
+    world = control_->episode->world.get();
     return world ? EpisodeStatus::Ok : EpisodeStatus::NotReset;
 }
 
-EpisodeJudge* MissionEpisode::currentJudge() noexcept { return state_ ? state_->judge.get() : nullptr; }
+EpisodeJudge* MissionEpisode::currentJudge() noexcept { return control_ && control_->episode ? control_->episode->judge.get() : nullptr; }
 
 std::uint64_t MissionEpisode::reset(std::uint64_t localEpisodeIndex) {
     if (!control_) refuse(EpisodeStatus::Closed, "the episode was moved from");
-    EpisodeBoundary boundary(*control_);
+    // Locals only from here: the recipe or the judge factory may end this episode, and with it this object.
+    const std::shared_ptr<EpisodeControl> control = control_;
+    EpisodeBoundary boundary(control);
     if (!boundary.held()) refuse(EpisodeStatus::Busy, "reset while another call holds the episode");
-    if (control_->closed.load(std::memory_order_acquire) || !state_) refuse(EpisodeStatus::Closed, "the episode is closed");
-    Episode& e = *state_;
+    if (control->closed.load() || !control->episode) refuse(EpisodeStatus::Closed, "the episode is closed");
+    Episode& e = *control->episode;
     // Every earlier child is stale from here on; then the old World and all its generation's state go.
-    const std::uint64_t generation = control_->generation.load(std::memory_order_relaxed) + 1;
-    control_->generation.store(generation, std::memory_order_release);
+    const std::uint64_t generation = control->generation.load() + 1;
+    control->generation.store(generation);
     e.teardown();
     e.localIndex = localEpisodeIndex;
+    EpisodeInfo building = infoOf(e, generation);
+    building.building = true;
+    publish(*control, building);
 
-    const EpisodeConfig& c = e.config;
+    const EpisodeConfig& c = *e.config;
     session::WorldOptions o;
     const std::string name = c.diagnostic ? c.name + "-e" + std::to_string(c.envId) + "-g" + std::to_string(generation) : c.name;
     o.name = name;
     o.dt = c.dtS, o.frameSkip = c.frameSkip;
     o.workers = c.workers, o.pinWorkers = false;
     o.seed = episode_seeds::world(c.baseSeed, c.envId, localEpisodeIndex);
-    o.capacity = c.capacity;
-    o.jsbsimRoot = c.jsbsimRoot;
+    o.capacity = c.world.capacity;
+    o.jsbsimRoot = c.world.jsbsimRoot;
+    o.terrain = c.world.terrain;
+    o.terrainUrl = c.world.terrainUrl;
+    o.terrainZoom = c.world.terrainZoom;
+    o.terrainOffline = c.world.terrainOffline;
     o.publish = c.diagnostic && c.publish;
     const std::string record = c.diagnostic && !c.recordDir.empty() ? (std::filesystem::path(c.recordDir) / (name + ".fsrec")).string() : std::string();
     o.recordPath = record;
@@ -252,56 +330,68 @@ std::uint64_t MissionEpisode::reset(std::uint64_t localEpisodeIndex) {
         e.recordPath = record;
     } catch (const EpisodeError&) {
         e.teardown();
+        publish(*control, infoOf(e, generation));
         throw;
     } catch (const std::exception& error) {
         e.teardown();
+        publish(*control, infoOf(e, generation));
         refuse(EpisodeStatus::NotReset, std::string("the recipe failed: ") + error.what());
     }
+    publish(*control, infoOf(e, generation));
     return generation;
 }
 
 EpisodeStatus MissionEpisode::step() {
     if (!control_) return EpisodeStatus::Closed;
+    const std::shared_ptr<EpisodeControl> control = control_; // (the judge may end this episode)
+    EpisodeBoundary boundary(control);
     session::World* world = nullptr;
-    EpisodeBoundary boundary(*control_);
     const EpisodeStatus s = enter(boundary, world);
     if (s != EpisodeStatus::Ok) return s;
-    Episode& e = *state_;
-    world->step(e.config.decisionSteps);
+    Episode& e = *control->episode;
+    world->step(e.config->decisionSteps);
     ++e.tick;
+    publish(*control, infoOf(e, control->generation.load()));
     if (e.judge) e.judge->afterStep(*world, e.tick);
     return EpisodeStatus::Ok;
 }
 
-std::uint64_t MissionEpisode::generation() const noexcept { return control_ ? control_->generation.load(std::memory_order_acquire) : 0; }
-std::uint64_t MissionEpisode::localEpisodeIndex() const noexcept { return state_ ? state_->localIndex : 0; }
-std::uint64_t MissionEpisode::tick() const noexcept { return state_ ? state_->tick : 0; }
-bool MissionEpisode::open() const noexcept { return state_ && state_->world; }
-std::string MissionEpisode::worldName() const { return state_ ? state_->worldName : std::string(); }
-std::string MissionEpisode::recordPath() const { return state_ ? state_->recordPath : std::string(); }
+std::shared_ptr<const EpisodeInfo> MissionEpisode::info() const {
+    if (!control_) {
+        EpisodeInfo closed;
+        closed.status = EpisodeStatus::Closed;
+        return std::make_shared<const EpisodeInfo>(closed);
+    }
+    return published(*control_);
+}
 
-std::uint64_t MissionEpisode::worldSeed() const noexcept {
-    return state_ ? episode_seeds::world(state_->config.baseSeed, state_->config.envId, state_->localIndex) : 0;
+std::uint64_t MissionEpisode::generation() const { return info()->generation; }
+std::uint64_t MissionEpisode::localEpisodeIndex() const { return info()->localEpisodeIndex; }
+std::uint64_t MissionEpisode::tick() const { return info()->tick; }
+bool MissionEpisode::open() const { return info()->status == EpisodeStatus::Ok; }
+std::string MissionEpisode::worldName() const { return info()->worldName; }
+std::string MissionEpisode::recordPath() const { return info()->recordPath; }
+std::uint64_t MissionEpisode::worldSeed() const { return info()->worldSeed; }
+
+std::uint64_t MissionEpisode::serviceSeed(std::uint64_t serviceId) const {
+    const auto i = info();
+    return config_ && i->generation ? episode_seeds::service(config_->baseSeed, config_->envId, i->localEpisodeIndex, serviceId) : 0;
 }
-std::uint64_t MissionEpisode::serviceSeed(std::uint64_t serviceId) const noexcept {
-    return state_ ? episode_seeds::service(state_->config.baseSeed, state_->config.envId, state_->localIndex, serviceId) : 0;
-}
-std::uint64_t MissionEpisode::componentSeed(std::uint64_t serviceId, std::uint64_t componentId) const noexcept {
-    return state_ ? episode_seeds::component(state_->config.baseSeed, state_->config.envId, state_->localIndex, serviceId, componentId) : 0;
+std::uint64_t MissionEpisode::componentSeed(std::uint64_t serviceId, std::uint64_t componentId) const {
+    const auto i = info();
+    return config_ && i->generation ? episode_seeds::component(config_->baseSeed, config_->envId, i->localEpisodeIndex, serviceId, componentId) : 0;
 }
 
 EpisodeService MissionEpisode::service(std::uint64_t serviceId) {
-    if (!control_ || !state_) return EpisodeService(nullptr, 0, serviceId, EpisodeStatus::Closed);
-    const std::uint64_t generation = control_->generation.load(std::memory_order_acquire);
-    const auto& services = state_->config.services;
+    if (!control_ || !config_) return EpisodeService(nullptr, 0, serviceId, false);
+    const auto& services = config_->services; // (immutable: no boundary needed)
     const bool known = std::any_of(services.begin(), services.end(), [&](const ServiceSpec& s) { return s.serviceId == serviceId; });
-    const EpisodeStatus opened = !known ? EpisodeStatus::UnknownService : state_->world ? EpisodeStatus::Ok : EpisodeStatus::NotReset;
-    return EpisodeService(control_, generation, serviceId, opened);
+    return EpisodeService(control_, control_->generation.load(), serviceId, known);
 }
 
 EpisodeReferee MissionEpisode::referee() {
-    if (!control_ || !state_) return EpisodeReferee(nullptr, 0, EpisodeStatus::Closed);
-    return EpisodeReferee(control_, control_->generation.load(std::memory_order_acquire), state_->world ? EpisodeStatus::Ok : EpisodeStatus::NotReset);
+    if (!control_) return EpisodeReferee(nullptr, 0);
+    return EpisodeReferee(control_, control_->generation.load());
 }
 
 } // namespace fsim::env

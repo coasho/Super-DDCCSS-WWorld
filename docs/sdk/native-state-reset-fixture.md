@@ -1,6 +1,7 @@
 # Native-state reset fixture
 
-Status: supplied source-level test input, 2026-10-15. Full M4 episode/reset/lifetime acceptance remains pending.
+Status: supplied source-level test input, 2026-10-15. Applied to the M4 episode reset by the `mission_episode` gate
+(8254d7e and its review follow-up); M4 acceptance awaits independent review.
 Starting baseline: main `9f18037`. No production source, public API/ABI, permissions or simulation behavior changes.
 
 ## Files and callable contract

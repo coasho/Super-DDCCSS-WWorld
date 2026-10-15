@@ -11,7 +11,9 @@
 // parent's destruction closes them before the World goes, and moving the parent keeps them.
 //
 // Every call that touches the World - reset, step, a child's call, the range's own access - holds the episode's one
-// boundary for its duration. A call that finds it held fails as Busy at once; none waits.
+// boundary for its duration. A call that finds it held fails as Busy at once; none waits. Ending the episode never
+// waits either: a World a call is using outlives the episode until that call returns. Metadata is published whole and
+// readable at any time (EpisodeInfo).
 
 #include "fsim/Comm.h"
 #include "fsim/Scenario.h"
@@ -22,6 +24,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -48,7 +51,7 @@ enum class EpisodeStatus : std::uint8_t {
     Closed,         ///< the episode was destroyed or moved from
     Stale,          ///< the child belongs to an earlier generation
     Busy,           ///< another call holds the episode's boundary
-    NotReset,       ///< no World: never reset, or the last reset failed
+    NotReset,       ///< no World: never reset, the last reset failed, or a reset is building it
     UnknownService, ///< no service of that id in this episode's configuration
     NoJudge,        ///< the configuration makes no task/judge
 };
@@ -101,6 +104,23 @@ public:
     virtual void afterStep(const session::World& world, std::uint64_t tick);
 };
 
+/// The World construction inputs the recipe admits (section 7: a scenario's world section may hold its name, capacity,
+/// JSBSim root and terrain keys). With a scenario they are that scenario's `world` section's, and the episode's own
+/// `world` must be left at its defaults; without one, they are these. They apply to every reset's World.
+struct EpisodeWorld {
+    std::uint32_t capacity = 256;     ///< published vehicle slots
+    std::string jsbsimRoot;           ///< empty: auto-detect
+    bool terrain = false;             ///< physics ground from elevation tiles
+    std::string terrainUrl;           ///< tile template; empty: the native default
+    unsigned terrainZoom = 15;
+    bool terrainOffline = true;       ///< the local tiles alone, never fetched
+    bool operator==(const EpisodeWorld& o) const {
+        return capacity == o.capacity && jsbsimRoot == o.jsbsimRoot && terrain == o.terrain && terrainUrl == o.terrainUrl &&
+               terrainZoom == o.terrainZoom && terrainOffline == o.terrainOffline;
+    }
+    bool operator!=(const EpisodeWorld& o) const { return !(*this == o); }
+};
+
 struct EpisodeConfig {
     std::string name = "episode";                  ///< the World's name; a diagnostic one's is "<name>-e<env>-g<generation>"
     std::uint64_t envId = 0, baseSeed = 0;         ///< seed inputs (section 8)
@@ -108,13 +128,14 @@ struct EpisodeConfig {
     int frameSkip = 4;                             ///< WorldOptions::frameSkip
     unsigned decisionSteps = 1;                    ///< World steps per decision tick (step())
     unsigned workers = 1;                          ///< World worker threads (unpinned)
-    std::uint32_t capacity = 256;                  ///< WorldOptions::capacity
-    std::string jsbsimRoot;                        ///< empty: auto-detect
+    EpisodeWorld world;                            ///< construction inputs without a scenario (with one: its own)
     bool diagnostic = false;                       ///< non-isolated: required for publish and recordDir
     bool publish = false;                          ///< publish the World (diagnostic only)
     std::string recordDir;                         ///< an existing directory: record to "<recordDir>/<world name>.fsrec" (diagnostic only)
-    std::optional<Scenario> scenario;              ///< its environment, effects and vehicles (session::applyScenario); its
-                                                   ///< `world` options are not used - the fields above set the World
+    /// Its environment, effects and vehicles (session::applyScenario), and its world section's admitted construction
+    /// inputs (EpisodeWorld). A world section that sets anything else - timing, workers, seed, publication, recording,
+    /// a ground provider - or names the World otherwise than `name` is refused: the episode decides those.
+    std::optional<Scenario> scenario;
     std::vector<comm::C2NodeSpec> c2Nodes;
     std::vector<EpisodeSystem> systems;
     std::vector<EpisodeNet> nets;
@@ -128,56 +149,80 @@ struct EpisodeConfig {
     std::function<std::unique_ptr<EpisodeJudge>(const session::World&)> judge;
 };
 
-struct Episode; // the owner's state (MissionEpisode.cpp)
-
-/// What parent and children share: the boundary, the closed flag and the current generation. It outlives the World
-/// and is freed with its last holder.
-struct EpisodeControl {
-    std::atomic<bool> busy{false};
-    std::atomic<bool> closed{false};            ///< set under the boundary, never cleared
-    std::atomic<std::uint64_t> generation{0};   ///< advanced under the boundary by each reset
-    Episode* episode = nullptr;     ///< the owner's state while open (stable across moves of the owner)
+/// The episode's metadata, published whole at each change - construction, a reset's start and end, each step, the
+/// episode's end - and read whole: never half of one state and half of another, and never through the boundary, so it
+/// is readable at any time, from any thread, even while a call holds the boundary.
+struct EpisodeInfo {
+    /// Ok: the generation has its World. NotReset: it has none - before the first reset, after a failed one, or while
+    /// `building`. Closed: the episode was destroyed or moved from.
+    EpisodeStatus status = EpisodeStatus::NotReset;
+    bool building = false;                 ///< a reset is building this generation's World now
+    std::uint64_t generation = 0, localEpisodeIndex = 0, tick = 0;
+    std::uint64_t worldSeed = 0;           ///< the generation's (0 before the first reset)
+    std::string worldName, recordPath;     ///< the generation's World's ("" without one; recordPath "" when not recording)
 };
 
-/// The boundary, held for one call: acquired at once or not at all.
+struct Episode; // the owner's state (MissionEpisode.cpp)
+
+/// What parent and children share. It outlives the World and is freed with its last holder.
+struct EpisodeControl {
+    EpisodeControl();
+    ~EpisodeControl();
+    std::atomic<bool> busy{false};            ///< the boundary
+    std::atomic<bool> closed{false};          ///< set once, when the episode ends; never cleared
+    std::atomic<std::uint64_t> generation{0}; ///< advanced by each reset, under the boundary
+    Episode* episode = nullptr;               ///< the owner's state while open: read and written under the boundary
+    std::shared_ptr<const EpisodeInfo> info;  ///< published metadata (std::atomic_load / std::atomic_store)
+    /// Orders an episode's end against the boundary's release. An episode ended while a call holds the boundary - from
+    /// inside that call's callback, or from another thread - hands its state here, World and all; the call releasing
+    /// the boundary ends it, after its callback returned. Nothing waits.
+    std::mutex handoff;
+    std::unique_ptr<Episode> retired;
+};
+
+/// The boundary, held for one call: acquired at once or not at all. It keeps the control block alive for the call -
+/// the parent may end inside it - and on release ends a state handed to it.
 class EpisodeBoundary {
 public:
-    explicit EpisodeBoundary(EpisodeControl& control) noexcept;
+    explicit EpisodeBoundary(std::shared_ptr<EpisodeControl> control) noexcept;
     ~EpisodeBoundary();
     EpisodeBoundary(const EpisodeBoundary&) = delete;
     EpisodeBoundary& operator=(const EpisodeBoundary&) = delete;
     bool held() const noexcept { return held_; }
 
 private:
-    EpisodeControl& control_;
+    std::shared_ptr<EpisodeControl> control_;
     bool held_ = false;
 };
 
-/// A child's view of the owner's state for one call.
-session::World* episodeWorld(Episode& episode) noexcept;
-const session::AgentIdentity* episodeService(Episode& episode, std::uint64_t serviceId) noexcept;
+/// A child's view of the owner's state for one call, under the boundary.
+session::World* episodeWorld(const EpisodeControl& control) noexcept;
+const session::AgentIdentity* episodeService(const EpisodeControl& control, std::uint64_t serviceId) noexcept;
 
-/// One service's context in one generation: what M5's endpoint is built on.
+/// One service's context in one generation: what M5's endpoint is built on. It answers Ok only while its generation is
+/// current and has its World - including a generation whose reset was still building the World when it was opened.
 class EpisodeService {
 public:
     EpisodeService() = default;
-    EpisodeService(std::shared_ptr<EpisodeControl> control, std::uint64_t generation, std::uint64_t serviceId, EpisodeStatus opened)
-        : control_(std::move(control)), generation_(generation), serviceId_(serviceId), opened_(opened) {}
+    EpisodeService(std::shared_ptr<EpisodeControl> control, std::uint64_t generation, std::uint64_t serviceId, bool known)
+        : control_(std::move(control)), generation_(generation), serviceId_(serviceId), known_(known) {}
     std::uint64_t serviceId() const noexcept { return serviceId_; }
     std::uint64_t generation() const noexcept { return generation_; }
-    /// Whether it would answer now (Busy is not reported: the boundary is not taken).
+    /// Whether it would answer now, from the published state (Busy is not reported: the boundary is not taken).
     EpisodeStatus status() const noexcept;
     /// f(World&, its Agent's identity) under the boundary, in its generation only; otherwise the status, f not called.
+    /// The World and identity are valid until f returns - even if the episode ends inside f.
     template <typename F>
     EpisodeStatus use(F&& f) {
         if (!control_) return EpisodeStatus::Closed;
-        EpisodeBoundary boundary(*control_);
+        EpisodeBoundary boundary(control_);
         if (!boundary.held()) return EpisodeStatus::Busy;
         const EpisodeStatus s = checked();
         if (s != EpisodeStatus::Ok) return s;
-        session::World* world = episodeWorld(*control_->episode);
-        const session::AgentIdentity* agent = episodeService(*control_->episode, serviceId_);
-        if (!world || !agent) return EpisodeStatus::UnknownService;
+        session::World* world = episodeWorld(*control_);
+        const session::AgentIdentity* agent = episodeService(*control_, serviceId_);
+        if (!world) return EpisodeStatus::NotReset;
+        if (!agent) return EpisodeStatus::UnknownService;
         f(*world, *agent);
         return EpisodeStatus::Ok;
     }
@@ -186,26 +231,25 @@ private:
     EpisodeStatus checked() const noexcept; ///< under the boundary
     std::shared_ptr<EpisodeControl> control_;
     std::uint64_t generation_ = 0, serviceId_ = 0;
-    EpisodeStatus opened_ = EpisodeStatus::Closed;
+    bool known_ = false;
 };
 
 /// The referee's read of one generation's World: what M5's referee documents are built on.
 class EpisodeReferee {
 public:
     EpisodeReferee() = default;
-    EpisodeReferee(std::shared_ptr<EpisodeControl> control, std::uint64_t generation, EpisodeStatus opened)
-        : control_(std::move(control)), generation_(generation), opened_(opened) {}
+    EpisodeReferee(std::shared_ptr<EpisodeControl> control, std::uint64_t generation) : control_(std::move(control)), generation_(generation) {}
     std::uint64_t generation() const noexcept { return generation_; }
     EpisodeStatus status() const noexcept;
-    /// f(const World&) under the boundary, in its generation only.
+    /// f(const World&) under the boundary, in its generation only; valid until f returns, as for EpisodeService::use.
     template <typename F>
     EpisodeStatus inspect(F&& f) {
         if (!control_) return EpisodeStatus::Closed;
-        EpisodeBoundary boundary(*control_);
+        EpisodeBoundary boundary(control_);
         if (!boundary.held()) return EpisodeStatus::Busy;
         const EpisodeStatus s = checked();
         if (s != EpisodeStatus::Ok) return s;
-        const session::World* world = episodeWorld(*control_->episode);
+        const session::World* world = episodeWorld(*control_);
         if (!world) return EpisodeStatus::NotReset;
         f(*world);
         return EpisodeStatus::Ok;
@@ -215,60 +259,67 @@ private:
     EpisodeStatus checked() const noexcept;
     std::shared_ptr<EpisodeControl> control_;
     std::uint64_t generation_ = 0;
-    EpisodeStatus opened_ = EpisodeStatus::Closed;
 };
 
 class MissionEpisode {
 public:
     /// Validates the configuration and builds no World: generation 0. EpisodeError for: a name empty, dt not
     /// positive, frameSkip, decisionSteps or workers 0, publication or recording without diagnostic, a service id 0
-    /// or given twice.
+    /// or given twice, and a scenario world section the recipe does not admit (EpisodeConfig::scenario).
     explicit MissionEpisode(EpisodeConfig config);
+    /// Ends the episode: its children closed at once. Its World goes now - or, when a call holds the boundary (from
+    /// inside that call, or another thread's), when that call returns, so what it holds stays valid. Never waits.
     ~MissionEpisode();
     MissionEpisode(MissionEpisode&& other) noexcept;
+    /// Ends this episode as the destructor does, then takes the other's: its identity, children and World.
     MissionEpisode& operator=(MissionEpisode&& other) noexcept;
     MissionEpisode(const MissionEpisode&) = delete;
     MissionEpisode& operator=(const MissionEpisode&) = delete;
 
-    /// Destroy the owned World, if any - its children stale from here on - and build a fresh one for local episode
-    /// `localEpisodeIndex`: world seed, recipe, then one Agent per service in ascending id and its binding, then the
-    /// judge. The new generation (the previous plus 1). EpisodeError: Busy or Closed, nothing changed; a recipe that
-    /// failed leaves the episode with no World (NotReset) until a later reset succeeds.
+    /// Advance the generation - every earlier child stale from here on - destroy the owned World, if any, and build a
+    /// fresh one for local episode `localEpisodeIndex`: world seed, recipe, then one Agent per service in ascending id
+    /// and its binding, then the judge. The new generation (the previous plus 1). EpisodeError: Busy or Closed, nothing
+    /// changed; a recipe that failed leaves the episode with no World (NotReset) until a later reset succeeds.
     std::uint64_t reset(std::uint64_t localEpisodeIndex);
     /// One decision tick: decisionSteps World steps, then the judge. NotReset, Busy or Closed otherwise.
     EpisodeStatus step();
 
-    std::uint64_t generation() const noexcept;
-    std::uint64_t localEpisodeIndex() const noexcept;
-    std::uint64_t tick() const noexcept; ///< decision ticks since the last reset
-    bool open() const noexcept;          ///< it has a World
-    std::string worldName() const;       ///< the current World's name ("" before the first reset)
-    std::string recordPath() const;      ///< its recording ("" when not recording)
-    std::uint64_t worldSeed() const noexcept;
-    std::uint64_t serviceSeed(std::uint64_t serviceId) const noexcept;
-    std::uint64_t componentSeed(std::uint64_t serviceId, std::uint64_t componentId) const noexcept;
+    /// The published metadata (EpisodeInfo); the getters below read one snapshot each.
+    std::shared_ptr<const EpisodeInfo> info() const;
+    std::uint64_t generation() const;
+    std::uint64_t localEpisodeIndex() const;
+    std::uint64_t tick() const;            ///< decision ticks since the last reset
+    bool open() const;                     ///< the current generation has its World
+    std::string worldName() const;
+    std::string recordPath() const;
+    std::uint64_t worldSeed() const;
+    std::uint64_t serviceSeed(std::uint64_t serviceId) const;
+    std::uint64_t componentSeed(std::uint64_t serviceId, std::uint64_t componentId) const;
 
-    /// The current generation's children. A service the configuration does not name answers UnknownService.
+    /// The current generation's children. Opening takes no boundary and never fails busy: a child binds to the
+    /// generation current when it is opened (during a reset, the one being built) and its calls take the boundary.
+    /// A service the configuration does not name answers UnknownService.
     EpisodeService service(std::uint64_t serviceId);
     EpisodeReferee referee();
 
-    /// The range's own access to the current World, under the boundary: scenario setup and inspection.
+    /// The range's own access to the current World, under the boundary: scenario setup and inspection. The World is
+    /// valid until f returns, even if the episode ends inside f.
     template <typename F>
     EpisodeStatus range(F&& f) {
         if (!control_) return EpisodeStatus::Closed;
+        EpisodeBoundary boundary(control_);
         session::World* world = nullptr;
-        EpisodeBoundary boundary(*control_);
         const EpisodeStatus s = enter(boundary, world);
         if (s != EpisodeStatus::Ok) return s;
         f(*world);
-        return EpisodeStatus::Ok;
+        return EpisodeStatus::Ok; // (touches nothing of this object: it may have ended inside f)
     }
     /// f(EpisodeJudge&) under the boundary; NoJudge when the configuration makes none.
     template <typename F>
     EpisodeStatus withJudge(F&& f) {
         if (!control_) return EpisodeStatus::Closed;
+        EpisodeBoundary boundary(control_);
         session::World* world = nullptr;
-        EpisodeBoundary boundary(*control_);
         const EpisodeStatus s = enter(boundary, world);
         if (s != EpisodeStatus::Ok) return s;
         EpisodeJudge* judge = currentJudge();
@@ -282,7 +333,8 @@ private:
     EpisodeJudge* currentJudge() noexcept;
     void close() noexcept;
 
-    std::shared_ptr<EpisodeControl> control_; ///< null once moved from
+    std::shared_ptr<EpisodeControl> control_;   ///< null once moved from
+    std::shared_ptr<const EpisodeConfig> config_; ///< immutable after construction
     std::unique_ptr<Episode> state_;
 };
 

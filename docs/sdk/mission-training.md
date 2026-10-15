@@ -13,7 +13,7 @@ exported.
 | Explicit MA-service binding ([section 9](#9-service-binding)) | **Implemented** (M1) in C++, C and Python |
 | Legal noncombat reports with their provenance ([section 10](#legal-report-calls-noncombat-m2)): navigation, own tracks, passive contacts, link tracks, peers, tasks and authority as Agent calls | **Implemented** (noncombat M2) in C++, C and Python. The `ma.observation.v1` document that carries them is not |
 | Complete native-state reset fixture input ([fixture](native-state-reset-fixture.md)) | **Supplied, 2026-10-15**, and applied to the M4 episode reset by the `mission_episode` gate |
-| Independent episode ownership, full fresh reset, generation-bound children and seed streams ([sections 4](#4-ownership-generation-lifetime-and-move) and [8](#8-seed-streams)) | **Implemented** (M4) as the internal native owner `fsim::env::MissionEpisode` (`src/env/MissionEpisode.h`). Not exported: no public header, C function or Python class yet |
+| Independent episode ownership, full fresh reset, generation-bound children and seed streams ([sections 4](#4-ownership-generation-lifetime-and-move) and [8](#8-seed-streams)) | **Implemented, not yet accepted** (M4: 8254d7e and its review follow-up) as the internal native owner `fsim::env::MissionEpisode` (`src/env/MissionEpisode.h`), awaiting independent review. Not exported: no public header, C function or Python class yet |
 | Everything else: the public mission episode, endpoint and referee family, every `ma.*.v1` document (`ma.config.v1` parsing among them), the gateway, receipts, criteria, isolation | **Proposed.** No header, export, C function or Python class for it exists; `fsim.isolation` has its present `AgentProcess` only |
 
 The [SDK's principals](boundary.md) list what the SDK really exports.
@@ -193,9 +193,10 @@ shared between episodes; nothing mutable is.
 - **One boundary.** `reset`, `step` and every endpoint or referee call of one episode are serialised at the episode.
   A call that arrives while another holds the boundary fails as busy; it never waits and never races the World.
 
-**Implemented internally (M4).** `fsim::env::MissionEpisode` is the native owner the public classes above will wrap
-(M5 core). It takes a typed `EpisodeConfig` - the section 7 recipe in native form, sections in the table's order, plus
-a range-side `native` recipe step for setup the document has no field for - and implements this section as written:
+**Implemented internally (M4; awaiting independent acceptance).** `fsim::env::MissionEpisode` is the native owner the
+public classes above will wrap (M5 core). It takes a typed `EpisodeConfig` - the section 7 recipe in native form,
+sections in the table's order, plus a range-side `native` recipe step for setup the document has no field for - and
+implements this section as written:
 
 - Construction validates and builds no World (generation 0). `reset(local_episode_index)` advances the generation
   first, so every earlier child is stale, then destroys the judge, the Agents and the World - its Mission Systems,
@@ -207,10 +208,20 @@ a range-side `native` recipe step for setup the document has no field for - and 
 - `step()` runs `decision_steps` World steps, then the judge, and advances the tick.
 - Children are `EpisodeService` (a service's World and Agent identity, for M5's endpoint) and `EpisodeReferee` (the
   World read-only, for M5's referee documents). They share the control block: `closed`, the current generation and
-  the boundary flag. A child answers `ok` only in its own generation; otherwise `stale`, `closed`, `not_reset` or
-  `unknown_service`, and its callback is never called. A call that finds the boundary held answers `busy` at once.
-- Destroying the episode sets `closed` under the boundary, then releases the World; moving it keeps the control block
-  and its state, so children stay valid; a moved-from episode is closed.
+  the boundary flag. Opening a child takes no boundary and never fails busy: it binds to the generation current at
+  that moment - during a reset, the one being built. A child answers `ok` only while its generation is current and
+  has its World; otherwise `not_reset` (being built, or its reset failed), `stale`, `closed` or `unknown_service`, and
+  its callback is never called. A call that finds the boundary held answers `busy` at once.
+- The episode's metadata - status, generation, local episode, tick, world seed, World name and recording - is
+  published whole (`EpisodeInfo`) at construction, at a reset's start and end, at each step and at the episode's
+  end, and is read without the boundary: at any time, from any thread, never half of one state and half of another.
+- Ending the episode - its destruction, or a move assignment over it - never waits. Its children are closed at once.
+  Its World goes at once when no call holds the boundary; when one does - even a callback of this very episode that
+  disposes of it - the World and everything that call holds stay valid until the call returns, and go then. Moving
+  the episode keeps the control block and its state, so children stay valid; a moved-from episode is closed.
+- World construction inputs are the recipe's: with a scenario, its world section's admitted keys (name, capacity,
+  JSBSim root, terrain); without one, the episode's own. A world section that sets anything else - timing, workers,
+  seed, publication, recording, a ground provider - is refused at construction rather than ignored.
 - A diagnostic episode's World is named `<name>-e<env_id>-g<generation>` and records to that name's `.fsrec` in its
   record directory, so neither publication nor recording is ever shared between episodes or generations.
 
@@ -219,6 +230,8 @@ after crew loss, fire, an in-flight weapon, a decoy, a consumed store, pending C
 and a removed entity, a reset to the same local episode equals a fresh episode of the same inputs and an independent
 World of the same options, seed and recipe - field for field, with nothing normalised (the episode generation is not
 part of the native state) - immediately, after 1, 4 and 30 more steps, and after the whole contamination is replayed.
+The same gate shows the contaminated sequence unchanged by the World's worker count (1, 2 and 4) and by other episodes
+running, resetting and contaminating on threads of their own, against a serial reference.
 
 ## 5. Errors
 

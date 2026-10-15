@@ -1,6 +1,6 @@
 # Claude MA Training Work Allocation
 
-Status: Generic M0, M1 and noncombat M2 delivered; the first complete mission episode gateway package remains pending. M4/M5 have not started.
+Status: Generic M0, M1 and noncombat M2 delivered; M4 implemented (8254d7e and its review follow-up) and awaiting independent acceptance; the first complete mission episode gateway package remains pending. M5 has not started.
 Date: 2026-10-12.
 Progress reviewed: 2026-10-14, main 616327a.
 Delivered baseline: baf476f841970f1f3c90b8de0bf630e8a5478738.
@@ -32,7 +32,7 @@ The Viewer/engagement baseline was separately verified, committed and pushed on 
 
 Generic M0 was delivered in 1874091 and corrected in 182ac58. It consumed the partial Viewer compatibility artifacts and captured the complete generic baseline under D:/ENV/tmp/ma-training-baseline, including public type/vtable metadata, native/Python exports and frozen C++, C99 and Python consumers. The dated [compatibility baseline](../../sdk/ma-compatibility-baseline.md) records provenance and limitations; later packages must verify compatibility against it.
 
-M1 was delivered in 990554b and noncombat M2 in fb23a9b. Follow-ups 9b06c79 and 2bad550 cover binding transitions, foreign-World Agent rejection, peer provenance and the qualified activity-preservation contract. These deliveries do not implement independent mission episodes or the gateway. The first complete package still requires full M4 and M5 core.
+M1 was delivered in 990554b and noncombat M2 in fb23a9b. Follow-ups 9b06c79 and 2bad550 cover binding transitions, foreign-World Agent rejection, peer provenance and the qualified activity-preservation contract. M4 - the internal independent episode owner with full fresh reset, verified with the supplied native-state fixture (4406ff1) - is implemented in 8254d7e and its review follow-up and awaits independent acceptance. The gateway is not implemented. The first complete package still requires accepted M4 and M5 core.
 
 Required inputs at the integration gates are frozen extension schemas/handler contracts, a supplied full native-state reset fixture, and dated combat joint/Viewer acceptance evidence. Core work proceeds independently of new engagement-policy implementation. Record absent inputs as pending; never substitute fabricated success or mark full-program acceptance complete.
 

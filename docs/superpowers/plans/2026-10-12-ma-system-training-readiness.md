@@ -12,7 +12,7 @@
 
 **Delivered baseline:** baf476f841970f1f3c90b8de0bf630e8a5478738, verified and pushed to main. See [current Viewer evidence](../../sdk/viewer-validation.md).
 
-**Progress reviewed:** 2026-10-14, main 616327a. Generic M0 was delivered in 1874091 and corrected in 182ac58; M1 in 990554b; noncombat M2 in fb23a9b. Follow-ups 9b06c79 and 2bad550 address binding transitions, foreign-World Agent rejection, peer provenance and the qualified activity-preservation contract. M4/M5 have not started; the first complete mission episode gateway package and M6-M8 acceptance remain pending.
+**Progress reviewed:** 2026-10-15, main 8254d7e and its review follow-up. Generic M0 was delivered in 1874091 and corrected in 182ac58; M1 in 990554b; noncombat M2 in fb23a9b. Follow-ups 9b06c79 and 2bad550 address binding transitions, foreign-World Agent rejection, peer provenance and the qualified activity-preservation contract. The native-state reset fixture was supplied in 4406ff1. M4 is implemented as the internal episode owner (8254d7e, review follow-up) and awaits independent acceptance; M5 has not started; the first complete mission episode gateway package and M6-M8 acceptance remain pending.
 
 ## Global Constraints
 
