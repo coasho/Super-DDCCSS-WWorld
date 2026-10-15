@@ -277,6 +277,19 @@ set_target_properties(fsim_ma_c_abi_test PROPERTIES C_STANDARD 99 C_STANDARD_REQ
 add_test(NAME ma_c_abi COMMAND fsim_ma_c_abi_test "${FSIM_JSBSIM_DATA_DIR}")
 set_tests_properties(ma_c_abi PROPERTIES LABELS ma-training TIMEOUT 300)
 
+# Same-build existing-native-state input for M4; this target does not implement episode ownership/reset.
+add_library(fsim_native_state_reset_fixture STATIC
+    fixtures/mission_training/NativeStateReset.cpp
+    fixtures/mission_training/NativeStateResetCapture.cpp)
+target_link_libraries(fsim_native_state_reset_fixture PUBLIC fsim::sdk fsim::session)
+fsim_set_warnings(fsim_native_state_reset_fixture)
+add_executable(fsim_native_state_reset_fixture_test test_native_state_reset_fixture.cpp)
+target_link_libraries(fsim_native_state_reset_fixture_test PRIVATE fsim_native_state_reset_fixture)
+target_link_libraries(fsim_native_state_reset_fixture_test PRIVATE fsim::sdk fsim::session Catch2::Catch2WithMain)
+fsim_set_warnings(fsim_native_state_reset_fixture_test)
+add_test(NAME native_state_reset_fixture COMMAND fsim_native_state_reset_fixture_test)
+set_tests_properties(native_state_reset_fixture PROPERTIES LABELS "ma-training;native-engagement" TIMEOUT 300 RUN_SERIAL TRUE)
+
 # Own-platform equipment access and report provenance through public C++ and C99 interfaces.
 add_executable(fsim_ma_equipment_test test_ma_equipment.cpp)
 target_link_libraries(fsim_ma_equipment_test PRIVATE fsim::sdk Catch2::Catch2WithMain)

@@ -12,6 +12,7 @@ exported.
 | --- | --- |
 | Explicit MA-service binding ([section 9](#9-service-binding)) | **Implemented** (M1) in C++, C and Python |
 | Legal noncombat reports with their provenance ([section 10](#legal-report-calls-noncombat-m2)): navigation, own tracks, passive contacts, link tracks, peers, tasks and authority as Agent calls | **Implemented** (noncombat M2) in C++, C and Python. The `ma.observation.v1` document that carries them is not |
+| Complete native-state reset fixture input ([fixture](native-state-reset-fixture.md)) | **Supplied, 2026-10-15.** Executable test setup and oracle; M4 owner/reset acceptance remains pending |
 | Everything else: the mission episode, endpoint and referee family, every `ma.*.v1` document, the gateway, receipts, criteria, isolation | **Proposed.** No header, export, C function or Python class for it exists; `fsim.isolation` has its present `AgentProcess` only |
 
 The [SDK's principals](boundary.md) list what the SDK really exports.
@@ -771,14 +772,14 @@ Supplied since M0 (main `c23adf4`), as documents only: the
 language-independent handler boundary (validate, dispatch, refresh, close). The manifest states
 `runtime_installed: false`. None of it executes: every row below that says pending still decides what the SDK does.
 
-| Input | Needed by | State on 2026-10-12 |
+| Input | Needed by | Current state |
 | --- | --- | --- |
 | Extension schemas, registrations and request-kind names | full M5, full M7 | **Supplied, frozen as documents.** Not installed: an extension key still fails construction, and a request of those kinds is still refused `unsupported_kind` |
 | `training.authorization.v1` profile and `training.combat.v1` criteria and reward configuration shapes | full M5, full M7 | **Supplied, frozen as documents.** The range-side profile loading and the typed activation operation are proposed there and do not exist |
 | Runtime handlers for the five request kinds, and the concrete C++ ownership and registration seam for them | full M5 | **Pending.** The supplied contract fixes the handler's four steps and leaves the seam to be confirmed before facade integration; no handler is installed |
-| Actor report producers for `engagement.reports.v1` (stores, strikes, countermeasures, delivered consent requests; C++ and Python Agent parity for countermeasure and launch-zone calls) | full M5 | **Pending.** Only the report shapes are frozen |
+| Actor report producers for `engagement.reports.v1` (stores, strikes, countermeasures, delivered consent requests; C++ and Python Agent parity for countermeasure and launch-zone calls) | full M5 | **Native calls supplied** in `9f18037`; [equipment access/reports](engagement.md#agent-equipment-access-and-reports) retain native permission and provenance. Mission document refresh and gateway handler integration remain pending |
 | Outcome reduction: evaluated combat criteria, rewards, team classification and termination from native evidence | full M7 | **Pending.** The supplied contract freezes inputs and evidence only and requires a separately agreed, versioned reduction contract. The generic `reason` and `episode_done` rule of [section 13](#13-referee-documents) is unchanged |
-| Full native-state reset fixture (crew loss, fire, an in-flight weapon, a decoy, a consumed store, pending C2 tasks and consent, queued messages, a removed entity) | full M4, M5 core, first package | **Pending.** Not supplied |
+| Full native-state reset fixture (crew loss, fire, an in-flight weapon, a decoy, a consumed store, pending C2 tasks and consent, queued messages, a removed entity) | full M4, M5 core, first package | **Supplied, 2026-10-15.** The [native fixture](native-state-reset-fixture.md) provides executable same-build setup, simultaneous-state assertions and a fresh/replay oracle. Its delivery does not close M4 reset/lifetime or M5 core acceptance |
 | Dated combat joint and Viewer acceptance evidence (J5, J9, combat J10, the rest of J3 and J8) | full M8 | **Pending.** Not supplied; the [Viewer record](viewer-validation.md) is a diagnostic baseline only |
 
 ## 16. Isolation
