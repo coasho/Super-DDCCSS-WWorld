@@ -29,6 +29,25 @@ import private sources or third-party implementation headers. Vendor headers are
 identified from the checked-in third-party tree and GPU include names; an existing
 public SDK header takes precedence over a vendor basename collision.
 
+The graph also keeps native simulation/session dependencies below `env`, keeps
+rendering out of `env`, and keeps the Viewer independent of mission episodes.
+Focused negative fixtures exercise `session -> env`, `env -> render` and
+`viewer -> env` as both links and imports, including native target names and
+aliases. These are checks of the existing policy, not additional runtime layers.
+
+Public headers also reject direct references, forward declarations and aliases
+for the private `session`, `env` and `ipc` namespaces. The existing trusted World
+facade retains its exact native forward declaration, `impl`, `borrowed`, borrowed
+constructor and storage declarations in `include/fsim/World.h`. Only the existing
+World class's direct members are exempt: another class in that header, including
+a nested actor endpoint, cannot reuse the exemption. Comments and string literals
+do not create type references. This is a lexical declaration guard, not a C++ type
+resolver or a security sandbox; M5 must still verify that public actor endpoints
+cannot return a public World/Range/referee handle or bypass Agent permissions.
+
+Source walks are limited to the explicit `src`, `include/fsim` and `third_party`
+roots and prune excluded private directories before descending into them.
+
 Directory ownership includes private helper headers that CMake does not list as
 build inputs. Explicit file ownership takes precedence in two shared directories:
 
@@ -85,3 +104,5 @@ The executable fixtures cover the original `ms -> sim` and `world -> ipc` leaks,
 upward links/imports, cycles, public/private and vendor leakage, headless GPU
 headers/links, unknown modules, shared Flow ownership, transitive platform access,
 comments, conditional branches, whole-archive links and unsupported declarations.
+They also cover mission/Viewer reverse dependencies and private native namespace
+exposure without an include, retaining only the exact legacy World facade seams.

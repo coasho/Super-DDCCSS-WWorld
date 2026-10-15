@@ -8,7 +8,11 @@ namespace fsim::sim {
 /// SI units, ECEF metres; written whole by the worker that stepped the vehicle
 /// and read by observation builders and the viewer.
 ///
-/// Compatibility rule (design 10.3): fields may only be appended.
+/// This existing public layout, including its size and array stride, is frozen.
+/// Appending fields also changes embedded IPC/recording samples and is not ABI
+/// compatible. Additional engines or state require a separately versioned,
+/// sized interface and explicit IPC/recording conversion; preserve this type
+/// for existing consumers. Frozen layout guards: tests/test_state_layout.cpp.
 struct VehicleState {
     static constexpr int kMaxEngines = 4;
     static constexpr int kMaxWheels = 8;

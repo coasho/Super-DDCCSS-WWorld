@@ -4,6 +4,7 @@
 
 #include "fsim/Rng.h"
 #include "session/Scenario.h"
+#include "session/WorldOptions.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -146,21 +147,25 @@ void applyRecipe(session::World& world, const EpisodeConfig& c) {
 /// anything else it would set refused rather than dropped.
 void admitScenarioWorld(EpisodeConfig& c) {
     if (!c.scenario) return;
-    const WorldOptions& w = c.scenario->world;
+    if (c.scenario->vecenv.present) refuse(EpisodeStatus::Ok, "a scenario's vecenv section does not configure a mission episode");
+    // Exact arity makes an added public option a required admission-policy review, as well as a native-mapping
+    // review in session::makeWorldOptions. Every field is admitted, episode-owned or name-checked below.
+    const auto& [name, dt, frameSkip, workers, pinWorkers, seed, capacity, publish, publishIntervalSeconds, jsbsimRoot,
+                 terrain, terrainUrl, terrainZoom, terrainOffline, storeDrag, ground, recordPath, recordIntervalSeconds] = c.scenario->world;
     const WorldOptions d;
-    if (w.dt != d.dt || w.frameSkip != d.frameSkip || w.workers != d.workers || w.pinWorkers != d.pinWorkers || w.seed != d.seed ||
-        w.publish != d.publish || w.publishIntervalSeconds != d.publishIntervalSeconds || w.storeDrag != d.storeDrag || w.ground ||
-        !w.recordPath.empty() || w.recordIntervalSeconds != d.recordIntervalSeconds)
+    if (dt != d.dt || frameSkip != d.frameSkip || workers != d.workers || pinWorkers != d.pinWorkers || seed != d.seed ||
+        publish != d.publish || publishIntervalSeconds != d.publishIntervalSeconds || storeDrag != d.storeDrag || ground ||
+        !recordPath.empty() || recordIntervalSeconds != d.recordIntervalSeconds)
         refuse(EpisodeStatus::Ok, "the scenario's world section may set only its name, capacity, JSBSim root and terrain: timing, workers, "
                                   "seed, publication, recording and ground are the episode's");
-    if (w.name != d.name && w.name != c.name) refuse(EpisodeStatus::Ok, "the scenario names its World '" + w.name + "', the episode '" + c.name + "'");
+    if (name != d.name && name != c.name) refuse(EpisodeStatus::Ok, "the scenario names its World '" + name + "', the episode '" + c.name + "'");
     if (c.world != EpisodeWorld{}) refuse(EpisodeStatus::Ok, "with a scenario, its world section gives the construction inputs: leave the episode's own at their defaults");
-    c.world.capacity = w.capacity;
-    c.world.jsbsimRoot = w.jsbsimRoot;
-    c.world.terrain = w.terrain;
-    c.world.terrainUrl = w.terrainUrl;
-    c.world.terrainZoom = w.terrainZoom;
-    c.world.terrainOffline = w.terrainOffline;
+    c.world.capacity = capacity;
+    c.world.jsbsimRoot = jsbsimRoot;
+    c.world.terrain = terrain;
+    c.world.terrainUrl = terrainUrl;
+    c.world.terrainZoom = terrainZoom;
+    c.world.terrainOffline = terrainOffline;
 }
 
 } // namespace
@@ -304,22 +309,24 @@ std::uint64_t MissionEpisode::reset(std::uint64_t localEpisodeIndex) {
     e.localIndex = localEpisodeIndex;
     publishReady(*control, std::move(building));
     try {
-        session::WorldOptions o;
+        WorldOptions o;
         const std::string name = c.diagnostic ? c.name + "-e" + std::to_string(c.envId) + "-g" + std::to_string(generation) : c.name;
         o.name = name;
         o.dt = c.dtS, o.frameSkip = c.frameSkip;
         o.workers = c.workers, o.pinWorkers = false;
         o.seed = failedInfo.worldSeed;
-        o.capacity = c.world.capacity;
-        o.jsbsimRoot = c.world.jsbsimRoot;
-        o.terrain = c.world.terrain;
-        o.terrainUrl = c.world.terrainUrl;
-        o.terrainZoom = c.world.terrainZoom;
-        o.terrainOffline = c.world.terrainOffline;
+        // The admitted subset is exhaustive too: adding an episode construction field needs an explicit mapping.
+        const auto& [capacity, jsbsimRoot, terrain, terrainUrl, terrainZoom, terrainOffline] = c.world;
+        o.capacity = capacity;
+        o.jsbsimRoot = jsbsimRoot;
+        o.terrain = terrain;
+        o.terrainUrl = terrainUrl;
+        o.terrainZoom = terrainZoom;
+        o.terrainOffline = terrainOffline;
         o.publish = c.diagnostic && c.publish;
         const std::string record = c.diagnostic && !c.recordDir.empty() ? (std::filesystem::path(c.recordDir) / (name + ".fsrec")).string() : std::string();
         o.recordPath = record;
-        auto world = std::make_unique<session::World>(o);
+        auto world = std::make_unique<session::World>(session::makeWorldOptions(o));
         applyRecipe(*world, c);
         std::vector<std::pair<std::uint64_t, session::AgentIdentity>> agents;
         for (const ServiceSpec& s : c.services) { // (ascending service id)

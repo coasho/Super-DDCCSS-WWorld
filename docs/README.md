@@ -34,6 +34,7 @@ These documents explain rationale, intended contracts and domain plans. A roadma
 | [Flight Autonomy (ADR-29)](flight-autonomy.md) | Native autonomy stages and their design/acceptance rationale |
 | [Mission Systems (ADR-30)](mission-systems.md) | Payload, sensor and weapon design with domain milestone planning |
 | [Agents and authority (ADR-31)](agent-boundary.md) | Mission autonomy, platform and range authority decisions |
+| [Simulation/interface evolution boundary](superpowers/specs/2026-10-15-simulation-interface-boundaries.md) | Construction mapping, World ownership, actor separation and fixed public/Viewer transport layouts before M5 |
 | [Composite MA and training design](superpowers/specs/2026-10-12-ma-system-training-readiness-design.md) | Accepted upper-layer MA ownership, P2P/C2 boundaries, independent episode and training contracts |
 | [Claude MA implementation plan](superpowers/plans/2026-10-12-ma-system-training-readiness.md) | Claude vertical implementation packages, required inputs, verification and integration gates |
 | [Claude MA work allocation](superpowers/plans/2026-10-12-ma-system-training-work-allocation.md) | Complete Claude feature assignments, file allowlists, handoffs and first delivery package |

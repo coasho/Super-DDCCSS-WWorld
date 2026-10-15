@@ -315,6 +315,13 @@ Given once to the episode's constructor. Every field is explicit; the only defau
 | `execution.diagnostic`, `publish`, `record_dir` | no | Default: not diagnostic, not published, not recorded. `publish` true or a `record_dir` requires `diagnostic` true |
 | `extensions` | no | [Section 15](#15-extension-seam-and-pending-gates). A key no installed definition registered fails construction |
 
+Construction and future simulation/Viewer extensions follow the
+[simulation/interface evolution boundary](../superpowers/specs/2026-10-15-simulation-interface-boundaries.md).
+M4 native callbacks remain trusted internal setup/access seams. M5 actor endpoints must expose only bound Agent
+operations and legal reports, with no World/native callback, Range/referee, recording or IPC truth escape. Physical
+models may improve without freezing their current numerical outcomes into the gateway contract. Keep additional
+capabilities and telemetry versioned; existing unsized public state layouts remain fixed.
+
 A platform is named by its scenario vehicle's or C2 node's name; names are unique across both. The recipe is
 applied section by section in the table's order. Two kinds of order must not be confused:
 

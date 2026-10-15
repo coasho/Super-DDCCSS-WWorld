@@ -12,7 +12,7 @@
 
 **Delivered baseline:** baf476f841970f1f3c90b8de0bf630e8a5478738, verified and pushed to main. See [current Viewer evidence](../../sdk/viewer-validation.md).
 
-**Progress reviewed:** 2026-10-15, main 8254d7e and its review follow-up. Generic M0 was delivered in 1874091 and corrected in 182ac58; M1 in 990554b; noncombat M2 in fb23a9b. Follow-ups 9b06c79 and 2bad550 address binding transitions, foreign-World Agent rejection, peer provenance and the qualified activity-preservation contract. The native-state reset fixture was supplied in 4406ff1. M4 is implemented as the internal episode owner (8254d7e, review follow-up) and awaits independent acceptance; M5 has not started; the first complete mission episode gateway package and M6-M8 acceptance remain pending.
+**Progress reviewed:** 2026-10-15, main `54b7fb9`. Generic M0 was delivered in 1874091 and corrected in 182ac58; M1 in 990554b; noncombat M2 in fb23a9b. Follow-ups 9b06c79 and 2bad550 address binding transitions, foreign-World Agent rejection, peer provenance and the qualified activity-preservation contract. The native-state reset fixture was supplied in 4406ff1. M4 is implemented as the internal episode owner (`8254d7e`, `c507978`, `54b7fb9`) and has passed independent acceptance; M5 has not started; the first complete mission episode gateway package and M6-M8 acceptance remain pending.
 
 ## Global Constraints
 
@@ -215,14 +215,14 @@ Missing extensions fail explicitly. Missing fixtures/evidence remain pending gat
 **Consumes:** M0 configuration/generation/seed rules and M1 service bindings.
 **Produces:** Internal episode owner, full fresh-world reset and generation-checked endpoint contexts.
 
-- [ ] Add failing tests and register mission_episode with label/timeout: A's weapon/damage/message cannot affect B; resetting A never changes B's sampled sequence; stale handles/intents fail after reset.
-- [ ] Construct one World per episode and apply the deterministic scenario/role/net/store/binding recipe. Each episode owns its task state and cursors.
-- [ ] On reset reconstruct the entire owned World. Do not call legacy resetVehicle as a substitute or clear existing vehicle authority semantics.
-- [ ] Consume the supplied full native-state fixture and test fresh-equivalence after crew loss, fire, in-flight weapon, decoy, consumed store, pending C2 task/consent, queued message and removed entity. Range may configure/inspect referee state; actor requests/releases retain existing Agent/C2 permissions, without Range consent injection to fulfill actor requests. Compare the same env/local episode seed, normalizing only generation metadata, not native outcomes.
-- [ ] Test parent destruction with live children, parent move, two uniquely published diagnostic episodes and reset-safe recording paths; neither handle access nor artifact naming may rely on freed World state.
-- [ ] Derive RNG per env/local episode/stable stream; test worker and asynchronous-reset schedule invariance.
-- [ ] Run ctest --preset ucrt64-headless -R "^mission_episode$" --no-tests=error --output-on-failure plus the legacy reset-preservation case.
-- [ ] Measure initialization time and memory without optimizing ownership yet. Review and commit.
+- [x] Add failing tests and register mission_episode with label/timeout: A's weapon/damage/message cannot affect B; resetting A never changes B's sampled sequence; stale internal contexts fail after reset. Public submitted-intent rejection is an M5 gate.
+- [x] Construct one World per episode and apply the deterministic scenario/role/net/store/binding recipe. Each episode owns its task state and cursors.
+- [x] On reset reconstruct the entire owned World. Do not call legacy resetVehicle as a substitute or clear existing vehicle authority semantics.
+- [x] Consume the supplied full native-state fixture and test fresh-equivalence after crew loss, fire, in-flight weapon, decoy, consumed store, pending C2 task/consent, queued message and removed entity. Range may configure/inspect referee state; actor requests/releases retain existing Agent/C2 permissions, without Range consent injection to fulfill actor requests. Compare the same env/local episode seed, normalizing only generation metadata, not native outcomes.
+- [x] Test parent destruction with live children, parent move, two uniquely published diagnostic episodes and reset-safe recording paths; neither handle access nor artifact naming may rely on freed World state.
+- [x] Derive RNG per env/local episode/stable stream; test worker and asynchronous-reset schedule invariance.
+- [x] Run ctest --preset ucrt64-headless -R "^mission_episode$" --no-tests=error --output-on-failure plus the legacy reset-preservation case.
+- [x] Measure initialization time and memory without optimizing ownership yet. Review and commit.
 
 **Gate:** Every episode is independently reproducible and has no mutable cross-episode state.
 
@@ -234,6 +234,12 @@ Missing extensions fail explicitly. Missing fixtures/evidence remain pending gat
 **Produces:** Public MissionEpisode/Endpoint/Referee interfaces and schema-valid receipts.
 
 Implement the core gateway and noncombat handlers. Freeze extension contracts before facade integration; consume supplied handlers without changing their native semantics. A core-only pass does not complete full M5 program acceptance.
+
+Before exporting the facade, independently verify the accepted M4 inputs and the
+[simulation/interface boundary prerequisites](../specs/2026-10-15-simulation-interface-boundaries.md). Keep the
+native setup callbacks internal and public state/transport layouts fixed. Do not implement formal decision systems
+or training algorithms; fixtures only exercise the public interfaces. Disagreements or missing prerequisites must
+be reported with evidence before dependent implementation proceeds.
 
 - [ ] Add failing actor/referee handle-kind and generation tests before exposing public entrypoints; register ma_observation, ma_actions and mission_c_abi with ma-training labels/timeouts in this package.
 - [ ] Freeze one legal snapshot per decision tick, ingest the DMS inbox once and return owned immutable documents on repeated reads.

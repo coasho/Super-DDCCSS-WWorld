@@ -1,7 +1,7 @@
 # Native-state reset fixture
 
 Status: supplied source-level test input, 2026-10-15. Applied to the M4 episode reset by the `mission_episode` gate
-(8254d7e and its review follow-up); M4 acceptance awaits independent review.
+(`8254d7e`, `c507978`, `54b7fb9`); M4 independent acceptance completed at `54b7fb9`.
 Starting baseline: main `9f18037`. No production source, public API/ABI, permissions or simulation behavior changes.
 
 ## Files and callable contract
@@ -105,7 +105,7 @@ Tests therefore compare exact observations immediately and after successive repl
 30 World steps. Active replay then repeats contamination and delivery on reconstructed/reference Worlds, comparing
 new weapon, decoy, activity, task, consent and send identities as well as the complete captured values. Tests also
 verify queued-message delivery, repeat capture without consumption, isolation from a
-second World, and absence of old native IPC events after reconstruction. Future M4 must compare the same recipe
+second World, and absence of old native IPC events after reconstruction. The episode owner must compare the same recipe
 and effective seed, with only its episode generation metadata normalized, and additionally exercise its own
 task/judge state, cursors, stale handles/requests and lifecycle contracts. If an effective seed lacks a required
 native outcome, report the fixture failure; never force flags or relax the assertion to close the gate.
@@ -144,6 +144,6 @@ source review checked the actor consent path, simultaneous state and oracle limi
 were corrected before the final gates (actual dynamic pressure/load factor, and separate queued-status versus
 delivered-byte assertions).
 
-The full suites, installed episode consumers, process isolation and Viewer/GPU scenarios were not run in this
-test-input delivery. Full M4 and M5 remain pending. The next implementation must independently validate this
-input and apply it to the actual episode reset/lifetime implementation before closing those gates.
+The full suites, installed episode consumers, process isolation and Viewer/GPU scenarios were not run in the original
+test-input delivery. M4 and M5 were pending at that point. M4 subsequently applied this input to the actual episode
+reset/lifetime implementation and passed independent acceptance at `54b7fb9`; M5 remains pending.

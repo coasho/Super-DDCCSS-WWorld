@@ -3,7 +3,9 @@
  * Rules: opaque handles, plain structs with a leading struct_size, buffers
  * owned by the library and valid until the next reset/step/destroy, integer
  * return codes (0 = ok, negative = error; fsim_last_error() has the text),
- * no exceptions, no C++ types. Layouts only grow within a major version. */
+ * no exceptions, no C++ types. Only explicitly size-versioned records may grow
+ * through their documented size checks. Unsized state/control arrays retain
+ * their existing layout and stride; extensions require a versioned interface. */
 #ifndef FSIM_C_H
 #define FSIM_C_H
 

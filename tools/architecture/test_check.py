@@ -21,7 +21,7 @@ class ArchitectureFixtures(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.repo = Path(self.temp.name)
         # Literal fixture graph: core -> platform; sim -> core; session -> sim/ms;
-        # world -> render/core/flow/ipc. Flow shares world/, but owns four files.
+        # env -> session; world -> render/core/flow/ipc; viewer -> world/ipc.
         targets = {
             "platform": ("fsim_platform", [], True),
             "core": ("fsim_core", ["platform"], True),
@@ -29,16 +29,18 @@ class ArchitectureFixtures(unittest.TestCase):
             "ms": ("fsim_ms", ["core"], True),
             "ipc": ("fsim_ipc", ["sim"], True),
             "session": ("fsim_session", ["sim", "ms"], True),
+            "env": ("fsim_env", ["session"], True),
             "render": ("fsim_render", ["core"], False),
             "world": ("fsim_world", ["render", "core", "flow", "ipc"], False),
             "flow": ("fsim_flow", ["core"], False),
+            "viewer": ("flightsim-viewer", ["world", "ipc"], False),
         }
         self.policy = {"modules": {}, "external_targets": ["vsg::vsg", "Vulkan::Vulkan"]}
         for name, (target, dependencies, headless) in targets.items():
             module = {
                 "target": target,
-                "aliases": ["fsim::" + name],
-                "directories": ["src/" + name] if name != "flow" else [],
+                "aliases": [] if name == "viewer" else ["fsim::" + name],
+                "directories": ["src/" + name] if name not in {"flow", "viewer"} else [],
                 "files": [],
                 "allowed_dependencies": dependencies,
                 "headless": headless,
@@ -49,13 +51,21 @@ class ArchitectureFixtures(unittest.TestCase):
                 source = "FlowSolver.cpp"
                 self.write("src/world/FlowSolver.h", "#pragma once\n")
                 self.write("src/world/FlowSolver.cpp", '#include "core/Header.h"\n')
+            elif name == "viewer":
+                module["files"] = ["src/app/viewer_main.cpp"]
+                cmake = "src/app/CMakeLists.txt"
+                source = "viewer_main.cpp"
+                self.write("src/app/viewer_main.cpp", '#include "world/Header.h"\n')
             else:
                 cmake = f"src/{name}/CMakeLists.txt"
                 source = "Header.h"
                 self.write(f"src/{name}/Header.h", "#pragma once\n")
             self.policy["modules"][name] = module
-            self.append(cmake, f"add_library({target} STATIC {source})\n"
-                        f"add_library(fsim::{name} ALIAS {target})\n")
+            if name == "viewer":
+                self.append(cmake, f"add_executable({target} {source})\n")
+            else:
+                self.append(cmake, f"add_library({target} STATIC {source})\n"
+                            f"add_library(fsim::{name} ALIAS {target})\n")
             if dependencies:
                 self.append(cmake, f"target_link_libraries({target} PUBLIC "
                             + " ".join("fsim::" + dependency for dependency in dependencies) + ")\n")
@@ -157,6 +167,30 @@ class ArchitectureFixtures(unittest.TestCase):
         self.append("src/core/Header.h", '#include "session/Header.h"\n')
         self.rejects("undeclared-include", "core -> session")
 
+    def test_native_session_cannot_link_upward_to_env(self):
+        self.append("src/session/CMakeLists.txt", "target_link_libraries(fsim_session PRIVATE fsim::env)\n")
+        self.rejects("forbidden-link", "session -> env")
+
+    def test_native_session_cannot_import_env_without_a_link(self):
+        self.append("src/session/Header.h", '#include "env/Header.h"\n')
+        self.rejects("undeclared-include", "session -> env")
+
+    def test_env_cannot_link_to_render_through_a_native_target_name(self):
+        self.append("src/env/CMakeLists.txt", "target_link_libraries(fsim_env PRIVATE fsim_render)\n")
+        self.rejects("forbidden-link", "env -> render")
+
+    def test_env_cannot_import_render_without_a_link(self):
+        self.append("src/env/Header.h", '#include "render/Header.h"\n')
+        self.rejects("undeclared-include", "env -> render")
+
+    def test_viewer_cannot_link_to_env(self):
+        self.append("src/app/CMakeLists.txt", "target_link_libraries(flightsim-viewer PRIVATE fsim::env)\n")
+        self.rejects("forbidden-link", "viewer -> env")
+
+    def test_viewer_cannot_import_env_without_a_link(self):
+        self.append("src/app/viewer_main.cpp", '#include "env/Header.h"\n')
+        self.rejects("undeclared-include", "viewer -> env")
+
     def test_rendered_world_ipc_dependency_is_required(self):
         cmake = self.repo / "src/world/CMakeLists.txt"
         cmake.write_text(cmake.read_text().replace(" fsim::ipc", ""))
@@ -170,6 +204,78 @@ class ArchitectureFixtures(unittest.TestCase):
     def test_public_relative_include_cannot_import_private_source(self):
         self.append("include/fsim/Public.h", '#include "../../src/core/Header.h"\n')
         self.rejects("public-private", "../../src/core/Header.h")
+
+    def test_public_header_cannot_forward_declare_native_world(self):
+        self.append("include/fsim/Public.h", "namespace fsim::session { class World; }\n")
+        self.rejects("public-private-type", "session")
+
+    def test_public_header_cannot_expose_a_qualified_native_type(self):
+        self.append("include/fsim/Public.h", "fsim::session::World& native_world();\n")
+        self.rejects("public-private-type", "session")
+
+    def test_public_header_cannot_alias_a_native_namespace(self):
+        self.append("include/fsim/Public.h", "namespace native = fsim::session;\n"
+                    "native::World& native_world();\n")
+        self.rejects("public-private-type", "session")
+
+    def test_public_header_cannot_alias_an_unqualified_native_namespace(self):
+        self.append("include/fsim/Public.h", "namespace fsim { namespace native = session; }\n")
+        self.rejects("public-private-type", "session")
+
+    def test_public_header_cannot_alias_an_episode_type(self):
+        self.append("include/fsim/Public.h", "using Episode = fsim::env::MissionEpisode;\n")
+        self.rejects("public-private-type", "env")
+
+    def test_public_header_cannot_forward_declare_native_ipc(self):
+        self.append("include/fsim/Public.h", "namespace fsim { namespace ipc { struct VehicleSample; } }\n")
+        self.rejects("public-private-type", "ipc")
+
+    def trusted_world_header(self):
+        return """namespace fsim {
+namespace session { class World; }
+class FSIM_API World {
+public:
+    session::World& impl() noexcept { return *impl_; }
+    static World* borrowed(session::World& w) { return new World(Borrow{}, w); }
+private:
+    struct Borrow {};
+    World(Borrow, session::World& borrowed);
+    std::shared_ptr<session::World> impl_;
+};
+}
+"""
+
+    def test_existing_trusted_world_seams_are_retained(self):
+        self.write("include/fsim/World.h", self.trusted_world_header())
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+
+    def test_world_header_has_no_file_wide_native_type_exemption(self):
+        self.write("include/fsim/World.h", self.trusted_world_header() +
+                   "class MissionEndpoint { fsim::session::World& native_world(); };\n")
+        self.rejects("public-private-type", "session")
+
+    def test_trusted_world_method_copied_into_actor_is_rejected(self):
+        self.write("include/fsim/World.h", self.trusted_world_header() +
+                   "class MissionEndpoint { session::World& impl() noexcept { return *impl_; } };\n")
+        self.rejects("public-private-type", "session")
+
+    def test_trusted_world_method_copied_into_nested_actor_is_rejected(self):
+        original = self.trusted_world_header()
+        self.write("include/fsim/World.h", original.replace("public:\n", "public:\n"
+                   "    class MissionEndpoint { session::World& impl() noexcept { return *impl_; } };\n"))
+        self.rejects("public-private-type", "session")
+
+    def test_new_native_world_method_is_not_a_legacy_seam(self):
+        self.write("include/fsim/World.h", self.trusted_world_header().replace("public:\n", "public:\n"
+                   "    session::World& new_escape();\n"))
+        self.rejects("public-private-type", "session")
+
+    def test_native_namespace_names_in_literals_and_comments_are_not_types(self):
+        self.append("include/fsim/Public.h", 'const char* text = "fsim::session::World";\n'
+                    '// namespace fsim::env { class MissionEpisode; }\n')
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
 
     def test_public_header_cannot_import_third_party_implementation(self):
         self.write("third_party/stb/stb_image.h", "#pragma once\n")

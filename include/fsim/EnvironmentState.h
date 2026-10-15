@@ -8,7 +8,8 @@ namespace fsim::sim {
 /// training application, applied to every flight model each step, and
 /// published to the viewer for illumination and weather. Plain data, SI.
 ///
-/// Compatibility rule (design 10.3): fields may only be appended.
+/// Public layout is fixed for existing binaries. An extension needs a versioned interface and explicit IPC/recording
+/// adaptation; appending fields alone does not preserve the size expected by an existing caller.
 struct EnvironmentState {
     // Time: simulation epoch as Unix UTC seconds; current UTC = epoch + simTime.
     double epochUtcSeconds = 0.0;

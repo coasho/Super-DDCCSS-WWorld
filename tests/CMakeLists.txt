@@ -305,6 +305,19 @@ fsim_set_warnings(fsim_mission_episode_test)
 add_test(NAME mission_episode COMMAND fsim_mission_episode_test)
 set_tests_properties(mission_episode PROPERTIES LABELS "ma-training" TIMEOUT 900 RUN_SERIAL TRUE)
 
+# Simulation construction, fixed state/transport ABI and output-only diagnostics stay independent of M5.
+add_executable(fsim_simulation_interface_boundary_test
+    test_episode_world_options.cpp
+    test_state_layout.cpp
+    test_simulation_output_boundary.cpp)
+target_link_libraries(fsim_simulation_interface_boundary_test PRIVATE fsim::env fsim_native_state_reset_fixture
+    fsim::sdk fsim::session fsim::ipc Catch2::Catch2WithMain)
+target_compile_definitions(fsim_simulation_interface_boundary_test PRIVATE
+    FSIM_TEST_OUTPUT_DIR="${CMAKE_BINARY_DIR}/simulation-interface-boundary-test")
+fsim_set_warnings(fsim_simulation_interface_boundary_test)
+add_test(NAME simulation_interface_boundary COMMAND fsim_simulation_interface_boundary_test)
+set_tests_properties(simulation_interface_boundary PROPERTIES LABELS "architecture;simulation" TIMEOUT 300 RUN_SERIAL TRUE)
+
 # Own-platform equipment access and report provenance through public C++ and C99 interfaces.
 add_executable(fsim_ma_equipment_test test_ma_equipment.cpp)
 target_link_libraries(fsim_ma_equipment_test PRIVATE fsim::sdk Catch2::Catch2WithMain)

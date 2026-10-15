@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import sys
@@ -20,6 +21,67 @@ INCLUDE = re.compile(r'^[\t ]*#[\t ]*include[\t ]*[<"]([^>"\n]+)[>"]', re.MULTIL
 INCLUDE_DIRECTIVE = re.compile(r'^[\t ]*#[\t ]*include\b[^\n]*', re.MULTILINE)
 # CMake tokens preserve quoted arguments and bracket arguments as one token.
 CMAKE_TOKEN = re.compile(r'"(?:\\.|[^"\\])*"|\[(=*)\[.*?\]\1\]|[^\s()]+|[()]', re.DOTALL)
+PRIVATE_NAMESPACES = "session|env|ipc"
+PRIVATE_TYPE = re.compile(
+    rf"\bnamespace\s+(?:(?:fsim\s*::\s*)?(?:{PRIVATE_NAMESPACES}))\b"
+    rf"|::\s*(?:{PRIVATE_NAMESPACES})\b|\b(?:{PRIVATE_NAMESPACES})\s*::"
+    rf"|\bnamespace\s+\w+\s*=\s*(?:{PRIVATE_NAMESPACES})\b")
+
+
+def files_under(root):
+    """Walk an explicit source root without entering excluded private directories."""
+    for directory, children, files in os.walk(root, followlinks=False):
+        children[:] = [child for child in children if child != ".codex"]
+        for name in files:
+            yield Path(directory) / name
+
+
+def public_type_text(clean, place):
+    """Retain native namespace references except the exact legacy World facade seams.
+
+    This is a declaration guard, not a C++ type resolver or an actor sandbox. A
+    future actor facade still needs runtime permission and isolation acceptance.
+    """
+    clean = re.sub(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'', lambda match: blank(match[0]), clean)
+    if place != "include/fsim/World.h":
+        return clean
+
+    depths, depth = [], 0
+    for character in clean:
+        depths.append(depth)
+        depth += (character == "{") - (character == "}")
+    spans = []
+
+    def statement(source):
+        tokens = re.findall(r"::|\w+|[^\w\s]", source)
+        return re.compile(r"(?<!\w)" + r"\s*".join(re.escape(token) for token in tokens) + r"(?!\w)")
+
+    # Preserve the existing declaration only, never a whole public header or namespace.
+    forward = statement("namespace session { class World; }")
+    for match in forward.finditer(clean):
+        if depths[match.start()] == 1:
+            spans.append(match.span())
+            break
+    world = re.search(r"\bclass\s+FSIM_API\s+World\s*\{", clean)
+    if world and depths[world.start()] == 1:
+        start = world.end()
+        member_depth = depths[start - 1] + 1
+        end = next((at for at in range(start, len(clean))
+                    if clean[at] == "}" and depths[at] == member_depth), len(clean))
+        seams = (
+            "session::World& impl() noexcept { return *impl_; }",
+            "static World* borrowed(session::World& w) { return new World(Borrow{}, w); }",
+            "World(Borrow, session::World& borrowed);",
+            "std::shared_ptr<session::World> impl_;",
+        )
+        for source in seams:
+            for match in statement(source).finditer(clean, start, end):
+                if depths[match.start()] == member_depth:
+                    spans.append(match.span())
+                    break
+    for start, end in reversed(sorted(spans)):
+        clean = clean[:start] + blank(clean[start:end]) + clean[end:]
+    return clean
 
 
 def blank(text):
@@ -114,7 +176,7 @@ def check(repo, policy):
             raise ValueError(f"include directory outside repository: {argument}")
         return directory
 
-    for cmake in sorted((repo / "src").rglob("CMakeLists.txt")):
+    for cmake in sorted(path for path in files_under(repo / "src") if path.name == "CMakeLists.txt"):
         place = cmake.relative_to(repo).as_posix()
         try:
             commands = list(cmake_commands(cmake.read_text(encoding="utf-8")))
@@ -254,15 +316,20 @@ def check(repo, policy):
     search_directories = {module: list(dict.fromkeys(directory for dependency in sorted(reachable[module])
                                                     for directory in include_directories[dependency]))
                           for module in modules}
-    vendor_headers = {path.name for path in (repo / "third_party").rglob("*")
+    vendor_headers = {path.name for path in files_under(repo / "third_party")
                       if path.is_file() and path.suffix in SOURCE_SUFFIXES}
-    sources = [path for path in (repo / "src").rglob("*") if path.is_file() and path.suffix in SOURCE_SUFFIXES]
-    public = [path for path in (repo / "include/fsim").rglob("*") if path.is_file() and path.suffix in SOURCE_SUFFIXES]
+    sources = [path for path in files_under(repo / "src") if path.is_file() and path.suffix in SOURCE_SUFFIXES]
+    public = [path for path in files_under(repo / "include/fsim") if path.is_file() and path.suffix in SOURCE_SUFFIXES]
     for path in sorted(sources + public):
         place = path.relative_to(repo).as_posix()
         is_public = path.is_relative_to(repo / "include/fsim")
         module = None if is_public else owner(path)
         clean = without_comments(path.read_text(encoding="utf-8"))
+        if is_public:
+            declarations = public_type_text(clean, place)
+            for match in PRIVATE_TYPE.finditer(declarations):
+                at = f"{place}:{clean.count(chr(10), 0, match.start()) + 1}"
+                issue("public-private-type", at, match[0])
         for directive in INCLUDE_DIRECTIVE.finditer(clean):
             if not INCLUDE.match(directive[0]):
                 at = f"{place}:{clean.count(chr(10), 0, directive.start()) + 1}"

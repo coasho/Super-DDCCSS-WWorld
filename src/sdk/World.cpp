@@ -7,6 +7,7 @@
 #include "core/Time.h"
 #include "session/AgentRules.h"
 #include "session/World.h"
+#include "session/WorldOptions.h"
 
 #include <chrono>
 #include <ctime>
@@ -631,26 +632,7 @@ comm::Node* Vehicle::node() { return world_ ? world_->impl_->network().node(id_)
 // --- World --------------------------------------------------------------------------
 
 World::World(const WorldOptions& options) : environment_(*this) {
-    session::WorldOptions o;
-    o.name = options.name;
-    o.dt = options.dt;
-    o.frameSkip = options.frameSkip;
-    o.workers = options.workers;
-    o.pinWorkers = options.pinWorkers;
-    o.seed = options.seed;
-    o.capacity = options.capacity;
-    o.publish = options.publish;
-    o.publishIntervalSeconds = options.publishIntervalSeconds;
-    o.jsbsimRoot = options.jsbsimRoot;
-    o.terrain = options.terrain;
-    o.terrainUrl = options.terrainUrl;
-    o.terrainZoom = options.terrainZoom;
-    o.terrainOffline = options.terrainOffline;
-    o.storeDrag = options.storeDrag;
-    o.ground = options.ground;
-    o.recordPath = options.recordPath;
-    o.recordIntervalSeconds = options.recordIntervalSeconds;
-    impl_ = std::make_shared<session::World>(o);
+    impl_ = std::make_shared<session::World>(session::makeWorldOptions(options));
     // Default epoch: now, so the viewer's sun matches the wall clock unless told otherwise.
     auto s = impl_->environment();
     s.epochUtcSeconds = static_cast<double>(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count());

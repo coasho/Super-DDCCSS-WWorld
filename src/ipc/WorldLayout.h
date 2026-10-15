@@ -3,7 +3,12 @@
 // Shared-memory layout of a published world (design 9.7, ADR-19). Plain
 // data with atomics only where the seqlock/sequence protocol needs them; the
 // same header is compiled into fsim.dll (publisher) and the viewer (mirror).
-// The layout only grows within kLayoutVersion.
+// Existing offsets, sizes and sample strides are frozen within kLayoutVersion.
+// In particular, appending to the embedded VehicleState or ControlInputs changes
+// every following field and array element. A different sample representation
+// needs an explicit layout version and publisher/mirror conversion; keep the
+// existing public state ABI independent of that transport revision.
+// Frozen layout guards: tests/test_state_layout.cpp.
 
 #include "sim/ControlInputs.h"
 #include "sim/EnvironmentState.h"
