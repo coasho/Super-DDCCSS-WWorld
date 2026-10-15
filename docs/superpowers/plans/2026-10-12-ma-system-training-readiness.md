@@ -1,6 +1,6 @@
-# MA System Integration and Training Readiness Implementation Plan
+# Claude MA Training Implementation Plan
 
-> **For agentic workers:** Use the applicable plan-execution workflow for the current tool environment. Follow the [vertical work allocation](2026-10-12-ma-system-training-work-allocation.md): each feature owner delivers native implementation, language adapters, tests, examples, documentation and evidence. Shared paths and native/GUI execution use exclusive windows. Claude context is in the [project memory](../../../.claude/CLAUDE.md).
+> **For Claude:** This plan contains Claude assignments only. Follow the [Claude work allocation](2026-10-12-ma-system-training-work-allocation.md): each assigned feature includes native implementation, language adapters, tests, examples, documentation and evidence. Shared paths and native/GUI execution use exclusive windows. Persistent context is in the [project memory](../../../.claude/CLAUDE.md).
 
 **Goal:** Make the SDK support upper-layer composite MA systems and correct local/P2P/C2 training episodes through public, compatible interfaces.
 
@@ -10,7 +10,9 @@
 
 **Spec:** [MA system integration design](../specs/2026-10-12-ma-system-training-readiness-design.md).
 
-**Delivered baseline:** baf476f841970f1f3c90b8de0bf630e8a5478738, verified and pushed to main. See [current Viewer evidence](../../sdk/viewer-validation.md). MA contract and implementation packages remain pending.
+**Delivered baseline:** baf476f841970f1f3c90b8de0bf630e8a5478738, verified and pushed to main. See [current Viewer evidence](../../sdk/viewer-validation.md).
+
+**Progress reviewed:** 2026-10-14, main 616327a. Generic M0 was delivered in 1874091 and corrected in 182ac58; M1 in 990554b; noncombat M2 in fb23a9b. Follow-ups 9b06c79 and 2bad550 address binding transitions, foreign-World Agent rejection, peer provenance and the qualified activity-preservation contract. M4/M5 have not started; the first complete mission episode gateway package and M6-M8 acceptance remain pending.
 
 ## Global Constraints
 
@@ -21,19 +23,19 @@
 - Preserve Vehicle.reset authority/task/override/C2 ownership semantics and existing MA retirement/history behavior.
 - SDK owns sensing, links, release, flight, guidance, fuzes, collisions and damage. Do not add client-side physics or self-destruction scripts.
 - Existing physics/cards/control/equipment defaults are unchanged. New report/policy/environment configuration is explicit.
-- All maintained files and commit messages are English; conversation is Chinese.
+- All communication with Claude, maintained files and commit messages are English.
 - Tools/caches are under D:/ENV; TMP, TEMP and TORCH_EXTENSIONS_DIR are D:/ENV/tmp.
 - Read upstream support matrices before changing a toolchain or dependency. This plan requires no new environment installation.
 - Raw background output goes to a file without a trailing buffered filter. One job has one background entry.
 - Viewer tests are fullscreen, run complete scenarios, and retain exactly two event-relative strike captures.
-- Only the separately delivered Viewer baseline is complete below. MA contracts and M1-M8 implementation/acceptance remain pending; proposed interfaces are not implemented APIs.
+- Distinguish delivered M0/M1/noncombat M2 from pending mission episodes, gateway, composition, training and final acceptance. Contract fixtures do not establish runtime gateway behavior.
 
 ## Review Focus
 
 - An old episode reference arrives after reset: reject it without affecting new state.
 - A second MA service or internal component consumes shared state: explicit ownership must prevent traversal-order grants and destructive inbox races.
 - A report is unknown, stale or not delivered: preserve that condition; never fill it from referee truth.
-- A consent answer is duplicated, reordered, canceled, expired or for another policy/activity: no unauthorized or repeated release.
+- An external native receipt is delayed, duplicated or stale: preserve its correlation and authority; transport never fabricates execution or success.
 - One team member ends while others continue, or a next-step reset is pending: correct final observations, bootstrap flags and zero old-episode side effects.
 
 ## Dependency and stop gates
@@ -42,37 +44,35 @@
 | --- | --- | --- |
 | M0 Baseline/contracts | None | Current compatible baseline and signed-off interface/spec vocabulary |
 | M1 MA-service ownership | M0 | Explicit owner/binding path for new mission scenarios |
-| M2 Agent parity/reports | M0; M1 for multi-service cases | C++/C/Python legal equipment access and report provenance |
-| M3 Authorization profile | M1; M2 for report-dependent checks | Bounded opt-in policy and correlated request lifecycle |
+| Noncombat M2 Agent parity/reports | Generic M0; M1 for multi-service cases | C++/C/Python legal navigation/contact/track/task/authority reports |
 | M4 Episode lifecycle | M0-M1 | Fresh independent World per episode; stale-reference rejection |
-| M5 core / combat / full | Core: generic M0, M1, noncombat M2, full M4; combat adds combat M2 and M3; full requires both | Public role-scoped observations and typed asynchronous requests |
-| M6 noncombat / full | Noncombat: M5 core; full: M5 full | Upper-layer gateway/components/BT/planner fixture with deterministic arbitration |
-| M7 core / combat / full | Core: M4, M5 core, M6 noncombat; combat adds M5 combat and outcome contracts; full adds both streams and M6 full | Independent batch sampling, team outcomes and training lifecycle |
-| M8 Joint acceptance/delivery | M0-M7 | Installed consumers, isolated actor path, native/viewer evidence and final stop |
+| M5 core | Generic M0, M1, noncombat M2 and full M4 | Public role-scoped observations, generic gateway and noncombat asynchronous requests |
+| M6 noncombat | M5 core | Upper-layer gateway/components/BT/planner fixture with deterministic arbitration |
+| M7 core | M4, M5 core and M6 noncombat | Independent batch sampling, role lifecycle, noncombat criteria and referee-stream transport |
+| M8 generic delivery | Claude packages and current compatibility inputs | Installed consumers, isolated actor path and generic joint evidence |
 
-M2 and M4 can proceed independently after their inputs are frozen. M3 and M4 share identity/generation semantics, not mutable source ownership. Do not start downstream work against undocumented provisional signatures.
+Noncombat M2 and M4 can proceed independently after their inputs are frozen. Do not start downstream work against undocumented provisional signatures.
 
-M5 core and noncombat composition do not require M3. Full M4 still requires the agreed Codex-owned combat-state reset fixture using existing SDK behavior; that fixture need not wait for M3. Interim noncombat smoke checks do not complete full M4 or M5 core. Full M5/M7/M8 gates retain all accepted combat and noncombat cases.
+M5 core and noncombat composition do not require M3. Full M4 consumes a supplied native-state reset fixture using existing SDK behavior; that fixture need not wait for new policy implementation. Interim smoke checks do not complete full M4 or M5 core. Full M5/M6/M7/M8 acceptance retains every case in the neutral design and consumes the required integration inputs below.
 
 ## Planned file map
 
-| Area | Existing files | New files |
+| Area | Existing integration files | Added or planned files |
 | --- | --- | --- |
 | Contracts | docs/agent-boundary.md, docs/sdk/agents.md, docs/sdk/boundary.toml | docs/sdk/ma-composition.md, docs/sdk/mission-training.md, docs/sdk/ma-contract.schema.json |
 | Binding | src/session/World.h/.cpp, MaCore.h/.cpp, src/sdk/World.cpp | include/fsim/MAService.h, src/session/MaServiceBindings.h/.cpp |
-| Safe equipment reports | include/fsim/Agent.h, src/sdk/Agent.cpp, fsim_mission_c.cpp, python/fsim/agent.py, python/src/_native_mission.c | include/fsim/MAReports.h, src/session/MaReports.h/.cpp |
-| Policy | src/session/MaCore.h/.cpp, MaConsentLedger.h, AgentRules.cpp, SDK/native DMS adapters | include/fsim/EngagementPolicy.h, src/session/EngagementPolicy.h/.cpp |
+| Legal noncombat reports | Navigation/contact/track/task/authority portions of include/fsim/Agent.h, src/sdk/Agent.cpp, fsim_mission_c.cpp, python/fsim/agent.py, python/src/_native_mission.c | include/fsim/MAReports.h, src/session/MaReports.h/.cpp |
 | Episode/actions | src/env/CMakeLists.txt, src/sdk/CMakeLists.txt | src/env/MissionEpisode.h/.cpp, MissionActions.h/.cpp, MissionObservation.h/.cpp |
 | Public environment | SDK/native registration files, python/CMakeLists.txt, python/fsim/__init__.py | include/fsim/MissionEpisode.h, fsim_mission_env.h, src/sdk/MissionEpisode.cpp, fsim_mission_env_c.cpp, python/src/_native_mission_env.c/.h, python/fsim/mission.py |
 | Composition | Existing AgentProcess proxy and examples documentation | examples/python/ma_composition/contracts.py, components.py, system.py, run.py, README.md |
 | Training batch | Environment/SDK/native build registration | src/env/MissionBatch.h/.cpp, MissionTask.h/.cpp, include/fsim/MissionBatch.h |
-| Verification | tests/CMakeLists.txt, tests/package_consumer/CMakeLists.txt, cmake/RunPackageConsumer.cmake, tools/boundary | New focused tests, joint scenario fixtures and installed C/Python consumers described below |
+| Verification | tests/CMakeLists.txt, tests/mission_package_consumer/CMakeLists.txt, cmake/RunMissionPackageConsumer.cmake, tools/boundary | Focused tests, joint scenario fixtures and installed C++/C99/Python consumers described below |
 
-This map identifies integration paths; the [vertical allocation](2026-10-12-ma-system-training-work-allocation.md) assigns feature owners. New file names define ownership seams, not an instruction to move unrelated code. Keep existing runtime type owners and adapter conventions. Generic schema envelopes and combat extensions have separate owners/files; use explicit shared-path handoffs for registrations and facade integration.
+This map contains Claude integration paths; the [work allocation](2026-10-12-ma-system-training-work-allocation.md) records its complete feature scope. M0/M1/noncombat M2 files now exist; later filenames remain planned seams. The delivered package sections below identify actual files. Keep existing runtime type owners and adapter conventions. Consume frozen external contracts at agreed schema/handler registration points, using exclusive shared-file handoffs.
 
 ## Shared proposed interfaces
 
-These are new interfaces. Existing Agent/World/VecEnv interfaces remain source and binary compatible.
+The service binding interface is delivered in M1. The mission environment family and composition contracts below remain proposed. Existing Agent/World/VecEnv interfaces remain source and binary compatible. The [public contract](../../sdk/mission-training.md) and exported headers are authoritative for implemented signatures.
 
 ### Explicit service binding
 
@@ -153,87 +153,60 @@ In examples/python/ma_composition/contracts.py:
 
 These are example-only Python contracts, not new SDK plugin vtables. The system owns legal blackboard, component timing, arbitration and lifecycle. An outcome handed to a decision component contains its permitted mission feedback, not raw referee truth.
 
-### Opt-in policy interface
+## Required integration inputs
 
-In include/fsim/EngagementPolicy.h define EngagementPolicyV1 with policyId/revision (uint64), strikePolicy (existing comm::StrikePolicy), requestValidityS (positive double), authorizerRoleIds and activationRoleIds (vectors of uint32). Eligibility always uses existing own-designation and native selected-store checks.
+Consume frozen extension schemas, request-kind/handler registrations, native receipt/outcome contracts, full native-state reset fixtures and current joint/visual evidence at the agreed integration seams. These are inputs, not Claude implementation assignments.
 
-    bool loadEngagementPolicy(World&, std::uint32_t platform,
-                              const EngagementPolicyV1&, bool initiallyActive,
-                              std::string* error);
-    std::uint64_t activateEngagementPolicy(Agent& c2, comm::SystemId destination,
-                                          std::uint64_t policyId, std::uint64_t revision,
-                                          comm::DmsReason* why);
+Missing extensions fail explicitly. Missing fixtures/evidence remain pending gates. Do not implement provisional semantics or manufacture acceptance to satisfy an unavailable input. Core work proceeds independently of new policy implementation; full-program gates follow the complete neutral design.
 
-Loading is Range-only. Activation requires an authenticated role with existing kWeapons permission and explicit membership in the profile's activationRoleIds. Approving roles must both approve strikes under current RBAC and belong to authorizerRoleIds. Reserve local native DMS topic 18 for the versioned activation command, with normal CommandStatus responses; this is not a normative ASK wire-topic number.
+## M0: Freeze baseline and complete generic contract tables
 
-C/Python mirror these operations through a Range-only JSON profile loader and a typed C2 activation helper. The mission action kind c2.activate_policy calls the same helper, never raw free-form native-topic injection. No profile or initiallyActive=false retains legacy behavior until an authorized activation arrives.
+**Status:** Delivered in 1874091; contract corrections in 182ac58. This is a contract and compatibility baseline, not a mission gateway implementation.
 
-## M0: Freeze baseline and complete contract tables
+**Files:** docs/sdk/mission-training.md, ma-composition.md, ma-contract.schema.json and ma-compatibility-baseline.md; ADR-31 and SDK references; tools/ma_contract; tests/fixtures/mission_training/contract. Baseline artifacts are under D:/ENV/tmp/ma-training-baseline.
 
-**Files:** Design/plan above; docs/agent-boundary.md; docs/sdk/agents.md; new docs/sdk/ma-composition.md, mission-training.md and ma-contract.schema.json; baseline artifacts under D:/ENV/tmp/ma-training-baseline.
-
-**Consumes:** Delivered main baseline baf476f841970f1f3c90b8de0bf630e8a5478738 and its evidence. Partial compatibility artifacts are under D:/ENV/tmp/viewer-strike-delivery-20261012/compatibility; their remaining coverage is listed in the vertical allocation.
+**Consumes:** Delivered main baseline baf476f841970f1f3c90b8de0bf630e8a5478738 and its evidence, including the supplied partial compatibility artifacts.
 **Produces:** Frozen public compatibility artifact, schema v1, service binding and lifetime/error contracts.
 
-- [x] Review, verify, separately commit and push the Viewer/engagement baseline on main: baf476f841970f1f3c90b8de0bf630e8a5478738. Full Release run: 652/653, with the sole module-registration failure corrected and architecture checks revalidated in both presets; final headless selection 11/11 and complete fullscreen native strike passed. See the dated evidence for counts, limits and reproduction.
-- [ ] Capture HEAD, dirty diff, protected model/card/control hashes, native/Python exports, CTest inventory, existing public type/vtable metadata, and old-header consumer binaries with dependency/data manifests.
-- [ ] Define MA system/service/component/actor/platform IDs, scopes and episode generations. The existing MaCore entity ownership and moved local ASK reference path are clarified in ADR-31; explicit configured service contracts remain to be frozen.
-- [ ] Finish every observation/action kind's fields, availability rules, native mapping, unknown-field/error behavior and sizes. Add round-trip fixtures for IDs above 2^53, unknown numeric reports and non-UTF-8 message bytes. Use JSON Schema 2020-12 as a documented dialect; no new runtime dependency is required.
-- [ ] Specify configuration v1: base_seed, env_id, scenario recipe, dt/frame_skip/decision_steps, explicit service bindings, role/net/package setup, completed-request retention ticks, maximum in-flight requests/document bytes, authorization profile and task criterion. Initial defaults are workers=1 and publish=false; diagnostic names/paths include env and generation; batch worker budget is explicit.
-- [ ] Define public PIMPL ownership/move/error behavior and C functions before workers edit bindings. All new symbol names enter explicit SDK boundary classifications.
-- [ ] Validate English documents, local links and schema fixtures; classify every proposed endpoint method as Range, Agent or Referee. Do not call this formal ASK compliance.
-- [ ] Review and commit the accepted contract slice separately on main.
+- [x] Capture the dated compatibility baseline: protected inputs, native/Python exports, public layouts/vtables, test inventory and frozen C++, C99 and Python consumers with provenance.
+- [x] Freeze identities, generations, service binding, ownership/move/lifetime/errors, configuration, native mappings, document limits and principal classifications.
+- [x] Deliver the documented JSON Schema 2020-12 subset, round-trip/refusal fixtures and standard-library checker, including large IDs, unknown numeric reports and binary messages.
+- [x] Commit the generic contracts and corrections separately on main. Runtime implementation and later compatibility verification remain package-specific gates.
 
-**Gate:** A fresh implementer can construct each request/report and identify its authority without guessing. Current baseline failures are listed rather than attributed to this plan.
+**Gate:** Delivered contract vocabulary and dated evidence are in the [public contract](../../sdk/mission-training.md) and [compatibility baseline](../../sdk/ma-compatibility-baseline.md). Hand-written contract fixtures do not establish runtime endpoint behavior or full-program acceptance.
 
 ## M1: Add explicit MA-service ownership
 
-**Files:** New MAService.h and MaServiceBindings.h/.cpp; src/session/World.h/.cpp, MaCore.h/.cpp; src/sdk/World.cpp; session build registration; tests/test_ma_service_binding.cpp.
+**Status:** Delivered in 990554b; transition, foreign-World and provenance fixes in 9b06c79; contract qualification and mixed-controller regression in 2bad550.
+
+**Files:** include/fsim/MAService.h and fsim_c.h; src/session/MaServiceBindings.h/.cpp, World.h/.cpp, MaCore.cpp and AgentRules; src/sdk/World.cpp, Agent.cpp and fsim_links_c.cpp; Python world.py/_native_dms.c; service-binding/C ABI/Python tests and the installed consumer.
 
 **Consumes:** M0 identities and bindings.
 **Produces:** bindMAService and deterministic capability/DMS ownership for configured mission episodes.
 
-- [ ] Add failing tests and register ma_service_binding in tests/CMakeLists.txt with ma-training label and timeout: reverse Agent creation order and obtain identical configured grants; reject duplicate exclusive capability/DMS ownership; reject unminted/foreign controllers; preserve existing single-service behavior.
-- [ ] Run the focused production-path test and capture the traversal-order or missing-binding failure before implementation.
-- [ ] Store validated bindings with the owning platform/system, resolve C2 designations through them and remove traversal-order selection only from the explicitly configured path.
-- [ ] Keep activities tied to the configured owner; unauthorized update/cancel and FA/C2-held capability requests retain existing rejection reasons.
-- [ ] Verify platform-shared reports versus service-owned activity access, system removal, endpoint invalidation and re-creation.
-- [ ] Run ctest --preset ucrt64-headless -R "^ma_service_binding$" --no-tests=error --output-on-failure and existing Agent/C2/ABI gates. Review and commit independently.
+- [x] Bind explicit capability/DMS owners through public C++/C/Python interfaces; retain legacy behavior on unbound platforms.
+- [x] Enforce native grants and service-owned command/update/cancel/DMS paths; reject conflicting, unminted and foreign-World bindings.
+- [x] Cover binding transitions, configured creation-order independence, platform removal, peer provenance and installed consumers with registered regressions.
+- [x] Qualify activity preservation: a capability-wide revoke cancels the owner's activities too when another controller held a grant or had a live/waiting policy activity on that capability. Bind all services before they act.
+- [x] Commit the implementation and reviewed follow-ups on main. Subsequent packages must preserve these native semantics.
 
 **Gate:** Multiple services have explicit semantics; many internal components behind one service do not require new SDK identities.
 
-## M2: Complete Agent parity and legal reports
+## M2: Complete noncombat Agent parity and legal reports
 
-**Files:** New MAReports.h and session/MaReports.h/.cpp; Agent.h; sdk/Agent.cpp and fsim_mission_c.cpp; Python agent.py/_native_mission.c; tests/test_ma_reports.cpp; python/tests/test_ma_reports.py; boundary tables.
+**Status:** Noncombat slice delivered in fb23a9b; peer/heartbeat provenance corrected in 9b06c79. This does not complete equipment parity or mission gateway snapshots.
+
+**Files:** include/fsim/MAReports.h, Agent.h and fsim_c.h; src/session/MaReports.h/.cpp and AgentRules; src/sdk/Agent.cpp, fsim_mission_c.cpp and fsim_links_c.cpp; Python agent.py/_native_mission.c; tests/test_ma_reports.cpp, test_ma_c_abi.c, python/tests/test_ma_reports.py and tests/mission_package_consumer; boundary tables.
 
 **Consumes:** M0 report schema; M1 configured ownership.
-**Produces:** Equivalent own contacts/countermeasure/launch-zone interfaces and actor-safe report snapshots.
+**Produces:** Equivalent legal navigation/contact/track/task/authority interfaces and actor-safe report snapshots.
 
-- [ ] Add failing parity/permission cases and register ma_reports with label/timeout for own contacts, inventory, dispense and own-designation launch zone across C++/C/Python.
-- [ ] Test foreign platform/designation/controller refusal and continued rejection of global engagement/decoy/seeker-truth APIs.
-- [ ] Add Agent wrappers without changing its data layout or existing C/Python type owners. Reports come from equipment/Agent paths, not filtered copies of global truth records.
-- [ ] Add report times, provenance and availability. Available v1 fields are launcher-known release/inventory/support reports; absent weapon telemetry stays unavailable.
-- [ ] Test that changing an undetected entity's truth or a global terminal outcome cannot change actor reports before a modeled observation reaches it. A common upper-layer wrapper may not leak another platform/C2 view before modeled delivery. Delivered sensor/link changes must change the correct report.
-- [ ] Run ctest --preset ucrt64-headless -R "^ma_reports$" --no-tests=error --output-on-failure and python_sdk with the staged CPython. Refresh/render/check boundary classifications with both optional Vision and core exports.
-- [ ] Review and commit the parity/report package.
+- [x] Export permission-scoped navigation, passive contacts, tracks, link tracks, peers/heartbeats, tasks and authority reports across C++/C/Python.
+- [x] Preserve sample/receive times, provenance, age and availability, including independent position and heartbeat provenance. Unknown/stale/unavailable reports remain explicit.
+- [x] Add permission/parity, hidden-truth isolation and installed public C++/C99/Python consumer regressions; classify the added SDK boundary entries.
+- [x] Commit the noncombat report package and reviewed provenance corrections on main. Equipment and full mission acceptance remain pending integration gates.
 
-**Gate:** All languages have the same safe capability set; no invented flyout or kill knowledge.
-
-## M3: Implement the bounded authorization profile
-
-**Files:** New EngagementPolicy.h and session/EngagementPolicy.h/.cpp; MaCore, MaConsentLedger and AgentRules; C++/C/Python DMS adapters; tests/test_ma_authorization.cpp.
-
-**Consumes:** M0 authorization.v1 schema, M1 identities and M2 legal report semantics.
-**Produces:** Preloaded opt-in criteria, typed authorized activation and correlated pending-request lifecycle.
-
-- [ ] Add failing tests and register ma_authorization with label/timeout for unauthorized profile activation, invalid/unsupported criteria, unknown required evidence, and incorrect request/activity/profile/generation association.
-- [ ] Implement initial role/authorizer, valid designation/store, approval mode and simulation-time validity checks. Require Range-configured policy-activation authority; do not enlarge existing role bitsets/defaults.
-- [ ] Specify and implement cancel/expiry/profile-replacement behavior: requests awaiting approval become terminal when invalidated; active releases keep their accepted native transaction semantics.
-- [ ] Test denial, delayed delivery, loss, duplicate/late answers, canceled requests, profile revision changes and ended strikes. Revalidate after approval delay, including lapsed designation and lost/expended store. Exactly one valid answer may authorize exactly one pending activity.
-- [ ] Run ctest --preset ucrt64-headless -R "^ma_authorization$" --no-tests=error --output-on-failure plus existing permission/consent tests.
-- [ ] Compare unconfigured scenario traces with the baseline; document the supported subset and review/commit.
-
-**Gate:** All policy changes are explicit and authorized. No IFF/geographic/full-ASK capability is claimed without its model and tests.
+**Gate:** All languages expose the delivered noncombat report set without referee truth or invented flyout/kill knowledge. This gate is distinct from full M2 and full-program acceptance.
 
 ## M4: Own complete independent mission episodes
 
@@ -245,7 +218,7 @@ C/Python mirror these operations through a Range-only JSON profile loader and a 
 - [ ] Add failing tests and register mission_episode with label/timeout: A's weapon/damage/message cannot affect B; resetting A never changes B's sampled sequence; stale handles/intents fail after reset.
 - [ ] Construct one World per episode and apply the deterministic scenario/role/net/store/binding recipe. Each episode owns its task state and cursors.
 - [ ] On reset reconstruct the entire owned World. Do not call legacy resetVehicle as a substitute or clear existing vehicle authority semantics.
-- [ ] Test fresh-equivalence after crew loss, fire, in-flight weapon, decoy, consumed store, pending C2 task/consent, queued message and removed entity. Compare the same env/local episode seed, normalizing only generation metadata, not native outcomes.
+- [ ] Consume the supplied full native-state fixture and test fresh-equivalence after crew loss, fire, in-flight weapon, decoy, consumed store, pending C2 task/consent, queued message and removed entity. Range may configure/inspect referee state; actor requests/releases retain existing Agent/C2 permissions, without Range consent injection to fulfill actor requests. Compare the same env/local episode seed, normalizing only generation metadata, not native outcomes.
 - [ ] Test parent destruction with live children, parent move, two uniquely published diagnostic episodes and reset-safe recording paths; neither handle access nor artifact naming may rely on freed World state.
 - [ ] Derive RNG per env/local episode/stable stream; test worker and asynchronous-reset schedule invariance.
 - [ ] Run ctest --preset ucrt64-headless -R "^mission_episode$" --no-tests=error --output-on-failure plus the legacy reset-preservation case.
@@ -253,20 +226,20 @@ C/Python mirror these operations through a Range-only JSON profile loader and a 
 
 **Gate:** Every episode is independently reproducible and has no mutable cross-episode state.
 
-## M5: Expose mission snapshots and asynchronous actions
+## M5 core: Expose mission snapshots and noncombat asynchronous actions
 
 **Files:** MissionEpisode public/C headers and adapters; MissionActions/MissionObservation; new Python mission module/native adapter; existing native registration files; tests/test_ma_observation.cpp, test_ma_actions.cpp, test_mission_c_abi.c; python/tests/test_mission.py.
 
-**Consumes:** Core: frozen generic M0, M1, noncombat M2 reports and full M4 episode owner. Combat handlers additionally require combat M2 and M3.
+**Consumes:** Frozen generic M0, M1, noncombat M2 reports and full M4 episode owner; frozen external registration/receipt contracts where applicable.
 **Produces:** Public MissionEpisode/Endpoint/Referee interfaces and schema-valid receipts.
 
-Claude owns the core gateway and noncombat handlers; Codex owns combat payloads, native validation/correlation and combat receipts. Freeze handler contracts before facade integration. A core-only pass does not complete the full M5 gate below.
+Implement the core gateway and noncombat handlers. Freeze extension contracts before facade integration; consume supplied handlers without changing their native semantics. A core-only pass does not complete full M5 program acceptance.
 
 - [ ] Add failing actor/referee handle-kind and generation tests before exposing public entrypoints; register ma_observation, ma_actions and mission_c_abi with ma-training labels/timeouts in this package.
 - [ ] Freeze one legal snapshot per decision tick, ingest the DMS inbox once and return owned immutable documents on repeated reads.
 - [ ] Queue requests at submit and dispatch through the bound Agent's existing VI/MS/DMS/C2 method at Range.step in fixed order. Test reversed service/proxy arrival order, wrong decision tick and missing-service wait. Preserve role/target checks; never use Range consent or entity truth to fulfill actor requests.
-- [ ] Implement scoped request deduplication and bounded terminal retry retention, preserving pending/executing correlations until explicit closure. Test approval beyond retry window, late cancellation of long activities, terminal tombstone expiry, capacity refusal, identical retry, changed-body reuse, stale retry, unknown kind, non-finite arguments and repeated strike/send.
-- [ ] Map native IDs and reasons into receipts. Test that pending, accepted and release Done cannot be mistaken for actual mission success.
+- [ ] Implement scoped request deduplication and bounded terminal retry retention, preserving pending/executing correlations until explicit closure. Test long-lived tasks beyond retry windows, late cancellation, terminal tombstone expiry, capacity refusal, identical retry, changed-body reuse, stale retry, unknown kind, non-finite arguments and repeated task/send requests. Consume supplied extension correlation fixtures at full integration.
+- [ ] Transport native IDs, states and reasons through versioned receipts. Test that queued/pending/accepted or native activity completion does not imply mission success; preserve frozen extension event/receipt semantics.
 - [ ] Implement C two-call buffer reads and handle-kind validation, Python wrappers and isolated endpoint proxy with publication/recording guard. Test buffer size queries do not consume messages or submit twice. Keep existing plugin vtables/native type owners and the non-free-threaded abi3 target Py_LIMITED_API=0x030B0000 intact.
 - [ ] Run ctest --preset ucrt64-headless -R "^(ma_observation|ma_actions|mission_c_abi)$" --no-tests=error --output-on-failure and python_sdk. Check exports/boundary and old consumers.
 - [ ] Review and commit the public environment/action package.
@@ -277,11 +250,11 @@ Claude owns the core gateway and noncombat handlers; Codex owns combat payloads,
 
 **Files:** examples/python/ma_composition directory; python/tests/test_ma_composition.py; composition documentation.
 
-**Consumes:** M5 core endpoint contract and receipts for noncombat composition; M5 full for complete composition scenarios.
+**Consumes:** M5 core endpoint contract and receipts for noncombat composition; accepted integration inputs for full composition scenarios.
 **Produces:** Replaceable component fixture, deterministic reference coordinator and lifecycle hooks.
 
 - [ ] Add failing example tests for shared snapshot identity, single inbox ingestion, conflicting intents, activity update/cancel ownership and reset of all component state.
-- [ ] Implement two policy fixtures, a small BT executive and a pure planning function using example-only contracts.
+- [ ] Implement two noncombat navigation/coordination policy fixtures, a small BT executive and a pure planning function using example-only contracts.
 - [ ] Implement configured resource priority/ownership and stable component-ID tie-breaks; retain proposal/arbitration/submission/receipt provenance separately.
 - [ ] Run components at declared decision periods. Feed SDK refusals back to their originating components; no internal coordinator may override FA/C2/MS authority.
 - [ ] Reset blackboard, BT execution state, planner/RNN placeholder memory, RNG streams, queues and activity mappings at generation changes.
@@ -290,20 +263,20 @@ Claude owns the core gateway and noncombat handlers; Codex owns combat payloads,
 
 **Gate:** MA composition and policy replacement are demonstrated without equating one platform, one service and one actor.
 
-## M7: Add batch scheduling, team outcomes and reward contracts
+## M7 core: Add batch scheduling, role lifecycle and noncombat criteria
 
 **Files:** New MissionBatch/MissionTask files and public header; C/Python environment adapters; tests/test_mission_training.cpp; python/tests/test_mission_training.py; training documentation.
 
-**Consumes:** Core: M4 independent episodes, M5 core endpoints and M6 noncombat lifecycle example. Combat criteria additionally consume M5 combat and frozen native outcome definitions; full M7 requires both streams and M6 full.
+**Consumes:** M4 independent episodes, M5 core endpoints and M6 noncombat lifecycle example. Full M7 additionally consumes accepted extension outcomes/criteria and full M6 evidence.
 **Produces:** Batch mission sampling with per-role/episode results and separate referee reward/critic streams.
 
-Claude owns scheduling, role lifecycle, noncombat task criteria, referee-stream transport, communication costs and the training adapter. Codex owns combat outcomes, combat task criteria and combat rewards. The full gate below requires their joint acceptance.
+Implement scheduling, role lifecycle, noncombat task criteria, referee-stream transport, communication costs and the training adapter. Extension outcome/criterion contracts are read-only integration inputs. Full program acceptance requires the complete joint evidence.
 
 - [ ] Add failing tests and register mission_training with label/timeout for team reset flags, dead member with continuing teammates, C2 role without aircraft, variable service topology and one task instance per episode.
 - [ ] Implement batch scheduling over independent episode owners. No task/plugin mutable object or RNG is shared between episodes.
 - [ ] Implement per-role active/terminated/truncated/final snapshot/bootstrap eligibility and separate episode_done/reason.
 - [ ] Handle NextStep reset before any old action or world step; test no old release/message/damage. SameStep keeps old final results distinct from new initial observations.
-- [ ] Define versioned referee outcomes/rewards for miss, damage, crew loss, incapacitation, collision, friendly damage and mission success. Optional shaping/resource/communication costs are explicit configuration.
+- [ ] Define noncombat task criteria, completion/reason semantics and explicit communication/resource costs. Transport supplied versioned referee outcomes/rewards without redefining their native meaning. Keep every reward and critic stream outside actor observations and masks.
 - [ ] Keep critic truth separate from actor observations/infos and mask construction. Test actor-view equivalence under hidden-truth changes.
 - [ ] Add a dependency-free Python training adapter contract with component registration/reset hooks. Leave framework-specific optimizers/adapters to the upper layer.
 - [ ] Run ctest --preset ucrt64-headless -R "^mission_training$" --no-tests=error --output-on-failure, Python tests and deterministic worker/reset schedule matrix. Measure throughput, initialization, memory and episode reclamation over a fixed recorded workload.
@@ -311,29 +284,27 @@ Claude owns scheduling, role lifecycle, noncombat task criteria, referee-stream 
 
 **Gate:** Batch, service and actor counts are distinct; terminal transitions and rewards are reliable enough for learning.
 
-## M8: Prove the installed joint chain and deliver
+## M8 generic: Prove installed consumers and joint integration
 
-**Files:** tests/test_ma_joint.cpp; tests/fixtures/mission_training joint scenarios; tests/package_consumer/ma_cpp.cpp, ma_c.c, ma_python.py; package CMake/run gates; new docs/sdk/ma-training-validation.md; status/navigation documentation; viewer acceptance tool only where public source selection is needed.
+**Files:** Generic portions of tests/test_ma_joint.cpp and tests/fixtures/mission_training; tests/mission_package_consumer/ma_cpp.cpp, ma_c.c, ma_python.py; package CMake/run gates; new docs/sdk/ma-training-validation.md; status/navigation documentation.
 
-**Consumes:** All previous packages.
-**Produces:** J1-J10 evidence, compatibility report, reproducibility manifest and finite completion.
+**Consumes:** Claude packages, accepted extension interfaces/fixtures and required current integration evidence.
+**Produces:** Claude joint results, installed-consumer compatibility/provenance and the complete program evidence manifest.
 
-- [ ] Register ma_joint and mission_package_consumer with ma-training labels and bounded timeouts. Earlier packages have already registered their own focused gates; verify actual discovery and reject empty matches.
-- [ ] Run J1-J9 using public SDK endpoints: measured P2P tracks, typed C2 task/RBAC/consent, native flyout and actual outcomes. Include approved/denied/delayed/lost approval, direct-control ownership and package/lost-link cases.
+- [ ] Register ma_joint and extend the existing mission_package_consumer gate, retaining ma-training labels and bounded timeouts. Earlier packages have already registered their own focused gates; verify actual discovery and reject empty matches.
+- [ ] Run J1/J2/J4/J6/J7, generic J10 infrastructure and task/message/lifecycle cases for J3/J8 through public SDK endpoints. Cover measured P2P tracks, typed C2 tasks/RBAC, direct-control ownership and package/lost-link behavior. Consume supplied evidence for the remaining joint cases; do not mark absent cases complete.
 - [ ] Compare in-process and strict isolated actor endpoint traces with truth publication/recording disabled. Test the proxy rejects Range/referee handles and stale generations. Never send World/Referee, scenario answers or preflight truth into the policy process.
 - [ ] Install core SDK/runtime data and Python into a separate build/mission-package-consumer owned prefix, never the existing package-consumer work directory. Compile C++/C99 consumers and run Python using only that prefix with source/build fallbacks removed. If shared staging is unavoidable, apply the same explicit CTest resource lock to both gates.
 - [ ] Check DLL/data/wrapper/native-module provenance, all retained exports/layouts/vtables and old-header binaries against the new library.
-- [ ] Run the current full ucrt64-headless CTest suite. Build ucrt64-release and run relevant renderer regressions plus one complete fullscreen public-SDK-driven joint strike scenario as a separately labeled non-isolated diagnostic.
-- [ ] Preserve carrier -> missile -> actually damaged target focus; capture exactly launch + 1.0 s and hit + 0.3 s; finish the scenario. Miss/denied scenarios finish without a false target-hit capture or explosion.
-- [ ] Decode/inspect captures and native recording/events, verify no early destructive effects and compare live/headless native results. No repeated screenshot polling.
+- [ ] Run the current full ucrt64-headless suite in the exclusive native slot. Build ucrt64-release and run generic renderer/lifecycle regressions when changed boundaries justify them. Consume current complete visual acceptance evidence before closing the full M8 gate.
 - [ ] Record seed/aspect matrix, role/service/component counts, dt/cadence, build/compiler/package hashes, test inventory/results, failures and measurement limits in English.
 - [ ] Update current capability/status documents only with achieved evidence. Independently review, commit bounded final changes on main, and push only when requested/authorized.
 
-**Gate:** J1-J10 and compatibility pass. Stop architecture expansion and move real MA/DRL integration to the upper-layer project.
+**Gate:** Claude delivery and handoffs pass. Full-program completion additionally requires every design J1-J10 case, current compatibility/full regression, installed provenance and complete visual acceptance. Keep missing external evidence pending; move real MA/DRL integration to the upper-layer project after full M8.
 
 ## Verification commands and scheduling
 
-Use the existing launcher/presets and actual discovered test inventory. Focused names in this plan are new registrations, not claims that they exist today.
+Use the existing launcher/presets and actual discovered test inventory. M0/M1/noncombat M2 contract, binding, report, C ABI and installed-consumer gates are registered. Later mission episode/gateway/composition/training test names remain planned registrations; a listed command is not evidence that a gate exists or has passed.
 
     .\fsim.cmd --preset ucrt64-headless configure -DFSIM_PYTHON_EXECUTABLE=D:/ENV/python/3.13/python.exe -DFSIM_WARNINGS_AS_ERRORS=ON
     .\fsim.cmd --preset ucrt64-headless build --parallel 12
@@ -341,12 +312,8 @@ Use the existing launcher/presets and actual discovered test inventory. Focused 
     ctest --preset ucrt64-headless -R "^(sdk_boundary|c_abi|adapter_compatibility|world_adapter_compatibility|batch_recording_adapter_compatibility|python_sdk|package_consumer|mission_package_consumer)$" --no-tests=error --output-on-failure
     ctest --preset ucrt64-headless --no-tests=error --output-on-failure
     .\fsim.cmd --preset ucrt64-release build --parallel 12
-    ctest --preset ucrt64-release -R "^(strike_capture|showcase_native|viewer_screenshot|vision|vision_c_abi)$" --no-tests=error --output-on-failure
-    D:/ENV/python/3.13/python.exe tools/viewer_perf/strike_acceptance.py --build build/ucrt64-release --out D:/ENV/tmp/ma-training-viewer
 
-The last command is the existing native visual baseline. M8 adds a public-SDK joint source option or a separate compatible public-source runner; do not label the current internal Showcase as public consumer acceptance.
-
-Every focused command in M1-M7 also requires --no-tests=error and an exact discovered test count greater than zero. The active feature owner holds the exclusive native configure/build/test and GUI execution slots and records the tested HEAD/diff. Claude owns generic integration and compatibility gates; Codex owns combat integration and acceptance. Run independent read-only reviews in parallel; never run competing viewers or CMake writers. Broaden tests only after changed behavior or a new failure justifies it. No final current full-suite claim until the final current build completes.
+Every focused command in Claude packages requires --no-tests=error and an exact discovered test count greater than zero. Hold the exclusive native configure/build/test slot and any required GUI slot; record the tested HEAD/diff. Run independent read-only reviews in parallel; never run competing viewers or CMake writers. Broaden tests only after changed behavior or a new failure justifies it. No final current full-suite claim until the final current build completes.
 
 ## Deferred scope and exit rule
 

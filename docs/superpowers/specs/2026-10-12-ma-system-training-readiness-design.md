@@ -1,9 +1,10 @@
 # MA System Integration and Training Readiness Design
 
-Status: Accepted architecture. MA contract/API/environment implementation remains pending.
+Status: Accepted architecture. Generic M0, M1 and noncombat M2 delivered; mission episode/gateway implementation and full-program acceptance remain pending.
 Date: 2026-10-12.
+Progress reviewed: 2026-10-14, main 616327a; latest M1 follow-up 2bad550.
 Repository: Super-DDCCSS-WWorld, main.
-Implementation baseline: baf476f841970f1f3c90b8de0bf630e8a5478738, separately verified and pushed to main. The source audit began at c2641e9cf51d2f84befa96d6a1d0b592029898d4; the delivered baseline contains the reviewed Viewer/native engagement work. See the [implementation plan](../plans/2026-10-12-ma-system-training-readiness.md), [vertical work allocation](../plans/2026-10-12-ma-system-training-work-allocation.md) and [Viewer evidence](../../sdk/viewer-validation.md).
+Implementation baseline: baf476f841970f1f3c90b8de0bf630e8a5478738, separately verified and pushed to main. The source audit began at c2641e9cf51d2f84befa96d6a1d0b592029898d4; the delivered baseline contains the reviewed Viewer/native engagement work. See the [Claude implementation plan](../plans/2026-10-12-ma-system-training-readiness.md), [Claude work allocation](../plans/2026-10-12-ma-system-training-work-allocation.md) and [Viewer evidence](../../sdk/viewer-validation.md).
 
 ## 1. Purpose and accepted ownership
 
@@ -14,21 +15,21 @@ The user explicitly selected the following ownership:
 - The formal MA decision runtime belongs in an upper-layer project.
 - This repository supplies permission-scoped SDK interfaces, simulation and training environments, minimal composition examples and acceptance evidence.
 - The SDK remains the sole authority for platform execution, communication delivery, guidance, fuzes, collisions and damage.
-- Conversation is Chinese. Maintained files, code, tests, UI text and commit messages are English.
+- All communication with Claude is English. Maintained files, code, tests, UI text and commit messages are English.
 
 The intended result is training readiness, not a trained operational policy, a universal MA runtime or formal ASK compliance.
 
 ## 2. Current evidence and compatibility constraints
 
-These findings were checked against the current source. They are not new runtime test results:
+These findings summarize the initial source audit and the delivered M1/noncombat M2 updates. They are not new runtime test results:
 
 1. Agent interfaces mask sensor truth and enforce own-platform commands. C2 tasks, peer reports, shared tracks, DMS, approval, direct commands, lost-link handling and packages already exist. Extend and integrate them; do not rebuild the transport.
-2. C++ and Python Agent surfaces omit some actor-safe capabilities already accepted by the C adapter: own passive contacts, countermeasure inventory/dispense and own-designation launch-zone queries.
+2. Noncombat M2 adds permission-scoped navigation, passive contacts, tracks, link/peer provenance, task and authority reports across C++/C/Python. Equipment parity, including countermeasure inventory/dispense and own-designation launch-zone queries, remains pending.
 3. StrikeStatus describes release activity. Done does not mean impact or mission completion. Global weapon/engagement records contain referee truth; destroyed currently means actual crew loss.
 4. Current VecEnv has a single World and a single Task object for the batch, flight-oriented actions and observations, and vehicle-oriented reset. It is not an independently isolated combat-episode environment.
 5. The existing vehicle reset contract deliberately preserves MA authority, tasks, overrides and C2 activity ownership. tests/test_agents.cpp contains an explicit preservation test. Full episode reset must be a different operation.
 6. MaCore state and DMS inboxes are platform/system-owned. Agent.receive consumes the shared inbox. Multiple internal components cannot independently drain that inbox and expect identical observations.
-7. MaCore::designate currently chooses a platform controller by agent traversal order. Multiple handles are not sufficient to specify multiple MA-service capability ownership.
+7. M1 adds explicit MA-service capability and DMS ownership; the configured path no longer selects owners by Agent traversal order. Unbound platforms retain legacy behavior. Multiple handles alone do not configure service ownership. The binding transition and qualified activity-preservation contract are recorded in the [service binding contract](../../sdk/mission-training.md#9-service-binding).
 8. Current Showcase uses internal World and range-supplied consent. Its real native flyout/viewer evidence does not exercise the entire installed Agent/P2P/C2 path.
 
 Preserve existing signatures, class sizes, public plugin vtables, enum numbers, errors, observation/action shapes, legacy defaults and reset semantics. New capabilities use additive, versioned interfaces. Existing binaries must continue to work with the new library.

@@ -14,7 +14,7 @@ Do not inspect or modify other worktrees. Scope searches to explicit allowed pro
 
 Work on main. Do not create branches or worktrees. Verify the current branch before changing files and preserve unrelated working-tree changes. Stage only reviewed feature-owned files and inspect the staged diff.
 
-Conversation is Chinese. Maintained code, documentation, tests, UI text, metadata and commit messages are English.
+All communication with Claude is English, including explanations, progress updates, questions, handoffs and final responses. Maintained code, documentation, tests, UI text, metadata and commit messages are English.
 
 ## Feature ownership
 
@@ -22,15 +22,13 @@ Claude owns complete generic features: generic contracts/schema; explicit MA-ser
 
 For those features, Claude owns native C++, C++/C/Python interfaces, examples, tests, documentation and acceptance evidence together. Future generic integration and compatibility builds are Claude work.
 
-Codex owns complete weapon/guidance features: equipment/countermeasure/launch-zone access; engagement policy and strike consent; combat payload handlers/receipts; combat outcomes/rewards; combat joint scenarios and actual-strike Viewer acceptance. Their public interfaces, adapters, tests, examples and documentation follow Codex ownership.
+The reviewed Viewer baseline was delivered as a separate verified main commit and push: baf476f841970f1f3c90b8de0bf630e8a5478738. Generic M0, M1 and noncombat M2 have been delivered on main; the latest M1 follow-up is 2bad550. M4/M5 have not started. The first complete noncombat mission episode gateway package is still pending.
 
-Codex delivered the reviewed Viewer baseline as a separate verified main commit and push: baf476f841970f1f3c90b8de0bf630e8a5478738. Claude implementation has not started. Begin with generic M0 contract completion, then the first noncombat feature package.
+Preserve the frozen generic M0 schemas, native mappings, lifetime/error and ownership contracts when adding downstream public bindings.
 
-Freeze generic M0 schemas, native mappings, lifetime/error and ownership contracts before editing downstream public bindings.
+The first Claude package is the complete noncombat mission episode gateway: M1 + M4 + noncombat reports + minimal M5 core through installed public C++, C99 and Python. Only an interim gateway smoke check may precede full M4 fixture acceptance; complete M5 core and first-package acceptance require full M4. The supplied native-state reset fixture uses already accepted SDK behavior and need not wait for new policy implementation. M5 core is independent of M3; full M5 requires both core and combat gates. M6 noncombat composition consumes M5 core; full composition scenarios consume M5 full. M7 core consumes M6 noncombat and remains separate from combat outcome/reward gates; full M7 also requires full M6.
 
-The first Claude package is the complete noncombat mission episode gateway: M1 + M4 + noncombat reports + minimal M5 core through installed public C++, C99 and Python. Only an interim gateway smoke check may precede full M4 fixture acceptance; complete M5 core and first-package acceptance require full M4. The Codex-owned combat-state reset fixture uses already accepted SDK behavior and need not wait for M3. M5 core is independent of M3; full M5 requires both core and combat gates. M6 noncombat composition consumes M5 core; full composition scenarios consume M5 full. M7 core consumes M6 noncombat and remains separate from combat outcome/reward gates; full M7 also requires full M6.
-
-Claude owns the generic schema. Codex owns engagement extension definitions in separate files. The generic facade binds frozen request kinds to handlers; Codex implements combat validation/submission/correlation through existing SDK authority.
+Claude owns the generic schema and facade. Consume frozen extension definitions, handler registrations, native receipt/outcome contracts and fixtures at agreed integration seams. Preserve native semantics and authority. Missing inputs remain pending or fail explicitly; do not invent provisional behavior. Project allocation and implementation documents contain Claude assignments only.
 
 ## Architecture and compatibility
 
@@ -72,6 +70,8 @@ Keep actor endpoint proxies separate from Range/referee handles. Strict isolatio
 
 Record exact path/symbol allowlists and main HEAD before each feature. Shared World/MaCore/Agent/adapters/schema references/CMake/boundary files have one active feature owner per exclusive write window. Other owners supply reviewed patches or wait for handoff. Record interfaces, changed symbols, fixtures, pending gates and commit/diff at each handoff.
 
+Alternate implementation windows. Stop and release the write/build slots after each handoff. Resume only when the user relays the next assignment; do not start a later package while another implementation window is active.
+
 Acquire the exclusive serial native configure/build/test slot before execution; pause other writes to its build inputs. Each feature owner may execute its own native gates while holding that slot. Use one GUI slot for a complete Viewer scenario. Do not run competing viewers or CMake writers.
 
 Use existing UCRT64 presets/launcher. Tools, environments and caches belong under D:/ENV. Set TMP, TEMP and TORCH_EXTENSIONS_DIR to D:/ENV/tmp before compilation. Read upstream README support matrices before varying dependency/toolchain versions.
@@ -80,10 +80,8 @@ One task has one background entry. Send raw background output directly to a file
 
 Use actual discovered nonzero test counts, bounded timeouts and --no-tests=error. Report current evidence and pending gates accurately; do not reuse old totals as current verification. Broaden tests when changed behavior or unresolved failures justify it.
 
-Noncombat acceptance includes delivered P2P tracks, typed C2 roles/tasks, configured ownership, independent episodes, generation/lifetime safety, submit deduplication, non-consuming C buffer reads, fresh full reset and installed-consumer provenance. The full M4 fixture covers crew loss, fire, an in-flight weapon, a decoy, a consumed store, pending C2 tasks/consent, queued messages and a removed entity. Combat-state reset inputs come from an agreed Codex-owned fixture using existing SDK behavior. Range APIs may configure the scenario and inspect referee outcomes; actor combat requests/releases use existing Agent/C2 permission paths, never Range consent injection to fulfill actor requests.
+Noncombat acceptance includes delivered P2P tracks, typed C2 roles/tasks, configured ownership, independent episodes, generation/lifetime safety, submit deduplication, non-consuming C buffer reads, fresh full reset and installed-consumer provenance. The full M4 fixture covers crew loss, fire, an in-flight weapon, a decoy, a consumed store, pending C2 tasks/consent, queued messages and a removed entity. Full native-state reset inputs come from a supplied fixture using existing SDK behavior. Range APIs may configure the scenario and inspect referee outcomes; actor combat requests/releases use existing Agent/C2 permission paths, never Range consent injection to fulfill actor requests.
 
-The native strike snapshot at simulation time 40.0 s records crewLost, engineOut and three torn panels while the target remains airborne. It does not establish separated sections or a crash. Do not interpret an entity/crew-loss label as visual breakup or a crash. The existing Viewer baseline diagnostic uses explicit Range-supplied consent; preserve that behavior and keep it separate from formal MA J5 approval acceptance and installed public-endpoint joint acceptance.
-
-Combat Viewer acceptance runs fullscreen to scenario completion, with carrier -> missile -> actually damaged target focus and exactly launch + 1.0 s and actual hit + 0.3 s captures. No timed self-destruction or false hit capture. This is Codex's complete combat feature.
+Use the dated [Viewer evidence](../docs/sdk/viewer-validation.md) as existing diagnostic evidence. Do not relabel a diagnostic baseline as installed public-endpoint joint acceptance. Consume current required visual evidence at full-program integration; record missing cases as pending. Preserve native outcome meanings without inventing mission success, breakup or crash.
 
 Stop this SDK architecture program after J1-J10, current compatibility/full regression, installed consumer provenance and complete Viewer acceptance. Formal MA implementation and DRL training are subsequent upper-layer work.
