@@ -12,6 +12,12 @@ within a major ABI version (`fsim_abi_version()`).
 
 `examples/rust_trainer` is a complete Rust client (no bindgen): `src/ffi.rs` mirrors the structs, `src/main.rs` runs the object model and a VecEnv batch.
 
+The equipment report additions (1.75) append report kinds 8-11 and the sized/bounded
+`fsim_agent_strike_report_get` and `fsim_agent_consent_report_get` value reads. Existing report kinds 0-7, structs,
+signatures and legacy equipment/consent calls are unchanged. See [Agent equipment access](engagement.md#agent-equipment-access-and-reports).
+`FSIM_STORE_LOST` names the existing native store state 7; C and Python now return `"lost"` rather than an empty
+status name. Existing store-state values 0-6 and invalid-value behavior beyond the defined enum remain unchanged.
+
 ## World and vehicles
 
 ```c

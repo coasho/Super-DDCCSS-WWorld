@@ -2966,7 +2966,13 @@ enum fsim_report_kind {
      * heartbeat: that heartbeat's, with no sample time); this is the delivery of its last heartbeat, beside
      * fsim_dms_peer_get index for index - validity FSIM_REPORT_UNKNOWN, its times NaN, for a peer none was heard from.
      * fsim_peer_report's own net and received_s stay those of whichever message was heard last. */
-    FSIM_REPORT_PEER_HEARTBEATS
+    FSIM_REPORT_PEER_HEARTBEATS,
+    /* ABI 1.75: own equipment and delivered consent reports. The values are read with fsim_vehicle_store,
+     * fsim_agent_strike_report_get, fsim_world_countermeasures and fsim_agent_consent_report_get respectively. */
+    FSIM_REPORT_STORES = 8,
+    FSIM_REPORT_STRIKES = 9,
+    FSIM_REPORT_COUNTERMEASURES = 10,
+    FSIM_REPORT_CONSENTS = 11
 };
 enum fsim_report_availability {
     FSIM_REPORT_AVAILABLE = 0,
@@ -3018,7 +3024,8 @@ FSIM_API const char* fsim_agent_operator_callsign(fsim_world* world, uint32_t en
 /* fsim_store_info.status */
 enum fsim_store_status {
     FSIM_STORE_LOADED = 0, FSIM_STORE_POWERING_UP, FSIM_STORE_READY, FSIM_STORE_RELEASING, FSIM_STORE_RELEASED,
-    FSIM_STORE_JETTISONED, FSIM_STORE_POWERING_DOWN
+    FSIM_STORE_JETTISONED, FSIM_STORE_POWERING_DOWN,
+    FSIM_STORE_LOST = 7 /* ABI 1.75: the existing native state, lost with a separated aircraft section */
 };
 /* fsim_strike_status.phase */
 enum fsim_strike_phase { FSIM_STRIKE_POWERING_UP = 0, FSIM_STRIKE_AWAITING_CONSENT, FSIM_STRIKE_RELEASING, FSIM_STRIKE_DONE };
@@ -3094,10 +3101,22 @@ FSIM_API int fsim_strike_consent(fsim_world* world, uint64_t activity, int32_t g
  * released (likewise). FSIM_INVALID_ARGUMENT for an activity that is neither. */
 FSIM_API int fsim_strike_status_get(const fsim_world* world, uint64_t activity, fsim_strike_status* out, uint32_t* stores, uint32_t max_stores,
                                     uint32_t* weapons, uint32_t max_weapons);
+/* ABI 1.75. Own-platform strike/jettison report at the same index as FSIM_REPORT_STRIKES metadata. `*activity` is
+ * the native activity identity. The target is an own designation or zero; a range-created strike's raw entity
+ * target is never exposed here. Store and weapon arrays follow fsim_strike_status_get's bounded, optional-buffer
+ * convention, and out->struct_size bounds struct writes. Reading consumes nothing. FSIM_NOT_ALLOWED for another
+ * platform; FSIM_INVALID_ARGUMENT for a missing report, NULL activity/out or an unusable struct_size. */
+FSIM_API int fsim_agent_strike_report_get(const fsim_world* world, uint32_t entity, uint32_t index, uint64_t* activity,
+                                          fsim_strike_status* out, uint32_t* stores, uint32_t max_stores,
+                                          uint32_t* weapons, uint32_t max_weapons);
+/* ABI 1.75. A delivered consent request at the same index as FSIM_REPORT_CONSENTS metadata, never a global pending
+ * approval. Only the configured DMS ingress owner reads it; a nonowner gets FSIM_NOT_ALLOWED. Output honors
+ * out->struct_size and reading consumes nothing. Existing fsim_c2_consent_get retains its legacy behavior. */
+FSIM_API int fsim_agent_consent_report_get(const fsim_world* world, uint32_t entity, uint32_t index, fsim_consent_request* out);
 /* The vehicle's whole mass as its flight model last worked it out (kg: its fuel and stores among it - a load shows after
  * the next step); NaN if unknown. */
 FSIM_API double fsim_vehicle_mass_kg(const fsim_world* world, uint32_t id);
-FSIM_API const char* fsim_store_status_name(int status); /* "loaded", "powering_up", "ready", "releasing", "released", "jettisoned", "powering_down" */
+FSIM_API const char* fsim_store_status_name(int status); /* "loaded", "powering_up", "ready", "releasing", "released", "jettisoned", "powering_down", "lost" */
 FSIM_API const char* fsim_strike_phase_name(int phase);  /* "powering_up", "awaiting_consent", "releasing", "done" */
 
 #ifdef __cplusplus

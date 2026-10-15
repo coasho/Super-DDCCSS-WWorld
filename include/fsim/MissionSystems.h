@@ -460,7 +460,7 @@ enum class StoreStatus : std::uint8_t {
     PoweringDown, ///< a standard jettison: powered down first
     Lost,       ///< gone with the part of its aircraft it was on (MS-7g: a breakup section that left)
 };
-/// "loaded", "powering_up", "ready", "releasing", "released", "jettisoned", "powering_down".
+/// "loaded", "powering_up", "ready", "releasing", "released", "jettisoned", "powering_down", "lost".
 FSIM_API const char* storeStatusName(StoreStatus status) noexcept;
 
 /// One installed store (A-GRA's MA_StrikeCapability: its type, station, carriage).

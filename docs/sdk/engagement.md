@@ -36,6 +36,60 @@ The corresponding methods are available on `fsim::World`; C uses the `fsim_world
 
 World weapon, event and decoy truth snapshots are range/referee interfaces. C agent handles cannot read these world snapshots or the on-rail query's entity IDs. Dispenser inventory and actions are scoped to the owning platform. Agent launch-zone queries require an own designation. The generated [boundary table](boundary.md) enumerates the exported C++, C and Python surface and is checked by `sdk_boundary`.
 
+### Agent equipment access and reports
+
+Agent equipment calls use the existing native operations on the Agent's own platform:
+
+| C++ | Python | Existing C entry point |
+| --- | --- | --- |
+| `Agent::countermeasures()` | `agent.countermeasures()` | `fsim_world_countermeasures` on an Agent handle |
+| `Agent::dispense(flare)` | `agent.dispense("chaff" or "flare")` | `fsim_world_dispense` on an Agent handle |
+| `Agent::launchZone(store, designation)` | `agent.launch_zone(store, designation)` | `fsim_world_launch_zone` on an Agent handle |
+
+Dispenser requests preserve native payload-state, inventory and shared cooldown checks. C++ returns the native
+`ms::Reason`; Python raises `fsim.Error` on refusal. Neither installs an automatic defensive response. A launch-zone
+query requires a current designation belonging to this platform, never a raw entity or another platform's
+designation. C++ returns an empty optional on that refusal; C/Python retain the existing status/error behavior.
+Successful results are the native advisory estimates. An unknown store's default distances are not evidence that
+the store is carried, supported or able to intercept; query results do not grant release authority.
+
+The additive equipment report methods use the existing `ma::Report` / `ma::Collection` vocabulary:
+
+| C++ | Python | Metadata kind and values in C |
+| --- | --- | --- |
+| `reportStores(options)` | `report_stores(stale_after_s=None)` | `FSIM_REPORT_STORES` (8), existing store getters |
+| `reportStrikes(options)` | `report_strikes(stale_after_s=None)` | `FSIM_REPORT_STRIKES` (9), `fsim_agent_strike_report_get` |
+| `reportCountermeasures(options)` | `report_countermeasures(stale_after_s=None)` | `FSIM_REPORT_COUNTERMEASURES` (10), existing inventory getter |
+| `reportConsents(options)` | `report_consents(stale_after_s=None)` | `FSIM_REPORT_CONSENTS` (11), `fsim_agent_consent_report_get` |
+
+Store, strike and inventory reports describe this platform's current equipment state, with `own_platform`
+provenance, sample/receive time equal to the time read and age zero. A C2 node has no such equipment. An aircraft
+without a countermeasure payload reports `not_applicable`, distinct from an installed dispenser with zero cartridges.
+A removed platform reports `unavailable`. Inventory values are meaningful only when available.
+The existing native store state `Lost` is also named in C as `FSIM_STORE_LOST` (7); C/Python report its status as
+`"lost"`, rather than losing the state name. Existing store-state numbers 0-6 are unchanged.
+
+Strike reports retain native activity/phase, ordered store indices and released weapon IDs. Targets are own-platform
+designations or zero: a Range-created activity's true entity target is redacted. In Python each value is
+`StrikeReport(activity, status)`, with the existing `StrikeStatus` unchanged. The new C strike getter returns the
+activity separately and uses the existing sized status and bounded arrays. Reads do not grant another service
+permission to update or cancel an activity. Activity completion means the native release transaction ended, not
+impact or mission success.
+
+Consent reports contain only requests already delivered to this platform, with `dms` provenance, the requesting MA
+system, the request's sample time and its actual receive time. The delivery net is unknown because the native record
+does not retain it. On a bound platform only the DMS ingress owner receives this report; other services get
+`not_owner` with no items, and the new C value getter refuses them. Legacy consent reads retain their existing
+platform-shared behavior. Repeated metadata/count/value reads are non-consuming.
+
+Released IDs are correlations, not weapon telemetry. Weapon/seeker/support/miss-distance/timing feedback remains
+`unavailable / no_modeled_feedback` under the [extension contract](ma-engagement-contract.md). World weapon records,
+decoy positions, engagement events and on-rail target truth remain outside Agent access. These methods do not
+install the future mission gateway handlers.
+
+`examples/python/ma_equipment.py` demonstrates a configured service, current inventory metadata and one native
+cartridge release through the public SDK, without exposing world weapon or decoy truth.
+
 ## Modeling assumptions
 
 The following are game estimates (`basis: assumed`), not calibrated real-world missile performance:
@@ -53,3 +107,39 @@ This milestone does not calibrate fin aerodynamics, imaging classification, elec
 ## Validation
 
 `weapon_guidance` covers activation, stale estimates, illumination, infrared observations, bounded acceleration, arming, swept proximity and deterministic decoy discrimination. `countermeasure_core` covers inventory, interval, invalid inputs, analytic motion and expiry. `engagement_native` runs actual JSBSim releases, head-on encounters, motor burnout/coast, event replay, worker-count determinism, unsupported truth targets and inert jettison. C and Python suites cover telemetry compatibility, dispenser access and carrier-independent decoy lifetime. The [delivery validation record](engagement-validation.md) lists the verified commands, outcomes and remaining modeling limits.
+
+## Equipment interface verification (2026-10-14)
+
+Baseline: main `1325a3c`, plus this equipment access/report slice. UCRT64 Release and headless builds used the existing
+presets with warnings as errors, CPython 3.13 and temporary directories under `D:/ENV/tmp`.
+
+| Check | Recorded result |
+| --- | --- |
+| Missing-interface regression | The new native/C tests failed to build against the baseline before implementation. |
+| Headless and Release builds | Both passed with warnings as errors. |
+| Native feature gates | `ma_equipment` and `ma_equipment_c`: 2/2 passed, including six C++ cases and the plain C99 consumer. |
+| Python feature tests | 6/6 passed, including report values, native lost-store naming and one cartridge release over the existing isolated Agent process channel. |
+| Headless focused regression | 23/23 passed in 119.21 s, including the full Python SDK suite, native engagements, ABI, bindings/reports, adapter compatibility, contracts and both installed consumer gates. |
+| Headless installed equipment consumer | Included above: 1/1 passed in 25.37 s; C++, C99 and Python used separate installed prefixes. |
+| Release focused regression | 8/8 passed in 86.49 s, including native engagements, equipment, bindings/reports, C ABI, SDK boundary and the installed equipment consumer. |
+| Frozen consumers on the new installed SDK | All five passed: old C++ and C99 binaries and the three old Python Agent/link/C2 consumers. The 66 baseline artifacts were unchanged. |
+| Public ABI metadata against M0 | All 267 existing C++ types, 120 C records, 107 C++ enums, 81 C enums and 50 public vtables retained their layouts, existing values and slots. No old export was removed; current headless/Release core exports match. |
+| Protected runtime inputs | All 2,357 recorded aircraft/model/card/control inputs retained their SHA-256 hashes. |
+| Installed public example | `examples/python/ma_equipment.py` passed against the installed Python package. |
+
+The scenarios exercise off-payload refusal, native shared cooldown, own/foreign/lapsed designation boundaries,
+Range-target redaction, repeatable reads, caller-sized C outputs, native lost-store naming and configured ingress ownership. Approval is sent
+over modeled C2/DMS delivery; tests continue until native store release, compare nonzero weapon IDs with store and
+strike reports, and separately verify actual emergency jettison. No Range consent injection fulfills those actor
+requests. Referee records are used only on the test side to check native correlations.
+
+The equipment consumer gate explicitly binds each language to its installed aircraft and JSBSim directories,
+checks wrapper/native-module/DLL/header/data provenance, corrupts a private installed model copy and requires
+loading to fail, restores it, then repeats the successful smoke checks. Development resource discovery remains
+unchanged; this gate does not rely on its source-tree fallback.
+
+Raw logs are under `D:/ENV/tmp/ma-equipment-access-20261014/`; installed provenance manifests are under each build's
+`equipment-package-consumer/`. ABI metadata and hash comparisons are in `compatibility.json` beside the logs.
+The full headless/Release suites and Viewer/GPU scenarios were not rerun for this adapter-only slice. The dated
+[Viewer evidence](viewer-validation.md) retains its existing scope and limits. Mission episodes, gateway handler
+registration, policy/outcome integration and full joint acceptance remain pending; no such gate is closed here.

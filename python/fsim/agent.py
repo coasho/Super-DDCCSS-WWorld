@@ -12,12 +12,17 @@ detections and tracks without the entity behind them (``truth`` 0).
 
 A :class:`Referee` is a read-only view of everything, truth among it: for scoring, rewards and a centralised critic.
 """
+import collections
 import math
 import types
 
+from . import _native
 from .world import (Activity, ActiveOverride, C2Authority, C2Task, CommandStatus, CommsState, ConsentRequest, DmsReceived,
                     DmsTransmission, LinkTrack, NetStats, PeerReport, Report, ReportCollection, ReportItem, ReportMeta, Vehicle,
-                    World)
+                    StrikeStatus, World)
+
+StrikeReport = collections.namedtuple("StrikeReport", "activity status")
+StrikeReport.__doc__ = "A native strike or jettison activity identity and its permission-scoped StrikeStatus."
 
 # The Vehicle calls an agent makes on its own vehicle (docs/sdk/boundary.toml's agent principal), by name.
 AGENT_VEHICLE_CALLS = (
@@ -288,6 +293,18 @@ class Agent:
         """Answer a consent request it holds: the strike released, or ended."""
         return self._world._h.c2_answer_consent(self.vehicle_id, int(ma), int(request_id), bool(granted))
 
+    def dispense(self, kind="chaff"):
+        """Release one native chaff or flare cartridge from its own platform; rejection changes no inventory."""
+        return self._world.dispense(self.vehicle_id, kind)
+
+    def countermeasures(self):
+        """Its own remaining native chaff and flare cartridge counts (CountermeasureInventory)."""
+        return self._world.countermeasures(self.vehicle_id)
+
+    def launch_zone(self, store, target):
+        """Advisory launch envelope for an own-platform designation; true entity identities are refused."""
+        return self._world.launch_zone(self.vehicle_id, store, int(target))
+
     # --- lost communication and teams (AB-5c) ------------------------------------------------------------------------------
     def comms(self):
         """As an MA: the lost-communication contingency C2 configured and whether it is raised, and its team
@@ -310,7 +327,7 @@ class Agent:
     # Nothing more than the reads above give - the same values, by the same paths - each with where it came from, when,
     # and how old it is. An unknown is None; nothing is filled in from truth.
     _REPORT_KINDS = {"navigation": 0, "tracks": 1, "contacts": 2, "link_tracks": 3, "peers": 4, "tasks": 5, "authority": 6,
-                     "peer_heartbeats": 7}
+                     "peer_heartbeats": 7, "stores": 8, "strikes": 9, "countermeasures": 10, "consents": 11}
 
     def _report(self, kind, stale_after_s):
         availability, metas = self._world._h.agent_report(self.vehicle_id, self._REPORT_KINDS[kind],
@@ -371,6 +388,40 @@ class Agent:
         if availability != "available" or not metas:
             return Report(availability, None, None)
         return Report(availability, metas[0], self.authority())
+
+    def _equipment_collection(self, kind, stale_after_s, values):
+        availability, metas = self._report(kind, stale_after_s)
+        if availability != "available":
+            return ReportCollection(availability, [])
+        current = values()
+        if len(current) != len(metas):
+            raise _native.Error("equipment report changed while reading; serialize World.step and report reads")
+        return ReportCollection(availability, [ReportItem(meta, value) for meta, value in zip(metas, current)])
+
+    def report_stores(self, stale_after_s=None):
+        """Own inventory with own-platform provenance, in the same order as stores; reading consumes nothing."""
+        return self._equipment_collection("stores", stale_after_s, lambda: self.stores)
+
+    def report_strikes(self, stale_after_s=None):
+        """Own-platform strike/jettison reports as StrikeReport(activity, status), with own designations or zero."""
+        def values():
+            return [StrikeReport(row[0], StrikeStatus(_native.strike_phase_name(row[1]), bool(row[2]), row[3],
+                                                      list(row[4]), list(row[5])))
+                    for row in self._world._h.agent_strike_reports(self.vehicle_id)]
+        return self._equipment_collection("strikes", stale_after_s, values)
+
+    def report_countermeasures(self, stale_after_s=None):
+        """Own native inventory with own-platform provenance; unavailable values are None."""
+        availability, metas = self._report("countermeasures", stale_after_s)
+        if availability != "available" or not metas:
+            return Report(availability, None, None)
+        return Report(availability, metas[0], self.countermeasures())
+
+    def report_consents(self, stale_after_s=None):
+        """Requests actually delivered to its owned DMS ingress; nonowners receive no items."""
+        return self._equipment_collection("consents", stale_after_s,
+                                          lambda: [ConsentRequest(*row) for row in
+                                                   self._world._h.agent_consent_reports(self.vehicle_id)])
 
     def operator_callsigns(self):
         """The callsign each operator of authority().operators declared, in their order ("" for none)."""

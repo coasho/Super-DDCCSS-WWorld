@@ -14,7 +14,7 @@ A **leak** is an agent's call that reaches what ADR-31 keeps from agents; those 
 
 | Principal | C++ | C | Python |
 | --- | ---: | ---: | ---: |
-| agent | 143 | 217 | 192 |
+| agent | 150 | 219 | 199 |
 | ma_core | 2 | 2 | 2 |
 | range | 192 | 86 | 243 |
 | referee | 41 | 38 | 41 |
@@ -66,9 +66,9 @@ A **leak** is an agent's call that reaches what ADR-31 keeps from agents; those 
 - **Its radars' detections and tracks; its warning receiver's contacts**
   - C: `fsim_vehicle_amti_detections`, `fsim_vehicle_amti_tracks`, `fsim_vehicle_contacts`
 - **Legal reports with their provenance (docs/sdk/mission-training.md, section 10): what its own reads give - its own ship, its radars' tracks, its payloads' contacts (their entity the referee's: truth 0), the tracks and peers its links delivered, C2's tasks, the authority over it - each with its source, its sample and receive times, its age and its validity; an operator's declared callsign**
-  - C++: `fsim::Agent::contacts`, `fsim::Agent::reportAuthority`, `fsim::Agent::reportContacts`, `fsim::Agent::reportLinkTracks`, `fsim::Agent::reportNavigation`, `fsim::Agent::reportPeerHeartbeats`, `fsim::Agent::reportPeers`, `fsim::Agent::reportTasks`, `fsim::Agent::reportTracks`
-  - C: `fsim_agent_operator_callsign`, `fsim_agent_report`
-  - Python: `fsim.agent.Agent.contacts`, `fsim.agent.Agent.operator_callsigns`, `fsim.agent.Agent.report_authority`, `fsim.agent.Agent.report_contacts`, `fsim.agent.Agent.report_link_tracks`, `fsim.agent.Agent.report_navigation`, `fsim.agent.Agent.report_peer_heartbeats`, `fsim.agent.Agent.report_peers`, `fsim.agent.Agent.report_tasks`, `fsim.agent.Agent.report_tracks`
+  - C++: `fsim::Agent::contacts`, `fsim::Agent::reportAuthority`, `fsim::Agent::reportConsents`, `fsim::Agent::reportContacts`, `fsim::Agent::reportCountermeasures`, `fsim::Agent::reportLinkTracks`, `fsim::Agent::reportNavigation`, `fsim::Agent::reportPeerHeartbeats`, `fsim::Agent::reportPeers`, `fsim::Agent::reportStores`, `fsim::Agent::reportStrikes`, `fsim::Agent::reportTasks`, `fsim::Agent::reportTracks`
+  - C: `fsim_agent_consent_report_get`, `fsim_agent_operator_callsign`, `fsim_agent_report`, `fsim_agent_strike_report_get`
+  - Python: `fsim.agent.Agent.contacts`, `fsim.agent.Agent.operator_callsigns`, `fsim.agent.Agent.report_authority`, `fsim.agent.Agent.report_consents`, `fsim.agent.Agent.report_contacts`, `fsim.agent.Agent.report_countermeasures`, `fsim.agent.Agent.report_link_tracks`, `fsim.agent.Agent.report_navigation`, `fsim.agent.Agent.report_peer_heartbeats`, `fsim.agent.Agent.report_peers`, `fsim.agent.Agent.report_stores`, `fsim.agent.Agent.report_strikes`, `fsim.agent.Agent.report_tasks`, `fsim.agent.Agent.report_tracks`
 - **Messages (AB-4a): its system's DMS - its SystemID and nets, sends stamped as its own (published or reliable to SystemIDs), its subscriptions, its own inbox, its sends' statuses**
   - C++: `fsim::Agent::nets`, `fsim::Agent::receive`, `fsim::Agent::subscribe`, `fsim::Agent::subscribeAll`, `fsim::Agent::subscribedAll`, `fsim::Agent::subscriptions`, `fsim::Agent::system`, `fsim::Agent::transmission`, `fsim::Agent::unsubscribe`
   - C: `fsim_dms_inbox_count`, `fsim_dms_inbox_get`, `fsim_dms_inbox_take`, `fsim_dms_net`, `fsim_dms_net_count`, `fsim_dms_send`, `fsim_dms_subscribe`, `fsim_dms_subscribe_all`, `fsim_dms_subscriptions`, `fsim_dms_system`, `fsim_dms_transmission_destination`, `fsim_dms_transmission_status`
@@ -81,7 +81,9 @@ A **leak** is an agent's call that reaches what ADR-31 keeps from agents; those 
 - **Own ship through its platform's reports: navigation, state data, recovery point, QNH, mass, identity (equal to truth where the models are perfect today; read through them so an error model reaches the agent unchanged)**
   - C: `fsim_vehicle_get_navigation`, `fsim_vehicle_mass_kg`, `fsim_vehicle_name`, `fsim_vehicle_navigation_report`, `fsim_vehicle_ownship`, `fsim_vehicle_qnh`, `fsim_vehicle_role`, `fsim_vehicle_set_navigation`, `fsim_vehicle_set_qnh`, `fsim_vehicle_state_data`, `fsim_vehicle_type`
 - **Own-platform dispenser commands and inventory; launch zones require an own designation on agent handles**
+  - C++: `fsim::Agent::countermeasures`, `fsim::Agent::dispense`, `fsim::Agent::launchZone`
   - C: `fsim_world_countermeasures`, `fsim_world_dispense`, `fsim_world_launch_zone`
+  - Python: `fsim.agent.Agent.countermeasures`, `fsim.agent.Agent.dispense`, `fsim.agent.Agent.launch_zone`
 - **Payloads (Mission Systems): discovery, state, BIT, search, status, their activities**
   - C: `fsim_ms_activity_cancel`, `fsim_ms_activity_get`, `fsim_vehicle_amti_search`, `fsim_vehicle_designate`, `fsim_vehicle_designations`, `fsim_vehicle_ms_activity`, `fsim_vehicle_ms_activity_count`, `fsim_vehicle_ms_capability`, `fsim_vehicle_ms_capability_count`, `fsim_vehicle_ms_capability_status`, `fsim_vehicle_payload`, `fsim_vehicle_payload_bit`, `fsim_vehicle_payload_count`, `fsim_vehicle_payload_state`, `fsim_vehicle_radar_status`, `fsim_vehicle_undesignate`
 - **Stores: its inventory, strike, jettison, its strikes' status**

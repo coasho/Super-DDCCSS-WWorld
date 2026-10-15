@@ -27,7 +27,7 @@ published world through shared memory (see [viewer.md](viewer.md)).
 | [ma-compatibility-baseline.md](ma-compatibility-baseline.md) | what existing consumers rely on, captured before the mission family: exports, layouts, test inventory and frozen C++, C99 and Python consumers |
 | [boundary.md](boundary.md) | which principal each entry point belongs to - agent (an MA's decisions), MA core, range, referee, platform - and the calls an agent may not yet trust (ADR-31) |
 | [mission-systems.md](mission-systems.md) | the payloads each aircraft carries (radars, warning receivers, jammers, sensors, guns, stations): discovery, power states, BIT, grants (ADR-30) |
-| [engagement.md](engagement.md) | native missile release, flight, seekers, countermeasures, events, damage, compatibility and modeling assumptions |
+| [engagement.md](engagement.md) | native missile release, flight, seekers, countermeasures, events, damage, own-platform Agent equipment access/reports, compatibility and modeling assumptions |
 | [engagement-validation.md](engagement-validation.md) | dated local regression and encounter evidence, reproduction paths and validation limits |
 | [vision.md](vision.md) | cameras on vehicles: offscreen RGB images of the same Earth the viewer draws (`fsim_vision.dll`) |
 | [vecenv.md](vecenv.md) | the batch (gym-style) layer for vectorised RL, built on the same object model; registering your own task, observation space and action space |

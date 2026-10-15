@@ -1,6 +1,6 @@
 # MA System Integration and Training Readiness Design
 
-Status: Accepted architecture. Generic M0, M1 and noncombat M2 delivered; mission episode/gateway implementation and full-program acceptance remain pending.
+Status: Accepted architecture. Generic M0, M1 and noncombat M2 delivered; native Agent equipment access/reports implemented. Mission episode/gateway implementation and full-program acceptance remain pending.
 Date: 2026-10-12.
 Progress reviewed: 2026-10-14, main 616327a; latest M1 follow-up 2bad550.
 Repository: Super-DDCCSS-WWorld, main.
@@ -24,7 +24,7 @@ The intended result is training readiness, not a trained operational policy, a u
 These findings summarize the initial source audit and the delivered M1/noncombat M2 updates. They are not new runtime test results:
 
 1. Agent interfaces mask sensor truth and enforce own-platform commands. C2 tasks, peer reports, shared tracks, DMS, approval, direct commands, lost-link handling and packages already exist. Extend and integrate them; do not rebuild the transport.
-2. Noncombat M2 adds permission-scoped navigation, passive contacts, tracks, link/peer provenance, task and authority reports across C++/C/Python. Equipment parity, including countermeasure inventory/dispense and own-designation launch-zone queries, remains pending.
+2. Noncombat M2 adds permission-scoped navigation, passive contacts, tracks, link/peer provenance, task and authority reports across C++/C/Python. Native equipment access now includes own countermeasure inventory/dispense and own-designation launch-zone queries, plus store, strike, inventory and ingress-delivered consent reports ([contract](../../sdk/engagement.md#agent-equipment-access-and-reports)). Mission gateway integration remains pending; weapon feedback remains unavailable.
 3. StrikeStatus describes release activity. Done does not mean impact or mission completion. Global weapon/engagement records contain referee truth; destroyed currently means actual crew loss.
 4. Current VecEnv has a single World and a single Task object for the batch, flight-oriented actions and observations, and vehicle-oriented reset. It is not an independently isolated combat-episode environment.
 5. The existing vehicle reset contract deliberately preserves MA authority, tasks, overrides and C2 activity ownership. tests/test_agents.cpp contains an explicit preservation test. Full episode reset must be a different operation.

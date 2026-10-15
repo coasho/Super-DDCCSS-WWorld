@@ -370,6 +370,15 @@ boss.report_navigation()                         # Report("not_applicable", None
 
 `examples/python/ma_reports.py` runs it: a lead sharing its radar's tracks with a wingman, and what each then holds.
 
+## Equipment reports
+
+`countermeasures()`, `dispense(kind)` and `launch_zone(store, designation)` provide the existing own-platform
+equipment operations. `report_stores()`, `report_strikes()`, `report_countermeasures()` and `report_consents()` add
+availability and provenance without exposing weapon truth. A new strike report's target is an own designation or
+zero, and its released weapon IDs are native correlations only. Delivered-consent reports honor DMS ingress
+ownership; legacy consent reads keep their platform-shared behavior. See the [equipment contract](engagement.md#agent-equipment-access-and-reports)
+for language equivalents, timing, unavailable values and refusal semantics.
+
 ## The referee
 
 `fsim::Referee` / `fsim.Referee`: every vehicle's true state (and sensed state), the vehicles, the weapons, radio

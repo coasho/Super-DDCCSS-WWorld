@@ -253,6 +253,14 @@ public:
     std::vector<ms::ActivityRecord> missionActivities() const;
     std::vector<ms::StoreInfo> stores() const;
     std::optional<ms::StrikeStatus> strikeStatus(ms::ActivityId activity) const;
+    /// Dispense exactly one native chaff (false) or flare (true). Native payload state, inventory and cooldown apply.
+    ms::Reason dispense(bool flare = false);
+    /// Its own native countermeasure inventory; zero counts alone do not indicate an installed dispenser.
+    ms::CountermeasureInventory countermeasures() const;
+    /// Native assumed energy envelope using its own live designation, never another aircraft's true entity id.
+    /// Absent, foreign or lapsed designations return no value. Store eligibility remains the
+    /// native query's: an unknown store can return default advisory values, which do not establish availability.
+    std::optional<ms::LaunchZone> launchZone(std::string_view store, std::uint32_t target) const;
 
     // Messages (AB-4): its system's DMS - over the nets the range put it on, stamped with its own SystemID; other systems
     // named by theirs. Its own topics from comm::topic::kFreeForm (a native type's is the MA core's: AB-4b).
@@ -383,6 +391,16 @@ public:
     ma::Collection<comm::ReceivedTask> reportTasks(const ma::ReportOptions& options = {}) const;
     /// The authority over its platform (authority()), as its MA core keeps it now.
     ma::Report<C2Authority> reportAuthority(const ma::ReportOptions& options = {}) const;
+    /// Its current inventory, in native store order; each read is an own-platform sample. C2 nodes: NotApplicable.
+    ma::Collection<ms::StoreInfo> reportStores(const ma::ReportOptions& options = {}) const;
+    /// Its strike and jettison statuses in mission activity order, with targets restricted to its own designations
+    /// or zero. Released weapon ids are release correlations only; reading grants no command authority or telemetry.
+    ma::Collection<ms::StrikeStatus> reportStrikes(const ma::ReportOptions& options = {}) const;
+    /// Its native chaff and flare counts now; NotApplicable for C2 nodes or a platform with no countermeasure payload.
+    ma::Report<ms::CountermeasureInventory> reportCountermeasures(const ma::ReportOptions& options = {}) const;
+    /// Consent requests actually delivered to its DMS, with request and receive times. Non-consuming; NotOwner for
+    /// another configured ingress service. No net identity is retained by the native consent inbox (meta.net is 0).
+    ma::Collection<comm::PendingConsent> reportConsents(const ma::ReportOptions& options = {}) const;
 
 private:
     friend class World;

@@ -4,6 +4,7 @@
 #include "session/World.h"
 
 #include <cmath>
+#include <utility>
 
 namespace fsim::ma {
 
@@ -73,6 +74,32 @@ std::vector<std::uint16_t> radarPayloads(const World& world, std::uint32_t vehic
         for (const ms::PayloadInfo& p : host->payloads())
             if (p.family == ms::Family::AirRadar) out.push_back(p.index);
     return out;
+}
+
+std::vector<ms::StrikeStatus> equipmentStrikes(const World& world, const AgentIdentity& agent) {
+    std::vector<ms::StrikeStatus> out;
+    const VehicleInfo* info = world.info(agent.vehicle);
+    if (!info || !info->alive) return out;
+    if (const ms::Host* host = world.missionSystems(agent.vehicle))
+        for (const ms::ActivityRecord& activity : host->activities()) {
+            if (!agentActivity(agent, activity.id, &world)) continue;
+            auto strike = world.strikeStatus(activity.id);
+            if (!strike) continue;
+            const World::Designation* designation = world.designation(strike->target);
+            if (!designation || designation->owner != agent.vehicle) strike->target = 0;
+            out.push_back(std::move(*strike));
+        }
+    return out;
+}
+
+std::vector<comm::PendingConsent> equipmentConsents(const World& world, const AgentIdentity& agent) {
+    const VehicleInfo* info = world.info(agent.vehicle);
+    if ((!info || !info->alive) && !world.c2Node(agent.vehicle)) return {};
+    if (!agentDmsIngress(agent, world)) return {};
+    // The legacy inbox accessor is mutable so answerConsent can mark an item. This read immediately copies const
+    // values and does not consume, create or answer anything, matching the existing const C consent reads.
+    const auto* consents = const_cast<Dms&>(world.dms()).consentsOf(agent.vehicle);
+    return consents ? *consents : std::vector<comm::PendingConsent>{};
 }
 
 MaReportMetas reportMetas(const World& world, const AgentIdentity& agent, MaReportKind kind, const ma::ReportOptions& options) {
@@ -179,6 +206,52 @@ MaReportMetas reportMetas(const World& world, const AgentIdentity& agent, MaRepo
             break;
         }
         out.metas.push_back(held(ma::Source::MaCore, now, now, now, options)); // (its MA core's state, as it stands now)
+        break;
+    case MaReportKind::Stores:
+        if (!vehicle) {
+            out.availability = ma::Availability::NotApplicable;
+            break;
+        }
+        for (const ms::StoreInfo& store : world.stores(id)) {
+            ma::ReportMeta meta = held(ma::Source::OwnPlatform, now, now, now, options);
+            meta.payload = store.payload;
+            out.metas.push_back(meta);
+        }
+        break;
+    case MaReportKind::Strikes:
+        if (!vehicle) {
+            out.availability = ma::Availability::NotApplicable;
+            break;
+        }
+        for (const auto& strike : equipmentStrikes(world, agent)) {
+            (void)strike;
+            out.metas.push_back(held(ma::Source::OwnPlatform, now, now, now, options));
+        }
+        break;
+    case MaReportKind::Countermeasures: {
+        bool installed = false;
+        if (vehicle)
+            if (const ms::Host* host = world.missionSystems(id))
+                for (const ms::PayloadInfo& payload : host->payloads())
+                    installed = installed || payload.family == ms::Family::Countermeasures;
+        if (!installed) {
+            out.availability = ma::Availability::NotApplicable;
+            break;
+        }
+        out.metas.push_back(held(ma::Source::OwnPlatform, now, now, now, options));
+        break;
+    }
+    case MaReportKind::Consents:
+        if (!agentDmsIngress(agent, world)) {
+            out.availability = ma::Availability::NotOwner;
+            break;
+        }
+        for (const comm::PendingConsent& consent : equipmentConsents(world, agent)) {
+            ma::ReportMeta meta = held(ma::Source::Dms, consent.request.timeS, consent.receivedS, now, options);
+            meta.system = consent.from;
+            // PendingConsent retains its sender and delivery time, but not its incoming net. Zero stays unknown.
+            out.metas.push_back(meta);
+        }
         break;
     case MaReportKind::Count: out.availability = ma::Availability::Unavailable; break;
     }

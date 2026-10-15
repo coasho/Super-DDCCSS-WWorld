@@ -1093,11 +1093,15 @@ names = [
     "fsim::Agent::contacts", "fsim::Agent::reportNavigation", "fsim::Agent::reportTracks", "fsim::Agent::reportContacts",
     "fsim::Agent::reportLinkTracks", "fsim::Agent::reportPeers", "fsim::Agent::reportPeerHeartbeats", "fsim::Agent::reportTasks",
     "fsim::Agent::reportAuthority",
+    "fsim::Agent::reportStores", "fsim::Agent::reportStrikes", "fsim::Agent::reportCountermeasures", "fsim::Agent::reportConsents",
     "fsim_agent_report", "fsim_agent_operator_callsign",
+    "fsim_agent_strike_report_get", "fsim_agent_consent_report_get",
     "fsim.agent.Agent.contacts", "fsim.agent.Agent.report_navigation", "fsim.agent.Agent.report_tracks",
     "fsim.agent.Agent.report_contacts", "fsim.agent.Agent.report_link_tracks", "fsim.agent.Agent.report_peers",
     "fsim.agent.Agent.report_peer_heartbeats",
     "fsim.agent.Agent.report_tasks", "fsim.agent.Agent.report_authority", "fsim.agent.Agent.operator_callsigns",
+    "fsim.agent.Agent.report_stores", "fsim.agent.Agent.report_strikes", "fsim.agent.Agent.report_countermeasures",
+    "fsim.agent.Agent.report_consents",
 ]
 
 [[rule]]
@@ -1249,7 +1253,11 @@ globs = ["fsim::comm::JsonCodec::*", "fsim.agra.*", "fsim._state.*", "fsim.world
 [[rule]]
 principal = "agent"
 note = "Own-platform dispenser commands and inventory; launch zones require an own designation on agent handles"
-names = ["fsim_world_dispense", "fsim_world_countermeasures", "fsim_world_launch_zone"]
+names = [
+    "fsim_world_dispense", "fsim_world_countermeasures", "fsim_world_launch_zone",
+    "fsim::Agent::dispense", "fsim::Agent::countermeasures", "fsim::Agent::launchZone",
+    "fsim.agent.Agent.dispense", "fsim.agent.Agent.countermeasures", "fsim.agent.Agent.launch_zone",
+]
 
 [[rule]]
 principal = "range"

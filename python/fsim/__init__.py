@@ -284,7 +284,7 @@ from .world import (  # noqa: E402
     magnetic_field,
 )
 from .vecenv import VecEnv  # noqa: E402
-from .agent import Agent, AgentActivity, Referee  # noqa: E402
+from .agent import Agent, AgentActivity, Referee, StrikeReport  # noqa: E402
 from . import agra  # noqa: E402,F401
 from .recording import Recording  # noqa: E402
 from ._threads import torch_threads  # noqa: E402
@@ -332,6 +332,7 @@ def load_plugin(path):
 __all__ = [
     "Agent",
     "AgentActivity",
+    "StrikeReport",
     "Referee",
     "OwnShip",
     "MissionActivity",

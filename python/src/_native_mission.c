@@ -781,6 +781,113 @@ PyObject* mod_ms_capability_type_id(PyObject* m, PyObject* const* args, Py_ssize
 
 /* --- Legal reports with their provenance (ABI 1.73; docs/sdk/mission-training.md, section 10) ----------------------- */
 
+static PyObject* equipment_indices(const uint32_t* indices, uint32_t count) {
+    PyObject* tuple = PyTuple_New((Py_ssize_t)count);
+    if (!tuple) return NULL;
+    for (uint32_t i = 0; i < count; ++i) {
+        PyObject* value = PyLong_FromUnsignedLong(indices[i]);
+        if (!value) {
+            Py_DECREF(tuple);
+            return NULL;
+        }
+        PyTuple_SetItem(tuple, (Py_ssize_t)i, value);
+    }
+    return tuple;
+}
+
+/* ABI 1.75. Safe strike reports retain activity identity and use no world weapon or target truth getter. */
+PyObject* world_agent_strike_reports(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self = (WorldObject*)o;
+    uint32_t entity, count = 0;
+    int32_t availability;
+    if (!check_args(n, 1, 1, "agent_strike_reports") || !as_u32(args[0], &entity)) return NULL;
+    if (fsim_agent_report(self->world, entity, FSIM_REPORT_STRIKES, Py_NAN, &availability, NULL, 0, &count) != FSIM_OK)
+        return fail();
+    PyObject* list = PyList_New(0);
+    for (uint32_t i = 0; list && i < count; ++i) {
+        uint64_t activity = 0;
+        fsim_strike_status status;
+        fsim_strike_status_init(&status);
+        if (fsim_agent_strike_report_get(self->world, entity, i, &activity, &status, NULL, 0, NULL, 0) != FSIM_OK) {
+            Py_DECREF(list);
+            return fail();
+        }
+        const uint32_t store_count = status.store_count, weapon_count = status.weapon_count;
+        uint32_t* stores = store_count ? (uint32_t*)PyMem_Malloc((size_t)store_count * sizeof(uint32_t)) : NULL;
+        uint32_t* weapons = weapon_count ? (uint32_t*)PyMem_Malloc((size_t)weapon_count * sizeof(uint32_t)) : NULL;
+        if ((store_count && !stores) || (weapon_count && !weapons)) {
+            PyMem_Free(stores);
+            PyMem_Free(weapons);
+            Py_DECREF(list);
+            return PyErr_NoMemory();
+        }
+        if (fsim_agent_strike_report_get(self->world, entity, i, &activity, &status, stores, store_count,
+                                          weapons, weapon_count) != FSIM_OK) {
+            PyMem_Free(stores);
+            PyMem_Free(weapons);
+            Py_DECREF(list);
+            return fail();
+        }
+        if (status.store_count != store_count || status.weapon_count != weapon_count) {
+            PyMem_Free(stores);
+            PyMem_Free(weapons);
+            Py_DECREF(list);
+            PyErr_SetString(PyExc_RuntimeError, "strike report changed while reading; serialize World.step and report reads");
+            return NULL;
+        }
+        PyObject* store_values = equipment_indices(stores, store_count);
+        PyObject* weapon_values = equipment_indices(weapons, weapon_count);
+        PyMem_Free(stores);
+        PyMem_Free(weapons);
+        if (!store_values || !weapon_values) {
+            Py_XDECREF(store_values);
+            Py_XDECREF(weapon_values);
+            Py_DECREF(list);
+            return NULL;
+        }
+        PyObject* row = Py_BuildValue("(KiiINN)", (unsigned long long)activity, status.phase, status.jettison,
+                                      status.target, store_values, weapon_values);
+        if (!row || PyList_Append(list, row) < 0) Py_CLEAR(list);
+        Py_XDECREF(row);
+    }
+    return list;
+}
+
+/* ABI 1.75. Delivered requests through the ownership-checked report getter, never the legacy unrestricted inbox. */
+PyObject* world_agent_consent_reports(PyObject* o, PyObject* const* args, Py_ssize_t n) {
+    WorldObject* self = (WorldObject*)o;
+    uint32_t entity, count = 0;
+    int32_t availability;
+    if (!check_args(n, 1, 1, "agent_consent_reports") || !as_u32(args[0], &entity)) return NULL;
+    if (fsim_agent_report(self->world, entity, FSIM_REPORT_CONSENTS, Py_NAN, &availability, NULL, 0, &count) != FSIM_OK)
+        return fail();
+    if (availability == FSIM_REPORT_NOT_OWNER) {
+        fsim_consent_request refused;
+        fsim_consent_request_init(&refused);
+        if (fsim_agent_consent_report_get(self->world, entity, 0, &refused) != FSIM_OK) return fail();
+    }
+    PyObject* list = PyList_New(0);
+    for (uint32_t i = 0; list && i < count; ++i) {
+        fsim_consent_request request;
+        fsim_consent_request_init(&request);
+        if (fsim_agent_consent_report_get(self->world, entity, i, &request) != FSIM_OK) {
+            Py_DECREF(list);
+            return fail();
+        }
+        char store[25];
+        memcpy(store, request.store, 24);
+        store[24] = 0;
+        PyObject* row = Py_BuildValue("(IdOKKsIIIKdddd)", request.from, request.received_s,
+                                      request.answered ? Py_True : Py_False, (unsigned long long)request.request_id,
+                                      (unsigned long long)request.strike, store, request.quantity, request.target_source,
+                                      request.target_payload, (unsigned long long)request.target_track, request.latitude_rad,
+                                      request.longitude_rad, request.altitude_m, request.time_s);
+        if (!row || PyList_Append(list, row) < 0) Py_CLEAR(list);
+        Py_XDECREF(row);
+    }
+    return list;
+}
+
 /* agent_report(entity, kind, stale_after_s) -> (availability name,
  *     [(source name, validity name, system, net, payload, sample_time_s, receive_time_s, age_s)]) */
 PyObject* world_agent_report(PyObject* o, PyObject* const* args, Py_ssize_t n) {

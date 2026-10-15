@@ -529,6 +529,24 @@ std::optional<ms::StrikeStatus> Agent::strikeStatus(ms::ActivityId activity) con
     FSIM_AGENT_AUDIT;
     return own(activity) ? FSIM_AGENT_VEHICLE_OF.strikeStatus(activity) : std::nullopt;
 }
+ms::Reason Agent::dispense(bool flare) {
+    FSIM_AGENT_AUDIT;
+    return world_ ? world_->impl().dispense(vehicle_, flare) : ms::Reason::UnknownVehicle;
+}
+ms::CountermeasureInventory Agent::countermeasures() const {
+    FSIM_AGENT_AUDIT;
+    return world_ ? world_->impl().countermeasures(vehicle_) : ms::CountermeasureInventory{};
+}
+std::optional<ms::LaunchZone> Agent::launchZone(std::string_view store, std::uint32_t target) const {
+    FSIM_AGENT_AUDIT;
+    if (!world_ || !world_->impl().alive(vehicle_)) return std::nullopt;
+    const auto* designation = world_->impl().designation(target);
+    if (!designation || designation->owner != vehicle_ || !world_->impl().vehicleState(target)) {
+        FSIM_AGENT_REFUSED;
+        return std::nullopt;
+    }
+    return world_->impl().launchZone(vehicle_, std::string(store), target);
+}
 
 comm::SystemId Agent::system() const noexcept {
     FSIM_AGENT_AUDIT;
@@ -994,6 +1012,36 @@ ma::Report<C2Authority> Agent::reportAuthority(const ma::ReportOptions& options)
     out.meta = metas.metas.front();
     out.value = authority();
     return out;
+}
+
+ma::Collection<ms::StoreInfo> Agent::reportStores(const ma::ReportOptions& options) const {
+    FSIM_AGENT_AUDIT;
+    if (!world_) return {};
+    return collected(FSIM_AGENT_METAS(Stores), world_->impl().stores(vehicle_));
+}
+
+ma::Collection<ms::StrikeStatus> Agent::reportStrikes(const ma::ReportOptions& options) const {
+    FSIM_AGENT_AUDIT;
+    if (!world_) return {};
+    return collected(FSIM_AGENT_METAS(Strikes), session::equipmentStrikes(world_->impl(), FSIM_AGENT_IDENTITY));
+}
+
+ma::Report<ms::CountermeasureInventory> Agent::reportCountermeasures(const ma::ReportOptions& options) const {
+    FSIM_AGENT_AUDIT;
+    ma::Report<ms::CountermeasureInventory> out;
+    if (!world_) return out;
+    const session::MaReportMetas metas = FSIM_AGENT_METAS(Countermeasures);
+    out.availability = metas.availability;
+    if (metas.availability != ma::Availability::Available || metas.metas.empty()) return out;
+    out.meta = metas.metas.front();
+    out.value = world_->impl().countermeasures(vehicle_);
+    return out;
+}
+
+ma::Collection<comm::PendingConsent> Agent::reportConsents(const ma::ReportOptions& options) const {
+    FSIM_AGENT_AUDIT;
+    if (!world_) return {};
+    return collected(FSIM_AGENT_METAS(Consents), session::equipmentConsents(world_->impl(), FSIM_AGENT_IDENTITY));
 }
 #undef FSIM_AGENT_METAS
 

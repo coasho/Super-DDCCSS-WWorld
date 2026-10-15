@@ -1939,7 +1939,7 @@ StoreInfo = collections.namedtuple(
                  "mass_kg weapon")
 StoreInfo.__doc__ = """One installed store (ADR-30, MS-7; A-GRA's MA_StrikeCapability): ``index`` names it to strike
 and jettison; ``carriage`` "rail" or "ejector"; ``flyable`` its flight model built; ``status`` "loaded", "powering_up",
-"ready", "releasing", "released", "jettisoned" or "powering_down"; ``weapon`` its entity once released (0: none)."""
+"ready", "releasing", "released", "jettisoned", "powering_down" or "lost"; ``weapon`` its entity once released (0: none)."""
 
 StrikeStatus = collections.namedtuple("StrikeStatus", "phase jettison target stores weapons")
 StrikeStatus.__doc__ = """A strike's or jettison's progress (MS-7): ``phase`` "powering_up", "awaiting_consent",

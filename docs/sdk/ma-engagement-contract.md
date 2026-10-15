@@ -7,7 +7,7 @@ The [registration manifest](ma-engagement-registry.json) records their container
 and request operations, with `runtime_installed: false`.
 The generic `ma-contract.schema.json` envelope remains unchanged.
 
-**Contract validation is implemented; the mission runtime integration is proposed.**
+**Contract validation and native Agent equipment access/reports are implemented; mission gateway integration is proposed.**
 Schema and fixture checks establish document shape and declared boundary rules only.
 They do not establish runtime permission enforcement, installed handlers, reset
 coverage, physical simulation behavior, or Viewer acceptance. Existing native SDK
@@ -132,6 +132,10 @@ actually delivered to its owned ingress. Snapshot provenance, report age and
 non-consuming reads follow the generic contract. Global truth filtered by launcher
 or platform is not a substitute for a legal Agent report.
 
+Native store, strike, countermeasure and delivered-consent report calls are available through the
+[Agent equipment interfaces](engagement.md#agent-equipment-access-and-reports). These calls do not install the
+enclosing mission document or its gateway handlers; the registration manifest remains `runtime_installed: false`.
+
 | Collection | Frozen content and boundary |
 | --- | --- |
 | `stores` | Own inventory: index, payload, station, station name, store, mnemonic, store class, carriage, powerable, jettisonable, flyable, status, mass and released weapon identity |
@@ -185,8 +189,8 @@ to replace the authenticated caller or grant direct authority.
 | `strike` | `new` | `payload`, `target_id`; optional `store`, `quantity`, `stores`, `ripple_s` | Existing `Agent::submit(ms::StrikeCommand)`, `fsim_vehicle_strike`, Python `Agent.strike`; extension handler proposed |
 | `strike` | `cancel` | `activity_id` | Existing `Agent::cancelMission`, `fsim_ms_activity_cancel`, Python `Agent.cancel_mission`; own activity only; extension handler proposed |
 | `strike` | `jettison` | `payload`; optional `stores`, `emergency` | Existing `Agent::submit(ms::JettisonCommand)`, `fsim_vehicle_jettison`, Python `Agent.jettison`; extension handler proposed |
-| `countermeasure` | `dispense` | `kind`: `chaff` or `flare` | Existing own-scoped `fsim_world_dispense`; C++/Python Agent parity and extension handler proposed |
-| `equipment` | `launch_zone` | `store`, nonzero `target_id` | Existing own-scoped `fsim_world_launch_zone`; C++/Python Agent parity and extension handler proposed |
+| `countermeasure` | `dispense` | `kind`: `chaff` or `flare` | Existing `Agent::dispense`, own-scoped `fsim_world_dispense`, Python `Agent.dispense`; extension handler proposed |
+| `equipment` | `launch_zone` | `store`, nonzero `target_id` | Existing `Agent::launchZone`, own-scoped `fsim_world_launch_zone`, Python `Agent.launch_zone`; extension handler proposed |
 | `consent` | `answer` | `ma_system_id`, `consent_request_id`, `granted` | Existing `Agent::answerConsent`, `fsim_c2_answer_consent`, Python `Agent.answer_consent`; extension handler proposed |
 | `engagement_policy` | `activate` | `ma_system_id`, `policy_id`, `revision` | Proposed typed Agent/C2 operation; no existing public activation API |
 

@@ -45,6 +45,20 @@ add_test(NAME mission_package_consumer
         -P ${CMAKE_SOURCE_DIR}/cmake/RunMissionPackageConsumer.cmake)
 set_tests_properties(mission_package_consumer PROPERTIES LABELS "ma-training;package" TIMEOUT 600)
 
+# Feature-owned equipment consumers use separate install trees from the generic package gates.
+add_test(NAME equipment_package_consumer
+    COMMAND ${CMAKE_COMMAND}
+        "-DSOURCE_DIR=${CMAKE_SOURCE_DIR}"
+        "-DBUILD_DIR=${CMAKE_BINARY_DIR}"
+        "-DTOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
+        "-DGENERATOR=${CMAKE_GENERATOR}"
+        "-DCONFIG=$<CONFIG>"
+        "-DJSBSIM_DATA_DIR=${FSIM_JSBSIM_DATA_DIR}"
+        "-DUCRT64_ROOT=${FSIM_UCRT64_ROOT}"
+        "-DMAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}"
+        -P ${CMAKE_SOURCE_DIR}/cmake/RunEquipmentPackageConsumer.cmake)
+set_tests_properties(equipment_package_consumer PROPERTIES LABELS "ma-training;package;native-engagement" TIMEOUT 600 RUN_SERIAL TRUE)
+
 # Test executables are not part of any shipped package, so they are kept out of
 # bin/ (which holds the applications) and out of the dist/ trees entirely. The
 # runtime DLLs they need are staged beside them by the `deploy` target.
@@ -262,6 +276,19 @@ target_link_libraries(fsim_ma_c_abi_test PRIVATE fsim::sdk)
 set_target_properties(fsim_ma_c_abi_test PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON)
 add_test(NAME ma_c_abi COMMAND fsim_ma_c_abi_test "${FSIM_JSBSIM_DATA_DIR}")
 set_tests_properties(ma_c_abi PROPERTIES LABELS ma-training TIMEOUT 300)
+
+# Own-platform equipment access and report provenance through public C++ and C99 interfaces.
+add_executable(fsim_ma_equipment_test test_ma_equipment.cpp)
+target_link_libraries(fsim_ma_equipment_test PRIVATE fsim::sdk Catch2::Catch2WithMain)
+fsim_set_warnings(fsim_ma_equipment_test)
+add_test(NAME ma_equipment COMMAND fsim_ma_equipment_test)
+set_tests_properties(ma_equipment PROPERTIES LABELS "ma-training;native-engagement" TIMEOUT 300)
+
+add_executable(fsim_ma_equipment_c_test test_ma_equipment_c.c)
+target_link_libraries(fsim_ma_equipment_c_test PRIVATE fsim::sdk)
+set_target_properties(fsim_ma_equipment_c_test PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON)
+add_test(NAME ma_equipment_c COMMAND fsim_ma_equipment_c_test "${FSIM_JSBSIM_DATA_DIR}")
+set_tests_properties(ma_equipment_c PROPERTIES LABELS "ma-training;native-engagement" TIMEOUT 300)
 
 # Public C control/Mission adapter behavior across the shared SDK boundary.
 add_executable(fsim_adapter_compatibility_test test_adapter_compatibility.cpp)

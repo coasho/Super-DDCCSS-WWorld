@@ -712,13 +712,54 @@ FSIM_API int fsim_strike_status_get(const fsim_world* world, uint64_t activity, 
     return copyOut(c, out) ? FSIM_OK : FSIM_INVALID_ARGUMENT;
 }
 
+FSIM_API int fsim_agent_strike_report_get(const fsim_world* world, uint32_t entity, uint32_t index, uint64_t* activity,
+                                          fsim_strike_status* out, uint32_t* stores, uint32_t max_stores,
+                                          uint32_t* weapons, uint32_t max_weapons) {
+    FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED);
+    if (!world || !activity || !out || out->struct_size < sizeof(uint32_t))
+        return fail(FSIM_INVALID_ARGUMENT, "fsim_agent_strike_report_get: bad arguments");
+    return guard("fsim_agent_strike_report_get", [&]() -> int {
+        const fsim::session::AgentIdentity identity = world->agent ? *world->agent : fsim::session::AgentIdentity{entity, 0, {}};
+        const auto reports = fsim::session::equipmentStrikes(world->world, identity);
+        if (index >= reports.size()) return fail(FSIM_INVALID_ARGUMENT, "fsim_agent_strike_report_get: no such report");
+        const auto& status = reports[index];
+        fsim_strike_status converted;
+        fsim_strike_status_init(&converted);
+        converted.phase = static_cast<int32_t>(status.phase);
+        converted.jettison = status.jettison ? 1 : 0;
+        converted.target = status.target;
+        converted.store_count = static_cast<uint32_t>(status.stores.size());
+        converted.weapon_count = static_cast<uint32_t>(status.weapons.size());
+        for (uint32_t i = 0; stores && i < max_stores && i < status.stores.size(); ++i) stores[i] = status.stores[i];
+        for (uint32_t i = 0; weapons && i < max_weapons && i < status.weapons.size(); ++i) weapons[i] = status.weapons[i];
+        *activity = status.activity;
+        return copyOut(converted, out) ? FSIM_OK : FSIM_INVALID_ARGUMENT;
+    });
+}
+
+FSIM_API int fsim_agent_consent_report_get(const fsim_world* world, uint32_t entity, uint32_t index, fsim_consent_request* out) {
+    FSIM_AGENT_VEHICLE(world, entity, FSIM_NOT_ALLOWED);
+    FSIM_MA_INGRESS(world, FSIM_NOT_ALLOWED);
+    if (!world || !out || out->struct_size < sizeof(uint32_t))
+        return fail(FSIM_INVALID_ARGUMENT, "fsim_agent_consent_report_get: bad arguments");
+    return guard("fsim_agent_consent_report_get", [&]() -> int {
+        const fsim::session::AgentIdentity identity = world->agent ? *world->agent : fsim::session::AgentIdentity{entity, 0, {}};
+        const auto reports = fsim::session::equipmentConsents(world->world, identity);
+        if (index >= reports.size()) return fail(FSIM_INVALID_ARGUMENT, "fsim_agent_consent_report_get: no such report");
+        fsim_consent_request converted;
+        fsim_consent_request_init(&converted);
+        if (fsim_c2_consent_get(world, entity, index, &converted) != FSIM_OK) return FSIM_INVALID_ARGUMENT;
+        return copyOut(converted, out) ? FSIM_OK : FSIM_INVALID_ARGUMENT;
+    });
+}
+
 FSIM_API double fsim_vehicle_mass_kg(const fsim_world* world, uint32_t id) {
     FSIM_AGENT_VEHICLE(world, id, std::numeric_limits<double>::quiet_NaN());
     return world ? world->world.massKg(id) : std::nan("");
 }
 
 FSIM_API const char* fsim_store_status_name(int status) {
-    return status < 0 || status > static_cast<int>(fsim::ms::StoreStatus::PoweringDown) ? "" : fsim::ms::storeStatusName(static_cast<fsim::ms::StoreStatus>(status));
+    return status < 0 || status > static_cast<int>(fsim::ms::StoreStatus::Lost) ? "" : fsim::ms::storeStatusName(static_cast<fsim::ms::StoreStatus>(status));
 }
 FSIM_API const char* fsim_strike_phase_name(int phase) {
     return phase < 0 || phase > static_cast<int>(fsim::ms::StrikePhase::Done) ? "" : fsim::ms::strikePhaseName(static_cast<fsim::ms::StrikePhase>(phase));

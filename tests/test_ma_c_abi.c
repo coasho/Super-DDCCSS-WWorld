@@ -403,7 +403,7 @@ int main(int argc, char** argv) {
         CHECK(count == 99 && availability == -7);
         CHECK(strcmp(fsim_agent_operator_callsign(stranger, a, 0), "") == 0);
         /* a kind there is none of, a buffer with no size */
-        CHECK(fsim_agent_report(blue, a, FSIM_REPORT_PEER_HEARTBEATS + 1, NAN, &availability, NULL, 0, &count) == FSIM_INVALID_ARGUMENT);
+        CHECK(fsim_agent_report(blue, a, FSIM_REPORT_CONSENTS + 1, NAN, &availability, NULL, 0, &count) == FSIM_INVALID_ARGUMENT);
         CHECK(fsim_agent_report(blue, a, -1, NAN, &availability, NULL, 0, &count) == FSIM_INVALID_ARGUMENT);
         CHECK(fsim_agent_report(blue, a, FSIM_REPORT_PEERS, NAN, &availability, NULL, 1, &count) == FSIM_INVALID_ARGUMENT);
         CHECK(fsim_agent_report(blue, a, FSIM_REPORT_PEERS, NAN, &availability, NULL, 0, NULL) == FSIM_INVALID_ARGUMENT);
