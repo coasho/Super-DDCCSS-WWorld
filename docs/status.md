@@ -4,7 +4,7 @@ Reviewed: 2026-10-12. First maintenance pass: `2b83f24` (implementation baseline
 Second maintenance pass: `f8cfec9`; Architecture A1: `6652584`; Architecture A2: `34e5516`; Architecture A3: `e79f268`;
 Architecture A4: `e708b87`; Architecture A5: `2efea05`; Architecture A6: `b57947d`, based on `39be3c1`.
 Current development and delivery use `main`, including both maintenance passes and Architecture A1 through A6.
-Branch names in the dated verification records identify their original execution context.
+Dated verification records retain their original commits, execution context and acceptance scope.
 
 This is the entry point for what exists now, which delivery it belongs to, and what remains open. The first
 maintenance pass consolidated documentation and development guidance, corrected outdated descriptions, and retired
@@ -171,7 +171,7 @@ package acceptance does not close Platform M5's public-release or GPU target mat
 
 ### Architecture A1 verification, 2026-10-11
 
-Fresh local checks on `codex/architecture-boundaries`, based on `f8cfec9`, using UCRT64 Release headless and
+Fresh local checks for A1, based on `f8cfec9`, using UCRT64 Release headless and
 CPython 3.13.12. Compiler temporary directories remain under `D:/ENV/tmp`.
 
 | Check | Result |
@@ -205,7 +205,7 @@ in a headless checkout; that is source acceptance, not a renderer build.
 
 ### Architecture A2 verification, 2026-10-12
 
-Fresh local checks for A2, committed as `34e5516`, collected on `codex/architecture-lifecycle` and based on A1
+Fresh local checks for A2, committed as `34e5516`, collected during A2 validation and based on A1
 `6652584`, using UCRT64 Release headless, warnings as errors and CPython 3.13.12. Compiler temporary directories
 remain under `D:/ENV/tmp`.
 
@@ -251,7 +251,7 @@ were not exercised. This architecture slice does not close a flight, sensor, wea
 
 ### Architecture A3 verification, 2026-10-12
 
-Fresh local checks for A3, subsequently committed as `e79f268`, were collected on `codex/architecture-adapters`
+Fresh local checks for A3, subsequently committed as `e79f268`, were collected during A3 validation
 against A2 commit `34e5516`.
 The [A3 design](superpowers/specs/2026-10-12-architecture-adapters-design.md) and
 [implementation plan](superpowers/plans/2026-10-12-architecture-adapters.md) record the extraction seams and scope.
@@ -295,7 +295,7 @@ the separate physics, sensor, weapon or public-release milestones.
 
 ### Architecture A4 verification, 2026-10-12
 
-Fresh checks were collected on `codex/architecture-world-adapters`, against committed A3 `e79f268`.
+Fresh checks were collected for A4, against committed A3 `e79f268`.
 The [A4 design](superpowers/specs/2026-10-12-architecture-world-adapters-design.md) and
 [implementation plan](superpowers/plans/2026-10-12-architecture-world-adapters.md) record the selected ownership
 and stopping point. All builds used the existing UCRT64 headless Release preset, warnings as errors and CPython
@@ -338,7 +338,7 @@ separate physics, sensor, weapon, history-retention or public-release milestones
 
 ### Architecture A5 verification, 2026-10-12
 
-Fresh checks were collected on `codex/architecture-vecenv-recording`, against committed A4 `e708b87`.
+Fresh checks were collected for A5, against committed A4 `e708b87`.
 The [A5 design](superpowers/specs/2026-10-12-architecture-batch-recording-design.md) and
 [implementation plan](superpowers/plans/2026-10-12-architecture-batch-recording.md) record the selected split and
 retained ownership. Builds used the existing UCRT64 headless Release preset with warnings as errors and CPython
@@ -386,7 +386,7 @@ separate physics, sensor, weapon, history-retention or public-release milestones
 
 ### Architecture A6 verification, 2026-10-12
 
-Fresh checks were collected on `codex/architecture-world-store-binding`, against A5 delivery baseline `39be3c1`.
+Fresh checks were collected for A6, against A5 delivery baseline `39be3c1`.
 The [A6 design](superpowers/specs/2026-10-12-architecture-store-binding-design.md) and
 [implementation plan](superpowers/plans/2026-10-12-architecture-store-binding.md) describe the first World state-owner
 slice. Builds used the existing UCRT64 headless Release preset, warnings as errors and CPython 3.13.12, with
@@ -438,8 +438,8 @@ remaining World state-owner work or separate physics, sensor, weapon, history-re
 ### Architecture A6 post-push validation, 2026-10-12
 
 The user requested delivery followed by fresh validation. Implementation commit
-`b57947d75ea85e998e0af40fa9daf7828b5f9cd5` was pushed to
-`origin/codex/architecture-world-store-binding`; an independent remote-head query matched local HEAD.
+`b57947d75ea85e998e0af40fa9daf7828b5f9cd5` was pushed to origin;
+an independent remote-head query matched local HEAD at that delivery.
 The checkout was clean. The existing UCRT64 headless Release build retained warnings as errors and CPython 3.13.12.
 TMP/TEMP/TORCH_EXTENSIONS_DIR and Matplotlib's configuration/cache directory were under `D:/ENV/tmp`.
 

@@ -3,8 +3,8 @@
 ## Intent and scope
 
 A4 is committed as e708b87. The user requests another C/Python source split for VecEnv and Recording, preserving
-public API/ABI, principal boundaries and simulation behavior. A5 uses codex/architecture-vecenv-recording and stays
-uncommitted after acceptance. Conversation is Chinese; written files are English.
+public API/ABI, principal boundaries and simulation behavior. A5 initially stays
+uncommitted after acceptance. Written files are English.
 
 This is a source-ownership change. Public headers, Python object models, native simulation/domain sources, resource
 bytes, prior adapter owners, first principal guards, defaults and observable error/lifetime behavior stay unchanged.

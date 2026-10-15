@@ -14,9 +14,9 @@ World retains lifecycle, traversal, permissions, loadTick, publication and relea
 
 ## Global constraints and review focus
 
-- Baseline 39be3c1; branch codex/architecture-world-store-binding. Initial review preceded user-authorized delivery.
+- Baseline 39be3c1. Initial review preceded user-authorized delivery.
 - No public API/ABI, permission, resource, flight-model, Mission rule, Python or existing-test changes.
-- Tools/caches D:/ENV; TMP/TEMP/TORCH_EXTENSIONS_DIR D:/ENV/tmp. Files English, conversation Chinese.
+- Tools/caches D:/ENV; TMP/TEMP/TORCH_EXTENSIONS_DIR D:/ENV/tmp. Files use English.
 - Preserve loaded reset, same-aircraft reused model handles and the separate drag/mass revisions.
 - Preserve first-load stamp arithmetic, non-finite early return, rejected-load side effects and tick wrap semantics.
 - Preserve fuel dt/threshold/draw/refuel order, drag summation and control-host publication cadence.
@@ -96,7 +96,7 @@ existing World/Host/model interfaces. Source workers do not configure/build, mod
 ## Delivery and fresh validation
 
 - The user requested push followed by validation. Committed the reviewed 13-file slice as
-  b57947d75ea85e998e0af40fa9daf7828b5f9cd5 and pushed codex/architecture-world-store-binding to origin.
+  b57947d75ea85e998e0af40fa9daf7828b5f9cd5 and pushed that delivery to origin.
   A remote-head query matches local HEAD; the checkout is clean.
 - Fresh pre-push build, 11 focused CTest cases, source/protected/export/runtime checks and documentation validation
   pass. A second build after push passes through fsim.cmd.

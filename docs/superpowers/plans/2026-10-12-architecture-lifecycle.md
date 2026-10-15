@@ -10,11 +10,11 @@
 
 ## Global constraints
 
-- Baseline `6652584`; branch `codex/architecture-lifecycle`. Leave A2 reviewable without committing it until requested.
+- Baseline `6652584`. Leave A2 reviewable without committing it until requested.
 - Preserve API/ABI, permissions, error/struct-size semantics, borrowed storage, controller IDs and step/event ordering.
 - Retain public headers, Python object-model files, aircraft/store/generated and third-party bytes.
 - Tools/caches stay under `D:/ENV`; compilation temporary directories use `D:/ENV/tmp`.
-- Files English; conversation Chinese. No runtime framework or new simulator feature.
+- Files use English. No runtime framework or new simulator feature.
 
 ## Review focus
 
@@ -74,4 +74,4 @@
 - Fresh acceptance passed: 547 functional CTest cases in 325.12 seconds and three architecture gates in 2.51 seconds, covering 550 distinct cases. Targeted MA acceptance passed six internal cases with 4,134 assertions and three public cases with 105 assertions; seven Python compatibility tests passed on the baseline, rebuilt adapter and final staged module.
 - C extraction is literal, and all 49 Python bodies plus shared helpers/registrations match their baseline. All 1,338 SDK exports and the sole Python export match. All 3,204 protected file hashes and 1,230 distribution runtime hashes match; distributed DLLs match the independently tested installed consumer.
 - [Status and evidence](../../status.md#architecture-a2-verification-2026-10-12) records commands, logs, pre-refactor fixture corrections, review and skipped configurations. Whole-State public history and unanswered ended-strike requests remain retained by design; map scanning and controller ownership are unchanged.
-- Stopping point reached after acceptance on `codex/architecture-lifecycle`. A2 was subsequently committed as `34e5516` at the user's request before A3; no push or new feature milestone.
+- Stopping point reached after A2 acceptance. A2 was subsequently committed as `34e5516` at the user's request before A3; no push or new feature milestone.

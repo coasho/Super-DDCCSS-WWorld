@@ -13,8 +13,8 @@
 - Preserve public API/ABI, principal guards, error strings, numerical expressions, lifetime and step/event ordering.
 - Preserve aircraft/store/generated/third-party bytes; add no framework or feature expansion.
 - Tools/caches and compilation scratch stay under `D:/ENV` and `D:/ENV/tmp`.
-- Write English files; use Chinese in conversation.
-- Start from committed `f8cfec9` on `codex/architecture-boundaries`; leave the new pass reviewable without an additional commit request.
+- Write English files.
+- Start from committed `f8cfec9`; leave the new pass reviewable without an additional commit request.
 
 ## Tasks
 

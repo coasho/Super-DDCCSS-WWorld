@@ -2,9 +2,9 @@
 
 ## Intent and baseline
 
-A2 is committed as `34e5516`. A3 continues on `codex/architecture-adapters`, splitting the C/Python control
+A2 is committed as `34e5516`. A3 continues from that baseline, splitting the C/Python control
 and Mission adapters while preserving public API/ABI, principal permissions and simulation behavior. Files use
-English; conversation uses Chinese. This slice changes adapter source ownership only.
+English. This slice changes adapter source ownership only.
 
 The C Mission owner already exists as `src/sdk/fsim_mission_c.cpp`. Retain it and the A2 DMS/C2 owners unchanged.
 Create a C control owner and matching Python control/Mission owners. Do not split public Python classes or alter

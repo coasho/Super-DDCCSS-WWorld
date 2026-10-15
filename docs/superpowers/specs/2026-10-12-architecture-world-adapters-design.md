@@ -3,8 +3,8 @@
 ## Intent and baseline
 
 The user requests a further language-adapter split after committing A3, preserving public API/ABI, principal
-permissions and simulation behavior. A3 is committed as `e79f268`; this slice uses `codex/architecture-world-adapters`
-and remains uncommitted until requested. Files are English and conversation is Chinese.
+permissions and simulation behavior. A3 is committed as `e79f268`; this slice continues from that baseline
+and remains uncommitted until requested. Files use English.
 
 Move existing implementations literally into focused source owners. Do not redesign native World state, scenario
 application, environment physics, Python public classes, ownership, defaults or threading policy.

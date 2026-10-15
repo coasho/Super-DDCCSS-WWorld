@@ -16,7 +16,7 @@ The Release headless build uses UCRT64 GCC 16.2, CMake/Ninja and CPython 3.13 on
 | English metadata staging | Rebuilt the staged package after translating three existing store cards' notes and source titles; physical parameters are unchanged |
 | `ctest --preset ucrt64-headless -R '^python_sdk$'` | Complete Python SDK suite passed again after metadata staging; elapsed 81.64 s |
 | SDK boundary | 1717 exported entries classified, with zero boundary errors |
-| Source audit | No Chinese text in maintained first-party SDK or game code, documentation and UI; `git diff --check` clean |
+| Source audit | Maintained first-party SDK and game code, documentation and UI use English; `git diff --check` clean |
 
 Together, the repaired functional suite and unchanged model suite cover all 572 tests. This is not a claim that the initial full run had no failures. The allocation failure was reproduced, repaired and verified before delivery.
 

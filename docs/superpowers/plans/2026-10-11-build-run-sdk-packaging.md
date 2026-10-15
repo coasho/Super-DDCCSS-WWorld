@@ -28,7 +28,7 @@ Check Windows argument quoting, environment precedence, configuration isolation,
 
 ## Execution record
 
-- First-round cleanup committed as `2b83f24`; second-round work starts on `codex/build-run-sdk-packaging` from that commit.
+- First-round cleanup committed as `2b83f24`; second-round work starts from that commit.
 - Launcher and SDK tasks have separate file ownership. CTest registration, presets, CI and documentation belong to the coordinating task.
 - Launcher and SDK regressions first reproduced the old failures, then passed. Additional review fixes aligned package exports with the fixed runtime layout and invalidated stale generated Python entries.
 - Final headless configure/build/run/dist commands passed. The functional preset passed all 535 cases in 346.02 seconds; launcher acceptance contains 79 checks. SDK distribution matched the 1,230-file consumer manifest and tested DLL bytes.

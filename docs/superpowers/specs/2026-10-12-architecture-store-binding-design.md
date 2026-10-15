@@ -3,8 +3,8 @@
 ## Intent and scope
 
 Starting from `39be3c1`, give carried-store flight bindings a private owner without changing public API/ABI,
-principal boundaries or simulation behavior. This is the first World state-owner slice. Conversation is Chinese;
-source and documentation are English. Initial implementation review preceded the user's request to deliver A6.
+principal boundaries or simulation behavior. This is the first World state-owner slice. Source and documentation
+are English. Initial implementation review preceded the user's request to deliver A6.
 
 ## Selected ownership
 

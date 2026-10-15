@@ -14,11 +14,11 @@ and Python registration. Add characterization before extraction and compare sour
 
 ## Global constraints
 
-- Baseline `34e5516`; branch `codex/architecture-adapters`. Leave A3 uncommitted until requested.
+- Baseline `34e5516`. Leave A3 uncommitted until requested.
 - Preserve public API/ABI, principal permissions, simulation behavior, error order, struct-size semantics and borrowed lifetimes.
 - Native simulation/domain sources, public/object-model files, resources and prior adapter owners remain hash-identical.
 - Keep World/module/type tables, Error, BufferType and PyInit centrally owned; no new GIL/busy checks or public mixins.
-- Tools/caches under `D:/ENV`; compilation temporary directories `D:/ENV/tmp`. Files English; conversation Chinese.
+- Tools/caches under `D:/ENV`; compilation temporary directories `D:/ENV/tmp`. Files use English.
 
 ## Review focus
 

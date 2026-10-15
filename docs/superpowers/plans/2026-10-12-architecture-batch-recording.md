@@ -14,12 +14,12 @@ type/buffer/borrowed-World ownership in their original core owners.
 
 ## Constraints
 
-- Baseline e708b87; branch codex/architecture-vecenv-recording. Initially stop before commit; the user subsequently
+- Baseline e708b87. Initially stop before commit; the user subsequently
   requested commit and push after acceptance.
 - Public API/ABI, principal checks, native behavior, resources and existing object models/tests stay unchanged.
 - Do not replace VecEnv's void-return guard with the int-return shared guard or normalize LastError semantics.
 - Keep C++ VecEnv bodies, core type ownership, all registration and the three coupled Python callbacks literal.
-- Files English, conversation Chinese. Existing tools/caches D:/ENV, compilation temporary directories D:/ENV/tmp.
+- Files use English. Existing tools/caches D:/ENV, compilation temporary directories D:/ENV/tmp.
 
 ## Review focus
 
@@ -105,7 +105,7 @@ python/tests/test_batch_recording_binding_compatibility.py; root registers the s
 - Distribution refreshed. All 1,230 runtime manifest entries and tested installed-consumer fsim/JSBSim DLL bytes
   match dist; native and public Python wrapper bytes match staging, including VecEnv/Recording. Four binding
   compatibility suites passed 25/25 against distributed Python. All 1,338 SDK exports and 3,701 protected hashes match.
-- Acceptance reached on codex/architecture-vecenv-recording; A5 was initially left uncommitted. English architecture/development,
+- Acceptance reached for A5, which was initially left uncommitted. English architecture/development,
   navigation and status describe current owners, acceptance and the remaining queue. No dependency installation,
   resource generation or new simulation/domain feature was added. Hangar generation, renderer/GPU, render SDK
   installation, CPack ZIP and remote CI were not exercised.

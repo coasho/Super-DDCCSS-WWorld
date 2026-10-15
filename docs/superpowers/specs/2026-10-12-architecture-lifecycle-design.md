@@ -2,7 +2,7 @@
 
 ## Intent and baseline
 
-Architecture A1 is committed as `6652584`. A2 continues on `codex/architecture-lifecycle`, focusing on MA lifecycle maintenance and C/Python interface separation. Preserve public C++/C/Python API and ABI, principal permissions, error semantics, borrowed lifetimes and simulation ordering. Written files use English; conversation uses Chinese.
+Architecture A1 is committed as `6652584`. A2 continues from that baseline, focusing on MA lifecycle maintenance and C/Python interface separation. Preserve public C++/C/Python API and ABI, principal permissions, error semantics, borrowed lifetimes and simulation ordering. Written files use English.
 
 ## Findings and selected approach
 

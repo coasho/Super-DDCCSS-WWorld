@@ -1,4 +1,4 @@
-# Project Instructions for Codex
+# Project Instructions
 
 Repository: Super-DDCCSS-WWorld.
 Branch: main only.
@@ -6,15 +6,15 @@ Implementation baseline: baf476f841970f1f3c90b8de0bf630e8a5478738.
 
 ## Context and filesystem boundaries
 
-Use these project instructions, tracked project documentation and explicitly relevant project source as persistent context. The accepted [design](docs/superpowers/specs/2026-10-12-ma-system-training-readiness-design.md), [Claude plan](docs/superpowers/plans/2026-10-12-ma-system-training-readiness.md) and [Claude work allocation](docs/superpowers/plans/2026-10-12-ma-system-training-work-allocation.md) govern MA training work. These documents describe Claude's assignments; they do not assign those features to Codex.
+Use these project instructions, tracked project documentation and explicitly relevant project source as persistent context. The accepted [design](docs/superpowers/specs/2026-10-12-ma-system-training-readiness-design.md), [Claude plan](docs/superpowers/plans/2026-10-12-ma-system-training-readiness.md) and [Claude work allocation](docs/superpowers/plans/2026-10-12-ma-system-training-work-allocation.md) govern MA training work. The linked plan and allocation describe Claude's assignments only.
 
-Do not read, search, enumerate, traverse or modify any directory named .codex or anything inside it. This includes repository-local directories, user-profile directories such as C:/Users/Administrator/.codex, its memories/skills/configuration, and .codex directories anywhere else.
+Do not read, search, enumerate, traverse or modify any directory named .codex or anything inside it, at any depth. This restriction includes repository-local directories, user-profile locations and their memories, skills and configuration.
 
 Do not inspect or modify other worktrees. Scope searches to explicit allowed project paths; avoid broad filesystem or repository enumeration that could enter an excluded directory. Exclude every .codex directory before a permitted recursive source search. Use the tracked project documents and this file instead of profile memory lookup.
 
 Work on main. Do not create branches or worktrees. Verify the current branch before changing files and preserve unrelated working-tree changes. Stage only reviewed feature-owned files and inspect the staged diff.
 
-Communicate with the user in Chinese, including explanations, progress updates, questions and final responses. Prompts and handoffs intended for Claude are English. Maintained code, documentation, tests, UI text, metadata and commit messages are English.
+Maintained code, documentation, tests, UI text, metadata and commit messages are English. All communication with Claude, including prompts and handoffs, is English.
 
 ## Feature ownership
 
@@ -24,7 +24,7 @@ Claude owns complete generic features: generic contracts/schema; explicit MA-ser
 
 For those features, Claude owns native C++, C++/C/Python interfaces, examples, tests, documentation and acceptance evidence together. Future generic integration and compatibility builds remain Claude work. Reviewing a handoff or running independent verification does not transfer feature ownership.
 
-Codex implements only its separately agreed feature packages during its own write window. Keep Codex's private execution details out of shared project documentation and Claude memory. Do not take over Claude's generic packages or expose private task lists in this file.
+Implement only explicitly assigned feature packages during the active write window. The documented assignments do not expand an implementation window's scope. Project documentation records public contracts, assigned tasks and acceptance evidence rather than personal execution notes.
 
 The reviewed Viewer baseline was delivered as a separate verified main commit and push: baf476f841970f1f3c90b8de0bf630e8a5478738. Generic M0, M1 and noncombat M2 have been delivered on main; the latest M1 follow-up is 2bad550. M4/M5 have not started at this handoff. Preserve the frozen generic M0 schemas, native mappings, lifetime/error and ownership contracts when adding downstream interfaces.
 
@@ -70,9 +70,9 @@ Keep actor endpoint proxies separate from Range/referee handles. Strict isolatio
 
 ## Scheduling, files and verification
 
-Record exact path/symbol allowlists and main HEAD before each feature. Shared World/MaCore/Agent/adapters/schema references/CMake/boundary files have one active feature owner per exclusive write window. Other owners supply reviewed patches or wait for handoff. Record interfaces, changed symbols, fixtures, pending gates and commit/diff at each handoff.
+Record exact path/symbol allowlists and main HEAD before each feature. Shared World/MaCore/Agent/adapters/schema references/CMake/boundary files have one active feature owner per exclusive write window. Integrate reviewed patches at recorded handoffs; never edit shared paths concurrently. Record interfaces, changed symbols, fixtures, pending gates and commit/diff at each handoff.
 
-Alternate implementation windows. Claude stops and releases the write/build slots after a handoff; Codex reviews it and starts only a separately assigned package whose dependencies are accepted. Codex releases those slots before Claude resumes. When the next package still belongs to Claude, give the user an English prompt for Claude instead of implementing it. The user relays these prompts; do not message Claude directly.
+Use exclusive implementation windows. Stop and release the write/build slots after each handoff. Resume only when the user relays the next assignment and its dependencies are accepted. The user relays prompts and handoffs; do not contact external workers directly.
 
 Acquire the exclusive serial native configure/build/test slot before execution; pause other writes to its build inputs. Each feature owner may execute its own native gates while holding that slot. Use one GUI slot for a complete Viewer scenario. Do not run competing viewers or CMake writers.
 

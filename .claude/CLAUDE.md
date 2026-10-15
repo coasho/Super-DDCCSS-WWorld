@@ -8,7 +8,7 @@ Implementation baseline: baf476f841970f1f3c90b8de0bf630e8a5478738.
 
 Use this project memory, tracked project documentation and explicitly relevant project source as persistent context. The accepted [design](../docs/superpowers/specs/2026-10-12-ma-system-training-readiness-design.md), [plan](../docs/superpowers/plans/2026-10-12-ma-system-training-readiness.md) and [work allocation](../docs/superpowers/plans/2026-10-12-ma-system-training-work-allocation.md) govern MA training work.
 
-Do not read, search, enumerate, traverse or modify any directory named .codex or anything inside it. This includes repository-local directories, user-profile directories such as C:/Users/Administrator/.codex, its memories/skills/configuration, and .codex directories anywhere else.
+Do not read, search, enumerate, traverse or modify any directory named .codex or anything inside it, at any depth. This restriction includes repository-local directories, user-profile locations and their memories, skills and configuration.
 
 Do not inspect or modify other worktrees. Scope searches to explicit allowed project paths; avoid broad filesystem or repository enumeration that could enter an excluded directory. Exclude every .codex directory before a permitted recursive source search. Use the tracked project documents and this file instead of profile memory lookup.
 
@@ -68,7 +68,7 @@ Keep actor endpoint proxies separate from Range/referee handles. Strict isolatio
 
 ## Scheduling, files and verification
 
-Record exact path/symbol allowlists and main HEAD before each feature. Shared World/MaCore/Agent/adapters/schema references/CMake/boundary files have one active feature owner per exclusive write window. Other owners supply reviewed patches or wait for handoff. Record interfaces, changed symbols, fixtures, pending gates and commit/diff at each handoff.
+Record exact path/symbol allowlists and main HEAD before each feature. Shared World/MaCore/Agent/adapters/schema references/CMake/boundary files have one active feature owner per exclusive write window. Integrate reviewed patches at recorded handoffs; never edit shared paths concurrently. Record interfaces, changed symbols, fixtures, pending gates and commit/diff at each handoff.
 
 Alternate implementation windows. Stop and release the write/build slots after each handoff. Resume only when the user relays the next assignment; do not start a later package while another implementation window is active.
 

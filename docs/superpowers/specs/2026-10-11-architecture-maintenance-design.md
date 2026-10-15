@@ -65,4 +65,4 @@ World retains agent authorization, ordered store selection, entity/designation/r
 
 ## Constraints
 
-Windows x64 UCRT64 GCC, C++17 and CMake 3.25+ remain the supported path. Reuse installed tools under `D:/ENV`; use `D:/ENV/tmp` for compilation temporary files. Conversation uses Chinese; written files use English. No new runtime or third-party framework is introduced.
+Windows x64 UCRT64 GCC, C++17 and CMake 3.25+ remain the supported path. Reuse installed tools under `D:/ENV`; use `D:/ENV/tmp` for compilation temporary files. Written files use English. No new runtime or third-party framework is introduced.
