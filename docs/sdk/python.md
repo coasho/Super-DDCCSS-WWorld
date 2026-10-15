@@ -334,6 +334,22 @@ driven from different threads in parallel. One object serves one call at a
 time: a call on a World or VecEnv while another thread's call on it is still
 running raises `RuntimeError` instead of racing it.
 
+## Mission episodes
+
+`fsim.mission` (M5 core; [mission-training.md](mission-training.md)) is the range's `MissionEpisode` - made from an
+`ma.config.v1` document (str or bytes), `reset(local_episode_index)`, `step()`, `endpoint(service_id)`, `referee()`,
+`close()` - and the two handles it opens for the current generation: `MissionEndpoint` (`observation_json()`,
+`submit_json(actions)`, `receipts_json()`, `close()`) and `MissionReferee` (`outcome_json()`, `truth_json()`, `close()`).
+Every document is `str`, exactly as the contract writes it, so identities above 2^53 stay exact. Errors are
+`fsim.Error`; a well-formed document for another generation, tick or service is answered, not raised. `reset` and
+`step` release the GIL: a call from another thread meanwhile fails busy at once.
+
+An actor in its own process holds its endpoint alone: `fsim.isolation.MissionEndpointProcess(episode, endpoint,
+"module:Class", *args, path=[...])` makes `Class(remote_endpoint, *args)` there - a `RemoteMissionEndpoint` with the
+three calls and nothing else - and runs its methods with `call` / `step`, serving the endpoint calls in the range's
+process. A diagnostic episode is refused, and no range, World, Agent, referee, endpoint or referee document crosses.
+After a reset, `rebind(episode.endpoint(service_id))` moves the process to the new generation.
+
 ## Logging and errors
 
 A call that fails raises `fsim.Error` with the platform's message. The

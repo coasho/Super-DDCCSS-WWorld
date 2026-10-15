@@ -28,6 +28,9 @@ typedef struct {
 
 #define WORLD_IDLE(self) fsim_py_idle((self)->busy, "this World")
 
+/* The mission episode family's types (_native_mission_env.c), added to the module by its init. */
+int fsim_py_add_mission_types(PyObject* m);
+
 /* Shared conversions and the bridge to the core's original static Error object. */
 PyObject* fail(void);
 int check_args(Py_ssize_t n, Py_ssize_t lo, Py_ssize_t hi, const char* name);

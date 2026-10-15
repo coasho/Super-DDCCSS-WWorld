@@ -1,8 +1,9 @@
-// MA-service binding and legal reports from an installed SDK: its public headers and its library, nothing else
-// (docs/sdk/mission-training.md, sections 9 and 10).
+// MA-service binding, legal reports and mission episodes from an installed SDK: its public headers and its library,
+// nothing else (docs/sdk/mission-training.md, sections 3 to 14).
 #include <fsim/Agent.h>
 #include <fsim/MAReports.h>
 #include <fsim/MAService.h>
+#include <fsim/MissionEpisode.h>
 #include <fsim/World.h>
 
 #include <cmath>
@@ -32,6 +33,15 @@ const char* const kRoute = "fsim.guidance.route";
 
 void require(bool condition, const char* message) {
     if (!condition) throw std::runtime_error(message);
+}
+
+std::string jsonText(const std::string& s) {
+    std::string out = "\"";
+    for (const char c : s) {
+        if (c == '"' || c == '\\') out += '\\';
+        out += c;
+    }
+    return out + "\"";
 }
 
 void checkModule(const fs::path& prefix, const wchar_t* name) {
@@ -232,6 +242,60 @@ void reports(const fs::path& data) {
 
 } // namespace
 
+/// A mission episode through fsim/MissionEpisode.h alone: reset, one immutable snapshot per tick read twice, a request
+/// queued and executed as the service's own Agent, a message ingested once by its ingress owner, the referee's documents,
+/// and the earlier generation's handles refused.
+std::string episode(const fs::path& data) {
+    const std::string root = (data / "jsbsim").generic_string();
+    const std::string config = R"({"schema":"ma.config.v1","env_id":"7","base_seed":"18446744073709551615",
+ "timing":{"dt_s":0.008333333333333333,"frame_skip":4,"decision_steps":30},
+ "scenario":{"world":{"name":"installed-mission","capacity":4,"jsbsim_root":)" + jsonText(root) + R"(},
+  "vehicles":[{"name":"lead","type":"jsbsim:f16c","initial":{"lat_deg":36.0,"lon_deg":-115.0,"alt_msl_m":7000,"heading_deg":0,"airspeed_ms":230}}]},
+ "c2_nodes":[{"name":"crc","latitude_rad":0.6283185307179586,"longitude_rad":-2.007128639793479,"altitude_msl_m":600.0}],
+ "systems":[{"platform":"lead","system_id":"1392508929"},{"platform":"crc","system_id":"1392508931"}],
+ "nets":[{"name":"l16","members":["lead","crc"]}],
+ "services":[{"service_id":"9007199254740995","name":"lead-ma","platform":"lead","command_capabilities":["*"],"owns_dms_ingress":true,"owns_dms_egress":true},
+  {"service_id":"4","name":"crc-c2","platform":"crc","command_capabilities":[],"owns_dms_ingress":true,"owns_dms_egress":true}],
+ "task":{"criteria":[{"id":"time","kind":"tick_limit","outcome":"truncated","max_ticks":3}]}})";
+    MissionEpisode episode(config);
+    const std::string key = episode.reset(41);
+    require(key == R"({"env_id":"7","episode_generation":"1","local_episode_index":"41"})", "the episode key is not the reset's");
+    MissionEndpoint lead = episode.endpoint(9007199254740995ull), crc = episode.endpoint(4);
+    MissionReferee referee = episode.referee();
+    const std::string first = lead.observationJsonV1();
+    require(first == lead.observationJsonV1(), "a snapshot read twice differs");
+    require(first.find(R"("service_id":"9007199254740995")") != std::string::npos, "an identity above 2^53 is not exact");
+    const auto actions = [&](const char* service, const char* tick, const std::string& requests) {
+        return std::string(R"({"schema":"ma.actions.v1","episode":)") + key + R"(,"service_id":")" + service + R"(","tick":")" + tick +
+               R"(","requests":[)" + requests + "]}";
+    };
+    const std::string ack = lead.submitJsonV1(actions("9007199254740995", "0",
+        R"({"request_id":"1","kind":"flight","operation":"new","parameters":{"mode":"hsa","heading_rad":0.5,"altitude_m":7000.0}})"));
+    require(ack.find(R"("status":"queued")") != std::string::npos && ack == lead.receiptsJsonV1(), "the request was not queued");
+    crc.submitJsonV1(actions("4", "0",
+        R"({"request_id":"1","kind":"dms","operation":"send","parameters":{"topic":"1001","destination_system_ids":["1392508929"],"byte_length":3,"data_b64":"AQID"}})"));
+    int messages = 0;
+    for (int tick = 1; tick <= 3; ++tick) {
+        episode.step();
+        const std::string o = lead.observationJsonV1();
+        for (std::size_t at = o.find(R"("topic":"1001")"); at != std::string::npos; at = o.find(R"("topic":"1001")", at + 1)) ++messages;
+    }
+    require(messages == 1, "a delivered message was not in exactly one snapshot");
+    require(lead.observationJsonV1().find(R"("state":"executing")") != std::string::npos, "the request did not execute natively");
+    require(referee.outcomeJsonV1().find(R"("reason":"truncated")") != std::string::npos, "the referee did not judge its criterion");
+    require(referee.truthJsonV1().find(R"("schema":"ma.truth.v1")") != std::string::npos, "no truth document");
+    require(lead.observationJsonV1().find("truth") == std::string::npos, "truth reached a snapshot");
+    episode.reset(41);
+    bool stale = false;
+    try {
+        lead.observationJsonV1();
+    } catch (const std::runtime_error&) {
+        stale = true;
+    }
+    require(stale, "an earlier generation's endpoint still answered");
+    return key;
+}
+
 int main(int argc, char** argv) {
     if (argc != 2) {
         std::fprintf(stderr, "usage: ma_consumer_cpp <installed-prefix>\n");
@@ -246,8 +310,10 @@ int main(int argc, char** argv) {
         require(a == "flight flight comms comms", "ownership is not the bindings'");
         worlds(data);
         reports(data);
-        std::printf("fsim %s installed C++ consumer: ownership \"%s\" in either creation order; legal reports with provenance\n",
-                    fsim::version(), a.c_str());
+        const std::string key = episode(data);
+        std::printf("fsim %s installed C++ consumer: ownership \"%s\" in either creation order; legal reports with provenance; "
+                    "mission episode %s\n",
+                    fsim::version(), a.c_str(), key.c_str());
         return 0;
     } catch (const std::exception& error) {
         std::fprintf(stderr, "installed MA consumer (C++) failed: %s\n", error.what());

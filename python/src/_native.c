@@ -759,7 +759,7 @@ PyMODINIT_FUNC PyInit__native(void) {
     if (!Error || PyModule_AddObjectRef(m, "Error", Error) < 0 ||
         add_type(m, &fsim_py_buffer_spec, &BufferType, "Buffer") < 0 || add_type(m, &vecenv_spec, &VecEnvType, "VecEnv") < 0 ||
         add_type(m, &world_spec, &WorldType, "World") < 0 || add_type(m, &scenario_spec, &ScenarioType, "Scenario") < 0 ||
-        add_type(m, &recording_spec, &RecordingType, "Recording") < 0 ||
+        add_type(m, &recording_spec, &RecordingType, "Recording") < 0 || fsim_py_add_mission_types(m) < 0 ||
         PyModule_AddIntConstant(m, "LEVEL_ACTUATOR", FSIM_LEVEL_ACTUATOR) < 0 ||
         PyModule_AddIntConstant(m, "LEVEL_ATTITUDE", FSIM_LEVEL_ATTITUDE) < 0 ||
         PyModule_AddIntConstant(m, "LEVEL_ACCELERATION", FSIM_LEVEL_ACCELERATION) < 0 ||

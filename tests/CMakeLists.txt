@@ -305,6 +305,27 @@ fsim_set_warnings(fsim_mission_episode_test)
 add_test(NAME mission_episode COMMAND fsim_mission_episode_test)
 set_tests_properties(mission_episode PROPERTIES LABELS "ma-training" TIMEOUT 900 RUN_SERIAL TRUE)
 
+# The mission gateway through the public C++ SDK (M5 core; docs/sdk/mission-training.md, sections 3 to 14): requests,
+# receipts and lifetime (ma_actions), snapshots, messages and referee documents (ma_observation). core::Json only reads
+# the documents back.
+foreach(name actions observation)
+    add_executable(fsim_ma_${name}_test test_ma_${name}.cpp)
+    target_link_libraries(fsim_ma_${name}_test PRIVATE fsim::sdk fsim::core Catch2::Catch2WithMain)
+    target_compile_definitions(fsim_ma_${name}_test PRIVATE FSIM_TEST_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+                                                            FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
+    fsim_set_warnings(fsim_ma_${name}_test)
+    add_test(NAME ma_${name} COMMAND fsim_ma_${name}_test)
+    set_tests_properties(ma_${name} PROPERTIES LABELS ma-training TIMEOUT 600)
+endforeach()
+
+# The same episodes through the C ABI, from a plain C99 translation unit: handle kinds, two-call reads, statuses.
+add_executable(fsim_mission_c_abi_test test_mission_c_abi.c)
+target_link_libraries(fsim_mission_c_abi_test PRIVATE fsim::sdk)
+set_target_properties(fsim_mission_c_abi_test PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON)
+add_test(NAME mission_c_abi COMMAND fsim_mission_c_abi_test "${CMAKE_SOURCE_DIR}/tests/fixtures/mission_training/contract"
+                                    "${FSIM_JSBSIM_DATA_DIR}")
+set_tests_properties(mission_c_abi PROPERTIES LABELS ma-training TIMEOUT 300)
+
 # Simulation construction, fixed state/transport ABI and output-only diagnostics stay independent of M5.
 add_executable(fsim_simulation_interface_boundary_test
     test_episode_world_options.cpp

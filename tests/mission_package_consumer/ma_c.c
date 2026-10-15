@@ -1,6 +1,9 @@
-/* MA-service binding and legal reports from an installed SDK through its C ABI, as C99: fsim_c.h and the library,
- * nothing else (docs/sdk/mission-training.md, sections 9 and 10). */
+/* MA-service binding, legal reports and mission episodes from an installed SDK through its C ABI, as C99: fsim_c.h,
+ * fsim_mission_env.h and the library, nothing else (docs/sdk/mission-training.md, sections 3 to 14). */
 #include <fsim/fsim_c.h>
+#include <fsim/fsim_mission_env.h>
+
+#include <stdlib.h>
 
 #include <math.h>
 #include <stdio.h>
@@ -289,6 +292,80 @@ static int reports(const char* jsbsim_root) {
     return 0;
 }
 
+/* A whole document by the two-call protocol. */
+static char* endpoint_document(fsim_mission_endpoint* e, int (*read)(fsim_mission_endpoint*, char*, size_t, size_t*)) {
+    size_t needed = 0;
+    char* text;
+    if (read(e, NULL, 0, &needed) != FSIM_OK) return NULL;
+    text = (char*)malloc(needed);
+    if (text && read(e, text, needed, &needed) != FSIM_OK) {
+        free(text);
+        text = NULL;
+    }
+    return text;
+}
+
+static int mission_episode(const char* jsbsim_root) {
+    char config[4096], document[1024], root[2048];
+    size_t i, j = 0;
+    fsim_mission_episode* episode = NULL;
+    fsim_mission_endpoint *lead = NULL, *stale = NULL;
+    fsim_mission_referee* referee = NULL;
+    char *first, *again;
+    size_t needed = 0;
+    int executing;
+    for (i = 0; jsbsim_root[i] && j + 2 < sizeof root; ++i) { /* (its path as a JSON string's text) */
+        if (jsbsim_root[i] == '\\' || jsbsim_root[i] == '"') root[j++] = '\\';
+        root[j++] = jsbsim_root[i];
+    }
+    root[j] = '\0';
+    snprintf(config, sizeof config,
+             "{\"schema\":\"ma.config.v1\",\"env_id\":\"7\",\"base_seed\":\"18446744073709551615\", "
+             "\"timing\":{\"dt_s\":0.008333333333333333,\"frame_skip\":4,\"decision_steps\":30}, "
+             "\"scenario\":{\"world\":{\"name\":\"installed-mission\",\"capacity\":4,\"jsbsim_root\":\"%s\"}, "
+             " \"vehicles\":[{\"name\":\"lead\",\"type\":\"jsbsim:f16c\",\"initial\":{\"lat_deg\":36.0,\"lon_deg\":-115.0,\"alt_msl_m\":7000,\"heading_deg\":0,\"airspeed_ms\":230}}]}, "
+             "\"c2_nodes\":[{\"name\":\"crc\",\"latitude_rad\":0.6283185307179586,\"longitude_rad\":-2.007128639793479,\"altitude_msl_m\":600.0}], "
+             "\"systems\":[{\"platform\":\"lead\",\"system_id\":\"1392508929\"},{\"platform\":\"crc\",\"system_id\":\"1392508931\"}], "
+             "\"nets\":[{\"name\":\"l16\",\"members\":[\"lead\",\"crc\"]}], "
+             "\"services\":[{\"service_id\":\"9007199254740995\",\"name\":\"lead-ma\",\"platform\":\"lead\",\"command_capabilities\":[\"*\"],\"owns_dms_ingress\":true,\"owns_dms_egress\":true}, "
+             " {\"service_id\":\"4\",\"name\":\"crc-c2\",\"platform\":\"crc\",\"command_capabilities\":[],\"owns_dms_ingress\":true,\"owns_dms_egress\":true}], "
+             "\"task\":{\"criteria\":[{\"id\":\"time\",\"kind\":\"tick_limit\",\"outcome\":\"truncated\",\"max_ticks\":3}]}}",
+             root);
+    CHECK(fsim_mission_episode_create(config, strlen(config), &episode) == FSIM_OK);
+    CHECK(fsim_mission_endpoint_open(episode, 9007199254740995ull, &lead) == FSIM_INVALID_ARGUMENT); /* (before a reset) */
+    CHECK(fsim_mission_episode_reset(episode, 41) == FSIM_OK);
+    CHECK(fsim_mission_endpoint_open(episode, 9007199254740995ull, &lead) == FSIM_OK);
+    CHECK(fsim_mission_referee_open(episode, &referee) == FSIM_OK);
+    first = endpoint_document(lead, fsim_mission_endpoint_observation_json);
+    again = endpoint_document(lead, fsim_mission_endpoint_observation_json);
+    CHECK(first && again && strcmp(first, again) == 0);
+    CHECK(strstr(first, "\"episode\":{\"env_id\":\"7\",\"episode_generation\":\"1\",\"local_episode_index\":\"41\"}") != NULL);
+    CHECK(fsim_mission_episode_step((fsim_mission_episode*)lead) == FSIM_NOT_ALLOWED);
+    CHECK(fsim_mission_referee_truth_json((fsim_mission_referee*)lead, NULL, 0, &needed) == FSIM_NOT_ALLOWED);
+    snprintf(document, sizeof document,
+             "{\"schema\":\"ma.actions.v1\",\"episode\":{\"env_id\":\"7\",\"episode_generation\":\"1\",\"local_episode_index\":\"41\"},"
+             "\"service_id\":\"9007199254740995\",\"tick\":\"0\",\"requests\":[{\"request_id\":\"1\",\"kind\":\"flight\","
+             "\"operation\":\"new\",\"parameters\":{\"mode\":\"hsa\",\"heading_rad\":0.5}}]}");
+    CHECK(fsim_mission_endpoint_submit(lead, document, strlen(document)) == FSIM_OK);
+    CHECK(fsim_mission_episode_step(episode) == FSIM_OK);
+    free(first);
+    first = endpoint_document(lead, fsim_mission_endpoint_observation_json);
+    CHECK(first != NULL);
+    executing = strstr(first, "\"state\":\"executing\"") != NULL;
+    CHECK(executing);
+    CHECK(fsim_mission_referee_outcome_json(referee, NULL, 0, &needed) == FSIM_OK && needed > 1);
+    stale = lead;
+    CHECK(fsim_mission_episode_reset(episode, 41) == FSIM_OK);
+    CHECK(fsim_mission_endpoint_observation_json(stale, NULL, 0, &needed) == FSIM_INVALID_ARGUMENT);
+    fsim_mission_episode_destroy(episode);
+    CHECK(fsim_mission_referee_outcome_json(referee, NULL, 0, &needed) == FSIM_INVALID_ARGUMENT);
+    fsim_mission_endpoint_destroy(stale);
+    fsim_mission_referee_destroy(referee);
+    free(first);
+    free(again);
+    return 0;
+}
+
 int main(int argc, char** argv) {
     char jsbsim_root[4096];
     uint64_t a[4], b[4];
@@ -303,7 +380,9 @@ int main(int argc, char** argv) {
     CHECK(a[0] == 1 && a[1] == 1 && a[2] == 2 && a[3] == 2);
     if (worlds(jsbsim_root) != 0) return 1;
     if (reports(jsbsim_root) != 0) return 1;
-    printf("fsim ABI %u installed C99 consumer: the same ownership in either creation order; legal reports with provenance\n",
+    if (mission_episode(jsbsim_root) != 0) return 1;
+    printf("fsim ABI %u installed C99 consumer: the same ownership in either creation order; legal reports with provenance; "
+           "a mission episode through fsim_mission_env.h\n",
            (unsigned)fsim_abi_version());
     return 0;
 }

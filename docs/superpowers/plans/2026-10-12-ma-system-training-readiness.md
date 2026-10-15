@@ -12,7 +12,7 @@
 
 **Delivered baseline:** baf476f841970f1f3c90b8de0bf630e8a5478738, verified and pushed to main. See [current Viewer evidence](../../sdk/viewer-validation.md).
 
-**Progress reviewed:** 2026-10-15, main `54b7fb9`. Generic M0 was delivered in 1874091 and corrected in 182ac58; M1 in 990554b; noncombat M2 in fb23a9b. Follow-ups 9b06c79 and 2bad550 address binding transitions, foreign-World Agent rejection, peer provenance and the qualified activity-preservation contract. The native-state reset fixture was supplied in 4406ff1. M4 is implemented as the internal episode owner (`8254d7e`, `c507978`, `54b7fb9`) and has passed independent acceptance; M5 has not started; the first complete mission episode gateway package and M6-M8 acceptance remain pending.
+**Progress reviewed:** 2026-10-15, main `54b7fb9`. Generic M0 was delivered in 1874091 and corrected in 182ac58; M1 in 990554b; noncombat M2 in fb23a9b. Follow-ups 9b06c79 and 2bad550 address binding transitions, foreign-World Agent rejection, peer provenance and the qualified activity-preservation contract. The native-state reset fixture was supplied in 4406ff1. M4 is implemented as the internal episode owner (`8254d7e`, `c507978`, `54b7fb9`) and has passed independent acceptance. M5 core was implemented on main after its prerequisites were verified at `08e3afe` and awaits independent acceptance; full M5 (extension handlers), the first-package acceptance and M6-M8 remain pending.
 
 ## Global Constraints
 
@@ -241,14 +241,14 @@ native setup callbacks internal and public state/transport layouts fixed. Do not
 or training algorithms; fixtures only exercise the public interfaces. Disagreements or missing prerequisites must
 be reported with evidence before dependent implementation proceeds.
 
-- [ ] Add failing actor/referee handle-kind and generation tests before exposing public entrypoints; register ma_observation, ma_actions and mission_c_abi with ma-training labels/timeouts in this package.
-- [ ] Freeze one legal snapshot per decision tick, ingest the DMS inbox once and return owned immutable documents on repeated reads.
-- [ ] Queue requests at submit and dispatch through the bound Agent's existing VI/MS/DMS/C2 method at Range.step in fixed order. Test reversed service/proxy arrival order, wrong decision tick and missing-service wait. Preserve role/target checks; never use Range consent or entity truth to fulfill actor requests.
-- [ ] Implement scoped request deduplication and bounded terminal retry retention, preserving pending/executing correlations until explicit closure. Test long-lived tasks beyond retry windows, late cancellation, terminal tombstone expiry, capacity refusal, identical retry, changed-body reuse, stale retry, unknown kind, non-finite arguments and repeated task/send requests. Consume supplied extension correlation fixtures at full integration.
-- [ ] Transport native IDs, states and reasons through versioned receipts. Test that queued/pending/accepted or native activity completion does not imply mission success; preserve frozen extension event/receipt semantics.
-- [ ] Implement C two-call buffer reads and handle-kind validation, Python wrappers and isolated endpoint proxy with publication/recording guard. Test buffer size queries do not consume messages or submit twice. Keep existing plugin vtables/native type owners and the non-free-threaded abi3 target Py_LIMITED_API=0x030B0000 intact.
-- [ ] Run ctest --preset ucrt64-headless -R "^(ma_observation|ma_actions|mission_c_abi)$" --no-tests=error --output-on-failure and python_sdk. Check exports/boundary and old consumers.
-- [ ] Review and commit the public environment/action package.
+- [x] Add failing actor/referee handle-kind and generation tests before exposing public entrypoints; register ma_observation, ma_actions and mission_c_abi with ma-training labels/timeouts in this package.
+- [x] Freeze one legal snapshot per decision tick, ingest the DMS inbox once and return owned immutable documents on repeated reads.
+- [x] Queue requests at submit and dispatch through the bound Agent's existing VI/MS/DMS/C2 method at Range.step in fixed order. Test reversed service/proxy arrival order, wrong decision tick and missing-service wait. Preserve role/target checks; never use Range consent or entity truth to fulfill actor requests.
+- [x] Implement scoped request deduplication and bounded terminal retry retention, preserving pending/executing correlations until explicit closure. Test long-lived tasks beyond retry windows, late cancellation, terminal tombstone expiry, capacity refusal, identical retry, changed-body reuse, stale retry, unknown kind, non-finite arguments and repeated task/send requests. Consume supplied extension correlation fixtures at full integration.
+- [x] Transport native IDs, states and reasons through versioned receipts. Test that queued/pending/accepted or native activity completion does not imply mission success; preserve frozen extension event/receipt semantics.
+- [x] Implement C two-call buffer reads and handle-kind validation, Python wrappers and isolated endpoint proxy with publication/recording guard. Test buffer size queries do not consume messages or submit twice. Keep existing plugin vtables/native type owners and the non-free-threaded abi3 target Py_LIMITED_API=0x030B0000 intact.
+- [x] Run ctest --preset ucrt64-headless -R "^(ma_observation|ma_actions|mission_c_abi)$" --no-tests=error --output-on-failure and python_sdk. Check exports/boundary and old consumers.
+- [x] Review and commit the public environment/action package (committed on main; awaiting independent acceptance).
 
 **Gate:** Upper-layer MA can execute local, peer and C2 actions through one consistent public contract without acquiring referee access.
 

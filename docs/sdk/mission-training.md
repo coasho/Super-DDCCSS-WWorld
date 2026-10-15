@@ -11,10 +11,10 @@ exported.
 | Part | State |
 | --- | --- |
 | Explicit MA-service binding ([section 9](#9-service-binding)) | **Implemented** (M1) in C++, C and Python |
-| Legal noncombat reports with their provenance ([section 10](#legal-report-calls-noncombat-m2)): navigation, own tracks, passive contacts, link tracks, peers, tasks and authority as Agent calls | **Implemented** (noncombat M2) in C++, C and Python. The `ma.observation.v1` document that carries them is not |
+| Legal noncombat reports with their provenance ([section 10](#legal-report-calls-noncombat-m2)): navigation, own tracks, passive contacts, link tracks, peers, tasks and authority as Agent calls | **Implemented** (noncombat M2) in C++, C and Python; carried by the `ma.observation.v1` document since M5 core |
 | Complete native-state reset fixture input ([fixture](native-state-reset-fixture.md)) | **Supplied, 2026-10-15**, and applied to the M4 episode reset by the `mission_episode` gate |
-| Independent episode ownership, full fresh reset, generation-bound children and seed streams ([sections 4](#4-ownership-generation-lifetime-and-move) and [8](#8-seed-streams)) | **Implemented, not yet accepted** (M4: 8254d7e and its review follow-up) as the internal native owner `fsim::env::MissionEpisode` (`src/env/MissionEpisode.h`), awaiting independent review. Not exported: no public header, C function or Python class yet |
-| Everything else: the public mission episode, endpoint and referee family, every `ma.*.v1` document (`ma.config.v1` parsing among them), the gateway, receipts, criteria, isolation | **Proposed.** No header, export, C function or Python class for it exists; `fsim.isolation` has its present `AgentProcess` only |
+| Independent episode ownership, full fresh reset, generation-bound children and seed streams ([sections 4](#4-ownership-generation-lifetime-and-move) and [8](#8-seed-streams)) | **Implemented and accepted** (M4: 8254d7e, c507978, 54b7fb9) as the internal native owner `fsim::env::MissionEpisode` (`src/env/MissionEpisode.h`), which the public family below wraps |
+| The public mission episode, endpoint and referee family ([section 3](#3-principals-and-proposed-entry-points)), every `ma.*.v1` document (`ma.config.v1` read strictly among them), the gateway's submission, dispatch, deduplication and receipts ([sections 11](#11-maactionsv1-requests) and [12](#12-mareceiptsv1-acknowledgments-and-receipts)), the noncombat criteria and referee documents ([section 13](#13-referee-documents)), limits ([section 14](#14-capacity-limits)) and strict isolation for actors ([section 16](#16-isolation)) | **Implemented, awaiting independent acceptance** (M5 core) in C++ (`fsim/MissionEpisode.h`), C (`fsim/fsim_mission_env.h`) and Python (`fsim.mission`, `fsim.isolation.MissionEndpointProcess`). M5 core is not full M5: every extension key and request kind is still refused ([section 15](#15-extension-seam-and-pending-gates)) |
 
 The [SDK's principals](boundary.md) list what the SDK really exports.
 
@@ -74,7 +74,7 @@ components, a C2 node's service has no aircraft, and no count implies another.
 
 Every entry point of this contract belongs to one principal of [ADR-31](../agent-boundary.md).
 
-Implemented, exported and classified in `boundary.toml`:
+Implemented, exported and classified in `boundary.toml` (M5 core's rows are awaiting independent acceptance):
 
 | Entry point | Principal | Package |
 | --- | --- | --- |
@@ -84,12 +84,6 @@ Implemented, exported and classified in `boundary.toml`:
 | `fsim::Agent::contacts`, `reportNavigation`, `reportTracks`, `reportContacts`, `reportLinkTracks`, `reportPeers`, `reportPeerHeartbeats`, `reportTasks`, `reportAuthority` (`fsim/Agent.h`; their records in `fsim/MAReports.h`) | agent | noncombat M2 |
 | `fsim_agent_report`, `fsim_agent_operator_callsign` (`fsim/fsim_c.h`; `fsim_report_meta_init` and the three `fsim_report_*_name` functions are values) | agent | noncombat M2 |
 | `fsim.Agent.contacts`, `report_navigation`, `report_tracks`, `report_contacts`, `report_link_tracks`, `report_peers`, `report_peer_heartbeats`, `report_tasks`, `report_authority`, `operator_callsigns` (`fsim.Report`, `ReportCollection`, `ReportItem`, `ReportMeta` are their records) | agent | noncombat M2 |
-
-Proposed. These rows become `boundary.toml` rules, by exact name, in the package that exports them; `sdk_boundary`
-rejects a rule for a name the SDK does not have, so they are not in that file yet:
-
-| Proposed entry point | Principal | Package |
-| --- | --- | --- |
 | `fsim::MissionEpisode`: constructor from `std::string_view`, destructor, move construction and assignment, `reset`, `step`, `endpoint`, `referee` (`fsim/MissionEpisode.h`) | range | M4, M5 core |
 | `fsim::MissionEndpoint`: destructor, moves, `observationJsonV1`, `submitJsonV1`, `receiptsJsonV1` | agent | M5 core |
 | `fsim::MissionReferee`: destructor, moves, `outcomeJsonV1`, `truthJsonV1` | referee | M5 core |
@@ -102,6 +96,11 @@ rejects a rule for a name the SDK does not have, so they are not in that file ye
 | `fsim.mission.MissionReferee`: `outcome_json`, `truth_json`, `close` | referee | M5 core |
 | `fsim.isolation.MissionEndpointProcess` (the range's side of a process boundary) | range | M5 core |
 | `fsim.isolation.RemoteMissionEndpoint`: `observation_json`, `submit_json`, `receipts_json` (the actor's side) | agent | M5 core |
+
+Besides the rows above, M5 core exports `fsim.mission.MissionEpisode.diagnostic` and `MissionEndpoint.service_id`
+(read-only facts of the handle the caller already holds), `fsim.isolation.MissionEndpointProcess.rebind` (section 4's
+explicit re-binding at a new generation) and the value `fsim.isolation.mission_endpoint_calls` (section 16's
+whitelist). In Python `reset` returns nothing, as in C: the episode key is in every document of the new generation.
 
 `receiptsJsonV1` is one addition to the plan's C++ sketch: the same non-consuming read the C function gives. The
 batch family of M7 (`fsim/MissionBatch.h`) is not frozen here; it consumes these documents unchanged.
@@ -193,8 +192,8 @@ shared between episodes; nothing mutable is.
 - **One boundary.** `reset`, `step` and every endpoint or referee call of one episode are serialised at the episode.
   A call that arrives while another holds the boundary fails as busy; it never waits and never races the World.
 
-**Implemented internally (M4; awaiting independent acceptance).** `fsim::env::MissionEpisode` is the native owner the
-public classes above will wrap (M5 core). It takes a typed `EpisodeConfig` - the section 7 recipe in native form,
+**Implemented internally (M4; accepted at 54b7fb9).** `fsim::env::MissionEpisode` is the native owner the
+public classes above wrap (M5 core). It takes a typed `EpisodeConfig` - the section 7 recipe in native form,
 sections in the table's order, plus a range-side `native` recipe step for setup the document has no field for - and
 implements this section as written:
 
@@ -206,7 +205,8 @@ implements this section as written:
   fails - whatever its recipe, native setup or judge factory throws - leaves the episode with no World until a later
   reset succeeds, its metadata the failed generation's (`not_reset`, not building) and its boundary free; a callback's
   non-standard exception reaches the caller as it was thrown. The legacy vehicle reset is neither called nor changed.
-- `step()` runs `decision_steps` World steps, then the judge, and advances the tick.
+- `step()` tells the judge the tick it closes, runs `decision_steps` World steps, advances the tick and tells the judge
+  again (M5 core added the first call, for dispatch).
 - Children are `EpisodeService` (a service's World and Agent identity, for M5's endpoint) and `EpisodeReferee` (the
   World read-only, for M5's referee documents). They share the control block: `closed`, the current generation and
   the boundary flag. Opening a child takes no boundary and never fails busy: it binds to the generation current at
@@ -225,6 +225,15 @@ implements this section as written:
   seed, publication, recording, a ground provider - is refused at construction rather than ignored.
 - A diagnostic episode's World is named `<name>-e<env_id>-g<generation>` and records to that name's `.fsrec` in its
   record directory, so neither publication nor recording is ever shared between episodes or generations.
+
+**Exported (M5 core; awaiting independent acceptance).** The public `MissionEpisode` gives the M4 owner the
+configuration's recipe and a native step after its sections that mints one Agent per service, in ascending
+`service_id`, through the public World facade (`World::createAgent`, named `episode-service-<id>`) and binds it with
+`bindMAService` - exactly as a range would - and makes the generation's gateway its judge, which holds those Agents and
+goes with the generation, before its World. Endpoints and referees are the M4 owner's generation-bound children
+(`EpisodeContext`): every call takes the one boundary, a call that finds it held fails busy at once, and a handle of an
+earlier generation or ended episode touches nothing. No native callback, World, Vehicle, Range or referee handle,
+IPC segment or recording is reachable from an endpoint.
 
 The `mission_episode` gate applies the supplied [native-state fixture](native-state-reset-fixture.md) to this reset:
 after crew loss, fire, an in-flight weapon, a decoy, a consumed store, pending C2 task and consent, a queued message
@@ -738,13 +747,25 @@ How each operation's state moves:
   command's id).
 
 A system that never answers - a C2 node, a platform out of reach - leaves a receipt `pending`; nothing times it
-out but its service's `gateway.close`. `reports.transmissions` lists the native status of each send whose receipt is
+out but its service's `gateway.close`. The `gateway.close` request's own receipt is `accepted` and closed with `native`
+null: it is the transport's own act and makes no native call, so there is no native answer to carry (the repository
+checker exempts kind `gateway` from the rule that a non-queued, non-rejected receipt has one - a clarification made
+with M5 core, flagged for review). It addresses an earlier request of its service only. `reports.transmissions` lists the native status of each send whose receipt is
 open or still retained.
 
 The native DMS keeps a system's last 256 send statuses, a window its MA core's own periodic publications and C2
 messages share, and its last 256 command statuses. A receipt whose native status is no longer held is closed in its
 last known state with `native.status` `status_evicted`: the transport reports what it last knew and claims neither
 delivery nor failure.
+
+**As implemented (M5 core).** A closed receipt is kept through the snapshot of tick `updated_tick` +
+`completed_request_retention_ticks` and forgotten at the next freeze. A request's `updated_tick` is the snapshot in
+which its change first shows: a submit-time refusal's is the submit's tick, a dispatched request's the next one. A C2
+answer's `native.reason` is null and its `reason_code` is the answer's code; a refused send's reason is the
+`comm::DmsReason` name. A designation refused natively has status `not_held` and no `target_id`; a native publication
+that sent nothing (no track to publish) is accepted with `message_count` 0. Requests a C2 node cannot make (flight and
+sensor) are `not_applicable` before any capability check; a sensor request whose payload has no capability of its type
+is `capability_not_bound`.
 
 ## 13. Referee documents
 
@@ -837,7 +858,11 @@ language-independent handler boundary (validate, dispatch, refresh, close). The 
 ## 16. Isolation
 
 Strict isolation exports the endpoint whitelist of [section 3](#3-principals-and-proposed-entry-points) and nothing
-else: `observation_json`, `submit_json`, `receipts_json`. It refuses an episode that is diagnostic, published or
+else: `observation_json`, `submit_json`, `receipts_json`. Implemented (M5 core) by `fsim.isolation.MissionEndpointProcess`
+and `RemoteMissionEndpoint` over the same authenticated channel as `AgentProcess`: the range serves the whitelist
+alone, refuses any other request on the channel, refuses a diagnostic episode and any argument that is a range,
+World, Agent, referee, endpoint or referee document, and re-binds explicitly (`rebind`) - a process left on an earlier
+generation's endpoint gets that endpoint's error. It refuses an episode that is diagnostic, published or
 recorded, refuses to carry a Range, World, Referee or referee document across, and closes or explicitly re-binds a
 process endpoint at each new generation. In-process endpoints are an accidental-access boundary; a result that
 claims decentralised execution uses the process boundary. A diagnostic run with a Viewer or a recording is labelled
@@ -848,14 +873,17 @@ non-isolated, and neither kind of run is evidence for the other.
 - `ctest --preset ucrt64-headless -L ma-training --no-tests=error` runs `ma_contract` (the schema's dialect, every
   fixture's expectation, read-back, the seed vectors, this page's tables against the schema, ASCII and local links)
   and `ma_contract_checker` (the checker's own refusals), and the implemented parts' own acceptance:
-  `ma_service_binding` (C++), `ma_reports` (C++), `ma_c_abi` (C99) and `mission_package_consumer` (C++, C99 and
-  Python consumers built and run against installed packages alone). The Python cases are `test_ma_service` and
-  `test_ma_reports` of `python_sdk`.
+  `ma_service_binding` (C++), `ma_reports` (C++), `ma_c_abi` (C99), `mission_episode` (M4), `ma_actions` and
+  `ma_observation` (M5 core, C++), `mission_c_abi` (M5 core, C99) and `mission_package_consumer` (C++, C99 and
+  Python consumers built and run against installed packages alone, mission episodes and an isolated actor among them).
+  The Python cases are `test_ma_service`, `test_ma_reports` and `test_mission` of `python_sdk`; `test_mission` holds
+  every document the episode writes - through every generic operation of the frozen fixtures - to the schema and the
+  checker's rules.
 - The fixtures cover identities above 2^53 up to 2^64 - 1, null numeric reports with their validity, message bytes
   that are not UTF-8, every generic operation, an extension kind and an oversize message as per-request refusals of
   a well-formed document, and one malformed document per rule above.
 - The [compatibility baseline](ma-compatibility-baseline.md) records what existing consumers rely on.
 
 The document checks hold the contract's documents to the contract. They are not evidence that an interface exists
-or works: that is each implementing package's own acceptance, which today covers the service binding and the legal
-report calls and nothing proposed.
+or works: that is each implementing package's own acceptance, which today covers the service binding, the legal
+report calls, the M4 episode owner and - awaiting independent acceptance - the M5 core gateway family.

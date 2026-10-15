@@ -100,6 +100,8 @@ struct ServiceSpec {
 class EpisodeJudge {
 public:
     virtual ~EpisodeJudge();
+    /// Before the tick's World steps, under the same boundary: the World and the tick being closed (0 for the first).
+    virtual void beforeStep(session::World& world, std::uint64_t tick);
     /// After the tick's World steps: the World, read-only, and the tick just completed (1 for the first).
     virtual void afterStep(const session::World& world, std::uint64_t tick);
 };
@@ -198,6 +200,7 @@ private:
 /// A child's view of the owner's state for one call, under the boundary.
 session::World* episodeWorld(const EpisodeControl& control) noexcept;
 const session::AgentIdentity* episodeService(const EpisodeControl& control, std::uint64_t serviceId) noexcept;
+EpisodeJudge* episodeJudge(const EpisodeControl& control) noexcept;
 
 /// One service's context in one generation: what M5's endpoint is built on. It answers Ok only while its generation is
 /// current and has its World - including a generation whose reset was still building the World when it was opened.
@@ -232,6 +235,34 @@ private:
     std::shared_ptr<EpisodeControl> control_;
     std::uint64_t generation_ = 0, serviceId_ = 0;
     bool known_ = false;
+};
+
+/// A generation's own state - its judge and its World - for one call, under the boundary: what the public mission
+/// facade's endpoints and referee are built on. It answers only in its generation, as the other children do.
+class EpisodeContext {
+public:
+    EpisodeContext() = default;
+    EpisodeContext(std::shared_ptr<EpisodeControl> control, std::uint64_t generation) : control_(std::move(control)), generation_(generation) {}
+    std::uint64_t generation() const noexcept { return generation_; }
+    EpisodeStatus status() const noexcept;
+    /// f(EpisodeJudge* (null without one), World&) under the boundary, in its generation only; valid until f returns.
+    template <typename F>
+    EpisodeStatus use(F&& f) {
+        if (!control_) return EpisodeStatus::Closed;
+        EpisodeBoundary boundary(control_);
+        if (!boundary.held()) return EpisodeStatus::Busy;
+        const EpisodeStatus s = checked();
+        if (s != EpisodeStatus::Ok) return s;
+        session::World* world = episodeWorld(*control_);
+        if (!world) return EpisodeStatus::NotReset;
+        f(episodeJudge(*control_), *world);
+        return EpisodeStatus::Ok;
+    }
+
+private:
+    EpisodeStatus checked() const noexcept;
+    std::shared_ptr<EpisodeControl> control_;
+    std::uint64_t generation_ = 0;
 };
 
 /// The referee's read of one generation's World: what M5's referee documents are built on.
@@ -303,6 +334,8 @@ public:
     /// A service the configuration does not name answers UnknownService.
     EpisodeService service(std::uint64_t serviceId);
     EpisodeReferee referee();
+    /// The current generation's own state, as a child (EpisodeContext).
+    EpisodeContext context();
 
     /// The range's own access to the current World, under the boundary: scenario setup and inspection. The World is
     /// valid until f returns, even if the episode ends inside f.

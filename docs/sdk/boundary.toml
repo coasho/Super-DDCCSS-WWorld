@@ -1138,6 +1138,56 @@ names = ["fsim.isolation.agent_calls", "fsim.isolation.activity_calls"]
 
 [[rule]]
 principal = "range"
+note = "Mission episodes (docs/sdk/mission-training.md, sections 3 and 4; M5 core): the range makes an episode from ma.config.v1, resets it to a fresh World, steps its decision ticks and opens each generation's endpoints and referee"
+names = [
+    "fsim::MissionEpisode::MissionEpisode", "fsim::MissionEpisode::~MissionEpisode", "fsim::MissionEpisode::operator=",
+    "fsim::MissionEpisode::reset", "fsim::MissionEpisode::step", "fsim::MissionEpisode::endpoint", "fsim::MissionEpisode::referee",
+    "fsim_mission_episode_create", "fsim_mission_episode_destroy", "fsim_mission_episode_reset", "fsim_mission_episode_step",
+    "fsim_mission_endpoint_open", "fsim_mission_referee_open",
+    "fsim.mission.MissionEpisode.reset", "fsim.mission.MissionEpisode.step", "fsim.mission.MissionEpisode.endpoint",
+    "fsim.mission.MissionEpisode.referee", "fsim.mission.MissionEpisode.close", "fsim.mission.MissionEpisode.diagnostic",
+]
+
+[[rule]]
+principal = "agent"
+note = "A mission endpoint (section 3; M5 core): one configured service's, of one generation - its immutable snapshot, its submissions and their receipts, documents as text; nothing it returns reaches a World, a Vehicle, the range, the referee, a callback, the IPC segment or a recording"
+names = [
+    "fsim::MissionEndpoint::MissionEndpoint", "fsim::MissionEndpoint::~MissionEndpoint", "fsim::MissionEndpoint::operator=",
+    "fsim::MissionEndpoint::observationJsonV1", "fsim::MissionEndpoint::submitJsonV1", "fsim::MissionEndpoint::receiptsJsonV1",
+    "fsim_mission_endpoint_destroy", "fsim_mission_endpoint_submit", "fsim_mission_endpoint_observation_json",
+    "fsim_mission_endpoint_receipts_json",
+    "fsim.mission.MissionEndpoint.observation_json", "fsim.mission.MissionEndpoint.submit_json",
+    "fsim.mission.MissionEndpoint.receipts_json", "fsim.mission.MissionEndpoint.close", "fsim.mission.MissionEndpoint.service_id",
+    "fsim.isolation.RemoteMissionEndpoint.observation_json", "fsim.isolation.RemoteMissionEndpoint.submit_json",
+    "fsim.isolation.RemoteMissionEndpoint.receipts_json",
+]
+
+[[rule]]
+principal = "referee"
+note = "A mission referee (section 13; M5 core): ma.outcome.v1 and ma.truth.v1 of its generation - the range's and the trainer's, never an actor's"
+names = [
+    "fsim::MissionReferee::MissionReferee", "fsim::MissionReferee::~MissionReferee", "fsim::MissionReferee::operator=",
+    "fsim::MissionReferee::outcomeJsonV1", "fsim::MissionReferee::truthJsonV1",
+    "fsim_mission_referee_destroy", "fsim_mission_referee_outcome_json", "fsim_mission_referee_truth_json",
+    "fsim.mission.MissionReferee.outcome_json", "fsim.mission.MissionReferee.truth_json", "fsim.mission.MissionReferee.close",
+]
+
+[[rule]]
+principal = "range"
+note = "Strict isolation for mission actors (section 16; M5 core): the range runs an actor in a process of its own holding its endpoint's three calls alone (fsim.isolation.RemoteMissionEndpoint), re-binds it explicitly at a new generation, and refuses a diagnostic episode or anything that could carry truth across"
+names = [
+    "fsim.isolation.MissionEndpointProcess.call", "fsim.isolation.MissionEndpointProcess.step",
+    "fsim.isolation.MissionEndpointProcess.rebind", "fsim.isolation.MissionEndpointProcess.close",
+]
+
+[[rule]]
+principal = "value"
+note = "Mission isolation's whitelist: what an isolated actor may call on its endpoint"
+names = ["fsim.isolation.mission_endpoint_calls"]
+
+
+[[rule]]
+principal = "range"
 note = "The sealed run (AB-2d): the range seals its handle and goes on through the one the seal gives; the sealed one answers nothing"
 names = ["fsim_world_seal", "fsim.world.World.seal"]
 

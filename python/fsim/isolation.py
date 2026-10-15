@@ -22,6 +22,13 @@ side: an agent's message is data the range checks - a call it may make, on an ac
 
 A run that claims isolation must give the MA no other way to the truth: a published world (its shared-memory segment
 any local process may open) or one being recorded (its file) is refused unless `allow_side_channels`.
+
+Mission episodes (docs/sdk/mission-training.md, section 16; M5 core) cross the same channel with less: an actor in its
+own process holds a :class:`RemoteMissionEndpoint` - `observation_json`, `submit_json` and `receipts_json`, documents as
+text, and nothing else - while :class:`MissionEndpointProcess` keeps the episode, its endpoint and its referee in the
+range's process. A diagnostic episode (published or recorded) is refused, and neither a range, World, referee nor a
+referee document is carried across. An endpoint is its generation's: after a reset the range re-binds the process
+explicitly (`rebind`), or its calls fail as the stale endpoint's do.
 """
 import base64
 import enum
@@ -38,7 +45,8 @@ import traceback
 
 from multiprocessing.connection import Client, Listener
 
-__all__ = ["AgentProcess", "AgentError", "agent_calls", "activity_calls"]
+__all__ = ["AgentProcess", "AgentError", "agent_calls", "activity_calls", "MissionEndpointProcess", "RemoteMissionEndpoint",
+           "mission_endpoint_calls"]
 
 
 class AgentError(RuntimeError):
@@ -71,6 +79,40 @@ def activity_calls():
     """What it may call on an activity it holds: fsim.AgentActivity's members."""
     from .agent import AgentActivity
     return _calls(AgentActivity)
+
+
+def mission_endpoint_calls():
+    """What an isolated actor may call on its mission endpoint: section 16's whitelist, and nothing else."""
+    return {name: "method" for name in _MISSION_CALLS}
+
+
+_MISSION_CALLS = ("observation_json", "submit_json", "receipts_json")
+_REFEREE_SCHEMAS = ("ma.outcome.v1", "ma.truth.v1")
+
+
+def _carried(value):
+    """What strict isolation lets cross to an actor: plain data - never a range, World, Agent, referee, endpoint or a
+    referee document (section 16)."""
+    from .agent import Agent, Referee
+    from .mission import MissionEndpoint, MissionEpisode, MissionReferee
+    from .world import World
+    if isinstance(value, (MissionEpisode, MissionReferee, MissionEndpoint, World, Referee, Agent)):
+        raise TypeError("isolation: a %s does not cross to an actor" % type(value).__name__)
+    if isinstance(value, (str, bytes, bytearray)):
+        try:
+            document = json.loads(value)
+        except ValueError:
+            return value
+        if isinstance(document, dict) and document.get("schema") in _REFEREE_SCHEMAS:
+            raise TypeError("isolation: a referee document (%s) does not cross to an actor" % document["schema"])
+        return value
+    if isinstance(value, (list, tuple)):
+        for v in value:
+            _carried(v)
+    elif isinstance(value, dict):
+        for k, v in value.items():
+            _carried(k), _carried(v)
+    return value
 
 
 # --- the values that cross ----------------------------------------------------------------------------------------------
@@ -352,6 +394,125 @@ class AgentProcess:
             pass
 
 
+class MissionEndpointProcess:
+    """An actor in a process of its own (section 16): `entry` ("module:Class") made there with a
+    :class:`RemoteMissionEndpoint` - a channel back to `endpoint` here - and `args`; `path` added to its import path. The
+    range calls the actor's methods (`step`, `call`) one at a time and serves its endpoint calls meanwhile; the episode
+    and everything else stay in this process. A diagnostic episode is refused; so is any argument that is a range, a
+    World, an Agent, a referee, an endpoint or a referee document."""
+
+    def __init__(self, episode, endpoint, entry, *args, path=(), python=None, timeout_s=60.0):
+        from .mission import MissionEndpoint, MissionEpisode
+        if not isinstance(episode, MissionEpisode):
+            raise TypeError("isolation: the range's fsim.mission.MissionEpisode is required")
+        if episode.diagnostic:
+            raise RuntimeError("isolation: a diagnostic episode (published or recorded) is labelled non-isolated and is refused")
+        if not isinstance(endpoint, MissionEndpoint):
+            raise TypeError("isolation: an fsim.mission.MissionEndpoint is what crosses, nothing else")
+        for a in args:
+            _carried(a)
+        self._endpoint = endpoint
+        self.calls = 0          # endpoint calls served
+        self.channel_s = 0.0    # wall time spent in the channel and the actor's process
+        key = secrets.token_bytes(32)
+        self._listener = Listener(family="AF_PIPE" if os.name == "nt" else "AF_UNIX", authkey=key)
+        env = dict(os.environ)
+        package = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        env["PYTHONPATH"] = os.pathsep.join([package] + [os.path.abspath(p) for p in path] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
+        self._process = subprocess.Popen([python or sys.executable, "-m", "fsim.isolation"], stdin=subprocess.PIPE, env=env)
+        self._process.stdin.write(_dump({"address": self._listener.address, "key": key.hex(), "kind": "mission"}) + b"\n")
+        self._process.stdin.close()
+        accepted = []
+        thread = threading.Thread(target=lambda: accepted.append(self._listener.accept()), daemon=True)
+        thread.start()
+        thread.join(timeout_s)
+        if not accepted:
+            self._process.kill()
+            raise RuntimeError("isolation: the actor's process did not connect (exit code %s)" % self._process.poll())
+        self._conn = accepted[0]
+        self._exchange({"op": "init", "entry": entry, "args": [_encode(a) for a in args]})
+
+    def rebind(self, endpoint):
+        """Re-bind the process to a new generation's endpoint of the same service, explicitly (section 4)."""
+        from .mission import MissionEndpoint
+        if not isinstance(endpoint, MissionEndpoint) or endpoint.service_id != self._endpoint.service_id:
+            raise TypeError("isolation: re-bound to an endpoint of the same service alone")
+        self._endpoint = endpoint
+
+    def call(self, method, *args, **kwargs):
+        """Call the actor's `method` in its process, serving its endpoint calls meanwhile: its result, or its exception."""
+        for a in list(args) + list(kwargs.values()):
+            _carried(a)
+        return self._exchange({"op": "call", "m": method, "a": [_encode(a) for a in args], "k": {k: _encode(v) for k, v in kwargs.items()}})
+
+    def step(self, *args, **kwargs):
+        return self.call("step", *args, **kwargs)
+
+    def _exchange(self, message):
+        start = time.perf_counter()
+        self._conn.send_bytes(_dump(message))
+        try:
+            while True:
+                m = _load(self._conn.recv_bytes())
+                op = m.get("op")
+                if op == "return":
+                    return _decode(m.get("v"), _no_activity)
+                if op == "raise":
+                    raise _rebuild(m["x"], builtins=False)
+                # (anything else it sends is refused as a call, never served: the endpoint's whitelist is all there is)
+                self._conn.send_bytes(_dump(self._serve(m) if op == "endpoint" else
+                                            {"op": "error", "x": _exception(AttributeError("isolation: %r is not a mission endpoint's call" % (op,)))}))
+        finally:
+            self.channel_s += time.perf_counter() - start
+
+    def _serve(self, m):
+        """One endpoint call of the whitelist; nothing else is reachable."""
+        self.calls += 1
+        try:
+            name = m.get("m")
+            if name not in _MISSION_CALLS:
+                raise AttributeError("isolation: %r is not a mission endpoint's call" % (name,))
+            args = [_decode(a, _no_activity) for a in m.get("a", [])]
+            if name == "submit_json":
+                if len(args) != 1 or not isinstance(args[0], (str, bytes)):
+                    raise TypeError("submit_json(actions: str | bytes)")
+            elif args:
+                raise TypeError("%s() takes no argument" % name)
+            return {"op": "result", "v": getattr(self._endpoint, name)(*args)}
+        except Exception as exc:
+            return {"op": "error", "x": _exception(exc)}
+
+    def close(self):
+        """End the actor's process."""
+        if self._process is None:
+            return
+        try:
+            self._conn.send_bytes(_dump({"op": "close"}))
+            self._process.wait(10)
+        except Exception:
+            self._process.kill()
+        finally:
+            self._conn.close()
+            self._listener.close()
+            self._process = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
+
+
+def _no_activity(aid):
+    raise ValueError("isolation: no activity crosses a mission endpoint's channel")
+
+
 # --- the MA's side -------------------------------------------------------------------------------------------------------
 
 class _RemoteActivity:
@@ -403,6 +564,31 @@ class RemoteAgent:
         return "RemoteAgent(%r)" % self.agent_name
 
 
+class RemoteMissionEndpoint:
+    """Its mission endpoint, as an actor in its own process holds it: three calls, each answered in the range's process,
+    documents as text - nothing else is there to reach."""
+
+    __slots__ = ("_channel",)
+
+    def __init__(self, channel):
+        object.__setattr__(self, "_channel", channel)
+
+    def observation_json(self):
+        return self._channel.request({"op": "endpoint", "m": "observation_json"})
+
+    def submit_json(self, actions):
+        return self._channel.request({"op": "endpoint", "m": "submit_json", "a": [_encode(actions)]})
+
+    def receipts_json(self):
+        return self._channel.request({"op": "endpoint", "m": "receipts_json"})
+
+    def __setattr__(self, name, value):
+        raise AttributeError("a remote mission endpoint holds nothing to set")
+
+    def __repr__(self):
+        return "RemoteMissionEndpoint()"
+
+
 class _Channel:
     def __init__(self, conn):
         self.conn = conn
@@ -421,7 +607,7 @@ def _serve_ma():
     hello = json.loads(sys.stdin.readline())
     conn = Client(hello["address"], family="AF_PIPE" if os.name == "nt" else "AF_UNIX", authkey=bytes.fromhex(hello["key"]))
     channel = _Channel(conn)
-    remote = RemoteAgent(channel)
+    remote = RemoteMissionEndpoint(channel) if hello.get("kind") == "mission" else RemoteAgent(channel)
     ma = None
     while True:
         m = _load(conn.recv_bytes())

@@ -1,6 +1,8 @@
-"""MA-service binding and legal reports from an installed Python package: `fsim` as installed, its own library and data,
-nothing else (docs/sdk/mission-training.md, sections 9 and 10). Usage: ma_python.py <installed python prefix>."""
+"""MA-service binding, legal reports and mission episodes from an installed Python package: `fsim` as installed, its own
+library and data, nothing else (docs/sdk/mission-training.md, sections 3 to 16). Usage: ma_python.py <installed python
+prefix>."""
 import ctypes
+import json
 import math
 import os
 import sys
@@ -153,6 +155,59 @@ def reports():
     require(blue.report_navigation() == fsim.Report("unavailable", None, None), "a removed platform still reports")
 
 
+MISSION_CONFIG = """{"schema":"ma.config.v1","env_id":"7","base_seed":"18446744073709551615",
+ "timing":{"dt_s":0.008333333333333333,"frame_skip":4,"decision_steps":30},
+ "scenario":{"world":{"name":"installed-mission","capacity":4},
+  "vehicles":[{"name":"lead","type":"jsbsim:f16c","initial":{"lat_deg":36.0,"lon_deg":-115.0,"alt_msl_m":7000,"heading_deg":0,"airspeed_ms":230}}]},
+ "c2_nodes":[{"name":"crc","latitude_rad":0.6283185307179586,"longitude_rad":-2.007128639793479,"altitude_msl_m":600.0}],
+ "systems":[{"platform":"lead","system_id":"1392508929"},{"platform":"crc","system_id":"1392508931"}],
+ "nets":[{"name":"l16","members":["lead","crc"]}],
+ "services":[{"service_id":"9007199254740995","name":"lead-ma","platform":"lead","command_capabilities":["*"],"owns_dms_ingress":true,"owns_dms_egress":true},
+  {"service_id":"4","name":"crc-c2","platform":"crc","command_capabilities":[],"owns_dms_ingress":true,"owns_dms_egress":true}],
+ "task":{"criteria":[{"id":"time","kind":"tick_limit","outcome":"truncated","max_ticks":3}]}}"""
+
+
+class Actor:
+    """An actor in its own process (fsim.isolation.MissionEndpointProcess): its endpoint's three calls, nothing else."""
+
+    def __init__(self, endpoint):
+        self.endpoint = endpoint
+
+    def observe(self):
+        return self.endpoint.observation_json()
+
+
+def mission_episode():
+    """A mission episode through fsim.mission, and an actor of it in its own process, from the installed package."""
+    episode = fsim.mission.MissionEpisode(MISSION_CONFIG)
+    episode.reset(41)
+    lead, referee = episode.endpoint(9007199254740995), episode.referee()
+    first = lead.observation_json()
+    require(first == lead.observation_json(), "a snapshot read twice differs")
+    snapshot = json.loads(first)
+    require(snapshot["service"]["service_id"] == "9007199254740995", "an identity above 2**53 is not exact")
+    ack = json.loads(lead.submit_json(json.dumps({"schema": "ma.actions.v1", "episode": snapshot["episode"], "service_id": "9007199254740995",
+                                                  "tick": "0", "requests": [{"request_id": "1", "kind": "flight", "operation": "new",
+                                                                             "parameters": {"mode": "hsa", "heading_rad": 0.5}}]})))
+    require(ack["submission"]["requests"][0]["status"] == "queued", "the request was not queued")
+    episode.step()
+    states = {r["request_id"]: r["state"] for r in json.loads(lead.observation_json())["receipts"]}
+    require(states.get("1") == "executing", "the request did not execute natively: %r" % states)
+    require(json.loads(referee.truth_json())["schema"] == "ma.truth.v1", "no truth document")
+    import fsim.isolation as isolation
+    here = os.path.dirname(os.path.abspath(__file__))
+    with isolation.MissionEndpointProcess(episode, lead, "ma_python:Actor", path=[here]) as actor:
+        require(actor.call("observe") == lead.observation_json(), "the isolated actor read another snapshot")
+    episode.reset(41)
+    try:
+        lead.observation_json()
+        require(False, "an earlier generation's endpoint still answered")
+    except fsim.Error:
+        pass
+    episode.close()
+    return snapshot["episode"]
+
+
 def main(argv):
     require(len(argv) == 2, "usage: ma_python.py <installed python prefix>")
     prefix = argv[1]
@@ -167,7 +222,9 @@ def main(argv):
     require(a == (1, 1, 2, 2), "ownership is not the bindings': %r" % (a,))
     worlds()
     reports()
-    print("fsim %s installed Python consumer: ownership %r in either creation order; legal reports with provenance" % (fsim.__version__, a))
+    key = mission_episode()
+    print("fsim %s installed Python consumer: ownership %r in either creation order; legal reports with provenance; "
+          "mission episode %s with an isolated actor" % (fsim.__version__, a, json.dumps(key)))
     return 0
 
 

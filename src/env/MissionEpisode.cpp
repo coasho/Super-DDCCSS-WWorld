@@ -47,6 +47,7 @@ const char* episodeStatusName(EpisodeStatus status) noexcept {
 }
 
 EpisodeJudge::~EpisodeJudge() = default;
+void EpisodeJudge::beforeStep(session::World&, std::uint64_t) {}
 void EpisodeJudge::afterStep(const session::World&, std::uint64_t) {}
 
 // --- the owner's state ----------------------------------------------------------------------------------------------
@@ -213,6 +214,10 @@ EpisodeStatus EpisodeService::status() const noexcept { return childStatus(contr
 EpisodeStatus EpisodeService::checked() const noexcept { return childChecked(control_.get(), generation_, known_); }
 EpisodeStatus EpisodeReferee::status() const noexcept { return childStatus(control_.get(), generation_, true); }
 EpisodeStatus EpisodeReferee::checked() const noexcept { return childChecked(control_.get(), generation_, true); }
+EpisodeStatus EpisodeContext::status() const noexcept { return childStatus(control_.get(), generation_, true); }
+EpisodeStatus EpisodeContext::checked() const noexcept { return childChecked(control_.get(), generation_, true); }
+
+EpisodeJudge* episodeJudge(const EpisodeControl& control) noexcept { return control.episode ? control.episode->judge.get() : nullptr; }
 
 // --- the owner --------------------------------------------------------------------------------------------------------
 
@@ -374,6 +379,7 @@ EpisodeStatus MissionEpisode::step() {
     const EpisodeStatus s = enter(boundary, world);
     if (s != EpisodeStatus::Ok) return s;
     Episode& e = *control->episode;
+    if (e.judge) e.judge->beforeStep(*world, e.tick);
     world->step(e.config->decisionSteps);
     ++e.tick;
     publish(*control, infoOf(e, control->generation.load()));
@@ -417,6 +423,11 @@ EpisodeService MissionEpisode::service(std::uint64_t serviceId) {
 EpisodeReferee MissionEpisode::referee() {
     if (!control_) return EpisodeReferee(nullptr, 0);
     return EpisodeReferee(control_, control_->generation.load());
+}
+
+EpisodeContext MissionEpisode::context() {
+    if (!control_) return EpisodeContext(nullptr, 0);
+    return EpisodeContext(control_, control_->generation.load());
 }
 
 } // namespace fsim::env

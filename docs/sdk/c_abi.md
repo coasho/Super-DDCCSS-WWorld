@@ -18,6 +18,16 @@ signatures and legacy equipment/consent calls are unchanged. See [Agent equipmen
 `FSIM_STORE_LOST` names the existing native store state 7; C and Python now return `"lost"` rather than an empty
 status name. Existing store-state values 0-6 and invalid-value behavior beyond the defined enum remain unchanged.
 
+Mission episodes (1.76, M5 core) are a header of their own, `fsim/fsim_mission_env.h`: three opaque handle kinds -
+`fsim_mission_episode` (the range's: `_create` from an `ma.config.v1` document, `_reset`, `_step`, `_destroy`, and
+`fsim_mission_endpoint_open` / `fsim_mission_referee_open`), `fsim_mission_endpoint` (an actor's: `_submit`,
+`_observation_json`, `_receipts_json`, `_destroy`) and `fsim_mission_referee` (`_outcome_json`, `_truth_json`,
+`_destroy`). A live handle of another kind is `FSIM_NOT_ALLOWED`; a malformed document, an unconfigured service, an
+episode not reset or a handle of an earlier generation or ended episode `FSIM_INVALID_ARGUMENT`; a call that finds
+another holding the episode `FSIM_ERROR`. Documents in are a pointer and a byte count; documents out are the two-call
+read - a null buffer or capacity 0 reports the size with its terminator, a smaller capacity writes nothing - and no
+read consumes anything. Nothing in `fsim_c.h` changed. See [mission-training.md](mission-training.md), sections 3 to 5.
+
 ## World and vehicles
 
 ```c

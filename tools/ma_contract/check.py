@@ -422,8 +422,11 @@ def receipt_rules(receipts, where, errors):
             errors.append("%s: a gateway refusal is rejected, with no native answer" % here)
         if receipt["state"] == "queued" and receipt["native"] is not None:
             errors.append("%s: a queued request has no native answer yet" % here)
-        if receipt["state"] not in ("queued", "rejected") and receipt["native"] is None:
+        # (gateway.close is the transport's own act: no native call, so no native answer - section 12)
+        if receipt["state"] not in ("queued", "rejected") and receipt["native"] is None and receipt["kind"] != "gateway":
             errors.append("%s: state %s without the native answer it stands for" % (here, receipt["state"]))
+        if receipt["kind"] == "gateway" and receipt["native"] is not None:
+            errors.append("%s: gateway.close makes no native call" % here)
         if int(receipt["updated_tick"]) < int(receipt["submitted_tick"]):
             errors.append("%s: updated before it was submitted" % here)
 
