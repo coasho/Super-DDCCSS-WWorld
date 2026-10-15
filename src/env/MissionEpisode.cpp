@@ -86,12 +86,17 @@ namespace {
 
 [[noreturn]] void refuse(EpisodeStatus status, const std::string& why) { throw EpisodeError(status, "mission episode: " + why); }
 
-/// Publish metadata unless the episode has ended: the Closed snapshot is the last one, whatever a call still finishing does.
-void publish(EpisodeControl& control, EpisodeInfo info) {
-    auto next = std::make_shared<const EpisodeInfo>(std::move(info));
-    const std::lock_guard<std::mutex> lock(control.handoff);
-    if (!control.closed.load()) std::atomic_store(&control.info, std::move(next));
+/// Publish a snapshot already made, unless the episode has ended: the Closed snapshot is the last one, whatever a call
+/// still finishing does. Cannot fail: an exceptional exit publishes its failed state with it.
+void publishReady(EpisodeControl& control, std::shared_ptr<const EpisodeInfo> info) noexcept {
+    try {
+        const std::lock_guard<std::mutex> lock(control.handoff);
+        if (!control.closed.load()) std::atomic_store(&control.info, std::move(info));
+    } catch (...) {
+        // (a mutex that cannot be locked: the metadata keeps its last snapshot)
+    }
 }
+void publish(EpisodeControl& control, EpisodeInfo info) { publishReady(control, std::make_shared<const EpisodeInfo>(std::move(info))); }
 std::shared_ptr<const EpisodeInfo> published(const EpisodeControl& control) { return std::atomic_load(&control.info); }
 
 /// The metadata of an open (or failed) generation, as its state now is.
@@ -280,32 +285,40 @@ std::uint64_t MissionEpisode::reset(std::uint64_t localEpisodeIndex) {
     if (!boundary.held()) refuse(EpisodeStatus::Busy, "reset while another call holds the episode");
     if (control->closed.load() || !control->episode) refuse(EpisodeStatus::Closed, "the episode is closed");
     Episode& e = *control->episode;
-    // Every earlier child is stale from here on; then the old World and all its generation's state go.
+    const EpisodeConfig& c = *e.config;
     const std::uint64_t generation = control->generation.load() + 1;
+    // The snapshots this reset may have to publish on its way out are made before anything changes, so that every exit
+    // - however it is thrown - leaves coherent metadata: the generation's, with no World and not building.
+    EpisodeInfo failedInfo;
+    failedInfo.status = EpisodeStatus::NotReset;
+    failedInfo.generation = generation, failedInfo.localEpisodeIndex = localEpisodeIndex;
+    failedInfo.worldSeed = episode_seeds::world(c.baseSeed, c.envId, localEpisodeIndex);
+    EpisodeInfo buildingInfo = failedInfo;
+    buildingInfo.building = true;
+    std::shared_ptr<const EpisodeInfo> failed = std::make_shared<const EpisodeInfo>(failedInfo);
+    std::shared_ptr<const EpisodeInfo> building = std::make_shared<const EpisodeInfo>(buildingInfo);
+
+    // Every earlier child is stale from here on; then the old World and all its generation's state go.
     control->generation.store(generation);
     e.teardown();
     e.localIndex = localEpisodeIndex;
-    EpisodeInfo building = infoOf(e, generation);
-    building.building = true;
-    publish(*control, building);
-
-    const EpisodeConfig& c = *e.config;
-    session::WorldOptions o;
-    const std::string name = c.diagnostic ? c.name + "-e" + std::to_string(c.envId) + "-g" + std::to_string(generation) : c.name;
-    o.name = name;
-    o.dt = c.dtS, o.frameSkip = c.frameSkip;
-    o.workers = c.workers, o.pinWorkers = false;
-    o.seed = episode_seeds::world(c.baseSeed, c.envId, localEpisodeIndex);
-    o.capacity = c.world.capacity;
-    o.jsbsimRoot = c.world.jsbsimRoot;
-    o.terrain = c.world.terrain;
-    o.terrainUrl = c.world.terrainUrl;
-    o.terrainZoom = c.world.terrainZoom;
-    o.terrainOffline = c.world.terrainOffline;
-    o.publish = c.diagnostic && c.publish;
-    const std::string record = c.diagnostic && !c.recordDir.empty() ? (std::filesystem::path(c.recordDir) / (name + ".fsrec")).string() : std::string();
-    o.recordPath = record;
+    publishReady(*control, std::move(building));
     try {
+        session::WorldOptions o;
+        const std::string name = c.diagnostic ? c.name + "-e" + std::to_string(c.envId) + "-g" + std::to_string(generation) : c.name;
+        o.name = name;
+        o.dt = c.dtS, o.frameSkip = c.frameSkip;
+        o.workers = c.workers, o.pinWorkers = false;
+        o.seed = failedInfo.worldSeed;
+        o.capacity = c.world.capacity;
+        o.jsbsimRoot = c.world.jsbsimRoot;
+        o.terrain = c.world.terrain;
+        o.terrainUrl = c.world.terrainUrl;
+        o.terrainZoom = c.world.terrainZoom;
+        o.terrainOffline = c.world.terrainOffline;
+        o.publish = c.diagnostic && c.publish;
+        const std::string record = c.diagnostic && !c.recordDir.empty() ? (std::filesystem::path(c.recordDir) / (name + ".fsrec")).string() : std::string();
+        o.recordPath = record;
         auto world = std::make_unique<session::World>(o);
         applyRecipe(*world, c);
         std::vector<std::pair<std::uint64_t, session::AgentIdentity>> agents;
@@ -328,17 +341,22 @@ std::uint64_t MissionEpisode::reset(std::uint64_t localEpisodeIndex) {
         e.judge = std::move(judge);
         e.worldName = name;
         e.recordPath = record;
-    } catch (const EpisodeError&) {
+        publishReady(*control, std::make_shared<const EpisodeInfo>(infoOf(e, generation)));
+        return generation;
+    } catch (...) {
+        // Whatever was thrown, by the recipe, the native setup, the judge factory or an allocation: no World, the failed
+        // generation's metadata, the boundary released on the way out.
         e.teardown();
-        publish(*control, infoOf(e, generation));
-        throw;
-    } catch (const std::exception& error) {
-        e.teardown();
-        publish(*control, infoOf(e, generation));
-        refuse(EpisodeStatus::NotReset, std::string("the recipe failed: ") + error.what());
+        publishReady(*control, std::move(failed));
+        try {
+            throw;
+        } catch (const EpisodeError&) {
+            throw; // (the episode's own refusal, or a callback's, as it is)
+        } catch (const std::exception& error) {
+            refuse(EpisodeStatus::NotReset, std::string("the recipe failed: ") + error.what());
+        }
+        // (anything else - a callback's non-standard exception - leaves here as it was thrown)
     }
-    publish(*control, infoOf(e, generation));
-    return generation;
 }
 
 EpisodeStatus MissionEpisode::step() {

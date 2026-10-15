@@ -279,7 +279,9 @@ public:
     /// Advance the generation - every earlier child stale from here on - destroy the owned World, if any, and build a
     /// fresh one for local episode `localEpisodeIndex`: world seed, recipe, then one Agent per service in ascending id
     /// and its binding, then the judge. The new generation (the previous plus 1). EpisodeError: Busy or Closed, nothing
-    /// changed; a recipe that failed leaves the episode with no World (NotReset) until a later reset succeeds.
+    /// changed. A reset that fails leaves the episode with no World until a later reset succeeds, its metadata the
+    /// failed generation's (NotReset, not building) and the boundary free - whatever was thrown: the episode's own
+    /// EpisodeError, a std::exception from a callback as EpisodeError (NotReset), anything else as it was thrown.
     std::uint64_t reset(std::uint64_t localEpisodeIndex);
     /// One decision tick: decisionSteps World steps, then the judge. NotReset, Busy or Closed otherwise.
     EpisodeStatus step();

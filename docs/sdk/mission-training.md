@@ -202,9 +202,10 @@ implements this section as written:
   first, so every earlier child is stale, then destroys the judge, the Agents and the World - its Mission Systems,
   guidance, damage, DMS, MA core, publication and recording with it - and builds a new World with the episode's world
   seed, applies the recipe, mints one Agent per service in ascending `service_id` (named `episode-service-<id>`) and
-  binds it, and makes a new task/judge from the configuration's factory. The decision tick returns to 0. A recipe that
-  fails leaves the episode with no World until a later reset succeeds. The legacy vehicle reset is neither called nor
-  changed.
+  binds it, and makes a new task/judge from the configuration's factory. The decision tick returns to 0. A reset that
+  fails - whatever its recipe, native setup or judge factory throws - leaves the episode with no World until a later
+  reset succeeds, its metadata the failed generation's (`not_reset`, not building) and its boundary free; a callback's
+  non-standard exception reaches the caller as it was thrown. The legacy vehicle reset is neither called nor changed.
 - `step()` runs `decision_steps` World steps, then the judge, and advances the tick.
 - Children are `EpisodeService` (a service's World and Agent identity, for M5's endpoint) and `EpisodeReferee` (the
   World read-only, for M5's referee documents). They share the control block: `closed`, the current generation and

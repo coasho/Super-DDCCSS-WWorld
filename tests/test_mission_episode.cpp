@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -147,14 +148,83 @@ double privateBytes() {
 }
 
 
-/// Run f on its own thread and wait for it at most `seconds`: false if it did not finish (then it is left running).
-bool finishes(double seconds, std::function<void()> f) {
-    auto task = std::make_shared<std::packaged_task<void()>>(std::move(f));
-    auto done = task->get_future();
-    std::thread([task] { (*task)(); }).detach();
-    if (done.wait_for(std::chrono::duration<double>(seconds)) != std::future_status::ready) return false;
-    done.get(); // (rethrows)
-    return true;
+/// One of this test executable's own cases, run in a process of its own and bounded: a case that may deadlock cannot
+/// hang this process, and nothing of this process's stack is shared with it. On timeout the child is terminated and
+/// waited for, so nothing is left running.
+struct ChildRun {
+    bool finished = false;   ///< it exited by itself within the bound
+    unsigned long exitCode = 0;
+    std::string output;      ///< what it printed (stdout and stderr)
+};
+
+ChildRun runChild(const std::string& testName, double seconds) {
+    ChildRun run;
+#ifdef _WIN32
+    const std::filesystem::path dir = std::filesystem::path(FSIM_TEST_OUTPUT_DIR) / "children";
+    std::filesystem::create_directories(dir);
+    std::string file;
+    for (const char c : testName) file += (std::isalnum(static_cast<unsigned char>(c)) ? c : '-');
+    const std::filesystem::path log = dir / (file + ".log");
+    SECURITY_ATTRIBUTES inherit{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
+    const HANDLE out = CreateFileW(log.wstring().c_str(), GENERIC_WRITE, FILE_SHARE_READ, &inherit, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (out == INVALID_HANDLE_VALUE) throw std::runtime_error("runChild: cannot create " + log.string());
+    wchar_t self[32768];
+    const DWORD size = GetModuleFileNameW(nullptr, self, 32768);
+    std::wstring command = L"\"" + std::wstring(self, size) + L"\" \"" + std::filesystem::path(testName).wstring() + L"\"";
+    STARTUPINFOW startup{};
+    startup.cb = sizeof startup;
+    startup.dwFlags = STARTF_USESTDHANDLES;
+    startup.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+    startup.hStdOutput = startup.hStdError = out;
+    PROCESS_INFORMATION process{};
+    const BOOL started = CreateProcessW(nullptr, command.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process);
+    CloseHandle(out);
+    if (!started) throw std::runtime_error("runChild: cannot start the child");
+    const DWORD bound = static_cast<DWORD>(seconds * 1000.0);
+    run.finished = WaitForSingleObject(process.hProcess, bound) == WAIT_OBJECT_0;
+    if (!run.finished) {
+        TerminateProcess(process.hProcess, 124); // (a deadlocked child: ended, and waited for)
+        WaitForSingleObject(process.hProcess, INFINITE);
+    }
+    DWORD code = 0;
+    GetExitCodeProcess(process.hProcess, &code);
+    run.exitCode = code;
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
+    std::ifstream in(log, std::ios::binary);
+    run.output.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+#else
+    (void)testName, (void)seconds;
+    throw std::runtime_error("runChild: the bounded child runner needs Windows");
+#endif
+    return run;
+}
+
+/// A case run as a bounded child must pass there.
+void requireChildPasses(const std::string& testName, double seconds = 120.0) {
+    const ChildRun run = runChild(testName, seconds);
+    INFO(testName << " printed:\n" << run.output);
+    REQUIRE(run.finished);
+    CHECK(run.exitCode == 0);
+}
+
+/// A thread's body with its own failure slot, read only after the thread is joined: two threads that fail at once
+/// each keep their own failure.
+template <typename F>
+auto guarded(std::exception_ptr& slot, F body) {
+    return [&slot, body]() mutable {
+        try {
+            body();
+        } catch (...) {
+            slot = std::current_exception();
+        }
+    };
+}
+
+/// After joining: the first failure, rethrown, with how many there were.
+void rethrowFirst(const std::vector<std::exception_ptr>& slots) {
+    for (const auto& slot : slots)
+        if (slot) std::rethrow_exception(slot);
 }
 
 /// A judge whose destruction is observable: the episode's own state, torn down with its World.
@@ -808,80 +878,93 @@ TEST_CASE("mission episode: initialization time and memory, measured", "[ma][epi
 
 // --- the review of 8254d7e: disposal from a callback, opening during a reset, terrain, worker and thread schedules ----
 
-TEST_CASE("mission episode: disposing of the parent inside a callback neither deadlocks nor frees the World it uses", "[ma][episode][handles][dispose]") {
-    // Each path, bounded: a deadlock fails the case instead of hanging the gate.
-    const auto path = [](const char* name, auto&& body) {
-        INFO(name);
-        auto destroyed = std::make_shared<std::atomic<bool>>(false);
-        auto owner = std::make_unique<MissionEpisode>(c2Episode(name, destroyed));
-        owner->reset(0);
-        auto service = owner->service(1);
-        auto referee = owner->referee();
-        struct Seen {
-            bool aliveAfterDisposal = false, worldUsable = false;
-            EpisodeStatus result = EpisodeStatus::Closed;
-        };
-        auto seen = std::make_shared<Seen>();
-        const bool finished = finishes(10.0, [&] { body(owner, service, referee, destroyed, *seen); });
-        REQUIRE(finished);
-        CHECK(seen->result == EpisodeStatus::Ok);
-        CHECK(seen->aliveAfterDisposal); // (the episode's state outlived the parent until the callback returned)
-        CHECK(seen->worldUsable);        // (and so did the World the callback holds)
-        CHECK(destroyed->load());        // (then it went)
-        CHECK(service.status() == EpisodeStatus::Closed);
-        CHECK(referee.status() == EpisodeStatus::Closed);
-    };
-    path("dispose-from-referee", [](auto& owner, auto&, auto& referee, auto& destroyed, auto& seen) {
-        seen.result = referee.inspect([&](const session::World& world) {
+namespace {
+
+/// One disposal path, in the child process that runs it: the episode, its children and the callback all live there.
+template <typename Body>
+void disposalPath(const char* name, Body body) {
+    auto destroyed = std::make_shared<std::atomic<bool>>(false);
+    auto owner = std::make_unique<MissionEpisode>(c2Episode(name, destroyed));
+    owner->reset(0);
+    auto service = owner->service(1);
+    auto referee = owner->referee();
+    bool aliveAfterDisposal = false, worldUsable = false;
+    EpisodeStatus result = EpisodeStatus::Closed;
+    body(owner, service, referee, destroyed, aliveAfterDisposal, worldUsable, result);
+    CHECK(result == EpisodeStatus::Ok);
+    CHECK(aliveAfterDisposal); // (the episode's state outlived the parent until the callback returned)
+    CHECK(worldUsable);        // (and so did the World the callback holds)
+    CHECK(destroyed->load());  // (then it went)
+    CHECK(service.status() == EpisodeStatus::Closed);
+    CHECK(referee.status() == EpisodeStatus::Closed);
+}
+
+} // namespace
+
+TEST_CASE("episode child dispose from referee", "[.][episode-child]") {
+    disposalPath("dispose-from-referee", [](auto& owner, auto&, auto& referee, auto& destroyed, bool& alive, bool& usable, EpisodeStatus& result) {
+        result = referee.inspect([&](const session::World& world) {
             owner.reset();
-            seen.aliveAfterDisposal = !destroyed->load();
-            seen.worldUsable = world.c2Nodes().size() == 1 && world.simTime() == 0.0;
+            alive = !destroyed->load();
+            usable = world.c2Nodes().size() == 1 && world.simTime() == 0.0;
         });
     });
-    path("dispose-from-service", [](auto& owner, auto& service, auto&, auto& destroyed, auto& seen) {
-        seen.result = service.use([&](session::World& world, const session::AgentIdentity& agent) {
+}
+
+TEST_CASE("episode child dispose from service", "[.][episode-child]") {
+    disposalPath("dispose-from-service", [](auto& owner, auto& service, auto&, auto& destroyed, bool& alive, bool& usable, EpisodeStatus& result) {
+        result = service.use([&](session::World& world, const session::AgentIdentity& agent) {
             owner.reset();
-            seen.aliveAfterDisposal = !destroyed->load();
+            alive = !destroyed->load();
             world.step();
-            seen.worldUsable = world.c2Node(agent.vehicle) != nullptr && world.worldSteps() == 1;
+            usable = world.c2Node(agent.vehicle) != nullptr && world.worldSteps() == 1;
         });
     });
-    path("dispose-from-range", [](auto& owner, auto&, auto&, auto& destroyed, auto& seen) {
+}
+
+TEST_CASE("episode child dispose from range", "[.][episode-child]") {
+    disposalPath("dispose-from-range", [](auto& owner, auto&, auto&, auto& destroyed, bool& alive, bool& usable, EpisodeStatus& result) {
         MissionEpisode* parent = owner.get();
-        seen.result = parent->range([&](session::World& world) {
+        result = parent->range([&](session::World& world) {
             owner.reset();
-            seen.aliveAfterDisposal = !destroyed->load();
+            alive = !destroyed->load();
             world.step(2);
-            seen.worldUsable = world.worldSteps() == 2;
+            usable = world.worldSteps() == 2;
         });
     });
-    path("dispose-from-judge", [](auto& owner, auto&, auto&, auto& destroyed, auto& seen) {
+}
+
+TEST_CASE("episode child dispose from judge", "[.][episode-child]") {
+    disposalPath("dispose-from-judge", [](auto& owner, auto&, auto&, auto& destroyed, bool& alive, bool& usable, EpisodeStatus& result) {
         MissionEpisode* parent = owner.get();
-        seen.result = parent->withJudge([&](env::EpisodeJudge& judge) {
+        result = parent->withJudge([&](env::EpisodeJudge& judge) {
             owner.reset();
-            seen.aliveAfterDisposal = !destroyed->load();
-            seen.worldUsable = dynamic_cast<Witness*>(&judge) != nullptr;
+            alive = !destroyed->load();
+            usable = dynamic_cast<Witness*>(&judge) != nullptr;
         });
     });
-    path("move-assign-into-active-parent", [](auto& owner, auto&, auto&, auto& destroyed, auto& seen) {
+}
+
+TEST_CASE("episode child move-assign into active parent", "[.][episode-child]") {
+    disposalPath("move-assign-into-active-parent", [](auto& owner, auto&, auto&, auto& destroyed, bool& alive, bool& usable, EpisodeStatus& result) {
         auto other = std::make_shared<std::atomic<bool>>(false);
         MissionEpisode replacement(c2Episode("move-assign-replacement", other));
         replacement.reset(0);
         auto kept = replacement.service(1);
         MissionEpisode* parent = owner.get();
-        seen.result = parent->range([&](session::World& world) {
+        result = parent->range([&](session::World& world) {
             *parent = std::move(replacement); // (the active parent's own episode ends; its World must not, yet)
-            seen.aliveAfterDisposal = !destroyed->load();
+            alive = !destroyed->load();
             world.step();
-            seen.worldUsable = world.worldSteps() == 1;
+            usable = world.worldSteps() == 1;
         });
         // the parent now is the replacement: its children work, its World is the replacement's
-        if (kept.status() != EpisodeStatus::Ok || parent->step() != EpisodeStatus::Ok || other->load()) seen.worldUsable = false;
+        if (kept.status() != EpisodeStatus::Ok || parent->step() != EpisodeStatus::Ok || other->load()) usable = false;
         owner.reset();
     });
 }
 
-TEST_CASE("mission episode: disposing of the parent while another thread is in a callback returns at once", "[ma][episode][handles][dispose]") {
+TEST_CASE("episode child dispose while another thread is in a callback", "[.][episode-child]") {
     auto destroyed = std::make_shared<std::atomic<bool>>(false);
     auto owner = std::make_unique<MissionEpisode>(c2Episode("dispose-elsewhere", destroyed));
     owner->reset(0);
@@ -899,14 +982,85 @@ TEST_CASE("mission episode: disposing of the parent while another thread is in a
         });
     });
     entered.get_future().wait();
-    const bool disposed = finishes(10.0, [&] { owner.reset(); });
+    owner.reset(); // (must return while the other thread is still inside its callback: the bound is the parent's)
     release.set_value();
     caller.join();
-    CHECK(disposed);
     CHECK(aliveAfterDisposal.load());
     CHECK(worldUsable.load());
     CHECK(destroyed->load());
     CHECK(service.status() == EpisodeStatus::Closed);
+}
+
+TEST_CASE("mission episode: disposing of the parent inside a callback, or while another thread is in one, neither deadlocks nor frees the World it uses",
+          "[ma][episode][handles][dispose]") {
+    // Each path runs in a bounded child process: a deadlock fails its case here, and nothing is left running.
+    for (const char* name : {"episode child dispose from referee", "episode child dispose from service", "episode child dispose from range",
+                             "episode child dispose from judge", "episode child move-assign into active parent",
+                             "episode child dispose while another thread is in a callback"})
+        requireChildPasses(name);
+}
+
+// The bounded runner's own failure paths: a child that hangs is ended within the bound; one that fails is reported.
+TEST_CASE("episode child hangs", "[.][episode-child]") {
+    std::this_thread::sleep_for(std::chrono::hours(1));
+}
+TEST_CASE("episode child fails", "[.][episode-child]") {
+    FAIL("a deliberate failure");
+}
+TEST_CASE("episode child passes", "[.][episode-child]") {
+    SUCCEED("a deliberate pass");
+}
+
+TEST_CASE("mission episode: the bounded child runner ends a hung child and reports a failed one", "[ma][episode][harness]") {
+    const auto start = std::chrono::steady_clock::now();
+    const ChildRun hung = runChild("episode child hangs", 3.0);
+    const double waited = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    CHECK_FALSE(hung.finished);
+    CHECK(hung.exitCode == 124); // (terminated by the runner, and waited for)
+    CHECK(waited < 30.0);
+    const ChildRun failed = runChild("episode child fails", 60.0);
+    CHECK(failed.finished);
+    CHECK(failed.exitCode != 0);
+    CHECK(failed.output.find("a deliberate failure") != std::string::npos);
+    const ChildRun passed = runChild("episode child passes", 60.0);
+    CHECK(passed.finished);
+    CHECK(passed.exitCode == 0);
+}
+
+TEST_CASE("mission episode: threads that fail at once each keep their own failure", "[ma][episode][harness]") {
+    std::exception_ptr first, second;
+    std::promise<void> go;
+    auto start = go.get_future().share();
+    std::thread a(guarded(first, [start] {
+        start.wait();
+        throw std::runtime_error("first worker");
+    }));
+    std::thread b(guarded(second, [start] {
+        start.wait();
+        throw std::runtime_error("second worker");
+    }));
+    go.set_value(); // (both fail together)
+    a.join();
+    b.join();
+    const auto message = [](const std::exception_ptr& slot) {
+        try {
+            std::rethrow_exception(slot);
+        } catch (const std::exception& error) {
+            return std::string(error.what());
+        }
+    };
+    REQUIRE(first);
+    REQUIRE(second);
+    CHECK(message(first) == "first worker");
+    CHECK(message(second) == "second worker");
+    std::string rethrown;
+    try {
+        rethrowFirst({nullptr, second, first});
+    } catch (const std::exception& error) {
+        rethrown = error.what();
+    }
+    CHECK(rethrown == "second worker");
+    CHECK_NOTHROW(rethrowFirst({nullptr, nullptr}));
 }
 
 TEST_CASE("mission episode: a child opened while a reset is building its World answers once the reset is done", "[ma][episode][handles][concurrency]") {
@@ -1005,31 +1159,22 @@ TEST_CASE("mission episode: episodes on their own threads, resetting at their ow
     const auto referenceA = alone(7, 2), referenceB = alone(8, 3);
     // the same episodes on threads of their own, while a third resets and steps without pause
     std::vector<fixture::Snapshot> tracedA, tracedB;
-    std::exception_ptr failure;
+    std::exception_ptr failA, failB, failChurn; // (one slot per thread, read after joining)
     std::atomic<bool> running{true};
     std::atomic<unsigned> churned{0};
-    const auto guarded = [&](auto&& body) {
-        return [&, body] {
-            try {
-                body();
-            } catch (...) {
-                failure = std::current_exception();
-            }
-        };
-    };
-    std::thread a(guarded([&] {
+    std::thread a(guarded(failA, [&] {
         FixtureEpisode e(7, 99);
         MissionEpisode episode(e.config);
         tracedA = trace(episode, *e.scenario, 2, steps);
     }));
-    std::thread b(guarded([&] {
+    std::thread b(guarded(failB, [&] {
         FixtureEpisode e(8, 99);
         MissionEpisode episode(e.config);
         episode.reset(0); // (resets of its own first, at other local episodes)
         episode.reset(9);
         tracedB = trace(episode, *e.scenario, 3, steps);
     }));
-    std::thread churn(guarded([&] {
+    std::thread churn(guarded(failChurn, [&] {
         FixtureEpisode e(9, 5);
         MissionEpisode episode(e.config);
         for (std::uint64_t k = 0; running.load(); ++k) {
@@ -1046,7 +1191,7 @@ TEST_CASE("mission episode: episodes on their own threads, resetting at their ow
     b.join();
     running = false;
     churn.join();
-    if (failure) std::rethrow_exception(failure);
+    rethrowFirst({failA, failB, failChurn});
     CHECK(churned.load() > 0);
     sameTrace(tracedA, referenceA);
     sameTrace(tracedB, referenceB);
@@ -1154,4 +1299,89 @@ TEST_CASE("mission episode: World construction inputs - the scenario's admitted 
     unsigned zoom = 0;
     REQUIRE(accepted.range([&](session::World& world) { zoom = world.terrain() ? world.terrain()->zoom() : 0; }) == EpisodeStatus::Ok);
     CHECK(zoom == 10);
+}
+
+TEST_CASE("mission episode: every exceptional exit from a reset leaves coherent failed-reset metadata", "[ma][episode][reset][exceptions]") {
+    // Whatever a range callback throws - standard or not - the reset unwinds to: no World, not building, the boundary
+    // free, and a later reset that succeeds. The callback's own exception reaches the caller unchanged unless it is a
+    // std::exception (then an EpisodeError, NotReset, as before).
+    const auto failing = [](bool inJudge, auto thrower) {
+        auto fail = std::make_shared<bool>(true);
+        env::EpisodeConfig config;
+        config.name = "reset-exception";
+        config.c2Nodes = {{"crc", 0.7, 0.0, 200.0}};
+        config.services = {{1, "crc", {}, true, true}};
+        if (inJudge)
+            config.judge = [fail, thrower](const session::World&) -> std::unique_ptr<env::EpisodeJudge> {
+                if (*fail) thrower();
+                return nullptr;
+            };
+        else
+            config.native = [fail, thrower](session::World&) {
+                if (*fail) thrower();
+            };
+        return std::make_pair(config, fail);
+    };
+    const auto coherentAfterFailure = [](MissionEpisode& episode, std::uint64_t generation) {
+        const auto info = episode.info();
+        CHECK(info->status == EpisodeStatus::NotReset);
+        CHECK_FALSE(info->building);
+        CHECK(info->generation == generation);
+        CHECK(info->worldName.empty());
+        CHECK(info->tick == 0);
+        CHECK_FALSE(episode.open());
+        CHECK(episode.step() == EpisodeStatus::NotReset);                     // (the boundary is free, and no World)
+        CHECK(episode.range([](session::World&) {}) == EpisodeStatus::NotReset);
+        CHECK(episode.service(1).status() == EpisodeStatus::NotReset);
+        CHECK(episode.referee().status() == EpisodeStatus::NotReset);
+    };
+    for (const bool inJudge : {false, true}) {
+        CAPTURE(inJudge);
+        { // a non-standard exception: rethrown as it is
+            auto [config, fail] = failing(inJudge, [] { throw 42; });
+            MissionEpisode episode(config);
+            int caught = 0;
+            try {
+                episode.reset(0);
+            } catch (int value) {
+                caught = value;
+            }
+            CHECK(caught == 42);
+            coherentAfterFailure(episode, 1);
+            auto earlier = episode.service(1);
+            *fail = false;
+            CHECK(episode.reset(1) == 2); // (a retry succeeds)
+            CHECK(episode.open());
+            CHECK_FALSE(episode.info()->building);
+            CHECK(earlier.status() == EpisodeStatus::Stale);
+            CHECK(episode.service(1).use([](session::World&, const session::AgentIdentity&) {}) == EpisodeStatus::Ok);
+        }
+        { // a standard exception: an EpisodeError, NotReset
+            auto [config, fail] = failing(inJudge, [] { throw std::runtime_error("refused"); });
+            MissionEpisode episode(config);
+            try {
+                episode.reset(0);
+                FAIL("the reset did not fail");
+            } catch (const env::EpisodeError& error) {
+                CHECK(error.status() == EpisodeStatus::NotReset);
+            }
+            coherentAfterFailure(episode, 1);
+            *fail = false;
+            CHECK(episode.reset(0) == 2);
+            CHECK(episode.open());
+        }
+        { // an EpisodeError of the callback's own: as it is
+            auto [config, fail] = failing(inJudge, [] { throw env::EpisodeError(EpisodeStatus::UnknownService, "own"); });
+            MissionEpisode episode(config);
+            try {
+                episode.reset(0);
+                FAIL("the reset did not fail");
+            } catch (const env::EpisodeError& error) {
+                CHECK(error.status() == EpisodeStatus::UnknownService);
+            }
+            coherentAfterFailure(episode, 1);
+            *fail = false;
+            CHECK(episode.reset(0) == 2);
+        }
+    }
 }
