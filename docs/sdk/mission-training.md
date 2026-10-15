@@ -12,8 +12,9 @@ exported.
 | --- | --- |
 | Explicit MA-service binding ([section 9](#9-service-binding)) | **Implemented** (M1) in C++, C and Python |
 | Legal noncombat reports with their provenance ([section 10](#legal-report-calls-noncombat-m2)): navigation, own tracks, passive contacts, link tracks, peers, tasks and authority as Agent calls | **Implemented** (noncombat M2) in C++, C and Python. The `ma.observation.v1` document that carries them is not |
-| Complete native-state reset fixture input ([fixture](native-state-reset-fixture.md)) | **Supplied, 2026-10-15.** Executable test setup and oracle; M4 owner/reset acceptance remains pending |
-| Everything else: the mission episode, endpoint and referee family, every `ma.*.v1` document, the gateway, receipts, criteria, isolation | **Proposed.** No header, export, C function or Python class for it exists; `fsim.isolation` has its present `AgentProcess` only |
+| Complete native-state reset fixture input ([fixture](native-state-reset-fixture.md)) | **Supplied, 2026-10-15**, and applied to the M4 episode reset by the `mission_episode` gate |
+| Independent episode ownership, full fresh reset, generation-bound children and seed streams ([sections 4](#4-ownership-generation-lifetime-and-move) and [8](#8-seed-streams)) | **Implemented** (M4) as the internal native owner `fsim::env::MissionEpisode` (`src/env/MissionEpisode.h`). Not exported: no public header, C function or Python class yet |
+| Everything else: the public mission episode, endpoint and referee family, every `ma.*.v1` document (`ma.config.v1` parsing among them), the gateway, receipts, criteria, isolation | **Proposed.** No header, export, C function or Python class for it exists; `fsim.isolation` has its present `AgentProcess` only |
 
 The [SDK's principals](boundary.md) list what the SDK really exports.
 
@@ -192,6 +193,33 @@ shared between episodes; nothing mutable is.
 - **One boundary.** `reset`, `step` and every endpoint or referee call of one episode are serialised at the episode.
   A call that arrives while another holds the boundary fails as busy; it never waits and never races the World.
 
+**Implemented internally (M4).** `fsim::env::MissionEpisode` is the native owner the public classes above will wrap
+(M5 core). It takes a typed `EpisodeConfig` - the section 7 recipe in native form, sections in the table's order, plus
+a range-side `native` recipe step for setup the document has no field for - and implements this section as written:
+
+- Construction validates and builds no World (generation 0). `reset(local_episode_index)` advances the generation
+  first, so every earlier child is stale, then destroys the judge, the Agents and the World - its Mission Systems,
+  guidance, damage, DMS, MA core, publication and recording with it - and builds a new World with the episode's world
+  seed, applies the recipe, mints one Agent per service in ascending `service_id` (named `episode-service-<id>`) and
+  binds it, and makes a new task/judge from the configuration's factory. The decision tick returns to 0. A recipe that
+  fails leaves the episode with no World until a later reset succeeds. The legacy vehicle reset is neither called nor
+  changed.
+- `step()` runs `decision_steps` World steps, then the judge, and advances the tick.
+- Children are `EpisodeService` (a service's World and Agent identity, for M5's endpoint) and `EpisodeReferee` (the
+  World read-only, for M5's referee documents). They share the control block: `closed`, the current generation and
+  the boundary flag. A child answers `ok` only in its own generation; otherwise `stale`, `closed`, `not_reset` or
+  `unknown_service`, and its callback is never called. A call that finds the boundary held answers `busy` at once.
+- Destroying the episode sets `closed` under the boundary, then releases the World; moving it keeps the control block
+  and its state, so children stay valid; a moved-from episode is closed.
+- A diagnostic episode's World is named `<name>-e<env_id>-g<generation>` and records to that name's `.fsrec` in its
+  record directory, so neither publication nor recording is ever shared between episodes or generations.
+
+The `mission_episode` gate applies the supplied [native-state fixture](native-state-reset-fixture.md) to this reset:
+after crew loss, fire, an in-flight weapon, a decoy, a consumed store, pending C2 task and consent, a queued message
+and a removed entity, a reset to the same local episode equals a fresh episode of the same inputs and an independent
+World of the same options, seed and recipe - field for field, with nothing normalised (the episode generation is not
+part of the native state) - immediately, after 1, 4 and 30 more steps, and after the whole contamination is replayed.
+
 ## 5. Errors
 
 Failures of the API and of lifetime are errors of the call. Refusals of a well-formed request are documents.
@@ -312,6 +340,9 @@ all arithmetic modulo 2^64:
 Classes 2 to 15 are reserved for later SDK streams. The service and component seeds are offered to the upper layer
 (the composition example uses them); the SDK itself consumes the world seed. The fixtures' manifest carries test
 vectors, and `next(0)` is `16294208416658607535`.
+
+Implemented by `fsim::env::episode_seeds` (M4) and checked against the manifest's vectors; an episode's
+`worldSeed()`, `serviceSeed(id)` and `componentSeed(id, component)` are these streams for its current local episode.
 
 ## 9. Service binding
 
@@ -779,7 +810,7 @@ language-independent handler boundary (validate, dispatch, refresh, close). The 
 | Runtime handlers for the five request kinds, and the concrete C++ ownership and registration seam for them | full M5 | **Pending.** The supplied contract fixes the handler's four steps and leaves the seam to be confirmed before facade integration; no handler is installed |
 | Actor report producers for `engagement.reports.v1` (stores, strikes, countermeasures, delivered consent requests; C++ and Python Agent parity for countermeasure and launch-zone calls) | full M5 | **Native calls supplied** in `9f18037`; [equipment access/reports](engagement.md#agent-equipment-access-and-reports) retain native permission and provenance. Mission document refresh and gateway handler integration remain pending |
 | Outcome reduction: evaluated combat criteria, rewards, team classification and termination from native evidence | full M7 | **Pending.** The supplied contract freezes inputs and evidence only and requires a separately agreed, versioned reduction contract. The generic `reason` and `episode_done` rule of [section 13](#13-referee-documents) is unchanged |
-| Full native-state reset fixture (crew loss, fire, an in-flight weapon, a decoy, a consumed store, pending C2 tasks and consent, queued messages, a removed entity) | full M4, M5 core, first package | **Supplied, 2026-10-15.** The [native fixture](native-state-reset-fixture.md) provides executable same-build setup, simultaneous-state assertions and a fresh/replay oracle. Its delivery does not close M4 reset/lifetime or M5 core acceptance |
+| Full native-state reset fixture (crew loss, fire, an in-flight weapon, a decoy, a consumed store, pending C2 tasks and consent, queued messages, a removed entity) | full M4, M5 core, first package | **Supplied, 2026-10-15**, and applied to the M4 episode reset (`mission_episode`). M5 core acceptance remains pending |
 | Dated combat joint and Viewer acceptance evidence (J5, J9, combat J10, the rest of J3 and J8) | full M8 | **Pending.** Not supplied; the [Viewer record](viewer-validation.md) is a diagnostic baseline only |
 
 ## 16. Isolation

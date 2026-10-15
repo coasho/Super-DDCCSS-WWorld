@@ -1,6 +1,8 @@
 # env: RL environments over the simulation (design 5, 9.1). Knows nothing
 # about rendering.
 add_library(fsim_env STATIC
+    MissionEpisode.h
+    MissionEpisode.cpp
     Observation.h
     Observation.cpp
     Registry.h

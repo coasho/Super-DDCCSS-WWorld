@@ -290,6 +290,21 @@ fsim_set_warnings(fsim_native_state_reset_fixture_test)
 add_test(NAME native_state_reset_fixture COMMAND fsim_native_state_reset_fixture_test)
 set_tests_properties(native_state_reset_fixture PROPERTIES LABELS "ma-training;native-engagement" TIMEOUT 300 RUN_SERIAL TRUE)
 
+# Independent mission episodes (M4; docs/sdk/mission-training.md, sections 4 and 8): one World per episode, rebuilt
+# whole on reset, generation-bound children, seed streams - and the supplied native-state fixture applied to the
+# episode's own reset.
+add_executable(fsim_mission_episode_test test_mission_episode.cpp)
+target_link_libraries(fsim_mission_episode_test PRIVATE fsim::env fsim_native_state_reset_fixture fsim::sdk fsim::session fsim::core
+                                                        Catch2::Catch2WithMain)
+target_compile_definitions(fsim_mission_episode_test PRIVATE FSIM_TEST_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+                                                             FSIM_TEST_OUTPUT_DIR="${CMAKE_BINARY_DIR}/mission-episode-test")
+if(WIN32)
+    target_link_libraries(fsim_mission_episode_test PRIVATE psapi)
+endif()
+fsim_set_warnings(fsim_mission_episode_test)
+add_test(NAME mission_episode COMMAND fsim_mission_episode_test)
+set_tests_properties(mission_episode PROPERTIES LABELS "ma-training" TIMEOUT 900 RUN_SERIAL TRUE)
+
 # Own-platform equipment access and report provenance through public C++ and C99 interfaces.
 add_executable(fsim_ma_equipment_test test_ma_equipment.cpp)
 target_link_libraries(fsim_ma_equipment_test PRIVATE fsim::sdk Catch2::Catch2WithMain)
