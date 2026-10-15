@@ -342,13 +342,17 @@ running raises `RuntimeError` instead of racing it.
 `submit_json(actions)`, `receipts_json()`, `close()`) and `MissionReferee` (`outcome_json()`, `truth_json()`, `close()`).
 Every document is `str`, exactly as the contract writes it, so identities above 2^53 stay exact. Errors are
 `fsim.Error`; a well-formed document for another generation, tick or service is answered, not raised. `reset` and
-`step` release the GIL: a call from another thread meanwhile fails busy at once.
+`step` release the GIL: a call from another thread meanwhile fails busy at once, and a second `reset` refused that
+way changes nothing. `close()` never waits: the episode and every handle it opened answer "closed" at once, and a
+reset or step still running on another thread finishes before the native episode is released.
 
 An actor in its own process holds its endpoint alone: `fsim.isolation.MissionEndpointProcess(episode, endpoint,
 "module:Class", *args, path=[...])` makes `Class(remote_endpoint, *args)` there - a `RemoteMissionEndpoint` with the
 three calls and nothing else - and runs its methods with `call` / `step`, serving the endpoint calls in the range's
-process. A diagnostic episode is refused, and no range, World, Agent, referee, endpoint or referee document crosses.
-After a reset, `rebind(episode.endpoint(service_id))` moves the process to the new generation.
+process. A diagnostic episode is refused, and no range, World, Agent, referee, endpoint or referee document crosses - neither
+as text nor parsed, however deeply nested. The endpoint must be the episode's own, of its current generation; after a
+reset, `rebind(episode.endpoint(service_id))` moves the process to the new generation, and another episode's endpoint
+is refused (`ValueError`) even when its service id and episode key are equal.
 
 ## Logging and errors
 

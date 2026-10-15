@@ -7,6 +7,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
 
 #define CHECK(cond)                                                                                  \
     do {                                                                                             \
@@ -89,6 +95,87 @@ static int episode_key(const char* observation, char* out, size_t capacity) {
     out[end - start + 1] = '\0';
     return 1;
 }
+
+#ifdef _WIN32
+/* The configuration with `extra` light aircraft more, so that a reset lasts long enough to be met by another thread. */
+static char* loaded_config(const char* config, int extra) {
+    const char* marker = "\"vehicles\": [";
+    const char* at = strstr(config, marker);
+    const char* capacity = strstr(config, "\"capacity\": 8");
+    size_t head, size = strlen(config) + (size_t)extra * 200 + 64, j;
+    char* out;
+    int i;
+    if (!at || !capacity || capacity > at) return NULL;
+    out = (char*)malloc(size);
+    if (!out) return NULL;
+    j = (size_t)(capacity - config);
+    memcpy(out, config, j);
+    j += (size_t)sprintf(out + j, "\"capacity\": %d", extra + 8);
+    head = (size_t)(at - config) + strlen(marker);
+    memcpy(out + j, capacity + strlen("\"capacity\": 8"), head - (size_t)(capacity - config) - strlen("\"capacity\": 8"));
+    j += head - (size_t)(capacity - config) - strlen("\"capacity\": 8");
+    for (i = 0; i < extra; ++i)
+        j += (size_t)sprintf(out + j, "{\"name\": \"load-%d\", \"type\": \"jsbsim:c172x\", \"initial\": {\"lat_deg\": 36.1, "
+                                      "\"lon_deg\": -115.1, \"alt_msl_m\": 3000, \"heading_deg\": 0, \"airspeed_ms\": 50}},", i);
+    strcpy(out + j, config + head);
+    return out;
+}
+
+typedef struct {
+    fsim_mission_episode* episode;
+    volatile LONG done;
+    int status;
+} reset_job;
+
+static DWORD WINAPI run_reset(LPVOID p) {
+    reset_job* job = (reset_job*)p;
+    job->status = fsim_mission_episode_reset(job->episode, 11);
+    InterlockedExchange(&job->done, 1);
+    return 0;
+}
+
+/* A reset refused as busy (FSIM_ERROR) changes nothing of the reset that holds the episode. */
+static int busy_reset(const char* config) {
+    char* loaded = loaded_config(config, 36);
+    fsim_mission_episode* episode = NULL;
+    fsim_mission_endpoint* earlier = NULL;
+    fsim_mission_endpoint* current = NULL;
+    reset_job job;
+    HANDLE thread;
+    size_t needed = 0;
+    int busy = 0, second = FSIM_OK;
+    DWORD start;
+    char* observation;
+    CHECK(loaded != NULL);
+    CHECK(fsim_mission_episode_create(loaded, strlen(loaded), &episode) == FSIM_OK);
+    CHECK(fsim_mission_episode_reset(episode, 0) == FSIM_OK);
+    CHECK(fsim_mission_endpoint_open(episode, 9007199254740995ull, &earlier) == FSIM_OK);
+    job.episode = episode, job.done = 0, job.status = -100;
+    thread = CreateThread(NULL, 0, run_reset, &job, 0, NULL);
+    CHECK(thread != NULL);
+    start = GetTickCount();
+    while (!job.done && !busy && GetTickCount() - start < 30000) {
+        busy = fsim_mission_endpoint_observation_json(earlier, NULL, 0, &needed) == FSIM_ERROR;
+        if (!busy) Sleep(1);
+    }
+    if (busy) second = fsim_mission_episode_reset(episode, 22);
+    WaitForSingleObject(thread, INFINITE);
+    CloseHandle(thread);
+    CHECK(busy);                   /* (the first reset was met while it held the episode) */
+    CHECK(second == FSIM_ERROR);   /* busy: refused at once, nothing changed */
+    CHECK(job.status == FSIM_OK);
+    CHECK(fsim_mission_endpoint_open(episode, 9007199254740995ull, &current) == FSIM_OK);
+    observation = read_endpoint(fsim_mission_endpoint_observation_json, current);
+    CHECK(observation != NULL);
+    CHECK(strstr(observation, "\"episode_generation\":\"2\",\"local_episode_index\":\"11\"") != NULL);
+    free(observation);
+    fsim_mission_endpoint_destroy(current);
+    fsim_mission_endpoint_destroy(earlier);
+    fsim_mission_episode_destroy(episode);
+    free(loaded);
+    return 0;
+}
+#endif
 
 int main(int argc, char** argv) {
     fsim_mission_episode* episode = NULL;
@@ -213,6 +300,9 @@ int main(int argc, char** argv) {
     fsim_mission_episode_destroy(NULL);
     free(observation);
     free(again);
+#ifdef _WIN32
+    if (busy_reset(config) != 0) return 1;
+#endif
     free(config);
     printf("mission C ABI: ok\n");
     return 0;

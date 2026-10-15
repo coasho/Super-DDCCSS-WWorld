@@ -151,6 +151,17 @@ struct EpisodeConfig {
     std::function<std::unique_ptr<EpisodeJudge>(const session::World&)> judge;
 };
 
+/// What the caller of a reset runs under that reset's own boundary - the public facade's, so that preparing the
+/// generation, rebuilding it and reading its result are one operation no other call can enter. `prepare` runs once the
+/// boundary is held and before anything changes, with the generation being built; `complete` after that generation
+/// has its World, Agents and judge, before its metadata is published and the boundary released. A reset refused busy
+/// or closed runs neither. Either may throw: before the rebuild nothing has changed; after it, the reset fails as a
+/// failed recipe does.
+struct ResetHooks {
+    std::function<void(std::uint64_t generation)> prepare;
+    std::function<void(EpisodeJudge* judge)> complete;
+};
+
 /// The episode's metadata, published whole at each change - construction, a reset's start and end, each step, the
 /// episode's end - and read whole: never half of one state and half of another, and never through the boundary, so it
 /// is readable at any time, from any thread, even while a call holds the boundary.
@@ -314,6 +325,8 @@ public:
     /// failed generation's (NotReset, not building) and the boundary free - whatever was thrown: the episode's own
     /// EpisodeError, a std::exception from a callback as EpisodeError (NotReset), anything else as it was thrown.
     std::uint64_t reset(std::uint64_t localEpisodeIndex);
+    /// The same, with the caller's hooks run under this reset's boundary (ResetHooks).
+    std::uint64_t reset(std::uint64_t localEpisodeIndex, const ResetHooks& hooks);
     /// One decision tick: decisionSteps World steps, then the judge. NotReset, Busy or Closed otherwise.
     EpisodeStatus step();
 

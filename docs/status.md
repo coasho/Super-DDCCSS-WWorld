@@ -1,6 +1,7 @@
 # Current capabilities and milestone status
 
-Reviewed: 2026-10-12. First maintenance pass: `2b83f24` (implementation baseline `32e78a6`).
+Progress reviewed: 2026-10-15, `main` at `6e8b4aa`. New focused validation and unresolved M5 core acceptance findings are recorded below; prior full-suite results retain their dated scope.
+First maintenance pass reviewed: 2026-10-12, `2b83f24` (implementation baseline `32e78a6`).
 Second maintenance pass: `f8cfec9`; Architecture A1: `6652584`; Architecture A2: `34e5516`; Architecture A3: `e79f268`;
 Architecture A4: `e708b87`; Architecture A5: `2efea05`; Architecture A6: `b57947d`, based on `39be3c1`.
 Current development and delivery use `main`, including both maintenance passes and Architecture A1 through A6.
@@ -80,13 +81,13 @@ preserved, but never use an unqualified `M1` to select work.
 | **MA training noncombat M2** | Legal reports with their provenance: navigation, own tracks, passive contacts, link tracks, peers, tasks and authority. | Implemented as Agent calls in C++ (`fsim/MAReports.h`), C (ABI 1.73) and Python, additive: each report is the Agent's existing read with its source, sample and receive times, age and validity; unknown, stale, invalid, unavailable and not-applicable are kept apart, a peer's position report and its heartbeat each keep the delivery they came by (ABI 1.74), and nothing the referee alone knows enters one ([contract](sdk/mission-training.md#legal-report-calls-noncombat-m2), [agents.md](sdk/agents.md#legal-reports)). Verified by `ctest -L ma-training`, which includes the installed C++, C99 and Python consumers. The internal mission episode owner (M4) has passed independent acceptance. The public gateway is implemented as M5 core and awaits independent acceptance; engagement extension handlers, full M5 and full joint acceptance remain open. |
 | **MA equipment access/reports** | Own-platform dispenser inventory/release, own-designation advisory launch zones, stores/strikes/inventory and ingress-delivered consent reports. | Additive C++/C/Python interfaces (C ABI additions 1.75); native activity/release correlations with true target IDs redacted and no weapon telemetry. [Equipment verification](sdk/engagement.md#equipment-interface-verification-2026-10-14) records headless/Release builds, focused regression, installed consumers, frozen ABI and protected-input checks. Mission gateway handlers and full joint acceptance remain pending. |
 | **M4 native-state fixture input** | Reusable same-build setup for simultaneous damage, live weapon/decoy, store consumption, pending task/consent/message and removal state. | [Fixture and verification](sdk/native-state-reset-fixture.md) supplied on 2026-10-15 with deterministic fresh/replay and legacy-reset controls, and applied to the M4 episode reset by `mission_episode`; M4 independent acceptance completed at `54b7fb9`; M5 core is implemented and awaiting acceptance. |
-| **MA training M5 core** | Public mission episodes: `MissionEpisode`, `MissionEndpoint`, `MissionReferee`; one immutable legal snapshot per service per decision tick; submit validates and queues, step dispatches in service-id/request-id order through each service's own Agent; deduplication, retention, native receipts; noncombat criteria and referee documents; strict actor isolation. | **Implemented, awaiting independent acceptance** in C++ (`fsim/MissionEpisode.h`), C (`fsim/fsim_mission_env.h`, ABI 1.76) and Python (`fsim.mission`, `fsim.isolation.MissionEndpointProcess`); see the M5 core verification below. Full M5 remains pending: no extension definition or handler is installed, so every extension key and request kind is refused. One contract clarification is flagged for review: `gateway.close`'s own receipt carries no native answer and the checker exempts kind `gateway`. M6-M8, joint and Viewer acceptance are not started. |
+| **MA training M5 core** | Public mission episodes: `MissionEpisode`, `MissionEndpoint`, `MissionReferee`; one immutable legal snapshot per service per decision tick; submit validates and queues, step dispatches in service-id/request-id order through each service's own Agent; deduplication, retention, native receipts; noncombat criteria and referee documents; strict actor isolation. | **Implemented, awaiting independent acceptance** in C++ (`fsim/MissionEpisode.h`), C (`fsim/fsim_mission_env.h`, ABI 1.76) and Python (`fsim.mission`, `fsim.isolation.MissionEndpointProcess`); see the M5 core verification below. Full M5 remains pending: no extension definition or handler is installed, so every extension key and request kind is refused. The independent review's four runtime defects and the `gateway.close` checker condition were corrected afterwards (see the M5 core correction below). M6-M8, joint and Viewer acceptance are not started. |
 | **MA training M4** | Independent mission episodes: one World per episode, rebuilt whole on reset; generation-bound children; section 8 seed streams. | Implemented in `8254d7e`, `c507978` and `54b7fb9` as the internal native owner `fsim::env::MissionEpisode` ([contract](sdk/mission-training.md#4-ownership-generation-lifetime-and-move)), not exported; **independently accepted at `54b7fb9`**. The `mission_episode` gate applies the supplied native-state fixture to the episode's own reset - field-for-field equal to a fresh episode and an independent World of the same seed and recipe, nothing normalised, before and after replay - and covers stale, closed, busy and moved handles, disposal from inside a callback, children opened during a reset, published metadata under concurrent reads, terrain construction inputs, worker-count and threaded-schedule invariance, independence of other episodes, diagnostic names and the unchanged legacy vehicle reset. The public episode family, `ma.config.v1` parsing, snapshots and the gateway are M5 core (above). |
 
-## Simulation/interface boundary hardening (2026-10-15)
+## SDK simulation/interface compatibility checks (2026-10-15)
 
-The [boundary contract](superpowers/specs/2026-10-15-simulation-interface-boundaries.md) protects future native
-simulation and Viewer work before M5 export. Public C++ World and episode construction share one internal mapper;
+The [boundary contract](superpowers/specs/2026-10-15-simulation-interface-boundaries.md) defines native simulation
+and Viewer interface compatibility checks accepted before the M5 export. Public C++ World and episode construction share one internal mapper;
 new public/native/episode options require an explicit mapping decision. A scenario's legacy VecEnv section is
 refused instead of silently ignored. No production decision system, training algorithm, public layout, permission,
 physical model or Viewer presentation behavior was added or changed.
@@ -97,7 +98,7 @@ old array strides. Diagnostic parity uses the actual IPC reader and the supplied
 reset, publication, recording, focus requests and reconnects. Its private-state observability limits remain those of
 the fixture; mission payload/radar component checks pin strides rather than every internal member.
 
-| Current verification | Result |
+| Recorded verification at `08e3afe` | Result |
 | --- | --- |
 | UCRT64 headless build, warnings as errors | Passed |
 | Focused headless gates, including three installed-consumer gates | 20/20 passed in 243.30 s |
@@ -122,7 +123,7 @@ new regressions failed against placeholder implementations before the gateway wa
 service's own Agent, deduplication and retention, native receipts, noncombat criteria, referee documents and the
 actor process boundary are implemented; every extension key and request kind is still refused (full M5 pending).
 
-| Current verification (final source) | Result |
+| Recorded M5 core verification (implementation committed as `6e8b4aa`) | Result |
 | --- | --- |
 | UCRT64 headless and Release builds, warnings as errors | Passed, 0 warnings each |
 | Full headless suite | 616/616 passed in 972.23 s |
@@ -133,11 +134,71 @@ actor process boundary are implemented; every extension key and request kind is 
 | Frozen baseline verify; old-header C++, C99 and three Python consumers on the new installed library | 66 artifacts unchanged; 5/5 exit 0 |
 | Installed C++, C99 and Python consumers of the episode family, with an isolated actor | Passed; headers and `mission.py` byte-identical in the provenance manifest |
 
-Logs are under `D:/ENV/tmp/m5/logs/`. Flagged for review: a contract clarification - `gateway.close`'s own receipt
+Implementation logs are under `D:/ENV/tmp/m5/logs/`. The handoff flagged a contract clarification: `gateway.close`'s own receipt
 is `accepted` with `native` null, and `tools/ma_contract/check.py` exempts kind `gateway` from the native-answer rule
 ([section 12](sdk/mission-training.md#12-mareceiptsv1-acknowledgments-and-receipts)). Pending: independent M5 core
 acceptance, full M5 (extension definitions and handlers), the first-package acceptance, M6-M8, and joint and Viewer
 acceptance.
+
+## MA training M5 core independent review (2026-10-15)
+
+**Acceptance requires corrections.** Independent review of `6e8b4aa` reproduced four runtime defects using the
+configured CPython 3.13 and public SDK, with each probe in a separate bounded subprocess. These findings concern
+SDK reset serialization, handle lifetime and actor/referee data visibility.
+
+| Contract | Observed result | Required correction |
+| --- | --- | --- |
+| Public reset serialization (`src/sdk/MissionEpisode.cpp`) | While `reset(11)` was constructing a World, `reset(22)` returned Busy, yet the first reset's snapshot reported local episode index 22. Shared minting metadata is written before the native boundary; reset also releases that boundary before reading its result key. | Serialize metadata preparation, full reset and result-key capture together. A refused call must change nothing. |
+| Active Python call lifetime (`python/src/_native_mission_env.c`) | Closing an episode from another thread during a GIL-released reset produced a native access violation, exit `3221225477` (`0xC0000005`). | Retain the active native handle until reset/step returns; synchronize close and avoid reading a mutable handle after releasing the GIL. |
+| Actor argument validation (`python/fsim/isolation.py::_carried`) | Actual `ma.truth.v1` and `ma.outcome.v1` JSON strings were refused, but parsed dictionaries reached an actor through constructor arguments and nested call arguments. | Check a dictionary's schema before recursively checking its members; preserve the referee-document exclusion in every supported representation. |
+| Endpoint ownership (`MissionEndpointProcess` construction/rebind) | Supplying non-diagnostic episode A with diagnostic episode B's endpoint served B's snapshot. Rebinding A's process to B's same-service endpoint did likewise. | Validate endpoint episode ownership, diagnostic status and generation at construction and every rebind. |
+
+The transport-only `gateway.close` receipt may correctly be `accepted`, closed and `native: null`; it makes no
+simulation call. Its checker exception needs a narrower condition: the current checker also accepts `pending`,
+`executing`, `completed`, `failed` and `canceled` gateway-close receipts without a native answer. Regression cases
+must distinguish the intended accepted/closed representation from those unsupported states.
+
+Independent evidence is under `D:/ENV/tmp/m5-independent-review-20261015/`: `review_probe.py`, `review_actor.py`,
+the four probe logs, build logs and focused test logs. The initial serial Headless selection discovered 23 gates:
+22 passed; `mission_package_consumer` detected that this terminology update's `isolation.py` had not yet been
+staged into the Python package. Headless and Release were then rebuilt to synchronize the package. The affected
+consumer passed its separate rerun (1/1, 33.65 s). All 23 selected gates therefore have passing results across those
+two runs, while the four independent runtime probes still reproduce the defects above. This is not a new full-suite
+or Viewer acceptance run.
+
+Claude retains the complete M5 core correction package across implementation, language interfaces, regression
+tests, installed consumers and acceptance evidence. Independent M5 core and first-package acceptance remain open;
+M6-M8 and full extension/joint/Viewer acceptance retain their existing prerequisites.
+
+## MA training M5 core correction (2026-10-15, awaiting independent acceptance)
+
+All four review findings were reproduced first with the reviewer's probes on the `6e8b4aa` build (logs
+`01-repro-*`), then held by new regressions that failed before the correction (`02-red-python`, `04-red-native`):
+
+| Finding | Correction | Regression |
+| --- | --- | --- |
+| Reset serialization | `env::MissionEpisode::reset(local, ResetHooks)` (additive; the one-argument reset is unchanged) runs the public facade's `prepare` and `complete` hooks under the reset's own boundary: the generation's minting inputs, the rebuild and the returned key are one operation. A reset refused busy runs neither hook; its error says busy. | `ma_actions` (C++), `mission_c_abi` (C99, a second thread), `test_mission` lifetime probe |
+| Active Python call lifetime | An episode and its handles share one lifetime record in `_native_mission_env.c`: reset and step take the native handle under the GIL and count themselves without it; `close()` marks the record closed at once - every handle answers "closed" - and the last running call releases the native episode on return. | `test_mission` (`close_reset`, `close_step`, `overlap_reset`, each in a bounded subprocess) |
+| Parsed referee documents | `fsim.isolation._carried` checks a mapping's `schema` before its members and checks text and bytes as what they parse to, at any depth. | `test_mission`; installed Python consumer |
+| Endpoint ownership | `MissionEndpointProcess` construction and `rebind` require the episode's own endpoint (`MissionEpisode._owns`, by its native handle), the same service, its current generation, and an open handle; a diagnostic episode stays refused. | `test_mission`; installed Python consumer |
+| `gateway.close` receipts | The checker accepts only `queued`, `rejected` with a gateway reason, or `accepted` and closed - each with `native` null - for kind `gateway`; other kinds keep the native-answer rule. | `ma_contract_checker` (`test_gateway_close_receipts`) |
+
+The reviewer's four probes now: refuse parsed truth and outcome documents (`TypeError`), refuse another episode's
+endpoint (`ValueError`), keep the running reset's local index 11 while the second reset is refused busy, and close
+during a reset without a fault (`07-probe-*`).
+
+| Current verification (correction source; uncommitted at run time, committed unchanged) | Result |
+| --- | --- |
+| UCRT64 headless and Release builds, warnings as errors | Passed, 0 warnings each |
+| Affected headless gates (M5 core, M4, boundary/architecture, contract checkers, two installed-consumer gates, C ABI, `python_sdk`) | 19/19 passed in 167.16 s; `mission_package_consumer` rerun with the extended Python consumer 1/1 |
+| Affected Release gates (the same, with `equipment_package_consumer` and `ma_engagement_checker`) | 21/21 passed in 195.75 s |
+| Full headless suite | 616/616 passed in 938.32 s |
+| New or extended cases | `ma_actions` 8 cases, `mission_c_abi` (busy reset on a second thread), `test_mission` 10 cases (three in bounded subprocesses), `ma_contract_checker` 28 cases |
+| Exports against the frozen pre-M1 baseline | 0 removed; identical to `6e8b4aa` (the correction exports nothing new) |
+| Frozen baseline verify; old-header C++, C99 and three Python consumers on the new installed library | 66 artifacts unchanged; 5/5 exit 0 |
+
+Correction logs are under `D:/ENV/tmp/m5fix/logs/`. Pending: independent M5 core acceptance of this correction, full M5
+(extension definitions and handlers), the first-package acceptance, M6-M8, and joint and Viewer acceptance.
 
 The third maintenance pass includes bounded A1,
 [A2 lifecycle/adapter](superpowers/specs/2026-10-12-architecture-lifecycle-design.md) and

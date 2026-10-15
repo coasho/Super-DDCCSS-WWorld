@@ -287,7 +287,9 @@ EpisodeStatus MissionEpisode::enter(const EpisodeBoundary& boundary, session::Wo
 
 EpisodeJudge* MissionEpisode::currentJudge() noexcept { return control_ && control_->episode ? control_->episode->judge.get() : nullptr; }
 
-std::uint64_t MissionEpisode::reset(std::uint64_t localEpisodeIndex) {
+std::uint64_t MissionEpisode::reset(std::uint64_t localEpisodeIndex) { return reset(localEpisodeIndex, ResetHooks{}); }
+
+std::uint64_t MissionEpisode::reset(std::uint64_t localEpisodeIndex, const ResetHooks& hooks) {
     if (!control_) refuse(EpisodeStatus::Closed, "the episode was moved from");
     // Locals only from here: the recipe or the judge factory may end this episode, and with it this object.
     const std::shared_ptr<EpisodeControl> control = control_;
@@ -297,6 +299,7 @@ std::uint64_t MissionEpisode::reset(std::uint64_t localEpisodeIndex) {
     Episode& e = *control->episode;
     const EpisodeConfig& c = *e.config;
     const std::uint64_t generation = control->generation.load() + 1;
+    if (hooks.prepare) hooks.prepare(generation); // (under the boundary, before anything of the episode changes)
     // The snapshots this reset may have to publish on its way out are made before anything changes, so that every exit
     // - however it is thrown - leaves coherent metadata: the generation's, with no World and not building.
     EpisodeInfo failedInfo;
@@ -353,6 +356,7 @@ std::uint64_t MissionEpisode::reset(std::uint64_t localEpisodeIndex) {
         e.judge = std::move(judge);
         e.worldName = name;
         e.recordPath = record;
+        if (hooks.complete) hooks.complete(e.judge.get()); // (the caller's result, read before the boundary goes)
         publishReady(*control, std::make_shared<const EpisodeInfo>(infoOf(e, generation)));
         return generation;
     } catch (...) {

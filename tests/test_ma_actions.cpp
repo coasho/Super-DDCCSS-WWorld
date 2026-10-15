@@ -6,8 +6,11 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <atomic>
+#include <chrono>
 #include <functional>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -375,4 +378,49 @@ TEST_CASE("a C2 task travels the modelled link and its receipt follows the MA's 
         state = stateOf(parse(crc.observationJsonV1()), 2);
     }
     CHECK(state == "executing");
+}
+
+TEST_CASE("a reset refused as busy changes nothing of the reset that holds the episode", "[mission][lifetime][reset]") {
+    // The public reset is one operation under the episode's boundary: its generation's metadata, the native rebuild and
+    // the episode key it returns. Another reset meanwhile fails busy and touches none of them; nor can a call after the
+    // rebuild change or fail the key the first one returns.
+    MissionEpisode episode(loadedConfig(36));
+    episode.reset(0);
+    MissionEndpoint earlier = episode.endpoint(kWing);
+    std::string key;
+    std::atomic<bool> done{false};
+    std::thread first([&] {
+        try {
+            key = episode.reset(11);
+        } catch (const std::exception& e) {
+            key = std::string("threw: ") + e.what();
+        }
+        done = true;
+    });
+    bool busySeen = false, secondRefused = false, secondReturned = false;
+    const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+    while (!done && std::chrono::steady_clock::now() < until && !busySeen) {
+        try {
+            earlier.observationJsonV1();
+        } catch (const std::runtime_error& e) {
+            busySeen = std::string(e.what()).find("busy") != std::string::npos;
+        }
+        if (!busySeen) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    if (busySeen) {
+        try {
+            episode.reset(22);
+            secondReturned = true;
+        } catch (const std::runtime_error& e) {
+            secondRefused = std::string(e.what()).find("busy") != std::string::npos;
+        }
+    }
+    first.join();
+    REQUIRE(busySeen); // (the first reset was met while it held the episode)
+    CHECK(secondRefused);
+    CHECK_FALSE(secondReturned);
+    CHECK(key == "{\"env_id\":\"9007199254740993\",\"episode_generation\":\"2\",\"local_episode_index\":\"11\"}");
+    const core::Json snapshot = parse(episode.endpoint(kWing).observationJsonV1());
+    CHECK(str(at(snapshot, "episode"), "local_episode_index") == "11");
+    CHECK(str(at(snapshot, "episode"), "episode_generation") == "2");
 }

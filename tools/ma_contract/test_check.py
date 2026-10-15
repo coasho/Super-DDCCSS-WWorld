@@ -225,6 +225,29 @@ class Rules(unittest.TestCase):
         self.refused(refusal, "a gateway refusal is rejected")
         self.assertTrue(SCHEMA.validate(dict(receipts, reward=1.0)), "no reward in an actor's receipts")
 
+    def test_gateway_close_receipts(self):
+        """gateway.close makes no simulation call: its receipt is queued, rejected by the gateway, or accepted and
+        closed - each with no native answer; nothing else, and the native-answer rule still holds for every other kind."""
+        receipts = fixture("receipts.wing-ma.json")
+
+        def close(state, closed, reason=None, native=None, operation="close"):
+            document = copy.deepcopy(receipts)
+            document["receipts"][3].update({"kind": "gateway", "operation": operation, "state": state, "closed": closed,
+                                            "gateway_reason": reason, "native": native})
+            return document
+        for document in (close("accepted", True), close("queued", False), close("rejected", True, "unknown_request")):
+            self.assertEqual(SCHEMA.validate(document), [])
+            self.assertEqual(check.rules(document), ([], []), document["receipts"][3])
+        for state, closed in (("pending", False), ("executing", False), ("completed", True), ("failed", True), ("canceled", True),
+                              ("accepted", False)):
+            self.refused(close(state, closed), "gateway.close")
+        native = {"domain": "dms", "status": "done", "reason": None, "reason_code": None, "ids": {}}
+        self.refused(close("accepted", True, native=native), "gateway.close")
+        self.refused(close("accepted", True, operation="open"), "gateway.close")
+        ordinary = copy.deepcopy(receipts)
+        ordinary["receipts"][3].update({"kind": "flight", "operation": "new", "state": "accepted", "closed": True})
+        self.refused(ordinary, "without the native answer it stands for")
+
     def test_outcome(self):
         outcome = fixture("outcome.truncated.json")
         outcome["roles"][1]["bootstrap"] = False

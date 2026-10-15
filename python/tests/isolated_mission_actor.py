@@ -25,6 +25,9 @@ class Actor:
     def receipts(self):
         return self.endpoint.receipts_json()
 
+    def echo(self, value):
+        return value
+
     def reach(self):
         """Every way out it might try: none answers but the endpoint's three calls."""
         out = {}

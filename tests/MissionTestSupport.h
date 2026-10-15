@@ -53,6 +53,16 @@ inline std::string config() {
                     "\"terrain\": false, \"jsbsim_root\": " + jsonString(FSIM_TEST_JSBSIM_ROOT));
 }
 
+/// The same, with `extra` light aircraft more: a reset that takes long enough for another thread to meet it.
+inline std::string loadedConfig(int extra) {
+    std::string vehicles;
+    for (int i = 0; i < extra; ++i)
+        vehicles += "{\"name\": \"load-" + std::to_string(i) + "\", \"type\": \"jsbsim:c172x\", \"initial\": {\"lat_deg\": 36.1, "
+                    "\"lon_deg\": -115.1, \"alt_msl_m\": 3000, \"heading_deg\": 0, \"airspeed_ms\": 50}},\n";
+    return replaced(replaced(config(), "\"capacity\": 8", "\"capacity\": " + std::to_string(extra + 8)), "\"vehicles\": [",
+                    "\"vehicles\": [\n" + vehicles);
+}
+
 inline fsim::core::Json parse(const std::string& text) { return fsim::core::Json::parse(text, "document"); }
 inline const fsim::core::Json& at(const fsim::core::Json& j, std::string_view key) {
     const fsim::core::Json* m = j.find(key);

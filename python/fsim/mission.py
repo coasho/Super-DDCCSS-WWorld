@@ -143,8 +143,14 @@ class MissionEpisode:
         """The referee, for the current generation."""
         return MissionReferee(self._live().referee())
 
+    def _owns(self, endpoint):
+        """Whether `endpoint` is one this open episode opened - by its native handle, not an equal service id or key."""
+        native = getattr(endpoint, "_native", None) if isinstance(endpoint, MissionEndpoint) else None
+        return self._native is not None and native is not None and self._native._owns(native)
+
     def close(self):
-        """End the episode: its handles answer no more (also when it is already closed)."""
+        """End the episode at once: its handles answer no more (also when it is already closed). A reset or step another
+        thread is running finishes, and the native episode goes when that call returns; close itself never waits."""
         if self._native is not None:
             self._native.close()
             self._native = None

@@ -198,6 +198,17 @@ def mission_episode():
     here = os.path.dirname(os.path.abspath(__file__))
     with isolation.MissionEndpointProcess(episode, lead, "ma_python:Actor", path=[here]) as actor:
         require(actor.call("observe") == lead.observation_json(), "the isolated actor read another snapshot")
+        other = fsim.mission.MissionEpisode(MISSION_CONFIG)  # (the same configuration: equal keys and service ids)
+        other.reset(41)
+        for refused in (lambda: actor.rebind(other.endpoint(9007199254740995)),
+                        lambda: actor.call("observe", json.loads(referee.truth_json())),
+                        lambda: actor.call("observe", {"nested": [json.loads(referee.outcome_json())]})):
+            try:
+                refused()
+                require(False, "an isolated actor was given another episode's endpoint or referee data")
+            except (ValueError, TypeError):
+                pass
+        other.close()
     episode.reset(41)
     try:
         lead.observation_json()

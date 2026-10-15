@@ -181,19 +181,28 @@ MissionEpisode& MissionEpisode::operator=(MissionEpisode&& other) noexcept {
 
 std::string MissionEpisode::reset(std::uint64_t localEpisodeIndex) {
     if (!impl_) throw std::runtime_error("mission episode: moved from");
-    Impl& m = *impl_;
-    m.minting->generation = m.episode.generation() + 1;
-    m.minting->localEpisodeIndex = localEpisodeIndex;
-    m.minting->minted = {};
+    // One operation under the reset's own boundary: the generation's minting inputs, the native rebuild and the key it
+    // returns. A reset refused busy runs neither hook and changes nothing; no call after the rebuild can change or fail
+    // the key. Locals only: the episode may end while its reset runs (env::MissionEpisode::reset).
+    const std::shared_ptr<Minting> minting = impl_->minting;
+    std::string key;
+    env::ResetHooks hooks;
+    hooks.prepare = [&minting, localEpisodeIndex](std::uint64_t generation) {
+        minting->generation = generation;
+        minting->localEpisodeIndex = localEpisodeIndex;
+        minting->minted = {};
+    };
+    hooks.complete = [&key](env::EpisodeJudge* judge) {
+        auto* gateway = dynamic_cast<mission::Gateway*>(judge);
+        if (!gateway) throw std::runtime_error("mission episode: reset: the generation has no gateway");
+        key = gateway->episodeKey();
+    };
     try {
-        m.episode.reset(localEpisodeIndex);
+        impl_->episode.reset(localEpisodeIndex, hooks);
     } catch (const env::EpisodeError& e) {
-        if (e.status() == env::EpisodeStatus::Busy) throw mission::Busy(e.what());
+        if (e.status() == env::EpisodeStatus::Busy) throw mission::Busy("mission episode: reset: busy - another call holds the episode");
         throw std::runtime_error(e.what());
     }
-    std::string key;
-    env::EpisodeContext context = m.episode.context();
-    withGateway(context, "reset", [&](mission::Gateway& g) { key = g.episodeKey(); });
     return key;
 }
 

@@ -422,11 +422,17 @@ def receipt_rules(receipts, where, errors):
             errors.append("%s: a gateway refusal is rejected, with no native answer" % here)
         if receipt["state"] == "queued" and receipt["native"] is not None:
             errors.append("%s: a queued request has no native answer yet" % here)
-        # (gateway.close is the transport's own act: no native call, so no native answer - section 12)
-        if receipt["state"] not in ("queued", "rejected") and receipt["native"] is None and receipt["kind"] != "gateway":
+        if receipt["kind"] == "gateway":
+            # gateway.close is the transport's own act, with no simulation call and so no native answer (section 12):
+            # queued; rejected by the gateway; or accepted and closed - nothing else
+            state, closed = receipt["state"], receipt["closed"]
+            if (receipt["operation"] != "close" or receipt["native"] is not None or
+                    not ((state == "queued" and not closed) or (state == "accepted" and closed) or
+                         (state == "rejected" and closed and receipt["gateway_reason"] is not None))):
+                errors.append("%s: a gateway.close receipt is queued, rejected by the gateway, or accepted and closed - "
+                              "with no native answer" % here)
+        elif receipt["state"] not in ("queued", "rejected") and receipt["native"] is None:
             errors.append("%s: state %s without the native answer it stands for" % (here, receipt["state"]))
-        if receipt["kind"] == "gateway" and receipt["native"] is not None:
-            errors.append("%s: gateway.close makes no native call" % here)
         if int(receipt["updated_tick"]) < int(receipt["submitted_tick"]):
             errors.append("%s: updated before it was submitted" % here)
 

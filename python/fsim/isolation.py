@@ -90,29 +90,53 @@ _MISSION_CALLS = ("observation_json", "submit_json", "receipts_json")
 _REFEREE_SCHEMAS = ("ma.outcome.v1", "ma.truth.v1")
 
 
-def _carried(value):
+def _carried(value, depth=0):
     """What strict isolation lets cross to an actor: plain data - never a range, World, Agent, referee, endpoint or a
-    referee document (section 16)."""
+    referee document (section 16), whether as text, bytes or a parsed object, at any depth: a mapping's schema is
+    checked before its members, and text that parses as JSON is checked as what it parses to."""
     from .agent import Agent, Referee
     from .mission import MissionEndpoint, MissionEpisode, MissionReferee
     from .world import World
+    if depth > 64:
+        raise TypeError("isolation: an argument nested more than 64 deep does not cross to an actor")
     if isinstance(value, (MissionEpisode, MissionReferee, MissionEndpoint, World, Referee, Agent)):
         raise TypeError("isolation: a %s does not cross to an actor" % type(value).__name__)
-    if isinstance(value, (str, bytes, bytearray)):
+    if isinstance(value, (str, bytes, bytearray, memoryview)):
         try:
-            document = json.loads(value)
-        except ValueError:
+            document = json.loads(value if isinstance(value, (str, bytes)) else bytes(value))
+        except (ValueError, TypeError):
             return value
-        if isinstance(document, dict) and document.get("schema") in _REFEREE_SCHEMAS:
-            raise TypeError("isolation: a referee document (%s) does not cross to an actor" % document["schema"])
+        if isinstance(document, (dict, list)):
+            _carried(document, depth + 1)
         return value
-    if isinstance(value, (list, tuple)):
-        for v in value:
-            _carried(v)
-    elif isinstance(value, dict):
+    if isinstance(value, dict):
+        if value.get("schema") in _REFEREE_SCHEMAS:
+            raise TypeError("isolation: a referee document (%s) does not cross to an actor" % value["schema"])
         for k, v in value.items():
-            _carried(k), _carried(v)
+            _carried(k, depth + 1), _carried(v, depth + 1)
+    elif isinstance(value, (list, tuple, set, frozenset)):
+        for v in value:
+            _carried(v, depth + 1)
     return value
+
+
+def _own_endpoint(episode, endpoint, service_id=None):
+    """The endpoint the process may hold: its episode's own (the episode's handle opened it - an equal service id or
+    episode key is no proof), of the service it serves, of the episode's current generation, and still open."""
+    from .mission import MissionEndpoint
+    if not isinstance(endpoint, MissionEndpoint):
+        raise TypeError("isolation: an fsim.mission.MissionEndpoint is what crosses, nothing else")
+    if not episode._owns(endpoint):
+        raise ValueError("isolation: the endpoint is not one this episode opened, or it is closed")
+    if service_id is not None and endpoint.service_id != service_id:
+        raise ValueError("isolation: re-bound to an endpoint of the same service alone")
+    import fsim
+    try:
+        endpoint.receipts_json()  # (an endpoint answers in its episode's current generation alone)
+    except fsim.Error as e:
+        if "busy" in str(e):
+            raise
+        raise ValueError("isolation: the endpoint is not of its episode's current generation: %s" % e) from None
 
 
 # --- the values that cross ----------------------------------------------------------------------------------------------
@@ -409,9 +433,10 @@ class MissionEndpointProcess:
             raise RuntimeError("isolation: a diagnostic episode (published or recorded) is labelled non-isolated and is refused")
         if not isinstance(endpoint, MissionEndpoint):
             raise TypeError("isolation: an fsim.mission.MissionEndpoint is what crosses, nothing else")
+        _own_endpoint(episode, endpoint)
         for a in args:
             _carried(a)
-        self._endpoint = endpoint
+        self._episode, self._endpoint = episode, endpoint
         self.calls = 0          # endpoint calls served
         self.channel_s = 0.0    # wall time spent in the channel and the actor's process
         key = secrets.token_bytes(32)
@@ -433,10 +458,9 @@ class MissionEndpointProcess:
         self._exchange({"op": "init", "entry": entry, "args": [_encode(a) for a in args]})
 
     def rebind(self, endpoint):
-        """Re-bind the process to a new generation's endpoint of the same service, explicitly (section 4)."""
-        from .mission import MissionEndpoint
-        if not isinstance(endpoint, MissionEndpoint) or endpoint.service_id != self._endpoint.service_id:
-            raise TypeError("isolation: re-bound to an endpoint of the same service alone")
+        """Re-bind the process to a new generation's endpoint of the same service, explicitly (section 4): one its own
+        episode opened, of that episode's current generation."""
+        _own_endpoint(self._episode, endpoint, self._endpoint.service_id)
         self._endpoint = endpoint
 
     def call(self, method, *args, **kwargs):

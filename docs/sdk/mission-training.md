@@ -57,7 +57,7 @@ identifier unless the table says so.
 | `controller_id` | 32 | range (minted) | The service's controller, from `0x40000001` (`World::createAgent`). Never named by a document that comes in |
 | `platform_id` | 32 | range | The bound vehicle's or C2 node's entity id: the service's own platform only (`Agent::vehicle`) |
 | `system_id` | 32 | range | A platform's or C2 node's DMS SystemID (from `0x53000001` unless assigned). How every other system is named |
-| `component_id` | 64 | upper layer | An upper-layer component behind one service. Echoed, never authenticated |
+| `component_id` | 64 | upper layer | An upper-layer component behind one service. Echoed as provenance; never used to establish service identity or permissions |
 | `request_id` | 64 | upper layer | One request of one service in one generation. Nonzero, strictly increasing |
 | `activity_id` | 64 | native | A VI activity (vehicle in the high 32 bits) or an MS activity (bit 31 of the low half set). Own platform's only |
 | `message_id` | 64 | native | A DMS send, in its sender's numbering |
@@ -100,7 +100,7 @@ Implemented, exported and classified in `boundary.toml` (M5 core's rows are awai
 Besides the rows above, M5 core exports `fsim.mission.MissionEpisode.diagnostic` and `MissionEndpoint.service_id`
 (read-only facts of the handle the caller already holds), `fsim.isolation.MissionEndpointProcess.rebind` (section 4's
 explicit re-binding at a new generation) and the value `fsim.isolation.mission_endpoint_calls` (section 16's
-whitelist). In Python `reset` returns nothing, as in C: the episode key is in every document of the new generation.
+callable-method list). In Python `reset` returns nothing, as in C: the episode key is in every document of the new generation.
 
 `receiptsJsonV1` is one addition to the plan's C++ sketch: the same non-consuming read the C function gives. The
 batch family of M7 (`fsim/MissionBatch.h`) is not frozen here; it consumes these documents unchanged.
@@ -326,8 +326,9 @@ Given once to the episode's constructor. Every field is explicit; the only defau
 
 Construction and future simulation/Viewer extensions follow the
 [simulation/interface evolution boundary](../superpowers/specs/2026-10-15-simulation-interface-boundaries.md).
-M4 native callbacks remain trusted internal setup/access seams. M5 actor endpoints must expose only bound Agent
-operations and legal reports, with no World/native callback, Range/referee, recording or IPC truth escape. Physical
+M4 native callbacks remain internal setup/access seams owned by the Range. M5 actor endpoints expose bound Agent
+operations and permitted reports; their return values provide no World/native callback, Range/referee handle,
+recording or IPC truth access. Use the [SDK access terminology](agents.md#sdk-access-terminology). Physical
 models may improve without freezing their current numerical outcomes into the gateway contract. Keep additional
 capabilities and telemetry versioned; existing unsized public state layouts remain fixed.
 
@@ -585,8 +586,8 @@ gateway assembles them, and the document, in M5.
 
 `episode`, `service_id` and `tick` name the snapshot the requests answer; `requests` may be empty, which is how a
 service waits. A request has a `request_id`, a `kind`, an `operation`, `parameters`, and optionally `component`
-(the upper layer's provenance: echoed in the receipt, never read for authorization). The endpoint authenticates the
-service: no parameter selects a sender, a source system, a controller or a platform, and a member that tries is an
+(the upper layer's provenance: echoed in the receipt, never read for authorization). The endpoint uses its configured
+service identity binding: no parameter selects a sender, a source system, a controller or a platform, and a member that tries is an
 unknown field.
 
 Each operation maps to exactly one existing SDK call, made as the service's own Agent. A field left out is the native
@@ -748,9 +749,10 @@ How each operation's state moves:
 
 A system that never answers - a C2 node, a platform out of reach - leaves a receipt `pending`; nothing times it
 out but its service's `gateway.close`. The `gateway.close` request's own receipt is `accepted` and closed with `native`
-null: it is the transport's own act and makes no native call, so there is no native answer to carry (the repository
-checker exempts kind `gateway` from the rule that a non-queued, non-rejected receipt has one - a clarification made
-with M5 core, flagged for review). It addresses an earlier request of its service only. `reports.transmissions` lists the native status of each send whose receipt is
+null: it is the transport's own act and makes no simulation call, so there is no native answer to carry. Its receipt
+is therefore only ever `queued`, `rejected` with its `gateway_reason`, or `accepted` and closed - each with `native`
+null; the repository checker refuses any other state for kind `gateway`, and keeps the native-answer rule for every
+other kind. It addresses an earlier request of its service only. `reports.transmissions` lists the native status of each send whose receipt is
 open or still retained.
 
 The native DMS keeps a system's last 256 send statuses, a window its MA core's own periodic publications and C2
@@ -857,16 +859,21 @@ language-independent handler boundary (validate, dispatch, refresh, close). The 
 
 ## 16. Isolation
 
-Strict isolation exports the endpoint whitelist of [section 3](#3-principals-and-proposed-entry-points) and nothing
-else: `observation_json`, `submit_json`, `receipts_json`. Implemented (M5 core) by `fsim.isolation.MissionEndpointProcess`
-and `RemoteMissionEndpoint` over the same authenticated channel as `AgentProcess`: the range serves the whitelist
-alone, refuses any other request on the channel, refuses a diagnostic episode and any argument that is a range,
-World, Agent, referee, endpoint or referee document, and re-binds explicitly (`rebind`) - a process left on an earlier
-generation's endpoint gets that endpoint's error. It refuses an episode that is diagnostic, published or
-recorded, refuses to carry a Range, World, Referee or referee document across, and closes or explicitly re-binds a
-process endpoint at each new generation. In-process endpoints are an accidental-access boundary; a result that
-claims decentralised execution uses the process boundary. A diagnostic run with a Viewer or a recording is labelled
-non-isolated, and neither kind of run is evidence for the other.
+Strict actor process isolation exposes the endpoint's callable-method list from
+[section 3](#3-principals-and-proposed-entry-points): `observation_json`, `submit_json`, `receipts_json`.
+M5 core implements it with `fsim.isolation.MissionEndpointProcess` and `RemoteMissionEndpoint`, using the same
+local pipe and HMAC connection check as `AgentProcess`. The Range serves only those methods and refuses other
+method requests. It refuses diagnostic, published or recorded episodes, and arguments containing a Range, World,
+Agent, Referee, endpoint or referee document - as text, as bytes or parsed into objects, at any nesting depth. The
+endpoint it serves is checked at construction and at every `rebind`: one its own episode opened (the episode's
+native handle, not an equal service id or episode key), of the same service, of that episode's current generation,
+and open. The Range closes or explicitly re-binds (`rebind`) the process endpoint at each new generation; an earlier
+generation's endpoint returns its stale-handle error.
+
+In-process endpoints check SDK object access. Evaluation claiming decentralised execution uses the process proxy
+and excludes diagnostic truth outputs. Operating-system file/process access remains the experiment runner's
+responsibility. A run with a Viewer or a recording is labelled non-isolated, and its visual evidence has a separate
+acceptance scope from actor process-interface checks.
 
 ## 17. Checks and evidence
 
