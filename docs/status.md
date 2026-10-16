@@ -425,6 +425,38 @@ The manifest also states the platform/service counts exactly (five platforms, fi
 Logs are under `D:/ENV/tmp/m8fix/logs/`. Pending as before: independent M8 generic acceptance; J5, J9, the combat parts
 of J3, J8 and J10; complete Viewer acceptance; a published seed/aspect matrix; J6's speed resumption after an override.
 
+## Architecture ARCH-01 ownership and policy baseline (2026-10-16, awaiting independent acceptance)
+
+The first package of the architecture roadmap (`docs/architecture/migration/roadmap.md`, in the untracked planning
+package) enforces source ownership and the
+three-domain dependency policy on the current tree. No domain source moved. The
+[ARCH-01 record](architecture/validation/arch-01-ownership-baseline.md) holds the details and the dated
+[baseline](architecture/validation/arch-01-baseline.json) taken at `7948dc4`. The architecture planning package
+under `docs/architecture` is otherwise untracked: only its ARCH-01 record and baseline are committed here.
+
+- **Policy v2** (`tools/architecture/policy.json`): each native module has a domain, a kind (contract, implementation,
+  final assembly, application) and its future destinations; 11 planned owners reserve theirs. The three current
+  reverse edges are exact exceptions naming the package that removes them: `ipc -> sim` (ARCH-02), `world -> sim` and
+  `ui -> sim` (ARCH-06).
+- **Checker**: direction rules on links and includes; longest-prefix ownership with `duplicate-owner`,
+  `planned-owner` and domain-root unowned files; `duplicate-source`; `unused-allowance`; stale exceptions; strict
+  policy validation. `python_imports.py` checks the Python package: cycles with deferred edges (the two current ones
+  are ARCH-07 exceptions), facade backedges from private packages, optional eager imports, unregistered dynamic
+  imports and undeclared subpackages.
+- **Baseline** (`tools/architecture/baseline.py`): the actual native link, include and external graphs, owners and
+  hashes of 327 sources and 40 public headers, the Python imports, and the declared package outputs.
+- **Configured-build reconciliation**: the CMake File API procedure for after the moves is defined in
+  `tools/architecture/README.md`; nothing was configured.
+
+| Verification | Result |
+| --- | --- |
+| `check.py` on the repository | Accepted; 19 modules, 367 files; 3 listed exceptions in use; Python 18 modules, 0 eager cycles |
+| `test_check.py` | 90 cases passed (51 existing native, 37 new domain/ownership/Python, 2 baseline) |
+| Planning document checker | Accepted; 12 documents, links valid |
+| Targeted CTest tier (`scope.py --run`) | 5/5 passed in 11.59 s; no build, no full suite |
+
+Pending: independent ARCH-01 acceptance; ARCH-02 onward; configured File API reconciliation once moves begin.
+
 ## MA training M8 correction and change-scoped testing (2026-10-16, awaiting independent review)
 
 The independent review of `3802e7a` and the uncommitted test framework

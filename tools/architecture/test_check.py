@@ -15,32 +15,60 @@ CHECK = Path(__file__).with_name("check.py")
 SCRATCH = Path(os.environ.get("TMP", "D:/ENV/tmp" if os.name == "nt" else tempfile.gettempdir()))
 
 
-class ArchitectureFixtures(unittest.TestCase):
+class FixtureRepository(unittest.TestCase):
+    """A small literal source tree and its policy; the test classes below plant violations in it."""
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="fsim-architecture-", dir=SCRATCH)
         self.addCleanup(self.temp.cleanup)
         self.repo = Path(self.temp.name)
-        # Literal fixture graph: core -> platform; sim -> core; session -> sim/ms;
-        # env -> session; world -> render/core/flow/ipc; viewer -> world/ipc.
+        # Literal fixture graph: core -> platform; sim -> core; session -> sim/ms; ipc -> sim (a listed legacy
+        # exception); env -> session; sdk (final assembly) -> env/session; world -> render/core/flow/ipc;
+        # viewer (application) -> world/ipc.
         targets = {
-            "platform": ("fsim_platform", [], True),
-            "core": ("fsim_core", ["platform"], True),
-            "sim": ("fsim_sim", ["core"], True),
-            "ms": ("fsim_ms", ["core"], True),
-            "ipc": ("fsim_ipc", ["sim"], True),
-            "session": ("fsim_session", ["sim", "ms"], True),
-            "env": ("fsim_env", ["session"], True),
-            "render": ("fsim_render", ["core"], False),
-            "world": ("fsim_world", ["render", "core", "flow", "ipc"], False),
-            "flow": ("fsim_flow", ["core"], False),
-            "viewer": ("flightsim-viewer", ["world", "ipc"], False),
+            "platform": ("fsim_platform", [], True, "foundation", "src/foundation/platform"),
+            "core": ("fsim_core", ["platform"], True, "foundation", "src/foundation/core"),
+            "sim": ("fsim_sim", ["core"], True, "simulation", "src/simulation/flight"),
+            "ms": ("fsim_ms", ["core"], True, "simulation", "src/simulation/mission_systems"),
+            "ipc": ("fsim_ipc", ["sim"], True, "foundation", "src/foundation/transport"),
+            "session": ("fsim_session", ["sim", "ms"], True, "simulation", "src/simulation/runtime"),
+            "env": ("fsim_env", ["session"], True, "training", "src/training/native/vecenv"),
+            "sdk": ("fsim", ["env", "session"], True, "adapters", "src/adapters/sdk/cpp"),
+            "render": ("fsim_render", ["core"], False, "visualization", "src/visualization/render"),
+            "world": ("fsim_world", ["render", "core", "flow", "ipc"], False, "visualization", "src/visualization/scene"),
+            "flow": ("fsim_flow", ["core"], False, "visualization", "src/visualization/vfx/flow"),
+            "viewer": ("flightsim-viewer", ["world", "ipc"], False, "applications", "src/applications/viewer"),
         }
-        self.policy = {"modules": {}, "external_targets": ["vsg::vsg", "Vulkan::Vulkan"]}
-        for name, (target, dependencies, headless) in targets.items():
+        kinds = {"contracts": "contract", "foundation": "implementation", "simulation": "implementation",
+                 "training": "implementation", "visualization": "implementation", "adapters": "assembly",
+                 "applications": "application"}
+        may = {"contracts": [], "foundation": ["contracts"], "simulation": ["foundation", "contracts"],
+               "training": ["simulation", "foundation", "contracts"], "visualization": ["foundation", "contracts"],
+               "adapters": list(kinds), "applications": list(kinds)}
+        self.policy = {
+            "schema": "fsim.architecture.source-policy.v2",
+            "domains": {name: {"root": "src/" + name, "kind": kinds[name], "may_depend_on": may[name]} for name in kinds},
+            "modules": {},
+            "planned_modules": {
+                "simulation_api": {"domain": "simulation", "kind": "implementation", "destinations": ["src/simulation/api"], "phase": "ARCH-04"},
+                "mission": {"domain": "training", "kind": "implementation", "destinations": ["src/training/native/mission"], "phase": "ARCH-05"},
+            },
+            "exceptions": [{"from": "ipc", "to": "sim", "rule": "domain", "until": "ARCH-02", "reason": "fixture legacy edge"}],
+            "external_targets": ["vsg::vsg", "Vulkan::Vulkan"],
+            "python": {"package_root": "python/fsim", "package": "fsim", "extensions": ["fsim._native"],
+                       "private_packages": {"fsim._contracts": [], "fsim._simulation": ["fsim._contracts", "fsim._native"],
+                                            "fsim._training": ["fsim._contracts", "fsim._native"]},
+                       "optional_modules": ["fsim.gym"], "optional_packages": ["gymnasium", "torch"],
+                       "dynamic_imports": [], "exceptions": []},
+        }
+        for name, (target, dependencies, headless, domain, destination) in targets.items():
             module = {
                 "target": target,
                 "aliases": [] if name == "viewer" else ["fsim::" + name],
+                "domain": domain,
+                "kind": kinds[domain],
                 "directories": ["src/" + name] if name not in {"flow", "viewer"} else [],
+                "destinations": [destination],
                 "files": [],
                 "allowed_dependencies": dependencies,
                 "headless": headless,
@@ -70,6 +98,8 @@ class ArchitectureFixtures(unittest.TestCase):
                 self.append(cmake, f"target_link_libraries({target} PUBLIC "
                             + " ".join("fsim::" + dependency for dependency in dependencies) + ")\n")
         self.write("include/fsim/Public.h", "#pragma once\n#include <cstdint>\n")
+        self.write("python/fsim/__init__.py", "from . import _native\nfrom .world import World\n")
+        self.write("python/fsim/world.py", "import math\n\n\nclass World:\n    pass\n")
 
     def write(self, path, text):
         destination = self.repo / path
@@ -95,6 +125,8 @@ class ArchitectureFixtures(unittest.TestCase):
         self.assertIn(code, output)
         self.assertIn(detail, output)
 
+
+class ArchitectureFixtures(FixtureRepository):
     def test_valid_graph_retains_transitive_platform_includes(self):
         self.append("src/ms/Header.h", '#include "platform/Header.h"\n')
         status, output = self.run_gate()
@@ -360,6 +392,255 @@ private:
     def test_private_import_from_public_uses_real_line_number(self):
         self.append("include/fsim/Public.h", '\n\n#include "session/Header.h"\n')
         self.rejects("public-private", "include/fsim/Public.h:5:")
+
+
+class DomainFixtures(FixtureRepository):
+    """ARCH-01: domains, kinds, future ownership and Python imports. Each violation is planted with its allowance
+    already granted, so only the architecture rule under test can reject it."""
+
+    def link(self, consumer, provider):
+        self.policy["modules"][consumer]["allowed_dependencies"].append(provider)
+        module = self.policy["modules"][provider]
+        name = (module["aliases"] or [module["target"]])[0]
+        cmake = "src/app/CMakeLists.txt" if consumer == "viewer" else f"src/{consumer}/CMakeLists.txt"
+        self.append(cmake, f"target_link_libraries({self.policy['modules'][consumer]['target']} PRIVATE {name})\n")
+
+    def input_error(self, detail):
+        status, output = self.run_gate()
+        self.assertEqual(status, 1, output)
+        self.assertIn("architecture input error", output)
+        self.assertIn(detail, output)
+
+    # the current accepted shape, and the future nested one
+    def test_the_fixture_tree_with_its_listed_legacy_exception_is_accepted(self):
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+        self.assertIn("legacy exceptions in use: ipc -> sim (domain)", output)
+
+    def test_a_source_moved_to_its_nested_destination_keeps_its_owner(self):
+        self.write("src/training/native/vecenv/VecEnv.cpp", '#include "session/Header.h"\n')
+        self.append("src/env/CMakeLists.txt", "target_sources(fsim_env PRIVATE ../training/native/vecenv/VecEnv.cpp)\n")
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+
+    def test_a_file_in_a_domain_root_outside_every_destination_has_no_owner(self):
+        self.write("src/training/native/Stray.cpp", "int stray;\n")
+        self.rejects("unknown-owner", "inside the training domain root")
+
+    def test_a_file_in_a_planned_destination_needs_its_registered_target(self):
+        self.write("src/training/native/mission/MissionGateway.cpp", "int gateway;\n")
+        self.rejects("planned-owner", "reserved for planned module mission (ARCH-05)")
+
+    # forbidden reverse edges
+    def test_simulation_cannot_depend_on_training(self):
+        self.link("session", "env")
+        self.rejects("forbidden-domain", "session (simulation) -> env (training) by link")
+
+    def test_simulation_cannot_depend_on_visualization(self):
+        self.link("ms", "render")
+        self.rejects("forbidden-domain", "ms (simulation) -> render (visualization) by link")
+
+    def test_training_cannot_depend_on_rendering(self):
+        self.link("env", "render")
+        self.rejects("forbidden-domain", "env (training) -> render (visualization) by link")
+
+    def test_training_cannot_depend_on_the_final_sdk_assembly(self):
+        # the SDK extraction cycle: training -> final SDK -> training
+        self.link("env", "sdk")
+        status, output = self.run_gate()
+        self.assertEqual(status, 1, output)
+        self.assertIn("forbidden-kind: CMake graph: env (training) -> sdk (adapters) by link: a domain implementation", output)
+        self.assertIn("dependency-cycle", output)
+        self.assertIn("env -> sdk -> env", output)
+
+    def test_visualization_core_cannot_depend_on_training(self):
+        self.link("world", "env")
+        self.rejects("forbidden-domain", "world (visualization) -> env (training) by link")
+
+    def test_visualization_core_cannot_depend_on_the_mutable_world_runtime(self):
+        self.link("world", "session")
+        self.rejects("forbidden-domain", "world (visualization) -> session (simulation) by link")
+
+    def test_a_transitive_path_does_not_launder_a_reverse_include(self):
+        # world reaches sim through ipc's listed exception; the exception is ipc's, not world's
+        self.append("src/world/Header.h", '#include "sim/Header.h"\n')
+        self.rejects("forbidden-domain", "world (visualization) -> sim (simulation) by include")
+
+    def test_foundation_cannot_depend_on_a_domain(self):
+        self.link("core", "sim")
+        self.rejects("forbidden-domain", "core (foundation) -> sim (simulation) by link")
+
+    def test_a_contract_cannot_depend_on_an_implementation(self):
+        self.policy["modules"]["contracts"] = {
+            "target": "fsim_contracts", "aliases": ["fsim::contracts"], "domain": "contracts", "kind": "contract",
+            "directories": [], "destinations": ["src/contracts"], "files": [], "headless": True, "allowed_dependencies": []}
+        self.write("src/contracts/Values.h", "#pragma once\n")
+        self.write("src/contracts/CMakeLists.txt", "add_library(fsim_contracts STATIC Values.h)\n"
+                   "add_library(fsim::contracts ALIAS fsim_contracts)\n")
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)  # (the contract alone, in its destination root)
+        self.link("contracts", "core")
+        self.rejects("forbidden-kind", "contracts (contracts) -> core (foundation) by link: a contract depends on an implementation")
+
+    def test_nothing_depends_on_an_application(self):
+        self.link("world", "viewer")
+        self.rejects("forbidden-kind", "world (visualization) -> viewer (applications) by link: nothing depends on an application")
+
+    # graphics leakage
+    def test_training_cannot_include_graphics_headers(self):
+        self.append("src/env/Header.h", "#include <vsg/all.h>\n")
+        self.rejects("headless-gpu", "vsg/all.h")
+
+    def test_a_graphics_module_outside_visualization_is_an_input_error(self):
+        self.policy["modules"]["ms"]["headless"] = False
+        self.input_error("graphics (headless false) in the simulation domain")
+
+    # duplicate ownership
+    def test_two_modules_claiming_one_directory_is_an_input_error(self):
+        self.policy["modules"]["ms"]["destinations"].append("src/simulation/flight")
+        self.input_error("duplicate-owner: src/simulation/flight is claimed by sim and ms")
+
+    def test_a_planned_module_cannot_claim_an_active_destination(self):
+        self.policy["planned_modules"]["mission"]["destinations"].append("src/training/native/vecenv")
+        self.input_error("duplicate-owner: src/training/native/vecenv")
+
+    def test_one_source_in_two_target_source_lists_is_rejected(self):
+        self.append("src/ms/CMakeLists.txt", "target_sources(fsim_ms PRIVATE ../sim/Header.h)\n")
+        status, output = self.run_gate()
+        self.assertEqual(status, 1, output)
+        self.assertIn("duplicate-source: src/sim/Header.h: listed by targets fsim_ms, fsim_sim", output)
+
+    # policy versus the actual graph, and exceptions that expire
+    def test_an_allowance_without_a_link_is_rejected(self):
+        self.policy["modules"]["env"]["allowed_dependencies"].append("ms")
+        self.rejects("unused-allowance", "env -> ms is allowed but not linked")
+
+    def test_an_exception_for_an_edge_that_is_gone_is_stale(self):
+        self.policy["exceptions"].append({"from": "render", "to": "sim", "rule": "domain", "until": "ARCH-06", "reason": "gone"})
+        self.rejects("stale-exception", "render -> sim (domain, until ARCH-06): the edge no longer exists")
+
+    def test_an_exception_for_a_legal_edge_is_stale(self):
+        self.policy["exceptions"].append({"from": "session", "to": "sim", "rule": "domain", "until": "ARCH-04", "reason": "legal"})
+        self.rejects("stale-exception", "session -> sim (domain, until ARCH-04): the edge breaks no rule")
+
+    def test_an_exception_does_not_cover_another_rule(self):
+        self.link("env", "sdk")
+        self.policy["exceptions"].append({"from": "env", "to": "sdk", "rule": "domain", "until": "ARCH-05", "reason": "wrong rule"})
+        self.rejects("forbidden-kind", "env (training) -> sdk (adapters)")
+
+    # unsupported declarations fail explicitly
+    def test_an_unknown_policy_key_is_an_input_error(self):
+        self.policy["modules"]["ms"]["owner_hint"] = "x"
+        self.input_error("module ms: keys must be")
+
+    def test_a_destination_outside_its_domain_root_is_an_input_error(self):
+        self.policy["modules"]["env"]["destinations"] = ["src/simulation/vecenv"]
+        self.input_error("destination src/simulation/vecenv is outside its domain root src/training")
+
+    def test_a_legacy_directory_inside_a_domain_root_is_an_input_error(self):
+        self.policy["modules"]["env"]["directories"].append("src/training/old")
+        self.input_error("legacy directory src/training/old lies in a domain root")
+
+    def test_an_exception_without_a_later_phase_is_an_input_error(self):
+        self.policy["exceptions"][0]["until"] = "someday"
+        self.input_error("unknown module or phase someday")
+
+    def test_a_kind_foreign_to_its_domain_is_an_input_error(self):
+        self.policy["modules"]["env"]["kind"] = "assembly"
+        self.input_error("kind assembly does not belong to domain training")
+
+    # Python imports
+    def test_a_new_deferred_facade_backedge_is_a_cycle(self):
+        self.write("python/fsim/world.py", "class World:\n    def agent(self):\n        from fsim import World as W\n        return W\n")
+        self.rejects("python-cycle", "fsim.world -> fsim (deferred)")
+
+    def test_a_private_implementation_cannot_import_the_facade_even_locally(self):
+        self.write("python/fsim/_training/__init__.py", "")
+        self.write("python/fsim/_training/batch.py", "def error():\n    import fsim\n    return fsim\n")
+        self.rejects("python-facade-backedge", "fsim._training.batch -> fsim (deferred)")
+
+    def test_a_private_implementation_cannot_import_another_domain(self):
+        self.write("python/fsim/_simulation/__init__.py", "")
+        self.write("python/fsim/_training/__init__.py", "")
+        self.write("python/fsim/_training/batch.py", "from fsim._simulation import values\n")
+        self.write("python/fsim/_simulation/values.py", "")
+        self.rejects("python-forbidden-import", "fsim._training.batch -> fsim._simulation.values (eager)")
+
+    def test_a_listed_private_dependency_is_accepted(self):
+        self.write("python/fsim/_contracts/__init__.py", "")
+        self.write("python/fsim/_contracts/errors.py", "")
+        self.write("python/fsim/_training/__init__.py", "")
+        self.write("python/fsim/_training/batch.py", "from fsim._contracts import errors\nfrom fsim import _native\n")
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+
+    def test_an_undeclared_subpackage_has_no_owner(self):
+        self.write("python/fsim/helpers/__init__.py", "")
+        self.rejects("python-unknown-owner", "subpackage fsim.helpers is not a declared private package")
+
+    def test_importing_the_package_cannot_load_an_optional_module(self):
+        self.write("python/fsim/gym.py", "import gymnasium\n")
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)  # (optional on its own)
+        self.append("python/fsim/__init__.py", "from . import gym\n")
+        self.rejects("python-optional-eager", "importing fsim eagerly imports optional fsim.gym")
+
+    def test_importing_the_package_cannot_load_an_optional_external_package(self):
+        self.write("python/fsim/world.py", "def threads():\n    import torch\n    return torch\n")
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)  # (deferred: loaded only when used)
+        self.write("python/fsim/world.py", "import torch\n")
+        self.rejects("python-optional-eager", "eagerly imports optional package torch (through fsim.world)")
+
+    def test_an_unregistered_dynamic_import_is_rejected(self):
+        self.write("python/fsim/world.py", "import importlib\n\n\ndef load(name):\n    return importlib.import_module(name)\n")
+        self.rejects("python-dynamic-import", "unregistered dynamic import in load")
+        self.policy["python"]["dynamic_imports"].append({"module": "fsim.world", "function": "load", "reason": "fixture"})
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+
+    def test_a_legacy_python_backedge_is_exact_deferred_and_expires(self):
+        self.write("python/fsim/world.py", "def agent():\n    import fsim\n    return fsim\n")
+        self.policy["python"]["exceptions"].append({"from": "fsim.world", "to": "fsim", "until": "ARCH-07", "reason": "fixture"})
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+        self.write("python/fsim/world.py", "import fsim\n")
+        self.rejects("python-exception", "legacy backedge fsim.world -> fsim is now eager")
+        self.write("python/fsim/world.py", "")
+        self.rejects("python-exception", "stale legacy backedge fsim.world -> fsim: no such import")
+
+
+class BaselineFixtures(FixtureRepository):
+    """The baseline record (baseline.py): the actual graphs and hashes, reproducible, dated by its caller."""
+
+    def baseline(self, out):
+        result = subprocess.run([sys.executable, "-B", str(CHECK.with_name("baseline.py")), "--repo", str(self.repo),
+                                 "--policy", str(self.repo / "policy.json"), "--date", "2026-10-16", "--out", str(out)],
+                                capture_output=True, text=True, check=False)
+        return result.returncode, result.stdout + result.stderr
+
+    def test_the_record_holds_the_actual_graph_and_is_reproducible(self):
+        self.write("policy.json", json.dumps(self.policy))
+        status, output = self.baseline(self.repo / "one.json")
+        self.assertEqual(status, 0, output)
+        status, output = self.baseline(self.repo / "two.json")
+        self.assertEqual(status, 0, output)
+        one = (self.repo / "one.json").read_text(encoding="utf-8")
+        self.assertEqual(one, (self.repo / "two.json").read_text(encoding="utf-8"))
+        record = json.loads(one)
+        self.assertEqual(record["native"]["links"]["world"], ["core", "flow", "ipc", "render"])
+        self.assertEqual(record["native"]["modules"]["sdk"]["kind"], "assembly")
+        self.assertIn("src/sim/Header.h", record["native"]["modules"]["sim"]["files"])
+        self.assertEqual(record["checker"]["issues"], [])
+        self.assertEqual(record["python"]["modules"]["fsim.world"]["owner"], "fsim")
+
+    def test_a_rejected_tree_is_recorded_as_rejected(self):
+        self.append("src/ms/Header.h", '#include "sim/Header.h"\n')
+        self.write("policy.json", json.dumps(self.policy))
+        status, output = self.baseline(self.repo / "rejected.json")
+        self.assertEqual(status, 1, output)
+        record = json.loads((self.repo / "rejected.json").read_text(encoding="utf-8"))
+        self.assertTrue(any("undeclared-include" in issue for issue in record["checker"]["issues"]))
 
 
 if __name__ == "__main__":

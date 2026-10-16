@@ -1,0 +1,1984 @@
+{
+ "checker": {
+  "accepted": true,
+  "issues": [],
+  "native_modules": 19,
+  "native_source_and_public_files": 367
+ },
+ "date": "2026-10-16",
+ "digests": {
+  "include/fsim": "860d2bd1bb3d2ca4af110710bac9b44b463770ad059609a4a7040adafb2ec2ea",
+  "python/fsim": "b063447d0e6aeb5ee9f0ed3f4b45c2bff8f296f2d49b672ace8ab0a90de1f6ea",
+  "src": "a057d1190518dabfce55bcb77960db792b6e81a03ad655431cd5d5f7471bc359"
+ },
+ "head": "7948dc462b64388a07c310f64ab78aa4438220b4",
+ "limits": [
+  "Static source declarations: every CMake branch is combined; this is not the configured File API graph of one preset",
+  "Link edges are target_link_libraries declarations; include edges are literal includes resolved to an owning module",
+  "Python imports are a literal AST scan; dynamic imports, native initialization and external packages' imports are not proven",
+  "Package outputs are the build's declarations, not an installed tree; installed provenance is checked by the package gates",
+  "The record is of the working tree named by head and worktree_changes, not of a clean commit unless worktree_changes is empty"
+ ],
+ "native": {
+  "exceptions_applied": [
+   "ipc -> sim (domain)",
+   "ui -> sim (domain)",
+   "world -> sim (domain)"
+  ],
+  "external_links": {
+   "app": [],
+   "comm": [],
+   "control": [],
+   "core": [],
+   "effects": [],
+   "env": [],
+   "flow": [
+    "fsim_flow_headers"
+   ],
+   "io": [],
+   "ipc": [],
+   "ms": [],
+   "platform": [
+    "winhttp",
+    "winmm",
+    "ws2_32"
+   ],
+   "render": [
+    "vsg::vsg",
+    "vsgImGui::vsgImGui",
+    "vsgXchange::vsgXchange"
+   ],
+   "sdk": [],
+   "session": [],
+   "sim": [
+    "fsim::jsbsim"
+   ],
+   "ui": [
+    "vsg::vsg",
+    "vsgImGui::vsgImGui"
+   ],
+   "viewer": [],
+   "vision": [
+    "vsg::vsg",
+    "vsgXchange::vsgXchange"
+   ],
+   "world": [
+    "vsg::vsg"
+   ]
+  },
+  "includes": {
+   "app -> core": 1,
+   "app -> io": 1,
+   "app -> platform": 1,
+   "app -> sim": 1,
+   "comm -> core": 1,
+   "comm -> platform": 1,
+   "control -> core": 27,
+   "core -> platform": 3,
+   "effects -> core": 1,
+   "effects -> sim": 1,
+   "env -> control": 1,
+   "env -> core": 5,
+   "env -> session": 4,
+   "env -> sim": 3,
+   "flow -> core": 1,
+   "io -> core": 2,
+   "io -> platform": 2,
+   "ipc -> core": 5,
+   "ipc -> platform": 6,
+   "ipc -> sim": 2,
+   "ms -> core": 6,
+   "render -> core": 2,
+   "render -> platform": 1,
+   "sdk -> control": 2,
+   "sdk -> core": 7,
+   "sdk -> env": 7,
+   "sdk -> ipc": 1,
+   "sdk -> session": 9,
+   "session -> comm": 1,
+   "session -> control": 4,
+   "session -> core": 4,
+   "session -> effects": 1,
+   "session -> io": 4,
+   "session -> ipc": 1,
+   "session -> ms": 6,
+   "session -> platform": 1,
+   "session -> sim": 3,
+   "sim -> core": 7,
+   "sim -> platform": 2,
+   "ui -> core": 2,
+   "ui -> ipc": 4,
+   "ui -> sim": 1,
+   "ui -> world": 1,
+   "viewer -> core": 2,
+   "viewer -> io": 1,
+   "viewer -> ipc": 2,
+   "viewer -> platform": 1,
+   "viewer -> render": 1,
+   "viewer -> sim": 2,
+   "viewer -> ui": 1,
+   "viewer -> world": 1,
+   "vision -> core": 3,
+   "vision -> io": 1,
+   "vision -> ipc": 1,
+   "vision -> platform": 2,
+   "vision -> world": 1,
+   "world -> core": 17,
+   "world -> flow": 2,
+   "world -> io": 1,
+   "world -> ipc": 1,
+   "world -> platform": 3,
+   "world -> render": 1,
+   "world -> sim": 10
+  },
+  "links": {
+   "app": [
+    "core",
+    "io",
+    "platform",
+    "sim"
+   ],
+   "comm": [
+    "control",
+    "core",
+    "platform"
+   ],
+   "control": [
+    "core",
+    "sim"
+   ],
+   "core": [
+    "platform"
+   ],
+   "effects": [
+    "core",
+    "sim"
+   ],
+   "env": [
+    "control",
+    "core",
+    "io",
+    "session",
+    "sim"
+   ],
+   "flow": [
+    "core"
+   ],
+   "io": [
+    "core"
+   ],
+   "ipc": [
+    "core",
+    "platform",
+    "sim"
+   ],
+   "ms": [
+    "core"
+   ],
+   "platform": [],
+   "render": [
+    "core"
+   ],
+   "sdk": [
+    "comm",
+    "control",
+    "core",
+    "effects",
+    "env",
+    "io",
+    "ipc",
+    "ms",
+    "platform",
+    "session",
+    "sim"
+   ],
+   "session": [
+    "comm",
+    "control",
+    "core",
+    "effects",
+    "io",
+    "ipc",
+    "ms",
+    "sim"
+   ],
+   "sim": [
+    "core",
+    "io"
+   ],
+   "ui": [
+    "core",
+    "ipc",
+    "render",
+    "sim",
+    "world"
+   ],
+   "viewer": [
+    "control",
+    "core",
+    "io",
+    "ipc",
+    "platform",
+    "render",
+    "sim",
+    "ui",
+    "world"
+   ],
+   "vision": [
+    "core",
+    "io",
+    "ipc",
+    "platform",
+    "sdk",
+    "world"
+   ],
+   "world": [
+    "core",
+    "flow",
+    "io",
+    "ipc",
+    "render",
+    "sim"
+   ]
+  },
+  "modules": {
+   "app": {
+    "aliases": [],
+    "destinations": [
+     "src/applications/headless"
+    ],
+    "digest": "dc250d14183908c41dbfa5619ee0bad16f8158b30e8439db0f444c93d880d2f7",
+    "directories": [
+     "src/app"
+    ],
+    "domain": "applications",
+    "explicit_files": [],
+    "files": {
+     "src/app/Options.cpp": "32ecee0cf9dfe7eed6e77e3277c0ce95630514b8e2014e104607400db8894599",
+     "src/app/Options.h": "1363e26424a4c8f2516d040861aa5ac35637445efa565d5cec6abf0cd212dc6f",
+     "src/app/main.cpp": "6532168945fec114bb26b46466c4bbcfecf556c7822eb9e0d335689bd08d83df"
+    },
+    "headless": true,
+    "kind": "application",
+    "target": "flightsim",
+    "type": "EXECUTABLE"
+   },
+   "comm": {
+    "aliases": [
+     "fsim::comm"
+    ],
+    "destinations": [
+     "src/simulation/communications/network"
+    ],
+    "digest": "e0e6612d4b87e14702ee5cff2b95490b5cfb1ac0a217771d2c6fef8e1c30924d",
+    "directories": [
+     "src/comm"
+    ],
+    "domain": "simulation",
+    "explicit_files": [],
+    "files": {
+     "src/comm/Comm.cpp": "3adfacb6c968caea13725134f4378cf09da9c97085ff7ca13cf2ef6e3f5350ef",
+     "src/comm/Comm.h": "8147f76f13b8e6488fcd5d68a8e1ea791bf38a765cba5a2a12994308c046f0da"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_comm",
+    "type": "STATIC"
+   },
+   "control": {
+    "aliases": [
+     "fsim::control"
+    ],
+    "destinations": [
+     "src/simulation/flight_control"
+    ],
+    "digest": "809e229755f823076ee336aaa40cbfb856018f86ce57709015f00fc22d9aa8b2",
+    "directories": [
+     "src/control"
+    ],
+    "domain": "simulation",
+    "explicit_files": [],
+    "files": {
+     "src/control/Adapter.cpp": "69b137735bee996ae6899ca7ce1b7a212a3582376d7a298279555f261d736e06",
+     "src/control/Adapter.h": "9eaa9cd5f2b11b584ef356b630f08c1a4d147d413b8fa2b8f9bc378c8b3097ed",
+     "src/control/Altimeter.cpp": "ec7307bd93d76bc2f373ee30b76b35634ebf03da72397473d8852413bde14d11",
+     "src/control/Arrival.cpp": "3facd3a433ff84a6df21efd6d693af10910346c7b21643557f9c80efb91a2ee7",
+     "src/control/Atmosphere.h": "41e5232c39700d311a1a1a189551fbe134a7134a0a6c50a5c41ca216c0cd187a",
+     "src/control/BehaviorUpdate.cpp": "a6937aaf3a49cbaa19eaa3f83cd9a8aec204a3c372bc72e807f53e0ed7f7dc63",
+     "src/control/Branches.cpp": "70fb0a82b392b391d288d4e50ccf0c31e548ebe2cfc0e7d3625e8d6c4f6df4c4",
+     "src/control/Builtin.cpp": "6254c4aab0243867579142f894f9775e4377a4d674ce118759416a09495b6a0a",
+     "src/control/Builtin.h": "a983055f72a9cc78ae6128c3d310f2fedf691db5389bbb10265d1ba829902f51",
+     "src/control/CapabilityHost.cpp": "93a43d0259c20ce051b7191f6dcfbfdb826ea51319c419fad6f4c42a3740bf22",
+     "src/control/CapabilityHost.h": "a42972779f47742f8ed6bfad62c051659e160279ee4ac4547d868d914dcb5859",
+     "src/control/Catalog.cpp": "3a2699ba2f1baa8c2ff3d7bd454519e94ba55ac720e0dbd23cd1740f6e8b0c53",
+     "src/control/Catalog.h": "8f998d99181a76a73fdc3b977066638de8bc9e2ba29e131c5aedfbf7d9884c22",
+     "src/control/Checks.h": "a17c9a65baedf041af2ca7f61211f7cf982abba1d964c0d70b6d44e32996977c",
+     "src/control/Climb.cpp": "8b505d799e61eb0c320c83a2d426d29c0883c9406103ff57d7b06d112d9b5a4c",
+     "src/control/ControlStack.cpp": "80a237335c273385dafb08743c2824b712afc631941a369925201239c3b298d6",
+     "src/control/ControlStack.h": "0b737cd3eecfb4c604b5f5d13cfc049ae5e35a395fc9a97ae56553fa6210fcf1",
+     "src/control/Declination.cpp": "f44e028245a5b1c4a0068c616c2e1c6fe3a918348e5cab9177431d7306f288c2",
+     "src/control/Endurance.cpp": "fed209af05d9d4497ff1d28e6a602728132051621ed4b5bb1a3e715d9ac15ddb",
+     "src/control/Features.cpp": "82153f6c759e64b855c3aea947374f42a37dd349637b7eb7c435c7a1685a0064",
+     "src/control/Features.h": "972e73fdd123542b92c4fed17a94d522972e3638bc0ab63edbbefcb84f85867b",
+     "src/control/Frames.cpp": "35c83129af7e211fc8822110879e8ca2f67178cd49ff4b5b0263b21f3e89ac28",
+     "src/control/GroundRoute.cpp": "927361895afed8a5c078710afbdbf70dfb9e1b3efa3a1cf71b9f12cb83965069",
+     "src/control/Guidance.cpp": "ba9ebb04e3e6bf126825356d1ea3e76233cb670a892c50d66c8de70aa33c2f88",
+     "src/control/Intercept.cpp": "cbc66a2930a824d48de4aa05929407b55ab252a68786a9246ab70db74437327b",
+     "src/control/LandingRoute.cpp": "1c7e9afa0ab6fe7ba3a635dcc8c5eedcfc1e064279cd4d2176e230bdd87c9524",
+     "src/control/Laps.cpp": "ead1b5cd91fbcb154558ffd38d39b6a5f12ee450d7f425434eecf83de19a82b0",
+     "src/control/Launch.cpp": "358d409032da5ca6e69a472d74f4067d201ee52295a1af8ac7dc4c3019100a85",
+     "src/control/Laws.cpp": "186dc2f15c826f0e2f3a992926f2372f2d38483d979d4cdb38c6beb6f6012573",
+     "src/control/Laws.h": "ad137ac8f9aa3630d2efcb75e300de13da25770670dd7d2977f83f11f0244062",
+     "src/control/Lines.cpp": "cd878db6c0d3785b7e5e7cec1767d2416fee5a99a0272f9d75a2cafdee365ba4",
+     "src/control/Lines.h": "fdb0116eff2512c65c829345e91a15796a1312822978dafdebf01f0dcd2ef575",
+     "src/control/Magnetic.cpp": "9e3f9505fec728f2fb4d29d8638353b3580b0dbc318bd87397a4330f3a84cdb5",
+     "src/control/Marshall.cpp": "52777197171b0469c37269f5023ac37eaa05a3f2a1fa7ad8fb9f0ff920aac2b3",
+     "src/control/Moving.cpp": "d089342835d99e049bd03aa4445ae7236ddd4184c4301a63090d59bb086d0746",
+     "src/control/MustFly.cpp": "0c30c070138755ae427cec2c5ea7d2da8e3dbf37ddf411852495d140991e7021",
+     "src/control/Names.cpp": "56c4ee9ef5ce4871d73bc4c5c825d3c326f8c0a32128fb74c838e56b0d198eaa",
+     "src/control/Nurbs.cpp": "8d3a54fc1ddf258c7790625be377edbdcd630a25dd3713da29422b04ba467154",
+     "src/control/Paths.cpp": "34558cf3486b3cba37b35fbc30ed534e95bb72ad71c4ebaf1d85d561a5b68318",
+     "src/control/Patterns.cpp": "4f845be3fbb84fce11f84bd4d86ac746e6590de0c31d64e5e589db71596dcb3e",
+     "src/control/PerformanceTables.cpp": "65199fc3db3b7df34d7d711b9bb6106f505bc28a34ffce62336139553a32490f",
+     "src/control/Pid.h": "5223ba6080db143d2e8c954507922d66ebb6c92772c760fb831ac1b756c60fb9",
+     "src/control/PlanStore.h": "a9189217e1f43aa354eaf20b174460033d08dcaea758b5bcf8dca22db6dc5b9d",
+     "src/control/Plans.cpp": "60dfcbb5280c56783df4d6681948a24cff02bfdf2177eb71ac6725a8235e0656",
+     "src/control/Profile.cpp": "aefaa7f0a5360f5089bdc988abc12092243365f73156b152ad22f144d8d79c22",
+     "src/control/Profile.h": "551f8f85c4dab13914754ee34ed517aa19a5f1e6c353a7ec590cc4c9e87bc8e6",
+     "src/control/Protection.cpp": "fd3c35109992e9cf4cabcce19abbf300dac95f64566c35907ec412b385f3ccc5",
+     "src/control/Protection.h": "5cdc2a3b7198c8f86062ddffd2591f6428bc414b1642a74a3ea12277e17617e4",
+     "src/control/Recovery.cpp": "a0044dbeeee616914768cf66ae4a54f02576d3287bb4cab01a85406db4e9b4df",
+     "src/control/Registry.cpp": "acde4b5a34ae03bf7bf71cda4705dfb9af7ad689763f73de37eb400809c8505c",
+     "src/control/Registry.h": "514c19d02b3a1c5baf0c879e1cf5c840e671cc2f0bc9b456c293666fac87fd11",
+     "src/control/Reports.cpp": "56635bb3b5e74bae6b2c8ee27441320615b27534d1ab743aa6ea6434aba4746f",
+     "src/control/Rotor.cpp": "ca3741ce4173b0dbbe38a59c751aa1822195f969c4b604ff6a3d0390327d8509",
+     "src/control/Route.cpp": "7428e12a0c8d7d3b096fea7de07a4fb8117504bdf065b8253ace09867e6bc492",
+     "src/control/Route.h": "277de7e3344bb4e3d85fc29f74e3fdfbf14cb4e2ec8d94c85c88c7e0428bcdb2",
+     "src/control/RouteOrder.h": "184d773b940f2012ec585071f7e0ec2ae15454af266f91bb96b41dc0f9188230",
+     "src/control/Runtime.h": "361a72d8e5756fd85e22f8e43ec54bc7b41662e59e1e44547c9b9ff0353ca882",
+     "src/control/Schedule.cpp": "5c7f0a5538acb2b9a48c529d1771f084761e1e6f34a89019e02ac56dc8310fde",
+     "src/control/States.cpp": "17d4592802f573364f0d99b514c5cf9757c1e1ade475bb3df69b3f13c4b415a3",
+     "src/control/Tasks.cpp": "1cbf57dd50545e44f5038f08ae10b470e36e62fc17323d8a1ccbd8f4e79c935e",
+     "src/control/Taxi.cpp": "02e00f4e60166d7c9c402d48642283a1e6b4fa760b88d09eb5ea4a844f6bf1f9",
+     "src/control/Terminators.cpp": "e5d36a7c7daa64570944202ceaa0470d2cda03deccca52de9098689e2c3731f5",
+     "src/control/Terrain.cpp": "0191a777d0664a214342f8b796e733365d11fd49fcf1ec3a1bc55bace5c265f9",
+     "src/control/Volumes.cpp": "3fc6983ac6f61f50ce0f49df9b0b7a4dd0d281bfee730b80f3ae62d844165fdc",
+     "src/control/Volumes.h": "fd556fcb5731c9d26969dd84b38e372518ed03c4cb83a84db7ad6579124b1e3c",
+     "src/control/Zones.cpp": "b0a17e021f8e1dc768c233362504be426842e475e94c9dc92415d050eacfabd8",
+     "src/control/Zones.h": "184c7358e613384f1a9a3d663c4d22ad7c6d523967d4480736266927db7d4228"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_control",
+    "type": "STATIC"
+   },
+   "core": {
+    "aliases": [
+     "fsim::core"
+    ],
+    "destinations": [
+     "src/foundation/core"
+    ],
+    "digest": "9d89f9c213b6082dcc1137328fe585ca17260a1605b1a212fb3bca5f94ff9030",
+    "directories": [
+     "src/core"
+    ],
+    "domain": "foundation",
+    "explicit_files": [],
+    "files": {
+     "src/core/Attitude.h": "d3c6c4effb9f0af2c60ef0edbeae3d7ee563a2846dc69c4bba1a7538afcbc02f",
+     "src/core/Context.h": "6954f2e28598416311d67fba70e57ab5c93aaa9b095e0f6def43eb7fe1c9359c",
+     "src/core/Geodesy.h": "77a71f7e35be101043719f07b7b5067f57681d7c410c6a35d1f587ec0293e961",
+     "src/core/HeightGrid.cpp": "d44ef01b282577af706af3dec082e837eaa968d6799969515a3495a7ba05cb50",
+     "src/core/HeightGrid.h": "35a965a187bfca461441d46ccb9a24afe4de90f3ed297381540d9277c09ada93",
+     "src/core/Json.cpp": "a0458004f3b9bd2aae964d0164e5d6ca70568fa08b3a39f89b9b2a89aeeec530",
+     "src/core/Json.h": "b6d4d03b6c20a2398f8a71a8b79eca23f971c08226f2e9c2aa72ae61e4175cf7",
+     "src/core/Log.cpp": "8a8c3f4d02e83d11cdc498969b6f4978bffdcfffb6072435d62cec643e708d39",
+     "src/core/Log.h": "c446ae0c0e669b5e3aedcc9632162eef7673f5dc6a00f12360d193f299612b63",
+     "src/core/Module.cpp": "98312baf25b9bf8d985bf24eda6c0af4e30a7a95dba4f0198d9e6f0ce2657e93",
+     "src/core/Module.h": "c6e695498c7b045ac1086b30f6ae2b0a68600b56da7dcc3197095fe06c381523",
+     "src/core/Profiler.h": "8cf0f13bad177a11031ec1f6d0917a67aea7ea19aedbac728c88d3f75436a005",
+     "src/core/Registry.h": "f176af31914c64bf6b3ef00d6e9a42f2252a380036e5110c13d095332dec0f2a",
+     "src/core/Rng.h": "398b38840d3399c8c0c15e159ba1d747a32248604dc7bd7f3c19dbb006246b80",
+     "src/core/Span.h": "7b56b042ded67a44effb2bfe896410e4ab4a7944dc08a9d2b9d23ab65cad025f",
+     "src/core/StableArray.h": "58a26eabe73248438aa9bfd3674b5d9c021ba0015b6369126c6834222aa3437a",
+     "src/core/Time.h": "0028dde875dd84068130dc6a3dcf57e3e2be54ca60136e38c98236c955aeba1b",
+     "src/core/Units.h": "d000598cab63282e324e727520ba489732338163e1d0813629737530c0b34696"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_core",
+    "type": "STATIC"
+   },
+   "effects": {
+    "aliases": [
+     "fsim::effects"
+    ],
+    "destinations": [
+     "src/simulation/environment"
+    ],
+    "digest": "b21299e87dfaa80eaa8be7d81905cba951f4c34ec0583482c8115872721c8b0d",
+    "directories": [
+     "src/effects"
+    ],
+    "domain": "simulation",
+    "explicit_files": [],
+    "files": {
+     "src/effects/Builtin.cpp": "c80689848c68b700001e346eae4051fa79fdafce54cf49f0c852b8783fbcd00c",
+     "src/effects/Builtin.h": "dcd5ea3d1063ec1243b6c95d4e1ec51d5d85f15f4a8c098d5cea12fca793449b",
+     "src/effects/Effect.cpp": "cf26ec1f6f886f3316cf39c8eb407a802f1b62902146bfe57a8a4f4605527348",
+     "src/effects/Effect.h": "f30033fb1655015b25c533b31773b01c3a419c6be6bb25ea033f7f4741437a0f"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_effects",
+    "type": "STATIC"
+   },
+   "env": {
+    "aliases": [
+     "fsim::env"
+    ],
+    "destinations": [
+     "src/training/native/vecenv",
+     "src/training/native/episodes/runtime"
+    ],
+    "digest": "2e3a7ff57aba31d2c541a4b8cf6e07d1c79460ae896d0012b980cc614e2a1e6a",
+    "directories": [
+     "src/env"
+    ],
+    "domain": "training",
+    "explicit_files": [],
+    "files": {
+     "src/env/MissionEpisode.cpp": "a3963260bcd72ba2352f72c361ea24e7a1cae969963a59993d5564a03e77d4a6",
+     "src/env/MissionEpisode.h": "4517e939646fa8eb62a98d011319dae1e352efdf59453698b69ab1308ef7c467",
+     "src/env/Observation.cpp": "421a38f1e47ae6c12b334c7ad54db3dbb7d2a29a441e4d61a2d2817a1ab1f4b0",
+     "src/env/Observation.h": "337b2a0a0bc6b440a38ed4b90a5ae2d9a2666abd6397a6a3aa0164d361da905a",
+     "src/env/Registry.cpp": "8b40c3e689618a1feb9c0763485c63459e5e564de2a75686e5c0eff0a5ad0bd5",
+     "src/env/Registry.h": "264233730a3775a7d2720b28809d262449ceeece6b046ffde9c582885bac4cf2",
+     "src/env/Scenario.h": "fcba629ebce628ed213b5cb0b2ab9d8508316429ab8dcec1daccd287a005eac2",
+     "src/env/Task.cpp": "be626cfd0b8ec7ffd72ad2eacde2256ea29823a34711801abcae4675cdbf85b3",
+     "src/env/Task.h": "0b77d8bb90b86852280b28b2c82acdba8d1c8e02599c61c85bd4df41b5c4e231",
+     "src/env/VecEnv.cpp": "c534444c2fa48a78ff2725d7de02f45147d118d7d78f30b28cc7677d6bf056bb",
+     "src/env/VecEnv.h": "fa6e9b9cb7b0ed4ff1f134c09ba0a6578e45e4c37686e1b3101584651d9dd0c7"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_env",
+    "type": "STATIC"
+   },
+   "flow": {
+    "aliases": [
+     "fsim::flow"
+    ],
+    "destinations": [
+     "src/visualization/vfx/flow"
+    ],
+    "digest": "ae33f69b3135a8d6fce87f608d40a913ad69ed5bcb7b68cf3350903dc0c54810",
+    "directories": [],
+    "domain": "visualization",
+    "explicit_files": [
+     "src/world/FlowSolver.h",
+     "src/world/FlowSolver.cpp",
+     "src/world/FlowFires.h",
+     "src/world/FlowFires.cpp"
+    ],
+    "files": {
+     "src/world/FlowFires.cpp": "bd77330b479b8ac3b1a4958aff930f5bcda4b29bbed93fb97c43b8b1fe8521b9",
+     "src/world/FlowFires.h": "ece0f104763216b6846f3f1176a67b296d8ca9816c74da0c4707fb7fc1e026eb",
+     "src/world/FlowSolver.cpp": "5919d341a9a99b2dd537be5973ac67bcd0cf5696bc19813c2f9cdf4b181d36f0",
+     "src/world/FlowSolver.h": "af615b0143f7124aa6623ab87f8e38acdf0cd5e84e9a26e6af03dcedea2b50c1"
+    },
+    "headless": false,
+    "kind": "implementation",
+    "target": "fsim_flow",
+    "type": "STATIC"
+   },
+   "io": {
+    "aliases": [
+     "fsim::io"
+    ],
+    "destinations": [
+     "src/foundation/io"
+    ],
+    "digest": "ef9146ab87e683c15710c65e05d61e05b794aa75d92fbc39c3f03f034dbe5d30",
+    "directories": [
+     "src/io"
+    ],
+    "domain": "foundation",
+    "explicit_files": [],
+    "files": {
+     "src/io/AircraftFile.cpp": "40250e9b0ca7bfdf2338879806184e58046db5458fd3d4e4ddd42f6717c56455",
+     "src/io/AircraftFile.h": "da3cca7dd1bf629f3a48149be38c1cc23bb89650d9199c39e13b3f86644f0d81",
+     "src/io/AssetResolver.cpp": "ec1ad591b93412db6535dbbf32421dea419fd2d11f720f85deccbd74f2411359",
+     "src/io/AssetResolver.h": "b022f6157fca945c7b0e736c66e2c90b548afc7587a39282aa1927b6c3f886e4",
+     "src/io/TerrainTiles.cpp": "e801cf3e31d05bdb0d6189980897edf473e7806c6870fde5e28b78014e46d17f",
+     "src/io/TerrainTiles.h": "2ee8bbfd9311c51ab47145b8b292dc544842cb7711ad4195955c3c1e0791e82e"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_io",
+    "type": "STATIC"
+   },
+   "ipc": {
+    "aliases": [
+     "fsim::ipc"
+    ],
+    "destinations": [
+     "src/foundation/transport"
+    ],
+    "digest": "fcbfd645159eb765c51cfb7108339c5dfb318f8d79c426f779179c04527f544e",
+    "directories": [
+     "src/ipc"
+    ],
+    "domain": "foundation",
+    "explicit_files": [],
+    "files": {
+     "src/ipc/Recording.cpp": "ced6cd9a2104dbd391d250f60ee3ca683716c93ee7b93198d3e367a0d44a9f6d",
+     "src/ipc/Recording.h": "6096f99aad50ce0c24adfc58e88b2568cb6962ca4c8d8d2c8515f17526693414",
+     "src/ipc/VisionSegment.cpp": "99d84a975bc1ce4d7905744dbc8b034c7dac9a225d50fbdcc75502d87707d72b",
+     "src/ipc/VisionSegment.h": "02d5db89035f7cb02918fa1bad824a617a56c23aad91c8151224568cc08cd530",
+     "src/ipc/WorldLayout.h": "d9a16601899c48341cc34b2213469d82828c8115ad0ba47ac17c688b627e3dd8",
+     "src/ipc/WorldMirror.cpp": "ae14670006d21a912f12649b831d2d9105e14861aeecb2c893287cde9964f364",
+     "src/ipc/WorldMirror.h": "1bd545fc1a0f463b8b023a13041d1bc50edaac08b03e98c37031f757189eae8b",
+     "src/ipc/WorldPublisher.cpp": "c663b27f077a4fdaa5856eb5a018d021b993462f7c8b2bd192cbd88dbba08c31",
+     "src/ipc/WorldPublisher.h": "3368024f213977d8a182ebc1e281cb438f21da4e7b1bd193747714fa79571a40",
+     "src/ipc/WorldRegistry.cpp": "fe526724d261df45a82b5a03eced55866b620a03f01250fd927dd9560a4e15a3",
+     "src/ipc/WorldRegistry.h": "180e7b5216e58d99e773e1cad852c17ca39c0be42006222e72f2e0d45a5ad740"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_ipc",
+    "type": "STATIC"
+   },
+   "ms": {
+    "aliases": [
+     "fsim::ms"
+    ],
+    "destinations": [
+     "src/simulation/mission_systems"
+    ],
+    "digest": "7dfbfeb2925b4eb0221e0da668024c56e1f79bdfd162e25ea76a2a4fe311bef8",
+    "directories": [
+     "src/ms"
+    ],
+    "domain": "simulation",
+    "explicit_files": [],
+    "files": {
+     "src/ms/Cards.cpp": "f85deee146c5b1e4f43b5e95c2162d531fc51868156ac52b6e910388cfe9d3ff",
+     "src/ms/Cards.h": "9d6f237b68a0f4b3fb23a51883ed7c4016c858a309b01e2f01934c67118b7da6",
+     "src/ms/Host.cpp": "6b36a8a59438c95d5f7afa877eb6b011e052b66dc26faf7ddf49b751f55145a3",
+     "src/ms/Host.h": "e5b875f255ab740b48de6289d426d133548a8bcecae8f72ca14d26a85f05a188",
+     "src/ms/HostStores.cpp": "2c684a4ad83a2fb8092319613c04bddd964d942ffb366af441770ef31b134cbe",
+     "src/ms/Model.cpp": "2be8aa48ee454c6571499f3711275e905dd14027f143838533df8db0e27bb6ea",
+     "src/ms/Model.h": "0a8c947e4a13ea9014f9eb3e4827d993c2705fa5d4b954c2fbc938902e36d6cd",
+     "src/ms/Names.cpp": "b0a37381d0911545fde3a8a4aa3ee9e08b5d0b03a99794dcf87aad9dace9c5c5",
+     "src/ms/countermeasure/Dispenser.cpp": "9199073a7033d3854d593beef247827785462c001b09dd530cf48a00e6ec659b",
+     "src/ms/countermeasure/Dispenser.h": "2de2116a04e328f4ca062975656b420e4607d35ff5c6629edcdaaaa68b3c591c",
+     "src/ms/damage/Damage.cpp": "6c7cc90f6a3cf5ba628b4a8d0c4b53961bb53f8c88ba167c91482dd6fea8add7",
+     "src/ms/damage/Damage.h": "1820e29d68380f4852a69b49602183e2b0503e6876c38ed10511e1313ee74649",
+     "src/ms/damage/Debris.cpp": "9716fc1625eeb23eac86df48f9a4e87ae52d942d3ec9d47e0097319d79bbeba2",
+     "src/ms/damage/Debris.h": "9ea0d02810c27e6d216db6095b249852aa87812c340bd908dab00a501ecea58f",
+     "src/ms/damage/Impact.cpp": "ea525b4ee9cda98a7d7b1f6bc7afb540c52d2b93afd3524076bee8a3107fafab",
+     "src/ms/damage/Impact.h": "f760b4597268a560a2bcc8af294b02179bf1be5e7842dada45f6952201e67cfb",
+     "src/ms/damage/State.cpp": "c1dd99250e79fa2afe66acdd83ee9665cc79919b43187520be44ad5343304604",
+     "src/ms/damage/State.h": "1528d6973f3b7cd6d545fe31fe7ef16c2077bc88d9cdc375df02b49e71aafdad",
+     "src/ms/esm/Receiver.cpp": "25251f0d38d6490c2c59ad378f89ae43d2ee2ff9f90224269aa7c60cef0671c1",
+     "src/ms/esm/Receiver.h": "9cb5690af705eccc7ce25c4210ac51cb762451fe91a41b6a3582193d5c8e9189",
+     "src/ms/radar/Detection.cpp": "e5c6d35575fc9e4dffc028407b4cf1db404c8d1720be3192c2333466aca61fe6",
+     "src/ms/radar/Detection.h": "fb32a79f633a400da791ef20a8f424b3e25feed775b02ffc30b4051aaaacc88a",
+     "src/ms/radar/Radar.cpp": "01a55a3d972c06bde6124bd2b832b4ed637471815d15f1f05948e9cd2aac9e9a",
+     "src/ms/radar/Radar.h": "25ab32f26eece7923edfe0af58200f4a5e08fbf47e9e5d2f143b3d6a5d542585",
+     "src/ms/radar/Signal.cpp": "5a05bdf53483efb6e8896060177984a5898fb02d30706bcb2efa007a50276805",
+     "src/ms/radar/Signal.h": "72481e78db5bae77ddb5c67d300aa4ef94b495fb30c1edc9b008fe4c5a4e2acb",
+     "src/ms/rcs/Table.cpp": "17937ea1717a76948dafc5aed0327f1f050024043d0001430f2afa1984e7739f",
+     "src/ms/rcs/Table.h": "950f87e8f39db7a2d329d3e8a71d560561b251a264b9f5c1f6d2ae7f50d68bb9",
+     "src/ms/rf/Antenna.cpp": "076d0670e1c0f9d2dea5f16f68ae0a2011170fcc88546c1f3a2dfb7454d61486",
+     "src/ms/rf/Antenna.h": "1555ee95fd332a8429a25c6f390d36e1b1a5b3d1e8a964d7674939da613fc079",
+     "src/ms/rf/Ntia.h": "d0a239cabd23181a5aaaf1027db59adfc51ae81e2363def02558488743339df1",
+     "src/ms/rf/NtiaItm.cpp": "bc7f7b7288cd1dfa2b59665efec62c3413d788ca0b9815761ca846b9bb007ca7",
+     "src/ms/rf/NtiaP528.cpp": "8aa93433fcdc4134d305493884c5ec778b241075183c72a683e969afe8e12953",
+     "src/ms/rf/Path.cpp": "29ed048b8c84a39633e5982ddf43522e2e4692379b3b99aa182c8cfd8e47725d",
+     "src/ms/rf/Path.h": "eaf10a087b1d6f08d6989a8f540f664a0d89767b6a3d44d529e9ad16fe5d24db",
+     "src/ms/rf/Rain.cpp": "9f8c80a36d921018b1716662b725e74b31184691239e50d7997e08ed2850ce24",
+     "src/ms/rf/Rain.h": "2f871df7c830ba50661f038a0e909ccc1a05daba43f4190000e525b6bda39852",
+     "src/ms/track/Assignment.cpp": "8ed10e25fe5cb32e3ae045f2d7541c4e3247d19b9a595bc42e6f45c362e24f14",
+     "src/ms/track/Assignment.h": "c216565e5e1a8d0e4ae1234cc1d141e57b1537e69c1003097cc5234bfef96976",
+     "src/ms/track/Filters.cpp": "c3808e1f4a5a2b62e73885d9280cd494e3aa5df955c9f95f79876dd84f3702dc",
+     "src/ms/track/Filters.h": "ee6ccbae0c4809f42186d8a4b78e4888a4ea566cc3f744bfac8d3df98c88ea6d",
+     "src/ms/track/Linalg.h": "5b64858c3de5e164dc07798ebd50f936555b1b69542301c78e80a59b8219304e",
+     "src/ms/track/Models.cpp": "c3e05d6fd5535d6e0746838357f1423900bc9194daa967cb76bba7537829a77d",
+     "src/ms/track/Models.h": "26ef0c681be96a2906f357cdebb48df62ce5f7e8650c25716ae7ffb693a679df",
+     "src/ms/track/Tracker.cpp": "6da1d4378641a335d74e6feccb57edecc34c70355bfccf2c5384c46a648a55e7",
+     "src/ms/track/Tracker.h": "53a45bdf810d8e833a0a7c498384268ec5280312a04718cd3640f39fb433e452",
+     "src/ms/weapon/Guidance.cpp": "59c0772cb745e7fd69c5c2c39ae5b393650c374fc5da0c27b5db00525248ec5f",
+     "src/ms/weapon/Guidance.h": "3009395a1dc70587a20ef9b70331a061fc381f92c7127c0caacfd8f17f2db367",
+     "src/ms/weapon/LaunchEligibility.cpp": "23f618cf068baa203bd10aaefac348d8f8e0143b0313f8f8ad3878490e0a5cfb",
+     "src/ms/weapon/LaunchEligibility.h": "a2676d5c9040c119d52b3363637f84d877c861ac0efc52800036b67911da72a7"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_ms",
+    "type": "STATIC"
+   },
+   "platform": {
+    "aliases": [
+     "fsim::platform"
+    ],
+    "destinations": [
+     "src/foundation/platform"
+    ],
+    "digest": "ec511d9e0603fbfb22a3d925d8379229f2ea10fc7f7ec8000528719486ca1171",
+    "directories": [
+     "src/platform"
+    ],
+    "domain": "foundation",
+    "explicit_files": [],
+    "files": {
+     "src/platform/Clock.h": "9a52a28d910e34a6a51529c80c9ee87ce7da57b31a27860c5560e7a3ad8c4e46",
+     "src/platform/CrashHandler.cpp": "0300b6e11e590db721a86bdfd3aa912e57760b99bfcf2653c636a5bd8b6f9601",
+     "src/platform/CrashHandler.h": "aa89bf106ffcbe41631cbf728885a301ab034bc1443221ab3345a85a9c0afa63",
+     "src/platform/Http.cpp": "8e23671da9bbe76222f17f6ee5b2a42d9f24896ee07b93c26c9e6471ad744145",
+     "src/platform/Http.h": "b087ad13f680c21c21923a0d84575585f61b924c6917b4eee8f2924114cf31db",
+     "src/platform/Memory.h": "e4fea19f18a6a499a8c9646f2da0c6ff5e8dcbc552063216ec109ee677babb48",
+     "src/platform/Paths.h": "7e4bac163471783ca48ed43cf25def9b177b4b8c021f66df40da75d698afc08e",
+     "src/platform/Platform.cpp": "3365a3cc06484c47ab4e5288debeb83bc57db368f2352c23572addeff364c846",
+     "src/platform/SharedMemory.cpp": "d93049567df8bf85e90d8e4616594694d74fc319f0b7aac79c8a47207329cc28",
+     "src/platform/SharedMemory.h": "dd6790249e9ea74a84ee8ac9a80486d138c878e39209628875b48223476a9a0e",
+     "src/platform/Threads.h": "4c7e2ffc99720a95462a0299e8e017f0fef86613d65f29cd5bca3a47fe89fb51",
+     "src/platform/Udp.cpp": "289ea87830b860a5817d577e02d62883822bf9a7047e70aab6128ce92ab610e8",
+     "src/platform/Udp.h": "6e796406ea1f6f5057560e51a65ade0e56fe8d83e8c7df44ef86b9a59e09a0c4"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_platform",
+    "type": "STATIC"
+   },
+   "render": {
+    "aliases": [
+     "fsim::render"
+    ],
+    "destinations": [
+     "src/visualization/render"
+    ],
+    "digest": "3ac006e7ea506d5a484c3d570c72e9069909f97240a9262ed0dc5b47e5e7d261",
+    "directories": [
+     "src/render"
+    ],
+    "domain": "visualization",
+    "explicit_files": [],
+    "files": {
+     "src/render/GpuTimer.cpp": "36e2eca81547f3e1fb54af838892005cc11d023a0fac0de028994d22458060dd",
+     "src/render/GpuTimer.h": "e5c12ea37e8650d0af833c0a8ba46a318e16b36067e6eec785f10fa9ee0be58e",
+     "src/render/Screenshot.cpp": "eb66796ede338d2db5dc9ff7abb1a74340cdf230170fbb9c7abcd03765fb786a",
+     "src/render/Viewer.cpp": "d7e18c08eadb3f11a9ae4f51890cc6098b94a35f9943381ef546d74ccfb551d5",
+     "src/render/Viewer.h": "2cbd9b56e9599b96765a5eecc4a82a6d20f26df013cbe717da464002f5f8d327"
+    },
+    "headless": false,
+    "kind": "implementation",
+    "target": "fsim_render",
+    "type": "STATIC"
+   },
+   "sdk": {
+    "aliases": [
+     "fsim::sdk"
+    ],
+    "destinations": [
+     "src/adapters/sdk/cpp",
+     "src/adapters/sdk/c"
+    ],
+    "digest": "af208f68ae158ce7f61dc584eb25ca20e95e7d47a9f0cb9f545b3b57bbc70bdc",
+    "directories": [
+     "src/sdk"
+    ],
+    "domain": "adapters",
+    "explicit_files": [],
+    "files": {
+     "src/sdk/Agent.cpp": "8ab154142c42fccaa6b266fb97422740e0ad320b5c1122fc2d811482bf3b8378",
+     "src/sdk/CAbiSupport.h": "b779ebdde64cf2778136646256d8f0a9f4838511787ee53f190b5b56b6b55111",
+     "src/sdk/CParameterSupport.h": "27aab83be0bf31df5907c44a7e948feb1d8da124a3932386e06acaddeb3e6f0d",
+     "src/sdk/Handles.h": "93186419bf226325ba74a25049be738569f8795f799fde1820e83d7acc4970d9",
+     "src/sdk/LastError.h": "3f5bdccc689a34965b51d55f28fed41b574ee0ccbfbd66dd69b0890c2ebe5d0d",
+     "src/sdk/MissionBatch.cpp": "fe927e76e06548b4356d95f86ad93846b47fadb52fe4a53635d7d275e5d89e5c",
+     "src/sdk/MissionConfig.cpp": "70805dde5ae48aaabbb0440e08da126b4c981a65894f2c4884a9dd8767e10069",
+     "src/sdk/MissionConfig.h": "6ae55bbe3692c7e30b59a7345db634dbe58476db35ce47682fa84ed676bb194e",
+     "src/sdk/MissionEpisode.cpp": "a2f2cd531d37bb000730ac45ce274198ee897f906678ade99c8c7a3ee9b72e54",
+     "src/sdk/MissionEpisodeImpl.h": "e373c04f5befd6f78151086a6cac83503375f9efa5efb85a5981d7014bdf7132",
+     "src/sdk/MissionGateway.cpp": "f4bf88f47e0dcffa4921f77a6ee6aaa2850ae7934280cb6b1d3516bf1520862d",
+     "src/sdk/MissionGateway.h": "7a530d2546f708dd630edc5158860a6a9a5249020245f571a79da276a003c325",
+     "src/sdk/MissionJson.cpp": "3cd0808d73a4fa804a2043312ef2527b1cabf6ca870ef142854abd87ac57266c",
+     "src/sdk/MissionJson.h": "dbf2f32fe438b59c4d55ccb2ea0a2d19e8191f396121deca924b64a5b3dd4b7c",
+     "src/sdk/Recording.cpp": "bee1cb45d8562a88ae00c052c7a4e47a7e31dbd751c0d44a7ab2f502cc7d20b3",
+     "src/sdk/Scenario.cpp": "c8c555ea99e7bf7012c1e6c150334e03bd6c6c577d2cab1cdeb8fa0f28c7bf73",
+     "src/sdk/VecEnvHandles.h": "abefadccaeae5905d17023d6ae00b0e592894080e090f07fa2cf931b20a35ca2",
+     "src/sdk/World.cpp": "c9aa29847a218f19138f7dd51e8059eae6858888741963d5c2858eeea3adfecc",
+     "src/sdk/fsim.cpp": "e9de4728c06f03ac184e4ae52f2f4da963d1a320bbaf22443f68891231ac10e0",
+     "src/sdk/fsim_control_c.cpp": "bd44c1e5c8e8d4c61625a53f9d23fea5bd0c908771bc9e2e42933f89e31df355",
+     "src/sdk/fsim_environment_c.cpp": "bbdd8b08e8ab562778f2df6fa417ab736e271c011f36246761002c68f9b32290",
+     "src/sdk/fsim_links_c.cpp": "21f291657992fee44737d8dfc3b404a8ea87640e1f3f6eb8155106b77e62079c",
+     "src/sdk/fsim_mission_c.cpp": "4d5580ee81c18d2304c83930b0cf04b143582231e250208b1beaa0bd53ba7abe",
+     "src/sdk/fsim_mission_env_c.cpp": "1f82c7b413e843048bd33cc21068c194a151f5d6c97d9c13a4f31cbd8a41c928",
+     "src/sdk/fsim_recording_c.cpp": "3171506a2bd1e12a9ebc75b3391966a4901fcc96b50295bae4169b917e479647",
+     "src/sdk/fsim_scenario_c.cpp": "7923125c98836514bf0aa42020da890c7b80803b12d3803bfcc8741144bb96a0",
+     "src/sdk/fsim_vecenv_c.cpp": "9d2462f31155fb53fb4b478b2b4bdd0e1a1355947420298b83c50d012c4c6e74",
+     "src/sdk/fsim_world_c.cpp": "ca5799467e08db0f9db291fb91c57378ae1979a149131a26ac432af7996f7af0"
+    },
+    "headless": true,
+    "kind": "assembly",
+    "target": "fsim",
+    "type": "SHARED"
+   },
+   "session": {
+    "aliases": [
+     "fsim::session"
+    ],
+    "destinations": [
+     "src/simulation/runtime"
+    ],
+    "digest": "2394852b27dca5e95bcbe1176d0eaf6765012b650c103f1cb1772ec5834356c6",
+    "directories": [
+     "src/session"
+    ],
+    "domain": "simulation",
+    "explicit_files": [],
+    "files": {
+     "src/session/AgentRules.cpp": "8b722675a7b66c05c98e9431cf241797c58f24aaafa99ea7e31912eb68323529",
+     "src/session/AgentRules.h": "15e2bc188b72d15d308900cbe547be1bb39a9a6bd2c74024295552eb058fba72",
+     "src/session/Dms.cpp": "db69934557a1612562a02c44098080cae894eb6cb1390d0e275fc487586c3e14",
+     "src/session/Dms.h": "7282b80c106f4c6a388ca303f84a82dd8f150198499b34a74e350da9e09f013f",
+     "src/session/Frames.cpp": "739ec159ae66e23da063b838943c3056f91fc698cb92ba1c9609c3c4b4cdcb19",
+     "src/session/Geometry.cpp": "360489503cf12013ba27a24353288e6fbcf701689b75544d336500c8892d7e57",
+     "src/session/Intercepts.cpp": "e06f265b8833cbe5fae9844355c3adb6d4649cf5500286134945c6342fedb3e0",
+     "src/session/MaConsentLedger.h": "2e92ba96187703a0313d7a2bd59fd7d8e8682635176b6c6deaaf4a4f2a05ae13",
+     "src/session/MaCore.cpp": "433d0d396ab273cb41d378f819941ca7220314aa0e4ca6d9d62e3dbec190f75e",
+     "src/session/MaCore.h": "8a8d515ae9e7c2d11b8d19fa7bae91ca9ca6fb95d4af721d8e12da8438b9c56e",
+     "src/session/MaReports.cpp": "5d699678903bd65918136b1a05f1c3c3f141afcd5ab673bb8cec5be387930052",
+     "src/session/MaReports.h": "5b88df6b88104dc86602293aba01ec3df6e829b7004a628b4e525c68cc1e287e",
+     "src/session/MaServiceBindings.cpp": "f363c94c65751e8015ba4fa72b0dd65f4417e8b207e224464a1c26e77798d6bd",
+     "src/session/MaServiceBindings.h": "048f1809a01215693b3b88500cf97fed4b38b329757854f27cd91dd58fea1132",
+     "src/session/Marshalls.cpp": "dd888984f6aae31c16b4b1cc82c1411f9e90bd140efb13ec6601f9e6cac94c39",
+     "src/session/Navigation.cpp": "9445c622c42adaac23ff3322e99a6948b217b0f56d4c959d7d261086f7e82be3",
+     "src/session/PerformanceProfile.cpp": "2e002427cc1825acf3bb6cb121d4fd18eae25a22206e107d0987531ad6e0dab1",
+     "src/session/Scenario.cpp": "3dec3fc4daca7fec5a9050b799e65332dd0914b16979f0ea03f3391363ab2ac5",
+     "src/session/Scenario.h": "52b70028526403e9ecf78fe11b19e9436692358f3536f34b0da1d90b4fe4361b",
+     "src/session/StateData.cpp": "d94bc06e8617006230c0cf85db4d56296758c758fb34cba3bcdfe6c65078a9ac",
+     "src/session/StoreFlightBinding.cpp": "a953a394c6a54e3ead84600d97e8c3b1607960c2553fc6e905ec43f88040ad1a",
+     "src/session/StoreFlightBinding.h": "902cadb5a15649bff3c4b1682bb4e4e6070f2d111d20ea4f49a3dc6c1303eb3e",
+     "src/session/World.cpp": "e79101ab72fa93bbcdbd58ddee38fb146d946d2e8a772dd28d5c6ac767ac6ee3",
+     "src/session/World.h": "16755aa19983623b6535c24433b8dd490d0fc75ee6de8de05905c407ad9b2c06",
+     "src/session/WorldDamage.cpp": "68bfa8d62156e26832ce4d428773132eba4162b502cac585921eff378839b080",
+     "src/session/WorldEngagements.cpp": "3afce10e824d269003de56f24b4741657b514acb2d0258afb63bcd16091e2e50",
+     "src/session/WorldOptions.cpp": "8487beff072827b23f93fc4af8feabd4390e0a2c641d9ff4969d233231bb691f",
+     "src/session/WorldOptions.h": "86101d1cc682ac1ba283b33371c616c79350404e532721a54a1341106f1679a5"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_session",
+    "type": "STATIC"
+   },
+   "sim": {
+    "aliases": [
+     "fsim::sim"
+    ],
+    "destinations": [
+     "src/simulation/flight"
+    ],
+    "digest": "e12250ed24fe98f6840bba580e26ef8e3ba232eedc1f75c3693e660fc2dd2ba7",
+    "directories": [
+     "src/sim"
+    ],
+    "domain": "simulation",
+    "explicit_files": [],
+    "files": {
+     "src/sim/Attitude.h": "9caf2a1dc36b321e68cb6895ee8a86b6b579daaddb7eacde30c857a6267c48d9",
+     "src/sim/ControlInputs.h": "a8f7ff886360a2ac52a65ff550bee36367c9502a3098a2f55f900cb5b8907ed4",
+     "src/sim/EnvironmentState.h": "fb7653493d2f8d731d8a053769b781c659e07e32ce7c13d83496455e1152cd66",
+     "src/sim/FlightModel.cpp": "76d4a0a9736e8846a1b114189dfe84a0ae57420ffd008c28089bbe838e6aa528",
+     "src/sim/FlightModel.h": "41b1ee4dab62b0bbcaa34813d2bf05ab8007a18ec5c93eeb4e5bb27a2526bea3",
+     "src/sim/GroundProvider.h": "3f2d80d8f6d350daa2b7d933110921d481aa1093f53cdf2704bc3389ba46b559",
+     "src/sim/JsbsimLog.cpp": "d439093c2a302ec13982fcf084e2218d635d431c74ffd5578c1675862ed28814",
+     "src/sim/JsbsimLog.h": "5bb1235e23e5c837e8bc335dfc8df827ed37bfecf8a9863a5ad5ce9f036aa066",
+     "src/sim/JsbsimModel.cpp": "23a66d8b09ba90b62fbb0e6f692832b3bcc2360be127425796613cfc6bdf531b",
+     "src/sim/JsbsimModel.h": "188f5bc9ea1f43bd34af6c40b9dc43bfdfddcd571565dbc06a32afae671efb61",
+     "src/sim/SimRunner.cpp": "128e22f42c3af5bdd7ab7480e793ba1f238d245dc3931db445c70585c9e1f22d",
+     "src/sim/SimRunner.h": "b806aa0d77cec1cba2ccf84cc661fd2186c763964b56ab148c7f1d9ecc2d0852",
+     "src/sim/SnapshotBuffer.h": "2253e305cdd2a1136ead522d1580ff363d145f5444de836915b4afa3c250653d",
+     "src/sim/VehiclePool.cpp": "b6d6305084545b82ca95011c40ae30f0e3bea176f70f14c001b3ee2523057470",
+     "src/sim/VehiclePool.h": "bd0fc6d0f378801cc71ac4cbc7776bb53bcca9c32e628fcf5af73b336143d5c7",
+     "src/sim/VehicleState.h": "7b37941737a2f6edd828fac7358beb6e86db5571623fffed9ec8930e6ed12fdd"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_sim",
+    "type": "STATIC"
+   },
+   "ui": {
+    "aliases": [
+     "fsim::ui"
+    ],
+    "destinations": [
+     "src/visualization/ui"
+    ],
+    "digest": "f28a5c9d5817b1d1f19d06993af6264408f7f56e2de296bafb3d3f0cddd31f23",
+    "directories": [
+     "src/ui"
+    ],
+    "domain": "visualization",
+    "explicit_files": [],
+    "files": {
+     "src/ui/CameraPreview.cpp": "035d49c6db89b1a48ef327f3d5fe3600bf23ffce49dc75df637dd7f3f9845d5e",
+     "src/ui/CameraPreview.h": "eedef35f4beeea0596b44b0b560c4bc24410d4ee0b007813122efb93703b2aaa",
+     "src/ui/Colour.h": "ce701bb33a8f6b06cb9be5dbdadd3a8c2414f1cc48b8711ea8aff6c194f5b712",
+     "src/ui/KeyHandler.cpp": "a97a5c4c13686382dfc213766be3f0dbf35786c1f092b8c36611d658913737fd",
+     "src/ui/KeyHandler.h": "12d45c78fe499d1afed3ee516a92b881f2020450756e693815d27109e2208f64",
+     "src/ui/MissionGui.cpp": "25aa1734fec7ad991ef8aecd9301e1d3a22e4723090f25527925f3e63e0eb291",
+     "src/ui/MissionGui.h": "33038e8fe6c97af7c4d6e511786845b6c74aaebd09c7bdb4055d78945d75e44b",
+     "src/ui/MonitorGui.cpp": "02bef4d495148688f529de324d7057ac057aced06526e17dca6a7f3ff3b53a9b",
+     "src/ui/MonitorGui.h": "7d326af9fdd7602a68aaeef133cb1c64082c91ef913bee3d43fd656ac7bca415",
+     "src/ui/ViewerControls.h": "739106fa0343a407c36b7d6825740222a9f4003ea8d3e89534042157c0b976a7"
+    },
+    "headless": false,
+    "kind": "implementation",
+    "target": "fsim_ui",
+    "type": "STATIC"
+   },
+   "viewer": {
+    "aliases": [],
+    "destinations": [
+     "src/applications/viewer"
+    ],
+    "digest": "aec40eed8b06dfb245929e26012ca8154d3e54cb85a33b4e33b8d035994ec66f",
+    "directories": [],
+    "domain": "applications",
+    "explicit_files": [
+     "src/app/viewer_main.cpp",
+     "src/app/DemoAutopilot.h",
+     "src/app/StrikeCapture.h"
+    ],
+    "files": {
+     "src/app/DemoAutopilot.h": "30dfa1bd3505b4ad5f6c3f8e157bbd4c76ac91ac2450d78ce2cb59a72d84f3ee",
+     "src/app/StrikeCapture.h": "689fbcb60becb3661b7138ffd0d80aa9c11111e62ec842ac7f563851ec76ed10",
+     "src/app/viewer_main.cpp": "988b2a0fae812f4187bbee0a303f80fbb1150dd00d928ebd70ccbb3088b353cf"
+    },
+    "headless": false,
+    "kind": "application",
+    "target": "flightsim-viewer",
+    "type": "EXECUTABLE"
+   },
+   "vision": {
+    "aliases": [
+     "fsim::vision"
+    ],
+    "destinations": [
+     "src/adapters/vision"
+    ],
+    "digest": "6daff9eae1ed1acce080a99859d6114f6d0455e7508116c80bc00cdd58641216",
+    "directories": [
+     "src/vision"
+    ],
+    "domain": "adapters",
+    "explicit_files": [],
+    "files": {
+     "src/vision/Offscreen.cpp": "76cb015d6b9558dcec28cc4cbef7b24a1c9202b89ed2561d716fa13e194fc523",
+     "src/vision/Offscreen.h": "37e61461c3f46fad7dd27a10d7003d1ba51b1e0c14dd50b3fd1c62897e61ec8b",
+     "src/vision/Vision.cpp": "571c0cda748b9d0fb0adbef664f542e80b7d8efddf5d69cdcea388db284f59e9",
+     "src/vision/fsim_vision_c.cpp": "16fd02587bc19521937d962bde56c5457e60e352998fe7004514ad6888fd6b47"
+    },
+    "headless": false,
+    "kind": "assembly",
+    "target": "fsim_vision",
+    "type": "SHARED"
+   },
+   "world": {
+    "aliases": [
+     "fsim::world"
+    ],
+    "destinations": [
+     "src/visualization/scene",
+     "src/visualization/vfx/effects"
+    ],
+    "digest": "38900f9f9e85a06a694b17e78576d2de446d8ea7c76b8bd7e397832b3948ff41",
+    "directories": [
+     "src/world"
+    ],
+    "domain": "visualization",
+    "explicit_files": [],
+    "files": {
+     "src/world/Airflow.cpp": "80524e296cba340cdb5f6f166b62d5f45b960461f1bb6fee7d26769a55d4852f",
+     "src/world/Airflow.h": "413731ab9d7bda47f97e51afae4d3eb102746212219fede74c3eb4650220fd92",
+     "src/world/Atmosphere.cpp": "9b84011426538c98ba3529ddf9bfb3693d6efaf643e65c562f1f679688cdf94e",
+     "src/world/Atmosphere.h": "584c2336b988681a5d5c4805e94b8964408715c583ecb26f3df32d2428729d98",
+     "src/world/Blackbody.h": "3d90e335c3bf0249012af788df3855e85a8d5576b1caeb9c2f8120e0d4af5a52",
+     "src/world/CameraController.cpp": "e76c831fc20282e2a7ae0112cce023281994043ee708806a208ecefd1b40254f",
+     "src/world/CameraController.h": "457548c9c9468d536c4493b2e3d0b8753f3ec4a79b87b3851646922c26161568",
+     "src/world/Clouds.cpp": "e3bd139b1df1a6013c732eac0b50cc8af4e725825c5de06167042ced5b30fad9",
+     "src/world/Clouds.h": "9d13bd8f1f9233085c44f7e63f3a7e4dba1630f6b4f17617bf3f15a69e712980",
+     "src/world/Cocip.cpp": "8c26d9056540a4033cbd63cbc07b37fb479a98eb80a6c4361d3def8bee82ffb5",
+     "src/world/Cocip.h": "1aeef7e2bf75c8dce7a8b583e951f15a50237bcb1c984c3cad046fe1cab0f0f5",
+     "src/world/Earth.cpp": "810b6506072bec1993f99c2731b66e9cb7639948e9c8a06c89bb4a13e23c19f3",
+     "src/world/Earth.h": "6b4963534cada08e2b157038d07f1c9f89ec810f5ac81fc82de71ff9c088394a",
+     "src/world/ElevatedTile.cpp": "94a2bda3222fe24618c948389a844deb96056710051785669a730f0b4905ca71",
+     "src/world/ElevatedTile.h": "b3f57f12c02cda7171f9659d0b1c0aa9a536064d2c91d266ac1f0cd39c500bb3",
+     "src/world/ElevationUpsampler.cpp": "bdeae34bfa8d2ec148d06083a829da4d8ca32660f9fe9798a1817e01b5a63167",
+     "src/world/ElevationUpsampler.h": "4ebb89fb6a29e3996a65b251a20b141595ab2f1efcd48a5985be21d4d8149637",
+     "src/world/Exhaust.cpp": "939290ba5ec291ed5f5883d00cb399cbd3e9acb974d35ed6938622b5ac36ad67",
+     "src/world/Exhaust.h": "fbd682bf435a20f14cdce541cc17e61aec3c9b00aa08e6b320a4833a0e4d23fa",
+     "src/world/FlatGeometry.cpp": "8bb675dce6ae9cf8767ac652bd442adba2d6bb36aab28b54374e4a367aeb7d18",
+     "src/world/FlatGeometry.h": "5b1de94408a54df33e03a216a36b0a2053ddd5735786667e9e13a4f79b609b14",
+     "src/world/FlowVolumes.cpp": "459efea4acaf818f528f724c99e304c6a0028cb8846dccec12ee4142bd6b5bf1",
+     "src/world/FlowVolumes.h": "be0eafd59351fc9773a7d29c37a81a2e8d294628175b360216d40e40d15ec92e",
+     "src/world/Frames.h": "3de0f1da0704ce4758db8e684c3092c6a6d75379cbcfe2a021e74393428fd89e",
+     "src/world/Interpolator.cpp": "fec3243cc07f1bcd5823d84e9fea65b075ed5ea1d5a3977fafbc39c61b02f79d",
+     "src/world/Interpolator.h": "e51f9b3e761de77e73d9f5bdeef68f4bff85b9235db3c64b36824c76765f4e56",
+     "src/world/OfflineTiles.cpp": "9df7777c2045a799c49436f7ef185ea085300f3a56c87e83422dd6d527d509ab",
+     "src/world/OfflineTiles.h": "9ee9ee2d1b18c32e4047dda373aeda80b1015611755953c39ae21c3d7ec9422f",
+     "src/world/Propellants.h": "719bd1ba60653c8c549c6bf2e13aff5cde7a73312906f06cca3a9a8fe157d53f",
+     "src/world/Scattering.cpp": "30ae1396c2c224bda21bce88af315717789f435f3c4311a62384c143d56cc265",
+     "src/world/Scattering.h": "140c973050b875703b00803c13a01471b0e39c87786800ed39f1701f75f1ebb5",
+     "src/world/ShadingRate.h": "db0a4a54f1753c53aaf5b158eddb64f6375e096e351b73c69d8ca7e9f0e59e7d",
+     "src/world/Sky.cpp": "fd887f7d0afbf5493d617d62590950cbd866d7fec3a1b041f1b8db63e71de04e",
+     "src/world/Sky.h": "681e29da783e4c5f8230d8f33848c69517146d5491e08f31a3139e47a5e3442b",
+     "src/world/SkyDome.cpp": "33a8ee1aaf8f6df2d92319558d486def899fbcfbb8ba620365c299dd09c833f6",
+     "src/world/SkyDome.h": "28b8338ec388b48c6ddb927ff75981a952f9e6e32edabdaa3d874900639afe3a",
+     "src/world/Terrain.cpp": "0cb2c77db713a266cfab61ed2d91c0ad6b4eaab015792b9afc4f82eea8c4836d",
+     "src/world/Terrain.h": "20d0198473264b9937cbcc6ddb86c6f77752e6e1e6ed203b8b13c74c5e9d8dbe",
+     "src/world/Trails.cpp": "0e7cd18527a5fc48477d4913d73ffaeda66a75e9cbb802f9aee89b697c1d545a",
+     "src/world/Trails.h": "87d995a467edd27a23f32b895123f6eb932e2ec8851d6d02f0a00c68de320059",
+     "src/world/VehicleVisuals.cpp": "0e923b339c9499dfc17a7bd1e2ea4626358d4abc91a1ef70cd9cf0504626f48c",
+     "src/world/VehicleVisuals.h": "7889b78a01fb9f6268e2a5f0837fd70f14f4796523367274fce8e8fffbc2d4f8",
+     "src/world/WingVapour.cpp": "fec719ba8c196fdff212bb5f920c457342d1c7a73dc7f4e8f84d9b2a732b2eb1",
+     "src/world/WingVapour.h": "44f34ebc90ae6528b26cba330f362a7d9e440ed5be07d9265e8b4992964d4c53"
+    },
+    "headless": false,
+    "kind": "implementation",
+    "target": "fsim_world",
+    "type": "STATIC"
+   }
+  },
+  "planned_modules": {
+   "contracts": {
+    "destinations": [
+     "src/contracts"
+    ],
+    "domain": "contracts",
+    "kind": "contract",
+    "phase": "ARCH-02"
+   },
+   "demo": {
+    "destinations": [
+     "src/applications/demo"
+    ],
+    "domain": "applications",
+    "kind": "application",
+    "phase": "ARCH-06"
+   },
+   "mission": {
+    "destinations": [
+     "src/training/native/mission",
+     "src/training/native/batch",
+     "src/training/native/episodes/api"
+    ],
+    "domain": "training",
+    "kind": "implementation",
+    "phase": "ARCH-05"
+   },
+   "modeled_dms": {
+    "destinations": [
+     "src/simulation/communications/dms"
+    ],
+    "domain": "simulation",
+    "kind": "implementation",
+    "phase": "ARCH-04"
+   },
+   "oms": {
+    "destinations": [
+     "src/adapters/oms"
+    ],
+    "domain": "adapters",
+    "kind": "assembly",
+    "phase": "MS-12"
+   },
+   "python_native": {
+    "destinations": [
+     "src/adapters/sdk/python"
+    ],
+    "domain": "adapters",
+    "kind": "assembly",
+    "phase": "ARCH-07"
+   },
+   "simulation_api": {
+    "destinations": [
+     "src/simulation/api"
+    ],
+    "domain": "simulation",
+    "kind": "implementation",
+    "phase": "ARCH-04"
+   },
+   "testbench": {
+    "destinations": [
+     "src/applications/testbench"
+    ],
+    "domain": "applications",
+    "kind": "application",
+    "phase": "ARCH-08"
+   },
+   "training_vision": {
+    "destinations": [
+     "src/applications/training_visualization"
+    ],
+    "domain": "applications",
+    "kind": "application",
+    "phase": "ARCH-06"
+   },
+   "vision_core": {
+    "destinations": [
+     "src/visualization/vision"
+    ],
+    "domain": "visualization",
+    "kind": "implementation",
+    "phase": "ARCH-06"
+   },
+   "vision_native": {
+    "destinations": [
+     "src/adapters/vision/python"
+    ],
+    "domain": "adapters",
+    "kind": "assembly",
+    "phase": "ARCH-07"
+   }
+  },
+  "public_headers": {
+   "include/fsim/Agent.h": {
+    "included_by": [
+     "sdk",
+     "session"
+    ],
+    "sha256": "b8436708a5ee5bbcec85404f89ddf931b184704b5a6da0155147db98f7a9f2fa"
+   },
+   "include/fsim/Altimeter.h": {
+    "included_by": [
+     "control",
+     "session"
+    ],
+    "sha256": "fa759dc52353d926df16ee18451878c848fd99d07e98bb11c085eebec0b2d855"
+   },
+   "include/fsim/BuiltinControllers.h": {
+    "included_by": [
+     "control"
+    ],
+    "sha256": "ae55ebe5f19480d01fd7e03b9878b07f4b2131d97796378ea1c03a3a1dc924aa"
+   },
+   "include/fsim/BuiltinEffects.h": {
+    "included_by": [
+     "effects",
+     "sdk",
+     "session"
+    ],
+    "sha256": "b09416b816e66c6fa695de06bc8fe67e437dd0c0d785cfd768dcd08158086a20"
+   },
+   "include/fsim/Capability.h": {
+    "included_by": [
+     "control",
+     "sdk",
+     "session",
+     "ui"
+    ],
+    "sha256": "e5871adfb02ce54bfe71dbc568a9d38c806ec93943c61e79035185be16ce0f2d"
+   },
+   "include/fsim/Comm.h": {
+    "included_by": [
+     "comm",
+     "env",
+     "sdk",
+     "session"
+    ],
+    "sha256": "0c2f59e54ec86bae17535ba54cd0acfb72e04ddb754be88ca7a5bd291eb4e945"
+   },
+   "include/fsim/Control.h": {
+    "included_by": [
+     "control",
+     "env",
+     "session",
+     "viewer"
+    ],
+    "sha256": "1005db4f09c3e64bea31d627d43571d06cddba4fd960c2c1d06950de424f54fb"
+   },
+   "include/fsim/ControlInputs.h": {
+    "included_by": [
+     "control",
+     "sim"
+    ],
+    "sha256": "94b8f0ac2cb23a69f62be0f089221111f677ef796a9354db4442299c44cbf6cf"
+   },
+   "include/fsim/ControlStack.h": {
+    "included_by": [
+     "control"
+    ],
+    "sha256": "bc1e41d8f59fb09091aeabe4ad54d29d2f8cf2fcbec1d6cf1a71f4cf8134326b"
+   },
+   "include/fsim/ControllerRegistry.h": {
+    "included_by": [
+     "control",
+     "session"
+    ],
+    "sha256": "3c189150b7e929ec391932d070fac0876ac8417b9b1547b1cf9a7da39f9c6080"
+   },
+   "include/fsim/Effects.h": {
+    "included_by": [
+     "effects",
+     "session"
+    ],
+    "sha256": "4650e202d52bb0476e12f998f53d91e3be215ff62d9bfc963d6295536f3afa91"
+   },
+   "include/fsim/EnvironmentState.h": {
+    "included_by": [
+     "ms",
+     "sdk",
+     "session",
+     "sim"
+    ],
+    "sha256": "d5652fe65493c61378e170cc5ec8778ec7b46365bcd6550ce64d403901fbe26b"
+   },
+   "include/fsim/Export.h": {
+    "included_by": [],
+    "sha256": "21188a7497861f54bb418b9f646d74438c315e478fa2e309ccde3b7d1f0839c8"
+   },
+   "include/fsim/Frames.h": {
+    "included_by": [
+     "control",
+     "session"
+    ],
+    "sha256": "45c0c34ba32bec7338d709ff5f5dc2e2fc1d8abafe9930b9ea0383c054030655"
+   },
+   "include/fsim/GroundProvider.h": {
+    "included_by": [
+     "io",
+     "ms",
+     "session",
+     "sim"
+    ],
+    "sha256": "98b048b679271e3c3ac85a0e57a5823bbc5eefb7cc4d8c0be38547f174679915"
+   },
+   "include/fsim/GuidanceModes.h": {
+    "included_by": [
+     "control"
+    ],
+    "sha256": "2a96026d253cc153cc9110948191a9d0355f45eb7ff91a5fb7032c121e9eee23"
+   },
+   "include/fsim/InitialConditions.h": {
+    "included_by": [
+     "session",
+     "sim"
+    ],
+    "sha256": "ad7048a1c82b6479a0ece3e2b9476d67065f083b2158e97dcd4945c45b34b0ad"
+   },
+   "include/fsim/MAReports.h": {
+    "included_by": [
+     "session"
+    ],
+    "sha256": "ecbabde3aacf7f7025b209a95a8056971e1a40d3fa636b1579571429da91cf3e"
+   },
+   "include/fsim/MAService.h": {
+    "included_by": [
+     "sdk"
+    ],
+    "sha256": "5efa9037850b56cefb8448afcbbc3b6c3e2162130361860d0e054ea6769480cd"
+   },
+   "include/fsim/Magnetic.h": {
+    "included_by": [
+     "control",
+     "sdk",
+     "session"
+    ],
+    "sha256": "fe9b92b1adc541943c7ed6909bfdc153df9cd72eb5e56cb7654f1244bde98dc6"
+   },
+   "include/fsim/MissionBatch.h": {
+    "included_by": [
+     "sdk"
+    ],
+    "sha256": "67810323e76c6f797c7203147d9aec16faf00668a64a1c1d4114364542665c07"
+   },
+   "include/fsim/MissionEpisode.h": {
+    "included_by": [
+     "sdk"
+    ],
+    "sha256": "269db30d06bbe445f36dc915d266a74464cc2243a229c8fee33425694aa511ff"
+   },
+   "include/fsim/MissionSystems.h": {
+    "included_by": [
+     "ms",
+     "session",
+     "ui",
+     "viewer"
+    ],
+    "sha256": "524ed2eefd055eac030ad099a1629fd720b225890865002710696e0dc87ec364"
+   },
+   "include/fsim/PerformanceProfile.h": {
+    "included_by": [
+     "sdk",
+     "session"
+    ],
+    "sha256": "b1e3689c069e9c970f79bf21d9ce6ced50833b3825177feec307de9534b6f1e6"
+   },
+   "include/fsim/Pid.h": {
+    "included_by": [
+     "control"
+    ],
+    "sha256": "4282af4f15dab8e7da5e16b7010d22035663f14d99b6cb32e5f00afd6fbaf5c7"
+   },
+   "include/fsim/Property.h": {
+    "included_by": [
+     "session",
+     "sim"
+    ],
+    "sha256": "5aced16ff9446a15a6869da81920d32c1987868d465fde7a01057d753fff5c94"
+   },
+   "include/fsim/Recording.h": {
+    "included_by": [
+     "sdk"
+    ],
+    "sha256": "f13d215e4bdce8dcceca1851747d7380040d870071c6d4f79db2ce97ea1f177a"
+   },
+   "include/fsim/Rng.h": {
+    "included_by": [
+     "core",
+     "env",
+     "ms",
+     "session"
+    ],
+    "sha256": "bd2ba4a188a511d0fe4c0ccddec0956b8c164ab8bd5796c0672e9f26bdcce2c7"
+   },
+   "include/fsim/RotorControllers.h": {
+    "included_by": [
+     "control"
+    ],
+    "sha256": "12c8f381dd18543d45e1eddc16fcad2f9bb241509622c84367c523885b858478"
+   },
+   "include/fsim/Scenario.h": {
+    "included_by": [
+     "env",
+     "sdk",
+     "session"
+    ],
+    "sha256": "892751a48f90aa0ff8ae62bbaef92a87701a4dfc1b42bec0b53916223a30ba36"
+   },
+   "include/fsim/Span.h": {
+    "included_by": [
+     "control",
+     "core"
+    ],
+    "sha256": "aa8a2c87cf6ca3ede64fe732a9f516119db89f82ebab7bd3e9acfd2a68d67042"
+   },
+   "include/fsim/VecEnv.h": {
+    "included_by": [
+     "sdk"
+    ],
+    "sha256": "01c1f4aa647273402b006b34189fc879c957c2b0f3cfb55e5157ccc772bfd302"
+   },
+   "include/fsim/VecEnvPlugins.h": {
+    "included_by": [
+     "env"
+    ],
+    "sha256": "5cf56d4bf20e821a76180656ca5beede14396053eb3170e3a386caf367efb929"
+   },
+   "include/fsim/VehicleProfile.h": {
+    "included_by": [
+     "control",
+     "session"
+    ],
+    "sha256": "696efed3affeb15416d1bda6f13a9e4cefc7817fe71e731a8a386701afd36058"
+   },
+   "include/fsim/VehicleState.h": {
+    "included_by": [
+     "control",
+     "env",
+     "ms",
+     "sim"
+    ],
+    "sha256": "d0cbd9afd29c058877d73cb57c497c79660b059f4e4c8fe546be1102e8a58237"
+   },
+   "include/fsim/Vision.h": {
+    "included_by": [
+     "vision"
+    ],
+    "sha256": "111a96fafc039187c30749fa493aa24202839c0ba0c806e83ae7fcc7ef78c0d7"
+   },
+   "include/fsim/World.h": {
+    "included_by": [
+     "sdk",
+     "session"
+    ],
+    "sha256": "4b8283341d9d4e3b298c26a22a9f8f4b125ff3bb0506716a59368a3586dc92d8"
+   },
+   "include/fsim/fsim_c.h": {
+    "included_by": [
+     "sdk"
+    ],
+    "sha256": "26d849a979a13e44153101649570838169e8e847affd7e8c09320cd98bb50fb3"
+   },
+   "include/fsim/fsim_mission_env.h": {
+    "included_by": [
+     "sdk"
+    ],
+    "sha256": "366ede24ac0027ec8d1e12977b8bc55f1f7ec63dfdd3da14399a7f0f90a2ab71"
+   },
+   "include/fsim/fsim_vision_c.h": {
+    "included_by": [
+     "vision"
+    ],
+    "sha256": "cda3c037e974fb342c08b0bfe307c978d27018f7d25fe74f50dbc975b176c126"
+   }
+  },
+  "unowned": []
+ },
+ "package_outputs": {
+  "install_rules": {
+   "cmake/Install.cmake": [
+    "CODE \n        include(\\\"${_fsim_runtime_deps_module}\\\")\n        fsim_copy_runtime_deps(\n            EXES ${_names}\n            SEARCH ${_fsim_dep_dirs}\n            OBJDUMP \\\"${_fsim_objdump}\\\"\n            DEST \\\"\\${CMAKE_INSTALL_PREFIX}/bin\\\"\n            LABEL \\\"package ${component}\\\") COMPONENT ${component}",
+    "TARGETS ${_fsim_export_targets} EXPORT fsimTargets RUNTIME DESTINATION bin COMPONENT sdk LIBRARY DESTINATION lib COMPONENT sdk ARCHIVE DESTINATION lib COMPONENT sdk",
+    "DIRECTORY ${CMAKE_SOURCE_DIR}/include/fsim DESTINATION include COMPONENT sdk",
+    "DIRECTORY ${CMAKE_SOURCE_DIR}/docs/sdk DESTINATION share/doc/flightsim COMPONENT sdk",
+    "CODE execute_process(COMMAND \\\"${CMAKE_COMMAND}\\\" \\\"-DSRC=${CMAKE_SOURCE_DIR}/aircraft\\\"\n                                  \\\"-DDEST=\\${CMAKE_INSTALL_PREFIX}/share/flightsim/aircraft\\\"\n                                  -P \\\"${CMAKE_SOURCE_DIR}/cmake/StageDesigns.cmake\\\"\n                                  RESULT_VARIABLE _fsim_stage_result)\n                  if(NOT _fsim_stage_result EQUAL 0)\n                      message(FATAL_ERROR \\\"Aircraft runtime data staging failed\\\")\n                  endif() COMPONENT ${component}",
+    "DIRECTORY ${CMAKE_SOURCE_DIR}/assets/payloads DESTINATION share/flightsim COMPONENT ${component}",
+    "DIRECTORY ${CMAKE_SOURCE_DIR}/assets/stores DESTINATION share/flightsim COMPONENT ${component}",
+    "DIRECTORY ${FSIM_JSBSIM_DATA_DIR}/aircraft ${FSIM_JSBSIM_DATA_DIR}/engine ${FSIM_JSBSIM_DATA_DIR}/systems DESTINATION share/flightsim/jsbsim COMPONENT ${component}",
+    "DIRECTORY ${CMAKE_BINARY_DIR}/share/flightsim/models ${CMAKE_SOURCE_DIR}/assets/clouds DESTINATION share/flightsim COMPONENT sdk",
+    "FILES ${CMAKE_SOURCE_DIR}/README.md ${CMAKE_SOURCE_DIR}/LICENSE ${CMAKE_SOURCE_DIR}/THIRD_PARTY_NOTICES.md DESTINATION share/doc/flightsim COMPONENT ${component} OPTIONAL",
+    "FILES ${CMAKE_SOURCE_DIR}/third_party/jsbsim/COPYING DESTINATION share/doc/flightsim RENAME LICENSE-JSBSim.txt COMPONENT ${component} OPTIONAL",
+    "FILES ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGLGear.cpp ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGAccelerations.cpp ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGRotor.h ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGRotor.cpp ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGElectric.cpp ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGPropeller.cpp ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGTransmission.h ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/flight_control/FGActuator.cpp ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGAerodynamics.cpp ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGMassBalance.cpp ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGAuxiliary.cpp ${CMAKE_SOURCE_DIR}/cmake/JsbsimPatches.cmake DESTINATION share/doc/flightsim/jsbsim-changes COMPONENT ${component}",
+    "TARGETS ${_fsim_viewer_targets} RUNTIME DESTINATION bin COMPONENT viewer",
+    "FILES ${FSIM_FLOW_RUNTIME} DESTINATION bin COMPONENT viewer",
+    "DIRECTORY ${CMAKE_BINARY_DIR}/share/flightsim/ DESTINATION share/flightsim COMPONENT viewer",
+    "DIRECTORY ${CMAKE_SOURCE_DIR}/examples/scenarios DESTINATION share/flightsim COMPONENT viewer",
+    "CODE include(\\\"${CMAKE_SOURCE_DIR}/cmake/PackageConfig.cmake\\\")\n        file(MAKE_DIRECTORY \\\"\\${CMAKE_INSTALL_PREFIX}/config\\\")\n        fsim_write_packaged_config(\\\"${CMAKE_SOURCE_DIR}/assets/config/viewer.json\\\"\n                                   \\\"\\${CMAKE_INSTALL_PREFIX}/config/viewer.json\\\") COMPONENT viewer",
+    "FILES ${CMAKE_SOURCE_DIR}/assets/config/offline-map-plan.json DESTINATION config COMPONENT viewer",
+    "FILES ${CMAKE_SOURCE_DIR}/assets/config/maps.README.md DESTINATION maps RENAME README.md COMPONENT viewer",
+    "FILES ${CMAKE_SOURCE_DIR}/assets/config/run-viewer.cmd DESTINATION . COMPONENT viewer",
+    "DIRECTORY ${CMAKE_SOURCE_DIR}/assets/maps/ DESTINATION maps COMPONENT viewer",
+    "CODE message(WARNING \\\"assets/maps is empty - run fetch-maps.cmd, or the package has no terrain\\\") COMPONENT viewer",
+    "TARGETS flightsim RUNTIME DESTINATION bin COMPONENT tools",
+    "TARGETS ${_fsim_example_targets} RUNTIME DESTINATION bin COMPONENT examples",
+    "DIRECTORY ${CMAKE_SOURCE_DIR}/examples/scenarios DESTINATION share/flightsim COMPONENT examples",
+    "EXPORT fsimTargets NAMESPACE fsim:: DESTINATION lib/cmake/fsim COMPONENT sdk",
+    "FILES ${CMAKE_BINARY_DIR}/fsimConfig.cmake ${CMAKE_BINARY_DIR}/fsimConfigVersion.cmake DESTINATION lib/cmake/fsim COMPONENT sdk"
+   ],
+   "python/CMakeLists.txt": [
+    "DIRECTORY ${FSIM_PY_PACKAGE} DESTINATION . COMPONENT python PATTERN __pycache__ EXCLUDE",
+    "CODE execute_process(COMMAND \\\"${FSIM_PYTHON}\\\" \\\"${CMAKE_CURRENT_SOURCE_DIR}/tools/make_wheel.py\\\"\n                                      \\\"\\${CMAKE_INSTALL_PREFIX}/fsim\\\" \\\"${PROJECT_VERSION}\\\" \\\"\\${CMAKE_INSTALL_PREFIX}\\\"\n                              RESULT_VARIABLE _rc)\n              if(NOT _rc EQUAL 0)\n                  message(FATAL_ERROR \\\"python: the wheel could not be built\\\")\n              endif() COMPONENT python"
+   ]
+  },
+  "native_targets": {
+   "flightsim": "EXECUTABLE",
+   "flightsim-viewer": "EXECUTABLE",
+   "fsim": "SHARED",
+   "fsim_comm": "STATIC",
+   "fsim_control": "STATIC",
+   "fsim_core": "STATIC",
+   "fsim_effects": "STATIC",
+   "fsim_env": "STATIC",
+   "fsim_flow": "STATIC",
+   "fsim_io": "STATIC",
+   "fsim_ipc": "STATIC",
+   "fsim_ms": "STATIC",
+   "fsim_platform": "STATIC",
+   "fsim_render": "STATIC",
+   "fsim_session": "STATIC",
+   "fsim_sim": "STATIC",
+   "fsim_ui": "STATIC",
+   "fsim_vision": "SHARED",
+   "fsim_world": "STATIC"
+  },
+  "python_extensions": [
+   {
+    "links": [
+     "fsim::sdk"
+    ],
+    "module": "fsim._native",
+    "source_sha256": {
+     "src/_native.c": "c07a27d45701660795fd33b3138de618bbd63d7cb59c2f26ea4c8f6d2894b8c1",
+     "src/_native_control.c": "1482aaa6c76aa82505955f78eb0a72256396e130587b498b02066e86a96b16de",
+     "src/_native_dms.c": "6a9f8ff5bc8091bd323eb64fa40fe69a267703f965e9960d5e15fb03a179735e",
+     "src/_native_environment.c": "6cbb7d589ed06929df8d81ff357a86bc707201f3ca2aee6919ef292ded63a992",
+     "src/_native_mission.c": "98e5257f76480429ebe8ee4ed1414af3a49612483dc62a3a9737d15b98964855",
+     "src/_native_mission_env.c": "9ed2eb906b6d350a0e8009e69036be261d2beb7d32afcfb39fa1615bc9aeaaaf",
+     "src/_native_recording.c": "de40864a3aba51a9792dea1eb471bc2ecd8d0dee04770129b5b7c40ddb2a48bb",
+     "src/_native_recording.h": "74778880a997afbe69fc790a62b72418b8250276c06aea78fc06a159637d1a75",
+     "src/_native_scenario.c": "5d836390ff13cb343ff2f1a600df2192736ce09827165d1d0e9ce0e3aaa8cab2",
+     "src/_native_vecenv.c": "827826748adeebe45c75ac37d02bf73999a9ecaa5807f43bac085757b69fbc28",
+     "src/_native_vecenv.h": "8a8029e862a51ffc5b387044ddd42bb90a804f2898d733659a34e8cbebb3e89e",
+     "src/_native_world.c": "4fd7ff810fe308cd62cb111441d2ea99d9d830228768bc2e367e11537aaf6487",
+     "src/_native_world.h": "8cd8c10984fafed5212977ff81351a2b6445d1f37ddcf70ce02e033b098fdfc8",
+     "src/_native_world_options.h": "d2227b24f1f86204c960088b56074c1b773bc6db04f96167d3daaaf3b7a8d4dc"
+    },
+    "sources": [
+     "src/_native.c",
+     "src/_native_control.c",
+     "src/_native_dms.c",
+     "src/_native_environment.c",
+     "src/_native_mission.c",
+     "src/_native_mission_env.c",
+     "src/_native_recording.c",
+     "src/_native_recording.h",
+     "src/_native_scenario.c",
+     "src/_native_vecenv.c",
+     "src/_native_vecenv.h",
+     "src/_native_world.c",
+     "src/_native_world.h",
+     "src/_native_world_options.h"
+    ],
+    "target": "fsim_python"
+   },
+   {
+    "links": [
+     "fsim::vision"
+    ],
+    "module": "fsim._vision",
+    "source_sha256": {
+     "src/_vision.c": "714e202f9379d87c1000edcdeb951b83057f0c2e02f84ab1a5b8654e0f249ebb"
+    },
+    "sources": [
+     "src/_vision.c"
+    ],
+    "target": "fsim_python_vision"
+   }
+  ]
+ },
+ "policy": {
+  "schema": "fsim.architecture.source-policy.v2",
+  "sha256": "683d9a3f079da4f092c0f82b482805c58e2ccb90b065da73e06ead8325e3000a"
+ },
+ "python": {
+  "cycles_including_deferred": [
+   [
+    "fsim",
+    "fsim.training"
+   ],
+   [
+    "fsim.agent",
+    "fsim.world"
+   ]
+  ],
+  "dynamic_imports": [
+   {
+    "function": "_serve_ma",
+    "line": 646,
+    "module": "fsim.isolation"
+   }
+  ],
+  "eager_closure_of_package": [
+   "fsim",
+   "fsim._convert",
+   "fsim._native",
+   "fsim._state",
+   "fsim._threads",
+   "fsim.agent",
+   "fsim.agra",
+   "fsim.mission",
+   "fsim.recording",
+   "fsim.training",
+   "fsim.vecenv",
+   "fsim.world"
+  ],
+  "eager_cycles": [],
+  "external_imports": {
+   "fsim": [
+    "ctypes",
+    "os",
+    "sys"
+   ],
+   "fsim._convert": [
+    "numpy"
+   ],
+   "fsim._state": [
+    "ctypes",
+    "math",
+    "numpy"
+   ],
+   "fsim._threads": [
+    "contextlib",
+    "ctypes",
+    "sys",
+    "torch"
+   ],
+   "fsim.agent": [
+    "collections",
+    "math",
+    "types"
+   ],
+   "fsim.agra": [
+    "datetime",
+    "math"
+   ],
+   "fsim.catalog": [
+    "collections",
+    "json",
+    "os"
+   ],
+   "fsim.gym": [
+    "gymnasium",
+    "numpy"
+   ],
+   "fsim.isolation": [
+    "base64",
+    "enum",
+    "importlib",
+    "inspect",
+    "json",
+    "multiprocessing",
+    "numpy",
+    "os",
+    "secrets",
+    "subprocess",
+    "sys",
+    "threading",
+    "time",
+    "traceback"
+   ],
+   "fsim.mission": [
+    "collections",
+    "json"
+   ],
+   "fsim.recording": [
+    "numpy"
+   ],
+   "fsim.sb3": [
+    "gymnasium",
+    "numpy",
+    "stable_baselines3",
+    "torch"
+   ],
+   "fsim.training": [
+    "collections",
+    "json",
+    "time"
+   ],
+   "fsim.vecenv": [
+    "numpy"
+   ],
+   "fsim.vision": [
+    "numpy"
+   ],
+   "fsim.world": [
+    "collections",
+    "enum",
+    "math",
+    "numpy",
+    "weakref"
+   ]
+  },
+  "imports": [
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 38,
+    "to": "fsim._native"
+   },
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 59,
+    "to": "fsim._state"
+   },
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 292,
+    "to": "fsim._threads"
+   },
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 287,
+    "to": "fsim.agent"
+   },
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 288,
+    "to": "fsim.agra"
+   },
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 289,
+    "to": "fsim.mission"
+   },
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 291,
+    "to": "fsim.recording"
+   },
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 290,
+    "to": "fsim.training"
+   },
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 286,
+    "to": "fsim.vecenv"
+   },
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 67,
+    "to": "fsim.world"
+   },
+   {
+    "deferred": false,
+    "from": "fsim._state",
+    "line": 15,
+    "to": "fsim._native"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.agent",
+    "line": 19,
+    "to": "fsim._native"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.agent",
+    "line": 20,
+    "to": "fsim.world"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.agra",
+    "line": 17,
+    "to": "fsim._native"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.agra",
+    "line": 18,
+    "to": "fsim.world"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.gym",
+    "line": 23,
+    "to": "fsim.vecenv"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 133,
+    "to": "fsim"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 151,
+    "to": "fsim"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 74,
+    "to": "fsim.agent"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 80,
+    "to": "fsim.agent"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 97,
+    "to": "fsim.agent"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 191,
+    "to": "fsim.agent"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 312,
+    "to": "fsim.agent"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 98,
+    "to": "fsim.mission"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 126,
+    "to": "fsim.mission"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 429,
+    "to": "fsim.mission"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 99,
+    "to": "fsim.world"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 188,
+    "to": "fsim.world"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 236,
+    "to": "fsim.world"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.mission",
+    "line": 27,
+    "to": "fsim._native"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.recording",
+    "line": 5,
+    "to": "fsim._native"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.recording",
+    "line": 6,
+    "to": "fsim._state"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.sb3",
+    "line": 25,
+    "to": "fsim._threads"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.sb3",
+    "line": 26,
+    "to": "fsim.vecenv"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.training",
+    "line": 94,
+    "to": "fsim"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.training",
+    "line": 116,
+    "to": "fsim"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.vecenv",
+    "line": 13,
+    "to": "fsim._convert"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.vecenv",
+    "line": 12,
+    "to": "fsim._native"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.vecenv",
+    "line": 14,
+    "to": "fsim.world"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.vision",
+    "line": 19,
+    "to": "fsim._native"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.vision",
+    "line": 19,
+    "to": "fsim._vision"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.vision",
+    "line": 20,
+    "to": "fsim.vecenv"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.vision",
+    "line": 21,
+    "to": "fsim.world"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.world",
+    "line": 19,
+    "to": "fsim._convert"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.world",
+    "line": 18,
+    "to": "fsim._native"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.world",
+    "line": 20,
+    "to": "fsim._state"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.world",
+    "line": 3199,
+    "to": "fsim.agent"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.world",
+    "line": 3215,
+    "to": "fsim.agent"
+   }
+  ],
+  "legacy_backedges": [
+   {
+    "from": "fsim.training",
+    "reason": "Function-local import of the package root (Error); ARCH-07 obtains it from a lower owner",
+    "to": "fsim",
+    "until": "ARCH-07"
+   },
+   {
+    "from": "fsim.world",
+    "reason": "Function-local import of Agent/Referee; ARCH-07 moves the shared values below both wrappers",
+    "to": "fsim.agent",
+    "until": "ARCH-07"
+   }
+  ],
+  "modules": {
+   "fsim": {
+    "owner": "fsim",
+    "path": "python/fsim/__init__.py",
+    "sha256": "3f1f04b16db0b9b1d981a68a525df89851571da054b68614936157d07ad1620d"
+   },
+   "fsim._convert": {
+    "owner": "fsim",
+    "path": "python/fsim/_convert.py",
+    "sha256": "c679c19d21361c101b33b300e1292fde9d1c9908ab2e5aebaa1e72688dd9ab55"
+   },
+   "fsim._native": {
+    "owner": "fsim._native",
+    "path": null,
+    "sha256": null
+   },
+   "fsim._state": {
+    "owner": "fsim",
+    "path": "python/fsim/_state.py",
+    "sha256": "f9b2da8f3b102bd8c254c1d421e3a392981344f4321130cb1d423e01f0a4936c"
+   },
+   "fsim._threads": {
+    "owner": "fsim",
+    "path": "python/fsim/_threads.py",
+    "sha256": "da0f589e885a9e56eba18c15929208a15a6fbecfc97e5149a8206a64aada34d2"
+   },
+   "fsim._vision": {
+    "owner": "fsim._vision",
+    "path": null,
+    "sha256": null
+   },
+   "fsim.agent": {
+    "owner": "fsim",
+    "path": "python/fsim/agent.py",
+    "sha256": "416d5539ce37b57f126a90cc642049cd2786c55a2dd0d926da64dddc91418aa5"
+   },
+   "fsim.agra": {
+    "owner": "fsim",
+    "path": "python/fsim/agra.py",
+    "sha256": "fbc9db52336f8d9c5bc8e44f2a75aff1a677482e20e5f936f957ed6d2ed382ca"
+   },
+   "fsim.catalog": {
+    "owner": "fsim",
+    "path": "python/fsim/catalog.py",
+    "sha256": "d4f9a5d8d258aeed25e1b22e28aaa45730bd87f890700fff162299f0dc87755f"
+   },
+   "fsim.gym": {
+    "owner": "fsim",
+    "path": "python/fsim/gym.py",
+    "sha256": "a19390dd74a3732dd452fc26254ae40b211bd0910a215271c8ea23f71a910c0d"
+   },
+   "fsim.isolation": {
+    "owner": "fsim",
+    "path": "python/fsim/isolation.py",
+    "sha256": "93339377d00189ca6a328a8571a0571e309ed866d05b1dffd48b39a5988949f5"
+   },
+   "fsim.mission": {
+    "owner": "fsim",
+    "path": "python/fsim/mission.py",
+    "sha256": "11343e55a2e9c16578c524997025a85cfd696238fc3fddd5b3bb409b3fbcff0c"
+   },
+   "fsim.recording": {
+    "owner": "fsim",
+    "path": "python/fsim/recording.py",
+    "sha256": "a4ef4b895d29a7069026703755b7ed171638697a9bc373026ebb9b2c9cfa91fd"
+   },
+   "fsim.sb3": {
+    "owner": "fsim",
+    "path": "python/fsim/sb3.py",
+    "sha256": "a369335046102ad6fa7b26b148963dd43a7448d66b27dc6a38c1e9fe76a9b92d"
+   },
+   "fsim.training": {
+    "owner": "fsim",
+    "path": "python/fsim/training.py",
+    "sha256": "f2928f823f780455b6fcf609e5688ec9fb57fac8e95cafe582744f08599a70ea"
+   },
+   "fsim.vecenv": {
+    "owner": "fsim",
+    "path": "python/fsim/vecenv.py",
+    "sha256": "65b1ddb9e1f76559885af2e179e64ae2286a0bd96421fa4a905d961e3785f6de"
+   },
+   "fsim.vision": {
+    "owner": "fsim",
+    "path": "python/fsim/vision.py",
+    "sha256": "b5377240d14d97a3e0cf9a8cf5f7f39f212b22ccac85179fe31e26764be3bee3"
+   },
+   "fsim.world": {
+    "owner": "fsim",
+    "path": "python/fsim/world.py",
+    "sha256": "dcb67f8d073c812b771f3164d25dc7c37f75c6110e01a8d32553a14b3cbd91df"
+   }
+  }
+ },
+ "schema": "fsim.architecture.baseline.v1",
+ "scope": [
+  "src",
+  "include/fsim",
+  "python/fsim",
+  "python/src",
+  "python/CMakeLists.txt",
+  "cmake",
+  "tools/architecture"
+ ],
+ "worktree_changes": [
+  "python/fsim/isolation.py",
+  "tools/architecture/README.md",
+  "tools/architecture/baseline.py",
+  "tools/architecture/check.py",
+  "tools/architecture/policy.json",
+  "tools/architecture/python_imports.py",
+  "tools/architecture/test_check.py"
+ ]
+}

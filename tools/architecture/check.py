@@ -3,6 +3,14 @@
 The deliberately limited source parser reads every conditional branch; it does
 not configure CMake or evaluate variables. Unsupported source/link declarations
 fail closed. See README.md for the accepted CMake subset and ownership policy.
+
+Each module also has a domain (contracts, foundation, simulation, training,
+visualization, adapters, applications) and a kind (contract, implementation,
+final assembly, application). Their direction rules hold on links and on includes
+of another module's header; the policy's few legacy exceptions are exact and
+expire. Source ownership extends to the destination directories of the staged
+migration (longest prefix wins; planned owners reserve theirs), and the Python
+package's imports are checked by python_imports.py.
 """
 
 from __future__ import annotations
@@ -13,6 +21,9 @@ import os
 from pathlib import Path
 import re
 import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import python_imports  # noqa: E402
 
 
 SOURCE_SUFFIXES = {".h", ".hpp", ".hh", ".inl", ".c", ".cpp", ".cc", ".cxx"}
@@ -121,8 +132,96 @@ def cmake_commands(text):
         raise ValueError("incomplete CMake command")
 
 
+KINDS = {"contract", "implementation", "assembly", "application"}
+DOMAIN_KEYS = {"root", "kind", "may_depend_on"}
+MODULE_KEYS = {"target", "aliases", "domain", "kind", "directories", "destinations", "files", "headless", "allowed_dependencies"}
+PLANNED_KEYS = {"domain", "kind", "destinations", "phase"}
+EXCEPTION_KEYS = {"from", "to", "rule", "until", "reason"}
+POLICY_KEYS = {"schema", "domains", "modules", "planned_modules", "exceptions", "external_targets", "python"}
+SCHEMA = "fsim.architecture.source-policy.v2"
+PHASE = re.compile(r"ARCH-(0[2-9]|10)|MS-\d+")
+
+
+def validate_policy(policy):
+    """Structural policy errors fail the run as input errors: an unsupported declaration is never ignored."""
+    if set(policy) != POLICY_KEYS or policy.get("schema") != SCHEMA:
+        raise ValueError(f"policy must be {SCHEMA} with keys {sorted(POLICY_KEYS)}; got {sorted(policy)}")
+    domains, modules, planned = policy["domains"], policy["modules"], policy["planned_modules"]
+    roots = {}
+    for name, domain in domains.items():
+        if set(domain) != DOMAIN_KEYS or domain["kind"] not in KINDS:
+            raise ValueError(f"domain {name}: keys {sorted(DOMAIN_KEYS)} and a kind of {sorted(KINDS)}")
+        root = domain["root"]
+        if not root.startswith("src/") or root.count("/") != 1 or root in roots:
+            raise ValueError(f"domain {name}: root must be a distinct src/<name> directory: {root}")
+        roots[root] = name
+        for provider in domain["may_depend_on"]:
+            if provider not in domains:
+                raise ValueError(f"domain {name} may depend on unknown domain {provider}")
+    owners = {}
+    for group, entries, keys in (("module", modules, MODULE_KEYS), ("planned module", planned, PLANNED_KEYS)):
+        for name, module in entries.items():
+            if set(module) != keys:
+                raise ValueError(f"{group} {name}: keys must be {sorted(keys)}; got {sorted(module)}")
+            if name in modules and group == "planned module":
+                raise ValueError(f"planned module {name} is already a module")
+            domain = domains.get(module["domain"])
+            if domain is None or domain["kind"] != module["kind"]:
+                raise ValueError(f"{group} {name}: kind {module['kind']} does not belong to domain {module['domain']}")
+            if group == "planned module" and not PHASE.fullmatch(module["phase"]):
+                raise ValueError(f"planned module {name}: phase must name a later package: {module['phase']}")
+            if group == "module" and not module["headless"] and module["kind"] == "implementation" \
+                    and module["domain"] != "visualization":
+                raise ValueError(f"module {name}: graphics (headless false) in the {module['domain']} domain")
+            root = domain["root"]
+            for destination in module["destinations"]:
+                if destination != root and not destination.startswith(root + "/"):
+                    raise ValueError(f"{group} {name}: destination {destination} is outside its domain root {root}")
+            for directory in module.get("directories", []):
+                if any(directory == r or directory.startswith(r + "/") for r in roots):
+                    raise ValueError(f"module {name}: legacy directory {directory} lies in a domain root; list it as a destination")
+            for path in module.get("directories", []) + module["destinations"] + module.get("files", []):
+                if ".." in Path(path).parts or ".codex" in Path(path).parts or not path.startswith("src/"):
+                    raise ValueError(f"{group} {name}: unsafe or non-source path {path}")
+                if path in owners:
+                    raise ValueError(f"duplicate-owner: {path} is claimed by {owners[path]} and {name}")
+                owners[path] = name
+    for module in modules.values():
+        for dependency in module["allowed_dependencies"]:
+            if dependency not in modules:
+                raise ValueError(f"unknown policy dependency -> {dependency}")
+    for entry in policy["exceptions"]:
+        if set(entry) != EXCEPTION_KEYS or entry["rule"] not in {"domain", "kind"}:
+            raise ValueError(f"exception keys must be {sorted(EXCEPTION_KEYS)} with rule domain|kind: {entry}")
+        if entry["from"] not in modules or entry["to"] not in modules or not PHASE.fullmatch(entry["until"]):
+            raise ValueError(f"exception {entry['from']} -> {entry['to']}: unknown module or phase {entry['until']}")
+    return domains, modules, planned
+
+
+def edge_rule(modules, domains, consumer, provider):
+    """Which architecture rule a direct consumer -> provider edge breaks, if any: ("kind"|"domain", reason)."""
+    c, p = modules[consumer], modules[provider]
+    if p["kind"] == "application":
+        return "kind", "nothing depends on an application"
+    if c["kind"] in {"contract", "implementation"} and p["kind"] == "assembly":
+        return "kind", "a domain implementation or contract depends on a final assembly"
+    if c["kind"] == "contract" and p["kind"] != "contract":
+        return "kind", "a contract depends on an implementation"
+    if c["kind"] == "implementation" and p["kind"] == "implementation" and p["domain"] != c["domain"] \
+            and p["domain"] not in domains[c["domain"]]["may_depend_on"]:
+        return "domain", f"{c['domain']} may depend on {', '.join(domains[c['domain']]['may_depend_on']) or 'nothing'}, not {p['domain']}"
+    return None
+
+
 def check(repo, policy):
-    modules = policy["modules"]
+    """The historic entry point: (issues, native module count, native source/public file count)."""
+    issues, facts = analyze(repo, policy)
+    return issues, facts["module_count"], facts["file_count"]
+
+
+def analyze(repo, policy):
+    """(issues, facts): every rule over the source tree; facts are the actual graphs the rules were applied to."""
+    domains, modules, planned = validate_policy(policy)
     targets, aliases = {}, {}
     for name, module in modules.items():
         if module["target"] in targets:
@@ -132,15 +231,19 @@ def check(repo, policy):
             if alias in aliases or alias in targets:
                 raise ValueError(f"duplicate registered alias {alias}")
             aliases[alias] = name
-        for dependency in module["allowed_dependencies"]:
-            if dependency not in modules:
-                raise ValueError(f"unknown policy dependency {name} -> {dependency}")
     names = targets | aliases
     external = set(policy["external_targets"])
     issues, declared, declared_aliases = [], set(), set()
     graph = {name: set() for name in modules}
     source_declarations, link_declarations, include_declarations = [], [], []
     include_directories = {name: [] for name in modules}
+    target_types, external_links = {}, {name: set() for name in modules}
+    # ownership claims: exact files first, then the longest directory prefix (legacy or destination; planned owners too)
+    claims = []
+    for group, entries in (("module", modules), ("planned", planned)):
+        for name, module in entries.items():
+            for directory in module.get("directories", []) + module["destinations"]:
+                claims.append((directory.rstrip("/"), name, group))
 
     def issue(code, place, detail):
         issues.append(f"{code}: {place}: {detail}")
@@ -148,15 +251,25 @@ def check(repo, policy):
     def owner(path):
         relative = path.relative_to(repo).as_posix()
         exact = [name for name, module in modules.items() if relative in module["files"]]
-        if exact:
-            candidates = exact
-        else:
-            candidates = [name for name, module in modules.items()
-                          if any(relative.startswith(directory.rstrip("/") + "/") for directory in module["directories"])]
-        if len(candidates) != 1:
-            issue("unknown-owner", relative, "source needs exactly one registered module")
+        if len(exact) == 1:
+            return exact[0]
+        matches = [(len(directory), name, group) for directory, name, group in claims if relative.startswith(directory + "/")]
+        if not matches:
+            root = next((d for d, entry in domains.items() if relative.startswith(entry["root"] + "/")), None)
+            where = f" (inside the {root} domain root, outside every declared destination)" if root else ""
+            issue("unknown-owner", relative, "source needs exactly one registered module" + where)
             return None
-        return candidates[0]
+        longest = max(length for length, _, _ in matches)
+        winners = sorted({(name, group) for length, name, group in matches if length == longest})
+        if len(winners) != 1:
+            issue("duplicate-owner", relative, "claimed by " + " and ".join(name for name, _ in winners))
+            return None
+        name, group = winners[0]
+        if group == "planned":
+            issue("planned-owner", relative, f"reserved for planned module {name} ({planned[name]['phase']}); "
+                  "register its target in the policy before adding sources")
+            return None
+        return name
 
     def include_directory(cmake, argument):
         """Resolve the literal source/build include forms used by native targets."""
@@ -216,6 +329,8 @@ def check(repo, policy):
                     continue
                 declared.add(target)
                 flags = {"STATIC", "SHARED", "MODULE", "OBJECT", "INTERFACE", "EXCLUDE_FROM_ALL", "WIN32", "MACOSX_BUNDLE"}
+                kind = "EXECUTABLE" if command == "add_executable" else next((a for a in args[1:] if a in flags - {"EXCLUDE_FROM_ALL"}), "DEFAULT")
+                target_types[target] = kind
                 source_declarations.extend((cmake, target, source) for source in args[1:] if source not in flags)
             elif command == "target_sources":
                 if args:
@@ -245,6 +360,7 @@ def check(repo, policy):
                 include_directories[targets[target]].append(directory)
         except ValueError as error:
             issue("unsupported-cmake", place, str(error))
+    declared_by = {}
     for cmake, target, source in source_declarations:
         place = cmake.relative_to(repo).as_posix()
         if target not in targets:
@@ -257,9 +373,14 @@ def check(repo, policy):
         if not path.is_relative_to(repo / "src") or not path.is_file():
             issue("source-owner", place, f"{target} source is absent/outside src: {source}")
             continue
+        relative = path.relative_to(repo).as_posix()
+        declared_by.setdefault(relative, set()).add(target)
         actual = owner(path)
         if actual and actual != targets[target]:
-            issue("source-owner", place, f"{actual} owns {path.relative_to(repo).as_posix()}, declared by {targets[target]}")
+            issue("source-owner", place, f"{actual} owns {relative}, declared by {targets[target]}")
+    for relative, owners_of in sorted(declared_by.items()):
+        if len(owners_of) > 1:
+            issue("duplicate-source", relative, "listed by targets " + ", ".join(sorted(owners_of)))
 
     for place, target, argument in link_declarations:
         if target not in targets:
@@ -284,8 +405,15 @@ def check(repo, policy):
                     issue("forbidden-link", place, f"{module} -> {dependency}")
                 if modules[module]["headless"] and not modules[dependency]["headless"]:
                     issue("headless-gpu", place, f"{module} -> {dependency}")
-            elif link not in external:
+            elif link in external:
+                external_links[module].add(link)
+            else:
                 issue("unknown-link", place, f"{module} links unregistered {link}")
+
+    # an allowance is policy, not evidence: every allowed edge must be an actual link
+    for module in sorted(modules):
+        for dependency in sorted(set(modules[module]["allowed_dependencies"]) - graph[module]):
+            issue("unused-allowance", "policy", f"{module} -> {dependency} is allowed but not linked; remove it")
 
     visited, active = set(), []
 
@@ -320,10 +448,13 @@ def check(repo, policy):
                       if path.is_file() and path.suffix in SOURCE_SUFFIXES}
     sources = [path for path in files_under(repo / "src") if path.is_file() and path.suffix in SOURCE_SUFFIXES]
     public = [path for path in files_under(repo / "include/fsim") if path.is_file() and path.suffix in SOURCE_SUFFIXES]
+    source_owner, include_edges, public_consumers = {}, {}, {}
     for path in sorted(sources + public):
         place = path.relative_to(repo).as_posix()
         is_public = path.is_relative_to(repo / "include/fsim")
         module = None if is_public else owner(path)
+        if not is_public:
+            source_owner[place] = module
         clean = without_comments(path.read_text(encoding="utf-8"))
         if is_public:
             declarations = public_type_text(clean, place)
@@ -347,18 +478,65 @@ def check(repo, policy):
             private_headers = sorted({candidate for candidate in candidates
                                       if candidate.is_relative_to(repo / "src") and candidate.is_file()})
             third_party = explicit_vendor_path or any(candidate.is_relative_to(repo / "third_party") and candidate.is_file() for candidate in candidates)
+            public_headers = sorted({candidate for candidate in candidates
+                                     if candidate.is_relative_to(repo / "include/fsim") and candidate.is_file()})
+            if module:
+                for header in public_headers:
+                    public_consumers.setdefault(header.relative_to(repo).as_posix(), set()).add(module)
             if is_public:
                 if private_headers:
                     issue("public-private", at, include)
-                public_include = any(candidate.is_relative_to(repo / "include/fsim") and candidate.is_file() for candidate in candidates)
-                if third_party or (not public_include and Path(include).name in vendor_headers) or GPU.search(include):
+                if third_party or (not public_headers and Path(include).name in vendor_headers) or GPU.search(include):
                     issue("public-third-party", at, include)
             elif module:
                 for private in private_headers:
                     dependency = owner(private)
                     if dependency and dependency not in reachable[module]:
                         issue("undeclared-include", at, f"{module} -> {dependency}: {include}")
-    return sorted(set(issues)), len(modules), len(sources) + len(public)
+                    if dependency and dependency != module:
+                        include_edges.setdefault((module, dependency), set()).add(place)
+
+    # domain and kind direction, for direct links and for every include of another module's header
+    exceptions = {(entry["from"], entry["to"], entry["rule"]): entry for entry in policy["exceptions"]}
+    used = set()
+    edges = {(module, dependency, "link") for module in modules for dependency in graph[module]}
+    edges |= {(module, dependency, "include") for module, dependency in include_edges}
+    for module, dependency, how in sorted(edges):
+        broken = edge_rule(modules, domains, module, dependency)
+        if broken is None:
+            continue
+        rule, reason = broken
+        if (module, dependency, rule) in exceptions:
+            used.add((module, dependency, rule))
+            continue
+        where = "CMake graph" if how == "link" else sorted(include_edges[(module, dependency)])[0]
+        issue("forbidden-" + rule, where, f"{module} ({modules[module]['domain']}) -> {dependency} "
+              f"({modules[dependency]['domain']}) by {how}: {reason}")
+    for key, entry in sorted(exceptions.items()):
+        if key in used:
+            continue
+        if not any((entry["from"], entry["to"], how) in edges for how in ("link", "include")):
+            issue("stale-exception", "policy", f"{entry['from']} -> {entry['to']} ({entry['rule']}, until {entry['until']}): "
+                  "the edge no longer exists; remove the exception")
+        else:
+            issue("stale-exception", "policy", f"{entry['from']} -> {entry['to']} ({entry['rule']}, until {entry['until']}): "
+                  "the edge breaks no rule; remove the exception")
+
+    python_issues, python_facts = python_imports.check(repo, policy["python"])
+    issues.extend(python_issues)
+    facts = {
+        "module_count": len(modules), "file_count": len(sources) + len(public),
+        "links": {module: sorted(graph[module]) for module in sorted(modules)},
+        "external_links": {module: sorted(external_links[module]) for module in sorted(modules)},
+        "includes": {f"{m} -> {d}": len(files) for (m, d), files in sorted(include_edges.items())},
+        "target_types": dict(sorted(target_types.items())),
+        "source_owner": dict(sorted(source_owner.items())),
+        "public_headers": {path.relative_to(repo).as_posix(): sorted(public_consumers.get(path.relative_to(repo).as_posix(), ()))
+                           for path in sorted(public)},
+        "exceptions_applied": sorted(f"{m} -> {d} ({r})" for m, d, r in used),
+        "python": python_facts,
+    }
+    return sorted(set(issues)), facts
 
 
 def main():
@@ -367,7 +545,7 @@ def main():
     parser.add_argument("--policy", type=Path, default=Path(__file__).with_name("policy.json"))
     args = parser.parse_args()
     try:
-        issues, modules, sources = check(args.repo.resolve(), json.loads(args.policy.read_text(encoding="utf-8")))
+        issues, facts = analyze(args.repo.resolve(), json.loads(args.policy.read_text(encoding="utf-8")))
     except (OSError, ValueError, KeyError, TypeError) as error:
         print(f"architecture input error: {error}", file=sys.stderr)
         return 1
@@ -376,7 +554,12 @@ def main():
     if issues:
         print(f"Architecture rejected: {len(issues)} violation(s).")
         return 1
-    print(f"Architecture accepted: {modules} native modules, {sources} source/public header files; all CMake branches scanned.")
+    python = facts["python"]
+    print(f"Architecture accepted: {facts['module_count']} native modules, {facts['file_count']} source/public header files; "
+          "all CMake branches scanned.")
+    print(f"Domains and kinds held on links and includes; legacy exceptions in use: {', '.join(facts['exceptions_applied']) or 'none'}.")
+    print(f"Python: {len(python['modules'])} modules (extensions as leaves), {len(python['edges'])} literal imports; "
+          f"legacy deferred cycles set aside: {len(python['cycles_all'])}; eager cycles: {len(python['cycles_eager'])}.")
     return 0
 
 
