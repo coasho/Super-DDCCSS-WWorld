@@ -49,9 +49,111 @@ def git(repo, *args):
     return run.stdout if run.returncode == 0 else None
 
 
+KEYWORDS = {"PRIVATE", "PUBLIC", "INTERFACE", "SYSTEM", "BEFORE", "AFTER", "debug", "optimized", "general"}
+
+
+def declared_value(repo, base, value, kind):
+    """One declared input or link as written, with what a static read can establish: a file under the declaring
+    directory (with its hash), a target name, or an unresolved variable/generator expression - recorded, never
+    guessed (its configured value is not static evidence)."""
+    resolved = value.replace("${CMAKE_CURRENT_SOURCE_DIR}", base.as_posix()).replace("${CMAKE_SOURCE_DIR}", repo.as_posix())
+    entry = {"declared": value}
+    if "${" in resolved or "$<" in resolved:
+        entry["resolved"] = False
+        return entry
+    entry["resolved"] = True
+    path = (base / resolved) if not Path(resolved).is_absolute() else Path(resolved)
+    if kind in {"source", "include"} and path.exists():
+        rel = path.resolve().relative_to(repo.resolve()).as_posix() if path.resolve().is_relative_to(repo.resolve()) else path.as_posix()
+        entry["path"] = rel
+        if path.is_file():
+            entry["sha256"] = sha256(path)
+    elif kind == "source":
+        entry["missing"] = True
+    return entry
+
+
+def extension_declarations(repo, relative="python/CMakeLists.txt"):
+    """Each CPython extension module the build declares (add_library MODULE), with every input and link as written:
+    helper functions are expanded with their call's arguments (so a helper-added header or link is the extension's),
+    and direct target_sources / target_link_libraries / include / definition / property declarations are added. Each
+    declaration keeps the if() branches enclosing it; every branch is included, as the architecture parser does."""
+    path = repo / relative
+    if not path.is_file():
+        return "absent"
+    try:
+        commands = list(check.cmake_commands(path.read_text(encoding="utf-8")))
+    except ValueError as error:
+        return f"unparsed: {error}"
+    functions, top, conditions, current = {}, [], [], None
+    for command, args in commands:
+        if current is not None:
+            if command in {"endfunction", "endmacro"}:
+                functions[current[0]] = (current[1], current[2])
+                current = None
+            else:
+                current[2].append((command, args))
+            continue
+        if command in {"function", "macro"} and args:
+            current = (args[0].lower(), args[1:], [])
+        elif command == "if":
+            conditions.append("if(" + " ".join(args) + ")")
+        elif command == "elseif" and conditions:
+            conditions[-1] = "elseif(" + " ".join(args) + ")"
+        elif command == "else" and conditions:
+            conditions[-1] = "else() of " + conditions[-1]
+        elif command == "endif" and conditions:
+            conditions.pop()
+        else:
+            top.append((command, args, tuple(conditions), None))
+    expanded = []
+    for command, args, where, _ in top:
+        if command in functions:
+            params, body = functions[command]
+            mapping = dict(zip(params, args))
+            for inner, inner_args in body:
+                values = []
+                for value in inner_args:
+                    for name, actual in mapping.items():
+                        value = value.replace("${" + name + "}", actual)
+                    values.append(value)
+                expanded.append((inner, values, where, command))
+        else:
+            expanded.append((command, args, where, None))
+    base = path.parent
+    extensions = {}
+    for command, args, where, helper in expanded:
+        if command == "add_library" and len(args) > 1 and args[1] == "MODULE":
+            extensions[args[0]] = {"target": args[0], "conditions": list(where), "helper": helper, "module": None,
+                                   "sources": [], "links": [], "include_directories": [], "compile_definitions": [],
+                                   "properties": {}}
+            extensions[args[0]]["sources"] += [declared_value(repo, base, a, "source") for a in args[2:]]
+    for command, args, where, helper in expanded:
+        if not args or args[0] not in extensions:
+            continue
+        extension = extensions[args[0]]
+        values = [a for a in args[1:] if a not in KEYWORDS]
+        if command == "target_sources":
+            extension["sources"] += [declared_value(repo, base, a, "source") for a in values]
+        elif command == "target_link_libraries":
+            extension["links"] += [dict(declared_value(repo, base, a, "link"), by=helper or "direct") for a in values]
+        elif command == "target_include_directories":
+            extension["include_directories"] += [declared_value(repo, base, a, "include") for a in values]
+        elif command == "target_compile_definitions":
+            extension["compile_definitions"] += values
+        elif command == "set_target_properties" and "PROPERTIES" in args:
+            pairs = args[args.index("PROPERTIES") + 1:]
+            extension["properties"].update(dict(zip(pairs[0::2], pairs[1::2])))
+    for extension in extensions.values():
+        name = extension["properties"].get("OUTPUT_NAME")
+        extension["module"] = ("fsim." + name) if name and "${" not in name else None
+        extension["sources"].sort(key=lambda e: e["declared"])
+    return [extensions[name] for name in sorted(extensions)]
+
+
 def package_outputs(repo, facts):
     """What the build declares it produces: native target types, CPython extensions, install rules as written."""
-    out = {"native_targets": facts["target_types"], "python_extensions": [], "install_rules": {}}
+    out = {"native_targets": facts["target_types"], "python_extensions": extension_declarations(repo), "install_rules": {}}
     for relative in ("python/CMakeLists.txt", "cmake/Install.cmake"):
         path = repo / relative
         if not path.is_file():
@@ -62,20 +164,7 @@ def package_outputs(repo, facts):
         except ValueError as error:
             out["install_rules"][relative] = f"unparsed: {error}"
             continue
-        rules = []
-        sources = {}
-        for command, args in commands:
-            if command == "install":
-                rules.append(" ".join(args))
-            elif command == "fsim_python_module" and len(args) == 4:
-                target, module, source, link = args
-                out["python_extensions"].append({"target": target, "module": "fsim." + module, "sources": [source], "links": [link]})
-            elif command == "target_sources" and args:
-                sources.setdefault(args[0], []).extend(a for a in args[1:] if a not in {"PRIVATE", "PUBLIC", "INTERFACE"})
-        for extension in out["python_extensions"]:
-            extension["sources"] = sorted(set(extension["sources"] + sources.get(extension["target"], [])))
-            extension["source_sha256"] = {s: sha256(repo / "python" / s) for s in extension["sources"] if (repo / "python" / s).is_file()}
-        out["install_rules"][relative] = rules
+        out["install_rules"][relative] = [" ".join(args) for command, args in commands if command == "install"]
     return out
 
 
@@ -124,6 +213,7 @@ def record(repo, policy_path, date):
         "python": {
             "modules": python_modules,
             "imports": python["edges"],
+            "initialization_imports": python["init_edges"],
             "external_imports": python["external"],
             "cycles_including_deferred": python["cycles_all"],
             "eager_cycles": python["cycles_eager"],

@@ -455,7 +455,25 @@ under `docs/architecture` is otherwise untracked: only its ARCH-01 record and ba
 | Planning document checker | Accepted; 12 documents, links valid |
 | Targeted CTest tier (`scope.py --run`) | 5/5 passed in 11.59 s; no build, no full suite |
 
-Pending: independent ARCH-01 acceptance; ARCH-02 onward; configured File API reconciliation once moves begin.
+**Review correction (2026-10-16).** The independent review of `9b6b645`
+(`docs/architecture/validation/arch-01-review-2026-10-16.md`) found five P2 issues. All are corrected, each with a
+focused regression that fails on `9b6b645`:
+1. Exact file claims may no longer override a reserved or foreign destination (`file-claim` input error).
+2. Imported and aliased import functions are dynamic-import sites; other uses are unsupported forms.
+3. Package-initializer edges join the eager closure, without inventing facade cycles.
+4. A legacy Python exception must close its own cycle.
+5. The baseline records every declared extension input and link: the helper-added `src/fsim_py.h` and the
+   unresolved `${FSIM_PYTHON3_DLL}`, with hashes and branches.
+
+The baseline was refreshed at `9b6b645`; source hashes are unchanged.
+
+| Correction verification | Result |
+| --- | --- |
+| `test_check.py` | 102 cases passed (12 added) |
+| `check.py` on the repository | Accepted; the same 3 exceptions and 2 legacy Python cycles |
+| Targeted CTest tier (`scope.py --run`) | 5/5 passed in 13.68 s; no build, no full suite |
+
+Pending: independent ARCH-01 acceptance (ARCH-02 not started); ARCH-02 onward; configured File API reconciliation once moves begin.
 
 ## MA training M8 correction and change-scoped testing (2026-10-16, awaiting independent review)
 

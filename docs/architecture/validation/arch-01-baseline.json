@@ -11,7 +11,7 @@
   "python/fsim": "b063447d0e6aeb5ee9f0ed3f4b45c2bff8f296f2d49b672ace8ab0a90de1f6ea",
   "src": "a057d1190518dabfce55bcb77960db792b6e81a03ad655431cd5d5f7471bc359"
  },
- "head": "7948dc462b64388a07c310f64ab78aa4438220b4",
+ "head": "9b6b6457422ecfe81f897e53d4fdb9bcf742c30b",
  "limits": [
   "Static source declarations: every CMake branch is combined; this is not the configured File API graph of one preset",
   "Link edges are target_link_libraries declarations; include edges are literal includes resolved to an owning module",
@@ -1389,54 +1389,192 @@
   },
   "python_extensions": [
    {
+    "compile_definitions": [
+     "Py_LIMITED_API=0x030B0000"
+    ],
+    "conditions": [],
+    "helper": "fsim_python_module",
+    "include_directories": [
+     {
+      "declared": "${FSIM_PYTHON_INCLUDE}",
+      "resolved": false
+     },
+     {
+      "declared": "${CMAKE_CURRENT_SOURCE_DIR}/src",
+      "path": "python/src",
+      "resolved": true
+     }
+    ],
     "links": [
-     "fsim::sdk"
+     {
+      "by": "fsim_python_module",
+      "declared": "fsim::sdk",
+      "resolved": true
+     },
+     {
+      "by": "fsim_python_module",
+      "declared": "${FSIM_PYTHON3_DLL}",
+      "resolved": false
+     }
     ],
     "module": "fsim._native",
-    "source_sha256": {
-     "src/_native.c": "c07a27d45701660795fd33b3138de618bbd63d7cb59c2f26ea4c8f6d2894b8c1",
-     "src/_native_control.c": "1482aaa6c76aa82505955f78eb0a72256396e130587b498b02066e86a96b16de",
-     "src/_native_dms.c": "6a9f8ff5bc8091bd323eb64fa40fe69a267703f965e9960d5e15fb03a179735e",
-     "src/_native_environment.c": "6cbb7d589ed06929df8d81ff357a86bc707201f3ca2aee6919ef292ded63a992",
-     "src/_native_mission.c": "98e5257f76480429ebe8ee4ed1414af3a49612483dc62a3a9737d15b98964855",
-     "src/_native_mission_env.c": "9ed2eb906b6d350a0e8009e69036be261d2beb7d32afcfb39fa1615bc9aeaaaf",
-     "src/_native_recording.c": "de40864a3aba51a9792dea1eb471bc2ecd8d0dee04770129b5b7c40ddb2a48bb",
-     "src/_native_recording.h": "74778880a997afbe69fc790a62b72418b8250276c06aea78fc06a159637d1a75",
-     "src/_native_scenario.c": "5d836390ff13cb343ff2f1a600df2192736ce09827165d1d0e9ce0e3aaa8cab2",
-     "src/_native_vecenv.c": "827826748adeebe45c75ac37d02bf73999a9ecaa5807f43bac085757b69fbc28",
-     "src/_native_vecenv.h": "8a8029e862a51ffc5b387044ddd42bb90a804f2898d733659a34e8cbebb3e89e",
-     "src/_native_world.c": "4fd7ff810fe308cd62cb111441d2ea99d9d830228768bc2e367e11537aaf6487",
-     "src/_native_world.h": "8cd8c10984fafed5212977ff81351a2b6445d1f37ddcf70ce02e033b098fdfc8",
-     "src/_native_world_options.h": "d2227b24f1f86204c960088b56074c1b773bc6db04f96167d3daaaf3b7a8d4dc"
+    "properties": {
+     "C_STANDARD": "11",
+     "C_STANDARD_REQUIRED": "ON",
+     "LIBRARY_OUTPUT_DIRECTORY": "${FSIM_PY_PACKAGE}",
+     "OUTPUT_NAME": "_native",
+     "PREFIX": "",
+     "RUNTIME_OUTPUT_DIRECTORY": "${FSIM_PY_PACKAGE}",
+     "SUFFIX": ".pyd"
     },
     "sources": [
-     "src/_native.c",
-     "src/_native_control.c",
-     "src/_native_dms.c",
-     "src/_native_environment.c",
-     "src/_native_mission.c",
-     "src/_native_mission_env.c",
-     "src/_native_recording.c",
-     "src/_native_recording.h",
-     "src/_native_scenario.c",
-     "src/_native_vecenv.c",
-     "src/_native_vecenv.h",
-     "src/_native_world.c",
-     "src/_native_world.h",
-     "src/_native_world_options.h"
+     {
+      "declared": "src/_native.c",
+      "path": "python/src/_native.c",
+      "resolved": true,
+      "sha256": "c07a27d45701660795fd33b3138de618bbd63d7cb59c2f26ea4c8f6d2894b8c1"
+     },
+     {
+      "declared": "src/_native_control.c",
+      "path": "python/src/_native_control.c",
+      "resolved": true,
+      "sha256": "1482aaa6c76aa82505955f78eb0a72256396e130587b498b02066e86a96b16de"
+     },
+     {
+      "declared": "src/_native_dms.c",
+      "path": "python/src/_native_dms.c",
+      "resolved": true,
+      "sha256": "6a9f8ff5bc8091bd323eb64fa40fe69a267703f965e9960d5e15fb03a179735e"
+     },
+     {
+      "declared": "src/_native_environment.c",
+      "path": "python/src/_native_environment.c",
+      "resolved": true,
+      "sha256": "6cbb7d589ed06929df8d81ff357a86bc707201f3ca2aee6919ef292ded63a992"
+     },
+     {
+      "declared": "src/_native_mission.c",
+      "path": "python/src/_native_mission.c",
+      "resolved": true,
+      "sha256": "98e5257f76480429ebe8ee4ed1414af3a49612483dc62a3a9737d15b98964855"
+     },
+     {
+      "declared": "src/_native_mission_env.c",
+      "path": "python/src/_native_mission_env.c",
+      "resolved": true,
+      "sha256": "9ed2eb906b6d350a0e8009e69036be261d2beb7d32afcfb39fa1615bc9aeaaaf"
+     },
+     {
+      "declared": "src/_native_recording.c",
+      "path": "python/src/_native_recording.c",
+      "resolved": true,
+      "sha256": "de40864a3aba51a9792dea1eb471bc2ecd8d0dee04770129b5b7c40ddb2a48bb"
+     },
+     {
+      "declared": "src/_native_recording.h",
+      "path": "python/src/_native_recording.h",
+      "resolved": true,
+      "sha256": "74778880a997afbe69fc790a62b72418b8250276c06aea78fc06a159637d1a75"
+     },
+     {
+      "declared": "src/_native_scenario.c",
+      "path": "python/src/_native_scenario.c",
+      "resolved": true,
+      "sha256": "5d836390ff13cb343ff2f1a600df2192736ce09827165d1d0e9ce0e3aaa8cab2"
+     },
+     {
+      "declared": "src/_native_vecenv.c",
+      "path": "python/src/_native_vecenv.c",
+      "resolved": true,
+      "sha256": "827826748adeebe45c75ac37d02bf73999a9ecaa5807f43bac085757b69fbc28"
+     },
+     {
+      "declared": "src/_native_vecenv.h",
+      "path": "python/src/_native_vecenv.h",
+      "resolved": true,
+      "sha256": "8a8029e862a51ffc5b387044ddd42bb90a804f2898d733659a34e8cbebb3e89e"
+     },
+     {
+      "declared": "src/_native_world.c",
+      "path": "python/src/_native_world.c",
+      "resolved": true,
+      "sha256": "4fd7ff810fe308cd62cb111441d2ea99d9d830228768bc2e367e11537aaf6487"
+     },
+     {
+      "declared": "src/_native_world.h",
+      "path": "python/src/_native_world.h",
+      "resolved": true,
+      "sha256": "8cd8c10984fafed5212977ff81351a2b6445d1f37ddcf70ce02e033b098fdfc8"
+     },
+     {
+      "declared": "src/_native_world_options.h",
+      "path": "python/src/_native_world_options.h",
+      "resolved": true,
+      "sha256": "d2227b24f1f86204c960088b56074c1b773bc6db04f96167d3daaaf3b7a8d4dc"
+     },
+     {
+      "declared": "src/fsim_py.h",
+      "path": "python/src/fsim_py.h",
+      "resolved": true,
+      "sha256": "d2d46b7d09de1f568d3e289b93f41b1806f9ff2a12f364fb1f5a29bda637bba0"
+     }
     ],
     "target": "fsim_python"
    },
    {
+    "compile_definitions": [
+     "Py_LIMITED_API=0x030B0000"
+    ],
+    "conditions": [
+     "if(TARGET fsim_vision)"
+    ],
+    "helper": "fsim_python_module",
+    "include_directories": [
+     {
+      "declared": "${FSIM_PYTHON_INCLUDE}",
+      "resolved": false
+     },
+     {
+      "declared": "${CMAKE_CURRENT_SOURCE_DIR}/src",
+      "path": "python/src",
+      "resolved": true
+     }
+    ],
     "links": [
-     "fsim::vision"
+     {
+      "by": "fsim_python_module",
+      "declared": "fsim::vision",
+      "resolved": true
+     },
+     {
+      "by": "fsim_python_module",
+      "declared": "${FSIM_PYTHON3_DLL}",
+      "resolved": false
+     }
     ],
     "module": "fsim._vision",
-    "source_sha256": {
-     "src/_vision.c": "714e202f9379d87c1000edcdeb951b83057f0c2e02f84ab1a5b8654e0f249ebb"
+    "properties": {
+     "C_STANDARD": "11",
+     "C_STANDARD_REQUIRED": "ON",
+     "LIBRARY_OUTPUT_DIRECTORY": "${FSIM_PY_PACKAGE}",
+     "OUTPUT_NAME": "_vision",
+     "PREFIX": "",
+     "RUNTIME_OUTPUT_DIRECTORY": "${FSIM_PY_PACKAGE}",
+     "SUFFIX": ".pyd"
     },
     "sources": [
-     "src/_vision.c"
+     {
+      "declared": "src/_vision.c",
+      "path": "python/src/_vision.c",
+      "resolved": true,
+      "sha256": "714e202f9379d87c1000edcdeb951b83057f0c2e02f84ab1a5b8654e0f249ebb"
+     },
+     {
+      "declared": "src/fsim_py.h",
+      "path": "python/src/fsim_py.h",
+      "resolved": true,
+      "sha256": "d2d46b7d09de1f568d3e289b93f41b1806f9ff2a12f364fb1f5a29bda637bba0"
+     }
     ],
     "target": "fsim_python_vision"
    }
@@ -1459,6 +1597,7 @@
   ],
   "dynamic_imports": [
    {
+    "form": "call",
     "function": "_serve_ma",
     "line": 646,
     "module": "fsim.isolation"
@@ -1855,6 +1994,7 @@
     "to": "fsim.agent"
    }
   ],
+  "initialization_imports": [],
   "legacy_backedges": [
    {
     "from": "fsim.training",
@@ -1977,7 +2117,6 @@
   "tools/architecture/README.md",
   "tools/architecture/baseline.py",
   "tools/architecture/check.py",
-  "tools/architecture/policy.json",
   "tools/architecture/python_imports.py",
   "tools/architecture/test_check.py"
  ]

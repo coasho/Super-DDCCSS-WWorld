@@ -609,6 +609,90 @@ class DomainFixtures(FixtureRepository):
         self.write("python/fsim/world.py", "")
         self.rejects("python-exception", "stale legacy backedge fsim.world -> fsim: no such import")
 
+    # review finding 1: an exact file claim never overrides a reserved or foreign destination
+    def test_an_exact_file_claim_cannot_take_a_reserved_destination(self):
+        path = "src/training/native/mission/Takeover.cpp"
+        self.write(path, "int takeover;\n")
+        self.append("src/session/CMakeLists.txt", "target_sources(fsim_session PRIVATE ../training/native/mission/Takeover.cpp)\n")
+        self.rejects("planned-owner", "reserved for planned module mission (ARCH-05)")
+        self.policy["modules"]["session"]["files"].append(path)
+        self.input_error(f"file-claim: session (simulation) claims {path}, reserved for planned module mission (ARCH-05)")
+
+    def test_an_exact_file_claim_cannot_take_another_modules_destination(self):
+        self.policy["modules"]["session"]["files"].append("src/training/native/vecenv/Take.cpp")
+        self.input_error("file-claim: session (simulation) claims src/training/native/vecenv/Take.cpp in the destination of env (training)")
+
+    def test_an_exact_file_claim_cannot_take_another_domains_legacy_directory(self):
+        self.policy["modules"]["session"]["files"].append("src/env/Take.cpp")
+        self.input_error("file-claim: session (simulation) claims src/env/Take.cpp in the legacy directory of env (training)")
+
+    def test_an_exact_file_claim_inside_a_domain_root_needs_its_own_destination(self):
+        self.policy["modules"]["session"]["files"].append("src/training/Loose.cpp")
+        self.input_error("claims src/training/Loose.cpp inside the training domain root, outside its own destinations")
+
+    def test_exact_file_claims_in_a_same_domain_legacy_directory_or_own_destination_are_kept(self):
+        # (Flow's files in src/world are the fixture's legacy shared directory; a claim in Flow's own destination too)
+        self.write("src/visualization/vfx/flow/FlowFires.cpp", '#include "core/Header.h"\n')
+        self.policy["modules"]["flow"]["files"].append("src/visualization/vfx/flow/FlowFires.cpp")
+        self.append("src/world/CMakeLists.txt", "target_sources(fsim_flow PRIVATE ../visualization/vfx/flow/FlowFires.cpp)\n")
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+
+    # review finding 2: imported import functions and their aliases are dynamic-import sites
+    def test_an_imported_import_function_is_a_dynamic_import_site(self):
+        for binding, name in (("from importlib import import_module", "import_module"),
+                              ("from importlib import import_module as load_module", "load_module"),
+                              ("from builtins import __import__ as raw_import", "raw_import")):
+            with self.subTest(binding=binding):
+                self.policy["python"]["dynamic_imports"] = []
+                self.write("python/fsim/world.py", f"{binding}\n\n\ndef load(module):\n    return {name}(module)\n")
+                self.rejects("python-dynamic-import", "unregistered dynamic import in load")
+                self.policy["python"]["dynamic_imports"] = [{"module": "fsim.world", "function": "load", "reason": "fixture"}]
+                status, output = self.run_gate()
+                self.assertEqual(status, 0, output)
+
+    def test_an_import_function_used_other_than_as_a_direct_call_is_unsupported(self):
+        self.policy["python"]["dynamic_imports"] = [{"module": "fsim.world", "function": "load", "reason": "fixture"}]
+        for text in ("import importlib\n\n\ndef load(module):\n    loader = importlib.import_module\n    return loader(module)\n",
+                     "from importlib import import_module as load_module\n\n\ndef load(module):\n    return map(load_module, [module])\n",
+                     "import importlib\n\n\ndef load(module):\n    return getattr(importlib, 'import_module')(module)\n"):
+            with self.subTest(text=text):
+                self.write("python/fsim/world.py", text)
+                self.rejects("python-dynamic-import", "unsupported dynamic-import form in load")
+
+    # review finding 3: a package initializer on the way to an imported module runs too
+    def test_an_intermediate_package_initializer_cannot_load_an_optional_package(self):
+        self.write("python/fsim/_training/__init__.py", "import torch\n")
+        self.write("python/fsim/_training/batch.py", "def run():\n    pass\n")
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)  # (nothing imports the subpackage yet)
+        for importer in ("from ._training.batch import run\n", "import fsim._training.batch\n"):
+            with self.subTest(importer=importer):
+                self.write("python/fsim/__init__.py", "from . import _native\nfrom .world import World\n" + importer)
+                self.rejects("python-optional-eager", "eagerly imports optional package torch (through fsim._training)")
+
+    def test_initialization_edges_create_no_facade_cycle_and_follow_deferral(self):
+        self.write("python/fsim/_training/__init__.py", "import torch\n")
+        self.write("python/fsim/_training/batch.py", "from fsim._training import helpers\n")
+        self.write("python/fsim/_training/helpers.py", "")
+        self.write("python/fsim/__init__.py", "from . import _native\nfrom .world import World\n\n\n"
+                   "def batch():\n    from ._training.batch import run\n    return run\n")
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)  # (deferred: the initializer runs only when used; no root backedge invented)
+
+    # review finding 4: an exception must close its own cycle
+    def test_an_exception_between_two_separate_cycles_is_stale(self):
+        self.write("python/fsim/a.py", "def f():\n    import fsim.c\n    import fsim.b\n")
+        self.write("python/fsim/c.py", "def g():\n    import fsim.a\n")
+        self.write("python/fsim/b.py", "def f():\n    import fsim.d\n")
+        self.write("python/fsim/d.py", "def g():\n    import fsim.b\n")
+        backedges = [("fsim.c", "fsim.a"), ("fsim.d", "fsim.b")]
+        self.policy["python"]["exceptions"] = [{"from": f, "to": t, "until": "ARCH-07", "reason": "fixture"} for f, t in backedges]
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+        self.policy["python"]["exceptions"].append({"from": "fsim.a", "to": "fsim.b", "until": "ARCH-07", "reason": "between cycles"})
+        self.rejects("python-exception", "legacy backedge fsim.a -> fsim.b no longer closes a cycle")
+
 
 class BaselineFixtures(FixtureRepository):
     """The baseline record (baseline.py): the actual graphs and hashes, reproducible, dated by its caller."""
@@ -633,6 +717,64 @@ class BaselineFixtures(FixtureRepository):
         self.assertIn("src/sim/Header.h", record["native"]["modules"]["sim"]["files"])
         self.assertEqual(record["checker"]["issues"], [])
         self.assertEqual(record["python"]["modules"]["fsim.world"]["owner"], "fsim")
+
+    # review finding 5: every declared extension input and link is in the record
+    EXTENSIONS = """function(fsim_python_module target name source library)
+    add_library(${target} MODULE ${source} src/fsim_py.h)
+    set_target_properties(${target} PROPERTIES PREFIX "" OUTPUT_NAME ${name} SUFFIX ".pyd")
+    target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(${target} PRIVATE ${library} "${FSIM_PYTHON3_DLL}")
+    target_compile_definitions(${target} PRIVATE Py_LIMITED_API=0x030B0000)
+endfunction()
+fsim_python_module(fsim_python _native src/_native.c fsim::sdk)
+target_sources(fsim_python PRIVATE src/_native_world.c)
+if(TARGET fsim_vision)
+    fsim_python_module(fsim_python_vision _vision src/_vision.c fsim::vision)
+endif()
+"""
+
+    def extensions(self, name):
+        self.write("policy.json", json.dumps(self.policy))
+        status, output = self.baseline(self.repo / name)
+        self.assertEqual(status, 0, output)
+        record = json.loads((self.repo / name).read_text(encoding="utf-8"))
+        return {e["target"]: e for e in record["package_outputs"]["python_extensions"]}
+
+    def test_helper_inputs_and_links_are_recorded_and_their_changes_are_visible(self):
+        self.write("python/CMakeLists.txt", self.EXTENSIONS)
+        for source in ("_native.c", "_native_world.c", "_vision.c", "fsim_py.h"):
+            self.write("python/src/" + source, "/* " + source + " */\n")
+        first = self.extensions("first.json")
+        native = first["fsim_python"]
+        self.assertEqual(native["module"], "fsim._native")
+        self.assertEqual([s["declared"] for s in native["sources"]], ["src/_native.c", "src/_native_world.c", "src/fsim_py.h"])
+        self.assertTrue(all("sha256" in s for s in native["sources"]))
+        self.assertEqual([(l["declared"], l["resolved"], l["by"]) for l in native["links"]],
+                         [("fsim::sdk", True, "fsim_python_module"), ("${FSIM_PYTHON3_DLL}", False, "fsim_python_module")])
+        self.assertEqual(native["compile_definitions"], ["Py_LIMITED_API=0x030B0000"])
+        self.assertEqual(first["fsim_python_vision"]["conditions"], ["if(TARGET fsim_vision)"])
+        # the shared helper header changes: both extensions' recorded input changes
+        self.write("python/src/fsim_py.h", "/* changed */\n")
+        second = self.extensions("second.json")
+        for target in ("fsim_python", "fsim_python_vision"):
+            before = {s["declared"]: s.get("sha256") for s in first[target]["sources"]}
+            after = {s["declared"]: s.get("sha256") for s in second[target]["sources"]}
+            self.assertNotEqual(before["src/fsim_py.h"], after["src/fsim_py.h"])
+        # a direct link and a helper link change are both visible
+        self.append("python/CMakeLists.txt", "target_link_libraries(fsim_python PRIVATE winmm)\n")
+        self.write("python/CMakeLists.txt", (self.repo / "python/CMakeLists.txt").read_text(encoding="utf-8")
+                   .replace('${library} "${FSIM_PYTHON3_DLL}"', '${library} "${FSIM_PYTHON3_DLL}" ws2_32'))
+        third = self.extensions("third.json")
+        links = [(l["declared"], l["by"]) for l in third["fsim_python"]["links"]]
+        self.assertIn(("winmm", "direct"), links)
+        self.assertIn(("ws2_32", "fsim_python_module"), links)
+        self.assertIn(("ws2_32", "fsim_python_module"), [(l["declared"], l["by"]) for l in third["fsim_python_vision"]["links"]])
+
+    def test_a_missing_declared_source_is_recorded_as_missing(self):
+        self.write("python/CMakeLists.txt", self.EXTENSIONS)
+        self.write("python/src/_native.c", "")
+        native = self.extensions("missing.json")["fsim_python"]
+        self.assertTrue(next(s for s in native["sources"] if s["declared"] == "src/fsim_py.h")["missing"])
 
     def test_a_rejected_tree_is_recorded_as_rejected(self):
         self.append("src/ms/Header.h", '#include "sim/Header.h"\n')

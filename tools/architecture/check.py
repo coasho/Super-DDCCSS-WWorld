@@ -186,6 +186,27 @@ def validate_policy(policy):
                 if path in owners:
                     raise ValueError(f"duplicate-owner: {path} is claimed by {owners[path]} and {name}")
                 owners[path] = name
+    # An exact file claim keeps the existing legacy shared directories (Flow in src/world, the Viewer in src/app) but
+    # never overrides another owner: inside a domain root it lies in the module's own destination, and in a legacy
+    # directory it belongs to a module of the same domain. It cannot take a reserved or foreign file.
+    directory_claims = [(path.rstrip("/"), name, group) for group, entries in (("module", modules), ("planned", planned))
+                        for name, module in entries.items() for path in module.get("directories", []) + module["destinations"]]
+    for name, module in modules.items():
+        for path in module["files"]:
+            covering = sorted((len(directory), owner, group) for directory, owner, group in directory_claims
+                              if path.startswith(directory + "/"))
+            inside = next((d for d, entry in domains.items() if path.startswith(entry["root"] + "/")), None)
+            here = f"file-claim: {name} ({module['domain']}) claims {path}"
+            if covering:
+                _, owner, group = covering[-1]
+                if group == "planned":
+                    raise ValueError(f"{here}, reserved for planned module {owner} ({planned[owner]['phase']})")
+                if inside and owner != name:
+                    raise ValueError(f"{here} in the destination of {owner} ({modules[owner]['domain']})")
+                if modules[owner]["domain"] != module["domain"]:
+                    raise ValueError(f"{here} in the legacy directory of {owner} ({modules[owner]['domain']})")
+            elif inside:
+                raise ValueError(f"{here} inside the {inside} domain root, outside its own destinations")
     for module in modules.values():
         for dependency in module["allowed_dependencies"]:
             if dependency not in modules:

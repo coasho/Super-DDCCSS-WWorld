@@ -151,7 +151,12 @@ Each module lists its current (legacy, flat) `directories` and its future
 Python and Vision extension adapters, `oms`, `demo`, `training_vision`,
 `testbench`) reserve their destinations. Ownership resolves as follows:
 
-- an exact file entry wins first, then the longest claimed directory prefix;
+- an exact file entry wins first, then the longest claimed directory prefix. An
+  exact entry keeps the legacy shared directories, such as Flow in `src/world`
+  and the Viewer in `src/app`, but never overrides another owner. Inside a domain
+  root it must lie in the module's own destination; in a legacy directory, the
+  directory's owner must be in the same domain. A claim on a reserved, foreign or
+  unassigned file is an input error (`file-claim`);
 - two claims of the same length fail as `duplicate-owner`; the same path claimed
   twice in the policy is an input error;
 - a file in a planned owner's destination fails as `planned-owner` until that
@@ -178,16 +183,26 @@ imports are deferred edges, everything else eager). It requires:
 
 - an acyclic module graph, deferred edges included. The two current deferred
   cycles (`fsim.training -> fsim`, `fsim.world -> fsim.agent`) are exact
-  ARCH-07 exceptions. An exception that becomes eager, disappears or no longer
-  closes a cycle fails.
+  ARCH-07 exceptions. An exception that becomes eager or disappears fails.
 - private implementation packages (`fsim._contracts`, `_simulation`,
   `_training`, `_visualization`, `_adapters`, as ARCH-07 creates them) import
   only what the policy lists for them. They never import the package root or a
   public facade module, not even function-locally.
 - no optional module (`fsim.gym`, `fsim.sb3`, `fsim.vision`) or optional
   package (`gymnasium`, `stable_baselines3`, `torch`) in the package's eager
-  import closure.
-- dynamic imports only at registered sites (today `fsim.isolation._serve_ma`).
+  import closure. Importing `a.b.c` runs the initializers of the packages on the
+  way, so that closure follows initialization edges to each intermediate
+  package. These are recorded apart from explicit imports, and the always
+  initialized root is not one, so they invent no facade cycle and no facade
+  backedge.
+- an exception that still closes its own cycle: its target reaches its source.
+  Lying in some other cycle is not enough.
+- dynamic imports only at registered sites (today `fsim.isolation._serve_ma`). A
+  site is a direct call of `importlib.import_module` (through any module alias),
+  `__import__`, or a name bound by `from importlib import import_module [as x]` or
+  `from builtins import __import__ [as y]`. An import function used other than
+  as a direct call (stored, passed, or fetched with `getattr`) cannot be followed,
+  and fails as an unsupported form.
 - every subpackage a declared private package.
 
 Compiled extensions are owner-level leaves; their native links are checked as
@@ -204,8 +219,14 @@ from the gate's own analysis. The record holds:
 - the public headers with hashes and including modules;
 - the Python modules with owners and hashes, every import with its line, the
   cycles, the eager closure and the dynamic sites;
-- the build's declared package outputs: target types, CPython extension modules
-  and sources, and install rules as written.
+- the build's declared package outputs: target types, install rules as written,
+  and each CPython extension module with every input and link it is declared
+  with. Helper functions are expanded with their call's arguments, so the shared
+  `src/fsim_py.h` and the stable-ABI `${FSIM_PYTHON3_DLL}` link are the
+  extension's. Direct `target_sources` and `target_link_libraries` are added, as
+  are include directories, definitions, properties and the enclosing `if()`
+  branches. A file input carries its hash; a variable or generator expression is
+  recorded as written and marked unresolved, never guessed.
 
 The record includes the gate's verdict; a rejected tree is recorded and exits 1.
 It is a dated record, not a gate: source edits change its hashes, so refresh it

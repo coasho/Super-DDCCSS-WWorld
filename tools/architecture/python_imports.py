@@ -75,9 +75,10 @@ def discover(repo, spec):
 class Imports(ast.NodeVisitor):
     """Literal imports of one module: package edges, external top-level names and dynamic-import sites."""
 
-    def __init__(self, module, path, modules, package):
+    def __init__(self, module, path, modules, package, aliases=()):
         self.module, self.path, self.modules, self.package = module, path, modules, package
-        self.functions, self.edges, self.external, self.dynamic = [], [], [], []
+        self.aliases = set(aliases)
+        self.functions, self.edges, self.init_edges, self.external, self.dynamic = [], [], [], [], []
 
     def visit_FunctionDef(self, node):
         self.functions.append(node.name)
@@ -95,6 +96,15 @@ class Imports(ast.NodeVisitor):
         deferred = bool(self.functions)
         if target in self.modules:
             self.edges.append({"from": self.module, "to": target, "line": node.lineno, "deferred": deferred})
+            # Importing a.b.c runs each package on the way first: their initializers load what they import. These
+            # are initialization edges, kept apart from explicit imports (the package root is always initialized
+            # first and is no edge: counting it would invent a facade cycle for every submodule import).
+            parts = target.split(".")
+            for k in range(2, len(parts)):
+                ancestor = ".".join(parts[:k])
+                if ancestor in self.modules and self.modules[ancestor] is not None and ancestor != self.module:
+                    self.init_edges.append({"from": self.module, "to": ancestor, "line": node.lineno, "deferred": deferred,
+                                            "via": target})
         elif target.split(".")[0] != self.package:
             self.external.append({"name": target.split(".")[0], "line": node.lineno, "deferred": deferred})
 
@@ -124,13 +134,50 @@ class Imports(ast.NodeVisitor):
             child = parent + "." + item.name
             self.record(child if child in self.modules else parent, node)
 
+    def site(self, node, form):
+        self.dynamic.append({"module": self.module, "function": ".".join(self.functions) or "<module>", "line": node.lineno,
+                             "form": form})
+
     def visit_Call(self, node):
         func = node.func
-        dynamic = (isinstance(func, ast.Attribute) and func.attr in {"import_module", "__import__"}) or \
-                  (isinstance(func, ast.Name) and func.id == "__import__")
-        if dynamic:
-            self.dynamic.append({"module": self.module, "function": ".".join(self.functions) or "<module>", "line": node.lineno})
+        if isinstance(func, ast.Attribute) and func.attr in IMPORT_FUNCTIONS:
+            self.site(node, "call")  # importlib.import_module(...), builtins.__import__(...), any module alias
+            self.visit(func.value)
+        elif isinstance(func, ast.Name) and (func.id == "__import__" or func.id in self.aliases):
+            self.site(node, "call")  # __import__(...), or a bound name: from importlib import import_module [as x]
+        elif isinstance(func, ast.Name) and func.id == "getattr" and len(node.args) >= 2 \
+                and isinstance(node.args[1], ast.Constant) and node.args[1].value in IMPORT_FUNCTIONS:
+            self.site(node, "unsupported")  # getattr(importlib, "import_module")
+            self.visit(node.args[0])
+        else:
+            self.visit(func)
+        for child in node.args + [keyword.value for keyword in node.keywords]:
+            self.visit(child)
+
+    # an import function referenced other than as a direct call (stored, passed or rebound) cannot be followed
+    def visit_Name(self, node):
+        if node.id == "__import__" or node.id in self.aliases:
+            self.site(node, "unsupported")
+
+    def visit_Attribute(self, node):
+        if node.attr in IMPORT_FUNCTIONS:
+            self.site(node, "unsupported")
         self.generic_visit(node)
+
+
+IMPORT_FUNCTIONS = {"import_module", "__import__"}
+
+
+def import_function_aliases(tree):
+    """Names bound to an import function anywhere in a module: from importlib import import_module [as x], from
+    builtins import __import__ [as y]. Scope-insensitive: a binding anywhere counts everywhere (conservative)."""
+    names = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module in {"importlib", "builtins"}:
+            for item in node.names:
+                if item.name in IMPORT_FUNCTIONS:
+                    names.add(item.asname or item.name)
+    return names
 
 
 def components(graph):
@@ -174,17 +221,19 @@ def check(repo, spec):
 
     package = spec["package"]
     modules = discover(repo, spec)
-    edges, external, dynamic = [], {}, []
+    edges, init_edges, external, dynamic = [], [], {}, []
     for module, path in sorted((m, p) for m, p in modules.items() if p is not None):
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         except SyntaxError as error:
             issue("python-syntax", path.relative_to(repo).as_posix(), str(error))
             continue
-        scan = Imports(module, path, modules, package)
+        scan = Imports(module, path, modules, package, import_function_aliases(tree))
         scan.visit(tree)
         unique = {(e["to"], e["line"], e["deferred"]): e for e in scan.edges if e["to"] != module}
         edges += [unique[key] for key in sorted(unique)]
+        unique = {(e["to"], e["line"], e["deferred"]): e for e in scan.init_edges}
+        init_edges += [unique[key] for key in sorted(unique)]
         external[module] = scan.external
         dynamic += scan.dynamic
 
@@ -233,7 +282,18 @@ def check(repo, spec):
     with_all = {module: set() for module in modules}
     for edge in edges:
         with_all[edge["from"]].add(edge["to"])
-    cyclic = {module for part in components(with_all) for module in part}
+
+    def reaches(start, goal):
+        seen, pending = {start}, [start]
+        while pending:
+            for nxt in with_all[pending.pop()]:
+                if nxt == goal:
+                    return True
+                if nxt not in seen:
+                    seen.add(nxt)
+                    pending.append(nxt)
+        return start == goal
+
     for entry in spec["exceptions"]:
         found = [e for e in edges if (e["from"], e["to"]) == (entry["from"], entry["to"])]
         name = f"{entry['from']} -> {entry['to']}"
@@ -242,14 +302,16 @@ def check(repo, spec):
         elif any(not e["deferred"] for e in found):
             issue("python-exception", place(entry["from"], next(e["line"] for e in found if not e["deferred"])),
                   f"legacy backedge {name} is now eager")
-        elif not ({entry["from"], entry["to"]} <= cyclic):
+        elif not reaches(entry["to"], entry["from"]):
+            # the edge itself must close a cycle: its target reaches back to its source (being in some cycle is not enough)
             issue("python-exception", "policy", f"legacy backedge {name} no longer closes a cycle: remove the exception")
 
-    # the package's eager closure loads no optional module or optional external package
+    # the package's eager closure loads no optional module or optional external package; an imported module's package
+    # initializers run too (initialization edges)
     reached, pending = {package}, [package]
     while pending:
         current = pending.pop()
-        for edge in edges:
+        for edge in edges + init_edges:
             if edge["from"] == current and not edge["deferred"] and edge["to"] not in reached:
                 reached.add(edge["to"])
                 pending.append(edge["to"])
@@ -266,6 +328,11 @@ def check(repo, spec):
     seen = set()
     for site in dynamic:
         key = (site["module"], site["function"])
+        if site["form"] == "unsupported":
+            issue("python-dynamic-import", place(site["module"], site["line"]),
+                  f"unsupported dynamic-import form in {site['function']}: call importlib.import_module or a name bound by "
+                  "`from importlib import import_module` directly, at a registered site")
+            continue
         seen.add(key)
         if key not in registered:
             issue("python-dynamic-import", place(site["module"], site["line"]),
@@ -277,6 +344,7 @@ def check(repo, spec):
         "modules": {m: (p.relative_to(repo).as_posix() if p else None) for m, p in sorted(modules.items())},
         "owners": {m: o for m, o in sorted(owners.items())},
         "edges": sorted(edges, key=lambda e: (e["from"], e["to"], e["line"])),
+        "init_edges": sorted(init_edges, key=lambda e: (e["from"], e["to"], e["line"])),
         "external": {m: sorted({i["name"] for i in items}) for m, items in sorted(external.items())},
         "dynamic_imports": dynamic,
         "cycles_all": components(with_all),
