@@ -158,6 +158,12 @@ if(FSIM_BUILD_TESTS)
     add_test(NAME sdk_boundary COMMAND "${FSIM_PYTHON}" ${CMAKE_SOURCE_DIR}/tools/boundary/boundary.py check
              ${_fsim_boundary_args})
     set_tests_properties(sdk_boundary PROPERTIES TIMEOUT 120)
+    # The MA-training compatibility comparison's own refusals (tools/ma_contract/baseline.py compare; M8): each Python
+    # description held to its contract, and every artifact of a selected build required and captured afresh - against
+    # this build's real binaries and deliberately incomplete copies of them; the frozen baseline is not touched.
+    add_test(NAME ma_baseline_checker COMMAND "${FSIM_PYTHON}" -B ${CMAKE_SOURCE_DIR}/tools/ma_contract/test_baseline.py
+             --build ${CMAKE_BINARY_DIR} --ucrt64 "${FSIM_UCRT64_ROOT}")
+    set_tests_properties(ma_baseline_checker PROPERTIES LABELS ma-training TIMEOUT 900)
     # hangar, the aircraft design tool: its methods against theory and
     # published data, and every stage end to end through this package - a
     # test per test class, so ctest -j runs them side by side, each with an

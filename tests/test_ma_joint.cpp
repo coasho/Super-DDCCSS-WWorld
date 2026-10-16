@@ -1,8 +1,9 @@
 // Joint acceptance, generic part (M8; docs/sdk/ma-training-validation.md): the recorded joint chains replayed through
 // the public C++ SDK alone, and what each case requires checked on what the endpoints returned - J2 P2P perception,
-// J4 typed C2 tasks and an unauthorized role, J6 control ownership, J7 link aging, lost link and package changes, the
-// message part of J3 on a lossy link, and the lifecycle part of J8: a reset equals a fresh episode, and independent
-// episodes do not interfere. The installed C++, C99 and Python consumers replay the same chains and must write the
+// J4 typed C2 tasks and an unauthorized role, J6 control ownership (C2's direct command, its control designation across
+// a platform's services, its overrides), J7 link aging, lost link and package changes, the message part of J3 on a
+// lossy link, and the lifecycle part of J8: a reset with an open task, a message on the link and a queued request
+// leaves none of them, and equals a fresh episode; independent episodes do not interfere. The installed C++, C99 and Python consumers replay the same chains and must write the
 // same trace (mission_package_consumer).
 #include "MissionTestSupport.h"
 
@@ -10,6 +11,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
@@ -140,6 +142,71 @@ std::string nativeId(const core::Json& receipt, const char* id) {
 }
 const core::Json& items(const core::Json& snapshot, const char* report) { return at(at(at(snapshot, "reports"), report), "items"); }
 double timeOf(const core::Json& snapshot) { return at(snapshot, "time_s").asNumber(); }
+
+/// An episode driven through its endpoints directly, for the cases a recorded chain does not hold: requests asked for
+/// this tick, submitted per service when the tick closes.
+struct Driver {
+    MissionEpisode episode;
+    std::map<std::uint64_t, std::uint64_t> ids;
+    std::map<std::uint64_t, std::string> pending;
+    std::uint64_t tick = 0;
+
+    explicit Driver(const std::string& config) : episode(config) { episode.reset(0); }
+    core::Json snap(std::uint64_t service) { return parse(episode.endpoint(service).observationJsonV1()); }
+    std::uint64_t ask(std::uint64_t service, const std::string& kind, const std::string& operation, const std::string& parameters,
+                      std::uint64_t component = 0) {
+        const std::uint64_t id = ++ids[service];
+        std::string r = request(id, kind, operation, parameters);
+        if (component) r.insert(r.size() - 1, ",\"component\":{\"component_id\":\"" + std::to_string(component) + "\"}");
+        pending[service] += (pending[service].empty() ? "" : ",") + r;
+        return id;
+    }
+    /// This tick's requests of one service submitted now, without closing the tick: their acknowledgment.
+    std::string submit(std::uint64_t service) {
+        const core::Json s = snap(service);
+        const std::string ack = episode.endpoint(service).submitJsonV1(actions(at(s, "episode").dump(), service, tick, pending[service]));
+        pending.erase(service);
+        return ack;
+    }
+    void step() {
+        while (!pending.empty()) submit(pending.begin()->first);
+        episode.step();
+        ++tick;
+    }
+    void until(const char* what, const std::function<bool()>& condition, int limit = 60) {
+        for (int k = 0; k < limit; ++k) {
+            if (condition()) return;
+            step();
+        }
+        FAIL(what << " did not happen within " << limit << " ticks");
+    }
+    std::string state(std::uint64_t service, std::uint64_t id) {
+        const core::Json s = snap(service);
+        const core::Json* r = receiptOf(s, std::to_string(id));
+        return r ? str(*r, "state") : "";
+    }
+    std::string reason(std::uint64_t service, std::uint64_t id) {
+        const core::Json s = snap(service);
+        const core::Json* r = receiptOf(s, std::to_string(id));
+        return r ? native(*r, "reason") : "";
+    }
+};
+
+/// The joint configuration (the main chain's), with `edit` applied to its text.
+std::string jointConfig(const std::function<std::string(std::string)>& edit = {}) {
+    std::string config = replaced(readFile(jointPath("config.joint.json")), "\"@JSBSIM_ROOT@\"", jsonString(FSIM_TEST_JSBSIM_ROOT));
+    return edit ? edit(config) : config;
+}
+
+bool hsaAllowed(const core::Json& snapshot) {
+    for (const core::Json& c : items(snapshot, "capabilities").asArray())
+        if (str(c, "capability") == "fsim.guidance.hsa") return at(c, "allowed").asBool();
+    throw std::runtime_error("no fsim.guidance.hsa capability in the snapshot");
+}
+
+double trueAirspeed(const core::Json& snapshot) {
+    return at(at(at(at(snapshot, "reports"), "navigation"), "own_ship"), "airspeed_true_ms").asNumber();
+}
 
 /// Every generation's identity, the same: a reset's snapshots compared with a fresh episode's.
 std::string sameGeneration(std::string text) {
@@ -370,16 +437,16 @@ TEST_CASE("J3 messages on a lossy link: retransmitted until delivered, each deli
         if (str(s, "service_id") == std::to_string(kWingMa)) CHECK(at(at(s, "total"), "dms_messages").asNumber() == 1.0);
 }
 
-TEST_CASE("J8 lifecycle: a reset after the chain stopped midway - messages, tasks, commands pending - equals a fresh episode",
+TEST_CASE("J8 lifecycle: a reset after the chain stopped midway replays the chain to a fresh episode's trace, truth and costs",
           "[joint][J8]") {
     const Chain chain("chain.joint.txt");
     const Trace fresh = replayFresh(chain);
     MissionEpisode episode(chain.config);
     episode.reset(0);
-    // stopped where the proposal, the package commands and C2's status are on the link and the task is open
+    // stopped at the package requests' tick: they are submitted, not yet stepped (the pending-state case is below)
     const std::uint64_t stop = chain.tickOf(kCrc, "c2", "form_package");
     const Trace partial = replay(episode, chain, stop);
-    CHECK_FALSE(items(partial.snapshot(stop, kWingMa), "tasks").asArray().empty());
+    CHECK(str(at(at(partial.acknowledgment(stop, kCrc), "submission"), "requests").asArray().at(0), "status") == "queued");
     episode.reset(0); // (the same local episode: its next generation)
     const Trace again = replay(episode, chain);
     REQUIRE(again.lines.size() == fresh.lines.size());
@@ -430,4 +497,138 @@ TEST_CASE("J8 lifecycle: independent episodes stepped together, one reset midway
     CHECK(ta.lines == soloJoint.lines);
     REQUIRE(tb.lines.size() == soloLossy.lines.size());
     for (std::size_t i = 0; i < tb.lines.size(); ++i) CHECK(sameGeneration(tb.lines[i]) == soloLossy.lines[i]);
+}
+
+TEST_CASE("J6 control ownership across services: C2's control designation and its override bind every service of the platform",
+          "[joint][J6]") {
+    INFO("designation: C2 leaves the lead its waypoint mode alone - HSA revoked for both of the lead's services - then gives it back");
+    Driver d(jointConfig());
+    d.ask(kCrc, "c2", "declare_role", "{\"role_id\":\"3\",\"callsign\":\"CRC AVC\"}");
+    d.step();
+    d.until("the role's delivery", [&] { return !at(at(at(d.snap(kLead), "reports"), "authority"), "operators").asArray().empty(); });
+    CHECK(hsaAllowed(d.snap(kLead)));
+    CHECK(hsaAllowed(d.snap(kSensors)));
+    d.ask(kCrc, "c2", "designate_control", "{\"ma_system_id\":\"" + kLeadSys + "\",\"modes_mask\":4}"); // (1 << waypoint_following)
+    d.step();
+    d.until("the designation", [&] { return at(at(at(d.snap(kLead), "reports"), "authority"), "designated").asBool(); });
+    for (const std::uint64_t service : {kLead, kSensors}) { // (the platform's, whichever service reads it)
+        INFO(service);
+        const core::Json s = d.snap(service);
+        CHECK(str(at(at(s, "reports"), "authority"), "designated_by_system_id") == kCrcSys);
+        CHECK_FALSE(hsaAllowed(s));
+    }
+    const std::uint64_t refused = d.ask(kLead, "flight", "new", "{\"mode\":\"hsa\",\"heading_rad\":0.5}", 1);
+    d.step();
+    CHECK(d.state(kLead, refused) == "rejected");
+    CHECK(d.reason(kLead, refused) == "not_granted");
+    d.ask(kCrc, "c2", "designate_control", "{\"ma_system_id\":\"" + kLeadSys + "\",\"modes_mask\":6}"); // (HSA given back)
+    d.step();
+    d.until("HSA given back", [&] { return hsaAllowed(d.snap(kLead)); });
+    CHECK(hsaAllowed(d.snap(kSensors)));
+    const std::uint64_t flown = d.ask(kLead, "flight", "new", "{\"mode\":\"hsa\",\"heading_rad\":0.5}", 1);
+    d.step();
+    CHECK(d.state(kLead, flown) == "executing");
+
+    INFO("override: C2's speed override binds the lead's own HSA request, and both of the lead's services hold it; an "
+         "otherwise identical episode without it does the opposite");
+    const auto fly = [](bool overridden) {
+        Driver e(jointConfig());
+        e.ask(kCrc, "c2", "declare_role", "{\"role_id\":\"3\",\"callsign\":\"CRC AVC\"}");
+        e.step();
+        e.until("the role's delivery", [&] { return !at(at(at(e.snap(kLead), "reports"), "authority"), "operators").asArray().empty(); });
+        if (overridden) {
+            e.ask(kCrc, "c2", "set_override", "{\"ma_system_id\":\"" + kLeadSys + "\",\"override\":\"speed\",\"value\":200.0}");
+            e.step();
+            e.until("the override", [&] { return !items(e.snap(kLead), "overrides").asArray().empty(); });
+            for (const std::uint64_t service : {kLead, kSensors}) {
+                const core::Json snapshot = e.snap(service);
+                const auto& held = items(snapshot, "overrides").asArray();
+                CHECK(held.size() == 1);
+                CHECK(str(held.at(0), "from_system_id") == kCrcSys);
+                CHECK(str(held.at(0), "override") == "speed");
+            }
+        }
+        const double before = trueAirspeed(e.snap(kLead));
+        const std::uint64_t hsa = e.ask(kLead, "flight", "new", "{\"mode\":\"hsa\",\"heading_rad\":0.0,\"speed\":260.0}", 2);
+        for (int k = 0; k < 12; ++k) e.step();
+        CHECK(e.state(kLead, hsa) == "executing");
+        const double after = trueAirspeed(e.snap(kLead));
+        if (overridden) { // (C2 ends its own override: none is held any more)
+            e.ask(kCrc, "c2", "set_override", "{\"ma_system_id\":\"" + kLeadSys + "\",\"override\":\"speed\",\"cancel\":true}");
+            e.step();
+            e.until("the override's end", [&] { return items(e.snap(kLead), "overrides").asArray().empty(); });
+            CHECK(items(e.snap(kSensors), "overrides").asArray().empty());
+        }
+        return after - before;
+    };
+    const double free = fly(false), bound = fly(true);
+    INFO("true airspeed change over 12 s: " << free << " m/s without the override, " << bound << " m/s under it");
+    CHECK(free > 10.0);  // (toward the 260 m/s it asked for)
+    CHECK(bound < 0.0);  // (held under C2's 200 m/s)
+}
+
+TEST_CASE("J8 lifecycle: a reset with an open task, a message on the link and a queued request leaves none of them",
+          "[joint][J8]") {
+    // a slow link (2.5 s, no jitter): what is sent is still travelling when the episode is reset
+    const auto slow = [](std::string c) { return replaced(c, "\"latency_s\": 0.1", "\"latency_s\": 2.5, \"jitter_s\": 0.0"); };
+    Driver d(jointConfig(slow));
+    d.ask(kCrc, "c2", "declare_role", "{\"role_id\":\"3\",\"callsign\":\"CRC AVC\"}");
+    d.step();
+    d.until("the role's delivery", [&] { return !at(at(at(d.snap(kWingMa), "reports"), "authority"), "operators").asArray().empty(); });
+    const std::uint64_t task = d.ask(kCrc, "c2", "send_task",
+                                     "{\"ma_system_id\":\"" + kWingSys + "\",\"type\":\"patrol\",\"priority\":1,\"radius_m\":3000.0,\"text\":\"north\"}");
+    d.step();
+    d.until("the task's arrival", [&] { return !items(d.snap(kWingMa), "tasks").asArray().empty(); });
+    const std::string taskId = str(items(d.snap(kWingMa), "tasks").asArray().at(0), "task_id");
+    d.ask(kWingMa, "task", "accept", "{\"from_system_id\":\"" + kCrcSys + "\",\"task_id\":\"" + taskId + "\"}");
+    d.step();
+    d.until("the task's acceptance at C2", [&] { return d.state(kCrc, task) == "executing"; });
+    const std::uint64_t sent = d.ask(kWingMa, "dms", "send",
+                                     "{\"topic\":\"1009\",\"destination_system_ids\":[\"" + kCrcSys + "\"],\"byte_length\":9,\"data_b64\":\"aW4tZmxpZ2h0\"}");
+    d.step();
+    const std::uint64_t queued = d.ask(kWingMa, "dms", "send",
+                                       "{\"topic\":\"1010\",\"destination_system_ids\":[\"" + kCrcSys + "\"],\"byte_length\":9,\"data_b64\":\"aW4tZmxpZ2h0\"}");
+    const core::Json ack = parse(d.submit(kWingMa)); // (submitted; the tick is not closed: the gateway's queue holds it)
+
+    INFO("before the reset: each kind of pending state, established");
+    CHECK(d.state(kCrc, task) == "executing");                                         // a task open at C2
+    CHECK(str(items(d.snap(kWingMa), "tasks").asArray().at(0), "state") == "accepted"); // and at the MA
+    CHECK(d.state(kWingMa, sent) == "pending");                                        // a message on the modelled link
+    const core::Json wingBefore = d.snap(kWingMa);
+    const auto& transmissions = items(wingBefore, "transmissions").asArray();
+    REQUIRE(transmissions.size() == 1);
+    CHECK(str(at(transmissions.at(0), "destinations").asArray().at(0), "delivery") == "pending");
+    const core::Json crcBefore = d.snap(kCrc);
+    for (const core::Json& m : at(at(crcBefore, "messages"), "items").asArray()) CHECK(str(m, "topic") != "1009");
+    CHECK(str(at(at(ack, "submission"), "requests").asArray().at(0), "status") == "queued"); // a request in the gateway's queue
+    const core::Json* waiting = receiptOf(ack, std::to_string(queued));
+    REQUIRE(waiting);
+    CHECK(str(*waiting, "state") == "queued");
+
+    d.episode.reset(0);
+    MissionEpisode fresh(jointConfig(slow));
+    fresh.reset(0);
+    INFO("after it: tick for tick the same as a fresh episode, and nothing of the old generation arrives, answers or acts");
+    const std::vector<std::uint64_t> services{kLead, kSensors, kCrc, kObs, kWingMa};
+    for (int tick = 0; tick <= 8; ++tick) {
+        for (const std::uint64_t service : services) {
+            INFO("tick " << tick << ", service " << service);
+            const std::string reset = d.episode.endpoint(service).observationJsonV1();
+            CHECK(sameGeneration(reset) == fresh.endpoint(service).observationJsonV1());
+            const core::Json s = parse(reset);
+            CHECK(at(s, "receipts").asArray().empty());
+            CHECK(items(s, "tasks").asArray().empty());
+            for (const core::Json& m : at(at(s, "messages"), "items").asArray()) {
+                CHECK(str(m, "topic") != "1009");
+                CHECK(str(m, "topic") != "1010");
+            }
+        }
+        const core::Json wing = d.snap(kWingMa);
+        CHECK(at(at(at(wing, "reports"), "authority"), "operators").asArray().empty()); // (the old role declaration too)
+        CHECK(items(wing, "transmissions").asArray().empty());
+        d.episode.step();
+        fresh.step();
+    }
+    CHECK(sameGeneration(d.episode.referee().truthJsonV1()) == fresh.referee().truthJsonV1());
+    CHECK(sameGeneration(d.episode.referee().costsJsonV1()) == fresh.referee().costsJsonV1());
 }

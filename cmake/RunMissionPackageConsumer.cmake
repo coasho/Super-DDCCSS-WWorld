@@ -82,6 +82,18 @@ foreach(_module __init__.py agent.py world.py isolation.py mission.py training.p
 endforeach()
 check_file("${_build}/python/fsim/_native.pyd" "${_python_prefix}/fsim/_native.pyd" "${_work}")
 check_file("${_build}/python/fsim/bin/libfsim.dll" "${_python_prefix}/fsim/bin/libfsim.dll" "${_work}")
+# The runtime data the joint chains fly - the F-16C's installed files, in both packages - is the source tree's, byte
+# for byte; which copy a consumer loads is established below (installed aircraft paths, and the refusal probes).
+foreach(_aircraft_root "${_prefix}/share/flightsim/aircraft" "${_python_prefix}/fsim/share/flightsim/aircraft")
+    file(GLOB_RECURSE _aircraft_files LIST_DIRECTORIES false RELATIVE "${_aircraft_root}/f16c" "${_aircraft_root}/f16c/*")
+    list(LENGTH _aircraft_files _aircraft_count)
+    if(_aircraft_count EQUAL 0)
+        message(FATAL_ERROR "installed aircraft data missing: ${_aircraft_root}/f16c")
+    endif()
+    foreach(_file IN LISTS _aircraft_files)
+        check_file("${SOURCE_DIR}/aircraft/f16c/${_file}" "${_aircraft_root}/f16c/${_file}" "${_work}")
+    endforeach()
+endforeach()
 file(WRITE "${_work}/provenance.sha256" "${_manifest}")
 
 set(_configure "${CMAKE_COMMAND}" -S "${SOURCE_DIR}/tests/mission_package_consumer" -B "${_consumer_build}"
@@ -132,13 +144,17 @@ endforeach()
 # The installed Python package alone: its own library and data, no development tree on any path. The script is copied
 # out of the source tree first, so its directory (the interpreter's first path entry) is this gate's own.
 file(COPY_FILE "${SOURCE_DIR}/tests/mission_package_consumer/ma_python.py" "${_work}/ma_python.py")
+# Its aircraft and stores are the installed package's: a development library's source aircraft directory would
+# otherwise come first (src/io/AssetResolver.cpp). The isolated actor's process inherits the same environment.
+set(_python_aircraft "${_python_prefix}/fsim/share/flightsim/aircraft")
+set(_python_env "FSIM_AIRCRAFT_PATH=${_python_aircraft};${_python_aircraft}/stores")
 set(_chain_args)
 foreach(_chain IN LISTS _chains)
     file(REMOVE "${_work}/trace-${_chain}-python.trace" "${_work}/trace-${_chain}-python-isolated.trace")
     list(APPEND _chain_args "${_work}/joint/chain.${_chain}.txt" "${_work}/trace-${_chain}-python.trace"
                             "${_work}/trace-${_chain}-python-isolated.trace")
 endforeach()
-execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=FSIM_DLL_DIR --unset=FSIM_AIRCRAFT_PATH --unset=PYTHONHOME
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=FSIM_DLL_DIR --unset=PYTHONHOME "${_python_env}"
         "PYTHONPATH=${_python_prefix}" "PATH=$ENV{SystemRoot}/System32;$ENV{SystemRoot}"
         "${_python}" -s -B "${_work}/ma_python.py" "${_python_prefix}" ${_chain_args}
     WORKING_DIRECTORY "${_work}" RESULT_VARIABLE _result OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
@@ -166,13 +182,46 @@ foreach(_chain IN LISTS _chains)
     endif()
     message(STATUS "installed joint chain ${_chain}: C++, C99, Python and an isolated Python actor wrote one trace (${_digests})")
 endforeach()
+# The installed data is the data flown: with the installed F-16C definition corrupted, the joint chain's episode is
+# refused - the installed copy is the one read, and nothing outside the installed package stands in for it. With the
+# file missing, a development library still finds its source tree's aircraft directory after the installed one
+# (src/io/AssetResolver.cpp, kept as it is): that run is recorded, not required. The file is restored and re-hashed.
+set(_flown "${_python_aircraft}/f16c/f16c.xml")
+file(SHA256 "${_flown}" _flown_sha)
+file(COPY_FILE "${_flown}" "${_work}/f16c.xml.installed")
+set(_probe_results)
+foreach(_probe corrupted missing)
+    if(_probe STREQUAL "corrupted")
+        file(WRITE "${_flown}" "<not-an-aircraft/>\n")
+    else()
+        file(REMOVE "${_flown}")
+    endif()
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=FSIM_DLL_DIR --unset=PYTHONHOME "${_python_env}"
+            "PYTHONPATH=${_python_prefix}" "PATH=$ENV{SystemRoot}/System32;$ENV{SystemRoot}"
+            "${_python}" -s -B "${_work}/ma_python.py" "${_python_prefix}" --probe "${_work}/joint/chain.joint.txt"
+        WORKING_DIRECTORY "${_work}" RESULT_VARIABLE _result OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+    file(WRITE "${_work}/run-probe-${_probe}.log" "${_out}${_err}")
+    list(APPEND _probe_results "${_probe}=${_result}")
+    file(COPY_FILE "${_work}/f16c.xml.installed" "${_flown}")
+endforeach()
+file(SHA256 "${_flown}" _restored_sha)
+if(NOT _restored_sha STREQUAL _flown_sha)
+    message(FATAL_ERROR "installed data probe: ${_flown} was not restored")
+endif()
+if(NOT _probe_results MATCHES "^corrupted=3;")
+    message(FATAL_ERROR "installed data probe: the joint episode was built with its installed F-16C corrupted (${_probe_results}); "
+                        "see ${_work}/run-probe-*.log")
+endif()
+file(READ "${_work}/run-probe-missing.log" _missing)
+message(STATUS "installed data probe: refused with the installed F-16C corrupted; with it missing (recorded): ${_probe_results} "
+               "- ${_missing}; restored (${_flown_sha})")
 # The composition example (examples/python/ma_composition; M6) on the installed package alone, copied out of the source
 # tree: run twice, its traces byte-identical, its package and library the installed ones; and its MA system under the
 # installed training adapter (fsim.training; M7 core) through "same_step" and "next_step" autoreset, each generation's
 # trace the same as the example's own direct run.
 file(COPY "${SOURCE_DIR}/examples/python/ma_composition" DESTINATION "${_work}" PATTERN "__pycache__" EXCLUDE)
 foreach(_run 1 2)
-    execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=FSIM_DLL_DIR --unset=FSIM_AIRCRAFT_PATH --unset=PYTHONHOME
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=FSIM_DLL_DIR --unset=PYTHONHOME "${_python_env}"
             "PYTHONPATH=${_python_prefix}" "PATH=$ENV{SystemRoot}/System32;$ENV{SystemRoot}"
             "${_python}" -s -B -m ma_composition.run --trace "${_work}/composition-${_run}.json"
         WORKING_DIRECTORY "${_work}" RESULT_VARIABLE _result OUTPUT_VARIABLE _out ERROR_VARIABLE _err)

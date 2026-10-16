@@ -339,7 +339,34 @@ def joint_chains(triplets):
     return len(triplets)
 
 
+def probe(chain):
+    """Whether the chain's episode can be built and reset from the data this process resolves: exit 0 if it can, 3 if
+    the SDK refuses it. The gate runs it with the installed aircraft data corrupted, then missing, and requires the
+    refusal - no source or build copy may stand in for the installed data."""
+    try:
+        config, _, _ = read_chain(chain)
+        with fsim.mission.MissionEpisode(config) as episode:
+            episode.reset(0)
+    except Exception as e:  # (the refusal the gate expects, as the SDK words it)
+        print("refused: %s: %s" % (type(e).__name__, str(e).splitlines()[0] if str(e) else ""))
+        return 3
+    print("built and reset from %s" % os.environ.get("FSIM_AIRCRAFT_PATH"))
+    return 0
+
+
+def aircraft_paths(prefix):
+    """FSIM_AIRCRAFT_PATH: the installed package's own aircraft and stores, and nothing else - else a development
+    library's source aircraft directory would come first."""
+    paths = [p for p in os.environ.get("FSIM_AIRCRAFT_PATH", "").split(";") if p]
+    require(paths, "FSIM_AIRCRAFT_PATH is not set to the installed package's aircraft")
+    for p in paths:
+        require(inside(p, prefix) and os.path.isdir(p), "an aircraft directory outside the installed package: " + p)
+    return paths
+
+
 def main(argv):
+    if len(argv) == 4 and argv[2] == "--probe":
+        return probe(argv[3])
     require(len(argv) >= 2 and (len(argv) - 2) % 3 == 0,
             "usage: ma_python.py <installed python prefix> [<joint chain> <trace> <isolated actor trace>]...")
     prefix = argv[1]
@@ -349,6 +376,7 @@ def main(argv):
     require(inside(library, prefix), "libfsim.dll was loaded from outside the installed package: " + library)
     print("installed package: %s" % os.path.dirname(os.path.realpath(fsim.__file__)))
     print("installed DLL: %s" % library)
+    print("installed aircraft: %s" % ";".join(aircraft_paths(prefix)))
     a, b = ownership(True), ownership(False)
     require(a == b, "ownership depends on the order the agents were made in: %r, %r" % (a, b))
     require(a == (1, 1, 2, 2), "ownership is not the bindings': %r" % (a,))

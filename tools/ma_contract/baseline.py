@@ -13,10 +13,13 @@ each imports and the data it ran on. `verify` re-hashes what the manifest lists.
 by default as captured. With `--sdk-prefix`, another build's installed SDK, the frozen executables and the frozen
 Python module run against that prefix's libfsim.dll and data instead: old-header binaries on a new library.
 `--python-package` runs the frozen Python consumer scripts on another package altogether. `compare` captures the
-current builds' exports and public types into --work and holds them to the baseline: every native export, vtable and
-typeinfo symbol, Python call and module name it recorded must still be there, and every public C++ type's and C
-struct's layout, every recorded vtable's slots and every recorded enumerator's value must be unchanged. What is new is
-listed, never failed. It writes COMPARE.json into --work.
+current builds' exports and public types into --work - cleared first, so nothing an earlier run left is read - and holds
+them to the baseline: every artifact of each selected build is required (the core build's DLL, extension module and
+package always; the render build's when --release-build is given); every native export, vtable and typeinfo symbol and
+Python call it recorded must still be there; every recorded Python description must keep its contract (signatures and
+defaults, enumerator values, record fields in order, member kinds, exception bases, runtime owners); and every public
+C++ type's and C struct's layout, recorded vtable's slots and recorded enumerator's value must be unchanged. What is
+new is listed, never failed. It writes COMPARE.json into --work and leaves the baseline untouched.
 
 It builds nothing in the checkout's build trees and changes no tracked file: it installs from an existing build into
 <dir> and compiles the consumers there. Standard library only. Hold the native configure/build/test slot while it runs.
@@ -705,32 +708,157 @@ def run(a):
     return 0 if results and all(rc == 0 for rc in results.values()) else 1
 
 
+def _parameters(signature):
+    """A signature's text, `(a, b=1, *, c=0) -> x`, as (its parameters, each as written, and its return annotation)."""
+    if signature is None:
+        return None, None
+    depth, quote, start, params, end = 0, None, 1, [], None
+    for k, ch in enumerate(signature):
+        if quote:
+            quote = None if ch == quote and signature[k - 1] != "\\" else quote
+        elif ch in "'\"":
+            quote = ch
+        elif ch in "([{<":
+            depth += 1
+        elif ch in ")]}>":
+            depth -= 1
+            if depth == 0:
+                end = k
+                break
+        elif ch == "," and depth == 1:
+            params.append(signature[start:k].strip())
+            start = k + 1
+    if end is None:
+        return None, None
+    last = signature[start:end].strip()
+    if last:
+        params.append(last)
+    return params, signature[end + 1:].strip()
+
+
+def extends_signature(old, new):
+    """Whether `new` keeps every parameter of `old` as it was - name, kind, position, annotation and default - and adds
+    only parameters a call written against `old` never has to pass: defaulted ones, `*args` or `**kwargs`."""
+    if old == new:
+        return True
+    old_params, old_return = _parameters(old)
+    new_params, new_return = _parameters(new)
+    if old_params is None or new_params is None or old_return != new_return:
+        return False
+    if new_params[: len(old_params)] != old_params:
+        return False
+    return all("=" in p or p.startswith("*") for p in new_params[len(old_params):])
+
+
+def _member(description):
+    """A class member's description as (its kind, its signature or None): "method(self, x)" -> ("method", "(self, x)")."""
+    k = description.find("(")
+    return (description, None) if k < 0 else (description[:k], description[k:])
+
+
+def compare_inventory(before, now, label):
+    """The frozen Python inventory (PY_INVENTORY) against the current one, by contract: every name the baseline recorded is
+    still there with the same kind and runtime owner; a function's or method's signature kept (defaulted parameters may
+    be added after it); every enumerator with its value; a record's fields in order (more may follow); a class's members
+    with their kinds and signatures; an exception's bases; a constant's type and value. Additions pass."""
+    failures = []
+    for module, entries in sorted(before.items()):
+        current = now.get(module)
+        if "unavailable" in entries:
+            continue  # (the baseline could not import it either)
+        if current is None or "unavailable" in current:
+            failures.append("%s: module %s %s" % (label, module, "missing" if current is None else "unavailable: " + current["unavailable"]))
+            continue
+        for name, old in sorted(entries.items()):
+            qualified = "%s.%s" % (module, name)
+            new = current.get(name)
+            if new is None:
+                failures.append("%s: %s removed" % (label, qualified))
+                continue
+            if new.get("kind") != old.get("kind") or new.get("home") != old.get("home"):
+                failures.append("%s: %s changed from %s owned by %s to %s owned by %s" % (label, qualified, old.get("kind"), old.get("home"),
+                                                                                       new.get("kind"), new.get("home")))
+                continue
+            kind = old.get("kind")
+            if kind == "function" and not extends_signature(old.get("signature"), new.get("signature")):
+                failures.append("%s: %s signature %s -> %s" % (label, qualified, old.get("signature"), new.get("signature")))
+            elif kind == "enum":
+                for member, value in sorted(old["members"].items()):
+                    if member not in new["members"] or new["members"][member] != value:
+                        failures.append("%s: %s.%s = %r -> %r" % (label, qualified, member, value, new["members"].get(member, "removed")))
+            elif kind == "record" and new["fields"][: len(old["fields"])] != old["fields"]:
+                failures.append("%s: %s fields %s -> %s" % (label, qualified, old["fields"], new["fields"]))
+            elif kind == "class":
+                for member, description in sorted(old["members"].items()):
+                    if member not in new["members"]:
+                        failures.append("%s: %s.%s removed" % (label, qualified, member))
+                        continue
+                    (old_kind, old_signature), (new_kind, new_signature) = _member(description), _member(new["members"][member])
+                    if old_kind != new_kind or not extends_signature(old_signature, new_signature):
+                        failures.append("%s: %s.%s %s -> %s" % (label, qualified, member, description, new["members"][member]))
+            elif kind == "exception" and new.get("bases") != old.get("bases"):
+                failures.append("%s: %s bases %s -> %s" % (label, qualified, old.get("bases"), new.get("bases")))
+            elif kind == "constant" and (new.get("type"), new.get("value")) != (old.get("type"), old.get("value")):
+                failures.append("%s: %s = %r -> %r" % (label, qualified, old.get("value"), new.get("value")))
+            elif kind == "value" and new.get("type") != old.get("type"):
+                failures.append("%s: %s type %s -> %s" % (label, qualified, old.get("type"), new.get("type")))
+    return failures
+
+
+COMPARE_MARK = ".ma-baseline-compare"
+
+
 def compare(a):
     """The current builds held to the baseline (see the module's text): removals and changes fail, additions are listed."""
     base = Path(a.out).resolve()
     work = Path(a.work or (Path(a.tmp) / "ma-baseline-compare")).resolve()
-    if work == base:
-        print("--work must not be the baseline's own directory")
+    if work == base or base in work.parents or work in base.parents:
+        print("FAILED --work %s must be apart from the baseline %s" % (work, base))
         return 1
+    # Only what this invocation captures is compared: the work directory is cleared first - and only one this command
+    # made (its mark), never another directory someone pointed it at.
+    if work.exists():
+        if any(work.iterdir()) and not (work / COMPARE_MARK).is_file():
+            print("FAILED --work %s is not empty and was not made by `compare`: refusing to clear it" % work)
+            return 1
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
+    (work / COMPARE_MARK).write_text("made by tools/ma_contract/baseline.py compare\n", encoding="utf-8")
     current = argparse.Namespace(**dict(vars(a), out=str(work)))
     c = Capture(current)
-    c.out.mkdir(parents=True, exist_ok=True)
-    c.exports()
-    c.types()
-    result, failures = {"baseline": str(base), "current": str(work), "compared": {}}, list(c.failures)
+    failures = []
+    # Each selected build's artifacts are required: the core build always, the render build when it is given.
+    required = ["libfsim.headless", "_native.headless", "python.headless"]
+    if a.release_build:
+        required += ["libfsim.release", "libfsim_vision.release", "_native.release", "_vision.release", "python.release"]
+    for step in (c.exports, c.types):
+        try:
+            step()
+        except Exception as e:  # (a capture that could not run: its outputs are absent, and that is a failure)
+            failures.append("capture %s: %s" % (step.__name__, str(e).splitlines()[0] if str(e) else type(e).__name__))
+    failures += c.failures
+    captured = c.summary.get("exports", {})
+    for label in required:
+        entry = captured.get(label)
+        if entry is None or "missing" in entry:
+            failures.append("%s: not captured (%s)" % (label, (entry or {}).get("missing", "its capture failed")))
+    result = {"baseline": str(base), "current": str(work), "required": required, "compared": {}}
 
     def lines(path):
         return set(path.read_text(encoding="utf-8").splitlines()) - {""} if path.is_file() else None
+
+    def selected(label):
+        return not label.endswith(".release") or bool(a.release_build)
 
     # exports, vtable/typeinfo symbols and the Python surface: a superset of the baseline's
     for kind in ("exports", "vtables"):
         for old in sorted((base / "exports").glob("*.%s.txt" % kind)):
             label = old.name[: -len(".%s.txt" % kind)]
-            if kind == "exports" and label.endswith(".exports.demangled"):
-                continue
             new = lines(work / "exports" / old.name)
             if new is None:
-                result["compared"][old.name] = {"skipped": "not built here"}
+                result["compared"][old.name] = {"not_selected" if not selected(label) else "missing": True}
+                if selected(label) and label not in required:
+                    failures.append("%s: not captured" % old.name)
                 continue
             before = lines(old)
             removed, added = sorted(before - new), sorted(new - before)
@@ -738,25 +866,30 @@ def compare(a):
             if removed:
                 failures.append("%s: %d removed (%s)" % (old.name, len(removed), ", ".join(removed[:5])))
     for old in sorted((base / "exports").glob("python-calls.*.txt")):
+        label = "python." + old.name.split(".")[1]
         new = lines(work / "exports" / old.name)
         if new is None:
-            result["compared"][old.name] = {"skipped": "not built here"}
+            result["compared"][old.name] = {"not_selected" if not selected(label) else "missing": True}
             continue
         removed = sorted(lines(old) - new)
         result["compared"][old.name] = {"baseline": len(lines(old)), "now": len(new), "removed": removed}
         if removed:
             failures.append("%s: %d Python calls removed (%s)" % (old.name, len(removed), ", ".join(removed[:5])))
     for old in sorted((base / "exports").glob("python-inventory.*.json")):
+        label = "python." + old.name.split(".")[1]
         path = work / "exports" / old.name
         if not path.is_file():
+            result["compared"][old.name] = {"not_selected" if not selected(label) else "missing": True}
             continue
         before, now = json.loads(old.read_text(encoding="utf-8")), json.loads(path.read_text(encoding="utf-8"))
-        removed = sorted("%s.%s" % (module, name) for module, names in before.items() for name in names if name not in now.get(module, []))
-        result["compared"][old.name] = {"modules": len(before), "removed": removed}
-        if removed:
-            failures.append("%s: %d Python names removed (%s)" % (old.name, len(removed), ", ".join(removed[:5])))
+        contract = compare_inventory(before, now, old.name)
+        result["compared"][old.name] = {"modules": len(before), "names": sum(len(v) for v in before.values()), "failures": contract}
+        failures += contract
     # layouts, vtables and enumerators: unchanged where the baseline recorded them
     for name in ("cpp-layout.json", "c-abi-layout.json"):
+        if not (work / "types" / name).is_file():
+            failures.append("types/%s: not captured" % name)
+            continue
         before = json.loads((base / "types" / name).read_text(encoding="utf-8"))
         now = json.loads((work / "types" / name).read_text(encoding="utf-8"))
         changed = sorted(t for t, layout in before["types"].items() if now["types"].get(t) != layout)
@@ -768,19 +901,22 @@ def compare(a):
             failures.append("%s: %d public types changed (%s)" % (name, len(changed), ", ".join(changed[:5])))
         if enums:
             failures.append("%s: %d enumerators changed (%s)" % (name, len(enums), ", ".join(enums[:5])))
-    before = json.loads((base / "types" / "public-vtables.json").read_text(encoding="utf-8"))
-    now = json.loads((work / "types" / "public-vtables.json").read_text(encoding="utf-8"))
-    changed = sorted(k for k, slots in before.items() if now.get(k) != slots)
-    result["compared"]["public-vtables.json"] = {"vtables": len(before), "changed": changed, "new": len(set(now) - set(before))}
-    if changed:
-        failures.append("public vtables changed: %s" % ", ".join(changed[:5]))
+    if (work / "types" / "public-vtables.json").is_file():
+        before = json.loads((base / "types" / "public-vtables.json").read_text(encoding="utf-8"))
+        now = json.loads((work / "types" / "public-vtables.json").read_text(encoding="utf-8"))
+        changed = sorted(k for k, slots in before.items() if now.get(k) != slots)
+        result["compared"]["public-vtables.json"] = {"vtables": len(before), "changed": changed, "new": len(set(now) - set(before))}
+        if changed:
+            failures.append("public vtables changed: %s" % ", ".join(changed[:5]))
+    else:
+        failures.append("types/public-vtables.json: not captured")
     result["failures"] = failures
     (work / "COMPARE.json").write_text(json.dumps(result, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     for name, entry in sorted(result["compared"].items()):
         print("%s: %s" % (name, json.dumps({k: (len(v) if isinstance(v, list) else v) for k, v in entry.items()}, sort_keys=True)))
     for failure in failures:
         print("FAILED " + failure)
-    print("%d comparisons; %d failures (%s)" % (len(result["compared"]), len(failures), work / "COMPARE.json"))
+    print("%d comparisons; %d failures; required %s (%s)" % (len(result["compared"]), len(failures), ", ".join(required), work / "COMPARE.json"))
     return 1 if failures else 0
 
 
