@@ -1,7 +1,7 @@
 # fsim.dll: the public SDK (C++ pimpl class + versioned C ABI). Internal
 # static libraries are linked in; only fsim/*.h symbols are exported.
 add_library(fsim SHARED fsim.cpp fsim_vecenv_c.cpp fsim_recording_c.cpp VecEnvHandles.h World.cpp Agent.cpp fsim_world_c.cpp fsim_scenario_c.cpp fsim_environment_c.cpp fsim_control_c.cpp fsim_mission_c.cpp fsim_links_c.cpp Scenario.cpp Recording.cpp LastError.h CAbiSupport.h
-    MissionJson.cpp MissionJson.h MissionConfig.cpp MissionConfig.h MissionGateway.cpp MissionGateway.h MissionEpisode.cpp fsim_mission_env_c.cpp)
+    MissionJson.cpp MissionJson.h MissionConfig.cpp MissionConfig.h MissionGateway.cpp MissionGateway.h MissionEpisode.cpp MissionBatch.cpp fsim_mission_env_c.cpp)
 add_library(fsim::sdk ALIAS fsim)
 
 target_include_directories(fsim

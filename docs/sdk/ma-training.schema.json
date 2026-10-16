@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fsim:ma-training:v1",
+  "title": "fsim mission-training documents of M7 core, version 1",
+  "$comment": "Added by M7 core (docs/sdk/mission-training.md, section 18) beside the frozen ma-contract schema, which it does not change. Same dialect (tools/ma_contract/check.py's keywords); same envelope rules: identities as unsigned decimal strings, closed objects. ma.costs.v1 is a referee document: it never reaches an endpoint, an observation, a receipt or a mask.",
+  "oneOf": [{"$ref": "#/$defs/costs"}],
+  "$defs": {
+    "u64": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]{0,18}|1[0-7][0-9]{18}|18[0-3][0-9]{17}|184[0-3][0-9]{16}|1844[0-5][0-9]{15}|18446[0-6][0-9]{14}|184467[0-3][0-9]{13}|1844674[0-3][0-9]{12}|184467440[0-6][0-9]{10}|1844674407[0-2][0-9]{9}|18446744073[0-6][0-9]{8}|1844674407370[0-8][0-9]{6}|18446744073709[0-4][0-9]{5}|184467440737095[0-4][0-9]{4}|18446744073709550[0-9]{3}|18446744073709551[0-5][0-9]{2}|1844674407370955160[0-9]{1}|1844674407370955161[0-4]|18446744073709551615)$"
+    },
+    "u64_nonzero": {"allOf": [{"$ref": "#/$defs/u64"}, {"not": {"const": "0"}}]},
+    "episode_key": {
+      "type": "object",
+      "required": ["env_id", "episode_generation", "local_episode_index"],
+      "additionalProperties": false,
+      "properties": {
+        "env_id": {"$ref": "#/$defs/u64"},
+        "episode_generation": {"$ref": "#/$defs/u64_nonzero"},
+        "local_episode_index": {"$ref": "#/$defs/u64"}
+      }
+    },
+    "count": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "spent": {
+      "type": "object",
+      "description": "What a service spent: requests it made (each new request id, refusals at submit among them), those the SDK dispatched natively, those refused (by the gateway or natively), the DMS messages and payload bytes its requests sent, and the C2 messages they sent.",
+      "required": ["requests", "dispatched", "refused", "dms_messages", "dms_bytes", "c2_messages"],
+      "additionalProperties": false,
+      "properties": {
+        "requests": {"$ref": "#/$defs/count"},
+        "dispatched": {"$ref": "#/$defs/count"},
+        "refused": {"$ref": "#/$defs/count"},
+        "dms_messages": {"$ref": "#/$defs/count"},
+        "dms_bytes": {"$ref": "#/$defs/count"},
+        "c2_messages": {"$ref": "#/$defs/count"}
+      }
+    },
+    "costs": {
+      "type": "object",
+      "description": "A generation's costs at a decision tick: each service's in the tick just closed and since its generation began, in ascending service id.",
+      "required": ["schema", "episode", "tick", "time_s", "services"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {"const": "ma.costs.v1"},
+        "episode": {"$ref": "#/$defs/episode_key"},
+        "tick": {"$ref": "#/$defs/u64"},
+        "time_s": {"type": "number", "minimum": 0},
+        "services": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "required": ["service_id", "tick", "total"],
+            "additionalProperties": false,
+            "properties": {
+              "service_id": {"$ref": "#/$defs/u64_nonzero"},
+              "tick": {"$ref": "#/$defs/spent"},
+              "total": {"$ref": "#/$defs/spent"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

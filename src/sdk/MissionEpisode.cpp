@@ -13,6 +13,7 @@
 #include "sdk/MissionConfig.h"
 #include "sdk/MissionGateway.h"
 
+#include <algorithm>
 #include <memory>
 #include <stdexcept>
 #include <utility>
@@ -129,6 +130,13 @@ std::string MissionReferee::outcomeJsonV1() const {
     return out;
 }
 
+std::string MissionReferee::costsJsonV1() const {
+    if (!impl_) throw std::runtime_error("mission referee: moved from");
+    std::string out;
+    withGateway(impl_->context, "costs", [&](mission::Gateway& g) { out = g.costs(); });
+    return out;
+}
+
 std::string MissionReferee::truthJsonV1() const {
     if (!impl_) throw std::runtime_error("mission referee: moved from");
     std::string out;
@@ -218,6 +226,27 @@ MissionEndpoint MissionEpisode::endpoint(std::uint64_t serviceId) {
     env::EpisodeContext context = impl_->episode.context();
     if (const env::EpisodeStatus status = context.status(); status != env::EpisodeStatus::Ok) lifetime(status, "endpoint");
     return MissionEndpoint(new MissionEndpoint::Impl{std::move(context), serviceId});
+}
+
+bool MissionEpisode::removePlatform(std::string_view platform) {
+    if (!impl_) throw std::runtime_error("mission episode: moved from");
+    const std::string name(platform);
+    const auto& names = impl_->config->platforms;
+    if (std::find(names.begin(), names.end(), name) == names.end())
+        throw std::invalid_argument("mission episode: no platform '" + name + "' in the configuration");
+    bool removed = false;
+    env::EpisodeContext context = impl_->episode.context();
+    const env::EpisodeStatus status = context.use([&](env::EpisodeJudge*, session::World& world) {
+        // the World's own removal (a vehicle's or a C2 node's): its bindings end, its services' roles at the next tick
+        for (const std::uint32_t node : world.c2Nodes())
+            if (const comm::C2NodeSpec* spec = world.c2Node(node); spec && spec->name == name) {
+                removed = world.removeC2Node(node);
+                return;
+            }
+        if (const std::uint32_t vehicle = world.find(name)) removed = world.removeVehicle(vehicle);
+    });
+    if (status != env::EpisodeStatus::Ok) lifetime(status, "removePlatform");
+    return removed;
 }
 
 MissionReferee MissionEpisode::referee() {

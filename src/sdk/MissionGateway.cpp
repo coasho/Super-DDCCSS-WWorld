@@ -471,6 +471,16 @@ struct Gateway::Service {
     std::optional<std::string> submission;   ///< the latest submission member
     std::vector<comm::DmsReceived> messages; ///< this tick's, taken once at its freeze
     std::string observation;                 ///< the frozen snapshot
+    /// What the service spent (M7 core; ma.costs.v1): requests it made, those the SDK dispatched natively, those
+    /// refused (by the gateway or natively), and the DMS and C2 messages its requests sent.
+    struct Costs {
+        std::uint64_t requests = 0, dispatched = 0, refused = 0, dmsMessages = 0, dmsBytes = 0, c2Messages = 0;
+        void add(const Costs& o) {
+            requests += o.requests, dispatched += o.dispatched, refused += o.refused;
+            dmsMessages += o.dmsMessages, dmsBytes += o.dmsBytes, c2Messages += o.c2Messages;
+        }
+    };
+    Costs tickCosts, totalCosts;
     std::size_t open() const {
         return static_cast<std::size_t>(std::count_if(records.begin(), records.end(), [](const auto& r) { return !r.second.closed; }));
     }
@@ -608,8 +618,10 @@ std::string Gateway::submit(std::uint64_t serviceId, std::string_view text) {
             else if (in.op.op == Op::DmsSend && in.op.message.bytes.size() > limits.maxMessageBytes) refused = "message_too_large";
             else if (s.open() >= limits.maxInFlightRequests) refused = "capacity";
             rec.op = std::move(in.op);
+            ++s.tickCosts.requests;
             if (refused) {
                 rec.state = State::Rejected, rec.closed = true, rec.gatewayReason = refused;
+                ++s.tickCosts.refused;
                 w.member("status", "rejected").member("reason", refused);
             } else {
                 w.member("status", "queued").key("reason").null();
@@ -782,6 +794,7 @@ void Gateway::dispatch(Service& s, Record& r) {
             return oneShot(false, std::move(n));
         }
         r.messages = {message};
+        ++s.tickCosts.dmsMessages, s.tickCosts.dmsBytes += o.message.bytes.size();
         Native n = nativeOf("dms", o.message.destinations.empty() ? "published" : "pending");
         n.code = 0;
         n.ids = {{"message_id", message}};
@@ -805,6 +818,7 @@ void Gateway::dispatch(Service& s, Record& r) {
             return oneShot(false, std::move(n));
         }
         r.messages = sent;
+        s.tickCosts.dmsMessages += sent.size();
         Native n = nativeOf("dms", "published");
         n.code = 0;
         if (!sent.empty()) n.ids = {{"message_id", sent.front()}};
@@ -862,6 +876,7 @@ void Gateway::dispatch(Service& s, Record& r) {
         n.reason = dmsReasonName(why), n.code = static_cast<std::uint32_t>(why);
         return oneShot(false, std::move(n));
     }
+    ++s.tickCosts.c2Messages;
     Native n = nativeOf("c2", "sent");
     if (command) n.ids.emplace_back("command_id", command);
     if (o.op == Op::C2SendTask) n.ids.emplace_back("task_id", command);
@@ -946,7 +961,11 @@ void Gateway::beforeStep(session::World&, std::uint64_t tick) {
     tick_ = tick;
     for (auto& s : services_)
         for (auto& [id, r] : s->records)
-            if (r.state == State::Queued) dispatch(*s, r);
+            if (r.state == State::Queued) {
+                dispatch(*s, r);
+                if (r.native) ++s->tickCosts.dispatched; // (a native call answered it)
+                if (r.state == State::Rejected) ++s->tickCosts.refused;
+            }
 }
 
 void Gateway::afterStep(const session::World&, std::uint64_t tick) {
@@ -1484,6 +1503,26 @@ void Gateway::freeze() {
     }
     t.endArray().endObject();
     truth_ = t.take();
+
+    // costs: what each service spent in the tick just closed, and in all
+    Writer c;
+    c.beginObject().member("schema", "ma.costs.v1").key("episode").raw(key_).key("tick").id(tick_).key("time_s").number(now);
+    c.key("services").beginArray();
+    for (auto& s : services_) {
+        s->totalCosts.add(s->tickCosts);
+        const auto write = [&c](const char* name, const Service::Costs& k) {
+            c.key(name).beginObject().key("requests").integer(static_cast<std::int64_t>(k.requests)).key("dispatched").integer(static_cast<std::int64_t>(k.dispatched));
+            c.key("refused").integer(static_cast<std::int64_t>(k.refused)).key("dms_messages").integer(static_cast<std::int64_t>(k.dmsMessages));
+            c.key("dms_bytes").integer(static_cast<std::int64_t>(k.dmsBytes)).key("c2_messages").integer(static_cast<std::int64_t>(k.c2Messages)).endObject();
+        };
+        c.beginObject().key("service_id").id(s->config->serviceId);
+        write("tick", s->tickCosts);
+        write("total", s->totalCosts);
+        c.endObject();
+        s->tickCosts = Service::Costs{};
+    }
+    c.endArray().endObject();
+    costs_ = c.take();
 }
 
 } // namespace fsim::mission

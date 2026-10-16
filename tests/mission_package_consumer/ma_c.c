@@ -305,6 +305,22 @@ static char* endpoint_document(fsim_mission_endpoint* e, int (*read)(fsim_missio
     return text;
 }
 
+/* The installed episode's configuration (env_id 7), its JSBSim root already JSON text. */
+static void mission_config(char* out, size_t size, const char* root) {
+    snprintf(out, size,
+             "{\"schema\":\"ma.config.v1\",\"env_id\":\"7\",\"base_seed\":\"18446744073709551615\", "
+             "\"timing\":{\"dt_s\":0.008333333333333333,\"frame_skip\":4,\"decision_steps\":30}, "
+             "\"scenario\":{\"world\":{\"name\":\"installed-mission\",\"capacity\":4,\"jsbsim_root\":\"%s\"}, "
+             " \"vehicles\":[{\"name\":\"lead\",\"type\":\"jsbsim:f16c\",\"initial\":{\"lat_deg\":36.0,\"lon_deg\":-115.0,\"alt_msl_m\":7000,\"heading_deg\":0,\"airspeed_ms\":230}}]}, "
+             "\"c2_nodes\":[{\"name\":\"crc\",\"latitude_rad\":0.6283185307179586,\"longitude_rad\":-2.007128639793479,\"altitude_msl_m\":600.0}], "
+             "\"systems\":[{\"platform\":\"lead\",\"system_id\":\"1392508929\"},{\"platform\":\"crc\",\"system_id\":\"1392508931\"}], "
+             "\"nets\":[{\"name\":\"l16\",\"members\":[\"lead\",\"crc\"]}], "
+             "\"services\":[{\"service_id\":\"9007199254740995\",\"name\":\"lead-ma\",\"platform\":\"lead\",\"command_capabilities\":[\"*\"],\"owns_dms_ingress\":true,\"owns_dms_egress\":true}, "
+             " {\"service_id\":\"4\",\"name\":\"crc-c2\",\"platform\":\"crc\",\"command_capabilities\":[],\"owns_dms_ingress\":true,\"owns_dms_egress\":true}], "
+             "\"task\":{\"criteria\":[{\"id\":\"time\",\"kind\":\"tick_limit\",\"outcome\":\"truncated\",\"max_ticks\":3}]}}",
+             root);
+}
+
 static int mission_episode(const char* jsbsim_root) {
     char config[4096], document[1024], root[2048];
     size_t i, j = 0;
@@ -319,18 +335,7 @@ static int mission_episode(const char* jsbsim_root) {
         root[j++] = jsbsim_root[i];
     }
     root[j] = '\0';
-    snprintf(config, sizeof config,
-             "{\"schema\":\"ma.config.v1\",\"env_id\":\"7\",\"base_seed\":\"18446744073709551615\", "
-             "\"timing\":{\"dt_s\":0.008333333333333333,\"frame_skip\":4,\"decision_steps\":30}, "
-             "\"scenario\":{\"world\":{\"name\":\"installed-mission\",\"capacity\":4,\"jsbsim_root\":\"%s\"}, "
-             " \"vehicles\":[{\"name\":\"lead\",\"type\":\"jsbsim:f16c\",\"initial\":{\"lat_deg\":36.0,\"lon_deg\":-115.0,\"alt_msl_m\":7000,\"heading_deg\":0,\"airspeed_ms\":230}}]}, "
-             "\"c2_nodes\":[{\"name\":\"crc\",\"latitude_rad\":0.6283185307179586,\"longitude_rad\":-2.007128639793479,\"altitude_msl_m\":600.0}], "
-             "\"systems\":[{\"platform\":\"lead\",\"system_id\":\"1392508929\"},{\"platform\":\"crc\",\"system_id\":\"1392508931\"}], "
-             "\"nets\":[{\"name\":\"l16\",\"members\":[\"lead\",\"crc\"]}], "
-             "\"services\":[{\"service_id\":\"9007199254740995\",\"name\":\"lead-ma\",\"platform\":\"lead\",\"command_capabilities\":[\"*\"],\"owns_dms_ingress\":true,\"owns_dms_egress\":true}, "
-             " {\"service_id\":\"4\",\"name\":\"crc-c2\",\"platform\":\"crc\",\"command_capabilities\":[],\"owns_dms_ingress\":true,\"owns_dms_egress\":true}], "
-             "\"task\":{\"criteria\":[{\"id\":\"time\",\"kind\":\"tick_limit\",\"outcome\":\"truncated\",\"max_ticks\":3}]}}",
-             root);
+    mission_config(config, sizeof config, root);
     CHECK(fsim_mission_episode_create(config, strlen(config), &episode) == FSIM_OK);
     CHECK(fsim_mission_endpoint_open(episode, 9007199254740995ull, &lead) == FSIM_INVALID_ARGUMENT); /* (before a reset) */
     CHECK(fsim_mission_episode_reset(episode, 41) == FSIM_OK);
@@ -366,6 +371,41 @@ static int mission_episode(const char* jsbsim_root) {
     return 0;
 }
 
+/* A batch of two slots through fsim_mission_env.h (ABI 1.77): the episode's configuration under env_ids 7 and 8. */
+static int mission_batch(const char* jsbsim_root) {
+    char a[4096], b[4096], root[2048];
+    const char* configs[2];
+    size_t sizes[2], needed = 0, i, j = 0;
+    fsim_mission_batch_options options;
+    fsim_mission_slot_status status;
+    fsim_mission_batch* batch = NULL;
+    char* env;
+    int t;
+    for (i = 0; jsbsim_root[i] && j + 2 < sizeof root; ++i) {
+        if (jsbsim_root[i] == '\\' || jsbsim_root[i] == '"') root[j++] = '\\';
+        root[j++] = jsbsim_root[i];
+    }
+    root[j] = '\0';
+    mission_config(a, sizeof a, root);
+    strcpy(b, a);
+    env = strstr(b, "\"env_id\":\"7\"");
+    CHECK(env != NULL);
+    env[10] = '8';
+    configs[0] = a, configs[1] = b, sizes[0] = strlen(a), sizes[1] = strlen(b);
+    fsim_mission_batch_options_init(&options);
+    options.autoreset = FSIM_MISSION_AUTORESET_SAME_STEP;
+    CHECK(fsim_mission_batch_create(configs, sizes, 2, &options, &batch) == FSIM_OK);
+    CHECK(fsim_mission_batch_reset(batch) == FSIM_OK);
+    for (t = 0; t < 3; ++t) CHECK(fsim_mission_batch_step(batch) == FSIM_OK);
+    status.struct_size = sizeof status;
+    CHECK(fsim_mission_batch_status(batch, 0, &status) == FSIM_OK);
+    CHECK((status.flags & FSIM_MISSION_SLOT_ENDED) && (status.flags & FSIM_MISSION_SLOT_RESET) && status.generation == 2);
+    CHECK(fsim_mission_batch_final_outcome_json(batch, 0, NULL, 0, &needed) == FSIM_OK && needed > 1);
+    CHECK(fsim_mission_episode_step((fsim_mission_episode*)batch) == FSIM_NOT_ALLOWED);
+    fsim_mission_batch_destroy(batch);
+    return 0;
+}
+
 int main(int argc, char** argv) {
     char jsbsim_root[4096];
     uint64_t a[4], b[4];
@@ -381,8 +421,9 @@ int main(int argc, char** argv) {
     if (worlds(jsbsim_root) != 0) return 1;
     if (reports(jsbsim_root) != 0) return 1;
     if (mission_episode(jsbsim_root) != 0) return 1;
+    if (mission_batch(jsbsim_root) != 0) return 1;
     printf("fsim ABI %u installed C99 consumer: the same ownership in either creation order; legal reports with provenance; "
-           "a mission episode through fsim_mission_env.h\n",
+           "a mission episode and a mission batch through fsim_mission_env.h\n",
            (unsigned)fsim_abi_version());
     return 0;
 }

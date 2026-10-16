@@ -354,6 +354,19 @@ as text nor parsed, however deeply nested. The endpoint must be the episode's ow
 reset, `rebind(episode.endpoint(service_id))` moves the process to the new generation, and another episode's endpoint
 is refused (`ValueError`) even when its service id and episode key are equal.
 
+`fsim.mission.MissionBatch(configs, autoreset="next_step", workers=1, first_local_episode_index=0)` (M7 core;
+[mission-training.md](mission-training.md), section 18) is one independent episode per configuration, each with a
+unique `env_id`. `autoreset` is `"next_step"`, `"same_step"` or `"disabled"`. `reset()`, `reset_slot(slot)` and
+`step()` release the GIL; `status(slot)` is a `SlotStatus` (`generation`, `local_episode_index`, `tick`,
+`episode_done`, `ended`, `reset`); `endpoint(slot, service_id)` and `referee(slot)` are the ordinary handles of the
+slot's current generation; `final_observation_json(slot, service_id)`, `final_outcome_json(slot)`,
+`final_truth_json(slot)` and `final_costs_json(slot)` keep an ended generation's documents apart by principal;
+`remove_platform(slot, name)` removes a configured platform (also `MissionEpisode.remove_platform`), and
+`MissionReferee.costs_json()` is `ma.costs.v1`. `fsim.training.TrainingAdapter(batch)` runs registered systems over a
+batch through their `begin_episode`, `tick` and `end_episode` hooks and keeps the actor, lifecycle and critic streams
+apart; `world_seed`, `service_seed` and `component_seed` are the contract's seed streams. Neither needs any package
+beyond the standard library.
+
 ## Logging and errors
 
 A call that fails raises `fsim.Error` with the platform's message. The

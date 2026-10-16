@@ -318,6 +318,16 @@ foreach(name actions observation)
     set_tests_properties(ma_${name} PROPERTIES LABELS ma-training TIMEOUT 600)
 endforeach()
 
+# Batches of mission episodes for training (M7 core; docs/sdk/mission-training.md, section 18): slots, roles, autoreset,
+# final documents by principal, the referee's costs and actor views no hidden truth changes.
+add_executable(fsim_mission_training_test test_mission_training.cpp)
+target_link_libraries(fsim_mission_training_test PRIVATE fsim::sdk fsim::core Catch2::Catch2WithMain)
+target_compile_definitions(fsim_mission_training_test PRIVATE FSIM_TEST_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+                                                              FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
+fsim_set_warnings(fsim_mission_training_test)
+add_test(NAME mission_training COMMAND fsim_mission_training_test)
+set_tests_properties(mission_training PROPERTIES LABELS ma-training TIMEOUT 900)
+
 # The same episodes through the C ABI, from a plain C99 translation unit: handle kinds, two-call reads, statuses.
 add_executable(fsim_mission_c_abi_test test_mission_c_abi.c)
 target_link_libraries(fsim_mission_c_abi_test PRIVATE fsim::sdk)

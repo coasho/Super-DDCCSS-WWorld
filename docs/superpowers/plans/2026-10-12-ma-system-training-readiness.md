@@ -278,15 +278,15 @@ be reported with evidence before dependent implementation proceeds.
 
 Implement scheduling, role lifecycle, noncombat task criteria, referee-stream transport, communication costs and the training adapter. Extension outcome/criterion contracts are read-only integration inputs. Full program acceptance requires the complete joint evidence.
 
-- [ ] Add failing tests and register mission_training with label/timeout for team reset flags, dead member with continuing teammates, C2 role without aircraft, variable service topology and one task instance per episode.
-- [ ] Implement batch scheduling over independent episode owners. No task/plugin mutable object or RNG is shared between episodes.
-- [ ] Implement per-role active/terminated/truncated/final snapshot/bootstrap eligibility and separate episode_done/reason.
-- [ ] Handle NextStep reset before any old action or world step; test no old release/message/damage. SameStep keeps old final results distinct from new initial observations.
-- [ ] Define noncombat task criteria, completion/reason semantics and explicit communication/resource costs. Transport supplied versioned referee outcomes/rewards without redefining their native meaning. Keep every reward and critic stream outside actor observations and masks.
-- [ ] Keep critic truth separate from actor observations/infos and mask construction. Test actor-view equivalence under hidden-truth changes.
-- [ ] Add a dependency-free Python training adapter contract with component registration/reset hooks. Leave framework-specific optimizers/adapters to the upper layer.
-- [ ] Run ctest --preset ucrt64-headless -R "^mission_training$" --no-tests=error --output-on-failure, Python tests and deterministic worker/reset schedule matrix. Measure throughput, initialization, memory and episode reclamation over a fixed recorded workload.
-- [ ] Review and commit.
+- [x] Add failing tests and register mission_training with label/timeout for team reset flags, dead member with continuing teammates, C2 role without aircraft, variable service topology and one task instance per episode.
+- [x] Implement batch scheduling over independent episode owners. No task/plugin mutable object or RNG is shared between episodes.
+- [x] Implement per-role active/terminated/truncated/final snapshot/bootstrap eligibility and separate episode_done/reason.
+- [x] Handle NextStep reset before any old action or world step; test no old release/message/damage. SameStep keeps old final results distinct from new initial observations.
+- [x] Define noncombat task criteria, completion/reason semantics and explicit communication/resource costs. Transport supplied versioned referee outcomes/rewards without redefining their native meaning. Keep every reward and critic stream outside actor observations and masks.
+- [x] Keep critic truth separate from actor observations/infos and mask construction. Test actor-view equivalence under hidden-truth changes.
+- [x] Add a dependency-free Python training adapter contract with component registration/reset hooks. Leave framework-specific optimizers/adapters to the upper layer.
+- [x] Run ctest --preset ucrt64-headless -R "^mission_training$" --no-tests=error --output-on-failure, Python tests and deterministic worker/reset schedule matrix. Measure throughput, initialization, memory and episode reclamation over a fixed recorded workload.
+- [x] Review and commit (M7 core; awaiting independent acceptance; rewards are pending because no reward definition is installed, and full M7 consumes accepted extension outcomes/criteria and full M6).
 
 **Gate:** Batch, service and actor counts are distinct; terminal transitions and rewards are reliable enough for learning.
 

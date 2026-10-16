@@ -14,7 +14,8 @@ exported.
 | Legal noncombat reports with their provenance ([section 10](#legal-report-calls-noncombat-m2)): navigation, own tracks, passive contacts, link tracks, peers, tasks and authority as Agent calls | **Implemented** (noncombat M2) in C++, C and Python; carried by the `ma.observation.v1` document since M5 core |
 | Complete native-state reset fixture input ([fixture](native-state-reset-fixture.md)) | **Supplied, 2026-10-15**, and applied to the M4 episode reset by the `mission_episode` gate |
 | Independent episode ownership, full fresh reset, generation-bound children and seed streams ([sections 4](#4-ownership-generation-lifetime-and-move) and [8](#8-seed-streams)) | **Implemented and accepted** (M4: 8254d7e, c507978, 54b7fb9) as the internal native owner `fsim::env::MissionEpisode` (`src/env/MissionEpisode.h`), which the public family below wraps |
-| The public mission episode, endpoint and referee family ([section 3](#3-principals-and-proposed-entry-points)), every `ma.*.v1` document (`ma.config.v1` read strictly among them), the gateway's submission, dispatch, deduplication and receipts ([sections 11](#11-maactionsv1-requests) and [12](#12-mareceiptsv1-acknowledgments-and-receipts)), the noncombat criteria and referee documents ([section 13](#13-referee-documents)), limits ([section 14](#14-capacity-limits)) and strict isolation for actors ([section 16](#16-isolation)) | **Implemented, awaiting independent acceptance** (M5 core) in C++ (`fsim/MissionEpisode.h`), C (`fsim/fsim_mission_env.h`) and Python (`fsim.mission`, `fsim.isolation.MissionEndpointProcess`). M5 core is not full M5: every extension key and request kind is still refused ([section 15](#15-extension-seam-and-pending-gates)) |
+| The public mission episode, endpoint and referee family ([section 3](#3-principals-and-proposed-entry-points)), every `ma.*.v1` document (`ma.config.v1` read strictly among them), the gateway's submission, dispatch, deduplication and receipts ([sections 11](#11-maactionsv1-requests) and [12](#12-mareceiptsv1-acknowledgments-and-receipts)), the noncombat criteria and referee documents ([section 13](#13-referee-documents)), limits ([section 14](#14-capacity-limits)) and strict isolation for actors ([section 16](#16-isolation)) | **Implemented** (M5 core) in C++ (`fsim/MissionEpisode.h`), C (`fsim/fsim_mission_env.h`) and Python (`fsim.mission`, `fsim.isolation.MissionEndpointProcess`). M5 core is not full M5: every extension key and request kind is still refused ([section 15](#15-extension-seam-and-pending-gates)) |
+| Batches over independent episode owners, autoreset, per-role flags, final documents by principal, a lost platform, communication and resource costs (`ma.costs.v1`) and the dependency-free training adapter ([section 18](#18-batches-and-training-m7-core)) | **Implemented, awaiting independent acceptance** (M7 core) in C++ (`fsim/MissionBatch.h`), C (`fsim/fsim_mission_env.h`, ABI 1.77) and Python (`fsim.mission.MissionBatch`, `fsim.training`). Rewards are pending: none is installed |
 
 The [SDK's principals](boundary.md) list what the SDK really exports.
 
@@ -74,7 +75,7 @@ components, a C2 node's service has no aircraft, and no count implies another.
 
 Every entry point of this contract belongs to one principal of [ADR-31](../agent-boundary.md).
 
-Implemented, exported and classified in `boundary.toml` (M5 core's rows are awaiting independent acceptance):
+Implemented, exported and classified in `boundary.toml` (M7 core's rows are awaiting independent acceptance):
 
 | Entry point | Principal | Package |
 | --- | --- | --- |
@@ -96,6 +97,14 @@ Implemented, exported and classified in `boundary.toml` (M5 core's rows are awai
 | `fsim.mission.MissionReferee`: `outcome_json`, `truth_json`, `close` | referee | M5 core |
 | `fsim.isolation.MissionEndpointProcess` (the range's side of a process boundary) | range | M5 core |
 | `fsim.isolation.RemoteMissionEndpoint`: `observation_json`, `submit_json`, `receipts_json` (the actor's side) | agent | M5 core |
+| `fsim::MissionBatch`: constructor, destructor, moves, `size`, `reset`, `resetSlot`, `step`, `status`, `endpoint`, `referee`, `finalObservationJsonV1`, `removePlatform` (`fsim/MissionBatch.h`); `fsim::MissionEpisode::removePlatform` | range | M7 core |
+| `fsim::MissionBatch`: `finalOutcomeJsonV1`, `finalTruthJsonV1`, `finalCostsJsonV1`; `fsim::MissionReferee::costsJsonV1` | referee | M7 core |
+| `fsim_mission_batch_create`, `_destroy`, `_size`, `_reset`, `_reset_slot`, `_step`, `_status`, `_endpoint_open`, `_referee_open`, `_final_observation_json`, `_remove_platform`; `fsim_mission_episode_remove_platform` (`fsim_mission_batch_options_init` is a value initialiser) | range | M7 core |
+| `fsim_mission_batch_final_outcome_json`, `_final_truth_json`, `_final_costs_json`; `fsim_mission_referee_costs_json` | referee | M7 core |
+| `fsim.mission.MissionBatch`: `reset`, `reset_slot`, `step`, `status`, `endpoint`, `referee`, `final_observation_json`, `remove_platform`, `close`; `MissionEpisode.remove_platform` | range | M7 core |
+| `fsim.mission.MissionBatch`: `final_outcome_json`, `final_truth_json`, `final_costs_json`; `MissionReferee.costs_json` | referee | M7 core |
+| `fsim.training.TrainingAdapter`: `register`, `reset`, `step`, `actor_stream`, `lifecycle_stream`, `clear_streams`, `close` | range | M7 core |
+| `fsim.training.TrainingAdapter.critic_stream` | referee | M7 core |
 
 Besides the rows above, M5 core exports `fsim.mission.MissionEpisode.diagnostic` and `MissionEndpoint.service_id`
 (read-only facts of the handle the caller already holds), `fsim.isolation.MissionEndpointProcess.rebind` (section 4's
@@ -103,7 +112,8 @@ explicit re-binding at a new generation) and the value `fsim.isolation.mission_e
 callable-method list). In Python `reset` returns nothing, as in C: the episode key is in every document of the new generation.
 
 `receiptsJsonV1` is one addition to the plan's C++ sketch: the same non-consuming read the C function gives. The
-batch family of M7 (`fsim/MissionBatch.h`) is not frozen here; it consumes these documents unchanged.
+batch family of M7 (`fsim/MissionBatch.h`, [section 18](#18-batches-and-training-m7-core)) is additive and was not
+frozen with these signatures; it consumes these documents unchanged. `fsim.training`'s seed functions are values.
 
 The frozen signatures. Each C++ class is exported, holds one pointer to its implementation and nothing else, and has
 no inline member that depends on that implementation's layout:
@@ -881,9 +891,11 @@ acceptance scope from actor process-interface checks.
   fixture's expectation, read-back, the seed vectors, this page's tables against the schema, ASCII and local links)
   and `ma_contract_checker` (the checker's own refusals), and the implemented parts' own acceptance:
   `ma_service_binding` (C++), `ma_reports` (C++), `ma_c_abi` (C99), `mission_episode` (M4), `ma_actions` and
-  `ma_observation` (M5 core, C++), `mission_c_abi` (M5 core, C99) and `mission_package_consumer` (C++, C99 and
-  Python consumers built and run against installed packages alone, mission episodes and an isolated actor among them).
-  The Python cases are `test_ma_service`, `test_ma_reports` and `test_mission` of `python_sdk`; `test_mission` holds
+  `ma_observation` (M5 core, C++), `mission_c_abi` (M5 core and M7 core, C99), `mission_training` (M7 core, C++)
+  and `mission_package_consumer` (C++, C99 and Python consumers built and run against installed packages alone,
+  mission episodes, an isolated actor and mission batches among them).
+  The Python cases are `test_ma_service`, `test_ma_reports`, `test_mission` and `test_mission_training` of
+  `python_sdk`; `test_mission` holds
   every document the episode writes - through every generic operation of the frozen fixtures - to the schema and the
   checker's rules.
 - The fixtures cover identities above 2^53 up to 2^64 - 1, null numeric reports with their validity, message bytes
@@ -893,4 +905,83 @@ acceptance scope from actor process-interface checks.
 
 The document checks hold the contract's documents to the contract. They are not evidence that an interface exists
 or works: that is each implementing package's own acceptance, which today covers the service binding, the legal
-report calls, the M4 episode owner and - awaiting independent acceptance - the M5 core gateway family.
+report calls, the M4 episode owner, the M5 core gateway family and - awaiting independent acceptance - the M7 core
+batch layer ([section 18](#18-batches-and-training-m7-core)).
+
+## 18. Batches and training (M7 core)
+
+**Implemented, awaiting independent acceptance** (M7 core) in C++ (`fsim/MissionBatch.h`), C (`fsim/fsim_mission_env.h`,
+ABI 1.77) and Python (`fsim.mission.MissionBatch`, `fsim.training`). M7 core is not full M7: combat outcome reduction,
+rewards and full M6 composition scenarios are pending ([section 15](#15-extension-seam-and-pending-gates)).
+
+**A batch** is the range's: one independent `MissionEpisode` per slot, each from its own `ma.config.v1`. Slots may
+configure different platforms, services and C2 nodes - the batch size, the number of services and the number of
+actors are unrelated, and a C2 service needs no aircraft. Nothing is shared between slots: each owns its World,
+task/judge, gateway, seed streams and count of local episodes. A slot's `env_id` is its configuration's and must be
+unique in the batch (construction fails otherwise). Slot k's local episode index starts at the options' first index
+and counts that slot's own resets, so its seed streams ([section 8](#8-seed-streams)) never depend on another slot,
+on the worker count or on the order in which slots are stepped. `workers` slots step side by side, each slot on one
+thread at a time; every slot runs before the first failure (by slot order) is rethrown. A slot's own World keeps its
+own worker setting.
+
+**Step and autoreset.** `step()` closes one decision tick in every slot ([section 4](#4-ownership-generation-lifetime-and-move)).
+An episode ends when its referee outcome says `episode_done` ([section 13](#13-referee-documents)). One task instance
+belongs to one generation: a reset builds a fresh World with fresh criteria. What happens next is the batch's mode:
+
+| Mode | After an episode ends |
+| --- | --- |
+| `Disabled` (C `FSIM_MISSION_AUTORESET_DISABLED`, Python `"disabled"`) | The slot holds its ended generation: `step()` neither dispatches its queued requests nor steps its World, until the range calls `resetSlot` |
+| `NextStep` (`_NEXT_STEP`, `"next_step"`, the default) | The next `step()` resets the slot first and does nothing else in it: no request of the ended generation is dispatched and no World of it steps, so no action, release, message or damage of the old generation follows its end |
+| `SameStep` (`_SAME_STEP`, `"same_step"`) | The step that ends it keeps the ended generation's final documents and resets the slot at once |
+
+**Slot status** after the last reset or step: `generation`, `local_episode_index`, `tick` (decision ticks of the
+current generation), `episode_done` (the current generation's outcome says so), `ended` (an episode of this slot ended
+in the last step) and `reset` (a new generation began in the last step or reset). Under `SameStep`, `ended` and
+`reset` are both set and `episode_done` is the new generation's. C reports the last three as `FSIM_MISSION_SLOT_*` flags.
+
+**Roles.** Per-role flags stay the referee outcome's (`active`, `terminated`, `truncated`, `final_observation`,
+`bootstrap`), separate from the episode's `episode_done` and `reason`; the batch adds none and changes none. A lost
+platform ends its role and leaves its teammates and the episode running: the range's `removePlatform(slot, name)`
+(also `MissionEpisode::removePlatform`) removes a configured vehicle or C2 node through the World's own removal and
+returns whether it was still there; its roles end at the next tick. An end of the episode closes every role, a C2
+role without an aircraft among them.
+
+**Final documents** stay apart by principal and are kept until the slot's next episode ends (empty before any): a
+service's final snapshot (`finalObservationJsonV1`, the `ma.observation.v1` its actor last saw - the actor's) and the
+referee's final outcome, truth and costs (`finalOutcomeJsonV1`, `finalTruthJsonV1`, `finalCostsJsonV1`). Under
+`SameStep` they are the only way to read the ended generation; a handle opened on it is of an earlier generation and
+fails.
+
+**Costs** (`ma.costs.v1`, [schema](ma-training.schema.json), beside the frozen contract schema, which is unchanged) are
+a referee document: `MissionReferee::costsJsonV1`, `fsim_mission_referee_costs_json`, `MissionReferee.costs_json`. Per
+service, in ascending service id, for the tick just closed and since its generation began: `requests` (each new
+request id, refusals at submit among them), `dispatched` (those the SDK executed natively), `refused` (by the gateway
+or natively), `dms_messages` and `dms_bytes` (what its `dms.*` requests sent), and `c2_messages` (what its `c2.*`
+requests sent). They are counted from the gateway's own dispatch and the native results; they are explicit inputs
+for a reward, never part of an observation, a receipt or a mask.
+
+**Rewards** are pending: no reward definition is installed ([section 15](#15-extension-seam-and-pending-gates)). The
+batch transports the referee documents a supplied reward would read and computes none.
+
+**Actor and critic data.** An actor reads its endpoint alone. Critic truth - the referee's outcome, truth and costs,
+and the final versions of each - comes from the referee handle and the batch's referee calls. The `mission_training`
+gate changes hidden truth (a bogey no sensor or link of the wing reports) and checks the wing's snapshots are
+byte-equal while truth differs.
+
+**The training adapter** (`fsim.training`, Python standard library only) runs the upper layer's systems over a batch
+without a learning framework, optimizer or tensor library. `TrainingAdapter(batch).register(slot, service_id,
+factory)` makes `factory(slot, service_id)` for a configured service (an unconfigured one is a `ValueError`); a system
+has `begin_episode(context)` (`slot`, `service_id`, `episode_key`: a new generation, before it acts),
+`tick(endpoint)` and `end_episode(feedback)` (`episode_done` and `reason` alone - the role's permitted mission
+feedback). `reset()` and `step()` call them around every generation and keep three streams apart: `actor_stream()`
+(each role's snapshots and, when its episode ended, its final snapshot), `lifecycle_stream()` (per role and step:
+`episode_done`, `reason` and the five role flags) and `critic_stream()` (per slot and step: outcome, truth, costs - for
+a critic or a reward, never an actor). An ended slot waiting for its reset does not tick. `world_seed`, `service_seed`
+and `component_seed` compute [section 8](#8-seed-streams)'s streams.
+
+**Evidence.** `mission_training` (C++: slot independence and topology, a worker x reset-schedule matrix, a lost member,
+a team end, `NextStep` reset order, `SameStep` finals, costs, actor-view equivalence under hidden truth),
+`mission_c_abi` (the batch's C handle), `python_sdk`'s `test_mission_training` and `mission_package_consumer`'s batch
+passes through installed C++, C99 and Python. `tools/ma_contract/mission_workload.py` measures a fixed recorded
+workload - construction, reset, throughput, working set and reclamation over rebuilds - and its digest of every
+document the workload produced, which is the same for every worker count and every rebuild.

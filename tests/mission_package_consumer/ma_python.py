@@ -185,6 +185,37 @@ class Actor:
         return getattr(self, "received", 0)
 
 
+def mission_batch():
+    """A batch of two slots through fsim.mission and the training adapter, from the installed package (M7 core)."""
+    other = MISSION_CONFIG.replace('"env_id":"7"', '"env_id":"8"')
+    require(other != MISSION_CONFIG, "the second slot needs its own env_id")
+    batch = fsim.mission.MissionBatch([MISSION_CONFIG, other], autoreset="same_step", workers=2)
+    adapter = fsim.training.TrainingAdapter(batch)
+
+    class Waiting:
+        def begin_episode(self, context):
+            pass
+
+        def tick(self, endpoint):
+            snapshot = json.loads(endpoint.observation_json())
+            endpoint.submit_json(json.dumps({"schema": "ma.actions.v1", "episode": snapshot["episode"],
+                                             "service_id": snapshot["service"]["service_id"], "tick": snapshot["tick"], "requests": []}))
+
+        def end_episode(self, feedback):
+            pass
+    for slot in (0, 1):
+        adapter.register(slot, 9007199254740995, lambda slot, service: Waiting())
+    adapter.reset()
+    for _ in range(3):
+        adapter.step()
+    status = batch.status(0)
+    require(status.ended and status.reset and status.generation == 2, "the slot did not end and reset in the same step: %r" % (status,))
+    require(any(r.get("final_observation") for r in adapter.actor_stream()), "no final observation in the actor stream")
+    require(all(set(r) >= {"outcome", "truth", "costs"} for r in adapter.critic_stream()), "the critic stream is incomplete")
+    require(not any("ma.costs" in (r.get("observation") or "") for r in adapter.actor_stream()), "costs reached an actor")
+    adapter.close()
+
+
 def mission_episode():
     """A mission episode through fsim.mission, and an actor of it in its own process, from the installed package."""
     episode = fsim.mission.MissionEpisode(MISSION_CONFIG)
@@ -250,8 +281,9 @@ def main(argv):
     worlds()
     reports()
     key = mission_episode()
+    mission_batch()
     print("fsim %s installed Python consumer: ownership %r in either creation order; legal reports with provenance; "
-          "mission episode %s with an isolated actor" % (fsim.__version__, a, json.dumps(key)))
+          "mission episode %s with an isolated actor; a mission batch under the training adapter" % (fsim.__version__, a, json.dumps(key)))
     return 0
 
 

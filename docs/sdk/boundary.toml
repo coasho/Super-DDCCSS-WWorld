@@ -1185,6 +1185,64 @@ principal = "value"
 note = "Mission isolation's whitelist: what an isolated actor may call on its endpoint"
 names = ["fsim.isolation.mission_endpoint_calls"]
 
+[[rule]]
+principal = "range"
+note = "A platform lost (section 18; M7 core): the range removes a configured platform from an episode's World - its roles end at the next tick, its teammates' go on"
+names = [
+    "fsim::MissionEpisode::removePlatform", "fsim_mission_episode_remove_platform", "fsim.mission.MissionEpisode.remove_platform",
+]
+
+[[rule]]
+principal = "referee"
+note = "A generation's communication and resource costs (section 18; M7 core): ma.costs.v1 - requests, dispatches, refusals, DMS and C2 messages per service - the referee's and the trainer's, never an actor's"
+names = ["fsim::MissionReferee::costsJsonV1", "fsim_mission_referee_costs_json", "fsim.mission.MissionReferee.costs_json"]
+
+[[rule]]
+principal = "range"
+note = "Mission batches (section 18; M7 core): the range makes one independent episode per slot, resets and steps them over its workers with the autoreset it chose, reads each slot's status, opens its endpoints and referee, removes a platform, and keeps an ended generation's final snapshots for the learner of each role"
+names = [
+    "fsim::MissionBatch::MissionBatch", "fsim::MissionBatch::~MissionBatch", "fsim::MissionBatch::operator=",
+    "fsim::MissionBatch::size", "fsim::MissionBatch::reset", "fsim::MissionBatch::resetSlot", "fsim::MissionBatch::step",
+    "fsim::MissionBatch::status", "fsim::MissionBatch::endpoint", "fsim::MissionBatch::referee",
+    "fsim::MissionBatch::finalObservationJsonV1", "fsim::MissionBatch::removePlatform",
+    "fsim_mission_batch_create", "fsim_mission_batch_destroy", "fsim_mission_batch_size", "fsim_mission_batch_reset",
+    "fsim_mission_batch_reset_slot", "fsim_mission_batch_step", "fsim_mission_batch_status", "fsim_mission_batch_endpoint_open",
+    "fsim_mission_batch_referee_open", "fsim_mission_batch_final_observation_json", "fsim_mission_batch_remove_platform",
+    "fsim.mission.MissionBatch.reset", "fsim.mission.MissionBatch.reset_slot", "fsim.mission.MissionBatch.step",
+    "fsim.mission.MissionBatch.status", "fsim.mission.MissionBatch.endpoint", "fsim.mission.MissionBatch.referee",
+    "fsim.mission.MissionBatch.final_observation_json", "fsim.mission.MissionBatch.remove_platform",
+    "fsim.mission.MissionBatch.close",
+]
+
+[[rule]]
+principal = "referee"
+note = "An ended generation's referee documents kept by a batch (section 18; M7 core): its final outcome, truth and costs"
+names = [
+    "fsim::MissionBatch::finalOutcomeJsonV1", "fsim::MissionBatch::finalTruthJsonV1", "fsim::MissionBatch::finalCostsJsonV1",
+    "fsim_mission_batch_final_outcome_json", "fsim_mission_batch_final_truth_json", "fsim_mission_batch_final_costs_json",
+    "fsim.mission.MissionBatch.final_outcome_json", "fsim.mission.MissionBatch.final_truth_json",
+    "fsim.mission.MissionBatch.final_costs_json",
+]
+
+[[rule]]
+principal = "range"
+note = "The training adapter (section 18; M7 core): the trainer registers each slot's and service's system, resets and steps the batch around their lifecycle hooks, and reads what each role's actors saw and the per-role lifecycle signals"
+names = [
+    "fsim.training.TrainingAdapter.register", "fsim.training.TrainingAdapter.reset", "fsim.training.TrainingAdapter.step",
+    "fsim.training.TrainingAdapter.actor_stream", "fsim.training.TrainingAdapter.lifecycle_stream",
+    "fsim.training.TrainingAdapter.clear_streams", "fsim.training.TrainingAdapter.close",
+]
+
+[[rule]]
+principal = "referee"
+note = "The training adapter's critic stream (section 18; M7 core): the referee's outcome, truth and costs per slot and step, kept apart from the actor and lifecycle streams"
+names = ["fsim.training.TrainingAdapter.critic_stream"]
+
+[[rule]]
+principal = "value"
+note = "Section 8 seed derivation (M7 core): a local episode's world, service and component seeds from the base seed and stable ids alone"
+names = ["fsim.training.world_seed", "fsim.training.service_seed", "fsim.training.component_seed"]
+
 
 [[rule]]
 principal = "range"

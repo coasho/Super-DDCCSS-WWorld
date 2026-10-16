@@ -28,6 +28,18 @@ another holding the episode `FSIM_ERROR`. Documents in are a pointer and a byte 
 read - a null buffer or capacity 0 reports the size with its terminator, a smaller capacity writes nothing - and no
 read consumes anything. Nothing in `fsim_c.h` changed. See [mission-training.md](mission-training.md), sections 3 to 5.
 
+Batches (1.77, M7 core) add a fourth handle kind to the same header, `fsim_mission_batch` (the range's): `_create`
+from `count` configurations (pointer and byte count each) and `fsim_mission_batch_options` (`_init`: `NEXT_STEP`
+autoreset, one worker, first local episode index 0), `_size`, `_reset`, `_reset_slot`, `_step`, `_status`
+(`fsim_mission_slot_status`: generation, local episode index, tick, `FSIM_MISSION_SLOT_EPISODE_DONE`, `_ENDED` and
+`_RESET` flags; read where the caller's `struct_size` has them), `_endpoint_open` and `_referee_open` (the ordinary
+handles of a slot's current generation), the two-call `_final_observation_json`, `_final_outcome_json`,
+`_final_truth_json` and `_final_costs_json`, `_remove_platform` and `_destroy`. Also additive:
+`fsim_mission_episode_remove_platform` (`*removed` 1 when the platform was still there) and the referee's
+`fsim_mission_referee_costs_json` (`ma.costs.v1`). Errors are the episode family's; a duplicate `env_id`, no
+configuration, an unknown autoreset mode or zero workers is `FSIM_INVALID_ARGUMENT`, and so is a step before the
+first reset. See [mission-training.md](mission-training.md), section 18.
+
 ## World and vehicles
 
 ```c

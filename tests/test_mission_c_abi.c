@@ -177,6 +177,96 @@ static int busy_reset(const char* config) {
 }
 #endif
 
+/* A batch (ABI 1.77): two slots of the same configuration under other env_ids, SameStep autoreset after two ticks. */
+static char* with_env(const char* config, const char* env_id, int max_ticks) {
+    const char* env = "\"env_id\": \"9007199254740993\"";
+    const char* ticks = "\"max_ticks\": 600";
+    const char* at_env = strstr(config, env);
+    const char* at_ticks = strstr(config, ticks);
+    size_t j = 0;
+    char* out = (char*)malloc(strlen(config) + 64);
+    if (!out || !at_env || !at_ticks || at_ticks < at_env) {
+        free(out);
+        return NULL;
+    }
+    memcpy(out, config, (size_t)(at_env - config));
+    j = (size_t)(at_env - config);
+    j += (size_t)sprintf(out + j, "\"env_id\": \"%s\"", env_id);
+    memcpy(out + j, at_env + strlen(env), (size_t)(at_ticks - at_env) - strlen(env));
+    j += (size_t)(at_ticks - at_env) - strlen(env);
+    j += (size_t)sprintf(out + j, "\"max_ticks\": %d", max_ticks);
+    strcpy(out + j, at_ticks + strlen(ticks));
+    return out;
+}
+
+static int batch_cases(const char* config) {
+    char* a = with_env(config, "101", 2);
+    char* b = with_env(config, "102", 600);
+    const char* configs[2];
+    size_t sizes[2], size = 0, needed = 0, first = 0;
+    int removed;
+    fsim_mission_batch_options options;
+    fsim_mission_slot_status status;
+    fsim_mission_batch* batch = NULL;
+    fsim_mission_endpoint* wing = NULL;
+    fsim_mission_referee* referee = NULL;
+    char* text;
+    CHECK(a && b);
+    configs[0] = a, configs[1] = b, sizes[0] = strlen(a), sizes[1] = strlen(b);
+    fsim_mission_batch_options_init(&options);
+    CHECK(options.struct_size == sizeof options && options.autoreset == FSIM_MISSION_AUTORESET_NEXT_STEP && options.workers == 1);
+    options.autoreset = FSIM_MISSION_AUTORESET_SAME_STEP;
+    options.workers = 2;
+    CHECK(fsim_mission_batch_create(configs, sizes, 2, NULL, &batch) == FSIM_OK); /* (null options: the defaults) */
+    fsim_mission_batch_destroy(batch);
+    batch = NULL;
+    CHECK(fsim_mission_batch_create(configs, sizes, 0, &options, &batch) == FSIM_INVALID_ARGUMENT);
+    configs[1] = a, sizes[1] = sizes[0];
+    CHECK(fsim_mission_batch_create(configs, sizes, 2, &options, &batch) == FSIM_INVALID_ARGUMENT); /* (an env_id twice) */
+    configs[1] = b, sizes[1] = strlen(b);
+    CHECK(fsim_mission_batch_create(configs, sizes, 2, &options, &batch) == FSIM_OK);
+    CHECK(fsim_mission_batch_size(batch, &size) == FSIM_OK && size == 2);
+    CHECK(fsim_mission_batch_step(batch) == FSIM_INVALID_ARGUMENT); /* (not reset) */
+    CHECK(fsim_mission_batch_reset(batch) == FSIM_OK);
+    status.struct_size = sizeof status;
+    CHECK(fsim_mission_batch_status(batch, 0, &status) == FSIM_OK);
+    CHECK(status.generation == 1 && status.tick == 0 && (status.flags & FSIM_MISSION_SLOT_RESET));
+    CHECK(fsim_mission_batch_status(batch, 2, &status) == FSIM_INVALID_ARGUMENT);
+    CHECK(fsim_mission_batch_final_outcome_json(batch, 0, NULL, 0, &first) == FSIM_OK && first == 1); /* (none yet: "") */
+    /* handle kinds: a batch is none of the other three, nor they a batch */
+    CHECK(fsim_mission_batch_endpoint_open(batch, 0, 9007199254740995ull, &wing) == FSIM_OK);
+    CHECK(fsim_mission_batch_step((fsim_mission_batch*)wing) == FSIM_NOT_ALLOWED);
+    CHECK(fsim_mission_episode_step((fsim_mission_episode*)batch) == FSIM_NOT_ALLOWED);
+    CHECK(fsim_mission_batch_step(batch) == FSIM_OK);
+    CHECK(fsim_mission_batch_step(batch) == FSIM_OK);
+    CHECK(fsim_mission_batch_status(batch, 0, &status) == FSIM_OK);
+    CHECK((status.flags & FSIM_MISSION_SLOT_ENDED) && (status.flags & FSIM_MISSION_SLOT_RESET) && status.generation == 2 && status.tick == 0);
+    CHECK(fsim_mission_batch_status(batch, 1, &status) == FSIM_OK && !(status.flags & FSIM_MISSION_SLOT_ENDED) && status.tick == 2);
+    CHECK(fsim_mission_endpoint_observation_json(wing, NULL, 0, &needed) == FSIM_INVALID_ARGUMENT); /* (its generation ended) */
+    /* the ended generation's final documents, by the two-call protocol */
+    CHECK(fsim_mission_batch_final_observation_json(batch, 0, 9007199254740995ull, NULL, 0, &needed) == FSIM_OK && needed > 1);
+    text = (char*)malloc(needed);
+    CHECK(text && fsim_mission_batch_final_observation_json(batch, 0, 9007199254740995ull, text, needed, &needed) == FSIM_OK);
+    CHECK(strstr(text, "\"tick\":\"2\"") && strstr(text, "\"episode_generation\":\"1\""));
+    free(text);
+    CHECK(fsim_mission_batch_final_outcome_json(batch, 0, NULL, 0, &needed) == FSIM_OK && needed > 1);
+    CHECK(fsim_mission_batch_final_costs_json(batch, 0, NULL, 0, &needed) == FSIM_OK && needed > 1);
+    CHECK(fsim_mission_batch_final_truth_json(batch, 0, NULL, 0, &needed) == FSIM_OK && needed > 1);
+    CHECK(fsim_mission_batch_referee_open(batch, 0, &referee) == FSIM_OK);
+    CHECK(fsim_mission_referee_costs_json(referee, NULL, 0, &needed) == FSIM_OK && needed > 1);
+    removed = -1;
+    CHECK(fsim_mission_batch_remove_platform(batch, 1, "wing", 4, &removed) == FSIM_OK && removed == 1);
+    CHECK(fsim_mission_batch_remove_platform(batch, 1, "wing", 4, &removed) == FSIM_OK && removed == 0);
+    CHECK(fsim_mission_batch_remove_platform(batch, 1, "nobody", 6, NULL) == FSIM_INVALID_ARGUMENT);
+    fsim_mission_endpoint_destroy(wing);
+    fsim_mission_referee_destroy(referee);
+    fsim_mission_batch_destroy(batch);
+    fsim_mission_batch_destroy(NULL);
+    free(a);
+    free(b);
+    return 0;
+}
+
 int main(int argc, char** argv) {
     fsim_mission_episode* episode = NULL;
     fsim_mission_endpoint* wing = NULL;
@@ -303,6 +393,7 @@ int main(int argc, char** argv) {
 #ifdef _WIN32
     if (busy_reset(config) != 0) return 1;
 #endif
+    if (batch_cases(config) != 0) return 1;
     free(config);
     printf("mission C ABI: ok\n");
     return 0;

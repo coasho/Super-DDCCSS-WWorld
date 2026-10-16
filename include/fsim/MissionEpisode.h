@@ -63,6 +63,9 @@ public:
 
     std::string outcomeJsonV1() const; ///< `ma.outcome.v1` of the current decision tick
     std::string truthJsonV1() const;   ///< `ma.truth.v1` of the current decision tick
+    /// `ma.costs.v1` of the current decision tick (M7 core): each service's requests and communication, this tick and
+    /// in total - the referee's, never an actor's.
+    std::string costsJsonV1() const;
 
 private:
     friend class MissionEpisode;
@@ -92,6 +95,10 @@ public:
     MissionEndpoint endpoint(std::uint64_t serviceId);
     /// The referee, for the current generation.
     MissionReferee referee();
+    /// The range removes a platform (a scenario vehicle or C2 node, by name) from the current World, as the World's own
+    /// removal does (M7 core): its services' roles end at the next tick. False when it is already gone;
+    /// std::invalid_argument for a name the configuration does not have.
+    bool removePlatform(std::string_view platform);
 
 private:
     struct Impl;

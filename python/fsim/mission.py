@@ -22,10 +22,11 @@ well-formed document for another generation, tick or service is not an error: it
 The process boundary for actors is :class:`fsim.isolation.MissionEndpointProcess`.
 """
 import json
+from collections import namedtuple
 
 from . import _native
 
-__all__ = ["MissionEpisode", "MissionEndpoint", "MissionReferee"]
+__all__ = ["MissionEpisode", "MissionEndpoint", "MissionReferee", "MissionBatch", "SlotStatus"]
 
 
 class MissionEndpoint:
@@ -92,6 +93,11 @@ class MissionReferee:
         """``ma.truth.v1`` of the current decision tick, as text."""
         return self._live().truth_json()
 
+    def costs_json(self):
+        """``ma.costs.v1`` of the current decision tick (M7 core): each service's requests and communication, this tick
+        and in total, as text - the referee's, never an actor's."""
+        return self._live().costs_json()
+
     def close(self):
         if self._native is not None:
             self._native.close()
@@ -143,6 +149,11 @@ class MissionEpisode:
         """The referee, for the current generation."""
         return MissionReferee(self._live().referee())
 
+    def remove_platform(self, name):
+        """The range removes a platform (a scenario vehicle or C2 node, by name) from the current World (M7 core): its
+        services' roles end at the next tick. False when it is already gone."""
+        return self._live().remove_platform(name)
+
     def _owns(self, endpoint):
         """Whether `endpoint` is one this open episode opened - by its native handle, not an equal service id or key."""
         native = getattr(endpoint, "_native", None) if isinstance(endpoint, MissionEndpoint) else None
@@ -158,6 +169,90 @@ class MissionEpisode:
     def _live(self):
         if self._native is None:
             raise _native.Error("this MissionEpisode is closed")
+        return self._native
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+
+SlotStatus = namedtuple("SlotStatus", "generation local_episode_index tick episode_done ended reset")
+SlotStatus.__doc__ = """A batch slot after the last reset or step (fsim/MissionBatch.h): `ended`, an episode of the slot ended in
+that step; `reset`, a new generation began in it."""
+
+_AUTORESET = {"disabled": 0, "next_step": 1, "same_step": 2}
+
+
+class MissionBatch:
+    """The range's batch of independent mission episodes (M7 core; docs/sdk/mission-training.md, section 18): one per
+    slot, each from its own ``ma.config.v1`` (str or bytes) with a unique env_id. `autoreset` is "next_step" (an ended
+    episode does nothing more: the next step resets it first), "same_step" (the step that ends it keeps its final
+    documents and resets it) or "disabled" (the ended episode holds - step neither dispatches nor steps it - until
+    reset_slot). `workers` slots are stepped side by side, the GIL released;
+    the worker count decides nothing."""
+
+    __slots__ = ("_native",)
+
+    def __init__(self, configs, autoreset="next_step", workers=1, first_local_episode_index=0):
+        if autoreset not in _AUTORESET:
+            raise ValueError("autoreset is one of %s" % ", ".join(sorted(_AUTORESET)))
+        self._native = _native.MissionBatch(list(configs), _AUTORESET[autoreset], int(workers), int(first_local_episode_index))
+
+    def __len__(self):
+        return self._live().size()
+
+    def reset(self):
+        """A fresh generation in every slot, each at its next local episode index."""
+        self._live().reset()
+
+    def reset_slot(self, slot):
+        self._live().reset_slot(slot)
+
+    def step(self):
+        """One decision tick in every slot, with its autoreset."""
+        self._live().step()
+
+    def status(self, slot):
+        generation, local, tick, flags = self._live().status(slot)
+        return SlotStatus(generation, local, tick, bool(flags & 1), bool(flags & 2), bool(flags & 4))
+
+    def endpoint(self, slot, service_id):
+        """The endpoint of a slot's service, for its current generation."""
+        return MissionEndpoint(self._live().endpoint(slot, service_id), int(service_id))
+
+    def referee(self, slot):
+        return MissionReferee(self._live().referee(slot))
+
+    def final_observation_json(self, slot, service_id):
+        """The last ended generation's final snapshot of a service - an actor's document ("" before any)."""
+        return self._live().final_observation_json(slot, service_id)
+
+    def final_outcome_json(self, slot):
+        """The last ended generation's final ``ma.outcome.v1`` - the referee's ("" before any)."""
+        return self._live().final_outcome_json(slot)
+
+    def final_truth_json(self, slot):
+        """The last ended generation's final ``ma.truth.v1`` - the referee's ("" before any)."""
+        return self._live().final_truth_json(slot)
+
+    def final_costs_json(self, slot):
+        """The last ended generation's final ``ma.costs.v1`` - the referee's ("" before any)."""
+        return self._live().final_costs_json(slot)
+
+    def remove_platform(self, slot, name):
+        return self._live().remove_platform(slot, name)
+
+    def close(self):
+        """End every slot at once (also when it is already closed); their handles answer no more."""
+        if self._native is not None:
+            self._native.close()
+            self._native = None
+
+    def _live(self):
+        if self._native is None:
+            raise _native.Error("this MissionBatch is closed")
         return self._native
 
     def __enter__(self):

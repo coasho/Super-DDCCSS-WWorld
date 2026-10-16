@@ -46,6 +46,54 @@ FSIM_API void fsim_mission_referee_destroy(fsim_mission_referee* referee);
 FSIM_API int fsim_mission_referee_outcome_json(fsim_mission_referee* referee, char* buffer, size_t capacity, size_t* needed);
 FSIM_API int fsim_mission_referee_truth_json(fsim_mission_referee* referee, char* buffer, size_t capacity, size_t* needed);
 
+/* ABI 1.77 (M7 core), additive. The range removes a platform by name (its roles end at the next tick): *removed (when
+ * not null) 1, or 0 when it was already gone; FSIM_INVALID_ARGUMENT for a name the configuration does not have. The
+ * referee reads its costs (ma.costs.v1). */
+FSIM_API int fsim_mission_episode_remove_platform(fsim_mission_episode* episode, const char* platform, size_t platform_bytes, int* removed);
+FSIM_API int fsim_mission_referee_costs_json(fsim_mission_referee* referee, char* buffer, size_t capacity, size_t* needed);
+
+/* Batches (fsim/MissionBatch.h; ABI 1.77): one independent episode per slot, configurations given as pointer and byte
+ * count each. A fourth handle kind, the range's; its endpoints and referees are the ordinary ones. */
+typedef struct fsim_mission_batch fsim_mission_batch;
+
+enum fsim_mission_autoreset { FSIM_MISSION_AUTORESET_DISABLED = 0, FSIM_MISSION_AUTORESET_NEXT_STEP = 1, FSIM_MISSION_AUTORESET_SAME_STEP = 2 };
+
+typedef struct fsim_mission_batch_options {
+    uint32_t struct_size;
+    uint32_t autoreset; /* enum fsim_mission_autoreset */
+    uint32_t workers;
+    uint32_t reserved;
+    uint64_t first_local_episode_index;
+} fsim_mission_batch_options;
+FSIM_API void fsim_mission_batch_options_init(fsim_mission_batch_options* options);
+
+enum fsim_mission_slot_flag { FSIM_MISSION_SLOT_EPISODE_DONE = 1, FSIM_MISSION_SLOT_ENDED = 2, FSIM_MISSION_SLOT_RESET = 4 };
+typedef struct fsim_mission_slot_status {
+    uint32_t struct_size;
+    uint32_t flags; /* enum fsim_mission_slot_flag bits */
+    uint64_t generation;
+    uint64_t local_episode_index;
+    uint64_t tick;
+} fsim_mission_slot_status;
+
+FSIM_API int fsim_mission_batch_create(const char* const* configs, const size_t* config_bytes, size_t count,
+                                       const fsim_mission_batch_options* options, fsim_mission_batch** batch);
+FSIM_API void fsim_mission_batch_destroy(fsim_mission_batch* batch);
+FSIM_API int fsim_mission_batch_size(fsim_mission_batch* batch, size_t* size);
+FSIM_API int fsim_mission_batch_reset(fsim_mission_batch* batch);
+FSIM_API int fsim_mission_batch_reset_slot(fsim_mission_batch* batch, size_t slot);
+FSIM_API int fsim_mission_batch_step(fsim_mission_batch* batch);
+/* status->struct_size set by the caller (sizeof); filled up to it. */
+FSIM_API int fsim_mission_batch_status(fsim_mission_batch* batch, size_t slot, fsim_mission_slot_status* status);
+FSIM_API int fsim_mission_batch_endpoint_open(fsim_mission_batch* batch, size_t slot, uint64_t service_id, fsim_mission_endpoint** endpoint);
+FSIM_API int fsim_mission_batch_referee_open(fsim_mission_batch* batch, size_t slot, fsim_mission_referee** referee);
+FSIM_API int fsim_mission_batch_final_observation_json(fsim_mission_batch* batch, size_t slot, uint64_t service_id, char* buffer,
+                                                       size_t capacity, size_t* needed);
+FSIM_API int fsim_mission_batch_final_outcome_json(fsim_mission_batch* batch, size_t slot, char* buffer, size_t capacity, size_t* needed);
+FSIM_API int fsim_mission_batch_final_truth_json(fsim_mission_batch* batch, size_t slot, char* buffer, size_t capacity, size_t* needed);
+FSIM_API int fsim_mission_batch_final_costs_json(fsim_mission_batch* batch, size_t slot, char* buffer, size_t capacity, size_t* needed);
+FSIM_API int fsim_mission_batch_remove_platform(fsim_mission_batch* batch, size_t slot, const char* platform, size_t platform_bytes, int* removed);
+
 #ifdef __cplusplus
 }
 #endif

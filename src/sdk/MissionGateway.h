@@ -60,6 +60,8 @@ public:
     const std::string& observation(std::uint64_t serviceId) const;
     const std::string& outcome() const noexcept { return outcome_; }
     const std::string& truth() const noexcept { return truth_; }
+    /// `ma.costs.v1` of the current tick (M7 core): the referee's.
+    const std::string& costs() const noexcept { return costs_; }
     /// The generation's episode key, as the schema's `episode_key` object.
     const std::string& episodeKey() const noexcept { return key_; }
 
@@ -98,7 +100,7 @@ private:
         bool inside = false;
     };
     std::vector<Judged> criteria_;
-    std::string outcome_, truth_;
+    std::string outcome_, truth_, costs_;
 };
 
 } // namespace fsim::mission

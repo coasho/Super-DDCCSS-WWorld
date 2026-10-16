@@ -1,6 +1,6 @@
 # The MA training interfaces from installed packages alone: install the SDK and the Python package into private
 # prefixes, then build and run separate C++, C99 and Python consumers of the MA-service binding, the legal reports and
-# the mission episode family (docs/sdk/mission-training.md, sections 3 to 16). This gate never changes the source tree, uses no development DLL
+# the mission episode and batch family (docs/sdk/mission-training.md, sections 3 to 18). This gate never changes the source tree, uses no development DLL
 # on PATH and no source header, and records what it ran against.
 cmake_minimum_required(VERSION 3.25)
 foreach(_required SOURCE_DIR BUILD_DIR TOOLCHAIN_FILE GENERATOR UCRT64_ROOT)
@@ -68,7 +68,7 @@ function(check_file source installed root)
     set(_manifest "${_manifest}${_installed_sha}  ${_relative}\n" PARENT_SCOPE)
 endfunction()
 file(GLOB _headers LIST_DIRECTORIES false RELATIVE "${SOURCE_DIR}/include/fsim" "${SOURCE_DIR}/include/fsim/*.h")
-foreach(_required_header Agent.h MAReports.h MAService.h MissionEpisode.h fsim_c.h fsim_mission_env.h)
+foreach(_required_header Agent.h MAReports.h MAService.h MissionBatch.h MissionEpisode.h fsim_c.h fsim_mission_env.h)
     if(NOT _required_header IN_LIST _headers)
         message(FATAL_ERROR "public header missing from the source tree: ${_required_header}")
     endif()
@@ -77,7 +77,7 @@ foreach(_header IN LISTS _headers)
     check_file("${SOURCE_DIR}/include/fsim/${_header}" "${_prefix}/include/fsim/${_header}" "${_work}")
 endforeach()
 check_file("${_build}/bin/libfsim.dll" "${_prefix}/bin/libfsim.dll" "${_work}")
-foreach(_module __init__.py agent.py world.py isolation.py mission.py)
+foreach(_module __init__.py agent.py world.py isolation.py mission.py training.py)
     check_file("${SOURCE_DIR}/python/fsim/${_module}" "${_python_prefix}/fsim/${_module}" "${_work}")
 endforeach()
 check_file("${_build}/python/fsim/_native.pyd" "${_python_prefix}/fsim/_native.pyd" "${_work}")

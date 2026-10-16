@@ -3,6 +3,7 @@
 #include <fsim/Agent.h>
 #include <fsim/MAReports.h>
 #include <fsim/MAService.h>
+#include <fsim/MissionBatch.h>
 #include <fsim/MissionEpisode.h>
 #include <fsim/World.h>
 
@@ -242,12 +243,10 @@ void reports(const fs::path& data) {
 
 } // namespace
 
-/// A mission episode through fsim/MissionEpisode.h alone: reset, one immutable snapshot per tick read twice, a request
-/// queued and executed as the service's own Agent, a message ingested once by its ingress owner, the referee's documents,
-/// and the earlier generation's handles refused.
-std::string episode(const fs::path& data) {
+/// The installed episode's configuration: one aircraft and a C2 node, a tick limit of 3; the env_id a slot's own.
+std::string missionConfig(const fs::path& data, int envId) {
     const std::string root = (data / "jsbsim").generic_string();
-    const std::string config = R"({"schema":"ma.config.v1","env_id":"7","base_seed":"18446744073709551615",
+    return R"({"schema":"ma.config.v1","env_id":")" + std::to_string(envId) + R"(","base_seed":"18446744073709551615",
  "timing":{"dt_s":0.008333333333333333,"frame_skip":4,"decision_steps":30},
  "scenario":{"world":{"name":"installed-mission","capacity":4,"jsbsim_root":)" + jsonText(root) + R"(},
   "vehicles":[{"name":"lead","type":"jsbsim:f16c","initial":{"lat_deg":36.0,"lon_deg":-115.0,"alt_msl_m":7000,"heading_deg":0,"airspeed_ms":230}}]},
@@ -257,6 +256,13 @@ std::string episode(const fs::path& data) {
  "services":[{"service_id":"9007199254740995","name":"lead-ma","platform":"lead","command_capabilities":["*"],"owns_dms_ingress":true,"owns_dms_egress":true},
   {"service_id":"4","name":"crc-c2","platform":"crc","command_capabilities":[],"owns_dms_ingress":true,"owns_dms_egress":true}],
  "task":{"criteria":[{"id":"time","kind":"tick_limit","outcome":"truncated","max_ticks":3}]}})";
+}
+
+/// A mission episode through fsim/MissionEpisode.h alone: reset, one immutable snapshot per tick read twice, a request
+/// queued and executed as the service's own Agent, a message ingested once by its ingress owner, the referee's documents,
+/// and the earlier generation's handles refused.
+std::string episode(const fs::path& data) {
+    const std::string config = missionConfig(data, 7);
     MissionEpisode episode(config);
     const std::string key = episode.reset(41);
     require(key == R"({"env_id":"7","episode_generation":"1","local_episode_index":"41"})", "the episode key is not the reset's");
@@ -296,6 +302,21 @@ std::string episode(const fs::path& data) {
     return key;
 }
 
+/// A batch of two slots through fsim/MissionBatch.h alone (M7 core): SameStep autoreset at the tick limit, the ended
+/// generation's final documents kept by principal, and the referee's costs.
+void batch(const fs::path& data) {
+    MissionBatch b({missionConfig(data, 7), missionConfig(data, 8)}, MissionBatchOptions{MissionAutoreset::SameStep, 2, 0});
+    b.reset();
+    require(b.size() == 2 && b.status(1).generation == 1, "the batch did not reset its slots");
+    for (int t = 0; t < 3; ++t) b.step();
+    const MissionSlotStatus st = b.status(0);
+    require(st.ended && st.reset && st.generation == 2 && st.tick == 0, "the slot did not end and reset in the same step");
+    require(b.finalObservationJsonV1(0, 9007199254740995ull).find(R"("tick":"3")") != std::string::npos, "no final observation of the ended generation");
+    require(b.finalOutcomeJsonV1(0).find(R"("reason":"truncated")") != std::string::npos, "no final outcome");
+    require(b.referee(1).costsJsonV1().find(R"("schema":"ma.costs.v1")") != std::string::npos, "no costs document");
+    require(b.endpoint(0, 9007199254740995ull).observationJsonV1().find("ma.costs") == std::string::npos, "costs reached a snapshot");
+}
+
 int main(int argc, char** argv) {
     if (argc != 2) {
         std::fprintf(stderr, "usage: ma_consumer_cpp <installed-prefix>\n");
@@ -311,8 +332,9 @@ int main(int argc, char** argv) {
         worlds(data);
         reports(data);
         const std::string key = episode(data);
+        batch(data);
         std::printf("fsim %s installed C++ consumer: ownership \"%s\" in either creation order; legal reports with provenance; "
-                    "mission episode %s\n",
+                    "mission episode %s; a mission batch\n",
                     fsim::version(), a.c_str(), key.c_str());
         return 0;
     } catch (const std::exception& error) {
