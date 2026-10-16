@@ -267,6 +267,138 @@ static int batch_cases(const char* config) {
     return 0;
 }
 
+#ifdef _WIN32
+/* An actor's thread against a one-tick batch (ABI 1.77): endpoint and referee opened before the steps - reopened when
+ * their generation ended - read and submitted to while the range steps. Every step runs whole or fails busy
+ * (FSIM_ERROR) with nothing changed; ended generations leave their final documents; nothing is left stuck. */
+typedef struct actor_job {
+    fsim_mission_batch* batch;
+    fsim_mission_endpoint* wing; /* (opened before the steps: the actor's first handles are preopened ones) */
+    fsim_mission_referee* referee;
+    volatile LONG stop, calls, busy, failed;
+} actor_job;
+
+static DWORD WINAPI run_actor(LPVOID p) {
+    static const char submission[] =
+        "{\"schema\":\"ma.actions.v1\",\"episode\":{\"env_id\":\"1\",\"episode_generation\":\"1\",\"local_episode_index\":\"0\"},"
+        "\"service_id\":\"9007199254740995\",\"tick\":\"0\",\"requests\":[]}";
+    actor_job* job = (actor_job*)p;
+    fsim_mission_endpoint* wing = job->wing;
+    fsim_mission_referee* referee = job->referee;
+    size_t needed = 0;
+    int r;
+    while (!InterlockedCompareExchange(&job->stop, 0, 0)) {
+        if (!wing) {
+            if (fsim_mission_batch_endpoint_open(job->batch, 0, 9007199254740995ull, &wing) != FSIM_OK) {
+                wing = NULL;
+                continue; /* (the batch held by a step: open again) */
+            }
+            if (fsim_mission_batch_referee_open(job->batch, 0, &referee) != FSIM_OK) {
+                fsim_mission_endpoint_destroy(wing);
+                wing = NULL;
+                continue;
+            }
+        }
+        switch (job->calls % 3) { /* (an endpoint read, a submission, a referee read, in turn) */
+        case 0: r = fsim_mission_endpoint_observation_json(wing, NULL, 0, &needed); break;
+        case 1: r = fsim_mission_endpoint_submit(wing, submission, sizeof submission - 1); break;
+        default: r = fsim_mission_referee_outcome_json(referee, NULL, 0, &needed); break;
+        }
+        if (r == FSIM_OK) {
+            InterlockedIncrement(&job->calls);
+        } else if (r == FSIM_ERROR) {
+            InterlockedIncrement(&job->busy); /* (the step held the episode) */
+        } else if (r == FSIM_INVALID_ARGUMENT) {
+            fsim_mission_endpoint_destroy(wing); /* (their generation ended: open the current one's) */
+            fsim_mission_referee_destroy(referee);
+            wing = NULL, referee = NULL;
+        } else {
+            InterlockedExchange(&job->failed, r);
+            break;
+        }
+    }
+    fsim_mission_endpoint_destroy(wing);
+    fsim_mission_referee_destroy(referee);
+    return 0;
+}
+
+static int slot_status(fsim_mission_batch* batch, fsim_mission_slot_status* status) {
+    int r;
+    status->struct_size = sizeof *status;
+    while ((r = fsim_mission_batch_status(batch, 0, status)) == FSIM_ERROR) {
+    } /* (the actor opening its handles held the batch) */
+    return r;
+}
+
+static int batch_preopened(const char* config, int autoreset, const char* env) {
+    char* text = with_env(config, env, 1);
+    const char* configs[1];
+    size_t sizes[1], needed = 0;
+    fsim_mission_batch_options options;
+    fsim_mission_slot_status before, after;
+    fsim_mission_batch* batch = NULL;
+    actor_job job;
+    HANDLE thread;
+    DWORD start;
+    int whole = 0, refused = 0, wrong = 0, r;
+    CHECK(text != NULL);
+    configs[0] = text, sizes[0] = strlen(text);
+    fsim_mission_batch_options_init(&options);
+    options.autoreset = (uint32_t)autoreset;
+    CHECK(fsim_mission_batch_create(configs, sizes, 1, &options, &batch) == FSIM_OK);
+    CHECK(fsim_mission_batch_reset(batch) == FSIM_OK);
+    job.batch = batch, job.stop = 0, job.calls = 0, job.busy = 0, job.failed = 0;
+    CHECK(fsim_mission_batch_endpoint_open(batch, 0, 9007199254740995ull, &job.wing) == FSIM_OK);
+    CHECK(fsim_mission_batch_referee_open(batch, 0, &job.referee) == FSIM_OK);
+    fsim_set_log_level(FSIM_LOG_OFF); /* (each busy refusal is also logged: thousands of them) */
+    thread = CreateThread(NULL, 0, run_actor, &job, 0, NULL);
+    CHECK(thread != NULL);
+    start = GetTickCount();
+    while (whole < 100 && !wrong && GetTickCount() - start < 120000) {
+        if (slot_status(batch, &before) != FSIM_OK) wrong = __LINE__;
+        r = fsim_mission_batch_step(batch);
+        if (slot_status(batch, &after) != FSIM_OK) wrong = __LINE__;
+        if (r == FSIM_ERROR) { /* busy: refused whole */
+            ++refused;
+            if (after.generation != before.generation || after.tick != before.tick || after.flags != before.flags) wrong = __LINE__;
+            continue;
+        }
+        if (r != FSIM_OK) {
+            wrong = __LINE__;
+            break;
+        }
+        ++whole;
+        if (autoreset == FSIM_MISSION_AUTORESET_NEXT_STEP && (before.flags & FSIM_MISSION_SLOT_EPISODE_DONE)) {
+            if (after.generation != before.generation + 1 || after.tick != 0 || after.flags != FSIM_MISSION_SLOT_RESET) wrong = __LINE__;
+            continue; /* (a reset alone) */
+        }
+        if (autoreset == FSIM_MISSION_AUTORESET_SAME_STEP &&
+            (after.generation != before.generation + 1 || after.tick != 0 || after.flags != (FSIM_MISSION_SLOT_ENDED | FSIM_MISSION_SLOT_RESET)))
+            wrong = __LINE__;
+        if (autoreset == FSIM_MISSION_AUTORESET_NEXT_STEP &&
+            (after.generation != before.generation || after.tick != 1 || after.flags != (FSIM_MISSION_SLOT_ENDED | FSIM_MISSION_SLOT_EPISODE_DONE)))
+            wrong = __LINE__;
+        while ((r = fsim_mission_batch_final_outcome_json(batch, 0, NULL, 0, &needed)) == FSIM_ERROR) {
+        }
+        if (r != FSIM_OK || needed < 2) wrong = __LINE__; /* (the ended generation's final outcome, whole) */
+    }
+    InterlockedExchange(&job.stop, 1);
+    WaitForSingleObject(thread, INFINITE);
+    CloseHandle(thread);
+    fsim_set_log_level(FSIM_LOG_WARN);
+    printf("batch_preopened (autoreset %d): %d whole steps, %d refused; the actor: %ld calls, %ld busy, wrong at line %d\n", autoreset,
+           whole, refused, (long)job.calls, (long)job.busy, wrong);
+    CHECK(!wrong);
+    CHECK(job.failed == 0);
+    CHECK(whole == 100);
+    CHECK(job.calls > 0 && job.busy > 0); /* (the actor's calls met the steps) */
+    CHECK(fsim_mission_batch_step(batch) == FSIM_OK); /* (uncontended: nothing stuck) */
+    fsim_mission_batch_destroy(batch);
+    free(text);
+    return 0;
+}
+#endif
+
 int main(int argc, char** argv) {
     fsim_mission_episode* episode = NULL;
     fsim_mission_endpoint* wing = NULL;
@@ -394,6 +526,10 @@ int main(int argc, char** argv) {
     if (busy_reset(config) != 0) return 1;
 #endif
     if (batch_cases(config) != 0) return 1;
+#ifdef _WIN32
+    if (batch_preopened(config, FSIM_MISSION_AUTORESET_SAME_STEP, "111") != 0) return 1;
+    if (batch_preopened(config, FSIM_MISSION_AUTORESET_NEXT_STEP, "112") != 0) return 1;
+#endif
     free(config);
     printf("mission C ABI: ok\n");
     return 0;

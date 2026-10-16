@@ -227,9 +227,6 @@ class TrainingAdapterTest(unittest.TestCase):
         adapter.close()
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class TrainingAdapterRoleTest(unittest.TestCase):
     def test_a_lost_role_stops_acting_and_leaves_one_final_snapshot(self):
@@ -310,6 +307,166 @@ class TrainingAdapterRoleTest(unittest.TestCase):
         self.assertEqual(context.episode_key["local_episode_index"], "6")
 
 
+class Actor(threading.Thread):
+    """An actor's thread on one slot: an endpoint and a referee opened earlier - reopened when their generation ended -
+    read and submitted to until stopped, so that its calls meet the range's steps."""
+
+    def __init__(self, batch, service_id=WING):
+        super().__init__()
+        self.batch, self.service_id = batch, service_id
+        self.stopping, self.calls, self.busy, self.errors = threading.Event(), 0, 0, []
+        self.first = (batch.endpoint(0, service_id), batch.referee(0))  # (opened before the steps: preopened handles)
+
+    def run(self):
+        endpoint, referee = self.first
+        request = 0
+        while not self.stopping.is_set():
+            try:
+                if endpoint is None:
+                    endpoint, referee = self.batch.endpoint(0, self.service_id), self.batch.referee(0)
+                for _ in range(50):  # (native calls back to back: they meet the step wherever it is)
+                    text = endpoint.observation_json()
+                    self.calls += 1
+                    referee.outcome_json()
+                snapshot = json.loads(text)
+                request += 1
+                endpoint.submit_json(json.dumps({"schema": "ma.actions.v1", "episode": snapshot["episode"], "service_id": str(self.service_id),
+                                                 "tick": snapshot["tick"], "requests": [{"request_id": str(request), "kind": "flight", "operation": "new",
+                                                                                         "parameters": {"mode": "hsa", "heading_rad": 0.2}}]}))
+            except fsim.Error as e:
+                if "busy" in str(e):
+                    self.busy += 1
+                elif "earlier generation" in str(e):
+                    endpoint = referee = None
+                else:
+                    self.errors.append(str(e))
+                    return
+
+    def stop(self):
+        self.stopping.set()
+        self.join(timeout=60)
+
+
+def unbusy(f):
+    while True:
+        try:
+            return f()
+        except fsim.Error as e:
+            if "busy" not in str(e):
+                raise
+
+
+class PreopenedHandlesTest(unittest.TestCase):
+    """Calls of endpoints and referees opened before a step meet that step's transition - its native step, outcome,
+    final documents and autoreset - and the step runs whole or fails busy with nothing changed (M7 core, issue 1)."""
+
+    def setUp(self):
+        fsim.set_log_level("off")  # (each busy refusal is also logged: tens of thousands of them)
+
+    def tearDown(self):
+        fsim.set_log_level(os.environ.get("FSIM_LOG_LEVEL", "warning"))
+
+    def run_steps(self, autoreset, env_id, whole_steps):
+        with mission.MissionBatch([config(env_id, 1)], autoreset=autoreset) as batch:
+            batch.reset()
+            actor = Actor(batch)
+            actor.start()
+            whole, refused = 0, 0
+            try:
+                deadline = time.monotonic() + 180
+                while whole < whole_steps and time.monotonic() < deadline:
+                    before = unbusy(lambda: batch.status(0))
+                    final_before = unbusy(lambda: batch.final_outcome_json(0))
+                    try:
+                        batch.step()
+                    except fsim.Error as e:
+                        self.assertIn("busy", str(e))
+                        refused += 1
+                        self.assertEqual(unbusy(lambda: batch.status(0)), before)  # (refused whole)
+                        self.assertEqual(unbusy(lambda: batch.final_outcome_json(0)), final_before)
+                        continue
+                    whole += 1
+                    after = unbusy(lambda: batch.status(0))
+                    if autoreset == "next_step" and before.episode_done:  # a reset alone: nothing of the ended generation
+                        self.assertEqual((after.generation, after.tick, after.ended, after.reset, after.episode_done),
+                                         (before.generation + 1, 0, False, True, False))
+                        self.assertEqual(json.loads(unbusy(lambda: batch.referee(0).truth_json()))["time_s"], 0.0)
+                        continue
+                    outcome = json.loads(unbusy(lambda: batch.final_outcome_json(0)))
+                    observation = json.loads(unbusy(lambda: batch.final_observation_json(0, WING)))
+                    self.assertTrue(outcome["episode_done"])
+                    self.assertEqual((outcome["tick"], outcome["episode"]["episode_generation"]), ("1", str(before.generation)))
+                    self.assertEqual((observation["tick"], observation["episode"]["episode_generation"]), ("1", str(before.generation)))
+                    self.assertTrue(unbusy(lambda: batch.final_truth_json(0)) and unbusy(lambda: batch.final_costs_json(0)))
+                    if autoreset == "same_step":
+                        self.assertEqual((after.generation, after.tick, after.ended, after.reset, after.episode_done),
+                                         (before.generation + 1, 0, True, True, False))
+                    else:
+                        self.assertEqual((after.generation, after.tick, after.ended, after.reset, after.episode_done),
+                                         (before.generation, 1, True, False, True))
+            finally:
+                actor.stop()
+            self.assertEqual(actor.errors, [])
+            self.assertEqual(whole, whole_steps)
+            self.assertGreater(actor.calls, 0)
+            self.assertGreater(actor.busy, 0)  # (the actor's calls met the steps)
+            last = batch.status(0)
+            batch.step()
+            batch.step()  # (uncontended: nothing stuck)
+            self.assertEqual(batch.status(0).generation, last.generation + (2 if autoreset == "same_step" else 1))
+
+    def test_same_step_under_preopened_calls(self):
+        self.run_steps("same_step", 281, 200)
+
+    def test_next_step_under_preopened_calls(self):
+        self.run_steps("next_step", 282, 200)
+
+    def test_the_adapter_under_preopened_calls(self):
+        # The adapter's own steps meet an actor's preopened calls: a busy batch step is raised with nothing recorded,
+        # and the next step() runs it without ticking the systems twice.
+        log, ticks, steps = [], {}, 61
+
+        class Counting(Waiting):
+            def tick(self, endpoint):
+                ticks[self.service_id] = ticks.get(self.service_id, 0) + 1
+                super().tick(endpoint)
+        with mission.MissionBatch([config(283, 2)], autoreset="same_step") as batch:
+            adapter = training.TrainingAdapter(batch)
+            for service in (WING, LEAD):
+                adapter.register(0, service, lambda slot, service: Counting(slot, service, log))
+            adapter.reset()
+            actor = Actor(batch, CRC)
+            actor.start()
+            whole, retries = 0, 0
+            try:
+                deadline = time.monotonic() + 180
+                while whole < steps and time.monotonic() < deadline:
+                    try:
+                        adapter.step()
+                    except fsim.Error as e:
+                        self.assertIn("busy", str(e))
+                        retries += 1
+                        continue
+                    whole += 1
+            finally:
+                actor.stop()
+            self.assertEqual(actor.errors, [])
+            self.assertEqual(whole, steps)
+            self.assertGreater(actor.busy, 0)
+            self.assertEqual(ticks, {WING: steps, LEAD: steps})  # (once per decision tick, retries or not)
+            self.assertEqual(len(adapter.critic_stream()), steps)
+            lifecycle = adapter.lifecycle_stream()
+            self.assertEqual(sorted(r["service_id"] for r in lifecycle), sorted([str(WING)] * steps + [str(LEAD)] * steps))
+            ended = whole // 2  # (two-tick episodes, SameStep)
+            for service in (WING, LEAD):
+                self.assertEqual(sum(1 for e in log if e[0] == "end" and e[2] == service), ended)
+                self.assertEqual(sum(1 for e in log if e[0] == "begin" and e[2] == service), ended + 1)
+                finals = [r for r in adapter.actor_stream() if r["service_id"] == str(service) and "final_observation" in r]
+                self.assertEqual([json.loads(r["final_observation"])["episode"]["episode_generation"] for r in finals],
+                                 [str(g) for g in range(1, ended + 1)])
+            self.assertEqual(batch.status(0).generation, ended + 1)
+
+
 class CompositionUnderTrainingTest(unittest.TestCase):
     """The accepted M6 example's MA system, unchanged, through the training adapter and both autoresets: each
     generation the same as the example's own direct run of the same local episode."""
@@ -322,3 +479,7 @@ class CompositionUnderTrainingTest(unittest.TestCase):
         for autoreset in ("same_step", "next_step"):
             with self.subTest(autoreset=autoreset):
                 self.assertEqual(example.under_training(4, 3, autoreset), direct)
+
+
+if __name__ == "__main__":
+    unittest.main()

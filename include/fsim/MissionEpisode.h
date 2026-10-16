@@ -101,6 +101,7 @@ public:
     bool removePlatform(std::string_view platform);
 
 private:
+    friend class MissionBatch; // (its slots' transitions: one operation per slot under the episode's boundary)
     struct Impl;
     Impl* impl_ = nullptr;
 };

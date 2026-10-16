@@ -295,6 +295,10 @@ std::uint64_t MissionEpisode::reset(std::uint64_t localEpisodeIndex, const Reset
     const std::shared_ptr<EpisodeControl> control = control_;
     EpisodeBoundary boundary(control);
     if (!boundary.held()) refuse(EpisodeStatus::Busy, "reset while another call holds the episode");
+    return resetHeld(control, localEpisodeIndex, hooks);
+}
+
+std::uint64_t MissionEpisode::resetHeld(const std::shared_ptr<EpisodeControl>& control, std::uint64_t localEpisodeIndex, const ResetHooks& hooks) {
     if (control->closed.load() || !control->episode) refuse(EpisodeStatus::Closed, "the episode is closed");
     Episode& e = *control->episode;
     const EpisodeConfig& c = *e.config;
@@ -379,9 +383,14 @@ EpisodeStatus MissionEpisode::step() {
     if (!control_) return EpisodeStatus::Closed;
     const std::shared_ptr<EpisodeControl> control = control_; // (the judge may end this episode)
     EpisodeBoundary boundary(control);
-    session::World* world = nullptr;
-    const EpisodeStatus s = enter(boundary, world);
-    if (s != EpisodeStatus::Ok) return s;
+    if (!boundary.held()) return EpisodeStatus::Busy;
+    return stepHeld(control);
+}
+
+EpisodeStatus MissionEpisode::stepHeld(const std::shared_ptr<EpisodeControl>& control) {
+    if (control->closed.load() || !control->episode) return EpisodeStatus::Closed;
+    session::World* world = control->episode->world.get();
+    if (!world) return EpisodeStatus::NotReset;
     Episode& e = *control->episode;
     if (e.judge) e.judge->beforeStep(*world, e.tick);
     world->step(e.config->decisionSteps);
@@ -389,6 +398,31 @@ EpisodeStatus MissionEpisode::step() {
     publish(*control, infoOf(e, control->generation.load()));
     if (e.judge) e.judge->afterStep(*world, e.tick);
     return EpisodeStatus::Ok;
+}
+
+// --- the range's compound operation -----------------------------------------------------------------------------------
+
+EpisodeHold::EpisodeHold(MissionEpisode& episode) noexcept : control_(episode.control_) {
+    if (!control_) return; // (a moved-from episode: nothing to hold)
+    boundary_.emplace(control_);
+    held_ = boundary_->held();
+}
+
+EpisodeStatus EpisodeHold::step() {
+    if (!control_) return EpisodeStatus::Closed;
+    if (!held_) return EpisodeStatus::Busy;
+    return MissionEpisode::stepHeld(control_);
+}
+
+std::uint64_t EpisodeHold::reset(std::uint64_t localEpisodeIndex, const ResetHooks& hooks) {
+    if (!control_) refuse(EpisodeStatus::Closed, "the episode was moved from");
+    if (!held_) refuse(EpisodeStatus::Busy, "reset while another call holds the episode");
+    return MissionEpisode::resetHeld(control_, localEpisodeIndex, hooks);
+}
+
+EpisodeJudge* EpisodeHold::judge() noexcept {
+    if (!held_ || control_->closed.load() || !control_->episode) return nullptr;
+    return control_->episode->judge.get();
 }
 
 std::shared_ptr<const EpisodeInfo> MissionEpisode::info() const {

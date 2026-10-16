@@ -363,10 +363,12 @@ slot's current generation; `final_observation_json(slot, service_id)`, `final_ou
 `final_truth_json(slot)` and `final_costs_json(slot)` keep an ended generation's documents apart by principal;
 `remove_platform(slot, name)` removes a configured platform (also `MissionEpisode.remove_platform`),
 `base_seed(slot)` is the slot's configured base seed, and `MissionReferee.costs_json()` is `ma.costs.v1`. A batch call
-while another thread's call holds the batch raises `fsim.Error` (busy) at once and changes nothing.
+while another thread's call holds the batch - or, for `reset` and `step`, a slot's episode, through an endpoint or
+referee opened earlier - raises `fsim.Error` (busy) at once and changes nothing.
 `fsim.training.TrainingAdapter(batch)` runs registered systems over a batch through their `begin_episode` (an
 `EpisodeContext` with the generation's seeds), `tick` and `end_episode` hooks - `reset`, `reset_slot` and `step`, one
-hook pair per generation, no tick for a role that ended - and keeps the actor, lifecycle and critic streams apart;
+hook pair per generation, no tick for a role that ended; a `step` whose batch step failed busy runs it again on the
+next call without ticking twice - and keeps the actor, lifecycle and critic streams apart;
 `world_seed`, `service_seed` and `component_seed` are the contract's seed streams. Neither needs any package beyond
 the standard library.
 

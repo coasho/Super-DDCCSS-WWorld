@@ -17,7 +17,9 @@ A registered system is any object with
     tick(endpoint)          # read the endpoint's snapshot, submit its requests (fsim.mission.MissionEndpoint)
     end_episode(feedback)   # feedback: {"episode_done", "reason"}: the role's permitted mission feedback
 
-Each system gets one begin_episode and one end_episode per generation. It ticks while its role is active: a role that
+Each system gets one begin_episode and one end_episode per generation. A step whose batch step fails busy (another
+thread's call held the batch or an episode) raises fsim.Error with nothing of its batch step done or recorded; its
+systems have ticked, and the next step() runs that batch step again without ticking them twice. It ticks while its role is active: a role that
 ended while its teammates go on (its platform lost) ticks no more in that generation, and its final snapshot is the
 one its role ended in; its end_episode still comes when the generation does. The composition example's MASystem
 (examples/python/ma_composition) is one such system: the context carries what it takes - the episode key, the service
@@ -86,12 +88,27 @@ class EpisodeContext(dict):
 _ROLE_FLAGS = ("active", "terminated", "truncated", "final_observation", "bootstrap")
 
 
+def _read(f):
+    """f(), a read with no effect, retried while another thread's call holds the batch or the episode: what the
+    adapter reads of a step that ran - all of it before anything is recorded."""
+    import fsim
+    import time
+    while True:
+        try:
+            return f()
+        except fsim.Error as e:
+            if "busy" not in str(e):
+                raise
+            time.sleep(0)
+
+
 class TrainingAdapter:
     def __init__(self, batch):
         self.batch = batch
         self._systems = {}  # (slot, service id) -> system
         self._acting = {}   # (slot, service id) -> its role is active in the current generation
         self._open = set()  # (slot, service id) whose generation began and has not ended
+        self._ticked = None  # the slots' (generation, tick) whose systems ticked and whose batch step is still to run
         self._actor, self._lifecycle, self._critic = [], [], []
 
     def register(self, slot, service_id, factory):
@@ -113,7 +130,7 @@ class TrainingAdapter:
         base = self.batch.base_seed(slot)
         for (s, service), system in sorted(self._systems.items()):
             if s == slot:
-                key = json.loads(self.batch.endpoint(s, service).observation_json())["episode"]
+                key = json.loads(_read(lambda: self.batch.endpoint(s, service).observation_json()))["episode"]
                 self._acting[(s, service)] = True
                 self._open.add((s, service))
                 system.begin_episode(EpisodeContext(s, service, key, base))
@@ -151,26 +168,44 @@ class TrainingAdapter:
         for its reset), the batch steps, and the three streams take what the step produced. A role that ended alone
         stops acting and leaves its final snapshot once; where the episode ended, every role still acting leaves its
         final snapshot, every system gets end_episode, and begin_episode follows where the slot reset."""
-        for (slot, service), system in sorted(self._systems.items()):
-            status = self.batch.status(slot)
-            if (status.episode_done and not status.reset) or not self._acting.get((slot, service)):
-                continue  # (an ended episode, or an ended role, acts no more)
-            endpoint = self.batch.endpoint(slot, service)
-            self._actor.append({"slot": slot, "service_id": str(service), "tick": status.tick, "observation": endpoint.observation_json()})
-            system.tick(endpoint)
-        self.batch.step()
-        for slot in self._slots():
-            status = self.batch.status(slot)
+        slots = self._slots()
+        statuses = {slot: self.batch.status(slot) for slot in slots}
+        marker = tuple((slot, statuses[slot].generation, statuses[slot].tick) for slot in slots)
+        if self._ticked != marker:  # (not the retry of a batch step that failed busy: its systems ticked already)
+            for (slot, service), system in sorted(self._systems.items()):
+                status = statuses[slot]
+                if (status.episode_done and not status.reset) or not self._acting.get((slot, service)):
+                    continue  # (an ended episode, or an ended role, acts no more)
+                endpoint = self.batch.endpoint(slot, service)
+                self._actor.append({"slot": slot, "service_id": str(service), "tick": status.tick, "observation": endpoint.observation_json()})
+                system.tick(endpoint)
+            self._ticked = marker
+        self.batch.step()  # (whole, or busy with nothing done: raised, and the next step() runs it again)
+        self._ticked = None
+        # What the step produced, read whole before anything is recorded or any hook runs.
+        produced = {}
+        for slot in slots:
+            status = _read(lambda: self.batch.status(slot))
             if status.ended:
-                outcome, truth, costs = (self.batch.final_outcome_json(slot), self.batch.final_truth_json(slot),
-                                         self.batch.final_costs_json(slot))
+                docs = _read(lambda: (self.batch.final_outcome_json(slot), self.batch.final_truth_json(slot), self.batch.final_costs_json(slot)))
             else:
-                referee = self.batch.referee(slot)
-                outcome, truth, costs = referee.outcome_json(), referee.truth_json(), referee.costs_json()
-            o = json.loads(outcome)
+                docs = _read(lambda: (lambda r: (r.outcome_json(), r.truth_json(), r.costs_json()))(self.batch.referee(slot)))
+            o = json.loads(docs[0])
+            roles = {r["service_id"]: r for r in o["roles"]}
+            finals = {}
+            for (s, service) in sorted(self._systems):
+                if s != slot or not self._acting.get((s, service)):
+                    continue
+                role = roles[str(service)]
+                if status.ended:  # (the ended generation's: under SameStep the endpoint is already the next one's)
+                    finals[service] = _read(lambda: self.batch.final_observation_json(slot, service))
+                elif not role["active"] and role["final_observation"]:  # its own role ended - its platform lost
+                    finals[service] = _read(lambda: self.batch.endpoint(slot, service).observation_json())
+            produced[slot] = (status, docs, o, roles, finals)
+        for slot in slots:
+            status, (outcome, truth, costs), o, roles, finals = produced[slot]
             tick, generation = int(o["tick"]), o["episode"]["episode_generation"]
             self._critic.append({"slot": slot, "tick": tick, "generation": generation, "outcome": outcome, "truth": truth, "costs": costs})
-            roles = {r["service_id"]: r for r in o["roles"]}
             for (s, service), system in sorted(self._systems.items()):
                 if s != slot:
                     continue
@@ -179,17 +214,13 @@ class TrainingAdapter:
                           "episode_done": o["episode_done"], "reason": o["reason"]}
                 record.update({k: role[k] for k in _ROLE_FLAGS})
                 self._lifecycle.append(record)
+                if service in finals:
+                    self._final(slot, service, tick, finals[service])
+                    self._acting[(s, service)] = False
                 if status.ended:
-                    # (the ended generation's: under SameStep the endpoint is already the next one's)
-                    if self._acting.get((s, service)):
-                        self._final(slot, service, tick, self.batch.final_observation_json(slot, service))
                     self._acting[(s, service)] = False
                     self._open.discard((s, service))
                     system.end_episode({"episode_done": o["episode_done"], "reason": o["reason"]})
-                elif self._acting.get((s, service)) and not role["active"] and role["final_observation"]:
-                    # its own role ended - its platform lost - while the episode goes on: its last snapshot is final
-                    self._final(slot, service, tick, self.batch.endpoint(slot, service).observation_json())
-                    self._acting[(s, service)] = False
             if status.reset:
                 self._begin(slot)
 

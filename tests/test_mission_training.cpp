@@ -13,6 +13,7 @@
 #include <chrono>
 #include <exception>
 #include <functional>
+#include <memory>
 #include <set>
 #include <string>
 #include <thread>
@@ -70,6 +71,127 @@ bool threwBusy(const std::function<void()>& f) {
         return true;
     }
     return false;
+}
+
+/// f(), retried while it fails busy: a read of the range's while another thread's call holds the batch.
+template <typename F>
+auto unbusy(F&& f) {
+    for (;;) {
+        try {
+            return f();
+        } catch (const std::runtime_error& e) {
+            if (std::string(e.what()).find("busy") == std::string::npos) throw;
+        }
+    }
+}
+
+/// An actor's thread against a one-tick batch's steps: it reads and submits through an endpoint and reads a referee
+/// opened before each step - reopened when its generation ended - so that its calls meet the step's transitions. The
+/// range steps until `wholeSteps` steps ran whole; every step meets it or not, and either runs whole or fails busy with
+/// nothing changed. Returns the actor's busy refusals.
+std::uint64_t preopenedAgainst(MissionAutoreset mode, std::uint64_t envId, int wholeSteps) {
+    MissionBatch batch({slotConfig(envId, 1)}, MissionBatchOptions{mode, 1, 0});
+    batch.reset();
+    std::atomic<bool> stop{false};
+    std::atomic<std::uint64_t> calls{0}, refusals{0};
+    std::exception_ptr failure;
+    // (opened before any step, here: the actor's first handles are preopened ones)
+    auto firstWing = std::make_unique<MissionEndpoint>(batch.endpoint(0, kWing));
+    auto firstReferee = std::make_unique<MissionReferee>(batch.referee(0));
+    std::thread actor([&] {
+        try {
+            std::unique_ptr<MissionEndpoint> wing = std::move(firstWing);
+            std::unique_ptr<MissionReferee> referee = std::move(firstReferee);
+            std::uint64_t requestId = 0;
+            while (!stop) {
+                try {
+                    if (!wing || !referee) { // (both, or neither: either opening may find the batch held)
+                        auto openedWing = std::make_unique<MissionEndpoint>(batch.endpoint(0, kWing));
+                        auto openedReferee = std::make_unique<MissionReferee>(batch.referee(0));
+                        wing = std::move(openedWing), referee = std::move(openedReferee);
+                    }
+                    const core::Json snapshot = parse(wing->observationJsonV1());
+                    ++calls;
+                    wing->submitJsonV1(actions(at(snapshot, "episode").dump(), kWing, std::stoull(str(snapshot, "tick")),
+                                               mission_test::request(++requestId, "flight", "new", "{\"mode\":\"hsa\",\"heading_rad\":0.2}")));
+                    (void)wing->receiptsJsonV1();
+                    (void)referee->outcomeJsonV1();
+                    (void)referee->costsJsonV1();
+                } catch (const std::runtime_error& e) {
+                    const std::string what = e.what();
+                    if (what.find("busy") != std::string::npos) ++refusals;
+                    else if (what.find("earlier generation") != std::string::npos) wing.reset(), referee.reset();
+                    else throw;
+                }
+            }
+        } catch (...) {
+            failure = std::current_exception();
+        }
+    });
+    int whole = 0, busy = 0;
+    std::vector<std::string> problems;
+    const auto note = [&](bool ok, const std::string& what) {
+        if (!ok) problems.push_back(what);
+    };
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(180);
+    while (whole < wholeSteps && std::chrono::steady_clock::now() < deadline) {
+        const MissionSlotStatus before = unbusy([&] { return batch.status(0); });
+        const std::string finalBefore = unbusy([&] { return batch.finalOutcomeJsonV1(0); });
+        try {
+            batch.step();
+        } catch (const std::runtime_error& e) {
+            if (std::string(e.what()).find("busy") == std::string::npos) throw;
+            ++busy;
+            // refused whole: nothing of the slot changed
+            const MissionSlotStatus after = unbusy([&] { return batch.status(0); });
+            note(after.generation == before.generation && after.tick == before.tick && after.episodeDone == before.episodeDone &&
+                     after.ended == before.ended && after.reset == before.reset,
+                 "a busy step changed the status");
+            note(unbusy([&] { return batch.finalOutcomeJsonV1(0); }) == finalBefore, "a busy step changed the final outcome");
+            continue;
+        }
+        ++whole;
+        const MissionSlotStatus after = unbusy([&] { return batch.status(0); });
+        const std::string step = "step " + std::to_string(whole) + ": ";
+        const bool resets = mode == MissionAutoreset::NextStep && before.episodeDone;
+        if (resets) { // NextStep, after the end: a reset alone - no tick, no request of the ended generation
+            note(after.generation == before.generation + 1 && after.tick == 0 && after.reset && !after.ended && !after.episodeDone,
+                 step + "NextStep did not reset alone");
+            const core::Json truth = parse(unbusy([&] { return batch.referee(0).truthJsonV1(); }));
+            note(at(truth, "time_s").asNumber() == 0.0, step + "the new generation is not at its start");
+            continue;
+        }
+        // the one tick ends the episode: its final documents are the ended generation's, whole
+        const core::Json outcome = parse(unbusy([&] { return batch.finalOutcomeJsonV1(0); }));
+        const core::Json observation = parse(unbusy([&] { return batch.finalObservationJsonV1(0, kWing); }));
+        note(at(outcome, "episode_done").asBool() && str(outcome, "tick") == "1" && str(outcome, "reason") == "truncated", step + "final outcome");
+        note(str(at(outcome, "episode"), "episode_generation") == std::to_string(before.generation), step + "final outcome of another generation");
+        note(str(observation, "tick") == "1" && str(at(observation, "episode"), "episode_generation") == std::to_string(before.generation),
+             step + "final observation");
+        note(!parse(unbusy([&] { return batch.finalTruthJsonV1(0); })).isNull() &&
+                 !parse(unbusy([&] { return batch.finalCostsJsonV1(0); })).isNull(),
+             step + "final truth and costs");
+        if (mode == MissionAutoreset::SameStep)
+            note(after.generation == before.generation + 1 && after.tick == 0 && after.ended && after.reset && !after.episodeDone,
+                 step + "SameStep did not end and reset");
+        else
+            note(after.generation == before.generation && after.tick == 1 && after.ended && after.episodeDone && !after.reset,
+                 step + "NextStep did not end");
+    }
+    stop = true;
+    actor.join();
+    if (failure) std::rethrow_exception(failure);
+    INFO("whole steps " << whole << ", refused " << busy << "; the actor's calls " << calls << ", refused " << refusals);
+    CHECK(whole == wholeSteps);
+    for (const std::string& p : problems) FAIL_CHECK(p);
+    INFO("uncontended afterwards: the slot goes on");
+    const MissionSlotStatus last = batch.status(0);
+    batch.step();
+    batch.step();
+    const MissionSlotStatus later = batch.status(0);
+    CHECK(later.generation == last.generation + (mode == MissionAutoreset::SameStep ? 2u : 1u));
+    CHECK(calls > 0);
+    return refusals;
 }
 
 /// A service's costs in a costs document: its "tick" or "total".
@@ -508,4 +630,14 @@ TEST_CASE("a platform's own dissemination is no service's cost", "[training][cos
         CHECK(at(at(s, "total"), "dms_messages").asNumber() == 0.0);
         CHECK(at(at(s, "total"), "dms_bytes").asNumber() == 0.0);
     }
+}
+
+TEST_CASE("SameStep under an actor's preopened calls: every step whole - final documents, the next generation, nothing stuck",
+          "[training][autoreset][concurrency]") {
+    CHECK(preopenedAgainst(MissionAutoreset::SameStep, 93, 200) > 0); // (the actor's calls did meet the steps)
+}
+
+TEST_CASE("NextStep under an actor's preopened calls: the end, then a reset alone - no request of the ended generation",
+          "[training][autoreset][concurrency]") {
+    CHECK(preopenedAgainst(MissionAutoreset::NextStep, 94, 200) > 0);
 }

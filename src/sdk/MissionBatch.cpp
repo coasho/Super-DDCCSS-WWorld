@@ -8,10 +8,19 @@
 // documents - for the whole operation: a call that finds it held fails busy at once (mission::Busy: FSIM_ERROR, and
 // fsim.Error in Python, where reset, reset_slot and step release the GIL) and changes and reads nothing, so no reader
 // sees a status, a final document or an endpoint between two halves of a step or a reset.
+//
+// A step or reset also holds every slot's episode (env::EpisodeHold), all of them before any changes: an endpoint or
+// referee opened earlier takes only its episode's boundary, and while one of its calls holds a slot's episode the
+// batch call fails busy whole, nothing changed. Under those holds each slot's transition is one operation no other
+// call enters - the native step, its outcome, the ended generation's final documents and its autoreset - and is
+// committed to the slot's status and final documents once read whole. A SameStep reset that fails after its episode
+// ended leaves the slot explicitly ended with its reset pending: the next step resets it first, as NextStep does.
 
 #include "fsim/MissionBatch.h"
 
+#include "env/MissionEpisode.h"
 #include "sdk/MissionConfig.h"
+#include "sdk/MissionEpisodeImpl.h"
 #include "sdk/MissionGateway.h"
 #include "sdk/MissionJson.h"
 
@@ -35,6 +44,13 @@ std::uint64_t idMember(const core::Json& document, const char* name) {
     return *mission::decimal(v->asString(), ~std::uint64_t{0});
 }
 
+/// A native episode refusal as the public episode reports it (MissionEpisode.cpp, section 5).
+[[noreturn]] void refused(env::EpisodeStatus status, const std::string& call) {
+    if (status == env::EpisodeStatus::Busy) throw mission::Busy("mission batch: " + call + ": busy - another call holds the episode");
+    if (status == env::EpisodeStatus::NotReset) throw std::runtime_error("mission batch: " + call + ": the episode has no World (not reset)");
+    throw std::runtime_error("mission batch: " + call + ": the episode is closed");
+}
+
 } // namespace
 
 struct MissionBatch::Impl {
@@ -44,7 +60,7 @@ struct MissionBatch::Impl {
         std::uint64_t resets = 0; ///< generations begun in this slot
         MissionSlotStatus status;
         bool begun = false;        ///< reset at least once
-        bool pendingReset = false; ///< NextStep: an episode ended; the next step resets first
+        bool pendingReset = false; ///< an episode ended (NextStep, or a SameStep reset that failed): the next step resets first
         std::map<std::uint64_t, std::string> finalObservations;
         std::string finalOutcome, finalTruth, finalCosts;
     };
@@ -80,7 +96,7 @@ struct MissionBatch::Impl {
         return slots[i];
     }
 
-    /// f(slot) for every slot, `workers` at a time; the first failure (by slot) is rethrown after all have run.
+    /// f(slot index) for every slot, `workers` at a time; the first failure (by slot) is rethrown after all have run.
     template <typename F>
     void each(F&& f) {
         const std::size_t n = slots.size(), threads = std::min<std::size_t>(std::max(1u, options.workers), n);
@@ -89,7 +105,7 @@ struct MissionBatch::Impl {
         const auto work = [&] {
             for (std::size_t i = next++; i < n; i = next++) {
                 try {
-                    f(slots[i]);
+                    f(i);
                 } catch (...) {
                     failures[i] = std::current_exception();
                 }
@@ -103,51 +119,81 @@ struct MissionBatch::Impl {
             if (e) std::rethrow_exception(e);
     }
 
-    /// A fresh generation of one slot at its next local episode index.
-    void resetOne(Slot& s) {
+    /// The native episode behind a slot (MissionBatch is MissionEpisode's friend).
+    static env::MissionEpisode& native(Slot& s) { return s.episode->impl_->episode; }
+
+    /// Every slot's episode held for one operation, each boundary taken at once in slot order - or mission::Busy with
+    /// none held and nothing changed: a call of an endpoint or referee opened earlier holds a slot's episode.
+    std::vector<std::unique_ptr<env::EpisodeHold>> holdAll(const std::string& call) {
+        std::vector<std::unique_ptr<env::EpisodeHold>> holds;
+        holds.reserve(slots.size());
+        for (std::size_t i = 0; i < slots.size(); ++i) {
+            holds.push_back(std::make_unique<env::EpisodeHold>(native(slots[i])));
+            if (!holds.back()->held())
+                throw mission::Busy("mission batch: " + call + ": busy - another call holds slot " + std::to_string(i) +
+                                    "'s episode (an endpoint's or a referee's)");
+        }
+        return holds;
+    }
+
+    /// A fresh generation of one slot at its next local episode index, under its hold.
+    void resetOne(Slot& s, env::EpisodeHold& hold) {
         const std::uint64_t local = options.firstLocalEpisodeIndex + s.resets;
-        const std::string key = s.episode->reset(local);
+        std::string key;
+        try {
+            hold.reset(local, mission::resetHooks(s.episode->impl_->minting, local, key));
+        } catch (const env::EpisodeError& e) {
+            if (e.status() == env::EpisodeStatus::Busy) refused(e.status(), "reset");
+            throw std::runtime_error(e.what());
+        }
         ++s.resets;
         const core::Json k = mission::parseStrict(key, "episode key");
-        s.status = MissionSlotStatus{};
-        s.status.generation = idMember(k, "episode_generation");
-        s.status.localEpisodeIndex = local;
-        s.status.reset = true;
+        MissionSlotStatus status;
+        status.generation = idMember(k, "episode_generation");
+        status.localEpisodeIndex = local;
+        status.reset = true;
+        s.status = status;
         s.begun = true, s.pendingReset = false;
     }
 
-    /// The ended generation's final documents, by principal: each service's last snapshot; the referee's outcome, costs.
-    void keepFinals(Slot& s) {
-        s.finalObservations.clear();
-        for (const mission::ServiceConfig& service : s.config->services)
-            s.finalObservations[service.serviceId] = s.episode->endpoint(service.serviceId).observationJsonV1();
-        MissionReferee referee = s.episode->referee();
-        s.finalOutcome = referee.outcomeJsonV1();
-        s.finalTruth = referee.truthJsonV1();
-        s.finalCosts = referee.costsJsonV1();
-    }
-
-    void stepOne(Slot& s) {
-        s.status.ended = s.status.reset = false;
+    /// One decision tick of one slot, under its hold: the native step, its outcome and - when its episode ends - the
+    /// ended generation's final documents, all read before any of the slot's metadata changes; then its autoreset.
+    void stepOne(Slot& s, env::EpisodeHold& hold) {
         if (s.pendingReset) {
-            // NextStep: the ended generation does nothing more - no request of it is dispatched, no World of it steps
-            resetOne(s);
+            // the ended generation does nothing more - no request of it is dispatched, no World of it steps
+            resetOne(s, hold);
             return;
         }
-        if (s.status.episodeDone) return; // Disabled: the ended generation holds - nothing of it is dispatched or stepped
-        s.episode->step();
-        ++s.status.tick;
-        const core::Json outcome = mission::parseStrict(s.episode->referee().outcomeJsonV1(), "ma.outcome.v1");
-        const bool done = outcome.find("episode_done") && outcome.find("episode_done")->isBool() && outcome.find("episode_done")->asBool();
-        const bool ended = done && !s.status.episodeDone;
-        s.status.episodeDone = done;
-        if (!ended) return;
-        s.status.ended = true;
-        keepFinals(s);
-        if (options.autoreset == MissionAutoreset::NextStep) {
-            s.pendingReset = true;
-        } else if (options.autoreset == MissionAutoreset::SameStep) {
-            resetOne(s);
+        if (s.status.episodeDone) { // Disabled: the ended generation holds - nothing of it is dispatched or stepped
+            s.status.ended = s.status.reset = false;
+            return;
+        }
+        if (const env::EpisodeStatus status = hold.step(); status != env::EpisodeStatus::Ok) refused(status, "step");
+        // The tick is closed natively. Everything below reads the generation's gateway under the same hold: no other
+        // call can enter, so nothing here fails busy, and the slot's metadata changes only once all of it is read.
+        auto* gateway = dynamic_cast<mission::Gateway*>(hold.judge());
+        if (!gateway) throw std::runtime_error("mission batch: step: the generation has no gateway");
+        const core::Json outcome = mission::parseStrict(gateway->outcome(), "ma.outcome.v1");
+        const core::Json* d = outcome.find("episode_done");
+        const bool done = d && d->isBool() && d->asBool();
+        MissionSlotStatus status = s.status;
+        ++status.tick;
+        status.episodeDone = status.ended = done;
+        status.reset = false;
+        if (!done) {
+            s.status = status;
+            return;
+        }
+        std::map<std::uint64_t, std::string> observations;
+        for (const mission::ServiceConfig& service : s.config->services) observations[service.serviceId] = gateway->observation(service.serviceId);
+        std::string finalOutcome = gateway->outcome(), finalTruth = gateway->truth(), finalCosts = gateway->costs();
+        // commit: the ended generation's status and final documents, by principal, and its reset pending
+        s.status = status;
+        s.finalObservations = std::move(observations);
+        s.finalOutcome = std::move(finalOutcome), s.finalTruth = std::move(finalTruth), s.finalCosts = std::move(finalCosts);
+        s.pendingReset = options.autoreset != MissionAutoreset::Disabled;
+        if (options.autoreset == MissionAutoreset::SameStep) {
+            resetOne(s, hold); // (a failure leaves the slot ended, its reset pending for the next step)
             s.status.ended = true;
         }
     }
@@ -193,13 +239,17 @@ std::size_t MissionBatch::size() const { return FSIM_MISSION_BATCH_LIVE.slots.si
 void MissionBatch::reset() {
     Impl& m = FSIM_MISSION_BATCH_LIVE;
     const Impl::Hold hold(m, "reset");
-    m.each([&m](Impl::Slot& s) { m.resetOne(s); });
+    auto holds = m.holdAll("reset"); // (every slot's episode, before any resets)
+    m.each([&m, &holds](std::size_t i) { m.resetOne(m.slots[i], *holds[i]); });
 }
 
 void MissionBatch::resetSlot(std::size_t slot) {
     Impl& m = FSIM_MISSION_BATCH_LIVE;
     const Impl::Hold hold(m, "reset_slot");
-    m.resetOne(m.slot(slot));
+    Impl::Slot& s = m.slot(slot);
+    env::EpisodeHold episode(Impl::native(s));
+    if (!episode.held()) refused(env::EpisodeStatus::Busy, "reset_slot");
+    m.resetOne(s, episode);
 }
 
 void MissionBatch::step() {
@@ -207,7 +257,8 @@ void MissionBatch::step() {
     const Impl::Hold hold(m, "step");
     for (std::size_t i = 0; i < m.slots.size(); ++i) // (before any slot steps: a refused step changes nothing)
         if (!m.slots[i].begun) throw std::runtime_error("mission batch: step: slot " + std::to_string(i) + " is not reset");
-    m.each([&m](Impl::Slot& s) { m.stepOne(s); });
+    auto holds = m.holdAll("step"); // (every slot's episode, before any steps)
+    m.each([&m, &holds](std::size_t i) { m.stepOne(m.slots[i], *holds[i]); });
 }
 
 MissionSlotStatus MissionBatch::status(std::size_t slot) const {

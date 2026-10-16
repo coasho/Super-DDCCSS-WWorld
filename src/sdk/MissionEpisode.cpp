@@ -11,6 +11,7 @@
 #include "fsim/MAService.h"
 #include "fsim/World.h"
 #include "sdk/MissionConfig.h"
+#include "sdk/MissionEpisodeImpl.h"
 #include "sdk/MissionGateway.h"
 
 #include <algorithm>
@@ -20,13 +21,9 @@
 
 namespace fsim {
 
-namespace {
+using mission::Minting;
 
-/// What one reset's native step made, for the judge factory that follows it in the same reset (under its boundary).
-struct Minting {
-    std::uint64_t generation = 0, localEpisodeIndex = 0;
-    mission::Minted minted;
-};
+namespace {
 
 [[noreturn]] void lifetime(env::EpisodeStatus status, const char* call) {
     switch (status) {
@@ -66,13 +63,20 @@ struct MissionReferee::Impl {
     env::EpisodeContext context;
 };
 
-struct MissionEpisode::Impl {
-    std::shared_ptr<const mission::Config> config;
-    std::shared_ptr<Minting> minting;
-    env::MissionEpisode episode;
-    Impl(std::shared_ptr<const mission::Config> c, std::shared_ptr<Minting> m, env::EpisodeConfig e)
-        : config(std::move(c)), minting(std::move(m)), episode(std::move(e)) {}
-};
+env::ResetHooks mission::resetHooks(const std::shared_ptr<Minting>& minting, std::uint64_t localEpisodeIndex, std::string& key) {
+    env::ResetHooks hooks;
+    hooks.prepare = [minting, localEpisodeIndex](std::uint64_t generation) {
+        minting->generation = generation;
+        minting->localEpisodeIndex = localEpisodeIndex;
+        minting->minted = {};
+    };
+    hooks.complete = [&key](env::EpisodeJudge* judge) {
+        auto* gateway = dynamic_cast<mission::Gateway*>(judge);
+        if (!gateway) throw std::runtime_error("mission episode: reset: the generation has no gateway");
+        key = gateway->episodeKey();
+    };
+    return hooks;
+}
 
 // --- MissionEndpoint --------------------------------------------------------------------------------------------------
 
@@ -194,17 +198,7 @@ std::string MissionEpisode::reset(std::uint64_t localEpisodeIndex) {
     // the key. Locals only: the episode may end while its reset runs (env::MissionEpisode::reset).
     const std::shared_ptr<Minting> minting = impl_->minting;
     std::string key;
-    env::ResetHooks hooks;
-    hooks.prepare = [&minting, localEpisodeIndex](std::uint64_t generation) {
-        minting->generation = generation;
-        minting->localEpisodeIndex = localEpisodeIndex;
-        minting->minted = {};
-    };
-    hooks.complete = [&key](env::EpisodeJudge* judge) {
-        auto* gateway = dynamic_cast<mission::Gateway*>(judge);
-        if (!gateway) throw std::runtime_error("mission episode: reset: the generation has no gateway");
-        key = gateway->episodeKey();
-    };
+    const env::ResetHooks hooks = mission::resetHooks(minting, localEpisodeIndex, key);
     try {
         impl_->episode.reset(localEpisodeIndex, hooks);
     } catch (const env::EpisodeError& e) {

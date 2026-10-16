@@ -21,7 +21,9 @@
 // Errors are MissionEpisode's: std::invalid_argument for a malformed configuration, a slot out of range or an
 // unconfigured service; std::runtime_error for lifetime and busy failures. One call at a time holds the whole batch
 // (every member but size()) for its whole operation: a call that finds it held fails busy at once and changes and
-// reads nothing - no status, final document or handle is ever read between two halves of a step or a reset.
+// reads nothing - no status, final document or handle is ever read between two halves of a step or a reset. step()
+// and reset() also hold every slot's episode for their whole operation: a call of an endpoint or referee opened
+// earlier that holds one makes them fail busy, nothing changed, and theirs fail busy meanwhile.
 
 #include "fsim/Export.h"
 #include "fsim/MissionEpisode.h"

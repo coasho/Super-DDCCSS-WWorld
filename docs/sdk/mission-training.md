@@ -931,6 +931,15 @@ pending resets and final documents - for its whole operation. A call that finds 
 GIL) and changes and reads nothing. No status, final document or handle is read between two halves of a step or a
 reset, and a step is refused whole - before any slot steps - when a slot was never reset.
 
+Endpoints and referees opened earlier are no exception. Their calls take only their episode's boundary (section 4),
+so a `step` or `reset` also takes every slot's episode boundary, all of them before anything changes: while a call of
+such a handle holds a slot's episode, the batch call fails busy whole, and while the batch call runs, the handle's
+calls fail busy. Under those boundaries each slot's transition is one operation - the native step, its outcome, the
+ended generation's final documents and its autoreset - and the slot's status and final documents change only once
+all of it is read. No ended generation is left without its final documents or its reset. If a `SameStep` reset fails
+after its episode ended (a failing recipe), the slot stays ended (`ended`, `episode_done`) with its reset pending,
+and the next step resets it first, as `NextStep` does.
+
 **Step and autoreset.** `step()` closes one decision tick in every slot ([section 4](#4-ownership-generation-lifetime-and-move)).
 An episode ends when its referee outcome says `episode_done` ([section 13](#13-referee-documents)). One task instance
 belongs to one generation: a reset builds a fresh World with fresh criteria. What happens next is the batch's mode:
@@ -998,9 +1007,11 @@ actor). `world_seed`, `service_seed` and `component_seed` compute [section 8](#8
 
 **Evidence.** `mission_training` (C++: slot independence and topology, a worker x reset-schedule matrix, a lost member,
 a team end, `NextStep` reset order, `SameStep` finals, costs, native publication bytes and their delivery, dissemination
-outside any cost, actor-view equivalence under hidden truth, and calls from two threads meeting on one batch),
-`mission_c_abi` (the batch's C handle), `python_sdk`'s `test_mission_training` (the same meeting through the released
-GIL, a lost role under the adapter, the hook pairs through every reset, the context's seeds, and the composition
+outside any cost, actor-view equivalence under hidden truth, calls from two threads meeting on one batch, and an
+actor's thread reading and submitting through preopened endpoints and referees against 200 steps of one-tick
+`SameStep` and `NextStep` batches), `mission_episode` (the episode hold no other call enters),
+`mission_c_abi` (the batch's C handle, and preopened handles on another thread against both autoresets),
+`python_sdk`'s `test_mission_training` (the same meetings through the released GIL, the adapter's steps among them, a lost role under the adapter, the hook pairs through every reset, the context's seeds, and the composition
 example's own system under the adapter), `test_mission` (no referee document - costs among them - crosses to an
 actor process) and `mission_package_consumer`: batch passes through installed C++, C99 and Python, costs refused
 before an isolated actor, and the installed composition example under the training adapter with `"same_step"` and

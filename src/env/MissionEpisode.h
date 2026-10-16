@@ -303,6 +303,35 @@ private:
     std::uint64_t generation_ = 0;
 };
 
+class MissionEpisode;
+
+/// The range's compound operation on one episode: its boundary taken once - at once or not at all - and held until
+/// this object goes, so that steps, judge reads and resets made through it are one operation no other call enters (a
+/// child's no more than the range's own: they fail busy meanwhile). What M7 core's batch closes a slot's tick with:
+/// the native step, its outcome, the ended generation's final documents and its autoreset. Each operation is the
+/// episode's own (MissionEpisode::step, reset), with the same results and failures, Busy aside.
+class EpisodeHold {
+public:
+    explicit EpisodeHold(MissionEpisode& episode) noexcept;
+    EpisodeHold(const EpisodeHold&) = delete;
+    EpisodeHold& operator=(const EpisodeHold&) = delete;
+    /// Whether the boundary is held: if not, another call holds it (or the episode was moved from), and every
+    /// operation below answers Busy (or Closed).
+    bool held() const noexcept { return held_; }
+    /// MissionEpisode::step, under this hold.
+    EpisodeStatus step();
+    /// MissionEpisode::reset, under this hold. EpisodeError: Busy when not held, Closed; as reset otherwise.
+    std::uint64_t reset(std::uint64_t localEpisodeIndex, const ResetHooks& hooks);
+    /// The current generation's judge, under this hold (null without one, or when not held); valid while held and
+    /// until the next reset through it.
+    EpisodeJudge* judge() noexcept;
+
+private:
+    std::shared_ptr<EpisodeControl> control_; ///< (kept alive for the hold: the episode may end meanwhile)
+    std::optional<EpisodeBoundary> boundary_; ///< (none for a moved-from episode)
+    bool held_ = false;
+};
+
 class MissionEpisode {
 public:
     /// Validates the configuration and builds no World: generation 0. EpisodeError for: a name empty, dt not
@@ -377,9 +406,13 @@ public:
     }
 
 private:
+    friend class EpisodeHold;
     EpisodeStatus enter(const EpisodeBoundary& boundary, session::World*& world) const noexcept;
     EpisodeJudge* currentJudge() noexcept;
     void close() noexcept;
+    /// The bodies of reset and step, with the boundary already held by the caller.
+    static std::uint64_t resetHeld(const std::shared_ptr<EpisodeControl>& control, std::uint64_t localEpisodeIndex, const ResetHooks& hooks);
+    static EpisodeStatus stepHeld(const std::shared_ptr<EpisodeControl>& control);
 
     std::shared_ptr<EpisodeControl> control_;   ///< null once moved from
     std::shared_ptr<const EpisodeConfig> config_; ///< immutable after construction

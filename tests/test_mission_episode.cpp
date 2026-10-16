@@ -570,6 +570,81 @@ TEST_CASE("mission episode: one boundary - a call while another holds it fails b
     CHECK(episode.tick() == 1);
 }
 
+TEST_CASE("mission episode: a hold is one operation - steps, judge reads and resets no other call enters", "[ma][episode][handles]") {
+    // M7 core's batch closes a slot's tick through an EpisodeHold: whatever it does under it, a child's call and the
+    // range's own fail busy meanwhile, and the episode is free again once the hold goes.
+    struct Judge : env::EpisodeJudge {
+        std::uint64_t after = 0;
+        void afterStep(const session::World&, std::uint64_t tick) override { after = tick; }
+    };
+    env::EpisodeConfig config;
+    config.name = "episode-hold";
+    config.c2Nodes = {{"crc", 0.7, 0.0, 200.0}};
+    config.services = {{1, "crc", {}, true, true}};
+    config.judge = [](const session::World&) { return std::make_unique<Judge>(); };
+    MissionEpisode episode(config);
+    episode.reset(0);
+    auto service = episode.service(1);
+    auto referee = episode.referee();
+    {
+        env::EpisodeHold hold(episode);
+        REQUIRE(hold.held());
+        CHECK(hold.step() == EpisodeStatus::Ok);
+        auto* judge = dynamic_cast<Judge*>(hold.judge());
+        REQUIRE(judge);
+        CHECK(judge->after == 1);
+        // every other call meanwhile - a child's, the range's - fails busy, whatever the hold does between them
+        CHECK(service.use([](session::World&, const session::AgentIdentity&) {}) == EpisodeStatus::Busy);
+        CHECK(referee.inspect([](const session::World&) {}) == EpisodeStatus::Busy);
+        CHECK(episode.step() == EpisodeStatus::Busy);
+        CHECK(episode.range([](session::World&) {}) == EpisodeStatus::Busy);
+        CHECK_FALSE(env::EpisodeHold(episode).held());
+        CHECK(hold.step() == EpisodeStatus::Ok);
+        CHECK(episode.tick() == 2);
+        std::uint64_t prepared = 0;
+        env::ResetHooks hooks;
+        hooks.prepare = [&](std::uint64_t generation) { prepared = generation; };
+        CHECK(hold.reset(5, hooks) == 2); // (a reset under the same hold: the old generation's children stale at once)
+        CHECK(prepared == 2);
+        CHECK(episode.generation() == 2);
+        CHECK(episode.localEpisodeIndex() == 5);
+        CHECK(service.use([](session::World&, const session::AgentIdentity&) {}) == EpisodeStatus::Busy); // (still held)
+        CHECK(dynamic_cast<Judge*>(hold.judge())->after == 0); // (the new generation's own judge)
+        CHECK(hold.step() == EpisodeStatus::Ok);
+    }
+    CHECK(episode.tick() == 1);
+    CHECK(service.use([](session::World&, const session::AgentIdentity&) {}) == EpisodeStatus::Stale);
+    CHECK(episode.step() == EpisodeStatus::Ok); // (free again)
+    INFO("a hold that is not held does nothing: Busy");
+    auto fresh = episode.service(1);
+    bool innerHeld = true, resetBusy = false;
+    EpisodeStatus innerStep = EpisodeStatus::Ok;
+    env::EpisodeJudge* innerJudge = nullptr;
+    const EpisodeStatus outer = fresh.use([&](session::World&, const session::AgentIdentity&) {
+        env::EpisodeHold inner(episode);
+        innerHeld = inner.held();
+        innerStep = inner.step();
+        innerJudge = inner.judge();
+        try {
+            inner.reset(9, {});
+        } catch (const env::EpisodeError& error) {
+            resetBusy = error.status() == EpisodeStatus::Busy;
+        }
+    });
+    CHECK(outer == EpisodeStatus::Ok);
+    CHECK_FALSE(innerHeld);
+    CHECK(innerStep == EpisodeStatus::Busy);
+    CHECK(innerJudge == nullptr);
+    CHECK(resetBusy);
+    CHECK(episode.generation() == 2);
+    INFO("a moved-from episode: Closed");
+    MissionEpisode moved(std::move(episode));
+    env::EpisodeHold gone(episode);
+    CHECK_FALSE(gone.held());
+    CHECK(gone.step() == EpisodeStatus::Closed);
+    CHECK(env::EpisodeHold(moved).held());
+}
+
 TEST_CASE("mission episode: destroying the parent closes its children first; moving it keeps them", "[ma][episode][handles]") {
     env::EpisodeConfig config;
     config.name = "episode-lifetime";
