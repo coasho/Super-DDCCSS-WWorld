@@ -1,8 +1,10 @@
 # Composing an MA system over the mission gateway
 
-Status: **frozen contract, proposed example**. Generic M0 froze this vocabulary and these example-only interfaces on
-2026-10-12 with the [mission training contract](mission-training.md). **Nothing here is implemented**: the example
-directory `examples/python/ma_composition` is M6's work and does not exist yet.
+Status: **frozen contract; noncombat example implemented (M6 noncombat), awaiting independent acceptance**. Generic M0
+froze this vocabulary and these example-only interfaces on 2026-10-12 with the
+[mission training contract](mission-training.md). The example is `examples/python/ma_composition`
+([section 7](#7-the-example-as-implemented-m6-noncombat)). Full composition scenarios consume full M5 (combat extensions)
+and are not part of it.
 
 This page is about the upper layer. The formal MA runtime - its actors, behaviour trees, planners, blackboards,
 internal services and arbitration - belongs to the upper-layer project, not to the SDK. What the SDK will ship is a
@@ -98,3 +100,30 @@ planning function share one snapshot object per tick; an inbox is ingested once;
 same way on every run; only selected requests execute; refusals reach their originators; and a reset leaves no state
 of the previous generation. Those are M6's gates, not this page's: this page fixes the words and the seams they are
 written against.
+
+## 7. The example as implemented (M6 noncombat)
+
+    cd examples/python
+    fsim python -m ma_composition.run [--ticks N] [--trace trace.json]
+
+| File | What it is |
+| --- | --- |
+| `contracts.py` | Section 3's `MAComponent` and `MASystem`, a `Proposal`, the episode and component contexts with section 8's seed streams computed from the snapshot's episode key, and `frozen`: the tick's snapshot made read-only |
+| `components.py` | Two policy fixtures - `NavigationPolicy` (steers on an HSA activity of its own; its last headings stand for a recurrent policy's memory) and `CoordinationPolicy` (reports to C2 over DMS with bytes from its own seeded stream; asks once for a radar its service does not own) - the BT component `TaskExecutive` (accepts a received C2 task, reports progress, then completion) and the planning component `RoutePlanner` |
+| `bt.py` | A four-node behaviour-tree executive (condition, action, sequence, selector) whose execution state a reset clears |
+| `planner.py` | A pure planning function: the same inputs give the same route |
+| `coordinator.py` | Section 4's coordinator: configured owner, then priority, then the lower `component_id`, then proposal order; a live activity's resources stay its component's; an update or cancel addresses only its own component's activity |
+| `system.py` | The reference system behind one endpoint: one read and one frozen snapshot per tick for every component due, the service's messages onto the blackboard once, one submission per tick with `component.component_id`, each changed receipt to its originator alone, and the four separate records - proposals, decisions, submissions, SDK receipts |
+| `scenario.py`, `run.py` | The range: the contract's two-ship configuration with a C2 node, the system behind the lead's flight service, a scripted C2 using its own endpoint, and a run that compares a reset generation with a fresh episode |
+
+Periods: navigation and the BT every tick, coordination every second, the planner every fourth. In the reference run
+the planner's route wins the flight axes over navigation (priority), keeps them while its activity lives
+(`held_by`), and re-plans its own route by update; coordination's cancel of that route is never sent
+(`not_activity_owner`); navigation's report on the coordination topic loses to its configured owner despite a higher
+priority; the radar request is refused by the SDK (`capability_not_bound`) and goes back to coordination alone, which
+does not ask again. Nothing in the example decides for the SDK: it submits what it selected and keeps what the SDK
+answered.
+
+`python/tests/test_ma_composition.py` (in `python_sdk`) holds these to the SDK under test; `mission_package_consumer`
+runs the example twice from a copy against the installed Python package and requires identical traces, the same trace
+after a reset as in a fresh episode, and the installed package and library.

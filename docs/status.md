@@ -81,7 +81,8 @@ preserved, but never use an unqualified `M1` to select work.
 | **MA training noncombat M2** | Legal reports with their provenance: navigation, own tracks, passive contacts, link tracks, peers, tasks and authority. | Implemented as Agent calls in C++ (`fsim/MAReports.h`), C (ABI 1.73) and Python, additive: each report is the Agent's existing read with its source, sample and receive times, age and validity; unknown, stale, invalid, unavailable and not-applicable are kept apart, a peer's position report and its heartbeat each keep the delivery they came by (ABI 1.74), and nothing the referee alone knows enters one ([contract](sdk/mission-training.md#legal-report-calls-noncombat-m2), [agents.md](sdk/agents.md#legal-reports)). Verified by `ctest -L ma-training`, which includes the installed C++, C99 and Python consumers. The internal mission episode owner (M4) has passed independent acceptance. The public gateway is implemented as M5 core and awaits independent acceptance; engagement extension handlers, full M5 and full joint acceptance remain open. |
 | **MA equipment access/reports** | Own-platform dispenser inventory/release, own-designation advisory launch zones, stores/strikes/inventory and ingress-delivered consent reports. | Additive C++/C/Python interfaces (C ABI additions 1.75); native activity/release correlations with true target IDs redacted and no weapon telemetry. [Equipment verification](sdk/engagement.md#equipment-interface-verification-2026-10-14) records headless/Release builds, focused regression, installed consumers, frozen ABI and protected-input checks. Mission gateway handlers and full joint acceptance remain pending. |
 | **M4 native-state fixture input** | Reusable same-build setup for simultaneous damage, live weapon/decoy, store consumption, pending task/consent/message and removal state. | [Fixture and verification](sdk/native-state-reset-fixture.md) supplied on 2026-10-15 with deterministic fresh/replay and legacy-reset controls, and applied to the M4 episode reset by `mission_episode`; M4 independent acceptance completed at `54b7fb9`; M5 core is implemented and awaiting acceptance. |
-| **MA training M5 core** | Public mission episodes: `MissionEpisode`, `MissionEndpoint`, `MissionReferee`; one immutable legal snapshot per service per decision tick; submit validates and queues, step dispatches in service-id/request-id order through each service's own Agent; deduplication, retention, native receipts; noncombat criteria and referee documents; strict actor isolation. | **Implemented, awaiting independent acceptance** in C++ (`fsim/MissionEpisode.h`), C (`fsim/fsim_mission_env.h`, ABI 1.76) and Python (`fsim.mission`, `fsim.isolation.MissionEndpointProcess`); see the M5 core verification below. Full M5 remains pending: no extension definition or handler is installed, so every extension key and request kind is refused. The independent review's four runtime defects and the `gateway.close` checker condition were corrected afterwards (see the M5 core correction below). M6-M8, joint and Viewer acceptance are not started. |
+| **MA training M5 core** | Public mission episodes: `MissionEpisode`, `MissionEndpoint`, `MissionReferee`; one immutable legal snapshot per service per decision tick; submit validates and queues, step dispatches in service-id/request-id order through each service's own Agent; deduplication, retention, native receipts; noncombat criteria and referee documents; strict actor isolation. | **Implemented, awaiting independent acceptance** in C++ (`fsim/MissionEpisode.h`), C (`fsim/fsim_mission_env.h`, ABI 1.76) and Python (`fsim.mission`, `fsim.isolation.MissionEndpointProcess`); see the M5 core verification below. Full M5 remains pending: no extension definition or handler is installed, so every extension key and request kind is refused. The independent review's four runtime defects and the `gateway.close` checker condition were corrected in `57a846d`, which passed independent review. M6 noncombat is implemented and awaiting acceptance (below); M7-M8, joint and Viewer acceptance are not started. |
+| **MA training M6 noncombat** | Composition over the mission gateway: two policy components, a BT executive and a planner sharing one snapshot per tick; deterministic arbitration; selected requests through the bound endpoint; explicit component lifecycle. | **Implemented, awaiting independent acceptance** as the example `examples/python/ma_composition` ([composition](sdk/ma-composition.md#7-the-example-as-implemented-m6-noncombat)), on the installed public Python SDK alone; see the M6 noncombat verification below. Full M6 composition scenarios consume full M5 and remain pending. |
 | **MA training M4** | Independent mission episodes: one World per episode, rebuilt whole on reset; generation-bound children; section 8 seed streams. | Implemented in `8254d7e`, `c507978` and `54b7fb9` as the internal native owner `fsim::env::MissionEpisode` ([contract](sdk/mission-training.md#4-ownership-generation-lifetime-and-move)), not exported; **independently accepted at `54b7fb9`**. The `mission_episode` gate applies the supplied native-state fixture to the episode's own reset - field-for-field equal to a fresh episode and an independent World of the same seed and recipe, nothing normalised, before and after replay - and covers stale, closed, busy and moved handles, disposal from inside a callback, children opened during a reset, published metadata under concurrent reads, terrain construction inputs, worker-count and threaded-schedule invariance, independence of other episodes, diagnostic names and the unchanged legacy vehicle reset. The public episode family, `ma.config.v1` parsing, snapshots and the gateway are M5 core (above). |
 
 ## SDK simulation/interface compatibility checks (2026-10-15)
@@ -170,7 +171,7 @@ Claude retains the complete M5 core correction package across implementation, la
 tests, installed consumers and acceptance evidence. Independent M5 core and first-package acceptance remain open;
 M6-M8 and full extension/joint/Viewer acceptance retain their existing prerequisites.
 
-## MA training M5 core correction (2026-10-15, awaiting independent acceptance)
+## MA training M5 core correction (2026-10-15, independently accepted)
 
 All four review findings were reproduced first with the reviewer's probes on the `6e8b4aa` build (logs
 `01-repro-*`), then held by new regressions that failed before the correction (`02-red-python`, `04-red-native`):
@@ -199,6 +200,34 @@ during a reset without a fault (`07-probe-*`).
 
 Correction logs are under `D:/ENV/tmp/m5fix/logs/`. Pending: independent M5 core acceptance of this correction, full M5
 (extension definitions and handlers), the first-package acceptance, M6-M8, and joint and Viewer acceptance.
+
+## MA training M6 noncombat composition (2026-10-15, awaiting independent acceptance)
+
+Started from `57a846d` after the M5 core correction passed independent review. First, the installed Python consumer's
+isolation refusals were made specific: with fsim.isolation's referee-data check removed, the old assertions did not
+pass falsely in this build, but the referee documents reached the actor's process and the call failed only through the
+actor's own argument error (`D:/ENV/tmp/m6/logs/01-weak-refusal.log`). The consumer now sends through `echo(value)`,
+checks that ordinary data crosses, and requires the isolation `TypeError` with no further call reaching the actor; with
+the check removed it fails as it should (`02-consumer-*`).
+
+`examples/python/ma_composition` ([composition](sdk/ma-composition.md#7-the-example-as-implemented-m6-noncombat)):
+two policy components, a BT executive and a planning component sharing one read-only snapshot per tick; a deterministic
+coordinator (configured owner, priority, component id); selected requests only, through the lead service's endpoint;
+SDK refusals to their originator; per-generation reset of blackboard, BT state, planner and recurrent placeholder
+memory, RNG streams, queues and request/activity mappings. It uses the installed public `fsim` package alone; no SDK
+interface, native code, BT or ML dependency was added.
+
+| Current verification | Result |
+| --- | --- |
+| UCRT64 headless and Release builds, warnings as errors | Passed, 0 warnings each |
+| Affected headless gates (`python_sdk`, installed-consumer gates, contract, boundary and architecture checks, M5 core and M4 gates) | 13/13 passed in 153.97 s |
+| Affected Release gates (the same with `equipment_package_consumer`) | 14/14 passed in 184.06 s; `python_sdk` 245 cases |
+| Full headless suite | 616/616 passed in 955.73 s |
+| `test_ma_composition` | 12 cases; a mutation check plants 14 single defects in a copy of the example (two reads per tick, a snapshot per component, double ingestion, reversed tie-break, owners ignored, foreign cancel, losers submitted, feedback to all, periods ignored, activity map, BT state or RNG kept across generations, a refused request retried, truth as feedback): every one fails the tests, the unmutated copy passes (`05-mutants.log`) |
+| Installed composition example (`mission_package_consumer`) | Two runs from a copy on the installed package: byte-identical traces, the reset generation equal to a fresh episode, installed package and library |
+
+Logs are under `D:/ENV/tmp/m6/logs/`. Pending: independent M6 noncombat acceptance; full M6 composition scenarios
+(they consume full M5); M7-M8; joint (J1 is shown here for noncombat only) and Viewer acceptance.
 
 The third maintenance pass includes bounded A1,
 [A2 lifecycle/adapter](superpowers/specs/2026-10-12-architecture-lifecycle-design.md) and

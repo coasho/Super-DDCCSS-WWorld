@@ -259,13 +259,13 @@ be reported with evidence before dependent implementation proceeds.
 **Consumes:** M5 core endpoint contract and receipts for noncombat composition; accepted integration inputs for full composition scenarios.
 **Produces:** Replaceable component fixture, deterministic reference coordinator and lifecycle hooks.
 
-- [ ] Add failing example tests for shared snapshot identity, single inbox ingestion, conflicting intents, activity update/cancel ownership and reset of all component state.
-- [ ] Implement two noncombat navigation/coordination policy fixtures, a small BT executive and a pure planning function using example-only contracts.
-- [ ] Implement configured resource priority/ownership and stable component-ID tie-breaks; retain proposal/arbitration/submission/receipt provenance separately.
-- [ ] Run components at declared decision periods. Feed SDK refusals back to their originating components; no internal coordinator may override FA/C2/MS authority.
-- [ ] Reset blackboard, BT execution state, planner/RNN placeholder memory, RNG streams, queues and activity mappings at generation changes.
-- [ ] Run the example with an installed public SDK and compare repeated traces with identical inputs. Run python_sdk composition cases.
-- [ ] Review and commit the example; do not add a BT/ML dependency or production MA runtime.
+- [x] Add failing example tests for shared snapshot identity, single inbox ingestion, conflicting intents, activity update/cancel ownership and reset of all component state.
+- [x] Implement two noncombat navigation/coordination policy fixtures, a small BT executive and a pure planning function using example-only contracts.
+- [x] Implement configured resource priority/ownership and stable component-ID tie-breaks; retain proposal/arbitration/submission/receipt provenance separately.
+- [x] Run components at declared decision periods. Feed SDK refusals back to their originating components; no internal coordinator may override FA/C2/MS authority.
+- [x] Reset blackboard, BT execution state, planner/RNN placeholder memory, RNG streams, queues and activity mappings at generation changes.
+- [x] Run the example with an installed public SDK and compare repeated traces with identical inputs. Run python_sdk composition cases.
+- [x] Review and commit the example; do not add a BT/ML dependency or production MA runtime (M6 noncombat; awaiting independent acceptance; full composition scenarios consume full M5).
 
 **Gate:** MA composition and policy replacement are demonstrated without equating one platform, one service and one actor.
 

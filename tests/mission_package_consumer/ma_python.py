@@ -176,6 +176,14 @@ class Actor:
     def observe(self):
         return self.endpoint.observation_json()
 
+    def echo(self, value):
+        """What reached this process: ordinary data comes back as it was sent."""
+        self.received = getattr(self, "received", 0) + 1
+        return value
+
+    def received_count(self):
+        return getattr(self, "received", 0)
+
 
 def mission_episode():
     """A mission episode through fsim.mission, and an actor of it in its own process, from the installed package."""
@@ -198,16 +206,24 @@ def mission_episode():
     here = os.path.dirname(os.path.abspath(__file__))
     with isolation.MissionEndpointProcess(episode, lead, "ma_python:Actor", path=[here]) as actor:
         require(actor.call("observe") == lead.observation_json(), "the isolated actor read another snapshot")
+        # ordinary data crosses: the refusals below are the isolation check's, not a call that could not be made
+        ordinary = {"nested": [1, "two", {"three": 3.5}]}
+        require(actor.call("echo", ordinary) == ordinary and actor.call("received_count") == 1, "ordinary data did not cross")
         other = fsim.mission.MissionEpisode(MISSION_CONFIG)  # (the same configuration: equal keys and service ids)
         other.reset(41)
-        for refused in (lambda: actor.rebind(other.endpoint(9007199254740995)),
-                        lambda: actor.call("observe", json.loads(referee.truth_json())),
-                        lambda: actor.call("observe", {"nested": [json.loads(referee.outcome_json())]})):
+        try:
+            actor.rebind(other.endpoint(9007199254740995))
+            require(False, "an isolated actor was re-bound to another episode's endpoint")
+        except ValueError as e:
+            require("not one this episode opened" in str(e), "another episode's endpoint was refused for another reason: %s" % e)
+        for document in (json.loads(referee.truth_json()), {"nested": [json.loads(referee.outcome_json())]}, referee.truth_json()):
             try:
-                refused()
-                require(False, "an isolated actor was given another episode's endpoint or referee data")
-            except (ValueError, TypeError):
-                pass
+                actor.call("echo", document)
+                require(False, "referee data reached the isolated actor")
+            except TypeError as e:
+                require("referee document" in str(e), "referee data was refused for another reason: %s" % e)
+        require(actor.call("received_count") == 1, "referee data reached the actor's process before it was refused")
+        require(actor.call("observe") == lead.observation_json(), "the actor's endpoint changed after the refusals")
         other.close()
     episode.reset(41)
     try:
