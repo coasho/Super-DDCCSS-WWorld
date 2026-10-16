@@ -142,6 +142,21 @@ SCHEMA = "fsim.architecture.source-policy.v2"
 PHASE = re.compile(r"ARCH-(0[2-9]|10)|MS-\d+")
 
 
+def fold(path):
+    """A repository path's identity: Windows file names are case-insensitive, so ownership compares case-folded paths
+    (a case variant meets the same owner rules); the canonical spelling is then required separately."""
+    return path.rstrip("/").casefold()
+
+
+def under(path, directory):
+    return fold(path).startswith(fold(directory) + "/")
+
+
+def spelled_under(path, directory):
+    """Whether `path` spells `directory`'s prefix exactly as the policy does."""
+    return path.startswith(directory.rstrip("/") + "/")
+
+
 def validate_policy(policy):
     """Structural policy errors fail the run as input errors: an unsupported declaration is never ignored."""
     if set(policy) != POLICY_KEYS or policy.get("schema") != SCHEMA:
@@ -152,7 +167,7 @@ def validate_policy(policy):
         if set(domain) != DOMAIN_KEYS or domain["kind"] not in KINDS:
             raise ValueError(f"domain {name}: keys {sorted(DOMAIN_KEYS)} and a kind of {sorted(KINDS)}")
         root = domain["root"]
-        if not root.startswith("src/") or root.count("/") != 1 or root in roots:
+        if not root.startswith("src/") or root.count("/") != 1 or fold(root) in {fold(r) for r in roots}:
             raise ValueError(f"domain {name}: root must be a distinct src/<name> directory: {root}")
         roots[root] = name
         for provider in domain["may_depend_on"]:
@@ -175,17 +190,19 @@ def validate_policy(policy):
                 raise ValueError(f"module {name}: graphics (headless false) in the {module['domain']} domain")
             root = domain["root"]
             for destination in module["destinations"]:
-                if destination != root and not destination.startswith(root + "/"):
+                if fold(destination) != fold(root) and not under(destination, root):
                     raise ValueError(f"{group} {name}: destination {destination} is outside its domain root {root}")
+                if destination != root and not spelled_under(destination, root):
+                    raise ValueError(f"{group} {name}: destination {destination} is spelled differently from its domain root {root}")
             for directory in module.get("directories", []):
-                if any(directory == r or directory.startswith(r + "/") for r in roots):
+                if any(fold(directory) == fold(r) or under(directory, r) for r in roots):
                     raise ValueError(f"module {name}: legacy directory {directory} lies in a domain root; list it as a destination")
             for path in module.get("directories", []) + module["destinations"] + module.get("files", []):
                 if ".." in Path(path).parts or ".codex" in Path(path).parts or not path.startswith("src/"):
                     raise ValueError(f"{group} {name}: unsafe or non-source path {path}")
-                if path in owners:
-                    raise ValueError(f"duplicate-owner: {path} is claimed by {owners[path]} and {name}")
-                owners[path] = name
+                if fold(path) in owners:
+                    raise ValueError(f"duplicate-owner: {path} is claimed by {owners[fold(path)]} and {name}")
+                owners[fold(path)] = name
     # An exact file claim keeps the existing legacy shared directories (Flow in src/world, the Viewer in src/app) but
     # never overrides another owner: inside a domain root it lies in the module's own destination, and in a legacy
     # directory it belongs to a module of the same domain. It cannot take a reserved or foreign file.
@@ -193,18 +210,20 @@ def validate_policy(policy):
                         for name, module in entries.items() for path in module.get("directories", []) + module["destinations"]]
     for name, module in modules.items():
         for path in module["files"]:
-            covering = sorted((len(directory), owner, group) for directory, owner, group in directory_claims
-                              if path.startswith(directory + "/"))
-            inside = next((d for d, entry in domains.items() if path.startswith(entry["root"] + "/")), None)
+            covering = sorted((len(directory), owner, group, directory) for directory, owner, group in directory_claims
+                              if under(path, directory))
+            inside = next((d for d, entry in domains.items() if under(path, entry["root"])), None)
             here = f"file-claim: {name} ({module['domain']}) claims {path}"
             if covering:
-                _, owner, group = covering[-1]
+                _, owner, group, directory = covering[-1]
                 if group == "planned":
                     raise ValueError(f"{here}, reserved for planned module {owner} ({planned[owner]['phase']})")
                 if inside and owner != name:
                     raise ValueError(f"{here} in the destination of {owner} ({modules[owner]['domain']})")
                 if modules[owner]["domain"] != module["domain"]:
                     raise ValueError(f"{here} in the legacy directory of {owner} ({modules[owner]['domain']})")
+                if not spelled_under(path, directory):
+                    raise ValueError(f"{here}, spelled differently from {directory}")
             elif inside:
                 raise ValueError(f"{here} inside the {inside} domain root, outside its own destinations")
     for module in modules.values():
@@ -271,24 +290,32 @@ def analyze(repo, policy):
 
     def owner(path):
         relative = path.relative_to(repo).as_posix()
-        exact = [name for name, module in modules.items() if relative in module["files"]]
+        exact = [(name, claim) for name, module in modules.items() for claim in module["files"] if fold(claim) == fold(relative)]
         if len(exact) == 1:
-            return exact[0]
-        matches = [(len(directory), name, group) for directory, name, group in claims if relative.startswith(directory + "/")]
+            name, claim = exact[0]
+            if relative != claim:
+                issue("noncanonical-path", relative, f"spelled differently from {name}'s claim {claim}")
+                return None
+            return name
+        matches = [(len(directory), name, group, directory) for directory, name, group in claims if under(relative, directory)]
         if not matches:
-            root = next((d for d, entry in domains.items() if relative.startswith(entry["root"] + "/")), None)
+            root = next((d for d, entry in domains.items() if under(relative, entry["root"])), None)
             where = f" (inside the {root} domain root, outside every declared destination)" if root else ""
             issue("unknown-owner", relative, "source needs exactly one registered module" + where)
             return None
-        longest = max(length for length, _, _ in matches)
-        winners = sorted({(name, group) for length, name, group in matches if length == longest})
+        longest = max(length for length, _, _, _ in matches)
+        winners = sorted({(name, group) for length, name, group, _ in matches if length == longest})
         if len(winners) != 1:
             issue("duplicate-owner", relative, "claimed by " + " and ".join(name for name, _ in winners))
             return None
         name, group = winners[0]
+        directory = next(d for length, n, g, d in matches if length == longest and (n, g) == (name, group))
         if group == "planned":
             issue("planned-owner", relative, f"reserved for planned module {name} ({planned[name]['phase']}); "
                   "register its target in the policy before adding sources")
+            return None
+        if not spelled_under(relative, directory):
+            issue("noncanonical-path", relative, f"spelled differently from {name}'s directory {directory}")
             return None
         return name
 

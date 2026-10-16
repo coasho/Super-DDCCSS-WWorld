@@ -129,6 +129,9 @@ class Imports(ast.NodeVisitor):
             parent = ".".join(base + ([node.module] if node.module else []))
         else:
             parent = node.module or ""
+        if node.level == 0 and node.module in {"importlib", "builtins"} and any(item.name == "*" for item in node.names):
+            # a wildcard binds import_module / __import__ invisibly: their calls could not be found, so the form is refused
+            self.site(node, "unsupported")
         for item in node.names:
             # `from p import m` imports module p.m when there is one, else a name of p (p itself is the edge)
             child = parent + "." + item.name
@@ -331,7 +334,7 @@ def check(repo, spec):
         if site["form"] == "unsupported":
             issue("python-dynamic-import", place(site["module"], site["line"]),
                   f"unsupported dynamic-import form in {site['function']}: call importlib.import_module or a name bound by "
-                  "`from importlib import import_module` directly, at a registered site")
+                  "`from importlib import import_module` (not a wildcard import) directly, at a registered site")
             continue
         seen.add(key)
         if key not in registered:

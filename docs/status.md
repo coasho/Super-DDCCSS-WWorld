@@ -473,6 +473,22 @@ The baseline was refreshed at `9b6b645`; source hashes are unchanged.
 | `check.py` on the repository | Accepted; the same 3 exceptions and 2 legacy Python cycles |
 | Targeted CTest tier (`scope.py --run`) | 5/5 passed in 13.68 s; no build, no full suite |
 
+**Recheck correction (2026-10-16).** The recheck at `9e0ecc2` closed findings 3-5 and left two gaps; both are
+closed now. Each focused regression fails on `9e0ecc2`.
+- Path identity: ownership compares case-folded paths, so `src/Training/...` meets the reserved, foreign and
+  domain-root rules. Only the policy's own spelling passes (`noncanonical-path`, input errors). The legacy shared
+  claims are kept.
+- Wildcard imports: a wildcard import from `importlib` or `builtins` is an unsupported dynamic-import form, refused
+  even at a registered site.
+
+The baseline was refreshed at `9e0ecc2`; only its HEAD and working-tree list changed.
+
+| Recheck verification | Result |
+| --- | --- |
+| `test_check.py` | 110 cases passed (8 added; the 6 negative ones fail on `9e0ecc2`) |
+| `check.py` on the repository; planning document checker | Accepted; accepted (13 documents) |
+| Targeted CTest tier (`scope.py --run`) | 5/5 passed in 14.97 s; no build, no full suite |
+
 Pending: independent ARCH-01 acceptance (ARCH-02 not started); ARCH-02 onward; configured File API reconciliation once moves begin.
 
 ## MA training M8 correction and change-scoped testing (2026-10-16, awaiting independent review)

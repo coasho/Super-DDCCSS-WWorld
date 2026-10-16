@@ -11,7 +11,7 @@
   "python/fsim": "b063447d0e6aeb5ee9f0ed3f4b45c2bff8f296f2d49b672ace8ab0a90de1f6ea",
   "src": "a057d1190518dabfce55bcb77960db792b6e81a03ad655431cd5d5f7471bc359"
  },
- "head": "9b6b6457422ecfe81f897e53d4fdb9bcf742c30b",
+ "head": "9e0ecc24597715476e46d5da982e84c050612bf4",
  "limits": [
   "Static source declarations: every CMake branch is combined; this is not the configured File API graph of one preset",
   "Link edges are target_link_libraries declarations; include edges are literal includes resolved to an owning module",
@@ -2115,7 +2115,6 @@
  "worktree_changes": [
   "python/fsim/isolation.py",
   "tools/architecture/README.md",
-  "tools/architecture/baseline.py",
   "tools/architecture/check.py",
   "tools/architecture/python_imports.py",
   "tools/architecture/test_check.py"

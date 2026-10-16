@@ -660,6 +660,63 @@ class DomainFixtures(FixtureRepository):
                 self.write("python/fsim/world.py", text)
                 self.rejects("python-dynamic-import", "unsupported dynamic-import form in load")
 
+    # recheck item 1: Windows case variants meet the same ownership rules, and only the canonical spelling passes
+    def test_a_case_variant_file_claim_cannot_take_a_reserved_destination(self):
+        path = "src/Training/native/mission/Takeover.cpp"
+        self.write(path, "int takeover;\n")
+        self.append("src/session/CMakeLists.txt", "target_sources(fsim_session PRIVATE ../Training/native/mission/Takeover.cpp)\n")
+        self.rejects("planned-owner", "reserved for planned module mission (ARCH-05)")
+        self.policy["modules"]["session"]["files"].append(path)
+        self.input_error(f"file-claim: session (simulation) claims {path}, reserved for planned module mission (ARCH-05)")
+
+    def test_case_variant_policy_claims_meet_the_same_rules(self):
+        for path, detail in (("src/TRAINING/native/vecenv/Take.cpp", "in the destination of env (training)"),
+                             ("src/Env/Take.cpp", "in the legacy directory of env (training)"),
+                             ("src/Training/Loose.cpp", "inside the training domain root, outside its own destinations")):
+            with self.subTest(path=path):
+                self.policy["modules"]["session"]["files"] = [path]
+                self.input_error(f"file-claim: session (simulation) claims {path}")
+                self.input_error(detail)
+
+    def test_case_variant_policy_directories_are_one_owner(self):
+        self.policy["modules"]["ms"]["destinations"].append("src/simulation/FLIGHT")
+        self.input_error("duplicate-owner: src/simulation/FLIGHT is claimed by sim and ms")
+
+    def test_a_noncanonical_policy_spelling_is_an_input_error(self):
+        self.policy["modules"]["flow"]["files"].append("src/World/FlowFires.cpp")
+        self.input_error("file-claim: flow (visualization) claims src/World/FlowFires.cpp, spelled differently from src/world")
+        self.policy["modules"]["flow"]["files"].pop()
+        self.policy["modules"]["env"]["destinations"] = ["src/Training/native/vecenv"]
+        self.input_error("destination src/Training/native/vecenv is spelled differently from its domain root src/training")
+
+    def test_a_source_spelled_differently_on_disk_than_its_owner_is_rejected(self):
+        self.write("src/Training/native/vecenv/VecEnv.cpp", '#include "session/Header.h"\n')
+        self.append("src/env/CMakeLists.txt", "target_sources(fsim_env PRIVATE ../Training/native/vecenv/VecEnv.cpp)\n")
+        self.rejects("noncanonical-path", "spelled differently from env's directory src/training/native/vecenv")
+
+    def test_legacy_shared_claims_keep_their_canonical_spelling(self):
+        # Flow's files in src/world and the Viewer's in src/app, exactly as the policy spells them
+        self.assertIn("src/world/FlowSolver.cpp", self.policy["modules"]["flow"]["files"])
+        self.assertIn("src/app/viewer_main.cpp", self.policy["modules"]["viewer"]["files"])
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+
+    # recheck item 2: a wildcard import of an import function cannot hide a dynamic import
+    def test_a_wildcard_import_function_binding_is_unsupported_even_when_registered(self):
+        self.policy["python"]["dynamic_imports"] = [{"module": "fsim.world", "function": "load", "reason": "fixture"}]
+        for module, call in (("importlib", "import_module"), ("builtins", "__import__")):
+            with self.subTest(module=module):
+                self.write("python/fsim/world.py", f"from {module} import *\n\n\ndef load(name):\n    return {call}(name)\n")
+                self.rejects("python-dynamic-import", "unsupported dynamic-import form in <module>")
+                self.policy["python"]["dynamic_imports"] = []
+                self.rejects("python-dynamic-import", "unsupported dynamic-import form in <module>")
+                self.policy["python"]["dynamic_imports"] = [{"module": "fsim.world", "function": "load", "reason": "fixture"}]
+
+    def test_a_wildcard_import_from_another_module_is_not_an_import_function(self):
+        self.write("python/fsim/world.py", "from math import *\n\n\ndef area(r):\n    return pi * r * r\n")
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+
     # review finding 3: a package initializer on the way to an imported module runs too
     def test_an_intermediate_package_initializer_cannot_load_an_optional_package(self):
         self.write("python/fsim/_training/__init__.py", "import torch\n")

@@ -157,6 +157,14 @@ Python and Vision extension adapters, `oms`, `demo`, `training_vision`,
   root it must lie in the module's own destination; in a legacy directory, the
   directory's owner must be in the same domain. A claim on a reserved, foreign or
   unassigned file is an input error (`file-claim`);
+- paths are identified case-insensitively, as Windows names them, so a case
+  variant such as `src/Training/...` meets the same owner rules. Only the
+  policy's own spelling passes:
+  - a policy path spelled differently from its domain root or covering
+    directory is an input error;
+  - two policy paths differing only in case are one claim (`duplicate-owner`);
+  - a source whose on-disk or declared spelling differs from its owner's
+    directory or claim fails as `noncanonical-path`;
 - two claims of the same length fail as `duplicate-owner`; the same path claimed
   twice in the policy is an input error;
 - a file in a planned owner's destination fails as `planned-owner` until that
@@ -202,7 +210,8 @@ imports are deferred edges, everything else eager). It requires:
   `__import__`, or a name bound by `from importlib import import_module [as x]` or
   `from builtins import __import__ [as y]`. An import function used other than
   as a direct call (stored, passed, or fetched with `getattr`) cannot be followed,
-  and fails as an unsupported form.
+  and fails as an unsupported form, registered or not. So does a wildcard import
+  from `importlib` or `builtins`, which binds the import functions invisibly.
 - every subpackage a declared private package.
 
 Compiled extensions are owner-level leaves; their native links are checked as
