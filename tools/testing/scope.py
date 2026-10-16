@@ -299,9 +299,11 @@ def direct_tests(path, tests, executables, dependents):
 
 def plan(paths, rules, tests, executables, tier="targeted", dependents=None, readers=None):
     """What `paths` need: {"scopes", "escalate" (reasons), "release" (reasons), "build", "selected" (test names),
-    "unmatched", "errors" ([{"reason", "paths", ...}]: an unclaimed path, an empty selection or no changes)}."""
+    "unmatched", "errors" ([{"reason", "paths", ...}]: an unclaimed path, a required Python test module with no CTest
+    test registered, an empty selection or no changes)}."""
     dependents, readers = dependents or {}, readers or {}
     selected, matched, escalate, release, unmatched, direct_all = set(), [], [], [], [], set()
+    required = {}  # python/tests module -> the changed paths that need its tests (it exists: the import closure holds it)
     build = False
     for path in paths:
         hits = [r for r in rules if any(glob_match(path, p) for p in r.get("paths", [])) and not any(glob_match(path, p) for p in r.get("except", []))]
@@ -332,6 +334,8 @@ def plan(paths, rules, tests, executables, tier="targeted", dependents=None, rea
             direct |= found
             claimed = claimed or compiled or source in dependents or bool(found)
             build = build or compiled
+            for module in dependents.get(source, ()):
+                required.setdefault(module, set()).add(path)
         selected |= direct
         direct_all |= direct
         if not any(r.get("claims", True) for r in hits) and not claimed:
@@ -355,6 +359,15 @@ def plan(paths, rules, tests, executables, tier="targeted", dependents=None, rea
     if unclaimed and tier != "full":
         errors.append({"reason": "unclaimed", "paths": unclaimed,
                        "detail": "no scope in tools/testing/scopes.toml, test source, test command or Python import claims these paths"})
+    # A module the changes need must be registered: a test module added since the last configure has no CTest test until
+    # a build reruns the glob, and the rest of the selection (sdk_boundary, say) passing would not have run it.
+    names = {t["name"] for t in tests}
+    unregistered = sorted(m for m in required if not any(n == "python_sdk " + m or n.startswith("python_sdk %s." % m) for n in names))
+    if unregistered:
+        errors.append({"reason": "unregistered", "modules": unregistered,
+                       "paths": sorted(set().union(*(required[m] for m in unregistered))),
+                       "detail": "no CTest test is registered for Python test module(s) %s: build the preset (--build) so CMake "
+                                 "registers them, then select again" % ", ".join(unregistered)})
     if paths and not selected:
         errors.append({"reason": "empty-selection", "paths": list(paths), "scopes": list(matched),
                        "detail": "the changes select no test in this inventory"})

@@ -190,6 +190,31 @@ class PlanTest(unittest.TestCase):
                                          "sdk_boundary"])
         self.assertEqual(p["errors"], [])
 
+    def test_an_unregistered_python_test_module_fails_though_sdk_boundary_is_selected(self):
+        """A test module added since the last configure: the package scope still selects sdk_boundary, which exists and
+        would pass - the selection must fail instead, naming the module, not run without it."""
+        dependents = dict(DEPENDENTS, **{"python/tests/test_new.py": {"test_new"}})
+        rules = RULES + [{"name": "package tests", "paths": ["python/tests/**"], "tests": ["^sdk_boundary$"], "claims": False}]  # (as scopes.toml)
+        p = scope.plan(["python/tests/test_new.py"], rules, TESTS, EXECUTABLES, "targeted", dependents)
+        self.assertEqual(p["selected"], ["sdk_boundary"])
+        self.assertNotIn("unclaimed", reasons(p))
+        self.assertEqual(reasons(p)["unregistered"]["modules"], ["test_new"])
+        self.assertEqual(reasons(p)["unregistered"]["paths"], ["python/tests/test_new.py"])
+        for tier in ("integration", "full"):
+            with self.subTest(tier=tier):
+                p = scope.plan(["python/tests/test_new.py"], rules, TESTS, EXECUTABLES, tier, dependents)
+                self.assertEqual(reasons(p)["unregistered"]["modules"], ["test_new"])
+
+    def test_a_shared_fixture_an_unregistered_module_imports_fails_too(self):
+        dependents = dict(DEPENDENTS, **{"python/tests/test_mission_training.py": {"test_mission_training", "test_mission_concurrency", "test_new"}})
+        p = scope.plan(["python/tests/test_mission_training.py"], RULES, TESTS, EXECUTABLES, "targeted", dependents)
+        self.assertEqual(reasons(p)["unregistered"]["modules"], ["test_new"])
+        self.assertEqual(reasons(p)["unregistered"]["paths"], ["python/tests/test_mission_training.py"])
+
+    def test_a_deleted_test_module_is_not_required(self):
+        p = selected(["python/tests/test_gone.py"])  # (no longer in the import closure: the file is gone)
+        self.assertNotIn("unregistered", reasons(p))
+
     def test_a_shared_fixture_module_selects_the_stress_cases_importing_it(self):
         p = selected(["python/tests/test_mission_training.py"])
         self.assertEqual(p["selected"], ["python_sdk test_mission_concurrency.A.test_x", "python_sdk test_mission_training"])
@@ -287,6 +312,31 @@ class LifecycleTest(unittest.TestCase):
         self.assertEqual(status, 3)
         self.assertNotIn("run", " ".join(self.calls))
 
+    def unregistered(self, build):
+        """A new test module whose CTest test only the build registers; sdk_boundary is there all along."""
+        self.inventories = {"before": synthetic(["sdk_boundary", "python_sdk test_world"]),
+                            "after": synthetic(["sdk_boundary", "python_sdk test_new", "python_sdk test_world"])}
+        rules = [{"name": "package", "paths": ["python/tests/**"], "tests": ["^sdk_boundary$"], "claims": False}]
+        return scope.select(["python/tests/test_new.py"], rules, "targeted", 16, run=True, build=build, log_dir=self.tmp.name,
+                            executables={}, dependents={"python/tests/test_new.py": {"test_new"}}, readers={},
+                            discover=self.discover, builder=self.builder,
+                            runner=self.runner(("sdk_boundary", "python_sdk test_new")),
+                            measured=lambda preset: {}, recorder=lambda logs, preset: 0)
+
+    def test_run_without_build_fails_on_an_unregistered_module_and_runs_nothing(self):
+        status, report = self.unregistered(build=False)
+        self.assertEqual(status, 3)
+        self.assertEqual(self.calls, ["list ucrt64-headless"])
+        error = next(e for e in report["errors"] if e["reason"] == "unregistered")
+        self.assertEqual((error["modules"], error["paths"], error["preset"]), (["test_new"], ["python/tests/test_new.py"], "ucrt64-headless"))
+        self.assertEqual(report["presets"]["ucrt64-headless"]["selected"], ["sdk_boundary"])  # (what would have run alone)
+
+    def test_run_with_build_registers_and_runs_the_module(self):
+        status, report = self.unregistered(build=True)
+        self.assertEqual(status, 0, report["errors"])
+        self.assertEqual(self.calls, ["build ucrt64-headless", "list ucrt64-headless", "run -I 0,0,0,1,2"])
+        self.assertEqual(report["presets"]["ucrt64-headless"]["selected"], ["sdk_boundary", "python_sdk test_new"])
+
 
 class FixtureTest(unittest.TestCase):
     """A tiny independent CMake project (no compiler, no shared build tree): a test module added after configuring is
@@ -336,7 +386,8 @@ endforeach()
                     return subprocess.run(command, stdout=out, stderr=subprocess.STDOUT, timeout=120).returncode
 
             status, report = scope.select(["python/tests/test_a.py"], [], "targeted", 2, run=True, build=True, log_dir=d,
-                                          executables={}, dependents={}, readers={}, discover=discover, builder=builder,
+                                          executables={}, dependents={"python/tests/test_a.py": {"test_a"}}, readers={},
+                                          discover=discover, builder=builder,
                                           runner=runner, measured=lambda preset: {}, recorder=lambda logs, preset: 0)
             self.assertEqual(status, 0, report["errors"])
             self.assertEqual(calls, ["build", "list", "0,0,0,1"])
@@ -346,14 +397,34 @@ endforeach()
 class CommandTest(unittest.TestCase):
     """The real command line, with inventory listing replaced and every process launch refused."""
 
-    def main(self, *argv):
+    def main(self, *argv, inventory=("python_sdk test_world",), dependents=None):
         out = io.StringIO()
         refuse = mock.Mock(side_effect=AssertionError("no process may be started"))
-        with mock.patch.object(scope, "inventory", lambda preset=None, test_dir=None: synthetic(["python_sdk test_world"])), \
+        closure = scope.python_dependents()
+        closure.update(dependents or {})
+        with mock.patch.object(scope, "inventory", lambda preset=None, test_dir=None: synthetic(list(inventory))), \
+                mock.patch.object(scope, "python_dependents", lambda repo=None: closure), \
                 mock.patch.object(scope.subprocess, "run", refuse), mock.patch.object(scope.subprocess, "Popen", refuse), \
                 contextlib.redirect_stdout(out):
             status = scope.main(list(argv))
         return status, out.getvalue()
+
+    def test_run_without_build_refuses_an_unregistered_new_test_module(self):
+        """A new module in the tree (the closure holds it) and an inventory with sdk_boundary but no test for it: the real
+        command, --run without --build (and the plan alone), exits 3 naming the module and starts no process."""
+        new = "python/tests/test_brand_new_xyz.py"
+        for argv in (("--run",), ("--run", "--json"), ()):
+            with self.subTest(argv=argv):
+                status, out = self.main("--paths", new, *argv, inventory=("sdk_boundary", "python_sdk test_world"),
+                                        dependents={new: {"test_brand_new_xyz"}})
+                self.assertEqual(status, 3)
+                if "--json" in argv:
+                    error = next(e for e in json.loads(out)["errors"] if e["reason"] == "unregistered")
+                    self.assertEqual((error["modules"], error["paths"]), (["test_brand_new_xyz"], [new]))
+                    self.assertEqual(json.loads(out)["presets"]["ucrt64-headless"]["selected"], ["sdk_boundary"])
+                else:
+                    self.assertIn("ERROR unregistered", out)
+                    self.assertIn("test_brand_new_xyz", out)
 
     def test_an_unclaimed_python_path_exits_nonzero_with_its_reason(self):
         status, out = self.main("--paths", "python/fsim/no_such_module_xyz.py", "--json")

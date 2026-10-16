@@ -179,7 +179,10 @@ tests the matching scopes name, and beyond them the tests that depend on the cha
 
 It fails closed. A changed path nothing claims (no scope, no test source, command, reader or import), a selection that
 comes out empty and no changes at all are errors: it exits 3 and names the reason and the paths (`--json` gives them
-as data), and runs nothing. A changed native source or build input nothing claims escalates to the full suite instead.
+as data), and runs nothing. So is a Python test module the changes need - the changed module itself, or one importing
+the change - with no CTest test registered: a module added since the last configure is registered only by a build, and
+the rest of the selection (`sdk_boundary`, say) passing would not have run it. `--build` registers it first; `--run`
+or a plan without it stops, naming the module. A changed native source or build input nothing claims escalates to the full suite instead.
 Legacy environment code (`src/env` apart from the mission episode owner) is linked into `libfsim` and run by native, C,
 Python and plugin tests alike, so it escalates too. Repository metadata and tools without tests stay unclaimed: their
 change needs the full tier or a reviewed scope.
