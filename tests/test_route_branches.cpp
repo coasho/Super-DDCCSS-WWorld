@@ -1,7 +1,7 @@
 // A route's conditional branches as A-GRA's schema gives them (docs/flight-autonomy.md, 4.37; ADR-29 FA-6e2): at a point,
 // the next taken when its conditions hold - the times the point has been come to, the altitude, the time, the operator's
 // input - the route planned again from there; what does not make one refused, naming its point.
-#include "control/Route.h"
+#include "simulation/flight_control/Route.h"
 #include "fsim/ControlStack.h"
 #include "fsim/GuidanceModes.h"
 #include "mode_flights.h"

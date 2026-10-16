@@ -1,10 +1,10 @@
-// MS-7g's damage part (src/ms/damage): the warhead each card and the rule make, the blast against an independent fit,
+// MS-7g's damage part (src/simulation/mission_systems/damage): the warhead each card and the rule make, the blast against an independent fit,
 // THOR's penetration, every aircraft's damage data read, and a burst beside an F-16C - where the fragments go,
 // what they strike, deterministic from the damage stream.
-#include "ms/damage/Damage.h"
-#include "ms/damage/State.h"
+#include "simulation/mission_systems/damage/Damage.h"
+#include "simulation/mission_systems/damage/State.h"
 #include "mode_flights.h"
-#include "sim/JsbsimModel.h"
+#include "simulation/flight/JsbsimModel.h"
 
 #include <catch2/catch_test_macros.hpp>
 

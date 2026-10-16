@@ -2,7 +2,7 @@
 // 424 leg type of the leg into each point - a track to fix's great circle, a direct to fix's leg from where the aircraft is,
 // a course to fix's course, a radius to fix's arc round its centre - flown; what does not make one refused, naming its point;
 // the legs FA-6f2 builds not implemented.
-#include "control/Route.h"
+#include "simulation/flight_control/Route.h"
 #include "fsim/ControlStack.h"
 #include "fsim/GuidanceModes.h"
 #include "mode_flights.h"

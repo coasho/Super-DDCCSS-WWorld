@@ -6,11 +6,11 @@
 // vehicle default's hold and envelope protection. Judged as the fixed-wing
 // suite is (test_manoeuvres.cpp): a step fails if control is lost, it never
 // reaches 90 % of its target, or it overshoots by more than half.
-#include "control/Adapter.h"
+#include "simulation/flight_control/Adapter.h"
 #include "fsim/Control.h"
 #include "fsim/GuidanceModes.h"
 #include "session/World.h"
-#include "sim/FlightModel.h"
+#include "simulation/flight/FlightModel.h"
 
 #include <catch2/catch_test_macros.hpp>
 

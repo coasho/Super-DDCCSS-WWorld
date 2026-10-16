@@ -9,7 +9,7 @@
 // the 90 deg turn must end within 3 deg of it. The stock adapter's c172x flies
 // the shared gains, frozen with its flights (C1), so its checkpoints hold it
 // exactly instead (test_control_compat.cpp).
-#include "control/Adapter.h"
+#include "simulation/flight_control/Adapter.h"
 #include "fsim/Control.h"
 #include "session/World.h"
 

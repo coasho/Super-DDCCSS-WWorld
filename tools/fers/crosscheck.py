@@ -9,7 +9,7 @@ windowed (4-term Blackman-Harris) and Fourier transformed across the pulses (the
 the target written out, each over the noise a cell has (kTB through the same processing; FERS's noise alone is run
 too, and its cells' mean and correlation recorded).
 
-tests/test_signal.cpp ("... against FERS") gives the platform's chain (src/ms/radar/Signal, which never forms the
+tests/test_signal.cpp ("... against FERS") gives the platform's chain (src/simulation/mission_systems/radar/Signal, which never forms the
 samples: it writes each filter's spectrum in closed form, a compressed pulse's range response a triangle) the same
 target, its SNR from the same radar equation, and compares the cells: the range straddle, the Doppler scalloping, both
 folded several times over, the eclipse where the echo meets the next transmission. The plain pulse's cells are what the

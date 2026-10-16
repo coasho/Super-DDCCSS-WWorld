@@ -1,8 +1,8 @@
 // Black-box native showcase acceptance: decode the actual recording, not only its evidence file.
-#include "core/Json.h"
+#include "foundation/core/Json.h"
 #include "fsim/MissionSystems.h"
 #include "fsim/World.h"
-#include "ipc/Recording.h"
+#include "foundation/transport/Recording.h"
 
 #include <algorithm>
 #include <chrono>

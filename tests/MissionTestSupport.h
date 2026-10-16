@@ -4,7 +4,7 @@
 // two-ship configuration with this build's JSBSim data, its fixtures, and a reader for the documents the public API
 // returns. The tests reach the episode only through fsim/MissionEpisode.h; core::Json only reads the text back.
 
-#include "core/Json.h"
+#include "foundation/core/Json.h"
 #include "fsim/MissionEpisode.h"
 
 #include <cstdint>

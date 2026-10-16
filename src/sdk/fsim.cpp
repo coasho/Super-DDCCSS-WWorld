@@ -4,7 +4,7 @@
 #include "fsim/World.h"
 #include "fsim/fsim_c.h"
 
-#include "core/Log.h"
+#include "foundation/core/Log.h"
 #include "sdk/VecEnvHandles.h"
 #include "sdk/LastError.h"
 #include "env/Registry.h"

@@ -50,7 +50,7 @@ criterion. Update this page and the affected reference together when a capabilit
 | Aircraft and store generation | Implemented Hangar designs, models, JSBSim files, manifests, carriage and the recorded store build. | [Resource ownership](resources.md), [Hangar](hangar.md), [store build record](hangar-stores-build.md). | Source inputs, generated designs and runtime products have different editing rules. Reproducible generation does not establish calibrated real-world flight performance. |
 | Native missile engagements | Implemented release, native motor/flight state, radar and infrared seeker observations, guidance, countermeasures, fuzes, damage, terminal records and replayable events. Recorded delivery at the implementation baseline. | [Engagement contract](sdk/engagement.md), [delivery validation](sdk/engagement-validation.md), `tests/test_engagement_native.cpp`. | Guidance, fin response, seekers, decoys and launch-zone parameters are game estimates. This is not completion of the original high-fidelity MS-7c/MS-7d/MS-7f criteria. |
 | Launch zones and countermeasures | Implemented advisory launch-zone queries and native chaff/flare inventory, releases, motion and expiry. | [Engagement contract](sdk/engagement.md), `tests/test_countermeasure_core.cpp`, `tests/test_weapon_guidance.cpp`. | Advisory envelopes do not guarantee intercepts or satisfy MS-8's original published-range acceptance. Direct dispenser APIs do not mean every electronic-attack capability is implemented. |
-| Warning receivers and other sensors | ESM/RWR contacts are implemented. Other payload families retain their own support states and staged modeling work. | [Mission Systems API](sdk/mission-systems.md), `src/ms/esm/`, [remaining MS stages](mission-systems.md). | Native seeker and dispenser support is not a claim that full IRST imagery, IFF, jamming, all guns, PNT, or the OMS bridge is complete. |
+| Warning receivers and other sensors | ESM/RWR contacts are implemented. Other payload families retain their own support states and staged modeling work. | [Mission Systems API](sdk/mission-systems.md), `src/simulation/mission_systems/esm/`, [remaining MS stages](mission-systems.md). | Native seeker and dispenser support is not a claim that full IRST imagery, IFF, jamming, all guns, PNT, or the OMS bridge is complete. |
 | Native viewer, effects and vision | Optional Vulkan/VSG viewer and vision modules exist, with terrain, aircraft/store visuals and engagement effects. Native fullscreen lifecycle and screenshot corrections have passed focused GPU checks. | [Viewer](sdk/viewer.md), [vision](sdk/vision.md), [current viewer validation](sdk/viewer-validation.md), [Hangar effects](hangar-effects.md). | The viewer-correction baseline failed the 4K performance gate for three of four scenes; performance of the replacement native hit fixture has not been remeasured. Aircraft materials retain existing detail; aircraft cast shadows are not enabled. Current acceptance is scoped by the linked record; older GPU observations retain their original hardware and build scope. |
 | Testbench | Flight Autonomy, platform and stability scenarios remain active. The obsolete `tactics.bvr` prototype and its independent Python simulation have been removed. | [Testbench guide](../testbench/README.md), `testbench/fsim_testbench/registry.py`. | Native engagement acceptance is provided by SDK tests and its delivery record; no replacement testbench combat scenario is introduced here. |
 
@@ -476,6 +476,33 @@ Observed, not changed: the shared-memory publisher copies `VehicleState` padding
 owner).
 
 Pending: independent ARCH-02 acceptance; the full-suite run at the next regression milestone; ARCH-03 onward.
+
+## Architecture ARCH-03 foundation and simulation leaves (2026-10-16, awaiting independent acceptance)
+
+The third package of the architecture roadmap is a relocation only; the record is
+`docs/architecture/validation/arch-03-foundation-and-leaves.md`, with its dated baseline. ARCH-04 has not started.
+
+- **Moves:** `platform`, `core`, `io` and the transport (`ipc`) are in `src/foundation`. `sim`, `control`, `effects`,
+  `comm` and `ms` are in `src/simulation` (`flight`, `flight_control`, `environment`, `communications/network`,
+  `mission_systems`). That is 195 files, moved as renames.
+- **Unchanged:** target names, aliases, namespaces, link graph and registration.
+- **Includes and references:** 591 literal includes in 257 files name the destination paths. Source comments,
+  maintained documents and the selector's scope patterns follow them; dated evidence keeps its historical paths.
+- **Policy:** the moved modules list no legacy directories. A stale legacy directory now fails the architecture gate,
+  with a fixture that fails on `565ef3e`.
+- **HC-09's comment item:** the `WorldLayout.h` padding comment no longer understates the recording's framing padding.
+
+| Verification | Result |
+| --- | --- |
+| Builds (headless, Release), warnings as errors | 0 warnings |
+| Fast tier: every test measured under 5 s, plus the architecture, contracts, layout, C ABI, Vision, capture, showcase, screenshot and installed-package gates | Headless 568/568 (98 s); Release 633/633 (118 s) |
+| Frozen-baseline compare, both builds | 19 comparisons, 0 failures; the export list is byte-identical to the pre-move capture |
+| Architecture gate; fixtures; selector tests | Accepted, the same counts and exceptions; 129; 49 |
+
+No full suite ran; that remains open as HC-11. Register HC-11 to HC-13 record this package's newly reported items:
+- HC-11: the full-suite run is still owed;
+- HC-12: per-target include-root narrowing is undecided;
+- HC-13: moved leaves have no targeted test scopes.
 
 ## HC-10 shared-memory padding (2026-10-16, awaiting independent acceptance)
 

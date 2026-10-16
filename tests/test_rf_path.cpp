@@ -1,12 +1,12 @@
-// The radio path (ADR-30, MS-2; src/ms/rf): NTIA's P.528 and ITM against
+// The radio path (ADR-30, MS-2; src/simulation/mission_systems/rf): NTIA's P.528 and ITM against
 // their own published example values, P.838-3 against its table 5, antenna
 // patterns against the closed forms of their apertures, P.526's knife edge,
 // and the path's assembly - terrain masking, the terrain's excess, rain.
 #include "fsim/GroundProvider.h"
-#include "ms/rf/Antenna.h"
-#include "ms/rf/Ntia.h"
-#include "ms/rf/Path.h"
-#include "ms/rf/Rain.h"
+#include "simulation/mission_systems/rf/Antenna.h"
+#include "simulation/mission_systems/rf/Ntia.h"
+#include "simulation/mission_systems/rf/Path.h"
+#include "simulation/mission_systems/rf/Rain.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>

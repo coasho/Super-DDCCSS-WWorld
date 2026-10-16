@@ -1,9 +1,9 @@
 // Communication bridges: a node's traffic over UDP in the "FSMG" wire format,
 // with a plain socket standing in for the external process (design 9.6).
-#include "comm/Comm.h"
+#include "simulation/communications/network/Comm.h"
 
-#include "core/Rng.h"
-#include "platform/Udp.h"
+#include "foundation/core/Rng.h"
+#include "foundation/platform/Udp.h"
 
 #include <catch2/catch_test_macros.hpp>
 

@@ -1,7 +1,7 @@
 #include "NativeStateReset.h"
 
 #include "session/World.h"
-#include "sim/FlightModel.h"
+#include "simulation/flight/FlightModel.h"
 
 #include <algorithm>
 #include <cmath>

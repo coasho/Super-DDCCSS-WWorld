@@ -2,13 +2,13 @@
 // the M1 exit criteria in miniature: vehicles load, fly, and produce
 // bit-identical trajectories regardless of how many workers step them.
 
-#include "core/Log.h"
-#include "core/Rng.h"
-#include "core/StableArray.h"
-#include "sim/Attitude.h"
-#include "sim/GroundProvider.h"
-#include "sim/JsbsimModel.h"
-#include "sim/VehiclePool.h"
+#include "foundation/core/Log.h"
+#include "foundation/core/Rng.h"
+#include "foundation/core/StableArray.h"
+#include "simulation/flight/Attitude.h"
+#include "simulation/flight/GroundProvider.h"
+#include "simulation/flight/JsbsimModel.h"
+#include "simulation/flight/VehiclePool.h"
 
 #include <catch2/catch_test_macros.hpp>
 

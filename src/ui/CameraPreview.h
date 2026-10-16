@@ -5,7 +5,7 @@
 // preview"). One texture per camera, refreshed whenever the publisher
 // finished a frame; the trainer never waits for us.
 
-#include "ipc/VisionSegment.h"
+#include "foundation/transport/VisionSegment.h"
 #include "ui/ViewerControls.h"
 
 #include <vsg/all.h>

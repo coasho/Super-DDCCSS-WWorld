@@ -9,7 +9,7 @@
 #include "world/Exhaust.h"
 #include "world/Interpolator.h"
 #include "world/Propellants.h"
-#include "core/Json.h"
+#include "foundation/core/Json.h"
 #include "world/VehicleVisuals.h"
 
 #include <algorithm>

@@ -2,9 +2,9 @@
 // by id, for the commands that name it (a must fly). Set and asked for between steps, never stepped.
 #include "session/World.h"
 
-#include "control/Lines.h"
-#include "control/Volumes.h"
-#include "control/Zones.h"
+#include "simulation/flight_control/Lines.h"
+#include "simulation/flight_control/Volumes.h"
+#include "simulation/flight_control/Zones.h"
 
 #include <algorithm>
 #include <cmath>

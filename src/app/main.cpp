@@ -6,16 +6,16 @@
 // milestones.
 
 #include "app/Options.h"
-#include "core/Log.h"
-#include "core/Rng.h"
-#include "core/Units.h"
-#include "io/AssetResolver.h"
-#include "platform/Clock.h"
-#include "platform/CrashHandler.h"
-#include "platform/Threads.h"
-#include "sim/GroundProvider.h"
-#include "sim/JsbsimModel.h"
-#include "sim/VehiclePool.h"
+#include "foundation/core/Log.h"
+#include "foundation/core/Rng.h"
+#include "foundation/core/Units.h"
+#include "foundation/io/AssetResolver.h"
+#include "foundation/platform/Clock.h"
+#include "foundation/platform/CrashHandler.h"
+#include "foundation/platform/Threads.h"
+#include "simulation/flight/GroundProvider.h"
+#include "simulation/flight/JsbsimModel.h"
+#include "simulation/flight/VehiclePool.h"
 
 #include <algorithm>
 #include <cstdio>

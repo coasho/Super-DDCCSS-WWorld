@@ -1,4 +1,4 @@
-#include "ms/weapon/Guidance.h"
+#include "simulation/mission_systems/weapon/Guidance.h"
 
 #include <cmath>
 #include <iostream>

@@ -6,8 +6,8 @@
 // figures its signature card lists.
 #include "mode_flights.h"
 
-#include "core/Json.h"
-#include "ms/rcs/Table.h"
+#include "foundation/core/Json.h"
+#include "simulation/mission_systems/rcs/Table.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>

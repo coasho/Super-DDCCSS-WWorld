@@ -2315,7 +2315,7 @@ Filled as the stages land: each stage's criteria results, the digests (identical
   Every adapter meets all six accepted, and a disabled activity; across the walks, `not_interactive`, `active->disabled` and `disabled->pending`.
 - **A rule 4.9 needed, found as the tests were written.** Among equals, "the newest takes" had let an unassigned, enabled or scheduled activity take its axes straight back from the newer command that had just got them. Equal ranks now go to the newer command: a NEW always, so no earlier answer changes; what waited never.
 - No earlier answer or flight changes. Digests: identical, with protection and without. The allocation gate passes.
-- **Code placement.** The names of the contracts' enumerations moved out of the runtime's file into their own (`src/control/Names.cpp`, last in the library). The case lines this step added to them had moved the per-step cases that run only the runtime by -7 % to +7 % against FA-2b's build. With them apart, per step (`micro`, 5 rounds) is within -7.4 % to +1.4 %: the one outlier, "apart, pseudo", is faster, back where FA-2a had it.
+- **Code placement.** The names of the contracts' enumerations moved out of the runtime's file into their own (`src/simulation/flight_control/Names.cpp`, last in the library). The case lines this step added to them had moved the per-step cases that run only the runtime by -7 % to +7 % against FA-2b's build. With them apart, per step (`micro`, 5 rounds) is within -7.4 % to +1.4 %: the one outlier, "apart, pseudo", is faster, back where FA-2a had it.
 - A/B against FA-2b's build (`command`, 9 rounds): a level switch's NEW +2.7 %, a behaviour's -2.3 %, the per-step command +1.5 %, a checked UPDATE 0.0 %.
 - ctest: all 226 tests pass (the three activity cases added).
 
@@ -2341,7 +2341,7 @@ Filled as the stages land: each stage's criteria results, the digests (identical
 - The allocation gate passes, with two new cases in the steps counted, each checked:
   - a task's route begins its second run;
   - a waiting route refused as it would start is kept as the suggestion its record names.
-- **Code placement, again.** The per-step cases that run only the runtime read +6 to +10 % against FA-2c's build ("axes apart", "default hold", "apart, pseudo"), though FA-2d changed none of their code. The task code in the host's file, which links ahead of the runtime's, had moved it. In its own file, last in the library (`src/control/Tasks.cpp`), per step (`micro`, 5 rounds) is within -5.5 % to +0.7 %, the outliers faster.
+- **Code placement, again.** The per-step cases that run only the runtime read +6 to +10 % against FA-2c's build ("axes apart", "default hold", "apart, pseudo"), though FA-2d changed none of their code. The task code in the host's file, which links ahead of the runtime's, had moved it. In its own file, last in the library (`src/simulation/flight_control/Tasks.cpp`), per step (`micro`, 5 rounds) is within -5.5 % to +0.7 %, the outliers faster.
 - A/B against FA-2c's build (`command`, 9 rounds): the per-step command +3.1 %, a level switch's NEW +2.7 %, a behaviour's +2.2 %, a checked UPDATE +1.2 %.
 - ctest: all 229 tests pass (the three task cases added).
 
@@ -2370,7 +2370,7 @@ Filled as the stages land: each stage's criteria results, the digests (identical
 - No earlier answer or flight changes. Digests: identical, with protection and without. The record and the options keep their sizes (304 and 136 bytes): the controller fills a hole in each.
 - The allocation gate passes, with a new case in the steps counted: a named controller's activity under Granted, updated every step by it, and what the vehicle is commanded read every step.
 - Not-found answers are quiet: `fsim_vehicle_task_status` for a task not kept and `fsim_activity_get_setpoint` for an activity not live say so in `fsim_last_error`, and log nothing.
-- **Code placement.** The reports' code is in its own file at the end of the library (`src/control/Reports.cpp`, between the tasks' and the names'). The runtime's file is unchanged: the commanded acceleration and altitude are worked out beside it (`CapabilityHost::commandState`), not in `ControlStack::commanded()`.
+- **Code placement.** The reports' code is in its own file at the end of the library (`src/simulation/flight_control/Reports.cpp`, between the tasks' and the names'). The runtime's file is unchanged: the commanded acceleration and altitude are worked out beside it (`CapabilityHost::commandState`), not in `ControlStack::commanded()`.
 - A/B against FA-2d's build (the scratchpad worktree's): per step (`micro`, 5 rounds) within -0.7 % to +2.2 % ("attitude" +2.2 %, "apart, pseudo" +1.9 %, the rest within 1 %). The commands (`command`, 9 rounds): the per-step command -2.9 %, a level switch's NEW +1.9 %, a behaviour's -1.1 %, a checked UPDATE +1.2 %.
 - ctest: all 235 tests pass (the report and fleet cases added).
 
@@ -4030,7 +4030,7 @@ Status at caf03c9:
 - **missing**: applicable, not built;
 - **out of scope**: transport.
 
-`Rule` is the applicability rule that governs the item (section 5); blank means all 35 aircraft. `Stage` is the stage that closes it. Evidence cites files at caf03c9. The ids are this record's, for tracing only. `Public ids` are the SDK's public feature identifiers (4.2) that answer for each item, from FA-1 (`src/control/Features.cpp`); an item a consumer never selects by name (a semantic its tests pin, a report field) has none.
+`Rule` is the applicability rule that governs the item (section 5); blank means all 35 aircraft. `Stage` is the stage that closes it. Evidence cites files at caf03c9. The ids are this record's, for tracing only. `Public ids` are the SDK's public feature identifiers (4.2) that answer for each item, from FA-1 (`src/simulation/flight_control/Features.cpp`); an item a consumer never selects by name (a semantic its tests pin, a report field) has none.
 
 ### A.1 Core VI command interface (220 items)
 

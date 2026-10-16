@@ -65,7 +65,7 @@ consumer with only the installed `bin` and the Windows system directories on its
 with only the installed package on `PYTHONPATH`; each reports the library and package it loaded. The C++ and C99
 consumers fly the installed SDK's aircraft (`FSIM_AIRCRAFT_PATH` its `share/flightsim/aircraft` and `stores`); the
 Python consumer, its isolated actor's process and the composition example fly the installed Python package's own -
-without it, a development library's compiled-in source aircraft directory comes first (`src/io/AssetResolver.cpp`,
+without it, a development library's compiled-in source aircraft directory comes first (`src/foundation/io/AssetResolver.cpp`,
 unchanged). The runtime data the chains fly is held to an expected inventory, not to whatever was installed: the gate
 applies the staging rules (`cmake/StageDesigns.cmake`) to the source tree's F-16C and released stores in a private
 directory, and each of the 113 files that gives - `f16c.xml`, its `Engines/`, model, payloads, radar cross section,
@@ -74,7 +74,7 @@ file fails the gate instead of dropping out of the list. The Python consumer che
 (`runtime-data.sha256`), before it makes any World, and its refusal probes share that preflight. With the installed
 Python package's `f16c.xml` missing, or the engine file it names (`Engines/f16c_engine0.xml`) missing, the preflight
 refuses (exit 4) naming the installed path - although a development library would find the source tree's copies after
-the installed ones (`src/io/AssetResolver.cpp`, kept as it is). With `f16c.xml` corrupted it refuses for the hash; and
+the installed ones (`src/foundation/io/AssetResolver.cpp`, kept as it is). With `f16c.xml` corrupted it refuses for the hash; and
 with the presence check alone the corrupted file reaches the SDK, which refuses the joint chain's episode (exit 3):
 the installed copy is the one read. Each file is restored and the whole inventory re-checked. The provenance manifest
 lists 275 installed files with their SHA-256. On the Release run below: `libfsim.dll` `ccdcdbaf16dc49a6a760a87643cf7f7a9a9fe430974a07f14be22b2beb363623` (the same in the SDK and the Python package),

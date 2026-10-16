@@ -2,22 +2,22 @@
 
 #include "session/AgentRules.h"
 
-#include "core/Log.h"
-#include "core/Units.h"
-#include "io/AssetResolver.h"
-#include "platform/Threads.h"
-#include "control/Laws.h"
-#include "control/Profile.h"
+#include "foundation/core/Log.h"
+#include "foundation/core/Units.h"
+#include "foundation/io/AssetResolver.h"
+#include "foundation/platform/Threads.h"
+#include "simulation/flight_control/Laws.h"
+#include "simulation/flight_control/Profile.h"
 #include "fsim/ControllerRegistry.h"
-#include "sim/JsbsimModel.h"
-#include "ms/radar/Radar.h"
-#include "ms/rf/Path.h"
-#include "ms/weapon/LaunchEligibility.h"
-#include "sim/Attitude.h"
+#include "simulation/flight/JsbsimModel.h"
+#include "simulation/mission_systems/radar/Radar.h"
+#include "simulation/mission_systems/rf/Path.h"
+#include "simulation/mission_systems/weapon/LaunchEligibility.h"
+#include "simulation/flight/Attitude.h"
 
 #include <fstream>
 #include <sstream>
-#include "core/Geodesy.h"
+#include "foundation/core/Geodesy.h"
 
 #include <algorithm>
 #include <cmath>

@@ -1,6 +1,6 @@
 #include "env/VecEnv.h"
 
-#include "core/Log.h"
+#include "foundation/core/Log.h"
 #include "env/Registry.h"
 #include "session/AgentRules.h"
 #include "session/Scenario.h"

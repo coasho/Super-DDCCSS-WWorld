@@ -20,11 +20,11 @@
 
 #include "control_flights.h"
 
-#include "control/Runtime.h"
+#include "simulation/flight_control/Runtime.h"
 #include "fsim/BuiltinControllers.h"
 #include "fsim/ControlStack.h"
-#include "core/Log.h"
-#include "platform/Threads.h"
+#include "foundation/core/Log.h"
+#include "foundation/platform/Threads.h"
 #include "session/World.h"
 
 #include <windows.h>

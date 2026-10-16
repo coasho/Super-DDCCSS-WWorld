@@ -6,7 +6,7 @@
 // a policy is answered in, and a status that agrees with admission.
 #include "mode_flights.h"
 
-#include "control/Features.h"
+#include "simulation/flight_control/Features.h"
 
 #include <catch2/catch_test_macros.hpp>
 

@@ -91,7 +91,7 @@ Python configuration also generates `build/<preset>/python/fsim-python.json` wit
 
 The installed CMake package exports `fsim_BIN_DIR`, `fsim_DATA_DIR`, `fsim_JSBSIM_ROOT` and `fsim_AIRCRAFT_DIR`. For an isolated installed consumer, set `WorldOptions::jsbsimRoot` to `fsim_JSBSIM_ROOT` and `FSIM_AIRCRAFT_PATH` to the installed aircraft and `aircraft/stores` directories. `.\fsim.cmd --preset ucrt64-headless test -L package` runs the [SDK-only consumer gate](../cmake/RunPackageConsumer.cmake): hashes shipped runtime files against their owners, checks the loaded DLL prefix, and exercises stock/custom/store data. Poisoned installed XML must fail through the public API rather than load a development copy; the gate restores the bytes and repeats the positive run. Its logs and `runtime-data.sha256` remain under `build/<preset>/package-consumer`. Inspect fresh results before claiming installed-package acceptance.
 
-Runtime ordering is defined in [src/io/AssetResolver.cpp](../src/io/AssetResolver.cpp) and the viewer:
+Runtime ordering is defined in [src/foundation/io/AssetResolver.cpp](../src/foundation/io/AssetResolver.cpp) and the viewer:
 
 1. Added asset search paths are prepended. The default asset roots are relative to the loaded module first (`../share/flightsim`, then `share`), then equivalent executable roots when the host differs, then the compiled development fallback.
 2. Aircraft directories start with semicolon-separated `FSIM_AIRCRAFT_PATH`, then the compiled source `aircraft/` when it exists, then aircraft folders under asset roots. The source-first development ordering deliberately avoids a stale Python package hiding a newly rebuilt design.

@@ -7,9 +7,9 @@
 //   sequences of every operation - NEW, UPDATE, CANCEL, the existing entry
 //   point, world steps, resets, the vehicle default, a target that goes - and
 //   the same sequence gives the same answers.
-#include "control/Adapter.h"
-#include "control/Catalog.h"
-#include "control/Runtime.h"
+#include "simulation/flight_control/Adapter.h"
+#include "simulation/flight_control/Catalog.h"
+#include "simulation/flight_control/Runtime.h"
 #include "session/World.h"
 
 #include <catch2/catch_test_macros.hpp>

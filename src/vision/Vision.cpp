@@ -3,11 +3,11 @@
 
 #include "fsim/Vision.h"
 
-#include "core/Log.h"
-#include "io/AssetResolver.h"
-#include "ipc/VisionSegment.h"
+#include "foundation/core/Log.h"
+#include "foundation/io/AssetResolver.h"
+#include "foundation/transport/VisionSegment.h"
 #include "vision/Offscreen.h"
-#include "platform/Paths.h"
+#include "foundation/platform/Paths.h"
 #include "world/Earth.h"
 #include "world/Frames.h"
 #include "world/Sky.h"

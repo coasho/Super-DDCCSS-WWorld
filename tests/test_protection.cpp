@@ -1,7 +1,7 @@
 // Envelope protection (docs/control-architecture.md, section 11): the demand
 // limited to the envelope, the state's exceedances reported - and never a
 // promise that the aircraft stays inside.
-#include "control/Protection.h"
+#include "simulation/flight_control/Protection.h"
 #include "env/VecEnv.h"
 #include "fsim/BuiltinEffects.h"
 #include "session/World.h"

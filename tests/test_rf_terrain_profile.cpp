@@ -5,10 +5,10 @@
 // from the deepest level there) against the old reading - each point asked of the vehicles' level 15 - its
 // differences held to that old reading's own sampling noise, at a fraction of
 // its cost.
-#include "core/Geodesy.h"
-#include "io/TerrainTiles.h"
-#include "ms/rf/Path.h"
-#include "platform/Paths.h"
+#include "foundation/core/Geodesy.h"
+#include "foundation/io/TerrainTiles.h"
+#include "simulation/mission_systems/rf/Path.h"
+#include "foundation/platform/Paths.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>

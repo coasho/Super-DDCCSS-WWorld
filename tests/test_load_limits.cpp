@@ -3,9 +3,9 @@
 // say of it.
 #include "mode_flights.h"
 
-#include "control/Atmosphere.h"
-#include "control/Protection.h"
-#include "ipc/WorldMirror.h"
+#include "simulation/flight_control/Atmosphere.h"
+#include "simulation/flight_control/Protection.h"
+#include "foundation/transport/WorldMirror.h"
 #include "fsim/GuidanceModes.h"
 #include "fsim/PerformanceProfile.h"
 

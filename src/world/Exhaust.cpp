@@ -1,6 +1,6 @@
 #include "world/Exhaust.h"
 
-#include "core/Log.h"
+#include "foundation/core/Log.h"
 #include "world/Propellants.h"
 
 #include <algorithm>

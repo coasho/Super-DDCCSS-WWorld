@@ -17,8 +17,8 @@
 #include "Model.h"
 #include "Shapes.h"
 
-#include "core/Json.h"
-#include "ms/rcs/Table.h"
+#include "foundation/core/Json.h"
+#include "simulation/mission_systems/rcs/Table.h"
 
 #include <algorithm>
 #include <chrono>

@@ -23,7 +23,7 @@ this stage measures it:
 The results go into autopilot.toml ([reference], [identified]) and from
 there into the JSBSim aircraft's plant section. The platform places the
 loops' poles on those first-order models, schedules the gains on the
-airspeed and feeds forward the trim (src/control/Laws.cpp). evaluate() then
+airspeed and feeds forward the trim (src/simulation/flight_control/Laws.cpp). evaluate() then
 flies the aircraft as built - the platform designing its loops, as it will
 for a trainer - through standard manoeuvres at three speeds.
 

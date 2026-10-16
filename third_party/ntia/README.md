@@ -6,7 +6,7 @@ and Information Administration (NTIA/ITS). They are works of US Government
 employees, not subject to copyright in the United States. NTIA grants the
 rights to copy, modify and distribute them elsewhere (each folder's
 `LICENSE.md`). The platform's radio path uses them (ADR-30, MS-2;
-`src/ms/rf`).
+`src/simulation/mission_systems/rf`).
 
 | Folder | Model | From | Commit |
 | --- | --- | --- | --- |
@@ -24,12 +24,12 @@ As NTIA's licence asks, the modifications are stated here:
 - Line endings changed to LF, and the ITM's `#include "..\include\..."` written with forward slashes.
 - Every header gained `#pragma once`, and `DLLEXPORT` is defined empty: the
   platform compiles each model as one translation unit, inside a namespace
-  of its own (`src/ms/rf/NtiaP528.cpp`, `src/ms/rf/NtiaItm.cpp`), with C++
+  of its own (`src/simulation/mission_systems/rf/NtiaP528.cpp`, `src/simulation/mission_systems/rf/NtiaItm.cpp`), with C++
   linkage and nothing exported.
 - `p528/src/p676/RayTrace.cpp`: `GetLayerProperties` renamed
   `GetLayerPropertiesExact`, with its declaration added to
   `p528/include/p676.h`. The platform's `GetLayerProperties`
-  (`src/ms/rf/NtiaP528.cpp`) reads the layer's refractive index and specific
+  (`src/simulation/mission_systems/rf/NtiaP528.cpp`) reads the layer's refractive index and specific
   attenuation from tables. They are tabulated per frequency from
   `GetLayerPropertiesExact`, four points to P.676's layer, so a P.528 path
   costs ~120-260 us instead of ~10 ms. The answers match the unmodified
@@ -37,7 +37,7 @@ As NTIA's licence asks, the modifications are stated here:
   (`tests/test_rf_path.cpp`).
 - `p528/src/p528/TerminalGeometry.cpp`: `TerminalGeometry` renamed
   `TerminalGeometryExact`, with its declaration added to `p528/include/p528.h`.
-  The platform's `TerminalGeometry` (`src/ms/rf/NtiaP528.cpp`) reads the grazing
+  The platform's `TerminalGeometry` (`src/simulation/mission_systems/rf/NtiaP528.cpp`) reads the grazing
   ray's trace from the ground to the terminal - its arrival angle, gas loss,
   length and bending, functions of the frequency and the terminal's height alone
   - from a table per frequency, filled node by node from

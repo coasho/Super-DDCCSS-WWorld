@@ -3,8 +3,8 @@
 #include "fsim/World.h"
 #include "fsim/MAService.h"
 
-#include "core/Log.h"
-#include "core/Time.h"
+#include "foundation/core/Log.h"
+#include "foundation/core/Time.h"
 #include "session/AgentRules.h"
 #include "session/World.h"
 #include "session/WorldOptions.h"

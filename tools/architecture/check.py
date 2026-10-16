@@ -593,6 +593,14 @@ def analyze(repo, policy):
                     if dependency and dependency != module:
                         include_edges.setdefault((module, dependency), set()).add(place)
 
+    # a legacy (pre-migration) directory the policy still lists holds sources: once a package moves a module to its
+    # destination, its legacy claim goes with it rather than lingering as an unchecked reservation
+    for name, module in sorted(modules.items()):
+        for directory in module["directories"]:
+            if not any(under(path, directory) for path in source_owner):
+                issue("stale-legacy-directory", "policy", f"{name}: {directory} holds no source; the module has moved - "
+                      "remove it from its directories")
+
     # domain and kind direction, for direct links and for every include of another module's header
     exceptions = {(entry["from"], entry["to"], entry["rule"]): entry for entry in policy["exceptions"]}
     used = set()

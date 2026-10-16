@@ -431,6 +431,18 @@ class DomainFixtures(FixtureRepository):
         status, output = self.run_gate()
         self.assertEqual(status, 0, output)
 
+    def test_a_moved_module_keeps_no_legacy_directory(self):
+        # ARCH-03's shape: a module moved whole to its destination - the legacy directory it still lists is stale
+        (self.repo / "src/core/Header.h").unlink()
+        (self.repo / "src/core/CMakeLists.txt").unlink()
+        self.write("src/foundation/core/Header.h", "#pragma once\n")
+        self.write("src/foundation/core/CMakeLists.txt", "add_library(fsim_core STATIC Header.h)\nadd_library(fsim::core ALIAS fsim_core)\n"
+                   "target_link_libraries(fsim_core PUBLIC fsim::platform)\n")
+        self.rejects("stale-legacy-directory", "core: src/core holds no source; the module has moved")
+        self.policy["modules"]["core"]["directories"] = []
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+
     def test_a_file_in_a_domain_root_outside_every_destination_has_no_owner(self):
         self.write("src/training/native/Stray.cpp", "int stray;\n")
         self.rejects("unknown-owner", "inside the training domain root")

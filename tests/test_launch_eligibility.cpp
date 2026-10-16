@@ -1,5 +1,5 @@
-#include "ms/weapon/LaunchEligibility.h"
-#include "ms/Cards.h"
+#include "simulation/mission_systems/weapon/LaunchEligibility.h"
+#include "simulation/mission_systems/Cards.h"
 
 #include <cmath>
 #include <iostream>

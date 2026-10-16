@@ -5,8 +5,8 @@
 // Asked for, never stepped: in a file of its own, apart from the step.
 #include "session/World.h"
 
-#include "control/Atmosphere.h"
-#include "control/Protection.h"
+#include "simulation/flight_control/Atmosphere.h"
+#include "simulation/flight_control/Protection.h"
 #include "fsim/PerformanceProfile.h"
 #include "fsim/VehicleProfile.h"
 

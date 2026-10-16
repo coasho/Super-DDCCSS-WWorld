@@ -38,10 +38,10 @@ assumptions sat at its edges.
 | `AccelerationCommand` (`include/fsim/Control.h`) | load factor, roll rate, longitudinal acceleration: pitch follows the load factor and yaw is coordinated | a rotorcraft pitches and yaws independently of its thrust: body rates and collective thrust cannot be commanded |
 | `VelocityCommand` | airspeed along the heading, a vertical speed, a heading or turn rate | no sideways flight, no ground velocity held against wind, the nose tied to the track |
 | `PositionCommand` | fly to a point and pass it | nothing to hover at, no heading to face there |
-| built-in loops (`src/control/Builtin.cpp`) | heading by bank, speed by throttle, height by pitch, load factor by elevator | reversed or meaningless for a rotorcraft: height by collective, speed by pitch, heading by yaw |
-| laws designed from the plant (`src/control/Laws.cpp`) | fixed-wing responses and schedules | none designable |
-| capability catalog (`src/control/Catalog.cpp`) | actuator parameters named for surfaces; the per-engine capability owns thrust only; every parameter supported by every aircraft | a multirotor's motors own all four axes; a fixed wing would accept rotor-only fields silently |
-| authority groups (`src/control/Adapter.*`) | roll and yaw fly together (coordinated), pitch apart, thrust apart | a helicopter's cyclic flies roll and pitch together, its pedals the yaw apart |
+| built-in loops (`src/simulation/flight_control/Builtin.cpp`) | heading by bank, speed by throttle, height by pitch, load factor by elevator | reversed or meaningless for a rotorcraft: height by collective, speed by pitch, heading by yaw |
+| laws designed from the plant (`src/simulation/flight_control/Laws.cpp`) | fixed-wing responses and schedules | none designable |
+| capability catalog (`src/simulation/flight_control/Catalog.cpp`) | actuator parameters named for surfaces; the per-engine capability owns thrust only; every parameter supported by every aircraft | a multirotor's motors own all four axes; a fixed wing would accept rotor-only fields silently |
+| authority groups (`src/simulation/flight_control/Adapter.*`) | roll and yaw fly together (coordinated), pitch apart, thrust apart | a helicopter's cyclic flies roll and pitch together, its pedals the yaw apart |
 | the vehicle default's hold | keeps a heading with the roll, a height with the pitch, an airspeed with the thrust | a rotorcraft keeps its heading with the yaw, its height with the thrust, its velocity over the ground with the cyclic |
 | envelope protection | the wing's limits (alpha, load factor at speed) | nothing wingborne to protect in a hover |
 | behaviours | `hold` keeps an airspeed | no hover |
@@ -304,7 +304,7 @@ and alpha unknown.
 
 ### 3.6 Control laws for rotorcraft
 
-Four built-in controllers (`src/control/Rotor.cpp`), chosen for rotorcraft by
+Four built-in controllers (`src/simulation/flight_control/Rotor.cpp`), chosen for rotorcraft by
 the control section and designed from the hover section by the same pole
 placement as ADR-26's step 5a (`designRotorLaws`):
 

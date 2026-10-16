@@ -3,9 +3,9 @@
 #include "fsim/BuiltinControllers.h"
 #include "fsim/ControlStack.h"
 #include "fsim/ControllerRegistry.h"
-#include "control/Runtime.h"
-#include "core/Geodesy.h"
-#include "core/Units.h"
+#include "simulation/flight_control/Runtime.h"
+#include "foundation/core/Geodesy.h"
+#include "foundation/core/Units.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>

@@ -1,9 +1,9 @@
 // The contract layer (docs/control-architecture.md, sections 8-10): commands
 // answered at once, activities and their states, authority between sources,
 // range policies, the existing entry points, discovery.
-#include "control/CapabilityHost.h"
-#include "control/Catalog.h"
-#include "control/Runtime.h"
+#include "simulation/flight_control/CapabilityHost.h"
+#include "simulation/flight_control/Catalog.h"
+#include "simulation/flight_control/Runtime.h"
 #include "fsim/BuiltinControllers.h"
 #include "fsim/ControllerRegistry.h"
 #include "session/World.h"

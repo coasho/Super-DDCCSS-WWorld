@@ -3,7 +3,7 @@
 // choose the same slots - and hands the marshall to the vehicle's host with it.
 #include "session/World.h"
 
-#include "core/Geodesy.h"
+#include "foundation/core/Geodesy.h"
 
 #include <cmath>
 #include <limits>

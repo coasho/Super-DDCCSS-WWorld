@@ -1,12 +1,12 @@
 #pragma once
 
-#include "core/Rng.h"
-#include "core/Span.h"
+#include "foundation/core/Rng.h"
+#include "foundation/core/Span.h"
 #include "env/Observation.h"
 #include "env/Scenario.h"
 #include "env/Task.h"
 #include "session/World.h"
-#include "sim/GroundProvider.h"
+#include "simulation/flight/GroundProvider.h"
 
 #include <cstdint>
 #include <filesystem>

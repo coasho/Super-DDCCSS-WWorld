@@ -6,7 +6,7 @@
 // between two entities.
 #include "mode_flights.h"
 
-#include "core/Geodesy.h"
+#include "foundation/core/Geodesy.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>

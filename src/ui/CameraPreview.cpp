@@ -1,6 +1,6 @@
 #include "ui/CameraPreview.h"
 
-#include "core/Log.h"
+#include "foundation/core/Log.h"
 
 #include <vsgImGui/imgui.h>
 

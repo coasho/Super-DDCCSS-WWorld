@@ -3,14 +3,14 @@
 // shared-memory mirror round trip.
 #include "session/World.h"
 
-#include "core/Geodesy.h"
-#include "core/Units.h"
+#include "foundation/core/Geodesy.h"
+#include "foundation/core/Units.h"
 #include "fsim/BuiltinEffects.h"
 #include "fsim/MissionSystems.h"
-#include "ipc/Recording.h"
-#include "ipc/VisionSegment.h"
-#include "ipc/WorldMirror.h"
-#include "ipc/WorldRegistry.h"
+#include "foundation/transport/Recording.h"
+#include "foundation/transport/VisionSegment.h"
+#include "foundation/transport/WorldMirror.h"
+#include "foundation/transport/WorldRegistry.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>

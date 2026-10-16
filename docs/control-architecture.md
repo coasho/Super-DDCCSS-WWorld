@@ -174,7 +174,7 @@ At the actuator level, each primary axis is its own group.
 
 ### 6.2 `RuntimeConfig`
 
-This struct and `RuntimeReport` are internal (`src/control/Runtime.h`), not SDK. They show the full layout; step 1 fills only what it uses.
+This struct and `RuntimeReport` are internal (`src/simulation/flight_control/Runtime.h`), not SDK. They show the full layout; step 1 fills only what it uses.
 
 ```cpp
 namespace fsim::control {
@@ -1062,7 +1062,7 @@ Filled in as the steps land: the baseline first (step 1a), then each step's numb
 - **The protection gate, by throughput** (the owner's decision, 12.4): met. Interleaved in one build, 3 rounds, the F-16C flies at 100.0 % and the B-52H at 99.9 % of their throughput with protection off; the c172x, which has no envelope either way, at 100.5 %, the measurement's noise.
 
 **Step 5a (the loops designed from the plant).**
-- **What moved.** hangar's closed-form gain design (pole placement on the identified first-order responses, the schedules, the feedforwards) moved into the platform (`src/control/Laws.cpp`). An aircraft without gains of its own gets them designed from its plant section when it loads, as a control section with provenance derived. Explicit gains, the aircraft's or a trainer's, still win.
+- **What moved.** hangar's closed-form gain design (pole placement on the identified first-order responses, the schedules, the feedforwards) moved into the platform (`src/simulation/flight_control/Laws.cpp`). An aircraft without gains of its own gets them designed from its plant section when it loads, as a control section with provenance derived. Explicit gains, the aircraft's or a trainer's, still win.
 - **Fewer numbers per aircraft.** hangar's autopilot stage now only identifies: `autopilot.toml` holds the reference condition and 15 measured numbers (the four responses, level flight's throttle, the trim law, the zero-lift angle) instead of 51 gains, and the 31 designs' files lost 1,698 lines of gains.
 - **The same gains.** For every design, each of the 51 parameters the platform designs matches the gain its file carried to within 7.2e-6 (the files store six significant figures).
 - **Digests:** the c172x flights are identical. The four hangar-design flights differ in the last digits of their gains, as C1 allows for aircraft that select the new laws.

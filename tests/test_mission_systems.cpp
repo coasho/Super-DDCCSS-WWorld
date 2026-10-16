@@ -6,8 +6,8 @@
 // built-in tests as activities, and their grants through the control calls.
 #include "mode_flights.h"
 
-#include "ms/Cards.h"
-#include "ms/Host.h"
+#include "simulation/mission_systems/Cards.h"
+#include "simulation/mission_systems/Host.h"
 
 #include <catch2/catch_test_macros.hpp>
 

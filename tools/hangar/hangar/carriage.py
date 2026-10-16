@@ -40,7 +40,7 @@ def _store_card(card_id):
         return json.load(f)
 
 
-#: of a carried store's own fins' and base's side force, what they give on a station (src/ms/HostStores.cpp kCarriedFins)
+#: of a carried store's own fins' and base's side force, what they give on a station (src/simulation/mission_systems/HostStores.cpp kCarriedFins)
 CARRIED_FINS = 0.5
 
 
@@ -142,7 +142,7 @@ def stations(aircraft):
         # hold's ramp for it and gives its load no drag): inside the airframe as it is drawn - no cavity is cut for it,
         # no door, and no rack or pylon hung
         hold = "cargo" in s.get("takes", [])
-        bay = name[:name.find("bay") + 3] if "bay" in name and not hold else ""  # its weapon bay (src/ms/Cards.cpp's rule): "main bay"
+        bay = name[:name.find("bay") + 3] if "bay" in name and not hold else ""  # its weapon bay (src/simulation/mission_systems/Cards.cpp's rule): "main bay"
         out.append(dict(number=s["number"], name=name, at=cg + np.array([-b[0], b[1], -b[2]]), body=b,
                         carriage=s.get("carriage", ""), bay=bool(bay), bay_name=bay, kind=kind, hold=hold,
                         length=size[0], diameter=size[1], span=size[2], rack=s.get("rack", "")))

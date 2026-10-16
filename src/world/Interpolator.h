@@ -1,7 +1,7 @@
 #pragma once
 
-#include "sim/SnapshotBuffer.h"
-#include "sim/VehicleState.h"
+#include "simulation/flight/SnapshotBuffer.h"
+#include "simulation/flight/VehicleState.h"
 
 #include <deque>
 #include <vector>

@@ -1,7 +1,7 @@
 // A route's paths and links as A-GRA's schema gives them (docs/flight-autonomy.md, 4.36; ADR-29 FA-6e1): paths of
 // waypoints with ids and types, a point's next - into another path, back round a loop, the route's end - flown in that
 // order, every point named as given; what does not make one refused, naming the point.
-#include "control/Route.h"
+#include "simulation/flight_control/Route.h"
 #include "fsim/ControlStack.h"
 #include "fsim/GuidanceModes.h"
 #include "mode_flights.h"

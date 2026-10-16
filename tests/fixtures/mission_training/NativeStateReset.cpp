@@ -2,7 +2,7 @@
 
 #include "fsim/MAService.h"
 #include "session/World.h"
-#include "ms/damage/State.h"
+#include "simulation/mission_systems/damage/State.h"
 
 #include <algorithm>
 #include <cmath>

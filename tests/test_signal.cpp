@@ -4,9 +4,9 @@
 // M of N unfolding the truth, measurement errors, eclipsing; one interval's
 // cells against FERS's samples put through a receiver's processing
 // (tools/fers/crosscheck.py -> tests/data/signal/fers_crosscheck.json).
-#include "core/Json.h"
-#include "ms/radar/Detection.h"
-#include "ms/radar/Signal.h"
+#include "foundation/core/Json.h"
+#include "simulation/mission_systems/radar/Detection.h"
+#include "simulation/mission_systems/radar/Signal.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>

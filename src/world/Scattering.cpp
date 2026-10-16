@@ -1,6 +1,6 @@
 #include "world/Scattering.h"
 
-#include "core/Log.h"
+#include "foundation/core/Log.h"
 
 #include <string>
 

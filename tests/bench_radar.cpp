@@ -18,8 +18,8 @@
 // detection (FNV-1a over each one's fields, bit for bit): two builds detect
 // alike when their digests are equal.
 
-#include "ms/Host.h"
-#include "ms/radar/Radar.h"
+#include "simulation/mission_systems/Host.h"
+#include "simulation/mission_systems/radar/Radar.h"
 #include "session/World.h"
 
 #include <chrono>

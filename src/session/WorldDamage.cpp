@@ -5,11 +5,11 @@
 
 #include "session/World.h"
 
-#include "ms/damage/Debris.h"
-#include "ms/damage/Impact.h"
+#include "simulation/mission_systems/damage/Debris.h"
+#include "simulation/mission_systems/damage/Impact.h"
 
-#include "core/Log.h"
-#include "io/AssetResolver.h"
+#include "foundation/core/Log.h"
+#include "foundation/io/AssetResolver.h"
 
 #include <algorithm>
 #include <cstring>

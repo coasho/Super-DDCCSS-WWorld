@@ -3,7 +3,7 @@
 #include "ui/Colour.h"
 
 #include "fsim/MissionSystems.h"
-#include "ipc/WorldMirror.h"
+#include "foundation/transport/WorldMirror.h"
 
 #include <vsgImGui/imgui.h>
 

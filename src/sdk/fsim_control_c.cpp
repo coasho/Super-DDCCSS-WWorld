@@ -6,9 +6,9 @@
 #include "fsim/Scenario.h"
 #include "fsim/fsim_c.h"
 
-#include "control/Catalog.h"
+#include "simulation/flight_control/Catalog.h"
 #include "fsim/Magnetic.h"
-#include "core/Log.h"
+#include "foundation/core/Log.h"
 #include "sdk/CAbiSupport.h"
 #include "sdk/Handles.h"
 #include "sdk/LastError.h"

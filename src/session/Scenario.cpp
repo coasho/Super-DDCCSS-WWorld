@@ -5,10 +5,10 @@
 
 #include "fsim/BuiltinEffects.h"
 
-#include "core/Geodesy.h"
-#include "core/Json.h"
-#include "core/Log.h"
-#include "core/Time.h"
+#include "foundation/core/Geodesy.h"
+#include "foundation/core/Json.h"
+#include "foundation/core/Log.h"
+#include "foundation/core/Time.h"
 #include "session/Scenario.h"
 #include "session/World.h"
 

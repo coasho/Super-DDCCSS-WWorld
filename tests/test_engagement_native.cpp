@@ -1,6 +1,6 @@
 // End-to-end native engagement acceptance. Every weapon flies through session::World and JSBSim.
 #include "session/World.h"
-#include "sim/FlightModel.h"
+#include "simulation/flight/FlightModel.h"
 
 #include <algorithm>
 #include <cmath>

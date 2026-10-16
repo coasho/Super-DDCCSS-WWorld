@@ -5,9 +5,9 @@
 // uses the same types, so a built-in task and a trainer's task are the same
 // kind of object.
 
-#include "core/Rng.h"
+#include "foundation/core/Rng.h"
 #include "fsim/VecEnvPlugins.h"
-#include "sim/VehicleState.h"
+#include "simulation/flight/VehicleState.h"
 
 #include <cstddef>
 #include <cstdint>

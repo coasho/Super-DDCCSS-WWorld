@@ -3,7 +3,7 @@
 // it, then on along the route; a route that ends in one; a rotorcraft's stop at a route's end, flown as that hover; its
 // loiters read back, reported and refused as its points are; an orbit's laps timed for the endurance check from where it
 // is joined.
-#include "control/Route.h"
+#include "simulation/flight_control/Route.h"
 #include "fsim/GuidanceModes.h"
 #include "mode_flights.h"
 

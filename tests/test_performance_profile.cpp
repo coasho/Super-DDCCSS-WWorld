@@ -6,10 +6,10 @@
 // condition now from its tables, its envelope and its loops.
 #include "mode_flights.h"
 
-#include "control/Atmosphere.h"
+#include "simulation/flight_control/Atmosphere.h"
 #include "fsim/PerformanceProfile.h"
 #include "fsim/VehicleProfile.h"
-#include "sim/FlightModel.h"
+#include "simulation/flight/FlightModel.h"
 
 #include <catch2/catch_test_macros.hpp>
 

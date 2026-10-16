@@ -171,7 +171,8 @@ full = true
 
 [[scope]]
 name = "shared simulation core"
-paths = ["src/core/**", "src/sim/**", "src/session/**", "src/control/**", "src/io/**", "src/comm/**", "include/fsim/World.h",
+paths = ["src/foundation/core/**", "src/simulation/flight/**", "src/session/**", "src/simulation/flight_control/**", "src/foundation/io/**",
+         "src/simulation/communications/network/**", "include/fsim/World.h",
          "include/fsim/Agent.h", "include/fsim/Capability.h", "include/fsim/fsim_c.h", "aircraft/**",
          "src/sdk/World.cpp", "src/sdk/Agent.cpp", "src/sdk/fsim.cpp", "src/env/**"]
 # (the legacy environment - VecEnv, tasks, observations, the registry - is linked into libfsim and run by native, C,

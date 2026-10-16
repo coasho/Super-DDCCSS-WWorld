@@ -81,7 +81,7 @@ station carries is a store, whose type is its card's `class` (`assets/stores/*.j
 | A new ... | is declared in | then |
 | --- | --- | --- |
 | vehicle type | `AircraftClass`, hangar's `CLASSES` (`profile.py`), the design's `category` | a row under Vehicles |
-| mission-system type | `ms::Family` and `familyName` (`src/ms/Names.cpp`), the card's `family` | a row under Mission systems |
+| mission-system type | `ms::Family` and `familyName` (`src/simulation/mission_systems/Names.cpp`), the card's `family` | a row under Mission systems |
 | store type | the card's `class` (hangar: `storedesigns.py`, `storebodies.py`) | a row under Stores |
 
 A code is one or two capital letters, unused in every table above, and is not changed once it has been used.

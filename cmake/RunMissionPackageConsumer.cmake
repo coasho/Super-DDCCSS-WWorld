@@ -159,7 +159,7 @@ endforeach()
 # out of the source tree first, so its directory (the interpreter's first path entry) is this gate's own.
 file(COPY_FILE "${SOURCE_DIR}/tests/mission_package_consumer/ma_python.py" "${_work}/ma_python.py")
 # Its aircraft and stores are the installed package's: a development library's source aircraft directory would
-# otherwise come first (src/io/AssetResolver.cpp). The isolated actor's process inherits the same environment.
+# otherwise come first (src/foundation/io/AssetResolver.cpp). The isolated actor's process inherits the same environment.
 set(_python_aircraft "${_python_prefix}/fsim/share/flightsim/aircraft")
 set(_python_env "FSIM_AIRCRAFT_PATH=${_python_aircraft};${_python_aircraft}/stores")
 set(_chain_args)
@@ -200,7 +200,7 @@ endforeach()
 # on the joint chain and restores the file:
 #   - the F-16C definition missing, and an engine file it names missing: the preflight (the same function the normal
 #     run calls first) refuses before any World is made - exit 4, naming the installed path - although a development
-#     library would find the source tree's copies after the installed ones (src/io/AssetResolver.cpp, kept as it is);
+#     library would find the source tree's copies after the installed ones (src/foundation/io/AssetResolver.cpp, kept as it is);
 #   - the definition corrupted: the preflight refuses it (exit 4) for its hash; and with the presence check alone
 #     (--probe-native-read) the corrupted file reaches the SDK, which refuses the episode (exit 3): the installed copy
 #     is the one read.

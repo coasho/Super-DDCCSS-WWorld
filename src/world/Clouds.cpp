@@ -1,8 +1,8 @@
 #include "world/Clouds.h"
 
-#include "core/Log.h"
-#include "io/TerrainTiles.h"
-#include "platform/Threads.h"
+#include "foundation/core/Log.h"
+#include "foundation/io/TerrainTiles.h"
+#include "foundation/platform/Threads.h"
 #include "world/Sky.h"
 #include "world/Terrain.h"
 

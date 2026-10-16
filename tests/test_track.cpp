@@ -6,9 +6,9 @@
 // state and covariance) through crossing targets and false alarms. Then the
 // pieces on their own: SciPy's assignment, the chi-square quantile, the
 // clusters JPDA factorises over.
-#include "core/Json.h"
-#include "ms/track/Assignment.h"
-#include "ms/track/Tracker.h"
+#include "foundation/core/Json.h"
+#include "simulation/mission_systems/track/Assignment.h"
+#include "simulation/mission_systems/track/Tracker.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>

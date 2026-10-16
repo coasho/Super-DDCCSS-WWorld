@@ -7,7 +7,7 @@
 // but its own parser is lenient by design; parseStrict() is the reading the contract asks for: UTF-8 without a byte
 // order mark, no comment, trailing comma, duplicate member, NaN, Infinity or number a double cannot hold.
 
-#include "core/Json.h"
+#include "foundation/core/Json.h"
 
 #include <cstddef>
 #include <cstdint>

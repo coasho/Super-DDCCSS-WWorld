@@ -1,8 +1,8 @@
 // Native engagement recordings. World owns flight, sensors, release, guidance, fuze and damage.
 // Usage: flightsim-showcase <scene.json> <out.fsrec> [--live]
-#include "core/Json.h"
-#include "io/AssetResolver.h"
-#include "ipc/Recording.h"
+#include "foundation/core/Json.h"
+#include "foundation/io/AssetResolver.h"
+#include "foundation/transport/Recording.h"
 #include "session/World.h"
 
 #include <algorithm>

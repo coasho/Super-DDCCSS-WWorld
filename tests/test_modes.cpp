@@ -2,7 +2,7 @@
 // HSA/CSA on a stock wing, a direct and a fly-by-wire design, a helicopter
 // and a multirotor, in wind - and the semantics a mission autonomy relies on:
 // partial commands, references, validation against the aircraft's performance.
-#include "control/Atmosphere.h"
+#include "simulation/flight_control/Atmosphere.h"
 #include "fsim/GuidanceModes.h"
 #include "fsim/VehicleProfile.h"
 #include "mode_flights.h"

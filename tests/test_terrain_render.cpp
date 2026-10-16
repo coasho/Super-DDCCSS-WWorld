@@ -1,7 +1,7 @@
 // Terrain decoding for the viewer's tiles (VSG data types, no Vulkan):
 // vertex-grid resampling that keeps tile seams closed, and elevation tiles
 // synthesised below the pyramid's deepest level.
-#include "core/HeightGrid.h"
+#include "foundation/core/HeightGrid.h"
 #include "world/CameraController.h"
 #include "world/Frames.h"
 #include "world/ElevationUpsampler.h"

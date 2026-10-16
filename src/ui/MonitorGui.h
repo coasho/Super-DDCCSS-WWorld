@@ -1,7 +1,7 @@
 #pragma once
 
 #include "contracts/world_stream/WorldLayout.h"
-#include "sim/SnapshotBuffer.h"
+#include "simulation/flight/SnapshotBuffer.h"
 #include "ui/ViewerControls.h"
 
 #include <vsg/all.h>

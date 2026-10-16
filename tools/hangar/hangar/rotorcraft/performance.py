@@ -61,7 +61,7 @@ class _Runs:
     def __init__(self, r):
         self.r, self.heli = r, r.kind == "helicopter"
         self.s = fly.Session(r)
-        # the tilt the platform's velocity loop flies within (src/control/Laws.cpp: 30 degrees - a helicopter's 20 - and
+        # the tilt the platform's velocity loop flies within (src/simulation/flight_control/Laws.cpp: 30 degrees - a helicopter's 20 - and
         # 0.8 of the envelope's bank and pitch): a speed only a steeper tilt holds is one the platform does not fly, so
         # the tables end short of it (ADR-29 FA-3e: the multirotors' best range lies at the top of their speeds)
         env = r.spec.get("envelope", {})

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "sim/FlightModel.h"
+#include "simulation/flight/FlightModel.h"
 
 #include <cstdint>
 #include <filesystem>

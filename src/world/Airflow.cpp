@@ -3,7 +3,7 @@
 #include "world/Blackbody.h"
 #include "world/ShadingRate.h"
 
-#include "core/Log.h"
+#include "foundation/core/Log.h"
 #include "world/Frames.h"
 #include "world/Propellants.h"
 #include "world/Sky.h"

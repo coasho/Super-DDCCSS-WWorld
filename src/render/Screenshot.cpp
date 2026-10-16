@@ -4,7 +4,7 @@
 
 #include "render/Viewer.h"
 
-#include "core/Log.h"
+#include "foundation/core/Log.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_STATIC // vsgXchange carries its own copy

@@ -8,14 +8,14 @@
 // on any aircraft fails this test, so it cannot stay advertised.
 #include "mode_flights.h"
 
-#include "control/Features.h"
-#include "control/Route.h"
-#include "core/Geodesy.h"
+#include "simulation/flight_control/Features.h"
+#include "simulation/flight_control/Route.h"
+#include "foundation/core/Geodesy.h"
 #include "fsim/Altimeter.h"
 #include "fsim/BuiltinControllers.h"
 #include "fsim/GuidanceModes.h"
 #include "fsim/VehicleProfile.h"
-#include "sim/FlightModel.h"
+#include "simulation/flight/FlightModel.h"
 
 #include <catch2/catch_test_macros.hpp>
 

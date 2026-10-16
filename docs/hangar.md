@@ -1598,7 +1598,7 @@ height, a 1.5 g step overshot by up to 1,500 %, and the B-52H, which then
 trimmed at cruise with two thirds of its nose-down stabilizer, climbed out
 of a height hold. The autopilot stage measures what the platform needs to
 design each one its own, as a flight-test engineer would; the platform does
-the design (steps 2 to 4 below, `src/control/Laws.cpp`) whenever the
+the design (steps 2 to 4 below, `src/simulation/flight_control/Laws.cpp`) whenever the
 aircraft loads:
 
 1. **Identify.** From level flight at a reference condition - 3,000 m, where

@@ -2,7 +2,7 @@
 // wheel brakes, speedbrake and pitch trim, set directly beside the cascade;
 // offered where the aircraft has them, refused by their placards, and able to
 // take an axis from the command that set it until then.
-#include "control/Catalog.h"
+#include "simulation/flight_control/Catalog.h"
 #include "session/World.h"
 
 #include <catch2/catch_test_macros.hpp>

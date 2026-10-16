@@ -6,7 +6,7 @@
 #include "mode_flights.h"
 
 #include "fsim/VehicleProfile.h"
-#include "sim/FlightModel.h"
+#include "simulation/flight/FlightModel.h"
 
 #include <catch2/catch_test_macros.hpp>
 

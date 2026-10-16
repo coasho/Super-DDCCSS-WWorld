@@ -231,7 +231,7 @@ alone do not establish continuous live acceptance; its completed runs and limits
 [viewer validation record](sdk/viewer-validation.md).
 
 - **MS-1 done (2026-10-06).**
-  - **Code:** `src/ms` (the host, the cards and fits loader, the names). `include/fsim/MissionSystems.h` and
+  - **Code:** `src/simulation/mission_systems` (the host, the cards and fits loader, the names). `include/fsim/MissionSystems.h` and
     `Vehicle`'s payload calls. C ABI 1.49. Python's `payloads`, `set_payload_state`, `payload_bit`,
     `mission_activities` and the related calls ([sdk/mission-systems.md](sdk/mission-systems.md)).
   - **Data:** fits for 26 aircraft and 85 identity cards. Each payload in a fit quotes the passage of its cited source
@@ -246,7 +246,7 @@ alone do not establish continuous live acceptance; its completed runs and limits
     - Missing from a fit: the H-6K's radar, the Gripen's EW suite and the C-17A's defensive systems.
     - The B-52H's APQ-166 has no capability yet.
 - **MS-2 done (2026-10-06).**
-  - **The radio path** (`src/ms/rf`):
+  - **The radio path** (`src/simulation/mission_systems/rf`):
     - NTIA's P.528 and ITM reference implementations vendored (`third_party/ntia`, public domain, the changes stated
       there). P.676's layers are tabulated per frequency: a path costs 120-260 us instead of ~10 ms (9-27 us since
       MS-4's performance work, below), within 0.001 dB
@@ -306,7 +306,7 @@ alone do not establish continuous live acceptance; its completed runs and limits
     - Where the time is now: the primary rays' traversal, ~70 % (shading ~3 %, the reflected rays ~25 %). The next
       step would be the first bounce by rasterisation (as GRECO does), estimated ~1.6x more.
 - **MS-4 done (2026-10-06).**
-  - **The radar** (`src/ms/radar`): detection level. The scan (electronic steps, mechanical sweeps, rotodomes), the
+  - **The radar** (`src/simulation/mission_systems/radar`): detection level. The scan (electronic steps, mechanical sweeps, rotodomes), the
     radar equation with the antenna's steered pattern, the target's RCS table and the radio path's losses, pulse-Doppler
     clutter (the main beam's notch, the side lobes' band), the PRF schedule's M of N, exact single-look Pd for steady,
     Rayleigh and dominant-scatterer targets, and measurement errors that shrink with the SNR. Seeded per vehicle:
@@ -355,7 +355,7 @@ alone do not establish continuous live acceptance; its completed runs and limits
       Sierra Nevada, terrain, 1 worker - mean 3.31 -> 1.68 ms, p99 13.0 -> 3.9 ms (no radars 1.31 / 2.06); 4 workers
       0.97 / 1.97 ms (no radars 0.74 / 0.91). Without terrain the radars cost ~5 %.
 - **MS-5 done (2026-10-07).**
-  - **The trackers** (`src/ms/track`): Stone Soup's components ported to C++ - the nearly-constant-velocity model, the
+  - **The trackers** (`src/simulation/mission_systems/track`): Stone Soup's components ported to C++ - the nearly-constant-velocity model, the
     radar measurement (elevation, bearing, range, range rate), EKF and UKF, the distance and PDA hypothesisers, GNN by
     SciPy's 2D assignment (Crouse's, step for step), JPDA (exact, factorised over clusters), the mixture tracker,
     initiators and deleters. `tools/track/crosscheck.py` runs Stone Soup 1.9.1 on the same data
@@ -401,7 +401,7 @@ alone do not establish continuous live acceptance; its completed runs and limits
     7.6e-7 relative in its 29,280 bins - the engine's partial sums grouped differently).
   - **Deferred:** an IMM (Stone Soup 1.9.1 has none to check a port against); fusion across sensors (it needs a second
     sensor or a data link: MS-9 to MS-11).
-- **MS-6a and MS-6b done (2026-10-07): the radar at the signal level** (`src/ms/radar/Signal`; the SDK's
+- **MS-6a and MS-6b done (2026-10-07): the radar at the signal level** (`src/simulation/mission_systems/radar/Signal`; the SDK's
   `signal_level`, C ABI 1.55; [sdk/mission-systems.md](sdk/mission-systems.md#signal-level-ms-6)).
   - The chain as amended above: Doppler-domain samples (noise through the window's taps, targets in closed form, the
     ground's clutter as Gaussian power), CA-CFAR and a clutter-map threshold, the main beam's notch and the altitude
@@ -918,7 +918,7 @@ the missiles, their detonations, the hit aircraft's fire and smoke, the chaff (M
   (an active seeker going active among them), the launch warning, chaff clouds' RCS from the published dipole-cloud
   forms and their bloom and fall. Jammers and the full ESM stay in MS-9b.
   **Built so far (2026-10-11):** the receiver's emitter contacts from the world's radars - a search, a lock, an
-  illumination - through the payload model's interface (`src/ms/Model.h`, `src/ms/esm`;
+  illumination - through the payload model's interface (`src/simulation/mission_systems/Model.h`, `src/simulation/mission_systems/esm`;
   [sdk/mission-systems.md](sdk/mission-systems.md#the-warning-receiver-ms-9a)). Current native engagement adds
   active-seeker emissions through that receiver and native chaff/flare behavior; those game assumptions do not
   establish completion of the original full warning/ESM model.

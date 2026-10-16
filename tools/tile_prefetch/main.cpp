@@ -33,11 +33,11 @@
 //
 // A layer left out of a region is not fetched for that region.
 
-#include "core/Json.h"
-#include "core/Log.h"
-#include "io/TerrainTiles.h"
-#include "platform/Http.h"
-#include "platform/Paths.h"
+#include "foundation/core/Json.h"
+#include "foundation/core/Log.h"
+#include "foundation/io/TerrainTiles.h"
+#include "foundation/platform/Http.h"
+#include "foundation/platform/Paths.h"
 
 #include <zlib.h>
 

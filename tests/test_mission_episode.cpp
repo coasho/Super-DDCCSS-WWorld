@@ -5,7 +5,7 @@
 #include "env/MissionEpisode.h"
 #include "fixtures/mission_training/NativeStateReset.h"
 
-#include "core/Json.h"
+#include "foundation/core/Json.h"
 #include "fsim/MAService.h"
 #include "fsim/Rng.h"
 #include "fsim/World.h"

@@ -1,8 +1,8 @@
 #include "env/Observation.h"
 
-#include "control/Catalog.h"
-#include "core/Log.h"
-#include "core/Units.h"
+#include "simulation/flight_control/Catalog.h"
+#include "foundation/core/Log.h"
+#include "foundation/core/Units.h"
 #include "env/Registry.h"
 
 #include <algorithm>

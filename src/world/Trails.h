@@ -1,7 +1,7 @@
 #pragma once
 
-#include "core/Span.h"
-#include "sim/VehicleState.h"
+#include "foundation/core/Span.h"
+#include "simulation/flight/VehicleState.h"
 
 #include <vsg/all.h>
 

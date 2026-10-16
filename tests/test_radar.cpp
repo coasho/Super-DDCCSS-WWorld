@@ -7,12 +7,12 @@
 // the same to the bit from the same seed.
 #include "mode_flights.h"
 
-#include "core/Json.h"
-#include "ipc/WorldMirror.h"
-#include "ms/Cards.h"
-#include "ms/radar/Detection.h"
-#include "ms/radar/Radar.h"
-#include "ms/track/Tracker.h"
+#include "foundation/core/Json.h"
+#include "foundation/transport/WorldMirror.h"
+#include "simulation/mission_systems/Cards.h"
+#include "simulation/mission_systems/radar/Detection.h"
+#include "simulation/mission_systems/radar/Radar.h"
+#include "simulation/mission_systems/track/Tracker.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>

@@ -734,7 +734,7 @@ Filled in as the steps land. The machine and the benchmark's precision are ADR-2
   - `Behavior::begin(ctx, const Command&)` is what the runtime calls first; by default it calls the old `start()` with a `BehaviorCommand`.
   - `SetpointKind` on descriptors and behaviour traits: a behaviour registered with a mode's setpoint becomes a capability that takes UPDATE.
   - `Performance` from each family's adapter (`VehicleAdapter::performance`), kept by the host and handed to behaviours through `ControlContext::performance`.
-  - `HsaBehavior` (`fsim/GuidanceModes.h`, `src/control/Guidance.cpp`) with the wind estimate and the references; `src/control/Atmosphere.h` for the standard atmosphere.
+  - `HsaBehavior` (`fsim/GuidanceModes.h`, `src/simulation/flight_control/Guidance.cpp`) with the wind estimate and the references; `src/simulation/flight_control/Atmosphere.h` for the standard atmosphere.
   - A stand-alone `ControlStack` flies a mode too: its `command()` installs the mode's behaviour, and merges a repeated one.
 - **Flown**, in a 12 m/s crosswind from the east, after 150 s (`tests/test_modes.cpp`):
 
@@ -765,7 +765,7 @@ Filled in as the steps land. The machine and the benchmark's precision are ADR-2
 - **What was built:**
   - `RouteCommand`, `Waypoint`, `TurnType`, `Projection` and `EndBehavior` (`fsim/Control.h`). `RouteCommand` joins the `Command` variant after `HsaCommand`, flown by the `route` behaviour.
   - The vehicle's `PathStore` in `RuntimeConfig`, read through `ControlContext::path`, and `SetpointKind::Route`.
-  - The geometry (`src/control/Route.h`, `.cpp`): legs as n-vectors or Mercator lines, arcs in their waypoint's plane, the completion of what points leave out, the plan and its short-leg shares.
+  - The geometry (`src/simulation/flight_control/Route.h`, `.cpp`): legs as n-vectors or Mercator lines, arcs in their waypoint's plane, the completion of what points leave out, the plan and its short-leg shares.
   - `RouteBehavior` (`fsim/GuidanceModes.h`), the path follower of 4.8.
   - The host's `checkRoute` (completion, limits, plan, turns that fit, gradients); `limitHsa` became `limitFlight`, shared with the waypoints.
   - `World::submit(RouteCommand, Span<const Waypoint>)` and `update(activity, RouteCommand, Span<const Waypoint>)`; `ControlStack::command(RouteCommand, Span)` for a stack on its own.
@@ -859,7 +859,7 @@ Filled in as the steps land. The machine and the benchmark's precision are ADR-2
 **VI-6 (curve following).**
 - **What was built:**
   - `BezierSegment` and `CurveCommand` join the `Command` variant after `PatternCommand` (`SetpointKind::Curve`, `modeBehavior()` "curve"). The path store holds 32 segments beside its waypoints, with a generation that a new curve bumps and an append does not.
-  - The geometry (`src/control/Route.h`):
+  - The geometry (`src/simulation/flight_control/Route.h`):
     - the Bernstein sums with their first and second derivatives, and the curvature and gradient over the ground;
     - length tables of 32 chords a segment;
     - the nearest point by Newton steps, moving on into the next segment;

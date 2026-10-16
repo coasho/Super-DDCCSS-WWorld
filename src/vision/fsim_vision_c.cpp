@@ -4,7 +4,7 @@
 
 #include "fsim/Vision.h"
 
-#include "core/Log.h"
+#include "foundation/core/Log.h"
 
 #include <vsg/io/Logger.h>
 

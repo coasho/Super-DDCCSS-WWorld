@@ -3,7 +3,7 @@
 // differences - a Bezier's form as the Bernstein basis flies it, an exact circle as a rational quadratic, the
 // derivatives against finite differences; what is not a clamped curve refused, naming the segment, and a curve that
 // turns tighter than the curvature it declares, naming the section; flown by a wing and a multirotor.
-#include "control/Route.h"
+#include "simulation/flight_control/Route.h"
 #include "mode_flights.h"
 
 #include <catch2/catch_test_macros.hpp>

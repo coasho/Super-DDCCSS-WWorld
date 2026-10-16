@@ -1,9 +1,9 @@
 // Headless terrain tiles: Terrarium decoding, Mercator addressing, bilinear
 // sampling and the cache/loader paths, with tiles synthesised in the test
 // (a minimal PNG writer: stored deflate blocks, so no zlib is needed).
-#include "io/TerrainTiles.h"
+#include "foundation/io/TerrainTiles.h"
 
-#include "core/Units.h"
+#include "foundation/core/Units.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>

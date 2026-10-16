@@ -4,7 +4,7 @@
 #include "polygonize.h"
 #include "sdf.h"
 
-#include "core/Json.h"
+#include "foundation/core/Json.h"
 
 #include <algorithm>
 #include <atomic>

@@ -1,7 +1,7 @@
 #include "vision/Offscreen.h"
 
-#include "core/Log.h"
-#include "platform/Paths.h"
+#include "foundation/core/Log.h"
+#include "foundation/platform/Paths.h"
 
 #include <vsgXchange/all.h>
 

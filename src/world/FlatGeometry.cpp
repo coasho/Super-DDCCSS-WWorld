@@ -1,6 +1,6 @@
 #include "world/FlatGeometry.h"
 
-#include "core/Log.h"
+#include "foundation/core/Log.h"
 #include "world/Scattering.h"
 
 namespace fsim::world {

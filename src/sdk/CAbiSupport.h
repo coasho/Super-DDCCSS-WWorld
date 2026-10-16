@@ -4,7 +4,7 @@
 // helper symbols; the error string itself remains the shared LastError store.
 
 #include "fsim/fsim_c.h"
-#include "core/Log.h"
+#include "foundation/core/Log.h"
 #include "sdk/LastError.h"
 
 #include <algorithm>

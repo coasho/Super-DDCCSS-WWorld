@@ -1,0 +1,2676 @@
+{
+ "checker": {
+  "accepted": true,
+  "issues": [],
+  "native_modules": 20,
+  "native_source_and_public_files": 374
+ },
+ "date": "2026-10-16",
+ "digests": {
+  "include/fsim": "a666579cf259245b020f39af6bf0b5da40c099ee9ef4fc77a247facda6f6aaa4",
+  "python/fsim": "b063447d0e6aeb5ee9f0ed3f4b45c2bff8f296f2d49b672ace8ab0a90de1f6ea",
+  "src": "979079a5e1dfa1c927064b3606aed49ebb9d78c4d92e3c997b94bbaed23cb8c1"
+ },
+ "head": "565ef3e2db6b7a4e6fbd1bec29ac4806c463b615",
+ "limits": [
+  "Static source declarations: every CMake branch is combined; this is not the configured File API graph of one preset",
+  "Link edges are target_link_libraries declarations; include edges are literal includes resolved to an owning module",
+  "Python imports are a literal AST scan; dynamic imports, native initialization and external packages' imports are not proven",
+  "Package outputs are the build's declarations, not an installed tree; installed provenance is checked by the package gates",
+  "The record is of the working tree named by head and worktree_changes, not of a clean commit unless worktree_changes is empty"
+ ],
+ "native": {
+  "exceptions_applied": [
+   "ui -> sim (domain)",
+   "world -> sim (domain)"
+  ],
+  "external_links": {
+   "app": [],
+   "comm": [],
+   "contracts": [],
+   "control": [],
+   "core": [],
+   "effects": [],
+   "env": [],
+   "flow": [
+    "fsim_flow_headers"
+   ],
+   "io": [],
+   "ipc": [],
+   "ms": [],
+   "platform": [
+    "winhttp",
+    "winmm",
+    "ws2_32"
+   ],
+   "render": [
+    "vsg::vsg",
+    "vsgImGui::vsgImGui",
+    "vsgXchange::vsgXchange"
+   ],
+   "sdk": [],
+   "session": [],
+   "sim": [
+    "fsim::jsbsim"
+   ],
+   "ui": [
+    "vsg::vsg",
+    "vsgImGui::vsgImGui"
+   ],
+   "viewer": [],
+   "vision": [
+    "vsg::vsg",
+    "vsgXchange::vsgXchange"
+   ],
+   "world": [
+    "vsg::vsg"
+   ]
+  },
+  "includes": {
+   "app -> core": 1,
+   "app -> io": 1,
+   "app -> platform": 1,
+   "app -> sim": 1,
+   "comm -> core": 1,
+   "comm -> platform": 1,
+   "control -> core": 27,
+   "core -> platform": 3,
+   "effects -> core": 1,
+   "effects -> sim": 1,
+   "env -> control": 1,
+   "env -> core": 5,
+   "env -> session": 4,
+   "env -> sim": 3,
+   "flow -> core": 1,
+   "io -> core": 2,
+   "io -> platform": 2,
+   "ipc -> contracts": 5,
+   "ipc -> core": 5,
+   "ipc -> platform": 6,
+   "ms -> core": 6,
+   "render -> core": 2,
+   "render -> platform": 1,
+   "sdk -> control": 2,
+   "sdk -> core": 7,
+   "sdk -> env": 7,
+   "sdk -> ipc": 1,
+   "sdk -> session": 9,
+   "session -> comm": 1,
+   "session -> contracts": 1,
+   "session -> control": 4,
+   "session -> core": 4,
+   "session -> effects": 1,
+   "session -> io": 4,
+   "session -> ipc": 1,
+   "session -> ms": 6,
+   "session -> platform": 1,
+   "session -> sim": 3,
+   "sim -> contracts": 1,
+   "sim -> core": 7,
+   "sim -> platform": 2,
+   "ui -> contracts": 2,
+   "ui -> core": 2,
+   "ui -> ipc": 2,
+   "ui -> sim": 1,
+   "ui -> world": 1,
+   "viewer -> contracts": 1,
+   "viewer -> core": 2,
+   "viewer -> io": 1,
+   "viewer -> ipc": 1,
+   "viewer -> platform": 1,
+   "viewer -> render": 1,
+   "viewer -> sim": 2,
+   "viewer -> ui": 1,
+   "viewer -> world": 1,
+   "vision -> core": 3,
+   "vision -> io": 1,
+   "vision -> ipc": 1,
+   "vision -> platform": 2,
+   "vision -> world": 1,
+   "world -> contracts": 1,
+   "world -> core": 17,
+   "world -> flow": 2,
+   "world -> io": 1,
+   "world -> platform": 3,
+   "world -> render": 1,
+   "world -> sim": 10
+  },
+  "links": {
+   "app": [
+    "core",
+    "io",
+    "platform",
+    "sim"
+   ],
+   "comm": [
+    "control",
+    "core",
+    "platform"
+   ],
+   "contracts": [],
+   "control": [
+    "core",
+    "sim"
+   ],
+   "core": [
+    "platform"
+   ],
+   "effects": [
+    "core",
+    "sim"
+   ],
+   "env": [
+    "control",
+    "core",
+    "io",
+    "session",
+    "sim"
+   ],
+   "flow": [
+    "core"
+   ],
+   "io": [
+    "core"
+   ],
+   "ipc": [
+    "contracts",
+    "core",
+    "platform"
+   ],
+   "ms": [
+    "core"
+   ],
+   "platform": [],
+   "render": [
+    "core"
+   ],
+   "sdk": [
+    "comm",
+    "control",
+    "core",
+    "effects",
+    "env",
+    "io",
+    "ipc",
+    "ms",
+    "platform",
+    "session",
+    "sim"
+   ],
+   "session": [
+    "comm",
+    "contracts",
+    "control",
+    "core",
+    "effects",
+    "io",
+    "ipc",
+    "ms",
+    "sim"
+   ],
+   "sim": [
+    "contracts",
+    "core",
+    "io"
+   ],
+   "ui": [
+    "core",
+    "ipc",
+    "render",
+    "sim",
+    "world"
+   ],
+   "viewer": [
+    "control",
+    "core",
+    "io",
+    "ipc",
+    "platform",
+    "render",
+    "sim",
+    "ui",
+    "world"
+   ],
+   "vision": [
+    "core",
+    "io",
+    "ipc",
+    "platform",
+    "sdk",
+    "world"
+   ],
+   "world": [
+    "core",
+    "flow",
+    "io",
+    "ipc",
+    "render",
+    "sim"
+   ]
+  },
+  "modules": {
+   "app": {
+    "aliases": [],
+    "destinations": [
+     "src/applications/headless"
+    ],
+    "digest": "d5e5b2036890e51c0f1aaa0b90eb3d68464d7d93ff1a46eba1fb1de08e895e4c",
+    "directories": [
+     "src/app"
+    ],
+    "domain": "applications",
+    "explicit_files": [],
+    "files": {
+     "src/app/Options.cpp": "32ecee0cf9dfe7eed6e77e3277c0ce95630514b8e2014e104607400db8894599",
+     "src/app/Options.h": "1363e26424a4c8f2516d040861aa5ac35637445efa565d5cec6abf0cd212dc6f",
+     "src/app/main.cpp": "7e893b67a49d4eb8b7ee14e98d7d2956a70a2f0ae9dc28be88b451a3bd2b2577"
+    },
+    "headless": true,
+    "kind": "application",
+    "target": "flightsim",
+    "type": "EXECUTABLE"
+   },
+   "comm": {
+    "aliases": [
+     "fsim::comm"
+    ],
+    "destinations": [
+     "src/simulation/communications/network"
+    ],
+    "digest": "4b098997c654de5e911d1c97cd50c8f4c62e29b0bc0b698a4f89c2c3481044a7",
+    "directories": [],
+    "domain": "simulation",
+    "explicit_files": [],
+    "files": {
+     "src/simulation/communications/network/Comm.cpp": "04060c7b49075d773326a5d9b451d12f257bf5ffc59cb4a2ef9d00176e90f7e3",
+     "src/simulation/communications/network/Comm.h": "8147f76f13b8e6488fcd5d68a8e1ea791bf38a765cba5a2a12994308c046f0da"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_comm",
+    "type": "STATIC"
+   },
+   "contracts": {
+    "aliases": [
+     "fsim::contracts"
+    ],
+    "destinations": [
+     "src/contracts"
+    ],
+    "digest": "c0ed3ee70a217a11454f35efb44d1c37a71b6d119c89cb06af224726a82016aa",
+    "directories": [],
+    "domain": "contracts",
+    "explicit_files": [],
+    "files": {
+     "src/contracts/recording/RecordingFormat.h": "44b95309f268cb90b7f39fb7213f5375bc8b8cf053b44e9f32ca11162a659e71",
+     "src/contracts/simulation/WorldOptions.h": "642698364ddc69ca02946c6ad0620b36890282dd2dae445954ce1b27e7480384",
+     "src/contracts/vision_stream/VisionLayout.h": "31479b12fcf714f252ebcf2ccb29767fbc2575c93bcfed5583720c006647b467",
+     "src/contracts/world_stream/SnapshotBatch.h": "4af2f7ed3b8e1930d13b78d9a91788d7c84ceef658f01cb342b454c2f15121a1",
+     "src/contracts/world_stream/WorldLayout.h": "ca78e82eed14470c104cf90a28c11ad51b4163656c4cd35ef43b0475d70842d0"
+    },
+    "headless": true,
+    "kind": "contract",
+    "target": "fsim_contracts",
+    "type": "INTERFACE"
+   },
+   "control": {
+    "aliases": [
+     "fsim::control"
+    ],
+    "destinations": [
+     "src/simulation/flight_control"
+    ],
+    "digest": "ddc4ed9569bb2c69a40d8c1ae96f86094f4471319b9e555a9dddc0405c50ba3f",
+    "directories": [],
+    "domain": "simulation",
+    "explicit_files": [],
+    "files": {
+     "src/simulation/flight_control/Adapter.cpp": "94ebb9f16b3148a264509919519618ba14869602c3043ca8ab321f05468e9d21",
+     "src/simulation/flight_control/Adapter.h": "9eaa9cd5f2b11b584ef356b630f08c1a4d147d413b8fa2b8f9bc378c8b3097ed",
+     "src/simulation/flight_control/Altimeter.cpp": "ec7307bd93d76bc2f373ee30b76b35634ebf03da72397473d8852413bde14d11",
+     "src/simulation/flight_control/Arrival.cpp": "c106fc429af33f726783938fc81a99661ca91197a2756666251f9ef75af39de7",
+     "src/simulation/flight_control/Atmosphere.h": "41e5232c39700d311a1a1a189551fbe134a7134a0a6c50a5c41ca216c0cd187a",
+     "src/simulation/flight_control/BehaviorUpdate.cpp": "d9c476995b000db73cfd4d504a0ed5d2530f56cd6730aebdee3e841adf123158",
+     "src/simulation/flight_control/Branches.cpp": "ef2faf2568823da808ab03792cc556d17b3ae320771430a4953271f75535ae22",
+     "src/simulation/flight_control/Builtin.cpp": "34920f4b1ad3055f49bcc36c6003bb9cb3d164efce6fd484a7bad1413ba6a2c7",
+     "src/simulation/flight_control/Builtin.h": "a983055f72a9cc78ae6128c3d310f2fedf691db5389bbb10265d1ba829902f51",
+     "src/simulation/flight_control/CapabilityHost.cpp": "67c91c1b34d6e4a9e0d059b0ffe0b304b9e7eec136385e57695c3c1c2b7bf917",
+     "src/simulation/flight_control/CapabilityHost.h": "9011d41c9df6b91aa0df49294d7db3e772d25b7c20eb1916e0dd79faf5d9e512",
+     "src/simulation/flight_control/Catalog.cpp": "f7291b0cca7ecf05c82c42c78bb772c8050453624be252f2b2437a11e088fbc6",
+     "src/simulation/flight_control/Catalog.h": "c00b4551ac4b1179c08b58c5a334a696227f74f3603a5b5a7bb5de5ccd27b7a5",
+     "src/simulation/flight_control/Checks.h": "a17c9a65baedf041af2ca7f61211f7cf982abba1d964c0d70b6d44e32996977c",
+     "src/simulation/flight_control/Climb.cpp": "4258c06eed32b7d16bee512e3132bba448ec484b1d61290442db6b5e9e54f664",
+     "src/simulation/flight_control/ControlStack.cpp": "2e90565a6e74af7e6cce19858920ec8328ef5948b967564daae5c706238cdda0",
+     "src/simulation/flight_control/ControlStack.h": "0b737cd3eecfb4c604b5f5d13cfc049ae5e35a395fc9a97ae56553fa6210fcf1",
+     "src/simulation/flight_control/Declination.cpp": "685577b97892766b5090a5a47564ddebc1b706e94bd909798146693f10a805cd",
+     "src/simulation/flight_control/Endurance.cpp": "c9a3179f98e1b74b210c915a6d7011c0ec4dbf5a104b5b9060a10c7bff70d14c",
+     "src/simulation/flight_control/Features.cpp": "4bac7cf0a7f34e26c8e866f02dcdbd6decfe5dbbf05dba31425b4c61c0d4cb0c",
+     "src/simulation/flight_control/Features.h": "972e73fdd123542b92c4fed17a94d522972e3638bc0ab63edbbefcb84f85867b",
+     "src/simulation/flight_control/Frames.cpp": "75c9e002f19827f8ed17e5a001b4144a22a3125fef6a4512f2b6c273536161db",
+     "src/simulation/flight_control/GroundRoute.cpp": "99a1cab7346eda814bfbfea96179e42f1b16e1fc4724b6cf1c63e0a3ed7e0bed",
+     "src/simulation/flight_control/Guidance.cpp": "d55e9aa3ff4b2e34403d2b01ddf9d7fcb72ce91ce881446fd817b8b1e93d7061",
+     "src/simulation/flight_control/Intercept.cpp": "4ff514945db25bc24a3ab333b6f2a75cc5e27a25d141bdd7dcef319d65c0da75",
+     "src/simulation/flight_control/LandingRoute.cpp": "6ced796ae68e4cc94a12cfa34bc9386fe098311e94dc797a505822410aaa7b7e",
+     "src/simulation/flight_control/Laps.cpp": "b43d3640edbcc136bd8c432e55bb95809d1e8d6930e7be60618eab79c9974ee7",
+     "src/simulation/flight_control/Launch.cpp": "89d2ff1d67e2d0f6ac323be1e864454ec1885aaf11e77dd06115f7031f17faab",
+     "src/simulation/flight_control/Laws.cpp": "5d4d94712123cd14add5ff09d9d88e7a343116ee658027d093e6080d4ef2bd5e",
+     "src/simulation/flight_control/Laws.h": "ad137ac8f9aa3630d2efcb75e300de13da25770670dd7d2977f83f11f0244062",
+     "src/simulation/flight_control/Lines.cpp": "f4372dc7c1ca4f0f00f072035b61778cbba32a7f263e95da21a9cb17b5624688",
+     "src/simulation/flight_control/Lines.h": "fdb0116eff2512c65c829345e91a15796a1312822978dafdebf01f0dcd2ef575",
+     "src/simulation/flight_control/Magnetic.cpp": "9e3f9505fec728f2fb4d29d8638353b3580b0dbc318bd87397a4330f3a84cdb5",
+     "src/simulation/flight_control/Marshall.cpp": "ae4a690cccc91f7970e777f25c0f255ca78a0c442741ade4be5846d88ce44a3c",
+     "src/simulation/flight_control/Moving.cpp": "62ab6de304f73c2cdd60d8970fc414acc6eea6836f672288ade9abea92f1f571",
+     "src/simulation/flight_control/MustFly.cpp": "be8e030e24dac196581d83b6fa494c4c5fcccbab33905ddc9b9f310553e44578",
+     "src/simulation/flight_control/Names.cpp": "56c4ee9ef5ce4871d73bc4c5c825d3c326f8c0a32128fb74c838e56b0d198eaa",
+     "src/simulation/flight_control/Nurbs.cpp": "cbd2a62abcab58868a1454e200e478946c89db25ab9d395620d499f5a982b3d0",
+     "src/simulation/flight_control/Paths.cpp": "64dc4c88f8ee8771d4e9ad7f52c551dbab5346aa8a7fd3682ad8b1a992b94f15",
+     "src/simulation/flight_control/Patterns.cpp": "06afe6f573b98358924194e0bc98a21bd1c661e3570344778cf97e973eb28419",
+     "src/simulation/flight_control/PerformanceTables.cpp": "8f8042bb280a06e0226297c77c41eed5477e2a5517a810178cce720cb20d0af1",
+     "src/simulation/flight_control/Pid.h": "5223ba6080db143d2e8c954507922d66ebb6c92772c760fb831ac1b756c60fb9",
+     "src/simulation/flight_control/PlanStore.h": "19ce427df4823aa2a50605c6029ad149d6deac1947688fa071c0356370d30698",
+     "src/simulation/flight_control/Plans.cpp": "9f907222200e3b0ec6791a1c7c3406bdb3ec8aba526ad485a43738e1e8ede706",
+     "src/simulation/flight_control/Profile.cpp": "e041e9b4a7eec36034ec506c3ee688d9974e2c7f52cc930a6069a561dc43404d",
+     "src/simulation/flight_control/Profile.h": "551f8f85c4dab13914754ee34ed517aa19a5f1e6c353a7ec590cc4c9e87bc8e6",
+     "src/simulation/flight_control/Protection.cpp": "0ebaf5f0b5eecdd71db24b398bf128514248763d3cb500888315a32616353c58",
+     "src/simulation/flight_control/Protection.h": "8552ffd59e28aef6e9255d05bbd9f71914e7609f7016c2e9d85141797020cc65",
+     "src/simulation/flight_control/Recovery.cpp": "be1daaa0ad59435a6d639f1a5aef8283f5573686465f44b98ce5c364ddc3f6cd",
+     "src/simulation/flight_control/Registry.cpp": "4f2da65a3c6e1b195156bcf9ed846b83e5e2b66737767e0e6ea511f7f887069f",
+     "src/simulation/flight_control/Registry.h": "514c19d02b3a1c5baf0c879e1cf5c840e671cc2f0bc9b456c293666fac87fd11",
+     "src/simulation/flight_control/Reports.cpp": "7e02551d42724aea1dacaf57e239b29f7c6e4d50158bedb3e966cb56e2eeefeb",
+     "src/simulation/flight_control/Rotor.cpp": "d81cf5a7abf07828c12caf4fffdb348ec5c0e4b64a22a2c0e7f7a035108cf56d",
+     "src/simulation/flight_control/Route.cpp": "659a1dc96dd263a120984ce084da0dabea31c2a108e069a3647f03ff8cd1c357",
+     "src/simulation/flight_control/Route.h": "277de7e3344bb4e3d85fc29f74e3fdfbf14cb4e2ec8d94c85c88c7e0428bcdb2",
+     "src/simulation/flight_control/RouteOrder.h": "184d773b940f2012ec585071f7e0ec2ae15454af266f91bb96b41dc0f9188230",
+     "src/simulation/flight_control/Runtime.h": "361a72d8e5756fd85e22f8e43ec54bc7b41662e59e1e44547c9b9ff0353ca882",
+     "src/simulation/flight_control/Schedule.cpp": "46f79221d74e9e5137ca1860f6e416f62c8de1f7826b28392e17e97e3620492a",
+     "src/simulation/flight_control/States.cpp": "d8f39aff1ff68dd29c595fd763e107f767d3b2328a86f056e78672af5dfb98e7",
+     "src/simulation/flight_control/Tasks.cpp": "d9450fe221614aeecc01a186c2a648e6a89d89f35b42798077d720f6a7d22a75",
+     "src/simulation/flight_control/Taxi.cpp": "e29ac6f035d7c785a5da1f485dd9add974ecf3e0f4a746e24af674a7b42d6e72",
+     "src/simulation/flight_control/Terminators.cpp": "f3b67904d9b3e2915ed2b14aa13d523a0ccfff49bc161e881e4da5775b8ae1d4",
+     "src/simulation/flight_control/Terrain.cpp": "6fa498b9e4307ddb2b7cf259de13b9d67522e7bca268f7ea8fd40b26b922e836",
+     "src/simulation/flight_control/Volumes.cpp": "471e6c6a37b190e7b001f4f6c0cca6390457de7f5f25967859a5fb8b6a37d6ce",
+     "src/simulation/flight_control/Volumes.h": "fd556fcb5731c9d26969dd84b38e372518ed03c4cb83a84db7ad6579124b1e3c",
+     "src/simulation/flight_control/Zones.cpp": "602f50f7c505b6596b7980a00b49a3e03ba7eea6f27bb6f1575e7f75de038125",
+     "src/simulation/flight_control/Zones.h": "184c7358e613384f1a9a3d663c4d22ad7c6d523967d4480736266927db7d4228"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_control",
+    "type": "STATIC"
+   },
+   "core": {
+    "aliases": [
+     "fsim::core"
+    ],
+    "destinations": [
+     "src/foundation/core"
+    ],
+    "digest": "ceabf5682aa30d743d2c47dcc861566ea45cd2ca1b95e20e13fe8023448598bf",
+    "directories": [],
+    "domain": "foundation",
+    "explicit_files": [],
+    "files": {
+     "src/foundation/core/Attitude.h": "d3c6c4effb9f0af2c60ef0edbeae3d7ee563a2846dc69c4bba1a7538afcbc02f",
+     "src/foundation/core/Context.h": "6954f2e28598416311d67fba70e57ab5c93aaa9b095e0f6def43eb7fe1c9359c",
+     "src/foundation/core/Geodesy.h": "e94b301f3c73cc0e36a47bb22e452a98fabf6b548270779771c03dd513be4753",
+     "src/foundation/core/HeightGrid.cpp": "6782b052d305b08908d2c92013c144cf731545447fba11306058ce132938178e",
+     "src/foundation/core/HeightGrid.h": "35a965a187bfca461441d46ccb9a24afe4de90f3ed297381540d9277c09ada93",
+     "src/foundation/core/Json.cpp": "bb2ecc772ff8177ec27fb470682277b91b255a63d6ca0506142576da44af17a2",
+     "src/foundation/core/Json.h": "b6d4d03b6c20a2398f8a71a8b79eca23f971c08226f2e9c2aa72ae61e4175cf7",
+     "src/foundation/core/Log.cpp": "3cd87f0cab940f572b4b1e352baa954372abea4cd88e66df76e8850f66fc4eed",
+     "src/foundation/core/Log.h": "c446ae0c0e669b5e3aedcc9632162eef7673f5dc6a00f12360d193f299612b63",
+     "src/foundation/core/Module.cpp": "2e416df55a5b66f339d9d26a30ade5c0bf9c2b32cf2d33e67045a44c34e7ab32",
+     "src/foundation/core/Module.h": "c6e695498c7b045ac1086b30f6ae2b0a68600b56da7dcc3197095fe06c381523",
+     "src/foundation/core/Profiler.h": "7df1f47e432d7707123294d79fea5739125c409611cf869894bb87e2e337d465",
+     "src/foundation/core/Registry.h": "30373e8debd1dd9ed44284fc80d68a652ff52e7f9f65030917cbe8dc2058aa19",
+     "src/foundation/core/Rng.h": "398b38840d3399c8c0c15e159ba1d747a32248604dc7bd7f3c19dbb006246b80",
+     "src/foundation/core/Span.h": "7b56b042ded67a44effb2bfe896410e4ab4a7944dc08a9d2b9d23ab65cad025f",
+     "src/foundation/core/StableArray.h": "fcc67a464d82d0a7829a54bfb2affdad7522a1cbfdbde622584c60d76c97f9af",
+     "src/foundation/core/Time.h": "0028dde875dd84068130dc6a3dcf57e3e2be54ca60136e38c98236c955aeba1b",
+     "src/foundation/core/Units.h": "d000598cab63282e324e727520ba489732338163e1d0813629737530c0b34696"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_core",
+    "type": "STATIC"
+   },
+   "effects": {
+    "aliases": [
+     "fsim::effects"
+    ],
+    "destinations": [
+     "src/simulation/environment"
+    ],
+    "digest": "e6eb8cff3a0abf01504d58bf99dd248cae73846bfde2f095b524e0bed2a15225",
+    "directories": [],
+    "domain": "simulation",
+    "explicit_files": [],
+    "files": {
+     "src/simulation/environment/Builtin.cpp": "8790cc1005b5df9c8a0b54efffc7b8441489199a0a496165ae2ee5977f2716fd",
+     "src/simulation/environment/Builtin.h": "dcd5ea3d1063ec1243b6c95d4e1ec51d5d85f15f4a8c098d5cea12fca793449b",
+     "src/simulation/environment/Effect.cpp": "b30a5f6467e3b2181443b0b0ca38b7c851f66c36865e588c956a1b69783b7d00",
+     "src/simulation/environment/Effect.h": "f30033fb1655015b25c533b31773b01c3a419c6be6bb25ea033f7f4741437a0f"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_effects",
+    "type": "STATIC"
+   },
+   "env": {
+    "aliases": [
+     "fsim::env"
+    ],
+    "destinations": [
+     "src/training/native/vecenv",
+     "src/training/native/episodes/runtime"
+    ],
+    "digest": "acf974895201df877b57169043b50f0fb6382631c0fcce95bffef9474bd0f519",
+    "directories": [
+     "src/env"
+    ],
+    "domain": "training",
+    "explicit_files": [],
+    "files": {
+     "src/env/MissionEpisode.cpp": "a3963260bcd72ba2352f72c361ea24e7a1cae969963a59993d5564a03e77d4a6",
+     "src/env/MissionEpisode.h": "4517e939646fa8eb62a98d011319dae1e352efdf59453698b69ab1308ef7c467",
+     "src/env/Observation.cpp": "873550af8acfbc678cd340ae1157241e50763ea534aecbe6ba055907f230e64a",
+     "src/env/Observation.h": "337b2a0a0bc6b440a38ed4b90a5ae2d9a2666abd6397a6a3aa0164d361da905a",
+     "src/env/Registry.cpp": "8b40c3e689618a1feb9c0763485c63459e5e564de2a75686e5c0eff0a5ad0bd5",
+     "src/env/Registry.h": "264233730a3775a7d2720b28809d262449ceeece6b046ffde9c582885bac4cf2",
+     "src/env/Scenario.h": "a3e6c2b7f9a7a8eb1878e56231de13f8741ea3944b63f38a7a1ac1011923f084",
+     "src/env/ScenarioVecEnv.cpp": "1206a660dced86176e86f2b5ef537d70fb2f80653ad36cb6c868a123a1d2afb7",
+     "src/env/Task.cpp": "ee5260c790b98f1751661ae51b5cb0ab994d570f2988234abe83edc8efaf0ea3",
+     "src/env/Task.h": "a92031c1f5bfa71bfce934eeb6cc5b27cf8eae670a49fee0605c99ab70a2adb7",
+     "src/env/VecEnv.cpp": "e4022ea3ac1f362d6eff46efa7408be61319089519d31fff2fd6d605900f2a72",
+     "src/env/VecEnv.h": "121ca64a1f1c8db38498c2207cf16279b4a0d8938583b3c14753952419028021"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_env",
+    "type": "STATIC"
+   },
+   "flow": {
+    "aliases": [
+     "fsim::flow"
+    ],
+    "destinations": [
+     "src/visualization/vfx/flow"
+    ],
+    "digest": "fbd0f936a69d4b064aa341f4cb1800039ff3d72d8990e14fb76c1b339c98e379",
+    "directories": [],
+    "domain": "visualization",
+    "explicit_files": [
+     "src/world/FlowSolver.h",
+     "src/world/FlowSolver.cpp",
+     "src/world/FlowFires.h",
+     "src/world/FlowFires.cpp"
+    ],
+    "files": {
+     "src/world/FlowFires.cpp": "bd77330b479b8ac3b1a4958aff930f5bcda4b29bbed93fb97c43b8b1fe8521b9",
+     "src/world/FlowFires.h": "ece0f104763216b6846f3f1176a67b296d8ca9816c74da0c4707fb7fc1e026eb",
+     "src/world/FlowSolver.cpp": "deb64cacd28fafb9fbdebbb67694322cfd8c7e85637b28e1b150b46199e18b46",
+     "src/world/FlowSolver.h": "af615b0143f7124aa6623ab87f8e38acdf0cd5e84e9a26e6af03dcedea2b50c1"
+    },
+    "headless": false,
+    "kind": "implementation",
+    "target": "fsim_flow",
+    "type": "STATIC"
+   },
+   "io": {
+    "aliases": [
+     "fsim::io"
+    ],
+    "destinations": [
+     "src/foundation/io"
+    ],
+    "digest": "8d145fb11d8179dd013868bb9fe2e4d9475297e830478feaac4ac2e6191d16c5",
+    "directories": [],
+    "domain": "foundation",
+    "explicit_files": [],
+    "files": {
+     "src/foundation/io/AircraftFile.cpp": "6441a8b04abddf9468c61cbf3ddf7bb68a2238693c9aa0c84c4047cd902af29a",
+     "src/foundation/io/AircraftFile.h": "da3cca7dd1bf629f3a48149be38c1cc23bb89650d9199c39e13b3f86644f0d81",
+     "src/foundation/io/AssetResolver.cpp": "fcab15e9ab47b2adaefb1e6664e9727e996882b5495d7669fe95f22cfa7991d0",
+     "src/foundation/io/AssetResolver.h": "b022f6157fca945c7b0e736c66e2c90b548afc7587a39282aa1927b6c3f886e4",
+     "src/foundation/io/TerrainTiles.cpp": "8b753e1b0a29bd64eb6f4d9120dee2c4a7363b0e5534628ea96ccde300abdffd",
+     "src/foundation/io/TerrainTiles.h": "2ee8bbfd9311c51ab47145b8b292dc544842cb7711ad4195955c3c1e0791e82e"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_io",
+    "type": "STATIC"
+   },
+   "ipc": {
+    "aliases": [
+     "fsim::ipc"
+    ],
+    "destinations": [
+     "src/foundation/transport"
+    ],
+    "digest": "de1db6ac7f3563584d017be25f240dfc5f825c87c913f5a634864daf9eef1c95",
+    "directories": [],
+    "domain": "foundation",
+    "explicit_files": [],
+    "files": {
+     "src/foundation/transport/Recording.cpp": "78b840a7b09a14f1ea3fb55f0e4e866edbd9e4f62272da80c4e5130029007d05",
+     "src/foundation/transport/Recording.h": "fac6bd9c824e52226b13e6091814a0b0aa3ab51d2fdaac3a675ae17eb5242df2",
+     "src/foundation/transport/VisionSegment.cpp": "8d8e9755b9ef86f047c0aa06e80abf9de5c0ee92207d8d234a9173c36b6963d3",
+     "src/foundation/transport/VisionSegment.h": "3de380ca785f9e098c57aeeeeb993676661d304dc1e08303856593d4edc41047",
+     "src/foundation/transport/WorldMirror.cpp": "808a42aaa04854b828353340ecd85f97ba5eba25872ef9b755d396d08c2932bc",
+     "src/foundation/transport/WorldMirror.h": "5b691316e413179fac3c345b595924ad9208e51f7ff8d7d9656e33a9c56406c1",
+     "src/foundation/transport/WorldPublisher.cpp": "a0208a4978a4b3e693545e1ea180f4cb8bf57f5ba2bb300464743b3813956870",
+     "src/foundation/transport/WorldPublisher.h": "9584579971a51caeaa23e78130d585c7c7a7aa00b8e8621d7ee60db30f930c9b",
+     "src/foundation/transport/WorldRegistry.cpp": "97e6b29f713f47db1937f1b69305297dcf7093879c9a39e206b0fdbdeec1a51d",
+     "src/foundation/transport/WorldRegistry.h": "180e7b5216e58d99e773e1cad852c17ca39c0be42006222e72f2e0d45a5ad740"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_ipc",
+    "type": "STATIC"
+   },
+   "ms": {
+    "aliases": [
+     "fsim::ms"
+    ],
+    "destinations": [
+     "src/simulation/mission_systems"
+    ],
+    "digest": "ba2f776a202b50c6e267383d06775cc92260dd0ca3bbb644d313bb2475074ff6",
+    "directories": [],
+    "domain": "simulation",
+    "explicit_files": [],
+    "files": {
+     "src/simulation/mission_systems/Cards.cpp": "202092f24fd7df21f8311d06c638b5d66a0339668cb15f433b522662e73daa85",
+     "src/simulation/mission_systems/Cards.h": "9d6f237b68a0f4b3fb23a51883ed7c4016c858a309b01e2f01934c67118b7da6",
+     "src/simulation/mission_systems/Host.cpp": "7c76a99fa43f7a9683c6b497c0ee3e87738b76d1ea7bdba5889030332364f2eb",
+     "src/simulation/mission_systems/Host.h": "001756b16759d57209a07c2514161e80793e57c89c169a0240edf2698b2ba6fb",
+     "src/simulation/mission_systems/HostStores.cpp": "47c7e33ea4699c1fcfc45a6a3374bbc2d1296bd5fe406b5c7840ace2191a44d4",
+     "src/simulation/mission_systems/Model.cpp": "92118271312c8c17877a890c731e1491be4b99e78ef35f0ec6a95b8dbbc78f39",
+     "src/simulation/mission_systems/Model.h": "542038842810794d47587aa559b6cc331ffeb8cf8a03107480d9a26af93f4f6d",
+     "src/simulation/mission_systems/Names.cpp": "b0a37381d0911545fde3a8a4aa3ee9e08b5d0b03a99794dcf87aad9dace9c5c5",
+     "src/simulation/mission_systems/countermeasure/Dispenser.cpp": "11479362a64e64a79423e5bf26bc2f8462a391cfbefba4765d09138c5ab3a6f7",
+     "src/simulation/mission_systems/countermeasure/Dispenser.h": "2de2116a04e328f4ca062975656b420e4607d35ff5c6629edcdaaaa68b3c591c",
+     "src/simulation/mission_systems/damage/Damage.cpp": "95ead4ebbdb9ad0ad5cf7eb6fb9ec3e22f7a0787a9b03e076d3299527e29b45e",
+     "src/simulation/mission_systems/damage/Damage.h": "68d8f9364c73e91d9dac7d111d2a9f1e97ac4e486317fc941c094e4e9f79a46e",
+     "src/simulation/mission_systems/damage/Debris.cpp": "b8a12362df508d05d8f945b4c39a31a3815fbc589d609e3c1cb032c2840ba404",
+     "src/simulation/mission_systems/damage/Debris.h": "6e4939b18db5ac2dac08d1807a03b104bb3a8b5b980414cd7b531602093304f4",
+     "src/simulation/mission_systems/damage/Impact.cpp": "778ca03cf415601677882150ede48818fc4acabf5cf9a4e2c594f801c367e4d1",
+     "src/simulation/mission_systems/damage/Impact.h": "9eed7b1d31ce29dd7c108d8e2cee8b683bfacfe6a199ad6e4a9af998c4b90b46",
+     "src/simulation/mission_systems/damage/State.cpp": "bbef04a55961215a239e6ae0f221e21c4fe7a5764647982802a14518942b9c9c",
+     "src/simulation/mission_systems/damage/State.h": "db2f5313e6ea99a15a242c6415e3a17fc4fde6ea87f3d98200c65c3171e900d2",
+     "src/simulation/mission_systems/esm/Receiver.cpp": "f1afb941c8ddf6b0921852a0ba8b32cf3adb2c74a2295330722605a3e1daa978",
+     "src/simulation/mission_systems/esm/Receiver.h": "7d3353c551850405b45a809c8f1c944fd6f934af86bebfc5e280906d1fd0373e",
+     "src/simulation/mission_systems/radar/Detection.cpp": "fe9f4caaf3babd83946b57df167677af4ecb941a4466f4491006ade0ffd48451",
+     "src/simulation/mission_systems/radar/Detection.h": "fb32a79f633a400da791ef20a8f424b3e25feed775b02ffc30b4051aaaacc88a",
+     "src/simulation/mission_systems/radar/Radar.cpp": "84e5869202f423c3a13614a7a04be6a3e9308e1a33b20db761218715fa078ff4",
+     "src/simulation/mission_systems/radar/Radar.h": "ce4a8c4f5eeddd25d2a1f72cdbdcd3c517b8e08d763daea54185ad4336860b33",
+     "src/simulation/mission_systems/radar/Signal.cpp": "e1c8c0b89d974afc47d92ef457b8d1977dc88bdb5324ef9d160eed29e199ad6a",
+     "src/simulation/mission_systems/radar/Signal.h": "72481e78db5bae77ddb5c67d300aa4ef94b495fb30c1edc9b008fe4c5a4e2acb",
+     "src/simulation/mission_systems/rcs/Table.cpp": "51be53088c2cec7768f5ea2dc1baa821fe883ea4cfbf799a9721ebdcb4721286",
+     "src/simulation/mission_systems/rcs/Table.h": "950f87e8f39db7a2d329d3e8a71d560561b251a264b9f5c1f6d2ae7f50d68bb9",
+     "src/simulation/mission_systems/rf/Antenna.cpp": "0c92f82d0ffd9463cfc24ad2e9ad0d38bc3f47749ecf7e68926edee33f75a838",
+     "src/simulation/mission_systems/rf/Antenna.h": "1555ee95fd332a8429a25c6f390d36e1b1a5b3d1e8a964d7674939da613fc079",
+     "src/simulation/mission_systems/rf/Ntia.h": "d0a239cabd23181a5aaaf1027db59adfc51ae81e2363def02558488743339df1",
+     "src/simulation/mission_systems/rf/NtiaItm.cpp": "9f48a7104d338973b307fc3610d47c0529f1e3ec79e8aa2a101c68235949ff46",
+     "src/simulation/mission_systems/rf/NtiaP528.cpp": "7e6258107d6f9f5ba4a64823b48149add3eae5a2167f7613352435b6d76f9f05",
+     "src/simulation/mission_systems/rf/Path.cpp": "ee3de04697c7341b7e7f0b2a893099279af4f7e91d1c5be21907add2c8c07bca",
+     "src/simulation/mission_systems/rf/Path.h": "eaf10a087b1d6f08d6989a8f540f664a0d89767b6a3d44d529e9ad16fe5d24db",
+     "src/simulation/mission_systems/rf/Rain.cpp": "55f6a290d67e81fb7580054f77436f9a962e50fa61a16a806d447140828ce0ea",
+     "src/simulation/mission_systems/rf/Rain.h": "2f871df7c830ba50661f038a0e909ccc1a05daba43f4190000e525b6bda39852",
+     "src/simulation/mission_systems/track/Assignment.cpp": "52f5f73b99f2d885c6c5c9d9612328d6d4d1f23b36d1e5898ed26cfaf1ce66fa",
+     "src/simulation/mission_systems/track/Assignment.h": "c216565e5e1a8d0e4ae1234cc1d141e57b1537e69c1003097cc5234bfef96976",
+     "src/simulation/mission_systems/track/Filters.cpp": "b9e2f413d95c90f5fc1aa0d9ad37dae9bd7c4442890cfd25e94448eea61b5e14",
+     "src/simulation/mission_systems/track/Filters.h": "81520dfbd47de2f9048e402ee11e6a3588f87d7758dbf0af275e9fd9fbc07ffe",
+     "src/simulation/mission_systems/track/Linalg.h": "5b64858c3de5e164dc07798ebd50f936555b1b69542301c78e80a59b8219304e",
+     "src/simulation/mission_systems/track/Models.cpp": "0905d50ba3884387d38f47c4000e9b1e69708197731107f2f1466b2996e17b82",
+     "src/simulation/mission_systems/track/Models.h": "fbf74ef6f8b39df230e8440d701fbb14ecd76624d22bc095470735c4718c1f71",
+     "src/simulation/mission_systems/track/Tracker.cpp": "baa1ded32b9859f0d26fc5af43207485006f614631de6c7ddb2263194b1abda8",
+     "src/simulation/mission_systems/track/Tracker.h": "0919425d67f4b6cd06343a656a54b779f97cde8eb101f31845f7dfdba61288a2",
+     "src/simulation/mission_systems/weapon/Guidance.cpp": "59c0772cb745e7fd69c5c2c39ae5b393650c374fc5da0c27b5db00525248ec5f",
+     "src/simulation/mission_systems/weapon/Guidance.h": "3009395a1dc70587a20ef9b70331a061fc381f92c7127c0caacfd8f17f2db367",
+     "src/simulation/mission_systems/weapon/LaunchEligibility.cpp": "9057e47e54fafe767923ecdacc598dfa911c5294bbc2cd10080a76a9bc853739",
+     "src/simulation/mission_systems/weapon/LaunchEligibility.h": "a2676d5c9040c119d52b3363637f84d877c861ac0efc52800036b67911da72a7"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_ms",
+    "type": "STATIC"
+   },
+   "platform": {
+    "aliases": [
+     "fsim::platform"
+    ],
+    "destinations": [
+     "src/foundation/platform"
+    ],
+    "digest": "cc519175e7d3c686a35e8c45acc6db59e5478882a211c41121f49575ff05f92f",
+    "directories": [],
+    "domain": "foundation",
+    "explicit_files": [],
+    "files": {
+     "src/foundation/platform/Clock.h": "9a52a28d910e34a6a51529c80c9ee87ce7da57b31a27860c5560e7a3ad8c4e46",
+     "src/foundation/platform/CrashHandler.cpp": "811013a64251670e4c97564cce110792110c0fbc13af5e26ff345d957287ce54",
+     "src/foundation/platform/CrashHandler.h": "aa89bf106ffcbe41631cbf728885a301ab034bc1443221ab3345a85a9c0afa63",
+     "src/foundation/platform/Http.cpp": "36a7785c75f487e98990727d3dcc4b18ed7da88654cf80d0418e04740ec5e8a1",
+     "src/foundation/platform/Http.h": "b087ad13f680c21c21923a0d84575585f61b924c6917b4eee8f2924114cf31db",
+     "src/foundation/platform/Memory.h": "e4fea19f18a6a499a8c9646f2da0c6ff5e8dcbc552063216ec109ee677babb48",
+     "src/foundation/platform/Paths.h": "7e4bac163471783ca48ed43cf25def9b177b4b8c021f66df40da75d698afc08e",
+     "src/foundation/platform/Platform.cpp": "6ab1cc6f607a0f27af0c27998a77403d29dd35be398e5d5d5605ddd5d675c1c1",
+     "src/foundation/platform/SharedMemory.cpp": "43b6cda2cc1626d99ea44e0127df933e9b5a9c7570588dc46e05fdd69a1421b8",
+     "src/foundation/platform/SharedMemory.h": "dd6790249e9ea74a84ee8ac9a80486d138c878e39209628875b48223476a9a0e",
+     "src/foundation/platform/Threads.h": "4c7e2ffc99720a95462a0299e8e017f0fef86613d65f29cd5bca3a47fe89fb51",
+     "src/foundation/platform/Udp.cpp": "59e310c1271133ce6e8971b115d11152913e562925f297b75a796af7af7f401b",
+     "src/foundation/platform/Udp.h": "6e796406ea1f6f5057560e51a65ade0e56fe8d83e8c7df44ef86b9a59e09a0c4"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_platform",
+    "type": "STATIC"
+   },
+   "render": {
+    "aliases": [
+     "fsim::render"
+    ],
+    "destinations": [
+     "src/visualization/render"
+    ],
+    "digest": "45af675c3b850f87b815abbb846272e649223241e5ccfad320d9805ffd6595e4",
+    "directories": [
+     "src/render"
+    ],
+    "domain": "visualization",
+    "explicit_files": [],
+    "files": {
+     "src/render/GpuTimer.cpp": "36e2eca81547f3e1fb54af838892005cc11d023a0fac0de028994d22458060dd",
+     "src/render/GpuTimer.h": "e5c12ea37e8650d0af833c0a8ba46a318e16b36067e6eec785f10fa9ee0be58e",
+     "src/render/Screenshot.cpp": "1142ba2dd6ad0de4c80bb1060b864db7a783f18e4fcf7eebb0710051a1da540c",
+     "src/render/Viewer.cpp": "ecc2b4ae96e6f82fd16ceda99dd1d50a799e34a5f7a330805964c5d97c3460f1",
+     "src/render/Viewer.h": "2cbd9b56e9599b96765a5eecc4a82a6d20f26df013cbe717da464002f5f8d327"
+    },
+    "headless": false,
+    "kind": "implementation",
+    "target": "fsim_render",
+    "type": "STATIC"
+   },
+   "sdk": {
+    "aliases": [
+     "fsim::sdk"
+    ],
+    "destinations": [
+     "src/adapters/sdk/cpp",
+     "src/adapters/sdk/c"
+    ],
+    "digest": "8788510d462b43b4c838ad258a42eb1781c9a1e61207457bc0556c7ccc66c481",
+    "directories": [
+     "src/sdk"
+    ],
+    "domain": "adapters",
+    "explicit_files": [],
+    "files": {
+     "src/sdk/Agent.cpp": "8ab154142c42fccaa6b266fb97422740e0ad320b5c1122fc2d811482bf3b8378",
+     "src/sdk/CAbiSupport.h": "24fb31dfbf0e7f995b07bec24a44a0d78d17cf3dab8a4b69c23bd686d663155e",
+     "src/sdk/CParameterSupport.h": "27aab83be0bf31df5907c44a7e948feb1d8da124a3932386e06acaddeb3e6f0d",
+     "src/sdk/Handles.h": "93186419bf226325ba74a25049be738569f8795f799fde1820e83d7acc4970d9",
+     "src/sdk/LastError.h": "3f5bdccc689a34965b51d55f28fed41b574ee0ccbfbd66dd69b0890c2ebe5d0d",
+     "src/sdk/MissionBatch.cpp": "fe927e76e06548b4356d95f86ad93846b47fadb52fe4a53635d7d275e5d89e5c",
+     "src/sdk/MissionConfig.cpp": "70805dde5ae48aaabbb0440e08da126b4c981a65894f2c4884a9dd8767e10069",
+     "src/sdk/MissionConfig.h": "6ae55bbe3692c7e30b59a7345db634dbe58476db35ce47682fa84ed676bb194e",
+     "src/sdk/MissionEpisode.cpp": "a2f2cd531d37bb000730ac45ce274198ee897f906678ade99c8c7a3ee9b72e54",
+     "src/sdk/MissionEpisodeImpl.h": "e373c04f5befd6f78151086a6cac83503375f9efa5efb85a5981d7014bdf7132",
+     "src/sdk/MissionGateway.cpp": "f4bf88f47e0dcffa4921f77a6ee6aaa2850ae7934280cb6b1d3516bf1520862d",
+     "src/sdk/MissionGateway.h": "7a530d2546f708dd630edc5158860a6a9a5249020245f571a79da276a003c325",
+     "src/sdk/MissionJson.cpp": "3cd0808d73a4fa804a2043312ef2527b1cabf6ca870ef142854abd87ac57266c",
+     "src/sdk/MissionJson.h": "a7b130aeb234c52fb390080d2e7a4e78b1ef7167e907433b19b6954c27e482d3",
+     "src/sdk/Recording.cpp": "217f9831c79748365bd6cd34baa453a2c97c496211af138797b7fe14451598b1",
+     "src/sdk/Scenario.cpp": "c8c555ea99e7bf7012c1e6c150334e03bd6c6c577d2cab1cdeb8fa0f28c7bf73",
+     "src/sdk/VecEnvHandles.h": "abefadccaeae5905d17023d6ae00b0e592894080e090f07fa2cf931b20a35ca2",
+     "src/sdk/World.cpp": "49cb52aac53082c08423ad97f6015961cc26bd65415eb69ccb2308c8b93eb38c",
+     "src/sdk/fsim.cpp": "475b03e783b651ce18d8e0d27e82ca9ed18b511d23f5a1a417b665d830ac5f6a",
+     "src/sdk/fsim_control_c.cpp": "1122f677f3719a6edb6cb7a2fe60cfdce1ac74e42c567c5d306a2824a123ade5",
+     "src/sdk/fsim_environment_c.cpp": "bbdd8b08e8ab562778f2df6fa417ab736e271c011f36246761002c68f9b32290",
+     "src/sdk/fsim_links_c.cpp": "21f291657992fee44737d8dfc3b404a8ea87640e1f3f6eb8155106b77e62079c",
+     "src/sdk/fsim_mission_c.cpp": "4d5580ee81c18d2304c83930b0cf04b143582231e250208b1beaa0bd53ba7abe",
+     "src/sdk/fsim_mission_env_c.cpp": "1f82c7b413e843048bd33cc21068c194a151f5d6c97d9c13a4f31cbd8a41c928",
+     "src/sdk/fsim_recording_c.cpp": "3171506a2bd1e12a9ebc75b3391966a4901fcc96b50295bae4169b917e479647",
+     "src/sdk/fsim_scenario_c.cpp": "7923125c98836514bf0aa42020da890c7b80803b12d3803bfcc8741144bb96a0",
+     "src/sdk/fsim_vecenv_c.cpp": "c3fb4b86d81facbeba870d86b4870b1d152317a259982763c1de7bbf33db81ec",
+     "src/sdk/fsim_world_c.cpp": "863484e4f7c18f063514d8a3bc4e3179d01b2a92be84cf7a09414e087618002a"
+    },
+    "headless": true,
+    "kind": "assembly",
+    "target": "fsim",
+    "type": "SHARED"
+   },
+   "session": {
+    "aliases": [
+     "fsim::session"
+    ],
+    "destinations": [
+     "src/simulation/runtime"
+    ],
+    "digest": "0a4583479f0bbf44d0f0413ba8176c940c54e4b549d31b6bd9c4ee017ee423be",
+    "directories": [
+     "src/session"
+    ],
+    "domain": "simulation",
+    "explicit_files": [],
+    "files": {
+     "src/session/AgentRules.cpp": "8b722675a7b66c05c98e9431cf241797c58f24aaafa99ea7e31912eb68323529",
+     "src/session/AgentRules.h": "15e2bc188b72d15d308900cbe547be1bb39a9a6bd2c74024295552eb058fba72",
+     "src/session/Dms.cpp": "fbb36bcc6aad79aac2411d65f0043db60a154d7a158a4e360444474febaa1123",
+     "src/session/Dms.h": "7282b80c106f4c6a388ca303f84a82dd8f150198499b34a74e350da9e09f013f",
+     "src/session/Frames.cpp": "739ec159ae66e23da063b838943c3056f91fc698cb92ba1c9609c3c4b4cdcb19",
+     "src/session/Geometry.cpp": "3136c49cad0786ed750533c2c64b500e8947c7d5136cada54f1d95ea17d7bd49",
+     "src/session/Intercepts.cpp": "e06f265b8833cbe5fae9844355c3adb6d4649cf5500286134945c6342fedb3e0",
+     "src/session/MaConsentLedger.h": "2e92ba96187703a0313d7a2bd59fd7d8e8682635176b6c6deaaf4a4f2a05ae13",
+     "src/session/MaCore.cpp": "433d0d396ab273cb41d378f819941ca7220314aa0e4ca6d9d62e3dbec190f75e",
+     "src/session/MaCore.h": "8a8d515ae9e7c2d11b8d19fa7bae91ca9ca6fb95d4af721d8e12da8438b9c56e",
+     "src/session/MaReports.cpp": "5d699678903bd65918136b1a05f1c3c3f141afcd5ab673bb8cec5be387930052",
+     "src/session/MaReports.h": "5b88df6b88104dc86602293aba01ec3df6e829b7004a628b4e525c68cc1e287e",
+     "src/session/MaServiceBindings.cpp": "f363c94c65751e8015ba4fa72b0dd65f4417e8b207e224464a1c26e77798d6bd",
+     "src/session/MaServiceBindings.h": "048f1809a01215693b3b88500cf97fed4b38b329757854f27cd91dd58fea1132",
+     "src/session/Marshalls.cpp": "e111f5a6f90540582890e7d5b57dc014d80410b594ef94c247408f611e89666a",
+     "src/session/Navigation.cpp": "9445c622c42adaac23ff3322e99a6948b217b0f56d4c959d7d261086f7e82be3",
+     "src/session/PerformanceProfile.cpp": "069b165ac0eae7f6c8b272255d22bb557c6208bcedb763963cb7d906d1b094f0",
+     "src/session/Scenario.cpp": "f320d7efe529f2579cce913763a363b71fdad11991f7489f352aae009406caec",
+     "src/session/Scenario.h": "f1e978b4ba16ac08e45ad4d36430f7a4fea9f866ffbacc8367a0c1659898994b",
+     "src/session/ScenarioRecipe.h": "9a3b7cf451539c6e5c3d65c04ef928e1429f0918e6e2b0beb1245886a9c77996",
+     "src/session/StateData.cpp": "d94bc06e8617006230c0cf85db4d56296758c758fb34cba3bcdfe6c65078a9ac",
+     "src/session/StoreFlightBinding.cpp": "2a3dd726fb5325412ae7fe178e578c19d81b0b7f438506b292ed53cc41eef4d5",
+     "src/session/StoreFlightBinding.h": "09bc8f8992da4aa99d4a67018f9da3199fa7b5bd90b13278169b256cb1085d86",
+     "src/session/World.cpp": "96d0b16ed67e6f7beb51f6b853164c483cab4bfe4bf6122c5fb1141cf010beb7",
+     "src/session/World.h": "b87595e618230cd3a153bcb41fa965dcdb6e65ee0eee30fb612df3f44ca09442",
+     "src/session/WorldDamage.cpp": "63bc76d8df27496193d9f3d3f51becb2eec3f142e7115bbdc5b0e0855f22bbf3",
+     "src/session/WorldEngagements.cpp": "8a8106a4627c0ab85fde4c19f0dec97f099098fc3c30d10a8ebcda4e5bb80bb6",
+     "src/session/WorldOptions.cpp": "8487beff072827b23f93fc4af8feabd4390e0a2c641d9ff4969d233231bb691f",
+     "src/session/WorldOptions.h": "86101d1cc682ac1ba283b33371c616c79350404e532721a54a1341106f1679a5"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_session",
+    "type": "STATIC"
+   },
+   "sim": {
+    "aliases": [
+     "fsim::sim"
+    ],
+    "destinations": [
+     "src/simulation/flight"
+    ],
+    "digest": "b67eaed8fd25499767ae4be7ba2e1c65faf07f99e6990c8b8506ae2880bacefb",
+    "directories": [],
+    "domain": "simulation",
+    "explicit_files": [],
+    "files": {
+     "src/simulation/flight/Attitude.h": "aa69888ad1d669f7a1002182d72d46d9ca435a3283667d0c62b30da6f90c43e7",
+     "src/simulation/flight/ControlInputs.h": "a8f7ff886360a2ac52a65ff550bee36367c9502a3098a2f55f900cb5b8907ed4",
+     "src/simulation/flight/EnvironmentState.h": "fb7653493d2f8d731d8a053769b781c659e07e32ce7c13d83496455e1152cd66",
+     "src/simulation/flight/FlightModel.cpp": "b735edcf740bf473560328281ee7f78c13b7294059d8fed72017d058bce065fe",
+     "src/simulation/flight/FlightModel.h": "41b1ee4dab62b0bbcaa34813d2bf05ab8007a18ec5c93eeb4e5bb27a2526bea3",
+     "src/simulation/flight/GroundProvider.h": "3f2d80d8f6d350daa2b7d933110921d481aa1093f53cdf2704bc3389ba46b559",
+     "src/simulation/flight/JsbsimLog.cpp": "30f09933022ec620c6d0cfbbd0e73de38150ef6554d79a6271ac1c0a23caba35",
+     "src/simulation/flight/JsbsimLog.h": "5bb1235e23e5c837e8bc335dfc8df827ed37bfecf8a9863a5ad5ce9f036aa066",
+     "src/simulation/flight/JsbsimModel.cpp": "8a28d716161358ae67b731e22b9dc347230af74d65775c7604eff099e313d045",
+     "src/simulation/flight/JsbsimModel.h": "4fe78bdf489c102510296e510b9df16fdee16a66784c5d526c45ee522cd838f7",
+     "src/simulation/flight/SimRunner.cpp": "633c870be12908e7e97aaa27c37867d6af231c1ee8d5e006350743194c2a8e2e",
+     "src/simulation/flight/SimRunner.h": "f7f77e998cb88370742aefb933dc9eedc4fa823068cea04724916c01e9bba267",
+     "src/simulation/flight/SnapshotBuffer.h": "f5c34fc1856e9d4dab04f383c6a6ef6ac02d2d3018ec9d8faaa068d342ea2e2e",
+     "src/simulation/flight/VehiclePool.cpp": "dd0dc46482998c1db4651e1a8479e152bc6a7372af0012dac5f93152962b8073",
+     "src/simulation/flight/VehiclePool.h": "855d759a18c00279dbd9f9a95d8fbdf29f084bb7e6190a7b5d1aab550ee9e95a",
+     "src/simulation/flight/VehicleState.h": "7b37941737a2f6edd828fac7358beb6e86db5571623fffed9ec8930e6ed12fdd"
+    },
+    "headless": true,
+    "kind": "implementation",
+    "target": "fsim_sim",
+    "type": "STATIC"
+   },
+   "ui": {
+    "aliases": [
+     "fsim::ui"
+    ],
+    "destinations": [
+     "src/visualization/ui"
+    ],
+    "digest": "8909e67c5d715ed89542f6c429cf5d77f5c1885a68a1ad8ddee73525cff3da0d",
+    "directories": [
+     "src/ui"
+    ],
+    "domain": "visualization",
+    "explicit_files": [],
+    "files": {
+     "src/ui/CameraPreview.cpp": "dc6f901001ddfe3c175c144e15cb4d1ce475e731872eee0288620fa900c21081",
+     "src/ui/CameraPreview.h": "69364478e3bc59cd26b49e5ef50f128ed0e701ccf924b360159c2384fdbc5906",
+     "src/ui/Colour.h": "ce701bb33a8f6b06cb9be5dbdadd3a8c2414f1cc48b8711ea8aff6c194f5b712",
+     "src/ui/KeyHandler.cpp": "a97a5c4c13686382dfc213766be3f0dbf35786c1f092b8c36611d658913737fd",
+     "src/ui/KeyHandler.h": "12d45c78fe499d1afed3ee516a92b881f2020450756e693815d27109e2208f64",
+     "src/ui/MissionGui.cpp": "b11676c613d53b713c1fcb99f0129fe9249654a87e11e37fafab13a38a3cd5a9",
+     "src/ui/MissionGui.h": "92b0ec1060e6ac52a0d52f21a003779fbe27fc5996168910642c72068bc5d4af",
+     "src/ui/MonitorGui.cpp": "95d70d7cabd37f2e4a6ad8cd912f6bba1f8c8a9adfd980ccaca648ed3d54f0a5",
+     "src/ui/MonitorGui.h": "6268512f0bbb25b788fddf1cd3ff16eba6b890995e874c1de41c6c30fd943148",
+     "src/ui/ViewerControls.h": "739106fa0343a407c36b7d6825740222a9f4003ea8d3e89534042157c0b976a7"
+    },
+    "headless": false,
+    "kind": "implementation",
+    "target": "fsim_ui",
+    "type": "STATIC"
+   },
+   "viewer": {
+    "aliases": [],
+    "destinations": [
+     "src/applications/viewer"
+    ],
+    "digest": "e0b4c02055f3155270ca59c056daba4f21adddaaac97427a349c87d8abb426e6",
+    "directories": [],
+    "domain": "applications",
+    "explicit_files": [
+     "src/app/viewer_main.cpp",
+     "src/app/DemoAutopilot.h",
+     "src/app/StrikeCapture.h"
+    ],
+    "files": {
+     "src/app/DemoAutopilot.h": "0ba327547a6a11ba5e39fdbc268d95a29ebc5560f517b77bf4c6c8b8b13a0c92",
+     "src/app/StrikeCapture.h": "b83c1f566407bec4398729d8b3a1def215c32f24cbc66bd1710659e402ee6a37",
+     "src/app/viewer_main.cpp": "9b39f7ae62960f911968907d1d1f30bf52b7dce8542584a9b20d4ca3281d3cee"
+    },
+    "headless": false,
+    "kind": "application",
+    "target": "flightsim-viewer",
+    "type": "EXECUTABLE"
+   },
+   "vision": {
+    "aliases": [
+     "fsim::vision"
+    ],
+    "destinations": [
+     "src/adapters/vision"
+    ],
+    "digest": "2fad23e56d516900686a7a0fca78ae61a67ef13ba864691807662ee01791fb41",
+    "directories": [
+     "src/vision"
+    ],
+    "domain": "adapters",
+    "explicit_files": [],
+    "files": {
+     "src/vision/Offscreen.cpp": "321b139486bc4231474498d866e35b592e8ad04de5a122078369f72871e2c9da",
+     "src/vision/Offscreen.h": "37e61461c3f46fad7dd27a10d7003d1ba51b1e0c14dd50b3fd1c62897e61ec8b",
+     "src/vision/Vision.cpp": "4de8dd025784e662943cb7c031e237cf4650326cc0a94f088fe79fb957d561f2",
+     "src/vision/fsim_vision_c.cpp": "72848fd5c074530b966c74f9876e896cd1f6424a6bc4fe07cba30b551990ec56"
+    },
+    "headless": false,
+    "kind": "assembly",
+    "target": "fsim_vision",
+    "type": "SHARED"
+   },
+   "world": {
+    "aliases": [
+     "fsim::world"
+    ],
+    "destinations": [
+     "src/visualization/scene",
+     "src/visualization/vfx/effects"
+    ],
+    "digest": "71e3fc93d95ad9ed227ad4bc9a066b1d88d603d492c3e0d06653a3a91cfb094b",
+    "directories": [
+     "src/world"
+    ],
+    "domain": "visualization",
+    "explicit_files": [],
+    "files": {
+     "src/world/Airflow.cpp": "7dc92a71ca3591447307806348de310a54df3884103d6e6203c195e2dcd54c78",
+     "src/world/Airflow.h": "f9c52b17bc023c750b9438fa0fe855bc008e0beadc4b8bba1759affb01d9a78f",
+     "src/world/Atmosphere.cpp": "9b84011426538c98ba3529ddf9bfb3693d6efaf643e65c562f1f679688cdf94e",
+     "src/world/Atmosphere.h": "584c2336b988681a5d5c4805e94b8964408715c583ecb26f3df32d2428729d98",
+     "src/world/Blackbody.h": "3d90e335c3bf0249012af788df3855e85a8d5576b1caeb9c2f8120e0d4af5a52",
+     "src/world/CameraController.cpp": "e76c831fc20282e2a7ae0112cce023281994043ee708806a208ecefd1b40254f",
+     "src/world/CameraController.h": "db790d4ff12c470a5a8a41f87b6f52e16bf3bd4f6f428dc53bcc262549f7e4b7",
+     "src/world/Clouds.cpp": "d3df0a89a37adb154f9e9bc665679ccd68261bdcddcbcd0d8549acb37c28345b",
+     "src/world/Clouds.h": "9d13bd8f1f9233085c44f7e63f3a7e4dba1630f6b4f17617bf3f15a69e712980",
+     "src/world/Cocip.cpp": "8c26d9056540a4033cbd63cbc07b37fb479a98eb80a6c4361d3def8bee82ffb5",
+     "src/world/Cocip.h": "1aeef7e2bf75c8dce7a8b583e951f15a50237bcb1c984c3cad046fe1cab0f0f5",
+     "src/world/Earth.cpp": "90697a2806c0837fdab263d2f7f18130dcf627bea7c33bb8029216e116912e79",
+     "src/world/Earth.h": "6b4963534cada08e2b157038d07f1c9f89ec810f5ac81fc82de71ff9c088394a",
+     "src/world/ElevatedTile.cpp": "6b11b6299e1bc95737543e3824b646b108d33af42a35166a3cb57f87b6dd54cc",
+     "src/world/ElevatedTile.h": "b3f57f12c02cda7171f9659d0b1c0aa9a536064d2c91d266ac1f0cd39c500bb3",
+     "src/world/ElevationUpsampler.cpp": "0a05b19457c3fa3b9476bfb14815febca94450bc8673a4d9e56b51cd21de1067",
+     "src/world/ElevationUpsampler.h": "4ebb89fb6a29e3996a65b251a20b141595ab2f1efcd48a5985be21d4d8149637",
+     "src/world/Exhaust.cpp": "f12bba84afabb86148ea12dec981448bca638f3a33b271e089c8f919811d06a5",
+     "src/world/Exhaust.h": "edd57c38458b619596cc843bb0357cd763b696d1108df5b2dcec53af554f1111",
+     "src/world/FlatGeometry.cpp": "bd845b87a9f0deea1882160091208edc32ef22aae76629e915cf93e2c58f8e29",
+     "src/world/FlatGeometry.h": "5b1de94408a54df33e03a216a36b0a2053ddd5735786667e9e13a4f79b609b14",
+     "src/world/FlowVolumes.cpp": "aa353fefca5fdfc72beaa8afa33659a4ddc6093f93df2947fa0f168b58bc6083",
+     "src/world/FlowVolumes.h": "76c8459074531d2992a2d9bc6ba3d604698fdd22ac06aba3a9d8e738a78024bf",
+     "src/world/Frames.h": "7a3c2ad9a67a49efdd02c57cae17168fa432f63c35e0750aa393a9b3fd02a72d",
+     "src/world/Interpolator.cpp": "58baeb256469fd73c823f9a5ee1f31ceaab3686c278eb4ebff8027c9a67e111d",
+     "src/world/Interpolator.h": "bb8f6847894ab333defb3cb62959411725f808efa3a6940dac61fff0c4934e14",
+     "src/world/OfflineTiles.cpp": "9df7777c2045a799c49436f7ef185ea085300f3a56c87e83422dd6d527d509ab",
+     "src/world/OfflineTiles.h": "9ee9ee2d1b18c32e4047dda373aeda80b1015611755953c39ae21c3d7ec9422f",
+     "src/world/Propellants.h": "719bd1ba60653c8c549c6bf2e13aff5cde7a73312906f06cca3a9a8fe157d53f",
+     "src/world/Scattering.cpp": "feaad3a83bea338832eba2336b5d6734b3925669a343c82e2d7094bb76944d8e",
+     "src/world/Scattering.h": "140c973050b875703b00803c13a01471b0e39c87786800ed39f1701f75f1ebb5",
+     "src/world/ShadingRate.h": "db0a4a54f1753c53aaf5b158eddb64f6375e096e351b73c69d8ca7e9f0e59e7d",
+     "src/world/Sky.cpp": "fd887f7d0afbf5493d617d62590950cbd866d7fec3a1b041f1b8db63e71de04e",
+     "src/world/Sky.h": "681e29da783e4c5f8230d8f33848c69517146d5491e08f31a3139e47a5e3442b",
+     "src/world/SkyDome.cpp": "33a8ee1aaf8f6df2d92319558d486def899fbcfbb8ba620365c299dd09c833f6",
+     "src/world/SkyDome.h": "28b8338ec388b48c6ddb927ff75981a952f9e6e32edabdaa3d874900639afe3a",
+     "src/world/Terrain.cpp": "82dd759463bf6bdd148ae76b4efdc62b3f4083438473466743319f17383cc8dd",
+     "src/world/Terrain.h": "20d0198473264b9937cbcc6ddb86c6f77752e6e1e6ed203b8b13c74c5e9d8dbe",
+     "src/world/Trails.cpp": "0e7cd18527a5fc48477d4913d73ffaeda66a75e9cbb802f9aee89b697c1d545a",
+     "src/world/Trails.h": "aac0453480b02cf613c1cd7e62f5ec69f220f4daba3d8ac2e4fcea6bdef0d745",
+     "src/world/VehicleVisuals.cpp": "f9db986b23c35df05487171394b31292407ec16612852e1233b0aa3731e6098d",
+     "src/world/VehicleVisuals.h": "e20950ee4cdcfad3e01ba0b285d95ed9396867fd73b1188a027c3b88c00077a8",
+     "src/world/WingVapour.cpp": "45eda54cadc8c4916c1f72cd050f16409a8ac2a2b5c16a1dcce0348742079c3e",
+     "src/world/WingVapour.h": "96aba12e1938b74ec1f85f8c6acae67fd6b5e6b5b6db97edc6e0415f31981cac"
+    },
+    "headless": false,
+    "kind": "implementation",
+    "target": "fsim_world",
+    "type": "STATIC"
+   }
+  },
+  "planned_modules": {
+   "demo": {
+    "destinations": [
+     "src/applications/demo"
+    ],
+    "domain": "applications",
+    "kind": "application",
+    "phase": "ARCH-06"
+   },
+   "mission": {
+    "destinations": [
+     "src/training/native/mission",
+     "src/training/native/batch",
+     "src/training/native/episodes/api"
+    ],
+    "domain": "training",
+    "kind": "implementation",
+    "phase": "ARCH-05"
+   },
+   "modeled_dms": {
+    "destinations": [
+     "src/simulation/communications/dms"
+    ],
+    "domain": "simulation",
+    "kind": "implementation",
+    "phase": "ARCH-04"
+   },
+   "oms": {
+    "destinations": [
+     "src/adapters/oms"
+    ],
+    "domain": "adapters",
+    "kind": "assembly",
+    "phase": "MS-12"
+   },
+   "python_native": {
+    "destinations": [
+     "src/adapters/sdk/python"
+    ],
+    "domain": "adapters",
+    "kind": "assembly",
+    "phase": "ARCH-07"
+   },
+   "simulation_api": {
+    "destinations": [
+     "src/simulation/api"
+    ],
+    "domain": "simulation",
+    "kind": "implementation",
+    "phase": "ARCH-04"
+   },
+   "testbench": {
+    "destinations": [
+     "src/applications/testbench"
+    ],
+    "domain": "applications",
+    "kind": "application",
+    "phase": "ARCH-08"
+   },
+   "training_vision": {
+    "destinations": [
+     "src/applications/training_visualization"
+    ],
+    "domain": "applications",
+    "kind": "application",
+    "phase": "ARCH-06"
+   },
+   "vision_core": {
+    "destinations": [
+     "src/visualization/vision"
+    ],
+    "domain": "visualization",
+    "kind": "implementation",
+    "phase": "ARCH-06"
+   },
+   "vision_native": {
+    "destinations": [
+     "src/adapters/vision/python"
+    ],
+    "domain": "adapters",
+    "kind": "assembly",
+    "phase": "ARCH-07"
+   }
+  },
+  "public_exceptions_applied": [
+   "include/fsim/VecEnv.h -> include/fsim/fsim_c.h",
+   "ui -> include/fsim/Capability.h",
+   "ui -> include/fsim/MissionSystems.h"
+  ],
+  "public_headers": {
+   "include/fsim/Agent.h": {
+    "domain": "simulation",
+    "included_by": [
+     "sdk",
+     "session"
+    ],
+    "kind": "facade",
+    "sha256": "b8436708a5ee5bbcec85404f89ddf931b184704b5a6da0155147db98f7a9f2fa"
+   },
+   "include/fsim/Altimeter.h": {
+    "domain": "simulation",
+    "included_by": [
+     "control",
+     "session"
+    ],
+    "kind": "interface",
+    "sha256": "fa759dc52353d926df16ee18451878c848fd99d07e98bb11c085eebec0b2d855"
+   },
+   "include/fsim/BuiltinControllers.h": {
+    "domain": "simulation",
+    "included_by": [
+     "control"
+    ],
+    "kind": "interface",
+    "sha256": "ae55ebe5f19480d01fd7e03b9878b07f4b2131d97796378ea1c03a3a1dc924aa"
+   },
+   "include/fsim/BuiltinEffects.h": {
+    "domain": "simulation",
+    "included_by": [
+     "effects",
+     "sdk",
+     "session"
+    ],
+    "kind": "interface",
+    "sha256": "b09416b816e66c6fa695de06bc8fe67e437dd0c0d785cfd768dcd08158086a20"
+   },
+   "include/fsim/Capability.h": {
+    "domain": "simulation",
+    "included_by": [
+     "control",
+     "sdk",
+     "session",
+     "ui"
+    ],
+    "kind": "interface",
+    "sha256": "e5871adfb02ce54bfe71dbc568a9d38c806ec93943c61e79035185be16ce0f2d"
+   },
+   "include/fsim/Comm.h": {
+    "domain": "simulation",
+    "included_by": [
+     "comm",
+     "env",
+     "sdk",
+     "session"
+    ],
+    "kind": "interface",
+    "sha256": "0c2f59e54ec86bae17535ba54cd0acfb72e04ddb754be88ca7a5bd291eb4e945"
+   },
+   "include/fsim/Control.h": {
+    "domain": "simulation",
+    "included_by": [
+     "control",
+     "env",
+     "session",
+     "viewer"
+    ],
+    "kind": "interface",
+    "sha256": "1005db4f09c3e64bea31d627d43571d06cddba4fd960c2c1d06950de424f54fb"
+   },
+   "include/fsim/ControlInputs.h": {
+    "domain": "contracts",
+    "included_by": [
+     "contracts",
+     "control",
+     "sim"
+    ],
+    "kind": "value",
+    "sha256": "94b8f0ac2cb23a69f62be0f089221111f677ef796a9354db4442299c44cbf6cf"
+   },
+   "include/fsim/ControlStack.h": {
+    "domain": "simulation",
+    "included_by": [
+     "control"
+    ],
+    "kind": "interface",
+    "sha256": "8b2d57b0885cf169425502aae8f29fc58f33e2255ed76bcb977f5d0df104c58f"
+   },
+   "include/fsim/ControllerRegistry.h": {
+    "domain": "simulation",
+    "included_by": [
+     "control",
+     "session"
+    ],
+    "kind": "interface",
+    "sha256": "3c189150b7e929ec391932d070fac0876ac8417b9b1547b1cf9a7da39f9c6080"
+   },
+   "include/fsim/Effects.h": {
+    "domain": "simulation",
+    "included_by": [
+     "effects",
+     "session"
+    ],
+    "kind": "interface",
+    "sha256": "4650e202d52bb0476e12f998f53d91e3be215ff62d9bfc963d6295536f3afa91"
+   },
+   "include/fsim/EnvironmentState.h": {
+    "domain": "contracts",
+    "included_by": [
+     "contracts",
+     "ms",
+     "sdk",
+     "session",
+     "sim"
+    ],
+    "kind": "value",
+    "sha256": "d5652fe65493c61378e170cc5ec8778ec7b46365bcd6550ce64d403901fbe26b"
+   },
+   "include/fsim/Export.h": {
+    "domain": "contracts",
+    "included_by": [],
+    "kind": "value",
+    "sha256": "21188a7497861f54bb418b9f646d74438c315e478fa2e309ccde3b7d1f0839c8"
+   },
+   "include/fsim/Frames.h": {
+    "domain": "simulation",
+    "included_by": [
+     "control",
+     "session"
+    ],
+    "kind": "interface",
+    "sha256": "45c0c34ba32bec7338d709ff5f5dc2e2fc1d8abafe9930b9ea0383c054030655"
+   },
+   "include/fsim/GroundProvider.h": {
+    "domain": "contracts",
+    "included_by": [
+     "contracts",
+     "io",
+     "ms",
+     "session",
+     "sim"
+    ],
+    "kind": "interface",
+    "sha256": "98b048b679271e3c3ac85a0e57a5823bbc5eefb7cc4d8c0be38547f174679915"
+   },
+   "include/fsim/GuidanceModes.h": {
+    "domain": "simulation",
+    "included_by": [
+     "control"
+    ],
+    "kind": "interface",
+    "sha256": "2a96026d253cc153cc9110948191a9d0355f45eb7ff91a5fb7032c121e9eee23"
+   },
+   "include/fsim/InitialConditions.h": {
+    "domain": "contracts",
+    "included_by": [
+     "session",
+     "sim"
+    ],
+    "kind": "value",
+    "sha256": "ad7048a1c82b6479a0ece3e2b9476d67065f083b2158e97dcd4945c45b34b0ad"
+   },
+   "include/fsim/MAReports.h": {
+    "domain": "simulation",
+    "included_by": [
+     "session"
+    ],
+    "kind": "value",
+    "sha256": "ecbabde3aacf7f7025b209a95a8056971e1a40d3fa636b1579571429da91cf3e"
+   },
+   "include/fsim/MAService.h": {
+    "domain": "simulation",
+    "included_by": [
+     "sdk"
+    ],
+    "kind": "facade",
+    "sha256": "5efa9037850b56cefb8448afcbbc3b6c3e2162130361860d0e054ea6769480cd"
+   },
+   "include/fsim/Magnetic.h": {
+    "domain": "simulation",
+    "included_by": [
+     "control",
+     "sdk",
+     "session"
+    ],
+    "kind": "interface",
+    "sha256": "fe9b92b1adc541943c7ed6909bfdc153df9cd72eb5e56cb7654f1244bde98dc6"
+   },
+   "include/fsim/MissionBatch.h": {
+    "domain": "training",
+    "included_by": [
+     "sdk"
+    ],
+    "kind": "facade",
+    "sha256": "67810323e76c6f797c7203147d9aec16faf00668a64a1c1d4114364542665c07"
+   },
+   "include/fsim/MissionEpisode.h": {
+    "domain": "training",
+    "included_by": [
+     "sdk"
+    ],
+    "kind": "facade",
+    "sha256": "269db30d06bbe445f36dc915d266a74464cc2243a229c8fee33425694aa511ff"
+   },
+   "include/fsim/MissionSystems.h": {
+    "domain": "simulation",
+    "included_by": [
+     "ms",
+     "session",
+     "ui",
+     "viewer"
+    ],
+    "kind": "interface",
+    "sha256": "9663a81f3effdc97a1164dd35df1b4d78de263140ddeed30861cb4701ac27473"
+   },
+   "include/fsim/PerformanceProfile.h": {
+    "domain": "simulation",
+    "included_by": [
+     "sdk",
+     "session"
+    ],
+    "kind": "interface",
+    "sha256": "b1e3689c069e9c970f79bf21d9ce6ced50833b3825177feec307de9534b6f1e6"
+   },
+   "include/fsim/Pid.h": {
+    "domain": "simulation",
+    "included_by": [
+     "control"
+    ],
+    "kind": "value",
+    "sha256": "4282af4f15dab8e7da5e16b7010d22035663f14d99b6cb32e5f00afd6fbaf5c7"
+   },
+   "include/fsim/Property.h": {
+    "domain": "simulation",
+    "included_by": [
+     "session",
+     "sim"
+    ],
+    "kind": "interface",
+    "sha256": "5aced16ff9446a15a6869da81920d32c1987868d465fde7a01057d753fff5c94"
+   },
+   "include/fsim/Recording.h": {
+    "domain": "simulation",
+    "included_by": [
+     "sdk"
+    ],
+    "kind": "facade",
+    "sha256": "f13d215e4bdce8dcceca1851747d7380040d870071c6d4f79db2ce97ea1f177a"
+   },
+   "include/fsim/Rng.h": {
+    "domain": "contracts",
+    "included_by": [
+     "core",
+     "env",
+     "ms",
+     "session"
+    ],
+    "kind": "value",
+    "sha256": "bd2ba4a188a511d0fe4c0ccddec0956b8c164ab8bd5796c0672e9f26bdcce2c7"
+   },
+   "include/fsim/RotorControllers.h": {
+    "domain": "simulation",
+    "included_by": [
+     "control"
+    ],
+    "kind": "interface",
+    "sha256": "12c8f381dd18543d45e1eddc16fcad2f9bb241509622c84367c523885b858478"
+   },
+   "include/fsim/Scenario.h": {
+    "domain": "training",
+    "included_by": [
+     "env",
+     "sdk"
+    ],
+    "kind": "facade",
+    "sha256": "5c71c6aa8229c2aac968006eb7f3998080f90c13e06a81a43467d8697fbc77ce"
+   },
+   "include/fsim/ScenarioDocument.h": {
+    "domain": "simulation",
+    "included_by": [
+     "session"
+    ],
+    "kind": "interface",
+    "sha256": "4278aa38007b86b67e223604a6f0cd7ad7bd0affc37bdac0ed720c98c34b00f4"
+   },
+   "include/fsim/Span.h": {
+    "domain": "contracts",
+    "included_by": [
+     "control",
+     "core"
+    ],
+    "kind": "value",
+    "sha256": "aa8a2c87cf6ca3ede64fe732a9f516119db89f82ebab7bd3e9acfd2a68d67042"
+   },
+   "include/fsim/VecEnv.h": {
+    "domain": "training",
+    "included_by": [
+     "sdk"
+    ],
+    "kind": "facade",
+    "sha256": "01c1f4aa647273402b006b34189fc879c957c2b0f3cfb55e5157ccc772bfd302"
+   },
+   "include/fsim/VecEnvPlugins.h": {
+    "domain": "training",
+    "included_by": [
+     "env"
+    ],
+    "kind": "interface",
+    "sha256": "5cf56d4bf20e821a76180656ca5beede14396053eb3170e3a386caf367efb929"
+   },
+   "include/fsim/VehicleProfile.h": {
+    "domain": "simulation",
+    "included_by": [
+     "control",
+     "session"
+    ],
+    "kind": "interface",
+    "sha256": "696efed3affeb15416d1bda6f13a9e4cefc7817fe71e731a8a386701afd36058"
+   },
+   "include/fsim/VehicleState.h": {
+    "domain": "contracts",
+    "included_by": [
+     "contracts",
+     "control",
+     "env",
+     "ms",
+     "sim"
+    ],
+    "kind": "value",
+    "sha256": "d0cbd9afd29c058877d73cb57c497c79660b059f4e4c8fe546be1102e8a58237"
+   },
+   "include/fsim/Vision.h": {
+    "domain": "adapters",
+    "included_by": [
+     "vision"
+    ],
+    "kind": "facade",
+    "sha256": "111a96fafc039187c30749fa493aa24202839c0ba0c806e83ae7fcc7ef78c0d7"
+   },
+   "include/fsim/World.h": {
+    "domain": "simulation",
+    "included_by": [
+     "sdk",
+     "session"
+    ],
+    "kind": "facade",
+    "sha256": "4b8283341d9d4e3b298c26a22a9f8f4b125ff3bb0506716a59368a3586dc92d8"
+   },
+   "include/fsim/fsim_c.h": {
+    "domain": "adapters",
+    "included_by": [
+     "sdk"
+    ],
+    "kind": "c_abi",
+    "sha256": "26d849a979a13e44153101649570838169e8e847affd7e8c09320cd98bb50fb3"
+   },
+   "include/fsim/fsim_mission_env.h": {
+    "domain": "adapters",
+    "included_by": [
+     "sdk"
+    ],
+    "kind": "c_abi",
+    "sha256": "366ede24ac0027ec8d1e12977b8bc55f1f7ec63dfdd3da14399a7f0f90a2ab71"
+   },
+   "include/fsim/fsim_vision_c.h": {
+    "domain": "adapters",
+    "included_by": [
+     "vision"
+    ],
+    "kind": "c_abi",
+    "sha256": "cda3c037e974fb342c08b0bfe307c978d27018f7d25fe74f50dbc975b176c126"
+   }
+  },
+  "public_includes": {
+   "comm -> include/fsim/Comm.h": "src/simulation/communications/network/Comm.h:2",
+   "contracts -> include/fsim/ControlInputs.h": "src/contracts/world_stream/WorldLayout.h:17",
+   "contracts -> include/fsim/EnvironmentState.h": "src/contracts/world_stream/WorldLayout.h:18",
+   "contracts -> include/fsim/GroundProvider.h": "src/contracts/simulation/WorldOptions.h:8",
+   "contracts -> include/fsim/VehicleState.h": "src/contracts/world_stream/SnapshotBatch.h:8",
+   "control -> include/fsim/Altimeter.h": "src/simulation/flight_control/Altimeter.cpp:4",
+   "control -> include/fsim/BuiltinControllers.h": "src/simulation/flight_control/Builtin.h:2",
+   "control -> include/fsim/Capability.h": "src/simulation/flight_control/CapabilityHost.h:13",
+   "control -> include/fsim/Control.h": "src/simulation/flight_control/Adapter.h:10",
+   "control -> include/fsim/ControlInputs.h": "src/simulation/flight_control/Adapter.h:11",
+   "control -> include/fsim/ControlStack.h": "src/simulation/flight_control/Adapter.cpp:4",
+   "control -> include/fsim/ControllerRegistry.h": "src/simulation/flight_control/Intercept.cpp:11",
+   "control -> include/fsim/Frames.h": "src/simulation/flight_control/Frames.cpp:3",
+   "control -> include/fsim/GuidanceModes.h": "src/simulation/flight_control/Arrival.cpp:9",
+   "control -> include/fsim/Magnetic.h": "src/simulation/flight_control/Declination.cpp:5",
+   "control -> include/fsim/Pid.h": "src/simulation/flight_control/Pid.h:2",
+   "control -> include/fsim/RotorControllers.h": "src/simulation/flight_control/Builtin.cpp:7",
+   "control -> include/fsim/Span.h": "src/simulation/flight_control/CapabilityHost.h:15",
+   "control -> include/fsim/VehicleProfile.h": "src/simulation/flight_control/Adapter.h:12",
+   "control -> include/fsim/VehicleState.h": "src/simulation/flight_control/Adapter.h:13",
+   "core -> include/fsim/Rng.h": "src/foundation/core/Rng.h:2",
+   "core -> include/fsim/Span.h": "src/foundation/core/Span.h:2",
+   "effects -> include/fsim/BuiltinEffects.h": "src/simulation/environment/Builtin.h:2",
+   "effects -> include/fsim/Effects.h": "src/simulation/environment/Effect.h:2",
+   "env -> include/fsim/Comm.h": "src/env/MissionEpisode.h:18",
+   "env -> include/fsim/Control.h": "src/env/Observation.h:8",
+   "env -> include/fsim/Rng.h": "src/env/MissionEpisode.cpp:5",
+   "env -> include/fsim/Scenario.h": "src/env/MissionEpisode.h:19",
+   "env -> include/fsim/VecEnvPlugins.h": "src/env/Observation.h:9",
+   "env -> include/fsim/VehicleState.h": "src/env/Observation.h:10",
+   "include/fsim/Agent.h -> include/fsim/Capability.h": "include/fsim/Agent.h:16",
+   "include/fsim/Agent.h -> include/fsim/Comm.h": "include/fsim/Agent.h:17",
+   "include/fsim/Agent.h -> include/fsim/Control.h": "include/fsim/Agent.h:18",
+   "include/fsim/Agent.h -> include/fsim/Export.h": "include/fsim/Agent.h:19",
+   "include/fsim/Agent.h -> include/fsim/Frames.h": "include/fsim/Agent.h:20",
+   "include/fsim/Agent.h -> include/fsim/MAReports.h": "include/fsim/Agent.h:21",
+   "include/fsim/Agent.h -> include/fsim/MAService.h": "include/fsim/Agent.h:22",
+   "include/fsim/Agent.h -> include/fsim/MissionSystems.h": "include/fsim/Agent.h:23",
+   "include/fsim/Agent.h -> include/fsim/PerformanceProfile.h": "include/fsim/Agent.h:24",
+   "include/fsim/Agent.h -> include/fsim/Span.h": "include/fsim/Agent.h:25",
+   "include/fsim/Agent.h -> include/fsim/VehicleState.h": "include/fsim/Agent.h:26",
+   "include/fsim/Altimeter.h -> include/fsim/Export.h": "include/fsim/Altimeter.h:10",
+   "include/fsim/BuiltinControllers.h -> include/fsim/Control.h": "include/fsim/BuiltinControllers.h:6",
+   "include/fsim/BuiltinControllers.h -> include/fsim/Export.h": "include/fsim/BuiltinControllers.h:7",
+   "include/fsim/BuiltinControllers.h -> include/fsim/Pid.h": "include/fsim/BuiltinControllers.h:8",
+   "include/fsim/BuiltinEffects.h -> include/fsim/Effects.h": "include/fsim/BuiltinEffects.h:6",
+   "include/fsim/BuiltinEffects.h -> include/fsim/Export.h": "include/fsim/BuiltinEffects.h:7",
+   "include/fsim/Capability.h -> include/fsim/Export.h": "include/fsim/Capability.h:8",
+   "include/fsim/Comm.h -> include/fsim/Control.h": "include/fsim/Comm.h:8",
+   "include/fsim/Comm.h -> include/fsim/Export.h": "include/fsim/Comm.h:9",
+   "include/fsim/Comm.h -> include/fsim/Rng.h": "include/fsim/Comm.h:10",
+   "include/fsim/Comm.h -> include/fsim/Span.h": "include/fsim/Comm.h:11",
+   "include/fsim/Control.h -> include/fsim/Capability.h": "include/fsim/Control.h:8",
+   "include/fsim/Control.h -> include/fsim/EnvironmentState.h": "include/fsim/Control.h:9",
+   "include/fsim/Control.h -> include/fsim/Export.h": "include/fsim/Control.h:15",
+   "include/fsim/Control.h -> include/fsim/Frames.h": "include/fsim/Control.h:10",
+   "include/fsim/Control.h -> include/fsim/Rng.h": "include/fsim/Control.h:11",
+   "include/fsim/Control.h -> include/fsim/Span.h": "include/fsim/Control.h:12",
+   "include/fsim/Control.h -> include/fsim/VehicleState.h": "include/fsim/Control.h:13",
+   "include/fsim/ControlStack.h -> include/fsim/Capability.h": "include/fsim/ControlStack.h:3",
+   "include/fsim/ControlStack.h -> include/fsim/Control.h": "include/fsim/ControlStack.h:4",
+   "include/fsim/ControlStack.h -> include/fsim/ControlInputs.h": "include/fsim/ControlStack.h:5",
+   "include/fsim/ControlStack.h -> include/fsim/Export.h": "include/fsim/ControlStack.h:6",
+   "include/fsim/ControlStack.h -> include/fsim/Span.h": "include/fsim/ControlStack.h:7",
+   "include/fsim/ControllerRegistry.h -> include/fsim/Control.h": "include/fsim/ControllerRegistry.h:3",
+   "include/fsim/ControllerRegistry.h -> include/fsim/Export.h": "include/fsim/ControllerRegistry.h:4",
+   "include/fsim/Effects.h -> include/fsim/EnvironmentState.h": "include/fsim/Effects.h:7",
+   "include/fsim/Effects.h -> include/fsim/Export.h": "include/fsim/Effects.h:8",
+   "include/fsim/Effects.h -> include/fsim/Property.h": "include/fsim/Effects.h:9",
+   "include/fsim/Effects.h -> include/fsim/Rng.h": "include/fsim/Effects.h:10",
+   "include/fsim/Effects.h -> include/fsim/VehicleState.h": "include/fsim/Effects.h:11",
+   "include/fsim/Frames.h -> include/fsim/Export.h": "include/fsim/Frames.h:8",
+   "include/fsim/Frames.h -> include/fsim/VehicleState.h": "include/fsim/Frames.h:9",
+   "include/fsim/GuidanceModes.h -> include/fsim/Control.h": "include/fsim/GuidanceModes.h:9",
+   "include/fsim/GuidanceModes.h -> include/fsim/Export.h": "include/fsim/GuidanceModes.h:10",
+   "include/fsim/MAReports.h -> include/fsim/Comm.h": "include/fsim/MAReports.h:18",
+   "include/fsim/MAReports.h -> include/fsim/Export.h": "include/fsim/MAReports.h:19",
+   "include/fsim/MAService.h -> include/fsim/Capability.h": "include/fsim/MAService.h:13",
+   "include/fsim/MAService.h -> include/fsim/Export.h": "include/fsim/MAService.h:14",
+   "include/fsim/Magnetic.h -> include/fsim/Export.h": "include/fsim/Magnetic.h:8",
+   "include/fsim/MissionBatch.h -> include/fsim/Export.h": "include/fsim/MissionBatch.h:28",
+   "include/fsim/MissionBatch.h -> include/fsim/MissionEpisode.h": "include/fsim/MissionBatch.h:29",
+   "include/fsim/MissionEpisode.h -> include/fsim/Export.h": "include/fsim/MissionEpisode.h:21",
+   "include/fsim/MissionSystems.h -> include/fsim/Capability.h": "include/fsim/MissionSystems.h:10",
+   "include/fsim/MissionSystems.h -> include/fsim/Export.h": "include/fsim/MissionSystems.h:11",
+   "include/fsim/PerformanceProfile.h -> include/fsim/Capability.h": "include/fsim/PerformanceProfile.h:11",
+   "include/fsim/PerformanceProfile.h -> include/fsim/Control.h": "include/fsim/PerformanceProfile.h:12",
+   "include/fsim/Property.h -> include/fsim/Export.h": "include/fsim/Property.h:3",
+   "include/fsim/Recording.h -> include/fsim/ControlInputs.h": "include/fsim/Recording.h:14",
+   "include/fsim/Recording.h -> include/fsim/Export.h": "include/fsim/Recording.h:15",
+   "include/fsim/Recording.h -> include/fsim/VehicleState.h": "include/fsim/Recording.h:16",
+   "include/fsim/RotorControllers.h -> include/fsim/BuiltinControllers.h": "include/fsim/RotorControllers.h:10",
+   "include/fsim/RotorControllers.h -> include/fsim/Control.h": "include/fsim/RotorControllers.h:11",
+   "include/fsim/RotorControllers.h -> include/fsim/Export.h": "include/fsim/RotorControllers.h:12",
+   "include/fsim/Scenario.h -> include/fsim/Export.h": "include/fsim/Scenario.h:14",
+   "include/fsim/Scenario.h -> include/fsim/ScenarioDocument.h": "include/fsim/Scenario.h:15",
+   "include/fsim/Scenario.h -> include/fsim/VecEnv.h": "include/fsim/Scenario.h:16",
+   "include/fsim/Scenario.h -> include/fsim/World.h": "include/fsim/Scenario.h:17",
+   "include/fsim/ScenarioDocument.h -> include/fsim/Export.h": "include/fsim/ScenarioDocument.h:38",
+   "include/fsim/ScenarioDocument.h -> include/fsim/World.h": "include/fsim/ScenarioDocument.h:39",
+   "include/fsim/VecEnv.h -> include/fsim/fsim_c.h": "include/fsim/VecEnv.h:7",
+   "include/fsim/VecEnvPlugins.h -> include/fsim/Agent.h": "include/fsim/VecEnvPlugins.h:18",
+   "include/fsim/VecEnvPlugins.h -> include/fsim/Capability.h": "include/fsim/VecEnvPlugins.h:19",
+   "include/fsim/VecEnvPlugins.h -> include/fsim/Control.h": "include/fsim/VecEnvPlugins.h:20",
+   "include/fsim/VecEnvPlugins.h -> include/fsim/Export.h": "include/fsim/VecEnvPlugins.h:21",
+   "include/fsim/VecEnvPlugins.h -> include/fsim/Rng.h": "include/fsim/VecEnvPlugins.h:22",
+   "include/fsim/VecEnvPlugins.h -> include/fsim/VehicleState.h": "include/fsim/VecEnvPlugins.h:23",
+   "include/fsim/VehicleProfile.h -> include/fsim/ControlStack.h": "include/fsim/VehicleProfile.h:10",
+   "include/fsim/VehicleProfile.h -> include/fsim/Export.h": "include/fsim/VehicleProfile.h:11",
+   "include/fsim/Vision.h -> include/fsim/Export.h": "include/fsim/Vision.h:23",
+   "include/fsim/Vision.h -> include/fsim/VecEnv.h": "include/fsim/Vision.h:24",
+   "include/fsim/Vision.h -> include/fsim/World.h": "include/fsim/Vision.h:25",
+   "include/fsim/World.h -> include/fsim/Agent.h": "include/fsim/World.h:9",
+   "include/fsim/World.h -> include/fsim/Capability.h": "include/fsim/World.h:10",
+   "include/fsim/World.h -> include/fsim/Comm.h": "include/fsim/World.h:11",
+   "include/fsim/World.h -> include/fsim/Control.h": "include/fsim/World.h:12",
+   "include/fsim/World.h -> include/fsim/ControlInputs.h": "include/fsim/World.h:13",
+   "include/fsim/World.h -> include/fsim/ControlStack.h": "include/fsim/World.h:14",
+   "include/fsim/World.h -> include/fsim/Effects.h": "include/fsim/World.h:15",
+   "include/fsim/World.h -> include/fsim/EnvironmentState.h": "include/fsim/World.h:16",
+   "include/fsim/World.h -> include/fsim/Export.h": "include/fsim/World.h:17",
+   "include/fsim/World.h -> include/fsim/Frames.h": "include/fsim/World.h:19",
+   "include/fsim/World.h -> include/fsim/GroundProvider.h": "include/fsim/World.h:20",
+   "include/fsim/World.h -> include/fsim/InitialConditions.h": "include/fsim/World.h:21",
+   "include/fsim/World.h -> include/fsim/MissionSystems.h": "include/fsim/World.h:18",
+   "include/fsim/World.h -> include/fsim/PerformanceProfile.h": "include/fsim/World.h:22",
+   "include/fsim/World.h -> include/fsim/Property.h": "include/fsim/World.h:23",
+   "include/fsim/World.h -> include/fsim/VehicleProfile.h": "include/fsim/World.h:24",
+   "include/fsim/World.h -> include/fsim/VehicleState.h": "include/fsim/World.h:25",
+   "include/fsim/fsim_c.h -> include/fsim/Export.h": "include/fsim/fsim_c.h:15",
+   "include/fsim/fsim_mission_env.h -> include/fsim/fsim_c.h": "include/fsim/fsim_mission_env.h:17",
+   "include/fsim/fsim_vision_c.h -> include/fsim/Export.h": "include/fsim/fsim_vision_c.h:9",
+   "include/fsim/fsim_vision_c.h -> include/fsim/fsim_c.h": "include/fsim/fsim_vision_c.h:10",
+   "io -> include/fsim/GroundProvider.h": "src/foundation/io/TerrainTiles.h:3",
+   "ms -> include/fsim/EnvironmentState.h": "src/simulation/mission_systems/Model.h:9",
+   "ms -> include/fsim/GroundProvider.h": "src/simulation/mission_systems/rf/Path.cpp:4",
+   "ms -> include/fsim/MissionSystems.h": "src/simulation/mission_systems/Cards.h:11",
+   "ms -> include/fsim/Rng.h": "src/simulation/mission_systems/damage/Damage.h:13",
+   "ms -> include/fsim/VehicleState.h": "src/simulation/mission_systems/Model.h:12",
+   "sdk -> include/fsim/Agent.h": "src/sdk/Agent.cpp:4",
+   "sdk -> include/fsim/BuiltinEffects.h": "src/sdk/fsim_control_c.cpp:3",
+   "sdk -> include/fsim/Capability.h": "src/sdk/Handles.h:6",
+   "sdk -> include/fsim/Comm.h": "src/sdk/fsim_control_c.cpp:4",
+   "sdk -> include/fsim/EnvironmentState.h": "src/sdk/fsim_environment_c.cpp:3",
+   "sdk -> include/fsim/MAService.h": "src/sdk/MissionEpisode.cpp:11",
+   "sdk -> include/fsim/Magnetic.h": "src/sdk/fsim_control_c.cpp:10",
+   "sdk -> include/fsim/MissionBatch.h": "src/sdk/fsim_mission_env_c.cpp:10",
+   "sdk -> include/fsim/MissionEpisode.h": "src/sdk/fsim_mission_env_c.cpp:11",
+   "sdk -> include/fsim/PerformanceProfile.h": "src/sdk/Handles.h:5",
+   "sdk -> include/fsim/Recording.h": "src/sdk/fsim_control_c.cpp:5",
+   "sdk -> include/fsim/Scenario.h": "src/sdk/fsim_control_c.cpp:6",
+   "sdk -> include/fsim/VecEnv.h": "src/sdk/fsim.cpp:3",
+   "sdk -> include/fsim/World.h": "src/sdk/Agent.cpp:5",
+   "sdk -> include/fsim/fsim_c.h": "src/sdk/CAbiSupport.h:6",
+   "sdk -> include/fsim/fsim_mission_env.h": "src/sdk/fsim_mission_env_c.cpp:8",
+   "session -> include/fsim/Agent.h": "src/session/AgentRules.h:8",
+   "session -> include/fsim/Altimeter.h": "src/session/StateData.cpp:5",
+   "session -> include/fsim/BuiltinEffects.h": "src/session/Scenario.cpp:6",
+   "session -> include/fsim/Capability.h": "src/session/AgentRules.h:9",
+   "session -> include/fsim/Comm.h": "src/session/Dms.h:8",
+   "session -> include/fsim/Control.h": "src/session/AgentRules.h:11",
+   "session -> include/fsim/ControllerRegistry.h": "src/session/World.cpp:11",
+   "session -> include/fsim/Effects.h": "src/session/AgentRules.h:10",
+   "session -> include/fsim/EnvironmentState.h": "src/session/ScenarioRecipe.h:9",
+   "session -> include/fsim/Frames.h": "src/session/World.h:26",
+   "session -> include/fsim/GroundProvider.h": "src/session/Dms.h:9",
+   "session -> include/fsim/InitialConditions.h": "src/session/ScenarioRecipe.h:10",
+   "session -> include/fsim/MAReports.h": "src/session/MaReports.h:11",
+   "session -> include/fsim/Magnetic.h": "src/session/StateData.cpp:6",
+   "session -> include/fsim/MissionSystems.h": "src/session/AgentRules.h:12",
+   "session -> include/fsim/PerformanceProfile.h": "src/session/PerformanceProfile.cpp:10",
+   "session -> include/fsim/Property.h": "src/session/StoreFlightBinding.h:3",
+   "session -> include/fsim/Rng.h": "src/session/Dms.h:10",
+   "session -> include/fsim/ScenarioDocument.h": "src/session/Scenario.cpp:4",
+   "session -> include/fsim/VehicleProfile.h": "src/session/Navigation.cpp:6",
+   "session -> include/fsim/World.h": "src/session/WorldOptions.cpp:3",
+   "sim -> include/fsim/ControlInputs.h": "src/simulation/flight/ControlInputs.h:2",
+   "sim -> include/fsim/EnvironmentState.h": "src/simulation/flight/EnvironmentState.h:2",
+   "sim -> include/fsim/GroundProvider.h": "src/simulation/flight/GroundProvider.h:2",
+   "sim -> include/fsim/InitialConditions.h": "src/simulation/flight/FlightModel.h:4",
+   "sim -> include/fsim/Property.h": "src/simulation/flight/FlightModel.h:5",
+   "sim -> include/fsim/VehicleState.h": "src/simulation/flight/FlightModel.h:6",
+   "ui -> include/fsim/Capability.h": "src/ui/MonitorGui.cpp:5",
+   "ui -> include/fsim/MissionSystems.h": "src/ui/MissionGui.cpp:5",
+   "viewer -> include/fsim/Control.h": "src/app/viewer_main.cpp:20",
+   "viewer -> include/fsim/MissionSystems.h": "src/app/viewer_main.cpp:24",
+   "vision -> include/fsim/Vision.h": "src/vision/fsim_vision_c.cpp:5",
+   "vision -> include/fsim/fsim_vision_c.h": "src/vision/fsim_vision_c.cpp:3"
+  },
+  "unowned": []
+ },
+ "package_outputs": {
+  "install_rules": {
+   "cmake/Install.cmake": [
+    "CODE \n        include(\\\"${_fsim_runtime_deps_module}\\\")\n        fsim_copy_runtime_deps(\n            EXES ${_names}\n            SEARCH ${_fsim_dep_dirs}\n            OBJDUMP \\\"${_fsim_objdump}\\\"\n            DEST \\\"\\${CMAKE_INSTALL_PREFIX}/bin\\\"\n            LABEL \\\"package ${component}\\\") COMPONENT ${component}",
+    "TARGETS ${_fsim_export_targets} EXPORT fsimTargets RUNTIME DESTINATION bin COMPONENT sdk LIBRARY DESTINATION lib COMPONENT sdk ARCHIVE DESTINATION lib COMPONENT sdk",
+    "DIRECTORY ${CMAKE_SOURCE_DIR}/include/fsim DESTINATION include COMPONENT sdk",
+    "DIRECTORY ${CMAKE_SOURCE_DIR}/docs/sdk DESTINATION share/doc/flightsim COMPONENT sdk",
+    "CODE execute_process(COMMAND \\\"${CMAKE_COMMAND}\\\" \\\"-DSRC=${CMAKE_SOURCE_DIR}/aircraft\\\"\n                                  \\\"-DDEST=\\${CMAKE_INSTALL_PREFIX}/share/flightsim/aircraft\\\"\n                                  -P \\\"${CMAKE_SOURCE_DIR}/cmake/StageDesigns.cmake\\\"\n                                  RESULT_VARIABLE _fsim_stage_result)\n                  if(NOT _fsim_stage_result EQUAL 0)\n                      message(FATAL_ERROR \\\"Aircraft runtime data staging failed\\\")\n                  endif() COMPONENT ${component}",
+    "DIRECTORY ${CMAKE_SOURCE_DIR}/assets/payloads DESTINATION share/flightsim COMPONENT ${component}",
+    "DIRECTORY ${CMAKE_SOURCE_DIR}/assets/stores DESTINATION share/flightsim COMPONENT ${component}",
+    "DIRECTORY ${FSIM_JSBSIM_DATA_DIR}/aircraft ${FSIM_JSBSIM_DATA_DIR}/engine ${FSIM_JSBSIM_DATA_DIR}/systems DESTINATION share/flightsim/jsbsim COMPONENT ${component}",
+    "DIRECTORY ${CMAKE_BINARY_DIR}/share/flightsim/models ${CMAKE_SOURCE_DIR}/assets/clouds DESTINATION share/flightsim COMPONENT sdk",
+    "FILES ${CMAKE_SOURCE_DIR}/README.md ${CMAKE_SOURCE_DIR}/LICENSE ${CMAKE_SOURCE_DIR}/THIRD_PARTY_NOTICES.md DESTINATION share/doc/flightsim COMPONENT ${component} OPTIONAL",
+    "FILES ${CMAKE_SOURCE_DIR}/third_party/jsbsim/COPYING DESTINATION share/doc/flightsim RENAME LICENSE-JSBSim.txt COMPONENT ${component} OPTIONAL",
+    "FILES ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGLGear.cpp ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGAccelerations.cpp ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGRotor.h ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGRotor.cpp ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGElectric.cpp ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGPropeller.cpp ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGTransmission.h ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/flight_control/FGActuator.cpp ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGAerodynamics.cpp ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGMassBalance.cpp ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGAuxiliary.cpp ${CMAKE_SOURCE_DIR}/cmake/JsbsimPatches.cmake DESTINATION share/doc/flightsim/jsbsim-changes COMPONENT ${component}",
+    "TARGETS ${_fsim_viewer_targets} RUNTIME DESTINATION bin COMPONENT viewer",
+    "FILES ${FSIM_FLOW_RUNTIME} DESTINATION bin COMPONENT viewer",
+    "DIRECTORY ${CMAKE_BINARY_DIR}/share/flightsim/ DESTINATION share/flightsim COMPONENT viewer",
+    "DIRECTORY ${CMAKE_SOURCE_DIR}/examples/scenarios DESTINATION share/flightsim COMPONENT viewer",
+    "CODE include(\\\"${CMAKE_SOURCE_DIR}/cmake/PackageConfig.cmake\\\")\n        file(MAKE_DIRECTORY \\\"\\${CMAKE_INSTALL_PREFIX}/config\\\")\n        fsim_write_packaged_config(\\\"${CMAKE_SOURCE_DIR}/assets/config/viewer.json\\\"\n                                   \\\"\\${CMAKE_INSTALL_PREFIX}/config/viewer.json\\\") COMPONENT viewer",
+    "FILES ${CMAKE_SOURCE_DIR}/assets/config/offline-map-plan.json DESTINATION config COMPONENT viewer",
+    "FILES ${CMAKE_SOURCE_DIR}/assets/config/maps.README.md DESTINATION maps RENAME README.md COMPONENT viewer",
+    "FILES ${CMAKE_SOURCE_DIR}/assets/config/run-viewer.cmd DESTINATION . COMPONENT viewer",
+    "DIRECTORY ${CMAKE_SOURCE_DIR}/assets/maps/ DESTINATION maps COMPONENT viewer",
+    "CODE message(WARNING \\\"assets/maps is empty - run fetch-maps.cmd, or the package has no terrain\\\") COMPONENT viewer",
+    "TARGETS flightsim RUNTIME DESTINATION bin COMPONENT tools",
+    "TARGETS ${_fsim_example_targets} RUNTIME DESTINATION bin COMPONENT examples",
+    "DIRECTORY ${CMAKE_SOURCE_DIR}/examples/scenarios DESTINATION share/flightsim COMPONENT examples",
+    "EXPORT fsimTargets NAMESPACE fsim:: DESTINATION lib/cmake/fsim COMPONENT sdk",
+    "FILES ${CMAKE_BINARY_DIR}/fsimConfig.cmake ${CMAKE_BINARY_DIR}/fsimConfigVersion.cmake DESTINATION lib/cmake/fsim COMPONENT sdk"
+   ],
+   "python/CMakeLists.txt": [
+    "DIRECTORY ${FSIM_PY_PACKAGE} DESTINATION . COMPONENT python PATTERN __pycache__ EXCLUDE",
+    "CODE execute_process(COMMAND \\\"${FSIM_PYTHON}\\\" \\\"${CMAKE_CURRENT_SOURCE_DIR}/tools/make_wheel.py\\\"\n                                      \\\"\\${CMAKE_INSTALL_PREFIX}/fsim\\\" \\\"${PROJECT_VERSION}\\\" \\\"\\${CMAKE_INSTALL_PREFIX}\\\"\n                              RESULT_VARIABLE _rc)\n              if(NOT _rc EQUAL 0)\n                  message(FATAL_ERROR \\\"python: the wheel could not be built\\\")\n              endif() COMPONENT python"
+   ]
+  },
+  "native_targets": {
+   "flightsim": "EXECUTABLE",
+   "flightsim-viewer": "EXECUTABLE",
+   "fsim": "SHARED",
+   "fsim_comm": "STATIC",
+   "fsim_contracts": "INTERFACE",
+   "fsim_control": "STATIC",
+   "fsim_core": "STATIC",
+   "fsim_effects": "STATIC",
+   "fsim_env": "STATIC",
+   "fsim_flow": "STATIC",
+   "fsim_io": "STATIC",
+   "fsim_ipc": "STATIC",
+   "fsim_ms": "STATIC",
+   "fsim_platform": "STATIC",
+   "fsim_render": "STATIC",
+   "fsim_session": "STATIC",
+   "fsim_sim": "STATIC",
+   "fsim_ui": "STATIC",
+   "fsim_vision": "SHARED",
+   "fsim_world": "STATIC"
+  },
+  "python_extensions": [
+   {
+    "compile_definitions": [
+     "Py_LIMITED_API=0x030B0000"
+    ],
+    "conditions": [],
+    "helper": "fsim_python_module",
+    "include_directories": [
+     {
+      "declared": "${FSIM_PYTHON_INCLUDE}",
+      "resolved": false
+     },
+     {
+      "declared": "${CMAKE_CURRENT_SOURCE_DIR}/src",
+      "path": "python/src",
+      "resolved": true
+     }
+    ],
+    "links": [
+     {
+      "by": "fsim_python_module",
+      "declared": "fsim::sdk",
+      "resolved": true
+     },
+     {
+      "by": "fsim_python_module",
+      "declared": "${FSIM_PYTHON3_DLL}",
+      "resolved": false
+     }
+    ],
+    "module": "fsim._native",
+    "properties": {
+     "C_STANDARD": "11",
+     "C_STANDARD_REQUIRED": "ON",
+     "LIBRARY_OUTPUT_DIRECTORY": "${FSIM_PY_PACKAGE}",
+     "OUTPUT_NAME": "_native",
+     "PREFIX": "",
+     "RUNTIME_OUTPUT_DIRECTORY": "${FSIM_PY_PACKAGE}",
+     "SUFFIX": ".pyd"
+    },
+    "sources": [
+     {
+      "declared": "src/_native.c",
+      "path": "python/src/_native.c",
+      "resolved": true,
+      "sha256": "c07a27d45701660795fd33b3138de618bbd63d7cb59c2f26ea4c8f6d2894b8c1"
+     },
+     {
+      "declared": "src/_native_control.c",
+      "path": "python/src/_native_control.c",
+      "resolved": true,
+      "sha256": "1482aaa6c76aa82505955f78eb0a72256396e130587b498b02066e86a96b16de"
+     },
+     {
+      "declared": "src/_native_dms.c",
+      "path": "python/src/_native_dms.c",
+      "resolved": true,
+      "sha256": "6a9f8ff5bc8091bd323eb64fa40fe69a267703f965e9960d5e15fb03a179735e"
+     },
+     {
+      "declared": "src/_native_environment.c",
+      "path": "python/src/_native_environment.c",
+      "resolved": true,
+      "sha256": "6cbb7d589ed06929df8d81ff357a86bc707201f3ca2aee6919ef292ded63a992"
+     },
+     {
+      "declared": "src/_native_mission.c",
+      "path": "python/src/_native_mission.c",
+      "resolved": true,
+      "sha256": "98e5257f76480429ebe8ee4ed1414af3a49612483dc62a3a9737d15b98964855"
+     },
+     {
+      "declared": "src/_native_mission_env.c",
+      "path": "python/src/_native_mission_env.c",
+      "resolved": true,
+      "sha256": "9ed2eb906b6d350a0e8009e69036be261d2beb7d32afcfb39fa1615bc9aeaaaf"
+     },
+     {
+      "declared": "src/_native_recording.c",
+      "path": "python/src/_native_recording.c",
+      "resolved": true,
+      "sha256": "de40864a3aba51a9792dea1eb471bc2ecd8d0dee04770129b5b7c40ddb2a48bb"
+     },
+     {
+      "declared": "src/_native_recording.h",
+      "path": "python/src/_native_recording.h",
+      "resolved": true,
+      "sha256": "74778880a997afbe69fc790a62b72418b8250276c06aea78fc06a159637d1a75"
+     },
+     {
+      "declared": "src/_native_scenario.c",
+      "path": "python/src/_native_scenario.c",
+      "resolved": true,
+      "sha256": "5d836390ff13cb343ff2f1a600df2192736ce09827165d1d0e9ce0e3aaa8cab2"
+     },
+     {
+      "declared": "src/_native_vecenv.c",
+      "path": "python/src/_native_vecenv.c",
+      "resolved": true,
+      "sha256": "827826748adeebe45c75ac37d02bf73999a9ecaa5807f43bac085757b69fbc28"
+     },
+     {
+      "declared": "src/_native_vecenv.h",
+      "path": "python/src/_native_vecenv.h",
+      "resolved": true,
+      "sha256": "8a8029e862a51ffc5b387044ddd42bb90a804f2898d733659a34e8cbebb3e89e"
+     },
+     {
+      "declared": "src/_native_world.c",
+      "path": "python/src/_native_world.c",
+      "resolved": true,
+      "sha256": "4fd7ff810fe308cd62cb111441d2ea99d9d830228768bc2e367e11537aaf6487"
+     },
+     {
+      "declared": "src/_native_world.h",
+      "path": "python/src/_native_world.h",
+      "resolved": true,
+      "sha256": "8cd8c10984fafed5212977ff81351a2b6445d1f37ddcf70ce02e033b098fdfc8"
+     },
+     {
+      "declared": "src/_native_world_options.h",
+      "path": "python/src/_native_world_options.h",
+      "resolved": true,
+      "sha256": "d2227b24f1f86204c960088b56074c1b773bc6db04f96167d3daaaf3b7a8d4dc"
+     },
+     {
+      "declared": "src/fsim_py.h",
+      "path": "python/src/fsim_py.h",
+      "resolved": true,
+      "sha256": "d2d46b7d09de1f568d3e289b93f41b1806f9ff2a12f364fb1f5a29bda637bba0"
+     }
+    ],
+    "target": "fsim_python"
+   },
+   {
+    "compile_definitions": [
+     "Py_LIMITED_API=0x030B0000"
+    ],
+    "conditions": [
+     "if(TARGET fsim_vision)"
+    ],
+    "helper": "fsim_python_module",
+    "include_directories": [
+     {
+      "declared": "${FSIM_PYTHON_INCLUDE}",
+      "resolved": false
+     },
+     {
+      "declared": "${CMAKE_CURRENT_SOURCE_DIR}/src",
+      "path": "python/src",
+      "resolved": true
+     }
+    ],
+    "links": [
+     {
+      "by": "fsim_python_module",
+      "declared": "fsim::vision",
+      "resolved": true
+     },
+     {
+      "by": "fsim_python_module",
+      "declared": "${FSIM_PYTHON3_DLL}",
+      "resolved": false
+     }
+    ],
+    "module": "fsim._vision",
+    "properties": {
+     "C_STANDARD": "11",
+     "C_STANDARD_REQUIRED": "ON",
+     "LIBRARY_OUTPUT_DIRECTORY": "${FSIM_PY_PACKAGE}",
+     "OUTPUT_NAME": "_vision",
+     "PREFIX": "",
+     "RUNTIME_OUTPUT_DIRECTORY": "${FSIM_PY_PACKAGE}",
+     "SUFFIX": ".pyd"
+    },
+    "sources": [
+     {
+      "declared": "src/_vision.c",
+      "path": "python/src/_vision.c",
+      "resolved": true,
+      "sha256": "714e202f9379d87c1000edcdeb951b83057f0c2e02f84ab1a5b8654e0f249ebb"
+     },
+     {
+      "declared": "src/fsim_py.h",
+      "path": "python/src/fsim_py.h",
+      "resolved": true,
+      "sha256": "d2d46b7d09de1f568d3e289b93f41b1806f9ff2a12f364fb1f5a29bda637bba0"
+     }
+    ],
+    "target": "fsim_python_vision"
+   }
+  ]
+ },
+ "policy": {
+  "schema": "fsim.architecture.source-policy.v2",
+  "sha256": "297ccff01ac8169b77558cc8cce311ff62f1536b2f3934c0fbdae943f81c9842"
+ },
+ "python": {
+  "cycles_including_deferred": [
+   [
+    "fsim",
+    "fsim.training"
+   ],
+   [
+    "fsim.agent",
+    "fsim.world"
+   ]
+  ],
+  "dynamic_imports": [
+   {
+    "form": "call",
+    "function": "_serve_ma",
+    "line": 646,
+    "module": "fsim.isolation"
+   }
+  ],
+  "eager_closure_of_package": [
+   "fsim",
+   "fsim._convert",
+   "fsim._native",
+   "fsim._state",
+   "fsim._threads",
+   "fsim.agent",
+   "fsim.agra",
+   "fsim.mission",
+   "fsim.recording",
+   "fsim.training",
+   "fsim.vecenv",
+   "fsim.world"
+  ],
+  "eager_cycles": [],
+  "external_imports": {
+   "fsim": [
+    "ctypes",
+    "os",
+    "sys"
+   ],
+   "fsim._convert": [
+    "numpy"
+   ],
+   "fsim._state": [
+    "ctypes",
+    "math",
+    "numpy"
+   ],
+   "fsim._threads": [
+    "contextlib",
+    "ctypes",
+    "sys",
+    "torch"
+   ],
+   "fsim.agent": [
+    "collections",
+    "math",
+    "types"
+   ],
+   "fsim.agra": [
+    "datetime",
+    "math"
+   ],
+   "fsim.catalog": [
+    "collections",
+    "json",
+    "os"
+   ],
+   "fsim.gym": [
+    "gymnasium",
+    "numpy"
+   ],
+   "fsim.isolation": [
+    "base64",
+    "enum",
+    "importlib",
+    "inspect",
+    "json",
+    "multiprocessing",
+    "numpy",
+    "os",
+    "secrets",
+    "subprocess",
+    "sys",
+    "threading",
+    "time",
+    "traceback"
+   ],
+   "fsim.mission": [
+    "collections",
+    "json"
+   ],
+   "fsim.recording": [
+    "numpy"
+   ],
+   "fsim.sb3": [
+    "gymnasium",
+    "numpy",
+    "stable_baselines3",
+    "torch"
+   ],
+   "fsim.training": [
+    "collections",
+    "json",
+    "time"
+   ],
+   "fsim.vecenv": [
+    "numpy"
+   ],
+   "fsim.vision": [
+    "numpy"
+   ],
+   "fsim.world": [
+    "collections",
+    "enum",
+    "math",
+    "numpy",
+    "weakref"
+   ]
+  },
+  "imports": [
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 38,
+    "to": "fsim._native"
+   },
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 59,
+    "to": "fsim._state"
+   },
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 292,
+    "to": "fsim._threads"
+   },
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 287,
+    "to": "fsim.agent"
+   },
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 288,
+    "to": "fsim.agra"
+   },
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 289,
+    "to": "fsim.mission"
+   },
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 291,
+    "to": "fsim.recording"
+   },
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 290,
+    "to": "fsim.training"
+   },
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 286,
+    "to": "fsim.vecenv"
+   },
+   {
+    "deferred": false,
+    "from": "fsim",
+    "line": 67,
+    "to": "fsim.world"
+   },
+   {
+    "deferred": false,
+    "from": "fsim._state",
+    "line": 15,
+    "to": "fsim._native"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.agent",
+    "line": 19,
+    "to": "fsim._native"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.agent",
+    "line": 20,
+    "to": "fsim.world"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.agra",
+    "line": 17,
+    "to": "fsim._native"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.agra",
+    "line": 18,
+    "to": "fsim.world"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.gym",
+    "line": 23,
+    "to": "fsim.vecenv"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 133,
+    "to": "fsim"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 151,
+    "to": "fsim"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 74,
+    "to": "fsim.agent"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 80,
+    "to": "fsim.agent"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 97,
+    "to": "fsim.agent"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 191,
+    "to": "fsim.agent"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 312,
+    "to": "fsim.agent"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 98,
+    "to": "fsim.mission"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 126,
+    "to": "fsim.mission"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 429,
+    "to": "fsim.mission"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 99,
+    "to": "fsim.world"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 188,
+    "to": "fsim.world"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.isolation",
+    "line": 236,
+    "to": "fsim.world"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.mission",
+    "line": 27,
+    "to": "fsim._native"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.recording",
+    "line": 5,
+    "to": "fsim._native"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.recording",
+    "line": 6,
+    "to": "fsim._state"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.sb3",
+    "line": 25,
+    "to": "fsim._threads"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.sb3",
+    "line": 26,
+    "to": "fsim.vecenv"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.training",
+    "line": 94,
+    "to": "fsim"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.training",
+    "line": 116,
+    "to": "fsim"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.vecenv",
+    "line": 13,
+    "to": "fsim._convert"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.vecenv",
+    "line": 12,
+    "to": "fsim._native"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.vecenv",
+    "line": 14,
+    "to": "fsim.world"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.vision",
+    "line": 19,
+    "to": "fsim._native"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.vision",
+    "line": 19,
+    "to": "fsim._vision"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.vision",
+    "line": 20,
+    "to": "fsim.vecenv"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.vision",
+    "line": 21,
+    "to": "fsim.world"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.world",
+    "line": 19,
+    "to": "fsim._convert"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.world",
+    "line": 18,
+    "to": "fsim._native"
+   },
+   {
+    "deferred": false,
+    "from": "fsim.world",
+    "line": 20,
+    "to": "fsim._state"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.world",
+    "line": 3199,
+    "to": "fsim.agent"
+   },
+   {
+    "deferred": true,
+    "from": "fsim.world",
+    "line": 3215,
+    "to": "fsim.agent"
+   }
+  ],
+  "initialization_imports": [],
+  "legacy_backedges": [
+   {
+    "from": "fsim.training",
+    "reason": "Function-local import of the package root (Error); ARCH-07 obtains it from a lower owner",
+    "to": "fsim",
+    "until": "ARCH-07"
+   },
+   {
+    "from": "fsim.world",
+    "reason": "Function-local import of Agent/Referee; ARCH-07 moves the shared values below both wrappers",
+    "to": "fsim.agent",
+    "until": "ARCH-07"
+   }
+  ],
+  "modules": {
+   "fsim": {
+    "owner": "fsim",
+    "path": "python/fsim/__init__.py",
+    "sha256": "3f1f04b16db0b9b1d981a68a525df89851571da054b68614936157d07ad1620d"
+   },
+   "fsim._convert": {
+    "owner": "fsim",
+    "path": "python/fsim/_convert.py",
+    "sha256": "c679c19d21361c101b33b300e1292fde9d1c9908ab2e5aebaa1e72688dd9ab55"
+   },
+   "fsim._native": {
+    "owner": "fsim._native",
+    "path": null,
+    "sha256": null
+   },
+   "fsim._state": {
+    "owner": "fsim",
+    "path": "python/fsim/_state.py",
+    "sha256": "f9b2da8f3b102bd8c254c1d421e3a392981344f4321130cb1d423e01f0a4936c"
+   },
+   "fsim._threads": {
+    "owner": "fsim",
+    "path": "python/fsim/_threads.py",
+    "sha256": "da0f589e885a9e56eba18c15929208a15a6fbecfc97e5149a8206a64aada34d2"
+   },
+   "fsim._vision": {
+    "owner": "fsim._vision",
+    "path": null,
+    "sha256": null
+   },
+   "fsim.agent": {
+    "owner": "fsim",
+    "path": "python/fsim/agent.py",
+    "sha256": "416d5539ce37b57f126a90cc642049cd2786c55a2dd0d926da64dddc91418aa5"
+   },
+   "fsim.agra": {
+    "owner": "fsim",
+    "path": "python/fsim/agra.py",
+    "sha256": "fbc9db52336f8d9c5bc8e44f2a75aff1a677482e20e5f936f957ed6d2ed382ca"
+   },
+   "fsim.catalog": {
+    "owner": "fsim",
+    "path": "python/fsim/catalog.py",
+    "sha256": "d4f9a5d8d258aeed25e1b22e28aaa45730bd87f890700fff162299f0dc87755f"
+   },
+   "fsim.gym": {
+    "owner": "fsim",
+    "path": "python/fsim/gym.py",
+    "sha256": "a19390dd74a3732dd452fc26254ae40b211bd0910a215271c8ea23f71a910c0d"
+   },
+   "fsim.isolation": {
+    "owner": "fsim",
+    "path": "python/fsim/isolation.py",
+    "sha256": "93339377d00189ca6a328a8571a0571e309ed866d05b1dffd48b39a5988949f5"
+   },
+   "fsim.mission": {
+    "owner": "fsim",
+    "path": "python/fsim/mission.py",
+    "sha256": "11343e55a2e9c16578c524997025a85cfd696238fc3fddd5b3bb409b3fbcff0c"
+   },
+   "fsim.recording": {
+    "owner": "fsim",
+    "path": "python/fsim/recording.py",
+    "sha256": "a4ef4b895d29a7069026703755b7ed171638697a9bc373026ebb9b2c9cfa91fd"
+   },
+   "fsim.sb3": {
+    "owner": "fsim",
+    "path": "python/fsim/sb3.py",
+    "sha256": "a369335046102ad6fa7b26b148963dd43a7448d66b27dc6a38c1e9fe76a9b92d"
+   },
+   "fsim.training": {
+    "owner": "fsim",
+    "path": "python/fsim/training.py",
+    "sha256": "f2928f823f780455b6fcf609e5688ec9fb57fac8e95cafe582744f08599a70ea"
+   },
+   "fsim.vecenv": {
+    "owner": "fsim",
+    "path": "python/fsim/vecenv.py",
+    "sha256": "65b1ddb9e1f76559885af2e179e64ae2286a0bd96421fa4a905d961e3785f6de"
+   },
+   "fsim.vision": {
+    "owner": "fsim",
+    "path": "python/fsim/vision.py",
+    "sha256": "b5377240d14d97a3e0cf9a8cf5f7f39f212b22ccac85179fe31e26764be3bee3"
+   },
+   "fsim.world": {
+    "owner": "fsim",
+    "path": "python/fsim/world.py",
+    "sha256": "dcb67f8d073c812b771f3164d25dc7c37f75c6110e01a8d32553a14b3cbd91df"
+   }
+  }
+ },
+ "schema": "fsim.architecture.baseline.v1",
+ "scope": [
+  "src",
+  "include/fsim",
+  "python/fsim",
+  "python/src",
+  "python/CMakeLists.txt",
+  "cmake",
+  "tools/architecture"
+ ],
+ "worktree_changes": [
+  "cmake/RunMissionPackageConsumer.cmake",
+  "include/fsim/ControlStack.h",
+  "include/fsim/MissionSystems.h",
+  "python/fsim/isolation.py",
+  "src/CMakeLists.txt",
+  "src/app/DemoAutopilot.h",
+  "src/app/StrikeCapture.h",
+  "src/app/main.cpp",
+  "src/app/viewer_main.cpp",
+  "src/comm/CMakeLists.txt -> src/simulation/communications/network/CMakeLists.txt",
+  "src/comm/Comm.cpp -> src/simulation/communications/network/Comm.cpp",
+  "src/comm/Comm.h -> src/simulation/communications/network/Comm.h",
+  "src/contracts/world_stream/WorldLayout.h",
+  "src/control/Adapter.cpp -> src/simulation/flight_control/Adapter.cpp",
+  "src/control/Adapter.h -> src/simulation/flight_control/Adapter.h",
+  "src/control/Altimeter.cpp -> src/simulation/flight_control/Altimeter.cpp",
+  "src/control/Arrival.cpp -> src/simulation/flight_control/Arrival.cpp",
+  "src/control/Atmosphere.h -> src/simulation/flight_control/Atmosphere.h",
+  "src/control/BehaviorUpdate.cpp -> src/simulation/flight_control/BehaviorUpdate.cpp",
+  "src/control/Branches.cpp -> src/simulation/flight_control/Branches.cpp",
+  "src/control/Builtin.cpp -> src/simulation/flight_control/Builtin.cpp",
+  "src/control/Builtin.h -> src/simulation/flight_control/Builtin.h",
+  "src/control/CMakeLists.txt -> src/simulation/flight_control/CMakeLists.txt",
+  "src/control/CapabilityHost.cpp -> src/simulation/flight_control/CapabilityHost.cpp",
+  "src/control/CapabilityHost.h -> src/simulation/flight_control/CapabilityHost.h",
+  "src/control/Catalog.cpp -> src/simulation/flight_control/Catalog.cpp",
+  "src/control/Catalog.h -> src/simulation/flight_control/Catalog.h",
+  "src/control/Checks.h -> src/simulation/flight_control/Checks.h",
+  "src/control/Climb.cpp -> src/simulation/flight_control/Climb.cpp",
+  "src/control/ControlStack.cpp -> src/simulation/flight_control/ControlStack.cpp",
+  "src/control/ControlStack.h -> src/simulation/flight_control/ControlStack.h",
+  "src/control/Declination.cpp -> src/simulation/flight_control/Declination.cpp",
+  "src/control/Endurance.cpp -> src/simulation/flight_control/Endurance.cpp",
+  "src/control/Features.cpp -> src/simulation/flight_control/Features.cpp",
+  "src/control/Features.h -> src/simulation/flight_control/Features.h",
+  "src/control/Frames.cpp -> src/simulation/flight_control/Frames.cpp",
+  "src/control/GroundRoute.cpp -> src/simulation/flight_control/GroundRoute.cpp",
+  "src/control/Guidance.cpp -> src/simulation/flight_control/Guidance.cpp",
+  "src/control/Intercept.cpp -> src/simulation/flight_control/Intercept.cpp",
+  "src/control/LandingRoute.cpp -> src/simulation/flight_control/LandingRoute.cpp",
+  "src/control/Laps.cpp -> src/simulation/flight_control/Laps.cpp",
+  "src/control/Launch.cpp -> src/simulation/flight_control/Launch.cpp",
+  "src/control/Laws.cpp -> src/simulation/flight_control/Laws.cpp",
+  "src/control/Laws.h -> src/simulation/flight_control/Laws.h",
+  "src/control/Lines.cpp -> src/simulation/flight_control/Lines.cpp",
+  "src/control/Lines.h -> src/simulation/flight_control/Lines.h",
+  "src/control/Magnetic.cpp -> src/simulation/flight_control/Magnetic.cpp",
+  "src/control/Marshall.cpp -> src/simulation/flight_control/Marshall.cpp",
+  "src/control/Moving.cpp -> src/simulation/flight_control/Moving.cpp",
+  "src/control/MustFly.cpp -> src/simulation/flight_control/MustFly.cpp",
+  "src/control/Names.cpp -> src/simulation/flight_control/Names.cpp",
+  "src/control/Nurbs.cpp -> src/simulation/flight_control/Nurbs.cpp",
+  "src/control/Paths.cpp -> src/simulation/flight_control/Paths.cpp",
+  "src/control/Patterns.cpp -> src/simulation/flight_control/Patterns.cpp",
+  "src/control/PerformanceTables.cpp -> src/simulation/flight_control/PerformanceTables.cpp",
+  "src/control/Pid.h -> src/simulation/flight_control/Pid.h",
+  "src/control/PlanStore.h -> src/simulation/flight_control/PlanStore.h",
+  "src/control/Plans.cpp -> src/simulation/flight_control/Plans.cpp",
+  "src/control/Profile.cpp -> src/simulation/flight_control/Profile.cpp",
+  "src/control/Profile.h -> src/simulation/flight_control/Profile.h",
+  "src/control/Protection.cpp -> src/simulation/flight_control/Protection.cpp",
+  "src/control/Protection.h -> src/simulation/flight_control/Protection.h",
+  "src/control/Recovery.cpp -> src/simulation/flight_control/Recovery.cpp",
+  "src/control/Registry.cpp -> src/simulation/flight_control/Registry.cpp",
+  "src/control/Registry.h -> src/simulation/flight_control/Registry.h",
+  "src/control/Reports.cpp -> src/simulation/flight_control/Reports.cpp",
+  "src/control/Rotor.cpp -> src/simulation/flight_control/Rotor.cpp",
+  "src/control/Route.cpp -> src/simulation/flight_control/Route.cpp",
+  "src/control/Route.h -> src/simulation/flight_control/Route.h",
+  "src/control/RouteOrder.h -> src/simulation/flight_control/RouteOrder.h",
+  "src/control/Runtime.h -> src/simulation/flight_control/Runtime.h",
+  "src/control/Schedule.cpp -> src/simulation/flight_control/Schedule.cpp",
+  "src/control/States.cpp -> src/simulation/flight_control/States.cpp",
+  "src/control/Tasks.cpp -> src/simulation/flight_control/Tasks.cpp",
+  "src/control/Taxi.cpp -> src/simulation/flight_control/Taxi.cpp",
+  "src/control/Terminators.cpp -> src/simulation/flight_control/Terminators.cpp",
+  "src/control/Terrain.cpp -> src/simulation/flight_control/Terrain.cpp",
+  "src/control/Volumes.cpp -> src/simulation/flight_control/Volumes.cpp",
+  "src/control/Volumes.h -> src/simulation/flight_control/Volumes.h",
+  "src/control/Zones.cpp -> src/simulation/flight_control/Zones.cpp",
+  "src/control/Zones.h -> src/simulation/flight_control/Zones.h",
+  "src/core/Attitude.h -> src/foundation/core/Attitude.h",
+  "src/core/CMakeLists.txt -> src/foundation/core/CMakeLists.txt",
+  "src/core/Context.h -> src/foundation/core/Context.h",
+  "src/core/Geodesy.h -> src/foundation/core/Geodesy.h",
+  "src/core/HeightGrid.cpp -> src/foundation/core/HeightGrid.cpp",
+  "src/core/HeightGrid.h -> src/foundation/core/HeightGrid.h",
+  "src/core/Json.cpp -> src/foundation/core/Json.cpp",
+  "src/core/Json.h -> src/foundation/core/Json.h",
+  "src/core/Log.cpp -> src/foundation/core/Log.cpp",
+  "src/core/Log.h -> src/foundation/core/Log.h",
+  "src/core/Module.cpp -> src/foundation/core/Module.cpp",
+  "src/core/Module.h -> src/foundation/core/Module.h",
+  "src/core/Profiler.h -> src/foundation/core/Profiler.h",
+  "src/core/Registry.h -> src/foundation/core/Registry.h",
+  "src/core/Rng.h -> src/foundation/core/Rng.h",
+  "src/core/Span.h -> src/foundation/core/Span.h",
+  "src/core/StableArray.h -> src/foundation/core/StableArray.h",
+  "src/core/Time.h -> src/foundation/core/Time.h",
+  "src/core/Units.h -> src/foundation/core/Units.h",
+  "src/effects/Builtin.cpp -> src/simulation/environment/Builtin.cpp",
+  "src/effects/Builtin.h -> src/simulation/environment/Builtin.h",
+  "src/effects/CMakeLists.txt -> src/simulation/environment/CMakeLists.txt",
+  "src/effects/Effect.cpp -> src/simulation/environment/Effect.cpp",
+  "src/effects/Effect.h -> src/simulation/environment/Effect.h",
+  "src/env/Observation.cpp",
+  "src/env/Scenario.h",
+  "src/env/Task.cpp",
+  "src/env/Task.h",
+  "src/env/VecEnv.cpp",
+  "src/env/VecEnv.h",
+  "src/io/AircraftFile.cpp -> src/foundation/io/AircraftFile.cpp",
+  "src/io/AircraftFile.h -> src/foundation/io/AircraftFile.h",
+  "src/io/AssetResolver.cpp -> src/foundation/io/AssetResolver.cpp",
+  "src/io/AssetResolver.h -> src/foundation/io/AssetResolver.h",
+  "src/io/CMakeLists.txt -> src/foundation/io/CMakeLists.txt",
+  "src/io/TerrainTiles.cpp -> src/foundation/io/TerrainTiles.cpp",
+  "src/io/TerrainTiles.h -> src/foundation/io/TerrainTiles.h",
+  "src/ipc/CMakeLists.txt -> src/foundation/transport/CMakeLists.txt",
+  "src/ipc/Recording.cpp -> src/foundation/transport/Recording.cpp",
+  "src/ipc/Recording.h -> src/foundation/transport/Recording.h",
+  "src/ipc/VisionSegment.cpp -> src/foundation/transport/VisionSegment.cpp",
+  "src/ipc/VisionSegment.h -> src/foundation/transport/VisionSegment.h",
+  "src/ipc/WorldMirror.cpp -> src/foundation/transport/WorldMirror.cpp",
+  "src/ipc/WorldMirror.h -> src/foundation/transport/WorldMirror.h",
+  "src/ipc/WorldPublisher.cpp -> src/foundation/transport/WorldPublisher.cpp",
+  "src/ipc/WorldPublisher.h -> src/foundation/transport/WorldPublisher.h",
+  "src/ipc/WorldRegistry.cpp -> src/foundation/transport/WorldRegistry.cpp",
+  "src/ipc/WorldRegistry.h -> src/foundation/transport/WorldRegistry.h",
+  "src/ms/CMakeLists.txt -> src/simulation/mission_systems/CMakeLists.txt",
+  "src/ms/Cards.cpp -> src/simulation/mission_systems/Cards.cpp",
+  "src/ms/Cards.h -> src/simulation/mission_systems/Cards.h",
+  "src/ms/Host.cpp -> src/simulation/mission_systems/Host.cpp",
+  "src/ms/Host.h -> src/simulation/mission_systems/Host.h",
+  "src/ms/HostStores.cpp -> src/simulation/mission_systems/HostStores.cpp",
+  "src/ms/Model.cpp -> src/simulation/mission_systems/Model.cpp",
+  "src/ms/Model.h -> src/simulation/mission_systems/Model.h",
+  "src/ms/Names.cpp -> src/simulation/mission_systems/Names.cpp",
+  "src/ms/countermeasure/Dispenser.cpp -> src/simulation/mission_systems/countermeasure/Dispenser.cpp",
+  "src/ms/countermeasure/Dispenser.h -> src/simulation/mission_systems/countermeasure/Dispenser.h",
+  "src/ms/damage/Damage.cpp -> src/simulation/mission_systems/damage/Damage.cpp",
+  "src/ms/damage/Damage.h -> src/simulation/mission_systems/damage/Damage.h",
+  "src/ms/damage/Debris.cpp -> src/simulation/mission_systems/damage/Debris.cpp",
+  "src/ms/damage/Debris.h -> src/simulation/mission_systems/damage/Debris.h",
+  "src/ms/damage/Impact.cpp -> src/simulation/mission_systems/damage/Impact.cpp",
+  "src/ms/damage/Impact.h -> src/simulation/mission_systems/damage/Impact.h",
+  "src/ms/damage/State.cpp -> src/simulation/mission_systems/damage/State.cpp",
+  "src/ms/damage/State.h -> src/simulation/mission_systems/damage/State.h",
+  "src/ms/esm/Receiver.cpp -> src/simulation/mission_systems/esm/Receiver.cpp",
+  "src/ms/esm/Receiver.h -> src/simulation/mission_systems/esm/Receiver.h",
+  "src/ms/radar/Detection.cpp -> src/simulation/mission_systems/radar/Detection.cpp",
+  "src/ms/radar/Detection.h -> src/simulation/mission_systems/radar/Detection.h",
+  "src/ms/radar/Radar.cpp -> src/simulation/mission_systems/radar/Radar.cpp",
+  "src/ms/radar/Radar.h -> src/simulation/mission_systems/radar/Radar.h",
+  "src/ms/radar/Signal.cpp -> src/simulation/mission_systems/radar/Signal.cpp",
+  "src/ms/radar/Signal.h -> src/simulation/mission_systems/radar/Signal.h",
+  "src/ms/rcs/Table.cpp -> src/simulation/mission_systems/rcs/Table.cpp",
+  "src/ms/rcs/Table.h -> src/simulation/mission_systems/rcs/Table.h",
+  "src/ms/rf/Antenna.cpp -> src/simulation/mission_systems/rf/Antenna.cpp",
+  "src/ms/rf/Antenna.h -> src/simulation/mission_systems/rf/Antenna.h",
+  "src/ms/rf/Ntia.h -> src/simulation/mission_systems/rf/Ntia.h",
+  "src/ms/rf/NtiaItm.cpp -> src/simulation/mission_systems/rf/NtiaItm.cpp",
+  "src/ms/rf/NtiaP528.cpp -> src/simulation/mission_systems/rf/NtiaP528.cpp",
+  "src/ms/rf/Path.cpp -> src/simulation/mission_systems/rf/Path.cpp",
+  "src/ms/rf/Path.h -> src/simulation/mission_systems/rf/Path.h",
+  "src/ms/rf/Rain.cpp -> src/simulation/mission_systems/rf/Rain.cpp",
+  "src/ms/rf/Rain.h -> src/simulation/mission_systems/rf/Rain.h",
+  "src/ms/track/Assignment.cpp -> src/simulation/mission_systems/track/Assignment.cpp",
+  "src/ms/track/Assignment.h -> src/simulation/mission_systems/track/Assignment.h",
+  "src/ms/track/Filters.cpp -> src/simulation/mission_systems/track/Filters.cpp",
+  "src/ms/track/Filters.h -> src/simulation/mission_systems/track/Filters.h",
+  "src/ms/track/Linalg.h -> src/simulation/mission_systems/track/Linalg.h",
+  "src/ms/track/Models.cpp -> src/simulation/mission_systems/track/Models.cpp",
+  "src/ms/track/Models.h -> src/simulation/mission_systems/track/Models.h",
+  "src/ms/track/Tracker.cpp -> src/simulation/mission_systems/track/Tracker.cpp",
+  "src/ms/track/Tracker.h -> src/simulation/mission_systems/track/Tracker.h",
+  "src/ms/weapon/Guidance.cpp -> src/simulation/mission_systems/weapon/Guidance.cpp",
+  "src/ms/weapon/Guidance.h -> src/simulation/mission_systems/weapon/Guidance.h",
+  "src/ms/weapon/LaunchEligibility.cpp -> src/simulation/mission_systems/weapon/LaunchEligibility.cpp",
+  "src/ms/weapon/LaunchEligibility.h -> src/simulation/mission_systems/weapon/LaunchEligibility.h",
+  "src/platform/CMakeLists.txt -> src/foundation/platform/CMakeLists.txt",
+  "src/platform/Clock.h -> src/foundation/platform/Clock.h",
+  "src/platform/CrashHandler.cpp -> src/foundation/platform/CrashHandler.cpp",
+  "src/platform/CrashHandler.h -> src/foundation/platform/CrashHandler.h",
+  "src/platform/Http.cpp -> src/foundation/platform/Http.cpp",
+  "src/platform/Http.h -> src/foundation/platform/Http.h",
+  "src/platform/Memory.h -> src/foundation/platform/Memory.h",
+  "src/platform/Paths.h -> src/foundation/platform/Paths.h",
+  "src/platform/Platform.cpp -> src/foundation/platform/Platform.cpp",
+  "src/platform/SharedMemory.cpp -> src/foundation/platform/SharedMemory.cpp",
+  "src/platform/SharedMemory.h -> src/foundation/platform/SharedMemory.h",
+  "src/platform/Threads.h -> src/foundation/platform/Threads.h",
+  "src/platform/Udp.cpp -> src/foundation/platform/Udp.cpp",
+  "src/platform/Udp.h -> src/foundation/platform/Udp.h",
+  "src/render/Screenshot.cpp",
+  "src/render/Viewer.cpp",
+  "src/sdk/CAbiSupport.h",
+  "src/sdk/MissionJson.h",
+  "src/sdk/Recording.cpp",
+  "src/sdk/World.cpp",
+  "src/sdk/fsim.cpp",
+  "src/sdk/fsim_control_c.cpp",
+  "src/sdk/fsim_vecenv_c.cpp",
+  "src/sdk/fsim_world_c.cpp",
+  "src/session/Dms.cpp",
+  "src/session/Geometry.cpp",
+  "src/session/Marshalls.cpp",
+  "src/session/PerformanceProfile.cpp",
+  "src/session/Scenario.cpp",
+  "src/session/StoreFlightBinding.cpp",
+  "src/session/StoreFlightBinding.h",
+  "src/session/World.cpp",
+  "src/session/World.h",
+  "src/session/WorldDamage.cpp",
+  "src/session/WorldEngagements.cpp",
+  "src/sim/Attitude.h -> src/simulation/flight/Attitude.h",
+  "src/sim/CMakeLists.txt -> src/simulation/flight/CMakeLists.txt",
+  "src/sim/ControlInputs.h -> src/simulation/flight/ControlInputs.h",
+  "src/sim/EnvironmentState.h -> src/simulation/flight/EnvironmentState.h",
+  "src/sim/FlightModel.cpp -> src/simulation/flight/FlightModel.cpp",
+  "src/sim/FlightModel.h -> src/simulation/flight/FlightModel.h",
+  "src/sim/GroundProvider.h -> src/simulation/flight/GroundProvider.h",
+  "src/sim/JsbsimLog.cpp -> src/simulation/flight/JsbsimLog.cpp",
+  "src/sim/JsbsimLog.h -> src/simulation/flight/JsbsimLog.h",
+  "src/sim/JsbsimModel.cpp -> src/simulation/flight/JsbsimModel.cpp",
+  "src/sim/JsbsimModel.h -> src/simulation/flight/JsbsimModel.h",
+  "src/sim/SimRunner.cpp -> src/simulation/flight/SimRunner.cpp",
+  "src/sim/SimRunner.h -> src/simulation/flight/SimRunner.h",
+  "src/sim/SnapshotBuffer.h -> src/simulation/flight/SnapshotBuffer.h",
+  "src/sim/VehiclePool.cpp -> src/simulation/flight/VehiclePool.cpp",
+  "src/sim/VehiclePool.h -> src/simulation/flight/VehiclePool.h",
+  "src/sim/VehicleState.h -> src/simulation/flight/VehicleState.h",
+  "src/ui/CameraPreview.cpp",
+  "src/ui/CameraPreview.h",
+  "src/ui/MissionGui.cpp",
+  "src/ui/MonitorGui.cpp",
+  "src/ui/MonitorGui.h",
+  "src/vision/Offscreen.cpp",
+  "src/vision/Vision.cpp",
+  "src/vision/fsim_vision_c.cpp",
+  "src/world/Airflow.cpp",
+  "src/world/Airflow.h",
+  "src/world/CameraController.h",
+  "src/world/Clouds.cpp",
+  "src/world/Earth.cpp",
+  "src/world/ElevatedTile.cpp",
+  "src/world/ElevationUpsampler.cpp",
+  "src/world/Exhaust.cpp",
+  "src/world/Exhaust.h",
+  "src/world/FlatGeometry.cpp",
+  "src/world/FlowSolver.cpp",
+  "src/world/FlowVolumes.cpp",
+  "src/world/FlowVolumes.h",
+  "src/world/Frames.h",
+  "src/world/Interpolator.cpp",
+  "src/world/Interpolator.h",
+  "src/world/Scattering.cpp",
+  "src/world/Terrain.cpp",
+  "src/world/Trails.h",
+  "src/world/VehicleVisuals.cpp",
+  "src/world/VehicleVisuals.h",
+  "src/world/WingVapour.cpp",
+  "src/world/WingVapour.h",
+  "tools/architecture/README.md",
+  "tools/architecture/check.py",
+  "tools/architecture/policy.json",
+  "tools/architecture/test_check.py"
+ ]
+}

@@ -2,8 +2,8 @@
 
 #include "world/Exhaust.h"
 
-#include "core/Log.h"
-#include "platform/Threads.h"
+#include "foundation/core/Log.h"
+#include "foundation/platform/Threads.h"
 #include "world/Frames.h"
 
 #include <algorithm>

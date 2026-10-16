@@ -1,7 +1,7 @@
 // The built-in loops designed from an aircraft's identified plant
 // (docs/control-architecture.md, step 5): the poles where the plant's lags
 // ask, the schedules and feedforwards each family needs, and which gains win.
-#include "control/Laws.h"
+#include "simulation/flight_control/Laws.h"
 #include "session/World.h"
 
 #include <catch2/catch_test_macros.hpp>

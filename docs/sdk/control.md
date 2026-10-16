@@ -1156,7 +1156,7 @@ The built-in loops fly each aircraft with gains designed for it from its
 *plant*: its responses to each control, measured at a reference condition
 and carried in its profile ([the aircraft's profile](#the-aircrafts-profile),
 `fsim/plant/...`). The platform designs them when the aircraft loads
-(`src/control/Laws.cpp`):
+(`src/simulation/flight_control/Laws.cpp`):
 - It places each loop's poles on the response it flies on: the bank on the roll rate per unit aileron and its lag, the pitch attitude on the pitch rate the load factor gives.
 - The outer loops run at a fraction of the inner ones' speed.
 - The gains are scheduled on the airspeed from the reference.

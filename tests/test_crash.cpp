@@ -1,5 +1,5 @@
 // Crash handler: install with a given dump directory, then crash on purpose.
-#include "platform/CrashHandler.h"
+#include "foundation/platform/CrashHandler.h"
 
 #include <cstdint>
 #include <cstdio>

@@ -137,16 +137,16 @@ Trainers use public SDK objects. The viewer reads IPC snapshots in its own proce
 | `include/fsim` | Stable C++ and C ABI declarations; `World.h` includes vehicle/environment objects | [Public headers](../include/fsim/) |
 | `src/sdk` | Public object wrappers, C ABI conversion/guards and the SDK shared library | [CMake](../src/sdk/CMakeLists.txt) |
 | `src/session` | Simulation World, MA core/DMS, stepping, engagement/damage coordination and publication | [CMake](../src/session/CMakeLists.txt) |
-| `src/control` | Control runtime, capability host, VI commands, activities, navigation and routes | [CMake](../src/control/CMakeLists.txt) |
-| `src/ms` | Payload host/cards, RF, RCS lookup, radar/tracking, seekers, countermeasures and damage | [CMake](../src/ms/CMakeLists.txt) |
-| `src/sim` | JSBSim adapter, flight-model interface, vehicle pool and worker stepping | [CMake](../src/sim/CMakeLists.txt) |
+| `src/simulation/flight_control` | Control runtime, capability host, VI commands, activities, navigation and routes | [CMake](../src/simulation/flight_control/CMakeLists.txt) |
+| `src/simulation/mission_systems` | Payload host/cards, RF, RCS lookup, radar/tracking, seekers, countermeasures and damage | [CMake](../src/simulation/mission_systems/CMakeLists.txt) |
+| `src/simulation/flight` | JSBSim adapter, flight-model interface, vehicle pool and worker stepping | [CMake](../src/simulation/flight/CMakeLists.txt) |
 | `src/env` | VecEnv, tasks, observations/actions and episode bookkeeping | [CMake](../src/env/CMakeLists.txt) |
-| `src/effects` | Simulation effects and sensed-state channels | [CMake](../src/effects/CMakeLists.txt) |
-| `src/comm` | Message fabric, codecs, protocols and media | [CMake](../src/comm/CMakeLists.txt) |
-| `src/ipc` | Shared-memory publication/mirroring, registries and custom binary recordings | [CMake](../src/ipc/CMakeLists.txt) |
-| `src/io` | Asset resolution, aircraft-file inspection and terrain data access | [CMake](../src/io/CMakeLists.txt) |
-| `src/core` | Plain C++ utilities, JSON, units/RNG, logging, registries and lifecycle helpers | [CMake](../src/core/CMakeLists.txt) |
-| `src/platform` | Paths, clocks/threads, HTTP, UDP, shared memory and minidumps | [CMake](../src/platform/CMakeLists.txt) |
+| `src/simulation/environment` | Simulation effects and sensed-state channels | [CMake](../src/simulation/environment/CMakeLists.txt) |
+| `src/simulation/communications/network` | Message fabric, codecs, protocols and media | [CMake](../src/simulation/communications/network/CMakeLists.txt) |
+| `src/foundation/transport` | Shared-memory publication/mirroring, registries and custom binary recordings | [CMake](../src/foundation/transport/CMakeLists.txt) |
+| `src/foundation/io` | Asset resolution, aircraft-file inspection and terrain data access | [CMake](../src/foundation/io/CMakeLists.txt) |
+| `src/foundation/core` | Plain C++ utilities, JSON, units/RNG, logging, registries and lifecycle helpers | [CMake](../src/foundation/core/CMakeLists.txt) |
+| `src/foundation/platform` | Paths, clocks/threads, HTTP, UDP, shared memory and minidumps | [CMake](../src/foundation/platform/CMakeLists.txt) |
 | `src/render` | Optional VSG viewer/render graphs, screenshots and GPU timers | [CMake](../src/render/CMakeLists.txt) |
 | `src/world` | Optional scene, terrain/sky/clouds, vehicle/store visuals, trails and Flow rendering | [CMake](../src/world/CMakeLists.txt) |
 | `src/ui` | Optional native monitor, mission panels, key and viewer controls | [CMake](../src/ui/CMakeLists.txt) |
@@ -166,7 +166,7 @@ The first architecture maintenance slice separates Mission Systems C entry point
 using private `CAbiSupport.h` helpers and the same SDK library. Principal checks discover every native C adapter and
 require coverage of exported world-handle entry points. Their exact exported names and public layouts remain stable.
 
-Weapon launch eligibility belongs to `src/ms/weapon/LaunchEligibility`; session World supplies resolved target and
+Weapon launch eligibility belongs to `src/simulation/mission_systems/weapon/LaunchEligibility`; session World supplies resolved target and
 illumination facts. The two-phase check retains target/FOV refusal before illumination lookup and Host admission.
 World continues owning authority, inventory ordering, simulation stages and events. Shared quaternion math lives
 in core with the existing sim forwarding interface. The [A1 design and remaining architecture work](superpowers/specs/2026-10-11-architecture-maintenance-design.md)
@@ -586,7 +586,7 @@ Extension happens at four levels — data, SDK registration, built-in modules an
 
 ### 10.2 Core interfaces modules use
 
-- `Context`: the current internal lifecycle context carries the JSBSim root, seed and headless flag (`src/core/Context.h`). It does not expose a viewer, event bus, property store or general job system.
+- `Context`: the current internal lifecycle context carries the JSBSim root, seed and headless flag (`src/foundation/core/Context.h`). It does not expose a viewer, event bus, property store or general job system.
 - Registries and public plugin interfaces expose their own typed contracts; their callers decide how unknown identifiers are rejected. Do not assume a universal no-op fallback.
 - Vehicle property handles address native flight-model properties through the SDK. They are not an implemented shared application `PropertyStore`.
 - World snapshots, engagement records and scenario APIs are the implemented data paths. Consult [the SDK index](sdk/README.md) rather than the former `ext/*`, `EventBus`, `JobSystem` or dynamic `createModule` proposals.

@@ -1,9 +1,9 @@
 // VehicleProfile (docs/control-architecture.md, section 7): sections read
 // from an aircraft's fsim/<section> properties, each with its own version
 // and provenance; a trainer's sections over the aircraft's.
-#include "control/Adapter.h"
-#include "control/Catalog.h"
-#include "control/Profile.h"
+#include "simulation/flight_control/Adapter.h"
+#include "simulation/flight_control/Catalog.h"
+#include "simulation/flight_control/Profile.h"
 #include "session/World.h"
 
 #include <catch2/catch_test_macros.hpp>

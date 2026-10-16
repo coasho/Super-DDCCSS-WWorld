@@ -318,3 +318,16 @@ fragment suffixes and `.hxx`. Explicit failures:
 - a resolved private include whose suffix is not scanned fails as
   `unscanned-include`;
 - a public file that is not UTF-8 text fails as `unsupported-public-file`.
+
+## Foundation and simulation leaves in their destinations (ARCH-03)
+
+`platform`, `core`, `io` and the transport (`ipc`) are in `src/foundation`.
+`sim`, `control`, `effects`, `comm` and `ms` are in `src/simulation` (`flight`,
+`flight_control`, `environment`, `communications/network`, `mission_systems`).
+Their target names, aliases and namespaces are unchanged, includes name the
+destination paths (`foundation/core/Log.h`), and the policy no longer lists
+their legacy directories. A legacy directory the policy still lists must hold
+sources: once a module has moved, its old claim fails as
+`stale-legacy-directory` instead of lingering. Every target keeps the shared
+`src` include root; the dependency gate, not the compiler search path, holds
+each include to its module's closure.

@@ -195,7 +195,7 @@ struct CommandResult {
     bool accepted() const noexcept { return status == control::CommandStatus::Accepted; }
 };
 
-// --- AMTI: an air search radar (MS-4; src/ms/radar) -----------------------------
+// --- AMTI: an air search radar (MS-4; src/simulation/mission_systems/radar) -----------------------------
 
 /// How the radar searches (its waveform, and what its processing rejects).
 enum class AmtiMode : std::uint8_t {
@@ -631,7 +631,7 @@ struct PayloadValue {
     const char* unit = "";
 };
 
-// --- The radio path (MS-2; src/ms/rf) ----------------------------------------------
+// --- The radio path (MS-2; src/simulation/mission_systems/rf) ----------------------------------------------
 
 /// The radio path between two entities, as the payloads see it: ITU-R P.528
 /// (NTIA's implementation) over the smooth earth, P.526's delta-Bullington for
@@ -657,7 +657,7 @@ struct RadioPath {
     double freeSpaceDb = 0.0, basicDb = 0.0, gasDb = 0.0, terrainDb = 0.0, rainDb = 0.0, totalDb = 0.0;
 };
 
-// --- Radar cross section (MS-3; tools/rcs, src/ms/rcs) -----------------------------
+// --- Radar cross section (MS-3; tools/rcs, src/simulation/mission_systems/rcs) -----------------------------
 
 /// A radar looking at an entity: its frequency and its linear polarisations, as angles from the vertical (the plane
 /// through the line of sight and the local vertical at the target) towards the horizontal: 0 vertical, pi/2 horizontal.

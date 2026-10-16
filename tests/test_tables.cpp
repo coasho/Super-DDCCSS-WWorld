@@ -5,7 +5,7 @@
 // with the flight tests within 5 % is hangar's performance stage's check.
 #include "mode_flights.h"
 
-#include "control/Profile.h"
+#include "simulation/flight_control/Profile.h"
 
 #include <catch2/catch_test_macros.hpp>
 

@@ -1,6 +1,6 @@
 // C ABI adapter for the vectorized environment.
 #include "sdk/VecEnvHandles.h"
-#include "core/Log.h"
+#include "foundation/core/Log.h"
 #include "sdk/LastError.h"
 #include <cstring>
 #include <exception>

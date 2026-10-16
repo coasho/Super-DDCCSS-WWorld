@@ -1,7 +1,7 @@
 #include "world/Interpolator.h"
 
-#include "platform/Clock.h"
-#include "sim/Attitude.h"
+#include "foundation/platform/Clock.h"
+#include "simulation/flight/Attitude.h"
 
 #include <algorithm>
 #include <cmath>

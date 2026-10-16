@@ -1,6 +1,6 @@
 #include "world/VehicleVisuals.h"
 
-#include "core/Log.h"
+#include "foundation/core/Log.h"
 #include "render/Viewer.h"
 #include "world/Exhaust.h"
 #include "world/FlatGeometry.h"

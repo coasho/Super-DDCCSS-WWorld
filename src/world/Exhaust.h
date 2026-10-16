@@ -1,6 +1,6 @@
 #pragma once
 
-#include "sim/VehicleState.h"
+#include "simulation/flight/VehicleState.h"
 
 #include <vsg/all.h>
 

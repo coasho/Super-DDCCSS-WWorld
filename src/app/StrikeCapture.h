@@ -1,7 +1,7 @@
 #pragma once
 
 // Private viewer acceptance policy. It observes native events and never changes simulation state.
-#include "core/Json.h"
+#include "foundation/core/Json.h"
 #include "contracts/world_stream/WorldLayout.h"
 
 #include <array>

@@ -9,10 +9,10 @@
 #include <chrono>
 #include <thread>
 
-#include "core/Log.h"
-#include "platform/Clock.h"
-#include "platform/Paths.h"
-#include "platform/Threads.h"
+#include "foundation/core/Log.h"
+#include "foundation/platform/Clock.h"
+#include "foundation/platform/Paths.h"
+#include "foundation/platform/Threads.h"
 
 #include <vsgXchange/all.h>
 

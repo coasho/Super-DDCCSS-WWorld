@@ -233,9 +233,11 @@ struct MissionRangeDoppler {
 
 /// Padding: the bytes no member of a plain record occupies (HC-01, HC-10). In a caller's struct they are unspecified;
 /// the transport writes them as zero - into the shared segment and into a recording - so neither carries anything but
-/// the members. Of the records published or recorded, measured member by member, these two have any: a vehicle's state
-/// (after its three flags; after its wheel count) and a radar's range-Doppler picture (after `reserved2`). Each span runs
-/// from one member's end to the next member's start; the frozen layouts fix where.
+/// the members. Of the payload records the world publisher writes - its samples and mission records, measured member by
+/// member - these two have any: a vehicle's state (after its three flags; after its wheel count) and a radar's
+/// range-Doppler picture (after `reserved2`). A recording carries the same state in its samples; its own framing records
+/// (header, table row, snapshot head) have padding of their own, which the recording writer zeroes (ipc's Recording.cpp).
+/// Each span runs from one member's end to the next member's start; the frozen layouts fix where.
 struct Padding {
     std::size_t offset;
     std::size_t size;

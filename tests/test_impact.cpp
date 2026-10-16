@@ -1,7 +1,7 @@
 // A vehicle striking the ground (ms/damage/Impact.h, session::World::impacted): what the strike does follows how it
 // came in - its angle to the surface, its speed across and along it, the forces stopping it takes.
 #include "mode_flights.h"
-#include "ms/damage/Impact.h"
+#include "simulation/mission_systems/damage/Impact.h"
 
 #include <catch2/catch_test_macros.hpp>
 

@@ -1,6 +1,6 @@
 // The private viewer policy must preserve a complete native strike and take only its two requested captures.
 #include "app/StrikeCapture.h"
-#include "ipc/Recording.h"
+#include "foundation/transport/Recording.h"
 
 #include <algorithm>
 #include <cmath>

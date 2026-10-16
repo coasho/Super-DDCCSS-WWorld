@@ -5,10 +5,10 @@
 // commands, the refusals, the status, the activity that fails when the target is lost, the viewers' record.
 #include "mode_flights.h"
 
-#include "ipc/WorldMirror.h"
-#include "ms/Cards.h"
-#include "ms/radar/Radar.h"
-#include "sim/Attitude.h"
+#include "foundation/transport/WorldMirror.h"
+#include "simulation/mission_systems/Cards.h"
+#include "simulation/mission_systems/radar/Radar.h"
+#include "simulation/flight/Attitude.h"
 
 #include <catch2/catch_test_macros.hpp>
 

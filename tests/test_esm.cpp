@@ -5,8 +5,8 @@
 
 #include "mode_flights.h"
 
-#include "ms/Model.h"
-#include "ms/esm/Receiver.h"
+#include "simulation/mission_systems/Model.h"
+#include "simulation/mission_systems/esm/Receiver.h"
 
 #include <catch2/catch_test_macros.hpp>
 

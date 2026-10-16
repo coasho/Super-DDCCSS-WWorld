@@ -3,7 +3,7 @@
 #include "fsim/Recording.h"
 
 #include "fsim/World.h"
-#include "ipc/Recording.h"
+#include "foundation/transport/Recording.h"
 
 #include <cstring>
 

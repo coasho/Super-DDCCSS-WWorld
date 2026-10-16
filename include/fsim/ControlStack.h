@@ -24,7 +24,7 @@ struct ControllerSetting {
 };
 
 // The boundary with the contract layer (docs/control-architecture.md, 6):
-// defined in the platform's src/control/Runtime.h, not part of the SDK.
+// defined in the platform's src/simulation/flight_control/Runtime.h, not part of the SDK.
 struct RuntimeConfig;
 struct RuntimeReport;
 struct SpeedFloor;

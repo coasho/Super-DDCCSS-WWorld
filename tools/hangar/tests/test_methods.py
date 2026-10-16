@@ -2802,7 +2802,7 @@ if __name__ == "__main__":
 class Autopilot(unittest.TestCase):
     """The aircraft's plant identified (hangar/autopilot.py): the step fit and
     the fits of level flight. The loops designed from it are the platform's
-    (src/control/Laws.cpp, tests/test_laws.cpp)."""
+    (src/simulation/flight_control/Laws.cpp, tests/test_laws.cpp)."""
 
     def test_first_order_fits_a_step(self):
         from hangar.autopilot import first_order

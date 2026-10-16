@@ -2,7 +2,7 @@
 // joined where its method chooses from where the aircraft is, and flown from there; the plan activated by it, and its status.
 #include "mode_flights.h"
 
-#include "core/Geodesy.h"
+#include "foundation/core/Geodesy.h"
 
 #include <catch2/catch_test_macros.hpp>
 

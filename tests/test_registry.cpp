@@ -1,7 +1,7 @@
-#include "core/Context.h"
-#include "core/Log.h"
-#include "core/Module.h"
-#include "core/Registry.h"
+#include "foundation/core/Context.h"
+#include "foundation/core/Log.h"
+#include "foundation/core/Module.h"
+#include "foundation/core/Registry.h"
 
 #include <catch2/catch_test_macros.hpp>
 

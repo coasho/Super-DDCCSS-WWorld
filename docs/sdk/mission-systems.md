@@ -141,7 +141,7 @@ In C++, the same calls are `World::launchWeapon(launcher, ms::WeaponLaunch{...})
 
 ## The radio path (MS-2)
 
-Every sensor, jammer and link shares one radio path between two points in the air (`src/ms/rf`). The SDK can ask for
+Every sensor, jammer and link shares one radio path between two points in the air (`src/simulation/mission_systems/rf`). The SDK can ask for
 it between any two entities:
 
 - **Smooth earth:** ITU-R P.528-5, NTIA's U.S. reference implementation (`third_party/ntia`). Its basic
@@ -831,7 +831,7 @@ In C++: `AmtiCommand::signalLevel`, `RadarStatus::signalLevel`. In C (ABI 1.55):
 (range-while-search, track-while-scan, surveillance); velocity search at the signal level is refused
 (`invalid_parameter`). Its detections and tracks come through the same calls as the detection level's.
 
-**The chain** (`src/ms/radar/Signal`, the platform's own: ADR-30's MS-6 amended):
+**The chain** (`src/simulation/mission_systems/radar/Signal`, the platform's own: ADR-30's MS-6 amended):
 - **The waveform:** a dwell split into 8 coherent intervals, one per PRF, the same design for every radar in speed:
   blind speeds 150 to 300 m/s, geometric (an X-band radar's PRFs 10 to 20 kHz, an S-band one's a third of that). The
   transmitter on 10 % of the time (the cards' class duty), the gates its range resolution apart, those while it

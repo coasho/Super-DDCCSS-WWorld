@@ -6,7 +6,7 @@
 // abort, the master arm, standard and emergency jettison.
 #include "mode_flights.h"
 
-#include "ms/Cards.h"
+#include "simulation/mission_systems/Cards.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>

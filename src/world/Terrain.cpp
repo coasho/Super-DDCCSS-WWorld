@@ -1,7 +1,7 @@
-#include "core/HeightGrid.h"
+#include "foundation/core/HeightGrid.h"
 #include "world/Terrain.h"
 
-#include "core/Log.h"
+#include "foundation/core/Log.h"
 
 #include <algorithm>
 #include <cmath>

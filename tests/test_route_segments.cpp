@@ -3,7 +3,7 @@
 // segment made at its acceleration, a wing's through the air and a rotorcraft's over the ground; a climb or descent at the
 // most the aircraft makes holding its speed, an efficient climb timed by the tables and an efficient descent along its
 // gradient; what does not make one refused, naming the point; an acceleration beyond the aircraft's held to it.
-#include "control/Route.h"
+#include "simulation/flight_control/Route.h"
 #include "fsim/GuidanceModes.h"
 #include "mode_flights.h"
 

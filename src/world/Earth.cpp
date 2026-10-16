@@ -1,6 +1,6 @@
 #include "world/Earth.h"
 
-#include "core/Log.h"
+#include "foundation/core/Log.h"
 #include "world/ElevatedTile.h"
 #include "world/ElevationUpsampler.h"
 #include "world/OfflineTiles.h"

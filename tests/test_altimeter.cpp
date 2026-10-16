@@ -3,11 +3,11 @@
 // at a standard and a non-standard QNH, and a barometric altitude flown on its isobar in air that is not standard.
 #include "mode_flights.h"
 
-#include "core/Log.h"
+#include "foundation/core/Log.h"
 #include "fsim/Altimeter.h"
 #include "fsim/Capability.h"
-#include "sim/GroundProvider.h"
-#include "sim/JsbsimModel.h"
+#include "simulation/flight/GroundProvider.h"
+#include "simulation/flight/JsbsimModel.h"
 
 #include <catch2/catch_test_macros.hpp>
 

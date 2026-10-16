@@ -3,9 +3,9 @@
 #include "fsim/ControlInputs.h"
 #include "fsim/VehicleState.h"
 #include "fsim/fsim_c.h"
-#include "ipc/Recording.h"
-#include "ipc/WorldPublisher.h"
-#include "platform/SharedMemory.h"
+#include "foundation/transport/Recording.h"
+#include "foundation/transport/WorldPublisher.h"
+#include "foundation/platform/SharedMemory.h"
 #include "contracts/world_stream/WorldLayout.h"
 
 #include <catch2/catch_test_macros.hpp>

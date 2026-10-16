@@ -1,7 +1,7 @@
 // Guidance flown (docs/vehicle-interface.md): the behaviours an autonomy
 // commands a vehicle through, flown on a wing and on rotorcraft, in wind -
 // the checks the Vehicle Interface's gap analysis found missing (step VI-1).
-#include "control/Adapter.h"
+#include "simulation/flight_control/Adapter.h"
 #include "fsim/Control.h"
 #include "session/World.h"
 

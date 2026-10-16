@@ -1,7 +1,7 @@
 #pragma once
 
-#include "sim/ControlInputs.h"
-#include "sim/VehicleState.h"
+#include "simulation/flight/ControlInputs.h"
+#include "simulation/flight/VehicleState.h"
 
 #include <algorithm>
 #include <cmath>
