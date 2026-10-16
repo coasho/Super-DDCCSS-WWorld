@@ -26,6 +26,7 @@
 #include "fsim/Frames.h"
 #include "fsim/InitialConditions.h"
 #include "fsim/Rng.h"
+#include "contracts/simulation/WorldOptions.h"
 #include "io/TerrainTiles.h"
 #include "ipc/Recording.h"
 #include "ipc/WorldPublisher.h"
@@ -53,28 +54,6 @@ struct PerformanceProfile; // fsim/PerformanceProfile.h
 }
 
 namespace fsim::session {
-
-struct WorldOptions {
-    std::string name = "default";       ///< shared-memory world name (viewers attach by it)
-    double dt = 1.0 / 120.0;            ///< FDM step
-    int frameSkip = 4;                  ///< FDM steps per world step
-    unsigned workers = 0;               ///< 0 = physical cores - 2
-    bool pinWorkers = true;             ///< one worker per physical core (throughput stability)
-    std::uint64_t seed = 0;
-    std::uint32_t capacity = 256;       ///< published vehicle slots
-    bool publish = true;                ///< false = invisible to viewers
-    bool storeDrag = true;              ///< carried stores' and their carriage's drag on the aircraft (MS-7g); false: their mass only
-    double publishIntervalSeconds = 1.0 / 60.0;
-    std::filesystem::path jsbsimRoot;   ///< empty = auto-detect
-    std::shared_ptr<sim::GroundProvider> ground; ///< custom ground; null = `terrain` below or flat at 0 m
-    bool terrain = false;               ///< physics ground from the public elevation tiles the viewer draws
-    std::string terrainUrl;             ///< tile template; empty = AWS Terrarium
-    unsigned terrainZoom = 15;          ///< ~3.8 m/px: the raster the viewer draws close up (io::TerrainTiles::Options::zoom)
-    double terrainPrefetchRadiusM = 1500.0; ///< tiles loaded (blocking) around each new vehicle's position (then ahead of it, in the background)
-    bool terrainOffline = false;        ///< the tiles from the cache alone, never fetched (io::TerrainTiles::Options::offline)
-    std::filesystem::path recordPath;   ///< non-empty: write every vehicle's state to this file for replay in the viewer
-    double recordIntervalSeconds = 0.0; ///< simulation time between recorded frames; 0 = every world step
-};
 
 struct VehicleSpec {
     std::string name;                   ///< unique in the world; empty = "<type>-<id>"

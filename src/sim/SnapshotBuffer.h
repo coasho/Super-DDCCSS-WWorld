@@ -1,20 +1,12 @@
 #pragma once
 
-#include "sim/VehicleState.h"
+#include "contracts/world_stream/SnapshotBatch.h"
 
 #include <atomic>
 #include <cstdint>
 #include <vector>
 
 namespace fsim::sim {
-
-/// One published batch of vehicle snapshots.
-struct SnapshotBatch {
-    double simTime = 0.0;            ///< simulation time of the batch, seconds
-    std::int64_t wallNs = 0;         ///< platform::Clock::nanoseconds() at publish
-    std::uint64_t sequence = 0;      ///< increments per publish
-    std::vector<VehicleState> states;
-};
 
 /// Lock-free single-producer / single-consumer triple buffer (design 6.3).
 /// The sim thread writes into a free slot and publishes it with one atomic

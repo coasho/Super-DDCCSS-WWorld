@@ -23,7 +23,7 @@
 // Without Flow's DLLs at run time available() is false.
 
 #include "core/Span.h"
-#include "ipc/WorldLayout.h"
+#include "contracts/world_stream/WorldLayout.h"
 #include "sim/VehicleState.h"
 #include "world/Blackbody.h"
 #include "world/Clouds.h"

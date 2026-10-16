@@ -425,6 +425,44 @@ The manifest also states the platform/service counts exactly (five platforms, fi
 Logs are under `D:/ENV/tmp/m8fix/logs/`. Pending as before: independent M8 generic acceptance; J5, J9, the combat parts
 of J3, J8 and J10; complete Viewer acceptance; a published seed/aspect matrix; J6's speed resumption after an override.
 
+## Architecture ARCH-02 neutral contracts (2026-10-16, awaiting independent acceptance)
+
+The second package of the architecture roadmap. The record is
+`docs/architecture/validation/arch-02-neutral-contracts.md`, with its dated baseline; both are committed. No numerical,
+RNG, timestep or default behavior changed, and ARCH-03 has not started.
+
+- **Contracts:** `fsim_contracts` (`src/contracts`, header-only) holds definitions both sides of a boundary include,
+  with their names, namespaces and layouts unchanged:
+  - the shared-memory, camera-segment and recording layouts;
+  - the stream batch (`sim::SnapshotBatch`);
+  - the native construction values (`session::WorldOptions`).
+- **Transport:** `ipc` links the contracts, core and platform, and no simulation module, so the `ipc -> sim`
+  exception is removed.
+- **Public headers:** all 41 headers are classified by owner domain and kind. The checker holds module and header
+  includes to the domain rules. Three existing includes are exact exceptions: `ui` on `Capability.h` and
+  `MissionSystems.h` until ARCH-06, and `VecEnv.h` on `fsim_c.h` until ARCH-07.
+- **Scenario (A-03):** the runtime no longer includes the training-owned `Scenario.h`.
+  - The new public `fsim/ScenarioDocument.h` holds the document values and their reading/writing; `Scenario.h`
+    includes it, so the API is unchanged.
+  - The runtime applies its own `session::ScenarioRecipe`.
+  - `vecEnvOptions` moved to training (`src/env/ScenarioVecEnv.cpp`), as the same exported symbol.
+- **Regressions, added before includes changed:**
+  - the recording writer's framing and fields at literal offsets, captured from the unchanged writer;
+  - a contracts-only build test (`contracts`);
+  - 12 architecture fixtures.
+
+| Verification | Result |
+| --- | --- |
+| Builds (headless, Release), warnings as errors | 0 warnings; every render consumer compiled |
+| ABI/Python comparison with the frozen baseline (both builds) | 19 comparisons, 0 failures; 1,456 exports, layouts, enumerators and vtables unchanged |
+| Frozen old-header consumers on the new installed SDK and package | C++, C99 and 3 Python consumers pass |
+| Architecture gate; `test_check.py` | Accepted (20 modules, 374 files); 122 cases passed |
+| Targeted CTest | Headless 46/46 (103.99 s); Release 15/15 (94.60 s); no full suite |
+
+Found, not changed here: the recording writer copies unspecified padding bytes into files (readers are unaffected).
+
+Pending: independent ARCH-02 acceptance; the full-suite run at the next regression milestone; ARCH-03 onward.
+
 ## Architecture ARCH-01 ownership and policy baseline (2026-10-16, awaiting independent acceptance)
 
 The first package of the architecture roadmap (`docs/architecture/migration/roadmap.md`, in the untracked planning

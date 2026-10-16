@@ -1,6 +1,6 @@
 #include "ipc/WorldRegistry.h"
 
-#include "ipc/WorldLayout.h"
+#include "contracts/world_stream/WorldLayout.h"
 #include "platform/Clock.h"
 #include "platform/SharedMemory.h"
 

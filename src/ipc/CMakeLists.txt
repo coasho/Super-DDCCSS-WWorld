@@ -1,6 +1,6 @@
-# ipc: shared-memory world segment - publisher (fsim.dll) and mirror (viewer).
+# ipc: shared-memory world segment - publisher (fsim.dll) and mirror (viewer) - and the recording writer/reader: the
+# transport mechanisms. Their wire layouts are contracts (src/contracts); the transport depends on no simulation module.
 add_library(fsim_ipc STATIC
-    WorldLayout.h
     WorldPublisher.h
     WorldPublisher.cpp
     WorldMirror.h
@@ -14,5 +14,5 @@ add_library(fsim_ipc STATIC
 add_library(fsim::ipc ALIAS fsim_ipc)
 
 target_include_directories(fsim_ipc PUBLIC ${CMAKE_SOURCE_DIR}/src)
-target_link_libraries(fsim_ipc PUBLIC fsim::sim fsim::core fsim::platform)
+target_link_libraries(fsim_ipc PUBLIC fsim::contracts fsim::core fsim::platform)
 fsim_set_warnings(fsim_ipc)

@@ -2,7 +2,7 @@
 // parting sections): the airframe stays where it is, its CG and state move to what is left, momentum is kept.
 #include "mode_flights.h"
 #include "io/AssetResolver.h"
-#include "ipc/WorldLayout.h"
+#include "contracts/world_stream/WorldLayout.h"
 #include "ipc/WorldMirror.h"
 #include "ms/Host.h"
 #include "sim/JsbsimModel.h"

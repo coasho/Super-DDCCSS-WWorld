@@ -1,6 +1,7 @@
-// Scenario files (design 9.13): parse, dump and apply to a session::World.
+// Scenario files (design 9.13): parse, dump and apply to a session::World. The runtime applies the native recipe;
+// the VecEnv options a document implies are training's (src/env/ScenarioVecEnv.cpp), not the runtime's.
 
-#include "fsim/Scenario.h"
+#include "fsim/ScenarioDocument.h"
 
 #include "fsim/BuiltinEffects.h"
 
@@ -429,50 +430,36 @@ std::string dumpScenario(const Scenario& sc) {
     return doc.dump();
 }
 
-VecEnvOptions vecEnvOptions(const Scenario& sc) {
-    VecEnvOptions o;
-    const auto& w = sc.world;
-    o.workers = w.workers;
-    o.seed = w.seed;
-    o.jsbsimRoot = w.jsbsimRoot;
-    o.dt = w.dt;
-    o.frameSkip = w.frameSkip;
-    o.worldName = w.name;
-    o.publish = w.publish;
-    o.terrain = w.terrain;
-    const auto& v = sc.vecenv;
-    o.numEnvs = v.numEnvs;
-    o.vehiclesPerEnv = v.vehiclesPerEnv;
-    o.task = v.task;
-    o.observation = v.observation;
-    o.action = v.action;
-    o.actionRanges = v.actionRanges;
-    o.maxEpisodeSteps = v.maxEpisodeSteps;
-    o.latitudeJitterDeg = v.latitudeJitterDeg;
-    o.longitudeJitterDeg = v.longitudeJitterDeg;
-    o.altitudeJitterM = v.altitudeJitterM;
-    o.headingJitterDeg = v.headingJitterDeg;
-    o.airspeedJitterMs = v.airspeedJitterMs;
-    o.targetAltitudeDeltaM = v.targetAltitudeDeltaM;
-    o.targetHeadingDeltaDeg = v.targetHeadingDeltaDeg;
-    if (!sc.vehicles.empty()) {
-        // The first vehicle is the episode template: its aircraft and initial state.
-        const auto& t = sc.vehicles.front().spec;
-        const auto colon = t.type.find(':');
-        o.aircraft = colon == std::string::npos ? t.type : t.type.substr(colon + 1);
-        o.latitudeDeg = t.initial.latitudeDeg;
-        o.longitudeDeg = t.initial.longitudeDeg;
-        o.altitudeM = t.initial.altitudeMslM;
-        o.headingDeg = t.initial.headingDeg;
-        o.airspeedMs = t.initial.airspeedTrueMs;
-    }
-    o.scenarioPath = sc.path.string();
-    return o;
-}
-
 namespace session {
 
-void applyScenarioWorld(session::World& world, const Scenario& sc) {
+ScenarioRecipe scenarioRecipe(const Scenario& sc) {
+    ScenarioRecipe recipe;
+    recipe.source = sc.source;
+    recipe.hasEnvironment = sc.hasEnvironment;
+    recipe.environment = sc.environment;
+    for (const auto& e : sc.effects) recipe.effects.push_back({e.id, e.params});
+    for (const auto& sv : sc.vehicles) {
+        ScenarioVehicleRecipe v;
+        v.name = sv.spec.name;
+        v.type = sv.spec.type;
+        v.model = sv.spec.model;
+        v.controlDivider = sv.spec.controlDivider;
+        v.initial = sv.spec.initial;
+        v.count = sv.count;
+        v.spacingM = sv.spacingM;
+        v.command = sv.command;
+        v.commandTarget = sv.commandTarget;
+        for (const auto& e : sv.effects) v.effects.push_back({e.id, e.params});
+        recipe.vehicles.push_back(std::move(v));
+    }
+    return recipe;
+}
+
+void applyScenarioWorld(session::World& world, const Scenario& sc) { applyScenarioWorld(world, scenarioRecipe(sc)); }
+
+std::vector<std::uint32_t> applyScenario(session::World& world, const Scenario& sc) { return applyScenario(world, scenarioRecipe(sc)); }
+
+void applyScenarioWorld(session::World& world, const ScenarioRecipe& sc) {
     if (sc.hasEnvironment) {
         auto e = sc.environment;
         if (e.epochUtcSeconds <= 0.0) e.epochUtcSeconds = world.environment().epochUtcSeconds; // keep the clock
@@ -486,23 +473,23 @@ void applyScenarioWorld(session::World& world, const Scenario& sc) {
     }
 }
 
-std::vector<std::uint32_t> applyScenario(session::World& world, const Scenario& sc) {
+std::vector<std::uint32_t> applyScenario(session::World& world, const ScenarioRecipe& sc) {
     applyScenarioWorld(world, sc);
 
     struct Pending {
         std::uint32_t id;
-        const ScenarioVehicle* vehicle;
+        const ScenarioVehicleRecipe* vehicle;
     };
     std::vector<Pending> pending;
     std::vector<std::uint32_t> ids;
     for (const auto& sv : sc.vehicles) {
         for (unsigned k = 0; k < sv.count; ++k) {
             session::VehicleSpec s;
-            s.name = sv.count > 1 ? sv.spec.name + "-" + std::to_string(k + 1) : sv.spec.name;
-            s.type = sv.spec.type;
-            s.model = sv.spec.model;
-            s.controlDivider = sv.spec.controlDivider;
-            s.initial = sv.spec.initial;
+            s.name = sv.count > 1 ? sv.name + "-" + std::to_string(k + 1) : sv.name;
+            s.type = sv.type;
+            s.model = sv.model;
+            s.controlDivider = sv.controlDivider;
+            s.initial = sv.initial;
             if (k > 0) {
                 // Abreast of the first instance, to the right of its heading.
                 const double lat = s.initial.latitudeDeg * kDeg, lon = s.initial.longitudeDeg * kDeg;
@@ -530,9 +517,9 @@ std::vector<std::uint32_t> applyScenario(session::World& world, const Scenario& 
         control::Command command = *p.vehicle->command;
         if (auto* b = std::get_if<control::BehaviorCommand>(&command); b && !p.vehicle->commandTarget.empty()) {
             b->target = world.find(p.vehicle->commandTarget);
-            if (!b->target) throw Error(sc.source + ": vehicle '" + p.vehicle->spec.name + "': unknown target '" + p.vehicle->commandTarget + "'");
+            if (!b->target) throw Error(sc.source + ": vehicle '" + p.vehicle->name + "': unknown target '" + p.vehicle->commandTarget + "'");
         }
-        if (!world.command(p.id, command)) throw Error(sc.source + ": vehicle '" + p.vehicle->spec.name + "': command rejected (see log)");
+        if (!world.command(p.id, command)) throw Error(sc.source + ": vehicle '" + p.vehicle->name + "': command rejected (see log)");
     }
     LOG_INFO("session") << "scenario " << sc.source << ": " << ids.size() << " vehicle(s)";
     return ids;

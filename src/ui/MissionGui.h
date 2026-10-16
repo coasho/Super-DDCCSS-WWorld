@@ -9,7 +9,7 @@
 // SDK created and commands, never a simulation of the viewer's own. Each
 // window collapses from its title bar; key p shows or hides them all.
 
-#include "ipc/WorldLayout.h"
+#include "contracts/world_stream/WorldLayout.h"
 #include "ui/ViewerControls.h"
 
 #include <vsg/all.h>

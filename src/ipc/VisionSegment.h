@@ -10,6 +10,7 @@
 // offset. The segment is created once per (world, capacity); a change of the
 // camera set rewrites the table under a new generation.
 
+#include "contracts/vision_stream/VisionLayout.h"
 #include "platform/SharedMemory.h"
 
 #include <atomic>
@@ -19,30 +20,6 @@
 #include <vector>
 
 namespace fsim::ipc {
-
-inline constexpr std::uint32_t kVisionMagic = 0x49565346u; // "FSVI"
-inline constexpr std::uint32_t kVisionVersion = 1;
-inline constexpr unsigned kMaxVisionCameras = 64;
-inline constexpr unsigned kVisionLabelLength = 32;
-
-struct VisionCameraRecord {
-    std::uint32_t vehicleId = 0;
-    std::uint32_t width = 0, height = 0;
-    std::uint32_t channels = 3;
-    std::uint64_t offset = 0;                ///< image bytes from the segment start
-    std::atomic<std::uint64_t> sequence{0}; ///< odd while being written; even = consistent
-    char label[kVisionLabelLength] = {};     ///< vehicle name (or "cam<i>")
-};
-
-struct VisionHeader {
-    std::uint32_t magic = 0, version = 0;
-    std::uint64_t totalBytes = 0;
-    std::uint64_t pid = 0;
-    std::atomic<std::uint64_t> generation{0}; ///< bumped when the camera table is rewritten (odd while rewriting)
-    std::atomic<std::uint64_t> frame{0};      ///< bumped after every published frame
-    std::uint32_t cameraCount = 0;
-    VisionCameraRecord cameras[kMaxVisionCameras];
-};
 
 /// A camera as the publisher describes it.
 struct VisionCameraDesc {

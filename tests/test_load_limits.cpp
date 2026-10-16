@@ -278,7 +278,7 @@ TEST_CASE("load limits: a turn at 1.3 times its least airspeed is flown within t
 }
 
 TEST_CASE("load limits: the viewer is given each vehicle's flight status, and its stores station by station", "[load]") {
-    // what the viewer's mirror reads of a published world (ipc/WorldLayout.h, Derived): as the world has it
+    // what the viewer's mirror reads of a published world (contracts/world_stream/WorldLayout.h, Derived): as the world has it
     session::WorldOptions o = options("load-mirror");
     o.publish = true;
     session::World w(o);

@@ -137,7 +137,11 @@ DOMAIN_KEYS = {"root", "kind", "may_depend_on"}
 MODULE_KEYS = {"target", "aliases", "domain", "kind", "directories", "destinations", "files", "headless", "allowed_dependencies"}
 PLANNED_KEYS = {"domain", "kind", "destinations", "phase"}
 EXCEPTION_KEYS = {"from", "to", "rule", "until", "reason"}
-POLICY_KEYS = {"schema", "domains", "modules", "planned_modules", "exceptions", "external_targets", "python"}
+POLICY_KEYS = {"schema", "domains", "modules", "planned_modules", "exceptions", "public_headers", "public_exceptions",
+               "external_targets", "python"}
+PUBLIC_KINDS = {"value", "interface", "facade", "c_abi"}
+PUBLIC_KEYS = {"domain", "kind"}
+PUBLIC_EXCEPTION_KEYS = {"from", "to", "until", "reason"}
 SCHEMA = "fsim.architecture.source-policy.v2"
 PHASE = re.compile(r"ARCH-(0[2-9]|10)|MS-\d+")
 
@@ -235,7 +239,37 @@ def validate_policy(policy):
             raise ValueError(f"exception keys must be {sorted(EXCEPTION_KEYS)} with rule domain|kind: {entry}")
         if entry["from"] not in modules or entry["to"] not in modules or not PHASE.fullmatch(entry["until"]):
             raise ValueError(f"exception {entry['from']} -> {entry['to']}: unknown module or phase {entry['until']}")
+    # every installed header has an owner domain and a kind: neutral contracts hold values and interfaces only, and the
+    # C ABI belongs to the adapters
+    for path, entry in policy["public_headers"].items():
+        if set(entry) != PUBLIC_KEYS or entry["domain"] not in domains or entry["kind"] not in PUBLIC_KINDS:
+            raise ValueError(f"public header {path}: keys {sorted(PUBLIC_KEYS)}, a known domain and a kind of {sorted(PUBLIC_KINDS)}")
+        if not path.startswith("include/fsim/") or ".." in Path(path).parts:
+            raise ValueError(f"public header {path} is not under include/fsim")
+        if entry["domain"] == "contracts" and entry["kind"] not in {"value", "interface"}:
+            raise ValueError(f"public header {path}: a contracts header is a value or an interface, not a {entry['kind']}")
+        if entry["kind"] == "c_abi" and entry["domain"] != "adapters":
+            raise ValueError(f"public header {path}: the C ABI belongs to the adapters domain")
+    for entry in policy["public_exceptions"]:
+        if set(entry) != PUBLIC_EXCEPTION_KEYS or entry["to"] not in policy["public_headers"] or not PHASE.fullmatch(entry["until"]):
+            raise ValueError(f"public exception {entry}: keys {sorted(PUBLIC_EXCEPTION_KEYS)}, a classified header and a later phase")
+        if entry["from"] not in modules and entry["from"] not in policy["public_headers"]:
+            raise ValueError(f"public exception from unknown module or header {entry['from']}")
     return domains, modules, planned
+
+
+def public_rule(domains, consumer_domain, consumer_kind, header):
+    """Which rule including a public header breaks, if any. The consumer is a module (its domain and kind) or a public
+    header (its domain; a header of the adapters domain acts as an assembly)."""
+    if consumer_kind in {"assembly", "application"} or consumer_domain == "adapters":
+        return None
+    if header["domain"] == "adapters":
+        return "the C ABI or an assembly's API is included below the adapters"
+    if consumer_domain == "contracts" and header["domain"] != "contracts":
+        return "a contract includes a domain's public API"
+    if header["domain"] != consumer_domain and header["domain"] not in domains[consumer_domain]["may_depend_on"]:
+        return f"{consumer_domain} may depend on {', '.join(domains[consumer_domain]['may_depend_on']) or 'nothing'}, not {header['domain']}"
+    return None
 
 
 def edge_rule(modules, domains, consumer, provider):
@@ -496,7 +530,7 @@ def analyze(repo, policy):
                       if path.is_file() and path.suffix in SOURCE_SUFFIXES}
     sources = [path for path in files_under(repo / "src") if path.is_file() and path.suffix in SOURCE_SUFFIXES]
     public = [path for path in files_under(repo / "include/fsim") if path.is_file() and path.suffix in SOURCE_SUFFIXES]
-    source_owner, include_edges, public_consumers = {}, {}, {}
+    source_owner, include_edges, public_consumers, public_edges = {}, {}, {}, {}
     for path in sorted(sources + public):
         place = path.relative_to(repo).as_posix()
         is_public = path.is_relative_to(repo / "include/fsim")
@@ -528,9 +562,13 @@ def analyze(repo, policy):
             third_party = explicit_vendor_path or any(candidate.is_relative_to(repo / "third_party") and candidate.is_file() for candidate in candidates)
             public_headers = sorted({candidate for candidate in candidates
                                      if candidate.is_relative_to(repo / "include/fsim") and candidate.is_file()})
-            if module:
-                for header in public_headers:
-                    public_consumers.setdefault(header.relative_to(repo).as_posix(), set()).add(module)
+            for header in public_headers:
+                target = header.relative_to(repo).as_posix()
+                if module:
+                    public_consumers.setdefault(target, set()).add(module)
+                    public_edges.setdefault((module, target), at)
+                elif is_public and target != place:
+                    public_edges.setdefault((place, target), at)
             if is_public:
                 if private_headers:
                     issue("public-private", at, include)
@@ -570,6 +608,39 @@ def analyze(repo, policy):
             issue("stale-exception", "policy", f"{entry['from']} -> {entry['to']} ({entry['rule']}, until {entry['until']}): "
                   "the edge breaks no rule; remove the exception")
 
+    # public headers: every installed header classified, and every include of one - by a module or by another public
+    # header - held to the same direction rules
+    classified = policy["public_headers"]
+    present = {path.relative_to(repo).as_posix() for path in public}
+    for path in sorted(present - set(classified)):
+        issue("unclassified-public-header", path, "classify it in the policy's public_headers (domain and kind)")
+    for path in sorted(set(classified) - present):
+        issue("stale-public-header", "policy", f"{path} is classified but does not exist")
+    public_excepted = {(entry["from"], entry["to"]): entry for entry in policy["public_exceptions"]}
+    public_used = set()
+    for (consumer, header), at in sorted(public_edges.items()):
+        if header not in classified:
+            continue
+        if consumer in modules:
+            domain, kind = modules[consumer]["domain"], modules[consumer]["kind"]
+        elif consumer in classified:
+            domain, kind = classified[consumer]["domain"], None
+        else:
+            continue  # (an unclassified includer is reported above)
+        reason = public_rule(domains, domain, kind, classified[header])
+        if reason is None:
+            continue
+        if (consumer, header) in public_excepted:
+            public_used.add((consumer, header))
+            continue
+        issue("forbidden-public", at, f"{consumer} ({domain}) includes {header} ({classified[header]['domain']} "
+              f"{classified[header]['kind']}): {reason}")
+    for key, entry in sorted(public_excepted.items()):
+        if key not in public_used:
+            gone = key not in public_edges
+            issue("stale-exception", "policy", f"public {entry['from']} -> {entry['to']} (until {entry['until']}): "
+                  + ("the include no longer exists" if gone else "the include breaks no rule") + "; remove the exception")
+
     python_issues, python_facts = python_imports.check(repo, policy["python"])
     issues.extend(python_issues)
     facts = {
@@ -582,6 +653,8 @@ def analyze(repo, policy):
         "public_headers": {path.relative_to(repo).as_posix(): sorted(public_consumers.get(path.relative_to(repo).as_posix(), ()))
                            for path in sorted(public)},
         "exceptions_applied": sorted(f"{m} -> {d} ({r})" for m, d, r in used),
+        "public_exceptions_applied": sorted(f"{c} -> {h}" for c, h in public_used),
+        "public_includes": {f"{c} -> {h}": at for (c, h), at in sorted(public_edges.items())},
         "python": python_facts,
     }
     return sorted(set(issues)), facts
@@ -606,6 +679,8 @@ def main():
     print(f"Architecture accepted: {facts['module_count']} native modules, {facts['file_count']} source/public header files; "
           "all CMake branches scanned.")
     print(f"Domains and kinds held on links and includes; legacy exceptions in use: {', '.join(facts['exceptions_applied']) or 'none'}.")
+    print(f"Public headers: {len(facts['public_headers'])} classified by domain and kind; legacy public exceptions in use: "
+          f"{', '.join(facts['public_exceptions_applied']) or 'none'}.")
     print(f"Python: {len(python['modules'])} modules (extensions as leaves), {len(python['edges'])} literal imports; "
           f"legacy deferred cycles set aside: {len(python['cycles_all'])}; eager cycles: {len(python['cycles_eager'])}.")
     return 0

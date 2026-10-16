@@ -365,6 +365,14 @@ foreach(_stress_mode same next)
     set_tests_properties("mission_c_abi_stress ${_stress_mode}" PROPERTIES LABELS "ma-training;stress" TIMEOUT 900 PROCESSORS 2)
 endforeach()
 
+# The neutral contracts alone (ARCH-02): built against fsim::contracts and nothing else, so a contract that needed a
+# domain or foundation library would not link here; it holds their frozen sizes, constants and defaults.
+add_executable(fsim_contracts_test test_contracts.cpp)
+target_link_libraries(fsim_contracts_test PRIVATE fsim::contracts Catch2::Catch2WithMain)
+fsim_set_warnings(fsim_contracts_test)
+add_test(NAME contracts COMMAND fsim_contracts_test)
+set_tests_properties(contracts PROPERTIES LABELS architecture TIMEOUT 60)
+
 # Simulation construction, fixed state/transport ABI and output-only diagnostics stay independent of M5.
 add_executable(fsim_simulation_interface_boundary_test
     test_episode_world_options.cpp

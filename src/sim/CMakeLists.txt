@@ -22,7 +22,7 @@ add_library(fsim::sim ALIAS fsim_sim)
 
 target_include_directories(fsim_sim PUBLIC ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(fsim_sim
-    PUBLIC  fsim::core fsim::io
+    PUBLIC  fsim::contracts fsim::core fsim::io
     PRIVATE fsim::jsbsim)
 fsim_set_warnings(fsim_sim)
 

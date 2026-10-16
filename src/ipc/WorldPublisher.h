@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/Span.h"
-#include "ipc/WorldLayout.h"
+#include "contracts/world_stream/WorldLayout.h"
 #include "platform/SharedMemory.h"
 
 #include <cstdint>

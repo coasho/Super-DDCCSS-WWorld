@@ -4,7 +4,7 @@
 #include "fsim/VehicleState.h"
 #include "fsim/fsim_c.h"
 #include "ipc/Recording.h"
-#include "ipc/WorldLayout.h"
+#include "contracts/world_stream/WorldLayout.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -433,4 +433,129 @@ TEST_CASE("public state and recording representations preserve frozen layouts", 
     REQUIRE(written.size() == 2564);
     REQUIRE(std::string(written.data(), 5) == "FSREC");
     REQUIRE(static_cast<unsigned char>(written[5]) == 7);
+}
+
+// ARCH-02 moves the wire and recording definitions below their producer and readers. What the writer produces for a
+// fixed world is frozen with them, at literal offsets (taken before ARCH-02 moved any definition, main 7625529): the
+// framing - each record's kind, slot, count and size prefix - and every field this world sets, at the byte it occupies
+// in an FSREC v7 file, and the file's length. A moved, re-included or reordered definition fails here, and the file
+// still reads back as written. Padding bytes are not compared: the writer copies its callers' structs and its own
+// snapshot head byte for byte, and their padding is unspecified (recordings are not byte-reproducible in padding).
+TEST_CASE("the recording writer's bytes for a fixed world are frozen (FSREC v7)", "[boundary][layout]") {
+    ScratchRecording file;
+    Header header{};
+    header.capacity = 4;
+    header.dt = 1.0 / 120.0;
+    header.frameSkip = 4;
+    std::memcpy(header.name, "frozen", 6);
+    Row row{};
+    row.id = 7;
+    row.generation = 3;
+    row.alive = 1;
+    row.controlLevel = 2;
+    std::memcpy(row.name, "lead", 4);
+    std::memcpy(row.type, "jsbsim:f16c", 11);
+    row.initialLatitudeDeg = 33.5;
+    row.initialLongitudeDeg = -117.25;
+    row.initialAltitudeMslM = 3000.0;
+    row.initialHeadingDeg = 90.0;
+    Sample sample{};
+    sample.state.simTime = 12.5;
+    sample.state.positionEcef[0] = -2450000.0;
+    sample.state.positionEcef[1] = -4650000.0;
+    sample.state.positionEcef[2] = 3500000.0;
+    sample.state.latitudeRad = 0.585;
+    sample.state.altitudeMslM = 3000.0;
+    sample.state.engineRpm[0] = 1500.0;
+    sample.state.wheelCount = 3;
+    sample.inputs.aileron = 0.25;
+    sample.inputs.setThrottleAll(0.75);
+    for (unsigned k = 0; k < fsim::ipc::kDerivedCount; ++k) sample.derived[k] = 100.0 + k;
+    fsim::ipc::MissionStore store{};
+    store.station = 3;
+    store.status = 1;
+    std::memcpy(store.mnemonic, "Mk 82", 5);
+    std::memcpy(store.store, "mk82", 4);
+    Environment environment{};
+    environment.epochUtcSeconds = 1.7e9;
+    environment.temperatureSeaLevelK = 290.0;
+    fsim::ipc::EngagementEvent event{};
+    event.slot = 0;
+    event.target = 1;
+    event.simTime = 12.25;
+    event.positionEcef[0] = -2450100.0;
+    event.massKg = 227.0;
+    std::memcpy(event.name, "fuze", 4);
+
+    fsim::ipc::RecordWriter writer;
+    REQUIRE(writer.open(file.path, header));
+    writer.writeVehicle(0, row);
+    writer.writeStores(0, {store});
+    writer.writeEnvironment(environment);
+    writer.writeEvent(event);
+    writer.writeSnapshot(12.5, {{0, sample}});
+    sample.state.simTime = 12.75;
+    writer.writeSnapshot(12.75, {{0, sample}});
+    writer.close();
+
+    std::ifstream stream(file.path, std::ios::binary);
+    const std::vector<char> written{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+    REQUIRE(written.size() == 2928);
+    const auto byte = [&](std::size_t at) { return static_cast<unsigned char>(written.at(at)); };
+    const auto u32 = [&](std::size_t at) {
+        std::uint32_t v = 0;
+        std::memcpy(&v, written.data() + at, 4);
+        return v;
+    };
+    const auto u64 = [&](std::size_t at) {
+        std::uint64_t v = 0;
+        std::memcpy(&v, written.data() + at, 8);
+        return v;
+    };
+    const auto f64 = [&](std::size_t at) {
+        double v = 0;
+        std::memcpy(&v, written.data() + at, 8);
+        return v;
+    };
+    const auto text = [&](std::size_t at, std::size_t n) { return std::string(written.data() + at, n); };
+    // magic, version, header (88 bytes from 6)
+    REQUIRE(text(0, 5) == "FSREC");
+    REQUIRE(byte(5) == 7);
+    REQUIRE((u32(6) == 4 && f64(14) == 1.0 / 120.0 && u32(22) == 4 && text(26, 7) == std::string("frozen\0", 7)));
+    // 'T' slot 0, its table row (440 bytes from 99)
+    REQUIRE((byte(94) == 'T' && u32(95) == 0));
+    REQUIRE((u32(99) == 7 && u64(107) == 3 && byte(115) == 1 && byte(116) == 2));
+    REQUIRE((text(117, 5) == std::string("lead\0", 5) && text(181, 12) == std::string("jsbsim:f16c\0", 12) && byte(245) == 0));
+    REQUIRE((f64(507) == 33.5 && f64(515) == -117.25 && f64(523) == 3000.0 && f64(531) == 90.0));
+    // 'M' slot 0, one store (40 bytes from 548)
+    REQUIRE((byte(539) == 'M' && u32(540) == 0 && u32(544) == 1));
+    REQUIRE((byte(548) == 3 && byte(549) == 1 && text(552, 6) == std::string("Mk 82\0", 6) && text(572, 5) == std::string("mk82\0", 5)));
+    // 'E', its size, the environment (112 bytes from 593)
+    REQUIRE((byte(588) == 'E' && u32(589) == 112));
+    REQUIRE((f64(593) == 1.7e9 && f64(601) == 1.0 && f64(609) == 290.0 && f64(617) == 101325.0));
+    // 'V', its size, the event (176 bytes from 710)
+    REQUIRE((byte(705) == 'V' && u32(706) == 176));
+    REQUIRE((u32(714) == 0 && u32(718) == 1 && f64(726) == 12.25 && f64(734) == -2450100.0 && f64(790) == 227.0));
+    REQUIRE(text(806, 5) == std::string("fuze\0", 5));
+    // 'S': simTime, count, then slot 0 and its 1000-byte sample (from 907): state, inputs at 800, derived at 888
+    REQUIRE((byte(886) == 'S' && f64(887) == 12.5 && u32(895) == 1 && u32(903) == 0));
+    REQUIRE((f64(907) == 12.5 && f64(915) == -2450000.0 && f64(931) == 3500000.0 && f64(939) == 1.0 && f64(971) == 0.585));
+    REQUIRE((f64(987) == 3000.0 && f64(907 + 464) == 1500.0 && u32(907 + 600) == 3));
+    REQUIRE((f64(907 + 800) == 0.25 && f64(907 + 824) == 0.75 && f64(907 + 848) == 0.75 && f64(907 + 864) == 1.0));
+    for (unsigned k = 0; k < 14; ++k) REQUIRE(f64(907 + 888 + 8 * k) == 100.0 + k);
+    // the second snapshot: 'S' at 1907, its sample from 1928, ending the file at 2928
+    REQUIRE((byte(1907) == 'S' && f64(1908) == 12.75 && u32(1916) == 1 && u32(1924) == 0 && f64(1928) == 12.75));
+    REQUIRE(f64(1928 + 888 + 8 * 13) == 113.0);
+
+    fsim::ipc::Recording recording;
+    REQUIRE(recording.load(file.path));
+    REQUIRE(recording.header().capacity == 4);
+    REQUIRE(recording.frames().size() == 2);
+    const auto& first = recording.frames().front();
+    REQUIRE(first.tableChanges.size() == 1);
+    REQUIRE(first.storeChanges.size() == 1);
+    REQUIRE(first.environment.has_value());
+    REQUIRE(first.environment->temperatureSeaLevelK == 290.0);
+    REQUIRE(first.events.size() == 1);
+    REQUIRE(first.samples.at(0).second.derived[13] == 113.0);
 }

@@ -8,6 +8,7 @@ add_library(fsim_env STATIC
     Registry.h
     Registry.cpp
     Scenario.h
+    ScenarioVecEnv.cpp
     Task.h
     Task.cpp
     VecEnv.h

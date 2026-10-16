@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ipc/WorldLayout.h"
+#include "contracts/world_stream/WorldLayout.h"
 #include "sim/SnapshotBuffer.h"
 #include "ui/ViewerControls.h"
 

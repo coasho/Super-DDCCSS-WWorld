@@ -8,17 +8,9 @@
 namespace fsim::ipc {
 
 namespace {
-constexpr char kRecMagic[5] = {'F', 'S', 'R', 'E', 'C'};
-// 2: VehicleState grew by the engines' and moving parts' state; a version 1
-// file still reads, its samples' state the prefix the fields were appended to.
-// 3: the vehicles' stores ('M' records); an older file has none
-// 4: the world's environment ('E' records); an older file has none
-// 5: engagement events ('V' records: MS-7h); an older file has none
-// 6: a sample's CG from its model's origin (two more `derived` values, at its end); an older file's samples are that
-//    much shorter and theirs 0 - drawn as they were, each model's origin at its CG
-// 7: each engine's fuel flow (four more `derived` values); an older file's are 0 - its trails laid as they were, from
-//    the thrust
-constexpr std::uint8_t kVersion = 7;
+// (the format's magic, version history and records: contracts/recording/RecordingFormat.h)
+constexpr const char (&kRecMagic)[5] = kRecordingMagic;
+constexpr std::uint8_t kVersion = kRecordingVersion;
 constexpr std::size_t kStateV1 = offsetof(sim::VehicleState, engineRpm);
 static_assert(offsetof(VehicleSample, state) == 0, "a sample starts with its state");
 /// A sample's bytes before version 6: all but the `derived` values added since (they are its last).
@@ -46,10 +38,7 @@ bool readSampleV1(std::FILE* f, VehicleSample& sample) {
     return true;
 }
 
-struct SnapshotHead {
-    double simTime;
-    std::uint32_t count;
-};
+using SnapshotHead = RecordingSnapshotHead;
 } // namespace
 
 RecordWriter::~RecordWriter() { close(); }

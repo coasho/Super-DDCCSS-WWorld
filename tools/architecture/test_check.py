@@ -54,6 +54,8 @@ class FixtureRepository(unittest.TestCase):
                 "mission": {"domain": "training", "kind": "implementation", "destinations": ["src/training/native/mission"], "phase": "ARCH-05"},
             },
             "exceptions": [{"from": "ipc", "to": "sim", "rule": "domain", "until": "ARCH-02", "reason": "fixture legacy edge"}],
+            "public_headers": {},
+            "public_exceptions": [],
             "external_targets": ["vsg::vsg", "Vulkan::Vulkan"],
             "python": {"package_root": "python/fsim", "package": "fsim", "extensions": ["fsim._native"],
                        "private_packages": {"fsim._contracts": [], "fsim._simulation": ["fsim._contracts", "fsim._native"],
@@ -101,7 +103,13 @@ class FixtureRepository(unittest.TestCase):
         self.write("python/fsim/__init__.py", "from . import _native\nfrom .world import World\n")
         self.write("python/fsim/world.py", "import math\n\n\nclass World:\n    pass\n")
 
+    # a public header a fixture writes is classified unless the fixture classifies it itself
+    PUBLIC_DEFAULTS = {"World.h": {"domain": "simulation", "kind": "facade"}}
+
     def write(self, path, text):
+        if path.startswith("include/fsim/") and path not in self.policy["public_headers"]:
+            self.policy["public_headers"][path] = dict(self.PUBLIC_DEFAULTS.get(path.rsplit("/", 1)[1],
+                                                                              {"domain": "contracts", "kind": "value"}))
         destination = self.repo / path
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(text, encoding="utf-8")
@@ -659,6 +667,113 @@ class DomainFixtures(FixtureRepository):
             with self.subTest(text=text):
                 self.write("python/fsim/world.py", text)
                 self.rejects("python-dynamic-import", "unsupported dynamic-import form in load")
+
+    # ARCH-02: transport below the domains, the contracts it depends on, and public headers by owner
+    def test_transport_cannot_depend_on_simulation_once_its_exception_is_gone(self):
+        self.policy["exceptions"] = []
+        self.rejects("forbidden-domain", "ipc (foundation) -> sim (simulation) by link")
+
+    def contracts_below_transport(self):
+        """The fixture as ARCH-02 leaves the tree: ipc on the contracts, not on sim; no exception."""
+        self.policy["modules"]["contracts"] = {
+            "target": "fsim_contracts", "aliases": ["fsim::contracts"], "domain": "contracts", "kind": "contract",
+            "directories": [], "destinations": ["src/contracts"], "files": [], "headless": True, "allowed_dependencies": []}
+        self.write("src/contracts/world_stream/WorldLayout.h", "#pragma once\n#include <cstdint>\n")
+        self.write("src/contracts/CMakeLists.txt", "add_library(fsim_contracts INTERFACE world_stream/WorldLayout.h)\n"
+                   "add_library(fsim::contracts ALIAS fsim_contracts)\n")
+        self.policy["exceptions"] = []
+        self.policy["modules"]["ipc"]["allowed_dependencies"] = ["contracts"]
+        self.write("src/ipc/CMakeLists.txt", "add_library(fsim_ipc STATIC Header.h)\nadd_library(fsim::ipc ALIAS fsim_ipc)\n"
+                   "target_link_libraries(fsim_ipc PUBLIC fsim::contracts)\n")
+        self.append("src/ipc/Header.h", '#include "contracts/world_stream/WorldLayout.h"\n')
+
+    def test_transport_on_the_contracts_is_accepted_without_an_exception(self):
+        self.contracts_below_transport()
+        self.append("src/world/Header.h", '#include "contracts/world_stream/WorldLayout.h"\n')  # (a reader, through ipc)
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+        self.assertIn("legacy exceptions in use: none", output)
+
+    def test_transport_on_the_contracts_cannot_reach_simulation_headers(self):
+        self.contracts_below_transport()
+        self.append("src/ipc/Header.h", '#include "sim/Header.h"\n')
+        self.rejects("undeclared-include", "ipc -> sim: sim/Header.h")
+
+    def test_a_contract_header_cannot_include_a_simulation_header(self):
+        self.contracts_below_transport()
+        self.policy["modules"]["contracts"]["allowed_dependencies"] = ["sim"]
+        self.append("src/contracts/CMakeLists.txt", "target_link_libraries(fsim_contracts INTERFACE fsim::sim)\n")
+        self.append("src/contracts/world_stream/WorldLayout.h", '#include "sim/Header.h"\n')
+        self.rejects("forbidden-kind", "contracts (contracts) -> sim (simulation) by link: a contract depends on an implementation")
+
+    def test_an_unclassified_public_header_is_rejected(self):
+        self.write("include/fsim/New.h", "#pragma once\n")
+        del self.policy["public_headers"]["include/fsim/New.h"]
+        self.rejects("unclassified-public-header", "include/fsim/New.h")
+
+    def test_a_classified_public_header_that_is_gone_is_stale(self):
+        self.policy["public_headers"]["include/fsim/Gone.h"] = {"domain": "contracts", "kind": "value"}
+        self.rejects("stale-public-header", "include/fsim/Gone.h is classified but does not exist")
+
+    def training_headers(self):
+        self.policy["public_headers"]["include/fsim/VecEnv.h"] = {"domain": "training", "kind": "facade"}
+        self.write("include/fsim/VecEnv.h", "#pragma once\n")
+
+    def test_simulation_cannot_include_a_training_public_header(self):
+        # the A-03 shape: the runtime reading scenario values through the training aggregate
+        self.training_headers()
+        self.append("src/session/Header.h", '#include "fsim/VecEnv.h"\n')
+        self.rejects("forbidden-public", "session (simulation) includes include/fsim/VecEnv.h (training facade): simulation may depend on")
+
+    def test_a_simulation_public_header_cannot_include_a_training_one(self):
+        self.training_headers()
+        self.write("include/fsim/ScenarioDocument.h", '#pragma once\n#include "fsim/VecEnv.h"\n')
+        self.policy["public_headers"]["include/fsim/ScenarioDocument.h"] = {"domain": "simulation", "kind": "interface"}
+        self.rejects("forbidden-public", "include/fsim/ScenarioDocument.h (simulation) includes include/fsim/VecEnv.h (training facade)")
+        # the split: the document without the batch environment; the training aggregate includes both
+        self.write("include/fsim/ScenarioDocument.h", "#pragma once\n")
+        self.write("include/fsim/Scenario.h", '#pragma once\n#include "fsim/ScenarioDocument.h"\n#include "fsim/VecEnv.h"\n')
+        self.policy["public_headers"]["include/fsim/Scenario.h"] = {"domain": "training", "kind": "facade"}
+        self.append("src/session/Header.h", '#include "fsim/ScenarioDocument.h"\n')
+        self.append("src/env/Header.h", '#include "fsim/Scenario.h"\n')
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+
+    def test_a_contract_public_header_cannot_include_a_domain_api(self):
+        self.write("include/fsim/World.h", "#pragma once\n")
+        self.append("include/fsim/Public.h", '#include "fsim/World.h"\n')
+        self.rejects("forbidden-public", "include/fsim/Public.h (contracts) includes include/fsim/World.h (simulation facade): a contract includes")
+
+    def test_an_implementation_cannot_include_the_c_abi_but_an_assembly_or_application_can(self):
+        self.policy["public_headers"]["include/fsim/fsim_c.h"] = {"domain": "adapters", "kind": "c_abi"}
+        self.write("include/fsim/fsim_c.h", "#pragma once\n")
+        self.append("src/sdk/Header.h", '#include "fsim/fsim_c.h"\n')
+        self.append("src/app/viewer_main.cpp", '#include "fsim/fsim_c.h"\n')
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+        self.append("src/env/Header.h", '#include "fsim/fsim_c.h"\n')
+        self.rejects("forbidden-public", "env (training) includes include/fsim/fsim_c.h (adapters c_abi): the C ABI or an assembly's API")
+
+    def test_a_public_exception_is_exact_and_expires(self):
+        self.training_headers()
+        self.append("src/session/Header.h", '#include "fsim/VecEnv.h"\n')
+        self.policy["public_exceptions"] = [{"from": "session", "to": "include/fsim/VecEnv.h", "until": "ARCH-04", "reason": "fixture"}]
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+        self.write("src/session/Header.h", "#pragma once\n")
+        self.rejects("stale-exception", "public session -> include/fsim/VecEnv.h (until ARCH-04): the include no longer exists")
+        self.policy["public_exceptions"] = [{"from": "env", "to": "include/fsim/VecEnv.h", "until": "ARCH-05", "reason": "legal"}]
+        self.append("src/env/Header.h", '#include "fsim/VecEnv.h"\n')
+        self.rejects("stale-exception", "public env -> include/fsim/VecEnv.h (until ARCH-05): the include breaks no rule")
+
+    def test_public_header_classification_errors_are_input_errors(self):
+        self.policy["public_headers"]["include/fsim/Public.h"] = {"domain": "contracts", "kind": "facade"}
+        self.input_error("a contracts header is a value or an interface, not a facade")
+        self.policy["public_headers"]["include/fsim/Public.h"] = {"domain": "simulation", "kind": "c_abi"}
+        self.input_error("the C ABI belongs to the adapters domain")
+        self.policy["public_headers"]["include/fsim/Public.h"] = {"domain": "contracts", "kind": "value"}
+        self.policy["public_exceptions"] = [{"from": "nobody", "to": "include/fsim/Public.h", "until": "ARCH-06", "reason": "x"}]
+        self.input_error("public exception from unknown module or header nobody")
 
     # recheck item 1: Windows case variants meet the same ownership rules, and only the canonical spelling passes
     def test_a_case_variant_file_claim_cannot_take_a_reserved_destination(self):

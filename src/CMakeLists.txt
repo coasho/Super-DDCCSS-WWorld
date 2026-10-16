@@ -1,6 +1,7 @@
 # Module layering (design section 5). CMake declares the native target graph;
 # tools/architecture checks source ownership and header imports against it,
 # including optional renderer targets when the configured build is headless.
+add_subdirectory(contracts)
 add_subdirectory(platform)
 add_subdirectory(core)
 add_subdirectory(io)

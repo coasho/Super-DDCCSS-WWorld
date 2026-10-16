@@ -9,10 +9,14 @@
 // needs an explicit layout version and publisher/mirror conversion; keep the
 // existing public state ABI independent of that transport revision.
 // Frozen layout guards: tests/test_state_layout.cpp.
+//
+// A neutral contract (src/contracts, ARCH-02): the publisher's transport, the session that feeds it and every reader
+// include it; it includes only the public state values it embeds and the standard library. Its names and namespace
+// are those it had in src/ipc, so no type or layout changed with its owner.
 
-#include "sim/ControlInputs.h"
-#include "sim/EnvironmentState.h"
-#include "sim/VehicleState.h"
+#include "fsim/ControlInputs.h"
+#include "fsim/EnvironmentState.h"
+#include "fsim/VehicleState.h"
 
 #include <atomic>
 #include <cstddef>

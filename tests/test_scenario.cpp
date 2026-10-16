@@ -1,5 +1,6 @@
 // Scenario files: JSON parsing, error reporting, dump round trip and
 // application to a world (design 9.13).
+#include "fsim/Scenario.h"
 #include "session/Scenario.h"
 
 #include "core/Json.h"

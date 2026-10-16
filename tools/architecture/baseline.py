@@ -184,7 +184,9 @@ def record(repo, policy_path, date):
             "directories": module["directories"], "destinations": module["destinations"], "explicit_files": module["files"],
             "files": owned, "digest": digest(owned),
         }
-    public = {path: {"sha256": sha256(repo / path), "included_by": consumers} for path, consumers in facts["public_headers"].items()}
+    classified = policy["public_headers"]
+    public = {path: dict({"sha256": sha256(repo / path), "included_by": consumers}, **classified.get(path, {"domain": None, "kind": None}))
+              for path, consumers in facts["public_headers"].items()}
     python = facts["python"]
     python_modules = {name: {"path": path, "owner": python["owners"].get(name),
                              "sha256": sha256(repo / path) if path else None}
@@ -207,6 +209,8 @@ def record(repo, policy_path, date):
             "external_links": facts["external_links"],
             "includes": facts["includes"],
             "exceptions_applied": facts["exceptions_applied"],
+            "public_includes": facts["public_includes"],
+            "public_exceptions_applied": facts["public_exceptions_applied"],
             "unowned": sorted(path for path, module in facts["source_owner"].items() if module is None),
             "public_headers": public,
         },

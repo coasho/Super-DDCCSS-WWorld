@@ -2,7 +2,7 @@
 
 // Private viewer acceptance policy. It observes native events and never changes simulation state.
 #include "core/Json.h"
-#include "ipc/WorldLayout.h"
+#include "contracts/world_stream/WorldLayout.h"
 
 #include <array>
 #include <cmath>

@@ -211,7 +211,7 @@ a C-17A or a C-130J with their fuel, 1.1 m ahead in a KC-46A). The simulation re
 measured from the origin, and keeps the airframe still when a store's leaving moves the CG.
 
 The viewer draws the same thing. Each published sample says where the vehicle's CG is from its model's origin (its
-`derived` values from `kDerivedCgFromOriginM`, body axes: `ipc/WorldLayout.h`, layout 8), and the viewer hangs the
+`derived` values from `kDerivedCgFromOriginM`, body axes: `contracts/world_stream/WorldLayout.h`, layout 8), and the viewer hangs the
 model that far back from the state's position (`ipc::originEcef`; `drawnState` in `app/viewer_main.cpp`) - the model,
 the stores on its stations, its flames and its vapour with it. So a store is drawn on its station exactly where it
 becomes a vehicle of its own (within 4 mm as an F-16C's five stores leave: `tests/test_mass_change.cpp`), and the
@@ -318,7 +318,7 @@ not the viewer's own guesses:
 
 | What | From | Before |
 | --- | --- | --- |
-| A contrail's fuel, and the engine efficiency the Schmidt-Appleman criterion takes | what each engine burns now, kg/s - each sample's `derived` values from `kDerivedFuelFlowKgS` (`ipc/WorldLayout.h`, layout 9; JSBSim's own fuel flow), and the thrust's power over that fuel's heat | the thrust's power over the fuel's heat at 0.3 for every engine at every power |
+| A contrail's fuel, and the engine efficiency the Schmidt-Appleman criterion takes | what each engine burns now, kg/s - each sample's `derived` values from `kDerivedFuelFlowKgS` (`contracts/world_stream/WorldLayout.h`, layout 9; JSBSim's own fuel flow), and the thrust's power over that fuel's heat | the thrust's power over the fuel's heat at 0.3 for every engine at every power |
 | A missile's smoke and its ice contrail (exhaust per metre of trail) | the propellant its motor burns now, the same values (a rocket's propellant flow) | its thrust over its propellant class's specific impulse - 11 % more than the flight model burns |
 | A reheat's flame: its temperature, so its colour, its brightness and its length | the engine's own ratings, its design's through its model's manifest (`engine <index> <bypass> <afterburner> <dry kN> <reheat kN> <fuel g/(kN s) dry> <reheat>`): lit, the burner heats the same flow at the same pressure, so T_reheat = T_dry (F_reheat / F_dry)^2 less the fuel's mass (`Exhaust::reheatTotalK`), T_dry its turbine's exit gas and its bypass air mixed by its bypass ratio; held to 1,850 - 2,300 K. An F100-PW-229's 2,187 K, an AL-31F's 2,053 K, an RD-33's 2,124 K, an M53's and an F119's at the least | one preset, 2,236 K, for every augmented engine |
 | A dry jet, a nozzle's glow, a rocket's plume | as before: the engine's kind (its bypass ratio, its afterburner) and a motor's propellant class, exit and boost thrust from the manifest; the state's core speed, afterburner and thrust | |

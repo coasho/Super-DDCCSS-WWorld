@@ -1,8 +1,8 @@
 #pragma once
 
-#include "ipc/WorldLayout.h"
+#include "contracts/world_stream/WorldLayout.h"
 #include "platform/SharedMemory.h"
-#include "sim/SnapshotBuffer.h"
+#include "contracts/world_stream/SnapshotBatch.h"
 
 #include <cstdint>
 #include <string>

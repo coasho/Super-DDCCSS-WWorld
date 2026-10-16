@@ -12,6 +12,7 @@ add_library(fsim_session STATIC
     AgentRules.h
     AgentRules.cpp
     Scenario.h
+    ScenarioRecipe.h
     Scenario.cpp
     Navigation.cpp
     PerformanceProfile.cpp
@@ -31,5 +32,5 @@ add_library(fsim_session STATIC
     Intercepts.cpp)
 add_library(fsim::session ALIAS fsim_session)
 target_include_directories(fsim_session PUBLIC ${CMAKE_SOURCE_DIR}/src)
-target_link_libraries(fsim_session PUBLIC fsim::ms fsim::control fsim::effects fsim::comm fsim::ipc fsim::sim fsim::io fsim::core)
+target_link_libraries(fsim_session PUBLIC fsim::contracts fsim::ms fsim::control fsim::effects fsim::comm fsim::ipc fsim::sim fsim::io fsim::core)
 fsim_set_warnings(fsim_session)

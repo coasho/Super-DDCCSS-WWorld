@@ -266,3 +266,44 @@ configure:
 6. The reconciliation runs in the exclusive build slot, after the preset is
    configured, as a test of its own. A preset that cannot be configured is
    pending, not passed.
+
+## Neutral contracts and public headers (ARCH-02)
+
+`contracts` (`fsim_contracts`, `src/contracts`) is a header-only interface target:
+the wire and recording layouts (`world_stream/WorldLayout.h`,
+`vision_stream/VisionLayout.h`, `recording/RecordingFormat.h`), the stream batch
+(`world_stream/SnapshotBatch.h`) and the native construction values
+(`simulation/WorldOptions.h`). These definitions keep the names, namespaces,
+fields and order they had in `src/ipc`, `src/sim` and `src/session`, so no type,
+layout or byte changed with the owner. Contracts include only the standard
+library and public contract headers, and link nothing.
+
+The transport (`ipc`) links the contracts, core and platform, and no
+simulation module: the `ipc -> sim` exception is gone. `tests/test_contracts.cpp`
+builds against `fsim::contracts` alone. `tests/test_state_layout.cpp` holds every
+frozen offset, stride and old-recording read, plus the writer's framing and
+fields at literal offsets.
+
+Every `include/fsim` header is classified in the policy's `public_headers` by
+owner domain and kind:
+- `value`: plain data;
+- `interface`: values with their functions, or an extension point;
+- `facade`: an execution API;
+- `c_abi`: the C ABI.
+
+Contracts headers are values or interfaces, and the C ABI belongs to the
+adapters. A module's include of a public header, and a public header's include of
+another, follow the same direction rules as module links: a simulation module or
+header cannot include a training one, a contract cannot include a domain API, and
+only assemblies and applications include the C ABI or an assembly's API. An
+unclassified header, or a classified one that is gone, fails.
+
+Three public exceptions are listed, exact and expiring like the others:
+- `ui` includes `Capability.h` and `MissionSystems.h` (until ARCH-06);
+- `VecEnv.h` includes `fsim_c.h` (until ARCH-07).
+
+The scenario document's values and reading/writing are in
+`fsim/ScenarioDocument.h` (simulation). `fsim/Scenario.h` (training) includes
+it and adds `applyScenario` and `vecEnvOptions`, so its includers see the same
+declarations. The runtime applies its own `session::ScenarioRecipe`, and the
+VecEnv mapping is training's (`src/env/ScenarioVecEnv.cpp`).
