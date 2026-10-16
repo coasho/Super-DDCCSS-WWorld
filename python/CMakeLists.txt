@@ -142,12 +142,47 @@ if(FSIM_BUILD_TESTS)
     add_executable(fsim_python_baseline benchmarks/baseline.c)
     target_link_libraries(fsim_python_baseline PRIVATE fsim::sdk)
     set_target_properties(fsim_python_baseline PROPERTIES C_STANDARD 11)
-    add_test(NAME python_sdk COMMAND "${FSIM_PYTHON}" -m unittest discover -s ${CMAKE_CURRENT_SOURCE_DIR}/tests -t ${CMAKE_CURRENT_SOURCE_DIR}/tests)
-    set(_fsim_py_test_env "PYTHONPATH=${FSIM_PY_STAGE}" "FSIM_TEST_OUTPUT=${CMAKE_BINARY_DIR}/python-test")
-    if(TARGET climb_task)  # the C++ plugin example: test_plugin.py trains nothing, but loads and checks it
-        list(APPEND _fsim_py_test_env "FSIM_TEST_PLUGIN=$<TARGET_FILE:climb_task>")
-    endif()
-    set_tests_properties(python_sdk PROPERTIES ENVIRONMENT "${_fsim_py_test_env}" TIMEOUT 900)
+    # The Python SDK's tests: a CTest test per module ("python_sdk test_world", ...), label python_sdk, so a change runs
+    # the modules it touches and ctest -j runs them side by side - `ctest -L python_sdk` is the whole set, as the one
+    # unittest discovery it replaces was. Mission-training modules also carry ma-training; the contention module, stress.
+    # Each module has an output folder of its own. The build checks the glob again (CONFIGURE_DEPENDS), so adding or
+    # removing a test module reconfigures; the stress module's methods are read from its text, so its edits do too.
+    file(GLOB _fsim_py_test_modules CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_*.py)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_mission_concurrency.py)
+    foreach(_fsim_py_test_file ${_fsim_py_test_modules})
+        get_filename_component(_fsim_py_test_module ${_fsim_py_test_file} NAME_WE)
+        set(_fsim_py_test_labels python_sdk)
+        if(_fsim_py_test_module MATCHES "^test_(mission|ma_)")
+            list(APPEND _fsim_py_test_labels ma-training)
+        endif()
+        # A stress module - long contention cases - runs as a CTest test per test method, side by side; any other as one.
+        set(_fsim_py_test_targets ${_fsim_py_test_module})
+        if(_fsim_py_test_module STREQUAL "test_mission_concurrency")
+            list(APPEND _fsim_py_test_labels stress)
+            set(_fsim_py_test_targets)
+            file(STRINGS ${_fsim_py_test_file} _fsim_py_test_lines REGEX "^class [A-Za-z0-9_]+\\(unittest\\.TestCase\\)|^    def test_")
+            foreach(_fsim_py_test_line ${_fsim_py_test_lines})
+                if(_fsim_py_test_line MATCHES "^class ([A-Za-z0-9_]+)")
+                    set(_fsim_py_test_class ${CMAKE_MATCH_1})
+                elseif(_fsim_py_test_line MATCHES "def (test_[A-Za-z0-9_]+)")
+                    list(APPEND _fsim_py_test_targets "${_fsim_py_test_module}.${_fsim_py_test_class}.${CMAKE_MATCH_1}")
+                endif()
+            endforeach()
+        endif()
+        foreach(_fsim_py_test_target ${_fsim_py_test_targets})
+            set(_fsim_py_test "python_sdk ${_fsim_py_test_target}")
+            add_test(NAME "${_fsim_py_test}" COMMAND "${FSIM_PYTHON}" -B -m unittest ${_fsim_py_test_target}
+                     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+            set(_fsim_py_test_env "PYTHONPATH=${FSIM_PY_STAGE}" "FSIM_TEST_OUTPUT=${CMAKE_BINARY_DIR}/python-test/${_fsim_py_test_target}")
+            if(TARGET climb_task)  # the C++ plugin example: test_plugin.py trains nothing, but loads and checks it
+                list(APPEND _fsim_py_test_env "FSIM_TEST_PLUGIN=$<TARGET_FILE:climb_task>")
+            endif()
+            set_tests_properties("${_fsim_py_test}" PROPERTIES ENVIRONMENT "${_fsim_py_test_env}" LABELS "${_fsim_py_test_labels}" TIMEOUT 900)
+            if(stress IN_LIST _fsim_py_test_labels)  # (two busy threads each: the range's and the actor's)
+                set_tests_properties("${_fsim_py_test}" PROPERTIES PROCESSORS 2)
+            endif()
+        endforeach()
+    endforeach()
     # ADR-31's AB-1: every entry point of the SDK (the DLLs' exports, the Python package) belongs to a principal in
     # docs/sdk/boundary.toml, and docs/sdk/boundary.md is what that file renders
     set(_fsim_boundary_args --fsim-dll $<TARGET_FILE:fsim> --objdump "${FSIM_UCRT64_ROOT}/bin/objdump.exe"

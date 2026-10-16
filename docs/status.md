@@ -425,6 +425,53 @@ The manifest also states the platform/service counts exactly (five platforms, fi
 Logs are under `D:/ENV/tmp/m8fix/logs/`. Pending as before: independent M8 generic acceptance; J5, J9, the combat parts
 of J3, J8 and J10; complete Viewer acceptance; a published seed/aspect matrix; J6's speed resumption after an override.
 
+## MA training M8 correction and change-scoped testing (2026-10-16, awaiting independent review)
+
+The independent review of `3802e7a` and the uncommitted test framework
+(`docs/architecture/modules/training/reviews/2026-10-16-m8-3802e7a-test-scoping.md`) left two M8 items partial and
+four selector findings open. Each correction has its own pure regression first:
+
+1. **Python contracts.** A record may no longer gain fields - a record is unpacked by position, so a new shape is a new
+   record type - and an added parameter's kind and default are read outside quotes and brackets: `(a, b=1, *, c: '=')`
+   over `(a, b=1)` is refused, and so is an added `/`. A check on real functions confirms each admitted addition takes
+   every old call and each refused one breaks one. All 2,326 frozen signatures classify; no frozen record changed.
+   `ma_baseline_checker` has 17 cases.
+2. **Installed data.** The expected runtime inventory is what the staging rules give for the flown F-16C and the
+   stores (113 files), each required in both packages by hash. The Python consumer checks it before making any
+   World, in its normal run and in its probes: a missing `f16c.xml`, a missing `Engines/f16c_engine0.xml` and a
+   corrupted `f16c.xml` are refused (exit 4), each naming the installed path; with the presence check alone, the
+   corrupted file is refused by the SDK (exit 3). The development resolver is unchanged.
+3. **Selector, fail closed (T1).** An unclaimed path, an empty selection and no changes exit 3 with their reasons and
+   paths (`--json`). A scope may add tests without claiming paths (`claims = false`), so an unimported `python/fsim`
+   module stays unclaimed.
+4. **Dependency closure (T2).** Every `python_sdk` test whose module imports a changed file - through modules, shared
+   test fixtures and the scripts it runs - is selected, stress cases included. Test sources map to targets through
+   `compile_commands.json`, including local headers and CMake-driven executables. Data files map through the sources
+   that name them. Legacy `src/env` code escalates to the full suite; the mission episode owner keeps its own scope.
+5. **Inventory lifecycle (T3).** The Python test glob is `CONFIGURE_DEPENDS`. With `--build`, `scope.py` builds first,
+   lists each inventory afresh and resolves names to `-I` numbers just before running, then requires that exactly the
+   selected tests ran (exit 4). Mocked lifecycles and a tiny independent CMake project show a module added after
+   configuring being registered and selected by its new number.
+6. **Excluded directories (T4).** Source discovery prunes `.codex` (and `.git`, `__pycache__`) before descending; a
+   recording test shows no excluded directory is entered.
+
+Measurement: a test's passing duration is kept apart from a failed or timed-out run's. The estimate is a labelled
+lower bound: `RUN_SERIAL` tests are added, and the rest are packed by `PROCESSORS`. Acceptance commands now select by label
+(`docs/development.md`, `docs/sdk/mission-training.md`): `python_sdk` is one CTest test per module, and the contention
+cases of `mission_training` and `mission_c_abi` run as their `_stress` tests; `-L ma-training` still selects all of them.
+
+| Current verification | Result |
+| --- | --- |
+| Pure tiers (`test_scope.py`, `test_baseline.py ContractTest`) | 43 and 10 cases passed, about 2 s |
+| Targeted headless tier through `scope.py --run --build` (`testing_scope_checker`, `ma_baseline_checker`, `mission_package_consumer`) | 3/3 passed; 68 s wall with the build |
+| Measurement of the uncommitted snapshot before this correction | full headless 690/690 in 1,121 s; Release `python_sdk`, `ma-training` and `testing` sets 90/91, `testing_scope_checker` failing on selector files being edited during that run |
+| Release targeted tier (the same three tests, after a Release build with 0 warnings) | 3/3 passed in 55.66 s |
+| Documentation checks (`ma_contract`, `ma_contract_checker`, `architecture_boundary`, `sdk_guard_checker`) | 4/4 passed |
+| Full headless suite, run once on the frozen revision (19 files fingerprinted before and verified unchanged after) | 690/690 passed in 1227.65 s; build 0 warnings |
+
+Pending as before: independent M8 generic acceptance; J5, J9, the combat parts of J3, J8 and J10; complete Viewer
+acceptance; J6's speed resumption after an override. Logs: `D:/ENV/tmp/testing/logs/` (`r2`, `r3`, `final`).
+
 The third maintenance pass includes bounded A1,
 [A2 lifecycle/adapter](superpowers/specs/2026-10-12-architecture-lifecycle-design.md) and
 [A3 control/Mission](superpowers/specs/2026-10-12-architecture-adapters-design.md) and

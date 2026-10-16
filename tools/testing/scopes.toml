@@ -1,0 +1,180 @@
+# Change-scoped test selection (docs/development.md, "Change-scoped testing"; tools/testing/scope.py).
+#
+# Each [[scope]] maps changed paths (`paths`, glob patterns from the repository root; `**` crosses directories) to the
+# CTest tests that cover them: `labels` (every test carrying one of them, less any in `exclude_labels`) and `tests`
+# (regular expressions over whole test names; `{stem}` is the changed file's name without its extension). With
+# --tier integration, `integration` (names) and `integration_labels` (whole labels, none excluded) are added. Tests
+# labelled `stress` (long contention cases) are selected in the targeted tier only when a matched scope names that
+# label, or they are built from or import the change - never through a broader pattern. Beyond the rules here,
+# scope.py itself selects every CTest test built from a changed C/C++ test source or whose command names the changed
+# file, and every python_sdk test whose module imports the changed Python file - through other modules, shared test
+# fixtures and the scripts it runs (the import closure of python/tests and python/fsim).
+#
+#   release = true   the same selection also runs on ucrt64-release (render, vision, viewer and public-surface changes)
+#   full = true      escalate to the full headless suite: shared simulation core, build system, data every test flies
+#   build = false    no native build is needed before running (documentation, repository checks)
+#   except = [...]   paths this scope does not claim, though its `paths` match them (a more specific scope does)
+#   claims = false   the scope adds its tests to what claims a path, but claims none itself: a path only it matches is
+#                    still unclaimed (the Python package's export check, beside the import closure that must cover it)
+#
+# A changed path nothing claims escalates to the full suite when it is native source or build input, and is an error
+# otherwise (scope.py exits 3 naming it): add a scope here when a domain gets its own targeted coverage; keep it
+# reviewed. A selection that comes out empty is an error too.
+
+# --- documentation and repository checks ------------------------------------------------------------------------------
+[[scope]]
+name = "documentation"
+paths = ["docs/**", "*.md", "**/*.md"]
+tests = ["^ma_contract$", "^architecture_boundary$", "^sdk_guard_checker$"]
+build = false
+
+[[scope]]
+name = "architecture checker"
+paths = ["tools/architecture/**", "cmake/ArchitectureChecks.cmake"]
+labels = ["architecture"]
+build = false
+
+[[scope]]
+name = "SDK principals"
+paths = ["tools/boundary/**", "docs/sdk/boundary.toml", "docs/sdk/boundary.md"]
+tests = ["^sdk_boundary$", "^sdk_guard_checker$"]
+release = true
+
+[[scope]]
+name = "test selection"
+paths = ["tools/testing/**"]
+tests = ["^testing_scope_checker$"]
+build = false
+
+# --- MA training (docs/sdk/mission-training.md) -----------------------------------------------------------------------
+# Targeted: the build-tree tests over the changed code. Integration: also the installed consumers and the domain's whole
+# labels - stress (contention) and package cases among them - before a package's handoff.
+[[scope]]
+name = "MA contract"
+paths = ["tools/ma_contract/check.py", "tools/ma_contract/test_check.py", "docs/sdk/ma-contract.schema.json",
+         "docs/sdk/ma-training.schema.json", "docs/sdk/mission-training.md"]
+tests = ["^ma_contract$", "^ma_contract_checker$"]
+build = false
+
+[[scope]]
+name = "MA compatibility comparison"
+paths = ["tools/ma_contract/baseline.py", "tools/ma_contract/test_baseline.py"]
+tests = ["^ma_baseline_checker$"]
+
+[[scope]]
+name = "MA contract fixtures"
+paths = ["tests/fixtures/mission_training/contract/**", "tests/MissionTestSupport.h"]
+tests = ["^ma_contract$", "^ma_actions$", "^ma_observation$", "^mission_training$", "^mission_c_abi$", "^python_sdk test_mission"]
+integration_labels = ["ma-training"]
+
+[[scope]]
+name = "MA joint chains"
+paths = ["tools/ma_contract/joint_chain.py", "tests/fixtures/mission_training/joint/**"]
+tests = ["^ma_joint$", "^python_sdk test_ma_joint$"]
+integration = ["^mission_package_consumer$"]
+
+[[scope]]
+name = "MA installed consumers"
+paths = ["tests/mission_package_consumer/**", "cmake/RunMissionPackageConsumer.cmake"]
+tests = ["^mission_package_consumer$"]
+
+[[scope]]
+name = "MA gateway (native)"
+paths = ["src/sdk/Mission*", "src/sdk/fsim_mission_env_c.cpp"]
+tests = ["^ma_actions$", "^ma_observation$", "^mission_training$", "^mission_c_abi$", "^ma_joint$", "^python_sdk test_(mission|ma_joint)",
+         "^c_abi$", "^sdk_boundary$"]
+integration = ["^mission_package_consumer$", "^ma_baseline_checker$"]
+integration_labels = ["ma-training"]
+
+[[scope]]
+name = "MA episode owner (native)"
+paths = ["src/env/MissionEpisode.*"]
+tests = ["^mission_episode$", "^native_state_reset_fixture$", "^simulation_interface_boundary$", "^ma_actions$", "^mission_training$",
+         "^ma_joint$", "^python_sdk test_mission$"]
+integration = ["^mission_package_consumer$"]
+integration_labels = ["ma-training"]
+
+[[scope]]
+name = "MA concurrency"
+paths = ["src/sdk/MissionBatch.cpp", "src/sdk/MissionEpisode.cpp", "src/sdk/MissionEpisodeImpl.h", "src/env/MissionEpisode.*",
+         "python/src/_native_mission_env.c", "python/fsim/training.py", "include/fsim/MissionBatch.h"]
+labels = ["stress"]
+
+[[scope]]
+name = "MA public surface"
+paths = ["include/fsim/Mission*.h", "include/fsim/fsim_mission_env.h", "include/fsim/MAService.h", "include/fsim/MAReports.h"]
+tests = ["^ma_actions$", "^ma_observation$", "^mission_training$", "^mission_c_abi$", "^ma_joint$", "^python_sdk test_(mission|ma_)",
+         "^c_abi$", "^sdk_boundary$", "^ma_baseline_checker$", "^mission_package_consumer$"]
+integration_labels = ["ma-training"]
+release = true
+
+[[scope]]
+name = "MA Python package"
+paths = ["python/fsim/mission.py", "python/fsim/training.py", "python/fsim/isolation.py", "python/src/_native_mission_env.c"]
+tests = ["^python_sdk test_(mission|ma_|isolation)", "^sdk_boundary$"]
+integration = ["^mission_package_consumer$"]
+integration_labels = ["ma-training"]
+
+[[scope]]
+name = "MA composition example"
+paths = ["examples/python/ma_composition/**"]
+tests = ["^python_sdk test_ma_composition$", "^python_sdk test_mission_training$"]
+integration = ["^mission_package_consumer$"]
+build = false
+
+[[scope]]
+name = "testbench"
+paths = ["testbench/fsim_testbench/**", "Testbench.cmd"]
+tests = ["^python_sdk test_testbench_entry$"]
+build = false
+
+# --- the Python SDK (its tests follow the import closure; see above) ----------------------------------------------------
+[[scope]]
+name = "Python SDK package"
+paths = ["python/fsim/**", "python/tests/**"]
+tests = ["^sdk_boundary$"]  # (the package's exports, each with its principal)
+claims = false
+
+# --- other domains with their own targeted coverage -------------------------------------------------------------------
+[[scope]]
+name = "hangar"
+paths = ["tools/hangar/**"]
+labels = ["hangar"]
+build = false
+
+[[scope]]
+name = "launchers"
+paths = ["fsim.cmd", "tools/launch/**", "tests/test_launchers.ps1"]
+labels = ["launcher"]
+
+[[scope]]
+name = "installed SDK package"
+paths = ["tests/package_consumer/**", "cmake/RunPackageConsumer.cmake", "cmake/RunEquipmentPackageConsumer.cmake",
+         "cmake/PackageConfig.cmake", "cmake/CleanDist.cmake", "cmake/TestDistComponents.cmake"]
+labels = ["package"]
+
+[[scope]]
+name = "render, vision and viewer"
+paths = ["src/render/**", "src/vision/**", "src/app/viewer_main.cpp", "include/fsim/fsim_vision_c.h", "python/fsim/vision.py",
+         "python/src/_vision*", "assets/**"]
+tests = ["^sdk_boundary$", "vision", "camera", "rcs"]
+release = true
+
+# --- escalate: what every test depends on -------------------------------------------------------------------------------
+[[scope]]
+name = "build system"
+paths = ["CMakeLists.txt", "CMakePresets.json", "cmake/**", "deps/**", "third_party/**", "src/CMakeLists.txt", "src/*/CMakeLists.txt",
+         "tests/CMakeLists.txt", "python/CMakeLists.txt"]
+except = ["cmake/RunMissionPackageConsumer.cmake", "cmake/ArchitectureChecks.cmake", "cmake/RunPackageConsumer.cmake",
+          "cmake/RunEquipmentPackageConsumer.cmake", "cmake/PackageConfig.cmake", "cmake/CleanDist.cmake", "cmake/TestDistComponents.cmake"]
+full = true
+
+[[scope]]
+name = "shared simulation core"
+paths = ["src/core/**", "src/sim/**", "src/session/**", "src/control/**", "src/io/**", "src/comm/**", "include/fsim/World.h",
+         "include/fsim/Agent.h", "include/fsim/Capability.h", "include/fsim/fsim_c.h", "aircraft/**",
+         "src/sdk/World.cpp", "src/sdk/Agent.cpp", "src/sdk/fsim.cpp", "src/env/**"]
+# (the legacy environment - VecEnv, tasks, observations, the registry - is linked into libfsim and run by native, C,
+# Python and plugin tests alike; the mission episode owner beside it has its own scope)
+except = ["src/env/MissionEpisode.*"]
+full = true

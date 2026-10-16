@@ -82,18 +82,32 @@ foreach(_module __init__.py agent.py world.py isolation.py mission.py training.p
 endforeach()
 check_file("${_build}/python/fsim/_native.pyd" "${_python_prefix}/fsim/_native.pyd" "${_work}")
 check_file("${_build}/python/fsim/bin/libfsim.dll" "${_python_prefix}/fsim/bin/libfsim.dll" "${_work}")
-# The runtime data the joint chains fly - the F-16C's installed files, in both packages - is the source tree's, byte
-# for byte; which copy a consumer loads is established below (installed aircraft paths, and the refusal probes).
-foreach(_aircraft_root "${_prefix}/share/flightsim/aircraft" "${_python_prefix}/fsim/share/flightsim/aircraft")
-    file(GLOB_RECURSE _aircraft_files LIST_DIRECTORIES false RELATIVE "${_aircraft_root}/f16c" "${_aircraft_root}/f16c/*")
-    list(LENGTH _aircraft_files _aircraft_count)
-    if(_aircraft_count EQUAL 0)
-        message(FATAL_ERROR "installed aircraft data missing: ${_aircraft_root}/f16c")
+# The runtime data the joint chains fly - the F-16C and the released stores' flight models - as the staging rules lay
+# it out: cmake/StageDesigns.cmake, applied here to the source tree's copies of exactly those designs. That expected
+# inventory - not whatever happens to be installed - is the list: each of its files must be installed in both
+# packages, byte for byte, and an omitted file fails here instead of dropping out of the list. The Python consumer
+# checks the same inventory again (runtime-data.sha256) before it makes any World, and so do its refusal probes below.
+set(_expected_source "${_work}/expected source")
+set(_expected "${_work}/expected aircraft")
+file(MAKE_DIRECTORY "${_expected_source}")
+file(COPY "${SOURCE_DIR}/aircraft/f16c" "${SOURCE_DIR}/aircraft/stores" DESTINATION "${_expected_source}")
+run_checked(stage-expected "${CMAKE_COMMAND}" "-DSRC=${_expected_source}" "-DDEST=${_expected}" -P "${SOURCE_DIR}/cmake/StageDesigns.cmake")
+file(GLOB_RECURSE _runtime_files LIST_DIRECTORIES false RELATIVE "${_expected}" "${_expected}/*")
+foreach(_required f16c/f16c.xml f16c/Engines/f16c_engine0.xml)
+    if(NOT _required IN_LIST _runtime_files)
+        message(FATAL_ERROR "the staging rules no longer stage ${_required}: the expected runtime inventory is wrong")
     endif()
-    foreach(_file IN LISTS _aircraft_files)
-        check_file("${SOURCE_DIR}/aircraft/f16c/${_file}" "${_aircraft_root}/f16c/${_file}" "${_work}")
+endforeach()
+set(_runtime_inventory "")
+foreach(_file IN LISTS _runtime_files)
+    file(SHA256 "${_expected}/${_file}" _sha)
+    string(APPEND _runtime_inventory "${_sha}  ${_file}\n")
+    foreach(_aircraft_root "${_prefix}/share/flightsim/aircraft" "${_python_prefix}/fsim/share/flightsim/aircraft")
+        check_file("${_expected}/${_file}" "${_aircraft_root}/${_file}" "${_work}")
     endforeach()
 endforeach()
+list(LENGTH _runtime_files _runtime_count)
+file(WRITE "${_work}/runtime-data.sha256" "${_runtime_inventory}")
 file(WRITE "${_work}/provenance.sha256" "${_manifest}")
 
 set(_configure "${CMAKE_COMMAND}" -S "${SOURCE_DIR}/tests/mission_package_consumer" -B "${_consumer_build}"
@@ -156,7 +170,7 @@ foreach(_chain IN LISTS _chains)
 endforeach()
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=FSIM_DLL_DIR --unset=PYTHONHOME "${_python_env}"
         "PYTHONPATH=${_python_prefix}" "PATH=$ENV{SystemRoot}/System32;$ENV{SystemRoot}"
-        "${_python}" -s -B "${_work}/ma_python.py" "${_python_prefix}" ${_chain_args}
+        "${_python}" -s -B "${_work}/ma_python.py" "${_python_prefix}" "${_work}/runtime-data.sha256" ${_chain_args}
     WORKING_DIRECTORY "${_work}" RESULT_VARIABLE _result OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 file(WRITE "${_work}/run-python.log" "${_out}${_err}")
 if(NOT _result STREQUAL "0")
@@ -182,39 +196,54 @@ foreach(_chain IN LISTS _chains)
     endif()
     message(STATUS "installed joint chain ${_chain}: C++, C99, Python and an isolated Python actor wrote one trace (${_digests})")
 endforeach()
-# The installed data is the data flown: with the installed F-16C definition corrupted, the joint chain's episode is
-# refused - the installed copy is the one read, and nothing outside the installed package stands in for it. With the
-# file missing, a development library still finds its source tree's aircraft directory after the installed one
-# (src/io/AssetResolver.cpp, kept as it is): that run is recorded, not required. The file is restored and re-hashed.
-set(_flown "${_python_aircraft}/f16c/f16c.xml")
-file(SHA256 "${_flown}" _flown_sha)
-file(COPY_FILE "${_flown}" "${_work}/f16c.xml.installed")
+# The installed data is the data flown. Each probe changes one installed file of the Python package, runs the consumer
+# on the joint chain and restores the file:
+#   - the F-16C definition missing, and an engine file it names missing: the preflight (the same function the normal
+#     run calls first) refuses before any World is made - exit 4, naming the installed path - although a development
+#     library would find the source tree's copies after the installed ones (src/io/AssetResolver.cpp, kept as it is);
+#   - the definition corrupted: the preflight refuses it (exit 4) for its hash; and with the presence check alone
+#     (--probe-native-read) the corrupted file reaches the SDK, which refuses the episode (exit 3): the installed copy
+#     is the one read.
+# Afterwards the whole inventory is held to the expected one again.
+set(_probes "missing|f16c/f16c.xml|--probe|4" "missing|f16c/Engines/f16c_engine0.xml|--probe|4"
+            "corrupted|f16c/f16c.xml|--probe|4" "corrupted|f16c/f16c.xml|--probe-native-read|3")
 set(_probe_results)
-foreach(_probe corrupted missing)
-    if(_probe STREQUAL "corrupted")
-        file(WRITE "${_flown}" "<not-an-aircraft/>\n")
+foreach(_probe IN LISTS _probes)
+    string(REPLACE "|" ";" _probe "${_probe}")
+    list(GET _probe 0 _change)
+    list(GET _probe 1 _relative)
+    list(GET _probe 2 _mode)
+    list(GET _probe 3 _expected_exit)
+    set(_target "${_python_aircraft}/${_relative}")
+    string(MAKE_C_IDENTIFIER "${_change}-${_relative}${_mode}" _probe_name)
+    file(COPY_FILE "${_target}" "${_work}/probe.installed")
+    if(_change STREQUAL "corrupted")
+        file(WRITE "${_target}" "<not-an-aircraft/>\n")
     else()
-        file(REMOVE "${_flown}")
+        file(REMOVE "${_target}")
     endif()
     execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=FSIM_DLL_DIR --unset=PYTHONHOME "${_python_env}"
             "PYTHONPATH=${_python_prefix}" "PATH=$ENV{SystemRoot}/System32;$ENV{SystemRoot}"
-            "${_python}" -s -B "${_work}/ma_python.py" "${_python_prefix}" --probe "${_work}/joint/chain.joint.txt"
+            "${_python}" -s -B "${_work}/ma_python.py" "${_python_prefix}" "${_work}/runtime-data.sha256" ${_mode}
+            "${_work}/joint/chain.joint.txt"
         WORKING_DIRECTORY "${_work}" RESULT_VARIABLE _result OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
-    file(WRITE "${_work}/run-probe-${_probe}.log" "${_out}${_err}")
-    list(APPEND _probe_results "${_probe}=${_result}")
-    file(COPY_FILE "${_work}/f16c.xml.installed" "${_flown}")
+    file(COPY_FILE "${_work}/probe.installed" "${_target}")
+    file(WRITE "${_work}/run-probe-${_probe_name}.log" "${_out}${_err}")
+    list(APPEND _probe_results "${_change} ${_relative} ${_mode}=${_result}")
+    if(NOT _result STREQUAL _expected_exit)
+        message(FATAL_ERROR "installed data probe (${_change} ${_relative}, ${_mode}): expected exit ${_expected_exit}, got ${_result}; "
+                            "see ${_work}/run-probe-${_probe_name}.log\n${_out}${_err}")
+    endif()
+    string(FIND "${_out}${_err}" "${_target}" _named)
+    if(_expected_exit STREQUAL "4" AND _named EQUAL -1)
+        message(FATAL_ERROR "installed data probe (${_change} ${_relative}): the refusal does not name ${_target}\n${_out}${_err}")
+    endif()
 endforeach()
-file(SHA256 "${_flown}" _restored_sha)
-if(NOT _restored_sha STREQUAL _flown_sha)
-    message(FATAL_ERROR "installed data probe: ${_flown} was not restored")
-endif()
-if(NOT _probe_results MATCHES "^corrupted=3;")
-    message(FATAL_ERROR "installed data probe: the joint episode was built with its installed F-16C corrupted (${_probe_results}); "
-                        "see ${_work}/run-probe-*.log")
-endif()
-file(READ "${_work}/run-probe-missing.log" _missing)
-message(STATUS "installed data probe: refused with the installed F-16C corrupted; with it missing (recorded): ${_probe_results} "
-               "- ${_missing}; restored (${_flown_sha})")
+foreach(_file IN LISTS _runtime_files)
+    check_file("${_expected}/${_file}" "${_python_aircraft}/${_file}" "${_work}")
+endforeach()
+message(STATUS "installed data: ${_runtime_count} files of the expected runtime inventory in both packages, byte for byte; "
+               "probes ${_probe_results}; restored")
 # The composition example (examples/python/ma_composition; M6) on the installed package alone, copied out of the source
 # tree: run twice, its traces byte-identical, its package and library the installed ones; and its MA system under the
 # installed training adapter (fsim.training; M7 core) through "same_step" and "next_step" autoreset, each generation's

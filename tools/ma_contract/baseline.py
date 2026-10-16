@@ -736,9 +736,55 @@ def _parameters(signature):
     return params, signature[end + 1:].strip()
 
 
+def _top_level(text, char):
+    """The index of `char` in a parameter's text outside quotes and brackets, else -1."""
+    depth, quote = 0, None
+    for k, ch in enumerate(text):
+        if quote:
+            quote = None if ch == quote and text[k - 1] != "\\" else quote
+        elif ch in "'\"":
+            quote = ch
+        elif ch in "([{<":
+            depth += 1
+        elif ch in ")]}>":
+            depth -= 1
+        elif ch == char and depth == 0:
+            return k
+    return -1
+
+
+def _kinds(params):
+    """Each parameter's kind, as a call sees it - ("positional-only" | "positional" | "keyword-only", has a default) or
+    "*args" / "**kwargs" - with the markers `/` and `*` themselves as "/" and "*"; None where a text cannot be classified."""
+    kinds, keyword_only = [], False
+    for k, p in enumerate(params):
+        if p == "/":
+            kinds.append("/")
+        elif p == "*":
+            kinds.append("*")
+            keyword_only = True
+        elif p.startswith("**"):
+            kinds.append("**kwargs")
+        elif p.startswith("*"):
+            kinds.append("*args")
+            keyword_only = True
+        elif re.match(r"[A-Za-z_][A-Za-z0-9_]*\s*(?:[:=]|$)", p) is None:
+            return None
+        else:
+            annotation = _top_level(p, ":")
+            default = _top_level(p, "=")
+            if annotation >= 0 and default >= 0 and default < annotation:
+                return None
+            kind = "keyword-only" if keyword_only else "positional-only" if "/" in params[k + 1:] else "positional"
+            kinds.append((kind, default >= 0))
+    return kinds
+
+
 def extends_signature(old, new):
     """Whether `new` keeps every parameter of `old` as it was - name, kind, position, annotation and default - and adds
-    only parameters a call written against `old` never has to pass: defaulted ones, `*args` or `**kwargs`."""
+    only parameters a call written against `old` never has to pass: defaulted positional or keyword-only ones, `*args`
+    or `**kwargs`. Each added parameter's kind and default are read from its text outside quotes and brackets (an `=`
+    in an annotation's string is no default); an addition that cannot be classified is refused."""
     if old == new:
         return True
     old_params, old_return = _parameters(old)
@@ -747,7 +793,13 @@ def extends_signature(old, new):
         return False
     if new_params[: len(old_params)] != old_params:
         return False
-    return all("=" in p or p.startswith("*") for p in new_params[len(old_params):])
+    old_kinds, new_kinds = _kinds(old_params), _kinds(new_params)
+    if old_kinds is None or new_kinds is None or new_kinds[: len(old_kinds)] != old_kinds:
+        return False  # (an added `/` would make the kept parameters positional-only)
+    for kind in new_kinds[len(old_kinds):]:
+        if kind == "/" or (isinstance(kind, tuple) and not kind[1]):
+            return False
+    return True
 
 
 def _member(description):
@@ -759,7 +811,8 @@ def _member(description):
 def compare_inventory(before, now, label):
     """The frozen Python inventory (PY_INVENTORY) against the current one, by contract: every name the baseline recorded is
     still there with the same kind and runtime owner; a function's or method's signature kept (defaulted parameters may
-    be added after it); every enumerator with its value; a record's fields in order (more may follow); a class's members
+    be added after it); every enumerator with its value; a record's fields exactly, in order (a record is unpacked by
+    position: a new field, defaulted or not, changes its arity - a new shape is a new record type); a class's members
     with their kinds and signatures; an exception's bases; a constant's type and value. Additions pass."""
     failures = []
     for module, entries in sorted(before.items()):
@@ -786,7 +839,7 @@ def compare_inventory(before, now, label):
                 for member, value in sorted(old["members"].items()):
                     if member not in new["members"] or new["members"][member] != value:
                         failures.append("%s: %s.%s = %r -> %r" % (label, qualified, member, value, new["members"].get(member, "removed")))
-            elif kind == "record" and new["fields"][: len(old["fields"])] != old["fields"]:
+            elif kind == "record" and new["fields"] != old["fields"]:
                 failures.append("%s: %s fields %s -> %s" % (label, qualified, old["fields"], new["fields"]))
             elif kind == "class":
                 for member, description in sorted(old["members"].items()):

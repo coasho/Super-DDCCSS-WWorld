@@ -133,7 +133,7 @@ std::uint64_t preopenedAgainst(MissionAutoreset mode, std::uint64_t envId, int w
     const auto note = [&](bool ok, const std::string& what) {
         if (!ok) problems.push_back(what);
     };
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(180);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(600); // (a hang guard: loaded, it steps slower)
     while (whole < wholeSteps && std::chrono::steady_clock::now() < deadline) {
         const MissionSlotStatus before = unbusy([&] { return batch.status(0); });
         const std::string finalBefore = unbusy([&] { return batch.finalOutcomeJsonV1(0); });

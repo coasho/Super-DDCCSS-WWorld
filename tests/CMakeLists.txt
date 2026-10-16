@@ -325,8 +325,22 @@ target_link_libraries(fsim_mission_training_test PRIVATE fsim::sdk fsim::core Ca
 target_compile_definitions(fsim_mission_training_test PRIVATE FSIM_TEST_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
                                                               FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
 fsim_set_warnings(fsim_mission_training_test)
-add_test(NAME mission_training COMMAND fsim_mission_training_test)
+add_test(NAME mission_training COMMAND fsim_mission_training_test "~[concurrency]")
 set_tests_properties(mission_training PROPERTIES LABELS ma-training TIMEOUT 900)
+# Its contention cases (calls from other threads meeting batch transitions: hundreds of steps each) on their own, label
+# stress, one CTest test each so ctest -j runs them side by side: the same cases, selected when batch, episode or
+# binding concurrency code changes.
+foreach(_stress_case "batch" "SameStep" "NextStep")
+    if(_stress_case STREQUAL "batch")
+        set(_stress_spec "[concurrency][batch]")
+    else()
+        set(_stress_spec "${_stress_case} under an actor's preopened calls*")
+    endif()
+    add_test(NAME "mission_training_stress ${_stress_case}" COMMAND fsim_mission_training_test "${_stress_spec}")
+    # (two busy threads each - the range's and the actor's - which ctest -j counts; the cases' own deadline is a hang
+    # guard under that timeout, not a speed bound)
+    set_tests_properties("mission_training_stress ${_stress_case}" PROPERTIES LABELS "ma-training;stress" TIMEOUT 900 PROCESSORS 2)
+endforeach()
 
 # Joint acceptance, generic part (M8; docs/sdk/ma-training-validation.md): the recorded joint chains replayed through
 # the public C++ SDK, and J2, J3 (messages), J4, J6, J7 and J8 (lifecycle) checked on what the endpoints returned.
@@ -345,6 +359,11 @@ set_target_properties(fsim_mission_c_abi_test PROPERTIES C_STANDARD 99 C_STANDAR
 add_test(NAME mission_c_abi COMMAND fsim_mission_c_abi_test "${CMAKE_SOURCE_DIR}/tests/fixtures/mission_training/contract"
                                     "${FSIM_JSBSIM_DATA_DIR}")
 set_tests_properties(mission_c_abi PROPERTIES LABELS ma-training TIMEOUT 300)
+foreach(_stress_mode same next)
+    add_test(NAME "mission_c_abi_stress ${_stress_mode}" COMMAND fsim_mission_c_abi_test
+             "${CMAKE_SOURCE_DIR}/tests/fixtures/mission_training/contract" "${FSIM_JSBSIM_DATA_DIR}" stress ${_stress_mode})
+    set_tests_properties("mission_c_abi_stress ${_stress_mode}" PROPERTIES LABELS "ma-training;stress" TIMEOUT 900 PROCESSORS 2)
+endforeach()
 
 # Simulation construction, fixed state/transport ABI and output-only diagnostics stay independent of M5.
 add_executable(fsim_simulation_interface_boundary_test

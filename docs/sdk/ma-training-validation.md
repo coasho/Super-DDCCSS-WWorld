@@ -13,7 +13,11 @@ run, on which build, with which result, and what is still pending. It does not r
 First recorded on 2026-10-16 from `main` at `0cf0150` with the M8 changes (`d344e2b`); corrected the same day after the
 independent review of `d344e2b` (`docs/architecture/modules/training/reviews/2026-10-16-m8-generic-d344e2b.md`): the
 Python contracts the comparison holds and the artifacts it requires (section 4), the installed aircraft data the Python
-replay flies (section 3), J8's pending state at its reset and J6's evidence (section 1).
+replay flies (section 3), J8's pending state at its reset and J6's evidence (section 1). Corrected again after the
+review of `3802e7a` (`docs/architecture/modules/training/reviews/2026-10-16-m8-3802e7a-test-scoping.md`): a record's
+fields are held exactly and an added parameter's kind and default are read, not guessed (section 4); the installed
+runtime data is held to an inventory the staging rules give, and missing data is refused before any World is made
+(section 3).
 
 ## 1. Joint acceptance matrix
 
@@ -62,12 +66,18 @@ with only the installed package on `PYTHONPATH`; each reports the library and pa
 consumers fly the installed SDK's aircraft (`FSIM_AIRCRAFT_PATH` its `share/flightsim/aircraft` and `stores`); the
 Python consumer, its isolated actor's process and the composition example fly the installed Python package's own -
 without it, a development library's compiled-in source aircraft directory comes first (`src/io/AssetResolver.cpp`,
-unchanged). The gate checks each installed F-16C runtime file in both packages against the source tree, byte for byte,
-and then proves which copy is read: with the installed Python package's `f16c.xml` corrupted, the joint chain's
-episode is refused (`mission_package_consumer`, both presets); the file is restored and re-hashed. With the file
-missing instead, a development library still finds its source tree's copy - that run is recorded, not required, and an
-installed library without the source tree has no such directory. Its provenance manifest lists 73 installed files
-with their SHA-256. On the Release run below: `libfsim.dll` `ccdcdbaf16dc49a6a760a87643cf7f7a9a9fe430974a07f14be22b2beb363623` (the same in the SDK and the Python package),
+unchanged). The runtime data the chains fly is held to an expected inventory, not to whatever was installed: the gate
+applies the staging rules (`cmake/StageDesigns.cmake`) to the source tree's F-16C and released stores in a private
+directory, and each of the 113 files that gives - `f16c.xml`, its `Engines/`, model, payloads, radar cross section,
+damage data and pieces, and the stores' flight models - must be installed in both packages, byte for byte; an omitted
+file fails the gate instead of dropping out of the list. The Python consumer checks the same inventory first
+(`runtime-data.sha256`), before it makes any World, and its refusal probes share that preflight. With the installed
+Python package's `f16c.xml` missing, or the engine file it names (`Engines/f16c_engine0.xml`) missing, the preflight
+refuses (exit 4) naming the installed path - although a development library would find the source tree's copies after
+the installed ones (`src/io/AssetResolver.cpp`, kept as it is). With `f16c.xml` corrupted it refuses for the hash; and
+with the presence check alone the corrupted file reaches the SDK, which refuses the joint chain's episode (exit 3):
+the installed copy is the one read. Each file is restored and the whole inventory re-checked. The provenance manifest
+lists 275 installed files with their SHA-256. On the Release run below: `libfsim.dll` `ccdcdbaf16dc49a6a760a87643cf7f7a9a9fe430974a07f14be22b2beb363623` (the same in the SDK and the Python package),
 `_native.pyd` `a385bb357d38c469c889ee3269f70aebc41ee8c7a560098ac8c49b60d2a1dc1f`.
 
 Each consumer replays both chains: C++ through `fsim/MissionEpisode.h`, C99 through `fsim_mission_env.h` (an
@@ -85,18 +95,25 @@ from an earlier generation until the range re-binds it.
 clears first, so nothing an earlier run left is read - and holds them to the frozen
 [compatibility baseline](ma-compatibility-baseline.md) (`e1945b9`), which it never writes. Every artifact of each
 selected build is required: the core build's `libfsim.dll`, `_native.pyd` and package always, the render build's with
-`--release-build`. Each recorded Python description keeps its contract - signatures with their defaults (defaulted
-parameters, `*args` and `**kwargs` may follow), enumerator values, record fields in order (more may follow), class
-members with their kinds and signatures, exception bases, constants and the runtime owner of each name. Result: 19
+`--release-build`. Each recorded Python description keeps its contract - signatures with their defaults, enumerator
+values, a record's fields exactly (a record is unpacked by position, so a new field - defaulted or not - is a new
+record type), class members with their kinds and signatures, exception bases, constants and the runtime owner of each
+name. A signature may only gain parameters an old call never passes: defaulted positional or keyword-only ones,
+`*args` or `**kwargs`. Each added parameter's kind and default are read from its text outside quotes and brackets -
+`c: '='` has no default - and an added `/`, or an addition that cannot be classified, is refused. All 2,326 recorded
+signatures classify. Result: 19
 comparisons, 0 failures; 620 (headless) and 629 (Release) Python descriptions keep their contracts -
 `libfsim.dll` 1,338 baseline exports all present (1,456 now, headless and Release), 68 vtable/typeinfo symbols
 unchanged, `libfsim_vision.dll` 57 exports unchanged, the Python call surface a superset (565 -> 639 headless,
 580 -> 654 Release), every recorded Python module name present; 267 public C++ types and 120 C structs with
 unchanged layouts, 718 and 415 enumerators with unchanged values, 50 public vtables with unchanged slots. Planted
 against a doctored copy of the baseline - an export removed, a type's size, an enumerator and a vtable slot changed -
-the same command fails on each of the four. `ma_baseline_checker` (new gate, 15 cases) holds the comparison to its own
-refusals: a changed signature or default, enumerator value, record field order, member kind or signature, runtime
-owner, exception base or constant fails it, an addition does not; and a missing DLL, Python package or extension
+the same command fails on each of the four. `ma_baseline_checker` (17 cases) holds the comparison to its own
+refusals: a changed signature or default, enumerator value, record field, member kind or signature, runtime owner,
+exception base or constant fails it, and so do a record's added field, a required keyword-only addition hidden behind
+an `=` in its annotation and an added `/`; an addition old calls never pass does not. Every admitted or refused
+addition is checked against real functions: each admitted one still takes every call written against the frozen
+signature, each refused one breaks one; and a missing DLL, Python package or extension
 module, an incomplete selected Release build, a reused work directory and the baseline as the work directory each fail
 the real command. `baseline.py verify` re-hashed the baseline (66 artifacts, unchanged) and `baseline.py run` ran its
 frozen old-header C++, C99 and Python consumers against this build's installed library.
@@ -107,17 +124,18 @@ frozen old-header C++, C99 and Python consumers against this build's installed l
 | --- | --- |
 | UCRT64 headless and Release builds, warnings as errors | Passed, 0 warnings each |
 | `ma_joint` | 10 cases, 696 assertions |
-| `python_sdk` `test_ma_joint` | 2 cases; `python_sdk` 261 cases in all |
-| `ma_baseline_checker` | 15 cases |
-| Affected headless gates (`ma_joint`, `ma_baseline_checker`, `ma_service_binding`, the M4-M7 gates, contract, boundary and architecture checks, `c_abi`, `python_sdk`, installed consumers) | 20/20 passed in 663.31 s |
-| Affected Release gates (the same with `equipment_package_consumer`) | 21/21 passed in 683.43 s |
-| Full headless suite | 619/619 passed in 1066.28 s |
+| `python_sdk test_ma_joint` | 2 cases |
+| `ma_baseline_checker` | 17 cases |
+| Affected headless gates at `3802e7a` (`ma_joint`, `ma_baseline_checker`, `ma_service_binding`, the M4-M7 gates, contract, boundary and architecture checks, `c_abi`, `python_sdk`, installed consumers) | 20/20 passed in 663.31 s |
+| Affected Release gates at `3802e7a` (the same with `equipment_package_consumer`) | 21/21 passed in 683.43 s |
+| After the second correction: targeted tiers (`testing_scope_checker`, `ma_baseline_checker`, `mission_package_consumer`) | 3/3 headless, 3/3 Release; documentation checks 4/4 |
+| Full headless suite, once on the frozen revision of the second correction | 690/690 passed in 1227.65 s (619/619 in 1066.28 s at `3802e7a`) |
 | Baseline | `verify`: 66 artifacts, 0 changed or missing; `run`: the frozen C++, C99 and Python (`agent.py`, `links.py`, `c2.py`) consumers pass on this build's installed library; `compare`: 19 comparisons, 0 failures (section 4) |
-| Test inventory | 619 tests headless, 673 Release; 19 labelled `ma-training` |
+| Test inventory | 690 tests headless, 744 Release; 37 labelled `ma-training` (the contention cases among them, label `stress`; `python_sdk` is one CTest test per module) |
 
 Environment: Windows, MSYS2 UCRT64 GCC 16.2.0 (Rev3), CMake 4.4.3, CPython 3.13.12, presets `ucrt64-headless` and
 `ucrt64-release` (both Release builds), `TMP`, `TEMP` and `TORCH_EXTENSIONS_DIR` under `D:/ENV/tmp`. Logs:
-`D:/ENV/tmp/m8/logs/`. No renderer, viewer or lifecycle boundary changed in M8, so no renderer regression beyond the
+`D:/ENV/tmp/m8/logs/`, `D:/ENV/tmp/m8fix/logs/` and, for the second correction, `D:/ENV/tmp/testing/logs/`. No renderer, viewer or lifecycle boundary changed in M8, so no renderer regression beyond the
 Release build and its suite was required.
 
 ## 6. Pending, and limits
@@ -132,8 +150,8 @@ Release build and its suite was required.
   deterministic; a change to native behaviour that moves an id or a tick fails the replay checks, and the chains are
   then authored again with `joint_chain.py author` and reviewed.
 - J6: whether the MA's own commanded speed resumes after C2 cancels its override is not established (section 1).
-- A development library resolves a missing installed aircraft from its source tree (section 3): the missing-data run
-  is recorded, not required; the corruption run is the refusal the gate requires.
+- A development library still resolves a missing installed aircraft from its source tree (section 3, kept as it is);
+  the gate's preflight refuses that case before any World is made, for the files of the expected inventory.
 - On the lossy net, C2's commands and the MAs' answers are sent once, not retried: a lost one is simply lost. The
   lossy chain therefore exercises the reliable DMS sends; C2's task and its resubmission are exercised on the main
   chain.

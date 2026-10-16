@@ -99,7 +99,7 @@ Use the existing layers in [tests/CMakeLists.txt](../tests/CMakeLists.txt) and [
 | --- | --- | --- |
 | Core, mission systems, integration | CTest cases, focused `-R` selection | Native behavior and scenario regressions |
 | Public C++ and C ABI | SDK cases and `c_abi` | Consumer contracts against the shared library |
-| Python and principals | `python_sdk`, `sdk_boundary` | Python behavior and classified exports |
+| Python and principals | `-L python_sdk` (a CTest test per module: `python_sdk test_world`, ...), `sdk_boundary` | Python behavior and classified exports |
 | Native architecture and scanner regressions | `.\fsim.cmd test -L architecture` | Module ownership/dependencies, public/private and GPU boundaries, principal scanner coverage and negative fixtures |
 | Mission-training contract | `ctest --preset ucrt64-headless -L ma-training --no-tests=error` | The [contract](sdk/mission-training.md)'s schema dialect, fixtures, page tables and local links ([check.py](../tools/ma_contract/check.py)); not evidence of any implemented mission interface |
 | Control conformance | `ctest --preset ucrt64-headless -L conformance` | Lifecycle, allocation gate and adapter checks |
@@ -108,8 +108,10 @@ Use the existing layers in [tests/CMakeLists.txt](../tests/CMakeLists.txt) and [
 | Windows launchers | `.\fsim.cmd --preset ucrt64-headless test -L launcher` | Preset precedence, first-build configuration, argument forwarding and exit codes |
 | Installed SDK package | `.\fsim.cmd --preset ucrt64-headless test -L package` | SDK-only install, installed DLL/data provenance and API load-rejection probes |
 | Renderer, RCS and cameras | Render preset cases; viewer screenshots/performance tools | Visual and GPU behavior on capable hardware |
+| Contention (stress) cases | `-L stress` | Calls from other threads meeting mission-batch transitions, hundreds of steps each; selected when concurrency code changes |
+| Change-scoped selection | `testing_scope_checker` (label `testing`) | The selector's rules, and `tools/testing/scopes.toml` against the repository and the build's inventory |
 
-Start with tests relevant to the change, then run the full applicable preset suite for behavioral changes. Record skips: camera tests may skip without a Vulkan device, and RCS tests may skip without ray queries. All native viewer acceptance runs must use `--fullscreen`, including screenshots, live/replay lifecycle checks and performance scenes. Confirm the captured dimensions against the display's full resolution, read the image and confirm the model used in logs. Vision/RCS render into offscreen GPU targets, and scene-graph tests have no native viewer window. The [viewer validation record](sdk/viewer-validation.md) identifies actual runtime evidence and exclusions. A historical green suite, a workflow file, or a current test listing is not a fresh pass. Check actual workflow-run evidence before claiming CI success.
+Choose the tier by the change, as the next section says. Record skips: camera tests may skip without a Vulkan device, and RCS tests may skip without ray queries. All native viewer acceptance runs must use `--fullscreen`, including screenshots, live/replay lifecycle checks and performance scenes. Confirm the captured dimensions against the display's full resolution, read the image and confirm the model used in logs. Vision/RCS render into offscreen GPU targets, and scene-graph tests have no native viewer window. The [viewer validation record](sdk/viewer-validation.md) identifies actual runtime evidence and exclusions. A historical green suite, a workflow file, or a current test listing is not a fresh pass. Check actual workflow-run evidence before claiming CI success.
 
 The `package_consumer` CTest gate installs only `sdk` into `build/<preset>/package-consumer/installed SDK`, builds the [external consumer](../tests/package_consumer/CMakeLists.txt) using only installed `fsim::sdk`, checks DLL locations and a SHA256 runtime-data manifest, then exercises stock `c172x`, custom `f16c`, its Mk 82 loadout and a released store. It poisons the installed stock, custom and released-store XML in turn; each probe must produce API rejection exit 42. The gate restores exact bytes before its final positive run and keeps its logs/manifest in the private package-consumer directory. Optional vision export checks do not open a GPU device.
 
@@ -144,6 +146,73 @@ lazy qbar binding and force summation after damage/before guidance. `store bindi
 reuse, and their optional `FSIM_STORE_BINDING_TRACE` replay emits explicit field bits without structure padding.
 Compare replay bytes against the pre-extraction build alongside existing mass/drag/load, determinism and principal
 gates. See the [A6 design](superpowers/specs/2026-10-12-architecture-store-binding-design.md) for the preservation contract.
+
+### Change-scoped testing
+
+Measured on `ucrt64-headless` (2026-10-16, 16 jobs): the suite is 690 CTest tests with 10,044 s of test time,
+and a full run takes about 19 minutes of wall time. Its floor is its longest test,
+`hangar test_vulnerability.Dispensers` (1,037 s under the suite's load); the 54 tests of 30 s or more hold about 87%
+of the test time, the 556 under 5 s about 5%. `fleet` and `hangar` alone hold nearly two thirds. Tests marked `RUN_SERIAL`
+(`mission_episode`, `native_state_reset_fixture`, `equipment_package_consumer`, `simulation_interface_boundary`) run
+alone, so any selection that includes them adds their time to its wall time. A routine change needs a small part of
+this; take the tier its change needs:
+
+| Tier | When | Command | Wall time |
+| --- | --- | --- | --- |
+| Targeted | Every routine change, before each commit | `python tools/testing/scope.py` (the plan), then `--run` once the presets it names are built (`--build` builds them) | Measured: this correction's own selection (the selector, the comparator and the installed-consumer gate, after a build) 68 s. Estimated (lower bounds): documentation 5 s; `tests/test_ma_joint.cpp` 30 s; an MA gateway source 62 s; MA concurrency code, a shared Python test fixture or any `python/fsim` module (stress cases included) 303 s |
+| Integration | Before handing off a feature package; public-surface, packaging or installed-consumer changes | `python tools/testing/scope.py --tier integration --run` | Estimated: an MA gateway source, at least 383 s |
+| Full | At a milestone handoff or acceptance; before a push; when `scope.py` escalates (shared simulation core, build system or test registration, native code no scope claims); when a targeted or integration failure is unexplained | `ctest --preset ucrt64-headless --no-tests=error` | 19 minutes |
+| Release and visual | Render, vision, viewer or public-surface changes (`scope.py` adds `ucrt64-release` to the plan); release preparation; Viewer acceptance | `scope.py` runs Release where its plan says so; full: `ctest --preset ucrt64-release --no-tests=error` | |
+
+[tools/testing/scope.py](../tools/testing/scope.py) reads the working tree's changes (or `--paths`), the reviewed
+rules in [tools/testing/scopes.toml](../tools/testing/scopes.toml) and each preset's own CTest inventory. It selects the
+tests the matching scopes name, and beyond them the tests that depend on the changed file:
+
+- every CTest test built from a changed C/C++ test or example source, or from one including a changed local header
+  (each preset's `compile_commands.json` names the target a source is compiled into);
+- every CTest test whose command names the changed file or a fixture directory holding it, and the tests of a test
+  source or script that names a changed data file;
+- every `python_sdk` test whose module imports the changed Python file, directly or through other modules, shared
+  test fixtures (`test_mission_concurrency` imports `test_mission_training`'s) and the scripts it runs in another
+  process: the import closure of `python/tests` and `python/fsim`. `fsim/__init__.py` imports the package's modules,
+  so a change to any of them selects every module's test - the contention cases among them.
+
+It fails closed. A changed path nothing claims (no scope, no test source, command, reader or import), a selection that
+comes out empty and no changes at all are errors: it exits 3 and names the reason and the paths (`--json` gives them
+as data), and runs nothing. A changed native source or build input nothing claims escalates to the full suite instead.
+Legacy environment code (`src/env` apart from the mission episode owner) is linked into `libfsim` and run by native, C,
+Python and plugin tests alike, so it escalates too. Repository metadata and tools without tests stay unclaimed: their
+change needs the full tier or a reviewed scope.
+
+With `--build` it builds the presets first, then lists each inventory afresh - a reconfigure may add, remove or
+reorder tests (the Python test modules are a `CONFIGURE_DEPENDS` glob) - and resolves the selected names to that
+inventory's `-I` numbers immediately before running. After the run it requires that exactly the selected tests ran
+(exit 4 otherwise). It prints the plan, an estimate and the exact command, and with `--run` runs at the preset's jobs
+with `--no-tests=error`, keeping the raw output in `build/<preset>/scope-logs` and recording each test's measured
+time ([tools/testing/timing.py](../tools/testing/timing.py); `timing.py report` shows where the time goes). The
+estimate is a lower bound from measured passing times: `RUN_SERIAL` tests are added one after another, the rest
+packed over the jobs by their `PROCESSORS`; load and CTest's ordering are not modelled. A failed or timed-out run
+never replaces a test's passing time. Tests labelled `stress` run in the targeted tier only when concurrency code
+changed (a scope naming that label) or what they are built from or import did; the integration and full tiers always
+include them.
+
+Acceptance commands select by label, not by an old exact name. `python_sdk` is a label over one CTest test per
+module (`python_sdk test_world`, ...); there is no single test of that name. `mission_training` and `mission_c_abi`
+leave their contention cases to `mission_training_stress batch|SameStep|NextStep` and `mission_c_abi_stress same|next`
+(label `stress`). `-L ma-training` still selects all of them, the Python contention module included.
+
+Rules for every tier:
+
+- Run CTest in parallel at the preset's jobs. `-j 1` is for diagnosing an order-dependent failure, not for gates:
+  the exclusive build/test slot is one agent at a time, not one test at a time.
+- One run per tier and preset. Do not repeat the same selection gate by gate or preset by preset; run
+  `ucrt64-release` only where the plan or the change requires it.
+- A passing run stands for the build it ran on. A documentation edit afterwards needs only its own checks
+  (`scope.py` selects them; no build), not the suites again.
+- Never narrow coverage to save time: the full and integration tiers keep every test, the stress cases among them.
+  Report the plan, command, log and wall time with the results.
+- Keep `scopes.toml` current. Add a scope when a domain gains targeted coverage; `testing_scope_checker` fails on a
+  path pattern no tracked file matches, or on a label or test pattern that selects nothing.
 
 ## Long-running work and evidence
 

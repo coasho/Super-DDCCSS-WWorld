@@ -1,7 +1,9 @@
 """MA-service binding, legal reports and mission episodes from an installed Python package: `fsim` as installed, its own
 library and data, nothing else (docs/sdk/mission-training.md, sections 3 to 16). Usage: ma_python.py <installed python
-prefix>."""
+prefix> <runtime-data inventory> [<joint chain> <trace> <isolated actor trace>]..., or, the gate's installed-data probes,
+ma_python.py <installed python prefix> <runtime-data inventory> --probe|--probe-native-read <joint chain>."""
 import ctypes
+import hashlib
 import json
 import math
 import os
@@ -341,8 +343,8 @@ def joint_chains(triplets):
 
 def probe(chain):
     """Whether the chain's episode can be built and reset from the data this process resolves: exit 0 if it can, 3 if
-    the SDK refuses it. The gate runs it with the installed aircraft data corrupted, then missing, and requires the
-    refusal - no source or build copy may stand in for the installed data."""
+    the SDK refuses it. The gate runs it after the preflight's presence check alone (--probe-native-read) with the
+    installed F-16C definition corrupted, and requires the SDK's refusal: the installed copy is the one read."""
     try:
         config, _, _ = read_chain(chain)
         with fsim.mission.MissionEpisode(config) as episode:
@@ -364,19 +366,65 @@ def aircraft_paths(prefix):
     return paths
 
 
-def main(argv):
-    if len(argv) == 4 and argv[2] == "--probe":
-        return probe(argv[3])
-    require(len(argv) >= 2 and (len(argv) - 2) % 3 == 0,
-            "usage: ma_python.py <installed python prefix> [<joint chain> <trace> <isolated actor trace>]...")
-    prefix = argv[1]
+def preflight(prefix, inventory, hashes=True):
+    """The runtime data the chains fly, at its installed paths, before any World is made: every file of the expected
+    inventory (the staging rules applied to the source tree; the gate writes it as `<sha256>  <path>` lines) present
+    under the installed package's aircraft directory and - with `hashes` - byte for byte. A missing or different file
+    is reported with its installed path and fails the run (exit 4), although a development library would find a
+    source copy after the installed one. Returns how many files it verified, else None."""
+    root = prefix.replace("\\", "/").rstrip("/") + "/fsim/share/flightsim/aircraft"
+    entries = []
+    with open(inventory, encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                digest, relative = line.strip().split("  ", 1)
+                entries.append((digest, relative))
+    require(entries, "the runtime-data inventory is empty: " + inventory)
+    problems = []
+    for digest, relative in entries:
+        path = root + "/" + relative
+        if not os.path.isfile(path):
+            problems.append("missing: " + path)
+        elif hashes:
+            with open(path, "rb") as f:
+                if hashlib.sha256(f.read()).hexdigest() != digest:
+                    problems.append("differs from the expected inventory: " + path)
+    for problem in problems:
+        print("installed runtime data " + problem)
+    return None if problems else len(entries)
+
+
+def provenance(prefix):
+    """The package, its native module and library, and its aircraft paths: the installed package's own."""
     require(inside(fsim.__file__, prefix), "fsim was imported from outside the installed package: " + fsim.__file__)
     require(inside(fsim._native.__file__, prefix), "the native module is not the installed package's")
     library = loaded_library()
     require(inside(library, prefix), "libfsim.dll was loaded from outside the installed package: " + library)
+    return library
+
+
+USAGE = ("usage: ma_python.py <installed python prefix> <runtime-data inventory> [<joint chain> <trace> <isolated actor trace>]... "
+         "| ... --probe|--probe-native-read <joint chain>")
+
+
+def main(argv):
+    require(len(argv) >= 3, USAGE)
+    prefix, inventory, rest = argv[1], argv[2], argv[3:]
+    library = provenance(prefix)
+    paths = aircraft_paths(prefix)
+    if rest[:1] in (["--probe"], ["--probe-native-read"]):
+        require(len(rest) == 2, USAGE)
+        if preflight(prefix, inventory, hashes=rest[0] == "--probe") is None:
+            return 4
+        return probe(rest[1])
+    require(len(rest) % 3 == 0, USAGE)
+    verified = preflight(prefix, inventory)
+    if verified is None:
+        return 4
     print("installed package: %s" % os.path.dirname(os.path.realpath(fsim.__file__)))
     print("installed DLL: %s" % library)
-    print("installed aircraft: %s" % ";".join(aircraft_paths(prefix)))
+    print("installed aircraft: %s" % ";".join(paths))
+    print("installed runtime data: %d files of the expected inventory, byte for byte" % verified)
     a, b = ownership(True), ownership(False)
     require(a == b, "ownership depends on the order the agents were made in: %r, %r" % (a, b))
     require(a == (1, 1, 2, 2), "ownership is not the bindings': %r" % (a,))
@@ -384,7 +432,7 @@ def main(argv):
     reports()
     key = mission_episode()
     mission_batch()
-    chains = joint_chains([argv[i:i + 3] for i in range(2, len(argv), 3)])
+    chains = joint_chains([rest[i:i + 3] for i in range(0, len(rest), 3)])
     print("fsim %s installed Python consumer: ownership %r in either creation order; legal reports with provenance; "
           "mission episode %s with an isolated actor; a mission batch under the training adapter; %d joint chain(s) replayed, "
           "in-process and isolated alike" % (fsim.__version__, a, json.dumps(key), chains))

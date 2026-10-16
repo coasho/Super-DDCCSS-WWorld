@@ -354,7 +354,7 @@ static int batch_preopened(const char* config, int autoreset, const char* env) {
     thread = CreateThread(NULL, 0, run_actor, &job, 0, NULL);
     CHECK(thread != NULL);
     start = GetTickCount();
-    while (whole < 100 && !wrong && GetTickCount() - start < 120000) {
+    while (whole < 100 && !wrong && GetTickCount() - start < 600000) { /* (a hang guard, not a speed bound) */
         if (slot_status(batch, &before) != FSIM_OK) wrong = __LINE__;
         r = fsim_mission_batch_step(batch);
         if (slot_status(batch, &after) != FSIM_OK) wrong = __LINE__;
@@ -412,12 +412,24 @@ int main(int argc, char** argv) {
     char small[8];
     size_t needed = 0, first = 0;
     const uint64_t kWing = 9007199254740995ull;
-    if (argc < 3) {
-        fprintf(stderr, "usage: %s <contract fixtures> <jsbsim root>\n", argv[0]);
+    if (argc < 3 || (argc > 3 && strcmp(argv[3], "stress") != 0) ||
+        (argc > 4 && strcmp(argv[4], "same") != 0 && strcmp(argv[4], "next") != 0)) {
+        fprintf(stderr, "usage: %s <contract fixtures> <jsbsim root> [stress [same|next]]\n", argv[0]);
         return 2;
     }
     config = make_config(argv[1], argv[2]);
     CHECK(config != NULL);
+#ifdef _WIN32
+    if (argc > 3) { /* the contention cases alone (mission_c_abi_stress, label stress): both modes, or one */
+        if (argc < 5 || strcmp(argv[4], "same") == 0)
+            if (batch_preopened(config, FSIM_MISSION_AUTORESET_SAME_STEP, "111") != 0) return 1;
+        if (argc < 5 || strcmp(argv[4], "next") == 0)
+            if (batch_preopened(config, FSIM_MISSION_AUTORESET_NEXT_STEP, "112") != 0) return 1;
+        free(config);
+        printf("mission C ABI, contention: ok\n");
+        return 0;
+    }
+#endif
 
     /* a malformed configuration: nothing made */
     CHECK(fsim_mission_episode_create("{}", 2, &episode) == FSIM_INVALID_ARGUMENT);
@@ -526,10 +538,6 @@ int main(int argc, char** argv) {
     if (busy_reset(config) != 0) return 1;
 #endif
     if (batch_cases(config) != 0) return 1;
-#ifdef _WIN32
-    if (batch_preopened(config, FSIM_MISSION_AUTORESET_SAME_STEP, "111") != 0) return 1;
-    if (batch_preopened(config, FSIM_MISSION_AUTORESET_NEXT_STEP, "112") != 0) return 1;
-#endif
     free(config);
     printf("mission C ABI: ok\n");
     return 0;

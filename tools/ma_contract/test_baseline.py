@@ -9,6 +9,7 @@ invocation: a missing DLL, Python package or extension module fails it, and so d
 earlier run. Standard library only; the CLI cases capture the given build's real binaries into temporary directories
 and leave the frozen baseline untouched."""
 import argparse
+import collections
 import copy
 import json
 import os
@@ -66,24 +67,60 @@ class ContractTest(unittest.TestCase):
     def test_unchanged_passes(self):
         self.admitted(copy.deepcopy(BEFORE))
 
+    REFUSED_SIGNATURES = ("(a, b=2)", "(a)", "(b, a=1)", "(a, b)", "(a, b=1, c)", "(a, *, b=1)", "(a, b=1, *, c: '=')",
+                          "(a, b=1, *, c: dict[str, '='])", "(a, b=1, *, c: 'x=1')", "(a, b=1, /)", "(a, b=1, /, c=0)",
+                          "(a, b=1, *args, c)")
+    ADMITTED_SIGNATURES = ("(a, b=1, c=None)", "(a, b=1, *, c=0)", "(a, b=1, **options)", "(a, b=1, *args)",
+                           "(a, b=1, *, c: '=' = 0)", "(a, b=1, *, c: dict[str, int] = {})", "(a, b=1, *args, c=0, **kw)")
+    OLD_CALLS = ((1,), (1, 2), {"a": 1}, {"a": 1, "b": 2})  # every call written against the frozen `(a, b=1)`
+
     def test_signatures_and_defaults(self):
-        for signature in ("(a, b=2)", "(a)", "(b, a=1)", "(a, b)", "(a, b=1, c)", "(a, *, b=1)"):
+        for signature in self.REFUSED_SIGNATURES:
             with self.subTest(signature=signature):
                 self.refused(changed(("fsim.x", "f", "signature"), signature), "fsim.x.f")
-        for signature in ("(a, b=1, c=None)", "(a, b=1, *, c=0)", "(a, b=1, **options)", "(a, b=1, *args)"):
+        for signature in self.ADMITTED_SIGNATURES:
             with self.subTest(signature=signature):
                 self.admitted(changed(("fsim.x", "f", "signature"), signature))
+
+    def test_admission_agrees_with_old_calls(self):
+        """What the comparator admits, every call written against the frozen signature still makes; what it refuses
+        (among valid signatures that keep the old text) breaks at least one such call - checked on real functions."""
+        for signature in self.REFUSED_SIGNATURES + self.ADMITTED_SIGNATURES:
+            if not signature.startswith("(a, b=1, "):
+                continue  # (a changed default or kept parameter: refused above for what it does, not for a call it breaks)
+            namespace = {}
+            try:
+                exec("def f%s: return 0" % signature, namespace)
+            except SyntaxError:
+                continue  # (not a valid signature: refused above, nothing to call)
+            calls_made = True
+            for call in self.OLD_CALLS:
+                try:
+                    namespace["f"](**call) if isinstance(call, dict) else namespace["f"](*call)
+                except TypeError:
+                    calls_made = False
+            with self.subTest(signature=signature):
+                self.assertEqual(baseline.extends_signature("(a, b=1)", signature), calls_made)
+
+    def test_unclassifiable_additions_are_refused(self):
+        self.assertFalse(baseline.extends_signature("(a)", "(a, 1b=0)"))
+        self.assertTrue(baseline.extends_signature("(self, mode=<Mode.A: 0>)", "(self, mode=<Mode.A: 0>, *, level=<Level.B: 1>)"))
+        self.assertFalse(baseline.extends_signature("(self, mode=<Mode.A: 0>)", "(self, mode=<Mode.A: 0>, *, level: '<=')"))
 
     def test_enumerators(self):
         self.refused(changed(("fsim.x", "E", "members", "B"), 2), "fsim.x.E.B")
         self.refused(changed(("fsim.x", "E", "members", "B"), None), "fsim.x.E.B")
         self.admitted(changed(("fsim.x", "E", "members", "C"), 2))
 
-    def test_record_fields_in_order(self):
-        for fields in (["b", "a"], ["a"], ["a", "c"]):
+    def test_record_fields_exactly(self):
+        for fields in (["b", "a"], ["a"], ["a", "c"], ["a", "b", "c"]):
             with self.subTest(fields=fields):
                 self.refused(changed(("fsim.x", "R", "fields"), fields), "fsim.x.R")
-        self.admitted(changed(("fsim.x", "R", "fields"), ["a", "b", "c"]))
+        self.admitted(changed(("fsim.x", "R", "fields"), ["a", "b"]))
+        # why an added field is refused even with a default: a record written against `R(a, b)` is unpacked by position
+        extended = collections.namedtuple("R", ["a", "b", "c"], defaults=[None])
+        with self.assertRaises(ValueError):
+            a, b = extended(1, 2)
 
     def test_class_members_and_kinds(self):
         self.refused(changed(("fsim.x", "C", "members", "p"), "method(self)"), "fsim.x.C.p")

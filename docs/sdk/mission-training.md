@@ -892,13 +892,16 @@ acceptance scope from actor process-interface checks.
   fixture's expectation, read-back, the seed vectors, this page's tables against the schema, ASCII and local links)
   and `ma_contract_checker` (the checker's own refusals), and the implemented parts' own acceptance:
   `ma_service_binding` (C++), `ma_reports` (C++), `ma_c_abi` (C99), `mission_episode` (M4), `ma_actions` and
-  `ma_observation` (M5 core, C++), `mission_c_abi` (M5 core and M7 core, C99), `mission_training` (M7 core, C++)
+  `ma_observation` (M5 core, C++), `mission_c_abi` (M5 core and M7 core, C99), `mission_training` (M7 core, C++),
+  their contention cases on their own (label `stress`: `mission_training_stress batch|SameStep|NextStep`,
+  `mission_c_abi_stress same|next`, and `python_sdk test_mission_concurrency.*`), 
   `ma_joint` (M8, C++: the recorded joint chains, J2, J3's messages, J4, J6, J7 and J8's lifecycle) and
   `mission_package_consumer` (C++, C99 and Python consumers built and run against installed packages alone,
   mission episodes, an isolated actor, mission batches and the joint chains among them). The joint evidence and what
   is still pending are recorded in [ma-training-validation.md](ma-training-validation.md).
-  The Python cases are `test_ma_service`, `test_ma_reports`, `test_mission`, `test_mission_training` and
-  `test_ma_joint` of `python_sdk`; `test_mission` holds
+  The Python cases are the CTest tests `python_sdk test_ma_service`, `test_ma_reports`, `test_mission`,
+  `test_mission_training`, `test_mission_concurrency` (one test per method) and `test_ma_joint`, each a module of
+  the label `python_sdk`; `test_mission` holds
   every document the episode writes - through every generic operation of the frozen fixtures - to the schema and the
   checker's rules.
 - The fixtures cover identities above 2^53 up to 2^64 - 1, null numeric reports with their validity, message bytes
@@ -1009,12 +1012,14 @@ actor). `world_seed`, `service_seed` and `component_seed` compute [section 8](#8
 
 **Evidence.** `mission_training` (C++: slot independence and topology, a worker x reset-schedule matrix, a lost member,
 a team end, `NextStep` reset order, `SameStep` finals, costs, native publication bytes and their delivery, dissemination
-outside any cost, actor-view equivalence under hidden truth, calls from two threads meeting on one batch, and an
-actor's thread reading and submitting through preopened endpoints and referees against 200 steps of one-tick
-`SameStep` and `NextStep` batches), `mission_episode` (the episode hold no other call enters),
-`mission_c_abi` (the batch's C handle, and preopened handles on another thread against both autoresets),
-`python_sdk`'s `test_mission_training` (the same meetings through the released GIL, the adapter's steps among them, a lost role under the adapter, the hook pairs through every reset, the context's seeds, and the composition
-example's own system under the adapter), `test_mission` (no referee document - costs among them - crosses to an
+outside any cost and actor-view equivalence under hidden truth; its contention cases - calls from two threads meeting
+on one batch, and an actor's thread reading and submitting through preopened endpoints and referees against 200
+steps of one-tick `SameStep` and `NextStep` batches - are `mission_training_stress batch`, `SameStep` and `NextStep`),
+`mission_episode` (the episode hold no other call enters), `mission_c_abi` (the batch's C handle; preopened handles
+on another thread against each autoreset are `mission_c_abi_stress same` and `next`), `python_sdk test_mission_training`
+(a lost role under the adapter, the hook pairs through every reset, the context's seeds, and the composition example's
+own system under the adapter), `python_sdk test_mission_concurrency.*` (the same meetings through the released GIL,
+the adapter's steps among them), `test_mission` (no referee document - costs among them - crosses to an
 actor process) and `mission_package_consumer`: batch passes through installed C++, C99 and Python, costs refused
 before an isolated actor, and the installed composition example under the training adapter with `"same_step"` and
 `"next_step"` autoreset, each generation's trace the same as its direct run. `tools/ma_contract/mission_workload.py` measures a fixed recorded
