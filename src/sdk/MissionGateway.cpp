@@ -818,7 +818,9 @@ void Gateway::dispatch(Service& s, Record& r) {
             return oneShot(false, std::move(n));
         }
         r.messages = sent;
-        s.tickCosts.dmsMessages += sent.size();
+        // (each native report is comm::encode's: its struct's bytes exactly, as delivered - position, status, a track each)
+        const std::size_t reportBytes = o.report == 0 ? sizeof(comm::PositionReport) : o.report == 1 ? sizeof(comm::SystemStatusReport) : sizeof(comm::EntityReport);
+        s.tickCosts.dmsMessages += sent.size(), s.tickCosts.dmsBytes += sent.size() * reportBytes;
         Native n = nativeOf("dms", "published");
         n.code = 0;
         if (!sent.empty()) n.ids = {{"message_id", sent.front()}};

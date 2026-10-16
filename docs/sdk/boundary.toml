@@ -1211,7 +1211,7 @@ names = [
     "fsim.mission.MissionBatch.reset", "fsim.mission.MissionBatch.reset_slot", "fsim.mission.MissionBatch.step",
     "fsim.mission.MissionBatch.status", "fsim.mission.MissionBatch.endpoint", "fsim.mission.MissionBatch.referee",
     "fsim.mission.MissionBatch.final_observation_json", "fsim.mission.MissionBatch.remove_platform",
-    "fsim.mission.MissionBatch.close",
+    "fsim.mission.MissionBatch.close", "fsim.mission.MissionBatch.base_seed",
 ]
 
 [[rule]]
@@ -1230,7 +1230,7 @@ note = "The training adapter (section 18; M7 core): the trainer registers each s
 names = [
     "fsim.training.TrainingAdapter.register", "fsim.training.TrainingAdapter.reset", "fsim.training.TrainingAdapter.step",
     "fsim.training.TrainingAdapter.actor_stream", "fsim.training.TrainingAdapter.lifecycle_stream",
-    "fsim.training.TrainingAdapter.clear_streams", "fsim.training.TrainingAdapter.close",
+    "fsim.training.TrainingAdapter.clear_streams", "fsim.training.TrainingAdapter.close", "fsim.training.TrainingAdapter.reset_slot",
 ]
 
 [[rule]]
@@ -1240,8 +1240,12 @@ names = ["fsim.training.TrainingAdapter.critic_stream"]
 
 [[rule]]
 principal = "value"
-note = "Section 8 seed derivation (M7 core): a local episode's world, service and component seeds from the base seed and stable ids alone"
-names = ["fsim.training.world_seed", "fsim.training.service_seed", "fsim.training.component_seed"]
+note = "Section 8 seed derivation (M7 core): a local episode's world, service and component seeds from the base seed and stable ids alone, and the generation's context a registered system begins with"
+names = [
+    "fsim.training.world_seed", "fsim.training.service_seed", "fsim.training.component_seed",
+    "fsim.training.EpisodeContext.slot", "fsim.training.EpisodeContext.service_id", "fsim.training.EpisodeContext.episode_key",
+    "fsim.training.EpisodeContext.service_seed", "fsim.training.EpisodeContext.component",
+]
 
 
 [[rule]]

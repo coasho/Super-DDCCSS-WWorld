@@ -132,7 +132,9 @@ if(NOT _result STREQUAL "0")
 endif()
 message(STATUS "installed MA consumer (python): exit 0\n${_out}")
 # The composition example (examples/python/ma_composition; M6) on the installed package alone, copied out of the source
-# tree: run twice, its traces byte-identical, its package and library the installed ones.
+# tree: run twice, its traces byte-identical, its package and library the installed ones; and its MA system under the
+# installed training adapter (fsim.training; M7 core) through "same_step" and "next_step" autoreset, each generation's
+# trace the same as the example's own direct run.
 file(COPY "${SOURCE_DIR}/examples/python/ma_composition" DESTINATION "${_work}" PATTERN "__pycache__" EXCLUDE)
 foreach(_run 1 2)
     execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=FSIM_DLL_DIR --unset=FSIM_AIRCRAFT_PATH --unset=PYTHONHOME
@@ -153,10 +155,14 @@ file(READ "${_work}/composition-1.json" _trace)
 string(JSON _package GET "${_trace}" fsim)
 string(JSON _library GET "${_trace}" library)
 string(JSON _same GET "${_trace}" same_after_reset)
+string(JSON _same_step GET "${_trace}" same_under_training same_step)
+string(JSON _next_step GET "${_trace}" same_under_training next_step)
 cmake_path(IS_PREFIX _python_prefix "${_package}" NORMALIZE _package_installed)
 cmake_path(IS_PREFIX _python_prefix "${_library}" NORMALIZE _library_installed)
-if(NOT _package_installed OR NOT _library_installed OR NOT _same)
-    message(FATAL_ERROR "installed composition example: package ${_package}, library ${_library}, same after reset ${_same}")
+if(NOT _package_installed OR NOT _library_installed OR NOT _same OR NOT _same_step OR NOT _next_step)
+    message(FATAL_ERROR "installed composition example: package ${_package}, library ${_library}, same after reset ${_same}, "
+                        "same under the training adapter: same_step ${_same_step}, next_step ${_next_step}")
 endif()
-message(STATUS "installed composition example: two identical traces (${_first}), same after reset, on ${_library}\n${_out}")
+message(STATUS "installed composition example: two identical traces (${_first}), same after reset and under the training "
+               "adapter (same_step, next_step), on ${_library}\n${_out}")
 message(STATUS "installed MA consumers passed in C++, C99 and Python; provenance: ${_work}/provenance.sha256")

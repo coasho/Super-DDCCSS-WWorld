@@ -194,8 +194,10 @@ class MissionIsolationTest(unittest.TestCase):
         episode.reset(2)
         wing, referee = episode.endpoint(WING), episode.referee()
         truth, outcome = json.loads(referee.truth_json()), json.loads(referee.outcome_json())
+        costs = json.loads(referee.costs_json())  # (ma.costs.v1, M7 core: the referee's too)
         carried = [truth, outcome, [truth], (1, {"nested": [outcome]}), {"k": (truth,)}, json.dumps([{"inner": truth}]),
-                   json.dumps({"a": outcome}).encode("utf-8"), bytearray(json.dumps([[outcome]]).encode("utf-8"))]
+                   json.dumps({"a": outcome}).encode("utf-8"), bytearray(json.dumps([[outcome]]).encode("utf-8")),
+                   costs, {"nested": [costs]}, referee.costs_json(), referee.costs_json().encode("utf-8")]
         for argument in carried:
             with self.assertRaises(TypeError, msg=repr(argument)[:80]):
                 isolation.MissionEndpointProcess(episode, wing, "isolated_mission_actor:Actor", argument, path=[HERE])

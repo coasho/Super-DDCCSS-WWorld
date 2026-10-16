@@ -5,6 +5,8 @@ referee's documents."""
 import json
 import os
 import sys
+import threading
+import time
 import unittest
 
 import fsim
@@ -14,6 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CONTRACT = os.path.join(ROOT, "tests", "fixtures", "mission_training", "contract")
 sys.path.insert(0, os.path.join(ROOT, "tools", "ma_contract"))
+sys.path.insert(0, os.path.join(ROOT, "examples", "python"))
 import check  # noqa: E402
 
 WING, CRC, LEAD = 9007199254740995, 4, 1
@@ -115,6 +118,69 @@ class MissionBatchTest(unittest.TestCase):
         episode.close()
 
 
+class MissionBatchConcurrencyTest(unittest.TestCase):
+    """reset, reset_slot and step release the GIL: a call from another thread meanwhile fails busy, whole."""
+
+    def test_a_call_meeting_another_fails_busy_and_changes_nothing(self):
+        # One-tick episodes under same_step: each whole step or reset begins exactly one generation, and between whole
+        # calls the slot is always a fresh generation (tick 0, not done).
+        with mission.MissionBatch([config(261, 1)], autoreset="same_step") as batch:
+            batch.reset()
+            done, errors = threading.Event(), []
+
+            def worker():
+                while True:
+                    try:
+                        batch.step()
+                        break
+                    except fsim.Error as e:
+                        if "busy" not in str(e):
+                            errors.append(repr(e))
+                            break
+                done.set()
+
+            thread = threading.Thread(target=worker)
+            thread.start()
+            whole, busy, torn = 1, 0, []
+            deadline = time.monotonic() + 120
+            reads = [lambda: batch.final_outcome_json(0), lambda: batch.final_truth_json(0), lambda: batch.referee(0),
+                     lambda: batch.endpoint(0, WING), lambda: batch.final_observation_json(0, WING)]
+            writes = [batch.step, lambda: batch.reset_slot(0), batch.reset]
+            while not done.is_set() and time.monotonic() < deadline:
+                try:
+                    st = batch.status(0)
+                    if st.tick != 0 or st.episode_done or not st.reset:
+                        torn.append(st)
+                except fsim.Error as e:
+                    self.assertIn("busy", str(e))
+                    busy += 1
+                for call, counts in [(r, 0) for r in reads] + ([(w, 1) for w in writes] if whole < 3 else []):
+                    try:
+                        call()
+                    except fsim.Error as e:
+                        self.assertIn("busy", str(e))
+                        busy += 1
+                    else:
+                        whole += counts  # (a whole reset or step: one generation)
+            thread.join(timeout=120)
+            self.assertFalse(thread.is_alive())
+            self.assertEqual(errors, [])
+            whole += 1  # (the worker's step)
+            self.assertGreater(busy, 0)
+            self.assertEqual(torn, [])
+            st = batch.status(0)
+            self.assertEqual((st.generation, st.local_episode_index, st.tick, st.episode_done), (whole, whole - 1, 0, False))
+
+    def test_a_batch_never_crosses_to_an_actor(self):
+        from fsim import isolation
+        with mission.MissionBatch([config(262)]) as batch, mission.MissionEpisode(config(263)) as episode:
+            episode.reset(0)
+            with self.assertRaises(TypeError):
+                isolation.MissionEndpointProcess(episode, episode.endpoint(WING), "isolated_mission_actor:Actor", batch, path=[HERE])
+            with self.assertRaises(TypeError):
+                isolation.MissionEndpointProcess(episode, episode.endpoint(WING), "isolated_mission_actor:Actor", {"k": [batch]}, path=[HERE])
+
+
 class TrainingAdapterTest(unittest.TestCase):
     def test_seed_streams_are_the_contracts(self):
         with open(os.path.join(CONTRACT, "manifest.json"), "rb") as f:
@@ -163,3 +229,96 @@ class TrainingAdapterTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TrainingAdapterRoleTest(unittest.TestCase):
+    def test_a_lost_role_stops_acting_and_leaves_one_final_snapshot(self):
+        log, systems = [], {}
+
+        def factory(slot, service):
+            systems[service] = Waiting(slot, service, log)
+            return systems[service]
+        with mission.MissionBatch([config(271, 8)], autoreset="same_step") as batch:
+            adapter = training.TrainingAdapter(batch)
+            adapter.register(0, WING, factory)
+            adapter.register(0, LEAD, factory)
+            adapter.reset()
+            adapter.step()
+            batch.remove_platform(0, "wing")
+            adapter.step()  # (the step its role ends in: it acted in it, before the removal took effect)
+            ticks = systems[WING].ticks
+            for _ in range(3):
+                adapter.step()
+            self.assertEqual(systems[WING].ticks, ticks)  # (an ended role acts no more)
+            self.assertEqual(systems[LEAD].ticks, 5)       # (its teammate goes on)
+            wing_finals = [r for r in adapter.actor_stream() if r["service_id"] == str(WING) and "final_observation" in r]
+            self.assertEqual(len(wing_finals), 1)
+            final = json.loads(wing_finals[0]["final_observation"])
+            self.assertFalse(final["service"]["alive"])
+            self.assertEqual(final["tick"], str(wing_finals[0]["tick"]))
+            records = [r for r in adapter.lifecycle_stream() if r["service_id"] == str(WING)]
+            self.assertTrue(records[1]["terminated"] and records[1]["final_observation"] and not records[1]["active"])
+            self.assertFalse(records[1]["episode_done"])
+            # the generation ends (tick limit 8): the wing's end_episode comes then, once; no second final snapshot
+            for _ in range(3):
+                adapter.step()
+            wing_finals = [r for r in adapter.actor_stream() if r["service_id"] == str(WING) and "final_observation" in r]
+            self.assertEqual(len(wing_finals), 1)
+            lead_finals = [r for r in adapter.actor_stream() if r["service_id"] == str(LEAD) and "final_observation" in r]
+            self.assertEqual(len(lead_finals), 1)
+            self.assertEqual(sorted((e[2], e[3]) for e in log if e[0] == "end"), sorted([(WING, "truncated"), (LEAD, "truncated")]))
+            # the new generation (same_step): the wing acts again
+            self.assertEqual(sorted(e[2] for e in log if e[0] == "begin" and e[3] == "2"), sorted([WING, LEAD]))
+            ticks = systems[WING].ticks
+            adapter.step()
+            self.assertEqual(systems[WING].ticks, ticks + 1)
+
+    def test_one_begin_and_one_end_per_generation_through_every_reset(self):
+        log = []
+        with mission.MissionBatch([config(272, 2)], autoreset="disabled") as batch:
+            adapter = training.TrainingAdapter(batch)
+            adapter.register(0, WING, lambda slot, service: Waiting(slot, service, log))
+            adapter.reset()
+            for _ in range(4):
+                adapter.step()  # (ends at tick 2; then holds)
+            adapter.reset_slot(0)  # (the range's reset of a disabled slot: its systems begin again)
+            adapter.step()
+            adapter.reset()        # (cuts generation 2 short: its end_episode first)
+            self.assertEqual([(e[0], e[3]) for e in log],
+                             [("begin", "1"), ("end", "truncated"), ("begin", "2"), ("end", None), ("begin", "3")])
+
+    def test_the_context_is_the_composition_examples(self):
+        from ma_composition import contracts
+        contexts = []
+
+        class Keeps(Waiting):
+            def begin_episode(self, context):
+                contexts.append(context)
+                super().begin_episode(context)
+        with mission.MissionBatch([config(273)], first_local_episode_index=6) as batch:
+            adapter = training.TrainingAdapter(batch)
+            adapter.register(0, LEAD, lambda slot, service: Keeps(slot, service, []))
+            adapter.reset()
+            self.assertEqual(batch.base_seed(0), int(json.loads(config(273))["base_seed"]))
+        context, base_seed = contexts[0], int(json.loads(config(273))["base_seed"])
+        expected = contracts.context(base_seed, context.episode_key, LEAD, [1, 2, 7])
+        self.assertEqual(context["slot"], 0)
+        self.assertEqual(context.service_id, expected.service_id)
+        self.assertEqual(context.service_seed, expected.service_seed)
+        for c in (1, 2, 7):
+            self.assertEqual(tuple(context.component(c)), tuple(expected.component(c)))
+        self.assertEqual(context.episode_key["local_episode_index"], "6")
+
+
+class CompositionUnderTrainingTest(unittest.TestCase):
+    """The accepted M6 example's MA system, unchanged, through the training adapter and both autoresets: each
+    generation the same as the example's own direct run of the same local episode."""
+
+    def test_the_example_runs_unchanged_under_the_adapter(self):
+        from ma_composition import batch as example
+        direct = example.reference(4, 3)
+        self.assertEqual(len(direct), 2)
+        self.assertNotEqual(direct[0]["records"]["snapshots"], direct[1]["records"]["snapshots"])  # (two local episodes)
+        for autoreset in ("same_step", "next_step"):
+            with self.subTest(autoreset=autoreset):
+                self.assertEqual(example.under_training(4, 3, autoreset), direct)

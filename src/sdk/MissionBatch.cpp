@@ -3,10 +3,16 @@
 // One public MissionEpisode per slot, nothing shared between slots: each has its own configuration, World, judge,
 // gateway and seed streams, and its own count of local episodes. Slots are stepped side by side by `workers` threads,
 // each slot by one thread at a time; which thread steps which slot decides nothing.
+//
+// One call at a time holds the whole batch - its slots' episodes, statuses, reset counts, pending resets and final
+// documents - for the whole operation: a call that finds it held fails busy at once (mission::Busy: FSIM_ERROR, and
+// fsim.Error in Python, where reset, reset_slot and step release the GIL) and changes and reads nothing, so no reader
+// sees a status, a final document or an endpoint between two halves of a step or a reset.
 
 #include "fsim/MissionBatch.h"
 
 #include "sdk/MissionConfig.h"
+#include "sdk/MissionGateway.h"
 #include "sdk/MissionJson.h"
 
 #include <algorithm>
@@ -45,6 +51,29 @@ struct MissionBatch::Impl {
 
     MissionBatchOptions options;
     std::vector<Slot> slots;
+    std::atomic<bool> held{false}; ///< a call holds the batch
+
+    /// The batch for one call, or mission::Busy without waiting.
+    class Hold {
+    public:
+        Hold(Impl& m, const char* call) : m_(m) {
+            bool expected = false;
+            if (!m.held.compare_exchange_strong(expected, true, std::memory_order_acquire))
+                throw mission::Busy(std::string("mission batch: ") + call + ": busy - another call holds the batch");
+        }
+        ~Hold() { m_.held.store(false, std::memory_order_release); }
+        Hold(const Hold&) = delete;
+        Hold& operator=(const Hold&) = delete;
+
+    private:
+        Impl& m_;
+    };
+
+    /// One final document of a slot, read under the batch's hold.
+    std::string finalDocument(std::size_t i, std::string Slot::*member, const char* call) {
+        const Hold hold(*this, call);
+        return slot(i).*member;
+    }
 
     Slot& slot(std::size_t i) {
         if (i >= slots.size()) throw std::invalid_argument("mission batch: no slot " + std::to_string(i));
@@ -99,7 +128,6 @@ struct MissionBatch::Impl {
     }
 
     void stepOne(Slot& s) {
-        if (!s.begun) throw std::runtime_error("mission batch: a slot is not reset");
         s.status.ended = s.status.reset = false;
         if (s.pendingReset) {
             // NextStep: the ended generation does nothing more - no request of it is dispatched, no World of it steps
@@ -164,38 +192,61 @@ std::size_t MissionBatch::size() const { return FSIM_MISSION_BATCH_LIVE.slots.si
 
 void MissionBatch::reset() {
     Impl& m = FSIM_MISSION_BATCH_LIVE;
+    const Impl::Hold hold(m, "reset");
     m.each([&m](Impl::Slot& s) { m.resetOne(s); });
 }
 
 void MissionBatch::resetSlot(std::size_t slot) {
     Impl& m = FSIM_MISSION_BATCH_LIVE;
+    const Impl::Hold hold(m, "reset_slot");
     m.resetOne(m.slot(slot));
 }
 
 void MissionBatch::step() {
     Impl& m = FSIM_MISSION_BATCH_LIVE;
+    const Impl::Hold hold(m, "step");
+    for (std::size_t i = 0; i < m.slots.size(); ++i) // (before any slot steps: a refused step changes nothing)
+        if (!m.slots[i].begun) throw std::runtime_error("mission batch: step: slot " + std::to_string(i) + " is not reset");
     m.each([&m](Impl::Slot& s) { m.stepOne(s); });
 }
 
-MissionSlotStatus MissionBatch::status(std::size_t slot) const { return FSIM_MISSION_BATCH_LIVE.slot(slot).status; }
+MissionSlotStatus MissionBatch::status(std::size_t slot) const {
+    Impl& m = FSIM_MISSION_BATCH_LIVE;
+    const Impl::Hold hold(m, "status");
+    return m.slot(slot).status;
+}
 
-MissionEndpoint MissionBatch::endpoint(std::size_t slot, std::uint64_t serviceId) { return FSIM_MISSION_BATCH_LIVE.slot(slot).episode->endpoint(serviceId); }
+MissionEndpoint MissionBatch::endpoint(std::size_t slot, std::uint64_t serviceId) {
+    Impl& m = FSIM_MISSION_BATCH_LIVE;
+    const Impl::Hold hold(m, "endpoint");
+    return m.slot(slot).episode->endpoint(serviceId);
+}
 
-MissionReferee MissionBatch::referee(std::size_t slot) { return FSIM_MISSION_BATCH_LIVE.slot(slot).episode->referee(); }
+MissionReferee MissionBatch::referee(std::size_t slot) {
+    Impl& m = FSIM_MISSION_BATCH_LIVE;
+    const Impl::Hold hold(m, "referee");
+    return m.slot(slot).episode->referee();
+}
 
 std::string MissionBatch::finalObservationJsonV1(std::size_t slot, std::uint64_t serviceId) const {
-    Impl::Slot& s = FSIM_MISSION_BATCH_LIVE.slot(slot);
+    Impl& m = FSIM_MISSION_BATCH_LIVE;
+    const Impl::Hold hold(m, "final observation");
+    Impl::Slot& s = m.slot(slot);
     if (!s.config->service(serviceId)) throw std::invalid_argument("mission batch: slot " + std::to_string(slot) + " has no service " + std::to_string(serviceId));
     const auto it = s.finalObservations.find(serviceId);
     return it == s.finalObservations.end() ? std::string() : it->second;
 }
 
-std::string MissionBatch::finalOutcomeJsonV1(std::size_t slot) const { return FSIM_MISSION_BATCH_LIVE.slot(slot).finalOutcome; }
+std::string MissionBatch::finalOutcomeJsonV1(std::size_t slot) const { return FSIM_MISSION_BATCH_LIVE.finalDocument(slot, &Impl::Slot::finalOutcome, "final outcome"); }
 
-std::string MissionBatch::finalTruthJsonV1(std::size_t slot) const { return FSIM_MISSION_BATCH_LIVE.slot(slot).finalTruth; }
+std::string MissionBatch::finalTruthJsonV1(std::size_t slot) const { return FSIM_MISSION_BATCH_LIVE.finalDocument(slot, &Impl::Slot::finalTruth, "final truth"); }
 
-std::string MissionBatch::finalCostsJsonV1(std::size_t slot) const { return FSIM_MISSION_BATCH_LIVE.slot(slot).finalCosts; }
+std::string MissionBatch::finalCostsJsonV1(std::size_t slot) const { return FSIM_MISSION_BATCH_LIVE.finalDocument(slot, &Impl::Slot::finalCosts, "final costs"); }
 
-bool MissionBatch::removePlatform(std::size_t slot, std::string_view platform) { return FSIM_MISSION_BATCH_LIVE.slot(slot).episode->removePlatform(platform); }
+bool MissionBatch::removePlatform(std::size_t slot, std::string_view platform) {
+    Impl& m = FSIM_MISSION_BATCH_LIVE;
+    const Impl::Hold hold(m, "remove_platform");
+    return m.slot(slot).episode->removePlatform(platform);
+}
 
 } // namespace fsim

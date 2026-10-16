@@ -4,13 +4,18 @@
 // hidden truth can change.
 #include "MissionTestSupport.h"
 
+#include "fsim/Comm.h"
 #include "fsim/MissionBatch.h"
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <atomic>
+#include <chrono>
+#include <exception>
 #include <functional>
 #include <set>
 #include <string>
+#include <thread>
 #include <vector>
 
 using namespace fsim;
@@ -54,6 +59,24 @@ bool threwInvalid(const std::function<void()>& f) {
     } catch (...) {
     }
     return false;
+}
+
+/// Whether f failed busy - another call held the batch (std::runtime_error, "busy"); any other failure is f's own.
+bool threwBusy(const std::function<void()>& f) {
+    try {
+        f();
+    } catch (const std::runtime_error& e) {
+        if (std::string(e.what()).find("busy") == std::string::npos) throw;
+        return true;
+    }
+    return false;
+}
+
+/// A service's costs in a costs document: its "tick" or "total".
+const core::Json& spent(const core::Json& costs, std::uint64_t service, const char* which) {
+    for (const core::Json& s : at(costs, "services").asArray())
+        if (str(s, "service_id") == std::to_string(service)) return at(s, which);
+    throw std::logic_error("no costs of service " + std::to_string(service));
 }
 
 } // namespace
@@ -323,4 +346,166 @@ TEST_CASE("no hidden truth changes what an actor sees", "[training][critic]") {
     const auto a = run(withBogey(-30.0)), b = run(withBogey(-31.5));
     CHECK(a.first == b.first);   // (every actor snapshot, byte for byte)
     CHECK(a.second != b.second); // (the critic's truth tells them apart)
+}
+
+TEST_CASE("one call at a time holds the whole batch: a conflicting call fails busy and changes nothing", "[training][batch][concurrency]") {
+    // A one-tick episode under SameStep: every whole step closes its tick, ends the generation and begins the next,
+    // every whole reset begins one - so the generation counts every call that ran, and every status anyone can read
+    // between whole calls is a fresh generation's (tick 0, not done). A step that ran in another's middle would break
+    // the count, and a status read there would show the ended generation (tick 1, done).
+    MissionBatch batch({slotConfig(81, 1)}, MissionBatchOptions{MissionAutoreset::SameStep, 1, 0});
+    batch.reset();
+    std::atomic<bool> done{false};
+    std::exception_ptr failure;
+    std::thread worker([&] {
+        try {
+            while (threwBusy([&] { batch.step(); })) { // (its one step, as soon as the batch is free)
+            }
+        } catch (...) {
+            failure = std::current_exception();
+        }
+        done = true;
+    });
+    std::uint64_t ran = 1, busy = 0, reads = 0; // (ran: the first reset; the worker's step is added below)
+    std::vector<std::string> torn;
+    const auto attempt = [&](const std::function<void()>& f) -> std::uint64_t {
+        if (threwBusy(f)) {
+            ++busy;
+            return 0;
+        }
+        return 1;
+    };
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(120);
+    while (!done && std::chrono::steady_clock::now() < deadline) {
+        reads += attempt([&] {
+            const MissionSlotStatus st = batch.status(0);
+            if (st.tick != 0 || st.episodeDone || !st.reset) torn.push_back(std::to_string(st.generation) + "/" + std::to_string(st.tick));
+        });
+        attempt([&] { (void)batch.finalOutcomeJsonV1(0); });
+        attempt([&] { (void)batch.finalObservationJsonV1(0, kWing); });
+        attempt([&] { (void)batch.referee(0); });
+        attempt([&] { (void)batch.endpoint(0, kWing); });
+        if (ran < 3) { // (a few whole calls of its own; then the worker must find the batch free)
+            ran += attempt([&] { batch.step(); });
+            ran += attempt([&] { batch.resetSlot(0); });
+            ran += attempt([&] { batch.reset(); });
+        }
+    }
+    worker.join(); // (the worker ends whatever the deadline: its step runs once the batch is free)
+    if (failure) std::rethrow_exception(failure);
+    ++ran;
+    INFO("whole calls " << ran << ", busy refusals " << busy << ", status reads " << reads);
+    CHECK(busy > 0); // (the calls did meet: some found the batch held)
+    CHECK(torn.empty());
+    const MissionSlotStatus st = batch.status(0);
+    CHECK(st.generation == ran);
+    CHECK(st.localEpisodeIndex == ran - 1);
+    CHECK(st.tick == 0);
+    CHECK_FALSE(st.episodeDone);
+}
+
+TEST_CASE("a step refused busy steps no slot", "[training][batch][concurrency]") {
+    // While one slot's reset holds the batch, every step tried is refused whole: slot 0 has ticked exactly as many times as
+    // steps ran whole (before the reset took the batch, or after it let go), and the reset slot at most as many.
+    MissionBatch batch({slotConfig(82), slotConfig(83)}, MissionBatchOptions{MissionAutoreset::NextStep, 2, 0});
+    batch.reset();
+    const std::string before = batch.referee(0).truthJsonV1();
+    std::atomic<bool> done{false};
+    std::exception_ptr failure;
+    std::uint64_t refused = 0, whole = 0;
+    std::thread worker([&] {
+        try {
+            while (threwBusy([&] { batch.resetSlot(1); })) { // (a World rebuilt: long enough to meet; retried while a step holds)
+            }
+        } catch (...) {
+            failure = std::current_exception();
+        }
+        done = true;
+    });
+    while (!done)
+        (threwBusy([&] { batch.step(); }) ? refused : whole) += 1;
+    worker.join();
+    if (failure) std::rethrow_exception(failure);
+    const MissionSlotStatus s0 = batch.status(0), s1 = batch.status(1);
+    INFO("refused steps " << refused << ", whole steps " << whole << "; slot 0 at tick " << s0.tick << ", slot 1 at " << s1.tick);
+    CHECK(refused > 0);
+    CHECK(s0.tick == whole); // (a refused step stepped nothing)
+    CHECK(s1.generation == 2);
+    CHECK(s1.tick <= whole);
+    if (whole == 0) CHECK(batch.referee(0).truthJsonV1() == before);
+}
+
+TEST_CASE("native publication costs the bytes it sends: one encoded report per message", "[training][costs]") {
+    MissionEpisode episode(slotConfig(72));
+    const std::string key = episode.reset(0);
+    MissionEndpoint wing = episode.endpoint(kWing), crc = episode.endpoint(kCrc);
+    const std::string position = request(1, "dms", "publish_native", "{\"report\":\"position\",\"destination_system_ids\":[\"1392508931\"]}");
+    wing.submitJsonV1(actions(key, kWing, 0,
+        position + "," + request(2, "dms", "publish_native", "{\"report\":\"status\",\"destination_system_ids\":[\"1392508931\"]}") + "," +
+            request(3, "dms", "publish_native", "{\"report\":\"tracks\",\"destination_system_ids\":[\"1392508931\"]}") + "," +
+            request(4, "dms", "publish_native", "{\"report\":\"position\",\"destination_system_ids\":[\"99\"]}")));
+    episode.step();
+    // what each request published, as its native receipt says
+    std::uint64_t positions = 0, statuses = 0, tracks = 0, refusedPublications = 0;
+    std::string positionMessage;
+    const core::Json receipts = parse(wing.receiptsJsonV1());
+    for (const core::Json& r : at(receipts, "receipts").asArray()) {
+        const core::Json& n = at(r, "native");
+        if (str(n, "status") != "published") {
+            ++refusedPublications;
+            continue;
+        }
+        const core::Json* count = at(n, "ids").find("message_count");
+        const std::uint64_t messages = count ? static_cast<std::uint64_t>(count->asNumber()) : 0;
+        const std::string id = str(r, "request_id");
+        (id == "1" ? positions : id == "2" ? statuses : tracks) += messages;
+        if (id == "1") positionMessage = str(at(n, "ids"), "message_id");
+    }
+    CHECK(positions == 1);
+    CHECK(statuses == 1);
+    CHECK(refusedPublications == 1); // (request 4: no such system - no message, no bytes)
+    const std::uint64_t bytes = positions * sizeof(comm::PositionReport) + statuses * sizeof(comm::SystemStatusReport) +
+                                tracks * sizeof(comm::EntityReport);
+    const core::Json costs = parse(episode.referee().costsJsonV1());
+    const core::Json& tick = spent(costs, kWing, "tick");
+    CHECK(at(tick, "dms_messages").asNumber() == static_cast<double>(positions + statuses + tracks));
+    CHECK(at(tick, "dms_bytes").asNumber() == static_cast<double>(bytes));
+    INFO("the bytes counted are the bytes delivered: the C2 node's snapshot holds the position report");
+    bool delivered = false;
+    for (int t = 0; t < 3 && !delivered; ++t) {
+        const core::Json snapshot = parse(crc.observationJsonV1());
+        for (const core::Json& m : at(at(snapshot, "messages"), "items").asArray())
+            if (str(m, "source_system_id") == "1392508930" && str(m, "message_id") == positionMessage) {
+                CHECK(at(m, "byte_length").asNumber() == static_cast<double>(sizeof(comm::PositionReport)));
+                delivered = true;
+            }
+        if (!delivered) episode.step();
+    }
+    CHECK(delivered);
+    INFO("an identical retry is the original acknowledgment: nothing sent again, nothing counted again");
+    const std::uint64_t now = std::stoull(str(parse(wing.observationJsonV1()), "tick"));
+    const double before = at(spent(parse(episode.referee().costsJsonV1()), kWing, "total"), "dms_bytes").asNumber();
+    wing.submitJsonV1(actions(key, kWing, now, position));
+    episode.step();
+    const core::Json after = parse(episode.referee().costsJsonV1());
+    CHECK(at(spent(after, kWing, "tick"), "dms_messages").asNumber() == 0.0);
+    CHECK(at(spent(after, kWing, "total"), "dms_bytes").asNumber() == before);
+}
+
+TEST_CASE("a platform's own dissemination is no service's cost", "[training][costs]") {
+    // The fixture's Data Dissemination Plans publish positions every second on their own; no request sent them.
+    MissionEpisode episode(slotConfig(74));
+    episode.reset(0);
+    MissionEndpoint crc = episode.endpoint(kCrc);
+    std::size_t heard = 0;
+    for (int t = 0; t < 4; ++t) {
+        episode.step();
+        heard += at(at(parse(crc.observationJsonV1()), "messages"), "items").asArray().size();
+    }
+    CHECK(heard > 0);
+    const core::Json costs = parse(episode.referee().costsJsonV1());
+    for (const core::Json& s : at(costs, "services").asArray()) {
+        CHECK(at(at(s, "total"), "dms_messages").asNumber() == 0.0);
+        CHECK(at(at(s, "total"), "dms_bytes").asNumber() == 0.0);
+    }
 }

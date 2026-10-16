@@ -115,6 +115,7 @@ written against.
 | `coordinator.py` | Section 4's coordinator: configured owner, then priority, then the lower `component_id`, then proposal order; a live activity's resources stay its component's; an update or cancel addresses only its own component's activity |
 | `system.py` | The reference system behind one endpoint: one read and one frozen snapshot per tick for every component due, the service's messages onto the blackboard once, one submission per tick with `component.component_id`, each changed receipt to its originator alone, and the four separate records - proposals, decisions, submissions, SDK receipts |
 | `scenario.py`, `run.py` | The range: the contract's two-ship configuration with a C2 node, the system behind the lead's flight service, a scripted C2 using its own endpoint, and a run that compares a reset generation with a fresh episode |
+| `batch.py` | The same system and scripted C2 under the SDK's training adapter (`fsim.training`, M7 core; [mission-training.md](mission-training.md), section 18) over a one-slot batch whose episodes end after the run's ticks: the adapter's `EpisodeContext` is what `begin_episode` takes, and `run.py` compares each of two generations, with `"same_step"` and with `"next_step"` autoreset, with the direct run of the same local episode |
 
 Periods: navigation and the BT every tick, coordination every second, the planner every fourth. In the reference run
 the planner's route wins the flight axes over navigation (priority), keeps them while its activity lives
@@ -126,4 +127,4 @@ answered.
 
 `python/tests/test_ma_composition.py` (in `python_sdk`) holds these to the SDK under test; `mission_package_consumer`
 runs the example twice from a copy against the installed Python package and requires identical traces, the same trace
-after a reset as in a fresh episode, and the installed package and library.
+after a reset as in a fresh episode, the same traces under the training adapter, and the installed package and library.

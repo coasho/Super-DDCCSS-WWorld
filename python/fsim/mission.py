@@ -193,12 +193,16 @@ class MissionBatch:
     reset_slot). `workers` slots are stepped side by side, the GIL released;
     the worker count decides nothing."""
 
-    __slots__ = ("_native",)
+    __slots__ = ("_native", "_base_seeds")
 
     def __init__(self, configs, autoreset="next_step", workers=1, first_local_episode_index=0):
         if autoreset not in _AUTORESET:
             raise ValueError("autoreset is one of %s" % ", ".join(sorted(_AUTORESET)))
-        self._native = _native.MissionBatch(list(configs), _AUTORESET[autoreset], int(workers), int(first_local_episode_index))
+        configs = list(configs)
+        self._native = None
+        self._native = _native.MissionBatch(configs, _AUTORESET[autoreset], int(workers), int(first_local_episode_index))
+        # (each configuration is valid now: its base_seed an unsigned decimal string)
+        self._base_seeds = tuple(int(json.loads(c)["base_seed"]) for c in configs)
 
     def __len__(self):
         return self._live().size()
@@ -243,6 +247,14 @@ class MissionBatch:
 
     def remove_platform(self, slot, name):
         return self._live().remove_platform(slot, name)
+
+    def base_seed(self, slot):
+        """A slot's configured base seed (section 8): what its seed streams derive from, with its env_id and local
+        episode index."""
+        self._live()
+        if not 0 <= int(slot) < len(self._base_seeds):
+            raise _native.Error("mission batch: no slot %s" % slot)
+        return self._base_seeds[int(slot)]
 
     def close(self):
         """End every slot at once (also when it is already closed); their handles answer no more."""

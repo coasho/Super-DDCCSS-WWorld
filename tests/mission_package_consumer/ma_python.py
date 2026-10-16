@@ -247,7 +247,10 @@ def mission_episode():
             require(False, "an isolated actor was re-bound to another episode's endpoint")
         except ValueError as e:
             require("not one this episode opened" in str(e), "another episode's endpoint was refused for another reason: %s" % e)
-        for document in (json.loads(referee.truth_json()), {"nested": [json.loads(referee.outcome_json())]}, referee.truth_json()):
+        costs = json.loads(referee.costs_json())
+        require(costs["schema"] == "ma.costs.v1", "no costs document")
+        for document in (json.loads(referee.truth_json()), {"nested": [json.loads(referee.outcome_json())]}, referee.truth_json(),
+                         costs, {"nested": [costs]}, referee.costs_json()):
             try:
                 actor.call("echo", document)
                 require(False, "referee data reached the isolated actor")

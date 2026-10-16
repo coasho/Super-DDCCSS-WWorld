@@ -101,9 +101,9 @@ Implemented, exported and classified in `boundary.toml` (M7 core's rows are awai
 | `fsim::MissionBatch`: `finalOutcomeJsonV1`, `finalTruthJsonV1`, `finalCostsJsonV1`; `fsim::MissionReferee::costsJsonV1` | referee | M7 core |
 | `fsim_mission_batch_create`, `_destroy`, `_size`, `_reset`, `_reset_slot`, `_step`, `_status`, `_endpoint_open`, `_referee_open`, `_final_observation_json`, `_remove_platform`; `fsim_mission_episode_remove_platform` (`fsim_mission_batch_options_init` is a value initialiser) | range | M7 core |
 | `fsim_mission_batch_final_outcome_json`, `_final_truth_json`, `_final_costs_json`; `fsim_mission_referee_costs_json` | referee | M7 core |
-| `fsim.mission.MissionBatch`: `reset`, `reset_slot`, `step`, `status`, `endpoint`, `referee`, `final_observation_json`, `remove_platform`, `close`; `MissionEpisode.remove_platform` | range | M7 core |
+| `fsim.mission.MissionBatch`: `reset`, `reset_slot`, `step`, `status`, `endpoint`, `referee`, `final_observation_json`, `remove_platform`, `base_seed`, `close`; `MissionEpisode.remove_platform` | range | M7 core |
 | `fsim.mission.MissionBatch`: `final_outcome_json`, `final_truth_json`, `final_costs_json`; `MissionReferee.costs_json` | referee | M7 core |
-| `fsim.training.TrainingAdapter`: `register`, `reset`, `step`, `actor_stream`, `lifecycle_stream`, `clear_streams`, `close` | range | M7 core |
+| `fsim.training.TrainingAdapter`: `register`, `reset`, `reset_slot`, `step`, `actor_stream`, `lifecycle_stream`, `clear_streams`, `close` | range | M7 core |
 | `fsim.training.TrainingAdapter.critic_stream` | referee | M7 core |
 
 Besides the rows above, M5 core exports `fsim.mission.MissionEpisode.diagnostic` and `MissionEndpoint.service_id`
@@ -113,7 +113,8 @@ callable-method list). In Python `reset` returns nothing, as in C: the episode k
 
 `receiptsJsonV1` is one addition to the plan's C++ sketch: the same non-consuming read the C function gives. The
 batch family of M7 (`fsim/MissionBatch.h`, [section 18](#18-batches-and-training-m7-core)) is additive and was not
-frozen with these signatures; it consumes these documents unchanged. `fsim.training`'s seed functions are values.
+frozen with these signatures; it consumes these documents unchanged. `fsim.training`'s seed functions and its
+`EpisodeContext` (`slot`, `service_id`, `episode_key`, `service_seed`, `component`) are values.
 
 The frozen signatures. Each C++ class is exported, holds one pointer to its implementation and nothing else, and has
 no inline member that depends on that implementation's layout:
@@ -924,6 +925,12 @@ on the worker count or on the order in which slots are stepped. `workers` slots 
 thread at a time; every slot runs before the first failure (by slot order) is rethrown. A slot's own World keeps its
 own worker setting.
 
+**One call at a time.** Every batch call but `size` holds the whole batch - its slots' episodes, statuses, reset counts,
+pending resets and final documents - for its whole operation. A call that finds it held does not wait: it fails busy
+(C++ `std::runtime_error`, C `FSIM_ERROR`, Python `fsim.Error`; Python's `reset`, `reset_slot` and `step` release the
+GIL) and changes and reads nothing. No status, final document or handle is read between two halves of a step or a
+reset, and a step is refused whole - before any slot steps - when a slot was never reset.
+
 **Step and autoreset.** `step()` closes one decision tick in every slot ([section 4](#4-ownership-generation-lifetime-and-move)).
 An episode ends when its referee outcome says `episode_done` ([section 13](#13-referee-documents)). One task instance
 belongs to one generation: a reset builds a fresh World with fresh criteria. What happens next is the batch's mode:
@@ -957,8 +964,11 @@ a referee document: `MissionReferee::costsJsonV1`, `fsim_mission_referee_costs_j
 service, in ascending service id, for the tick just closed and since its generation began: `requests` (each new
 request id, refusals at submit among them), `dispatched` (those the SDK executed natively), `refused` (by the gateway
 or natively), `dms_messages` and `dms_bytes` (what its `dms.*` requests sent), and `c2_messages` (what its `c2.*`
-requests sent). They are counted from the gateway's own dispatch and the native results; they are explicit inputs
-for a reward, never part of an observation, a receipt or a mask.
+requests sent). A `dms.send` costs its payload; a `dms.publish_native` costs each message it published at its native
+encoding (one `comm::PositionReport`, `SystemStatusReport` or `EntityReport` per message, as delivered). A refused
+request sends nothing, an identical retry repeats nothing, and a platform's own Data Dissemination Plan publications are
+no request's and no service's cost. They are counted from the gateway's own dispatch and the native results; they are
+explicit inputs for a reward, never part of an observation, a receipt, a mask or an actor process.
 
 **Rewards** are pending: no reward definition is installed ([section 15](#15-extension-seam-and-pending-gates)). The
 batch transports the referee documents a supplied reward would read and computes none.
@@ -971,17 +981,29 @@ byte-equal while truth differs.
 **The training adapter** (`fsim.training`, Python standard library only) runs the upper layer's systems over a batch
 without a learning framework, optimizer or tensor library. `TrainingAdapter(batch).register(slot, service_id,
 factory)` makes `factory(slot, service_id)` for a configured service (an unconfigured one is a `ValueError`); a system
-has `begin_episode(context)` (`slot`, `service_id`, `episode_key`: a new generation, before it acts),
-`tick(endpoint)` and `end_episode(feedback)` (`episode_done` and `reason` alone - the role's permitted mission
-feedback). `reset()` and `step()` call them around every generation and keep three streams apart: `actor_stream()`
-(each role's snapshots and, when its episode ended, its final snapshot), `lifecycle_stream()` (per role and step:
-`episode_done`, `reason` and the five role flags) and `critic_stream()` (per slot and step: outcome, truth, costs - for
-a critic or a reward, never an actor). An ended slot waiting for its reset does not tick. `world_seed`, `service_seed`
-and `component_seed` compute [section 8](#8-seed-streams)'s streams.
+has `begin_episode(context)`, `tick(endpoint)` and `end_episode(feedback)` (`episode_done` and `reason` alone - the
+role's permitted mission feedback). The context is an `EpisodeContext`: a mapping of `slot`, `service_id` and
+`episode_key`, the same as attributes, with the generation's seeds - `service_seed` and `component(component_id)`, a
+`ComponentContext(episode_key, service_id, seed)` - from the slot's `MissionBatch.base_seed(slot)`. That is the
+context the composition example's systems take ([ma-composition.md](ma-composition.md), section 7).
+
+`reset()`, `reset_slot(slot)` (a `"disabled"` slot's reset, or any other) and `step()` call the hooks so that each
+system has one `begin_episode` and one `end_episode` per generation; a reset that cuts a generation short ends it first.
+A system ticks while its role is active: a role that ends while the episode goes on (its platform lost) ticks no more,
+and its final snapshot is the one its role ended in; an ended slot waiting for its reset does not tick. Three streams
+stay apart: `actor_stream()` (each role's snapshots and, once per generation, its final snapshot - when its role
+ended, or else when the episode did), `lifecycle_stream()` (per role and step: `episode_done`, `reason` and the five
+role flags) and `critic_stream()` (per slot and step: outcome, truth, costs - for a critic or a reward, never an
+actor). `world_seed`, `service_seed` and `component_seed` compute [section 8](#8-seed-streams)'s streams.
 
 **Evidence.** `mission_training` (C++: slot independence and topology, a worker x reset-schedule matrix, a lost member,
-a team end, `NextStep` reset order, `SameStep` finals, costs, actor-view equivalence under hidden truth),
-`mission_c_abi` (the batch's C handle), `python_sdk`'s `test_mission_training` and `mission_package_consumer`'s batch
-passes through installed C++, C99 and Python. `tools/ma_contract/mission_workload.py` measures a fixed recorded
+a team end, `NextStep` reset order, `SameStep` finals, costs, native publication bytes and their delivery, dissemination
+outside any cost, actor-view equivalence under hidden truth, and calls from two threads meeting on one batch),
+`mission_c_abi` (the batch's C handle), `python_sdk`'s `test_mission_training` (the same meeting through the released
+GIL, a lost role under the adapter, the hook pairs through every reset, the context's seeds, and the composition
+example's own system under the adapter), `test_mission` (no referee document - costs among them - crosses to an
+actor process) and `mission_package_consumer`: batch passes through installed C++, C99 and Python, costs refused
+before an isolated actor, and the installed composition example under the training adapter with `"same_step"` and
+`"next_step"` autoreset, each generation's trace the same as its direct run. `tools/ma_contract/mission_workload.py` measures a fixed recorded
 workload - construction, reset, throughput, working set and reclamation over rebuilds - and its digest of every
 document the workload produced, which is the same for every worker count and every rebuild.

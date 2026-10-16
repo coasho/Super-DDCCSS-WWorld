@@ -87,7 +87,7 @@ def mission_endpoint_calls():
 
 
 _MISSION_CALLS = ("observation_json", "submit_json", "receipts_json")
-_REFEREE_SCHEMAS = ("ma.outcome.v1", "ma.truth.v1")
+_REFEREE_SCHEMAS = ("ma.outcome.v1", "ma.truth.v1", "ma.costs.v1")  # (the referee's documents: never an actor's)
 
 
 def _carried(value, depth=0):
@@ -95,11 +95,11 @@ def _carried(value, depth=0):
     referee document (section 16), whether as text, bytes or a parsed object, at any depth: a mapping's schema is
     checked before its members, and text that parses as JSON is checked as what it parses to."""
     from .agent import Agent, Referee
-    from .mission import MissionEndpoint, MissionEpisode, MissionReferee
+    from .mission import MissionBatch, MissionEndpoint, MissionEpisode, MissionReferee
     from .world import World
     if depth > 64:
         raise TypeError("isolation: an argument nested more than 64 deep does not cross to an actor")
-    if isinstance(value, (MissionEpisode, MissionReferee, MissionEndpoint, World, Referee, Agent)):
+    if isinstance(value, (MissionBatch, MissionEpisode, MissionReferee, MissionEndpoint, World, Referee, Agent)):
         raise TypeError("isolation: a %s does not cross to an actor" % type(value).__name__)
     if isinstance(value, (str, bytes, bytearray, memoryview)):
         try:
