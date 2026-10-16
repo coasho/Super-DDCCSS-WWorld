@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <cstring>
+#include <type_traits>
+#include <utility>
 
 namespace fsim::ipc {
 
@@ -39,6 +41,56 @@ bool readSampleV1(std::FILE* f, VehicleSample& sample) {
 }
 
 using SnapshotHead = RecordingSnapshotHead;
+
+// What a recording holds is its records' members alone (HC-01). A struct's padding - bytes no member occupies - is
+// unspecified: written as a caller's struct or a local held it, equal worlds gave unequal files and carried unrelated
+// memory into them. Each record is written as its own bytes with its padding zero; no size, offset, version or member
+// changes, and a reader is untouched. The gaps are where the frozen layouts have them (tests/test_state_layout.cpp
+// holds every member's offset): each is the span from one member's end to the next member's start.
+using Gap = std::pair<std::size_t, std::size_t>; // offset, size
+
+constexpr Gap between(std::size_t end, std::size_t next) { return {end, next - end}; }
+
+constexpr Gap kHeaderGaps[] = {
+    between(offsetof(RecordingHeader, capacity) + sizeof(std::uint32_t), offsetof(RecordingHeader, dt)),
+    between(offsetof(RecordingHeader, name) + sizeof(RecordingHeader::name), sizeof(RecordingHeader)),
+};
+constexpr Gap kRowGaps[] = {
+    between(offsetof(RecordedVehicle, id) + sizeof(std::uint32_t), offsetof(RecordedVehicle, generation)),
+    between(offsetof(RecordedVehicle, model) + sizeof(RecordedVehicle::model), offsetof(RecordedVehicle, initialLatitudeDeg)),
+};
+constexpr Gap kHeadGaps[] = {
+    between(offsetof(SnapshotHead, count) + sizeof(std::uint32_t), sizeof(SnapshotHead)),
+};
+// a sample's: its state's two (after its three flags, after its wheel count); its inputs and derived values are doubles
+// that follow the state and each other with none between
+constexpr Gap kSampleGaps[] = {
+    between(offsetof(sim::VehicleState, crashed) + sizeof(bool), offsetof(sim::VehicleState, rotationBodyToEcef)),
+    between(offsetof(sim::VehicleState, wheelCount) + sizeof(int), offsetof(sim::VehicleState, wheelCompressionM)),
+};
+static_assert(sizeof(RecordingHeader) == 88 && kHeaderGaps[0].first == 4 && kHeaderGaps[0].second == 4 &&
+                  kHeaderGaps[1].first == 84 && kHeaderGaps[1].second == 4, "the frozen header's padding");
+static_assert(sizeof(RecordedVehicle) == 440 && kRowGaps[0].first == 4 && kRowGaps[0].second == 4 && kRowGaps[1].first == 402 &&
+                  kRowGaps[1].second == 6, "the frozen table row's padding");
+static_assert(sizeof(SnapshotHead) == 16 && kHeadGaps[0].first == 12 && kHeadGaps[0].second == 4, "the snapshot head's padding");
+static_assert(offsetof(VehicleSample, state) == 0 && kSampleGaps[0].first == 391 && kSampleGaps[0].second == 1 &&
+                  kSampleGaps[1].first == 604 && kSampleGaps[1].second == 4, "the frozen sample state's padding");
+static_assert(offsetof(VehicleSample, inputs) == sizeof(sim::VehicleState) &&
+                  offsetof(VehicleSample, derived) == offsetof(VehicleSample, inputs) + sizeof(sim::ControlInputs) &&
+                  sizeof(VehicleSample) == offsetof(VehicleSample, derived) + sizeof(VehicleSample::derived),
+              "a sample's state, inputs and derived values follow each other with no padding");
+
+/// `value` as a record: its bytes, its padding (`gaps`) zero. A record without padding (stores, environment, events)
+/// is written with none.
+template <class T, std::size_t N>
+void writeRecord(std::FILE* f, const T& value, const Gap (&gaps)[N]) {
+    static_assert(std::is_trivially_copyable_v<T>, "a record is plain data");
+    unsigned char bytes[sizeof(T)];
+    std::memcpy(bytes, &value, sizeof(T));
+    for (const auto& [offset, size] : gaps) std::memset(bytes + offset, 0, size);
+    std::fwrite(bytes, sizeof(T), 1, f);
+}
+constexpr Gap kNoGaps[1] = {{0, 0}};
 } // namespace
 
 RecordWriter::~RecordWriter() { close(); }
@@ -56,7 +108,7 @@ bool RecordWriter::open(const std::filesystem::path& path, const RecordingHeader
     }
     std::fwrite(kRecMagic, 1, 5, file_);
     std::fwrite(&kVersion, 1, 1, file_);
-    std::fwrite(&header, sizeof(header), 1, file_);
+    writeRecord(file_, header, kHeaderGaps);
     bytes_ = 6 + sizeof(header);
     LOG_INFO("ipc") << "recording to " << path.string();
     return true;
@@ -67,7 +119,7 @@ void RecordWriter::writeVehicle(std::uint32_t slot, const RecordedVehicle& row) 
     const std::uint8_t kind = 'T';
     std::fwrite(&kind, 1, 1, file_);
     std::fwrite(&slot, sizeof(slot), 1, file_);
-    std::fwrite(&row, sizeof(row), 1, file_);
+    writeRecord(file_, row, kRowGaps);
     bytes_ += 1 + sizeof(slot) + sizeof(row);
 }
 
@@ -76,10 +128,10 @@ void RecordWriter::writeSnapshot(double simTime, const std::vector<std::pair<std
     const std::uint8_t kind = 'S';
     const SnapshotHead head{simTime, static_cast<std::uint32_t>(samples.size())};
     std::fwrite(&kind, 1, 1, file_);
-    std::fwrite(&head, sizeof(head), 1, file_);
+    writeRecord(file_, head, kHeadGaps);
     for (const auto& [slot, sample] : samples) {
         std::fwrite(&slot, sizeof(slot), 1, file_);
-        std::fwrite(&sample, sizeof(sample), 1, file_);
+        writeRecord(file_, sample, kSampleGaps);
     }
     bytes_ += 1 + sizeof(head) + samples.size() * (sizeof(std::uint32_t) + sizeof(VehicleSample));
 }
@@ -91,7 +143,7 @@ void RecordWriter::writeStores(std::uint32_t slot, const std::vector<MissionStor
     std::fwrite(&kind, 1, 1, file_);
     std::fwrite(&slot, sizeof(slot), 1, file_);
     std::fwrite(&count, sizeof(count), 1, file_);
-    if (count) std::fwrite(stores.data(), sizeof(MissionStore), count, file_);
+    for (const MissionStore& store : stores) writeRecord(file_, store, kNoGaps);
     bytes_ += 1 + 2 * sizeof(std::uint32_t) + count * sizeof(MissionStore);
 }
 
@@ -101,7 +153,7 @@ void RecordWriter::writeEnvironment(const sim::EnvironmentState& environment) {
     const auto size = static_cast<std::uint32_t>(sizeof(environment));
     std::fwrite(&kind, 1, 1, file_);
     std::fwrite(&size, sizeof(size), 1, file_);
-    std::fwrite(&environment, sizeof(environment), 1, file_);
+    writeRecord(file_, environment, kNoGaps);
     bytes_ += 1 + sizeof(size) + sizeof(environment);
 }
 
@@ -111,7 +163,7 @@ void RecordWriter::writeEvent(const EngagementEvent& event) {
     const auto size = static_cast<std::uint32_t>(sizeof(event));
     std::fwrite(&kind, 1, 1, file_);
     std::fwrite(&size, sizeof(size), 1, file_);
-    std::fwrite(&event, sizeof(event), 1, file_);
+    writeRecord(file_, event, kNoGaps);
     bytes_ += 1 + sizeof(size) + sizeof(event);
 }
 

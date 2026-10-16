@@ -1,6 +1,8 @@
 # ARCH-02 neutral contracts
 
-Status: implemented, awaiting independent acceptance (2026-10-16). ARCH-03 has not started.
+Status: implemented; the [independent review](arch-02-review-2026-10-16.md)'s finding (HC-00) and the recording
+padding defect found here (HC-01) are corrected (section 9), awaiting independent acceptance (2026-10-16). ARCH-03 has
+not started.
 Starting main HEAD: `7625529` (ARCH-01 with its review and recheck corrections). No numerical, RNG, timestep or default
 behavior changed: definitions moved with their names, namespaces, fields and order. The runtime applies the same
 scenario values in the same order.
@@ -116,12 +118,79 @@ and build-system paths) to the full headless suite. That run stays with the next
 
 ## 7. Findings outside this package
 
-- **Recording padding.** `RecordWriter` writes its callers' structs and its own snapshot head byte for byte. Their
-  padding is unspecified, so two recordings of the same world can differ in padding bytes (memory contents reach the
-  file). Readers are unaffected. This predates ARCH-02 and was found while writing the framing regression. A writer
-  that writes padding as zero would not change the format; it is left for its own reviewed change.
+- **Recording padding (HC-01).** `RecordWriter` wrote its callers' structs and its own snapshot head byte for byte.
+  Their padding is unspecified, so two recordings of the same world could differ in padding bytes, and memory contents
+  reached the file. Readers were unaffected. This predates ARCH-02 and was found while writing the framing regression.
+  It is corrected in its own change (section 9).
 
 ## 8. Next
 
 ARCH-03 (foundation and domain leaf moves) may start after independent acceptance of this package. The remaining
 exceptions are removed by the packages named in them.
+
+## 9. Corrections: HC-00 and HC-01
+
+Taken from the [independent review](arch-02-review-2026-10-16.md) of `6c0de98` and the
+[handoff carryover register](handoff-carryover-register.md). They are separate corrections: neither closes the other.
+
+### HC-00: public include files of any suffix
+
+The public inventory scanned only `.h`-like suffixes, and an include of an unclassified public file was skipped. The
+review's chain was `session -> fsim/Bridge.inc -> fsim/VecEnv.h`; the checker accepted it with `Bridge.inc` neither
+classified nor scanned.
+- Every regular file under `include/fsim` is now public, whatever its suffix, because the install copies the directory
+  whole. Each is classified and scanned like a header.
+- Source scanning adds the fragment suffixes `.inc`, `.ipp`, `.tpp`, `.ixx` and `.hxx`.
+- Explicit failures:
+  - an include of an unclassified public file is reported where it is included (`unclassified-public-include`),
+    beside `unclassified-public-header`;
+  - a resolved private include whose suffix is still not scanned fails (`unscanned-include`);
+  - a public file that is not UTF-8 text fails (`unsupported-public-file`).
+- Regressions in `tools/architecture/test_check.py`:
+  - the review's unclassified `.inc` chain, rejected at its include and as unclassified;
+  - the indirect simulation-to-training chain through a classified fragment;
+  - the indirect contract-to-domain chain through a `.ipp` (`Public.h -> Values.ipp -> World.h`);
+  - a valid `.tpp` control that passes;
+  - an unscanned private include and a non-text public file.
+
+  The five negative cases fail on `6c0de98`. The real tree is unchanged: 41 classified headers and the same three
+  public exceptions.
+
+### HC-01: recordings carry no unspecified padding
+
+`RecordWriter` (`src/ipc/Recording.cpp`, the only recording writer) now writes each record as its own bytes with its
+padding zero.
+
+| Record | Padding written as zero |
+| --- | --- |
+| Header | bytes 4-7 and 84-87 |
+| Table row | bytes 4-7 and 402-407 |
+| Snapshot head | bytes 12-15 |
+| Sample | state byte 391 (after its three flags) and bytes 604-607 (after its wheel count) |
+| Stores, environment, events | none (no padding) |
+
+- **Where the gaps come from:** the frozen member lists in `tests/test_state_layout.cpp` cover every member of these
+  records. The writer derives each gap from the members on either side. Compile-time checks hold it to the frozen
+  sizes and offsets, and a sample's state, inputs and derived values follow each other without padding.
+- **What did not change:** record sizes, offsets, the format version (7), every member's bytes and the readers.
+- **Regressions in `tests/test_state_layout.cpp`:**
+  - The same world is recorded twice, its structs made over different background bytes (0xA5, 0x5A). The files must
+    be identical, with every padding byte zero at its literal file offset. On the unfixed writer this failed at the
+    header's padding (file offset 10).
+  - The frozen-framing case now also pins the whole file's FNV-1a digest (`0x25f7a36e4eb3062e`, 2,928 bytes), possible
+    now that the bytes are deterministic. It was identical on three runs.
+  - The v1-v7 old-recording reads are unchanged and pass.
+
+| Verification (2026-10-16) | Result |
+| --- | --- |
+| Builds, headless and Release, warnings as errors | 0 warnings each |
+| `tools/architecture/test_check.py`; `check.py` on the repository | 128 cases passed (6 added); accepted, unchanged counts and exceptions |
+| Targeted headless CTest | 17/17 passed in 46 s: the recording round trips, old-recording reads, stores/events/environment records, the SDK's recording reader, strike capture, native showcase, layout boundary, contracts, architecture checks, batch-recording adapter, and the Python world/recording binding modules |
+| Targeted Release CTest | 6/6 passed in 47 s: strike capture, native showcase, layout boundary, contracts, viewer screenshot, the SDK's recording reader |
+| Frozen-baseline compare, both builds | 19 comparisons, 0 failures; 1,456 exports, layouts, enumerators and vtables unchanged |
+
+No full suite ran.
+
+**Observed, not changed (HC-10 in the register).** The shared-memory publisher (`WorldPublisher::publish`) assigns each
+whole `VehicleState` into the segment, so its 5 padding bytes carry the caller's unspecified bytes to local readers.
+That is shared memory, not a file, and outside HC-01's recording scope. It is registered for the transport owner.

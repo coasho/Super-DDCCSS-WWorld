@@ -9,9 +9,9 @@
  "digests": {
   "include/fsim": "2f46b19b0ac4e5ef1fdb56c6d9d0b0d2c09e5226d4facc81fd5bfa42d6462cd6",
   "python/fsim": "b063447d0e6aeb5ee9f0ed3f4b45c2bff8f296f2d49b672ace8ab0a90de1f6ea",
-  "src": "6afec30eaf3338054bb534e95fc8799a16d78ed63a9bcb71c899e8569848af0b"
+  "src": "4fc1dbeaddd0e91b2cac5d8a840d03b1cefae0c3dfbbd15e914d9feb34043d8f"
  },
- "head": "7625529cce1ec994bf4cea91078d22d2f30d12e4",
+ "head": "6c0de98a70e64c51a58e1f36641b426c36eb67b8",
  "limits": [
   "Static source declarations: every CMake branch is combined; this is not the configured File API graph of one preset",
   "Link edges are target_link_libraries declarations; include edges are literal includes resolved to an owning module",
@@ -557,14 +557,14 @@
     "destinations": [
      "src/foundation/transport"
     ],
-    "digest": "d9cbcc93783dd073fa366c549389cf9f53addd1e5356438fc5c01644e4752dab",
+    "digest": "eec19c6a9f9bb4b23e2f77fc5dd23b65fc49ef0e9ae72ee7a755052f8511a101",
     "directories": [
      "src/ipc"
     ],
     "domain": "foundation",
     "explicit_files": [],
     "files": {
-     "src/ipc/Recording.cpp": "dc0ef0e98896a083d9fd0c5e9e6ffad8beb31a28dadc31f4318a99eb44333be4",
+     "src/ipc/Recording.cpp": "2ed77ee89bb60c5b5af5aeed592592d9f47177b24ba2490bbb08c7800feadd21",
      "src/ipc/Recording.h": "fac6bd9c824e52226b13e6091814a0b0aa3ab51d2fdaac3a675ae17eb5242df2",
      "src/ipc/VisionSegment.cpp": "99d84a975bc1ce4d7905744dbc8b034c7dac9a225d50fbdcc75502d87707d72b",
      "src/ipc/VisionSegment.h": "cf1d61fa82152483f96341c4b9c70fe0adaf826bf23a9d30aac4e96f47771a1c",
@@ -2423,40 +2423,10 @@
   "tools/architecture"
  ],
  "worktree_changes": [
-  "include/fsim/Scenario.h",
-  "include/fsim/ScenarioDocument.h",
   "python/fsim/isolation.py",
-  "src/CMakeLists.txt",
-  "src/app/StrikeCapture.h",
-  "src/contracts/CMakeLists.txt",
-  "src/contracts/recording/",
-  "src/contracts/simulation/",
-  "src/contracts/vision_stream/",
-  "src/contracts/world_stream/SnapshotBatch.h",
-  "src/env/CMakeLists.txt",
-  "src/env/ScenarioVecEnv.cpp",
-  "src/ipc/CMakeLists.txt",
   "src/ipc/Recording.cpp",
-  "src/ipc/Recording.h",
-  "src/ipc/VisionSegment.h",
-  "src/ipc/WorldLayout.h -> src/contracts/world_stream/WorldLayout.h",
-  "src/ipc/WorldMirror.h",
-  "src/ipc/WorldPublisher.h",
-  "src/ipc/WorldRegistry.cpp",
-  "src/session/CMakeLists.txt",
-  "src/session/Scenario.cpp",
-  "src/session/Scenario.h",
-  "src/session/ScenarioRecipe.h",
-  "src/session/World.h",
-  "src/sim/CMakeLists.txt",
-  "src/sim/SnapshotBuffer.h",
-  "src/ui/MissionGui.h",
-  "src/ui/MonitorGui.h",
-  "src/world/FlowVolumes.h",
   "tools/architecture/README.md",
-  "tools/architecture/baseline.py",
   "tools/architecture/check.py",
-  "tools/architecture/policy.json",
   "tools/architecture/test_check.py"
  ]
 }

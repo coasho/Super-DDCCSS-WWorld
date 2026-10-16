@@ -16,6 +16,7 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <new>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -435,6 +436,9 @@ TEST_CASE("public state and recording representations preserve frozen layouts", 
     REQUIRE(static_cast<unsigned char>(written[5]) == 7);
 }
 
+// The whole FSREC v7 file of the fixed world below, padding zero (HC-01; taken from the corrected writer, three runs alike).
+constexpr std::uint64_t kFrozenWriterDigest = 0x25f7a36e4eb3062eull;
+
 // ARCH-02 moves the wire and recording definitions below their producer and readers. What the writer produces for a
 // fixed world is frozen with them, at literal offsets (taken before ARCH-02 moved any definition, main 7625529): the
 // framing - each record's kind, slot, count and size prefix - and every field this world sets, at the byte it occupies
@@ -501,6 +505,11 @@ TEST_CASE("the recording writer's bytes for a fixed world are frozen (FSREC v7)"
     std::ifstream stream(file.path, std::ios::binary);
     const std::vector<char> written{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
     REQUIRE(written.size() == 2928);
+    // With its padding written as zero (HC-01), the file is the same bytes every time: its whole digest is frozen too.
+    std::uint64_t digest = 1469598103934665603ull; // FNV-1a 64
+    for (char c : written) digest = (digest ^ static_cast<unsigned char>(c)) * 1099511628211ull;
+    INFO("FNV-1a 64 0x" << std::hex << digest);
+    CHECK(digest == kFrozenWriterDigest);
     const auto byte = [&](std::size_t at) { return static_cast<unsigned char>(written.at(at)); };
     const auto u32 = [&](std::size_t at) {
         std::uint32_t v = 0;
@@ -558,4 +567,78 @@ TEST_CASE("the recording writer's bytes for a fixed world are frozen (FSREC v7)"
     REQUIRE(first.environment->temperatureSeaLevelK == 290.0);
     REQUIRE(first.events.size() == 1);
     REQUIRE(first.samples.at(0).second.derived[13] == 113.0);
+}
+
+namespace {
+/// A T made over storage filled with `background`: its members set by their initializers, its padding left as the
+/// storage was - as a caller's struct may hold anything there.
+template <class T>
+T& madeOver(void* storage, unsigned char background) {
+    std::memset(storage, background, sizeof(T));
+    return *new (storage) T;
+}
+
+/// The FSREC v7 file of one fixed world, every struct handed to the writer made over `background`.
+std::vector<char> recordedOver(unsigned char background) {
+    ScratchRecording file;
+    alignas(Header) unsigned char headerStorage[sizeof(Header)];
+    alignas(Row) unsigned char rowStorage[sizeof(Row)];
+    alignas(fsim::ipc::MissionStore) unsigned char storeStorage[sizeof(fsim::ipc::MissionStore)];
+    alignas(Environment) unsigned char environmentStorage[sizeof(Environment)];
+    alignas(fsim::ipc::EngagementEvent) unsigned char eventStorage[sizeof(fsim::ipc::EngagementEvent)];
+    Header& header = madeOver<Header>(headerStorage, background);
+    header.capacity = 4;
+    header.dt = 1.0 / 120.0;
+    Row& row = madeOver<Row>(rowStorage, background);
+    row.id = 7;
+    row.generation = 3;
+    row.alive = 1;
+    auto& store = madeOver<fsim::ipc::MissionStore>(storeStorage, background);
+    store.station = 3;
+    Environment& environment = madeOver<Environment>(environmentStorage, background);
+    environment.temperatureSeaLevelK = 290.0;
+    auto& event = madeOver<fsim::ipc::EngagementEvent>(eventStorage, background);
+    event.simTime = 12.25;
+    std::vector<std::pair<std::uint32_t, Sample>> samples(1);
+    Sample& sample = madeOver<Sample>(&samples[0].second, background);
+    sample.state.simTime = 12.5;
+    sample.state.onGround = true;
+    sample.state.wheelCount = 3;
+    sample.inputs.aileron = 0.25;
+
+    fsim::ipc::RecordWriter writer;
+    REQUIRE(writer.open(file.path, header));
+    writer.writeVehicle(0, row);
+    writer.writeStores(0, {store});
+    writer.writeEnvironment(environment);
+    writer.writeEvent(event);
+    writer.writeSnapshot(12.5, samples);
+    writer.close();
+    std::ifstream stream(file.path, std::ios::binary);
+    return {std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+}
+} // namespace
+
+// HC-01: what a recording holds is its records' members alone. A struct's padding is unspecified - copied as it was,
+// equal worlds gave unequal files and carried unrelated memory into them. The writer writes it as zero: the same world
+// is the same bytes whatever its structs held between members, and no size, offset, version or member changes.
+TEST_CASE("the recording writer writes the same bytes for the same world, padding as zero", "[boundary][layout]") {
+    const auto a = recordedOver(0xA5), b = recordedOver(0x5A);
+    REQUIRE(a.size() == 1907);
+    REQUIRE(a == b);
+    // every padding byte, at its literal offset in the file: the header's two gaps, the table row's two, the
+    // snapshot head's, and the sample's state (after its three flags and after its wheel count)
+    const std::size_t header = 6, row = 99, head = 887, sample = 907;
+    const std::pair<std::size_t, std::size_t> padding[] = {
+        {header + 4, 4}, {header + 84, 4}, {row + 4, 4}, {row + 402, 6}, {head + 12, 4}, {sample + 391, 1}, {sample + 604, 4}};
+    for (const auto& [offset, size] : padding)
+        for (std::size_t k = 0; k < size; ++k) {
+            INFO("padding byte at " << offset + k);
+            REQUIRE(a.at(offset + k) == 0);
+        }
+    // the members are as written (the framing and fields themselves are held by the frozen-framing case above)
+    REQUIRE(static_cast<unsigned char>(a.at(sample + 388)) == 1);
+    double aileron = 0.0;
+    std::memcpy(&aileron, a.data() + sample + 800, 8);
+    REQUIRE(aileron == 0.25);
 }

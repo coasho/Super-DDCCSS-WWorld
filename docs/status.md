@@ -461,6 +461,20 @@ RNG, timestep or default behavior changed, and ARCH-03 has not started.
 
 Found, not changed here: the recording writer copies unspecified padding bytes into files (readers are unaffected).
 
+**HC-00 and HC-01 corrections (2026-10-16).** These are separate corrections, from the independent ARCH-02 review and
+the handoff carryover register (`docs/architecture/validation/`); the ARCH-02 record's section 9 has the details.
+- **HC-00:** every file under `include/fsim` is classified and scanned whatever its suffix. An include of an
+  unclassified public file, an unscanned private include and a non-text public file each fail explicitly. Six
+  fixtures were added; the five negative ones fail on `6c0de98`.
+- **HC-01:** the recording writer writes every record's padding as zero, with no size, offset, version or member
+  change. The same world is now byte-identical. A regression with garbage-filled source structs failed on the unfixed
+  writer; the frozen file is pinned by digest; old-recording reads pass.
+- **ABI:** the frozen-baseline compare is 19/0 on both builds.
+- **Targeted CTest:** headless 17/17, Release 6/6; no full suite.
+
+Observed, not changed: the shared-memory publisher copies `VehicleState` padding into the segment (HC-10, transport
+owner).
+
 Pending: independent ARCH-02 acceptance; the full-suite run at the next regression milestone; ARCH-03 onward.
 
 ## Architecture ARCH-01 ownership and policy baseline (2026-10-16, awaiting independent acceptance)

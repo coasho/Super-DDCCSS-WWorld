@@ -307,3 +307,14 @@ The scenario document's values and reading/writing are in
 it and adds `applyScenario` and `vecEnvOptions`, so its includers see the same
 declarations. The runtime applies its own `session::ScenarioRecipe`, and the
 VecEnv mapping is training's (`src/env/ScenarioVecEnv.cpp`).
+
+Public include files are classified and scanned whatever their suffix (HC-00).
+Every regular file under `include/fsim` is public, because the install copies
+the directory whole: an `.inc`, `.ipp` or `.tpp` file meets the same
+classification and direction rules as a header. Source scanning includes those
+fragment suffixes and `.hxx`. Explicit failures:
+- an include of an unclassified public file is reported where it is included
+  (`unclassified-public-include`), beside the unclassified file itself;
+- a resolved private include whose suffix is not scanned fails as
+  `unscanned-include`;
+- a public file that is not UTF-8 text fails as `unsupported-public-file`.

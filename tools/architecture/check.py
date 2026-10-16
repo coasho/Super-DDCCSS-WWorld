@@ -26,7 +26,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import python_imports  # noqa: E402
 
 
-SOURCE_SUFFIXES = {".h", ".hpp", ".hh", ".inl", ".c", ".cpp", ".cc", ".cxx"}
+# C/C++ sources and headers, include fragments among them (.inc, .ipp, .tpp, .ixx). Every file under include/fsim is
+# public whatever its name (the install copies the directory whole); a resolved include of a src file outside these
+# suffixes is refused rather than left unscanned.
+SOURCE_SUFFIXES = {".h", ".hpp", ".hh", ".hxx", ".inl", ".inc", ".ipp", ".tpp", ".ixx", ".c", ".cpp", ".cc", ".cxx"}
 GPU = re.compile(r"(?:^|::|/)(?:vsg\w*|vulkan)(?:\b|/)|^NvFlow", re.IGNORECASE)
 INCLUDE = re.compile(r'^[\t ]*#[\t ]*include[\t ]*[<"]([^>"\n]+)[>"]', re.MULTILINE)
 INCLUDE_DIRECTIVE = re.compile(r'^[\t ]*#[\t ]*include\b[^\n]*', re.MULTILINE)
@@ -529,7 +532,7 @@ def analyze(repo, policy):
     vendor_headers = {path.name for path in files_under(repo / "third_party")
                       if path.is_file() and path.suffix in SOURCE_SUFFIXES}
     sources = [path for path in files_under(repo / "src") if path.is_file() and path.suffix in SOURCE_SUFFIXES]
-    public = [path for path in files_under(repo / "include/fsim") if path.is_file() and path.suffix in SOURCE_SUFFIXES]
+    public = [path for path in files_under(repo / "include/fsim") if path.is_file()]
     source_owner, include_edges, public_consumers, public_edges = {}, {}, {}, {}
     for path in sorted(sources + public):
         place = path.relative_to(repo).as_posix()
@@ -537,7 +540,11 @@ def analyze(repo, policy):
         module = None if is_public else owner(path)
         if not is_public:
             source_owner[place] = module
-        clean = without_comments(path.read_text(encoding="utf-8"))
+        try:
+            clean = without_comments(path.read_text(encoding="utf-8"))
+        except UnicodeDecodeError:
+            issue("unsupported-public-file" if is_public else "unsupported-source", place, "not UTF-8 text: it cannot be scanned")
+            continue
         if is_public:
             declarations = public_type_text(clean, place)
             for match in PRIVATE_TYPE.finditer(declarations):
@@ -559,6 +566,10 @@ def analyze(repo, policy):
             candidates.extend((directory / include).resolve() for directory in directories)
             private_headers = sorted({candidate for candidate in candidates
                                       if candidate.is_relative_to(repo / "src") and candidate.is_file()})
+            for candidate in private_headers:
+                if candidate.suffix not in SOURCE_SUFFIXES:
+                    issue("unscanned-include", at, f"{include} resolves to {candidate.relative_to(repo).as_posix()}, whose "
+                          f"suffix the gate does not scan: name it as a C/C++ source or header")
             third_party = explicit_vendor_path or any(candidate.is_relative_to(repo / "third_party") and candidate.is_file() for candidate in candidates)
             public_headers = sorted({candidate for candidate in candidates
                                      if candidate.is_relative_to(repo / "include/fsim") and candidate.is_file()})
@@ -620,6 +631,8 @@ def analyze(repo, policy):
     public_used = set()
     for (consumer, header), at in sorted(public_edges.items()):
         if header not in classified:
+            # (the unclassified file is reported as such; its include is named too, so the chain stays visible)
+            issue("unclassified-public-include", at, f"{consumer} includes {header}, which is not classified")
             continue
         if consumer in modules:
             domain, kind = modules[consumer]["domain"], modules[consumer]["kind"]

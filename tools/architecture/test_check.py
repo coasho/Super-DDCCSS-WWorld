@@ -766,6 +766,52 @@ class DomainFixtures(FixtureRepository):
         self.append("src/env/Header.h", '#include "fsim/VecEnv.h"\n')
         self.rejects("stale-exception", "public env -> include/fsim/VecEnv.h (until ARCH-05): the include breaks no rule")
 
+    # HC-00: a public include file of any suffix is classified and scanned; nothing it includes disappears
+    def test_an_unclassified_public_include_fragment_is_rejected_where_it_is_included(self):
+        # the review's chain: session -> fsim/Bridge.inc -> fsim/VecEnv.h (training), Bridge.inc unclassified
+        self.training_headers()
+        self.write("include/fsim/Bridge.inc", '#include "fsim/VecEnv.h"\n')
+        del self.policy["public_headers"]["include/fsim/Bridge.inc"]
+        self.append("src/session/Header.h", '#include "fsim/Bridge.inc"\n')
+        status, output = self.run_gate()
+        self.assertEqual(status, 1, output)
+        self.assertIn("unclassified-public-header: include/fsim/Bridge.inc", output)
+        self.assertIn("unclassified-public-include: src/session/Header.h:2: session includes include/fsim/Bridge.inc", output)
+
+    def test_an_indirect_simulation_to_training_include_through_a_fragment_is_rejected(self):
+        self.training_headers()
+        self.write("include/fsim/Bridge.inc", '#include "fsim/VecEnv.h"\n')
+        self.policy["public_headers"]["include/fsim/Bridge.inc"] = {"domain": "simulation", "kind": "interface"}
+        self.append("src/session/Header.h", '#include "fsim/Bridge.inc"\n')
+        self.rejects("forbidden-public", "include/fsim/Bridge.inc (simulation) includes include/fsim/VecEnv.h (training facade)")
+
+    def test_an_indirect_contract_to_domain_include_through_a_fragment_is_rejected(self):
+        self.write("include/fsim/World.h", "#pragma once\n")
+        self.write("include/fsim/Values.ipp", '#include "fsim/World.h"\n')
+        self.policy["public_headers"]["include/fsim/Values.ipp"] = {"domain": "contracts", "kind": "value"}
+        self.append("include/fsim/Public.h", '#include "fsim/Values.ipp"\n')
+        self.rejects("forbidden-public", "include/fsim/Values.ipp (contracts) includes include/fsim/World.h (simulation facade)")
+
+    def test_a_valid_include_fragment_chain_is_accepted(self):
+        self.write("include/fsim/World.h", "#pragma once\n")
+        self.write("include/fsim/Detail.tpp", '#include "fsim/World.h"\n#include "fsim/Public.h"\n')
+        self.policy["public_headers"]["include/fsim/Detail.tpp"] = {"domain": "simulation", "kind": "interface"}
+        self.append("src/session/Header.h", '#include "fsim/Detail.tpp"\n')
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+        self.assertIn("Public headers: 3 classified", output)  # (Public.h, World.h and Detail.tpp)
+
+    def test_a_private_include_of_an_unscanned_file_is_refused(self):
+        self.write("src/session/Shader.glsl", '#include "env/Header.h"\n')
+        self.append("src/session/Header.h", '#include "session/Shader.glsl"\n')
+        self.rejects("unscanned-include", "resolves to src/session/Shader.glsl, whose suffix the gate does not scan")
+
+    def test_a_public_file_that_is_not_text_is_refused(self):
+        self.write("include/fsim/Public.h", "#pragma once\n")
+        (self.repo / "include/fsim/blob.bin").write_bytes(b"\xff\xfe\x00\x80")
+        self.policy["public_headers"]["include/fsim/blob.bin"] = {"domain": "contracts", "kind": "value"}
+        self.rejects("unsupported-public-file", "include/fsim/blob.bin: not UTF-8 text")
+
     def test_public_header_classification_errors_are_input_errors(self):
         self.policy["public_headers"]["include/fsim/Public.h"] = {"domain": "contracts", "kind": "facade"}
         self.input_error("a contracts header is a value or an interface, not a facade")
