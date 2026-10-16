@@ -107,11 +107,21 @@ if(NOT _source_include EQUAL -1 OR NOT _installed_include)
 endif()
 
 set(_env "FSIM_AIRCRAFT_PATH=${_data}/aircraft;${_data}/aircraft/stores")
+# The joint chains (M8; tests/fixtures/mission_training/joint, tools/ma_contract/joint_chain.py), copied out of the source
+# tree: every consumer replays each one and writes its trace, compared below byte for byte.
+set(_chains joint lossy)
+file(REMOVE_RECURSE "${_work}/joint")
+file(COPY "${SOURCE_DIR}/tests/fixtures/mission_training/joint" DESTINATION "${_work}")
 foreach(_language cpp c)
+    set(_chain_args)
+    foreach(_chain IN LISTS _chains)
+        file(REMOVE "${_work}/trace-${_chain}-${_language}.trace")
+        list(APPEND _chain_args "${_work}/joint/chain.${_chain}.txt" "${_work}/trace-${_chain}-${_language}.trace")
+    endforeach()
     # Only installed bin and Windows system directories participate in DLL lookup.
     execute_process(COMMAND "${CMAKE_COMMAND}" -E env
         "${_env}" "PATH=${_prefix}/bin;$ENV{SystemRoot}/System32;$ENV{SystemRoot}"
-        "${_prefix}/bin/ma_consumer_${_language}.exe" "${_prefix}"
+        "${_prefix}/bin/ma_consumer_${_language}.exe" "${_prefix}" ${_chain_args}
         WORKING_DIRECTORY "${_work}" RESULT_VARIABLE _result OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
     file(WRITE "${_work}/run-${_language}.log" "${_out}${_err}")
     if(NOT _result STREQUAL "0")
@@ -122,15 +132,40 @@ endforeach()
 # The installed Python package alone: its own library and data, no development tree on any path. The script is copied
 # out of the source tree first, so its directory (the interpreter's first path entry) is this gate's own.
 file(COPY_FILE "${SOURCE_DIR}/tests/mission_package_consumer/ma_python.py" "${_work}/ma_python.py")
+set(_chain_args)
+foreach(_chain IN LISTS _chains)
+    file(REMOVE "${_work}/trace-${_chain}-python.trace" "${_work}/trace-${_chain}-python-isolated.trace")
+    list(APPEND _chain_args "${_work}/joint/chain.${_chain}.txt" "${_work}/trace-${_chain}-python.trace"
+                            "${_work}/trace-${_chain}-python-isolated.trace")
+endforeach()
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=FSIM_DLL_DIR --unset=FSIM_AIRCRAFT_PATH --unset=PYTHONHOME
         "PYTHONPATH=${_python_prefix}" "PATH=$ENV{SystemRoot}/System32;$ENV{SystemRoot}"
-        "${_python}" -s -B "${_work}/ma_python.py" "${_python_prefix}"
+        "${_python}" -s -B "${_work}/ma_python.py" "${_python_prefix}" ${_chain_args}
     WORKING_DIRECTORY "${_work}" RESULT_VARIABLE _result OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 file(WRITE "${_work}/run-python.log" "${_out}${_err}")
 if(NOT _result STREQUAL "0")
     message(FATAL_ERROR "installed MA consumer (python): expected 0, got ${_result}\n${_out}${_err}")
 endif()
 message(STATUS "installed MA consumer (python): exit 0\n${_out}")
+# J10 (generic): the joint chains through installed C++, C99 and Python - in-process and with an isolated actor - wrote
+# the same trace, byte for byte.
+foreach(_chain IN LISTS _chains)
+    set(_digests)
+    foreach(_who cpp c python python-isolated)
+        set(_trace "${_work}/trace-${_chain}-${_who}.trace")
+        if(NOT EXISTS "${_trace}")
+            message(FATAL_ERROR "installed joint chain ${_chain}: the ${_who} consumer wrote no trace")
+        endif()
+        file(SHA256 "${_trace}" _digest)
+        list(APPEND _digests "${_digest}")
+    endforeach()
+    list(REMOVE_DUPLICATES _digests)
+    list(LENGTH _digests _distinct)
+    if(NOT _distinct EQUAL 1)
+        message(FATAL_ERROR "installed joint chain ${_chain}: the consumers' traces differ (${_digests}); see ${_work}/trace-${_chain}-*.trace")
+    endif()
+    message(STATUS "installed joint chain ${_chain}: C++, C99, Python and an isolated Python actor wrote one trace (${_digests})")
+endforeach()
 # The composition example (examples/python/ma_composition; M6) on the installed package alone, copied out of the source
 # tree: run twice, its traces byte-identical, its package and library the installed ones; and its MA system under the
 # installed training adapter (fsim.training; M7 core) through "same_step" and "next_step" autoreset, each generation's

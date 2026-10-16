@@ -176,6 +176,9 @@ class Actor:
     def observe(self):
         return self.endpoint.observation_json()
 
+    def submit(self, text):
+        return self.endpoint.submit_json(text)
+
     def echo(self, value):
         """What reached this process: ordinary data comes back as it was sent."""
         self.received = getattr(self, "received", 0) + 1
@@ -269,8 +272,76 @@ def mission_episode():
     return snapshot["episode"]
 
 
+WING = 9007199254740995
+
+
+def read_chain(path):
+    """A joint chain (M8; tools/ma_contract/joint_chain.py): its configuration - the installed package's own JSBSim data
+    in place of the token - its ticks and its submission lines."""
+    config, ticks, lines = None, None, []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\r\n")
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("config "):
+                with open(os.path.join(os.path.dirname(os.path.abspath(path)), line[7:]), encoding="utf-8") as c:
+                    config = c.read().replace("@JSBSIM_ROOT@", "")
+            elif line.startswith("ticks "):
+                ticks = int(line[6:])
+            else:
+                tick, service, requests = line.split(" ", 2)
+                lines.append((int(tick), int(service), requests))
+    return config, ticks, lines
+
+
+def replay_chain(path, isolated=None):
+    """The chain's trace, as every installed consumer writes it; with `isolated` a service whose actor runs in a process
+    of its own (fsim.isolation.MissionEndpointProcess), reading and submitting through its proxy alone."""
+    import fsim.isolation as isolation
+    config, ticks, lines = read_chain(path)
+    services = sorted(int(s["service_id"]) for s in json.loads(config)["services"])
+    episode = fsim.mission.MissionEpisode(config)
+    episode.reset(0)
+    here = os.path.dirname(os.path.abspath(__file__))
+    actor = isolation.MissionEndpointProcess(episode, episode.endpoint(isolated), "ma_python:Actor", path=[here]) if isolated else None
+    trace, k = [], 0
+    try:
+        for tick in range(ticks + 1):
+            snapshots = {}
+            for s in services:
+                snapshots[s] = actor.call("observe") if s == isolated else episode.endpoint(s).observation_json()
+                trace.append("obs %d %d %s" % (tick, s, snapshots[s]))
+            while k < len(lines) and lines[k][0] == tick:
+                _, s, requests = lines[k]
+                key = json.dumps(json.loads(snapshots[s])["episode"], separators=(",", ":"))
+                document = '{"schema":"ma.actions.v1","episode":%s,"service_id":"%d","tick":"%d","requests":%s}' % (key, s, tick, requests)
+                trace.append("ack %d %d %s" % (tick, s, actor.call("submit", document) if s == isolated else episode.endpoint(s).submit_json(document)))
+                k += 1
+            if tick < ticks:
+                episode.step()
+    finally:
+        if actor:
+            actor.close()
+        episode.close()
+    return "\n".join(trace) + "\n"
+
+
+def joint_chains(triplets):
+    """Each chain replayed in-process and with the wing's actor isolated: the same trace, written for the gate to compare
+    with the C++ and C99 consumers'."""
+    for chain, trace, isolated_trace in triplets:
+        in_process, alone = replay_chain(chain), replay_chain(chain, isolated=WING)
+        require(in_process == alone, "%s: the isolated actor's trace differs from the in-process one" % chain)
+        for path, text in ((trace, in_process), (isolated_trace, alone)):
+            with open(path, "w", encoding="utf-8", newline="\n") as f:
+                f.write(text)
+    return len(triplets)
+
+
 def main(argv):
-    require(len(argv) == 2, "usage: ma_python.py <installed python prefix>")
+    require(len(argv) >= 2 and (len(argv) - 2) % 3 == 0,
+            "usage: ma_python.py <installed python prefix> [<joint chain> <trace> <isolated actor trace>]...")
     prefix = argv[1]
     require(inside(fsim.__file__, prefix), "fsim was imported from outside the installed package: " + fsim.__file__)
     require(inside(fsim._native.__file__, prefix), "the native module is not the installed package's")
@@ -285,8 +356,10 @@ def main(argv):
     reports()
     key = mission_episode()
     mission_batch()
+    chains = joint_chains([argv[i:i + 3] for i in range(2, len(argv), 3)])
     print("fsim %s installed Python consumer: ownership %r in either creation order; legal reports with provenance; "
-          "mission episode %s with an isolated actor; a mission batch under the training adapter" % (fsim.__version__, a, json.dumps(key)))
+          "mission episode %s with an isolated actor; a mission batch under the training adapter; %d joint chain(s) replayed, "
+          "in-process and isolated alike" % (fsim.__version__, a, json.dumps(key), chains))
     return 0
 
 

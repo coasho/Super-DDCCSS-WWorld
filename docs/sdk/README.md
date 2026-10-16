@@ -25,6 +25,7 @@ published world through shared memory (see [viewer.md](viewer.md)).
 | [ma-engagement-contract.md](ma-engagement-contract.md) | versioned equipment requests, legal reports, authorization configuration and referee evidence; validated documents, runtime integration proposed |
 | [ma-composition.md](ma-composition.md) | composing an upper-layer MA system over one endpoint: the gateway rule, example-only component interfaces, arbitration and lifecycle - frozen, not implemented |
 | [ma-compatibility-baseline.md](ma-compatibility-baseline.md) | what existing consumers rely on, captured before the mission family: exports, layouts, test inventory and frozen C++, C99 and Python consumers |
+| [ma-training-validation.md](ma-training-validation.md) | the MA-training joint acceptance evidence (M8): the joint chains, each joint case's evidence or what it waits for, installed consumers, isolation and compatibility results |
 | [native-state-reset-fixture.md](native-state-reset-fixture.md) | executable same-build native-state input, simultaneous assertions and fresh/replay oracle for the pending M4 reset gate |
 | [boundary.md](boundary.md) | which principal each entry point belongs to - agent (an MA's decisions), MA core, range, referee, platform - and the calls an agent may not yet trust (ADR-31) |
 | [mission-systems.md](mission-systems.md) | the payloads each aircraft carries (radars, warning receivers, jammers, sensors, guns, stations): discovery, power states, BIT, grants (ADR-30) |

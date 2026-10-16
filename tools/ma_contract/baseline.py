@@ -4,6 +4,7 @@ episode family is added, frozen so later packages can be held to it.
     python tools/ma_contract/baseline.py capture --out <dir> [--supplied <dir>] [--release-build <dir>]
     python tools/ma_contract/baseline.py verify  --out <dir>
     python tools/ma_contract/baseline.py run     --out <dir> [--sdk-prefix <dir>] [--python-package <dir>]
+    python tools/ma_contract/baseline.py compare --out <dir> [--release-build <dir>] [--work <dir>]
 
 `capture` reads the checkout and its existing builds and writes, under <dir>: the checkout's HEAD and dirty diff, the
 public interface's archive, the protected runtime inputs' hashes, every native and Python export, the CTest inventory,
@@ -11,7 +12,11 @@ the public types' layouts and vtables, and consumers frozen against today's head
 each imports and the data it ran on. `verify` re-hashes what the manifest lists. `run` runs the frozen consumers again,
 by default as captured. With `--sdk-prefix`, another build's installed SDK, the frozen executables and the frozen
 Python module run against that prefix's libfsim.dll and data instead: old-header binaries on a new library.
-`--python-package` runs the frozen Python consumer scripts on another package altogether.
+`--python-package` runs the frozen Python consumer scripts on another package altogether. `compare` captures the
+current builds' exports and public types into --work and holds them to the baseline: every native export, vtable and
+typeinfo symbol, Python call and module name it recorded must still be there, and every public C++ type's and C
+struct's layout, every recorded vtable's slots and every recorded enumerator's value must be unchanged. What is new is
+listed, never failed. It writes COMPARE.json into --work.
 
 It builds nothing in the checkout's build trees and changes no tracked file: it installs from an existing build into
 <dir> and compiles the consumers there. Standard library only. Hold the native configure/build/test slot while it runs.
@@ -700,9 +705,88 @@ def run(a):
     return 0 if results and all(rc == 0 for rc in results.values()) else 1
 
 
+def compare(a):
+    """The current builds held to the baseline (see the module's text): removals and changes fail, additions are listed."""
+    base = Path(a.out).resolve()
+    work = Path(a.work or (Path(a.tmp) / "ma-baseline-compare")).resolve()
+    if work == base:
+        print("--work must not be the baseline's own directory")
+        return 1
+    current = argparse.Namespace(**dict(vars(a), out=str(work)))
+    c = Capture(current)
+    c.out.mkdir(parents=True, exist_ok=True)
+    c.exports()
+    c.types()
+    result, failures = {"baseline": str(base), "current": str(work), "compared": {}}, list(c.failures)
+
+    def lines(path):
+        return set(path.read_text(encoding="utf-8").splitlines()) - {""} if path.is_file() else None
+
+    # exports, vtable/typeinfo symbols and the Python surface: a superset of the baseline's
+    for kind in ("exports", "vtables"):
+        for old in sorted((base / "exports").glob("*.%s.txt" % kind)):
+            label = old.name[: -len(".%s.txt" % kind)]
+            if kind == "exports" and label.endswith(".exports.demangled"):
+                continue
+            new = lines(work / "exports" / old.name)
+            if new is None:
+                result["compared"][old.name] = {"skipped": "not built here"}
+                continue
+            before = lines(old)
+            removed, added = sorted(before - new), sorted(new - before)
+            result["compared"][old.name] = {"baseline": len(before), "now": len(new), "removed": removed, "added": len(added)}
+            if removed:
+                failures.append("%s: %d removed (%s)" % (old.name, len(removed), ", ".join(removed[:5])))
+    for old in sorted((base / "exports").glob("python-calls.*.txt")):
+        new = lines(work / "exports" / old.name)
+        if new is None:
+            result["compared"][old.name] = {"skipped": "not built here"}
+            continue
+        removed = sorted(lines(old) - new)
+        result["compared"][old.name] = {"baseline": len(lines(old)), "now": len(new), "removed": removed}
+        if removed:
+            failures.append("%s: %d Python calls removed (%s)" % (old.name, len(removed), ", ".join(removed[:5])))
+    for old in sorted((base / "exports").glob("python-inventory.*.json")):
+        path = work / "exports" / old.name
+        if not path.is_file():
+            continue
+        before, now = json.loads(old.read_text(encoding="utf-8")), json.loads(path.read_text(encoding="utf-8"))
+        removed = sorted("%s.%s" % (module, name) for module, names in before.items() for name in names if name not in now.get(module, []))
+        result["compared"][old.name] = {"modules": len(before), "removed": removed}
+        if removed:
+            failures.append("%s: %d Python names removed (%s)" % (old.name, len(removed), ", ".join(removed[:5])))
+    # layouts, vtables and enumerators: unchanged where the baseline recorded them
+    for name in ("cpp-layout.json", "c-abi-layout.json"):
+        before = json.loads((base / "types" / name).read_text(encoding="utf-8"))
+        now = json.loads((work / "types" / name).read_text(encoding="utf-8"))
+        changed = sorted(t for t, layout in before["types"].items() if now["types"].get(t) != layout)
+        enums = sorted("%s::%s" % (e, k) for e, spec in before["enums"].items() for k, v in spec["values"].items()
+                       if now["enums"].get(e, {}).get("values", {}).get(k) != v or now["enums"].get(e, {}).get("bytes") != spec["bytes"])
+        result["compared"][name] = {"types": len(before["types"]), "changed": changed, "new_types": len(set(now["types"]) - set(before["types"])),
+                                    "enumerators": sum(len(e["values"]) for e in before["enums"].values()), "enumerators_changed": enums}
+        if changed:
+            failures.append("%s: %d public types changed (%s)" % (name, len(changed), ", ".join(changed[:5])))
+        if enums:
+            failures.append("%s: %d enumerators changed (%s)" % (name, len(enums), ", ".join(enums[:5])))
+    before = json.loads((base / "types" / "public-vtables.json").read_text(encoding="utf-8"))
+    now = json.loads((work / "types" / "public-vtables.json").read_text(encoding="utf-8"))
+    changed = sorted(k for k, slots in before.items() if now.get(k) != slots)
+    result["compared"]["public-vtables.json"] = {"vtables": len(before), "changed": changed, "new": len(set(now) - set(before))}
+    if changed:
+        failures.append("public vtables changed: %s" % ", ".join(changed[:5]))
+    result["failures"] = failures
+    (work / "COMPARE.json").write_text(json.dumps(result, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+    for name, entry in sorted(result["compared"].items()):
+        print("%s: %s" % (name, json.dumps({k: (len(v) if isinstance(v, list) else v) for k, v in entry.items()}, sort_keys=True)))
+    for failure in failures:
+        print("FAILED " + failure)
+    print("%d comparisons; %d failures (%s)" % (len(result["compared"]), len(failures), work / "COMPARE.json"))
+    return 1 if failures else 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("action", choices=("capture", "verify", "run"))
+    ap.add_argument("action", choices=("capture", "verify", "run", "compare"))
     ap.add_argument("--out", required=True, help="the baseline's directory (under D:/ENV)")
     ap.add_argument("--headless-build", default=str(REPO / "build" / "ucrt64-headless"))
     ap.add_argument("--release-build", default=None, help="a render build, for the vision library's exports")
@@ -712,8 +796,9 @@ def main():
     ap.add_argument("--python", default=sys.executable)
     ap.add_argument("--sdk-prefix", default=None, help="run: another build's installed SDK to run the frozen binaries against")
     ap.add_argument("--python-package", default=None)
+    ap.add_argument("--work", default=None, help="compare: where the current builds' exports and types are captured")
     a = ap.parse_args()
-    return {"capture": capture, "verify": verify, "run": run}[a.action](a)
+    return {"capture": capture, "verify": verify, "run": run, "compare": compare}[a.action](a)
 
 
 if __name__ == "__main__":

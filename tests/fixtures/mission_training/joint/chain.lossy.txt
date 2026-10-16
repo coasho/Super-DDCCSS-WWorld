@@ -1,0 +1,7 @@
+# Recorded by tools/ma_contract/joint_chain.py author; replayed by ma_joint and the installed consumers.
+config config.lossy.json
+ticks 17
+0 9007199254740995 [{"request_id":"1","kind":"dms","operation":"send","parameters":{"topic":"1001","destination_system_ids":["1392508931"],"byte_length":20,"data_b64":"cHJvcG9zZTpzZWN0b3Itbm9ydGg="}}]
+2 4 [{"request_id":"1","kind":"dms","operation":"send","parameters":{"topic":"1002","destination_system_ids":["1392508930"],"byte_length":16,"data_b64":"YWNrOnNlY3Rvci1ub3J0aA=="}}]
+3 9007199254740995 [{"request_id":"1","kind":"dms","operation":"send","parameters":{"topic":"1001","destination_system_ids":["1392508931"],"byte_length":20,"data_b64":"cHJvcG9zZTpzZWN0b3Itbm9ydGg="}}]
+4 9007199254740995 [{"request_id":"1","kind":"dms","operation":"send","parameters":{"topic":"1003","destination_system_ids":["1392508931"],"byte_length":20,"data_b64":"cHJvcG9zZTpzZWN0b3Itbm9ydGg="}}]

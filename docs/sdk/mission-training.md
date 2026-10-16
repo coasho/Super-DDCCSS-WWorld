@@ -893,10 +893,12 @@ acceptance scope from actor process-interface checks.
   and `ma_contract_checker` (the checker's own refusals), and the implemented parts' own acceptance:
   `ma_service_binding` (C++), `ma_reports` (C++), `ma_c_abi` (C99), `mission_episode` (M4), `ma_actions` and
   `ma_observation` (M5 core, C++), `mission_c_abi` (M5 core and M7 core, C99), `mission_training` (M7 core, C++)
-  and `mission_package_consumer` (C++, C99 and Python consumers built and run against installed packages alone,
-  mission episodes, an isolated actor and mission batches among them).
-  The Python cases are `test_ma_service`, `test_ma_reports`, `test_mission` and `test_mission_training` of
-  `python_sdk`; `test_mission` holds
+  `ma_joint` (M8, C++: the recorded joint chains, J2, J3's messages, J4, J6, J7 and J8's lifecycle) and
+  `mission_package_consumer` (C++, C99 and Python consumers built and run against installed packages alone,
+  mission episodes, an isolated actor, mission batches and the joint chains among them). The joint evidence and what
+  is still pending are recorded in [ma-training-validation.md](ma-training-validation.md).
+  The Python cases are `test_ma_service`, `test_ma_reports`, `test_mission`, `test_mission_training` and
+  `test_ma_joint` of `python_sdk`; `test_mission` holds
   every document the episode writes - through every generic operation of the frozen fixtures - to the schema and the
   checker's rules.
 - The fixtures cover identities above 2^53 up to 2^64 - 1, null numeric reports with their validity, message bytes

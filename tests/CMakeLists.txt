@@ -328,6 +328,16 @@ fsim_set_warnings(fsim_mission_training_test)
 add_test(NAME mission_training COMMAND fsim_mission_training_test)
 set_tests_properties(mission_training PROPERTIES LABELS ma-training TIMEOUT 900)
 
+# Joint acceptance, generic part (M8; docs/sdk/ma-training-validation.md): the recorded joint chains replayed through
+# the public C++ SDK, and J2, J3 (messages), J4, J6, J7 and J8 (lifecycle) checked on what the endpoints returned.
+add_executable(fsim_ma_joint_test test_ma_joint.cpp)
+target_link_libraries(fsim_ma_joint_test PRIVATE fsim::sdk fsim::core Catch2::Catch2WithMain)
+target_compile_definitions(fsim_ma_joint_test PRIVATE FSIM_TEST_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+                                                       FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
+fsim_set_warnings(fsim_ma_joint_test)
+add_test(NAME ma_joint COMMAND fsim_ma_joint_test)
+set_tests_properties(ma_joint PROPERTIES LABELS ma-training TIMEOUT 900)
+
 # The same episodes through the C ABI, from a plain C99 translation unit: handle kinds, two-call reads, statuses.
 add_executable(fsim_mission_c_abi_test test_mission_c_abi.c)
 target_link_libraries(fsim_mission_c_abi_test PRIVATE fsim::sdk)

@@ -406,11 +406,133 @@ static int mission_batch(const char* jsbsim_root) {
     return 0;
 }
 
+/* A whole file, terminated (NULL if it cannot be read). */
+static char* read_all(const char* path) {
+    FILE* f = fopen(path, "rb");
+    long n;
+    char* text = NULL;
+    if (!f) return NULL;
+    if (fseek(f, 0, SEEK_END) == 0 && (n = ftell(f)) >= 0 && fseek(f, 0, SEEK_SET) == 0 && (text = (char*)malloc((size_t)n + 1)) != NULL) {
+        if (fread(text, 1, (size_t)n, f) != (size_t)n) {
+            free(text);
+            text = NULL;
+        } else {
+            text[n] = '\0';
+        }
+    }
+    fclose(f);
+    return text;
+}
+
+typedef struct chain_line {
+    unsigned long long tick, service;
+    const char* requests;
+} chain_line;
+
+/* A joint chain (M8; tools/ma_contract/joint_chain.py) replayed through fsim_mission_env.h alone: its trace - each
+ * tick's snapshots, then its acknowledgments (the receipts document a submission answers with) - written as every
+ * installed consumer writes it, to be compared byte for byte with the C++ and Python consumers' traces. */
+static int mission_chain(const char* jsbsim_root, const char* chain_path, const char* trace_path) {
+    static chain_line lines[512];
+    static const char token[] = "\"@JSBSIM_ROOT@\"";
+    char path[4096], root[2048], key[64][256];
+    char *chain, *text, *line, *next, *config_file = NULL, *config = NULL, *at, *document;
+    unsigned long long services[64], tick, ticks = 0, t;
+    size_t nlines = 0, nservices = 0, i, j, k = 0, dir;
+    fsim_mission_episode* episode = NULL;
+    fsim_mission_endpoint* endpoint = NULL;
+    FILE* out;
+    for (i = 0, j = 0; jsbsim_root[i] && j + 2 < sizeof root; ++i) {
+        if (jsbsim_root[i] == '\\' || jsbsim_root[i] == '"') root[j++] = '\\';
+        root[j++] = jsbsim_root[i];
+    }
+    root[j] = '\0';
+    chain = read_all(chain_path);
+    CHECK(chain != NULL);
+    for (line = chain; line && *line; line = next) {
+        next = strchr(line, '\n');
+        if (next) *next++ = '\0';
+        if (*line && line[strlen(line) - 1] == '\r') line[strlen(line) - 1] = '\0';
+        if (*line == '#' || *line == '\0') continue;
+        if (strncmp(line, "config ", 7) == 0) {
+            dir = (size_t)(strrchr(chain_path, '/') ? strrchr(chain_path, '/') - chain_path : 0);
+            CHECK(dir + strlen(line) < sizeof path);
+            snprintf(path, sizeof path, "%.*s/%s", (int)dir, chain_path, line + 7);
+            config_file = read_all(path);
+            CHECK(config_file != NULL);
+        } else if (strncmp(line, "ticks ", 6) == 0) {
+            ticks = strtoull(line + 6, NULL, 10);
+        } else {
+            CHECK(nlines < sizeof lines / sizeof lines[0]);
+            lines[nlines].tick = strtoull(line, &at, 10);
+            lines[nlines].service = strtoull(at, &at, 10);
+            lines[nlines].requests = at + 1;
+            ++nlines;
+        }
+    }
+    CHECK(config_file != NULL && ticks > 0);
+    /* the JSBSim root as JSON text in place of its token */
+    at = strstr(config_file, token);
+    CHECK(at != NULL);
+    config = (char*)malloc(strlen(config_file) + strlen(root) + 3);
+    CHECK(config != NULL);
+    sprintf(config, "%.*s\"%s\"%s", (int)(at - config_file), config_file, root, at + strlen(token));
+    /* its services, ascending */
+    for (at = strstr(config, "\"service_id\": \""); at; at = strstr(at + 1, "\"service_id\": \"")) {
+        CHECK(nservices < 64);
+        services[nservices++] = strtoull(at + 15, NULL, 10);
+    }
+    for (i = 1; i < nservices; ++i)
+        for (j = i; j > 0 && services[j - 1] > services[j]; --j) t = services[j], services[j] = services[j - 1], services[j - 1] = t;
+    CHECK(fsim_mission_episode_create(config, strlen(config), &episode) == FSIM_OK);
+    CHECK(fsim_mission_episode_reset(episode, 0) == FSIM_OK);
+    out = fopen(trace_path, "wb");
+    CHECK(out != NULL);
+    for (tick = 0; tick <= ticks; ++tick) {
+        for (i = 0; i < nservices; ++i) {
+            CHECK(fsim_mission_endpoint_open(episode, services[i], &endpoint) == FSIM_OK);
+            text = endpoint_document(endpoint, fsim_mission_endpoint_observation_json);
+            CHECK(text != NULL);
+            fprintf(out, "obs %llu %llu %s\n", tick, services[i], text);
+            at = strstr(text, "\"episode\":");
+            CHECK(at && strchr(at, '}') && (size_t)(strchr(at, '}') - at) < sizeof key[i] - 1);
+            sprintf(key[i], "%.*s", (int)(strchr(at, '}') - at - 9), at + 10);
+            free(text);
+            fsim_mission_endpoint_destroy(endpoint);
+        }
+        for (; k < nlines && lines[k].tick == tick; ++k) {
+            for (i = 0; i < nservices && services[i] != lines[k].service; ++i) {
+            }
+            CHECK(i < nservices);
+            document = (char*)malloc(strlen(lines[k].requests) + 512);
+            CHECK(document != NULL);
+            sprintf(document, "{\"schema\":\"ma.actions.v1\",\"episode\":%s,\"service_id\":\"%llu\",\"tick\":\"%llu\",\"requests\":%s}", key[i],
+                    lines[k].service, tick, lines[k].requests);
+            CHECK(fsim_mission_endpoint_open(episode, lines[k].service, &endpoint) == FSIM_OK);
+            CHECK(fsim_mission_endpoint_submit(endpoint, document, strlen(document)) == FSIM_OK);
+            text = endpoint_document(endpoint, fsim_mission_endpoint_receipts_json); /* (what the submission answered) */
+            CHECK(text != NULL);
+            fprintf(out, "ack %llu %llu %s\n", tick, lines[k].service, text);
+            free(text);
+            free(document);
+            fsim_mission_endpoint_destroy(endpoint);
+        }
+        if (tick < ticks) CHECK(fsim_mission_episode_step(episode) == FSIM_OK);
+    }
+    CHECK(fclose(out) == 0);
+    fsim_mission_episode_destroy(episode);
+    free(config);
+    free(config_file);
+    free(chain);
+    return 0;
+}
+
 int main(int argc, char** argv) {
     char jsbsim_root[4096];
     uint64_t a[4], b[4];
-    if (argc != 2 || strlen(argv[1]) + 32 >= sizeof jsbsim_root) {
-        fprintf(stderr, "usage: ma_consumer_c <installed-prefix>\n");
+    int i;
+    if (argc < 2 || argc % 2 || strlen(argv[1]) + 32 >= sizeof jsbsim_root) {
+        fprintf(stderr, "usage: ma_consumer_c <installed-prefix> [<joint chain> <trace>]...\n");
         return 1;
     }
     if (installed_library(argv[1]) != 0) return 1;
@@ -422,8 +544,10 @@ int main(int argc, char** argv) {
     if (reports(jsbsim_root) != 0) return 1;
     if (mission_episode(jsbsim_root) != 0) return 1;
     if (mission_batch(jsbsim_root) != 0) return 1;
+    for (i = 2; i + 1 < argc; i += 2)
+        if (mission_chain(jsbsim_root, argv[i], argv[i + 1]) != 0) return 1;
     printf("fsim ABI %u installed C99 consumer: the same ownership in either creation order; legal reports with provenance; "
-           "a mission episode and a mission batch through fsim_mission_env.h\n",
-           (unsigned)fsim_abi_version());
+           "a mission episode and a mission batch through fsim_mission_env.h; %d joint chain(s) replayed\n",
+           (unsigned)fsim_abi_version(), (argc - 2) / 2);
     return 0;
 }

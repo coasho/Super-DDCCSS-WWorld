@@ -7,9 +7,13 @@
 #include <fsim/MissionEpisode.h>
 #include <fsim/World.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
+#include <map>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -317,9 +321,73 @@ void batch(const fs::path& data) {
     require(b.endpoint(0, 9007199254740995ull).observationJsonV1().find("ma.costs") == std::string::npos, "costs reached a snapshot");
 }
 
+/// A joint chain (M8; tools/ma_contract/joint_chain.py) replayed through fsim/MissionEpisode.h alone: its trace - each
+/// tick's snapshots, then its acknowledgments - written as every installed consumer writes it, to be compared byte for
+/// byte with the C99 and Python consumers' traces of the same chain.
+void replayChain(const fs::path& data, const fs::path& chainPath, const fs::path& tracePath) {
+    const auto read = [](const fs::path& path) {
+        std::ifstream in(path, std::ios::binary);
+        require(static_cast<bool>(in), "a joint chain file cannot be read");
+        std::ostringstream text;
+        text << in.rdbuf();
+        return text.str();
+    };
+    std::istringstream chain(read(chainPath));
+    std::string config, line;
+    std::uint64_t ticks = 0;
+    struct Line {
+        std::uint64_t tick, service;
+        std::string requests;
+    };
+    std::vector<Line> lines;
+    while (std::getline(chain, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.empty() || line[0] == '#') continue;
+        if (line.rfind("config ", 0) == 0) {
+            config = read(chainPath.parent_path() / line.substr(7));
+            const std::string token = "\"@JSBSIM_ROOT@\"";
+            const std::size_t at = config.find(token);
+            require(at != std::string::npos, "the chain's configuration has no JSBSim root token");
+            config.replace(at, token.size(), jsonText((data / "jsbsim").generic_string()));
+        } else if (line.rfind("ticks ", 0) == 0) {
+            ticks = std::stoull(line.substr(6));
+        } else {
+            const std::size_t a = line.find(' '), b = line.find(' ', a + 1);
+            lines.push_back({std::stoull(line.substr(0, a)), std::stoull(line.substr(a + 1, b - a - 1)), line.substr(b + 1)});
+        }
+    }
+    std::vector<std::uint64_t> services; // (ascending: each "service_id" of the configuration)
+    for (std::size_t at = config.find("\"service_id\": \""); at != std::string::npos; at = config.find("\"service_id\": \"", at + 1))
+        services.push_back(std::stoull(config.substr(at + 15)));
+    std::sort(services.begin(), services.end());
+    MissionEpisode episode(config);
+    episode.reset(0);
+    std::ofstream trace(tracePath, std::ios::binary);
+    std::size_t k = 0;
+    for (std::uint64_t tick = 0; tick <= ticks; ++tick) {
+        std::map<std::uint64_t, std::string> keys;
+        for (const std::uint64_t s : services) {
+            const std::string o = episode.endpoint(s).observationJsonV1();
+            trace << "obs " << tick << " " << s << " " << o << "\n";
+            const std::size_t from = o.find("\"episode\":") + 10;
+            keys[s] = o.substr(from, o.find('}', from) - from + 1);
+        }
+        for (; k < lines.size() && lines[k].tick == tick; ++k) {
+            const Line& l = lines[k];
+            trace << "ack " << tick << " " << l.service << " "
+                  << episode.endpoint(l.service).submitJsonV1("{\"schema\":\"ma.actions.v1\",\"episode\":" + keys[l.service] + ",\"service_id\":\"" +
+                                                             std::to_string(l.service) + "\",\"tick\":\"" + std::to_string(tick) +
+                                                             "\",\"requests\":" + l.requests + "}")
+                  << "\n";
+        }
+        if (tick < ticks) episode.step();
+    }
+    require(static_cast<bool>(trace), "the trace could not be written");
+}
+
 int main(int argc, char** argv) {
-    if (argc != 2) {
-        std::fprintf(stderr, "usage: ma_consumer_cpp <installed-prefix>\n");
+    if (argc < 2 || argc % 2) {
+        std::fprintf(stderr, "usage: ma_consumer_cpp <installed-prefix> [<joint chain> <trace>]...\n");
         return 1;
     }
     try {
@@ -333,9 +401,10 @@ int main(int argc, char** argv) {
         reports(data);
         const std::string key = episode(data);
         batch(data);
+        for (int i = 2; i + 1 < argc; i += 2) replayChain(data, argv[i], argv[i + 1]);
         std::printf("fsim %s installed C++ consumer: ownership \"%s\" in either creation order; legal reports with provenance; "
-                    "mission episode %s; a mission batch\n",
-                    fsim::version(), a.c_str(), key.c_str());
+                    "mission episode %s; a mission batch; %d joint chain(s) replayed\n",
+                    fsim::version(), a.c_str(), key.c_str(), (argc - 2) / 2);
         return 0;
     } catch (const std::exception& error) {
         std::fprintf(stderr, "installed MA consumer (C++) failed: %s\n", error.what());
