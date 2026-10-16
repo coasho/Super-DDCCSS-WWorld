@@ -9,9 +9,9 @@
  "digests": {
   "include/fsim": "2f46b19b0ac4e5ef1fdb56c6d9d0b0d2c09e5226d4facc81fd5bfa42d6462cd6",
   "python/fsim": "b063447d0e6aeb5ee9f0ed3f4b45c2bff8f296f2d49b672ace8ab0a90de1f6ea",
-  "src": "4fc1dbeaddd0e91b2cac5d8a840d03b1cefae0c3dfbbd15e914d9feb34043d8f"
+  "src": "b7683b2c3d977fd80133e8d64fb928f6c31052cce32691a9203dada6df674e11"
  },
- "head": "6c0de98a70e64c51a58e1f36641b426c36eb67b8",
+ "head": "dc09e8ffe065f284b33f7decaccdc62b5bdc4954",
  "limits": [
   "Static source declarations: every CMake branch is combined; this is not the configured File API graph of one preset",
   "Link edges are target_link_libraries declarations; include edges are literal includes resolved to an owning module",
@@ -299,7 +299,7 @@
     "destinations": [
      "src/contracts"
     ],
-    "digest": "96a6f8c3969e8dfb16118dac8ba18b510471ac32f4ce9bbca97d780944badbf1",
+    "digest": "40331c0002ee8453560b8994057eddddfa5730472782cc613c718e2602f63194",
     "directories": [],
     "domain": "contracts",
     "explicit_files": [],
@@ -308,7 +308,7 @@
      "src/contracts/simulation/WorldOptions.h": "642698364ddc69ca02946c6ad0620b36890282dd2dae445954ce1b27e7480384",
      "src/contracts/vision_stream/VisionLayout.h": "31479b12fcf714f252ebcf2ccb29767fbc2575c93bcfed5583720c006647b467",
      "src/contracts/world_stream/SnapshotBatch.h": "4af2f7ed3b8e1930d13b78d9a91788d7c84ceef658f01cb342b454c2f15121a1",
-     "src/contracts/world_stream/WorldLayout.h": "0123a4a910a91329ef7e174c88cdbbcc2293ff28fec9ea71a1686c9b5d7f69cd"
+     "src/contracts/world_stream/WorldLayout.h": "e14adbc89f508a3b3b626bf10b13796d22dd3bba534da5cdfbbcc3133b1f25c8"
     },
     "headless": true,
     "kind": "contract",
@@ -557,20 +557,20 @@
     "destinations": [
      "src/foundation/transport"
     ],
-    "digest": "eec19c6a9f9bb4b23e2f77fc5dd23b65fc49ef0e9ae72ee7a755052f8511a101",
+    "digest": "b778d5417b918b58c58c9d806ab97a8522405adec970e93df88f3acbda6d245f",
     "directories": [
      "src/ipc"
     ],
     "domain": "foundation",
     "explicit_files": [],
     "files": {
-     "src/ipc/Recording.cpp": "2ed77ee89bb60c5b5af5aeed592592d9f47177b24ba2490bbb08c7800feadd21",
+     "src/ipc/Recording.cpp": "9aa44e8b09621ea560612337f49a43e2f90492788fd789d61be1085eff35e1af",
      "src/ipc/Recording.h": "fac6bd9c824e52226b13e6091814a0b0aa3ab51d2fdaac3a675ae17eb5242df2",
      "src/ipc/VisionSegment.cpp": "99d84a975bc1ce4d7905744dbc8b034c7dac9a225d50fbdcc75502d87707d72b",
      "src/ipc/VisionSegment.h": "cf1d61fa82152483f96341c4b9c70fe0adaf826bf23a9d30aac4e96f47771a1c",
      "src/ipc/WorldMirror.cpp": "ae14670006d21a912f12649b831d2d9105e14861aeecb2c893287cde9964f364",
      "src/ipc/WorldMirror.h": "fe08a4054fc7ceae22271cddcc55fe3b809d4138fef7e0c4029f09d36a9d7931",
-     "src/ipc/WorldPublisher.cpp": "c663b27f077a4fdaa5856eb5a018d021b993462f7c8b2bd192cbd88dbba08c31",
+     "src/ipc/WorldPublisher.cpp": "a4dc567d512d420eb5d555e58b0afb1ddebb7a9951f21a235dacc2c322620fee",
      "src/ipc/WorldPublisher.h": "e45799a004c234fc38289d9d2cc7e74140a83da813d76268d784cad15f14ab0f",
      "src/ipc/WorldRegistry.cpp": "151b7ce9f63f68571f564c1ff21098a47e32bc18fa985045f6b2f1cc3bb2d0fe",
      "src/ipc/WorldRegistry.h": "180e7b5216e58d99e773e1cad852c17ca39c0be42006222e72f2e0d45a5ad740"
@@ -2424,9 +2424,10 @@
  ],
  "worktree_changes": [
   "python/fsim/isolation.py",
+  "src/contracts/world_stream/WorldLayout.h",
   "src/ipc/Recording.cpp",
+  "src/ipc/WorldPublisher.cpp",
   "tools/architecture/README.md",
-  "tools/architecture/check.py",
-  "tools/architecture/test_check.py"
+  "tools/architecture/check.py"
  ]
 }

@@ -477,6 +477,20 @@ owner).
 
 Pending: independent ARCH-02 acceptance; the full-suite run at the next regression milestone; ARCH-03 onward.
 
+## HC-10 shared-memory padding (2026-10-16, awaiting independent acceptance)
+
+The carryover register's HC-10 is verified and corrected; section 10 of the ARCH-02 record
+(`docs/architecture/validation/arch-02-neutral-contracts.md`) has the details.
+- **Measured:** a generated probe compiled every member's offset and size for each record the world publisher writes.
+  Only `VehicleState` (bytes 391 and 604-607) and `MissionRangeDoppler` (bytes 52-55) have padding.
+- **Confirmed:** a raw shared-memory regression publishes records with poisoned padding and maps the segment as a
+  viewer does. On the unfixed publisher all 14 padding bytes failed: the caller's padding reached local readers.
+- **Corrected:** the publisher zeroes those bytes inside its seqlock window. One shared padding definition in the layout
+  contract serves both the publisher and the recording writer. Layouts, member values, publication semantics,
+  recording bytes (frozen digest unchanged) and exports are unchanged.
+- **Verification:** both builds with 0 warnings; targeted CTest headless 21/21 and Release 9/9; frozen-baseline
+  compare 19/0. No full suite.
+
 ## Architecture ARCH-01 ownership and policy baseline (2026-10-16, awaiting independent acceptance)
 
 The first package of the architecture roadmap (`docs/architecture/migration/roadmap.md`, in the untracked planning

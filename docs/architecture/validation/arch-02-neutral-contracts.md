@@ -194,3 +194,45 @@ No full suite ran.
 **Observed, not changed (HC-10 in the register).** The shared-memory publisher (`WorldPublisher::publish`) assigns each
 whole `VehicleState` into the segment, so its 5 padding bytes carry the caller's unspecified bytes to local readers.
 That is shared memory, not a file, and outside HC-01's recording scope. It is registered for the transport owner.
+
+
+## 10. Correction: HC-10 (shared-memory padding)
+
+Taken from the [handoff carryover register](handoff-carryover-register.md): verify the raw published bytes, and correct
+them only if padding is confirmed to propagate.
+
+**Measured.** A generated probe compiled `offsetof` and `sizeof` of every member of every plain record the world
+publisher writes: `VehicleState`, `ControlInputs`, `EnvironmentState`, the table row, the slot header, the sample, the
+mission record with all its nested records, the store, the engagement event and its ring. Only two have padding:
+- `VehicleState`: byte 391 and bytes 604-607, reaching the segment through each sample's whole-state assignment.
+- `MissionRangeDoppler`: bytes 52-55, at mission-record bytes 13,220-13,223, reaching it through `setMission`'s
+  whole-record copy.
+
+The table rows and slot headers are written member by member into the zeroed segment, and the environment and events
+have no padding. The camera segment's header is value-initialized (its padding zero) and its records are written
+member by member.
+
+**Confirmed.** The new raw regression in `tests/test_state_layout.cpp` publishes two vehicles and a mission record
+whose padding bytes are explicitly poisoned (0xA5). It maps the segment by its name, as a viewer does, and reads the
+latest slot's bytes. On the unfixed publisher, all 14 padding bytes failed (5 per vehicle and the 4 range-Doppler
+bytes): the caller's padding reached shared memory. Every member byte matched the caller's.
+
+**Corrected.** The layout contract (`contracts/world_stream/WorldLayout.h`) now defines the two padded layouts' gaps
+once (`kVehicleStatePadding`, `kRangeDopplerPadding`) and a `zeroPadding` helper.
+- The gaps are derived from the members on either side and held to the frozen offsets at compile time.
+- `WorldPublisher::publish` zeroes each published state's padding, and `setMission` the range-Doppler block's, inside
+  the existing seqlock window. Readers see the same protocol.
+- The recording writer (HC-01) now takes its sample gaps from the same definition.
+- Unchanged: layouts, member values, publication timing and sequence protocol, the recording bytes (the frozen digest
+  `0x25f7a36e4eb3062e` still matches) and the exports.
+
+| Verification (2026-10-16) | Result |
+| --- | --- |
+| Raw shared-memory regression | Failed on the unfixed publisher at all 14 padding bytes; passes now (three runs), with every member byte equal to the caller's |
+| Builds, headless and Release, warnings as errors | 0 warnings each |
+| Targeted headless CTest | 21/21 passed in 47 s: publish/mirror, the viewers' radar, load-limit and model-origin records, the recording round trips and old reads, strike capture, native showcase, layout boundary, contracts, architecture checks, Python world/recording bindings |
+| Targeted Release CTest | 9/9 passed in 47 s: the same publication cases, strike capture, native showcase, layout boundary, contracts, viewer screenshot |
+| Frozen-baseline compare, both builds | 19 comparisons, 0 failures; 1,456 exports, layouts, enumerators and vtables unchanged |
+| Architecture gate | Accepted; the same counts and exceptions |
+
+No full suite ran.

@@ -156,6 +156,7 @@ void WorldPublisher::setMission(std::uint32_t index, const MissionRecord& record
     const std::uint64_t revision = m->revision + 1;
     std::memcpy(reinterpret_cast<char*>(m) + sizeof(SeqLock), reinterpret_cast<const char*>(&record) + sizeof(SeqLock),
                 sizeof(MissionRecord) - sizeof(SeqLock));
+    zeroPadding(&m->rangeDoppler, kRangeDopplerPadding); // (HC-10: the caller's padding never reaches the segment)
     m->revision = revision;
     m->seq.fetch_add(1, std::memory_order_acq_rel);
 }
@@ -192,6 +193,7 @@ bool WorldPublisher::publish(double simTime, Span<const sim::VehicleState> state
     s->wallNs = now;
     for (std::uint32_t i = 0; i < n; ++i) {
         v[i].state = states[i];
+        zeroPadding(&v[i].state, kVehicleStatePadding); // (HC-10: the caller's padding never reaches the segment)
         if (i < inputs.size()) v[i].inputs = inputs[i];
         if (i < status.size()) std::memcpy(v[i].derived, status[i].derived, sizeof v[i].derived);
     }

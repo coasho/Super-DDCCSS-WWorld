@@ -4,6 +4,8 @@
 #include "fsim/VehicleState.h"
 #include "fsim/fsim_c.h"
 #include "ipc/Recording.h"
+#include "ipc/WorldPublisher.h"
+#include "platform/SharedMemory.h"
 #include "contracts/world_stream/WorldLayout.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -641,4 +643,92 @@ TEST_CASE("the recording writer writes the same bytes for the same world, paddin
     double aileron = 0.0;
     std::memcpy(&aileron, a.data() + sample + 800, 8);
     REQUIRE(aileron == 0.25);
+}
+
+namespace {
+// The padding of the plain records the world publisher writes, at the offsets the frozen layouts give them (every
+// member's offset and size measured: VehicleState and MissionRangeDoppler are the only ones with any).
+constexpr std::pair<std::size_t, std::size_t> kStatePadding[] = {{391, 1}, {604, 4}};
+constexpr std::size_t kMissionRangeDoppler = 13168; // offsetof(MissionRecord, rangeDoppler)
+constexpr std::pair<std::size_t, std::size_t> kRangeDopplerPadding[] = {{52, 4}};
+
+void poison(void* object, const std::pair<std::size_t, std::size_t>* spans, std::size_t count) {
+    for (std::size_t s = 0; s < count; ++s) std::memset(static_cast<unsigned char*>(object) + spans[s].first, 0xA5, spans[s].second);
+}
+
+/// Whether [begin, end) of two byte runs is equal outside the given padding.
+bool equalOutside(const unsigned char* a, const unsigned char* b, std::size_t size, const std::pair<std::size_t, std::size_t>* spans,
+                  std::size_t count) {
+    for (std::size_t k = 0; k < size; ++k) {
+        bool padding = false;
+        for (std::size_t s = 0; s < count; ++s) padding = padding || (k >= spans[s].first && k < spans[s].first + spans[s].second);
+        if (!padding && a[k] != b[k]) return false;
+    }
+    return true;
+}
+} // namespace
+
+// HC-10: what the world's shared memory holds is its records' members alone. A caller's struct can hold anything in
+// its padding; copied whole into the segment, those bytes reached every local reader. The publisher writes them as
+// zero: the members, the layout and when and what it publishes are unchanged. Read here raw, as a viewer maps it.
+TEST_CASE("the world publisher writes no padding into shared memory (HC-10)", "[boundary][layout]") {
+    const std::string name = "fsim-hc10-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+    fsim::ipc::WorldPublisher::Options options;
+    options.name = name;
+    options.capacity = 2;
+    fsim::ipc::WorldPublisher publisher(options);
+    REQUIRE(publisher.active());
+
+    std::vector<State> states(2);
+    std::vector<Inputs> inputs(2);
+    for (std::size_t i = 0; i < states.size(); ++i) {
+        State& state = madeOver<State>(&states[i], 0xA5);
+        state.simTime = 1.25;
+        state.positionEcef[0] = 1000.0 + static_cast<double>(i);
+        state.onGround = true;
+        state.crashed = true;
+        state.wheelCount = 3;
+        state.wheelCompressionM[0] = 0.125;
+        poison(&state, kStatePadding, 2); // (whatever its storage held, a caller's padding may hold anything)
+        inputs[i].aileron = 0.5;
+    }
+    REQUIRE(publisher.publish(1.25, states, inputs, true));
+    std::vector<fsim::ipc::MissionRecord> missions(1);
+    auto& mission = madeOver<fsim::ipc::MissionRecord>(missions.data(), 0xA5);
+    mission.vehicleId = 7;
+    mission.rangeDoppler.radar = 0;
+    mission.rangeDoppler.reserved2 = 9;
+    mission.rangeDoppler.timeS = 2.5;
+    poison(&mission.rangeDoppler, kRangeDopplerPadding, 1);
+    publisher.setMission(1, mission);
+
+    fsim::platform::SharedMemory raw;
+    REQUIRE(raw.open(std::string(fsim::ipc::kWorldPrefix) + name, fsim::ipc::Layout::totalSize(2)));
+    const auto* base = static_cast<const unsigned char*>(raw.data());
+    const auto* header = reinterpret_cast<const fsim::ipc::WorldHeader*>(base);
+    const std::uint32_t slot = header->latestSlot.load();
+    const unsigned char* samples = base + header->slotOffset + header->slotStride * slot + fsim::ipc::Layout::align(sizeof(fsim::ipc::StateSlotHeader));
+    for (std::size_t i = 0; i < states.size(); ++i) {
+        const unsigned char* sample = samples + i * sizeof(Sample);
+        for (const auto& [offset, size] : kStatePadding)
+            for (std::size_t k = 0; k < size; ++k) {
+                INFO("vehicle " << i << ": its state's padding byte at " << offset + k);
+                CHECK(sample[offset + k] == 0);
+            }
+        // every member as published, its bytes as the caller's
+        REQUIRE(equalOutside(sample, reinterpret_cast<const unsigned char*>(&states[i]), sizeof(State), kStatePadding, 2));
+        REQUIRE(std::memcmp(sample + sizeof(State), &inputs[i], sizeof(Inputs)) == 0);
+    }
+    const unsigned char* record = base + header->missionOffset + header->missionStride * 1;
+    const unsigned char* rangeDoppler = record + kMissionRangeDoppler;
+    REQUIRE(offsetof(fsim::ipc::MissionRecord, rangeDoppler) == kMissionRangeDoppler);
+    for (std::size_t k = 0; k < 4; ++k) {
+        INFO("the range-Doppler block's padding byte at " << 52 + k);
+        CHECK(rangeDoppler[52 + k] == 0);
+    }
+    REQUIRE(equalOutside(rangeDoppler, reinterpret_cast<const unsigned char*>(&mission.rangeDoppler), sizeof(fsim::ipc::MissionRangeDoppler),
+                         kRangeDopplerPadding, 1));
+    const auto& published = *reinterpret_cast<const fsim::ipc::MissionRecord*>(record);
+    REQUIRE(published.vehicleId == 7);
+    REQUIRE(published.revision == 1);
 }

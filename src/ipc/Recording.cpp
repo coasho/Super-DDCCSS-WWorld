@@ -62,11 +62,11 @@ constexpr Gap kRowGaps[] = {
 constexpr Gap kHeadGaps[] = {
     between(offsetof(SnapshotHead, count) + sizeof(std::uint32_t), sizeof(SnapshotHead)),
 };
-// a sample's: its state's two (after its three flags, after its wheel count); its inputs and derived values are doubles
-// that follow the state and each other with none between
+// a sample's: its state's two (the layout contract's kVehicleStatePadding, shared with the world publisher); its inputs
+// and derived values are doubles that follow the state and each other with none between
 constexpr Gap kSampleGaps[] = {
-    between(offsetof(sim::VehicleState, crashed) + sizeof(bool), offsetof(sim::VehicleState, rotationBodyToEcef)),
-    between(offsetof(sim::VehicleState, wheelCount) + sizeof(int), offsetof(sim::VehicleState, wheelCompressionM)),
+    {kVehicleStatePadding[0].offset, kVehicleStatePadding[0].size},
+    {kVehicleStatePadding[1].offset, kVehicleStatePadding[1].size},
 };
 static_assert(sizeof(RecordingHeader) == 88 && kHeaderGaps[0].first == 4 && kHeaderGaps[0].second == 4 &&
                   kHeaderGaps[1].first == 84 && kHeaderGaps[1].second == 4, "the frozen header's padding");

@@ -21,6 +21,7 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 namespace fsim::ipc {
 
@@ -229,6 +230,33 @@ struct MissionRangeDoppler {
     std::uint8_t db[kRangeDopplerRows * kRangeDopplerColumns] = {}; ///< [row * columns + column], over the noise, 0.25 dB a step
     std::uint16_t peakRow[kRangeDopplerPeaks] = {}, peakColumn[kRangeDopplerPeaks] = {};
 };
+
+/// Padding: the bytes no member of a plain record occupies (HC-01, HC-10). In a caller's struct they are unspecified;
+/// the transport writes them as zero - into the shared segment and into a recording - so neither carries anything but
+/// the members. Of the records published or recorded, measured member by member, these two have any: a vehicle's state
+/// (after its three flags; after its wheel count) and a radar's range-Doppler picture (after `reserved2`). Each span runs
+/// from one member's end to the next member's start; the frozen layouts fix where.
+struct Padding {
+    std::size_t offset;
+    std::size_t size;
+};
+constexpr Padding paddingBetween(std::size_t end, std::size_t next) noexcept { return {end, next - end}; }
+inline constexpr Padding kVehicleStatePadding[] = {
+    paddingBetween(offsetof(sim::VehicleState, crashed) + sizeof(bool), offsetof(sim::VehicleState, rotationBodyToEcef)),
+    paddingBetween(offsetof(sim::VehicleState, wheelCount) + sizeof(int), offsetof(sim::VehicleState, wheelCompressionM)),
+};
+inline constexpr Padding kRangeDopplerPadding[] = {
+    paddingBetween(offsetof(MissionRangeDoppler, reserved2) + sizeof(std::uint32_t), offsetof(MissionRangeDoppler, timeS)),
+};
+static_assert(kVehicleStatePadding[0].offset == 391 && kVehicleStatePadding[0].size == 1 && kVehicleStatePadding[1].offset == 604 &&
+                  kVehicleStatePadding[1].size == 4, "a vehicle state's frozen padding");
+static_assert(kRangeDopplerPadding[0].offset == 52 && kRangeDopplerPadding[0].size == 4, "a range-Doppler picture's frozen padding");
+
+/// Write `spans` of `object` (a plain record) as zero.
+template <std::size_t N>
+inline void zeroPadding(void* object, const Padding (&spans)[N]) noexcept {
+    for (const Padding& span : spans) std::memset(static_cast<unsigned char*>(object) + span.offset, 0, span.size);
+}
 
 constexpr std::uint32_t kMissionStores = 32;
 
