@@ -1,9 +1,9 @@
 // The mission gateway of one generation (MissionGateway.h; docs/sdk/mission-training.md, sections 10 to 13).
 
-#include "sdk/MissionGateway.h"
+#include "training/native/mission/MissionGateway.h"
 
 #include "fsim/MAService.h"
-#include "sdk/MissionJson.h"
+#include "training/native/mission/MissionJson.h"
 #include "simulation/runtime/services/MaCore.h"
 #include "simulation/runtime/world/World.h"
 

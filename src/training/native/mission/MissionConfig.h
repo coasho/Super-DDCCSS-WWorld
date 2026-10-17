@@ -3,7 +3,7 @@
 // `ma.config.v1` (docs/sdk/mission-training.md, section 7): read strictly, held to every rule of the contract, and
 // mapped onto the M4 episode's native recipe. Internal to the SDK.
 
-#include "env/MissionEpisode.h"
+#include "training/native/episodes/runtime/MissionEpisode.h"
 #include "fsim/Comm.h"
 
 #include <cstdint>

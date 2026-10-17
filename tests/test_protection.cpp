@@ -2,7 +2,7 @@
 // limited to the envelope, the state's exceedances reported - and never a
 // promise that the aircraft stays inside.
 #include "simulation/flight_control/Protection.h"
-#include "env/VecEnv.h"
+#include "training/native/vecenv/VecEnv.h"
 #include "fsim/BuiltinEffects.h"
 #include "simulation/runtime/world/World.h"
 

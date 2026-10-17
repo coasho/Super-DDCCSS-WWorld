@@ -7,12 +7,12 @@
 
 #include "fsim/MissionEpisode.h"
 
-#include "env/MissionEpisode.h"
+#include "training/native/episodes/runtime/MissionEpisode.h"
 #include "fsim/MAService.h"
 #include "fsim/World.h"
-#include "sdk/MissionConfig.h"
-#include "sdk/MissionEpisodeImpl.h"
-#include "sdk/MissionGateway.h"
+#include "training/native/mission/MissionConfig.h"
+#include "training/native/episodes/api/MissionEpisodeImpl.h"
+#include "training/native/mission/MissionGateway.h"
 
 #include <algorithm>
 #include <memory>

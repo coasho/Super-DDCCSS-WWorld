@@ -1,4 +1,4 @@
-#include "env/Registry.h"
+#include "training/native/vecenv/Registry.h"
 
 #include <algorithm>
 

@@ -4,7 +4,7 @@
 // registration"), like tasks: the built-ins below are registered against the
 // same interfaces trainer code implements.
 
-#include "env/Task.h"
+#include "training/native/vecenv/Task.h"
 #include "fsim/Control.h"
 #include "fsim/VecEnvPlugins.h"
 #include "fsim/VehicleState.h"

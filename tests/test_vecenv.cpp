@@ -1,5 +1,5 @@
 // Environment layer: layout, determinism, auto-reset semantics.
-#include "env/VecEnv.h"
+#include "training/native/vecenv/VecEnv.h"
 #include "fsim/BuiltinEffects.h"
 #include "simulation/runtime/world/World.h"
 

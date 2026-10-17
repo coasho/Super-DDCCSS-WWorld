@@ -1,9 +1,9 @@
-#include "env/Observation.h"
+#include "training/native/vecenv/Observation.h"
 
 #include "simulation/flight_control/Catalog.h"
 #include "foundation/core/Log.h"
 #include "foundation/core/Units.h"
-#include "env/Registry.h"
+#include "training/native/vecenv/Registry.h"
 
 #include <algorithm>
 #include <cmath>

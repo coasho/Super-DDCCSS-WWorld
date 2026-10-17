@@ -1,6 +1,6 @@
 // The mission documents' text (MissionJson.h; docs/sdk/mission-training.md, section 6).
 
-#include "sdk/MissionJson.h"
+#include "training/native/mission/MissionJson.h"
 
 #include <algorithm>
 #include <charconv>

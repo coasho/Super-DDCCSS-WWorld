@@ -9,10 +9,10 @@
 // receipts, deduplication, the snapshot frozen at each tick, the referee's documents. Native semantics, refusals and
 // authority stay the SDK's; the gateway adds only the contract's own checks and its records.
 
-#include "env/MissionEpisode.h"
+#include "training/native/episodes/runtime/MissionEpisode.h"
 #include "fsim/Agent.h"
 #include "fsim/World.h"
-#include "sdk/MissionConfig.h"
+#include "training/native/mission/MissionConfig.h"
 
 #include <cstdint>
 #include <map>

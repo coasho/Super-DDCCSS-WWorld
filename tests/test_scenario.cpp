@@ -4,7 +4,7 @@
 #include "simulation/runtime/world/Scenario.h"
 
 #include "foundation/core/Json.h"
-#include "env/VecEnv.h"
+#include "training/native/vecenv/VecEnv.h"
 #include "simulation/runtime/world/World.h"
 
 #include <catch2/catch_test_macros.hpp>

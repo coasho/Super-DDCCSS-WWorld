@@ -1,7 +1,7 @@
 #pragma once
 
 // Private C VecEnv handle shared by the C owner and C++ wrapper.
-#include "env/VecEnv.h"
+#include "training/native/vecenv/VecEnv.h"
 #include "sdk/Handles.h"
 #include <memory>
 

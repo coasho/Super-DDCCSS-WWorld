@@ -140,7 +140,7 @@ Trainers use public SDK objects. The viewer reads IPC snapshots in its own proce
 | `src/simulation/flight_control` | Control runtime, capability host, VI commands, activities, navigation and routes | [CMake](../src/simulation/flight_control/CMakeLists.txt) |
 | `src/simulation/mission_systems` | Payload host/cards, RF, RCS lookup, radar/tracking, seekers, countermeasures and damage | [CMake](../src/simulation/mission_systems/CMakeLists.txt) |
 | `src/simulation/flight` | JSBSim adapter, flight-model interface, vehicle pool and worker stepping | [CMake](../src/simulation/flight/CMakeLists.txt) |
-| `src/env` | VecEnv, tasks, observations/actions and episode bookkeeping | [CMake](../src/env/CMakeLists.txt) |
+| `src/training/native` | VecEnv, tasks, observations/actions; the mission episode owner; mission configuration, gateway, batches and the public mission facade | [CMake](../src/training/native/CMakeLists.txt) |
 | `src/simulation/environment` | Simulation effects and sensed-state channels | [CMake](../src/simulation/environment/CMakeLists.txt) |
 | `src/simulation/communications/network` | Message fabric, codecs, protocols and media | [CMake](../src/simulation/communications/network/CMakeLists.txt) |
 | `src/foundation/transport` | Shared-memory publication/mirroring, registries and custom binary recordings | [CMake](../src/foundation/transport/CMakeLists.txt) |

@@ -18,11 +18,11 @@
 
 #include "fsim/MissionBatch.h"
 
-#include "env/MissionEpisode.h"
-#include "sdk/MissionConfig.h"
-#include "sdk/MissionEpisodeImpl.h"
-#include "sdk/MissionGateway.h"
-#include "sdk/MissionJson.h"
+#include "training/native/episodes/runtime/MissionEpisode.h"
+#include "training/native/mission/MissionConfig.h"
+#include "training/native/episodes/api/MissionEpisodeImpl.h"
+#include "training/native/mission/MissionGateway.h"
+#include "training/native/mission/MissionJson.h"
 
 #include <algorithm>
 #include <atomic>

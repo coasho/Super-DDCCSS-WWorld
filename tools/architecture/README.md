@@ -362,3 +362,22 @@ equal to their links. Checks:
 - the `simulation_api_link` test links every facade object with only its
   declared closure;
 - the three modules have `include_view_<module>` probes.
+
+## Training extraction (ARCH-05)
+
+`fsim_env` is in `src/training/native`: the legacy VecEnv in `vecenv/` and the
+native mission episode owner in `episodes/runtime/`. The mission
+implementation is the `mission` module (`fsim_training_mission`): `mission/`,
+`batch/`, and the public facade in `episodes/api/`. It is over the native
+episode owner, `simulation_api` and the runtime. The final SDK links it; it
+never links the SDK.
+
+Checks:
+- `test_mission_training_stays_below_the_sdk_assembly_that_links_it` rejects
+  the reverse link (a forbidden kind and a cycle) and an include of the
+  assembly's headers;
+- `training_link` links both training targets whole with only their closure;
+- `include_view_env` and `include_view_mission` probe their environments.
+
+`fsim_include_view` accepts `DIRECTORIES` for a target spread over several
+destination directories.

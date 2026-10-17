@@ -1,7 +1,7 @@
 // Construction options remain independent of episode control and Viewer presentation. Every public field maps to
 // native construction, while episode-owned scenario inputs fail explicitly instead of being silently dropped.
 
-#include "env/MissionEpisode.h"
+#include "training/native/episodes/runtime/MissionEpisode.h"
 #include "fsim/World.h"
 #include "simulation/runtime/world/World.h"
 #include "simulation/api/WorldOptions.h"

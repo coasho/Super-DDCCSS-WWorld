@@ -460,10 +460,20 @@ fsim_include_view_check(session fsim_session
     ALLOWED   simulation/runtime/world/World.h simulation/runtime/services/MaCore.h
               simulation/runtime/stores/StoreFlightBinding.h simulation/communications/dms/Dms.h
               foundation/transport/WorldRegistry.h
-    FORBIDDEN simulation/api/WorldOptions.h env/Registry.h sdk/LastError.h)
+    FORBIDDEN simulation/api/WorldOptions.h training/native/vecenv/Registry.h sdk/LastError.h)
 fsim_include_view_check(simulation_api fsim_simulation_api
     ALLOWED   simulation/api/WorldOptions.h simulation/runtime/world/World.h foundation/transport/Recording.h
-    FORBIDDEN env/Registry.h sdk/Handles.h)
+    FORBIDDEN training/native/vecenv/Registry.h sdk/Handles.h)
+# ARCH-05: training sees the simulation runtime and its lower facade, never the SDK assembly; the native episode
+# owner and VecEnv (env) do not see the mission implementation above them.
+fsim_include_view_check(env fsim_env
+    ALLOWED   training/native/vecenv/Registry.h training/native/episodes/runtime/MissionEpisode.h
+              simulation/api/WorldOptions.h simulation/runtime/world/World.h
+    FORBIDDEN training/native/mission/MissionJson.h sdk/LastError.h)
+fsim_include_view_check(mission fsim_training_mission
+    ALLOWED   training/native/mission/MissionGateway.h training/native/episodes/api/MissionEpisodeImpl.h
+              training/native/episodes/runtime/MissionEpisode.h simulation/api/WorldOptions.h
+    FORBIDDEN sdk/Handles.h sdk/CAbiSupport.h sdk/LastError.h)
 # The check itself, on mutated copies of ms's check: the unmutated and a permitted root pass; src and its ancestors in
 # each spelling (src/., the repository root, src/..), copied src trees, a provider's view removed, a stale probe and an
 # unsupported compiler are refused (cmake/TestCheckIncludeView.cmake).
@@ -480,6 +490,16 @@ target_link_libraries(fsim_simulation_api_link PRIVATE "$<LINK_LIBRARY:WHOLE_ARC
 fsim_set_warnings(fsim_simulation_api_link)
 add_test(NAME simulation_api_link COMMAND fsim_simulation_api_link)
 set_tests_properties(simulation_api_link PROPERTIES LABELS "architecture;simulation" TIMEOUT 60)
+
+# Training links on its own below the SDK assembly (ARCH-05): every object of fsim_training_mission and fsim_env, linked
+# whole into a program with only their declared closure - the lower facade, the runtime and the simulation leaves - so
+# a symbol they needed from the final SDK assembly (fsim), which links them, would not resolve: no
+# training-to-SDK-to-training cycle.
+add_executable(fsim_training_link training_link.cpp)
+target_link_libraries(fsim_training_link PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,fsim::mission,fsim::env>")
+fsim_set_warnings(fsim_training_link)
+add_test(NAME training_link COMMAND fsim_training_link)
+set_tests_properties(training_link PROPERTIES LABELS "architecture;ma-training" TIMEOUT 60)
 
 # Simulation construction, fixed state/transport ABI and output-only diagnostics stay independent of M5.
 add_executable(fsim_simulation_interface_boundary_test

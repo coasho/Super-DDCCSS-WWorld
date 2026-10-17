@@ -4,10 +4,10 @@
 // batch (MissionBatch.cpp: M7 core), which closes a slot's tick as one operation under the episode's boundary
 // (env::EpisodeHold). Not installed.
 
-#include "env/MissionEpisode.h"
+#include "training/native/episodes/runtime/MissionEpisode.h"
 #include "fsim/MissionEpisode.h"
-#include "sdk/MissionConfig.h"
-#include "sdk/MissionGateway.h"
+#include "training/native/mission/MissionConfig.h"
+#include "training/native/mission/MissionGateway.h"
 
 #include <cstdint>
 #include <memory>

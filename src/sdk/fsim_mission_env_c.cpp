@@ -10,7 +10,7 @@
 #include "fsim/MissionBatch.h"
 #include "fsim/MissionEpisode.h"
 #include "sdk/CAbiSupport.h"
-#include "sdk/MissionGateway.h"
+#include "training/native/mission/MissionGateway.h"
 
 #include <algorithm>
 #include <cstring>

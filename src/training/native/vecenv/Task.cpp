@@ -1,9 +1,9 @@
-#include "env/Task.h"
+#include "training/native/vecenv/Task.h"
 
 #include "foundation/core/Log.h"
 #include "foundation/core/Units.h"
-#include "env/Registry.h"
-#include "env/Scenario.h"
+#include "training/native/vecenv/Registry.h"
+#include "training/native/vecenv/Scenario.h"
 
 #include <algorithm>
 #include <cmath>

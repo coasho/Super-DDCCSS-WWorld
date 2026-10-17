@@ -7,8 +7,8 @@
 #include "foundation/core/Log.h"
 #include "sdk/VecEnvHandles.h"
 #include "sdk/LastError.h"
-#include "env/Registry.h"
-#include "env/VecEnv.h"
+#include "training/native/vecenv/Registry.h"
+#include "training/native/vecenv/VecEnv.h"
 
 #include <cstring>
 #include <exception>

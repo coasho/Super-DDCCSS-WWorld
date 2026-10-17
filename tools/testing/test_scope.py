@@ -225,10 +225,12 @@ class PlanTest(unittest.TestCase):
 
     def test_the_legacy_environment_escalates_and_the_mission_episode_owner_does_not(self):
         rules = scope.load_rules()
-        legacy = scope.plan(["src/env/VecEnv.cpp"], rules, TESTS, EXECUTABLES, "targeted", DEPENDENTS)
+        legacy = scope.plan(["src/training/native/vecenv/VecEnv.cpp"], rules, TESTS, EXECUTABLES, "targeted",
+                            DEPENDENTS)
         self.assertTrue(legacy["escalate"])
         self.assertIn("vecenv", legacy["selected"])
-        owner = scope.plan(["src/env/MissionEpisode.cpp"], rules, TESTS, EXECUTABLES, "targeted", DEPENDENTS)
+        owner = scope.plan(["src/training/native/episodes/runtime/MissionEpisode.cpp"], rules, TESTS, EXECUTABLES,
+                           "targeted", DEPENDENTS)
         self.assertFalse(owner["escalate"])
         self.assertIn("MA episode owner (native)", owner["scopes"])
         self.assertNotIn("vecenv", owner["selected"])

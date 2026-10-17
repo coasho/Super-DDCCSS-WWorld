@@ -569,6 +569,32 @@ has not started.
 No full suite ran (HC-11). Register HC-15 asks for a decision on `applyScenario`'s placement; HC-14's remaining
 shared roots are now `env`, `sdk`, the visualization targets, applications, tests and tools.
 
+## Architecture ARCH-05 training environment and mission extraction (2026-10-16, awaiting independent acceptance)
+
+The fifth package of the architecture roadmap is a relocation and target split. The record is
+`docs/architecture/validation/arch-05-training-extraction.md`, with its dated baseline and include environments.
+ARCH-06 has not started.
+
+- **`fsim_env`:** keeps its name. It is now in `src/training/native`, with the legacy VecEnv in `vecenv/` and the
+  native mission episode owner in `episodes/runtime/`.
+- **Mission implementation:** configuration, strict JSON, gateway, batches and the public mission facade leave the
+  SDK assembly. They are the new `fsim_training_mission` (`mission/`, `batch/`, `episodes/api/`), which uses the World
+  and Agent through `simulation_api`. The SDK links it whole and exports its classes, each defined once; no
+  training-to-SDK-to-training cycle remains.
+- **Unchanged:** every first-party object in code, data and symbols (288 headless, 336 Release; 11 moved), and
+  exports, vtables, Python inventories and frozen consumers. No Python source changed.
+
+| Verification | Result |
+| --- | --- |
+| Builds (headless, Release), warnings as errors | 0 warnings |
+| Frozen-baseline compare; frozen C++/C99/Python consumers on the new installed SDK | 19 comparisons, 0 failures, all captures identical; five consumers exit 0 |
+| Installed M6 composition traces (`mission_package_consumer`, both presets) | Byte-identical to the pre-move traces |
+| Fast tier plus the new link gate and include-view probes | Headless 575/575; Release 640/640 |
+| Related training gates outside the tier, including the mission stress cases and the three preopened-handle regressions | 32/32 |
+| Architecture gate; fixtures; selector tests | Accepted (23 modules); 132; 49 |
+
+No full suite ran (HC-11).
+
 ## HC-10 shared-memory padding (2026-10-16, awaiting independent acceptance)
 
 The carryover register's HC-10 is verified and corrected; section 10 of the ARCH-02 record

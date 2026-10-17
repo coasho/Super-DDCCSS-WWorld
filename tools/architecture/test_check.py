@@ -534,6 +534,37 @@ class DomainFixtures(FixtureRepository):
         self.assertIn("dependency-cycle", output)
         self.assertIn("env -> sdk -> env", output)
 
+    def test_mission_training_stays_below_the_sdk_assembly_that_links_it(self):
+        # ARCH-05's shape: the planned mission module registered at its destination over the native episode owner, and
+        # linked by the final assembly - never the other way round
+        del self.policy["planned_modules"]["mission"]
+        self.policy["modules"]["mission"] = {
+            "target": "fsim_training_mission", "aliases": ["fsim::mission"], "domain": "training",
+            "kind": "implementation", "directories": [], "destinations": ["src/training/native/mission"], "files": [],
+            "allowed_dependencies": ["env"], "headless": True}
+        cmake = ("add_library(fsim_training_mission STATIC Gateway.cpp)\n"
+                 "add_library(fsim::mission ALIAS fsim_training_mission)\n"
+                 "target_link_libraries(fsim_training_mission PUBLIC fsim::env)\n")
+        self.write("src/training/native/mission/Gateway.cpp", '#include "env/Header.h"\n')
+        self.write("src/training/native/mission/CMakeLists.txt", cmake)
+        self.link("sdk", "mission")
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+        # the training-to-SDK-to-training cycle, by link
+        self.policy["modules"]["mission"]["allowed_dependencies"] = ["env", "sdk"]
+        self.write("src/training/native/mission/CMakeLists.txt",
+                   cmake + "target_link_libraries(fsim_training_mission PRIVATE fsim::sdk)\n")
+        status, output = self.run_gate()
+        self.assertEqual(status, 1, output)
+        self.assertIn("forbidden-kind: CMake graph: mission (training) -> sdk (adapters) by link: a domain "
+                      "implementation", output)
+        self.assertIn("mission -> sdk -> mission", output)
+        # and by an include of the assembly's private headers
+        self.policy["modules"]["mission"]["allowed_dependencies"] = ["env"]
+        self.write("src/training/native/mission/CMakeLists.txt", cmake)
+        self.write("src/training/native/mission/Gateway.cpp", '#include "env/Header.h"\n#include "sdk/Header.h"\n')
+        self.rejects("undeclared-include", "mission -> sdk: sdk/Header.h")
+
     def test_visualization_core_cannot_depend_on_training(self):
         self.link("world", "env")
         self.rejects("forbidden-domain", "world (visualization) -> env (training) by link")

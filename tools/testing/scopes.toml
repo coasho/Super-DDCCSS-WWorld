@@ -80,7 +80,8 @@ tests = ["^mission_package_consumer$"]
 
 [[scope]]
 name = "MA gateway (native)"
-paths = ["src/sdk/Mission*", "src/sdk/fsim_mission_env_c.cpp"]
+paths = ["src/training/native/mission/**", "src/training/native/batch/**", "src/training/native/episodes/api/**",
+         "src/sdk/fsim_mission_env_c.cpp"]
 tests = ["^ma_actions$", "^ma_observation$", "^mission_training$", "^mission_c_abi$", "^ma_joint$", "^python_sdk test_(mission|ma_joint)",
          "^c_abi$", "^sdk_boundary$"]
 integration = ["^mission_package_consumer$", "^ma_baseline_checker$"]
@@ -88,7 +89,7 @@ integration_labels = ["ma-training"]
 
 [[scope]]
 name = "MA episode owner (native)"
-paths = ["src/env/MissionEpisode.*"]
+paths = ["src/training/native/episodes/runtime/MissionEpisode.*"]
 tests = ["^mission_episode$", "^native_state_reset_fixture$", "^simulation_interface_boundary$", "^ma_actions$", "^mission_training$",
          "^ma_joint$", "^python_sdk test_mission$"]
 integration = ["^mission_package_consumer$"]
@@ -96,7 +97,9 @@ integration_labels = ["ma-training"]
 
 [[scope]]
 name = "MA concurrency"
-paths = ["src/sdk/MissionBatch.cpp", "src/sdk/MissionEpisode.cpp", "src/sdk/MissionEpisodeImpl.h", "src/env/MissionEpisode.*",
+paths = ["src/training/native/batch/MissionBatch.cpp", "src/training/native/episodes/api/MissionEpisode.cpp",
+         "src/training/native/episodes/api/MissionEpisodeImpl.h",
+         "src/training/native/episodes/runtime/MissionEpisode.*",
          "python/src/_native_mission_env.c", "python/fsim/training.py", "include/fsim/MissionBatch.h"]
 labels = ["stress"]
 
@@ -175,8 +178,8 @@ paths = ["src/foundation/core/**", "src/simulation/flight/**", "src/simulation/r
          "src/simulation/flight_control/**", "src/foundation/io/**", "src/simulation/communications/network/**",
          "src/simulation/communications/dms/**", "include/fsim/World.h", "include/fsim/Agent.h",
          "include/fsim/Capability.h", "include/fsim/fsim_c.h", "aircraft/**", "src/simulation/api/**",
-         "src/sdk/fsim.cpp", "src/env/**"]
+         "src/sdk/fsim.cpp", "src/training/native/vecenv/**"]
 # (the legacy environment - VecEnv, tasks, observations, the registry - is linked into libfsim and run by native, C,
-# Python and plugin tests alike; the mission episode owner beside it has its own scope)
-except = ["src/env/MissionEpisode.*"]
+# Python and plugin tests alike; the mission episode owner beside it, in training/native/episodes/runtime, has its own
+# scope)
 full = true

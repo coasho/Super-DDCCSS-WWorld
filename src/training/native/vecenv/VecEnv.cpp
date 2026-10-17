@@ -1,7 +1,7 @@
-#include "env/VecEnv.h"
+#include "training/native/vecenv/VecEnv.h"
 
 #include "foundation/core/Log.h"
-#include "env/Registry.h"
+#include "training/native/vecenv/Registry.h"
 #include "simulation/runtime/services/AgentRules.h"
 #include "simulation/runtime/world/Scenario.h"
 

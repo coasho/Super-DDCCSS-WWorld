@@ -1,5 +1,6 @@
 // Scenario files (design 9.13): parse, dump and apply to a session::World. The runtime applies the native recipe;
-// the VecEnv options a document implies are training's (src/env/ScenarioVecEnv.cpp), not the runtime's.
+// the VecEnv options a document implies are training's (src/training/native/vecenv/ScenarioVecEnv.cpp), not the
+// runtime's.
 
 #include "fsim/ScenarioDocument.h"
 

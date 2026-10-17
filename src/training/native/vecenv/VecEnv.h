@@ -2,9 +2,9 @@
 
 #include "foundation/core/Rng.h"
 #include "foundation/core/Span.h"
-#include "env/Observation.h"
-#include "env/Scenario.h"
-#include "env/Task.h"
+#include "training/native/vecenv/Observation.h"
+#include "training/native/vecenv/Scenario.h"
+#include "training/native/vecenv/Task.h"
 #include "simulation/runtime/world/World.h"
 #include "simulation/flight/GroundProvider.h"
 

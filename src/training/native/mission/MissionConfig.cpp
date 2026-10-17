@@ -1,9 +1,9 @@
 // `ma.config.v1` (MissionConfig.h; docs/sdk/mission-training.md, sections 7, 9, 13 and 14).
 
-#include "sdk/MissionConfig.h"
+#include "training/native/mission/MissionConfig.h"
 
 #include "fsim/Scenario.h"
-#include "sdk/MissionJson.h"
+#include "training/native/mission/MissionJson.h"
 
 #include <algorithm>
 #include <cmath>

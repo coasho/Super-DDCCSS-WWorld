@@ -2,7 +2,7 @@
 // whole on reset; children bound to a generation; seed streams that depend on nothing but their inputs. The native
 // states a reset must clear come from the supplied fixture (docs/sdk/native-state-reset-fixture.md), applied here to
 // the episode's own reset - not to a hand-built replacement World.
-#include "env/MissionEpisode.h"
+#include "training/native/episodes/runtime/MissionEpisode.h"
 #include "fixtures/mission_training/NativeStateReset.h"
 
 #include "foundation/core/Json.h"

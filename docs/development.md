@@ -183,7 +183,7 @@ as data), and runs nothing. So is a Python test module the changes need - the ch
 the change - with no CTest test registered: a module added since the last configure is registered only by a build, and
 the rest of the selection (`sdk_boundary`, say) passing would not have run it. `--build` registers it first; `--run`
 or a plan without it stops, naming the module. A changed native source or build input nothing claims escalates to the full suite instead.
-Legacy environment code (`src/env` apart from the mission episode owner) is linked into `libfsim` and run by native, C,
+Legacy environment code (`src/training/native/vecenv`) is linked into `libfsim` and run by native, C,
 Python and plugin tests alike, so it escalates too. Repository metadata and tools without tests stay unclaimed: their
 change needs the full tier or a reviewed scope.
 

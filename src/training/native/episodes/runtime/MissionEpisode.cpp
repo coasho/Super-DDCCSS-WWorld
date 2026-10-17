@@ -1,6 +1,6 @@
 // Independent mission episodes (MissionEpisode.h; docs/sdk/mission-training.md, sections 4 and 8).
 
-#include "env/MissionEpisode.h"
+#include "training/native/episodes/runtime/MissionEpisode.h"
 
 #include "fsim/Rng.h"
 #include "simulation/runtime/world/Scenario.h"

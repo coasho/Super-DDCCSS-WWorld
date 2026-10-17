@@ -1,5 +1,5 @@
 // IPC and recording are diagnostic outputs. Reader pacing, focus and reconnects must not change native state.
-#include "env/MissionEpisode.h"
+#include "training/native/episodes/runtime/MissionEpisode.h"
 #include "fixtures/mission_training/NativeStateReset.h"
 #include "foundation/transport/Recording.h"
 #include "foundation/transport/WorldMirror.h"
