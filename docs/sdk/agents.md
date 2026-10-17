@@ -2,7 +2,7 @@
 
 An **agent** is a mission autonomy's decisions bound to one aircraft - a script, a planner, a trained policy. A
 **referee** is a read-only view of everything, truth among it - for scoring, rewards and a centralised critic. Both are
-made by the **range**: whoever holds the `World` (ADR-31, [agent-boundary.md](../agent-boundary.md)). Which entry
+made by the **range**: whoever holds the `World` (ADR-31, [agent-boundary.md](../architecture/design/agent-boundary.md)). Which entry
 point belongs to whom is in [boundary.md](boundary.md).
 
 Current capability and milestone scope is tracked in [status](../status.md). Native missile engagement access,

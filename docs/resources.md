@@ -73,7 +73,7 @@ ctest --preset ucrt64-release -R sdk_boundary
 
 Omit `--vision-dll` for a headless build and select that build's paths consistently. `check` uses the same arguments and verifies the rendered inventory. It imports the Python surface and reads exports, so a stale DLL is not evidence for a new API.
 
-RCS generation is separate from Hangar and needs rendering dependencies plus a Vulkan ray-query device. Its executable accepts aircraft types, for example `build/ucrt64-release/bin/flightsim-rcs.exe f16c`; `--out <file>` selects output. Read [mission-systems.md](mission-systems.md) and the tool's settings before rebaking a corpus. A geometry or signature-treatment change can invalidate existing RCS tables; table presence alone does not establish current geometry provenance.
+RCS generation is separate from Hangar and needs rendering dependencies plus a Vulkan ray-query device. Its executable accepts aircraft types, for example `build/ucrt64-release/bin/flightsim-rcs.exe f16c`; `--out <file>` selects output. Read [mission-systems.md](architecture/modules/simulation/adr-30-mission-systems.md) and the tool's settings before rebaking a corpus. A geometry or signature-treatment change can invalidate existing RCS tables; table presence alone does not establish current geometry provenance.
 
 ## Maps and cloud data
 

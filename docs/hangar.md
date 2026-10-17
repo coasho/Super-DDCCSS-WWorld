@@ -119,7 +119,7 @@ code that computes them, changes.
 | model | `<name>.glb`: the airframe as one closed solid, its moving parts on their hinges | no crack, pinch or loose piece; gear stowed inside; length, span and height against `[dimensions]` |
 | verify | JSBSim's forces and moments at 150 random states, compared with the tables | largest error below 0.002 in any coefficient |
 | fly | trim across the speed range; stall; climb and ceiling; top speed (a jet's also at its published height); dynamic modes; 40 runs from random states; six crashes into the ground. A fly-by-wire aircraft instead: top speed at sea level and at the published height, excess power, the ceiling at the best climb speed, sustained turn, the angle-of-attack limiter, a 3 g step from trim, a full-stick roll | `[targets]`, MIL-F-8785C level 1, no diverged run; crashes that stop without blowing up |
-| ground | on its wheels, in the platform's own JSBSim: the circle it turns at 3 m/s with its steering full over each way, and the yaw acceleration its nose wheel gives it as the steering goes over - the profile's `ground_turn_radius_m` and `ground_yaw_accel_rad_s2`, which a taxi plans its corners by ([flight-autonomy.md](flight-autonomy.md), 4.51) | the radius within half to ten times the geometric one (its wheelbase over the tangent of its steering limit); on its wheels throughout |
+| ground | on its wheels, in the platform's own JSBSim: the circle it turns at 3 m/s with its steering full over each way, and the yaw acceleration its nose wheel gives it as the steering goes over - the profile's `ground_turn_radius_m` and `ground_yaw_accel_rad_s2`, which a taxi plans its corners by ([flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md), 4.51) | the radius within half to ten times the geometric one (its wheelbase over the tangent of its steering limit); on its wheels throughout |
 | calibrate | `calibration.toml`: extra drag, and the propeller pitch unless the design gives the real one; for a supersonic jet, the throttle ratio and the wave drag; for a subsonic one, where its wing's drag diverges | `[targets]` |
 | autopilot | `autopilot.toml`: the platform's control loops tuned for it, from small steps flown at a reference condition, written into `<name>.xml` as `fsim/control` properties; the aircraft then flown through standard manoeuvres at the attitude, acceleration and velocity levels at three speeds (`out/autopilot.png`) | no manoeuvre loses control at the reference speed; overshoot and height hold ([The autopilot](#the-autopilot)) |
 | report | `out/report.html` | |
@@ -483,7 +483,7 @@ stage end to end through the platform (`ctest -R hangar`).
   (an estimate after Hoerner, Fluid-Dynamic Lift), from the design's own lift
   table, with that lift's moment. Surfaces deflected as one: their drag from
   the design's own control tables. Written as functions of
-  `fcs/speedbrake-pos-norm` (`drag.py`; [flight-autonomy.md](flight-autonomy.md), 4.55).
+  `fcs/speedbrake-pos-norm` (`drag.py`; [flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md), 4.55).
 - **Gear drag.** Retractable gear extended: Raymer's components (Aircraft
   Design: A Conceptual Approach, 12.5.6, Table 12.6), drag per frontal area
   - each leg's first axle's wheels 0.25 of their diameter by width, a
@@ -495,7 +495,7 @@ stage end to end through the platform (`ctest -R hangar`).
   interference are not counted: a lower bound - ΔCD 0.003 (the RQ-4B) to
   0.013 (the Su-25), the C-17A's 0.0068. Fixed gear's stays in the drag
   area. Without it, gear down or up an approach was the same to the bit
-  ([flight-autonomy.md](flight-autonomy.md), B-13).
+  ([flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md), B-13).
 - **The landing configuration's stall.** Where a design has flaps, the fly
   stage flies a second stall at sea level: its flaps all out, its gear down,
   trimmed by flying while they come down (left alone they upset it), from
@@ -720,7 +720,7 @@ For fighters:
   c-130hercules.net, "C-130 descent technique"). hangar's flight idle was a
   guessed 60 %, a tenth of the core's power: the C-130J's propellers pushed
   26 kN at 70 m/s and it could not come down a glide slope; on 52.5 % they
-  make 8 kN ([flight-autonomy.md](flight-autonomy.md), 4.56).
+  make 8 kN ([flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md), 4.56).
 - **Large aircraft.** A jet climbs best well above a propeller aircraft's
   speeds, at up to 2.8 times its stall speed. A heavy jet's stall run goes
   on until the stall breaks, and every crash test starts with the lowest
@@ -1062,7 +1062,7 @@ The viewer's names for the moving nodes are in
 ## Missiles
 
 A missile is a design like any aircraft (`category = "missile"`), so one file is its picture and, later, its
-aerodynamics (ADR-30, MS-7e: [docs/mission-systems.md](mission-systems.md)). The 24 air-to-air missiles on the store
+aerodynamics (ADR-30, MS-7e: [docs/mission-systems.md](architecture/modules/simulation/adr-30-mission-systems.md)). The 24 air-to-air missiles on the store
 cards (`assets/stores`) are written by one rule for every one of them - `python -m hangar missiles [<name> ...]`
 writes `aircraft/<name>/<name>.toml` and its `paint.toml` from the table in `tools/models/hangar/hangar/missiles.py` - so
 every nation's missiles are drawn the same way:
@@ -1718,10 +1718,10 @@ and the platform treats it as unknown:
 | --- | --- |
 | `identity` | the design's category (fighter, transport, ...) and its law: fly-by-wire or surfaces |
 | `effectors` | the law again, for what the stick means: a load-factor and roll-rate demand, or the surfaces. Also the effectors the design has: flaps if it has a flap channel (which writes their position in degrees and, as JSBSim's `fcs/flap-pos-norm`, as a fraction of their travel: how the platform knows a flap command is done), retractable gear, wheel brakes, and pitch trim where the elevator channel sums one; a speedbrake where it has drag devices, and whether all of them may be opened on an approach (`speedbrake_approach`: airbrakes and surfaces, not spoilers that dump lift) |
-| `envelope` | the pitch attitude its tail touches the ground at on its wheels (`ground_pitch_max_deg`: Methods, Gear); a tail-wheel aircraft's attitude on its main and tail wheels (`tail_wheel_pitch_deg`); the crosswind it lands and takes off in at most (`crosswind_max_ms`, from the design's `[operations] crosswind_kt`: [flight-autonomy.md](flight-autonomy.md), 4.54); its placards (`gear_cas_max_ms`, `flaps/cas_max_ms` and `flaps_threshold`, from `gear_kt`, `flaps_kt` and `flaps_above`: 4.57); the `[flight_control]` limits the design states (g, angle of attack, roll rate), and, for an aircraft without a limiting law, the stall its flight tests flew (its speed and angle). An aircraft whose law will not let a stall be flown has its least speed from the performance tables: their stall at the lowest altitude, at the weight it spawns at (the platform's energy management keeps a margin over it: [flight-autonomy.md](flight-autonomy.md), 4.16). A fly-by-wire design's also says which of them its law enforces (`law_load_factor`, `law_alpha`, `law_roll_rate`): the platform's envelope protection clamps setpoints to those and adds no limiter of its own ([control.md](sdk/control.md#envelope-protection)) |
+| `envelope` | the pitch attitude its tail touches the ground at on its wheels (`ground_pitch_max_deg`: Methods, Gear); a tail-wheel aircraft's attitude on its main and tail wheels (`tail_wheel_pitch_deg`); the crosswind it lands and takes off in at most (`crosswind_max_ms`, from the design's `[operations] crosswind_kt`: [flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md), 4.54); its placards (`gear_cas_max_ms`, `flaps/cas_max_ms` and `flaps_threshold`, from `gear_kt`, `flaps_kt` and `flaps_above`: 4.57); the `[flight_control]` limits the design states (g, angle of attack, roll rate), and, for an aircraft without a limiting law, the stall its flight tests flew (its speed and angle). An aircraft whose law will not let a stall be flown has its least speed from the performance tables: their stall at the lowest altitude, at the weight it spawns at (the platform's energy management keeps a margin over it: [flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md), 4.16). A fly-by-wire design's also says which of them its law enforces (`law_load_factor`, `law_alpha`, `law_roll_rate`): the platform's envelope protection clamps setpoints to those and adds no limiter of its own ([control.md](sdk/control.md#envelope-protection)) |
 | `propulsion` | the engines, their type, afterburning, and the thrust lag the autopilot identified |
 | `plant` | the autopilot's `[reference]` and `[identified]` tables in `autopilot.toml`: the responses to aileron, elevator, rudder and throttle there, each with its lag; and the trim law and zero-lift angle the gains use |
-| `performance` | the flight tests' stall speed, maximum speed, ceiling and climb (`out/fly.json`); its stall in its landing configuration (`stall_flaps_cas_ms`: below); a published final approach speed where the design records one (`approach_cas_ms`, from `[operations] approach_kt`: the platform's recovery flies it, [flight-autonomy.md](flight-autonomy.md), 4.63) |
+| `performance` | the flight tests' stall speed, maximum speed, ceiling and climb (`out/fly.json`); its stall in its landing configuration (`stall_flaps_cas_ms`: below); a published final approach speed where the design records one (`approach_cas_ms`, from `[operations] approach_kt`: the platform's recovery flies it, [flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md), 4.63) |
 | `applicability` | the design's `[applicability]` declarations (below) |
 | `tables` | the performance stage's tables (`out/performance.json`; below) |
 
@@ -1733,7 +1733,7 @@ direct).
 ### Performance and fuel: the tables
 
 The `performance` stage (`hangar/performance.py`; ADR-29 FA-3a,
-[flight-autonomy.md](flight-autonomy.md)) flies what the platform plans
+[flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md)) flies what the platform plans
 with. It flies at seven altitudes: fractions 0, 0.2, 0.4, 0.6, 0.75, 0.85
 and 0.95 of the service ceiling the flight tests found, the lowest at
 100 m. It adds the height where the design publishes its top speed, where
@@ -1858,7 +1858,7 @@ The stage then rebuilds the JSBSim file with the tables in its profile
 The platform's discovery tells a physically unsupported capability (hover on
 an F-16C) from one not built yet, and every such exception rests on a
 declaration in the design with its public source
-([flight-autonomy.md](flight-autonomy.md), section 5):
+([flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md), section 5):
 
 ```toml
 [applicability]

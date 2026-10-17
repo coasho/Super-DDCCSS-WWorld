@@ -10,7 +10,7 @@ World retains lifecycle, traversal, permissions, loadTick, publication and relea
 
 **Tech Stack:** C++17, CMake 3.25+, Windows x64 UCRT64 GCC/Ninja and existing CPython.
 
-**Spec:** [A6 design](../specs/2026-10-12-architecture-store-binding-design.md).
+**Spec:** [A6 design](2026-10-12-architecture-store-binding-design.md).
 
 ## Global constraints and review focus
 

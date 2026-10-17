@@ -9,7 +9,7 @@ passing regression suite nor a newer native engagement feature closes unrelated 
 
 Findings measured and not yet fixed, across the platform: what the stability suite, the mass accounting and the
 viewer work of 2026-10-10 left open (commit a05c5ef). It continues the numbering of
-[flight-autonomy.md](flight-autonomy.md)'s active backlog (B-1 to B-18, all closed there) and keeps its rule: each
+[flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md)'s active backlog (B-1 to B-18, all closed there) and keeps its rule: each
 item says where it was measured and what closes it, and none is dropped because it lies outside the step that found
 it.
 

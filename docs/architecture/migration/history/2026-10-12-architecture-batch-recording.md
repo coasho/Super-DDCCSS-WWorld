@@ -10,7 +10,7 @@ type/buffer/borrowed-World ownership in their original core owners.
 
 **Tech Stack:** C++17, C11, CPython 3.11 stable ABI, CMake 3.25+, Windows UCRT64 GCC/Ninja.
 
-**Spec:** [A5 design](../specs/2026-10-12-architecture-batch-recording-design.md).
+**Spec:** [A5 design](2026-10-12-architecture-batch-recording-design.md).
 
 ## Constraints
 

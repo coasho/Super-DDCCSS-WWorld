@@ -236,7 +236,7 @@ Missing extensions fail explicitly. Missing fixtures/evidence remain pending gat
 Implement the core gateway and noncombat handlers. Freeze extension contracts before facade integration; consume supplied handlers without changing their native semantics. A core-only pass does not complete full M5 program acceptance.
 
 Before exporting the facade, independently verify the accepted M4 inputs and the
-[simulation/interface boundary prerequisites](../specs/2026-10-15-simulation-interface-boundaries.md). Keep the
+[simulation/interface boundary prerequisites](../../architecture/design/simulation-interface-boundaries.md). Keep the
 native setup callbacks internal and public state/transport layouts fixed. Do not implement formal decision systems
 or training algorithms; fixtures only exercise the public interfaces. Disagreements or missing prerequisites must
 be reported with evidence before dependent implementation proceeds.

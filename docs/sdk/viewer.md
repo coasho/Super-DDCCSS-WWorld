@@ -226,7 +226,7 @@ length, its width or its fins' reach measured on the mesh's own vertices ([hanga
 
 ## Flight status
 
-A live world publishes, with each snapshot, what each vehicle's Vehicle Interface has of it ([vehicle-interface.md](../vehicle-interface.md), 7.3):
+A live world publishes, with each snapshot, what each vehicle's Vehicle Interface has of it ([vehicle-interface.md](../architecture/modules/simulation/vehicle-interface.md), 7.3):
 
 | Shown | Where | What |
 | --- | --- | --- |

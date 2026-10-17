@@ -6,7 +6,7 @@
 
 **Tech Stack:** C++17, C11, CPython 3.11 stable ABI, CMake 3.25+, Windows UCRT64 GCC.
 
-**Spec:** [A2 design](../specs/2026-10-12-architecture-lifecycle-design.md).
+**Spec:** [A2 design](2026-10-12-architecture-lifecycle-design.md).
 
 ## Global constraints
 
@@ -73,5 +73,5 @@
 - Completed all three bounded tasks. Independent review found no actionable issues in the integrated diff.
 - Fresh acceptance passed: 547 functional CTest cases in 325.12 seconds and three architecture gates in 2.51 seconds, covering 550 distinct cases. Targeted MA acceptance passed six internal cases with 4,134 assertions and three public cases with 105 assertions; seven Python compatibility tests passed on the baseline, rebuilt adapter and final staged module.
 - C extraction is literal, and all 49 Python bodies plus shared helpers/registrations match their baseline. All 1,338 SDK exports and the sole Python export match. All 3,204 protected file hashes and 1,230 distribution runtime hashes match; distributed DLLs match the independently tested installed consumer.
-- [Status and evidence](../../status.md#architecture-a2-verification-2026-10-12) records commands, logs, pre-refactor fixture corrections, review and skipped configurations. Whole-State public history and unanswered ended-strike requests remain retained by design; map scanning and controller ownership are unchanged.
+- [Status and evidence](../../../status.md#architecture-a2-verification-2026-10-12) records commands, logs, pre-refactor fixture corrections, review and skipped configurations. Whole-State public history and unanswered ended-strike requests remain retained by design; map scanning and controller ownership are unchanged.
 - Stopping point reached after A2 acceptance. A2 was subsequently committed as `34e5516` at the user's request before A3; no push or new feature milestone.

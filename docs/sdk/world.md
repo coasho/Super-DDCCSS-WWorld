@@ -33,7 +33,7 @@ struct WorldOptions {
 With `terrain = true` the ground under every vehicle is the same relief the
 viewer renders (AWS Terrarium tiles, sea clamped to 0 m): gear contact, AGL
 and `onGround` spawns use it - level 15, the raster the viewer draws close up, read as the viewer reads it, so a
-vehicle stands on the ground on screen to a metre or better ([flight-autonomy.md](../flight-autonomy.md), 4.68).
+vehicle stands on the ground on screen to a metre or better ([flight-autonomy.md](../architecture/modules/simulation/flight-autonomy.md), 4.68).
 Tiles are read from the local map set - `maps/` beside the program, the
 viewer's own (`assets/maps` in the source tree, filled by `fetch-maps.cmd`;
 `FSIM_MAPS_DIR` overrides) - loaded around each new vehicle (blocking,
@@ -49,13 +49,13 @@ false leaves them their mass only. Implement `fsim::GroundProvider` for a custom
 height model (a single virtual, thread-safe call). The same ground answers `World::terrainHeightM(lat, lon)` - empty where
 the provider has no data, which the physics reads as sea level - and every route, pattern, curve and hsa a vehicle is
 commanded is checked against it: a path into the ground is refused `terrain_conflict`, the place it would meet it named
-([flight-autonomy.md](../flight-autonomy.md), 4.19). A provider may also override `knownHeightAboveEllipsoidM` (to say
+([flight-autonomy.md](../architecture/modules/simulation/flight-autonomy.md), 4.19). A provider may also override `knownHeightAboveEllipsoidM` (to say
 where it has no data) and `resolutionM` (its data's spacing, which paths are sampled at: 30 m unless it says).
 
 A vehicle that strikes the ground - a point of it more than 1 m into it, deeper than any gear gives - is stopped where it
 struck, on the surface, at rest, with `crashed` set in its state, until it is reset; its activities end Failed `crashed`.
 One started in the air under the ground is stopped on its surface as it starts
-([flight-autonomy.md](../flight-autonomy.md), 4.68).
+([flight-autonomy.md](../architecture/modules/simulation/flight-autonomy.md), 4.68).
 
 With `recordPath` set the world appends every vehicle's state (and each
 creation, reset and removal) to a `.fsrec` file as it steps, independent of

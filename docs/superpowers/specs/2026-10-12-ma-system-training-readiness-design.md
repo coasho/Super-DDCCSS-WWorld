@@ -248,7 +248,7 @@ Deferred work: production MA/BT/planning framework, DRL algorithms/trained polic
 
 ## References
 
-- [Agent boundary and training principles](../../agent-boundary.md).
+- [Agent boundary and training principles](../../architecture/design/agent-boundary.md).
 - [Public Agent interfaces](../../sdk/agents.md).
 - [Existing flight VecEnv](../../sdk/vecenv.md).
 - [Native engagement contract](../../sdk/engagement.md).

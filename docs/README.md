@@ -27,25 +27,25 @@ These documents explain rationale, intended contracts and domain plans. A roadma
 
 | Document | Role |
 | --- | --- |
-| [System architecture and design](FlightSim_System_Architecture_and_Design.md) | Overall design, requirements, module relationships, performance targets, milestone history and ADR register |
+| [System architecture and design](architecture/design/platform-baseline.md) | Overall design, requirements, module relationships, performance targets, milestone history and ADR register |
 | [Control architecture (ADR-26)](control-architecture.md) | Capability contracts over the control runtime |
 | [Rotorcraft (ADR-27)](rotorcraft.md) | Rotorcraft decisions and capability integration |
-| [Vehicle Interface (ADR-28)](vehicle-interface.md) | Flight semantics and the public control interface |
-| [Flight Autonomy (ADR-29)](flight-autonomy.md) | Native autonomy stages and their design/acceptance rationale |
-| [Mission Systems (ADR-30)](mission-systems.md) | Payload, sensor and weapon design with domain milestone planning |
-| [Agents and authority (ADR-31)](agent-boundary.md) | Mission autonomy, platform and range authority decisions |
-| [Simulation/interface evolution boundary](superpowers/specs/2026-10-15-simulation-interface-boundaries.md) | Construction mapping, World ownership, actor separation and fixed public/Viewer transport layouts before M5 |
+| [Vehicle Interface (ADR-28)](architecture/modules/simulation/vehicle-interface.md) | Flight semantics and the public control interface |
+| [Flight Autonomy (ADR-29)](architecture/modules/simulation/flight-autonomy.md) | Native autonomy stages and their design/acceptance rationale |
+| [Mission Systems (ADR-30)](architecture/modules/simulation/adr-30-mission-systems.md) | Payload, sensor and weapon design with domain milestone planning |
+| [Agents and authority (ADR-31)](architecture/design/agent-boundary.md) | Mission autonomy, platform and range authority decisions |
+| [Simulation/interface evolution boundary](architecture/design/simulation-interface-boundaries.md) | Construction mapping, World ownership, actor separation and fixed public/Viewer transport layouts before M5 |
 | [Composite MA and training design](superpowers/specs/2026-10-12-ma-system-training-readiness-design.md) | Accepted upper-layer MA ownership, P2P/C2 boundaries, independent episode and training contracts |
 | [Claude MA implementation plan](superpowers/plans/2026-10-12-ma-system-training-readiness.md) | Claude vertical implementation packages, required inputs, verification and integration gates |
 | [Claude MA work allocation](superpowers/plans/2026-10-12-ma-system-training-work-allocation.md) | Complete Claude feature assignments, file allowlists, handoffs and first delivery package |
 | [Backlog](backlog.md) | Measured findings, priorities and closure conditions |
-| [SDK missile engagement design](superpowers/specs/2026-10-11-sdk-missile-engagement-design.md) | Dated implementation specification and its starting assumptions |
-| [Architecture A1 maintenance](superpowers/specs/2026-10-11-architecture-maintenance-design.md) | Third-pass findings, initial boundary/domain refactor and prioritized remaining architecture work |
-| [Architecture A2 maintenance](superpowers/specs/2026-10-12-architecture-lifecycle-design.md) | MA retirement with retained public history and C/Python native DMS/C2 ownership |
-| [Architecture A3 maintenance](superpowers/specs/2026-10-12-architecture-adapters-design.md) | C control/VI and Python control/Mission ownership with unchanged public contracts |
-| [Architecture A4 maintenance](superpowers/specs/2026-10-12-architecture-world-adapters-design.md) | World, Scenario and Environment adapters with retained runtime and registration ownership |
-| [Architecture A5 maintenance](superpowers/specs/2026-10-12-architecture-batch-recording-design.md) | VecEnv and Recording adapters with retained C++ wrappers, types and zero-copy ownership |
-| [Architecture A6 maintenance](superpowers/specs/2026-10-12-architecture-store-binding-design.md) | World store-to-flight-model binding state with retained lifecycle, weighing cadence and simulation order |
+| [SDK missile engagement design](architecture/modules/simulation/native-engagement-design.md) | Dated implementation specification and its starting assumptions |
+| [Architecture A1 maintenance](architecture/migration/history/2026-10-11-architecture-maintenance-design.md) | Third-pass findings, initial boundary/domain refactor and prioritized remaining architecture work |
+| [Architecture A2 maintenance](architecture/migration/history/2026-10-12-architecture-lifecycle-design.md) | MA retirement with retained public history and C/Python native DMS/C2 ownership |
+| [Architecture A3 maintenance](architecture/migration/history/2026-10-12-architecture-adapters-design.md) | C control/VI and Python control/Mission ownership with unchanged public contracts |
+| [Architecture A4 maintenance](architecture/migration/history/2026-10-12-architecture-world-adapters-design.md) | World, Scenario and Environment adapters with retained runtime and registration ownership |
+| [Architecture A5 maintenance](architecture/migration/history/2026-10-12-architecture-batch-recording-design.md) | VecEnv and Recording adapters with retained C++ wrappers, types and zero-copy ownership |
+| [Architecture A6 maintenance](architecture/migration/history/2026-10-12-architecture-store-binding-design.md) | World store-to-flight-model binding state with retained lifecycle, weighing cadence and simulation order |
 | [Native dependency acceptance](../tools/architecture/README.md) | Executable module policy, checker scope and regression fixtures |
 
 ## Recorded and generated evidence

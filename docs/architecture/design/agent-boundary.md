@@ -20,7 +20,7 @@ stages add datalinks and C2: the boundary has to exist before they are built on 
 | # | Finding | Where |
 | --- | --- | --- |
 | L1 | One object for every role. `Vehicle` offers MA's calls (VI and MS commands, reports) beside scenario calls (`loadStore`, `loadLoadout`, `failPayload`, `reset`, `addEffect`), configuration (`setAllowed`, `revokeControl`, `setCapabilityPrecedence`, `setControlMode`, `setProtection`), internals (`controls()`, `use()`) and truth (`state()`) | `include/fsim/World.h` |
-| L2 | Identity is declared, not given. A caller picks its `Source` (`Policy`, `Autopilot`, `Override`) and its `ControllerId`; a policy can claim `Override` and pre-empt anything, or name another controller | `Capability.h` (`Source`, `Caller`); [flight-autonomy.md](flight-autonomy.md) 4.12: "Controllers, like sources, are declared, not authenticated" |
+| L2 | Identity is declared, not given. A caller picks its `Source` (`Policy`, `Autopilot`, `Override`) and its `ControllerId`; a policy can claim `Override` and pre-empt anything, or name another controller | `Capability.h` (`Source`, `Caller`); [flight-autonomy.md](../modules/simulation/flight-autonomy.md) 4.12: "Controllers, like sources, are declared, not authenticated" |
 | L3 | Truth inside MA's reports. A radar's detections and tracks carry `truth`, the entity that made them ("for scoring"), in the same struct MA reads | `MissionSystems.h` (`AmtiDetection::truth`, `AmtiTrack::truth`); `python/fsim/world.py` |
 | L4 | Other aircraft named by entity id. A strike's target, a behaviour's target, a must fly's `Entity` location, a reference frame following a vehicle and a weapon's record name the simulation's entity; a pursuit, an evasion or a must fly given one flies on that aircraft's true state | `StrikeCommand::target`, `BehaviorCommand::target`, `MustFlyLocation::Entity`, `FrameSpec`, `WeaponRecord::target` |
 | L5 | The batch layer's observations are built from truth. `ObservationBuilder::build` receives the vehicle's true `VehicleState`; the built-in `state` observation equals the navigation solution only because navigation is perfect today | `VecEnvPlugins.h` |
@@ -28,7 +28,7 @@ stages add datalinks and C2: the boundary has to exist before they are built on 
 | L7 | World queries that are the referee's: every vehicle's state, the weapons list, the radio path between any two entities | `World.h` (`radioPath`, `weapons`, vehicle lists) |
 | L8 | Plug-ins see all truth. Controllers, behaviours, effects and protocols registered into the platform receive `WorldView` (every vehicle's state). MA logic written as a plug-in bypasses every boundary | `Control.h` (`WorldView`, `ControlContext::state`), `ControllerRegistry.h` |
 | L9 | One process. A Python or C++ MA in the trainer's process can import the SDK and call anything. The API can make leaks impossible *by accident*; only a process boundary makes them impossible *by intent* | - |
-| L10 | C2's designations are a direct call. `setAllowed` (AUT-07, "C2 designations") is called by whoever holds the `Vehicle`; there is no C2, no message and no check of who may designate | `World.h`; [flight-autonomy.md](flight-autonomy.md) appendix, AUT-07 |
+| L10 | C2's designations are a direct call. `setAllowed` (AUT-07, "C2 designations") is called by whoever holds the `Vehicle`; there is no C2, no message and no check of who may designate | `World.h`; [flight-autonomy.md](../modules/simulation/flight-autonomy.md) appendix, AUT-07 |
 | L11 | Mission data is world-global. Operational points, zones, lines and volumes and reference frames are kept by the world: what one MA defines, every MA reads and flies to (found by AB-1) | `World::setOpZone` and the rest, `World::createFrame` |
 
 What is already right and stays: A-GRA's split of MA and FA behind the VI (ADR-28); grants per capability and named
@@ -72,19 +72,19 @@ in the simulated world.
 | **MA core** | The part of A-GRA's MA that applies rules (A6-A12): it authenticates and authorizes received messages, forwards C2's control designations to FA, executes authorized direct commands and overrides, applies the approval and weapons authorization policies, runs C2's lost-communication responses and answers unauthorized requests. The SDK World owns this runtime with entity-keyed state | Apply native authority rules on behalf of the bound service; target/task/course-of-action decisions belong in the upper layer |
 | **Agent** | A permission-scoped SDK endpoint minted by Range for one platform or C2 entity. Upper-layer scripts, planners, learned actors, human operators or a composite MA use its reports and commands | Read what its bound platform/system and MA core report to it, and act through their permitted interfaces (section 6) |
 
-Current [MaCore state](../src/simulation/runtime/services/MaCore.h) is keyed by entity; [World](../src/simulation/runtime/world/World.h) owns the runtime.
+Current [MaCore state](../../../src/simulation/runtime/services/MaCore.h) is keyed by entity; [World](../../../src/simulation/runtime/world/World.h) owns the runtime.
 An upper-layer MA may contain multiple actors, behavior trees, algorithms and internal services behind an endpoint.
 Explicit configured service/capability/DMS ownership is a planned additive extension in the
-[MA integration design](superpowers/specs/2026-10-12-ma-system-training-readiness-design.md); it is not implemented by creating more Agent handles.
+[MA integration design](../../superpowers/specs/2026-10-12-ma-system-training-readiness-design.md); it is not implemented by creating more Agent handles.
 Its identities, ownership rules and principals are in the
-[mission training contract](sdk/mission-training.md#9-service-binding), and the binding itself is implemented
+[mission training contract](../../sdk/mission-training.md#9-service-binding), and the binding itself is implemented
 (`fsim/MAService.h`, `fsim_world_bind_ma_service`, `World.bind_ma_service`): on a platform the range binds, grants, C2
 effects and each side of the DMS follow the bindings. On a platform it binds nothing on, a C2 control designation's
 grants, a C2 override applied to a live HSA and a lost-communication plan activation still go to the platform's most
 recently created Agent; that legacy behaviour is unchanged.
 An Agent's reports also come with their provenance (`fsim/MAReports.h`, `fsim_agent_report`, `agent.report_*`): the
 values its reads already give, each with its source, sample and receive times, age and validity, and nothing the
-referee alone knows ([legal report calls](sdk/mission-training.md#legal-report-calls-noncombat-m2)).
+referee alone knows ([legal report calls](../../sdk/mission-training.md#legal-report-calls-noncombat-m2)).
 
 A C2 node is a principal-bearing node like a platform: a compute and communications node with a position and
 communication endpoints (the owner, 2026-10-07), not a ground vehicle, so D7 (no ground entities) is unaffected. A C2
@@ -323,8 +323,8 @@ Dissemination Plan and the picture, received tracks as designations. Each in C++
 ### Progress
 
 - **AB-1, classification (2026-10-07).** Every entry point of the SDK - 1,270: 539 C++ and 389 C exported by the DLLs,
-  342 Python - belongs to one principal in [sdk/boundary.toml](sdk/boundary.toml), rendered as
-  [sdk/boundary.md](sdk/boundary.md). The surface is read, not declared: `tools/validation/boundary/boundary.py` takes the DLLs'
+  342 Python - belongs to one principal in [sdk/boundary.toml](../../sdk/boundary.toml), rendered as
+  [sdk/boundary.md](../../sdk/boundary.md). The surface is read, not declared: `tools/validation/boundary/boundary.py` takes the DLLs'
   export tables (objdump, c++filt) and imports the Python package (and the calls a world and a vehicle bind per
   instance). ctest's `sdk_boundary` fails on an entry point no rule classifies, on a rule that classifies nothing, on a
   name two rules list, on a call of the role-mixing objects (`World`, `Vehicle`, activities, the network, the cameras)
@@ -359,7 +359,7 @@ Dissemination Plan and the picture, received tracks as designations. Each in C++
 
   Tests: the C++ SDK's (7 cases), the C ABI's (an agent's handle refused the range's calls, scoped, as itself), the
   Python SDK's; `sdk_boundary` (1,497 entry points, every guard). L11 (mission data) stays open until AB-2c. Guide:
-  [sdk/agents.md](sdk/agents.md); example: `examples/simulation/python/agent.py`.
+  [sdk/agents.md](../../sdk/agents.md); example: `examples/simulation/python/agent.py`.
 
 - **AB-2b, targets by track (2026-10-07).** A vehicle designates one of its radar's tracks as a target (A-GRA's target
   designation, C2 1.2.15.10): `designate(payload, track)` gives a target id from 0x80000001, never an entity's. A

@@ -6,7 +6,7 @@
 
 **Tech Stack:** C++17, C ABI, Python standard-library checks, CMake 3.25+, Windows UCRT64 GCC.
 
-**Spec:** [Architecture maintenance design](../specs/2026-10-11-architecture-maintenance-design.md).
+**Spec:** [Architecture maintenance design](2026-10-11-architecture-maintenance-design.md).
 
 ## Global constraints
 
@@ -55,4 +55,4 @@ Check classification of shared-directory targets and unconfigured renderer sourc
 - Read-only native, SDK and dependency audits selected three independent A1 tasks. Stateful lifecycle, Python public-class identity and GPU orchestration changes are deferred explicitly.
 - A1 implementation and independent review are complete. The headless functional run passed 538 cases in 325.27 seconds; three architecture cases passed separately, including 33 module fixtures and 22 C guard test methods. All 1,338 DLL export names match the captured baseline.
 - Architecture checks also passed with Python SDK bindings disabled. Public headers and model/source resources remain unchanged. Third-pass changes remain uncommitted for review.
-- See [current status](../../status.md#architecture-a1-verification-2026-10-11) for commands, raw logs, the initial shell-command failure and untested configurations.
+- See [current status](../../../status.md#architecture-a1-verification-2026-10-11) for commands, raw logs, the initial shell-command failure and untested configurations.

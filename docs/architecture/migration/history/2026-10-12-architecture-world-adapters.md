@@ -10,7 +10,7 @@ field metadata and central Python registration. Characterize A3 first, then comp
 
 **Tech Stack:** C++17, C11, CPython 3.11 stable ABI, CMake 3.25+, Windows UCRT64 GCC/Ninja.
 
-**Spec:** [A4 design](../specs/2026-10-12-architecture-world-adapters-design.md).
+**Spec:** [A4 design](2026-10-12-architecture-world-adapters-design.md).
 
 ## Global constraints
 

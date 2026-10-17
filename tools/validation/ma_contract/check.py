@@ -33,7 +33,7 @@ CONTRACT = "docs/sdk/mission-training.md"
 # Written for this contract: held to printable ASCII as well as to their links.
 PAGES = (CONTRACT, "docs/sdk/ma-composition.md", "docs/sdk/ma-compatibility-baseline.md")
 # Pages that lead to them: their local links are checked.
-LINKING = ("docs/README.md", "docs/sdk/README.md", "docs/sdk/agents.md", "docs/agent-boundary.md", "docs/status.md",
+LINKING = ("docs/README.md", "docs/sdk/README.md", "docs/sdk/agents.md", "docs/architecture/design/agent-boundary.md", "docs/status.md",
            "docs/development.md",
            "docs/superpowers/specs/2026-10-12-ma-system-training-readiness-design.md",
            "docs/superpowers/plans/2026-10-12-ma-system-training-readiness.md",

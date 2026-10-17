@@ -3,10 +3,10 @@
 | | |
 | --- | --- |
 | Status | Accepted 2026-09-27. After the audit of section 1.2 the owner approved the goal and gave the directions of section 2, then approved this record with two clarifications (D13, D14). Implemented in the order of section 8: FA-1 done 2026-09-27 (section 14) |
-| Extends | ADR-28 ([vehicle-interface.md](vehicle-interface.md)): its modes, path follower, grants, reports and gates stand, and its deferred work (ADR-28 section 10) becomes this record's scope. ADR-26 ([control-architecture.md](control-architecture.md)): three of its rules change. Its "no plan engine" narrows to a store of route plans and flight tasks with the VI's activation states, still with no workflow engine (section 8, FA-2 and FA-7). Commands may be ranked, queued and given time windows, with the sources' precedence underneath (FA-2). Availability gains flight phases, and discovery gains the support states of section 4. ADR-27 ([rotorcraft.md](rotorcraft.md)) for the rotorcraft |
+| Extends | ADR-28 ([vehicle-interface.md](vehicle-interface.md)): its modes, path follower, grants, reports and gates stand, and its deferred work (ADR-28 section 10) becomes this record's scope. ADR-26 ([control-architecture.md](../../../control-architecture.md)): three of its rules change. Its "no plan engine" narrows to a store of route plans and flight tasks with the VI's activation states, still with no workflow engine (section 8, FA-2 and FA-7). Commands may be ranked, queued and given time windows, with the sources' precedence underneath (FA-2). Availability gains flight phases, and discovery gains the support states of section 4. ADR-27 ([rotorcraft.md](../../../rotorcraft.md)) for the rotorcraft |
 | Scope | Every Flight Autonomy command, parameter, semantic and function that the VI volume and the 6.0a schema define, on each of the 35 aircraft to which it applies, in C++, the C ABI and Python. Also the supporting environment and subsystem models these need, kept minimal and deterministic |
 | Reference | A-GRA ASK 6.0a, from the public repository open-arsenal/a-gra: the *VI L1 Interface Volume* v6.0a (sections 1.1-1.4 and its extension tables A-1-40 to A-1-170) and *A-GRA_MessageDefinitions_v6_0_a.xsd*. Read for semantics; neither is in this repository |
-| Related | [sdk/control.md](sdk/control.md), [sdk/c_abi.md](sdk/c_abi.md), [sdk/python.md](sdk/python.md), [hangar.md](hangar.md), [design document](FlightSim_System_Architecture_and_Design.md) §9.3 |
+| Related | [sdk/control.md](../../../sdk/control.md), [sdk/c_abi.md](../../../sdk/c_abi.md), [sdk/python.md](../../../sdk/python.md), [hangar.md](../../../hangar.md), [design document](../../design/platform-baseline.md) §9.3 |
 
 ## 1. Context
 
@@ -316,7 +316,7 @@ What an activity flies and where to, read back as A-GRA's activity report carrie
 
 The performance tables (SUB-02) record what an aircraft flies level, climbs and descends at, and the fuel it burns, against altitude, weight and speed. FA-3's performance profile, energy management, speed optimisation and endurance all stand on them.
 
-- **Flown by hangar.** Its `performance` stage ([hangar.md](hangar.md), "Performance and fuel") flies every fixed-wing design in the platform's own JSBSim, through its velocity loop with the envelope protection off:
+- **Flown by hangar.** Its `performance` stage ([hangar.md](../../../hangar.md), "Performance and fuel") flies every fixed-wing design in the platform's own JSBSim, through its velocity loop with the envelope protection off:
   - It flies at seven altitudes: 0, 0.2, 0.4, 0.6, 0.75, 0.85 and 0.95 of the service ceiling its flight tests found, the lowest at 100 m, plus the height the design publishes its top speed at. It flies three weights, the tanks a tenth, half and wholly full of their capacity, plus the weight the aircraft file starts at where that is none of them (the B-52H's 40 %). An aircraft without fuel flies one weight.
   - **Full power, level:** the excess power at each speed, the top level speed and the best climb; the run's first 8 s, the engines spooling up, are left out.
   - **Short runs where that run did not fly.** Each is flown as the flight tests fly their ceiling runs: 10 s level at its speed, then 20 s at full power, counted only where it held its height at 1 g. They go where the long run left gaps:
@@ -333,7 +333,7 @@ The performance tables (SUB-02) record what an aircraft flies level, climbs and 
   - the climb, against a climb flown again at a held rate, since the flight test's airspeed hold counts speed bled off as climb.
 
   The tables are also checked against themselves where no test reaches: at every altitude flown at every weight, the lighter aircraft climbs better and flies higher. Section 14 has the measurements.
-- **Carried in the profile.** The `tables` section ([control-architecture.md](control-architecture.md), 7.2) carries:
+- **Carried in the profile.** The `tables` section ([control-architecture.md](../../../control-architecture.md), 7.2) carries:
   - the axes;
   - per condition: the least and top level speeds; the top a level acceleration reaches, short of the top past a drag rise it cannot pass; the stall; the best-endurance and best-range speeds with their fuel flows; the best climb and its speed;
   - per level point: its fuel flow (where it held) and the excess power at full power and at idle;
@@ -342,7 +342,7 @@ The performance tables (SUB-02) record what an aircraft flies level, climbs and 
   A stock JSBSim aircraft has none.
 - **Looked up** (`tablesAt`, `tablesCeilingM`, fsim/VehicleProfile.h). Values are linear in altitude and weight between the conditions flown, and along each condition's band at the same fraction of it. At a speed (FA-3e), each altitude row is read at the same equivalent airspeed, where the drag changes little with height: at 3,000 m, between the Su-27S's rows at 100 m and 4,000 m, the same fraction had read its burn 12 % high. A condition or point is read at its own value, whatever its neighbour's. Below the lowest altitude a lookup takes that row's values, and in weight it runs on down to the tanks empty. A lookup is NaN above the altitudes flown, or where a condition it lies between was not flown (above that weight's ceiling). The ceiling is where the best climb first falls below 0.5 m/s; an altitude nothing held level at climbs nothing, as the flight tests count it. Still climbing at the highest row, the highest two's line is extended, but no further than as high again: the fixed wings' reached at most 42 % above their rows, a rotorcraft's tens of times. An axis that is not strictly rising is refused.
 - **Energy: fuel or a battery** (FA-3b). An aircraft that flies on a battery has the power its battery gives where one that burns fuel has its fuel flow (`powerW`, `bestEndurancePowerW`, `bestRangePowerW`, `batteryCapacityJ`). Its best speeds are the least power's and the most distance per joule's. The Skua's band begins at its least speed, 1.15 times the stall: an electric motor gives full power at once, and the full-power run is past its slow speeds within the second it is recorded from.
-- **The rotorcraft** (FA-3b; [hangar.md](hangar.md), "Rotorcraft") fly theirs with the fly stage's hold:
+- **The rotorcraft** (FA-3b; [hangar.md](../../../hangar.md), "Rotorcraft") fly theirs with the fly stage's hold:
   - four rows, 100 m to 3,000 m (their models' power does not fall with the air's density: no ceiling within reach);
   - a helicopter's three weights, a multirotor's one;
   - level from the hover to 97 % of the top level speed, the top found within the power and the tilt the platform's velocity loop flies within (FA-3e: the multirotors had flown to the design's whole pitch limit, to speeds the platform does not fly);
@@ -429,7 +429,7 @@ Energy management (HSA-10, CTG-04) keeps a wing from trading its airspeed for he
   - below its least, a descent of 0.5 m/s for each m/s short.
 
   A climb asked for more than the power gives settles where the power holds the climb that the margin affords. The C172 at full power climbs at 0.8 m/s at 1.16 times its least. The 1.1 is FA-3's criterion.
-- **Where it acts.** It is envelope protection's, in `Limit`, the default with an envelope. It limits the vertical speed at the velocity level, as the flight path the pitch limits allow already does ([control-architecture.md](control-architecture.md), 11.3). So:
+- **Where it acts.** It is envelope protection's, in `Limit`, the default with an envelope. It limits the vertical speed at the velocity level, as the flight path the pitch limits allow already does ([control-architecture.md](../../../control-architecture.md), 11.3). So:
   - every mode a wing flies through its velocity level has it: HSA and hold, routes, patterns and curves, pursuit, evasion and formation, and a velocity command itself;
   - an attitude, acceleration or actuator command is flown as given, within the attitude limits;
   - a rotorcraft has no least airspeed, so no rule: its climb costs no airspeed;
@@ -458,8 +458,8 @@ A speed optimisation (HSA-05, LTR-17; A-GRA's SpeedOptimizationEnum, PathSegment
 - **Reported.** The setpoint keeps the optimisation and the speed resolved. The progress gives the speed flown now, a true airspeed.
 - **Without tables** - a stock JSBSim aircraft, which hangar has flown none for - it is not implemented. Its support table says so (the tables are FA-3's), and a command asking for one is refused `not_implemented`, the field named.
 - **Two things it found, fixed** (section 14):
-  - The multirotors' tables had been flown to their design's whole pitch limit (35° and 30°), past the 28° and 24° their velocity loop flies within. Their best range lay at the top of speeds the platform does not fly. hangar now flies every rotorcraft's tables within its loop's tilt ([hangar.md](hangar.md)).
-  - The rotor velocity loop's integral trimmed half its tilt, so a speed whose drag needs more was flown short: the Crazyflie's best range needs 22 of its 24°, and was flown 15 % short along the nose. The integral now trims the whole tilt forward and half sideways, as an orbit needs ([rotorcraft.md](rotorcraft.md)).
+  - The multirotors' tables had been flown to their design's whole pitch limit (35° and 30°), past the 28° and 24° their velocity loop flies within. Their best range lay at the top of speeds the platform does not fly. hangar now flies every rotorcraft's tables within its loop's tilt ([hangar.md](../../../hangar.md)).
+  - The rotor velocity loop's integral trimmed half its tilt, so a speed whose drag needs more was flown short: the Crazyflie's best range needs 22 of its 24°, and was flown 15 % short along the nose. The integral now trims the whole tilt forward and half sideways, as an orbit needs ([rotorcraft.md](../../../rotorcraft.md)).
 - **Surfaces.**
   - C++: `HsaCommand::speedOptimization`, `PatternCommand::speedOptimization`, `SpeedOptimization`; `optimalTasMs` (fsim/GuidanceModes.h); `ControlContext::tables`.
   - C ABI 1.15: an hsa's seventh field and a pattern's thirteenth, `fsim_speed_optimization`.
@@ -1301,7 +1301,7 @@ A rotorcraft asked for an airspeed it cannot fly is held to its fastest, as a wi
   - A helicopter's flies past its top and its never-exceed speed, and cannot hold its height. The UH-60A, asked 150 m/s, flew 99.7 and strayed 128 m from its height. The UH-1H, asked 100, flew 55 to 59 m/s and strayed 19.5 m.
 - **What FA-3e had taken for a divergence of the Crazyflie's loops.** Asked for 25 and 30 m/s, it had diverged; its loops were not the cause.
   - The probe let the Crazyflie go for 5 s before the command. Under the neutral vehicle default (`VehicleDefault::Neutral`) its motors stood still, and it fell 124 m.
-  - The hsa began 27 m up, falling at 49 m/s. At full thrust it struck the ground at 35 m/s, was thrown up at 80 m/s tumbling at 50 to 70 rad/s, and diverged. This was a crash the contact model did not end, until such an impact was made inelastic ([rotorcraft.md](rotorcraft.md), 7): now it strikes and is thrown up no faster than it struck.
+  - The hsa began 27 m up, falling at 49 m/s. At full thrust it struck the ground at 35 m/s, was thrown up at 80 m/s tumbling at 50 to 70 rad/s, and diverged. This was a crash the contact model did not end, until such an impact was made inelastic ([rotorcraft.md](../../../rotorcraft.md), 7): now it strikes and is thrown up no faster than it struck.
   - Asked for 10 m/s, it diverged the same way. Settled first, it flies its fastest at 25, 30, 40 and 60 m/s and never diverges.
 - **Surfaces.** C++: `topTasMs`. No C ABI or Python change: the answers are the existing `kClamped`, `performance_limit` and `max_airspeed` (Python: `Activity.clamped`, `fsim.Rejected`, `World.last_command_details`).
 
@@ -1318,19 +1318,19 @@ A-GRA's LAUNCH takes an aircraft from an airfield's runway into the air (LCH-01)
   - The takeoff line is the runway's takeoff start, on its direction and as long as its available length, or, where either is not given, to its takeoff limit. A runway with no takeoff coordinates (one for landing only) or without a line is refused `invalid_parameter`, field 1.
   - A wing must be on it: within half its width of the centre line (22.5 m: A-GRA gives no width, and 45 m is ICAO code letter E's), no more than 60 m short of its start and short of its middle, facing within 30° of its course. Else `invalid_parameter`, field 1.
   - A wing's speeds: it rotates at 1.1 times its stall speed with flaps (else clean, else the envelope's least: a fly-by-wire fighter's, whose law will not let it stall) and climbs at 1.3 times it. A wing with none, as a stock JSBSim model has none, is refused `not_implemented`.
-  - Its rotation attitude: 0.6 of its angle-of-attack limit, between 7° and 12° (10° where there is none), and 2° short of the attitude its tail touches the ground at (the profile's `envelope/ground_pitch_max_deg`, [hangar.md](hangar.md), Methods, Gear). The E-7A's is 7.3°, so it rotates to 5.3°.
+  - Its rotation attitude: 0.6 of its angle-of-attack limit, between 7° and 12° (10° where there is none), and 2° short of the attitude its tail touches the ground at (the profile's `envelope/ground_pitch_max_deg`, [hangar.md](../../../hangar.md), Methods, Gear). The E-7A's is 7.3°, so it rotates to 5.3°.
 - **Only on the ground.** It is the first ground mode: its status is `temporarily_unavailable`, `airborne`, while the vehicle flies, and a policy's NEW is refused so when the range is checked (4.5; the airborne guidance's `on_ground` the other way round).
 - **Its axes** are the primary ones with the gear, the flaps and the wheel brakes (a behaviour's traits may now name support axes: `BehaviorTraits::axes`). A wing flies its departure at the actuator level through the clean-up, so its own gear, flap and brake settings reach the aircraft.
 - **A wing flies it** in phases (its progress 0, 10, 25, 50 and 100 %):
   - **Line-up:** onto the centre line at a walking pace (5 m/s), steering its nose on a point 20 m ahead on the line, until within 2 m of it and 3° of its course.
-  - **Roll:** full thrust and takeoff flaps (0.3). The nose wheel steers on a point 60 m ahead, and an integral of the offset holds it against a crosswind. A positive rudder command yaws the nose left, on the wheels as in the air, and a tail wheel is written to steer as the rudder does ([hangar.md](hangar.md), Methods, Gear). The ailerons hold the wings level.
+  - **Roll:** full thrust and takeoff flaps (0.3). The nose wheel steers on a point 60 m ahead, and an integral of the offset holds it against a crosswind. A positive rudder command yaws the nose left, on the wheels as in the air, and a tail wheel is written to steer as the rudder does ([hangar.md](../../../hangar.md), Methods, Gear). The ailerons hold the wings level.
   - **Nose held down in the roll.** Until the rotation speed the nose is held at its parked attitude: nose-down elevator only, with its integral. Too slow for the elevator, the thrust is eased as the nose rises past a degree above it, to 30 % at 3°. The E-7A's own pitch-up (engines under the wing, the flaps) sat it on its tail at 45 m/s. The Su-25's thrust line, 0.33 m under its CG, rocked it back at a walking pace.
   - **Rotation at Vr:** the nose up at 3°/s from where it stands (the Su-25 parks 5° nose-high) to its rotation attitude, then held. The pitch hold is stiffer on the wheels, and its integral trims the nose wheel's load.
   - **Climb-out:** its pitch set for its climb speed at full thrust (2° to 15°). It flies the runway's course over the ground, crabbed into a crosswind, by a bank of at most 15°. The rudder flies the sideslip out: a long wing's adverse yaw from the aileron swung the RQ-4B's nose 50° off its path. The gear comes up above 10 m while climbing, the flaps at 120 m.
   - **Done** at `complete_agl_m` with the gear and flaps up. It holds that height on the runway's course while the activity completes, and what it flies next is its caller's.
 - **A rotorcraft** lifts straight up to `hover_agl_m` over where it stands, facing the runway's course, through its position loop. It completes within a metre of that point and under 0.3 m/s, held for 2 s. The runway is only its airfield's reference. A running takeoff is not built, so `launch/runway` is `not_implemented` on an aircraft that hovers.
 - **The support table:** `fsim.guidance.launch` and `launch/vertical` (R1) are supported, and `launch/runway` on every wing. `launch/rejected_takeoff` is FA-9b's (4.50), and a taxi (`fsim.guidance.taxi`) FA-9c's.
-- **What the aircraft needed:** hangar's fly-by-wire law resets its integrators on the wheels and gives the stick the elevator directly there (the F-35A lifted off at 188 m/s; [hangar.md](hangar.md), Methods, Fly-by-wire). A tail wheel now steers with the rudder. The profile gives the tail-down attitude. The Su-25 was rebalanced: it had sat on its tail.
+- **What the aircraft needed:** hangar's fly-by-wire law resets its integrators on the wheels and gives the stick the elevator directly there (the F-35A lifted off at 188 m/s; [hangar.md](../../../hangar.md), Methods, Fly-by-wire). A tail wheel now steers with the rudder. The profile gives the tail-down attitude. The Su-25 was rebalanced: it had sat on its tail.
 - **Surfaces.** C++: the "launch" behaviour, `LaunchBehavior` (fsim/BuiltinControllers.h), `CapabilityHost::prepareLaunch`, `BehaviorTraits::axes`, the profile's `EnvelopeSection::groundPitchMaxRad`. No C ABI change: a behaviour goes by its id (`fsim_vehicle_submit_behavior`), and Python's `Vehicle.submit_behavior("launch", airfield=, runway=)`.
 
 ### 4.50 A rejected takeoff (as FA-9b builds it)
@@ -1359,7 +1359,7 @@ A-GRA puts "Rejected Take Off and Abort commands" among Flight Autonomy's own fu
 A-GRA's taxi is a route of waypoints that MA sends and FA validates against the aircraft's taxi speed and turn rate, then flies on the ground. FA is assumed to brake for obstructions (VI 1.4, row 10.1; WPT-26). It is the platform behaviour `fsim.guidance.taxi`, of A-GRA's WAYPOINT_FOLLOWING type: a route on the ground. Rule R2 governs it (the aircraft stands on wheels).
 
 - **Its command:** `BehaviorCommand::points`, where it taxies in turn (their latitude and longitude; 64 at most), and `speed_ms`, its taxi speed (8 by default, 1 to 15 m/s: a faster one is refused `out_of_range`, or clamped).
-- **Its path:** from where it stands through its points, each corner drawn as an arc tangent to both its legs. The arc is a quarter wider than the aircraft's tightest turn on its wheels, and 8 m at least: the profile's `envelope/ground_turn_radius_m`, flown by hangar's ground stage ([hangar.md](hangar.md), Methods, Gear). The tyres decide that radius, not the geometry alone: the C-130J's 25 m against 5.6.
+- **Its path:** from where it stands through its points, each corner drawn as an arc tangent to both its legs. The arc is a quarter wider than the aircraft's tightest turn on its wheels, and 8 m at least: the profile's `envelope/ground_turn_radius_m`, flown by hangar's ground stage ([hangar.md](../../../hangar.md), Methods, Gear). The tyres decide that radius, not the geometry alone: the C-130J's 25 m against 5.6.
 - **Its NEW** checks the path (`CapabilityHost::prepareTaxi`, Taxi.cpp). It refuses `invalid_waypoint`, naming the point, with no points or more than 64. It refuses `invalid_waypoint` with `max_turn_rate` at a corner sharper than 170°, or a leg too short to hold the arcs at its two ends. A rotorcraft's taxi is not built (`not_implemented`): the UH-60A's runs on its wheels by its rotor.
 - **Only on the ground**, as a launch (4.49): its status is `airborne` in the air. The descriptor now says so for any capability: `CapabilityDescriptor::ground`, from `BehaviorTraits::ground`.
 - **Flown** at the actuator level, the gear down and its brakes its own:
@@ -1757,7 +1757,7 @@ The stages run one at a time. Each is committed and checked before the next, as 
 
 Findings the stages have measured and not yet fixed. Each has a step that owns it and is accepted only when the step is: it is closed there, fixed and measured in section 14, or shown to be the model's and named there with its evidence. None is left behind because it lies outside the step that found it.
 
-Findings since - the stability suite's, the stores' and the viewer's, B-19 on - are kept in [backlog.md](backlog.md).
+Findings since - the stability suite's, the stores' and the viewer's, B-19 on - are kept in [backlog.md](../../../backlog.md).
 
 | Item | Finding (where measured) | Owned by | Closed when |
 | --- | --- | --- | --- |
@@ -2506,7 +2506,7 @@ All 183 comparisons are within 5 %: 57 top speeds, 80 climbs, 15 stalls and 31 c
 - ctest: all 244 tests pass.
 
 **FA-3b, the rotorcraft's tables (SUB-02, SUB-03), a battery's power in the tables, and two named changes.**
-- **The rotorcraft's tables** (4.13; [hangar.md](hangar.md), "Rotorcraft"), flown for all four. Loaded, at 100 m:
+- **The rotorcraft's tables** (4.13; [hangar.md](../../../hangar.md), "Rotorcraft"), flown for all four. Loaded, at 100 m:
 
 | Aircraft | Weight | Level speeds (m/s) | Best endurance (m/s) | Best range (m/s) | Best climb (m/s) |
 | --- | --- | --- | --- | --- | --- |
@@ -2524,7 +2524,7 @@ All 183 comparisons are within 5 %: 57 top speeds, 80 climbs, 15 stalls and 31 c
     - Between 95 and 120 kt the hold rings in a UH-60A's climb. In each row up to three of those speeds, and its fastest, have no stationary average, and those cells are not flown.
     - The UH-1H's table is complete.
   - **The quadrotors fly no climb.** Their thrust ignores a climb's inflow.
-  - **What the tables show of the models** (the owner's to weigh; [rotorcraft.md](rotorcraft.md), section 7):
+  - **What the tables show of the models** (the owner's to weigh; [rotorcraft.md](../../../rotorcraft.md), section 7):
     - None of the four loses power or thrust with height, so their ceilings lie far above the rows.
     - The IRIS+'s drag is PX4's, in the rotors' plane only, so tilted forward it lifts too. Its power falls all the way to its top speed, and its best speeds are its top.
     - The Crazyflie's power is least in the hover: neither quadrotor model has translational lift.
@@ -2884,9 +2884,9 @@ All 183 comparisons are within 5 %: 57 top speeds, 80 climbs, 15 stalls and 31 c
   - an UPDATE's point left the frame, and a frame replaced a point.
 - **The fleet** (`test_fleet`):
   - the hover: each rotorcraft over a point ten seconds of its cruise ahead and 10 m up, for 20 s. Each completed 20.00 to 20.03 s after its arrival and hovered on within 0.65 m (the UH-60A's). Every wing was refused `not_supported` at field 0, as its support table says;
-  - the UH-1H arrived 85 s after its command, the UH-60A 17 s: it closed its last 17 m in 65 s. That is the rotorcraft loops' design, not the hover's. The separate look found it is not the position loop's gain (0.0875/s, not the 0.053/s first reckoned here: the attitude floor does not bind, and the pitch power does not enter the bandwidths) but the velocity loop's integral winding up with the deceleration, on a UH-1H whose identified plant leaves out its stabilizer bar and its rotor's flapping with speed ([rotorcraft.md](rotorcraft.md), section 7: closing on a point);
+  - the UH-1H arrived 85 s after its command, the UH-60A 17 s: it closed its last 17 m in 65 s. That is the rotorcraft loops' design, not the hover's. The separate look found it is not the position loop's gain (0.0875/s, not the 0.053/s first reckoned here: the attitude floor does not bind, and the pitch power does not enter the bandwidths) but the velocity loop's integral winding up with the deceleration, on a UH-1H whose identified plant leaves out its stabilizer bar and its rotor's flapping with speed ([rotorcraft.md](../../../rotorcraft.md), section 7: closing on a point);
   - relative points: every aircraft round the origin of a frame moving across its heading at a tenth of its speed, measured from its first lap. The wings were within 16.8 m (the C172's, 4.7 % of its 357 m; the jets 0.1 to 0.6 %), the rotorcraft within 4.3 m (the UH-1H's, 2.1 %);
-  - after it is judged, the Crazyflie flies on until the longest aircraft's case ends. Its battery is spent at about 450 s, and it falls and diverges, as in the cases before ([rotorcraft.md](rotorcraft.md), section 7: a spent battery).
+  - after it is judged, the Crazyflie flies on until the longest aircraft's case ends. Its battery is spent at about 450 s, and it falls and diverges, as in the cases before ([rotorcraft.md](../../../rotorcraft.md), section 7: a spent battery).
 - **The support table:** an option governed by R1 alone, on an aircraft nothing declares and whose model does not hover (a stock JSBSim model), now reads `not_implemented`, as the hover capability does for it; it had read supported. The 35 designs declare R1: their answers are unchanged.
 - **Conformance:** a refused UPDATE may now answer `not_implemented`, as a refused NEW could: an UPDATE making a stock C172x's pattern a hover drew it in the optimise walks. A pattern's activity may fail `target_lost`, its frame's vehicle gone.
 - **Digests:** identical to FA-5b's, with protection and without. The allocation gate passes.
@@ -3747,8 +3747,8 @@ The quadrotors' contacts, the helicopters' and the reset had waited for the owne
   - `test_launch` (3 cases): the C172, F-35A, E-7A, Su-25, U-2S and RQ-4B, calm and across, within 22.5 m and rotating within 5 kt of Vr, their tails clear; the Crazyflie, UH-1H and UH-60A within a metre of their hovers; the refusals, naming field 0 or 1; unavailable in the air; its lifecycle on the ground (NEW pending on the primary axes, the gear, flaps and brakes; active after a step; canceled).
   - The fleet test flies it on all 35 at once, from their standard places: completed, the wings at worst 2.82 m off the centre line on the wheels (the U-2S; the rest within 0.97 m) and 451 to 454 m up, their gear up; the rotorcraft within 0.67 m of their hover points (the UH-60A).
 - **Found and fixed, each where it belongs:**
-  - The fly-by-wire fighters could not rotate. On the runway the wheels, not the wing, set the load factor, and above 60 kt the pitch integrator wound the tail to its nose-down stop; the stick's load-factor demand had no room at the rotation speed. The F-35A lifted off at 188 m/s. hangar's law now resets its integrators on the wheels and gives the stick the elevator there ([hangar.md](hangar.md), Methods, Fly-by-wire). The fighters lift off at 95 to 111 m/s. In flight nothing changed: the new terms are exactly zero off the wheels.
-  - The Su-25 sat on its tail at 19°: its loaded CG stood 5 cm ahead of its main wheels. Its main wheels now stand the published wheelbase behind the nose wheel and its estimated CG is further forward ([hangar.md](hangar.md), the Su-25). Its thrust line, 0.33 m under the CG, still rocked it back at a walking pace until the launch eased the thrust as the nose rose.
+  - The fly-by-wire fighters could not rotate. On the runway the wheels, not the wing, set the load factor, and above 60 kt the pitch integrator wound the tail to its nose-down stop; the stick's load-factor demand had no room at the rotation speed. The F-35A lifted off at 188 m/s. hangar's law now resets its integrators on the wheels and gives the stick the elevator there ([hangar.md](../../../hangar.md), Methods, Fly-by-wire). The fighters lift off at 95 to 111 m/s. In flight nothing changed: the new terms are exactly zero off the wheels.
+  - The Su-25 sat on its tail at 19°: its loaded CG stood 5 cm ahead of its main wheels. Its main wheels now stand the published wheelbase behind the nose wheel and its estimated CG is further forward ([hangar.md](../../../hangar.md), the Su-25). Its thrust line, 0.33 m under the CG, still rocked it back at a walking pace until the launch eased the thrust as the nose rose.
   - The U-2S's tail wheel steered as a nose wheel does, against its rudder, and ran it 108 m off the runway. hangar now writes a steerable wheel behind the CG to turn the other way.
   - The E-7A's nose rose by itself in the roll, and its tail, 7.3° from the ground as it pivots on its main wheels, scraped. The roll now holds the nose down, and the profile gives the tail-down attitude the rotation stays 2° short of.
   - The RQ-4B's long wing yawed its nose 50° off its path against the aileron in the crosswind climb, and it wandered 2 km downwind. The climb now flies the sideslip out with the rudder and the course over the ground.

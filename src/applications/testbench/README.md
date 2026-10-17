@@ -71,7 +71,7 @@ The window is a Microsoft Edge app window (no address bar or tabs) on a page the
 
 ## What it covers
 
-Every completed Flight Autonomy stage (ADR-29, [docs/flight-autonomy.md](../../../docs/flight-autonomy.md)), at San
+Every completed Flight Autonomy stage (ADR-29, [docs/flight-autonomy.md](../../../docs/architecture/modules/simulation/flight-autonomy.md)), at San
 Francisco International: its runway 28R for takeoffs and landings, the bay east of it for everything in the air.
 
 | Group | Scenarios |
@@ -118,7 +118,7 @@ rotorcraft).
   asks): a hold steady within 10 m, a 90 deg turn within 5 deg of its heading and 60 m of its height, an orbit within
   3 % of its radius and 30 m, no more than 8 deg of sideslip in a sustained turn, and so on. A check that fails is the
   suite's finding, not its error: the run goes on, on a fresh aircraft where one was lost.
-- **Slow flight** asks what the Vehicle Interface promises ([docs/vehicle-interface.md](../../../docs/vehicle-interface.md),
+- **Slow flight** asks what the Vehicle Interface promises ([docs/vehicle-interface.md](../../../docs/architecture/modules/simulation/vehicle-interface.md),
   7.3): at each airspeed down to the least it accepts the aircraft is level - at the airspeed, or, where it cannot
   hold its height there, faster on its speed floor with LOW_ENERGY on its activity (within 60 m of its height: it
   comes back up past it as its thrust comes in). A slow turn is banked no more than its airspeed leaves it - past

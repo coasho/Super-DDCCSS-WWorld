@@ -10,7 +10,7 @@ and Python registration. Add characterization before extraction and compare sour
 
 **Tech Stack:** C++17, C11, CPython 3.11 stable ABI, CMake 3.25+, Windows UCRT64 GCC/Ninja.
 
-**Spec:** [A3 design](../specs/2026-10-12-architecture-adapters-design.md).
+**Spec:** [A3 design](2026-10-12-architecture-adapters-design.md).
 
 ## Global constraints
 

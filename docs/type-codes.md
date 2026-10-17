@@ -39,7 +39,7 @@ design's category is listed in [hangar-effects.md](hangar-effects.md).
 
 ## Payloads
 
-A payload is one modelled mission system on an aircraft ([mission-systems.md](mission-systems.md), 1.3). Its type is
+A payload is one modelled mission system on an aircraft ([mission-systems.md](architecture/modules/simulation/adr-30-mission-systems.md), 1.3). Its type is
 its card's `family` (`assets/payloads/*.json`; `fsim::ms::Family`, `include/fsim/MissionSystems.h`). What a store
 station carries is a store, whose type is its card's `class` (`assets/stores/*.json`).
 

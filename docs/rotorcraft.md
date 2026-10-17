@@ -196,7 +196,7 @@ platform.
     bit, as without the battery.
   - hangar's flight tests fly with the fuel frozen, so a helicopter's hover is
     identified at the weight its design names.
-- **Performance tables** (ADR-29 FA-3b; [flight-autonomy.md](flight-autonomy.md),
+- **Performance tables** (ADR-29 FA-3b; [flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md),
   4.13): hangar's `performance` stage flies each rotorcraft's tables with the fly
   stage's hold.
   - The rows are 100 m to 3,000 m. The weights are a helicopter's tank a tenth,
@@ -254,7 +254,7 @@ it supports.
   feature (`BehaviorTraits::features`); `hover` needs `kFeatureHover`, so it is
   offered only to aircraft that can hover.
 - The behaviours both kinds are offered fly a rotorcraft as it flies
-  (ADR-28's step VI-1, [vehicle-interface.md](vehicle-interface.md)): they
+  (ADR-28's step VI-1, [vehicle-interface.md](architecture/modules/simulation/vehicle-interface.md)): they
   see the vehicle's features (`ControlContext::features`). `hold` keeps the
   velocity over the ground it had, so a hover stays put in wind (it kept the
   airspeed it had along the nose, the wind's, and flew off at 7 m/s);
@@ -312,7 +312,7 @@ placement as ADR-26's step 5a (`designRotorLaws`):
 | --- | --- | --- |
 | Acceleration | `rotor_allocation` | body rates and the load factor to cyclic, pedals and collective, or to the mixer: rate loops on the identified responses, the hover trims fed forward; the load factor measured from the body's specific force (JSBSim's `Nlf` is aerodynamic only and leaves out the rotor's thrust) |
 | Attitude | `rotor_attitude` | roll and pitch attitude to rates, the heading to a yaw rate (not a bank), the thrust control passed through |
-| Velocity | `rotor_velocity` | a ground velocity - or an airspeed along the heading - to attitude within a tilt limit, the vertical speed to the thrust control, the heading held on its own; the integral's band smooth, not a hard band, which had left a dead zone. Its integral trims the whole tilt forward - the drag of a fast multirotor takes most of it (ADR-29 FA-3e: the Crazyflie's best range needs 22 of its 24 degrees, and had been flown 15 % short on half) - and half sideways, as an orbit needs. Asked beyond what it can fly, it holds its tilt limit and the fastest that gives (the Crazyflie 18.30 m/s along its nose); a checked command is held to the tables' top level speed first ([flight-autonomy.md](flight-autonomy.md), 4.48) |
+| Velocity | `rotor_velocity` | a ground velocity - or an airspeed along the heading - to attitude within a tilt limit, the vertical speed to the thrust control, the heading held on its own; the integral's band smooth, not a hard band, which had left a dead zone. Its integral trims the whole tilt forward - the drag of a fast multirotor takes most of it (ADR-29 FA-3e: the Crazyflie's best range needs 22 of its 24 degrees, and had been flown 15 % short on half) - and half sideways, as an orbit needs. Asked beyond what it can fly, it holds its tilt limit and the fastest that gives (the Crazyflie 18.30 m/s along its nose); a checked command is held to the tables' top level speed first ([flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md), 4.48) |
 | Position | `rotor_position` | the distance to go to a ground velocity that brings it to a stop there - what the velocity loop, a lag behind its command, can stop from - the height to a vertical speed, the heading on arrival |
 
 The cascade, the runtime and protection are unchanged: the acceleration
@@ -517,7 +517,7 @@ All within the tolerances except the collective at 140 kt, 0.02 in outside
   diverged there, as a spent battery's did, until such an impact was made
   inelastic (above): it now leaves the ground no faster than it struck, and
   flies on or lies there. ADR-29 FA-3e took the divergence for its velocity
-  loop's at 25 and 30 m/s ([flight-autonomy.md](flight-autonomy.md), 4.48).
+  loop's at 25 and 30 m/s ([flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md), 4.48).
   Settle it first (a velocity command, or `VehicleDefault::Hold`).
 - **The quadrotors' contacts, sized for the step**: short of such an impact
   the contacts act as JSBSim gives them. The design files' springs and

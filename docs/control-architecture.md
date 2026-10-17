@@ -4,9 +4,9 @@
 | --- | --- |
 | Status | Accepted 2026-09-26. The owner approved the two-part design and asked for this record before any code. Implemented in the migration order of section 14, all six steps, and green on CI (section 17) |
 | Extends | ADR-20 (the multi-level control stack), which stays in force for the runtime |
-| Extended by | ADR-28 ([vehicle-interface.md](vehicle-interface.md)): the A-GRA Vehicle Interface's flight modes as guidance that takes UPDATE through fixed-size setpoints (narrowing 8.2), and grants a vehicle may require of a policy (narrowing section 5's "no consent protocol"). ADR-29 ([flight-autonomy.md](flight-autonomy.md)): every Flight Autonomy command of the Vehicle Interface on all 35 aircraft, with a store of route plans and flight tasks (narrowing section 5's "no plan engine"), ranked, queued and time-windowed commands, and discovery by support state and flight phase |
+| Extended by | ADR-28 ([vehicle-interface.md](architecture/modules/simulation/vehicle-interface.md)): the A-GRA Vehicle Interface's flight modes as guidance that takes UPDATE through fixed-size setpoints (narrowing 8.2), and grants a vehicle may require of a policy (narrowing section 5's "no consent protocol"). ADR-29 ([flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md)): every Flight Autonomy command of the Vehicle Interface on all 35 aircraft, with a store of route plans and flight tasks (narrowing section 5's "no plan engine"), ranked, queued and time-windowed commands, and discovery by support state and flight phase |
 | Scope | How consumers command aircraft; how an aircraft describes what it can do; how commands are arbitrated, tracked and ended; how knowledge about one aircraft reaches the control loops |
-| Related | [Design document](FlightSim_System_Architecture_and_Design.md) §9.3 (control), §10.3 (stability rules), §12 (performance); [sdk/control.md](sdk/control.md); [hangar.md](hangar.md) |
+| Related | [Design document](architecture/design/platform-baseline.md) §9.3 (control), §10.3 (stability rules), §12 (performance); [sdk/control.md](sdk/control.md); [hangar.md](hangar.md) |
 
 ## 1. Context
 
@@ -439,7 +439,7 @@ struct CapabilityDescriptor {
 | Availability | Meaning |
 | --- | --- |
 | `Available` | may be commanded |
-| `TemporarilyUnavailable` | a condition that will pass: weight on wheels for a gear retraction, above the gear's placard speed (not operated), a diverged vehicle; above the flaps' placard speed their range narrows to their threshold ([flight-autonomy.md](flight-autonomy.md), 4.57) |
+| `TemporarilyUnavailable` | a condition that will pass: weight on wheels for a gear retraction, above the gear's placard speed (not operated), a diverged vehicle; above the flaps' placard speed their range narrows to their threshold ([flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md), 4.57) |
 | `Faulted` | an effector has failed (reserved for effects, section 5) |
 | `Disabled` | switched off by a setting for this vehicle |
 
@@ -461,20 +461,20 @@ A capability the aircraft does not have is simply absent from its catalog.
 | `fsim.guidance.evade` | guidance | all primary | persistent; fails `TargetLost` | target, altitude_delta_m, airspeed_ms | 1 |
 | `fsim.guidance.formation` | guidance | all primary | persistent; fails `TargetLost` | target, ahead_m, right_m, below_m, closure_gain | 1 |
 | `fsim.guidance.aerobatics` | guidance | all primary | terminating: completes when the manoeuvre does | manoeuvre, load_factor_g, roll_rate_rad_s | 1 |
-| `fsim.guidance.launch` | guidance | all primary, gear, flaps, brakes | terminating: completes climbed out and cleaned up (a wing), or settled in its hover (a rotorcraft); fails `takeoff_rejected`, stopped on the runway, where it rejects its takeoff; a policy's CANCEL on the runway hands the rest to FA's own activity; unavailable in the air; refused `crosswind_limit` beyond the type's crosswind limit (4.54) | airfield, runway, complete_agl_m, hover_agl_m ([flight-autonomy.md](flight-autonomy.md), 4.49, 4.50) | FA-9 |
-| `fsim.guidance.recovery` | guidance | all primary, gear, flaps, brakes | terminating: completes stopped on the runway (a wing) or settled on its spot (a rotorcraft); a wing goes around and approaches again, and fails `crosswind_limit` or `landing_abandoned` going around from its second approach; a policy's CANCEL in the rollout hands the rest to FA's own stop; unavailable on the ground | airfield, runway ([flight-autonomy.md](flight-autonomy.md), 4.53, 4.54) | FA-10 |
-| `fsim.guidance.taxi` | guidance | all primary, gear, brakes | terminating: completes stopped at its last point; held (`kActivityClamped`) while another vehicle stands in its way; unavailable in the air | points (where it taxies), speed_ms ([flight-autonomy.md](flight-autonomy.md), 4.51) | FA-9 |
+| `fsim.guidance.launch` | guidance | all primary, gear, flaps, brakes | terminating: completes climbed out and cleaned up (a wing), or settled in its hover (a rotorcraft); fails `takeoff_rejected`, stopped on the runway, where it rejects its takeoff; a policy's CANCEL on the runway hands the rest to FA's own activity; unavailable in the air; refused `crosswind_limit` beyond the type's crosswind limit (4.54) | airfield, runway, complete_agl_m, hover_agl_m ([flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md), 4.49, 4.50) | FA-9 |
+| `fsim.guidance.recovery` | guidance | all primary, gear, flaps, brakes | terminating: completes stopped on the runway (a wing) or settled on its spot (a rotorcraft); a wing goes around and approaches again, and fails `crosswind_limit` or `landing_abandoned` going around from its second approach; a policy's CANCEL in the rollout hands the rest to FA's own stop; unavailable on the ground | airfield, runway ([flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md), 4.53, 4.54) | FA-10 |
+| `fsim.guidance.taxi` | guidance | all primary, gear, brakes | terminating: completes stopped at its last point; held (`kActivityClamped`) while another vehicle stands in its way; unavailable in the air | points (where it taxies), speed_ms ([flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md), 4.51) | FA-9 |
 | `fsim.flight.engines` | flight, actuator | thrust | persistent | a throttle per engine 0..1, `kHold` keeps one: as many as the profile's propulsion section gives, at most 4 (an aircraft with more gangs them, as its flight control system does). Offered where there is more than one engine. Set beside the cascade like the support effectors (`EnginesCommand`, an alternative of `SupportCommand`) | 3 |
 | `fsim.support.gear` | support | gear | terminating: completes when the gear is there | down 0/1; retraction unavailable on the ground; operation above `gear_cas_max_ms` unavailable | 2 |
 | `fsim.support.flaps` | support | flaps | terminating: completes at the commanded position | position 0..1; extension beyond `flaps_threshold` above the flaps configuration's `cas_max_ms` unavailable | 2 |
 | `fsim.support.wheel_brakes` | support | brakes | persistent | left, right 0..1 | 2 |
-| `fsim.support.speedbrake` | support | speedbrake | persistent | position 0..1; only where the aircraft has one: its drag devices, hangar's ([flight-autonomy.md](flight-autonomy.md), 4.55) | 2 |
+| `fsim.support.speedbrake` | support | speedbrake | persistent | position 0..1; only where the aircraft has one: its drag devices, hangar's ([flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md), 4.55) | 2 |
 | `fsim.support.pitch_trim` | support | pitch trim | persistent | position −1..1; only where the flight model has a trim channel | 2 |
 | `fsim.envelope.protection` | status (settings, status) | none | none | mode: off, report or limit (its one parameter; limit by default); status: `envelope()`, per limit what was limited and what was exceeded since the last read. The limits themselves are the profile's. Offered where the profile has an envelope section | 4 |
 
 **What guidance flies through.** Guidance capabilities list the flight capabilities their output goes through (`uses`), for example `fsim.guidance.hold` uses `fsim.flight.velocity`. Their availability follows the least available of those.
 
-**Updates.** Guidance capabilities do not take UPDATE in version 1, because their parameters are heap data. A new target is a NEW, which preempts the old activity. (A behaviour may declare a parameter updatable, and takes UPDATE of it alone, not started again: the recovery's configuration, [flight-autonomy.md](flight-autonomy.md) 4.58.)
+**Updates.** Guidance capabilities do not take UPDATE in version 1, because their parameters are heap data. A new target is a NEW, which preempts the old activity. (A behaviour may declare a parameter updatable, and takes UPDATE of it alone, not started again: the recovery's configuration, [flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md) 4.58.)
 
 **Ranges.** Until a profile narrows them, the ranges are the loops' own bounds, so step 1 changes no command (section 13).
 
@@ -697,7 +697,7 @@ struct ActivityRecord {
 
   This is exactly today's behaviour, where a reset keeps the active command.
 - **Diverged.** A vehicle whose state reports `diverged` fails every live activity with `Diverged`, and its flight capabilities become `TemporarilyUnavailable` until a reset.
-- **Crashed.** One whose state reports `crashed` - it struck the terrain and was stopped there ([flight-autonomy.md](flight-autonomy.md), 4.68) - does the same with `Crashed`.
+- **Crashed.** One whose state reports `crashed` - it struck the terrain and was stopped there ([flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md), 4.68) - does the same with `Crashed`.
 - **Removal.** Removing a vehicle discards its host, runtime and records.
 
 ### 10.7 The legacy façade
@@ -744,7 +744,7 @@ The limits are those in `EnvelopeLimits` (section 6.2), taken from the profile's
 | Level | Demand limiting |
 | --- | --- |
 | Behaviour, position | the airspeed setpoint to [cas_min, cas_max], converted at the current condition |
-| Velocity | <ul><li>Turn rate: to the bank limit, \|ω\| ≤ g·tan(bank_max)/v</li><li>Vertical speed: to the flight path the pitch limits allow, and to the climb the airspeed's margin over cas_min affords (energy management, [ADR-29](flight-autonomy.md) 4.16): 0.5 m/s per m/s above 1.1·cas_min, none between, a descent below cas_min. Reported under cas_min</li><li>Airspeed: as above</li></ul> |
+| Velocity | <ul><li>Turn rate: to the bank limit, \|ω\| ≤ g·tan(bank_max)/v</li><li>Vertical speed: to the flight path the pitch limits allow, and to the climb the airspeed's margin over cas_min affords (energy management, [ADR-29](architecture/modules/simulation/flight-autonomy.md) 4.16): 0.5 m/s per m/s above 1.1·cas_min, none between, a descent below cas_min. Reported under cas_min</li><li>Airspeed: as above</li></ul> |
 | Attitude | roll to ±bank_max (the bank a heading is flown with, in heading mode); pitch to [pitch_min, pitch_max], and to the pitch attitude that puts the wing at α_max on the present flight path, θ + (α_max − α)·cos φ; airspeed as above |
 | Acceleration | <ul><li>Load factor: to [n_min, min(n_max, n_α)], where n_α = n·(α_max − α₀)/(α − α₀) is the load factor the wing gives at α_max here</li><li>Roll rate: to ±roll_rate_max</li></ul> |
 | Actuator (after the loops) | on the elevator of a directly controlled aircraft, a nose-down correction as α or n nears its limit. It only ever moves the demand away from the limit, and it is skipped for limits in `lawEnforces` |

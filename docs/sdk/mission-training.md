@@ -73,7 +73,7 @@ components, a C2 node's service has no aircraft, and no count implies another.
 
 ## 3. Principals and proposed entry points
 
-Every entry point of this contract belongs to one principal of [ADR-31](../agent-boundary.md).
+Every entry point of this contract belongs to one principal of [ADR-31](../architecture/design/agent-boundary.md).
 
 Implemented, exported and classified in `boundary.toml` (M7 core's rows are awaiting independent acceptance):
 
@@ -336,7 +336,7 @@ Given once to the episode's constructor. Every field is explicit; the only defau
 | `extensions` | no | [Section 15](#15-extension-seam-and-pending-gates). A key no installed definition registered fails construction |
 
 Construction and future simulation/Viewer extensions follow the
-[simulation/interface evolution boundary](../superpowers/specs/2026-10-15-simulation-interface-boundaries.md).
+[simulation/interface evolution boundary](../architecture/design/simulation-interface-boundaries.md).
 M4 native callbacks remain internal setup/access seams owned by the Range. M5 actor endpoints expose bound Agent
 operations and permitted reports; their return values provide no World/native callback, Range/referee handle,
 recording or IPC truth access. Use the [SDK access terminology](agents.md#sdk-access-terminology). Physical

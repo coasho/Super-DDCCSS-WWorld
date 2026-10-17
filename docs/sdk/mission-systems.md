@@ -6,7 +6,7 @@ documents payload and radar APIs and preserves dated data provenance. The [nativ
 is authoritative for current missile release, seekers, guidance, countermeasures, fuzes, damage and launch-zone
 estimates. Its [validation record](engagement-validation.md) is historical local evidence, not a fresh test run.
 
-[ADR-30](../mission-systems.md) puts A-GRA's Mission Systems (MS) interface on the platform. Each aircraft carries the
+[ADR-30](../architecture/modules/simulation/adr-30-mission-systems.md) puts A-GRA's Mission Systems (MS) interface on the platform. Each aircraft carries the
 real payloads of its type: radars, warning receivers, jammers, electro-optical sensors, guns, store stations and
 countermeasures. The SDK commands them the way the Vehicle Interface commands flight. This page covers:
 

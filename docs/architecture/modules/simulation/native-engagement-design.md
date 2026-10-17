@@ -18,7 +18,7 @@ The SDK defines guidance phases but Strike remains partial: guidance, seekers an
 
 The SDK initially had neither Git metadata nor built binaries. Establish a local source baseline first. Preserve actual dependency sources rather than broken submodule pointers.
 
-During continuation, the original local repository history was restored. The implementation preserves that history from HEAD `02d1683`; it does not replace it with the initial temporary snapshot. See [delivery validation](../../sdk/engagement-validation.md) for the final verification record.
+During continuation, the original local repository history was restored. The implementation preserves that history from HEAD `02d1683`; it does not replace it with the initial temporary snapshot. See [delivery validation](../../../sdk/engagement-validation.md) for the final verification record.
 
 ## Selected architecture
 
