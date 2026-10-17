@@ -63,8 +63,9 @@ Further details:
 Ten files carried another owner's uncommitted edits and changed in this package. Only this package's lines are
 committed (HEAD-plus-mine blobs); the owners' edits stay uncommitted:
 - **Moved with their edits:** the platform baseline, the agent boundary, the simulation interface boundaries and the
-  A1 design. Their edits now sit at the new paths. In the agent boundary, one link in the owner's lines was recomputed
-  with the others (11 links in the working file against 10 at HEAD).
+  A1 design. Their edits now sit at the new paths. Link targets in the owners' changed lines were recomputed with the
+  rest, their wording untouched: in the platform baseline and the agent boundary (whose owner's lines add one link,
+  11 against 10 at HEAD).
 - **Links updated:** `docs/sdk/agents.md`, `docs/sdk/boundary.md`, `docs/status.md`, the two deferred MA documents and
   `boundary.py`.
 
