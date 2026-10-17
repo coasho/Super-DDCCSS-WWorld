@@ -1,6 +1,7 @@
 // The altitude stacked marshall (docs/flight-autonomy.md, 4.46; A-GRA's ALTITUDE_STACKED_MARSHALL): a pattern flown by each aircraft
 // of a stack at an altitude of its own. The world chooses the altitude among the other aircraft marshalling round the same point
-// (session/Marshalls.cpp); here the host checks the stack's fields and prepares, updates and flies its pattern as a pattern's are.
+// (simulation/runtime/world/Marshalls.cpp); here the host checks the stack's fields and prepares, updates and flies its
+// pattern as a pattern's are.
 // Its activity's command is its pattern, a PatternCommand at its slot, and its stack is kept beside it - in the path store while it
 // flies, in its waiting entry while it waits - not in the command variant (4.46).
 #include "simulation/flight_control/CapabilityHost.h"

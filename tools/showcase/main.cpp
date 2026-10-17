@@ -3,7 +3,7 @@
 #include "foundation/core/Json.h"
 #include "foundation/io/AssetResolver.h"
 #include "foundation/transport/Recording.h"
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include <algorithm>
 #include <chrono>

@@ -1,7 +1,8 @@
 #pragma once
 
 // What the damage chain needs of the Earth and its air (MS-7g): a point's geodetic place, the standard atmosphere's
-// density. (A piece that leaves a hit aircraft flies its own JSBSim model: hangar's pieces, session/WorldDamage.cpp.)
+// density. (A piece that leaves a hit aircraft flies its own JSBSim model: hangar's pieces,
+// simulation/runtime/world/WorldDamage.cpp.)
 
 #include "simulation/mission_systems/damage/Damage.h"
 

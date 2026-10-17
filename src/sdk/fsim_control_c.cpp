@@ -12,8 +12,8 @@
 #include "sdk/CAbiSupport.h"
 #include "sdk/Handles.h"
 #include "sdk/LastError.h"
-#include "session/Scenario.h"
-#include "session/World.h"
+#include "simulation/runtime/world/Scenario.h"
+#include "simulation/runtime/world/World.h"
 
 #include <algorithm>
 #include <cmath>

@@ -3,7 +3,7 @@
 // autonomy shapes its commands within, worked out at the vehicle's condition
 // now from its performance tables, its envelope and its loops' Performance.
 // Asked for, never stepped: in a file of its own, apart from the step.
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include "simulation/flight_control/Atmosphere.h"
 #include "simulation/flight_control/Protection.h"

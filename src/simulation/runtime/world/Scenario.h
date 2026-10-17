@@ -2,11 +2,11 @@
 
 // Scenario files on the session world (design 9.13). The parser, dumper and
 // this apply are shared by the C++ SDK (fsim::applyScenario) and the C ABI.
-// The runtime applies the native recipe (session/ScenarioRecipe.h); the public
+// The runtime applies the native recipe (simulation/runtime/world/ScenarioRecipe.h); the public
 // document maps onto it, its world and batch-environment sections aside.
 
 #include "fsim/ScenarioDocument.h"
-#include "session/ScenarioRecipe.h"
+#include "simulation/runtime/world/ScenarioRecipe.h"
 
 #include <cstdint>
 #include <vector>

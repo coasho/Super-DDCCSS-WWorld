@@ -4268,7 +4268,7 @@ Status at caf03c9:
 | CAP-15 | Profile updated with configuration and flight condition | VI 1.2.6.7 | partial | Recomputed when the loops change; controlRevision (World.h:188) | Recomputed with flaps, gear, weight and altitude |  | FA-3 | - |
 | CAP-16 | Availability AVAILABLE and TEMPORARILY_UNAVAILABLE | XSD CapabilityAvailabilityEnum | works | Diverged; platform restrictions (setAvailability) | - |  |  | - |
 | CAP-17 | Availability UNAVAILABLE, EXPENDED, FAULTED | XSD CapabilityAvailabilityEnum | missing | Faulted exists but is never produced (grep); Unavailable and Expended do not exist | Produced by faults, fuel and configuration |  | FA-1, FA-16 | - |
-| CAP-18 | DISABLED means switched off | XSD CapabilityAvailabilityEnum | defect | DISABLED is returned for an id the aircraft does not have (src/session/World.cpp:515) | Unsupported answered as such (CAP-22) |  | FA-1 | - |
+| CAP-18 | DISABLED means switched off | XSD CapabilityAvailabilityEnum | defect | DISABLED is returned for an id the aircraft does not have (src/simulation/runtime/world/World.cpp:515) | Unsupported answered as such (CAP-22) |  | FA-1 | - |
 | CAP-19 | AvailabilityReason: reasons, description, associated id; optional when it returns | XSD MA_AvailabilityInfoType; VI 1.2.2.6 | partial | One Reason | Several reasons, text, associated id |  | FA-1 | - |
 | CAP-20 | NextAvailableWindow | XSD MA_AvailabilityInfoType | missing | - | When it is expected back |  | FA-1 | - |
 | CAP-21 | Ready signal: FA offers control only when it can take it | VI 1.2.2.3-4 | defect | Probe: on the ground every airborne mode reports AVAILABLE, and an HSA flies away down the runway | Availability by flight phase (ground, takeoff, airborne, landing) |  | FA-1 | - |

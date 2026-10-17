@@ -4,8 +4,8 @@
 // tank's leak and fire, an engine out, a control channel lost, the crew; each section's skin torn or holed, so its
 // share of the lift gone and its root weaker; and, each step, each section's root bending from its share of the
 // aerodynamic force and its own inertia against what is left of its strength - a section that cannot carry it
-// separates. Pure: the world flies the consequences (session/World) and draws the chances from the vehicle's own
-// damage stream. Every number not from a source is an estimate, said so.
+// separates. Pure: the world flies the consequences (simulation/runtime/world/World) and draws the chances from the
+// vehicle's own damage stream. Every number not from a source is an estimate, said so.
 
 #include "simulation/mission_systems/damage/Damage.h"
 

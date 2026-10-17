@@ -1,6 +1,6 @@
-#include "session/MaCore.h"
+#include "simulation/runtime/services/MaCore.h"
 
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include <algorithm>
 #include <cmath>

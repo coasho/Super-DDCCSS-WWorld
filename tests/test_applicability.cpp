@@ -3,7 +3,7 @@
 // source, read from the aircraft file; every design's declarations checked
 // against its model.
 #include "simulation/flight_control/Profile.h"
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include <catch2/catch_test_macros.hpp>
 

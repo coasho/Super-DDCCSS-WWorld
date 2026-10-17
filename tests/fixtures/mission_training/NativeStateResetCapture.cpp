@@ -1,6 +1,6 @@
 #include "NativeStateReset.h"
 
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 #include "simulation/flight/FlightModel.h"
 
 #include <algorithm>

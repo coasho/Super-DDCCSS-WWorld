@@ -2,7 +2,7 @@
 // (docs/control-architecture.md, step 5): the poles where the plant's lags
 // ask, the schedules and feedforwards each family needs, and which gains win.
 #include "simulation/flight_control/Laws.h"
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include <catch2/catch_test_macros.hpp>
 

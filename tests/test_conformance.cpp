@@ -10,7 +10,7 @@
 #include "simulation/flight_control/Adapter.h"
 #include "simulation/flight_control/Catalog.h"
 #include "simulation/flight_control/Runtime.h"
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include <catch2/catch_test_macros.hpp>
 

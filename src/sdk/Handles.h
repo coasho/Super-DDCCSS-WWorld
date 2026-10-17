@@ -6,9 +6,9 @@
 #include "fsim/Capability.h"
 #include "fsim/World.h"
 #include "fsim/fsim_c.h"
-#include "session/AgentRules.h"
+#include "simulation/runtime/services/AgentRules.h"
 #include "sdk/LastError.h"
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include <atomic>
 #include <cstddef>

@@ -3,7 +3,7 @@
 // the checks the Vehicle Interface's gap analysis found missing (step VI-1).
 #include "simulation/flight_control/Adapter.h"
 #include "fsim/Control.h"
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include <catch2/catch_test_macros.hpp>
 

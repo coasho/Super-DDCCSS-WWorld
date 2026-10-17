@@ -4,7 +4,7 @@
 // cascade; the vehicle default; controllers that do not know about axes.
 #include "simulation/flight_control/Runtime.h"
 #include "fsim/ControllerRegistry.h"
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include <catch2/catch_test_macros.hpp>
 

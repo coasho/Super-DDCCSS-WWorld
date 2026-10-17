@@ -25,7 +25,7 @@
 #include "fsim/ControlStack.h"
 #include "foundation/core/Log.h"
 #include "foundation/platform/Threads.h"
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include <windows.h>
 

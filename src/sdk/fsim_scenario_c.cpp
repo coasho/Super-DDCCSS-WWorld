@@ -5,7 +5,7 @@
 
 #include "sdk/CAbiSupport.h"
 #include "sdk/Handles.h"
-#include "session/Scenario.h"
+#include "simulation/runtime/world/Scenario.h"
 
 #include <cstddef>
 #include <cstdint>

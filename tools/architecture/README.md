@@ -344,3 +344,21 @@ allowed and forbidden headers in each target's own environment
   probe;
 - forbidden headers are probed both from src (`simulation/...`) and from the
   repository root (`src/simulation/...`).
+
+## Simulation runtime, modeled DMS and the lower facade (ARCH-04)
+
+The runtime (`fsim_session`) is in `src/simulation/runtime`, split by state
+owner into `world/`, `services/` and `stores/`. Modeled DMS is its own module,
+`modeled_dms` (`src/simulation/communications/dms`), over MS RF propagation and
+beside the generic network. The lower facade, `simulation_api`
+(`src/simulation/api`), holds the public World, Agent and recording
+implementations and the options mapping. Training and the SDK assembly use it;
+it uses neither.
+
+Both new modules are registered (no longer planned) with allowed dependencies
+equal to their links. Checks:
+- `test_the_lower_simulation_facade_stays_below_training_and_the_sdk_assembly`
+  rejects a facade link to, or include of, training or the final assembly;
+- the `simulation_api_link` test links every facade object with only its
+  declared closure;
+- the three modules have `include_view_<module>` probes.

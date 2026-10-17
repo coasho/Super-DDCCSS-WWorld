@@ -474,6 +474,36 @@ class DomainFixtures(FixtureRepository):
                 status, output = self.run_gate()
                 self.assertEqual(status, 0, output)
 
+    def test_the_lower_simulation_facade_stays_below_training_and_the_sdk_assembly(self):
+        # ARCH-04's shape: the planned simulation_api registered at its destination, below the runtime it wraps
+        del self.policy["planned_modules"]["simulation_api"]
+        self.policy["modules"]["simulation_api"] = {
+            "target": "fsim_simulation_api", "aliases": ["fsim::simulation_api"], "domain": "simulation",
+            "kind": "implementation", "directories": [], "destinations": ["src/simulation/api"], "files": [],
+            "allowed_dependencies": ["session"], "headless": True}
+        cmake = ("add_library(fsim_simulation_api STATIC Facade.cpp)\n"
+                 "add_library(fsim::simulation_api ALIAS fsim_simulation_api)\n"
+                 "target_link_libraries(fsim_simulation_api PUBLIC fsim::session)\n")
+        self.write("src/simulation/api/Facade.cpp", '#include "session/Header.h"\n')
+        self.write("src/simulation/api/CMakeLists.txt", cmake)
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+        # a symbol from training or the final assembly would put the facade above them
+        for provider, domain, code in (("env", "training", "forbidden-domain"), ("sdk", "adapters", "forbidden-")):
+            with self.subTest(provider=provider):
+                self.policy["modules"]["simulation_api"]["allowed_dependencies"] = ["session", provider]
+                self.write("src/simulation/api/CMakeLists.txt", cmake +
+                           f"target_link_libraries(fsim_simulation_api PRIVATE fsim::{provider})\n")
+                self.rejects(code, f"simulation_api (simulation) -> {provider} ({domain}) by link")
+        # and so would an include of their headers, linked or not
+        self.policy["modules"]["simulation_api"]["allowed_dependencies"] = ["session"]
+        self.write("src/simulation/api/CMakeLists.txt", cmake)
+        for provider in ("env", "sdk"):
+            with self.subTest(include=provider):
+                self.write("src/simulation/api/Facade.cpp",
+                           f'#include "session/Header.h"\n#include "{provider}/Header.h"\n')
+                self.rejects("undeclared-include", f"simulation_api -> {provider}: {provider}/Header.h")
+
     def test_a_file_in_a_domain_root_outside_every_destination_has_no_owner(self):
         self.write("src/training/native/Stray.cpp", "int stray;\n")
         self.rejects("unknown-owner", "inside the training domain root")

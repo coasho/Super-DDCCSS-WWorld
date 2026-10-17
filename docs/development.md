@@ -137,7 +137,7 @@ Python control and Mission handlers belong to `_native_control.c` and `_native_m
 
 MA removal has a narrower contract than deleting its State: publicly queryable tasks, authority, overrides and borrowed RBAC names remain in place, as do controller mappings. `MaConsentLedger` owns private pending requests; answered/automatic records are reclaimed while unanswered ended strikes retain late-reply semantics. Retirement releases private consent storage and stops maintenance after the existing observable transitions settle. Reset retains MA state. `[ma][lifecycle]` and `[agents][c2][lifecycle]` cases exercise these boundaries; see the [A2 design](superpowers/specs/2026-10-12-architecture-lifecycle-design.md) before changing history retention.
 
-World's private `src/session/StoreFlightBinding.h/.cpp` owns carried-store property bindings and their mass/drag,
+World's private `src/simulation/runtime/stores/StoreFlightBinding.h/.cpp` owns carried-store property bindings and their mass/drag,
 weight-room and reported-load caches. Keep `loadTick_`, aircraft pointmass-name caching, entity/model lifecycle,
 permission checks, traversal, host publication and mass-change transactions in World. The binding borrows property
 nodes and takes explicit Host/model inputs; it must not retain model pointers or add reset invalidation. Preserve

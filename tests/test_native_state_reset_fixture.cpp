@@ -1,7 +1,7 @@
 // Same-build native fixture input for the independent episode reset gate; this is not an episode implementation.
 #include "fixtures/mission_training/NativeStateReset.h"
 #include "fsim/MAService.h"
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include <catch2/catch_test_macros.hpp>
 

@@ -1,6 +1,7 @@
 // The VecEnv options a scenario implies (design 9.13; vecenv.md): the public document's "world" and "vecenv" sections
 // and its first vehicle as the episode template, mapped to the batch environment's options. Training's mapping, not the
-// runtime's (ARCH-02): the runtime applies its native recipe (session/ScenarioRecipe.h) and never reads these sections.
+// runtime's (ARCH-02): the runtime applies its native recipe (simulation/runtime/world/ScenarioRecipe.h) and never
+// reads these sections.
 
 #include "fsim/Scenario.h"
 

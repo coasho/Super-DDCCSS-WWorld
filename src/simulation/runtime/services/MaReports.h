@@ -9,7 +9,7 @@
 // One implementation serves the C++ Agent, the C ABI and Python, and the mission gateway after them.
 
 #include "fsim/MAReports.h"
-#include "session/AgentRules.h"
+#include "simulation/runtime/services/AgentRules.h"
 
 #include <cstdint>
 #include <vector>

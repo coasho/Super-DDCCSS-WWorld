@@ -136,7 +136,7 @@ Trainers use public SDK objects. The viewer reads IPC snapshots in its own proce
 | --- | --- | --- |
 | `include/fsim` | Stable C++ and C ABI declarations; `World.h` includes vehicle/environment objects | [Public headers](../include/fsim/) |
 | `src/sdk` | Public object wrappers, C ABI conversion/guards and the SDK shared library | [CMake](../src/sdk/CMakeLists.txt) |
-| `src/session` | Simulation World, MA core/DMS, stepping, engagement/damage coordination and publication | [CMake](../src/session/CMakeLists.txt) |
+| `src/simulation/runtime` | Simulation World, MA core/DMS, stepping, engagement/damage coordination and publication | [CMake](../src/simulation/runtime/CMakeLists.txt) |
 | `src/simulation/flight_control` | Control runtime, capability host, VI commands, activities, navigation and routes | [CMake](../src/simulation/flight_control/CMakeLists.txt) |
 | `src/simulation/mission_systems` | Payload host/cards, RF, RCS lookup, radar/tracking, seekers, countermeasures and damage | [CMake](../src/simulation/mission_systems/CMakeLists.txt) |
 | `src/simulation/flight` | JSBSim adapter, flight-model interface, vehicle pool and worker stepping | [CMake](../src/simulation/flight/CMakeLists.txt) |

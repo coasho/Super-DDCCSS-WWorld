@@ -340,13 +340,13 @@ Existing implementation references:
   send refusals and C2 correlations.
 - [C mission adapters](../../src/sdk/fsim_mission_c.cpp): own-scoped countermeasure
   and launch-zone paths, store parity and range-only direct consent.
-- [Agent rules](../../src/session/AgentRules.cpp) and
-  [native strike dispatch](../../src/session/World.cpp): own designations and direct
+- [Agent rules](../../src/simulation/runtime/services/AgentRules.cpp) and
+  [native strike dispatch](../../src/simulation/runtime/world/World.cpp): own designations and direct
   consent refusal for minted Agent controllers.
-- [MA core](../../src/session/MaCore.cpp) and
-  [consent ledger](../../src/session/MaConsentLedger.h): modeled DMS authorization,
+- [MA core](../../src/simulation/runtime/services/MaCore.cpp) and
+  [consent ledger](../../src/simulation/runtime/services/MaConsentLedger.h): modeled DMS authorization,
   first-answer retirement and native request scope.
-- [Native engagement implementation](../../src/session/WorldEngagements.cpp):
+- [Native engagement implementation](../../src/simulation/runtime/world/WorldEngagements.cpp):
   single dispense, advisory launch zones and retained event provenance.
 - [Python Agent facade](../../python/fsim/agent.py): current delegated store/strike
   reports and typed C2 consent access.

@@ -1,7 +1,7 @@
-#include "session/MaReports.h"
+#include "simulation/runtime/services/MaReports.h"
 
-#include "session/Dms.h"
-#include "session/World.h"
+#include "simulation/communications/dms/Dms.h"
+#include "simulation/runtime/world/World.h"
 
 #include <cmath>
 #include <utility>

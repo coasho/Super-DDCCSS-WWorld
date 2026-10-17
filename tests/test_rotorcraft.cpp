@@ -9,7 +9,7 @@
 #include "simulation/flight_control/Adapter.h"
 #include "fsim/Control.h"
 #include "fsim/GuidanceModes.h"
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 #include "simulation/flight/FlightModel.h"
 
 #include <catch2/catch_test_macros.hpp>

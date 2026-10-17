@@ -3,8 +3,8 @@
 // What the payloads beyond the radar and the store stations share (ADR-30, MS-9 to MS-11): the world as a sensor
 // meets it - the other entities, the transmitters among them, the decoys in the air - and one interface for a
 // payload's model: the task it is given, its step with the world, the contacts it holds, its report, what it
-// radiates. The host (ms/Host) owns the models, their activities and their grants; the world (session/World) builds
-// the scene and flies what the models release into it.
+// radiates. The host (ms/Host) owns the models, their activities and their grants; the world
+// (simulation/runtime/world/World) builds the scene and flies what the models release into it.
 
 #include "fsim/EnvironmentState.h"
 #include "fsim/MissionSystems.h"

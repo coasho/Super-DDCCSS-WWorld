@@ -17,8 +17,8 @@
 
 #include "fsim/Comm.h"
 #include "fsim/Scenario.h"
-#include "session/AgentRules.h"
-#include "session/World.h"
+#include "simulation/runtime/services/AgentRules.h"
+#include "simulation/runtime/world/World.h"
 
 #include <atomic>
 #include <cstdint>

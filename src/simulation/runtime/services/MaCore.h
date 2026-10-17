@@ -9,7 +9,7 @@
 
 #include "fsim/Capability.h"
 #include "fsim/Comm.h"
-#include "session/MaConsentLedger.h"
+#include "simulation/runtime/services/MaConsentLedger.h"
 
 #include <cstdint>
 #include <string>

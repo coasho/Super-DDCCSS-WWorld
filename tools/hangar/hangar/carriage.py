@@ -48,11 +48,11 @@ def directional_load(aircraft):
     """What the stores an aircraft's loadouts hang on it take from its weathercock stability, at the most: its yawing
     moment per unit of dynamic pressure and of sideslip (m^3; negative: the nose turned away from the wind), the sum
     over its stations of the worst store its loadouts put on each. As the world works a carried store's moment out
-    (session/World.cpp, ms::Host::carriageDrag): its body's unstable couple, -2 x its Munk volume, and its fins' and
-    base's side force - half its card's slope, as carried - acting its side arm behind its station, the station's
-    place from the empty aircraft's CG; a missile in a fuselage well and a store in a bay or a hold give none (in the
-    fuselage's outline). A store that steadies it (fins well behind the CG) is not counted: it may not be carried.
-    0 without stations or loadouts. Divided by the wing's area and span, the change of Cn_beta."""
+    (simulation/runtime/world/World.cpp, ms::Host::carriageDrag): its body's unstable couple, -2 x its Munk volume, and
+    its fins' and base's side force - half its card's slope, as carried - acting its side arm behind its station, the
+    station's place from the empty aircraft's CG; a missile in a fuselage well and a store in a bay or a hold give none
+    (in the fuselage's outline). A store that steadies it (fins well behind the CG) is not counted: it may not be
+    carried. 0 without stations or loadouts. Divided by the wing's area and span, the change of Cn_beta."""
     fit = os.path.join(aircraft.dir, "payloads.json")
     if not os.path.isfile(fit):
         return 0.0

@@ -1,6 +1,6 @@
 // A-GRA's route intercept (docs/flight-autonomy.md, 4.47; ROUTE_INTERCEPT): the world's calls, each the vehicle's host's - its
 // plan, its join and its checks are the host's, which keeps the plans.
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 namespace fsim::session {
 

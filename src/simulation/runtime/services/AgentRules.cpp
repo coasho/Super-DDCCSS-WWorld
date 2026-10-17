@@ -1,8 +1,8 @@
 // ADR-31: the rules an agent's handle is held to (AgentRules.h).
 
-#include "session/AgentRules.h"
+#include "simulation/runtime/services/AgentRules.h"
 
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include <mutex>
 #include <variant>

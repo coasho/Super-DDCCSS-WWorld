@@ -2,8 +2,8 @@
 
 #include "foundation/core/Log.h"
 #include "env/Registry.h"
-#include "session/AgentRules.h"
-#include "session/Scenario.h"
+#include "simulation/runtime/services/AgentRules.h"
+#include "simulation/runtime/world/Scenario.h"
 
 #include <algorithm>
 #include <stdexcept>

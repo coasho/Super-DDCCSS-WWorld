@@ -72,7 +72,7 @@ in the simulated world.
 | **MA core** | The part of A-GRA's MA that applies rules (A6-A12): it authenticates and authorizes received messages, forwards C2's control designations to FA, executes authorized direct commands and overrides, applies the approval and weapons authorization policies, runs C2's lost-communication responses and answers unauthorized requests. The SDK World owns this runtime with entity-keyed state | Apply native authority rules on behalf of the bound service; target/task/course-of-action decisions belong in the upper layer |
 | **Agent** | A permission-scoped SDK endpoint minted by Range for one platform or C2 entity. Upper-layer scripts, planners, learned actors, human operators or a composite MA use its reports and commands | Read what its bound platform/system and MA core report to it, and act through their permitted interfaces (section 6) |
 
-Current [MaCore state](../src/session/MaCore.h) is keyed by entity; [World](../src/session/World.h) owns the runtime.
+Current [MaCore state](../src/simulation/runtime/services/MaCore.h) is keyed by entity; [World](../src/simulation/runtime/world/World.h) owns the runtime.
 An upper-layer MA may contain multiple actors, behavior trees, algorithms and internal services behind an endpoint.
 Explicit configured service/capability/DMS ownership is a planned additive extension in the
 [MA integration design](superpowers/specs/2026-10-12-ma-system-training-readiness-design.md); it is not implemented by creating more Agent handles.
@@ -341,7 +341,7 @@ Dissemination Plan and the picture, received tracks as designations. Each in C++
   objects - `fsim::Agent`, `fsim.Agent`, an `fsim.AgentActivity` without its world or vehicle - and its C handle is an
   `fsim_world*` in an agent's mode: every C function an `fsim_world*` reaches opens with its guard (refused, or scoped
   to its own vehicle and activities), generated from AB-1's classification and checked against it by `sdk_boundary`,
-  so even the objects behind `fsim.Agent` answer nothing else. One set of rules (`session/AgentRules`) for the C ABI and
+  so even the objects behind `fsim.Agent` answer nothing else. One set of rules (`simulation/runtime/services/AgentRules`) for the C ABI and
   the C++ `Agent`:
   - **As itself (L2):** the policy's source and its own controller; options or a caller claiming another are refused,
     0 is its own. The per-step `command_*` entry points (the default policy's, without options) are the range's.

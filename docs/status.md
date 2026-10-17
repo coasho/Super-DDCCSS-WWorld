@@ -539,6 +539,36 @@ recheck found: the gate and the compile check both accepted an ancestor of `src`
 - **Tests:** related tests 16/16 on each preset; 130 checker cases and 49 selector cases. No full suite (HC-11). The
   ARCH-03 record's section 7 has the details.
 
+## Architecture ARCH-04 simulation runtime, services and lower facade (2026-10-16, awaiting independent acceptance)
+
+The fourth package of the architecture roadmap is a relocation and target split. The record is
+`docs/architecture/validation/arch-04-simulation-runtime.md`, with its dated baseline and include environments. ARCH-05
+has not started.
+
+- **Runtime:** session moved to `src/simulation/runtime`, split by the state each file owns: `world/` (the World, its
+  member files and the native scenario), `services/` (MaCore, consent, service bindings, reports, Agent rules) and
+  `stores/` (store-to-flight binding). The target is still `fsim_session`.
+- **Modeled DMS:** `Dms.h/.cpp` form `fsim_modeled_dms` (`src/simulation/communications/dms`), over MS RF
+  propagation, beside the generic network.
+- **Lower facade:** `fsim_simulation_api` (`src/simulation/api`) holds the World, Agent and recording implementations
+  and the public-to-native options mapping. Training (`fsim_env`) and the SDK consume it; the SDK links it whole and
+  exports its classes, each defined once.
+- **`applyScenario`:** it stays in the SDK assembly, because its public header also declares training's
+  `vecEnvOptions` (decision HC-15).
+- **Unchanged:** targets, aliases, namespaces, registration and exports. Every first-party object is unchanged in
+  code, data and symbols (287 headless, 335 Release; 21 moved).
+
+| Verification | Result |
+| --- | --- |
+| Builds (headless, Release), warnings as errors | 0 warnings |
+| Frozen-baseline compare, both builds; frozen C++/C99/Python consumers on the new installed SDK | 19 comparisons, 0 failures, all captures identical; five consumers exit 0 |
+| Fast tier (ARCH-03's tests) plus the new link gate and include-view probes | Headless 572/572; Release 637/637 |
+| Related gates outside the tier: MA services, C2/DMS, episodes, facade, store binding, engagement | 27/27 |
+| Architecture gate; fixtures; selector tests | Accepted (22 modules); 131; 49 |
+
+No full suite ran (HC-11). Register HC-15 asks for a decision on `applyScenario`'s placement; HC-14's remaining
+shared roots are now `env`, `sdk`, the visualization targets, applications, tests and tools.
+
 ## HC-10 shared-memory padding (2026-10-16, awaiting independent acceptance)
 
 The carryover register's HC-10 is verified and corrected; section 10 of the ARCH-02 record

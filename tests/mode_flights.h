@@ -4,7 +4,7 @@
 // wing at its speed, a rotorcraft settled in its hover, the wind, the track.
 
 #include "fsim/Control.h"
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include <catch2/catch_test_macros.hpp>
 

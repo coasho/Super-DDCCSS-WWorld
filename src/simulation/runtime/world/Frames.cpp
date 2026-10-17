@@ -1,6 +1,6 @@
 // Reference frames (docs/flight-autonomy.md, 4.21; A-GRA's ReferenceFrame): the world's store of them, and a frame as it
 // is at a time. Set and asked for between steps, never stepped.
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include <algorithm>
 #include <cmath>

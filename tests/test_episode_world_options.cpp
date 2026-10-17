@@ -3,8 +3,8 @@
 
 #include "env/MissionEpisode.h"
 #include "fsim/World.h"
-#include "session/World.h"
-#include "session/WorldOptions.h"
+#include "simulation/runtime/world/World.h"
+#include "simulation/api/WorldOptions.h"
 
 #include <catch2/catch_test_macros.hpp>
 

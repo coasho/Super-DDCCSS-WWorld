@@ -420,7 +420,7 @@ fsim_include_view_check(contracts fsim_contracts
     FORBIDDEN foundation/core/Units.h simulation/flight/VehicleState.h)
 fsim_include_view_check(platform fsim_platform
     ALLOWED   foundation/platform/Clock.h
-    FORBIDDEN foundation/core/Units.h session/WorldOptions.h)
+    FORBIDDEN foundation/core/Units.h simulation/api/WorldOptions.h)
 fsim_include_view_check(core fsim_core
     ALLOWED   foundation/core/Units.h foundation/platform/Clock.h
     FORBIDDEN foundation/io/AircraftFile.h simulation/flight/VehicleState.h)
@@ -443,10 +443,27 @@ fsim_include_view_check(effects fsim_effects
     FORBIDDEN simulation/flight_control/Pid.h simulation/communications/network/Comm.h)
 fsim_include_view_check(comm fsim_comm
     ALLOWED   simulation/communications/network/Comm.h simulation/flight_control/Pid.h foundation/platform/Clock.h
-    FORBIDDEN simulation/mission_systems/rf/Rain.h session/Dms.h)
+    FORBIDDEN simulation/mission_systems/rf/Rain.h simulation/communications/dms/Dms.h)
 fsim_include_view_check(ms fsim_ms
     ALLOWED   simulation/mission_systems/rf/Rain.h simulation/mission_systems/radar/Radar.h foundation/core/Units.h
-    FORBIDDEN simulation/flight/VehicleState.h simulation/flight_control/Pid.h session/WorldOptions.h)
+    FORBIDDEN simulation/flight/VehicleState.h simulation/flight_control/Pid.h
+              simulation/runtime/services/MaServiceBindings.h)
+# ARCH-04: modeled DMS sees the network and MS RF propagation, not the runtime above it; the runtime sees DMS and the
+# leaves, not the facade, training or the SDK assembly; the facade sees the runtime and transport, not training or the
+# SDK assembly.
+fsim_include_view_check(modeled_dms fsim_modeled_dms
+    ALLOWED   simulation/communications/dms/Dms.h simulation/mission_systems/rf/Path.h
+              simulation/communications/network/Comm.h
+    FORBIDDEN simulation/runtime/services/MaServiceBindings.h simulation/environment/Effect.h
+              foundation/transport/WorldRegistry.h)
+fsim_include_view_check(session fsim_session
+    ALLOWED   simulation/runtime/world/World.h simulation/runtime/services/MaCore.h
+              simulation/runtime/stores/StoreFlightBinding.h simulation/communications/dms/Dms.h
+              foundation/transport/WorldRegistry.h
+    FORBIDDEN simulation/api/WorldOptions.h env/Registry.h sdk/LastError.h)
+fsim_include_view_check(simulation_api fsim_simulation_api
+    ALLOWED   simulation/api/WorldOptions.h simulation/runtime/world/World.h foundation/transport/Recording.h
+    FORBIDDEN env/Registry.h sdk/Handles.h)
 # The check itself, on mutated copies of ms's check: the unmutated and a permitted root pass; src and its ancestors in
 # each spelling (src/., the repository root, src/..), copied src trees, a provider's view removed, a stale probe and an
 # unsupported compiler are refused (cmake/TestCheckIncludeView.cmake).
@@ -454,6 +471,15 @@ add_test(NAME include_view_checker
     COMMAND ${CMAKE_COMMAND} -DCHECK=${CMAKE_BINARY_DIR}/include-view-checks/fsim_ms.cmake
         -P ${CMAKE_SOURCE_DIR}/cmake/TestCheckIncludeView.cmake)
 set_tests_properties(include_view_checker PROPERTIES LABELS architecture TIMEOUT 120)
+
+# The lower simulation facade links on its own (ARCH-04): every object of fsim_simulation_api, linked whole into an
+# executable with nothing but its own declared closure - the runtime, modeled DMS, the simulation leaves, transport and
+# foundation - so a symbol it needed from training (fsim_env), the SDK assembly (fsim) or graphics would not resolve.
+add_executable(fsim_simulation_api_link simulation_api_link.cpp)
+target_link_libraries(fsim_simulation_api_link PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,fsim::simulation_api>")
+fsim_set_warnings(fsim_simulation_api_link)
+add_test(NAME simulation_api_link COMMAND fsim_simulation_api_link)
+set_tests_properties(simulation_api_link PROPERTIES LABELS "architecture;simulation" TIMEOUT 60)
 
 # Simulation construction, fixed state/transport ABI and output-only diagnostics stay independent of M5.
 add_executable(fsim_simulation_interface_boundary_test

@@ -5,7 +5,7 @@
 #include "env/Observation.h"
 #include "env/Scenario.h"
 #include "env/Task.h"
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 #include "simulation/flight/GroundProvider.h"
 
 #include <cstdint>

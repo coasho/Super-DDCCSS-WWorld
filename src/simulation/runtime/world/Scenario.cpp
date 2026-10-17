@@ -9,8 +9,8 @@
 #include "foundation/core/Json.h"
 #include "foundation/core/Log.h"
 #include "foundation/core/Time.h"
-#include "session/Scenario.h"
-#include "session/World.h"
+#include "simulation/runtime/world/Scenario.h"
+#include "simulation/runtime/world/World.h"
 
 #include <cmath>
 #include <cstdio>

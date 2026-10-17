@@ -2,7 +2,7 @@
 // rejection's detail, an activity's progress, the commanded state, and which
 // of A-GRA's flight capability types a capability is (step VI-2).
 #include "fsim/Control.h"
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include <catch2/catch_test_macros.hpp>
 

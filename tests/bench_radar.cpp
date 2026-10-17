@@ -20,7 +20,7 @@
 
 #include "simulation/mission_systems/Host.h"
 #include "simulation/mission_systems/radar/Radar.h"
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include <chrono>
 #include <cmath>

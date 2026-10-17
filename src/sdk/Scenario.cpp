@@ -2,7 +2,7 @@
 
 #include "fsim/Scenario.h"
 
-#include "session/Scenario.h"
+#include "simulation/runtime/world/Scenario.h"
 
 namespace fsim {
 

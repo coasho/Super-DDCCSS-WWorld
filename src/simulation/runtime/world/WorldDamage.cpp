@@ -3,7 +3,7 @@
 // what the damage takes off the aerodynamic force (World::preStep), each section's root against its strength left,
 // a failed one leaving with its mass. The physics is ms/damage's; the chances are each vehicle's own damage stream.
 
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include "simulation/mission_systems/damage/Debris.h"
 #include "simulation/mission_systems/damage/Impact.h"

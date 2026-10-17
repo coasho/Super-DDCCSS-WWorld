@@ -5,9 +5,9 @@
 
 #include "foundation/core/Log.h"
 #include "foundation/core/Time.h"
-#include "session/AgentRules.h"
-#include "session/World.h"
-#include "session/WorldOptions.h"
+#include "simulation/runtime/services/AgentRules.h"
+#include "simulation/runtime/world/World.h"
+#include "simulation/api/WorldOptions.h"
 
 #include <chrono>
 #include <ctime>

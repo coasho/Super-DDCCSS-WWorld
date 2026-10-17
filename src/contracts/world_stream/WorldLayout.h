@@ -283,7 +283,7 @@ enum class EngagementKind : std::uint8_t {
                     ///< vehicle's, `name` the component's (its model manifest's `component` lines), `amountKg` the fuel
                     ///< released at once (its fireball), `rateKgS` what leaks and burns on (0: it is out), `massKg`
                     ///< what leaves it each second (kg/s: what does not burn its mist); written again as they change
-    // MS-7g's damage (session/WorldDamage.cpp), each `slot` the vehicle's, at its place and velocity:
+    // MS-7g's damage (simulation/runtime/world/WorldDamage.cpp), each `slot` the vehicle's, at its place and velocity:
     EngineOut = 3,   ///< `name` the engine's component, `index` its engine
     ControlLost = 4, ///< `name` the control channel lost
     CrewLost = 5,    ///< `name` the crew's component

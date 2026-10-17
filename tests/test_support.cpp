@@ -3,7 +3,7 @@
 // offered where the aircraft has them, refused by their placards, and able to
 // take an axis from the command that set it until then.
 #include "simulation/flight_control/Catalog.h"
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include <catch2/catch_test_macros.hpp>
 

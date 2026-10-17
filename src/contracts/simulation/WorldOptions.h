@@ -2,7 +2,7 @@
 
 // The native World's construction options: the values the runtime is built from (session::World). A neutral contract
 // (src/contracts, ARCH-02): they sit below the runtime and below the mapping from the public fsim::WorldOptions
-// (session/WorldOptions.h, which ARCH-04 moves to the lower simulation facade), so neither the mapper nor its public
+// (simulation/api/WorldOptions.h, the lower simulation facade's since ARCH-04), so neither the mapper nor its public
 // inputs enter the runtime target. The name, namespace, fields, order and defaults are those it had in session/World.h.
 
 #include "fsim/GroundProvider.h"

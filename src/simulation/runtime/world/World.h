@@ -16,10 +16,10 @@
 #include "simulation/mission_systems/countermeasure/Dispenser.h"
 #include "simulation/mission_systems/rcs/Table.h"
 #include "simulation/flight_control/Features.h"
-#include "session/Dms.h"
-#include "session/MaCore.h"
-#include "session/MaServiceBindings.h"
-#include "session/StoreFlightBinding.h"
+#include "simulation/communications/dms/Dms.h"
+#include "simulation/runtime/services/MaCore.h"
+#include "simulation/runtime/services/MaServiceBindings.h"
+#include "simulation/runtime/stores/StoreFlightBinding.h"
 #include "fsim/VehicleProfile.h"
 #include "simulation/environment/Effect.h"
 #include "fsim/EnvironmentState.h"
@@ -643,8 +643,9 @@ public:
     const Designation* designation(std::uint32_t target) const noexcept;
     /// A vehicle's designations, live and lapsed.
     std::vector<Designation> designations(std::uint32_t owner) const;
-    /// A command from an agent's controller (session/AgentRules.h): on its own vehicle, naming no other aircraft by its
-    /// entity id - a behaviour's target, a must fly's entity (L4). Reason::None for any other controller's.
+    /// A command from an agent's controller (simulation/runtime/services/AgentRules.h): on its own vehicle, naming no
+    /// other aircraft by its entity id - a behaviour's target, a must fly's entity (L4). Reason::None for any other
+    /// controller's.
     control::Reason agentRefusal(std::uint32_t vehicle, control::ControllerId controller, const control::Command* command,
                                  const control::MustFlyCommand* mustFly = nullptr) const;
     const std::string& name() const noexcept { return options_.name; }

@@ -1,7 +1,7 @@
 // The altitude stacked marshall's slots (docs/flight-autonomy.md, 4.46; A-GRA's ALTITUDE_STACKED_MARSHALL): the world, which sees
 // every vehicle, chooses each aircraft's altitude in its stack - between steps, on the caller's thread, so the same commands
 // choose the same slots - and hands the marshall to the vehicle's host with it.
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include "foundation/core/Geodesy.h"
 

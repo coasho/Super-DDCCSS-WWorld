@@ -1,6 +1,6 @@
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
-#include "session/AgentRules.h"
+#include "simulation/runtime/services/AgentRules.h"
 
 #include "foundation/core/Log.h"
 #include "foundation/core/Units.h"

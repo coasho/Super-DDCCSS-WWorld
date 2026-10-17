@@ -1,6 +1,6 @@
 // MA lifecycle records must retain the storage borrowed by the C ABI.
-#include "session/World.h"
-#include "session/MaConsentLedger.h"
+#include "simulation/runtime/world/World.h"
+#include "simulation/runtime/services/MaConsentLedger.h"
 
 #include <catch2/catch_test_macros.hpp>
 

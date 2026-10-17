@@ -4,7 +4,7 @@
 // chain from a detonation to what it breaks - the warhead's fragments (Gurney's velocity, the spray's zones, slowed
 // by the air), each one's flight across the target in its attitude, its penetration of the skin (THOR) and what it
 // strikes behind it, and the blast (free-air Kingery-Bulmash, scaled for altitude) on each skin panel. Pure: the
-// world (session/World) owns the state and draws the chances from the vehicle's own damage stream.
+// world (simulation/runtime/world/World) owns the state and draws the chances from the vehicle's own damage stream.
 //
 // Frames: the target's body axes from its model's origin (x forward, y right, z down; m) as its damage data
 // (aircraft/<type>/<type>.damage.json, tools/hangar/hangar/damage.py) and its manifest's components are; ECEF for

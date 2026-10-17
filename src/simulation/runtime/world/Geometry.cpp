@@ -1,6 +1,6 @@
 // Operational geometry (docs/flight-autonomy.md, 4.42 to 4.45; A-GRA's OpPoint, OpZone, OpLine and OpVolume): the world's store of it,
 // by id, for the commands that name it (a must fly). Set and asked for between steps, never stepped.
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include "simulation/flight_control/Lines.h"
 #include "simulation/flight_control/Volumes.h"

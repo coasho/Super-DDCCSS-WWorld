@@ -1,5 +1,5 @@
 // Native engagement lifecycle. JSBSim alone integrates weapon motion.
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 #include "foundation/io/AssetResolver.h"
 #include "simulation/mission_systems/rf/Path.h"
 #include <algorithm>

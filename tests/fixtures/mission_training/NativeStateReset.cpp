@@ -1,7 +1,7 @@
 #include "NativeStateReset.h"
 
 #include "fsim/MAService.h"
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 #include "simulation/mission_systems/damage/State.h"
 
 #include <algorithm>

@@ -1,7 +1,7 @@
-#include "session/WorldOptions.h"
+#include "simulation/api/WorldOptions.h"
 
 #include "fsim/World.h"
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 namespace fsim::session {
 

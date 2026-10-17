@@ -1,12 +1,13 @@
-// fsim SDK: Agent and Referee (ADR-31) over the range's World - the rules in session/AgentRules.h, the same the C ABI's
-// agent handles are held to; what an agent's controller commands is checked again by the world (session::World).
+// fsim SDK: Agent and Referee (ADR-31) over the range's World - the rules in simulation/runtime/services/AgentRules.h,
+// the same the C ABI's agent handles are held to; what an agent's controller commands is checked again by the world
+// (session::World).
 
 #include "fsim/Agent.h"
 #include "fsim/World.h"
 
-#include "session/AgentRules.h"
-#include "session/MaReports.h"
-#include "session/World.h"
+#include "simulation/runtime/services/AgentRules.h"
+#include "simulation/runtime/services/MaReports.h"
+#include "simulation/runtime/world/World.h"
 
 #include <algorithm>
 

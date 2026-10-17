@@ -1,7 +1,7 @@
 // session::World: vehicles by name/type, control levels flying a real
 // aircraft, environment, effects, communication, determinism, and the
 // shared-memory mirror round trip.
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include "foundation/core/Geodesy.h"
 #include "foundation/core/Units.h"

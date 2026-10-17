@@ -1,7 +1,7 @@
 // The navigation report (docs/flight-autonomy.md, 4.14; A-GRA's MA_NavigationReport): what a vehicle flies on,
 // how much it has and for how long, its playtime to its recovery point and its contingency. Asked for, never
 // stepped: in a file of its own, apart from the step.
-#include "session/World.h"
+#include "simulation/runtime/world/World.h"
 
 #include "fsim/VehicleProfile.h"
 

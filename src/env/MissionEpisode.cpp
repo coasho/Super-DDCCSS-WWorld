@@ -3,8 +3,8 @@
 #include "env/MissionEpisode.h"
 
 #include "fsim/Rng.h"
-#include "session/Scenario.h"
-#include "session/WorldOptions.h"
+#include "simulation/runtime/world/Scenario.h"
+#include "simulation/api/WorldOptions.h"
 
 #include <algorithm>
 #include <filesystem>
