@@ -210,9 +210,9 @@ def validate_policy(policy):
                 if fold(path) in owners:
                     raise ValueError(f"duplicate-owner: {path} is claimed by {owners[fold(path)]} and {name}")
                 owners[fold(path)] = name
-    # An exact file claim keeps the existing legacy shared directories (Flow in src/world, the Viewer in src/app) but
-    # never overrides another owner: inside a domain root it lies in the module's own destination, and in a legacy
-    # directory it belongs to a module of the same domain. It cannot take a reserved or foreign file.
+    # An exact file claim keeps a legacy shared directory (as Flow's in src/world and the Viewer's in src/app did until
+    # ARCH-06) but never overrides another owner: inside a domain root it lies in the module's own destination, and in
+    # a legacy directory it belongs to a module of the same domain. It cannot take a reserved or foreign file.
     directory_claims = [(path.rstrip("/"), name, group) for group, entries in (("module", modules), ("planned", planned))
                         for name, module in entries.items() for path in module.get("directories", []) + module["destinations"]]
     for name, module in modules.items():

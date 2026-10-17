@@ -2,12 +2,12 @@
 // vertex-grid resampling that keeps tile seams closed, and elevation tiles
 // synthesised below the pyramid's deepest level.
 #include "foundation/core/HeightGrid.h"
-#include "world/CameraController.h"
-#include "world/Frames.h"
-#include "world/ElevationUpsampler.h"
-#include "world/OfflineTiles.h"
-#include "world/Scattering.h"
-#include "world/Terrain.h"
+#include "visualization/scene/CameraController.h"
+#include "visualization/scene/Frames.h"
+#include "visualization/scene/ElevationUpsampler.h"
+#include "visualization/scene/OfflineTiles.h"
+#include "visualization/scene/Scattering.h"
+#include "visualization/scene/Terrain.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>

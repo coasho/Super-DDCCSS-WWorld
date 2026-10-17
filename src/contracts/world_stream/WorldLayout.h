@@ -90,6 +90,10 @@ enum Derived : std::size_t {
     kDerivedFuelFlowKgS = 10,
     kDerivedCount = 14,
 };
+/// Of the kDerivedConstraints bits, those a reader names (control::ActivityFlag's values; the producer holds its flags
+/// to them): flown faster than commanded to keep its height, moving away from its commanded altitude, departed
+/// controlled flight.
+constexpr std::uint32_t kConstraintLowEnergy = 1u << 6, kConstraintDeviating = 1u << 7, kConstraintUpset = 1u << 8;
 /// The `derived` values a sample had before layout 8 (and a recording before its version 6), and at layout 8 (version 6).
 constexpr std::size_t kDerivedCountV7 = 8, kDerivedCountV8 = 10;
 
@@ -160,6 +164,9 @@ constexpr std::uint32_t kMissionPayloads = 16;
 constexpr std::uint32_t kMissionRadars = 2;
 constexpr std::uint32_t kMissionDetections = 96; ///< a radar's newest detections
 constexpr std::uint32_t kMissionTracks = 48;      ///< a radar's tracks shown (its first, by number)
+/// A payload record's family codes are below this: ms::Family's values, so a reader names every one without the
+/// simulation's headers (the producer holds its enum to it).
+constexpr std::uint32_t kMissionFamilies = 13;
 
 struct MissionPayload {
     char name[24] = {};          ///< in the fit: "radar"

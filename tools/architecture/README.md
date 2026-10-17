@@ -50,12 +50,11 @@ Source walks are limited to the explicit `src`, `include/fsim` and `third_party`
 roots and prune excluded private directories before descending into them.
 
 Directory ownership includes private helper headers that CMake does not list as
-build inputs. Explicit file ownership takes precedence in two shared directories:
-
-| Module | Shared directory ownership |
-| --- | --- |
-| `flow` / `fsim_flow` | `src/world/FlowSolver.{h,cpp}` and `src/world/FlowFires.{h,cpp}` |
-| `viewer` / `flightsim-viewer` | `src/app/viewer_main.cpp`, `src/app/DemoAutopilot.h` and `src/app/StrikeCapture.h` |
+build inputs. Explicit file ownership could take precedence in a shared legacy
+directory. Until ARCH-06 two modules held such claims: Flow
+(`src/world/FlowSolver.{h,cpp}`, `src/world/FlowFires.{h,cpp}`) and the Viewer
+(`src/app/viewer_main.cpp`, `DemoAutopilot.h`, `StrikeCapture.h`). Both now own
+their destinations, and no module holds one.
 
 Flow has its own core dependency closure and does not inherit world dependencies.
 It is an optional GPU module, including the existing Win32 Flow loader; isolating
@@ -152,8 +151,8 @@ Python and Vision extension adapters, `oms`, `demo`, `training_vision`,
 `testbench`) reserve their destinations. Ownership resolves as follows:
 
 - an exact file entry wins first, then the longest claimed directory prefix. An
-  exact entry keeps the legacy shared directories, such as Flow in `src/world`
-  and the Viewer in `src/app`, but never overrides another owner. Inside a domain
+  exact entry keeps a legacy shared directory (as Flow's in `src/world` and the
+  Viewer's in `src/app` did until ARCH-06), but never overrides another owner. Inside a domain
   root it must lie in the module's own destination; in a legacy directory, the
   directory's owner must be in the same domain. A claim on a reserved, foreign or
   unassigned file is an input error (`file-claim`);
@@ -381,3 +380,25 @@ Checks:
 
 `fsim_include_view` accepts `DIRECTORIES` for a target spread over several
 destination directories.
+
+## Visualization, Vision adapter and the Viewer's demo (ARCH-06)
+
+Visualization is in `src/visualization`:
+- `render`;
+- `scene` (`fsim_world`), which also holds the visual effects in `vfx/effects`;
+- the optional Flow solver in `vfx/flow`;
+- `ui`;
+- `vision_core` (offscreen camera scenes).
+
+The scene and UI read contracts and read-only frames: the `world -> sim` and
+`ui -> sim` exceptions and the UI's two public-header exceptions are gone. The
+Vision World-handle API and C ABI are the `vision` adapter (`src/adapters/vision`).
+
+The Viewer (`src/applications/viewer`) links the demo application
+(`src/applications/demo`, `demo`) only to keep its `--demo` command line. That is
+the exact exception `viewer -> demo` (rule `kind`, until ARCH-08), which
+`test_a_temporary_application_composition_needs_its_exact_kind_exception` holds to
+its rule.
+
+The include-view probe check searches vendor and imported roots as system roots
+and leaves the compiler's implicit directories to it, as the build does.

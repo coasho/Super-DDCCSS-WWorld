@@ -1,6 +1,6 @@
 # NVIDIA Flow 2 (vendored)
 
-The viewer's fire and smoke solver (`src/world/FlowSolver.cpp`, `cmake/Flow.cmake`).
+The viewer's fire and smoke solver (`src/visualization/vfx/flow/FlowSolver.cpp`, `cmake/Flow.cmake`).
 
 - Source: https://github.com/NVIDIA-Omniverse/PhysX, its `flow/` folder, commit
   `6dc53585d7db07346f53d0598a5fd3bfdce47d8d` (Flow 2.2.0). BSD-3-Clause: `LICENSE.md`.

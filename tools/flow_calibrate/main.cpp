@@ -14,8 +14,8 @@
 //
 //   flightsim-flow-calibrate spill 100 [pressure=<Pa>] [path=<m/s>] [seconds=<s>] [calls=<per s>] [csv=<file>]
 
-#include "world/FlowFires.h"
-#include "world/FlowSolver.h"
+#include "visualization/vfx/flow/FlowFires.h"
+#include "visualization/vfx/flow/FlowSolver.h"
 
 #include <algorithm>
 #include <cmath>

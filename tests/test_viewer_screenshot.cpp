@@ -1,6 +1,6 @@
 // A screenshot taken after frame() must contain the frame just presented,
 // not the previous swapchain image. This uses a real fullscreen Vulkan window.
-#include "render/Viewer.h"
+#include "visualization/render/Viewer.h"
 
 #include <vsgXchange/all.h>
 

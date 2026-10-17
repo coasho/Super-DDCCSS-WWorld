@@ -405,6 +405,7 @@ set(STYLE ${_style})
 set(SOURCE_DIR [==[${CMAKE_SOURCE_DIR}]==])
 set(WORK [==[${CMAKE_BINARY_DIR}/include-view-checks/${target}]==])
 set(INCLUDES [==[$<REMOVE_DUPLICATES:${_includes}>]==])
+set(IMPLICIT [==[${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES}]==])
 set(DEFINES [==[${_defines}]==])
 set(OPTIONS [==[${_options}]==])
 set(ALLOWED [==[${_v_ALLOWED}]==])
@@ -474,6 +475,34 @@ fsim_include_view_check(mission fsim_training_mission
     ALLOWED   training/native/mission/MissionGateway.h training/native/episodes/api/MissionEpisodeImpl.h
               training/native/episodes/runtime/MissionEpisode.h simulation/api/WorldOptions.h
     FORBIDDEN sdk/Handles.h sdk/CAbiSupport.h sdk/LastError.h)
+# ARCH-06: the demo composes the flight module and sees neither the runtime, training nor the SDK assembly; the
+# visualization targets (render builds) read contracts and read-only frames, never a simulation header.
+fsim_include_view_check(demo fsim_demo_publisher
+    ALLOWED   applications/demo/DemoSimulation.h simulation/flight/SimRunner.h
+    FORBIDDEN simulation/runtime/services/MaServiceBindings.h training/native/vecenv/Registry.h sdk/LastError.h)
+if(TARGET fsim_world)
+    fsim_include_view_check(render fsim_render
+        ALLOWED   visualization/render/Viewer.h foundation/core/Span.h
+        FORBIDDEN visualization/scene/Frames.h simulation/flight/VehicleState.h)
+    fsim_include_view_check(flow fsim_flow
+        ALLOWED   visualization/vfx/flow/FlowSolver.h foundation/core/Span.h
+        FORBIDDEN simulation/flight/VehicleState.h simulation/flight/SnapshotBuffer.h
+                  applications/demo/DemoSimulation.h)
+    fsim_include_view_check(scene fsim_world
+        ALLOWED   visualization/scene/Frames.h visualization/vfx/effects/Trails.h visualization/vfx/flow/FlowSolver.h
+                  visualization/render/Viewer.h contracts/world_stream/SnapshotBatch.h
+                  foundation/transport/WorldMirror.h
+        FORBIDDEN simulation/flight/VehicleState.h simulation/flight/SnapshotBuffer.h
+                  simulation/runtime/services/MaServiceBindings.h visualization/ui/Colour.h)
+    fsim_include_view_check(ui fsim_ui
+        ALLOWED   visualization/ui/Colour.h visualization/scene/Frames.h foundation/transport/WorldMirror.h
+                  contracts/world_stream/SnapshotBatch.h
+        FORBIDDEN simulation/flight/SnapshotBuffer.h simulation/flight/VehicleState.h applications/demo/DemoSimulation.h
+                  visualization/vision/CameraScene.h)
+    fsim_include_view_check(vision_core fsim_vision_core
+        ALLOWED   visualization/vision/CameraScene.h visualization/scene/Frames.h
+        FORBIDDEN simulation/flight/VehicleState.h simulation/api/WorldOptions.h visualization/ui/Colour.h)
+endif()
 # The check itself, on mutated copies of ms's check: the unmutated and a permitted root pass; src and its ancestors in
 # each spelling (src/., the repository root, src/..), copied src trees, a provider's view removed, a stale probe and an
 # unsupported compiler are refused (cmake/TestCheckIncludeView.cmake).

@@ -595,6 +595,38 @@ ARCH-06 has not started.
 
 No full suite ran (HC-11).
 
+## Architecture ARCH-06 visualization core, effects and source separation (2026-10-16, awaiting independent acceptance)
+
+The sixth package of the architecture roadmap. The record is `docs/architecture/validation/arch-06-visualization.md`,
+with its dated baseline and include environments. ARCH-07 has not started.
+
+- **Visualization:** now in `src/visualization`:
+  - `render`;
+  - `scene` (`fsim_world`), with the visual effects in `vfx/effects`;
+  - the optional Flow solver in `vfx/flow`;
+  - `ui`;
+  - the new `vision_core`, which renders read-only vehicle frames offscreen.
+- **Read-only inputs:** the scene and UI read contracts. The family-code range and the constraint bits the UI names are
+  now stated on the wire contract, and the producer asserts them. The `world -> sim` and `ui -> sim` exceptions and
+  the UI's two public-header exceptions are removed.
+- **Vision adapter:** `fsim_vision.dll` is `src/adapters/vision`, which reads the World into frames.
+- **Viewer and demo:** the Viewer is `src/applications/viewer`. The demo's simulation is the demo application's
+  (`fsim_demo_publisher`), which the Viewer executable composes for `--demo` through the exact, temporary exception
+  `viewer -> demo` (until ARCH-08; HC-16).
+
+| Verification | Result |
+| --- | --- |
+| Builds (headless, Release), warnings as errors | 0 warnings |
+| Object identity against `58f9297` | All unchanged except the restructured `Vision.cpp` and Viewer `main.cpp` (and two new files) |
+| Vision cameras' images | Byte-identical to the pre-change run |
+| Live native strike, fullscreen 3840 x 2160, before and after | Both pass with the same native outcome and capture times; the replay and the demo render within run-to-run noise |
+| Frozen-baseline compare; frozen C++/C99/Python consumers | 19/0, all 22 captures identical (Vision DLL included); five consumers exit 0 |
+| Fast tier plus the new probes; Flow calibration | Headless 576/576; Release 646/646; 1/1 |
+| Architecture gate; fixtures; selector tests | Accepted (25 modules); 133; 49 |
+
+No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
+stand.
+
 ## HC-10 shared-memory padding (2026-10-16, awaiting independent acceptance)
 
 The carryover register's HC-10 is verified and corrected; section 10 of the ARCH-02 record

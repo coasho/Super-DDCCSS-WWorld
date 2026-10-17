@@ -8,7 +8,7 @@ w = L.append
 w('''// world::cocip against pycontrails itself: the reference values were made by pycontrails' own functions (its
 // sac.py, wake_vortex.py, contrail_properties.py, wind_shear.py, thermo.py; cocip.py's sequence of them) for the same
 // air - a standard atmosphere with a constant relative humidity over water - by tools/contrails/cocip_reference.py.
-#include "world/Cocip.h"
+#include "visualization/vfx/effects/Cocip.h"
 
 #include <catch2/catch_test_macros.hpp>
 

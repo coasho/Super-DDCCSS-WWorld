@@ -3,14 +3,14 @@
 // JSBSim means them, and the geometry under them stays shared. The engines'
 // exhaust hangs under the afterburner nodes, and the airflow effects follow
 // the flight state by rules of their own.
-#include "world/Airflow.h"
-#include "world/WingVapour.h"
-#include "world/Clouds.h"
-#include "world/Exhaust.h"
-#include "world/Interpolator.h"
-#include "world/Propellants.h"
+#include "visualization/vfx/effects/Airflow.h"
+#include "visualization/vfx/effects/WingVapour.h"
+#include "visualization/scene/Clouds.h"
+#include "visualization/vfx/effects/Exhaust.h"
+#include "visualization/scene/Interpolator.h"
+#include "visualization/scene/Propellants.h"
 #include "foundation/core/Json.h"
-#include "world/VehicleVisuals.h"
+#include "visualization/scene/VehicleVisuals.h"
 
 #include <algorithm>
 #include <catch2/catch_test_macros.hpp>

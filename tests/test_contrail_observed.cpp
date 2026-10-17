@@ -3,8 +3,8 @@
 // it compiles): what is drawn of a sample as it ages - its extinction per metre (the observations' total extinction
 // EA, the optical depth integrated over the width), how it is shared between the primary and the secondary wake, how
 // wide and deep it is - for the aircraft and air of the observations.
-#include "world/Airflow.h"
-#include "world/FlowFires.h"
+#include "visualization/vfx/effects/Airflow.h"
+#include "visualization/vfx/flow/FlowFires.h"
 
 #include <catch2/catch_test_macros.hpp>
 

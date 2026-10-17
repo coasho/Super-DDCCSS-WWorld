@@ -2357,6 +2357,10 @@ void World::fillStatus() {
         d[ipc::kDerivedLeastCasMs] = p.hovers ? std::numeric_limits<double>::quiet_NaN() : p.leastCasMs();
         d[ipc::kDerivedFloorCasMs] = e->stack.speedFloorCasMs();
         d[ipc::kDerivedBankCapRad] = e->stack.bankCapRad();
+        static_assert(control::kActivityLowEnergy == ipc::kConstraintLowEnergy &&
+                          control::kActivityDeviating == ipc::kConstraintDeviating &&
+                          control::kActivityUpset == ipc::kConstraintUpset,
+                      "the published constraint bits are the wire contract's");
         d[ipc::kDerivedConstraints] = static_cast<double>(e->host.constraints());
         d[ipc::kDerivedLoadRatio] = p.loadSpeedRatio;
         // where its CG is from its model's origin: what the viewer hangs its picture from (its stores on their stations)
@@ -2414,6 +2418,8 @@ void World::publishMission() {
                 list += (list.empty() ? "" : ", ") + id;
             }
             copyName(out.capabilities, sizeof out.capabilities, list);
+            static_assert(static_cast<std::uint32_t>(ms::Family::Count) == ipc::kMissionFamilies,
+                          "the published family codes are the wire contract's");
             out.family = static_cast<std::uint8_t>(p.family);
             out.state = static_cast<std::uint8_t>(p.state);
             out.count = p.count;

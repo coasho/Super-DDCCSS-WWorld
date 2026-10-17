@@ -594,6 +594,32 @@ class DomainFixtures(FixtureRepository):
         self.link("contracts", "core")
         self.rejects("forbidden-kind", "contracts (contracts) -> core (foundation) by link: a contract depends on an implementation")
 
+    def test_a_temporary_application_composition_needs_its_exact_kind_exception(self):
+        # ARCH-06's shape: the viewer executable keeps its --demo command line by linking the demo application
+        self.policy["modules"]["demo"] = {
+            "target": "fsim_demo_publisher", "aliases": ["fsim::demo"], "domain": "applications", "kind": "application",
+            "directories": [], "destinations": ["src/applications/demo"], "files": [], "allowed_dependencies": ["sim"],
+            "headless": True}
+        self.write("src/applications/demo/Demo.cpp", '#include "sim/Header.h"\n')
+        self.write("src/applications/demo/CMakeLists.txt", "add_library(fsim_demo_publisher STATIC Demo.cpp)\n"
+                   "add_library(fsim::demo ALIAS fsim_demo_publisher)\n"
+                   "target_link_libraries(fsim_demo_publisher PRIVATE fsim::sim)\n")
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)  # (the demo on its own)
+        self.link("viewer", "demo")
+        self.rejects("forbidden-kind",
+                     "viewer (applications) -> demo (applications) by link: nothing depends on an application")
+        compatibility = {"from": "viewer", "to": "demo", "until": "ARCH-08", "reason": "fixture compatibility adapter"}
+        # another rule's exception covers nothing
+        self.policy["exceptions"].append(dict(compatibility, rule="domain"))
+        status, output = self.run_gate()
+        self.assertEqual(status, 1, output)
+        self.assertIn("forbidden-kind", output)
+        self.assertIn("stale-exception: policy: viewer -> demo (domain, until ARCH-08)", output)
+        self.policy["exceptions"][-1] = dict(compatibility, rule="kind")
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+
     def test_nothing_depends_on_an_application(self):
         self.link("world", "viewer")
         self.rejects("forbidden-kind", "world (visualization) -> viewer (applications) by link: nothing depends on an application")

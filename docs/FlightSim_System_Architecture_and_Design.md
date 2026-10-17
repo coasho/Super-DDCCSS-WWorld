@@ -106,7 +106,7 @@ Scale 1 (poor) to 5 (excellent); weights follow the driver priority in section 2
 
 ## 5. System architecture overview
 
-The native implementation is split into internal CMake targets behind the `fsim` SDK. `session::World` coordinates simulation; `src/world` composes optional rendered scenes. Core simulation and SDK state are plain C++ data, not VSG objects. The following diagram shows major relationships; the target CMake files define the complete link graph.
+The native implementation is split into internal CMake targets behind the `fsim` SDK. `session::World` coordinates simulation; `src/visualization/scene` composes optional rendered scenes. Core simulation and SDK state are plain C++ data, not VSG objects. The following diagram shows major relationships; the target CMake files define the complete link graph.
 
 ```mermaid
 flowchart TD
@@ -147,10 +147,10 @@ Trainers use public SDK objects. The viewer reads IPC snapshots in its own proce
 | `src/foundation/io` | Asset resolution, aircraft-file inspection and terrain data access | [CMake](../src/foundation/io/CMakeLists.txt) |
 | `src/foundation/core` | Plain C++ utilities, JSON, units/RNG, logging, registries and lifecycle helpers | [CMake](../src/foundation/core/CMakeLists.txt) |
 | `src/foundation/platform` | Paths, clocks/threads, HTTP, UDP, shared memory and minidumps | [CMake](../src/foundation/platform/CMakeLists.txt) |
-| `src/render` | Optional VSG viewer/render graphs, screenshots and GPU timers | [CMake](../src/render/CMakeLists.txt) |
-| `src/world` | Optional scene, terrain/sky/clouds, vehicle/store visuals, trails and Flow rendering | [CMake](../src/world/CMakeLists.txt) |
-| `src/ui` | Optional native monitor, mission panels, key and viewer controls | [CMake](../src/ui/CMakeLists.txt) |
-| `src/vision` | Optional offscreen cameras over the public SDK, with a separate C ABI/library | [CMake](../src/vision/CMakeLists.txt) |
+| `src/visualization/render` | Optional VSG viewer/render graphs, screenshots and GPU timers | [CMake](../src/visualization/render/CMakeLists.txt) |
+| `src/visualization/scene`, `src/visualization/vfx` | Optional scene, terrain/sky/clouds, vehicle/store visuals; visual effects (trails, exhaust, vapour) and the optional Flow solver | [CMake](../src/visualization/scene/CMakeLists.txt) |
+| `src/visualization/ui` | Optional native monitor, mission panels, key and viewer controls | [CMake](../src/visualization/ui/CMakeLists.txt) |
+| `src/visualization/vision`, `src/adapters/vision` | Optional offscreen cameras rendering read-only frames, and their World-handle API over the public SDK, with a separate C ABI/library | [CMake](../src/adapters/vision/CMakeLists.txt) |
 | `src/app` | Headless and native-viewer command-line entrypoints | [CMake](../src/app/CMakeLists.txt) |
 | `python/fsim`, `python/src` | Python wrappers and stable-ABI native bindings | [Python build](../python/CMakeLists.txt) |
 

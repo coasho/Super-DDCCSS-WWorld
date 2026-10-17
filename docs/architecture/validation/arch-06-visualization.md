@@ -1,0 +1,183 @@
+# ARCH-06 visualization core, effects and source separation
+
+Status: implemented, awaiting independent acceptance (2026-10-16). ARCH-07 has not started.
+Starting main HEAD: `58f9297` (ARCH-05 accepted).
+
+This package moves visualization into `src/visualization`, separates the Vision World-handle adapter from offscreen
+rendering, and separates the Viewer from the demo simulation it ran. The scene and UI now read only contracts and
+read-only frames: both visualization-to-simulation domain exceptions and both UI public-header exceptions are removed.
+
+No model, RNG, timestep, layout or default changed:
+- every first-party object both presets build is unchanged in code, data and symbols, except the two files that were
+  restructured (`Vision.cpp`, the Viewer's `main.cpp`) and the two new ones;
+- the restructured code's output is unchanged: the Vision cameras' images are byte-identical, and the live native
+  strike, the replay and the demo render as before (section 6).
+
+## 1. What moved
+
+| Destination | From | Target |
+| --- | --- | --- |
+| `src/visualization/render` | `src/render` | `fsim_render` |
+| `src/visualization/scene` | `src/world`: Earth, terrain, sky and clouds, vehicle visuals, cameras, frames and interpolation | `fsim_world` (policy module `scene`) |
+| `src/visualization/vfx/effects` | `src/world`: `FlowVolumes`, `Exhaust`, `Trails`, `Airflow`, `WingVapour`, `Cocip` | `fsim_world` |
+| `src/visualization/vfx/flow` | `src/world`: `FlowSolver`, `FlowFires` (the optional GPU solver) | `fsim_flow` |
+| `src/visualization/ui` | `src/ui` | `fsim_ui` |
+| `src/visualization/vision` | `src/vision/Offscreen.*`, and the new `CameraScene.*` | new `fsim_vision_core` |
+| `src/adapters/vision` | `src/vision/Vision.cpp`, `fsim_vision_c.cpp` | `fsim_vision` (the DLL) |
+| `src/applications/viewer` | `src/app/viewer_main.cpp` (now `main.cpp`), `StrikeCapture.h` | `flightsim-viewer` |
+| `src/applications/demo` | `src/app/DemoAutopilot.h`, and the new `DemoSimulation.*` | new `fsim_demo_publisher` |
+
+Further details:
+- **Renames:** 74, all with `git mv`: 70 source files and the render, world, UI and Vision CMake files.
+- **Names:** target names and aliases are unchanged (`fsim_world` keeps its name and alias).
+- **Includes:** 129 literal includes in 50 files name the new paths. The contrail test generator
+  (`tools/contrails/make_cocip_test.py`) emits the new include too.
+- **Separation:** physical effects stay simulation's (`simulation/environment`). Rendered VFX are now `vfx/effects`,
+  and Flow keeps its own optional target and dynamic loader in `vfx/flow` (task 2).
+
+## 2. Read-only inputs (task 3)
+
+- **Scene:** includes the public value header `fsim/VehicleState.h` (contracts domain; it defines `sim::VehicleState`)
+  in place of the simulation's alias header. It takes snapshot batches from `contracts/world_stream/SnapshotBatch.h`
+  in place of the simulation's triple buffer, and the attitude math from `foundation/core/Attitude.h`, which the
+  simulation's header only re-exported. The types and functions are the same ones, and the objects are unchanged.
+- **UI:** reads the same contracts. Two values it named from simulation public headers are now stated on the wire
+  contract (`contracts/world_stream/WorldLayout.h`), beside the fields that carry them:
+  - `kMissionFamilies` (13): the payload record's family codes;
+  - `kConstraintLowEnergy`, `kConstraintDeviating`, `kConstraintUpset`: the `kDerivedConstraints` bits the monitor
+    names.
+
+  The producer (`simulation/runtime/world/World.cpp`) holds `ms::Family` and `control::kActivity*` to them with
+  `static_assert`s. Layout, version and values are unchanged.
+- **Vision:** `vision::CameraScene` (`vision_core`) renders read-only vehicle frames: each vehicle's state, model, CG
+  offset, carried stores and bay doors, plus the clock's UTC for the sun. It never reads or steps a World. The moved
+  scene-building, slot, mount and aiming code is unchanged apart from its inputs.
+- **Removed policy:** the `world -> sim` and `ui -> sim` domain exceptions, and the `ui -> Capability.h` and
+  `ui -> MissionSystems.h` public exceptions.
+
+## 3. Vision adapter (task 4)
+
+`fsim_vision.dll` (`src/adapters/vision`) keeps the public World-handle API and its C ABI. `Sensors` reads the World
+into frames and passes them to `CameraScene`. It also keeps:
+- the store-status filter (`ms::StoreStatus`, a public value);
+- camera-table publishing;
+- image access and PNG saving;
+- `BatchCameras`.
+
+The offscreen-device failure keeps its `fsim::Error` and message through a dedicated `CameraSceneError`, which the
+adapter converts. Other scene exceptions propagate unchanged, so the C ABI's error mapping is unaffected. Exports,
+vtables and Python inventories are identical (section 6).
+
+The C API source moved here with the DLL in this package, although path-map row P042 had scheduled it for ARCH-07.
+The DLL target moves as a whole, so splitting its sources across a legacy and a destination directory for one phase
+would have left a legacy claim (register HC-17).
+
+## 4. Viewer and demo (tasks 5 and 6)
+
+The demo's simulation now lives in the demo application:
+- `app::DemoSimulation` (`fsim_demo_publisher`) holds the moved demo setup: the vehicle pool, JSBSim models, initial
+  conditions, autopilot and simulation thread. Call order, log text and error exits are unchanged.
+- Its header exposes only contracts (`SnapshotBatch`).
+- The Viewer calls it through the same six operations it used on the runner.
+- The Viewer's sources include no simulation implementation header.
+
+Two links remain on the Viewer executable:
+- **Temporary compatibility adapter (task 6):** `flightsim-viewer` keeps its `--demo` command line by linking the demo
+  application. Nothing may depend on an application, so this edge is an exact, expiring exception: `viewer -> demo`,
+  rule `kind`, until ARCH-08. Its removal gate is a separate demo publisher process whose World the viewer attaches
+  to live, with `--demo` either launching it or retired (register HC-16).
+- **Control link:** the Viewer still links `fsim_control` for `control::levelName` (public `Control.h`), as before, to
+  name control levels in its vehicle list. This is neither training nor FDM stepping. A presentation contract for
+  level names would remove it (HC-17).
+
+The demo composes the flight module directly, as the demo always has. The planned graph's `demo -> simulation_api`
+would make it fly a World instead, which is a behavior change outside a structural package (HC-17).
+
+## 5. Policy, gate and tests
+
+- **Policy:**
+  - `scene` (formerly module `world`), `render`, `ui`, `flow`, `vision` and `viewer` hold no legacy directory or
+    file claim;
+  - `vision_core` and `demo` are registered, no longer planned;
+  - allowed dependencies equal links;
+  - the only native exception is `viewer -> demo` (kind); the only public exception is ARCH-07's
+    `VecEnv.h -> fsim_c.h`;
+  - the gate accepts 25 modules and 378 files.
+- **Gate fixture:** `test_a_temporary_application_composition_needs_its_exact_kind_exception`. An application linking
+  another is rejected; a `domain`-rule exception does not cover it and is reported stale; the exact `kind` exception
+  is accepted. Existing fixtures already reject a scene or UI include or link to simulation without an exception.
+- **Include views:**
+  - render, Flow, scene (with effects), UI, `vision_core` and demo export include views;
+  - their probes (`include_view_render`, `_flow`, `_scene`, `_ui`, `_vision_core`; `_demo` in both presets) show that
+    no simulation header, including the old `SnapshotBuffer.h`, is visible to the visualization targets;
+  - the demo cannot see the runtime, training or the SDK;
+  - the Viewer has no probe, because `fsim_control`, which it links, exports the flight module's view.
+- **Probe check:**
+  - **Vendor roots:** `cmake/CheckIncludeView.cmake` now searches vendor and imported roots (VSG, JSBSim, stb) as
+    system roots, as the build does.
+  - **Implicit directories:** it leaves the compiler's implicit include directories to the compiler. The generated
+    check records them (`IMPLICIT`); naming one again broke the standard library's search.
+  - **Visibility semantics:** repository roots and views are still `-I`, so visibility is tested as before. The
+    checker's 13 cases still pass.
+- **Selector:** the render/Vision/Viewer scope names the new render, Vision and Viewer paths. Scene, UI, Flow and demo
+  sources stay unclaimed and escalate, as before.
+
+## 6. Verification (2026-10-16)
+
+| Check | Result |
+| --- | --- |
+| UCRT64 headless and Release builds, warnings as errors | 0 warnings |
+| Object identity: per source, every section's contents and the symbol table, against the `58f9297` builds | Headless: all 289 objects unchanged. Release: 335 unchanged (31 of them moved); only the restructured `Vision.cpp` and Viewer `main.cpp` differ; `CameraScene.cpp` and `DemoSimulation.cpp` are new. The final build's objects equal those the visual evidence below ran on |
+| Vision images (`fsim_vision_test`, six cameras: RGB and segmentation, own-vehicle hiding) | All six PNGs byte-identical to the pre-change run; both before and after runs are deterministic |
+| Live native strike, fullscreen 3840 x 2160 (`tools/viewer_perf/strike_acceptance.py`), before and after | Both pass. Same scene hash, launch 13.03 s and hit 19.53 s, the same target outcome (crew lost, 614 post-hit samples) and capture times. Both after-captures inspected |
+| Replay of the same live recording, replay clock, 3 frames | Differences from the pre-change frames (82 to 964 of 8.3 million pixels) are within the pre-change run-to-run noise (278 to 531 pixels, the same maximum) |
+| Demo, fullscreen | Runs: 8 x c172x on 5 workers. With the sun fixed to the pre-change run's UTC, mean difference 0.19 levels and 1,132 pixels over 16 levels (a threaded demo). An unfixed run differs only by the 15-minute later sun |
+| `tools/ma_contract/baseline.py compare`, both builds | 19 comparisons, 0 failures; all 22 captures byte-identical, including `libfsim_vision.dll` and `_vision` |
+| Frozen baseline (`e1945b9`): `verify`; frozen C++/C99/Python consumers on the new installed SDK | 66 artifacts unchanged; five consumers exit 0 |
+| Fast tier (ARCH-05's names and the six new probes); it includes `vision`, `vision_c_abi`, `python_sdk test_vision`, `viewer_screenshot`, `strike_capture`, `showcase_native`, the scene/terrain/contrail render tests and the installed-package gates | Headless 576/576 (107 s); Release 646/646 (116 s) |
+| NVIDIA Flow calibration against observed fires (outside the tier) | 1/1 (11 s) |
+| Include-view probes | 17/17 headless, 22/22 Release |
+| Architecture: gate; `test_check.py`; selector `test_scope.py`; planning document checker | Accepted (25 modules, 378 files); 133 cases; 49 cases (1 skipped); accepted |
+| Include environments ([arch-06-include-views.json](arch-06-include-views.json)) | All compiled sources of the migrated targets use exactly the recorded roots: 131 headless (16 targets), 162 Release (21 targets); none holds the shared `src` root |
+
+The dated architecture baseline is [arch-06-baseline.json](arch-06-baseline.json). Logs and captures are in
+`D:/ENV/tmp/arch06/`.
+
+Limits:
+- **Full suite:** none ran (HC-11).
+- **Performance:** the 4K performance gate was not remeasured. The render, scene, UI and Flow objects are unchanged,
+  and the Viewer's change is the demo call indirection. The dated performance limits in
+  [viewer-validation](../../sdk/viewer-validation.md) stand.
+- **Interactive acceptance:** CLI captures do not establish manual interaction acceptance.
+
+## 7. References
+
+- **Updated:** the third-party notices, the Flow vendor README, the viewer page and the architecture design document's
+  source-tree table name the new paths. In the design document, which carries another owner's edits, only those rows
+  are committed.
+- **Shared tool text:** the architecture tool README's description of shared legacy file claims, and the matching
+  `check.py` comment, now say that Flow and the Viewer held such claims until ARCH-06.
+- **Kept as written:**
+  - the shader comments in `assets/clouds/shaders`: assets are classified data with hashed provenance and change only
+    with a resource change;
+  - module-relative `world/...` names in prose;
+  - dated records;
+  - synthetic fixture paths.
+
+## 8. Rollback
+
+Move the 74 files back with `git mv`; delete `CameraScene.*`, `DemoSimulation.*` and the new CMake files; and restore
+`Vision.cpp`'s and the Viewer `main.cpp`'s pre-change content. Then revert:
+- the include rewrite;
+- the scene and UI include swaps and the two contract constants with their `static_assert`s;
+- the policy (restoring its four exceptions);
+- the probes, the probe-check search rules and the gate fixture;
+- the selector paths;
+- the listed document lines.
+
+Restore resource lookup paths as they were; no native model parameter is involved.
+
+## 9. Next
+
+ARCH-07 (SDK assembly and Python import cleanup) may start after independent acceptance. The register's HC-16 and
+HC-17 record this package's open decisions.

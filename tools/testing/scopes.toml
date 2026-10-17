@@ -158,7 +158,8 @@ labels = ["package"]
 
 [[scope]]
 name = "render, vision and viewer"
-paths = ["src/render/**", "src/vision/**", "src/app/viewer_main.cpp", "include/fsim/fsim_vision_c.h", "python/fsim/vision.py",
+paths = ["src/visualization/render/**", "src/visualization/vision/**", "src/adapters/vision/**",
+         "src/applications/viewer/main.cpp", "include/fsim/fsim_vision_c.h", "python/fsim/vision.py",
          "python/src/_vision*", "assets/**"]
 tests = ["^sdk_boundary$", "vision", "camera", "rcs"]
 release = true
