@@ -461,25 +461,32 @@ fsim_include_view_check(session fsim_session
     ALLOWED   simulation/runtime/world/World.h simulation/runtime/services/MaCore.h
               simulation/runtime/stores/StoreFlightBinding.h simulation/communications/dms/Dms.h
               foundation/transport/WorldRegistry.h
-    FORBIDDEN simulation/api/WorldOptions.h training/native/vecenv/Registry.h sdk/LastError.h)
+    FORBIDDEN simulation/api/WorldOptions.h training/native/vecenv/Registry.h adapters/sdk/c/LastError.h)
 fsim_include_view_check(simulation_api fsim_simulation_api
     ALLOWED   simulation/api/WorldOptions.h simulation/runtime/world/World.h foundation/transport/Recording.h
-    FORBIDDEN training/native/vecenv/Registry.h sdk/Handles.h)
+    FORBIDDEN training/native/vecenv/Registry.h adapters/sdk/c/Handles.h)
 # ARCH-05: training sees the simulation runtime and its lower facade, never the SDK assembly; the native episode
 # owner and VecEnv (env) do not see the mission implementation above them.
 fsim_include_view_check(env fsim_env
     ALLOWED   training/native/vecenv/Registry.h training/native/episodes/runtime/MissionEpisode.h
               simulation/api/WorldOptions.h simulation/runtime/world/World.h
-    FORBIDDEN training/native/mission/MissionJson.h sdk/LastError.h)
+    FORBIDDEN training/native/mission/MissionJson.h adapters/sdk/c/LastError.h)
 fsim_include_view_check(mission fsim_training_mission
     ALLOWED   training/native/mission/MissionGateway.h training/native/episodes/api/MissionEpisodeImpl.h
               training/native/episodes/runtime/MissionEpisode.h simulation/api/WorldOptions.h
-    FORBIDDEN sdk/Handles.h sdk/CAbiSupport.h sdk/LastError.h)
+    FORBIDDEN adapters/sdk/c/Handles.h adapters/sdk/c/CAbiSupport.h adapters/sdk/c/LastError.h)
+# ARCH-07: the SDK assembly compiles with its own private headers (adapters/sdk/c, spelled by name) and the views of
+# the modules it links - no src root: its own headers by a src-root spelling, and an application's or the renderer's,
+# are not found.
+fsim_include_view_check(sdk fsim
+    ALLOWED   training/native/vecenv/Registry.h training/native/episodes/runtime/MissionEpisode.h
+              simulation/api/WorldOptions.h simulation/runtime/world/World.h
+    FORBIDDEN adapters/sdk/c/Handles.h applications/demo/DemoSimulation.h visualization/scene/Interpolator.h)
 # ARCH-06: the demo composes the flight module and sees neither the runtime, training nor the SDK assembly; the
 # visualization targets (render builds) read contracts and read-only frames, never a simulation header.
 fsim_include_view_check(demo fsim_demo_publisher
     ALLOWED   applications/demo/DemoSimulation.h simulation/flight/SimRunner.h
-    FORBIDDEN simulation/runtime/services/MaServiceBindings.h training/native/vecenv/Registry.h sdk/LastError.h)
+    FORBIDDEN simulation/runtime/services/MaServiceBindings.h training/native/vecenv/Registry.h adapters/sdk/c/LastError.h)
 if(TARGET fsim_world)
     fsim_include_view_check(render fsim_render
         ALLOWED   visualization/render/Viewer.h foundation/core/Span.h

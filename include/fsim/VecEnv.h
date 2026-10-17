@@ -4,7 +4,8 @@
 // in C++. Thin pimpl over the platform's environment layer; buffers are owned
 // by the environment and handed out as read-only spans.
 
-#include "fsim/fsim_c.h"
+#include "fsim/Export.h"
+#include "fsim/fsim_vecenv_handle.h"
 
 #include <cstddef>
 #include <cstdint>

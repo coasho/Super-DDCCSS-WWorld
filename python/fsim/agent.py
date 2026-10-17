@@ -17,9 +17,11 @@ import math
 import types
 
 from . import _native
-from .world import (Activity, ActiveOverride, C2Authority, C2Task, CommandStatus, CommsState, ConsentRequest, DmsReceived,
-                    DmsTransmission, LinkTrack, NetStats, PeerReport, Report, ReportCollection, ReportItem, ReportMeta, Vehicle,
-                    StrikeStatus, World)
+from ._simulation import factories as _factories
+from ._simulation.values import (ActiveOverride, C2Authority, C2Task, CommandStatus, CommsState, ConsentRequest, DmsReceived,
+                                 DmsTransmission, LinkTrack, NetStats, PeerReport, Report, ReportCollection, ReportItem,
+                                 ReportMeta, StrikeStatus)
+from .world import Activity, Vehicle, World
 
 StrikeReport = collections.namedtuple("StrikeReport", "activity status")
 StrikeReport.__doc__ = "A native strike or jettison activity identity and its permission-scoped StrikeStatus."
@@ -525,3 +527,7 @@ class Referee:
     def agents(self):
         """The agents the range made: (vehicle, controller, name)."""
         return [(a.vehicle_id, a.controller, a.agent_name) for a in self._world._agents]
+
+
+# World.create_agent and World.referee build these (fsim.world does not import this module)
+_factories.register(Agent, Referee)

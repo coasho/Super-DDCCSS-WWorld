@@ -188,12 +188,14 @@ the present tree: a legacy directory stays valid until its package moves it.
 `python_imports.py` scans `python/fsim` (literal imports; function-local
 imports are deferred edges, everything else eager). It requires:
 
-- an acyclic module graph, deferred edges included. The two current deferred
-  cycles (`fsim.training -> fsim`, `fsim.world -> fsim.agent`) are exact
-  ARCH-07 exceptions. An exception that becomes eager or disappears fails.
+- an acyclic module graph, deferred edges included. Since ARCH-07 the policy
+  lists no legacy backedge: `fsim.training`'s implementation takes `Error` from
+  `fsim._native`, and `fsim.world` builds agents and referees through
+  `fsim._simulation`'s factories, which `fsim.agent` registers. A listed
+  exception that becomes eager or disappears fails.
 - private implementation packages (`fsim._contracts`, `_simulation`,
-  `_training`, `_visualization`, `_adapters`, as ARCH-07 creates them) import
-  only what the policy lists for them. They never import the package root or a
+  `_training` and `_visualization`, which ARCH-07 created, and `_adapters`)
+  import only what the policy lists for them. They never import the package root or a
   public facade module, not even function-locally.
 - no optional module (`fsim.gym`, `fsim.sb3`, `fsim.vision`) or optional
   package (`gymnasium`, `stable_baselines3`, `torch`) in the package's eager
@@ -297,9 +299,9 @@ header cannot include a training one, a contract cannot include a domain API, an
 only assemblies and applications include the C ABI or an assembly's API. An
 unclassified header, or a classified one that is gone, fails.
 
-Three public exceptions are listed, exact and expiring like the others:
-- `ui` includes `Capability.h` and `MissionSystems.h` (until ARCH-06);
-- `VecEnv.h` includes `fsim_c.h` (until ARCH-07).
+No public exception remains: ARCH-06 removed the `ui` ones, and ARCH-07
+removed `VecEnv.h -> fsim_c.h` by giving the C handle the facade shares with
+the C ABI its own contracts header, `fsim/fsim_vecenv_handle.h`.
 
 The scenario document's values and reading/writing are in
 `fsim/ScenarioDocument.h` (simulation). `fsim/Scenario.h` (training) includes

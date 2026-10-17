@@ -338,7 +338,7 @@ Existing implementation references:
   activities, consent-dependent strike phases, weapon records and event semantics.
 - [Communication types](../../include/fsim/Comm.h): RBAC, native consent payloads,
   send refusals and C2 correlations.
-- [C mission adapters](../../src/sdk/fsim_mission_c.cpp): own-scoped countermeasure
+- [C mission adapters](../../src/adapters/sdk/c/fsim_mission_c.cpp): own-scoped countermeasure
   and launch-zone paths, store parity and range-only direct consent.
 - [Agent rules](../../src/simulation/runtime/services/AgentRules.cpp) and
   [native strike dispatch](../../src/simulation/runtime/world/World.cpp): own designations and direct

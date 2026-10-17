@@ -25,20 +25,21 @@
     "simulation_api": {"target": "fsim_simulation_api", "aliases": ["fsim::simulation_api"], "domain": "simulation", "kind": "implementation", "directories": [], "destinations": ["src/simulation/api"], "files": [], "headless": true, "allowed_dependencies": ["session", "ipc", "core"]},
     "env": {"target": "fsim_env", "aliases": ["fsim::env"], "domain": "training", "kind": "implementation", "directories": [], "destinations": ["src/training/native/vecenv", "src/training/native/episodes/runtime"], "files": [], "headless": true, "allowed_dependencies": ["simulation_api", "session", "control", "sim", "io", "core"]},
     "mission": {"target": "fsim_training_mission", "aliases": ["fsim::mission"], "domain": "training", "kind": "implementation", "directories": [], "destinations": ["src/training/native/mission", "src/training/native/batch", "src/training/native/episodes/api"], "files": [], "headless": true, "allowed_dependencies": ["env", "simulation_api", "session", "core"]},
-    "sdk": {"target": "fsim", "aliases": ["fsim::sdk"], "domain": "adapters", "kind": "assembly", "directories": ["src/sdk"], "destinations": ["src/adapters/sdk/cpp", "src/adapters/sdk/c"], "files": [], "headless": true, "allowed_dependencies": ["mission", "env", "simulation_api", "session", "modeled_dms", "ms", "control", "effects", "comm", "ipc", "sim", "io", "core", "platform"]},
+    "sdk": {"target": "fsim", "aliases": ["fsim::sdk"], "domain": "adapters", "kind": "assembly", "directories": [], "destinations": ["src/adapters/sdk/cpp", "src/adapters/sdk/c"], "files": [], "headless": true, "allowed_dependencies": ["mission", "env", "simulation_api", "session", "modeled_dms", "ms", "control", "effects", "comm", "ipc", "sim", "io", "core", "platform"]},
     "render": {"target": "fsim_render", "aliases": ["fsim::render"], "domain": "visualization", "kind": "implementation", "directories": [], "destinations": ["src/visualization/render"], "files": [], "headless": false, "allowed_dependencies": ["core"]},
     "scene": {"target": "fsim_world", "aliases": ["fsim::world"], "domain": "visualization", "kind": "implementation", "directories": [], "destinations": ["src/visualization/scene", "src/visualization/vfx/effects"], "files": [], "headless": false, "allowed_dependencies": ["render", "core", "io", "flow", "ipc"]},
     "flow": {"target": "fsim_flow", "aliases": ["fsim::flow"], "domain": "visualization", "kind": "implementation", "directories": [], "destinations": ["src/visualization/vfx/flow"], "files": [], "headless": false, "allowed_dependencies": ["core"]},
     "ui": {"target": "fsim_ui", "aliases": ["fsim::ui"], "domain": "visualization", "kind": "implementation", "directories": [], "destinations": ["src/visualization/ui"], "files": [], "headless": false, "allowed_dependencies": ["render", "scene", "ipc", "core"]},
     "vision_core": {"target": "fsim_vision_core", "aliases": ["fsim::vision_core"], "domain": "visualization", "kind": "implementation", "directories": [], "destinations": ["src/visualization/vision"], "files": [], "headless": false, "allowed_dependencies": ["core", "scene", "io", "platform"]},
     "vision": {"target": "fsim_vision", "aliases": ["fsim::vision"], "domain": "adapters", "kind": "assembly", "directories": [], "destinations": ["src/adapters/vision"], "files": [], "headless": false, "allowed_dependencies": ["sdk", "vision_core", "ipc", "io", "core", "platform"]},
+    "python_abi": {"target": "fsim_python_abi", "aliases": ["fsim::python_abi"], "domain": "adapters", "kind": "assembly", "directories": [], "destinations": ["src/adapters/sdk/python/abi"], "files": [], "headless": true, "allowed_dependencies": []},
+    "python_native": {"target": "fsim_python", "aliases": [], "domain": "adapters", "kind": "assembly", "directories": [], "destinations": ["src/adapters/sdk/python"], "files": [], "headless": true, "allowed_dependencies": ["sdk", "python_abi"]},
+    "vision_native": {"target": "fsim_python_vision", "aliases": [], "domain": "adapters", "kind": "assembly", "directories": [], "destinations": ["src/adapters/vision/python"], "files": [], "headless": false, "allowed_dependencies": ["vision", "python_abi"]},
     "app": {"target": "flightsim", "aliases": [], "domain": "applications", "kind": "application", "directories": ["src/app"], "destinations": ["src/applications/headless"], "files": [], "headless": true, "allowed_dependencies": ["sim", "io", "core", "platform"]},
     "viewer": {"target": "flightsim-viewer", "aliases": [], "domain": "applications", "kind": "application", "directories": [], "destinations": ["src/applications/viewer"], "files": [], "headless": false, "allowed_dependencies": ["ui", "scene", "render", "ipc", "control", "io", "core", "platform", "demo"]},
     "demo": {"target": "fsim_demo_publisher", "aliases": ["fsim::demo"], "domain": "applications", "kind": "application", "directories": [], "destinations": ["src/applications/demo"], "files": [], "headless": true, "allowed_dependencies": ["contracts", "sim", "io", "core", "platform"]}
   },
   "planned_modules": {
-    "python_native": {"domain": "adapters", "kind": "assembly", "destinations": ["src/adapters/sdk/python"], "phase": "ARCH-07"},
-    "vision_native": {"domain": "adapters", "kind": "assembly", "destinations": ["src/adapters/vision/python"], "phase": "ARCH-07"},
     "oms": {"domain": "adapters", "kind": "assembly", "destinations": ["src/adapters/oms"], "phase": "MS-12"},
     "training_vision": {"domain": "applications", "kind": "application", "destinations": ["src/applications/training_visualization"], "phase": "ARCH-06"},
     "testbench": {"domain": "applications", "kind": "application", "destinations": ["src/applications/testbench"], "phase": "ARCH-08"}
@@ -48,6 +49,7 @@
   ],
   "public_headers": {
     "include/fsim/Export.h": {"domain": "contracts", "kind": "value"},
+    "include/fsim/fsim_vecenv_handle.h": {"domain": "contracts", "kind": "value"},
     "include/fsim/Span.h": {"domain": "contracts", "kind": "value"},
     "include/fsim/Rng.h": {"domain": "contracts", "kind": "value"},
     "include/fsim/VehicleState.h": {"domain": "contracts", "kind": "value"},
@@ -89,10 +91,8 @@
     "include/fsim/fsim_vision_c.h": {"domain": "adapters", "kind": "c_abi"},
     "include/fsim/Vision.h": {"domain": "adapters", "kind": "facade"}
   },
-  "public_exceptions": [
-    {"from": "include/fsim/VecEnv.h", "to": "include/fsim/fsim_c.h", "until": "ARCH-07", "reason": "The C++ VecEnv is a pimpl over the C handle it declares; ARCH-07 separates the shared C values from the final C ABI"}
-  ],
-  "external_targets": ["fsim::jsbsim", "libJSBSim", "fsim_flow_headers", "winmm", "winhttp", "ws2_32", "vsg::vsg", "vsgXchange::vsgXchange", "vsgImGui::vsgImGui"],
+  "public_exceptions": [],
+  "external_targets": ["fsim::jsbsim", "libJSBSim", "fsim_flow_headers", "winmm", "winhttp", "ws2_32", "vsg::vsg", "vsgXchange::vsgXchange", "vsgImGui::vsgImGui", "cpython::abi3"],
   "python": {
     "package_root": "python/fsim",
     "package": "fsim",
@@ -109,9 +109,6 @@
     "dynamic_imports": [
       {"module": "fsim.isolation", "function": "_serve_ma", "reason": "Resolves the actor class named by the isolated process's configuration"}
     ],
-    "exceptions": [
-      {"from": "fsim.training", "to": "fsim", "until": "ARCH-07", "reason": "Function-local import of the package root (Error); ARCH-07 obtains it from a lower owner"},
-      {"from": "fsim.world", "to": "fsim.agent", "until": "ARCH-07", "reason": "Function-local import of Agent/Referee; ARCH-07 moves the shared values below both wrappers"}
-    ]
+    "exceptions": []
   }
 }

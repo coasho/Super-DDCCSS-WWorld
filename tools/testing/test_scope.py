@@ -246,7 +246,7 @@ class PlanTest(unittest.TestCase):
                     "src/visualization/vfx/flow/FlowSolver.cpp", "src/visualization/vfx/effects/Exhaust.h",
                     "src/visualization/scene/CMakeLists.txt", "src/visualization/vfx/flow/CMakeLists.txt",
                     "src/visualization/vision/CameraScene.cpp", "src/adapters/vision/Vision.cpp",
-                    "src/applications/viewer/main.cpp", "src/applications/viewer/CMakeLists.txt", "python/src/_vision.c",
+                    "src/applications/viewer/main.cpp", "src/applications/viewer/CMakeLists.txt", "src/adapters/vision/python/_vision.c",
                     "tools/rcs/Engine.cpp", "tools/flow_calibrate/main.cpp", "examples/vision_capture/main.cpp",
                     "tests/test_terrain_render.cpp", "tests/test_vision_c_abi.c"]
 

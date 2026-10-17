@@ -189,7 +189,7 @@ def guards(result, data, surface=None):
     errors = []
     definitions = {}
     # Discover adapters across the native source tree, rather than keeping a second hand-maintained CMake source
-    # list here. A newly compiled FSIM_API adapter is inspected even when it lives outside src/sdk.
+    # list here. A newly compiled FSIM_API adapter is inspected even when it lives outside src/adapters/sdk.
     for source in sorted((Path(REPO) / "src").rglob("*.cpp")):
         text = c_text(source)
         path = source.relative_to(REPO).as_posix()

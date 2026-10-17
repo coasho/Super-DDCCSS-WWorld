@@ -18,6 +18,12 @@ import numpy as np
 from . import _native
 from ._convert import as_array
 from ._state import VehicleState, vehicle_state_dtype
+from ._contracts import options as _options
+from ._simulation import factories as _factories
+# the records World and Agent share: implemented below both wrappers, owned by (and re-exported from) this module
+from ._simulation.values import (ActiveOverride, C2Authority, C2Task, CommandStatus, CommsState, ConsentRequest, DmsReceived,
+                                 DmsTransmission, LinkTrack, NetStats, PeerReport, Report, ReportCollection, ReportItem,
+                                 ReportMeta, StrikeStatus)
 
 HOLD = _native.HOLD
 
@@ -75,13 +81,6 @@ Message = collections.namedtuple("Message", "sender recipient channel format tim
 # Systems, nets and the DMS (ADR-31, AB-4)
 TOPIC_SYSTEM_STATUS, TOPIC_POSITION_REPORT, TOPIC_ENTITY, TOPIC_FREE_FORM = 1, 2, 3, 1000
 DELIVERY_PENDING, DELIVERY_DELIVERED, DELIVERY_FAILED = 0, 1, 2
-DmsReceived = collections.namedtuple("DmsReceived", "message source topic net time_sent time_delivered data")
-DmsTransmission = collections.namedtuple("DmsTransmission", "message topic time_sent published queue_dropped reached destinations")
-NetStats = collections.namedtuple("NetStats", "transmissions delivered duplicates out_of_range masked lost queue_dropped failed "
-                                              "overflowed")
-# AB-4b: a system's picture - a peer's last position report and heartbeat, a track received over a link
-PeerReport = collections.namedtuple("PeerReport", "system net received_s tail_number has_position time_s latitude_rad longitude_rad "
-                                                  "altitude_msl_m velocity_ned_ms heading_rad airspeed_true_ms airspeed_calibrated_ms mach")
 # AB-5a: roles and permissions (A-GRA's five default roles: their permission sets estimates), C2's command statuses
 PERMISSION_FLIGHT, PERMISSION_CONTROL, PERMISSION_TASK, PERMISSION_WEAPONS = 1, 2, 4, 8
 PERMISSION_OVERRIDE, PERMISSION_SETTINGS, PERMISSION_PACKAGE, PERMISSION_ROLES = 16, 32, 64, 128
@@ -89,36 +88,16 @@ ROLE_ADMIN, ROLE_QB, ROLE_AVC, ROLE_LRE, ROLE_OBSERVER = 1, 2, 3, 4, 5
 C2_ACCEPTED, C2_REJECTED, C2_UNAUTHORIZED, C2_COMPLETED, C2_FAILED, C2_CANCELED = 0, 1, 2, 3, 4, 5
 TOPIC_OPERATOR, TOPIC_CONTROL_DESIGNATION, TOPIC_FLIGHT_COMMAND, TOPIC_OPERATOR_ROLE, TOPIC_COMMAND_STATUS = 10, 11, 12, 50, 51
 Role = collections.namedtuple("Role", "id name permissions approves_strikes")
-# A legal report's provenance and age (docs/sdk/mission-training.md, section 10): source "own_navigation", "own_sensor",
-# "own_platform", "ma_core", "dms" or "link"; validity "valid", "stale", "invalid" or "unknown"; the system it came
-# from and the net it came by where a link delivered it, the payload whose report it is, and its times in simulation
-# seconds - each None where there is none or the source states none.
-ReportMeta = collections.namedtuple("ReportMeta", "source validity system net payload sample_time_s receive_time_s age_s")
-# One item of a report collection, a collection ("available", "unavailable", "not_applicable" or "not_owner"; no items
-# unless available), and a single report (meta and value None unless available).
-ReportItem = collections.namedtuple("ReportItem", "meta value")
-ReportCollection = collections.namedtuple("ReportCollection", "availability items")
-Report = collections.namedtuple("Report", "availability meta value")
 # One MA service of a platform and what it owns there (docs/sdk/mission-training.md, section 9).
 MAService = collections.namedtuple("MAService", "service_id platform controller command_capabilities owns_dms_ingress owns_dms_egress")
-C2Authority = collections.namedtuple("C2Authority", "designated designated_modes designated_by designated_s operators commands")
-CommandStatus = collections.namedtuple("CommandStatus", "source received_s command_id topic state reason activity time_s percent")
 # AB-5b: C2's tasks, overrides, release consent
 TASK_PATROL, TASK_STRIKE, TASK_RECONNAISSANCE, TASK_ESCORT, TASK_TRANSIT, TASK_OTHER = 0, 1, 2, 3, 4, 5
 TASK_RECEIVED, TASK_ACCEPTED, TASK_REJECTED, TASK_COMPLETED, TASK_FAILED = 0, 1, 2, 3, 4
 OVERRIDE_SPEED, OVERRIDE_ALTITUDE = 0, 1
 STRIKE_AUTO_APPROVE, STRIKE_AUTO_REJECT, STRIKE_REQUIRES_APPROVAL = 0, 1, 2
 TOPIC_TASK, TOPIC_OVERRIDE, TOPIC_CONSENT_ANSWER, TOPIC_CONSENT_REQUEST = 13, 14, 15, 52
-C2Task = collections.namedtuple("C2Task", "source received_s state percent task_id type priority latitude_rad longitude_rad altitude_m "
-                                          "radius_m start_s end_s target_source target_payload target_track text")
-ActiveOverride = collections.namedtuple("ActiveOverride", "source kind value expiry_s")
 # AB-5c: an MA's lost-communication state and its team
-CommsState = collections.namedtuple("CommsState", "lost_comms_set threshold_s plan lost lost_since_s alerts package_id leader members")
 TOPIC_LOST_COMMS, TOPIC_PACKAGE = 16, 17
-ConsentRequest = collections.namedtuple("ConsentRequest", "source received_s answered request_id strike store quantity target_source "
-                                                          "target_payload target_track latitude_rad longitude_rad altitude_m time_s")
-LinkTrack = collections.namedtuple("LinkTrack", "source net received_s track payload updates time_s latitude_rad longitude_rad height_m "
-                                                "velocity_ned_ms position_sigma_m velocity_sigma_ms")
 Message.__doc__ = "A delivered message: who from and to, channel, format, when sent and delivered, the bytes."
 
 BROADCAST = 0xFFFFFFFF
@@ -1783,11 +1762,6 @@ class Activity:
         return "Activity(%#x, %s, %s)" % (self.id, what, info.state.name if info else "forgotten")
 
 
-def _options(**given):
-    """Only what was given: the library keeps its own defaults for the rest."""
-    return {k: (int(v) if isinstance(v, bool) else v) for k, v in given.items() if v is not None}
-
-
 class BatchCommand:
     """One command of Vehicle.submit_batch: a submit method's name ("submit", "submit_behavior", "submit_support",
     "submit_hsa", "submit_pattern", "submit_must_fly", "submit_marshall", "submit_intercept", "submit_route", "submit_curve") and
@@ -1940,10 +1914,6 @@ StoreInfo = collections.namedtuple(
 StoreInfo.__doc__ = """One installed store (ADR-30, MS-7; A-GRA's MA_StrikeCapability): ``index`` names it to strike
 and jettison; ``carriage`` "rail" or "ejector"; ``flyable`` its flight model built; ``status`` "loaded", "powering_up",
 "ready", "releasing", "released", "jettisoned", "powering_down" or "lost"; ``weapon`` its entity once released (0: none)."""
-
-StrikeStatus = collections.namedtuple("StrikeStatus", "phase jettison target stores weapons")
-StrikeStatus.__doc__ = """A strike's or jettison's progress (MS-7): ``phase`` "powering_up", "awaiting_consent",
-"releasing" or "done"; the stores it releases (their indices) and the weapons released so far (entity ids)."""
 
 RadioPath = collections.namedtuple(
     "RadioPath", "code via_itm mode terrain_masked ground_range_m slant_range_m elevation_rad azimuth_rad clearance_m "
@@ -3196,8 +3166,7 @@ class World:
         """An agent for a live aircraft (ADR-31, docs/agent-boundary.md): a mission autonomy's view of it and its commands,
         as a controller of its own - what its code may hold instead of this World (fsim.Agent). Raises fsim.Error for a
         vehicle that is not a live aircraft."""
-        from .agent import Agent
-        agent = Agent(self, vehicle, name)
+        agent = _factories.agent(self, vehicle, name)
         self._agents.append(agent)
         return agent
 
@@ -3212,8 +3181,7 @@ class World:
 
     def referee(self):
         """The referee's view: everything, read only, truth among it - for scoring, rewards and a critic (fsim.Referee)."""
-        from .agent import Referee
-        return Referee(self)
+        return _factories.referee(self)
 
     @classmethod
     def from_scenario(cls, scenario, **overrides):

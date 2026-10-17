@@ -90,7 +90,7 @@ tests = ["^mission_package_consumer$"]
 [[scope]]
 name = "MA gateway (native)"
 paths = ["src/training/native/mission/**", "src/training/native/batch/**", "src/training/native/episodes/api/**",
-         "src/sdk/fsim_mission_env_c.cpp"]
+         "src/adapters/sdk/c/fsim_mission_env_c.cpp"]
 tests = ["^ma_actions$", "^ma_observation$", "^mission_training$", "^mission_c_abi$", "^ma_joint$", "^python_sdk test_(mission|ma_joint)",
          "^c_abi$", "^sdk_boundary$"]
 integration = ["^mission_package_consumer$", "^ma_baseline_checker$"]
@@ -109,7 +109,8 @@ name = "MA concurrency"
 paths = ["src/training/native/batch/MissionBatch.cpp", "src/training/native/episodes/api/MissionEpisode.cpp",
          "src/training/native/episodes/api/MissionEpisodeImpl.h",
          "src/training/native/episodes/runtime/MissionEpisode.*",
-         "python/src/_native_mission_env.c", "python/fsim/training.py", "include/fsim/MissionBatch.h"]
+         "src/adapters/sdk/python/_native_mission_env.c", "python/fsim/training.py", "python/fsim/_training/**",
+         "include/fsim/MissionBatch.h"]
 labels = ["stress"]
 
 [[scope]]
@@ -122,7 +123,8 @@ release = true
 
 [[scope]]
 name = "MA Python package"
-paths = ["python/fsim/mission.py", "python/fsim/training.py", "python/fsim/isolation.py", "python/src/_native_mission_env.c"]
+paths = ["python/fsim/mission.py", "python/fsim/training.py", "python/fsim/_training/**", "python/fsim/isolation.py",
+         "src/adapters/sdk/python/_native_mission_env.c"]
 tests = ["^python_sdk test_(mission|ma_|isolation)", "^sdk_boundary$"]
 integration = ["^mission_package_consumer$"]
 integration_labels = ["ma-training"]
@@ -167,7 +169,7 @@ labels = ["package"]
 
 [[scope]]
 name = "render, vision and viewer"
-paths = ["include/fsim/fsim_vision_c.h", "python/fsim/vision.py", "assets/**"]
+paths = ["include/fsim/fsim_vision_c.h", "python/fsim/vision.py", "python/fsim/_visualization/**", "assets/**"]
 labels = ["render"]
 tests = ["^sdk_boundary$", "vision", "camera", "rcs"]
 release = true
@@ -178,7 +180,7 @@ release = true
 # tests carry the `render` label - and ucrt64-headless is not planned for it (it does not compile it).
 [[scope]]
 name = "render-only roots"
-paths = ["src/visualization/**", "src/adapters/vision/**", "src/applications/viewer/**", "python/src/_vision*",
+paths = ["src/visualization/**", "src/adapters/vision/**", "src/applications/viewer/**",
          "tools/rcs/**", "tools/flow_calibrate/**", "examples/vision_capture/**", "tests/test_terrain_render.cpp",
          "tests/test_vehicle_visuals.cpp", "tests/test_cocip.cpp", "tests/test_contrail_observed.cpp",
          "tests/test_viewer_screenshot.cpp", "tests/test_vision.cpp", "tests/test_vision_c_abi.c", "cmake/Flow.cmake"]
@@ -202,7 +204,7 @@ paths = ["src/foundation/core/**", "src/simulation/flight/**", "src/simulation/r
          "src/simulation/flight_control/**", "src/foundation/io/**", "src/simulation/communications/network/**",
          "src/simulation/communications/dms/**", "include/fsim/World.h", "include/fsim/Agent.h",
          "include/fsim/Capability.h", "include/fsim/fsim_c.h", "aircraft/**", "src/simulation/api/**",
-         "src/sdk/fsim.cpp", "src/training/native/vecenv/**"]
+         "src/adapters/sdk/cpp/VecEnv.cpp", "src/adapters/sdk/c/fsim_c.cpp", "src/training/native/vecenv/**"]
 # (the legacy environment - VecEnv, tasks, observations, the registry - is linked into libfsim and run by native, C,
 # Python and plugin tests alike; the mission episode owner beside it, in training/native/episodes/runtime, has its own
 # scope)

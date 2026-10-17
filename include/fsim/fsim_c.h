@@ -13,6 +13,7 @@
 #include <stdint.h>
 
 #include "fsim/Export.h"
+#include "fsim/fsim_vecenv_handle.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,7 +29,7 @@ enum fsim_status {
     FSIM_NOT_ALLOWED = -4      /* ABI 1.57 (ADR-31): an agent's handle making a call that is not an agent's */
 };
 
-typedef struct fsim_vecenv fsim_vecenv;
+/* fsim_vecenv: the opaque environment handle (fsim/fsim_vecenv_handle.h). */
 
 /* Scenario + environment options. Call fsim_options_init() first, then override. */
 typedef struct fsim_options {

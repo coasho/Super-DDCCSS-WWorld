@@ -627,6 +627,39 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
+## Architecture ARCH-07 SDK assembly and Python import cleanup (2026-10-16, awaiting independent acceptance)
+
+The seventh package of the architecture roadmap. The record is
+`docs/architecture/validation/arch-07-sdk-and-python.md`, with its dated baseline and include environments. ARCH-08
+has not started.
+
+- **SDK assembly:** `src/adapters/sdk`:
+  - `cpp/` holds the C++ compatibility facade: the VecEnv pimpl and `applyScenario`'s delegation (HC-15);
+  - `c/` holds the C ABI adapters and their private headers. `fsim.cpp` was split between the two.
+
+  The assembly compiles with its own headers and its linked modules' views, no longer the `src` root.
+- **Extension modules:** `fsim._native` is in `src/adapters/sdk/python` and `fsim._vision` in
+  `src/adapters/vision/python`. Their shared `fsim_py.h` and stable-ABI settings are `fsim_python_abi`, and CPython is
+  the imported target `cpython::abi3`.
+- **Python:** the implementation behind the public modules is in `fsim._training`, `fsim._simulation` (shared records,
+  agent and referee factories), `fsim._visualization` (cameras) and `fsim._contracts`. Public names keep their owners.
+  Both deferred import cycles are removed, and the camera core has no VecEnv: `fsim.vision` composes `VisionBatch`.
+- **Public headers:** `fsim/fsim_vecenv_handle.h` holds the C handle `VecEnv.h` shares with the C ABI. The last public
+  exception is removed; `VecEnv.h` no longer includes `fsim_c.h` (HC-22).
+- **Not done:** P056 (`fsim.isolation`'s codec and proxy): the module carries another owner's uncommitted edits (HC-21).
+
+| Verification | Result |
+| --- | --- |
+| Builds (headless, Release), warnings as errors | 0 warnings |
+| Object identity against `74efb49` | All unchanged (20 and 21 moved), except the split `fsim.cpp`. Function by function it differs only on three throw paths, which call `fsim_last_error()` out of line |
+| Frozen-baseline compare; exports and layouts against the pre-change capture | 19/0; byte-identical |
+| Python public identity, both presets | 494 and 501 names, 0 differ |
+| Frozen C++/C99/Python consumers on the installed SDK, and on the installed package | 5 and 5 exit 0 |
+| Related fast tests | Headless 621/622 with the corrected SDK probe, then 5/5 rerun; Release 682/682 |
+| Architecture gate; fixtures; selector tests; planning checker | Accepted (28 modules, no Python cycle, no public exception); 134; 74; accepted |
+
+No full suite ran (HC-11).
+
 ## HC-13 shared renderer scope (2026-10-16, awaiting independent acceptance)
 
 The `5f8c139` recheck's last P2: the shared `render, vision and viewer` scope (public Vision header, Python wrapper,

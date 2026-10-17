@@ -4,8 +4,8 @@
 #include "fsim/Magnetic.h"
 #include "fsim/fsim_c.h"
 
-#include "sdk/CAbiSupport.h"
-#include "sdk/Handles.h"
+#include "CAbiSupport.h"
+#include "Handles.h"
 
 #include <cmath>
 #include <cstring>

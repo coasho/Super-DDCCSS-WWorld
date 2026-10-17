@@ -1118,6 +1118,31 @@ endif()
         self.assertIn(("ws2_32", "fsim_python_module"), links)
         self.assertIn(("ws2_32", "fsim_python_module"), [(l["declared"], l["by"]) for l in third["fsim_python_vision"]["links"]])
 
+    # ARCH-07: the extension modules are declared in their adapter directories, which python/CMakeLists.txt adds (here
+    # outside src, which this fixture's policy does not register)
+    def test_an_added_adapter_directory_declares_its_extension_under_the_enclosing_branch(self):
+        self.write("python/CMakeLists.txt", "add_subdirectory(${CMAKE_SOURCE_DIR}/bindings/native x)\n"
+                                            "if(TARGET fsim_vision)\n"
+                                            "    add_subdirectory(${CMAKE_SOURCE_DIR}/bindings/vision y)\n"
+                                            "endif()\n")
+        self.write("bindings/native/CMakeLists.txt",
+                   "add_library(fsim_python MODULE _native.c)\n"
+                   "target_link_libraries(fsim_python PRIVATE fsim::sdk fsim::python_abi)\n"
+                   "set_target_properties(fsim_python PROPERTIES PREFIX \"\" OUTPUT_NAME _native SUFFIX \".pyd\")\n")
+        self.write("bindings/vision/CMakeLists.txt",
+                   "add_library(fsim_python_vision MODULE _vision.c)\n"
+                   "set_target_properties(fsim_python_vision PROPERTIES OUTPUT_NAME _vision)\n")
+        self.write("bindings/native/_native.c", "/* native */\n")
+        record = self.extensions("added.json")
+        native, vision = record["fsim_python"], record["fsim_python_vision"]
+        self.assertEqual((native["module"], native["declared_in"], native["conditions"]),
+                         ("fsim._native", "bindings/native/CMakeLists.txt", []))
+        self.assertEqual([(s["declared"], s.get("path")) for s in native["sources"]],
+                         [("_native.c", "bindings/native/_native.c")])
+        self.assertEqual([l["declared"] for l in native["links"]], ["fsim::sdk", "fsim::python_abi"])
+        self.assertEqual((vision["module"], vision["conditions"]), ("fsim._vision", ["if(TARGET fsim_vision)"]))
+        self.assertTrue(vision["sources"][0]["missing"])  # (declared, not present: recorded, never guessed)
+
     def test_a_missing_declared_source_is_recorded_as_missing(self):
         self.write("python/CMakeLists.txt", self.EXTENSIONS)
         self.write("python/src/_native.c", "")

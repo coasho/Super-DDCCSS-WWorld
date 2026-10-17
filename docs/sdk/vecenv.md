@@ -2,6 +2,9 @@
 
 `#include <fsim/VecEnv.h>`
 
+The header declares the C handle `handle()` returns (`fsim/fsim_vecenv_handle.h`) but not the C functions that take
+it: include `<fsim/fsim_c.h>` as well to call them (since ARCH-07; it was included transitively before).
+
 `fsim::VecEnv` is a gym-style vectorised environment built entirely on the
 object model: it creates M environments x K vehicles in one `World` (named
 `worldName`, so the viewer shows the training batch), samples initial

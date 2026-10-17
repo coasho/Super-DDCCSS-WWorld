@@ -66,27 +66,17 @@ file(WRITE ${FSIM_PY_STAGE}/fsim-python.cmd
 file(WRITE ${FSIM_PY_STAGE}/fsim-python.json
      "{\n  \"executable\": \"${FSIM_PYTHON}\"\n}\n")
 
-# fsim_python_module(<target> <module name> <source> <library>)
-function(fsim_python_module target name source library)
-    add_library(${target} MODULE ${source} src/fsim_py.h)
-    set_target_properties(${target} PROPERTIES
-        PREFIX "" OUTPUT_NAME ${name} SUFFIX ".pyd"
-        LIBRARY_OUTPUT_DIRECTORY ${FSIM_PY_PACKAGE}
-        RUNTIME_OUTPUT_DIRECTORY ${FSIM_PY_PACKAGE}
-        C_STANDARD 11 C_STANDARD_REQUIRED ON)
-    target_include_directories(${target} SYSTEM PRIVATE ${FSIM_PYTHON_INCLUDE})
-    target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-    # The stable ABI's DLL, linked directly: the interpreter's, never shipped.
-    target_link_libraries(${target} PRIVATE ${library} "${FSIM_PYTHON3_DLL}")
-    target_compile_definitions(${target} PRIVATE Py_LIMITED_API=0x030B0000)
-    # C, not C++: the platform's C++ warning set does not apply, and CPython's
-    # slot tables need the function/object pointer casts -Wpedantic rejects.
-    target_compile_options(${target} PRIVATE -Wall -Wextra -Wshadow -Wconversion -Wsign-conversion -Wcast-align
-                           -Wnull-dereference $<$<BOOL:${FSIM_WARNINGS_AS_ERRORS}>:-Werror>)
-endfunction()
+# CPython's stable ABI as a link target: its headers (system, as an imported target's are) and python3.dll, linked
+# directly - the interpreter's, never shipped.
+add_library(cpython::abi3 INTERFACE IMPORTED)
+set_target_properties(cpython::abi3 PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${FSIM_PYTHON_INCLUDE}"
+    INTERFACE_LINK_LIBRARIES "${FSIM_PYTHON3_DLL}")
 
-fsim_python_module(fsim_python _native src/_native.c fsim::sdk)
-target_sources(fsim_python PRIVATE src/_native_dms.c src/_native_control.c src/_native_mission.c src/_native_world.c src/_native_scenario.c src/_native_environment.c src/_native_vecenv.c src/_native_recording.c src/_native_mission_env.c src/_native_world.h src/_native_world_options.h src/_native_vecenv.h src/_native_recording.h)
+# The extension modules are adapters (ARCH-07): fsim._native in src/adapters/sdk/python - with fsim_python_abi, the
+# header and stable-ABI settings both share - and, with the renderer, fsim._vision in src/adapters/vision/python. Their
+# targets are built in place in the staged package (FSIM_PY_PACKAGE).
+add_subdirectory(${CMAKE_SOURCE_DIR}/src/adapters/sdk/python ${CMAKE_BINARY_DIR}/src/adapters/sdk/python)
 set(_fsim_py_modules fsim_python)
 set(_fsim_py_exes "$<TARGET_FILE:fsim_python>")
 # The platform's own DLLs change with every build; the dependency walk below
@@ -94,7 +84,7 @@ set(_fsim_py_exes "$<TARGET_FILE:fsim_python>")
 # refreshed explicitly.
 set(_fsim_py_own_dlls $<TARGET_FILE:fsim> $<TARGET_FILE:libJSBSim>)
 if(TARGET fsim_vision)
-    fsim_python_module(fsim_python_vision _vision src/_vision.c fsim::vision)
+    add_subdirectory(${CMAKE_SOURCE_DIR}/src/adapters/vision/python ${CMAKE_BINARY_DIR}/src/adapters/vision/python)
     list(APPEND _fsim_py_modules fsim_python_vision)
     set(_fsim_py_exes "${_fsim_py_exes};$<TARGET_FILE:fsim_python_vision>")
     list(APPEND _fsim_py_own_dlls $<TARGET_FILE:fsim_vision>)

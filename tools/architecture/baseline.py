@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import check  # noqa: E402
 
 SCHEMA = "fsim.architecture.baseline.v1"
-SCOPE = ["src", "include/fsim", "python/fsim", "python/src", "python/CMakeLists.txt", "cmake", "tools/architecture"]
+SCOPE = ["src", "include/fsim", "python/fsim", "python/CMakeLists.txt", "cmake", "tools/architecture"]
 
 
 def sha256(path):
@@ -73,18 +73,15 @@ def declared_value(repo, base, value, kind):
     return entry
 
 
-def extension_declarations(repo, relative="python/CMakeLists.txt"):
-    """Each CPython extension module the build declares (add_library MODULE), with every input and link as written:
-    helper functions are expanded with their call's arguments (so a helper-added header or link is the extension's),
-    and direct target_sources / target_link_libraries / include / definition / property declarations are added. Each
-    declaration keeps the if() branches enclosing it; every branch is included, as the architecture parser does."""
-    path = repo / relative
-    if not path.is_file():
-        return "absent"
-    try:
-        commands = list(check.cmake_commands(path.read_text(encoding="utf-8")))
-    except ValueError as error:
-        return f"unparsed: {error}"
+def cmake_declarations(repo, path, outer, out, seen):
+    """The commands of one CMake file as (command, args, enclosing if() branches, helper, declaring directory): helper
+    functions are expanded with their call's arguments, and an add_subdirectory() of a repository directory is followed
+    into that directory's CMakeLists.txt, under the branches enclosing the call (ARCH-07: the extension modules are
+    declared in their adapter directories, which python/CMakeLists.txt adds)."""
+    if path in seen:
+        raise ValueError(f"{path.relative_to(repo).as_posix()} is added twice")
+    seen.add(path)
+    commands = list(check.cmake_commands(path.read_text(encoding="utf-8")))
     functions, top, conditions, current = {}, [], [], None
     for command, args in commands:
         if current is not None:
@@ -105,9 +102,8 @@ def extension_declarations(repo, relative="python/CMakeLists.txt"):
         elif command == "endif" and conditions:
             conditions.pop()
         else:
-            top.append((command, args, tuple(conditions), None))
-    expanded = []
-    for command, args, where, _ in top:
+            top.append((command, args, outer + tuple(conditions)))
+    for command, args, where in top:
         if command in functions:
             params, body = functions[command]
             mapping = dict(zip(params, args))
@@ -117,18 +113,43 @@ def extension_declarations(repo, relative="python/CMakeLists.txt"):
                     for name, actual in mapping.items():
                         value = value.replace("${" + name + "}", actual)
                     values.append(value)
-                expanded.append((inner, values, where, command))
+                out.append((inner, values, where, command, path.parent))
+        elif command == "add_subdirectory" and args:
+            directory = args[0].replace("${CMAKE_SOURCE_DIR}", repo.as_posix()).replace("${CMAKE_CURRENT_SOURCE_DIR}",
+                                                                                      path.parent.as_posix())
+            target = Path(directory) if Path(directory).is_absolute() else path.parent / directory
+            if "${" not in directory and target.resolve().is_relative_to(repo.resolve()) and (target / "CMakeLists.txt").is_file():
+                cmake_declarations(repo, (target / "CMakeLists.txt").resolve(), where, out, seen)
+            else:
+                out.append((command, args, where, None, path.parent))
         else:
-            expanded.append((command, args, where, None))
-    base = path.parent
+            out.append((command, args, where, None, path.parent))
+
+
+def extension_declarations(repo, relative="python/CMakeLists.txt"):
+    """Each CPython extension module the build declares (add_library MODULE), with every input and link as written,
+    from python/CMakeLists.txt and the directories it adds: helper functions are expanded with their call's arguments
+    (so a helper-added header or link is the extension's), and direct target_sources / target_link_libraries / include
+    / definition / property declarations are added. Each declaration keeps the if() branches enclosing it (an added
+    directory's, those around its add_subdirectory); every branch is included, as the architecture parser does."""
+    path = repo / relative
+    if not path.is_file():
+        return "absent"
+    expanded = []
+    try:
+        cmake_declarations(repo, path.resolve(), (), expanded, set())
+    except ValueError as error:
+        return f"unparsed: {error}"
     extensions = {}
-    for command, args, where, helper in expanded:
+    for command, args, where, helper, base in expanded:
         if command == "add_library" and len(args) > 1 and args[1] == "MODULE":
             extensions[args[0]] = {"target": args[0], "conditions": list(where), "helper": helper, "module": None,
+                                   "declared_in": (base / "CMakeLists.txt").relative_to(repo.resolve()).as_posix()
+                                   if base.is_relative_to(repo.resolve()) else base.as_posix(),
                                    "sources": [], "links": [], "include_directories": [], "compile_definitions": [],
                                    "properties": {}}
             extensions[args[0]]["sources"] += [declared_value(repo, base, a, "source") for a in args[2:]]
-    for command, args, where, helper in expanded:
+    for command, args, where, helper, base in expanded:
         if not args or args[0] not in extensions:
             continue
         extension = extensions[args[0]]

@@ -2,7 +2,7 @@
 
 // Private C VecEnv handle shared by the C owner and C++ wrapper.
 #include "training/native/vecenv/VecEnv.h"
-#include "sdk/Handles.h"
+#include "Handles.h"
 #include <memory>
 
 struct fsim_vecenv {

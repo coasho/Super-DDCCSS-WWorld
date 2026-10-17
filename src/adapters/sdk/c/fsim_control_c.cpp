@@ -9,9 +9,9 @@
 #include "simulation/flight_control/Catalog.h"
 #include "fsim/Magnetic.h"
 #include "foundation/core/Log.h"
-#include "sdk/CAbiSupport.h"
-#include "sdk/Handles.h"
-#include "sdk/LastError.h"
+#include "CAbiSupport.h"
+#include "Handles.h"
+#include "LastError.h"
 #include "simulation/runtime/world/Scenario.h"
 #include "simulation/runtime/world/World.h"
 
@@ -27,7 +27,7 @@
 #include <string>
 #include <vector>
 
-#include "sdk/CParameterSupport.h"
+#include "CParameterSupport.h"
 
 // fsim_world_command_batch reads a row of doubles as the level's command struct.
 static_assert(sizeof(fsim_actuator_command) == 8 * sizeof(double), "fsim_actuator_command must be 8 doubles");

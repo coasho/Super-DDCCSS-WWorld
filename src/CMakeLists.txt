@@ -6,8 +6,8 @@
 # root. The simulation runtime (simulation/runtime, target fsim_session), modeled DMS and the lower simulation facade
 # (simulation/api) followed in ARCH-04, and training's native implementation (training/native: targets fsim_env and
 # fsim_training_mission) in ARCH-05. Visualization (visualization/: render, scene, vfx, ui, vision), the vision
-# adapter (adapters/vision) and the viewer and demo applications (applications/) followed in ARCH-06; the SDK
-# assembly and the headless application move in later packages.
+# adapter (adapters/vision) and the viewer and demo applications (applications/) followed in ARCH-06, and the SDK
+# assembly (adapters/sdk: target fsim) in ARCH-07; the headless application moves in a later package.
 add_subdirectory(contracts)
 add_subdirectory(foundation/platform)
 add_subdirectory(foundation/core)
@@ -22,7 +22,7 @@ add_subdirectory(simulation/communications/dms)
 add_subdirectory(simulation/runtime)
 add_subdirectory(simulation/api)
 add_subdirectory(training/native)
-add_subdirectory(sdk)
+add_subdirectory(adapters/sdk)
 if(FSIM_WITH_RENDER)
     add_subdirectory(visualization/render)
     add_subdirectory(visualization/vfx/flow)

@@ -416,3 +416,11 @@ launcher's default is used. Not MSYS2's Python: the libraries RL is done with
 are not built for it. One build serves every CPython from 3.11 on. The
 package is staged in `build/<preset>/python`, tested by `ctest`
 (`python_sdk`), and installed as the `python` component.
+
+The extensions' C sources are adapters: `fsim._native` in `src/adapters/sdk/python` (the one owner of the package's
+native type registration) and `fsim._vision` in `src/adapters/vision/python`, never registered in `fsim._native`. The
+public modules keep their names, classes and pickling. Implementation they re-export lives in private packages:
+`fsim._simulation` (the records World and Agent share, and the factories World builds agents and referees with),
+`fsim._training` (the training adapter) and `fsim._visualization` (the cameras), with `fsim._contracts` below them.
+None of these imports the package root or a public module. `fsim.vision`'s `VisionBatch` composes the VecEnv with the
+cameras outside both. Importing `fsim` needs neither Gymnasium, Stable-Baselines3, PyTorch nor a GPU.

@@ -2,8 +2,8 @@
 
 #include "fsim/fsim_c.h"
 
-#include "sdk/CAbiSupport.h"
-#include "sdk/Handles.h"
+#include "CAbiSupport.h"
+#include "Handles.h"
 #include "simulation/runtime/services/MaReports.h"
 
 #include <algorithm>

@@ -7,7 +7,7 @@
 #include "fsim/World.h"
 #include "fsim/fsim_c.h"
 #include "simulation/runtime/services/AgentRules.h"
-#include "sdk/LastError.h"
+#include "LastError.h"
 #include "simulation/runtime/world/World.h"
 
 #include <atomic>

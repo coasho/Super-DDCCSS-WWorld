@@ -58,7 +58,7 @@ HEADLESS, RELEASE = "ucrt64-headless", "ucrt64-release"
 RENDER = "render"  # every test only the renderer builds: what a renderer change must run on ucrt64-release
 STRESS = "stress"  # long contention cases: in the targeted tier only when a matched scope names this label or they depend on the change
 NATIVE = (".c", ".cc", ".cpp", ".h", ".hpp", ".inl", ".cmake", ".txt", ".json", ".toml", ".xml", ".py", ".glsl", ".comp", ".vert", ".frag")
-ESCALATING = ("src/", "include/", "python/src/", "deps/")
+ESCALATING = ("src/", "include/", "deps/")
 
 
 def glob_match(path, pattern):

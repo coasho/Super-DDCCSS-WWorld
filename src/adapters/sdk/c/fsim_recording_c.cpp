@@ -1,7 +1,7 @@
 // C ABI adapter for recording readback.
 #include "fsim/Recording.h"
 #include "fsim/fsim_c.h"
-#include "sdk/CAbiSupport.h"
+#include "CAbiSupport.h"
 #include <cstddef>
 #include <cstring>
 #include <vector>

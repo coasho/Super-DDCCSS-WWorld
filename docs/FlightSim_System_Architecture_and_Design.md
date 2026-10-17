@@ -135,7 +135,7 @@ Trainers use public SDK objects. The viewer reads IPC snapshots in its own proce
 | Directory | Current responsibility | Target definition |
 | --- | --- | --- |
 | `include/fsim` | Stable C++ and C ABI declarations; `World.h` includes vehicle/environment objects | [Public headers](../include/fsim/) |
-| `src/sdk` | Public object wrappers, C ABI conversion/guards and the SDK shared library | [CMake](../src/sdk/CMakeLists.txt) |
+| `src/adapters/sdk` | The SDK shared library's final assembly: the C++ compatibility facade (`cpp`) and the C ABI conversion/guards (`c`) | [CMake](../src/adapters/sdk/CMakeLists.txt) |
 | `src/simulation/runtime` | Simulation World, MA core/DMS, stepping, engagement/damage coordination and publication | [CMake](../src/simulation/runtime/CMakeLists.txt) |
 | `src/simulation/flight_control` | Control runtime, capability host, VI commands, activities, navigation and routes | [CMake](../src/simulation/flight_control/CMakeLists.txt) |
 | `src/simulation/mission_systems` | Payload host/cards, RF, RCS lookup, radar/tracking, seekers, countermeasures and damage | [CMake](../src/simulation/mission_systems/CMakeLists.txt) |
@@ -152,7 +152,7 @@ Trainers use public SDK objects. The viewer reads IPC snapshots in its own proce
 | `src/visualization/ui` | Optional native monitor, mission panels, key and viewer controls | [CMake](../src/visualization/ui/CMakeLists.txt) |
 | `src/visualization/vision`, `src/adapters/vision` | Optional offscreen cameras rendering read-only frames, and their World-handle API over the public SDK, with a separate C ABI/library | [CMake](../src/adapters/vision/CMakeLists.txt) |
 | `src/app` | Headless and native-viewer command-line entrypoints | [CMake](../src/app/CMakeLists.txt) |
-| `python/fsim`, `python/src` | Python wrappers and stable-ABI native bindings | [Python build](../python/CMakeLists.txt) |
+| `python/fsim`, `src/adapters/sdk/python`, `src/adapters/vision/python` | Python wrappers (private implementation in `_simulation`, `_training`, `_visualization`) and stable-ABI native bindings | [Python build](../python/CMakeLists.txt) |
 
 Dependency conventions and current limits:
 

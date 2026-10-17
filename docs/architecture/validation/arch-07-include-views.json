@@ -1,0 +1,802 @@
+{
+ "schema": "fsim.architecture.include-views.v1",
+ "date": "2026-10-16",
+ "package": "ARCH-07",
+ "meaning": "Each migrated target's own include environment: the -I roots it compiles with (an interface library: what a consumer of it alone gets). <build>/include-views/<target> mirrors only that target's headers. 'sources' is how many of the target's compiled sources were checked to use exactly these roots; SYSTEM (vendor) roots, and a vendor root a single source adds, are listed apart; the compiler's implicit include directories are left out, as the build leaves them out.",
+ "presets": {
+  "ucrt64-headless": {
+   "contracts": {
+    "target": "fsim_contracts",
+    "roots": [
+     "<build>/include-views/fsim_contracts",
+     "include"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 0,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 5
+   },
+   "platform": {
+    "target": "fsim_platform",
+    "roots": [
+     "<build>/include-views/fsim_platform"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 5,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 8
+   },
+   "core": {
+    "target": "fsim_core",
+    "roots": [
+     "<build>/include-views/fsim_core",
+     "include",
+     "<build>/include-views/fsim_platform"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 4,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 14
+   },
+   "io": {
+    "target": "fsim_io",
+    "roots": [
+     "<build>/include-views/fsim_io",
+     "third_party/stb",
+     "<build>/include-views/fsim_core",
+     "include",
+     "<build>/include-views/fsim_platform"
+    ],
+    "system_roots": [
+     "third_party/stb"
+    ],
+    "per_source_vendor_roots": {},
+    "sources": 3,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 3
+   },
+   "ipc": {
+    "target": "fsim_ipc",
+    "roots": [
+     "<build>/include-views/fsim_ipc",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 5,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 5
+   },
+   "sim": {
+    "target": "fsim_sim",
+    "roots": [
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io",
+     "third_party/jsbsim/src"
+    ],
+    "system_roots": [
+     "third_party/jsbsim/src"
+    ],
+    "per_source_vendor_roots": {},
+    "sources": 5,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 11
+   },
+   "control": {
+    "target": "fsim_control",
+    "roots": [
+     "<build>/include-views/fsim_control",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 47,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 20
+   },
+   "effects": {
+    "target": "fsim_effects",
+    "roots": [
+     "<build>/include-views/fsim_effects",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 2,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 2
+   },
+   "comm": {
+    "target": "fsim_comm",
+    "roots": [
+     "<build>/include-views/fsim_comm",
+     "<build>/include-views/fsim_control",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 1,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 1
+   },
+   "ms": {
+    "target": "fsim_ms",
+    "roots": [
+     "<build>/include-views/fsim_ms",
+     "include",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {
+     "src/simulation/mission_systems/rf/NtiaItm.cpp": [
+      "third_party/ntia"
+     ],
+     "src/simulation/mission_systems/rf/NtiaP528.cpp": [
+      "third_party/ntia"
+     ]
+    },
+    "sources": 26,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 24
+   },
+   "modeled_dms": {
+    "target": "fsim_modeled_dms",
+    "roots": [
+     "<build>/include-views/fsim_modeled_dms",
+     "<build>/include-views/fsim_comm",
+     "<build>/include-views/fsim_control",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io",
+     "<build>/include-views/fsim_ms"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 1,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 1
+   },
+   "session": {
+    "target": "fsim_session",
+    "roots": [
+     "<build>/include-views/fsim_session",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_modeled_dms",
+     "<build>/include-views/fsim_comm",
+     "<build>/include-views/fsim_control",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io",
+     "<build>/include-views/fsim_ms",
+     "<build>/include-views/fsim_effects",
+     "<build>/include-views/fsim_ipc"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 16,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 9
+   },
+   "simulation_api": {
+    "target": "fsim_simulation_api",
+    "roots": [
+     "<build>/include-views/fsim_simulation_api",
+     "<build>/include-views/fsim_session",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_modeled_dms",
+     "<build>/include-views/fsim_comm",
+     "<build>/include-views/fsim_control",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io",
+     "<build>/include-views/fsim_ms",
+     "<build>/include-views/fsim_effects",
+     "<build>/include-views/fsim_ipc"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 4,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 1
+   },
+   "env": {
+    "target": "fsim_env",
+    "roots": [
+     "<build>/include-views/fsim_env",
+     "<build>/include-views/fsim_simulation_api",
+     "<build>/include-views/fsim_session",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_modeled_dms",
+     "<build>/include-views/fsim_comm",
+     "<build>/include-views/fsim_control",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io",
+     "<build>/include-views/fsim_ms",
+     "<build>/include-views/fsim_effects",
+     "<build>/include-views/fsim_ipc"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 6,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 6
+   },
+   "mission": {
+    "target": "fsim_training_mission",
+    "roots": [
+     "<build>/include-views/fsim_training_mission",
+     "<build>/include-views/fsim_env",
+     "<build>/include-views/fsim_simulation_api",
+     "<build>/include-views/fsim_session",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_modeled_dms",
+     "<build>/include-views/fsim_comm",
+     "<build>/include-views/fsim_control",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io",
+     "<build>/include-views/fsim_ms",
+     "<build>/include-views/fsim_effects",
+     "<build>/include-views/fsim_ipc"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 5,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 4
+   },
+   "demo": {
+    "target": "fsim_demo_publisher",
+    "roots": [
+     "<build>/include-views/fsim_demo_publisher",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 1,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 2
+   },
+   "sdk": {
+    "target": "fsim",
+    "roots": [
+     "include",
+     "src/adapters/sdk/c",
+     "<build>/include-views/fsim_training_mission",
+     "<build>/include-views/fsim_env",
+     "<build>/include-views/fsim_simulation_api",
+     "<build>/include-views/fsim_session",
+     "<build>/include-views/fsim_contracts",
+     "<build>/include-views/fsim_modeled_dms",
+     "<build>/include-views/fsim_comm",
+     "<build>/include-views/fsim_control",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io",
+     "<build>/include-views/fsim_ms",
+     "<build>/include-views/fsim_effects",
+     "<build>/include-views/fsim_ipc"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 12,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 0
+   }
+  },
+  "ucrt64-release": {
+   "contracts": {
+    "target": "fsim_contracts",
+    "roots": [
+     "<build>/include-views/fsim_contracts",
+     "include"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 0,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 5
+   },
+   "platform": {
+    "target": "fsim_platform",
+    "roots": [
+     "<build>/include-views/fsim_platform"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 5,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 8
+   },
+   "core": {
+    "target": "fsim_core",
+    "roots": [
+     "<build>/include-views/fsim_core",
+     "include",
+     "<build>/include-views/fsim_platform"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 4,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 14
+   },
+   "io": {
+    "target": "fsim_io",
+    "roots": [
+     "<build>/include-views/fsim_io",
+     "third_party/stb",
+     "<build>/include-views/fsim_core",
+     "include",
+     "<build>/include-views/fsim_platform"
+    ],
+    "system_roots": [
+     "third_party/stb"
+    ],
+    "per_source_vendor_roots": {},
+    "sources": 3,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 3
+   },
+   "ipc": {
+    "target": "fsim_ipc",
+    "roots": [
+     "<build>/include-views/fsim_ipc",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 5,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 5
+   },
+   "sim": {
+    "target": "fsim_sim",
+    "roots": [
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io",
+     "third_party/jsbsim/src"
+    ],
+    "system_roots": [
+     "third_party/jsbsim/src"
+    ],
+    "per_source_vendor_roots": {},
+    "sources": 5,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 11
+   },
+   "control": {
+    "target": "fsim_control",
+    "roots": [
+     "<build>/include-views/fsim_control",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 47,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 20
+   },
+   "effects": {
+    "target": "fsim_effects",
+    "roots": [
+     "<build>/include-views/fsim_effects",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 2,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 2
+   },
+   "comm": {
+    "target": "fsim_comm",
+    "roots": [
+     "<build>/include-views/fsim_comm",
+     "<build>/include-views/fsim_control",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 1,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 1
+   },
+   "ms": {
+    "target": "fsim_ms",
+    "roots": [
+     "<build>/include-views/fsim_ms",
+     "include",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {
+     "src/simulation/mission_systems/rf/NtiaItm.cpp": [
+      "third_party/ntia"
+     ],
+     "src/simulation/mission_systems/rf/NtiaP528.cpp": [
+      "third_party/ntia"
+     ]
+    },
+    "sources": 26,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 24
+   },
+   "modeled_dms": {
+    "target": "fsim_modeled_dms",
+    "roots": [
+     "<build>/include-views/fsim_modeled_dms",
+     "<build>/include-views/fsim_comm",
+     "<build>/include-views/fsim_control",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io",
+     "<build>/include-views/fsim_ms"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 1,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 1
+   },
+   "session": {
+    "target": "fsim_session",
+    "roots": [
+     "<build>/include-views/fsim_session",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_modeled_dms",
+     "<build>/include-views/fsim_comm",
+     "<build>/include-views/fsim_control",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io",
+     "<build>/include-views/fsim_ms",
+     "<build>/include-views/fsim_effects",
+     "<build>/include-views/fsim_ipc"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 16,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 9
+   },
+   "simulation_api": {
+    "target": "fsim_simulation_api",
+    "roots": [
+     "<build>/include-views/fsim_simulation_api",
+     "<build>/include-views/fsim_session",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_modeled_dms",
+     "<build>/include-views/fsim_comm",
+     "<build>/include-views/fsim_control",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io",
+     "<build>/include-views/fsim_ms",
+     "<build>/include-views/fsim_effects",
+     "<build>/include-views/fsim_ipc"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 4,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 1
+   },
+   "env": {
+    "target": "fsim_env",
+    "roots": [
+     "<build>/include-views/fsim_env",
+     "<build>/include-views/fsim_simulation_api",
+     "<build>/include-views/fsim_session",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_modeled_dms",
+     "<build>/include-views/fsim_comm",
+     "<build>/include-views/fsim_control",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io",
+     "<build>/include-views/fsim_ms",
+     "<build>/include-views/fsim_effects",
+     "<build>/include-views/fsim_ipc"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 6,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 6
+   },
+   "mission": {
+    "target": "fsim_training_mission",
+    "roots": [
+     "<build>/include-views/fsim_training_mission",
+     "<build>/include-views/fsim_env",
+     "<build>/include-views/fsim_simulation_api",
+     "<build>/include-views/fsim_session",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_modeled_dms",
+     "<build>/include-views/fsim_comm",
+     "<build>/include-views/fsim_control",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io",
+     "<build>/include-views/fsim_ms",
+     "<build>/include-views/fsim_effects",
+     "<build>/include-views/fsim_ipc"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 5,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 4
+   },
+   "demo": {
+    "target": "fsim_demo_publisher",
+    "roots": [
+     "<build>/include-views/fsim_demo_publisher",
+     "<build>/include-views/fsim_contracts",
+     "include",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 1,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 2
+   },
+   "render": {
+    "target": "fsim_render",
+    "roots": [
+     "<build>/include-views/fsim_render",
+     "third_party/stb",
+     "<build>/include-views/fsim_core",
+     "include",
+     "<build>/include-views/fsim_platform",
+     "build/deps-ucrt64/install/include"
+    ],
+    "system_roots": [
+     "build/deps-ucrt64/install/include",
+     "third_party/stb"
+    ],
+    "per_source_vendor_roots": {},
+    "sources": 3,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 2
+   },
+   "flow": {
+    "target": "fsim_flow",
+    "roots": [
+     "<build>/include-views/fsim_flow",
+     "<build>/include-views/fsim_core",
+     "include",
+     "<build>/include-views/fsim_platform",
+     "third_party/flow/include/nvflow",
+     "third_party/flow/include/nvflowext",
+     "third_party/flow/include/nvflow/nanovdb"
+    ],
+    "system_roots": [
+     "third_party/flow/include/nvflow",
+     "third_party/flow/include/nvflow/nanovdb",
+     "third_party/flow/include/nvflowext"
+    ],
+    "per_source_vendor_roots": {},
+    "sources": 2,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 2
+   },
+   "scene": {
+    "target": "fsim_world",
+    "roots": [
+     "<build>/include-views/fsim_world",
+     "<build>/include-views/fsim_render",
+     "<build>/include-views/fsim_core",
+     "include",
+     "<build>/include-views/fsim_platform",
+     "build/deps-ucrt64/install/include",
+     "<build>/include-views/fsim_ipc",
+     "<build>/include-views/fsim_contracts",
+     "<build>/include-views/fsim_io",
+     "<build>/include-views/fsim_flow"
+    ],
+    "system_roots": [
+     "build/deps-ucrt64/install/include"
+    ],
+    "per_source_vendor_roots": {},
+    "sources": 20,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 24
+   },
+   "ui": {
+    "target": "fsim_ui",
+    "roots": [
+     "<build>/include-views/fsim_ui",
+     "<build>/include-views/fsim_render",
+     "<build>/include-views/fsim_core",
+     "include",
+     "<build>/include-views/fsim_platform",
+     "build/deps-ucrt64/install/include",
+     "<build>/include-views/fsim_world",
+     "<build>/include-views/fsim_ipc",
+     "<build>/include-views/fsim_contracts",
+     "<build>/include-views/fsim_flow"
+    ],
+    "system_roots": [
+     "build/deps-ucrt64/install/include"
+    ],
+    "per_source_vendor_roots": {},
+    "sources": 4,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 6
+   },
+   "vision_core": {
+    "target": "fsim_vision_core",
+    "roots": [
+     "<build>/include-views/fsim_vision_core",
+     "<build>/include-views/fsim_core",
+     "include",
+     "<build>/include-views/fsim_platform",
+     "build/deps-ucrt64/install/include",
+     "<build>/include-views/fsim_world",
+     "<build>/include-views/fsim_render",
+     "<build>/include-views/fsim_ipc",
+     "<build>/include-views/fsim_contracts",
+     "<build>/include-views/fsim_flow",
+     "<build>/include-views/fsim_io"
+    ],
+    "system_roots": [
+     "build/deps-ucrt64/install/include"
+    ],
+    "per_source_vendor_roots": {},
+    "sources": 2,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 2
+   },
+   "sdk": {
+    "target": "fsim",
+    "roots": [
+     "include",
+     "src/adapters/sdk/c",
+     "<build>/include-views/fsim_training_mission",
+     "<build>/include-views/fsim_env",
+     "<build>/include-views/fsim_simulation_api",
+     "<build>/include-views/fsim_session",
+     "<build>/include-views/fsim_contracts",
+     "<build>/include-views/fsim_modeled_dms",
+     "<build>/include-views/fsim_comm",
+     "<build>/include-views/fsim_control",
+     "<build>/include-views/fsim_sim",
+     "<build>/include-views/fsim_core",
+     "<build>/include-views/fsim_platform",
+     "<build>/include-views/fsim_io",
+     "<build>/include-views/fsim_ms",
+     "<build>/include-views/fsim_effects",
+     "<build>/include-views/fsim_ipc"
+    ],
+    "system_roots": [],
+    "per_source_vendor_roots": {},
+    "sources": 12,
+    "mismatched": [],
+    "shared_src_root": false,
+    "view_headers": 0
+   }
+  }
+ }
+}
