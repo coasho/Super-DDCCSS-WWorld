@@ -627,6 +627,30 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
+## HC-47 helper checks, version 2 (2026-10-17, awaiting independent acceptance)
+
+The [recheck](architecture/validation/hc-45-review-2026-10-17.md#6-hc-47-to-hc-50-correction-recheck-at-1e9433b) found
+eight invalid records that HC-47's helper checks still accepted. Version 2 of the helpers, in
+`D:/ENV/tmp/hc47b/helpers/`, keeps the runs and corrects the checks:
+- **Measurements:** each must be present, not null and correctly typed, including both segment results, the publisher
+  lists and both phases' incarnations. A probe that cannot tell now gives null.
+- **Order:** the reconnect's log must attach again before any of the replacement's frames.
+
+| Check (pure: no Viewer, no process) | Result |
+| --- | --- |
+| The review's eight records | Version 1 accepts all eight; version 2 rejects all eight |
+| Self-tests | Demo: 47 negatives, each rejected for its own reason, and the valid control passes. Reconnect: 54 and 1 |
+| Valid controls | Both saved run outcomes pass version 2. The order check passes the three real reconnect logs, and rejects each once its reattach is moved last |
+| Probes | On captured `tasklist` output and under stubs, version 1 reads a failed query as no process and an access-denied segment as absent; version 2 reads both as null. A missing segment reads as absent |
+| All | 149 results, all as expected |
+
+Version 2's run path has not run against a Viewer, since no GUI run was in scope. The saved outcomes were measured with
+version 1's probes. No full suite or performance scene ran.
+The documentation checks pass: the planning checker (58 documents), the local-link audit (1,434 links in 113
+files, none broken) and `ma_contract`, `architecture_boundary` and `sdk_guard_checker` (3/3).
+The [HC-07 record](architecture/validation/hc-07-viewer-and-joint.md#version-2-checks-2026-10-17) and its
+[summary](architecture/validation/hc-07-evidence.json) have the details.
+
 ## HC-47 to HC-50 corrections (2026-10-17, awaiting independent acceptance)
 
 The findings of the [HC-07](architecture/validation/hc-07-review-2026-10-17.md) and

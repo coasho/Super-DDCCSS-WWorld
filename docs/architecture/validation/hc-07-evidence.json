@@ -581,7 +581,7 @@
   "binaries.json": "6d79002c8e859e23543efd870a801a2497f73a30c739ed7bdc19a4419fa84b18",
   "manual_controls.py": "1bf93fdac4f8f35a97aecc671a68248b2cefdc6357caf20a7b73508df831cff6",
   "reconnect.py": "4c7d51c42cabfdcbf414c7a7cc138a81df98b10345ad462c1fa49d6f095adbcf",
-  "summarize.py": "8a8234c09f2041bed536e3f4887ffebf2e9c5003e7c49de36df31c8b90aedd94"
+  "summarize.py": "44aab7f2fd3c7dd5f3995fdc819599228c5054370e1a1eadcb8b6ede8da4411d"
  },
  "hc47_evidence_sha256": {
   "helpers/common.py": "7fb82404741f755d6c12359599166c35f8764fcf4c488ba750871609c1b59c38",
@@ -604,5 +604,76 @@
   "reconnect/frame_005.png": "0d88315f2a08f39455fc1d0e569b9f75a9fd13bd860aae1a640da97d404fa507",
   "reconnect/frame_006.png": "cfcebcb08f557996f83f750fb0dab19e656b5f175b302e5cee7c3a4ca93ca946",
   "reconnect/frame_007.png": "8e6711bc93d5b4a88f00b1569293c62ee436b93fe0e84e1e3aa228559e61e5ea"
+ },
+ "helper_checks_v2": {
+  "helpers": "hc47b/helpers (the runs above used hc4750/helpers, version 1, kept as they ran)",
+  "changes": "every measurement required present, not null and correctly typed; a probe that cannot tell gives null; the reconnect's log must attach again before the replacement's frames",
+  "all_as_expected": true,
+  "results": {
+   "1 controls": {
+    "as_expected": 4,
+    "not": 0
+   },
+   "1 red: version 1 accepts": {
+    "as_expected": 8,
+    "not": 0
+   },
+   "1 green: version 2 rejects": {
+    "as_expected": 8,
+    "not": 0
+   },
+   "2 self-test demo_capture": {
+    "as_expected": 48,
+    "not": 0
+   },
+   "2 self-test reconnect_check": {
+    "as_expected": 55,
+    "not": 0
+   },
+   "3 saved runs": {
+    "as_expected": 2,
+    "not": 0
+   },
+   "3 real logs": {
+    "as_expected": 6,
+    "not": 0
+   },
+   "4 tasklist (captured)": {
+    "as_expected": 3,
+    "not": 0
+   },
+   "4 probes (stubbed)": {
+    "as_expected": 4,
+    "not": 0
+   },
+   "4 tasklist (synthetic)": {
+    "as_expected": 6,
+    "not": 0
+   },
+   "4 segment state": {
+    "as_expected": 4,
+    "not": 0
+   },
+   "4 segment probe": {
+    "as_expected": 1,
+    "not": 0
+   }
+  },
+  "saved_outcomes_pass_v2": true,
+  "run_path_exercised": false,
+  "note": "pure checks only: version 2's run path has not run against a Viewer; the saved outcomes were measured with version 1's probes"
+ },
+ "helper_checks_v2_sha256": {
+  "helpers/common.py": "e33c6b1224868fc1534b3ce0c288b7b087b5beabb5a5a5dbdffc95fab55de4f3",
+  "helpers/typed.py": "029d8ca6bb799193c7bdfa5b61d8a1fc9a14cb35deb2bcbcf94582bcbd012064",
+  "helpers/demo_capture.py": "c5601596bc98a4375c495645bbf6f85e569982b72cc85dc0dca8f00f9ee74dc0",
+  "helpers/reconnect_check.py": "09d6ed289809aa841193978531252642313d047c33cfc5258fd798a71ce58858",
+  "helpers/test_checks.py": "9e1e0cf991e556ab02c519e5d62d98df45a01e5b1422ceef14394bfa4644c6cd",
+  "fixtures/tasklist.json": "7dd4959b8dee0229a81eea317cff36c49f003d96bacc5c34d5604deaa99dc41f",
+  "checks.json": "7e3e6616770faf446f8f797d1123733fe67eab70a2a327deb432e9792990f550",
+  "checks.log": "995873aa6aa52b08fd838c88de907e6b514696c40be1208ceafdc80408e7ca6b",
+  "selftest-demo.log": "484c7989b87add10c1fff118b970b52cd7cb9e27048990b8a3b77e22571229ca",
+  "selftest-reconnect.log": "5c121e8174523d3fc0da95d5129d1b5944a398932f8e6b1eafc0e5962fbbb789",
+  "negatives-explained.log": "e413ed54c2078e27fa5ecfea869035f120429f0d12c3cb382ed30de2f0b738e0"
  }
 }

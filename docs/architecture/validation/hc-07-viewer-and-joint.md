@@ -149,3 +149,34 @@ now have fail-closed helpers in `D:/ENV/tmp/hc4750/helpers/`. The [summary](hc-0
   (`603ea0553e18673f`).
 
 These are short GUI checks, not performance runs, and no full suite ran.
+
+### Version 2 checks (2026-10-17)
+
+The [recheck](hc-45-review-2026-10-17.md#6-hc-47-to-hc-50-correction-recheck-at-1e9433b) found eight invalid records
+that the checks above still accepted: four missing or partial demo measurements, three missing reconnect
+measurements, and a reattach logged after all of the replacement's frames. The helpers that ran stay as they were.
+Version 2, in `D:/ENV/tmp/hc47b/helpers/`, keeps their runs and corrects their checks:
+- **Every measurement required:** each must be present, not null and correctly typed:
+  - an integer exit code, the Viewer's run time and process ID;
+  - both segment results, each true or false;
+  - publisher lists of process IDs;
+  - both phases' vehicle, step count and table, with a nonzero 32-bit incarnation, the two distinct;
+  - each frame's size.
+
+  A probe that cannot tell now gives null, never the passing answer: a failed `tasklist` query, or a segment that
+  Windows does not report as not found.
+- **Event order:** the log must attach before any frame, then replace exactly once after at least one frame, then
+  attach again before any of the replacement's frames. The frames must run 0-7 in order.
+- **Regressions** (`test_checks.py`, with no Viewer and no process):
+  - **red/green:** version 1's checks accept all eight of the review's records; version 2 rejects them;
+  - **self-tests:** 47 demo and 54 reconnect negatives, each rejected for its own reason, and both valid controls;
+  - **valid controls:** both saved outcomes above pass version 2. The order check passes three real logs (the
+    reconnect run above, its first attempt and HC-07's), and rejects each once its reattach is moved last;
+  - **probes:** `tasklist` output captured on this machine; version 1's and version 2's probes under stubs (a failed
+    query, an access-denied segment); and Windows' answer for a missing segment.
+
+  149 results, all as expected.
+- **Not run:** version 2's run path has not run against a Viewer, since no GUI run was in scope. Its probes' decisions
+  are covered by the pure checks above. The saved outcomes were measured with version 1's probes.
+
+The [summary](hc-07-evidence.json) adds these results and their hashes (`helper_checks_v2`).
