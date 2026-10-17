@@ -504,6 +504,27 @@ No full suite ran; that remains open as HC-11. Register HC-11 to HC-13 record th
 - HC-12: per-target include-root narrowing is undecided;
 - HC-13: moved leaves have no targeted test scopes.
 
+**HC-12 correction: include-path narrowing (2026-10-16, awaiting independent acceptance).** Roadmap task 5 is
+implemented; section 7 of the ARCH-03 record has the details.
+- **Views:** each of the ten migrated targets (`contracts` and the nine moved) exports a generated include view of its
+  own headers instead of the shared `src` root. It compiles with its own headers and its declared providers' only.
+- **Unchanged:** include spelling, targets, aliases, links and the installed package.
+- **Consumers:** two non-migrated consumers (`flightsim` and the strike-capture test) had borrowed the root and now
+  declare it themselves.
+- **Fixtures:**
+  - ten `include_view_<module>` compile probes: 28 allowed headers compile, and 23 headers of unrelated modules are not
+    found but compile once the shared root is restored;
+  - the probe checker's six cases;
+  - the gate's new `broad-include-root` rule, with a fixture that fails on `30bc5ef`.
+- **Evidence:**
+  - both builds 0 warnings;
+  - every object file byte-identical to `30bc5ef`'s (498 headless, 545 Release);
+  - frozen-baseline compare 19/0, with all captures identical;
+  - relevant tests 18/18 on each preset;
+  - 130 checker cases and 49 selector cases.
+
+No full suite ran (HC-11). Non-migrated targets keep the shared root until their packages move them (HC-14).
+
 ## HC-10 shared-memory padding (2026-10-16, awaiting independent acceptance)
 
 The carryover register's HC-10 is verified and corrected; section 10 of the ARCH-02 record

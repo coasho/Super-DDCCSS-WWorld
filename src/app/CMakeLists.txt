@@ -5,6 +5,9 @@ add_executable(flightsim
     Options.cpp)
 
 target_link_libraries(flightsim PRIVATE fsim::sim fsim::io fsim::core fsim::platform)
+# Its own headers are spelled from src ("app/Options.h"); the application keeps the shared src root until it moves
+# (the libraries it links export only their include views; cmake/IncludeViews.cmake).
+target_include_directories(flightsim PRIVATE ${CMAKE_SOURCE_DIR}/src)
 fsim_set_warnings(flightsim)
 
 # JSBSim.dll must sit next to the executable.

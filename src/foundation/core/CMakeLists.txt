@@ -20,7 +20,8 @@ add_library(fsim_core STATIC
     Units.h)
 add_library(fsim::core ALIAS fsim_core)
 
-target_include_directories(fsim_core PUBLIC ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include)
+fsim_include_view(fsim_core)
+target_include_directories(fsim_core PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(fsim_core PUBLIC fsim::platform)
 # Internal modules are linked into fsim.dll: public classes they define are exported.
 target_compile_definitions(fsim_core PUBLIC FSIM_BUILDING)

@@ -13,6 +13,6 @@ add_library(fsim_ipc STATIC
     VisionSegment.cpp)
 add_library(fsim::ipc ALIAS fsim_ipc)
 
-target_include_directories(fsim_ipc PUBLIC ${CMAKE_SOURCE_DIR}/src)
+fsim_include_view(fsim_ipc)
 target_link_libraries(fsim_ipc PUBLIC fsim::contracts fsim::core fsim::platform)
 fsim_set_warnings(fsim_ipc)

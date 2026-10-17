@@ -20,7 +20,7 @@ add_library(fsim_sim STATIC
     VehicleState.h)
 add_library(fsim::sim ALIAS fsim_sim)
 
-target_include_directories(fsim_sim PUBLIC ${CMAKE_SOURCE_DIR}/src)
+fsim_include_view(fsim_sim)
 target_link_libraries(fsim_sim
     PUBLIC  fsim::contracts fsim::core fsim::io
     PRIVATE fsim::jsbsim)

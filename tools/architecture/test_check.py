@@ -443,6 +443,29 @@ class DomainFixtures(FixtureRepository):
         status, output = self.run_gate()
         self.assertEqual(status, 0, output)
 
+    def test_a_moved_module_exports_no_include_root_beyond_its_destination(self):
+        # ARCH-03 task 5: a moved module's headers reach the compiler through its include view, never the shared src
+        # root
+        (self.repo / "src/core/Header.h").unlink()
+        (self.repo / "src/core/CMakeLists.txt").unlink()
+        self.policy["modules"]["core"]["directories"] = []
+        cmake = ("add_library(fsim_core STATIC Header.h)\nadd_library(fsim::core ALIAS fsim_core)\n"
+                 "target_link_libraries(fsim_core PUBLIC fsim::platform)\n")
+        self.write("src/foundation/core/Header.h", "#pragma once\n")
+        for root, where in (("${CMAKE_SOURCE_DIR}/src", "src"),
+                            ("${CMAKE_SOURCE_DIR}/src/foundation", "src/foundation")):
+            with self.subTest(root=root):
+                self.write("src/foundation/core/CMakeLists.txt",
+                           cmake + f"target_include_directories(fsim_core PUBLIC {root})\n")
+                self.rejects("broad-include-root", f"core: include directory {where} lies outside its destinations")
+        # its own destination, or the view the build generates, show no other module
+        for declaration in ("target_include_directories(fsim_core PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})\n",
+                            "fsim_include_view(fsim_core)\n"):
+            with self.subTest(declaration=declaration):
+                self.write("src/foundation/core/CMakeLists.txt", cmake + declaration)
+                status, output = self.run_gate()
+                self.assertEqual(status, 0, output)
+
     def test_a_file_in_a_domain_root_outside_every_destination_has_no_owner(self):
         self.write("src/training/native/Stray.cpp", "int stray;\n")
         self.rejects("unknown-owner", "inside the training domain root")

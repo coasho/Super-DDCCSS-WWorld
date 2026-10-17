@@ -49,7 +49,8 @@ add_library(fsim_ms STATIC
     track/Tracker.h
     track/Tracker.cpp)
 add_library(fsim::ms ALIAS fsim_ms)
-target_include_directories(fsim_ms PUBLIC ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include)
+fsim_include_view(fsim_ms)
+target_include_directories(fsim_ms PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_compile_definitions(fsim_ms PRIVATE FSIM_BUILDING)
 target_link_libraries(fsim_ms PUBLIC fsim::core)
 fsim_set_warnings(fsim_ms)

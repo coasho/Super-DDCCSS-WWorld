@@ -15,7 +15,7 @@ add_library(fsim_platform STATIC
     Platform.cpp)
 add_library(fsim::platform ALIAS fsim_platform)
 
-target_include_directories(fsim_platform PUBLIC ${CMAKE_SOURCE_DIR}/src)
+fsim_include_view(fsim_platform)
 # (the map set when nothing beside the program has one: a development build's SDK loaded from its staged Python copy)
 target_compile_definitions(fsim_platform PRIVATE FSIM_SOURCE_MAPS_DIR="${CMAKE_SOURCE_DIR}/assets/maps")
 if(WIN32)

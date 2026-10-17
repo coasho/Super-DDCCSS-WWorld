@@ -328,6 +328,13 @@ Their target names, aliases and namespaces are unchanged, includes name the
 destination paths (`foundation/core/Log.h`), and the policy no longer lists
 their legacy directories. A legacy directory the policy still lists must hold
 sources: once a module has moved, its old claim fails as
-`stale-legacy-directory` instead of lingering. Every target keeps the shared
-`src` include root; the dependency gate, not the compiler search path, holds
-each include to its module's closure.
+`stale-legacy-directory` instead of lingering.
+
+A moved module exports its headers through an include view
+(`cmake/IncludeViews.cmake`), not the shared `src` root. The view is a
+build-tree mirror of the module's own headers, so a target compiles with its
+own headers and its linked providers' only. A moved module that declares an
+include directory under `src` outside its destinations fails as
+`broad-include-root`. The `include_view_<module>` tests compile allowed and
+forbidden headers in each target's own environment
+(`cmake/CheckIncludeView.cmake`).

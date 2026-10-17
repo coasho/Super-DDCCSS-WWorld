@@ -10,4 +10,5 @@ add_library(fsim_contracts INTERFACE
     simulation/WorldOptions.h)
 add_library(fsim::contracts ALIAS fsim_contracts)
 
-target_include_directories(fsim_contracts INTERFACE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include)
+fsim_include_view(fsim_contracts)
+target_include_directories(fsim_contracts INTERFACE ${CMAKE_SOURCE_DIR}/include)

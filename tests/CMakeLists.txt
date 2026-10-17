@@ -87,6 +87,7 @@ add_test(NAME engagement_native COMMAND fsim_engagement_native_test)
 
 add_executable(fsim_strike_capture_test test_strike_capture.cpp)
 target_link_libraries(fsim_strike_capture_test PRIVATE fsim::ipc fsim::core)
+target_include_directories(fsim_strike_capture_test PRIVATE ${CMAKE_SOURCE_DIR}/src) # the viewer's app/StrikeCapture.h
 fsim_set_warnings(fsim_strike_capture_test)
 add_test(NAME strike_capture COMMAND fsim_strike_capture_test)
 set_tests_properties(strike_capture PROPERTIES LABELS "showcase;native-engagement")
@@ -372,6 +373,85 @@ target_link_libraries(fsim_contracts_test PRIVATE fsim::contracts Catch2::Catch2
 fsim_set_warnings(fsim_contracts_test)
 add_test(NAME contracts COMMAND fsim_contracts_test)
 set_tests_properties(contracts PROPERTIES LABELS architecture TIMEOUT 60)
+
+# Include views (ARCH-03 task 5; cmake/IncludeViews.cmake): each migrated target compiles with its own headers and its
+# declared providers' only. fsim_include_view_check(<module> <target> ALLOWED <headers> FORBIDDEN <headers>) compiles
+# one-include probes with the real compiler in the target's own include environment (an interface library's: what a
+# consumer of it alone gets): the allowed headers compile; each forbidden header - an unrelated private module's - is
+# not found, and compiles once the shared src root is added back (cmake/CheckIncludeView.cmake). No build is needed.
+function(fsim_include_view_check module target)
+    cmake_parse_arguments(_v "" "" "ALLOWED;FORBIDDEN" ${ARGN})
+    get_target_property(_type ${target} TYPE)
+    if(_type STREQUAL "INTERFACE_LIBRARY")
+        set(_includes "$<TARGET_PROPERTY:${target},INTERFACE_INCLUDE_DIRECTORIES>")
+        set(_defines "$<TARGET_PROPERTY:${target},INTERFACE_COMPILE_DEFINITIONS>")
+        set(_options "$<TARGET_PROPERTY:${target},INTERFACE_COMPILE_OPTIONS>")
+    else()
+        set(_includes "$<TARGET_PROPERTY:${target},INCLUDE_DIRECTORIES>")
+        set(_defines "$<TARGET_PROPERTY:${target},COMPILE_DEFINITIONS>")
+        set(_options "$<TARGET_PROPERTY:${target},COMPILE_OPTIONS>")
+    endif()
+    if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+        set(_style MSVC)
+    else()
+        set(_style GNU)
+    endif()
+    set(_check "${CMAKE_BINARY_DIR}/include-view-checks/${target}.cmake")
+    file(GENERATE OUTPUT "${_check}" CONTENT
+"set(TARGET [==[${target}]==])
+set(COMPILER [==[${CMAKE_CXX_COMPILER}]==])
+set(STYLE ${_style})
+set(SOURCE_DIR [==[${CMAKE_SOURCE_DIR}]==])
+set(WORK [==[${CMAKE_BINARY_DIR}/include-view-checks/${target}]==])
+set(INCLUDES [==[$<REMOVE_DUPLICATES:${_includes}>]==])
+set(DEFINES [==[${_defines}]==])
+set(OPTIONS [==[${_options}]==])
+set(ALLOWED [==[${_v_ALLOWED}]==])
+set(FORBIDDEN [==[${_v_FORBIDDEN}]==])
+")
+    add_test(NAME include_view_${module}
+        COMMAND ${CMAKE_COMMAND} -DCHECK=${_check} -P ${CMAKE_SOURCE_DIR}/cmake/CheckIncludeView.cmake)
+    set_tests_properties(include_view_${module} PROPERTIES LABELS architecture TIMEOUT 120)
+endfunction()
+
+fsim_include_view_check(contracts fsim_contracts
+    ALLOWED   contracts/world_stream/WorldLayout.h contracts/simulation/WorldOptions.h
+    FORBIDDEN foundation/core/Units.h simulation/flight/VehicleState.h)
+fsim_include_view_check(platform fsim_platform
+    ALLOWED   foundation/platform/Clock.h
+    FORBIDDEN foundation/core/Units.h session/WorldOptions.h)
+fsim_include_view_check(core fsim_core
+    ALLOWED   foundation/core/Units.h foundation/platform/Clock.h
+    FORBIDDEN foundation/io/AircraftFile.h simulation/flight/VehicleState.h)
+fsim_include_view_check(io fsim_io
+    ALLOWED   foundation/io/AircraftFile.h foundation/core/Units.h foundation/platform/Clock.h
+    FORBIDDEN foundation/transport/WorldRegistry.h simulation/flight/VehicleState.h)
+fsim_include_view_check(ipc fsim_ipc
+    ALLOWED   foundation/transport/WorldRegistry.h contracts/world_stream/WorldLayout.h foundation/core/Units.h
+              foundation/platform/Clock.h
+    FORBIDDEN simulation/flight/VehicleState.h foundation/io/AircraftFile.h)
+fsim_include_view_check(sim fsim_sim
+    ALLOWED   simulation/flight/VehicleState.h contracts/world_stream/WorldLayout.h foundation/io/AircraftFile.h
+              foundation/core/Units.h
+    FORBIDDEN simulation/flight_control/Pid.h simulation/mission_systems/rf/Rain.h foundation/transport/WorldRegistry.h)
+fsim_include_view_check(control fsim_control
+    ALLOWED   simulation/flight_control/Pid.h simulation/flight/VehicleState.h foundation/core/Units.h
+    FORBIDDEN simulation/environment/Effect.h simulation/mission_systems/rf/Rain.h foundation/transport/WorldRegistry.h)
+fsim_include_view_check(effects fsim_effects
+    ALLOWED   simulation/environment/Effect.h simulation/flight/VehicleState.h foundation/core/Units.h
+    FORBIDDEN simulation/flight_control/Pid.h simulation/communications/network/Comm.h)
+fsim_include_view_check(comm fsim_comm
+    ALLOWED   simulation/communications/network/Comm.h simulation/flight_control/Pid.h foundation/platform/Clock.h
+    FORBIDDEN simulation/mission_systems/rf/Rain.h session/Dms.h)
+fsim_include_view_check(ms fsim_ms
+    ALLOWED   simulation/mission_systems/rf/Rain.h simulation/mission_systems/radar/Radar.h foundation/core/Units.h
+    FORBIDDEN simulation/flight/VehicleState.h simulation/flight_control/Pid.h session/WorldOptions.h)
+# The check's own refusals, on mutated copies of ms's check: the shared root restored, a broader root, a declared
+# provider's view removed, a stale probe, an unsupported compiler (cmake/TestCheckIncludeView.cmake).
+add_test(NAME include_view_checker
+    COMMAND ${CMAKE_COMMAND} -DCHECK=${CMAKE_BINARY_DIR}/include-view-checks/fsim_ms.cmake
+        -P ${CMAKE_SOURCE_DIR}/cmake/TestCheckIncludeView.cmake)
+set_tests_properties(include_view_checker PROPERTIES LABELS architecture TIMEOUT 120)
 
 # Simulation construction, fixed state/transport ABI and output-only diagnostics stay independent of M5.
 add_executable(fsim_simulation_interface_boundary_test

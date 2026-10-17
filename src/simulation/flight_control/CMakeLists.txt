@@ -68,6 +68,6 @@ add_library(fsim_control STATIC
     LandingRoute.cpp)
 add_library(fsim::control ALIAS fsim_control)
 
-target_include_directories(fsim_control PUBLIC ${CMAKE_SOURCE_DIR}/src)
+fsim_include_view(fsim_control)
 target_link_libraries(fsim_control PUBLIC fsim::sim fsim::core)
 fsim_set_warnings(fsim_control)

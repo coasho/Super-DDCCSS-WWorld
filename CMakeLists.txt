@@ -51,6 +51,7 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(Warnings)
+include(IncludeViews)
 include(Dependencies)
 include(Assets)
 include(Flow)

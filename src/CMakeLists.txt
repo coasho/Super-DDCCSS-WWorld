@@ -2,7 +2,8 @@
 # tools/architecture checks source ownership and header imports against it,
 # including optional renderer targets when the configured build is headless.
 # Foundation (src/foundation) and the simulation's leaves (src/simulation) are in their ARCH-03 destinations; their
-# target names and aliases are unchanged. The runtime, training, visualization and assemblies move in later packages.
+# target names and aliases are unchanged. Each exports only its include view (cmake/IncludeViews.cmake), not the src
+# root. The runtime, training, visualization and assemblies move in later packages.
 add_subdirectory(contracts)
 add_subdirectory(foundation/platform)
 add_subdirectory(foundation/core)
