@@ -70,7 +70,7 @@ if(TARGET fsim_vision)
 endif()
 fsim_install_runtime_deps(sdk ${_fsim_sdk_runtime})
 
-# Aircraft designed with tools/hangar (aircraft/<name>/): their JSBSim files
+# Aircraft designed with tools/models/hangar (aircraft/<name>/): their JSBSim files
 # and model, to share/flightsim/aircraft/<name> (cmake/StageDesigns.cmake).
 function(fsim_install_designs component)
     install(CODE "execute_process(COMMAND \"${CMAKE_COMMAND}\" \"-DSRC=${CMAKE_SOURCE_DIR}/aircraft\"
@@ -124,8 +124,9 @@ fsim_install_notices(sdk)
 
 # ---------------------------------------------------------------- viewer
 if(TARGET flightsim-viewer)
-    set(_fsim_viewer_targets flightsim-viewer)
-    set(_fsim_viewer_runtime "flightsim-viewer.exe")
+    # (flightsim-demo beside it: the viewer's --demo launches the demo publisher from its own directory)
+    set(_fsim_viewer_targets flightsim-viewer flightsim-demo)
+    set(_fsim_viewer_runtime "flightsim-viewer.exe" "flightsim-demo.exe")
     if(TARGET tile_prefetch)
         # Shipped with the viewer on purpose: it is how the map assets in
         # maps/ are filled, so the package can carry its own terrain.
@@ -141,7 +142,7 @@ if(TARGET flightsim-viewer)
     # Assets, found at runtime through io::AssetResolver's <exe>/../share/flightsim.
     install(DIRECTORY ${CMAKE_BINARY_DIR}/share/flightsim/ DESTINATION share/flightsim COMPONENT viewer)
     fsim_install_simulation_data(viewer)
-    install(DIRECTORY ${CMAKE_SOURCE_DIR}/examples/scenarios DESTINATION share/flightsim COMPONENT viewer)
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/examples/simulation/scenarios DESTINATION share/flightsim COMPONENT viewer)
 
     # Configuration, read from <exe>/../config/viewer.json in both the build
     # tree and the package, so the two layouts behave identically.
@@ -185,7 +186,7 @@ foreach(_t minimal_trainer multi_level_control ppo_trainer scenario_runner udp_p
 endforeach()
 if(_fsim_example_targets)
     install(TARGETS ${_fsim_example_targets} RUNTIME DESTINATION bin COMPONENT examples)
-    install(DIRECTORY ${CMAKE_SOURCE_DIR}/examples/scenarios DESTINATION share/flightsim COMPONENT examples)
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/examples/simulation/scenarios DESTINATION share/flightsim COMPONENT examples)
     fsim_install_runtime_deps(examples ${_fsim_example_runtime})
 endif()
 

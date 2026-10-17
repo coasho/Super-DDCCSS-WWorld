@@ -31,7 +31,7 @@ public:
 
     /// Directories of aircraft folders (<dir>/<name>/<name>.xml) beyond a
     /// JSBSim root's aircraft/: each entry of FSIM_AIRCRAFT_PATH, then the
-    /// source tree's aircraft/ (designs made with tools/hangar; absent on a
+    /// source tree's aircraft/ (designs made with tools/models/hangar; absent on a
     /// machine without the source), then <searchPath>/aircraft (packages:
     /// share/flightsim/aircraft).
     std::vector<std::filesystem::path> aircraftDirs() const;

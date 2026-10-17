@@ -175,7 +175,7 @@ target = wing.designate_link(t.source, t.payload, t.track)
 wing.submit_behavior("pursuit", target=target)       # flown on the report, carried forward
 ```
 
-`examples/python/links.py` runs a two-ship, a C2 node and a bandit: the lead's MA searches, its MA core shares the
+`examples/simulation/python/links.py` runs a two-ship, a C2 node and a bandit: the lead's MA searches, its MA core shares the
 tracks; the C2 node's MA watches the picture and sends the wingman a "commit" naming a track; the wingman's MA, its
 radar off, designates the received track and pursues it.
 
@@ -209,7 +209,7 @@ with fsim.isolation.AgentProcess(w, agent, "my_policy:Policy", path=["policies"]
   bytes, lists, tuples, dicts, fsim's named tuples, enums and batch commands, NumPy arrays of numbers, an activity by
   id. Nothing is unpickled on either side; the range rebuilds fsim's own types alone.
 - **The same run to the bit:** the range asks one MA at a time and serves its calls in order, so the world sees the
-  same calls in the same order as with the MA in its own process: `examples/python/links.py --isolated` flies the
+  same calls in the same order as with the MA in its own process: `examples/simulation/python/links.py --isolated` flies the
   same engagement as without, to the last bit of every state, the net's traffic and the audit (a test checks it).
 - **Errors cross:** an agent call's exception is raised in the MA's process as it would be in one (fsim.Error,
   fsim.Rejected, MissionRejected, a builtin); the MA's own uncaught exception reaches the range as
@@ -256,7 +256,7 @@ order = boss.command_hsa(blue.system, heading_rad=math.pi, speed=230.0, altitude
 boss.cancel_command(blue.system, order)               # the agent flies again
 ```
 
-`examples/python/c2.py` runs it: a CRC takes an F-16C south for 40 s, its MA held, then gives it back and sets an
+`examples/simulation/python/c2.py` runs it: a CRC takes an F-16C south for 40 s, its MA held, then gives it back and sets an
 altitude override its MA's own commands fly; an observer post's command is answered unauthorized.
 
 - **Tasks** (`c2.send_task(ma, fsim.TASK_PATROL, latitude_rad=..., text=...)`; a target as a network track): the agent's
@@ -328,7 +328,7 @@ sensors.receive()                                # the inbox: the ingress owner'
 - **Not bound, not changed:** a platform the range binds nothing on behaves exactly as before. Removing a platform
   ends its bindings; the legacy `reset` keeps them.
 
-`examples/python/ma_services.py` runs it: one aircraft, two services, the agents made in either order.
+`examples/training/python/ma_services.py` runs it: one aircraft, two services, the agents made in either order.
 
 ## Legal reports
 
@@ -368,7 +368,7 @@ boss.report_navigation()                         # Report("not_applicable", None
 - **Reading takes nothing.** `agent.contacts(payload)` (`Agent::contacts`) is new with these: the agent's read of its
   payloads' contacts, `truth` 0.
 
-`examples/python/ma_reports.py` runs it: a lead sharing its radar's tracks with a wingman, and what each then holds.
+`examples/training/python/ma_reports.py` runs it: a lead sharing its radar's tracks with a wingman, and what each then holds.
 
 ## Equipment reports
 

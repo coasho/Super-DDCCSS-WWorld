@@ -148,14 +148,14 @@ Focused evidence: `D:/ENV/tmp/native-showcase-cpp-red.log`,
 
 ## Continuous live strike acceptance
 
-The maintained `tools/viewer_perf/strike_acceptance.py` prepares one native scene, validates its preflight
+The maintained `tools/validation/viewer_perf/strike_acceptance.py` prepares one native scene, validates its preflight
 recording, then starts one fullscreen viewer and one live SDK World. The current `hit.json` fixture uses a
 target heading of 210 degrees. This is distinct from the earlier 270-degree head-on fixture above; the
 earlier damage without crew loss remains attached to that scene. The new geometry is an assumed
 acceptance input. It does not force damage, detonation or destruction, or change missile guidance parameters.
 
 ```powershell
-.\fsim.cmd --preset ucrt64-release python tools/viewer_perf/strike_acceptance.py --build build/ucrt64-release --scene tools/viewer_perf/hit.json --out D:/ENV/tmp/native-strike-acceptance
+.\fsim.cmd --preset ucrt64-release python tools/validation/viewer_perf/strike_acceptance.py --build build/ucrt64-release --scene tools/validation/viewer_perf/hit.json --out D:/ENV/tmp/native-strike-acceptance
 ```
 
 The output directory contains the exact scene, preflight and live native recordings with their engagement
@@ -262,7 +262,7 @@ Use the maintained preset launcher for native viewer checks, retaining the fulls
 
 ```powershell
 .\fsim.cmd --preset ucrt64-release viewer --demo --fullscreen --offline --screenshot D:/ENV/tmp/viewer-demo.png --screenshot-after 5
-python tools/viewer_perf/viewer_perf.py --build build/ucrt64-release --out D:/ENV/tmp/viewer-acceptance-perf --label current
+python tools/validation/viewer_perf/viewer_perf.py --build build/ucrt64-release --out D:/ENV/tmp/viewer-acceptance-perf --label current
 ctest --preset ucrt64-release
 ```
 

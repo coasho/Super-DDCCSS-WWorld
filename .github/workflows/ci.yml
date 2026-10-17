@@ -1,6 +1,6 @@
 # Builds the headless platform (the simulation, the SDK, the Python package, hangar) with the project's toolchain and
 # runs every test, including launcher and installed SDK acceptance. The viewer is not built here: it needs a GPU, and its frame rate is held on a machine with one
-# (tools/viewer_perf/viewer_perf.py).
+# (tools/validation/viewer_perf/viewer_perf.py).
 #
 # Written 2026-10-11; local headless entry points are verified, but this workflow has not run on GitHub.
 name: ci
@@ -81,7 +81,7 @@ jobs:
 
       # The generated files in the repository are what the tool makes (docs/hangar.md, "Built again"): every store
       # through hangar's pipeline, what each design gives the viewer's effects, and one aircraft through every stage
-      # (all 35 take hours: tools/hangar/rebuild_all.py, on a developer's machine before a release)
+      # (all 35 take hours: tools/models/hangar/rebuild_all.py, on a developer's machine before a release)
       - name: hangar - built again
         shell: pwsh
         run: |
@@ -89,7 +89,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .\fsim.cmd hangar effects
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          .\fsim.cmd python tools/hangar/rebuild_all.py --jobs 1 --only c172
+          .\fsim.cmd python tools/models/hangar/rebuild_all.py --jobs 1 --only c172
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git status --short -- aircraft assets/stores
           git diff --exit-code -- aircraft assets/stores

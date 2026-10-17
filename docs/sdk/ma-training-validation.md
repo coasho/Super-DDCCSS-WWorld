@@ -36,7 +36,7 @@ runtime data is held to an inventory the staging rules give, and missing data is
 
 ## 2. The joint chains
 
-`tests/fixtures/mission_training/joint` holds two recorded chains and their configurations. `tools/ma_contract/joint_chain.py
+`tests/training/fixtures/mission_training/joint` holds two recorded chains and their configurations. `tools/validation/ma_contract/joint_chain.py
 author` ran each scenario once through the public Python endpoints, deciding as it went (which task id the wing
 answers, which activity C2's command flies), and recorded every submission as `<tick> <service id> <requests>`. The
 simulation is deterministic, so every replay meets the recorded ids; `ma_joint` checks what each case means on the
@@ -91,7 +91,7 @@ from an earlier generation until the range re-binds it.
 
 ## 4. Compatibility
 
-`tools/ma_contract/baseline.py compare` captures the current builds' exports and public types - into a work directory it
+`tools/validation/ma_contract/baseline.py compare` captures the current builds' exports and public types - into a work directory it
 clears first, so nothing an earlier run left is read - and holds them to the frozen
 [compatibility baseline](ma-compatibility-baseline.md) (`e1945b9`), which it never writes. Every artifact of each
 selected build is required: the core build's `libfsim.dll`, `_native.pyd` and package always, the render build's with

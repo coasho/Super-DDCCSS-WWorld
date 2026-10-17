@@ -1,6 +1,6 @@
 # The SDK's principals (ADR-31, docs/agent-boundary.md; AB-1): every entry point, classified.
 #
-# tools/boundary/boundary.py reads the surface from the DLLs' export tables and the Python package, and matches it here.
+# tools/validation/boundary/boundary.py reads the surface from the DLLs' export tables and the Python package, and matches it here.
 # A rule names its entry points exactly (`names`) or by pattern (`globs`, fnmatch, the first rule matching wins); an
 # exact name always wins over a pattern. Names: C++ qualified without parameters (`fsim::Vehicle::submit`), C as
 # exported (`fsim_vehicle_submit`), Python by the defining module (`fsim.world.Vehicle.submit`).

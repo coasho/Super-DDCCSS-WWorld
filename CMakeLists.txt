@@ -11,7 +11,7 @@ project(flightsim
 option(FSIM_WITH_RENDER  "Build the viewer (render/world/ui; requires Vulkan SDK + VSG)" OFF)
 option(FSIM_BUILD_TESTS  "Build unit and integration tests"                            ON)
 option(FSIM_BUILD_EXAMPLES "Build example trainers (examples/)"                         ON)
-option(FSIM_BUILD_TOOLS  "Build command-line tools (tools/tile_prefetch)"               ON)
+option(FSIM_BUILD_TOOLS  "Build command-line tools (tools/data/tile_prefetch)"          ON)
 option(FSIM_BUILD_PYTHON "Build the Python SDK (needs a CPython >= 3.11 from python.org or conda)" ON)
 option(FSIM_WARNINGS_AS_ERRORS "Treat compiler warnings as errors in platform code"    ON)
 
@@ -90,7 +90,7 @@ endif()
 # without ucrt64/bin on PATH. Part of ALL because a build that produces
 # executables which cannot start is not a finished build.
 set(_fsim_app_exes "$<TARGET_FILE:flightsim>")
-foreach(_t flightsim-viewer tile_prefetch)
+foreach(_t flightsim-viewer flightsim-demo tile_prefetch)
     if(TARGET ${_t})
         set(_fsim_app_exes "${_fsim_app_exes};$<TARGET_FILE:${_t}>")
     endif()
@@ -106,7 +106,7 @@ add_custom_target(deploy ALL
     COMMENT "Staging runtime DLLs in bin/"
     VERBATIM)
 add_dependencies(deploy flightsim fsim)
-foreach(_t flightsim-viewer tile_prefetch)
+foreach(_t flightsim-viewer flightsim-demo tile_prefetch)
     if(TARGET ${_t})
         add_dependencies(deploy ${_t})
     endif()

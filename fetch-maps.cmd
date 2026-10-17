@@ -47,14 +47,14 @@ if not "%RC%"=="0" (
 rem The Earth's clouds (NASA's Blue Marble cloud map, one grey channel): the
 rem viewer's cloud cover over the globe. Made once (36 MB fetched), if Python and Pillow are there.
 if /i not "%~1"=="--dry-run" if not exist "%MAPS%\clouds\earth-clouds-8192.png" (
-    where python >nul 2>nul && python "%ROOT%tools\cloud_map\make_cloud_map.py"
-    if not exist "%MAPS%\clouds\earth-clouds-8192.png" echo The Earth's cloud map was not made: python tools\cloud_map\make_cloud_map.py ^(needs Pillow^)
+    where python >nul 2>nul && python "%ROOT%tools\data\cloud_map\make_cloud_map.py"
+    if not exist "%MAPS%\clouds\earth-clouds-8192.png" echo The Earth's cloud map was not made: python tools\data\cloud_map\make_cloud_map.py ^(needs Pillow^)
 )
 rem The sea (GEBCO 2026's depth and extent): made from GEBCO's global grid, a 4 GB download from
 rem gebco.net, so not fetched here.
 rem The coastline is burnt into the elevation tiles from OpenStreetMap's land polygons (0.9 GB from
-rem osmdata.openstreetmap.de): run tools\ocean_map\sea_mask_tiles.py after fetching new elevation tiles.
-if not exist "%MAPS%\ocean\gebco-ocean-2arcmin.png" echo No sea map: python tools\ocean_map\make_ocean_map.py GEBCO_2026.nc GEBCO_2026_TID.nc "%MAPS%\ocean\gebco-ocean-2arcmin.png" ^(GEBCO's grid from gebco.net; needs numpy and h5py^)
+rem osmdata.openstreetmap.de): run tools\data\ocean_map\sea_mask_tiles.py after fetching new elevation tiles.
+if not exist "%MAPS%\ocean\gebco-ocean-2arcmin.png" echo No sea map: python tools\data\ocean_map\make_ocean_map.py GEBCO_2026.nc GEBCO_2026_TID.nc "%MAPS%\ocean\gebco-ocean-2arcmin.png" ^(GEBCO's grid from gebco.net; needs numpy and h5py^)
 echo.
 echo Map assets are in %MAPS%
 echo They are copied into the package by: fsim dist

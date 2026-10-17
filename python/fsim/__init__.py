@@ -315,7 +315,7 @@ _plugins = []  # loaded for good: the registries hold their code
 def load_plugin(path):
     """Load a C++ plugin: a DLL that links the SDK and registers tasks,
     observations, actions or controllers from its static initialisers
-    (examples/python/plugin). They land in the registries of the libfsim.dll
+    (examples/training/python/plugin). They land in the registries of the libfsim.dll
     this package runs, so a VecEnv created afterwards can name them. Build it
     with the platform's toolchain (MSYS2 UCRT64 GCC) against this version of
     the SDK: the plugin interface is C++.

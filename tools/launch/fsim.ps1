@@ -182,7 +182,7 @@ its GUI with a minimized console using the same preset selection.
         }
         $env:PYTHONPATH = (Join-Path $build 'python') + ';' + $env:PYTHONPATH
         if ($command -eq 'hangar') {
-            $env:PYTHONPATH = (Join-Path $root 'tools\hangar') + ';' + $env:PYTHONPATH
+            $env:PYTHONPATH = (Join-Path $root 'tools\models\hangar') + ';' + $env:PYTHONPATH
             $forwardArgs = @('-m', 'hangar') + $forwardArgs
         }
         if ($command -eq 'testbench') {
@@ -197,7 +197,7 @@ its GUI with a minimized console using the same preset selection.
             $headlessPreset = $selectedPreset.cacheVariables.FSIM_WITH_RENDER -eq 'OFF'
             $explicitViewer = $viewerIndex -ge 0 -or $viewerOption.Count -gt 0
             if (-not $skipViewer -and ($explicitViewer -or -not $headlessPreset) -and -not (Require-File $viewer)) { exit 1 }
-            $env:PYTHONPATH = (Join-Path $root 'testbench') + ';' + $env:PYTHONPATH
+            $env:PYTHONPATH = (Join-Path $root 'src\applications\testbench') + ';' + $env:PYTHONPATH
             $forwardArgs = @('-m', 'fsim_testbench') + $forwardArgs
         }
         exit (Run-Child $python $forwardArgs)

@@ -2,7 +2,7 @@
 // Multi-target trackers (ADR-30, MS-5): Stone Soup's (Dstl, MIT) components,
 // ported - their equations, their order of operations - and cross-checked
 // against Stone Soup itself on the same measurements (test_track.cpp, the
-// fixtures tools/track/crosscheck.py writes):
+// fixtures tools/validation/track/crosscheck.py writes):
 //  - hypothesisers: by Mahalanobis distance, gated at a missed-detection
 //    distance (DistanceHypothesiser); by probability, Pd, the gate's
 //    probability and the clutter's density (PDAHypothesiser);

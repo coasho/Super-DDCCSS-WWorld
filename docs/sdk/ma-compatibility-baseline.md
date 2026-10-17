@@ -10,7 +10,7 @@ headers, old binaries and old Python must keep working against the new library.
 | Checkout | main `e1945b98732586a31b8a8d05c276fc34f4a2d737` (delivered baseline `baf476f841970f1f3c90b8de0bf630e8a5478738` plus one documentation commit; no tracked source, header, test, CMake, asset or third-party file differed from HEAD) |
 | Artifacts | `D:/ENV/tmp/ma-training-baseline` (outside the repository; schema `fsim.ma-baseline.v1`) |
 | Manifest | `MANIFEST.json`, SHA-256 `205a724702b04091be8a72def93e214bf974c5b1bb7c8f6060ade8dbd81fcf46`, captured `2026-10-12T22:12:36Z`, 66 artifacts listed, 0 capture failures |
-| Tool | [tools/ma_contract/baseline.py](../../tools/ma_contract/baseline.py): `capture`, `verify`, `run` |
+| Tool | [tools/validation/ma_contract/baseline.py](../../tools/validation/ma_contract/baseline.py): `capture`, `verify`, `run` |
 | Toolchain | GCC 16.2.0 (MSYS2 UCRT64), CMake 4.4.3, Ninja 1.13.2, GNU objdump 2.47, CPython 3.13.12 |
 | Builds read | `build/ucrt64-headless` and `build/ucrt64-release`, both up to date at that checkout before the capture |
 
@@ -41,9 +41,9 @@ Windows system directories, with `FSIM_AIRCRAFT_PATH` naming the prefix's own ai
 
 | Consumer | Source at the baseline | Binary | Imports of `libfsim.dll` | Run at capture |
 | --- | --- | --- | --- | --- |
-| C++ | `tests/package_consumer/main.cpp`, through `find_package(fsim)` | `sdk-prefix/bin/consumer.exe` | 15 names | `smoke`: exit 0; it verifies itself that both DLLs were loaded from the prefix |
-| C99 | `tests/test_c_abi.c`, `gcc -std=c99` against the installed headers and import library | `sdk-prefix/bin/c_abi_consumer.exe` | 388 names | exit 0 (`c abi ok`) |
-| Python | The installed package and its stable-ABI module, with frozen copies of `examples/python/agent.py`, `links.py` and `c2.py` | `python-dist/fsim/_native.pyd` | 419 names | Three scripts, exit 0 each; each log starts with the paths the package, the module and both DLLs were really loaded from |
+| C++ | `tests/compatibility/package_consumer/main.cpp`, through `find_package(fsim)` | `sdk-prefix/bin/consumer.exe` | 15 names | `smoke`: exit 0; it verifies itself that both DLLs were loaded from the prefix |
+| C99 | `tests/compatibility/test_c_abi.c`, `gcc -std=c99` against the installed headers and import library | `sdk-prefix/bin/c_abi_consumer.exe` | 388 names | exit 0 (`c abi ok`) |
+| Python | The installed package and its stable-ABI module, with frozen copies of `examples/simulation/python/agent.py`, `links.py` and `c2.py` | `python-dist/fsim/_native.pyd` | 419 names | Three scripts, exit 0 each; each log starts with the paths the package, the module and both DLLs were really loaded from |
 
 Every imported name is exported by the baseline library (`consumers/*.imports.txt` list them). The supplied frozen
 C++ consumer under `D:/ENV/tmp/viewer-strike-delivery-20261012/compatibility` (31 binaries, 1,281 data hashes) was
@@ -56,9 +56,9 @@ smoke-level consumers, not a behavioural regression: the 599-test suite is that.
 
 ## Running the old binaries on a new library
 
-    python tools/ma_contract/baseline.py verify --out D:/ENV/tmp/ma-training-baseline
-    python tools/ma_contract/baseline.py run    --out D:/ENV/tmp/ma-training-baseline
-    python tools/ma_contract/baseline.py run    --out D:/ENV/tmp/ma-training-baseline --sdk-prefix <installed SDK of the new build>
+    python tools/validation/ma_contract/baseline.py verify --out D:/ENV/tmp/ma-training-baseline
+    python tools/validation/ma_contract/baseline.py run    --out D:/ENV/tmp/ma-training-baseline
+    python tools/validation/ma_contract/baseline.py run    --out D:/ENV/tmp/ma-training-baseline --sdk-prefix <installed SDK of the new build>
 
 `verify` re-hashes every listed artifact and both installed trees. `run` repeats the consumers as captured. With
 `--sdk-prefix` the frozen executables are copied alone into a scratch directory and the frozen Python package is

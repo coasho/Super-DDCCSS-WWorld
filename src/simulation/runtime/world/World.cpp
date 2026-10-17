@@ -1593,6 +1593,8 @@ const control::VehicleProfile* World::profile(std::uint32_t id) const noexcept {
 }
 
 void World::levelChanged(Entry& e) {
+    static_assert(static_cast<int>(control::Level::Count) == ipc::kControlLevels,
+                  "the stream names every control level (WorldLayout.h, kControlLevelNames)");
     const auto level = e.stack.activeLevel();
     if (publisher_) publisher_->setControlLevel(static_cast<std::uint32_t>(e.slot), static_cast<std::uint8_t>(level));
     if (level != e.level) {

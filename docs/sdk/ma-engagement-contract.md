@@ -322,9 +322,9 @@ combat outcome/reward validation, and combat joint/Viewer acceptance evidence
 remain pending integration gates. The existing
 [Viewer validation record](viewer-validation.md) is a diagnostic baseline.
 
-Run `python -B tools/ma_engagement/check.py` and
-`python -B tools/ma_engagement/test_check.py` from the repository root, or select
-the CTest `ma-training` label. The [fixtures](../../tests/fixtures/mission_training/engagement/manifest.json)
+Run `python -B tools/validation/ma_engagement/check.py` and
+`python -B tools/validation/ma_engagement/test_check.py` from the repository root, or select
+the CTest `ma-training` label. The [fixtures](../../tests/training/fixtures/mission_training/engagement/manifest.json)
 cover every registered request operation and extension, including deliberate
 boundary refusals. The checker also validates complete generic envelopes with these
 proposed registrations and preserves generic limits and outcome rules. It is a

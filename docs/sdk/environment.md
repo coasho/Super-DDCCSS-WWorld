@@ -130,7 +130,7 @@ The wire format is fixed and small, so any language can speak it
 (little-endian, 36-byte header): `"FSMG"`, `u8 version = 1`, `u8[3]`,
 `u32 from`, `u32 to`, `u32 channel`, `u32 format`, `f64 timeSent`,
 `u32 length`, then the payload bytes. `encodeWire` / `decodeWire` implement
-it; `examples/udp_peer` is a complete external peer (plain Winsock) that
+it; `examples/simulation/udp_peer` is a complete external peer (plain Winsock) that
 receives every beacon from `multi_level_control --bridge 47000:47001` and
 answers each vehicle. The C ABI has `fsim_comm_attach_udp_bridge`.
 

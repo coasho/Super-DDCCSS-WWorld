@@ -1,6 +1,6 @@
 ---
 name: aircraft-design
-description: Design, analyse and validate a new aircraft for JSBSim with hangar (tools/hangar), from a description, drawing or photo to a flight-tested jsbsim aircraft - light aircraft, UAVs, jet fighters with fly-by-wire, and bombers, transports and other support aircraft. Use when asked to model an aircraft that has no JSBSim model or wind-tunnel data, to change a design's geometry, mass or engine, or to explain how a design flies.
+description: Design, analyse and validate a new aircraft for JSBSim with hangar (tools/models/hangar), from a description, drawing or photo to a flight-tested jsbsim aircraft - light aircraft, UAVs, jet fighters with fly-by-wire, and bombers, transports and other support aircraft. Use when asked to model an aircraft that has no JSBSim model or wind-tunnel data, to change a design's geometry, mass or engine, or to explain how a design flies.
 ---
 
 # Aircraft design with hangar
@@ -97,7 +97,7 @@ move on while a check fails or a picture looks wrong.
 - **propulsion.** Read `propeller.png`. Peak efficiency should be 0.75–0.88.
   A zero-thrust advance ratio far from pitch/diameter means a wrong pitch.
 - **verify.** This must pass: it checks the XML writer, not the design. If
-  it fails, the fix is in `tools/hangar/hangar/jsbsim.py`.
+  it fails, the fix is in `tools/models/hangar/hangar/jsbsim.py`.
 - **fly.** Read `fly_trim.png`, `fly_stall.png`, `fly_climb.png`,
   `fly_longitudinal.png` and `fly_lateral.png`.
   - Throttle against speed is U-shaped. Trim elevator stays well inside its

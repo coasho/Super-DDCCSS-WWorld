@@ -8,7 +8,7 @@
 // every following field and array element. A different sample representation
 // needs an explicit layout version and publisher/mirror conversion; keep the
 // existing public state ABI independent of that transport revision.
-// Frozen layout guards: tests/test_state_layout.cpp.
+// Frozen layout guards: tests/contracts/test_state_layout.cpp.
 //
 // A neutral contract (src/contracts, ARCH-02): the publisher's transport, the session that feeds it and every reader
 // include it; it includes only the public state values it embeds and the standard library. Its names and namespace
@@ -45,13 +45,24 @@ static_assert(std::atomic<std::uint32_t>::is_always_lock_free, "shared-memory se
 /// even; a reader copies while `seq` is even and unchanged across the copy.
 using SeqLock = std::atomic<std::uint32_t>;
 
+/// The names a reader shows for VehicleRecord::controlLevel, in control::Level's order (ARCH-08, HC-17): stated on the
+/// stream's contract so a presentation names the level without the control module. The producer holds control::Level
+/// to the count (simulation/runtime/world/World.cpp), and a test holds every name to control::levelName.
+constexpr std::uint8_t kControlLevels = 6;
+constexpr const char* kControlLevelNames[kControlLevels] = {"actuator", "attitude", "acceleration", "velocity", "position",
+                                                            "behavior"};
+/// A level's name; "?" for a value outside the table, as control::levelName answers one.
+constexpr const char* controlLevelName(std::uint8_t level) noexcept {
+    return level < kControlLevels ? kControlLevelNames[level] : "?";
+}
+
 /// Vehicle table row: identity and configuration; changes rarely.
 struct VehicleRecord {
     SeqLock seq{0};
     std::uint32_t id = 0;                ///< world-unique id (never reused within a world)
     std::uint64_t generation = 0;        ///< bumped on create / reset / remove
     std::uint8_t alive = 0;
-    std::uint8_t controlLevel = 0;       ///< control::Level of the active command
+    std::uint8_t controlLevel = 0;       ///< control::Level of the active command (its name: controlLevelName)
     std::uint8_t reserved[6] = {0, 0, 0, 0, 0, 0};
     char name[kNameLength] = {};
     char type[kTypeLength] = {};         ///< e.g. "jsbsim:c172x"

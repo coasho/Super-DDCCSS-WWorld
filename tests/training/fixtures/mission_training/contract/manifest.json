@@ -1,0 +1,400 @@
+{
+  "$comment": "Read by tools/validation/ma_contract/check.py. expect: valid (a well-formed document; request_refusals lists the requests the gateway still refuses one by one at submit, by request id: unsupported_kind for an extension not installed, message_too_large for decoded bytes over the configured limit); schema_invalid, rule_invalid and parse_refused (a malformed document, refused whole: against the schema, against a rule of docs/sdk/mission-training.md, or as strict JSON). The valid fixtures describe one two-ship and C2 scenario at tick 62; they are examples written by hand to the contract, not output of an implementation.",
+  "requires": [
+    "identity_above_2_53",
+    "unknown_numeric_report",
+    "non_utf8_message_bytes"
+  ],
+  "seed_streams": [
+    {
+      "base_seed": "0",
+      "env_id": "0",
+      "local_episode_index": "0",
+      "service_id": "0",
+      "component_id": "0",
+      "world_seed": "2391539541053276776",
+      "service_seed": "3271064386196677695",
+      "component_seed": "10965281539644858754"
+    },
+    {
+      "base_seed": "0",
+      "env_id": "0",
+      "local_episode_index": "0",
+      "service_id": "1",
+      "component_id": "1",
+      "world_seed": "2391539541053276776",
+      "service_seed": "2263540533008725427",
+      "component_seed": "18280509061573697574"
+    },
+    {
+      "base_seed": "1",
+      "env_id": "0",
+      "local_episode_index": "0",
+      "service_id": "1",
+      "component_id": "1",
+      "world_seed": "16321491304643971414",
+      "service_seed": "11102331160760582612",
+      "component_seed": "18193477646939381037"
+    },
+    {
+      "base_seed": "0",
+      "env_id": "1",
+      "local_episode_index": "0",
+      "service_id": "1",
+      "component_id": "1",
+      "world_seed": "15114123258453576503",
+      "service_seed": "12711656242245064181",
+      "component_seed": "355767320650829756"
+    },
+    {
+      "base_seed": "0",
+      "env_id": "0",
+      "local_episode_index": "1",
+      "service_id": "1",
+      "component_id": "1",
+      "world_seed": "15703761562794949698",
+      "service_seed": "6867693393520381473",
+      "component_seed": "5972299836287346454"
+    },
+    {
+      "base_seed": "0",
+      "env_id": "0",
+      "local_episode_index": "0",
+      "service_id": "2",
+      "component_id": "1",
+      "world_seed": "2391539541053276776",
+      "service_seed": "16709074837507712794",
+      "component_seed": "8180041922802870941"
+    },
+    {
+      "base_seed": "0",
+      "env_id": "0",
+      "local_episode_index": "0",
+      "service_id": "1",
+      "component_id": "2",
+      "world_seed": "2391539541053276776",
+      "service_seed": "2263540533008725427",
+      "component_seed": "6199200847600922139"
+    },
+    {
+      "base_seed": "18446744073709551615",
+      "env_id": "9007199254740993",
+      "local_episode_index": "41",
+      "service_id": "9007199254740995",
+      "component_id": "2",
+      "world_seed": "5897555865003237414",
+      "service_seed": "11872005952289374664",
+      "component_seed": "1506579179167760148"
+    },
+    {
+      "base_seed": "18446744073709551615",
+      "env_id": "9007199254740993",
+      "local_episode_index": "42",
+      "service_id": "9007199254740995",
+      "component_id": "2",
+      "world_seed": "1345586864050074112",
+      "service_seed": "1835325894111922389",
+      "component_seed": "9051780733425111792"
+    },
+    {
+      "base_seed": "12345678901234567890",
+      "env_id": "9223372036854775808",
+      "local_episode_index": "9007199254740993",
+      "service_id": "18446744073709551615",
+      "component_id": "18446744073709551615",
+      "world_seed": "14933413191395867263",
+      "service_seed": "12904682004883736912",
+      "component_seed": "13164269975565123972"
+    }
+  ],
+  "fixtures": [
+    {
+      "file": "config.two-ship-c2.json",
+      "expect": "valid"
+    },
+    {
+      "file": "observation.wing-ma.json",
+      "expect": "valid"
+    },
+    {
+      "file": "observation.crc-c2.json",
+      "expect": "valid"
+    },
+    {
+      "file": "actions.wing-ma.json",
+      "expect": "valid"
+    },
+    {
+      "file": "actions.wait.json",
+      "expect": "valid"
+    },
+    {
+      "file": "actions.crc-c2.json",
+      "expect": "valid"
+    },
+    {
+      "file": "actions.extension-kind.json",
+      "expect": "valid",
+      "request_refusals": {
+        "31": "unsupported_kind"
+      }
+    },
+    {
+      "file": "actions.message-too-large.json",
+      "expect": "valid",
+      "request_refusals": {
+        "9007199254741008": "message_too_large"
+      }
+    },
+    {
+      "file": "receipts.wing-ma.json",
+      "expect": "valid"
+    },
+    {
+      "file": "receipts.retry-expired.json",
+      "expect": "valid"
+    },
+    {
+      "file": "receipts.message-too-large.json",
+      "expect": "valid"
+    },
+    {
+      "file": "receipts.late-tick.json",
+      "expect": "valid"
+    },
+    {
+      "file": "outcome.running.json",
+      "expect": "valid"
+    },
+    {
+      "file": "outcome.truncated.json",
+      "expect": "valid"
+    },
+    {
+      "file": "truth.json",
+      "expect": "valid"
+    },
+    {
+      "file": "invalid.actions.id-as-number.json",
+      "expect": "schema_invalid",
+      "error_contains": "integer, not string"
+    },
+    {
+      "file": "invalid.actions.id-above-u64.json",
+      "expect": "schema_invalid",
+      "error_contains": "does not match its pattern"
+    },
+    {
+      "file": "invalid.actions.id-leading-zero.json",
+      "expect": "schema_invalid",
+      "error_contains": "does not match its pattern"
+    },
+    {
+      "file": "invalid.actions.id-negative.json",
+      "expect": "schema_invalid",
+      "error_contains": "does not match its pattern"
+    },
+    {
+      "file": "invalid.actions.unknown-field.json",
+      "expect": "schema_invalid",
+      "error_contains": "unknown field sender"
+    },
+    {
+      "file": "invalid.actions.unknown-parameter.json",
+      "expect": "schema_invalid",
+      "error_contains": "unknown field controller_id"
+    },
+    {
+      "file": "invalid.actions.unknown-operation.json",
+      "expect": "schema_invalid",
+      "error_contains": "is not one of"
+    },
+    {
+      "file": "invalid.actions.missing-parameter.json",
+      "expect": "schema_invalid",
+      "error_contains": "track_id is required"
+    },
+    {
+      "file": "invalid.actions.update-without-activity.json",
+      "expect": "schema_invalid",
+      "error_contains": "activity_id is required"
+    },
+    {
+      "file": "invalid.actions.update-behavior-target.json",
+      "expect": "schema_invalid",
+      "error_contains": "target_id: not allowed here"
+    },
+    {
+      "file": "invalid.actions.override-without-value.json",
+      "expect": "schema_invalid",
+      "error_contains": "matches none of its alternatives"
+    },
+    {
+      "file": "invalid.actions.base64-alphabet.json",
+      "expect": "schema_invalid",
+      "error_contains": "does not match its pattern"
+    },
+    {
+      "file": "invalid.actions.base64-length.json",
+      "expect": "rule_invalid",
+      "error_contains": "bytes decoded"
+    },
+    {
+      "file": "invalid.actions.base64-noncanonical.json",
+      "expect": "rule_invalid",
+      "error_contains": "not canonical"
+    },
+    {
+      "file": "invalid.actions.ids-not-increasing.json",
+      "expect": "rule_invalid",
+      "error_contains": "do not strictly increase"
+    },
+    {
+      "file": "invalid.observation.unknown-as-text.json",
+      "expect": "schema_invalid",
+      "error_contains": "string, not number or null"
+    },
+    {
+      "file": "invalid.observation.missing-validity.json",
+      "expect": "schema_invalid",
+      "error_contains": "validity is required"
+    },
+    {
+      "file": "invalid.observation.truth-field.json",
+      "expect": "schema_invalid",
+      "error_contains": "unknown field truth"
+    },
+    {
+      "file": "invalid.observation.count.json",
+      "expect": "rule_invalid",
+      "error_contains": "count 3, but 2 items"
+    },
+    {
+      "file": "invalid.observation.age.json",
+      "expect": "rule_invalid",
+      "error_contains": "age_s is not time_s less sample_time_s"
+    },
+    {
+      "file": "invalid.observation.stale-without-age.json",
+      "expect": "rule_invalid",
+      "error_contains": "stale without an age"
+    },
+    {
+      "file": "invalid.observation.not-owner-with-items.json",
+      "expect": "rule_invalid",
+      "error_contains": "yet it lists items"
+    },
+    {
+      "file": "invalid.observation.receipt-rejected-open.json",
+      "expect": "rule_invalid",
+      "error_contains": "state rejected is closed"
+    },
+    {
+      "file": "invalid.config.missing-timing.json",
+      "expect": "schema_invalid",
+      "error_contains": "decision_steps is required"
+    },
+    {
+      "file": "invalid.config.seed-as-number.json",
+      "expect": "schema_invalid",
+      "error_contains": "integer, not string"
+    },
+    {
+      "file": "invalid.config.scenario-owns-seed.json",
+      "expect": "schema_invalid",
+      "error_contains": "unknown field seed"
+    },
+    {
+      "file": "invalid.config.publish-without-diagnostic.json",
+      "expect": "schema_invalid",
+      "error_contains": "false is not true"
+    },
+    {
+      "file": "invalid.config.controller-named.json",
+      "expect": "schema_invalid",
+      "error_contains": "unknown field controller"
+    },
+    {
+      "file": "invalid.config.two-ingress-owners.json",
+      "expect": "rule_invalid",
+      "error_contains": "lead has 2 services with owns_dms_ingress"
+    },
+    {
+      "file": "invalid.config.no-egress-owner.json",
+      "expect": "rule_invalid",
+      "error_contains": "lead has 0 services with owns_dms_egress"
+    },
+    {
+      "file": "invalid.config.capability-twice.json",
+      "expect": "rule_invalid",
+      "error_contains": "gives fsim.guidance.hsa to two services"
+    },
+    {
+      "file": "invalid.config.unknown-platform.json",
+      "expect": "rule_invalid",
+      "error_contains": "awacs is no platform"
+    },
+    {
+      "file": "invalid.config.duplicate-service.json",
+      "expect": "rule_invalid",
+      "error_contains": "a service_id is used twice"
+    },
+    {
+      "file": "invalid.receipts.reason-without-rejection.json",
+      "expect": "rule_invalid",
+      "error_contains": "a reason exactly when rejected"
+    },
+    {
+      "file": "invalid.receipts.submission-order.json",
+      "expect": "rule_invalid",
+      "error_contains": "request ids do not strictly increase"
+    },
+    {
+      "file": "invalid.receipts.queued-closed.json",
+      "expect": "rule_invalid",
+      "error_contains": "state queued is not closed"
+    },
+    {
+      "file": "invalid.outcome.reason.json",
+      "expect": "rule_invalid",
+      "error_contains": "its criteria give null"
+    },
+    {
+      "file": "invalid.outcome.terminated-and-truncated.json",
+      "expect": "rule_invalid",
+      "error_contains": "terminated and truncated at once"
+    },
+    {
+      "file": "refused.observation.nan.json",
+      "expect": "parse_refused"
+    },
+    {
+      "file": "refused.observation.infinity.json",
+      "expect": "parse_refused"
+    },
+    {
+      "file": "refused.actions.duplicate-key.json",
+      "expect": "parse_refused"
+    },
+    {
+      "file": "refused.actions.overflow-number.json",
+      "expect": "parse_refused"
+    },
+    {
+      "file": "refused.actions.comment.json",
+      "expect": "parse_refused"
+    },
+    {
+      "file": "refused.actions.trailing-comma.json",
+      "expect": "parse_refused"
+    },
+    {
+      "file": "refused.actions.byte-order-mark.json",
+      "expect": "parse_refused"
+    },
+    {
+      "file": "refused.actions.not-utf8.json",
+      "expect": "parse_refused"
+    }
+  ]
+}

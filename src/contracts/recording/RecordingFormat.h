@@ -18,7 +18,7 @@
 //
 // The header, table rows and sample prefixes below are raw fixed-size records,
 // not extensible public structs. Their existing sizes/offsets and the v1-v7
-// sample strides are frozen (tests/test_state_layout.cpp). New state requires an
+// sample strides are frozen (tests/contracts/test_state_layout.cpp). New state requires an
 // explicitly versioned format and a reader that converts each supported old
 // representation; changing sizeof a current struct cannot define that conversion.
 //

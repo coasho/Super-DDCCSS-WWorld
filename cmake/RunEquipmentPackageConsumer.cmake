@@ -125,7 +125,7 @@ foreach(_directory jsbsim payloads stores aircraft)
 endforeach()
 file(WRITE "${_work}/provenance.sha256" "${_manifest}")
 
-set(_configure "${CMAKE_COMMAND}" -S "${_source}/tests/equipment_package_consumer" -B "${_consumer_build}"
+set(_configure "${CMAKE_COMMAND}" -S "${_source}/tests/compatibility/equipment_package_consumer" -B "${_consumer_build}"
     -G "${GENERATOR}" "-DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_FILE}" "-DFSIM_UCRT64_ROOT=${UCRT64_ROOT}"
     "-Dfsim_DIR=${_prefix}/lib/cmake/fsim" "-DCMAKE_PREFIX_PATH=${_prefix}"
     -DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF -DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF
@@ -158,7 +158,7 @@ foreach(_index RANGE 0 ${_last_command})
     endif()
 endforeach()
 
-file(COPY_FILE "${_source}/tests/equipment_package_consumer/equipment_python.py" "${_work}/equipment_python.py")
+file(COPY_FILE "${_source}/tests/compatibility/equipment_package_consumer/equipment_python.py" "${_work}/equipment_python.py")
 
 function(run_native language mode)
     set(_arguments "${_prefix}")

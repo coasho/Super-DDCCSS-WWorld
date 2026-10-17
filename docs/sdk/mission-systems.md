@@ -160,7 +160,7 @@ w.radio_path(a, b, frequency_hz=9.4e9, rain_mm_h=25.0, rain_height_m=4000.0).rai
 ```
 
 The loss is a median, or the percentage of time asked for. NTIA's own published examples are reproduced to 0.05 dB
-(P.528) and 0.01 dB (the ITM), and P.838-3's table to its digits (`tests/test_rf_path.cpp`). A P.528 path costs
+(P.528) and 0.01 dB (the ITM), and P.838-3's table to its digits (`tests/simulation/test_rf_path.cpp`). A P.528 path costs
 9-27 us. P.676's layers, and each terminal's grazing ray trace from the ground (a function of the frequency and its
 height alone, ~90 % of the reference's time), are tabulated per frequency and filled as asked. Over 300 random paths
 they agree with the exact computation to 0.016 dB; the exact computation itself moves 0.11 dB when its terminals rise
@@ -198,7 +198,7 @@ In C++ this is `World::radarCrossSection(observer, target, ms::RcsQuery{...})`; 
 
 ### How the tables are made
 
-`flightsim-rcs <type>` (`tools/rcs`) computes a table on the GPU by shooting and bouncing rays (SBR; Ling, Chou and
+`flightsim-rcs <type>` (`tools/models/rcs`) computes a table on the GPU by shooting and bouncing rays (SBR; Ling, Chou and
 Lee, 1989), through Vulkan ray queries:
 
 - **Rays:** for each radar direction, a grid of ray tubes, 8 to a wavelength each way (3 to 25 million for a fighter),
@@ -310,7 +310,7 @@ v.cancel_mission(a)                                       # it stops
 
 In C++: `Vehicle::submit(ms::AmtiCommand{...})`, `radarStatus(payload)`, `amtiDetections(payload, since)`. In C (ABI
 1.52): `fsim_vehicle_amti_search`, `fsim_vehicle_radar_status`, `fsim_vehicle_amti_detections`. `fsim python
-examples\python\radar.py` runs an F-16C and an E-3G searching against four aircraft, for the viewer.
+examples\simulation\python\radar.py` runs an F-16C and an E-3G searching against four aircraft, for the viewer.
 
 - **The command** (A-GRA's AMTI command): a mode, the volume about the nose (azimuth centre and half width, elevation
   centre, 1-8 bars) and a range scale. The payload must be operating. A new search supersedes the radar's last one.
@@ -410,14 +410,14 @@ s = v.radar_status("radar")                               # s.tracks, s.tentativ
 
 In C++: `Vehicle::amtiTracks(payload)` (`ms::AmtiTrack`, its ECEF state and covariance too). In C (ABI 1.53):
 `fsim_vehicle_amti_tracks` (`fsim_amti_track`), and `fsim_radar_status` gains `false_alarms`, `tracks` and
-`tentative_tracks`. `examples/python/radar.py` prints each radar's tracks every 10 s.
+`tentative_tracks`. `examples/simulation/python/radar.py` prints each radar's tracks every 10 s.
 
 - **The tracker** is [Stone Soup](https://github.com/dstl/Stone-Soup)'s (Dstl, MIT), ported to C++: its
   nearly-constant-velocity model, the radar's elevation-bearing-range-rate measurement, the extended and unscented
   Kalman filters, the distance and PDA hypothesisers, global nearest neighbour by 2D assignment (SciPy's
   `linear_sum_assignment`, Crouse's algorithm, step for step), JPDA (every joint event, factorised over the clusters
   of tracks that share detections), the mixture tracker, the single- and multi-measurement initiators and the
-  deleters. `tools/track/crosscheck.py` runs Stone Soup 1.9.1 on the same measurements: the ported filters, GNN and
+  deleters. `tools/validation/track/crosscheck.py` runs Stone Soup 1.9.1 on the same measurements: the ported filters, GNN and
   JPDA agree with it to 1e-11 at every step (`test_track.cpp`).
 - **A radar's tracker:** GNN with the unscented filter, a dwell at a time, its detections measured from the carrier's
   pose at that dwell. A new track starts from one detection - its position and range rate from it, its velocity across
@@ -636,7 +636,7 @@ v.jettison(emergency=True)                # the rest, unarmed, at once
 - **The viewer:** the mission systems window lists the stores station by station, those gone dimmed; each carried
   store is drawn on its station, its pylon and launcher once one has been there, a bay's doors as they open
   ([viewer.md](viewer.md#stores-on-their-stations)).
-- `examples/python/stores.py` shows it: an F-16C loads four Mk 82s, strikes two with consent given a few seconds
+- `examples/simulation/python/stores.py` shows it: an F-16C loads four Mk 82s, strikes two with consent given a few seconds
   later, and jettisons the other two.
 
 **Initial MS-7a data (historical):** the F-16C's nine stations (the article's hardpoints, numbered left to right; their places derived from
@@ -768,7 +768,7 @@ without calibrated real-world missile performance or closure of the original sol
 a section parting, a tank's fuel drawn: the airframe stays where it is while its CG moves to what is left, and its
 velocity becomes v + w x d. The departing part's inertia comes off the base. The launcher takes the ejector's
 reaction. A store or piece starts at the velocity of its own point (v + w x r) with the parent's body rates. A
-blast's push and its moment about the CG act on the airframe. tests/test_mass_change.cpp measures all of it.
+blast's push and its moment about the CG act on the airframe. tests/simulation/test_mass_change.cpp measures all of it.
 
 **Their drag on the aircraft** (`WorldOptions::storeDrag`, `store_drag`: on by default). Each store pushes against
 the airflow at its station, so its moment about the CG comes with it: a store below the CG pitches the nose down, and a
@@ -786,7 +786,7 @@ one rule for every aircraft:
 - a pod's as a tank's, its rounded tail taken as a blunt base (too steep for the air to follow).
 
 Above Mach 0.8 it rises as the Mk 82's measured drag does (DSTO-TR-0554: 1.28 times at Mach 1.0, 2.43 at 1.2).
-Compared with RAND MR-1216-AF's drag indices, not fitted to them (tests/test_store_drag.cpp):
+Compared with RAND MR-1216-AF's drag indices, not fitted to them (tests/simulation/test_store_drag.cpp):
 
 | Load | Ours | Published |
 | --- | ---: | ---: |
@@ -886,11 +886,11 @@ relief or masking in the clutter); the antennas' side-lobe floor -5 dBi and back
 (all of them so far).
 
 **Against FERS (MS-6c).** [FERS](https://github.com/davidbits/FERS) (GPL-2.0, run as a separate program by
-`tools/fers/crosscheck.py`, nothing of it linked) forms the samples of one 10 GHz interval - 10 kHz PRF, 32 pulses, a 1
+`tools/validation/fers/crosscheck.py`, nothing of it linked) forms the samples of one 10 GHz interval - 10 kHz PRF, 32 pulses, a 1
 m² target moving along the line of sight, receiver noise at 290 K - with a plain 1 us pulse and a Barker-13 code of 1 us
 chips. A receiver's processing (blanked while transmitting, matched filtered at the target's Doppler, a gate a chip,
 Blackman-Harris and the DFT across the pulses) makes its cells, each over kTB through the same processing
-(`tests/data/signal/fers_crosscheck.json`); `tests/test_signal.cpp` gives the chain the same target, its SNR from the
+(`tests/simulation/data/signal/fers_crosscheck.json`); `tests/simulation/test_signal.cpp` gives the chain the same target, its SNR from the
 same radar equation, and compares:
 - FERS's echo power is the radar equation's (within 0.6 %), its noise kTB's (a raw sample 0.998, a processed cell 1.002
   and 1.007), the neighbouring filters' noise correlated -0.817 and -0.823 (the window's -0.816), the last gate's
@@ -915,7 +915,7 @@ same radar equation, and compares:
 B-scope or PPI: its last dwell's first interval (its lowest PRF), range up and closing speed across, both folded, each
 cell's power over the noise (0.25 dB steps to 64 dB, binned to 128 x 64 by the largest), the processor's peaks
 circled, the main beam's notch and the altitude line's blanking outlined. The world publishes it with the radar's
-record (shared-memory layout 5). `examples/python/radar.py --signal-level` shows it.
+record (shared-memory layout 5). `examples/simulation/python/radar.py --signal-level` shows it.
 
 **Not yet:** the difference channels' clutter (a clutter-dominated cell's angles are its noise's); a guard channel;
 velocity search.
@@ -924,12 +924,12 @@ velocity search.
 response and noise share 1.1 % over MS-6b's, medians of 12 interleaved runs; the display's snapshot nothing
 measurable); with the ground's clutter 2-3 ms (its 55 ms mechanical-scan dwells: 4-6 %), the clutter's map 1.1-2.2 ms
 of it. Low over land on the physics terrain - the testbench's 600 m over San Francisco Bay - 4.5 % of real time for
-the F-16C's radar, 5.6 % for the E-3G's (`fsim_radar_bench`, tests/bench_radar.cpp: the wall time against the same
+the F-16C's radar, 5.6 % for the E-3G's (`fsim_radar_bench`, tests/simulation/bench_radar.cpp: the wall time against the same
 world with the radar off, and a digest of every detection and track). It was 21.5 % and 11 %: 85 % of it was the
 clutter map's ground under the beam, ~200 points a dwell, each through the vehicles' terrain query, which made a missing
 level's whole tile from its ancestor for each new point (37 us) and pushed their own tiles out of the cache. The map now
 reads them with `GroundProvider::pointHeightAboveEllipsoidM`: the same heights to the bit, from the four texels that
-tile would hold (the digests unchanged; tests/test_terrain.cpp compares 4,000 points). A fluctuation's processing loss is worked out the first time a target of it is seen (about a millisecond for a
+tile would hold (the digests unchanged; tests/simulation/test_terrain.cpp compares 4,000 points). A fluctuation's processing loss is worked out the first time a target of it is seen (about a millisecond for a
 Rayleigh one, some tens for the others) and kept while the threshold stays. The detection level is untouched.
 
 ## The fleet's payloads

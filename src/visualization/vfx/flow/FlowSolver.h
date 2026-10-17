@@ -2,7 +2,7 @@
 
 // NVIDIA Flow 2's solver alone, nothing drawn (MS-7h): its loader, its own Vulkan device, one grid and its parameters;
 // sphere sources in, the newest finished smoke, temperature and fuel out (NanoVDB grids read back, as leaves of 8^3
-// voxels). What world::FlowVolumes draws from and tools/flow_calibrate measures. Built only with FSIM_FLOW_DIR
+// voxels). What world::FlowVolumes draws from and tools/validation/flow_calibrate measures. Built only with FSIM_FLOW_DIR
 // (cmake/Flow.cmake); without it start() is false.
 //
 // Flow's combustion, per cell (its AdvectionCommon.hlsli): where the temperature (normalized: 0 the air's, held at

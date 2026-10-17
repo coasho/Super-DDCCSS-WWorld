@@ -1,7 +1,7 @@
 # Mission training contract, version 1
 
 Status: **frozen contract, implemented in part**. Generic M0 froze this page, its
-[schema](ma-contract.schema.json) and its [fixtures](../../tests/fixtures/mission_training/contract/manifest.json) on
+[schema](ma-contract.schema.json) and its [fixtures](../../tests/training/fixtures/mission_training/contract/manifest.json) on
 2026-10-12 against main `e1945b98732586a31b8a8d05c276fc34f4a2d737` (delivered baseline
 `baf476f841970f1f3c90b8de0bf630e8a5478738`). Each package of the
 [implementation plan](../superpowers/plans/2026-10-12-ma-system-training-readiness.md) implements its part against
@@ -276,7 +276,7 @@ separately live children stay safe after their parent is destroyed. No new statu
 
 Six documents, each a UTF-8 JSON object with a `schema` member: `ma.config.v1`, `ma.observation.v1`,
 `ma.actions.v1`, `ma.receipts.v1`, `ma.outcome.v1` and `ma.truth.v1`. The [schema](ma-contract.schema.json) is JSON
-Schema 2020-12, restricted to the keywords [check.py](../../tools/ma_contract/check.py) lists; it documents the
+Schema 2020-12, restricted to the keywords [check.py](../../tools/validation/ma_contract/check.py) lists; it documents the
 contract and drives the repository check. The SDK does not load it and gains no dependency: adapters validate with
 code written to this page.
 
@@ -1022,6 +1022,6 @@ own system under the adapter), `python_sdk test_mission_concurrency.*` (the same
 the adapter's steps among them), `test_mission` (no referee document - costs among them - crosses to an
 actor process) and `mission_package_consumer`: batch passes through installed C++, C99 and Python, costs refused
 before an isolated actor, and the installed composition example under the training adapter with `"same_step"` and
-`"next_step"` autoreset, each generation's trace the same as its direct run. `tools/ma_contract/mission_workload.py` measures a fixed recorded
+`"next_step"` autoreset, each generation's trace the same as its direct run. `tools/validation/ma_contract/mission_workload.py` measures a fixed recorded
 workload - construction, reset, throughput, working set and reclamation over rebuilds - and its digest of every
 document the workload produced, which is the same for every worker count and every rebuild.

@@ -12,7 +12,7 @@ namespace fsim::sim {
 /// Appending fields also changes embedded IPC/recording samples and is not ABI
 /// compatible. Additional engines or state require a separately versioned,
 /// sized interface and explicit IPC/recording conversion; preserve this type
-/// for existing consumers. Frozen layout guards: tests/test_state_layout.cpp.
+/// for existing consumers. Frozen layout guards: tests/contracts/test_state_layout.cpp.
 struct VehicleState {
     static constexpr int kMaxEngines = 4;
     static constexpr int kMaxWheels = 8;

@@ -1,5 +1,5 @@
 # flow: NVIDIA Flow's solver (world::FlowSolver) and its fires - the optional GPU visual-effects target (ARCH-06),
-# a library of its own, the calibration tool's too (tools/flow_calibrate). Its runtime is loaded dynamically; without
+# a library of its own, the calibration tool's too (tools/validation/flow_calibrate). Its runtime is loaded dynamically; without
 # Flow the solver is inert. Physical effects are simulation's (simulation/environment), not this.
 add_library(fsim_flow STATIC FlowSolver.h FlowSolver.cpp FlowFires.h FlowFires.cpp)
 add_library(fsim::flow ALIAS fsim_flow)

@@ -451,7 +451,7 @@ Every change bumps the revision.
 
 ### 7.3 Limits that follow the load, the turn margin, the speed floor and abnormal states
 
-A profile's speeds are flown by hangar with the aircraft as it spawns: its fixed load, its tanks full, nothing on its stations ([hangar.md](hangar.md), Mass accounting). Loaded - a fighter's tanks and missiles add a quarter to a third of that weight - it stalls faster, turns worse and flies outside its tables. Before this section the VI did not know: `Performance` and the envelope were the same numbers at every weight, a command at `minCasMs` was accepted and the aircraft sank under it with nothing said, and a heading change at a low airspeed was flown at the full bank limit. The stability suite ([testbench/README.md](../testbench/README.md)) measured it on all 35 aircraft at full load; `testbench/results/stability/before-vi-limits/` keeps those results.
+A profile's speeds are flown by hangar with the aircraft as it spawns: its fixed load, its tanks full, nothing on its stations ([hangar.md](hangar.md), Mass accounting). Loaded - a fighter's tanks and missiles add a quarter to a third of that weight - it stalls faster, turns worse and flies outside its tables. Before this section the VI did not know: `Performance` and the envelope were the same numbers at every weight, a command at `minCasMs` was accepted and the aircraft sank under it with nothing said, and a heading change at a low airspeed was flown at the full bank limit. The stability suite ([testbench/README.md](../src/applications/testbench/README.md)) measured it on all 35 aircraft at full load; `src/applications/testbench/results/stability/before-vi-limits/` keeps those results.
 
 **The load.** The world tells each vehicle's host what it weighs (`CapabilityHost::setLoad`): when the vehicle is made, when its stores or fuel are changed, and every eighth step as it burns fuel.
 
@@ -699,7 +699,7 @@ Filled in as the steps land. The machine and the benchmark's precision are ADR-2
   - the Crazyflie within 2.4 m (1 m/s).
 - **`loiter`:** a 20 m orbit flown by the IRIS at 19.0 m, a 2 m one by the Crazyflie at 2.0 m, the c172x's 800 m at 765 m.
 - **Conformance:** the random sequences now run the helicopter (UH-1H) and multirotor (IRIS) adapters too, with the same required coverage: every edge of the lifecycle and every answer.
-- **Tests:** `tests/test_guidance.cpp`:
+- **Tests:** `tests/simulation/test_guidance.cpp`:
   - a wing's three-leg climbing route;
   - rotorcraft routes given no airspeed;
   - `hold` to a heading, altitude and airspeed in a 12 m/s crosswind;
@@ -722,7 +722,7 @@ Filled in as the steps land. The machine and the benchmark's precision are ADR-2
   - C ABI 1.6 (`fsim_last_command_detail`, `fsim_activity_get_progress`, `fsim_vehicle_commanded`, `fsim_vehicle_capability_flight_mode`, and the result's index);
   - Python's `Rejected.index`, `.constraint` and `.section`, `Activity.progress`, `Vehicle.commanded`, `Capability.mode`, and `fsim.agra`.
 - **Tests:**
-  - `tests/test_interface.cpp`: detail for a level, a design's envelope and a route; a route's progress point by point to completion; loiter laps; hold targets; the commanded state; modes;
+  - `tests/simulation/test_interface.cpp`: detail for a level, a design's envelope and a route; a route's progress point by point to completion; loiter laps; hold targets; the commanded state; modes;
   - the C ABI test, and a Python case;
   - conformance now checks every record's progress is within its bounds.
 
@@ -736,7 +736,7 @@ Filled in as the steps land. The machine and the benchmark's precision are ADR-2
   - `Performance` from each family's adapter (`VehicleAdapter::performance`), kept by the host and handed to behaviours through `ControlContext::performance`.
   - `HsaBehavior` (`fsim/GuidanceModes.h`, `src/simulation/flight_control/Guidance.cpp`) with the wind estimate and the references; `src/simulation/flight_control/Atmosphere.h` for the standard atmosphere.
   - A stand-alone `ControlStack` flies a mode too: its `command()` installs the mode's behaviour, and merges a repeated one.
-- **Flown**, in a 12 m/s crosswind from the east, after 150 s (`tests/test_modes.cpp`):
+- **Flown**, in a 12 m/s crosswind from the east, after 150 s (`tests/simulation/test_modes.cpp`):
 
   | | heading 180° (TAS) | course 180° (TAS) | course 0°, ground speed | CAS as now | altitude +100 m |
   | --- | --- | --- | --- | --- | --- |
@@ -770,7 +770,7 @@ Filled in as the steps land. The machine and the benchmark's precision are ADR-2
   - The host's `checkRoute` (completion, limits, plan, turns that fit, gradients); `limitHsa` became `limitFlight`, shared with the waypoints.
   - `World::submit(RouteCommand, Span<const Waypoint>)` and `update(activity, RouteCommand, Span<const Waypoint>)`; `ControlStack::command(RouteCommand, Span)` for a stack on its own.
   - `Performance::bankRateRadS`. The internal `session::World::performance(id)` (the SDK's is VI-7's).
-- **Flown** (`tests/test_routes.cpp`): a route of 5R legs, R the turn radius the route plans with: a 90° fly-by left, one right, 51° right, 78° right flown over, and on. The most cross-track in the middle of the legs after the first turn (the one after the fly-over is an intercept), the most on the turns, and each class's bound:
+- **Flown** (`tests/simulation/test_routes.cpp`): a route of 5R legs, R the turn radius the route plans with: a 90° fly-by left, one right, 51° right, 78° right flown over, and on. The most cross-track in the middle of the legs after the first turn (the one after the fly-over is an intercept), the most on the turns, and each class's bound:
 
   | | calm: legs / turns | 12 m/s crosswind: legs / turns | bound on a leg |
   | --- | --- | --- | --- |
@@ -817,7 +817,7 @@ Filled in as the steps land. The machine and the benchmark's precision are ADR-2
 - **SDK:**
   - C ABI: `fsim_waypoint`, `fsim_waypoint_init`, `fsim_vehicle_submit_route`, `fsim_activity_update_route`, `FSIM_MODE_ROUTE`, `fsim_turn_type`, `fsim_projection`, `fsim_end_behavior`. A waypoint array is read at its first element's `struct_size`, so an older header's works.
   - Python: `Vehicle.submit_route(waypoints, **options)`, `Activity.update_route`, `Waypoint`, `TurnType`, `Projection`, `EndBehavior`.
-  - `examples/python/vehicle_interface.py` flies a c172x's triangle, an F-16C's climb, fly-over and orbit, a UH-60A that stops at its end and an IRIS square, for the viewer.
+  - `examples/simulation/python/vehicle_interface.py` flies a c172x's triangle, an F-16C's climb, fly-over and orbit, a UH-60A that stops at its end and an IRIS square, for the viewer.
   - ctest 178/178.
 
 **VI-5 (loiter patterns).**
@@ -830,7 +830,7 @@ Filled in as the steps land. The machine and the benchmark's precision are ADR-2
     - the IRIS's legs 0.9 m (1.1) and its turns 1.4 m (1.7).
   - The host's `checkPattern` and `limitPattern`: a radius no tighter than the full bank flies.
   - `kMaxCommandFields` (16) where a command's fields were 8 at most; the C ABI and Python read 16 values.
-- **Flown** (`tests/test_patterns.cpp`), for one lap after one and a half, the most off the circle, both ways round:
+- **Flown** (`tests/simulation/test_patterns.cpp`), for one lap after one and a half, the most off the circle, both ways round:
 
   | | calm | 12 m/s wind |
   | --- | --- | --- |
@@ -872,7 +872,7 @@ Filled in as the steps land. The machine and the benchmark's precision are ADR-2
   - Two fixes found by flying the example:
     - A timed curve's last second is flown at the pace it had. Before, the speed shrank with what was left, and an IRIS that was to stop at its end never reached it.
     - An activity's cross-track stays, past its end, what it was there. Before, a route or a curve that ended by loitering reported the orbit's radius: the host reads progress when the world step ends, some control updates later.
-- **Flown** (`tests/test_curves.cpp`): an S of six quintic Hermite segments from where the aircraft is, flying east. A straight lead of 2R, then a period over which the curvature runs κ sin 2πu, turning 100° right and 100° left, its tightest a quarter wider than R, climbing; a tail of 1.5R. R is a wing's planning radius at its speed plus 12 m/s, a rotorcraft's given. Off the S (past its lead), measured against the Béziers evaluated by de Casteljau's construction:
+- **Flown** (`tests/simulation/test_curves.cpp`): an S of six quintic Hermite segments from where the aircraft is, flying east. A straight lead of 2R, then a period over which the curvature runs κ sin 2πu, turning 100° right and 100° left, its tightest a quarter wider than R, climbing; a tail of 1.5R. R is a wing's planning radius at its speed plus 12 m/s, a rotorcraft's given. Off the S (past its lead), measured against the Béziers evaluated by de Casteljau's construction:
 
   | | climb | calm | 12 m/s crosswind |
   | --- | --- | --- | --- |
@@ -934,7 +934,7 @@ Filled in as the steps land. The machine and the benchmark's precision are ADR-2
   - `status()` reports a restriction; the NEW path checks the vehicle's own availability (a diverged vehicle) apart from it, so the platform's sources fly what it restricts.
   - `ControlStack::loopsRevision` and `ControlStack::setParameter`. The host recomputes the performance when the loops change (after a step, before a check, when asked), with a new revision if any field changed. `fsim_vehicle_set_controller_parameter` goes through the stack now.
   - C ABI `fsim_performance` (from ABI 1.68 with its load's limits: `least_cas_ms`, `load_speed_ratio`, `load_kg` - the platform's own figures, which Python's `Performance` now reads rather than working the first out itself) and `fsim_vehicle_performance`, `fsim_control_mode`, and the seven authority calls and `fsim_vehicle_control_revision`. Python `Vehicle.performance`, `control_revision`, `control_mode`, `set_control_mode`, `request_control` (raises `Rejected` when refused), `release_control`, `revoke_control`, `set_allowed`, `control_status`, `set_availability`, with `ControlMode`, `ControlStatus` and `Performance`.
-- **Tests** (`tests/test_grants.cpp`):
+- **Tests** (`tests/simulation/test_grants.cpp`):
   - the gate: a refused NEW leaves no record; the legacy façade is gated; an autopilot needs no grant and still holds its axes against a granted policy;
   - the ends: switching to Granted ends what flies without a grant (`not_granted`); release (`released`); revocation with the platform's reason (`revoked`, `collision_avoidance`); a capability no longer allowed (`revoked`), and a request for it refused `not_allowed`; an override's activity untouched by release and revocation;
   - availability: a restricted capability refuses a policy's NEW and request with its reason, what flies goes on and takes UPDATEs, an override flies it; "restricted" when no reason is given; lifted;

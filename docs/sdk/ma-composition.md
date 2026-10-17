@@ -2,7 +2,7 @@
 
 Status: **frozen contract; noncombat example implemented (M6 noncombat), awaiting independent acceptance**. Generic M0
 froze this vocabulary and these example-only interfaces on 2026-10-12 with the
-[mission training contract](mission-training.md). The example is `examples/python/ma_composition`
+[mission training contract](mission-training.md). The example is `examples/training/ma_composition`
 ([section 7](#7-the-example-as-implemented-m6-noncombat)). Full composition scenarios consume full M5 (combat extensions)
 and are not part of it.
 
@@ -46,7 +46,7 @@ never widens what its service may command, and never brings in referee data.
 
 ## 3. Example-only interfaces
 
-Proposed for `examples/python/ma_composition/contracts.py`. They are conventions of the example, written against the
+Proposed for `examples/training/ma_composition/contracts.py`. They are conventions of the example, written against the
 installed public `fsim` package alone:
 
     class MAComponent:
@@ -103,7 +103,7 @@ written against.
 
 ## 7. The example as implemented (M6 noncombat)
 
-    cd examples/python
+    cd examples/training
     fsim python -m ma_composition.run [--ticks N] [--trace trace.json]
 
 | File | What it is |
@@ -125,6 +125,6 @@ priority; the radar request is refused by the SDK (`capability_not_bound`) and g
 does not ask again. Nothing in the example decides for the SDK: it submits what it selected and keeps what the SDK
 answered.
 
-`python/tests/test_ma_composition.py` (in `python_sdk`) holds these to the SDK under test; `mission_package_consumer`
+`tests/compatibility/python/test_ma_composition.py` (in `python_sdk`) holds these to the SDK under test; `mission_package_consumer`
 runs the example twice from a copy against the installed Python package and requires identical traces, the same trace
 after a reset as in a fresh episode, the same traces under the training adapter, and the installed package and library.

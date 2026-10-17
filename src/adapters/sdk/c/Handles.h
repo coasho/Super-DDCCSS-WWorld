@@ -165,7 +165,7 @@ inline bool outsideAgentActivity(const fsim_world* w, uint64_t activity, const c
 } // namespace fsim::sdk
 
 // ADR-31: the first statement of every C function an fsim_world* reaches says whose call it is - checked by
-// tools/boundary/boundary.py against docs/sdk/boundary.toml. The trailing argument is what a refused call returns. The
+// tools/validation/boundary/boundary.py against docs/sdk/boundary.toml. The trailing argument is what a refused call returns. The
 // range's handle passes at the cost of one predictable branch; an agent's handle has each call counted in its audit
 // (AB-2d), refused or not; a sealed handle is refused everything but its release.
 /// What a guard asks of a restricted handle (an agent's, or a sealed one).

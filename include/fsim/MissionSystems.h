@@ -657,7 +657,7 @@ struct RadioPath {
     double freeSpaceDb = 0.0, basicDb = 0.0, gasDb = 0.0, terrainDb = 0.0, rainDb = 0.0, totalDb = 0.0;
 };
 
-// --- Radar cross section (MS-3; tools/rcs, src/simulation/mission_systems/rcs) -----------------------------
+// --- Radar cross section (MS-3; tools/models/rcs, src/simulation/mission_systems/rcs) -----------------------------
 
 /// A radar looking at an entity: its frequency and its linear polarisations, as angles from the vertical (the plane
 /// through the line of sight and the local vertical at the target) towards the horizontal: 0 vertical, pi/2 horizontal.

@@ -40,26 +40,26 @@ Use one selected preset for every command. The syntax is `fsim.cmd [--preset NAM
 .\fsim.cmd --preset ucrt64-headless where
 .\fsim.cmd --preset ucrt64-headless headless --help
 .\fsim.cmd --preset ucrt64-headless fly
-.\fsim.cmd --preset ucrt64-headless python examples/python/world_tour.py
+.\fsim.cmd --preset ucrt64-headless python examples/simulation/python/world_tour.py
 .\fsim.cmd --preset ucrt64-release demo
 .\fsim.cmd --preset ucrt64-release viewer
 ```
 
-The demo and viewer require a built render preset. With the selected preset's Python SDK, `.\fsim.cmd --preset ucrt64-release testbench` opens the scenario testbench with its viewer, and `.\fsim.cmd --preset ucrt64-headless testbench --headless "fa9.,fa10."` runs headless suites. See the [testbench guide](testbench/README.md) for options and the `Testbench.cmd` double-click entrypoint. Application arguments and exit codes pass through. `test` requires an already configured build and reports the matching build command when it is absent.
+The demo and viewer require a built render preset. The demo's simulation runs in its own publisher process, `flightsim-demo`, which the viewer starts beside itself and attaches to read-only, as to any published world. With the selected preset's Python SDK, `.\fsim.cmd --preset ucrt64-release testbench` opens the scenario testbench with its viewer, and `.\fsim.cmd --preset ucrt64-headless testbench --headless "fa9.,fa10."` runs headless suites. See the [testbench guide](src/applications/testbench/README.md) for options and the `Testbench.cmd` double-click entrypoint. Application arguments and exit codes pass through. `test` requires an already configured build and reports the matching build command when it is absent.
 
 ## Layout
 
 | Directory | Purpose |
 | --- | --- |
 | `include/fsim/` | Public C++ headers and C ABI contracts |
-| `src/` | Native implementation, applications, optional renderer and vision module |
+| `src/` | Native implementation, applications (`src/applications/`: headless, demo publisher, viewer, testbench), optional renderer and vision module |
 | `python/` | Python bindings and training adapters over the native SDK |
-| `examples/` | SDK consumers, trainers, Python examples and scenario JSON |
-| `tests/` | Native/C ABI tests, fixtures and installed-package consumers; architecture checks register independently of optional Python bindings |
-| `testbench/` | Scenario runner, local browser UI and recorded flight-stability results |
+| `examples/` | SDK consumers by category (`training/`, `simulation/`, `visualization/`): trainers, Python examples and scenario JSON |
+| `tests/` | Tests by category (`contracts/`, `simulation/`, `training/`, `visualization/`, `compatibility/`, `integration/`): native/C ABI and Python tests, fixtures and installed-package consumers; architecture checks register independently of optional Python bindings |
+| `src/applications/testbench/` | Scenario runner, local browser UI and recorded flight-stability results |
 | `aircraft/` | Hangar design inputs, generated models, JSBSim definitions and reports |
 | `assets/` | Runtime configuration, payload/store cards, textures, shaders and map assets |
-| `tools/` | Hangar, resource generators, benchmarks and inspection tools |
+| `tools/` | Tools by category: `models/` (Hangar, RCS), `data/` (resource generators), `validation/` (checks, benchmarks, inspection), `launch/` and `architecture/` |
 | `cmake/`, `deps/` | Toolchain, asset staging, installation and VSG dependency superbuild |
 | `third_party/` | Vendored dependencies and upstream data with their own licenses |
 | `docs/` | Guides, SDK reference, decisions, backlog and generated evidence |
@@ -86,7 +86,7 @@ cpack --config build/ucrt64-headless/CPackConfig.cmake
 
 ZIP output goes to `build/<preset>/package/`. The install example above installs all components together. To install only the standalone SDK, add `--component sdk`; `dist/sdk` uses the same component rules. It includes stock JSBSim data, designed aircraft and released-store models, payload/store cards, damage definitions and piece models, and notices. An installed CMake consumer uses `find_package(fsim CONFIG REQUIRED COMPONENTS sdk)` and links `fsim::sdk`; `fsim::vision` and its model/cloud resources are available only in a package built with rendering.
 
-Run `.\fsim.cmd --preset ucrt64-headless test -L package` after building to check an SDK-only installation under a separate prefix containing spaces. The gate checks runtime-data hashes, loaded DLL paths, stock/custom aircraft and store release, then poisons installed XML to verify load rejection before restoring and rerunning. This checks package consumption; GPU rendering and aircraft stability require their own validation. The [SDK guide](docs/sdk/README.md) and [package consumer example](tests/package_consumer/CMakeLists.txt) describe explicit runtime-data selection and consumer interfaces.
+Run `.\fsim.cmd --preset ucrt64-headless test -L package` after building to check an SDK-only installation under a separate prefix containing spaces. The gate checks runtime-data hashes, loaded DLL paths, stock/custom aircraft and store release, then poisons installed XML to verify load rejection before restoring and rerunning. This checks package consumption; GPU rendering and aircraft stability require their own validation. The [SDK guide](docs/sdk/README.md) and [package consumer example](tests/compatibility/package_consumer/CMakeLists.txt) describe explicit runtime-data selection and consumer interfaces.
 
 ## Documentation
 

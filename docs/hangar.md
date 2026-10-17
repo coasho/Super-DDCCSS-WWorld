@@ -52,10 +52,10 @@ fsim hangar stores                    every store through them, a line each
 fsim hangar effects                   what each model gives the viewer's effects, and what is missing (docs/hangar-effects.md)
 ```
 
-`fsim python examples\python\control_surfaces.py` flies the C172 and the
+`fsim python examples\simulation\python\control_surfaces.py` flies the C172 and the
 Skua through a slalom. Watch it with
 `fsim viewer --camera chase --chase-distance 20`; `tab` switches aircraft.
-`fsim python examples\python\fighters.py` flies the fourteen fighters
+`fsim python examples\simulation\python\fighters.py` flies the fourteen fighters
 together (`--chase-distance 60`). `fsim demo --aircraft typhoon` starts
 eight of one type at a speed that suits it.
 
@@ -66,7 +66,7 @@ eight of one type at a speed that suits it.
 What is in the repository is what the tool makes: a design run again with nothing changed leaves every file it
 writes as it was, byte for byte (a file's date is kept when nothing else in it changes). Held three ways:
 
-- `python tools/hangar/rebuild_all.py --jobs 7` runs every aircraft design through every stage, several at a time
+- `python tools/models/hangar/rebuild_all.py --jobs 7` runs every aircraft design through every stage, several at a time
   (about an hour on 16 cores; a fighter 15 to 40 minutes, a light aircraft two), and says for each how it ended, the
   checks that failed and - once all are done - which of its files the run changed. `--only f16c c172` and a list of
   stages narrow it. hangar holds the Python package's libraries open while it runs: for a long run point
@@ -440,13 +440,13 @@ loadouts; the UH-60's stations and carriage remain backlog B-32.
 
 What checks them: hangar refuses a `[[mass.payload]]` without a kind, or of
 a kind that is a store's (`mass.check_payload`).
-`tools/hangar/tests/test_mass_accounting.py` holds every design, its flight
+`tools/models/hangar/tests/test_mass_accounting.py` holds every design, its flight
 model and its fit to the rules, and every store card to having its flight
-model and its viewer model; `python/tests/test_mass_accounting.py` weighs
+model and its viewer model; `tests/compatibility/python/test_mass_accounting.py` weighs
 every aircraft in the simulator - as it spawns, with each loadout, unloaded
 again, through ten minutes of a tank's fuel being drawn - and makes every
 store card's model as a vehicle of its own, weighing what its card says;
-`tests/test_stores.cpp` jettisons every store of every loadout of every
+`tests/simulation/test_stores.cpp` jettisons every store of every loadout of every
 aircraft and weighs the vehicle each becomes.
 
 A rotorcraft's weight is one figure (`[mass] weight_lb`, its tank full within
@@ -454,7 +454,7 @@ it: [Rotorcraft](#rotorcraft)), and a multirotor's its `mass_kg`.
 
 ## Methods
 
-Every method is a published one. The tests in `tools/hangar/tests` check the
+Every method is a published one. The tests in `tools/models/hangar/tests` check the
 section and lattice methods against theory and published data, and run every
 stage end to end through the platform (`ctest -R hangar`).
 
@@ -846,7 +846,7 @@ The model stage writes `<name>.glb` from the same design:
 
 - **Airframe.** One closed solid: every body and surface as a signed
   distance field, joined with fillets where a wing, fin or intake meets the
-  fuselage, and meshed by hangar's native mesher (`tools/hangar/native`).
+  fuselage, and meshed by hangar's native mesher (`tools/models/hangar/native`).
   Intakes open onto dark ducts; a nozzle's cavity, down to its turbine
   face, is lined with the hot section's oxidised metal (`liner`: dull,
   diffuse - seen from astern in daylight it is metal, not a black hole),
@@ -947,7 +947,7 @@ The model stage writes `<name>.glb` from the same design:
   the wings and fins - and a little wear.
 
 - **Breakup sections.** A design with a wing has its airframe split into the
-  sections a structural kill breaks it into (`tools/hangar/hangar/shape/breakup.py`),
+  sections a structural kill breaks it into (`tools/models/hangar/hangar/shape/breakup.py`),
   by one rule for every one: a wing what lies in a `wing` surface's planform
   outboard of the fuselage at its root (its side's); the tail what lies in a tail
   surface's planform and the fuselage aft of the tail's roots (0.3 m ahead of
@@ -964,7 +964,7 @@ The model stage writes `<name>.glb` from the same design:
 - **Vulnerable components.** What MS-7g's kill takes the presented areas of (Ball's
   method: engines, fuel, crew, flight controls) and where MS-7h draws a failed
   one's fire, placed from the design by one rule for every one
-  (`tools/hangar/hangar/vulnerability.py`): a turbofan a cylinder ending at its
+  (`tools/models/hangar/hangar/vulnerability.py`): a turbofan a cylinder ending at its
   nozzle's exit, as long and wide as published (`ENGINE_SIZES`: each engine's
   Wikipedia specifications, the same kind of source for every nation's; the WS-10's
   and AL-41F1's from the most specific public figures there are, their kind said;
@@ -984,7 +984,7 @@ The model stage writes `<name>.glb` from the same design:
   rotorcraft's engines, transmission and rotor wait.
 
 - **Chaff and flare dispensers.** Where a type's cartridges leave it and the way
-  they go (`tools/hangar/hangar/dispensers.py`, each group's sources and their kind
+  they go (`tools/models/hangar/hangar/dispensers.py`, each group's sources and their kind
   in its `TYPES`): from what is public about the type - its photographs releasing
   flares (Wikimedia Commons), encyclopedias and the defence press, and where those
   say nothing, other games' documentation and forums (labelled so). The A-10C's
@@ -1012,7 +1012,7 @@ The model stage writes `<name>.glb` from the same design:
 
 - **Damage data.** What the world's damage chain (MS-7g's damage part) lays a
   warhead's fragments and blast across and holds a hit section's loads against,
-  `<name>.damage.json` beside the model (`tools/hangar/hangar/damage.py`), one rule
+  `<name>.damage.json` beside the model (`tools/models/hangar/hangar/damage.py`), one rule
   for every design, in the model's body axes from its origin:
   - each breakup section's mass, centre of mass and inertia from the mass model's
     items (each item's points classified by the sections' rule; the fuel and the
@@ -1064,7 +1064,7 @@ The viewer's names for the moving nodes are in
 A missile is a design like any aircraft (`category = "missile"`), so one file is its picture and, later, its
 aerodynamics (ADR-30, MS-7e: [docs/mission-systems.md](mission-systems.md)). The 24 air-to-air missiles on the store
 cards (`assets/stores`) are written by one rule for every one of them - `python -m hangar missiles [<name> ...]`
-writes `aircraft/<name>/<name>.toml` and its `paint.toml` from the table in `tools/hangar/hangar/missiles.py` - so
+writes `aircraft/<name>/<name>.toml` and its `paint.toml` from the table in `tools/models/hangar/hangar/missiles.py` - so
 every nation's missiles are drawn the same way:
 
 - **Held to the card:** the length, the diameter, the mass, and the span, tip to tip across opposite fins (an X's
@@ -1080,7 +1080,7 @@ every nation's missiles are drawn the same way:
   the surface out of the airframe: the free-rolling surfaces of a rate are meshed together with the bearing ring they
   turn on (a band round the body under their roots, 6 mm proud of it) as one solid on the body's axis
   (`fsim:freeroll:<turns per metre>`): a Magic 2's tail, two turns a kilometre (assumed). A surface's
-  `lattice = { width = m, cells = n }` draws it as a grid fin (`tools/hangar/hangar/shape/lattice.py`), in the
+  `lattice = { width = m, cells = n }` draws it as a grid fin (`tools/models/hangar/hangar/shape/lattice.py`), in the
   airframe and in its control's piece alike: a box frame as long as its span and as deep as its chord along the flow,
   `width` across, round a diamond lattice of thin walls at 45 deg, `cells` across, its open cells facing the flow -
   an R-77M's tail, 0.15 m wide, three cells (assumed). Its walls are drawn a few mesh cells thick (`[model] cell_m`
@@ -1145,7 +1145,7 @@ visual fixtures and should not be reused as evidence for native guidance or fuze
 
 Every store - the 24 missiles, the Mk 82, the 19 tanks, the 6 pods and the 2 cargo stores on the cards in
 `assets/stores` - is a design in `aircraft/<name>/` and goes through the stages an aircraft does, by the same command
-(`tools/hangar/hangar/storestages.py`). `[aircraft] card = "<id>"` names its card, whose published figures the design
+(`tools/models/hangar/hangar/storestages.py`). `[aircraft] card = "<id>"` names its card, whose published figures the design
 holds; its name is the card's `model` (`jsbsim:<name>`), so the platform makes it, the viewer draws it and hangar
 files it under one name.
 
@@ -1165,7 +1165,7 @@ and written. Each run notes what its model and its flight model took to make and
 one store at a time, so that no store's time is another's.
 
 A tank's, a pod's, a bomb's and a cargo store's design is written by one rule for its class
-(`tools/hangar/hangar/storedesigns.py`), as a missile's is by `missiles.py`: its length, its diameter (a cargo store's
+(`tools/models/hangar/hangar/storedesigns.py`), as a missile's is by `missiles.py`: its length, its diameter (a cargo store's
 width and height) and its mass are the card's; its shape is its class's (`stores.py`: a tank's ogive, cylinder and
 cone, with three fins when its card says `fins`; a pod's two half-spheres; the Mk 82's estimated profile and its four
 fins; a cargo store's box), assumed and said so in the file. A store's design differs from an aircraft's in three
@@ -1193,11 +1193,11 @@ fit, no loops, no tables and no wheels. A store has no vulnerable components, no
 
 The build's staging copies a store's model with the aircraft's (`cmake/StageDesigns.cmake`): a design with a model
 and no `<name>.xml` of its own beside it. Nothing of a store is kept in `assets/models`; the viewer looks there before
-a design's folder, so a file left there would stand in for the design's (`tools/hangar/tests/test_stores.py` holds
+a design's folder, so a file left there would stand in for the design's (`tools/models/hangar/tests/test_stores.py` holds
 every card to a design, each written file to its writer, each card's figures to its design and each model to its
 budget).
 
-A missile's and a bomb's flight model is a finned body's in body axes (`tools/hangar/hangar/storebodies.py`): its
+A missile's and a bomb's flight model is a finned body's in body axes (`tools/models/hangar/hangar/storebodies.py`): its
 normal and side force and their moments about its launch CG - the build-up's slopes over Mach times sin cos of its
 incidence, and its crossflow's times sin |sin| - its damping in pitch, yaw and roll, and along it its card's drag area
 with the transonic rise a carried store has. JSBSim takes the forces' moment about the CG from the launch CG (the
@@ -1239,14 +1239,14 @@ fuel drawn into the aircraft's own tanks changes nothing), and a design that spa
 ## The carriage on the stations
 
 An aircraft with a store-station card (`payloads.json` names it) gets its stations' carriage in its model
-(`tools/hangar/hangar/carriage.py`), each station's on a node `fsim:station:<n>` the viewer shows once a store has
+(`tools/models/hangar/hangar/carriage.py`), each station's on a node `fsim:station:<n>` the viewer shows once a store has
 been there: a launcher rail along a missile's top (three quarters of its length, 0.12 by 0.10 m), or a rack (0.9 m
 long) for anything else, and above it a pylon - a streamlined blade 0.12 m thick - up into the skin straight above,
 found by a vertical ray against the airframe's own mesh. Where the skin is nearer than the launcher's depth, a rack
 fills the gap and a rail is the airframe's own (a wingtip's launcher); a station in a weapon bay gets no pylon (its store
 hangs in the bay, below). Each station is sized for the largest store the loadouts put there (none: an AIM-120's size on a rail,
 a Mk 82's on a rack). Drawn only, the same way for every aircraft, and left out of the clean aircraft's RCS table
-(`tools/rcs` skips the nodes). The manifest lists every station (`station <n> <x> <y> <z> <bay>`, its weapon bay's number or 0) for the viewer
+(`tools/models/rcs` skips the nodes). The manifest lists every station (`station <n> <x> <y> <z> <bay>`, its weapon bay's number or 0) for the viewer
 to hang the stores on. The model stage reports which stations have carriage.
 
 A multiple rack is several stations that name one `rack` in the card ("left pylon"): each a store's own place, loaded,
@@ -1262,14 +1262,14 @@ carriage and writes no station lines ([backlog](backlog.md), B-32).
 
 A station whose name says "bay" is in a weapon bay (the stations whose names agree up to "bay" share it: the F-22A's
 "main bay 1" to "6"). Each bay is cut into the airframe's underside as a dark cavity
-(`tools/hangar/hangar/shape/bays.py`): a box round its stations' stores - their length fore and aft, their fins'
+(`tools/models/hangar/hangar/shape/bays.py`): a box round its stations' stores - their length fore and aft, their fins'
 span across and up - 0.1 m to spare, its ceiling just over them. Its doors are the skin the cut takes away, each a
 shell of it 35 mm thick over its part of the opening, 12 mm short of each edge: a bay wider than 1.2 m has two, split
 down its middle, each hinged along its outer edge; a narrower one a single door hinged outboard. Each turns down 100
 deg (`fsim:bay:<bay>:100`) as the store management opens the bay. All estimated from the stations' places, the same
 way for every aircraft - a real bay's sawtooth door edges, a side bay's doors hinged above, its trapeze are not drawn.
 The model stage lists the doors. Each bay also has a cover (`fsim:cover:<bay>`): the same shell over its whole opening,
-no gap - the bay shut, for the radar cross section (tools/rcs), which the viewer does not draw. A breakup section's
+no gap - the bay shut, for the radar cross section (tools/models/rcs), which the viewer does not draw. A breakup section's
 cap (above) has a material of its own, `break`, which the radar cross section leaves out.
 
 ## Validation: the Cessna 172P

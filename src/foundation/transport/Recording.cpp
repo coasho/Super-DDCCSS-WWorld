@@ -45,7 +45,7 @@ using SnapshotHead = RecordingSnapshotHead;
 // What a recording holds is its records' members alone (HC-01). A struct's padding - bytes no member occupies - is
 // unspecified: written as a caller's struct or a local held it, equal worlds gave unequal files and carried unrelated
 // memory into them. Each record is written as its own bytes with its padding zero; no size, offset, version or member
-// changes, and a reader is untouched. The gaps are where the frozen layouts have them (tests/test_state_layout.cpp
+// changes, and a reader is untouched. The gaps are where the frozen layouts have them (tests/contracts/test_state_layout.cpp
 // holds every member's offset): each is the span from one member's end to the next member's start.
 using Gap = std::pair<std::size_t, std::size_t>; // offset, size
 

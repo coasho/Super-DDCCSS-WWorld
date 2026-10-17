@@ -214,7 +214,7 @@ The viewer draws the same thing. Each published sample says where the vehicle's 
 `derived` values from `kDerivedCgFromOriginM`, body axes: `contracts/world_stream/WorldLayout.h`, layout 8), and the viewer hangs the
 model that far back from the state's position (`ipc::originEcef`; `drawnState` in `app/viewer_main.cpp`) - the model,
 the stores on its stations, its flames and its vapour with it. So a store is drawn on its station exactly where it
-becomes a vehicle of its own (within 4 mm as an F-16C's five stores leave: `tests/test_mass_change.cpp`), and the
+becomes a vehicle of its own (within 4 mm as an F-16C's five stores leave: `tests/simulation/test_mass_change.cpp`), and the
 airframe does not hop as they go. The panels' figures (height, position) stay the state's own. A recording carries the
 same values (format version 6); one made before has none and is drawn as it was, each model's origin at its CG.
 
@@ -280,7 +280,7 @@ hardware scope in the [viewer validation record](viewer-validation.md).
 For the maintained full strike acceptance, use one entry point:
 
 ```powershell
-python tools/viewer_perf/strike_acceptance.py --build build/ucrt64-release --out D:/ENV/tmp/native-strike-acceptance
+python tools/validation/viewer_perf/strike_acceptance.py --build build/ucrt64-release --out D:/ENV/tmp/native-strike-acceptance
 ```
 
 It records a native preflight for precise launch/hit anchors, then runs the same SDK scene live in one fullscreen
@@ -299,7 +299,7 @@ added to `VehicleState` for them - after the effects DCS World shows:
 | --- | --- | --- |
 | Afterburner: a translucent jet - its potential core, the shear layer round it where the reheat's leftover fuel burns in the air, a train of shock diamonds fading downstream, the soot glowing at its own temperature (Planck's law, so the colour and the brightness are one curve) and the violet of the flame's radicals, eddies carried down the jet; a two-dimensional nozzle's jet flat at its lip, relaxing to round | afterburner lit, staged in behind its light-off; the jet is worked out from the nozzle, the gas and the air: the expansion and the shock spacing from the nozzle's pressure ratio (the inlet's ram pressure with it, so a faster jet has a longer train), the core's length from the jet's density and the airspeed's coflow, quenched in thin air | `afterburner`, `engineN2`, `altitudeMslM`, `airspeedTrueMs` |
 | Nozzle glow, from astern | the last turbine stage and the pipe glowing at the gas's total temperature there, as hot metal does (Planck's law, emissivity 0.85, at the exhaust's exposure): nothing to see at idle (some 650 K - below what glows), a dull orange deep in the pipe at military power by day (1,340 K in the model), bright by night; with the afterburner lit, the flame filling the pipe. That is a fighter's augmented turbofan; a jet without an afterburner (its kind from the model's manifest: hangar writes it) has a convergent nozzle, choked at most, and a cooler core - 1,000 K at full dry power out of a turbojet or a low-bypass engine, 850 K out of a high-bypass one (a CFM56's core exhaust at take-off) - so a tanker or an airliner at cruise shows its turbine's metal, not a glow (drawn as a fighter's, a KC-135R's nozzles glowed orange at 1,200 K) | `engineN2`, `afterburner`, `altitudeMslM` |
-| A missile's motor: its plume - a supersonic jet out of a highly expanded nozzle (Mach 2.8 - 2.9, its exit 3 - 3.6 times sea level's pressure at full thrust), its throat white-hot seen from astern, the H2 and CO in its exhaust burning in the air round it - following the thrust: wider and longer at the boost, narrower at a sustain, gone at burn-out; under-expanded more the higher it flies; bright from its nozzle, its core holding its exit's temperature through its unresolved shock train; by its propellant: an aluminised motor's hotter (2,327 K at the exit, its alumina freezing) and its alumina dense - a white flame some 1.9 missile lengths long, widening to 3.5 diameters and closing like a tongue; a reduced-smoke motor's (1,648 K) its core's glow, its carbon burnt in its shear layer - a white core into its trail's haze, longer the higher it flies; a minimum-smoke motor's cooler and fainter. Its gas and its exhaust's composition by its propellant class through NASA's equilibrium code (CEA: [world/Propellants.h](../../src/visualization/scene/Propellants.h), `tools/propellants`). Held to launch photographs ([below](#a-missiles-plume-held-to-launch-photographs)) | while it makes thrust: its model's manifest names it a `rocket` (hangar's `[motor]`), its nozzle's exit and its boost's thrust | `thrustN`, `altitudeMslM`, `airspeedTrueMs` |
+| A missile's motor: its plume - a supersonic jet out of a highly expanded nozzle (Mach 2.8 - 2.9, its exit 3 - 3.6 times sea level's pressure at full thrust), its throat white-hot seen from astern, the H2 and CO in its exhaust burning in the air round it - following the thrust: wider and longer at the boost, narrower at a sustain, gone at burn-out; under-expanded more the higher it flies; bright from its nozzle, its core holding its exit's temperature through its unresolved shock train; by its propellant: an aluminised motor's hotter (2,327 K at the exit, its alumina freezing) and its alumina dense - a white flame some 1.9 missile lengths long, widening to 3.5 diameters and closing like a tongue; a reduced-smoke motor's (1,648 K) its core's glow, its carbon burnt in its shear layer - a white core into its trail's haze, longer the higher it flies; a minimum-smoke motor's cooler and fainter. Its gas and its exhaust's composition by its propellant class through NASA's equilibrium code (CEA: [world/Propellants.h](../../src/visualization/scene/Propellants.h), `tools/models/propellants`). Held to launch photographs ([below](#a-missiles-plume-held-to-launch-photographs)) | while it makes thrust: its model's manifest names it a `rocket` (hangar's `[motor]`), its nozzle's exit and its boost's thrust | `thrustN`, `altitudeMslM`, `airspeedTrueMs` |
 | A missile's smoke trail: white smoke laid behind its motor while it burns, spreading with the air's turbulence and the wind's shear, drifting with the wind, lit as the contrails are, gone once it can no longer be seen (optical depth 0.02). Its primary smoke from its propellant's particles - an aluminised motor's alumina (34 % of its exhaust, NASA CEA; 250 m2/kg), dense: about 1.6 across the trail behind an AIM-7M's boost at 6 km, seen for some four minutes; a reduced-smoke motor's catalysts and carbon, a haze (0.15); a minimum-smoke motor's next to nothing. Its secondary smoke - an ammonium perchlorate motor's HCl taking up the air's water into droplets - only where the air is humid enough, more readily cold than warm: none on a typical day at 6 km, a thick trail in humid air (about 16 across behind a reduced-smoke motor at 90 %; its HCl 27 % of its exhaust, an aluminised motor's 21 %, NASA CEA). The motor's mass flow from its class's specific impulse (CEA's ideal, 95 % of it delivered); where the numbers are estimates (that efficiency, the residue's share, the HCl's onset and how much of it condenses) the code says so; 0.05 ms of GPU time with the camera in the trail | while its motor makes thrust (no wake of its own: a missile's is too small to see) | `thrustN`, `airspeedTrueMs`, `altitudeMslM`, the world's humidity and wind |
 | A missile's ice contrail: where the air is cold enough, its exhaust's water freezes into a contrail in the same trail, as a jet's does - whether by the Schmidt-Appleman criterion for a rocket's exhaust (its water once its hydrogen has burnt in the air - 0.33 kg per kg of a reduced-smoke propellant, 0.29 of an aluminised one, NASA CEA - against the heat it brings the plume: its sensible heat, its afterburning and the jet's kinetic energy relative to the air - some 5.9 and 10.8 MJ/kg. The mixing line's slope at 10.5 km: a reduced-smoke motor's 2.22 Pa/K against a jet's 1.61, so it forms in air some 3 K warmer than a jet's contrail does; an aluminised motor's 1.06, so it needs colder air - on a typical day the tropopause's, not 10.5 km), how much by CoCiP's initial ice over the trail's section on the exhaust's particles, and then CoCiP's plume: on a typical day it sublimates as the trail takes in the air (an AIM-120C's sustain's for some 25 s at 10.5 km, an AIM-7M's boost's for some 70 s at 11.5 km), where the air is ice-supersaturated it persists and spreads (some 540 m wide after 15 minutes at 110 %). A reduced-smoke motor's haze becomes a dense white line (an optical depth of several across it). The crystals' number (1e15 per kg, CoCiP's for a jet's soot) is an estimate, said so in the code; no GPU time of its own (the smoke trail's draw, 0.009 ms with a trail in view at 1920 x 1080) | while its motor makes thrust, where the criterion holds | `thrustN`, `airspeedTrueMs`, `altitudeMslM`, the world's temperature and humidity |
 | An engagement's fire and smoke solved as a fluid (MS-7h): NVIDIA Flow 2's combustion solver on its own Vulkan device - the one way a detonation, a fuel fireball and a burning leak are drawn (the fireballs pieced from spheres are gone, 2026-10-11: no `--fire` option, and a viewer cannot be built without Flow). Its sources: a warhead's charge - its fireball the photographed one, 5.89 m for 1 kg of TNT and 12.05 m for 10 kg fired at the ground, in free air a sphere holding as much (4.67 W^0.31 m), larger in thin air by (p0 / p)^(1/3): an AIM-120's 8 kg some 11.5 m across at 6 km - a holed tank's spill (CCPS's fireball) and the leak burning on from its component along the hole's path (API RP 521's jet flame), each held to its observation by `flightsim-flow-calibrate check`: 12 cases, sizes within 15 %, durations within 20 % (a detonation's 0.89 - 1.03 of the photographed diameter; until 2026-10-11 it was fitted to a size a second 2^(-1/3) smaller, and drawn at 0.73 of it). The solver has a thread of its own and is given each of its steps as it falls due - 60 a second, each with its sources where they are then, as the calibration steps it (given a step a frame, a leak's flame at 160 frames a second was 0.85 of its length and half its smoke) - its smoke and temperature read back each step, packed as bricks in a 3D texture, drawn page by page (32 m) as radiative transfer through soot with the atmosphere's light - the flame at CCPS's 1,600 K, soot near black. The solver's near field: a leak's smoke thins in some 8 s; once nothing burns and nothing is left of it the solver rests (world/FlowFires.h, world/FlowVolumes.h; assets/clouds/shaders/flow.frag). Its cost: [the frame rate](#the-frame-rate) | the engagement's Detonation and Fire events (a fire's `rateKgS` as it changes), the burning component's place on the drawn vehicle | `EngagementEvent`; the vehicles as drawn; the world's air and wind |
@@ -335,7 +335,7 @@ What every model gives the viewer - each design's moving surfaces, its propeller
 its rocket's line, its lifting surfaces - is listed in [hangar-effects.md](../hangar-effects.md), written by `python -m
 hangar effects --record docs/hangar-effects.md` from the designs, the models' nodes and the manifests, with what a
 design has that its model gives nothing for; a test holds that list empty for all 87 designs
-(`tools/hangar/tests/test_effects.py`). Every fixed-wing design's control surfaces and drag devices have their joints;
+(`tools/models/hangar/tests/test_effects.py`). Every fixed-wing design's control surfaces and drag devices have their joints;
 a missile's fins have theirs and stand still, because its flight model has no controls to move them
 ([backlog](../backlog.md), B-36); a tank, a pod, a bomb and a cargo store are rigid bodies with nothing to move.
 
@@ -361,7 +361,7 @@ what is then drawn, so that a hit from the left looked like a hit from the right
   drawn out down the flight path, and off it to the side away from the burst.
 
 Both are in the engagement's events (the `Fire` event's velocity, the piece's own state), so a replay, a live viewer
-and the SDK see the same. `tests/test_damage.cpp` mirrors one burst left and right of a MiG-29A and holds each to its
+and the SDK see the same. `tests/simulation/test_damage.cpp` mirrors one burst left and right of a MiG-29A and holds each to its
 side. What an aircraft does not do in the air is explode as a whole (a tank's vapour, its weapons): it burns and breaks
 where it is hit ([backlog](../backlog.md), B-58).
 
@@ -397,7 +397,7 @@ breakups as a replay does; before, only a replay did. The estimates (the crush d
 friction 0.6 and restitution 0.1, the mist's share) are said in `Impact.h`; none is fitted to a crash.
 
 The viewer draws no fire without Flow, and is not built without it: its headers and its two libraries are in
-`third_party/flow` (2.2.0, built by `tools/flow/build-flow.sh`), so a clone has them; `-DFSIM_FLOW_DIR` names another
+`third_party/flow` (2.2.0, built by `tools/data/flow/build-flow.sh`), so a clone has them; `-DFSIM_FLOW_DIR` names another
 built checkout. Should its libraries be missing beside the viewer at run time, the log says so as an error ("no fire
 solver ... NOT drawn") - nothing stands in for it.
 
@@ -405,14 +405,14 @@ solver ... NOT drawn") - nothing stands in for it.
 
 These historical MS-7e2 comparisons were recorded on 2026-10-09 with the retired scripted missile-state fixtures.
 They check rendered plume shape and brightness against photographs; they do not calibrate missile trajectories,
-motor performance, guidance or seekers. Current `tools/plume_check/check.py` obtains its recording from the
+motor performance, guidance or seekers. Current `tools/validation/plume_check/check.py` obtains its recording from the
 native SDK showcase. A new run is separate evidence and does not relabel the values below as native results.
 
 Four launch photographs on Wikimedia Commons (U.S. government works; their files, the points measured from and the
-numbers in [tools/plume_check/photos.json](../../tools/plume_check/photos.json)) measured by
-[tools/plume_check/measure.py](../../tools/plume_check/measure.py), along the missile's axis in missile lengths L - and
+numbers in [tools/validation/plume_check/photos.json](../../tools/validation/plume_check/photos.json)) measured by
+[tools/validation/plume_check/measure.py](../../tools/validation/plume_check/measure.py), along the missile's axis in missile lengths L - and
 the viewer's plumes were measured the same way, side-on from 30 m a second into the boost at 6 km. The maintained
-check is `python tools/plume_check/check.py --at 1`; `--at` is seconds after the actual SDK launch recorded in the
+check is `python tools/validation/plume_check/check.py --at 1`; `--at` is seconds after the actual SDK launch recorded in the
 engagement sidecar, rather than a fixed replay timestamp. The check uses the recorded weapon slot and replay
 clock. It needs the viewer and a display and is run by hand:
 
@@ -435,8 +435,8 @@ reduced-smoke motor's carbon burns there, so its light is its core's, near the n
 2.2 times a jet's (an AIM-7's flame widens 0.08 of its length each side in the photographs, the compressible layer's
 0.036) and its flame closes towards its end, its edge first. The smoke trail's primary smoke shows within 0.01 s
 (about a missile length at launch speed) instead of 0.05 s. Its gas, its nozzle's exit and its exhaust are its propellant class's
-through NASA's equilibrium code (CEA, through RocketCEA - `tools/propellants/cea_classes.py`, its numbers in
-`tools/propellants/classes.json`, which a test holds world/Propellants.h to): one composition a class for every nation's
+through NASA's equilibrium code (CEA, through RocketCEA - `tools/models/propellants/cea_classes.py`, its numbers in
+`tools/models/propellants/classes.json`, which a test holds world/Propellants.h to): one composition a class for every nation's
 missiles (aluminised AP 68 % / Al 18 % / HTPB 14 %, reduced smoke AP 86 % / HTPB 14 %) at a 10 MPa chamber through the
 hangar designs' area ratio (4.94; their thrust over their throats gives them 9 - 10 MPa). The reduced class's AP share
 is the assumption that counts: 84 - 88 % moves its exit 1,477 - 1,847 K. Their exits are under-expanded 3.1 - 3.6 times
@@ -537,7 +537,7 @@ the scene where its ray, turned, goes.
 Measured on an RTX 5070 Ti, uncapped, the GPU's time per pass from `--stats` (it prints them each second): an F-16
 in a 6.5 g pull in reheat, the camera 10 m behind looking up its nozzle and its tip trails, the gas 0.94 ms at
 1600 x 900 and 1.30 ms at 2560 x 1440 (the whole frame's GPU time 1.65 and 2.33 ms, the clouds' march 0.39 and
-0.52 ms of it); from 30 m, 0.42 ms; the 14 fighters of `examples/python/fighters.py` in view from 60 m, 0.27 ms. Over
+0.52 ms of it); from 30 m, 0.42 ms; the 14 fighters of `examples/simulation/python/fighters.py` in view from 60 m, 0.27 ms. Over
 the wing in that pull the vapour's grain (|image - its 5 x 5 blur|, 0..255) is 1.3, against 5.3 before the dither
 and the steps changed. The heat haze adds nothing measurable to the march (0.342 ms with it and without it, from 30 m,
 alternated three times); the pass over the scene - the frame's pass ending (its resolve), the copy, the gas laid on -
@@ -547,8 +547,8 @@ The contrails are a port of [pycontrails](https://github.com/contrailcirrus/pyco
 its Schmidt-Appleman criterion, wake vortex downwash, initial ice and ice survival, and its time step - the plume's
 covariance spread by diffusion and shear, its ice budget against the air's, its particles lost to aggregation and
 turbulence, sedimentation, the optical depth from the particles' size and number, and its persistence limits -
-function for function with its default parameters (`tests/test_cocip.cpp` checks it against pycontrails' own
-functions to 1e-6; `tools/contrails`). CoCiP takes the wake's vortex phase as instantaneous; the viewer draws it as
+function for function with its default parameters (`tests/visualization/test_cocip.cpp` checks it against pycontrails' own
+functions to 1e-6; `tools/validation/contrails`). CoCiP takes the wake's vortex phase as instantaneous; the viewer draws it as
 the wake-vortex literature describes it: the jets roll up into the vortex pair (`b0 = pi b / 4` apart) within some
 ten spans; the pair carries the primary wake - two tubes of ice - down from its initial speed `Gamma0 / (2 pi b0)`,
 slowed by the buoyancy of the air it carries down, to rest at CoCiP's descent (a quarter of the buoyant oscillation,
@@ -568,7 +568,7 @@ marched along the eye's ray; each step lit by the sun through the part (its Gaus
 in closed form) with the clouds' atmosphere, phase function and multiple scattering, and mapped as they are, so a
 contrail and a cloud in the same sky look alike.
 
-`tests/test_contrail_observed.cpp` holds what is drawn against observed contrails (Schumann et al. 2017, "Properties
+`tests/visualization/test_contrail_observed.cpp` holds what is drawn against observed contrails (Schumann et al. 2017, "Properties
 of individual contrails", ACP 17, 403-438, and the observations it compiles): a B747-400's at 50 s (Sussmann and
 Gierens 1999: 90 m wide, 160 m deep, the secondary wake's optical depth 0.24 against the primary's 1.18, the primary
 gone by 170 s while the secondary persisted) - drawn 91 m wide and 117 m deep, its total extinction between the
@@ -631,15 +631,15 @@ as @takram/three-atmosphere ships its tables). The files are in `assets/clouds` 
   perspective between the eye and the cloud. The clouds shade the ground under them.
 - Cost: the march runs at a quarter of the window's size each way, one of each 4 x 4 pixels a frame in a Bayer order,
   and a temporal resolve fills the rest from the last frames; the shadow maps are marched at 512 x 512 and resolved
-  over frames too. With the 14 fighters of `examples/python/fighters.py` in a chase view at 1600 x 900 on an RTX 5070
+  over frames too. With the 14 fighters of `examples/simulation/python/fighters.py` in a chase view at 1600 x 900 on an RTX 5070
   Ti: 2.1 - 2.2 ms a frame with clouds (scattered, broken or overcast alike) against 1.35 ms without, about 0.8 ms.
 
 What is the viewer's and not takram's, and why:
 
 | Change | Why |
 | --- | --- |
-| The cover is the world's `cloud_cover`, turned into takram's coverage by a curve measured on their own textures (`tools/cloud_map/coverage_curve.py`: coverage 0.3, their default, covers 19 % of the sky; 0.6 all of it) | their coverage is a shape parameter, not a cover |
-| Beyond 150 - 300 km of the point under the eye, and everywhere once the eye is above 30 - 100 km, the cover is NASA's Blue Marble cloud map's (`clouds/earth-clouds-8192.png` in the map set, `tools/cloud_map/make_cloud_map.py`), read as Skybolt reads its global coverage map | takram draws no views from space, and the world's weather is the weather round the eye |
+| The cover is the world's `cloud_cover`, turned into takram's coverage by a curve measured on their own textures (`tools/data/cloud_map/coverage_curve.py`: coverage 0.3, their default, covers 19 % of the sky; 0.6 all of it) | their coverage is a shape parameter, not a cover |
+| Beyond 150 - 300 km of the point under the eye, and everywhere once the eye is above 30 - 100 km, the cover is NASA's Blue Marble cloud map's (`clouds/earth-clouds-8192.png` in the map set, `tools/data/cloud_map/make_cloud_map.py`), read as Skybolt reads its global coverage map | takram draws no views from space, and the world's weather is the weather round the eye |
 | Nearer, the world's cover is laid out as the map's clouds lie there: the map's cover at a point over its mean within 150 km of the eye, f, gives 1 - (1 - cover)^f - the world's cover where f is 1, none where the map is clear, more where it is cloudier (where the map round the eye is nearly clear, the world's cover as it is) | takram's one coverage made an even field of like puffs to the horizon, its weather texture's 100 km tiles alike; real cloud fields cluster and clear over tens of kilometres, and the map has the day's. 0.01 ms (the map read once a ray and again 20 km on) |
 | The march's first step is no longer than their longest step | from far off theirs grew past the layers' depth and stepped over them |
 | Far off, Skybolt's far clouds (`VolumeClouds.frag`, its method): as a pixel spans more of the weather texture the march gives way to the global map lit as a layer, and past that is not made - from the texture's level 0.75 to 2 (Skybolt's 2 to 6, for a coarser texture): while takram's cumulus (1 - 2 km) span three pixels or more they are marched, and as they shrink to one the layer - the cover a pixel's area holds, what a camera records of clouds smaller than its pixels - takes over | marched from far off, a pixel's few samples in the thin layers fell in or out of a cloud by chance: the globe sparkled with separate, flickering puffs (3000 km up, 11 % of pixels changed frame to frame; 4.7 % then); handed over at Skybolt's levels, a view from 1000 km up still drew every cloud mass as a speckle of separate puffs a pixel or two across. That view costs 0.1 ms less now |
@@ -705,7 +705,7 @@ shade on the ground (`world::Clouds`, `assets/clouds/shaders/ocean`):
     It is hazed exactly as the terrain is, so the shore does not show a seam. (Mapped at the clouds' exposure, the
     glint from 10 km up was a white sheet half the view across, and the clouds in front of it looked lit from below.)
 - **Depth**: GEBCO 2026's water depth (`ocean/gebco-ocean-2arcmin.png` in the map set, made by
-  `tools/ocean_map/make_ocean_map.py` from GEBCO's grid and its type identifiers). The imagery, which shows shallow
+  `tools/data/ocean_map/make_ocean_map.py` from GEBCO's grid and its type identifiers). The imagery, which shows shallow
   water's own colours (reefs, banks, sand), is seen through the sea as far as the depth lets light down and back:
   turquoise banks stay turquoise and deep ocean is the sea's own navy.
 - **Shallows and surf**: each cascade's waves shrink where the water is shallower than about half their length
@@ -724,7 +724,7 @@ shade on the ground (`world::Clouds`, `assets/clouds/shaders/ocean`):
   troughs, and the sea is depth-tested between - half a metre under its
   waves near the eye, 12.5 m down far off - so any land above sea level hides it, however low, and the floor never
   does. Which texels at or below sea level are land is burnt into the map set's elevation tiles
-  from OpenStreetMap's land polygons (`tools/ocean_map/sea_mask_tiles.py`; ODbL): without it the stored tiles hold
+  from OpenStreetMap's land polygons (`tools/data/ocean_map/sea_mask_tiles.py`; ODbL): without it the stored tiles hold
   polders, salt flats and beaches at 0 m, as the sea is, and the sea flooded them. GEBCO's water share only bounds
   where the sea may be (generously, 3.7 km a texel; it cannot tell a polder from a lake).
 
@@ -735,25 +735,25 @@ The sea's wind is the world's, following it over minutes as a real sea does. It 
 and with no world it is 7 m/s (the open ocean's mean). Without the map the imagery's own sea is drawn as before.
 GEBCO's grid is a 4 GB download from gebco.net, so `fetch-maps` does not fetch it; to make the map:
 
-    python tools/ocean_map/make_ocean_map.py GEBCO_2026.nc GEBCO_2026_TID.nc assets/maps/ocean/gebco-ocean-2arcmin.png
+    python tools/data/ocean_map/make_ocean_map.py GEBCO_2026.nc GEBCO_2026_TID.nc assets/maps/ocean/gebco-ocean-2arcmin.png
 
 (numpy, and h5py for the netCDF-4 elevations). The coastline is burnt into the elevation tiles once, after they are
 fetched (OpenStreetMap's land polygons, a 0.9 GB download from osmdata.openstreetmap.de; tiles fetched later need the
 same run, and the changed tiles' originals are kept in the backup directory):
 
-    python tools/ocean_map/sea_mask_tiles.py land_polygons.shp assets/maps/s3.amazonaws.com/elevation-tiles-prod/terrarium terrarium-backup
+    python tools/data/ocean_map/sea_mask_tiles.py land_polygons.shp assets/maps/s3.amazonaws.com/elevation-tiles-prod/terrarium terrarium-backup
 
 ## The frame rate
 
 The target is the display's refresh at its full size: 160 frames a second at 3840 x 2160, fullscreen, with the fire
-solver running - and never by drawing less. `tools/viewer_perf/viewer_perf.py` holds four scenes to it, each a world
+solver running - and never by drawing less. `tools/validation/viewer_perf/viewer_perf.py` holds four scenes to it, each a world
 the simulation flies (or a recording of one) drawn by `flightsim-viewer --stats`:
 
 | Scene | What it is |
 | --- | --- |
 | fleet | all 35 aircraft with their loads, line abreast at 3,000 m, turning together; the camera 900 m off |
 | strike | an F-16C flown into the sea at 60 deg and 233 m/s: 1,270 kg of fuel a fireball, then the fire that burns on; the camera 160 m off |
-| hit | a native SDK recording made by `flightsim-showcase` from `tools/viewer_perf/hit.json`: an F-16C releases an AIM-120C through its own radar-track designation and strike consent. JSBSim flies the weapon; SDK guidance, seeker observations, the fuze and damage determine what happens. The viewer follows the actual target slot from 70 m and draws the recorded events with Flow. Fire, breakup and a kill are not injected or guaranteed |
+| hit | a native SDK recording made by `flightsim-showcase` from `tools/validation/viewer_perf/hit.json`: an F-16C releases an AIM-120C through its own radar-track designation and strike consent. JSBSim flies the weapon; SDK guidance, seeker observations, the fuze and damage determine what happens. The viewer follows the actual target slot from 70 m and draws the recorded events with Flow. Fire, breakup and a kill are not injected or guaranteed |
 | reheat | an F-16C in full reheat through the transonic from 35 m: its flame, its shock train, its vapour cone |
 
 A scene passes when, after its first five seconds, every second's mean rate reaches at least 99 % of the target and no frame
@@ -766,7 +766,7 @@ Compare labels only when they use the same recording source. Cached recordings f
 fixture are historical inputs; regenerate them for native scene checks rather than presenting them as new SDK
 guidance evidence.
 
-For evidence frames across the native hit sequence, run `python tools/viewer_perf/viewer_perf.py --scene hit --shots native-hit`.
+For evidence frames across the native hit sequence, run `python tools/validation/viewer_perf/viewer_perf.py --scene hit --shots native-hit`.
 The release frame follows the actual carrier at launch + 0.1 s; the flight and approach frames follow the actual
 weapon at launch + 1.0 s and burst - 0.25 s. Aftermath frames follow the target at burst + 0.05, 0.3, 0.8, 1.5,
 3, 6 and 10 s, keeping only times before the recording ends. These are offsets from the SDK's actual release

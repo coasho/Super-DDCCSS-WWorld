@@ -1,7 +1,7 @@
 #pragma once
 // An aircraft type's radar cross section (ADR-30, MS-3): the second moments
 // of its scattering matrix over aspect bins and radar bands, computed once
-// by tools/rcs (shooting and bouncing rays with physical optics over the
+// by tools/models/rcs (shooting and bouncing rays with physical optics over the
 // hangar's model, on the GPU) and looked up per look.
 //
 // Aspect: the radar's direction from the aircraft in its body axes (x

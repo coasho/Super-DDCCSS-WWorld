@@ -16,8 +16,8 @@ std::vector<fsim::Vehicle> vehicles = fsim::applyScenario(world, scenario);
 for (;;) world.step();
 ```
 
-`examples/scenario_runner` is exactly this loop with `--realtime`, and
-`examples/scenarios/*.json` are ready-to-run documents.
+`examples/simulation/scenario_runner` is exactly this loop with `--realtime`, and
+`examples/simulation/scenarios/*.json` are ready-to-run documents.
 
 ## Format
 
@@ -123,7 +123,7 @@ opt.numEnvs = 128;
 fsim::VecEnv env(opt);
 ```
 
-`ppo_trainer --scenario examples/scenarios/vecenv_windy_altitude_hold.json`
+`ppo_trainer --scenario examples/simulation/scenarios/vecenv_windy_altitude_hold.json`
 trains in a gusty afternoon wind defined entirely by the file. In C,
 `fsim_options.scenario_path` does the same for `fsim_vecenv_create`.
 

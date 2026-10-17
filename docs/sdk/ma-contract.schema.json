@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:fsim:ma-contract:v1",
   "title": "fsim mission-training documents, version 1",
-  "$comment": "Frozen by generic M0 (docs/sdk/mission-training.md). A local SDK contract, not an ASK/UCI wire format. The dialect is JSON Schema 2020-12, restricted to the keywords tools/ma_contract/check.py lists; the SDK itself needs no schema library. Rules a schema cannot state (decoded base64 length, request-id order, cross references, limits a configuration sets) are in mission-training.md and checked by tools/ma_contract/check.py.",
+  "$comment": "Frozen by generic M0 (docs/sdk/mission-training.md). A local SDK contract, not an ASK/UCI wire format. The dialect is JSON Schema 2020-12, restricted to the keywords tools/validation/ma_contract/check.py lists; the SDK itself needs no schema library. Rules a schema cannot state (decoded base64 length, request-id order, cross references, limits a configuration sets) are in mission-training.md and checked by tools/validation/ma_contract/check.py.",
   "oneOf": [
     {"$ref": "#/$defs/config"},
     {"$ref": "#/$defs/observation"},

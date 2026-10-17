@@ -1,14 +1,16 @@
 # flightsim-viewer.exe: the live/replay viewer (ARCH-06; design 9.1, 9.7, 9.10) - it attaches to a published world or
-# plays a recording and draws read-only frames. Its `--demo` command line stays for compatibility: the demo's
-# simulation is the demo application's (fsim_demo_publisher), composed into this executable through a temporary,
-# recorded architecture exception (viewer -> demo) whose removal gate is a separate demo publisher process.
+# plays a recording and draws read-only frames. Its `--demo` command line launches the demo publisher (flightsim-demo,
+# applications/demo; ARCH-08) beside it and attaches to its world, driving its simulation thread through the demo
+# control block (DemoLink): the viewer links no simulation or demo code. The control levels' names in the vehicle
+# list come from the world stream's contract (WorldLayout.h, controlLevelName), not the control module.
 add_executable(flightsim-viewer
     main.cpp
+    DemoLink.h
+    DemoLink.cpp
     StrikeCapture.h)
 fsim_include_view(flightsim-viewer)
-# (fsim::control: the control levels' names, control::levelName, for the vehicle list - as before)
-target_link_libraries(flightsim-viewer PRIVATE fsim::ui fsim::world fsim::render fsim::ipc fsim::control fsim::io
-    fsim::core fsim::platform fsim::demo)
+target_link_libraries(flightsim-viewer PRIVATE fsim::ui fsim::world fsim::render fsim::ipc fsim::io fsim::core
+    fsim::platform)
 # A GUI application: no console window when double-clicked. When started
 # from a terminal it attaches to that console (platform::attachParentConsole).
 set_target_properties(flightsim-viewer PROPERTIES WIN32_EXECUTABLE TRUE)

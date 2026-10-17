@@ -4,12 +4,13 @@
 // Default ("mirror") mode: discover a training application's world through
 // shared memory, attach, and mirror its vehicles: creations, resets, state,
 // control level and environment. The training process never knows the
-// viewer exists. `--demo` runs the built-in scenario on an internal simulation
-// thread instead (development, screenshots): that simulation is the demo
-// application's (applications/demo, ARCH-06), composed into this executable for
-// the existing command line; the viewer itself only draws its snapshots.
+// viewer exists. `--demo` flies the built-in scenario instead (development,
+// screenshots): its simulation is the demo publisher's (flightsim-demo,
+// applications/demo; ARCH-08), a process of its own the viewer launches and
+// attaches to read-only, driving its simulation thread - pause, step, time
+// factor - through the demo control block. The viewer only draws its snapshots.
 
-#include "applications/demo/DemoSimulation.h"
+#include "applications/viewer/DemoLink.h"
 #include "applications/viewer/StrikeCapture.h"
 
 #include <fstream>
@@ -19,7 +20,6 @@
 #include "foundation/core/Log.h"
 #include "foundation/core/Rng.h"
 #include "foundation/core/Units.h"
-#include "fsim/Control.h"
 #include "foundation/io/AssetResolver.h"
 #include "foundation/io/AircraftFile.h"
 #include "foundation/io/TerrainTiles.h"
@@ -195,7 +195,7 @@ void usageAll(const char* prog) {
         "  --list                   list live worlds and exit\n"
         "  --capacity <n>           vehicle slots to prepare (256)\n"
         "  --replay <file.fsrec>    play back a recording made with WorldOptions::recordPath (space pause, . step, [ ] speed, timeline seek, home)\n"
-        "Demo mode: run the built-in scenario on an internal simulation thread.\n"
+        "Demo mode: run the built-in scenario in the demo publisher (flightsim-demo), launched beside the viewer.\n"
         "  --demo                   enable demo mode\n"
         "  --aircraft <name>        JSBSim aircraft (c172x)\n"
         "  --jsbsim-root <dir>      JSBSim data tree (auto)\n"
@@ -552,8 +552,8 @@ int main(int argc, char** argv) {
         terrain = std::make_shared<io::TerrainTiles>(to);
     }
 
-    // --- Demo simulation (only with --demo) --------------------------------------
-    std::unique_ptr<app::DemoSimulation> runner;
+    // --- Demo publisher (only with --demo) ----------------------------------------
+    std::unique_ptr<app::DemoLink> runner;
     std::size_t slots = opt.capacity;
 
     // --- Recording playback (--replay) ------------------------------------------------
@@ -570,25 +570,39 @@ int main(int argc, char** argv) {
     std::size_t replayFrame = static_cast<std::size_t>(-1);
     double replayTime = replay ? recording.frames().front().simTime : 0.0;
     if (opt.demo) {
-        app::DemoOptions demo;
-        demo.aircraft = opt.aircraft;
-        demo.jsbsimRoot = opt.jsbsimRoot;
-        demo.vehicles = opt.vehicles;
-        demo.workers = opt.workers;
-        demo.dt = opt.dt;
-        demo.frameSkip = opt.frameSkip;
-        demo.seed = opt.seed;
-        demo.throttle = opt.throttle;
-        demo.speedMs = opt.speedMs;
-        demo.timeFactor = opt.timeFactor;
-        demo.latitudeDeg = opt.latitudeDeg;
-        demo.longitudeDeg = opt.longitudeDeg;
-        demo.altitudeM = opt.altitudeM;
-        demo.spreadDeg = opt.spreadDeg;
-        demo.onGround = opt.onGround;
-        runner = app::DemoSimulation::create(demo, assets, terrain);
+        // The demo's simulation is the demo publisher's (flightsim-demo, beside this program; ARCH-08): launched with
+        // the same scenario and the physics' ground the viewer reads - its terrain tiles, zoom, map set and offline
+        // rule - and driven through the demo control block.
+        const auto number = [](double v) {
+            char buf[64];
+            std::snprintf(buf, sizeof buf, "%.17g", v);
+            return std::string(buf);
+        };
+        std::vector<std::string> args{"--aircraft", opt.aircraft, "--vehicles", std::to_string(opt.vehicles),
+                                      "--workers", std::to_string(opt.workers), "--dt", number(opt.dt),
+                                      "--frame-skip", std::to_string(opt.frameSkip), "--seed", std::to_string(opt.seed),
+                                      "--throttle", number(opt.throttle), "--speed", number(opt.speedMs),
+                                      "--time-factor", number(opt.timeFactor), "--lat", number(opt.latitudeDeg),
+                                      "--lon", number(opt.longitudeDeg), "--alt", number(opt.altitudeM),
+                                      "--spread", number(opt.spreadDeg),
+                                      "--elevation", terrain ? opt.earth.elevationUrl : std::string("none"),
+                                      "--terrain-zoom", std::to_string(opt.terrainZoom),
+                                      "--tile-cache", opt.tileCache.string(), opt.offline ? "--offline" : "--online"};
+        if (opt.onGround) args.push_back("--on-ground");
+        if (!opt.jsbsimRoot.empty()) args.insert(args.end(), {"--jsbsim-root", opt.jsbsimRoot.string()});
+        for (const auto& dir : opt.assetDirs) args.insert(args.end(), {"--assets", dir});
+        const char* level = log::level() == log::Level::Trace ? "trace" : log::level() == log::Level::Debug ? "debug"
+                          : log::level() == log::Level::Warn ? "warn" : log::level() == log::Level::Error ? "error" : "info";
+        args.insert(args.end(), {"--log-level", level});
+#ifdef _WIN32
+        const auto program = platform::executableDir() / "flightsim-demo.exe";
+#else
+        const auto program = platform::executableDir() / "flightsim-demo";
+#endif
+        // held at its first state until the scene is ready, as the in-process demo was started only then
+        runner = app::DemoLink::launch(program, std::move(args), opt.timeFactor, true, 120.0);
         if (!runner) return 1;
-        slots = opt.vehicles;
+        slots = runner->vehicles();
     }
 
     // --- Scene -------------------------------------------------------------------
@@ -604,7 +618,7 @@ int main(int argc, char** argv) {
         sunLight = world::createSunLight(day, hours);
         scene->addChild(sunLight);
     }
-    // the sea's depth and where it is (GEBCO 2026, tools/ocean_map, from the local map set): R the depth, G the water's
+    // the sea's depth and where it is (GEBCO 2026, tools/data/ocean_map, from the local map set): R the depth, G the water's
     // share of the texel; without it the imagery's own sea
     vsg::ref_ptr<vsg::Data> seaMap;
     {
@@ -621,7 +635,7 @@ int main(int argc, char** argv) {
             world::setSeaFloorDepth(-25.0f);
             LOG_INFO("app") << "the sea: " << path.string() << " (" << w << " x " << h << ")";
         } else {
-            LOG_INFO("app") << "no sea map at " << path.string() << " (tools/ocean_map/make_ocean_map.py): the imagery's sea";
+            LOG_INFO("app") << "no sea map at " << path.string() << " (tools/data/ocean_map/make_ocean_map.py): the imagery's sea";
         }
     }
     std::unique_ptr<world::Atmosphere> atmosphere;
@@ -633,7 +647,7 @@ int main(int argc, char** argv) {
     }
     // the cloud behind the vehicles (and its shadow on the ground) after the ground and the air, and before the
     // vehicles; the cloud in front of them just after them
-    // takram's clouds (assets/clouds), and the Earth's cloud cover farther off (NASA's Blue Marble, tools/cloud_map,
+    // takram's clouds (assets/clouds), and the Earth's cloud cover farther off (NASA's Blue Marble, tools/data/cloud_map,
     // from the local map set)
     vsg::ref_ptr<vsg::Data> earthClouds;
     {
@@ -646,7 +660,7 @@ int main(int argc, char** argv) {
             earthClouds = map;
             LOG_INFO("app") << "the Earth's clouds: " << path.string() << " (" << w << " x " << h << ")";
         } else {
-            LOG_INFO("app") << "no Earth cloud map at " << path.string() << " (tools/cloud_map/make_cloud_map.py): the world's cover everywhere";
+            LOG_INFO("app") << "no Earth cloud map at " << path.string() << " (tools/data/cloud_map/make_cloud_map.py): the world's cover everywhere";
         }
     }
     const auto cloudFiles = assets.find("clouds");
@@ -952,8 +966,8 @@ int main(int argc, char** argv) {
     double lastStepsWall = 0.0, publishedSps = 0.0;
 
     // The demo's vehicles hang from their models' origins as a world's do (drawnState): each one's CG's place from its
-    // origin read once, before the simulation's thread runs - its fuel then moves it some centimetres more, which a
-    // world's flight status tells and the demo's snapshots do not.
+    // origin, which the demo publisher read once, before its simulation's thread ran - its fuel then moves it some
+    // centimetres more, which a world's flight status tells and the demo's does not.
     std::vector<std::array<double, ipc::kDerivedCount>> demoDerived;
     sim::SnapshotBatch demoDrawn;
     const auto demoBatch = [&](const sim::SnapshotBatch* fresh) -> const sim::SnapshotBatch* {
@@ -966,7 +980,7 @@ int main(int argc, char** argv) {
         demoDerived.assign(runner->vehicles(), {});
         for (std::size_t i = 0; i < demoDerived.size(); ++i)
             runner->cgFromOriginBodyM(i, demoDerived[i].data() + ipc::kDerivedCgFromOriginM);
-        runner->start();
+        runner->setPaused(controls->paused.load(std::memory_order_relaxed)); // (released: it flies from here)
         if (const auto* first = runner->acquire()) {
             first = demoBatch(first);
             batch = first;
@@ -1101,7 +1115,7 @@ int main(int argc, char** argv) {
                         meta[slot].alive = row.alive != 0;
                         meta[slot].name.assign(row.name, ::strnlen(row.name, ipc::kNameLength));
                         meta[slot].type.assign(row.type, ::strnlen(row.type, ipc::kTypeLength));
-                        meta[slot].level = control::levelName(static_cast<control::Level>(row.controlLevel));
+                        meta[slot].level = ipc::controlLevelName(row.controlLevel);
                         if (row.alive) {
                             if (visualVehicleSeen[slot] != row.id) {
                                 visualVehicleSeen[slot] = row.id;
@@ -1219,7 +1233,7 @@ int main(int argc, char** argv) {
                         meta[i].name = v.name;
                         meta[i].type = v.type;
                         meta[i].alive = v.alive;
-                        meta[i].level = control::levelName(static_cast<control::Level>(v.controlLevel));
+                        meta[i].level = ipc::controlLevelName(v.controlLevel);
                         if (v.alive) {
                             if (visualVehicleSeen[i] != v.id) {
                                 visualVehicleSeen[i] = v.id;

@@ -1,10 +1,10 @@
 #pragma once
 
 // An engagement's fires as NVIDIA Flow's sources (MS-7h, step 3): what a warhead's detonation, a holed tank's spill
-// and a leak burning on put into world::FlowSolver, held to what is observed of them. tools/flow_calibrate measures
+// and a leak burning on put into world::FlowSolver, held to what is observed of them. tools/validation/flow_calibrate measures
 // the luminous fireball Flow makes from these against the observations (its `check`); world::FlowVolumes draws them.
 //
-// The calibration (2026-10-09, 0.5 m cells, 60 steps a second; tools/flow_calibrate check, its 12 cases):
+// The calibration (2026-10-09, 0.5 m cells, 60 steps a second; tools/validation/flow_calibrate check, its 12 cases):
 // - The combustion: Flow holds a burning cell at its temperature's top (1), so 1 is the flame's: kFlameK, a fuel
 //   fireball's radiating soot (CCPS's surface emissive power, some 350 kW/m^2, a black body at 1,576 K); a cell then
 //   cools at kCooling a second - the luminous gas's end (its edge 1,200 K), fitted with the detonation's. Combustion

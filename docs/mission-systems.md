@@ -78,7 +78,7 @@ The MS volume groups 67 interactions into ten packages. Its minimum message set 
 ### 3.1 In the platform
 
 - **Entities at adoption:** every vehicle in a world, with its full state; weapon entities and emitters had not yet landed on 2026-10-06. They were introduced by the later stages below and are present in the current SDK.
-- **Physics:** JSBSim (LGPL-2.1) for flight; the hangar's geometry pipeline (tools/hangar), with each aircraft's 3D model; terrain from the map set; Bruneton's atmosphere; the exhaust's Planck emission (world/Exhaust.cpp).
+- **Physics:** JSBSim (LGPL-2.1) for flight; the hangar's geometry pipeline (tools/models/hangar), with each aircraft's 3D model; terrain from the map set; Bruneton's atmosphere; the exhaust's Planck emission (world/Exhaust.cpp).
 - **SDK:** the VI pattern and its machinery (ADR-28/29): capability host, commands, statuses, activities, grants, and C ABI and Python parity.
 
 ### 3.2 Mature open-source components studied
@@ -240,7 +240,7 @@ alone do not establish continuous live acceptance; its completed runs and limits
   - **Tests:**
     - `fsim_tests "[ms]"`: every card and fit in the tree reads clean; card validation; the F-16C's discovery; the
       state machine (warm-up, BIT, cancel, supersede, failure); grants through the World.
-    - `python/tests/test_mission_systems.py`.
+    - `tests/compatibility/python/test_mission_systems.py`.
   - **Not fitted yet:**
     - No fit: C-130J, KC-135R, KC-46A, UH-1H, UH-60A. Their cited sources name no payload.
     - Missing from a fit: the H-6K's radar, the Gripen's EW suite and the C-17A's defensive systems.
@@ -265,11 +265,11 @@ alone do not establish continuous live acceptance; its completed runs and limits
     - `test_rf_path.cpp`: NTIA's examples, P.838's table, the apertures' closed forms, P.526's J(v), masking, rain,
       the layer tables against the exact computation.
     - `test_weapons.cpp`: the release, the fall and the impact, the record, and the same flight twice to the bit.
-    - The C ABI test and `python/tests/test_weapons.py`.
+    - The C ABI test and `tests/compatibility/python/test_weapons.py`.
   - **The emitter registry** (which payload transmits what, where) was introduced with the first emitters, the radars at
     MS-4.
 - **MS-3 done (2026-10-06).**
-  - **The engine** (`tools/rcs`, `flightsim-rcs`): shooting and bouncing rays on the GPU (Vulkan ray queries
+  - **The engine** (`tools/models/rcs`, `flightsim-rcs`): shooting and bouncing rays on the GPU (Vulkan ray queries
     through VSG).
     - Rays: 8 tubes to a wavelength each way, through up to 5 reflections off a perfect conductor. Each hit radiates
       its physical-optics current back to the radar, integrated over its footprint.
@@ -327,7 +327,7 @@ alone do not establish continuous live acceptance; its completed runs and limits
     them in the MS-9a receiver implementation.
   - **Tests:** `test_radar.cpp` covers the Pd closed forms (13.2 / 17.3 / 21.1 dB at Pd 0.9), M of N, the radar
     equation, every card against its published ranges, clutter, the World round trip with determinism, and the shared
-    memory. Also the C ABI test and `python/tests/test_radar.py`.
+    memory. Also the C ABI test and `tests/compatibility/python/test_radar.py`.
   - **Not modelled yet:** signal level (MS-6), ECM (MS-9), weather and the sea's clutter as a field
     (only its Doppler regions are), multipath on the target, ambiguities beyond what M of N leaves.
   - **Performance (the owner, 2026-10-07: severe and unstable; solved within the stage, fidelity kept).** Measured first:
@@ -358,8 +358,8 @@ alone do not establish continuous live acceptance; its completed runs and limits
   - **The trackers** (`src/simulation/mission_systems/track`): Stone Soup's components ported to C++ - the nearly-constant-velocity model, the
     radar measurement (elevation, bearing, range, range rate), EKF and UKF, the distance and PDA hypothesisers, GNN by
     SciPy's 2D assignment (Crouse's, step for step), JPDA (exact, factorised over clusters), the mixture tracker,
-    initiators and deleters. `tools/track/crosscheck.py` runs Stone Soup 1.9.1 on the same data
-    (`tests/data/track/crosscheck.json`): EKF 3.2e-12, UKF 6.8e-12, GNN 6.1e-12, JPDA 5.3e-12 (the largest relative
+    initiators and deleters. `tools/validation/track/crosscheck.py` runs Stone Soup 1.9.1 on the same data
+    (`tests/simulation/data/track/crosscheck.json`): EKF 3.2e-12, UKF 6.8e-12, GNN 6.1e-12, JPDA 5.3e-12 (the largest relative
     difference at any step).
   - **Each radar's tracks:** GNN with the UKF, a dwell at a time, from the carrier's pose at the dwell; looks rather
     than steps (a track in the dwell's half-power beam is expected, within 1.5 beamwidths possible, the rest
@@ -424,7 +424,7 @@ alone do not establish continuous live acceptance; its completed runs and limits
 - **MS-6c done (2026-10-07): FERS's cross-check and the range-Doppler display**
   ([sdk/mission-systems.md](sdk/mission-systems.md#signal-level-ms-6)).
   - FERS built from source beside the platform (GPL-2.0, not linked; its dependencies from MSYS2, owner-approved) and
-    run by `tools/fers/crosscheck.py` on one interval, a plain pulse and a Barker-13 code: its samples through a
+    run by `tools/validation/fers/crosscheck.py` on one interval, a plain pulse and a Barker-13 code: its samples through a
     receiver's processing against the chain's cells. Echo power, noise, the window's correlation, straddle, scalloping,
     folding in range and Doppler, the eclipse: within 0.12 dB (one skirt cell 0.22 dB).
   - The cross-check found the chain's eclipse wrong where an echo straddles the gate before the next transmission (4.4
@@ -472,7 +472,7 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
     (`assets/stores`) the store types; fits their loadouts. An aircraft starts empty; a scenario loads it.
   - The host's inventory, strike (power-up, release consent asked for or given, releases a ripple apart as weapon
     entities that name their store, station, activity and target), abort, the master arm, standard and emergency
-    jettison; C++, C ABI 1.56, Python; the viewer's stores list; `examples/python/stores.py`.
+    jettison; C++, C ABI 1.56, Python; the viewer's stores list; `examples/simulation/python/stores.py`.
   - The stores' mass on the flight model: hangar writes each station as an empty point mass (the F-16C's rebuilt:
     its XML's only change), the platform sets each to the stores on it.
   - Data: the F-16C's nine stations (places derived from its design, limits assumed - no primary source confirms
@@ -499,7 +499,7 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   and named for the viewer (`rocket` in the manifest), its paint and markings bands. The viewer draws a motor's plume
   from its thrust (the exhaust's jet as a solid rocket's: [sdk/viewer.md](sdk/viewer.md#effects)).
   The then-scripted `fsim hangar showcase <missile>` showed one on its carrier's station and launched
-  (`tools/showcase`, the retired visual prototype). Every other design's model re-meshed unchanged (the mesh bytes identical; three
+  (`tools/validation/showcase`, the retired visual prototype). Every other design's model re-meshed unchanged (the mesh bytes identical; three
   propeller aircraft's gear rotations differ by sign alone, as before - restored). The plume's look was
   held to launch photographs since (below).
 - **MS-7e2, the smoke trail (2026-10-08).** A missile's motor lays smoke where it burns, drawn as the contrails'
@@ -507,10 +507,10 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   alumina dense, a reduced-smoke motor's residue a haze), its secondary smoke an ammonium perchlorate motor's HCl taking
   up the air's water where the air is humid enough; spread by CoCiP's diffusivities and shear (cocip::disperse),
   carried by the wind, gone at an optical depth of 0.02; a missile lays no aircraft's contrail. Held to the classes'
-  physics in tests/test_contrail_observed.cpp; the secondary smoke's onset and condensed share are engineering
+  physics in tests/visualization/test_contrail_observed.cpp; the secondary smoke's onset and condensed share are engineering
   estimates until a published secondary-smoke method (AGARD AR-287, STANAG 6016) is to hand.
 - **MS-7e2, the propellants through NASA's equilibrium code (2026-10-09).** Each propellant class's chamber, exit and
-  exhaust from CEA (through RocketCEA, installed apart: `tools/propellants`, its numbers in classes.json and
+  exhaust from CEA (through RocketCEA, installed apart: `tools/models/propellants`, its numbers in classes.json and
   world/Propellants.h, a test holding the one to the other), one composition a class for every nation's missiles: an
   aluminised motor's chamber 3,456 K, its exit 2,327 K at Mach 2.88 (its alumina freezing, gamma 1.135), a
   reduced-smoke motor's 2,962 K and 1,648 K at Mach 2.79; their exits 3.6 and 3.1 times sea level's pressure at full
@@ -539,7 +539,7 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   ([sdk/viewer.md](sdk/viewer.md#effects)). Test: test_world (the environment recorded as it changes).
 - **MS-7e2, the plume held to launch photographs (2026-10-09).** Four launch photographs (three AIM-7s, aluminised;
   an AIM-120, reduced smoke) measured along the missile's axis, and the viewer's plumes measured the same way
-  ([sdk/viewer.md](sdk/viewer.md#a-missiles-plume-held-to-launch-photographs), `tools/plume_check`): the old plume was
+  ([sdk/viewer.md](sdk/viewer.md#a-missiles-plume-held-to-launch-photographs), `tools/validation/plume_check`): the old plume was
   dark for half a missile length behind the nozzle (its core drawn as an ideal gas cooling as it expanded) and alike
   for every propellant. Now bright from the nozzle, an aluminised motor's a white flame saturated to 1.7 L (the
   photographs' 1.6 - 2.3) and as wide (4.1 diameters at 1 L, theirs 3.2 - 4.1), a reduced-smoke motor's a short white
@@ -621,7 +621,7 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
     (a negative point mass at its centre, JSBSim's own), its tanks' fuel with it. A reset undoes all of it.
   An AIM-120C bursting 4 m off a MiG-29A's left side: 550 of its fragments strike, its left engine is out, 18 panels
   of its left wing and tail are torn and its centre tank holed (some 9 kg/s); under its autopilot it rolls to -77
-  degrees in 5 s (tests/test_damage.cpp).
+  degrees in 5 s (tests/simulation/test_damage.cpp).
   - **G6, the pieces** (the owner, 2026-10-09: detached objects JSBSim's too): hangar writes each section that can
     part its own flight model (`aircraft/<type>/pieces/`, pieces.py: its mass and inertia, a tumbling plate's or bluff
     body's aerodynamics, its centre of pressure walking aft with alpha, its rotation damped - estimates); a failed
@@ -653,7 +653,7 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
       derived or by the fleet's means; forum and game figures only noted). A tank's fuel is part of its mass. The
       aircraft draws it in as it burns (10 kg/s at most, an estimate). Jettisoned, it flies on as a JSBSim body with
       what was left in it.
-    - Measured (tests/test_mass_change.cpp):
+    - Measured (tests/simulation/test_mass_change.cpp):
       - a MiG-29A's wing parting conserves mass and momentum to 1e-5 and keeps the airframe within 0.1 mm;
       - an F-16's Mk 82 jettison moves the airframe 3.5 mm against a 6.1 cm CG shift;
       - its three tanks feed 3.2 kg in 30 s with its own kept full, the mass falling by the burn alone;
@@ -675,7 +675,7 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
     - The Su-57's PTB-2000. None for the F-35A (none certified) or the J-20A (capacity unknown).
     - Pods as stores: five cards (ALQ-184, ALQ-131, LITENING, ATFLIR, Damocles), a `pods` loadout on six aircraft,
       their own flight models once jettisoned. An ALQ-184 on an F-16C's centreline: 22.4 against RAND's 29.
-    - Every tank and pod of every loadout, jettisoned, flies on with its mass (tests/test_stores.cpp: 46 stores).
+    - Every tank and pod of every loadout, jettisoned, flies on with its mass (tests/simulation/test_stores.cpp: 46 stores).
 - **MS-7h, the detonation (2026-10-09).** The engagement's events in a recording (`V` records, format 5:
   `ipc::EngagementEvent`, one plain layout for every kind - the initial detonation record, with later component
   failure, breakup and chaff records). The retired showcase supplied a timed burst and ended the missile there,
@@ -689,7 +689,7 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   dragged.
 - **MS-7h, the fire and smoke as a fluid (2026-10-09).** The owner rejected the fireballs pieced from spheres and
   noise: an engagement's fire and smoke are now solved by NVIDIA Flow 2.2 (BSD-3, NVIDIA-Omniverse/PhysX `flow/`, pinned
-  at 6dc5358; built by `tools/flow/build-flow.sh`, configured with `FSIM_FLOW_DIR` - optional, not in the default
+  at 6dc5358; built by `tools/data/flow/build-flow.sh`, configured with `FSIM_FLOW_DIR` - optional, not in the default
   build), a real-time sparse-voxel combustion solver, on its own Vulkan device (world::FlowSolver, its C interface).
   (2026-10-11: the sphere fireballs - world::Detonations, `--fire spheres` - are removed; Flow's headers and libraries
   are in `third_party/flow` and a viewer is not built without them; the solver runs on a thread of its own, stepped
@@ -733,7 +733,7 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   rocket's exhaust (cocip::formationOf: its water and the heat it brings the plume per kg of propellant), CoCiP's
   initial ice over the trail's section, then CoCiP's plume stepped as a jet's - without CoCiP's 6 - 13 km bounds, its
   weather data's domain, since a missile climbs past them. It forms where a jet's does (within a kelvin), lasts some
-  20 - 45 s on a typical day and persists in ice-supersaturated air (tests/test_contrail_observed.cpp). Two drawing
+  20 - 45 s on a typical day and persists in ice-supersaturated air (tests/visualization/test_contrail_observed.cpp). Two drawing
   faults it showed are fixed for every trail: a store's first frame, interpolated from its empty slot at the Earth's
   centre, began its trail there (world::Interpolator now takes a vehicle new to a snapshot where the newer has it), and
   the young trail between laid samples left a climbing trail's plume at the older sample's height - drawn in steps.
@@ -879,7 +879,7 @@ estimate (basis `assumed`, its reasoning in its note) wherever it appears:
       after; its end at the fuze or the ground. Native fuze outcomes now exist; rebuilt native-viewer acceptance
       for the engagement delivery is not established.
 - **MS-7f - validation and a runnable engagement:** range, time of flight and no-escape range against the published
-  figures; a 4-against-4 engagement in real time, measured per payload family; `examples/python` demos of each part,
+  figures; a 4-against-4 engagement in real time, measured per payload family; `examples/simulation/python` demos of each part,
   and one engagement from radar track to launch, flyout, seeker acquisition and the fuze, in the viewer.
 
 ### Mission Systems M1 - the autonomous end-to-end loop (the owner, 2026-10-07; its stages approved)
@@ -897,7 +897,7 @@ HOTAS, HUD and cockpit displays, networked play) come later and are out of M1.
 track, designate, the launch zone, launch, midcourse updates, the seeker's acquisition (or the illumination held), the
 fuze, the target killed or not by the warhead's effect on it, the referee's record, the mission's end; the shot-at
 fighter warned by its RWR and defending (notch or crank, chaff). The agents are simple scripted ones in
-`examples/python`, behind the agent boundary (ADR-31 B6: no decision logic in the SDK); the run is seen in the viewer -
+`examples/simulation/python`, behind the agent boundary (ADR-31 B6: no decision logic in the SDK); the run is seen in the viewer -
 the missiles, their detonations, the hit aircraft's fire and smoke, the chaff (MS-7e, MS-7h).
 
 **What M1 needs that no stage held** (found comparing the platform with DCS World, War Thunder and Ace Combat):

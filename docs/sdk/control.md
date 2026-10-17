@@ -276,7 +276,7 @@ world.update(a, climb);
   - Both fly the altitude at their position loop's gain and vertical-speed limits.
 
 In a 12 m/s crosswind a c172x, a B-52H and an F-16C hold a course within
-0.2° and a ground speed exactly; the tests are in `tests/test_modes.cpp`.
+0.2° and a ground speed exactly; the tests are in `tests/simulation/test_modes.cpp`.
 
 ### Routes: waypoint following
 
@@ -325,8 +325,8 @@ world.update(a, options, other);                           // a new route, flown
 segment and of the route, the distance and time to go and the cross-track.
 In a 12 m/s crosswind the c172x, B-52H and F-16C hold each leg within 9 m.
 The UH-60A holds within 11 m and the IRIS within 1.1 m (5 m/s), and the
-rotorcraft keep 80 % of their speed through the turns (`tests/test_routes.cpp`).
-`fsim python examples/python/vehicle_interface.py` flies four of them for the
+rotorcraft keep 80 % of their speed through the turns (`tests/simulation/test_routes.cpp`).
+`fsim python examples/simulation/python/vehicle_interface.py` flies four of them for the
 viewer.
 
 ### Loiter patterns: orbit, racetrack, figure-eight, hold, hover
@@ -362,7 +362,7 @@ Calm, the orbits hold within 6 m. In a 12 m/s wind they hold within:
 | F-16C | 4 km | 4.2 m |
 | UH-60A | 150 m | 6.6 m |
 
-An IRIS flies a 2 m circle within a centimetre (`tests/test_patterns.cpp`).
+An IRIS flies a 2 m circle within a centimetre (`tests/simulation/test_patterns.cpp`).
 
 **A-GRA's orbit as its schema gives it** ([flight-autonomy.md](../flight-autonomy.md), 4.23) goes beside the pattern in a `PatternShape`, as a route's waypoints do:
 
@@ -436,7 +436,7 @@ a quarter wider than the aircraft's planning radius, is flown within:
 | IRIS, R 20 m at 4 m/s (5 m/s wind) | 0.0 m | 0.2 m |
 
 A c172x meets a duration in a 10 m/s wind within 0.2 %, and an IRIS within
-0.7 % (`tests/test_curves.cpp`).
+0.7 % (`tests/simulation/test_curves.cpp`).
 
 ### Must fly: a location flown over
 
@@ -1060,7 +1060,7 @@ saturated surface or an external force can still take it past a limit. That
 is reported, not prevented, and what to do about it is yours: a reward term,
 the end of an episode, a line in an evaluation.
 
-`fsim python examples/python/authority_and_envelope.py` shows it at work, beside an
+`fsim python examples/simulation/python/authority_and_envelope.py` shows it at work, beside an
 autopilot and a policy sharing an F-16C: two pairs of designs pulled hard, one of
 each pair protected, the other only reporting.
 

@@ -17,7 +17,7 @@ constexpr std::size_t kEndedStrikesKept = 64;
 // a second)
 constexpr double kDoorsOpenS = 0.5, kDoorsHoldS = 1.0, kDoorsShutS = 0.8;
 constexpr double kJettisonRippleS = 0.1; ///< a standard jettison's stores leave one after another (an emergency's together)
-// A store's drag on its aircraft (carriageDrag), CD S (m^2), by one rule for every aircraft - tests/test_store_drag.cpp
+// A store's drag on its aircraft (carriageDrag), CD S (m^2), by one rule for every aircraft - tests/simulation/test_store_drag.cpp
 // compares what it gives with the published drag indices (RAND MR-1216-AF's F-16C and F-15C tables):
 // - the store's own (its card's drag_area_m2) times its interference, 1.0: a single store under a pylon flew at its
 //   free drag (Lutz & Matecki, AGARD-CP-373: a 320 L tank under the Alpha Jet's pylon, K 1.0) and sat on the

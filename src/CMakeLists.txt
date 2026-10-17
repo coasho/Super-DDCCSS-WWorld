@@ -7,7 +7,7 @@
 # (simulation/api) followed in ARCH-04, and training's native implementation (training/native: targets fsim_env and
 # fsim_training_mission) in ARCH-05. Visualization (visualization/: render, scene, vfx, ui, vision), the vision
 # adapter (adapters/vision) and the viewer and demo applications (applications/) followed in ARCH-06, and the SDK
-# assembly (adapters/sdk: target fsim) in ARCH-07; the headless application moves in a later package.
+# assembly (adapters/sdk: target fsim) in ARCH-07, and the headless application (applications/headless) in ARCH-08.
 add_subdirectory(contracts)
 add_subdirectory(foundation/platform)
 add_subdirectory(foundation/core)
@@ -31,7 +31,7 @@ if(FSIM_WITH_RENDER)
     add_subdirectory(visualization/vision)
     add_subdirectory(adapters/vision)
 endif()
-add_subdirectory(app)
+add_subdirectory(applications/headless)
 add_subdirectory(applications/demo)
 if(FSIM_WITH_RENDER)
     add_subdirectory(applications/viewer)

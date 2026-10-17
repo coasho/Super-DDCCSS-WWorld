@@ -133,7 +133,7 @@ so nothing downloads during episodes and the cache is warm.
 
 ## Example
 
-`examples/vision_capture` flies three aircraft over Yosemite with nose,
+`examples/visualization/vision_capture` flies three aircraft over Yosemite with nose,
 chase, downward and side cameras on the lead and writes PNGs:
 
 ```bash

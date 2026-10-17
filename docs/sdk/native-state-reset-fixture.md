@@ -6,10 +6,10 @@ Starting baseline: main `9f18037`. No production source, public API/ABI, permiss
 
 ## Files and callable contract
 
-- [NativeStateReset.h](../../tests/fixtures/mission_training/NativeStateReset.h): owned IDs/evidence and the callable contract.
-- [NativeStateReset.cpp](../../tests/fixtures/mission_training/NativeStateReset.cpp): deterministic scenario and native state setup.
-- [NativeStateResetCapture.cpp](../../tests/fixtures/mission_training/NativeStateResetCapture.cpp): owned fieldwise observation map.
-- [test_native_state_reset_fixture.cpp](../../tests/test_native_state_reset_fixture.cpp): acceptance and oracle controls.
+- [NativeStateReset.h](../../tests/training/fixtures/mission_training/NativeStateReset.h): owned IDs/evidence and the callable contract.
+- [NativeStateReset.cpp](../../tests/training/fixtures/mission_training/NativeStateReset.cpp): deterministic scenario and native state setup.
+- [NativeStateResetCapture.cpp](../../tests/training/fixtures/mission_training/NativeStateResetCapture.cpp): owned fieldwise observation map.
+- [test_native_state_reset_fixture.cpp](../../tests/training/test_native_state_reset_fixture.cpp): acceptance and oracle controls.
 
 The test-support target is `fsim_native_state_reset_fixture`; the CTest gate is `native_state_reset_fixture`.
 It is reusable by other same-build native tests and is not installed as an SDK library or public header.

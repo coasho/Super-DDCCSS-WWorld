@@ -2,7 +2,7 @@
 # (world::FlowVolumes, MS-7h) - the one way an engagement's detonations and fires are drawn, so a build with the
 # viewer has it or does not configure.
 #
-# Its headers and its two libraries are in third_party/flow (2.2.0, the commit tools/flow/build-flow.sh pins; built
+# Its headers and its two libraries are in third_party/flow (2.2.0, the commit tools/data/flow/build-flow.sh pins; built
 # with MSVC by that script), so a clone builds with it and needs neither MSVC nor NVIDIA's packman. FSIM_FLOW_DIR
 # names another checkout built by that script instead (its flow/ folder). Flow is used through its C interface only -
 # its loader opens nvflow.dll and nvflowext.dll at run time, so nothing of it links and the MinGW build needs no MSVC
@@ -37,5 +37,5 @@ if(EXISTS ${_fsim_flow_include}/nvflowext/NvFlowLoader.h AND EXISTS ${_fsim_flow
 else()
     message(FATAL_ERROR "flightsim: no NVIDIA Flow at ${_fsim_flow_bin} (its headers at ${_fsim_flow_include}). "
         "The viewer draws an engagement's fire with it and with nothing else: restore third_party/flow, or build a "
-        "checkout with tools/flow/build-flow.sh and configure with -DFSIM_FLOW_DIR=<checkout>/flow.")
+        "checkout with tools/data/flow/build-flow.sh and configure with -DFSIM_FLOW_DIR=<checkout>/flow.")
 endif()

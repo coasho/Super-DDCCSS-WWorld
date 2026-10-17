@@ -8,7 +8,7 @@ The 2026-10-11 documentation snapshot contains **35 aircraft designs and 53 stor
 
 | Resource | Editable source / owner | Generator or copy step | Output and runtime consumer |
 | --- | --- | --- | --- |
-| Aircraft geometry, mass, engine and physical applicability | Hand-maintained `aircraft/<name>/<name>.toml`, with cited facts and labeled assumptions | `tools/hangar/hangar/pipeline.py`; rotorcraft dispatch in `hangar/rotorcraft/` | JSBSim XML, engine files, model and stage evidence; simulation and viewer |
+| Aircraft geometry, mass, engine and physical applicability | Hand-maintained `aircraft/<name>/<name>.toml`, with cited facts and labeled assumptions | `tools/models/hangar/hangar/pipeline.py`; rotorcraft dispatch in `hangar/rotorcraft/` | JSBSim XML, engine files, model and stage evidence; simulation and viewer |
 | Aircraft appearance | `aircraft/<name>/paint.toml` and design geometry | Hangar model stage | `<name>.glb` and `<name>.glb.manifest`; viewer and RCS geometry |
 | Payload sensor facts and fits | `assets/payloads/*.json`, aircraft design's payload/station/loadout declarations | Hangar build and fit writer | `aircraft/<name>/payloads.json`; runtime equipment and loadouts |
 | Store facts | `assets/stores/<id>.json`, with sources / basis per parameter | Missile or store design writer; store stages | Store designs, flight models and cards consumed by mission systems |
@@ -18,14 +18,14 @@ The 2026-10-11 documentation snapshot contains **35 aircraft designs and 53 stor
 | Stock-aircraft visual stand-ins | Aircraft `stands_in_for` declarations and generated geometry/CG | `python -m hangar register` | `aircraft/models.txt`; viewer stand-in mapping, not replacement stock flight physics |
 | Flight/control profile | Design, calibration and stage observations | Hangar fly, autopilot, performance and profile writers | `autopilot.toml`, rotorcraft `hover.toml`, profile properties and performance/fuel tables embedded in XML |
 | Damage and breakup geometry | Design mass/structure, geometry and vulnerability inputs | Hangar model stage, `damage.py` and `vulnerability.py` | `<name>.damage.json`, JSBSim `pieces/`, GLB sections and manifest components; world's damage chain and viewer |
-| Radar cross section | Generated closed geometry; `aircraft/<name>/signature.json` and `assets/signature/treatments.json` | `tools/rcs` / `flightsim-rcs` | `aircraft/<name>/rcs.bin`; mission-system RCS lookup |
+| Radar cross section | Generated closed geometry; `aircraft/<name>/signature.json` and `assets/signature/treatments.json` | `tools/models/rcs` / `flightsim-rcs` | `aircraft/<name>/rcs.bin`; mission-system RCS lookup |
 | Stage checks and aircraft report | The design and actual stage run | Hangar stages and HTML report writer | `aircraft/<name>/out/<stage>.json`, images, `report.html`; review evidence, not shipped design inputs |
 | Store build report | Actual store generation run | `hangar stores --record docs/hangar-stores-build.md` | [hangar-stores-build.md](hangar-stores-build.md) and JSON companion; generated dated evidence |
-| SDK principal inventory | [sdk/boundary.toml](sdk/boundary.toml) | `tools/boundary/boundary.py render`, against DLL exports and Python package | [sdk/boundary.md](sdk/boundary.md); generated inventory, checked by `sdk_boundary` |
+| SDK principal inventory | [sdk/boundary.toml](sdk/boundary.toml) | `tools/validation/boundary/boundary.py render`, against DLL exports and Python package | [sdk/boundary.md](sdk/boundary.md); generated inventory, checked by `sdk_boundary` |
 | Cloud renderer assets | `assets/clouds/` shaders, textures, lookup tables and notices | `fsim_cloud_assets` build copy | `build/<preset>/share/flightsim/clouds`; renderer |
-| Global cloud coverage | NASA Blue Marble cloud TIFF, optionally supplied locally | `tools/cloud_map/make_cloud_map.py` | `assets/maps/clouds/earth-clouds-8192.png`; viewer weather coverage |
+| Global cloud coverage | NASA Blue Marble cloud TIFF, optionally supplied locally | `tools/data/cloud_map/make_cloud_map.py` | `assets/maps/clouds/earth-clouds-8192.png`; viewer weather coverage |
 | Imagery and terrain | `assets/config/offline-map-plan.json`, remote map providers and local tiles | `tile_prefetch` via `fetch-maps.cmd` | `assets/maps/`, installed viewer `maps/`; terrain, satellite imagery and offline package |
-| Ocean depth and coastline | GEBCO grids and OpenStreetMap land polygons | `tools/ocean_map/make_ocean_map.py`, `sea_mask_tiles.py` | Ocean raster and sea-masked elevation tiles; world renderer/terrain |
+| Ocean depth and coastline | GEBCO grids and OpenStreetMap land polygons | `tools/data/ocean_map/make_ocean_map.py`, `sea_mask_tiles.py` | Ocean raster and sea-masked elevation tiles; world renderer/terrain |
 | Stock JSBSim aircraft, engines and systems | Tracked vendored source and data in `third_party/jsbsim/` | Build/package copies; platform patches are owned by `cmake/JsbsimPatches.cmake` | Stock flight-model data; keep distinct from Hangar designs |
 | Build/package configuration | `assets/config/viewer.json` and packaging code | `cmake/PackageConfig.cmake` for installed viewer settings | `config/viewer.json`; packaged settings differ deliberately from development settings |
 
@@ -49,7 +49,7 @@ The following are **regeneration examples**, not commands to run for a documenta
 .\fsim.cmd --preset ucrt64-headless hangar effects
 ```
 
-For a full aircraft campaign, set `$env:PYTHONPATH = "$PWD/tools/hangar"`, then run `.\fsim.cmd --preset ucrt64-headless python tools/hangar/rebuild_all.py --jobs 6`. It runs each design in its own process and retains raw per-design logs in `build/hangar-rebuild`; `--only f16c c172` narrows the corpus. It is a potentially long regeneration, not a documentation validation step. For a long run, Hangar's native libraries stay loaded: point PYTHONPATH and FSIM_BIN at a deliberate copy of the selected build's Python package and bin directory and use that copy's staged Python launcher if rebuilding the original build concurrently. Record the copy's provenance.
+For a full aircraft campaign, set `$env:PYTHONPATH = "$PWD/tools/models/hangar"`, then run `.\fsim.cmd --preset ucrt64-headless python tools/models/hangar/rebuild_all.py --jobs 6`. It runs each design in its own process and retains raw per-design logs in `build/hangar-rebuild`; `--only f16c c172` narrows the corpus. It is a potentially long regeneration, not a documentation validation step. For a long run, Hangar's native libraries stay loaded: point PYTHONPATH and FSIM_BIN at a deliberate copy of the selected build's Python package and bin directory and use that copy's staged Python launcher if rebuilding the original build concurrently. Record the copy's provenance.
 
 The store report's `--force` option forces model and flight-model regeneration; use it only when that evidence is intended. The report rows and JSON companion belong to the tool. Update current status separately after reviewing the run, failures and generated diffs.
 
@@ -67,7 +67,7 @@ individual times, not proof that the complete live release, flight and aftermath
 For the SDK inventory, edit TOML and render against the actual public binaries and staged Python package:
 
 ```powershell
-& build/ucrt64-release/python/fsim-python.cmd tools/boundary/boundary.py render --fsim-dll build/ucrt64-release/bin/libfsim.dll --vision-dll build/ucrt64-release/bin/libfsim_vision.dll --objdump D:/ENV/DevLanguages/Cpp/msys2/ucrt64/bin/objdump.exe --cxxfilt D:/ENV/DevLanguages/Cpp/msys2/ucrt64/bin/c++filt.exe --python-path build/ucrt64-release/python
+& build/ucrt64-release/python/fsim-python.cmd tools/validation/boundary/boundary.py render --fsim-dll build/ucrt64-release/bin/libfsim.dll --vision-dll build/ucrt64-release/bin/libfsim_vision.dll --objdump D:/ENV/DevLanguages/Cpp/msys2/ucrt64/bin/objdump.exe --cxxfilt D:/ENV/DevLanguages/Cpp/msys2/ucrt64/bin/c++filt.exe --python-path build/ucrt64-release/python
 ctest --preset ucrt64-release -R sdk_boundary
 ```
 
@@ -79,7 +79,7 @@ RCS generation is separate from Hangar and needs rendering dependencies plus a V
 
 `fetch-maps.cmd --dry-run` inspects the configured tile plan; `fetch-maps.cmd` fetches to `assets/maps`. `--prune` is destructive: it removes tiles outside the plan. These commands need an already built `tile_prefetch.exe`. The wrapper can also generate the global cloud raster using whichever `python` is on PATH and Pillow, so ensure that is the intended environment.
 
-`python tools/cloud_map/make_cloud_map.py --tif <local-cloud-tiff>` uses an existing TIFF; without `--tif` it downloads the NASA source when absent. Ocean generation accepts the two GEBCO grids and an output path as documented in `fetch-maps.cmd`. GEBCO and coastline source downloads are separate from the tile fetch. Keep environments and caches in `D:\ENV`; project map datasets live under `assets/maps` by design. Large map datasets are not committed. Preserve asset licenses and [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) when redistributing.
+`python tools/data/cloud_map/make_cloud_map.py --tif <local-cloud-tiff>` uses an existing TIFF; without `--tif` it downloads the NASA source when absent. Ocean generation accepts the two GEBCO grids and an output path as documented in `fetch-maps.cmd`. GEBCO and coastline source downloads are separate from the tile fetch. Keep environments and caches in `D:\ENV`; project map datasets live under `assets/maps` by design. Large map datasets are not committed. Preserve asset licenses and [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) when redistributing.
 
 ## Staging and runtime search
 

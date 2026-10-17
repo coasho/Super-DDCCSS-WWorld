@@ -64,7 +64,7 @@ vsg::ref_ptr<vsg::ShaderStage> loadCloudShader(const std::filesystem::path& shad
 /// by the same shadow maps (assets/clouds/shaders/ocean): GodotOceanWaves' FFT waves (2Retr0, MIT) - a TMA spectrum
 /// for the wind in three cascades of 256 x 256, 1987 m, 409 m and 71 m, each a band of it - lit as Bruneton, Neyret &
 /// Holzschuch light the sea from its slopes' statistics (Proland, BSD-3), so it is the same sea near and far; where
-/// it is and how deep from GEBCO 2026 (tools/ocean_map), the imagery seen through the shallows.
+/// it is and how deep from GEBCO 2026 (tools/data/ocean_map), the imagery seen through the shallows.
 class Clouds {
 public:
     /// What the world's weather says (sim::EnvironmentState).
@@ -82,14 +82,14 @@ public:
     /// The layers a weather makes: takram's default four, the two low ones on the weather's cloud base.
     static std::array<Layer, 4> layersFor(const Weather& w);
     /// takram's coverage for a cloud cover (0..1 of the sky): the curve measured on their weather and shape textures
-    /// (tools/cloud_map/coverage_curve.py); 0 for none.
+    /// (tools/data/cloud_map/coverage_curve.py); 0 for none.
     static double coverageForCover(double cover);
     /// How much of the sun's light an overcast takes away at this height (0 none .. 0.85 under a thick deck): the
     /// light everything is lit with there (world::setDaylight). A scattered sky takes none - its shadows are local.
     static double overcast(const Weather& w, double altitudeM);
 
     /// `dir`: takram's files (assets/clouds); `earthMap`: the Blue Marble cloud map (one grey channel, 2:1, row 0
-    /// north), or none; `seaMap`: GEBCO's sea (tools/ocean_map: R the water's depth, log-coded, G its share of the
+    /// north), or none; `seaMap`: GEBCO's sea (tools/data/ocean_map: R the water's depth, log-coded, G its share of the
     /// texel; 2:1, row 0 north), or none - and no sea drawn.
     Clouds(vsg::ref_ptr<const vsg::Options> options, std::filesystem::path dir, vsg::ref_ptr<vsg::Data> earthMap = {},
            vsg::ref_ptr<vsg::Data> seaMap = {});

@@ -1042,7 +1042,7 @@ Filled in as the steps land: the baseline first (step 1a), then each step's numb
   | F-16C (fly-by-wire) | 4.0 m | 0.002 rad |
   | B-52H (direct) | 37 m | 0.002 rad |
 
-  The B-52H loses the same 37 m in the same turn flown as one whole-vehicle velocity command. The loss comes from its loops' tuning, not from the merge (`tests/test_axes.cpp`).
+  The B-52H loses the same 37 m in the same turn flown as one whole-vehicle velocity command. The loss comes from its loops' tuning, not from the merge (`tests/simulation/test_axes.cpp`).
 - **The new cases.** Axes owned apart cost 70 ns an update (one merged pass: velocity for pitch and thrust, attitude for all four), and the default's hold 84 ns.
 - **NEWs** check the axis groups and the controllers' axis awareness: 1–4 ns more. The per-step paths are unchanged.
 - **Throughput:** c172x at 99.4 % of the baseline.
@@ -1051,7 +1051,7 @@ Filled in as the steps land: the baseline first (step 1a), then each step's numb
 - **Digests:** every legacy flight identical to the baseline, with protection off (`digest FILE off`) and with the new defaults. The F-16C and B-52H flights of the digest set now fly with protection `Limit`, never come near a limit, and the protected pass flies them exactly as before.
 - **Allocations:** none, in eight new update cases (limit and report, at four levels) and in a world of eight designs whose demand is limited 3,440 times in 100 steps.
 - **Exit criteria.**
-  - The demand never exceeds the active limits: `tests/test_protection.cpp`, over 20,000 random setpoints and states per clamp. The elevator limiter only ever moves the elevator away from the limit it nears.
+  - The demand never exceeds the active limits: `tests/simulation/test_protection.cpp`, over 20,000 random setpoints and states per clamp. The elevator limiter only ever moves the elevator away from the limit it nears.
   - Every exceedance is reported, with its size and duration: a nose-up moment no elevator can hold drives a c172 past α_max. The crossing is reported with its excess and duration, and nothing else happens: no recovery, no end of the activity, no reset. The protected demand was cut as α neared.
   - No claim that the state stays within: the documentation says the opposite.
   - The manoeuvre suite with protection `Limit` (the default for all 31 designs): the same 29 of 558 failures as step 3, item for item. Protection changed 13 of 651 results, all at the slowest speed near the stall, and removed the c172's 69 % heading overshoot at 35 m/s.
@@ -1087,7 +1087,7 @@ Filled in as the steps land: the baseline first (step 1a), then each step's numb
 
 **Step 6 (conformance in CI).**
 - **A step of its own.** CI's "Control conformance" step runs every test labelled `conformance` before the others (`ctest --preset ucrt64-release -L conformance`: 7 s on a desktop, 16 s on the runner): the three test cases below, the c172x's checkpoints and the allocation gate.
-- **Every capability of every aircraft** (`tests/test_conformance.cpp`). The platform ships the c172x and hangar's 31 designs, between them all three adapters. For each, every descriptor is well formed, and a command built from it goes through NEW, a world step, UPDATE (the same type and another) and CANCEL as the descriptor says.
+- **Every capability of every aircraft** (`tests/simulation/test_conformance.cpp`). The platform ships the c172x and hangar's 31 designs, between them all three adapters. For each, every descriptor is well formed, and a command built from it goes through NEW, a world step, UPDATE (the same type and another) and CANCEL as the descriptor says.
 - **The lifecycle's rules under random operations.** One aircraft per adapter (the c172x, the B-52H, the F-16C) is driven through seeded random sequences of 600 operations:
   - NEWs from every source, with every range policy and random axes;
   - UPDATEs and CANCELs of live, ended and unknown activities, and of another vehicle's;
@@ -1101,7 +1101,7 @@ Filled in as the steps land: the baseline first (step 1a), then each step's numb
   - A refused operation changes nothing, and the same seed gives the same answers and the same flight.
 - **Coverage.** Each run must reach every edge of the diagram and every answer an operation can give: over the three aircraft, 319 NEWs accepted, 215 activities preempted, 70 canceled on request, 25 completed and 15 failed with their target gone. Chance alone seldom completes a route or loses a target, so every 120 operations the sequence plays one of each, through the same rules.
 - **A finding.** An activity flown and ended in the step that first flies it goes from Pending straight to Completed or Failed; 10.4 now says so for failures too.
-- **A short manoeuvre suite** (`tests/test_manoeuvres.cpp`). Hangar's manoeuvres at the reference speed, judged by the suite's rule, for one design per adapter that designs fly through: the B-52H (`jsbsim.direct`) and the F-16C (`jsbsim.fbw`). The 90° turn must also end within 3°. Both pass every item, with the numbers hangar's own suite gives:
+- **A short manoeuvre suite** (`tests/simulation/test_manoeuvres.cpp`). Hangar's manoeuvres at the reference speed, judged by the suite's rule, for one design per adapter that designs fly through: the B-52H (`jsbsim.direct`) and the F-16C (`jsbsim.fbw`). The 90° turn must also end within 3°. Both pass every item, with the numbers hangar's own suite gives:
 
   | | hold, 40 s | 30° bank | 5° pitch | climb | 1.5 g | roll rate | 90° turn ends |
   | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1118,4 +1118,4 @@ Filled in as the steps land: the baseline first (step 1a), then each step's numb
 - In the world, the platform's own allocations are none, except while a behaviour with parameters runs. For example, 12,800 over 100 steps of 16 vehicles on `loiter`.
 - JSBSim allocates about 4 times per vehicle per FDM step on its own. The counter attributes an allocation to JSBSim when any caller up the stack is in its DLL, and does not gate on it.
 
-**Digests.** 20 flights, reproducible run to run: `fsim_control_bench digest`, kept outside the repository. The c172x's six closed-loop flights are committed as checkpoints (`tests/data/c172x_checkpoints.txt`).
+**Digests.** 20 flights, reproducible run to run: `fsim_control_bench digest`, kept outside the repository. The c172x's six closed-loop flights are committed as checkpoints (`tests/simulation/data/c172x_checkpoints.txt`).

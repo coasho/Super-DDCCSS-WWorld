@@ -22,7 +22,7 @@ thread's call held the batch or an episode) raises fsim.Error with nothing of it
 systems have ticked, and the next step() runs that batch step again without ticking them twice. It ticks while its role is active: a role that
 ended while its teammates go on (its platform lost) ticks no more in that generation, and its final snapshot is the
 one its role ended in; its end_episode still comes when the generation does. The composition example's MASystem
-(examples/python/ma_composition) is one such system: the context carries what it takes - the episode key, the service
+(examples/training/ma_composition) is one such system: the context carries what it takes - the episode key, the service
 and section 8's seeds per component. Reward definitions are not here: none is installed (section 15)."""
 from ._training.adapter import (MASK64, ComponentContext, EpisodeContext, TrainingAdapter, component_seed, service_seed,
                                 world_seed)

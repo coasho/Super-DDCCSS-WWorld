@@ -35,18 +35,15 @@
     "python_abi": {"target": "fsim_python_abi", "aliases": ["fsim::python_abi"], "domain": "adapters", "kind": "assembly", "directories": [], "destinations": ["src/adapters/sdk/python/abi"], "files": [], "headless": true, "allowed_dependencies": []},
     "python_native": {"target": "fsim_python", "aliases": [], "domain": "adapters", "kind": "assembly", "directories": [], "destinations": ["src/adapters/sdk/python"], "files": [], "headless": true, "allowed_dependencies": ["sdk", "python_abi"]},
     "vision_native": {"target": "fsim_python_vision", "aliases": [], "domain": "adapters", "kind": "assembly", "directories": [], "destinations": ["src/adapters/vision/python"], "files": [], "headless": false, "allowed_dependencies": ["vision", "python_abi"]},
-    "app": {"target": "flightsim", "aliases": [], "domain": "applications", "kind": "application", "directories": ["src/app"], "destinations": ["src/applications/headless"], "files": [], "headless": true, "allowed_dependencies": ["sim", "io", "core", "platform"]},
-    "viewer": {"target": "flightsim-viewer", "aliases": [], "domain": "applications", "kind": "application", "directories": [], "destinations": ["src/applications/viewer"], "files": [], "headless": false, "allowed_dependencies": ["ui", "scene", "render", "ipc", "control", "io", "core", "platform", "demo"]},
-    "demo": {"target": "fsim_demo_publisher", "aliases": ["fsim::demo"], "domain": "applications", "kind": "application", "directories": [], "destinations": ["src/applications/demo"], "files": [], "headless": true, "allowed_dependencies": ["contracts", "sim", "io", "core", "platform"]}
+    "app": {"target": "flightsim", "aliases": [], "domain": "applications", "kind": "application", "directories": [], "destinations": ["src/applications/headless"], "files": [], "headless": true, "allowed_dependencies": ["sim", "io", "core", "platform"]},
+    "viewer": {"target": "flightsim-viewer", "aliases": [], "domain": "applications", "kind": "application", "directories": [], "destinations": ["src/applications/viewer"], "files": [], "headless": false, "allowed_dependencies": ["ui", "scene", "render", "ipc", "io", "core", "platform"]},
+    "demo": {"target": "flightsim-demo", "aliases": [], "domain": "applications", "kind": "application", "directories": [], "destinations": ["src/applications/demo"], "files": [], "headless": true, "allowed_dependencies": ["contracts", "ipc", "sim", "io", "core", "platform"]}
   },
   "planned_modules": {
     "oms": {"domain": "adapters", "kind": "assembly", "destinations": ["src/adapters/oms"], "phase": "MS-12"},
-    "training_vision": {"domain": "applications", "kind": "application", "destinations": ["src/applications/training_visualization"], "phase": "VIS-F"},
-    "testbench": {"domain": "applications", "kind": "application", "destinations": ["src/applications/testbench"], "phase": "ARCH-08"}
+    "training_vision": {"domain": "applications", "kind": "application", "destinations": ["src/applications/training_visualization"], "phase": "VIS-F"}
   },
-  "exceptions": [
-    {"from": "viewer", "to": "demo", "rule": "kind", "until": "ARCH-08", "reason": "The viewer executable keeps its --demo command line by composing the demo application's simulation (a temporary compatibility adapter); the removal gate is a separate demo publisher process the viewer attaches to live"}
-  ],
+  "exceptions": [],
   "public_headers": {
     "include/fsim/Export.h": {"domain": "contracts", "kind": "value"},
     "include/fsim/fsim_vecenv_handle.h": {"domain": "contracts", "kind": "value"},
@@ -110,5 +107,16 @@
       {"module": "fsim._adapters.actor", "function": "serve", "reason": "Resolves the actor class named by the isolated process's configuration (fsim.isolation's actor process, ARCH-07 P056)"}
     ],
     "exceptions": []
+  },
+  "layout": {
+    "roots": {
+      "tests": ["contracts", "simulation", "training", "visualization", "compatibility", "integration"],
+      "examples": ["simulation", "training", "visualization"],
+      "tools": ["architecture", "models", "data", "validation"]
+    },
+    "root_files": ["CMakeLists.txt"],
+    "exceptions": [
+      {"path": "tools/launch", "until": "ARCH-10", "reason": "The repository launcher's implementation keeps its path: fsim.cmd and Testbench.cmd run tools/launch/fsim.ps1, and the launcher contract copies that directory. The layout names no launch category; HC-25 decides between declaring one and moving it with its launcher contract"}
+    ]
   }
 }

@@ -5,7 +5,7 @@ CPU ops on an OpenMP team as big as the machine, and the OpenMP torch ships
 on Windows (Intel's) keeps an idle team spinning for 200 ms after every
 parallel region. So after a policy's forward pass, torch's threads spin on
 the cores the platform is stepping on. Measured with PPO
-(examples/python/train_sb3.py, 8 cores): torch's default threads collect
+(examples/training/python/train_sb3.py, 8 cores): torch's default threads collect
 rollouts at 84k steps/s and one thread at 110k; training on the whole
 buffer is the opposite (1.6 s with 8 threads, 3.1 s with 1). One thread
 while stepping, all of them while training, and a spin of 1 ms so the team

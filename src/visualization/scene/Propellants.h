@@ -6,7 +6,7 @@ namespace fsim::world {
 
 /// A solid motor's propellant class as its exhaust is drawn (world::Exhaust's plume, world::Airflow's smoke and ice
 /// contrail): its nozzle's exit and its exhaust's composition through NASA's chemical equilibrium code (CEA, McBride
-/// and Gordon, NASA RP-1311: tools/propellants/cea_classes.py, its numbers in tools/propellants/classes.json, which
+/// and Gordon, NASA RP-1311: tools/models/propellants/cea_classes.py, its numbers in tools/models/propellants/classes.json, which
 /// test_vehicle_visuals holds these to). One composition a class, the same for every nation's missiles - aluminised
 /// AP 68 % / Al 18 % / HTPB 14 %, reduced smoke AP 86 % / HTPB 14 % - at a 10 MPa chamber (the hangar designs' own,
 /// their thrust over their throats: 9 - 10 MPa) through their nozzles' area ratio (4.94), shifting equilibrium. The

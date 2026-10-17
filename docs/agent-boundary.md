@@ -324,7 +324,7 @@ Dissemination Plan and the picture, received tracks as designations. Each in C++
 
 - **AB-1, classification (2026-10-07).** Every entry point of the SDK - 1,270: 539 C++ and 389 C exported by the DLLs,
   342 Python - belongs to one principal in [sdk/boundary.toml](sdk/boundary.toml), rendered as
-  [sdk/boundary.md](sdk/boundary.md). The surface is read, not declared: `tools/boundary/boundary.py` takes the DLLs'
+  [sdk/boundary.md](sdk/boundary.md). The surface is read, not declared: `tools/validation/boundary/boundary.py` takes the DLLs'
   export tables (objdump, c++filt) and imports the Python package (and the calls a world and a vehicle bind per
   instance). ctest's `sdk_boundary` fails on an entry point no rule classifies, on a rule that classifies nothing, on a
   name two rules list, on a call of the role-mixing objects (`World`, `Vehicle`, activities, the network, the cameras)
@@ -359,7 +359,7 @@ Dissemination Plan and the picture, received tracks as designations. Each in C++
 
   Tests: the C++ SDK's (7 cases), the C ABI's (an agent's handle refused the range's calls, scoped, as itself), the
   Python SDK's; `sdk_boundary` (1,497 entry points, every guard). L11 (mission data) stays open until AB-2c. Guide:
-  [sdk/agents.md](sdk/agents.md); example: `examples/python/agent.py`.
+  [sdk/agents.md](sdk/agents.md); example: `examples/simulation/python/agent.py`.
 
 - **AB-2b, targets by track (2026-10-07).** A vehicle designates one of its radar's tracks as a target (A-GRA's target
   designation, C2 1.2.15.10): `designate(payload, track)` gives a target id from 0x80000001, never an entity's. A
@@ -455,7 +455,7 @@ Dissemination Plan and the picture, received tracks as designations. Each in C++
   tracks with the platform's own is ADR-30's Data Fusion, not yet built. Found while running the example: an inbox
   holding only the last world step's arrivals lost what an MA deciding once a second did not read in time - what
   arrives now waits until taken (`receive()`; `inbox()` looks), up to 1,024 (an estimate), the oldest dropped and
-  counted (`overflowed`). ABI 1.62. Example: `examples/python/links.py` - a two-ship, a C2 node and a bandit; the
+  counted (`overflowed`). ABI 1.62. Example: `examples/simulation/python/links.py` - a two-ship, a C2 node and a bandit; the
   wingman, its radar off, is committed by C2's message on the lead's track and pursues it (the referee: its target is
   the bandit). Tests: the plan's reports and heartbeats in a wingman's picture (near the lead's true position), the
   lead's tracks received - the bandit's among them by the referee - a native topic refused to an agent's bytes, a
@@ -485,7 +485,7 @@ Dissemination Plan and the picture, received tracks as designations. Each in C++
   1.63. Tests: unauthorized before a role and from an Observer, an unknown role rejected, a QB's command flown and held
   against the agent (its own HSA authority_held naming it, its cancel refused), C2's cancel and the agent flying again,
   an AVC's designation (HSA granted, waypoints revoked for the agent and for C2) (C++, the C ABI, Python). Example:
-  `examples/python/c2.py` - a CRC (QB) takes an F-16C south for 40 s while its MA's own commands are held, then gives it
+  `examples/simulation/python/c2.py` - a CRC (QB) takes an F-16C south for 40 s while its MA's own commands are held, then gives it
   back; an observer post's command is answered unauthorized. A/B against AB-4b (12 interleaved rounds each): within
   noise (-0.70 % to +0.08 %); the VecEnv digests equal AB-3's.
 
@@ -535,7 +535,7 @@ Dissemination Plan and the picture, received tracks as designations. Each in C++
   ample for evaluation - and its messages are data the range checks, never code it runs (nothing is unpickled; only
   fsim's own named tuples, enums and batch commands are rebuilt; an activity is named by id and must be one the agent
   holds). Lockstep: the range asks one MA at a time and serves its calls in order, so the isolated run is the
-  in-process run to the bit - `examples/python/links.py --isolated` against the same engagement in one process:
+  in-process run to the bit - `examples/simulation/python/links.py --isolated` against the same engagement in one process:
   every vehicle's final state, the net's traffic and the audit of every call identical. Exceptions cross both ways
   (an agent call's as in one process; the MA's own as `AgentError` with its traceback). A world that is published (its
   shared-memory segment) or being recorded (its file, now reported by `World::recording`, `fsim_world_recording`,

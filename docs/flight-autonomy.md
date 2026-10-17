@@ -1656,7 +1656,7 @@ Every item that no rule governs applies to all 35 aircraft. R11 to R13 were adde
   - The vehicle's support table reads them.
 - **A test checks each declaration against the model**, and a mismatch fails. The checks:
   - `vertical_flight` against the family (`fsim/identity/family`);
-  - `ground_contact` against the design's landing gear kinds (hangar's build: wheels, skids or legs) and the wheel brakes (`tests/test_applicability.cpp`);
+  - `ground_contact` against the design's landing gear kinds (hangar's build: wheels, skids or legs) and the wheel brakes (`tests/simulation/test_applicability.cpp`);
   - `retractable_gear` and `flaps` against `fsim/effectors/*`;
   - `aerobatic` against the envelope's `n_max` of at least 6 g;
   - `carrier`: a catapult and an arrested landing on a wing, a deck on a rotorcraft.
@@ -2112,7 +2112,7 @@ Timed control points with velocities and attitudes, fitted by B-spline, Bezier, 
   - every refusal carries the reason section 4.3 gives.
 - **Where it runs.** It is a ctest with the label `fleet`, and runs in CI. A Python twin checks the same answers through the Python surface on one aircraft per class.
 - **It grows every stage**, and a stage lands only with its own cases passing.
-- **As FA-1e built it** (`tests/test_fleet.cpp`, `python/tests/test_fleet.py`):
+- **As FA-1e built it** (`tests/simulation/test_fleet.cpp`, `tests/compatibility/python/test_fleet.py`):
   - The aircraft are hangar's designs as `aircraft/` holds them, all flying at once in one world, 44 km apart, made afresh for each case; a helper of the same type flies ahead where a case follows another vehicle.
   - The cases: the flight levels (velocity, attitude, acceleration, actuator, position, the engines' throttles); the support effectors at a speed for gear and flaps (gear up and down, flaps half out and in, pitch trim, speedbrake) and envelope protection's mode; parked (the flight phase, the gear's range, the flaps, the wheel brakes holding it); guidance (hold, HSA, waypoints, route, loiter, pattern, curve, hover, an aileron roll and a loop); another vehicle (pursuit, evade, formation).
   - Each checks its geometry's error, completion where the item terminates, no ground contact, no divergence and no CAS below the least; the thresholds are about twice the fleet's worst when they were set, per class, and the file gives the worst beside each.
@@ -2148,7 +2148,7 @@ These are ADR-26's gates, as ADR-28 kept them:
   - a behaviour withdrawn from an aircraft (section 6) is refused `not_supported` there.
 
   Each is listed in the stage that makes it, with the tests that pin it.
-- **FA-1b and FA-1c changed these answers** (tests/test_discovery.cpp pins them; the older tests that pinned the old answers say why they changed):
+- **FA-1b and FA-1c changed these answers** (tests/simulation/test_discovery.cpp pins them; the older tests that pinned the old answers say why they changed):
   - a command for a feature the vehicle does not offer: `not_supported` (a physical exception), `not_implemented` (applicable, not built: on a stock aircraft, which declares nothing, every such effector), `unknown_capability` only for an id no platform defines. So do a request, release, revocation, `setAllowed` and `setAvailability` for one, and the C ABI's calls fail naming it;
   - its status: `Unavailable` with that reason, not `Disabled`; an unknown id's too;
   - a field the aircraft has nothing for (`ParameterInfo::supported` false): `not_supported` with the field's index, not `invalid_parameter`;
@@ -2201,8 +2201,8 @@ Filled as the stages land: each stage's criteria results, the digests (identical
 - The conformance walk's rarer answers (a revocation for collision avoidance that ends what a policy flies, an append where a curve does not end) are now met over more seeded walks, the same every run, instead of on one seed's path, which any change to what a command draws moves.
 
 **FA-1e (the fleet acceptance test).**
-- `tests/test_fleet.cpp` (label `fleet`, two ctest cases, 38 s) passes on all 35 aircraft with 15,006 checks. Discovery: every capability's row agrees with what the aircraft offers; every "not supported" row has its rules and its evidence; every capability not offered is refused, and reported unavailable, with `not_supported` or `not_implemented`; an unknown one with `unknown_capability`. Flights: every capability each aircraft advertises flies its case, and the test checks that each had one.
-- The Python twin (`python/tests/test_fleet.py`, part of `python_sdk`, 4.6 s): the C172, F-16C, UH-60 and Iris give the same discovery answers and ground rules through Python, and fly velocity, HSA, loiter and formation to the same thresholds.
+- `tests/simulation/test_fleet.cpp` (label `fleet`, two ctest cases, 38 s) passes on all 35 aircraft with 15,006 checks. Discovery: every capability's row agrees with what the aircraft offers; every "not supported" row has its rules and its evidence; every capability not offered is refused, and reported unavailable, with `not_supported` or `not_implemented`; an unknown one with `unknown_capability`. Flights: every capability each aircraft advertises flies its case, and the test checks that each had one.
+- The Python twin (`tests/compatibility/python/test_fleet.py`, part of `python_sdk`, 4.6 s): the C172, F-16C, UH-60 and Iris give the same discovery answers and ground rules through Python, and fly velocity, HSA, loiter and formation to the same thresholds.
 - What it found, and FA-1 fixed:
   - **Flaps were never done on hangar's designs.** fsim reads JSBSim's `fcs/flap-pos-norm`, which JSBSim declares but does not derive and hangar's flap channel never wrote; a flaps command to anything but "up" stayed active for good on the 27 designs with flaps. hangar now writes it (a gain on `fcs/flap-pos-deg`); each rebuilt aircraft file gains those 5 lines only.
   - Formation, the hold's altitude, the loiter's radius and a rotorcraft's evade: section 6.
@@ -2500,7 +2500,7 @@ All 183 comparisons are within 5 %: 57 top speeds, 80 climbs, 15 stalls and 31 c
     - the UH-60A's fuel, and the Crazyflie's battery flown until spent, within 1 % of its endurance;
     - a glider that flies on neither;
     - the playtime to a recovery point against its terms, the reserve's contingency, the tanks emptied, the refusals.
-  - The C ABI's 1.13 block, `python/tests/test_navigation.py`, and hangar's test of the battery channel.
+  - The C ABI's 1.13 block, `tests/compatibility/python/test_navigation.py`, and hangar's test of the battery channel.
 - **Digests:** identical to FA-2e's and FA-3a's, with protection and without. The allocation gate passes.
 - **A/B throughput** against FA-2e's build (5 interleaved rounds of `micro`, 9 of `command`): the medians are within -2.1 % to +3.0 % and -2.8 % to +0.2 %. That is the noise; FA-3a's were -1.6 % to +2.8 % and -1.5 % to +1.8 %. The report is worked out only when asked.
 - ctest: all 244 tests pass.
@@ -3140,7 +3140,7 @@ All 183 comparisons are within 5 %: 57 top speeds, 80 climbs, 15 stalls and 31 c
   - Past its point, before and after: the Crazyflie 1.41 → 0.78 m, the IRIS 1.21 → 0.62 m, the UH-60A 12.4 → 0.0 m, the UH-1H 42.3 → 0.0 m (then out to 49.0 m, now 1.0 m).
   - Completed 0.98 to 1.01 m from its point, then held within 1.01 m. The UH-1H completes 82 s later than it did, the UH-60A 30 s, the multirotors 0.2 and 0.3 s.
   - Flown on the old code with looser first thresholds (5 % of its scale), the case failed the UH-1H's two checks. Its thresholds, twice the fleet's worst now, would fail the UH-60A's too.
-- **Where it still swings past** (a probe; the tests fly calm air): `examples/python/vehicle_interface.py`'s UH-60A hops, 400 m legs at 20 m/s over the ground in an 8 m/s wind from the north, the last leg south after a fly-by turn, flown by a UH-60A and a UH-1H on flat ground.
+- **Where it still swings past** (a probe; the tests fly calm air): `examples/simulation/python/vehicle_interface.py`'s UH-60A hops, 400 m legs at 20 m/s over the ground in an 8 m/s wind from the north, the last leg south after a fly-by turn, flown by a UH-60A and a UH-1H on flat ground.
   - Swung past its last point along its last leg, before and after: the UH-60A 15.3 → 3.1 m; the UH-1H 54.6 → 0.0 m, but 24 m to the leg's side over its last 100 m, and out to 14.1 m from the point once past it. A loiter point's hover there flies the same, to the printed precision. (First read as 9.1 and 25.9 m, measured over the whole flight: the first leg runs east along the last point's latitude, and the wind's drift there as they set off read as a swing past it. Corrected by the next block.)
   - The turn before the point leaves less than the stopping distance from 20 m/s: the UH-60A's 272 m after 255 m, the UH-1H's 315 m after 200 m (its turns shrunk to R 200 m by the 400 m legs). The path's speed on the turn does not count the stop after it. So the aircraft is handed over as the turn ends. (That this carried them past did not hold here: the next block.)
   - With a last leg of 800 m, where the stop fits after the turn, the UH-60A swings 0.0 m past, but the UH-1H 12.2 m. The tailwind carried it to 21.4 m/s over the ground as it was handed over, whose stopping distance is 354 m. Slowing through no airspeed, its nose swung from 180° to 149° and it drifted 17 m sideways. The hover pattern, flown from a kilometre out in the same wind, swung none.
@@ -3148,7 +3148,7 @@ All 183 comparisons are within 5 %: 57 top speeds, 80 climbs, 15 stalls and 31 c
   - Not changed here: both would change a loiter point's hover as well. Raised as a task of their own, since done (the next block).
 - **Changed, named:**
   - the route probe's IRIS, whose short legs end in a hover: its 26 lines from 48 s. It flew the same to 42 s, 10 m before its point. It was then at most 0.32 m from where it had been (at 48 s: 0.58 m from its hover, where it was 0.90 m), and hovers where it did, within a millimetre, from 66 s. Its cross-track as it completed reads 0.0125 m where it read 0.0027. The wing's and the F-16C's lines are identical;
-  - every rotorcraft route that ends in a loiter. The tests' flights print what they did: the IRIS's 40 m hop (`test_routes`, 0.00 m from its point and still) and the IRIS over a point a frame carries (`test_route_points`, within 0.03 m). The Python example's UH-60A hops (`examples/python/vehicle_interface.py`) end in one.
+  - every rotorcraft route that ends in a loiter. The tests' flights print what they did: the IRIS's 40 m hop (`test_routes`, 0.00 m from its point and still) and the IRIS over a point a frame carries (`test_route_points`, within 0.03 m). The Python example's UH-60A hops (`examples/simulation/python/vehicle_interface.py`) end in one.
 
   The new baseline awaits the owner's approval.
 - **Unchanged, to the last bit:** the digests, with protection and without; the curve probe (64 lines). A loiter point's hover is reached and flown by the same expressions as before. The allocation gate passes.
@@ -3877,7 +3877,7 @@ The quadrotors' contacts, the helicopters' and the reset had waited for the owne
 - **B-6, the rudder:** in a 30 deg bank the stock C172P slipped 1.12 deg with `rudder.beta_gain` +1, 0.82 with 0 and 0.65 with -1; the C172X 0.64, 0.52 and 0.44; the F-16 1.82, 1.66 and 1.53; the 737 0.83, 0.64 and 0.52. The default is -1.
 - **B-4 and B-10, the U-2S within its limit:** across 7 m/s it lands on the line and runs 34.5 m off it, as across 10. Tried, and not kept, each with its rollout's worst: its brakes released while its tail wheel was up (87 m off: unbraked on its main wheel, its idle thrust about its drag, it slowed from 57 to 53 m/s in 45 s); its attitude then raised until the tail wheel touched (it flew off again, a glider), or only below 80 % of its rotation speed (87 m); a steering point three seconds ahead (49 m, and it ran past the runway's end); its brakes eased by its pitch instead (53 m across 7 m/s, 48 m across 4); a two-point landing at +4 deg (it floated past its touchdown zone on both approaches). The tail wheel was first told from the state - the wheel its steering turns most, off the ground - which took the MiG-29A's raised nose wheel for one: it ran 87 m off and past the runway's end. Told by the profile instead, it changed nothing else, and went with the rule. Its tail-wheel landing is the backlog's B-10, FA-10e's.
 - **What changed, and why**, each measured against FA-10a (6163331) and each traced to its cause by a build without it:
-  - **the digests**, with protection and without: 14 of the 20 flights, every stock C172X flight a builtin attitude or acceleration loop flies (B-6). With the default +1 again, all 20 are FA-10a's to the bit. `tests/data/c172x_checkpoints.txt` was recorded again: every closed-loop flight, by 0.08 to 3.6 m of altitude in 60 s (29.8 m on the acceleration level's manoeuvres);
+  - **the digests**, with protection and without: 14 of the 20 flights, every stock C172X flight a builtin attitude or acceleration loop flies (B-6). With the default +1 again, all 20 are FA-10a's to the bit. `tests/simulation/data/c172x_checkpoints.txt` was recorded again: every closed-loop flight, by 0.08 to 3.6 m of altitude in 60 s (29.8 m on the acceleration level's manoeuvres);
   - **the route probe:** its C172X's 20 lines (B-6); the F-16C's and the IRIS's 40 identical. With +1, all 120 identical;
   - **the curve probe:** its C172X's 32 lines (B-6), and with +1 still 22 at their last bits: the turn bound held its command there for a few steps (without the bound, all 64 identical);
   - **the fleet:** 1,360 of 1,751 states as flights are judged identical. 389 are the 15 fly-by-wire fighters' in the cases that follow a path - route, pattern, curve, must fly, marshall, intercept - by up to 5 km (the Typhoon's route): their capture turns banked beyond the bound (without it, 1,749 identical). The other 2 are the A-10C's and the Gripen's loops from cruise, given up over the top (412 and 126 m): the angle of attack's rate (without the patch, identical). As cases end, 1,962 of 2,415: those cases', the recovery case's (the B-52H and C-130J flying their circuits, up to 31 km), and the ground cases' by 26 um at most - aircraft at rest, their flow from the side (the patch's: without it, identical). B-6 changes nothing in the fleet: every design's law sets its own gain.

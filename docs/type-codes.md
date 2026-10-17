@@ -13,7 +13,7 @@ and the AIM-120C the AIM-120C, in speech as in the data.
 ## Vehicles
 
 A vehicle's type is its design's `[aircraft] category` (`aircraft/<name>/<name>.toml`), which the profile carries as
-`fsim::AircraftClass` (`include/fsim/VehicleProfile.h`; hangar's `CLASSES`, `tools/hangar/hangar/profile.py`). Every
+`fsim::AircraftClass` (`include/fsim/VehicleProfile.h`; hangar's `CLASSES`, `tools/models/hangar/hangar/profile.py`). Every
 design's category is listed in [hangar-effects.md](hangar-effects.md).
 
 | Code | Original type | `category` | `AircraftClass` | For example |

@@ -76,7 +76,7 @@ constexpr std::uint32_t kShoreSize = 512;
 constexpr double kShoreSpacing = 25.0, kShoreMaxAltitude = 8000.0, kShoreMoved = 2500.0, kShoreStep = 2.0;
 constexpr double kSeaWindLag = 300.0;       // s: how long the sea takes to follow a change of wind
 
-// the cover each coverage gives (tools/cloud_map/coverage_curve.py; also in fsim/coverage.glsl)
+// the cover each coverage gives (tools/data/cloud_map/coverage_curve.py; also in fsim/coverage.glsl)
 constexpr double kCurveCover[] = {0.0,   0.006, 0.016, 0.034, 0.059, 0.093, 0.136, 0.187, 0.249, 0.321, 0.398,
                                   0.481, 0.569, 0.656, 0.739, 0.824, 0.904, 0.960, 0.985, 0.995, 1.0};
 constexpr double kCurveCoverage[] = {0.10, 0.15,  0.175, 0.2,   0.225, 0.25, 0.275, 0.3,   0.325, 0.35, 0.375,

@@ -32,5 +32,5 @@ imgui.ini
 # Offline map tiles fetched by fetch-maps.cmd (gigabytes; not source)
 /assets/maps/
 
-# Working output of tools/hangar (reports, images, cached tables)
+# Working output of tools/models/hangar (reports, images, cached tables)
 aircraft/*/out/

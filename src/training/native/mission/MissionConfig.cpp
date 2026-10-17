@@ -103,7 +103,7 @@ std::uint32_t limit(Fields& f, std::string_view name, std::int64_t min, std::int
     return v ? static_cast<std::uint32_t>(integerOf(*v, f.path(name), min, max)) : fallback;
 }
 
-/// Section 7's and section 9's rules a schema cannot state (tools/ma_contract/check.py's config_rules).
+/// Section 7's and section 9's rules a schema cannot state (tools/validation/ma_contract/check.py's config_rules).
 void crossCheck(const Config& c, const std::vector<std::string>& systemPlatforms, const std::vector<std::uint32_t>& systemIds,
                 const std::vector<std::pair<std::string, std::vector<std::string>>>& nets, const std::vector<std::string>& disseminated,
                 const std::vector<std::string>& rbac) {

@@ -10,7 +10,7 @@ library, integer return codes (`FSIM_OK` = 0, negative = error, text in
 `fsim_last_error()`), no exceptions, no C++ types. Struct layouts only grow
 within a major ABI version (`fsim_abi_version()`).
 
-`examples/rust_trainer` is a complete Rust client (no bindgen): `src/ffi.rs` mirrors the structs, `src/main.rs` runs the object model and a VecEnv batch.
+`examples/training/rust_trainer` is a complete Rust client (no bindgen): `src/ffi.rs` mirrors the structs, `src/main.rs` runs the object model and a VecEnv batch.
 
 The equipment report additions (1.75) append report kinds 8-11 and the sized/bounded
 `fsim_agent_strike_report_get` and `fsim_agent_consent_report_get` value reads. Existing report kinds 0-7, structs,
@@ -150,5 +150,5 @@ Behaviour parameters and effect parameters are passed as parallel name/value
 arrays (`const char* const* names, const double* values, uint32_t count`),
 routes as an array of `fsim_position_command`.
 
-`tests/test_c_abi.c` exercises the whole surface from a C99 translation unit
+`tests/compatibility/test_c_abi.c` exercises the whole surface from a C99 translation unit
 and doubles as a reference.

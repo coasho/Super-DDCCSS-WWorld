@@ -90,7 +90,7 @@ if(EXISTS "${_prefix}/bin/libfsim_vision.dll")
 endif()
 file(WRITE "${_work}/runtime-data.sha256" "${_manifest}")
 
-set(_configure "${CMAKE_COMMAND}" -S "${SOURCE_DIR}/tests/package_consumer" -B "${_consumer_build}"
+set(_configure "${CMAKE_COMMAND}" -S "${SOURCE_DIR}/tests/compatibility/package_consumer" -B "${_consumer_build}"
     -G "${GENERATOR}" "-DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_FILE}" "-DFSIM_UCRT64_ROOT=${UCRT64_ROOT}"
     "-Dfsim_DIR=${_prefix}/lib/cmake/fsim" "-DCMAKE_PREFIX_PATH=${_prefix}"
     -DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF -DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF

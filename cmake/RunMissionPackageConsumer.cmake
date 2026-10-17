@@ -110,7 +110,7 @@ list(LENGTH _runtime_files _runtime_count)
 file(WRITE "${_work}/runtime-data.sha256" "${_runtime_inventory}")
 file(WRITE "${_work}/provenance.sha256" "${_manifest}")
 
-set(_configure "${CMAKE_COMMAND}" -S "${SOURCE_DIR}/tests/mission_package_consumer" -B "${_consumer_build}"
+set(_configure "${CMAKE_COMMAND}" -S "${SOURCE_DIR}/tests/compatibility/mission_package_consumer" -B "${_consumer_build}"
     -G "${GENERATOR}" "-DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_FILE}" "-DFSIM_UCRT64_ROOT=${UCRT64_ROOT}"
     "-Dfsim_DIR=${_prefix}/lib/cmake/fsim" "-DCMAKE_PREFIX_PATH=${_prefix}"
     -DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF -DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF
@@ -133,11 +133,11 @@ if(NOT _source_include EQUAL -1 OR NOT _installed_include)
 endif()
 
 set(_env "FSIM_AIRCRAFT_PATH=${_data}/aircraft;${_data}/aircraft/stores")
-# The joint chains (M8; tests/fixtures/mission_training/joint, tools/ma_contract/joint_chain.py), copied out of the source
+# The joint chains (M8; tests/training/fixtures/mission_training/joint, tools/validation/ma_contract/joint_chain.py), copied out of the source
 # tree: every consumer replays each one and writes its trace, compared below byte for byte.
 set(_chains joint lossy)
 file(REMOVE_RECURSE "${_work}/joint")
-file(COPY "${SOURCE_DIR}/tests/fixtures/mission_training/joint" DESTINATION "${_work}")
+file(COPY "${SOURCE_DIR}/tests/training/fixtures/mission_training/joint" DESTINATION "${_work}")
 foreach(_language cpp c)
     set(_chain_args)
     foreach(_chain IN LISTS _chains)
@@ -157,7 +157,7 @@ foreach(_language cpp c)
 endforeach()
 # The installed Python package alone: its own library and data, no development tree on any path. The script is copied
 # out of the source tree first, so its directory (the interpreter's first path entry) is this gate's own.
-file(COPY_FILE "${SOURCE_DIR}/tests/mission_package_consumer/ma_python.py" "${_work}/ma_python.py")
+file(COPY_FILE "${SOURCE_DIR}/tests/compatibility/mission_package_consumer/ma_python.py" "${_work}/ma_python.py")
 # Its aircraft and stores are the installed package's: a development library's source aircraft directory would
 # otherwise come first (src/foundation/io/AssetResolver.cpp). The isolated actor's process inherits the same environment.
 set(_python_aircraft "${_python_prefix}/fsim/share/flightsim/aircraft")
@@ -244,11 +244,11 @@ foreach(_file IN LISTS _runtime_files)
 endforeach()
 message(STATUS "installed data: ${_runtime_count} files of the expected runtime inventory in both packages, byte for byte; "
                "probes ${_probe_results}; restored")
-# The composition example (examples/python/ma_composition; M6) on the installed package alone, copied out of the source
+# The composition example (examples/training/ma_composition; M6) on the installed package alone, copied out of the source
 # tree: run twice, its traces byte-identical, its package and library the installed ones; and its MA system under the
 # installed training adapter (fsim.training; M7 core) through "same_step" and "next_step" autoreset, each generation's
 # trace the same as the example's own direct run.
-file(COPY "${SOURCE_DIR}/examples/python/ma_composition" DESTINATION "${_work}" PATTERN "__pycache__" EXCLUDE)
+file(COPY "${SOURCE_DIR}/examples/training/ma_composition" DESTINATION "${_work}" PATTERN "__pycache__" EXCLUDE)
 foreach(_run 1 2)
     execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=FSIM_DLL_DIR --unset=PYTHONHOME "${_python_env}"
             "PYTHONPATH=${_python_prefix}" "PATH=$ENV{SystemRoot}/System32;$ENV{SystemRoot}"

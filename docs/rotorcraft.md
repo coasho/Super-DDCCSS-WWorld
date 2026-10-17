@@ -45,7 +45,7 @@ assumptions sat at its edges.
 | the vehicle default's hold | keeps a heading with the roll, a height with the pitch, an airspeed with the thrust | a rotorcraft keeps its heading with the yaw, its height with the thrust, its velocity over the ground with the cyclic |
 | envelope protection | the wing's limits (alpha, load factor at speed) | nothing wingborne to protect in a hover |
 | behaviours | `hold` keeps an airspeed | no hover |
-| hangar (`tools/hangar`) | aerodynamics from lifting surfaces, fixed-wing flight tests, models whose smallest cell is 2 mm and whose joints are blended over 2-3 cm | no rotorcraft can be built or tested; a 9 cm quadrotor cannot be meshed |
+| hangar (`tools/models/hangar`) | aerodynamics from lifting surfaces, fixed-wing flight tests, models whose smallest cell is 2 mm and whose joints are blended over 2-3 cm | no rotorcraft can be built or tested; a 9 cm quadrotor cannot be meshed |
 | the viewer | a chase camera no nearer than 6 m, a near plane at 0.36 m; propellers turned at the engine's rpm | a 9 cm aircraft is a speck; a rotor's rpm is not an engine's |
 | C ABI (`include/fsim/fsim_c.h`) | command structs without a size field | new fields need new functions (C3) |
 
@@ -320,7 +320,7 @@ level's pseudo-controls are still rates and a load factor.
 
 ### 3.7 hangar
 
-A rotorcraft pipeline beside the fixed-wing one (`tools/hangar/hangar/rotorcraft`,
+A rotorcraft pipeline beside the fixed-wing one (`tools/models/hangar/hangar/rotorcraft`,
 [hangar.md](hangar.md#rotorcraft)): `build` writes the JSBSim aircraft and its
 profile, `model` the viewer's model, `fly` flies it in the platform's own
 JSBSim - the hover's trim, the published trims, step responses, and the
@@ -468,7 +468,7 @@ All within the tolerances except the collective at 140 kt, 0.02 in outside
 
 ### 6.4 Flown through the platform
 
-- **The rotorcraft manoeuvre suite** (`tests/test_rotorcraft.cpp`, in the
+- **The rotorcraft manoeuvre suite** (`tests/simulation/test_rotorcraft.cpp`, in the
   conformance label): each aircraft, ten vehicles at once, hovers 20 s from its
   hover's attitude, then a hover hold, a climb, a 90 deg heading step, a
   velocity step, a roll-rate step, a position capture with a heading, the
@@ -843,7 +843,7 @@ Considered: EASA TCDS R.011 (Bo 105); FlightGear FGAddon `UH-1` and `UH-60`; JSB
     position by Adams-Bashforth 3), and the body rates and attitude with
     forward Euler. Standing together, a set of contacts moves the airframe
     in three modes, heave, roll and pitch. Worked out as one JSBSim step of
-    those modes (the test in `tools/hangar/tests/test_methods.py`), the old
+    those modes (the test in `tools/models/hangar/tests/test_methods.py`), the old
     contacts grew a disturbance each step:
     - the Crazyflie's feet by 1.21 a step: their heave at ω·dt = 0.79,
       damped at 0.94, beyond Adams-Bashforth 2's stable range. Its tops,

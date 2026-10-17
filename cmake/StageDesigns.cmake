@@ -1,6 +1,6 @@
 # cmake -DSRC=<repo>/aircraft -DDEST=<share/flightsim/aircraft> -P StageDesigns.cmake
 #
-# Copies what tools/hangar builds for each design - aircraft/<name>/<name>.xml,
+# Copies what tools/models/hangar builds for each design - aircraft/<name>/<name>.xml,
 # its Engines/ and the <name>.glb model with its manifest - and its payload fit
 # (payloads.json, ADR-30), radar cross section (rcs.bin, MS-3), and damage data
 # (<name>.damage.json and pieces/, MS-7g) to DEST/<name>

@@ -137,8 +137,8 @@ if(FSIM_BUILD_TESTS)
     # unittest discovery it replaces was. Mission-training modules also carry ma-training; the contention module, stress.
     # Each module has an output folder of its own. The build checks the glob again (CONFIGURE_DEPENDS), so adding or
     # removing a test module reconfigures; the stress module's methods are read from its text, so its edits do too.
-    file(GLOB _fsim_py_test_modules CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_*.py)
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_mission_concurrency.py)
+    file(GLOB _fsim_py_test_modules CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/tests/compatibility/python/test_*.py)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/tests/compatibility/python/test_mission_concurrency.py)
     foreach(_fsim_py_test_file ${_fsim_py_test_modules})
         get_filename_component(_fsim_py_test_module ${_fsim_py_test_file} NAME_WE)
         set(_fsim_py_test_labels python_sdk)
@@ -162,7 +162,7 @@ if(FSIM_BUILD_TESTS)
         foreach(_fsim_py_test_target ${_fsim_py_test_targets})
             set(_fsim_py_test "python_sdk ${_fsim_py_test_target}")
             add_test(NAME "${_fsim_py_test}" COMMAND "${FSIM_PYTHON}" -B -m unittest ${_fsim_py_test_target}
-                     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/compatibility/python)
             set(_fsim_py_test_env "PYTHONPATH=${FSIM_PY_STAGE}" "FSIM_TEST_OUTPUT=${CMAKE_BINARY_DIR}/python-test/${_fsim_py_test_target}")
             if(TARGET climb_task)  # the C++ plugin example: test_plugin.py trains nothing, but loads and checks it
                 list(APPEND _fsim_py_test_env "FSIM_TEST_PLUGIN=$<TARGET_FILE:climb_task>")
@@ -180,13 +180,13 @@ if(FSIM_BUILD_TESTS)
     if(TARGET fsim_vision)
         list(APPEND _fsim_boundary_args --vision-dll $<TARGET_FILE:fsim_vision>)
     endif()
-    add_test(NAME sdk_boundary COMMAND "${FSIM_PYTHON}" ${CMAKE_SOURCE_DIR}/tools/boundary/boundary.py check
+    add_test(NAME sdk_boundary COMMAND "${FSIM_PYTHON}" ${CMAKE_SOURCE_DIR}/tools/validation/boundary/boundary.py check
              ${_fsim_boundary_args})
     set_tests_properties(sdk_boundary PROPERTIES TIMEOUT 120)
-    # The MA-training compatibility comparison's own refusals (tools/ma_contract/baseline.py compare; M8): each Python
+    # The MA-training compatibility comparison's own refusals (tools/validation/ma_contract/baseline.py compare; M8): each Python
     # description held to its contract, and every artifact of a selected build required and captured afresh - against
     # this build's real binaries and deliberately incomplete copies of them; the frozen baseline is not touched.
-    add_test(NAME ma_baseline_checker COMMAND "${FSIM_PYTHON}" -B ${CMAKE_SOURCE_DIR}/tools/ma_contract/test_baseline.py
+    add_test(NAME ma_baseline_checker COMMAND "${FSIM_PYTHON}" -B ${CMAKE_SOURCE_DIR}/tools/validation/ma_contract/test_baseline.py
              --build ${CMAKE_BINARY_DIR} --ucrt64 "${FSIM_UCRT64_ROOT}")
     set_tests_properties(ma_baseline_checker PROPERTIES LABELS ma-training TIMEOUT 900)
     # hangar, the aircraft design tool: its methods against theory and
@@ -194,7 +194,7 @@ if(FSIM_BUILD_TESTS)
     # test per test class, so ctest -j runs them side by side, each with an
     # output folder of its own (the classes found here: CMake looks again when
     # a test file changes)
-    file(GLOB _hangar_modules ${CMAKE_SOURCE_DIR}/tools/hangar/tests/test_*.py)
+    file(GLOB _hangar_modules ${CMAKE_SOURCE_DIR}/tools/models/hangar/tests/test_*.py)
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_hangar_modules})
     foreach(_hangar_file ${_hangar_modules})
         get_filename_component(_hangar_module ${_hangar_file} NAME_WE)
@@ -203,7 +203,7 @@ if(FSIM_BUILD_TESTS)
             string(REGEX REPLACE "^class ([A-Za-z0-9_]+)\\(.*" "\\1" _hangar_class "${_hangar_line}")
             set(_hangar_test "hangar ${_hangar_module}.${_hangar_class}")
             add_test(NAME "${_hangar_test}" COMMAND "${FSIM_PYTHON}" -m unittest "tests.${_hangar_module}.${_hangar_class}"
-                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tools/hangar)
+                     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tools/models/hangar)
             # (the timeout catches a hang: test_methods.Model3D takes ~110 s alone but ~870 s on CI's 4-core runner
             # among 16 tests at once, so 900 s timed it out; a native crash prints the Python stack it died in -
             # CI's intermittent segfaults printed one, in numpy, but faulted in a thread with no Python in it: not

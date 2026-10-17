@@ -65,7 +65,7 @@ public:
     };
 
     /// A vulnerable component as hangar places it (the manifest's `component <kind> <box|cylinder> <section> <x y z>
-    /// <half x y z> <name>`: tools/hangar/hangar/vulnerability.py): an engine, a fuel tank, the crew or a control's
+    /// <half x y z> <name>`: tools/models/hangar/hangar/vulnerability.py): an engine, a fuel tank, the crew or a control's
     /// actuator - what MS-7g's kill takes the presented areas of and where MS-7h draws a failed one's fire. A box in
     /// body axes (a cylinder's along x, its half y and z its radius), on the breakup section it parts with.
     struct Component {
@@ -74,7 +74,7 @@ public:
     };
 
     /// A chaff and flare dispenser as hangar places it (the manifest's `dispenser <section> <x y z> <direction x y z>
-    /// <name>`: tools/hangar/hangar/dispensers.py): where on the skin its cartridges leave and the way they go (a unit
+    /// <name>`: tools/models/hangar/hangar/dispensers.py): where on the skin its cartridges leave and the way they go (a unit
     /// vector, body axes), on the breakup section it is on - what MS-9a's chaff and MS-7h's bundles start from.
     struct Dispenser {
         std::string section, name;

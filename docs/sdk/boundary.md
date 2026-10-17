@@ -1,10 +1,10 @@
 # The SDK's principals
 
-<!-- Written by tools/boundary/boundary.py render from boundary.toml; edit that file, not this one. -->
+<!-- Written by tools/validation/boundary/boundary.py render from boundary.toml; edit that file, not this one. -->
 
 Every entry point of the SDK - the C++ classes and functions and the C functions the DLLs export, the Python
 SDK's functions and members - belongs to one principal of [ADR-31](../agent-boundary.md). The table below is
-read from the DLLs and the Python package themselves (`tools/boundary/boundary.py`), so it cannot leave one out:
+read from the DLLs and the Python package themselves (`tools/validation/boundary/boundary.py`), so it cannot leave one out:
 ctest's `sdk_boundary` fails on an entry point no rule classifies, and on this page when it is out of date.
 
 An agent holds its own objects - fsim::Agent, fsim.Agent, an agent's C handle ([agents.md](agents.md)) - never

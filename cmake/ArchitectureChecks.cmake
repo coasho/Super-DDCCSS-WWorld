@@ -26,25 +26,25 @@ add_test(NAME architecture_boundary
 add_test(NAME architecture_checker
     COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/architecture/test_check.py")
 add_test(NAME sdk_guard_checker
-    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/boundary/test_boundary.py")
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/boundary/test_boundary.py")
 set_tests_properties(architecture_boundary architecture_checker sdk_guard_checker
     PROPERTIES LABELS architecture TIMEOUT 120)
 # The mission-training contract (docs/sdk/mission-training.md): its schema's dialect, its fixtures and its pages, and
 # the checker's own refusals. They hold the contract's documents to the contract; no SDK binary is loaded.
 add_test(NAME ma_contract
-    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/ma_contract/check.py" --repo "${CMAKE_SOURCE_DIR}")
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/ma_contract/check.py" --repo "${CMAKE_SOURCE_DIR}")
 add_test(NAME ma_contract_checker
-    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/ma_contract/test_check.py")
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/ma_contract/test_check.py")
 set_tests_properties(ma_contract ma_contract_checker PROPERTIES LABELS ma-training TIMEOUT 120)
-# Change-scoped test selection (tools/testing; docs/development.md, "Change-scoped testing"): the selector's rules
+# Change-scoped test selection (tools/validation/testing; docs/development.md, "Change-scoped testing"): the selector's rules
 # against synthetic inventories, and its rules file against the repository and this build's own CTest inventory.
 add_test(NAME testing_scope_checker
-    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/testing/test_scope.py" --test-dir "${CMAKE_BINARY_DIR}"
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/testing/test_scope.py" --test-dir "${CMAKE_BINARY_DIR}"
             --ctest "${CMAKE_CTEST_COMMAND}")
 set_tests_properties(testing_scope_checker PROPERTIES LABELS testing TIMEOUT 120)
 # Separate versioned extension contracts; these checks do not execute SDK handlers.
 add_test(NAME ma_engagement_contract
-    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/ma_engagement/check.py" --repo "${CMAKE_SOURCE_DIR}")
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/ma_engagement/check.py" --repo "${CMAKE_SOURCE_DIR}")
 add_test(NAME ma_engagement_checker
-    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/ma_engagement/test_check.py")
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/ma_engagement/test_check.py")
 set_tests_properties(ma_engagement_contract ma_engagement_checker PROPERTIES LABELS ma-training TIMEOUT 120)

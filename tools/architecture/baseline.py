@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import check  # noqa: E402
 
 SCHEMA = "fsim.architecture.baseline.v1"
-SCOPE = ["src", "include/fsim", "python/fsim", "python/CMakeLists.txt", "cmake", "tools/architecture"]
+SCOPE = ["src", "include/fsim", "python/fsim", "python/CMakeLists.txt", "cmake", "tests", "examples", "tools"]
 
 
 def sha256(path):
@@ -245,6 +245,12 @@ def record(repo, policy_path, date):
             "eager_closure_of_package": python["eager_closure"],
             "dynamic_imports": python["dynamic_imports"],
             "legacy_backedges": policy["python"]["exceptions"],
+        },
+        "layout": {
+            "roots": policy["layout"]["roots"],
+            "files": facts["layout"]["files"],
+            "exceptions": policy["layout"]["exceptions"],
+            "exceptions_applied": facts["layout"]["exceptions_applied"],
         },
         "package_outputs": package_outputs(repo, facts),
         "digests": {

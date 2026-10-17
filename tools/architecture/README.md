@@ -47,7 +47,8 @@ resolver or a security sandbox; M5 must still verify that public actor endpoints
 cannot return a public World/Range/referee handle or bypass Agent permissions.
 
 Source walks are limited to the explicit `src`, `include/fsim` and `third_party`
-roots and prune excluded private directories before descending into them.
+roots, and the layout's `tests`, `examples` and `tools` roots. They prune excluded
+private directories before descending into them.
 
 Directory ownership includes private helper headers that CMake does not list as
 build inputs. Explicit file ownership could take precedence in a shared legacy
@@ -146,9 +147,9 @@ targets fails as `duplicate-source`.
 
 Each module lists its current (legacy, flat) `directories` and its future
 `destinations` inside its domain root. Planned modules that have no target yet
-(`contracts`, `simulation_api`, `modeled_dms`, `mission`, `vision_core`, the
-Python and Vision extension adapters, `oms`, `demo`, `training_vision`,
-`testbench`) reserve their destinations. Ownership resolves as follows:
+(now `oms` and `training_vision`) reserve their destinations. The Python
+testbench, in `src/applications/testbench` since ARCH-08, has no native target
+and no reservation. Ownership resolves as follows:
 
 - an exact file entry wins first, then the longest claimed directory prefix. An
   exact entry keeps a legacy shared directory (as Flow's in `src/world` and the
@@ -283,8 +284,8 @@ layout or byte changed with the owner. Contracts include only the standard
 library and public contract headers, and link nothing.
 
 The transport (`ipc`) links the contracts, core and platform, and no
-simulation module: the `ipc -> sim` exception is gone. `tests/test_contracts.cpp`
-builds against `fsim::contracts` alone. `tests/test_state_layout.cpp` holds every
+simulation module: the `ipc -> sim` exception is gone. `tests/contracts/test_contracts.cpp`
+builds against `fsim::contracts` alone. `tests/contracts/test_state_layout.cpp` holds every
 frozen offset, stride and old-recording read, plus the writer's framing and
 fields at literal offsets.
 
@@ -407,3 +408,27 @@ its rule.
 
 The include-view probe check searches vendor and imported roots as system roots
 and leaves the compiler's implicit directories to it, as the build does.
+
+## Applications, tests, examples and tools (ARCH-08)
+
+The applications are in `src/applications`: `headless` (`flightsim`), `viewer`,
+`demo` (`flightsim-demo`) and the Python `testbench`, which has no native target
+and no reservation. The Viewer no longer links the demo. `flightsim-viewer --demo`
+launches the demo publisher `flightsim-demo`, attaches to its world read-only and
+drives pause, single step and time factor through the demo control block
+(`contracts/world_stream/DemoControl.h`). The `viewer -> demo` exception is gone,
+and the policy lists no exception. The Viewer takes its control-level names from
+the world-stream contract (`controlLevelName`), not the control module;
+`include_view_viewer` probes its view.
+
+Tests, examples and tools are held to their categories (the policy's `layout`):
+- `tests`: `contracts`, `simulation`, `training`, `visualization`,
+  `compatibility`, `integration`;
+- `examples`: `simulation`, `training`, `visualization`;
+- `tools`: `architecture`, `models`, `data`, `validation`.
+
+A root keeps only its own `CMakeLists.txt`; any other file outside a category is
+`uncategorized`. A layout exception names one directory under a root and expires
+like the others. The only one is `tools/launch`, the launchers' implementation,
+until ARCH-10 (HC-25). Ignored `__pycache__` directories are skipped. The baseline
+records the layout and each category's file count; `LayoutFixtures` hold the rule.

@@ -87,7 +87,7 @@ Released IDs are correlations, not weapon telemetry. Weapon/seeker/support/miss-
 decoy positions, engagement events and on-rail target truth remain outside Agent access. These methods do not
 install the future mission gateway handlers.
 
-`examples/python/ma_equipment.py` demonstrates a configured service, current inventory metadata and one native
+`examples/training/python/ma_equipment.py` demonstrates a configured service, current inventory metadata and one native
 cartridge release through the public SDK, without exposing world weapon or decoy truth.
 
 ## Modeling assumptions
@@ -125,7 +125,7 @@ presets with warnings as errors, CPython 3.13 and temporary directories under `D
 | Frozen consumers on the new installed SDK | All five passed: old C++ and C99 binaries and the three old Python Agent/link/C2 consumers. The 66 baseline artifacts were unchanged. |
 | Public ABI metadata against M0 | All 267 existing C++ types, 120 C records, 107 C++ enums, 81 C enums and 50 public vtables retained their layouts, existing values and slots. No old export was removed; current headless/Release core exports match. |
 | Protected runtime inputs | All 2,357 recorded aircraft/model/card/control inputs retained their SHA-256 hashes. |
-| Installed public example | `examples/python/ma_equipment.py` passed against the installed Python package. |
+| Installed public example | `examples/training/python/ma_equipment.py` passed against the installed Python package. |
 
 The scenarios exercise off-payload refusal, native shared cooldown, own/foreign/lapsed designation boundaries,
 Range-target redaction, repeatable reads, caller-sized C outputs, native lost-store naming and configured ingress ownership. Approval is sent

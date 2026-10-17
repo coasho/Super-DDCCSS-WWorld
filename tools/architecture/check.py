@@ -10,7 +10,8 @@ final assembly, application). Their direction rules hold on links and on include
 of another module's header; the policy's few legacy exceptions are exact and
 expire. Source ownership extends to the destination directories of the staged
 migration (longest prefix wins; planned owners reserve theirs), and the Python
-package's imports are checked by python_imports.py.
+package's imports are checked by python_imports.py. Tests, examples and tools
+are held to their categories (the policy's layout).
 """
 
 from __future__ import annotations
@@ -141,7 +142,10 @@ MODULE_KEYS = {"target", "aliases", "domain", "kind", "directories", "destinatio
 PLANNED_KEYS = {"domain", "kind", "destinations", "phase"}
 EXCEPTION_KEYS = {"from", "to", "rule", "until", "reason"}
 POLICY_KEYS = {"schema", "domains", "modules", "planned_modules", "exceptions", "public_headers", "public_exceptions",
-               "external_targets", "python"}
+               "external_targets", "python", "layout"}
+LAYOUT_KEYS = {"roots", "root_files", "exceptions"}
+LAYOUT_EXCEPTION_KEYS = {"path", "until", "reason"}
+LAYOUT_NAME = re.compile(r"[a-z][a-z0-9_]*")
 PUBLIC_KINDS = {"value", "interface", "facade", "c_abi"}
 PUBLIC_KEYS = {"domain", "kind"}
 PUBLIC_EXCEPTION_KEYS = {"from", "to", "until", "reason"}
@@ -262,6 +266,21 @@ def validate_policy(policy):
             raise ValueError(f"public exception {entry}: keys {sorted(PUBLIC_EXCEPTION_KEYS)}, a classified header and a later phase")
         if entry["from"] not in modules and entry["from"] not in policy["public_headers"]:
             raise ValueError(f"public exception from unknown module or header {entry['from']}")
+    layout = policy["layout"]
+    if set(layout) != LAYOUT_KEYS:
+        raise ValueError(f"layout: keys must be {sorted(LAYOUT_KEYS)}; got {sorted(layout)}")
+    for root, categories in layout["roots"].items():
+        if not LAYOUT_NAME.fullmatch(root) or root in {"src", "include", "python"} or not categories \
+                or not all(LAYOUT_NAME.fullmatch(category) for category in categories) or len(set(categories)) != len(categories):
+            raise ValueError(f"layout root {root}: a top-level directory outside the source roots, with distinct category names")
+    if not all(name and "/" not in name and "\\" not in name for name in layout["root_files"]):
+        raise ValueError(f"layout root_files: plain file names: {layout['root_files']}")
+    for entry in layout["exceptions"]:
+        if set(entry) != LAYOUT_EXCEPTION_KEYS or not PHASE.fullmatch(entry["until"]) or not entry["reason"]:
+            raise ValueError(f"layout exception {entry}: keys {sorted(LAYOUT_EXCEPTION_KEYS)}, a later phase and a reason")
+        parts = entry["path"].split("/")
+        if len(parts) != 2 or parts[0] not in layout["roots"] or parts[1] in layout["roots"][parts[0]]:
+            raise ValueError(f"layout exception {entry['path']}: one directory directly under a layout root, not a category")
     return domains, modules, planned
 
 
@@ -685,6 +704,29 @@ def analyze(repo, policy):
             issue("stale-exception", "policy", f"public {entry['from']} -> {entry['to']} (until {entry['until']}): "
                   + ("the include no longer exists" if gone else "the include breaks no rule") + "; remove the exception")
 
+    # tests, examples and tools by category (directory-layout.md, rule 7): beside its root's own files, a file outside
+    # the root's categories fails; a layout exception names one directory and expires (ignored __pycache__ aside)
+    layout = policy["layout"]
+    layout_exceptions = {fold(entry["path"]): entry for entry in layout["exceptions"]}
+    layout_used, layout_files = set(), {}
+    for root, categories in sorted(layout["roots"].items()):
+        allowed = {fold(f"{root}/{category}"): f"{root}/{category}" for category in categories}
+        for path in sorted(files_under(repo / root)):
+            relative = path.relative_to(repo).as_posix()
+            parts = relative.split("/")
+            if "__pycache__" in parts or len(parts) == 2 and parts[1] in layout["root_files"]:
+                continue
+            top = fold("/".join(parts[:2]))
+            if len(parts) > 2 and top in allowed:
+                layout_files[allowed[top]] = layout_files.get(allowed[top], 0) + 1
+            elif len(parts) > 2 and top in layout_exceptions:
+                layout_used.add(top)
+            else:
+                issue("uncategorized", relative, f"outside the {root} categories ({', '.join(categories)}); move it into one")
+    for key, entry in sorted(layout_exceptions.items()):
+        if key not in layout_used:
+            issue("stale-exception", "policy", f"layout {entry['path']} (until {entry['until']}): no file is there; remove the exception")
+
     python_issues, python_facts = python_imports.check(repo, policy["python"])
     issues.extend(python_issues)
     facts = {
@@ -700,6 +742,8 @@ def analyze(repo, policy):
         "public_exceptions_applied": sorted(f"{c} -> {h}" for c, h in public_used),
         "public_includes": {f"{c} -> {h}": at for (c, h), at in sorted(public_edges.items())},
         "python": python_facts,
+        "layout": {"files": dict(sorted(layout_files.items())),
+                   "exceptions_applied": sorted(layout_exceptions[key]["path"] for key in layout_used)},
     }
     return sorted(set(issues)), facts
 
@@ -727,6 +771,9 @@ def main():
           f"{', '.join(facts['public_exceptions_applied']) or 'none'}.")
     print(f"Python: {len(python['modules'])} modules (extensions as leaves), {len(python['edges'])} literal imports; "
           f"legacy deferred cycles set aside: {len(python['cycles_all'])}; eager cycles: {len(python['cycles_eager'])}.")
+    layout = facts["layout"]
+    print(f"Layout: {sum(layout['files'].values())} files in {len(layout['files'])} test/example/tool categories; "
+          f"layout exceptions in use: {', '.join(layout['exceptions_applied']) or 'none'}.")
     return 0
 
 

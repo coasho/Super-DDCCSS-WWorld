@@ -3,7 +3,7 @@
 Written by `python -m hangar effects --record docs/hangar-effects.md` from the designs, their models' nodes and
 their manifests ([viewer.md](sdk/viewer.md#effects)): what the viewer has to draw each vehicle's and each payload's
 moving parts, plumes and trails from. The simulation supplies the state; this audit checks model anchors and
-manifest data, not rendered appearance or flight behavior. `tools/hangar/tests/test_effects.py` checks the
+manifest data, not rendered appearance or flight behavior. `tools/models/hangar/tests/test_effects.py` checks the
 current rules' `missing` lists.
 
 **Current audit exclusions.** Rotorcraft without exhaust anchors are reported in `what it gives`, not counted

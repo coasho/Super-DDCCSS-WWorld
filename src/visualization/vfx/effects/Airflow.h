@@ -42,7 +42,7 @@ namespace fsim::world {
 /// plume. The jets' ice is seen from about 0.15 s of age (an ATTAS's contrail 25-35 m behind its engines); through
 /// the vortex phase it is CoCiP's initial ice (initial_iwc) for the jets' size as drawn - their water spread over their
 /// growing section - rather than over the vortex's whole plume at once, which in air below ice saturation left none
-/// to see. tests/test_contrail_observed.cpp holds it against observed contrails. Fuel flow, which the state does not
+/// to see. tests/visualization/test_contrail_observed.cpp holds it against observed contrails. Fuel flow, which the state does not
 /// carry, is the thrust's power over the fuel's energy at pycontrails' engine efficiency. The world gives no wind
 /// profile: the shear is a typical upper-tropospheric 0.004 /s, its part across the track as the world's wind lies to
 /// it. The world's humidity is relative to water (WMO); none given, a typical day's (typicalHumidityOverIce: short

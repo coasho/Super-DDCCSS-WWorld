@@ -62,6 +62,8 @@ class FixtureRepository(unittest.TestCase):
                                             "fsim._training": ["fsim._contracts", "fsim._native"]},
                        "optional_modules": ["fsim.gym"], "optional_packages": ["gymnasium", "torch"],
                        "dynamic_imports": [], "exceptions": []},
+            "layout": {"roots": {"tests": ["simulation", "compatibility"], "tools": ["architecture", "models"]},
+                       "root_files": ["CMakeLists.txt"], "exceptions": []},
         }
         for name, (target, dependencies, headless, domain, destination) in targets.items():
             module = {
@@ -1055,6 +1057,49 @@ class DomainFixtures(FixtureRepository):
         self.assertEqual(status, 0, output)
         self.policy["python"]["exceptions"].append({"from": "fsim.a", "to": "fsim.b", "until": "ARCH-07", "reason": "between cycles"})
         self.rejects("python-exception", "legacy backedge fsim.a -> fsim.b no longer closes a cycle")
+
+
+class LayoutFixtures(FixtureRepository):
+    """Tests, examples and tools by category (directory-layout.md, rule 7; ARCH-08)."""
+
+    def test_categorized_files_root_files_an_excepted_directory_and_bytecode_are_accepted(self):
+        self.write("tests/CMakeLists.txt", "\n")
+        self.write("tests/simulation/test_a.cpp", "\n")
+        self.write("tests/compatibility/python/test_b.py", "\n")
+        self.write("tools/models/hangar/run.py", "\n")
+        self.write("tools/launch/fsim.ps1", "\n")
+        self.write("tools/ci/__pycache__/gone.cpython-313.pyc", "")
+        self.policy["layout"]["exceptions"] = [{"path": "tools/launch", "until": "ARCH-10", "reason": "fixture launcher"}]
+        status, output = self.run_gate()
+        self.assertEqual(status, 0, output)
+        self.assertIn("Layout: 3 files in 3 test/example/tool categories; layout exceptions in use: tools/launch.", output)
+
+    def test_a_test_beside_the_categories_is_rejected(self):
+        self.write("tests/test_loose.cpp", "\n")
+        self.rejects("uncategorized", "tests/test_loose.cpp: outside the tests categories (simulation, compatibility)")
+
+    def test_a_tool_in_an_undeclared_category_is_rejected(self):
+        self.write("tools/misc/script.py", "\n")
+        self.rejects("uncategorized", "tools/misc/script.py: outside the tools categories")
+
+    def test_a_layout_exception_with_no_file_is_stale(self):
+        self.policy["layout"]["exceptions"] = [{"path": "tools/launch", "until": "ARCH-10", "reason": "fixture launcher"}]
+        self.rejects("stale-exception", "layout tools/launch (until ARCH-10): no file is there")
+
+    def test_a_layout_exception_must_name_a_directory_outside_the_categories(self):
+        for path in ("tools/models", "tools/launch/fsim.ps1", "examples/launch"):
+            with self.subTest(path=path):
+                self.policy["layout"]["exceptions"] = [{"path": path, "until": "ARCH-10", "reason": "fixture"}]
+                status, output = self.run_gate()
+                self.assertEqual(status, 1, output)
+                self.assertIn("architecture input error", output)
+                self.assertIn("one directory directly under a layout root, not a category", output)
+
+    def test_the_layout_cannot_claim_a_source_root(self):
+        self.policy["layout"]["roots"]["src"] = ["tests"]
+        status, output = self.run_gate()
+        self.assertEqual(status, 1, output)
+        self.assertIn("layout root src: a top-level directory outside the source roots", output)
 
 
 class BaselineFixtures(FixtureRepository):

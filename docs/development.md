@@ -54,7 +54,7 @@ cmake --build build/deps-ucrt64
 .\fsim.cmd --preset ucrt64-release test
 ```
 
-It builds the checked-out vsg, vsgXchange and vsgImGui sequentially into `build/deps-ucrt64/install`, which the main presets put on `CMAKE_PREFIX_PATH`. The UCRT64 Vulkan headers/loader, glslang and the dependencies required by those upstream projects must be available. Consult each checked-out upstream README and its version support matrix before changing compiler, library or language-standard versions. Rendering also requires the bundled NVIDIA Flow headers and DLLs; [cmake/Flow.cmake](../cmake/Flow.cmake) rejects a renderer configure without them. An alternate built checkout can be selected with `FSIM_FLOW_DIR`; rebuilding Flow uses `tools/flow/build-flow.sh` and its pinned upstream version. Do not treat a render configure or a headless test as GPU validation.
+It builds the checked-out vsg, vsgXchange and vsgImGui sequentially into `build/deps-ucrt64/install`, which the main presets put on `CMAKE_PREFIX_PATH`. The UCRT64 Vulkan headers/loader, glslang and the dependencies required by those upstream projects must be available. Consult each checked-out upstream README and its version support matrix before changing compiler, library or language-standard versions. Rendering also requires the bundled NVIDIA Flow headers and DLLs; [cmake/Flow.cmake](../cmake/Flow.cmake) rejects a renderer configure without them. An alternate built checkout can be selected with `FSIM_FLOW_DIR`; rebuilding Flow uses `tools/data/flow/build-flow.sh` and its pinned upstream version. Do not treat a render configure or a headless test as GPU validation.
 
 ## Preset selection and launch
 
@@ -75,7 +75,7 @@ For CTest expressions containing shell operators such as `|`, invoke `ctest --pr
 cmake --install build/ucrt64-release --component viewer --prefix D:/ENV/fsim-viewer
 ```
 
-For direct staged Python use, `build/<preset>/python/fsim-python.cmd` selects that package; Hangar also needs `tools/hangar` on PYTHONPATH. See [hangar.md](hangar.md) for stages; resource regeneration is a separate task from writing documentation. `Testbench.cmd` uses the same preset selection: explicit arguments run synchronously and return the testbench exit code; a no-argument launch opens a minimized console. The headless preset opens the testbench window alone; a viewer requires a render preset. See [testbench setup](../testbench/README.md#how-to-open-it).
+For direct staged Python use, `build/<preset>/python/fsim-python.cmd` selects that package; Hangar also needs `tools/models/hangar` on PYTHONPATH. See [hangar.md](hangar.md) for stages; resource regeneration is a separate task from writing documentation. `Testbench.cmd` uses the same preset selection: explicit arguments run synchronously and return the testbench exit code; a no-argument launch opens a minimized console. The headless preset opens the testbench window alone; a viewer requires a render preset. See [testbench setup](../src/applications/testbench/README.md#how-to-open-it).
 
 The `dist` target builds enabled install targets and produces separate SDK, tools, examples, viewer (when enabled) and Python (when available) trees. The standalone SDK component includes DLLs, headers, CMake exports, runtime JSBSim data, designed aircraft/store models, payload/store cards and notices. Render SDKs also include optional vision model/cloud resources. Installation copies generated products rather than running Hangar. See [resources.md](resources.md#staging-and-runtime-search) and the [installed-consumer guidance](sdk/README.md#building-against-the-sdk).
 
@@ -93,6 +93,18 @@ admission decisions. Viewer publication, reading and recording must remain outpu
 participate in complete World ownership/reset; a rendering or gateway convenience must not introduce shared mutable
 simulation state. Keep actor reports distinct from diagnostic IPC/referee truth.
 
+Tests, examples and tools are kept in categories, which the architecture gate's layout rule holds (ARCH-08):
+- **Tests:** `tests/contracts`, `simulation`, `training`, `visualization`, `compatibility` and `integration`.
+  `compatibility` holds the installed-package consumers, the C ABI, adapter-compatibility and launcher tests, and the
+  Python SDK's tests (`tests/compatibility/python`).
+- **Examples:** `examples/simulation`, `training` and `visualization`.
+- **Tools:** `tools/architecture`, `models` (Hangar, RCS, propellants), `data` (map, cloud and ocean generators, tile
+  prefetch, Flow assets) and `validation` (checks, cross-checks and benchmarks). `tools/launch` keeps the launchers'
+  implementation (a declared layout exception, HC-25).
+
+CTest names and labels, executable names and the flat `build/<preset>/examples` output are unchanged. Add a file to
+its category: a file beside them fails `architecture_boundary`.
+
 Use the existing layers in [tests/CMakeLists.txt](../tests/CMakeLists.txt) and [python/CMakeLists.txt](../python/CMakeLists.txt):
 
 | Layer | Existing entry point | What it establishes |
@@ -101,7 +113,7 @@ Use the existing layers in [tests/CMakeLists.txt](../tests/CMakeLists.txt) and [
 | Public C++ and C ABI | SDK cases and `c_abi` | Consumer contracts against the shared library |
 | Python and principals | `-L python_sdk` (a CTest test per module: `python_sdk test_world`, ...), `sdk_boundary` | Python behavior and classified exports |
 | Native architecture and scanner regressions | `.\fsim.cmd test -L architecture` | Module ownership/dependencies, public/private and GPU boundaries, principal scanner coverage and negative fixtures |
-| Mission-training contract | `ctest --preset ucrt64-headless -L ma-training --no-tests=error` | The [contract](sdk/mission-training.md)'s schema dialect, fixtures, page tables and local links ([check.py](../tools/ma_contract/check.py)); not evidence of any implemented mission interface |
+| Mission-training contract | `ctest --preset ucrt64-headless -L ma-training --no-tests=error` | The [contract](sdk/mission-training.md)'s schema dialect, fixtures, page tables and local links ([check.py](../tools/validation/ma_contract/check.py)); not evidence of any implemented mission interface |
 | Control conformance | `ctest --preset ucrt64-headless -L conformance` | Lifecycle, allocation gate and adapter checks |
 | Advertised fleet capabilities | `ctest --preset ucrt64-headless -L fleet` | Aircraft-specific acceptance cases; includes shards |
 | Hangar methods and pipeline | `ctest --preset ucrt64-headless -L hangar` | Theory/data comparisons and stage checks |
@@ -109,13 +121,13 @@ Use the existing layers in [tests/CMakeLists.txt](../tests/CMakeLists.txt) and [
 | Installed SDK package | `.\fsim.cmd --preset ucrt64-headless test -L package` | SDK-only install, installed DLL/data provenance and API load-rejection probes |
 | Renderer, RCS and cameras | Render preset cases; viewer screenshots/performance tools | Visual and GPU behavior on capable hardware |
 | Contention (stress) cases | `-L stress` | Calls from other threads meeting mission-batch transitions, hundreds of steps each; selected when concurrency code changes |
-| Change-scoped selection | `testing_scope_checker` (label `testing`) | The selector's rules, and `tools/testing/scopes.toml` against the repository and the build's inventory |
+| Change-scoped selection | `testing_scope_checker` (label `testing`) | The selector's rules, and `tools/validation/testing/scopes.toml` against the repository and the build's inventory |
 
 Choose the tier by the change, as the next section says. Record skips: camera tests may skip without a Vulkan device, and RCS tests may skip without ray queries. All native viewer acceptance runs must use `--fullscreen`, including screenshots, live/replay lifecycle checks and performance scenes. Confirm the captured dimensions against the display's full resolution, read the image and confirm the model used in logs. Vision/RCS render into offscreen GPU targets, and scene-graph tests have no native viewer window. The [viewer validation record](sdk/viewer-validation.md) identifies actual runtime evidence and exclusions. A historical green suite, a workflow file, or a current test listing is not a fresh pass. Check actual workflow-run evidence before claiming CI success.
 
-The `package_consumer` CTest gate installs only `sdk` into `build/<preset>/package-consumer/installed SDK`, builds the [external consumer](../tests/package_consumer/CMakeLists.txt) using only installed `fsim::sdk`, checks DLL locations and a SHA256 runtime-data manifest, then exercises stock `c172x`, custom `f16c`, its Mk 82 loadout and a released store. It poisons the installed stock, custom and released-store XML in turn; each probe must produce API rejection exit 42. The gate restores exact bytes before its final positive run and keeps its logs/manifest in the private package-consumer directory. Optional vision export checks do not open a GPU device.
+The `package_consumer` CTest gate installs only `sdk` into `build/<preset>/package-consumer/installed SDK`, builds the [external consumer](../tests/compatibility/package_consumer/CMakeLists.txt) using only installed `fsim::sdk`, checks DLL locations and a SHA256 runtime-data manifest, then exercises stock `c172x`, custom `f16c`, its Mk 82 loadout and a released store. It poisons the installed stock, custom and released-store XML in turn; each probe must produce API rejection exit 42. The gate restores exact bytes before its final positive run and keeps its logs/manifest in the private package-consumer directory. Optional vision export checks do not open a GPU device.
 
-The `mission_package_consumer` gate (label `ma-training`) installs `sdk` and `python` into prefixes of its own under `build/<preset>/mission-package-consumer`, checks the installed public headers, library and Python package against this tree and build byte for byte (`provenance.sha256`), builds the [C++ and C99 consumers](../tests/mission_package_consumer/CMakeLists.txt) against installed `fsim::sdk` alone, and runs them and the Python consumer with only the installed files on any path. Each checks where its `libfsim.dll` was loaded from, then exercises MA-service binding in both Agent creation orders and the legal reports.
+The `mission_package_consumer` gate (label `ma-training`) installs `sdk` and `python` into prefixes of its own under `build/<preset>/mission-package-consumer`, checks the installed public headers, library and Python package against this tree and build byte for byte (`provenance.sha256`), builds the [C++ and C99 consumers](../tests/compatibility/mission_package_consumer/CMakeLists.txt) against installed `fsim::sdk` alone, and runs them and the Python consumer with only the installed files on any path. Each checks where its `libfsim.dll` was loaded from, then exercises MA-service binding in both Agent creation orders and the legal reports.
 
 The `dist_components` gate builds tiny independent targets directly through `dist`, checks that an enabled example is compiled before installation, and removes obsolete executables/wheels when components are disabled. It checks the fixed `bin`, `lib` and `share/flightsim` package layout and protects cleanup outside the owned build's distribution tree. SDK CMake exports describe that actual layout and remain relocatable with the installation prefix.
 
@@ -159,13 +171,13 @@ this; take the tier its change needs:
 
 | Tier | When | Command | Wall time |
 | --- | --- | --- | --- |
-| Targeted | Every routine change, before each commit | `python tools/testing/scope.py` (the plan), then `--run` once the presets it names are built (`--build` builds them) | Measured: this correction's own selection (the selector, the comparator and the installed-consumer gate, after a build) 68 s. Estimated (lower bounds): documentation 5 s; `tests/test_ma_joint.cpp` 30 s; an MA gateway source 62 s; MA concurrency code, a shared Python test fixture or any `python/fsim` module (stress cases included) 303 s |
-| Integration | Before handing off a feature package; public-surface, packaging or installed-consumer changes | `python tools/testing/scope.py --tier integration --run` | Estimated: an MA gateway source, at least 383 s |
+| Targeted | Every routine change, before each commit | `python tools/validation/testing/scope.py` (the plan), then `--run` once the presets it names are built (`--build` builds them) | Measured: this correction's own selection (the selector, the comparator and the installed-consumer gate, after a build) 68 s. Estimated (lower bounds): documentation 5 s; `tests/training/test_ma_joint.cpp` 30 s; an MA gateway source 62 s; MA concurrency code, a shared Python test fixture or any `python/fsim` module (stress cases included) 303 s |
+| Integration | Before handing off a feature package; public-surface, packaging or installed-consumer changes | `python tools/validation/testing/scope.py --tier integration --run` | Estimated: an MA gateway source, at least 383 s |
 | Full | At a milestone handoff or acceptance; before a push; when `scope.py` escalates (shared simulation core, build system or test registration, native code no scope claims); when a targeted or integration failure is unexplained | `ctest --preset ucrt64-headless --no-tests=error` | 19 minutes |
 | Release and visual | Render, vision, viewer or public-surface changes; anything only the renderer builds plans `ucrt64-release` alone; release preparation; Viewer acceptance | `scope.py` runs Release where its plan says so; full: `ctest --preset ucrt64-release --no-tests=error` | |
 
-[tools/testing/scope.py](../tools/testing/scope.py) reads the working tree's changes (or `--paths`), the reviewed
-rules in [tools/testing/scopes.toml](../tools/testing/scopes.toml) and each preset's own CTest inventory. It selects the
+[tools/validation/testing/scope.py](../tools/validation/testing/scope.py) reads the working tree's changes (or `--paths`), the reviewed
+rules in [tools/validation/testing/scopes.toml](../tools/validation/testing/scopes.toml) and each preset's own CTest inventory. It selects the
 tests the matching scopes name, and beyond them the tests that depend on the changed file:
 
 - every CTest test built from a changed C/C++ test or example source, or from one including a changed local header
@@ -174,7 +186,7 @@ tests the matching scopes name, and beyond them the tests that depend on the cha
   source or script that names a changed data file;
 - every `python_sdk` test whose module imports the changed Python file, directly or through other modules, shared
   test fixtures (`test_mission_concurrency` imports `test_mission_training`'s) and the scripts it runs in another
-  process: the import closure of `python/tests` and `python/fsim`. `fsim/__init__.py` imports the package's modules,
+  process: the import closure of `tests/compatibility/python` and `python/fsim`. `fsim/__init__.py` imports the package's modules,
   so a change to any of them selects every module's test - the contention cases among them.
 
 It fails closed. A changed path nothing claims (no scope, no test source, command, reader or import), a selection that
@@ -207,7 +219,7 @@ reorder tests (the Python test modules are a `CONFIGURE_DEPENDS` glob) - and res
 inventory's `-I` numbers immediately before running. After the run it requires that exactly the selected tests ran
 (exit 4 otherwise). It prints the plan, an estimate and the exact command, and with `--run` runs at the preset's jobs
 with `--no-tests=error`, keeping the raw output in `build/<preset>/scope-logs` and recording each test's measured
-time ([tools/testing/timing.py](../tools/testing/timing.py); `timing.py report` shows where the time goes). The
+time ([tools/validation/testing/timing.py](../tools/validation/testing/timing.py); `timing.py report` shows where the time goes). The
 estimate is a lower bound from measured passing times: `RUN_SERIAL` tests are added one after another, the rest
 packed over the jobs by their `PROCESSORS`; load and CTest's ordering are not modelled. A failed or timed-out run
 never replaces a test's passing time. Tests labelled `stress` run in the targeted tier only when concurrency code
@@ -249,7 +261,7 @@ Report the checkout/commit, preset, command, environment, elapsed time, tested s
 Regenerate the canonical boundary page from the render build with both native DLLs and its Python package:
 
 ```powershell
-python tools/boundary/boundary.py render --fsim-dll build/ucrt64-release/bin/libfsim.dll --vision-dll build/ucrt64-release/bin/libfsim_vision.dll --python-path build/ucrt64-release/python
+python tools/validation/boundary/boundary.py render --fsim-dll build/ucrt64-release/bin/libfsim.dll --vision-dll build/ucrt64-release/bin/libfsim_vision.dll --python-path build/ucrt64-release/python
 ctest --preset ucrt64-release -R '^sdk_boundary$'
 ctest --preset ucrt64-headless -R '^sdk_boundary$'
 ```
