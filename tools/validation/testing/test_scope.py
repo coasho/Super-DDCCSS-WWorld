@@ -661,15 +661,105 @@ class RenderLifecycleTest(unittest.TestCase):
                 self.assertLessEqual({"terrain profile: the camera", "vision"}, set(report["presets"][scope.RELEASE]["selected"]))
 
     def test_a_mixed_change_plans_both_presets_and_a_headless_one_only_its_own(self):
+        # HC-19: the shared-core header escalates the headless suite it plans; ucrt64-release runs the renderer change's
+        # own selection (every renderer test with it), not its full suite
         status, report = self.select(["src/visualization/ui/MonitorGui.cpp", "src/simulation/flight/SimRunner.h"],
                                      {scope.HEADLESS: ("sdk_boundary", "flight core"),
-                                      scope.RELEASE: ("sdk_boundary", "flight core", "terrain profile: the camera", "vision")})
+                                      scope.RELEASE: ("sdk_boundary", "terrain profile: the camera", "vision")})
         self.assertEqual(status, 0, report["errors"])
         self.assertEqual(list(report["presets"]), [scope.HEADLESS, scope.RELEASE])
+        self.assertNotIn("flight core", report["presets"][scope.RELEASE]["selected"])
         self.calls = []
         status, report = self.select(["src/simulation/flight/SimRunner.h"], {scope.HEADLESS: ("sdk_boundary", "flight core")})
         self.assertEqual(status, 0, report["errors"])
         self.assertEqual(list(report["presets"]), [scope.HEADLESS])
+
+
+class PresetEscalationTest(unittest.TestCase):
+    """HC-19: an escalation applies to the presets its own path plans, so a shared-core change beside a renderer change
+    runs the headless suite and ucrt64-release's renderer selection, not both suites. HC-20: shared build inputs plan and
+    escalate both presets. The real rules over synthetic inventories; plans only, nothing runs."""
+
+    HEADLESS = synthetic(["sdk_boundary", "flight core", "vecenv", "testing_scope_checker"])
+    RELEASE = synthetic(["sdk_boundary", "flight core", "vecenv", "testing_scope_checker"]) + [
+        {"index": 5, "name": "terrain profile: the camera", "labels": ["render"], "command": ["x.exe"], "serial": False, "processors": 1},
+        {"index": 6, "name": "vision", "labels": ["render"], "command": ["x.exe"], "serial": False, "processors": 1},
+        {"index": 7, "name": "viewer_screenshot", "labels": ["render"], "command": ["x.exe"], "serial": False, "processors": 1}]
+    RENDER = {"sdk_boundary", "terrain profile: the camera", "vision", "viewer_screenshot"}
+    BUILD_INPUTS = ["CMakeLists.txt", "CMakePresets.json", "cmake/IncludeViews.cmake", "deps/CMakePresets.json",
+                    "third_party/jsbsim/CMakeLists.txt", "src/CMakeLists.txt", "src/simulation/CMakeLists.txt",
+                    "tests/CMakeLists.txt", "python/CMakeLists.txt"]
+
+    def plan(self, paths, evidence=None):
+        inventories = {scope.HEADLESS: self.HEADLESS, scope.RELEASE: self.RELEASE}
+        return scope.select(list(paths), scope.load_rules(), "targeted", 16, run=False, executables={}, dependents={},
+                            readers={}, discover=inventories.get, measured=lambda preset: {}, evidence=evidence)
+
+    def names(self, inventory):
+        return {t["name"] for t in inventory}
+
+    def test_a_shared_core_change_beside_a_renderer_change_escalates_only_the_headless_suite(self):
+        for core in ("src/simulation/runtime/world/World.cpp", "src/simulation/flight/SimRunner.h", "include/fsim/World.h"):
+            with self.subTest(core=core):
+                status, report = self.plan([core, "src/visualization/ui/MonitorGui.cpp"])
+                self.assertEqual(status, 0, report["errors"])
+                headless, release = report["presets"][scope.HEADLESS], report["presets"][scope.RELEASE]
+                self.assertEqual(set(headless["selected"]), self.names(self.HEADLESS))
+                self.assertEqual([r.split(" (")[0] for r in headless["plan"]["escalate"]], [core])
+                self.assertEqual(release["plan"]["escalate"], [])
+                self.assertEqual(set(release["selected"]), self.RENDER)  # (every renderer test, required coverage kept)
+
+    def test_the_shared_core_change_alone_plans_the_headless_suite_only(self):
+        status, report = self.plan(["src/simulation/runtime/world/World.cpp"])
+        self.assertEqual(status, 0, report["errors"])
+        self.assertEqual(list(report["presets"]), [scope.HEADLESS])
+        self.assertEqual(set(report["presets"][scope.HEADLESS]["selected"]), self.names(self.HEADLESS))
+
+    def test_shared_build_inputs_plan_and_escalate_both_presets(self):
+        for path in self.BUILD_INPUTS:
+            with self.subTest(path=path):
+                status, report = self.plan([path])
+                self.assertEqual(status, 0, report["errors"])
+                self.assertEqual(list(report["presets"]), [scope.HEADLESS, scope.RELEASE])
+                for preset, inventory in ((scope.HEADLESS, self.HEADLESS), (scope.RELEASE, self.RELEASE)):
+                    self.assertEqual(set(report["presets"][preset]["selected"]), self.names(inventory), preset)
+                    self.assertEqual(report["presets"][preset]["plan"]["escalate"], ["%s (build system)" % path])
+
+    def test_a_build_input_beside_a_renderer_change_escalates_both_suites(self):
+        status, report = self.plan(["CMakeLists.txt", "src/visualization/ui/MonitorGui.cpp"])
+        self.assertEqual(status, 0, report["errors"])
+        self.assertEqual(set(report["presets"][scope.RELEASE]["selected"]), self.names(self.RELEASE))
+        self.assertEqual(set(report["presets"][scope.HEADLESS]["selected"]), self.names(self.HEADLESS))
+
+    def test_a_build_script_a_test_scope_claims_is_neither_escalated_nor_planned_on_release(self):
+        status, report = self.plan(["cmake/RunPackageConsumer.cmake"])  # (the installed SDK package scope)
+        self.assertEqual(status, 3)  # (that scope's `package` label selects nothing in these inventories)
+        self.assertEqual(list(report["presets"]), [scope.HEADLESS])
+        self.assertEqual(report["presets"][scope.HEADLESS]["plan"]["escalate"], [])
+
+    def test_an_unclaimed_renderer_source_escalates_release_and_leaves_the_headless_selection_alone(self):
+        evidence = {"sources": {"tools/newtool/main.cpp"}, "directories": {"tools/newtool"}}
+        status, report = self.plan(["tools/newtool/main.cpp", "tools/validation/testing/scope.py"], evidence)
+        self.assertEqual(status, 0, report["errors"])  # (escalated on its own preset: claimed there, not 'unclaimed' here)
+        headless, release = report["presets"][scope.HEADLESS], report["presets"][scope.RELEASE]
+        self.assertEqual(headless["selected"], ["testing_scope_checker"])
+        self.assertEqual(headless["plan"]["escalate"], [])
+        self.assertEqual(release["plan"]["escalate"], ["tools/newtool/main.cpp (no scope claims it)"])
+        self.assertEqual(set(release["selected"]), self.names(self.RELEASE))
+
+    def test_the_full_tier_still_takes_every_planned_suite(self):
+        inventories = {scope.HEADLESS: self.HEADLESS, scope.RELEASE: self.RELEASE}
+        status, report = scope.select(["src/simulation/runtime/world/World.cpp", "src/visualization/ui/MonitorGui.cpp"],
+                                      scope.load_rules(), "full", 16, run=False, executables={}, dependents={}, readers={},
+                                      discover=inventories.get, measured=lambda preset: {}, evidence=None)
+        self.assertEqual(status, 0, report["errors"])
+        self.assertEqual(set(report["presets"][scope.RELEASE]["selected"]), self.names(self.RELEASE))
+
+    def test_the_report_names_each_presets_own_escalations(self):
+        status, report = self.plan(["src/simulation/runtime/world/World.cpp", "src/visualization/ui/MonitorGui.cpp"])
+        text = scope.show(report)
+        self.assertIn("escalates ucrt64-headless to the full suite: src/simulation/runtime/world/World.cpp", text)
+        self.assertNotIn("escalates ucrt64-release", text)
 
 
 class RequiredTestsTest(unittest.TestCase):

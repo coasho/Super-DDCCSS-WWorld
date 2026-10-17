@@ -112,11 +112,9 @@
     "roots": {
       "tests": ["contracts", "simulation", "training", "visualization", "compatibility", "integration"],
       "examples": ["simulation", "training", "visualization"],
-      "tools": ["architecture", "models", "data", "validation"]
+      "tools": ["architecture", "models", "data", "validation", "launch"]
     },
     "root_files": ["CMakeLists.txt"],
-    "exceptions": [
-      {"path": "tools/launch", "until": "ARCH-10", "reason": "The repository launcher's implementation keeps its path: fsim.cmd and Testbench.cmd run tools/launch/fsim.ps1, and the launcher contract copies that directory. The layout names no launch category; HC-25 decides between declaring one and moving it with its launcher contract"}
-    ]
+    "exceptions": []
   }
 }

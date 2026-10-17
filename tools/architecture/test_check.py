@@ -1218,5 +1218,29 @@ endif()
         self.assertTrue(any("undeclared-include" in issue for issue in record["checker"]["issues"]))
 
 
+class FinalPolicy(unittest.TestCase):
+    """The committed policy at the end of the architecture migration (ARCH-10): no exception of any kind is left, and
+    a planned reservation waits for a module plan's or a model program's package, never an architecture phase."""
+
+    def setUp(self):
+        self.policy = json.loads(CHECK.with_name("policy.json").read_text(encoding="utf-8"))
+
+    def test_no_exception_of_any_kind_remains(self):
+        self.assertEqual(self.policy["exceptions"], [])
+        self.assertEqual(self.policy["public_exceptions"], [])
+        self.assertEqual(self.policy["python"]["exceptions"], [])
+        self.assertEqual(self.policy["layout"]["exceptions"], [])
+
+    def test_the_launchers_implementation_is_a_tools_category(self):
+        # HC-25: fsim.cmd and Testbench.cmd run tools/launch/fsim.ps1; the layout declares the category rather than
+        # excepting the directory
+        self.assertIn("launch", self.policy["layout"]["roots"]["tools"])
+
+    def test_no_planned_module_waits_for_an_architecture_phase(self):
+        for name, module in self.policy["planned_modules"].items():
+            with self.subTest(module=name):
+                self.assertNotRegex(module["phase"], r"^ARCH-")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -12,10 +12,12 @@ the tests the matching scopes name (by label or name); every CTest test built fr
 whose command names a changed file; and every python_sdk test whose module imports - directly or through other
 modules, shared test fixtures and the scripts it runs included - a changed Python file (the import closure of
 tests/compatibility/python and python/fsim), and the hangar test of a changed hangar test module. A matched `full` scope - or a
-changed native source or build input no scope claims - escalates to the full suite of every preset it plans; a matched
-`release` scope adds ucrt64-release. A `render_only` scope's paths are built only with the renderer, so they plan
-ucrt64-release alone (ucrt64-headless only when another of their scopes - or another changed path - needs it); and any
-changed path the presets' compile databases show is compiled only in ucrt64-release (a source, or a file in a directory
+changed native source or build input no scope claims - escalates to the full suite of each preset that path plans by
+itself (HC-19: a shared-core change escalates ucrt64-headless, and a renderer change beside it adds ucrt64-release's own
+selection, not its full suite); a matched `release` scope adds ucrt64-release. A `render_only` scope's paths are built
+only with the renderer, so they plan ucrt64-release alone (ucrt64-headless only when another of their scopes - or
+another changed path - needs it); and any changed path the presets' compile databases show is compiled only in
+ucrt64-release (a source, or a file in a directory
 whose sources are), whatever claims it, plans ucrt64-release too - a renderer change never passes on the headless build
 alone, which does not compile it. Such a path, and any path a `release` scope selecting the `render` label claims (the
 shared Vision header, its Python wrapper, assets: headless keeps their coverage), needs renderer coverage: the
@@ -344,7 +346,8 @@ def renders(rule):
 
 
 def plan(paths, rules, tests, executables, tier="targeted", dependents=None, readers=None, evidence=None, preset=None):
-    """What `paths` need: {"scopes", "escalate" (reasons), "release" (reasons), "headless" (whether ucrt64-headless
+    """What `paths` need: {"scopes", "escalate" (the escalations that apply to `preset`, every one without it), "release"
+    (reasons), "headless" (whether ucrt64-headless
     builds any of them), "renderer" (the paths that need renderer tests), "build", "selected" (test names), "unmatched",
     "errors" ([{"reason", "paths", ...}]: an unclaimed path, a required Python test module with no CTest test registered,
     no renderer test where a renderer change needs one, a scope's required test missing from the preset, an empty
@@ -354,7 +357,8 @@ def plan(paths, rules, tests, executables, tier="targeted", dependents=None, rea
     test of that inventory, whatever the tier, and an inventory without one is an error: generic matches (sdk_boundary,
     Python Vision) supplement that coverage, never stand in for it."""
     dependents, readers = dependents or {}, readers or {}
-    selected, matched, escalate, release, unmatched, direct_all = set(), [], [], [], [], set()
+    selected, matched, release, unmatched, direct_all = set(), [], [], [], set()
+    escalating = []  # (reason, the presets its path plans by itself): it escalates those presets only (HC-19)
     required = {}  # tests/compatibility/python module -> the changed paths that need its tests (it exists: the import closure holds it)
     build = False
     headless = not paths
@@ -366,9 +370,14 @@ def plan(paths, rules, tests, executables, tier="targeted", dependents=None, rea
         if rendered or any(renders(r) for r in hits):
             renderer.append(path)
         # ucrt64-headless builds the path unless every scope claiming it is render-only, or (claimed by none) the compile
-        # databases show it built only with the renderer
+        # databases show it built only with the renderer; ucrt64-release is planned for it when a release scope claims it
+        # or the databases show it built only there
+        own = set()
         if any(not r.get("render_only") for r in hits) or (not hits and not rendered):
             headless = True
+            own.add(HEADLESS)
+        if rendered or any(r.get("release") for r in hits):
+            own.add(RELEASE)
         if rendered and not any(r.get("release") for r in hits):
             release.append("%s (compiled only in %s)" % (path, RELEASE))
         for r in hits:
@@ -379,7 +388,7 @@ def plan(paths, rules, tests, executables, tier="targeted", dependents=None, rea
                 if path not in entry["paths"]:
                     entry["paths"].append(path)
             if r.get("full"):
-                escalate.append("%s (%s)" % (path, r["name"]))
+                escalating.append(("%s (%s)" % (path, r["name"]), own))
             if r.get("release"):
                 release.append("%s (%s)" % (path, r["name"]))
             if r.get("build", True):
@@ -409,7 +418,7 @@ def plan(paths, rules, tests, executables, tier="targeted", dependents=None, rea
         if not any(r.get("claims", True) for r in hits) and not claimed:
             unmatched.append(path)
             if path.startswith(ESCALATING) or path.endswith(NATIVE[:7]) or Path(path).name == "CMakeLists.txt":
-                escalate.append("%s (no scope claims it)" % path)
+                escalating.append(("%s (no scope claims it)" % path, own))
     if tier == "targeted" and not any(STRESS in r.get("labels", []) for r in rules if r["name"] in matched):
         # (contention cases run when concurrency code changed - a scope naming the label - or what they import or are built from did)
         stress = {t["name"] for t in tests if STRESS in t["labels"]}
@@ -417,6 +426,9 @@ def plan(paths, rules, tests, executables, tier="targeted", dependents=None, rea
     if tier == "integration":  # the touched domains whole: every label any matched scope names, stress and package too
         labels = {lab for r in rules if r["name"] in matched for lab in r.get("labels", []) + r.get("integration_labels", [])}
         selected.update(t["name"] for t in tests if set(t["labels"]) & labels)
+    # an escalation applies to the presets its path plans by itself; planning without a preset (what the paths need)
+    # counts every one
+    escalate = [reason for reason, own in escalating if preset is None or not own or preset in own]
     if tier == "full" or escalate:
         selected = {t["name"] for t in tests}
     errors = []
@@ -444,7 +456,7 @@ def plan(paths, rules, tests, executables, tier="targeted", dependents=None, rea
                            "detail": "scope '%s' requires tests on %s matching %s, and this inventory has none for %s: build %s "
                                      "with them (a reconfigure registers new tests), then select again"
                                      % (name, preset, ", ".join(entry["expressions"]), ", ".join(missing), preset)})
-    escalated = {reason.split(" (", 1)[0] for reason in escalate}
+    escalated = {reason.split(" (", 1)[0] for reason, _ in escalating}  # (escalated anywhere: claimed, not unclaimed)
     unclaimed = [path for path in unmatched if path not in escalated]
     if not paths and tier != "full":
         errors.append({"reason": "no-changes", "paths": [], "detail": "no changed paths: give --paths, or --tier full"})
@@ -464,7 +476,7 @@ def plan(paths, rules, tests, executables, tier="targeted", dependents=None, rea
         errors.append({"reason": "empty-selection", "paths": list(paths), "scopes": list(matched),
                        "detail": "the changes select no test in this inventory"})
     return {"scopes": matched, "escalate": escalate, "release": release, "headless": headless, "renderer": renderer,
-            "build": build or bool(escalate) or bool(release), "selected": sorted(selected), "unmatched": unmatched, "errors": errors}
+            "build": build or bool(escalating) or bool(release), "selected": sorted(selected), "unmatched": unmatched, "errors": errors}
 
 
 def estimate(chosen, cost, jobs):
@@ -572,7 +584,8 @@ def show(report):
     if first:
         p = first["plan"]
         out.append("%d changed path(s); scopes: %s" % (len(report["paths"]), ", ".join(p["scopes"]) or "none"))
-        out += ["  escalates to the full suite: %s" % r for r in p["escalate"]]
+        for preset, entry in report["presets"].items():
+            out += ["  escalates %s to the full suite: %s" % (preset, r) for r in entry["plan"]["escalate"]]
         out += ["  needs %s too: %s" % (RELEASE, r) for r in p["release"]]
         out.append("native build needed: %s" % ("yes" if p["build"] else "no"))
     for preset, entry in report["presets"].items():

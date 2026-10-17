@@ -1,0 +1,137 @@
+# ARCH-10 final three-domain acceptance
+
+Status: implemented on main (2026-10-17); awaiting independent acceptance. The structural, compatibility and
+installed-consumer gates pass on both required presets. The full suites (HC-11), the fullscreen Viewer scenarios and
+the joint/combat gates (HC-07) stay pending, as the user directed, so this record reports migration progress: it does
+not declare the three-domain architecture complete.
+Starting main HEAD: `6bb79cc` (ARCH-09 accepted).
+
+The user's decisions for this package (2026-10-17):
+- **HC-19:** escalation is bounded per preset.
+- **HC-20:** shared build inputs plan and escalate both presets.
+- **Configured build graph:** implemented as a CTest of each preset.
+- **HC-25:** the launchers' implementation becomes a declared tools category.
+
+## 1. Carryovers resolved (awaiting independent acceptance)
+
+| ID | Resolution | Evidence |
+| --- | --- | --- |
+| HC-04 | **Retained by decision.** The package root imports its modules eagerly because `fsim.World`, `fsim.Agent` and the others are its public API (ARCH-07). Every test importing `fsim` therefore depends on each module, and selecting them all is dependency coverage, not over-selection. No selector change | The existing import-closure regression (`test_the_python_import_closure`); [development guide](../../development.md#change-scoped-testing) |
+| HC-19 | **Bounded per preset.** An escalation applies to the presets its own path plans. A shared-core change escalates `ucrt64-headless`; a renderer change beside it adds `ucrt64-release` with its own selection, every `render` test among it. Example: World.cpp plus a UI source drops the Release full suite (778 tests, an estimated 881 s) to the renderer selection | `PresetEscalationTest` (8 cases) and the updated mixed-change lifecycle case. On the old selector 5 of the 9 fail (15 subtests); the 4 controls pass on both |
+| HC-20 | **Both presets.** The `build system` scope is `release = true`: root and `src` CMake files, `CMakePresets.json`, `cmake/**` (less the test and package scripts their own scopes claim), `deps/**`, `third_party/**`, `tests/CMakeLists.txt` and `python/CMakeLists.txt` plan and escalate both. Planning never authorizes a full run (HC-11) | `test_shared_build_inputs_plan_and_escalate_both_presets` (9 paths, each failing on the old rules) |
+| HC-24 | **Aligned and enforced.** The planning target graph's native section now uses the policy's names, targets, domains and directories: `transport` became `ipc`; `env`, `mission` and `sdk` list their destinations; `python_abi`, `python_native` and `vision_native` were added; `app` gained its registered `sim` edge; `demo`'s target is `flightsim-demo`. The path map's P004 owner is `ipc`. The planning checker now fails any drift | Planning checker: 30 native and 9 Python owners. Three planted drifts (a rename, a dropped edge, a merged directory) each fail |
+| HC-25 | **Declared.** `launch` is the fifth tools category in the policy and the design; the layout exception is gone, and no file moved | Gate: 601 files in 14 categories, no layout exception. `FinalPolicy` (3 cases) holds the committed policy to no exception of any kind and no reservation waiting for an architecture phase |
+
+## 2. Structural acceptance (tasks 1 and 2)
+
+Every required graph has no unknown owner, forbidden edge or cycle:
+
+| Graph | Result |
+| --- | --- |
+| Native source graph (`check.py`, every CMake branch) | Accepted: 28 modules, 401 source and public header files, 42 classified public headers. No module, public, Python or layout exception remains |
+| Configured graph, `ucrt64-headless` (`configured.py`, the preset's own CMake File API code model 2.11) | Accepted: 86 targets; 20 module targets and 67 module links, each a source-graph edge, with every source edge between configured modules configured. The 8 renderer modules are absent because `FSIM_WITH_RENDER` is off |
+| Configured graph, `ucrt64-release` | Accepted: 105 targets; all 28 module targets and all 97 source edges configured. Include directories lie within each module's closure, with no `src` or ancestor root |
+| Python imports | 29 modules (27 sources and 2 extension leaves), 63 literal imports. No eager or deferred cycle (2026-10-16 had two deferred cycles); optional packages stay out of the eager closure |
+| Planning target DAG and catalogs | Accepted: 30 native and 9 Python owners, no cycle, 77 source units covering 442 files, 25 document units, 51 documents reachable |
+| Every local Markdown link in the repository (the scratch checker; `.codex` excluded in the Git listing, before access) | 106 files, 1,324 links, none broken, after the records were written; the documentation tests then passed 3/3 |
+| Refreshed scoped audit (`dependency-audit.json`) | 28 modules, 401 files, no native or Python cycle |
+
+Further details:
+- **Records:**
+  - [arch-10-baseline.json](arch-10-baseline.json) holds the final inventories with hashes: owners, links, includes, public headers, Python imports and declared package outputs;
+  - [arch-10-provenance.json](arch-10-provenance.json) holds the toolchain, the configuration, the inventories and the artifacts.
+- **Configured graph gate:**
+  - `cmake/ArchitectureChecks.cmake` requests each configure's own code model and cache, with `cmake_file_api()`;
+  - `architecture_configured` holds them to the source graph in each preset;
+  - its 27 negative fixtures (`architecture_configured_checker`) cover the rules: unregistered targets, foreign sources, hidden links and dependencies, dropped edges, unconfigured modules, broad, foreign and unknown include roots, and an absent or unusable reply (pending, not passed). The rules are in [the tools README](../../../tools/architecture/README.md#reconciling-with-the-configured-build-arch-10).
+- **Tests compiling application sources (HC-37):** `fsim_demo_publisher_test` compiles the demo publisher's `DemoSimulation.cpp` and the Viewer's `DemoLink.cpp`; `fsim_demo_steps_test` compiles `DemoSimulation.cpp`. Applications have no library to link, so the gate allows a test target to compile an application's sources and names each one. A library's source never compiles outside its own target.
+
+## 3. Native, compatibility and installed gates (task 3)
+
+| Run (2026-10-17, exclusive slot; exact names, `--no-tests=error`) | Result |
+| --- | --- |
+| Configure and incremental build of both presets | Both pass. Nothing was compiled: the native objects are unchanged since HC-32's builds, and only data, DLLs and the Python package were staged |
+| Selector plan for this package's 21 paths (architecture checker, documentation, test selection) | `ucrt64-headless` 29/29 (25.8 s), `ucrt64-release` 35/35 (26.9 s): the `architecture` label, `ma_contract`, `sdk_guard_checker`, `testing_scope_checker` |
+| Compatibility and installed consumers, on each preset | 7/7 headless (143 s) and 7/7 Release (148 s): `c_abi`, `sdk_boundary`, `package_consumer`, `dist_components`, `mission_package_consumer`, `equipment_package_consumer` and `launcher_contract` |
+| Checker suites (direct) | `test_check.py` 144, `test_configured.py` 27, `test_scope.py` 90 (1 skipped without a build directory) |
+
+Pending, as directed:
+- **Full suites:** `ucrt64-headless` has 717 tests and `ucrt64-release` 780. Their labels are in the provenance record, and they include the 69 and 68 Python SDK tests. They run on frozen code after this review (HC-11).
+- **Runtime matrix:** the flight, MS, communications, episode and batch cases of the acceptance matrix are covered by those suites, not by this package.
+
+## 4. Visual evidence (task 4)
+
+No GUI slot was used. The dated [Viewer evidence](../../sdk/viewer-validation.md), ARCH-06's before/after fullscreen
+runs and ARCH-08's scripted captures keep their diagnostic scope.
+
+Pending under HC-07:
+- complete fullscreen scenarios on the current build;
+- manual pause, step, time-factor and quit;
+- the 4K performance gate;
+- installed public-endpoint joint acceptance.
+
+## 5. Provenance and pending functional goals (task 5)
+
+[arch-10-provenance.json](arch-10-provenance.json) records the build's provenance:
+- **Toolchain:** g++ 16.2.0 (MSYS2 UCRT64), CMake and CTest 4.4.3, Ninja 1.13.2, Python 3.13.12 for the checks.
+- **GPU:** NVIDIA GeForce RTX 5070 Ti, driver 596.36.
+- **Each preset:**
+  - its cache options and CTest inventory by label;
+  - SHA-256 of every staged DLL, executable and extension: 17 headless, 72 Release;
+  - the staged `share/flightsim` data: 234 files, with one digest;
+  - the configured-graph facts;
+  - the installed mission consumer's provenance manifest.
+- **Working tree:** each uncommitted change, other owners' included, with its hash.
+
+The functional model goals stay outside this migration:
+- **Simulation:** MS calibration, DLZ/WEZ, sensors and electronic warfare, and the OMS adapter (MS-12, a planned reservation).
+- **Visualization:** the native training-image provider (VIS-F, a planned reservation), and Viewer quality with the 4K 160 fps target.
+- **Training:** the full M5-M8 combat criteria, rewards and joint gates (HC-06, HC-07).
+- **Upper layer:** the formal MA runtime and DRL training, which follow this program.
+
+## 6. Final checklist
+
+| Item ([acceptance](acceptance.md#9-final-acceptance-record)) | State |
+| --- | --- |
+| All three domain implementations in their assigned roots | Met: every module has destinations only, and no legacy directory remains |
+| No unexplained legacy implementation outside the path register | Met: 442 files mapped, and the gate finds no unowned source |
+| No forbidden link, import or package edge, and no cycle | Met in the source, configured (both presets), Python and planning graphs |
+| Thin classified adapters with one public type or state owner | Met as accepted in ARCH-07 (HC-15, HC-21, HC-22); unchanged |
+| Headless simulation and training independent of graphics and ML | Met: the headless preset configures no renderer module, and the optional packages stay out of the eager import closure |
+| Simulation authority, concurrency, reset, RNG and outcome meanings preserved | No native object changed in this package; current proof needs the full suites (HC-11). **Pending** |
+| Existing binaries, import paths, resources and recordings compatible | Installed C++, C99 and Python consumers pass on both presets; the full compatibility suites are **pending** (HC-11) |
+| Current required native, installed and graphics evidence complete | **Pending:** the full suites (HC-11), and the GUI and joint gates (HC-07) |
+| Historical documentation with one canonical owner and valid redirects | Met in ARCH-09 |
+| Every handoff's self-reported items reconciled in the register | Done for this handoff ([register](handoff-carryover-register.md)) |
+| Independent review accepted, slots released, only reviewed files committed | Slots released. Independent review **pending** |
+
+## 7. Self-reported items
+
+- **HC-37 (new, documented arrangement):** two test targets compile application sources, as section 2 says.
+- **Architecture scope on Release:** the `architecture checker` scope now plans `ucrt64-release` too, because the
+  configured graph differs per preset. This goes beyond HC-19 and HC-20, and costs about 27 s.
+- **Gate assumptions:**
+  - a Python extension module is identified by its destinations under a `python` directory;
+  - an absent module is allowed only when its branch's cache option is off;
+  - a configure without Python (`FSIM_BUILD_PYTHON` on but no suitable CPython) is rejected rather than passed.
+- **Build trees:** the native objects come from HC-32's builds; this package compiled nothing. The trees include the
+  other owners' uncommitted edits (Python files among them), as the provenance records.
+- **Slot check:** no build job of this repository was running. An unrelated long-running process named `GCC`, started
+  on 2026-10-02, was left alone.
+- **Owners' edits:** `tools/architecture/README.md` and `docs/status.md` carry other owners' uncommitted edits. Only
+  this package's changes are committed (HEAD-plus-mine blobs), and copies taken before any edit are in
+  `D:/ENV/tmp/arch10/before`.
+- **Provenance capture:** the first capture dropped the leading dot of `.claude/CLAUDE.md`, from a stripped status
+  line. It was fixed and recaptured before the commit, and all 36 changed paths carry hashes.
+- **HC-35** still awaits the user's acknowledgment.
+
+## 8. Rollback
+
+1. Revert this package's commit.
+2. Reconfigure both presets: `cmake/ArchitectureChecks.cmake` stops requesting the File API reply, and the two tests disappear.
+3. Restore the planning files from the before copies: the target graph, the planning checker, the path map, the design, the index, the roadmap, the register and the acceptance page.
+
+## 9. Next
+
+Independent acceptance of this package. Then, on the user's assignment, the frozen-code full suites (HC-11) and the
+GUI and joint gates (HC-07) complete the final-program evidence.

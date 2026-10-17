@@ -199,6 +199,14 @@ Legacy environment code (`src/training/native/vecenv`) is linked into `libfsim` 
 Python and plugin tests alike, so it escalates too. Repository metadata and tools without tests stay unclaimed: their
 change needs the full tier or a reviewed scope.
 
+An escalation applies to the presets its own path plans (HC-19). A shared-core change plans `ucrt64-headless` and
+escalates it; a renderer change beside it adds `ucrt64-release` with that change's own selection - every
+`render`-labelled test among it - not the Release full suite. Shared build inputs (the root and `src` CMake files,
+`CMakePresets.json`, `cmake/**` other than the test and package scripts that their own scopes claim, `deps/**`,
+`third_party/**`, `tests/CMakeLists.txt` and `python/CMakeLists.txt`) configure both presets, the renderer's branches
+included, so they plan and escalate both (HC-20). A plan that escalates is a statement of what the change needs; it never
+authorizes running a full suite before the required milestone (HC-11).
+
 What only the renderer builds (`FSIM_WITH_RENDER`) is planned on `ucrt64-release`, which compiles it; `ucrt64-headless`
 does not. This covers visualization with its nested CMake files, the Vision adapter and its Python extension, the
 viewer, the renderer's tools and example, and the render tests. The `render-only roots` scope claims these and selects

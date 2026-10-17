@@ -16,8 +16,9 @@
 #   A `release` scope whose labels include "render" (render-only or shared) needs renderer coverage: its ucrt64-release
 #   plan selects every `render`-labelled test and is an error (no-renderer-coverage) on an inventory without one, which
 #   its generic names cannot satisfy. Headless keeps a shared scope's own selection.
-#   full = true      escalate to the full suite of each planned preset: shared simulation core, build system, data
-#                    every test flies
+#   full = true      escalate to the full suite of each preset the changed path plans by itself: shared simulation
+#                    core, build system, data every test flies. Another path's preset is not escalated by it (HC-19):
+#                    with a renderer change beside it, ucrt64-release runs that change's own selection
 #   build = false    no native build is needed before running (documentation, repository checks)
 #   except = [...]   paths this scope does not claim, though its `paths` match them (a more specific scope does)
 #   claims = false   the scope adds its tests to what claims a path, but claims none itself: a path only it matches is
@@ -40,11 +41,13 @@ paths = ["docs/**", "*.md", "**/*.md"]
 tests = ["^ma_contract$", "^architecture_boundary$", "^sdk_guard_checker$"]
 build = false
 
+# (each preset's own configured graph is reconciled with the source graph - architecture_configured - so both run it)
 [[scope]]
 name = "architecture checker"
 paths = ["tools/architecture/**", "cmake/ArchitectureChecks.cmake"]
 labels = ["architecture"]
 build = false
+release = true
 
 [[scope]]
 name = "SDK principals"
@@ -207,6 +210,8 @@ release = true
 render_only = true
 
 # --- escalate: what every test depends on -------------------------------------------------------------------------------
+# Shared build inputs configure both presets, the renderer's branches included, so they plan and escalate both (HC-20):
+# planning a full suite never authorizes running it (HC-11).
 [[scope]]
 name = "build system"
 paths = ["CMakeLists.txt", "CMakePresets.json", "cmake/**", "deps/**", "third_party/**", "src/CMakeLists.txt", "src/*/CMakeLists.txt",
@@ -214,6 +219,7 @@ paths = ["CMakeLists.txt", "CMakePresets.json", "cmake/**", "deps/**", "third_pa
 except = ["cmake/RunMissionPackageConsumer.cmake", "cmake/ArchitectureChecks.cmake", "cmake/RunPackageConsumer.cmake",
           "cmake/RunEquipmentPackageConsumer.cmake", "cmake/PackageConfig.cmake", "cmake/CleanDist.cmake", "cmake/TestDistComponents.cmake"]
 full = true
+release = true
 
 [[scope]]
 name = "shared simulation core"

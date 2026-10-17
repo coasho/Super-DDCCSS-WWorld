@@ -1,0 +1,440 @@
+{
+ "date": "2026-10-17",
+ "head": "6bb79cc0e16edd69acfe474b739e415e778485fe",
+ "note": "Captured on the working tree before the ARCH-10 commit: HEAD plus every listed uncommitted change (other owners' edits included); the build trees were configured and built from that tree.",
+ "working_tree_changes": {
+  ".claude/CLAUDE.md": {
+   "status": "M",
+   "sha256": "cd2bee96bcdecc7518ebe6812428965a2a80f2a2f750b481e99b9071da102245"
+  },
+  "AGENTS.md": {
+   "status": "M",
+   "sha256": "bc780ee2d147be8b16048bb28a954057b4a903a7466fb30a44173f68e3ed7e41"
+  },
+  "cmake/ArchitectureChecks.cmake": {
+   "status": "M",
+   "sha256": "694d7f0c94feadf694e553a2362bf85ae7cd19147d7aef129db70921a985ddfd"
+  },
+  "docs/architecture/design/agent-boundary.md": {
+   "status": "M",
+   "sha256": "0d535e0df9425d1ac5cd768b8bb8d8b946db5ce1b2c34d67d7a63a8b90265867"
+  },
+  "docs/architecture/design/platform-baseline.md": {
+   "status": "M",
+   "sha256": "6b21a8c29b4e00579ac2d76296962c9f03ad9abf9c585ed2f1a56e51f5a0a742"
+  },
+  "docs/architecture/design/simulation-interface-boundaries.md": {
+   "status": "M",
+   "sha256": "7feec96249b59e4cd46ae3f99a51d77c6ea9c153df53c7154598f0aa2f3f23a8"
+  },
+  "docs/architecture/migration/history/2026-10-11-architecture-maintenance-design.md": {
+   "status": "M",
+   "sha256": "e04d9580364e4b4b9f516bd1741c8af2fc4a40466dacdf1e15fdc8e27f1703a5"
+  },
+  "docs/architecture/validation/arch-02-neutral-contracts.md": {
+   "status": "M",
+   "sha256": "5405b60e2282b69ddaa3b902cdfd5098c1cf62d7b6b844fdd91d4ebc4d063d51"
+  },
+  "docs/architecture/validation/arch-03-foundation-and-leaves.md": {
+   "status": "M",
+   "sha256": "0e753e3ae7a60f736eadbe7b91b8560b9af5365c2a4907c9857d7172750df91b"
+  },
+  "docs/architecture/validation/arch-04-simulation-runtime.md": {
+   "status": "M",
+   "sha256": "5977c13b11e260445f924d67bfb48d4f37c1b8c4d2119bdfe85415099e3582fe"
+  },
+  "docs/architecture/validation/arch-05-training-extraction.md": {
+   "status": "M",
+   "sha256": "5e1bcea9e158e2531c1db32472568506db4b21bc5a69ffa16dc384e23e58bac1"
+  },
+  "docs/architecture/validation/arch-06-visualization.md": {
+   "status": "M",
+   "sha256": "0c16c30ae05cd277dd0b3c610a7f9b6638d93fa6619d2202d7a1f1f3dbfb7354"
+  },
+  "docs/architecture/validation/arch-07-sdk-and-python.md": {
+   "status": "M",
+   "sha256": "69b23dd3de0ec7f77542a3ae75ad6530cdd31622822a735b5b53bdfacc84f3e6"
+  },
+  "docs/architecture/validation/arch-08-applications-tests-and-packaging.md": {
+   "status": "M",
+   "sha256": "61a0f0e4a279135f48502abb7ceb852e7835a4431b5b1ceccba9b1f88b8aafcf"
+  },
+  "docs/architecture/validation/arch-09-architecture-authority.md": {
+   "status": "M",
+   "sha256": "d4fe493f2e301e108a0667886bd8e4c138f7d818257180114102de8a5a15f39b"
+  },
+  "docs/development.md": {
+   "status": "M",
+   "sha256": "1ab279e6a67b5b74bdebbcf4f92141534883a8a4adfe5dbe6e6a8a498e76be3c"
+  },
+  "docs/sdk/README.md": {
+   "status": "M",
+   "sha256": "cbfd04344c974dab9aa2b2ae5d54410b236fb2863f27bf4430480611b13fe2c6"
+  },
+  "docs/sdk/agents.md": {
+   "status": "M",
+   "sha256": "5a337fe06616ccaa190874030c1c1ad04b5289549ea74d8ed3fb399484760380"
+  },
+  "docs/sdk/boundary.md": {
+   "status": "M",
+   "sha256": "c1dbf35736662f6a7a66d3242bc57ce6d8cd2078950bc03159adc570a9112d41"
+  },
+  "docs/sdk/boundary.toml": {
+   "status": "M",
+   "sha256": "36fd0fdd7dbe7be911348b18110aea7e05e4ea3bd957d09d3a00f8e677d26ab4"
+  },
+  "docs/sdk/ma-engagement-contract.md": {
+   "status": "M",
+   "sha256": "72f651cc66d83a05dacf35d8916a8f40d2836d4c4a70f4c40864f26395831283"
+  },
+  "docs/status.md": {
+   "status": "M",
+   "sha256": "8b41ec821ea64507d6920ba0c9aa7e5123c019043b3104f4dbcdb4af661f2340"
+  },
+  "docs/superpowers/plans/2026-10-12-ma-system-training-readiness.md": {
+   "status": "M",
+   "sha256": "57e2cc13cb37fdfa5cd34da77dd5de17510b72aa0a30e4a87e8a202ddbcfc824"
+  },
+  "docs/superpowers/plans/2026-10-12-ma-system-training-work-allocation.md": {
+   "status": "M",
+   "sha256": "0a459f7d4daae95f54bb48572997387ff36df1d1f308702e0ae6b2a763377b6f"
+  },
+  "docs/superpowers/specs/2026-10-12-ma-system-training-readiness-design.md": {
+   "status": "M",
+   "sha256": "fdb886c3e7405a6a0f280a6ac8d45ef071f1314b30e1f19585b6716c292cf6ce"
+  },
+  "python/fsim/isolation.py": {
+   "status": "M",
+   "sha256": "4f928542e7d63cdd820f05cf35ce18571138662320b75045e9eb49249f901619"
+  },
+  "tests/compatibility/python/isolated_mission_actor.py": {
+   "status": "M",
+   "sha256": "291203a9bc54e818ca00aa5f6b1cd5a1b59ab76df84ea9aa68dbbea8d7ef3c56"
+  },
+  "tools/architecture/README.md": {
+   "status": "M",
+   "sha256": "71529196e81b70af68eef43c6bc5cfae61eb7d07d1c242bb1ca16fac5f75deed"
+  },
+  "tools/architecture/check.py": {
+   "status": "M",
+   "sha256": "771e588abf8c703051962748ef979475e9f20818428789901268fbfa5a4e824b"
+  },
+  "tools/architecture/policy.json": {
+   "status": "M",
+   "sha256": "f8fb27fadb261fe122c3f85858f4d979cf0df4ccddcdb539f97830eb8f568393"
+  },
+  "tools/architecture/test_check.py": {
+   "status": "M",
+   "sha256": "3ea77cb923128dfb1ab33ac8d55a1ad3334e58cfe2b8dbbe530527e47f7a3bdd"
+  },
+  "tools/validation/boundary/boundary.py": {
+   "status": "M",
+   "sha256": "aa17411e1e142d7ad1507ce9679ed43b3bc0f0aeec1d8d160048b228712bd14a"
+  },
+  "tools/validation/ma_engagement/test_check.py": {
+   "status": "M",
+   "sha256": "2e894e68963b8286787c3ae9b1448e24d425b13ad1983097b61e32beba1c6802"
+  },
+  "tools/validation/testing/scope.py": {
+   "status": "M",
+   "sha256": "0ad46dfab74139b293d2c640dd46b20b6a142babf4ccff490f37b1639a9d55b6"
+  },
+  "tools/validation/testing/scopes.toml": {
+   "status": "M",
+   "sha256": "6b5f66ad6188a97c2bb688a8d6d1fbf3b1c92995d385e145ec98b0f281043920"
+  },
+  "tools/validation/testing/test_scope.py": {
+   "status": "M",
+   "sha256": "15ec987ad1fed72ed55a4e221a8004c2040ca0111e2265a243ebdd879c4affdd"
+  }
+ },
+ "toolchain": {
+  "g++": "g++.exe (Rev3, Built by MSYS2 project) 16.2.0",
+  "cmake": "cmake version 4.4.3",
+  "ctest": "ctest version 4.4.3",
+  "ninja": "1.13.2",
+  "python (checks)": "Python 3.13.12"
+ },
+ "gpu": "NVIDIA GeForce RTX 5070 Ti, 596.36, 16303 MiB",
+ "presets": {
+  "ucrt64-headless": {
+   "cache": {
+    "CMAKE_BUILD_TYPE": "Release",
+    "FSIM_WITH_RENDER": "OFF",
+    "FSIM_BUILD_PYTHON": "ON",
+    "CMAKE_CXX_COMPILER": "D:/ENV/DevLanguages/Cpp/msys2/ucrt64/bin/g++.exe",
+    "CMAKE_GENERATOR": "Ninja",
+    "FSIM_PYTHON_EXECUTABLE": "D:/ENV/python/3.13/python.exe"
+   },
+   "ctest_inventory": {
+    "tests": 717,
+    "labels": {
+     "architecture": 27,
+     "conformance": 6,
+     "fleet": 18,
+     "hangar": 41,
+     "launcher": 1,
+     "ma-training": 38,
+     "native-engagement": 6,
+     "package": 4,
+     "python_sdk": 67,
+     "showcase": 2,
+     "simulation": 2,
+     "stress": 10,
+     "testing": 1
+    }
+   },
+   "artifacts": {
+    "bin/flightsim-demo.exe": "e89efb57f675eec66d230573ad5fdd139793e8f9c4acb1d0efd8c0467ed3b047",
+    "bin/flightsim-showcase.exe": "fc928fe2156bbb708b51112f35709fffc7e488ac08654fbba24544d377c78ec9",
+    "bin/flightsim.exe": "ce42504e81a10fa3a098f288ae0c6fa0bbebce5c7584d0f4628c58356202301c",
+    "bin/fsim_python_baseline.exe": "2e3ad50bd73a07fd30b710872aaae4b76e3569c355fd4b2425a3cb346061a5b1",
+    "bin/libfsim.dll": "6f7107de8392f508bf10106e30955734df27f35a7c39593109bdc77427e7755d",
+    "bin/libgcc_s_seh-1.dll": "80940372431cc76224dfda06e2d33f01e49af3b4e7c499c535be856ebcadd273",
+    "bin/libJSBSim.dll": "51a2140b1de0599621dc72247c15012817d91a794cf6a038b1661005b98d6c55",
+    "bin/libstdc++-6.dll": "69200d6d96b903dac4c873031813485a0455828be8101479efc56008862420cc",
+    "bin/libwinpthread-1.dll": "bbe82da090a3a135eb4209466142e28e97fc9d61d8d4070a8585cbc8a15ab970",
+    "bin/tile_prefetch.exe": "774c37937f303a2b1cfd3da34726635475996c1ec08834d9270fe14e23acafef",
+    "bin/zlib1.dll": "11cd91171765cd65f1c3362e3df67e5f5a618a6b88c8cdec899b802eaf1c7b0d",
+    "python/fsim/_native.pyd": "d03afa4be02d504efaa7cf7c7494c6cfc76124ce2680314cf30cd9ddeffcf99d",
+    "python/fsim/bin/libfsim.dll": "6f7107de8392f508bf10106e30955734df27f35a7c39593109bdc77427e7755d",
+    "python/fsim/bin/libgcc_s_seh-1.dll": "80940372431cc76224dfda06e2d33f01e49af3b4e7c499c535be856ebcadd273",
+    "python/fsim/bin/libJSBSim.dll": "51a2140b1de0599621dc72247c15012817d91a794cf6a038b1661005b98d6c55",
+    "python/fsim/bin/libstdc++-6.dll": "69200d6d96b903dac4c873031813485a0455828be8101479efc56008862420cc",
+    "python/fsim/bin/libwinpthread-1.dll": "bbe82da090a3a135eb4209466142e28e97fc9d61d8d4070a8585cbc8a15ab970"
+   },
+   "artifact_count": 17,
+   "data_share_flightsim": {
+    "files": 234,
+    "sha256": "41f29df3192e8d5df0e8693343c43a63d30c60f1cc57c4c728bbbc0a1e0c9bf1"
+   },
+   "configured_graph": {
+    "codemodel": "2.11",
+    "targets": 86,
+    "modules_configured": [
+     "app",
+     "comm",
+     "contracts",
+     "control",
+     "core",
+     "demo",
+     "effects",
+     "env",
+     "io",
+     "ipc",
+     "mission",
+     "modeled_dms",
+     "ms",
+     "platform",
+     "python_abi",
+     "python_native",
+     "sdk",
+     "session",
+     "sim",
+     "simulation_api"
+    ],
+    "modules_absent": {
+     "flow": "FSIM_WITH_RENDER is off",
+     "render": "FSIM_WITH_RENDER is off",
+     "scene": "FSIM_WITH_RENDER is off",
+     "ui": "FSIM_WITH_RENDER is off",
+     "viewer": "FSIM_WITH_RENDER is off",
+     "vision": "FSIM_WITH_RENDER is off",
+     "vision_core": "FSIM_WITH_RENDER is off",
+     "vision_native": "FSIM_WITH_RENDER is off"
+    },
+    "external_links": [
+     "libJSBSim"
+    ],
+    "test_compiled_application_sources": {
+     "fsim_demo_steps_test": {
+      "modules": [
+       "demo"
+      ],
+      "sources": [
+       "src/applications/demo/DemoSimulation.cpp"
+      ]
+     }
+    },
+    "module_links": 67,
+    "issues": []
+   },
+   "mission_package_consumer_provenance": {
+    "sha256": "028c99d22620ececafc68bd7e85537fa9a79961b5ae70b41689296f2ab7af216",
+    "lines": 277
+   }
+  },
+  "ucrt64-release": {
+   "cache": {
+    "CMAKE_BUILD_TYPE": "Release",
+    "FSIM_WITH_RENDER": "ON",
+    "FSIM_BUILD_PYTHON": "ON",
+    "CMAKE_CXX_COMPILER": "D:/ENV/DevLanguages/Cpp/msys2/ucrt64/bin/g++.exe",
+    "CMAKE_GENERATOR": "Ninja",
+    "FSIM_PYTHON_EXECUTABLE": "D:/ENV/python/3.13/python.exe"
+   },
+   "ctest_inventory": {
+    "tests": 780,
+    "labels": {
+     "architecture": 33,
+     "conformance": 6,
+     "fleet": 18,
+     "hangar": 41,
+     "launcher": 1,
+     "ma-training": 38,
+     "native-engagement": 6,
+     "package": 4,
+     "python_sdk": 67,
+     "render": 63,
+     "showcase": 2,
+     "simulation": 2,
+     "stress": 10,
+     "testing": 1
+    }
+   },
+   "artifacts": {
+    "bin/flightsim-demo.exe": "ca518158b90cb81a759e176b26a7016d528f06b8c2af368cbfc2302879ef65d5",
+    "bin/flightsim-flow-calibrate.exe": "0a6dcccf30fcbf5b28405073c518eb28f0ab03ed3f33f82a3a2c6923fcedc410",
+    "bin/flightsim-rcs.exe": "0fba7831ba61c835fba8bf3ee5ab4df6a94ee767f00d940b77440f8494dce818",
+    "bin/flightsim-showcase.exe": "d35e7d630b5fdd76d42ddf4bf11fd918227195664d212c21db5b65d857e458b0",
+    "bin/flightsim-viewer.exe": "1ede4fcb9a153cf85164853db1e6975aff18e20b406e69d928e14883e821e2e3",
+    "bin/flightsim.exe": "943855b91a0f9c82973d4989e431553e7fc165dd399c0525bc286ebb5753ccca",
+    "bin/fsim_python_baseline.exe": "60d66535e1f1c28fe0b813130c9e01666630317cf896590cdcaabe810fc2b426",
+    "bin/glslang.dll": "c306c306aa43ad433d04818ca382f53567531529daaad60e11f16d4c30fd0430",
+    "bin/libassimp-6.dll": "ee35282a57e02ae07c0a3d28acb990071f93dd2544c57d1bc330f71a3ac35764",
+    "bin/libbrotlicommon.dll": "c62c08223e450dfc2fff33c752cc228505ffd9d755201958ba800d5d30481a2c",
+    "bin/libbrotlidec.dll": "e270b6e576594ee8ee6e33ccc54e34a54304616dd6225652e11e49d6f17ef896",
+    "bin/libbz2-1.dll": "1790bf6473c9d48db14c1f0ee8124142327556d281299ea2a72ee361118ee01a",
+    "bin/libcrypto-3-x64.dll": "7d25614b72d98b1a280d50de253f395f4062058af8e22d2dc1ec44fb648f0028",
+    "bin/libcurl-4.dll": "3dbf418a9e62164589b30cf48fb3f2f98dd1011d50e6d2c4ca99e9d6ca23c6f1",
+    "bin/libfsim.dll": "6e9f582132a9edf6c407664c6748666293e3b72782a08b55075365b4e191d2a9",
+    "bin/libfsim_vision.dll": "f13adefdde9c15a43648208231ceec4da6063250085ea495ec7540c83fba0d16",
+    "bin/libgcc_s_seh-1.dll": "80940372431cc76224dfda06e2d33f01e49af3b4e7c499c535be856ebcadd273",
+    "bin/libglslang-default-resource-limits.dll": "e7ffd813e930061d6ef28ae3826888510c8af5fa3884a99b2bfcbe1998129123",
+    "bin/libiconv-2.dll": "94ec68fb8d342b6c91b6b48a8d95092819cdcd006a7166e0b68062f946afd08a",
+    "bin/libidn2-0.dll": "a054a6bb69aaf4666157f968740412e9697085cbc1e48a78f8dd9622169c5aaf",
+    "bin/libintl-8.dll": "0e5a178731e6be6d115442a6ade3df7f03265cd1fc4338f8b6f86a8001cbf582",
+    "bin/libJSBSim.dll": "01011a8aa0c6ba44883ffe55750521fcccb23bf1b2dec619ff0e3e6ef8cac5a6",
+    "bin/libminizip-1.dll": "440583afda4a8044e27127d5eaad560389aa483c4293ecb572a8f3a4797dc756",
+    "bin/libnghttp2-14.dll": "550b9933ce54833ebb2c0e24b43e1463006c6c62305c471570c6bf18095581bd",
+    "bin/libnghttp3-9.dll": "eed257dd6092a2f67a760f3f75103ec27cec929281bb2d7b51afabf21a2cad70",
+    "bin/libngtcp2-16.dll": "e77294cc542bfa35a932217ab0130b19cb45f232fb257d8869d967e750e40b31",
+    "bin/libngtcp2_crypto_ossl-0.dll": "e63698046730c9dfcaee49d52298c489ae4c0b28770bcc3ba7f612d35d031dd8",
+    "bin/libpsl-5.dll": "a531e72de3c64d43fb83cbfb6fa63e5ee982a970292ec51314e29d0acabf1dd5",
+    "bin/libSPIRV-Tools-opt.dll": "d38c8cb344d7479a813c5cb390a4ca8efde99e1d0660504774f2e0b9ad49ac91",
+    "bin/libSPIRV-Tools.dll": "d476a378d8a21f5bd26352d0941c8dd50138a3befea98297c2b98aaa81e5084b",
+    "bin/libssh2-1.dll": "7c9b4edb678b738b919950492c4a390482fdd644d1276d4728990fdd3c3ea989",
+    "bin/libssl-3-x64.dll": "a587a71129263d8114cb7f45f5dcbd2260fd37659286ea6174046491a458f914",
+    "bin/libstdc++-6.dll": "69200d6d96b903dac4c873031813485a0455828be8101479efc56008862420cc",
+    "bin/libunistring-5.dll": "ee39258fa1086269674a8179d3cfaf7c4e380ada14441b5dd9ed53d82d15c4e3",
+    "bin/libwinpthread-1.dll": "bbe82da090a3a135eb4209466142e28e97fc9d61d8d4070a8585cbc8a15ab970",
+    "bin/libzstd.dll": "48368ab0ca622d0ec12f41ce85d91f22866bf5da92c77a69a06483564c93816c",
+    "bin/nvflow.dll": "6e150c2a9350c7d1c4f7ec698881dad3f658a1948ff907e9538e7aedf1decc2c",
+    "bin/nvflowext.dll": "f4b1d7611127032e50d78e6851ee46a48fd43d894d9556be17a4dcdb887866f0",
+    "bin/tile_prefetch.exe": "46081df7ae4234400fbb40cf8f3068ebb256bfa53745ca2bd2e61e40b18b70c9",
+    "bin/zlib1.dll": "11cd91171765cd65f1c3362e3df67e5f5a618a6b88c8cdec899b802eaf1c7b0d",
+    "python/fsim/_native.pyd": "893dcd09236c7bb78b5b4ff1aee0497dc9db12fcd43c37cae95b17b8b2483410",
+    "python/fsim/_vision.pyd": "0a49c594b4eb15373275c223405defdc773f1515ba94b5bf65e9ae8358313e71",
+    "python/fsim/bin/glslang.dll": "c306c306aa43ad433d04818ca382f53567531529daaad60e11f16d4c30fd0430",
+    "python/fsim/bin/libassimp-6.dll": "ee35282a57e02ae07c0a3d28acb990071f93dd2544c57d1bc330f71a3ac35764",
+    "python/fsim/bin/libbrotlicommon.dll": "c62c08223e450dfc2fff33c752cc228505ffd9d755201958ba800d5d30481a2c",
+    "python/fsim/bin/libbrotlidec.dll": "e270b6e576594ee8ee6e33ccc54e34a54304616dd6225652e11e49d6f17ef896",
+    "python/fsim/bin/libbz2-1.dll": "1790bf6473c9d48db14c1f0ee8124142327556d281299ea2a72ee361118ee01a",
+    "python/fsim/bin/libcrypto-3-x64.dll": "7d25614b72d98b1a280d50de253f395f4062058af8e22d2dc1ec44fb648f0028",
+    "python/fsim/bin/libcurl-4.dll": "3dbf418a9e62164589b30cf48fb3f2f98dd1011d50e6d2c4ca99e9d6ca23c6f1",
+    "python/fsim/bin/libfsim.dll": "6e9f582132a9edf6c407664c6748666293e3b72782a08b55075365b4e191d2a9",
+    "python/fsim/bin/libfsim_vision.dll": "f13adefdde9c15a43648208231ceec4da6063250085ea495ec7540c83fba0d16",
+    "python/fsim/bin/libgcc_s_seh-1.dll": "80940372431cc76224dfda06e2d33f01e49af3b4e7c499c535be856ebcadd273",
+    "python/fsim/bin/libglslang-default-resource-limits.dll": "e7ffd813e930061d6ef28ae3826888510c8af5fa3884a99b2bfcbe1998129123",
+    "python/fsim/bin/libiconv-2.dll": "94ec68fb8d342b6c91b6b48a8d95092819cdcd006a7166e0b68062f946afd08a",
+    "python/fsim/bin/libidn2-0.dll": "a054a6bb69aaf4666157f968740412e9697085cbc1e48a78f8dd9622169c5aaf",
+    "python/fsim/bin/libintl-8.dll": "0e5a178731e6be6d115442a6ade3df7f03265cd1fc4338f8b6f86a8001cbf582",
+    "python/fsim/bin/libJSBSim.dll": "01011a8aa0c6ba44883ffe55750521fcccb23bf1b2dec619ff0e3e6ef8cac5a6",
+    "python/fsim/bin/libminizip-1.dll": "440583afda4a8044e27127d5eaad560389aa483c4293ecb572a8f3a4797dc756",
+    "python/fsim/bin/libnghttp2-14.dll": "550b9933ce54833ebb2c0e24b43e1463006c6c62305c471570c6bf18095581bd",
+    "python/fsim/bin/libnghttp3-9.dll": "eed257dd6092a2f67a760f3f75103ec27cec929281bb2d7b51afabf21a2cad70",
+    "python/fsim/bin/libngtcp2-16.dll": "e77294cc542bfa35a932217ab0130b19cb45f232fb257d8869d967e750e40b31",
+    "python/fsim/bin/libngtcp2_crypto_ossl-0.dll": "e63698046730c9dfcaee49d52298c489ae4c0b28770bcc3ba7f612d35d031dd8",
+    "python/fsim/bin/libpsl-5.dll": "a531e72de3c64d43fb83cbfb6fa63e5ee982a970292ec51314e29d0acabf1dd5",
+    "python/fsim/bin/libSPIRV-Tools-opt.dll": "d38c8cb344d7479a813c5cb390a4ca8efde99e1d0660504774f2e0b9ad49ac91",
+    "python/fsim/bin/libSPIRV-Tools.dll": "d476a378d8a21f5bd26352d0941c8dd50138a3befea98297c2b98aaa81e5084b",
+    "python/fsim/bin/libssh2-1.dll": "7c9b4edb678b738b919950492c4a390482fdd644d1276d4728990fdd3c3ea989",
+    "python/fsim/bin/libssl-3-x64.dll": "a587a71129263d8114cb7f45f5dcbd2260fd37659286ea6174046491a458f914",
+    "python/fsim/bin/libstdc++-6.dll": "69200d6d96b903dac4c873031813485a0455828be8101479efc56008862420cc",
+    "python/fsim/bin/libunistring-5.dll": "ee39258fa1086269674a8179d3cfaf7c4e380ada14441b5dd9ed53d82d15c4e3",
+    "python/fsim/bin/libwinpthread-1.dll": "bbe82da090a3a135eb4209466142e28e97fc9d61d8d4070a8585cbc8a15ab970",
+    "python/fsim/bin/libzstd.dll": "48368ab0ca622d0ec12f41ce85d91f22866bf5da92c77a69a06483564c93816c",
+    "python/fsim/bin/zlib1.dll": "11cd91171765cd65f1c3362e3df67e5f5a618a6b88c8cdec899b802eaf1c7b0d"
+   },
+   "artifact_count": 72,
+   "data_share_flightsim": {
+    "files": 234,
+    "sha256": "41f29df3192e8d5df0e8693343c43a63d30c60f1cc57c4c728bbbc0a1e0c9bf1"
+   },
+   "configured_graph": {
+    "codemodel": "2.11",
+    "targets": 105,
+    "modules_configured": [
+     "app",
+     "comm",
+     "contracts",
+     "control",
+     "core",
+     "demo",
+     "effects",
+     "env",
+     "flow",
+     "io",
+     "ipc",
+     "mission",
+     "modeled_dms",
+     "ms",
+     "platform",
+     "python_abi",
+     "python_native",
+     "render",
+     "scene",
+     "sdk",
+     "session",
+     "sim",
+     "simulation_api",
+     "ui",
+     "viewer",
+     "vision",
+     "vision_core",
+     "vision_native"
+    ],
+    "modules_absent": {},
+    "external_links": [
+     "libJSBSim"
+    ],
+    "test_compiled_application_sources": {
+     "fsim_demo_publisher_test": {
+      "modules": [
+       "demo",
+       "viewer"
+      ],
+      "sources": [
+       "src/applications/demo/DemoSimulation.cpp",
+       "src/applications/viewer/DemoLink.cpp"
+      ]
+     },
+     "fsim_demo_steps_test": {
+      "modules": [
+       "demo"
+      ],
+      "sources": [
+       "src/applications/demo/DemoSimulation.cpp"
+      ]
+     }
+    },
+    "module_links": 97,
+    "issues": []
+   },
+   "mission_package_consumer_provenance": {
+    "sha256": "a2b83c9ec1fd45fdb290a6cde11a3159b7eaa7e2fe8b2569a3853efeb44b7745",
+    "lines": 277
+   }
+  }
+ }
+}

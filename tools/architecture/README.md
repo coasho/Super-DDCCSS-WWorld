@@ -6,6 +6,8 @@ Run with Python 3.11 or newer; only the standard library is used:
 python -B tools/architecture/check.py --repo .
 python -B tools/architecture/test_check.py
 python -B tools/architecture/baseline.py --date <YYYY-MM-DD>   # the dated baseline record (ARCH-01)
+python -B tools/architecture/configured.py --repo . --build build/<preset>   # a configured preset (ARCH-10)
+python -B tools/architecture/test_configured.py
 ```
 
 The CMake architecture acceptance tests run independently of Python SDK binding
@@ -246,31 +248,39 @@ The record includes the gate's verdict; a rejected tree is recorded and exits 1.
 It is a dated record, not a gate: source edits change its hashes, so refresh it
 at each migration handoff.
 
-### Reconciling with the configured build
+### Reconciling with the configured build (ARCH-10)
 
-The source parser stays the ownership authority: it reads every branch, so no
-preset can hide a violation. The configured graph is checked against it per
-required preset (`ucrt64-headless`, `ucrt64-release`) once the moves begin. The
-target name is the module identity, and ARCH-03 keeps target names and aliases
-while moving directories, so both graphs key by target. ARCH-01 does not
-configure:
+The source parser stays the ownership authority: it reads every branch, so no preset can hide a violation.
+`configured.py` holds each configured preset's graph to it, by target name, as that build's `architecture_configured`
+test:
 
-1. Before configuring, write the CMake File API query
-   `build/<preset>/.cmake/api/v1/query/codemodel-v2`; read the reply's targets,
-   sources, dependencies, link fragments and include directories.
-2. Every configured target built from `src` is a registered module target, and
-   every configured source has that module as its owner (the same owner rule).
-3. Every configured target-to-target dependency, whole-archive fragments
-   included, is an edge of the source graph. A configured edge the parser did
-   not see means a hidden declaration, and fails.
-4. A source edge missing from a preset is accepted only when its branch is
-   disabled there (render-only targets in `ucrt64-headless`); the record names
-   the branch.
-5. Configured include directories resolve within the module's dependency
-   closure. Broad `src` roots are reported until each target narrows them.
-6. The reconciliation runs in the exclusive build slot, after the preset is
-   configured, as a test of its own. A preset that cannot be configured is
-   pending, not passed.
+1. Every configure asks for its own CMake File API code model and cache: `cmake_file_api()` in
+   `cmake/ArchitectureChecks.cmake` (CMake 3.27 or later; an older CMake writes query files, answered from the next
+   configure). No reply, a code model older than 2.9 (it lacks the direct link items), a reply of another checkout or
+   a cache without the branch options is an input error: the preset is pending, not passed.
+2. Every configured target with a source under `src` is a registered module target, and every such source has that
+   module as its owner. A test target (one with a source under `tests`) may also compile an application module's
+   sources, which have no library to link; the gate names each one. A library module's source is compiled by its own
+   target alone.
+3. Every configured link between module targets (`linkLibraries`, `interfaceLinkLibraries`) is a source-graph edge,
+   and a link to another target names a registered external target. A build-order dependency between module targets
+   lies in the consumer's source closure.
+4. A source edge between two configured modules is configured too, and a configured module's providers are
+   configured. A module may be absent only where its branch is off: a non-headless module with `FSIM_WITH_RENDER`
+   off, a Python extension module (destinations under a `python` directory) with `FSIM_BUILD_PYTHON` off. The output
+   names each absent module and why.
+5. No configured include directory is `src` or an ancestor of it. One under `src` lies in the destinations of the
+   module or of a module in its source closure, and an include view is the module's or a closure module's. The others
+   are the public include root, vendor code, system directories or outside the repository.
+
+`test_configured.py` plants each violation in a synthetic reply beside `test_check.py`'s fixture tree. At ARCH-10
+both required presets reconcile:
+- `ucrt64-headless` configures 20 module targets and 67 module links; the eight renderer modules are absent with the
+  renderer off;
+- `ucrt64-release` configures all 28, with all 97 source edges.
+
+Two tests compile application sources: `fsim_demo_publisher_test` (the demo publisher's and the Viewer's process
+link) and `fsim_demo_steps_test` (the demo publisher's), HC-37.
 
 ## Neutral contracts and public headers (ARCH-02)
 
@@ -425,10 +435,13 @@ Tests, examples and tools are held to their categories (the policy's `layout`):
 - `tests`: `contracts`, `simulation`, `training`, `visualization`,
   `compatibility`, `integration`;
 - `examples`: `simulation`, `training`, `visualization`;
-- `tools`: `architecture`, `models`, `data`, `validation`.
+- `tools`: `architecture`, `models`, `data`, `validation`, `launch`.
 
 A root keeps only its own `CMakeLists.txt`; any other file outside a category is
 `uncategorized`. A layout exception names one directory under a root and expires
-like the others. The only one is `tools/launch`, the launchers' implementation,
-until ARCH-10 (HC-25). Ignored `__pycache__` directories are skipped. The baseline
-records the layout and each category's file count; `LayoutFixtures` hold the rule.
+like the others. None is left: `launch`, the launchers' implementation that
+`fsim.cmd` and `Testbench.cmd` run, became a category at ARCH-10 (HC-25). Ignored
+`__pycache__` directories are skipped. The baseline records the layout and each
+category's file count; `LayoutFixtures` hold the rule. `FinalPolicy` holds the
+committed policy to no exception of any kind and to no reservation waiting for an
+architecture phase.

@@ -29,6 +29,22 @@ add_test(NAME sdk_guard_checker
     COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/boundary/test_boundary.py")
 set_tests_properties(architecture_boundary architecture_checker sdk_guard_checker
     PROPERTIES LABELS architecture TIMEOUT 120)
+# The configured build graph (tools/architecture/README.md, "Reconciling with the configured build"; ARCH-10): this
+# configure's own CMake File API code model and cache, held to the source graph the gate above reads from every branch.
+# cmake_file_api() (CMake 3.27+) requests it for this run; without that command the query file is answered from the
+# next configure, and the gate fails until a reply exists - a preset without one is pending, not passed.
+if(COMMAND cmake_file_api)
+    cmake_file_api(QUERY API_VERSION 1 CODEMODEL 2 CACHE 2)
+else()
+    file(WRITE "${CMAKE_BINARY_DIR}/.cmake/api/v1/query/codemodel-v2" "")
+    file(WRITE "${CMAKE_BINARY_DIR}/.cmake/api/v1/query/cache-v2" "")
+endif()
+add_test(NAME architecture_configured
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/architecture/configured.py" --repo "${CMAKE_SOURCE_DIR}"
+            --build "${CMAKE_BINARY_DIR}")
+add_test(NAME architecture_configured_checker
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/architecture/test_configured.py")
+set_tests_properties(architecture_configured architecture_configured_checker PROPERTIES LABELS architecture TIMEOUT 120)
 # The mission-training contract (docs/sdk/mission-training.md): its schema's dialect, its fixtures and its pages, and
 # the checker's own refusals. They hold the contract's documents to the contract; no SDK binary is loaded.
 add_test(NAME ma_contract

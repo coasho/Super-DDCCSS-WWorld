@@ -627,6 +627,32 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
+## Architecture ARCH-10 final three-domain acceptance (2026-10-17, awaiting independent acceptance)
+
+The tenth and last package of the architecture roadmap. The
+[ARCH-10 record](architecture/validation/arch-10-final-acceptance.md) has the details. It reports migration progress: the
+full suites (HC-11) and the Viewer and joint gates (HC-07) are pending, so the three-domain architecture is not yet
+declared complete.
+
+- **Configured build graph:** each preset's own CMake File API code model is now held to the source graph
+  (`architecture_configured`, with 27 negative fixtures). `ucrt64-headless` configures 20 modules and 67 links, the
+  renderer modules absent with the renderer off; `ucrt64-release` configures all 28 modules and all 97 source edges.
+- **No exception left:** the policy lists no module, public, Python or layout exception. The launchers'
+  implementation is the declared `tools/launch` category (HC-25).
+- **Test selection:** an escalation applies to the presets its own path plans (HC-19). Shared build inputs plan and
+  escalate both presets (HC-20). The package root's eager imports stay a dependency, by decision (HC-04).
+- **Planning graph:** it uses the policy's module names and directories, and its checker enforces them (HC-24).
+- **Records:** the final baseline and the provenance (toolchain, GPU, inventories, artifact and data hashes) are in
+  `docs/architecture/validation/`.
+
+| Verification | Result |
+| --- | --- |
+| Source, configured (both presets), Python and planning graphs | No unknown owner, forbidden edge or cycle |
+| Related tests (architecture, documentation, selector) | Headless 29/29, Release 35/35 |
+| Compatibility and installed consumers (C ABI, SDK boundary, packages, launchers) | Headless 7/7, Release 7/7 |
+
+The full suites (717 headless and 780 Release tests) and the GUI scenarios did not run.
+
 ## HC-33 authority registration (2026-10-17, awaiting independent acceptance)
 
 Completes ARCH-09's authority gate, which the independent review at `4d7a9be` left open (HC-33). The
