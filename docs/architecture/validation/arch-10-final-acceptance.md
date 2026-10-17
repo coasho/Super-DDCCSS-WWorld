@@ -174,3 +174,29 @@ Further details:
 | Documentation | Planning checker: 52 documents, 30 native and 9 Python owners. Repository links: 107 files and 1,339 local links, none broken. Documentation tests: 3/3 |
 
 No full suite, GUI run or package gate was repeated (HC-11, HC-07). Logs and the before copies are in `D:/ENV/tmp/arch10-fix/`.
+
+## 13. HC-11 final regression (2026-10-17)
+
+The [HC-11 record](hc-11-final-regression.md) has the details.
+
+After the review closed HC-38 to HC-43 and the related fast checks passed (29/29 headless, 35/35 Release), the
+source tree was frozen and fingerprinted:
+- HEAD `f1bb879` plus 58 differing paths;
+- snapshot digest `e26241d67a879d4e`;
+- both build trees' artifacts, data, inventories and cache options.
+
+Each required full suite then ran once on that snapshot:
+
+| Preset | Result | Wall time |
+| --- | --- | --- |
+| `ucrt64-headless` | 717/717 passed | 1,123 s |
+| `ucrt64-release` | 780/780 passed | 1,138 s |
+
+Further details:
+- **Snapshot:** `verify` after each run found it unchanged.
+- **Coverage:** the Python SDK (67 per preset), contention, package, launcher and renderer tests are among the passed
+  tests. `viewer_screenshot` ran rather than skipping.
+- **Checklist (section 6):** current full-suite proof now exists for the rows on simulation authority, concurrency,
+  reset, RNG and outcome meanings and on compatible binaries, import paths, resources and recordings.
+- **Still pending (HC-07):** the graphics evidence, meaning the complete fullscreen scenarios, manual controls, the
+  4K performance gate and joint acceptance. Final-program acceptance is not claimed.

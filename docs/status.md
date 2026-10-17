@@ -627,6 +627,21 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
+## HC-11 final regression (2026-10-17, awaiting independent acceptance)
+
+Both required full suites ran once on one frozen, fingerprinted source snapshot, and both passed. The
+[HC-11 record](architecture/validation/hc-11-final-regression.md) has the details.
+
+| Verification | Result |
+| --- | --- |
+| Preconditions | Review findings closed (HC-38 to HC-43, HC-20); related fast checks 29/29 headless and 35/35 Release |
+| Snapshot | HEAD `f1bb879` plus 58 differing paths, digest `e26241d67a879d4e`; both build trees fingerprinted |
+| `ucrt64-headless` full suite | 717/717 passed, 1,123 s |
+| `ucrt64-release` full suite | 780/780 passed, 1,138 s; the renderer tests ran |
+| Snapshot after each run | Unchanged |
+
+Pending (HC-07): the fullscreen Viewer scenarios, manual controls, the 4K performance gate and joint acceptance.
+
 ## ARCH-10 HC-38 to HC-43 correction (2026-10-17, awaiting independent acceptance)
 
 Corrects the six items of the ARCH-10 review; section 11 of the
