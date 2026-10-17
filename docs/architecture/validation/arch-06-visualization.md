@@ -275,3 +275,45 @@ Verification (2026-10-16):
 
 Only the selector, its tests and `docs/development.md` changed. No build input of a product target changed, so nothing
 was rebuilt, and no full suite ran (HC-11).
+
+## 12. HC-13 shared renderer scope (2026-10-16)
+
+The [recheck at `5f8c139`](arch-06-review-2026-10-16.md#8-hc-13-recheck-at-5f8c139) found the last P2: the shared
+`render, vision and viewer` scope (`include/fsim/fsim_vision_c.h`, `python/fsim/vision.py`, `assets/**`) asks for the
+`render` label on `ucrt64-release` and keeps headless coverage. Section 11 required renderer tests only for a
+`render_only` claim or compile-database evidence, so these paths passed a Release inventory without renderer tests on
+generic names.
+
+The correction, in `tools/testing/scope.py`:
+- **Requirement:** `renders(rule)` (a `release` scope whose labels include `render`) decides that a path needs renderer
+  tests. That covers the render-only and the shared scope alike, and the compile-database evidence still applies. A
+  Release scope without the label (the MA public surface, SDK principals) needs none.
+- **Routing:** `render_only` keeps deciding only whether `ucrt64-headless` is planned. The shared scope's paths still
+  plan both presets, and headless keeps their own selection; a headless plan never asks for the label.
+- **Rules:** `testing_scope_checker` checks that every render-only scope `renders`, and every scope selecting the
+  `render` label runs on Release. The `scopes.toml` key comment and `docs/development.md` state the requirement.
+
+Regressions in `tools/testing/test_scope.py` (`testing_scope_checker`, 74 cases on each preset). The paths are the
+shader `assets/clouds/shaders/bruneton/runtime.glsl`, the public Vision header and the Python wrapper:
+
+| Kind | Cases |
+| --- | --- |
+| Pure plan, preset given | On Release the three paths need renderer tests and fail on generic tests; their headless plans have no error and keep `sdk_boundary`. `MissionBatch.h` (a generic Release scope) needs none. `renders` on its own |
+| Lifecycle, the negative fixture (both presets generic) | Each path in all three tiers; each with `SimRunner.h` (escalated): exit 3, `no-renderer-coverage` on Release only, with headless still planned and selecting. The shader with a run, with and without a build: exit 3, both presets built when asked, no runner started |
+| Lifecycle, controls | A valid Release inventory: each path in each tier passes with the renderer tests on Release and `sdk_boundary` on headless. A Release build that registers the renderer tests passes the header's run on both presets. The MA public surface and SDK principals pass on generic inventories |
+| Real builds | The real headless inventory as the Release one: the three paths in all tiers, the mixed change and both run lifecycles fail before any runner starts. On both real inventories the three paths plan both presets, headless keeping `sdk_boundary`, Release selecting every render test |
+
+Verification (2026-10-16):
+
+| Check | Result |
+| --- | --- |
+| The recheck's probe (`D:/ENV/tmp/hc13c/probe*.log`): real rules and compile-database evidence, the real 710-test headless inventory as Release, builds and runners injected, nothing built or run | HEAD `5f8c139`: ten plans (three paths in three tiers, the mixed change) exit 0 with no render test; the two runs start both runners, then exit 4 only because the stub runner writes no log. Corrected: all twelve exit 3 with `no-renderer-coverage`, no runner started |
+| Controls, the same probe | Both selectors: on the real 769-test Release inventory the three paths select 69 targeted and integration (769 full and mixed), all 59 render tests, and headless 10 (710 full and mixed). `MissionBatch.h` selects 27 on each preset without renderer tests and passes |
+| The new regressions against HEAD's `scope.py` | Every new negative case fails (three cases also by the missing `renders`); the valid and generic-scope controls pass on both |
+| `testing_scope_checker` | 74/74 headless, 74/74 Release, no skips |
+| Headless `architecture_boundary`, `architecture_checker`, `sdk_guard_checker`, `ma_contract`, `ma_engagement_contract` | 5/5 |
+
+A correction to section 11's wording: in its saved HEAD probe, four plans exited 0 and the two runs reached their
+runner, then exited 4 (`ran-other-tests`) from the stub. "Exit 0 in all six" in the earlier handoff was imprecise; both
+showed the missing check. Only the selector, its rules and tests and `docs/development.md` changed. Nothing was rebuilt
+and no full suite ran (HC-11).

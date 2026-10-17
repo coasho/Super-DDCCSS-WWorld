@@ -13,6 +13,9 @@
 #   release = true   the same selection also runs on ucrt64-release (render, vision, viewer and public-surface changes)
 #   render_only = true  (with release) the paths are built only with the renderer: they plan ucrt64-release alone, as
 #                    the headless build does not compile them; another scope claiming a path keeps ucrt64-headless too
+#   A `release` scope whose labels include "render" (render-only or shared) needs renderer coverage: its ucrt64-release
+#   plan selects every `render`-labelled test and is an error (no-renderer-coverage) on an inventory without one, which
+#   its generic names cannot satisfy. Headless keeps a shared scope's own selection.
 #   full = true      escalate to the full suite of each planned preset: shared simulation core, build system, data
 #                    every test flies
 #   build = false    no native build is needed before running (documentation, repository checks)

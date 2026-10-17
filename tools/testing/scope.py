@@ -17,7 +17,9 @@ changed native source or build input no scope claims - escalates to the full sui
 ucrt64-release alone (ucrt64-headless only when another of their scopes - or another changed path - needs it); and any
 changed path the presets' compile databases show is compiled only in ucrt64-release (a source, or a file in a directory
 whose sources are), whatever claims it, plans ucrt64-release too - a renderer change never passes on the headless build
-alone, which does not compile it.
+alone, which does not compile it. Such a path, and any path a `release` scope selecting the `render` label claims (the
+shared Vision header, its Python wrapper, assets: headless keeps their coverage), needs renderer coverage: the
+ucrt64-release plan selects every `render`-labelled test and fails without one.
 
 It fails closed: a changed path nothing claims, a selection that is empty and no changes at all are errors (exit 3,
 with their reasons and paths), not a passing run. With --build it builds the presets first, then lists each preset's
@@ -333,24 +335,31 @@ def direct_tests(path, tests, executables, dependents):
     return found, compiled
 
 
+def renders(rule):
+    """Whether a scope requires renderer coverage: it runs on ucrt64-release and selects the `render` label. This is
+    separate from `render_only`, which decides only whether ucrt64-headless is planned too."""
+    return bool(rule.get("release")) and RENDER in rule.get("labels", [])
+
+
 def plan(paths, rules, tests, executables, tier="targeted", dependents=None, readers=None, evidence=None, preset=None):
     """What `paths` need: {"scopes", "escalate" (reasons), "release" (reasons), "headless" (whether ucrt64-headless
-    builds any of them), "renderer" (the paths only the renderer builds), "build", "selected" (test names), "unmatched",
+    builds any of them), "renderer" (the paths that need renderer tests), "build", "selected" (test names), "unmatched",
     "errors" ([{"reason", "paths", ...}]: an unclaimed path, a required Python test module with no CTest test registered,
     no renderer test where a renderer change needs one, an empty selection or no changes)}. `evidence` (release_only)
-    marks the paths compiled only with the renderer. Planned on ucrt64-release (`preset`), a renderer change selects
-    every `render`-labelled test of that inventory, whatever the tier, and an inventory without one is an error: generic
-    matches (sdk_boundary, Python Vision) supplement that coverage, never stand in for it."""
+    marks the paths compiled only with the renderer. Planned on ucrt64-release (`preset`), a path that needs renderer
+    tests (that evidence, or a scope that `renders`, render-only or shared, claiming it) selects every `render`-labelled
+    test of that inventory, whatever the tier, and an inventory without one is an error: generic matches (sdk_boundary,
+    Python Vision) supplement that coverage, never stand in for it."""
     dependents, readers = dependents or {}, readers or {}
     selected, matched, escalate, release, unmatched, direct_all = set(), [], [], [], [], set()
     required = {}  # python/tests module -> the changed paths that need its tests (it exists: the import closure holds it)
     build = False
     headless = not paths
-    renderer = []  # the changed paths only the renderer builds (a render-only scope claims them, or the compile databases say)
+    renderer = []  # the changed paths needing renderer tests: a render scope claims them, or the compile databases say
     for path in paths:
         hits = [r for r in rules if any(glob_match(path, p) for p in r.get("paths", [])) and not any(glob_match(path, p) for p in r.get("except", []))]
         rendered = is_release_only(path, evidence)
-        if rendered or any(r.get("render_only") for r in hits):
+        if rendered or any(renders(r) for r in hits):
             renderer.append(path)
         # ucrt64-headless builds the path unless every scope claiming it is render-only, or (claimed by none) the compile
         # databases show it built only with the renderer
@@ -408,8 +417,9 @@ def plan(paths, rules, tests, executables, tier="targeted", dependents=None, rea
         selected |= rendered_tests
         if not rendered_tests:
             errors.append({"reason": "no-renderer-coverage", "paths": renderer,
-                           "detail": "these paths are built only with the renderer, and this %s inventory has no '%s' test: "
-                                     "configure and build it with the renderer (FSIM_WITH_RENDER), then select again"
+                           "detail": "these paths need renderer tests (a render scope or the compile databases say so), and this %s "
+                                     "inventory has no '%s' test: configure and build it with the renderer (FSIM_WITH_RENDER), "
+                                     "then select again"
                                      % (RELEASE, RENDER)})
     escalated = {reason.split(" (", 1)[0] for reason in escalate}
     unclaimed = [path for path in unmatched if path not in escalated]

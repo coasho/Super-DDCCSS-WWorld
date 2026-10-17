@@ -627,6 +627,26 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
+## HC-13 shared renderer scope (2026-10-16, awaiting independent acceptance)
+
+The `5f8c139` recheck's last P2: the shared `render, vision and viewer` scope (public Vision header, Python wrapper,
+assets) asked for the `render` label on Release but did not require it, so generic tests passed an inventory without
+renderer tests. The ARCH-06 record's section 12 has the details.
+
+- **Requirement:** any `release` scope selecting the `render` label (render-only or shared), or the compile-database
+  evidence, makes the Release plan require and select every renderer test; generic Release scopes are unchanged.
+- **Headless:** `render_only` still alone decides routing; the shared paths keep their headless selection.
+- **Regressions:** shader, header and wrapper negatives over tiers, mixed escalation and run lifecycles; valid,
+  post-build and generic-scope controls; the recheck's probe on the real headless inventory.
+
+| Verification | Result |
+| --- | --- |
+| The recheck's probe, real headless inventory as Release | HEAD: ten plans exit 0, two runs start their runners; corrected: all twelve exit 3, nothing run |
+| Real Release control | 69 of 769 targeted with all 59 render tests; headless 10 |
+| `testing_scope_checker`, both presets | 74/74 and 74/74 |
+
+No product source changed and no full suite ran (HC-11).
+
 ## HC-13 renderer-coverage requirement (2026-10-16, awaiting independent acceptance)
 
 The `9e66811` recheck's remaining P2: a renderer change's `ucrt64-release` plan passed on an inventory without renderer

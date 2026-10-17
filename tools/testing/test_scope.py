@@ -307,6 +307,21 @@ class PlanTest(unittest.TestCase):
                 p = scope.plan(["src/visualization/ui/MonitorGui.cpp"], rules, self.RENDER_TESTS, {}, tier, {}, {}, None, scope.RELEASE)
                 self.assertEqual(p["errors"], [])
                 self.assertLessEqual({"terrain profile: the camera", "vision"}, set(p["selected"]))
+        # a shared renderer scope (headless kept) requires them as well; a generic Release scope does not
+        for path in ("assets/clouds/shaders/bruneton/runtime.glsl", "include/fsim/fsim_vision_c.h", "python/fsim/vision.py"):
+            with self.subTest(path=path):
+                p = scope.plan([path], rules, generic, {}, "targeted", {}, {}, None, scope.RELEASE)
+                self.assertTrue(p["headless"] and p["release"])
+                self.assertEqual(p["renderer"], [path])
+                self.assertEqual([e["reason"] for e in p["errors"]], ["no-renderer-coverage"])
+                p = scope.plan([path], rules, generic, {}, "targeted", {}, {}, None, scope.HEADLESS)
+                self.assertEqual(p["errors"], [])
+                self.assertIn("sdk_boundary", p["selected"])
+        p = scope.plan(["include/fsim/MissionBatch.h"], rules, generic, {}, "targeted", {}, {}, None, scope.RELEASE)
+        self.assertTrue(p["release"])
+        self.assertEqual(p["renderer"], [])
+        self.assertTrue(scope.renders({"release": True, "labels": ["render"]}))
+        self.assertFalse(scope.renders({"labels": ["render"]}) or scope.renders({"release": True, "tests": ["vision"]}))
         # the headless plan of a mixed change does not ask its inventory for renderer tests
         p = scope.plan(["src/visualization/ui/MonitorGui.cpp", "src/simulation/flight/SimRunner.h"], rules, generic, {},
                        "targeted", {}, {}, None, scope.HEADLESS)
@@ -561,6 +576,83 @@ class RenderLifecycleTest(unittest.TestCase):
         self.assertEqual(status, 0, report["errors"])
         self.assertEqual(self.calls[:2], ["build ucrt64-release", "list ucrt64-release"])
 
+    # The shared renderer scope: paths both presets build or carry (the public Vision header, its Python wrapper, shader
+    # and other assets). Headless keeps its coverage; on ucrt64-release they need renderer tests all the same.
+    SHARED = ["assets/clouds/shaders/bruneton/runtime.glsl", "include/fsim/fsim_vision_c.h", "python/fsim/vision.py"]
+
+    def test_a_shared_renderer_path_fails_every_tier_without_renderer_tests_and_keeps_headless(self):
+        self.inventories = {scope.HEADLESS: synthetic(self.GENERIC), scope.RELEASE: synthetic(self.GENERIC)}
+        for path in self.SHARED:
+            for tier in ("targeted", "integration", "full"):
+                with self.subTest(path=path, tier=tier):
+                    status, report = self.plan_only([path], tier)
+                    self.assertEqual(status, 3)
+                    self.assertEqual([(e["reason"], e["preset"], e["paths"]) for e in report["errors"]],
+                                     [("no-renderer-coverage", scope.RELEASE, [path])])
+                    self.assertEqual(list(report["presets"]), [scope.HEADLESS, scope.RELEASE])
+                    self.assertIn("sdk_boundary", report["presets"][scope.HEADLESS]["selected"])
+
+    def test_a_mixed_escalated_shared_change_fails_without_renderer_tests(self):
+        self.inventories = {scope.HEADLESS: synthetic(self.GENERIC), scope.RELEASE: synthetic(self.GENERIC)}
+        for path in self.SHARED:
+            with self.subTest(path=path):
+                status, report = self.plan_only([path, "src/simulation/flight/SimRunner.h"])
+                self.assertEqual(status, 3)
+                self.assertEqual([(e["reason"], e["paths"]) for e in report["errors"]], [("no-renderer-coverage", [path])])
+                self.assertEqual(len(report["presets"][scope.HEADLESS]["selected"]), len(self.GENERIC))  # (escalated)
+
+    def test_a_shared_renderer_path_runs_nothing_without_renderer_tests_with_or_without_a_build(self):
+        self.inventories = {scope.HEADLESS: synthetic(self.GENERIC), scope.RELEASE: synthetic(self.GENERIC)}
+        for build in (False, True):
+            with self.subTest(build=build):
+                self.calls = []
+                status, report = scope.select(["assets/clouds/shaders/bruneton/runtime.glsl"], scope.load_rules(), "targeted",
+                                              16, run=True, build=build, log_dir=self.tmp.name, executables={}, dependents={},
+                                              readers={}, discover=self.discover, builder=self.builder,
+                                              runner=lambda command, log: self.calls.append("run") or 0,
+                                              measured=lambda preset: {}, recorder=lambda logs, preset: 0, evidence=None)
+                self.assertEqual(status, 3)
+                self.assertEqual([e["reason"] for e in report["errors"]], ["no-renderer-coverage"])
+                self.assertNotIn("run", self.calls)
+                self.assertEqual([c for c in self.calls if c.startswith("build")],
+                                 ["build " + scope.HEADLESS, "build " + scope.RELEASE] if build else [])
+
+    def test_a_shared_renderer_path_on_a_valid_inventory_runs_both_presets(self):
+        self.inventories[scope.HEADLESS] = synthetic(self.GENERIC)
+        self.inventories[scope.RELEASE] = synthetic(self.GENERIC) + [
+            {"index": 9, "name": "terrain profile: the camera", "labels": ["render"], "command": ["x.exe"], "serial": False, "processors": 1}]
+        for path in self.SHARED:
+            for tier in ("targeted", "integration", "full"):
+                with self.subTest(path=path, tier=tier):
+                    status, report = self.plan_only([path], tier)
+                    self.assertEqual(status, 0, report["errors"])
+                    self.assertIn("terrain profile: the camera", report["presets"][scope.RELEASE]["selected"])
+                    self.assertIn("sdk_boundary", report["presets"][scope.HEADLESS]["selected"])
+        # the post-build inventory decides: a build that registers the renderer tests passes the run
+        rendered = self.inventories[scope.RELEASE]
+        self.inventories[scope.RELEASE] = synthetic(self.GENERIC)
+
+        def builder(preset):
+            self.calls.append("build " + preset)
+            if preset == scope.RELEASE:
+                self.inventories[scope.RELEASE] = rendered
+            return 0
+        self.builder, self.calls = builder, []
+        status, report = self.select(["include/fsim/fsim_vision_c.h"],
+                                     {scope.HEADLESS: ("sdk_boundary", "python_sdk test_vision", "python_sdk test_camera"),
+                                      scope.RELEASE: ("sdk_boundary", "python_sdk test_vision", "python_sdk test_camera",
+                                                      "terrain profile: the camera")})
+        self.assertEqual(status, 0, report["errors"])
+        self.assertEqual(sum(c.startswith("run ") for c in self.calls), 2)
+
+    def test_a_generic_release_scope_needs_no_renderer_tests(self):
+        self.inventories = {scope.HEADLESS: synthetic(self.GENERIC), scope.RELEASE: synthetic(self.GENERIC)}
+        for path in ("include/fsim/MissionBatch.h", "docs/sdk/boundary.toml"):  # (MA public surface; SDK principals)
+            with self.subTest(path=path):
+                status, report = self.plan_only([path])
+                self.assertEqual(status, 0, report["errors"])
+                self.assertEqual(list(report["presets"]), [scope.HEADLESS, scope.RELEASE])
+
     def test_a_valid_release_inventory_selects_every_renderer_test_in_every_tier(self):
         for tier in ("targeted", "integration", "full"):
             with self.subTest(tier=tier):
@@ -810,6 +902,9 @@ class RulesTest(unittest.TestCase):
                 self.assertTrue(r.get("tests") or r.get("labels") or r.get("full"), "a scope selects something or escalates")
                 if r.get("render_only"):
                     self.assertTrue(r.get("release") and not r.get("full"), "a render-only scope runs on ucrt64-release, targeted")
+                    self.assertTrue(scope.renders(r), "a render-only scope requires the renderer tests")
+                if scope.RENDER in r.get("labels", []):
+                    self.assertTrue(scope.renders(r), "a scope selecting the render label runs on ucrt64-release")
                 for expression in r.get("tests", []):
                     re.compile(expression.replace("{stem}", "x"))
 
@@ -894,6 +989,14 @@ class RulesTest(unittest.TestCase):
                 rendered = {t["name"] for t in inventories[scope.RELEASE] if "render" in t["labels"]}
                 self.assertLessEqual(rendered, set(chosen))
                 self.assertLess(len(chosen), report["presets"][scope.RELEASE]["of"], "a targeted selection, not the suite")
+        for path in ("assets/clouds/shaders/bruneton/runtime.glsl", "include/fsim/fsim_vision_c.h", "python/fsim/vision.py"):
+            with self.subTest(path=path):  # the shared renderer scope: headless kept, every render test on ucrt64-release
+                status, report = scope.select([path], self.rules, "targeted", 16, run=False, executables={}, dependents={},
+                                              readers={}, discover=lambda preset: inventories[preset])
+                self.assertEqual(status, 0, report["errors"])
+                self.assertEqual(list(report["presets"]), [scope.HEADLESS, scope.RELEASE])
+                self.assertIn("sdk_boundary", report["presets"][scope.HEADLESS]["selected"])
+                self.assertLessEqual(rendered, set(report["presets"][scope.RELEASE]["selected"]))
 
     def test_the_real_headless_inventory_cannot_stand_in_for_the_release_one(self):
         """The review's probe: the real headless inventory (sdk_boundary and the Python Vision tests, no renderer test)
@@ -909,6 +1012,11 @@ class RulesTest(unittest.TestCase):
         cases += [(["src/visualization/ui/MonitorGui.cpp", "src/simulation/flight/SimRunner.h"], "targeted", False, False),
                   (["src/visualization/scene/VehicleVisuals.cpp"], "targeted", True, False),
                   (["src/visualization/vfx/flow/FlowSolver.cpp"], "targeted", True, True)]
+        # the shared renderer scope (both presets planned): shader, public Vision header and Python wrapper
+        shared = ["assets/clouds/shaders/bruneton/runtime.glsl", "include/fsim/fsim_vision_c.h", "python/fsim/vision.py"]
+        cases += [([path], tier, False, False) for path in shared for tier in ("targeted", "integration", "full")]
+        cases += [([shared[0], "src/simulation/flight/SimRunner.h"], "targeted", False, False),
+                  ([shared[0]], "targeted", True, False), ([shared[0]], "targeted", True, True)]
         for paths, tier, run, build_first in cases:
             with self.subTest(paths=paths, tier=tier, run=run, build=build_first):
                 calls = []
