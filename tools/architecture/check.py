@@ -602,13 +602,19 @@ def analyze(repo, policy):
                       "remove it from its directories")
 
     # a module moved to its destinations (no legacy directory or file claim) exports its headers through its include
-    # view (cmake/IncludeViews.cmake): an include directory of its own under src outside its destinations - the shared
-    # src root, a domain root - would show the compiler other modules' private headers again
+    # view (cmake/IncludeViews.cmake): an include directory of its own under src outside its destinations - a domain
+    # root - or one holding the whole src tree - the src root, the repository root or any other ancestor, however
+    # spelled (directories are resolved: src/.. is the repository root) - would show the compiler other modules'
+    # private headers again
     for name, module in sorted(modules.items()):
         if module["directories"] or module["files"]:
             continue
         for directory in include_directories[name]:
-            if directory.is_relative_to(repo / "src") and not any(
+            if (repo / "src").is_relative_to(directory):
+                issue("broad-include-root", "CMake graph", f"{name}: include directory "
+                      f"{directory.relative_to(repo).as_posix() or '.'} holds the whole src tree (the src root or an "
+                      "ancestor of it); export its headers through fsim_include_view")
+            elif directory.is_relative_to(repo / "src") and not any(
                     directory.is_relative_to(repo / destination) for destination in module["destinations"]):
                 issue("broad-include-root", "CMake graph", f"{name}: include directory "
                       f"{directory.relative_to(repo).as_posix() or '.'} lies outside its destinations; export its "

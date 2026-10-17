@@ -333,8 +333,14 @@ sources: once a module has moved, its old claim fails as
 A moved module exports its headers through an include view
 (`cmake/IncludeViews.cmake`), not the shared `src` root. The view is a
 build-tree mirror of the module's own headers, so a target compiles with its
-own headers and its linked providers' only. A moved module that declares an
-include directory under `src` outside its destinations fails as
-`broad-include-root`. The `include_view_<module>` tests compile allowed and
-forbidden headers in each target's own environment
-(`cmake/CheckIncludeView.cmake`).
+own headers and its linked providers' only. A moved module fails as
+`broad-include-root` when it declares an include directory under `src` outside
+its destinations, or one holding the whole src tree: `src` itself or any
+ancestor, such as the repository root. The comparison uses resolved paths, so
+`src/..` is the repository root. The `include_view_<module>` tests compile
+allowed and forbidden headers in each target's own environment
+(`cmake/CheckIncludeView.cmake`):
+- a root that resolves to `src` or an ancestor of it is refused before any
+  probe;
+- forbidden headers are probed both from src (`simulation/...`) and from the
+  repository root (`src/simulation/...`).

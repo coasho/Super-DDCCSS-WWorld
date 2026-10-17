@@ -525,6 +525,20 @@ implemented; section 7 of the ARCH-03 record has the details.
 
 No full suite ran (HC-11). Non-migrated targets keep the shared root until their packages move them (HC-14).
 
+**HC-12 ancestor-root correction (2026-10-16, awaiting independent acceptance).** This closes the gap the `e7ee67e`
+recheck found: the gate and the compile check both accepted an ancestor of `src`, such as the repository root.
+- **Gate:** `broad-include-root` rejects `src` and every ancestor of it, resolved, so `src/.`, `src/..` and relative
+  spellings are caught.
+- **Compile check:** the include view check refuses any root that resolves to `src` or an ancestor of it.
+- **Probes:** each forbidden header is also probed in its `src/...` spelling (46 spellings of 23 headers).
+- **Regressions:**
+  - the gate fixture rejects the repository root, `src/..` and `../../..`. The `e7ee67e` checker accepts all three;
+  - the probe checker's 13 cases cover the repository root, `src/..`, the repository's parent, and copied `src`
+    trees that only the compile probes can reject.
+- **Unchanged:** no target declaration or source changed; objects are still byte-identical.
+- **Tests:** related tests 16/16 on each preset; 130 checker cases and 49 selector cases. No full suite (HC-11). The
+  ARCH-03 record's section 7 has the details.
+
 ## HC-10 shared-memory padding (2026-10-16, awaiting independent acceptance)
 
 The carryover register's HC-10 is verified and corrected; section 10 of the ARCH-02 record

@@ -1,9 +1,10 @@
 # ARCH-03 foundation and domain leaves
 
 Status: relocation implemented at `30bc5ef`. The [independent review](arch-03-review-2026-10-16.md) found no behavioral
-regression but held ARCH-03 incomplete without task 5 (HC-12). Task 5, include-path narrowing, is now implemented
-([section 7](#7-include-path-narrowing-task-5-hc-12)), awaiting independent acceptance (2026-10-16). ARCH-04 has not
-started.
+regression but held ARCH-03 incomplete without task 5 (HC-12). Current target narrowing is verified at `e7ee67e`
+([section 7](#7-include-path-narrowing-task-5-hc-12)). The [correction review](arch-03-review-2026-10-16.md#5-hc-12-correction-review-at-e7ee67e)
+found one ancestor-root enforcement gap. That gap is corrected ([section 7, ancestor roots](#ancestor-roots-hc-12-review-correction)),
+awaiting independent acceptance (2026-10-16). ARCH-04 has not started.
 Starting main HEAD: `565ef3e` (ARCH-02 accepted at `dc09e8f`; HC-10 accepted at `565ef3e`). This is a relocation only:
 no source line changed except includes and path comments, and no model, RNG, timestep or default behavior changed.
 
@@ -190,12 +191,14 @@ build:
 `include_view_checker` (`cmake/TestCheckIncludeView.cmake`) runs the check on mutated copies of `ms`'s generated
 check. The unmutated copy must pass. Each of five mutations must fail with its own reason:
 - the shared root restored;
-- an equivalent broader root (`src/.`), which the string guard does not catch and only the compile probes reject;
+- an equivalent broader root (`src/.`), which the exact-string guard at `e7ee67e` did not catch and only the compile
+  probes rejected;
 - the `core` provider's view removed;
 - a stale probe header;
 - an unsupported compiler.
 
 The probes support GCC only, the compiler of every supported (UCRT64) preset; any other compiler is refused explicitly.
+The [ancestor-root correction](#ancestor-roots-hc-12-review-correction) extends the guard, the probes and these cases.
 
 ### Gate rule
 
@@ -207,6 +210,8 @@ claim. Such a module may declare no include directory under `src` outside its de
 - **Later packages:** the rule applies to each module automatically once a later package moves it.
 - **Coverage:** the probes check representative headers. Completeness over every header comes from three sources: the
   build itself (every source compiles in its narrowed environment), the gate's static include closure, and this rule.
+- **Ancestors:** at `e7ee67e` the rule checked only directories inside `src`. The
+  [ancestor-root correction](#ancestor-roots-hc-12-review-correction) extends it to `src`'s ancestors.
 
 ### Verification (2026-10-16)
 
@@ -222,3 +227,56 @@ claim. Such a module may declare no include directory under `src` outside its de
 
 No full suite ran, as the request directs. The selector escalates this change (build system) to the full suite of 702
 headless tests. That run stays the open evidence gate HC-11. Logs are in `D:/ENV/tmp/hc12/`.
+
+### Ancestor roots (HC-12 review correction)
+
+Starting main HEAD: `e7ee67e`. The [correction review](arch-03-review-2026-10-16.md#5-hc-12-correction-review-at-e7ee67e)
+found that both checks accepted an ancestor of `src`. An example is the repository root, which exposes every private
+header as `src/...`.
+- The gate tested only directories inside `src`.
+- The compile check refused only the exact `src` string, and its forbidden probes used only src-relative spellings.
+
+This correction changes only the checks. No target declaration, source or header changed, and no object was rebuilt.
+
+- **Gate (`tools/architecture/check.py`):** `broad-include-root` now also rejects an include directory that is `src` or
+  any ancestor of it. Directories are resolved, so `src/.`, `src/..` and `${CMAKE_CURRENT_SOURCE_DIR}/../../..` are
+  caught too. A directory inside `src` outside the module's destinations is still rejected as before.
+- **Compile check (`cmake/CheckIncludeView.cmake`):**
+  - **Root guard:** before any probe, every include root is made absolute, normalized and link-resolved (case-folded on
+    Windows). A root that is `src` or an ancestor of it fails as "holds the whole src tree".
+  - **Second spelling:** each forbidden header is now also probed in its repository-root spelling
+    (`src/simulation/flight/VehicleState.h`). Both spellings must be not found. Each must compile once the `src` root and
+    the repository root are added back.
+  - **Totals:** 28 allowed headers, 23 forbidden headers in 46 spellings.
+
+**Regressions.** The gate fixture `test_a_moved_module_exports_no_include_root_beyond_its_destination` covers:
+
+| Declared include directory | Result |
+| --- | --- |
+| `src`, `src/.`, the repository root, `src/..`, `${CMAKE_CURRENT_SOURCE_DIR}/../../..` | Rejected: holds the whole src tree |
+| A domain root (`src/foundation`) | Rejected: outside its destinations |
+| The module's own destination, `include/`, the include view | Accepted |
+
+On `e7ee67e`'s checker the three ancestor spellings are accepted: exit 0, the reported false pass. `src` and `src/.`
+are rejected only with the old message.
+
+`include_view_checker` covers these cases:
+
+| Kind | Cases | Result |
+| --- | --- | --- |
+| Permitted | The unmutated check; a permitted non-ancestor repository root (`third_party/ntia`) | Pass |
+| Root guard | `src`, `src/.`, the repository root, `src/..`, the repository's parent, and on Windows `src` in another case | Each refused |
+| Compile probes | A copy of `src`'s headers outside the repository's ancestry, as a src root; the same copy as a repository-root layout | Each refused as a visible forbidden header, in the matching spelling; no path comparison can recognize these |
+| Other refusals | The provider's view removed; a stale probe; an unsupported compiler | Each refused |
+
+That is 13 cases. On `e7ee67e`'s check script, `ms`'s check with the repository root or `src/..` added exits 0; the
+corrected script refuses both.
+
+| Check (2026-10-16) | Result |
+| --- | --- |
+| Builds, both presets (reconfigure only) | 0 warnings, 0 units compiled; all 498 headless and 545 Release object files still byte-identical to the `30bc5ef` builds |
+| Related tests, both presets, `--no-tests=error`: the ten `include_view_*`, `include_view_checker`, `architecture_boundary`, `architecture_checker`, `testing_scope_checker`, `sdk_guard_checker`, `ma_contract` | 16/16 headless (16.7 s), 16/16 Release (16.2 s) |
+| `test_check.py`; `tools/testing/test_scope.py` | 130 cases; 49 cases (1 skipped) |
+| Architecture gate | Accepted with unchanged counts |
+
+No full suite ran (HC-11). Logs are in `D:/ENV/tmp/hc12a/`.

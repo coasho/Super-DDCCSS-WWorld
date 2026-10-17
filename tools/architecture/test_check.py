@@ -452,14 +452,22 @@ class DomainFixtures(FixtureRepository):
         cmake = ("add_library(fsim_core STATIC Header.h)\nadd_library(fsim::core ALIAS fsim_core)\n"
                  "target_link_libraries(fsim_core PUBLIC fsim::platform)\n")
         self.write("src/foundation/core/Header.h", "#pragma once\n")
-        for root, where in (("${CMAKE_SOURCE_DIR}/src", "src"),
-                            ("${CMAKE_SOURCE_DIR}/src/foundation", "src/foundation")):
+        # the src root and every ancestor of it, however spelled, hold the whole src tree; a domain root holds siblings
+        whole = "holds the whole src tree (the src root or an ancestor of it)"
+        for root, where, detail in (("${CMAKE_SOURCE_DIR}/src", "src", whole),
+                                    ("${CMAKE_SOURCE_DIR}/src/.", "src", whole),
+                                    ("${CMAKE_SOURCE_DIR}", ".", whole),
+                                    ("${CMAKE_SOURCE_DIR}/src/..", ".", whole),
+                                    ("${CMAKE_CURRENT_SOURCE_DIR}/../../..", ".", whole),
+                                    ("${CMAKE_SOURCE_DIR}/src/foundation", "src/foundation",
+                                     "lies outside its destinations")):
             with self.subTest(root=root):
                 self.write("src/foundation/core/CMakeLists.txt",
                            cmake + f"target_include_directories(fsim_core PUBLIC {root})\n")
-                self.rejects("broad-include-root", f"core: include directory {where} lies outside its destinations")
-        # its own destination, or the view the build generates, show no other module
+                self.rejects("broad-include-root", f"core: include directory {where} {detail}")
+        # its own destination, the public include root, or the view the build generates show no other module
         for declaration in ("target_include_directories(fsim_core PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})\n",
+                            "target_include_directories(fsim_core PUBLIC ${CMAKE_SOURCE_DIR}/include)\n",
                             "fsim_include_view(fsim_core)\n"):
             with self.subTest(declaration=declaration):
                 self.write("src/foundation/core/CMakeLists.txt", cmake + declaration)

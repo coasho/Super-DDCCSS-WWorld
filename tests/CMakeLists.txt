@@ -378,7 +378,8 @@ set_tests_properties(contracts PROPERTIES LABELS architecture TIMEOUT 60)
 # declared providers' only. fsim_include_view_check(<module> <target> ALLOWED <headers> FORBIDDEN <headers>) compiles
 # one-include probes with the real compiler in the target's own include environment (an interface library's: what a
 # consumer of it alone gets): the allowed headers compile; each forbidden header - an unrelated private module's - is
-# not found, and compiles once the shared src root is added back (cmake/CheckIncludeView.cmake). No build is needed.
+# not found, spelled from src or from the repository root, and compiles once those roots are added back. No root may be
+# src or an ancestor of it, however spelled (cmake/CheckIncludeView.cmake). No build is needed.
 function(fsim_include_view_check module target)
     cmake_parse_arguments(_v "" "" "ALLOWED;FORBIDDEN" ${ARGN})
     get_target_property(_type ${target} TYPE)
@@ -446,8 +447,9 @@ fsim_include_view_check(comm fsim_comm
 fsim_include_view_check(ms fsim_ms
     ALLOWED   simulation/mission_systems/rf/Rain.h simulation/mission_systems/radar/Radar.h foundation/core/Units.h
     FORBIDDEN simulation/flight/VehicleState.h simulation/flight_control/Pid.h session/WorldOptions.h)
-# The check's own refusals, on mutated copies of ms's check: the shared root restored, a broader root, a declared
-# provider's view removed, a stale probe, an unsupported compiler (cmake/TestCheckIncludeView.cmake).
+# The check itself, on mutated copies of ms's check: the unmutated and a permitted root pass; src and its ancestors in
+# each spelling (src/., the repository root, src/..), copied src trees, a provider's view removed, a stale probe and an
+# unsupported compiler are refused (cmake/TestCheckIncludeView.cmake).
 add_test(NAME include_view_checker
     COMMAND ${CMAKE_COMMAND} -DCHECK=${CMAKE_BINARY_DIR}/include-view-checks/fsim_ms.cmake
         -P ${CMAKE_SOURCE_DIR}/cmake/TestCheckIncludeView.cmake)
