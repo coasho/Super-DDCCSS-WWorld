@@ -235,6 +235,81 @@ class PlanTest(unittest.TestCase):
         self.assertIn("MA episode owner (native)", owner["scopes"])
         self.assertNotIn("vecenv", owner["selected"])
 
+    # HC-13: a change built only with the renderer is planned on ucrt64-release, never passed on the headless build alone
+    RENDER_TESTS = [
+        {"index": 1, "name": "sdk_boundary", "labels": [], "command": ["python.exe"]},
+        {"index": 2, "name": "terrain profile: the camera", "labels": ["render"], "command": ["D:/r/tests/fsim_render_tests.exe"]},
+        {"index": 3, "name": "vision", "labels": ["render"], "command": ["D:/r/tests/fsim_vision_test.exe"]},
+        {"index": 4, "name": "flight core", "labels": [], "command": ["D:/r/tests/fsim_core_test.exe"]},
+    ]
+    RENDER_ROOTS = ["src/visualization/scene/VehicleVisuals.cpp", "src/visualization/ui/MonitorGui.cpp",
+                    "src/visualization/vfx/flow/FlowSolver.cpp", "src/visualization/vfx/effects/Exhaust.h",
+                    "src/visualization/scene/CMakeLists.txt", "src/visualization/vfx/flow/CMakeLists.txt",
+                    "src/visualization/vision/CameraScene.cpp", "src/adapters/vision/Vision.cpp",
+                    "src/applications/viewer/main.cpp", "src/applications/viewer/CMakeLists.txt", "python/src/_vision.c",
+                    "tools/rcs/Engine.cpp", "tools/flow_calibrate/main.cpp", "examples/vision_capture/main.cpp",
+                    "tests/test_terrain_render.cpp", "tests/test_vision_c_abi.c"]
+
+    def render_plan(self, paths, evidence=None):
+        return scope.plan(paths, scope.load_rules(), self.RENDER_TESTS, {}, "targeted", {}, {}, evidence)
+
+    def test_every_render_only_root_plans_the_release_preset_alone(self):
+        for path in self.RENDER_ROOTS:
+            with self.subTest(path=path):
+                p = self.render_plan([path])
+                self.assertTrue(p["release"], "the release preset is planned")
+                self.assertFalse(p["headless"], "the headless build does not compile it")
+                self.assertTrue(p["build"])
+                self.assertEqual(p["errors"], [])
+                self.assertEqual(p["escalate"], [])
+                self.assertLessEqual({"terrain profile: the camera", "vision"}, set(p["selected"]))
+
+    def test_the_flow_module_is_also_a_shared_build_input(self):
+        p = self.render_plan(["cmake/Flow.cmake"])  # (every configure reads it; only the renderer's build uses it)
+        self.assertTrue(p["release"] and p["headless"] and p["escalate"])
+
+    def test_controls_a_headless_change_and_a_mixed_one(self):
+        p = self.render_plan(["src/simulation/flight/SimRunner.h"])
+        self.assertTrue(p["headless"])
+        self.assertEqual(p["release"], [])
+        p = self.render_plan(["src/visualization/ui/MonitorGui.cpp", "src/simulation/flight/SimRunner.h"])
+        self.assertTrue(p["headless"] and p["release"])
+
+    def test_the_compile_databases_plan_the_release_preset_whatever_claims_a_path(self):
+        evidence = {"sources": {"src/visualization/x/New.cpp", "tools/newtool/main.cpp"}, "directories": {"src/visualization/x"}}
+        rules = [{"name": "tool", "paths": ["tools/newtool/**"], "tests": ["^flight core$"]}]
+        # an unclaimed source compiled only with the renderer: the release preset alone, escalated there
+        p = scope.plan(["src/visualization/x/New.cpp"], [], self.RENDER_TESTS, {}, "targeted", {}, {}, evidence)
+        self.assertTrue(p["release"] and p["escalate"])
+        self.assertFalse(p["headless"])
+        # a header beside such sources is built with them
+        p = scope.plan(["src/visualization/x/New.h"], [], self.RENDER_TESTS, {}, "targeted", {}, {}, evidence)
+        self.assertTrue(p["release"])
+        self.assertFalse(p["headless"])
+        # a scope that forgot the renderer: still planned on ucrt64-release, and on ucrt64-headless as that scope says
+        p = scope.plan(["tools/newtool/main.cpp"], rules, self.RENDER_TESTS, {}, "targeted", {}, {}, evidence)
+        self.assertTrue(p["release"] and p["headless"])
+        self.assertIn("compiled only in ucrt64-release", " ".join(p["release"]))
+        # without the databases, the rules decide (an unclaimed native path escalates, as before)
+        p = scope.plan(["src/visualization/x/New.cpp"], [], self.RENDER_TESTS, {}, "targeted", {}, {}, None)
+        self.assertTrue(p["headless"] and p["escalate"])
+
+    def test_release_only_reads_both_compile_databases(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            for preset, files in ((scope.HEADLESS, ["src/a/A.cpp", "tests/t.cpp"]),
+                                  (scope.RELEASE, ["src/a/A.cpp", "tests/t.cpp", "tests/r.cpp", "src/v/V.cpp"])):
+                (repo / "build" / preset).mkdir(parents=True)
+                (repo / "build" / preset / "compile_commands.json").write_text(
+                    json.dumps([{"file": str(repo / f), "directory": str(repo)} for f in files]), encoding="utf-8")
+            evidence = scope.release_only(repo)
+            self.assertEqual(evidence["sources"], {"tests/r.cpp", "src/v/V.cpp"})
+            self.assertEqual(evidence["directories"], {"src/v"})  # (tests/ also holds a headless source)
+            self.assertTrue(scope.is_release_only("src/v/CMakeLists.txt", evidence))
+            self.assertFalse(scope.is_release_only("tests/CMakeLists.txt", evidence))
+            (repo / "build" / scope.RELEASE / "compile_commands.json").unlink()
+            self.assertIsNone(scope.release_only(repo))
+
     def test_estimates_add_serial_tests_and_pack_the_rest_by_processors(self):
         t = lambda name, serial=False, processors=1: {"name": name, "serial": serial, "processors": processors}  # noqa: E731
         self.assertEqual(scope.estimate([t("a"), t("b")], {"a": 100.0, "b": 10.0}, 16), (100.0, 0))
@@ -338,6 +413,85 @@ class LifecycleTest(unittest.TestCase):
         self.assertEqual(status, 0, report["errors"])
         self.assertEqual(self.calls, ["build ucrt64-headless", "list ucrt64-headless", "run -I 0,0,0,1,2"])
         self.assertEqual(report["presets"]["ucrt64-headless"]["selected"], ["sdk_boundary", "python_sdk test_new"])
+
+
+class RenderLifecycleTest(unittest.TestCase):
+    """HC-13: select on the real rules, its effects replaced - a renderer change builds, lists and runs ucrt64-release, and a
+    missing release preset or failed release build stops it rather than passing on ucrt64-headless."""
+
+    def setUp(self):
+        self.calls = []
+        self.tmp = tempfile.TemporaryDirectory()
+        self.inventories = {
+            scope.HEADLESS: synthetic(["sdk_boundary", "flight core"]),
+            scope.RELEASE: synthetic(["sdk_boundary", "flight core"]) + [
+                {"index": 3, "name": "terrain profile: the camera", "labels": ["render"], "command": ["x.exe"], "serial": False, "processors": 1},
+                {"index": 4, "name": "vision", "labels": ["render"], "command": ["x.exe"], "serial": False, "processors": 1}],
+        }
+        self.build_status = {scope.HEADLESS: 0, scope.RELEASE: 0}
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def builder(self, preset):
+        self.calls.append("build " + preset)
+        return self.build_status[preset]
+
+    def discover(self, preset):
+        self.calls.append("list " + preset)
+        return self.inventories.get(preset)
+
+    def select(self, paths, ran):
+        def run(command, log):
+            self.calls.append("run " + command[2] + " " + command[-1])
+            Path(log).write_text("".join(" %d/%d Test #%d: %s ....   Passed    1.00 sec\n" % (k + 1, len(ran[command[2]]), k + 1, n)
+                                         for k, n in enumerate(ran[command[2]])), encoding="utf-8")
+            return 0
+        return scope.select(list(paths), scope.load_rules(), "targeted", 16, run=True, build=True, log_dir=self.tmp.name,
+                            executables={}, dependents={}, readers={}, discover=self.discover, builder=self.builder,
+                            runner=run, measured=lambda preset: {}, recorder=lambda logs, preset: 0, evidence=None)
+
+    RENDER_RUN = ("sdk_boundary", "terrain profile: the camera", "vision")
+
+    def test_scene_ui_and_flow_changes_build_and_run_the_release_preset_only(self):
+        for path in ("src/visualization/scene/VehicleVisuals.cpp", "src/visualization/ui/MonitorGui.cpp",
+                     "src/visualization/vfx/flow/FlowSolver.cpp"):
+            with self.subTest(path=path):
+                self.calls = []
+                status, report = self.select([path], {scope.RELEASE: self.RENDER_RUN})
+                self.assertEqual(status, 0, report["errors"])
+                self.assertEqual(list(report["presets"]), [scope.RELEASE])
+                self.assertEqual(self.calls, ["build ucrt64-release", "list ucrt64-release", "run ucrt64-release 0,0,0,1,3,4"])
+
+    def test_without_a_release_inventory_a_renderer_change_fails_and_runs_nothing(self):
+        del self.inventories[scope.RELEASE]
+        status, report = self.select(["src/visualization/scene/VehicleVisuals.cpp"], {})
+        self.assertEqual(status, 3)
+        self.assertEqual([e["reason"] for e in report["errors"]], ["no-inventory"])
+        self.assertNotIn("run", " ".join(self.calls))
+
+    def test_a_failing_release_build_stops_before_listing_or_running(self):
+        self.build_status[scope.RELEASE] = 2
+        status, report = self.select(["src/visualization/ui/MonitorGui.cpp"], {})
+        self.assertEqual(status, 2)
+        self.assertEqual(self.calls, ["build ucrt64-release"])
+
+    def test_a_release_inventory_without_render_tests_is_an_empty_selection(self):
+        self.inventories[scope.RELEASE] = synthetic(["flight core"])
+        status, report = self.select(["src/visualization/vfx/flow/FlowSolver.cpp"], {})
+        self.assertEqual(status, 3)
+        self.assertEqual([e["reason"] for e in report["errors"]], ["empty-selection"])
+
+    def test_a_mixed_change_plans_both_presets_and_a_headless_one_only_its_own(self):
+        status, report = self.select(["src/visualization/ui/MonitorGui.cpp", "src/simulation/flight/SimRunner.h"],
+                                     {scope.HEADLESS: ("sdk_boundary", "flight core"),
+                                      scope.RELEASE: ("sdk_boundary", "flight core", "terrain profile: the camera", "vision")})
+        self.assertEqual(status, 0, report["errors"])
+        self.assertEqual(list(report["presets"]), [scope.HEADLESS, scope.RELEASE])
+        self.calls = []
+        status, report = self.select(["src/simulation/flight/SimRunner.h"], {scope.HEADLESS: ("sdk_boundary", "flight core")})
+        self.assertEqual(status, 0, report["errors"])
+        self.assertEqual(list(report["presets"]), [scope.HEADLESS])
 
 
 class FixtureTest(unittest.TestCase):
@@ -560,7 +714,7 @@ class RulesTest(unittest.TestCase):
 
     def test_every_scope_is_well_formed(self):
         keys = {"name", "paths", "tests", "labels", "exclude_labels", "release", "full", "build", "except", "integration", "integration_labels",
-                "claims"}
+                "claims", "render_only"}
         names = [r["name"] for r in self.rules]
         self.assertEqual(len(names), len(set(names)), "scope names repeat")
         for r in self.rules:
@@ -568,6 +722,8 @@ class RulesTest(unittest.TestCase):
                 self.assertLessEqual(set(r), keys)
                 self.assertTrue(r.get("paths"))
                 self.assertTrue(r.get("tests") or r.get("labels") or r.get("full"), "a scope selects something or escalates")
+                if r.get("render_only"):
+                    self.assertTrue(r.get("release") and not r.get("full"), "a render-only scope runs on ucrt64-release, targeted")
                 for expression in r.get("tests", []):
                     re.compile(expression.replace("{stem}", "x"))
 
@@ -581,18 +737,77 @@ class RulesTest(unittest.TestCase):
         if self.tests is None:
             self.skipTest("no --test-dir: the build's inventory is not checked")
         labels = {lab for t in self.tests for lab in t["labels"]}
-        renderer = any("vision" in t["name"] for t in self.tests)
+        renderer = any(t["name"] == "vision" for t in self.tests)  # (the native Vision test: only a renderer build has it)
         for r in self.rules:
+            if r.get("release") and not renderer:
+                continue  # (a render scope's labels and patterns name tests a build without the renderer does not have)
             for label in r.get("labels", []) + r.get("exclude_labels", []) + r.get("integration_labels", []):
                 with self.subTest(scope=r["name"], label=label):
                     self.assertIn(label, labels)
-            if r.get("release") and not renderer:
-                continue  # (a render scope's patterns name tests a build without the renderer does not have)
             for expression in r.get("tests", []) + r.get("integration", []):
                 if "{stem}" in expression:
                     continue
                 with self.subTest(scope=r["name"], test=expression):
                     self.assertTrue(any(re.search(expression, t["name"]) for t in self.tests), "selects no test")
+
+    def test_what_only_the_renderer_builds_is_claimed_by_a_render_only_scope(self):
+        """HC-13 against the real builds: every source ucrt64-release compiles and ucrt64-headless does not - and every
+        tracked file in a directory holding only such sources (headers, nested CMake files) - is claimed by a render-only
+        scope; and no source ucrt64-headless compiles is claimed by render-only scopes alone (it would lose its
+        headless selection)."""
+        evidence = scope.release_only()
+        if evidence is None:
+            self.skipTest("both presets' compile databases are needed (configure ucrt64-headless and ucrt64-release)")
+        render = [r for r in self.rules if r.get("render_only")]
+        claims = lambda path, rules: [r for r in rules if any(scope.glob_match(path, p) for p in r["paths"])
+                                      and not any(scope.glob_match(path, p) for p in r.get("except", []))]
+        tracked = [f for f in self.files if scope.is_release_only(f, evidence)]
+        self.assertTrue(evidence["sources"], "the release build compiles renderer sources")
+        for path in sorted(set(tracked) | evidence["sources"]):
+            with self.subTest(path=path):
+                self.assertTrue(claims(path, render), "built only with the renderer, claimed by no render-only scope")
+        headless = {f for f in self.files if f.endswith((".c", ".cc", ".cpp")) and not scope.is_release_only(f, evidence)}
+        for path in sorted(headless):
+            hits = claims(path, self.rules)
+            if hits and all(r.get("render_only") for r in hits):
+                with self.subTest(path=path):
+                    self.fail("a source outside the renderer's builds is claimed only by render-only scopes")
+
+    def test_every_test_only_the_renderer_builds_carries_the_render_label(self):
+        """The render-only scope selects by the `render` label: a test ucrt64-release has and ucrt64-headless does not must
+        carry it, or a renderer change would not select it."""
+        inventories = {p: scope.inventory(test_dir=scope.REPO / "build" / p) if (scope.REPO / "build" / p / "CTestTestfile.cmake").is_file()
+                       else None for p in (scope.HEADLESS, scope.RELEASE)}
+        if any(v is None for v in inventories.values()):
+            self.skipTest("both presets' configured inventories are needed")
+        headless = {t["name"] for t in inventories[scope.HEADLESS]}
+        only = [t for t in inventories[scope.RELEASE] if t["name"] not in headless]
+        self.assertTrue(only, "the release preset has renderer tests")
+        for t in only:
+            with self.subTest(test=t["name"]):
+                self.assertIn("render", t["labels"])
+        for t in inventories[scope.HEADLESS]:
+            with self.subTest(test=t["name"]):
+                self.assertNotIn("render", t["labels"], "the render label marks only what the renderer builds")
+
+    def test_the_real_inventories_plan_a_renderer_change_on_the_release_preset(self):
+        """The real rules on both presets' real inventories, planned only (nothing built or run): a scene, UI and Flow
+        change each select render-labelled tests on ucrt64-release and plan no headless run."""
+        builds = {p: scope.REPO / "build" / p for p in (scope.HEADLESS, scope.RELEASE)}
+        inventories = {p: scope.inventory(test_dir=b) if (b / "CTestTestfile.cmake").is_file() else None for p, b in builds.items()}
+        if any(v is None for v in inventories.values()) or not any("render" in t["labels"] for t in inventories[scope.RELEASE]):
+            self.skipTest("both presets' configured inventories, the release one with its render-labelled tests, are needed")
+        for path in ("src/visualization/ui/MonitorGui.cpp", "src/visualization/scene/VehicleVisuals.cpp",
+                     "src/visualization/vfx/flow/FlowSolver.cpp"):
+            with self.subTest(path=path):
+                status, report = scope.select([path], self.rules, "targeted", 16, run=False, executables={}, dependents={},
+                                              readers={}, discover=lambda preset: inventories[preset])
+                self.assertEqual(status, 0, report["errors"])
+                self.assertEqual(list(report["presets"]), [scope.RELEASE])
+                chosen = report["presets"][scope.RELEASE]["selected"]
+                rendered = {t["name"] for t in inventories[scope.RELEASE] if "render" in t["labels"]}
+                self.assertLessEqual(rendered, set(chosen))
+                self.assertLess(len(chosen), report["presets"][scope.RELEASE]["of"], "a targeted selection, not the suite")
 
     def test_the_repository_python_closure_reaches_the_shared_fixture_and_the_wrappers(self):
         d = scope.python_dependents()

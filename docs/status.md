@@ -627,6 +627,30 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
+## HC-13 Release selection for renderer changes (2026-10-16, awaiting independent acceptance)
+
+The ARCH-06 review's P2: a scene, UI or Flow change was planned on `ucrt64-headless` alone, which does not compile it,
+so its selection passed without the change being built or tested. The correction is in the test selector; the ARCH-06
+record's section 10 has the details.
+
+- **Render-only roots:** the `render-only roots` scope claims everything only the renderer builds, nested CMake files
+  included. A change there plans `ucrt64-release` alone and selects the `render`-labelled tests, which are all 59 tests
+  only the renderer builds, plus `sdk_boundary` and the Python Vision tests.
+- **Compile-database evidence:** independently, any path the presets' compile databases show is compiled only in
+  `ucrt64-release` plans that preset.
+- **Fail-closed:** a missing Release inventory or a failed Release build is an error, not a headless pass.
+- **Regressions:** pure plans, lifecycle and real-build consistency cases (`testing_scope_checker`, 62 cases). On the
+  review's probe, HEAD's selector passes UI, scene and Flow changes on headless alone; the corrected one plans them on
+  Release.
+
+| Verification | Result |
+| --- | --- |
+| `testing_scope_checker`, both presets | 62/62 and 62/62 |
+| Real inventories, planned only: UI, scene, Flow, nested CMake file, render backend | `ucrt64-release` alone, 64 of 769 tests |
+| `render`-labelled tests on `ucrt64-release` | 59/59 |
+
+No product source changed and no full suite ran (HC-11).
+
 ## HC-10 shared-memory padding (2026-10-16, awaiting independent acceptance)
 
 The carryover register's HC-10 is verified and corrected; section 10 of the ARCH-02 record

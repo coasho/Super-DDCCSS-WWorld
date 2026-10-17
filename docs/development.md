@@ -162,7 +162,7 @@ this; take the tier its change needs:
 | Targeted | Every routine change, before each commit | `python tools/testing/scope.py` (the plan), then `--run` once the presets it names are built (`--build` builds them) | Measured: this correction's own selection (the selector, the comparator and the installed-consumer gate, after a build) 68 s. Estimated (lower bounds): documentation 5 s; `tests/test_ma_joint.cpp` 30 s; an MA gateway source 62 s; MA concurrency code, a shared Python test fixture or any `python/fsim` module (stress cases included) 303 s |
 | Integration | Before handing off a feature package; public-surface, packaging or installed-consumer changes | `python tools/testing/scope.py --tier integration --run` | Estimated: an MA gateway source, at least 383 s |
 | Full | At a milestone handoff or acceptance; before a push; when `scope.py` escalates (shared simulation core, build system or test registration, native code no scope claims); when a targeted or integration failure is unexplained | `ctest --preset ucrt64-headless --no-tests=error` | 19 minutes |
-| Release and visual | Render, vision, viewer or public-surface changes (`scope.py` adds `ucrt64-release` to the plan); release preparation; Viewer acceptance | `scope.py` runs Release where its plan says so; full: `ctest --preset ucrt64-release --no-tests=error` | |
+| Release and visual | Render, vision, viewer or public-surface changes; anything only the renderer builds plans `ucrt64-release` alone; release preparation; Viewer acceptance | `scope.py` runs Release where its plan says so; full: `ctest --preset ucrt64-release --no-tests=error` | |
 
 [tools/testing/scope.py](../tools/testing/scope.py) reads the working tree's changes (or `--paths`), the reviewed
 rules in [tools/testing/scopes.toml](../tools/testing/scopes.toml) and each preset's own CTest inventory. It selects the
@@ -186,6 +186,16 @@ or a plan without it stops, naming the module. A changed native source or build 
 Legacy environment code (`src/training/native/vecenv`) is linked into `libfsim` and run by native, C,
 Python and plugin tests alike, so it escalates too. Repository metadata and tools without tests stay unclaimed: their
 change needs the full tier or a reviewed scope.
+
+What only the renderer builds (`FSIM_WITH_RENDER`) is planned on `ucrt64-release`, which compiles it; `ucrt64-headless`
+does not. This covers visualization with its nested CMake files, the Vision adapter and its Python extension, the
+viewer, the renderer's tools and example, and the render tests. The `render-only roots` scope claims these and selects
+the `render`-labelled tests, which are every test only the renderer builds. For these paths alone, `ucrt64-headless` is
+not planned. Independently of the rules, a changed path that the presets' compile databases show is compiled only in
+`ucrt64-release` also plans that preset: a source, or a file in a directory holding only such sources. A missing
+`ucrt64-release` inventory or a failed build of it is an error, not a headless pass. `testing_scope_checker` holds the
+rules to the real builds: every source compiled only with the renderer is claimed by the render-only scope, and every
+test only the renderer builds carries the label.
 
 With `--build` it builds the presets first, then lists each inventory afresh - a reconfigure may add, remove or
 reorder tests (the Python test modules are a `CONFIGURE_DEPENDS` glob) - and resolves the selected names to that

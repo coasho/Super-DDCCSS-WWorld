@@ -11,7 +11,10 @@
 # fixtures and the scripts it runs (the import closure of python/tests and python/fsim).
 #
 #   release = true   the same selection also runs on ucrt64-release (render, vision, viewer and public-surface changes)
-#   full = true      escalate to the full headless suite: shared simulation core, build system, data every test flies
+#   render_only = true  (with release) the paths are built only with the renderer: they plan ucrt64-release alone, as
+#                    the headless build does not compile them; another scope claiming a path keeps ucrt64-headless too
+#   full = true      escalate to the full suite of each planned preset: shared simulation core, build system, data
+#                    every test flies
 #   build = false    no native build is needed before running (documentation, repository checks)
 #   except = [...]   paths this scope does not claim, though its `paths` match them (a more specific scope does)
 #   claims = false   the scope adds its tests to what claims a path, but claims none itself: a path only it matches is
@@ -19,7 +22,10 @@
 #
 # A changed path nothing claims escalates to the full suite when it is native source or build input, and is an error
 # otherwise (scope.py exits 3 naming it): add a scope here when a domain gets its own targeted coverage; keep it
-# reviewed. A selection that comes out empty is an error too.
+# reviewed. A selection that comes out empty is an error too. Whatever claims it, a path the presets' compile databases
+# show is compiled only in ucrt64-release (or lies in a directory whose sources are) plans ucrt64-release: a renderer
+# change never passes on the headless build, which does not compile it. testing_scope_checker holds the render-only
+# scope below to those databases: every source compiled only with the renderer is claimed by it.
 
 # --- documentation and repository checks ------------------------------------------------------------------------------
 [[scope]]
@@ -158,11 +164,25 @@ labels = ["package"]
 
 [[scope]]
 name = "render, vision and viewer"
-paths = ["src/visualization/render/**", "src/visualization/vision/**", "src/adapters/vision/**",
-         "src/applications/viewer/main.cpp", "include/fsim/fsim_vision_c.h", "python/fsim/vision.py",
-         "python/src/_vision*", "assets/**"]
+paths = ["include/fsim/fsim_vision_c.h", "python/fsim/vision.py", "assets/**"]
+labels = ["render"]
 tests = ["^sdk_boundary$", "vision", "camera", "rcs"]
 release = true
+
+# What is built only with the renderer (FSIM_WITH_RENDER): visualization (render, scene, visual effects, the Flow solver,
+# UI, offscreen vision) with its nested CMake files, the Vision adapter and its Python extension, the viewer, the
+# renderer's tools, example and tests. A change to any of it is compiled and tested on ucrt64-release alone - its
+# tests carry the `render` label - and ucrt64-headless is not planned for it (it does not compile it).
+[[scope]]
+name = "render-only roots"
+paths = ["src/visualization/**", "src/adapters/vision/**", "src/applications/viewer/**", "python/src/_vision*",
+         "tools/rcs/**", "tools/flow_calibrate/**", "examples/vision_capture/**", "tests/test_terrain_render.cpp",
+         "tests/test_vehicle_visuals.cpp", "tests/test_cocip.cpp", "tests/test_contrail_observed.cpp",
+         "tests/test_viewer_screenshot.cpp", "tests/test_vision.cpp", "tests/test_vision_c_abi.c", "cmake/Flow.cmake"]
+labels = ["render"]
+tests = ["^sdk_boundary$", "vision", "camera"]
+release = true
+render_only = true
 
 # --- escalate: what every test depends on -------------------------------------------------------------------------------
 [[scope]]

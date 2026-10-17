@@ -12,8 +12,12 @@ the tests the matching scopes name (by label or name); every CTest test built fr
 whose command names a changed file; and every python_sdk test whose module imports - directly or through other
 modules, shared test fixtures and the scripts it runs included - a changed Python file (the import closure of
 python/tests and python/fsim), and the hangar test of a changed hangar test module. A matched `full` scope - or a
-changed native source or build input no scope claims - escalates to the full headless suite; a matched `release` scope
-adds ucrt64-release.
+changed native source or build input no scope claims - escalates to the full suite of every preset it plans; a matched
+`release` scope adds ucrt64-release. A `render_only` scope's paths are built only with the renderer, so they plan
+ucrt64-release alone (ucrt64-headless only when another of their scopes - or another changed path - needs it); and any
+changed path the presets' compile databases show is compiled only in ucrt64-release (a source, or a file in a directory
+whose sources are), whatever claims it, plans ucrt64-release too - a renderer change never passes on the headless build
+alone, which does not compile it.
 
 It fails closed: a changed path nothing claims, a selection that is empty and no changes at all are errors (exit 3,
 with their reasons and paths), not a passing run. With --build it builds the presets first, then lists each preset's
@@ -149,6 +153,37 @@ def test_executables(repo=REPO, builds=None):
                 out.setdefault(header, set()).update(targets)
                 grown = True
     return out
+
+
+def release_only(repo=REPO, builds=None):
+    """The repository paths compiled only where the renderer is: {"sources": first-party sources ucrt64-release's
+    compile_commands.json compiles and ucrt64-headless's does not, "directories": directories holding such sources and no
+    source ucrt64-headless compiles}; None when either preset's compile database is missing (only the rules then say)."""
+    repo = repo.resolve()
+    builds = {HEADLESS: repo / "build" / HEADLESS, RELEASE: repo / "build" / RELEASE} if builds is None else builds
+    compiled = {}
+    for preset, build in builds.items():
+        commands = Path(build) / "compile_commands.json"
+        if not commands.is_file():
+            return None
+        files = set()
+        for entry in json.loads(commands.read_text(encoding="utf-8", errors="replace")):
+            try:
+                files.add(Path(entry["file"]).resolve().relative_to(repo).as_posix())
+            except (KeyError, ValueError):
+                continue
+        compiled[preset] = {f for f in files if not f.startswith(("build/", "third_party/"))}
+    sources = compiled[RELEASE] - compiled[HEADLESS]
+    shared = {f.rsplit("/", 1)[0] for f in compiled[HEADLESS] if "/" in f}
+    directories = {f.rsplit("/", 1)[0] for f in sources if "/" in f} - shared
+    return {"sources": sources, "directories": directories}
+
+
+def is_release_only(path, evidence):
+    """Whether the compile databases show `path` built only with the renderer (see release_only)."""
+    if not evidence:
+        return False
+    return path in evidence["sources"] or ("/" in path and path.rsplit("/", 1)[0] in evidence["directories"])
 
 
 def _arg_path(arg):
@@ -297,16 +332,25 @@ def direct_tests(path, tests, executables, dependents):
     return found, compiled
 
 
-def plan(paths, rules, tests, executables, tier="targeted", dependents=None, readers=None):
-    """What `paths` need: {"scopes", "escalate" (reasons), "release" (reasons), "build", "selected" (test names),
-    "unmatched", "errors" ([{"reason", "paths", ...}]: an unclaimed path, a required Python test module with no CTest
-    test registered, an empty selection or no changes)}."""
+def plan(paths, rules, tests, executables, tier="targeted", dependents=None, readers=None, evidence=None):
+    """What `paths` need: {"scopes", "escalate" (reasons), "release" (reasons), "headless" (whether ucrt64-headless
+    builds any of them), "build", "selected" (test names), "unmatched", "errors" ([{"reason", "paths", ...}]: an unclaimed
+    path, a required Python test module with no CTest test registered, an empty selection or no changes)}. `evidence`
+    (release_only) marks the paths compiled only with the renderer."""
     dependents, readers = dependents or {}, readers or {}
     selected, matched, escalate, release, unmatched, direct_all = set(), [], [], [], [], set()
     required = {}  # python/tests module -> the changed paths that need its tests (it exists: the import closure holds it)
     build = False
+    headless = not paths
     for path in paths:
         hits = [r for r in rules if any(glob_match(path, p) for p in r.get("paths", [])) and not any(glob_match(path, p) for p in r.get("except", []))]
+        rendered = is_release_only(path, evidence)
+        # ucrt64-headless builds the path unless every scope claiming it is render-only, or (claimed by none) the compile
+        # databases show it built only with the renderer
+        if any(not r.get("render_only") for r in hits) or (not hits and not rendered):
+            headless = True
+        if rendered and not any(r.get("release") for r in hits):
+            release.append("%s (compiled only in %s)" % (path, RELEASE))
         for r in hits:
             if r["name"] not in matched:
                 matched.append(r["name"])
@@ -371,8 +415,8 @@ def plan(paths, rules, tests, executables, tier="targeted", dependents=None, rea
     if paths and not selected:
         errors.append({"reason": "empty-selection", "paths": list(paths), "scopes": list(matched),
                        "detail": "the changes select no test in this inventory"})
-    return {"scopes": matched, "escalate": escalate, "release": release, "build": build or bool(escalate), "selected": sorted(selected),
-            "unmatched": unmatched, "errors": errors}
+    return {"scopes": matched, "escalate": escalate, "release": release, "headless": headless, "build": build or bool(escalate) or bool(release),
+            "selected": sorted(selected), "unmatched": unmatched, "errors": errors}
 
 
 def estimate(chosen, cost, jobs):
@@ -410,9 +454,11 @@ def candidate_readers(executables, dependents, repo=REPO):
 
 
 def select(paths, rules, tier, jobs, run=False, build=False, log_dir=None, executables=None, dependents=None, readers=None,
-           discover=None, builder=None, runner=None, measured=None, recorder=None):
+           discover=None, builder=None, runner=None, measured=None, recorder=None, evidence=False):
     """The whole lifecycle, its effects injectable: build first (when asked and needed), then list each preset's
     inventory afresh, plan on it, resolve names to that inventory's numbers, run, and hold the run to the selection.
+    The presets are those the paths need: ucrt64-headless unless every path is built only with the renderer,
+    ucrt64-release when any needs it; a needed preset without an inventory, or whose build fails, is an error.
     Returns (exit status, report)."""
     import timing
     discover, builder, runner = discover or inventory, builder or build_preset, runner or execute
@@ -420,9 +466,10 @@ def select(paths, rules, tier, jobs, run=False, build=False, log_dir=None, execu
     executables = test_executables() if executables is None else executables
     dependents = python_dependents() if dependents is None else dependents
     readers = data_readers(paths, candidate_readers(executables, dependents)) if readers is None else readers
+    evidence = release_only() if evidence is False else evidence  # (None: no compile databases, the rules alone)
     report = {"paths": list(paths), "tier": tier, "presets": {}, "errors": [], "builds": {}}
-    needs = plan(paths, rules, [], executables, tier, dependents, readers)  # (what the paths alone need: the presets, a build)
-    presets = [HEADLESS] + ([RELEASE] if needs["release"] else [])
+    needs = plan(paths, rules, [], executables, tier, dependents, readers, evidence)  # (what the paths alone need: presets, a build)
+    presets = ([HEADLESS] if needs["headless"] or not needs["release"] else []) + ([RELEASE] if needs["release"] else [])
     if run and build and needs["build"]:
         for preset in presets:
             rc = builder(preset)
@@ -436,7 +483,7 @@ def select(paths, rules, tier, jobs, run=False, build=False, log_dir=None, execu
             report["errors"].append({"reason": "no-inventory", "preset": preset, "paths": [],
                                      "detail": "configure and build %s" % preset})
             continue
-        p = plan(paths, rules, tests, executables, tier, dependents, readers)
+        p = plan(paths, rules, tests, executables, tier, dependents, readers, evidence)
         names = set(p["selected"])
         chosen = [t for t in tests if t["name"] in names]
         wall, unknown = estimate(chosen, measured(preset), jobs)

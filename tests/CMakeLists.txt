@@ -502,6 +502,8 @@ if(TARGET fsim_world)
     fsim_include_view_check(vision_core fsim_vision_core
         ALLOWED   visualization/vision/CameraScene.h visualization/scene/Frames.h
         FORBIDDEN simulation/flight/VehicleState.h simulation/api/WorldOptions.h visualization/ui/Colour.h)
+    set_tests_properties(include_view_render include_view_flow include_view_scene include_view_ui include_view_vision_core
+        PROPERTIES LABELS "architecture;render")
 endif()
 # The check itself, on mutated copies of ms's check: the unmutated and a permitted root pass; src and its ancestors in
 # each spelling (src/., the repository root, src/..), copied src trees, a provider's view removed, a stale probe and an
@@ -611,14 +613,15 @@ if(FSIM_WITH_RENDER)
     target_compile_definitions(fsim_render_tests PRIVATE FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
     fsim_set_warnings(fsim_render_tests)
     fsim_relax_third_party_warnings(fsim_render_tests)
-    catch_discover_tests(fsim_render_tests ${FSIM_CATCH_DISCOVERY})
+    # (the render label: tools/testing/scopes.toml selects these on ucrt64-release for a renderer change)
+    catch_discover_tests(fsim_render_tests ${FSIM_CATCH_DISCOVERY} PROPERTIES LABELS render)
     # Fullscreen screenshot readback must capture the frame just presented (needs a Vulkan window).
     add_executable(fsim_viewer_screenshot_test test_viewer_screenshot.cpp)
     target_link_libraries(fsim_viewer_screenshot_test PRIVATE fsim::render vsgXchange::vsgXchange)
     fsim_set_warnings(fsim_viewer_screenshot_test)
     fsim_relax_third_party_warnings(fsim_viewer_screenshot_test)
     add_test(NAME viewer_screenshot COMMAND fsim_viewer_screenshot_test "${CMAKE_BINARY_DIR}/viewer-screenshot-test")
-    set_tests_properties(viewer_screenshot PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE TIMEOUT 60)
+    set_tests_properties(viewer_screenshot PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE TIMEOUT 60 LABELS render)
     # The RCS engine (ADR-30, MS-3; tools/rcs) against the closed forms: on a GPU with ray queries, else skipped.
     if(TARGET fsim_rcs_engine)
         add_executable(fsim_rcs_tests ${CMAKE_SOURCE_DIR}/tools/rcs/test_rcs.cpp)
@@ -626,7 +629,7 @@ if(FSIM_WITH_RENDER)
         target_compile_definitions(fsim_rcs_tests PRIVATE FSIM_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
         fsim_set_warnings(fsim_rcs_tests)
         add_test(NAME rcs COMMAND fsim_rcs_tests)
-        set_tests_properties(rcs PROPERTIES SKIP_RETURN_CODE 4)
+        set_tests_properties(rcs PROPERTIES SKIP_RETURN_CODE 4 LABELS render)
     endif()
 endif()
 
@@ -638,16 +641,18 @@ if(FSIM_WITH_RENDER)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:fsim_vision> $<TARGET_FILE_DIR:fsim_vision_test>)
     fsim_set_warnings(fsim_vision_test)
     add_test(NAME vision COMMAND fsim_vision_test "${FSIM_JSBSIM_DATA_DIR}")
-    set_tests_properties(vision PROPERTIES SKIP_RETURN_CODE 77) # no Vulkan device (CI runners)
+    set_tests_properties(vision PROPERTIES SKIP_RETURN_CODE 77 LABELS render) # no Vulkan device (CI runners)
     add_executable(fsim_vision_c_abi_test test_vision_c_abi.c)
     target_link_libraries(fsim_vision_c_abi_test PRIVATE fsim::sdk fsim::vision)
     set_target_properties(fsim_vision_c_abi_test PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON)
     add_test(NAME vision_c_abi COMMAND fsim_vision_c_abi_test "${FSIM_JSBSIM_DATA_DIR}")
-    set_tests_properties(vision_c_abi PROPERTIES SKIP_RETURN_CODE 77)
+    set_tests_properties(vision_c_abi PROPERTIES SKIP_RETURN_CODE 77 LABELS render)
 endif()
 
 # NVIDIA Flow's fires against the observed ones (tools/flow_calibrate check: its 12 cases), where Flow is built - it
 # needs the GPU, some 20 s
 if(TARGET flightsim-flow-calibrate)
     add_test(NAME "NVIDIA Flow: an engagement's fires against the observed - CCPS's fireballs, the photographed detonations, API RP 521's jet flames - each within its tolerance" COMMAND flightsim-flow-calibrate check WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+    set_tests_properties("NVIDIA Flow: an engagement's fires against the observed - CCPS's fireballs, the photographed detonations, API RP 521's jet flames - each within its tolerance"
+        PROPERTIES LABELS render)
 endif()

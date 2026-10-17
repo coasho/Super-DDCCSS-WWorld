@@ -181,3 +181,53 @@ Restore resource lookup paths as they were; no native model parameter is involve
 
 ARCH-07 (SDK assembly and Python import cleanup) may start after independent acceptance. The register's HC-16 and
 HC-17 record this package's open decisions.
+
+## 10. HC-13 correction: Release selection for renderer changes (2026-10-16)
+
+The [review](arch-06-review-2026-10-16.md#1-p2--hc-13-graphics-changes-can-pass-without-a-release-build-or-test) found
+that a change to scene, UI or Flow code was planned on `ucrt64-headless` alone, which does not compile it. Its selection
+then passed without the changed code being built or tested. The gap predates ARCH-06 (the old `src/world` and `src/ui`
+paths had it).
+
+The correction is in the test selector (`tools/testing`) and the render tests' labels; no product source changed:
+- **Render-only scope:** the `render-only roots` scope (`render_only = true`, `release = true`) claims everything only
+  the renderer builds. That covers visualization with its nested CMake files, the Vision adapter and
+  `python/src/_vision*`, the viewer, `tools/rcs`, `tools/flow_calibrate`, `examples/vision_capture`, the seven
+  render-only test sources and `cmake/Flow.cmake`.
+- **Selection:** it selects the `render` label plus `sdk_boundary` and the Python Vision/camera tests. Every test only
+  the renderer builds now carries that label: the render scene tests, `viewer_screenshot`, `rcs`, `vision`,
+  `vision_c_abi`, the Flow calibration and the render include-view probes (59 tests).
+- **Presets:** `scope.py` plans `ucrt64-release` for such paths and does not plan `ucrt64-headless` for them alone;
+  another claiming scope or path still plans it. `cmake/Flow.cmake`, which every configure reads, keeps its
+  build-system escalation too.
+- **Compile-database evidence:** independently of the rules, a changed path that the presets' compile databases show
+  is compiled only in `ucrt64-release` also plans that preset. That is a source, or a file in a directory holding only
+  such sources, such as a header or a nested CMake file. Without both databases the rules decide.
+- **Fail-closed:**
+  - a missing `ucrt64-release` inventory (`no-inventory`) or a failed build of it is an error, and nothing runs;
+  - a Release inventory without render tests is an empty selection;
+  - an escalation still covers every planned preset.
+
+Regressions, in `tools/testing/test_scope.py` (`testing_scope_checker`, 62 cases on each preset):
+
+| Kind | Cases |
+| --- | --- |
+| Pure plans on the real rules | 16 render-only roots (scene, UI, Flow, effects, nested CMake files, `vision_core`, the adapter, the viewer, `_vision`, rcs, Flow calibration, the example and two render-test sources) plan Release alone with the render tests. `cmake/Flow.cmake` plans both. Controls: a headless change plans headless only; a mixed change plans both |
+| Evidence | An unclaimed Release-only source and a header beside it plan Release alone; a scope that forgot the renderer still plans Release; without databases the old escalation applies. `release_only` reads both databases and ignores a directory that also holds headless sources |
+| Lifecycle (`select`, effects injected) | Scene, UI and Flow changes build, list and run `ucrt64-release` only. A missing Release inventory exits 3 and runs nothing. A failed Release build stops before listing. A Release inventory without render tests is an empty selection. A mixed change plans both presets; a headless change only its own |
+| Real builds | Every source compiled only with the renderer, and every tracked file in a renderer-only directory, is claimed by a render-only scope; no headless-compiled source is claimed by render-only scopes alone. Every test only the Release inventory has carries `render`, and none in headless does. On both real inventories, scene, UI and Flow changes plan Release alone with every render test, targeted, planned and not run |
+
+Verification (2026-10-16):
+
+| Check | Result |
+| --- | --- |
+| The review's probe, the real rules with an injected two-preset inventory, planned only. HEAD's selector against the corrected one | HEAD: UI, scene and Flow changes each plan `ucrt64-headless` only, status 0 (the false pass); the render `Viewer.cpp` control plans both. Corrected: all four plan `ucrt64-release` alone, status 0 |
+| The new regressions against HEAD's `scope.py` and `scopes.toml` | All seven new cases fail |
+| `scope.py --paths`, the real inventories and compile databases, planned only (no build or run) | UI, scene, Flow, the scene's CMake file and the render backend: `ucrt64-release` only, 64 of 769 tests. `Pid.cpp`: the headless suite (shared core, unchanged). UI with `SimRunner.h`: both presets |
+| `testing_scope_checker` | 62/62 headless, 62/62 Release, no skips |
+| The `render`-labelled tests on `ucrt64-release` | 59/59 (121 s) |
+| Headless `architecture_boundary`, `architecture_checker`, `include_view_checker` | 3/3 |
+
+Only the selector, its rules and tests, the render tests' CTest labels and `docs/development.md` changed. No build
+input of a product target changed, so no object was rebuilt, and no full suite ran (HC-11). Logs are in
+`D:/ENV/tmp/hc13/`.
