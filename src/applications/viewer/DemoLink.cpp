@@ -220,6 +220,8 @@ void DemoLink::setTimeFactor(double factor) noexcept { control_->timeFactor.stor
 
 void DemoLink::singleStep() noexcept { control_->stepRequests.fetch_add(1, std::memory_order_release); }
 
+std::uint64_t DemoLink::stepsTaken() const noexcept { return control_->stepsTaken.load(std::memory_order_acquire); }
+
 const sim::SnapshotBatch* DemoLink::acquire() noexcept {
     if (mirror_.pollSnapshot(batch_)) fresh_ = true;
     if (!fresh_) return nullptr;

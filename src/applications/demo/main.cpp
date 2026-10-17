@@ -7,6 +7,7 @@
 // Usage: flightsim-demo --world NAME [--control] [--parent-pid PID] [demo options] [terrain options]
 
 #include "applications/demo/DemoSimulation.h"
+#include "applications/demo/DemoSteps.h"
 #include "contracts/world_stream/DemoControl.h"
 #include "contracts/world_stream/WorldLayout.h"
 #include "foundation/core/Log.h"
@@ -53,54 +54,6 @@ void usage() {
                  "         [--elevation URL|none] [--terrain-zoom N] [--tile-cache DIR] [--offline|--online]\n"
                  "         [--log-level trace|debug|info|warn|error]\n");
 }
-
-/// The viewer's single steps, counted (DemoControl::stepRequests; HC-28). The runner's single step is a latch: set any
-/// number of times before its thread takes it, it is one step. So a request is handed to it only when the one before
-/// has been taken, and only once the held simulation has settled - a step its thread was taking as it was held, or a
-/// latch a resume left set, lands within the settling time - so that every snapshot after it is a requested step's. A
-/// resume drops the requests not yet taken (running supersedes them); quit abandons them.
-class SingleSteps {
-public:
-    using Clock = std::chrono::steady_clock;
-
-    explicit SingleSteps(std::uint64_t requested) : taken_(requested) {}
-
-    /// One pass of the publisher's loop: `requested` is the control block's count (read before `held`), `held`
-    /// whether the viewer holds the simulation, `fresh` whether the runner published a snapshot since the last pass,
-    /// `settleSeconds` how long a held simulation must publish nothing to be settled. Whether to hand the runner a step.
-    bool update(std::uint64_t requested, bool held, bool fresh, double settleSeconds, Clock::time_point now) {
-        if (!held) {
-            taken_ = requested;
-            handed_ = held_ = false;
-            return false;
-        }
-        if (!held_) {
-            held_ = true;
-            settled_ = false;
-            quietSince_ = now;
-        }
-        if (fresh) {
-            if (handed_) {
-                handed_ = false; // the step it was handed
-                ++taken_;
-            } else {
-                settled_ = false; // a step taken as it was held
-                quietSince_ = now;
-            }
-        }
-        if (!settled_ && std::chrono::duration<double>(now - quietSince_).count() >= settleSeconds) settled_ = true;
-        if (!settled_ || handed_ || taken_ >= requested) return false;
-        handed_ = true;
-        return true;
-    }
-
-private:
-    std::uint64_t taken_;         ///< requests taken or dropped
-    bool held_ = false;           ///< the viewer holds the simulation
-    bool settled_ = false;        ///< ... and it has published nothing for the settling time since
-    bool handed_ = false;         ///< a step handed to the runner and not yet published
-    Clock::time_point quietSince_{};
-};
 
 bool parse(int argc, char** argv, PublisherOptions& o) {
     for (int i = 1; i < argc; ++i) {
@@ -227,25 +180,25 @@ int main(int argc, char** argv) {
         runner->setTimeFactor(control->timeFactor.load());
     }
     runner->start();
-    SingleSteps steps(control ? control->stepRequests.load(std::memory_order_acquire) : 0);
-    const double agentStepSeconds = opt.demo.dt * opt.demo.frameSkip;
+    // the viewer's pause and single steps: DemoSteps holds and steps the runner, each request one step (HC-28, HC-30)
+    app::DemoSteps<app::DemoSimulation> steps(*runner, control ? control->stepRequests.load(std::memory_order_acquire) : 0);
+    std::uint64_t unexpected = 0;
     while (!(control && control->quit.load(std::memory_order_relaxed))) {
         // (the count first: a request made after a pause is read with that pause)
         const std::uint64_t requested = control ? control->stepRequests.load(std::memory_order_acquire) : 0;
         const bool held = control && control->paused.load(std::memory_order_acquire) != 0;
-        const double timeFactor = control ? control->timeFactor.load(std::memory_order_relaxed) : 1.0;
-        if (control) {
-            runner->setPaused(held);
-            runner->setTimeFactor(timeFactor);
-        }
+        if (control) runner->setTimeFactor(control->timeFactor.load(std::memory_order_relaxed));
         const auto* fresh = runner->acquire();
         if (fresh)
             publisher.publish(fresh->simTime, Span<const sim::VehicleState>(fresh->states), {}, true, Span<const ipc::FlightStatus>(status));
         if (control) {
-            // settled: no step for a tenth of a second, and for one and a half of the runner's paced periods
-            const double settle = std::max(0.1, 1.5 * agentStepSeconds / std::max(1e-3, timeFactor));
-            if (steps.update(requested, held, fresh != nullptr, settle, SingleSteps::Clock::now())) runner->singleStep();
+            steps.update(fresh != nullptr, requested, held);
+            control->stepsTaken.store(steps.taken(), std::memory_order_release);
             control->throughput.store(runner->throughput(), std::memory_order_relaxed);
+            if (steps.unexpected() != unexpected) {
+                unexpected = steps.unexpected();
+                LOG_WARN("demo") << "the held simulation published a step it was not handed (" << unexpected << ")";
+            }
         }
         if (opt.parentPid && !platform::processAlive(opt.parentPid)) {
             LOG_INFO("demo") << "the viewer has gone; stopping";

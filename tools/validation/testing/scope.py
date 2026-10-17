@@ -19,7 +19,9 @@ changed path the presets' compile databases show is compiled only in ucrt64-rele
 whose sources are), whatever claims it, plans ucrt64-release too - a renderer change never passes on the headless build
 alone, which does not compile it. Such a path, and any path a `release` scope selecting the `render` label claims (the
 shared Vision header, its Python wrapper, assets: headless keeps their coverage), needs renderer coverage: the
-ucrt64-release plan selects every `render`-labelled test and fails without one.
+ucrt64-release plan selects every `render`-labelled test and fails without one. A scope may also name the tests a
+preset must have (`requires`, by name): each preset it plans selects them, whatever the tier, and fails without any one
+of them - other tests of the scope's selecting are no stand-in for them.
 
 It fails closed: a changed path nothing claims, a selection that is empty and no changes at all are errors (exit 3,
 with their reasons and paths), not a passing run. With --build it builds the presets first, then lists each preset's
@@ -345,7 +347,8 @@ def plan(paths, rules, tests, executables, tier="targeted", dependents=None, rea
     """What `paths` need: {"scopes", "escalate" (reasons), "release" (reasons), "headless" (whether ucrt64-headless
     builds any of them), "renderer" (the paths that need renderer tests), "build", "selected" (test names), "unmatched",
     "errors" ([{"reason", "paths", ...}]: an unclaimed path, a required Python test module with no CTest test registered,
-    no renderer test where a renderer change needs one, an empty selection or no changes)}. `evidence` (release_only)
+    no renderer test where a renderer change needs one, a scope's required test missing from the preset, an empty
+    selection or no changes)}. `evidence` (release_only)
     marks the paths compiled only with the renderer. Planned on ucrt64-release (`preset`), a path that needs renderer
     tests (that evidence, or a scope that `renders`, render-only or shared, claiming it) selects every `render`-labelled
     test of that inventory, whatever the tier, and an inventory without one is an error: generic matches (sdk_boundary,
@@ -356,6 +359,7 @@ def plan(paths, rules, tests, executables, tier="targeted", dependents=None, rea
     build = False
     headless = not paths
     renderer = []  # the changed paths needing renderer tests: a render scope claims them, or the compile databases say
+    requirements = {}  # (scope, preset) -> {"expressions": the tests it requires there, "paths": the changed paths it claims}
     for path in paths:
         hits = [r for r in rules if any(glob_match(path, p) for p in r.get("paths", [])) and not any(glob_match(path, p) for p in r.get("except", []))]
         rendered = is_release_only(path, evidence)
@@ -370,6 +374,10 @@ def plan(paths, rules, tests, executables, tier="targeted", dependents=None, rea
         for r in hits:
             if r["name"] not in matched:
                 matched.append(r["name"])
+            for needed, expressions in r.get("requires", {}).items():
+                entry = requirements.setdefault((r["name"], needed), {"expressions": list(expressions), "paths": []})
+                if path not in entry["paths"]:
+                    entry["paths"].append(path)
             if r.get("full"):
                 escalate.append("%s (%s)" % (path, r["name"]))
             if r.get("release"):
@@ -421,6 +429,21 @@ def plan(paths, rules, tests, executables, tier="targeted", dependents=None, rea
                                      "inventory has no '%s' test: configure and build it with the renderer (FSIM_WITH_RENDER), "
                                      "then select again"
                                      % (RELEASE, RENDER)})
+    # a scope's required tests: selected on the preset they are required on, whatever the tier; any missing is an error
+    for (name, needed), entry in sorted(requirements.items()):
+        if preset is None or needed != preset:
+            continue
+        missing = []
+        for expression in entry["expressions"]:
+            found = {t["name"] for t in tests if re.search(expression, t["name"])}
+            selected |= found
+            if not found:
+                missing.append(expression)
+        if missing:
+            errors.append({"reason": "missing-required-tests", "paths": entry["paths"], "scope": name, "missing": missing,
+                           "detail": "scope '%s' requires tests on %s matching %s, and this inventory has none for %s: build %s "
+                                     "with them (a reconfigure registers new tests), then select again"
+                                     % (name, preset, ", ".join(entry["expressions"]), ", ".join(missing), preset)})
     escalated = {reason.split(" (", 1)[0] for reason in escalate}
     unclaimed = [path for path in unmatched if path not in escalated]
     if not paths and tier != "full":

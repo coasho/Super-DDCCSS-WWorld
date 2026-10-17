@@ -4,9 +4,10 @@
 //
 //   parity     the two held, then stepped together one agent step at a time: after every step each vehicle's state,
 //              as the viewer reads it from the world stream, is the in-process state to the bit
-//   steps      single steps counted (HC-28): 20 requests made at once are 20 steps, the in-process demo's 20 to the
-//              bit and no more; a resume drops the requests not yet taken, so a pause holds; a request after it is
-//              still taken; and the publisher stops on request with thousands pending
+//   steps      single steps counted (HC-28, HC-30): 20 requests made at once are 20 steps, the in-process demo's 20
+//              to the bit and no more, each acknowledged; requests pending through a resume and made while it runs are
+//              all taken at the next hold, none dropped and no more; one request is exactly one agent step; and the
+//              publisher stops on request with thousands pending
 //   lifecycle  starts that fail - the publisher exits before publishing - leave no process handle behind (HC-29),
 //              and neither does a start and stop
 //
@@ -17,6 +18,7 @@
 #include "foundation/io/AssetResolver.h"
 
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -80,6 +82,20 @@ bool same(const sim::SnapshotBatch& a, const sim::SnapshotBatch& b, std::size_t 
         ok = ok && equal;
     }
     return ok;
+}
+
+/// Wait until the publisher has taken at least `count` requests (each a published step), up to `seconds`: held, it
+/// goes on taking any others pending, so `count` is a floor - or every request asked, which it never exceeds.
+bool waitTaken(app::DemoLink& link, std::uint64_t count, double seconds) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::duration<double>(seconds);
+    while (link.stepsTaken() < count && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    return link.stepsTaken() >= count;
+}
+
+/// The newest snapshot's simulation time, if a new one was published (`newest` unchanged otherwise).
+void latest(app::DemoLink& link, double& newest) {
+    if (const auto* batch = link.acquire()) newest = batch->simTime;
 }
 
 void idle(double seconds) { std::this_thread::sleep_for(std::chrono::duration<double>(seconds)); }
@@ -204,34 +220,57 @@ int steps(const std::string& program, const std::string& jsbsimRoot) {
     std::printf("%d requests made at once: %d snapshot(s), the in-process demo's %d steps %s\n", kQueued, snapshots,
                 kQueued, failures ? "NOT matched" : "to the bit, and no more");
 
-    // a resume drops the requests not yet taken: the pause after it holds
-    for (int i = 0; i < 1000; ++i) there->singleStep();
-    double held = published.simTime;
-    const int taken = drain(*there, 0.3, held);
-    check(taken > 0, "the pending requests took no step while held");
-    there->setPaused(false);
-    double running = held;
-    drain(*there, 0.3, running);
-    check(running > held, "the resumed demo did not run");
-    there->setPaused(true);
-    double settled = running;
-    drain(*there, 0.5, settled);
-    double after = settled;
-    const int afterPause = drain(*there, 1.0, after);
-    check(afterPause == 0, "the pause did not hold with requests pending before the resume: " +
-                               std::to_string(afterPause) + " step(s) more");
-    std::printf("1000 requests, resumed after %d were taken: the pause after the resume holds%s\n", taken,
-                afterPause ? " NOT" : "");
+    // the publisher acknowledges each request taken (DemoControl::stepsTaken)
+    std::uint64_t asked = kQueued;
+    check(waitTaken(*there, asked, 10.0), "the publisher acknowledged " + std::to_string(there->stepsTaken()) + " of " +
+                                              std::to_string(asked) + " requests");
+    check(there->stepsTaken() == asked, "the publisher took more requests than were made");
+    const double agentStep = options.dt * options.frameSkip;
+    double newest = published.simTime;
+    latest(*there, newest);
 
-    // a request after that is still taken, once
+    // a backlog through a resume and a pause, with requests made while it runs (HC-30): 30 held, a resume after 5 are
+    // taken, 4 more while it runs, a hold - every one taken, none dropped, and no more
+    for (int i = 0; i < 30; ++i) there->singleStep();
+    asked += 30;
+    check(waitTaken(*there, kQueued + 5, 30.0), "the held backlog did not start");
+    there->setPaused(false);
+    const double resumedFrom = newest;
+    drain(*there, 0.3, newest);
+    check(newest > resumedFrom, "the resumed demo did not run");
+    const std::uint64_t takenWhenRunning = there->stepsTaken();
+    for (int i = 0; i < 4; ++i) there->singleStep();
+    asked += 4;
+    drain(*there, 0.2, newest);
+    check(there->stepsTaken() == takenWhenRunning, "a request was taken while the demo ran");
+    latest(*there, newest);
+    const double lastRunning = newest;
+    there->setPaused(true);
+    const std::uint64_t pending = asked - takenWhenRunning;
+    check(waitTaken(*there, asked, 60.0), "requests pending through the resume, or made while running, were lost: " +
+                                              std::to_string(there->stepsTaken()) + " of " + std::to_string(asked) + " taken");
+    check(there->stepsTaken() == asked, "the publisher took more requests than were made");
+    latest(*there, newest);
+    // the requested steps, and at most the step the demo was taking as it was held and one more it published unseen
+    const double afterHold = (newest - lastRunning) / agentStep;
+    check(afterHold > static_cast<double>(pending) - 1e-6 && afterHold < static_cast<double>(pending) + 2.0 + 1e-6,
+          std::to_string(pending) + " requests pending at the hold: " + std::to_string(afterHold) + " agent steps after it");
+    double quiet = newest;
+    const int beyond = drain(*there, 0.5, quiet);
+    check(beyond == 0, "the publisher took " + std::to_string(beyond) + " step(s) beyond the requests");
+    std::printf("30 requests held, a resume after 5, 4 more while it ran, a hold: %llu pending at the hold, all taken "
+                "(%.0f agent steps after it), none beyond\n", static_cast<unsigned long long>(pending), afterHold);
+
+    // one request more: exactly one agent step from the state it was asked in
+    const double before = newest;
     there->singleStep();
-    double stepped = after;
-    const auto* one = next(*there, 10.0);
-    if (one) stepped = one->simTime;
-    check(one && stepped > after, "a request after the pause was not taken");
-    double later = stepped;
-    const int more = drain(*there, 0.5, later);
-    check(more == 0, "one request after the pause took " + std::to_string(more + 1) + " steps");
+    ++asked;
+    check(waitTaken(*there, asked, 10.0) && there->stepsTaken() == asked, "a request after the backlog was not taken once");
+    latest(*there, newest);
+    const double one = (newest - before) / agentStep;
+    check(std::fabs(one - 1.0) < 1e-6, "one request: " + std::to_string(one) + " agent steps");
+    double after = newest;
+    check(drain(*there, 0.5, after) == 0, "one request took more than one step");
 
     // and the publisher stops on request with thousands pending
     for (int i = 0; i < 100000; ++i) there->singleStep();

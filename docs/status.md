@@ -627,6 +627,25 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
+## HC-28, HC-30 and HC-31 demo publisher correction (2026-10-17, awaiting independent acceptance)
+
+Corrects the items the ARCH-08 recheck at `ecf58a3` left open; the ARCH-08 record's section 15 has the details.
+
+- **HC-28:** each hold joins and restarts the runner's thread, so a step it was taking is published before any request
+  is handed over. Every later step is a requested one; no timing is involved.
+- **HC-30:** requests made while the demo runs, or pending through a resume, are taken at the next hold, one step each.
+  The control block acknowledges the requests taken (`stepsTaken`, version 2).
+- **HC-31:** the `demo publisher` selector scope requires its publisher tests on Release, and its schedules, probe and
+  contract tests on both presets. A plan on an inventory without them fails before any test runs.
+
+| Verification | Result |
+| --- | --- |
+| Schedules against a model of the runner, including the review's delayed-work case and 2,000 random schedules; mutations | Every request is one requested step; removing the join reproduces the review's failure |
+| Real runner in-process; process tests on Release | Exact step counts after each hold; the publisher cases pass 5/5 when repeated |
+| Selector | New cases fail on HEAD's selector (22 sub-tests), then all 82 pass; targeted plan: headless 9/9, Release 72/72 |
+
+No full suite ran (HC-11).
+
 ## HC-28 and HC-29 demo publisher correction (2026-10-17, awaiting independent acceptance)
 
 Corrects the two defects of the ARCH-08 review; the ARCH-08 record's section 13 has the details.

@@ -8,6 +8,7 @@ add_executable(flightsim-demo
     main.cpp
     DemoSimulation.h
     DemoSimulation.cpp
+    DemoSteps.h
     DemoAutopilot.h)
 fsim_include_view(flightsim-demo)
 target_link_libraries(flightsim-demo PRIVATE fsim::contracts fsim::ipc fsim::sim fsim::io fsim::core fsim::platform)

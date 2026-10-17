@@ -672,6 +672,123 @@ class RenderLifecycleTest(unittest.TestCase):
         self.assertEqual(list(report["presets"]), [scope.HEADLESS])
 
 
+class RequiredTestsTest(unittest.TestCase):
+    """HC-31: a scope's required tests (`requires`) on the real rules, the demo publisher's scope: each planned preset
+    must have every one - in every tier, before anything is built, listed again or run - and a selection of the scope's
+    other tests is no stand-in for them."""
+
+    PATHS = ["src/applications/demo/main.cpp", "src/contracts/world_stream/DemoControl.h", "src/applications/demo/DemoSteps.h",
+             "tests/integration/test_demo_steps.cpp"]
+    RELEASE_TESTS = ["demo_publisher", "demo_publisher_steps", "demo_publisher_lifecycle", "demo_publisher_schedules",
+                     "include_view_demo", "contracts"]
+    HEADLESS_TESTS = ["demo_publisher_schedules", "include_view_demo", "contracts"]
+    OTHER = ["sdk_boundary", "flight core"]
+
+    def setUp(self):
+        self.calls = []
+        self.tmp = tempfile.TemporaryDirectory()
+        self.inventories = {scope.HEADLESS: synthetic(self.OTHER + self.HEADLESS_TESTS),
+                            scope.RELEASE: synthetic(self.OTHER + self.RELEASE_TESTS)}
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def discover(self, preset):
+        self.calls.append("list " + preset)
+        return self.inventories.get(preset)
+
+    def builder(self, preset):
+        self.calls.append("build " + preset)
+        return 0
+
+    def plan_only(self, paths, tier="targeted"):
+        return scope.select(list(paths), scope.load_rules(), tier, 16, run=False, executables={}, dependents={}, readers={},
+                            discover=self.discover, measured=lambda preset: {}, evidence=None)
+
+    def run_select(self, paths, build):
+        def run(command, log):
+            preset = command[2]
+            names = [t["name"] for t in self.inventories[preset] if str(t["index"]) in command[-1].split(",")[3:]]
+            self.calls.append("run " + preset)
+            Path(log).write_text("".join(" %d/%d Test #%d: %s ....   Passed    1.00 sec\n" % (k + 1, len(names), k + 1, n)
+                                         for k, n in enumerate(names)), encoding="utf-8")
+            return 0
+        return scope.select(list(paths), scope.load_rules(), "targeted", 16, run=True, build=build, log_dir=self.tmp.name,
+                            executables={}, dependents={}, readers={}, discover=self.discover, builder=self.builder,
+                            runner=run, measured=lambda preset: {}, recorder=lambda logs, preset: 0, evidence=None)
+
+    def test_a_valid_inventory_selects_every_required_test_on_both_presets_in_every_tier(self):
+        for path in self.PATHS:
+            for tier in ("targeted", "integration", "full"):
+                with self.subTest(path=path, tier=tier):
+                    status, report = self.plan_only([path], tier)
+                    self.assertEqual(status, 0, report["errors"])
+                    self.assertEqual(list(report["presets"]), [scope.HEADLESS, scope.RELEASE])
+                    self.assertLessEqual(set(self.RELEASE_TESTS), set(report["presets"][scope.RELEASE]["selected"]))
+                    self.assertLessEqual(set(self.HEADLESS_TESTS), set(report["presets"][scope.HEADLESS]["selected"]))
+
+    def test_a_release_inventory_without_the_publisher_tests_fails_every_tier(self):
+        # the review's probe: what the scope's own patterns still find there (the include probe, the contract test) is a
+        # non-empty selection, and no stand-in
+        self.inventories[scope.RELEASE] = synthetic(self.OTHER + self.HEADLESS_TESTS)
+        for path in self.PATHS:
+            for tier in ("targeted", "integration", "full"):
+                with self.subTest(path=path, tier=tier):
+                    status, report = self.plan_only([path], tier)
+                    self.assertEqual(status, 3)
+                    errors = [e for e in report["errors"] if e["reason"] == "missing-required-tests"]
+                    self.assertEqual([(e["preset"], e["scope"]) for e in errors], [(scope.RELEASE, "demo publisher")])
+                    self.assertEqual(errors[0]["missing"], ["^demo_publisher$", "^demo_publisher_steps$", "^demo_publisher_lifecycle$"])
+
+    def test_one_missing_test_is_enough_to_fail(self):
+        for missing in self.RELEASE_TESTS:
+            with self.subTest(missing=missing):
+                self.inventories[scope.RELEASE] = synthetic(self.OTHER + [n for n in self.RELEASE_TESTS if n != missing])
+                status, report = self.plan_only(["src/applications/demo/main.cpp"])
+                self.assertEqual(status, 3)
+                self.assertEqual([e["missing"] for e in report["errors"]], [["^%s$" % missing]])
+
+    def test_headless_keeps_its_required_coverage(self):
+        self.inventories[scope.HEADLESS] = synthetic(self.OTHER + ["contracts"])
+        status, report = self.plan_only(["src/contracts/world_stream/DemoControl.h"])
+        self.assertEqual(status, 3)
+        self.assertEqual([(e["preset"], e["missing"]) for e in report["errors"]],
+                         [(scope.HEADLESS, ["^demo_publisher_schedules$", "^include_view_demo$"])])
+
+    def test_without_the_required_tests_nothing_runs_with_or_without_a_build(self):
+        self.inventories[scope.RELEASE] = synthetic(self.OTHER + self.HEADLESS_TESTS)
+        for build in (False, True):
+            with self.subTest(build=build):
+                self.calls = []
+                status, report = self.run_select(["src/applications/demo/main.cpp"], build)
+                self.assertEqual(status, 3)
+                self.assertEqual({e["reason"] for e in report["errors"]}, {"missing-required-tests"})
+                self.assertFalse([c for c in self.calls if c.startswith("run")])
+                self.assertEqual([c for c in self.calls if c.startswith("build")],
+                                 ["build " + scope.HEADLESS, "build " + scope.RELEASE] if build else [])
+
+    def test_a_build_that_registers_the_tests_runs_them_on_both_presets(self):
+        complete = self.inventories[scope.RELEASE]
+        self.inventories[scope.RELEASE] = synthetic(self.OTHER + self.HEADLESS_TESTS)
+
+        def builder(preset):
+            self.calls.append("build " + preset)
+            if preset == scope.RELEASE:
+                self.inventories[scope.RELEASE] = complete  # (the reconfigure registers them)
+            return 0
+        self.builder = builder
+        status, report = self.run_select(["src/applications/demo/main.cpp"], True)
+        self.assertEqual(status, 0, report["errors"])
+        self.assertEqual([c for c in self.calls if c.startswith("run")], ["run " + scope.HEADLESS, "run " + scope.RELEASE])
+        self.assertLessEqual(set(self.RELEASE_TESTS), set(report["presets"][scope.RELEASE]["selected"]))
+        # and without that build the run stops: the inventory listed is the one checked
+        self.inventories[scope.RELEASE] = synthetic(self.OTHER + self.HEADLESS_TESTS)
+        self.calls = []
+        status, report = self.run_select(["src/applications/demo/main.cpp"], False)
+        self.assertEqual(status, 3)
+        self.assertFalse([c for c in self.calls if c.startswith("run")])
+
+
 class FixtureTest(unittest.TestCase):
     """A tiny independent CMake project (no compiler, no shared build tree): a test module added after configuring is
     registered by the next build - the glob is CONFIGURE_DEPENDS, as python/CMakeLists.txt's - and the selector,
@@ -892,7 +1009,7 @@ class RulesTest(unittest.TestCase):
 
     def test_every_scope_is_well_formed(self):
         keys = {"name", "paths", "tests", "labels", "exclude_labels", "release", "full", "build", "except", "integration", "integration_labels",
-                "claims", "render_only"}
+                "claims", "render_only", "requires"}
         names = [r["name"] for r in self.rules]
         self.assertEqual(len(names), len(set(names)), "scope names repeat")
         for r in self.rules:
@@ -907,6 +1024,15 @@ class RulesTest(unittest.TestCase):
                     self.assertTrue(scope.renders(r), "a scope selecting the render label runs on ucrt64-release")
                 for expression in r.get("tests", []):
                     re.compile(expression.replace("{stem}", "x"))
+                for preset, expressions in r.get("requires", {}).items():
+                    self.assertIn(preset, (scope.HEADLESS, scope.RELEASE))
+                    self.assertTrue(expressions, "a requirement names tests")
+                    for expression in expressions:
+                        re.compile(expression)
+                    if preset == scope.RELEASE:
+                        self.assertTrue(r.get("release"), "a scope requiring ucrt64-release tests plans ucrt64-release")
+                    else:
+                        self.assertFalse(r.get("render_only"), "a render-only scope does not plan ucrt64-headless")
 
     def test_every_path_pattern_matches_a_tracked_file(self):
         for r in self.rules:
@@ -1029,6 +1155,59 @@ class RulesTest(unittest.TestCase):
                 self.assertEqual(status, 3)
                 self.assertIn("no-renderer-coverage", [e["reason"] for e in report["errors"]])
                 self.assertNotIn("run", calls)
+
+    def test_every_required_test_is_in_its_presets_real_inventory(self):
+        """HC-31: each scope's required tests are registered in that preset's configured build."""
+        found = 0
+        for r in self.rules:
+            for preset, expressions in r.get("requires", {}).items():
+                build = scope.REPO / "build" / preset
+                if not (build / "CTestTestfile.cmake").is_file():
+                    continue
+                names = [t["name"] for t in scope.inventory(test_dir=build)]
+                for expression in expressions:
+                    with self.subTest(scope=r["name"], preset=preset, test=expression):
+                        self.assertTrue(any(re.search(expression, n) for n in names), "not in the inventory")
+                        found += 1
+        if not found:
+            self.skipTest("no configured preset holds a required test")
+
+    def test_the_real_headless_inventory_cannot_stand_in_for_the_release_one_for_the_demo_publisher(self):
+        """HC-31, the review's probe: the real headless inventory given as the ucrt64-release one. A demo application or
+        control-block change fails in every tier, and a run with or without a build starts no runner; the real inventories
+        select every required test."""
+        builds = {p: scope.REPO / "build" / p for p in (scope.HEADLESS, scope.RELEASE)}
+        inventories = {p: scope.inventory(test_dir=b) if (b / "CTestTestfile.cmake").is_file() else None for p, b in builds.items()}
+        if inventories[scope.HEADLESS] is None:
+            self.skipTest("the headless preset's configured inventory is needed")
+        paths = (["src/applications/demo/main.cpp"], ["src/contracts/world_stream/DemoControl.h"])
+        for changed in paths:
+            for tier, run, build_first in [(tier, False, False) for tier in ("targeted", "integration", "full")] + \
+                    [("targeted", True, False), ("targeted", True, True)]:
+                with self.subTest(paths=changed, tier=tier, run=run, build=build_first):
+                    calls = []
+                    with tempfile.TemporaryDirectory() as logs:
+                        status, report = scope.select(changed, self.rules, tier, 16, run=run, build=build_first, log_dir=logs,
+                                                      executables={}, dependents={}, readers={},
+                                                      discover=lambda preset: inventories[scope.HEADLESS],
+                                                      builder=lambda preset: calls.append("build") or 0,
+                                                      runner=lambda command, log: calls.append("run") or 0,
+                                                      measured=lambda preset: {}, recorder=lambda logs, preset: 0, evidence=None)
+                    self.assertEqual(status, 3)
+                    self.assertEqual([(e["reason"], e["preset"]) for e in report["errors"]],
+                                     [("missing-required-tests", scope.RELEASE)])
+                    self.assertNotIn("run", calls)
+        if inventories[scope.RELEASE] is None:
+            return
+        required = [x for r in self.rules if r["name"] == "demo publisher" for x in r["requires"][scope.RELEASE]]
+        for changed in paths:
+            with self.subTest(paths=changed, inventory="real"):
+                status, report = scope.select(changed, self.rules, "targeted", 16, run=False, executables={}, dependents={},
+                                              readers={}, discover=lambda preset: inventories[preset], evidence=None)
+                self.assertEqual(status, 0, report["errors"])
+                chosen = report["presets"][scope.RELEASE]["selected"]
+                for expression in required:
+                    self.assertTrue(any(re.search(expression, n) for n in chosen), expression)
 
     def test_the_repository_python_closure_reaches_the_shared_fixture_and_the_wrappers(self):
         d = scope.python_dependents()

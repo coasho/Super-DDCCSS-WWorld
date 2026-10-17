@@ -214,6 +214,13 @@ scopes also name cannot stand in for it. Release scopes without the `render` lab
 rules to the real builds: every source compiled only with the renderer is claimed by the render-only scope, and every
 test only the renderer builds carries the label.
 
+A scope can also name the tests a preset must have (`[scope.requires]`, by name). Each preset the scope plans selects
+them, whatever the tier, and an inventory missing any one is a `missing-required-tests` error before any test runs,
+with or without `--build`; the scope's other tests cannot stand in for them. The `demo publisher` scope requires the
+publisher's process tests (`demo_publisher`, `demo_publisher_steps`, `demo_publisher_lifecycle`) on `ucrt64-release`,
+and its single-step schedules (`demo_publisher_schedules`), include-view probe and control-block contract test on both
+presets (HC-31). `testing_scope_checker` holds every requirement to the configured inventories.
+
 With `--build` it builds the presets first, then lists each inventory afresh - a reconfigure may add, remove or
 reorder tests (the Python test modules are a `CONFIGURE_DEPENDS` glob) - and resolves the selected names to that
 inventory's `-I` numbers immediately before running. After the run it requires that exactly the selected tests ran

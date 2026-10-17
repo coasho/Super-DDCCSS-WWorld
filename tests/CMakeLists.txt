@@ -667,14 +667,25 @@ if(TARGET flightsim-viewer)
     fsim_set_warnings(fsim_demo_publisher_test)
     add_dependencies(fsim_demo_publisher_test flightsim-demo)
     add_test(NAME demo_publisher COMMAND fsim_demo_publisher_test $<TARGET_FILE:flightsim-demo> "${FSIM_JSBSIM_DATA_DIR}")
-    # its control block's single steps counted - many requested at once are as many steps, a resume drops those not
-    # yet taken, and it stops with thousands pending (HC-28) - and failed starts leaving no process handle (HC-29)
+    # its control block's single steps counted - many requested at once are as many steps, those requested while it
+    # runs and through a resume are taken at the next hold, it stops with thousands pending (HC-28, HC-30) - and
+    # failed starts leaving no process handle (HC-29)
     add_test(NAME demo_publisher_steps COMMAND fsim_demo_publisher_test $<TARGET_FILE:flightsim-demo>
              "${FSIM_JSBSIM_DATA_DIR}" steps)
     add_test(NAME demo_publisher_lifecycle COMMAND fsim_demo_publisher_test $<TARGET_FILE:flightsim-demo>
              "${FSIM_JSBSIM_DATA_DIR}" lifecycle)
     set_tests_properties(demo_publisher demo_publisher_steps demo_publisher_lifecycle PROPERTIES LABELS render TIMEOUT 300)
 endif()
+
+# The demo publisher's single-step accounting (DemoSteps; HC-28, HC-30): against a model of the runner's thread in
+# deterministic schedules - the delayed-work one, requests while running, a backlog through a resume and a pause, and
+# seeded random ones - and on the real runner in-process. Wherever the publisher is built.
+add_executable(fsim_demo_steps_test integration/test_demo_steps.cpp ${CMAKE_SOURCE_DIR}/src/applications/demo/DemoSimulation.cpp)
+target_include_directories(fsim_demo_steps_test PRIVATE $<TARGET_PROPERTY:flightsim-demo,FSIM_INCLUDE_VIEW>)
+target_link_libraries(fsim_demo_steps_test PRIVATE fsim::contracts fsim::ipc fsim::sim fsim::io fsim::core fsim::platform)
+fsim_set_warnings(fsim_demo_steps_test)
+add_test(NAME demo_publisher_schedules COMMAND fsim_demo_steps_test "${FSIM_JSBSIM_DATA_DIR}")
+set_tests_properties(demo_publisher_schedules PROPERTIES TIMEOUT 300)
 
 # Offscreen cameras through fsim_vision.dll (needs a Vulkan device).
 if(FSIM_WITH_RENDER)

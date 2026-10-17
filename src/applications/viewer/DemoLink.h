@@ -11,6 +11,7 @@
 #include "foundation/transport/WorldMirror.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -38,6 +39,9 @@ public:
     void setPaused(bool paused) noexcept;
     void setTimeFactor(double factor) noexcept;
     void singleStep() noexcept;
+    /// The single steps the publisher has taken, each a published step (DemoControl::stepsTaken): when it equals the
+    /// steps asked for, they are all in the world stream.
+    std::uint64_t stepsTaken() const noexcept;
     /// The newest published snapshot since the last call, or nullptr.
     const sim::SnapshotBatch* acquire() noexcept;
     double throughput() const noexcept;

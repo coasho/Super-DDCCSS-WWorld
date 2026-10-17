@@ -12,6 +12,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <cstddef>
 #include <string>
 #include <type_traits>
 
@@ -75,7 +76,10 @@ TEST_CASE("the demo control block and the control levels' names are stream contr
     REQUIRE(block.quit.load() == 0u);
     REQUIRE(block.stepRequests.load() == 0u);
     REQUIRE(block.timeFactor.load() == 1.0);
+    REQUIRE(block.stepsTaken.load() == 0u);
     REQUIRE(ipc::kDemoControlMagic == 0x4C434446u);
+    REQUIRE(ipc::kDemoControlVersion == 2u); // (2: the publisher's acknowledgment, stepsTaken, after throughput; HC-28)
+    STATIC_REQUIRE(offsetof(ipc::DemoControl, stepsTaken) == offsetof(ipc::DemoControl, throughput) + sizeof(double));
     REQUIRE(ipc::demoControlName("demo-7") == "demo-7.control");
     STATIC_REQUIRE(std::is_standard_layout_v<ipc::DemoControl>);
     // (HC-17) the names a presentation shows for VehicleRecord::controlLevel; "?" past them

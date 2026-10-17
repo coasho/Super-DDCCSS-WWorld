@@ -287,3 +287,56 @@ Limits:
 - **Manual interaction:** these tests do not establish manual pause, step, time-factor and quit use (HC-07).
 - **Steps while running:** a step requested while the demo runs is dropped. The in-process demo's latch took one such
   step at the next pause (HC-30).
+
+## 15. HC-28, HC-30 and HC-31 correction (2026-10-17)
+
+Corrects the three items the [recheck at `ecf58a3`](arch-08-review-2026-10-17.md#6-correction-recheck-at-ecf58a3)
+left open. Starting HEAD: `ecf58a3`.
+
+- **HC-28, an exact hold acknowledgment:** the publisher's step accounting is `DemoSteps`
+  (`src/applications/demo/DemoSteps.h`), and no timing remains in it:
+  - a hold pauses the runner, then stops it, which joins its thread, and starts it again, held. The join returns only
+    once a step the thread was taking is published, and nothing published until then counts as a requested step;
+  - from then on the held runner steps only when handed a step. Steps are handed one at a time, each once the one
+    before is published, so every later snapshot is a handed step's;
+  - a resume waits until the step handed over is published, so the runner's latch is never left set while it runs.
+
+  The runner, its latch and timestep, and the world stream are unchanged. The join and restart are `SimRunner`'s own
+  `stop()` and `start()`.
+- **HC-30, requests kept:** a request made while the demo runs, or still pending when it resumes, waits for the next
+  hold and is taken there, one step each. Quit abandons them.
+- **Acknowledgment:** the control block gains `stepsTaken` (publisher to Viewer): the requests taken, each a published
+  step. Its version is 2, and `DemoLink::stepsTaken()` reads it. The existing version check refuses a mismatched
+  Viewer and publisher.
+- **HC-31, required coverage:** a scope can name the tests a preset must have (`[scope.requires]`):
+  - each preset the scope plans selects them, in every tier;
+  - an inventory missing any one is a `missing-required-tests` error before any test runs, with or without a build.
+
+  The `demo publisher` scope requires `demo_publisher`, `demo_publisher_steps`, `demo_publisher_lifecycle`,
+  `demo_publisher_schedules`, `include_view_demo` and `contracts` on `ucrt64-release`, and the last three on
+  `ucrt64-headless`.
+
+| Check | Result |
+| --- | --- |
+| `demo_publisher_schedules` (both presets): `DemoSteps` against a model of the runner's loop as written. A step is decided at the loop's top and published when it completes; `stop` joins | The review's delayed-work schedule takes 2 requested steps for 2 requests, beside the demo's own step under way. Requests made while running are all taken, and only after the hold. A backlog through a resume and a pause: 12 requests, 12 steps. In 2,000 seeded random schedules every request is one requested step, no own step is counted, and the latch is never set while running |
+| Mutations of `DemoSteps`, each detected by that test | Without the hold's join, the delayed-work schedule takes 1 requested step for 2 requests (the review's failure), and seed 2 fails. Resuming with a step handed over fails the backlog schedule |
+| The real runner in-process (same test) | 10 requests made while running: none taken before the hold, then exactly 10 agent steps after the hold's state. 9 pending through a resume and a pause: exactly 9 after the next hold |
+| Process tests (Release) | `demo_publisher`: 240/240 steps identical. `demo_publisher_steps`: 20 requests made at once are the in-process demo's 20 steps to the bit, acknowledged as 20. 30 held, a resume after 5, 4 more while running, then a hold: all 28 pending are taken, none beyond. That is 29 agent steps after the last running snapshot: the requested 28 and the demo's own step under way. One more request is exactly one agent step. The publisher stops with 100,000 pending in 0.03 s. `demo_publisher_lifecycle`: 113 handles before and after. Each of the four passes 5/5 when repeated |
+| Selector | The new cases on HEAD's selector first: 5 of 6 fail (22 sub-tests), and the valid control passes. Then all 82 cases pass, none skipped. These include the review's probe, with the real headless inventory standing in for Release: every tier, and a run with or without a build, exits 3 and starts no runner. On the real inventories every required test is selected |
+| The selector's targeted plan for this correction's paths | Headless 9/9 (8.3 s), Release 72/72 (122 s), every required publisher test included, no skips |
+| Builds; gates | Headless and Release, warnings as errors: 0 warnings. Architecture and selector checks 3/3 on each preset; the planning checker accepts |
+| GUI demo | Scripted `fsim.cmd viewer --demo`: the publisher starts held, and the Viewer mirrors it, takes its screenshot and exits. No publisher is left |
+
+Logs are in `D:/ENV/tmp/hc28b/`.
+
+Limits:
+- **Full suite:** none ran (HC-11). With `tests/CMakeLists.txt` changed, the selector escalates the whole tree.
+- **Pause latency:** a hold joins the runner's thread, so a pause takes effect after at most one paced period
+  (16.7 ms in real time, longer at a low time factor). The publisher publishes nothing during that wait, and nothing is
+  lost.
+- **Bounds in the process test:** across a resume, `demo_publisher_steps` bounds the demo's own steps at the hold to
+  two. The exact counts are the model's and the in-process test's.
+- **Manual interaction:** manual pause, step, time-factor and quit use remains HC-07.
+- **Test helpers:** two test helpers first demanded an exact count where held stepping goes on. In-process, it failed
+  the first run; in the process test, one of five repeats. Both now wait for a floor, and the totals stay exact; both
+  were corrected before the commit.

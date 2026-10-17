@@ -22,6 +22,9 @@
 #   except = [...]   paths this scope does not claim, though its `paths` match them (a more specific scope does)
 #   claims = false   the scope adds its tests to what claims a path, but claims none itself: a path only it matches is
 #                    still unclaimed (the Python package's export check, beside the import closure that must cover it)
+#   [scope.requires] <preset> = [...]   tests (regular expressions over whole names) the preset must have: each
+#                    preset the scope plans selects them, whatever the tier, and a plan on an inventory missing any one
+#                    is an error (missing-required-tests) - the scope's other tests are no stand-in for them
 #
 # A changed path nothing claims escalates to the full suite when it is native source or build input, and is an error
 # otherwise (scope.py exits 3 naming it): add a scope here when a domain gets its own targeted coverage; keep it
@@ -167,13 +170,18 @@ paths = ["tests/compatibility/package_consumer/**", "cmake/RunPackageConsumer.cm
          "cmake/PackageConfig.cmake", "cmake/CleanDist.cmake", "cmake/TestDistComponents.cmake"]
 labels = ["package"]
 
-# The demo publisher (flightsim-demo, ARCH-08) and the control block the viewer drives it through. Its own tests use the
-# viewer's client and run where the viewer is built; headless builds the publisher and probes its include view.
+# The demo publisher (flightsim-demo, ARCH-08) and the control block the viewer drives it through. Its process tests use
+# the viewer's client and run where the viewer is built - they are required there (HC-31); both presets build the
+# publisher and require its single-step schedules, its include view and the control block's contract test.
 [[scope]]
 name = "demo publisher"
-paths = ["src/applications/demo/**", "src/contracts/world_stream/DemoControl.h"]
+paths = ["src/applications/demo/**", "src/contracts/world_stream/DemoControl.h", "tests/integration/test_demo_steps.cpp"]
 tests = ["^demo_publisher", "^include_view_demo$", "^contracts$"]
 release = true
+[scope.requires]
+ucrt64-release = ["^demo_publisher$", "^demo_publisher_steps$", "^demo_publisher_lifecycle$", "^demo_publisher_schedules$",
+                  "^include_view_demo$", "^contracts$"]
+ucrt64-headless = ["^demo_publisher_schedules$", "^include_view_demo$", "^contracts$"]
 
 [[scope]]
 name = "render, vision and viewer"
