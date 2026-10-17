@@ -667,7 +667,13 @@ if(TARGET flightsim-viewer)
     fsim_set_warnings(fsim_demo_publisher_test)
     add_dependencies(fsim_demo_publisher_test flightsim-demo)
     add_test(NAME demo_publisher COMMAND fsim_demo_publisher_test $<TARGET_FILE:flightsim-demo> "${FSIM_JSBSIM_DATA_DIR}")
-    set_tests_properties(demo_publisher PROPERTIES LABELS render TIMEOUT 300)
+    # its control block's single steps counted - many requested at once are as many steps, a resume drops those not
+    # yet taken, and it stops with thousands pending (HC-28) - and failed starts leaving no process handle (HC-29)
+    add_test(NAME demo_publisher_steps COMMAND fsim_demo_publisher_test $<TARGET_FILE:flightsim-demo>
+             "${FSIM_JSBSIM_DATA_DIR}" steps)
+    add_test(NAME demo_publisher_lifecycle COMMAND fsim_demo_publisher_test $<TARGET_FILE:flightsim-demo>
+             "${FSIM_JSBSIM_DATA_DIR}" lifecycle)
+    set_tests_properties(demo_publisher demo_publisher_steps demo_publisher_lifecycle PROPERTIES LABELS render TIMEOUT 300)
 endif()
 
 # Offscreen cameras through fsim_vision.dll (needs a Vulkan device).

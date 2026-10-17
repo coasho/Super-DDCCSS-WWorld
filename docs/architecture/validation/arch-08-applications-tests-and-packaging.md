@@ -248,3 +248,42 @@ No native model parameter is involved.
 ## 11. Next
 
 ARCH-09 (relocating the architecture authority) requires the next user-relayed assignment.
+
+## 13. HC-28 and HC-29 correction (2026-10-17)
+
+Corrects the two defects of the [independent review](arch-08-review-2026-10-17.md). Starting HEAD: `8c8bd8d`.
+
+- **HC-28, counted single steps:** the publisher (`src/applications/demo/main.cpp`, `SingleSteps`) counts the control
+  block's step requests and takes every one:
+  - it hands the runner one step at a time. The runner's single step stays the existing boolean latch, unchanged, and
+    the next step is handed over only once the one before it is published;
+  - a step starts once the held simulation has settled: nothing published for a tenth of a second and for one and a
+    half paced periods. A step the runner was taking as it was held, or a latch a resume left set, is not counted as a
+    requested one;
+  - a resume drops the requests not yet taken, and quit abandons them;
+  - the Viewer writes the pause before a request, both with release ordering, and the publisher reads the count first,
+    acquiring, so a request made after a pause is read with it.
+
+  `DemoControl.h` states the contract. Its layout and version, the simulation's timestep and the read-only world stream
+  are unchanged.
+- **HC-29, process handles:** `DemoLink`'s child process closes its handle whatever the child's state: when it is seen
+  to have exited, when it is finished, and on destruction.
+- **Selector (HC-05):** the new `demo publisher` scope claims the demo application and the control block. It selects
+  `demo_publisher*`, `include_view_demo` and `contracts`, so a change there no longer escalates to the full suite.
+
+| Check | Result |
+| --- | --- |
+| The new regressions first, on the unchanged publisher and `DemoLink` | `demo_publisher_steps` and `demo_publisher_lifecycle` fail. 20 requests made at once take 1 step: the published simulation time is 0.0167 s against the in-process 0.333 s. Three failed starts raise the process handles from 114 to 117. `demo_publisher` passes |
+| The same after the fix | `demo_publisher`: 240/240 steps identical. `demo_publisher_steps`: 20 requests made at once are the in-process demo's 20 steps to the bit, and none follows in the next second. Of 1000 requests, 13 were taken before a resume, and the pause after it holds for a second. A request after that is taken once. The publisher stops on request with 100,000 pending, in 0.02 s. `demo_publisher_lifecycle`: 113 process handles before and after three failed starts and a start and stop. Each 5/5 when repeated |
+| Builds | Headless and Release, warnings as errors: 0 warnings |
+| The selector's targeted plan for this correction's paths | Headless 8/8 (8.0 s); Release 71/71 (128 s): every renderer test, with `include_view_viewer` and `include_view_demo`. No skips |
+| Architecture gate; GUI demo | Accepted. `fsim.cmd viewer --demo` starts the publisher, mirrors it, takes its screenshot and exits, and no publisher is left |
+
+Logs are in `D:/ENV/tmp/hc28/`.
+
+Limits:
+- **Full suite:** none ran (HC-11). With `tests/CMakeLists.txt`'s two new test registrations, the selector escalates the
+  whole tree.
+- **Manual interaction:** these tests do not establish manual pause, step, time-factor and quit use (HC-07).
+- **Steps while running:** a step requested while the demo runs is dropped. The in-process demo's latch took one such
+  step at the next pause (HC-30).

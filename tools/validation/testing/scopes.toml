@@ -167,6 +167,14 @@ paths = ["tests/compatibility/package_consumer/**", "cmake/RunPackageConsumer.cm
          "cmake/PackageConfig.cmake", "cmake/CleanDist.cmake", "cmake/TestDistComponents.cmake"]
 labels = ["package"]
 
+# The demo publisher (flightsim-demo, ARCH-08) and the control block the viewer drives it through. Its own tests use the
+# viewer's client and run where the viewer is built; headless builds the publisher and probes its include view.
+[[scope]]
+name = "demo publisher"
+paths = ["src/applications/demo/**", "src/contracts/world_stream/DemoControl.h"]
+tests = ["^demo_publisher", "^include_view_demo$", "^contracts$"]
+release = true
+
 [[scope]]
 name = "render, vision and viewer"
 paths = ["include/fsim/fsim_vision_c.h", "python/fsim/vision.py", "python/fsim/_visualization/**", "assets/**"]

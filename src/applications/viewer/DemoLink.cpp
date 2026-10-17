@@ -93,7 +93,17 @@ struct DemoLink::Process {
         return true;
     }
 
-    /// Still running; once it is not, `exitCode` is its exit status.
+    /// Close the process handle, whatever the child's state (HC-29): seen to have exited, finished, or never waited for.
+    void release() noexcept {
+#ifdef _WIN32
+        if (info.hProcess) {
+            CloseHandle(info.hProcess);
+            info.hProcess = nullptr;
+        }
+#endif
+    }
+
+    /// Still running; once it is not, `exitCode` is its exit status (and its handle is closed).
     bool alive(int& exitCode) {
         if (!running) return false;
 #ifdef _WIN32
@@ -107,12 +117,16 @@ struct DemoLink::Process {
         exitCode = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 #endif
         running = false;
+        release();
         return false;
     }
 
     /// Wait up to `seconds` for it to exit, then end it: whether it exited by itself.
     bool finish(double seconds) {
-        if (!running) return true;
+        if (!running) {
+            release();
+            return true;
+        }
         bool exited = true;
 #ifdef _WIN32
         if (WaitForSingleObject(info.hProcess, static_cast<DWORD>(seconds * 1000.0)) != WAIT_OBJECT_0) {
@@ -121,8 +135,6 @@ struct DemoLink::Process {
             WaitForSingleObject(info.hProcess, 2000);
             exited = false;
         }
-        CloseHandle(info.hProcess);
-        info.hProcess = nullptr;
 #else
         int exitCode = 0;
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::duration<double>(seconds);
@@ -136,6 +148,7 @@ struct DemoLink::Process {
         }
 #endif
         running = false;
+        release();
         return exited;
     }
 
@@ -200,11 +213,12 @@ void DemoLink::cgFromOriginBodyM(std::size_t i, double* out) const {
     for (std::size_t k = 0; k < 3; ++k) out[k] = i < status.size() ? status[i].derived[ipc::kDerivedCgFromOriginM + k] : 0.0;
 }
 
-void DemoLink::setPaused(bool paused) noexcept { control_->paused.store(paused ? 1u : 0u, std::memory_order_relaxed); }
+// (release: a step requested after a pause is read with that pause - the publisher reads the count first, acquiring)
+void DemoLink::setPaused(bool paused) noexcept { control_->paused.store(paused ? 1u : 0u, std::memory_order_release); }
 
 void DemoLink::setTimeFactor(double factor) noexcept { control_->timeFactor.store(factor, std::memory_order_relaxed); }
 
-void DemoLink::singleStep() noexcept { control_->stepRequests.fetch_add(1, std::memory_order_relaxed); }
+void DemoLink::singleStep() noexcept { control_->stepRequests.fetch_add(1, std::memory_order_release); }
 
 const sim::SnapshotBatch* DemoLink::acquire() noexcept {
     if (mirror_.pollSnapshot(batch_)) fresh_ = true;

@@ -627,6 +627,22 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
+## HC-28 and HC-29 demo publisher correction (2026-10-17, awaiting independent acceptance)
+
+Corrects the two defects of the ARCH-08 review; the ARCH-08 record's section 13 has the details.
+
+- **HC-28:** the demo publisher takes every single-step request, one at a time while the simulation is held: 20
+  requests made at once are 20 steps, the in-process demo's to the bit. A resume drops the requests not yet taken.
+- **HC-29:** the Viewer's demo link closes the publisher's process handle whatever the child's state, including after a
+  failed start.
+
+| Verification | Result |
+| --- | --- |
+| New regressions on the unchanged code; after the fix | `demo_publisher_steps` and `demo_publisher_lifecycle` fail (1 step for 20 requests; 3 leaked handles); then pass, 5/5 each when repeated |
+| Selector's targeted plan | Headless 8/8; Release 71/71, every renderer test included |
+
+No full suite ran (HC-11).
+
 ## Architecture ARCH-08 applications, tests, examples and packaging (2026-10-17, awaiting independent acceptance)
 
 The eighth package of the architecture roadmap. The record is
