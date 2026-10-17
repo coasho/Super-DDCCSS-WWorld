@@ -627,6 +627,27 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
+## HC-47 to HC-50 corrections (2026-10-17, awaiting independent acceptance)
+
+The findings of the [HC-07](architecture/validation/hc-07-review-2026-10-17.md) and
+[HC-45](architecture/validation/hc-45-review-2026-10-17.md) reviews are corrected. HC-45 stays open, its optimization
+deferred; no performance scene was rerun.
+
+| Finding | Correction | Check |
+| --- | --- | --- |
+| HC-47: the HC-07 summary gave the demo's exit and cleanup, and the staged data's match, as constants; the reconnect helper asserted nothing | Fail-closed helpers measure and assert the demo's exit, publisher, segment cleanup and frame, and the reconnect's published identities, log order, frames and cleanup. The summary reads saved outcomes; the original demo run's unrecorded exit and cleanup are now null | 14 and 13 negative controls each fail, as they must; one run of each passes on the current Release Viewer; the staged data is still HC-11's |
+| HC-48: an unqualified "no regression" | Narrowed: the same three scenes fail before the migration; the current Viewer's strike minima are 1.4-1.5 fps lower; neither a regression nor equivalence is established | Documentation |
+| HC-49: a GPU gap bridged a frame that was not read | `GpuTimer` measures a gap only between frames read one after the other, reports `n/a` otherwise and counts the unread frames | The review's probe gives `n/a` (was 7 ms); five new `[gpu-timer]` cases; related tests 74/74 Release, 6/6 headless |
+| HC-50: separately selected frame statistics joined, and hypotheses stated as causes | The slow-frame table separates its four selections and labels the leads as hypotheses; the Viewer guide says what a gap can and cannot show | Documentation |
+
+`tests/CMakeLists.txt` changed, so the selector plans both presets' full suites; as directed, they did not run and stay
+pending. The Release inventory is now 785 tests. Four staged Release artifacts (the Viewer, the Vision DLL twice and
+`_vision.pyd`) differ from the HC-11-tested ones; HC-11 stays accepted for its frozen source.
+The documentation checks pass: the planning checker (58 documents), the local-link audit (1,418 links in 113
+files, none broken) and `ma_contract`, `architecture_boundary` and `sdk_guard_checker` (3/3).
+The [HC-45 record](architecture/validation/hc-45-performance-comparison.md#5-the-reviews-corrections-2026-10-17) and the
+[HC-07 record](architecture/validation/hc-07-viewer-and-joint.md#hc-47-correction-2026-10-17) have the details.
+
 ## HC-45 performance comparison (2026-10-17, awaiting independent acceptance)
 
 The [HC-45 record](architecture/validation/hc-45-performance-comparison.md) has the details. HC-45 stays open: by the
@@ -635,11 +656,12 @@ user's decision, no performance change was made.
 | Check | Result |
 | --- | --- |
 | Idle host | CPU 1-6 %, GPU 0-1 % before each run |
-| Current Viewer against `7948dc4`'s, from before the migration, on the same scenes, publishers, recordings, assets and settings (A B A B) | No regression: both fail fleet (two ~17.7 ms frames), strike (lowest second 144-147 fps at the impact) and hit (5-12 frames over 12.5 ms), and both pass reheat |
-| New `--stats` line `gpu worst` (each second's slowest GPU frame and the GPU's gaps); the related Release tests | 68/68 |
+| Current Viewer against `7948dc4`'s, from before the migration, on the same scenes, publishers, recordings, assets and settings (A B A B) | Both fail fleet (two ~17.7 ms frames), strike (lowest second 144-147 fps at the impact) and hit (5-12 frames over 12.5 ms), and both pass reheat. Two rounds establish neither a regression nor equivalence: the current Viewer's strike minima are 1.4-1.5 fps lower (HC-48) |
+| New `--stats` line `gpu worst` (each second's slowest GPU frame and the GPU's gaps); the related Release tests | 68/68; after the HC-49 fix, 74/74, and 6/6 headless |
 
-The causes found: GPU work outside the frame in fleet (likely tile uploads), a full cloud march in hit, NVIDIA Flow's
-solver sharing the GPU in the fire's aftermath, and the fire's shading and breakup pieces at the strike's impact.
+Hypotheses, not demonstrated causes (HC-50): GPU work or presentation pacing in fleet's long gaps (tile uploads, for
+one), a full cloud march in hit, NVIDIA Flow's solver sharing the GPU in the fire's aftermath, and the fire's shading
+and breakup pieces within the strike's pass groups at the impact.
 
 ## HC-07 Viewer and joint verification (2026-10-17, awaiting independent acceptance)
 

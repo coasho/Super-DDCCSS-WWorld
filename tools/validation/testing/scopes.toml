@@ -206,7 +206,7 @@ release = true
 name = "render-only roots"
 paths = ["src/visualization/**", "src/adapters/vision/**", "src/applications/viewer/**",
          "tools/models/rcs/**", "tools/validation/flow_calibrate/**", "examples/visualization/vision_capture/**", "tests/visualization/test_terrain_render.cpp",
-         "tests/visualization/test_vehicle_visuals.cpp", "tests/visualization/test_cocip.cpp", "tests/visualization/test_contrail_observed.cpp",
+         "tests/visualization/test_vehicle_visuals.cpp", "tests/visualization/test_cocip.cpp", "tests/visualization/test_contrail_observed.cpp", "tests/visualization/test_gpu_timer.cpp",
          "tests/visualization/test_viewer_screenshot.cpp", "tests/visualization/test_vision.cpp", "tests/visualization/test_vision_c_abi.c",
          "tests/integration/test_demo_publisher.cpp", "cmake/Flow.cmake"]
 labels = ["render"]

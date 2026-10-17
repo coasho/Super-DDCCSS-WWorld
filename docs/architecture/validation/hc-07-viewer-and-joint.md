@@ -28,9 +28,9 @@ Final-program acceptance is not claimed. The [summary](hc-07-evidence.json) hold
 | 4K performance gate, run once and repeated once (`viewer_perf.py`, 160 fps target) | **Fails on 3 of 4 scenes in both runs** (section 3); reheat passes |
 | Replay at 3840 x 2160 (`viewer_perf.py --shots`) | 26 frames of the four scenes, every one 3840 x 2160 and inspected: models, effects, fire and smoke as recorded, no black or broken frame |
 | Complete live fullscreen strike (`strike_acceptance.py`) | **Passes.** Native and Viewer exit 0 after 40.03 and 41.95 wall seconds. Its records match the dated 2026-10-12 run (details below) |
-| Demo, fullscreen (`--demo --fullscreen --screenshot`) | **Passes.** Exit 0 in 11 s, a 3840 x 2160 frame inspected (8 aircraft, 160 fps on its panel), and no demo publisher left |
+| Demo, fullscreen (`--demo --fullscreen --screenshot`) | **Frame accepted:** a 3840 x 2160 frame inspected (8 aircraft, 160 fps on its panel). This run's exit and cleanup were not recorded; the HC-47 run measures and asserts them (see [HC-47 correction](#hc-47-correction-2026-10-17)) |
 | Manual controls through the Viewer's window input (`manual_controls.py`) | **15/15 pass** for the demo's pause, single step, time factor and quit (section 4) |
-| A world replaced under the same name (`reconnect.py`) | **Passes.** The Viewer logs "world 'hc07-reconnect' was replaced; attaching to the new one". Frames 000-002 show `old-one` (1,525-1,556 m), frames 003-007 the fresh `new-one` (from 2,345 m), and it exits 0 |
+| A world replaced under the same name (`reconnect.py`) | **Passes.** The Viewer logs "world 'hc07-reconnect' was replaced; attaching to the new one". Frames 000-002 show `old-one` (1,525-1,556 m), frames 003-007 the fresh `new-one` (from 2,345 m), and it exits 0. Checked from its log and frames; the HC-47 run asserts them (see [HC-47 correction](#hc-47-correction-2026-10-17)) |
 | Generic joint cases | Pass in HC-11's accepted full suites on both presets: `ma_joint`, `python_sdk test_ma_joint`, `mission_package_consumer`, `ma_service_binding`, isolation and composition. They were not run again |
 
 Live strike details:
@@ -110,3 +110,42 @@ the snapshot's simulation time and run again. Both attempts' logs are kept.
 - **Demo control column:** the demo's vehicle list leaves its control column empty. The ARCH-08 capture did too, and the
   built-in demo's aircraft have no SDK command. A published SDK world shows its level (`actuator` in the reconnect
   frames).
+
+## HC-47 correction (2026-10-17)
+
+The [review](hc-07-review-2026-10-17.md) found that the summary gave the standalone demo's exit and remaining
+publishers, and the staged data's match with HC-11, as constants, and that `reconnect.py` asserted nothing. Both checks
+now have fail-closed helpers in `D:/ENV/tmp/hc4750/helpers/`. The [summary](hc-07-evidence.json), now
+`fsim.hc07.evidence.v2`, reads only saved measurements; its other values are unchanged.
+
+- **`demo_capture.py`:** runs the demo fullscreen and saves one frame. It measures and asserts:
+  - the Viewer's exit code, 0;
+  - that its log names the demo world `demo-<Viewer pid>`, mirrored from a separate publisher process;
+  - no demo publisher before the run, and none left after it;
+  - that the world's control block and segment are both released;
+  - the saved frame's size, 3840 x 2160, and the log's line for it.
+- **`reconnect_check.py`:** publishes `hc47-reconnect` with `old-one`, closes it, and publishes it again with
+  `new-one`. It asserts:
+  - each phase's published vehicle table, read from shared memory while it flies: `old-one` alone, then `new-one`
+    alone, in different incarnations;
+  - the Viewer's log order: attach, one replacement, attach again;
+  - frames 0-7 in order, each 3840 x 2160, with frames on both sides of the replacement;
+  - the Viewer's exit code, 0, and the world's segment released afterwards.
+- **Negative controls:** each helper's `--self-test` gives doctored measurements to the same checks. Each one must
+  fail, and a positive control must pass: 14 for the demo and 13 for the reconnect, all as expected.
+- **Runs:** one of each, on the current Release Viewer (`dd875197b212f60c`, rebuilt for HC-49, so not the HC-11-tested
+  binary). Both passed:
+  - demo: exit 0 after 10.42 s; publisher process 24740 for `demo-19196`, gone afterwards; both segments released;
+    3840 x 2160;
+  - reconnect: exit 0; incarnations 4147846233 and 308058473; frames 000-002 before the replacement and 003-007 after,
+    every one 3840 x 2160; the segment released.
+
+  Each helper's first run passed too. Each was run again after a change to the helper, so that the recorded hash is
+  the one that ran; both attempts are kept.
+- **The original runs:** HC-07's own demo run did not record its exit or cleanup, so the summary now gives them as
+  null, and the frame's size is read from the file. The original reconnect's log order and frame sizes are read from
+  its log and frames; that run asserted nothing.
+- **Staged data:** recomputed with HC-11's tree digest. Both presets still have HC-11's 234 files and digest
+  (`603ea0553e18673f`).
+
+These are short GUI checks, not performance runs, and no full suite ran.

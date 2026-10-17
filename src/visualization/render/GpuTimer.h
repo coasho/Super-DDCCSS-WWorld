@@ -2,6 +2,7 @@
 
 #include <vsg/all.h>
 
+#include <cstdint>
 #include <map>
 #include <string>
 #include <vector>
@@ -25,11 +26,21 @@ public:
     vsg::ref_ptr<vsg::Command> mark(const std::string& label);
 
     /// After each frame is submitted: the oldest frame's times read (when the GPU has them) and its pool reused next.
+    /// It hands them to addFrame, or tells addMissing that the frame's were not read.
     void frameDone(vsg::Device& device, float timestampPeriodNs);
-    /// The sections' mean GPU milliseconds since the last report, in the order first marked; then, on a line of its
-    /// own ("gpu worst |"), the slowest frame's sections, the GPU's gap before that frame (from the previous frame's
-    /// last mark to its first: the GPU idle or busy with work outside these marks, another device's or a transfer's)
-    /// and the largest such gap; then cleared.
+    /// A frame's timestamps (one a mark, in the GPU's ticks of `tickMs` milliseconds), in the order the frames were
+    /// recorded. A frame whose stamps do not run forward through its marks (or span a second or more) is not used:
+    /// it counts as unread, as addMissing's frame does.
+    void addFrame(const std::vector<std::uint64_t>& stamps, double tickMs);
+    /// A frame whose timestamps were not read. The next frame's gap is then not known: the GPU's time between two
+    /// frames is only measured between frames read one after the other.
+    void addMissing();
+    /// The sections' mean GPU milliseconds since the last report, in the order first marked. Then, on a line of its
+    /// own ("gpu worst |"), the frame with the largest total of sections: its sections, and the GPU's gap before it -
+    /// from the previous frame's last mark to its first, "n/a" when the previous frame was not read. Then, apart from
+    /// that frame, the largest gap between any two frames read one after the other, and the frames not read. A gap is
+    /// time outside the marked passes: the GPU idle, waiting to present, or doing other work; the timestamps do not
+    /// say which. Then cleared (a gap across the report's boundary still counts in the next one).
     std::string report();
     bool empty() const noexcept { return marks_ == 0; }
 
@@ -45,9 +56,12 @@ private:
     std::vector<std::string> order_;  ///< the labels as first met
     std::map<std::string, double> sumMs_;
     std::uint64_t frames_ = 0;
-    std::map<std::string, double> worstMs_; ///< the slowest frame's sections since the last report
-    double worstTotal_ = 0.0, worstGap_ = 0.0, maxGap_ = 0.0;
-    std::uint64_t lastEnd_ = 0;             ///< the previous frame's last mark (GPU ticks)
+    std::map<std::string, double> worstMs_; ///< the frame with the largest total since the last report
+    double worstTotal_ = 0.0;
+    double worstGap_ = -1.0;  ///< the GPU's gap before that frame (ms; < 0: not known)
+    double maxGap_ = -1.0;    ///< the largest gap between consecutive frames read (ms; < 0: none measured)
+    std::uint64_t unread_ = 0; ///< frames not read since the last report
+    std::uint64_t lastEnd_ = 0; ///< the frame read just before: its last mark (GPU ticks; 0: none, or not read)
 };
 
 } // namespace fsim::render

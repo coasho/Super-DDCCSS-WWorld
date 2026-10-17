@@ -1,5 +1,5 @@
 {
- "schema": "fsim.hc07.evidence.v1",
+ "schema": "fsim.hc07.evidence.v2",
  "date": "2026-10-17",
  "source": {
   "head": "66dc43d",
@@ -18,7 +18,30 @@
    "python/fsim/bin/libfsim.dll": "6e9f582132a9edf6c407664c6748666293e3b72782a08b55075365b4e191d2a9",
    "python/fsim/bin/libfsim_vision.dll": "f13adefdde9c15a43648208231ceec4da6063250085ea495ec7540c83fba0d16"
   },
-  "staged_data_matches_hc11": true
+  "staged_data": {
+   "measured": "2026-10-17, recomputed at the HC-47 correction (after HC-07's runs and review) with HC-11's tree digest",
+   "presets": {
+    "ucrt64-release": {
+     "files": 234,
+     "sha256": "603ea0553e18673fe652c13f03d80ff21cb537934c684db573ffaf74c0b6a25e"
+    },
+    "ucrt64-headless": {
+     "files": 234,
+     "sha256": "603ea0553e18673fe652c13f03d80ff21cb537934c684db573ffaf74c0b6a25e"
+    }
+   },
+   "hc11": {
+    "ucrt64-release": {
+     "files": 234,
+     "sha256": "603ea0553e18673fe652c13f03d80ff21cb537934c684db573ffaf74c0b6a25e"
+    },
+    "ucrt64-headless": {
+     "files": 234,
+     "sha256": "603ea0553e18673fe652c13f03d80ff21cb537934c684db573ffaf74c0b6a25e"
+    }
+   },
+   "matches_hc11": true
+  }
  },
  "environment": {
   "gpu": "NVIDIA GeForce RTX 5070 Ti, driver 596.36, 16303 MiB",
@@ -212,12 +235,43 @@
   }
  },
  "demo_capture": {
-  "viewer_exit": 0,
   "size": [
    3840,
    2160
   ],
-  "publishers_left": 0
+  "viewer_exit": null,
+  "publishers_left": null,
+  "lifecycle": "not recorded in this run: an earlier summary gave its exit and remaining publishers as 0 without measuring them (HC-47); the frame itself is accepted"
+ },
+ "demo_capture_rerun": {
+  "helper": "hc4750/helpers/demo_capture.py",
+  "release_binaries": {
+   "flightsim-viewer.exe": "dd875197b212f60c092034b22b6821abbc6fdc87056e8490d65cb98063ee626f",
+   "flightsim-demo.exe": "ca518158b90cb81a759e176b26a7016d528f06b8c2af368cbfc2302879ef65d5"
+  },
+  "measured": {
+   "publishers_before": [],
+   "viewer_exit": 0,
+   "viewer_seconds": 10.42,
+   "publishers_after": [],
+   "viewer_pid": 19196,
+   "log_world": "demo-19196",
+   "log_publisher": {
+    "world": "demo-19196",
+    "pid": "24740"
+   },
+   "segments_after": {
+    "control": false,
+    "world": false
+   },
+   "frame_size": [
+    3840,
+    2160
+   ],
+   "log_frame_line": true
+  },
+  "failures": [],
+  "passed": true
  },
  "controls": {
   "passed": true,
@@ -374,7 +428,138 @@
    "frame_005.png",
    "frame_006.png",
    "frame_007.png"
-  ]
+  ],
+  "log_events": [
+   "attach",
+   "frame 0",
+   "frame 1",
+   "frame 2",
+   "replace",
+   "attach",
+   "frame 3",
+   "frame 4",
+   "frame 5",
+   "frame 6",
+   "frame 7"
+  ],
+  "frame_sizes": {
+   "frame_000.png": [
+    3840,
+    2160
+   ],
+   "frame_001.png": [
+    3840,
+    2160
+   ],
+   "frame_002.png": [
+    3840,
+    2160
+   ],
+   "frame_003.png": [
+    3840,
+    2160
+   ],
+   "frame_004.png": [
+    3840,
+    2160
+   ],
+   "frame_005.png": [
+    3840,
+    2160
+   ],
+   "frame_006.png": [
+    3840,
+    2160
+   ],
+   "frame_007.png": [
+    3840,
+    2160
+   ]
+  },
+  "assertions": "none in this run (HC-47): the reconnect's log and frames are read here; the rerun asserts them"
+ },
+ "reconnect_rerun": {
+  "helper": "hc4750/helpers/reconnect_check.py",
+  "release_binaries": {
+   "flightsim-viewer.exe": "dd875197b212f60c092034b22b6821abbc6fdc87056e8490d65cb98063ee626f",
+   "flightsim-demo.exe": "ca518158b90cb81a759e176b26a7016d528f06b8c2af368cbfc2302879ef65d5"
+  },
+  "measured": {
+   "segment_before": false,
+   "phase_1": {
+    "vehicle": "old-one",
+    "steps": 180,
+    "table": {
+     "alive": 1,
+     "incarnation": 4147846233,
+     "vehicles": [
+      "old-one"
+     ]
+    }
+   },
+   "phase_2": {
+    "vehicle": "new-one",
+    "steps": 240,
+    "table": {
+     "alive": 1,
+     "incarnation": 308058473,
+     "vehicles": [
+      "new-one"
+     ]
+    }
+   },
+   "viewer_exit": 0,
+   "events": [
+    "attach",
+    "frame 0",
+    "frame 1",
+    "frame 2",
+    "replace",
+    "attach",
+    "frame 3",
+    "frame 4",
+    "frame 5",
+    "frame 6",
+    "frame 7"
+   ],
+   "frame_sizes": {
+    "frame_000.png": [
+     3840,
+     2160
+    ],
+    "frame_001.png": [
+     3840,
+     2160
+    ],
+    "frame_002.png": [
+     3840,
+     2160
+    ],
+    "frame_003.png": [
+     3840,
+     2160
+    ],
+    "frame_004.png": [
+     3840,
+     2160
+    ],
+    "frame_005.png": [
+     3840,
+     2160
+    ],
+    "frame_006.png": [
+     3840,
+     2160
+    ],
+    "frame_007.png": [
+     3840,
+     2160
+    ]
+   },
+   "segment_after": false
+  },
+  "failures": [],
+  "passed": true
  },
  "evidence_sha256": {
   "perf.log": "dbe41497cc878d26d0b7093923cbdb9405a8f78d1f49d6021b298608f05123c3",
@@ -396,6 +581,28 @@
   "binaries.json": "6d79002c8e859e23543efd870a801a2497f73a30c739ed7bdc19a4419fa84b18",
   "manual_controls.py": "1bf93fdac4f8f35a97aecc671a68248b2cefdc6357caf20a7b73508df831cff6",
   "reconnect.py": "4c7d51c42cabfdcbf414c7a7cc138a81df98b10345ad462c1fa49d6f095adbcf",
-  "summarize.py": "97b0488be80e086f4263fe0cb36f98827829a0d59a17dc5fe9d777944da3bf5a"
+  "summarize.py": "8a8234c09f2041bed536e3f4887ffebf2e9c5003e7c49de36df31c8b90aedd94"
+ },
+ "hc47_evidence_sha256": {
+  "helpers/common.py": "7fb82404741f755d6c12359599166c35f8764fcf4c488ba750871609c1b59c38",
+  "helpers/demo_capture.py": "94b8ce8d38035a5e42d20010cf06517476bfe3e9cd80770178f197ff51583959",
+  "helpers/reconnect_check.py": "5351921e7957d0fb63e35f3430f66fb9b399370540640cba809f53110c918165",
+  "selftest-demo.log": "16709f97661834771a815d2fd8579a0f0dd7466963ac1e46a01d19a013f77135",
+  "selftest-reconnect.log": "1da07f0e64360278260e5dea067e7ee77a007b7ce51606b2c92a0f162206475e",
+  "demo/outcome.json": "a8a5428739e8149fb7fbe5141d0b11d274695e96d709b05e26d8d85fac31a761",
+  "demo/viewer.log": "3dc90e90d374d32700f97047ababda96081185e3d55c66a5cbf7c4fd0cfe47bf",
+  "demo/demo.png": "fc6984a1b6f40da6549f13148b1e14779d22871cc21aee2ad8c9dce234cbda81",
+  "demo-run.log": "23457d3b7d22ec94151913b25b8bc5a3054240a8ecbe6e03d9bdfef44597d5d0",
+  "reconnect/outcome.json": "15b1473044061b4fd2c847d6484182d858169382fa120a58f32e8fb83ac9532e",
+  "reconnect/viewer.log": "43756ff04b00c1783067964e4338595807dc25c09e134b38c0de270835bbf85d",
+  "reconnect-run.log": "f9f47d5211fd8060d8ac4d7783ff48e8689845841f5586eb640b656caf15e382",
+  "reconnect/frame_000.png": "dc86057018734afeb34b5c8014a9904963870d09dbc4ec144db115e4a7cd2137",
+  "reconnect/frame_001.png": "62fbc00841eeb07a307dd2027a6ae9eefedce2d1d436022279f88dc1ca02498d",
+  "reconnect/frame_002.png": "0622608be0e6a42bba82604717281b2cf78edef56ca43bb0bc5a836ec1169de6",
+  "reconnect/frame_003.png": "b83b6ab21e6850fe08caa66d11792715b104f9c83a59b7e79e13a1699b2d8d0b",
+  "reconnect/frame_004.png": "ab59efc94e4b6aa6805a8a2cc97691561175bef22bc9a9926493bdb0bb3bc083",
+  "reconnect/frame_005.png": "0d88315f2a08f39455fc1d0e569b9f75a9fd13bd860aae1a640da97d404fa507",
+  "reconnect/frame_006.png": "cfcebcb08f557996f83f750fb0dab19e656b5f175b302e5cee7c3a4ca93ca946",
+  "reconnect/frame_007.png": "8e6711bc93d5b4a88f00b1569293c62ee436b93fe0e84e1e3aa228559e61e5ea"
  }
 }

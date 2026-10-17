@@ -628,7 +628,8 @@ endif()
 
 # Viewer-side terrain decoding (VSG data types; no Vulkan device needed).
 if(FSIM_WITH_RENDER)
-    add_executable(fsim_render_tests visualization/test_terrain_render.cpp visualization/test_vehicle_visuals.cpp visualization/test_cocip.cpp visualization/test_contrail_observed.cpp)
+    add_executable(fsim_render_tests visualization/test_terrain_render.cpp visualization/test_vehicle_visuals.cpp visualization/test_cocip.cpp visualization/test_contrail_observed.cpp
+                                     visualization/test_gpu_timer.cpp)
     target_link_libraries(fsim_render_tests PRIVATE fsim::world fsim::core Catch2::Catch2WithMain)
     target_compile_definitions(fsim_render_tests PRIVATE FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
     fsim_set_warnings(fsim_render_tests)

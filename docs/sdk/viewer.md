@@ -26,10 +26,17 @@ The viewer is a GUI application: no console window appears when it is
 started from Explorer (its log then goes to `logs\viewer.log` beside the program);
 started from a terminal it prints there (`--list`, `--help`, `--stats`). `--stats <s>` prints each second's frame rate
 and frame-time breakdown, the GPU's time per pass, and the second's worst frame broken down, with how many frames ran
-over 1.5 times the last second's mean (late: a missed refresh). A line of its own, `gpu worst`, gives the second's
-slowest GPU frame by pass, and the GPU's gap before it and the largest gap between frames: time the GPU spent outside
-the viewer's passes - another device's work, such as NVIDIA Flow's solver, or uploads. Measure fullscreen
-(`--fullscreen`), the size it is used at.
+over 1.5 times the last second's mean (late: a missed refresh). A line of its own, `gpu worst`, gives:
+- the second's slowest GPU frame by pass, and its total;
+- `gap before it`: from the previous frame's last GPU timestamp to that frame's first;
+- `largest gap`: the largest such interval in the second;
+- `unread`: the frames whose timestamps could not be read.
+
+A gap is measured only between frames read one after the other, and is `n/a` otherwise. It is time outside the
+viewer's marked passes: the GPU may have been idle, waiting on presentation, or busy with other work, such as another
+device's or uploads, and the timestamps do not say which. The slowest GPU frame, the largest gap and the second's
+worst frame time are chosen separately and are in general different frames. A pass group, such as `sky, earth, rest`,
+covers several draws, not one object. Measure fullscreen (`--fullscreen`), the size it is used at.
 
 Until a world exists the window says "waiting for a training application";
 when your program starts, the vehicles appear with their names, types and
