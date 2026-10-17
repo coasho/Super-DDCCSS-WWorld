@@ -627,6 +627,29 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
+## Architecture ARCH-09 architecture authority relocated (2026-10-17, awaiting independent acceptance)
+
+The ninth package of the architecture roadmap. The record is
+`docs/architecture/validation/arch-09-architecture-authority.md`. ARCH-10 has not started.
+
+- **Relocated:** the registered architecture documents moved once into `docs/architecture`, with their history:
+  - the platform baseline (formerly `docs/FlightSim_System_Architecture_and_Design.md`), the agent boundary and the
+    simulation interface boundaries into `design/`;
+  - ADR-30 mission systems, the Vehicle Interface, flight autonomy and the native engagement design into
+    `modules/simulation/`;
+  - the A1-A6 maintenance designs and plans into `migration/history/`.
+- **Redirects:** the old paths of the first five keep a redirect, because code comments and generated data still name
+  them. Every Markdown link follows the move.
+- **Deferred:** the MA training design, plan and allocation stay in place until the M8 handoff.
+- **Index:** every registered document has a category, owner and status in the architecture index.
+
+| Verification | Result |
+| --- | --- |
+| Local Markdown links in the repository; planning checker | 1,278 links, none broken; 49 documents reachable from the index |
+| Related tests (documentation, SDK principals, MA contract) | Headless 6/6, Release 6/6 |
+
+No full suite ran (HC-11); no build input changed.
+
 ## HC-32 timer-handle correction (2026-10-17, awaiting independent acceptance)
 
 Corrects the leak the ARCH-08 recheck at `1dffece` found; the ARCH-08 record's section 17 has the details.
