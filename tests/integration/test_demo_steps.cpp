@@ -8,7 +8,9 @@
 //               and a pause, and 2000 seeded random schedules - in each, the requested steps the model took are the
 //               requests made, one each, and DemoSteps counts exactly those
 //   in-process  DemoSteps on the real runner (DemoSimulation): requests made while it runs, then a hold - exactly that
-//               many agent steps after the hold's state; and a backlog through a resume and a pause, likewise
+//               many agent steps after the hold's state; a backlog through a resume and a pause, likewise; and 30
+//               holds and resumes - each joins the runner's thread and starts another - after 4 to warm up: the same
+//               process handle count before and after (HC-32: a thread's sleep timer went unclosed with the thread)
 //
 // Usage: fsim_demo_steps_test <jsbsim root>
 
@@ -24,6 +26,13 @@
 #include <random>
 #include <string>
 #include <thread>
+
+#ifdef _WIN32
+#    ifndef NOMINMAX
+#        define NOMINMAX
+#    endif
+#    include <windows.h>
+#endif
 
 using namespace fsim;
 
@@ -292,6 +301,31 @@ int inProcess(const std::string& jsbsimRoot) {
     check(std::fabs(rest - static_cast<double>(pending)) < 1e-6,
           "in-process: " + std::to_string(pending) + " pending requests: " + std::to_string(rest) + " agent steps after the hold");
     check(d.steps->unexpected() == 0, "in-process: a held runner published a step it was not handed");
+
+    // repeated holds (HC-32): each joins the runner's thread and starts another, which sleeps between its steps
+    const auto holdAndResume = [&] {
+        d.held = false;
+        d.passFor(0.03); // (running: the thread sleeps between its paced steps)
+        d.hold();
+        d.passFor(0.03); // (held: the new thread sleeps too)
+    };
+    for (int i = 0; i < 4; ++i) holdAndResume(); // (whatever the first holds open for good is not counted)
+#ifdef _WIN32
+    const auto handles = [] {
+        DWORD count = 0;
+        GetProcessHandleCount(GetCurrentProcess(), &count);
+        return static_cast<long>(count);
+    };
+    const long before = handles();
+#endif
+    for (int i = 0; i < 30; ++i) holdAndResume();
+#ifdef _WIN32
+    const long after = handles();
+    check(after == before, "in-process: process handles " + std::to_string(before) + " before 30 holds and resumes, " +
+                               std::to_string(after) + " after");
+    std::printf("in-process: 30 holds and resumes after 4: process handles %ld before, %ld after\n", before, after);
+#endif
+    check(d.steps->taken() == d.requested && d.steps->unexpected() == 0, "in-process: the holds took or published a step");
     d.runner->stop();
     std::printf("in-process: 10 requests while running, then %llu pending through a resume and a pause: exactly as many agent "
                 "steps after each hold%s\n", static_cast<unsigned long long>(pending), failures ? " - NOT" : "");

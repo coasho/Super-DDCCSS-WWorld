@@ -340,3 +340,35 @@ Limits:
 - **Test helpers:** two test helpers first demanded an exact count where held stepping goes on. In-process, it failed
   the first run; in the process test, one of five repeats. Both now wait for a floor, and the totals stay exact; both
   were corrected before the commit.
+
+## 17. HC-32 correction (2026-10-17)
+
+Corrects the timer-handle leak the [recheck at `1dffece`](arch-08-review-2026-10-17.md#7-correction-recheck-at-1dffece)
+found. Starting HEAD: `1dffece`.
+
+- **Cause:** `platform::sleepUntil()` kept each thread's Windows waitable timer in a `thread_local HANDLE` that nothing
+  closed, so every thread that slept left one handle behind. The gap predates ARCH-08. The demo publisher's joined
+  holds start a new simulation thread at every hold, which exposes it once per hold in one long-lived process.
+- **Fix:** the timer is owned by a `thread_local` object (`ThreadTimer`, `src/foundation/platform/Platform.cpp`)
+  whose destructor closes it as the thread ends. The timer is still made at the thread's first sleep, with the same
+  kinds (high resolution, else ordinary, else a plain sleep) and the same waits. Every thread that sleeps is covered,
+  including the runner's and the Viewer's frame loop. The exact joined-hold acknowledgment (HC-28), request retention
+  (HC-30) and required coverage (HC-31) are unchanged.
+
+| Check | Result |
+| --- | --- |
+| The two new regressions first, on the unchanged platform code | `sleepUntil's timer goes with its thread: threads that slept leave no handle behind` (`fsim_tests`, both presets): after 4 threads to warm up, 30 threads that slept raise the process's handles from 115 to 145. `demo_publisher_schedules`' new in-process case, on the real `DemoSimulation`, `DemoSteps` and `SimRunner`: after 4 holds and resumes to warm up, 30 more raise them from 122 to 152. One handle each, as the review measured |
+| The same after the fix | 30 threads that slept: the same count before and after. 30 holds and resumes: 116 before and after, on both presets. The sleep still lasts until its deadline |
+| The controls the review named (Release) | `demo_publisher`: 240/240 steps identical. `demo_publisher_steps`: 20 requests at once are 20 steps to the bit; across a resume and a pause all 27 pending are taken, none beyond; one request is exactly one agent step; stop with 100,000 pending. `demo_publisher_lifecycle`: 113 handles before and after. `demo_publisher_schedules`: the delayed-work, retention and 2,000 random schedules, and the exact in-process holds |
+| Repeats | The two regressions, `demo_publisher_steps` and `demo_publisher_lifecycle`: 5/5 each |
+| Related gates | Release 12/12, with both include probes, `contracts` and `viewer_screenshot` (the Viewer's frame loop sleeps through `sleepUntil`), the architecture and selector checks. Headless gates 5/5. Builds: 0 warnings |
+| GUI demo | Scripted `fsim.cmd viewer --demo`: the publisher starts, the Viewer mirrors it, takes its screenshot and exits, and no publisher is left |
+
+Logs are in `D:/ENV/tmp/hc32/`.
+
+Limits:
+- **Full suite:** none ran (HC-11). No selector scope claims `src/foundation/platform/Platform.cpp`, a shared foundation
+  source, so the selector escalates it to both full suites. The related set above ran instead.
+- **Thread exit only:** a thread's timer is closed as the thread ends. A thread that lives on keeps its one timer, as
+  before.
+- **Manual interaction:** manual pause, step, time-factor and quit use remains HC-07.

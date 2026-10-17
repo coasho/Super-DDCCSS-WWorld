@@ -627,6 +627,21 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
+## HC-32 timer-handle correction (2026-10-17, awaiting independent acceptance)
+
+Corrects the leak the ARCH-08 recheck at `1dffece` found; the ARCH-08 record's section 17 has the details.
+
+- **HC-32:** `platform::sleepUntil()`'s per-thread Windows timer is now owned by a thread-local object that closes it as
+  its thread ends. A thread that slept no longer leaves a handle behind, including each simulation thread the demo
+  publisher starts at a hold. The timer's behavior is unchanged.
+
+| Verification | Result |
+| --- | --- |
+| New regressions on the unchanged code; after the fix | 30 threads that slept: 115 to 145 handles, then steady. 30 real holds and resumes: 122 to 152, then 116 to 116 |
+| Related tests | Release 12/12, with the demo publisher's parity, steps, lifecycle and schedules; headless gates 5/5; 5/5 repeats |
+
+No full suite ran (HC-11).
+
 ## HC-28, HC-30 and HC-31 demo publisher correction (2026-10-17, awaiting independent acceptance)
 
 Corrects the items the ARCH-08 recheck at `ecf58a3` left open; the ARCH-08 record's section 15 has the details.

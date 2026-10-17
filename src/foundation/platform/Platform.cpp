@@ -76,16 +76,33 @@ bool pinCurrentThreadToCore(unsigned logicalCore) noexcept {
 #endif
 }
 
+#ifdef _WIN32
+namespace {
+
+/// A thread's waitable timer for sleepUntil, closed as the thread ends (HC-32: a thread that slept left its timer
+/// open, one handle per thread - the demo publisher starts a simulation thread at every hold). High-resolution on
+/// Windows 10 1803+, else an ordinary timer; none, and sleepUntil sleeps plainly, if neither can be made.
+struct ThreadTimer {
+    HANDLE handle = nullptr;
+    ThreadTimer() noexcept {
+        handle = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+        if (!handle) handle = CreateWaitableTimerExW(nullptr, nullptr, 0, TIMER_ALL_ACCESS);
+    }
+    ~ThreadTimer() {
+        if (handle) CloseHandle(handle);
+    }
+    ThreadTimer(const ThreadTimer&) = delete;
+    ThreadTimer& operator=(const ThreadTimer&) = delete;
+};
+
+} // namespace
+#endif
+
 void sleepUntil(Clock::time_point deadline) noexcept {
     using namespace std::chrono;
 #ifdef _WIN32
-    // One high-resolution waitable timer per thread (Windows 10 1803+; falls
-    // back to an ordinary timer, then to a plain sleep, on older systems).
-    thread_local HANDLE timer = [] {
-        HANDLE h = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
-        if (!h) h = CreateWaitableTimerExW(nullptr, nullptr, 0, TIMER_ALL_ACCESS);
-        return h;
-    }();
+    thread_local ThreadTimer threadTimer; // (one per thread, made at its first sleep)
+    const HANDLE timer = threadTimer.handle;
     constexpr auto spinMargin = microseconds(150);
     if (timer) {
         const auto remaining = deadline - Clock::now();

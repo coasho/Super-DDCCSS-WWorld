@@ -111,6 +111,7 @@ add_executable(fsim_tests
     simulation/test_store_binding.cpp
     simulation/test_store_drag.cpp
     simulation/test_rng.cpp
+    simulation/test_platform_timer.cpp
     simulation/test_registry.cpp
     simulation/test_vehicle_pool.cpp
     training/test_vecenv.cpp
