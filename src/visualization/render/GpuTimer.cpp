@@ -78,10 +78,19 @@ void GpuTimer::frameDone(vsg::Device& device, float timestampPeriodNs) {
     if (p && p->vk() && state_->used[next] && marks_ > 1) {
         std::vector<std::uint64_t> stamps(marks_);
         if (p->getResults(stamps, 0, VK_QUERY_RESULT_64_BIT) == VK_SUCCESS) {
+            const double tickMs = static_cast<double>(timestampPeriodNs) * 1e-6;
+            std::map<std::string, double> frame;
+            double total = 0.0;
             for (std::uint32_t i = 1; i < marks_; ++i) {
-                const double ms = static_cast<double>(stamps[i] - stamps[i - 1]) * static_cast<double>(timestampPeriodNs) * 1e-6;
-                if (stamps[i] >= stamps[i - 1] && ms < 1000.0) sumMs_[labels_[i]] += ms;
+                const double ms = static_cast<double>(stamps[i] - stamps[i - 1]) * tickMs;
+                if (stamps[i] >= stamps[i - 1] && ms < 1000.0) sumMs_[labels_[i]] += ms, frame[labels_[i]] += ms, total += ms;
             }
+            // (the frames are read in the order they were recorded: this one's first mark after the last one's last)
+            double gap = 0.0;
+            if (lastEnd_ != 0 && stamps[0] >= lastEnd_) gap = static_cast<double>(stamps[0] - lastEnd_) * tickMs;
+            if (gap < 1000.0) maxGap_ = std::max(maxGap_, gap);
+            lastEnd_ = stamps[marks_ - 1];
+            if (total > worstTotal_) worstTotal_ = total, worstMs_ = std::move(frame), worstGap_ = gap;
             ++frames_;
         }
     }
@@ -100,8 +109,19 @@ std::string GpuTimer::report() {
     }
     std::snprintf(buf, sizeof buf, " | total %.3f ms (%llu frames)", total, static_cast<unsigned long long>(frames_));
     s += buf;
+    if (worstTotal_ > 0.0) {
+        s += "\ngpu worst";
+        for (const auto& label : order_) {
+            std::snprintf(buf, sizeof buf, " | %s %.3f", label.c_str(), worstMs_[label]);
+            s += buf;
+        }
+        std::snprintf(buf, sizeof buf, " | total %.3f ms | gap before it %.3f ms | gaps max %.3f ms", worstTotal_, worstGap_, maxGap_);
+        s += buf;
+    }
     sumMs_.clear();
     frames_ = 0;
+    worstMs_.clear();
+    worstTotal_ = worstGap_ = maxGap_ = 0.0;
     return s;
 }
 

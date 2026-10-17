@@ -1,0 +1,352 @@
+{
+ "schema": "fsim.hc45.evidence.v1",
+ "date": "2026-10-17",
+ "comparison": {
+  "current": "main 465b7af working tree (the HC-11-tested Release binaries; flightsim-viewer.exe 1ede4fcb9a153cf8 in the A/B runs)",
+  "before": "7948dc4 (2026-10-16 14:53, the parent of ARCH-01's first commit), exported with git archive to D:/ENV/tmp/hc45/before-src (no worktree), configured with the ucrt64-release preset against the same dependency prefix (tests, examples, tools and Python off) and built in 54 s",
+  "matched": {
+   "world_stream_layout": "9 in both",
+   "recording_format": "7 in both",
+   "dependencies": "deps/, third_party/ and the toolchain unchanged since 7948dc4 (a README only)",
+   "assets_and_aircraft": "unchanged since 7948dc4 (shaders included)",
+   "config": "the two builds' config/ directories identical",
+   "map_tiles": "the before build's maps junction re-pointed to the same assets/maps as the current build's",
+   "workload": "the same viewer_perf.py, publishers, native hit recording and arguments; only --exe differs"
+  },
+  "order": "A B A B (A current, B before), all four scenes each run"
+ },
+ "ab_runs": [
+  {
+   "label": "ab1-A",
+   "viewer": "current",
+   "load_before": {
+    "cpu_percent": "6",
+    "gpu": "1 %"
+   },
+   "scenes": {
+    "fleet": {
+     "mean_fps": 160.0,
+     "lowest_second_fps": 159.2,
+     "worst_frame_ms": 17.66,
+     "frames_over_12_5_ms": 2,
+     "frames": 5623,
+     "seconds_below_158_4": [],
+     "gate": "fail"
+    },
+    "strike": {
+     "mean_fps": 158.9,
+     "lowest_second_fps": 144.5,
+     "worst_frame_ms": 14.31,
+     "frames_over_12_5_ms": 3,
+     "frames": 3348,
+     "seconds_below_158_4": [
+      9.0,
+      10.0
+     ],
+     "gate": "fail"
+    },
+    "hit": {
+     "mean_fps": 160.0,
+     "lowest_second_fps": 159.4,
+     "worst_frame_ms": 19.1,
+     "frames_over_12_5_ms": 6,
+     "frames": 4655,
+     "seconds_below_158_4": [],
+     "gate": "fail"
+    },
+    "reheat": {
+     "mean_fps": 160.1,
+     "lowest_second_fps": 159.4,
+     "worst_frame_ms": 10.59,
+     "frames_over_12_5_ms": 0,
+     "frames": 3371,
+     "seconds_below_158_4": [],
+     "gate": "pass"
+    }
+   }
+  },
+  {
+   "label": "ab1-B",
+   "viewer": "before (7948dc4)",
+   "load_before": {
+    "cpu_percent": "4",
+    "gpu": "0 %"
+   },
+   "scenes": {
+    "fleet": {
+     "mean_fps": 160.0,
+     "lowest_second_fps": 160.0,
+     "worst_frame_ms": 17.47,
+     "frames_over_12_5_ms": 2,
+     "frames": 5620,
+     "seconds_below_158_4": [],
+     "gate": "fail"
+    },
+    "strike": {
+     "mean_fps": 158.9,
+     "lowest_second_fps": 146.0,
+     "worst_frame_ms": 13.27,
+     "frames_over_12_5_ms": 5,
+     "frames": 3348,
+     "seconds_below_158_4": [
+      9.0,
+      10.0
+     ],
+     "gate": "fail"
+    },
+    "hit": {
+     "mean_fps": 160.0,
+     "lowest_second_fps": 158.0,
+     "worst_frame_ms": 18.91,
+     "frames_over_12_5_ms": 8,
+     "frames": 4662,
+     "seconds_below_158_4": [
+      10.0
+     ],
+     "gate": "fail"
+    },
+    "reheat": {
+     "mean_fps": 160.0,
+     "lowest_second_fps": 160.0,
+     "worst_frame_ms": 7.68,
+     "frames_over_12_5_ms": 0,
+     "frames": 3374,
+     "seconds_below_158_4": [],
+     "gate": "pass"
+    }
+   }
+  },
+  {
+   "label": "ab2-A",
+   "viewer": "current",
+   "load_before": {
+    "cpu_percent": "1",
+    "gpu": "0 %"
+   },
+   "scenes": {
+    "fleet": {
+     "mean_fps": 160.0,
+     "lowest_second_fps": 159.0,
+     "worst_frame_ms": 17.92,
+     "frames_over_12_5_ms": 2,
+     "frames": 5620,
+     "seconds_below_158_4": [],
+     "gate": "fail"
+    },
+    "strike": {
+     "mean_fps": 158.9,
+     "lowest_second_fps": 145.7,
+     "worst_frame_ms": 12.93,
+     "frames_over_12_5_ms": 2,
+     "frames": 3344,
+     "seconds_below_158_4": [
+      9.0,
+      10.0
+     ],
+     "gate": "fail"
+    },
+    "hit": {
+     "mean_fps": 160.0,
+     "lowest_second_fps": 158.0,
+     "worst_frame_ms": 19.1,
+     "frames_over_12_5_ms": 12,
+     "frames": 4660,
+     "seconds_below_158_4": [
+      10.0
+     ],
+     "gate": "fail"
+    },
+    "reheat": {
+     "mean_fps": 160.0,
+     "lowest_second_fps": 159.9,
+     "worst_frame_ms": 7.35,
+     "frames_over_12_5_ms": 0,
+     "frames": 3374,
+     "seconds_below_158_4": [],
+     "gate": "pass"
+    }
+   }
+  },
+  {
+   "label": "ab2-B",
+   "viewer": "before (7948dc4)",
+   "load_before": {
+    "cpu_percent": "1",
+    "gpu": "0 %"
+   },
+   "scenes": {
+    "fleet": {
+     "mean_fps": 160.0,
+     "lowest_second_fps": 159.4,
+     "worst_frame_ms": 17.71,
+     "frames_over_12_5_ms": 1,
+     "frames": 5618,
+     "seconds_below_158_4": [],
+     "gate": "fail"
+    },
+    "strike": {
+     "mean_fps": 159.1,
+     "lowest_second_fps": 147.1,
+     "worst_frame_ms": 12.35,
+     "frames_over_12_5_ms": 0,
+     "frames": 3351,
+     "seconds_below_158_4": [
+      9.0,
+      10.0
+     ],
+     "gate": "fail"
+    },
+    "hit": {
+     "mean_fps": 160.0,
+     "lowest_second_fps": 158.0,
+     "worst_frame_ms": 19.28,
+     "frames_over_12_5_ms": 5,
+     "frames": 4659,
+     "seconds_below_158_4": [
+      10.0
+     ],
+     "gate": "fail"
+    },
+    "reheat": {
+     "mean_fps": 160.0,
+     "lowest_second_fps": 159.3,
+     "worst_frame_ms": 10.6,
+     "frames_over_12_5_ms": 0,
+     "frames": 3371,
+     "seconds_below_158_4": [],
+     "gate": "pass"
+    }
+   }
+  }
+ ],
+ "diagnostic_run": {
+  "label": "diag1",
+  "viewer": "current, with the worst-frame GPU diagnostics",
+  "scenes": {
+   "fleet": {
+    "mean_fps": 160.0,
+    "lowest_second_fps": 159.9,
+    "worst_frame_ms": 17.52,
+    "frames_over_12_5_ms": 2,
+    "frames": 5623,
+    "seconds_below_158_4": [],
+    "gate": "fail"
+   },
+   "strike": {
+    "mean_fps": 158.8,
+    "lowest_second_fps": 143.4,
+    "worst_frame_ms": 17.17,
+    "frames_over_12_5_ms": 3,
+    "frames": 3346,
+    "seconds_below_158_4": [
+     9.0,
+     10.0
+    ],
+    "gate": "fail"
+   },
+   "hit": {
+    "mean_fps": 160.0,
+    "lowest_second_fps": 159.1,
+    "worst_frame_ms": 19.26,
+    "frames_over_12_5_ms": 6,
+    "frames": 4661,
+    "seconds_below_158_4": [],
+    "gate": "fail"
+   }
+  },
+  "slow_seconds": {
+   "fleet": [
+    {
+     "t": 25.5,
+     "fps": 160.0,
+     "frames_over": 2,
+     "frame_max_ms": 17.52,
+     "gpu_worst": "clouds march 0.919 | vapour march 0.649 | prepass, pass begin 0.026 | sky, earth, rest 0.189 | clouds under 1.321 | vehicles+exhaust 0.933 | clouds over 0.062 | trails 0.002 | contrails 0.000 | pass end, scene copy, gas 0.367 | total 4.468 ms | gap before it 0.685 ms | gaps max 9.459 ms"
+    }
+   ],
+   "strike": [
+    {
+     "t": 9.0,
+     "fps": 149.1,
+     "frames_over": 0,
+     "frame_max_ms": 8.83,
+     "gpu_worst": "clouds march 0.756 | vapour march 0.076 | prepass, pass begin 0.037 | sky, earth, rest 3.108 | clouds under 1.175 | vehicles+exhaust 1.753 | clouds over 0.064 | trails 0.002 | contrails 0.013 | pass end, scene copy, gas 0.720 | total 7.704 ms | gap before it 0.487 ms | gaps max 3.006 ms"
+    },
+    {
+     "t": 10.0,
+     "fps": 143.4,
+     "frames_over": 0,
+     "frame_max_ms": 8.9,
+     "gpu_worst": "clouds march 0.756 | vapour march 0.076 | prepass, pass begin 0.035 | sky, earth, rest 3.230 | clouds under 1.176 | vehicles+exhaust 2.415 | clouds over 0.064 | trails 0.002 | contrails 0.012 | pass end, scene copy, gas 0.582 | total 8.348 ms | gap before it 0.408 ms | gaps max 1.250 ms"
+    },
+    {
+     "t": 12.0,
+     "fps": 159.2,
+     "frames_over": 2,
+     "frame_max_ms": 13.17,
+     "gpu_worst": "clouds march 0.753 | vapour march 0.076 | prepass, pass begin 0.036 | sky, earth, rest 0.771 | clouds under 1.177 | vehicles+exhaust 2.487 | clouds over 0.063 | trails 0.003 | contrails 0.017 | pass end, scene copy, gas 2.312 | total 7.695 ms | gap before it 5.237 ms | gaps max 6.030 ms"
+    },
+    {
+     "t": 14.0,
+     "fps": 160.4,
+     "frames_over": 1,
+     "frame_max_ms": 17.17,
+     "gpu_worst": "clouds march 0.754 | vapour march 0.076 | prepass, pass begin 0.036 | sky, earth, rest 0.721 | clouds under 1.175 | vehicles+exhaust 2.592 | clouds over 0.063 | trails 0.002 | contrails 0.020 | pass end, scene copy, gas 0.245 | total 5.683 ms | gap before it 0.471 ms | gaps max 7.931 ms"
+    }
+   ],
+   "hit": [
+    {
+     "t": 11.0,
+     "fps": 160.0,
+     "frames_over": 1,
+     "frame_max_ms": 19.17,
+     "gpu_worst": "clouds march 5.730 | vapour march 0.000 | prepass, pass begin 0.025 | sky, earth, rest 0.000 | clouds under 0.072 | vehicles+exhaust 0.006 | clouds over 0.063 | trails 0.000 | contrails 0.000 | pass end, scene copy, gas 0.155 | total 6.051 ms | gap before it 0.354 ms | gaps max 7.768 ms"
+    },
+    {
+     "t": 25.1,
+     "fps": 159.6,
+     "frames_over": 1,
+     "frame_max_ms": 12.73,
+     "gpu_worst": "clouds march 0.982 | vapour march 0.193 | prepass, pass begin 0.026 | sky, earth, rest 0.524 | clouds under 0.261 | vehicles+exhaust 0.040 | clouds over 0.063 | trails 0.001 | contrails 0.070 | pass end, scene copy, gas 2.525 | total 4.685 ms | gap before it 5.887 ms | gaps max 6.558 ms"
+    },
+    {
+     "t": 27.1,
+     "fps": 159.1,
+     "frames_over": 3,
+     "frame_max_ms": 18.27,
+     "gpu_worst": "clouds march 1.300 | vapour march 0.184 | prepass, pass begin 0.025 | sky, earth, rest 0.497 | clouds under 0.260 | vehicles+exhaust 2.152 | clouds over 0.064 | trails 0.001 | contrails 0.071 | pass end, scene copy, gas 0.239 | total 4.793 ms | gap before it 0.591 ms | gaps max 8.035 ms"
+    },
+    {
+     "t": 29.1,
+     "fps": 160.3,
+     "frames_over": 1,
+     "frame_max_ms": 19.26,
+     "gpu_worst": "clouds march 0.976 | vapour march 0.184 | prepass, pass begin 0.025 | sky, earth, rest 0.476 | clouds under 0.260 | vehicles+exhaust 0.040 | clouds over 0.062 | trails 0.001 | contrails 0.075 | pass end, scene copy, gas 2.701 | total 4.800 ms | gap before it 0.406 ms | gaps max 8.124 ms"
+    }
+   ]
+  }
+ },
+ "binaries": {
+  "current_viewer_in_ab": "1ede4fcb9a153cf8 (the HC-11 fingerprint's)",
+  "current_viewer_with_diagnostics": "2915dce58514c3f3ea024bb34c8f977d4d5ea4b93177d36798dbaa5d7cc46f38",
+  "before_viewer": "90f05ce807b95a608a03b2678309b0c9c108343a1c900495219e19249875d036"
+ },
+ "notes": [
+  "The before tree's configure downloaded the project's sample model Cesium_Air.glb from the URL its CMake names, as the current tree's first configure did.",
+  "The HC-07 runs (465b7af) had other applications open, CPU 4-37 % and GPU 16 %; these runs had CPU 1-6 % and GPU 0-1 %."
+ ],
+ "evidence_sha256": {
+  "ab.log": "ff8c51d324df1452911a43710d8cb66b99349f538932f49dfb952e4cd5bcf9f9",
+  "perf/ab.json": "f7bd3415b5c62ff4ef1a8031faa3e73d770729c0755a16a6525a270bb7ad7d15",
+  "abrun.py": "5982fa8cfab666c8c27647a993c6ec894c952b586e846e1212cb45150a210480",
+  "diag1.log": "9a51c28d9c53ef32a9c124bf48f0e6a3b47e90b0dc30c2b196f3c8762b02e713",
+  "perf/diag1.json": "275008bd9a4d039f1203d7d4ad4bfb87e1997b6b3e36724430f2422964061ffd",
+  "perf/diag1_fleet.out": "5a7e9ffee64778902f30a407714ceb683e1ba28ce3c461b33880b08bbb072cf9",
+  "perf/diag1_strike.out": "27e5ac7deb7dbd5793e9c32edf1d48db1e8667b1cbd6c5235303a4ab1650ece0",
+  "perf/diag1_hit.out": "c7226fae1589b1aecc9e74e86ef64d301a0f5e3b5177dd403157748860fc75a0",
+  "before-configure.log": "e2883c1b966f20dbc19d3a69884c2b832a16f6897adde8094d4b00d5bf2019b4",
+  "before-build.log": "0bbe73c317fc9875aa16dd2836461cb1e260b7276dd543585890ef2724e66858",
+  "scope-run.log": "aaf5766256c285583cb9d7ae8e0773a18f262865a1f2b2d668079342da8f537f",
+  "summarize.py": "ed25947a0baeb0e56087a5b11be03508c4e9ec62e7dc1b2733b1dc50b98c0c6c"
+ }
+}

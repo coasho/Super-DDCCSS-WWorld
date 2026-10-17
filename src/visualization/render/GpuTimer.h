@@ -26,7 +26,10 @@ public:
 
     /// After each frame is submitted: the oldest frame's times read (when the GPU has them) and its pool reused next.
     void frameDone(vsg::Device& device, float timestampPeriodNs);
-    /// The sections' mean GPU milliseconds since the last report, in the order first marked; then cleared.
+    /// The sections' mean GPU milliseconds since the last report, in the order first marked; then, on a line of its
+    /// own ("gpu worst |"), the slowest frame's sections, the GPU's gap before that frame (from the previous frame's
+    /// last mark to its first: the GPU idle or busy with work outside these marks, another device's or a transfer's)
+    /// and the largest such gap; then cleared.
     std::string report();
     bool empty() const noexcept { return marks_ == 0; }
 
@@ -42,6 +45,9 @@ private:
     std::vector<std::string> order_;  ///< the labels as first met
     std::map<std::string, double> sumMs_;
     std::uint64_t frames_ = 0;
+    std::map<std::string, double> worstMs_; ///< the slowest frame's sections since the last report
+    double worstTotal_ = 0.0, worstGap_ = 0.0, maxGap_ = 0.0;
+    std::uint64_t lastEnd_ = 0;             ///< the previous frame's last mark (GPU ticks)
 };
 
 } // namespace fsim::render

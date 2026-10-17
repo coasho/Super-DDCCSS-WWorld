@@ -627,6 +627,20 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
+## HC-45 performance comparison (2026-10-17, awaiting independent acceptance)
+
+The [HC-45 record](architecture/validation/hc-45-performance-comparison.md) has the details. HC-45 stays open: by the
+user's decision, no performance change was made.
+
+| Check | Result |
+| --- | --- |
+| Idle host | CPU 1-6 %, GPU 0-1 % before each run |
+| Current Viewer against `7948dc4`'s, from before the migration, on the same scenes, publishers, recordings, assets and settings (A B A B) | No regression: both fail fleet (two ~17.7 ms frames), strike (lowest second 144-147 fps at the impact) and hit (5-12 frames over 12.5 ms), and both pass reheat |
+| New `--stats` line `gpu worst` (each second's slowest GPU frame and the GPU's gaps); the related Release tests | 68/68 |
+
+The causes found: GPU work outside the frame in fleet (likely tile uploads), a full cloud march in hit, NVIDIA Flow's
+solver sharing the GPU in the fire's aftermath, and the fire's shading and breakup pieces at the strike's impact.
+
 ## HC-07 Viewer and joint verification (2026-10-17, awaiting independent acceptance)
 
 The [HC-07 record](architecture/validation/hc-07-viewer-and-joint.md) has the details. HC-07 stays open.

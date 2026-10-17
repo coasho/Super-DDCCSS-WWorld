@@ -271,6 +271,8 @@ The current Release build (main `66dc43d`, the binaries HC-11's full suites test
 Mouse, the timeline slider, window resize and a human-operated session remain unverified, as do the combat Viewer
 run (HC-06) and the performance gate.
 
+On an idle host the same day, the current Viewer and the Viewer of `7948dc4`, from before the architecture migration, fail the same three scenes, narrowly and alike, on the same inputs. There is no regression; the [HC-45 record](../architecture/validation/hc-45-performance-comparison.md) has the comparison and the causes.
+
 ## Reproduction and limits
 
 Use the maintained preset launcher for native viewer checks, retaining the fullscreen argument:
