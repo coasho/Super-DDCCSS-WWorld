@@ -124,7 +124,7 @@ release = true
 [[scope]]
 name = "MA Python package"
 paths = ["python/fsim/mission.py", "python/fsim/training.py", "python/fsim/_training/**", "python/fsim/isolation.py",
-         "src/adapters/sdk/python/_native_mission_env.c"]
+         "python/fsim/_adapters/**", "src/adapters/sdk/python/_native_mission_env.c"]
 tests = ["^python_sdk test_(mission|ma_|isolation)", "^sdk_boundary$"]
 integration = ["^mission_package_consumer$"]
 integration_labels = ["ma-training"]

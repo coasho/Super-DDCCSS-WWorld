@@ -204,9 +204,7 @@ change their code: their objects are unchanged.
 
 ## 9. Open items
 
-- **HC-21:** P056 is not done. `python/fsim/isolation.py`, whose codec and proxy implementation P056 moves under
-  `fsim._adapters`, carries another owner's uncommitted wording edits. Moving the code would move their edited text.
-  The module is unchanged. `fsim._adapters` is not created, because no placeholder package is.
+- **HC-21:** P056 is done by section 13, with the other owner's uncommitted edits to `fsim.isolation` kept in place.
 - **HC-22:** `VecEnv.h` no longer includes `fsim_c.h` (section 2), a source-level change for a consumer that relied on
   it. Binary compatibility and every repository consumer are unaffected.
 - **HC-04:** revisited, still open. The package root still imports its public modules eagerly, so a change to any
@@ -231,3 +229,62 @@ No native model parameter is involved.
 
 ARCH-08 (applications, tests, examples and packaging) requires the next user-relayed assignment after independent
 acceptance.
+
+## 13. HC-21 completion: P056, and HC-23 (2026-10-17)
+
+Status: awaiting independent acceptance. ARCH-08 has not started.
+
+The 2026-10-17 assignment released `python/fsim/isolation.py` for P056, provided its pending uncommitted edits are
+preserved. They remain uncommitted and unchanged, in the lines they were made on.
+
+**The split:**
+- **`fsim._adapters.codec`** holds the values that cross the actor's local pipe: the named-tuple and enum registry,
+  `_encode` and `_decode`, `_dump` and `_load`, exceptions as data and their rebuild. It also holds `AgentError` (owner
+  `fsim.isolation`) and the reference an activity decodes to in the MA's process. The function bodies are unchanged
+  except in two respects:
+  - `BatchCommand` and `AgentActivity` are bound by `fsim.isolation` (`bind`), no longer imported from `fsim.world` and
+    `fsim.agent` inside the functions;
+  - the registry takes the loaded package from `sys.modules`, no longer `import fsim`.
+- **`fsim._adapters.actor`** holds the actor-side proxies, `RemoteAgent` and `RemoteMissionEndpoint` (owner
+  `fsim.isolation`), their channel, and the actor process's loop, `serve`. `serve` is the registered dynamic-import site;
+  it takes the callable-method lists from `fsim.isolation` instead of computing them.
+- **`fsim.isolation`** (662 to 396 lines) keeps:
+  - its docstring and the callable-method lists;
+  - the Range-side checks (`_carried`, `_own_endpoint`);
+  - the Range-side process hosts `AgentProcess` and `MissionEndpointProcess`, which hold the Range's agent, episode and
+    endpoint. The SDK keeps actor endpoint proxies separate from Range handles.
+
+  `-m fsim.isolation` still starts the actor process, through `_serve_ma`, which calls `serve`. The module re-exports
+  the moved public names and the codec names its hosts and tests use. The two bound classes are imported under private
+  aliases, so its namespace is unchanged: in a first version, the inventory comparison showed `fsim.isolation.BatchCommand`
+  and `AgentActivity` appearing.
+
+**Preserved edits:** the other owner's four hunks lie in the regions that stay: the docstring's title and two paragraphs,
+`mission_endpoint_calls`' docstring, and a comment and a docstring in `MissionEndpointProcess` (16 changed lines). The
+same edits were applied to HEAD's text, which is committed, and to the working file. The difference between the two is
+exactly those 16 lines, unchanged before and after. The other files carrying uncommitted edits were handled the same
+way: their edits to `isolated_mission_actor.py` are untouched, and those to `check.py`, the architecture tool README and
+this record are kept beside the committed blobs.
+
+**HC-23:**
+- **Gate:** a planned module's phase may name a module plan's package (`SIM-x`, `TRN-x`, `VIS-x`) as well as a roadmap
+  package. Exceptions still expire with a roadmap package.
+- **Policy:** the native `training_vision` reservation waits for VIS-F and stays planned.
+- **Planning target graph:** the native entry's status is `planned-VIS-F`, as `oms` records its feature phase, with a
+  follow-up note. The Python entry notes that the accepted `VisionBatch` composition is `fsim.vision`'s (HC-17.4).
+- **Consistency:** the reservation's destination, planned status and optional render build agree with the planning
+  target. No provider was built.
+
+| Check | Result |
+| --- | --- |
+| Gate | Accepted: 28 native modules, 29 Python modules, 63 imports, no cycle; the dynamic-import site is `fsim._adapters.actor:serve` |
+| `test_check.py` | 135 cases. The new `test_a_planned_module_may_wait_for_a_module_plan_package` fails 3 subtests with HEAD's `check.py`, and HEAD's gate rejects the new policy's `VIS-F` |
+| Python identity, both presets | 494 and 501 names, 0 differ; `fsim.isolation`'s 7 names unchanged |
+| `baseline.py compare`, both builds | 19 comparisons, 0 failures. Against ARCH-07's capture, exports, vtables, Python call lists and the C and C++ layouts are byte-identical. The Python inventory adds only `fsim._adapters`. The full class dump differs only in compiler addresses in standard-library construction-vtable lines |
+| Frozen C++/C99/Python consumers on the new installed package | 5/5 exit 0; provenance names the installed package |
+| Wheel | Contains `fsim/_adapters` (1,294 entries) |
+| Related fast tests, headless | 22/22 (132 s): the isolation, mission, MA joint and equipment modules, the four mission-concurrency cases, `test_package_imports`, `test_mission_training`, the installed mission consumer, `sdk_boundary`, `ma_baseline_checker`, the architecture, selector and documentation gates. Then the rest of the selector's 41-test plan for these paths, 26/26 (14 s) |
+| Related fast tests, Release | 6/6 (16 s): isolation, mission, package imports, `sdk_boundary`, the architecture and selector gates |
+| Selector `test_scope.py`; planning document checker | 74 cases (1 skipped; 74/74 with the Release inventory); accepted (26 documents, 74 source units, 423 files) |
+
+No skips, no native object compiled or linked, and no full suite (HC-11). Logs are in `D:/ENV/tmp/hc21/`.

@@ -421,6 +421,7 @@ The extensions' C sources are adapters: `fsim._native` in `src/adapters/sdk/pyth
 native type registration) and `fsim._vision` in `src/adapters/vision/python`, never registered in `fsim._native`. The
 public modules keep their names, classes and pickling. Implementation they re-export lives in private packages:
 `fsim._simulation` (the records World and Agent share, and the factories World builds agents and referees with),
-`fsim._training` (the training adapter) and `fsim._visualization` (the cameras), with `fsim._contracts` below them.
+`fsim._training` (the training adapter), `fsim._visualization` (the cameras) and `fsim._adapters` (`fsim.isolation`'s
+codec and actor-side proxies; its Range-side process hosts stay public there), with `fsim._contracts` below them.
 None of these imports the package root or a public module. `fsim.vision`'s `VisionBatch` composes the VecEnv with the
 cameras outside both. Importing `fsim` needs neither Gymnasium, Stable-Baselines3, PyTorch nor a GPU.

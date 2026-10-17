@@ -41,7 +41,7 @@
   },
   "planned_modules": {
     "oms": {"domain": "adapters", "kind": "assembly", "destinations": ["src/adapters/oms"], "phase": "MS-12"},
-    "training_vision": {"domain": "applications", "kind": "application", "destinations": ["src/applications/training_visualization"], "phase": "ARCH-06"},
+    "training_vision": {"domain": "applications", "kind": "application", "destinations": ["src/applications/training_visualization"], "phase": "VIS-F"},
     "testbench": {"domain": "applications", "kind": "application", "destinations": ["src/applications/testbench"], "phase": "ARCH-08"}
   },
   "exceptions": [
@@ -107,7 +107,7 @@
     "optional_modules": ["fsim.gym", "fsim.sb3", "fsim.vision"],
     "optional_packages": ["gymnasium", "stable_baselines3", "torch"],
     "dynamic_imports": [
-      {"module": "fsim.isolation", "function": "_serve_ma", "reason": "Resolves the actor class named by the isolated process's configuration"}
+      {"module": "fsim._adapters.actor", "function": "serve", "reason": "Resolves the actor class named by the isolated process's configuration (fsim.isolation's actor process, ARCH-07 P056)"}
     ],
     "exceptions": []
   }

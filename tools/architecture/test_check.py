@@ -683,6 +683,21 @@ class DomainFixtures(FixtureRepository):
         self.policy["exceptions"][0]["until"] = "someday"
         self.input_error("unknown module or phase someday")
 
+    # HC-23: a reservation may wait for a module plan's package; an exception expires with a roadmap package
+    def test_a_planned_module_may_wait_for_a_module_plan_package(self):
+        for phase in ("VIS-F", "TRN-H", "SIM-M", "MS-12", "ARCH-08"):
+            with self.subTest(phase=phase):
+                self.policy["planned_modules"]["mission"]["phase"] = phase
+                status, output = self.run_gate()
+                self.assertEqual(status, 0, output)
+        for phase in ("VIS-f", "VIS-FF", "VIS", "UI-F", "ARCH-01", "someday"):
+            with self.subTest(phase=phase):
+                self.policy["planned_modules"]["mission"]["phase"] = phase
+                self.input_error("phase must name a later package: " + phase)
+        self.policy["planned_modules"]["mission"]["phase"] = "ARCH-05"
+        self.policy["exceptions"][0]["until"] = "VIS-F"
+        self.input_error("unknown module or phase VIS-F")
+
     def test_a_kind_foreign_to_its_domain_is_an_input_error(self):
         self.policy["modules"]["env"]["kind"] = "assembly"
         self.input_error("kind assembly does not belong to domain training")

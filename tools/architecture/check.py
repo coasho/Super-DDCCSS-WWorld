@@ -147,6 +147,10 @@ PUBLIC_KEYS = {"domain", "kind"}
 PUBLIC_EXCEPTION_KEYS = {"from", "to", "until", "reason"}
 SCHEMA = "fsim.architecture.source-policy.v2"
 PHASE = re.compile(r"ARCH-(0[2-9]|10)|MS-\d+")
+# A planned module's reservation may also wait for a module plan's own package (docs/architecture/modules/*/plan.md:
+# SIM-x, TRN-x, VIS-x), as the native training-image provider waits for VIS-F (HC-23). An exception still expires with
+# a roadmap package (PHASE).
+PLANNED_PHASE = re.compile(r"ARCH-(0[2-9]|10)|MS-\d+|(?:SIM|TRN|VIS)-[A-Z]")
 
 
 def fold(path):
@@ -190,7 +194,7 @@ def validate_policy(policy):
             domain = domains.get(module["domain"])
             if domain is None or domain["kind"] != module["kind"]:
                 raise ValueError(f"{group} {name}: kind {module['kind']} does not belong to domain {module['domain']}")
-            if group == "planned module" and not PHASE.fullmatch(module["phase"]):
+            if group == "planned module" and not PLANNED_PHASE.fullmatch(module["phase"]):
                 raise ValueError(f"planned module {name}: phase must name a later package: {module['phase']}")
             if group == "module" and not module["headless"] and module["kind"] == "implementation" \
                     and module["domain"] != "visualization":

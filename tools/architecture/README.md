@@ -178,7 +178,9 @@ the following is an input error, never ignored:
 - a kind foreign to its domain;
 - a destination outside its domain root, or a legacy directory inside one;
 - graphics in a non-visualization implementation;
-- an exception without a later phase.
+- an exception without a later roadmap phase, or a planned module whose phase
+  names neither a later roadmap package nor a module plan's package (`SIM-x`,
+  `TRN-x`, `VIS-x`; the native training-image provider waits for VIS-F, HC-23).
 
 Do not run the destination layout against unmigrated directories as if it were
 the present tree: a legacy directory stays valid until its package moves it.
@@ -206,7 +208,8 @@ imports are deferred edges, everything else eager). It requires:
   backedge.
 - an exception that still closes its own cycle: its target reaches its source.
   Lying in some other cycle is not enough.
-- dynamic imports only at registered sites (today `fsim.isolation._serve_ma`). A
+- dynamic imports only at registered sites (today `fsim._adapters.actor.serve`,
+  the isolated actor process's loop, which `fsim.isolation` runs). A
   site is a direct call of `importlib.import_module` (through any module alias),
   `__import__`, or a name bound by `from importlib import import_module [as x]` or
   `from builtins import __import__ [as y]`. An import function used other than

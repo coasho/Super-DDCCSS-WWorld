@@ -92,6 +92,24 @@ class PublicOwners(unittest.TestCase):
                 self.assertEqual(again, record)
                 self.assertIs(getattr(fsim.agent, name), cls)  # (the agent wrapper builds the same records)
 
+    def test_the_isolation_names_keep_fsim_isolation_as_their_owner(self):
+        import fsim.isolation
+        for name in fsim.isolation.__all__ + ["RemoteAgent"]:
+            with self.subTest(name=name):
+                obj = getattr(fsim.isolation, name)
+                self.assertEqual((obj.__module__, obj.__qualname__), ("fsim.isolation", name))
+                self.assertIs(pickle.loads(pickle.dumps(obj)), obj)
+        error = fsim.isolation.AgentError("the MA's own mistake")
+        again = pickle.loads(pickle.dumps(error))
+        self.assertEqual((type(again), again.args), (fsim.isolation.AgentError, error.args))
+        # the codec carries the public value classes fsim.isolation binds, and imports no public module itself
+        codec = importlib.import_module("fsim._adapters.codec")
+        self.assertIs(codec._BatchCommand, fsim.world.BatchCommand)
+        self.assertIs(codec._AgentActivity, fsim.agent.AgentActivity)
+        command = fsim.world.BatchCommand("submit_hsa", heading_rad=1.0)
+        again = codec._decode(codec._encode(command), lambda i: i)
+        self.assertEqual((type(again), again.method, again.kwargs), (fsim.world.BatchCommand, "submit_hsa", {"heading_rad": 1.0}))
+
     def test_the_training_errors_are_the_package_error(self):
         adapter = importlib.import_module("fsim._training.adapter")
         self.assertIs(adapter._native.Error, fsim.Error)

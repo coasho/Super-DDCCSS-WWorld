@@ -627,6 +627,26 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
+## HC-21 P056 and HC-23 (2026-10-17, awaiting independent acceptance)
+
+Completes ARCH-07's P056 and resolves HC-23; the ARCH-07 record's section 13 has the details.
+
+- **P056:** `fsim.isolation`'s codec is `fsim._adapters.codec`, and its actor-side proxies with the actor process's loop
+  are `fsim._adapters.actor`. Neither imports a public module. `fsim.isolation` keeps its Range-side hosts and checks,
+  and its public names keep it as their owner. The other owner's uncommitted edits to the module stay uncommitted and
+  in place.
+- **HC-23:** the native `training_vision` reservation waits for VIS-F and stays planned. The gate accepts a module
+  plan's package as a planned phase.
+
+| Verification | Result |
+| --- | --- |
+| Gate; fixtures | Accepted, no Python cycle; 135 |
+| Python identity, both presets | 0 differ |
+| Frozen-baseline compare; frozen consumers on the installed package | 19/0; 5/5 |
+| Related fast tests | Headless 22/22, then 26/26; Release 6/6 |
+
+No full suite ran (HC-11).
+
 ## Architecture ARCH-07 SDK assembly and Python import cleanup (2026-10-16, awaiting independent acceptance)
 
 The seventh package of the architecture roadmap. The record is
