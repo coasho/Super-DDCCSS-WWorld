@@ -627,6 +627,26 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
+## HC-33 authority registration (2026-10-17, awaiting independent acceptance)
+
+Completes ARCH-09's authority gate, which the independent review at `4d7a9be` left open (HC-33). The
+[ARCH-09 record](architecture/validation/arch-09-architecture-authority.md#10-hc-33-correction-2026-10-17) has the
+details. ARCH-10 has not started.
+
+- **Registered in place:** three architecture documents outside `docs/architecture` now have a register row and a
+  direct entry in the architecture index, each with a category, owner and status:
+  - ADR-26, the control architecture: current authority, canonical at its path;
+  - ADR-27, rotorcraft: a retained domain reference;
+  - the 2026-10-11 build/run and installed-SDK packaging plan: historical evidence.
+- **Bodies:** none moved or changed.
+
+| Verification | Result |
+| --- | --- |
+| Planning checker; local Markdown links in the repository | Accepted (50 documents, 25 register rows); 1,303 links, none broken |
+| Related documentation tests | Headless 3/3 |
+
+No native build or full suite ran (HC-11).
+
 ## Architecture ARCH-09 architecture authority relocated (2026-10-17, awaiting independent acceptance)
 
 The ninth package of the architecture roadmap. The record is

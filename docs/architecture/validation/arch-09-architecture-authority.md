@@ -123,3 +123,31 @@ Limits:
 ## 8. Next
 
 ARCH-10 (final three-domain acceptance) requires the next user-relayed assignment.
+
+## 10. HC-33 correction (2026-10-17)
+
+Corrects the gap the [independent review](arch-09-review-2026-10-17.md#1-hc-33-authority-metadata-is-required-now-p2)
+found (HC-33, P2): three architecture documents outside `docs/architecture` had no category, owner, status or index
+entry of their own. Each is now registered and indexed where it is. Starting HEAD: `4d7a9be`.
+
+| Row | Document | Classification | Owner | Status |
+| --- | --- | --- | --- | --- |
+| D23 | [ADR-26 control architecture](../../control-architecture.md) | Current authority: capability contracts over the control runtime, accepted 2026-09-26 and implemented. ADR-27 and ADR-28 extend it; the public reference stays in `docs/sdk` | simulation | Canonical in place |
+| D24 | [ADR-27 rotorcraft](../../rotorcraft.md) | Retained domain reference: the rotorcraft decision record, accepted and implemented 2026-09-26. It extends ADR-26, which stays in force | simulation | Retained reference |
+| D25 | [Build/run and installed-SDK packaging plan](../../superpowers/plans/2026-10-11-build-run-sdk-packaging.md) | Historical evidence: the 2026-10-11 pass delivered in `f8cfec9`, before A1, with its execution record. The development guide and the ARCH-08 record are current | architecture_history | Historical in place |
+
+- **Register:** rows D23-D25 have operations `retain-authority`, `retain-reference` and `retain-history` with phase
+  `retain`, so no move is planned; a later move needs its own register update. The other rows are unchanged.
+- **Index:** the [architecture index](../README.md)'s authority table links each directly, ADR-26 and ADR-27 under
+  Simulation and the plan under History, and says that these three stay at their own paths.
+- **Bodies:** none moved or changed, and none has a copy or redirect elsewhere. Their SHA-256 hashes match before and
+  after.
+
+| Check | Result |
+| --- | --- |
+| Planning document checker | Accepted: 50 Markdown documents reachable from the index, local links valid, 77 source units and 25 document units (22 before). A scratch gate check finds each of the 25 register rows with an owner, a status and an index entry naming it |
+| Every local Markdown link in the repository, anchors included (the scratch checker; `.codex` excluded from the Git listing, before any access) | 105 files, 1,303 local links, none broken |
+| Selector's plan for the six changed paths (documentation scope): headless only, no native build | Headless 3/3 (2.61 s): `architecture_boundary`, `ma_contract`, `sdk_guard_checker` |
+
+Logs, the before copies and their hashes are in `D:/ENV/tmp/hc33/`. No native build, GUI run or full suite ran
+(HC-11).
