@@ -200,3 +200,22 @@ Further details:
   reset, RNG and outcome meanings and on compatible binaries, import paths, resources and recordings.
 - **Still pending (HC-07):** the graphics evidence, meaning the complete fullscreen scenarios, manual controls, the
   4K performance gate and joint acceptance. Final-program acceptance is not claimed.
+
+## 15. HC-07 verification (2026-10-17)
+
+The [HC-07 record](hc-07-viewer-and-joint.md) has the details. Verified on the HC-11-tested binaries at 3840 x 2160
+fullscreen:
+- the continuous live strike;
+- the replay frames;
+- the demo;
+- live reconnection to a replaced world;
+- the demo's pause, step, time factor and quit through the window's key input (15/15).
+
+**Not met:**
+- **The 4K performance gate:** it fails for fleet, strike and hit in two runs (HC-45, new).
+- **The combat cases:** J5, J9, the combat parts of J3, J8 and J10, the combat Viewer run and the seed/aspect matrix
+  still lack their prerequisites (HC-06).
+- **The rest:** a human-operated session, mouse, the timeline slider and resize remain unverified.
+
+Section 6's row "current required native, installed and graphics evidence complete" therefore stays pending, and HC-07
+stays open.

@@ -256,6 +256,21 @@ The `final-strike/` directory contains the result, native recordings/sidecars, c
 native readback, live Viewer log and the two named captures. This run does not remeasure the 4K performance
 gate or change the material/shadow limitations recorded above.
 
+## HC-07 verification (2026-10-17)
+
+The current Release build (main `66dc43d`, the binaries HC-11's full suites tested) was run again in one GUI slot at
+3840 x 2160 fullscreen. The [HC-07 record](../architecture/validation/hc-07-viewer-and-joint.md) has the evidence.
+
+| Case | Result |
+| --- | --- |
+| The continuous live strike (`strike_acceptance.py`) | Passed, and the same as this page's final run: release 13.033 s, hit 19.533 s, captures at 14.033 and 19.833 s, the same outcome |
+| The replay frames of the four scenes; the demo; a world replaced under the same name | Passed and inspected |
+| The demo's pause, step, time factor and quit, through the window's key input | 15/15 checks passed; this is input posted to the Viewer's window, not a human operator |
+| The 4K performance gate, run twice | **Failed** for fleet, strike and hit, as in the baseline above; reheat passed (HC-45). Other applications were open, so the machine was not idle |
+
+Mouse, the timeline slider, window resize and a human-operated session remain unverified, as do the combat Viewer
+run (HC-06) and the performance gate.
+
 ## Reproduction and limits
 
 Use the maintained preset launcher for native viewer checks, retaining the fullscreen argument:

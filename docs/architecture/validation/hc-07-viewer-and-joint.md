@@ -1,0 +1,112 @@
+# HC-07 Viewer, manual-control, performance and joint verification
+
+Status: verified where the inputs exist (2026-10-17); awaiting independent acceptance. **HC-07 stays open.** Two
+things block it:
+- **4K performance gate (HC-45, new):** it fails on three of four scenes.
+- **Missing prerequisites:** the combat joint cases, the combat Viewer run and the seed/aspect matrix depend on
+  inputs that are not supplied (HC-06).
+
+Final-program acceptance is not claimed. The [summary](hc-07-evidence.json) holds the measurements and hashes.
+
+## 1. What ran, on what
+
+- **Source:** main `66dc43d` (HC-11 accepted).
+- **Binaries:** the `ucrt64-release` build. All 72 staged executables, DLLs and extensions are byte for byte the ones
+  HC-11's full suites tested, and both presets' staged data still has HC-11's digest (234 files). Neither build was
+  rebuilt, and no full suite ran (as directed).
+- **Hardware:** NVIDIA GeForce RTX 5070 Ti, driver 596.36; 3840 x 2160 fullscreen.
+- **GUI slot:** one Viewer at a time, and no build, test or other Viewer alongside.
+- **Background load:** other applications stayed open, at 4-37 % CPU and 16 % GPU before the runs. They are not this
+  repository's and were left alone.
+- **Tools:** the maintained tools (`viewer_perf.py`, `strike_acceptance.py`), plus two scratch checks in
+  `D:/ENV/tmp/hc07/`, `manual_controls.py` and `reconnect.py`, whose hashes are in the summary.
+
+## 2. Results
+
+| Case | Result |
+| --- | --- |
+| 4K performance gate, run once and repeated once (`viewer_perf.py`, 160 fps target) | **Fails on 3 of 4 scenes in both runs** (section 3); reheat passes |
+| Replay at 3840 x 2160 (`viewer_perf.py --shots`) | 26 frames of the four scenes, every one 3840 x 2160 and inspected: models, effects, fire and smoke as recorded, no black or broken frame |
+| Complete live fullscreen strike (`strike_acceptance.py`) | **Passes.** Native and Viewer exit 0 after 40.03 and 41.95 wall seconds. Its records match the dated 2026-10-12 run (details below) |
+| Demo, fullscreen (`--demo --fullscreen --screenshot`) | **Passes.** Exit 0 in 11 s, a 3840 x 2160 frame inspected (8 aircraft, 160 fps on its panel), and no demo publisher left |
+| Manual controls through the Viewer's window input (`manual_controls.py`) | **15/15 pass** for the demo's pause, single step, time factor and quit (section 4) |
+| A world replaced under the same name (`reconnect.py`) | **Passes.** The Viewer logs "world 'hc07-reconnect' was replaced; attaching to the new one". Frames 000-002 show `old-one` (1,525-1,556 m), frames 003-007 the fresh `new-one` (from 2,345 m), and it exits 0 |
+| Generic joint cases | Pass in HC-11's accepted full suites on both presets: `ma_joint`, `python_sdk test_ma_joint`, `mission_package_consumer`, `ma_service_binding`, isolation and composition. They were not run again |
+
+Live strike details:
+- **Timeline:** launch 13.033 s, hit 19.533 s, captures at 14.033 and 19.833 s; 1,200 native frames.
+- **Target:** crew lost, one engine out, three torn panels, airborne at the end, 614 post-hit samples.
+- **Consistency:** the live result matches its preflight.
+- **Captures:** they are visually equivalent to 2026-10-12's. The pixels differ by a mean of 1.9/255 at launch and
+  4.9/255 at the hit, where the fire and clouds vary from run to run, so image parity is not claimed.
+
+## 3. The 4K performance gate (HC-45, new)
+
+The target: after five seconds of warmup, every second must reach at least 158.4 fps, and no frame may take more than
+12.5 ms.
+
+| Scene | Run | Mean fps | Lowest second (at) | Worst frame, ms (at) | Frames over 12.5 ms | Gate |
+| --- | --- | --- | --- | --- | --- | --- |
+| fleet | 1 / 2 | 160.0 / 160.0 | 159.7 / 159.6 | 18.70 (25.6 s) / 18.99 (25.7 s) | 2 / 2 | **fail** (slow frames) |
+| strike (Flow) | 1 / 2 | 156.2 / 156.1 | 124.8 (10 s) / 123.8 (10 s) | 14.76 / 14.79 | 32 / 24 | **fail** |
+| hit | 1 / 2 | 152.9 / 158.8 | 93.8 (27.1 s) / 132.8 (27.1 s) | 62.20 / 58.80 (27.1 s) | 65 / 24 | **fail** |
+| reheat | 1 / 2 | 160.0 / 160.0 | 159.9 / 159.9 | 8.35 / 6.91 | 0 / 0 | pass |
+
+Further details:
+- **Where the drops fall:** strike falls short from 8 to 11 s, at the impact and fireball; hit falls short in its
+  aftermath, from 20 to 32 s, with NVIDIA Flow solving.
+- **What the frames show:** in those seconds the CPU-side recording time is most of the frame.
+- **Dated baseline:** the same three scenes already failed the gate on 2026-10-12, before the native showcase
+  replaced the scripted hit.
+- **Today's lowest seconds:** for strike and hit they are lower than that baseline. The hit scene is a different
+  workload now, and this machine was not idle, so a regression is not established, and neither is its absence.
+- **Not done:** no optimisation and no quality change was made, and no threshold was relaxed.
+- **Closure (HC-45):**
+  - an idle-machine measurement;
+  - a before/after comparison with a Viewer from before the migration (`viewer_perf.py --exe`) to settle whether
+    it regressed;
+  - the visualization plan's performance work, without lowering quality.
+
+## 4. Manual controls through the window's input
+
+`manual_controls.py` starts `flightsim-viewer --demo --fullscreen` and posts each key to the Viewer's own window as
+`WM_KEYDOWN`/`WM_KEYUP` with its scan code, so the keys never reach another application. They travel the Viewer's
+event path: VSG's window events, ImGui and the key handler. The script reads each effect, read-only, from shared memory:
+- the demo's control block;
+- the newest published snapshot's simulation time, read under its sequence lock.
+
+| Check | Measured |
+| --- | --- |
+| Running at time factor 1 | 0.9999 simulated s per wall s |
+| Space pauses | 0 s of simulated time in 2 s |
+| `.` three times, held | 3 requests taken; the simulation advanced 0.05 s, three agent steps of 1/60 s; still held afterwards |
+| Space resumes | 0.9998 |
+| `[` | time factor 0.5; 0.49997 measured |
+| `]` twice | time factor 2.0; 1.99974 measured |
+| Escape | the Viewer exits 0 in 0.43 s; the demo publisher stops; both shared-memory segments are released |
+
+This is the keyboard's own path, but not a human at the machine.
+
+The first attempt passed 11 of 15. Its four rate checks read the world header's step counter, which the demo publisher
+does not maintain, while the key effects were already right in the control block. The script was corrected to read
+the snapshot's simulation time and run again. Both attempts' logs are kept.
+
+## 5. Not verified, and why
+
+| Case | Missing prerequisite | Owner |
+| --- | --- | --- |
+| J5 strike approval, J9 outcome validity; the combat parts of J3 (duplicate releases), J8 (actor-released weapons and decoys) and J10 (the combat chain) | The runtime handlers for the five request kinds and their registration seam (`ma-engagement-registry.json`: `runtime_installed: false`), and the versioned outcome-reduction contract. Neither is supplied ([mission-training.md, section 15](../../sdk/mission-training.md#15-extension-seam-and-pending-gates)) | HC-06: the extension and native-input owners, then Claude's integration |
+| The published seed/aspect matrix | It belongs to the combat scenes (J5, J9) | With HC-06 |
+| The installed public-endpoint combat Viewer run | The combat chain. A strictly isolated run publishes no truth, so its Viewer evidence is a labelled diagnostic run of that chain | With HC-06 |
+| A human-operated session | A person at the machine; the checks in section 4 are input-driven | The user, or whoever accepts HC-07 |
+| Mouse (rotate, pan, zoom), the replay timeline slider and replay keys, and window resize | Not part of this run, and not covered by the checks above | Viewer owner, at the next Viewer acceptance |
+| The 4K performance gate | Failing (section 3) | HC-45 |
+| J6: does the MA's own speed resume after C2 cancels its override? | A separate evidence gap | HC-02 |
+
+## 6. Also found
+
+- **HC-46 (new, nonblocking):** `--no-gui` is documented as "just the rendered scene, no panels or labels". Yet the
+  strike captures show the Mission Systems windows, and so did 2026-10-12's, so this is not a regression.
+- **Demo control column:** the demo's vehicle list leaves its control column empty. The ARCH-08 capture did too, and the
+  built-in demo's aircraft have no SDK command. A published SDK world shows its level (`actuator` in the reconnect
+  frames).

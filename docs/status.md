@@ -627,6 +627,17 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
+## HC-07 Viewer and joint verification (2026-10-17, awaiting independent acceptance)
+
+The [HC-07 record](architecture/validation/hc-07-viewer-and-joint.md) has the details. HC-07 stays open.
+
+| Case | Result |
+| --- | --- |
+| Live fullscreen strike, replay frames, demo, reconnection to a replaced world | Passed at 3840 x 2160 on the HC-11-tested binaries |
+| Demo pause, step, time factor and quit through the window's key input | 15/15 |
+| 4K performance gate (160 fps), two runs | **Failed** for fleet, strike and hit; reheat passed (HC-45) |
+| Combat joint cases, combat Viewer run, seed/aspect matrix | **Not run:** their prerequisites are not supplied (HC-06) |
+
 ## HC-11 final regression (2026-10-17, awaiting independent acceptance)
 
 Both required full suites ran once on one frozen, fingerprinted source snapshot, and both passed. The

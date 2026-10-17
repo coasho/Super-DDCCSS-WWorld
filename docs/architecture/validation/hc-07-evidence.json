@@ -1,0 +1,401 @@
+{
+ "schema": "fsim.hc07.evidence.v1",
+ "date": "2026-10-17",
+ "source": {
+  "head": "66dc43d",
+  "release_binaries_match_hc11": true,
+  "named_binaries": {
+   "bin/flightsim-demo.exe": "ca518158b90cb81a759e176b26a7016d528f06b8c2af368cbfc2302879ef65d5",
+   "bin/flightsim-flow-calibrate.exe": "0a6dcccf30fcbf5b28405073c518eb28f0ab03ed3f33f82a3a2c6923fcedc410",
+   "bin/flightsim-rcs.exe": "0fba7831ba61c835fba8bf3ee5ab4df6a94ee767f00d940b77440f8494dce818",
+   "bin/flightsim-showcase.exe": "d35e7d630b5fdd76d42ddf4bf11fd918227195664d212c21db5b65d857e458b0",
+   "bin/flightsim-viewer.exe": "1ede4fcb9a153cf85164853db1e6975aff18e20b406e69d928e14883e821e2e3",
+   "bin/flightsim.exe": "943855b91a0f9c82973d4989e431553e7fc165dd399c0525bc286ebb5753ccca",
+   "bin/libfsim.dll": "6e9f582132a9edf6c407664c6748666293e3b72782a08b55075365b4e191d2a9",
+   "bin/libfsim_vision.dll": "f13adefdde9c15a43648208231ceec4da6063250085ea495ec7540c83fba0d16",
+   "python/fsim/_native.pyd": "893dcd09236c7bb78b5b4ff1aee0497dc9db12fcd43c37cae95b17b8b2483410",
+   "python/fsim/_vision.pyd": "0a49c594b4eb15373275c223405defdc773f1515ba94b5bf65e9ae8358313e71",
+   "python/fsim/bin/libfsim.dll": "6e9f582132a9edf6c407664c6748666293e3b72782a08b55075365b4e191d2a9",
+   "python/fsim/bin/libfsim_vision.dll": "f13adefdde9c15a43648208231ceec4da6063250085ea495ec7540c83fba0d16"
+  },
+  "staged_data_matches_hc11": true
+ },
+ "environment": {
+  "gpu": "NVIDIA GeForce RTX 5070 Ti, driver 596.36, 16303 MiB",
+  "toolchain": "g++ 16.2.0, CMake 4.4.3",
+  "display": "3840 x 2160 fullscreen",
+  "background_load": "other applications open: CPU 4-37 %, GPU 16 % before the runs"
+ },
+ "performance": {
+  "run_1": {
+   "target_fps": 160.0,
+   "resolution": [
+    3840,
+    2160
+   ],
+   "scenes": {
+    "fleet": {
+     "mean_fps": 160.0,
+     "lowest_second_fps": 159.7,
+     "lowest_at_s": 5.5,
+     "worst_frame_ms": 18.7,
+     "worst_at_s": 25.6,
+     "frames_over_2x": 2,
+     "frames": 5622,
+     "seconds_below_158_4": [],
+     "gate": "fail"
+    },
+    "strike": {
+     "mean_fps": 156.2,
+     "lowest_second_fps": 124.8,
+     "lowest_at_s": 10.0,
+     "worst_frame_ms": 14.76,
+     "worst_at_s": 12.0,
+     "frames_over_2x": 32,
+     "frames": 3289,
+     "seconds_below_158_4": [
+      8.0,
+      9.0,
+      10.0,
+      11.0
+     ],
+     "gate": "fail"
+    },
+    "hit": {
+     "mean_fps": 152.9,
+     "lowest_second_fps": 93.8,
+     "lowest_at_s": 27.1,
+     "worst_frame_ms": 62.2,
+     "worst_at_s": 27.1,
+     "frames_over_2x": 65,
+     "frames": 4452,
+     "seconds_below_158_4": [
+      10.0,
+      20.1,
+      21.1,
+      22.1,
+      25.1,
+      26.1,
+      27.1,
+      29.1,
+      31.1,
+      32.1
+     ],
+     "gate": "fail"
+    },
+    "reheat": {
+     "mean_fps": 160.0,
+     "lowest_second_fps": 159.9,
+     "lowest_at_s": 20.1,
+     "worst_frame_ms": 8.35,
+     "worst_at_s": 13.0,
+     "frames_over_2x": 0,
+     "frames": 3372,
+     "seconds_below_158_4": [],
+     "gate": "pass"
+    }
+   }
+  },
+  "run_2": {
+   "target_fps": 160.0,
+   "resolution": [
+    3840,
+    2160
+   ],
+   "scenes": {
+    "fleet": {
+     "mean_fps": 160.0,
+     "lowest_second_fps": 159.6,
+     "lowest_at_s": 15.6,
+     "worst_frame_ms": 18.99,
+     "worst_at_s": 25.7,
+     "frames_over_2x": 2,
+     "frames": 5619,
+     "seconds_below_158_4": [],
+     "gate": "fail"
+    },
+    "strike": {
+     "mean_fps": 156.1,
+     "lowest_second_fps": 123.8,
+     "lowest_at_s": 10.0,
+     "worst_frame_ms": 14.79,
+     "worst_at_s": 15.0,
+     "frames_over_2x": 24,
+     "frames": 3289,
+     "seconds_below_158_4": [
+      8.0,
+      9.0,
+      10.0,
+      11.0,
+      13.0,
+      17.0
+     ],
+     "gate": "fail"
+    },
+    "hit": {
+     "mean_fps": 158.8,
+     "lowest_second_fps": 132.8,
+     "lowest_at_s": 27.1,
+     "worst_frame_ms": 58.8,
+     "worst_at_s": 27.1,
+     "frames_over_2x": 24,
+     "frames": 4625,
+     "seconds_below_158_4": [
+      10.0,
+      25.1,
+      27.1,
+      28.1
+     ],
+     "gate": "fail"
+    },
+    "reheat": {
+     "mean_fps": 160.0,
+     "lowest_second_fps": 159.9,
+     "lowest_at_s": 6.0,
+     "worst_frame_ms": 6.91,
+     "worst_at_s": 13.0,
+     "frames_over_2x": 0,
+     "frames": 3375,
+     "seconds_below_158_4": [],
+     "gate": "pass"
+    }
+   }
+  }
+ },
+ "replay_frames": {
+  "count": 26,
+  "size": [
+   3840,
+   2160
+  ],
+  "digest": "ed11d47ffda594bea3e05b28e50e4223314089c2002e7aa9101a2264d115071f"
+ },
+ "live_strike": {
+  "native_exit": 0,
+  "viewer_exit": 0,
+  "native_frames": 1200,
+  "simulation_seconds": 40,
+  "scene_hash": "18c9ca4729152df3",
+  "launch_s": 13.033333333333298,
+  "hit_s": 19.533333333333463,
+  "requested_capture_s": [
+   14.033333333333298,
+   19.833333333333464
+  ],
+  "dimensions": [
+   [
+    3840,
+    2160
+   ],
+   [
+    3840,
+    2160
+   ]
+  ],
+  "native_result_matches_preflight": true,
+  "target_outcome": {
+   "schema": "strike-target-outcome-v1",
+   "crew_lost": true,
+   "engine_out_count": 1,
+   "control_lost_channels": [],
+   "torn_panel_count": 3,
+   "separated_sections": [],
+   "crashed": false,
+   "airborne_at_end": true,
+   "sdk_commands_frozen_after_crew_loss": true,
+   "post_hit_samples": 614,
+   "last_time_s": 40.00000000000029,
+   "pre_hit_airspeed_m_s": 249.90390353831341,
+   "final_airspeed_m_s": 221.1963437907491,
+   "pre_hit_altitude_m": 5971.204436635817,
+   "final_altitude_m": 5953.180951232556
+  }
+ },
+ "demo_capture": {
+  "viewer_exit": 0,
+  "size": [
+   3840,
+   2160
+  ],
+  "publishers_left": 0
+ },
+ "controls": {
+  "passed": true,
+  "checks": [
+   {
+    "check": "no demo publisher before the run",
+    "pass": true,
+    "detail": []
+   },
+   {
+    "check": "the viewer's window",
+    "pass": true,
+    "detail": {
+     "hwnd": 74188706
+    }
+   },
+   {
+    "check": "the control block and the world are published",
+    "pass": true,
+    "detail": {
+     "control": true,
+     "world": true
+    }
+   },
+   {
+    "check": "one demo publisher runs",
+    "pass": true,
+    "detail": [
+     "\"flightsim-demo.exe\",\"40252\",\"Console\",\"1\",\"24,384 K\""
+    ]
+   },
+   {
+    "check": "the block's layout",
+    "pass": true,
+    "detail": {
+     "magic": "0x4c434446",
+     "version": 2,
+     "paused": 0,
+     "quit": 0,
+     "stepRequests": 0,
+     "timeFactor": 1.0,
+     "throughput": 960.2757723111367,
+     "stepsTaken": 0
+    }
+   },
+   {
+    "check": "running at time factor 1",
+    "pass": true,
+    "detail": {
+     "sim_s_per_wall_s": 0.9998915784124619,
+     "sim_s": 3.0
+    }
+   },
+   {
+    "check": "space pauses",
+    "pass": true,
+    "detail": {
+     "paused": 1,
+     "sim_s_in_2s": 0.0
+    }
+   },
+   {
+    "check": "'.' steps one agent step each, held",
+    "pass": true,
+    "detail": {
+     "stepRequests": 3,
+     "stepsTaken": 3,
+     "sim_s": 0.05,
+     "agent_step_s": 0.016666666666666666
+    }
+   },
+   {
+    "check": "still held after the steps",
+    "pass": true,
+    "detail": {
+     "sim_s_in_1.5s": 0.0
+    }
+   },
+   {
+    "check": "space resumes",
+    "pass": true,
+    "detail": {
+     "sim_s_per_wall_s": 0.9998205655662069
+    }
+   },
+   {
+    "check": "'[' halves the time factor",
+    "pass": true,
+    "detail": {
+     "timeFactor": 0.5,
+     "sim_s_per_wall_s": 0.49997351391966066
+    }
+   },
+   {
+    "check": "']' doubles it",
+    "pass": true,
+    "detail": {
+     "timeFactor": 2.0,
+     "sim_s_per_wall_s": 1.9997381843215118
+    }
+   },
+   {
+    "check": "escape quits the viewer",
+    "pass": true,
+    "detail": {
+     "exit": 0,
+     "seconds": 0.43
+    }
+   },
+   {
+    "check": "the demo publisher stops with it",
+    "pass": true,
+    "detail": []
+   },
+   {
+    "check": "their segments are gone",
+    "pass": true,
+    "detail": {
+     "control": false,
+     "world": false
+    }
+   }
+  ],
+  "world": {
+   "dt": 0.008333333333333333,
+   "frameSkip": 2
+  }
+ },
+ "controls_first_attempt": "11/15: the four rate checks read the world header's worldSteps, which the demo publisher does not maintain (it stayed 0); the key effects were already visible in the control block. The check was corrected to the newest snapshot's simulation time and rerun: 15/15",
+ "reconnect": {
+  "viewer_exit": 0,
+  "first": {
+   "name": "hc07-reconnect",
+   "vehicle": "old-one",
+   "altitude_m": 1500.0,
+   "steps": 180,
+   "sim_time_s": 5.9999999999999885,
+   "closed_at_s": 7.02
+  },
+  "second": {
+   "name": "hc07-reconnect",
+   "vehicle": "new-one",
+   "altitude_m": 2345.0,
+   "steps": 240,
+   "sim_time_s": 7.999999999999981,
+   "closed_at_s": 16.05
+  },
+  "frames": [
+   "frame_000.png",
+   "frame_001.png",
+   "frame_002.png",
+   "frame_003.png",
+   "frame_004.png",
+   "frame_005.png",
+   "frame_006.png",
+   "frame_007.png"
+  ]
+ },
+ "evidence_sha256": {
+  "perf.log": "dbe41497cc878d26d0b7093923cbdb9405a8f78d1f49d6021b298608f05123c3",
+  "perf-repeat.log": "f1aad0785b907e377820281fd7a908b91097effd0ccd9bf20cfb17a30fd5ccb7",
+  "perf/hc07.json": "5c653c363ca3bfb904980a3b16b98fd54b586cc9eddb8b636b2033602b6ba2a8",
+  "perf/hc07-repeat.json": "4c14b10fb91cc84359ef70d726dd81070a4ef649727b980890a67fd91d0f1c61",
+  "shots.log": "bcc6bc713a5c150ef373ab8248f3b36d1d28049e41050c98f818139beb774592",
+  "controls/controls.json": "b904b40ac3a44ceeb98144aefa8d34c44d863c0f66860df986535c1f8214a276",
+  "controls.log": "a8b6c21479d8c8e86de4d748636c627e97c75d8e104b7180cabe2f686cd8fd00",
+  "controls-attempt1.json": "1672cd822ab95aafa0f7d32929adfd1051f9dbabaaced77eed70763231904068",
+  "controls-attempt1.log": "6ebfcb803404e302f5fa16dc23ca72d7903319e4165f68ea9595fe149d78438b",
+  "strike/result.json": "1611b9d77826bc749afc060446153c56a94de4eaa19603d2a2c9b2a5ed37d19b",
+  "strike/strike_launch_plus_1s.png": "4e8b854effb35d553f222f056bcc81556946b1e852abb1f606912001bbb91c83",
+  "strike/strike_hit_plus_0.3s.png": "e04f9bf6bc76b4f04ffea848d0e1607f2013920244464bafd5733011910dfd99",
+  "demo/demo.png": "882258cdf2d5bd464d95efc0a4dd1b1c0293572b22e1657d69349dd71d3c1086",
+  "demo/viewer.log": "945da7bf1c517b2d1a41bd57be937b52809845ccffa23ab2cb7db1a35e922b8d",
+  "reconnect/reconnect.json": "32a09c8d32b7546962b9d93919c42b2e77027569d581cc3b4d5898ac509e5400",
+  "reconnect/viewer.log": "e6586ea298893550a7c2dc8814ebe2fd8572cc4d77bd48d2cc9b1327d20e91b3",
+  "binaries.json": "6d79002c8e859e23543efd870a801a2497f73a30c739ed7bdc19a4419fa84b18",
+  "manual_controls.py": "1bf93fdac4f8f35a97aecc671a68248b2cefdc6357caf20a7b73508df831cff6",
+  "reconnect.py": "4c7d51c42cabfdcbf414c7a7cc138a81df98b10345ad462c1fa49d6f095adbcf",
+  "summarize.py": "97b0488be80e086f4263fe0cb36f98827829a0d59a17dc5fe9d777944da3bf5a"
+ }
+}

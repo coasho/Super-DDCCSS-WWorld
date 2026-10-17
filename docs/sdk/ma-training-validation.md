@@ -146,6 +146,10 @@ Release build and its suite was required.
 - Complete Viewer acceptance: the [Viewer evidence](viewer-validation.md) of 2026-10-12 is a dated diagnostic
   baseline, not the installed public-endpoint joint acceptance; the full-scenario combat Viewer run is pending with
   the combat chain.
+- 2026-10-17 (HC-07): the prerequisites above are still not supplied. The engagement registry says
+  `runtime_installed: false`, and no outcome reduction exists, so J5, J9 and the combat parts of J3, J8 and J10
+  remain pending with the combat Viewer run and the seed/aspect matrix. The generic joint cases passed in the HC-11
+  full suites. See the [HC-07 record](../architecture/validation/hc-07-viewer-and-joint.md).
 - The joint chains are one deterministic seed and aspect each. Their recorded ids hold because the simulation is
   deterministic; a change to native behaviour that moves an id or a tick fails the replay checks, and the chains are
   then authored again with `joint_chain.py author` and reviewed.
