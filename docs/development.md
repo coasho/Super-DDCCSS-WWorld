@@ -11,7 +11,9 @@ Branch names in dated delivery records describe their original execution context
 
 ## Environment and supported build
 
-The maintained Windows build uses MSYS2 **UCRT64**, GCC, Ninja and CMake 3.25 or newer, with C++17. The presets and [toolchain](../cmake/toolchains/ucrt64.cmake) are the implementation of this contract. MSVC branches in CMake are not evidence of a verified alternative toolchain.
+The maintained Windows build uses MSYS2 **UCRT64**, GCC, Ninja and CMake 3.25 or newer, with C++17. The
+configured-graph architecture gate (`architecture_configured`) needs CMake 4.2 or later; with an older CMake it fails
+with an actionable diagnostic, and that preset's configured-graph acceptance stays pending. The presets and [toolchain](../cmake/toolchains/ucrt64.cmake) are the implementation of this contract. MSVC branches in CMake are not evidence of a verified alternative toolchain.
 
 Keep installed environments, toolchains and dependency caches under `D:\ENV`. Reuse existing installations. Before compiling, set all temporary and extension-build directories explicitly:
 

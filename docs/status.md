@@ -627,6 +627,30 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
+## ARCH-10 HC-38 to HC-43 correction (2026-10-17, awaiting independent acceptance)
+
+Corrects the six items of the ARCH-10 review; section 11 of the
+[ARCH-10 record](architecture/validation/arch-10-final-acceptance.md) has the details.
+
+- **Configured-graph gate:**
+  - SYSTEM includes no longer bypass the ownership checks (HC-38);
+  - the reply must name the requested build, and a disabled branch's modules must be absent (HC-42);
+  - it needs CMake 4.2 or later (HC-43, the user's decision). Native builds keep CMake 3.25, and with an older CMake
+    the gate fails with an actionable diagnostic, leaving its acceptance pending.
+- **Test selection:**
+  - every CMake file both configures read plans and escalates both presets at any depth, while render-only CMake
+    files stay on Release (HC-39, completing HC-20);
+  - the architecture gates are required on each preset (HC-40).
+- **Provenance:** a verifiable source manifest against a stated base replaces the stale one (HC-41). Both inventories
+  hold 67 Python SDK tests.
+
+| Verification | Result |
+| --- | --- |
+| Related tests, after a build of both presets | Headless 29/29, Release 35/35 |
+| Checker suites | Configured 37, selector 101, architecture 144 |
+
+No full suite or GUI scenario ran.
+
 ## Architecture ARCH-10 final three-domain acceptance (2026-10-17, awaiting independent acceptance)
 
 The tenth and last package of the architecture roadmap. The
@@ -635,7 +659,7 @@ full suites (HC-11) and the Viewer and joint gates (HC-07) are pending, so the t
 declared complete.
 
 - **Configured build graph:** each preset's own CMake File API code model is now held to the source graph
-  (`architecture_configured`, with 27 negative fixtures). `ucrt64-headless` configures 20 modules and 67 links, the
+  (`architecture_configured`; its checker's cases, controls included, are now 37). `ucrt64-headless` configures 20 modules and 67 links, the
   renderer modules absent with the renderer off; `ucrt64-release` configures all 28 modules and all 97 source edges.
 - **No exception left:** the policy lists no module, public, Python or layout exception. The launchers'
   implementation is the declared `tools/launch` category (HC-25).

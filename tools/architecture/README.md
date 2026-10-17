@@ -255,9 +255,11 @@ The source parser stays the ownership authority: it reads every branch, so no pr
 test:
 
 1. Every configure asks for its own CMake File API code model and cache: `cmake_file_api()` in
-   `cmake/ArchitectureChecks.cmake` (CMake 3.27 or later; an older CMake writes query files, answered from the next
-   configure). No reply, a code model older than 2.9 (it lacks the direct link items), a reply of another checkout or
-   a cache without the branch options is an input error: the preset is pending, not passed.
+   `cmake/ArchitectureChecks.cmake`. The gate needs CMake 4.2 or later (HC-43, the user's compatibility decision);
+   native builds stay supported from CMake 3.25. With an older CMake the configure warns, and the test stays
+   registered and fails with an actionable diagnostic naming the version, so the preset's configured-graph acceptance
+   is pending, never passed. No reply, a code model older than 2.9 (it lacks the direct link items), a reply of
+   another checkout or another build directory (HC-42), or a cache without the branch options is an input error too.
 2. Every configured target with a source under `src` is a registered module target, and every such source has that
    module as its owner. A test target (one with a source under `tests`) may also compile an application module's
    sources, which have no library to link; the gate names each one. A library module's source is compiled by its own
@@ -265,16 +267,20 @@ test:
 3. Every configured link between module targets (`linkLibraries`, `interfaceLinkLibraries`) is a source-graph edge,
    and a link to another target names a registered external target. A build-order dependency between module targets
    lies in the consumer's source closure.
-4. A source edge between two configured modules is configured too, and a configured module's providers are
-   configured. A module may be absent only where its branch is off: a non-headless module with `FSIM_WITH_RENDER`
-   off, a Python extension module (destinations under a `python` directory) with `FSIM_BUILD_PYTHON` off. The output
-   names each absent module and why.
+4. A module is configured exactly where its branch is on (HC-42): a non-headless module belongs to the
+   `FSIM_WITH_RENDER` branch and a Python extension module (destinations under a `python` directory) to the
+   `FSIM_BUILD_PYTHON` branch. With its option off it must be absent, and the output names it and why; with the option
+   on, it must be present, like every other module. A source edge between two configured modules is configured too,
+   and a configured module's providers are configured.
 5. No configured include directory is `src` or an ancestor of it. One under `src` lies in the destinations of the
-   module or of a module in its source closure, and an include view is the module's or a closure module's. The others
-   are the public include root, vendor code, system directories or outside the repository.
+   module or of a module in its source closure, and an include view is the module's or a closure module's. These hold
+   whether or not the include is SYSTEM, which changes compiler diagnostics, not ownership (HC-38). The others are the
+   public include root, vendor code, SYSTEM directories or outside the repository.
 
-`test_configured.py` plants each violation in a synthetic reply beside `test_check.py`'s fixture tree. At ARCH-10
-both required presets reconcile:
+`test_configured.py` (37 cases: the planted violations and their acceptance controls) writes synthetic replies
+beside `test_check.py`'s fixture tree. The selector requires `architecture_boundary`, `architecture_checker`,
+`architecture_configured` and `architecture_configured_checker` on each preset it plans for these tools (HC-40). At
+ARCH-10 both required presets reconcile:
 - `ucrt64-headless` configures 20 module targets and 67 module links; the eight renderer modules are absent with the
   renderer off;
 - `ucrt64-release` configures all 28, with all 97 source edges.

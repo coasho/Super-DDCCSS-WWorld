@@ -4,7 +4,10 @@
 
 A configure of this tree answers its own CMake File API query: cmake/ArchitectureChecks.cmake asks for the code model
 and the cache. The source parser (check.py) stays the ownership authority, because it reads every CMake branch; this
-gate holds one preset's configured graph to it, by target name:
+gate holds one preset's configured graph to it, by target name. The reply must be this build's (its source and build
+directories) and come from CMake 4.2 or later (HC-43): native builds stay supported from CMake 3.25, but an older
+CMake's configure leaves this gate failing with an actionable diagnostic and the preset's configured-graph
+acceptance pending.
 
 1. targets: a configured target with a source under src is a registered module target. A test target (one with a
    source under tests) may also compile an application module's sources, which have no library to link; those are
@@ -13,13 +16,15 @@ gate holds one preset's configured graph to it, by target name:
 3. links: every configured link between module targets (the code model's linkLibraries and interfaceLinkLibraries)
    is an edge of the source graph, and a link to any other target names a registered external target. A build-order
    dependency between module targets lies in the consumer's source closure.
-4. what this preset leaves out: a source edge between two configured modules is configured too, and a configured
-   module's providers are configured. A module may be absent only where its branch is disabled: a module the policy
-   marks non-headless with FSIM_WITH_RENDER off, a Python extension module (its destinations under a `python`
-   directory) with FSIM_BUILD_PYTHON off.
+4. branches: a module is configured exactly where its branch is enabled (HC-42). A module the policy marks
+   non-headless belongs to the FSIM_WITH_RENDER branch and a Python extension module (its destinations under a
+   `python` directory) to the FSIM_BUILD_PYTHON branch: absent when that option is off, present - like every other
+   module - when it is on. A source edge between two configured modules is configured too, and a configured module's
+   providers are configured.
 5. include directories: none is src or an ancestor of it. A directory under src lies in the destinations of the module
    or of a module in its source closure, and an include view (build/<preset>/include-views/<target>) is that module's
-   or a closure module's. The others must be the public include root, vendor code (third_party), a system directory or
+   or a closure module's, whether or not the include is marked SYSTEM: SYSTEM changes compiler diagnostics, not
+   ownership (HC-38). The others must be the public include root, vendor code (third_party), a SYSTEM directory or
    outside the repository.
 
 Exit 0 accepted, 1 rejected, 2 no usable reply or another input error: a preset without a reply is pending, not
@@ -35,33 +40,57 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import check  # noqa: E402
 
 MIN_CODEMODEL = (2, 9)  # (linkLibraries and interfaceLinkLibraries: the direct link items)
+MIN_CMAKE = (4, 2)  # (the user's compatibility decision for this gate, HC-43; native builds keep CMake 3.25)
+REQUIREMENT = ("architecture_configured needs CMake 4.2 or later (native builds remain supported from CMake 3.25); "
+               "configure this preset with CMake 4.2+ to check its configured graph. Until then its configured-graph "
+               "acceptance is pending, not passed")
 
 
 class InputError(Exception):
     pass
 
 
+def cache_version(build):
+    """The CMake version that configured `build`, from its CMakeCache.txt, or None."""
+    values = {}
+    try:
+        lines = (build / "CMakeCache.txt").read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        for part in ("MAJOR", "MINOR", "PATCH"):
+            if line.startswith(f"CMAKE_CACHE_{part}_VERSION:INTERNAL="):
+                values[part] = line.split("=", 1)[1]
+    return ".".join(values[p] for p in ("MAJOR", "MINOR", "PATCH")) if len(values) == 3 else None
+
+
 def load_reply(build):
-    """The newest reply index's code model, its targets and its cache entries."""
+    """The newest reply index's code model, its targets, its cache entries and the CMake version that wrote it."""
     reply = build / ".cmake" / "api" / "v1" / "reply"
     indexes = sorted(reply.glob("index-*.json"))
     if not indexes:
-        raise InputError(f"no CMake File API reply in {reply}: configure this build again (cmake/ArchitectureChecks.cmake "
-                         "asks for the code model); the configured graph is pending, not passed")
-    entries = json.loads(indexes[-1].read_text(encoding="utf-8")).get("reply", {})
+        configured_with = cache_version(build)
+        raise InputError(f"no CMake File API reply in {reply}"
+                         + (f" (this build was configured with CMake {configured_with})" if configured_with else "")
+                         + f": {REQUIREMENT}; with CMake 4.2+, configure this build again")
+    index = json.loads(indexes[-1].read_text(encoding="utf-8"))
+    version = index.get("cmake", {}).get("version", {})
+    if (version.get("major", 0), version.get("minor", 0)) < MIN_CMAKE:
+        raise InputError(f"this build's reply is from CMake {version.get('string', 'of an unknown version')}: {REQUIREMENT}")
+    entries = index.get("reply", {})
     if "codemodel-v2" not in entries or "cache-v2" not in entries:
         raise InputError(f"the reply in {reply} has no code model or no cache: configure this build again")
     model = json.loads((reply / entries["codemodel-v2"]["jsonFile"]).read_text(encoding="utf-8"))
-    version = (model["version"]["major"], model["version"]["minor"])
-    if version < MIN_CODEMODEL:
+    codemodel = (model["version"]["major"], model["version"]["minor"])
+    if codemodel < MIN_CODEMODEL:
         raise InputError("code model %d.%d has no direct link items; CMake must reply with %d.%d or later"
-                         % (version + MIN_CODEMODEL))
+                         % (codemodel + MIN_CODEMODEL))
     cache = json.loads((reply / entries["cache-v2"]["jsonFile"]).read_text(encoding="utf-8"))
     targets = {}
     for configuration in model["configurations"]:
         for entry in configuration["targets"]:
             targets[entry["id"]] = json.loads((reply / entry["jsonFile"]).read_text(encoding="utf-8"))
-    return model, targets, {entry["name"]: entry["value"] for entry in cache["entries"]}
+    return model, targets, {entry["name"]: entry["value"] for entry in cache["entries"]}, version["string"]
 
 
 def enabled(value):
@@ -79,9 +108,11 @@ def relative(path, root):
 def analyze(repo, build, policy):
     """(issues, facts) for one configured build."""
     repo, build = repo.resolve(), build.resolve()
-    model, targets, cache = load_reply(build)
+    model, targets, cache, cmake_version = load_reply(build)
     if Path(model["paths"]["source"]).resolve() != repo:
         raise InputError(f"the reply is of {model['paths']['source']}, not {repo}")
+    if Path(model["paths"]["build"]).resolve() != build:
+        raise InputError(f"the reply is of the build {model['paths']['build']}, not {build}")  # (HC-42)
     for option in ("FSIM_WITH_RENDER", "FSIM_BUILD_PYTHON"):
         if option not in cache:
             raise InputError(f"the configure's cache has no {option}")
@@ -161,9 +192,10 @@ def analyze(repo, build, policy):
             for include in group.get("includes", []):
                 path = Path(include["path"]).resolve()
                 inside = relative(path, repo)
+                # (owned paths first: a SYSTEM mark changes diagnostics, not ownership - HC-38)
                 if path == source_root or relative(source_root, path) is not None:
                     issue("broad-include-root", name, f"includes {path}, which holds the whole src tree")
-                elif inside is None or include.get("isSystem"):
+                elif inside is None:
                     continue
                 elif relative(path, source_root) is not None:
                     if not any(relative(path, directory) is not None for directory in allowed_dirs):
@@ -174,18 +206,30 @@ def analyze(repo, build, policy):
                         issue("unknown-include-view", name, f"includes the view {view}, which is no module's")
                     elif view not in views:
                         issue("include-outside-closure", name, f"includes {module_of[view]}'s view outside its source closure")
+                elif include.get("isSystem"):
+                    continue  # (vendor or dependency-prefix directories inside the checkout)
                 elif inside.split("/", 1)[0] not in {"include", "third_party"}:
                     issue("unclassified-include", name, f"includes {inside}: not a view, a destination, the public "
                           "include root or vendor code")
     render, python = enabled(cache["FSIM_WITH_RENDER"]), enabled(cache["FSIM_BUILD_PYTHON"])
+
+    def disabled(module):
+        """Why `module`'s branch is off in this configure, or None."""
+        if all("python" in directory.split("/") for directory in modules[module]["destinations"]) and not python:
+            return "FSIM_BUILD_PYTHON is off"
+        if not modules[module]["headless"] and not render:
+            return "FSIM_WITH_RENDER is off"
+        return None
+
     absent = {}
-    for module in sorted(set(modules) - configured):
-        python_module = all("python" in directory.split("/") for directory in modules[module]["destinations"])
-        if python_module and not python:
-            absent[module] = "FSIM_BUILD_PYTHON is off"
-        elif not modules[module]["headless"] and not render:
-            absent[module] = "FSIM_WITH_RENDER is off"
-        else:
+    for module in sorted(modules):
+        off = disabled(module)
+        if module in configured and off:
+            issue("disabled-branch-module", module, f"configured although {off}: this reply does not match its own "
+                  "branch options")
+        elif module not in configured and off:
+            absent[module] = off
+        elif module not in configured:
             issue("unconfigured-module", module, "not configured, though its branch is enabled here (FSIM_WITH_RENDER %s, "
                   "FSIM_BUILD_PYTHON %s)" % (cache["FSIM_WITH_RENDER"], cache["FSIM_BUILD_PYTHON"]))
     for consumer in sorted(configured):
@@ -195,7 +239,8 @@ def analyze(repo, build, policy):
             elif (consumer, provider) not in edges:
                 issue("missing-configured-edge", consumer, f"the source graph's link to {provider} is not configured here")
     facts = {
-        "build": build.as_posix(), "codemodel": "%d.%d" % (model["version"]["major"], model["version"]["minor"]),
+        "build": build.as_posix(), "cmake": cmake_version,
+        "codemodel": "%d.%d" % (model["version"]["major"], model["version"]["minor"]),
         "cache": {"FSIM_WITH_RENDER": cache["FSIM_WITH_RENDER"], "FSIM_BUILD_PYTHON": cache["FSIM_BUILD_PYTHON"],
                   "CMAKE_BUILD_TYPE": cache.get("CMAKE_BUILD_TYPE", "")},
         "targets": len(targets), "modules_configured": sorted(configured), "modules_absent": absent,
@@ -226,7 +271,8 @@ def main():
         return 1
     absent = ", ".join(f"{m} ({why})" for m, why in facts["modules_absent"].items()) or "none"
     tested = "; ".join(f"{t} ({', '.join(v['modules'])})" for t, v in sorted(facts["test_compiled_application_sources"].items()))
-    print(f"Configured graph accepted ({facts['build']}, code model {facts['codemodel']}): {facts['targets']} targets, "
+    print(f"Configured graph accepted ({facts['build']}, CMake {facts['cmake']}, code model {facts['codemodel']}): "
+          f"{facts['targets']} targets, "
           f"{len(facts['modules_configured'])} module targets configured; absent: {absent}.")
     print(f"Module links: {len(facts['module_links'])} configured, each a source-graph edge, and every source edge between "
           f"configured modules configured; external: {', '.join(facts['external_links']) or 'none'}.")

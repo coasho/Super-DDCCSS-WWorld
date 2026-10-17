@@ -33,6 +33,13 @@ set_tests_properties(architecture_boundary architecture_checker sdk_guard_checke
 # configure's own CMake File API code model and cache, held to the source graph the gate above reads from every branch.
 # cmake_file_api() (CMake 3.27+) requests it for this run; without that command the query file is answered from the
 # next configure, and the gate fails until a reply exists - a preset without one is pending, not passed.
+# The gate needs CMake 4.2 or later (HC-43, the user's compatibility decision): native builds stay supported from CMake
+# 3.25, and with an older CMake the test is still registered and fails with an actionable diagnostic, leaving this
+# preset's configured-graph acceptance pending rather than passed.
+if(CMAKE_VERSION VERSION_LESS 4.2)
+    message(WARNING "architecture_configured needs CMake 4.2 or later; with CMake ${CMAKE_VERSION} it fails, and this "
+                    "preset's configured-graph acceptance stays pending (native builds remain supported from CMake 3.25)")
+endif()
 if(COMMAND cmake_file_api)
     cmake_file_api(QUERY API_VERSION 1 CODEMODEL 2 CACHE 2)
 else()

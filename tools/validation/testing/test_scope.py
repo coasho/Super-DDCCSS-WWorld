@@ -725,6 +725,43 @@ class PresetEscalationTest(unittest.TestCase):
                     self.assertEqual(set(report["presets"][preset]["selected"]), self.names(inventory), preset)
                     self.assertEqual(report["presets"][preset]["plan"]["escalate"], ["%s (build system)" % path])
 
+    # HC-39: the module, example and tool CMake declarations both configures read, at their real depths
+    NESTED = ["src/foundation/core/CMakeLists.txt", "src/foundation/platform/CMakeLists.txt", "src/simulation/flight/CMakeLists.txt",
+              "src/simulation/communications/dms/CMakeLists.txt", "src/adapters/sdk/CMakeLists.txt",
+              "src/adapters/sdk/python/CMakeLists.txt", "src/training/native/CMakeLists.txt", "src/applications/headless/CMakeLists.txt",
+              "src/contracts/CMakeLists.txt", "examples/CMakeLists.txt", "examples/training/ppo_trainer/CMakeLists.txt",
+              "tools/CMakeLists.txt", "tools/data/tile_prefetch/CMakeLists.txt", "tools/models/hangar/native/CMakeLists.txt"]
+    RENDER_ONLY_CMAKE = ["src/visualization/ui/CMakeLists.txt", "src/visualization/vfx/flow/CMakeLists.txt",
+                         "src/adapters/vision/CMakeLists.txt", "src/adapters/vision/python/CMakeLists.txt",
+                         "src/applications/viewer/CMakeLists.txt", "examples/visualization/vision_capture/CMakeLists.txt",
+                         "tools/models/rcs/CMakeLists.txt", "tools/validation/flow_calibrate/CMakeLists.txt"]
+
+    def test_nested_shared_cmake_inputs_plan_and_escalate_both_presets(self):
+        for path in self.NESTED:
+            with self.subTest(path=path):
+                status, report = self.plan([path])
+                self.assertEqual(status, 0, report["errors"])
+                self.assertEqual(list(report["presets"]), [scope.HEADLESS, scope.RELEASE])
+                for preset, inventory in ((scope.HEADLESS, self.HEADLESS), (scope.RELEASE, self.RELEASE)):
+                    self.assertEqual(set(report["presets"][preset]["selected"]), self.names(inventory), preset)
+                    self.assertIn("%s (build system)" % path, report["presets"][preset]["plan"]["escalate"])
+
+    def test_a_nested_shared_cmake_input_beside_a_renderer_change_escalates_both_suites(self):
+        # (the review's probe: core's CMake file plus a UI source planned Release 68 of 780 with no escalation)
+        status, report = self.plan(["src/foundation/core/CMakeLists.txt", "src/visualization/ui/MonitorGui.cpp"])
+        self.assertEqual(status, 0, report["errors"])
+        self.assertEqual(set(report["presets"][scope.RELEASE]["selected"]), self.names(self.RELEASE))
+        self.assertEqual(set(report["presets"][scope.HEADLESS]["selected"]), self.names(self.HEADLESS))
+
+    def test_render_only_cmake_inputs_keep_their_release_routing(self):
+        for path in self.RENDER_ONLY_CMAKE:
+            with self.subTest(path=path):
+                status, report = self.plan([path])
+                self.assertEqual(status, 0, report["errors"])
+                self.assertEqual(list(report["presets"]), [scope.RELEASE])
+                self.assertEqual(report["presets"][scope.RELEASE]["plan"]["escalate"], [])
+                self.assertEqual(set(report["presets"][scope.RELEASE]["selected"]), self.RENDER)
+
     def test_a_build_input_beside_a_renderer_change_escalates_both_suites(self):
         status, report = self.plan(["CMakeLists.txt", "src/visualization/ui/MonitorGui.cpp"])
         self.assertEqual(status, 0, report["errors"])
@@ -760,6 +797,118 @@ class PresetEscalationTest(unittest.TestCase):
         text = scope.show(report)
         self.assertIn("escalates ucrt64-headless to the full suite: src/simulation/runtime/world/World.cpp", text)
         self.assertNotIn("escalates ucrt64-release", text)
+
+
+class ArchitectureGatesRequiredTest(unittest.TestCase):
+    """HC-40: the architecture checker's scope requires its gates - the configured graph and its checker among them - on
+    each preset it plans. A nonempty architecture label is no evidence that they ran: a missing registration fails
+    before any build is listed again or any runner starts."""
+
+    PATHS = ["tools/architecture/configured.py", "tools/architecture/check.py", "cmake/ArchitectureChecks.cmake"]
+    GATES = ["architecture_boundary", "architecture_checker", "architecture_configured", "architecture_configured_checker"]
+    OTHER = ["sdk_boundary", "include_view_core"]
+
+    def setUp(self):
+        self.calls = []
+        self.tmp = tempfile.TemporaryDirectory()
+        self.inventories = {preset: self.inventory(self.GATES) for preset in (scope.HEADLESS, scope.RELEASE)}
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def inventory(self, gates):
+        tests = synthetic(self.OTHER + list(gates))
+        for t in tests:
+            t["labels"] = ["architecture"]
+        return tests
+
+    def discover(self, preset):
+        self.calls.append("list " + preset)
+        return self.inventories.get(preset)
+
+    def plan_only(self, paths):
+        return scope.select(list(paths), scope.load_rules(), "targeted", 16, run=False, executables={}, dependents={}, readers={},
+                            discover=self.discover, measured=lambda preset: {}, evidence=None)
+
+    def run_select(self, paths, builder):
+        def run(command, log):
+            preset = command[2]
+            names = [t["name"] for t in self.inventories[preset] if str(t["index"]) in command[-1].split(",")[3:]] \
+                if "-I" in command else [t["name"] for t in self.inventories[preset]]
+            self.calls.append("run " + preset)
+            Path(log).write_text("".join(" %d/%d Test #%d: %s ....   Passed    1.00 sec\n" % (k + 1, len(names), k + 1, n)
+                                         for k, n in enumerate(names)), encoding="utf-8")
+            return 0
+        return scope.select(list(paths), scope.load_rules(), "targeted", 16, run=True, build=True, log_dir=self.tmp.name,
+                            executables={}, dependents={}, readers={}, discover=self.discover, builder=builder,
+                            runner=run, measured=lambda preset: {}, recorder=lambda logs, preset: 0, evidence=None)
+
+    def test_a_valid_inventory_selects_every_gate_on_both_presets(self):
+        for path in self.PATHS:
+            with self.subTest(path=path):
+                status, report = self.plan_only([path])
+                self.assertEqual(status, 0, report["errors"])
+                self.assertEqual(list(report["presets"]), [scope.HEADLESS, scope.RELEASE])
+                for preset in (scope.HEADLESS, scope.RELEASE):
+                    self.assertLessEqual(set(self.GATES), set(report["presets"][preset]["selected"]))
+
+    def test_an_inventory_with_only_the_legacy_gate_fails_on_each_preset(self):
+        # (the review's probe: each inventory holds architecture_boundary alone)
+        self.inventories = {preset: self.inventory(["architecture_boundary"]) for preset in (scope.HEADLESS, scope.RELEASE)}
+        status, report = self.plan_only(["tools/architecture/configured.py"])
+        self.assertEqual(status, 3)
+        errors = [e for e in report["errors"] if e["reason"] == "missing-required-tests"]
+        self.assertEqual([(e["preset"], e["scope"]) for e in errors],
+                         [(scope.HEADLESS, "architecture checker"), (scope.RELEASE, "architecture checker")])
+        for e in errors:
+            self.assertEqual(e["missing"], ["^architecture_checker$", "^architecture_configured$", "^architecture_configured_checker$"])
+
+    def test_both_configured_gates_missing_fails(self):
+        self.inventories[scope.RELEASE] = self.inventory(["architecture_boundary", "architecture_checker"])
+        status, report = self.plan_only(["tools/architecture/configured.py"])
+        self.assertEqual(status, 3)
+        self.assertEqual([(e["preset"], e["missing"]) for e in report["errors"]],
+                         [(scope.RELEASE, ["^architecture_configured$", "^architecture_configured_checker$"])])
+
+    def test_one_missing_gate_is_enough_to_fail_on_either_preset(self):
+        for preset in (scope.HEADLESS, scope.RELEASE):
+            for missing in self.GATES:
+                with self.subTest(preset=preset, missing=missing):
+                    self.inventories = {p: self.inventory(self.GATES) for p in (scope.HEADLESS, scope.RELEASE)}
+                    self.inventories[preset] = self.inventory([g for g in self.GATES if g != missing])
+                    status, report = self.plan_only(["tools/architecture/configured.py"])
+                    self.assertEqual(status, 3)
+                    self.assertEqual([(e["preset"], e["missing"]) for e in report["errors"]], [(preset, ["^%s$" % missing])])
+
+    def test_a_missing_gate_after_the_build_fails_before_any_runner_starts(self):
+        self.inventories[scope.RELEASE] = self.inventory(["architecture_boundary", "architecture_checker"])
+
+        def builder(preset):
+            self.calls.append("build " + preset)
+            return 0
+        status, report = self.run_select(["tools/architecture/configured.py"], builder)
+        self.assertEqual(status, 3)
+        self.assertEqual([e["reason"] for e in report["errors"]], ["missing-required-tests"])
+        self.assertFalse([c for c in self.calls if c.startswith("run")])
+
+    def test_the_post_build_inventory_is_the_one_checked(self):
+        # before the build the configured gates are unregistered; the build (a reconfigure) registers them
+        self.inventories = {preset: self.inventory(["architecture_boundary", "architecture_checker"])
+                            for preset in (scope.HEADLESS, scope.RELEASE)}
+
+        def builder(preset):
+            self.calls.append("build " + preset)
+            self.inventories[preset] = self.inventory(self.GATES)
+            return 0
+        status, report = self.run_select(["tools/architecture/configured.py"], builder)
+        self.assertEqual(status, 0, report["errors"])
+        self.assertEqual([c for c in self.calls if c.startswith("run")], ["run " + scope.HEADLESS, "run " + scope.RELEASE])
+
+    def test_a_documentation_change_does_not_require_the_gates(self):
+        self.inventories = {preset: self.inventory(["architecture_boundary"]) + synthetic(["ma_contract", "sdk_guard_checker"], 20)
+                            for preset in (scope.HEADLESS, scope.RELEASE)}
+        status, report = self.plan_only(["docs/architecture/README.md"])
+        self.assertEqual(status, 0, report["errors"])
 
 
 class RequiredTestsTest(unittest.TestCase):
@@ -1093,7 +1242,8 @@ class RulesTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.rules = scope.load_rules()
-        cls.files = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard", "--", ".", ":(exclude,glob)**/.codex/**"],
+        cls.files = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard", "--exclude=.codex", "--", ".",
+                                    ":(exclude,glob)**/.codex/**"],
                                    cwd=scope.REPO, capture_output=True, text=True, check=True).stdout.splitlines()
         cls.tests = scope.inventory(test_dir=ARGS.test_dir) if ARGS.test_dir else None
 
@@ -1123,6 +1273,28 @@ class RulesTest(unittest.TestCase):
                         self.assertTrue(r.get("release"), "a scope requiring ucrt64-release tests plans ucrt64-release")
                     else:
                         self.assertFalse(r.get("render_only"), "a render-only scope does not plan ucrt64-headless")
+
+    def test_every_tracked_cmake_input_is_routed(self):
+        """HC-39: a CMake declaration both configures read plans and escalates both presets; one only the renderer's
+        branch configures plans ucrt64-release alone; test and package scripts and consumer projects belong to their own
+        scopes, and a test's own script is named by the test that runs it. No CMake input falls through to a headless-only
+        plan."""
+        inputs = [f for f in self.files if f.endswith(("CMakeLists.txt", ".cmake")) or f.endswith("CMakePresets.json")]
+        self.assertGreater(len(inputs), 50)
+        registrations = (scope.REPO / "tests" / "CMakeLists.txt").read_text(encoding="utf-8")
+        for path in inputs:
+            with self.subTest(path=path):
+                p = scope.plan([path], self.rules, [], {}, "targeted", {}, {}, None)
+                if any("(build system)" in reason for reason in p["escalate"]):
+                    self.assertTrue(p["headless"] and p["release"], "a shared build input plans both presets")
+                elif "render-only roots" in p["scopes"]:
+                    self.assertFalse(p["headless"])
+                    self.assertTrue(p["release"])
+                elif set(p["scopes"]) & {"installed SDK package", "MA installed consumers", "architecture checker"}:
+                    self.assertEqual(p["escalate"], [])
+                else:
+                    self.assertTrue(path.startswith("tests/") and path in registrations,
+                                    "a CMake input outside the build system, the render-only roots and the script scopes")
 
     def test_every_path_pattern_matches_a_tracked_file(self):
         for r in self.rules:

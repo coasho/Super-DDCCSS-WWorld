@@ -135,3 +135,42 @@ The functional model goals stay outside this migration:
 
 Independent acceptance of this package. Then, on the user's assignment, the frozen-code full suites (HC-11) and the
 GUI and joint gates (HC-07) complete the final-program evidence.
+
+## 11. HC-38 to HC-43 correction (2026-10-17)
+
+Corrects the six items of the [independent review](arch-10-review-2026-10-17.md). Starting HEAD: `197a059`.
+
+The user's decision for HC-43 (2026-10-17):
+- native builds keep CMake 3.25 support;
+- `architecture_configured` requires CMake 4.2 or later;
+- with an older CMake it fails with an actionable diagnostic and leaves the preset's acceptance pending;
+- there is no closure-mode fallback.
+
+| ID | Correction | Regressions |
+| --- | --- | --- |
+| HC-38 | `configured.py` classifies owned paths first, whether or not the include is SYSTEM: a directory under `src` must lie in the destinations of the module or of a module in its closure, and an include view must belong to the same set. The SYSTEM allowance applies only afterwards, to vendor and dependency-prefix directories in the checkout | The two SYSTEM refusals (`src/sim`; `fsim_sim`'s view), and a SYSTEM control with owned, vendor, dependency-prefix and toolchain directories |
+| HC-39 | The `build system` scope claims every CMake file both configures read, at its real depth: `src/**`, `examples/**` and `tools/**` `CMakeLists.txt`. Two kinds stay out: what only the renderer's branch configures, which the render-only roots keep on Release alone, and the test and package scripts their own scopes claim. The installed SDK package scope now claims the equipment consumer project. HC-20's decision now holds at every depth | 14 nested paths (core, platform, flight, DMS, SDK, its Python extension, training, the headless application, contracts, examples, tools, Hangar's native library) plan and escalate both presets. Core's CMake file plus a UI source escalates both suites. 8 render-only CMake files keep their Release-only routing. `test_every_tracked_cmake_input_is_routed` checks all 131 CMake inputs in the repository |
+| HC-40 | The architecture checker's scope requires `architecture_boundary`, `architecture_checker`, `architecture_configured` and `architecture_configured_checker` on each preset it plans (`[scope.requires]`) | `ArchitectureGatesRequiredTest` (7 cases): the review's legacy-gate-only inventories, both configured gates missing, each one missing on either preset, a gate still missing after the build (stops before any runner), registration by the build (passes), a valid inventory, and a documentation change that needs none |
+| HC-41 | A new [provenance record](arch-10-provenance.json), committed after this correction against it as its base. Its source manifest lists: each package input hashed at the base commit, the two configured-checker files included; every working-tree path differing from the base, which is the other owners' edits and the 28 untracked planning inputs; and its own path, excluded by rule. A verifier recomputes all three | The verifier (`D:/ENV/tmp/arch10-fix/provenance.py`, SHA-256 `c35a69cc33915f2e`) rejects a changed hash, a dropped entry and the review's stale `scope.py` hash |
+| HC-42 | The reply's build directory must be the requested one. A module is configured exactly where its branch is on: a renderer or Python extension module configured with its option off fails as `disabled-branch-module`, and an absent one with its option on still fails | A wrong-build reply is an input error. Render-off replies with all, or only one, renderer module present are rejected, as is Python-off with the extension present. The absent-renderer and Python controls are kept |
+| HC-43 | `configured.py` reads the CMake version from the reply, or from the cache when there is none, and requires 4.2. The configure warns below 4.2, and the development guide and the tools README state the requirement | Replies from CMake 3.25.0, 3.31.6 and 4.1.2 are pending, with the diagnostic; 4.2.0 is accepted; with no reply, the diagnostic names the configuring version |
+
+Further details:
+- **Red evidence:**
+  - on the gate before this correction, 10 of the 37 configured-checker cases fail (12 with subtests);
+  - on the rules before it, 6 of the 10 new selector cases fail (25 with subtests);
+  - the controls pass on both.
+- **Count corrections (HC-41):**
+  - both inventories have 67 `python_sdk` tests, where section 3 says 69 and 68;
+  - the configured checker had 27 cases in total at `197a059`, acceptance controls included, where section 2 calls them negative. It now has 37.
+  - The 17 headless and 72 Release artifact hashes and both data digests are unchanged, and the new record retains them.
+- **Listing:** `RulesTest` now lists files with `--exclude=.codex` as well, so Git never descends into a `.codex` directory (HC-35's corrective measure).
+
+| Check (exclusive slot; exact names, `--no-tests=error`) | Result |
+| --- | --- |
+| Selector for the 7 changed code paths, with `--build`. Both presets reran CMake; nothing compiled | `ucrt64-headless` 29/29 (25.6 s), `ucrt64-release` 35/35 (28.1 s); the four architecture gates required and present on each |
+| Checker suites | `test_configured.py` 37, `test_scope.py` 101 (1 skipped without a build directory), `test_check.py` 144 |
+| Real configured graphs (CMake 4.4.3) | Both accepted: headless 20 modules and 67 links, the renderer modules absent; Release 28 and 97 |
+| Documentation | Planning checker: 52 documents, 30 native and 9 Python owners. Repository links: 107 files and 1,339 local links, none broken. Documentation tests: 3/3 |
+
+No full suite, GUI run or package gate was repeated (HC-11, HC-07). Logs and the before copies are in `D:/ENV/tmp/arch10-fix/`.

@@ -41,13 +41,17 @@ paths = ["docs/**", "*.md", "**/*.md"]
 tests = ["^ma_contract$", "^architecture_boundary$", "^sdk_guard_checker$"]
 build = false
 
-# (each preset's own configured graph is reconciled with the source graph - architecture_configured - so both run it)
+# (each preset's own configured graph is reconciled with the source graph - architecture_configured - so both run it.
+# A nonempty architecture label is no evidence that the gates ran: each preset must have them (HC-40))
 [[scope]]
 name = "architecture checker"
 paths = ["tools/architecture/**", "cmake/ArchitectureChecks.cmake"]
 labels = ["architecture"]
 build = false
 release = true
+[scope.requires]
+ucrt64-headless = ["^architecture_boundary$", "^architecture_checker$", "^architecture_configured$", "^architecture_configured_checker$"]
+ucrt64-release = ["^architecture_boundary$", "^architecture_checker$", "^architecture_configured$", "^architecture_configured_checker$"]
 
 [[scope]]
 name = "SDK principals"
@@ -169,7 +173,8 @@ labels = ["launcher"]
 
 [[scope]]
 name = "installed SDK package"
-paths = ["tests/compatibility/package_consumer/**", "cmake/RunPackageConsumer.cmake", "cmake/RunEquipmentPackageConsumer.cmake",
+paths = ["tests/compatibility/package_consumer/**", "tests/compatibility/equipment_package_consumer/**",
+         "cmake/RunPackageConsumer.cmake", "cmake/RunEquipmentPackageConsumer.cmake",
          "cmake/PackageConfig.cmake", "cmake/CleanDist.cmake", "cmake/TestDistComponents.cmake"]
 labels = ["package"]
 
@@ -211,13 +216,18 @@ render_only = true
 
 # --- escalate: what every test depends on -------------------------------------------------------------------------------
 # Shared build inputs configure both presets, the renderer's branches included, so they plan and escalate both (HC-20):
-# planning a full suite never authorizes running it (HC-11).
+# planning a full suite never authorizes running it (HC-11). That is every CMake declaration both configures read, at
+# its real depth (HC-39): each module's under src, the examples' and tools' - but not what only the renderer's branch
+# configures, which the render-only roots route to ucrt64-release alone, nor the test and package scripts and consumer
+# projects that their own scopes claim.
 [[scope]]
 name = "build system"
-paths = ["CMakeLists.txt", "CMakePresets.json", "cmake/**", "deps/**", "third_party/**", "src/CMakeLists.txt", "src/*/CMakeLists.txt",
-         "tests/CMakeLists.txt", "python/CMakeLists.txt"]
+paths = ["CMakeLists.txt", "CMakePresets.json", "cmake/**", "deps/**", "third_party/**", "src/**/CMakeLists.txt",
+         "examples/**/CMakeLists.txt", "tools/**/CMakeLists.txt", "tests/CMakeLists.txt", "python/CMakeLists.txt"]
 except = ["cmake/RunMissionPackageConsumer.cmake", "cmake/ArchitectureChecks.cmake", "cmake/RunPackageConsumer.cmake",
-          "cmake/RunEquipmentPackageConsumer.cmake", "cmake/PackageConfig.cmake", "cmake/CleanDist.cmake", "cmake/TestDistComponents.cmake"]
+          "cmake/RunEquipmentPackageConsumer.cmake", "cmake/PackageConfig.cmake", "cmake/CleanDist.cmake", "cmake/TestDistComponents.cmake",
+          "src/visualization/**", "src/adapters/vision/**", "src/applications/viewer/**", "examples/visualization/vision_capture/**",
+          "tools/models/rcs/**", "tools/validation/flow_calibrate/**"]
 full = true
 release = true
 

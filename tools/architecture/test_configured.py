@@ -31,7 +31,9 @@ class ConfiguredFixtures(FixtureRepository):
         self.build = self.repo / "build"
         self.cache = {"FSIM_WITH_RENDER": "ON", "FSIM_BUILD_PYTHON": "ON", "CMAKE_BUILD_TYPE": "Release"}
         self.version = (2, 11)
+        self.cmake = (4, 4, 3)
         self.source = self.repo
+        self.reply_build = self.build
         self.targets = {}
         for name, module in self.policy["modules"].items():
             self.targets[module["target"]] = {
@@ -59,12 +61,14 @@ class ConfiguredFixtures(FixtureRepository):
             (reply / f"target-{name}.json").write_text(json.dumps(data), encoding="utf-8")
             entries.append({"name": name, "id": ids[name], "jsonFile": f"target-{name}.json"})
         model = {"kind": "codemodel", "version": {"major": self.version[0], "minor": self.version[1]},
-                 "paths": {"source": str(self.source), "build": str(self.build)},
+                 "paths": {"source": str(self.source), "build": str(self.reply_build)},
                  "configurations": [{"name": "Release", "targets": entries}]}
         (reply / "codemodel-v2-fixture.json").write_text(json.dumps(model), encoding="utf-8")
         cache = {"kind": "cache", "entries": [{"name": key, "value": value, "type": "STRING"} for key, value in self.cache.items()]}
         (reply / "cache-v2-fixture.json").write_text(json.dumps(cache), encoding="utf-8")
-        index = {"reply": {"codemodel-v2": {"jsonFile": "codemodel-v2-fixture.json"},
+        index = {"cmake": {"version": dict(zip(("major", "minor", "patch"), self.cmake),
+                                           string=".".join(map(str, self.cmake)))},
+                 "reply": {"codemodel-v2": {"jsonFile": "codemodel-v2-fixture.json"},
                            "cache-v2": {"jsonFile": "cache-v2-fixture.json"}}}
         (reply / "index-2026-10-17T00-00-00-0000.json").write_text(json.dumps(index), encoding="utf-8")
 
@@ -221,6 +225,53 @@ class ConfiguredFixtures(FixtureRepository):
         self.target("core")["includes"].append(str(self.repo / "generated"))
         self.rejects("unclassified-include", "fsim_core: includes generated")
 
+    def test_a_system_include_of_a_foreign_src_directory_is_rejected(self):
+        # HC-38: SYSTEM changes compiler diagnostics, not ownership
+        self.target("core")["includes"].append((str(self.repo / "src" / "sim"),))
+        self.rejects("include-outside-closure", "fsim_core: includes src/sim, outside its and its providers' destinations")
+
+    def test_a_system_include_of_a_foreign_include_view_is_rejected(self):
+        self.target("core")["includes"].append((str(self.build / "include-views" / "fsim_sim"),))
+        self.rejects("include-outside-closure", "fsim_core: includes sim's view outside its source closure")
+
+    def test_system_includes_of_owned_vendor_and_toolchain_directories_are_accepted(self):
+        self.target("core")["includes"] += [(str(self.repo / "src" / "platform"),),
+                                            (str(self.build / "include-views" / "fsim_platform"),),
+                                            (str(self.repo / "third_party" / "external"),),
+                                            (str(self.build / "deps" / "install" / "include"),),
+                                            (str(Path(sys.executable).resolve().parent),)]
+        status, output = self.run_configured()
+        self.assertEqual(status, 0, output)
+
+    # --- branches: absent where disabled, present where enabled (HC-42) --------------------------------------------------
+
+    def test_renderer_modules_configured_with_the_renderer_off_are_rejected(self):
+        self.cache["FSIM_WITH_RENDER"] = "OFF"
+        status, output = self.run_configured()
+        self.assertEqual(status, 1, output)
+        for module in ("render", "world", "flow", "viewer"):
+            self.assertIn(f"disabled-branch-module: {module}: configured although FSIM_WITH_RENDER is off", output)
+
+    def test_one_renderer_module_left_with_the_renderer_off_is_rejected(self):
+        self.cache["FSIM_WITH_RENDER"] = "OFF"
+        for name in ("render", "world", "viewer"):
+            del self.targets[self.policy["modules"][name]["target"]]
+        self.rejects("disabled-branch-module", "flow: configured although FSIM_WITH_RENDER is off")
+
+    def test_a_python_extension_module_configured_with_the_python_sdk_off_is_rejected(self):
+        self.write("src/adapters/sdk/python/CMakeLists.txt", "add_library(fsim_python MODULE _native.c)\n")
+        self.write("src/adapters/sdk/python/_native.c", "/* native */\n")
+        self.policy["modules"]["python_native"] = {
+            "target": "fsim_python", "aliases": [], "domain": "adapters", "kind": "assembly", "directories": [],
+            "destinations": ["src/adapters/sdk/python"], "files": [], "allowed_dependencies": [], "headless": True}
+        self.targets["fsim_python"] = {"sources": ["src/adapters/sdk/python/_native.c"], "links": [], "deps": [],
+                                       "includes": []}
+        self.cache["FSIM_BUILD_PYTHON"] = "OFF"
+        self.rejects("disabled-branch-module", "python_native: configured although FSIM_BUILD_PYTHON is off")
+        self.cache["FSIM_BUILD_PYTHON"] = "ON"
+        status, output = self.run_configured()
+        self.assertEqual(status, 0, output)
+
     # --- the source graph and the reply itself -------------------------------------------------------------------------
 
     def test_the_source_graphs_own_violations_are_reported(self):
@@ -228,7 +279,38 @@ class ConfiguredFixtures(FixtureRepository):
         self.rejects("source-graph: undeclared-include", "src/ms/Header.h")
 
     def test_without_a_reply_the_preset_is_pending_not_passed(self):
-        self.input_error("the configured graph is pending, not passed", reply=False)
+        self.input_error("configured-graph acceptance is pending, not passed", reply=False)
+
+    def test_without_a_reply_the_configuring_cmake_version_is_named(self):
+        # (an older CMake answers only query files, from its next configure, and never with direct link items)
+        self.write("build/CMakeCache.txt", "CMAKE_CACHE_MAJOR_VERSION:INTERNAL=3\nCMAKE_CACHE_MINOR_VERSION:INTERNAL=25\n"
+                                           "CMAKE_CACHE_PATCH_VERSION:INTERNAL=0\n")
+        status, output = self.run_configured(reply=False)
+        self.assertEqual(status, 2, output)
+        self.assertIn("this build was configured with CMake 3.25.0", output)
+        self.assertIn("architecture_configured needs CMake 4.2 or later (native builds remain supported from CMake 3.25)",
+                      output)
+
+    def test_a_reply_from_cmake_older_than_4_2_is_pending_with_an_actionable_diagnostic(self):
+        for cmake, codemodel in (((3, 25, 0), (2, 4)), ((3, 31, 6), (2, 7)), ((4, 1, 2), (2, 9))):
+            with self.subTest(cmake=cmake):
+                self.cmake, self.version = cmake, codemodel
+                status, output = self.run_configured()
+                self.assertEqual(status, 2, output)
+                self.assertIn("this build's reply is from CMake %d.%d.%d" % cmake, output)
+                self.assertIn("configure this preset with CMake 4.2+ to check its configured graph", output)
+                self.assertIn("configured-graph acceptance is pending, not passed", output)
+
+    def test_cmake_4_2_is_accepted(self):
+        self.cmake = (4, 2, 0)
+        status, output = self.run_configured()
+        self.assertEqual(status, 0, output)
+        self.assertIn("CMake 4.2.0", output)
+
+    def test_a_reply_of_another_build_is_an_input_error(self):
+        # HC-42: the reply must be the requested build's, not another preset's
+        self.reply_build = self.repo / "other-build"
+        self.input_error("the reply is of the build")
 
     def test_a_code_model_without_direct_link_items_is_an_input_error(self):
         self.version = (2, 8)
