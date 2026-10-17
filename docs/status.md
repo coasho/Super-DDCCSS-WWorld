@@ -627,6 +627,26 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
+## HC-13 renderer-coverage requirement (2026-10-16, awaiting independent acceptance)
+
+The `9e66811` recheck's remaining P2: a renderer change's `ucrt64-release` plan passed on an inventory without renderer
+tests, through the render scope's generic names. The ARCH-06 record's section 11 has the details.
+
+- **Requirement:** a path only the renderer builds makes the Release plan select every `render`-labelled test; an
+  inventory without one is a `no-renderer-coverage` error in every tier, for rules and compile-database evidence alike.
+- **Lifecycle:** checked on the inventory listed after any build, before any runner starts (exit 3).
+- **Regressions:** a realistic negative fixture (`sdk_boundary` and the Python Vision tests, no renderer test) over
+  tiers, mixed escalation, evidence, plan-only and run lifecycles; controls for the post-build refresh and a valid
+  inventory; the review's probe on the real headless inventory.
+
+| Verification | Result |
+| --- | --- |
+| The review's probe, real headless inventory as Release | HEAD exit 0 (runs start); corrected exit 3 in all six cases, nothing run |
+| Real Release control | 64 of 769 targeted, all 59 render tests |
+| `testing_scope_checker`, both presets | 69/69 and 69/69 |
+
+No product source changed and no full suite ran (HC-11).
+
 ## HC-13 Release selection for renderer changes (2026-10-16, awaiting independent acceptance)
 
 The ARCH-06 review's P2: a scene, UI or Flow change was planned on `ucrt64-headless` alone, which does not compile it,

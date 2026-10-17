@@ -193,7 +193,10 @@ viewer, the renderer's tools and example, and the render tests. The `render-only
 the `render`-labelled tests, which are every test only the renderer builds. For these paths alone, `ucrt64-headless` is
 not planned. Independently of the rules, a changed path that the presets' compile databases show is compiled only in
 `ucrt64-release` also plans that preset: a source, or a file in a directory holding only such sources. A missing
-`ucrt64-release` inventory or a failed build of it is an error, not a headless pass. `testing_scope_checker` holds the
+`ucrt64-release` inventory or a failed build of it is an error, not a headless pass. Such a plan then requires and
+selects every `render`-labelled test of the `ucrt64-release` inventory, as listed after any build. An inventory without
+one (a stale or renderer-disabled configure) is a `no-renderer-coverage` error before any test starts; `sdk_boundary`
+and the Python Vision and camera tests that the scope also names cannot stand in for it. `testing_scope_checker` holds the
 rules to the real builds: every source compiled only with the renderer is claimed by the render-only scope, and every
 test only the renderer builds carries the label.
 

@@ -53,6 +53,7 @@ def find_ctest():
 
 CTEST = find_ctest()
 HEADLESS, RELEASE = "ucrt64-headless", "ucrt64-release"
+RENDER = "render"  # every test only the renderer builds: what a renderer change must run on ucrt64-release
 STRESS = "stress"  # long contention cases: in the targeted tier only when a matched scope names this label or they depend on the change
 NATIVE = (".c", ".cc", ".cpp", ".h", ".hpp", ".inl", ".cmake", ".txt", ".json", ".toml", ".xml", ".py", ".glsl", ".comp", ".vert", ".frag")
 ESCALATING = ("src/", "include/", "python/src/", "deps/")
@@ -332,19 +333,25 @@ def direct_tests(path, tests, executables, dependents):
     return found, compiled
 
 
-def plan(paths, rules, tests, executables, tier="targeted", dependents=None, readers=None, evidence=None):
+def plan(paths, rules, tests, executables, tier="targeted", dependents=None, readers=None, evidence=None, preset=None):
     """What `paths` need: {"scopes", "escalate" (reasons), "release" (reasons), "headless" (whether ucrt64-headless
-    builds any of them), "build", "selected" (test names), "unmatched", "errors" ([{"reason", "paths", ...}]: an unclaimed
-    path, a required Python test module with no CTest test registered, an empty selection or no changes)}. `evidence`
-    (release_only) marks the paths compiled only with the renderer."""
+    builds any of them), "renderer" (the paths only the renderer builds), "build", "selected" (test names), "unmatched",
+    "errors" ([{"reason", "paths", ...}]: an unclaimed path, a required Python test module with no CTest test registered,
+    no renderer test where a renderer change needs one, an empty selection or no changes)}. `evidence` (release_only)
+    marks the paths compiled only with the renderer. Planned on ucrt64-release (`preset`), a renderer change selects
+    every `render`-labelled test of that inventory, whatever the tier, and an inventory without one is an error: generic
+    matches (sdk_boundary, Python Vision) supplement that coverage, never stand in for it."""
     dependents, readers = dependents or {}, readers or {}
     selected, matched, escalate, release, unmatched, direct_all = set(), [], [], [], [], set()
     required = {}  # python/tests module -> the changed paths that need its tests (it exists: the import closure holds it)
     build = False
     headless = not paths
+    renderer = []  # the changed paths only the renderer builds (a render-only scope claims them, or the compile databases say)
     for path in paths:
         hits = [r for r in rules if any(glob_match(path, p) for p in r.get("paths", [])) and not any(glob_match(path, p) for p in r.get("except", []))]
         rendered = is_release_only(path, evidence)
+        if rendered or any(r.get("render_only") for r in hits):
+            renderer.append(path)
         # ucrt64-headless builds the path unless every scope claiming it is render-only, or (claimed by none) the compile
         # databases show it built only with the renderer
         if any(not r.get("render_only") for r in hits) or (not hits and not rendered):
@@ -396,6 +403,14 @@ def plan(paths, rules, tests, executables, tier="targeted", dependents=None, rea
     if tier == "full" or escalate:
         selected = {t["name"] for t in tests}
     errors = []
+    if preset == RELEASE and renderer:
+        rendered_tests = {t["name"] for t in tests if RENDER in t["labels"]}
+        selected |= rendered_tests
+        if not rendered_tests:
+            errors.append({"reason": "no-renderer-coverage", "paths": renderer,
+                           "detail": "these paths are built only with the renderer, and this %s inventory has no '%s' test: "
+                                     "configure and build it with the renderer (FSIM_WITH_RENDER), then select again"
+                                     % (RELEASE, RENDER)})
     escalated = {reason.split(" (", 1)[0] for reason in escalate}
     unclaimed = [path for path in unmatched if path not in escalated]
     if not paths and tier != "full":
@@ -415,8 +430,8 @@ def plan(paths, rules, tests, executables, tier="targeted", dependents=None, rea
     if paths and not selected:
         errors.append({"reason": "empty-selection", "paths": list(paths), "scopes": list(matched),
                        "detail": "the changes select no test in this inventory"})
-    return {"scopes": matched, "escalate": escalate, "release": release, "headless": headless, "build": build or bool(escalate) or bool(release),
-            "selected": sorted(selected), "unmatched": unmatched, "errors": errors}
+    return {"scopes": matched, "escalate": escalate, "release": release, "headless": headless, "renderer": renderer,
+            "build": build or bool(escalate) or bool(release), "selected": sorted(selected), "unmatched": unmatched, "errors": errors}
 
 
 def estimate(chosen, cost, jobs):
@@ -483,7 +498,7 @@ def select(paths, rules, tier, jobs, run=False, build=False, log_dir=None, execu
             report["errors"].append({"reason": "no-inventory", "preset": preset, "paths": [],
                                      "detail": "configure and build %s" % preset})
             continue
-        p = plan(paths, rules, tests, executables, tier, dependents, readers, evidence)
+        p = plan(paths, rules, tests, executables, tier, dependents, readers, evidence, preset)  # (after any build: its inventory)
         names = set(p["selected"])
         chosen = [t for t in tests if t["name"] in names]
         wall, unknown = estimate(chosen, measured(preset), jobs)

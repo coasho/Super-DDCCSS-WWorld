@@ -294,6 +294,24 @@ class PlanTest(unittest.TestCase):
         p = scope.plan(["src/visualization/x/New.cpp"], [], self.RENDER_TESTS, {}, "targeted", {}, {}, None)
         self.assertTrue(p["headless"] and p["escalate"])
 
+    def test_the_release_plan_requires_and_selects_every_renderer_test(self):
+        generic = [t for t in self.RENDER_TESTS if "render" not in t["labels"]]
+        generic += [{"index": 5, "name": "python_sdk test_vision", "labels": [], "command": ["python.exe"]},
+                    {"index": 6, "name": "python_sdk test_camera", "labels": [], "command": ["python.exe"]}]
+        rules = scope.load_rules()
+        for tier in ("targeted", "integration", "full"):
+            with self.subTest(tier=tier):
+                p = scope.plan(["src/visualization/ui/MonitorGui.cpp"], rules, generic, {}, tier, {}, {}, None, scope.RELEASE)
+                self.assertEqual([(e["reason"], e["paths"]) for e in p["errors"]],
+                                 [("no-renderer-coverage", ["src/visualization/ui/MonitorGui.cpp"])])
+                p = scope.plan(["src/visualization/ui/MonitorGui.cpp"], rules, self.RENDER_TESTS, {}, tier, {}, {}, None, scope.RELEASE)
+                self.assertEqual(p["errors"], [])
+                self.assertLessEqual({"terrain profile: the camera", "vision"}, set(p["selected"]))
+        # the headless plan of a mixed change does not ask its inventory for renderer tests
+        p = scope.plan(["src/visualization/ui/MonitorGui.cpp", "src/simulation/flight/SimRunner.h"], rules, generic, {},
+                       "targeted", {}, {}, None, scope.HEADLESS)
+        self.assertNotIn("no-renderer-coverage", [e["reason"] for e in p["errors"]])
+
     def test_release_only_reads_both_compile_databases(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
@@ -476,11 +494,79 @@ class RenderLifecycleTest(unittest.TestCase):
         self.assertEqual(status, 2)
         self.assertEqual(self.calls, ["build ucrt64-release"])
 
-    def test_a_release_inventory_without_render_tests_is_an_empty_selection(self):
-        self.inventories[scope.RELEASE] = synthetic(["flight core"])
-        status, report = self.select(["src/visualization/vfx/flow/FlowSolver.cpp"], {})
+    # A stale or renderer-disabled ucrt64-release inventory: it keeps the generic matches a render scope also names
+    # (sdk_boundary, the Python Vision and camera tests) but has no renderer test. They must not stand in for it.
+    GENERIC = ["sdk_boundary", "python_sdk test_vision", "python_sdk test_camera", "flight core"]
+
+    def plan_only(self, paths, tier="targeted", evidence=None, rules=None):
+        return scope.select(list(paths), rules or scope.load_rules(), tier, 16, run=False, executables={}, dependents={},
+                            readers={}, discover=self.discover, measured=lambda preset: {}, evidence=evidence)
+
+    def test_a_release_inventory_without_renderer_tests_fails_every_tier(self):
+        self.inventories[scope.RELEASE] = synthetic(self.GENERIC)
+        for tier in ("targeted", "integration", "full"):
+            with self.subTest(tier=tier):
+                status, report = self.plan_only(["src/visualization/ui/MonitorGui.cpp"], tier)
+                self.assertEqual(status, 3)
+                errors = [e for e in report["errors"] if e["reason"] == "no-renderer-coverage"]
+                self.assertEqual([(e["preset"], e["paths"]) for e in errors],
+                                 [(scope.RELEASE, ["src/visualization/ui/MonitorGui.cpp"])])
+
+    def test_a_mixed_escalated_change_fails_without_renderer_tests(self):
+        self.inventories[scope.RELEASE] = synthetic(self.GENERIC)
+        status, report = self.plan_only(["src/visualization/ui/MonitorGui.cpp", "src/simulation/flight/SimRunner.h"])
         self.assertEqual(status, 3)
-        self.assertEqual([e["reason"] for e in report["errors"]], ["empty-selection"])
+        self.assertEqual([e["reason"] for e in report["errors"]], ["no-renderer-coverage"])
+        self.assertEqual(report["errors"][0]["paths"], ["src/visualization/ui/MonitorGui.cpp"])
+
+    def test_the_compile_databases_require_renderer_tests_too(self):
+        evidence = {"sources": {"tools/newtool/main.cpp"}, "directories": set()}
+        rules = [{"name": "tool", "paths": ["tools/newtool/**"], "tests": ["^sdk_boundary$"]}]
+        self.inventories[scope.RELEASE] = synthetic(self.GENERIC)
+        status, report = self.plan_only(["tools/newtool/main.cpp"], evidence=evidence, rules=rules)
+        self.assertEqual(status, 3)
+        self.assertIn("no-renderer-coverage", [e["reason"] for e in report["errors"]])
+        # with renderer tests in the inventory, a scope that names only generic tests still gets every one of them
+        self.inventories[scope.RELEASE] = synthetic(self.GENERIC) + [
+            {"index": 9, "name": "terrain profile: the camera", "labels": ["render"], "command": ["x.exe"], "serial": False, "processors": 1}]
+        status, report = self.plan_only(["tools/newtool/main.cpp"], evidence=evidence, rules=rules)
+        self.assertEqual(status, 0, report["errors"])
+        self.assertIn("terrain profile: the camera", report["presets"][scope.RELEASE]["selected"])
+
+    def test_without_renderer_tests_no_run_starts_with_or_without_a_build(self):
+        self.inventories[scope.RELEASE] = synthetic(self.GENERIC)
+        for build in (False, True):
+            with self.subTest(build=build):
+                self.calls = []
+                status, report = scope.select(["src/visualization/scene/VehicleVisuals.cpp"], scope.load_rules(), "targeted", 16,
+                                              run=True, build=build, log_dir=self.tmp.name, executables={}, dependents={},
+                                              readers={}, discover=self.discover, builder=self.builder,
+                                              runner=lambda command, log: self.calls.append("run") or 0,
+                                              measured=lambda preset: {}, recorder=lambda logs, preset: 0, evidence=None)
+                self.assertEqual(status, 3)
+                self.assertEqual([e["reason"] for e in report["errors"]], ["no-renderer-coverage"])
+                self.assertEqual(self.calls, (["build ucrt64-release"] if build else []) + ["list ucrt64-release"])
+
+    def test_the_post_build_inventory_is_the_one_checked(self):
+        # before the build the inventory lacks the renderer tests; the build (a reconfigure) registers them
+        rendered = self.inventories[scope.RELEASE]
+        self.inventories[scope.RELEASE] = synthetic(self.GENERIC)
+
+        def builder(preset):
+            self.calls.append("build " + preset)
+            self.inventories[scope.RELEASE] = rendered
+            return 0
+        self.builder = builder
+        status, report = self.select(["src/visualization/vfx/flow/FlowSolver.cpp"], {scope.RELEASE: self.RENDER_RUN})
+        self.assertEqual(status, 0, report["errors"])
+        self.assertEqual(self.calls[:2], ["build ucrt64-release", "list ucrt64-release"])
+
+    def test_a_valid_release_inventory_selects_every_renderer_test_in_every_tier(self):
+        for tier in ("targeted", "integration", "full"):
+            with self.subTest(tier=tier):
+                status, report = self.plan_only(["src/visualization/ui/MonitorGui.cpp"], tier)
+                self.assertEqual(status, 0, report["errors"])
+                self.assertLessEqual({"terrain profile: the camera", "vision"}, set(report["presets"][scope.RELEASE]["selected"]))
 
     def test_a_mixed_change_plans_both_presets_and_a_headless_one_only_its_own(self):
         status, report = self.select(["src/visualization/ui/MonitorGui.cpp", "src/simulation/flight/SimRunner.h"],
@@ -808,6 +894,33 @@ class RulesTest(unittest.TestCase):
                 rendered = {t["name"] for t in inventories[scope.RELEASE] if "render" in t["labels"]}
                 self.assertLessEqual(rendered, set(chosen))
                 self.assertLess(len(chosen), report["presets"][scope.RELEASE]["of"], "a targeted selection, not the suite")
+
+    def test_the_real_headless_inventory_cannot_stand_in_for_the_release_one(self):
+        """The review's probe: the real headless inventory (sdk_boundary and the Python Vision tests, no renderer test)
+        given as the ucrt64-release one. Every tier, a mixed escalated change and a run, with or without a build, fail
+        before any runner starts."""
+        build = scope.REPO / "build" / scope.HEADLESS
+        if not (build / "CTestTestfile.cmake").is_file():
+            self.skipTest("the headless preset's configured inventory is needed")
+        headless = scope.inventory(test_dir=build)
+        self.assertFalse(any("render" in t["labels"] for t in headless))
+        discover = lambda preset: headless  # noqa: E731
+        cases = [(["src/visualization/ui/MonitorGui.cpp"], tier, False, False) for tier in ("targeted", "integration", "full")]
+        cases += [(["src/visualization/ui/MonitorGui.cpp", "src/simulation/flight/SimRunner.h"], "targeted", False, False),
+                  (["src/visualization/scene/VehicleVisuals.cpp"], "targeted", True, False),
+                  (["src/visualization/vfx/flow/FlowSolver.cpp"], "targeted", True, True)]
+        for paths, tier, run, build_first in cases:
+            with self.subTest(paths=paths, tier=tier, run=run, build=build_first):
+                calls = []
+                with tempfile.TemporaryDirectory() as logs:
+                    status, report = scope.select(paths, self.rules, tier, 16, run=run, build=build_first, log_dir=logs,
+                                                  executables={}, dependents={}, readers={}, discover=discover,
+                                                  builder=lambda preset: calls.append("build") or 0,
+                                                  runner=lambda command, log: calls.append("run") or 0,
+                                                  measured=lambda preset: {}, recorder=lambda logs, preset: 0)
+                self.assertEqual(status, 3)
+                self.assertIn("no-renderer-coverage", [e["reason"] for e in report["errors"]])
+                self.assertNotIn("run", calls)
 
     def test_the_repository_python_closure_reaches_the_shared_fixture_and_the_wrappers(self):
         d = scope.python_dependents()

@@ -231,3 +231,47 @@ Verification (2026-10-16):
 Only the selector, its rules and tests, the render tests' CTest labels and `docs/development.md` changed. No build
 input of a product target changed, so no object was rebuilt, and no full suite ran (HC-11). Logs are in
 `D:/ENV/tmp/hc13/`.
+
+## 11. HC-13 renderer-coverage requirement (2026-10-16)
+
+The [recheck at `9e66811`](arch-06-review-2026-10-16.md#7-hc-13-correction-recheck-at-9e66811) found the remaining
+P2: a renderer change's `ucrt64-release` plan passed on an inventory without one renderer test, because the render
+scope's generic names (`sdk_boundary`, the Python Vision and camera tests) still matched. Section 10's claim that such
+an inventory is an empty selection held only for its fixture, which had none of those names.
+
+The correction, in `tools/testing/scope.py` only:
+- **Requirement:** a path planned on `ucrt64-release` because only the renderer builds it (a `render_only` scope or the
+  compile-database evidence) makes that preset's plan require the `render` label. The plan selects every
+  `render`-labelled test of the inventory, whatever the tier or the claiming scope. Without one, it is a
+  `no-renderer-coverage` error naming those paths, and generic matches cannot satisfy it.
+- **Lifecycle:** `select()` checks the inventory listed after any build, so a build that registers the renderer tests
+  passes, and a stale pre-build inventory is not the one held. A plan error exits 3 before any runner starts.
+- **Retained:** the build-before-inventory refresh, `no-inventory`, the failed-build stop and the escalation of every
+  planned preset. A headless plan never asks for the label.
+
+Regressions in `tools/testing/test_scope.py` (`testing_scope_checker`, 69 cases on each preset). The realistic
+negative fixture is a Release inventory of `sdk_boundary`, `python_sdk test_vision`, `python_sdk test_camera` and
+`flight core`, without any renderer test:
+
+| Kind | Cases |
+| --- | --- |
+| Pure plan, preset given | Targeted, integration and full: the error without renderer tests, every renderer test selected with them; a headless plan of a mixed change has no such error |
+| Lifecycle, the negative fixture | A UI change in all three tiers; a mixed escalated change (UI with `SimRunner.h`); a compile-database Release-only path claimed by a generic scope: exit 3, `no-renderer-coverage`. A run with and without a build: exit 3, nothing run, only the build and listing called |
+| Lifecycle, controls | A pre-build inventory without renderer tests whose build registers them passes on the post-build inventory. A valid inventory selects every renderer test in every tier. The generic-scope evidence path then gets every renderer test too |
+| Real builds | The review's probe: the real headless inventory given as the Release one fails all three tiers, the mixed escalated change and runs with and without a build, before any runner starts |
+
+The previous single-name fixture (`flight core` only) now also reports `no-renderer-coverage`, and its case was
+replaced by these.
+
+Verification (2026-10-16):
+
+| Check | Result |
+| --- | --- |
+| The review's probe (`D:/ENV/tmp/hc13/probe2*.log`): real rules, the real 710-test headless inventory as Release, builds and runners injected, nothing built or run | HEAD: UI targeted/integration/full and the mixed plan exit 0 with 5, 5, 710 and 710 selected and no render test; both runs start their runner. Corrected: all six exit 3 with `no-renderer-coverage`, no runner started |
+| Positive control, the real 769-test Release inventory, the same cases | Both selectors: 64 selected targeted and integration, 769 full and mixed, all 59 render tests in each; the runs reach the runner |
+| The new regressions against HEAD's `scope.py` | The six negative cases fail; the two controls pass on both |
+| `testing_scope_checker` | 69/69 headless, 69/69 Release, no skips |
+| Headless `architecture_boundary`, `architecture_checker`, `sdk_guard_checker`, `ma_contract`, `ma_engagement_contract` | 5/5 |
+
+Only the selector, its tests and `docs/development.md` changed. No build input of a product target changed, so nothing
+was rebuilt, and no full suite ran (HC-11).
