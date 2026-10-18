@@ -1,0 +1,525 @@
+{
+  "schema": "fsim.architecture.target-policy.v1",
+  "status": "planned-not-current-enforcement",
+  "date": "2026-10-17",
+  "edge_meaning": "consumer-depends-on-provider",
+  "native": {
+    "contracts": {
+      "domain": "contracts",
+      "directories": [
+        "src/contracts"
+      ],
+      "dependencies": [],
+      "target": "fsim_contracts",
+      "status": "planned"
+    },
+    "platform": {
+      "domain": "foundation",
+      "directories": [
+        "src/foundation/platform"
+      ],
+      "dependencies": [],
+      "target": "fsim_platform"
+    },
+    "core": {
+      "domain": "foundation",
+      "directories": [
+        "src/foundation/core"
+      ],
+      "dependencies": [
+        "platform",
+        "contracts"
+      ],
+      "target": "fsim_core"
+    },
+    "io": {
+      "domain": "foundation",
+      "directories": [
+        "src/foundation/io"
+      ],
+      "dependencies": [
+        "core",
+        "contracts"
+      ],
+      "target": "fsim_io"
+    },
+    "ipc": {
+      "domain": "foundation",
+      "directories": [
+        "src/foundation/transport"
+      ],
+      "dependencies": [
+        "core",
+        "platform",
+        "contracts"
+      ],
+      "target": "fsim_ipc"
+    },
+    "sim": {
+      "domain": "simulation",
+      "directories": [
+        "src/simulation/flight"
+      ],
+      "dependencies": [
+        "core",
+        "io",
+        "contracts"
+      ],
+      "target": "fsim_sim"
+    },
+    "control": {
+      "domain": "simulation",
+      "directories": [
+        "src/simulation/flight_control"
+      ],
+      "dependencies": [
+        "sim",
+        "core",
+        "contracts"
+      ],
+      "target": "fsim_control"
+    },
+    "effects": {
+      "domain": "simulation",
+      "directories": [
+        "src/simulation/environment"
+      ],
+      "dependencies": [
+        "sim",
+        "core",
+        "contracts"
+      ],
+      "target": "fsim_effects"
+    },
+    "comm": {
+      "domain": "simulation",
+      "directories": [
+        "src/simulation/communications/network"
+      ],
+      "dependencies": [
+        "control",
+        "core",
+        "platform",
+        "contracts"
+      ],
+      "target": "fsim_comm"
+    },
+    "ms": {
+      "domain": "simulation",
+      "directories": [
+        "src/simulation/mission_systems"
+      ],
+      "dependencies": [
+        "core",
+        "contracts"
+      ],
+      "target": "fsim_ms"
+    },
+    "session": {
+      "domain": "simulation",
+      "directories": [
+        "src/simulation/runtime"
+      ],
+      "dependencies": [
+        "ms",
+        "control",
+        "effects",
+        "comm",
+        "modeled_dms",
+        "ipc",
+        "sim",
+        "io",
+        "core",
+        "contracts"
+      ],
+      "target": "fsim_session"
+    },
+    "simulation_api": {
+      "domain": "simulation",
+      "directories": [
+        "src/simulation/api"
+      ],
+      "dependencies": [
+        "session",
+        "ipc",
+        "io",
+        "core",
+        "contracts"
+      ],
+      "target": "fsim_simulation_api",
+      "status": "planned"
+    },
+    "env": {
+      "domain": "training",
+      "directories": [
+        "src/training/native/vecenv",
+        "src/training/native/episodes/runtime"
+      ],
+      "dependencies": [
+        "simulation_api",
+        "session",
+        "control",
+        "sim",
+        "io",
+        "core",
+        "contracts"
+      ],
+      "target": "fsim_env"
+    },
+    "mission": {
+      "domain": "training",
+      "directories": [
+        "src/training/native/mission",
+        "src/training/native/batch",
+        "src/training/native/episodes/api"
+      ],
+      "dependencies": [
+        "env",
+        "simulation_api",
+        "session",
+        "io",
+        "core",
+        "contracts"
+      ],
+      "target": "fsim_training_mission",
+      "status": "planned"
+    },
+    "sdk": {
+      "domain": "adapters",
+      "directories": [
+        "src/adapters/sdk/cpp",
+        "src/adapters/sdk/c"
+      ],
+      "dependencies": [
+        "mission",
+        "simulation_api",
+        "env",
+        "session",
+        "ms",
+        "control",
+        "effects",
+        "comm",
+        "modeled_dms",
+        "ipc",
+        "sim",
+        "io",
+        "core",
+        "platform",
+        "contracts"
+      ],
+      "target": "fsim"
+    },
+    "render": {
+      "domain": "visualization",
+      "directories": [
+        "src/visualization/render"
+      ],
+      "dependencies": [
+        "core",
+        "platform",
+        "contracts"
+      ],
+      "target": "fsim_render",
+      "optional": "render"
+    },
+    "flow": {
+      "domain": "visualization",
+      "directories": [
+        "src/visualization/vfx/flow"
+      ],
+      "dependencies": [
+        "core",
+        "platform",
+        "contracts"
+      ],
+      "target": "fsim_flow",
+      "optional": "render"
+    },
+    "scene": {
+      "domain": "visualization",
+      "directories": [
+        "src/visualization/scene",
+        "src/visualization/vfx/effects"
+      ],
+      "dependencies": [
+        "render",
+        "flow",
+        "ipc",
+        "io",
+        "core",
+        "contracts"
+      ],
+      "target": "fsim_world",
+      "optional": "render"
+    },
+    "ui": {
+      "domain": "visualization",
+      "directories": [
+        "src/visualization/ui"
+      ],
+      "dependencies": [
+        "scene",
+        "render",
+        "ipc",
+        "core",
+        "contracts"
+      ],
+      "target": "fsim_ui",
+      "optional": "render"
+    },
+    "vision_core": {
+      "domain": "visualization",
+      "directories": [
+        "src/visualization/vision"
+      ],
+      "dependencies": [
+        "scene",
+        "render",
+        "io",
+        "core",
+        "platform",
+        "contracts"
+      ],
+      "target": "fsim_vision_core",
+      "status": "planned",
+      "optional": "render"
+    },
+    "vision": {
+      "domain": "adapters",
+      "directories": [
+        "src/adapters/vision"
+      ],
+      "dependencies": [
+        "sdk",
+        "vision_core",
+        "ipc",
+        "io",
+        "core",
+        "platform",
+        "contracts"
+      ],
+      "target": "fsim_vision",
+      "optional": "render"
+    },
+    "app": {
+      "domain": "applications",
+      "directories": [
+        "src/applications/headless"
+      ],
+      "dependencies": [
+        "simulation_api",
+        "io",
+        "core",
+        "platform",
+        "contracts",
+        "sim"
+      ],
+      "target": "flightsim"
+    },
+    "viewer": {
+      "domain": "applications",
+      "directories": [
+        "src/applications/viewer"
+      ],
+      "dependencies": [
+        "ui",
+        "scene",
+        "render",
+        "ipc",
+        "io",
+        "core",
+        "platform",
+        "contracts"
+      ],
+      "target": "flightsim-viewer",
+      "optional": "render"
+    },
+    "demo": {
+      "domain": "applications",
+      "directories": [
+        "src/applications/demo"
+      ],
+      "dependencies": [
+        "sim",
+        "ipc",
+        "io",
+        "core",
+        "platform",
+        "contracts"
+      ],
+      "target": "flightsim-demo",
+      "status": "implemented",
+      "follow_up": "HC-16: separate publisher in ARCH-08; HC-17.1 retains legacy native flight behavior"
+    },
+    "training_vision": {
+      "domain": "applications",
+      "directories": [
+        "src/applications/training_visualization"
+      ],
+      "dependencies": [
+        "sdk",
+        "vision",
+        "contracts"
+      ],
+      "target": "fsim_training_vision",
+      "status": "planned-VIS-F",
+      "optional": "render",
+      "follow_up": "HC-23: the native training-image provider waits for the visualization plan's VIS-F (policy planned module training_vision, phase VIS-F); not built by ARCH-07"
+    },
+    "modeled_dms": {
+      "domain": "simulation",
+      "directories": [
+        "src/simulation/communications/dms"
+      ],
+      "dependencies": ["comm", "ms", "core", "platform", "contracts"],
+      "target": "fsim_modeled_dms",
+      "status": "planned"
+    },
+    "oms": {
+      "domain": "adapters",
+      "directories": [
+        "src/adapters/oms"
+      ],
+      "dependencies": [
+        "simulation_api",
+        "platform",
+        "io",
+        "core",
+        "contracts"
+      ],
+      "target": "fsim_oms_adapter",
+      "status": "future-feature-MS-12",
+      "optional": "oms"
+    },
+    "python_abi": {
+      "domain": "adapters",
+      "directories": [
+        "src/adapters/sdk/python/abi"
+      ],
+      "dependencies": [],
+      "target": "fsim_python_abi"
+    },
+    "python_native": {
+      "domain": "adapters",
+      "directories": [
+        "src/adapters/sdk/python"
+      ],
+      "dependencies": [
+        "sdk",
+        "python_abi"
+      ],
+      "target": "fsim_python"
+    },
+    "vision_native": {
+      "domain": "adapters",
+      "directories": [
+        "src/adapters/vision/python"
+      ],
+      "dependencies": [
+        "vision",
+        "python_abi"
+      ],
+      "target": "fsim_python_vision",
+      "optional": "render"
+    }
+  },
+  "python": {
+    "native": {
+      "domain": "extension",
+      "directory": "src/adapters/sdk/python",
+      "dependencies": [],
+      "module": "fsim._native"
+    },
+    "vision_native": {
+      "domain": "extension",
+      "directory": "src/adapters/vision",
+      "dependencies": [],
+      "module": "fsim._vision"
+    },
+    "contracts": {
+      "domain": "contracts",
+      "directory": "python/fsim/_contracts",
+      "dependencies": []
+    },
+    "simulation": {
+      "domain": "simulation",
+      "directory": "python/fsim/_simulation",
+      "dependencies": [
+        "native",
+        "contracts"
+      ]
+    },
+    "training": {
+      "domain": "training",
+      "directory": "python/fsim/_training",
+      "dependencies": [
+        "native",
+        "contracts"
+      ]
+    },
+    "visualization": {
+      "domain": "visualization",
+      "directory": "python/fsim/_visualization",
+      "dependencies": [
+        "vision_native",
+        "native",
+        "contracts"
+      ]
+    },
+    "transport_adapter": {
+      "domain": "adapter",
+      "directory": "python/fsim/_adapters",
+      "dependencies": [
+        "simulation",
+        "training",
+        "native",
+        "contracts"
+      ]
+    },
+    "training_vision": {
+      "domain": "application",
+      "directory": "python/fsim/_adapters/training_visualization",
+      "notes": "Planned VIS-F provider, not created. The accepted compatibility composition of the VecEnv with the cameras is fsim.vision's VisionBatch, outside both cores (HC-17.4, ebd3a09).",
+      "dependencies": [
+        "simulation",
+        "training",
+        "visualization",
+        "native",
+        "contracts"
+      ]
+    },
+    "compat_facade": {
+      "domain": "facade",
+      "directory": "python/fsim",
+      "dependencies": [
+        "simulation",
+        "training",
+        "visualization",
+        "transport_adapter",
+        "training_vision",
+        "native",
+        "vision_native",
+        "contracts"
+      ],
+      "notes": "Public declarations/identities remain here where required. Optional dependencies are not eagerly imported."
+    }
+  },
+  "rules": [
+    "Simulation never depends on training, visualization or the final SDK assembly.",
+    "Training never depends on visualization or the final SDK assembly.",
+    "Visualization core never depends on training, simulation implementation or final SDK assembly.",
+    "Foundation and contracts never depend on a domain.",
+    "No private Python implementation imports compat_facade, including function-local imports.",
+    "Optional integrations belong to applications/adapters; their dependencies do not become core requirements.",
+    "All declared target/owner graphs must be acyclic; actual source/build graphs must be checked separately.",
+    "Public installed paths, exports, layouts and runtime type owners remain compatible.",
+    "Native targets can share a physical root only with explicit file-level ownership; target source lists must not overlap."
+  ],
+  "limits": [
+    "This JSON specifies the destination graph, not the present CMake graph.",
+    "New targets/edges require implementation checks and negative fixtures.",
+    "External library and configured CMake dependency graphs require separate validation.",
+    "Compiled Python extensions are owner-level import leaves; their native link graph is checked separately.",
+    "Native module names, targets, domains and directories equal the registered policy's (tools/architecture/policy.json), and its dependencies admit every registered allowance; check_documents.py enforces both (HC-24, ARCH-10)."
+  ]
+}

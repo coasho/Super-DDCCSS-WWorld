@@ -38,17 +38,18 @@ episode, and full reset reconstructs it. Immutable model/resource sharing is all
 guidance, sensor, communication or damage state must not become a cross-episode shortcut. Existing Vehicle reset
 semantics remain distinct. Each subsystem addition must extend fresh-reset, seed-isolation and ownership tests.
 
-## Actor facade and trusted native access
+## Actor facade and Range-owned native access
 
-M4's native setup/range/service callbacks are trusted internal integration seams. Their generation lock protects
-lifetime; possession of a native callback is not an actor permission boundary. Keep these seams internal.
+M4's native setup/range/service callbacks are internal integration seams owned by the Range. Their generation lock
+checks lifetime; actor permissions are enforced through separate Agent interfaces. Keep these seams internal.
 
 M5 actor endpoints expose only bound Agent requests and legal, immutable reports. They must not expose native
 callbacks, `session::World`, public range `World`/Vehicle handles, MissionEpisode/Range/referee handles, raw IPC,
 recording truth, or an alternate path to acquire them. Endpoint identity comes from its binding, not request data.
 The source guard rejects private namespace declarations and references in public headers, retaining only exact
-existing World facade seams. It is a lexical check, not a sandbox: public-handle escape, buffer reads, generations,
-authentication and process isolation still require M5 acceptance tests in C++, C99 and Python.
+existing World facade seams. This lexical check covers public-header dependencies. Public-handle reachability,
+buffer reads, generation checks, service identity binding and actor process interfaces require their own M5
+acceptance tests in C++, C99 and Python. Use the [SDK access terminology](../../sdk/agents.md#sdk-access-terminology).
 
 ## Fixed ABI and independent output formats
 

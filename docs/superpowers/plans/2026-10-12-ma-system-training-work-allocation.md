@@ -1,8 +1,8 @@
 # Claude MA Training Work Allocation
 
-Status: Generic M0, M1 and noncombat M2 delivered; M4 implemented (8254d7e and its review follow-up) and awaiting independent acceptance; the first complete mission episode gateway package remains pending. M5 has not started.
+Status: Generic M0, M1 and noncombat M2 delivered; M4 independently accepted at 54b7fb9; M5 core implemented in 6e8b4aa and awaiting independent acceptance. Full M5 extension handlers, first-package acceptance, M6-M8 and joint/Viewer acceptance remain pending. Current evidence is recorded in [status](../../status.md).
 Date: 2026-10-12.
-Progress reviewed: 2026-10-14, main 616327a.
+Progress reviewed: 2026-10-15, main 6e8b4aa.
 Delivered baseline: baf476f841970f1f3c90b8de0bf630e8a5478738.
 
 This document lists Claude's assignments only. Follow the accepted [design](../specs/2026-10-12-ma-system-training-readiness-design.md), [Claude implementation plan](2026-10-12-ma-system-training-readiness.md) and [project memory](../../../.claude/CLAUDE.md). The design retains the complete architecture and J1-J10 program acceptance. Package identifiers follow the implementation plan.
@@ -19,12 +19,12 @@ Each assigned feature includes native C++, public C++/C/Python interfaces, examp
 | Independent episode construction, scenario lifecycle, generation/closed handles and seed streams | M4; one World per episode and complete fresh reset |
 | Mission gateway, immutable observations, envelopes, queues, deduplication and receipt transport | M5 core; public episode/endpoint/referee family and buffer semantics |
 | Flight/sensing/P2P/C2 task, control, override, lost-link and package behavior | Noncombat M5; existing permission-scoped execution paths |
-| Actor endpoint proxy and strict process isolation | M5 core; actor-only whitelist and publication/recording guard |
+| Actor endpoint proxy and strict actor process isolation | M5 core; actor callable-method list and diagnostic truth-output checks |
 | Example gateway, components, BT/planner fixtures, arbitration and lifecycle | M6 noncombat; installed SDK usage and deterministic legal composition |
 | Batch scheduling, role topology, autoreset, final observations, noncombat task criteria, referee-stream transport, communication costs and training adapter | M7 core; independent episode/role lifecycle and component hooks |
 | Consumer packaging, public facade assembly, ABI checks, provenance and generic joint acceptance | M8 generic; installed C++, C99 and Python consumers |
 
-Claude owns the full P2P and generic C2 transport feature packages. The gateway consumes frozen extension payload/receipt contracts through agreed registration seams. Implement generic authentication, generation/tick checks, queueing and stable dispatch; preserve the supplied native handler's validation, authority and correlation semantics.
+Claude owns the full P2P and generic C2 transport feature packages. The gateway consumes frozen extension payload/receipt contracts through agreed registration seams. Implement service identity binding, generation/tick checks, queueing and stable dispatch; preserve the supplied native handler's validation, authority and correlation semantics.
 
 ## 2. Baseline and required integration inputs
 
@@ -32,7 +32,7 @@ The Viewer/engagement baseline was separately verified, committed and pushed on 
 
 Generic M0 was delivered in 1874091 and corrected in 182ac58. It consumed the partial Viewer compatibility artifacts and captured the complete generic baseline under D:/ENV/tmp/ma-training-baseline, including public type/vtable metadata, native/Python exports and frozen C++, C99 and Python consumers. The dated [compatibility baseline](../../sdk/ma-compatibility-baseline.md) records provenance and limitations; later packages must verify compatibility against it.
 
-M1 was delivered in 990554b and noncombat M2 in fb23a9b. Follow-ups 9b06c79 and 2bad550 cover binding transitions, foreign-World Agent rejection, peer provenance and the qualified activity-preservation contract. M4 - the internal independent episode owner with full fresh reset, verified with the supplied native-state fixture (4406ff1) - is implemented in 8254d7e and its review follow-up and awaits independent acceptance. The gateway is not implemented. The first complete package still requires accepted M4 and M5 core.
+M1 was delivered in 990554b and noncombat M2 in fb23a9b. Follow-ups 9b06c79 and 2bad550 cover binding transitions, foreign-World Agent rejection, peer provenance and the qualified activity-preservation contract. M4 - the internal independent episode owner with full fresh reset, verified with the supplied native-state fixture (4406ff1) - is implemented in 8254d7e, c507978 and 54b7fb9 and independently accepted at 54b7fb9. The simulation/interface compatibility prerequisite is accepted at 08e3afe. The public gateway is implemented as M5 core in 6e8b4aa and awaits independent acceptance. The first complete package still requires M5 core and first-package acceptance; full M5 also requires extension handler integration.
 
 Required inputs at the integration gates are frozen extension schemas/handler contracts, a supplied full native-state reset fixture, and dated combat joint/Viewer acceptance evidence. Core work proceeds independently of new engagement-policy implementation. Record absent inputs as pending; never substitute fabricated success or mark full-program acceptance complete.
 

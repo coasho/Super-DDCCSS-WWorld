@@ -1,10 +1,10 @@
 # ARCH-03 foundation and domain leaves
 
-Status: relocation implemented at `30bc5ef`. The [independent review](arch-03-review-2026-10-16.md) found no behavioral
-regression but held ARCH-03 incomplete without task 5 (HC-12). Current target narrowing is verified at `e7ee67e`
-([section 7](#7-include-path-narrowing-task-5-hc-12)). The [correction review](arch-03-review-2026-10-16.md#5-hc-12-correction-review-at-e7ee67e)
-found one ancestor-root enforcement gap. That gap is corrected ([section 7, ancestor roots](#ancestor-roots-hc-12-review-correction)),
-awaiting independent acceptance (2026-10-16). ARCH-04 has not started.
+Status: independently accepted at `ad12a44` (2026-10-16); HC-12 is closed. The relocation at `30bc5ef`, include
+narrowing at `e7ee67e` ([section 7](#7-include-path-narrowing-task-5-hc-12)) and ancestor-root correction at `ad12a44`
+([section 7, ancestor roots](#ancestor-roots-hc-12-review-correction)) complete ARCH-03. See the
+[final independent acceptance](arch-03-review-2026-10-16.md#6-final-hc-12-acceptance-at-ad12a44).
+Other carryovers remain open; ARCH-04 has not started.
 Starting main HEAD: `565ef3e` (ARCH-02 accepted at `dc09e8f`; HC-10 accepted at `565ef3e`). This is a relocation only:
 no source line changed except includes and path comments, and no model, RNG, timestep or default behavior changed.
 

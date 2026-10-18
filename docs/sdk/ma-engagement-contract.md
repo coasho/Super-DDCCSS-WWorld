@@ -21,7 +21,7 @@ The extension registrations are:
 | --- | --- | --- |
 | `training.authorization.v1` | `ma.config.v1` | Optional policy profiles loaded by the range |
 | `training.combat.v1` | `ma.config.v1` | Referee criteria and reward configuration |
-| `engagement.reports.v1` | `ma.observation.v1` | Reports available to the authenticated service |
+| `engagement.reports.v1` | `ma.observation.v1` | Reports available to the endpoint's bound service |
 | `engagement.correlation.v1` | `ma.receipts.v1` | Native correlations for an individual receipt |
 | `engagement.launch_zone.v1` | `ma.receipts.v1` | Advisory query results for an individual receipt |
 | `engagement.outcome.v1` | `ma.outcome.v1` | Referee evidence and availability-qualified signals |
@@ -47,7 +47,7 @@ Request `kind` and `operation` are separate simple identifiers. For example,
 `kind: "strike"` with `operation: "new"` is valid; a dotted request kind is not.
 The generic `c2` operation enumeration is not extended. A request retains the
 generic `request_id` and optional `component` provenance. The enclosing service
-identity authenticates the caller; request parameters cannot replace it.
+identity is fixed by the endpoint binding; request parameters cannot replace it.
 
 An absent registration remains unavailable. An unknown configuration extension is
 refused at construction, and an uninstalled request kind is refused per request as
@@ -127,7 +127,7 @@ and evidence only.
 
 ## Actor reports: `engagement.reports.v1`
 
-Reports originate from the authenticated service's own Agent or from messages
+Reports originate from the bound service's own Agent or from messages
 actually delivered to its owned ingress. Snapshot provenance, report age and
 non-consuming reads follow the generic contract. Global truth filtered by launcher
 or platform is not a substitute for a legal Agent report.
@@ -182,7 +182,7 @@ or a predicted hit.
 
 Parameters are strict objects. Undeclared fields are refused, including `consent`,
 `source`, `controller`, `service`, `service_id`, `platform`, and aliases that try
-to replace the authenticated caller or grant direct authority.
+to replace the endpoint's bound caller or grant direct authority.
 
 | `kind` | `operation` | Parameters | Native mapping and current status |
 | --- | --- | --- | --- |
@@ -259,7 +259,7 @@ illumination and authorization checks still run when a strike is submitted.
 `availability` qualifies `value` (`null` or boolean). It is exposed only through
 the referee outcome document. `engagement.truth.v1` exposes typed native event and
 weapon records only through referee truth. Neither extension belongs in actor
-observations or an actor endpoint's transport whitelist.
+observations or an actor endpoint's transport callable-method list.
 
 Event evidence preserves native serial, simulation time, kind, reason, entity,
 launcher, target, ECEF position and velocity. The native `destroyed` flag is
@@ -296,7 +296,7 @@ end time. These checks do not prove runtime evidence production.
 
 The frozen handler boundary is language-independent:
 
-1. **Validate** the registered contract, strict parameters and authenticated
+1. **Validate** the registered contract, strict parameters and endpoint-bound
    service/generation context. Produce a document refusal, gateway refusal, or a
    validated queued request. Validation performs no native command or world mutation.
 2. **Dispatch** at the generic step boundary, in its stable service/request order,

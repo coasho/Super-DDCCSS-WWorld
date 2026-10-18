@@ -54,8 +54,8 @@ def files_under(root):
 def public_type_text(clean, place):
     """Retain native namespace references except the exact legacy World facade seams.
 
-    This is a declaration guard, not a C++ type resolver or an actor sandbox. A
-    future actor facade still needs runtime permission and isolation acceptance.
+    This lexical declaration check covers public-header dependencies. Actor facade
+    acceptance separately checks handle reachability, Agent permissions and process proxies.
     """
     clean = re.sub(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'', lambda match: blank(match[0]), clean)
     if place != "include/fsim/World.h":

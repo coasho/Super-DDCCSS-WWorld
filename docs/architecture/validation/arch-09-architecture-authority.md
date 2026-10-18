@@ -1,6 +1,6 @@
 # ARCH-09 relocate existing architecture authority
 
-Status: implemented on main (2026-10-17); awaiting independent acceptance. ARCH-10 has not started.
+Status: independently accepted at main `6bb79cc` plus the inspected uncommitted planning/index package (2026-10-17); HC-33 closed. HC-34 is the approved deferral; HC-35 remains pending human/instruction-owner disposition; HC-36 retains its maintenance owner. ARCH-10 has not started. Earlier sections retain their dated handoff findings; section 11 records final acceptance.
 Starting main HEAD: `dd7dc9f` (ARCH-08 accepted).
 
 This package applies the [document register](../migration/document-register.csv): each registered architecture document
@@ -124,6 +124,23 @@ Limits:
 
 ARCH-10 (final three-domain acceptance) requires the next user-relayed assignment.
 
+## 9. Independent review at 4d7a9be
+
+The [independent review](arch-09-review-2026-10-17.md) accepts the delivered relocation subset: 19 moved bodies,
+five redirect-only pages and the committed non-link text/reference mapping. **HC-33 (P2)** blocks the complete
+ARCH-09 gate. Register and directly index ADR-26, ADR-27 and the packaging plan with category/owner/status;
+their bodies can remain where they are. Merely assigning this metadata work to pre-ARCH-10 does not meet the gate.
+
+Current exact fast checks pass 5/5 headless (5.86 s) and Release `sdk_boundary` 1/1 (2.61 s). The independent
+pre-review scoped link audit finds 99 files/1,279 local links with no missing paths/anchors. These are separate from
+the author's broader totals above. No native build, GUI run or full suite was repeated.
+
+Owner-edited lines preserve their wording with authorized destination rewrites; exact pre-move uncommitted payload
+identity remains author-reported because no before-body snapshot/hash was found. HC-34 stays approved; HC-35 is
+not acknowledged on the user's behalf or closed by changing ignore policy. HC-36 records updating retained comment
+references during the affected files' future maintenance. Evidence is under
+`build/architecture-reviews/arch09-4d7a9be/`. Stop for the bounded metadata correction; do not start ARCH-10.
+
 ## 10. HC-33 correction (2026-10-17)
 
 Corrects the gap the [independent review](arch-09-review-2026-10-17.md#1-hc-33-authority-metadata-is-required-now-p2)
@@ -151,3 +168,22 @@ entry of their own. Each is now registered and indexed where it is. Starting HEA
 
 Logs, the before copies and their hashes are in `D:/ENV/tmp/hc33/`. No native build, GUI run or full suite ran
 (HC-11).
+
+## 11. Independent HC-33 and ARCH-09 acceptance at 6bb79cc
+
+The [final independent review](arch-09-review-2026-10-17.md#7-final-hc-33-and-arch-09-acceptance-at-6bb79cc)
+closes HC-33 and accepts ARCH-09. D23-D25 have category/owner/status and direct authority-index links; all preceding
+22 register rows are unchanged. ADR-27 remains in force for rotorcraft despite its retained-domain classification.
+All three bodies match their before-snapshot SHA-256 values. Shared reviewer-edited record/status snapshots show
+only additive correction sections. No body move is required.
+
+Exact existing documentation gates pass 3/3 (3.10 s); the pre-review scoped link audit finds 100 files/1,302 local
+inline links with no errors. Final documentation results and logs are recorded in the review and
+`build/architecture-reviews/arch09-6bb79cc/`. These scoped totals are separate from the author's section 10 totals.
+No native build, Release rerun, GUI or full suite ran. The original relocation's exact uncommitted-payload parity
+remains author-reported where before snapshots were unavailable; section 9's limit is not retroactively closed.
+
+Acceptance includes the inspected uncommitted index/register/roadmap, not just commit `6bb79cc`. HC-34's approved
+M8 deferral, HC-35's pending human/instruction-owner disposition and HC-36's scheduled maintenance remain visible,
+as do prior owners' final-program gates. No files were staged, committed or pushed by this review. ARCH-10 has
+not started.

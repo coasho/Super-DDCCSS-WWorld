@@ -1,9 +1,9 @@
-"""Agents in their own processes (ADR-31, AB-6: tier 3 of the boundary's enforcement; docs/sdk/agents.md, "Isolation").
+"""SDK actor process proxies (ADR-31, AB-6: tier 3; docs/sdk/agents.md, "SDK access terminology" and "Isolation").
 
 An MA's code runs in a process of its own and holds one thing: a channel to the range's process, through which it makes
 its agent's calls - the calls of :class:`fsim.Agent` and :class:`fsim.AgentActivity`, nothing else. Its world, the
-vehicles, the referee, the network and every other object stay in the range's process, out of its address space: it
-cannot reach them even if it tries.
+vehicles, the referee and the network stay in the range's process, outside the actor's address space. The proxy
+exposes only the Agent's callable-method list; operating-system file/process access is the experiment runner's responsibility.
 
 The range keeps the agents and the stepping::
 
@@ -15,8 +15,8 @@ The range keeps the agents and the stepping::
 Lockstep: the range asks one MA at a time to decide (`call`), serving that MA's agent calls until it answers, so the
 calls reach the world in the same order as in one process - the isolated run reproduces the in-process run to the bit.
 
-What crosses the channel: length-prefixed JSON (multiprocessing.connection's byte messages, HMAC-authenticated at
-connection) with typed values - numbers (floats exactly: their shortest round-trip form), strings, bytes, lists, tuples,
+What crosses the local pipe: length-prefixed JSON (multiprocessing.connection's byte messages, with an HMAC
+connection check) with typed values - numbers (floats exactly: their shortest round-trip form), strings, bytes, lists, tuples,
 dicts, fsim's named tuples, enums and batch commands, NumPy arrays of numbers, an activity by its id. Nothing is unpickled on either
 side: an agent's message is data the range checks - a call it may make, on an activity it holds - never code it runs.
 
@@ -86,7 +86,7 @@ def activity_calls():
 
 
 def mission_endpoint_calls():
-    """What an isolated actor may call on its mission endpoint: section 16's whitelist, and nothing else."""
+    """The actor process callable-method list for a mission endpoint (section 16)."""
     return {name: "method" for name in _MISSION_CALLS}
 
 
@@ -330,14 +330,14 @@ class MissionEndpointProcess:
                     return _decode(m.get("v"), _no_activity)
                 if op == "raise":
                     raise _rebuild(m["x"], builtins=False)
-                # (anything else it sends is refused as a call, never served: the endpoint's whitelist is all there is)
+                # Other method requests are refused: the endpoint serves only its callable-method list.
                 self._conn.send_bytes(_dump(self._serve(m) if op == "endpoint" else
                                             {"op": "error", "x": _exception(AttributeError("isolation: %r is not a mission endpoint's call" % (op,)))}))
         finally:
             self.channel_s += time.perf_counter() - start
 
     def _serve(self, m):
-        """One endpoint call of the whitelist; nothing else is reachable."""
+        """One endpoint call from the actor process callable-method list."""
         self.calls += 1
         try:
             name = m.get("m")

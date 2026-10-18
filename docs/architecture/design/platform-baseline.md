@@ -156,7 +156,7 @@ Trainers use public SDK objects. The viewer reads IPC snapshots in its own proce
 
 Dependency conventions and current limits:
 
-1. No module includes a header from a layer above it; `env` never includes `render` or `world`. [Native architecture acceptance](../../../tools/architecture/README.md) checks registered module/source ownership, declared CMake dependency closure, cycles, public/private leakage and headless GPU imports across all native conditional branches. Broad internal include directories remain; the executable check enforces the convention.
+1. No module includes a header from a layer above it; `env` never includes `render` or `world`. [Native architecture acceptance](../../../tools/architecture/README.md) checks registered module/source ownership, declared CMake dependency closure, cycles, private-type exposure in public headers and headless GPU imports across all native conditional branches. Broad internal include directories remain; the executable check enforces the convention.
 2. Public SDK headers keep JSBSim and Vulkan implementation types private. Rendering implementation lives in `render`, `world`, `ui` and `vision`. Most Win32 services live in `platform`; `world/FlowSolver.cpp` also uses Win32 for the NVIDIA Flow runtime.
 3. Stepping, snapshots and observations use typed buffers. There is no implemented shared `EventBus` contract.
 4. CMake options assemble optional targets. `fsim::ModuleRegistry` provides internal lifecycle support, but does not automatically register every CMake module. The headless configuration excludes rendering and vision targets and needs no Vulkan SDK.

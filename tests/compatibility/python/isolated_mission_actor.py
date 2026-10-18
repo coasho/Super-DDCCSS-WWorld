@@ -4,7 +4,7 @@ import json
 
 
 class Actor:
-    """Reads its snapshot, waits, and tries what an isolated actor can and cannot reach."""
+    """Reads snapshots, waits, and checks endpoint methods and unsupported-member refusals."""
 
     def __init__(self, endpoint, label):
         self.endpoint, self.label = endpoint, label
@@ -29,7 +29,7 @@ class Actor:
         return value
 
     def reach(self):
-        """Every way out it might try: none answers but the endpoint's three calls."""
+        """Range-owned members are absent from the actor's three-method endpoint proxy."""
         out = {}
         for name in ("episode", "referee", "world", "step", "reset", "outcome_json", "truth_json", "agent", "close"):
             try:
@@ -40,7 +40,7 @@ class Actor:
         return out
 
     def forge(self):
-        """Its channel asked for anything but the whitelist: each is refused in the range's process."""
+        """Requests outside the endpoint's callable-method list are refused in the Range process."""
         channel, out = object.__getattribute__(self.endpoint, "_channel"), {}
         for message in ({"op": "endpoint", "m": "step"}, {"op": "endpoint", "m": "referee"}, {"op": "endpoint", "m": "_endpoint"},
                         {"op": "agent", "m": "ownship"}, {"op": "endpoint", "m": "observation_json", "a": ["extra"]}):

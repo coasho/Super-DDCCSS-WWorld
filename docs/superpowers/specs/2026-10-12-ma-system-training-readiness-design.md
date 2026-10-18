@@ -1,8 +1,8 @@
 # MA System Integration and Training Readiness Design
 
-Status: Accepted architecture. Generic M0, M1 and noncombat M2 delivered; native Agent equipment access/reports implemented. Mission episode/gateway implementation and full-program acceptance remain pending.
+Status: Accepted architecture. Generic M0, M1 and noncombat M2 delivered; native Agent equipment access/reports implemented; M4 independently accepted at 54b7fb9. M5 core implemented in 6e8b4aa and awaiting independent acceptance. Full M5 extension handlers, first-package acceptance, M6-M8 and joint/Viewer acceptance remain pending. See [current status](../../status.md).
 Date: 2026-10-12.
-Progress reviewed: 2026-10-14, main 616327a; latest M1 follow-up 2bad550.
+Progress reviewed: 2026-10-15, main 6e8b4aa; latest M1 follow-up 2bad550.
 Repository: Super-DDCCSS-WWorld, main.
 Implementation baseline: baf476f841970f1f3c90b8de0bf630e8a5478738, separately verified and pushed to main. The source audit began at c2641e9cf51d2f84befa96d6a1d0b592029898d4; the delivered baseline contains the reviewed Viewer/native engagement work. See the [Claude implementation plan](../plans/2026-10-12-ma-system-training-readiness.md), [Claude work allocation](../plans/2026-10-12-ma-system-training-work-allocation.md) and [Viewer evidence](../../sdk/viewer-validation.md).
 
@@ -21,16 +21,17 @@ The intended result is training readiness, not a trained operational policy, a u
 
 ## 2. Current evidence and compatibility constraints
 
-These findings summarize the initial source audit and the delivered M1/noncombat M2 updates. They are not new runtime test results:
+These findings summarize the source audit and recorded implementation through M5 core. They are not new runtime test results:
 
 1. Agent interfaces mask sensor truth and enforce own-platform commands. C2 tasks, peer reports, shared tracks, DMS, approval, direct commands, lost-link handling and packages already exist. Extend and integrate them; do not rebuild the transport.
-2. Noncombat M2 adds permission-scoped navigation, passive contacts, tracks, link/peer provenance, task and authority reports across C++/C/Python. Native equipment access now includes own countermeasure inventory/dispense and own-designation launch-zone queries, plus store, strike, inventory and ingress-delivered consent reports ([contract](../../sdk/engagement.md#agent-equipment-access-and-reports)). Mission gateway integration remains pending; weapon feedback remains unavailable.
+2. Noncombat M2 adds permission-scoped navigation, passive contacts, tracks, link/peer provenance, task and authority reports across C++/C/Python. Native equipment access now includes own countermeasure inventory/dispense and own-designation launch-zone queries, plus store, strike, inventory and ingress-delivered consent reports ([contract](../../sdk/engagement.md#agent-equipment-access-and-reports)). M5 core integrates generic noncombat reports; equipment extension handlers remain pending and weapon feedback remains unavailable.
 3. StrikeStatus describes release activity. Done does not mean impact or mission completion. Global weapon/engagement records contain referee truth; destroyed currently means actual crew loss.
 4. Current VecEnv has a single World and a single Task object for the batch, flight-oriented actions and observations, and vehicle-oriented reset. It is not an independently isolated combat-episode environment.
 5. The existing vehicle reset contract deliberately preserves MA authority, tasks, overrides and C2 activity ownership. tests/test_agents.cpp contains an explicit preservation test. Full episode reset must be a different operation.
 6. MaCore state and DMS inboxes are platform/system-owned. Agent.receive consumes the shared inbox. Multiple internal components cannot independently drain that inbox and expect identical observations.
 7. M1 adds explicit MA-service capability and DMS ownership; the configured path no longer selects owners by Agent traversal order. Unbound platforms retain legacy behavior. Multiple handles alone do not configure service ownership. The binding transition and qualified activity-preservation contract are recorded in the [service binding contract](../../sdk/mission-training.md#9-service-binding).
 8. Current Showcase uses internal World and range-supplied consent. Its real native flyout/viewer evidence does not exercise the entire installed Agent/P2P/C2 path.
+9. M4 owns one World per independent episode and reconstructs it on full reset; its supplied-fixture and lifetime/seed acceptance is recorded at 54b7fb9. M5 core adds the public episode/endpoint/referee family, immutable observations, queued requests, receipts and actor process proxies in 6e8b4aa; independent M5 core acceptance and full-program gates remain pending.
 
 Preserve existing signatures, class sizes, public plugin vtables, enum numbers, errors, observation/action shapes, legacy defaults and reset semantics. New capabilities use additive, versioned interfaces. Existing binaries must continue to work with the new library.
 
@@ -49,7 +50,7 @@ Preserve existing signatures, class sizes, public plugin vtables, enum numbers, 
 
 Identify objects with separate fields: env_id, episode_generation, local_episode_index, system_id, ma_service_id, controller_id, component_id and request_id. VI/MS activity IDs, C2 command/task/consent IDs and DMS message IDs retain their separate namespaces.
 
-Internal components may share legally obtained reports, derived estimates and private MA state through ordinary internal interfaces within the same onboard/platform boundary. A common upper-layer wrapper cannot share a blackboard across aircraft or C2 nodes to bypass the links. Peer MAs and C2 systems exchange information only through their own sensors or simulated links. Internal sharing never expands the platform's permissions or introduces referee truth.
+Internal components may share reports available through their SDK permissions, derived estimates and private MA state through ordinary internal interfaces within the same onboard/platform boundary. A common upper-layer wrapper must route cross-aircraft and C2 information through modeled sensors or links. Peer MAs and C2 systems exchange information only through those paths. Internal sharing never expands the platform's permissions or introduces referee truth. Use the [SDK access terminology](../../sdk/agents.md#sdk-access-terminology) for service binding, data visibility and process interfaces.
 
 ## 4. Responsibilities and dependency direction
 
@@ -139,7 +140,7 @@ Observation construction never accepts VehicleState, Referee or arbitrary TaskSt
 
 ### Action document
 
-ma.actions.v1 contains episode generation, service_id, tick and a list of requests. Each request has request_id, kind, operation, parameters and optional upper-layer component provenance. The service is authenticated by the endpoint; a document cannot select a new sender, source or controller.
+ma.actions.v1 contains episode generation, service_id, tick and a list of requests. Each request has request_id, kind, operation, parameters and optional upper-layer component provenance. The endpoint uses its configured service identity binding; a document cannot select a new sender, source or controller.
 
 Supported families:
 
@@ -174,7 +175,7 @@ Keep current RBAC/default strike policy behavior when no new profile is configur
 
 Introduce training.authorization.v1 for the new mission path. Initial supported criteria are:
 
-- Existing authenticated role/permission and configured strike-authorizer membership.
+- Existing delivered-sender role/permission checks and configured strike-authorizer membership.
 - Valid own designation and eligible specified stores.
 - Policy-selected auto-approve, auto-reject or required approval.
 - Request validity interval in simulation time and its episode/activity association.
@@ -213,7 +214,7 @@ Reward definitions are versioned and referee-owned. Distinguish release, detonat
 
 Support explicit centralized-training/decentralized-execution records: actor observation/intent/receipt streams and referee/critic streams have separate schemas and access paths. The same-process interface is an accidental-access boundary; evaluation requiring stronger isolation uses a process proxy that exports only the actor endpoint.
 
-Reuse the existing AgentProcess side-channel guard. Strict isolated episodes disable truth publication/recording and refuse Range/referee handles. A diagnostic opt-in for viewer/recording is explicitly labeled non-isolated. Strict isolated trace comparison and fullscreen visual/FSREC acceptance are separate runs; neither is presented as proving the other's boundary.
+Reuse the existing AgentProcess diagnostic truth-output checks. Strict actor process isolation disables truth publication/recording and refuses Range/referee handles. A diagnostic opt-in for viewer/recording is explicitly labeled non-isolated. Strict isolated trace comparison and fullscreen visual/FSREC acceptance are separate runs; neither is presented as proving the other's boundary.
 
 ## 12. Joint acceptance matrix
 

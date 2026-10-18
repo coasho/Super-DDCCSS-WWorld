@@ -26,7 +26,7 @@ For those features, Claude owns native C++, C++/C/Python interfaces, examples, t
 
 Implement only explicitly assigned feature packages during the active write window. The documented assignments do not expand an implementation window's scope. Project documentation records public contracts, assigned tasks and acceptance evidence rather than personal execution notes.
 
-The reviewed Viewer baseline was delivered as a separate verified main commit and push: baf476f841970f1f3c90b8de0bf630e8a5478738. Generic M0, M1 and noncombat M2 have been delivered on main; the latest M1 follow-up is 2bad550. M4/M5 have not started at this handoff. Preserve the frozen generic M0 schemas, native mappings, lifetime/error and ownership contracts when adding downstream interfaces.
+The reviewed Viewer baseline was delivered as a separate verified main commit and push: baf476f841970f1f3c90b8de0bf630e8a5478738. Generic M0, M1 and noncombat M2 have been delivered on main; the latest M1 follow-up is 2bad550. Progress reviewed on 2026-10-15 at main 6e8b4aa: M4 independently accepted at 54b7fb9; simulation/interface compatibility prerequisite accepted at 08e3afe; M5 core implemented in 6e8b4aa and awaiting independent acceptance. Full M5 extension handlers, first-package acceptance, M6-M8 and joint/Viewer acceptance remain pending. See docs/status.md for current status and dated evidence. Preserve the frozen generic M0 schemas, native mappings, lifetime/error and ownership contracts when adding downstream interfaces.
 
 The first complete Claude package is the noncombat mission episode gateway: M1 + M4 + noncombat reports + minimal M5 core through installed public C++, C99 and Python. Only an interim gateway smoke check may precede full M4 fixture acceptance; complete M5 core and first-package acceptance require full M4. The supplied native-state reset fixture uses already accepted SDK behavior and need not wait for new policy implementation. M5 core is independent of M3; full M5 requires both core and combat gates. M6 noncombat composition consumes M5 core; full composition scenarios consume M5 full. M7 core consumes M6 noncombat and remains separate from combat outcome/reward gates; full M7 also requires full M6.
 
@@ -40,7 +40,9 @@ The formal complex MA runtime belongs in the upper-layer project. Its actors, BT
 
 An SDK Agent is a permission-scoped endpoint. MA service, platform, component and DRL actor are distinct identities; their counts need not match. C2 services may exist without aircraft.
 
-Internal components may share legally obtained state inside the same platform/system boundary. Cross-platform/C2 information passes through modeled sensors/links. Sharing a gateway does not expand authority or permit a cross-platform blackboard bypass.
+Internal components may share state available through their SDK permissions inside the same platform/system boundary. Cross-platform/C2 information passes through modeled sensors/links. A shared gateway does not expand authority or make another platform's blackboard available outside those modeled paths.
+
+Use SDK terminology for these contracts: service identity binding, Agent permissions, callable-method lists, actor/referee data visibility, generation-checked handle lifetime, request validation and ABI compatibility. Process isolation means an actor process receives only its SDK proxy and permitted reports; operating-system file/process access is outside that interface contract. Describe the local pipe's HMAC connection check separately from modeled C2 roles and endpoint binding. Preserve established API identifiers, schema fields and native refusal semantics when correcting explanatory wording. The terminology reference is docs/sdk/agents.md, SDK access terminology.
 
 Preserve existing public signatures, class/struct layouts, plugin vtables, enum numbers, status/error semantics, observation/action shapes, default permissions, behavior and ABI. Use additive versioned interfaces. Old-header binaries must continue to work. Preserve established native/Python runtime type owners and CPython stable-ABI conventions.
 
@@ -60,13 +62,13 @@ Build one immutable legal gateway snapshot per decision tick. Re-reading and int
 
 Actor reports contain only bound Agent knowledge, with provenance/sample/receive times, age and validity. Preserve stale/unknown/unavailable values. Referee truth, arbitrary task custom state and reward cannot populate actor snapshots or action masks.
 
-submit validates and queues. Range.step closes the tick, dispatches by stable service ID/request ID, advances configured native steps and freezes the next snapshot. The endpoint authenticates service identity; request documents cannot change sender/controller.
+submit validates and queues. Range.step closes the tick, dispatches by stable service ID/request ID, advances configured native steps and freezes the next snapshot. The endpoint binds each request to its configured service identity; request documents cannot change sender/controller.
 
 Use scoped edge-triggered request IDs. Identical retries return original acknowledgment without repeating effects; changed-body reuse fails. Keep live correlations until explicit closure and bound terminal tombstones/capacity without re-executing expired retries.
 
 Serialize reset, step and submission at the Range boundary. Reject busy/lifetime failures, wrong generations and late/future ticks explicitly. Native refusals remain authoritative receipts with native reasons/IDs.
 
-Keep actor endpoint proxies separate from Range/referee handles. Strict isolation disables truth publication and recording and uses an endpoint-only whitelist. Recording/IPC truth, Viewer and critic/referee data stay outside actor training. Diagnostic visual runs are labeled non-isolated.
+Keep actor endpoint proxies separate from Range/referee handles. Strict actor process isolation disables truth publication and recording and exposes only the endpoint's callable-method list. Recording/IPC truth, Viewer and critic/referee data stay outside actor observations and action masks. Diagnostic visual runs are labeled non-isolated.
 
 ## Scheduling, files and verification
 

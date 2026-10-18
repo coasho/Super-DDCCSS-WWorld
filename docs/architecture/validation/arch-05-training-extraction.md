@@ -1,6 +1,7 @@
 # ARCH-05 training environment and mission extraction
 
-Status: implemented, awaiting independent acceptance (2026-10-16). ARCH-06 has not started.
+Status: independently accepted at `58f9297` (2026-10-16); see the
+[independent review](arch-05-review-2026-10-16.md). ARCH-06 has not started.
 Starting main HEAD: `6e79873` (ARCH-04 accepted, with HC-15's placement decided).
 
 This is a relocation and target split. No source line changed except includes and path comments, and no model, RNG,
@@ -132,5 +133,5 @@ objects are identical either way; verify the export lists after a rollback.
 
 ## 8. Next
 
-ARCH-06 (visualization core, effects and source separation) may start after independent acceptance. The open
-carryovers are in the [register](handoff-carryover-register.md).
+ARCH-06 (visualization core, effects and source separation) requires the next user-relayed assignment after
+independent acceptance. The open carryovers are in the [register](handoff-carryover-register.md).

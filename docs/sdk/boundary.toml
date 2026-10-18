@@ -12,7 +12,8 @@
 #   referee   read only, truth among it: scoring, rewards, a critic
 #   platform  inside the simulated equipment: the control runtime, plug-ins and their interfaces
 #   value     no world: names, struct initialisers, unit and physics helpers, the SDK's version
-# leaks: what an agent's call reaches today that ADR-31 keeps from agents (the register below); AB-2 closes them.
+# Legacy `leak`/`leaks` keys identify historical SDK access findings (L1-L11), resolved for Agent calls by AB-2.
+# Keep these register keys stable; documentation uses SDK access findings and callable-method lists.
 
 [explicit]
 # Role-mixing scopes: every entry point here is classified by its name, never by a pattern, so a new call on these
@@ -1133,7 +1134,7 @@ names = ["fsim.isolation.AgentProcess.call", "fsim.isolation.AgentProcess.step",
 
 [[rule]]
 principal = "value"
-note = "Isolation's whitelist: what an isolated MA may call - fsim.Agent's and fsim.AgentActivity's members"
+note = "Actor process callable-method list: fsim.Agent's and fsim.AgentActivity's members"
 names = ["fsim.isolation.agent_calls", "fsim.isolation.activity_calls"]
 
 [[rule]]
@@ -1182,7 +1183,7 @@ names = [
 
 [[rule]]
 principal = "value"
-note = "Mission isolation's whitelist: what an isolated actor may call on its endpoint"
+note = "Mission actor process callable-method list: endpoint observations, submissions and receipts"
 names = ["fsim.isolation.mission_endpoint_calls"]
 
 [[rule]]

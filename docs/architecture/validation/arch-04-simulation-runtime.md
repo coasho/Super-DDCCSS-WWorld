@@ -1,6 +1,7 @@
 # ARCH-04 simulation runtime, services and lower facade
 
-Status: implemented, awaiting independent acceptance (2026-10-16). ARCH-05 has not started.
+Status: independently accepted at `6e79873` (2026-10-16), with the explicit HC-15/P022 placement adjustment in the
+[independent review](arch-04-review-2026-10-16.md). ARCH-05 has not started.
 Starting main HEAD: `ad12a44` (ARCH-03 accepted, HC-12 closed).
 
 This is a relocation and target split. No source line changed except includes and path comments, and no model, RNG,
@@ -55,7 +56,10 @@ Further details:
 - **Native scenario:** the native scenario implementation (`session::applyScenario`, parsing and the recipe) did move,
   with the runtime.
 
-The register records this as HC-15 for an explicit decision.
+At handoff, the register recorded HC-15 for an explicit decision. Independent acceptance at `6e79873` retains this
+thin public compatibility wrapper in the final SDK and assigns its relocation to ARCH-07's SDK adapters. P022 is
+explicitly amended; the wrapper is not counted as already moved. Native scenario execution remains in simulation,
+and no new public-header exception is introduced. HC-15 remains tracked until the scheduled relocation is accepted.
 
 ## 3. Roadmap tasks
 
@@ -154,5 +158,6 @@ The compiled objects are identical either way. Verify the export lists after a r
 
 ## 9. Next
 
-ARCH-05 (training environment and mission extraction) may start after independent acceptance. The open carryovers,
-including HC-15's placement decision, are in the [register](handoff-carryover-register.md).
+ARCH-05 (training environment and mission extraction) requires the next user-relayed assignment after independent
+acceptance. The open carryovers, including HC-15's scheduled ARCH-07 relocation, are in the
+[register](handoff-carryover-register.md).

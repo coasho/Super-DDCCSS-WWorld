@@ -39,14 +39,15 @@ Focused negative fixtures exercise `session -> env`, `env -> render` and
 aliases. These are checks of the existing policy, not additional runtime layers.
 
 Public headers also reject direct references, forward declarations and aliases
-for the private `session`, `env` and `ipc` namespaces. The existing trusted World
+for the private `session`, `env` and `ipc` namespaces. The existing Range-owned World
 facade retains its exact native forward declaration, `impl`, `borrowed`, borrowed
 constructor and storage declarations in `include/fsim/World.h`. Only the existing
 World class's direct members are exempt: another class in that header, including
 a nested actor endpoint, cannot reuse the exemption. Comments and string literals
-do not create type references. This is a lexical declaration guard, not a C++ type
-resolver or a security sandbox; M5 must still verify that public actor endpoints
-cannot return a public World/Range/referee handle or bypass Agent permissions.
+do not create type references. This lexical declaration check covers public-header
+dependencies. M5 separately verifies endpoint return types, Agent permissions,
+generation checks and process-proxy methods. Public actor endpoints must not return
+World/Range/referee handles. See [SDK access terminology](../../docs/sdk/agents.md#sdk-access-terminology).
 
 Source walks are limited to the explicit `src`, `include/fsim` and `third_party`
 roots, and the layout's `tests`, `examples` and `tools` roots. They prune excluded

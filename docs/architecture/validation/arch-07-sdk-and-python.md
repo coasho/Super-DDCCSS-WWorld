@@ -1,13 +1,15 @@
 # ARCH-07 SDK assembly and Python import cleanup
 
-Status: implemented, awaiting independent acceptance (2026-10-16). ARCH-08 has not started.
+Status: independently accepted at `a59b46f` (2026-10-17), including the `ebd3a09` subset and P056 completion.
+HC-21 and HC-23 are closed; HC-22's documented explicit C-header include remains accepted. ARCH-08 has not started. See the
+[independent review](arch-07-review-2026-10-17.md).
 Starting main HEAD: `74efb49` (ARCH-06 accepted).
 
 This package leaves the final SDK assembly thin and moves the Python extension sources into the adapters. It moves the
 Python implementation behind the public modules into private packages and removes both deferred import cycles. The
-camera core no longer imports the VecEnv, and no public header exception remains. One path-map row is blocked by
-ownership: P056, `fsim.isolation`'s codec and proxy, whose public module carries another owner's uncommitted edits
-(register HC-21, section 9).
+camera core no longer imports the VecEnv, and no public header exception remains. P056 was initially blocked by
+ownership because `fsim.isolation` carried another owner's uncommitted edits. The later assignment released it
+subject to preserving those edits; sections 13-14 record its completion and acceptance (HC-21).
 
 No model, RNG, timestep, layout, default or public identity changed:
 - **Native objects:** every first-party object both presets build is unchanged in code, data and symbols, apart from
@@ -182,7 +184,7 @@ As the package's instructions and HC-11 require, the related fast set ran instea
     `test_mass_accounting`, `test_radar`), with the four mission-concurrency stress cases.
 
 Headless ran 622 of 712 tests and Release 682 of 771. Not run: the long flight, fleet, radar and conformance suites,
-hangar's tests, the launcher contract, the native engagement suite and the Flow calibration. This package does not
+the remaining long hangar cases, the launcher contract, the native engagement suite and the Flow calibration. This package does not
 change their code: their objects are unchanged.
 
 ## 8. References
@@ -202,11 +204,12 @@ change their code: their objects are unchanged.
   - dated records and plans;
   - synthetic fixture paths.
 
-## 9. Open items
+## 9. Initial open items at ebd3a09
 
 - **HC-21:** P056 is done by section 13, with the other owner's uncommitted edits to `fsim.isolation` kept in place.
-- **HC-22:** `VecEnv.h` no longer includes `fsim_c.h` (section 2), a source-level change for a consumer that relied on
-  it. Binary compatibility and every repository consumer are unaffected.
+- **HC-22:** accepted by the 2026-10-17 independent review. `VecEnv.h` no longer includes `fsim_c.h` (section 2);
+  mixed C/C++ source includes that public C header explicitly. The old/current/explicit-include syntax probe confirms
+  pass/fail/pass. This is a documented source-include change, not complete old-source parity; ABI is unchanged.
 - **HC-04:** revisited, still open. The package root still imports its public modules eagerly, so a change to any
   `fsim` module still selects every Python test that imports `fsim`.
 
@@ -227,12 +230,23 @@ No native model parameter is involved.
 
 ## 11. Next
 
-ARCH-08 (applications, tests, examples and packaging) requires the next user-relayed assignment after independent
-acceptance.
+ARCH-08 (applications, tests, examples and packaging) requires the next user-relayed assignment. ARCH-07 is
+independently accepted at `a59b46f`; open carryovers retain their recorded owners and closure conditions.
+
+## 12. Independent review (2026-10-17)
+
+The [review](arch-07-review-2026-10-17.md) accepts the delivered implementation without marking P056 complete.
+HC-08, HC-15 and HC-17.4 are accepted; HC-22's source-include decision is explicit. P056 remains HC-21, pending a
+recorded ownership handoff. The stale native `training_vision` phase is retained separately as planning item HC-23.
+
+Independent related checks pass: 10/10 headless (43.21 s), 3/3 Release (6.73 s), and the Python training module 1/1
+(10.01 s), plus the three syntax-only header probes. No product rebuild, full suite or GUI run was repeated.
+The test-scope wording above is corrected: 26 headless and 28 Release hangar cases did run; only the remaining long
+cases were excluded. Other deferred verification remains unchanged. ARCH-08 has not started.
 
 ## 13. HC-21 completion: P056, and HC-23 (2026-10-17)
 
-Status: awaiting independent acceptance. ARCH-08 has not started.
+Status: independently accepted at `a59b46f`; see section 14. ARCH-08 has not started.
 
 The 2026-10-17 assignment released `python/fsim/isolation.py` for P056, provided its pending uncommitted edits are
 preserved. They remain uncommitted and unchanged, in the lines they were made on.
@@ -288,3 +302,14 @@ this record are kept beside the committed blobs.
 | Selector `test_scope.py`; planning document checker | 74 cases (1 skipped; 74/74 with the Release inventory); accepted (26 documents, 74 source units, 423 files) |
 
 No skips, no native object compiled or linked, and no full suite (HC-11). Logs are in `D:/ENV/tmp/hc21/`.
+
+## 14. Final independent acceptance (2026-10-17)
+
+The [final review](arch-07-review-2026-10-17.md#6-final-hc-21-and-hc-23-acceptance-at-a59b46f) closes HC-21/P056
+and HC-23 and accepts ARCH-07 at `a59b46f`. The Range-side hosts remain in the public facade; codec/proxy/actor-loop
+implementation is private, with public owners and runtime behavior retained. Saved pre-change hunk payloads match
+the current unstaged isolation, actor-fixture and checker wording edits exactly.
+
+The focused planned-phase regression passes 1/1 (0.760 s); independent headless checks pass 5/5 (32.15 s) and Release
+checks 2/2 (7.07 s). No product rebuild, full suite or GUI run was repeated. HC-24 retains the planning-graph naming
+reconciliation before ARCH-10; all other open carryovers keep their owners. ARCH-08 has not started.

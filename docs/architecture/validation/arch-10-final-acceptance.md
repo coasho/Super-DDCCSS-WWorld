@@ -1,9 +1,11 @@
 # ARCH-10 final three-domain acceptance
 
-Status: implemented on main (2026-10-17); awaiting independent acceptance. The structural, compatibility and
-installed-consumer gates pass on both required presets. The full suites (HC-11), the fullscreen Viewer scenarios and
-the joint/combat gates (HC-07) stay pending, as the user directed, so this record reports migration progress: it does
-not declare the three-domain architecture complete.
+Status: structural/correction subset accepted at `f1bb879`, and HC-11 final regression independently accepted at
+evidence commit `66dc43d` (2026-10-17). HC-38 to HC-43 and HC-20 remain closed. HC-07's fullscreen Viewer, manual,
+performance and joint gates remain pending, so complete ARCH-10/final-program acceptance is not claimed. HC-44
+records nonblocking future fingerprint hardening. See sections 12-14; earlier sections retain dated evidence.
+HC-07's diagnostic subset is independently reviewed at `465b7af` (section 16); HC-45 performance, combat prerequisites
+and remaining input coverage keep HC-07 open. HC-46/47 are recorded nonblocking Viewer/evidence limits.
 Starting main HEAD: `6bb79cc` (ARCH-09 accepted).
 
 The user's decisions for this package (2026-10-17):
@@ -98,12 +100,12 @@ The functional model goals stay outside this migration:
 | No forbidden link, import or package edge, and no cycle | Met in the source, configured (both presets), Python and planning graphs |
 | Thin classified adapters with one public type or state owner | Met as accepted in ARCH-07 (HC-15, HC-21, HC-22); unchanged |
 | Headless simulation and training independent of graphics and ML | Met: the headless preset configures no renderer module, and the optional packages stay out of the eager import closure |
-| Simulation authority, concurrency, reset, RNG and outcome meanings preserved | No native object changed in this package; current proof needs the full suites (HC-11). **Pending** |
-| Existing binaries, import paths, resources and recordings compatible | Installed C++, C99 and Python consumers pass on both presets; the full compatibility suites are **pending** (HC-11) |
-| Current required native, installed and graphics evidence complete | **Pending:** the full suites (HC-11), and the GUI and joint gates (HC-07) |
+| Simulation authority, concurrency, reset, RNG and outcome meanings preserved | HC-11 accepted at `66dc43d`: all registered cases pass on the frozen effective source; no model/feature evidence beyond those assertions is inferred |
+| Existing binaries, import paths, resources and recordings compatible | Installed consumers and both required complete inventories pass; HC-11 accepted at `66dc43d`, with the recorded source/artifact scope |
+| Current required native, installed and graphics evidence complete | Native/full-suite and installed evidence accepted under HC-11; graphics/manual/performance/joint evidence still **pending** HC-07 |
 | Historical documentation with one canonical owner and valid redirects | Met in ARCH-09 |
 | Every handoff's self-reported items reconciled in the register | Done for this handoff ([register](handoff-carryover-register.md)) |
-| Independent review accepted, slots released, only reviewed files committed | Slots released. Independent review **pending** |
+| Independent review accepted, slots released, only reviewed files committed | Structural/correction and HC-11 reviews accepted, slots released; complete program still awaits HC-07. Planning/review inputs retain explicit uncommitted status |
 
 ## 7. Self-reported items
 
@@ -135,6 +137,31 @@ The functional model goals stay outside this migration:
 
 Independent acceptance of this package. Then, on the user's assignment, the frozen-code full suites (HC-11) and the
 GUI and joint gates (HC-07) complete the final-program evidence.
+
+## 10. Independent review at 197a059
+
+The [independent review](arch-10-review-2026-10-17.md) accepts HC-19's bounded escalation, HC-24's planning/policy
+alignment, HC-25's declared launch category, HC-04's retained dependency rule and HC-37's test arrangement.
+The disclosed Release architecture run is appropriate. Complete ARCH-10 acceptance is blocked by six P2 items:
+
+- **HC-38:** SYSTEM includes bypass owned source/include-view closure checks.
+- **HC-39:** nested shared module CMake files omit Release; HC-20 remains open.
+- **HC-40:** missing configured-gate registrations can still produce successful selector plans.
+- **HC-41:** the source manifest has a stale selector hash and omits the two new checker files.
+- **HC-42:** wrong-build replies and render-off replies still containing renderer modules are accepted.
+- **HC-43:** the mandatory codemodel 2.9 requirement conflicts with the declared CMake 3.25 support contract.
+
+Existing exact gates pass 5/5 headless (35.82 s) and 2/2 Release (11.57 s). Bounded synthetic/plan-only probes expose
+the gaps despite those green gates. The current real headless graph does omit renderer modules; no native
+simulation or public ABI defect is alleged. Both inventories contain 67 `python_sdk` tests, correcting section 3's
+69/68. The configured checker has 27 total cases including controls, correcting the negative-only wording.
+
+Before-copy verification preserves other owners' README/status payloads. The 17 headless/72 Release artifact
+hashes match current binaries, but they do not repair HC-41's source-provenance gap. HC-35 remains pending human
+disposition; all handoff slips and stated limits are reconciled in the review/register. Evidence is under
+`build/architecture-reviews/arch10-197a059/`. No configure/build, consumer rebuild, GUI or full suite was repeated;
+no files were staged, committed or pushed. Stop for bounded corrections and independent recheck. HC-07/HC-11
+retain their existing gates; a full run is not authorized by this review.
 
 ## 11. HC-38 to HC-43 correction (2026-10-17)
 
@@ -175,6 +202,32 @@ Further details:
 
 No full suite, GUI run or package gate was repeated (HC-11, HC-07). Logs and the before copies are in `D:/ENV/tmp/arch10-fix/`.
 
+## 12. Independent correction acceptance at f1bb879
+
+The [correction recheck](arch-10-review-2026-10-17.md#9-hc-38-to-hc-43-correction-acceptance-at-f1bb879) closes all
+six P2 findings and HC-20. SYSTEM ownership, recursive shared-CMake routing, per-preset required gates, source
+provenance, build/branch validation and the explicit native-3.25/strict-gate-4.2 contract now satisfy their recorded
+closure conditions. No new blocking finding was established. Current exact gates pass 3/3 headless (17.50 s) and
+2/2 Release (11.63 s); the original-hole probes and controls pass without running any selected complete inventory.
+
+Source provenance was independently verified before review writes: 13 committed inputs at `872f561`, 58 working
+paths (30 tracked/28 planning) and the expected package-input set match. Commit `f1bb879` changes only the manifest,
+excluded by its stated rule. All 17/72 binary hashes, both 234-file data digests and consumer manifests match.
+The manifest remains dated evidence; seven later review-document edits form an explicit overlay rather than a
+newly recaptured source snapshot. Logs, before copies and the overlay are under
+`build/architecture-reviews/arch10-f1bb879/`.
+
+The scratch verifier is accepted as a one-off evidence helper. It does not establish expected-set completeness
+or artifact freshness on its own; those were checked independently. Before future capture/reuse, its owner must
+replace post-filtered `rglob` with exclusions before descent and validate any claimed required input set. The
+helper was not run in capture mode here. Its limits, corrected development slips, Git-listing measure, original
+owner payload preservation and pending HC-35 disposition are reconciled in the review/register.
+
+HC-04/19/24/25 and HC-37 stay accepted. Full suites (HC-11), current fullscreen/manual/performance and joint gates
+(HC-07), and functional/model carryovers remain pending. No configure/build, package gate, GUI or full suite was
+repeated; nothing was staged, committed or pushed. This accepts the bounded correction, not the complete program,
+and authorizes no pending run.
+
 ## 13. HC-11 final regression (2026-10-17)
 
 The [HC-11 record](hc-11-final-regression.md) has the details.
@@ -201,6 +254,23 @@ Further details:
 - **Still pending (HC-07):** the graphics evidence, meaning the complete fullscreen scenarios, manual controls, the
   4K performance gate and joint acceptance. Final-program acceptance is not claimed.
 
+## 14. Independent HC-11 acceptance at 66dc43d
+
+The [HC-11 review](hc-11-review-2026-10-17.md) accepts the single full run of each required inventory on the
+effective frozen source at `f1bb879`: 717/717 headless and 780/780 Release CTest entries pass, with exact name and
+raw-result matches. No CTest entry skipped or went unrun. Headless's three expected internal optional-Vision skips
+are exercised successfully on Release; they do not represent three missing CTest entries. All 63 renderer entries
+pass, including actual Viewer presented-frame checks.
+
+The committed fingerprint and raw log hashes match; before/after-run checks report the covered snapshot unchanged.
+Post-run source differences are the declared documentation overlay. HC-44 records future helper improvements for
+uncaptured test executables/plugins/staged Python, full inventory metadata and pre-query tracked exclusions.
+These are evidence-scope limits with no demonstrated changed runtime input; they do not require another full run.
+
+HC-11 is closed. HC-07's complete fullscreen/manual/performance/joint evidence and the separately assigned feature
+prerequisites remain pending. Clean rebuild/Debug were outside this assignment. No native build, GUI or suite was
+repeated during review; no files were staged, committed or pushed. Continue only on the next user assignment.
+
 ## 15. HC-07 verification (2026-10-17)
 
 The [HC-07 record](hc-07-viewer-and-joint.md) has the details. Verified on the HC-11-tested binaries at 3840 x 2160
@@ -219,3 +289,51 @@ fullscreen:
 
 Section 6's row "current required native, installed and graphics evidence complete" therefore stays pending, and HC-07
 stays open.
+
+## 16. Independent HC-07 diagnostic-evidence review at 465b7af
+
+The [review](hc-07-review-2026-10-17.md) accepts the dated live-strike, replay/demo visual samples, programmatic
+keyboard/setup/lifecycle checks and observed same-process World replacement. Native event/readback evidence and
+all supplied hashes match. Standalone-demo exit/cleanup summary fields are author observations, and the reconnect
+helper is not a fail-closed gate (HC-47); direct log/image review supports the observed subset.
+
+HC-45 is confirmed: fleet/strike/hit fail both unchanged 4K gates, reheat passes. Current load and changed hit
+workload do not establish migration regression or its absence. HC-06 combat handlers/registration/reduction inputs,
+HC-02 and mouse/replay/resize coverage remain pending; no human-operated session is claimed. HC-46's --no-gui
+panels are pre-existing and nonblocking. HC-07 and complete program acceptance stay open. HC-11 remains closed;
+no GUI, native build, full suite or performance run was repeated during review.
+
+## 17. Independent HC-45 evidence review at 0a635d9
+
+The [review](hc-45-review-2026-10-17.md) accepts the raw matched-input measurements, with no unconditional
+no-regression or causal acceptance. HC-48/50 require evidence corrections; HC-49 is a nonblocking diagnostic
+query-gap issue. The saved 68/68 Release selection covers the changed diagnostic source, while HC-11's full-run
+coverage remains dated to its original frozen source. Four staged artifacts changed; no new full run is requested.
+HC-45 performance and HC-07 remain open, HC-47 was not fixed, and other assigned gates retain their owners.
+No Viewer, benchmark or full suite was repeated; the review used a GPU-free production-source probe and parser/
+document checks only. Performance optimization remains deferred under the user's record-and-stop decision.
+
+## 18. HC-47 to HC-50 correction acceptance at 1e9433b
+
+The [recheck](hc-45-review-2026-10-17.md#6-hc-47-to-hc-50-correction-recheck-at-1e9433b) closes HC-48/49/50.
+HC-47's new measured evidence is accepted, but missing-observation and event-order false accepts keep its helper
+correction open. This does not establish a current Viewer failure. HC-07/full-program acceptance remains open,
+HC-45 optimization is deferred, and HC-11 retains its dated frozen-source coverage. Newly selected full suites
+remain a pending plan, not authority for another run. Only exact GPU-timer cases and pure helper/document checks
+ran in review; no build, GUI or performance rerun. Other carryovers and the human HC-35 decision remain unchanged.
+
+## 19. HC-47 helper-check acceptance at d6bfb54
+
+The [acceptance](hc-45-review-2026-10-17.md#7-hc-47-version-2-correction-acceptance-at-d6bfb54) closes HC-47's
+check-logic correction after 149 expected pure results and evidence/owner preservation checks. HC-48/49/50 stay
+closed. V2's live run path remains unexercised and needs validation before future automated-gate reuse; no new live
+Viewer evidence is claimed and no GUI/performance/full run is requested now. HC-07 and complete program acceptance
+remain open, HC-45 optimization stays deferred, and HC-35/other owners and HC-11's dated snapshot scope remain.
+
+## 20. HC-07 sampled interactions and HC-51 acceptance at 5c80892
+
+The [review](hc-07-review-2026-10-17.md#6-interaction-subset-and-hc-51-acceptance-at-5c80892) accepts the dated window-input mouse/replay/resize subset at `2a09756` and closes HC-51's
+guide correction. This supersedes broad earlier interaction-pending labels for those sampled cases only. Human
+operation, other panels/cameras/options, HC-45, HC-06 and HC-02 remain pending. HC-52 records nonblocking resize-
+helper completeness work before automated reuse; seven real saved images remain accepted. HC-07 and full-program
+acceptance stay open. No GUI, performance scene, native build or full suite was repeated; only pure/document checks.

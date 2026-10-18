@@ -250,7 +250,9 @@ def render(result, data):
         "An agent holds its own objects - fsim::Agent, fsim.Agent, an agent's C handle ([agents.md](agents.md)) - never",
         "the range's World or Vehicle, and the library refuses an agent's handle every call that is not an agent's: each",
         "C function an fsim_world* reaches opens with its guard, which `sdk_boundary` checks against this classification.",
-        "A **leak** is an agent's call that reaches what ADR-31 keeps from agents; those still open are counted below.",
+        "An **SDK access finding** records a call that exposed Range/referee data or operations through an Agent interface.",
+        "The historical L1-L11 register counts remaining Agent calls below. Its legacy `leak`/`leaks` keys stay unchanged.",
+        "Use the [SDK access terminology](agents.md#sdk-access-terminology) for service binding, data visibility and process proxies.",
         "",
         "| Principal | C++ | C | Python |",
         "| --- | ---: | ---: | ---: |",
@@ -260,7 +262,7 @@ def render(result, data):
         counts[rules[i]["principal"]][s] += 1
     for p in PRINCIPALS:
         lines.append("| %s | %d | %d | %d |" % (p, counts[p]["cpp"], counts[p]["c"], counts[p]["python"]))
-    lines += ["", "## Leaks", "", "| Leak | What | Calls |", "| --- | --- | ---: |"]
+    lines += ["", "## SDK access findings", "", "| Finding | What | Calls |", "| --- | --- | ---: |"]
     for code, text in data["leak"].items():
         n = sum(1 for (_, _), i in result.items() if code in rules[i].get("leaks", []))
         lines.append("| %s | %s | %d |" % (code, text, n))
@@ -275,7 +277,7 @@ def render(result, data):
             leaks = ", ".join(r.get("leaks", []))
             head = "- **%s**" % r.get("note", "")
             if leaks:
-                head += " *Leaks: %s.*" % leaks
+                head += " *Access findings: %s.*" % leaks
             lines.append(head)
             for s in ("cpp", "c", "python"):
                 names = sorted(n for t, n in groups[i] if t == s)

@@ -1,0 +1,641 @@
+{
+  "date": "2026-10-17",
+  "head": "6bb79cc0e16edd69acfe474b739e415e778485fe",
+  "limitations": [
+    "Working-tree scan; not a clean-commit-only scan",
+    "No native configure/build/runtime/GPU test was run",
+    "A source graph is not a configured linker or CPython runtime proof"
+  ],
+  "native": {
+    "checker_issues": [],
+    "checker_modules": 28,
+    "checker_source_and_public_files": 401,
+    "cycles": [],
+    "direct_edges": {
+      "app": [
+        "core",
+        "io",
+        "platform",
+        "sim"
+      ],
+      "comm": [
+        "control",
+        "core",
+        "platform"
+      ],
+      "contracts": [],
+      "control": [
+        "core",
+        "sim"
+      ],
+      "core": [
+        "platform"
+      ],
+      "demo": [
+        "contracts",
+        "core",
+        "io",
+        "ipc",
+        "platform",
+        "sim"
+      ],
+      "effects": [
+        "core",
+        "sim"
+      ],
+      "env": [
+        "control",
+        "core",
+        "io",
+        "session",
+        "sim",
+        "simulation_api"
+      ],
+      "flow": [
+        "core"
+      ],
+      "io": [
+        "core"
+      ],
+      "ipc": [
+        "contracts",
+        "core",
+        "platform"
+      ],
+      "mission": [
+        "core",
+        "env",
+        "session",
+        "simulation_api"
+      ],
+      "modeled_dms": [
+        "comm",
+        "ms"
+      ],
+      "ms": [
+        "core"
+      ],
+      "platform": [],
+      "python_abi": [],
+      "python_native": [
+        "python_abi",
+        "sdk"
+      ],
+      "render": [
+        "core"
+      ],
+      "scene": [
+        "core",
+        "flow",
+        "io",
+        "ipc",
+        "render"
+      ],
+      "sdk": [
+        "comm",
+        "control",
+        "core",
+        "effects",
+        "env",
+        "io",
+        "ipc",
+        "mission",
+        "modeled_dms",
+        "ms",
+        "platform",
+        "session",
+        "sim",
+        "simulation_api"
+      ],
+      "session": [
+        "comm",
+        "contracts",
+        "control",
+        "core",
+        "effects",
+        "io",
+        "ipc",
+        "modeled_dms",
+        "ms",
+        "sim"
+      ],
+      "sim": [
+        "contracts",
+        "core",
+        "io"
+      ],
+      "simulation_api": [
+        "core",
+        "ipc",
+        "session"
+      ],
+      "ui": [
+        "core",
+        "ipc",
+        "render",
+        "scene"
+      ],
+      "viewer": [
+        "core",
+        "io",
+        "ipc",
+        "platform",
+        "render",
+        "scene",
+        "ui"
+      ],
+      "vision": [
+        "core",
+        "io",
+        "ipc",
+        "platform",
+        "sdk",
+        "vision_core"
+      ],
+      "vision_core": [
+        "core",
+        "io",
+        "platform",
+        "scene"
+      ],
+      "vision_native": [
+        "python_abi",
+        "vision"
+      ]
+    }
+  },
+  "policy_sha256": "f8fb27fadb261fe122c3f85858f4d979cf0df4ccddcdb539f97830eb8f568393",
+  "python": {
+    "all_literal_import_cycles": [],
+    "eager_cycles": [],
+    "import_edges": [
+      {
+        "deferred": false,
+        "from": "fsim.agent",
+        "line": 19,
+        "path": "python/fsim/agent.py",
+        "to": "fsim._native"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.agent",
+        "line": 20,
+        "path": "python/fsim/agent.py",
+        "to": "fsim._simulation.factories"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.agent",
+        "line": 21,
+        "path": "python/fsim/agent.py",
+        "to": "fsim._simulation.values"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.agent",
+        "line": 24,
+        "path": "python/fsim/agent.py",
+        "to": "fsim.world"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.agra",
+        "line": 17,
+        "path": "python/fsim/agra.py",
+        "to": "fsim._native"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.agra",
+        "line": 18,
+        "path": "python/fsim/agra.py",
+        "to": "fsim.world"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.gym",
+        "line": 23,
+        "path": "python/fsim/gym.py",
+        "to": "fsim.vecenv"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.isolation",
+        "line": 47,
+        "path": "python/fsim/isolation.py",
+        "to": "fsim._adapters.actor"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.isolation",
+        "line": 48,
+        "path": "python/fsim/isolation.py",
+        "to": "fsim._adapters.codec"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.isolation",
+        "line": 49,
+        "path": "python/fsim/isolation.py",
+        "to": "fsim._adapters.actor"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.isolation",
+        "line": 50,
+        "path": "python/fsim/isolation.py",
+        "to": "fsim._adapters.codec"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.isolation",
+        "line": 51,
+        "path": "python/fsim/isolation.py",
+        "to": "fsim.agent"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.isolation",
+        "line": 52,
+        "path": "python/fsim/isolation.py",
+        "to": "fsim.world"
+      },
+      {
+        "deferred": true,
+        "from": "fsim.isolation",
+        "line": 78,
+        "path": "python/fsim/isolation.py",
+        "to": "fsim.agent"
+      },
+      {
+        "deferred": true,
+        "from": "fsim.isolation",
+        "line": 84,
+        "path": "python/fsim/isolation.py",
+        "to": "fsim.agent"
+      },
+      {
+        "deferred": true,
+        "from": "fsim.isolation",
+        "line": 101,
+        "path": "python/fsim/isolation.py",
+        "to": "fsim.agent"
+      },
+      {
+        "deferred": true,
+        "from": "fsim.isolation",
+        "line": 102,
+        "path": "python/fsim/isolation.py",
+        "to": "fsim.mission"
+      },
+      {
+        "deferred": true,
+        "from": "fsim.isolation",
+        "line": 103,
+        "path": "python/fsim/isolation.py",
+        "to": "fsim.world"
+      },
+      {
+        "deferred": true,
+        "from": "fsim.isolation",
+        "line": 130,
+        "path": "python/fsim/isolation.py",
+        "to": "fsim.mission"
+      },
+      {
+        "deferred": true,
+        "from": "fsim.isolation",
+        "line": 137,
+        "path": "python/fsim/isolation.py",
+        "to": "fsim"
+      },
+      {
+        "deferred": true,
+        "from": "fsim.isolation",
+        "line": 159,
+        "path": "python/fsim/isolation.py",
+        "to": "fsim.agent"
+      },
+      {
+        "deferred": true,
+        "from": "fsim.isolation",
+        "line": 276,
+        "path": "python/fsim/isolation.py",
+        "to": "fsim.mission"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.mission",
+        "line": 27,
+        "path": "python/fsim/mission.py",
+        "to": "fsim._native"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.recording",
+        "line": 5,
+        "path": "python/fsim/recording.py",
+        "to": "fsim._native"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.recording",
+        "line": 6,
+        "path": "python/fsim/recording.py",
+        "to": "fsim._state"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.sb3",
+        "line": 25,
+        "path": "python/fsim/sb3.py",
+        "to": "fsim._threads"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.sb3",
+        "line": 26,
+        "path": "python/fsim/sb3.py",
+        "to": "fsim.vecenv"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.training",
+        "line": 27,
+        "path": "python/fsim/training.py",
+        "to": "fsim._training.adapter"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.vecenv",
+        "line": 12,
+        "path": "python/fsim/vecenv.py",
+        "to": "fsim._native"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.vecenv",
+        "line": 13,
+        "path": "python/fsim/vecenv.py",
+        "to": "fsim._convert"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.vecenv",
+        "line": 14,
+        "path": "python/fsim/vecenv.py",
+        "to": "fsim.world"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.vision",
+        "line": 19,
+        "path": "python/fsim/vision.py",
+        "to": "fsim._vision"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.vision",
+        "line": 20,
+        "path": "python/fsim/vision.py",
+        "to": "fsim._contracts"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.vision",
+        "line": 21,
+        "path": "python/fsim/vision.py",
+        "to": "fsim._visualization.cameras"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.vision",
+        "line": 22,
+        "path": "python/fsim/vision.py",
+        "to": "fsim._visualization.cameras"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.vision",
+        "line": 23,
+        "path": "python/fsim/vision.py",
+        "to": "fsim.vecenv"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.vision",
+        "line": 24,
+        "path": "python/fsim/vision.py",
+        "to": "fsim.world"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.world",
+        "line": 18,
+        "path": "python/fsim/world.py",
+        "to": "fsim._native"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.world",
+        "line": 19,
+        "path": "python/fsim/world.py",
+        "to": "fsim._convert"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.world",
+        "line": 20,
+        "path": "python/fsim/world.py",
+        "to": "fsim._state"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.world",
+        "line": 21,
+        "path": "python/fsim/world.py",
+        "to": "fsim._contracts"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.world",
+        "line": 22,
+        "path": "python/fsim/world.py",
+        "to": "fsim._simulation.factories"
+      },
+      {
+        "deferred": false,
+        "from": "fsim.world",
+        "line": 24,
+        "path": "python/fsim/world.py",
+        "to": "fsim._simulation.values"
+      },
+      {
+        "deferred": false,
+        "from": "fsim._state",
+        "line": 15,
+        "path": "python/fsim/_state.py",
+        "to": "fsim._native"
+      },
+      {
+        "deferred": false,
+        "from": "fsim",
+        "line": 38,
+        "path": "python/fsim/__init__.py",
+        "to": "fsim._native"
+      },
+      {
+        "deferred": false,
+        "from": "fsim",
+        "line": 59,
+        "path": "python/fsim/__init__.py",
+        "to": "fsim._state"
+      },
+      {
+        "deferred": false,
+        "from": "fsim",
+        "line": 67,
+        "path": "python/fsim/__init__.py",
+        "to": "fsim.world"
+      },
+      {
+        "deferred": false,
+        "from": "fsim",
+        "line": 286,
+        "path": "python/fsim/__init__.py",
+        "to": "fsim.vecenv"
+      },
+      {
+        "deferred": false,
+        "from": "fsim",
+        "line": 287,
+        "path": "python/fsim/__init__.py",
+        "to": "fsim.agent"
+      },
+      {
+        "deferred": false,
+        "from": "fsim",
+        "line": 288,
+        "path": "python/fsim/__init__.py",
+        "to": "fsim.agra"
+      },
+      {
+        "deferred": false,
+        "from": "fsim",
+        "line": 289,
+        "path": "python/fsim/__init__.py",
+        "to": "fsim.mission"
+      },
+      {
+        "deferred": false,
+        "from": "fsim",
+        "line": 290,
+        "path": "python/fsim/__init__.py",
+        "to": "fsim.training"
+      },
+      {
+        "deferred": false,
+        "from": "fsim",
+        "line": 291,
+        "path": "python/fsim/__init__.py",
+        "to": "fsim.recording"
+      },
+      {
+        "deferred": false,
+        "from": "fsim",
+        "line": 292,
+        "path": "python/fsim/__init__.py",
+        "to": "fsim._threads"
+      },
+      {
+        "deferred": false,
+        "from": "fsim._adapters.actor",
+        "line": 16,
+        "path": "python/fsim/_adapters/actor.py",
+        "to": "fsim._contracts"
+      },
+      {
+        "deferred": false,
+        "from": "fsim._adapters.actor",
+        "line": 17,
+        "path": "python/fsim/_adapters/actor.py",
+        "to": "fsim._adapters.codec"
+      },
+      {
+        "deferred": false,
+        "from": "fsim._adapters.codec",
+        "line": 13,
+        "path": "python/fsim/_adapters/codec.py",
+        "to": "fsim._contracts"
+      },
+      {
+        "deferred": false,
+        "from": "fsim._training.adapter",
+        "line": 9,
+        "path": "python/fsim/_training/adapter.py",
+        "to": "fsim._native"
+      },
+      {
+        "deferred": false,
+        "from": "fsim._training.adapter",
+        "line": 10,
+        "path": "python/fsim/_training/adapter.py",
+        "to": "fsim._contracts"
+      },
+      {
+        "deferred": false,
+        "from": "fsim._visualization.cameras",
+        "line": 7,
+        "path": "python/fsim/_visualization/cameras.py",
+        "to": "fsim._native"
+      },
+      {
+        "deferred": false,
+        "from": "fsim._visualization.cameras",
+        "line": 7,
+        "path": "python/fsim/_visualization/cameras.py",
+        "to": "fsim._vision"
+      },
+      {
+        "deferred": false,
+        "from": "fsim._visualization.cameras",
+        "line": 8,
+        "path": "python/fsim/_visualization/cameras.py",
+        "to": "fsim._contracts"
+      },
+      {
+        "deferred": false,
+        "from": "fsim._visualization.cameras",
+        "line": 9,
+        "path": "python/fsim/_visualization/cameras.py",
+        "to": "fsim._contracts"
+      }
+    ],
+    "limits": [
+      "AST literal-import analysis only",
+      "conditional branches are combined",
+      "function-local imports marked deferred",
+      "dynamic imports/native initialization not proven by this scan",
+      "implicit package initialization is excluded from owner-level edges",
+      "native extension aliases are treated as leaves, not root-package backedges"
+    ],
+    "module_count": 27,
+    "native_extension_leaves": [
+      "fsim._native",
+      "fsim._vision"
+    ]
+  },
+  "schema": "fsim.architecture.audit.v1",
+  "scope": {
+    "configured_build_executed": false,
+    "excluded_directory": ".codex",
+    "native": [
+      "src",
+      "include/fsim",
+      "third_party header names"
+    ],
+    "python": [
+      "python/fsim"
+    ]
+  }
+}

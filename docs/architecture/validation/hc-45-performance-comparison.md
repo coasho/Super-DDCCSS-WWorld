@@ -15,6 +15,20 @@ are done; the third is not:
 
 The [summary](hc-45-evidence.json) holds the measurements and hashes.
 
+**Independent review at `0a635d9`:** the raw measurement subset is accepted with qualifications. The absolute
+"no regression" conclusion and some causal/frame associations below are author conclusions not accepted by the
+[review](hc-45-review-2026-10-17.md). HC-48/50 track those P2 evidence corrections; HC-49 is a nonblocking P3
+query-gap diagnostic issue. HC-45 stays open, and HC-47 was not fixed by this handoff. No benchmark was repeated.
+
+**Historical independent correction acceptance at `1e9433b`:** HC-48/49/50 are closed; the following earlier review
+paragraph is historical. HC-47's new measurements are credible, but its helpers still accept missing observations
+and invalid reattach/frame ordering. It stays open. See [recheck](hc-45-review-2026-10-17.md#6-hc-47-to-hc-50-correction-recheck-at-1e9433b).
+HC-45 performance remains deferred; no scene or full suite was repeated.
+
+**Latest HC-47 disposition at `d6bfb54`:** its v2 helper-check correction is independently accepted and closed;
+HC-48/49/50 remain closed. Future v2 live-path validation is required before automated reuse, with no run requested
+now. HC-45 performance remains open/deferred. See [acceptance](hc-45-review-2026-10-17.md#7-hc-47-version-2-correction-acceptance-at-d6bfb54).
+
 ## 1. The comparison
 
 - **Viewers:**

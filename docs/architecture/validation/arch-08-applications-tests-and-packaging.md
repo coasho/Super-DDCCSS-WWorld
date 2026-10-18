@@ -1,6 +1,6 @@
 # ARCH-08 applications, tests, examples and packaging
 
-Status: implemented on main (2026-10-17); awaiting independent acceptance. ARCH-09 has not started.
+Status: independently accepted at `dd7dc9f` (2026-10-17); HC-32 and HC-16 are closed, HC-28 to HC-31 stay closed. Scheduled carryovers and final-program gates remain assigned. ARCH-09 has not started.
 Starting main HEAD: `a59b46f` (ARCH-07 accepted).
 
 This package moves the remaining applications into `src/applications` and classifies every test, example and tool by
@@ -8,14 +8,15 @@ category. It separates the Viewer's demo into a publisher process of its own (HC
 control-level names from a neutral stream contract (HC-17.2). It removes the last shared `src` include roots (HC-14)
 and adds a layout rule to the architecture gate that holds the new categories.
 
-Nothing a user or consumer sees changed:
-- **Names:** every CTest name and label, executable, DLL and module name, launcher command and installed path is
+The intended compatibility scope and the author's verification are:
+- **Names:** every existing CTest name and label, executable, DLL and module name, launcher command and installed path is
   unchanged. The one new executable is `flightsim-demo`, installed beside the Viewer.
 - **Native objects:** every first-party library and application object is unchanged, apart from the Viewer's entry
   point (section 2). A moved test's object differs from ARCH-07's only by the source path it embeds, except where this
   package edited the test (section 6).
-- **Behavior:** the demo flies exactly as it did inside the Viewer. `demo_publisher` compares the in-process and the
-  published demo over 240 steps, to the bit.
+- **Behavior:** `demo_publisher` compares the in-process and published native demo over 240 separately acknowledged
+  steps, to the bit. This does not cover accumulated commands: independent review reproduced dropped single-step
+  requests (HC-28), so complete behavior preservation is not yet accepted.
 
 ## 1. What moved
 
@@ -166,7 +167,7 @@ Further details:
 | Related fast tests (section 7) | Headless 627 of 713: 624 passed, and 3 failed (`testing_scope_checker`, `ma_engagement_contract`, `ma_engagement_checker`); after their fixes 3/3. Release 688/688 of 774 (306 s). No skips |
 | Launcher, distribution and package matrices (in the counts above) | `launcher_contract` on both presets; `dist_components`; `package_consumer`, `equipment_package_consumer` and `mission_package_consumer`; `rust_example`: all pass |
 | Demo | `demo_publisher`: 240 of 240 steps identical, and a different seed fails it. GUI through `fsim.cmd viewer --demo` (fullscreen, 3840 x 2160), twice: the publisher starts, the Viewer mirrors it and exits, and no publisher is left. Against ARCH-06's capture: the same simulated time (4.9 s), pose and list values. The mean differences are 1.79 and 0.52, and the two runs differ from each other by 1.52 (ARCH-06's in-process runs: 0.185) |
-| Include environments ([arch-08-include-views.json](arch-08-include-views.json)) | The demo and Viewer compile with exactly their recorded roots: their own views and their links'. None of the 506 headless and 559 Release compiled sources, tests, tools and examples included, has the shared `src` root or an ancestor of it |
+| Include environments ([arch-08-include-views.json](arch-08-include-views.json)) | The demo and Viewer compile with exactly their recorded roots: their own views and their links'. None of the 506 headless and 559 Release compilation entries, tests, tools and examples included, has the shared `src` root or an ancestor of it. These represent 506 and 557 distinct source files; two Release sources compile for both application and test targets |
 | Architecture: gate; `test_check.py`; planning document checker | Accepted (28 modules, 400 files; layout 598 files in 13 categories, exception `tools/launch`); 141 cases; accepted. With this policy, HEAD's tree is rejected (478 issues): 448 uncategorized files, the Viewer's demo and control edges, the headless application's `src` root and the missing `flightsim-demo` |
 | Generated record | `docs/hangar-effects.md` regenerates byte for byte (88 designs) |
 
@@ -174,8 +175,9 @@ The dated architecture baseline is [arch-08-baseline.json](arch-08-baseline.json
 
 Limits:
 - **Full suite:** none ran (HC-11).
-- **Screenshot timing:** a demo screenshot's sub-frame phase now depends on two processes' clocks. Run to run, it
-  varies more than ARCH-06's in-process capture did; the flight itself is bit-identical (`demo_publisher`).
+- **Screenshot timing:** the captures vary more than ARCH-06's in-process pair. Two-process sub-frame timing is a
+  plausible explanation, not an isolated causal result. Native step parity establishes neither image parity nor a
+  rendering regression. Manual pause/step/time-factor/quit acceptance remains pending under HC-07.
 - **`demo_publisher` runs on Release only:** it uses the Viewer's own client, which only render builds compile. The
   headless build compiles `flightsim-demo` but neither tests nor installs it.
 - **Toolchain:** builds, the object checks and the ABI comparison ran from PowerShell, as in ARCH-07.
@@ -231,7 +233,12 @@ embedded source path, and they read no moved path.
   title.
 - **HC-27:** the Viewer's demo link launches and supervises the publisher process itself, not through
   `foundation/platform`.
-- **HC-14, HC-16 and HC-17's item (2):** done by this package, awaiting independent acceptance.
+- **HC-14 and HC-17's item (2):** independently accepted at `8c8bd8d` as sub-items. HC-16's structural split is present,
+  but its complete acceptance remains blocked by HC-28.
+- **HC-28 (P2):** accumulated demo single-step requests collapse into the native boolean latch; 20 queued requests
+  produce one step. Preserve pending commands and add a burst regression before complete ARCH-08 acceptance.
+- **HC-29 (P3):** an exited-before-ready child leaves its Windows process handle open; three failed starts leak
+  three handles. Fix state-independent handle cleanup with a focused failed-start test.
 - **HC-05:** its unclaimed testbench result data now lies under `src/applications/testbench/results`.
 
 ## 10. Rollback
@@ -248,6 +255,16 @@ No native model parameter is involved.
 ## 11. Next
 
 ARCH-09 (relocating the architecture authority) requires the next user-relayed assignment.
+
+## 12. Independent review at 8c8bd8d
+
+The [independent review](arch-08-review-2026-10-17.md) accepts the migration subset, HC-14 and HC-17.2, but leaves
+ARCH-08 incomplete because of HC-28. HC-29 is recorded separately; HC-25 to HC-27 retain their assigned follow-ups.
+Current focused checks pass: layout fixtures 6/6 (0.627 s), exact headless gates 8/8 (43.86 s), and Release
+`include_view_viewer` plus `demo_publisher` 2/2 (14.74 s). The new process probe reproduces both defects despite those
+passing gates. No product rebuild, GUI run or full suite was repeated. Review logs are in
+`build/architecture-reviews/arch08-8c8bd8d/`. Post-edit planning checks accept 28 documents, and exact documentation
+gates pass 2/2 (0.38 s). ARCH-09 remains stopped pending correction and acceptance.
 
 ## 13. HC-28 and HC-29 correction (2026-10-17)
 
@@ -287,6 +304,28 @@ Limits:
 - **Manual interaction:** these tests do not establish manual pause, step, time-factor and quit use (HC-07).
 - **Steps while running:** a step requested while the demo runs is dropped. The in-process demo's latch took one such
   step at the next pause (HC-30).
+
+## 14. Independent correction recheck at ecf58a3
+
+The [current independent review](arch-08-review-2026-10-17.md#6-correction-recheck-at-ecf58a3) closes HC-29: the real
+probe's failed-start handle count remains 69/69. The original settled-burst probe now completes 20/20, with a 3/3
+sequential control and clean stop. Release exact gates pass 5/5 (22.78 s), headless 3/3 (10.50 s).
+
+Complete acceptance remains blocked by three P2 items:
+- **HC-28:** timed silence is not a runner completion acknowledgment. A deterministic model using the verbatim
+  counter and unchanged latch shows a delayed ordinary completion credited to a request, collapsing two requests
+  into one requested step. The settled 2/2 control passes. This is model evidence, not an executed heavy-flight case.
+- **HC-30:** dropping requests while running/on resume is not accepted under the behavior-preservation instruction.
+  Restore pending-request retention and test requests made during running and across resume/pause.
+- **HC-31:** a Release inventory with no publisher tests still plans successfully for standalone demo/control changes.
+  Six plan-only negatives return 0; six actual-Release controls include all three publisher cases. Require that coverage
+  explicitly; fallback include/contract tests do not establish it.
+
+The post-resume single-step regression must assert the exact agent-step time delta, since coalesced snapshots can
+hide multiple steps behind its current positive-advancement check. Section 13 retains the author's original claims
+and verification; this section qualifies them. Manual keys remain HC-07. No product rebuild, GUI run or full suite
+was repeated; the selector's `full` tier was planned only. Logs are under
+`build/architecture-reviews/arch08-ecf58a3/`. ARCH-09 remains stopped.
 
 ## 15. HC-28, HC-30 and HC-31 correction (2026-10-17)
 
@@ -331,15 +370,34 @@ Logs are in `D:/ENV/tmp/hc28b/`.
 
 Limits:
 - **Full suite:** none ran (HC-11). With `tests/CMakeLists.txt` changed, the selector escalates the whole tree.
-- **Pause latency:** a hold joins the runner's thread, so a pause takes effect after at most one paced period
-  (16.7 ms in real time, longer at a low time factor). The publisher publishes nothing during that wait, and nothing is
-  lost.
+- **Pause latency:** a hold joins the runner's thread and waits for its current work, pacing sleep and scheduling.
+  With otherwise prompt work, remaining default 60 Hz pacing may contribute about 16.7 ms, longer at a low time
+  factor; this is not a hard wall-clock bound. The publisher publishes nothing during the join.
 - **Bounds in the process test:** across a resume, `demo_publisher_steps` bounds the demo's own steps at the hold to
   two. The exact counts are the model's and the in-process test's.
 - **Manual interaction:** manual pause, step, time-factor and quit use remains HC-07.
 - **Test helpers:** two test helpers first demanded an exact count where held stepping goes on. In-process, it failed
   the first run; in the process test, one of five repeats. Both now wait for a floor, and the totals stay exact; both
   were corrected before the commit.
+
+## 16. Independent recheck at 1dffece
+
+The [current review](arch-08-review-2026-10-17.md#7-correction-recheck-at-1dffece) closes HC-28, HC-30 and HC-31.
+Exact headless gates pass 5/5 (15.07 s), Release 6/6 (23.34 s). The delayed-work and retention schedules, exact
+in-process counts and single-step delta pass; all six original missing-coverage plans now reject with exit 3 and
+six actual-Release controls pass. The private v2 demo-control acknowledgment does not change public SDK/world ABI.
+
+New **HC-32 (P2)** blocks complete acceptance: joining/restarting the sim thread on each hold exposes the platform's
+unclosed thread-local Windows waitable timer. A real DemoSimulation/DemoSteps probe measures **92 to 122 handles
+after 30 normal pause/resume cycles**. A persistent-thread control using the same real runner measures **89 to 89**.
+This is an actual native runtime probe, not a scheduling model or GUI acceptance. HC-29's parent process-handle
+cleanup stays closed; that test does not inspect timers inside a live publisher.
+
+Give timer resources deterministic cleanup or preserve a thread with an exact hold acknowledgment, and add a stable
+handle-count regression. Do not restore timed settling or dropped requests. The pause-latency statement above is
+qualified; approximate process counts, corrected wait helpers, manual HC-07 gates and HC-24 to HC-27 remain visible.
+No product build, GUI run or full suite was repeated. Evidence is in `build/architecture-reviews/arch08-1dffece/`.
+ARCH-09 remains stopped for the bounded HC-32 correction and independent acceptance.
 
 ## 17. HC-32 correction (2026-10-17)
 
@@ -357,7 +415,7 @@ found. Starting HEAD: `1dffece`.
 
 | Check | Result |
 | --- | --- |
-| The two new regressions first, on the unchanged platform code | `sleepUntil's timer goes with its thread: threads that slept leave no handle behind` (`fsim_tests`, both presets): after 4 threads to warm up, 30 threads that slept raise the process's handles from 115 to 145. `demo_publisher_schedules`' new in-process case, on the real `DemoSimulation`, `DemoSteps` and `SimRunner`: after 4 holds and resumes to warm up, 30 more raise them from 122 to 152. One handle each, as the review measured |
+| The two new regressions first, on the unchanged platform code (headless red run) | `sleepUntil's timer goes with its thread: threads that slept leave no handle behind` (`fsim_tests`): after 4 threads to warm up, 30 threads that slept raise the process's handles from 115 to 145. `demo_publisher_schedules`' new in-process case, on the real `DemoSimulation`, `DemoSteps` and `SimRunner`: after 4 holds and resumes to warm up, 30 more raise them from 122 to 152. One handle each, as the review measured. Green coverage below is on both presets |
 | The same after the fix | 30 threads that slept: the same count before and after. 30 holds and resumes: 116 before and after, on both presets. The sleep still lasts until its deadline |
 | The controls the review named (Release) | `demo_publisher`: 240/240 steps identical. `demo_publisher_steps`: 20 requests at once are 20 steps to the bit; across a resume and a pause all 27 pending are taken, none beyond; one request is exactly one agent step; stop with 100,000 pending. `demo_publisher_lifecycle`: 113 handles before and after. `demo_publisher_schedules`: the delayed-work, retention and 2,000 random schedules, and the exact in-process holds |
 | Repeats | The two regressions, `demo_publisher_steps` and `demo_publisher_lifecycle`: 5/5 each |
@@ -372,3 +430,16 @@ Limits:
 - **Thread exit only:** a thread's timer is closed as the thread ends. A thread that lives on keeps its one timer, as
   before.
 - **Manual interaction:** manual pause, step, time-factor and quit use remains HC-07.
+
+## 18. Final independent acceptance at dd7dc9f
+
+The [final review](arch-08-review-2026-10-17.md#8-final-hc-32-and-arch-08-acceptance-at-dd7dc9f) closes HC-32 and HC-16,
+and accepts ARCH-08. The original actual-native repeated-hold probe now stays **89/89 handles across 30 cycles**,
+delta 0, versus the previous +30. Headless exact timer/schedules/architecture checks pass 3/3 (7.19 s); Release
+exact publisher parity/steps/lifecycle/schedules checks pass 4/4 (18.47 s). The registered repeated-hold checks
+stay 127/127 in both current runs. Timer creation/fallback/wait behavior and accepted stepping contracts are unchanged.
+
+Evidence is under `build/architecture-reviews/arch08-dd7dc9f/`. Only an ignored probe was compiled; no product build,
+GUI run or full suite was repeated. The author's broader checks retain their dated scope. Red coverage is qualified
+as headless above. Long-lived timer retention, HC-07's manual/joint/performance limits, HC-11's final gate and
+HC-24 to HC-27 remain visible. ARCH-09 has not started and requires the next user-relayed assignment.

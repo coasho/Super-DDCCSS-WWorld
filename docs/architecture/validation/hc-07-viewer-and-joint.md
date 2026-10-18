@@ -1,12 +1,23 @@
 # HC-07 Viewer, manual-control, performance and joint verification
 
-Status: verified where the inputs exist (2026-10-17); awaiting independent acceptance. **HC-07 stays open.** Two
-things block it:
+Status: diagnostic evidence subset independently accepted at `465b7af` (2026-10-17). **HC-07 stays open.** Remaining
+gates include:
 - **4K performance gate (HC-45, new):** it fails on three of four scenes.
 - **Missing prerequisites:** the combat joint cases, the combat Viewer run and the seed/aspect matrix depend on
   inputs that are not supplied (HC-06).
+- **Interaction coverage:** the sampled programmatic mouse, replay and resize cases at `2a09756` are independently accepted. A human-operated session, other-panel input, chase/overview variants and `--no-zoom-to-cursor` remain unverified. See the [interaction acceptance](hc-07-review-2026-10-17.md#6-interaction-subset-and-hc-51-acceptance-at-5c80892).
 
 Final-program acceptance is not claimed. The [summary](hc-07-evidence.json) holds the measurements and hashes.
+
+**Latest independent acceptance at `d6bfb54`: HC-47's two helper-check gaps are closed.** All eight prior
+false accepts are rejected by version 2; 149 pure results are as expected, including saved-run/real-log controls.
+HC-48/49/50 remain closed. Version 2's live path is not claimed verified; exercise it before future automated-gate
+reuse, not in this GUI-excluded assignment. See [acceptance](hc-45-review-2026-10-17.md#7-hc-47-version-2-correction-acceptance-at-d6bfb54).
+The dated historical findings below remain preserved. No full suite, GUI or performance scene was repeated.
+
+**Latest interaction acceptance at `5c80892`:** sampled mouse/replay/resize evidence at `2a09756` is accepted and
+HC-51 is closed. HC-52 retains a nonblocking resize-helper completeness gap; actual saved frames are valid. See
+the [review](hc-07-review-2026-10-17.md#6-interaction-subset-and-hc-51-acceptance-at-5c80892). HC-07 remains open on the listed performance, prerequisite and human/uncaptured gates.
 
 ## 1. What ran, on what
 
@@ -28,7 +39,7 @@ Final-program acceptance is not claimed. The [summary](hc-07-evidence.json) hold
 | 4K performance gate, run once and repeated once (`viewer_perf.py`, 160 fps target) | **Fails on 3 of 4 scenes in both runs** (section 3); reheat passes |
 | Replay at 3840 x 2160 (`viewer_perf.py --shots`) | 26 frames of the four scenes, every one 3840 x 2160 and inspected: models, effects, fire and smoke as recorded, no black or broken frame |
 | Complete live fullscreen strike (`strike_acceptance.py`) | **Passes.** Native and Viewer exit 0 after 40.03 and 41.95 wall seconds. Its records match the dated 2026-10-12 run (details below) |
-| Demo, fullscreen (`--demo --fullscreen --screenshot`) | **Frame accepted:** a 3840 x 2160 frame inspected (8 aircraft, 160 fps on its panel). This run's exit and cleanup were not recorded; the HC-47 run measures and asserts them (see [HC-47 correction](#hc-47-correction-2026-10-17)) |
+| Demo, fullscreen (`--demo --fullscreen --screenshot`) | **Visual evidence accepted:** 3840 x 2160 frame (8 aircraft, 160 fps on its panel). Standalone exit/cleanup are author observations, not parsed measurements in the summary; the separate controls run measures lifecycle (HC-47) |
 | Manual controls through the Viewer's window input (`manual_controls.py`) | **15/15 pass** for the demo's pause, single step, time factor and quit (section 4) |
 | A world replaced under the same name (`reconnect.py`) | **Passes.** The Viewer logs "world 'hc07-reconnect' was replaced; attaching to the new one". Frames 000-002 show `old-one` (1,525-1,556 m), frames 003-007 the fresh `new-one` (from 2,345 m), and it exits 0. Checked from its log and frames; the HC-47 run asserts them (see [HC-47 correction](#hc-47-correction-2026-10-17)) |
 | Generic joint cases | Pass in HC-11's accepted full suites on both presets: `ma_joint`, `python_sdk test_ma_joint`, `mission_package_consumer`, `ma_service_binding`, isolation and composition. They were not run again |
@@ -111,6 +122,33 @@ the snapshot's simulation time and run again. Both attempts' logs are kept.
   built-in demo's aircraft have no SDK command. A published SDK world shows its level (`actuator` in the reconnect
   frames).
 
+## 7. Independent partial acceptance at 465b7af
+
+The [independent review](hc-07-review-2026-10-17.md) accepts the dated diagnostic subset: live native event/readback
+consistency, sampled replay/strike/demo images, the 15 programmatic keyboard/setup/lifecycle checks and observed
+same-process World replacement. It independently confirms the performance failures and missing prerequisites.
+No GUI, performance run, native build or full suite was repeated during review.
+
+All eight raw performance streams match the reports: fleet/strike/hit fail both runs and reheat passes both under
+the unchanged thresholds. Background load and changed hit workload leave migration regression unresolved; matched
+workload/assets/settings and an idle machine are required for a controlled comparison. Temporal correlation with
+impact/fire is a profiling lead, not proof of a bottleneck. HC-45 remains open.
+
+All 20 listed evidence hashes, the 17/72 HC-11 binary hashes, both 234-file data digests and eight before-copy
+hashes match. Other owners' payloads remain preserved and this commit changes documentation/evidence only.
+Visual samples show the old/new vehicle switch and the documented --no-gui panels; HC-46 remains nonblocking.
+
+**HC-47, nonblocking helper limit:** `summarize.py` hardcodes the standalone-demo exit/remaining-publisher fields,
+so those are author observations for this run. The separate control run measures exit/cleanup. `reconnect.py`
+records data without fail-closed assertions, so its exit alone is not acceptance; reviewed logs/images establish
+this replacement. Before reuse as automated gates, record actual process outcomes and assert expected identities,
+frames and cleanup with negative controls. No current Viewer failure is inferred.
+
+HC-06 combat integration/reduction inputs, HC-02's J6 proof and remaining interaction coverage are still pending.
+HC-07 and complete final-program acceptance are not claimed. Harness fixes, digest-order correction, blank demo
+control cells and the HC-35/44 limits are reconciled in the review/register. Only documentation fast checks run;
+nothing was staged, committed or pushed. Stop for the next user assignment.
+
 ## HC-47 correction (2026-10-17)
 
 The [review](hc-07-review-2026-10-17.md) found that the summary gave the standalone demo's exit and remaining
@@ -189,8 +227,8 @@ carry them. The window was resized, minimised, maximised and restored with the o
 input-driven, not a person at the machine. The checks are in `D:/ENV/tmp/hc07i/`; the [summary](hc-07-evidence.json)
 (`interaction`, schema v3) holds their outcomes, readings and hashes.
 
-- **Binaries:** the current Release build: Viewer `dd875197b212f60c`, demo `ca518158b90cb81a`. They were rebuilt for
-  HC-49, so they are not the HC-11-tested ones. The runs are 3840 x 2160 fullscreen at 144 dpi, except the resize run.
+- **Binaries:** the current Release build: Viewer `dd875197b212f60c`, demo `ca518158b90cb81a`. The Viewer was rebuilt for
+  HC-49 and differs from HC-11; the demo still matches its HC-11 hash. The runs are 3840 x 2160 fullscreen at 144 dpi, except the resize run.
 - **Measured:**
   - the demo's pause flag, from its control block;
   - how much each frame's scene differs from the one before;

@@ -1,12 +1,35 @@
 # Agents and the referee
 
-An **agent** is a mission autonomy's decisions bound to one aircraft - a script, a planner, a trained policy. A
+An **SDK Agent** is a permission-scoped endpoint for one platform or C2 node. Upper-layer scripts, planners,
+trained policies or a composite MA use that endpoint; their number need not match the number of Agents. A
 **referee** is a read-only view of everything, truth among it - for scoring, rewards and a centralised critic. Both are
 made by the **range**: whoever holds the `World` (ADR-31, [agent-boundary.md](../architecture/design/agent-boundary.md)). Which entry
 point belongs to whom is in [boundary.md](boundary.md).
 
 Current capability and milestone scope is tracked in [status](../status.md). Native missile engagement access,
 designation requirements and range-only observations are defined in [engagement](engagement.md).
+
+## SDK access terminology
+
+These contracts describe simulation interfaces, object ownership and reproducible training. Use the following
+names when reviewing SDK work or recording acceptance:
+
+| Contract | SDK meaning |
+| --- | --- |
+| Service identity binding | Range binds a service to an Agent/controller/platform and its capabilities and DMS ownership. An endpoint uses that binding; request fields cannot choose a different caller. |
+| Agent permissions and C2 roles | Native grants, capability ownership and delivered C2 role/task/consent checks determine which simulated operations are permitted. |
+| Callable-method list | A process proxy serves only its documented SDK methods. A mission actor receives `observation_json`, `submit_json` and `receipts_json`. |
+| Actor/referee data visibility | Actor reports contain only bound Agent knowledge; truth, scoring and critic data use Referee interfaces. Historical L1-L11 entries are SDK access findings. |
+| Generation-checked handle lifetime | Episode reset invalidates earlier child handles; parent disposal closes them before releasing the World. |
+| Request validation and deduplication | Schema, generation, tick, capacity and request-ID checks control queueing and repeated effects; native execution retains its own refusal reasons. |
+| Actor process isolation | The actor receives a proxy while World, episode and Referee objects stay in the Range process. Published/recorded truth is excluded from isolated evaluation. |
+| Local pipe connection check | The Python proxy transport uses `multiprocessing.connection` with an HMAC connection check. This is separate from service binding and simulated C2 role checks. |
+| ABI and output compatibility | Public layouts, exported names, IPC versions and recording readers preserve their documented consumer contracts. |
+
+The established phrase **legal report** means a report available through the bound Agent's SDK permissions.
+Process proxies define SDK object and data access; operating-system file/process permissions remain the
+experiment runner's responsibility. Existing identifiers such as `fsim.isolation`, `allow_side_channels` and
+the boundary register's `leak`/`leaks` keys retain their names for compatibility.
 
 ```python
 w = fsim.World("engagement")
@@ -24,7 +47,7 @@ w.step()                                                                 # the r
 
 ## What an agent is
 
-- **Made by the range** for a live aircraft: `World::createAgent(vehicle, name)` (C++), `fsim_agent_create` (C),
+- **Made by the range** for a live platform or C2 node: `World::createAgent(vehicle, name)` (C++), `fsim_agent_create` (C),
   `world.create_agent(vehicle, name)` (Python). The world mints its controller (from `0x40000001`): its identity.
 - **Its own objects:** `fsim::Agent` and `fsim.Agent` offer an agent's calls alone - its own ship through its reports
   (navigation, state data, mass), discovery, its grants, NEW, its activities (UPDATE, CANCEL, activity commands, a
@@ -184,9 +207,9 @@ the range's - external processes and hardware join through it; an agent's handle
 
 ## Isolation
 
-The handles (tier 1) and the audit and seal (tier 2) keep an agent's code from reaching the world by accident; a process
-of its own keeps it out even if it tries (ADR-31, B11 tier 3; AB-6) - for evaluation, and any result that claims
-decentralised execution.
+The handles (tier 1) and the audit and seal (tier 2) check SDK object access. A separate process (tier 3) keeps
+Range-owned objects outside the actor's address space and serves the Agent's callable-method list
+(ADR-31, B11; AB-6). Evaluation claiming decentralised execution uses this process proxy and excludes diagnostic truth outputs.
 
 ```python
 import fsim.isolation
@@ -200,10 +223,10 @@ with fsim.isolation.AgentProcess(w, agent, "my_policy:Policy", path=["policies"]
     ma.call("summary")                                  # any of its methods
 ```
 
-- **Its process holds one thing:** a channel - a named pipe, authenticated - through which its `agent` (a
+- **Its process holds a proxy:** a local pipe with an HMAC connection check, through which its `agent` (a
   `fsim.isolation.RemoteAgent`) makes `fsim.Agent`'s calls, and an activity's calls on the activities it holds. The
-  range serves each in its own process on the real agent. Nothing else is reachable: no world, vehicle, referee or
-  network object exists in the MA's process. What it may call is exactly `boundary.toml`'s agent calls of
+  range serves each in its own process on the real agent. The proxy exposes no World, Vehicle, Referee or
+  Network handle. What it may call is exactly `boundary.toml`'s agent calls of
   `fsim.Agent` and `fsim.AgentActivity` (a test checks it).
 - **Data, never code:** messages are JSON with typed values - numbers (exact: shortest round-trip form), strings,
   bytes, lists, tuples, dicts, fsim's named tuples, enums and batch commands, NumPy arrays of numbers, an activity by
@@ -214,7 +237,7 @@ with fsim.isolation.AgentProcess(w, agent, "my_policy:Policy", path=["policies"]
 - **Errors cross:** an agent call's exception is raised in the MA's process as it would be in one (fsim.Error,
   fsim.Rejected, MissionRejected, a builtin); the MA's own uncaught exception reaches the range as
   `fsim.isolation.AgentError`, with its traceback.
-- **Side channels:** a published world's shared-memory segment and a recording's file hold every vehicle's truth and
+- **Diagnostic truth outputs:** a published world's shared-memory segment and a recording's file hold every vehicle's truth and
   any local process may read them: `AgentProcess` refuses a world that is published or recorded
   (`allow_side_channels=True` overrides it). Files the range keeps elsewhere, and the machine itself, are the
   experimenter's to keep from the MA (another user, a container).

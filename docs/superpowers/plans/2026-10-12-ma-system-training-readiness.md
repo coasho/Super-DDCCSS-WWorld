@@ -12,7 +12,7 @@
 
 **Delivered baseline:** baf476f841970f1f3c90b8de0bf630e8a5478738, verified and pushed to main. See [current Viewer evidence](../../sdk/viewer-validation.md).
 
-**Progress reviewed:** 2026-10-15, main `54b7fb9`. Generic M0 was delivered in 1874091 and corrected in 182ac58; M1 in 990554b; noncombat M2 in fb23a9b. Follow-ups 9b06c79 and 2bad550 address binding transitions, foreign-World Agent rejection, peer provenance and the qualified activity-preservation contract. The native-state reset fixture was supplied in 4406ff1. M4 is implemented as the internal episode owner (`8254d7e`, `c507978`, `54b7fb9`) and has passed independent acceptance. M5 core was implemented on main after its prerequisites were verified at `08e3afe` and awaits independent acceptance; full M5 (extension handlers), the first-package acceptance and M6-M8 remain pending.
+**Progress reviewed:** 2026-10-15, main `6e8b4aa`. Generic M0 was delivered in 1874091 and corrected in 182ac58; M1 in 990554b; noncombat M2 in fb23a9b. Follow-ups 9b06c79 and 2bad550 address binding transitions, foreign-World Agent rejection, peer provenance and the qualified activity-preservation contract. The native-state reset fixture was supplied in 4406ff1. M4 is implemented as the internal episode owner (`8254d7e`, `c507978`, `54b7fb9`) and has passed independent acceptance. M5 core was implemented in `6e8b4aa` after its prerequisites were verified at `08e3afe` and awaits independent acceptance; full M5 (extension handlers), the first-package acceptance and M6-M8 remain pending.
 
 ## Global Constraints
 
@@ -28,7 +28,7 @@
 - Read upstream support matrices before changing a toolchain or dependency. This plan requires no new environment installation.
 - Raw background output goes to a file without a trailing buffered filter. One job has one background entry.
 - Viewer tests are fullscreen, run complete scenarios, and retain exactly two event-relative strike captures.
-- Distinguish delivered M0/M1/noncombat M2 from pending mission episodes, gateway, composition, training and final acceptance. Contract fixtures do not establish runtime gateway behavior.
+- Distinguish delivered M0/M1/noncombat M2 and accepted M4 from implemented M5 core awaiting independent acceptance, pending full M5, composition, training and final acceptance. Contract fixtures alone do not establish runtime gateway behavior.
 
 ## Review Focus
 
@@ -136,7 +136,7 @@ At tick T, endpoint submissions validate generation/tick/schema and enqueue only
 
 JSON IDs are unsigned decimal strings; unavailable numbers are null plus validity; DMS bytes are bounded base64. Native action defaults apply only to explicitly omitted optional fields. Upper-layer arbitration is recorded in example logs, not claimed by SDK receipts.
 
-In python/fsim/mission.py mirror MissionEpisode, MissionEndpoint and MissionReferee. No actor endpoint property returns World or Referee. Extend python/fsim/isolation.py's existing AgentProcess proxy with a mission-endpoint whitelist and retained truth-side-channel guard. Strict isolation refuses published/recorded episodes and Range/referee handles. Viewer/recording opt-in is diagnostic and explicitly non-isolated.
+In python/fsim/mission.py mirror MissionEpisode, MissionEndpoint and MissionReferee. No actor endpoint property returns World or Referee. Extend python/fsim/isolation.py's existing AgentProcess proxy with the mission endpoint's callable-method list and existing diagnostic truth-output checks. Strict actor process isolation refuses published/recorded episodes and Range/referee handles. Viewer/recording opt-in is diagnostic and explicitly non-isolated.
 
 ### Composition fixture, upper layer
 

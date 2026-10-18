@@ -45,7 +45,7 @@ World retains agent authorization, ordered store selection, entity/designation/r
 ## Acceptance
 
 - Existing public headers, aircraft/store sources and third-party content remain unchanged; SDK export names match a captured baseline.
-- Boundary checker negative fixtures reject undeclared/upward imports, cycles, public/private leaks, headless GPU dependencies, unknown modules and missing C adapter guard coverage.
+- Boundary checker negative fixtures reject undeclared/upward imports, cycles, private-type exposure in public headers, headless GPU dependencies, unknown modules and missing C adapter guard coverage.
 - Existing quaternion/JSBSim comparison, radar, C ABI, principal, agent, native engagement and worker determinism checks remain green.
 - New eligibility tests cover refusal precedence and unchanged inventory/activity/event state on rejected World submissions.
 - The full applicable headless functional suite, installed SDK consumer and launcher/distribution gates pass. Unchanged Hangar model generation retains prior evidence; no GPU/render-install acceptance is claimed.

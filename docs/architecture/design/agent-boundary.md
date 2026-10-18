@@ -4,14 +4,14 @@
 | --- | --- |
 | Status | **Accepted** (the owner, 2026-10-07; section 9). AB-1 to AB-6 done (the migration of section 8 complete) |
 | Scope | System-wide: the SDK (C++, the C ABI, Python), the VI (ADR-28/29), Mission Systems (ADR-30), communication (ADR-22/25), the batch layer (`VecEnv`), the environment server (ADR-17) |
-| Owner's direction (2026-10-07) | The boundary between MA, the VI/MS SDK, the platform's internals and the scenario/referee is foundational: it decides what a future DRL policy may observe and control. No ground truth, scenario authority or platform-internal capability may leak into MA's interface, and no MA decision logic into the SDK. It must hold beyond one platform - for P2P and C2: what one MA may learn from another platform, what must arrive over simulated links, what authority C2 has over its subordinates, how commands, tasks and grants are represented, how local autonomy meets external direction - and an MA must not bypass those boundaries because everything runs in one process |
+| Owner's direction (2026-10-07, summarized in SDK terms) | The boundary between MA, the VI/MS SDK, platform internals and the scenario/referee defines what a DRL policy may observe and control. Ground truth, scenario authority and platform-internal capabilities remain outside the Agent interface; MA decision logic belongs in the upper layer. P2P/C2 information follows modeled sensor/link delivery, and native C2 role, task and grant rules apply in both in-process and process-proxy execution. |
 | Reference | A-GRA ASK 6.0a (D:/Projects/Cpp/oms-ref/a-gra): the VI, C2 and Peer interface volumes, the MA L1 compliance document. Read for semantics; nothing of them is in this repository |
 
 ## 1. Why now
 
 The platform grew its interfaces one capability at a time, each through the same `World` and `Vehicle` objects. Every
 call a mission autonomy (MA) needs is there, but so is every call a scenario, a referee or the platform itself needs, and
-nothing tells them apart. A trained policy is shaped by whatever its observation and action plumbing can reach; a leak
+nothing tells them apart. A trained policy is shaped by whatever its observation and action plumbing can reach; unintended truth access
 found after training invalidates the result. MS-7 is about to add guided weapons and an engagement demo, and later
 stages add datalinks and C2: the boundary has to exist before they are built on the current shape.
 
@@ -26,10 +26,15 @@ stages add datalinks and C2: the boundary has to exist before they are built on 
 | L5 | The batch layer's observations are built from truth. `ObservationBuilder::build` receives the vehicle's true `VehicleState`; the built-in `state` observation equals the navigation solution only because navigation is perfect today | `VecEnvPlugins.h` |
 | L6 | The message fabric trusts its callers. `Network::send` takes a `Message` whose `from` the caller sets; any node's inbox is readable by anyone holding the `Network`; protocols get the world's truth (`WorldView`) | `Comm.h` |
 | L7 | World queries that are the referee's: every vehicle's state, the weapons list, the radio path between any two entities | `World.h` (`radioPath`, `weapons`, vehicle lists) |
-| L8 | Plug-ins see all truth. Controllers, behaviours, effects and protocols registered into the platform receive `WorldView` (every vehicle's state). MA logic written as a plug-in bypasses every boundary | `Control.h` (`WorldView`, `ControlContext::state`), `ControllerRegistry.h` |
-| L9 | One process. A Python or C++ MA in the trainer's process can import the SDK and call anything. The API can make leaks impossible *by accident*; only a process boundary makes them impossible *by intent* | - |
+| L8 | Platform plug-ins receive truth. Controllers, behaviours, effects and protocols receive `WorldView` (every vehicle's state). An MA implemented as a platform plug-in receives internal access beyond the Agent interface | `Control.h` (`WorldView`, `ControlContext::state`), `ControllerRegistry.h` |
+| L9 | One process. A Python or C++ MA in the trainer's process may import Range interfaces. A process proxy keeps Range-owned objects in the parent process and exposes only Agent calls; operating-system file/process access requires separate experiment configuration | - |
 | L10 | C2's designations are a direct call. `setAllowed` (AUT-07, "C2 designations") is called by whoever holds the `Vehicle`; there is no C2, no message and no check of who may designate | `World.h`; [flight-autonomy.md](../modules/simulation/flight-autonomy.md) appendix, AUT-07 |
 | L11 | Mission data is world-global. Operational points, zones, lines and volumes and reference frames are kept by the world: what one MA defines, every MA reads and flies to (found by AB-1) | `World::setOpZone` and the rest, `World::createFrame` |
+
+L1-L11 identify SDK access findings from this dated audit. Current service binding, Agent permissions, data
+visibility and actor process interfaces use the [SDK access terminology](../../sdk/agents.md#sdk-access-terminology).
+The A-GRA source terminology in section 3 retains its original meaning; local pipe HMAC checks and SDK service
+bindings are described separately.
 
 What is already right and stays: A-GRA's split of MA and FA behind the VI (ADR-28); grants per capability and named
 controllers (4.12); FA's behaviours kept as manoeuvres, never tactics (D14); store selection and release mechanics in
@@ -69,13 +74,13 @@ in the simulated world.
 | **Range** | The experiment's author: a scenario file, a test, a training harness's setup. It also stands for mission planning: it loads each MA's mission data, its RBAC configuration and its nets | Build and change the world: create entities and C2 nodes, load stores, set the weather, inject faults, configure nets and roles; create agents; step the clock |
 | **Referee** | The experiment's judge: scoring, rewards, termination, a centralised critic, logging | Read everything, including truth and the labels that tie a track to the entity behind it. Change nothing |
 | **Platform** | The simulated equipment of one entity: its flight model, FA behind the VI, its Mission Systems host and payloads, its terminals and DMS, its weapons once released | Read truth only as its physics needs it (a radar's echo comes from the target's true position); expose to its MA only what its models produce |
-| **MA core** | The part of A-GRA's MA that applies rules (A6-A12): it authenticates and authorizes received messages, forwards C2's control designations to FA, executes authorized direct commands and overrides, applies the approval and weapons authorization policies, runs C2's lost-communication responses and answers unauthorized requests. The SDK World owns this runtime with entity-keyed state | Apply native authority rules on behalf of the bound service; target/task/course-of-action decisions belong in the upper layer |
+| **MA core** | The part of A-GRA's MA that applies rules (A6-A12): it checks delivered sender identity and role permissions, forwards C2's control designations to FA, executes authorized direct commands and overrides, applies the approval and weapons authorization policies, runs C2's lost-communication responses and answers unauthorized requests. The SDK World owns this runtime with entity-keyed state | Apply native authority rules on behalf of the bound service; target/task/course-of-action decisions belong in the upper layer |
 | **Agent** | A permission-scoped SDK endpoint minted by Range for one platform or C2 entity. Upper-layer scripts, planners, learned actors, human operators or a composite MA use its reports and commands | Read what its bound platform/system and MA core report to it, and act through their permitted interfaces (section 6) |
 
 Current [MaCore state](../../../src/simulation/runtime/services/MaCore.h) is keyed by entity; [World](../../../src/simulation/runtime/world/World.h) owns the runtime.
 An upper-layer MA may contain multiple actors, behavior trees, algorithms and internal services behind an endpoint.
-Explicit configured service/capability/DMS ownership is a planned additive extension in the
-[MA integration design](../../superpowers/specs/2026-10-12-ma-system-training-readiness-design.md); it is not implemented by creating more Agent handles.
+Explicit configured service/capability/DMS ownership is the delivered M1 additive interface described in the
+[MA integration design](../../superpowers/specs/2026-10-12-ma-system-training-readiness-design.md); creating more Agent handles alone does not configure it.
 Its identities, ownership rules and principals are in the
 [mission training contract](../../sdk/mission-training.md#9-service-binding), and the binding itself is implemented
 (`fsim/MAService.h`, `fsim_world_bind_ma_service`, `World.bind_ma_service`): on a platform the range binds, grants, C2
@@ -154,8 +159,8 @@ decision is MA's).
   message through the communication model, or through its own sensors. There is no other path, in process or not.
 - Each platform and C2 node has a DMS over its terminals (Mission Systems' comms payloads, ADR-30), on the nets the
   range assigns. A message's sender is stamped by the network from the sending terminal and its system's identity;
-  an agent cannot forge it, read another terminal's traffic, or send on a net its platform is not on. Joining a net
-  stands for A-GRA's authentication (A2, A6): the range's mission planning gives each system its identity and role.
+  the Agent cannot choose a different sender, read another terminal's traffic, or send on a net its platform is not on.
+  Net membership models A2/A6 system admission: Range mission configuration assigns each system its identity and role.
 - Delivery goes through the medium: range and terrain masking by the radio path (MS-2), latency, loss, capacity and
   slots, and later jamming (ADR-30's EA). A lost link loses the messages.
 - What travels is A-GRA's C2 and peer messages as native types (tasks, task status, plans, flight commands, control
@@ -214,7 +219,7 @@ change (section 9, item 5).
 | --- | --- | --- |
 | 1. Types | An agent written against an `Agent` cannot reach truth, the range, its MA core's rules or another platform by accident | The handles (B1); truth removed from agent structs (B3); identifiers (B4) |
 | 2. Runtime checks | What an agent did is known, and range-only calls fail from it | Each agent call recorded with the agent's identity; a sealed run refuses range calls after it starts unless made on the range's handle; a boundary test classifies every SDK function (C++, C, Python) by principal and fails on an unclassified new one |
-| 3. Process isolation | An agent cannot bypass the boundary even if it tries | Each agent in its own process, holding only an agent channel to the simulation (built in AB-6 as an authenticated named pipe carrying typed JSON - ADR-17's shared-memory server was never built); the MA core stays in the simulation's process. Later the OMS bridge (ADR-30, MS-12) is the same boundary over A-GRA's messages |
+| 3. Actor process interfaces | Range-owned simulation objects stay in the parent process; the actor proxy serves only Agent methods | AB-6 uses a local named pipe with an HMAC connection check and typed JSON; ADR-17's proposed shared-memory server was never built. The MA core stays in the simulation process. Operating-system file/process access is configured by the experiment runner. The later OMS bridge (ADR-30, MS-12) is planned to carry A-GRA messages across the same SDK role boundary |
 
 Tiers 1 and 2 hold in every run; tier 3 is used for evaluation and for any result that claims decentralised execution.
 An isolated agent's run must reproduce the in-process run to the bit, which is how the boundary itself is tested.
@@ -329,8 +334,8 @@ Dissemination Plan and the picture, received tracks as designations. Each in C++
   instance). ctest's `sdk_boundary` fails on an entry point no rule classifies, on a rule that classifies nothing, on a
   name two rules list, on a call of the role-mixing objects (`World`, `Vehicle`, activities, the network, the cameras)
   classified by a pattern rather than by its name, and on a page out of date. Each agent call that reaches what this
-  record keeps from agents carries its leak: L1 on 3 calls, L2 on 67, L3 on 6, L4 on 69, L5 on 3, L6 on 6, L11 on 33.
-  Two leaks were found by it: a must fly to an `Entity` and a frame following a vehicle (L4), and world-global mission
+  record keeps from agents carries its access finding: L1 on 3 calls, L2 on 67, L3 on 6, L4 on 69, L5 on 3, L6 on 6, L11 on 33.
+  Two access findings were identified: a must fly to an `Entity` and a frame following a vehicle (L4), and world-global mission
   data (L11).
 
 - **AB-2 in four parts.** AB-2a, the handles (closes L1-L3, L5, L6, and L4 by refusal); AB-2b, targets by track (a
@@ -381,7 +386,7 @@ Dissemination Plan and the picture, received tracks as designations. Each in C++
   through a view of its own (each host's SessionView). Through the C ABI the handle is the owner: an agent's handle reads
   and writes its own, the range's the common; the range loads an MA's own through its agent before handing it over.
   An MA's frame may follow itself or its own designations, never another aircraft, and a common frame following
-  another aircraft is not there for a vehicle an MA flies (L4). L11 is closed: every leak of AB-1's register now counts
+  another aircraft is not there for a vehicle an MA flies (L4). L11 is closed: every access finding in AB-1's register now counts
   no agent call. Tests: two MAs' zones of one id kept apart, shadowing and removal, must flies naming what each sees, an
   MA's frames (its own, not another aircraft's, not another MA's), the range's frame following another aircraft hidden
   from an MA's vehicle; the C ABI's handles as owners; the Python SDK's. A/B against AB-2b (12 interleaved rounds): 15
@@ -530,7 +535,7 @@ Dissemination Plan and the picture, received tracks as designations. Each in C++
 - **AB-6, isolation (2026-10-07).** Tier 3: an MA runs in a process of its own (`fsim.isolation.AgentProcess`), holding
   only a channel to the range's process through which its agent's calls are made - `fsim.Agent`'s and, on the
   activities it holds, `fsim.AgentActivity`'s, exactly `boundary.toml`'s agent calls of those classes (a test compares
-  them). B11 named ADR-17's shared-memory server for the channel; it was never built, and an authenticated named pipe
+  them). B11 named ADR-17's shared-memory server for the channel; it was never built, and a local named pipe with an HMAC connection check
   carrying JSON serves: an agent call costs about 45 us there (0.9 us in one process), some 20,000 a second -
   ample for evaluation - and its messages are data the range checks, never code it runs (nothing is unpickled; only
   fsim's own named tuples, enums and batch commands are rebuilt; an activity is named by id and must be one the agent
@@ -543,8 +548,8 @@ Dissemination Plan and the picture, received tracks as designations. Each in C++
   there. Python MAs alone for now - the DRL path; the protocol is language-neutral, and a C or C++ client is a later
   piece. Tests: the links engagement in-process and isolated to the bit; an isolated MA's identity, its attempts to
   reach the world refused, an HSA and its activity used again, a named tuple and bytes exact, a platform refusal and
-  its own error crossing, forged messages (no agent call, an activity it does not hold) answered with errors; types
-  outside fsim never rebuilt; a published world refused; the whitelist against the boundary table. A/B against AB-5c
+  its own error crossing, invalid method requests and unowned activity handles answered with errors; types
+  outside fsim never rebuilt; a published world refused; the callable-method list against the boundary table. A/B against AB-5c
   (12 interleaved rounds each; the VecEnv cases with the builds swapped between the run directories): within noise
   (-0.32 % to +0.17 %).
 

@@ -1,4 +1,4 @@
-"""Security and compatibility cases for contract documents, not SDK simulation tests."""
+"""SDK contract-document validation and compatibility cases; native simulation has separate acceptance tests."""
 from copy import deepcopy
 import json
 from pathlib import Path

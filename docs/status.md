@@ -1,5 +1,12 @@
 # Current capabilities and milestone status
 
+
+## Mission Systems allocation (2026-10-17, planning handoff)
+
+The [MS allocation](architecture/modules/simulation/ms-work-allocation.md) maps the ten retained SIM-M model packages to complete feature owners. Codex leads the first missile-model calibration slice; Claude leads the first radar-model slice. Each includes its required public interfaces, examples, tests and evidence. The current window freezes scope, source data and acceptance criteria only; later implementation packages require their recorded exclusive windows.
+
+The original MS physical-model goals remain distinct from MA-training M0-M8 and from the accepted directory migration. HC-06 native inputs and Claude's generic integration retain their existing ownership and dependency order; existing Agent equipment APIs are consumed rather than reimplemented. IFF remains required before multi-aircraft 2v2/4v4 acceptance. HC-07, HC-45, HC-02, HC-35 and the nonblocking HC-52 follow-up are carried forward; planning does not close them or authorize a full-suite run.
+
 Progress reviewed: 2026-10-16, `main` at `d344e2b`. M7 core is accepted; M8 generic is implemented, corrected after its independent review, and awaits independent acceptance (below); prior full-suite results retain their dated scope.
 First maintenance pass reviewed: 2026-10-12, `2b83f24` (implementation baseline `32e78a6`).
 Second maintenance pass: `f8cfec9`; Architecture A1: `6652584`; Architecture A2: `34e5516`; Architecture A3: `e79f268`;
@@ -425,7 +432,7 @@ The manifest also states the platform/service counts exactly (five platforms, fi
 Logs are under `D:/ENV/tmp/m8fix/logs/`. Pending as before: independent M8 generic acceptance; J5, J9, the combat parts
 of J3, J8 and J10; complete Viewer acceptance; a published seed/aspect matrix; J6's speed resumption after an override.
 
-## Architecture ARCH-02 neutral contracts (2026-10-16, awaiting independent acceptance)
+## Architecture ARCH-02 neutral contracts (2026-10-16, independently accepted at dc09e8f)
 
 The second package of the architecture roadmap. The record is
 `docs/architecture/validation/arch-02-neutral-contracts.md`, with its dated baseline; both are committed. No numerical,
@@ -459,7 +466,8 @@ RNG, timestep or default behavior changed, and ARCH-03 has not started.
 | Architecture gate; `test_check.py` | Accepted (20 modules, 374 files); 122 cases passed |
 | Targeted CTest | Headless 46/46 (103.99 s); Release 15/15 (94.60 s); no full suite |
 
-Found, not changed here: the recording writer copies unspecified padding bytes into files (readers are unaffected).
+At the original `6c0de98` handoff, recording padding was found and left unchanged. It was subsequently corrected and
+independently accepted at `dc09e8f` (HC-01, below).
 
 **HC-00 and HC-01 corrections (2026-10-16).** These are separate corrections, from the independent ARCH-02 review and
 the handoff carryover register (`docs/architecture/validation/`); the ARCH-02 record's section 9 has the details.
@@ -472,12 +480,15 @@ the handoff carryover register (`docs/architecture/validation/`); the ARCH-02 re
 - **ABI:** the frozen-baseline compare is 19/0 on both builds.
 - **Targeted CTest:** headless 17/17, Release 6/6; no full suite.
 
-Observed, not changed: the shared-memory publisher copies `VehicleState` padding into the segment (HC-10, transport
-owner).
+At the `dc09e8f` review, the shared-memory padding concern was source-only and remained open as HC-10. It was later
+runtime-confirmed, corrected and independently accepted at `565ef3e`, below.
 
-Pending: independent ARCH-02 acceptance; the full-suite run at the next regression milestone; ARCH-03 onward.
+Independent acceptance at `dc09e8f`: HC-00's six focused regressions pass; `simulation_interface_boundary` passes
+(9 cases, 1,393 assertions), including deterministic recording padding and v1-v7 reads. ARCH-02 is accepted. Pending:
+the full-suite run when the established final-regression conditions are met, and ARCH-03 onward. HC-10's later
+acceptance is recorded below.
 
-## Architecture ARCH-03 foundation and simulation leaves (2026-10-16, awaiting independent acceptance)
+## Architecture ARCH-03 foundation and simulation leaves (2026-10-16, accepted at ad12a44)
 
 The third package of the architecture roadmap is a relocation only; the record is
 `docs/architecture/validation/arch-03-foundation-and-leaves.md`, with its dated baseline. ARCH-04 has not started.
@@ -501,8 +512,14 @@ The third package of the architecture roadmap is a relocation only; the record i
 
 No full suite ran; that remains open as HC-11. Register HC-11 to HC-13 record this package's newly reported items:
 - HC-11: the full-suite run is still owed;
-- HC-12: per-target include-root narrowing is undecided;
+- HC-12: required per-target include-root narrowing was not implemented and blocks ARCH-03 completion;
 - HC-13: moved leaves have no targeted test scopes.
+
+Independent review at `30bc5ef` found the rename/include rewrite mechanical and the supplied compatibility results
+consistent. Three focused CTest gates passed in 6.56 s, and the new stale-directory fixture passed in 0.155 s. The
+unchanged roadmap's task 5 must still be completed; ARCH-04 has not started. HC-11 remains deferred final-regression
+evidence, not a reason to run a full suite during this correction. See the
+[ARCH-03 review](architecture/validation/arch-03-review-2026-10-16.md).
 
 **HC-12 correction: include-path narrowing (2026-10-16, awaiting independent acceptance).** Roadmap task 5 is
 implemented; section 7 of the ARCH-03 record has the details.
@@ -525,6 +542,15 @@ implemented; section 7 of the ARCH-03 record has the details.
 
 No full suite ran (HC-11). Non-migrated targets keep the shared root until their packages move them (HC-14).
 
+**HC-12 independent recheck at `e7ee67e` (2026-10-16): partially open.** The ten current target include environments
+are narrowed correctly, and the recorded object/ABI evidence is consistent. Twelve related headless CTest checks
+passed serially in 11.07 s; the new static fixture passed in 0.301 s. An isolated mutation nevertheless confirms one
+remaining false acceptance: adding the repository root passes both the static gate and the compiler probes while
+making unrelated private headers available through `src/...` spelling. HC-12 retains this P2 enforcement gap; fix it
+with focused negative checks before ARCH-04. HC-14 includes ARCH-08's applications/tests/tools as well as ARCH-04 to
+ARCH-07. Other carryovers remain open. No configure/build or full suite ran in this review. See the
+[correction review](architecture/validation/arch-03-review-2026-10-16.md#5-hc-12-correction-review-at-e7ee67e).
+
 **HC-12 ancestor-root correction (2026-10-16, awaiting independent acceptance).** This closes the gap the `e7ee67e`
 recheck found: the gate and the compile check both accepted an ancestor of `src`, such as the repository root.
 - **Gate:** `broad-include-root` rejects `src` and every ancestor of it, resolved, so `src/.`, `src/..` and relative
@@ -539,7 +565,15 @@ recheck found: the gate and the compile check both accepted an ancestor of `src`
 - **Tests:** related tests 16/16 on each preset; 130 checker cases and 49 selector cases. No full suite (HC-11). The
   ARCH-03 record's section 7 has the details.
 
-## Architecture ARCH-04 simulation runtime, services and lower facade (2026-10-16, awaiting independent acceptance)
+**Final independent acceptance at `ad12a44` (2026-10-16).** HC-12 is closed and ARCH-03 is accepted. The exact twelve
+related headless CTest checks pass serially in 16.86 s; the expanded static fixture passes in 0.620 s. The unchanged
+original ancestor-root reproduction now fails explicitly in both checks (exit 1), while permitted environments
+continue to pass. No additional in-scope finding remains. All other carryovers, including HC-11's deferred final
+regression, HC-13's selector efficiency and HC-14's unmigrated roots, retain their owners and closure conditions.
+No configure/build, full suite or ARCH-04 implementation ran during this review. See the
+[final acceptance](architecture/validation/arch-03-review-2026-10-16.md#6-final-hc-12-acceptance-at-ad12a44).
+
+## Architecture ARCH-04 simulation runtime, services and lower facade (2026-10-16, accepted at 6e79873)
 
 The fourth package of the architecture roadmap is a relocation and target split. The record is
 `docs/architecture/validation/arch-04-simulation-runtime.md`, with its dated baseline and include environments. ARCH-05
@@ -566,10 +600,18 @@ has not started.
 | Related gates outside the tier: MA services, C2/DMS, episodes, facade, store binding, engagement | 27/27 |
 | Architecture gate; fixtures; selector tests | Accepted (22 modules); 131; 49 |
 
-No full suite ran (HC-11). Register HC-15 asks for a decision on `applyScenario`'s placement; HC-14's remaining
-shared roots are now `env`, `sdk`, the visualization targets, applications, tests and tools.
+No full suite ran (HC-11). At handoff HC-15 requested a decision on `applyScenario`'s placement; the acceptance below
+resolves that decision. HC-14's remaining shared roots are `env`, `sdk`, visualization, applications, tests and tools.
 
-## Architecture ARCH-05 training environment and mission extraction (2026-10-16, awaiting independent acceptance)
+**Independent acceptance at `6e79873` (2026-10-16).** No material in-scope regression was found. Eleven related
+headless CTest checks pass serially in 22.18 s, and the new lower-facade dependency fixture passes in 0.354 s.
+The author compatibility, object and installed-consumer evidence is consistent. HC-15 explicitly retains the thin
+public `applyScenario` adapter in the final assembly and assigns its relocation to ARCH-07; P022 and the design are
+amended rather than claiming the original move occurred. That scheduled relocation and all other carryovers remain
+visible. No configure/build, full suite or ARCH-05 implementation ran during this review. See the
+[ARCH-04 review](architecture/validation/arch-04-review-2026-10-16.md).
+
+## Architecture ARCH-05 training environment and mission extraction (2026-10-16, accepted at 58f9297)
 
 The fifth package of the architecture roadmap is a relocation and target split. The record is
 `docs/architecture/validation/arch-05-training-extraction.md`, with its dated baseline and include environments.
@@ -595,7 +637,15 @@ ARCH-06 has not started.
 
 No full suite ran (HC-11).
 
-## Architecture ARCH-06 visualization core, effects and source separation (2026-10-16, awaiting independent acceptance)
+**Independent acceptance at `58f9297` (2026-10-16).** No material in-scope finding remains. Eight related headless
+CTest checks pass serially in 27.79 s; the new mission dependency/cycle fixture passes in 0.268 s. The installed
+composition traces match before/after byte for byte within both presets, and the author lifetime/stress,
+compatibility and include-environment evidence is consistent. Existing carryovers remain registered, including
+ARCH-07's Python cleanup and HC-15 adapter relocation. No configure/build, full suite, repeated installed consumer
+or stress run occurred during this review. ARCH-06 has not started. See the
+[ARCH-05 review](architecture/validation/arch-05-review-2026-10-16.md).
+
+## Architecture ARCH-06 visualization core, effects and source separation (2026-10-16, accepted at 74efb49)
 
 The sixth package of the architecture roadmap. The record is `docs/architecture/validation/arch-06-visualization.md`,
 with its dated baseline and include environments. ARCH-07 has not started.
@@ -619,7 +669,7 @@ with its dated baseline and include environments. ARCH-07 has not started.
 | Builds (headless, Release), warnings as errors | 0 warnings |
 | Object identity against `58f9297` | All unchanged except the restructured `Vision.cpp` and Viewer `main.cpp` (and two new files) |
 | Vision cameras' images | Byte-identical to the pre-change run |
-| Live native strike, fullscreen 3840 x 2160, before and after | Both pass with the same native outcome and capture times; the replay and the demo render within run-to-run noise |
+| Live native strike, fullscreen 3840 x 2160, before and after | Both pass with the same native outcome and capture times. Replay differences are small (82-964 pixels), but exceed the two-run baseline count range in three comparisons; no statistical noise-bound or rendering-regression conclusion is established |
 | Frozen-baseline compare; frozen C++/C99/Python consumers | 19/0, all 22 captures identical (Vision DLL included); five consumers exit 0 |
 | Fast tier plus the new probes; Flow calibration | Headless 576/576; Release 646/646; 1/1 |
 | Architecture gate; fixtures; selector tests | Accepted (25 modules); 133; 49 |
@@ -627,7 +677,23 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
-## HC-51 Viewer guide mouse description (2026-10-17, awaiting independent acceptance)
+**Independent review at `61830e4` (2026-10-16).** Source and dependency review found no confirmed simulation or
+rendering regression. Four headless quick checks pass in 9.08 s, seven Release include probes/checker pass in 22.57 s,
+and the new exact-kind-exception fixture passes in 0.306 s. One P2 remains: scene/UI/Flow changes select headless only,
+so the selector can pass without compiling their changed graphics implementation. HC-13 is a coverage gap as well as
+an efficiency issue. Small replay differences and screenshot-layout uncertainty are not separate rendering blockers;
+the earlier noise-bound wording is corrected above. HC-16/17's scope decisions and follow-ups are recorded in the
+[ARCH-06 review](architecture/validation/arch-06-review-2026-10-16.md). No source build, full suite or GUI rerun was
+performed; ARCH-07 has not started.
+
+## HC-51 Viewer guide mouse description (2026-10-17, independently accepted at 5c80892)
+
+**Current independent disposition:** HC-51 is closed. The [review](architecture/validation/hc-07-review-2026-10-17.md#6-interaction-subset-and-hc-51-acceptance-at-5c80892) also accepts
+the sampled window-input mouse/replay/resize evidence at `2a09756`: four reading sets pass and all 18 negative
+controls reject; raw hashes and images match. HC-52 records an incomplete-array false accept in the reusable
+resize helper, not a fault in the saved seven frames. HC-07 remains open on HC-45, HC-06, HC-02, human operation
+and the declared uncaptured variants. No GUI/performance/build/full suite was repeated in independent review.
+
 
 HC-51, found in HC-07's interaction checks, is corrected in documentation only; the Viewer's behaviour is unchanged.
 The [Viewer guide](sdk/viewer.md)'s camera bullet now says:
@@ -645,7 +711,7 @@ locked space + drag were also measured in the [interaction checks](architecture/
 The documentation checks pass: the planned `architecture_boundary`, `ma_contract` and `sdk_guard_checker` (3/3),
 the planning checker (58 documents) and the local-link audit (1,450 links in 113 files, none broken).
 
-## HC-07 mouse, replay and resize (2026-10-17, awaiting independent acceptance)
+## HC-07 mouse, replay and resize (2026-10-17, sampled subset independently accepted at 5c80892)
 
 HC-07's remaining interaction cases were verified through input posted to the Viewer's own window, on the current
 Release build at 3840 x 2160. The [HC-07 record](architecture/validation/hc-07-viewer-and-joint.md#mouse-replay-and-resize-2026-10-17) has the details.
@@ -668,7 +734,15 @@ No full suite or performance scene ran.
 The documentation checks pass: the planning checker (58 documents), the local-link audit (1,446 links in 113
 files, none broken) and `ma_contract`, `architecture_boundary` and `sdk_guard_checker` (3/3).
 
-## HC-47 helper checks, version 2 (2026-10-17, awaiting independent acceptance)
+## HC-47 helper checks, version 2 (2026-10-17, independently accepted at d6bfb54)
+
+**Current independent disposition: HC-47's check-logic correction is closed.** The actual regression script passes
+149 expected results with child process launches refused. All eight old false accepts reject on v2, while saved
+outcomes and real-log controls pass. All 51 evidence hashes and owner payloads are preserved. HC-48/49/50 remain
+closed. The [acceptance](architecture/validation/hc-45-review-2026-10-17.md#7-hc-47-version-2-correction-acceptance-at-d6bfb54)
+retains v2 live-path validation before future automated-gate reuse, not as a required run now. HC-45 optimization,
+HC-07/full-program gates, HC-35 and the dated HC-11 scope are unchanged. No GUI, performance or full suite ran.
+
 
 The [recheck](architecture/validation/hc-45-review-2026-10-17.md#6-hc-47-to-hc-50-correction-recheck-at-1e9433b) found
 eight invalid records that HC-47's helper checks still accepted. Version 2 of the helpers, in
@@ -692,7 +766,15 @@ files, none broken) and `ma_contract`, `architecture_boundary` and `sdk_guard_ch
 The [HC-07 record](architecture/validation/hc-07-viewer-and-joint.md#version-2-checks-2026-10-17) and its
 [summary](architecture/validation/hc-07-evidence.json) have the details.
 
-## HC-47 to HC-50 corrections (2026-10-17, awaiting independent acceptance)
+## HC-47 to HC-50 corrections (2026-10-17, independently rechecked at 1e9433b)
+
+**Historical independent disposition at `1e9433b`:** HC-48/49/50 are closed. HC-47's real measured reruns and summary corrections
+are accepted, but its reusable checks still accept missing cleanup/identity observations and reattach after new
+frames. Eight pure counterexamples reproduce the gaps; HC-47 stays open. The existing 15/14 helper self-tests pass
+and omit those cases. Five GPU-timer CTest cases pass in 0.09 s. See [recheck](architecture/validation/hc-45-review-2026-10-17.md#6-hc-47-to-hc-50-correction-recheck-at-1e9433b).
+No GUI, benchmark, build or full suite was repeated; HC-45 optimization stays deferred. The author's following
+handoff and dated results remain preserved, qualified by this independent disposition.
+
 
 The findings of the [HC-07](architecture/validation/hc-07-review-2026-10-17.md) and
 [HC-45](architecture/validation/hc-45-review-2026-10-17.md) reviews are corrected. HC-45 stays open, its optimization
@@ -713,7 +795,18 @@ files, none broken) and `ma_contract`, `architecture_boundary` and `sdk_guard_ch
 The [HC-45 record](architecture/validation/hc-45-performance-comparison.md#5-the-reviews-corrections-2026-10-17) and the
 [HC-07 record](architecture/validation/hc-07-viewer-and-joint.md#hc-47-correction-2026-10-17) have the details.
 
-## HC-45 performance comparison (2026-10-17, awaiting independent acceptance)
+## HC-45 performance comparison (2026-10-17, measurement subset reviewed at 0a635d9)
+
+**Current independent disposition:** the [review](architecture/validation/hc-45-review-2026-10-17.md) accepts the
+raw A/B measurements and input/hash checks, not the unconditional "no regression" or all causal assertions in the
+author handoff below. Current strike minima are 1.4-1.5 fps lower in both pairs; equivalence and migration causality
+remain unresolved (HC-48). Some largest-gap statistics belong to different frames, and unmarked intervals alone
+do not identify Flow or uploads (HC-50). A missing-query probe also reproduces an inflated gap, not observed in
+these runs (HC-49, P3/nonblocking). HC-45 and the unchanged HC-47 stay open. The saved 68/68 renderer run is targeted
+author evidence; HC-11 remains accepted for its older frozen source. No GUI, benchmark or full suite was repeated.
+
+The following table and cause list retain the author's reported conclusions, qualified by that review.
+
 
 The [HC-45 record](architecture/validation/hc-45-performance-comparison.md) has the details. HC-45 stays open: by the
 user's decision, no performance change was made.
@@ -728,7 +821,7 @@ Hypotheses, not demonstrated causes (HC-50): GPU work or presentation pacing in 
 one), a full cloud march in hit, NVIDIA Flow's solver sharing the GPU in the fire's aftermath, and the fire's shading
 and breakup pieces within the strike's pass groups at the impact.
 
-## HC-07 Viewer and joint verification (2026-10-17, awaiting independent acceptance)
+## HC-07 Viewer and joint verification (2026-10-17, diagnostic subset accepted at 465b7af; HC-07 open)
 
 The [HC-07 record](architecture/validation/hc-07-viewer-and-joint.md) has the details. HC-07 stays open.
 
@@ -739,7 +832,21 @@ The [HC-07 record](architecture/validation/hc-07-viewer-and-joint.md) has the de
 | 4K performance gate (160 fps), two runs | **Failed** for fleet, strike and hit; reheat passed (HC-45) |
 | Combat joint cases, combat Viewer run, seed/aspect matrix | **Not run:** their prerequisites are not supplied (HC-06) |
 
-## HC-11 final regression (2026-10-17, awaiting independent acceptance)
+The [independent review](architecture/validation/hc-07-review-2026-10-17.md) accepts the diagnostic evidence subset:
+native event/readback consistency, sampled images, 15 programmatic keyboard/setup/lifecycle checks and observed
+same-process World replacement. It confirms all 20 evidence hashes, HC-11 artifact/data continuity and owner-edit
+preservation. All eight raw performance streams reproduce the reported failures; migration regression remains
+unresolved on the loaded machine/different hit workload. HC-45, HC-06/HC-02 and remaining mouse/replay/resize
+coverage keep HC-07 open; a human-operated session is not claimed.
+
+HC-46's --no-gui panels remain a pre-existing nonblocking issue. New HC-47 records helper limits: standalone-demo
+exit/cleanup fields are author observations assigned by the summary script, and reconnect output needs direct
+log/image checks rather than its exit alone. The separate control run does measure cleanup. These do not establish
+a current Viewer failure or require another full suite. Other self-reported harness/digest/crop fixes and HC-35/44
+limits are retained. No GUI, benchmark, build or full suite was repeated in review; only document fast checks run.
+No files were staged, committed or pushed. Complete HC-07/final-program acceptance remains pending.
+
+## HC-11 final regression (2026-10-17, independently accepted at 66dc43d)
 
 Both required full suites ran once on one frozen, fingerprinted source snapshot, and both passed. The
 [HC-11 record](architecture/validation/hc-11-final-regression.md) has the details.
@@ -754,7 +861,22 @@ Both required full suites ran once on one frozen, fingerprinted source snapshot,
 
 Pending (HC-07): the fullscreen Viewer scenarios, manual controls, the 4K performance gate and joint acceptance.
 
-## ARCH-10 HC-38 to HC-43 correction (2026-10-17, awaiting independent acceptance)
+The [independent review](architecture/validation/hc-11-review-2026-10-17.md) closes HC-11. Saved inventory names,
+JUnit and raw Start/completion entries match exactly: 717 headless and 780 Release, each run once, all CTest entries
+passed. No CTest entry skipped or went unrun. Headless has three expected internal optional-Vision unittest skips;
+Release executes and passes their counterparts. All 63 renderer entries pass, including actual 3840 x 2160 Viewer
+presented-frame checks. Logged wall times are 1,123.38 s and 1,137.50 s.
+
+Fingerprint/log hashes and declared post-run documentation overlays check correctly; original owner payloads are
+preserved. HC-44 records the nonblocking scope limit: staged product artifacts are fingerprinted, but not every
+native test executable, plugin, staged Python file or complete CTest command/property. Current test DLLs match the
+captured SDK DLLs; no changed test input was demonstrated. Future helper reuse must extend any complete-input
+claim and apply exclusions in tracked Git queries before names return. No additional full run is needed for this
+qualification. Incremental-build/Debug limits, the corrected timeout estimate and pending HC-35 disposition remain
+recorded. No suite, native build or GUI was repeated during review. HC-07 and complete final-program acceptance
+remain pending; no files were staged, committed or pushed.
+
+## ARCH-10 HC-38 to HC-43 correction (2026-10-17, independently accepted at f1bb879)
 
 Corrects the six items of the ARCH-10 review; section 11 of the
 [ARCH-10 record](architecture/validation/arch-10-final-acceptance.md) has the details.
@@ -778,7 +900,23 @@ Corrects the six items of the ARCH-10 review; section 11 of the
 
 No full suite or GUI scenario ran.
 
-## Architecture ARCH-10 final three-domain acceptance (2026-10-17, awaiting independent acceptance)
+The [independent correction recheck](architecture/validation/arch-10-review-2026-10-17.md#9-hc-38-to-hc-43-correction-acceptance-at-f1bb879)
+closes HC-38 to HC-43 and HC-20 at `f1bb879` (fix `872f561`, provenance-only `f1bb879`). All original-hole probes
+now behave correctly. Current exact gates pass 3/3 headless (17.50 s) and 2/2 Release (11.63 s). Before review
+edits, all 13 committed-input and 58 working-path hashes match, with the required package-input set complete;
+17/72 binaries, both data digests and consumer manifests match. The committed manifest remains dated source
+evidence; later seven-path review prose is an explicit documentation overlay, not a newly captured tree.
+
+The scratch verifier is acceptable for that dated evidence, with its expected-set/artifact and future traversal
+limits recorded under HC-41/HC-35. Other owners' payloads and corrected development slips are reconciled. No new
+blocking finding remains in this correction. Full suites (HC-11), current fullscreen/manual/performance and joint
+gates (HC-07) remain pending: this is correction/structural acceptance, not complete ARCH-10/final-program
+acceptance. No native configure/build, GUI, package gate or full suite was repeated; nothing was staged, committed
+or pushed, and no pending run is authorized.
+
+## Architecture ARCH-10 final three-domain acceptance (2026-10-17, historical subset review at 197a059)
+
+This historical entry retains the six findings at `197a059`; the correction acceptance above supersedes their open status.
 
 The tenth and last package of the architecture roadmap. The
 [ARCH-10 record](architecture/validation/arch-10-final-acceptance.md) has the details. It reports migration progress: the
@@ -804,7 +942,23 @@ declared complete.
 
 The full suites (717 headless and 780 Release tests) and the GUI scenarios did not run.
 
-## HC-33 authority registration (2026-10-17, awaiting independent acceptance)
+The [independent review](architecture/validation/arch-10-review-2026-10-17.md) accepts HC-19's bounded selection,
+HC-24's aligned planning graph, HC-25's launch category, HC-04's retained dependency rule and HC-37's documented
+application-source tests. **Six P2 items block complete ARCH-10 acceptance:** SYSTEM includes bypass ownership
+(HC-38); nested shared CMake files omit Release, leaving HC-20 open (HC-39); configured gates can be unregistered
+without a selector error (HC-40); source provenance is stale/incomplete (HC-41); build identity/disabled branches
+are unchecked (HC-42); and the declared CMake support contract conflicts with the new mandatory gate (HC-43).
+
+Current exact independent checks pass 5/5 headless (35.82 s), 2/2 Release (11.57 s); bounded reply/plan probes
+demonstrate the gaps despite those passes. Both inventories contain 67 Python SDK tests, and the configured
+checker has 27 total cases including controls. The table above retains the author's dated evidence. Source
+provenance needs correction even though the independently checked 17/72 artifact hashes match current binaries.
+The complete handoff, including extra Release coverage, fixed capture/helper slips, other owners' preservation
+and pending HC-35 disposition, is reconciled in the review and carryover register. No native configure/build,
+consumer rebuild, GUI or full suite was repeated; nothing was staged, committed or pushed. Stop for correction
+and independent recheck; HC-07/HC-11 retain their separate gates.
+
+## HC-33 authority registration (2026-10-17, independently accepted at 6bb79cc; ARCH-09 complete)
 
 Completes ARCH-09's authority gate, which the independent review at `4d7a9be` left open (HC-33). The
 [ARCH-09 record](architecture/validation/arch-09-architecture-authority.md#10-hc-33-correction-2026-10-17) has the
@@ -824,7 +978,18 @@ details. ARCH-10 has not started.
 
 No native build or full suite ran (HC-11).
 
-## Architecture ARCH-09 architecture authority relocated (2026-10-17, awaiting independent acceptance)
+The [final independent review](architecture/validation/arch-09-review-2026-10-17.md#7-final-hc-33-and-arch-09-acceptance-at-6bb79cc)
+closes HC-33 and accepts ARCH-09 at main `6bb79cc` plus the inspected uncommitted planning/index package. Three body
+hashes match their before snapshots, the previous 22 register rows are unchanged and shared reviewer sections are
+preserved. ADR-27 remains in force for rotorcraft. Exact documentation gates pass 3/3 (3.10 s); the pre-review
+scoped link audit finds 100 files/1,302 local links with no errors, separate from the author's table above. Final
+documentation results are recorded in the review. HC-34's approved deferral, HC-35's pending human disposition,
+HC-36's scheduled maintenance and the original relocation's evidence limits remain. No native build, Release rerun,
+GUI or full suite ran; no files were staged, committed or pushed. ARCH-10 has not started.
+
+## Architecture ARCH-09 architecture authority relocated (2026-10-17, initial subset review at 4d7a9be)
+
+This historical entry retains the then-open HC-33 finding; the `6bb79cc` acceptance above supersedes that status.
 
 The ninth package of the architecture roadmap. The record is
 `docs/architecture/validation/arch-09-architecture-authority.md`. ARCH-10 has not started.
@@ -845,9 +1010,18 @@ The ninth package of the architecture roadmap. The record is
 | Local Markdown links in the repository; planning checker | 1,278 links, none broken; 49 documents reachable from the index |
 | Related tests (documentation, SDK principals, MA contract) | Headless 6/6, Release 6/6 |
 
-No full suite ran (HC-11); no build input changed.
+Independent review accepts the delivered relocation subset but leaves **HC-33 (P2)** open: ADR-26, ADR-27 and the
+build/run packaging plan need register/index entries identifying category, owner and status. Their bodies can stay
+in place; a pre-ARCH-10 backlog note does not satisfy ARCH-09's authority gate. See the
+[review](architecture/validation/arch-09-review-2026-10-17.md).
 
-## HC-32 timer-handle correction (2026-10-17, awaiting independent acceptance)
+Current exact checks pass 5/5 headless (5.86 s), Release SDK boundary 1/1 (2.61 s). A separate scoped pre-review
+audit finds 99 Markdown files/1,279 local links with no missing paths/anchors. Committed non-link text and 901 link
+pairs check cleanly; exact pre-move uncommitted payload identity is qualified as author-reported. The table above
+retains author evidence. HC-34's approved deferral, HC-35's access-boundary incident and HC-36's comment-reference
+maintenance remain recorded. No native build, GUI run or full suite ran (HC-11). ARCH-10 has not started.
+
+## HC-32 timer-handle correction (2026-10-17, independently accepted at dd7dc9f; ARCH-08 complete)
 
 Corrects the leak the ARCH-08 recheck at `1dffece` found; the ARCH-08 record's section 17 has the details.
 
@@ -860,11 +1034,20 @@ Corrects the leak the ARCH-08 recheck at `1dffece` found; the ARCH-08 record's s
 | New regressions on the unchanged code; after the fix | 30 threads that slept: 115 to 145 handles, then steady. 30 real holds and resumes: 122 to 152, then 116 to 116 |
 | Related tests | Release 12/12, with the demo publisher's parity, steps, lifecycle and schedules; headless gates 5/5; 5/5 repeats |
 
-No full suite ran (HC-11).
+Independent recheck closes HC-32 and HC-16 and accepts ARCH-08 at `dd7dc9f`. The original actual-native repeated-hold
+probe now keeps **89/89 handles over 30 cycles**, delta 0, versus the previous +30. Current exact headless checks
+pass 3/3 (7.19 s), Release publisher checks 4/4 (18.47 s); the registered real-runner hold count is 127/127 in both.
+The table above retains author evidence; the red run is headless and green coverage spans both presets.
 
-## HC-28, HC-30 and HC-31 demo publisher correction (2026-10-17, awaiting independent acceptance)
+The [final review](architecture/validation/arch-08-review-2026-10-17.md#8-final-hc-32-and-arch-08-acceptance-at-dd7dc9f)
+and carryover register retain all closures, pending manual HC-07 gates and HC-24 to HC-27 follow-ups. HC-11's final
+regression gate is unchanged. Only an ignored probe was compiled; no product build, GUI run or full suite was
+repeated. ARCH-09 has not started and requires the next user-relayed assignment.
 
-Corrects the items the ARCH-08 recheck at `ecf58a3` left open; the ARCH-08 record's section 15 has the details.
+## HC-28, HC-30 and HC-31 demo publisher correction (2026-10-17, historical acceptance at 1dffece)
+
+This historical entry retains the then-open HC-32 finding, which is closed by the dd7dc9f acceptance above.
+It corrects the items the ARCH-08 recheck at `ecf58a3` left open; the ARCH-08 record's section 15 has the details.
 
 - **HC-28:** each hold joins and restarts the runner's thread, so a step it was taking is published before any request
   is handed over. Every later step is a requested one; no timing is involved.
@@ -879,13 +1062,26 @@ Corrects the items the ARCH-08 recheck at `ecf58a3` left open; the ARCH-08 recor
 | Real runner in-process; process tests on Release | Exact step counts after each hold; the publisher cases pass 5/5 when repeated |
 | Selector | New cases fail on HEAD's selector (22 sub-tests), then all 82 pass; targeted plan: headless 9/9, Release 72/72 |
 
-No full suite ran (HC-11).
+Independent recheck closes HC-28, HC-30 and HC-31. Current exact headless gates pass 5/5 (15.07 s), Release
+6/6 (23.34 s); all six substituted-Release missing-coverage plans reject with exit 3 and six real-Release controls
+pass. Delayed-work/retention schedules, real-runner exact counts and process single-step/parity controls pass.
 
-## HC-28 and HC-29 demo publisher correction (2026-10-17, awaiting independent acceptance)
+New **HC-32 (P2)** blocks complete ARCH-08: each joined hold recreates the sim thread, whose Windows waitable-timer
+handle has no thread-exit cleanup. A real simulation probe records 92 to 122 handles after 30 pause/resume cycles;
+the same native runner with a persistent-thread hold stays 89/89. HC-29's child-startup handle fix remains closed.
+The [current review](architecture/validation/arch-08-review-2026-10-17.md#7-correction-recheck-at-1dffece) and register
+record the source, regression and closure conditions.
 
-Corrects the two defects of the ARCH-08 review; the ARCH-08 record's section 13 has the details.
+The author's pause-latency claim is qualified: a join waits for work, pacing and scheduling, with no hard one-period
+bound. Approximate process pause counts and corrected floor waits are retained; manual keys remain HC-07. The
+table above is author evidence. No product build, GUI run or full suite was repeated (HC-11). ARCH-09 has not started.
 
-- **HC-28:** the demo publisher takes every single-step request, one at a time while the simulation is held: 20
+## HC-28 and HC-29 demo publisher correction (2026-10-17, historical recheck at ecf58a3)
+
+This is the historical ecf58a3 recheck; the 1dffece acceptance and HC-32 finding above supersede its remaining-item status.
+It corrects the two defects of the ARCH-08 review; the ARCH-08 record's section 13 has the details.
+
+- **HC-28, submitted correction:** the demo publisher takes single-step requests one at a time while held: 20
   requests made at once are 20 steps, the in-process demo's to the bit. A resume drops the requests not yet taken.
 - **HC-29:** the Viewer's demo link closes the publisher's process handle whatever the child's state, including after a
   failed start.
@@ -895,9 +1091,23 @@ Corrects the two defects of the ARCH-08 review; the ARCH-08 record's section 13 
 | New regressions on the unchanged code; after the fix | `demo_publisher_steps` and `demo_publisher_lifecycle` fail (1 step for 20 requests; 3 leaked handles); then pass, 5/5 each when repeated |
 | Selector's targeted plan | Headless 8/8; Release 71/71, every renderer test included |
 
-No full suite ran (HC-11).
+Independent recheck closes **HC-29**: failed-start handles remain 69/69 in the original real process probe, and the
+registered lifecycle control is also stable (124/124). The original burst now passes 20/20, with a 3/3 sequential
+control. **HC-28 remains open**: the 100 ms/1.5-period quiet heuristic can mistake delayed old work for a requested
+step's completion. A controlled-interleaving model completes one requested step for two requests; the settled
+2/2 control passes. This is model evidence, not an executed production timing failure.
 
-## Architecture ARCH-08 applications, tests, examples and packaging (2026-10-17, awaiting independent acceptance)
+**HC-30's running/resume cancellation is not accepted** under the preservation requirement. **HC-31** records the
+new scope's false pass when Release has no publisher tests: six plan-only negatives return 0, while six real-Release
+controls select all three cases. Restore request retention and explicit required coverage, and tighten the
+post-resume test to check the exact single-step time delta.
+
+Current exact gates pass 5/5 Release (22.78 s) and 3/3 headless (10.50 s). The table above is author evidence.
+The [current review](architecture/validation/arch-08-review-2026-10-17.md#6-correction-recheck-at-ecf58a3) and carryover
+register retain all findings, author limits and closure conditions. No product rebuild, GUI run or full suite was
+repeated (HC-11). Complete ARCH-08 remains blocked; ARCH-09 has not started.
+
+## Architecture ARCH-08 applications, tests, examples and packaging (2026-10-17, initial subset review at 8c8bd8d)
 
 The eighth package of the architecture roadmap. The record is
 `docs/architecture/validation/arch-08-applications-tests-and-packaging.md`, with its dated baseline and include
@@ -914,7 +1124,8 @@ environments. ARCH-09 has not started.
   - examples: simulation, training and visualization;
   - tools: models, data and validation, beside architecture and launch.
 
-  CTest names, executables, launcher commands and package layouts are unchanged. The architecture gate holds the
+  Existing CTest names/labels, executables, launcher commands and package layouts are preserved, with the new
+  publisher executable and control/include/demo tests added. The architecture gate holds the
   categories, with `tools/launch` as its one exception (HC-25).
 
 | Verification | Result |
@@ -927,9 +1138,22 @@ environments. ARCH-09 has not started.
 | Related fast tests | Headless 624/627, then the 3 fixed 3/3; Release 688/688 |
 | Architecture gate; fixtures; planning checker | Accepted (layout: 598 files in 13 categories); 141; accepted |
 
-No full suite ran (HC-11).
+The initial `8c8bd8d` review below is historical; the `ecf58a3` recheck above supersedes its defect status.
+It accepts the migration subset, HC-14 and HC-17.2, but complete ARCH-08/HC-16 acceptance at that revision remains
+blocked by **HC-28 (P2)**: 20 queued demo single-step requests produce only one step; the native boolean latch
+collapses the increments. Three sequential requests still produce three steps. **HC-29 (P3)** separately records
+three process handles leaked by three children exiting before startup completes. The current Viewer exits on that
+failure, limiting the immediate impact. Both defects and closure requirements are in the
+[independent review](architecture/validation/arch-08-review-2026-10-17.md) and carryover register.
 
-## HC-21 P056 and HC-23 (2026-10-17, awaiting independent acceptance)
+Initial independent checks pass: 6/6 layout fixtures, 8/8 exact headless gates (43.86 s), and Release
+`include_view_viewer`/`demo_publisher` 2/2 (14.74 s). The latter compares separately acknowledged steps and misses
+queued-request loss. The table above retains the author's broader evidence, not new independent run totals.
+HC-25 to HC-27 remain assigned. Image timing is a plausible explanation for the capture differences, not proven
+causation; manual demo keys and wider visual/performance gates remain pending under HC-07. No product rebuild,
+GUI run or full suite was repeated (HC-11). ARCH-09 has not started.
+
+## HC-21 P056 and HC-23 (2026-10-17, independently accepted at a59b46f)
 
 Completes ARCH-07's P056 and resolves HC-23; the ARCH-07 record's section 13 has the details.
 
@@ -949,7 +1173,18 @@ Completes ARCH-07's P056 and resolves HC-23; the ARCH-07 record's section 13 has
 
 No full suite ran (HC-11).
 
-## Architecture ARCH-07 SDK assembly and Python import cleanup (2026-10-16, awaiting independent acceptance)
+**Independent acceptance at `a59b46f`.** HC-21/P056 and HC-23 are closed, completing ARCH-07. The extraction keeps
+Range checks/hosts separate from actor proxies, preserves public owners and leaves no Python import cycle. Current
+unstaged hunk payloads match the saved pre-change edits for isolation.py (4 hunks, 8 added/8 removed lines), the actor
+fixture and check.py. The reserved native provider remains planned VIS-F; exception expiry rules remain roadmap-only.
+
+Independent exact gates pass 5/5 headless (32.15 s), 2/2 Release (7.07 s), plus the planned-phase regression 1/1
+(0.760 s). No product rebuild, full suite, GUI run or extra frozen-consumer matrix was repeated. HC-24 retains the
+planning/policy graph reconciliation before ARCH-10, and other open carryovers remain assigned. See the
+[final review](architecture/validation/arch-07-review-2026-10-17.md#6-final-hc-21-and-hc-23-acceptance-at-a59b46f).
+ARCH-08 has not started and awaits its next user-relayed assignment.
+
+## Architecture ARCH-07 SDK assembly and Python import cleanup (2026-10-17, completed at a59b46f)
 
 The seventh package of the architecture roadmap. The record is
 `docs/architecture/validation/arch-07-sdk-and-python.md`, with its dated baseline and include environments. ARCH-08
@@ -968,7 +1203,8 @@ has not started.
   Both deferred import cycles are removed, and the camera core has no VecEnv: `fsim.vision` composes `VisionBatch`.
 - **Public headers:** `fsim/fsim_vecenv_handle.h` holds the C handle `VecEnv.h` shares with the C ABI. The last public
   exception is removed; `VecEnv.h` no longer includes `fsim_c.h` (HC-22).
-- **Not done:** P056 (`fsim.isolation`'s codec and proxy): the module carries another owner's uncommitted edits (HC-21).
+- **P056:** initially blocked at `ebd3a09` by uncommitted edits, then completed with those edits preserved and accepted
+  at `a59b46f` (HC-21, above).
 
 | Verification | Result |
 | --- | --- |
@@ -982,7 +1218,21 @@ has not started.
 
 No full suite ran (HC-11).
 
-## HC-13 shared renderer scope (2026-10-16, awaiting independent acceptance)
+**Independent review at `ebd3a09` (2026-10-17).** The delivered SDK/Python changes pass review without a new
+behavioral or ABI finding. HC-08, HC-15 and HC-17.4 are accepted. HC-22's narrower source-include contract is explicitly
+accepted: mixed C/C++ source includes `fsim/fsim_c.h`; the old/current/explicit-include syntax probe gives pass/fail/pass.
+That is a documented source change, not a claim that all old source compiles unchanged.
+
+Independent exact checks pass 10/10 headless (43.21 s), 3/3 Release (6.73 s) and the Python training module 1/1
+(10.01 s). No product rebuild, full suite or GUI run was repeated. The handoff's test-scope statement is corrected:
+26 headless and 28 Release hangar cases did run; only the remaining long cases were excluded.
+
+At that subset review, full ARCH-07 completion still required P056/HC-21 and a recorded file handoff; HC-23 retained
+the stale native image-provider phase. Both are closed by the `a59b46f` acceptance above. The native provider remains
+separate future VIS-F work, not missing Python VisionBatch composition. Other open carryovers remain assigned. See the
+[independent review](architecture/validation/arch-07-review-2026-10-17.md). ARCH-08 has not started.
+
+## HC-13 shared renderer scope (2026-10-16, independently accepted at 74efb49)
 
 The `5f8c139` recheck's last P2: the shared `render, vision and viewer` scope (public Vision header, Python wrapper,
 assets) asked for the `render` label on Release but did not require it, so generic tests passed an inventory without
@@ -1002,7 +1252,16 @@ renderer tests. The ARCH-06 record's section 12 has the details.
 
 No product source changed and no full suite ran (HC-11).
 
-## HC-13 renderer-coverage requirement (2026-10-16, awaiting independent acceptance)
+**Independent acceptance at `74efb49`.** HC-13 is closed and ARCH-06 is accepted. The prior shared-scope fixtures
+now reject all nine path/tier plans, both run lifecycles and all three mixed plans when Release lacks renderer tests.
+Valid controls select all 59 render tests (69 of 769 Release tests targeted) and preserve 10 headless tests. Generic
+SDK Release scopes still pass without a renderer requirement. The two registered selector gates pass 74/74 cases
+each with no skips (7.16 s headless, 7.08 s Release). See the
+[final review](architecture/validation/arch-06-review-2026-10-16.md#9-final-hc-13-acceptance-at-74efb49).
+No product build, renderer rerun, full suite or GUI job was executed. HC-19/20 and all other open carryovers remain
+assigned. ARCH-07 has not started and awaits the next user-relayed assignment.
+
+## HC-13 renderer-coverage requirement (2026-10-16, rechecked at 5f8c139; shared-scope P2 remains)
 
 The `9e66811` recheck's remaining P2: a renderer change's `ucrt64-release` plan passed on an inventory without renderer
 tests, through the render scope's generic names. The ARCH-06 record's section 11 has the details.
@@ -1016,13 +1275,26 @@ tests, through the render scope's generic names. The ARCH-06 record's section 11
 
 | Verification | Result |
 | --- | --- |
-| The review's probe, real headless inventory as Release | HEAD exit 0 (runs start); corrected exit 3 in all six cases, nothing run |
+| The author's probe, real headless inventory as Release | Old HEAD: four plans exit 0; two no-op runs start their runner and exit 4 (`ran-other-tests`). Corrected: all six exit 3 before any runner |
 | Real Release control | 64 of 769 targeted, all 59 render tests |
 | `testing_scope_checker`, both presets | 69/69 and 69/69 |
 
 No product source changed and no full suite ran (HC-11).
 
-## HC-13 Release selection for renderer changes (2026-10-16, awaiting independent acceptance)
+**Independent recheck at `5f8c139`.** The prior review's unchanged fixtures now reject all six invalid source-path
+scenarios with `no-renderer-coverage` (exit 3) before any runner starts; the genuine Release control still selects
+64 of 769, including all 59 render tests. The selector gates pass 69/69 cases each without skips (5.91 s and 5.76 s).
+
+One HC-13 P2 remains: the existing shared renderer scope for the Vision public header/wrapper and assets bypasses
+the new check because it lacks `render_only`. With the real headless inventory supplied as Release, shader/header/
+wrapper plans still return 0 with no renderer tests, in all tiers; shader lifecycles with and without stubbed builds
+also return 0. Required renderer coverage must be independent of render-only routing, while retaining headless
+coverage for these shared paths. See the
+[current review](architecture/validation/arch-06-review-2026-10-16.md#8-hc-13-recheck-at-5f8c139).
+No product build, render rerun, full suite or GUI job was executed. HC-19/20 and all other carryovers remain assigned;
+ARCH-06 is not fully accepted and ARCH-07 has not started.
+
+## HC-13 Release selection for renderer changes (2026-10-16, rechecked at 9e66811; one P2 remains)
 
 The ARCH-06 review's P2: a scene, UI or Flow change was planned on `ucrt64-headless` alone, which does not compile it,
 so its selection passed without the change being built or tested. The correction is in the test selector; the ARCH-06
@@ -1046,7 +1318,19 @@ record's section 10 has the details.
 
 No product source changed and no full suite ran (HC-11).
 
-## HC-10 shared-memory padding (2026-10-16, awaiting independent acceptance)
+**Independent recheck at `9e66811`.** The original preset-routing gap is corrected, but HC-13 remains open:
+a required Release inventory with no renderer tests can still pass via generic name matches. Supplying the real
+710-test headless inventory as Release selects 5 generic tests for a UI change and returns 0; full/mixed plans
+and stubbed run lifecycles also return 0. The genuine Release control selects 64 of 769, including 59 render tests.
+The new negative fixture removes the fallback matches, so it misses this case. See the
+[current review](architecture/validation/arch-06-review-2026-10-16.md#7-hc-13-correction-recheck-at-9e66811).
+
+Independent selector gates pass on both presets (62 cases each, 5.19 s headless and 5.16 s Release), without a
+product build, full suite or GUI rerun. The carryover register now separately assigns HC-19 (mixed changes can
+expand both presets to full) and HC-20 (shared build-input Release policy; `--tier full` does not itself add Release).
+ARCH-06 is not fully accepted and ARCH-07 has not started.
+
+## HC-10 shared-memory padding (2026-10-16, independently accepted at 565ef3e)
 
 The carryover register's HC-10 is verified and corrected; section 10 of the ARCH-02 record
 (`docs/architecture/validation/arch-02-neutral-contracts.md`) has the details.
@@ -1059,8 +1343,11 @@ The carryover register's HC-10 is verified and corrected; section 10 of the ARCH
   recording bytes (frozen digest unchanged) and exports are unchanged.
 - **Verification:** both builds with 0 warnings; targeted CTest headless 21/21 and Release 9/9; frozen-baseline
   compare 19/0. No full suite.
+- **Independent acceptance:** headless `contracts` and `simulation_interface_boundary` passed 2/2 in 3.36 s
+  (11 cases, 1,441 assertions), including raw segment bytes and the unchanged recording digest. Architecture and
+  document checks pass; no build, full suite or GUI job was rerun.
 
-## Architecture ARCH-01 ownership and policy baseline (2026-10-16, awaiting independent acceptance)
+## Architecture ARCH-01 ownership and policy baseline (2026-10-16, independently accepted at 7625529)
 
 The first package of the architecture roadmap (`docs/architecture/migration/roadmap.md`, in the untracked planning
 package) enforces source ownership and the
@@ -1124,7 +1411,8 @@ The baseline was refreshed at `9e0ecc2`; only its HEAD and working-tree list cha
 | `check.py` on the repository; planning document checker | Accepted; accepted (13 documents) |
 | Targeted CTest tier (`scope.py --run`) | 5/5 passed in 14.97 s; no build, no full suite |
 
-Pending: independent ARCH-01 acceptance (ARCH-02 not started); ARCH-02 onward; configured File API reconciliation once moves begin.
+ARCH-01 was independently accepted at `7625529`; ARCH-02 through ARCH-05's later acceptances are recorded above.
+Pending: ARCH-06 onward and configured File API reconciliation for the source moves.
 
 ## MA training M8 correction and change-scoped testing (2026-10-16, awaiting independent review)
 

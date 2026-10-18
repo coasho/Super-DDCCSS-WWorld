@@ -1,8 +1,7 @@
 # ARCH-02 neutral contracts
 
-Status: implemented; the [independent review](arch-02-review-2026-10-16.md)'s finding (HC-00) and the recording
-padding defect found here (HC-01) are corrected (section 9), awaiting independent acceptance (2026-10-16). ARCH-03 has
-not started.
+Status: independently accepted at `dc09e8f` (2026-10-16); see the [independent review](arch-02-review-2026-10-16.md).
+HC-00 and HC-01 are closed. The HC-10 follow-up is independently accepted at `565ef3e`. ARCH-03 has not started.
 Starting main HEAD: `7625529` (ARCH-01 with its review and recheck corrections). No numerical, RNG, timestep or default
 behavior changed: definitions moved with their names, namespaces, fields and order. The runtime applies the same
 scenario values in the same order.
@@ -191,9 +190,11 @@ padding zero.
 
 No full suite ran.
 
-**Observed, not changed (HC-10 in the register).** The shared-memory publisher (`WorldPublisher::publish`) assigns each
-whole `VehicleState` into the segment, so its 5 padding bytes carry the caller's unspecified bytes to local readers.
-That is shared memory, not a file, and outside HC-01's recording scope. It is registered for the transport owner.
+**Historical observation at `dc09e8f` (HC-10, subsequently corrected in section 10).** The shared-memory publisher (`WorldPublisher::publish`)
+assigns each whole `VehicleState` into the segment. Its five padding bytes may propagate to local readers; exact
+copying is compiler-dependent and has not been runtime-verified here. This is separate from HC-01's recording scope
+and was registered for focused verification/correction by the transport owner. Its later independent acceptance is
+recorded below and in the linked review.
 
 
 ## 10. Correction: HC-10 (shared-memory padding)
@@ -236,3 +237,7 @@ once (`kVehicleStatePadding`, `kRangeDopplerPadding`) and a `zeroPadding` helper
 | Architecture gate | Accepted; the same counts and exceptions |
 
 No full suite ran.
+
+Independent HC-10 acceptance at `565ef3e`: headless `contracts` and `simulation_interface_boundary` passed 2/2 in
+3.36 s (11 cases, 1,441 assertions), including raw shared-memory padding, recording determinism and old recordings.
+Architecture/document checks passed. See the [independent review](arch-02-review-2026-10-16.md#hc-10-acceptance-at-565ef3e).

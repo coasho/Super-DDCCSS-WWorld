@@ -1,6 +1,9 @@
 # ARCH-06 visualization core, effects and source separation
 
-Status: implemented, awaiting independent acceptance (2026-10-16). ARCH-07 has not started.
+Status: independently accepted at `74efb49` (2026-10-16). The source split at `61830e4` and the subsequent
+selector corrections complete this package; HC-13 is closed.
+See the [final review](arch-06-review-2026-10-16.md#9-final-hc-13-acceptance-at-74efb49). No rendering regression is established
+by the small image differences. ARCH-07 has not started.
 Starting main HEAD: `58f9297` (ARCH-05 accepted).
 
 This package moves visualization into `src/visualization`, separates the Vision World-handle adapter from offscreen
@@ -130,7 +133,7 @@ would make it fly a World instead, which is a behavior change outside a structur
 | Object identity: per source, every section's contents and the symbol table, against the `58f9297` builds | Headless: all 289 objects unchanged. Release: 335 unchanged (31 of them moved); only the restructured `Vision.cpp` and Viewer `main.cpp` differ; `CameraScene.cpp` and `DemoSimulation.cpp` are new. The final build's objects equal those the visual evidence below ran on |
 | Vision images (`fsim_vision_test`, six cameras: RGB and segmentation, own-vehicle hiding) | All six PNGs byte-identical to the pre-change run; both before and after runs are deterministic |
 | Live native strike, fullscreen 3840 x 2160 (`tools/viewer_perf/strike_acceptance.py`), before and after | Both pass. Same scene hash, launch 13.03 s and hit 19.53 s, the same target outcome (crew lost, 614 post-hit samples) and capture times. Both after-captures inspected |
-| Replay of the same live recording, replay clock, 3 frames | Differences from the pre-change frames (82 to 964 of 8.3 million pixels) are within the pre-change run-to-run noise (278 to 531 pixels, the same maximum) |
+| Replay of the same live recording, replay clock, 3 frames | Independent recheck: before/after differences are 82-964 of 8,294,400 pixels (at most 0.01162%); baseline before/before counts are 278-531. Three of six comparisons exceed that observed count range. Differences are small, but these runs do not establish a statistical noise bound or a rendering regression |
 | Demo, fullscreen | Runs: 8 x c172x on 5 workers. With the sun fixed to the pre-change run's UTC, mean difference 0.19 levels and 1,132 pixels over 16 levels (a threaded demo). An unfixed run differs only by the 15-minute later sun |
 | `tools/ma_contract/baseline.py compare`, both builds | 19 comparisons, 0 failures; all 22 captures byte-identical, including `libfsim_vision.dll` and `_vision` |
 | Frozen baseline (`e1945b9`): `verify`; frozen C++/C99/Python consumers on the new installed SDK | 66 artifacts unchanged; five consumers exit 0 |
@@ -179,8 +182,9 @@ Restore resource lookup paths as they were; no native model parameter is involve
 
 ## 9. Next
 
-ARCH-07 (SDK assembly and Python import cleanup) may start after independent acceptance. The register's HC-16 and
-HC-17 record this package's open decisions.
+ARCH-07 (SDK assembly and Python import cleanup) requires the next user-relayed assignment. ARCH-06 is independently
+accepted at `74efb49`, and HC-13 is closed. The [review](arch-06-review-2026-10-16.md) resolves HC-16/17's scope choices
+and retains their assigned follow-ups; other open items remain in the register.
 
 ## 10. HC-13 correction: Release selection for renderer changes (2026-10-16)
 
@@ -205,7 +209,8 @@ The correction is in the test selector (`tools/testing`) and the render tests' l
   such sources, such as a header or a nested CMake file. Without both databases the rules decide.
 - **Fail-closed:**
   - a missing `ucrt64-release` inventory (`no-inventory`) or a failed build of it is an error, and nothing runs;
-  - a Release inventory without render tests is an empty selection;
+  - the submitted negative fixture rejects an inventory containing only `flight core`; independent recheck below
+    shows that a Release inventory without render tests can still pass when generic fallback tests remain;
   - an escalation still covers every planned preset.
 
 Regressions, in `tools/testing/test_scope.py` (`testing_scope_checker`, 62 cases on each preset):
@@ -231,6 +236,18 @@ Verification (2026-10-16):
 Only the selector, its rules and tests, the render tests' CTest labels and `docs/development.md` changed. No build
 input of a product target changed, so no object was rebuilt, and no full suite ran (HC-11). Logs are in
 `D:/ENV/tmp/hc13/`.
+
+### Independent HC-13 recheck at 9e66811
+
+The [recheck](arch-06-review-2026-10-16.md#7-hc-13-correction-recheck-at-9e66811) leaves HC-13 open. The genuine
+Release inventory plans correctly, but injecting the real headless inventory as Release yields exit 0 with no
+`render` tests: a UI change selects 5 generic tests, or all 710 in a full/mixed escalated plan. Stubbed run lifecycles
+with and without a build also return 0. Required renderer coverage must be validated separately from the overall
+selection being nonempty. The existing negative fixture removes fallback matches and does not cover this case.
+
+Independent `testing_scope_checker` gates pass on both presets (62 cases each, 5.19 s and 5.16 s). No product build,
+full suite or GUI scenario was rerun. HC-19 and HC-20 in the register retain the mixed-suite efficiency and shared
+build-input Release-policy limits reported by Claude. ARCH-07 remains unreleased.
 
 ## 11. HC-13 renderer-coverage requirement (2026-10-16)
 
@@ -276,6 +293,22 @@ Verification (2026-10-16):
 Only the selector, its tests and `docs/development.md` changed. No build input of a product target changed, so nothing
 was rebuilt, and no full suite ran (HC-11).
 
+### Independent recheck at 5f8c139
+
+The [current review](arch-06-review-2026-10-16.md#8-hc-13-recheck-at-5f8c139) confirms the six previous source-path
+cases now reject with `no-renderer-coverage` (exit 3) before any runner starts. The genuine Release control still
+selects 64 of 769, including all 59 render tests. Both selector gates pass 69/69 cases with no skips (5.91 s and 5.76 s).
+
+One P2 remains under HC-13: the existing `render, vision and viewer` scope requests renderer tests for
+`fsim_vision_c.h`, `python/fsim/vision.py` and `assets/**`, but is not `render_only`. Those paths leave the renderer
+requirement empty and bypass the new check. The real headless inventory supplied as Release returns 0 with no render
+tests, in all tiers; stubbed shader run lifecycles with and without builds also return 0. Require renderer coverage
+independently of render-only routing, and preserve these shared paths' headless coverage. The valid Release control
+for these paths selects 69 of 769, including all 59 render tests.
+
+No product build, render rerun, full suite or GUI job was executed. HC-19/20 and other open carryovers remain assigned.
+ARCH-06 is not fully accepted; ARCH-07 has not started.
+
 ## 12. HC-13 shared renderer scope (2026-10-16)
 
 The [recheck at `5f8c139`](arch-06-review-2026-10-16.md#8-hc-13-recheck-at-5f8c139) found the last P2: the shared
@@ -317,3 +350,14 @@ A correction to section 11's wording: in its saved HEAD probe, four plans exited
 runner, then exited 4 (`ran-other-tests`) from the stub. "Exit 0 in all six" in the earlier handoff was imprecise; both
 showed the missing check. Only the selector, its rules and tests and `docs/development.md` changed. Nothing was rebuilt
 and no full suite ran (HC-11).
+
+### Independent acceptance at 74efb49
+
+The [final review](arch-06-review-2026-10-16.md#9-final-hc-13-acceptance-at-74efb49) closes HC-13 and accepts ARCH-06.
+The unchanged shared-scope fixtures now reject all nine path/tier plans, both run lifecycles and all three mixed
+plans when Release lacks renderer tests. Genuine Release controls still select 69 of 769, including all 59 render
+tests, and preserve 10 headless tests; ordinary SDK Release controls pass without a renderer requirement.
+The registered selector gates pass 74/74 cases each, with no skips (7.16 s headless, 7.08 s Release).
+
+No product build, renderer rerun, full suite or GUI job was executed. Open carryovers, including HC-19/20, retain
+their owners and closure conditions. ARCH-07 has not started and awaits the next user-relayed assignment.

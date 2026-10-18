@@ -1,8 +1,9 @@
 # HC-11 final regression
 
-Status: both required full suites ran once on one frozen, fingerprinted snapshot, and both passed (2026-10-17).
-Awaiting independent acceptance. HC-07's Viewer, manual-control, performance and joint gates stay pending, so
-final-program acceptance is not claimed.
+Status: independently accepted at evidence commit `66dc43d` (2026-10-17); HC-11 closed. Both required full CTest
+inventories ran once on the recorded effective source snapshot and passed. See section 6 for independent evidence,
+internal-skip and fingerprint-scope qualifications. HC-07's Viewer, manual-control, performance and joint gates stay
+pending, so final-program acceptance is not claimed.
 
 ## 1. Preconditions
 
@@ -53,10 +54,12 @@ Each ran once, `--no-tests=error --output-on-failure -j 16 --timeout 600 --outpu
 
 | Preset | Result | Wall time |
 | --- | --- | --- |
-| `ucrt64-headless` | **717/717 passed**; none failed, skipped or not run | 1,123.4 s (08:06:34 to 08:25:18, -06:00) |
-| `ucrt64-release` | **780/780 passed**; none failed, skipped or not run | 1,137.5 s (08:25:42 to 08:44:40, -06:00) |
+| `ucrt64-headless` | **717/717 CTest entries passed**; no CTest entry failed, skipped or not run | 1,123.4 s (08:06:34 to 08:25:18, -06:00) |
+| `ucrt64-release` | **780/780 CTest entries passed**; no CTest entry failed, skipped or not run | 1,137.5 s (08:25:42 to 08:44:40, -06:00) |
 
 Further details:
+- **Nested unittest scope:** headless has three expected internal optional-Vision skips (one package-import case,
+  two Vision cases); their CTest modules ran and passed. Release executes and passes all three counterparts.
 - **Labels, each on both presets unless noted:**
   - `python_sdk` 67;
   - `ma-training` 38, `hangar` 41, `stress` 10, `package` 4 and `launcher` 1;
@@ -107,3 +110,29 @@ The second verification passed before any edit. Only documentation changed after
 - **Uncommitted planning pages:** the carryover register, the architecture index, the roadmap and the acceptance page.
 
 The build does not read any of them, and the fingerprint describes the snapshot before them.
+
+## 6. Independent acceptance at 66dc43d
+
+The [independent review](hc-11-review-2026-10-17.md) closes HC-11 without repeating either full suite. Exact saved
+inventory names, JUnit statuses and raw Start/completion entries agree: 717 headless and 780 Release, each unique
+and all CTest entries passed. The 67 Python SDK entries per preset and all 63 Release renderer entries ran;
+`viewer_screenshot` includes actual 3840 x 2160 presented-frame checks. Three expected internal headless Vision
+skips are qualified above, with their counterparts exercised on Release.
+
+Log/JUnit/fingerprint hashes match. The committed capture equals the original; both post-run verify logs report
+the covered snapshot unchanged. Before review writes, 52 of 58 recorded differing-path hashes match and exactly
+the six declared documentation overlays differ, with before copies matching frozen hashes. Commit `66dc43d`
+changes only the four declared documentation/evidence files; original owner payloads are preserved.
+
+**HC-44, nonblocking future fingerprint work:** the recorded artifacts cover staged product binaries/extensions,
+not all 30/36 native test executables, example plugins or staged Python sources; the inventory digest covers names
+and aggregate labels, not full commands/properties. Current test DLLs match the captured SDK DLLs, executable
+timestamps predate the freeze and no actual changed test input was established. This limits cryptographic
+test-input identity, not the observed suite success. Before future helper reuse, extend that scope for any
+complete-test-input claim and exclude restricted paths in tracked Git queries before names are returned. Current
+capture provides no evidence of actual excluded-directory access. No rerun is requested for this qualification.
+
+The corrected timeout estimate, incremental-build/Debug limits, later documentation overlay and HC-35 pending
+human disposition are retained. HC-07 and HC-06 remain pending. No native build, GUI or additional suite ran during
+review, and nothing was staged, committed or pushed. Current review-document checks are in the independent review;
+complete ARCH-10/final-program acceptance remains pending HC-07 and its required evidence.

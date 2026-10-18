@@ -272,7 +272,7 @@ Mouse, the replay keys and timeline slider, and window resize were verified thro
 ([HC-07 record](../architecture/validation/hc-07-viewer-and-joint.md#mouse-replay-and-resize-2026-10-17)). A human-operated session remains unverified, as do the combat Viewer run (HC-06)
 and the performance gate.
 
-On an idle host the same day, the current Viewer and the Viewer of `7948dc4`, from before the architecture migration, fail the same three scenes on the same inputs. Two A/B rounds establish neither a regression nor equivalence: at strike, the current Viewer's lowest seconds are 1.4-1.5 fps lower. The [HC-45 record](../architecture/validation/hc-45-performance-comparison.md) has the comparison, and hypotheses for the failures, not demonstrated causes.
+The same day's [HC-45 record](../architecture/validation/hc-45-performance-comparison.md) reports low pre-run host load and matching failures in the current and pre-migration Viewers. The [independent review](../architecture/validation/hc-45-review-2026-10-17.md) accepts those measurements, while two A/B rounds do not establish equivalence or exclude a smaller regression. HC-48/50 retain evidence-interpretation corrections; HC-49 records a nonblocking missing-query gap issue. HC-45 remains open; no performance scene was repeated for review.
 
 ## Reproduction and limits
 
