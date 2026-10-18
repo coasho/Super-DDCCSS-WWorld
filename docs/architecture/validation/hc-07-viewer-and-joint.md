@@ -99,7 +99,7 @@ the snapshot's simulation time and run again. Both attempts' logs are kept.
 | The published seed/aspect matrix | It belongs to the combat scenes (J5, J9) | With HC-06 |
 | The installed public-endpoint combat Viewer run | The combat chain. A strictly isolated run publishes no truth, so its Viewer evidence is a labelled diagnostic run of that chain | With HC-06 |
 | A human-operated session | A person at the machine; the checks in section 4 are input-driven | The user, or whoever accepts HC-07 |
-| Mouse (rotate, pan, zoom), the replay timeline slider and replay keys, and window resize | Not part of this run, and not covered by the checks above | Viewer owner, at the next Viewer acceptance |
+| Mouse (rotate, pan, zoom), the replay timeline slider and replay keys, and window resize | Verified through the window's input on 2026-10-17 (see [Mouse, replay and resize](#mouse-replay-and-resize-2026-10-17)). Not covered: mouse input over the other panels, the chase and overview cameras under the mouse, `--no-zoom-to-cursor` | Viewer owner, at the next Viewer acceptance, for what is not covered |
 | The 4K performance gate | Failing (section 3) | HC-45 |
 | J6: does the MA's own speed resume after C2 cancels its override? | A separate evidence gap | HC-02 |
 
@@ -180,3 +180,52 @@ Version 2, in `D:/ENV/tmp/hc47b/helpers/`, keeps their runs and corrects their c
   are covered by the pure checks above. The saved outcomes were measured with version 1's probes.
 
 The [summary](hc-07-evidence.json) adds these results and their hashes (`helper_checks_v2`).
+
+## Mouse, replay and resize (2026-10-17)
+
+The remaining interaction cases, through the Viewer's own window. Keys, mouse buttons, drags and the wheel were posted
+to it: VSG reads a mouse message's position, and a key's virtual-key code, from the message, as a device's messages
+carry them. The window was resized, minimised, maximised and restored with the ordinary window calls on it. This is
+input-driven, not a person at the machine. The checks are in `D:/ENV/tmp/hc07i/`; the [summary](hc-07-evidence.json)
+(`interaction`, schema v3) holds their outcomes, readings and hashes.
+
+- **Binaries:** the current Release build: Viewer `dd875197b212f60c`, demo `ca518158b90cb81a`. They were rebuilt for
+  HC-49, so they are not the HC-11-tested ones. The runs are 3840 x 2160 fullscreen at 144 dpi, except the resize run.
+- **Measured:**
+  - the demo's pause flag, from its control block;
+  - how much each frame's scene differs from the one before;
+  - frame and client sizes;
+  - the demo world's simulation time;
+  - exit codes and cleanup.
+- **Read by inspection:** from each frame's panel, the camera, eye and distance, and the replay's time, time factor,
+  pause box and timeline. These are checked against what each input must do, by `readings_check.py` and the replay
+  checks; 18 altered-reading controls are each rejected.
+
+| Case | Result |
+| --- | --- |
+| Mouse, demo paused (21 frames) | Left and middle drags rotate at the same distance; the right button changes nothing. 20 wheel notches out take 40 m to 516 m, 5 in take it to 272 m (12 % a notch), and 5 out return it exactly. Space + left drag changes nothing while locked to a vehicle, and pans the ground at the same distance in the free camera. The farthest is 50,000,000 m and the nearest, detached, 25 m; at the nearest, drags keep the view above the ground. Space alone pauses; space with a drag does not |
+| Wheel, free camera (9 frames) | The picture scales about the pointer when it is off the middle (error 9.8; about the middle, 15.9), and about the middle when the pointer is there (17.6; unscaled, 32.9). Zooming back out returns the eye |
+| Replay keys, timeline and buttons (16 and 5 frames) | Space pauses and holds. From the first frame, `.` five times shows 0.5 s and two step clicks 0.7 s: one recorded frame each. `]` and `[` set x4 (12.0 s played in 3 s) and x0.5 (1.5 s). Home goes to the start. A click on the timeline seeks (30.8 s; 4.9 s while paused). At x8 the replay loops at its end. The pause box pauses |
+| Window resize, demo windowed (7 frames) | Every frame is its client area at that moment: 1600 x 900; 2560 x 1440, also after minimising (client 0 x 0) and restoring; 3836 x 2050 maximised; 2560 x 1440 restored; 1200 x 900; 1600 x 900. None is stretched or blank, and the demo kept simulating (8.2 to 32.0 s) |
+
+All five final runs exited 0, and each demo run cleaned up. The only warning is the one every start prints
+(`GraphicsPipelineConfigurator`).
+
+- **Found (HC-51, nonblocking):** the [Viewer guide](../../sdk/viewer.md)'s mouse description differs from the Viewer:
+  - when the camera is detached, the wheel zooms towards the pointer (on unless `--no-zoom-to-cursor`). The guide says
+    it changes nothing but the distance, and names a `--zoom-to-cursor` option that does not exist;
+  - locked to a vehicle, space + left drag does nothing;
+  - a detached camera's nearest distance is 25 m; 6 m is a followed vehicle's.
+- **Earlier attempts, kept:** four runs were repeated after a fault in the check, not in the Viewer:
+  - the first mouse run began the free camera 40 m from the ground, and posted 130 wheel notches more slowly than
+    its frames came;
+  - the first zoom run judged zooming back out against a still frame's noise, while sharper tiles had loaded;
+  - the first resize run read the demo's single-step count as its simulation measure;
+  - the first replay probe's folder did not exist; the Viewer reported it and exited 1.
+- **Not covered:**
+  - a person at the machine;
+  - mouse input over the other panels;
+  - the chase and overview cameras under the mouse;
+  - `--no-zoom-to-cursor`.
+- **HC-47 version 2:** the mouse, zoom and resize runs used its probes for the demo's cleanup. Its own demo and
+  reconnect run paths were not run.

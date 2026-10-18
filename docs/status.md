@@ -627,6 +627,29 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
+## HC-07 mouse, replay and resize (2026-10-17, awaiting independent acceptance)
+
+HC-07's remaining interaction cases were verified through input posted to the Viewer's own window, on the current
+Release build at 3840 x 2160. The [HC-07 record](architecture/validation/hc-07-viewer-and-joint.md#mouse-replay-and-resize-2026-10-17) has the details.
+
+| Case | Result |
+| --- | --- |
+| Mouse: rotate, the right button, the wheel, space + drag (locked and free), the distance limits, the ground | Passed: 20 actions, the pause flag after each, frame differences, and panel readings against what each must do |
+| Wheel with a detached camera | Zooms towards the pointer, measured by registering the frames |
+| Replay: space, `.`, `[`, `]`, home, the timeline slider, the pause box, the step button, the loop at the end | Passed, from panel readings; steps exact from the first frame |
+| Window resize, minimise and restore, maximise and restore, 4:3 | Passed: every frame its client area, none stretched or blank, the demo still simulating |
+
+HC-51 is new and nonblocking: the Viewer guide's mouse description differs from the Viewer's wheel, space + drag
+and nearest distance. HC-07 stays open:
+- HC-45's performance gate (optimization deferred);
+- HC-06's combat cases;
+- HC-02's J6;
+- a human-operated session.
+
+No full suite or performance scene ran.
+The documentation checks pass: the planning checker (58 documents), the local-link audit (1,446 links in 113
+files, none broken) and `ma_contract`, `architecture_boundary` and `sdk_guard_checker` (3/3).
+
 ## HC-47 helper checks, version 2 (2026-10-17, awaiting independent acceptance)
 
 The [recheck](architecture/validation/hc-45-review-2026-10-17.md#6-hc-47-to-hc-50-correction-recheck-at-1e9433b) found

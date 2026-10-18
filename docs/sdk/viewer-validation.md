@@ -268,8 +268,9 @@ The current Release build (main `66dc43d`, the binaries HC-11's full suites test
 | The demo's pause, step, time factor and quit, through the window's key input | 15/15 checks passed; this is input posted to the Viewer's window, not a human operator |
 | The 4K performance gate, run twice | **Failed** for fleet, strike and hit, as in the baseline above; reheat passed (HC-45). Other applications were open, so the machine was not idle |
 
-Mouse, the timeline slider, window resize and a human-operated session remain unverified, as do the combat Viewer
-run (HC-06) and the performance gate.
+Mouse, the replay keys and timeline slider, and window resize were verified through the window's input on 2026-10-17
+([HC-07 record](../architecture/validation/hc-07-viewer-and-joint.md#mouse-replay-and-resize-2026-10-17)). A human-operated session remains unverified, as do the combat Viewer run (HC-06)
+and the performance gate.
 
 On an idle host the same day, the current Viewer and the Viewer of `7948dc4`, from before the architecture migration, fail the same three scenes on the same inputs. Two A/B rounds establish neither a regression nor equivalence: at strike, the current Viewer's lowest seconds are 1.4-1.5 fps lower. The [HC-45 record](../architecture/validation/hc-45-performance-comparison.md) has the comparison, and hypotheses for the failures, not demonstrated causes.
 

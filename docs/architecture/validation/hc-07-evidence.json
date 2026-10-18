@@ -1,5 +1,5 @@
 {
- "schema": "fsim.hc07.evidence.v2",
+ "schema": "fsim.hc07.evidence.v3",
  "date": "2026-10-17",
  "source": {
   "head": "66dc43d",
@@ -581,7 +581,7 @@
   "binaries.json": "6d79002c8e859e23543efd870a801a2497f73a30c739ed7bdc19a4419fa84b18",
   "manual_controls.py": "1bf93fdac4f8f35a97aecc671a68248b2cefdc6357caf20a7b73508df831cff6",
   "reconnect.py": "4c7d51c42cabfdcbf414c7a7cc138a81df98b10345ad462c1fa49d6f095adbcf",
-  "summarize.py": "44aab7f2fd3c7dd5f3995fdc819599228c5054370e1a1eadcb8b6ede8da4411d"
+  "summarize.py": "ed3e84ed4791f1db10810db4582f525da65b626490d06d314f9db27af88204b3"
  },
  "hc47_evidence_sha256": {
   "helpers/common.py": "7fb82404741f755d6c12359599166c35f8764fcf4c488ba750871609c1b59c38",
@@ -675,5 +675,1042 @@
   "selftest-demo.log": "484c7989b87add10c1fff118b970b52cd7cb9e27048990b8a3b77e22571229ca",
   "selftest-reconnect.log": "5c121e8174523d3fc0da95d5129d1b5944a398932f8e6b1eafc0e5962fbbb789",
   "negatives-explained.log": "e413ed54c2078e27fa5ecfea869035f120429f0d12c3cb382ed30de2f0b738e0"
+ },
+ "interaction": {
+  "date": "2026-10-17",
+  "method": "keys, mouse buttons, drags and the wheel posted to the Viewer's own window (PostMessage: VSG reads a mouse message's position from its lParam and a key from its virtual-key code); the window resized, minimised, maximised and restored with the ordinary window calls on it. Input-driven, not a person at the machine",
+  "binaries": {
+   "flightsim-viewer.exe": "dd875197b212f60c092034b22b6821abbc6fdc87056e8490d65cb98063ee626f",
+   "flightsim-demo.exe": "ca518158b90cb81a759e176b26a7016d528f06b8c2af368cbfc2302879ef65d5"
+  },
+  "display": {
+   "client_fullscreen": [
+    3840,
+    2160
+   ],
+   "window_dpi": 144
+  },
+  "recording": {
+   "path": "D:\\ENV\\tmp\\hc07i\\recording\\hc07-replay.fsrec",
+   "sha256": "b2cc063ecc506bde3475817f3b5ec380783efa9d4cd4ba5401f252e56bff4aff",
+   "bytes": 1213146,
+   "steps": 1200,
+   "step_seconds": 0.03333333333333333,
+   "sim_time": 40.00000000000029,
+   "frame_count": 400,
+   "first_frame_s": 0.03333333333333333,
+   "last_frame_s": 39.93333333333363,
+   "frame_interval_s": 0.1
+  },
+  "runs": {
+   "mouse": {
+    "passed": true,
+    "failures": [],
+    "frames": {
+     "count": 21,
+     "sizes": [
+      [
+       3840,
+       2160
+      ]
+     ],
+     "digest": "4af010adadde1f9d097d7c24aeb99ae500508eff3ee8b762ae2245f6fe644d3b"
+    },
+    "measured": {
+     "publishers_before": [],
+     "actions": [
+      {
+       "after_frame": 0,
+       "action": "space alone: pauses",
+       "posted": true,
+       "seconds": 0.72,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 1,
+       "action": "nothing (the still baseline)",
+       "posted": true,
+       "seconds": 0.6,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 2,
+       "action": "wheel, 20 notches out, pointer in the middle",
+       "posted": true,
+       "seconds": 0.8,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 3,
+       "action": "left drag, 600 px right: rotates",
+       "posted": true,
+       "seconds": 1.51,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 4,
+       "action": "middle drag, 300 px down: rotates",
+       "posted": true,
+       "seconds": 1.51,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 5,
+       "action": "right drag, 600 px right: no camera control",
+       "posted": true,
+       "seconds": 1.51,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 6,
+       "action": "wheel, 5 notches in, pointer in the middle",
+       "posted": true,
+       "seconds": 0.87,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 7,
+       "action": "wheel, 5 notches out, pointer in the middle",
+       "posted": true,
+       "seconds": 0.87,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 8,
+       "action": "space + left drag, 600 px right, locked to a vehicle: no pan",
+       "posted": true,
+       "seconds": 1.83,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 9,
+       "action": "c twice: orbit -> overview -> free",
+       "posted": true,
+       "seconds": 0.84,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 10,
+       "action": "wheel, 20 notches out, pointer in the middle (free)",
+       "posted": true,
+       "seconds": 0.8,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 11,
+       "action": "space + left drag, 600 px left and 200 px up, free: pans",
+       "posted": true,
+       "seconds": 1.83,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 12,
+       "action": "wheel, 5 notches in, pointer right of and below the middle",
+       "posted": true,
+       "seconds": 0.87,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 13,
+       "action": "wheel, 140 notches out: to the farthest",
+       "posted": true,
+       "seconds": 1.32,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 14,
+       "action": "nothing (settled at the farthest)",
+       "posted": true,
+       "seconds": 0.6,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 15,
+       "action": "wheel, 140 notches in: to the nearest",
+       "posted": true,
+       "seconds": 1.31,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 16,
+       "action": "nothing (settling at the nearest)",
+       "posted": true,
+       "seconds": 0.6,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 17,
+       "action": "left drag, 900 px down: towards the ground",
+       "posted": true,
+       "seconds": 1.51,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 18,
+       "action": "left drag, 1,800 px up",
+       "posted": true,
+       "seconds": 1.51,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 19,
+       "action": "space alone: resumes",
+       "posted": true,
+       "seconds": 0.72,
+       "paused_after": 0
+      }
+     ],
+     "viewer_pid": 33176,
+     "client": [
+      3840,
+      2160
+     ],
+     "viewer_exit": 0,
+     "publishers_after": [],
+     "segments_after": {
+      "control": false,
+      "world": false
+     },
+     "frame_sizes": [
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ]
+     ],
+     "differences": [
+      15.253,
+      1.951,
+      23.442,
+      30.062,
+      34.297,
+      0.923,
+      22.362,
+      22.423,
+      1.113,
+      26.956,
+      38.754,
+      49.076,
+      63.243,
+      157.305,
+      0.086,
+      60.095,
+      0.0,
+      0.625,
+      4.585,
+      0.0
+     ]
+    }
+   },
+   "zoom": {
+    "passed": true,
+    "failures": [],
+    "frames": {
+     "count": 9,
+     "sizes": [
+      [
+       3840,
+       2160
+      ]
+     ],
+     "digest": "2102706630f27b3f1245888ef5d741ffba56514d10fb6166d0a2b1914f5e0054"
+    },
+    "measured": {
+     "publishers_before": [],
+     "actions": [
+      {
+       "after_frame": 0,
+       "action": "space alone: pauses",
+       "posted": true,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 1,
+       "action": "c twice: orbit -> overview -> free",
+       "posted": true,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 2,
+       "action": "wheel, 40 notches out, pointer in the middle",
+       "posted": true,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 3,
+       "action": "nothing",
+       "posted": true,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 4,
+       "action": "wheel, 5 notches in, pointer off the middle",
+       "posted": true,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 5,
+       "action": "wheel, 5 notches out, pointer off the middle",
+       "posted": true,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 6,
+       "action": "wheel, 5 notches in, pointer in the middle",
+       "posted": true,
+       "paused_after": 1
+      },
+      {
+       "after_frame": 7,
+       "action": "wheel, 5 notches out, pointer in the middle",
+       "posted": true,
+       "paused_after": 1
+      }
+     ],
+     "client": [
+      3840,
+      2160
+     ],
+     "pointer": [
+      900,
+      1400
+     ],
+     "middle": [
+      1920,
+      1080
+     ],
+     "viewer_exit": 0,
+     "publishers_after": [],
+     "segments_after": {
+      "control": false,
+      "world": false
+     },
+     "frame_sizes": [
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ]
+     ],
+     "zoom_off_middle": {
+      "about_pointer": 9.781,
+      "about_middle": 15.894,
+      "unscaled": 37.975
+     },
+     "zoom_middle": {
+      "about_pointer": 75.826,
+      "about_middle": 17.621,
+      "unscaled": 32.907
+     },
+     "undo": {
+      "off_middle_in_out": 9.315,
+      "middle_in_out": 0.915,
+      "still_baseline": 0.428
+     }
+    }
+   },
+   "replay": {
+    "passed": true,
+    "failures": [],
+    "frames": {
+     "count": 16,
+     "sizes": [
+      [
+       3840,
+       2160
+      ]
+     ],
+     "digest": "6db23e39138c8a79ba1b3fad8294232e095fe1ef92bd2fcb1ba719221b1b9515"
+    },
+    "measured": {
+     "recording": "D:\\ENV\\tmp\\hc07i\\recording\\hc07-replay.fsrec",
+     "actions": [
+      {
+       "after_frame": 0,
+       "action": "space: pauses",
+       "posted": true,
+       "seconds": 0.12
+      },
+      {
+       "after_frame": 1,
+       "action": "nothing (paused)",
+       "posted": true,
+       "seconds": 0.0
+      },
+      {
+       "after_frame": 2,
+       "action": "'.' five times: five recorded frames",
+       "posted": true,
+       "seconds": 0.6
+      },
+      {
+       "after_frame": 3,
+       "action": "']' twice, then space: time x4, plays",
+       "posted": true,
+       "seconds": 0.36
+      },
+      {
+       "after_frame": 4,
+       "action": "nothing (playing at x4)",
+       "posted": true,
+       "seconds": 0.0
+      },
+      {
+       "after_frame": 5,
+       "action": "'[' three times: time x0.5",
+       "posted": true,
+       "seconds": 0.36
+      },
+      {
+       "after_frame": 6,
+       "action": "nothing (playing at x0.5)",
+       "posted": true,
+       "seconds": 0.0
+      },
+      {
+       "after_frame": 7,
+       "action": "home: back to the start",
+       "posted": true,
+       "seconds": 0.12
+      },
+      {
+       "after_frame": 8,
+       "action": "a click on the timeline at 30 s",
+       "posted": true,
+       "seconds": 0.44
+      },
+      {
+       "after_frame": 9,
+       "action": "']' four times: time x8, on past the end",
+       "posted": true,
+       "seconds": 0.48
+      },
+      {
+       "after_frame": 10,
+       "action": "'[' three times (x1), then a click on the pause box",
+       "posted": true,
+       "seconds": 0.8
+      },
+      {
+       "after_frame": 11,
+       "action": "nothing (paused by the box)",
+       "posted": true,
+       "seconds": 0.0
+      },
+      {
+       "after_frame": 12,
+       "action": "two clicks on the step button",
+       "posted": true,
+       "seconds": 1.18
+      },
+      {
+       "after_frame": 13,
+       "action": "a click on the timeline at 5 s, paused",
+       "posted": true,
+       "seconds": 0.44
+      },
+      {
+       "after_frame": 14,
+       "action": "space: plays",
+       "posted": true,
+       "seconds": 0.12
+      }
+     ],
+     "client": [
+      3840,
+      2160
+     ],
+     "viewer_exit": 0,
+     "frame_sizes": [
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ]
+     ],
+     "differences": [
+      6.613,
+      0.345,
+      4.423,
+      11.305,
+      8.896,
+      12.83,
+      8.833,
+      14.325,
+      14.313,
+      14.271,
+      12.408,
+      0.489,
+      0.804,
+      12.395,
+      6.778
+     ]
+    }
+   },
+   "replay-steps": {
+    "passed": true,
+    "failures": [],
+    "frames": {
+     "count": 5,
+     "sizes": [
+      [
+       3840,
+       2160
+      ]
+     ],
+     "digest": "fd298b66853571623353ee8a251b9885d825ac813fa0775f0af7ebc71803eabb"
+    },
+    "measured": {
+     "recording": "D:\\ENV\\tmp\\hc07i\\recording\\hc07-replay.fsrec",
+     "actions": [
+      {
+       "after_frame": 0,
+       "action": "space: pauses",
+       "posted": true
+      },
+      {
+       "after_frame": 1,
+       "action": "home, paused: the first frame",
+       "posted": true
+      },
+      {
+       "after_frame": 2,
+       "action": "'.' five times",
+       "posted": true
+      },
+      {
+       "after_frame": 3,
+       "action": "two clicks on the step button",
+       "posted": true
+      }
+     ],
+     "client": [
+      3840,
+      2160
+     ],
+     "viewer_exit": 0,
+     "frame_sizes": [
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ]
+     ]
+    }
+   },
+   "resize": {
+    "passed": true,
+    "failures": [],
+    "frames": {
+     "count": 7,
+     "sizes": [
+      [
+       1200,
+       900
+      ],
+      [
+       1600,
+       900
+      ],
+      [
+       2560,
+       1440
+      ],
+      [
+       3836,
+       2050
+      ]
+     ],
+     "digest": "6809d0ed06dd71900ec5a0f40adb3b89591dc7ac9be2326c61e74d8f52dcdfff"
+    },
+    "measured": {
+     "publishers_before": [],
+     "states": [
+      {
+       "frame": 0,
+       "saved": true,
+       "client_when_saved": [
+        1600,
+        900
+       ],
+       "sim_time": 8.200000000000175,
+       "then": "client 2560 x 1440",
+       "client_after": [
+        2560,
+        1440
+       ],
+       "window_after": {
+        "client": [
+         2560,
+         1440
+        ],
+        "minimized": false,
+        "maximized": false
+       }
+      },
+      {
+       "frame": 1,
+       "saved": true,
+       "client_when_saved": [
+        2560,
+        1440
+       ],
+       "sim_time": 12.416666666666602,
+       "then": "minimised 1.5 s, then restored",
+       "client_after": [
+        2560,
+        1440
+       ],
+       "window_after": {
+        "client": [
+         2560,
+         1440
+        ],
+        "minimized": false,
+        "maximized": false
+       },
+       "while_minimised": {
+        "client": [
+         0,
+         0
+        ],
+        "minimized": true,
+        "maximized": false
+       }
+      },
+      {
+       "frame": 2,
+       "saved": true,
+       "client_when_saved": [
+        2560,
+        1440
+       ],
+       "sim_time": 16.533333333333037,
+       "then": "maximised",
+       "client_after": [
+        3836,
+        2050
+       ],
+       "window_after": {
+        "client": [
+         3836,
+         2050
+        ],
+        "minimized": false,
+        "maximized": true
+       }
+      },
+      {
+       "frame": 3,
+       "saved": true,
+       "client_when_saved": [
+        3836,
+        2050
+       ],
+       "sim_time": 20.933333333332786,
+       "then": "restored",
+       "client_after": [
+        2560,
+        1440
+       ],
+       "window_after": {
+        "client": [
+         2560,
+         1440
+        ],
+        "minimized": false,
+        "maximized": false
+       }
+      },
+      {
+       "frame": 4,
+       "saved": true,
+       "client_when_saved": [
+        2560,
+        1440
+       ],
+       "sim_time": 24.549999999999248,
+       "then": "client 1200 x 900 (4:3)",
+       "client_after": [
+        1200,
+        900
+       ],
+       "window_after": {
+        "client": [
+         1200,
+         900
+        ],
+        "minimized": false,
+        "maximized": false
+       }
+      },
+      {
+       "frame": 5,
+       "saved": true,
+       "client_when_saved": [
+        1200,
+        900
+       ],
+       "sim_time": 28.16666666666571,
+       "then": "client 1600 x 900 again",
+       "client_after": [
+        1600,
+        900
+       ],
+       "window_after": {
+        "client": [
+         1600,
+         900
+        ],
+        "minimized": false,
+        "maximized": false
+       }
+      },
+      {
+       "frame": 6,
+       "saved": true,
+       "client_when_saved": [
+        1600,
+        900
+       ],
+       "sim_time": 31.966666666665493
+      }
+     ],
+     "window_dpi": 144,
+     "viewer_exit": 0,
+     "publishers_after": [],
+     "segments_after": {
+      "control": false,
+      "world": false
+     },
+     "frame_sizes": [
+      [
+       1600,
+       900
+      ],
+      [
+       2560,
+       1440
+      ],
+      [
+       2560,
+       1440
+      ],
+      [
+       3836,
+       2050
+      ],
+      [
+       2560,
+       1440
+      ],
+      [
+       1200,
+       900
+      ],
+      [
+       1600,
+       900
+      ]
+     ],
+     "frame_spread": [
+      38.387,
+      34.731,
+      35.114,
+      32.267,
+      33.369,
+      39.261,
+      33.997
+     ],
+     "warnings_and_errors": [
+      "Warning: GraphicsPipelineConfigurator::init() - missing DescriptorBinding for vertexInputRates."
+     ]
+    }
+   }
+  },
+  "panel_readings": {
+   "how": "read by inspection from each frame's panel; checked by readings_check.py (and the replay checks' check_readings) against what each input must do",
+   "mouse": {
+    "failures": [],
+    "passed": true
+   },
+   "zoom": {
+    "failures": [],
+    "passed": true
+   },
+   "replay": {
+    "failures": []
+   },
+   "replay_steps": {
+    "failures": []
+   },
+   "negative_controls": {
+    "mouse: the right drag moved the eye": true,
+    "mouse: the left drag changed the distance": true,
+    "mouse: 5 notches in gave 300 m": true,
+    "mouse: the locked space + drag moved the eye": true,
+    "mouse: the pan did not move the eye": true,
+    "mouse: the nearest is 6 m": true,
+    "mouse: unpaused at f10": true,
+    "zoom: out at the pointer did not return": true,
+    "zoom: both zooms went to the same eye": true,
+    "replay: time moved while paused": true,
+    "replay: x4 played 6 s in 3 s": true,
+    "replay: home did not go back": true,
+    "replay: the timeline click did not seek": true,
+    "replay: no loop at the end": true,
+    "replay: the timeline disagrees": true,
+    "replay: a reading missing": true,
+    "replay steps: one step click lost": true,
+    "replay steps: home while paused stayed": true
+   }
+  },
+  "earlier_attempts": {
+   "mouse-attempt1": "passed 14 of 16 steps; the free camera began 40 m from a ground point (blurred imagery), so its pan and pointer zoom changed the picture by less than the threshold, and 130 wheel notches posted slower than the frames' spacing were caught half-way. The sequence was revised (zoom out first, a fast burst, a settling frame) and run again",
+   "zoom-attempt1": "the zoom was about the pointer (6.76 against 11.35), but its undo criterion compared the picture with a still frame's noise; the panel showed the camera returned and the residual was sharper tiles. Rerun 40 notches out (6.6 km) with the undo judged against the zoom's own change",
+   "resize-attempt1": "every frame matched its client area, but the run read the demo control block's single-step count (0 throughout) as its simulation measure; rerun reading the published world's simulation time",
+   "probe-attempt1": "the screenshot's folder did not exist; the Viewer reported it and exited 1 (as it should); rerun with the folder made"
+  },
+  "found": "HC-51: the Viewer guide's mouse description - the wheel zooms towards the pointer when the camera is detached (on unless --no-zoom-to-cursor; the guide's --zoom-to-cursor does not exist), space + left drag does nothing while locked to a vehicle, and a detached camera's nearest distance is 25 m, not 6 m",
+  "not_covered": [
+   "a person at the machine",
+   "mouse input over the other panels (vehicle list, cameras, mission systems)",
+   "the chase and overview cameras under the mouse",
+   "--no-zoom-to-cursor"
+  ],
+  "hc47_v2_probes_live": "the mouse, zoom and resize runs used HC-47 version 2's processes() and segment_exists() for the demo's cleanup; version 2's own demo and reconnect run paths were not run",
+  "files_sha256": {
+   "helpers/gui.py": "cfd2748a48d10668d2fa4d7ffa5ee386bccad3dad26a3ac8a1e6117ce0990a05",
+   "mouse_check.py": "aef8d9fe3bae5eebe049a4b1121f9c0fa5716863364171090268b40abc734373",
+   "zoom_check.py": "31d2af1718f8e452dcdf9f5ce49da97010ce564555e6003879016c9a5aa8402c",
+   "replay_check.py": "5617d327df3766d55b837eb6fd26c7ccbbb4028e100fa9da2cb0b549463abef5",
+   "replay_steps_check.py": "2e2d798bbbdf2b205699a6bfb3fb53ce860ae2304f0e3ccc1fffacfe222eaf38",
+   "resize_check.py": "ef94923a478143f085a4892f784b79b8709edf13759c0c1a629f17cd7e0be880",
+   "make_recording.py": "896292b28c38487dd2847a5ba37f73c1ce5cd6254556ed95acf0650fb7395c26",
+   "readings_check.py": "94e89245a5819a5e57c7a12f121ae7d95041b1a4a145ed9c125ee98b5f187e22",
+   "readings-check.json": "781be08a59b19ef4a83fc46e6a015deef9b9d50ab2cc0ebddc2dd85bd09fbc5c",
+   "readings-check.log": "1e236f87d5d2d3fdf1c169410af7d073d3de0b1aa582c494e46122535915fa8a",
+   "recording/hc07-replay.fsrec": "b2cc063ecc506bde3475817f3b5ec380783efa9d4cd4ba5401f252e56bff4aff",
+   "recording/recording.json": "c25a0968bbe707b733d54783257688451728414aea4bb21b8efd0d4145cc22f6",
+   "recording.log": "588d2d0404b9e29a88411c32a5289dc50489035cad73d2513e4e776d3186f750",
+   "probe/replay-panel.png": "f792f508f82c46caa8486ffbef6d1f98243009728bc1a143c8f68f3f33f811ee",
+   "probe/viewer.err": "54b6acb1e0929fdd2724c4181d48cf4b35062f7468a0ce7b0543579a7ba3889f",
+   "probe/attempt1-viewer.err": "52c561060374a99044122584f0fb6073132461bbd29c9c8eaf066e4e78af71bc",
+   "mouse/outcome.json": "cbb314834ed181fa3fc42c1b9b3c35df26b845f89b7558b035e542d68e73bf1c",
+   "mouse/viewer.log": "c1a9e5b5f508cc963490e07e3b0991c61327015e234f9a9ad1677334c197a750",
+   "mouse-run.log": "f6d1584cf581d0ccc35cfc456a9ae1b9e700d42e24217d325da3059eb3d2c576",
+   "zoom/outcome.json": "efbe501ccbbb2d50228d7b1def001ab15e6bdf0fed9dd165436076e3845bf1f4",
+   "zoom/viewer.log": "d36b3bbcfb96942a04e86d5cf1ea06a33964be89a804ea285d77fe090dab827b",
+   "zoom-run.log": "1a0eeca92d404067af1bf238a01e790fa80be66abb830b211d3430072b1664b2",
+   "replay/outcome.json": "8824475e20f90b5550565f75ecf3aaf6b218139bbcb7d5b23ec2d53c42d7f786",
+   "replay/viewer.log": "3c4adddcfca0176f447cc9f7f084dfbef06a2a6c8af1633d89cf717236b38c68",
+   "replay-run.log": "8dfb36879f4256121ee41b49832015357b343b37ed8d89dd99b75072cfafff2d",
+   "replay-steps/outcome.json": "f8c98f2e64176f36235a86686201ab2473b14c68c31473932873d2e6ff547847",
+   "replay-steps/viewer.log": "f99f24a893ce388ab0c8b2e94f3416359a6618c7ac0abbafc63289df65d120e2",
+   "replay-steps-run.log": "5d03b973c6f8197bb23446feb2de382aa55c65e2ed81e966ef0e0129ab3268cd",
+   "resize/outcome.json": "a17d5b928cb89cc9f7057d31877bfc93bc592769541754e406b19dfaad342731",
+   "resize/viewer.log": "dc85180bf1d5d39b4eb2f218c7ed75e2acdea999df6f12681414ac12aec2a7da",
+   "resize-run.log": "59f02be02f5b6a8341a3aa560471d2ca738458ce8f4bc98f512a5415bafe9855",
+   "mouse/readings.json": "6152fb78a62a02842ed13471ebeb34ff6d848d9d0e897a16b9539e22f8c99b6b",
+   "zoom/readings.json": "4abc85d8fbbf9409b666bd0f0876defbb0f1efbaa6f512bf9018db8288b80342",
+   "replay/readings.json": "ef7412e2e3d75e84eb24de6f82670d411e739e49091f8a89a6b77314f8aec255",
+   "replay-steps/readings.json": "bcec00eace740f252a053f2884a4a92fbabbcdaa70c08cae3595d9ffaa5b9bf7",
+   "mouse-readout.png": "730a25e9795158bff4bcc2eec45edf52ad2efde5c421c2786fbd91c7c7bac4f3",
+   "mouse-sheet.png": "0e59517f257eb65a8ccca083072d232e708a1bd91fc2b291815fc2c978c26dde",
+   "zoom-review.png": "da4a97d13673af811f0fc2fcdfca3371c7a822401acfbe94e762ad48081efa7d",
+   "replay-readout.png": "bc36d24edf2ce17123f01175bb1bc096cd708a2d484f2a2598f105a0659473b8",
+   "replay-steps-readout.png": "821aadaf28d4131e41504abf4d34c943d4610bb0654fce8cb1a21aa3029d7b15",
+   "resize-sheet.png": "108ceec60a99b0137929838199533227dc4e638ec2907daf6acf1c5352b26819",
+   "mouse-attempt1/outcome.json": "916381743559faa24ed37ddc6cb6770ab727828dc8bbba469254ff5b91bff037",
+   "mouse-attempt1/run.log": "417a4be812606648271de7e7ff6d95792c4a466c1ad1ef93ea53bd928f9faa1d",
+   "zoom-attempt1/outcome.json": "36a9f48a1f85236afc5212db0b961cf59e9ef3b74d53ce0c936aae52e6573c0f",
+   "zoom-attempt1/run.log": "c0fd087e292b24613ee487adb7f7fc3f242faa7f396d23b4648bf0e3bc67e746",
+   "resize-attempt1/outcome.json": "6a99b36d8c626c0ebb080753e10b4dac9e6817ea8fdcb764f99a9d132c2ff4be",
+   "resize-attempt1/run.log": "8fb684a162cf4d7bc6e22f3734ec84b6fe33ab825efc0d7087abc7b8bd73e5a2"
+  }
  }
 }
