@@ -126,7 +126,17 @@
     }
   },
   "sources": {
+    "mbda-asraam-identity": {
+      "evidence_kind": "manufacturer_publication",
+      "title": "ASRAAM",
+      "publisher": "MBDA",
+      "url": "https://www.mbda-systems.com/products/air-dominance/asraam",
+      "date": "",
+      "accessed": "2026-10-17",
+      "note": "Identity reference only; no model parameter is calibrated from this page."
+    },
     "wp-asraam": {
+      "evidence_kind": "secondary_reference",
       "title": "ASRAAM",
       "publisher": "Wikipedia (revision 1378404225)",
       "url": "https://en.wikipedia.org/w/index.php?title=ASRAAM&oldid=1378404225",

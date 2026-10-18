@@ -125,13 +125,24 @@
     }
   },
   "sources": {
+    "sk-mod-identity": {
+      "evidence_kind": "government_publication",
+      "title": "Kempoviny, 25 June 2008, printed page 4",
+      "publisher": "Slovak Ministry of Defence",
+      "url": "https://www.mod.gov.sk/data/att/106495.pdf",
+      "date": "",
+      "accessed": "2026-10-17",
+      "note": "Historical identity in an equipment list only; no parameter, current service status or project installation is accepted from this reference."
+    },
     "wp-r73": {
+      "evidence_kind": "secondary_reference",
       "title": "R-73 (missile)",
       "publisher": "Wikipedia (revision 1378034740)",
       "url": "https://en.wikipedia.org/w/index.php?title=R-73_(missile)&oldid=1378034740",
       "date": "2026-10-02"
     },
     "wt-datamine": {
+      "evidence_kind": "game_reference",
       "title": "War Thunder datamine: rocketguns weapon files (a game reference: the game's own values, not a manufacturer's)",
       "publisher": "gszabi99/War-Thunder-Datamine (GitHub)",
       "url": "https://github.com/gszabi99/War-Thunder-Datamine/tree/master/aces.vromfs.bin_u/gamedata/weapons/rocketguns",

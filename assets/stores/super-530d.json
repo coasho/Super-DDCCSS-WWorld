@@ -125,13 +125,24 @@
     }
   },
   "sources": {
+    "ecpad-530d-identity": {
+      "evidence_kind": "government_publication",
+      "title": "ECPAD archive DIA 28 04 32 17: Matra Super 530 D",
+      "publisher": "ECPAD / French Ministry of Armed Forces",
+      "url": "https://imagesdefense.gouv.fr/fr/deux-avions-de-combat-mirage-2000-sur-la-piste-de-la-ba-base-aerienne-d-al-ahsa-armes-de-missiles-matra-super-530-d.html",
+      "date": "",
+      "accessed": "2026-10-17",
+      "note": "Archive identity caption only; no parameter is calibrated from this reference."
+    },
     "wp-super530": {
+      "evidence_kind": "secondary_reference",
       "title": "Super 530",
       "publisher": "Wikipedia (revision 1336784320)",
       "url": "https://en.wikipedia.org/w/index.php?title=Super_530&oldid=1336784320",
       "date": "2026-02-05"
     },
     "wt-datamine": {
+      "evidence_kind": "game_reference",
       "title": "War Thunder datamine: rocketguns weapon files (a game reference: the game's own values, not a manufacturer's)",
       "publisher": "gszabi99/War-Thunder-Datamine (GitHub)",
       "url": "https://github.com/gszabi99/War-Thunder-Datamine/tree/master/aces.vromfs.bin_u/gamedata/weapons/rocketguns",

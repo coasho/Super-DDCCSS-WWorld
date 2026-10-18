@@ -129,24 +129,28 @@
   },
   "sources": {
     "usaf-aim9": {
+      "evidence_kind": "government_publication",
       "title": "AIM-9 Sidewinder (fact sheet)",
       "publisher": "U.S. Air Force",
       "url": "https://www.af.mil/About-Us/Fact-Sheets/Display/Article/104557/aim-9-sidewinder/",
       "date": "2026-10-07"
     },
     "usn-aim9x": {
+      "evidence_kind": "government_publication",
       "title": "AIM-9X Sidewinder Missile (fact file)",
       "publisher": "U.S. Navy",
       "url": "https://www.navy.mil/Resources/Fact-Files/Display-FactFiles/Article/2168989/aim-9x-sidewinder-missile/",
       "date": "2026-10-07"
     },
     "wp-aim9": {
+      "evidence_kind": "secondary_reference",
       "title": "AIM-9 Sidewinder",
       "publisher": "Wikipedia (revision 1378928938)",
       "url": "https://en.wikipedia.org/w/index.php?title=AIM-9_Sidewinder&oldid=1378928938",
       "date": "2026-10-06"
     },
     "wt-datamine": {
+      "evidence_kind": "game_reference",
       "title": "War Thunder datamine: rocketguns weapon files (a game reference: the game's own values, not a manufacturer's)",
       "publisher": "gszabi99/War-Thunder-Datamine (GitHub)",
       "url": "https://github.com/gszabi99/War-Thunder-Datamine/tree/master/aces.vromfs.bin_u/gamedata/weapons/rocketguns",

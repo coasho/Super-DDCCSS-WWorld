@@ -127,25 +127,38 @@
     }
   },
   "sources": {
+    "rtx-amraam-identity": {
+      "evidence_kind": "manufacturer_publication",
+      "title": "AMRAAM Missile",
+      "publisher": "Raytheon / RTX",
+      "url": "https://www.rtx.com/raytheon/what-we-do/air/amraam-missile",
+      "date": "",
+      "accessed": "2026-10-17",
+      "note": "Identity reference only; no model parameter is calibrated from this page."
+    },
     "usn-aim120": {
+      "evidence_kind": "government_publication",
       "title": "AIM-120 Advanced Medium-Range, Air-to-Air Missile (AMRAAM) (fact file)",
       "publisher": "U.S. Navy",
       "url": "https://www.navy.mil/Resources/Fact-Files/Display-FactFiles/Article/2168352/aim-120-advanced-medium-range-air-to-air-missile-amraam/",
       "date": "2026-10-07"
     },
     "usaf-aim120": {
+      "evidence_kind": "government_publication",
       "title": "AIM-120 AMRAAM (fact sheet)",
       "publisher": "U.S. Air Force",
       "url": "https://www.af.mil/About-Us/Fact-Sheets/Display/Article/104576/aim-120-amraam/",
       "date": "2026-10-07"
     },
     "wp-aim120": {
+      "evidence_kind": "secondary_reference",
       "title": "AIM-120 AMRAAM",
       "publisher": "Wikipedia (revision 1377668538)",
       "url": "https://en.wikipedia.org/w/index.php?title=AIM-120_AMRAAM&oldid=1377668538",
       "date": "2026-09-30"
     },
     "wt-datamine": {
+      "evidence_kind": "game_reference",
       "title": "War Thunder datamine: rocketguns weapon files (a game reference: the game's own values, not a manufacturer's)",
       "publisher": "gszabi99/War-Thunder-Datamine (GitHub)",
       "url": "https://github.com/gszabi99/War-Thunder-Datamine/tree/master/aces.vromfs.bin_u/gamedata/weapons/rocketguns",

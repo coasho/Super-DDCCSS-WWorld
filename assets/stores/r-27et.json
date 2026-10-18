@@ -128,19 +128,31 @@
     }
   },
   "sources": {
+    "foi-identity": {
+      "evidence_kind": "research_publication",
+      "title": "Beyond Bursting Bubbles (FOI-R--4991--SE)",
+      "publisher": "Swedish Defence Research Agency (FOI)",
+      "url": "https://www.foi.se/rest-api/report/FOI-R--4991--SE",
+      "date": "",
+      "accessed": "2026-10-17",
+      "note": "Named identity in the government-published research discussion, printed page 48. This analysis uses external reporting; it is not firsthand manufacturer confirmation, a current service-status record or parameter calibration."
+    },
     "wp-r27": {
+      "evidence_kind": "secondary_reference",
       "title": "R-27 (air-to-air missile)",
       "publisher": "Wikipedia (revision 1357188539)",
       "url": "https://en.wikipedia.org/w/index.php?title=R-27_(air-to-air_missile)&oldid=1357188539",
       "date": "2026-06-01"
     },
     "ru-r27": {
+      "evidence_kind": "secondary_reference",
       "title": "Р-27 (авиационная ракета)",
       "publisher": "Wikipedia, ru (revision 154454224)",
       "url": "https://ru.wikipedia.org/w/index.php?title=%D0%A0-27_%28%D0%B0%D0%B2%D0%B8%D0%B0%D1%86%D0%B8%D0%BE%D0%BD%D0%BD%D0%B0%D1%8F_%D1%80%D0%B0%D0%BA%D0%B5%D1%82%D0%B0%29&oldid=154454224",
       "date": "2026-08-15"
     },
     "wt-datamine": {
+      "evidence_kind": "game_reference",
       "title": "War Thunder datamine: rocketguns weapon files (a game reference: the game's own values, not a manufacturer's)",
       "publisher": "gszabi99/War-Thunder-Datamine (GitHub)",
       "url": "https://github.com/gszabi99/War-Thunder-Datamine/tree/master/aces.vromfs.bin_u/gamedata/weapons/rocketguns",

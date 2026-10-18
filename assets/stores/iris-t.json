@@ -123,7 +123,17 @@
     }
   },
   "sources": {
+    "diehl-irist-identity": {
+      "evidence_kind": "manufacturer_publication",
+      "title": "Guided Missiles: IRIS-T",
+      "publisher": "Diehl Defence",
+      "url": "https://new.diehl.com/defence/en/products/guided-missiles",
+      "date": "",
+      "accessed": "2026-10-17",
+      "note": "Identity reference only; no model parameter is calibrated from this page."
+    },
     "wp-irist": {
+      "evidence_kind": "secondary_reference",
       "title": "IRIS-T",
       "publisher": "Wikipedia (revision 1378922613)",
       "url": "https://en.wikipedia.org/w/index.php?title=IRIS-T&oldid=1378922613",

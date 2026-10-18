@@ -119,13 +119,24 @@
     }
   },
   "sources": {
+    "mbda-meteor-identity": {
+      "evidence_kind": "manufacturer_publication",
+      "title": "METEOR",
+      "publisher": "MBDA",
+      "url": "https://www.mbda-systems.com/products/air-dominance/meteor",
+      "date": "",
+      "accessed": "2026-10-17",
+      "note": "Identity reference only; no model parameter is calibrated from this page."
+    },
     "wp-meteor": {
+      "evidence_kind": "secondary_reference",
       "title": "Meteor (missile)",
       "publisher": "Wikipedia (revision 1375651748)",
       "url": "https://en.wikipedia.org/w/index.php?title=Meteor_(missile)&oldid=1375651748",
       "date": "2026-09-19"
     },
     "fr-meteor": {
+      "evidence_kind": "secondary_reference",
       "title": "Meteor (missile)",
       "publisher": "Wikipedia, fr (revision 239384836)",
       "url": "https://fr.wikipedia.org/w/index.php?title=Meteor_%28missile%29&oldid=239384836",

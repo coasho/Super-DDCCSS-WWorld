@@ -127,19 +127,31 @@
     }
   },
   "sources": {
+    "cctv-name-report": {
+      "evidence_kind": "secondary_reference",
+      "title": "CCTV News: public PL-series designations (identity report)",
+      "publisher": "CCTV News",
+      "url": "https://military.cctv.com/2025/03/23/ARTIhBJ4g3KjFFJg4PnYWwpg250323.shtml",
+      "date": "2025-03-23",
+      "accessed": "2026-10-17",
+      "note": "Original broadcaster reporting naming this family, not manufacturer/operator technical data. No exact production subtype, export equivalence, project fit or parameter is accepted from it."
+    },
     "wp-pl12": {
+      "evidence_kind": "secondary_reference",
       "title": "PL-12",
       "publisher": "Wikipedia (revision 1364624767)",
       "url": "https://en.wikipedia.org/w/index.php?title=PL-12&oldid=1364624767",
       "date": "2026-07-17"
     },
     "zh-pl12": {
+      "evidence_kind": "secondary_reference",
       "title": "PL-12 missile",
       "publisher": "Wikipedia, zh (revision 94653509)",
       "url": "https://zh.wikipedia.org/w/index.php?title=%E9%9C%B9%E9%9B%B3-12%E5%AF%BC%E5%BC%B9&oldid=94653509",
       "date": "2026-09-29"
     },
     "wt-datamine": {
+      "evidence_kind": "game_reference",
       "title": "War Thunder datamine: rocketguns weapon files (a game reference: the game's own values, not a manufacturer's)",
       "publisher": "gszabi99/War-Thunder-Datamine (GitHub)",
       "url": "https://github.com/gszabi99/War-Thunder-Datamine/tree/master/aces.vromfs.bin_u/gamedata/weapons/rocketguns",

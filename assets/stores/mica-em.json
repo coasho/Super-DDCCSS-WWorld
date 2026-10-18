@@ -125,19 +125,31 @@
     }
   },
   "sources": {
+    "mbda-mica-identity": {
+      "evidence_kind": "manufacturer_publication",
+      "title": "MICA",
+      "publisher": "MBDA",
+      "url": "https://www.mbda-systems.com/products/air-dominance/mica-family/mica",
+      "date": "",
+      "accessed": "2026-10-17",
+      "note": "Identity reference only; no model parameter is calibrated from this page."
+    },
     "wp-mica": {
+      "evidence_kind": "secondary_reference",
       "title": "MICA (missile)",
       "publisher": "Wikipedia (revision 1377178727)",
       "url": "https://en.wikipedia.org/w/index.php?title=MICA_(missile)&oldid=1377178727",
       "date": "2026-09-28"
     },
     "fr-mica": {
+      "evidence_kind": "secondary_reference",
       "title": "MICA",
       "publisher": "Wikipedia, fr (revision 238106864)",
       "url": "https://fr.wikipedia.org/w/index.php?title=MICA&oldid=238106864",
       "date": "2026-07-25"
     },
     "wt-datamine": {
+      "evidence_kind": "game_reference",
       "title": "War Thunder datamine: rocketguns weapon files (a game reference: the game's own values, not a manufacturer's)",
       "publisher": "gszabi99/War-Thunder-Datamine (GitHub)",
       "url": "https://github.com/gszabi99/War-Thunder-Datamine/tree/master/aces.vromfs.bin_u/gamedata/weapons/rocketguns",

@@ -11,6 +11,7 @@ import numpy as np
 
 from .body import Body, Intake
 from .surface import Surface
+from ..motorinputs import validate_motor
 
 
 class Strut:
@@ -40,6 +41,7 @@ class Motor:
     SMOKE = ("minimum", "reduced", "aluminised")  # no visible exhaust; HCl's secondary smoke only; Al2O3's dense trail
 
     def __init__(self, spec):
+        validate_motor(spec)
         if "exit" not in spec or "exit_diameter" not in spec:
             raise ValueError("motor: 'exit' (the nozzle exit's centre) and 'exit_diameter' are required")
         self.exit = np.asarray(spec["exit"], float)

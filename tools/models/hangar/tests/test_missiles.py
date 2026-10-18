@@ -2,6 +2,7 @@
 holds its card's published figures, and carries its motor to the viewer. A native encounter selects a real carrier
 station and records the SDK release."""
 import json
+import copy
 import importlib.util
 import io
 import os
@@ -23,7 +24,118 @@ def _design(name):
     return os.path.join(pipeline.repo_root(), "aircraft", name, name + ".toml")
 
 
+def _synthetic_motor():
+    return {"exit": [1.0, 0.0, 0.0], "exit_diameter": 0.1,
+            "phase": [{"duration_s": 1.0, "thrust_kn": 0.001}]}
+
+
+def _invalid_synthetic_motors():
+    yield "not mapping", None
+    yield "missing fields", {}
+    for value in ([1.0, 0.0], [1.0, 0.0, 0.0, 0.0], "100", {0: 1.0, 1: 0.0, 2: 0.0}):
+        yield "exit shape", _synthetic_motor() | {"exit": value}
+    for value in (float("nan"), float("inf"), float("-inf"), True, "1.0", None, complex(1.0, 0.0)):
+        yield "exit coordinate", _synthetic_motor() | {"exit": [value, 0.0, 0.0]}
+        for field in ("exit_diameter", "throat_diameter", "cone_length"):
+            yield field, _synthetic_motor() | {field: value}
+        for field in ("duration_s", "thrust_kn"):
+            phase = {"duration_s": 1.0, "thrust_kn": 0.001} | {field: value}
+            yield field, _synthetic_motor() | {"phase": [phase]}
+    for field, value in (("exit_diameter", 0.0), ("exit_diameter", -1.0),
+                         ("throat_diameter", 0.0), ("throat_diameter", 0.1),
+                         ("throat_diameter", 0.2), ("cone_length", 0.0), ("cone_length", -1.0),
+                         ("smoke", "unrecognised"), ("smoke", []), ("phase", None),
+                         ("phase", {}), ("phase", "one"), ("phase", [None]),
+                         ("phase", [{}]), ("phase", [{"duration_s": 1.0}]),
+                         ("phase", [{"thrust_kn": 0.001}]),
+                         ("phase", [{"duration_s": 0.0, "thrust_kn": 0.001}]),
+                         ("phase", [{"duration_s": -1.0, "thrust_kn": 0.001}]),
+                         ("phase", [{"duration_s": 1.0, "thrust_kn": -0.001}])):
+        yield field, _synthetic_motor() | {field: value}
+
+
 class Missiles(unittest.TestCase):
+    def test_motor_input_helper_preserves_valid_declarations(self):
+        from hangar.motorinputs import validate_motor
+        for smoke in Motor.SMOKE:
+            spec = _synthetic_motor() | {"smoke": smoke, "note": "synthetic input only"}
+            original = copy.deepcopy(spec)
+            self.assertIsNone(validate_motor(spec))
+            self.assertEqual(spec, original, "validation must not rewrite authored fields")
+
+    def test_motor_input_helper_preserves_visual_only_and_zero_thrust(self):
+        from hangar.motorinputs import validate_motor
+        for phases in (None, [], [{"duration_s": 1.0, "thrust_kn": 0.0}]):
+            spec = _synthetic_motor()
+            if phases is None:
+                del spec["phase"]
+            else:
+                spec["phase"] = phases
+            original = copy.deepcopy(spec)
+            validate_motor(spec)
+            self.assertEqual(spec, original)
+
+    def test_motor_input_helper_rejects_invalid_declarations(self):
+        from hangar.motorinputs import validate_motor
+        for label, spec in _invalid_synthetic_motors():
+            with self.subTest(label=label, spec=spec), self.assertRaisesRegex(ValueError, "motor:"):
+                validate_motor(spec)
+
+    def test_motor_input_helper_rejects_unrepresentable_numbers(self):
+        from hangar.motorinputs import validate_motor
+        for field in ("exit_diameter", "throat_diameter", "cone_length"):
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, "motor:"):
+                validate_motor(_synthetic_motor() | {field: 10 ** 400})
+
+    def test_motor_constructor_rejects_invalid_declarations(self):
+        for label, spec in _invalid_synthetic_motors():
+            with self.subTest(label=label, spec=spec), self.assertRaisesRegex(ValueError, "motor:"):
+                Motor(spec)
+
+    def test_motor_generator_rejects_invalid_declarations(self):
+        from hangar.storebodies import motor_of
+        for label, spec in _invalid_synthetic_motors():
+            with self.subTest(label=label, spec=spec), self.assertRaisesRegex(ValueError, "motor:"):
+                motor_of({"motor": spec}, 1.0, 0.5, 0.1)
+
+    def test_motor_valid_consumer_defaults_are_preserved(self):
+        from hangar.storebodies import motor_of
+        spec = _synthetic_motor()
+        motor = Motor(spec)
+        self.assertEqual(motor.smoke, "reduced")
+        self.assertEqual(motor.throat_diameter, 0.4 * spec["exit_diameter"])
+        self.assertEqual(motor.cone_length, 1.2 * spec["exit_diameter"])
+        generated = motor_of({"motor": spec}, 1.0, 0.5, 0.1)
+        self.assertTrue(generated)
+        self.assertEqual(generated["burn_s"], 1.0)
+        self.assertEqual(spec, _synthetic_motor(), "consumers must preserve the input mapping")
+
+    def test_motor_propulsion_stage_preserves_visual_only_declaration(self):
+        from hangar import storestages
+        for phases in (None, []):
+            with self.subTest(phases=phases):
+                spec = _synthetic_motor()
+                if phases is None:
+                    del spec["phase"]
+                else:
+                    spec["phase"] = phases
+                aircraft = types.SimpleNamespace(spec={"motor": spec, "mass": {"empty": 2.0, "empty_cg": [1.0, 0.0, 0.0]}},
+                                                 bodies=[types.SimpleNamespace(kind="fuselage", w=[0.2], x=[0.0, 2.0])])
+                d = types.SimpleNamespace(aircraft=aircraft, save=lambda stage, data: data)
+                result = storestages.propulsion(d)
+                self.assertNotIn("motor", result)
+                self.assertEqual(result["checks"][0]["value"], "none")
+
+    def test_motor_propulsion_stage_rejects_present_invalid_declaration(self):
+        from hangar import storestages
+        for label, spec in _invalid_synthetic_motors():
+            with self.subTest(label=label):
+                aircraft = types.SimpleNamespace(spec={"motor": spec, "mass": {"empty": 2.0, "empty_cg": [1.0, 0.0, 0.0]}},
+                                                 bodies=[types.SimpleNamespace(kind="fuselage", w=[0.2], x=[0.0, 2.0])])
+                d = types.SimpleNamespace(aircraft=aircraft, save=lambda stage, data: data)
+                with self.assertRaisesRegex(ValueError, "motor:"):
+                    storestages.propulsion(d)
+
     def test_written_as_committed(self):
         # the table is how each design was made: the committed files are what it writes
         for name in missiles.MISSILES:

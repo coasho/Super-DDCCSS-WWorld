@@ -31,24 +31,24 @@ MACH = [0.0, 0.6, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.6, 2.0, 2.5, 3.0, 4.0, 5.0]
 THICKNESS = {"biconvex4": 0.04, "plate": 0.03}
 
 
-def design_of(card_id):
+def design_of(card_id, *, with_path=False):
     """The design whose card this is (its toml), or None."""
     root = os.path.join(pipeline.repo_root(), "aircraft")
     # (a store's design is filed under its card's id without its hyphens - looked at first; any other is searched for)
     first = card_id.replace("-", "")
-    for name in [first] + sorted(n for n in os.listdir(root) if n != first):
+    for name in [first] + sorted(n for n in os.listdir(root) if n != first and n.casefold() != ".codex"):
         path = os.path.join(root, name, name + ".toml")
         if os.path.isfile(path):
             with open(path, "rb") as f:
                 d = tomllib.load(f)
             if d.get("aircraft", {}).get("card") == card_id:
-                return d
-    return None
+                return (d, path) if with_path else d
+    return (None, None) if with_path else None
 
 
 def geometry(card):
     """Its shape: {x, r (m, from its nose), fins, cg, length, diameter, from}; None without one."""
-    d = design_of(card["id"])
+    d, path = design_of(card["id"], with_path=True)
     if d and d.get("store", {}).get("shape") == "box":
         return None  # (a cargo store: no body of revolution)
     if d:
@@ -68,7 +68,7 @@ def geometry(card):
                              r=math.hypot(a["le"][1], a["le"][2]), cant2=dz * dz / (s * s), n=2 if srf.get("mirror") else 1,
                              tc=THICKNESS.get(srf.get("airfoil", "plate"), 0.03), lattice="lattice" in srf))
         return dict(x=x, r=r, fins=fins, cg=d["mass"]["empty_cg"][0] - st[0]["x"], length=x[-1], diameter=2.0 * max(r),
-                    design=d, source="its design")
+                    design=d, design_path=path, source="its design")
     name = (card.get("model", "")[7:] or card["id"]).replace("-", "")
     if name in stores.STORES:
         s, src = stores.STORES[name], "stores.py"
@@ -193,16 +193,36 @@ def build_up(geo, cg=None):
     return out
 
 
-def summary(geo):
+def coefficients(geo, card_id):
+    """Use the explicitly selected offline derivative table, or the existing build-up."""
+    options = (geo.get("design") or {}).get("store", {})
+    if "aero_table" not in options:
+        return build_up(geo)
+    from . import storetables
+    return storetables.load(geo, card_id, options["aero_table"])
+
+
+def summary(geo, selected=None):
     """What a card holds of it (below Mach 0.8, about its own CG): its normal-force slope's area and its centre's
     place - the pitch plane's and the yaw plane's."""
-    b = build_up(geo)
-    i = MACH.index(0.6)
+    b = build_up(geo) if selected is None else selected
     S, d = b["S"], b["d"]
 
+    def at(key):
+        if not b["mach"][0] <= 0.6 <= b["mach"][-1]:
+            return None
+        if 0.6 in b["mach"]:
+            return b[key][b["mach"].index(0.6)]
+        return _interp(0.6, b["mach"], b[key])
+
+    cn, cm, cy, cnb = (at(key) for key in ("cna", "cma", "cyb", "cnb"))
+    scale = lambda value, factor: None if value is None else value * factor
+
     def place(cn, cm):
+        if cn is None or cm is None:
+            return None
         return (b["ref"] - cm / cn * d) if abs(cn) > 1e-6 else b["ref"]
 
-    return dict(normal_area_m2=b["cna"][i] * S, normal_cp_m=place(b["cna"][i], b["cma"][i]), normal_moment_m3=b["cma"][i] * S * d,
-                side_area_m2=b["cyb"][i] * S, side_cp_m=place(b["cyb"][i], b["cnb"][i]), side_moment_m3=b["cnb"][i] * S * d,
+    return dict(normal_area_m2=scale(cn, S), normal_cp_m=place(cn, cm), normal_moment_m3=scale(cm, S * d),
+                side_area_m2=scale(cy, S), side_cp_m=place(cy, cnb), side_moment_m3=scale(cnb, S * d),
                 cross_area_m2=b["cross_n"] * S, cg_m=b["ref"])

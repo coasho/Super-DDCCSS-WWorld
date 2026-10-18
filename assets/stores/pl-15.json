@@ -121,13 +121,24 @@
     }
   },
   "sources": {
+    "cctv-pl15-name": {
+      "evidence_kind": "secondary_reference",
+      "title": "CCTV News: PL-15 named in original reporting",
+      "publisher": "CCTV News",
+      "url": "https://news.cctv.com/2025/08/31/ARTIrCa6IvtwxFIiXOTLUX3h250830.shtml",
+      "date": "2025-08-31",
+      "accessed": "2026-10-17",
+      "note": "Original reporting naming PL-15 only; no PL-15E equivalence, exact project fit or parameter calibration is accepted."
+    },
     "wp-pl15": {
+      "evidence_kind": "secondary_reference",
       "title": "PL-15",
       "publisher": "Wikipedia (revision 1372170557)",
       "url": "https://en.wikipedia.org/w/index.php?title=PL-15&oldid=1372170557",
       "date": "2026-08-30"
     },
     "zh-pl15": {
+      "evidence_kind": "secondary_reference",
       "title": "PL-15",
       "publisher": "Wikipedia, zh (revision 94654220)",
       "url": "https://zh.wikipedia.org/w/index.php?title=%E9%9C%B9%E9%9D%82-15&oldid=94654220",

@@ -40,6 +40,7 @@ import subprocess
 import sys
 import time
 import tomllib
+import xml.etree.ElementTree as ET
 
 from . import pipeline
 from .pipeline import check, info
@@ -226,6 +227,47 @@ def _xml_mass(text):
 
 
 # --- the stages -----------------------------------------------------------------------------------------------------
+def _table_error(text, function, mach, values):
+    """Largest relative coefficient error; reject absent, duplicate or incomplete grids."""
+    try:
+        node = ET.fromstring(text).find(".//function[@name='aero/coefficient/%s']" % function)
+        tables = node.findall(".//table") if node is not None else []
+        if len(tables) != 1 or tables[0].findtext("independentVar").strip() != "velocities/mach":
+            raise ValueError("missing or ambiguous Mach table")
+        rows = [row.split() for row in tables[0].findtext("tableData").strip().splitlines()]
+        if any(len(row) != 2 for row in rows):
+            raise ValueError("each table row needs a coordinate and a coefficient")
+        rows = [(float(m), float(v)) for m, v in rows]
+        if (len(mach) != len(values) or len(mach) < 2 or [m for m, _ in rows] != list(mach) or
+                any(not math.isfinite(v) for row in rows for v in row) or
+                any(m <= rows[i - 1][0] for i, (m, _) in enumerate(rows) if i)):
+            raise ValueError("generated Mach grid differs from the complete expected grid")
+        return max(abs(got - want) / max(abs(want), 1e-9) for (_, got), want in zip(rows, values))
+    except (AttributeError, TypeError, ET.ParseError, OverflowError) as error:
+        raise ValueError("missing or malformed generated coefficient table") from error
+
+
+def _aero_table_checks(text, data):
+    fields = [("lift slope", "cna", "CN"), ("moment slope about its launch CG", "cma", "Cm")]
+    marker = re.search(r"Offline derivative-table SHA-256: ([0-9a-f]{64})", text)
+    imported = "input" in data or marker is not None
+    checks = []
+    if imported:
+        expected = data.get("input", {}).get("sha256")
+        checks.append(check("its coefficient input is the aero report's", int(marker is not None and marker[1] == expected), 1, 1,
+                            note="re-run aero after changing the selected input"))
+        fields += [(key, key, function) for key, function in (("ca", "CA"), ("cyb", "CY"), ("cnb", "Cn"),
+                                                             ("cmq", "Cmq"), ("cnr", "Cnr"), ("clp", "Clp"))]
+    for label, key, function in fields:
+        try:
+            error = 100.0 * _table_error(text, function, data["mach"], data[key])
+            note = "the largest difference over the complete selected Mach grid"
+        except (KeyError, ValueError) as problem:
+            error, note = None, str(problem)
+        checks.append(check("its file's %s is its design's" % label, error, None, 0.5, "%", note=note))
+    return checks
+
+
 def geometry(d):
     g = dict(d.geometry())
     card = card_of(d)
@@ -262,8 +304,8 @@ def aero(d):
     geo = storeaero.geometry(card)
     if geo is None or geo.get("source") != "its design":
         raise ValueError("%s: its build-up does not read its design (its card %s names another)" % (d.name, card["id"]))
-    b = storeaero.build_up(geo)
-    s = storeaero.summary(geo)
+    b = storeaero.coefficients(geo, card["id"])
+    s = storeaero.summary(geo, b)
     cds, parts = storedrag.build_up(card)
     checks = []
     # the card's carriage figures are this design's: what its aircraft feels while it carries it
@@ -276,16 +318,20 @@ def aero(d):
         tol = max(2e-5, 0.002 * abs(value))
         checks.append(check("its card's %s is its design's" % key, held, value - tol, value + tol, unit, note="built up from the design: %.5g" % value,
                             fmt="%.5g"))
-    i = storeaero.MACH.index(0.6)
-    margin = (s["normal_cp_m"] - s["cg_m"]) / geo["diameter"]
+    slope = None if s["normal_area_m2"] is None else s["normal_area_m2"] / b["S"]
+    margin = None if s["normal_cp_m"] is None else (s["normal_cp_m"] - s["cg_m"]) / geo["diameter"]
     checks += [info("drag area in carriage, below Mach 0.8", cds, "m2", note="body %.5f, base %.5f, fins %.5f (Hoerner)" % (parts["body"], parts["base"], parts["fins"])),
-               info("normal-force slope, Mach 0.6", b["cna"][i], "/rad", note="on its frontal area %.4f m2" % b["S"]),
-               info("centre of pressure behind its CG, Mach 0.6", margin if abs(margin) < 50.0 else "far ahead", "calibres",
-                    note="it weathercocks" if margin > 0.0 else "ahead of its CG: free, it tumbles (Munk's couple, no fins to hold it)")]
+               info("normal-force slope, Mach 0.6", slope, "/rad", note="on its frontal area %.4f m2" % b["S"]),
+               info("centre of pressure behind its CG, Mach 0.6", margin if margin is None or abs(margin) < 50.0 else "far ahead", "calibres",
+                    note="outside the selected Mach grid" if margin is None else "it weathercocks" if margin > 0.0 else
+                    "ahead of its CG: free, it tumbles (Munk's couple, no fins to hold it)")]
     data = {"kind": "body", "S": b["S"], "d": b["d"], "ref": b["ref"], "mach": b["mach"], "cna": b["cna"], "cma": b["cma"], "cmq": b["cmq"],
             "cyb": b["cyb"], "cnb": b["cnb"], "cnr": b["cnr"], "clp": b["clp"], "cross_n": b["cross_n"], "cross_m": b["cross_m"],
             "drag_area_m2": cds, "drag": {k: parts[k] for k in ("body", "base", "fins", "frontal")}, "munk_m3": parts["munk"],
             "side_slope_m2": parts["slope"], "side_arm_m": parts["arm"], "cp_m": s["normal_cp_m"], "cg_m": cg}
+    if "input" in b:
+        data.update({key: b[key] for key in ("ca", "cross_y", "cross_ym", "turn", "input")})
+        checks.append(info("coefficient input", b["input"]["path"], note="SHA-256 " + b["input"]["sha256"]))
     return d.save("aero", dict(data, checks=checks))
 
 
@@ -309,13 +355,15 @@ def mass(d):
 
 
 def propulsion(d):
-    motor = d.aircraft.spec.get("motor")
-    if not motor:
+    if "motor" not in d.aircraft.spec:
         return d.save("propulsion", {"checks": [info("propulsion", "none", note="an unpowered store")]})
+    motor = d.aircraft.spec["motor"]
     from . import storebodies
     a = d.aircraft
     body = next(b for b in a.bodies if getattr(b, "kind", "") == "fuselage")
     m = storebodies.motor_of(a.spec, float(a.spec["mass"]["empty"]), float(a.spec["mass"]["empty_cg"][0]), 0.5 * float(max(body.w)))
+    if m is None:
+        return d.save("propulsion", {"checks": [info("propulsion", "none", note="a visual-only motor declaration without phases")]})
     phases = motor.get("phase", [])
     impulse = sum(1000.0 * p["thrust_kn"] * p["duration_s"] for p in phases)
     checks = [info("its motor's burn", "%.1f s, %.0f kN s" % (m["burn_s"], impulse / 1000.0),
@@ -379,15 +427,7 @@ def build(d, force=False):
                             note="the design: %.4g%s" % (want_i, " (its motor full)" if held > 0.0 else "")))
     aero_data = d.load("aero")
     if aero_data and aero_data.get("kind") == "body" and card.get("class") in ("aam", "bomb"):
-        # its lift and its moment, as its file tables them over Mach, against the aero stage's build-up
-        for label, key in (("lift slope", "cna"), ("moment slope about its launch CG", "cma")):
-            axis = "NORMAL" if key == "cna" else "PITCH"
-            block = text[text.index('<axis name="%s">' % axis):]
-            rows = re.findall(r"^\s*([\d.]+)\s+(-?[\d.]+)\s*$", block[:block.index("</tableData>")], re.M)
-            table = {float(m): float(v) for m, v in rows}
-            worst = max(abs(table[m] - v) / max(abs(v), 1e-9) for m, v in zip(aero_data["mach"], aero_data[key]) if m in table)
-            checks.append(check("its file's %s is its design's" % label, 100.0 * worst, None, 0.5, "%",
-                                note="the largest difference over Mach from the aero stage's build-up"))
+        checks += _aero_table_checks(text, aero_data)
     return d.save("build", {"path": path, "written": True, "changed": changed, "seconds": seconds, "bytes": sizes, "checks": checks})
 
 
@@ -764,10 +804,11 @@ def main(argv):
             spec = tomllib.load(f)
         with open(os.path.join(pipeline.repo_root(), "assets", "stores", spec["aircraft"]["card"] + ".json"), encoding="utf-8") as f:
             cls = json.load(f).get("class", "")
-        crashed = results.get(name, 0) not in (0, 1)
-        failed += bool(fails) or crashed
-        print("%-20s %-6s %5d %5d  %s" % (name, cls, fails, warns, ("the run ended %d; " % results[name] if crashed else "") + "; ".join(what[:4])))
-    print("%d stores, %d with a failed check" % (len(names), failed))
+        run_failed = results.get(name) != 0
+        failed += bool(fails) or run_failed
+        print("%-20s %-6s %5d %5d  %s" % (name, cls, fails, warns,
+              ("the run ended %s; " % results.get(name, "without a result") if run_failed else "") + "; ".join(what[:4])))
+    print("%d stores, %d with a failed run or check" % (len(names), failed))
     rows = record(names)
     print()
     print("%-20s %-6s %9s %9s %9s %9s %9s" % ("store", "class", "triangles", "model s", "glb kB", "xml ms", "xml kB"))
@@ -778,9 +819,12 @@ def main(argv):
             "-" if r["xml_bytes"] is None else "%.1f" % (r["xml_bytes"] / 1000.0)))
     if target:
         path = target if os.path.isabs(target) else os.path.join(pipeline.repo_root(), target)
-        pipeline.write_text(path, record_text(rows, stages, forced, jobs))
+        outcome = "Batch result: %s. Child exit codes: %s.\n\nCached stage values below are historical unless produced by this run.\n\n" % (
+            "FAIL" if failed else "PASS", ", ".join("%s=%s" % (name, results.get(name, "missing")) for name in names))
+        pipeline.write_text(path, outcome + record_text(rows, stages, forced, jobs))
         with open_write(os.path.splitext(path)[0] + ".json", "w", encoding="utf-8", newline="\n") as f:
-            json.dump({"stages": stages, "forced": forced, "jobs": jobs, "stores": rows}, f, indent=1)
+            json.dump({"stages": stages, "forced": forced, "jobs": jobs, "stores": rows,
+                       "child_exit_codes": {name: results.get(name) for name in names}, "batch_passed": failed == 0}, f, indent=1)
             f.write("\n")
         print("recorded: %s" % pipeline.shown(path))
     return 1 if failed else 0

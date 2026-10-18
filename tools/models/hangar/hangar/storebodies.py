@@ -22,6 +22,7 @@ import math
 import os
 
 from . import storeaero
+from .motorinputs import validate_motor
 from .storemodels import FT, IN, LB, MACH_RISE, RING, SLUGFT2, _value, model_name
 
 G0 = 9.80665
@@ -58,7 +59,10 @@ def _inertia(design, m, length):
 def motor_of(design, m, cg, radius):
     """Its motor as its flight model has it, from its design's phases: {propellant_kg, burn_s, rows [(lb burnt, lbf)],
     grain: radius, bore, length, x (m), exit_x, exit_area}; None without one."""
-    motor = design.get("motor")
+    if "motor" not in design:
+        return None
+    motor = design["motor"]
+    validate_motor(motor)
     phases = (motor or {}).get("phase", [])
     if not phases:
         return None
@@ -77,12 +81,28 @@ def motor_of(design, m, cg, radius):
                 exit_x=motor["exit"][0], exit_area=0.25 * math.pi * motor["exit_diameter"] ** 2)
 
 
-def _table(mach, values, indent):
+def _table(mach, values, indent, precise=False):
+    try:
+        valid = (len(mach) == len(values) and len(mach) >= 2 and
+                 all(not isinstance(v, bool) and math.isfinite(v) for v in list(mach) + list(values)) and
+                 all(m >= 0 and (i == 0 or m > mach[i - 1]) for i, m in enumerate(mach)))
+    except (TypeError, ValueError, OverflowError):
+        valid = False
+    if not valid:
+        raise ValueError("coefficient table needs matching finite values and a strictly increasing Mach grid")
     pad = " " * indent
+    if precise:
+        return "\n".join("%s%.17g %.17g" % (pad, m, v) for m, v in zip(mach, values))
     return "\n".join("%s%.2f %.5f" % (pad, m, v) for m, v in zip(mach, values))
 
 
-def _slope(sign, angle, mach, values, cross):
+def _finite_conversion(value, label):
+    if not math.isfinite(value):
+        raise ValueError("%s must remain finite after unit conversion" % label)
+    return value
+
+
+def _slope(sign, angle, mach, values, cross, precise=False):
     """A force's or a moment's sum: its slope over Mach times sin cos of the angle, and its crossflow's times sin |sin|."""
     return """                    <sum>
                         <product>
@@ -97,14 +117,15 @@ def _slope(sign, angle, mach, values, cross):
                         </table>
                         </product>
                         <product>
-                            <value> %.5f </value>
+                            <value> %s </value>
                             <sin><property>aero/%s-rad</property></sin>
                             <abs><sin><property>aero/%s-rad</property></sin></abs>
                         </product>
-                    </sum>""" % (sign, angle, angle, _table(mach, values, 32), sign * cross, angle, angle)
+                    </sum>""" % (sign, angle, angle, _table(mach, values, 32, precise),
+                                  ("%.17g" if precise else "%.5f") % (sign * cross), angle, angle)
 
 
-def _damping(name, description, ref, rate, mach, values):
+def _damping(name, description, ref, rate, mach, values, precise=False):
     return """            <function name="aero/coefficient/%s">%s
                 <product>
                     <property>aero/qbar-psf</property>
@@ -120,18 +141,19 @@ def _damping(name, description, ref, rate, mach, values):
                     </table>
                 </product>
             </function>""" % (name, "\n                <description>%s</description>" % description if description else "", ref, ref[0], rate,
-                              _table(mach, values, 28))
+                              _table(mach, values, 28, precise))
 
 
-def _turning(name, description, value, rate):
+def _turning(name, description, value, rate, precise=False):
     return """            <function name="aero/coefficient/%s">%s
                 <product>
-                    <value> %.6f </value>
+                    <value> %s </value>
                     <property>atmosphere/rho-slugs_ft3</property>
                     <property>velocities/%s-aero-rad_sec</property>
                     <abs><property>velocities/%s-aero-rad_sec</property></abs>
                 </product>
-            </function>""" % (name, "\n                <description>%s</description>" % description if description else "", value, rate, rate)
+            </function>""" % (name, "\n                <description>%s</description>" % description if description else "",
+                              ("%.17g" if precise else "%.6f") % value, rate, rate)
 
 
 def files(card):
@@ -144,8 +166,13 @@ def files(card):
     if geo is None or geo.get("design") is None:
         return None
     design = geo["design"]
-    b = storeaero.build_up(geo)
+    b = storeaero.coefficients(geo, card["id"])
+    precise = "input" in b
     S, d = b["S"], b["d"]
+    area_ft2, diameter_ft = S / FT ** 2, d / FT
+    if precise:
+        _finite_conversion(area_ft2, "reference area")
+        _finite_conversion(diameter_ft, "reference diameter")
     r = 0.5 * d
     m = _value(card, "mass_kg")
     cg = float(design["mass"]["empty_cg"][0])            # (the design's frame: x aft from its nose's tip)
@@ -165,6 +192,8 @@ def files(card):
     k = 1.0 / IN
 
     def loc(what, x):
+        if precise:
+            return '        <location name="%s" unit="IN"> <x> %.17g </x> <y> 0 </y> <z> 0 </z> </location>' % (what, _finite_conversion(x * k, what))
         return '        <location name="%s" unit="IN"> <x> %.3f </x> <y> 0 </y> <z> 0 </z> </location>' % (what, x * k)
 
     spring, damping = 20.0 * m / LB, 2.0 * m / LB  # (its weight on 1.5 cm; about critically damped)
@@ -217,7 +246,10 @@ def files(card):
         controls = '    <flight_control name="none"/>'
     mach = b["mach"]
     ca = (_value(card, "drag_area_m2") or 0.15 * S) / S
-    turn = -b["turn"] / FT ** 5
+    ca_mach, ca_values = [p[0] for p in RISE], [p[1] for p in RISE]
+    if precise:
+        ca, ca_mach, ca_values = 1.0, mach, b["ca"]
+    turn = _finite_conversion(-b["turn"] / FT ** 5, "turning coefficient")
     qS = "                    <property>aero/qbar-psf</property>\n                    <property>metrics/Sw-sqft</property>"
     qSc = qS + "\n                    <property>metrics/cbarw-ft</property>"
     xml = """<?xml version="1.0"?>
@@ -230,9 +262,9 @@ def files(card):
         <description> %s, released </description>
     </fileheader>
     <metrics>
-        <wingarea unit="FT2"> %.5f </wingarea>
-        <wingspan unit="FT"> %.5f </wingspan>
-        <chord unit="FT"> %.5f </chord>
+        <wingarea unit="FT2"> %s </wingarea>
+        <wingspan unit="FT"> %s </wingspan>
+        <chord unit="FT"> %s </chord>
         <htailarea unit="FT2"> 0 </htailarea>
         <htailarm unit="FT"> 0 </htailarm>
         <vtailarea unit="FT2"> 0 </vtailarea>
@@ -314,21 +346,30 @@ def files(card):
         </axis>
     </aerodynamics>
 </fdm_config>
-""" % (card["id"], name, card.get("designation", card["id"]), S / FT ** 2, d / FT, d / FT,
+""" % (card["id"], name, card.get("designation", card["id"]),
+       ("%.17g" if precise else "%.5f") % area_ft2,
+       ("%.17g" if precise else "%.5f") % diameter_ft, ("%.17g" if precise else "%.5f") % diameter_ft,
        loc("AERORP", cg), loc("EYEPOINT", cg), loc("VRP", cg),
        ixx / SLUGFT2, iyy / SLUGFT2, iyy / SLUGFT2, empty / LB, loc("CG", empty_cg),
        contacts("nose", x0 + 0.1 * geo["length"]), contacts("tail", x0 + 0.9 * geo["length"]),
        propulsion, controls,
-       qS, ca, _table([p[0] for p in RISE], [p[1] for p in RISE], 28),
-       qS, _slope(1.0, "alpha", mach, b["cna"], b["cross_n"]),
-       qS, _slope(-1.0, "beta", mach, b["cyb"], b["cross_y"]),
-       qSc, _slope(1.0, "alpha", mach, b["cma"], b["cross_m"]),
-       _damping("Cmq", "each lifting part's slope times its arm squared", "cbarw", "q", mach, b["cmq"]),
-       _turning("Cmq2", "the body's crossflow as it turns", turn, "q"),
-       qSc, _slope(-1.0, "beta", mach, b["cnb"], b["cross_ym"]),
-       _damping("Cnr", "", "cbarw", "r", mach, b["cnr"]),
-       _turning("Cnr2", "", turn, "r"),
-       _damping("Clp", "", "bw", "p", mach, b["clp"]))
+       qS, ca, _table(ca_mach, ca_values, 28, precise),
+       qS, _slope(1.0, "alpha", mach, b["cna"], b["cross_n"], precise),
+       qS, _slope(-1.0, "beta", mach, b["cyb"], b["cross_y"], precise),
+       qSc, _slope(1.0, "alpha", mach, b["cma"], b["cross_m"], precise),
+       _damping("Cmq", "each lifting part's slope times its arm squared", "cbarw", "q", mach, b["cmq"], precise),
+       _turning("Cmq2", "the body's crossflow as it turns", turn, "q", precise),
+       qSc, _slope(-1.0, "beta", mach, b["cnb"], b["cross_ym"], precise),
+       _damping("Cnr", "", "cbarw", "r", mach, b["cnr"], precise),
+       _turning("Cnr2", "", turn, "r", precise),
+       _damping("Clp", "", "bw", "p", mach, b["clp"], precise))
+    if precise:
+        xml = xml.replace("Its aerodynamics a component build-up (storeaero.py) -\n     estimates, said so there.",
+                          "Its aerodynamics the selected offline derivative table -\n     imported inputs, not an accuracy or calibration acceptance.")
+        xml = xml.replace("along it: its card's drag area on its frontal area, its transonic rise", "selected offline axial coefficient")
+        xml = xml.replace("its body's and fins' lift (slender body, Barrowman) and its crossflow (Jorgensen)", "selected offline derivatives and crossflow")
+        xml = xml.replace("each lifting part's slope times its arm squared", "selected offline damping derivative")
+        xml = xml.replace("    <aerodynamics>", "    <!-- Offline derivative-table SHA-256: %s -->\n    <aerodynamics>" % b["input"]["sha256"])
     out = {name + ".xml": xml}
     if motor:
         out["Engines/%s_motor.xml" % name] = """<?xml version="1.0"?>

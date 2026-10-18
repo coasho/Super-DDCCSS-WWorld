@@ -126,7 +126,17 @@
     }
   },
   "sources": {
+    "foi-identity": {
+      "evidence_kind": "research_publication",
+      "title": "Beyond Bursting Bubbles (FOI-R--4991--SE)",
+      "publisher": "Swedish Defence Research Agency (FOI)",
+      "url": "https://www.foi.se/rest-api/report/FOI-R--4991--SE",
+      "date": "",
+      "accessed": "2026-10-17",
+      "note": "Named identity in the government-published research discussion, printed page 51. This analysis uses external reporting; it is not firsthand manufacturer confirmation, a current service-status record or parameter calibration."
+    },
     "wp-r37": {
+      "evidence_kind": "secondary_reference",
       "title": "R-37 (missile)",
       "publisher": "Wikipedia (revision 1375531811)",
       "url": "https://en.wikipedia.org/w/index.php?title=R-37_(missile)&oldid=1375531811",

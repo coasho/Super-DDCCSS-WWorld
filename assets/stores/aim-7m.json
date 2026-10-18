@@ -130,18 +130,21 @@
   },
   "sources": {
     "usaf-aim7": {
+      "evidence_kind": "government_publication",
       "title": "AIM-7 Sparrow (fact sheet)",
       "publisher": "U.S. Air Force",
       "url": "https://www.af.mil/About-Us/Fact-Sheets/Display/Article/104575/aim-7-sparrow/",
       "date": "2026-10-07"
     },
     "wp-aim7": {
+      "evidence_kind": "secondary_reference",
       "title": "AIM-7 Sparrow",
       "publisher": "Wikipedia (revision 1378339870)",
       "url": "https://en.wikipedia.org/w/index.php?title=AIM-7_Sparrow&oldid=1378339870",
       "date": "2026-10-04"
     },
     "wt-datamine": {
+      "evidence_kind": "game_reference",
       "title": "War Thunder datamine: rocketguns weapon files (a game reference: the game's own values, not a manufacturer's)",
       "publisher": "gszabi99/War-Thunder-Datamine (GitHub)",
       "url": "https://github.com/gszabi99/War-Thunder-Datamine/tree/master/aces.vromfs.bin_u/gamedata/weapons/rocketguns",

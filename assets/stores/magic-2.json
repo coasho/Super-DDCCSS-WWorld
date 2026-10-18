@@ -127,13 +127,24 @@
     }
   },
   "sources": {
+    "fr-mod-magic-identity": {
+      "evidence_kind": "government_publication",
+      "title": "Mirage 2000 D: Magic II identity",
+      "publisher": "French Ministry of Armed Forces",
+      "url": "https://www.defense.gouv.fr/en/node/8342",
+      "date": "",
+      "accessed": "2026-10-17",
+      "note": "Identity only, using the official page indexed text; a current full-page retrieval failed. No parameter is calibrated from this reference."
+    },
     "wp-magic": {
+      "evidence_kind": "secondary_reference",
       "title": "R.550 Magic",
       "publisher": "Wikipedia (revision 1372790894)",
       "url": "https://en.wikipedia.org/w/index.php?title=R.550_Magic&oldid=1372790894",
       "date": "2026-09-02"
     },
     "wt-datamine": {
+      "evidence_kind": "game_reference",
       "title": "War Thunder datamine: rocketguns weapon files (a game reference: the game's own values, not a manufacturer's)",
       "publisher": "gszabi99/War-Thunder-Datamine (GitHub)",
       "url": "https://github.com/gszabi99/War-Thunder-Datamine/tree/master/aces.vromfs.bin_u/gamedata/weapons/rocketguns",

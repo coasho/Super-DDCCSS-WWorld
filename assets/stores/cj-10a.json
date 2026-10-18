@@ -8,13 +8,24 @@
   "powerable": false,
   "jettisonable": true,
   "sources": {
+    "xinhua-cj10a-caution": {
+      "evidence_kind": "secondary_reference",
+      "title": "Xinhua: CJ-10A in the Rocket Force parade context",
+      "publisher": "Xinhua",
+      "url": "https://www.xinhuanet.com/politics/70zn/2019-10/03/c_1125070191.htm",
+      "date": "2019-10-03",
+      "accessed": "2026-10-17",
+      "note": "Identity caution: this original report describes the land-based Rocket Force context, not an H-6K air-launched installation. It does not establish equivalence with KD-20, CJ-20 or CJ-20A. Existing runtime identity remains unverified."
+    },
     "csis-hn": {
+      "evidence_kind": "secondary_reference",
       "title": "Hong Niao Series (HN-1/-2/-3)",
       "publisher": "CSIS Missile Threat (last updated April 23, 2024)",
       "url": "https://missilethreat.csis.org/missile/hong-niao/",
       "date": "2026-10-11"
     },
     "wp-cj10": {
+      "evidence_kind": "secondary_reference",
       "title": "CJ-10 (missile)",
       "publisher": "Wikipedia (revision 1371980611)",
       "url": "https://en.wikipedia.org/w/index.php?title=CJ-10_(missile)&oldid=1371980611",

@@ -119,7 +119,17 @@
     }
   },
   "sources": {
+    "cctv-name-report": {
+      "evidence_kind": "secondary_reference",
+      "title": "CCTV News: public PL-series designations (identity report)",
+      "publisher": "CCTV News",
+      "url": "https://military.cctv.com/2025/03/23/ARTIhBJ4g3KjFFJg4PnYWwpg250323.shtml",
+      "date": "2025-03-23",
+      "accessed": "2026-10-17",
+      "note": "Original broadcaster reporting naming this family, not manufacturer/operator technical data. No exact production subtype, export equivalence, project fit or parameter is accepted from it."
+    },
     "zh-pl10": {
+      "evidence_kind": "secondary_reference",
       "title": "PL-10",
       "publisher": "Wikipedia, zh (revision 94655060)",
       "url": "https://zh.wikipedia.org/w/index.php?title=%E9%9C%B9%E9%9B%B3-10&oldid=94655060",
