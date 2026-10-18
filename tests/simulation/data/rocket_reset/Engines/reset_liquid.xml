@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<!-- Arbitrary synthetic inputs, not a calibrated motor. -->
+<rocket_engine name="reset_liquid">
+  <function name="propulsion/engine[#]/reset-isp">
+    <sum><value>100</value><property>velocities/mach</property></sum>
+  </function>
+  <isp><function><property>propulsion/engine[1]/reset-isp</property></function></isp>
+  <minthrottle>0.1</minthrottle>
+  <maxthrottle>1</maxthrottle>
+  <propflowmax unit="LBS/SEC">1</propflowmax>
+  <mixtureratio>1</mixtureratio>
+</rocket_engine>

@@ -1,0 +1,3 @@
+<?xml version="1.0"?>
+<!-- Arbitrary synthetic input; shared only by the reset fixture. -->
+<nozzle name="reset_nozzle"><area unit="FT2">0.001</area></nozzle>

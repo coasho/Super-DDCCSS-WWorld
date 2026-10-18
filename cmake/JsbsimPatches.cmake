@@ -325,6 +325,100 @@ _fsim_jsbsim_write(models/propulsion/FGTransmission.cpp _text Propulsion)
 target_include_directories(Propulsion PRIVATE ${FSIM_JSBSIM_SOURCE_DIR}/src/models/propulsion) # their other headers
 
 # ---------------------------------------------------------------------------
+# models/propulsion/FGRocket: reset the engine's run history with its tanks.
+#
+# The base engine reset clears generic engine state, but a rocket also keeps
+# burn time, propellant consumption and impulse accumulators. Keeping those
+# across reset made a refilled solid motor continue its previous burn, even
+# with the new initial conditions unpowered. Configuration and calculations
+# stay unchanged; only per-run state returns to the constructor defaults.
+# ---------------------------------------------------------------------------
+_fsim_jsbsim_read(models/propulsion/FGRocket.h _text)
+set(_old [=[  /** Determines the thrust.*/
+  void Calculate(void);
+]=])
+set(_new [=[  // flightsim patch (cmake/JsbsimPatches.cmake): restore per-run rocket state.
+  void ResetToIC(void) override;
+
+  /** Determines the thrust.*/
+  void Calculate(void);
+]=])
+_fsim_jsbsim_edit(_text _old _new FGRocket.h "rocket reset declaration")
+set(_old [=[#include "FGEngine.h"
+]=])
+set(_new [=[#include "models/propulsion/FGEngine.h"
+]=])
+_fsim_jsbsim_edit(_text _old _new FGRocket.h "rocket relocated header include")
+_fsim_jsbsim_write(models/propulsion/FGRocket.h _text "")
+
+_fsim_jsbsim_read(models/propulsion/FGRocket.cpp _text)
+set(_old [=[void FGRocket::Calculate(void)
+]=])
+set(_new [=[// flightsim patch (cmake/JsbsimPatches.cmake): do not carry a previous
+// run's burn or consumption into tanks that the propulsion reset refilled.
+void FGRocket::ResetToIC(void)
+{
+  FGEngine::ResetToIC();
+  BurnTime = 0.0;
+  previousFuelNeedPerTank = previousOxiNeedPerTank = 0.0;
+  TotalPropellantExpended = 0.0;
+  PropellantFlowRate = 0.0;
+  OxidizerFlowRate = OxidizerExpended = 0.0;
+  It = ItVac = 0.0;
+  VacThrust = 0.0;
+  Flameout = false;
+}
+
+void FGRocket::Calculate(void)
+]=])
+_fsim_jsbsim_edit(_text _old _new FGRocket.cpp "rocket reset state")
+set(_old [=[  if (FDMExec->IntegrationSuspended()) return;
+]=])
+set(_new [=[  if (FDMExec->IntegrationSuspended()) {
+    // flightsim patch: refresh a function's observable value at the new IC
+    // without burning fuel or advancing any run-history accumulator.
+    RunPreFunctions();
+    if (isp_function) Isp = isp_function->GetValue();
+    return;
+  }
+]=])
+_fsim_jsbsim_edit(_text _old _new FGRocket.cpp "rocket initial function value")
+_fsim_jsbsim_write(models/propulsion/FGRocket.cpp _text Propulsion)
+# FGPropulsion constructs the engine and must see the same virtual override.
+target_include_directories(Models BEFORE PRIVATE ${_fsim_jsbsim_patched})
+
+# A rocket skips Calculate during RunIC's integration suspension. The base
+# thruster reset must clear its cached force too: otherwise the initial-state
+# pass sums the previous burn's force despite the scalar Thrust being zero.
+_fsim_jsbsim_read(models/propulsion/FGThruster.cpp _text)
+set(_old [=[  Thrust = 0.0;
+  SetActingLocation(vXYZn);
+]=])
+set(_new [=[  Thrust = 0.0;
+  // flightsim patch (cmake/JsbsimPatches.cmake): no force from the previous run.
+  vFn.InitMatrix();
+  vMn.InitMatrix();
+  SetActingLocation(vXYZn);
+]=])
+_fsim_jsbsim_edit(_text _old _new FGThruster.cpp "thruster reset force")
+_fsim_jsbsim_write(models/propulsion/FGThruster.cpp _text Propulsion)
+
+# Warming up an aircraft engine to steady state must not burn a finite motor
+# while simulation time is still zero. InitRunning still selects the requested
+# throttle/mixture; rocket calculations begin on the first real model step.
+_fsim_jsbsim_read(models/FGPropulsion.cpp _text)
+set(_old [=[    for (auto& engine: Engines) {
+      steady=false;
+]=])
+set(_new [=[    for (auto& engine: Engines) {
+      // flightsim patch (cmake/JsbsimPatches.cmake): no rocket burn during warm-up.
+      if (engine->GetType() == FGEngine::etRocket) continue;
+      steady=false;
+]=])
+_fsim_jsbsim_edit(_text _old _new FGPropulsion.cpp "rocket initial burn")
+_fsim_jsbsim_write(models/FGPropulsion.cpp _text Models)
+
+# ---------------------------------------------------------------------------
 # models/propulsion/FGPropeller.cpp: a constant-speed propeller after a reset.
 #
 # A propeller's reset cleared its induced velocity, but not a constant-speed

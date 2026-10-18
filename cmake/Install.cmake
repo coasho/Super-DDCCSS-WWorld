@@ -108,8 +108,12 @@ function(fsim_install_notices component)
     # JSBSim is LGPL: the files flightsim changes, as built, and how (THIRD_PARTY_NOTICES.md)
     install(FILES ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGLGear.cpp
                   ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGAccelerations.cpp
+                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/FGPropulsion.cpp
                   ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGRotor.h
                   ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGRotor.cpp
+                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGRocket.h
+                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGRocket.cpp
+                  ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGThruster.cpp
                   ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGElectric.cpp
                   ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGPropeller.cpp
                   ${CMAKE_BINARY_DIR}/third_party/jsbsim-patched/models/propulsion/FGTransmission.h

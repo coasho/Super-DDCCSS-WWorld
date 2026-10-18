@@ -98,7 +98,14 @@ the following changes generated into the build tree by `cmake/JsbsimPatches.cmak
   `src/models/FGMassBalance.cpp`, the centre of gravity starts where a new model's does; in
   `src/models/propulsion/FGPropeller.cpp`, a constant-speed propeller's pitch starts at its
   least, where a load sets it; in `src/models/propulsion/FGTransmission.h`, a rotor's
-  free-wheel unit starts locked, its lag at rest. A
+  free-wheel unit starts locked, its lag at rest. In `src/models/propulsion/FGRocket.h`
+  and `FGRocket.cpp`, a rocket resets its per-run burn, consumption, flow and impulse
+  history with the refilled tanks, retaining its configured model values; its initial-state
+  pass refreshes a function-valued parameter without advancing the burn. In
+  `src/models/propulsion/FGThruster.cpp`, the reset also clears cached force and moment
+  vectors so the initial-state pass cannot reuse a previous burn's force. In
+  `src/models/FGPropulsion.cpp`, the aircraft-engine steady-state warm-up skips rockets:
+  their burn history starts with actual simulation steps, not while loading or resetting. A
   vehicle started on a reset model then starts as the same start on a new one, to the bit
   (docs/FlightSim_System_Architecture_and_Design.md, 7.2). Between resets nothing changes.
 - In `src/models/propulsion/FGTurbine.cpp`, a staged afterburner (augmethod 2) lights only

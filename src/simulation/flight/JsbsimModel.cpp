@@ -17,7 +17,6 @@
 #include <math/FGQuaternion.h>
 #include <models/FGAccelerations.h>
 #include <models/FGAtmosphere.h>
-#include <models/propulsion/FGRocket.h>
 #include <models/FGAuxiliary.h>
 #include <models/FGExternalReactions.h>
 #include <models/atmosphere/FGWinds.h>
@@ -1005,7 +1004,12 @@ double JsbsimModel::engineFuelFlowKgS(int engine) const {
     const auto e = propulsion->GetEngine(static_cast<unsigned>(engine));
     // (a rocket's propellant: its fuel's and its oxidiser's, of which a solid motor's grain is all the first)
     double flow = e->GetFuelFlowRate();
-    if (e->GetType() == JSBSim::FGEngine::etRocket) flow += static_cast<const JSBSim::FGRocket*>(e.get())->GetOxiFlowRate();
+    if (e->GetType() == JSBSim::FGEngine::etRocket) {
+        // The tied property reads the same native value without coupling the
+        // adapter to the generated rocket subclass header.
+        const auto path = "propulsion/engine[" + std::to_string(engine) + "]/oxi-flow-rate-pps";
+        if (const auto* node = fdm_->GetPropertyManager()->GetNode(path, false)) flow += node->getDoubleValue();
+    }
     constexpr double kKgPerLb = 0.45359237;
     return std::isfinite(flow) ? std::max(flow, 0.0) * kKgPerLb : 0.0;
 }

@@ -200,6 +200,120 @@ TEST_CASE("reset returns the vehicle to initial conditions", "[sim][jsbsim]") {
     CHECK(std::abs(after.simTime) < 1e-9);
 }
 
+TEST_CASE("rocket reset clears burn history and replays a fresh synthetic model", "[sim][jsbsim][rocket-reset]") {
+    log::setLevel(log::Level::Warn);
+    auto ground = std::make_shared<FlatGround>(0.0);
+    const AircraftSpec spec{"rocket_reset", kRoot, FSIM_TEST_DATA_DIR};
+    InitialConditions ic;
+    ic.altitudeMslM = 1000.0;
+    ic.airspeedTrueMs = 30.0;
+    ic.enginesRunning = false;
+    JsbsimModel used(kDt, ground), fresh(kDt, ground);
+    REQUIRE(used.load(spec, ic));
+    REQUIRE(fresh.load(spec, ic));
+
+    const auto value = [](JsbsimModel& model, const std::string& path) {
+        auto property = model.property(path);
+        REQUIRE(property.valid());
+        return property.get();
+    };
+    const auto compare = [&] {
+        for (unsigned engine = 0; engine < 2; ++engine) {
+            for (const char* suffix : {"total-impulse", "total-vac-impulse", "vacuum-thrust_lbs", "thrust-lbs"}) {
+                const std::string path = "propulsion/engine[" + std::to_string(engine) + "]/" + suffix;
+                INFO(path);
+                CHECK(value(used, path) == value(fresh, path));
+            }
+        }
+        for (unsigned tank = 0; tank < 3; ++tank) {
+            const std::string path = "propulsion/tank[" + std::to_string(tank) + "]/contents-lbs";
+            INFO(path);
+            CHECK(value(used, path) == value(fresh, path));
+        }
+        CHECK(used.engineFuelFlowKgS(0) == fresh.engineFuelFlowKgS(0));
+        CHECK(used.engineFuelFlowKgS(1) == fresh.engineFuelFlowKgS(1));
+        CHECK(value(used, "propulsion/engine[1]/isp") == value(fresh, "propulsion/engine[1]/isp"));
+        CHECK(value(used, "propulsion/engine[1]/isp") > 100.0);
+        CHECK(value(used, "propulsion/engine[1]/mixture-ratio") == 1.0);
+        VehicleState a, b;
+        used.state(a);
+        fresh.state(b);
+        CHECK(bitIdentical(a, b));
+    };
+
+    ControlInputs on, off;
+    on.setThrottleAll(1.0);
+    for (int step = 0; step < 24; ++step) used.step(on);
+    for (unsigned engine = 0; engine < 2; ++engine)
+        REQUIRE(value(used, "propulsion/engine[" + std::to_string(engine) + "]/total-vac-impulse") > 0.0);
+    REQUIRE(value(used, "propulsion/tank/contents-lbs") < 1.0);
+    REQUIRE(used.reset(ic));
+    compare();
+    // A solid motor that burned before reset must stay off until a new ignition.
+    for (int step = 0; step < 12; ++step) {
+        used.step(off);
+        fresh.step(off);
+        compare();
+    }
+    for (int step = 0; step < 24; ++step) {
+        const double liquidBefore = value(used, "propulsion/tank[1]/contents-lbs") +
+                                    value(used, "propulsion/tank[2]/contents-lbs");
+        used.step(on);
+        fresh.step(on);
+        const double liquidAfter = value(used, "propulsion/tank[1]/contents-lbs") +
+                                   value(used, "propulsion/tank[2]/contents-lbs");
+        CHECK(std::abs(used.engineFuelFlowKgS(1) - (liquidBefore - liquidAfter) * 0.45359237 / kDt) < 1e-12);
+        compare();
+    }
+    // Include a liquid engine's spent/starved history, not only an ongoing burn.
+    for (int step = 0; step < 300; ++step) used.step(on);
+    REQUIRE(value(used, "propulsion/tank[1]/contents-lbs") == 0.0);
+    REQUIRE(value(used, "propulsion/tank[2]/contents-lbs") == 0.0);
+    REQUIRE(value(used, "propulsion/engine[1]/vacuum-thrust_lbs") == 0.0);
+    REQUIRE(used.reset(ic));
+    REQUIRE(fresh.reset(ic));
+    compare();
+    for (int step = 0; step < 24; ++step) {
+        used.step(on);
+        fresh.step(on);
+        compare();
+    }
+}
+
+TEST_CASE("rocket startup leaves synthetic engines unburned until the first simulation step", "[sim][jsbsim][rocket-reset]") {
+    auto ground = std::make_shared<FlatGround>(0.0);
+    const AircraftSpec spec{"rocket_reset", kRoot, FSIM_TEST_DATA_DIR};
+    InitialConditions ic;
+    ic.altitudeMslM = 1000.0;
+    ic.airspeedTrueMs = 30.0;
+    ic.enginesRunning = true;
+    JsbsimModel model(kDt, ground);
+    REQUIRE(model.load(spec, ic));
+    const auto unburned = [&] {
+        VehicleState state;
+        model.state(state);
+        CHECK(state.simTime == 0.0);
+        CHECK(state.stepCount == 0);
+        CHECK(model.property("propulsion/engine[1]/isp").get() == 100.0 + model.property("velocities/mach").get());
+        for (unsigned engine = 0; engine < 2; ++engine) {
+            for (const char* suffix : {"total-impulse", "total-vac-impulse", "vacuum-thrust_lbs", "thrust-lbs"}) {
+                const std::string path = "propulsion/engine[" + std::to_string(engine) + "]/" + suffix;
+                INFO(path);
+                REQUIRE(model.property(path).valid());
+                CHECK(model.property(path).get() == 0.0);
+            }
+        }
+    };
+    unburned();
+    ControlInputs on;
+    on.setThrottleAll(1.0);
+    for (int step = 0; step < 12; ++step) model.step(on);
+    REQUIRE(model.property("propulsion/engine/total-vac-impulse").get() > 0.0);
+    REQUIRE(model.property("propulsion/engine[1]/total-vac-impulse").get() > 0.0);
+    REQUIRE(model.reset(ic));
+    unburned();
+}
+
 TEST_CASE("the first step after a reset starts from the new state, however violent the last one was", "[sim][jsbsim]") {
     // The integrators remember past accelerations, and JSBSim's reset seeded
     // that memory from the last step before it: after a violent step - here a
