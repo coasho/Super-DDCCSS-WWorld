@@ -52,6 +52,7 @@ def validate_motor(spec):
     phases = spec.get("phase", [])
     if not isinstance(phases, list):
         raise ValueError("motor: phase must be a list of mappings")
+    burn_s = impulse_ns = 0.0
     for index, phase in enumerate(phases):
         if not isinstance(phase, Mapping) or "duration_s" not in phase or "thrust_kn" not in phase:
             raise ValueError("motor: phase[%d] requires duration_s and thrust_kn" % index)
@@ -59,3 +60,7 @@ def validate_motor(spec):
         thrust = _number(phase["thrust_kn"], "phase[%d].thrust_kn" % index)
         if duration <= 0.0 or thrust < 0.0:
             raise ValueError("motor: each phase lasts some time at a thrust of zero or more")
+        newtons = _number(1000.0 * thrust, "phase[%d] thrust in N" % index)
+        impulse = _number(newtons * duration, "phase[%d] impulse in N s" % index)
+        burn_s = _number(burn_s + duration, "total burn duration in s")
+        impulse_ns = _number(impulse_ns + impulse, "total impulse in N s")

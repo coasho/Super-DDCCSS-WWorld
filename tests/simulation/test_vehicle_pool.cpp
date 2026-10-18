@@ -11,6 +11,7 @@
 #include "simulation/flight/VehiclePool.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -278,6 +279,77 @@ TEST_CASE("rocket reset clears burn history and replays a fresh synthetic model"
         fresh.step(on);
         compare();
     }
+}
+
+TEST_CASE("rocket pulse schedule follows ignition time across coast and reset", "[sim][jsbsim][rocket-pulse]") {
+    const double dt = GENERATE(1.0 / 60.0, 1.0 / 120.0);
+    auto ground = std::make_shared<FlatGround>(0.0);
+    const AircraftSpec spec{"rocket_pulse", kRoot, FSIM_TEST_DATA_DIR};
+    InitialConditions ic;
+    ic.altitudeMslM = 1000.0;
+    ic.airspeedTrueMs = 30.0;
+    ic.enginesRunning = false;
+    JsbsimModel used(dt, ground), fresh(dt, ground);
+    REQUIRE(used.load(spec, ic));
+    REQUIRE(fresh.load(spec, ic));
+    ControlInputs on, off;
+    on.setThrottleAll(1.0);
+    const auto thrust = [](JsbsimModel& model, int engine) {
+        auto property = model.property("propulsion/engine[" + std::to_string(engine) + "]/vacuum-thrust_lbs");
+        REQUIRE(property.valid());
+        return property.get();
+    };
+    // Wall/simulation time before ignition must not consume the schedule.
+    for (int step = 0; step < 30; ++step) {
+        used.step(off);
+        CHECK(thrust(used, 0) == 0.0);
+    }
+    const auto replay = [&](JsbsimModel& model) {
+        for (int step = 0; step < static_cast<int>(1.0 / dt); ++step) {
+            // A solid motor stays lit through zero thrust even with throttle off.
+            model.step(step == 0 ? on : off);
+            const double time = step * dt;
+            INFO("ignition-relative time " << time << ", dt " << dt);
+            if (time < 0.08) CHECK(thrust(model, 0) == 10.0);
+            if (time > 0.12 && time < 0.58) CHECK(thrust(model, 0) == 0.0);
+            if (time > 0.62 && time < 0.68) CHECK(thrust(model, 0) == 6.0);
+            if (time > 0.72) CHECK(thrust(model, 0) == 0.0);
+            // The unmarked table keeps its consumed-mass meaning, not seconds.
+            CHECK(thrust(model, 1) == 10.0);
+        }
+        const double impulse = model.property("propulsion/engine/total-vac-impulse").get();
+        CHECK(std::abs(impulse - 1.6) <= 20.0 * dt);
+        CHECK(model.property("propulsion/tank/contents-lbs").get() > 0.98);
+    };
+    replay(used);
+    REQUIRE(used.reset(ic));
+    CHECK(thrust(used, 0) == 0.0);
+    CHECK(used.property("propulsion/engine/total-vac-impulse").get() == 0.0);
+    for (int step = 0; step < 30; ++step) {
+        used.step(off);
+        fresh.step(off);
+    }
+    for (int step = 0; step < static_cast<int>(1.0 / dt); ++step) {
+        used.step(step == 0 ? on : off);
+        fresh.step(step == 0 ? on : off);
+        CHECK(thrust(used, 0) == thrust(fresh, 0));
+        CHECK(used.property("propulsion/tank/contents-lbs").get() == fresh.property("propulsion/tank/contents-lbs").get());
+        VehicleState a, b;
+        used.state(a);
+        fresh.state(b);
+        CHECK(bitIdentical(a, b));
+    }
+    // Marked tables retain the upstream fuel-availability gate. Fuel need is
+    // evaluated after thrust, so allow its existing first-step latency.
+    REQUIRE(used.reset(ic));
+    used.property("propulsion/tank/contents-lbs").set(0.0);
+    for (int step = 0; step < 20; ++step) {
+        used.step(on);
+        if (step > 1) CHECK(thrust(used, 0) == 0.0);
+    }
+    REQUIRE(used.reset(ic));
+    used.step(on);
+    CHECK(thrust(used, 0) == 10.0);
 }
 
 TEST_CASE("rocket startup leaves synthetic engines unburned until the first simulation step", "[sim][jsbsim][rocket-reset]") {

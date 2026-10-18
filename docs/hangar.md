@@ -1188,6 +1188,15 @@ would be drawn for nothing on every station that carries one.
 | fly | carried and released: hung on a station of an aircraft that takes it (one whose loadouts hang it, else any whose station takes its class and weight), jettisoned at 1,500 m and followed to the ground | the station's mass and the aircraft's change, its card's; the released vehicle as heavy and its mass constant (inert); no faster than a body falling from its release; its flight model holds; it reaches the ground and comes to rest. A missile's motor too: made on its own (the platform lights it) at 8,000 m and 250 m/s, it burns its design's propellant within 2 %, burns out at its phases' time, gains between 0.45 and 1.02 of the speed its impulse gives it without drag, and holds together |
 | report | `out/report.html` | |
 
+The optional [SIM-M02 reference tools](sdk/missile-flight-validation.md) compare
+the complete generated missile motor/model against RocketPy and run explicit
+SU2/VSPAERO experiments. The controlled axial fleet comparison passes under
+declared game inputs; current aerodynamic trials fail acceptance. These tools
+neither admit real equipment data nor replace the generator's stage checks.
+Pulse motors with an authored zero-thrust phase now emit the private versioned
+ignition-time table so a native step cannot skip the low-thrust coast; unmarked
+continuous-motor tables retain their consumed-mass coordinate.
+
 `calibrate`, `autopilot`, `performance` and `ground` say they are not a store's: it has no published performance to
 fit, no loops, no tables and no wheels. A store has no vulnerable components, no damage data and no breakup pieces.
 

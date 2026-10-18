@@ -65,6 +65,12 @@ paths = ["tools/validation/testing/**"]
 tests = ["^testing_scope_checker$"]
 build = false
 
+[[scope]]
+name = "missile flight and aerodynamic reference safeguards"
+paths = ["tools/validation/missile/**"]
+tests = ["^missile_flight_reference_checker$", "^missile_aero_reference_checker$"]
+build = false
+
 # --- MA training (docs/sdk/mission-training.md) -----------------------------------------------------------------------
 # Targeted: the build-tree tests over the changed code. Integration: also the installed consumers and the domain's whole
 # labels - stress (contention) and package cases among them - before a package's handoff.

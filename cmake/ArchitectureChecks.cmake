@@ -65,6 +65,14 @@ add_test(NAME testing_scope_checker
     COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/testing/test_scope.py" --test-dir "${CMAKE_BINARY_DIR}"
             --ctest "${CMAKE_CTEST_COMMAND}")
 set_tests_properties(testing_scope_checker PROPERTIES LABELS testing TIMEOUT 120)
+# Offline model-reference guards use only the standard library. Running actual
+# external solvers remains an explicit campaign with pinned tool provenance.
+add_test(NAME missile_flight_reference_checker
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/missile/test_reference.py")
+add_test(NAME missile_aero_reference_checker
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/missile/test_aero.py")
+set_tests_properties(missile_flight_reference_checker missile_aero_reference_checker
+    PROPERTIES LABELS "simulation;model-reference" TIMEOUT 30)
 # Separate versioned extension contracts; these checks do not execute SDK handlers.
 add_test(NAME ma_engagement_contract
     COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/ma_engagement/check.py" --repo "${CMAKE_SOURCE_DIR}")

@@ -383,6 +383,17 @@ set(_new [=[  if (FDMExec->IntegrationSuspended()) {
   }
 ]=])
 _fsim_jsbsim_edit(_text _old _new FGRocket.cpp "rocket initial function value")
+set(_old [=[      VacThrust = ThrustTable->GetValue(TotalPropellantExpended)
+]=])
+set(_new [=[      // flightsim patch (SIM-M02): a versioned opt-in ignition-time
+      // table preserves a pulse motor's low/zero-thrust coast. A consumed-mass
+      // step can leap over that interval. Other tables keep upstream semantics;
+      // the existing BurnTime latch, buildup and reset own the time coordinate.
+      const double thrustCoordinate = ThrustTable->GetName() == "fsim/ignition-time-thrust-v1"
+                                    ? BurnTime : TotalPropellantExpended;
+      VacThrust = ThrustTable->GetValue(thrustCoordinate)
+]=])
+_fsim_jsbsim_edit(_text _old _new FGRocket.cpp "versioned pulse time coordinate")
 _fsim_jsbsim_write(models/propulsion/FGRocket.cpp _text Propulsion)
 # FGPropulsion constructs the engine and must see the same virtual override.
 target_include_directories(Models BEFORE PRIVATE ${_fsim_jsbsim_patched})

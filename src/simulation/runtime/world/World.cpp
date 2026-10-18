@@ -412,7 +412,9 @@ bool World::resetVehicle(std::uint32_t id, const sim::InitialConditions* ic, std
     // A flight model's reset returns its air to calm and standard: the world's, as a new vehicle's (design 7.2)
     applyEnvironment(model);
     e->inputs = sim::ControlInputs{};
-    e->inputs.setThrottleAll(e->info.initial.onGround ? 0.0 : 0.65);
+    e->inputs.setThrottleAll(e->info.role == ms::Role::Weapon
+                                ? (e->info.initial.enginesRunning ? 1.0 : 0.0)
+                                : (e->info.initial.onGround ? 0.0 : 0.65));
     e->inputs.gearDown = e->info.initial.onGround ? 1.0 : 0.0;
     e->stack.setInitialInputs(e->inputs);
     e->stack.reset();
@@ -1850,8 +1852,11 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
         e->forceApplied = false;
     }
 
-    // Control cascade at the FDM rate (or every `controlDivider` steps); a lost crew's controls held where they were.
-    if (static_cast<unsigned>(subStep) % e->controlDivider == 0 && !e->crewLost) {
+    // Released weapons retain their launch/reset inputs. Their flight
+    // capabilities are restricted; an empty aircraft cascade would replace
+    // ignition throttle with neutral before the first native motor step.
+    // Aircraft control still runs at the configured FDM rate; lost crews hold.
+    if (e->info.role != ms::Role::Weapon && static_cast<unsigned>(subStep) % e->controlDivider == 0 && !e->crewLost) {
         control::ControlContext ctx{e->info.id, e->working, e->sensed.state, options_.dt * e->controlDivider, &stepView_, &e->rng};
         e->stack.update(ctx, e->inputs);
         // the effectors ControlInputs has no room for, when their demand changes

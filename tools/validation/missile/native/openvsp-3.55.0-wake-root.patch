@@ -1,0 +1,48 @@
+--- a/src/vsp_aero/Solver/VSP_Geom.C
++++ b/src/vsp_aero/Solver/VSP_Geom.C
+@@ -2093,6 +2093,14 @@
+              
+              Node = VortexSheet(k).TrailingVortex(i).GlobalNode(j);
+         
++             // Map the solve-grid wake index to the finest grid.
++             
++             for ( int level = SolveOnMGLevel_ ; level > 0 ; --level ) {
++                
++                Node = Grid(level).NodeList(Node).FineGridNode();
++                
++             }
++        
+              // Update the wake data
+                  
+              VortexSheet(k).TrailingVortex(i).WakeNodeX(j) = Grid(0).NodeList(Node).x();
+@@ -2219,6 +2227,14 @@
+              
+              Node = VortexSheet(k).TrailingVortex(i).GlobalNode(j);
+         
++             // Map the solve-grid wake index to the finest grid.
++             
++             for ( int level = SolveOnMGLevel_ ; level > 0 ; --level ) {
++                
++                Node = Grid(level).NodeList(Node).FineGridNode();
++                
++             }
++        
+              // Update the wake data
+                  
+              VortexSheet(k).TrailingVortex(i).WakeNodeX(j) = Grid(0).NodeList(Node).x();
+@@ -2285,6 +2301,15 @@
+              // First node on wake that is attached to TE node on wing
+              
+              j2 = VortexSheet(k).TrailingVortex(i).GlobalNode(1);
++             
++             // Both indices belong to the solve grid; map them to the finest grid.
++             
++             for ( int level = SolveOnMGLevel_ ; level > 0 ; --level ) {
++                
++                j1 = Grid(level).NodeList(j1).FineGridNode();
++                j2 = Grid(level).NodeList(j2).FineGridNode();
++                
++             }
+              
+              Grid(0).NodeList(j2).x() = Grid(0).NodeList(j1).x();
+              Grid(0).NodeList(j2).y() = Grid(0).NodeList(j1).y();

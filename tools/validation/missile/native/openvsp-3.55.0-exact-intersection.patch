@@ -1,0 +1,194 @@
+--- a/src/external/tritri/tri_tri_intersect.cpp
++++ b/src/external/tritri/tri_tri_intersect.cpp
+@@ -38,6 +38,11 @@
+ 
+ 
+ #include "tri_tri_intersect.h"
++#include <Mathematics/UIntegerAP32.h>
++#include <Mathematics/BSRational.h>
++#include <array>
++#include <cmath>
++#include <utility>
+ 
+ 
+ /* some 3D macros */
+@@ -367,7 +372,7 @@
+    source and target are the endpoints of the line segment of intersection 
+ */
+ 
+-int tri_tri_intersection_test_3d(double p1[3], double q1[3], double r1[3], 
++static int VspLegacyTriangleIntersection(double p1[3], double q1[3], double r1[3], 
+          double p2[3], double q2[3], double r2[3],
+          int * coplanar, 
+          double source[3], double target[3] )
+@@ -445,6 +450,158 @@
+     }
+   }
+ };
++
++// Exact constructions use the already bundled, header-only GTE arithmetic.
++// All comparisons remain rational until accepted endpoints are returned.
++namespace
++{
++using VspRational = gte::BSRational<gte::UIntegerAP32>;
++using VspExactPoint = std::array<VspRational,3>;
++using VspExactTriangle = std::array<VspExactPoint,3>;
++
++struct VspExactCut
++{
++    std::array<VspExactPoint,2> point;
++    int count=0;
++};
++
++VspExactPoint VspSubtract( const VspExactPoint &a, const VspExactPoint &b )
++{
++    return { a[0]-b[0],a[1]-b[1],a[2]-b[2] };
++}
++
++VspExactPoint VspCross( const VspExactPoint &a, const VspExactPoint &b )
++{
++    return { a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0] };
++}
++
++VspRational VspDot( const VspExactPoint &a, const VspExactPoint &b )
++{
++    return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
++}
++
++bool VspZero( const VspExactPoint &a )
++{
++    return a[0].GetSign()==0 && a[1].GetSign()==0 && a[2].GetSign()==0;
++}
++
++void VspAddExactPoint( VspExactCut &cut, const VspExactPoint &point )
++{
++    for ( int i=0; i<cut.count; ++i )
++    {
++        if ( cut.point[i]==point ) { return; }
++    }
++    // A noncoplanar plane cuts a nondegenerate triangle in at most two points.
++    if ( cut.count<2 ) { cut.point[cut.count++]=point; }
++}
++
++VspExactCut VspExactPlaneCut( const VspExactTriangle &triangle,
++                             const std::array<VspRational,3> &distance )
++{
++    VspExactCut cut;
++    for ( int i=0; i<3; ++i )
++    {
++        if ( distance[i].GetSign()==0 ) { VspAddExactPoint(cut,triangle[i]); }
++    }
++    for ( int i=0; i<3; ++i )
++    {
++        const int j=(i+1)%3;
++        const int first=distance[i].GetSign(), second=distance[j].GetSign();
++        if ( !((first<0 && second>0) || (first>0 && second<0)) ) { continue; }
++        const VspRational t=distance[i]/(distance[i]-distance[j]);
++        VspExactPoint point;
++        for ( int axis=0; axis<3; ++axis )
++        { point[axis]=triangle[i][axis]+t*(triangle[j][axis]-triangle[i][axis]); }
++        VspAddExactPoint(cut,point);
++    }
++    return cut;
++}
++
++VspRational VspAbs( const VspRational &value )
++{
++    return value.GetSign()<0 ? -value:value;
++}
++}
++
++int tri_tri_intersection_test_3d( double p1[3], double q1[3], double r1[3],
++                                double p2[3], double q2[3], double r2[3],
++                                int *coplanar, double source[3], double target[3] )
++{
++    *coplanar=0;
++    double *raw_a[3]={p1,q1,r1}, *raw_b[3]={p2,q2,r2};
++    VspExactTriangle a,b;
++    for ( int i=0; i<3; ++i ) for ( int axis=0; axis<3; ++axis )
++    {
++        // BSNumber deliberately has no infinities or NaNs.
++        if ( !std::isfinite(raw_a[i][axis]) || !std::isfinite(raw_b[i][axis]) ) { return 0; }
++        a[i][axis]=VspRational(raw_a[i][axis]);
++        b[i][axis]=VspRational(raw_b[i][axis]);
++    }
++    const VspExactPoint normal_a=VspCross(VspSubtract(a[1],a[0]),VspSubtract(a[2],a[0]));
++    const VspExactPoint normal_b=VspCross(VspSubtract(b[1],b[0]),VspSubtract(b[2],b[0]));
++    if ( VspZero(normal_a) || VspZero(normal_b) )
++    {
++        // Do not assign a new segment/point meaning to degenerate inputs.
++        return VspLegacyTriangleIntersection(p1,q1,r1,p2,q2,r2,coplanar,source,target);
++    }
++    std::array<VspRational,3> da,db;
++    for ( int i=0; i<3; ++i )
++    {
++        da[i]=VspDot(normal_b,VspSubtract(a[i],b[0]));
++        db[i]=VspDot(normal_a,VspSubtract(b[i],a[0]));
++    }
++    const bool acoplanar=da[0].GetSign()==0 && da[1].GetSign()==0 && da[2].GetSign()==0;
++    const bool bcoplanar=db[0].GetSign()==0 && db[1].GetSign()==0 && db[2].GetSign()==0;
++    if ( acoplanar && bcoplanar )
++    {
++        // Keep the existing coplanar overlap routine and untouched endpoints.
++        double v1[3],v2[3],normal[3];
++        SUB(v1,q1,p1)
++        SUB(v2,r1,p1)
++        CROSS(normal,v1,v2)
++        *coplanar=1;
++        return coplanar_tri_tri3d(p1,q1,r1,p2,q2,r2,normal);
++    }
++    if ( acoplanar || bcoplanar ) { return 0; }
++    const VspExactCut first=VspExactPlaneCut(a,da), second=VspExactPlaneCut(b,db);
++    if ( !first.count || !second.count ) { return 0; }
++    int axis=0;
++    VspRational extent(0);
++    for ( int k=0; k<3; ++k )
++    {
++        const VspRational e1=first.count==2 ? VspAbs(first.point[1][k]-first.point[0][k]):VspRational(0);
++        const VspRational e2=second.count==2 ? VspAbs(second.point[1][k]-second.point[0][k]):VspRational(0);
++        const VspRational largest=e1>=e2 ? e1:e2;
++        if ( largest>extent ) { extent=largest; axis=k; }
++    }
++    const VspExactPoint *low,*high;
++    if ( extent.GetSign()==0 )
++    {
++        if ( first.point[0]!=second.point[0] ) { return 0; }
++        low=high=&first.point[0];
++    }
++    else
++    {
++        const VspExactPoint *alow=&first.point[0], *ahigh=&first.point[first.count-1];
++        const VspExactPoint *blow=&second.point[0], *bhigh=&second.point[second.count-1];
++        if ( (*alow)[axis]>(*ahigh)[axis] ) { std::swap(alow,ahigh); }
++        if ( (*blow)[axis]>(*bhigh)[axis] ) { std::swap(blow,bhigh); }
++        low=(*alow)[axis]>=(*blow)[axis] ? alow:blow;
++        high=(*ahigh)[axis]<=(*bhigh)[axis] ? ahigh:bhigh;
++        if ( (*low)[axis]>(*high)[axis] ) { return 0; }
++    }
++    // Only the admitted exact closed segment is rounded to the public doubles.
++    double rounded_source[3],rounded_target[3];
++    for ( int k=0; k<3; ++k )
++    {
++        rounded_source[k]=static_cast<double>((*low)[k]);
++        rounded_target[k]=static_cast<double>((*high)[k]);
++        if ( !std::isfinite(rounded_source[k]) || !std::isfinite(rounded_target[k]) ) { return 0; }
++    }
++    for ( int k=0; k<3; ++k ) { source[k]=rounded_source[k]; target[k]=rounded_target[k]; }
++    return 1;
++}
++
+ 
+ 
+ 
+--- a/src/external/tritri/CMakeLists.txt
++++ b/src/external/tritri/CMakeLists.txt
+@@ -10,4 +10,7 @@
+ intersect_triangle.cpp
+ tri_tri_intersect.cpp
+ tri_tri_intersect.h
+-)
+\ No newline at end of file
++)
++
++# Existing header-only exact arithmetic; no new binary dependency.
++target_include_directories(tritri PRIVATE ${GTE_INCLUDE_DIR})

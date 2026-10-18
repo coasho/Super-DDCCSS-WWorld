@@ -33,6 +33,7 @@ ISP = {"aluminised": 255.0}
 ISP_PLAIN = 245.0
 COAST_N = 2.0           # N: a pulse motor between its pulses (a phase of no thrust), so that its burn goes on to the next
 BUILDUP = 0.05          # s: its thrust's rise
+_IGNITION_TIME_THRUST = "fsim/ignition-time-thrust-v1"
 GRAIN_DENSITY = 1750.0  # kg/m^3 (AP/HTPB)
 GRAIN_RADIUS = 0.9      # the grain's radius, of the body's
 GRAIN_PORT = 0.15       # its bore's share of its section
@@ -40,6 +41,32 @@ GRAIN_AFT = 0.03        # m: between the grain's aft end and the nozzle's cone
 # its axial drag's rise over Mach: a carried store's (storemodels.MACH_RISE), on to Mach 4 (a missile's speeds: assumed)
 RISE = MACH_RISE + [(3.0, 1.4), (4.0, 1.2)]
 CLASSES = ("aam", "bomb")
+
+
+def _ignition_time_thrust_rows(phases):
+    """A validated pulsed motor's vacuum thrust (lbf) against native ignition time (s).
+
+    A consumed-mass axis can skip a low-thrust coast in one integration step. The
+    versioned native time table advances through it regardless of its tiny mass.
+    Preserve the existing 2 N coast and its grain/impulse. The first native sine
+    ramp delays every subsequent boundary by its lost effective burn time.
+    """
+    if phases[0]["duration_s"] < BUILDUP:
+        raise ValueError("motor: ignition-time table requires the first phase to cover buildup")
+    forces = [max(1000.0 * p["thrust_kn"], COAST_N) / LBF for p in phases]
+    deficit = BUILDUP * (1.0 - 2.0 / math.pi)
+    rows, elapsed = [(0.0, forces[0])], 0.0
+    for index, phase in enumerate(phases):
+        elapsed += phase["duration_s"]
+        boundary = elapsed + deficit
+        before = math.nextafter(boundary, -math.inf)
+        # Adjacent double coordinates describe an abrupt transition without a
+        # unit-dependent epsilon. Seventeen digits preserve both in the XML.
+        if not math.isfinite(boundary) or before <= rows[-1][0]:
+            raise ValueError("motor: ignition-time table knots collapse at double precision")
+        rows.append((before, forces[index]))
+        rows.append((boundary, forces[index + 1] if index + 1 < len(forces) else 0.0))
+    return rows
 
 
 def _inertia(design, m, length):
@@ -63,22 +90,80 @@ def motor_of(design, m, cg, radius):
         return None
     motor = design["motor"]
     validate_motor(motor)
+    from .motorinputs import _number
+
+    def quantity(value, label, positive=False):
+        value = _number(value, label)
+        if positive and value <= 0.0:
+            raise ValueError("motor: %s must be positive" % label)
+        return value
+
+    m = quantity(m, "launch mass", True)
+    cg = quantity(cg, "launch CG")
+    radius = quantity(radius, "body radius", True)
     phases = (motor or {}).get("phase", [])
     if not phases:
         return None
     isp = ISP.get(motor.get("smoke"), ISP_PLAIN)
-    rows, burnt = [], 0.0
+    rows, burnt, impulse, burn_s = [], 0.0, 0.0, 0.0
     for i, p in enumerate(phases):
-        newtons = max(1000.0 * p["thrust_kn"], COAST_N)
-        rows.append(((burnt + (1e-6 if i else 0.0)) / LB, newtons / LBF))
-        burnt += newtons * p["duration_s"] / (isp * G0)
-        rows.append((burnt / LB, newtons / LBF))
-    R = GRAIN_RADIUS * radius
-    length = burnt / (GRAIN_DENSITY * math.pi * R * R * (1.0 - GRAIN_PORT))
-    bore = 2.0 * R * math.sqrt(GRAIN_PORT)
-    x = motor["exit"][0] - motor.get("cone_length", 0.0) - GRAIN_AFT - 0.5 * length
-    return dict(isp=isp, propellant_kg=burnt, burn_s=sum(p["duration_s"] for p in phases), rows=rows, radius=R, bore=bore, length=length, x=x,
-                exit_x=motor["exit"][0], exit_area=0.25 * math.pi * motor["exit_diameter"] ** 2)
+        newtons = quantity(max(1000.0 * p["thrust_kn"], COAST_N), "simulated phase thrust", True)
+        phase_impulse = quantity(newtons * p["duration_s"], "simulated phase impulse", True)
+        impulse = quantity(impulse + phase_impulse, "total simulated impulse", True)
+        burn_s = quantity(burn_s + p["duration_s"], "total simulated burn duration", True)
+        rows.append((quantity((burnt + (1e-6 if i else 0.0)) / LB, "thrust-table consumed mass"),
+                     quantity(newtons / LBF, "thrust-table force", True)))
+        burnt = quantity(burnt + phase_impulse / (isp * G0), "propellant mass", True)
+        rows.append((quantity(burnt / LB, "thrust-table consumed mass", True), newtons / LBF))
+    previous = emitted_previous = -math.inf
+    for consumed, force in rows:
+        emitted_consumed = float("%.7f" % consumed)
+        emitted_force = float("%.3f" % force)
+        if consumed <= previous or emitted_consumed <= emitted_previous:
+            raise ValueError("motor: consumed-mass thrust table must increase strictly at the emitted precision")
+        if not math.isfinite(emitted_consumed) or not math.isfinite(emitted_force) or emitted_force <= 0.0:
+            raise ValueError("motor: thrust table must remain finite with positive force at the emitted precision")
+        previous, emitted_previous = consumed, emitted_consumed
+    if burnt >= m:
+        raise ValueError("motor: propellant mass must be less than launch mass")
+    empty = quantity(m - burnt, "remaining structure mass", True)
+    R = quantity(GRAIN_RADIUS * radius, "grain radius", True)
+    volume_per_length = quantity(GRAIN_DENSITY * math.pi * R * R * (1.0 - GRAIN_PORT), "grain mass per length", True)
+    length = quantity(burnt / volume_per_length, "grain length", True)
+    bore = quantity(2.0 * R * math.sqrt(GRAIN_PORT), "grain bore", True)
+    quantity(length * length, "grain squared length", True)
+    x = quantity(motor["exit"][0] - motor.get("cone_length", 0.0) - GRAIN_AFT - 0.5 * length, "grain centre")
+    try:
+        exit_area = quantity(0.25 * math.pi * motor["exit_diameter"] ** 2, "nozzle exit area", True)
+    except OverflowError as error:
+        raise ValueError("motor: nozzle exit area is not finite") from error
+    empty_cg = quantity((quantity(m * cg, "launch mass moment") - quantity(burnt * x, "grain mass moment")) / empty,
+                        "remaining structure CG")
+    if design.get("aircraft", {}).get("category") == "missile":
+        try:
+            nose = min(quantity(body["stations"][0]["x"], "body nose") for body in design["body"])
+            tail = max(quantity(body["stations"][-1]["x"], "body tail") for body in design["body"])
+            body_length = quantity(tail - nose, "body length", True)
+            gyration = design["mass"]["gyration"]
+            if len(gyration) != 3:
+                raise ValueError("motor: gyration must have three positive coordinates")
+            for value in gyration:
+                quantity(value, "gyration", True)
+            if x - 0.5 * length < nose or x + 0.5 * length > tail:
+                raise ValueError("motor: derived grain does not fit inside the body")
+            ixx, iyy = _inertia(design, m, body_length)
+            quantity(ixx, "launch roll inertia", True)
+            quantity(iyy, "launch pitch inertia", True)
+            rb = 0.5 * bore
+            quantity(ixx - 0.5 * burnt * (R * R + rb * rb), "remaining structure roll inertia", True)
+            quantity(iyy - burnt * (3.0 * (R * R + rb * rb) + length * length) / 12.0 - burnt * (x - cg) ** 2 -
+                     empty * (empty_cg - cg) ** 2, "remaining structure pitch inertia", True)
+        except (KeyError, IndexError, TypeError, OverflowError, ValueError) as error:
+            if isinstance(error, ValueError) and str(error).startswith("motor:"):
+                raise
+            raise ValueError("motor: invalid body geometry or structure inertia") from error
+    return dict(isp=isp, propellant_kg=burnt, burn_s=burn_s, rows=rows, radius=R, bore=bore, length=length, x=x,
+                exit_x=motor["exit"][0], exit_area=exit_area)
 
 
 def _table(mach, values, indent, precise=False):
@@ -385,19 +470,25 @@ def files(card):
                           (b["input"]["sha256"], payload_digest(dict(b, cg_m=cg)), domain))
     out = {name + ".xml": xml}
     if motor:
+        table_name = "propulsion/thrust_prop_remain"
+        table_text = "\n".join("            %.7f %.3f" % row for row in motor["rows"])
+        if any(phase["thrust_kn"] == 0.0 for phase in design["motor"]["phase"]):
+            table_name = _IGNITION_TIME_THRUST
+            table_text = "\n".join("            %.17g %.17g" % row
+                                   for row in _ignition_time_thrust_rows(design["motor"]["phase"]))
         out["Engines/%s_motor.xml" % name] = """<?xml version="1.0"?>
 <!-- Written by hangar (storemodels.py) from the design of %s: its motor's phases there (assumed: none is published),
      %.1f kg of propellant at %.0f s (assumed), burning %.1f s. Do not edit. -->
 <rocket_engine name="%s motor">
     <isp> %.1f </isp>
     <builduptime> %.2f </builduptime>
-    <thrust_table name="propulsion/thrust_prop_remain" type="internal">
+    <thrust_table name="%s" type="internal">
         <tableData>
 %s
         </tableData>
     </thrust_table>
 </rocket_engine>
-""" % (name, motor["propellant_kg"], motor["isp"], motor["burn_s"], name, motor["isp"], BUILDUP, "\n".join("            %.7f %.3f" % row for row in motor["rows"]))
+""" % (name, motor["propellant_kg"], motor["isp"], motor["burn_s"], name, motor["isp"], BUILDUP, table_name, table_text)
         out["Engines/%s_nozzle.xml" % name] = """<?xml version="1.0"?>
 <!-- Written by hangar (storemodels.py): the nozzle's exit of %s's design. Do not edit. -->
 <nozzle name="%s nozzle">

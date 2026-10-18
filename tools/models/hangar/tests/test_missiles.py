@@ -5,6 +5,7 @@ import json
 import copy
 import importlib.util
 import io
+import math
 import os
 import pathlib
 import tempfile
@@ -55,6 +56,66 @@ def _invalid_synthetic_motors():
 
 
 class Missiles(unittest.TestCase):
+    def test_pulse_motor_uses_ignition_time_without_changing_other_generated_files(self):
+        import xml.etree.ElementTree as ET
+        from hangar import storebodies
+        for name, card_id in (("pl15", "pl-15"), ("r37m", "r-37m"), ("r77m", "r-77m")):
+            with self.subTest(model=name):
+                root = pathlib.Path(pipeline.repo_root())
+                card = json.loads((root / "assets/stores" / (card_id + ".json")).read_text(encoding="utf-8"))
+                generated = storebodies.files(card)
+                engine_name = "Engines/%s_motor.xml" % name
+                table = ET.fromstring(generated[engine_name]).find("thrust_table")
+                self.assertEqual(table.get("name"), "fsim/ignition-time-thrust-v1")
+                rows = [tuple(map(float, line.split())) for line in table.findtext("tableData").splitlines() if line.strip()]
+                self.assertEqual(rows[-1][1], 0.0)
+                for path, text in generated.items():
+                    if path != engine_name:
+                        self.assertEqual(text, (root / "aircraft/stores" / name / path).read_text(encoding="utf-8"))
+
+    def test_pulse_time_table_keeps_the_coast_and_conserves_assumed_impulse(self):
+        import bisect
+        from hangar.storebodies import BUILDUP, LBF, _ignition_time_thrust_rows
+        phases = [{"duration_s": 4.0, "thrust_kn": 25.0},
+                  {"duration_s": 6.0, "thrust_kn": 0.0},
+                  {"duration_s": 4.0, "thrust_kn": 12.0}]
+        original = copy.deepcopy(phases)
+        rows = _ignition_time_thrust_rows(phases)
+        deficit = BUILDUP * (1 - 2 / math.pi)
+        self.assertEqual(rows[0][0], 0.0)
+        self.assertEqual(rows[-1], (14.0 + deficit, 0.0))
+        self.assertEqual(phases, original)
+        coordinates = [x for x, _ in rows]
+        emitted = [float("%.17g" % x) for x in coordinates]
+        self.assertTrue(all(a < b for a, b in zip(emitted, emitted[1:])))
+        for time, newtons in ((1.0, 25000.0), (4.0 + deficit, 2.0), (5.0, 2.0),
+                              (9.0, 2.0), (10.0 + deficit, 12000.0), (11.0, 12000.0), (15.0, 0.0)):
+            index = max(0, min(len(rows) - 2, bisect.bisect_right(coordinates, time) - 1))
+            (x0, y0), (x1, y1) = rows[index:index + 2]
+            actual = y0 + max(0.0, min(1.0, (time - x0) / (x1 - x0))) * (y1 - y0)
+            self.assertAlmostEqual(actual * LBF, newtons, delta=1e-9)
+        # The native sine ramp removes exactly this first-phase impulse.
+        area = sum((x1 - x0) * (y0 + y1) / 2 for (x0, y0), (x1, y1) in zip(rows, rows[1:])) * LBF
+        self.assertAlmostEqual(area - 25000.0 * deficit, 148012.0, delta=1e-7)
+
+    def test_pulse_time_table_rejects_unsupported_start_and_collapsed_time_knots(self):
+        from hangar.storebodies import _ignition_time_thrust_rows
+        cases = ([{"duration_s": 0.01, "thrust_kn": 25.0}, {"duration_s": 1.0, "thrust_kn": 0.0}],
+                 [{"duration_s": 4.0, "thrust_kn": 25.0}, {"duration_s": 1e-18, "thrust_kn": 0.0}],
+                 [{"duration_s": 1e15, "thrust_kn": 25.0}, {"duration_s": 0.001, "thrust_kn": 0.0}])
+        for phases in cases:
+            with self.subTest(phases=phases), self.assertRaisesRegex(ValueError, "motor:.*(buildup|time|precision)"):
+                _ignition_time_thrust_rows(phases)
+
+    def test_continuous_motor_generation_preserves_committed_bytes(self):
+        from hangar import storebodies
+        root = pathlib.Path(pipeline.repo_root())
+        for name, card_id in (("aim120c", "aim-120c"), ("meteor", "meteor")):
+            card = json.loads((root / "assets/stores" / (card_id + ".json")).read_text(encoding="utf-8"))
+            for path, text in storebodies.files(card).items():
+                with self.subTest(model=name, path=path):
+                    self.assertEqual(text, (root / "aircraft/stores" / name / path).read_text(encoding="utf-8"))
+
     def test_motor_input_helper_preserves_valid_declarations(self):
         from hangar.motorinputs import validate_motor
         for smoke in Motor.SMOKE:
@@ -135,6 +196,155 @@ class Missiles(unittest.TestCase):
                 d = types.SimpleNamespace(aircraft=aircraft, save=lambda stage, data: data)
                 with self.assertRaisesRegex(ValueError, "motor:"):
                     storestages.propulsion(d)
+
+    def test_motor_burn_commands_ignition_before_stepping_and_closes_world(self):
+        from hangar import storebodies, storestages
+        aircraft = types.SimpleNamespace(spec={"mass": {"empty": 2.0, "empty_cg": [0.5, 0.0, 0.0]}},
+                                         bodies=[types.SimpleNamespace(kind="fuselage", w=[0.2])])
+        design = types.SimpleNamespace(name="synthetic-burn", aircraft=aircraft)
+        motor = {"propellant_kg": 0.25, "burn_s": 0.1, "isp": 245.0}
+        for refuse in (False, True):
+            with self.subTest(ignition_refused=refuse):
+                events = []
+
+                def ignite(**command):
+                    events.append(("ignite", command))
+                    if refuse:
+                        raise RuntimeError("synthetic ignition refusal")
+
+                def step(count):
+                    self.assertEqual(events[0], ("ignite", {"throttle": 1}))
+                    events.append(("step", count))
+
+                vehicle = types.SimpleNamespace(command_actuator=ignite, mass_kg=1.75,
+                    state=types.SimpleNamespace(diverged=False, velocity_ned_ms=(450.0, 0.0, 0.0)))
+                world = types.SimpleNamespace(create_vehicle=mock.Mock(return_value=vehicle), step_seconds=0.05,
+                                              step=step, close=lambda: events.append(("close",)))
+                with mock.patch.object(storestages, "_world", return_value=(None, world)), \
+                        mock.patch.object(storebodies, "motor_of", return_value=motor):
+                    result = storestages._burn(design, {"model": "synthetic-model"})
+                self.assertEqual(events[0], ("ignite", {"throttle": 1}))
+                self.assertEqual(events[-1], ("close",))
+                self.assertEqual(sum(event[0] == "close" for event in events), 1)
+                self.assertEqual(sum(event[0] == "ignite" for event in events), 1)
+                if refuse:
+                    self.assertFalse(any(event[0] == "step" for event in events))
+                    self.assertEqual(result["checks"][-1]["status"], "fail")
+                    self.assertIn("synthetic ignition refusal", result["checks"][-1]["note"])
+                else:
+                    self.assertTrue(any(event[0] == "step" for event in events))
+                    self.assertTrue(result["burn"])
+                    self.assertTrue(all(check["status"] == "pass" for check in result["checks"]))
+
+    def test_motor_input_helper_rejects_derived_and_accumulated_overflow(self):
+        from hangar.motorinputs import validate_motor
+        cases = {
+            "thrust conversion": [{"duration_s": 1.0, "thrust_kn": 1e308}],
+            "phase impulse": [{"duration_s": 1e308, "thrust_kn": 1.0}],
+            "total burn duration": [{"duration_s": 1e308, "thrust_kn": 0.0}] * 2,
+            "total impulse": [{"duration_s": 1.0, "thrust_kn": 9e304}] * 2,
+        }
+        for label, phases in cases.items():
+            with self.subTest(label=label), self.assertRaisesRegex(ValueError, "motor:.*(thrust|impulse|duration)"):
+                validate_motor(_synthetic_motor() | {"phase": phases})
+
+    def test_motor_generator_rejects_invalid_installation_quantities(self):
+        from hangar.storebodies import motor_of
+        cases = [("launch mass", value, 0.5, 0.1) for value in
+                 (-1.0, 0.0, True, float("nan"), float("inf"), 10 ** 400)]
+        cases += [("launch CG", 1.0, value, 0.1) for value in
+                  (True, float("nan"), float("inf"), 10 ** 400)]
+        cases += [("body radius", 1.0, 0.5, value) for value in
+                  (-0.1, 0.0, True, float("nan"), float("inf"), 10 ** 400)]
+        for label, mass, cg, radius in cases:
+            with self.subTest(label=label, mass=mass, cg=cg, radius=radius), self.assertRaisesRegex(ValueError, "motor:"):
+                motor_of({"motor": _synthetic_motor()}, mass, cg, radius)
+
+    def test_motor_generator_rejects_unrepresentable_grain_and_exhaust(self):
+        from hangar.storebodies import motor_of
+        for radius in (1e-250, 1e-100, 1e200):
+            with self.subTest(radius=radius), self.assertRaisesRegex(ValueError, "motor:.*grain"):
+                motor_of({"motor": _synthetic_motor()}, 1.0, 0.5, radius)
+        for diameter in (1e-200, 1e200):
+            spec = _synthetic_motor() | {"exit_diameter": diameter, "throat_diameter": 0.4 * diameter,
+                                         "cone_length": 0.1}
+            with self.subTest(diameter=diameter), self.assertRaisesRegex(ValueError, "motor:.*exit area"):
+                motor_of({"motor": spec}, 1.0, 0.5, 0.1)
+
+    def test_motor_generator_rejects_propellant_without_positive_structure(self):
+        from hangar.storebodies import G0, ISP_PLAIN, motor_of
+        propellant = 2.0 / (ISP_PLAIN * G0)  # the existing 2 N minimum sustained for one second
+        for mass in (0.5 * propellant, propellant):
+            with self.subTest(mass=mass), self.assertRaisesRegex(ValueError, "motor:.*(propellant|structure)"):
+                motor_of({"motor": _synthetic_motor()}, mass, 0.5, 0.1)
+        spec = _synthetic_motor() | {"phase": [{"duration_s": 1e308, "thrust_kn": 0.0}]}
+        with self.assertRaisesRegex(ValueError, "motor:.*impulse"):
+            motor_of({"motor": spec}, 1e308, 0.5, 0.1)
+
+    def test_motor_generator_rejects_impossible_structure_inertia_and_grain_fit(self):
+        from hangar.storebodies import motor_of
+        base = {"aircraft": {"category": "missile"}, "motor": _synthetic_motor(),
+                "body": [{"stations": [{"x": 0.0}, {"x": 2.0}]}],
+                "mass": {"gyration": [0.1, 0.3, 0.3]}}
+        for gyration in ([0.0, 0.3, 0.3], [1e-8, 0.3, 0.3], [0.1, 1e-8, 0.3],
+                         [0.1, 0.3, float("nan")], [1e308, 0.3, 0.3]):
+            design = copy.deepcopy(base)
+            design["mass"]["gyration"] = gyration
+            with self.subTest(gyration=gyration), self.assertRaisesRegex(ValueError, "motor:.*(inertia|gyration)"):
+                motor_of(design, 1.0, 0.5, 0.1)
+        with self.assertRaisesRegex(ValueError, "motor:.*grain.*(fit|body)"):
+            motor_of(base, 1.0, 0.5, 1e-5)
+        with self.assertRaisesRegex(ValueError, "motor:.*(CG|moment|structure)"):
+            motor_of(base, 1e308, 1e308, 0.1)
+
+    def test_motor_invalid_physical_state_fails_before_generated_xml(self):
+        from hangar import storeaero, storebodies
+        with open(os.path.join(pipeline.repo_root(), "assets", "stores", "aim-120c.json"), encoding="utf-8") as f:
+            card = json.load(f)
+        geo = storeaero.geometry(card)
+        geo["design"] = copy.deepcopy(geo["design"])
+        geo["design"]["mass"]["gyration"][0] = 1e-12
+        with mock.patch.object(storeaero, "geometry", return_value=geo), self.assertRaisesRegex(ValueError, "motor:.*inertia"):
+            storebodies.files(card)
+
+    def test_motor_generator_rejects_malformed_physical_body_dimensions(self):
+        from hangar.storebodies import motor_of
+        bodies = ([], [{"stations": []}], [{"stations": [{"x": 0.0}, {"x": 0.0}]}],
+                  [{"stations": [{"x": 0.0}, {"x": float("nan")}]}])
+        for body in bodies:
+            design = {"aircraft": {"category": "missile"}, "motor": _synthetic_motor(),
+                      "body": body, "mass": {"gyration": [0.1, 0.3, 0.3]}}
+            with self.subTest(body=body), self.assertRaisesRegex(ValueError, "motor:.*body"):
+                motor_of(design, 1.0, 0.5, 0.1)
+
+    def test_motor_generator_preserves_zero_thrust_coast_semantics(self):
+        from hangar.storebodies import G0, ISP_PLAIN, LBF, motor_of
+        spec = _synthetic_motor() | {"phase": [{"duration_s": 0.5, "thrust_kn": 0.0},
+                                              {"duration_s": 0.75, "thrust_kn": 0.004}]}
+        original = copy.deepcopy(spec)
+        motor = motor_of({"motor": spec}, 1.0, 0.5, 0.1)
+        self.assertEqual(motor["burn_s"], 1.25)
+        self.assertAlmostEqual(motor["propellant_kg"], 4.0 / (ISP_PLAIN * G0))
+        self.assertEqual(motor["rows"][0][1], 2.0 / LBF)
+        self.assertEqual(motor["rows"][-1][1], 4.0 / LBF)
+        self.assertEqual(spec, original)
+
+    def test_motor_generator_rejects_unrepresentable_consumed_mass_grid(self):
+        from hangar.storebodies import motor_of
+        cases = {
+            "boundary offset exceeds next phase": [
+                {"duration_s": 1.0, "thrust_kn": 0.004},
+                {"duration_s": 1e-4, "thrust_kn": 0.004}],
+            "first phase collapses in emitted precision": [
+                {"duration_s": 1e-5, "thrust_kn": 0.004}],
+            "large consumed mass loses boundary offset": [
+                {"duration_s": 1e15, "thrust_kn": 0.004},
+                {"duration_s": 1e15, "thrust_kn": 0.004}],
+        }
+        for label, phases in cases.items():
+            spec = _synthetic_motor() | {"phase": phases}
+            with self.subTest(label=label), self.assertRaisesRegex(ValueError, "motor:.*(table|grid|precision)"):
+                motor_of({"motor": spec}, 1e14, 0.5, 1.0)
 
     def test_written_as_committed(self):
         # the table is how each design was made: the committed files are what it writes

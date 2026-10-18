@@ -479,3 +479,169 @@ TEST_CASE("a reset with a seed restarts the vehicle's random stream: in turbulen
     CHECK(sameBits(afterReset(true), fresh));
     CHECK_FALSE(sameBits(afterReset(false), fresh)); // (the gusts went on: the turbulence is on)
 }
+
+TEST_CASE("weapon release rejects a launcher from another World without changing either World", "[sdk][weapons][ownership]") {
+    WorldOptions o;
+    o.publish = false;
+    o.workers = 1;
+    o.pinWorkers = false;
+    o.jsbsimRoot = FSIM_TEST_JSBSIM_ROOT;
+    o.name = "sdk-launch-owner";
+    World world(o);
+    o.name = "sdk-launch-foreign";
+    World other(o);
+    VehicleSpec spec;
+    spec.name = "carrier";
+    spec.type = "jsbsim:f16c";
+    spec.initial.altitudeMslM = 6000.0;
+    spec.initial.airspeedTrueMs = 250.0;
+    Vehicle own = world.createVehicle(spec), foreign = other.createVehicle(spec);
+    REQUIRE(own.id() == foreign.id()); // An ID alone cannot establish launcher ownership.
+    REQUIRE(own.loadLoadout("mk82 x4") == ms::Reason::None);
+    REQUIRE(foreign.loadLoadout("mk82 x4") == ms::Reason::None);
+    const auto ownState = values(own.state()), foreignState = values(foreign.state());
+    const auto ownStores = own.stores(), foreignStores = foreign.stores();
+    REQUIRE_FALSE(ownStores.empty());
+    const double ownMass = own.massKg(), foreignMass = foreign.massKg();
+
+    CHECK_THROWS_AS(world.launchWeapon(foreign), Error);
+    CHECK(world.vehicleCount() == 1);
+    CHECK(other.vehicleCount() == 1);
+    CHECK(world.weapons().empty());
+    CHECK(other.weapons().empty());
+    CHECK(world.engagementEvents().empty());
+    CHECK(other.engagementEvents().empty());
+    CHECK(world.time() == 0.0);
+    CHECK(other.time() == 0.0);
+    CHECK(world.worldSteps() == 0);
+    CHECK(other.worldSteps() == 0);
+    CHECK(sameBits(values(own.state()), ownState));
+    CHECK(sameBits(values(foreign.state()), foreignState));
+    CHECK(own.massKg() == ownMass);
+    CHECK(foreign.massKg() == foreignMass);
+    const auto unchangedStores = [](const Vehicle& vehicle, const std::vector<ms::StoreInfo>& before) {
+        const auto after = vehicle.stores();
+        REQUIRE(after.size() == before.size());
+        for (std::size_t i = 0; i < before.size(); ++i) {
+            CHECK(after[i].index == before[i].index);
+            CHECK(after[i].station == before[i].station);
+            CHECK(std::string(after[i].store) == before[i].store);
+            CHECK(after[i].status == before[i].status);
+            CHECK(after[i].weapon == before[i].weapon);
+            CHECK(after[i].massKg == before[i].massKg);
+            CHECK(after[i].fuelKg == before[i].fuelKg);
+        }
+    };
+    unchangedStores(own, ownStores);
+    unchangedStores(foreign, foreignStores);
+    const Vehicle released = world.launchWeapon(own);
+    CHECK(released.id() == own.id() + 1); // A refused foreign release must not consume an entity ID.
+    CHECK(released.role() == ms::Role::Weapon);
+    CHECK(released.launcher() == own.id());
+    REQUIRE(world.weapons().size() == 1);
+    CHECK(other.weapons().empty());
+}
+
+TEST_CASE("weapon release accepts wrappers of its native World and rejects invalid launchers", "[sdk][weapons][ownership]") {
+    WorldOptions o;
+    o.name = "sdk-launch-wrapper";
+    o.publish = false;
+    o.workers = 1;
+    o.pinWorkers = false;
+    o.jsbsimRoot = FSIM_TEST_JSBSIM_ROOT;
+    World world(o);
+    VehicleSpec spec;
+    spec.name = "carrier";
+    spec.type = "jsbsim:f16c";
+    spec.initial.altitudeMslM = 6000.0;
+    spec.initial.airspeedTrueMs = 250.0;
+    Vehicle own = world.createVehicle(spec);
+    CHECK_THROWS_AS(world.launchWeapon(Vehicle{}), Error);
+    CHECK(world.vehicleCount() == 1);
+    std::unique_ptr<World> alias(World::borrowed(world.impl()));
+    const Vehicle first = alias->launchWeapon(own);
+    const Vehicle second = world.launchWeapon(alias->vehicle(own.id()));
+    CHECK(first.id() == own.id() + 1);
+    CHECK(second.id() == first.id() + 1);
+    CHECK(first.launcher() == own.id());
+    CHECK(second.launcher() == own.id());
+    REQUIRE(own.remove());
+    const std::size_t count = world.vehicleCount();
+    CHECK_THROWS_AS(world.launchWeapon(own), Error);
+    CHECK(world.vehicleCount() == count);
+    CHECK(world.weapons().size() == 2);
+}
+
+TEST_CASE("released weapons retain native armed and inert propulsion inputs", "[sdk][weapons][propulsion]") {
+    for (const double dt : {1.0 / 60.0, 1.0 / 120.0}) {
+        for (const char* type : {"jsbsim:aim120c", "jsbsim:pl15"}) {
+            WorldOptions options;
+            options.name = "sdk-released-motor";
+            options.publish = false;
+            options.workers = 1;
+            options.pinWorkers = false;
+            options.dt = dt;
+            options.frameSkip = 1;
+            options.jsbsimRoot = FSIM_TEST_JSBSIM_ROOT;
+            World world(options);
+            VehicleSpec spec;
+            spec.name = "carrier";
+            spec.type = "jsbsim:f16c";
+            spec.initial.altitudeMslM = 6000.0;
+            spec.initial.airspeedTrueMs = 250.0;
+            const Vehicle carrier = world.createVehicle(spec);
+            ms::WeaponLaunch launch;
+            launch.type = type;
+            Vehicle armed = world.launchWeapon(carrier, launch);
+            launch.inert = true;
+            launch.offsetBodyM[1] += 100.0;
+            Vehicle inert = world.launchWeapon(carrier, launch);
+            const double armedFuel = armed.state().fuelKg, inertFuel = inert.state().fuelKg;
+            REQUIRE(armedFuel > 0.0);
+            REQUIRE(inertFuel > 0.0);
+            // Loading never burns the motor. Only the released weapon's first
+            // actual native steps may ignite it; the aircraft cascade must not
+            // replace its launch inputs with an unrelated neutral command.
+            CHECK(armed.state().thrustN[0] == 0.0);
+            CHECK(inert.state().thrustN[0] == 0.0);
+            world.step(10);
+            CHECK(armed.state().thrustN[0] > 100.0);
+            CHECK(armed.state().fuelKg < armedFuel);
+            CHECK(armed.state().throttlePosition[0] == 1.0);
+            CHECK(inert.state().thrustN[0] == 0.0);
+            CHECK(inert.state().fuelKg == inertFuel);
+            CHECK(inert.state().throttlePosition[0] == 0.0);
+            world.step(20);
+            CHECK(armed.state().thrustN[0] > 100.0);
+            CHECK(armed.state().fuelKg < armedFuel);
+            CHECK(inert.state().thrustN[0] == 0.0);
+            CHECK(inert.state().fuelKg == inertFuel);
+            REQUIRE(armed.reset(spec.initial));
+            auto unpowered = spec.initial;
+            unpowered.enginesRunning = false;
+            REQUIRE(inert.reset(unpowered));
+            CHECK(armed.state().fuelKg == armedFuel);
+            CHECK(armed.state().thrustN[0] == 0.0);
+            CHECK(inert.state().fuelKg == inertFuel);
+            CHECK(inert.state().thrustN[0] == 0.0);
+            world.step(10);
+            CHECK(armed.state().thrustN[0] > 100.0);
+            CHECK(armed.state().fuelKg < armedFuel);
+            CHECK(armed.state().throttlePosition[0] == 1.0);
+            CHECK(inert.state().thrustN[0] == 0.0);
+            CHECK(inert.state().fuelKg == inertFuel);
+            CHECK(inert.state().throttlePosition[0] == 0.0);
+            // Reset follows the newly requested engine state rather than the
+            // original release's armed/inert choice.
+            REQUIRE(armed.reset(unpowered));
+            REQUIRE(inert.reset(spec.initial));
+            world.step(10);
+            CHECK(armed.state().thrustN[0] == 0.0);
+            CHECK(armed.state().fuelKg == armedFuel);
+            CHECK(armed.state().throttlePosition[0] == 0.0);
+            CHECK(inert.state().thrustN[0] > 100.0);
+            CHECK(inert.state().fuelKg < inertFuel);
+            CHECK(inert.state().throttlePosition[0] == 1.0);
+        }
+    }
+}

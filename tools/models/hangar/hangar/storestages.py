@@ -641,6 +641,7 @@ def _burn(d, card):
     try:
         v0 = 250.0
         v = w.create_vehicle(d.name, card["model"], latitude_deg=37.6, longitude_deg=-122.4, altitude_msl_m=8000.0, airspeed_ms=v0, heading_deg=270.0)
+        v.command_actuator(throttle=1)
         n = max(1, int(round(0.05 / w.step_seconds)))
         burnt_at, fastest, lost, t = None, v0, None, 0.0
         end = launch - m["propellant_kg"]

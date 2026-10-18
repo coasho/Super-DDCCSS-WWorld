@@ -644,6 +644,9 @@ World::World(Borrow, session::World& borrowed) : impl_(&borrowed, [](session::Wo
 World::~World() = default;
 
 Vehicle World::launchWeapon(const Vehicle& launcher, const ms::WeaponLaunch& launch) {
+    // Numeric IDs are local to a native World; distinct facade wrappers may share that World.
+    if (!launcher.world_ || &launcher.world_->impl() != impl_.get())
+        throw Error("World::launchWeapon: the launcher belongs to another world or is empty");
     const std::uint32_t id = impl_->launchWeapon(launcher.id(), launch);
     if (!id) throw Error("World::launchWeapon: no '" + launch.type + "' released by vehicle " + std::to_string(launcher.id()) + " (see log)");
     return Vehicle(this, id);

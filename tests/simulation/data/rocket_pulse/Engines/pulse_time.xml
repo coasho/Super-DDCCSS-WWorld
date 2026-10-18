@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<!-- Synthetic ignition-relative seconds and lbf, without startup smoothing. -->
+<rocket_engine name="pulse_time">
+  <isp>200</isp><builduptime>0</builduptime>
+  <thrust_table name="fsim/ignition-time-thrust-v1" type="internal"><tableData>
+    0.0 10
+    0.1 10
+    0.100000001 0
+    0.6 0
+    0.600000001 6
+    0.7 6
+    0.700000001 0
+  </tableData></thrust_table>
+</rocket_engine>

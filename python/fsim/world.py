@@ -3264,7 +3264,10 @@ class World:
     def launch_weapon(self, launcher, type="jsbsim:mk82", *, offset_m=(0.0, 0.0, 0.0), ejection_ms=(0.0, 0.0, 0.0), name=None):
         """Release a store from an aircraft: a new entity (its ``role`` "weapon") at ``offset_m`` from the launcher's CG
         (its body axes: x forward, y right, z down), flying off with its velocity, attitude and the ``ejection_ms`` push
-        (body axes). Flown by its own model, never by the flight capabilities. Raises fsim.Error if it cannot be."""
+        (body axes). Flown by its own model, never by the flight capabilities. A Vehicle must share this World's native
+        handle; numeric IDs name local vehicles. Raises fsim.Error if it cannot be."""
+        if isinstance(launcher, Vehicle) and launcher._h is not self._h:
+            raise _native.Error("World.launch_weapon: the launcher belongs to another world")
         lid = launcher.id if isinstance(launcher, Vehicle) else int(launcher)
         o, e = [float(x) for x in offset_m], [float(x) for x in ejection_ms]
         return self._vehicle(self._h.launch_weapon(lid, type, name or "", *o, *e))

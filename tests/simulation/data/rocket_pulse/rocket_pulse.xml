@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<!-- Synthetic timing fixture; arbitrary inputs describe no equipment. -->
+<fdm_config name="rocket_pulse" version="2.0">
+  <metrics>
+    <wingarea unit="FT2">1</wingarea><wingspan unit="FT">1</wingspan><chord unit="FT">1</chord>
+    <location name="AERORP" unit="IN"><x>0</x><y>0</y><z>0</z></location>
+    <location name="EYEPOINT" unit="IN"><x>0</x><y>0</y><z>0</z></location>
+    <location name="VRP" unit="IN"><x>0</x><y>0</y><z>0</z></location>
+  </metrics>
+  <mass_balance>
+    <ixx unit="SLUG*FT2">10</ixx><iyy unit="SLUG*FT2">10</iyy><izz unit="SLUG*FT2">10</izz>
+    <emptywt unit="LBS">100</emptywt>
+    <location name="CG" unit="IN"><x>0</x><y>0</y><z>0</z></location>
+  </mass_balance>
+  <ground_reactions/>
+  <propulsion>
+    <engine file="pulse_time"><feed>0</feed><thruster file="pulse_nozzle">
+      <location unit="IN"><x>0</x><y>0</y><z>0</z></location>
+      <orient unit="DEG"><pitch>0</pitch><yaw>0</yaw></orient>
+    </thruster></engine>
+    <engine file="pulse_legacy"><feed>1</feed><thruster file="pulse_nozzle">
+      <location unit="IN"><x>0</x><y>0</y><z>0</z></location>
+      <orient unit="DEG"><pitch>0</pitch><yaw>0</yaw></orient>
+    </thruster></engine>
+    <tank type="FUEL"><location unit="IN"><x>0</x><y>0</y><z>0</z></location>
+      <capacity unit="LBS">1</capacity><contents unit="LBS">1</contents></tank>
+    <tank type="FUEL"><location unit="IN"><x>0</x><y>0</y><z>0</z></location>
+      <capacity unit="LBS">1</capacity><contents unit="LBS">1</contents></tank>
+  </propulsion>
+  <flight_control name="None"/>
+  <aerodynamics/>
+</fdm_config>

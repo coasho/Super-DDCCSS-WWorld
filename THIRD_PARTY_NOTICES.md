@@ -6,6 +6,7 @@ with the following components; each keeps its own licence.
 | Component | Use | Licence | Shipped as |
 | --- | --- | --- | --- |
 | [JSBSim](https://github.com/JSBSim-Team/jsbsim) | flight dynamics (`src/simulation/flight`) and the aircraft data tree (`share/flightsim/jsbsim`) | LGPL-2.1 | `libJSBSim.dll` (shared library, vendored source in `third_party/jsbsim`), with project patches generated at build time - see below |
+| [OpenVSP / VSPAERO](https://github.com/OpenVSP/OpenVSP/tree/5240ef210f41c5d6aeed0ba7687f6fab0ca0cafb) | optional offline missile aerodynamic validation | NASA Open Source Agreement 1.3 | Pinned wake-node mapping and exact triangle-intersection patches, native regressions and exact upstream license under `tools/validation/missile/native/`; external headers/libraries/binaries are not included. The intersection patch uses upstream's already bundled GTE headers under Boost Software License 1.0. [Modification attribution and reproduction](tools/validation/missile/native/README.md) |
 | [VulkanSceneGraph](https://github.com/vsg-dev/VulkanSceneGraph) | viewer and vision rendering | MIT (c) 2018 Robert Osfield | statically linked into `flightsim-viewer.exe` and `libfsim_vision.dll` |
 | [vsgXchange](https://github.com/vsg-dev/vsgXchange) | model/image loading, tile fetching | MIT (c) 2019 Robert Osfield | statically linked |
 | [vsgImGui](https://github.com/vsg-dev/vsgImGui), [Dear ImGui](https://github.com/ocornut/imgui), [ImPlot](https://github.com/epezent/implot) | viewer UI | MIT | statically linked into `flightsim-viewer.exe` |
@@ -107,7 +108,13 @@ the following changes generated into the build tree by `cmake/JsbsimPatches.cmak
   `src/models/FGPropulsion.cpp`, the aircraft-engine steady-state warm-up skips rockets:
   their burn history starts with actual simulation steps, not while loading or resetting. A
   vehicle started on a reset model then starts as the same start on a new one, to the bit
-  (docs/FlightSim_System_Architecture_and_Design.md, 7.2). Between resets nothing changes.
+  (docs/FlightSim_System_Architecture_and_Design.md, 7.2). Ordinary thrust-table names retain
+  upstream consumed-mass lookup. The private versioned name
+  `fsim/ignition-time-thrust-v1` selects the existing ignition-relative burn time as
+  the lookup coordinate, so a preceding high-thrust step cannot skip a pulse motor's
+  coast. This adds no class members, virtual slots or public signatures; the engine's
+  existing ignition latch, buildup and reset apply. Generated pulse tables end with
+  zero thrust. See `docs/sdk/missile-flight-validation.md` for the bounded input model.
 - In `src/models/propulsion/FGTurbine.cpp`, a staged afterburner (augmethod 2) lights only
   with the core at military speed (the 97 % upstream's augmethod 1 gates on) and is lit as far
   as its fuel has risen, at the engine's augmented fuel-flow rates, from the dry engine's flow
