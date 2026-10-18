@@ -51,6 +51,10 @@ void geodetic(const double p[3], double& lat, double& lon, double& h) noexcept {
     h = r * std::cos(lat) + (p[2] + e2 * nr * sl) * sl - nr;
 }
 
+/// A measurement's standard deviation with its floor (SIM-M01): the thermal term and the floor in quadrature - or the
+/// thermal term itself, to the bit, where there is no floor.
+double floored(double thermal, double floor) noexcept { return floor > 0.0 ? std::hypot(thermal, floor) : thermal; }
+
 } // namespace
 
 Spec specOf(const Card& c) {
@@ -105,6 +109,12 @@ Spec specOf(const Card& c) {
     s.trackMemoryS = c.value("track_memory_s", s.trackMemoryS);
     s.trackUpdateS = c.value("track_update_s", s.trackUpdateS);
     s.acquireDwells = static_cast<int>(c.value("acquire_dwells", s.acquireDwells));
+    s.angleFloorBeamwidths = c.value("angle_floor_beamwidths", 0.0);
+    s.rangeFloorResolutions = c.value("range_floor_resolutions", 0.0);
+    s.rangeRateFloorResolutions = c.value("range_rate_floor_resolutions", 0.0);
+    // (a floor below zero or not a number describes no radar: refused, never read as none)
+    for (const double f : {s.angleFloorBeamwidths, s.rangeFloorResolutions, s.rangeRateFloorResolutions})
+        if (!std::isfinite(f) || f < 0.0) return s;
     s.ok = true;
     return s;
 }
@@ -443,13 +453,15 @@ void Radar::dwell(double time, double az, double el, const sim::VehicleState& ow
     const double cells = resolutionCells(search_.mode, dwellS_, search_.rangeScaleM, speed);
     const double pfa = dwellPfa(search_.mode, dwellS_, search_.rangeScaleM, speed);
     std::vector<Detection> found;
-    // a measurement's errors, as its SNR (linear) gives them (range resolution, monopulse beam splitting, Doppler resolution)
+    // a measurement's errors, as its SNR (linear) gives them (range resolution, monopulse beam splitting, Doppler
+    // resolution), none below its card's floors (SIM-M01): the same draws scaled, so the floors change no detection
     auto measured = [&](Detection& det, double s, double dwellTime) {
         const double root = std::sqrt(2.0 * std::max(s, 1.0));
-        det.sigma[0] = bwEl / (spec_.monopulseSlope * root);
-        det.sigma[1] = bwAz / (spec_.monopulseSlope * root);
-        det.sigma[2] = spec_.rangeResolutionM / root;
-        det.sigma[3] = (lambda / 2.0 / dwellTime) / root;
+        const double doppler = lambda / 2.0 / dwellTime;
+        det.sigma[0] = floored(bwEl / (spec_.monopulseSlope * root), spec_.angleFloorBeamwidths * bwEl);
+        det.sigma[1] = floored(bwAz / (spec_.monopulseSlope * root), spec_.angleFloorBeamwidths * bwAz);
+        det.sigma[2] = floored(spec_.rangeResolutionM / root, spec_.rangeFloorResolutions * spec_.rangeResolutionM);
+        det.sigma[3] = floored(doppler / root, spec_.rangeRateFloorResolutions * doppler);
     };
     for (std::size_t k = 0; k < n; ++k) {
         const sim::VehicleState& t = *states[k];
@@ -661,13 +673,28 @@ void Radar::dwellSignal(double time, double az, double el, const sim::VehicleSta
         det.elevationRad = el + mEl * bwEl;
         det.snrDb = 10.0 * std::log10(std::max(h.snr, 1e-3));
         const double root = std::sqrt(2.0 * std::max(h.snr, 1.0));
+        const double doppler = lambda / 2.0 / (dwellS_ / std::max(1, intervals));
         det.sigma[0] = bwEl / (spec_.monopulseSlope * root);
         det.sigma[1] = bwAz / (spec_.monopulseSlope * root);
         det.sigma[2] = spec_.rangeResolutionM / root;
-        det.sigma[3] = (lambda / 2.0 / (dwellS_ / std::max(1, intervals))) / root;
+        det.sigma[3] = doppler / root;
         if (h.truth == 0) ++falseAlarms_;
         found.push_back(det);
     }
+    // its floors (SIM-M01): an error the processing's own does not shrink below, each drawn from the signal level's
+    // stream after the dwell's own draws (none at all where the card gives no floor), its spread added to what the
+    // processing reports
+    const double floors[4] = {spec_.angleFloorBeamwidths * bwEl, spec_.angleFloorBeamwidths * bwAz, spec_.rangeFloorResolutions * spec_.rangeResolutionM,
+                              spec_.rangeRateFloorResolutions * lambda / 2.0 / (dwellS_ / std::max(1, intervals))};
+    if (floors[0] > 0.0 || floors[1] > 0.0 || floors[2] > 0.0 || floors[3] > 0.0)
+        for (Detection& det : found) {
+            double* value[4] = {&det.elevationRad, &det.azimuthRad, &det.rangeM, &det.rangeRateMs};
+            for (int k = 0; k < 4; ++k)
+                if (floors[k] > 0.0) {
+                    *value[k] += floors[k] * signalStream_.normal();
+                    det.sigma[k] = floored(det.sigma[k], floors[k]);
+                }
+        }
     finish(time, az, el, own, r, vOwn, found);
 }
 

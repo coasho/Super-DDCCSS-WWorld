@@ -76,6 +76,13 @@ struct Spec {
     double notchMs = 30.0;               ///< the main-beam clutter notch's half width (radial speed)
     double sidelobeClutterDb = 10.0;     ///< the SNR lost to side-lobe clutter by a target in its band
     double monopulseSlope = 1.6;
+    /// Its measurement-error floors (SIM-M01; docs/sdk/radar-measurement-floors.md): what a look's errors do not
+    /// shrink below however strong the return - each a fraction of the resolution its thermal term (resolution /
+    /// sqrt(2 SNR)) uses: the plane's half-power beamwidth, the range resolution, the Doppler resolution. Added in
+    /// quadrature to that term; 0, as on a card that gives none, leaves it alone.
+    double angleFloorBeamwidths = 0.0;
+    double rangeFloorResolutions = 0.0;
+    double rangeRateFloorResolutions = 0.0;
     /// Its PRF schedule: a dwell split into this many coherent intervals, each at its own PRF (and frequency: their
     /// returns independent), a detection declared on at least M of them - medium PRF's ambiguity resolution
     /// (range-while-search, track-while-scan, surveillance) and high PRF's (velocity search).

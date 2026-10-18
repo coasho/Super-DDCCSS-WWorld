@@ -7,6 +7,7 @@
 // the same to the bit from the same seed.
 #include "mode_flights.h"
 
+#include "foundation/core/Attitude.h"
 #include "foundation/core/Json.h"
 #include "foundation/transport/WorldMirror.h"
 #include "simulation/mission_systems/Cards.h"
@@ -17,9 +18,12 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+#include <array>
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <memory>
 #include <set>
@@ -920,5 +924,257 @@ TEST_CASE("radar signal level (MS-6b): the ground's clutter - no false alarms fr
         WARN("looking down at 20 km over land: hovering " << pd[0] << ", closing at 500 m/s " << pd[1]);
         CHECK(pd[0] < 0.05);
         CHECK(pd[1] > 0.5);
+    }
+}
+
+// Measurement-error floors (SIM-M01, docs/sdk/radar-measurement-floors.md, section 1.4's R1-R7): a look's errors
+// do not shrink below its card's floors - the PS-05/A's, assumed - added in quadrature to the thermal term, with the
+// same draws at the detection level; every other card has none.
+namespace {
+
+constexpr double kLightMs = 299792458.0;
+
+/// One detection of the target: its four errors against the truth (elevation, azimuth, range, range rate), the
+/// standard deviations it reported, its SNR and when.
+struct Look {
+    double error[4] = {}, sigma[4] = {};
+    double snrDb = 0.0, timeS = 0.0;
+};
+
+struct Stared {
+    std::vector<Look> looks;
+    std::vector<radar::Detection> all; ///< every detection, false alarms too
+    double positionSigmaM = 0.0;       ///< the target's track at the end (0: none)
+    double bwEl = 0.0, bwAz = 0.0, dwellS = 0.0;
+    int intervals = 0;                 ///< the signal level's coherent intervals a dwell
+};
+
+/// `frames` dwells of `spec` (seeded `seed`) staring along `carrier`'s nose at a steady target `rangeM` ahead of `rcsM2`:
+/// both still (no clutter band, range rate 0, a range that does not move), free space - so the truth is the geometry's.
+Stared stare(const radar::Spec& spec, std::uint64_t seed, const sim::VehicleState& carrier, double rangeM, double rcsM2, int frames,
+             bool signalLevel = false) {
+    sim::VehicleState self = carrier;
+    self.velocityNedMs[0] = self.velocityNedMs[1] = self.velocityNedMs[2] = 0.0;
+    double r[9]; // ecef = r body: the nose (body x) is r's first column
+    core::attitude::bodyToEcefFromQuaternion(self.attitudeEcefToBody, r);
+    sim::VehicleState t = self;
+    for (std::size_t i = 0; i < 3; ++i) t.positionEcef[i] = self.positionEcef[i] + rangeM * r[3 * i];
+    FixedScene scene;
+    scene.own = &self;
+    scene.ids = {1};
+    scene.states = {t};
+    scene.sigmaM2 = rcsM2, scene.fluctuation = 1.0, scene.ground = false;
+    double d[3], range = 0.0;
+    for (std::size_t i = 0; i < 3; ++i) d[i] = t.positionEcef[i] - self.positionEcef[i], range += d[i] * d[i];
+    range = std::sqrt(range);
+    for (double& c : d) c /= range;
+    const double db[3] = {r[0] * d[0] + r[3] * d[1] + r[6] * d[2], r[1] * d[0] + r[4] * d[1] + r[7] * d[2], r[2] * d[0] + r[5] * d[1] + r[8] * d[2]};
+    const double truth[4] = {std::atan2(-db[2], std::hypot(db[0], db[1])), std::atan2(db[1], db[0]), range, 0.0};
+    radar::Radar radar_(spec, seed);
+    radar::Search s;
+    s.azimuthHalfWidthRad = 0.0;
+    s.bars = 1;
+    s.signalLevel = signalLevel;
+    radar_.search(s, 0.0);
+    Stared out;
+    out.bwEl = radar_.pattern().beamwidthRad(true), out.bwAz = radar_.pattern().beamwidthRad(false);
+    out.dwellS = radar_.nominalDwellS();
+    out.intervals = static_cast<int>(radar_.waveform().intervals.size());
+    const double period = radar_.framePeriodS();
+    std::uint64_t seen = 0;
+    double now = 0.0;
+    for (int f = 1; f <= frames; ++f) {
+        now = f * period;
+        radar_.step(now, self, scene);
+        for (const auto& det : radar_.detections()) {
+            if (det.serial < seen) continue;
+            out.all.push_back(det);
+            if (det.truth != 1) continue;
+            Look k;
+            const double measured[4] = {det.elevationRad, det.azimuthRad, det.rangeM, det.rangeRateMs};
+            for (std::size_t i = 0; i < 4; ++i) k.error[i] = measured[i] - truth[i], k.sigma[i] = det.sigma[i];
+            k.snrDb = det.snrDb, k.timeS = det.timeS;
+            out.looks.push_back(k);
+        }
+        seen = radar_.detectionCount();
+    }
+    for (const auto& tr : radar_.tracks()) {
+        const auto rep = radar_.report(tr, now, self);
+        if (rep.truth == 1) out.positionSigmaM = rep.positionSigmaM;
+    }
+    return out;
+}
+
+/// Each quantity's thermal standard deviation (the radar's own law, written out here) at a look's SNR; `dopplerMs`
+/// the level's Doppler resolution.
+std::array<double, 4> thermal(const radar::Spec& spec, const Stared& run, double snrDb, double dopplerMs) {
+    const double root = std::sqrt(2.0 * std::max(std::pow(10.0, snrDb / 10.0), 1.0));
+    return {run.bwEl / (spec.monopulseSlope * root), run.bwAz / (spec.monopulseSlope * root), spec.rangeResolutionM / root, dopplerMs / root};
+}
+
+std::array<double, 4> floorsOf(const radar::Spec& spec, const Stared& run, double dopplerMs) {
+    return {spec.angleFloorBeamwidths * run.bwEl, spec.angleFloorBeamwidths * run.bwAz, spec.rangeFloorResolutions * spec.rangeResolutionM,
+            spec.rangeRateFloorResolutions * dopplerMs};
+}
+
+/// The errors' sample mean and standard deviation, quantity `i`.
+std::pair<double, double> spread(const std::vector<Look>& looks, std::size_t i) {
+    double m = 0.0, v = 0.0;
+    for (const auto& k : looks) m += k.error[i];
+    m /= static_cast<double>(looks.size());
+    for (const auto& k : looks) v += (k.error[i] - m) * (k.error[i] - m);
+    return {m, std::sqrt(v / static_cast<double>(looks.size() - 1))};
+}
+
+/// The RCS that puts a target `rangeM` away at `snrDb` on the radar's axis, free space (its radar equation alone).
+double rcsFor(const radar::Spec& spec, double rangeM, double snrDb) { return std::pow(10.0, (snrDb - radar::Radar(spec, 1).snrDb(1.0, rangeM)) / 10.0); }
+
+const char* const kQuantity[4] = {"elevation", "azimuth", "range", "range rate"};
+
+} // namespace
+
+TEST_CASE("radar floors (SIM-M01): the cards' floors - the PS-05/A's alone, every other none; an invalid one refused", "[ms][radar][floor]") {
+    // R5 and R6: the PS-05/A's assumed floors as its card gives them; no other air radar's card gives any
+    const radar::Spec ps05 = radar::specOf(*card("ps-05a"));
+    REQUIRE(ps05.ok);
+    CHECK(ps05.angleFloorBeamwidths == 0.1);
+    CHECK(ps05.rangeFloorResolutions == 0.05);
+    CHECK(ps05.rangeRateFloorResolutions == 0.05);
+    int others = 0;
+    for (const auto& entry : fs::directory_iterator(kSource / "assets" / "payloads")) {
+        std::vector<std::string> errors;
+        const auto c = ms::readCard(entry.path(), errors);
+        if (!c || c->family != ms::Family::AirRadar || c->id == "ps-05a") continue;
+        const radar::Spec s = radar::specOf(*c);
+        INFO(c->id);
+        CHECK(s.ok);
+        CHECK(s.angleFloorBeamwidths == 0.0);
+        CHECK(s.rangeFloorResolutions == 0.0);
+        CHECK(s.rangeRateFloorResolutions == 0.0);
+        ++others;
+    }
+    CHECK(others == 16);
+    // a floor below zero or not a number describes no radar; zero is none
+    for (const char* name : {"angle_floor_beamwidths", "range_floor_resolutions", "range_rate_floor_resolutions"})
+        for (const double bad : {-0.1, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(), 0.0}) {
+            ms::Card c = *card("ps-05a");
+            c.parameters[name].value = bad;
+            INFO(name << " = " << bad);
+            CHECK(radar::specOf(c).ok == (bad == 0.0));
+        }
+}
+
+TEST_CASE("radar floors (SIM-M01): the PS-05/A's errors at the detection level - its floors in quadrature, the same draws", "[ms][radar][floor]") {
+    session::World w(options("radar-floors"));
+    const sim::VehicleState carrier = *w.vehicleState(wing(w, "f16c", 5000.0, 200.0));
+    const radar::Spec spec = radar::specOf(*card("ps-05a"));
+    REQUIRE(spec.ok);
+    radar::Spec bare = spec;
+    bare.angleFloorBeamwidths = bare.rangeFloorResolutions = bare.rangeRateFloorResolutions = 0.0;
+    constexpr double kRange = 20e3;
+    // the dwell's SNR is the radar equation's less what the card's class calibration and the look take: the high-SNR
+    // run measures that offset, so the near-threshold run is put at 15 dB as dwelled - where its 3 of 8 detects a
+    // steady target some 9 % of the time (so ten times the frames for the same count)
+    double offset = 0.0;
+    for (const double snr : {45.0, 15.0}) { // (R1 the floors' own; R2 near the threshold, the quadrature's)
+        const double rcs = rcsFor(spec, kRange, snr - offset);
+        const int frames = snr > 30.0 ? 4000 : 40000;
+        const Stared floored = stare(spec, 11, carrier, kRange, rcs, frames), plain = stare(bare, 11, carrier, kRange, rcs, frames);
+        INFO("SNR " << snr << " dB: " << floored.looks.size() << " detections");
+        REQUIRE(floored.looks.size() > 3000);
+        if (snr > 30.0) offset = floored.looks.front().snrDb - snr;
+        const double doppler = kLightMs / spec.frequencyHz / 2.0 / floored.dwellS;
+        const auto floors = floorsOf(spec, floored, doppler);
+        // R3: the same detections, each error the floorless one scaled by the standard deviations' ratio
+        REQUIRE(plain.looks.size() == floored.looks.size());
+        REQUIRE(plain.all.size() == floored.all.size());
+        for (std::size_t n = 0; n < floored.looks.size(); ++n) {
+            const Look &a = floored.looks[n], &b = plain.looks[n];
+            REQUIRE(a.timeS == b.timeS);
+            REQUIRE(a.snrDb == b.snrDb);
+            const auto t = thermal(spec, floored, a.snrDb, doppler);
+            for (std::size_t i = 0; i < 4; ++i) {
+                REQUIRE_THAT(b.sigma[i], WithinRel(t[i], 1e-12));                         // (no floor: the thermal term)
+                REQUIRE_THAT(a.sigma[i], WithinRel(std::hypot(t[i], floors[i]), 1e-12)); // (with it: in quadrature)
+                REQUIRE_THAT(a.error[i], WithinAbs(b.error[i] * a.sigma[i] / b.sigma[i], 1e-9 * std::fabs(a.error[i]) + 1e-9));
+            }
+        }
+        // R1/R2: the errors spread as the reported standard deviations say, about the truth
+        const double snrMean = floored.looks.front().snrDb; // (a steady target: every look the same)
+        const auto t = thermal(spec, floored, snrMean, doppler);
+        for (std::size_t i = 0; i < 4; ++i) {
+            const double expect = std::hypot(t[i], floors[i]);
+            const auto [mean, sd] = spread(floored.looks, i);
+            WARN("detection level, SNR " << snrMean << " dB, " << floored.looks.size() << " looks, " << kQuantity[i] << ": spread " << sd << " against "
+                 << expect << " (thermal " << t[i] << ", floor " << floors[i] << "), mean " << mean);
+            CHECK(std::fabs(sd / expect - 1.0) < 0.06);
+            CHECK(std::fabs(mean) < 4.0 * expect / std::sqrt(static_cast<double>(floored.looks.size())));
+        }
+        if (snr > 30.0) {
+            CHECK(snrMean > 40.0);
+            for (std::size_t i = 0; i < 4; ++i) CHECK(floors[i] > 2.0 * t[i]); // (the floors' own regime)
+        } else {
+            CHECK(snrMean < 20.0);
+            CHECK(t[1] > 0.5 * floors[1]); // (the thermal term no longer negligible)
+        }
+    }
+}
+
+TEST_CASE("radar floors (SIM-M01): the PS-05/A at the signal level - its floors added after the processing's own errors", "[ms][radar][floor][signal]") {
+    session::World w(options("radar-floors-signal"));
+    const sim::VehicleState carrier = *w.vehicleState(wing(w, "f16c", 5000.0, 200.0));
+    const radar::Spec spec = radar::specOf(*card("ps-05a"));
+    REQUIRE(spec.ok);
+    constexpr double kRange = 20e3;
+    const Stared run = stare(spec, 13, carrier, kRange, rcsFor(spec, kRange, 45.0), 900, true);
+    REQUIRE(run.intervals > 0);
+    const double doppler = kLightMs / spec.frequencyHz / 2.0 / (run.dwellS / run.intervals);
+    const auto floors = floorsOf(spec, run, doppler);
+    // R4: what it reports, the floorless report and the floor in quadrature
+    std::vector<Look> resolved; // (its ambiguities resolved: within 3 gates of the truth)
+    for (const auto& k : run.looks) {
+        const auto t = thermal(spec, run, k.snrDb, doppler);
+        for (std::size_t i = 0; i < 4; ++i) REQUIRE_THAT(k.sigma[i], WithinRel(std::hypot(t[i], floors[i]), 1e-9));
+        if (std::fabs(k.error[2]) < 3.0 * spec.rangeResolutionM) resolved.push_back(k);
+    }
+    INFO(resolved.size() << " of " << run.looks.size() << " detections resolved");
+    REQUIRE(resolved.size() >= 600);
+    for (std::size_t i = 0; i < 2; ++i) { // (the angles: a strong return's are the floor's)
+        double mean = 0.0;
+        for (const auto& k : resolved) mean += k.sigma[i];
+        mean /= static_cast<double>(resolved.size());
+        const auto [m, sd] = spread(resolved, i);
+        WARN("signal level, " << resolved.size() << " looks, " << kQuantity[i] << ": spread " << sd << " against the reported " << mean << " (floor "
+             << floors[i] << "), mean " << m);
+        CHECK(std::fabs(sd / mean - 1.0) < 0.12);
+        CHECK(std::fabs(m) < 4.0 * mean / std::sqrt(static_cast<double>(resolved.size())));
+    }
+}
+
+TEST_CASE("radar floors (SIM-M01): across the assumption's band - the angle errors follow the floor, the track's uncertainty grows with it", "[ms][radar][floor][track]") {
+    // R7: angle_floor_beamwidths at the band's ends and its value (0.01, 0.1, 0.19); its tracker given the looks
+    session::World w(options("radar-floors-band"));
+    const sim::VehicleState carrier = *w.vehicleState(wing(w, "f16c", 5000.0, 200.0));
+    const radar::Spec card05 = radar::specOf(*card("ps-05a"));
+    REQUIRE(card05.ok);
+    constexpr double kRange = 20e3;
+    double previous = 0.0;
+    for (const double f : {0.01, 0.1, 0.19}) {
+        radar::Spec spec = card05;
+        spec.angleFloorBeamwidths = f;
+        const Stared run = stare(spec, 17, carrier, kRange, rcsFor(spec, kRange, 45.0), 4000);
+        REQUIRE(run.looks.size() > 3000);
+        const double doppler = kLightMs / spec.frequencyHz / 2.0 / run.dwellS;
+        const auto t = thermal(spec, run, run.looks.front().snrDb, doppler);
+        const auto floors = floorsOf(spec, run, doppler);
+        for (std::size_t i = 0; i < 2; ++i) {
+            const auto [m, sd] = spread(run.looks, i);
+            WARN("floor " << f << " beamwidths, " << kQuantity[i] << ": spread " << sd << " against " << std::hypot(t[i], floors[i]));
+            CHECK(std::fabs(sd / std::hypot(t[i], floors[i]) - 1.0) < 0.06);
+        }
+        WARN("floor " << f << ": the track's position uncertainty " << run.positionSigmaM << " m");
+        REQUIRE(run.positionSigmaM > 0.0);
+        CHECK(run.positionSigmaM > previous);
+        previous = run.positionSigmaM;
     }
 }

@@ -149,6 +149,64 @@ class RadarTest(unittest.TestCase):
         v.cancel_mission(activity)
         self.assertFalse(v.radar_status().searching)
 
+    def test_measurement_floors(self):
+        # SIM-M01 (docs/sdk/radar-measurement-floors.md, R8): the Gripen's PS-05/A measures no better than its card's
+        # floors however strong the return (its range 0.05 of its 150 m resolution, its angles 0.1 of its beamwidth:
+        # assumed); the F-16C's AN/APG-68(V)9 has none. Each with an F-16C 5 km ahead, both flying alike (the range
+        # holding), everything read through the SDK: the detections' range and where they put the target, against
+        # where it is.
+        def ecef(lat, lon, h):
+            a, e2 = 6378137.0, 6.69437999014e-3
+            n = a / math.sqrt(1.0 - e2 * math.sin(lat) ** 2)
+            return ((n + h) * math.cos(lat) * math.cos(lon), (n + h) * math.cos(lat) * math.sin(lon), (n * (1.0 - e2) + h) * math.sin(lat))
+
+        def errors(carrier):
+            w = make_world()
+            v = w.create_vehicle("own", "jsbsim:" + carrier, latitude_deg=40.0, longitude_deg=0.0, altitude_msl_m=5000.0,
+                                 airspeed_ms=200.0, heading_deg=90.0)
+            east = 5e3 / (6371e3 * math.cos(math.radians(40.0))) * 180 / math.pi
+            t = w.create_vehicle("ahead", "jsbsim:f16c", latitude_deg=40.0, longitude_deg=east, altitude_msl_m=5000.0, airspeed_ms=200.0,
+                                 heading_deg=90.0)
+            v.set_payload_state("radar", "operate")
+            w.step()
+            v.amti_search(azimuth_half_width_rad=math.radians(3.0), bars=2)
+            ranges, places, seen = [], [], 0
+            for _ in range(600):  # (5 s: within it the pair hold their formation, the target in the scan)
+                w.step()
+                a, b = v.state, t.state
+                pa = ecef(a.latitude_rad, a.longitude_rad, a.altitude_msl_m)
+                pb = ecef(b.latitude_rad, b.longitude_rad, b.altitude_msl_m)
+                truth = math.dist(pa, pb)
+                for d in v.amti_detections(since=seen):
+                    seen = d.serial + 1
+                    if d.truth != t.id:
+                        continue
+                    ranges.append(d.range_m - truth)
+                    places.append(math.dist(ecef(d.latitude_rad, d.longitude_rad, d.height_m), pb))
+            tracks = [k for k in v.amti_tracks() if k.truth == t.id]
+            return ranges, places, (tracks[0].position_sigma_m if tracks else None)
+
+        def sd(xs):
+            m = sum(xs) / len(xs)
+            return math.sqrt(sum((x - m) ** 2 for x in xs) / (len(xs) - 1))
+
+        g_range, g_place, g_track = errors("gripen")
+        f_range, f_place, f_track = errors("f16c")
+        for name, r, p in (("gripen", g_range, g_place), ("f16c", f_range, f_place)):
+            self.assertGreater(len(r), 30, name)
+            print("%s: %d detections, range error sd %.2f m, position error rms %.1f m" %
+                  (name, len(r), sd(r), math.sqrt(sum(x * x for x in p) / len(p))))
+        g_rms = math.sqrt(sum(x * x for x in g_place) / len(g_place))
+        f_rms = math.sqrt(sum(x * x for x in f_place) / len(f_place))
+        self.assertTrue(4.0 < sd(g_range) < 12.0, sd(g_range))   # (the floor's 7.5 m, the thermal term's ~1 m with it)
+        self.assertTrue(15.0 < g_rms < 120.0, g_rms)             # (some 0.1 of 3.8 deg at 5 km in each angle, and range)
+        self.assertLess(sd(f_range), 3.0)                       # (no floor: a strong return measures to about a metre)
+        self.assertLess(f_rms, 10.0)
+        print("tracks' position sigma: gripen %s m, f16c %s m" % (g_track, f_track))
+        self.assertIsNotNone(g_track)
+        self.assertIsNotNone(f_track)
+        self.assertGreater(g_track, f_track)
+
 
 if __name__ == "__main__":
     unittest.main()

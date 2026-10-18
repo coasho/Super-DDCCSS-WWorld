@@ -45,6 +45,33 @@
       "source": "wp-r-ps05",
       "note": "the monopulse error slope (assumed)"
     },
+    "angle_floor_beamwidths": {
+      "value": 0.1,
+      "unit": "1",
+      "uncertainty": 0.09,
+      "basis": "assumed",
+      "source": "mw-fusionradarsensor",
+      "note": "the floor of each look's angle errors, a fraction of the plane's half-power beamwidth (SIM-M01, docs/sdk/radar-measurement-floors.md): assumed - no PS-05/A accuracy is published; the value is the documented default of a generic radar model's lower bound (mw-fusionradarsensor), the mechanisms behind such a floor (calibration, glint, multipath) those ll-est-track lists; the band 0.01-0.19 covers a precision fire-control radar's to a coarse one's",
+      "evidence": "This value sets a lower bound on the azimuthal accuracy of the radar"
+    },
+    "range_floor_resolutions": {
+      "value": 0.05,
+      "unit": "1",
+      "uncertainty": 0.045,
+      "basis": "assumed",
+      "source": "mw-fusionradarsensor",
+      "note": "the floor of each look's range errors, a fraction of its range resolution (SIM-M01): assumed, as angle_floor_beamwidths - the same model's documented default",
+      "evidence": "This property sets a lower bound on the range accuracy of the radar"
+    },
+    "range_rate_floor_resolutions": {
+      "value": 0.05,
+      "unit": "1",
+      "uncertainty": 0.045,
+      "basis": "assumed",
+      "source": "mw-fusionradarsensor",
+      "note": "the floor of each look's range-rate errors, a fraction of its Doppler resolution (SIM-M01): assumed, as angle_floor_beamwidths - the same model's documented default",
+      "evidence": "This property sets a lower bound on the range rate accuracy of the radar"
+    },
     "medium_prfs": {
       "value": 8,
       "unit": "1",
@@ -174,6 +201,20 @@
       "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
       "date": "1998",
       "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+    },
+    "ll-est-track": {
+      "title": "Tracking and Parameter Estimation (Introduction to Radar Systems, slides EST&TRACK-1 to 41, 7/31/2008): slides 27-31",
+      "publisher": "MIT Lincoln Laboratory",
+      "url": "https://www.ll.mit.edu/media/6981",
+      "date": "2026-10-17",
+      "verified": "retrieved 2026-10-17, SHA-256 8ab4c3dd0a74f28a9efc1cbddd616d28b63f136293f70150781678791521bae9; its text read: slide 27 about 10:1 beam splitting at a ~13 dB threshold, slide 28 a bias error's definition, slides 30-31 the real-world limits (calibration, amplitude fluctuations, angle noise or glint, multipath) - mechanisms, no value for any radar"
+    },
+    "mw-fusionradarsensor": {
+      "title": "fusionRadarSensor (AzimuthBiasFraction, ElevationBiasFraction, RangeBiasFraction, RangeRateBiasFraction)",
+      "publisher": "MathWorks, Sensor Fusion and Tracking Toolbox documentation, release R2026b",
+      "url": "https://www.mathworks.com/help/fusion/ref/fusionradarsensor-system-object.html",
+      "date": "2026-10-17",
+      "verified": "read 2026-10-17: each bias fraction a fraction of that axis's resolution (the azimuth resolution typically the half-power beamwidth) that sets a lower bound on its accuracy; defaults 0.1 (azimuth, elevation) and 0.05 (range, range rate); no formula given. A proprietary generic model's documented convention, not data about this radar"
     }
   },
   "validation": [

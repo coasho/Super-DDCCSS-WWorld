@@ -137,9 +137,87 @@ New test cases are discovered by the existing Catch2 and Python registrations, w
 - **Stop:** independent review of this package. No other radar, mode or family is started, and no missile
   calibration is changed.
 
-## 2. Results
+## 2. Results (2026-10-17)
 
-Pending implementation.
+### 2.1 The feature
+
+- **Card:** `Spec` gains `angleFloorBeamwidths`, `rangeFloorResolutions` and `rangeRateFloorResolutions`, read from
+  the card's `angle_floor_beamwidths`, `range_floor_resolutions` and `range_rate_floor_resolutions` (0 where absent).
+  `specOf` refuses a negative or non-finite floor.
+- **Detection level:** each standard deviation is `floored(thermal, floor)`, the root sum of squares where the floor
+  is above zero and the thermal term itself otherwise. The draws are unchanged.
+- **Signal level:** each detection gains a zero-mean error of the floor's size from the signal stream, after the
+  dwell's own draws and only when a floor is above zero. Its reported standard deviations take the floor in
+  quadrature.
+- **Interfaces:** no public interface changed. The detections and tracks the SDK already reports carry the effect.
+- **For a user:** a radar card may now give these three fractions. The PS-05/A's are assumptions (§1.3), so its
+  reported accuracy at high SNR is bounded by them, and its tracker's measurement noise with it.
+
+Measured PS-05/A values: half-power beamwidth 3.632 deg in both planes, so the angle floor is 6.339 mrad; range floor
+7.5 m; Doppler resolution 0.275 m/s at the detection level, so the range-rate floor is 0.0138 m/s. The freeze's
+"about 3.8 deg / 6.7 mrad" was an estimate made before measurement.
+
+### 2.2 Reference cases (Release, `fsim_tests "[floor]"` and `python_sdk test_radar`)
+
+| Case | Measured | Tolerance | Result |
+| --- | --- | --- | --- |
+| R1, 45.0 dB, 4,000 looks | Spreads against expected: elevation 6.221 / 6.341 mrad (-1.9 %), azimuth 6.432 / 6.341 mrad (+1.4 %), range 7.543 / 7.524 m (+0.3 %), range rate 0.01383 / 0.01380 m/s (+0.2 %). Every mean inside 4 standard errors | 6 %, 4 SE | Pass |
+| R2, 15.0 dB as dwelled, 3,379 looks | Elevation 8.159 / 8.062 mrad (+1.2 %), azimuth 8.134 / 8.062 mrad (+0.9 %), range 20.36 / 20.30 m (+0.3 %), range rate 0.03687 / 0.03723 m/s (-1.0 %). The thermal terms (4.98 mrad, 18.86 m, 0.0346 m/s) are comparable with the floors here | 6 %, 4 SE | Pass |
+| R3 | Both SNRs: the same detections, times and SNRs with and without floors. Each floorless standard deviation is the thermal law to 1e-12; each floored one is the quadrature to 1e-12; each error is the floorless one times the ratio to 1e-9 | as frozen | Pass (103,338 assertions) |
+| R4, signal level, 900 looks (all resolved) | Reported standard deviations are the quadrature to 1e-9. Elevation spread 6.327 against 6.340 mrad reported (-0.2 %), azimuth 6.150 / 6.340 mrad (-3.0 %); means inside 4 SE | 12 % | Pass |
+| R5 | The 16 other air-radar cards give no floor and stay valid | as frozen | Pass |
+| R6 | -0.1, NaN and infinity on each floor make the radar invalid; 0 is valid | as frozen | Pass |
+| R7, 4,000 looks each | Angle spreads within 2 % of expected at 0.01 / 0.1 / 0.19 beamwidths. The track's position uncertainty is 4.01 / 22.52 / 36.53 m | 6 %, increasing | Pass |
+| R8, public SDK, 5 s | Gripen: range-error SD 7.32 m, position RMS 44.9 m, track `position_sigma_m` 8.92 m. F-16C: 2.05 m, 6.0 m, 0.52 m | Gripen 4-12 m, 15-120 m; F-16C below 3 m and 10 m; Gripen track above F-16C's | Pass |
+
+The F-16C's 2.05 m and 6.0 m in R8 are mostly the fixture's own truth, states taken at step times in a formation that
+drifts, not its radar's thermal error (about 0.1 m at that SNR). The radar compensates its carrier's and the target's
+motion within a step (`Radar::step`, `dwell`). The bounds were frozen with that margin.
+
+### 2.3 Corrections to the test set-up, not to the frozen conditions
+
+- **R2:** asking `snrDb()` for 15 dB gave a dwell SNR about 3.5 dB lower (the card's class calibration and the look),
+  where 4,000 frames gave 340 detections. The test now measures that offset in the R1 run and puts R2 at 15.0 dB as
+  dwelled. There, the PS-05/A's 3-of-8 medium-PRF schedule detects a steady target about 8.4 % of the time, so R2 runs
+  40,000 frames to get 3,379 detections. Condition and tolerance are as frozen.
+- **R8:** with one bar over 10 s, the F-16C carrier's own flight took the target out of its scan after about 6 s, and
+  its track was dropped. The fixture now uses two bars and 5 s, during which both carriers detect and track
+  throughout. Bounds unchanged.
+
+### 2.4 Checks run
+
+- **Builds:** `ucrt64-headless` and `ucrt64-release`, incremental, warnings as errors, both clean. Inventories: 721
+  headless (717 + 4) and 789 Release (785 + 4).
+- **Related tests,** both presets, 38/38 each (52.9 s and 52.1 s):
+  - every radar and radar-mode case, the new four among them;
+  - the Stone Soup tracker cross-checks;
+  - `mission systems:` card and fit checks;
+  - `agents: its radar's tracks`;
+  - `python_sdk test_radar`, `test_fleet`, `test_mission_systems` and `test_esm`.
+- **Documentation:** `architecture_boundary`, `ma_contract` and `sdk_guard_checker` 3/3. The planning checker
+  accepts 59 documents. The local-link audit finds no broken link.
+- **Working tree at the time:** the checks ran on a working tree that also held another owner's uncommitted SIM-M02
+  edits, outside this package:
+  - `assets/stores/*.json`;
+  - `tools/models/hangar/**`;
+  - the allocation page.
+
+  The card checks read the store cards, and they passed. This package neither depends on those edits nor includes
+  them.
+
+### 2.5 Not run, and why
+
+- **Full suites:** the change-scoped selector plans the whole headless suite (717), because no test scope claims
+  `src/simulation/mission_systems/radar/**`, and 587 of 785 Release tests, because the card is a staged asset the
+  Viewer reads. Only related fast checks were authorized, so the full suites remain a pending plan.
+- **Selector follow-up:** a scope for the radar paths would bound such plans. It belongs to the owner of
+  `tools/validation/testing/scopes.toml`, which is outside this window.
+- **No GUI or performance run.** The Viewer's payload windows read the card unchanged in form.
+
+### 2.6 Commits
+
+- `3cfcbe8`: the freeze (§1), before any source edit.
+- The implementation, tests, card and these results follow in one commit.
 
 ## 3. Coverage and remaining work
 
