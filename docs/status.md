@@ -627,6 +627,24 @@ with its dated baseline and include environments. ARCH-07 has not started.
 No full suite ran (HC-11), and the 4K performance gate was not remeasured; the Viewer validation record's dated limits
 stand.
 
+## HC-51 Viewer guide mouse description (2026-10-17, awaiting independent acceptance)
+
+HC-51, found in HC-07's interaction checks, is corrected in documentation only; the Viewer's behaviour is unchanged.
+The [Viewer guide](sdk/viewer.md)'s camera bullet now says:
+- **Space + left drag:** it pans only when the camera is detached; locked to a vehicle, it does nothing.
+- **The wheel:** it zooms 12 % a notch, out to 50,000 km. It zooms in to 6 m from a followed vehicle (1.5 times a
+  smaller one's radius, down to 5 cm) or to 25 m from a detached focus.
+- **Where it zooms:** locked to a vehicle, it changes only the distance. Detached, it zooms towards the ground under
+  the pointer, except beyond some 1,600 km.
+- **Turning that off:** `--no-zoom-to-cursor`, or `camera.zoomToCursor: false` in `viewer.json`. The guide's
+  `--zoom-to-cursor` option did not exist.
+
+Each statement is from the camera code (`CameraController`: its zoom factor, distance limits, framing range and
+locked/detached handling) and the Viewer's option and settings parsing. The 25 m, 50,000 km, 12 %, pointer zoom and
+locked space + drag were also measured in the [interaction checks](architecture/validation/hc-07-viewer-and-joint.md#mouse-replay-and-resize-2026-10-17).
+The documentation checks pass: the planned `architecture_boundary`, `ma_contract` and `sdk_guard_checker` (3/3),
+the planning checker (58 documents) and the local-link audit (1,450 links in 113 files, none broken).
+
 ## HC-07 mouse, replay and resize (2026-10-17, awaiting independent acceptance)
 
 HC-07's remaining interaction cases were verified through input posted to the Viewer's own window, on the current

@@ -216,6 +216,8 @@ All five final runs exited 0, and each demo run cleaned up. The only warning is 
     it changes nothing but the distance, and names a `--zoom-to-cursor` option that does not exist;
   - locked to a vehicle, space + left drag does nothing;
   - a detached camera's nearest distance is 25 m; 6 m is a followed vehicle's.
+
+  The guide's description was corrected the same day (HC-51), from the camera code and these measurements.
 - **Earlier attempts, kept:** four runs were repeated after a fault in the check, not in the Viewer:
   - the first mouse run began the free camera 40 m from the ground, and posted 130 wheel notches more slowly than
     its frames came;
