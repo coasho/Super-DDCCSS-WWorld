@@ -364,12 +364,25 @@ def files(card):
        _turning("Cnr2", "", turn, "r", precise),
        _damping("Clp", "", "bw", "p", mach, b["clp"], precise))
     if precise:
+        from .storetables import payload_digest
         xml = xml.replace("Its aerodynamics a component build-up (storeaero.py) -\n     estimates, said so there.",
                           "Its aerodynamics the selected offline derivative table -\n     imported inputs, not an accuracy or calibration acceptance.")
         xml = xml.replace("along it: its card's drag area on its frontal area, its transonic rise", "selected offline axial coefficient")
         xml = xml.replace("its body's and fins' lift (slender body, Barrowman) and its crossflow (Jorgensen)", "selected offline derivatives and crossflow")
         xml = xml.replace("each lifting part's slope times its arm squared", "selected offline damping derivative")
-        xml = xml.replace("    <aerodynamics>", "    <!-- Offline derivative-table SHA-256: %s -->\n    <aerodynamics>" % b["input"]["sha256"])
+        domain = """
+        <function name="fsim/model/imported-aero/selected" type="pre"><value>1</value></function>
+        <function name="fsim/model/imported-aero/mach-min" type="pre"><value>%.17g</value></function>
+        <function name="fsim/model/imported-aero/mach-max" type="pre"><value>%.17g</value></function>
+        <function name="fsim/model/imported-aero/mach-in-range" type="pre">
+            <and>
+                <ge><property>velocities/mach</property><property>fsim/model/imported-aero/mach-min</property></ge>
+                <le><property>velocities/mach</property><property>fsim/model/imported-aero/mach-max</property></le>
+            </and>
+        </function>""" % (mach[0], mach[-1])
+        xml = xml.replace("    <aerodynamics>", "    <!-- Offline derivative-table SHA-256: %s -->\n"
+                          "    <!-- Offline derivative-payload SHA-256: %s -->\n    <aerodynamics>%s" %
+                          (b["input"]["sha256"], payload_digest(dict(b, cg_m=cg)), domain))
     out = {name + ".xml": xml}
     if motor:
         out["Engines/%s_motor.xml" % name] = """<?xml version="1.0"?>

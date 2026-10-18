@@ -230,6 +230,10 @@ def _xml_mass(text):
 def _table_error(text, function, mach, values):
     """Largest relative coefficient error; reject absent, duplicate or incomplete grids."""
     try:
+        if (not isinstance(mach, list) or not isinstance(values, list) or len(mach) != len(values) or len(mach) < 2 or
+                any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) for v in mach + values) or
+                any(m < 0 or (i and m <= mach[i - 1]) for i, m in enumerate(mach))):
+            raise ValueError("expected table needs finite numeric values and a strictly increasing nonnegative Mach grid")
         node = ET.fromstring(text).find(".//function[@name='aero/coefficient/%s']" % function)
         tables = node.findall(".//table") if node is not None else []
         if len(tables) != 1 or tables[0].findtext("independentVar").strip() != "velocities/mach":
@@ -250,12 +254,24 @@ def _table_error(text, function, mach, values):
 def _aero_table_checks(text, data):
     fields = [("lift slope", "cna", "CN"), ("moment slope about its launch CG", "cma", "Cm")]
     marker = re.search(r"Offline derivative-table SHA-256: ([0-9a-f]{64})", text)
-    imported = "input" in data or marker is not None
+    imported = "Offline derivative-table SHA-256:" in text or (isinstance(data, dict) and "input" in data)
     checks = []
+    if not isinstance(data, dict) or data.get("kind") != "body":
+        return [check("its imported aero report is supported", 0, 1, 1,
+                      note="missing or unsupported body report; run aero again before accepting the build")]
     if imported:
-        expected = data.get("input", {}).get("sha256")
+        from .storetables import payload_digest
+        metadata = data.get("input")
+        expected = metadata.get("sha256") if isinstance(metadata, dict) else None
         checks.append(check("its coefficient input is the aero report's", int(marker is not None and marker[1] == expected), 1, 1,
                             note="re-run aero after changing the selected input"))
+        payload_marker = re.search(r"Offline derivative-payload SHA-256: ([0-9a-f]{64})", text)
+        try:
+            matches = payload_marker is not None and payload_marker[1] == payload_digest(data)
+            note = "re-run aero after changing the selected input or report"
+        except ValueError as problem:
+            matches, note = False, str(problem) + "; run aero again"
+        checks.append(check("its imported coefficient input payload is the aero report's", int(matches), 1, 1, note=note))
         fields += [(key, key, function) for key, function in (("ca", "CA"), ("cyb", "CY"), ("cnb", "Cn"),
                                                              ("cmq", "Cmq"), ("cnr", "Cnr"), ("clp", "Clp"))]
     for label, key, function in fields:
@@ -263,7 +279,7 @@ def _aero_table_checks(text, data):
             error = 100.0 * _table_error(text, function, data["mach"], data[key])
             note = "the largest difference over the complete selected Mach grid"
         except (KeyError, ValueError) as problem:
-            error, note = None, str(problem)
+            error, note = None, str(problem) + "; run aero again"
         checks.append(check("its file's %s is its design's" % label, error, None, 0.5, "%", note=note))
     return checks
 
@@ -425,8 +441,14 @@ def build(d, force=False):
     for axis, got, want_i in zip(("Ixx", "Iyy", "Izz"), got_inertia, want_inertia):
         checks.append(check("its %s is its design's" % axis, got, 0.98 * want_i, 1.02 * want_i, "kg m2",
                             note="the design: %.4g%s" % (want_i, " (its motor full)" if held > 0.0 else "")))
-    aero_data = d.load("aero")
-    if aero_data and aero_data.get("kind") == "body" and card.get("class") in ("aam", "bomb"):
+    imported = "Offline derivative-table SHA-256:" in text
+    try:
+        aero_data = d.load("aero")
+    except (OSError, ValueError):
+        if not imported:
+            raise
+        aero_data = None
+    if imported or (aero_data and aero_data.get("kind") == "body" and card.get("class") in ("aam", "bomb")):
         checks += _aero_table_checks(text, aero_data)
     return d.save("build", {"path": path, "written": True, "changed": changed, "seconds": seconds, "bytes": sizes, "checks": checks})
 

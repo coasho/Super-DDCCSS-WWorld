@@ -7,6 +7,7 @@ import hashlib
 import json
 import math
 from pathlib import Path, PurePosixPath
+import re
 
 
 SCHEMA = "fsim.store-aero-derivatives.v1"
@@ -30,7 +31,7 @@ def _excluded(path):
     return any(part.casefold() == ".codex" for part in path.parts)
 
 
-def _input_path(geo, filename):
+def _relative_path(filename):
     if not isinstance(filename, str):
         raise ValueError("table path must be a canonical relative POSIX string")
     relative = PurePosixPath(filename)
@@ -38,6 +39,11 @@ def _input_path(geo, filename):
             any(part in ("", ".", "..") or part.casefold() == ".codex" for part in filename.split("/")) or
             relative.as_posix() != filename):
         raise ValueError("table path must be canonical, relative and outside excluded directories")
+    return relative
+
+
+def _input_path(geo, filename):
+    relative = _relative_path(filename)
     try:
         design = Path(geo["design_path"])
     except (KeyError, TypeError, ValueError) as error:
@@ -83,6 +89,45 @@ def _number(value, label):
     if not valid:
         raise ValueError("%s must be a finite real number" % label)
     return value
+
+
+def payload_digest(selected):
+    """Bind the selected numeric payload and declared metadata to its build report.
+
+    Report bookkeeping fields are ignored. Numbers use their emitted double
+    representation so equivalent JSON integer/float spellings have one digest.
+    This fingerprint establishes content identity, not physical accuracy.
+    """
+    try:
+        payload = {key: float(_number(selected[key], "report " + key)) for key in
+                   ("S", "d", "ref", "cg_m", *_CROSSFLOW.values())}
+        if payload["S"] <= 0.0 or payload["d"] <= 0.0:
+            raise ValueError("report reference area and diameter must be positive")
+        mach = selected["mach"]
+        if not isinstance(mach, list) or len(mach) < 2:
+            raise ValueError("report Mach grid needs at least two coordinates")
+        payload["mach"] = [float(_number(v, "report Mach coordinate")) for v in mach]
+        if any(v < 0 or (i and v <= payload["mach"][i - 1]) for i, v in enumerate(payload["mach"])):
+            raise ValueError("report Mach grid must be nonnegative and strictly increasing")
+        for key in _COEFFICIENTS:
+            values = selected[key]
+            if not isinstance(values, list) or len(values) != len(mach):
+                raise ValueError("report coefficient %s must cover the complete Mach grid" % key)
+            payload[key] = [float(_number(v, "report coefficient " + key)) for v in values]
+        metadata = _object(selected["input"], ("path", "sha256", "producer", "schema"), "report input")
+        _relative_path(metadata["path"])
+        if metadata["schema"] != SCHEMA:
+            raise ValueError("unsupported report input schema")
+        if not isinstance(metadata["sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", metadata["sha256"]):
+            raise ValueError("report input needs its SHA-256")
+        producer = _object(metadata["producer"], ("name", "version", "case"), "report producer")
+        if any(not isinstance(v, str) or not v.strip() for v in producer.values()):
+            raise ValueError("report producer metadata must contain nonempty strings")
+        payload["input"] = metadata
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    except (KeyError, TypeError, OverflowError) as error:
+        raise ValueError("missing or malformed imported coefficient report payload") from error
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def load(geo, card_id, filename):
