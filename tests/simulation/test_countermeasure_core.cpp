@@ -20,6 +20,25 @@ bool finite(cm::Point p) {
     return std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z);
 }
 
+bool nearPoint(cm::Point a, cm::Point b, double tolerance = 1e-11) {
+    return std::fabs(a.x - b.x) <= tolerance && std::fabs(a.y - b.y) <= tolerance && std::fabs(a.z - b.z) <= tolerance;
+}
+
+cm::Decoy analytic(cm::Decoy initial, cm::Point wind, cm::Point down, double seconds, double drag) {
+    const double norm = std::hypot(down.x, down.y, down.z);
+    const double attenuation = std::exp(-drag * seconds), integral = (1 - attenuation) / drag;
+    const auto axis = [&](double position, double velocity, double air, double direction, double& p, double& v) {
+        const double acceleration = 9.80665 * direction / norm;
+        p = position + air * seconds + (velocity - air) * integral + acceleration / drag * (seconds - integral);
+        v = air + (velocity - air) * attenuation + acceleration * integral;
+    };
+    cm::Decoy out = initial;
+    axis(initial.position.x, initial.velocity.x, wind.x, down.x, out.position.x, out.velocity.x);
+    axis(initial.position.y, initial.velocity.y, wind.y, down.y, out.position.y, out.velocity.y);
+    axis(initial.position.z, initial.velocity.z, wind.z, down.z, out.position.z, out.velocity.z);
+    return out;
+}
+
 void inventoryAndSharedCooldown() {
     cm::Dispenser dispenser(7, 2, 1);
     require(dispenser.dispense(cm::Kind::Chaff, 100.0, {1, 2, 3}, {100, 0, 0}, 11), "first chaff must release");
@@ -153,9 +172,137 @@ void extremeFiniteStateRemainsFinite() {
     require(dispenser.dispense(cm::Kind::Chaff, 0, {largest, largest, largest}, {largest, largest, largest}, 1),
             "finite launch state must be accepted");
     dispenser.step(1, {largest, largest, largest});
-    require(dispenser.decoys().size() == 1, "finite large direction must normalize safely");
-    require(finite(dispenser.decoys().front().position) && finite(dispenser.decoys().front().velocity),
-            "finite inputs must not poison simulation state on arithmetic overflow");
+    require(dispenser.decoys().empty(), "arithmetic failure must remove the invalid live pose rather than freeze it as fresh motion");
+}
+
+void trajectoriesPreserveBeforeAndAnalyticAfter() {
+    cm::Dispenser dispenser(7, 1, 0);
+    require(dispenser.dispense(cm::Kind::Chaff, 1000, {1, 2, 3}, {100, 20, -5}, 1), "release must succeed");
+    const auto initial = dispenser.decoys().front();
+    const auto paths = dispenser.advance(.5, [](const cm::Decoy&) { return cm::Motion{{0, 0, -2}, {10, -3, 0}}; });
+    require(paths.size() == 1 && paths[0].valid && !paths[0].expires, "a live decoy must produce one valid owned trajectory");
+    const auto& path = paths.front();
+    require(path.before.ageS == 0 && samePoint(path.before.state.position, initial.position)
+                && samePoint(path.before.state.velocity, initial.velocity),
+            "trajectory must retain actual pre-step kinematics rather than reconstructing them from final velocity");
+    require(path.stepDurationS == .5 && path.liveDurationS == .5 && path.activeEnd.ageS == .5,
+            "trajectory must retain the requested step and actual active duration");
+    const auto expected = analytic(initial, {10, -3, 0}, {0, 0, -2}, .5, 4);
+    require(nearPoint(path.activeEnd.state.position, expected.position) && nearPoint(path.activeEnd.state.velocity, expected.velocity),
+            "trajectory endpoint must follow the analytic wind-relative linear-drag law");
+    require(samePoint(dispenser.decoys().front().position, path.activeEnd.state.position),
+            "live storage must publish the actual trajectory endpoint");
+    cm::Sample atStart, atEnd;
+    require(cm::sampleAt(path, 0, atStart) && cm::sampleAt(path, .5, atEnd), "both geometric interval endpoints must be sampleable");
+    require(samePoint(atStart.state.position, initial.position) && samePoint(atEnd.state.position, path.activeEnd.state.position),
+            "endpoint samples must preserve stored exact endpoint states");
+}
+
+void partialExpiryRetainsFinalTrajectory() {
+    cm::Dispenser dispenser(7, 0, 1);
+    require(dispenser.dispense(cm::Kind::Flare, 50, {2, 3, 4}, {80, 0, 5}, 1), "flare release must succeed");
+    const auto initial = dispenser.decoys().front();
+    const auto environment = [](const cm::Decoy&) { return cm::Motion{{0, 0, -1}, {}}; };
+    dispenser.advance(3.9, environment);
+    const auto paths = dispenser.advance(.2, environment);
+    require(paths.size() == 1 && paths[0].valid && paths[0].expires && dispenser.decoys().empty(),
+            "an expiring decoy must retain its final partial trajectory after leaving live storage");
+    const auto& path = paths.front();
+    require(std::fabs(path.before.ageS - 3.9) < 1e-12 && path.activeEnd.ageS == 4
+                && std::fabs(path.liveDurationS - .1) < 1e-12 && path.stepDurationS == .2,
+            "expiry must cap motion at its actual lifetime rather than dropping the whole interval");
+    const auto expected = analytic(initial, {}, {0, 0, -1}, 4, .4);
+    require(nearPoint(path.activeEnd.state.position, expected.position) && nearPoint(path.activeEnd.state.velocity, expected.velocity),
+            "expiry endpoint must be the actual analytic state at the lifetime boundary");
+    cm::Sample boundary;
+    require(cm::sampleAt(path, path.liveDurationS, boundary) && boundary.ageS == 4,
+            "exclusive expiry must still expose its mathematical endpoint for clipped geometry");
+    const auto unchanged = boundary;
+    require(!cm::sampleAt(path, std::nextafter(path.liveDurationS, std::numeric_limits<double>::infinity()), boundary)
+                && boundary.ageS == unchanged.ageS && samePoint(boundary.state.position, unchanged.state.position),
+            "sampling beyond expiry must fail without extrapolating or changing the output");
+}
+
+void individualEnvironmentAndWindRelativeMotion() {
+    cm::Dispenser together(7, 2, 0), alone(7, 1, 0);
+    require(together.dispense(cm::Kind::Chaff, 0, {}, {100, 0, 0}, 1), "first release must succeed");
+    require(together.dispense(cm::Kind::Chaff, .35, {5, 6, 7}, {0, 50, 0}, 2), "second release must succeed");
+    require(alone.dispense(cm::Kind::Chaff, .35, {5, 6, 7}, {0, 50, 0}, 2), "independent release must succeed");
+    const auto initialFirst = together.decoys()[0], initialSecond = together.decoys()[1];
+    const auto environment = [](const cm::Decoy& decoy) {
+        return decoy.id == 1 ? cm::Motion{{0, 0, 1}, {10, 0, 0}} : cm::Motion{{0, -1, 0}, {0, 20, 0}};
+    };
+    const auto paths = together.advance(.25, environment), independent = alone.advance(.25, environment);
+    require(paths.size() == 2 && independent.size() == 1 && paths[0].valid && paths[1].valid,
+            "each decoy must receive its own local environment");
+    const auto a = analytic(initialFirst, {10, 0, 0}, {0, 0, 1}, .25, 4);
+    const auto b = analytic(initialSecond, {0, 20, 0}, {0, -1, 0}, .25, 4);
+    require(nearPoint(paths[0].activeEnd.state.position, a.position) && nearPoint(paths[1].activeEnd.state.position, b.position),
+            "different local down and air velocity must affect only the corresponding decoy");
+    require(samePoint(paths[1].activeEnd.state.position, independent[0].activeEnd.state.position)
+                && samePoint(paths[1].activeEnd.state.velocity, independent[0].activeEnd.state.velocity),
+            "another decoy's presence must not change a decoy's trajectory");
+    cm::Dispenser still(7, 1, 0), movingAir(7, 1, 0);
+    require(still.dispense(cm::Kind::Chaff, 0, {}, {10, 0, 0}, 1)
+                && movingAir.dispense(cm::Kind::Chaff, 0, {}, {60, 0, 0}, 1), "frame-shift releases must succeed");
+    const auto stillPath = still.advance(.5, [](const cm::Decoy&) { return cm::Motion{{0, 0, 1}, {}}; });
+    const auto airPath = movingAir.advance(.5, [](const cm::Decoy&) { return cm::Motion{{0, 0, 1}, {50, 0, 0}}; });
+    require(std::fabs(airPath[0].activeEnd.state.position.x - stillPath[0].activeEnd.state.position.x - 25) < 1e-11
+                && std::fabs(airPath[0].activeEnd.state.velocity.x - stillPath[0].activeEnd.state.velocity.x - 50) < 1e-11,
+            "drag must depend on air-relative velocity, preserving a uniform translating-air frame");
+}
+
+void analyticSamplingIsNonConsuming() {
+    cm::Dispenser dispenser(7, 1, 0);
+    require(dispenser.dispense(cm::Kind::Chaff, 0, {1, 2, 3}, {100, 20, 0}, 1), "release must succeed");
+    const auto paths = dispenser.advance(1, [](const cm::Decoy&) { return cm::Motion{{0, 0, 1}, {5, 0, 0}}; });
+    const auto stored = dispenser.decoys().front();
+    cm::Sample first, again;
+    require(cm::sampleAt(paths[0], .25, first) && cm::sampleAt(paths[0], .25, again), "interior analytic samples must be available");
+    const auto expected = analytic(paths[0].before.state, {5, 0, 0}, {0, 0, 1}, .25, 4);
+    require(first.ageS == .25 && samePoint(first.state.position, again.state.position)
+                && nearPoint(first.state.position, expected.position) && nearPoint(first.state.velocity, expected.velocity),
+            "repeated interior samples must use the analytic trajectory rather than an endpoint chord");
+    require(samePoint(dispenser.decoys().front().position, stored.position)
+                && samePoint(dispenser.decoys().front().velocity, stored.velocity),
+            "sampling an owned trajectory must not consume or mutate live state");
+    const auto saved = first;
+    require(!cm::sampleAt(paths[0], -.01, first) && !cm::sampleAt(paths[0], std::numeric_limits<double>::quiet_NaN(), first)
+                && !cm::sampleAt(paths[0], 1.01, first) && samePoint(first.state.position, saved.state.position),
+            "invalid sample times must not extrapolate or mutate output");
+}
+
+void invalidEnvironmentIsAtomic() {
+    cm::Dispenser dispenser(7, 2, 0);
+    require(dispenser.dispense(cm::Kind::Chaff, 0, {1, 2, 3}, {100, 20, 0}, 1)
+                && dispenser.dispense(cm::Kind::Chaff, .35, {4, 5, 6}, {20, 10, 0}, 2), "releases must succeed");
+    const auto a = dispenser.decoys()[0], b = dispenser.decoys()[1];
+    const auto paths = dispenser.advance(.5, [](const cm::Decoy& decoy) {
+        return decoy.id == 1 ? cm::Motion{{0, 0, 1}, {}} : cm::Motion{{}, {}};
+    });
+    require(paths.empty() && dispenser.decoys().size() == 2
+                && samePoint(dispenser.decoys()[0].position, a.position) && samePoint(dispenser.decoys()[1].position, b.position),
+            "one invalid environment must reject the whole step before any decoy advances");
+    require(dispenser.advance(.5, {}).empty(), "a missing environment callback must reject atomically");
+    dispenser.step(5.99, {0, 0, 1});
+    require(dispenser.decoys().size() == 2, "rejected environment must not age either decoy");
+    dispenser.step(.01, {0, 0, 1});
+    require(dispenser.decoys().empty(), "valid legacy wrapper steps must still use compensated lifetime accounting");
+}
+
+void overflowIsExplicitAndDoesNotPublishOldMotion() {
+    cm::Dispenser dispenser(7, 1, 0);
+    const double largest = std::numeric_limits<double>::max();
+    require(dispenser.dispense(cm::Kind::Chaff, 0, {largest, 0, 0}, {largest, 0, 0}, 1), "finite extreme release must succeed");
+    const auto paths = dispenser.advance(1, [](const cm::Decoy&) { return cm::Motion{{1, 0, 0}, {}}; });
+    require(paths.size() == 1 && !paths[0].valid && dispenser.decoys().empty(),
+            "arithmetic propagation failure must retain an invalid trajectory record and remove its invalid live pose");
+    require(finite(paths[0].before.state.position) && finite(paths[0].before.state.velocity),
+            "invalid trajectory diagnostics must retain the actual finite input sample");
+    cm::Sample output;
+    output.ageS = 123;
+    require(!cm::sampleAt(paths[0], 0, output) && output.ageS == 123,
+            "invalid trajectories cannot be sampled as fresh observations even at a stored old pose");
 }
 } // namespace
 
@@ -170,7 +317,13 @@ int main() {
         {"fixed step lifetime boundary", fixedStepLifetimeBoundary},
         {"motion and gravity direction", motionAndDirection},
         {"deterministic repeat and step partition", deterministicRepeatAndStepPartition},
-        {"extreme finite state remains finite", extremeFiniteStateRemainsFinite},
+        {"extreme finite motion fails closed", extremeFiniteStateRemainsFinite},
+        {"owned before and analytic after", trajectoriesPreserveBeforeAndAnalyticAfter},
+        {"partial expiry retains trajectory", partialExpiryRetainsFinalTrajectory},
+        {"individual environment and wind-relative motion", individualEnvironmentAndWindRelativeMotion},
+        {"non-consuming analytic samples", analyticSamplingIsNonConsuming},
+        {"invalid environment is atomic", invalidEnvironmentIsAtomic},
+        {"overflow invalidates live motion", overflowIsExplicitAndDoesNotPublishOldMotion},
     };
     unsigned failures = 0;
     for (const auto& test : tests) {

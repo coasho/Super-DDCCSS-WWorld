@@ -104,8 +104,13 @@ std::vector<ipc::EngagementEvent> World::detonate(const Detonation& d) {
     std::vector<sim::VehicleState> states(liveStates.begin(), liveStates.end());
     if (std::isfinite(d.stepFraction)) {
         const double f=std::clamp(d.stepFraction,0.0,1.0);
-        for(std::size_t slot=0;slot<states.size() && slot<stepStates_.size();++slot)
-            for(int k=0;k<3;++k) states[slot].positionEcef[k]=stepStates_[slot].positionEcef[k]+f*(states[slot].positionEcef[k]-stepStates_[slot].positionEcef[k]);
+        for(std::size_t slot=0;slot<states.size() && slot<stepStates_.size();++slot) {
+            const auto* e=entries_[slot].get();
+            if (e && captureEngagementMotion_ && ms::weapon::validMotionPath(e->engagementPath))
+                states[slot]=engagementStateAt(*e,f*options_.dt*options_.frameSkip);
+            else for(int k=0;k<3;++k)
+                states[slot].positionEcef[k]=stepStates_[slot].positionEcef[k]+f*(states[slot].positionEcef[k]-stepStates_[slot].positionEcef[k]);
+        }
     }
     // A burst may create debris. Freeze the victim set and its states before any slot can be appended.
     for (std::size_t slot = 0; slot < states.size(); ++slot) {
@@ -132,7 +137,7 @@ std::vector<ipc::EngagementEvent> World::detonate(const Detonation& d) {
         t.airPressurePa = model.property("atmosphere/P-psf").get() * kPsfToPa;
         t.airTemperatureK = model.property("atmosphere/T-R").get() / 1.8;
         t.airDensity = model.property("atmosphere/rho-slugs_ft3").get() * kSlugFt3ToKgM3;
-        const ms::damage::Impact impact = ms::damage::assess(*warhead, b, *af->second, t, e->damageRng);
+        const ms::damage::Impact impact = ms::damage::assess(*warhead, b, e->damage->attachedGeometry(), t, e->damageRng);
         // where the burst was from its origin (body axes), and what struck each section's own panels: the fragments'
         // momentum, and the blast's impulse on each face, away from the burst
         const ms::damage::V3 burstBody = impact.fromBody * impact.missM;
@@ -142,14 +147,23 @@ std::vector<ipc::EngagementEvent> World::detonate(const Detonation& d) {
             const auto& panel = af->second->panels[static_cast<std::size_t>(ph.panel)];
             if (panel.section < 0 || static_cast<std::size_t>(panel.section) >= sectionImpulse.size()) continue;
             sectionImpulse[static_cast<std::size_t>(panel.section)] +=
-                ph.momentumNs + ms::damage::normalized(panel.middle() - burstBody) * (ph.impulsePas * panel.areaM2);
+                ph.momentumNs + ms::damage::panelBlastImpulse(panel,burstBody,ph.impulsePas);
         }
         const double hitKg = model.energy().massKg;
+        // Assessment vectors are in the encounter-time body frame. Apply their
+        // inertial direction in the model's current body frame after the batch.
+        const auto currentState=pool_->states()[slot];
+        const auto currentBody=[&](ms::damage::V3 v) {
+            const double body[3]={v.x,v.y,v.z}; double ecef[3],now[3];
+            ms::geom::toEcef(s,body,ecef); ms::geom::toBody(currentState,ecef,now);
+            return v3(now);
+        };
+        const auto currentImpulse=currentBody(impact.impulseBody);
         {
             // the blast and the fragments push and turn it (about its CG: the impulse's moment about the origin less
             // the CG's offset's)
-            const ms::damage::V3 J = impact.impulseBody;
-            const ms::damage::V3 L = impact.angularImpulseBody - ms::damage::cross(v3(cg), J);
+            const ms::damage::V3 J = currentImpulse;
+            const ms::damage::V3 L = currentBody(impact.angularImpulseBody - ms::damage::cross(v3(cg), impact.impulseBody));
             const double linear[3] = {J.x, J.y, J.z}, angular[3] = {L.x, L.y, L.z};
             model.applyImpulse(linear, angular);
         }
@@ -220,10 +234,10 @@ std::vector<ipc::EngagementEvent> World::detonate(const Detonation& d) {
                 break;
             case K::Separated: { // (the blast's impulse broke its root at once)
                 Thrown thrown;
-                const auto& J = sectionImpulse[static_cast<std::size_t>(c.section)];
+                const auto J = currentBody(sectionImpulse[static_cast<std::size_t>(c.section)]);
                 thrown.impulseBody[0] = J.x, thrown.impulseBody[1] = J.y, thrown.impulseBody[2] = J.z;
                 if (std::isfinite(hitKg) && hitKg > 0.0)
-                    for (int k = 0; k < 3; ++k) thrown.sharedBody[k] = (&impact.impulseBody.x)[k] / hitKg;
+                    for (int k = 0; k < 3; ++k) thrown.sharedBody[k] = (&currentImpulse.x)[k] / hitKg;
                 separated(*e, c.section, nullptr, &thrown);
                 break;
             }

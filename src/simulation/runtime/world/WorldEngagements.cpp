@@ -4,6 +4,7 @@
 #include "simulation/mission_systems/rf/Path.h"
 #include "simulation/mission_systems/weapon/Fuze.h"
 #include "simulation/mission_systems/weapon/Seeker.h"
+#include "foundation/core/Attitude.h"
 #include <algorithm>
 #include <cmath>
 #include <set>
@@ -94,12 +95,7 @@ std::vector<ms::EngagementEvent> World::engagementEvents(std::uint64_t since) co
 
 void World::prepareEngagements() {
     const double dt = options_.dt*options_.frameSkip;
-    for (auto* dispenser : dispensers()) if (!dispenser->decoys().empty()) {
-        const auto& p=dispenser->decoys().front().position;
-        dispenser->step(dt, {-p.x,-p.y,-p.z});
-    }
-    retiredDispensers_.erase(std::remove_if(retiredDispensers_.begin(),retiredDispensers_.end(),
-        [](const auto& d){return d->decoys().empty();}),retiredDispensers_.end());
+    decoyTrajectories_.clear();
     for (auto& e : entries_) if (e && e->guidance && !e->weaponEnded) {
         const auto& s=pool_->states()[e->slot];
         const auto spec=e->guidance->spec();
@@ -116,7 +112,7 @@ void World::prepareEngagements() {
             in.supported=true;
             in.estimate=ms::weapon::Observation{d->id,point(d->estimate.positionEcef),velocity(d->estimate),false};
             const auto r=launcher->ms.radarStatus(d->payload);
-            in.illuminated=r.illuminating && r.designatedTrack==d->track;
+            in.illuminated=d->source==comm::kNoSystem && r.illuminating && r.designatedTrack==d->track;
         }
         // Seeker observations, not omniscient updates: range, aspect, gimbal and Doppler gates.
         // basis: assumed. IR aspect/afterburner factors, 28 m/s notch and decoy response are game estimates.
@@ -171,6 +167,52 @@ void World::prepareEngagements() {
         if (output.holding!=old.holding && output.holding>=ms::kDecoyIds && output.holding<kDesignations)
             recordEngagement("decoy_capture",*e,output.holding);
     }
+    // Observe t0 first, then advance each decoy in its own local environment.
+    // The owned trajectories retain t0 and the final partial live interval even
+    // after expiry or removal of the dispensing aircraft.
+    const double direction=environment_.windDirectionDeg*ms::geom::kPi/180;
+    const double north=-environment_.windSpeedMs*std::cos(direction);
+    const double east=-environment_.windSpeedMs*std::sin(direction);
+    for (auto* dispenser : dispensers()) {
+        auto trajectories=dispenser->advance(dt,[&](const auto& d) {
+            const auto geo=terminal({d.position.x,d.position.y,d.position.z});
+            const double sl=std::sin(geo.latitudeRad),cl=std::cos(geo.latitudeRad);
+            const double so=std::sin(geo.longitudeRad),co=std::cos(geo.longitudeRad);
+            return ms::countermeasure::Motion{{-cl*co,-cl*so,-sl},
+                {-north*sl*co-east*so,-north*sl*so+east*co,north*cl}};
+        });
+        decoyTrajectories_.insert(decoyTrajectories_.end(),trajectories.begin(),trajectories.end());
+    }
+    retiredDispensers_.erase(std::remove_if(retiredDispensers_.begin(),retiredDispensers_.end(),
+        [](const auto& d){return d->decoys().empty();}),retiredDispensers_.end());
+}
+
+sim::VehicleState World::engagementStateAt(const Entry& e,double offsetS) const {
+    const auto& path=e.engagementPath;
+    const auto& states=e.engagementStates;
+    if (!captureEngagementMotion_ || states.size()!=path.size() || !ms::weapon::validMotionPath(path))
+        return pool_->states()[e.slot];
+    for (std::size_t k=1;k<path.size();++k) if (offsetS<=path[k].offsetS) {
+        const double f=std::clamp((offsetS-path[k-1].offsetS)/(path[k].offsetS-path[k-1].offsetS),0.0,1.0);
+        auto state=states[k];
+        const auto pos=ms::weapon::motionAt(path,offsetS);
+        state.positionEcef[0]=pos.x; state.positionEcef[1]=pos.y; state.positionEcef[2]=pos.z;
+        core::attitude::slerp(states[k-1].attitudeEcefToBody,states[k].attitudeEcefToBody,f,state.attitudeEcefToBody);
+        core::attitude::bodyToEcefFromQuaternion(state.attitudeEcefToBody,state.rotationBodyToEcef);
+        const auto a=velocity(states[k-1]),b=velocity(states[k]);
+        const double v[3]={a.x+f*(b.x-a.x),a.y+f*(b.y-a.y),a.z+f*(b.z-a.z)};
+        ms::geom::toBody(state,v,state.velocityBodyMs);
+        const auto geo=terminal(pos);
+        state.latitudeRad=geo.latitudeRad; state.longitudeRad=geo.longitudeRad; state.altitudeMslM=geo.heightM;
+        const double sl=std::sin(geo.latitudeRad),cl=std::cos(geo.latitudeRad);
+        const double so=std::sin(geo.longitudeRad),co=std::cos(geo.longitudeRad);
+        state.velocityNedMs[0]=-sl*co*v[0]-sl*so*v[1]+cl*v[2];
+        state.velocityNedMs[1]=-so*v[0]+co*v[1];
+        state.velocityNedMs[2]=-cl*co*v[0]-cl*so*v[1]-sl*v[2];
+        state.simTime=states[k-1].simTime+f*(states[k].simTime-states[k-1].simTime);
+        return state;
+    }
+    return states.back();
 }
 
 void World::finishEngagements() {
@@ -182,25 +224,35 @@ void World::finishEngagements() {
         const double age=simTime_-e->info.launchTimeS;
         const auto s=pool_->states()[e->slot];
         const auto before=stepStates_[e->slot];
+        e->origin.burning=s.thrustN[0]>.1;
+        const double dt=options_.dt*options_.frameSkip;
+        const double liveEnd=std::clamp(s.simTime-before.simTime,0.0,dt);
         bool burst=false;
         double fraction=1;
         if (e->origin.tracking) {
-            const double ageBefore=std::max(0.0,age-options_.dt*options_.frameSkip);
+            const double ageBefore=std::max(0.0,age-dt);
             const Entry* held=entry(e->origin.holding);
             if (held) {
-                const auto& target=pool_->states()[held->slot];
-                const auto fuze=ms::weapon::sweptFuze(point(before.positionEcef),point(s.positionEcef),
-                        point(stepStates_[held->slot].positionEcef),point(target.positionEcef),ageBefore,age,spec);
+                const auto fuze=ms::weapon::sweptPathFuze(e->engagementPath,held->engagementPath,
+                        ageBefore,dt,spec,liveEnd,s.crashed || s.diverged);
                 if (fuze.valid && std::isfinite(fuze.missM)) {
                     e->origin.missM=std::isfinite(e->origin.missM)?std::min(e->origin.missM,fuze.missM):fuze.missM;
                     burst=fuze.triggered; fraction=fuze.fraction;
                 }
-            } else for (const auto* dispenser : dispensers()) for (const auto& d : dispenser->decoys())
-                if (d.id==e->origin.holding) {
-                    const V p{d.position.x,d.position.y,d.position.z};
-                    const double dt=options_.dt*options_.frameSkip;
-                    const V prior{p.x-d.velocity.x*dt,p.y-d.velocity.y*dt,p.z-d.velocity.z*dt};
-                    const auto fuze=ms::weapon::sweptFuze(point(before.positionEcef),point(s.positionEcef),prior,p,ageBefore,age,spec);
+            } else for (const auto& trajectory : decoyTrajectories_)
+                if (trajectory.valid && trajectory.before.state.id==e->origin.holding) {
+                    const double end=std::min(liveEnd,trajectory.liveDurationS);
+                    std::vector<ms::weapon::MotionSample> path;
+                    for (const auto& native : e->engagementPath) {
+                        const double offset=std::min(native.offsetS,end);
+                        if (!path.empty() && offset<=path.back().offsetS) continue;
+                        ms::countermeasure::Sample sample;
+                        if (!ms::countermeasure::sampleAt(trajectory,offset,sample)) {path.clear();break;}
+                        const auto p=sample.state.position;
+                        path.push_back({offset,{p.x,p.y,p.z}});
+                    }
+                    const auto fuze=ms::weapon::sweptPathFuze(e->engagementPath,path,ageBefore,dt,spec,end,
+                        s.crashed || s.diverged || (trajectory.expires && trajectory.liveDurationS<=liveEnd));
                     if (fuze.valid && std::isfinite(fuze.missM)) {
                         e->origin.missM=fuze.missM; burst=fuze.triggered; fraction=fuze.fraction;
                     }
@@ -210,29 +262,31 @@ void World::finishEngagements() {
             Detonation det;
             det.store=e->origin.store; det.weapon=e->info.id;
             det.stepFraction=fraction;
+            const auto burstState=engagementStateAt(*e,fraction*dt);
             for(int k=0;k<3;++k) {
-                det.positionEcef[k]=before.positionEcef[k]+fraction*(s.positionEcef[k]-before.positionEcef[k]);
-                det.axisEcef[k]=s.rotationBodyToEcef[k*3];
+                det.positionEcef[k]=burstState.positionEcef[k];
+                det.axisEcef[k]=burstState.rotationBodyToEcef[k*3];
             }
-            ms::geom::velocityEcef(s,det.velocityEcef);
+            ms::geom::velocityEcef(burstState,det.velocityEcef);
             const auto damage=detonate(det);
             recordEngagement("detonation",*e,e->origin.holding);
             combatEvents_.back().positionEcef[0]=det.positionEcef[0];
             combatEvents_.back().positionEcef[1]=det.positionEcef[1];
             combatEvents_.back().positionEcef[2]=det.positionEcef[2];
+            std::copy_n(det.velocityEcef,3,combatEvents_.back().velocityEcef);
             std::set<std::uint32_t> victims;
             for (const auto& hit : damage) if (hit.kind!=static_cast<std::uint8_t>(ipc::EngagementKind::Detonation) && hit.slot<entries_.size()) {
                 const auto* victim=entries_[hit.slot].get();
                 if (victim && victims.insert(victim->info.id).second)
                     recordEngagement("damage",*e,victim->info.id,"warhead",victim->crewLost);
             }
-            auto endedState=s;
+            auto endedState=burstState;
             std::copy_n(det.positionEcef,3,endedState.positionEcef);
             const auto pose=terminal(point(det.positionEcef));
             endedState.latitudeRad=pose.latitudeRad; endedState.longitudeRad=pose.longitudeRad; endedState.altitudeMslM=pose.heightM;
             endWeapon(*e,ms::WeaponEnd::Detonated,endedState); ended.push_back(e->info.id);
-        } else if (age>=spec.lifeS || s.diverged || (age>5 && !e->origin.burning && s.airspeedTrueMs<180)) {
-            recordEngagement("expiry",*e,0,s.diverged?"flight_diverged":age>=spec.lifeS?"battery_expired":"energy_exhausted");
+        } else if (!s.crashed && (age>=spec.lifeS || s.diverged)) {
+            recordEngagement("expiry",*e,0,s.diverged?"flight_diverged":"battery_expired");
             endWeapon(*e,ms::WeaponEnd::Expired,s); ended.push_back(e->info.id);
         }
     }

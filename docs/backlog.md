@@ -5,6 +5,12 @@ milestone table; [development](development.md) documents validation practice and
 tools and references. Dated measurements and closed items retain their original evidence and scope. Neither a
 passing regression suite nor a newer native engagement feature closes unrelated stability or fidelity findings.
 
+The 2026-10-20 [SIM-M03 physical-chain audit](sdk/sim-m03-physical-chain-audit.md)
+records independent timing, geometry, impulse, track-kinematics, illumination and
+lifetime corrections plus the remaining approximation/input matrix. HC-54 timing
+and HC-55 attached-parent corrections do not close cartridge/sensor/vulnerability
+calibration, the detached-body damage contract or full SIM-M03 acceptance.
+
 (2026-10-11: B-19, B-28, B-30, B-35, B-40, B-41, B-42, B-51 and B-56 closed; B-32 down to the UH-60; B-21, B-22 and B-29 as the designs built again show them; B-60 to B-68 added.)
 
 Findings measured and not yet fixed, across the platform: what the stability suite, the mass accounting and the

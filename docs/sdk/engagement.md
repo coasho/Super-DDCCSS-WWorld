@@ -94,15 +94,15 @@ cartridge release through the public SDK, without exposing world weapon or decoy
 
 The following are game estimates (`basis: assumed`), not calibrated real-world missile performance:
 
-- Proportional navigation gain 3.5, bounded lateral acceleration and an ideal fin servo applied through native JSBSim force/moment hooks. Native axial drag, propulsion, mass, gravity and motion integration remain active.
+- Proportional navigation gain 3.5 and bounded acceleration demand feed normalized surface commands through the [finite actuator/fin chain](missile-control-validation.md). JSBSim realizes the geometric fin forces/moments together with native drag, propulsion, evolving mass, gravity and motion. Response/control-effectiveness parameters remain engineering estimates.
 - Card overrides apply to seeker range, gimbal, acceleration limit, battery life and fuze radius. Native release defaults are 17 km for active radar, 60 km for semi-active radar and 13 km for infrared; gimbal limits are 60 degrees for radar and 45 for infrared; acceleration limits are 35 g and 40 g respectively; battery limits are 110 s and 45 s respectively. Arming takes one second. Radar midcourse loft is 20 degrees; infrared loft is zero. Default fuze radius is `7 + sqrt(warhead_kg)` metres, with 12 kg used when that card parameter is absent.
 - Infrared acquisition varies with target aspect and afterburner. Radar uses a simplified look-down Doppler gate of 28 m/s. Relative target strength is normalized to one; decoy strength uses deterministic bloom/fade rather than random rolls.
 - The association cell is two degrees. Ordinary seekers require a decoy strength exceeding 1.6 times the held return; imaging seekers require five times. Fresh flare strength peaks at six, then decays with a two-second time constant, so imaging seekers resist moderate flares but are not immune. Chaff blooms over 0.3 s and decays over six seconds.
-- Installed dispensers begin with 30 chaff and 15 flares, share a 0.35 s release interval, and use still-air drag/gravity. Chaff lasts six seconds and flares four seconds. Dispenser refusal consumes no inventory.
+- Installed dispensers begin with 30 chaff and 15 flares, share a 0.35 s release interval, and use analytic linear drag/gravity relative to each particle's local modeled mean wind. Chaff lasts six seconds and flares four seconds. Dispenser refusal consumes no inventory. Seeker observations precede propagation; owned trajectories retain the last partial living interval through fuze processing.
 - Active seeker emissions feed the existing receiver simulation with assumed transmitter power and antenna pattern. Clients display measured receiver contacts, without a geometric warning fallback.
 - Launch zones are advisory energy envelopes based on the card, launch altitude/speed and observed target velocity. The `no_escape_m` name expresses an estimate; it is neither an integrated intercept prediction nor a guaranteed hit.
 
-This milestone does not calibrate fin aerodynamics, imaging classification, electronic counter-countermeasures or wind coupling for decoys. It establishes one simulation authority and reviewable native engagement behavior.
+This milestone does not calibrate fin aerodynamics, imaging classification, electronic counter-countermeasures or decoy cartridge aerodynamics/signatures. Decoy gust/turbulence fields remain unsupported. The [physical-chain audit](sim-m03-physical-chain-audit.md) records independent corrections and the remaining source-linked approximations and required inputs.
 
 ## Validation
 

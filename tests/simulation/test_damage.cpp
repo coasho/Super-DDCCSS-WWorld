@@ -152,6 +152,254 @@ TEST_CASE("fragment momentum lost to air is not applied to the target", "[damage
     CHECK(near(hit.impulseBody.z, 0, 1e-12));
 }
 
+namespace {
+
+Warhead straightFragment() {
+    Warhead out;
+    out.fragments = 1;
+    out.fragmentKg = .006;
+    out.fragmentAreaM2 = 1.5 * .009 * .009;
+    out.speedMs = 300;
+    out.zones = {{0, 0, 1}};
+    return out;
+}
+
+Target stationaryDamageTarget() {
+    Target out;
+    out.bodyToEcef = {V3{1, 0, 0}, V3{0, 1, 0}, V3{0, 0, 1}};
+    out.airDensity = 0;
+    return out;
+}
+
+std::shared_ptr<Airframe> splitDamageFrame() {
+    auto out = std::make_shared<Airframe>();
+    out->sections.resize(2);
+    out->sections[0].name = "attached";
+    auto& removable = out->sections[1];
+    removable.name = "removable";
+    removable.hasRoot = true;
+    removable.skinAreaM2 = 2;
+    removable.skinKg = 2 * 2780 * .02;
+    return out;
+}
+
+std::vector<double> impactValues(const Impact& impact) {
+    std::vector<double> out;
+    auto vector = [&](V3 v) { out.insert(out.end(), {v.x, v.y, v.z}); };
+    out.insert(out.end(), {impact.missM, static_cast<double>(impact.fragmentsThrown), static_cast<double>(impact.fragmentsStriking)});
+    vector(impact.fromBody), vector(impact.impulseBody), vector(impact.angularImpulseBody);
+    out.push_back(static_cast<double>(impact.components.size()));
+    for (const auto& c : impact.components)
+        out.insert(out.end(), {static_cast<double>(c.component), static_cast<double>(c.hits), c.energyJ, c.fastestMs, c.areaM2});
+    out.push_back(static_cast<double>(impact.panels.size()));
+    for (const auto& p : impact.panels) {
+        out.insert(out.end(), {static_cast<double>(p.panel), static_cast<double>(p.hits), static_cast<double>(p.perforations),
+                              p.holeAreaM2, p.overpressurePa, p.impulsePas});
+        vector(p.momentumNs);
+    }
+    return out;
+}
+
+} // namespace
+
+TEST_CASE("attached damage geometry removes shields and components without reindexing the source", "[damage][attached-geometry]") {
+    auto frame = splitDamageFrame();
+    Airframe::Component missed;
+    missed.section = 0;
+    missed.centre = {10, 10, 0};
+    missed.half = {.5, .5, .5};
+    frame->components.push_back(missed);
+    auto removed = missed;
+    removed.section = 1;
+    removed.centre = {5, 0, 0};
+    frame->components.push_back(removed);
+    auto behind = missed;
+    behind.centre = {10, 0, 0};
+    frame->components.push_back(behind);
+    SECTION("a removed skin no longer shields the attached component") {
+        frame->components[1].centre.y = 10;
+        Airframe::Panel skin;
+        skin.section = 1;
+        skin.surface = false;
+        skin.centre = {5, 0, 0};
+        skin.half = {.1, .5, .5};
+        skin.areaM2 = 2;
+        frame->panels.push_back(skin);
+    }
+    SECTION("a removed component no longer absorbs a fragment before the attached component") {}
+    VehicleDamage first(frame), untouched(frame);
+    const auto w = straightFragment();
+    REQUIRE(thorResidual(.02, w.fragmentAreaM2, w.fragmentKg, w.speedMs, 0) == 0);
+    Burst burst;
+    burst.axis = {1, 0, 0};
+    const auto target = stationaryDamageTarget();
+    fsim::Rng fullRng(11), viewRng(11), unchangedRng(11);
+    const auto full = assess(w, burst, *frame, target, fullRng);
+    const auto intact = assess(w, burst, first.attachedGeometry(), target, viewRng);
+    CHECK(impactValues(full) == impactValues(intact));
+    CHECK(fullRng.state() == viewRng.state());
+    REQUIRE(first.separate(1));
+    const auto active = first.attachedGeometry();
+    CHECK(&active.airframe() == frame.get());
+    CHECK(active.panelIndices().empty());
+    REQUIRE(active.componentIndices().size() == 2);
+    CHECK(active.componentIndices()[0] == 0);
+    CHECK(active.componentIndices()[1] == 2);
+    fsim::Rng activeRng(11);
+    const auto exposed = assess(w, burst, active, target, activeRng);
+    REQUIRE(exposed.components.size() == 1);
+    CHECK(exposed.components[0].component == 2);
+    CHECK(exposed.components[0].energyJ == .5 * w.fragmentKg * w.speedMs * w.speedMs);
+    CHECK(exposed.panels.empty());
+    CHECK(exposed.fragmentsStriking == 1);
+    CHECK(activeRng.state() == fullRng.state());
+    CHECK(impactValues(assess(w, burst, untouched.attachedGeometry(), target, unchangedRng)) == impactValues(full));
+    CHECK_FALSE(untouched.sections()[1].separated);
+    CHECK(frame->sections[1].hasRoot);
+    CHECK(frame->components.size() == 3);
+}
+
+TEST_CASE("damage views preserve unsectioned fixtures and exclude invalid positive memberships", "[damage][attached-geometry]") {
+    auto frame = std::make_shared<Airframe>();
+    Airframe::Component invalid;
+    invalid.section = 0; // No section 0 exists.
+    invalid.centre = {5, 0, 0};
+    invalid.half = {.5, .5, .5};
+    frame->components.push_back(invalid);
+    auto legacy = invalid;
+    legacy.section = -1;
+    legacy.centre.x = 10;
+    frame->components.push_back(legacy);
+    Airframe::Panel badSkin;
+    badSkin.section = 7;
+    badSkin.surface = false;
+    badSkin.centre = {3, 0, 0};
+    badSkin.half = {.1, 1, 1};
+    badSkin.areaM2 = 10;
+    frame->panels.push_back(badSkin);
+    VehicleDamage damage(frame);
+    const auto view = damage.attachedGeometry();
+    CHECK(view.panelIndices().empty());
+    REQUIRE(view.componentIndices().size() == 1);
+    CHECK(view.componentIndices()[0] == 1);
+    auto w = straightFragment();
+    w.fragments = 4;
+    Burst burst;
+    burst.axis = {1, 0, 0};
+    fsim::Rng directRng(17), viewRng(17), expected(17);
+    const auto direct = assess(w, burst, *frame, stationaryDamageTarget(), directRng);
+    const auto held = assess(w, burst, view, stationaryDamageTarget(), viewRng);
+    REQUIRE(direct.components.size() == 1);
+    CHECK(direct.components[0].component == 1);
+    CHECK(impactValues(direct) == impactValues(held));
+    CHECK(direct.panels.empty());
+    for (int i = 0; i < 3 * w.fragments; ++i) expected.next();
+    CHECK(directRng.state() == expected.state());
+    CHECK(viewRng.state() == expected.state());
+}
+
+TEST_CASE("detached blast panels contribute no parent impulse and retain source panel identities", "[damage][attached-geometry]") {
+    auto frame = splitDamageFrame();
+    Airframe::Panel panel;
+    panel.section = 1;
+    panel.surface = false;
+    panel.centre = {10, 0, 0};
+    panel.half = {.1, 1, 1};
+    panel.areaM2 = 8;
+    frame->panels.push_back(panel);
+    panel.section = 0;
+    panel.centre = {0, 10, 0};
+    frame->panels.push_back(panel);
+    VehicleDamage damage(frame);
+    REQUIRE(damage.separate(1));
+    Warhead w;
+    w.tntKg = 2;
+    Burst burst;
+    burst.at = {0, 0, 5};
+    const auto active = damage.attachedGeometry();
+    REQUIRE(active.panelIndices().size() == 1);
+    CHECK(active.panelIndices()[0] == 1);
+    fsim::Rng rng(23);
+    const auto impact = assess(w, burst, active, stationaryDamageTarget(), rng);
+    REQUIRE(impact.panels.size() == 1);
+    CHECK(impact.panels[0].panel == 1);
+    const auto impulse = panelBlastImpulse(frame->panels[1], burst.at, impact.panels[0].impulsePas);
+    CHECK(near(length(impact.impulseBody - impulse), 0, 1e-12));
+    CHECK(near(length(impact.angularImpulseBody - cross(frame->panels[1].middle(), impulse)), 0, 1e-12));
+    frame = splitDamageFrame();
+    panel.section = 1;
+    frame->panels.push_back(panel);
+    VehicleDamage empty(frame);
+    REQUIRE(empty.separate(1));
+    const auto absent = assess(w, burst, empty.attachedGeometry(), stationaryDamageTarget(), rng);
+    CHECK(absent.panels.empty());
+    CHECK(absent.components.empty());
+    CHECK(length(absent.impulseBody) == 0);
+    CHECK(length(absent.angularImpulseBody) == 0);
+}
+
+TEST_CASE("one canonical panel blast impulse includes half area and projected surface facing", "[damage][panel-impulse]") {
+    Airframe::Panel panel;
+    panel.areaM2 = 8;
+    panel.corners = {V3{10, -1, -1}, V3{10, 1, -1}, V3{10, 1, 1}, V3{10, -1, 1}};
+    CHECK(near(length(panelBlastImpulse(panel, {0, 0, 0}, 100) - V3{400, 0, 0}), 0, 1e-12));
+    CHECK(near(length(panelBlastImpulse(panel, {0, 0, 10}, 100) - V3{200, 0, -200}), 0, 1e-12));
+    CHECK(length(panelBlastImpulse(panel, {10, 0, 10}, 100)) == 0);
+    CHECK(length(panelBlastImpulse(panel, {0, 0, 0}, 0)) == 0);
+    panel.surface = false;
+    panel.centre = {10, 0, 0};
+    CHECK(near(length(panelBlastImpulse(panel, {0, 0, 0}, 100) - V3{400, 0, 0}), 0, 1e-12));
+}
+
+TEST_CASE("stale detached and invalid damage hits change no state or random stream", "[damage][attached-geometry]") {
+    auto frame = splitDamageFrame();
+    Airframe::Component fuel;
+    fuel.section = 1;
+    fuel.kind = "fuel";
+    fuel.tank = 0;
+    fuel.fuelKg = 100;
+    frame->components.push_back(fuel);
+    auto invalid = fuel;
+    invalid.section = 42;
+    invalid.tank = 1;
+    frame->components.push_back(invalid);
+    Airframe::Panel panel;
+    panel.section = 1;
+    panel.areaM2 = 2;
+    frame->panels.push_back(panel);
+    panel.section = 42;
+    frame->panels.push_back(panel);
+    VehicleDamage damage(frame);
+    REQUIRE(damage.separate(1));
+    Impact stale;
+    for (const int id : {0, 1, -1, 99}) {
+        Impact::ComponentHits hit;
+        hit.component = id;
+        hit.hits = 5;
+        hit.energyJ = 1e9;
+        hit.fastestMs = 2000;
+        hit.areaM2 = .01;
+        stale.components.push_back(hit);
+        Impact::PanelHits skin;
+        skin.panel = id;
+        skin.hits = skin.perforations = 5;
+        skin.holeAreaM2 = .1;
+        skin.impulsePas = 1e6;
+        stale.panels.push_back(skin);
+    }
+    fsim::Rng rng(29);
+    const auto before = rng.state();
+    CHECK(damage.apply(stale, 101325, rng).empty());
+    CHECK(rng.state() == before);
+    CHECK(damage.tanks().empty());
+    CHECK_FALSE(damage.panelTorn(0));
+    CHECK_FALSE(damage.panelTorn(1));
+    CHECK(damage.sections()[1].strength == 1);
+    CHECK(damage.sections()[1].holeM2 == 0);
+    CHECK(damage.sections()[1].tornM2 == 0);
+    CHECK(damage.sections()[1].removed == 0);
+}
+
 TEST_CASE("every aircraft's damage data reads", "[damage]") {
     int read = 0;
     for (const auto& d : std::filesystem::directory_iterator(kAircraft)) {

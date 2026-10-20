@@ -13,6 +13,7 @@
 #include "simulation/mission_systems/radar/Radar.h"
 #include "simulation/mission_systems/rf/Path.h"
 #include "simulation/mission_systems/weapon/LaunchEligibility.h"
+#include "simulation/mission_systems/weapon/TrackKinematics.h"
 #include "simulation/mission_systems/weapon/Autopilot.h"
 #include "simulation/flight/Attitude.h"
 
@@ -729,7 +730,7 @@ const sim::VehicleState* World::StepView::vehicleState(std::uint32_t id) const n
 namespace {
 
 /// A radar track's estimate as a vehicle's state: where it is, how it moves, its heading and climb from its velocity.
-sim::VehicleState estimateOf(const ms::AmtiTrack& t) {
+std::optional<sim::VehicleState> estimateOf(const ms::AmtiTrack& t) {
     sim::VehicleState s;
     s.simTime = t.timeS;
     s.positionEcef[0] = t.stateEcef[0], s.positionEcef[1] = t.stateEcef[2], s.positionEcef[2] = t.stateEcef[4];
@@ -739,12 +740,13 @@ sim::VehicleState estimateOf(const ms::AmtiTrack& t) {
     s.eulerRad[2] = std::atan2(t.velocityNedMs[1], t.velocityNedMs[0]);
     s.eulerRad[1] = std::atan2(-t.velocityNedMs[2], ground);
     s.airspeedTrueMs = std::hypot(ground, t.velocityNedMs[2]);
+    if (!ms::weapon::completeTrackKinematics(s)) return std::nullopt;
     return s;
 }
 
 /// A network track's estimate now: its source's last report carried forward by its velocity (flat earth over the
 /// report's age - seconds).
-sim::VehicleState estimateOf(const comm::LinkTrack& l, double now) {
+std::optional<sim::VehicleState> estimateOf(const comm::LinkTrack& l, double now) {
     const comm::EntityReport& r = l.report;
     constexpr double kEarthM = 6371000.0;
     const double age = std::max(0.0, now - r.timeS);
@@ -759,6 +761,7 @@ sim::VehicleState estimateOf(const comm::LinkTrack& l, double now) {
     s.eulerRad[2] = std::atan2(r.velocityNedMs[1], r.velocityNedMs[0]);
     s.eulerRad[1] = std::atan2(-r.velocityNedMs[2], ground);
     s.airspeedTrueMs = std::hypot(ground, r.velocityNedMs[2]);
+    if (!ms::weapon::completeTrackKinematics(s)) return std::nullopt;
     return s;
 }
 
@@ -768,9 +771,11 @@ std::uint32_t World::designateLink(std::uint32_t owner, comm::SystemId source, s
     if (!entry(owner)) return 0;
     const comm::LinkTrack* t = dms_.linkTrack(owner, source, payload, track);
     if (!t) return 0;
+    const auto estimate=estimateOf(*t,simTime_);
+    if (!estimate) return 0;
     Designation d;
     d.id = kDesignations + static_cast<std::uint32_t>(designations_.size()) + 1;
-    d.owner = owner, d.payload = payload, d.track = track, d.source = source, d.valid = true, d.estimate = estimateOf(*t, simTime_);
+    d.owner = owner, d.payload = payload, d.track = track, d.source = source, d.valid = true, d.estimate = *estimate;
     designations_.push_back(d);
     return d.id;
 }
@@ -779,9 +784,11 @@ std::uint32_t World::designate(std::uint32_t owner, std::uint16_t payload, std::
     if (!entry(owner)) return 0;
     for (const ms::AmtiTrack& t : amtiTracks(owner, payload))
         if (t.id == track) {
+            const auto estimate=estimateOf(t);
+            if (!estimate) return 0;
             Designation d;
             d.id = kDesignations + static_cast<std::uint32_t>(designations_.size()) + 1;
-            d.owner = owner, d.payload = payload, d.track = track, d.valid = true, d.estimate = estimateOf(t);
+            d.owner = owner, d.payload = payload, d.track = track, d.valid = true, d.estimate = *estimate;
             designations_.push_back(d);
             return d.id;
         }
@@ -815,12 +822,12 @@ void World::refreshDesignations() {
         if (!entry(d.owner)) continue;
         if (d.source != comm::kNoSystem) { // (a network track: its last report, carried forward)
             if (const comm::LinkTrack* t = dms_.linkTrack(d.owner, d.source, d.payload, d.track))
-                d.estimate = estimateOf(*t, simTime_), d.valid = true;
+                if (const auto estimate=estimateOf(*t,simTime_)) d.estimate=*estimate,d.valid=true;
             continue;
         }
         for (const ms::AmtiTrack& t : amtiTracks(d.owner, d.payload))
             if (t.id == d.track) {
-                d.estimate = estimateOf(t), d.valid = true;
+                if (const auto estimate=estimateOf(t)) d.estimate=*estimate,d.valid=true;
                 break;
             }
     }
@@ -1775,9 +1782,18 @@ void World::applyEnvironment(sim::FlightModel& model) const {
 void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim::ControlInputs& inputs) {
     Entry* e = entries_[slot].get();
     if (!e) return;
-    const bool needState = e->guidance || !e->effects.empty() || e->stack.activeLevel() != control::Level::Actuator;
+    const bool needState = captureEngagementMotion_ || e->guidance || !e->effects.empty() || e->stack.activeLevel() != control::Level::Actuator;
     if (needState) model.state(e->working);
     else e->working = pool_->states()[slot];
+    if (captureEngagementMotion_) {
+        const double offset=e->working.simTime-e->engagementModelTimeS;
+        if (std::isfinite(offset) && offset>=0 &&
+            (e->engagementPath.empty() || offset>e->engagementPath.back().offsetS))
+        {
+            e->engagementPath.push_back({offset,{e->working.positionEcef[0],e->working.positionEcef[1],e->working.positionEcef[2]}});
+            e->engagementStates.push_back(e->working);
+        }
+    }
     const double t = simTime_ + subStep * options_.dt;
 
     // Effects: sensed state starts as truth, wind/force contributions accumulate.
@@ -1976,7 +1992,7 @@ ms::CommandResult World::submit(std::uint32_t id, const ms::StrikeCommand& comma
                 const auto* d=designation(command.target);
                 const auto radar=d?e->ms.radarStatus(d->payload):ms::RadarStatus{};
                 const ms::weapon::IlluminationFacts facts{d!=nullptr,d?d->owner:0,d?d->track:0,
-                                                         radar.illuminating,radar.designatedTrack};
+                                                         radar.illuminating,radar.designatedTrack,d && d->source==comm::kNoSystem};
                 const auto reason=ms::weapon::checkLaunchIllumination(id,facts);
                 if (reason!=ms::Reason::None)
                     return ms::CommandResult{control::CommandStatus::Rejected,reason,0,options.commandId};
@@ -2288,6 +2304,15 @@ void World::step(unsigned n) {
         prepareEngagements();
         const auto before = pool_->states();
         std::copy(before.begin(), before.end(), stepStates_.begin());
+        captureEngagementMotion_=std::any_of(entries_.begin(),entries_.end(),
+            [](const auto& e){return e && e->info.role==ms::Role::Weapon && !e->weaponEnded;});
+        if (captureEngagementMotion_) for (auto& e : entries_) if (e) {
+            e->engagementPath.clear();
+            e->engagementStates.clear();
+            e->engagementPath.reserve(static_cast<std::size_t>(options_.frameSkip)+1);
+            e->engagementStates.reserve(static_cast<std::size_t>(options_.frameSkip)+1);
+            e->engagementModelTimeS=before[e->slot].simTime;
+        }
         transferFuel();
         applyStoreMasses();
         pool_->step(Span<const sim::ControlInputs>(poolInputs_), options_.frameSkip);
@@ -2297,6 +2322,16 @@ void World::step(unsigned n) {
             const auto liveAfter = pool_->states();
             afterStates_.assign(liveAfter.begin(),liveAfter.end());
             const auto& after=afterStates_;
+            if (captureEngagementMotion_) for (auto& e : entries_) if (e) {
+                const auto& state=after[e->slot];
+                const double offset=state.simTime-e->engagementModelTimeS;
+                if (std::isfinite(offset) && offset>=0 &&
+                    (e->engagementPath.empty() || offset>e->engagementPath.back().offsetS))
+                {
+                    e->engagementPath.push_back({offset,{state.positionEcef[0],state.positionEcef[1],state.positionEcef[2]}});
+                    e->engagementStates.push_back(state);
+                }
+            }
             const bool weigh = (loadTick_++ & 7u) == 0;
             for (std::size_t s = 0; s < entries_.size(); ++s)
                 if (Entry* e = entries_[s].get()) {
@@ -2322,10 +2357,13 @@ void World::step(unsigned n) {
             for (std::size_t s = 0; s < entries_.size(); ++s)
                 if (Entry* e = entries_[s].get(); e && s < after.size() && e->info.role == ms::Role::Weapon && after[s].crashed) {
                     sim::VehicleState at = after[s]; // (where it struck; its speed as the step began: the strike stopped it)
-                    std::copy(std::begin(stepStates_[s].velocityNedMs), std::end(stepStates_[s].velocityNedMs), std::begin(at.velocityNedMs));
+                    const auto& history=e->engagementStates;
+                    const auto& prior=captureEngagementMotion_ && history.size()>1 && history.back().crashed
+                        ? history[history.size()-2] : stepStates_[s];
+                    std::copy(std::begin(prior.velocityNedMs), std::end(prior.velocityNedMs), std::begin(at.velocityNedMs));
                     // (a store's strike is a strike: what it does - a tank's fuel left bursting into fire - is told
                     // before it ends there)
-                    if (s < stepStates_.size() && !stepStates_[s].crashed) impacted(*e, stepStates_[s], after[s]);
+                    if (s < stepStates_.size() && !stepStates_[s].crashed) impacted(*e, prior, after[s]);
                     endWeapon(*e, ms::WeaponEnd::Impact, at);
                     impacts.push_back(e->info.id);
                 }

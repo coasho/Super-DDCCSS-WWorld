@@ -889,4 +889,18 @@ details remain available as model properties and need separate Viewer evidence.
 This closes the missing execution mechanism, not physical model acceptance.
 The explicitly estimated actuator/controller constants and control-effectiveness
 build-up retain accepted SIM-M02 and measured per-variant response prerequisites.
-HC-54/HC-55, calibrated sensing/lethality and modeled/fused feedback remain open.
+At this finite-control handoff HC-54/HC-55, calibrated sensing/lethality and
+modeled/fused feedback remained open; the subsequent review below refines them.
+
+## 13. SIM-M03 continued physical-chain review, 2026-10-20
+
+Baseline: main `16da711bf59665a538919f2abb2dfda2ab11278f`. The user authorizes
+continued parallel audit and independent repairs while Claude continues SIM-M02.
+The [plan](../../../superpowers/plans/2026-10-20-sim-m03-physical-chain-audit.md)
+records root shared-path/serial-build ownership and three disjoint worker paths.
+The [audit](../../../sdk/sim-m03-physical-chain-audit.md) records corrections,
+source-linked remaining approximations, required owners/inputs and current gates.
+
+No generic feature or external numerical-model ownership transfers. Dynamics and
+control calibration awaits the accepted SIM-M02 handoff; sensor, weapon-link,
+vulnerability and detached-body prerequisites retain their separate owners.

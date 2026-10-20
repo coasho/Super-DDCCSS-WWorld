@@ -184,6 +184,25 @@ double Airframe::skinThicknessM(int s) const noexcept {
     return x.skinAreaM2 > 0.0 ? std::clamp(x.skinKg / (kAluminium * x.skinAreaM2), 0.0005, 0.02) : 0.002;
 }
 
+AttachedGeometryView::AttachedGeometryView(const Airframe& airframe) : airframe_(&airframe) {
+    auto validSection = [&](int section) { return section < 0 || static_cast<std::size_t>(section) < airframe.sections.size(); };
+    panels_.reserve(airframe.panels.size());
+    components_.reserve(airframe.components.size());
+    for (std::size_t k = 0; k < airframe.panels.size(); ++k)
+        if (validSection(airframe.panels[k].section)) panels_.push_back(k);
+    for (std::size_t k = 0; k < airframe.components.size(); ++k)
+        if (validSection(airframe.components[k].section)) components_.push_back(k);
+}
+
+V3 panelBlastImpulse(const Airframe::Panel& panel, const V3& burstBody, double impulsePas) noexcept {
+    if (!(impulsePas > 0.0) || !std::isfinite(impulsePas) || !(panel.areaM2 > 0.0) || !std::isfinite(panel.areaM2)) return {};
+    const V3 to = burstBody - panel.middle();
+    double facing = 1.0;
+    if (panel.surface)
+        facing = std::abs(dot(normalized(cross(panel.corners[2] - panel.corners[0], panel.corners[3] - panel.corners[1])), normalized(to)));
+    return normalized(to) * (-impulsePas * 0.5 * panel.areaM2 * facing);
+}
+
 std::optional<Airframe> readAirframe(const std::filesystem::path& file, std::string& error) {
     std::ifstream in(file, std::ios::binary);
     if (!in) {
@@ -263,7 +282,8 @@ std::optional<Airframe> readAirframe(const std::filesystem::path& file, std::str
     }
 }
 
-Impact assess(const Warhead& w, const Burst& burst, const Airframe& af, const Target& target, Rng& rng) {
+Impact assess(const Warhead& w, const Burst& burst, const AttachedGeometryView& geometry, const Target& target, Rng& rng) {
+    const Airframe& af = geometry.airframe();
     Impact out;
     const V3 p0 = toBody(target, burst.at - target.at);
     out.missM = length(p0);
@@ -305,7 +325,7 @@ Impact assess(const Warhead& w, const Burst& burst, const Airframe& af, const Ta
         if (!(v > 1.0)) continue;
         const V3 u = toBody(target, rel * (1.0 / v));
         events.clear();
-        for (std::size_t k = 0; k < af.panels.size(); ++k) {
+        for (const std::size_t k : geometry.panelIndices()) {
             const auto& p = af.panels[k];
             double s0, s1;
             V3 n;
@@ -319,7 +339,7 @@ Impact assess(const Warhead& w, const Burst& burst, const Airframe& af, const Ta
                 events.push_back({s1, true, static_cast<int>(k), n, false});
             }
         }
-        for (std::size_t k = 0; k < af.components.size(); ++k) {
+        for (const std::size_t k : geometry.componentIndices()) {
             double s0, s1;
             V3 n;
             if (slab(p0, u, af.components[k].centre, af.components[k].half, s0, s1, n) && s1 > 0.0)
@@ -384,7 +404,7 @@ Impact assess(const Warhead& w, const Burst& burst, const Airframe& af, const Ta
         }
     }
     // the blast on each panel: side-on, reflected as far as its face looks at the burst
-    for (std::size_t k = 0; k < af.panels.size(); ++k) {
+    for (const std::size_t k : geometry.panelIndices()) {
         const auto& p = af.panels[k];
         const V3 m = p.middle();
         const V3 to = p0 - m;
@@ -400,7 +420,7 @@ Impact assess(const Warhead& w, const Burst& burst, const Airframe& af, const Ta
         h.overpressurePa = peak;
         h.impulsePas = b.overpressurePa > 0.0 ? b.impulsePas * peak / b.overpressurePa : 0.0;
         // (it pushes the face that looks at it: half a body box's girth, one side of a surface panel)
-        const V3 j = normalized(to) * (-h.impulsePas * 0.5 * p.areaM2 * (p.surface ? facing : 1.0));
+        const V3 j = panelBlastImpulse(p, p0, h.impulsePas);
         out.impulseBody += j;
         out.angularImpulseBody += cross(m, j);
     }
@@ -409,6 +429,10 @@ Impact assess(const Warhead& w, const Burst& burst, const Airframe& af, const Ta
     for (auto& p : pan)
         if (p.panel >= 0) out.panels.push_back(p);
     return out;
+}
+
+Impact assess(const Warhead& w, const Burst& burst, const Airframe& airframe, const Target& target, Rng& rng) {
+    return assess(w, burst, AttachedGeometryView(airframe), target, rng);
 }
 
 } // namespace fsim::ms::damage

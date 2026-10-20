@@ -158,6 +158,15 @@ void illumination_requires_designation_owner_track_and_transmission() {
     otherTrack.radarTrack = 0x20000002aULL;
     require(checkLaunchIllumination(launcher, otherTrack) == Reason::UnknownTrack,
             "Illumination of a different designated track must be refused");
+
+    auto localSource = valid;
+    localSource.localSource = true;
+    require(checkLaunchIllumination(launcher, localSource) == Reason::None,
+            "An explicitly local designation must preserve existing illumination eligibility");
+    auto networkSource = valid;
+    networkSource.localSource = false;
+    require(checkLaunchIllumination(launcher, networkSource) == Reason::UnknownTrack,
+            "An owned network designation cannot inherit illumination from a matching local track number");
 }
 } // namespace
 

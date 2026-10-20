@@ -75,6 +75,9 @@ class VehicleDamage {
 public:
     explicit VehicleDamage(std::shared_ptr<const Airframe> airframe);
     const Airframe& airframe() const noexcept { return *airframe_; }
+    /// A snapshot of currently attached geometry, retaining immutable source
+    /// arrays and their indices. The shared Airframe must outlive the view.
+    AttachedGeometryView attachedGeometry() const;
 
     struct Tank { double holeM2 = 0.0; bool burning = false; int component = -1; };
     struct Section {
@@ -117,6 +120,7 @@ private:
     std::vector<std::string> lostChannels_;
     bool crewLost_ = false;
     std::vector<double> span_; ///< each section's reach from its root (for where its damage is)
+    bool sectionAttached(int section) const noexcept;
     void weaken(int section, const V3& where, double removedM2);
 };
 

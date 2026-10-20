@@ -1,7 +1,12 @@
 #include "simulation/mission_systems/weapon/Guidance.h"
 #include "simulation/mission_systems/weapon/Seeker.h"
+#include "simulation/mission_systems/weapon/TrackKinematics.h"
+#include "simulation/mission_systems/Model.h"
+#include "foundation/core/Attitude.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -404,6 +409,122 @@ void invalid_boresight_does_not_mutate_guidance() {
                 "A rejected boresight must not poison the accepted estimate or timing state");
     }
 }
+
+fsim::sim::VehicleState measuredTrack(double latitude, double longitude, V3 ned) {
+    fsim::sim::VehicleState state;
+    state.simTime = 17;
+    state.latitudeRad = latitude;
+    state.longitudeRad = longitude;
+    state.positionEcef[0] = 30000;
+    state.positionEcef[1] = 100;
+    state.velocityNedMs[0] = ned.x;
+    state.velocityNedMs[1] = ned.y;
+    state.velocityNedMs[2] = ned.z;
+    state.eulerRad[0] = .7; // A synthetic track must not retain a measured-looking roll.
+    state.eulerRad[1] = std::atan2(-ned.z, std::hypot(ned.x, ned.y));
+    state.eulerRad[2] = std::atan2(ned.y, ned.x);
+    return state;
+}
+
+void checkTrackFrame(fsim::sim::VehicleState state, V3 expectedEcef) {
+    const auto before = state;
+    require(completeTrackKinematics(state), "Finite measured track kinematics must be completed");
+    const double speed = std::hypot(before.velocityNedMs[0], before.velocityNedMs[1], before.velocityNedMs[2]);
+    const double tolerance = 1e-12 * std::max(1., speed);
+    double actual[3];
+    fsim::ms::geom::velocityEcef(state, actual);
+    require(std::abs(actual[0] - expectedEcef.x) <= tolerance
+                && std::abs(actual[1] - expectedEcef.y) <= tolerance
+                && std::abs(actual[2] - expectedEcef.z) <= tolerance,
+            "Existing body-state consumers must recover the measured NED velocity in ECEF");
+    require(std::abs(state.velocityBodyMs[0] - speed) <= tolerance
+                && std::abs(state.velocityBodyMs[1]) <= tolerance
+                && std::abs(state.velocityBodyMs[2]) <= tolerance && state.eulerRad[0] == 0,
+            "The synthetic frame must be the derived zero-roll velocity frame");
+    for (int a = 0; a < 3; ++a) for (int b = 0; b < 3; ++b) {
+        double dot = 0;
+        for (int row = 0; row < 3; ++row)
+            dot += state.rotationBodyToEcef[3 * row + a] * state.rotationBodyToEcef[3 * row + b];
+        require(std::abs(dot - (a == b ? 1. : 0.)) < 1e-12,
+                "The derived body-to-ECEF frame must remain orthonormal");
+    }
+    double fromQuaternion[9];
+    fsim::core::attitude::bodyToEcefFromQuaternion(state.attitudeEcefToBody, fromQuaternion);
+    for (int k = 0; k < 9; ++k)
+        require(std::abs(fromQuaternion[k] - state.rotationBodyToEcef[k]) < 1e-12,
+                "The ECEF-to-body quaternion and body-to-ECEF rotation must describe the same frame");
+    require(state.simTime == before.simTime && state.positionEcef[0] == before.positionEcef[0]
+                && state.positionEcef[1] == before.positionEcef[1] && state.positionEcef[2] == before.positionEcef[2]
+                && state.velocityNedMs[0] == before.velocityNedMs[0]
+                && state.velocityNedMs[1] == before.velocityNedMs[1]
+                && state.velocityNedMs[2] == before.velocityNedMs[2],
+            "Completing a derived frame must preserve the measured sample and its timestamp");
+}
+
+void measured_track_velocity_and_rotated_frames_are_consistent() {
+    constexpr double halfPi = 1.5707963267948966;
+    checkTrackFrame(measuredTrack(0, 0, {10, 20, 30}), {-30, 20, 10});
+    checkTrackFrame(measuredTrack(0, halfPi, {10, 20, 30}), {-20, -30, 10});
+    const double latitude = .6, longitude = -1.3;
+    const V3 ned{123, -217, 46};
+    const V3 expected{-std::sin(latitude) * std::cos(longitude) * ned.x - std::sin(longitude) * ned.y
+                         - std::cos(latitude) * std::cos(longitude) * ned.z,
+                     -std::sin(latitude) * std::sin(longitude) * ned.x + std::cos(longitude) * ned.y
+                         - std::cos(latitude) * std::sin(longitude) * ned.z,
+                     std::cos(latitude) * ned.x - std::sin(latitude) * ned.z};
+    checkTrackFrame(measuredTrack(latitude, longitude, ned), expected);
+    checkTrackFrame(measuredTrack(0, 0, {1e200, -1e200, 1e200}), {-1e200, -1e200, 1e200});
+}
+
+void zero_and_polar_track_frames_remain_finite() {
+    constexpr double halfPi = 1.5707963267948966;
+    checkTrackFrame(measuredTrack(.6, -1.3, {}), {});
+    checkTrackFrame(measuredTrack(halfPi, 0, {10, 20, 30}), {-10, 20, -30});
+    checkTrackFrame(measuredTrack(-halfPi, 0, {10, 20, 30}), {10, 20, 30});
+    checkTrackFrame(measuredTrack(halfPi, halfPi, {}), {});
+}
+
+void invalid_track_kinematics_are_atomic() {
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const double inf = std::numeric_limits<double>::infinity();
+    for (int field = 0; field < 8; ++field) {
+        auto state = measuredTrack(.6, -1.3, {123, -217, 46});
+        if (field == 0) state.latitudeRad = nan;
+        if (field == 1) state.longitudeRad = inf;
+        if (field == 2) state.velocityNedMs[0] = inf;
+        if (field == 3) state.velocityNedMs[2] = nan;
+        if (field == 4) state.eulerRad[1] = nan;
+        if (field == 5) state.eulerRad[2] = inf;
+        if (field == 6) state.latitudeRad = 3.141592653589793;
+        if (field == 7) state.velocityNedMs[0] = state.velocityNedMs[1] = std::numeric_limits<double>::max();
+        unsigned char before[sizeof state];
+        std::memcpy(before, &state, sizeof state);
+        require(!completeTrackKinematics(state), "Invalid or unrepresentable track kinematics must be refused");
+        require(std::memcmp(before, &state, sizeof state) == 0,
+                "A refused track conversion must preserve the complete existing state");
+    }
+}
+
+void completed_track_velocity_drives_unsupported_extrapolation() {
+    auto state = measuredTrack(0, 0, {0, 0, 200}); // ECEF velocity {-200, 0, 0}.
+    require(completeTrackKinematics(state), "Measured approaching track must have usable kinematics");
+    double measuredVelocity[3];
+    fsim::ms::geom::velocityEcef(state, measuredVelocity);
+    Guidance guidance(Spec{"active_radar"});
+    auto in = flight();
+    in.ageS = 2;
+    in.estimate = Observation{42, {30000, 100, 0},
+        {measuredVelocity[0], measuredVelocity[1], measuredVelocity[2]}};
+    guidance.update(in);
+    in.ageS = 4;
+    in.supported = false;
+    in.estimate.reset();
+    const auto output = guidance.update(in);
+    const double expected = (29600. * 29600. + 100. * 100.) / (1200. * 29600.);
+    require(!output.supported && output.phase == WeaponPhase::Midcourse
+                && std::abs(output.timeToGoS - expected) < 1e-10,
+            "Lost support must extrapolate measured target velocity instead of a stationary synthetic body");
+}
 }
 
 int main(int argc, char** argv) {
@@ -425,6 +546,10 @@ int main(int argc, char** argv) {
         {"observation range", admitted_observation_range_is_defensively_checked},
         {"body boresight", seeker_gimbal_uses_explicit_body_boresight},
         {"invalid boresight", invalid_boresight_does_not_mutate_guidance},
+        {"track frames", measured_track_velocity_and_rotated_frames_are_consistent},
+        {"track zero polar", zero_and_polar_track_frames_remain_finite},
+        {"invalid track", invalid_track_kinematics_are_atomic},
+        {"track extrapolation", completed_track_velocity_drives_unsupported_extrapolation},
     };
     for (const auto& test : tests) {
         if (argc > 1 && std::string(argv[1]) != test.name) continue;

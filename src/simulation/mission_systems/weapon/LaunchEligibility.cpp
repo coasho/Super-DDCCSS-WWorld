@@ -24,7 +24,8 @@ LaunchEligibility checkLaunchEligibility(const StoreCard& card, const sim::Vehic
 }
 
 Reason checkLaunchIllumination(std::uint32_t launcher, const IlluminationFacts& facts) noexcept {
-    if (!facts.designated || facts.owner != launcher || !facts.illuminating || facts.radarTrack != facts.track)
+    if (!facts.designated || facts.owner != launcher || !facts.localSource
+        || !facts.illuminating || facts.radarTrack != facts.track)
         return Reason::UnknownTrack;
     return Reason::None;
 }

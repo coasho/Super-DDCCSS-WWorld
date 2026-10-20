@@ -24,6 +24,9 @@ struct IlluminationFacts {
     std::uint64_t track = 0;
     bool illuminating = false;
     std::uint64_t radarTrack = 0;
+    /// The designation belongs to this launcher's radar, rather than a network
+    /// source whose independently allocated track number may happen to match.
+    bool localSource = true;
 };
 
 /// Pure rules for the first selected AAM; inventory selection and host admission stay with the caller.

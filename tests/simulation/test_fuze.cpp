@@ -1,5 +1,6 @@
 // Synthetic temporal/geometry contracts; these values calibrate no real fuze.
 #include "simulation/mission_systems/weapon/Fuze.h"
+#include "simulation/mission_systems/weapon/MotionHistory.h"
 
 #include <cmath>
 #include <iostream>
@@ -101,6 +102,35 @@ void invalidInputsFailClosed() {
     auto noLife = s; noLife.lifeS = noLife.armingS;
     check({}, {}, 1, 2, noLife);
 }
+void nativePathsKeepCurvedEncounters() {
+    auto s=spec(); s.armingS=0; s.lifeS=10; s.fuzeM=.1;
+    const std::vector<MotionSample> curved{{0,{-2,2,0}}, {.5,{0,0,0}}, {1,{2,2,0}}};
+    const std::vector<MotionSample> stationary{{0,{}},{1,{}}};
+    const auto hit=sweptPathFuze(curved,stationary,0,1,s,1,false);
+    require(hit.valid && hit.triggered && near(hit.fraction,.5),
+            "Native substep path must retain an encounter missed by the outer chord");
+    const std::vector<MotionSample> avoided{{0,{-2,0,0}}, {.5,{0,2,0}}, {1,{2,0,0}}};
+    const auto miss=sweptPathFuze(avoided,stationary,0,1,s,1,false);
+    require(miss.valid && !miss.triggered && miss.missM>1,
+            "An outer chord cannot invent an encounter absent from every native segment");
+}
+void contactAndDecoyExpiryClipBeforeMinimizing() {
+    auto s=spec(); s.armingS=1; s.lifeS=10;
+    const std::vector<MotionSample> crashed{{0,{-1,0,0}},{.25,{0,0,0}}};
+    const std::vector<MotionSample> stationary{{0,{}},{1,{}}};
+    const auto safe=sweptPathFuze(crashed,stationary,.5,1,s,.25,true);
+    require(safe.valid && !safe.triggered && std::isnan(safe.missM),
+            "A crash before arming must not become an armed frozen-pose burst later in a batch");
+    s.armingS=0; s.fuzeM=1;
+    const std::vector<MotionSample> approach{{0,{-2,0,0}},{1,{1,0,0}}};
+    const auto overlap=sweptPathFuze(approach,stationary,0,1,s,.5,true);
+    require(overlap.valid && overlap.triggered && overlap.fraction<.5,
+            "Clipping an expiring target must preserve an earlier interior overlap");
+    const std::vector<MotionSample> tangent{{0,{-2,0,0}},{1,{0,0,0}}};
+    const auto expiry=sweptPathFuze(tangent,stationary,0,1,s,.5,true);
+    require(expiry.valid && !expiry.triggered,
+            "Contact only at target expiry remains excluded");
+}
 }
 
 int main() {
@@ -116,6 +146,8 @@ int main() {
         {"expired interval", expiredSweepHasNoActiveInterval},
         {"relative motion", stationaryAndMovingTargets},
         {"invalid inputs", invalidInputsFailClosed},
+        {"native curved paths", nativePathsKeepCurvedEncounters},
+        {"contact and target lifetime", contactAndDecoyExpiryClipBeforeMinimizing},
     };
     try {
         for (const auto& test : tests) {

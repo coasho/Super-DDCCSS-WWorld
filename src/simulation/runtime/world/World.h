@@ -13,6 +13,7 @@
 #include "simulation/mission_systems/Host.h"
 #include "simulation/mission_systems/damage/State.h"
 #include "simulation/mission_systems/weapon/Guidance.h"
+#include "simulation/mission_systems/weapon/MotionHistory.h"
 #include "simulation/mission_systems/countermeasure/Dispenser.h"
 #include "simulation/mission_systems/rcs/Table.h"
 #include "simulation/flight_control/Features.h"
@@ -708,6 +709,9 @@ private:
         Rng rng;
         sim::ControlInputs inputs;         ///< last inputs the cascade produced
         sim::VehicleState working;         ///< per-sub-step state for control/effects
+        std::vector<ms::weapon::MotionSample> engagementPath; ///< worker-owned native samples for this step
+        std::vector<sim::VehicleState> engagementStates; ///< same indices: pose/velocity at each native sample
+        double engagementModelTimeS = 0; ///< model clock at the beginning of this World step
         unsigned controlDivider = 1;
         bool forceApplied = false;         ///< external force pushed last step (needs zeroing)
         bool windApplied = false;
@@ -842,12 +846,15 @@ private:
     void stepDamage();
     void prepareEngagements();
     void finishEngagements();
+    sim::VehicleState engagementStateAt(const Entry& e, double offsetS) const;
     void recordEngagement(const std::string& kind, const Entry& entity, std::uint32_t target = 0,
                           const std::string& reason = "", bool destroyed = false);
     std::vector<ms::EngagementEvent> combatEvents_;
     std::uint64_t nextCombatSerial_ = 1;
     std::uint32_t nextDecoyId_ = ms::kDecoyIds;
     std::vector<std::unique_ptr<ms::countermeasure::Dispenser>> retiredDispensers_;
+    std::vector<ms::countermeasure::Trajectory> decoyTrajectories_; ///< includes final partial lifetimes through finish
+    bool captureEngagementMotion_ = false;
     std::vector<ms::countermeasure::Dispenser*> dispensers() const {
         std::vector<ms::countermeasure::Dispenser*> out;
         for (const auto& e : entries_) if (e && e->dispenser) out.push_back(e->dispenser.get());

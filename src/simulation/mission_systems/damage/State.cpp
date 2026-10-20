@@ -17,7 +17,7 @@ VehicleDamage::VehicleDamage(std::shared_ptr<const Airframe> airframe) : airfram
     torn_.assign(a.panels.size(), false);
     span_.assign(a.sections.size(), 1.0);
     for (const auto& p : a.panels) {
-        if (p.section < 0) continue;
+        if (p.section < 0 || static_cast<std::size_t>(p.section) >= a.sections.size()) continue;
         const auto& s = a.sections[static_cast<std::size_t>(p.section)];
         if (!s.hasRoot) continue;
         auto& reach = span_[static_cast<std::size_t>(p.section)];
@@ -25,12 +25,25 @@ VehicleDamage::VehicleDamage(std::shared_ptr<const Airframe> airframe) : airfram
     }
 }
 
+bool VehicleDamage::sectionAttached(int section) const noexcept {
+    return section < 0 || (static_cast<std::size_t>(section) < sections_.size() && !sections_[static_cast<std::size_t>(section)].separated);
+}
+
+AttachedGeometryView VehicleDamage::attachedGeometry() const {
+    AttachedGeometryView out(*airframe_);
+    out.panels_.erase(std::remove_if(out.panels_.begin(), out.panels_.end(),
+                                    [&](std::size_t k) { return !sectionAttached(airframe_->panels[k].section); }), out.panels_.end());
+    out.components_.erase(std::remove_if(out.components_.begin(), out.components_.end(),
+                                        [&](std::size_t k) { return !sectionAttached(airframe_->components[k].section); }), out.components_.end());
+    return out;
+}
+
 bool VehicleDamage::engineOut(int engine) const noexcept {
     return std::find(engines_out_.begin(), engines_out_.end(), engine) != engines_out_.end();
 }
 
 void VehicleDamage::weaken(int s, const V3& where, double removedM2) {
-    if (s < 0) return;
+    if (s < 0 || !sectionAttached(s)) return;
     const auto& sec = airframe_->sections[static_cast<std::size_t>(s)];
     auto& st = sections_[static_cast<std::size_t>(s)];
     if (!sec.hasRoot || !(sec.skinAreaM2 > 0.0)) return;
@@ -46,7 +59,9 @@ std::vector<Change> VehicleDamage::apply(const Impact& impact, double airPressur
     const Airframe& a = *airframe_;
     const double thin = std::sqrt(std::clamp(airPressurePa / 101325.0, 0.0, 1.0)); // (fires catch less in thin air: an estimate)
     for (const auto& hit : impact.components) {
+        if (hit.component < 0 || static_cast<std::size_t>(hit.component) >= a.components.size()) continue;
         const auto& c = a.components[static_cast<std::size_t>(hit.component)];
+        if (!sectionAttached(c.section)) continue;
         const double each = hit.hits > 0 ? hit.energyJ / hit.hits : 0.0;
         if (c.kind == "fuel" && c.tank >= 0) {
             auto& t = tanks_[c.tank];
@@ -100,10 +115,11 @@ std::vector<Change> VehicleDamage::apply(const Impact& impact, double airPressur
     // the skin: holed where fragments went through, torn where the blast's impulse is more than it can take
     std::vector<double> surface(a.sections.size(), 0.0);
     for (const auto& p : a.panels)
-        if (p.surface && p.section >= 0) surface[static_cast<std::size_t>(p.section)] += 0.5 * p.areaM2;
+        if (p.surface && p.section >= 0 && sectionAttached(p.section)) surface[static_cast<std::size_t>(p.section)] += 0.5 * p.areaM2;
     for (const auto& h : impact.panels) {
+        if (h.panel < 0 || static_cast<std::size_t>(h.panel) >= a.panels.size()) continue;
         const auto& p = a.panels[static_cast<std::size_t>(h.panel)];
-        if (p.section < 0) continue;
+        if (p.section < 0 || !sectionAttached(p.section)) continue;
         auto& st = sections_[static_cast<std::size_t>(p.section)];
         if (h.holeAreaM2 > 0.0) {
             st.holeM2 += h.holeAreaM2;
@@ -128,18 +144,13 @@ std::vector<Change> VehicleDamage::apply(const Impact& impact, double airPressur
     const V3 burst = impact.fromBody * impact.missM;
     std::vector<V3> kick(a.sections.size());
     for (const auto& h : impact.panels) {
+        if (h.panel < 0 || static_cast<std::size_t>(h.panel) >= a.panels.size()) continue;
         const auto& p = a.panels[static_cast<std::size_t>(h.panel)];
-        if (p.section < 0 || (!(h.impulsePas > 0.0) && h.hits == 0)) continue;
+        if (p.section < 0 || !sectionAttached(p.section) || (!(h.impulsePas > 0.0) && h.hits == 0)) continue;
         const auto& sec = a.sections[static_cast<std::size_t>(p.section)];
         if (!sec.hasRoot) continue;
         const V3 m = p.middle();
-        const V3 away = normalized(m - burst);
-        double face = 0.5 * p.areaM2;
-        if (p.surface) {
-            const V3 n = normalized(cross(p.corners[2] - p.corners[0], p.corners[3] - p.corners[1]));
-            face *= std::abs(dot(n, away)); // (its face as the shock meets it)
-        }
-        kick[static_cast<std::size_t>(p.section)] += cross(m - sec.root, away * (h.impulsePas * face) + h.momentumNs);
+        kick[static_cast<std::size_t>(p.section)] += cross(m - sec.root, panelBlastImpulse(p, burst, h.impulsePas) + h.momentumNs);
     }
     for (std::size_t s = 0; s < a.sections.size(); ++s) {
         const auto& sec = a.sections[s];

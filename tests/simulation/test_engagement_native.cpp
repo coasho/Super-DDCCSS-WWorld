@@ -1,6 +1,7 @@
 // End-to-end native engagement acceptance. Every weapon flies through session::World and JSBSim.
 #include "simulation/runtime/world/World.h"
 #include "simulation/flight/FlightModel.h"
+#include "simulation/mission_systems/Model.h"
 
 #include <algorithm>
 #include <cmath>
@@ -90,6 +91,8 @@ void terminalPoseMatchesBurst(const ms::WeaponRecord& record, const ms::Engageme
     require(errorM < 0.001, "terminal record must match interpolated detonation event pose within one millimetre; error_m=" +
                           std::to_string(errorM));
     require(record.endTimeS == event.timeS, "terminal record and detonation event must share simulation timestamp");
+    require(std::abs(record.endSpeedMs-std::hypot(event.velocityEcef[0],event.velocityEcef[1],event.velocityEcef[2]))<1e-6,
+            "terminal speed and detonation velocity must describe the same encounter sample");
 }
 
 void replayableEvents(session::World& w, std::uint32_t missile) {
@@ -151,6 +154,13 @@ Outcome engagement(double rangeM, unsigned workers, bool requireHit) {
     // The truth field above validates this controlled fixture. Only the measured track is passed to guidance.
     const auto designation = w.designate(own, radar, track);
     require(designation >= session::World::kDesignations, "own radar track designation rejected");
+    const auto* measured = w.vehicleState(designation);
+    require(measured != nullptr, "designation estimate missing");
+    double measuredEcef[3]; ms::geom::velocityEcef(*measured, measuredEcef);
+    for (const auto& observation : w.amtiTracks(own, radar)) if (observation.id == track)
+        for (int k=0;k<3;++k)
+            require(std::abs(measuredEcef[k]-observation.stateEcef[2*k+1]) < .001,
+                    "designation must retain measured ECEF track velocity");
     ms::AmtiCommand stt;
     stt.payload = radar; stt.task = ms::AmtiTask::Track; stt.mode = ms::AmtiMode::SingleTargetTrack;
     stt.track = track; stt.rangeScaleM = 60000;
@@ -183,6 +193,8 @@ Outcome engagement(double rangeM, unsigned workers, bool requireHit) {
         out.burned = out.burned || record.burning;
         out.coasted = out.coasted || (out.burned && !record.burning && w.alive(missile));
         if (w.alive(missile)) {
+            require(record.burning == (w.vehicleState(missile)->thrustN[0] > .1),
+                    "published burning must describe current native thrust, including ignition and burnout");
             const double thrust = motorThrust.get();
             nativeCoast = nativeCoast || (out.burned && thrust == 0);
             if (rangeM > 10000 && i % 300 == 0)
@@ -266,6 +278,20 @@ void truthTargetCannotSupplySupport() {
         require(!r.supported && !r.tracking && r.holding == 0 && std::isnan(r.timeToGoS),
                 "direct target entity must not synthesize launcher updates or seeker observations outside acquisition range");
     }
+    advance(w,6);
+    require(w.alive(missile),"unsupported missile must remain available for low-energy fixture");
+    // A diagnostic reset supplies a slow but physically valid airborne state;
+    // it retains the weapon lifecycle age and guidance ownership by contract.
+    sim::InitialConditions slow;
+    slow.altitudeMslM=12000; slow.airspeedTrueMs=100; slow.headingDeg=90;
+    slow.enginesRunning=false;
+    require(w.resetVehicle(missile,&slow),"low-energy missile reset failed");
+    auto contents=w.model(missile)->property("propulsion/tank[0]/contents-lbs");
+    require(contents.valid(),"missile native propellant property missing"); contents.set(0);
+    w.step();
+    require(w.alive(missile) && w.vehicleState(missile)->airspeedTrueMs<180 &&
+            !weapon(w,missile).burning && weapon(w,missile).end==ms::WeaponEnd::InFlight,
+            "A live slow coasting weapon must continue native flight until contact or configured life expiry");
 }
 
 void detonationAssessesBothAircraftWhileCreatingDebris() {
@@ -376,6 +402,45 @@ void sweptDamageUsesEncounterPositions() {
             "swept damage must assess the encounter position even when the step endpoint is out of reach");
 }
 
+void batchedNativeContactPrecedesArming() {
+    auto settings=options("native-contact-before-arming"); settings.frameSkip=240;
+    session::World w(settings);
+    const auto own=aircraft(w,"launcher",0,90);
+    const auto stations=payload(w,own,ms::Family::StoreStation);
+    require(w.loadStore(own,stations,1,"aim-9x")==ms::Reason::None,"IR fixture load rejected");
+    operate(w,own,stations);
+    const auto target=aircraft(w,"contact-target",5000,90);
+    ms::StrikeCommand strike; strike.payload=stations; strike.store="aim-9x";
+    strike.target=target; strike.consent=true;
+    require(w.submit(own,strike).accepted(),"IR contact fixture strike rejected");
+    for (unsigned i=0;i<10 && w.weapons().empty();++i) w.step();
+    require(w.weapons().size()==1,"IR contact fixture release failed");
+    const auto missile=w.weapons().front().id;
+    const auto initial=*w.vehicleState(missile);
+    sim::InitialConditions contact;
+    contact.latitudeDeg=initial.latitudeRad/kDeg; contact.longitudeDeg=initial.longitudeRad/kDeg;
+    contact.altitudeMslM=.1; contact.airspeedTrueMs=250; contact.headingDeg=90; contact.enginesRunning=false;
+    contact.velocityNedMs[0]=0; contact.velocityNedMs[1]=250; contact.velocityNedMs[2]=100;
+    require(w.resetVehicle(missile,&contact),"contact weapon reset failed");
+    auto propellant=w.model(missile)->property("propulsion/tank[0]/contents-lbs");
+    require(propellant.valid(),"contact fixture propellant missing"); propellant.set(0);
+    auto crossing=contact;
+    crossing.longitudeDeg+=400/(6371000*std::cos(initial.latitudeRad))/kDeg;
+    crossing.altitudeMslM=6; crossing.headingDeg=270; crossing.enginesRunning=true;
+    crossing.velocityNedMs[1]=-250; crossing.velocityNedMs[2]=0;
+    require(w.resetVehicle(target,&crossing),"crossing target reset failed");
+    w.step();
+    const auto record=weapon(w,missile);
+    require(record.holding==target,"contact fixture must acquire the crossing target before native stepping");
+    require(!w.alive(missile) && record.end==ms::WeaponEnd::Impact,
+            "Native contact before one-second arming must remain Impact despite a later batch encounter");
+    require(record.endSpeedMs>0 && record.endSpeedMs<std::hypot(250.0,100.0),
+            "Batched impact speed must retain the final moving native sample rather than the outer-step launch speed");
+    for (const auto& event : w.engagementEvents())
+        require(event.entity!=missile || event.kind!="detonation",
+                "A frozen crash pose must not detonate after native contact");
+}
+
 void inertJettison() {
     session::World w(options("native-inert-jettison"));
     const auto own = aircraft(w, "launcher", 0, 90);
@@ -401,7 +466,7 @@ void inertJettison() {
 }
 } // namespace
 
-int main() {
+int main(int argc,char** argv) {
     struct Test { const char* name; void (*run)(); };
     const Test tests[] = {{"head-on armed engagement and worker determinism", headOnAndWorkers},
                           {"JSBSim motor powered flight then coast", poweredThenCoasting},
@@ -409,11 +474,16 @@ int main() {
                           {"two-victim detonation safely appends native debris", detonationAssessesBothAircraftWhileCreatingDebris},
                           {"infrared release keeps on-rail contact", infraredReleaseKeepsOnRailContact},
                           {"swept damage uses encounter positions", sweptDamageUsesEncounterPositions},
+                          {"batched native contact precedes arming", batchedNativeContactPrecedesArming},
                           {"inert jettison", inertJettison}};
     unsigned failures = 0;
+    unsigned executed = 0;
     for (const auto& test : tests) {
+        if (argc>1 && std::string(test.name).find(argv[1])==std::string::npos) continue;
+        ++executed;
         try { test.run(); std::cout << "PASS: " << test.name << '\n'; }
         catch (const std::exception& error) { ++failures; std::cerr << "FAIL: " << test.name << ": " << error.what() << '\n'; }
     }
+    if (!executed) {std::cerr << "No native engagement cases matched\n";return 2;}
     return failures ? 1 : 0;
 }

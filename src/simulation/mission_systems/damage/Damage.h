@@ -132,6 +132,28 @@ struct Airframe {
 /// Read an aircraft's damage data (nullopt and `error` said: none, or it cannot be read).
 std::optional<Airframe> readAirframe(const std::filesystem::path& file, std::string& error);
 
+/// Immutable assessment membership over a borrowed Airframe, which must outlive
+/// the view. Source arrays stay intact; indices in results always name those
+/// arrays. Negative section IDs are legacy unsectioned geometry; nonnegative
+/// IDs outside the source section array are excluded.
+class AttachedGeometryView {
+public:
+    explicit AttachedGeometryView(const Airframe& airframe);
+    const Airframe& airframe() const noexcept { return *airframe_; }
+    const std::vector<std::size_t>& panelIndices() const noexcept { return panels_; }
+    const std::vector<std::size_t>& componentIndices() const noexcept { return components_; }
+
+private:
+    friend class VehicleDamage;
+    const Airframe* airframe_;
+    std::vector<std::size_t> panels_, components_;
+};
+
+/// The existing blast model's panel impulse in body axes: half its area, with
+/// a surface projected toward the burst. Reused for aggregate, root and detached
+/// section accounting; impulsePas is the panel's already reflected impulse.
+V3 panelBlastImpulse(const Airframe::Panel& panel, const V3& burstBody, double impulsePas) noexcept;
+
 // -- the impact -------------------------------------------------------------------------------------------------
 
 /// The detonation, and the target as the fragments find it (ECEF; the target's attitude body to ECEF, rows).
@@ -172,5 +194,8 @@ struct Impact {
 constexpr double kBlastSeenPa = 1000.0; ///< a panel's blast kept from this (1 kPa: a hundredth of an atmosphere)
 /// The fragments' flight (each drawn from `rng`: its zone, its direction in it) and the blast, across the target.
 Impact assess(const Warhead& warhead, const Burst& burst, const Airframe& airframe, const Target& target, Rng& rng);
+/// Assess only the view's attached source geometry, preserving source IDs and
+/// the same fragment-direction RNG draws as the full-source overload.
+Impact assess(const Warhead& warhead, const Burst& burst, const AttachedGeometryView& geometry, const Target& target, Rng& rng);
 
 } // namespace fsim::ms::damage
