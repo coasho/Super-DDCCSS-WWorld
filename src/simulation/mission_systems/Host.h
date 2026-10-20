@@ -108,6 +108,9 @@ public:
     double storesMassKg() const noexcept;
     /// Strike (A-GRA's Strike task): its activity powers the stores up, asks for consent, releases them.
     CommandResult submit(const StrikeCommand& command, const CommandOptions& options, double simTime);
+    /// Pure inventory selection, without host admission or preparation. World
+    /// checks every selected AAM before submit; the host retains refusal order.
+    Reason previewStrike(const StrikeCommand& command, std::vector<std::uint16_t>& selected) const;
     /// Jettison (A-GRA's Jettison task): its activity releases the stores unarmed.
     CommandResult submit(const JettisonCommand& command, const CommandOptions& options, double simTime);
     /// Release consent for a strike asking for it (StrikeConsentRequestStatus): granted, it releases; refused, it ends.
@@ -129,6 +132,10 @@ public:
     bool releasing() const noexcept { return !releases_.empty(); }
     /// A store released as `weapon` (0: it could not be flown - its strike fails).
     void released(std::uint16_t store, std::uint32_t weapon, double simTime);
+    /// A live strike's native pre-launch execution failure. Restore its pending
+    /// releases and retain the precise refusal and previously released weapons.
+    /// This is not cancellation; queued cancellation semantics are unchanged.
+    bool releaseRefused(ActivityId activity, Reason reason, double simTime);
     /// The mass a station carries now (kg): its stores still on it.
     double stationMassKg(std::uint16_t payload, int station) const noexcept;
     /// Bumped whenever a station's load changes (a load, a release): the world updates the flight model's masses.

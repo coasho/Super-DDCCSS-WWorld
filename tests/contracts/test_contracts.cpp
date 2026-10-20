@@ -23,7 +23,7 @@ static_assert(sizeof(ipc::VehicleSample) == 1000 && alignof(ipc::VehicleSample) 
 static_assert(sizeof(ipc::WorldHeader) == 384 && alignof(ipc::WorldHeader) == 64);
 static_assert(sizeof(ipc::VehicleRecord) == 440);
 static_assert(sizeof(ipc::MissionStore) == 40 && sizeof(ipc::EngagementEvent) == 176);
-static_assert(ipc::kRecordingVersion == 7);
+static_assert(ipc::kRecordingVersion == 8);
 static_assert(sizeof(ipc::RecordingHeader) == 88 && sizeof(ipc::RecordedVehicle) == 440);
 static_assert(sizeof(ipc::RecordingSnapshotHead) == 16);
 static_assert(std::is_trivially_copyable_v<ipc::RecordingHeader> && std::is_trivially_copyable_v<ipc::RecordedVehicle>);

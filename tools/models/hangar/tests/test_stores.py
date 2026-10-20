@@ -934,13 +934,17 @@ class StoresTest(unittest.TestCase):
                 report = root / "record.md"
                 with mock.patch.object(storestages, "designs", return_value={"sample": str(design_dir / "sample.toml")}), \
                         mock.patch.object(storestages.pipeline, "repo_root", return_value=str(root)), \
-                        mock.patch.object(storestages.subprocess, "Popen", return_value=child), \
+                        mock.patch.object(storestages.subprocess, "Popen", return_value=child) as spawn, \
+                        mock.patch("platform.platform", return_value="test-platform"), \
                         mock.patch.object(storestages, "record", return_value=[]), redirect_stdout(io.StringIO()):
                     result = storestages.main(["build", "--jobs", "1", "--record", str(report)])
+                spawn.assert_called_once()
+                self.assertEqual(spawn.call_args.args[0][1:], ["-m", "hangar", "sample", "build"])
                 self.assertEqual(result, 0 if code == 0 else 1)
                 recorded = json.loads(report.with_suffix(".json").read_text())
                 self.assertEqual(recorded["child_exit_codes"], {"sample": code})
                 self.assertEqual(recorded["batch_passed"], code == 0)
+                self.assertIn("test-platform", report.read_text())
                 self.assertIn("Batch result: " + ("PASS" if code == 0 else "FAIL"), report.read_text())
 
     def test_every_card_has_its_design(self):

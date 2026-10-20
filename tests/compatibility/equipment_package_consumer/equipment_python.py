@@ -1,6 +1,7 @@
 """Own-platform equipment APIs from an installed package, including wrapper, module, DLL and runtime-data provenance."""
 import ctypes
 import importlib
+import math
 import os
 from pathlib import Path
 import sys
@@ -95,6 +96,89 @@ def smoke(world):
     print("installed Python equipment: chaff=29 flare=15 stores=4 strikes=0 consents=0")
 
 
+def release(world, tick):
+    carrier = world.create_vehicle("launcher", "jsbsim:f16c", latitude_deg=40.0, longitude_deg=0.0,
+                                   altitude_msl_m=6000.0, heading_deg=90.0, airspeed_ms=250.0)
+    carrier.load_loadout("air superiority")
+    launcher = world.create_agent(carrier, "launcher")
+    launcher.submit(fsim.Level.VELOCITY, airspeed_ms=250.0, vertical_speed_ms=0.0, heading_rad=math.pi / 2)
+    c2 = world.create_c2_node("approver", 39.9, 0.0, altitude_m=200.0)
+    net = world.create_net("consent")
+    require(world.join_net(carrier, net) and world.join_net(c2, net), "cannot join consent net")
+    approver = world.create_agent(c2, "approver")
+    require(approver.declare_role(fsim.ROLE_QB, "APPROVER"), "C2 role declaration refused")
+    stations = next(p.index for p in launcher.payloads if p.family == "store_station")
+    radar = next(p.index for p in launcher.payloads if p.family == "air_radar")
+    for payload in (stations, radar):
+        launcher.set_payload_state(payload, "operate")
+    for _ in range(1200):
+        tick()
+        if sum(p.state == fsim.PayloadState.OPERATE for p in launcher.payloads if p.index in (stations, radar)) == 2:
+            break
+    else:
+        raise RuntimeError("native radar/station startup did not finish")
+    own = carrier.state
+    target = world.create_vehicle("opponent", "jsbsim:f16c", latitude_deg=math.degrees(own.latitude_rad) + .01,
+                                  longitude_deg=math.degrees(own.longitude_rad) + .15,
+                                  altitude_msl_m=6000.0, heading_deg=270.0, airspeed_ms=250.0)
+    target.submit(fsim.Level.VELOCITY, airspeed_ms=250.0, vertical_speed_ms=0.0, heading_rad=3 * math.pi / 2)
+    launcher.amti_search(radar, bars=1, azimuth_half_width_rad=math.radians(15), range_scale_m=60000)
+    track = None
+    for _ in range(600):
+        tick()
+        track = next((t for t in launcher.amti_tracks(radar) if t.updates >= 3), None)
+        if track is not None:
+            break
+    require(track is not None, "radar did not confirm a measured track")
+    designation = launcher.designate(radar, track.id)
+    require(designation, "own radar designation refused")
+    launcher.amti_track(track.id, radar, range_scale_m=60000)
+    activity = launcher.strike("aim-120c", target=designation, payload=stations)
+    require(not world.weapons, "strike bypassed consent")
+    answered = False
+    for _ in range(1200):
+        tick()
+        for report in approver.report_consents().items:
+            request = report.value
+            if request.strike == activity:
+                require(report.meta.source == "dms" and not world.weapons, "consent bypassed native delivery")
+                require(approver.answer_consent(request.source, request.request_id), "consent answer refused")
+                answered = True
+                break
+        if answered:
+            break
+    require(answered, "C2 received no release-consent request")
+    for _ in range(600):
+        tick()
+        if world.weapons:
+            break
+    require(len(world.weapons) == 1, "delivered consent did not release one armed missile")
+    return world.weapons[0].id
+
+
+def guided_controls(data):
+    with make_world(data) as world:
+        missile = release(world, world.step)
+        moved = False
+        for _ in range(20):
+            world.step()
+            sample = world.weapon_controls(missile)
+            require(sample is not None and sample.available and sample.controller_available and len(sample.fins) == 4,
+                    "installed DLL did not expose actual native fins/controller")
+            require(sample.sample_time_s == world.time and sample.controller_time_s <= sample.sample_time_s,
+                    "installed control timing differs from native time")
+            require(len({f.id for f in sample.fins}) == 4, "physical fin IDs are duplicated")
+            for fin in sample.fins:
+                require(fin.valid and fin.minimum_rad <= fin.actual_rad <= fin.maximum_rad, "invalid actual native fin")
+                moved |= abs(fin.actual_rad) > 1e-8
+        require(moved, "armed guidance never moved an actual fin")
+        fin = sample.fins[0]
+        world.vehicle(missile).set_property("fcs/fin-%d-actuator/malfunction/fail_stuck" % fin.native_index, 1)
+        world.step(5)
+        failed = next(f for f in world.weapon_controls(missile).fins if f.id == fin.id)
+        require(failed.failed_stuck and failed.actual_rad == fin.actual_rad, "installed query hid a native jam")
+        print("installed Python guided controls: armed=1 delivered_consent=1 fins=4 jam=1")
+
 def main(argv):
     require(len(argv) == 3, "usage: equipment_python.py <installed python prefix> <smoke|data_probe>")
     prefix = Path(argv[1]).resolve()
@@ -121,6 +205,7 @@ def main(argv):
             require(False, "corrupt installed aircraft data was bypassed")
         require(argv[2] == "smoke", "unknown installed equipment consumer mode")
         smoke(world)
+        guided_controls(data)
         return 0
     finally:
         world.close()

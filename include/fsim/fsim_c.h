@@ -2727,6 +2727,27 @@ FSIM_API int fsim_world_launch_weapon(fsim_world* world, uint32_t launcher, cons
 /* The weapons in flight (by id), then those that ended, newest first (the last 256): the count takes the
  * snapshot fsim_world_weapon reads. */
 FSIM_API uint32_t fsim_world_weapon_count(fsim_world* world);
+/* Version 1 actual-fin referee diagnostics. Repeated reads do not consume data.
+ * NULL fins with capacity 0 sizes the buffer; required is the total count.
+ * Rows use fins[0].struct_size stride. Serialize reads with step/reset/destroy.
+ * Agent handles are refused. Unknown/non-weapon/ended IDs are invalid. */
+typedef struct fsim_weapon_fin_v1 {
+    uint32_t struct_size, id, native_index;
+    int32_t valid, failed_stuck, failed_zero, failed_hardover;
+    double actual_rad, demand_rad, minimum_rad, maximum_rad, rate_rad_s;
+} fsim_weapon_fin_v1;
+typedef struct fsim_weapon_controls_v1 {
+    uint32_t struct_size, entity, slot;
+    uint64_t generation;
+    int32_t available, controller_available;
+    double sample_time_s, controller_time_s;
+    double commands[3];
+    uint32_t fin_count;
+} fsim_weapon_controls_v1;
+FSIM_API void fsim_weapon_fin_v1_init(fsim_weapon_fin_v1* fin);
+FSIM_API void fsim_weapon_controls_v1_init(fsim_weapon_controls_v1* controls);
+FSIM_API int fsim_world_weapon_controls_v1(const fsim_world* world,uint32_t weapon,
+    fsim_weapon_controls_v1* controls,fsim_weapon_fin_v1* fins,uint32_t capacity,uint32_t* required);
 FSIM_API int fsim_world_weapon(const fsim_world* world, uint32_t index, fsim_weapon_info* out);
 /* An entity's role (fsim_role) and, for a weapon, its launcher (0 for an aircraft). */
 FSIM_API int fsim_vehicle_role(const fsim_world* world, uint32_t id, int32_t* role, uint32_t* launcher);

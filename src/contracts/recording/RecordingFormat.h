@@ -1,8 +1,8 @@
 #pragma once
 
 // The recording file format (design 9.5 "Recorder"): the same vehicle table rows and samples the shared-memory segment
-// carries, appended at a fixed simulation-time interval. Format v1-v7 (little-endian):
-//   "FSREC" u8 version (currently 7) | RecordingHeader | records...
+// carries, appended at a fixed simulation-time interval. Format v1-v8 (little-endian):
+//   "FSREC" u8 version (currently 8) | RecordingHeader | records...
 //   record: u8 kind ('T' table row, 'S' snapshot, 'M' stores) followed by
 //     'T': u32 slot, RecordedVehicle (plain table row without atomics)
 //     'S': RecordingSnapshotHead{double simTime; u32 count}, count x {u32 slot, VehicleSample}
@@ -15,6 +15,8 @@
 //          it is from the next snapshot on, written when it changes (version 4; a reader takes the fields it knows)
 //     'V': u32 size, size bytes of EngagementEvent - an engagement's event (MS-7h: a detonation) as it happened,
 //          before the next snapshot (version 5; a reader takes the fields it knows)
+//     'F': u32 size, double sample time, u32 count, u32 control format (1), count x WeaponControlsWireV1
+//          (version 8); applies only to the next S record with the same sample time, never carried forward.
 //
 // The header, table rows and sample prefixes below are raw fixed-size records,
 // not extensible public structs. Their existing sizes/offsets and the v1-v7
@@ -41,7 +43,8 @@ inline constexpr char kRecordingMagic[5] = {'F', 'S', 'R', 'E', 'C'};
 //    much shorter and theirs 0 - drawn as they were, each model's origin at its CG
 // 7: each engine's fuel flow (four more `derived` values); an older file's are 0 - its trails laid as they were, from
 //    the thrust
-inline constexpr std::uint8_t kRecordingVersion = 7;
+// 8: size-prefixed F records for actual individual fins; v7 sample stride unchanged.
+inline constexpr std::uint8_t kRecordingVersion = 8;
 
 struct RecordingHeader {
     std::uint32_t capacity = 0;

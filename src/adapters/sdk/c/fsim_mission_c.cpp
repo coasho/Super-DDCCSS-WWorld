@@ -236,6 +236,46 @@ FSIM_API uint32_t fsim_world_weapon_count(fsim_world* world) {
     return static_cast<uint32_t>(world->weapons.size());
 }
 
+FSIM_API void fsim_weapon_fin_v1_init(fsim_weapon_fin_v1* fin) {
+    if(!fin) return;
+    *fin={}; fin->struct_size=sizeof(*fin);
+    fin->actual_rad=fin->demand_rad=fin->minimum_rad=fin->maximum_rad=fin->rate_rad_s=std::nan("");
+}
+FSIM_API void fsim_weapon_controls_v1_init(fsim_weapon_controls_v1* controls) {
+    if(!controls) return;
+    *controls={}; controls->struct_size=sizeof(*controls); controls->controller_time_s=std::nan("");
+}
+FSIM_API int fsim_world_weapon_controls_v1(const fsim_world* world,uint32_t weapon,
+    fsim_weapon_controls_v1* controls,fsim_weapon_fin_v1* fins,uint32_t capacity,uint32_t* required) {
+    FSIM_NOT_AGENT(world,FSIM_NOT_ALLOWED);
+    if(required) *required=0;
+    if(!world || !controls || controls->struct_size<sizeof(uint32_t) || !required ||
+       (capacity && (!fins || fins[0].struct_size<sizeof(uint32_t))))
+        return fail(FSIM_INVALID_ARGUMENT,"fsim_world_weapon_controls_v1: invalid buffer");
+    return guard("fsim_world_weapon_controls_v1",[&]() -> int {
+        const auto value=world->world.weaponControlsV1(weapon);
+        if(!value) return fail(FSIM_INVALID_ARGUMENT,"unknown live weapon");
+        fsim_weapon_controls_v1 head; fsim_weapon_controls_v1_init(&head);
+        head.entity=value->entity; head.slot=value->slot; head.generation=value->generation;
+        head.available=value->available; head.controller_available=value->controllerAvailable;
+        head.sample_time_s=value->sampleTimeS; head.controller_time_s=value->controllerTimeS;
+        for(std::size_t i=0;i<3;++i) head.commands[i]=value->commands[i];
+        head.fin_count=static_cast<uint32_t>(value->fins.size()); *required=head.fin_count;
+        const auto stride=capacity?fins[0].struct_size:0;
+        for(uint32_t i=0;i<std::min(capacity,head.fin_count);++i) {
+            const auto& f=value->fins[i]; fsim_weapon_fin_v1 row; fsim_weapon_fin_v1_init(&row);
+            row.id=f.id; row.native_index=f.nativeIndex; row.valid=f.valid;
+            row.failed_stuck=f.failedStuck; row.failed_zero=f.failedZero; row.failed_hardover=f.failedHardover;
+            row.actual_rad=f.actualRad; row.demand_rad=f.demandRad; row.minimum_rad=f.minimumRad;
+            row.maximum_rad=f.maximumRad; row.rate_rad_s=f.rateRadS;
+            auto* destination=reinterpret_cast<fsim_weapon_fin_v1*>(reinterpret_cast<char*>(fins)+static_cast<std::size_t>(i)*stride);
+            if(destination->struct_size!=stride || !copyOut(row,destination))
+                return fail(FSIM_INVALID_ARGUMENT,"fin rows require one initialized stride");
+        }
+        return copyOut(head,controls)?FSIM_OK:FSIM_INVALID_ARGUMENT;
+    });
+}
+
 FSIM_API int fsim_world_weapon(const fsim_world* world, uint32_t index, fsim_weapon_info* out) {
     FSIM_NOT_AGENT(world, FSIM_NOT_ALLOWED);
     if (!world || !out || index >= world->weapons.size()) return fail(FSIM_INVALID_ARGUMENT, "fsim_world_weapon: bad arguments");

@@ -425,7 +425,7 @@ TEST_CASE("public state and recording representations preserve frozen layouts", 
         }
     }
 
-    // The writer must retain v7, not silently write enlarged records under it.
+    // v8 changes only the version here; without F records the v7 strides remain exact.
     fsim::ipc::RecordWriter writer;
     REQUIRE(writer.open(file.path, Header{}));
     writer.writeVehicle(0, Row{});
@@ -435,7 +435,7 @@ TEST_CASE("public state and recording representations preserve frozen layouts", 
     const std::vector<char> written{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
     REQUIRE(written.size() == 2564);
     REQUIRE(std::string(written.data(), 5) == "FSREC");
-    REQUIRE(static_cast<unsigned char>(written[5]) == 7);
+    REQUIRE(static_cast<unsigned char>(written[5]) == 8);
 }
 
 // The whole FSREC v7 file of the fixed world below, padding zero (HC-01; taken from the corrected writer, three runs alike).
@@ -509,7 +509,12 @@ TEST_CASE("the recording writer's bytes for a fixed world are frozen (FSREC v7)"
     REQUIRE(written.size() == 2928);
     // With its padding written as zero (HC-01), the file is the same bytes every time: its whole digest is frozen too.
     std::uint64_t digest = 1469598103934665603ull; // FNV-1a 64
-    for (char c : written) digest = (digest ^ static_cast<unsigned char>(c)) * 1099511628211ull;
+    // v8 intentionally changes the header version; retain the independent v7
+    // digest of every other byte, including the complete unchanged sample stride.
+    for(std::size_t i=0;i<written.size();++i) {
+        const auto c=i==5?static_cast<unsigned char>(7):static_cast<unsigned char>(written[i]);
+        digest=(digest^c)*1099511628211ull;
+    }
     INFO("FNV-1a 64 0x" << std::hex << digest);
     CHECK(digest == kFrozenWriterDigest);
     const auto byte = [&](std::size_t at) { return static_cast<unsigned char>(written.at(at)); };
@@ -531,7 +536,7 @@ TEST_CASE("the recording writer's bytes for a fixed world are frozen (FSREC v7)"
     const auto text = [&](std::size_t at, std::size_t n) { return std::string(written.data() + at, n); };
     // magic, version, header (88 bytes from 6)
     REQUIRE(text(0, 5) == "FSREC");
-    REQUIRE(byte(5) == 7);
+    REQUIRE(byte(5) == 8);
     REQUIRE((u32(6) == 4 && f64(14) == 1.0 / 120.0 && u32(22) == 4 && text(26, 7) == std::string("frozen\0", 7)));
     // 'T' slot 0, its table row (440 bytes from 99)
     REQUIRE((byte(94) == 'T' && u32(95) == 0));

@@ -25,6 +25,10 @@ struct Spec {
     std::string seeker;
     double acquireM = 17000, gimbalRad = 1.047, maxG = 35;
     double lifeS = 110, armingS = 1, fuzeM = 12, loftRad = .349;
+    /// 0 retains unversioned callers' legacy execution. Version 1 uses both
+    /// explicit authored facts; neither implies a fitted modeled transport.
+    unsigned capabilityVersion = 0;
+    bool inertialMidcourse = false, launcherUpdates = false;
 };
 struct Observation {
     std::uint32_t id = 0;
@@ -61,6 +65,9 @@ struct Output {
 class Guidance {
 public:
     explicit Guidance(Spec spec);
+    /// A permitted prelaunch estimate, predicted to release time (launch age 0).
+    /// This supplies an acquisition cue, not a current seeker observation.
+    Guidance(Spec spec, std::optional<Observation> initialEstimate);
     Output update(const Input& input);
     Spec spec() const noexcept;
 private:

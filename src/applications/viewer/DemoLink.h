@@ -44,6 +44,7 @@ public:
     std::uint64_t stepsTaken() const noexcept;
     /// The newest published snapshot since the last call, or nullptr.
     const sim::SnapshotBatch* acquire() noexcept;
+    const std::vector<ms::WeaponControlSnapshotV1>& weaponControls() const noexcept { return mirror_.weaponControls(); }
     double throughput() const noexcept;
     /// Ask the publisher to stop and wait for it to exit (ended by force after a few seconds): whether it exited on
     /// request.

@@ -70,6 +70,7 @@ WorldPublisher::WorldPublisher(const Options& options) : options_(options) {
     h->incarnation.store(incarnation, std::memory_order_release);
     std::atomic_thread_fence(std::memory_order_seq_cst);
     h->magic = kMagic;
+    finSegment_.create(options_.name,options_.capacity,h->publisherPid,h->incarnation.load(std::memory_order_acquire));
     header_ = h;
     writeSlot_ = 1;
     WorldRegistry::add(options_.name);
@@ -172,7 +173,8 @@ bool WorldPublisher::due() const noexcept {
 }
 
 bool WorldPublisher::publish(double simTime, Span<const sim::VehicleState> states, Span<const sim::ControlInputs> inputs,
-                             bool force, Span<const FlightStatus> status) noexcept {
+                             bool force, Span<const FlightStatus> status,
+                             const std::vector<ms::WeaponControlSnapshotV1>& controls) noexcept {
     if (!header_) return false;
     const std::int64_t now = platform::Clock::nanoseconds();
     if (!force && static_cast<double>(now - lastPublishNs_) * 1e-9 < options_.publishIntervalSeconds) return false;
@@ -189,6 +191,7 @@ bool WorldPublisher::publish(double simTime, Span<const sim::VehicleState> state
     const std::uint32_t n = static_cast<std::uint32_t>(std::min<std::size_t>(states.size(), header_->capacity));
     s->seq.fetch_add(1, std::memory_order_acq_rel);
     s->sequence = header_->publishSequence.load(std::memory_order_relaxed) + 1;
+    finSegment_.publish(s->sequence,controls);
     s->simTime = simTime;
     s->wallNs = now;
     for (std::uint32_t i = 0; i < n; ++i) {

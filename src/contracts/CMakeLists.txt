@@ -5,6 +5,7 @@
 add_library(fsim_contracts INTERFACE
     world_stream/WorldLayout.h
     world_stream/SnapshotBatch.h
+    world_stream/WeaponControlsLayout.h
     vision_stream/VisionLayout.h
     recording/RecordingFormat.h
     simulation/WorldOptions.h)

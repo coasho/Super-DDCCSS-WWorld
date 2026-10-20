@@ -279,19 +279,20 @@ TEST_CASE("stores: launch target and FOV refusals precede host admission without
     strike.store = "aim-120c";
     launchRejectedUnchanged(w, launcher, strike, ms::Reason::PayloadOff);
 
-    // Explicit indices override the named type. Inventory order wins over request order,
-    // and only its first selected AAM is checked even when both stores are requested.
+    // Explicit indices override the named type. Every selected AAM must meet
+    // its own envelope, including a later IR store in a mixed selection.
     strike.stores = {1};
     launchRejectedUnchanged(w, launcher, strike, ms::Reason::OutOfReach);
     strike.store = "aim-9x";
     strike.stores = {1, 0};
-    launchRejectedUnchanged(w, launcher, strike, ms::Reason::PayloadOff);
+    launchRejectedUnchanged(w, launcher, strike, ms::Reason::OutOfReach);
     strike.stores.clear();
     strike.store.clear();
     strike.quantity = 2;
-    launchRejectedUnchanged(w, launcher, strike, ms::Reason::PayloadOff);
+    launchRejectedUnchanged(w, launcher, strike, ms::Reason::OutOfReach);
 
     strike.store = "aim-120c";
+    strike.quantity = 1; // The following refusal cases select the one installed AIM-120C.
     strike.target = 0xfffffffeu;
     launchRejectedUnchanged(w, launcher, strike, ms::Reason::UnknownTrack);
     strike.target = behind;

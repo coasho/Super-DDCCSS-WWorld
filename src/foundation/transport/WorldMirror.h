@@ -2,6 +2,7 @@
 
 #include "contracts/world_stream/WorldLayout.h"
 #include "foundation/platform/SharedMemory.h"
+#include "foundation/transport/WeaponControlsSegment.h"
 #include "contracts/world_stream/SnapshotBatch.h"
 
 #include <cstdint>
@@ -68,6 +69,7 @@ public:
     const std::vector<sim::ControlInputs>& inputs() const noexcept { return inputs_; }
     /// Each vehicle's flight status with that snapshot (WorldLayout.h, Derived): all 0 from a publisher that gives none.
     const std::vector<FlightStatus>& status() const noexcept { return status_; }
+    const std::vector<ms::WeaponControlSnapshotV1>& weaponControls() const noexcept { return weaponControls_; }
     std::int64_t lastWallNs() const noexcept { return lastWallNs_; }
     /// The engagement's events written since the last call, appended to `out` in their order (the first call: those
     /// still in the ring - a viewer that attaches to a fire sees it); how many.
@@ -86,6 +88,8 @@ private:
     const VehicleSample* samples(std::uint32_t index) const noexcept;
 
     platform::SharedMemory memory_;
+    WeaponControlsSegment finSegment_;
+    std::vector<ms::WeaponControlSnapshotV1> weaponControls_;
     const WorldHeader* header_ = nullptr;
     const unsigned char* base_ = nullptr;
     std::string name_;

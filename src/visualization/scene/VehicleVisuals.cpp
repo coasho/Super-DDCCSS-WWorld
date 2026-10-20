@@ -421,9 +421,28 @@ bool VehicleVisuals::Joint::parse(const std::string& name, Joint& joint) {
     if (!isJointName(name)) return false;
     std::string terms = name.substr(5);
     joint.mix.clear();
+    joint.finHasFallback=false;
     joint.kind = Surface;
     joint.phase = 0.0;
     joint.phaseTime = std::numeric_limits<double>::quiet_NaN();
+    if(terms.rfind("fin:",0)==0) {
+        const auto pipe=terms.find('|');
+        std::vector<double> values;
+        if(!parseNumbers(terms.substr(4,pipe==std::string::npos?std::string::npos:pipe-4),values) || values.empty() || values.size()>2 ||
+           values[0]<1 || values[0]>std::numeric_limits<std::uint32_t>::max() || values[0]!=std::floor(values[0])) return false;
+        joint.kind=Fin; joint.finId=static_cast<std::uint32_t>(values[0]);
+        joint.gain=values.size()==2?values[1]:1;
+        joint.finAngleRad=std::numeric_limits<double>::quiet_NaN();
+        if(pipe!=std::string::npos) {
+            const auto fallback=terms.substr(pipe+1);
+            if(fallback.empty() || fallback.find('|')!=std::string::npos || fallback.rfind("fin:",0)==0) return false;
+            Joint legacy;
+            if(!parse("fsim:"+fallback,legacy) || legacy.kind!=Surface) return false;
+            joint.finHasFallback=true; joint.finFallbackGain=legacy.gain;
+            joint.channel=legacy.channel; joint.mix=std::move(legacy.mix); joint.lo=legacy.lo; joint.hi=legacy.hi;
+        }
+        return true;
+    }
     // a missile's rolleron, spun by the airstream (fsim:rolleron:<radius>), and the disc it blurs into
     // (fsim:rolleron-disc:<radius>); a free-rolling tail (fsim:freeroll:<turns per metre>)
     for (const auto& [prefix, kind] : {std::pair<const char*, Kind>{"rolleron-disc:", RolleronDisc}, {"rolleron:", Rolleron},
@@ -610,6 +629,11 @@ double VehicleVisuals::Joint::turn(double perSecond, double simTime) {
 }
 
 vsg::dmat4 VehicleVisuals::Joint::matrix(const sim::VehicleState& s) {
+    if(kind==Fin) {
+        if(std::isfinite(finAngleRad)) return rest*vsg::rotate(gain*finAngleRad,vsg::dvec3(1,0,0));
+        if(!finHasFallback) return rest;
+        // Approximate authored legacy mixer only when actual data is unavailable.
+    }
     // (what is not shown shrinks to its origin, the matrix still invertible)
     if (kind == Station) return shown ? rest : rest * vsg::scale(1e-4, 1e-4, 1e-4);
     if (kind == Section) return rest; // (whole)
@@ -680,7 +704,7 @@ vsg::dmat4 VehicleVisuals::Joint::matrix(const sim::VehicleState& s) {
         }
         return std::isfinite(d) ? d : 0.0;
     };
-    double angle = gain * of(channel);
+    double angle = (kind==Fin?finFallbackGain:gain) * of(channel);
     for (const auto& [c, g] : mix) angle += g * of(c);
     angle = std::clamp(angle, lo, hi);
     return rest * vsg::rotate(angle, vsg::dvec3(1.0, 0.0, 0.0));
@@ -694,7 +718,7 @@ VehicleVisuals::Rig VehicleVisuals::Rig::find(const vsg::ref_ptr<vsg::Node>& gra
     for (const auto& name : finder.malformed)
         LOG_WARN("world") << "model node '" << name
                           << "' is not a moving part (fsim:aileron|elevator|rudder|flaps[:gain][+...][@lo,hi], "
-                             "fsim:gear:<deg>[:<g0>:<g1>], fsim:afterburner[:<engine>], fsim:lef[:<gain>][@lo,hi], "
+                             "fsim:fin:<id>[:<gain>], fsim:gear:<deg>[:<g0>:<g1>], fsim:afterburner[:<engine>], fsim:lef[:<gain>][@lo,hi], "
                              "fsim:propeller:<engine>, fsim:nozzle:<engine>:<deg>, fsim:oleo:<wheel>[:<gain>], "
                              "fsim:steer:<wheel>, fsim:wheel:<wheel>:<radius>, fsim:disc|blades:<engine>:<rpm>); left fixed";
     rig.joints = std::move(finder.joints);
@@ -1095,6 +1119,8 @@ void VehicleVisuals::setModel(std::size_t index, const std::string& modelPath, c
     std::string key = resolveModel(modelPath, type);
     if (!offset.empty() && !key.empty() && key.find('|') == std::string::npos) key += "|" + offset;
     if (slotModel_[index] == key) return;
+    if(index<finAngles_.size()) finAngles_[index].clear();
+    if(index<finHistory_.size()) finHistory_[index].clear();
     slotModel_[index] = key;
     assign(index, modelFor(key));
     if (!sectionOnly_[index].empty()) {
@@ -1222,6 +1248,58 @@ const std::string& VehicleVisuals::modelOf(std::size_t index) const {
     return index < slotModel_.size() ? slotModel_[index] : none;
 }
 
+void VehicleVisuals::setWeaponControls(const ms::WeaponControlSnapshotV1& sample) {
+    rememberWeaponControls(sample,sample.sampleTimeS);
+}
+void VehicleVisuals::rememberWeaponControls(const ms::WeaponControlSnapshotV1& sample,double clock) {
+    if(sample.slot>=poses_.size() || !std::isfinite(clock)) return;
+    if(finHistory_.size()<poses_.size()) finHistory_.resize(poses_.size());
+    if(finAngles_.size()<poses_.size()) finAngles_.resize(poses_.size());
+    auto& history=finHistory_[sample.slot];
+    if(!history.empty() && clock<history.back().clock) history.clear();
+    if(!history.empty() && clock==history.back().clock) history.pop_back();
+    FinFrame frame; frame.clock=clock; frame.entity=sample.entity; frame.generation=sample.generation;
+    if(sample.available) for(const auto& fin:sample.fins)
+        if(fin.valid && fin.id && std::isfinite(fin.actualRad)) frame.angles[fin.id]=fin.actualRad;
+    history.push_back(std::move(frame));
+    while(history.size()>6) history.pop_front(); // same bounded history as body interpolation
+}
+void VehicleVisuals::setWeaponControlsFrame(double clock,const std::vector<ms::WeaponControlSnapshotV1>& samples) {
+    if(!std::isfinite(clock)) { clearWeaponControls(); return; }
+    for(std::size_t i=0;i<poses_.size();++i) {
+        ms::WeaponControlSnapshotV1 missing; missing.slot=static_cast<std::uint32_t>(i);
+        rememberWeaponControls(missing,clock);
+    }
+    for(const auto& sample:samples) rememberWeaponControls(sample,clock);
+}
+void VehicleVisuals::setWeaponControlsTime(double clock,bool interpolate) {
+    finRenderClock_=clock; finInterpolate_=interpolate;
+}
+void VehicleVisuals::sampleWeaponControls(std::size_t slot,double clock) {
+    if(slot>=finAngles_.size()) return;
+    auto& out=finAngles_[slot]; out.clear();
+    if(slot>=finHistory_.size() || finHistory_[slot].empty() || !std::isfinite(clock)) return;
+    const auto& history=finHistory_[slot];
+    if(!finInterpolate_ || clock>=history.back().clock) { out=history.back().angles; return; }
+    if(clock<history.front().clock) return;
+    if(clock==history.front().clock) { out=history.front().angles; return; }
+    std::size_t hi=1;
+    while(hi<history.size() && history[hi].clock<clock) ++hi;
+    const auto& a=history[hi-1]; const auto& b=history[hi];
+    if(clock==b.clock) { out=b.angles; return; }
+    if(a.entity!=b.entity || a.generation!=b.generation) return;
+    const double t=(clock-a.clock)/(b.clock-a.clock);
+    for(const auto& [id,angle]:a.angles) {
+        const auto found=b.angles.find(id);
+        if(found!=b.angles.end()) out[id]=angle+(found->second-angle)*t;
+    }
+}
+void VehicleVisuals::clearWeaponControls() {
+    for(auto& values:finAngles_) values.clear();
+    for(auto& history:finHistory_) history.clear();
+    finRenderClock_=std::numeric_limits<double>::quiet_NaN(); finInterpolate_=true;
+}
+
 void VehicleVisuals::update(Span<const sim::VehicleState> states) {
     const std::size_t n = std::min(states.size(), transforms_.size());
     double clock = std::numeric_limits<double>::quiet_NaN();
@@ -1231,11 +1309,18 @@ void VehicleVisuals::update(Span<const sim::VehicleState> states) {
         transforms_[i]->matrix = m;
         if (i < segTransforms_.size()) segTransforms_[i]->matrix = m;
         Pose& pose = poses_[i];
+        sampleWeaponControls(i,std::isfinite(finRenderClock_)?finRenderClock_:states[i].simTime);
         for (std::size_t j = 0; j < pose.transforms.size(); ++j) {
             const int flame = j < pose.flames.size() ? pose.flames[j] : -1;
             if (flame < 0 || !exhaustOn_) {
                 Joint& joint = pose.joints[j];
-                if (joint.kind == Joint::Station) {
+                if(joint.kind==Joint::Fin) {
+                    joint.finAngleRad=std::numeric_limits<double>::quiet_NaN();
+                    if(i<finAngles_.size()) {
+                        const auto found=finAngles_[i].find(joint.finId);
+                        if(found!=finAngles_[i].end()) joint.finAngleRad=found->second;
+                    }
+                } else if (joint.kind == Joint::Station) {
                     const auto& shown = stationsShown_[i];
                     joint.shown = std::find(shown.begin(), shown.end(), joint.station) != shown.end();
                 } else if (joint.kind == Joint::BayDoor) {
@@ -1327,6 +1412,8 @@ void VehicleVisuals::setSelected(int index) {
 }
 
 void VehicleVisuals::setVisible(std::size_t index, bool visible) {
+    if(!visible && index<finAngles_.size()) finAngles_[index].clear();
+    if(!visible && index<finHistory_.size()) finHistory_[index].clear();
     if (index >= visible_.size() || (visible_[index] != 0) == visible) return;
     visible_[index] = visible ? 1 : 0;
     applySwitch(index);

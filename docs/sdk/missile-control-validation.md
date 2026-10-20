@@ -57,6 +57,14 @@ path-rate feedforward is `-(specific_z + gravity_z)/airspeed`; yaw is
 does not request an extra pitch rotation. Rotating-coordinate `UVWdot` is not
 used as an accelerometer measurement.
 
+The later [30 km diagnosis](thirty-km-engagement-diagnosis.md) accounts for
+nonlinear native loads omitted by that linear inverse, using matching own-body
+loads, current-CG moments and actual fin-equivalent positions. The subsequent
+[reference continuation](sim-m03-reference-continuation.md) adds diagonal-inertia
+Euler coupling to both trim and rate inversion. These remain finite surface
+commands; no external guidance force or moment is applied. Exact internal load
+feedback does not establish a modeled IMU's latency, noise or bandwidth.
+
 The estimated nominal rate/incidence response times are 0.12/0.4 seconds,
 scaled slower when actuator lag is larger. Requested combined incidence is
 bounded at 15 degrees and commands at each channel's declared stop. The native
@@ -88,7 +96,7 @@ generator correction. Native parser checks exposed numeric-only property path
 segments; names now use `fin-i`, with an all-model syntax guard. Textual parser
 exceptions retain their diagnostics while preserving native load refusal.
 
-| Current check | Result |
+| Finite-control handoff check | Historical result |
 | --- | --- |
 | Generator/control and missile Python modules | 55/55 methods passed in 2.596 s, including 12 new control methods, unchanged engine/nozzle bytes for all 24 AAMs, unchanged uncontrolled bomb output and actual-position projection |
 | Private autopilot | 7/7 cases passed, including signed tail/canard force variation, absent roll, level trim, invalid/singular/zero authority, saturation recovery and six independently integrated synthetic finite-lag plants |
@@ -104,6 +112,16 @@ The final Headless native 5 km encounter detonated at a swept miss distance of
 encounter burned, coasted and detonated at 7.80757 m, maximum speed 779.216 m/s.
 These use the existing fixture's native event meanings and acceptance bounds;
 they are software diagnostics with estimated inputs.
+
+Those are historical finite-control handoff values. A later frozen reference
+continuation recorded detonation at 10.2878 m for 5 km and 8.12775 m for 30 km,
+with identical one/two-worker records/events on Headless and Release. It recorded
+744/746 full Headless checks, two retained failures and 56/56 focused Release
+checks. These are historical results, not verification of the expanded SDK
+delivery. Detonation distance does not establish actual target damage. The
+unchanged fixed-scene hit criteria must still fail when that evidence is absent.
+See the [SDK delivery continuation](sim-m03-reference-continuation.md#7-sdk-delivery-continuation-and-regression-repair)
+for current gates; earlier detonation distances do not replace current hit evidence.
 
 An earlier 29/30 focused run included an unrelinked interface-boundary binary
 and failed with a segmentation fault. The complete native rebuild relinked the

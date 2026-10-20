@@ -10,6 +10,10 @@ A radar shot uses an own-platform radar-track designation. Midcourse guidance re
 
 Native seeker observations are filtered by range, aspect, radar cross section where available, terrain propagation, gimbal and Doppler gates. Guidance cannot retain a current tracking flag after its observation disappears. Countermeasures compete within the held contact's association cell. Jettison creates an inert, unguided body and cannot arm its motor or fuze.
 
+Explicit version-1 store capability metadata separates inertial steering from launcher updates. Launch and due-release validation check every selected store before any member of that due activity spawns. A Ready infrared store can supply its actual on-rail observation. Semi-active candidates must pass the actual transmitter beam and both propagation paths. These mechanisms do not calibrate equipment or add a modeled weapon datalink.
+
+The [contact-fuze channel](weapon-contact-fuze.md) can initiate from an exact authored nose-tip crossing of attached finite aircraft geometry after seeker loss. First unarmed contact consumes only that release's contact channel. Contact and proximity share one detonation authority; contact events identify the physical victim with `reason="contact"`, independently of the retained seeker holding.
+
 ## Python presentation API
 
 | Interface | Result |
@@ -21,6 +25,7 @@ Native seeker observations are filtered by range, aspect, radar cross section wh
 | `world.engagement_events(since=serial)` | Every event with serial strictly greater than the cursor |
 | `world.launch_zone(vehicle, store, target)` | Advisory maximum, no-escape and minimum distances in metres |
 | `world.seeker_target(vehicle, store)` | On-rail infrared observed entity, or zero |
+| `world.weapon_controls(weapon)` | Versioned actual-fin/controller Range diagnostics, or `None` for an unknown/terminal weapon; [availability and C++/C equivalents](weapon-controls.md) |
 
 `WeaponRecord` appends `phase`, `seeker`, `holding`, `miss_m`, `burning`, `tracking`, `supported`, `time_to_go_s` and `time_to_active_s`. `burning` comes from native engine thrust; fuel-flow bookkeeping alone can remain nonzero after rocket burnout. `holding` is the last held seeker observation and may be a decoy; `tracking` says whether it is current. Unknown miss distance and unavailable timing estimates are NaN. An active-radar seeker reports zero time to active after activation; IR and semi-active seekers have no such transition estimate. Terminal records retain the native final position and outcome; the snapshot retains the most recent 256 terminal weapons alongside live weapons. See the dated [SIM-M03 correctness evidence](weapon-fidelity-validation.md) for observation and fuze corrections and remaining physical-fidelity gates.
 

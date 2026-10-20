@@ -9,6 +9,14 @@
   "powerable": true,
   "jettisonable": true,
   "seeker": "imaging_infrared",
+  "guidance_capabilities": {
+    "version": 1,
+    "inertial_midcourse": false,
+    "launcher_updates": false,
+    "basis": "assumed",
+    "source": "/guidance",
+    "note": "Explicit execution declaration transcribed from this card's authored guidance field. False means this profile does not enable the capability; it is not evidence of equipment absence. No seeker, control or fitted-link performance is calibrated; launcher updates still use the explicitly idealized native path."
+  },
   "guidance": "imaging infrared homing, thrust-vector control",
   "motor": "HTPB solid rocket with thrust vectoring",
   "fuze": "impact and active radar proximity",

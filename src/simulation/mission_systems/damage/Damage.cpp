@@ -62,13 +62,14 @@ double fit(const Fit (&f)[N], double z) {
 
 V3 toBody(const Target& t, const V3& v) { return {dot(v, t.bodyToEcef[0]), dot(v, t.bodyToEcef[1]), dot(v, t.bodyToEcef[2])}; }
 
-// a ray's stretch in an axis-aligned box (body axes): [enter, leave] and the face it enters by
-bool slab(const V3& p, const V3& u, const V3& centre, const V3& half, double& enter, double& leave, V3& normal) {
+// a ray's stretch in an axis-aligned box (body axes): [enter, leave] and each crossed face
+bool slab(const V3& p, const V3& u, const V3& centre, const V3& half, double& enter, double& leave,
+          V3& normal, V3& exitNormal) {
     const double pc[3] = {p.x - centre.x, p.y - centre.y, p.z - centre.z}, uc[3] = {u.x, u.y, u.z}, h[3] = {half.x, half.y, half.z};
     enter = -std::numeric_limits<double>::infinity();
     leave = std::numeric_limits<double>::infinity();
-    int face = 0;
-    double sign = 1.0;
+    int face = 0, exitFace = 0;
+    double sign = 1.0, exitSign = 1.0;
     for (int k = 0; k < 3; ++k) {
         if (std::abs(uc[k]) < 1e-12) {
             if (std::abs(pc[k]) > h[k]) return false;
@@ -78,10 +79,11 @@ bool slab(const V3& p, const V3& u, const V3& centre, const V3& half, double& en
         double s = -1.0;
         if (a > b) std::swap(a, b), s = 1.0;
         if (a > enter) enter = a, face = k, sign = s;
-        leave = std::min(leave, b);
+        if (b < leave) leave = b, exitFace = k, exitSign = -s;
     }
     if (leave < std::max(enter, 0.0)) return false;
     normal = face == 0 ? V3{sign, 0, 0} : face == 1 ? V3{0, sign, 0} : V3{0, 0, sign};
+    exitNormal = exitFace == 0 ? V3{exitSign, 0, 0} : exitFace == 1 ? V3{0, exitSign, 0} : V3{0, 0, exitSign};
     return true;
 }
 
@@ -91,7 +93,7 @@ bool quad(const V3& p, const V3& u, const std::array<V3, 4>& c, double& s, V3& n
     const double den = dot(u, normal);
     if (std::abs(den) < 1e-9) return false;
     s = dot(c[0] - p, normal) / den;
-    if (s <= 0.0) return false;
+    if (s < 0.0) return false;
     const V3 q = p + u * s;
     int pos = 0, neg = 0;
     for (std::size_t k = 0; k < 4; ++k) {
@@ -302,6 +304,7 @@ Impact assess(const Warhead& w, const Burst& burst, const AttachedGeometryView& 
         int index;
         V3 normal;
         bool done;
+        int containmentDelta;
     };
     std::vector<Event> events;
     for (int i = 0; i < w.fragments; ++i) {
@@ -325,34 +328,39 @@ Impact assess(const Warhead& w, const Burst& burst, const AttachedGeometryView& 
         if (!(v > 1.0)) continue;
         const V3 u = toBody(target, rel * (1.0 / v));
         events.clear();
+        std::size_t bornInside = 0;
         for (const std::size_t k : geometry.panelIndices()) {
             const auto& p = af.panels[k];
             double s0, s1;
-            V3 n;
+            V3 n, exitNormal;
             if (p.surface) {
                 if (quad(p0, u, p.corners, s0, n)) {
-                    events.push_back({s0 - 1e-3, true, static_cast<int>(k), n, false}); // in through one skin,
-                    events.push_back({s0 + 1e-3, true, static_cast<int>(k), n, false}); // out through the other
+                    events.push_back({std::max(s0 - 1e-3, 0.0), true, static_cast<int>(k), n, false, 1}); // in through one skin,
+                    events.push_back({s0 + 1e-3, true, static_cast<int>(k), n, false, -1}); // out through the other
                 }
-            } else if (slab(p0, u, p.centre, p.half, s0, s1, n) && s0 > 0.0) {
-                events.push_back({s0, true, static_cast<int>(k), n, false});
-                events.push_back({s1, true, static_cast<int>(k), n, false});
+            } else if (slab(p0, u, p.centre, p.half, s0, s1, n, exitNormal)) {
+                if (s0 < 0.0) ++bornInside;
+                if (s0 >= 0.0) events.push_back({s0, true, static_cast<int>(k), n, false, 1});
+                if (s1 >= 0.0) events.push_back({s1, true, static_cast<int>(k), exitNormal, false, -1});
             }
         }
         for (const std::size_t k : geometry.componentIndices()) {
             double s0, s1;
-            V3 n;
-            if (slab(p0, u, af.components[k].centre, af.components[k].half, s0, s1, n) && s1 > 0.0)
-                events.push_back({std::max(s0, 0.0), false, static_cast<int>(k), n, false});
+            V3 n, exitNormal;
+            if (slab(p0, u, af.components[k].centre, af.components[k].half, s0, s1, n, exitNormal) && s1 > 0.0)
+                events.push_back({std::max(s0, 0.0), false, static_cast<int>(k), n, false, 0});
         }
         if (events.empty()) continue;
-        std::sort(events.begin(), events.end(), [](const Event& a, const Event& b) { return a.s < b.s; });
-        bool struck = false, inside = false;
+        // Preserve source order at ties: panel crossings were added before
+        // component hits, and each panel's entry before its exit.
+        std::stable_sort(events.begin(), events.end(), [](const Event& a, const Event& b) { return a.s < b.s; });
+        bool struck = false;
+        std::size_t containment = bornInside;
         double at = 0.0;
         double transferredMomentum = 0.0;
         auto skin = [&](Event& e) {
-            v *= std::exp(-decayPerM * (e.s - at));
-            at = e.s;
+            v *= std::exp(-decayPerM * std::max(e.s - at, 0.0));
+            at = std::max(e.s, at);
             const auto& p = af.panels[static_cast<std::size_t>(e.index)];
             auto& h = pan[static_cast<std::size_t>(e.index)];
             h.panel = e.index;
@@ -365,7 +373,8 @@ Impact assess(const Warhead& w, const Burst& burst, const AttachedGeometryView& 
             v = after;
             e.done = true;
             struck = true;
-            inside = !inside;
+            if (e.containmentDelta > 0) ++containment;
+            else if (e.containmentDelta < 0 && containment > 0) --containment;
         };
         for (std::size_t k = 0; k < events.size() && v > 0.0; ++k) {
             Event& e = events[k];
@@ -375,7 +384,7 @@ Impact assess(const Warhead& w, const Burst& burst, const AttachedGeometryView& 
                 continue;
             }
             // a component inside: through the skin over it first (the next skin within a metre)
-            if (!inside)
+            if (containment == 0)
                 for (std::size_t j = k + 1; j < events.size(); ++j)
                     if (events[j].skin && !events[j].done && events[j].s - e.s < 1.0) {
                         skin(events[j]);

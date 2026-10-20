@@ -53,6 +53,139 @@ static int installed_library(const char* prefix, const char* name) {
 #endif
 }
 
+static int guided_controls(const fsim_world_options* base_options) {
+    const double deg = 3.14159265358979323846 / 180.0;
+    fsim_world_options options = *base_options;
+    fsim_world *world = NULL, *launcher = NULL, *approver = NULL;
+    fsim_vehicle_spec spec;
+    fsim_c2_node_spec node;
+    fsim_net_spec net_spec;
+    fsim_payload_info payload;
+    fsim_ms_options command_options;
+    fsim_ms_result result;
+    fsim_command_result flight;
+    fsim_amti_command scan;
+    fsim_amti_track tracks[16];
+    fsim_strike_command strike;
+    fsim_consent_request consent;
+    fsim_weapon_info weapon;
+    fsim_weapon_controls_v1 sample;
+    fsim_weapon_fin_v1 fins[32], short_rows[2];
+    uint32_t carrier = 0, target = 0, c2 = 0, net = 0, designation = 0;
+    uint32_t radar = UINT32_MAX, stations = UINT32_MAX, i, j, n, ready = 0, required = 0;
+    uint64_t track = 0, activity = 0;
+    int32_t reason = -1;
+    int answered = 0, moved = 0;
+    double hold[4] = {250, 0, 0, NAN}, jam_angle;
+    char jam_property[128];
+    const fsim_vehicle_state* own;
+    options.name = "installed-fin-c"; options.terrain = 0;
+    CHECK(fsim_world_create(&options, &world) == FSIM_OK);
+    fsim_vehicle_spec_init(&spec);
+    spec.name = "launcher"; spec.type = "jsbsim:f16c";
+    spec.latitude_deg = 40; spec.longitude_deg = 0; spec.altitude_msl_m = 6000; spec.heading_deg = 90; spec.airspeed_ms = 250;
+    CHECK(fsim_world_create_vehicle(world, &spec, &carrier) == FSIM_OK);
+    CHECK(fsim_vehicle_load_loadout(world, carrier, "air superiority", &reason) == FSIM_OK && reason == 0);
+    CHECK(fsim_agent_create(world, carrier, "launcher", &launcher) == FSIM_OK);
+    hold[2] = 90 * deg;
+    CHECK(fsim_vehicle_submit(launcher, carrier, FSIM_LEVEL_VELOCITY, hold, 4, NULL, &flight) == FSIM_OK && flight.reason == 0);
+    fsim_c2_node_spec_init(&node);
+    node.name = "approver"; node.latitude_rad = 39.9 * deg; node.altitude_msl_m = 200;
+    CHECK(fsim_world_create_c2_node(world, &node, &c2) == FSIM_OK);
+    fsim_net_spec_init(&net_spec);
+    CHECK(fsim_world_create_net(world, &net_spec, &net) == FSIM_OK);
+    CHECK(fsim_world_join_net(world, carrier, net) == FSIM_OK && fsim_world_join_net(world, c2, net) == FSIM_OK);
+    CHECK(fsim_agent_create(world, c2, "approver", &approver) == FSIM_OK);
+    CHECK(fsim_c2_declare_role(approver, c2, 2, "APPROVER", NULL, 0, &reason) == FSIM_OK && reason == 0);
+    for (i = 0; i < fsim_vehicle_payload_count(launcher, carrier); ++i) {
+        fsim_payload_info_init(&payload);
+        CHECK(fsim_vehicle_payload(launcher, carrier, i, &payload) == FSIM_OK);
+        if (payload.family == FSIM_PAYLOAD_AIR_RADAR) radar = payload.index;
+        if (payload.family == FSIM_PAYLOAD_STORE_STATION) stations = payload.index;
+    }
+    CHECK(radar != UINT32_MAX && stations != UINT32_MAX);
+    fsim_ms_options_init(&command_options); fsim_ms_result_init(&result);
+    CHECK(fsim_vehicle_payload_state(launcher, carrier, radar, FSIM_PAYLOAD_OPERATE, &command_options, &result) == FSIM_OK && result.reason == 0);
+    CHECK(fsim_vehicle_payload_state(launcher, carrier, stations, FSIM_PAYLOAD_OPERATE, &command_options, &result) == FSIM_OK && result.reason == 0);
+    for (i = 0; i < 1200 && ready != 2; ++i) {
+        CHECK(fsim_world_step(world, 1) == FSIM_OK);
+        ready = 0;
+        for (j = 0; j < 2; ++j) {
+            fsim_payload_info_init(&payload);
+            CHECK(fsim_vehicle_payload(launcher, carrier, j ? stations : radar, &payload) == FSIM_OK);
+            if (payload.state == FSIM_PAYLOAD_OPERATE) ++ready;
+        }
+    }
+    CHECK(ready == 2);
+    own = fsim_vehicle_state_ptr(world, carrier); CHECK(own != NULL);
+    spec.name = "opponent"; spec.latitude_deg = own->latitude_rad / deg + .01; spec.longitude_deg = own->longitude_rad / deg + .15;
+    spec.heading_deg = 270;
+    CHECK(fsim_world_create_vehicle(world, &spec, &target) == FSIM_OK);
+    hold[2] = 270 * deg;
+    CHECK(fsim_vehicle_submit(world, target, FSIM_LEVEL_VELOCITY, hold, 4, NULL, &flight) == FSIM_OK && flight.reason == 0);
+    fsim_amti_command_init(&scan);
+    scan.payload = radar; scan.bars = 1; scan.azimuth_half_width_rad = 15 * deg; scan.range_scale_m = 60000;
+    CHECK(fsim_vehicle_amti_search(launcher, carrier, &scan, &command_options, &result) == FSIM_OK && result.reason == 0);
+    for (i = 0; i < 600 && !track; ++i) {
+        CHECK(fsim_world_step(world, 1) == FSIM_OK);
+        for (j = 0; j < 16; ++j) fsim_amti_track_init(&tracks[j]);
+        CHECK(fsim_vehicle_amti_tracks(launcher, carrier, radar, tracks, 16, &n) == FSIM_OK);
+        for (j = 0; j < n && j < 16; ++j) if (tracks[j].updates >= 3) { track = tracks[j].id; break; }
+    }
+    CHECK(track != 0);
+    CHECK(fsim_vehicle_designate(launcher, carrier, radar, track, &designation) == FSIM_OK && designation != 0);
+    scan.task = FSIM_AMTI_TRACK; scan.mode = FSIM_AMTI_SINGLE_TARGET_TRACK; scan.track = track;
+    CHECK(fsim_vehicle_amti_search(launcher, carrier, &scan, &command_options, &result) == FSIM_OK && result.reason == 0);
+    fsim_strike_command_init(&strike);
+    strike.payload = stations; strike.store = "aim-120c"; strike.target = designation;
+    CHECK(fsim_vehicle_strike(launcher, carrier, &strike, &command_options, &result) == FSIM_OK && result.reason == 0);
+    activity = result.activity;
+    CHECK(fsim_world_weapon_count(world) == 0);
+    for (i = 0; i < 1200 && !answered; ++i) {
+        CHECK(fsim_world_step(world, 1) == FSIM_OK);
+        for (j = 0; j < fsim_c2_consent_count(approver, c2); ++j) {
+            fsim_consent_request_init(&consent);
+            CHECK(fsim_c2_consent_get(approver, c2, j, &consent) == FSIM_OK);
+            if (consent.strike == activity) {
+                CHECK(fsim_world_weapon_count(world) == 0 && consent.received_s >= consent.time_s);
+                CHECK(fsim_c2_answer_consent(approver, c2, consent.from, consent.request_id, 1, &reason) == FSIM_OK && reason == 0);
+                answered = 1; break;
+            }
+        }
+    }
+    CHECK(answered);
+    for (i = 0; i < 600 && fsim_world_weapon_count(world) == 0; ++i) CHECK(fsim_world_step(world, 1) == FSIM_OK);
+    CHECK(fsim_world_weapon_count(world) == 1);
+    fsim_weapon_info_init(&weapon); CHECK(fsim_world_weapon(world, 0, &weapon) == FSIM_OK && !weapon.jettisoned);
+    fsim_weapon_controls_v1_init(&sample);
+    CHECK(fsim_world_weapon_controls_v1(launcher, weapon.id, &sample, NULL, 0, &required) == FSIM_NOT_ALLOWED);
+    for (i = 0; i < 20; ++i) {
+        CHECK(fsim_world_step(world, 1) == FSIM_OK);
+        CHECK(fsim_world_weapon_controls_v1(world, weapon.id, &sample, NULL, 0, &required) == FSIM_OK && required == 4);
+        CHECK(sample.available && sample.controller_available && sample.sample_time_s == fsim_world_time(world));
+        CHECK(sample.controller_time_s <= sample.sample_time_s);
+        for (j = 0; j < 32; ++j) fsim_weapon_fin_v1_init(&fins[j]);
+        CHECK(fsim_world_weapon_controls_v1(world, weapon.id, &sample, fins, 32, &required) == FSIM_OK && required == 4);
+        for (j = 0; j < required; ++j) {
+            CHECK(fins[j].valid && fins[j].id && fins[j].actual_rad >= fins[j].minimum_rad && fins[j].actual_rad <= fins[j].maximum_rad);
+            if (fabs(fins[j].actual_rad) > 1e-8) moved = 1;
+        }
+    }
+    CHECK(moved);
+    fsim_weapon_fin_v1_init(&short_rows[0]); fsim_weapon_fin_v1_init(&short_rows[1]); short_rows[1].id = 0xdeadbeef;
+    CHECK(fsim_world_weapon_controls_v1(world, weapon.id, &sample, short_rows, 1, &required) == FSIM_OK && required == 4);
+    CHECK(short_rows[1].id == 0xdeadbeef && short_rows[0].id == fins[0].id && short_rows[0].actual_rad == fins[0].actual_rad);
+    jam_angle = fins[0].actual_rad;
+    sprintf(jam_property, "fcs/fin-%u-actuator/malfunction/fail_stuck", fins[0].native_index);
+    CHECK(fsim_vehicle_set_property(world, weapon.id, jam_property, 1) == FSIM_OK);
+    CHECK(fsim_world_step(world, 5) == FSIM_OK);
+    CHECK(fsim_world_weapon_controls_v1(world, weapon.id, &sample, fins, 32, &required) == FSIM_OK);
+    CHECK(fins[0].failed_stuck && fins[0].actual_rad == jam_angle);
+    printf("installed C99 guided controls: armed=1 delivered_consent=1 fins=4 jam=1 bounded_buffer=1 actor_refusal=1\n");
+    fsim_world_destroy(approver); fsim_world_destroy(launcher); fsim_world_destroy(world);
+    return 0;
+}
+
 int main(int argc, char** argv) {
     fsim_world_options options;
     fsim_vehicle_spec spec;
@@ -136,5 +269,6 @@ int main(int argc, char** argv) {
     printf("installed C99 equipment: chaff=%u flare=%u stores=4 strikes=0 consents=0\n", chaff, flare);
     fsim_world_destroy(agent);
     fsim_world_destroy(world);
+    CHECK(guided_controls(&options) == 0);
     return 0;
 }

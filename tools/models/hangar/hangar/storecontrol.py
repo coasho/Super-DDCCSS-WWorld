@@ -32,6 +32,7 @@ import xml.etree.ElementTree as ET
 from . import storeaero
 from .aero.vlm import channel_gain
 from .geometry.surface import Surface
+from . import finregistry
 
 CHANNELS = ("elevator", "rudder", "aileron")
 OUTPUTS = {"elevator": "elevator", "rudder": "rudder", "aileron": "left-aileron"}
@@ -79,6 +80,7 @@ def build(geo, baseline):
     body = next(b for b in design["body"] if b.get("kind") == "fuselage")
     origin = float(body["stations"][0]["x"])
     fins, controls = [], []
+    physical = {}
     for spec in design.get("surface", []):
         if not spec.get("controls"):
             continue
@@ -97,6 +99,9 @@ def build(geo, baseline):
             for value in raw.get("mix", {}).values():
                 _number(value, "mixer gain")
         surface = Surface(spec)
+        names = [control.name for control in surface.controls]
+        if len(names) != len(set(names)):
+            raise ValueError("missile control: authored control names must be unique within a surface")
         full_root, full_cr, _, _ = surface.station(0)
         full_tip, full_ct, _, _ = surface.station(1)
         full_s = surface.half_arc
@@ -147,8 +152,16 @@ def build(geo, baseline):
                         ycp = side * float(a[1] + fraction * (b[1] - a[1]))
                         zcp = float(a[2] + fraction * (b[2] - a[2]))
                         cps.append((geo["cg"] - xcp, ycp, -zcp))
-                    fins.append(dict(gains=gains, lo=lo, hi=hi, slope=slope,
-                                     normal=(-u[0], u[1], -u[2]), cp=cps))
+                    key = finregistry.identity(surface, control, side)
+                    authored = (surface.name, control.name, side)
+                    if key in physical and (physical[key][0] != authored or physical[key][2] is not surface):
+                        raise ValueError("missile fin identity collision or duplicate authored surface")
+                    if key not in physical:
+                        fin = dict(id=key, gains=gains, lo=lo, hi=hi, patches=[])
+                        physical[key] = (authored, fin, surface)
+                        fins.append(fin)
+                    physical[key][1]["patches"].append(dict(slope=slope,
+                        normal=(-u[0], u[1], -u[2]), cp=cps))
     if not fins:
         return None
     limits = {}
@@ -164,9 +177,9 @@ def build(geo, baseline):
     for name, channel, kind, component in (("cz-elevator", "elevator", "force", 2),
             ("cy-rudder", "rudder", "force", 1), ("cm-elevator", "elevator", "moment", 1),
             ("cn-rudder", "rudder", "moment", 2), ("cl-aileron", "aileron", "moment", 0)):
-        derivatives[name] = [sum(fin["slope"][i] * fin["gains"][channel] *
-            (fin["normal"][component] if kind == "force" else _cross(fin["cp"][i], fin["normal"])[component] / d)
-            for fin in fins) for i in range(len(mach))]
+        derivatives[name] = [sum(patch["slope"][i] * fin["gains"][channel] *
+            (patch["normal"][component] if kind == "force" else _cross(patch["cp"][i], patch["normal"])[component] / d)
+            for fin in fins for patch in fin["patches"]) for i in range(len(mach))]
     return dict(fins=fins, channels=limits, mach=list(mach), derivatives=derivatives)
 
 
@@ -221,6 +234,7 @@ def apply(xml, old_controls, geo, baseline, origin_inches):
                 "fin-count": len(control["fins"])}
     metadata.update({ch + "-limit-rad": max(abs(v) for v in bounds) for ch, bounds in control["channels"].items()})
     for i, fin in enumerate(control["fins"]):
+        metadata["fin-%d-id" % i] = fin["id"]
         metadata["fin-%d-min-rad" % i] = fin["lo"]
         metadata["fin-%d-max-rad" % i] = fin["hi"]
         metadata["fin-%d-rate-rad_s" % i] = RATE
@@ -282,27 +296,37 @@ def apply(xml, old_controls, geo, baseline, origin_inches):
                _op("product", _op("sin", _property("aero/alpha-rad")), _op("cos", _property("aero/beta-rad"))))
     for axis, expression in zip("xyz", airflow):
         pre.append(_function("fsim/fin-control/air-" + axis, expression))
-    for i, fin in enumerate(control["fins"]):
-        p = "fsim/fin-control/fin-%d/" % i
-        delta = "fcs/fin-%d-delta-rad" % i
-        pre.append(_function(p + "slope", _table(control["mach"], fin["slope"])))
-        pre.append(_function(p + "normal-flow", _op("sum", *(_op("product", _value(n),
-            _property("fsim/fin-control/air-" + axis)) for axis, n in zip("xyz", fin["normal"])))))
-        for kind, trig in (("lift", "cos"), ("drag", "sin")):
-            pre.append(_function(p + kind, _op("product", _property("aero/qbar-psf"),
-                _property("metrics/Sw-sqft"), _property(p + "slope"),
-                _op("sin", _property(delta)), _op(trig, _property(delta)))))
-        for axis, normal in zip("xyz", fin["normal"]):
-            pre.append(_function(p + "force-" + axis, _op("difference",
-                _op("product", _property(p + "lift"), _op("difference", _value(normal),
-                    _op("product", _property(p + "normal-flow"), _property("fsim/fin-control/air-" + axis)))),
-                _op("product", _property(p + "drag"), _property("fsim/fin-control/air-" + axis)))))
-        for k, axis in enumerate("xyz"):
-            pre.append(_function(p + "arm-" + axis, _table(control["mach"], [cp[k] / FT for cp in fin["cp"]])))
-        for axis, a, b in (("l", "yz", "zy"), ("m", "zx", "xz"), ("n", "xy", "yx")):
-            pre.append(_function(p + "moment-" + axis, _op("difference",
-                _op("product", _property(p + "arm-" + a[0]), _property(p + "force-" + a[1])),
-                _op("product", _property(p + "arm-" + b[0]), _property(p + "force-" + b[1])))))
+    for i, physical_fin in enumerate(control["fins"]):
+        patch_prefixes = []
+        for j, fin in enumerate(physical_fin["patches"]):
+            p = "fsim/fin-control/fin-%d/" % i
+            if len(physical_fin["patches"]) > 1:
+                p += "patch-%d/" % j
+            patch_prefixes.append(p)
+            delta = "fcs/fin-%d-delta-rad" % i
+            pre.append(_function(p + "slope", _table(control["mach"], fin["slope"])))
+            pre.append(_function(p + "normal-flow", _op("sum", *(_op("product", _value(n),
+                _property("fsim/fin-control/air-" + axis)) for axis, n in zip("xyz", fin["normal"])))))
+            for kind, trig in (("lift", "cos"), ("drag", "sin")):
+                pre.append(_function(p + kind, _op("product", _property("aero/qbar-psf"),
+                    _property("metrics/Sw-sqft"), _property(p + "slope"),
+                    _op("sin", _property(delta)), _op(trig, _property(delta)))))
+            for axis, normal in zip("xyz", fin["normal"]):
+                pre.append(_function(p + "force-" + axis, _op("difference",
+                    _op("product", _property(p + "lift"), _op("difference", _value(normal),
+                        _op("product", _property(p + "normal-flow"), _property("fsim/fin-control/air-" + axis)))),
+                    _op("product", _property(p + "drag"), _property("fsim/fin-control/air-" + axis)))))
+            for k, axis in enumerate("xyz"):
+                pre.append(_function(p + "arm-" + axis, _table(control["mach"], [cp[k] / FT for cp in fin["cp"]])))
+            for axis, a, b in (("l", "yz", "zy"), ("m", "zx", "xz"), ("n", "xy", "yx")):
+                pre.append(_function(p + "moment-" + axis, _op("difference",
+                    _op("product", _property(p + "arm-" + a[0]), _property(p + "force-" + a[1])),
+                    _op("product", _property(p + "arm-" + b[0]), _property(p + "force-" + b[1])))))
+        if len(patch_prefixes) > 1:
+            for kind, axes in (("force", "xyz"), ("moment", "lmn")):
+                for axis in axes:
+                    pre.append(_function("fsim/fin-control/fin-%d/%s-%s" % (i, kind, axis),
+                        _op("sum", *(_property(prefix + kind + "-" + axis) for prefix in patch_prefixes))))
     for kind, axes, unit in (("force", "xyz", "lbs"), ("moment", "lmn", "lbsft")):
         for axis in axes:
             pre.append(_function("aero/%s/fsim-fin-%s-%s" % (kind, axis, unit), _op("sum",

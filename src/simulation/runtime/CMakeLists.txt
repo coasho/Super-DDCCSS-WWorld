@@ -11,6 +11,7 @@ add_library(fsim_session STATIC
     world/World.cpp
     world/WorldDamage.cpp
     world/WorldEngagements.cpp
+    world/WorldWeaponControls.cpp
     world/Frames.cpp
     world/Geometry.cpp
     world/Marshalls.cpp

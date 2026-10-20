@@ -1,8 +1,10 @@
 #include "simulation/mission_systems/weapon/LaunchEligibility.h"
+#include "simulation/mission_systems/weapon/Seeker.h"
 #include "simulation/mission_systems/Cards.h"
 
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 
 using namespace fsim::ms::weapon;
@@ -168,6 +170,50 @@ void illumination_requires_designation_owner_track_and_transmission() {
     require(checkLaunchIllumination(launcher, networkSource) == Reason::UnknownTrack,
             "An owned network designation cannot inherit illumination from a matching local track number");
 }
+
+void on_rail_observation_requires_attached_loaded_or_ready_store() {
+    using fsim::ms::StoreStatus;
+    require(onRailObservationAvailable(StoreStatus::Loaded) && onRailObservationAvailable(StoreStatus::Ready),
+            "Loaded and prepared Ready stores both retain the on-rail observation query");
+    for (const auto status : {StoreStatus::PoweringUp, StoreStatus::PoweringDown, StoreStatus::Releasing,
+                              StoreStatus::Released, StoreStatus::Jettisoned, StoreStatus::Lost})
+        require(!onRailObservationAvailable(status),
+                "Warming, releasing and gone stores cannot supply an attached ready observation");
+}
+
+void illumination_is_scoped_to_each_candidates_actual_transmitter_ray() {
+    const auto check = [](double azimuth, double elevation, double beamAzimuth, double beamElevation,
+                          double widthAz, double widthEl) {
+        const double ray[3] = {std::cos(elevation) * std::cos(azimuth),
+            std::cos(elevation) * std::sin(azimuth), -std::sin(elevation)};
+        return withinIlluminationBeam(ray, beamAzimuth, beamElevation, widthAz, widthEl);
+    };
+    constexpr double azimuth = .4, elevation = .2, widthAz = .01, widthEl = .02;
+    require(check(azimuth, elevation, azimuth, elevation, widthAz, widthEl),
+            "A candidate on the actual transmitter beam must pass the native cone");
+    require(check(0, .059999, 0, 0, widthAz, widthEl)
+                && !check(0, .060001, 0, 0, widthAz, widthEl),
+            "Each candidate must satisfy the existing three-maximum-beamwidth geometric convention");
+    require(check(kPi - .001, 0, -kPi + .001, 0, widthAz, widthEl),
+            "Transmitter geometry must wrap azimuth through the physical unit ray");
+    require(!check(azimuth, -elevation, azimuth, elevation, widthAz, widthEl),
+            "Body-down ray coordinates and positive-up beam elevation must remain distinct");
+    const double offBeam[3] = {0, 1, 0};
+    require(!withinIlluminationBeam(offBeam, 0, 0, widthAz, widthEl),
+            "Illuminating one target cannot illuminate another candidate outside the transmitter beam");
+    const double scaled[3] = {100, 0, 0};
+    require(withinIlluminationBeam(scaled, 0, 0, widthAz, widthEl),
+            "A candidate's nonunit relative vector must retain the same physical cone");
+    const double zero[3] = {};
+    const double invalid[3] = {std::numeric_limits<double>::infinity(), 0, 0};
+    const double ahead[3] = {1, 0, 0};
+    require(!withinIlluminationBeam(nullptr, 0, 0, widthAz, widthEl)
+                && !withinIlluminationBeam(zero, 0, 0, widthAz, widthEl)
+                && !withinIlluminationBeam(invalid, 0, 0, widthAz, widthEl)
+                && !withinIlluminationBeam(ahead, 0, 0, 0, widthEl)
+                && !withinIlluminationBeam(ahead, 0, 0, widthAz, std::numeric_limits<double>::quiet_NaN()),
+            "Unavailable candidate or transmitter geometry must fail closed");
+}
 } // namespace
 
 int main() {
@@ -178,6 +224,8 @@ int main() {
         relative_geometry_uses_body_rotation_and_clamp();
         target_and_fov_refusals_precede_illumination();
         illumination_requires_designation_owner_track_and_transmission();
+        on_rail_observation_requires_attached_loaded_or_ready_store();
+        illumination_is_scoped_to_each_candidates_actual_transmitter_ray();
         std::cout << "Launch eligibility tests passed\n";
         return 0;
     } catch (const std::exception& e) {

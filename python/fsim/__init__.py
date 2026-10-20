@@ -80,6 +80,8 @@ from .world import (  # noqa: E402
     RadioPath,
     RadarCrossSection,
     WeaponRecord,
+    WeaponFinStateV1,
+    WeaponControlSnapshotV1,
     WeaponPhase,
     CountermeasureInventory,
     DecoyState,

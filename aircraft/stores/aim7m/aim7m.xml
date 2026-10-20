@@ -141,15 +141,19 @@
     <property value="0.3490658503988659">fsim/missile-control/elevator-limit-rad</property>
     <property value="0.3490658503988659">fsim/missile-control/rudder-limit-rad</property>
     <property value="0.3490658503988659">fsim/missile-control/aileron-limit-rad</property>
+    <property value="2245752368">fsim/missile-control/fin-0-id</property>
     <property value="-0.3490658503988659">fsim/missile-control/fin-0-min-rad</property>
     <property value="0.3490658503988659">fsim/missile-control/fin-0-max-rad</property>
     <property value="4">fsim/missile-control/fin-0-rate-rad_s</property>
+    <property value="1039161249">fsim/missile-control/fin-1-id</property>
     <property value="-0.3490658503988659">fsim/missile-control/fin-1-min-rad</property>
     <property value="0.3490658503988659">fsim/missile-control/fin-1-max-rad</property>
     <property value="4">fsim/missile-control/fin-1-rate-rad_s</property>
+    <property value="78490819">fsim/missile-control/fin-2-id</property>
     <property value="-0.3490658503988659">fsim/missile-control/fin-2-min-rad</property>
     <property value="0.3490658503988659">fsim/missile-control/fin-2-max-rad</property>
     <property value="4">fsim/missile-control/fin-2-rate-rad_s</property>
+    <property value="432374493">fsim/missile-control/fin-3-id</property>
     <property value="-0.3490658503988659">fsim/missile-control/fin-3-min-rad</property>
     <property value="0.3490658503988659">fsim/missile-control/fin-3-max-rad</property>
     <property value="4">fsim/missile-control/fin-3-rate-rad_s</property>
@@ -407,7 +411,12 @@
             <output>fcs/aileron-pos-rad</output>
         </pure_gain>
     </channel>
-</flight_control>
+
+        <property value="1">fsim/model/nose-version</property>
+        <property value="0">fsim/model/nose-x-in</property>
+        <property value="0">fsim/model/nose-y-in</property>
+        <property value="0">fsim/model/nose-z-in</property>
+    </flight_control>
     <aerodynamics>
     <!-- Fin control derivatives/lag/rate and flap/drag corrections are engineering estimates, not equipment calibration. -->
 <function name="fsim/control/cz-alpha" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>

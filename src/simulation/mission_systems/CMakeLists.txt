@@ -10,6 +10,8 @@ add_library(fsim_ms STATIC
     Model.cpp
     Names.cpp
     weapon/Guidance.cpp
+    weapon/ContactFuze.h
+    weapon/ContactFuze.cpp
     weapon/Autopilot.cpp
     weapon/LaunchEligibility.h
     weapon/LaunchEligibility.cpp

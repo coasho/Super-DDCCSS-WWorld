@@ -22,6 +22,7 @@
 #include <models/atmosphere/FGWinds.h>
 #include <models/FGFCS.h>
 #include <models/FGGroundReactions.h>
+#include <models/FGLGear.h>
 #include <models/FGInertial.h>
 #include <models/FGMassBalance.h>
 #include <models/FGOutput.h>
@@ -227,6 +228,7 @@ JsbsimModel::~JsbsimModel() = default;
 bool JsbsimModel::load(const AircraftSpec& aircraft, const InitialConditions& ic) {
     loaded_ = false;
     diverged_ = crashed_ = false;
+    structuralContact_ = false;
     stepCount_ = 0;
 
     const SGPath root(aircraft.jsbsimRoot.string());
@@ -306,6 +308,7 @@ bool JsbsimModel::load(const AircraftSpec& aircraft, const InitialConditions& ic
 bool JsbsimModel::reset(const InitialConditions& ic) {
     if (!loaded_) return false;
     diverged_ = crashed_ = false;
+    structuralContact_ = false;
     stepCount_ = 0;
     try {
         // RunIC() reopens every output file; JSBSim only closes them when a
@@ -803,6 +806,13 @@ void JsbsimModel::cacheCommandNodes() {
 void JsbsimModel::step(const ControlInputs& in) {
     if (!loaded_ || diverged_ || crashed_) return;
 
+    // Retain the state entering the first structural contact, not a later
+    // spring-decelerated state. Gear contact alone is a landing, not this seam.
+    if (!structuralContact_) {
+        state(structuralIncoming_);
+        structuralIncomingMassKg_ = fdm_->GetMassBalance()->GetWeight() * 0.45359237;
+    }
+
     aileronCmd_.set(in.aileron);
     elevatorCmd_.set(in.elevator);
     rudderCmd_.set(in.rudder);
@@ -815,7 +825,21 @@ void JsbsimModel::step(const ControlInputs& in) {
     fdm_->Run();
     ++stepCount_;
 
+    const auto ground = fdm_->GetGroundReactions();
+    structuralContact_ = false;
+    for (int k = 0; k < ground->GetNumGearUnits(); ++k) {
+        const auto contact = ground->GetGearUnit(k);
+        if (!contact->IsBogey() && contact->GetCompLen() > 0.0) { structuralContact_ = true; break; }
+    }
+
     if (checkDivergence()) checkTerrainStrike();
+}
+
+bool JsbsimModel::terrainStrikeSnapshotV1(TerrainStrikeSnapshotV1& incoming) const noexcept {
+    if (!crashed_ || !structuralContact_) return false;
+    incoming.state = structuralIncoming_;
+    incoming.massKg = structuralIncomingMassKg_;
+    return true;
 }
 
 void JsbsimModel::checkTerrainStrike() {

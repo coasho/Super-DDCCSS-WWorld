@@ -45,6 +45,26 @@ struct EnergyOnBoard {
     bool starved = false; ///< an engine that burns fuel has none left
 };
 
+/// Optional native contact snapshot. Kept separate from FlightModel so existing
+/// flight-model implementations and its primary virtual interface are unchanged.
+/// The incoming state is from the start of the structural-contact episode that
+/// ended in a terrain crash, before ground reactions dissipated its energy.
+struct TerrainStrikeSnapshotV1 {
+    VehicleState state;
+    double massKg = std::numeric_limits<double>::quiet_NaN(); ///< total mass at the same incoming epoch
+};
+class TerrainStrikeSourceV1 {
+public:
+    virtual ~TerrainStrikeSourceV1() = default;
+    virtual bool terrainStrikeSnapshotV1(TerrainStrikeSnapshotV1& incoming) const noexcept = 0;
+    bool terrainStrikeStateV1(VehicleState& incoming) const noexcept {
+        TerrainStrikeSnapshotV1 snapshot;
+        if (!terrainStrikeSnapshotV1(snapshot)) return false;
+        incoming = snapshot.state;
+        return true;
+    }
+};
+
 /// Flight-dynamics interface hiding JSBSim (design 7.1, ADR-10).
 class FlightModel {
 public:

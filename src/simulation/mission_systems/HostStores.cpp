@@ -167,16 +167,12 @@ Host::Strike* Host::strike(ActivityId id) noexcept {
     return nullptr;
 }
 
-CommandResult Host::submit(const StrikeCommand& command, const CommandOptions& options, double simTime) {
-    now_ = simTime;
-    CommandResult r;
-    r.commandId = options.commandId;
-    if (command.payload >= payloads_.size()) return r.reason = Reason::UnknownPayload, r;
-    const int capability = strikeCapability_[command.payload];
-    if (capability < 0) return r.reason = Reason::NotSupported, r;
-    if ((r.reason = admit(static_cast<std::size_t>(capability), options)) != Reason::None) return r; // (the master arm: operating)
+Reason Host::previewStrike(const StrikeCommand& command, std::vector<std::uint16_t>& selected) const {
+    selected.clear();
+    if (command.payload >= payloads_.size()) return Reason::UnknownPayload;
+    if (strikeCapability_[command.payload] < 0) return Reason::NotSupported;
     if (!(command.rippleS >= 0.0) || !std::isfinite(command.rippleS) || (command.stores.empty() && command.quantity < 1))
-        return r.reason = Reason::InvalidParameter, r;
+        return Reason::InvalidParameter;
     // the stores: those named, or as many free ones of the type as asked for
     std::vector<std::uint16_t> chosen;
     bool unflyable = false;
@@ -184,9 +180,9 @@ CommandResult Host::submit(const StrikeCommand& command, const CommandOptions& o
         for (const std::uint16_t i : command.stores) {
             if (i >= stores_.size() || stores_[i].payload != command.payload || gone(stores_[i].status) ||
                 std::count(chosen.begin(), chosen.end(), i))
-                return r.reason = Reason::InvalidParameter, r;
-            if (stores_[i].activity) return r.reason = Reason::StoreBusy, r;
-            if (!flyable(*stores_[i].card)) return r.reason = Reason::StoreNotFlyable, r;
+                return Reason::InvalidParameter;
+            if (stores_[i].activity) return Reason::StoreBusy;
+            if (!flyable(*stores_[i].card)) return Reason::StoreNotFlyable;
             chosen.push_back(i);
         }
     } else {
@@ -198,8 +194,22 @@ CommandResult Host::submit(const StrikeCommand& command, const CommandOptions& o
             chosen.push_back(i);
         }
         if (chosen.size() < static_cast<std::size_t>(command.quantity))
-            return r.reason = unflyable && chosen.empty() ? Reason::StoreNotFlyable : Reason::NoStore, r;
+            return unflyable && chosen.empty() ? Reason::StoreNotFlyable : Reason::NoStore;
     }
+    selected = std::move(chosen);
+    return Reason::None;
+}
+
+CommandResult Host::submit(const StrikeCommand& command, const CommandOptions& options, double simTime) {
+    now_ = simTime;
+    CommandResult r;
+    r.commandId = options.commandId;
+    if (command.payload >= payloads_.size()) return r.reason = Reason::UnknownPayload, r;
+    const int capability = strikeCapability_[command.payload];
+    if (capability < 0) return r.reason = Reason::NotSupported, r;
+    if ((r.reason = admit(static_cast<std::size_t>(capability), options)) != Reason::None) return r;
+    std::vector<std::uint16_t> chosen;
+    if ((r.reason = previewStrike(command, chosen)) != Reason::None) return r;
     ActivityRecord& a = start(static_cast<std::size_t>(capability), command.payload, options, simTime);
     Strike s;
     s.id = a.id;
@@ -437,6 +447,26 @@ void Host::released(std::uint16_t store, std::uint32_t weapon, double simTime) {
         if (++s->confirmed == s->stores.size()) end(s->id, control::ActivityState::Completed, Reason::GoalReached, simTime);
     }
     rebuildStoreInfo();
+}
+
+bool Host::releaseRefused(ActivityId activity, Reason reason, double simTime) {
+    Strike* s = strike(activity);
+    if (!s || s->jettison || reason == Reason::None) return false;
+    now_ = simTime;
+    bool changed = false;
+    for (const auto index : s->stores) {
+        auto& slot = stores_[index];
+        if (slot.activity == activity && slot.status == StoreStatus::Releasing) {
+            slot.status = StoreStatus::Loaded;
+            changed = true;
+        }
+    }
+    releases_.erase(std::remove_if(releases_.begin(), releases_.end(),
+        [&](const Release& release) { return release.activity == activity; }), releases_.end());
+    if (changed) ++storeRevision_;
+    end(activity, control::ActivityState::Failed, reason, simTime);
+    rebuildStoreInfo();
+    return true;
 }
 
 void Host::endStrike(ActivityId id) {

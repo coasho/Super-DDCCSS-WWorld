@@ -995,6 +995,7 @@ names = [
 principal = "referee"
 note = "Truth: entity states, the world's vehicles and weapons, who launched a weapon"
 names = [
+    "fsim::World::weaponControlsV1", "fsim_world_weapon_controls_v1", "fsim.world.World.weapon_controls",
     "fsim::Vehicle::state", "fsim::Vehicle::launcher", "fsim::World::vehicle", "fsim::World::vehicleCount",
     "fsim::World::vehicles", "fsim::World::vehicleSteps", "fsim::World::worldSteps", "fsim::World::weapons",
     "fsim_vehicle_state_ptr", "fsim_world_find_vehicle", "fsim_world_gather_states", "fsim_world_vehicle_count",
@@ -1311,6 +1312,7 @@ names = [
     "fsim_ms_capability_info_init", "fsim_ms_options_init", "fsim_ms_result_init", "fsim_ms_reason_name",
     "fsim_ms_reason_description", "fsim_ms_capability_type_id", "fsim_strike_command_init", "fsim_strike_phase_name",
     "fsim_strike_status_init", "fsim_world_options_init", "fsim_vehicle_spec_init", "fsim_vision_options_init",
+    "fsim_weapon_fin_v1_init", "fsim_weapon_controls_v1_init",
     "fsim::control::activityBasisName", "fsim::control::activityCommandName", "fsim::control::activityStateName",
     "fsim::control::activityWaitName", "fsim::control::availabilityName", "fsim::control::characteristicName",
     "fsim::control::constraintName", "fsim::control::contingencyName", "fsim::control::endPointKindName",
@@ -1327,7 +1329,9 @@ names = [
     # a report's availability, validity and source by name (fsim/MAReports.h)
     "fsim::ma::availabilityName", "fsim::ma::validityName", "fsim::ma::sourceName",
 ]
-globs = ["fsim_*_init", "fsim_*_name", "fsim_*_description"]
+globs = ["fsim_*_init", "fsim_*_name", "fsim_*_description",
+    "fsim::ms::WeaponFinStateV1::*", "fsim::ms::WeaponControlSnapshotV1::*",
+    "fsim.world.WeaponFinStateV1.*", "fsim.world.WeaponControlSnapshotV1.*"]
 
 [[rule]]
 principal = "value"

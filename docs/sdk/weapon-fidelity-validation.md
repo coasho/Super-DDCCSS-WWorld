@@ -17,6 +17,17 @@ evaluates reusable control/geometry/event mechanisms, candidate source versions
 and independent future cases while the numerical handoff remains pending.
 Its proposals are separate from implemented or physically accepted results.
 
+The subsequent [reference continuation and complete-package matrix](sim-m03-reference-continuation.md)
+records mature implementation choices and independently regressed Euler/fragment
+corrections. Its earlier frozen source detonated in the unchanged 30 km scene
+at 8.12775 m on both presets; detonation alone does not pass hit acceptance.
+That handoff recorded 744/746 Headless checks, with HC-57/HC-58 retained, and
+56/56 focused Release checks. Those historical results do not verify the
+expanded SDK delivery source or its actual target-damage requirements. The
+[SDK delivery continuation](sim-m03-reference-continuation.md#7-sdk-delivery-continuation-and-regression-repair)
+records current gates separately. Sensor, modeled weapon-link, fused-input,
+calibration and Viewer acceptance remain open.
+
 Baseline before edits: main `0d4f25a5df3fdd23696e696644cbd0ee32ab23af`, clean
 working tree. There was no pending source change to commit at task entry.
 The [implementation plan](../superpowers/plans/2026-10-20-sim-m03-independent-correctness.md)
@@ -127,16 +138,17 @@ environment. It completed successfully and its full raw output is retained.
 | Fused weapon input | Accepted SIM-M01 Entity identity/source/status/kinematic/loss contract and modeled delivery into weapon guidance. Current un-fused DMS tracks and idealized designation support do not establish that contract |
 | Complete fleet and integration | Reconcile actual fitted weapon variants against the maintained supported fleet; admit per-variant inputs and independent validation, then consume the generic owner's gateway/installed-consumer seams and required Viewer cases |
 
-There is also an existing decoy-time approximation: dispensers advance before
-the seeker's observation pass, and the fuze reconstructs the prior decoy position
-from its final velocity. Exact sample timing and stored before/after poses remain
-part of future countermeasure/seeker validation. This correction does not turn
-that approximation into calibrated decoy or IR behavior.
+At this initial correctness baseline, dispensers advanced before observation and
+fuze processing reconstructed a prior decoy position from final velocity. The
+subsequent [physical-chain correction](sim-m03-physical-chain-audit.md) fixes those
+timing mechanisms with retained analytic trajectories. Cartridge/signature and
+sensor calibration remain open.
 
-The existing damage assessor also consumes the original complete Airframe
-geometry after sections have separated. Section-aware subsequent-burst geometry
-and damage to detached bodies require their own native lethality fixtures;
-correcting momentum transfer does not establish those behaviors.
+That baseline also assessed separated panels as attached. The physical-chain
+correction supplies immutable attached membership; the reference continuation
+fixes forward fragment crossings and containment ordering. Damage to detached
+bodies and cross-body shielding still require explicit ownership and
+shared-fragment contracts. These mechanism corrections do not calibrate lethality.
 
 Existing native geometry, fragment and guidance implementations are reused for
 these correctness fixes, with no new solver or dependency. Finite control

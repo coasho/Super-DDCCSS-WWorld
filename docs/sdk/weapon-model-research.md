@@ -1,5 +1,10 @@
 # SIM-M03 technical research and input readiness
 
+The subsequent [reference decisions and current verification](sim-m03-reference-continuation.md)
+supersede this initial readiness note where mechanisms have since been delivered.
+They record mature control/sensor/geometry/blast references, explicit remaining
+weapon-link/fused-input seams, current 30 km evidence and retained full-suite failures.
+
 Date: 2026-10-20. Research baseline: main
 `85e7d251c5de702de5d2ec66115a0886bd0702cd`, after the HC-53 correction.
 The user requested technical preparation while Claude continues the independent

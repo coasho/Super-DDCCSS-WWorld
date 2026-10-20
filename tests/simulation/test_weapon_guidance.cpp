@@ -59,6 +59,26 @@ void active_activation_and_reacquisition() {
     require(out.phase == WeaponPhase::Homing && out.tracking && out.holding == 42,
             "A returning observation must allow reacquisition");
 }
+void active_search_retains_estimate_steering() {
+    Guidance guidance(Spec{"active_radar"});
+    auto in=flight();
+    in.estimate=Observation{42,{30000,0,0},{-200,0,0}};
+    guidance.update(in);
+    in.ageS=1; in.estimate->position={18000,0,0};
+    const auto search=guidance.update(in);
+    require(search.active && search.phase==WeaponPhase::Seeking && search.supported && !search.tracking && search.holding==0,
+            "Active search must remain an unobserved search with permitted estimate support");
+    require(std::abs(search.acceleration.z-9.80665)<1e-12 && std::abs(search.acceleration.x)<1e-12,
+            "An active radar search must retain estimate steering and gravity compensation without inventing a seeker hold");
+    in.ageS=2; in.estimate->position={17000,500,0};
+    const auto cued=guidance.update(in);
+    require(!cued.tracking && cued.acceleration.y>0 && cued.acceleration.z==search.acceleration.z,
+            "A supported crossing estimate must continue steering while the active seeker searches");
+    in.ageS=3; in.supported=false; in.estimate.reset();
+    const auto coast=guidance.update(in);
+    require(coast.phase==WeaponPhase::Seeking && !coast.tracking && !coast.supported && coast.holding==0 && coast.acceleration.y>0,
+            "A retained ARH estimate may extrapolate and steer without manufacturing support or a seeker hold");
+}
 void unsupported_estimates_do_not_update_truth() {
     Guidance first(Spec{"active_radar"});
     auto in = flight();
@@ -525,11 +545,229 @@ void completed_track_velocity_drives_unsupported_extrapolation() {
                 && std::abs(output.timeToGoS - expected) < 1e-10,
             "Lost support must extrapolate measured target velocity instead of a stationary synthetic body");
 }
+
+void finite_arithmetic_overflow_refuses_without_state_mutation() {
+    Guidance actual(Spec{"active_radar"});
+    Guidance reference(Spec{"active_radar"});
+    auto in = flight();
+    in.estimate = Observation{42, {30000, 100, 0}, {-200, 0, 0}};
+    actual.update(in);
+    reference.update(in);
+
+    auto overflowing = in;
+    overflowing.ageS = 1;
+    overflowing.velocity = {1e308, 0, 0}; // Finite input; cross products overflow.
+    overflowing.estimate = Observation{99, {100, 100, 0}, {0, 0, 0}};
+    overflowing.visible.clear();
+    const auto refused = actual.update(overflowing);
+    require(std::isfinite(refused.acceleration.x) && std::isfinite(refused.acceleration.y)
+                && std::isfinite(refused.acceleration.z),
+            "Finite guidance inputs whose arithmetic overflows must not emit a nonfinite acceleration");
+    require(refused.phase == WeaponPhase::Unguided && !refused.active && !refused.tracking
+                && refused.holding == 0 && refused.acceleration.x == 0
+                && refused.acceleration.y == 0 && refused.acceleration.z == 0
+                && std::isnan(refused.timeToGoS) && std::isnan(refused.timeToActiveS),
+            "Representational overflow must refuse the update with neutral execution and unknown timing");
+
+    // This age precedes the refused update. A refusal must not advance the
+    // accepted clock, activate the seeker or replace the last legal estimate.
+    in.ageS = .5;
+    in.supported = false;
+    in.estimate.reset();
+    in.visible.clear();
+    const auto after = actual.update(in);
+    const auto expected = reference.update(in);
+    require(after.phase == expected.phase && after.active == expected.active
+                && after.holding == expected.holding && after.tracking == expected.tracking
+                && after.timeToGoS == expected.timeToGoS && after.timeToActiveS == expected.timeToActiveS
+                && after.acceleration.x == expected.acceleration.x
+                && after.acceleration.y == expected.acceleration.y
+                && after.acceleration.z == expected.acceleration.z,
+            "An overflowing update must preserve accepted estimate, activation and launch-age state atomically");
+}
+
+void authored_inertial_capability_is_independent_of_seeker_hold() {
+    for (const char* seeker : {"infrared", "semi_active_radar"}) {
+        Spec spec{seeker};
+        spec.capabilityVersion = 1;
+        spec.inertialMidcourse = true;
+        spec.launcherUpdates = false;
+        const Observation releaseEstimate{42, {30000, 100, 0}, {-200, 5, 0}};
+        Guidance guidance(spec, releaseEstimate);
+        auto in = flight();
+        in.supported = false;
+        in.ageS = 2;
+        auto out = guidance.update(in);
+        require(out.phase == WeaponPhase::Midcourse && !out.tracking && !out.active
+                    && !out.supported && out.holding == 0 && out.acceleration.y > 0
+                    && out.acceleration.z > 9.80665 && out.timeToGoS > 0
+                    && std::isnan(out.timeToActiveS),
+                "An explicit IR/SARH inertial capability may steer its permitted release estimate without inventing a seeker hold or support");
+        const double x = 30000 - 200 * in.ageS, y = 100 + 5 * in.ageS;
+        const double expected = (x*x + y*y) / (1200*x - 5*y);
+        require(std::abs(out.timeToGoS - expected) < 1e-10,
+                "The permitted release snapshot must extrapolate from launch age zero using measured velocity");
+        in.ageS = 3;
+        in.visible = {{42, {10000, 40, 0}, {-200, 5, 0}}};
+        in.illuminated = std::string(seeker) == "semi_active_radar";
+        out = guidance.update(in);
+        require(out.phase == WeaponPhase::Homing && out.tracking && out.holding == 42,
+                "Current applicable observations must still be required to transition inertial flight into Homing");
+        in.ageS = 4;
+        in.visible.clear();
+        in.illuminated = false;
+        out = guidance.update(in);
+        require(out.phase == WeaponPhase::Lost && !out.tracking && !out.supported
+                    && out.holding == 42 && out.acceleration.y > 0,
+                "A declared inertial capability may coast after loss while retaining Lost and the last actual observation identity");
+    }
+}
+
+void explicit_unsupported_fit_cannot_refresh_launcher_estimates() {
+    for (const char* seeker : {"active_radar", "infrared", "semi_active_radar"}) {
+        Spec spec{seeker};
+        spec.capabilityVersion = 1;
+        spec.inertialMidcourse = true;
+        spec.launcherUpdates = false;
+        const Observation releaseEstimate{42, {30000, 100, 0}, {-200, 5, 0}};
+        Guidance actual(spec, releaseEstimate), reference(spec, releaseEstimate);
+        auto in = flight();
+        in.ageS = 2;
+        in.supported = true;
+        in.estimate = Observation{99, {1000, 15000, 0}, {999, 999, 0}};
+        const auto ignored = actual.update(in);
+        in.supported = false;
+        in.estimate.reset();
+        const auto expected = reference.update(in);
+        require(!ignored.supported && ignored.phase == expected.phase && ignored.active == expected.active
+                    && !ignored.tracking && ignored.holding == 0
+                    && ignored.acceleration.x == expected.acceleration.x
+                    && ignored.acceleration.y == expected.acceleration.y
+                    && ignored.acceleration.z == expected.acceleration.z
+                    && ignored.timeToGoS == expected.timeToGoS,
+                "An explicit no-update fit must ignore even launcher-marked estimates without replacing its permitted release snapshot");
+        in.ageS = 70; // Also bring the ARH prediction inside its own activation range.
+        in.illuminated = std::string(seeker) == "semi_active_radar";
+        in.visible = {{7, {10000, 40, 0}, {-200, 0, 0}}};
+        const auto observed = actual.update(in);
+        require(observed.tracking && observed.holding == 7,
+                "A no-update fit must remain able to acquire real sensor observations");
+    }
+}
+
+void explicit_launcher_updates_do_not_imply_inertial_steering() {
+    Spec spec{"infrared"};
+    spec.capabilityVersion = 1;
+    spec.launcherUpdates = true;
+    spec.inertialMidcourse = false;
+    Guidance guidance(spec);
+    auto in = flight();
+    in.estimate = Observation{42, {8000, 100, 0}, {-200, 0, 0}};
+    const auto cued = guidance.update(in);
+    require(cued.supported && !cued.tracking && cued.phase == WeaponPhase::Seeking
+                && length(cued.acceleration) == 0 && cued.timeToGoS > 0,
+            "Launcher correction can update an acquisition cue without granting inertial control");
+    in.ageS = 1;
+    in.visible = {{7, {8000, 110, 0}, {-200, 0, 0}}};
+    const auto observed = guidance.update(in);
+    require(observed.tracking && observed.holding == 7 && observed.acceleration.y > 0,
+            "An admitted current sensor observation must authorise Homing independently of inertial capability");
+    in.ageS = 2;
+    in.visible.clear();
+    in.supported = false;
+    in.estimate.reset();
+    const auto lost = guidance.update(in);
+    require(lost.phase == WeaponPhase::Lost && !lost.tracking && !lost.supported
+                && lost.holding == 7 && lost.acceleration.y > 0,
+            "A pre-acquisition inertial declaration must not erase memory of an actual onboard seeker observation");
+}
+
+void basic_infrared_retains_only_acquired_onboard_memory() {
+    Spec spec{"infrared"};
+    spec.capabilityVersion = 1;
+    const Observation releaseEstimate{42, {8000, 100, 0}, {-200, 0, 0}};
+    Guidance actual(spec, releaseEstimate), reference(spec, releaseEstimate);
+    auto in = flight();
+    in.estimate = Observation{99, {1000, -4000, 0}, {999, 999, 0}};
+    auto out = actual.update(in);
+    require(out.phase == WeaponPhase::Seeking && !out.tracking && !out.supported
+                && out.holding == 0 && length(out.acceleration) == 0,
+            "A never-acquired basic IR fit must remain neutral even when a launcher offers a changed estimate");
+    in.estimate.reset();
+    reference.update(in);
+    in.ageS = 1;
+    in.visible = {{7, {8000, 110, 0}, {-200, 5, 0}}};
+    require(actual.update(in).tracking && reference.update(in).tracking,
+            "A basic IR fixture must acquire an actual current onboard observation");
+    in.ageS = 2;
+    in.visible.clear();
+    in.estimate = Observation{99, {1000, -4000, 0}, {999, 999, 0}};
+    out = actual.update(in);
+    in.estimate.reset();
+    const auto expected = reference.update(in);
+    require(out.phase == WeaponPhase::Lost && !out.tracking && !out.supported && out.holding == 7
+                && out.acceleration.y > 0 && out.acceleration.x == expected.acceleration.x
+                && out.acceleration.y == expected.acceleration.y && out.acceleration.z == expected.acceleration.z
+                && out.timeToGoS == expected.timeToGoS,
+            "A lost basic IR fit must retain its own acquired memory while ignoring unsupported launcher refresh");
+}
+
+void no_inertial_capability_does_not_steer_before_first_acquisition() {
+    Spec spec{"active_radar"};
+    spec.capabilityVersion = 1;
+    const Observation releaseEstimate{42, {30000, 100, 0}, {-200, 0, 0}};
+    Guidance guidance(spec, releaseEstimate);
+    auto in = flight();
+    in.supported = false;
+    const auto out = guidance.update(in);
+    require(!out.active && !out.tracking && out.holding == 0 && length(out.acceleration) == 0,
+            "A versioned no-inertial fit cannot execute pre-acquisition steering merely because its seeker class is ARH");
+}
+
+void sarh_radio_correction_is_distinct_from_illumination() {
+    Spec spec{"semi_active_radar"};
+    spec.capabilityVersion = 1;
+    spec.launcherUpdates = true;
+    spec.inertialMidcourse = true;
+    Guidance guidance(spec);
+    auto in = flight();
+    in.estimate = Observation{42, {30000, 100, 0}, {-200, 0, 0}};
+    auto out = guidance.update(in);
+    require(out.phase == WeaponPhase::Midcourse && !out.supported && !out.tracking
+                && out.acceleration.y > 0,
+            "Authored SARH radio correction may sustain inertial flight while illumination support remains absent");
+    in.ageS = 1;
+    in.estimate->position.y = -100;
+    out = guidance.update(in);
+    require(out.acceleration.y < 0 && !out.supported && !out.tracking,
+            "A declared correction capability must accept new permitted estimates without manufacturing illumination");
+    in.ageS = 2;
+    in.illuminated = true;
+    in.visible = {{7, {10000, -40, 0}, {-200, 0, 0}}};
+    out = guidance.update(in);
+    require(out.supported && out.tracking && out.holding == 7 && !out.active,
+            "SARH may report Homing only when a current illuminated observation is available");
+}
+
+void invalid_capability_version_fails_closed() {
+    Spec spec{"infrared"};
+    spec.capabilityVersion = 2;
+    spec.inertialMidcourse = true;
+    spec.launcherUpdates = true;
+    Guidance guidance(spec, Observation{42, {10000, 0, 0}, {}});
+    auto in = flight();
+    in.visible = {{42, {10000, 0, 0}, {}}};
+    const auto out = guidance.update(in);
+    require(out.phase == WeaponPhase::Unguided && !out.tracking && !out.supported
+                && length(out.acceleration) == 0 && !armed(10, spec),
+            "An unknown explicit capability version must neither steer, claim support nor arm");
+}
 }
 
 int main(int argc, char** argv) {
     const struct { const char* name; void (*run)(); } tests[] = {
         {"active", active_activation_and_reacquisition},
+        {"active search steering", active_search_retains_estimate_steering},
         {"stale", unsupported_estimates_do_not_update_truth},
         {"sarh", sarh_requires_illumination},
         {"infrared", infrared_requires_observations_and_prediction_gate},
@@ -550,6 +788,14 @@ int main(int argc, char** argv) {
         {"track zero polar", zero_and_polar_track_frames_remain_finite},
         {"invalid track", invalid_track_kinematics_are_atomic},
         {"track extrapolation", completed_track_velocity_drives_unsupported_extrapolation},
+        {"finite overflow", finite_arithmetic_overflow_refuses_without_state_mutation},
+        {"authored inertial", authored_inertial_capability_is_independent_of_seeker_hold},
+        {"unsupported fit", explicit_unsupported_fit_cannot_refresh_launcher_estimates},
+        {"correction without inertial", explicit_launcher_updates_do_not_imply_inertial_steering},
+        {"basic infrared memory", basic_infrared_retains_only_acquired_onboard_memory},
+        {"no inertial", no_inertial_capability_does_not_steer_before_first_acquisition},
+        {"sarh correction", sarh_radio_correction_is_distinct_from_illumination},
+        {"capability version", invalid_capability_version_fails_closed},
     };
     for (const auto& test : tests) {
         if (argc > 1 && std::string(argv[1]) != test.name) continue;

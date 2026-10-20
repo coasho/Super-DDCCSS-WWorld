@@ -4,6 +4,7 @@
 // contracts/recording/RecordingFormat.h defines - its records, magic, version and frozen strides.
 
 #include "contracts/recording/RecordingFormat.h"
+#include "fsim/WeaponControls.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -32,6 +33,7 @@ public:
     void writeEnvironment(const sim::EnvironmentState& environment);
     /// An engagement's event (MS-7h), as it happens: it belongs to the next snapshot.
     void writeEvent(const EngagementEvent& event);
+    void writeWeaponControls(double simTime,const std::vector<ms::WeaponControlSnapshotV1>& controls);
     void close();
     std::uint64_t bytesWritten() const noexcept { return bytes_; }
 
@@ -55,6 +57,7 @@ public:
         std::optional<sim::EnvironmentState> environment;
         /// Engagement events since the previous frame (MS-7h; before version 5, none).
         std::vector<EngagementEvent> events;
+        std::vector<ms::WeaponControlSnapshotV1> weaponControls;
     };
 
     bool load(const std::filesystem::path& path, std::string* error = nullptr);

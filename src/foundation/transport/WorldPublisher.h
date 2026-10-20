@@ -3,6 +3,7 @@
 #include "foundation/core/Span.h"
 #include "contracts/world_stream/WorldLayout.h"
 #include "foundation/platform/SharedMemory.h"
+#include "foundation/transport/WeaponControlsSegment.h"
 
 #include <cstdint>
 #include <string>
@@ -47,7 +48,8 @@ public:
     /// elapsed (or `force`). `states`/`inputs` are indexed by vehicle slot and
     /// may be shorter than the capacity. Returns true when a copy was made.
     bool publish(double simTime, Span<const sim::VehicleState> states, Span<const sim::ControlInputs> inputs,
-                 bool force = false, Span<const FlightStatus> status = {}) noexcept;
+                 bool force = false, Span<const FlightStatus> status = {},
+                 const std::vector<ms::WeaponControlSnapshotV1>& controls = {}) noexcept;
     /// Whether publish() would copy now: the publish interval has elapsed. What is worked out only to be published -
     /// each vehicle's flight status - is worked out when it is.
     bool due() const noexcept;
@@ -64,6 +66,7 @@ private:
 
     Options options_;
     platform::SharedMemory memory_;
+    WeaponControlsSegment finSegment_;
     WorldHeader* header_ = nullptr;
     unsigned char* base_ = nullptr;
     std::uint32_t writeSlot_ = 0;

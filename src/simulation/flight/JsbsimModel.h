@@ -18,7 +18,7 @@ class GroundProvider;
 /// JSBSim adapter: one FGFDMExec per vehicle, JSBSim used as-is (design 7,
 /// ADR-3). Construct and load on one thread; step() may run on any thread as
 /// long as no two threads touch the same instance concurrently.
-class JsbsimModel final : public FlightModel {
+class JsbsimModel final : public FlightModel, public TerrainStrikeSourceV1 {
 public:
     /// @param dt fixed step in seconds (design 6.4)
     /// @param ground terrain source for gear contact and AGL; shared by all vehicles
@@ -54,6 +54,7 @@ public:
     bool beginMassChange() override;
     bool applyImpulse(const double linearBodyNs[3], const double angularBodyNms[3]) override;
     bool endMassChange(const double partInertia[6], const double impulseBodyNs[3]) override;
+    bool terrainStrikeSnapshotV1(TerrainStrikeSnapshotV1& incoming) const noexcept override;
 
     /// Direct access for tests and tooling only.
     JSBSim::FGFDMExec& exec() noexcept { return *fdm_; }
@@ -93,6 +94,9 @@ private:
     bool diverged_ = false;
     bool crashed_ = false;     ///< struck the terrain: frozen where it struck, on the surface (VehicleState::crashed)
     VehicleState crashState_;  ///< its state as it was stopped there
+    VehicleState structuralIncoming_{};
+    double structuralIncomingMassKg_ = std::numeric_limits<double>::quiet_NaN();
+    bool structuralContact_ = false; ///< contiguous STRUCTURE contact, never gear-only landing contact
     std::uint32_t stepCount_ = 0;
     struct LastGood {
         double latDeg = 0, lonDeg = 0, altM = 0, aglM = 0, speedMs = 0;

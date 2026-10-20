@@ -9,8 +9,8 @@
 //               requests made, one each, and DemoSteps counts exactly those
 //   in-process  DemoSteps on the real runner (DemoSimulation): requests made while it runs, then a hold - exactly that
 //               many agent steps after the hold's state; a backlog through a resume and a pause, likewise; and 30
-//               holds and resumes - each joins the runner's thread and starts another - after 4 to warm up: the same
-//               process handle count before and after (HC-32: a thread's sleep timer went unclosed with the thread)
+//               holds and resumes - each joins the runner's thread and starts another - after 4 to warm up: no positive
+//               net process handle growth (HC-32: a thread's sleep timer went unclosed with the thread)
 //
 // Usage: fsim_demo_steps_test <jsbsim root>
 
@@ -321,14 +321,16 @@ int inProcess(const std::string& jsbsimRoot) {
     for (int i = 0; i < 30; ++i) holdAndResume();
 #ifdef _WIN32
     const long after = handles();
-    check(after == before, "in-process: process handles " + std::to_string(before) + " before 30 holds and resumes, " +
+    check(after <= before, "in-process: process handles grew from " + std::to_string(before) + " before 30 holds and resumes to " +
                                std::to_string(after) + " after");
     std::printf("in-process: 30 holds and resumes after 4: process handles %ld before, %ld after\n", before, after);
 #endif
     check(d.steps->taken() == d.requested && d.steps->unexpected() == 0, "in-process: the holds took or published a step");
     d.runner->stop();
-    std::printf("in-process: 10 requests while running, then %llu pending through a resume and a pause: exactly as many agent "
-                "steps after each hold%s\n", static_cast<unsigned long long>(pending), failures ? " - NOT" : "");
+    std::printf("in-process: requested=%llu taken=%llu unexpected=%llu; 10 requests while running, "
+                "then %llu pending through a resume and a pause\n",
+                static_cast<unsigned long long>(d.requested), static_cast<unsigned long long>(d.steps->taken()),
+                static_cast<unsigned long long>(d.steps->unexpected()), static_cast<unsigned long long>(pending));
     return failures ? 1 : 0;
 }
 

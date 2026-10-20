@@ -479,11 +479,20 @@ TEST_CASE("a recording made before the vehicle state grew still reads", "[world]
     const auto copy = [&](std::size_t from, std::size_t n) {
         out.insert(out.end(), in.begin() + static_cast<std::ptrdiff_t>(from), in.begin() + static_cast<std::ptrdiff_t>(from + n));
     };
+    const auto sizedRecordBytes = [&](std::size_t from) -> std::size_t {
+        constexpr std::size_t prefix = 1 + sizeof(std::uint32_t);
+        REQUIRE(from <= in.size());
+        REQUIRE(in.size() - from >= prefix);
+        std::uint32_t size = 0;
+        std::memcpy(&size, &in[from + 1], sizeof(size));
+        REQUIRE(static_cast<std::size_t>(size) <= in.size() - from - prefix);
+        return prefix + size;
+    };
+    std::size_t strippedF1 = 0;
     while (p < in.size()) {
-        if (in[p] == 'E' || in[p] == 'V') { // (the environment, version 4's, and events, version 5's: a version 1 file has neither)
-            std::uint32_t size = 0;
-            std::memcpy(&size, &in[p + 1], sizeof(size));
-            p += 1 + sizeof(size) + size;
+        if (in[p] == 'E' || in[p] == 'V' || in[p] == 'F') { // v1 predates environment, events and physical-fin records
+            if (in[p] == 'F') ++strippedF1;
+            p += sizedRecordBytes(p);
             continue;
         }
         if (in[p] == 'T') {
@@ -511,6 +520,7 @@ TEST_CASE("a recording made before the vehicle state grew still reads", "[world]
     REQUIRE(now.load(v2, &error));
     REQUIRE(old.load(v1, &error));
     REQUIRE(now.frames().size() == 5);
+    REQUIRE(strippedF1 == now.frames().size());
     REQUIRE(old.frames().size() == now.frames().size());
     for (std::size_t i = 0; i < now.frames().size(); ++i) {
         REQUIRE(old.frames()[i].samples.size() == 1);
@@ -527,16 +537,21 @@ TEST_CASE("a recording made before the vehicle state grew still reads", "[world]
     // and one from before version 6 (a sample's CG from its model's origin: two more derived values at its end): the
     // same recording with each sample that much shorter reads back the same, each model's origin at its CG
     const auto v5 = std::filesystem::temp_directory_path() / "fsim-test-record-v5.fsrec";
+    std::size_t strippedF5 = 0;
     {
         p = 6 + sizeof(ipc::RecordingHeader);
         out.assign(in.begin(), in.begin() + static_cast<std::ptrdiff_t>(p));
         out[5] = 5;
         while (p < in.size()) {
+            if (in[p] == 'F') { // physical-fin records were introduced in v8
+                ++strippedF5;
+                p += sizedRecordBytes(p);
+                continue;
+            }
             if (in[p] == 'E' || in[p] == 'V') {
-                std::uint32_t size = 0;
-                std::memcpy(&size, &in[p + 1], sizeof(size));
-                copy(p, 1 + sizeof(size) + size);
-                p += 1 + sizeof(size) + size;
+                const auto size = sizedRecordBytes(p);
+                copy(p, size);
+                p += size;
                 continue;
             }
             if (in[p] == 'T') {
@@ -557,6 +572,7 @@ TEST_CASE("a recording made before the vehicle state grew still reads", "[world]
     }
     ipc::Recording five;
     REQUIRE(five.load(v5, &error));
+    REQUIRE(strippedF5 == now.frames().size());
     REQUIRE(five.frames().size() == now.frames().size());
     bool placed = false;
     for (std::size_t i = 0; i < now.frames().size(); ++i) {

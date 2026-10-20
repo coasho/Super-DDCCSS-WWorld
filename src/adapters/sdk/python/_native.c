@@ -442,6 +442,7 @@ static PyMethodDef world_methods[] = {
     FAST("decoys", world_decoys, "decoys() -> decoy states"),
     FAST("launch_zone", world_launch_zone, "launch_zone(vehicle, store, target) -> maximum, no_escape, minimum"),
     FAST("seeker_target", world_seeker_target, "seeker_target(vehicle, store) -> observation id or zero"),
+    FAST("weapon_controls",world_weapon_controls,"weapon_controls(id) -> actual native fin diagnostics (Range only)"),
     FAST("weapons", world_weapons,
          "weapons() -> [(id, launcher, name, type, launch_time, end_time, end, lat, lon, height, speed, store, station, jettisoned, "
          "activity, target)]"),

@@ -4,6 +4,7 @@
 #include "foundation/platform/Clock.h"
 
 #include <cstring>
+#include <algorithm>
 
 namespace fsim::ipc {
 
@@ -48,6 +49,7 @@ bool WorldMirror::open(const std::string& name) {
 }
 
 void WorldMirror::close() {
+    finSegment_.close(); weaponControls_.clear();
     if (attached_ && header_) const_cast<WorldHeader*>(header_)->readers.fetch_sub(1, std::memory_order_relaxed);
     attached_ = false;
     header_ = nullptr;
@@ -169,6 +171,16 @@ bool WorldMirror::pollSnapshot(sim::SnapshotBatch& out) {
         if (s->seq.load(std::memory_order_acquire) != s0) continue; // overwritten while copying: retry
         if (sequence <= lastSequence_) return false;
         out.sequence = sequence;
+        weaponControls_.clear();
+        if(!finSegment_.read(sequence,weaponControls_)) {
+            if(finSegment_.open(name_,header_->publisherPid,incarnation_))
+                finSegment_.read(sequence,weaponControls_);
+        }
+        weaponControls_.erase(std::remove_if(weaponControls_.begin(),weaponControls_.end(),[&](const auto& control) {
+            return control.slot>=vehicles_.size() || !vehicles_[control.slot].alive ||
+                vehicles_[control.slot].id!=control.entity || vehicles_[control.slot].generation!=control.generation ||
+                control.sampleTimeS!=simTime;
+        }),weaponControls_.end());
         out.simTime = simTime;
         out.wallNs = wallNs;
         lastSequence_ = sequence;

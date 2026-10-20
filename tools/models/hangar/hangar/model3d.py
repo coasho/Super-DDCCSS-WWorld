@@ -450,6 +450,8 @@ def control_nodes(aircraft, origin):
             name = "fsim:" + CHANNEL_NODE[ctrl.channel] + ("" if abs(g - 1.0) < 1e-9 else ":%.6g" % g)
             name += "".join("+%s:%.6g" % (CHANNEL_NODE[ch], gm) for ch, gm in sorted(mixed.items()) if abs(gm) > 1e-9)
             name += stops(aircraft, ctrl, piece)
+            if getattr(aircraft, "category", "") == "missile":
+                name = node_name(aircraft, s, ctrl, piece)
             y = piece["centre"][1]
             side = "" if abs(y) < 1e-6 else (" right" if y > 0 else " left")
             out.append({"name": name, "label": "%s %s%s" % (s.name, ctrl.name, side),
@@ -467,7 +469,14 @@ def node_name(aircraft, surface, ctrl, piece):
     name = "fsim:" + CHANNEL_NODE[ctrl.channel] + ("" if abs(g - 1.0) < 1e-9 else ":%.6g" % g)
     name += "".join("+%s:%.6g" % (CHANNEL_NODE[ch], gm) for ch, gm in sorted(mixed.items()) if abs(gm) > 1e-9)
     name += speedbrake_term(aircraft, ctrl, axis, p0, piece["te"])
-    return name + stops(aircraft, ctrl, piece)
+    name += stops(aircraft, ctrl, piece)
+    if getattr(aircraft, "category", "") == "missile":
+        from . import finregistry
+        # Actual individual angles are preferred. Preserve the authored legacy
+        # mixer/stops only as an explicit approximate fallback for old streams.
+        return "fsim:fin:%d:%.6g|%s" % (finregistry.identity(surface, ctrl, piece.get("side", 1)),
+            finregistry.visual_gain(surface, piece, axis), name[5:])
+    return name
 
 
 # the solid model's paint: air-superiority greys, a dark glossy canopy, a

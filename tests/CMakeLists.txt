@@ -92,6 +92,21 @@ target_compile_definitions(fsim_missile_control_native_test PRIVATE
 add_test(NAME missile_control_native COMMAND fsim_missile_control_native_test)
 set_tests_properties(missile_control_native PROPERTIES LABELS "native-engagement" TIMEOUT 120)
 
+add_executable(fsim_weapon_employment_core_test simulation/test_weapon_employment_core.cpp)
+target_link_libraries(fsim_weapon_employment_core_test PRIVATE fsim::session)
+target_compile_definitions(fsim_weapon_employment_core_test PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
+fsim_set_warnings(fsim_weapon_employment_core_test)
+add_test(NAME weapon_employment_core COMMAND fsim_weapon_employment_core_test)
+set_tests_properties(weapon_employment_core PROPERTIES LABELS "native-engagement" TIMEOUT 120)
+
+add_executable(fsim_contact_fuze_native_test simulation/test_contact_fuze_native.cpp)
+target_link_libraries(fsim_contact_fuze_native_test PRIVATE fsim::session)
+target_compile_definitions(fsim_contact_fuze_native_test PRIVATE
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}" FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
+fsim_set_warnings(fsim_contact_fuze_native_test)
+add_test(NAME contact_fuze_native COMMAND fsim_contact_fuze_native_test)
+set_tests_properties(contact_fuze_native PROPERTIES LABELS "native-engagement" TIMEOUT 120)
+
 add_executable(fsim_strike_capture_test visualization/test_strike_capture.cpp)
 target_link_libraries(fsim_strike_capture_test PRIVATE fsim::ipc fsim::core)
 # the viewer's applications/viewer/StrikeCapture.h: a view of the viewer's directory alone, built where the viewer is not
@@ -114,6 +129,8 @@ add_executable(fsim_tests
     simulation/test_units.cpp
     simulation/test_damage.cpp
     simulation/test_impact.cpp
+    simulation/test_contact_fuze.cpp
+    contracts/test_weapon_controls_stream.cpp
     simulation/test_mass_change.cpp
     simulation/test_store_binding.cpp
     simulation/test_store_drag.cpp
@@ -255,7 +272,7 @@ add_custom_command(TARGET fsim_radar_bench POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:libJSBSim> $<TARGET_FILE_DIR:fsim_radar_bench>)
 
 # The public C++ SDK against fsim.dll (what a trainer links).
-add_executable(fsim_sdk_tests compatibility/test_sdk.cpp compatibility/test_agents.cpp)
+add_executable(fsim_sdk_tests compatibility/test_sdk.cpp compatibility/test_agents.cpp compatibility/test_weapon_controls.cpp)
 target_link_libraries(fsim_sdk_tests PRIVATE fsim::sdk Catch2::Catch2WithMain)
 add_custom_command(TARGET fsim_sdk_tests POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:fsim> $<TARGET_FILE_DIR:fsim_sdk_tests>
@@ -263,6 +280,15 @@ add_custom_command(TARGET fsim_sdk_tests POST_BUILD
 target_compile_definitions(fsim_sdk_tests PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
 fsim_set_warnings(fsim_sdk_tests)
 catch_discover_tests(fsim_sdk_tests ${FSIM_CATCH_DISCOVERY})
+
+add_executable(fsim_weapon_controls_c_test compatibility/test_weapon_controls_c.c)
+target_link_libraries(fsim_weapon_controls_c_test PRIVATE fsim::sdk)
+set_target_properties(fsim_weapon_controls_c_test PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON)
+add_custom_command(TARGET fsim_weapon_controls_c_test POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:fsim> $<TARGET_FILE_DIR:fsim_weapon_controls_c_test>
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:libJSBSim> $<TARGET_FILE_DIR:fsim_weapon_controls_c_test>)
+add_test(NAME weapon_controls_c COMMAND fsim_weapon_controls_c_test)
+set_tests_properties(weapon_controls_c PROPERTIES LABELS "native-engagement" TIMEOUT 120)
 
 # Explicit MA-service binding through the public C++ SDK (docs/sdk/mission-training.md, section 9): configured
 # ownership whatever order the agents were made in, refused overlaps and foreign controllers, the legacy path as it was.
@@ -637,7 +663,7 @@ endif()
 if(FSIM_WITH_RENDER)
     add_executable(fsim_render_tests visualization/test_terrain_render.cpp visualization/test_vehicle_visuals.cpp visualization/test_cocip.cpp visualization/test_contrail_observed.cpp
                                      visualization/test_gpu_timer.cpp)
-    target_link_libraries(fsim_render_tests PRIVATE fsim::world fsim::core Catch2::Catch2WithMain)
+    target_link_libraries(fsim_render_tests PRIVATE fsim::world fsim::core fsim::ipc Catch2::Catch2WithMain)
     target_compile_definitions(fsim_render_tests PRIVATE FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
     fsim_set_warnings(fsim_render_tests)
     fsim_relax_third_party_warnings(fsim_render_tests)

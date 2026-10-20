@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <optional>
 
 namespace fsim::ms::weapon {
 // Private reduced-order engineering controller. Derivatives are signed BODY
@@ -10,6 +11,11 @@ struct ControlAxis {
     double forceAngle = 0, forceControl = 0;
     double momentAngle = 0, momentControl = 0, momentRate = 0;
 };
+// Same-frame native aerodynamic loads ABOUT THE CURRENT CG and measured actual
+// fin-equivalent deflections. These are not demands or forces to be applied.
+struct AeroFeedback {
+    std::array<double,3> forceBodyN{}, momentBodyNm{}, controlRad{};
+};
 struct AutopilotInput {
     std::array<double, 3> demandBody{}, gravityBody{}, ratesRadS{};
     std::array<double, 3> inertiaKgM2{};
@@ -18,6 +24,7 @@ struct AutopilotInput {
     double actuatorLagS = 0;
     ControlAxis pitch, yaw;
     double rollMomentPerRad = 0, rollDamping = 0;
+    std::optional<AeroFeedback> measured;
 };
 struct FinCommands {
     double aileron = 0, elevator = 0, rudder = 0;

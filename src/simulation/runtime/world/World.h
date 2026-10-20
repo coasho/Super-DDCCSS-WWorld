@@ -1,4 +1,5 @@
 #pragma once
+#include "fsim/WeaponControls.h"
 
 // The simulation session behind fsim::World (design 9.2): vehicles by name
 // and type, lockstep stepping through the vehicle pool, control cascades and
@@ -14,6 +15,7 @@
 #include "simulation/mission_systems/damage/State.h"
 #include "simulation/mission_systems/weapon/Guidance.h"
 #include "simulation/mission_systems/weapon/MotionHistory.h"
+#include "simulation/mission_systems/weapon/ContactFuze.h"
 #include "simulation/mission_systems/countermeasure/Dispenser.h"
 #include "simulation/mission_systems/rcs/Table.h"
 #include "simulation/flight_control/Features.h"
@@ -507,6 +509,7 @@ public:
     void transferFuel();
     /// The weapons in flight (by id), then those that ended, newest first (the last 256).
     std::vector<ms::WeaponRecord> weapons() const;
+    std::optional<ms::WeaponControlSnapshotV1> weaponControlsV1(std::uint32_t weapon) const;
     ms::Reason dispense(std::uint32_t vehicle, bool flare);
     ms::CountermeasureInventory countermeasures(std::uint32_t vehicle) const;
     std::vector<ms::DecoyState> decoys() const;
@@ -711,6 +714,7 @@ private:
         sim::VehicleState working;         ///< per-sub-step state for control/effects
         std::vector<ms::weapon::MotionSample> engagementPath; ///< worker-owned native samples for this step
         std::vector<sim::VehicleState> engagementStates; ///< same indices: pose/velocity at each native sample
+        std::vector<std::optional<ms::damage::V3>> engagementCg; ///< same epochs: CG from fixed origin, body metres
         double engagementModelTimeS = 0; ///< model clock at the beginning of this World step
         unsigned controlDivider = 1;
         bool forceApplied = false;         ///< external force pushed last step (needs zeroing)
@@ -732,13 +736,25 @@ private:
         std::string wreckFireName;         ///< the component its Fire events name
         bool crewLost = false;             ///< its controls held where they were
         ms::WeaponRecord origin;           ///< a weapon's: the store it was (MS-7; store, station, activity, target, jettisoned)
+        std::uint32_t launchSeekerCue = 0; ///< actual on-rail observation, never a designation ID
         std::unique_ptr<ms::weapon::Guidance> guidance;
+        std::optional<ms::damage::V3> contactNoseFromOriginBodyM; ///< immutable authored point tip; absent: unavailable
+        ms::weapon::ContactFuzeState contactFuze; ///< one contact-initiation channel per actual release
         double guidanceDemand[3] = {0, 0, 0}; ///< ECEF specific acceleration, never applied as a force
         struct FinControlReads {
             PropertyHandle version, qbar, area, diameter, lag;
             std::array<PropertyHandle, 3> inertia, limits;
             std::array<PropertyHandle, 12> derivatives;
+            std::array<PropertyHandle, 3> aeroForce, aeroMoment;
         } finControl;
+        struct FinTelemetryReads {
+            bool bound=false;
+            PropertyHandle version, count;
+            std::vector<std::array<PropertyHandle,9>> fins;
+        };
+        mutable FinTelemetryReads finTelemetry;
+        bool finControllerAvailable=false;
+        double finControllerTimeS=std::numeric_limits<double>::quiet_NaN();
         std::unique_ptr<ms::countermeasure::Dispenser> dispenser;
         StoreFlightBinding storeFlight;
     };
@@ -845,8 +861,15 @@ private:
     std::uint32_t launchPiece(Entry& from, int section, const Parting& part);
     void stepDamage();
     void prepareEngagements();
+    bool resolveWeaponTarget(std::uint32_t launcher, std::uint32_t target, sim::VehicleState& out) const;
+    ms::Reason weaponLaunchEligibility(const Entry& launcher, std::uint16_t store, std::uint32_t target) const;
+    std::uint32_t onRailSeekerObservation(const Entry& launcher, const ms::StoreCard& card) const;
     void finishEngagements();
     sim::VehicleState engagementStateAt(const Entry& e, double offsetS) const;
+    /// Current decision-step offset; piecewise-linear captured CG offsets from
+    /// the fixed model origin in body metres. Stopped bodies hold the last
+    /// native value. Missing/invalid captures never use the final model's CG.
+    std::optional<ms::damage::V3> engagementCgAt(const Entry& e, double offsetS) const;
     void recordEngagement(const std::string& kind, const Entry& entity, std::uint32_t target = 0,
                           const std::string& reason = "", bool destroyed = false);
     std::vector<ms::EngagementEvent> combatEvents_;
@@ -940,6 +963,7 @@ private:
     void endWeapon(Entry& e, ms::WeaponEnd end, const sim::VehicleState& state);
     std::deque<ms::WeaponRecord> endedWeapons_;
     void recordFrame();
+    std::vector<ms::WeaponControlSnapshotV1> collectWeaponControls() const;
     Rng rng_;
     std::uint32_t nextId_ = 1;
     std::size_t liveCount_ = 0;

@@ -69,11 +69,13 @@ under `build/architecture-reviews/sim-m03-*`; no previous totals are reused.
   with identical records/events for one and two workers. The 30 km motor/coast
   case ends in **Impact**, with **15.0118 m** minimum eligible miss distance and
   **780.622 m/s** maximum speed. It validates powered/coast execution, **not a
-  long-range hit**. The earlier finite-control handoff's 30 km hit is historical;
+  long-range hit**. The earlier finite-control handoff's 30 km detonation is historical;
   it must not be reused after correcting measured velocity and substep timing.
 * The guided `frameSkip=240` fixture acquires its crossing target, contacts terrain
   at native step 2 before arming, and retains Impact without a later detonation.
-  Its terminal speed uses the final moving native sample. The slow/starved
+  At this audit's frozen handoff, its terminal speed used the final moving native
+  sample. The later HC-57 correction retains the incoming STRUCTURE-contact state
+  instead; a strike need not reduce that incoming speed. The slow/starved
   post-five-second fixture remains airborne and live below 180 m/s. Current
   burning matches native thrust on every live engagement sample.
 * Independent read-only review found and resolved encounter-body/current-body
@@ -85,3 +87,16 @@ The 20 changed/new native source and regression files are fingerprinted in
 `build/architecture-reviews/sim-m03-source-manifest.sha256`. Full regression,
 Viewer evidence, equipment calibration and complete variant/fleet acceptance
 remain separate gates. No external numerical delivery is accepted by this change.
+
+Subsequent dated evidence is in the [reference continuation](sim-m03-reference-continuation.md)
+and [30 km diagnosis](thirty-km-engagement-diagnosis.md). The old 15.0118 m Impact
+above is this audit's historical baseline. The later frozen controller-load,
+search-steering and Euler-coupling correction recorded 8.12775 m native
+detonation with unchanged model/fixture values. Forward fragment crossings,
+exit normals, nonnegative drag distance and overlapping-body containment have
+separate RED/GREEN evidence. That handoff recorded 744/746 Headless checks and
+56/56 focused Release checks; it does not verify the expanded SDK delivery.
+Detonation alone does not satisfy the unchanged fixed-scene target-damage
+requirements. Current gates are recorded in the
+[SDK delivery continuation](sim-m03-reference-continuation.md#7-sdk-delivery-continuation-and-regression-repair).
+Physical and complete-package acceptance remain open.

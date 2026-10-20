@@ -712,6 +712,8 @@ class Design:
                       for s in carriage.stations(self.aircraft)])
         here = os.path.dirname(os.path.abspath(__file__))
         files = [os.path.join(here, "model3d.py"), os.path.join(here, "livery.py"), os.path.join(here, "carriage.py")]
+        if self.aircraft.category == "missile":
+            files.append(os.path.join(here, "finregistry.py"))
         paint = os.path.join(self.aircraft.dir, "paint.toml")
         for f in files + ([paint] if os.path.isfile(paint) else []):
             with open(f, "rb") as fh:

@@ -71,12 +71,23 @@ struct Card {
     const Station* station(int number) const noexcept;
 };
 
+/// An explicit authored execution declaration, not equipment/link calibration.
+/// Version 0 is an unversioned external card's compatible legacy behavior.
+struct GuidanceCapabilities {
+    unsigned version = 0;
+    bool inertialMidcourse = false;
+    bool launcherUpdates = false;
+    Basis basis = Basis::Assumed;
+    std::string source, note;
+};
+
 /// One store type (MS-7; assets/stores/<id>.json): what a station carries.
 struct StoreCard {
     std::string id, designation, summary, maker;
     std::string storeClass;      ///< "aam", "bomb", "tank", "pod": what stations take it
     std::string model;           ///< its flight model once released ("jsbsim:mk82"); empty: not built yet
     std::string seeker;          ///< active_radar, semi_active_radar, infrared or imaging_infrared
+    GuidanceCapabilities guidanceCapabilities;
     /// jettisoned it leaves as the inert body its model is.
     bool powerable = false;      ///< powered before release (a missile's seeker and guidance)
     bool jettisonable = true;

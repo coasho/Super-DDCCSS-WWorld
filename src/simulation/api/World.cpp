@@ -653,6 +653,9 @@ Vehicle World::launchWeapon(const Vehicle& launcher, const ms::WeaponLaunch& lau
 }
 
 std::vector<ms::WeaponRecord> World::weapons() const { return impl_->weapons(); }
+std::optional<ms::WeaponControlSnapshotV1> World::weaponControlsV1(std::uint32_t weapon) const {
+    return impl_->weaponControlsV1(weapon);
+}
 ms::Reason World::dispense(std::uint32_t vehicle, bool flare) { return impl_->dispense(vehicle,flare); }
 std::uint32_t World::seekerTarget(std::uint32_t vehicle,const std::string& store) const { return impl_->seekerTarget(vehicle,store); }
 ms::CountermeasureInventory World::countermeasures(std::uint32_t vehicle) const { return impl_->countermeasures(vehicle); }

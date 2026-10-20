@@ -1900,6 +1900,11 @@ CountermeasureInventory = collections.namedtuple("CountermeasureInventory", "cha
 DecoyState = collections.namedtuple("DecoyState", "id owner kind age_s position_ecef")
 EngagementEvent = collections.namedtuple("EngagementEvent", "serial time_s kind reason entity launcher target position_ecef velocity_ecef destroyed")
 LaunchZone = collections.namedtuple("LaunchZone", "maximum_m no_escape_m minimum_m")
+WeaponFinStateV1 = collections.namedtuple("WeaponFinStateV1",
+    "id native_index valid failed_stuck failed_zero failed_hardover actual_rad demand_rad minimum_rad maximum_rad rate_rad_s")
+WeaponControlSnapshotV1 = collections.namedtuple("WeaponControlSnapshotV1",
+    "entity slot generation available controller_available sample_time_s controller_time_s commands fins")
+
 WeaponRecord = collections.namedtuple(
     "WeaponRecord", "id launcher name type launch_time_s end_time_s end end_latitude_rad end_longitude_rad end_height_m end_speed_ms "
     "store station jettisoned activity target phase seeker holding miss_m burning tracking supported time_to_go_s time_to_active_s")
@@ -3139,6 +3144,21 @@ class World:
 
     ``world.step(n=1)`` is the native call itself: no Python in between.
     """
+
+    def weapon_controls(self, weapon):
+        """Actual individual fins and controller diagnostics, for the Range only.
+
+        Returns None for an unknown, ended or non-weapon entity. Unknown numeric
+        values are None. Reads do not consume native state.
+        """
+        value = self._h.weapon_controls(weapon.id if hasattr(weapon, "id") else weapon)
+        if value is None:
+            return None
+        number = lambda x: x if math.isfinite(x) else None
+        fins = tuple(WeaponFinStateV1(row[0], row[1], *(bool(x) for x in row[2:6]),
+                                     *(number(x) for x in row[6:])) for row in value[10])
+        return WeaponControlSnapshotV1(value[0], value[1], str(value[2]), bool(value[3]), bool(value[4]),
+                                       number(value[5]), number(value[6]), tuple(value[7:10]), fins)
 
     def __init__(self, name=None, *, dt=None, frame_skip=None, workers=None, pin_workers=None, seed=None,
                  capacity=None, publish=None, publish_interval_s=None, jsbsim_root=None, terrain=None,

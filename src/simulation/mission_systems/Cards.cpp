@@ -64,6 +64,36 @@ Basis parseBasis(const std::string& basis) noexcept {
     return basis == "published" ? Basis::Published : basis == "derived" ? Basis::Derived : Basis::Assumed;
 }
 
+GuidanceCapabilities readGuidanceCapabilities(const core::Json& doc,
+                                              const std::map<std::string, Source>& sources) {
+    GuidanceCapabilities out;
+    const auto* profile = doc.find("guidance_capabilities");
+    if (!profile) return out; // Explicit legacy compatibility; no fitted capability claim.
+    if (!profile->isObject() || !profile->has("version") || !profile->child("version").isNumber()
+        || profile->number("version", 0) != 1)
+        throw std::runtime_error("guidance_capabilities needs supported numeric version 1");
+    for (const auto* name : {"inertial_midcourse", "launcher_updates"})
+        if (!profile->has(name) || !profile->child(name).isBool())
+            throw std::runtime_error(std::string("guidance_capabilities needs explicit boolean ") + name);
+    const auto basis = profile->string("basis", "");
+    if (basis != "published" && basis != "derived" && basis != "assumed")
+        throw std::runtime_error("guidance_capabilities needs a known basis");
+    out.source = profile->string("source", "");
+    out.note = profile->string("note", "");
+    if (out.source == "/guidance") {
+        if (basis != "assumed" || doc.string("guidance", "").empty())
+            throw std::runtime_error("guidance_capabilities /guidance provenance needs an authored guidance field and assumed basis");
+    } else if (!sources.count(out.source)) {
+        throw std::runtime_error("guidance_capabilities needs /guidance authored provenance or a listed source");
+    }
+    if (out.note.empty()) throw std::runtime_error("guidance_capabilities needs an execution and uncertainty note");
+    out.version = 1;
+    out.inertialMidcourse = profile->boolean("inertial_midcourse", false);
+    out.launcherUpdates = profile->boolean("launcher_updates", false);
+    out.basis = parseBasis(basis);
+    return out;
+}
+
 /// A store-station card's stations.
 std::vector<Station> readStations(const core::Json& doc, const std::map<std::string, Source>& sources, const std::string& where,
                                   std::vector<std::string>& errors) {
@@ -158,6 +188,7 @@ std::shared_ptr<const StoreCard> readStoreCard(const std::filesystem::path& file
         card->sources = readSources(*doc);
         if (card->sources.empty()) errors.push_back(where + "a store card needs at least one source");
         card->parameters = readParameters(*doc, card->sources, where, errors);
+        card->guidanceCapabilities = readGuidanceCapabilities(*doc, card->sources);
         if (!card->parameters.count("mass_kg")) errors.push_back(where + "a store card needs its mass_kg");
         card->warhead = doc->string("warhead", "");
         card->warheadKind = doc->string("warhead_kind", "");

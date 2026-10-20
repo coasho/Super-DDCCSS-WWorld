@@ -1236,3 +1236,30 @@ mechanism gap while HC-56's calibrated response and full-program prerequisites
 remain open. The later [physical-chain continuation](../../sdk/sim-m03-physical-chain-audit.md)
 corrects HC-54 timing and HC-55 attached-parent membership; calibration and the
 separate detached-body contract remain pending as recorded above.
+
+## SIM-M03 reference continuation, 2026-10-20
+
+The [reference record](../../sdk/sim-m03-reference-continuation.md) retains the
+earlier frozen handoff's 744/746 Headless and 56/56 focused Release results,
+including its complete builds and installed equipment consumers. Those results
+do not verify the expanded SDK delivery or establish actual target damage from
+a detonation. The unchanged fixed-scene hit requirements remain separate. The
+[SDK delivery continuation](../../sdk/sim-m03-reference-continuation.md#7-sdk-delivery-continuation-and-regression-repair)
+records current corrections and gates. Independent control/fragment corrections
+do not close HC-56 or the remaining HC-55 detached-body contract.
+
+| ID | Origin and state | Item | Owner and required closure |
+| --- | --- | --- | --- |
+| HC-57 | Demonstrated representation defect corrected and verified in both complete preset runs | The original 300 kg assertion first reproduced at 265.77651731737785 kg. Native traces establish several STRUCTURE-contact spring responses before the selected strike sample; mass/fuel are stable. An independent first-contact energy regression failed at 1.618516 MJ versus 3.596499 MJ incoming. A separate optional native snapshot now retains the incoming structural-contact velocity and mass without changing FlightModel's primary vtable, crash depth, forces or impact/fuel coefficients. Mixed-epoch mass also has an independent RED/GREEN regression. | Codex: the unchanged original scene and 300 kg bound, first-contact energy/vector and reset/batching controls pass. Original case plus independent energy and package tests pass 3/3 in 2.10 s; impact/terrain selection passes 215 assertions in 9 cases. Both complete runs pass HC-57; final Release related selection passes 22 cases/1021 assertions. See the linked SDK delivery record for full-run failures and final evidence. This closes the representation regression, not calibrated fuel-fire prediction. |
+| HC-58 | Fixture defect corrected and verified in both complete preset runs | The synthetic patched-source tree lacked FGPropulsion.cpp, FGRocket.h, FGRocket.cpp and FGThruster.cpp. The fixture now includes the complete required files and independently requires their installed copies; enabled/disabled component checks remain intact. | Codex feature-owned fixture correction: Headless 1/1 in 1.60 s and Release 1/1 in 1.53 s, then combined Headless 3/3; both complete runs also pass the component fixture. Installed C++/C99/Python equipment consumers pass on each preset. Broader generic feature ownership remains with Claude; no installation requirement is removed. |
+
+Historical frozen-source evidence is `build/architecture-reviews/sim-m03-continuation-*`;
+the subsequent HC-57/HC-58 SDK correction evidence is `build/architecture-reviews/sim-m03-sdk-*`.
+The pre-rebuild executable is SHA-256
+`9fcc18ef9d0da4471b0db18dc9b765c80f3a970e94cb76b1d1a3ab9b01627c7e`;
+it is an observed binary control, not a reconstructed historical source build.
+Current full-run evidence is Headless first **769/775**, followed by **4/4**
+test-only fixture retests, and final Release **847/849**. Both runs have zero
+skips. The two unchanged 5 km physical hit gates remain failed; the unchanged
+30 km case has actual damage evidence. Full SIM-M03 and physical-model acceptance
+remain open. Neither full run is represented as all-green.

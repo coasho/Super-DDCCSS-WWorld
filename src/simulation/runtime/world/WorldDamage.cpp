@@ -130,6 +130,13 @@ std::vector<ipc::EngagementEvent> World::detonate(const Detonation& d) {
         // (its model's origin, which its airframe's places are from: the state is at its CG)
         double cg[3];
         model.cgFromOriginBodyM(cg);
+        // Reconstruct attached geometry and its impulse lever at the same
+        // captured epoch as the encounter pose. Uncaptured scripted bursts
+        // retain the legacy current-CG fallback; they have no exact history.
+        if (std::isfinite(d.stepFraction))
+            if (const auto captured=engagementCgAt(*e,std::clamp(d.stepFraction,0.0,1.0)*options_.dt*options_.frameSkip)) {
+                cg[0]=captured->x; cg[1]=captured->y; cg[2]=captured->z;
+            }
         t.at = at - ms::damage::V3{R[0] * cg[0] + R[1] * cg[1] + R[2] * cg[2], R[3] * cg[0] + R[4] * cg[1] + R[5] * cg[2],
                                    R[6] * cg[0] + R[7] * cg[1] + R[8] * cg[2]};
         for (int r = 0; r < 3; ++r)
@@ -457,9 +464,14 @@ std::uint32_t World::launchPiece(Entry& from, int section, const Parting& part) 
     return id;
 }
 
-void World::impacted(Entry& e, const sim::VehicleState& before, const sim::VehicleState& after) {
+void World::impacted(Entry& e, const sim::VehicleState& fallback, const sim::VehicleState& after) {
     namespace dmg = ms::damage;
     auto& model = pool_->vehicle(e.slot);
+    sim::VehicleState before = fallback;
+    sim::TerrainStrikeSnapshotV1 incoming;
+    const auto* source = dynamic_cast<const sim::TerrainStrikeSourceV1*>(&model);
+    const bool captured = source && source->terrainStrikeSnapshotV1(incoming);
+    if (captured) before = incoming.state;
     // the local axes there (ECEF), and the ground's normal: its slope over its data's spacing
     const double lat = after.latitudeRad, lon = after.longitudeRad;
     const double sl = std::sin(lat), cl = std::cos(lat), so = std::sin(lon), co = std::cos(lon);
@@ -472,12 +484,19 @@ void World::impacted(Entry& e, const sim::VehicleState& before, const sim::Vehic
         const double slopeE = (ground_->heightAboveEllipsoidM(lat, lon + de) - ground_->heightAboveEllipsoidM(lat, lon - de)) / (2.0 * h);
         if (std::isfinite(slopeN) && std::isfinite(slopeE)) normal = dmg::normalized(north * -slopeN + east * -slopeE + down * -1.0);
     }
-    auto ecef = [&](const double ned[3]) { return north * ned[0] + east * ned[1] + down * ned[2]; };
+    // Incoming NED axes belong to that sample's position, not the stopped CG.
+    const double bs = std::sin(before.latitudeRad), bc = std::cos(before.latitudeRad);
+    const double bo = std::sin(before.longitudeRad), bco = std::cos(before.longitudeRad);
+    const dmg::V3 beforeNorth{-bs * bco, -bs * bo, bc}, beforeEast{-bo, bco, 0.0}, beforeDown{-bc * bco, -bc * bo, -bs};
+    auto ecef = [&](const double ned[3]) { return beforeNorth * ned[0] + beforeEast * ned[1] + beforeDown * ned[2]; };
     dmg::GroundStrike strike;
     strike.velocity = ecef(before.velocityNedMs);
     strike.normal = normal;
     const sim::EnergyOnBoard aboard = model.energy();
-    strike.massKg = std::isfinite(aboard.massKg) ? aboard.massKg : 0.0;
+    const double impactMass = captured ? incoming.massKg : aboard.massKg;
+    strike.massKg = std::isfinite(impactMass) ? impactMass : 0.0;
+    // Fuel describes what remains when this native strike is applied. Fuel
+    // already consumed/leaked during contact cannot burn a second time.
     strike.fuelKg = std::isfinite(aboard.fuelKg) ? std::max(aboard.fuelKg, 0.0) : 0.0;
     // a store that was released ends where it strikes (World removes it): nothing of it burns on. A tank's fuel is the
     // point mass its flight model names "fuel" (hangar's storemodels.py), set as it left its station

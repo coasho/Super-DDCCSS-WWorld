@@ -10,6 +10,7 @@
 #include "visualization/scene/Interpolator.h"
 #include "visualization/scene/Propellants.h"
 #include "foundation/core/Json.h"
+#include "foundation/transport/Recording.h"
 #include "visualization/scene/VehicleVisuals.h"
 
 #include <algorithm>
@@ -23,10 +24,187 @@
 #include <functional>
 #include <fstream>
 #include <optional>
+#include <regex>
 #include <vector>
 
 using namespace fsim;
 using Joint = world::VehicleVisuals::Joint;
+
+TEST_CASE("physical fin nodes require actual telemetry instead of equivalent axis motion", "[render][visuals][weapon_controls]") {
+    Joint fin;
+    REQUIRE(Joint::parse("fsim:fin:1234:-1", fin));
+    sim::VehicleState state;
+    state.aileronRad=.2; state.elevatorRad=-.15; state.rudderRad=.1;
+    const auto neutral=fin.matrix(state);
+    CHECK(std::abs(neutral[1][2])<1e-12);
+    CHECK(std::abs(neutral[2][1])<1e-12);
+    fin.finAngleRad=.12;
+    const auto actual=fin.matrix(state);
+    CHECK(std::abs(actual[1][2]-std::sin(-.12))<1e-12);
+    fin.finAngleRad=0;
+    CHECK(std::abs(fin.matrix(state)[1][2])<1e-12);
+    CHECK_FALSE(Joint::parse("fsim:fin:0", fin));
+    CHECK_FALSE(Joint::parse("fsim:fin:-1", fin));
+    CHECK_FALSE(Joint::parse("fsim:fin:1234:nan", fin));
+}
+
+TEST_CASE("physical fin nodes preserve an explicit approximate legacy mixer fallback", "[render][visuals][weapon_controls]") {
+    Joint fin;
+    REQUIRE(Joint::parse("fsim:fin:1234:-1|elevator:2+rudder:-0.5@-10,15",fin));
+    sim::VehicleState state; state.elevatorRad=.2; state.rudderRad=.1;
+    constexpr double limit=15*3.14159265358979323846/180;
+    CHECK(std::abs(fin.matrix(state)[1][2]-std::sin(limit))<1e-12);
+    fin.finAngleRad=.12;
+    CHECK(std::abs(fin.matrix(state)[1][2]-std::sin(-.12))<1e-12); // actual overrides the approximate mixer/stops
+    fin.finAngleRad=std::numeric_limits<double>::quiet_NaN();
+    CHECK(std::abs(fin.matrix(state)[1][2]-std::sin(limit))<1e-12);
+    CHECK_FALSE(Joint::parse("fsim:fin:1234:1|",fin));
+    CHECK_FALSE(Joint::parse("fsim:fin:1234:1|fin:42:1",fin));
+}
+
+TEST_CASE("actual fin presentation uses body render time and never blends reused identities", "[render][visuals][weapon_controls]") {
+    world::VehicleVisuals::Settings settings;
+    settings.modelDirs.push_back(FSIM_TEST_AIRCRAFT_DIR);
+    world::VehicleVisuals visuals(1,settings,vsg::Options::create(vsgXchange::all::create()));
+    visuals.setModel(0,{},"jsbsim:aim120c");
+    const auto& pose=visuals.pose(0);
+    std::size_t first=pose.joints.size();
+    for(std::size_t i=0;i<pose.joints.size();++i) if(pose.joints[i].kind==Joint::Fin) { first=i; break; }
+    REQUIRE(first<pose.joints.size());
+    const auto& joint=pose.joints[first];
+    ms::WeaponControlSnapshotV1 sample;
+    sample.slot=0; sample.entity=42; sample.generation=8; sample.available=true;
+    ms::WeaponFinStateV1 fin; fin.id=joint.finId; fin.valid=true; fin.actualRad=-.1;
+    sample.fins.push_back(fin); sample.sampleTimeS=1;
+    visuals.setWeaponControls(sample);
+    sample.sampleTimeS=3; sample.fins[0].actualRad=.3;
+    visuals.setWeaponControls(sample);
+    std::vector<sim::VehicleState> states(1); states[0].simTime=2;
+    visuals.update(states);
+    CHECK(std::abs(pose.joints[first].finAngleRad-.1)<1e-12); // midpoint, also the replay clock case
+    states[0].simTime=3; visuals.update(states);
+    CHECK(pose.joints[first].finAngleRad==.3); // exact latest when body interpolation is disabled
+    sample.entity=43; sample.generation=9; sample.sampleTimeS=4; sample.fins[0].actualRad=-.2;
+    visuals.setWeaponControls(sample); states[0].simTime=3.5; visuals.update(states);
+    CHECK_FALSE(std::isfinite(pose.joints[first].finAngleRad));
+    states[0].simTime=4; visuals.update(states);
+    CHECK(pose.joints[first].finAngleRad==-.2);
+    visuals.clearWeaponControls(); visuals.update(states);
+    CHECK_FALSE(std::isfinite(pose.joints[first].finAngleRad));
+    sample.entity=42; sample.generation=8; sample.sampleTimeS=10; sample.fins[0].actualRad=-.1;
+    visuals.setWeaponControlsFrame(100,{sample});
+    sample.sampleTimeS=12; sample.fins[0].actualRad=.3;
+    visuals.setWeaponControlsFrame(102,{sample});
+    states[0].simTime=50; // a weapon's model age is neither World time nor the live wall clock
+    visuals.setWeaponControlsTime(101); visuals.update(states);
+    CHECK(std::abs(pose.joints[first].finAngleRad-.1)<1e-12);
+    visuals.setWeaponControlsTime(101,false); visuals.update(states);
+    CHECK(pose.joints[first].finAngleRad==.3);
+    visuals.setWeaponControlsFrame(103,{}); visuals.setWeaponControlsTime(103); visuals.update(states);
+    CHECK_FALSE(std::isfinite(pose.joints[first].finAngleRad));
+}
+
+TEST_CASE("generated missile fins share native IDs and retain independent jam poses", "[render][visuals][weapon_controls]") {
+    const std::filesystem::path dir=FSIM_TEST_AIRCRAFT_DIR;
+    std::ifstream xml(dir/"stores"/"aim120c"/"aim120c.xml"); REQUIRE(xml.is_open());
+    const std::string text((std::istreambuf_iterator<char>(xml)),std::istreambuf_iterator<char>());
+    const std::regex metadata(R"fin(<property value="([0-9]+)">fsim/missile-control/fin-[0-9]+-id</property>)fin");
+    std::set<std::uint32_t> nativeIds;
+    for(std::sregex_iterator it(text.begin(),text.end(),metadata),end;it!=end;++it)
+        nativeIds.insert(static_cast<std::uint32_t>(std::stoull((*it)[1].str())));
+    REQUIRE(nativeIds.size()==4);
+    world::VehicleVisuals::Settings settings; settings.modelDirs.push_back(dir);
+    world::VehicleVisuals visuals(1,settings,vsg::Options::create(vsgXchange::all::create()));
+    visuals.setModel(0,{},"jsbsim:aim120c");
+    const auto& pose=visuals.pose(0);
+    std::set<std::uint32_t> visualIds;
+    for(const auto& joint:pose.joints) if(joint.kind==Joint::Fin) visualIds.insert(joint.finId);
+    REQUIRE(visualIds==nativeIds);
+    std::vector<sim::VehicleState> states(1);
+    states[0].aileronRad=.2; states[0].elevatorRad=-.15; states[0].rudderRad=.1;
+    const auto checkPose=[&](double first,double others) {
+        bool firstFin=true;
+        for(std::size_t i=0;i<pose.joints.size();++i) if(pose.joints[i].kind==Joint::Fin) {
+            const auto& joint=pose.joints[i];
+            const double actual=firstFin?first:others; firstFin=false;
+            const auto expected=joint.rest*vsg::rotate(joint.gain*actual,1.0,0.0,0.0);
+            for(unsigned col=0;col<4;++col) for(unsigned row=0;row<4;++row)
+                CHECK(std::abs(pose.transforms[i]->matrix[col][row]-expected[col][row])<1e-10);
+        }
+    };
+    visuals.update(states);
+    std::vector<vsg::dmat4> legacy;
+    for(std::size_t i=0;i<pose.joints.size();++i) {
+        legacy.push_back(pose.transforms[i]->matrix);
+        if(pose.joints[i].kind==Joint::Fin) {
+            REQUIRE(pose.joints[i].finHasFallback);
+            CHECK_FALSE(std::isfinite(pose.joints[i].finAngleRad)); // fallback never claims actual telemetry
+        }
+    }
+    ms::WeaponControlSnapshotV1 sample; sample.slot=0; sample.available=true;
+    for(const auto& joint:pose.joints) if(joint.kind==Joint::Fin) {
+        ms::WeaponFinStateV1 fin; fin.id=joint.finId; fin.valid=true; fin.actualRad=.07;
+        sample.fins.push_back(fin);
+    }
+    visuals.setWeaponControls(sample); visuals.update(states); checkPose(.07,.07);
+    sample.fins.front().failedStuck=true;
+    for(std::size_t i=1;i<sample.fins.size();++i) sample.fins[i].actualRad=-.04;
+    visuals.setWeaponControls(sample); visuals.update(states); checkPose(.07,-.04);
+    visuals.clearWeaponControls(); visuals.update(states);
+    for(std::size_t i=0;i<pose.joints.size();++i) if(pose.joints[i].kind==Joint::Fin)
+        for(unsigned col=0;col<4;++col) for(unsigned row=0;row<4;++row)
+            CHECK(std::abs(pose.transforms[i]->matrix[col][row]-legacy[i][col][row])<1e-10);
+}
+
+TEST_CASE("a generation's first fin sample cannot backfill an earlier body render clock", "[render][visuals][weapon_controls][first_sample]") {
+    world::VehicleVisuals::Settings settings; settings.modelDirs.push_back(FSIM_TEST_AIRCRAFT_DIR);
+    world::VehicleVisuals visuals(1,settings,vsg::Options::create(vsgXchange::all::create()));
+    visuals.setModel(0,{},"jsbsim:aim120c");
+    const auto& pose=visuals.pose(0);
+    const auto found=std::find_if(pose.joints.begin(),pose.joints.end(),[](const auto& joint) { return joint.kind==Joint::Fin; });
+    REQUIRE(found!=pose.joints.end());
+    const auto index=static_cast<std::size_t>(found-pose.joints.begin());
+    ms::WeaponControlSnapshotV1 sample;
+    sample.entity=43; sample.generation=9; sample.slot=0; sample.sampleTimeS=102; sample.available=true;
+    ms::WeaponFinStateV1 fin; fin.id=found->finId; fin.valid=true; fin.actualRad=.25;
+    sample.fins.push_back(fin);
+    visuals.clearWeaponControls(); visuals.setWeaponControlsFrame(102,{sample});
+    std::vector<sim::VehicleState> states(1);
+    visuals.setWeaponControlsTime(101); visuals.update(states);
+    CHECK_FALSE(std::isfinite(pose.joints[index].finAngleRad));
+    visuals.setWeaponControlsTime(102); visuals.update(states);
+    CHECK(pose.joints[index].finAngleRad==.25);
+}
+
+TEST_CASE("a v7 recording drives new physical fin models through authored legacy fallback", "[render][visuals][weapon_controls]") {
+    const auto path=std::filesystem::temp_directory_path()/"fsim-fin-legacy-v7.fsrec";
+    ipc::RecordingHeader header; header.capacity=1; header.dt=1./120;
+    ipc::RecordWriter writer; REQUIRE(writer.open(path,header));
+    ipc::VehicleSample sample; sample.state.simTime=12;
+    sample.state.aileronRad=.05; sample.state.elevatorRad=.12; sample.state.rudderRad=-.03;
+    writer.writeSnapshot(2,{{0,sample}}); writer.close();
+    // v8 deliberately retains the exact v7 full base sample stride. This file
+    // has no new records; set only the frozen format byte to produce a v7 fixture.
+    std::fstream file(path,std::ios::in|std::ios::out|std::ios::binary); REQUIRE(file.is_open());
+    file.seekp(5); file.put(char(7)); file.close();
+    ipc::Recording recording; REQUIRE(recording.load(path)); REQUIRE(recording.frames().size()==1);
+    CHECK(recording.frames()[0].weaponControls.empty());
+    world::VehicleVisuals::Settings settings; settings.modelDirs.push_back(FSIM_TEST_AIRCRAFT_DIR);
+    world::VehicleVisuals visuals(1,settings,vsg::Options::create(vsgXchange::all::create()));
+    visuals.setModel(0,{},"jsbsim:aim120c");
+    std::vector<sim::VehicleState> states{recording.frames()[0].samples[0].second.state};
+    visuals.setWeaponControlsFrame(2,{}); visuals.setWeaponControlsTime(2); visuals.update(states);
+    bool moved=false;
+    const auto& pose=visuals.pose(0);
+    for(std::size_t i=0;i<pose.joints.size();++i) if(pose.joints[i].kind==Joint::Fin) {
+        REQUIRE(pose.joints[i].finHasFallback);
+        CHECK_FALSE(std::isfinite(pose.joints[i].finAngleRad));
+        for(unsigned col=0;col<4;++col) for(unsigned row=0;row<4;++row)
+            moved=moved || std::abs(pose.transforms[i]->matrix[col][row]-pose.joints[i].rest[col][row])>1e-10;
+    }
+    CHECK(moved);
+    std::error_code error; std::filesystem::remove(path,error);
+}
 
 namespace {
 

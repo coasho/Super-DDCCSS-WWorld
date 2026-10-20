@@ -1,4 +1,5 @@
 #pragma once
+#include "fsim/WeaponControls.h"
 
 #include "foundation/core/Span.h"
 #include "fsim/VehicleState.h"
@@ -9,6 +10,7 @@
 #include <functional>
 #include <limits>
 #include <array>
+#include <deque>
 #include <map>
 #include <memory>
 #include <string>
@@ -167,6 +169,12 @@ public:
 
     /// Write the latest snapshot into the transforms (render thread, per frame).
     void update(Span<const sim::VehicleState> states);
+    void setWeaponControls(const ms::WeaponControlSnapshotV1& sample);
+    /// One base snapshot on the same simulation/wall clock as the body interpolator.
+    void setWeaponControlsFrame(double clock,const std::vector<ms::WeaponControlSnapshotV1>& samples);
+    /// Select presentation angles at the body's render clock; false uses exact newest values.
+    void setWeaponControlsTime(double clock,bool interpolate=true);
+    void clearWeaponControls();
 
     void setCompiler(Compiler compiler) { compiler_ = std::move(compiler); }
 
@@ -277,8 +285,12 @@ public:
     struct Joint {
         enum Channel { Aileron, Elevator, Rudder, Flaps, Speedbrake }; ///< speedbrake: its opening 0..1, so a gain is radians open
         enum Kind { Surface, Gear, Afterburner, LeadingEdge, Propeller, Nozzle, Oleo, Steer, Wheel, Disc, Blades, Station, BayDoor,
-                    Rolleron, RolleronDisc, FreeRoll, Section };
+                    Rolleron, RolleronDisc, FreeRoll, Section, Fin };
         Kind kind = Surface;
+        std::uint32_t finId=0;
+        double finAngleRad=std::numeric_limits<double>::quiet_NaN();
+        bool finHasFallback=false;
+        double finFallbackGain=0; ///< approximate legacy primary channel; actual gain remains `gain`
         const vsg::MatrixTransform* node = nullptr; ///< in the shared model
         vsg::dmat4 rest;                           ///< its matrix at zero deflection
         Channel channel = Aileron;                 ///< the first channel in the name
@@ -414,6 +426,18 @@ private:
     std::vector<vsg::ref_ptr<vsg::Switch>> highlight_;
     int selected_ = -1;
     std::vector<unsigned char> visible_;
+    std::vector<std::map<std::uint32_t,double>> finAngles_;
+    struct FinFrame {
+        double clock=0;
+        std::uint32_t entity=0;
+        std::uint64_t generation=0;
+        std::map<std::uint32_t,double> angles;
+    };
+    std::vector<std::deque<FinFrame>> finHistory_;
+    double finRenderClock_=std::numeric_limits<double>::quiet_NaN();
+    bool finInterpolate_=true;
+    void rememberWeaponControls(const ms::WeaponControlSnapshotV1& sample,double clock);
+    void sampleWeaponControls(std::size_t slot,double clock);
     std::vector<vsg::Mask> onMask_;
     vsg::Animations animations_;
     void applySwitch(std::size_t index);

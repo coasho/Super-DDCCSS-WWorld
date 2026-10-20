@@ -904,3 +904,73 @@ source-linked remaining approximations, required owners/inputs and current gates
 No generic feature or external numerical-model ownership transfers. Dynamics and
 control calibration awaits the accepted SIM-M02 handoff; sensor, weapon-link,
 vulnerability and detached-body prerequisites retain their separate owners.
+
+## 14. SIM-M03 reference continuation, 2026-10-20
+
+Baseline: main `fabeaa4fe56d1a878a5f3d0614729d8e940d5719`, with the inherited
+thirty-kilometre diagnostic delta explicitly preserved. The user assigns the
+complete SIM-M03 continuation in parallel with Claude's independent numerical
+work. The [allocation](../../../superpowers/plans/2026-10-20-sim-m03-reference-continuation.md)
+records disjoint agent write windows and root's exclusive serial native slot.
+
+The [reference and acceptance record](../../../sdk/sim-m03-reference-continuation.md)
+evaluates mature implementations and records Euler control coupling, forward
+fragment crossings/normals, nonnegative drag progression and overlapping-body
+containment. Tests preceded repairs; independent review closed the containment
+finding. At that frozen handoff, ten source/test and 250 model/card/generator
+fingerprints matched. That window changed no equipment value, model byte, motor,
+control constant or fuze bound.
+
+At that frozen handoff, both complete preset builds passed. Headless verification
+recorded 744/746 in 1076.82 s, retaining the then-open HC-57/HC-58 ground-store and
+packaging-fixture failures. Focused Release recorded 56/56 in 98.98 s, including
+installed equipment consumers. Both presets recorded 30 km coast detonation at
+8.12775 m with exact one/two-worker records/events. These historical results do
+not verify the expanded SDK delivery. A proximity detonation does not establish
+actual target damage or pass the unchanged fixed-scene hit requirements. Current
+corrections and gates are recorded in the
+[SDK delivery continuation](../../../sdk/sim-m03-reference-continuation.md#7-sdk-delivery-continuation-and-regression-repair).
+
+Sensor/actuator/lethality admission, modeled weapon links, accepted fused input,
+detached-body/shared-fragment contracts and required variant/Viewer evidence
+remain open. Generic schema/gateway/installed integration ownership stays with
+Claude. No external numerical delivery is accepted. Shared write/build slots
+were released at that historical handoff; unavailable inputs remain explicit
+dependencies.
+
+## 15. SIM-M03 SDK delivery continuation, 2026-10-20
+
+Baseline remains main `fabeaa4fe56d1a878a5f3d0614729d8e940d5719`. The user
+explicitly assigns both regression repairs and the independently supported SDK
+delivery. The [delivery plan](../../../superpowers/plans/2026-10-20-sim-m03-sdk-delivery.md)
+records exact source/symbol windows, test-only fixture handoffs and root's sole
+native build/test and GUI slots. No external numerical result is imported.
+
+HC-57 retains the incoming structural-contact velocity and mass through a
+separate optional native interface; independent energy and mixed-mass regressions
+precede the correction. Its original scene and 300 kg lower bound remain intact.
+HC-58 repairs the synthetic package fixture's missing patched sources while
+retaining every required installed file and enabled/disabled component gate.
+
+The production Mission Systems/World path now delivers selected-store and
+due-release validation, explicit assumed capability metadata, current on-rail IR
+and SARH illumination, captured-CG damage assessment and authored-tip contact
+initiation. Actual individual-fin measurements reach additive C++/C99/Python
+Range APIs, optional live transport, v8 recording and Viewer presentation.
+Installed consumers execute their own measured designation, modeled C2 consent,
+armed release, native fin movement and retained jam through public interfaces.
+Guidance commands fins; no ideal guidance force or moment is introduced.
+
+The [current acceptance record](../../../sdk/sim-m03-reference-continuation.md#7-sdk-delivery-continuation-and-regression-repair)
+retains complete-build, focused, installed, full-regression and fullscreen
+live/replay evidence separately. The unchanged 30 km scene produces actual
+damage, with exact one/two-worker records/events. Both distinct 5 km hit scenes
+remain failed. The jam diagnostic also records unavailable neutral controller
+decisions; it does not establish successful fault recovery. Detonation, actual
+damage, crew loss and mission success remain distinct outcomes.
+
+Full SIM-M03 remains unaccepted. No scene, criterion, controller gain, motor,
+fuze or warhead value is tuned to force a hit. Missing admitted dynamics,
+sensor/control/lethality inputs, modeled weapon links, fused reports and required
+variant/Viewer acceptance remain explicit. Generic schema/gateway ownership
+stays with Claude.

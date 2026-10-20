@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <stdexcept>
 #include <string>
+#include <set>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -125,6 +126,107 @@ void smoke(World& world) {
     std::printf("installed C++ equipment: chaff=%u flare=%u stores=%zu strikes=%zu consents=%zu\n",
                 after.value.chaff, after.value.flare, stores.items.size(), strikes.items.size(), consents.items.size());
 }
+
+void guidedControls(const fs::path& prefix) {
+    auto setup = options(prefix);
+    setup.name = "installed-fin-cpp";
+    setup.terrain = false;
+    World world(setup);
+    auto carrier = aircraft(world);
+    require(carrier.loadLoadout("air superiority") == ms::Reason::None, "installed missile loadout missing");
+    Agent launcher = world.createAgent(carrier, "launcher");
+    control::VelocityCommand hold;
+    hold.airspeedMs = 250; hold.verticalSpeedMs = 0; hold.headingRad = 90 * 3.14159265358979323846 / 180;
+    require(launcher.submit(hold).accepted(), "launcher flight hold refused");
+    comm::C2NodeSpec node;
+    node.name = "approver"; node.latitudeRad = 39.9 * 3.14159265358979323846 / 180; node.altitudeMslM = 200;
+    const auto c2 = world.createC2Node(node);
+    const auto net = world.createNet({});
+    require(world.joinNet(carrier.id(), net) && world.joinNet(c2, net), "installed consent net could not be joined");
+    Agent approver = world.createAgent(c2, "approver");
+    require(approver.declareRole(2, "APPROVER"), "approver role could not be declared");
+    std::uint16_t stations = 0xffff, radar = 0xffff;
+    for (const auto& payload : launcher.payloads()) {
+        if (payload.family == ms::Family::StoreStation) stations = payload.index;
+        if (payload.family == ms::Family::AirRadar) radar = payload.index;
+    }
+    require(stations != 0xffff && radar != 0xffff, "installed radar/stations missing");
+    require(launcher.submit(ms::StateCommand{stations, ms::PayloadState::Operate}).accepted(), "station power refused");
+    require(launcher.submit(ms::StateCommand{radar, ms::PayloadState::Operate}).accepted(), "radar power refused");
+    bool operating = false;
+    for (unsigned i = 0; i < 1200 && !operating; ++i) {
+        world.step();
+        unsigned ready = 0;
+        for (const auto& payload : launcher.payloads())
+            if ((payload.index == stations || payload.index == radar) && payload.state == ms::PayloadState::Operate) ++ready;
+        operating = ready == 2;
+    }
+    require(operating, "installed radar/station warmup failed");
+    const auto own = carrier.state();
+    VehicleSpec targetSpec;
+    targetSpec.name = "opponent"; targetSpec.type = "jsbsim:f16c";
+    targetSpec.initial.latitudeDeg = own.latitudeRad * 180 / 3.14159265358979323846 + .01;
+    targetSpec.initial.longitudeDeg = own.longitudeRad * 180 / 3.14159265358979323846 + .15;
+    targetSpec.initial.altitudeMslM = 6000; targetSpec.initial.airspeedTrueMs = 250; targetSpec.initial.headingDeg = 270;
+    auto target = world.createVehicle(targetSpec);
+    hold.headingRad = 270 * 3.14159265358979323846 / 180;
+    require(target.submit(hold).accepted(), "target flight hold refused");
+    ms::AmtiCommand scan;
+    scan.payload = radar; scan.bars = 1; scan.azimuthHalfWidthRad = 15 * 3.14159265358979323846 / 180;
+    scan.rangeScaleM = 60000;
+    require(launcher.submit(scan).accepted(), "installed radar search refused");
+    std::uint64_t track = 0;
+    for (unsigned i = 0; i < 600 && !track; ++i) {
+        world.step();
+        for (const auto& measured : launcher.amtiTracks(radar)) if (measured.updates >= 3) { track = measured.id; break; }
+    }
+    require(track != 0, "installed radar did not confirm a track");
+    const auto designation = launcher.designate(radar, track);
+    require(designation != 0, "own measured designation refused");
+    scan.task = ms::AmtiTask::Track; scan.mode = ms::AmtiMode::SingleTargetTrack; scan.track = track;
+    require(launcher.submit(scan).accepted(), "installed radar track refused");
+    ms::StrikeCommand strike;
+    strike.payload = stations; strike.store = "aim-120c"; strike.target = designation;
+    const auto accepted = launcher.submit(strike);
+    require(accepted.accepted() && world.weapons().empty(), "legal strike did not wait for delivered consent");
+    bool answered = false;
+    for (unsigned i = 0; i < 1200 && !answered; ++i) {
+        world.step();
+        for (const auto& report : approver.reportConsents().items) if (report.value.request.strike == accepted.activity) {
+            require(report.meta.source == ma::Source::Dms && world.weapons().empty(), "consent bypassed modeled delivery");
+            require(approver.answerConsent(report.value.from, report.value.request.requestId, true), "delivered consent answer refused");
+            answered = true; break;
+        }
+    }
+    require(answered, "installed approver received no consent request");
+    for (unsigned i = 0; i < 600 && world.weapons().empty(); ++i) world.step();
+    require(world.weapons().size() == 1, "delivered consent did not release one armed missile");
+    const auto missile = world.weapons().front().id;
+    bool moved = false;
+    for (unsigned i = 0; i < 20; ++i) {
+        world.step();
+        const auto sample = world.weaponControlsV1(missile);
+        require(sample && sample->available && sample->controllerAvailable && sample->fins.size() == 4,
+                "installed DLL did not expose finite native controller/fins");
+        require(sample->sampleTimeS == world.time() && sample->controllerTimeS <= sample->sampleTimeS,
+                "installed control sample timing differs");
+        std::set<std::uint32_t> ids;
+        for (const auto& fin : sample->fins) {
+            require(fin.valid && ids.insert(fin.id).second && fin.actualRad >= fin.minimumRad && fin.actualRad <= fin.maximumRad,
+                    "installed actual fin is invalid, duplicated or outside its stops");
+            moved = moved || std::abs(fin.actualRad) > 1e-8;
+        }
+    }
+    require(moved, "armed native guidance never moved a physical fin");
+    const auto before = *world.weaponControlsV1(missile);
+    const auto& fin = before.fins.front();
+    world.vehicle(missile).property("fcs/fin-" + std::to_string(fin.nativeIndex) + "-actuator/malfunction/fail_stuck").set(1);
+    world.step(5);
+    const auto after = world.weaponControlsV1(missile);
+    require(after && after->fins.front().failedStuck && after->fins.front().actualRad == fin.actualRad,
+            "installed query hid the actual jammed fin");
+    std::printf("installed C++ guided controls: armed=1 delivered_consent=1 fins=%zu jam=1\n", after->fins.size());
+}
 } // namespace
 
 int main(int argc, char** argv) {
@@ -146,6 +248,7 @@ int main(int argc, char** argv) {
         }
         require(mode == "smoke", "unknown installed equipment consumer mode");
         smoke(world);
+        guidedControls(prefix);
         return 0;
     } catch (const std::exception& error) {
         std::fprintf(stderr, "installed C++ equipment consumer: %s\n", error.what());

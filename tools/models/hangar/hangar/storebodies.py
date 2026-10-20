@@ -43,6 +43,39 @@ RISE = MACH_RISE + [(3.0, 1.4), (4.0, 1.2)]
 CLASSES = ("aam", "bomb")
 
 
+def point_contact_nose(design):
+    """An authored point tip in design structural metres, or unavailable.
+
+    A finite-width/height tip or ambiguous/mirrored foremost body does not define
+    this point sensor. Do not infer a tip from card length or launch CG.
+    """
+    def number(value):
+        return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+    candidates = []
+    for body in design.get("body", []):
+        stations = body.get("stations", [])
+        origin = body.get("origin", [0, 0, 0])
+        if not stations or not isinstance(origin, (list, tuple)) or len(origin) != 3:
+            return None
+        first = stations[0]
+        values = [first.get(key) for key in ("x", "w", "top", "bottom")] + [first.get("y", 0)] + list(origin)
+        if not all(number(value) for value in values):
+            return None
+        tip = (first["x"] + origin[0], first.get("y", 0) + origin[1], first["top"] + origin[2])
+        if not all(number(value) for value in tip):
+            return None
+        candidates.append((tip, first, body.get("mirror", False)))
+    if not candidates:
+        return None
+    # A separately authored IR dome can precede the blunt main fuselage.
+    foremost = min(row[0][0] for row in candidates)
+    candidates = [row for row in candidates if row[0][0] == foremost]
+    if len(candidates) != 1:
+        return None
+    tip, first, mirrored = candidates[0]
+    return tip if not mirrored and first["w"] == 0 and first["top"] == first["bottom"] else None
+
+
 def _ignition_time_thrust_rows(phases):
     """A validated pulsed motor's vacuum thrust (lbf) against native ignition time (s).
 
@@ -470,6 +503,15 @@ def files(card):
                           (b["input"]["sha256"], payload_digest(dict(b, cg_m=cg)), domain))
     from . import storecontrol
     xml = storecontrol.apply(xml, controls, geo, b, cg * k)
+    # apply replaces the FCS of a controlled missile. Publish geometry after
+    # that transformation so native contact sensing retains the authored tip.
+    tip = point_contact_nose(design)
+    metadata = '\n        <property value="%d">fsim/model/nose-version</property>' % (1 if tip else 0)
+    if tip is not None:
+        for axis, coordinate in zip("xyz", tip):
+            metadata += '\n        <property value="%.17g">fsim/model/nose-%s-in</property>' % (
+                _finite_conversion(coordinate * k, "contact nose"), axis)
+    xml = xml.replace("</flight_control>", metadata + "\n    </flight_control>", 1)
     out = {name + ".xml": xml}
     if motor:
         table_name = "propulsion/thrust_prop_remain"

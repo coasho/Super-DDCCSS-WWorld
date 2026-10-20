@@ -29,7 +29,7 @@ struct IlluminationFacts {
     bool localSource = true;
 };
 
-/// Pure rules for the first selected AAM; inventory selection and host admission stay with the caller.
+/// Pure rules for each selected AAM; inventory selection and host admission stay with the caller.
 LaunchEligibility checkLaunchEligibility(const StoreCard& card, const sim::VehicleState& own,
                                         const sim::VehicleState* target);
 Reason checkLaunchIllumination(std::uint32_t launcher, const IlluminationFacts& facts) noexcept;

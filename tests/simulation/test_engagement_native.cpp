@@ -5,6 +5,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -184,10 +187,34 @@ Outcome engagement(double rangeM, unsigned workers, bool requireHit) {
     const auto missile = w.weapons().front().id;
     const auto motorThrust = w.model(missile)->property("propulsion/engine/vacuum-thrust_lbs");
     require(motorThrust.valid(), "native rocket thrust property missing");
+    // Opt-in referee diagnostics only. All inputs/observations are read after
+    // execution; this trace never changes guidance, control or model values.
+    std::ofstream trace;
+    std::vector<sim::PropertyHandle> traceProperties;
+    const std::vector<std::string> tracePaths={"aero/qbar-psf","forces/fbx-aero-lbs","forces/fby-aero-lbs","forces/fbz-aero-lbs",
+        "moments/l-aero-lbsft","moments/m-aero-lbsft","moments/n-aero-lbsft",
+        "fcs/elevator-response-rad","fcs/rudder-response-rad","fcs/aileron-response-rad",
+        "fcs/fin-0-delta-rad","fcs/fin-1-delta-rad","fcs/fin-2-delta-rad","fcs/fin-3-delta-rad",
+        "inertia/ixx-slugs_ft2","inertia/iyy-slugs_ft2","inertia/izz-slugs_ft2",
+        "metrics/Sw-sqft","metrics/bw-ft","fsim/control/cz-alpha","fsim/control/cy-beta","fsim/control/cm-alpha",
+        "fsim/control/cn-beta","fsim/control/cm-q","fsim/control/cn-r","fsim/control/cl-p","fsim/control/cz-elevator",
+        "fsim/control/cy-rudder","fsim/control/cm-elevator","fsim/control/cn-rudder","fsim/control/cl-aileron"};
+    if (const char* prefix=std::getenv("FSIM_ENGAGEMENT_TRACE")) {
+        trace.open(std::string(prefix)+"-r"+std::to_string(static_cast<int>(rangeM))+"-w"+std::to_string(workers)+".csv");
+        require(trace.is_open(),"diagnostic trace cannot open output");
+        trace << std::setprecision(17) << "age,phase,tracking,supported,holding,tgo,miss,burning,range_before,range_after,alt,speed,alpha,beta,p,q,r,roll,pitch,yaw,mass,fuel,thrust,elevator_cmd,rudder_cmd,aileron_cmd,elevator_pos,rudder_pos,aileron_pos";
+        for (const char* group : {"own_p","own_v","target_p","target_v","estimate_p","estimate_v"})
+            for (const char* axis : {"x","y","z"}) trace << ',' << group << '_' << axis;
+        for (int k=0;k<9;++k) trace << ",own_rotation_" << k;
+        trace << ",own_lat,own_lon,cg_x,cg_y,cg_z,own_alpha,own_beta,own_p,own_q,own_r,own_speed,mach";
+        for (const auto& path : tracePaths) {trace << ',' << path;traceProperties.push_back(w.model(missile)->property(path));}
+        trace << '\n';
+    }
     Outcome out;
     bool acquired = false, activated = false, supported = false, nativeCoast = false, midcourseSupported = false;
     double minRange = std::numeric_limits<double>::infinity(), maxSpeed = 0;
     for (unsigned i = 0; i < 3600 && w.alive(missile); ++i) {
+        const auto beforeWeapon=*w.vehicleState(missile),beforeTarget=*w.vehicleState(target);
         w.step();
         const auto record = weapon(w, missile);
         out.burned = out.burned || record.burning;
@@ -210,6 +237,32 @@ Outcome engagement(double rangeM, unsigned workers, bool requireHit) {
             if (const auto* t = w.vehicleState(target))
                 minRange = std::min(minRange, std::hypot(s->positionEcef[0] - t->positionEcef[0],
                                                       s->positionEcef[1] - t->positionEcef[1], s->positionEcef[2] - t->positionEcef[2]));
+            if (trace.is_open()) {
+                const auto distance=[](const auto& a,const auto& b) {return std::hypot(a.positionEcef[0]-b.positionEcef[0],a.positionEcef[1]-b.positionEcef[1],a.positionEcef[2]-b.positionEcef[2]);};
+                const auto& t=*w.vehicleState(target); const auto* estimate=w.vehicleState(designation);
+                const auto* command=w.inputs(missile); double cg[3]; w.model(missile)->cgFromOriginBodyM(cg);
+                trace << w.simTime()-record.launchTimeS << ',' << ms::weaponPhaseName(record.phase) << ',' << record.tracking << ',' << record.supported << ',' << record.holding << ',' << record.timeToGoS << ',' << record.missM << ',' << record.burning
+                      << ',' << distance(beforeWeapon,beforeTarget) << ',' << distance(*s,t) << ',' << s->altitudeMslM << ',' << s->airspeedTrueMs << ',' << s->alphaRad << ',' << s->betaRad;
+                for (double v : s->angularRateBodyRadS) trace << ',' << v;
+                for (double v : s->eulerRad) trace << ',' << v;
+                trace << ',' << w.model(missile)->energy().massKg << ',' << s->fuelKg << ',' << s->thrustN[0]
+                      << ',' << command->elevator << ',' << command->rudder << ',' << command->aileron
+                      << ',' << s->elevatorRad << ',' << s->rudderRad << ',' << s->aileronRad;
+                for (const auto* state : {&beforeWeapon,&beforeTarget,estimate}) {
+                    if (!state) {for (int k=0;k<6;++k) trace << ",nan";continue;}
+                    for (double v : state->positionEcef) trace << ',' << v;
+                    double velocity[3]; ms::geom::velocityEcef(*state,velocity);
+                    for (double v : velocity) trace << ',' << v;
+                }
+                for (double v : beforeWeapon.rotationBodyToEcef) trace << ',' << v;
+                trace << ',' << beforeWeapon.latitudeRad << ',' << beforeWeapon.longitudeRad;
+                for (double v : cg) trace << ',' << v;
+                trace << ',' << beforeWeapon.alphaRad << ',' << beforeWeapon.betaRad;
+                for (double v : beforeWeapon.angularRateBodyRadS) trace << ',' << v;
+                trace << ',' << beforeWeapon.airspeedTrueMs << ',' << s->mach;
+                for (const auto& property : traceProperties) trace << ',' << (property.valid()?property.get():std::numeric_limits<double>::quiet_NaN());
+                trace << '\n';
+            }
         }
     }
     out.record = weapon(w, missile);
@@ -225,20 +278,24 @@ Outcome engagement(double rangeM, unsigned workers, bool requireHit) {
     require(activated && acquired, "native active seeker must activate and acquire");
     require(out.record.end != ms::WeaponEnd::InFlight, "weapon must reach a terminal outcome within its lifetime");
     if (requireHit) require(out.record.end == ms::WeaponEnd::Detonated && out.record.holding == target,
-                            "five-kilometre head-on armed missile must detonate at observed opponent");
+                            "head-on armed missile regression must detonate at its observed opponent");
     if (out.record.end == ms::WeaponEnd::Detonated) {
         bool damageEvent = false, burstEvent = false;
         for (const auto& event : w.engagementEvents()) if (event.entity == missile && event.kind == "detonation") {
             burstEvent = true;
+            require(event.target == target, "burst event must retain the seeker's observed target");
             terminalPoseMatchesBurst(out.record, event);
         }
         require(burstEvent, "detonated record must have an authoritative burst event");
+        require(w.damage(target) != nullptr, "observed target detonation must run native damage assessment");
         for (const auto& event : w.engagementEvents()) if (event.entity == missile && event.kind == "damage" && event.target == target) {
             damageEvent = true;
             require(w.damage(target) != nullptr && event.destroyed == w.damage(target)->crewLost(),
                     "damage event destruction must reflect native crew outcome");
         }
-        require(damageEvent, "observed target detonation must connect to native damage events");
+        // Detonation alone does not imply damage. These fixed-scene hit
+        // acceptance cases separately require actual native hit evidence.
+        if (requireHit) require(damageEvent, "fixed-scene hit acceptance requires actual target damage; detonation alone is insufficient");
     }
     replayableEvents(w, missile);
     out.events = w.engagementEvents();
@@ -257,6 +314,16 @@ void headOnAndWorkers() {
 void poweredThenCoasting() {
     const auto outcome = engagement(30000, 1, false);
     require(outcome.burned && outcome.coasted, "native rocket must transition from powered flight to coast");
+}
+void thirtyKilometreNativeControlRegression() {
+    // Exact software regression for the existing fixture, not a calibrated
+    // launch envelope. Geometry, model, seed and fuze bounds are unchanged.
+    const auto single=engagement(30000,1,true);
+    const auto parallel=engagement(30000,2,true);
+    require(single.record.endTimeS==parallel.record.endTimeS && single.record.missM==parallel.record.missM &&
+            single.events.size()==parallel.events.size(),"30 km native control regression must be worker-independent");
+    for (std::size_t i=0;i<single.events.size();++i)
+        require(sameEvent(single.events[i],parallel.events[i]),"30 km native event stream must preserve exact worker determinism");
 }
 
 void truthTargetCannotSupplySupport() {
@@ -402,6 +469,55 @@ void sweptDamageUsesEncounterPositions() {
             "swept damage must assess the encounter position even when the step endpoint is out of reach");
 }
 
+void sweptDamageRetainsEncounterCg() {
+    const auto assess=[](bool changeLaterMass) {
+        auto settings=options("native-swept-damage-cg"); settings.frameSkip=4;
+        session::World w(settings);
+        const auto victim=aircraft(w,"launcher-victim",0,90);
+        const auto stations=payload(w,victim,ms::Family::StoreStation);
+        require(w.loadStore(victim,stations,1,"aim-9x")==ms::Reason::None,"CG fixture missile load rejected");
+        operate(w,victim,stations);
+        const auto target=aircraft(w,"remote-contact",5000,90);
+        ms::StrikeCommand strike; strike.payload=stations; strike.store="aim-9x";
+        strike.target=target; strike.consent=true;
+        require(w.submit(victim,strike).accepted(),"CG fixture release rejected");
+        for(unsigned i=0;i<150 && w.weapons().empty();++i) w.step();
+        require(w.weapons().size()==1,"CG fixture needs a guided release to capture native motion");
+        const auto encounter=*w.vehicleState(victim);
+        auto* model=w.model(victim);
+        double cgBefore[3]; require(model->cgFromOriginBodyM(cgBefore),"CG fixture offset unavailable");
+        w.step();
+        if(changeLaterMass) {
+            auto pilot=model->property("inertia/pointmass-weight-lbs");
+            require(pilot.valid(),"CG fixture pilot pointmass missing");
+            require(model->beginMassChange(),"CG fixture mass transaction rejected");
+            pilot.set(0);
+            require(model->endMassChange(nullptr,nullptr),"CG fixture mass transaction failed");
+            double cgAfter[3]; require(model->cgFromOriginBodyM(cgAfter),"changed CG unavailable");
+            require(std::abs(cgAfter[0]-cgBefore[0])>1e-3,"CG fixture must actually change the later offset");
+        }
+        session::Detonation burst; burst.store="aim-120c"; burst.stepFraction=0;
+        const auto* R=encounter.rotationBodyToEcef;
+        for(int r=0;r<3;++r) {
+            burst.positionEcef[r]=encounter.positionEcef[r]-R[3*r]*cgBefore[0]-R[3*r+1]*cgBefore[1]-R[3*r+2]*cgBefore[2]+4*R[3*r+1];
+            burst.velocityEcef[r]=600*R[3*r]; burst.axisEcef[r]=R[3*r];
+        }
+        w.detonate(burst);
+        const auto* damage=w.damage(victim); require(damage!=nullptr,"CG fixture burst was not assessed");
+        std::vector<double> result;
+        bool loaded=false;
+        for(const auto& section:damage->sections()) {
+            result.insert(result.end(),{section.strength,section.kick,section.holeM2,section.tornM2});
+            loaded=loaded || section.kick>0 || section.holeM2>0 || section.tornM2>0;
+        }
+        require(loaded,"CG fixture must produce real section loading");
+        return result;
+    };
+    const auto unchanged=assess(false), changedLater=assess(true);
+    require(unchanged==changedLater,
+            "A later mass/CG change must not move encounter-time geometry or rewrite its damage assessment");
+}
+
 void batchedNativeContactPrecedesArming() {
     auto settings=options("native-contact-before-arming"); settings.frameSkip=240;
     session::World w(settings);
@@ -429,13 +545,25 @@ void batchedNativeContactPrecedesArming() {
     crossing.altitudeMslM=6; crossing.headingDeg=270; crossing.enginesRunning=true;
     crossing.velocityNedMs[1]=-250; crossing.velocityNedMs[2]=0;
     require(w.resetVehicle(target,&crossing),"crossing target reset failed");
+    const auto controls=w.weaponControlsV1(missile);
+    require(controls.has_value(),"contact fixture live weapon diagnostic missing");
+    const auto weaponSlot=controls->slot;
     w.step();
     const auto record=weapon(w,missile);
     require(record.holding==target,"contact fixture must acquire the crossing target before native stepping");
     require(!w.alive(missile) && record.end==ms::WeaponEnd::Impact,
             "Native contact before one-second arming must remain Impact despite a later batch encounter");
-    require(record.endSpeedMs>0 && record.endSpeedMs<std::hypot(250.0,100.0),
-            "Batched impact speed must retain the final moving native sample rather than the outer-step launch speed");
+    require(std::isfinite(record.endSpeedMs) && record.endSpeedMs>0,
+            "Batched impact must retain a finite incoming speed");
+    bool nativeImpact=false;
+    for(const auto& event:w.takeEngagementEvents())
+        if(event.slot==weaponSlot && static_cast<ipc::EngagementKind>(event.kind)==ipc::EngagementKind::Impact) {
+            nativeImpact=true;
+            const auto& v=event.velocityEcef;
+            require(std::abs(record.endSpeedMs-std::sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]))<1e-9,
+                    "Batched terminal speed must match the native incoming-contact event");
+        }
+    require(nativeImpact,"Batched terrain impact must retain its native contact event");
     for (const auto& event : w.engagementEvents())
         require(event.entity!=missile || event.kind!="detonation",
                 "A frozen crash pose must not detonate after native contact");
@@ -470,10 +598,12 @@ int main(int argc,char** argv) {
     struct Test { const char* name; void (*run)(); };
     const Test tests[] = {{"head-on armed engagement and worker determinism", headOnAndWorkers},
                           {"JSBSim motor powered flight then coast", poweredThenCoasting},
+                          {"thirty-kilometre native control regression", thirtyKilometreNativeControlRegression},
                           {"truth target cannot supply midcourse support", truthTargetCannotSupplySupport},
                           {"two-victim detonation safely appends native debris", detonationAssessesBothAircraftWhileCreatingDebris},
                           {"infrared release keeps on-rail contact", infraredReleaseKeepsOnRailContact},
                           {"swept damage uses encounter positions", sweptDamageUsesEncounterPositions},
+                          {"swept damage retains encounter CG", sweptDamageRetainsEncounterCg},
                           {"batched native contact precedes arming", batchedNativeContactPrecedesArming},
                           {"inert jettison", inertJettison}};
     unsigned failures = 0;

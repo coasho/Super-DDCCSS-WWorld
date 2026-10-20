@@ -1,4 +1,5 @@
 #pragma once
+#include "fsim/WeaponControls.h"
 
 // fsim SDK: the vehicle-instance API (design 9.2, ADR-18). A training
 // application creates a World, creates vehicles by name/type/initial state,
@@ -513,6 +514,8 @@ public:
     Vehicle launchWeapon(const Vehicle& launcher, const ms::WeaponLaunch& launch = {});
     /// The weapons in flight (by id), then those that ended, newest first (the last 256).
     std::vector<ms::WeaponRecord> weapons() const;
+    /// Actual individual-fin diagnostics. Referee/Range only; no actor observation.
+    std::optional<ms::WeaponControlSnapshotV1> weaponControlsV1(std::uint32_t weapon) const;
     /// Accepted cartridges and native decoys. Requires an operating countermeasure payload.
     ms::Reason dispense(std::uint32_t vehicle, bool flare = false);
     ms::CountermeasureInventory countermeasures(std::uint32_t vehicle) const;

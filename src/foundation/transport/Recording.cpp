@@ -1,6 +1,7 @@
 #include "foundation/transport/Recording.h"
 
 #include "foundation/core/Log.h"
+#include "contracts/world_stream/WeaponControlsLayout.h"
 
 #include <algorithm>
 #include <cstring>
@@ -172,6 +173,22 @@ void RecordWriter::close() {
     file_ = nullptr;
 }
 
+void RecordWriter::writeWeaponControls(double simTime,const std::vector<ms::WeaponControlSnapshotV1>& controls) {
+    if(!file_) return;
+    const std::uint8_t kind='F';
+    const auto count=static_cast<std::uint32_t>(controls.size());
+    if(controls.size()>65536) return;
+    const std::uint32_t size=16+count*static_cast<std::uint32_t>(sizeof(WeaponControlsWireV1));
+    std::vector<WeaponControlsWireV1> rows(count);
+    for(std::size_t i=0;i<controls.size();++i) if(!encodeWeaponControls(controls[i],rows[i])) return;
+    const std::uint32_t version=1;
+    std::fwrite(&kind,1,1,file_); std::fwrite(&size,sizeof(size),1,file_);
+    std::fwrite(&simTime,sizeof(simTime),1,file_); std::fwrite(&count,sizeof(count),1,file_);
+    std::fwrite(&version,sizeof(version),1,file_);
+    if(count) std::fwrite(rows.data(),sizeof(WeaponControlsWireV1),count,file_);
+    bytes_+=1+sizeof(size)+size;
+}
+
 bool Recording::load(const std::filesystem::path& path, std::string* error) {
     frames_.clear();
 #ifdef _WIN32
@@ -193,6 +210,7 @@ bool Recording::load(const std::filesystem::path& path, std::string* error) {
         return false;
     }
     Frame pending; // table changes accumulate until the next snapshot
+    double controlsTime=std::numeric_limits<double>::quiet_NaN();
     for (;;) {
         std::uint8_t kind = 0;
         if (std::fread(&kind, 1, 1, f) != 1) break;
@@ -224,6 +242,22 @@ bool Recording::load(const std::filesystem::path& path, std::string* error) {
             if (std::fread(&event, 1, known, f) != known) break;
             if (size > known && std::fseek(f, static_cast<long>(size - known), SEEK_CUR) != 0) break;
             pending.events.push_back(event);
+        } else if(kind=='F' && version>=8) {
+            std::uint32_t size=0,count=0,controlVersion=0;
+            bool valid=std::fread(&size,sizeof(size),1,f)==1 && size>=16 && size<=128u*1024u*1024u &&
+                std::fread(&controlsTime,sizeof(controlsTime),1,f)==1 && std::isfinite(controlsTime) &&
+                std::fread(&count,sizeof(count),1,f)==1 && count<=header_.capacity && count<=65536 &&
+                std::fread(&controlVersion,sizeof(controlVersion),1,f)==1 && controlVersion==1 &&
+                size==16+count*sizeof(WeaponControlsWireV1);
+            pending.weaponControls.clear();
+            for(std::uint32_t i=0;valid && i<count;++i) {
+                WeaponControlsWireV1 row; ms::WeaponControlSnapshotV1 control;
+                valid=std::fread(&row,sizeof(row),1,f)==1 && decodeWeaponControls(row,control) &&
+                    control.slot<header_.capacity && control.sampleTimeS==controlsTime;
+                for(const auto& prior:pending.weaponControls) if(prior.slot==control.slot) valid=false;
+                if(valid) pending.weaponControls.push_back(std::move(control));
+            }
+            if(!valid) { std::fclose(f); frames_.clear(); if(error) *error="invalid weapon-control record"; return false; }
         } else if (kind == 'S') {
             SnapshotHead head{};
             if (std::fread(&head, sizeof(head), 1, f) != 1) break;
@@ -234,11 +268,14 @@ bool Recording::load(const std::filesystem::path& path, std::string* error) {
             frame.environment = pending.environment;
             pending.environment.reset();
             frame.events.swap(pending.events);
+            if(controlsTime==head.simTime) frame.weaponControls.swap(pending.weaponControls);
+            else pending.weaponControls.clear();
+            controlsTime=std::numeric_limits<double>::quiet_NaN();
             frame.samples.resize(head.count);
             bool ok = true;
             for (auto& [slot, sample] : frame.samples) {
                 const bool read = std::fread(&slot, sizeof(slot), 1, f) == 1 &&
-                                  (version == 1 ? readSampleV1(f, sample) : version < kVersion ? readSampleShort(f, sample, version) : std::fread(&sample, sizeof(sample), 1, f) == 1);
+                                  (version == 1 ? readSampleV1(f, sample) : version < 7 ? readSampleShort(f, sample, version) : std::fread(&sample, sizeof(sample), 1, f) == 1);
                 if (!read) { ok = false; break; }
             }
             if (!ok) break;

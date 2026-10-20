@@ -202,6 +202,211 @@ std::vector<double> impactValues(const Impact& impact) {
 
 } // namespace
 
+TEST_CASE("a fragment born inside a body box crosses its outward skin", "[damage][fragment-boundary]") {
+    // Synthetic closed box, one straight fragment, no blast or air drag. The
+    // fragment stops at the positive-X wall and transfers its initial momentum.
+    const auto w = straightFragment();
+    REQUIRE(thorResidual(.02, w.fragmentAreaM2, w.fragmentKg, w.speedMs, 0) == 0);
+    Airframe frame;
+    frame.sections.resize(1);
+    frame.sections[0].skinAreaM2 = 24;
+    frame.sections[0].skinKg = 24 * 2780 * .02;
+    Airframe::Panel box;
+    box.section = 0;
+    box.surface = false;
+    box.half = {1, 1, 1};
+    box.areaM2 = 24;
+    frame.panels.push_back(box);
+    Burst burst;
+    burst.axis = {1, 0, 0};
+    SECTION("born inside the box") {}
+    SECTION("born on the inward wall") { burst.at = {-1, 0, 0}; }
+    SECTION("born on the outward wall") { burst.at = {1, 0, 0}; }
+    fsim::Rng rng(19);
+    const auto hit = assess(w, burst, frame, stationaryDamageTarget(), rng);
+    CHECK(hit.components.empty());
+    CHECK(hit.fragmentsStriking == 1);
+    REQUIRE(hit.panels.size() == 1);
+    CHECK(hit.panels[0].panel == 0);
+    CHECK(hit.panels[0].hits == 1);
+    CHECK(hit.panels[0].perforations == 0);
+    CHECK(near(hit.impulseBody.x, w.fragmentKg * w.speedMs, 1e-12));
+    CHECK(near(hit.impulseBody.y, 0, 1e-12));
+    CHECK(near(hit.impulseBody.z, 0, 1e-12));
+    CHECK(near(length(hit.angularImpulseBody), 0, 1e-12));
+}
+
+TEST_CASE("a sub-millimetre surface crossing cannot add fragment energy", "[damage][fragment-boundary]") {
+    // The burst is 0.5 mm in front of a synthetic stopping skin. Air drag can
+    // remove energy before impact; it cannot increase stopped momentum above
+    // the fragment's initial momentum, regardless of a skin-event offset.
+    const auto w = straightFragment();
+    REQUIRE(thorResidual(.02, w.fragmentAreaM2, w.fragmentKg, w.speedMs, 0) == 0);
+    Airframe frame;
+    frame.sections.resize(1);
+    frame.sections[0].skinAreaM2 = 4;
+    frame.sections[0].skinKg = 4 * 2780 * .02;
+    Airframe::Panel skin;
+    skin.section = 0;
+    skin.corners = {V3{0, -1, -1}, V3{0, 1, -1}, V3{0, 1, 1}, V3{0, -1, 1}};
+    skin.areaM2 = 4;
+    frame.panels.push_back(skin);
+    auto target = stationaryDamageTarget();
+    target.airDensity = 1.225;
+    Burst burst;
+    burst.at = {-.0005, 0, 0};
+    burst.axis = {1, 0, 0};
+    SECTION("born half a millimetre before the surface") {}
+    SECTION("born on the surface") { burst.at = {}; }
+    fsim::Rng rng(23);
+    const auto hit = assess(w, burst, frame, target, rng);
+    REQUIRE(hit.panels.size() == 1);
+    CHECK(hit.panels[0].hits == 1);
+    CHECK(hit.panels[0].perforations == 0);
+    CHECK(hit.fragmentsStriking == 1);
+    const double stoppedMomentum = length(hit.impulseBody);
+    const double initialMomentum = w.fragmentKg * w.speedMs;
+    const double stoppedEnergy = stoppedMomentum * stoppedMomentum / (2 * w.fragmentKg);
+    const double initialEnergy = .5 * w.fragmentKg * w.speedMs * w.speedMs;
+    CHECK(stoppedMomentum <= initialMomentum * (1 + 1e-12));
+    CHECK(stoppedEnergy <= initialEnergy * (1 + 1e-12));
+    CHECK(near(length(hit.impulseBody - hit.panels[0].momentumNs), 0, 1e-12));
+}
+
+TEST_CASE("a fragment inside a box uses the outward face normal", "[damage][fragment-boundary]") {
+    // This ray's backward intersection is the negative-X wall, but its forward
+    // exit is the positive-Y wall. Only the exit's obliquity belongs to the hit.
+    auto w = straightFragment();
+    w.speedMs = 1800;
+    Airframe frame;
+    Airframe::Panel box;
+    box.surface = false;
+    box.half = {1, 1, 1};
+    box.areaM2 = 24;
+    frame.panels.push_back(box);
+    Burst burst;
+    burst.at = {-.9, 0, 0};
+    burst.axis = {.6, .8, 0};
+    fsim::Rng rng(29);
+    const auto hit = assess(w, burst, frame, stationaryDamageTarget(), rng);
+    const double residual = thorResidual(.002, w.fragmentAreaM2, w.fragmentKg, w.speedMs, std::acos(.8));
+    REQUIRE(residual > 0);
+    REQUIRE(residual < w.speedMs);
+    REQUIRE(hit.panels.size() == 1);
+    CHECK(hit.panels[0].hits == 1);
+    CHECK(hit.panels[0].perforations == 1);
+    const double expectedMomentum = w.fragmentKg * (w.speedMs - residual);
+    CHECK(near(hit.impulseBody.x, .6 * expectedMomentum, 1e-12));
+    CHECK(near(hit.impulseBody.y, .8 * expectedMomentum, 1e-12));
+    CHECK(near(hit.impulseBody.z, 0, 1e-12));
+}
+
+TEST_CASE("an internal component precedes the skin a fragment would exit", "[damage][fragment-boundary]") {
+    // A fragment born inside a closed box meets this component before the
+    // positive-X wall. The later stopping wall must not be moved ahead of it.
+    const auto w = straightFragment();
+    Airframe frame;
+    frame.sections.resize(1);
+    frame.sections[0].skinAreaM2 = 24;
+    frame.sections[0].skinKg = 24 * 2780 * .02;
+    Airframe::Panel box;
+    box.section = 0;
+    box.surface = false;
+    box.half = {1, 1, 1};
+    box.areaM2 = 24;
+    frame.panels.push_back(box);
+    Airframe::Component component;
+    component.section = 0;
+    component.centre = {.5, 0, 0};
+    component.half = {.1, .1, .1};
+    frame.components.push_back(component);
+    Burst burst;
+    burst.axis = {1, 0, 0};
+    fsim::Rng rng(31);
+    const auto hit = assess(w, burst, frame, stationaryDamageTarget(), rng);
+    REQUIRE(hit.components.size() == 1);
+    CHECK(hit.components[0].component == 0);
+    CHECK(hit.components[0].energyJ == .5 * w.fragmentKg * w.speedMs * w.speedMs);
+    CHECK(hit.panels.empty());
+    CHECK(near(hit.impulseBody.x, w.fragmentKg * w.speedMs, 1e-12));
+}
+
+TEST_CASE("nested damage boxes retain initial fragment containment", "[damage][fragment-boundary][fragment-occupancy]") {
+    // Both closed boxes contain the burst and component. Neither future exit
+    // may be advanced ahead of the component just because the count is even.
+    const auto w = straightFragment();
+    Airframe frame;
+    frame.sections.resize(1);
+    frame.sections[0].skinAreaM2 = 120;
+    frame.sections[0].skinKg = 120 * 2780 * .02;
+    Airframe::Panel box;
+    box.section = 0;
+    box.surface = false;
+    box.half = {1, 1, 1};
+    box.areaM2 = 24;
+    frame.panels.push_back(box);
+    box.half = {2, 2, 2};
+    box.areaM2 = 96;
+    frame.panels.push_back(box);
+    Airframe::Component component;
+    component.section = 0;
+    component.centre = {.5, 0, 0};
+    component.half = {.1, .1, .1};
+    frame.components.push_back(component);
+    Burst burst;
+    burst.axis = {1, 0, 0};
+    fsim::Rng rng(37);
+    const auto hit = assess(w, burst, frame, stationaryDamageTarget(), rng);
+    REQUIRE(hit.components.size() == 1);
+    CHECK(hit.components[0].component == 0);
+    CHECK(hit.components[0].energyJ == .5 * w.fragmentKg * w.speedMs * w.speedMs);
+    CHECK(hit.panels.empty());
+    CHECK(near(hit.impulseBody.x, w.fragmentKg * w.speedMs, 1e-12));
+}
+
+TEST_CASE("leaving one box preserves fragment containment in another", "[damage][fragment-boundary][fragment-occupancy]") {
+    // The inner skin perforates at x=1. A component at x=1.5 is still inside
+    // the outer box, whose stopping skin at x=2 must remain behind the hit.
+    const auto w = straightFragment();
+    const double residual = thorResidual(.0005, w.fragmentAreaM2, w.fragmentKg, w.speedMs, 0);
+    REQUIRE(residual > 0);
+    REQUIRE(residual < w.speedMs);
+    REQUIRE(thorResidual(.02, w.fragmentAreaM2, w.fragmentKg, residual, 0) == 0);
+    Airframe frame;
+    frame.sections.resize(2);
+    frame.sections[0].skinAreaM2 = 24;
+    frame.sections[0].skinKg = 24 * 2780 * .0005;
+    frame.sections[1].skinAreaM2 = 96;
+    frame.sections[1].skinKg = 96 * 2780 * .02;
+    Airframe::Panel box;
+    box.section = 0;
+    box.surface = false;
+    box.half = {1, 1, 1};
+    box.areaM2 = 24;
+    frame.panels.push_back(box);
+    box.section = 1;
+    box.half = {2, 2, 2};
+    box.areaM2 = 96;
+    frame.panels.push_back(box);
+    Airframe::Component component;
+    component.section = 1;
+    component.centre = {1.5, 0, 0};
+    component.half = {.1, .1, .1};
+    frame.components.push_back(component);
+    Burst burst;
+    burst.axis = {1, 0, 0};
+    fsim::Rng rng(41);
+    const auto hit = assess(w, burst, frame, stationaryDamageTarget(), rng);
+    REQUIRE(hit.components.size() == 1);
+    CHECK(hit.components[0].component == 0);
+    CHECK(near(hit.components[0].energyJ, .5 * w.fragmentKg * residual * residual, 1e-10));
+    REQUIRE(hit.panels.size() == 1);
+    CHECK(hit.panels[0].panel == 0);
+    CHECK(hit.panels[0].hits == 1);
+    CHECK(hit.panels[0].perforations == 1);
+    CHECK(near(hit.impulseBody.x, w.fragmentKg * w.speedMs, 1e-12));
+}
+
 TEST_CASE("attached damage geometry removes shields and components without reindexing the source", "[damage][attached-geometry]") {
     auto frame = splitDamageFrame();
     Airframe::Component missed;

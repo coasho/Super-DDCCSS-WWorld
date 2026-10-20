@@ -2,6 +2,7 @@
 // came in - its angle to the surface, its speed across and along it, the forces stopping it takes.
 #include "mode_flights.h"
 #include "simulation/mission_systems/damage/Impact.h"
+#include "fsim/GroundProvider.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -234,4 +235,201 @@ TEST_CASE("a jettisoned tank that strikes the ground bursts and burns its fuel; 
     CHECK(fires == 3);   // (the tanks': a bomb's body has no fuel)
     CHECK(burnt > 300.0);
     CHECK(burnt < 3.0 * 1200.0); // (no more than they held)
+}
+
+TEST_CASE("ground strike energy uses the incoming structural contact before ground reactions dissipate it",
+          "[damage][impact][world][contact_energy]") {
+    auto o = options("impact-contact-energy");
+    o.frameSkip = 1;
+    session::World w(o);
+    session::VehicleSpec spec;
+    spec.name = "falling-tank";
+    spec.type = "jsbsim:tank370gal";
+    spec.aircraftDir = std::filesystem::path(FSIM_TEST_AIRCRAFT_DIR) / "stores";
+    spec.initial.altitudeMslM = 30.0;
+    spec.initial.pitchDeg = -50.0;
+    spec.initial.airspeedTrueMs = 70.0;
+    const auto id = w.createVehicle(spec);
+    REQUIRE(id != 0);
+    auto* model = w.model(id);
+    REQUIRE(model != nullptr);
+    const auto* contactSource = dynamic_cast<const sim::TerrainStrikeSourceV1*>(model);
+    REQUIRE(contactSource != nullptr);
+    sim::VehicleState retained{};
+    CHECK_FALSE(contactSource->terrainStrikeStateV1(retained));
+    REQUIRE(model->beginMassChange());
+    model->property("inertia/pointmass-weight-lbs").set(1120.0 / 0.45359237);
+    REQUIRE(model->endMassChange(nullptr, nullptr));
+    const auto units = model->property("gear/num-units");
+    REQUIRE(units.valid());
+    std::vector<PropertyHandle> compression;
+    for (int k = 0; k < static_cast<int>(units.get()); ++k) {
+        compression.push_back(model->property("contact/unit[" + std::to_string(k) + "]/compression-ft"));
+        REQUIRE(compression.back().valid());
+    }
+    sim::VehicleState incoming{};
+    bool touched = false, struck = false;
+    ipc::EngagementEvent impact{};
+    for (unsigned k = 0; k < stepsFor(w, 5.0) && !struck; ++k) {
+        const auto before = *w.vehicleState(id);
+        w.step(1);
+        const bool contact = std::any_of(compression.begin(), compression.end(), [](const auto& p) { return p.get() > 0.0; });
+        if (!touched && contact) incoming = before, touched = true;
+        for (const auto& event : w.takeEngagementEvents())
+            if (static_cast<ipc::EngagementKind>(event.kind) == ipc::EngagementKind::Impact && event.slot == 0)
+                impact = event, struck = true;
+    }
+    REQUIRE(touched);
+    REQUIRE(struck);
+    const double speed2 = dmg::dot(dmg::V3{incoming.velocityNedMs[0], incoming.velocityNedMs[1], incoming.velocityNedMs[2]},
+                                  dmg::V3{incoming.velocityNedMs[0], incoming.velocityNedMs[1], incoming.velocityNedMs[2]});
+    const double incomingEnergy = 0.5 * impact.massKg * speed2;
+    CAPTURE(incoming.simTime, impact.energyJ, incomingEnergy);
+    CHECK(std::abs(impact.energyJ / incomingEnergy - 1.0) < 1e-10);
+    REQUIRE(contactSource->terrainStrikeStateV1(retained));
+    CHECK(retained.simTime == incoming.simTime);
+    const double sl = std::sin(incoming.latitudeRad), cl = std::cos(incoming.latitudeRad);
+    const double so = std::sin(incoming.longitudeRad), co = std::cos(incoming.longitudeRad);
+    const auto& v = incoming.velocityNedMs;
+    const double ecef[3] = {-sl * co * v[0] - so * v[1] - cl * co * v[2],
+                            -sl * so * v[0] + co * v[1] - cl * so * v[2], cl * v[0] - sl * v[2]};
+    for (int k = 0; k < 3; ++k) CHECK(std::abs(impact.velocityEcef[k] - ecef[k]) < 1e-10);
+    REQUIRE(w.resetVehicle(id));
+    CHECK_FALSE(contactSource->terrainStrikeStateV1(retained));
+
+    // Batching four native steps must retain the same incoming sample, even
+    // when initial contact falls inside the batch rather than at its boundary.
+    o.name = "impact-contact-energy-batched";
+    o.frameSkip = 4;
+    session::World batched(o);
+    const auto batchedId = batched.createVehicle(spec);
+    REQUIRE(batchedId != 0);
+    auto* batchedModel = batched.model(batchedId);
+    REQUIRE(batchedModel->beginMassChange());
+    batchedModel->property("inertia/pointmass-weight-lbs").set(1120.0 / 0.45359237);
+    REQUIRE(batchedModel->endMassChange(nullptr, nullptr));
+    bool batchedStruck = false;
+    for (unsigned k = 0; k < stepsFor(batched, 5.0) && !batchedStruck; ++k) {
+        batched.step(1);
+        for (const auto& event : batched.takeEngagementEvents())
+            if (static_cast<ipc::EngagementKind>(event.kind) == ipc::EngagementKind::Impact && event.slot == 0) {
+                batchedStruck = true;
+                CHECK(event.energyJ == impact.energyJ);
+                for (int axis = 0; axis < 3; ++axis) CHECK(event.velocityEcef[axis] == impact.velocityEcef[axis]);
+            }
+    }
+    REQUIRE(batchedStruck);
+}
+
+TEST_CASE("ground strike contact history clears after disengagement and excludes landing gear", "[impact][contact_energy][world]") {
+    // A controlled synthetic terrain discontinuity exercises contact-episode
+    // lifetime without altering spring constants or a normal crash fixture.
+    struct Plane final : sim::GroundProvider {
+        double height = 0;
+        double heightAboveEllipsoidM(double, double) const override { return height; }
+    };
+    auto plane = std::make_shared<Plane>();
+    auto o = options("impact-contact-disengagement");
+    o.ground = plane;
+    o.frameSkip = 1;
+    session::World w(o);
+    session::VehicleSpec spec;
+    spec.type = "jsbsim:tank370gal";
+    spec.aircraftDir = std::filesystem::path(FSIM_TEST_AIRCRAFT_DIR) / "stores";
+    spec.initial.altitudeMslM = 100;
+    spec.initial.airspeedTrueMs = 20;
+    const auto id = w.createVehicle(spec);
+    REQUIRE(id != 0);
+    w.step(3);
+    auto* model = w.model(id);
+    const int units = static_cast<int>(model->property("gear/num-units").get());
+    double lowest = std::numeric_limits<double>::infinity();
+    std::vector<PropertyHandle> compression;
+    for (int k = 0; k < units; ++k) {
+        const std::string prefix = "contact/unit[" + std::to_string(k) + "]/";
+        lowest = std::min(lowest, model->property(prefix + "AGL-ft").get() * 0.3048);
+        compression.push_back(model->property(prefix + "compression-ft"));
+    }
+    REQUIRE(std::isfinite(lowest));
+    plane->height = lowest + .05;
+    w.step(1);
+    REQUIRE_FALSE(w.vehicleState(id)->crashed);
+    REQUIRE(std::any_of(compression.begin(), compression.end(), [](const auto& p) { return p.get() > 0; }));
+    plane->height = -1000;
+    w.step(5);
+    REQUIRE(std::all_of(compression.begin(), compression.end(), [](const auto& p) { return p.get() == 0; }));
+    const auto incoming = *w.vehicleState(id);
+    plane->height = incoming.altitudeMslM + 5;
+    w.step(1);
+    REQUIRE(w.vehicleState(id)->crashed);
+    const auto* source = dynamic_cast<const sim::TerrainStrikeSourceV1*>(model);
+    REQUIRE(source != nullptr);
+    sim::VehicleState retained{};
+    REQUIRE(source->terrainStrikeStateV1(retained));
+    CHECK(retained.simTime == incoming.simTime);
+    for (int k = 0; k < 3; ++k) CHECK(retained.velocityNedMs[k] == incoming.velocityNedMs[k]);
+
+    session::World landed(options("impact-gear-only"));
+    session::VehicleSpec landing;
+    landing.type = "jsbsim:c172x";
+    landing.initial.onGround = true;
+    landing.initial.airspeedTrueMs = 0;
+    const auto parked = landed.createVehicle(landing);
+    REQUIRE(parked != 0);
+    landed.step(stepsFor(landed, 1));
+    CHECK_FALSE(landed.vehicleState(parked)->crashed);
+    const auto* landingSource = dynamic_cast<const sim::TerrainStrikeSourceV1*>(landed.model(parked));
+    REQUIRE(landingSource != nullptr);
+    CHECK_FALSE(landingSource->terrainStrikeStateV1(retained));
+}
+
+TEST_CASE("ground strike energy retains incoming mass when contact mass changes",
+          "[impact][contact_energy_mass][world]") {
+    auto o = options("impact-contact-changing-mass");
+    o.frameSkip = 1;
+    session::World w(o);
+    session::VehicleSpec spec;
+    spec.name = "changing-mass-tank";
+    spec.type = "jsbsim:tank370gal";
+    spec.aircraftDir = std::filesystem::path(FSIM_TEST_AIRCRAFT_DIR) / "stores";
+    spec.initial.altitudeMslM = 30;
+    spec.initial.pitchDeg = -50;
+    spec.initial.airspeedTrueMs = 70;
+    const auto id = w.createVehicle(spec);
+    REQUIRE(id != 0);
+    auto* model = w.model(id);
+    auto fuel = model->property("inertia/pointmass-weight-lbs");
+    REQUIRE(model->beginMassChange());
+    fuel.set(1120.0 / 0.45359237);
+    REQUIRE(model->endMassChange(nullptr, nullptr));
+    std::vector<PropertyHandle> compression;
+    const int units = static_cast<int>(model->property("gear/num-units").get());
+    for (int k = 0; k < units; ++k)
+        compression.push_back(model->property("contact/unit[" + std::to_string(k) + "]/compression-ft"));
+    bool touched = false, struck = false;
+    double incomingMass = 0, incomingSpeed2 = 0;
+    ipc::EngagementEvent impact{};
+    for (unsigned k = 0; k < stepsFor(w, 5) && !struck; ++k) {
+        const auto before = *w.vehicleState(id);
+        const double mass = model->energy().massKg;
+        w.step(1);
+        if (!touched && std::any_of(compression.begin(), compression.end(), [](const auto& p) { return p.get() > 0; })) {
+            REQUIRE_FALSE(w.vehicleState(id)->crashed);
+            touched = true;
+            incomingMass = mass;
+            for (double v : before.velocityNedMs) incomingSpeed2 += v * v;
+            // Represent a later leak/separation without changing contact,
+            // force or fire coefficients: it cannot rewrite prior energy.
+            REQUIRE(model->beginMassChange());
+            fuel.set(560.0 / 0.45359237);
+            REQUIRE(model->endMassChange(nullptr, nullptr));
+        }
+        for (const auto& event : w.takeEngagementEvents())
+            if (static_cast<ipc::EngagementKind>(event.kind) == ipc::EngagementKind::Impact && event.slot == 0)
+                impact = event, struck = true;
+    }
+    REQUIRE(touched);
+    REQUIRE(struck);
+    CHECK(impact.massKg == incomingMass);
+    CHECK(std::abs(impact.energyJ / (0.5 * incomingMass * incomingSpeed2) - 1) < 1e-10);
 }

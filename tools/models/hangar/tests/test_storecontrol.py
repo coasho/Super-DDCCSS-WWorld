@@ -93,6 +93,42 @@ def evaluate(store, responses=None, alpha=0.0, beta=0.0, qbar=100.0, mach=0.6):
 
 
 class StoreControlTest(unittest.TestCase):
+    def test_distinct_authored_surfaces_cannot_share_one_physical_fin_identity(self):
+        c = card("aim-120c")
+        geo = storeaero.geometry(c)
+        duplicate = copy.deepcopy(next(s for s in geo["design"]["surface"] if s.get("controls")))
+        geo["design"]["surface"].append(duplicate)
+        with self.assertRaisesRegex(ValueError, "identity|collision|duplicate"):
+            from hangar import storecontrol
+            storecontrol.build(geo, storeaero.coefficients(geo, c["id"]))
+
+    def test_physical_fin_identity_is_stable_and_shared_across_aerodynamic_patches(self):
+        from hangar import storecontrol
+        c = card("aim-120c")
+        geo = storeaero.geometry(c)
+        baseline = storeaero.coefficients(geo, c["id"])
+        ordinary = storecontrol.build(geo, baseline)
+        ids = [fin.get("id") for fin in ordinary["fins"]]
+        self.assertTrue(all(isinstance(key, int) and key > 0 for key in ids),
+                        "physical fins need nonzero stable authored identities")
+        self.assertEqual(len(ids), len(set(ids)))
+        original = storecontrol.Surface
+        def subdivided(spec):
+            surface = original(spec)
+            surface.eta_sections = sorted(set(surface.eta_sections) | {0.5})
+            return surface
+        with mock.patch.object(storecontrol, "Surface", side_effect=subdivided):
+            split = storecontrol.build(geo, baseline)
+        self.assertEqual(sorted(fin["id"] for fin in split["fins"]), sorted(ids),
+                         "a numerical aero-patch split must not create another physical actuator")
+        reordered = copy.deepcopy(geo)
+        reordered["design"]["surface"].reverse()
+        self.assertEqual(sorted(fin["id"] for fin in storecontrol.build(reordered, baseline)["fins"]), sorted(ids),
+                         "reordering authored surfaces must preserve fin identity")
+        model, _ = evaluate("aim-120c")
+        metadata = {node.text: float(node.get("value")) for node in model.findall("./flight_control/property")}
+        self.assertEqual(sorted(int(metadata["fsim/missile-control/fin-%d-id" % i]) for i in range(len(ids))), sorted(ids))
+
     def test_all_physical_fins_jammed_neutral_report_zero_standard_positions(self):
         model, expressions = evaluate("aim-120c")
         # Set actuator states, not command surrogates. This also exercises the

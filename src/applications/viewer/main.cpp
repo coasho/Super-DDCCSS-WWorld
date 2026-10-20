@@ -946,13 +946,22 @@ int main(int argc, char** argv) {
     std::vector<ipc::FlightStatus> replayStatus(replay ? slots : 0);
     std::vector<std::uint64_t> generationSeen; // (each slot's vehicle as the table last had it)
     std::vector<std::uint32_t> visualVehicleSeen(slots, 0); // entity identity, independent of reset generations
+    std::vector<std::uint64_t> finGenerationSeen(slots,0);
+    std::vector<unsigned char> alive(slots, opt.demo ? 1 : 0);
+    const auto recordedFins=[&](const auto& frame) {
+        std::vector<ms::WeaponControlSnapshotV1> accepted;
+        for(const auto& control:frame.weaponControls)
+            if(control.slot<slots && alive[control.slot] && visualVehicleSeen[control.slot]==control.entity &&
+               finGenerationSeen[control.slot]==control.generation && control.sampleTimeS==frame.simTime)
+                accepted.push_back(control);
+        return accepted;
+    };
     // what each slot's engines burn, as the simulation says it with each sample: the trails are laid from it
     std::vector<std::array<double, sim::VehicleState::kMaxEngines>> fuelFlows(slots);
     const auto fuelFlowOf = [&](std::size_t slot, const double* derived) {
         if (slot < fuelFlows.size())
             for (std::size_t k = 0; k < fuelFlows[slot].size(); ++k) fuelFlows[slot][k] = derived[ipc::kDerivedFuelFlowKgS + k];
     };
-    std::vector<unsigned char> alive(slots, opt.demo ? 1 : 0);
     std::vector<ui::MonitorGui::VehicleMeta> meta;
     const sim::SnapshotBatch* batch = nullptr;  // latest raw batch (demo: runner's; mirror: `mirrored`)
     sim::SnapshotBatch mirrored, interpBatch;    // mirror copy; interpolation copy keyed by wall time
@@ -1061,6 +1070,7 @@ int main(int argc, char** argv) {
             if (controls->singleStep.exchange(false)) runner->singleStep();
             if (const auto* fresh = runner->acquire()) {
                 batch = demoBatch(fresh);
+                visuals.setWeaponControlsFrame(batch->simTime,runner->weaponControls());
                 interpolator.push(*batch);
             }
             controls->simThroughput.store(runner->throughput(), std::memory_order_relaxed);
@@ -1084,6 +1094,7 @@ int main(int argc, char** argv) {
                 replayTime = std::clamp(seek, frames.front().simTime, frames.back().simTime);
                 replayFrame = static_cast<std::size_t>(-1);
                 interpolator = world::Interpolator(slots);
+                visuals.clearWeaponControls();
                 std::fill(alive.begin(), alive.end(), 0);
                 meta.assign(slots, ui::MonitorGui::VehicleMeta{});
                 for (auto& m : meta) m.alive = false;
@@ -1093,6 +1104,7 @@ int main(int argc, char** argv) {
                 replayTime = frames.front().simTime; // loop
                 replayFrame = static_cast<std::size_t>(-1);
                 interpolator = world::Interpolator(slots);
+                visuals.clearWeaponControls();
                 std::fill(alive.begin(), alive.end(), 0);
                 meta.assign(slots, ui::MonitorGui::VehicleMeta{});
                 for (auto& m : meta) m.alive = false;
@@ -1116,6 +1128,8 @@ int main(int argc, char** argv) {
                         meta[slot].name.assign(row.name, ::strnlen(row.name, ipc::kNameLength));
                         meta[slot].type.assign(row.type, ::strnlen(row.type, ipc::kTypeLength));
                         meta[slot].level = ipc::controlLevelName(row.controlLevel);
+                        if(finGenerationSeen[slot]!=row.generation) visuals.clearWeaponControls();
+                        finGenerationSeen[slot]=row.generation;
                         if (row.alive) {
                             if (visualVehicleSeen[slot] != row.id) {
                                 visualVehicleSeen[slot] = row.id;
@@ -1144,6 +1158,7 @@ int main(int argc, char** argv) {
                 gui->setVehicles(meta);
                 replayFrame = target;
                 const auto& frame = frames[target];
+                visuals.setWeaponControlsFrame(frame.simTime,recordedFins(frame));
                 if (mirrored.states.size() != slots) mirrored.states.resize(slots);
                 for (auto& f : fuelFlows) f.fill(0.0);
                 for (const auto& [slot, sample] : frame.samples)
@@ -1164,6 +1179,7 @@ int main(int argc, char** argv) {
                     for (const auto& [slot, sample] : frames[target + 1].samples)
                         if (slot < slots) ahead.states[slot] = drawnState(sample.state, sample.derived);
                     ahead.simTime = frames[target + 1].simTime;
+                    visuals.setWeaponControlsFrame(ahead.simTime,recordedFins(frames[target+1]));
                     interpolator.push(ahead);
                 }
             }
@@ -1180,6 +1196,7 @@ int main(int argc, char** argv) {
                 if (mirror.valid()) {
                     LOG_INFO("app") << "leaving world '" << mirror.name() << "' for '" << opt.worldName << "'";
                     mirror.close();
+                    visuals.clearWeaponControls();
                     cameraPreview->detach();
                     batch = nullptr;
                     std::fill(alive.begin(), alive.end(), 0);
@@ -1246,6 +1263,7 @@ int main(int argc, char** argv) {
                         // (made, reset or removed since it was last seen: whole again - what broke off it before is back)
                         if (generationSeen.size() != slots) generationSeen.assign(slots, ~0ull);
                         if (generationSeen[i] != v.generation) {
+                            visuals.clearWeaponControls();
                             generationSeen[i] = v.generation;
                             visuals.restoreSections(i);
                         }
@@ -1295,6 +1313,7 @@ int main(int argc, char** argv) {
                     batch = &mirrored;
                     interpBatch = mirrored;
                     interpBatch.simTime = static_cast<double>(mirrored.wallNs) * 1e-9; // interpolate in wall time: the trainer's pace is arbitrary
+                    visuals.setWeaponControlsFrame(interpBatch.simTime,mirror.weaponControls());
                     interpolator.push(interpBatch);
                 }
                 if (wallSeconds - lastStepsWall >= 1.0) {
@@ -1317,6 +1336,7 @@ int main(int argc, char** argv) {
                         LOG_INFO("app") << "world '" << mirror.name() << "' has gone; waiting for another";
                     }
                     mirror.close();
+                    visuals.clearWeaponControls();
                     cameraPreview->detach();
                     batch = nullptr;
                     std::fill(alive.begin(), alive.end(), 0);
@@ -1388,6 +1408,7 @@ int main(int argc, char** argv) {
             if (shotsOnReplay) interpolator.updateAt(replayTime);
             else interpolator.update(viewer.frameSeconds(), timeFactor, paused);
             const auto& states = opt.interpolate ? interpolator.states() : batch->states;
+            visuals.setWeaponControlsTime(interpolator.renderSimTime(),opt.interpolate);
             visuals.setExhaust(controls->showEffects.load(std::memory_order_relaxed));
             visuals.update(Span<const sim::VehicleState>(states));
             viewer.setSceneCopied(!visuals.flames().empty()); // (the exhausts' heat haze reads it; nothing else does)

@@ -9,6 +9,14 @@
   "powerable": true,
   "jettisonable": true,
   "seeker": "active_radar",
+  "guidance_capabilities": {
+    "version": 1,
+    "inertial_midcourse": true,
+    "launcher_updates": true,
+    "basis": "assumed",
+    "source": "/guidance",
+    "note": "Explicit execution declaration transcribed from this card's authored guidance field. False means this profile does not enable the capability; it is not evidence of equipment absence. No seeker, control or fitted-link performance is calibrated; launcher updates still use the explicitly idealized native path."
+  },
   "guidance": "GPS-aided inertial midcourse with datalink updates, terminal active radar homing",
   "motor": "solid rocket, booster only",
   "fuze": "FZU-49 proximity and impact",

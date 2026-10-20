@@ -33,6 +33,29 @@ namespace {
 /// The stream a vehicle's sensors draw from (its radars' looks), apart from its flight model's (stream 0).
 constexpr std::uint64_t kSensorStream = 0x5345'4E53ull;
 
+std::optional<ms::damage::V3> capturedCg(sim::FlightModel& model) {
+    double cg[3];
+    if (!model.cgFromOriginBodyM(cg) || !std::isfinite(cg[0]) || !std::isfinite(cg[1]) || !std::isfinite(cg[2]))
+        return std::nullopt;
+    return ms::damage::V3{cg[0],cg[1],cg[2]};
+}
+
+std::optional<ms::damage::V3> authoredContactNose(sim::FlightModel& model) {
+    const auto version=model.property("fsim/model/nose-version");
+    if (!version.valid() || version.get()!=1) return std::nullopt;
+    const char* axes[]={"x","y","z"};
+    double nose[3],origin[3];
+    for (int k=0;k<3;++k) {
+        const auto n=model.property(std::string("fsim/model/nose-")+axes[k]+"-in");
+        const auto o=model.property(std::string("fsim/model/origin-")+axes[k]+"-in");
+        if (!n.valid() || !o.valid() || !std::isfinite(n.get()) || !std::isfinite(o.get())) return std::nullopt;
+        nose[k]=n.get(); origin[k]=o.get();
+    }
+    const ms::damage::V3 body{(origin[0]-nose[0])*.0254,(nose[1]-origin[1])*.0254,(origin[2]-nose[2])*.0254};
+    if (!std::isfinite(body.x) || !std::isfinite(body.y) || !std::isfinite(body.z)) return std::nullopt;
+    return body;
+}
+
 void copyName(char* dst, std::size_t capacity, const std::string& src) {
     std::memset(dst, 0, capacity);
     std::memcpy(dst, src.data(), std::min(src.size(), capacity - 1));
@@ -414,6 +437,14 @@ bool World::resetVehicle(std::uint32_t id, const sim::InitialConditions* ic, std
     // A flight model's reset returns its air to calm and standard: the world's, as a new vehicle's (design 7.2)
     applyEnvironment(model);
     e->inputs = sim::ControlInputs{};
+    e->finControllerAvailable=false;
+    e->finTelemetry = {};
+    e->finControllerTimeS=std::numeric_limits<double>::quiet_NaN();
+    // A pose reset invalidates this tick's captured history, but it is not a
+    // new release and does not rearm a consumed contact-initiation channel.
+    e->engagementPath.clear();
+    e->engagementStates.clear();
+    e->engagementCg.clear();
     e->inputs.setThrottleAll(e->info.role == ms::Role::Weapon
                                 ? (e->info.initial.enginesRunning ? 1.0 : 0.0)
                                 : (e->info.initial.onGround ? 0.0 : 0.65));
@@ -1792,6 +1823,7 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
         {
             e->engagementPath.push_back({offset,{e->working.positionEcef[0],e->working.positionEcef[1],e->working.positionEcef[2]}});
             e->engagementStates.push_back(e->working);
+            e->engagementCg.push_back(capturedCg(model));
         }
     }
     const double t = simTime_ + subStep * options_.dt;
@@ -1840,10 +1872,14 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
         // Guidance requests specific acceleration. The finite native FCS and
         // fin aerodynamics alone realise it; no guidance external reaction.
         e->inputs.aileron = e->inputs.elevator = e->inputs.rudder = 0;
+        e->finControllerAvailable=false;
+        e->finControllerTimeS=simTime_+subStep*options_.dt;
         const auto& r = e->finControl;
         const auto& s = e->working;
         double cg[3]{};
-        if (r.version.get() == 1 && model.cgFromOriginBodyM(cg)) {
+        if (r.version.get() == 1 && model.cgFromOriginBodyM(cg) &&
+            std::all_of(r.aeroForce.begin(),r.aeroForce.end(),[](const auto& p){return p.valid();}) &&
+            std::all_of(r.aeroMoment.begin(),r.aeroMoment.end(),[](const auto& p){return p.valid();})) {
             ms::weapon::AutopilotInput in;
             ms::geom::toBody(s, e->guidanceDemand, in.demandBody.data());
             const double gravity[3] = {-9.80665 * std::cos(s.latitudeRad) * std::cos(s.longitudeRad),
@@ -1867,7 +1903,16 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
             in.yaw = {qS*c(1), qS*c(8), qSd*c(3)-cg[0]*qS*c(1),
                       qSd*c(10)-cg[0]*qS*c(8), damping*c(5)};
             in.rollMomentPerRad = qSd*c(11); in.rollDamping = damping*c(6);
+            ms::weapon::AeroFeedback measured;
+            measured.controlRad={s.aileronRad,s.elevatorRad,s.rudderRad};
+            for (std::size_t k=0;k<3;++k) {
+                measured.forceBodyN[k]=r.aeroForce[k].get()*4.4482216152605;
+                // JSBSim already reports aerodynamic moments about current CG.
+                measured.momentBodyNm[k]=r.aeroMoment[k].get()*1.3558179483314;
+            }
+            in.measured=measured;
             const auto commands = ms::weapon::finCommands(in);
+            e->finControllerAvailable=commands.available;
             e->inputs.aileron = commands.aileron;
             e->inputs.elevator = commands.elevator;
             e->inputs.rudder = commands.rudder;
@@ -1978,29 +2023,56 @@ ms::CommandResult World::submit(std::uint32_t id, const ms::StrikeCommand& comma
     Entry* e = entry(id);
     if (!e) return ms::CommandResult{control::CommandStatus::Rejected, ms::Reason::UnknownVehicle, 0, options.commandId};
     if (command.target) {
-        for (const auto& store : e->ms.stores()) {
-            const bool selected = command.stores.empty() ? (command.store.empty() || store.store==command.store) :
-                std::find(command.stores.begin(),command.stores.end(),store.index)!=command.stores.end();
-            const auto* card=e->ms.storeCard(store.index);
-            if (!selected || !card || card->storeClass!="aam") continue;
-            const auto* target=vehicleState(command.target);
-            const auto& own=pool_->states()[e->slot];
-            const auto eligibility=ms::weapon::checkLaunchEligibility(*card,own,target);
-            if (eligibility.reason!=ms::Reason::None)
-                return ms::CommandResult{control::CommandStatus::Rejected,eligibility.reason,0,options.commandId};
-            if (eligibility.illuminationRequired) {
-                const auto* d=designation(command.target);
-                const auto radar=d?e->ms.radarStatus(d->payload):ms::RadarStatus{};
-                const ms::weapon::IlluminationFacts facts{d!=nullptr,d?d->owner:0,d?d->track:0,
-                                                         radar.illuminating,radar.designatedTrack,d && d->source==comm::kNoSystem};
-                const auto reason=ms::weapon::checkLaunchIllumination(id,facts);
-                if (reason!=ms::Reason::None)
-                    return ms::CommandResult{control::CommandStatus::Rejected,reason,0,options.commandId};
-            }
-            break;
-        }
+        std::vector<std::uint16_t> selected;
+        if (e->ms.previewStrike(command, selected) == ms::Reason::None)
+            for (const auto index : selected)
+                if (const auto reason = weaponLaunchEligibility(*e, index, command.target); reason != ms::Reason::None)
+                    return ms::CommandResult{control::CommandStatus::Rejected, reason, 0, options.commandId};
     }
     return e->ms.submit(command, options, simTime_);
+}
+
+bool World::resolveWeaponTarget(std::uint32_t launcher, std::uint32_t target, sim::VehicleState& out) const {
+    if (target < kDesignations) {
+        const auto* state = vehicleState(target);
+        if (!state) return false;
+        out = *state;
+        return true;
+    }
+    const auto* d = designation(target);
+    if (!d || !d->valid || d->owner != launcher || !entry(launcher)) return false;
+    // Resolve from current measured/delivered reports at this boundary. The
+    // step-start designation cache can precede this tick's flight and sensing.
+    if (d->source != comm::kNoSystem) {
+        const auto* track = dms_.linkTrack(d->owner, d->source, d->payload, d->track);
+        if (!track) return false;
+        const auto estimate = estimateOf(*track, simTime_);
+        if (!estimate) return false;
+        out = *estimate;
+        return true;
+    }
+    for (const auto& track : amtiTracks(d->owner, d->payload)) if (track.id == d->track) {
+        const auto estimate = estimateOf(track);
+        if (!estimate) return false;
+        out = *estimate;
+        return true;
+    }
+    return false;
+}
+
+ms::Reason World::weaponLaunchEligibility(const Entry& launcher, std::uint16_t store, std::uint32_t target) const {
+    const auto* card = launcher.ms.storeCard(store);
+    if (!target || !card || card->storeClass != "aam") return ms::Reason::None;
+    sim::VehicleState estimate{};
+    const bool resolved = resolveWeaponTarget(launcher.info.id, target, estimate);
+    const auto eligibility = ms::weapon::checkLaunchEligibility(*card, pool_->states()[launcher.slot], resolved ? &estimate : nullptr);
+    if (eligibility.reason != ms::Reason::None) return eligibility.reason;
+    if (!eligibility.illuminationRequired) return ms::Reason::None;
+    const auto* d = designation(target);
+    const auto radar = d ? launcher.ms.radarStatus(d->payload) : ms::RadarStatus{};
+    return ms::weapon::checkLaunchIllumination(launcher.info.id,
+        {d != nullptr, d ? d->owner : 0, d ? d->track : 0, radar.illuminating,
+         radar.designatedTrack, d && d->source == comm::kNoSystem});
 }
 
 ms::CommandResult World::submit(std::uint32_t id, const ms::JettisonCommand& command, const ms::CommandOptions& options) {
@@ -2060,7 +2132,20 @@ void World::flyReleases() {
         Entry* e = entry(launcher);
         if (!e) continue;
         auto releases = e->ms.takeReleases();
+        // Validate every due member of an activity before spawning any. A
+        // native execution refusal preserves its actual reason and earlier
+        // released weapons. Generic cancellation keeps its queued semantics.
+        std::map<ms::ActivityId, ms::Reason> refusals;
+        for (const auto& release : releases) if (!release.jettisoned && !refusals.count(release.activity)) {
+            const auto reason = weaponLaunchEligibility(*e, release.store, release.target);
+            if (reason != ms::Reason::None) refusals.emplace(release.activity, reason);
+        }
+        for (auto it = refusals.begin(); it != refusals.end();) {
+            if (!e->ms.releaseRefused(it->first, it->second, simTime_)) it = refusals.erase(it);
+            else ++it;
+        }
         for (auto& r : releases) {
+            if (refusals.count(r.activity)) continue;
             // the station's place is from the carrier's model origin (its empty CG); the state is at its CG now
             double cg[3];
             pool_->vehicle(e->slot).cgFromOriginBodyM(cg);
@@ -2085,12 +2170,32 @@ void World::flyReleases() {
                     guidance.lifeS = releasedCard->value("guidance_life_s", infrared ? 45.0 : 110.0);
                     guidance.loftRad = infrared ? 0.0 : 20.0 * units::kPi / 180.0;
                     guidance.fuzeM = releasedCard->value("fuze_radius_m", 7.0 + std::sqrt(releasedCard->value("warhead_kg", 12.0)));
-                    w->guidance = std::make_unique<ms::weapon::Guidance>(guidance);
+                    const auto& capabilities = releasedCard->guidanceCapabilities;
+                    guidance.capabilityVersion = capabilities.version;
+                    guidance.inertialMidcourse = capabilities.inertialMidcourse;
+                    guidance.launcherUpdates = capabilities.launcherUpdates;
+                    std::optional<ms::weapon::Observation> initialEstimate;
+                    sim::VehicleState targetEstimate{};
+                    // A raw Range entity target is not an onboard observation.
+                    if (designation(r.target) && resolveWeaponTarget(launcher, r.target, targetEstimate)) {
+                        double v[3]; ms::geom::velocityEcef(targetEstimate, v);
+                        initialEstimate = ms::weapon::Observation{r.target,
+                            {targetEstimate.positionEcef[0], targetEstimate.positionEcef[1], targetEstimate.positionEcef[2]},
+                            {v[0], v[1], v[2]}, false};
+                    }
+                    w->launchSeekerCue = infrared ? onRailSeekerObservation(*e, *releasedCard) : 0;
+                    w->guidance = std::make_unique<ms::weapon::Guidance>(guidance, initialEstimate);
                     auto& wm = pool_->vehicle(w->slot);
+                    if (ms::damage::warheadOf(*releasedCard)) w->contactNoseFromOriginBodyM=authoredContactNose(wm);
                     auto& f = w->finControl;
                     f.version = wm.property("fsim/missile-control/version");
                     f.qbar = wm.property("aero/qbar-psf"); f.area = wm.property("metrics/Sw-sqft");
                     f.diameter = wm.property("metrics/cbarw-ft");
+                    const char* forceAxes[]={"forces/fbx-aero-lbs","forces/fby-aero-lbs","forces/fbz-aero-lbs"};
+                    const char* momentAxes[]={"moments/l-aero-lbsft","moments/m-aero-lbsft","moments/n-aero-lbsft"};
+                    for (std::size_t k=0;k<3;++k) {
+                        f.aeroForce[k]=wm.property(forceAxes[k]); f.aeroMoment[k]=wm.property(momentAxes[k]);
+                    }
                     f.lag = wm.property("fsim/missile-control/lag-coefficient-s-1");
                     const char* axes[3] = {"aileron", "elevator", "rudder"};
                     const char* inertia[3] = {"ixx", "iyy", "izz"};
@@ -2309,8 +2414,10 @@ void World::step(unsigned n) {
         if (captureEngagementMotion_) for (auto& e : entries_) if (e) {
             e->engagementPath.clear();
             e->engagementStates.clear();
+            e->engagementCg.clear();
             e->engagementPath.reserve(static_cast<std::size_t>(options_.frameSkip)+1);
             e->engagementStates.reserve(static_cast<std::size_t>(options_.frameSkip)+1);
+            e->engagementCg.reserve(static_cast<std::size_t>(options_.frameSkip)+1);
             e->engagementModelTimeS=before[e->slot].simTime;
         }
         transferFuel();
@@ -2330,6 +2437,7 @@ void World::step(unsigned n) {
                 {
                     e->engagementPath.push_back({offset,{state.positionEcef[0],state.positionEcef[1],state.positionEcef[2]}});
                     e->engagementStates.push_back(state);
+                    e->engagementCg.push_back(capturedCg(pool_->vehicle(e->slot)));
                 }
             }
             const bool weigh = (loadTick_++ & 7u) == 0;
@@ -2358,8 +2466,10 @@ void World::step(unsigned n) {
                 if (Entry* e = entries_[s].get(); e && s < after.size() && e->info.role == ms::Role::Weapon && after[s].crashed) {
                     sim::VehicleState at = after[s]; // (where it struck; its speed as the step began: the strike stopped it)
                     const auto& history=e->engagementStates;
-                    const auto& prior=captureEngagementMotion_ && history.size()>1 && history.back().crashed
+                    auto prior=captureEngagementMotion_ && history.size()>1 && history.back().crashed
                         ? history[history.size()-2] : stepStates_[s];
+                    if (const auto* source = dynamic_cast<const sim::TerrainStrikeSourceV1*>(&pool_->vehicle(s)))
+                        source->terrainStrikeStateV1(prior);
                     std::copy(std::begin(prior.velocityNedMs), std::end(prior.velocityNedMs), std::begin(at.velocityNedMs));
                     // (a store's strike is a strike: what it does - a tank's fuel left bursting into fire - is told
                     // before it ends there)
@@ -2394,7 +2504,7 @@ void World::step(unsigned n) {
             if (publisher_->due()) { // (its vehicles' flight status worked out only as a snapshot is copied)
                 fillStatus();
                 if (publisher_->publish(simTime_, pool_->states(), Span<const sim::ControlInputs>(poolInputs_), false,
-                                        Span<const ipc::FlightStatus>(poolStatus_)))
+                                        Span<const ipc::FlightStatus>(poolStatus_),collectWeaponControls()))
                     publishMission();
             }
         }
@@ -2406,7 +2516,7 @@ void World::publishNow() {
     for (std::size_t s = 0; s < entries_.size(); ++s)
         if (entries_[s]) poolInputs_[s] = entries_[s]->inputs;
     fillStatus();
-    publisher_->publish(simTime_, pool_->states(), Span<const sim::ControlInputs>(poolInputs_), true, Span<const ipc::FlightStatus>(poolStatus_));
+    publisher_->publish(simTime_, pool_->states(), Span<const sim::ControlInputs>(poolInputs_), true, Span<const ipc::FlightStatus>(poolStatus_),collectWeaponControls());
     publishMission();
 }
 
@@ -2850,6 +2960,7 @@ void World::recordFrame() {
             was = std::move(now);
         }
     }
+    recorder_.writeWeaponControls(simTime_,collectWeaponControls());
     recorder_.writeSnapshot(simTime_, samples);
 }
 

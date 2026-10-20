@@ -275,6 +275,33 @@ PyObject* world_weapons(PyObject* o, PyObject* const* args, Py_ssize_t n) {
     return list;
 }
 
+PyObject* world_weapon_controls(PyObject* o,PyObject* const* args,Py_ssize_t n) {
+    WorldObject* self=(WorldObject*)o;
+    uint32_t id,count=0;
+    if(!check_args(n,1,1,"weapon_controls") || !as_u32(args[0],&id) || !WORLD_IDLE(self)) return NULL;
+    fsim_weapon_controls_v1 head; fsim_weapon_controls_v1_init(&head);
+    int rc=fsim_world_weapon_controls_v1(self->world,id,&head,NULL,0,&count);
+    if(rc==FSIM_INVALID_ARGUMENT) Py_RETURN_NONE;
+    if(rc!=FSIM_OK) return fail();
+    if(count>32) { PyErr_SetString(PyExc_RuntimeError,"native fin count exceeds version 1 capacity"); return NULL; }
+    fsim_weapon_fin_v1 fins[32];
+    for(uint32_t i=0;i<count;++i) fsim_weapon_fin_v1_init(&fins[i]);
+    if(fsim_world_weapon_controls_v1(self->world,id,&head,fins,count,&count)!=FSIM_OK) return fail();
+    PyObject* list=PyList_New(0);
+    for(uint32_t i=0;list && i<count;++i) {
+        const fsim_weapon_fin_v1* f=&fins[i];
+        PyObject* row=Py_BuildValue("(IIiiiiddddd)",f->id,f->native_index,f->valid,f->failed_stuck,f->failed_zero,
+            f->failed_hardover,f->actual_rad,f->demand_rad,f->minimum_rad,f->maximum_rad,f->rate_rad_s);
+        if(!row || PyList_Append(list,row)<0) { Py_XDECREF(row); Py_CLEAR(list); break; }
+        Py_DECREF(row);
+    }
+    if(!list) return NULL;
+    PyObject* result=Py_BuildValue("(IIKiidddddO)",head.entity,head.slot,(unsigned long long)head.generation,
+        head.available,head.controller_available,head.sample_time_s,head.controller_time_s,
+        head.commands[0],head.commands[1],head.commands[2],list);
+    Py_DECREF(list); return result;
+}
+
 PyObject* world_dispense(PyObject* o, PyObject* const* args, Py_ssize_t n) {
     WorldObject* self=(WorldObject*)o; uint32_t id; int flare;
     if (!check_args(n,2,2,"dispense") || !as_u32(args[0],&id)) return NULL;

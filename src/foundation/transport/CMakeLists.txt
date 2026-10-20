@@ -11,6 +11,7 @@ add_library(fsim_ipc STATIC
     Recording.cpp
     VisionSegment.h
     VisionSegment.cpp)
+target_sources(fsim_ipc PRIVATE WeaponControlsSegment.h WeaponControlsSegment.cpp)
 add_library(fsim::ipc ALIAS fsim_ipc)
 
 fsim_include_view(fsim_ipc)

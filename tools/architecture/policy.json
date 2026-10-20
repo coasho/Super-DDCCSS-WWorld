@@ -50,6 +50,7 @@
     "include/fsim/Span.h": {"domain": "contracts", "kind": "value"},
     "include/fsim/Rng.h": {"domain": "contracts", "kind": "value"},
     "include/fsim/VehicleState.h": {"domain": "contracts", "kind": "value"},
+    "include/fsim/WeaponControls.h": {"domain": "contracts", "kind": "value"},
     "include/fsim/ControlInputs.h": {"domain": "contracts", "kind": "value"},
     "include/fsim/EnvironmentState.h": {"domain": "contracts", "kind": "value"},
     "include/fsim/InitialConditions.h": {"domain": "contracts", "kind": "value"},
