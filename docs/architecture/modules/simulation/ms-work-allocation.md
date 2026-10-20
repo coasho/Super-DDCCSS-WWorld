@@ -864,6 +864,29 @@ Full SIM-M03 remains open for accepted SIM-M02 dynamics/control inputs, admitted
 radar/IR/seeker/actuator and fuze/lethality references, independent per-variant
 validation and fleet coverage. Modeled weapon return transport/assessment and
 accepted fused weapon input also remain open at the existing owner seams.
-Current idealized servo/uplink, decoy timing and post-separation damage geometry
+At that initial handoff, idealized servo/uplink, decoy timing and post-separation damage geometry
 limits are recorded explicitly. A solver research folder, static convergence or
 a passing native engagement cannot replace those acceptance gates.
+
+## 12. SIM-M03 finite-control priority, 2026-10-20
+
+Baseline: main `85e7d251c5de702de5d2ec66115a0886bd0702cd`, after the committed
+HC-53 correction. The user prioritised actual missile surface control while
+Claude continues the independent SIM-M02 investigation. The
+[finite-control plan](../../../superpowers/plans/2026-10-20-finite-missile-controls.md)
+records exact implementation, generator, regression and shared-path ownership;
+one root owner executes the serial native build/test gates.
+
+The [mechanism and evidence](../../../sdk/missile-control-validation.md) replace
+guidance's ideal aerodynamic cancellation/force/moment injection with a bounded
+surface-command autopilot and generator-owned finite individual-fin actuators.
+Geometric fin forces and their same-pressure-centre moments enter JSBSim's
+normal aerodynamic integration. The 24 current AAM models are regenerated;
+motor/nozzle bytes, generic MA ownership and public layouts remain unchanged.
+The three-axis position report derives from actual fins; individual-fin residual
+details remain available as model properties and need separate Viewer evidence.
+
+This closes the missing execution mechanism, not physical model acceptance.
+The explicitly estimated actuator/controller constants and control-effectiveness
+build-up retain accepted SIM-M02 and measured per-variant response prerequisites.
+HC-54/HC-55, calibrated sensing/lethality and modeled/fused feedback remain open.

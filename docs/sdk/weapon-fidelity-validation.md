@@ -8,8 +8,14 @@ SIM-M03 remains **open** against the physical-model acceptance criteria in
 The user assigned the complete package, then confirmed that Claude's SIM-M02
 numerical investigation continues in the standalone
 `D:/Projects/Cpp/AeroNumericsLab/` directory and that dependent work must await
-its results. This delivery completes independently reproducible software
-corrections; it imports no aerodynamic result or equipment calibration.
+its results. Independently reproducible software corrections and the subsequently
+prioritised [finite control mechanism](missile-control-validation.md) proceed
+within the SDK. They import no numerical research result or equipment calibration.
+
+The [technical research and input-readiness note](weapon-model-research.md)
+evaluates reusable control/geometry/event mechanisms, candidate source versions
+and independent future cases while the numerical handoff remains pending.
+Its proposals are separate from implemented or physically accepted results.
 
 Baseline before edits: main `0d4f25a5df3fdd23696e696644cbd0ee32ab23af`, clean
 working tree. There was no pending source change to commit at task entry.
@@ -32,8 +38,10 @@ of its candidates, manifests, solvers or results was changed or executed here.
 
 Public signatures, layouts, enum values, plugin interfaces and default Agent
 permissions are unchanged. Private observation/boresight inputs are not public
-ABI. No generated model, equipment card, radar algorithm, motor or physical
-parameter was changed. The SDK remains the simulation authority and JSBSim the
+ABI. That initial correctness commit changed no generated model, equipment
+card, radar algorithm, motor or physical parameter. The later finite-control
+feature regenerates the 24 AAM models from authored controls and explicitly
+estimated response constants, as recorded separately. The SDK remains the simulation authority and JSBSim the
 only released-weapon flight integrator. Detonation, damage, crew loss and mission
 outcome remain distinct.
 
@@ -113,7 +121,7 @@ environment. It completed successfully and its full raw output is retained.
 | Active radar seeker | Admitted per-variant frequency, power, aperture, processing/noise, clutter and measurement/scheduling inputs; native own-sensor acquisition based on received signal and independent detection/track cases |
 | Semi-active seeker | Per-candidate received illumination and bistatic geometry; supported continuous/interrupted modes, loss and reacquisition evidence. The existing single illumination flag is an assumption |
 | IR seeker | Admitted band-dependent signatures, background/noise, atmosphere, gimbal/track-rate and acquisition/measurement timing. The shared aspect helper is only a consistency correction |
-| Fin/autopilot response | Accepted aerodynamic control derivatives, mass/CG/inertia evolution and actuator/control-response references. The current external force/moment servo remains idealized; a converged static aerodynamic comparison alone would not supply these dynamic/control data |
+| Fin/autopilot response | The ideal force/moment path is replaced by [finite native fin controls](missile-control-validation.md). Real variant acceptance still needs accepted aerodynamic control derivatives, mass/CG/inertia evolution and actuator/control-response references; a static aerodynamic comparison alone cannot supply dynamic/control data |
 | Fuze and lethality | Actual safe-arm/delay/response inputs, fragment mass/angular distributions and vulnerable-component response; frozen uncertainty bounds, independent encounter conditions and residual tolerances |
 | Weapon flyout feedback | A modeled fitted return path, assessment accept/reject, delivered sample/receive times, bounded retention and explicit LOST/SOFT_LOST/END_OF_FLIGHT lifecycle; versioned C++/C99/Python access. Referee weapon records cannot populate actor feedback |
 | Fused weapon input | Accepted SIM-M01 Entity identity/source/status/kinematic/loss contract and modeled delivery into weapon guidance. Current un-fused DMS tracks and idealized designation support do not establish that contract |
@@ -131,9 +139,10 @@ and damage to detached bodies require their own native lethality fixtures;
 correcting momentum transfer does not establish those behaviors.
 
 Existing native geometry, fragment and guidance implementations are reused for
-these correctness fixes, with no new solver or dependency. For future actuator
-integration, upstream [JSBSim FGActuator documentation](https://jsbsim-team.github.io/jsbsim/classJSBSim_1_1FGActuator.html)
-describes lag, rate and position limits; it supplies a mechanism, not a particular
+these correctness fixes, with no new solver or dependency. Finite control
+integration reuses the existing actuator mechanism described in
+[JSBSim FGActuator documentation](https://jsbsim-team.github.io/jsbsim/classJSBSim_1_1FGActuator.html), which
+describes lag, rate and position limits. It supplies a mechanism, not a particular
 missile's response parameters. No upstream example value is admitted as
 equipment calibration here.
 

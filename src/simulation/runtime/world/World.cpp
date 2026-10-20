@@ -13,6 +13,7 @@
 #include "simulation/mission_systems/radar/Radar.h"
 #include "simulation/mission_systems/rf/Path.h"
 #include "simulation/mission_systems/weapon/LaunchEligibility.h"
+#include "simulation/mission_systems/weapon/Autopilot.h"
 #include "simulation/flight/Attitude.h"
 
 #include <fstream>
@@ -1820,27 +1821,40 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
     }
     if (options_.storeDrag && e->storeFlight.addDrag(e->working, model, push, turn)) pushed = true;
     if (e->guidance) {
-        // basis: assumed. A bounded ideal fin servo supplies the guidance command;
-        // JSBSim keeps axial aerodynamics, propulsion, mass, inertia and all six integration axes.
+        // Guidance requests specific acceleration. The finite native FCS and
+        // fin aerodynamics alone realise it; no guidance external reaction.
+        e->inputs.aileron = e->inputs.elevator = e->inputs.rudder = 0;
+        const auto& r = e->finControl;
         const auto& s = e->working;
-        double acceleration[3];
-        ms::geom::toBody(s, e->guidanceForce, acceleration);
-        const double mass = model.energy().massKg;
-        if (std::isfinite(mass) && mass > 0.0) {
-            const double speed = std::max(ms::geom::norm3(s.velocityBodyMs), 1.0);
-            const double along = ms::geom::dot3(acceleration, s.velocityBodyMs)/speed;
-            for (int k=0;k<3;++k) acceleration[k] -= along*s.velocityBodyMs[k]/speed;
-            // The ideal fins replace existing normal aerodynamic forces, never axial drag.
-            push[1] += mass*acceleration[1] - e->guidanceReads[1].get()*4.4482216152605;
-            push[2] += mass*acceleration[2] - e->guidanceReads[2].get()*4.4482216152605;
-            const double desired[3] = {0.0, -std::atan2(s.velocityBodyMs[2],std::max(s.velocityBodyMs[0],1.0))/.12,
-                                      std::atan2(s.velocityBodyMs[1],std::max(s.velocityBodyMs[0],1.0))/.12};
-            for (int k=0;k<3;++k) {
-                const double inertia=std::max(e->guidanceReads[static_cast<std::size_t>(6+k)].get()*1.3558179483314,.01);
-                const double angularAcceleration=std::clamp((desired[k]-s.angularRateBodyRadS[k])/.08,-100.0,100.0);
-                turn[k] += inertia*angularAcceleration-e->guidanceReads[static_cast<std::size_t>(3+k)].get()*1.3558179483314;
+        double cg[3]{};
+        if (r.version.get() == 1 && model.cgFromOriginBodyM(cg)) {
+            ms::weapon::AutopilotInput in;
+            ms::geom::toBody(s, e->guidanceDemand, in.demandBody.data());
+            const double gravity[3] = {-9.80665 * std::cos(s.latitudeRad) * std::cos(s.longitudeRad),
+                -9.80665 * std::cos(s.latitudeRad) * std::sin(s.longitudeRad), -9.80665 * std::sin(s.latitudeRad)};
+            ms::geom::toBody(s, gravity, in.gravityBody.data());
+            in.massKg = model.energy().massKg;
+            in.speedMs = s.airspeedTrueMs;
+            in.alphaRad = s.alphaRad; in.betaRad = s.betaRad;
+            in.actuatorLagS = 1 / r.lag.get();
+            for (std::size_t k = 0; k < 3; ++k) {
+                in.ratesRadS[k] = s.angularRateBodyRadS[k];
+                in.inertiaKgM2[k] = r.inertia[k].get() * 1.3558179483314;
+                in.limitsRad[k] = r.limits[k].get();
             }
-            pushed=true;
+            const double qS = r.qbar.get() * r.area.get() * 4.4482216152605;
+            const double d = r.diameter.get() * .3048;
+            const double qSd = qS * d, damping = qSd * d / (2 * std::max(in.speedMs, 1.));
+            auto c = [&](std::size_t k) { return r.derivatives[k].get(); };
+            in.pitch = {qS*c(0), qS*c(7), qSd*c(2)+cg[0]*qS*c(0),
+                        qSd*c(9)+cg[0]*qS*c(7), damping*c(4)};
+            in.yaw = {qS*c(1), qS*c(8), qSd*c(3)-cg[0]*qS*c(1),
+                      qSd*c(10)-cg[0]*qS*c(8), damping*c(5)};
+            in.rollMomentPerRad = qSd*c(11); in.rollDamping = damping*c(6);
+            const auto commands = ms::weapon::finCommands(in);
+            e->inputs.aileron = commands.aileron;
+            e->inputs.elevator = commands.elevator;
+            e->inputs.rudder = commands.rudder;
         }
     }
     if (pushed) {
@@ -2056,10 +2070,22 @@ void World::flyReleases() {
                     guidance.loftRad = infrared ? 0.0 : 20.0 * units::kPi / 180.0;
                     guidance.fuzeM = releasedCard->value("fuze_radius_m", 7.0 + std::sqrt(releasedCard->value("warhead_kg", 12.0)));
                     w->guidance = std::make_unique<ms::weapon::Guidance>(guidance);
-                    const char* paths[9] = {"forces/fbx-aero-lbs","forces/fby-aero-lbs","forces/fbz-aero-lbs",
-                        "moments/l-aero-lbsft","moments/m-aero-lbsft","moments/n-aero-lbsft",
-                        "inertia/ixx-slugs_ft2","inertia/iyy-slugs_ft2","inertia/izz-slugs_ft2"};
-                    for (std::size_t k=0;k<9;++k) w->guidanceReads[k]=pool_->vehicle(w->slot).property(paths[k]);
+                    auto& wm = pool_->vehicle(w->slot);
+                    auto& f = w->finControl;
+                    f.version = wm.property("fsim/missile-control/version");
+                    f.qbar = wm.property("aero/qbar-psf"); f.area = wm.property("metrics/Sw-sqft");
+                    f.diameter = wm.property("metrics/cbarw-ft");
+                    f.lag = wm.property("fsim/missile-control/lag-coefficient-s-1");
+                    const char* axes[3] = {"aileron", "elevator", "rudder"};
+                    const char* inertia[3] = {"ixx", "iyy", "izz"};
+                    for (std::size_t k=0; k<3; ++k) {
+                        f.inertia[k] = wm.property(std::string("inertia/")+inertia[k]+"-slugs_ft2");
+                        f.limits[k] = wm.property(std::string("fsim/missile-control/")+axes[k]+"-limit-rad");
+                    }
+                    const char* coefficients[12] = {"cz-alpha", "cy-beta", "cm-alpha", "cn-beta", "cm-q", "cn-r",
+                        "cl-p", "cz-elevator", "cy-rudder", "cm-elevator", "cn-rudder", "cl-aileron"};
+                    for (std::size_t k=0; k<12; ++k)
+                        f.derivatives[k] = wm.property(std::string("fsim/control/")+coefficients[k]);
                     w->origin.seeker = guidance.seeker;
                     w->origin.phase = infrared ? ms::WeaponPhase::Seeking : ms::WeaponPhase::Midcourse;
                 }

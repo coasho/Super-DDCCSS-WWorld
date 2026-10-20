@@ -125,9 +125,11 @@ supplies the exact commands, internal counts, logs and scope limits.
 - Gimbal rate, scan timing, measurement latency and classification remain
   uncalibrated. This package adds no assumed default dynamics to conceal those
   missing inputs.
-- Fin/actuator/autopilot response needs accepted SIM-M02 force/moment derivatives,
-  mass/CG/inertia evolution and admitted control-response references. The current
-  ideal external-force/moment path is not evidence of those properties.
+- Calibrated fin/actuator/autopilot response needs accepted SIM-M02 force/moment
+  derivatives, mass/CG/inertia evolution and admitted control-response references.
+  The subsequent [finite-control mechanism](missile-control-validation.md)
+  removes the ideal force/moment path using explicit engineering estimates;
+  its software checks do not establish those equipment properties.
 - Fuze and lethality assumptions, model-specific uncertainty, independent
   encounter references and complete fleet coverage require separate acceptance.
   Detonation, native damage, crew loss and mission outcome retain distinct

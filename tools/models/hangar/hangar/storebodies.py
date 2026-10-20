@@ -10,8 +10,8 @@ by its design's build stage (storestages.py) as a tank's and a pod's are (storem
   roll damping; along it its card's drag area (storedrag.py's build-up) with the transonic rise a carried store has;
 - a missile's motor (`[motor]`): its design's phases - assumed, none is published - as a solid grain in the body, a
   cylinder with a bore, of the propellant the phases' impulse takes at its specific impulse; its nozzle's exit the design's. The world
-  lights it or not (a jettisoned missile's stays unlit: InitialConditions::enginesRunning); nothing here guides it -
-  it has no controls (`flight_control name="none"`): a body, not a weapon (docs/backlog.md, B-36). Its file says where
+  lights it or not (a jettisoned missile's stays unlit: InitialConditions::enginesRunning). Authored missile controls
+  use finite JSBSim actuators and the same fin geometry (storecontrol.py); other stores remain uncontrolled. Its file says where
   its model's origin is (`fsim/model/origin-x-in`: its launch CG), since its empty CG - the platform's origin for
   every other model - is its structure's, burnt out, some decimetres ahead;
 - six structure contacts round each end, so it lies on its side where it lands.
@@ -468,6 +468,8 @@ def files(card):
         xml = xml.replace("    <aerodynamics>", "    <!-- Offline derivative-table SHA-256: %s -->\n"
                           "    <!-- Offline derivative-payload SHA-256: %s -->\n    <aerodynamics>%s" %
                           (b["input"]["sha256"], payload_digest(dict(b, cg_m=cg)), domain))
+    from . import storecontrol
+    xml = storecontrol.apply(xml, controls, geo, b, cg * k)
     out = {name + ".xml": xml}
     if motor:
         table_name = "propulsion/thrust_prop_remain"

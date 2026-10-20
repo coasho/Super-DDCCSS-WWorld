@@ -69,7 +69,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
 # list their tests during the build would fail.
 set(FSIM_CATCH_DISCOVERY DISCOVERY_MODE PRE_TEST)
 
-foreach(core weapon_guidance fuze countermeasure_core)
+foreach(core weapon_guidance fuze countermeasure_core missile_autopilot)
     add_executable(fsim_${core}_test simulation/test_${core}.cpp)
     target_link_libraries(fsim_${core}_test PRIVATE fsim::ms)
     add_test(NAME ${core} COMMAND fsim_${core}_test)
@@ -84,6 +84,13 @@ add_executable(fsim_engagement_native_test simulation/test_engagement_native.cpp
 target_link_libraries(fsim_engagement_native_test PRIVATE fsim::session)
 target_compile_definitions(fsim_engagement_native_test PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
 add_test(NAME engagement_native COMMAND fsim_engagement_native_test)
+
+add_executable(fsim_missile_control_native_test simulation/test_missile_control_native.cpp)
+target_link_libraries(fsim_missile_control_native_test PRIVATE fsim::session)
+target_compile_definitions(fsim_missile_control_native_test PRIVATE
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}" FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
+add_test(NAME missile_control_native COMMAND fsim_missile_control_native_test)
+set_tests_properties(missile_control_native PROPERTIES LABELS "native-engagement" TIMEOUT 120)
 
 add_executable(fsim_strike_capture_test visualization/test_strike_capture.cpp)
 target_link_libraries(fsim_strike_capture_test PRIVATE fsim::ipc fsim::core)

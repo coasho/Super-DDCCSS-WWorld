@@ -244,6 +244,12 @@ bool JsbsimModel::load(const AircraftSpec& aircraft, const InitialConditions& ic
     } catch (const std::exception& e) {
         LOG_ERROR("sim") << "JSBSim exception loading '" << aircraft.name << "': " << e.what();
         return false;
+    } catch (const std::string& message) {
+        LOG_ERROR("sim") << "JSBSim exception loading '" << aircraft.name << "': " << message;
+        return false;
+    } catch (const char* message) {
+        LOG_ERROR("sim") << "JSBSim exception loading '" << aircraft.name << "': " << message;
+        return false;
     } catch (...) {
         LOG_ERROR("sim") << "JSBSim unknown exception loading '" << aircraft.name << "'";
         return false;

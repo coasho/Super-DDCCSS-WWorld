@@ -8,9 +8,9 @@
         <description> R-27T, released </description>
     </fileheader>
     <metrics>
-        <wingarea unit="FT2"> 0.44721 </wingarea>
-        <wingspan unit="FT"> 0.75459 </wingspan>
-        <chord unit="FT"> 0.75459 </chord>
+        <wingarea unit="FT2"> 0.44721424448247349 </wingarea>
+        <wingspan unit="FT"> 0.75459317585301833 </wingspan>
+        <chord unit="FT"> 0.75459317585301833 </chord>
         <htailarea unit="FT2"> 0 </htailarea>
         <htailarm unit="FT"> 0 </htailarm>
         <vtailarea unit="FT2"> 0 </vtailarea>
@@ -131,15 +131,1184 @@
             <contents unit="LBS"> 95.21320 </contents>
         </tank>
     </propulsion>
-    <flight_control name="none">
-        <!-- no controls. Its model's origin in this frame (in): its CG as it is launched, its motor full - its picture's
-             origin and what a station holds; the CG above is its structure's, burnt out -->
-        <property value="74.705">fsim/model/origin-x-in</property>
-        <property value="0">fsim/model/origin-y-in</property>
-        <property value="0">fsim/model/origin-z-in</property>
-    </flight_control>
+<flight_control name="Finite missile controls (engineering estimates)">
+    <property value="1">fsim/missile-control/version</property>
+    <property value="0.3490658503988659">fsim/missile-control/surface-limit-rad</property>
+    <property value="4">fsim/missile-control/surface-rate-rad_s</property>
+    <property value="4">fsim/missile-control/channel-rate-rad_s</property>
+    <property value="25">fsim/missile-control/lag-coefficient-s-1</property>
+    <property value="8">fsim/missile-control/fin-count</property>
+    <property value="0.3490658503988659">fsim/missile-control/elevator-limit-rad</property>
+    <property value="0.3490658503988659">fsim/missile-control/rudder-limit-rad</property>
+    <property value="0.3490658503988659">fsim/missile-control/aileron-limit-rad</property>
+    <property value="-0.3490658503988659">fsim/missile-control/fin-0-min-rad</property>
+    <property value="0.3490658503988659">fsim/missile-control/fin-0-max-rad</property>
+    <property value="4">fsim/missile-control/fin-0-rate-rad_s</property>
+    <property value="-0.3490658503988659">fsim/missile-control/fin-1-min-rad</property>
+    <property value="0.3490658503988659">fsim/missile-control/fin-1-max-rad</property>
+    <property value="4">fsim/missile-control/fin-1-rate-rad_s</property>
+    <property value="-0.3490658503988659">fsim/missile-control/fin-2-min-rad</property>
+    <property value="0.3490658503988659">fsim/missile-control/fin-2-max-rad</property>
+    <property value="4">fsim/missile-control/fin-2-rate-rad_s</property>
+    <property value="-0.3490658503988659">fsim/missile-control/fin-3-min-rad</property>
+    <property value="0.3490658503988659">fsim/missile-control/fin-3-max-rad</property>
+    <property value="4">fsim/missile-control/fin-3-rate-rad_s</property>
+    <property value="-0.3490658503988659">fsim/missile-control/fin-4-min-rad</property>
+    <property value="0.3490658503988659">fsim/missile-control/fin-4-max-rad</property>
+    <property value="4">fsim/missile-control/fin-4-rate-rad_s</property>
+    <property value="-0.3490658503988659">fsim/missile-control/fin-5-min-rad</property>
+    <property value="0.3490658503988659">fsim/missile-control/fin-5-max-rad</property>
+    <property value="4">fsim/missile-control/fin-5-rate-rad_s</property>
+    <property value="-0.3490658503988659">fsim/missile-control/fin-6-min-rad</property>
+    <property value="0.3490658503988659">fsim/missile-control/fin-6-max-rad</property>
+    <property value="4">fsim/missile-control/fin-6-rate-rad_s</property>
+    <property value="-0.3490658503988659">fsim/missile-control/fin-7-min-rad</property>
+    <property value="0.3490658503988659">fsim/missile-control/fin-7-max-rad</property>
+    <property value="4">fsim/missile-control/fin-7-rate-rad_s</property>
+    <property value="74.704724409448815">fsim/model/origin-x-in</property>
+    <property value="0">fsim/model/origin-y-in</property>
+    <property value="0">fsim/model/origin-z-in</property>
+    <channel name="Finite channel actuators and authored fin mixers">
+        <aerosurface_scale name="fcs/elevator-control">
+            <input>fcs/elevator-cmd-norm</input>
+            <range>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </range>
+        </aerosurface_scale>
+        <actuator name="fcs/elevator-actuator">
+            <input>fcs/elevator-control</input>
+            <lag>25</lag>
+            <rate_limit>4</rate_limit>
+            <clipto>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </clipto>
+            <output>fcs/elevator-response-rad</output>
+        </actuator>
+        <aerosurface_scale name="fcs/rudder-control">
+            <input>fcs/rudder-cmd-norm</input>
+            <range>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </range>
+        </aerosurface_scale>
+        <actuator name="fcs/rudder-actuator">
+            <input>fcs/rudder-control</input>
+            <lag>25</lag>
+            <rate_limit>4</rate_limit>
+            <clipto>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </clipto>
+            <output>fcs/rudder-response-rad</output>
+        </actuator>
+        <aerosurface_scale name="fcs/aileron-control">
+            <input>fcs/aileron-cmd-norm</input>
+            <range>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </range>
+        </aerosurface_scale>
+        <actuator name="fcs/aileron-actuator">
+            <input>fcs/aileron-control</input>
+            <lag>25</lag>
+            <rate_limit>4</rate_limit>
+            <clipto>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </clipto>
+            <output>fcs/aileron-response-rad</output>
+        </actuator>
+        <fcs_function name="fcs/fin-0-demand-rad">
+            <function>
+                <sum>
+                    <product>
+                        <value>1</value>
+                        <property>fcs/elevator-response-rad</property>
+                    </product>
+                    <product>
+                        <value>-1</value>
+                        <property>fcs/rudder-response-rad</property>
+                    </product>
+                    <product>
+                        <value>-1</value>
+                        <property>fcs/aileron-response-rad</property>
+                    </product>
+                </sum>
+            </function>
+            <clipto>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </clipto>
+        </fcs_function>
+        <actuator name="fcs/fin-0-actuator">
+            <input>fcs/fin-0-demand-rad</input>
+            <rate_limit>4</rate_limit>
+            <clipto>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </clipto>
+            <output>fcs/fin-0-delta-rad</output>
+        </actuator>
+        <fcs_function name="fcs/fin-1-demand-rad">
+            <function>
+                <sum>
+                    <product>
+                        <value>1</value>
+                        <property>fcs/elevator-response-rad</property>
+                    </product>
+                    <product>
+                        <value>1</value>
+                        <property>fcs/rudder-response-rad</property>
+                    </product>
+                    <product>
+                        <value>1</value>
+                        <property>fcs/aileron-response-rad</property>
+                    </product>
+                </sum>
+            </function>
+            <clipto>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </clipto>
+        </fcs_function>
+        <actuator name="fcs/fin-1-actuator">
+            <input>fcs/fin-1-demand-rad</input>
+            <rate_limit>4</rate_limit>
+            <clipto>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </clipto>
+            <output>fcs/fin-1-delta-rad</output>
+        </actuator>
+        <fcs_function name="fcs/fin-2-demand-rad">
+            <function>
+                <sum>
+                    <product>
+                        <value>1</value>
+                        <property>fcs/elevator-response-rad</property>
+                    </product>
+                    <product>
+                        <value>1</value>
+                        <property>fcs/rudder-response-rad</property>
+                    </product>
+                    <product>
+                        <value>-1</value>
+                        <property>fcs/aileron-response-rad</property>
+                    </product>
+                </sum>
+            </function>
+            <clipto>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </clipto>
+        </fcs_function>
+        <actuator name="fcs/fin-2-actuator">
+            <input>fcs/fin-2-demand-rad</input>
+            <rate_limit>4</rate_limit>
+            <clipto>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </clipto>
+            <output>fcs/fin-2-delta-rad</output>
+        </actuator>
+        <fcs_function name="fcs/fin-3-demand-rad">
+            <function>
+                <sum>
+                    <product>
+                        <value>1</value>
+                        <property>fcs/elevator-response-rad</property>
+                    </product>
+                    <product>
+                        <value>-1</value>
+                        <property>fcs/rudder-response-rad</property>
+                    </product>
+                    <product>
+                        <value>1</value>
+                        <property>fcs/aileron-response-rad</property>
+                    </product>
+                </sum>
+            </function>
+            <clipto>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </clipto>
+        </fcs_function>
+        <actuator name="fcs/fin-3-actuator">
+            <input>fcs/fin-3-demand-rad</input>
+            <rate_limit>4</rate_limit>
+            <clipto>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </clipto>
+            <output>fcs/fin-3-delta-rad</output>
+        </actuator>
+        <fcs_function name="fcs/fin-4-demand-rad">
+            <function>
+                <product>
+                    <value>-1</value>
+                    <property>fcs/aileron-response-rad</property>
+                </product>
+            </function>
+            <clipto>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </clipto>
+        </fcs_function>
+        <actuator name="fcs/fin-4-actuator">
+            <input>fcs/fin-4-demand-rad</input>
+            <rate_limit>4</rate_limit>
+            <clipto>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </clipto>
+            <output>fcs/fin-4-delta-rad</output>
+        </actuator>
+        <fcs_function name="fcs/fin-5-demand-rad">
+            <function>
+                <product>
+                    <value>1</value>
+                    <property>fcs/aileron-response-rad</property>
+                </product>
+            </function>
+            <clipto>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </clipto>
+        </fcs_function>
+        <actuator name="fcs/fin-5-actuator">
+            <input>fcs/fin-5-demand-rad</input>
+            <rate_limit>4</rate_limit>
+            <clipto>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </clipto>
+            <output>fcs/fin-5-delta-rad</output>
+        </actuator>
+        <fcs_function name="fcs/fin-6-demand-rad">
+            <function>
+                <product>
+                    <value>-1</value>
+                    <property>fcs/aileron-response-rad</property>
+                </product>
+            </function>
+            <clipto>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </clipto>
+        </fcs_function>
+        <actuator name="fcs/fin-6-actuator">
+            <input>fcs/fin-6-demand-rad</input>
+            <rate_limit>4</rate_limit>
+            <clipto>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </clipto>
+            <output>fcs/fin-6-delta-rad</output>
+        </actuator>
+        <fcs_function name="fcs/fin-7-demand-rad">
+            <function>
+                <product>
+                    <value>1</value>
+                    <property>fcs/aileron-response-rad</property>
+                </product>
+            </function>
+            <clipto>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </clipto>
+        </fcs_function>
+        <actuator name="fcs/fin-7-actuator">
+            <input>fcs/fin-7-demand-rad</input>
+            <rate_limit>4</rate_limit>
+            <clipto>
+                <min>-0.3490658503988659</min>
+                <max>0.3490658503988659</max>
+            </clipto>
+            <output>fcs/fin-7-delta-rad</output>
+        </actuator>
+        <fcs_function name="fcs/elevator-position">
+            <function>
+                <sum>
+                    <product>
+                        <value>0.25</value>
+                        <property>fcs/fin-0-delta-rad</property>
+                    </product>
+                    <product>
+                        <value>0.25</value>
+                        <property>fcs/fin-1-delta-rad</property>
+                    </product>
+                    <product>
+                        <value>0.25</value>
+                        <property>fcs/fin-2-delta-rad</property>
+                    </product>
+                    <product>
+                        <value>0.25</value>
+                        <property>fcs/fin-3-delta-rad</property>
+                    </product>
+                </sum>
+            </function>
+            <output>fcs/elevator-pos-rad</output>
+        </fcs_function>
+        <fcs_function name="fcs/rudder-position">
+            <function>
+                <sum>
+                    <product>
+                        <value>-0.24999999999999994</value>
+                        <property>fcs/fin-0-delta-rad</property>
+                    </product>
+                    <product>
+                        <value>0.24999999999999994</value>
+                        <property>fcs/fin-1-delta-rad</property>
+                    </product>
+                    <product>
+                        <value>0.25</value>
+                        <property>fcs/fin-2-delta-rad</property>
+                    </product>
+                    <product>
+                        <value>-0.25</value>
+                        <property>fcs/fin-3-delta-rad</property>
+                    </product>
+                </sum>
+            </function>
+            <output>fcs/rudder-pos-rad</output>
+        </fcs_function>
+        <fcs_function name="fcs/aileron-position">
+            <function>
+                <sum>
+                    <product>
+                        <value>-0.12499999999999997</value>
+                        <property>fcs/fin-0-delta-rad</property>
+                    </product>
+                    <product>
+                        <value>0.12499999999999996</value>
+                        <property>fcs/fin-1-delta-rad</property>
+                    </product>
+                    <product>
+                        <value>-0.12499999999999994</value>
+                        <property>fcs/fin-2-delta-rad</property>
+                    </product>
+                    <product>
+                        <value>0.12499999999999996</value>
+                        <property>fcs/fin-3-delta-rad</property>
+                    </product>
+                    <product>
+                        <value>-0.12499999999999997</value>
+                        <property>fcs/fin-4-delta-rad</property>
+                    </product>
+                    <product>
+                        <value>0.12499999999999997</value>
+                        <property>fcs/fin-5-delta-rad</property>
+                    </product>
+                    <product>
+                        <value>-0.12499999999999997</value>
+                        <property>fcs/fin-6-delta-rad</property>
+                    </product>
+                    <product>
+                        <value>0.12499999999999997</value>
+                        <property>fcs/fin-7-delta-rad</property>
+                    </product>
+                </sum>
+            </function>
+            <output>fcs/left-aileron-pos-rad</output>
+        </fcs_function>
+        <pure_gain name="fcs/aileron-position-alias">
+            <input>fcs/left-aileron-pos-rad</input>
+            <gain>1</gain>
+            <output>fcs/aileron-pos-rad</output>
+        </pure_gain>
+    </channel>
+</flight_control>
     <aerodynamics>
+    <!-- Fin control derivatives/lag/rate and flap/drag corrections are engineering estimates, not equipment calibration. -->
+<function name="fsim/control/cz-alpha" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 -25.913940889875658
+0.59999999999999998 -26.864059820826029
+0.80000000000000004 -27.711182840296814
+0.90000000000000002 -28.283335403975812
+1 -28.458992178467
+1.1000000000000001 -28.63464895295818
+1.2 -28.810305727449368
+1.3 -28.985962501940552
+1.6000000000000001 -28.985962501940552
+2 -24.587462202105513
+2.5 -19.987475941951825
+3 -16.934442244224606
+4 -13.103644301492173
+5 -10.779878298668988
+</tableData></table></function>
+<function name="fsim/control/cy-beta" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 -25.913940889875658
+0.59999999999999998 -26.864059820826029
+0.80000000000000004 -27.711182840296811
+0.90000000000000002 -28.283335403975808
+1 -28.458992178467
+1.1000000000000001 -28.63464895295818
+1.2 -28.810305727449368
+1.3 -28.985962501940552
+1.6000000000000001 -28.985962501940552
+2 -24.587462202105513
+2.5 -19.987475941951825
+3 -16.934442244224606
+4 -13.103644301492173
+5 -10.779878298668988
+</tableData></table></function>
+<function name="fsim/control/cm-alpha" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 -12.995955743297763
+0.59999999999999998 -14.689178391221056
+0.80000000000000004 -16.257566955238076
+0.90000000000000002 -18.281794233551345
+1 -19.570310421152897
+1.1000000000000001 -20.870656902160533
+1.2 -22.18283367657429
+1.3 -23.506840744394154
+1.6000000000000001 -26.370443681269379
+2 -21.018141831225016
+2.5 -13.115483616651822
+3 -7.9195725561321879
+4 -1.4398837015403814
+5 2.4733144130179827
+</tableData></table></function>
+<function name="fsim/control/cn-beta" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 12.99595574329777
+0.59999999999999998 14.689178391221063
+0.80000000000000004 16.257566955238083
+0.90000000000000002 18.281794233551352
+1 19.570310421152904
+1.1000000000000001 20.870656902160533
+1.2 22.18283367657429
+1.3 23.506840744394154
+1.6000000000000001 26.370443681269386
+2 21.018141831225023
+2.5 13.115483616651822
+3 7.9195725561321879
+4 1.4398837015403814
+5 -2.4733144130179827
+</tableData></table></function>
+<function name="fsim/control/cm-q" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 -1250.2997677446192
+0.59999999999999998 -1299.6580814981655
+0.80000000000000004 -1344.2604695683867
+0.90000000000000002 -1379.7051772609816
+1 -1394.3647056342866
+1.1000000000000001 -1409.2537994581096
+1.2 -1424.3749268277775
+1.3 -1439.7305558386174
+1.6000000000000001 -1457.6511543477034
+2 -1258.6497462297075
+2.5 -1029.5788032468154
+3 -877.69397868691067
+4 -687.23866555878158
+5 -571.76161727517251
+</tableData></table></function>
+<function name="fsim/control/cn-r" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 -1250.299767744619
+0.59999999999999998 -1299.6580814981653
+0.80000000000000004 -1344.2604695683867
+0.90000000000000002 -1379.7051772609816
+1 -1394.3647056342866
+1.1000000000000001 -1409.2537994581096
+1.2 -1424.3749268277775
+1.3 -1439.7305558386174
+1.6000000000000001 -1457.6511543477031
+2 -1258.6497462297075
+2.5 -1029.5788032468154
+3 -877.69397868691067
+4 -687.23866555878146
+5 -571.76161727517251
+</tableData></table></function>
+<function name="fsim/control/cl-p" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 -108.9476231941137
+0.59999999999999998 -112.99187616904317
+0.80000000000000004 -116.58431471676136
+0.90000000000000002 -119.00296599146839
+1 -119.74324235822814
+1.1000000000000001 -120.48351872498792
+1.2 -121.22379509174769
+1.3 -121.9640714585075
+1.6000000000000001 -121.9640714585075
+2 -102.62497464696855
+2.5 -82.57730756855679
+3 -69.277702612594197
+4 -52.594984709625365
+5 -42.477400972417421
+</tableData></table></function>
+<function name="fsim/control/cz-elevator" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 -18.887449720172917
+0.59999999999999998 -19.526636016355088
+0.80000000000000004 -20.086781828566686
+0.90000000000000002 -20.459484004789989
+1 -20.572241693507085
+1.1000000000000001 -20.684999382224188
+1.2 -20.797757070941287
+1.3 -20.910514759658387
+1.6000000000000001 -20.910514759658387
+2 -17.641357408195443
+2.5 -14.198597083487362
+3 -11.913369819916273
+4 -9.0457748554858011
+5 -7.3062002287826342
+</tableData></table></function>
+<function name="fsim/control/cy-rudder" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 18.887449720172917
+0.59999999999999998 19.526636016355088
+0.80000000000000004 20.086781828566686
+0.90000000000000002 20.459484004789989
+1 20.572241693507085
+1.1000000000000001 20.684999382224188
+1.2 20.797757070941287
+1.3 20.910514759658387
+1.6000000000000001 20.910514759658387
+2 17.641357408195443
+2.5 14.198597083487362
+3 11.913369819916273
+4 9.0457748554858011
+5 7.3062002287826342
+</tableData></table></function>
+<function name="fsim/control/cm-elevator" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 37.543938778006748
+0.59999999999999998 38.814495233597128
+0.80000000000000004 39.927937248903596
+0.90000000000000002 39.89275068461145
+1 39.33229995884971
+1.1000000000000001 38.763295377625958
+1.2 38.185736940940195
+1.3 37.599624648792428
+1.6000000000000001 35.220201264116625
+2 27.037297766908218
+2.5 21.760893356214314
+3 18.258534180523842
+4 13.863633202429318
+5 11.197546002808162
+</tableData></table></function>
+<function name="fsim/control/cn-rudder" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 37.543938778006748
+0.59999999999999998 38.814495233597128
+0.80000000000000004 39.927937248903596
+0.90000000000000002 39.89275068461145
+1 39.33229995884971
+1.1000000000000001 38.763295377625958
+1.2 38.185736940940195
+1.3 37.599624648792428
+1.6000000000000001 35.220201264116625
+2 27.037297766908218
+2.5 21.760893356214314
+3 18.258534180523842
+4 13.863633202429318
+5 11.197546002808162
+</tableData></table></function>
+<function name="fsim/control/cl-aileron" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 42.099894744486384
+0.59999999999999998 43.634974310687547
+0.80000000000000004 44.995209208635785
+0.90000000000000002 45.909070747092144
+1 46.188203982433308
+1.1000000000000001 46.467337217774478
+1.2 46.746470453115649
+1.3 47.025603688456847
+1.6000000000000001 47.025603688456847
+2 39.531042254956489
+2.5 31.80473313593922
+3 26.680601214287083
+4 20.254222613006629
+5 16.357340225799291
+</tableData></table></function>
+<function name="fsim/fin-control/air-x" type="pre"><product><cos><property>aero/alpha-rad</property></cos><cos><property>aero/beta-rad</property></cos></product></function>
+<function name="fsim/fin-control/air-y" type="pre"><sin><property>aero/beta-rad</property></sin></function>
+<function name="fsim/fin-control/air-z" type="pre"><product><sin><property>aero/alpha-rad</property></sin><cos><property>aero/beta-rad</property></cos></product></function>
+<function name="fsim/fin-control/fin-0/slope" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 6.6777218882271141
+0.59999999999999998 6.9037083704630771
+0.80000000000000004 7.1017498215971102
+0.90000000000000002 7.2335199396823509
+1 7.2733858028437419
+1.1000000000000001 7.3132516660051339
+1.2 7.3531175291665258
+1.3 7.3929833923279178
+1.6000000000000001 7.3929833923279178
+2 6.237161726335267
+2.5 5.0199621405347248
+3 4.2120122932229771
+4 3.1981643707003857
+5 2.5831318632394527
+</tableData></table></function>
+<function name="fsim/fin-control/fin-0/normal-flow" type="pre"><sum><product><value>-0</value><property>fsim/fin-control/air-x</property></product><product><value>-0.70710678118654757</value><property>fsim/fin-control/air-y</property></product><product><value>-0.70710678118654757</value><property>fsim/fin-control/air-z</property></product></sum></function>
+<function name="fsim/fin-control/fin-0/lift" type="pre"><product><property>aero/qbar-psf</property><property>metrics/Sw-sqft</property><property>fsim/fin-control/fin-0/slope</property><sin><property>fcs/fin-0-delta-rad</property></sin><cos><property>fcs/fin-0-delta-rad</property></cos></product></function>
+<function name="fsim/fin-control/fin-0/drag" type="pre"><product><property>aero/qbar-psf</property><property>metrics/Sw-sqft</property><property>fsim/fin-control/fin-0/slope</property><sin><property>fcs/fin-0-delta-rad</property></sin><sin><property>fcs/fin-0-delta-rad</property></sin></product></function>
+<function name="fsim/fin-control/fin-0/force-x" type="pre"><difference><product><property>fsim/fin-control/fin-0/lift</property><difference><value>-0</value><product><property>fsim/fin-control/fin-0/normal-flow</property><property>fsim/fin-control/air-x</property></product></difference></product><product><property>fsim/fin-control/fin-0/drag</property><property>fsim/fin-control/air-x</property></product></difference></function>
+<function name="fsim/fin-control/fin-0/force-y" type="pre"><difference><product><property>fsim/fin-control/fin-0/lift</property><difference><value>-0.70710678118654757</value><product><property>fsim/fin-control/fin-0/normal-flow</property><property>fsim/fin-control/air-y</property></product></difference></product><product><property>fsim/fin-control/fin-0/drag</property><property>fsim/fin-control/air-y</property></product></difference></function>
+<function name="fsim/fin-control/fin-0/force-z" type="pre"><difference><product><property>fsim/fin-control/fin-0/lift</property><difference><value>-0.70710678118654757</value><product><property>fsim/fin-control/fin-0/normal-flow</property><property>fsim/fin-control/air-z</property></product></difference></product><product><property>fsim/fin-control/fin-0/drag</property><property>fsim/fin-control/air-z</property></product></difference></function>
+<function name="fsim/fin-control/fin-0/arm-x" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 1.4999589895013119
+0.59999999999999998 1.4999589895013119
+0.80000000000000004 1.4999589895013119
+0.90000000000000002 1.4713370789588802
+1 1.4427151684164476
+1.1000000000000001 1.4140932578740153
+1.2 1.3854713473315829
+1.3 1.3568494367891506
+1.6000000000000001 1.2709837051618542
+2 1.1564960629921253
+2.5 1.1564960629921253
+3 1.1564960629921253
+4 1.1564960629921253
+5 1.1564960629921253
+</tableData></table></function>
+<function name="fsim/fin-control/fin-0/arm-y" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 0.61835629921259838
+0.59999999999999998 0.61835629921259838
+0.80000000000000004 0.61835629921259838
+0.90000000000000002 0.61835629921259838
+1 0.61835629921259838
+1.1000000000000001 0.61835629921259838
+1.2 0.61835629921259838
+1.3 0.61835629921259838
+1.6000000000000001 0.61835629921259838
+2 0.61835629921259838
+2.5 0.61835629921259838
+3 0.61835629921259838
+4 0.61835629921259838
+5 0.61835629921259838
+</tableData></table></function>
+<function name="fsim/fin-control/fin-0/arm-z" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 -0.61835629921259838
+0.59999999999999998 -0.61835629921259838
+0.80000000000000004 -0.61835629921259838
+0.90000000000000002 -0.61835629921259838
+1 -0.61835629921259838
+1.1000000000000001 -0.61835629921259838
+1.2 -0.61835629921259838
+1.3 -0.61835629921259838
+1.6000000000000001 -0.61835629921259838
+2 -0.61835629921259838
+2.5 -0.61835629921259838
+3 -0.61835629921259838
+4 -0.61835629921259838
+5 -0.61835629921259838
+</tableData></table></function>
+<function name="fsim/fin-control/fin-0/moment-l" type="pre"><difference><product><property>fsim/fin-control/fin-0/arm-y</property><property>fsim/fin-control/fin-0/force-z</property></product><product><property>fsim/fin-control/fin-0/arm-z</property><property>fsim/fin-control/fin-0/force-y</property></product></difference></function>
+<function name="fsim/fin-control/fin-0/moment-m" type="pre"><difference><product><property>fsim/fin-control/fin-0/arm-z</property><property>fsim/fin-control/fin-0/force-x</property></product><product><property>fsim/fin-control/fin-0/arm-x</property><property>fsim/fin-control/fin-0/force-z</property></product></difference></function>
+<function name="fsim/fin-control/fin-0/moment-n" type="pre"><difference><product><property>fsim/fin-control/fin-0/arm-x</property><property>fsim/fin-control/fin-0/force-y</property></product><product><property>fsim/fin-control/fin-0/arm-y</property><property>fsim/fin-control/fin-0/force-x</property></product></difference></function>
+<function name="fsim/fin-control/fin-1/slope" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 6.6777218882271141
+0.59999999999999998 6.9037083704630771
+0.80000000000000004 7.1017498215971102
+0.90000000000000002 7.2335199396823509
+1 7.2733858028437419
+1.1000000000000001 7.3132516660051339
+1.2 7.3531175291665258
+1.3 7.3929833923279178
+1.6000000000000001 7.3929833923279178
+2 6.237161726335267
+2.5 5.0199621405347248
+3 4.2120122932229771
+4 3.1981643707003857
+5 2.5831318632394527
+</tableData></table></function>
+<function name="fsim/fin-control/fin-1/normal-flow" type="pre"><sum><product><value>-0</value><property>fsim/fin-control/air-x</property></product><product><value>0.70710678118654757</value><property>fsim/fin-control/air-y</property></product><product><value>-0.70710678118654757</value><property>fsim/fin-control/air-z</property></product></sum></function>
+<function name="fsim/fin-control/fin-1/lift" type="pre"><product><property>aero/qbar-psf</property><property>metrics/Sw-sqft</property><property>fsim/fin-control/fin-1/slope</property><sin><property>fcs/fin-1-delta-rad</property></sin><cos><property>fcs/fin-1-delta-rad</property></cos></product></function>
+<function name="fsim/fin-control/fin-1/drag" type="pre"><product><property>aero/qbar-psf</property><property>metrics/Sw-sqft</property><property>fsim/fin-control/fin-1/slope</property><sin><property>fcs/fin-1-delta-rad</property></sin><sin><property>fcs/fin-1-delta-rad</property></sin></product></function>
+<function name="fsim/fin-control/fin-1/force-x" type="pre"><difference><product><property>fsim/fin-control/fin-1/lift</property><difference><value>-0</value><product><property>fsim/fin-control/fin-1/normal-flow</property><property>fsim/fin-control/air-x</property></product></difference></product><product><property>fsim/fin-control/fin-1/drag</property><property>fsim/fin-control/air-x</property></product></difference></function>
+<function name="fsim/fin-control/fin-1/force-y" type="pre"><difference><product><property>fsim/fin-control/fin-1/lift</property><difference><value>0.70710678118654757</value><product><property>fsim/fin-control/fin-1/normal-flow</property><property>fsim/fin-control/air-y</property></product></difference></product><product><property>fsim/fin-control/fin-1/drag</property><property>fsim/fin-control/air-y</property></product></difference></function>
+<function name="fsim/fin-control/fin-1/force-z" type="pre"><difference><product><property>fsim/fin-control/fin-1/lift</property><difference><value>-0.70710678118654757</value><product><property>fsim/fin-control/fin-1/normal-flow</property><property>fsim/fin-control/air-z</property></product></difference></product><product><property>fsim/fin-control/fin-1/drag</property><property>fsim/fin-control/air-z</property></product></difference></function>
+<function name="fsim/fin-control/fin-1/arm-x" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 1.4999589895013119
+0.59999999999999998 1.4999589895013119
+0.80000000000000004 1.4999589895013119
+0.90000000000000002 1.4713370789588802
+1 1.4427151684164476
+1.1000000000000001 1.4140932578740153
+1.2 1.3854713473315829
+1.3 1.3568494367891506
+1.6000000000000001 1.2709837051618542
+2 1.1564960629921253
+2.5 1.1564960629921253
+3 1.1564960629921253
+4 1.1564960629921253
+5 1.1564960629921253
+</tableData></table></function>
+<function name="fsim/fin-control/fin-1/arm-y" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 -0.61835629921259838
+0.59999999999999998 -0.61835629921259838
+0.80000000000000004 -0.61835629921259838
+0.90000000000000002 -0.61835629921259838
+1 -0.61835629921259838
+1.1000000000000001 -0.61835629921259838
+1.2 -0.61835629921259838
+1.3 -0.61835629921259838
+1.6000000000000001 -0.61835629921259838
+2 -0.61835629921259838
+2.5 -0.61835629921259838
+3 -0.61835629921259838
+4 -0.61835629921259838
+5 -0.61835629921259838
+</tableData></table></function>
+<function name="fsim/fin-control/fin-1/arm-z" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 -0.61835629921259838
+0.59999999999999998 -0.61835629921259838
+0.80000000000000004 -0.61835629921259838
+0.90000000000000002 -0.61835629921259838
+1 -0.61835629921259838
+1.1000000000000001 -0.61835629921259838
+1.2 -0.61835629921259838
+1.3 -0.61835629921259838
+1.6000000000000001 -0.61835629921259838
+2 -0.61835629921259838
+2.5 -0.61835629921259838
+3 -0.61835629921259838
+4 -0.61835629921259838
+5 -0.61835629921259838
+</tableData></table></function>
+<function name="fsim/fin-control/fin-1/moment-l" type="pre"><difference><product><property>fsim/fin-control/fin-1/arm-y</property><property>fsim/fin-control/fin-1/force-z</property></product><product><property>fsim/fin-control/fin-1/arm-z</property><property>fsim/fin-control/fin-1/force-y</property></product></difference></function>
+<function name="fsim/fin-control/fin-1/moment-m" type="pre"><difference><product><property>fsim/fin-control/fin-1/arm-z</property><property>fsim/fin-control/fin-1/force-x</property></product><product><property>fsim/fin-control/fin-1/arm-x</property><property>fsim/fin-control/fin-1/force-z</property></product></difference></function>
+<function name="fsim/fin-control/fin-1/moment-n" type="pre"><difference><product><property>fsim/fin-control/fin-1/arm-x</property><property>fsim/fin-control/fin-1/force-y</property></product><product><property>fsim/fin-control/fin-1/arm-y</property><property>fsim/fin-control/fin-1/force-x</property></product></difference></function>
+<function name="fsim/fin-control/fin-2/slope" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 6.6777218882271141
+0.59999999999999998 6.9037083704630771
+0.80000000000000004 7.1017498215971102
+0.90000000000000002 7.2335199396823509
+1 7.2733858028437419
+1.1000000000000001 7.3132516660051339
+1.2 7.3531175291665258
+1.3 7.3929833923279178
+1.6000000000000001 7.3929833923279178
+2 6.237161726335267
+2.5 5.0199621405347248
+3 4.2120122932229771
+4 3.1981643707003857
+5 2.5831318632394527
+</tableData></table></function>
+<function name="fsim/fin-control/fin-2/normal-flow" type="pre"><sum><product><value>-0</value><property>fsim/fin-control/air-x</property></product><product><value>0.70710678118654757</value><property>fsim/fin-control/air-y</property></product><product><value>-0.70710678118654757</value><property>fsim/fin-control/air-z</property></product></sum></function>
+<function name="fsim/fin-control/fin-2/lift" type="pre"><product><property>aero/qbar-psf</property><property>metrics/Sw-sqft</property><property>fsim/fin-control/fin-2/slope</property><sin><property>fcs/fin-2-delta-rad</property></sin><cos><property>fcs/fin-2-delta-rad</property></cos></product></function>
+<function name="fsim/fin-control/fin-2/drag" type="pre"><product><property>aero/qbar-psf</property><property>metrics/Sw-sqft</property><property>fsim/fin-control/fin-2/slope</property><sin><property>fcs/fin-2-delta-rad</property></sin><sin><property>fcs/fin-2-delta-rad</property></sin></product></function>
+<function name="fsim/fin-control/fin-2/force-x" type="pre"><difference><product><property>fsim/fin-control/fin-2/lift</property><difference><value>-0</value><product><property>fsim/fin-control/fin-2/normal-flow</property><property>fsim/fin-control/air-x</property></product></difference></product><product><property>fsim/fin-control/fin-2/drag</property><property>fsim/fin-control/air-x</property></product></difference></function>
+<function name="fsim/fin-control/fin-2/force-y" type="pre"><difference><product><property>fsim/fin-control/fin-2/lift</property><difference><value>0.70710678118654757</value><product><property>fsim/fin-control/fin-2/normal-flow</property><property>fsim/fin-control/air-y</property></product></difference></product><product><property>fsim/fin-control/fin-2/drag</property><property>fsim/fin-control/air-y</property></product></difference></function>
+<function name="fsim/fin-control/fin-2/force-z" type="pre"><difference><product><property>fsim/fin-control/fin-2/lift</property><difference><value>-0.70710678118654757</value><product><property>fsim/fin-control/fin-2/normal-flow</property><property>fsim/fin-control/air-z</property></product></difference></product><product><property>fsim/fin-control/fin-2/drag</property><property>fsim/fin-control/air-z</property></product></difference></function>
+<function name="fsim/fin-control/fin-2/arm-x" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 1.4999589895013119
+0.59999999999999998 1.4999589895013119
+0.80000000000000004 1.4999589895013119
+0.90000000000000002 1.4713370789588802
+1 1.4427151684164476
+1.1000000000000001 1.4140932578740153
+1.2 1.3854713473315829
+1.3 1.3568494367891506
+1.6000000000000001 1.2709837051618542
+2 1.1564960629921253
+2.5 1.1564960629921253
+3 1.1564960629921253
+4 1.1564960629921253
+5 1.1564960629921253
+</tableData></table></function>
+<function name="fsim/fin-control/fin-2/arm-y" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 0.61835629921259838
+0.59999999999999998 0.61835629921259838
+0.80000000000000004 0.61835629921259838
+0.90000000000000002 0.61835629921259838
+1 0.61835629921259838
+1.1000000000000001 0.61835629921259838
+1.2 0.61835629921259838
+1.3 0.61835629921259838
+1.6000000000000001 0.61835629921259838
+2 0.61835629921259838
+2.5 0.61835629921259838
+3 0.61835629921259838
+4 0.61835629921259838
+5 0.61835629921259838
+</tableData></table></function>
+<function name="fsim/fin-control/fin-2/arm-z" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 0.61835629921259838
+0.59999999999999998 0.61835629921259838
+0.80000000000000004 0.61835629921259838
+0.90000000000000002 0.61835629921259838
+1 0.61835629921259838
+1.1000000000000001 0.61835629921259838
+1.2 0.61835629921259838
+1.3 0.61835629921259838
+1.6000000000000001 0.61835629921259838
+2 0.61835629921259838
+2.5 0.61835629921259838
+3 0.61835629921259838
+4 0.61835629921259838
+5 0.61835629921259838
+</tableData></table></function>
+<function name="fsim/fin-control/fin-2/moment-l" type="pre"><difference><product><property>fsim/fin-control/fin-2/arm-y</property><property>fsim/fin-control/fin-2/force-z</property></product><product><property>fsim/fin-control/fin-2/arm-z</property><property>fsim/fin-control/fin-2/force-y</property></product></difference></function>
+<function name="fsim/fin-control/fin-2/moment-m" type="pre"><difference><product><property>fsim/fin-control/fin-2/arm-z</property><property>fsim/fin-control/fin-2/force-x</property></product><product><property>fsim/fin-control/fin-2/arm-x</property><property>fsim/fin-control/fin-2/force-z</property></product></difference></function>
+<function name="fsim/fin-control/fin-2/moment-n" type="pre"><difference><product><property>fsim/fin-control/fin-2/arm-x</property><property>fsim/fin-control/fin-2/force-y</property></product><product><property>fsim/fin-control/fin-2/arm-y</property><property>fsim/fin-control/fin-2/force-x</property></product></difference></function>
+<function name="fsim/fin-control/fin-3/slope" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 6.6777218882271141
+0.59999999999999998 6.9037083704630771
+0.80000000000000004 7.1017498215971102
+0.90000000000000002 7.2335199396823509
+1 7.2733858028437419
+1.1000000000000001 7.3132516660051339
+1.2 7.3531175291665258
+1.3 7.3929833923279178
+1.6000000000000001 7.3929833923279178
+2 6.237161726335267
+2.5 5.0199621405347248
+3 4.2120122932229771
+4 3.1981643707003857
+5 2.5831318632394527
+</tableData></table></function>
+<function name="fsim/fin-control/fin-3/normal-flow" type="pre"><sum><product><value>-0</value><property>fsim/fin-control/air-x</property></product><product><value>-0.70710678118654757</value><property>fsim/fin-control/air-y</property></product><product><value>-0.70710678118654757</value><property>fsim/fin-control/air-z</property></product></sum></function>
+<function name="fsim/fin-control/fin-3/lift" type="pre"><product><property>aero/qbar-psf</property><property>metrics/Sw-sqft</property><property>fsim/fin-control/fin-3/slope</property><sin><property>fcs/fin-3-delta-rad</property></sin><cos><property>fcs/fin-3-delta-rad</property></cos></product></function>
+<function name="fsim/fin-control/fin-3/drag" type="pre"><product><property>aero/qbar-psf</property><property>metrics/Sw-sqft</property><property>fsim/fin-control/fin-3/slope</property><sin><property>fcs/fin-3-delta-rad</property></sin><sin><property>fcs/fin-3-delta-rad</property></sin></product></function>
+<function name="fsim/fin-control/fin-3/force-x" type="pre"><difference><product><property>fsim/fin-control/fin-3/lift</property><difference><value>-0</value><product><property>fsim/fin-control/fin-3/normal-flow</property><property>fsim/fin-control/air-x</property></product></difference></product><product><property>fsim/fin-control/fin-3/drag</property><property>fsim/fin-control/air-x</property></product></difference></function>
+<function name="fsim/fin-control/fin-3/force-y" type="pre"><difference><product><property>fsim/fin-control/fin-3/lift</property><difference><value>-0.70710678118654757</value><product><property>fsim/fin-control/fin-3/normal-flow</property><property>fsim/fin-control/air-y</property></product></difference></product><product><property>fsim/fin-control/fin-3/drag</property><property>fsim/fin-control/air-y</property></product></difference></function>
+<function name="fsim/fin-control/fin-3/force-z" type="pre"><difference><product><property>fsim/fin-control/fin-3/lift</property><difference><value>-0.70710678118654757</value><product><property>fsim/fin-control/fin-3/normal-flow</property><property>fsim/fin-control/air-z</property></product></difference></product><product><property>fsim/fin-control/fin-3/drag</property><property>fsim/fin-control/air-z</property></product></difference></function>
+<function name="fsim/fin-control/fin-3/arm-x" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 1.4999589895013119
+0.59999999999999998 1.4999589895013119
+0.80000000000000004 1.4999589895013119
+0.90000000000000002 1.4713370789588802
+1 1.4427151684164476
+1.1000000000000001 1.4140932578740153
+1.2 1.3854713473315829
+1.3 1.3568494367891506
+1.6000000000000001 1.2709837051618542
+2 1.1564960629921253
+2.5 1.1564960629921253
+3 1.1564960629921253
+4 1.1564960629921253
+5 1.1564960629921253
+</tableData></table></function>
+<function name="fsim/fin-control/fin-3/arm-y" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 -0.61835629921259838
+0.59999999999999998 -0.61835629921259838
+0.80000000000000004 -0.61835629921259838
+0.90000000000000002 -0.61835629921259838
+1 -0.61835629921259838
+1.1000000000000001 -0.61835629921259838
+1.2 -0.61835629921259838
+1.3 -0.61835629921259838
+1.6000000000000001 -0.61835629921259838
+2 -0.61835629921259838
+2.5 -0.61835629921259838
+3 -0.61835629921259838
+4 -0.61835629921259838
+5 -0.61835629921259838
+</tableData></table></function>
+<function name="fsim/fin-control/fin-3/arm-z" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 0.61835629921259838
+0.59999999999999998 0.61835629921259838
+0.80000000000000004 0.61835629921259838
+0.90000000000000002 0.61835629921259838
+1 0.61835629921259838
+1.1000000000000001 0.61835629921259838
+1.2 0.61835629921259838
+1.3 0.61835629921259838
+1.6000000000000001 0.61835629921259838
+2 0.61835629921259838
+2.5 0.61835629921259838
+3 0.61835629921259838
+4 0.61835629921259838
+5 0.61835629921259838
+</tableData></table></function>
+<function name="fsim/fin-control/fin-3/moment-l" type="pre"><difference><product><property>fsim/fin-control/fin-3/arm-y</property><property>fsim/fin-control/fin-3/force-z</property></product><product><property>fsim/fin-control/fin-3/arm-z</property><property>fsim/fin-control/fin-3/force-y</property></product></difference></function>
+<function name="fsim/fin-control/fin-3/moment-m" type="pre"><difference><product><property>fsim/fin-control/fin-3/arm-z</property><property>fsim/fin-control/fin-3/force-x</property></product><product><property>fsim/fin-control/fin-3/arm-x</property><property>fsim/fin-control/fin-3/force-z</property></product></difference></function>
+<function name="fsim/fin-control/fin-3/moment-n" type="pre"><difference><product><property>fsim/fin-control/fin-3/arm-x</property><property>fsim/fin-control/fin-3/force-y</property></product><product><property>fsim/fin-control/fin-3/arm-y</property><property>fsim/fin-control/fin-3/force-x</property></product></difference></function>
+<function name="fsim/fin-control/fin-4/slope" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 2.9457663622281043
+0.59999999999999998 3.0746211079678276
+0.80000000000000004 3.1915013836219774
+0.90000000000000002 3.2715973892626118
+1 3.2965308444568837
+1.1000000000000001 3.3214642996511561
+1.2 3.346397754845428
+1.3 3.3713312100397008
+1.6000000000000001 3.3713312100397008
+2 2.8065752109070567
+2.5 2.2557676489897833
+3 1.8913219594026629
+4 1.4349492127857955
+5 1.1585123175233971
+</tableData></table></function>
+<function name="fsim/fin-control/fin-4/normal-flow" type="pre"><sum><product><value>-0</value><property>fsim/fin-control/air-x</property></product><product><value>-0.70710678118654757</value><property>fsim/fin-control/air-y</property></product><product><value>-0.70710678118654757</value><property>fsim/fin-control/air-z</property></product></sum></function>
+<function name="fsim/fin-control/fin-4/lift" type="pre"><product><property>aero/qbar-psf</property><property>metrics/Sw-sqft</property><property>fsim/fin-control/fin-4/slope</property><sin><property>fcs/fin-4-delta-rad</property></sin><cos><property>fcs/fin-4-delta-rad</property></cos></product></function>
+<function name="fsim/fin-control/fin-4/drag" type="pre"><product><property>aero/qbar-psf</property><property>metrics/Sw-sqft</property><property>fsim/fin-control/fin-4/slope</property><sin><property>fcs/fin-4-delta-rad</property></sin><sin><property>fcs/fin-4-delta-rad</property></sin></product></function>
+<function name="fsim/fin-control/fin-4/force-x" type="pre"><difference><product><property>fsim/fin-control/fin-4/lift</property><difference><value>-0</value><product><property>fsim/fin-control/fin-4/normal-flow</property><property>fsim/fin-control/air-x</property></product></difference></product><product><property>fsim/fin-control/fin-4/drag</property><property>fsim/fin-control/air-x</property></product></difference></function>
+<function name="fsim/fin-control/fin-4/force-y" type="pre"><difference><product><property>fsim/fin-control/fin-4/lift</property><difference><value>-0.70710678118654757</value><product><property>fsim/fin-control/fin-4/normal-flow</property><property>fsim/fin-control/air-y</property></product></difference></product><product><property>fsim/fin-control/fin-4/drag</property><property>fsim/fin-control/air-y</property></product></difference></function>
+<function name="fsim/fin-control/fin-4/force-z" type="pre"><difference><product><property>fsim/fin-control/fin-4/lift</property><difference><value>-0.70710678118654757</value><product><property>fsim/fin-control/fin-4/normal-flow</property><property>fsim/fin-control/air-z</property></product></difference></product><product><property>fsim/fin-control/fin-4/drag</property><property>fsim/fin-control/air-z</property></product></difference></function>
+<function name="fsim/fin-control/fin-4/arm-x" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 -5.202842751273737
+0.59999999999999998 -5.202842751273737
+0.80000000000000004 -5.202842751273737
+0.90000000000000002 -5.227145894447017
+1 -5.2514490376202971
+1.1000000000000001 -5.2757521807935763
+1.2 -5.3000553239668564
+1.3 -5.3243584671401374
+1.6000000000000001 -5.3972678966599759
+2 -5.4944804693530953
+2.5 -5.4944804693530953
+3 -5.4944804693530953
+4 -5.4944804693530953
+5 -5.4944804693530953
+</tableData></table></function>
+<function name="fsim/fin-control/fin-4/arm-y" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 0.50468446039833259
+0.59999999999999998 0.50468446039833259
+0.80000000000000004 0.50468446039833259
+0.90000000000000002 0.50468446039833259
+1 0.50468446039833259
+1.1000000000000001 0.50468446039833259
+1.2 0.50468446039833259
+1.3 0.50468446039833259
+1.6000000000000001 0.50468446039833259
+2 0.50468446039833259
+2.5 0.50468446039833259
+3 0.50468446039833259
+4 0.50468446039833259
+5 0.50468446039833259
+</tableData></table></function>
+<function name="fsim/fin-control/fin-4/arm-z" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 -0.50468446039833259
+0.59999999999999998 -0.50468446039833259
+0.80000000000000004 -0.50468446039833259
+0.90000000000000002 -0.50468446039833259
+1 -0.50468446039833259
+1.1000000000000001 -0.50468446039833259
+1.2 -0.50468446039833259
+1.3 -0.50468446039833259
+1.6000000000000001 -0.50468446039833259
+2 -0.50468446039833259
+2.5 -0.50468446039833259
+3 -0.50468446039833259
+4 -0.50468446039833259
+5 -0.50468446039833259
+</tableData></table></function>
+<function name="fsim/fin-control/fin-4/moment-l" type="pre"><difference><product><property>fsim/fin-control/fin-4/arm-y</property><property>fsim/fin-control/fin-4/force-z</property></product><product><property>fsim/fin-control/fin-4/arm-z</property><property>fsim/fin-control/fin-4/force-y</property></product></difference></function>
+<function name="fsim/fin-control/fin-4/moment-m" type="pre"><difference><product><property>fsim/fin-control/fin-4/arm-z</property><property>fsim/fin-control/fin-4/force-x</property></product><product><property>fsim/fin-control/fin-4/arm-x</property><property>fsim/fin-control/fin-4/force-z</property></product></difference></function>
+<function name="fsim/fin-control/fin-4/moment-n" type="pre"><difference><product><property>fsim/fin-control/fin-4/arm-x</property><property>fsim/fin-control/fin-4/force-y</property></product><product><property>fsim/fin-control/fin-4/arm-y</property><property>fsim/fin-control/fin-4/force-x</property></product></difference></function>
+<function name="fsim/fin-control/fin-5/slope" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 2.9457663622281043
+0.59999999999999998 3.0746211079678276
+0.80000000000000004 3.1915013836219774
+0.90000000000000002 3.2715973892626118
+1 3.2965308444568837
+1.1000000000000001 3.3214642996511561
+1.2 3.346397754845428
+1.3 3.3713312100397008
+1.6000000000000001 3.3713312100397008
+2 2.8065752109070567
+2.5 2.2557676489897833
+3 1.8913219594026629
+4 1.4349492127857955
+5 1.1585123175233971
+</tableData></table></function>
+<function name="fsim/fin-control/fin-5/normal-flow" type="pre"><sum><product><value>-0</value><property>fsim/fin-control/air-x</property></product><product><value>0.70710678118654757</value><property>fsim/fin-control/air-y</property></product><product><value>-0.70710678118654757</value><property>fsim/fin-control/air-z</property></product></sum></function>
+<function name="fsim/fin-control/fin-5/lift" type="pre"><product><property>aero/qbar-psf</property><property>metrics/Sw-sqft</property><property>fsim/fin-control/fin-5/slope</property><sin><property>fcs/fin-5-delta-rad</property></sin><cos><property>fcs/fin-5-delta-rad</property></cos></product></function>
+<function name="fsim/fin-control/fin-5/drag" type="pre"><product><property>aero/qbar-psf</property><property>metrics/Sw-sqft</property><property>fsim/fin-control/fin-5/slope</property><sin><property>fcs/fin-5-delta-rad</property></sin><sin><property>fcs/fin-5-delta-rad</property></sin></product></function>
+<function name="fsim/fin-control/fin-5/force-x" type="pre"><difference><product><property>fsim/fin-control/fin-5/lift</property><difference><value>-0</value><product><property>fsim/fin-control/fin-5/normal-flow</property><property>fsim/fin-control/air-x</property></product></difference></product><product><property>fsim/fin-control/fin-5/drag</property><property>fsim/fin-control/air-x</property></product></difference></function>
+<function name="fsim/fin-control/fin-5/force-y" type="pre"><difference><product><property>fsim/fin-control/fin-5/lift</property><difference><value>0.70710678118654757</value><product><property>fsim/fin-control/fin-5/normal-flow</property><property>fsim/fin-control/air-y</property></product></difference></product><product><property>fsim/fin-control/fin-5/drag</property><property>fsim/fin-control/air-y</property></product></difference></function>
+<function name="fsim/fin-control/fin-5/force-z" type="pre"><difference><product><property>fsim/fin-control/fin-5/lift</property><difference><value>-0.70710678118654757</value><product><property>fsim/fin-control/fin-5/normal-flow</property><property>fsim/fin-control/air-z</property></product></difference></product><product><property>fsim/fin-control/fin-5/drag</property><property>fsim/fin-control/air-z</property></product></difference></function>
+<function name="fsim/fin-control/fin-5/arm-x" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 -5.202842751273737
+0.59999999999999998 -5.202842751273737
+0.80000000000000004 -5.202842751273737
+0.90000000000000002 -5.227145894447017
+1 -5.2514490376202971
+1.1000000000000001 -5.2757521807935763
+1.2 -5.3000553239668564
+1.3 -5.3243584671401374
+1.6000000000000001 -5.3972678966599759
+2 -5.4944804693530953
+2.5 -5.4944804693530953
+3 -5.4944804693530953
+4 -5.4944804693530953
+5 -5.4944804693530953
+</tableData></table></function>
+<function name="fsim/fin-control/fin-5/arm-y" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 -0.50468446039833259
+0.59999999999999998 -0.50468446039833259
+0.80000000000000004 -0.50468446039833259
+0.90000000000000002 -0.50468446039833259
+1 -0.50468446039833259
+1.1000000000000001 -0.50468446039833259
+1.2 -0.50468446039833259
+1.3 -0.50468446039833259
+1.6000000000000001 -0.50468446039833259
+2 -0.50468446039833259
+2.5 -0.50468446039833259
+3 -0.50468446039833259
+4 -0.50468446039833259
+5 -0.50468446039833259
+</tableData></table></function>
+<function name="fsim/fin-control/fin-5/arm-z" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 -0.50468446039833259
+0.59999999999999998 -0.50468446039833259
+0.80000000000000004 -0.50468446039833259
+0.90000000000000002 -0.50468446039833259
+1 -0.50468446039833259
+1.1000000000000001 -0.50468446039833259
+1.2 -0.50468446039833259
+1.3 -0.50468446039833259
+1.6000000000000001 -0.50468446039833259
+2 -0.50468446039833259
+2.5 -0.50468446039833259
+3 -0.50468446039833259
+4 -0.50468446039833259
+5 -0.50468446039833259
+</tableData></table></function>
+<function name="fsim/fin-control/fin-5/moment-l" type="pre"><difference><product><property>fsim/fin-control/fin-5/arm-y</property><property>fsim/fin-control/fin-5/force-z</property></product><product><property>fsim/fin-control/fin-5/arm-z</property><property>fsim/fin-control/fin-5/force-y</property></product></difference></function>
+<function name="fsim/fin-control/fin-5/moment-m" type="pre"><difference><product><property>fsim/fin-control/fin-5/arm-z</property><property>fsim/fin-control/fin-5/force-x</property></product><product><property>fsim/fin-control/fin-5/arm-x</property><property>fsim/fin-control/fin-5/force-z</property></product></difference></function>
+<function name="fsim/fin-control/fin-5/moment-n" type="pre"><difference><product><property>fsim/fin-control/fin-5/arm-x</property><property>fsim/fin-control/fin-5/force-y</property></product><product><property>fsim/fin-control/fin-5/arm-y</property><property>fsim/fin-control/fin-5/force-x</property></product></difference></function>
+<function name="fsim/fin-control/fin-6/slope" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 2.9457663622281043
+0.59999999999999998 3.0746211079678276
+0.80000000000000004 3.1915013836219774
+0.90000000000000002 3.2715973892626118
+1 3.2965308444568837
+1.1000000000000001 3.3214642996511561
+1.2 3.346397754845428
+1.3 3.3713312100397008
+1.6000000000000001 3.3713312100397008
+2 2.8065752109070567
+2.5 2.2557676489897833
+3 1.8913219594026629
+4 1.4349492127857955
+5 1.1585123175233971
+</tableData></table></function>
+<function name="fsim/fin-control/fin-6/normal-flow" type="pre"><sum><product><value>-0</value><property>fsim/fin-control/air-x</property></product><product><value>0.70710678118654757</value><property>fsim/fin-control/air-y</property></product><product><value>-0.70710678118654757</value><property>fsim/fin-control/air-z</property></product></sum></function>
+<function name="fsim/fin-control/fin-6/lift" type="pre"><product><property>aero/qbar-psf</property><property>metrics/Sw-sqft</property><property>fsim/fin-control/fin-6/slope</property><sin><property>fcs/fin-6-delta-rad</property></sin><cos><property>fcs/fin-6-delta-rad</property></cos></product></function>
+<function name="fsim/fin-control/fin-6/drag" type="pre"><product><property>aero/qbar-psf</property><property>metrics/Sw-sqft</property><property>fsim/fin-control/fin-6/slope</property><sin><property>fcs/fin-6-delta-rad</property></sin><sin><property>fcs/fin-6-delta-rad</property></sin></product></function>
+<function name="fsim/fin-control/fin-6/force-x" type="pre"><difference><product><property>fsim/fin-control/fin-6/lift</property><difference><value>-0</value><product><property>fsim/fin-control/fin-6/normal-flow</property><property>fsim/fin-control/air-x</property></product></difference></product><product><property>fsim/fin-control/fin-6/drag</property><property>fsim/fin-control/air-x</property></product></difference></function>
+<function name="fsim/fin-control/fin-6/force-y" type="pre"><difference><product><property>fsim/fin-control/fin-6/lift</property><difference><value>0.70710678118654757</value><product><property>fsim/fin-control/fin-6/normal-flow</property><property>fsim/fin-control/air-y</property></product></difference></product><product><property>fsim/fin-control/fin-6/drag</property><property>fsim/fin-control/air-y</property></product></difference></function>
+<function name="fsim/fin-control/fin-6/force-z" type="pre"><difference><product><property>fsim/fin-control/fin-6/lift</property><difference><value>-0.70710678118654757</value><product><property>fsim/fin-control/fin-6/normal-flow</property><property>fsim/fin-control/air-z</property></product></difference></product><product><property>fsim/fin-control/fin-6/drag</property><property>fsim/fin-control/air-z</property></product></difference></function>
+<function name="fsim/fin-control/fin-6/arm-x" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 -5.202842751273737
+0.59999999999999998 -5.202842751273737
+0.80000000000000004 -5.202842751273737
+0.90000000000000002 -5.227145894447017
+1 -5.2514490376202971
+1.1000000000000001 -5.2757521807935763
+1.2 -5.3000553239668564
+1.3 -5.3243584671401374
+1.6000000000000001 -5.3972678966599759
+2 -5.4944804693530953
+2.5 -5.4944804693530953
+3 -5.4944804693530953
+4 -5.4944804693530953
+5 -5.4944804693530953
+</tableData></table></function>
+<function name="fsim/fin-control/fin-6/arm-y" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 0.50468446039833259
+0.59999999999999998 0.50468446039833259
+0.80000000000000004 0.50468446039833259
+0.90000000000000002 0.50468446039833259
+1 0.50468446039833259
+1.1000000000000001 0.50468446039833259
+1.2 0.50468446039833259
+1.3 0.50468446039833259
+1.6000000000000001 0.50468446039833259
+2 0.50468446039833259
+2.5 0.50468446039833259
+3 0.50468446039833259
+4 0.50468446039833259
+5 0.50468446039833259
+</tableData></table></function>
+<function name="fsim/fin-control/fin-6/arm-z" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 0.50468446039833259
+0.59999999999999998 0.50468446039833259
+0.80000000000000004 0.50468446039833259
+0.90000000000000002 0.50468446039833259
+1 0.50468446039833259
+1.1000000000000001 0.50468446039833259
+1.2 0.50468446039833259
+1.3 0.50468446039833259
+1.6000000000000001 0.50468446039833259
+2 0.50468446039833259
+2.5 0.50468446039833259
+3 0.50468446039833259
+4 0.50468446039833259
+5 0.50468446039833259
+</tableData></table></function>
+<function name="fsim/fin-control/fin-6/moment-l" type="pre"><difference><product><property>fsim/fin-control/fin-6/arm-y</property><property>fsim/fin-control/fin-6/force-z</property></product><product><property>fsim/fin-control/fin-6/arm-z</property><property>fsim/fin-control/fin-6/force-y</property></product></difference></function>
+<function name="fsim/fin-control/fin-6/moment-m" type="pre"><difference><product><property>fsim/fin-control/fin-6/arm-z</property><property>fsim/fin-control/fin-6/force-x</property></product><product><property>fsim/fin-control/fin-6/arm-x</property><property>fsim/fin-control/fin-6/force-z</property></product></difference></function>
+<function name="fsim/fin-control/fin-6/moment-n" type="pre"><difference><product><property>fsim/fin-control/fin-6/arm-x</property><property>fsim/fin-control/fin-6/force-y</property></product><product><property>fsim/fin-control/fin-6/arm-y</property><property>fsim/fin-control/fin-6/force-x</property></product></difference></function>
+<function name="fsim/fin-control/fin-7/slope" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 2.9457663622281043
+0.59999999999999998 3.0746211079678276
+0.80000000000000004 3.1915013836219774
+0.90000000000000002 3.2715973892626118
+1 3.2965308444568837
+1.1000000000000001 3.3214642996511561
+1.2 3.346397754845428
+1.3 3.3713312100397008
+1.6000000000000001 3.3713312100397008
+2 2.8065752109070567
+2.5 2.2557676489897833
+3 1.8913219594026629
+4 1.4349492127857955
+5 1.1585123175233971
+</tableData></table></function>
+<function name="fsim/fin-control/fin-7/normal-flow" type="pre"><sum><product><value>-0</value><property>fsim/fin-control/air-x</property></product><product><value>-0.70710678118654757</value><property>fsim/fin-control/air-y</property></product><product><value>-0.70710678118654757</value><property>fsim/fin-control/air-z</property></product></sum></function>
+<function name="fsim/fin-control/fin-7/lift" type="pre"><product><property>aero/qbar-psf</property><property>metrics/Sw-sqft</property><property>fsim/fin-control/fin-7/slope</property><sin><property>fcs/fin-7-delta-rad</property></sin><cos><property>fcs/fin-7-delta-rad</property></cos></product></function>
+<function name="fsim/fin-control/fin-7/drag" type="pre"><product><property>aero/qbar-psf</property><property>metrics/Sw-sqft</property><property>fsim/fin-control/fin-7/slope</property><sin><property>fcs/fin-7-delta-rad</property></sin><sin><property>fcs/fin-7-delta-rad</property></sin></product></function>
+<function name="fsim/fin-control/fin-7/force-x" type="pre"><difference><product><property>fsim/fin-control/fin-7/lift</property><difference><value>-0</value><product><property>fsim/fin-control/fin-7/normal-flow</property><property>fsim/fin-control/air-x</property></product></difference></product><product><property>fsim/fin-control/fin-7/drag</property><property>fsim/fin-control/air-x</property></product></difference></function>
+<function name="fsim/fin-control/fin-7/force-y" type="pre"><difference><product><property>fsim/fin-control/fin-7/lift</property><difference><value>-0.70710678118654757</value><product><property>fsim/fin-control/fin-7/normal-flow</property><property>fsim/fin-control/air-y</property></product></difference></product><product><property>fsim/fin-control/fin-7/drag</property><property>fsim/fin-control/air-y</property></product></difference></function>
+<function name="fsim/fin-control/fin-7/force-z" type="pre"><difference><product><property>fsim/fin-control/fin-7/lift</property><difference><value>-0.70710678118654757</value><product><property>fsim/fin-control/fin-7/normal-flow</property><property>fsim/fin-control/air-z</property></product></difference></product><product><property>fsim/fin-control/fin-7/drag</property><property>fsim/fin-control/air-z</property></product></difference></function>
+<function name="fsim/fin-control/fin-7/arm-x" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 -5.202842751273737
+0.59999999999999998 -5.202842751273737
+0.80000000000000004 -5.202842751273737
+0.90000000000000002 -5.227145894447017
+1 -5.2514490376202971
+1.1000000000000001 -5.2757521807935763
+1.2 -5.3000553239668564
+1.3 -5.3243584671401374
+1.6000000000000001 -5.3972678966599759
+2 -5.4944804693530953
+2.5 -5.4944804693530953
+3 -5.4944804693530953
+4 -5.4944804693530953
+5 -5.4944804693530953
+</tableData></table></function>
+<function name="fsim/fin-control/fin-7/arm-y" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 -0.50468446039833259
+0.59999999999999998 -0.50468446039833259
+0.80000000000000004 -0.50468446039833259
+0.90000000000000002 -0.50468446039833259
+1 -0.50468446039833259
+1.1000000000000001 -0.50468446039833259
+1.2 -0.50468446039833259
+1.3 -0.50468446039833259
+1.6000000000000001 -0.50468446039833259
+2 -0.50468446039833259
+2.5 -0.50468446039833259
+3 -0.50468446039833259
+4 -0.50468446039833259
+5 -0.50468446039833259
+</tableData></table></function>
+<function name="fsim/fin-control/fin-7/arm-z" type="pre"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>
+0 0.50468446039833259
+0.59999999999999998 0.50468446039833259
+0.80000000000000004 0.50468446039833259
+0.90000000000000002 0.50468446039833259
+1 0.50468446039833259
+1.1000000000000001 0.50468446039833259
+1.2 0.50468446039833259
+1.3 0.50468446039833259
+1.6000000000000001 0.50468446039833259
+2 0.50468446039833259
+2.5 0.50468446039833259
+3 0.50468446039833259
+4 0.50468446039833259
+5 0.50468446039833259
+</tableData></table></function>
+<function name="fsim/fin-control/fin-7/moment-l" type="pre"><difference><product><property>fsim/fin-control/fin-7/arm-y</property><property>fsim/fin-control/fin-7/force-z</property></product><product><property>fsim/fin-control/fin-7/arm-z</property><property>fsim/fin-control/fin-7/force-y</property></product></difference></function>
+<function name="fsim/fin-control/fin-7/moment-m" type="pre"><difference><product><property>fsim/fin-control/fin-7/arm-z</property><property>fsim/fin-control/fin-7/force-x</property></product><product><property>fsim/fin-control/fin-7/arm-x</property><property>fsim/fin-control/fin-7/force-z</property></product></difference></function>
+<function name="fsim/fin-control/fin-7/moment-n" type="pre"><difference><product><property>fsim/fin-control/fin-7/arm-x</property><property>fsim/fin-control/fin-7/force-y</property></product><product><property>fsim/fin-control/fin-7/arm-y</property><property>fsim/fin-control/fin-7/force-x</property></product></difference></function>
+<function name="aero/force/fsim-fin-x-lbs" type="pre"><sum><property>fsim/fin-control/fin-0/force-x</property><property>fsim/fin-control/fin-1/force-x</property><property>fsim/fin-control/fin-2/force-x</property><property>fsim/fin-control/fin-3/force-x</property><property>fsim/fin-control/fin-4/force-x</property><property>fsim/fin-control/fin-5/force-x</property><property>fsim/fin-control/fin-6/force-x</property><property>fsim/fin-control/fin-7/force-x</property></sum></function>
+<function name="aero/force/fsim-fin-y-lbs" type="pre"><sum><property>fsim/fin-control/fin-0/force-y</property><property>fsim/fin-control/fin-1/force-y</property><property>fsim/fin-control/fin-2/force-y</property><property>fsim/fin-control/fin-3/force-y</property><property>fsim/fin-control/fin-4/force-y</property><property>fsim/fin-control/fin-5/force-y</property><property>fsim/fin-control/fin-6/force-y</property><property>fsim/fin-control/fin-7/force-y</property></sum></function>
+<function name="aero/force/fsim-fin-z-lbs" type="pre"><sum><property>fsim/fin-control/fin-0/force-z</property><property>fsim/fin-control/fin-1/force-z</property><property>fsim/fin-control/fin-2/force-z</property><property>fsim/fin-control/fin-3/force-z</property><property>fsim/fin-control/fin-4/force-z</property><property>fsim/fin-control/fin-5/force-z</property><property>fsim/fin-control/fin-6/force-z</property><property>fsim/fin-control/fin-7/force-z</property></sum></function>
+<function name="aero/moment/fsim-fin-l-lbsft" type="pre"><sum><property>fsim/fin-control/fin-0/moment-l</property><property>fsim/fin-control/fin-1/moment-l</property><property>fsim/fin-control/fin-2/moment-l</property><property>fsim/fin-control/fin-3/moment-l</property><property>fsim/fin-control/fin-4/moment-l</property><property>fsim/fin-control/fin-5/moment-l</property><property>fsim/fin-control/fin-6/moment-l</property><property>fsim/fin-control/fin-7/moment-l</property></sum></function>
+<function name="aero/moment/fsim-fin-m-lbsft" type="pre"><sum><property>fsim/fin-control/fin-0/moment-m</property><property>fsim/fin-control/fin-1/moment-m</property><property>fsim/fin-control/fin-2/moment-m</property><property>fsim/fin-control/fin-3/moment-m</property><property>fsim/fin-control/fin-4/moment-m</property><property>fsim/fin-control/fin-5/moment-m</property><property>fsim/fin-control/fin-6/moment-m</property><property>fsim/fin-control/fin-7/moment-m</property></sum></function>
+<function name="aero/moment/fsim-fin-n-lbsft" type="pre"><sum><property>fsim/fin-control/fin-0/moment-n</property><property>fsim/fin-control/fin-1/moment-n</property><property>fsim/fin-control/fin-2/moment-n</property><property>fsim/fin-control/fin-3/moment-n</property><property>fsim/fin-control/fin-4/moment-n</property><property>fsim/fin-control/fin-5/moment-n</property><property>fsim/fin-control/fin-6/moment-n</property><property>fsim/fin-control/fin-7/moment-n</property></sum></function>
         <axis name="AXIAL">
+<function name="aero/coefficient/fsim-control-axial"><product><value>-1</value><property>aero/force/fsim-fin-x-lbs</property></product></function>
             <function name="aero/coefficient/CA">
                 <description>along it: its card's drag area on its frontal area, its transonic rise</description>
                 <product>
@@ -167,6 +1336,7 @@
             </function>
         </axis>
         <axis name="NORMAL">
+<function name="aero/coefficient/fsim-control-normal"><product><value>-1</value><property>aero/force/fsim-fin-z-lbs</property></product></function>
             <function name="aero/coefficient/CN">
                 <description>its body's and fins' lift (slender body, Barrowman) and its crossflow (Jorgensen)</description>
                 <product>
@@ -207,6 +1377,7 @@
             </function>
         </axis>
         <axis name="SIDE">
+<function name="aero/coefficient/fsim-control-side"><product><value>1</value><property>aero/force/fsim-fin-y-lbs</property></product></function>
             <function name="aero/coefficient/CY">
                 <description>the same sideways</description>
                 <product>
@@ -247,6 +1418,7 @@
             </function>
         </axis>
         <axis name="PITCH">
+<function name="aero/coefficient/fsim-control-pitch"><product><value>1</value><property>aero/moment/fsim-fin-m-lbsft</property></product></function>
             <function name="aero/coefficient/Cm">
                 <description>their moment about the launch CG (the AERORP)</description>
                 <product>
@@ -326,6 +1498,7 @@
             </function>
         </axis>
         <axis name="YAW">
+<function name="aero/coefficient/fsim-control-yaw"><product><value>1</value><property>aero/moment/fsim-fin-n-lbsft</property></product></function>
             <function name="aero/coefficient/Cn">
                 <product>
                     <property>aero/qbar-psf</property>
@@ -402,6 +1575,7 @@
             </function>
         </axis>
         <axis name="ROLL">
+<function name="aero/coefficient/fsim-control-roll"><product><value>1</value><property>aero/moment/fsim-fin-l-lbsft</property></product></function>
             <function name="aero/coefficient/Clp">
                 <product>
                     <property>aero/qbar-psf</property>

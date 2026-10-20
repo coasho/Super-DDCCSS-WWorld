@@ -163,7 +163,7 @@ void World::prepareEngagements() {
         e->origin.tracking=output.tracking; e->origin.supported=output.supported;
         e->origin.timeToGoS=output.timeToGoS; e->origin.timeToActiveS=output.timeToActiveS;
         e->origin.burning=s.thrustN[0]>.1;
-        e->guidanceForce[0]=output.acceleration.x; e->guidanceForce[1]=output.acceleration.y; e->guidanceForce[2]=output.acceleration.z;
+        e->guidanceDemand[0]=output.acceleration.x; e->guidanceDemand[1]=output.acceleration.y; e->guidanceDemand[2]=output.acceleration.z;
         if (output.active && !heat && spec.seeker!="semi_active_radar" &&
                 (old.phase==ms::WeaponPhase::Midcourse || old.phase==ms::WeaponPhase::Unguided)) recordEngagement("activation",*e);
         if (old.tracking && !output.tracking) recordEngagement("track_loss",*e,old.holding);

@@ -320,13 +320,21 @@ TEST_CASE("a missile's model origin is its launch CG: full, its CG is at its ori
     // Its picture's origin and what a station holds is its launch CG, which its file says (fsim/model/origin-x-in:
     // hangar's storebodies.py): a missile jettisoned full is drawn where it is, not a third of a metre off
     session::World w(options("mass-missile-origin"));
-    const auto lit = wing(w, "aim120c", 8000.0, 250.0); // (made on its own: the platform lights its motor)
+    const auto lit = wing(w, "aim120c", 8000.0, 250.0);
+    // A standalone flight-model fixture is an aircraft endpoint whose neutral
+    // default commands zero throttle. Request ignition explicitly; model load
+    // itself must not burn propellant, and changing neutral defaults is invalid.
+    control::ActuatorCommand ignition;
+    ignition.throttle = 1;
+    REQUIRE(w.submit(lit, ignition).accepted());
+    const double initialFuel = w.vehicleState(lit)->fuelKg;
     double cg[3];
     w.model(lit)->cgFromOriginBodyM(cg);
     CHECK(std::abs(cg[0]) < 0.002);
     CHECK(std::abs(cg[1]) < 1e-6);
     CHECK(std::abs(cg[2]) < 1e-6);
     w.step(stepsFor(w, 10.0)); // (its 8 s of burn, and on)
+    REQUIRE(w.vehicleState(lit)->fuelKg < initialFuel);
     w.model(lit)->cgFromOriginBodyM(cg);
     // burnt out: its structure's CG, 1.497 m from its nose where its launch CG was 1.83 m (its design's and its grain's)
     CHECK(cg[0] > 0.31);

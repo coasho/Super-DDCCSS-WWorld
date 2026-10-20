@@ -729,8 +729,12 @@ private:
         bool crewLost = false;             ///< its controls held where they were
         ms::WeaponRecord origin;           ///< a weapon's: the store it was (MS-7; store, station, activity, target, jettisoned)
         std::unique_ptr<ms::weapon::Guidance> guidance;
-        double guidanceForce[3] = {0, 0, 0}, guidanceMoment[3] = {0, 0, 0};
-        std::array<sim::PropertyHandle, 9> guidanceReads;
+        double guidanceDemand[3] = {0, 0, 0}; ///< ECEF specific acceleration, never applied as a force
+        struct FinControlReads {
+            PropertyHandle version, qbar, area, diameter, lag;
+            std::array<PropertyHandle, 3> inertia, limits;
+            std::array<PropertyHandle, 12> derivatives;
+        } finControl;
         std::unique_ptr<ms::countermeasure::Dispenser> dispenser;
         StoreFlightBinding storeFlight;
     };
