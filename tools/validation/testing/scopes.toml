@@ -68,8 +68,19 @@ build = false
 [[scope]]
 name = "missile flight and aerodynamic reference safeguards"
 paths = ["tools/validation/missile/**"]
+except = ["tools/validation/missile/native/OpenVspIntersectionFixture.cmake"]
 tests = ["^missile_flight_reference_checker$", "^missile_aero_reference_checker$"]
 build = false
+
+# This file is included only by an explicit external OpenVSP geometry/API build.
+# Its repository guards do not compile that external project or configure the SDK.
+[[scope]]
+name = "external OpenVSP intersection fixture"
+paths = ["tools/validation/missile/native/OpenVspIntersectionFixture.cmake"]
+tests = ["^missile_aero_reference_checker$"]
+build = false
+[scope.requires]
+ucrt64-headless = ["^missile_aero_reference_checker$"]
 
 # --- MA training (docs/sdk/mission-training.md) -----------------------------------------------------------------------
 # Targeted: the build-tree tests over the changed code. Integration: also the installed consumers and the domain's whole

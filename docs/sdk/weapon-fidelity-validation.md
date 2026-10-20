@@ -83,6 +83,15 @@ fixture script are unchanged. This baseline issue is retained for its test
 infrastructure owner; these results do not claim every repository check passes.
 See [the carryover register](../architecture/validation/handoff-carryover-register.md#sim-m03-audit-follow-up-2026-10-20).
 
+Subsequent HC-53 correction, 2026-10-20: the exact external fixture now has its
+own required reference-check route. The selector and aero safeguards pass 2/2
+CTest cases on each configured Headless/Release inventory (105 and 150 internal
+methods respectively). Missing mandatory guards refuse before execution; a
+mixed shared-SDK CMake change retains both-preset escalation. HC-53 is closed
+within this routing scope. The original 18/19 run above is retained as dated
+evidence. See [the correction record](../architecture/validation/hc-53-test-routing-2026-10-20.md)
+for current commands, logs and independent review.
+
 Reproduction uses `powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File
 tools/launch/fsim.ps1 --preset ucrt64-headless` followed by:
 

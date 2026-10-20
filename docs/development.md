@@ -209,6 +209,17 @@ escalates it; a renderer change beside it adds `ucrt64-release` with that change
 included, so they plan and escalate both (HC-20). A plan that escalates is a statement of what the change needs; it never
 authorizes running a full suite before the required milestone (HC-11).
 
+The exact external-only
+`tools/validation/missile/native/OpenVspIntersectionFixture.cmake` input has a
+separate scope (HC-53). A change to it requires `missile_aero_reference_checker`
+without an SDK build or Release escalation. An inventory missing that required
+guard fails before any runner starts, including alongside documentation changes.
+The selector may additionally discover its own checker as a reader of this path.
+External OpenVSP compilation and native geometry acceptance remain an explicit
+campaign under the fixture's documented upstream tool/source requirements.
+Other CMake paths retain their existing routing, and a shared SDK CMake change
+beside this fixture still escalates both SDK presets.
+
 What only the renderer builds (`FSIM_WITH_RENDER`) is planned on `ucrt64-release`, which compiles it; `ucrt64-headless`
 does not. This covers visualization with its nested CMake files, the Vision adapter and its Python extension, the
 viewer, the renderer's tools and example, and the render tests. The `render-only roots` scope claims these and selects

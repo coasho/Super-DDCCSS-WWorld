@@ -9,6 +9,8 @@ The original MS physical-model goals remain distinct from MA-training M0-M8 and 
 
 SIM-M03 continuation, 2026-10-20: the user assigned the complete package while Claude continues SIM-M02 numerical work in the separate AeroNumericsLab directory. Independent seeker-observation, fuze-time, fragment-momentum and actor-status visibility corrections are recorded in the [weapon fidelity validation](sdk/weapon-fidelity-validation.md). Full SIM-M03 remains open for the accepted model/sensor inputs and per-variant physical validation; dependency-bound calibration awaits the numerical handoff.
 
+HC-53 follow-up, 2026-10-20: the external-only OpenVSP fixture has an exact required reference-check route. Selector/reference checks pass 2/2 on each configured Headless/Release inventory (105 selector and 150 reference methods each). Missing-guard and mixed shared-CMake controls pass; [HC-53 is closed](architecture/validation/hc-53-test-routing-2026-10-20.md). This changes no solver or simulation model.
+
 Progress reviewed: 2026-10-16, `main` at `d344e2b`. M7 core is accepted; M8 generic is implemented, corrected after its independent review, and awaits independent acceptance (below); prior full-suite results retain their dated scope.
 First maintenance pass reviewed: 2026-10-12, `2b83f24` (implementation baseline `32e78a6`).
 Second maintenance pass: `f8cfec9`; Architecture A1: `6652584`; Architecture A2: `34e5516`; Architecture A3: `e79f268`;

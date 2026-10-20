@@ -88,6 +88,72 @@ class GlobTest(unittest.TestCase):
                 self.assertEqual(scope.glob_match(path, pattern), expected)
 
 
+class ExternalFixtureTest(unittest.TestCase):
+    fixture = "tools/validation/missile/native/OpenVspIntersectionFixture.cmake"
+    scope_name = "external OpenVSP intersection fixture"
+
+    def setUp(self):
+        self.rules = scope.load_rules()
+        self.inventory = [
+            {"index": i, "name": name, "labels": [], "command": ["python", name]}
+            for i, name in enumerate(("missile_aero_reference_checker", "missile_flight_reference_checker",
+                                      "ma_contract", "unrelated"), 1)
+        ]
+
+    def test_external_fixture_runs_its_reference_guard_without_an_sdk_build(self):
+        for tier in ("targeted", "integration"):
+            with self.subTest(tier=tier):
+                p = scope.plan([self.fixture], self.rules, self.inventory, {}, tier, preset=scope.HEADLESS)
+                self.assertEqual(p["scopes"], [self.scope_name])
+                self.assertEqual(p["selected"], ["missile_aero_reference_checker"])
+                self.assertTrue(p["headless"])
+                self.assertFalse(p["build"])
+                self.assertFalse(p["release"])
+                self.assertEqual(p["escalate"], [])
+                self.assertEqual(p["errors"], [])
+
+    def test_missing_external_guard_blocks_execution_even_with_other_selected_checks(self):
+        inventory = [t for t in self.inventory if t["name"] != "missile_aero_reference_checker"]
+        for paths in ([self.fixture], [self.fixture, "docs/status.md"]):
+            for build_first in (False, True):
+                with self.subTest(paths=paths, build_first=build_first), tempfile.TemporaryDirectory() as logs:
+                    calls = []
+                    status, report = scope.select(
+                        paths, self.rules, "targeted", 1, run=True, build=build_first, log_dir=logs,
+                        executables={}, dependents={}, readers={}, evidence=None,
+                        discover=lambda preset: inventory,
+                        builder=lambda preset: calls.append("build") or 0,
+                        runner=lambda command, log: calls.append("run") or 0,
+                        measured=lambda preset: {}, recorder=lambda logs, preset: 0)
+                    self.assertEqual(status, 3, report)
+                    self.assertIn("missing-required-tests", [e["reason"] for e in report["errors"]])
+                    self.assertEqual(calls, [])
+
+    def test_shared_sdk_cmake_still_escalates_both_presets_beside_an_external_fixture(self):
+        shared = "src/simulation/mission_systems/CMakeLists.txt"
+        for preset in (scope.HEADLESS, scope.RELEASE):
+            with self.subTest(preset=preset):
+                p = scope.plan([self.fixture, shared], self.rules, self.inventory, {}, preset=preset)
+                self.assertTrue(p["build"])
+                self.assertTrue(p["headless"])
+                self.assertTrue(p["release"])
+                self.assertIn(shared + " (build system)", p["escalate"])
+                self.assertEqual(p["selected"], sorted(t["name"] for t in self.inventory))
+                self.assertEqual(p["errors"], [])
+
+    def test_external_exception_claims_only_the_known_fixture(self):
+        def claims(path):
+            return [r["name"] for r in self.rules
+                    if any(scope.glob_match(path, pattern) for pattern in r["paths"])
+                    and not any(scope.glob_match(path, pattern) for pattern in r.get("except", []))]
+        self.assertIn(self.scope_name, claims(self.fixture))
+        for path in ("tools/validation/missile/native/UnreviewedFixture.cmake",
+                     "tools/validation/missile/native/vsp_triangle_boundary.cpp",
+                     "src/simulation/mission_systems/CMakeLists.txt"):
+            with self.subTest(path=path):
+                self.assertNotIn(self.scope_name, claims(path))
+
+
 class PlanTest(unittest.TestCase):
     def test_a_domain_change_selects_its_label_without_stress(self):
         p = selected(["src/sdk/MissionGateway.cpp"])
@@ -1277,8 +1343,9 @@ class RulesTest(unittest.TestCase):
     def test_every_tracked_cmake_input_is_routed(self):
         """HC-39: a CMake declaration both configures read plans and escalates both presets; one only the renderer's
         branch configures plans ucrt64-release alone; test and package scripts and consumer projects belong to their own
-        scopes, and a test's own script is named by the test that runs it. No CMake input falls through to a headless-only
-        plan."""
+        scopes, and a test's own script is named by the test that runs it. The exact external OpenVSP fixture is not an
+        SDK build input and has its own required offline guard. Other CMake inputs cannot fall through to an ordinary
+        headless-only reference scope."""
         inputs = [f for f in self.files if f.endswith(("CMakeLists.txt", ".cmake")) or f.endswith("CMakePresets.json")]
         self.assertGreater(len(inputs), 50)
         registrations = (scope.REPO / "tests" / "CMakeLists.txt").read_text(encoding="utf-8")
@@ -1291,6 +1358,12 @@ class RulesTest(unittest.TestCase):
                     self.assertFalse(p["headless"])
                     self.assertTrue(p["release"])
                 elif set(p["scopes"]) & {"installed SDK package", "MA installed consumers", "architecture checker"}:
+                    self.assertEqual(p["escalate"], [])
+                elif "external OpenVSP intersection fixture" in p["scopes"]:
+                    self.assertEqual(path, ExternalFixtureTest.fixture)
+                    self.assertEqual(p["scopes"], [ExternalFixtureTest.scope_name])
+                    self.assertFalse(p["build"])
+                    self.assertFalse(p["release"])
                     self.assertEqual(p["escalate"], [])
                 else:
                     self.assertTrue(path.startswith("tests/") and path in registrations,
