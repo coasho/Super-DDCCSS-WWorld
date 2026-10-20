@@ -263,7 +263,7 @@ void truthTargetCannotSupplySupport() {
     for (unsigned i = 0; i < 30; ++i) {
         w.step();
         const auto r = weapon(w, missile);
-        require(!r.supported && !r.tracking && r.holding == 0 && r.timeToGoS == 0,
+        require(!r.supported && !r.tracking && r.holding == 0 && std::isnan(r.timeToGoS),
                 "direct target entity must not synthesize launcher updates or seeker observations outside acquisition range");
     }
 }

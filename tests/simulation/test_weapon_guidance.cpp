@@ -1,7 +1,9 @@
 #include "simulation/mission_systems/weapon/Guidance.h"
+#include "simulation/mission_systems/weapon/Seeker.h"
 
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 #include <string>
 
@@ -175,6 +177,233 @@ void on_rail_cue_requires_current_observation() {
     in.visible.clear();
     require(!heat.update(in).tracking,"A launch cue must not supply current observations after target loss");
 }
+void invalid_timing_does_not_mutate_guidance() {
+    const double invalidDurations[] = {-0.01, std::numeric_limits<double>::quiet_NaN(),
+                                      std::numeric_limits<double>::infinity()};
+    for (double invalid : invalidDurations) {
+        Guidance actual(Spec{"active_radar"});
+        auto in = flight();
+        in.ageS = 2;
+        in.estimate = Observation{42, {30000, 0, 0}, {-200, 0, 0}};
+        actual.update(in);
+        Guidance reference = actual;
+        in.ageS = 100;
+        in.dtS = invalid;
+        in.estimate = Observation{99, {1000, 0, 0}, {0, 0, 0}};
+        in.visible = {*in.estimate};
+        const auto refused = actual.update(in);
+        require(refused.phase == WeaponPhase::Unguided && !refused.active && !refused.tracking
+                    && refused.holding == 0 && length(refused.acceleration) == 0,
+                "Invalid step duration must fail closed before activation or acquisition");
+        in = flight();
+        in.ageS = 3;
+        in.supported = false;
+        const auto recovered = actual.update(in);
+        const auto expected = reference.update(in);
+        require(recovered.phase == expected.phase && recovered.holding == expected.holding
+                    && recovered.acceleration.x == expected.acceleration.x
+                    && recovered.acceleration.y == expected.acceleration.y
+                    && recovered.acceleration.z == expected.acceleration.z
+                    && recovered.timeToGoS == expected.timeToGoS,
+                "An invalid future update must not change the accepted estimate or launch age");
+    }
+}
+void invalid_launch_age_does_not_mutate_guidance() {
+    const double invalidAges[] = {-0.01, 1.0, std::numeric_limits<double>::quiet_NaN(),
+                                 std::numeric_limits<double>::infinity()};
+    for (double invalid : invalidAges) {
+        Guidance actual(Spec{"active_radar"});
+        auto in = flight();
+        in.ageS = 2;
+        in.estimate = Observation{42, {30000, 0, 0}, {-200, 0, 0}};
+        actual.update(in);
+        Guidance reference = actual;
+        in.ageS = invalid;
+        in.estimate = Observation{99, {1000, 0, 0}, {0, 0, 0}};
+        in.visible = {*in.estimate};
+        const auto refused = actual.update(in);
+        require(refused.phase == WeaponPhase::Unguided && !refused.active && !refused.tracking
+                    && refused.holding == 0 && length(refused.acceleration) == 0,
+                "Negative, nonfinite or reversed launch age must fail closed before state mutation");
+        in = flight();
+        in.ageS = 3;
+        in.supported = false;
+        const auto recovered = actual.update(in);
+        const auto expected = reference.update(in);
+        require(recovered.phase == expected.phase && recovered.holding == expected.holding
+                    && recovered.acceleration.x == expected.acceleration.x
+                    && recovered.acceleration.y == expected.acceleration.y
+                    && recovered.acceleration.z == expected.acceleration.z
+                    && recovered.timeToGoS == expected.timeToGoS,
+                "Rejected launch age must leave the prior estimate and activation state unchanged");
+    }
+    Guidance sameAge(Spec{"infrared"});
+    auto in = flight();
+    in.visible = {{12, {1000, 0, 0}, {0, 0, 0}}};
+    require(sameAge.update(in).tracking && sameAge.update(in).tracking,
+            "Repeated observations at the same launch age remain supported");
+}
+void invalid_guidance_specification_is_safe() {
+    const double invalidValues[] = {-1, std::numeric_limits<double>::quiet_NaN(),
+                                   std::numeric_limits<double>::infinity()};
+    for (unsigned field = 0; field != 7; ++field) for (double invalid : invalidValues) {
+        Spec spec{"infrared"};
+        double* fields[] = {&spec.acquireM, &spec.gimbalRad, &spec.maxG, &spec.lifeS,
+                            &spec.armingS, &spec.fuzeM, &spec.loftRad};
+        *fields[field] = invalid;
+        // Negative loft retains the existing clamped loft convention; all other
+        // fields represent nonnegative physical magnitudes or durations.
+        if (field == 6 && invalid < 0) continue;
+        Guidance guidance(spec);
+        auto in = flight();
+        in.visible = {{12, {1000, 0, 0}, {0, 0, 0}}};
+        const auto out = guidance.update(in);
+        require(out.phase == WeaponPhase::Unguided && !out.tracking
+                    && length(out.acceleration) == 0 && !armed(10, spec),
+                "Invalid model parameters must neither steer nor arm a weapon");
+    }
+    Spec wide{"infrared"};
+    wide.gimbalRad = 3.141592653589793 + 0.01;
+    Guidance guidance(wide);
+    auto in = flight();
+    in.visible = {{12, {1000, 0, 0}, {0, 0, 0}}};
+    require(guidance.update(in).phase == WeaponPhase::Unguided,
+            "An impossible gimbal angle must not silently become an unrestricted seeker");
+}
+void unavailable_timing_estimates_are_unknown() {
+    auto in = flight();
+    in.supported = false;
+    Guidance radar(Spec{"active_radar"});
+    const auto searching = radar.update(in);
+    require(std::isnan(searching.timeToGoS) && searching.timeToActiveS == 0,
+            "An active search has no time to go, while its activation has already occurred");
+
+    Guidance midcourse(Spec{"active_radar"});
+    in.supported = true;
+    in.estimate = Observation{42, {30000, 0, 0}, {1200, 0, 0}};
+    const auto opening = midcourse.update(in);
+    require(std::isnan(opening.timeToGoS) && std::isnan(opening.timeToActiveS),
+            "A nonclosing midcourse estimate must not fabricate zero timing estimates");
+
+    for (const auto* seeker : {"infrared", "semi_active_radar"}) {
+        Guidance passive(Spec{seeker});
+        in = flight();
+        in.illuminated = true;
+        in.visible = {{12, {1000, 0, 0}, {0, 0, 0}}};
+        const auto homing = passive.update(in);
+        require(homing.tracking && homing.timeToGoS > 0 && std::isnan(homing.timeToActiveS),
+                "A seeker without an active-radar transition has no time-to-active estimate");
+    }
+    Guidance inert(Spec{});
+    const auto unguided = inert.update(flight());
+    require(std::isnan(unguided.timeToGoS) && std::isnan(unguided.timeToActiveS),
+            "An unguided or refused update must publish unknown timing estimates");
+}
+void infrared_reach_preserves_admitted_assumptions() {
+    require(infraredAcquisitionRangeM(13000, 1, false) == 13000
+                && std::abs(infraredAcquisitionRangeM(13000, -1, false) - 5850) < 1e-9
+                && std::abs(infraredAcquisitionRangeM(13000, 0, false) - 9425) < 1e-9
+                && std::abs(infraredAcquisitionRangeM(13000, 1, true) - 17550) < 1e-9,
+            "Shared infrared reach must preserve the existing aspect and afterburner assumptions");
+    require(infraredAcquisitionRangeM(13000, 2, false) == 13000
+                && std::abs(infraredAcquisitionRangeM(13000, -2, false) - 5850) < 1e-9,
+            "Aspect cosine must be clamped to its geometric domain");
+    for (double invalid : {-1.0, std::numeric_limits<double>::quiet_NaN(),
+                           std::numeric_limits<double>::infinity()})
+        require(infraredAcquisitionRangeM(invalid, 1, true) == 0,
+                "Invalid infrared baseline range must not create a sensor envelope");
+    require(infraredAcquisitionRangeM(13000, std::numeric_limits<double>::quiet_NaN(), true) == 0
+                && infraredAcquisitionRangeM(13000, std::numeric_limits<double>::infinity(), true) == 0
+                && infraredAcquisitionRangeM(std::numeric_limits<double>::max(), 1, true) == 0,
+            "Nonfinite aspect or overflowing reach must fail closed");
+}
+void admitted_observation_range_is_defensively_checked() {
+    Spec spec{"infrared"};
+    spec.acquireM = 13000;
+    auto in = flight();
+    in.supported = false;
+    in.launchCue = 12;
+    in.visible = {{12, {15000, 0, 0}, {250, 0, 0}, false, 1,
+                   infraredAcquisitionRangeM(spec.acquireM, 1, true)}};
+    Guidance heat(spec);
+    require(heat.update(in).tracking,
+            "A current observed on-rail contact inside admitted afterburner reach must survive release");
+    in.ageS += in.dtS;
+    in.visible.front().position.x = 17551;
+    require(!heat.update(in).tracking,
+            "Per-observation sensor admission must still enforce its geometric range cap");
+
+    for (double invalid : {-1.0, std::numeric_limits<double>::infinity()}) {
+        Guidance invalidRange(spec);
+        in.visible.front().position.x = 1000;
+        in.visible.front().admittedRangeM = invalid;
+        require(!invalidRange.update(in).tracking,
+                "Explicit negative or infinite observation reach must not fall back to the model range");
+    }
+    Guidance legacy(spec);
+    in.visible.front().position.x = 15000;
+    in.visible.front().admittedRangeM = std::numeric_limits<double>::quiet_NaN();
+    require(!legacy.update(in).tracking,
+            "An observation without a specific admission must retain the baseline defensive range cap");
+    Guidance narrow(spec);
+    in.visible.front().position.x = 5000;
+    in.visible.front().admittedRangeM = 4000;
+    require(!narrow.update(in).tracking,
+            "An admitted range below the baseline must narrow observation eligibility");
+}
+void seeker_gimbal_uses_explicit_body_boresight() {
+    Spec spec{"infrared"};
+    spec.gimbalRad = 0.5235987755982988;
+    auto in = flight();
+    in.supported = false;
+    in.boresight = V3{0, 1, 0};
+    in.visible = {{12, {0, 1000, 0}, {0, 0, 0}}};
+    Guidance bodyAligned(spec);
+    require(bodyAligned.update(in).tracking,
+            "A body-aligned seeker observation must remain eligible when velocity points elsewhere");
+    Guidance velocityAligned(spec);
+    in.visible.front().position = {1000, 0, 0};
+    require(!velocityAligned.update(in).tracking,
+            "A velocity-aligned observation outside the body gimbal must be rejected");
+    Guidance stationary(spec);
+    in.velocity = {};
+    in.visible.front().position = {0, 1000, 0};
+    require(stationary.update(in).tracking,
+            "A finite explicit body boresight must define the gimbal even without translational velocity");
+    Guidance stationaryOutside(spec);
+    in.visible.front().position = {1000, 0, 0};
+    require(!stationaryOutside.update(in).tracking,
+            "Zero velocity must not disable an explicitly supplied body gimbal");
+}
+void invalid_boresight_does_not_mutate_guidance() {
+    const V3 invalidDirections[] = {{}, {std::numeric_limits<double>::quiet_NaN(), 0, 0},
+                                     {0, std::numeric_limits<double>::infinity(), 0}};
+    for (const V3 invalid : invalidDirections) {
+        Guidance actual(Spec{"active_radar"});
+        auto in = flight();
+        in.ageS = 2;
+        in.estimate = Observation{42, {30000, 0, 0}, {-200, 0, 0}};
+        actual.update(in);
+        Guidance reference = actual;
+        in.ageS = 100;
+        in.boresight = invalid;
+        in.estimate = Observation{99, {1000, 0, 0}, {0, 0, 0}};
+        in.visible = {*in.estimate};
+        const auto refused = actual.update(in);
+        require(refused.phase == WeaponPhase::Unguided && !refused.active && !refused.tracking,
+                "An explicitly invalid body boresight must fail closed before state mutation");
+        in = flight();
+        in.ageS = 3;
+        in.supported = false;
+        const auto recovered = actual.update(in);
+        const auto expected = reference.update(in);
+        require(recovered.phase == expected.phase && recovered.timeToGoS == expected.timeToGoS
+                    && recovered.acceleration.x == expected.acceleration.x
+                    && recovered.acceleration.y == expected.acceleration.y
+                    && recovered.acceleration.z == expected.acceleration.z,
+                "A rejected boresight must not poison the accepted estimate or timing state");
+    }
+}
 }
 
 int main(int argc, char** argv) {
@@ -188,6 +417,14 @@ int main(int argc, char** argv) {
         {"unguided", no_guidance_without_a_seeker},
         {"discrimination", imaging_infrared_and_signal_discrimination},
         {"on-rail cue", on_rail_cue_requires_current_observation},
+        {"invalid duration", invalid_timing_does_not_mutate_guidance},
+        {"invalid launch age", invalid_launch_age_does_not_mutate_guidance},
+        {"invalid spec", invalid_guidance_specification_is_safe},
+        {"unknown timing", unavailable_timing_estimates_are_unknown},
+        {"infrared reach", infrared_reach_preserves_admitted_assumptions},
+        {"observation range", admitted_observation_range_is_defensively_checked},
+        {"body boresight", seeker_gimbal_uses_explicit_body_boresight},
+        {"invalid boresight", invalid_boresight_does_not_mutate_guidance},
     };
     for (const auto& test : tests) {
         if (argc > 1 && std::string(argv[1]) != test.name) continue;

@@ -2,6 +2,8 @@
 #include "simulation/runtime/world/World.h"
 #include "foundation/io/AssetResolver.h"
 #include "simulation/mission_systems/rf/Path.h"
+#include "simulation/mission_systems/weapon/Fuze.h"
+#include "simulation/mission_systems/weapon/Seeker.h"
 #include <algorithm>
 #include <cmath>
 #include <set>
@@ -104,6 +106,7 @@ void World::prepareEngagements() {
         const bool heat=infrared(spec.seeker);
         ms::weapon::Input in;
         in.position=point(s.positionEcef); in.velocity=velocity(s); in.dtS=dt;
+        in.boresight=V{s.rotationBodyToEcef[0],s.rotationBodyToEcef[3],s.rotationBodyToEcef[6]};
         in.ageS=simTime_-e->info.launchTimeS;
         in.launchCue=heat?e->origin.target:0;
         in.up={std::cos(s.latitudeRad)*std::cos(s.longitudeRad),std::cos(s.latitudeRad)*std::sin(s.longitudeRad),std::sin(s.latitudeRad)};
@@ -123,13 +126,12 @@ void World::prepareEngagements() {
             if (target.crashed || target.diverged) continue;
             const V r=delta(point(target.positionEcef),in.position);
             const double range=length(r);
-            if (range<1.0 || range>spec.acquireM) continue;
+            if (range<1.0 || (!heat && range>spec.acquireM)) continue;
             const V tv=velocity(target);
             double acquire=spec.acquireM;
             if (heat) {
-                const double aspect=.5*(1.0+dot(r,tv)/(range*std::max(length(tv),1.0)));
-                acquire*=.45+.55*std::clamp(aspect,0.0,1.0);
-                if (target.afterburner[0]>.5) acquire*=1.35;
+                const double aspect=dot(r,tv)/(range*std::max(length(tv),1.0));
+                acquire=ms::weapon::infraredAcquisitionRangeM(spec.acquireM,aspect,target.afterburner[0]>.5);
             } else {
                 const auto cross=radarCrossSection(e->info.id,candidate->info.id,{});
                 if (cross && cross->modelled) acquire*=std::clamp(std::pow(std::max(cross->sigmaM2,.001)/5.0,.25),.4,1.0);
@@ -140,7 +142,7 @@ void World::prepareEngagements() {
             ms::RadioPathOptions path;
             const auto propagation=radioPath(e->info.id,candidate->info.id,path);
             if (propagation && propagation->terrainMasked) continue;
-            in.visible.push_back({candidate->info.id,point(target.positionEcef),tv,false});
+            in.visible.push_back({candidate->info.id,point(target.positionEcef),tv,false,1.0,acquire});
         }
         for (const auto* dispenser : dispensers()) for (const auto& decoy : dispenser->decoys()) {
             if (heat != (decoy.kind==ms::countermeasure::Kind::Flare)) continue;
@@ -182,21 +184,26 @@ void World::finishEngagements() {
         const auto before=stepStates_[e->slot];
         bool burst=false;
         double fraction=1;
-        if (e->origin.tracking && ms::weapon::armed(age,spec)) {
+        if (e->origin.tracking) {
+            const double ageBefore=std::max(0.0,age-options_.dt*options_.frameSkip);
             const Entry* held=entry(e->origin.holding);
             if (held) {
                 const auto& target=pool_->states()[held->slot];
-                const double miss=ms::weapon::sweptMissDistance(point(before.positionEcef),point(s.positionEcef),
-                        point(stepStates_[held->slot].positionEcef),point(target.positionEcef),&fraction);
-                e->origin.missM=std::isfinite(e->origin.missM)?std::min(e->origin.missM,miss):miss;
-                burst=miss<=spec.fuzeM;
+                const auto fuze=ms::weapon::sweptFuze(point(before.positionEcef),point(s.positionEcef),
+                        point(stepStates_[held->slot].positionEcef),point(target.positionEcef),ageBefore,age,spec);
+                if (fuze.valid && std::isfinite(fuze.missM)) {
+                    e->origin.missM=std::isfinite(e->origin.missM)?std::min(e->origin.missM,fuze.missM):fuze.missM;
+                    burst=fuze.triggered; fraction=fuze.fraction;
+                }
             } else for (const auto* dispenser : dispensers()) for (const auto& d : dispenser->decoys())
                 if (d.id==e->origin.holding) {
                     const V p{d.position.x,d.position.y,d.position.z};
                     const double dt=options_.dt*options_.frameSkip;
                     const V prior{p.x-d.velocity.x*dt,p.y-d.velocity.y*dt,p.z-d.velocity.z*dt};
-                    const double miss=ms::weapon::sweptMissDistance(point(before.positionEcef),point(s.positionEcef),prior,p,&fraction);
-                    e->origin.missM=miss; burst=miss<=spec.fuzeM;
+                    const auto fuze=ms::weapon::sweptFuze(point(before.positionEcef),point(s.positionEcef),prior,p,ageBefore,age,spec);
+                    if (fuze.valid && std::isfinite(fuze.missM)) {
+                        e->origin.missM=fuze.missM; burst=fuze.triggered; fraction=fuze.fraction;
+                    }
                 }
         }
         if (burst) {
@@ -268,8 +275,8 @@ std::uint32_t World::seekerTarget(std::uint32_t vehicle,const std::string& store
         if (range<1) continue;
         double body[3], raw[3]={r.x,r.y,r.z}; ms::geom::toBody(own,raw,body);
         const double off=std::acos(std::clamp(body[0]/range,-1.0,1.0));
-        const double tail=.5*(1+dot(r,tv)/(range*std::max(length(tv),1.0)));
-        const double reach=card->value("seeker_acquire_m",13000.0)*(.45+.55*std::clamp(tail,0.0,1.0))*(target.afterburner[0]>.5?1.35:1.0);
+        const double aspect=dot(r,tv)/(range*std::max(length(tv),1.0));
+        const double reach=ms::weapon::infraredAcquisitionRangeM(card->value("seeker_acquire_m",13000.0),aspect,target.afterburner[0]>.5);
         if (off>=best || range>reach) continue;
         const auto path=radioPath(vehicle,candidate->info.id,{});
         if (path && path->terrainMasked) continue;

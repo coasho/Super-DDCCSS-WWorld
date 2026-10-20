@@ -69,7 +69,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
 # list their tests during the build would fail.
 set(FSIM_CATCH_DISCOVERY DISCOVERY_MODE PRE_TEST)
 
-foreach(core weapon_guidance countermeasure_core)
+foreach(core weapon_guidance fuze countermeasure_core)
     add_executable(fsim_${core}_test simulation/test_${core}.cpp)
     target_link_libraries(fsim_${core}_test PRIVATE fsim::ms)
     add_test(NAME ${core} COMMAND fsim_${core}_test)

@@ -123,6 +123,35 @@ TEST_CASE("a fragment through the skin: THOR's residual velocity", "[damage]") {
     CHECK(thorResidual(0.0, a, m, 300.0, 0.0) == 300.0);
 }
 
+TEST_CASE("fragment momentum lost to air is not applied to the target", "[damage][fragment-momentum]") {
+    // One synthetic fragment, no blast or skin, stopped by one component. Its
+    // measured impact energy independently determines the target's impulse.
+    Warhead w;
+    w.fragments = 1;
+    w.fragmentKg = .01;
+    w.fragmentAreaM2 = .0001;
+    w.speedMs = 1000;
+    w.zones = {{0, 0, 1}};
+    Airframe frame;
+    Airframe::Component component;
+    component.centre = {10, 0, 0};
+    component.half = {.5, .5, .5};
+    frame.components.push_back(component);
+    Target target;
+    target.bodyToEcef = {V3{1, 0, 0}, V3{0, 1, 0}, V3{0, 0, 1}};
+    Burst burst;
+    burst.axis = {1, 0, 0};
+    fsim::Rng rng(1);
+    const auto hit = assess(w, burst, frame, target, rng);
+    REQUIRE(hit.components.size() == 1);
+    REQUIRE(hit.fragmentsStriking == 1);
+    const double expectedMomentum = std::sqrt(2 * w.fragmentKg * hit.components.front().energyJ);
+    REQUIRE(expectedMomentum < w.fragmentKg * w.speedMs);
+    CHECK(near(hit.impulseBody.x, expectedMomentum, 1e-12));
+    CHECK(near(hit.impulseBody.y, 0, 1e-12));
+    CHECK(near(hit.impulseBody.z, 0, 1e-12));
+}
+
 TEST_CASE("every aircraft's damage data reads", "[damage]") {
     int read = 0;
     for (const auto& d : std::filesystem::directory_iterator(kAircraft)) {

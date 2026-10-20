@@ -173,6 +173,29 @@ int main(int argc, char** argv) {
     CHECK(fsim_vehicle_strike(world, a, &command, NULL, &result) == FSIM_OK && result.status == FSIM_COMMAND_ACCEPTED);
     fsim_strike_status_init(&status);
     CHECK(fsim_strike_status_get(world, result.activity, &status, NULL, 0, NULL, 0) == FSIM_OK && status.target == b);
+    {
+        fsim_strike_status visible;
+        uint32_t native_store = UINT32_MAX, visible_store = UINT32_MAX;
+        fsim_strike_status_init(&visible);
+        CHECK(fsim_strike_status_get(world, result.activity, &status, &native_store, 1, NULL, 0) == FSIM_OK);
+        CHECK(fsim_strike_status_get(blue, result.activity, &visible, &visible_store, 1, NULL, 0) == FSIM_OK);
+        CHECK(visible.target == 0);
+        CHECK(visible.phase == status.phase && visible.jettison == status.jettison);
+        CHECK(visible.store_count == status.store_count && visible.weapon_count == status.weapon_count);
+        CHECK(visible_store == native_store);
+        CHECK(fsim_strike_status_get(blue, result.activity, &visible, NULL, 0, NULL, 0) == FSIM_OK && visible.target == 0);
+        CHECK(fsim_strike_status_get(red, result.activity, &visible, NULL, 0, NULL, 0) == FSIM_NOT_ALLOWED);
+        CHECK(fsim_strike_status_get(world, result.activity, &status, NULL, 0, NULL, 0) == FSIM_OK && status.target == b);
+        {
+            struct { uint32_t struct_size; int32_t phase; uint32_t sentinel; } short_status;
+            short_status.struct_size = (uint32_t)offsetof(fsim_strike_status, jettison);
+            short_status.phase = -1;
+            short_status.sentinel = UINT32_C(0x12345678);
+            CHECK(fsim_strike_status_get(blue, result.activity, (fsim_strike_status*)&short_status,
+                                         NULL, 0, NULL, 0) == FSIM_OK);
+            CHECK(short_status.phase == status.phase && short_status.sentinel == UINT32_C(0x12345678));
+        }
+    }
     CHECK(fsim_agent_report(blue, a, FSIM_REPORT_STRIKES, NAN, &availability, NULL, 0, &count) == FSIM_OK);
     {
         uint32_t i;

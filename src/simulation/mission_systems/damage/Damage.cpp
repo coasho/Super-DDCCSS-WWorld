@@ -329,7 +329,7 @@ Impact assess(const Warhead& w, const Burst& burst, const Airframe& af, const Ta
         std::sort(events.begin(), events.end(), [](const Event& a, const Event& b) { return a.s < b.s; });
         bool struck = false, inside = false;
         double at = 0.0;
-        const double v0 = v;
+        double transferredMomentum = 0.0;
         auto skin = [&](Event& e) {
             v *= std::exp(-decayPerM * (e.s - at));
             at = e.s;
@@ -341,6 +341,7 @@ Impact assess(const Warhead& w, const Burst& burst, const Airframe& af, const Ta
             const double after = thorResidual(af.skinThicknessM(p.section), w.fragmentAreaM2, w.fragmentKg, v, obliquity);
             if (after > 0.0) h.perforations += 1, h.holeAreaM2 += w.fragmentAreaM2;
             h.momentumNs += u * (w.fragmentKg * (v - after));
+            transferredMomentum += w.fragmentKg * (v - after);
             v = after;
             e.done = true;
             struck = true;
@@ -369,12 +370,15 @@ Impact assess(const Warhead& w, const Burst& burst, const Airframe& af, const Ta
             c.energyJ += 0.5 * w.fragmentKg * v * v;
             c.fastestMs = std::max(c.fastestMs, v);
             c.areaM2 += w.fragmentAreaM2;
+            transferredMomentum += w.fragmentKg * v;
             v = 0.0; // (it stops in what it strikes)
             struck = true;
         }
         if (struck) {
             out.fragmentsStriking += 1;
-            const V3 j = u * (w.fragmentKg * (v0 - v));
+            // Only momentum transferred at the target belongs to its impulse;
+            // slowing in the air before/between strikes transfers to the air.
+            const V3 j = u * transferredMomentum;
             out.impulseBody += j;
             out.angularImpulseBody += cross(p0, j); // (along its line from the burst: any point of it the same)
         }

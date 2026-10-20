@@ -1,0 +1,101 @@
+#pragma once
+
+#include "Guidance.h"
+
+#include <algorithm>
+#include <cmath>
+#include <limits>
+
+namespace fsim::ms::weapon {
+
+struct FuzeResult {
+    bool valid = false;
+    bool triggered = false;
+    double missM = std::numeric_limits<double>::quiet_NaN();
+    double fraction = std::numeric_limits<double>::quiet_NaN();
+};
+
+namespace fuze_detail {
+inline bool finite(V3 v) noexcept {
+    return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
+}
+inline V3 subtract(V3 a, V3 b) noexcept { return {a.x - b.x, a.y - b.y, a.z - b.z}; }
+inline double dot(V3 a, V3 b) noexcept { return a.x * b.x + a.y * b.y + a.z * b.z; }
+inline V3 at(V3 before, V3 movement, double fraction) noexcept {
+    return {std::fma(movement.x, fraction, before.x),
+            std::fma(movement.y, fraction, before.y),
+            std::fma(movement.z, fraction, before.z)};
+}
+}
+
+// Linear relative-motion sweep restricted to the armed, live ages [armingS,
+// lifeS). The outer step includes both supplied endpoints. fraction is in the
+// ORIGINAL step, at closest approach in that interval; this deliberately
+// preserves the native burst-at-closest-approach convention, not first sphere
+// entry. At an excluded expiry endpoint, only a strict interior overlap can
+// trigger, and its returned fraction must represent an age below lifeS.
+//
+// valid=false rejects malformed inputs or overflowing geometry. A valid step
+// with no active interval returns no geometry (NaNs). The caller still owns
+// armed-release/current-observation permission, damage and terminal events.
+inline FuzeResult sweptFuze(V3 ownBefore, V3 ownAfter, V3 targetBefore, V3 targetAfter,
+                            double ageBeforeS, double ageAfterS, const Spec& spec) noexcept {
+    FuzeResult result;
+    if (!fuze_detail::finite(ownBefore) || !fuze_detail::finite(ownAfter)
+        || !fuze_detail::finite(targetBefore) || !fuze_detail::finite(targetAfter)
+        || !std::isfinite(ageBeforeS) || !std::isfinite(ageAfterS)
+        || ageBeforeS < 0 || ageAfterS <= ageBeforeS
+        || !std::isfinite(spec.fuzeM) || spec.fuzeM < 0
+        || !std::isfinite(spec.armingS) || spec.armingS < 0
+        || !std::isfinite(spec.lifeS) || spec.lifeS <= spec.armingS) return result;
+
+    const double duration = ageAfterS - ageBeforeS;
+    const V3 before = fuze_detail::subtract(ownBefore, targetBefore);
+    const V3 after = fuze_detail::subtract(ownAfter, targetAfter);
+    const V3 movement = fuze_detail::subtract(after, before);
+    const double square = fuze_detail::dot(movement, movement);
+    const double projection = fuze_detail::dot(before, movement);
+    if (!std::isfinite(duration) || !fuze_detail::finite(before) || !fuze_detail::finite(after)
+        || !fuze_detail::finite(movement) || !std::isfinite(square) || !std::isfinite(projection)) return result;
+
+    result.valid = true;
+    const double startAge = std::max(ageBeforeS, spec.armingS);
+    const double endAge = std::min(ageAfterS, spec.lifeS);
+    if (startAge > endAge || startAge >= spec.lifeS) return result;
+    double first = std::clamp((startAge - ageBeforeS) / duration, 0.0, 1.0);
+    const double last = std::clamp((endAge - ageBeforeS) / duration, 0.0, 1.0);
+    const bool expiryEnd = endAge == spec.lifeS;
+    const auto ageAt = [&](double fraction) { return ageBeforeS + fraction * duration; };
+    // A rounded lower bound must not select a time before inclusive arming.
+    if (ageAt(first) < spec.armingS) first = std::nextafter(first, 1.0);
+    if (first > last || (expiryEnd && first == last) || ageAt(first) >= spec.lifeS) return result;
+
+    const double unconstrained = square > 0 ? -projection / square : first;
+    if (!std::isfinite(unconstrained)) return FuzeResult{};
+    double closest = std::clamp(unconstrained, first, last);
+    const V3 endpoint = fuze_detail::at(before, movement, closest);
+    const double endpointMiss = std::hypot(endpoint.x, endpoint.y, endpoint.z);
+    if (!fuze_detail::finite(endpoint) || !std::isfinite(endpointMiss)) return FuzeResult{};
+
+    // A radius tangent reached only at lifeS is outside the active interval.
+    // Decide that before nudging its fraction; rounding must not admit it.
+    const bool excludedContact = expiryEnd && closest == last && endpointMiss >= spec.fuzeM;
+    if (expiryEnd && (closest == last || ageAt(closest) >= spec.lifeS)) {
+        const double liveAge = std::nextafter(spec.lifeS, ageBeforeS);
+        closest = std::min(closest, std::clamp((liveAge - ageBeforeS) / duration, first, last));
+        if (closest >= last) closest = std::nextafter(closest, first);
+        if (ageAt(closest) >= spec.lifeS) closest = std::nextafter(closest, first);
+        if (ageAt(closest) >= spec.lifeS) closest = first;
+    }
+    if (closest < first || closest > last || ageAt(closest) < spec.armingS || ageAt(closest) >= spec.lifeS)
+        return result;
+    const V3 relative = fuze_detail::at(before, movement, closest);
+    const double miss = std::hypot(relative.x, relative.y, relative.z);
+    if (!fuze_detail::finite(relative) || !std::isfinite(miss)) return FuzeResult{};
+    result.missM = miss;
+    result.fraction = closest;
+    result.triggered = !excludedContact && miss <= spec.fuzeM;
+    return result;
+}
+
+} // namespace fsim::ms::weapon

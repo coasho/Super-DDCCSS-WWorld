@@ -528,7 +528,13 @@ std::vector<ms::StoreInfo> Agent::stores() const {
 }
 std::optional<ms::StrikeStatus> Agent::strikeStatus(ms::ActivityId activity) const {
     FSIM_AGENT_AUDIT;
-    return own(activity) ? FSIM_AGENT_VEHICLE_OF.strikeStatus(activity) : std::nullopt;
+    if (!own(activity)) return std::nullopt;
+    auto status = FSIM_AGENT_VEHICLE_OF.strikeStatus(activity);
+    if (status) {
+        const auto* designation = world_->impl().designation(status->target);
+        if (!designation || designation->owner != vehicle_) status->target = 0;
+    }
+    return status;
 }
 ms::Reason Agent::dispense(bool flare) {
     FSIM_AGENT_AUDIT;

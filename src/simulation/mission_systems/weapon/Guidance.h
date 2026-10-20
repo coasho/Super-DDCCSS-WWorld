@@ -2,6 +2,7 @@
 
 #include "fsim/MissionSystems.h"
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 #include <vector>
@@ -30,6 +31,10 @@ struct Observation {
     V3 position, velocity;
     bool decoy = false;
     double signal = 1.0; ///< Relative sensor strength after caller filtering; assumed discrimination model.
+    /// Current observation's admitted sensor reach, after caller filtering.
+    /// NaN preserves the model's base acquireM; other nonfinite or negative
+    /// values invalidate the observation. Geometry is checked again here.
+    double admittedRangeM = std::numeric_limits<double>::quiet_NaN();
 };
 struct Input {
     V3 position, velocity, up;
@@ -38,13 +43,20 @@ struct Input {
     std::optional<Observation> estimate;
     std::uint32_t launchCue = 0; // One-time on-rail observation ID; only a current eligible observation can authorize it.
     std::vector<Observation> visible;
+    /// Body-fixed seeker forward direction in ECEF, when the caller has it.
+    /// Absent preserves the legacy velocity-axis approximation; explicitly
+    /// supplied directions must be finite and nonzero.
+    std::optional<V3> boresight;
 };
 struct Output {
     WeaponPhase phase = WeaponPhase::Unguided;
     bool active = false, tracking = false, supported = false;
     std::uint32_t holding = 0; // Last held observation survives Lost; tracking says if current.
     V3 acceleration;
-    double timeToGoS = 0, timeToActiveS = 0; // Zero when unavailable/non-closing.
+    double timeToGoS = std::numeric_limits<double>::quiet_NaN();
+    /// Zero after active-radar activation; NaN without a closing prediction or
+    /// for seekers that have no active-radar transition.
+    double timeToActiveS = std::numeric_limits<double>::quiet_NaN();
 };
 class Guidance {
 public:
@@ -58,6 +70,7 @@ private:
     std::uint32_t holding_ = 0;
     std::optional<Observation> estimate_;
     double estimateAgeS_ = 0;
+    double lastAgeS_ = 0;
 };
 // Closest relative separation over one linear fixed-step sweep. fraction, if
 // supplied, receives the normalized step position [0,1] of closest approach.

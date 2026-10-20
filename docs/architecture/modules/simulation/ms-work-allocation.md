@@ -825,3 +825,45 @@ regression, Viewer or performance campaign. Full SIM-M02 remains open for the
 primary-source geometry/motor admission, credible aerodynamic convergence and
 independent agreement, dynamic/viscous/control data and variant/fleet physical
 acceptance listed in the validation record.
+
+## 11. SIM-M03 independent correctness, 2026-10-20
+
+Baseline: main `0d4f25a5df3fdd23696e696644cbd0ee32ab23af`, initially clean.
+The user assigned the complete SIM-M03 continuation while Claude continues the
+three SIM-M02 numerical investigations in the standalone AeroNumericsLab
+directory. The user subsequently confirmed that dependent work must await that
+handoff. Exact independent-feature file/symbol ownership is recorded in the
+[continuation plan](../../../superpowers/plans/2026-10-20-sim-m03-independent-correctness.md).
+
+The [weapon fidelity validation](../../../sdk/weapon-fidelity-validation.md)
+records these implemented corrections: consistent on-rail/released IR reach,
+body-axis seeker field of regard, invalid guidance input rejection without state
+mutation, unknown timing estimates, fuze sweeps restricted to the armed/live
+interval, target-only fragment momentum transfer, and legal target visibility
+through direct C++/C99/Python Agent strike-status getters. Existing native
+algorithms are reused; no equipment input, generated model, public layout or
+generic schema is changed. An independent read-only review found no actionable
+code defect within this scope.
+
+Current Headless evidence is 9/9 core CTest cases, 8/8 public/installed CTest
+cases and 20 damage-model Catch2 cases (4,814 assertions). The core selection
+includes native engagement/determinism/terminal-event controls and the 17-case
+guidance and 11-case temporal-fuze executables. Installed consumers report the
+actually loaded C++/C99/Python libraries, modules and data roots. Exact commands,
+logs, timing and provenance paths are in the linked record. This is focused
+software evidence; no new full regression, render-enabled Release or Viewer
+campaign is claimed.
+
+The final `ma_contract` also passes. A supplementary selector self-check fails
+one of 101 internal cases on an unchanged, pre-existing SIM-M02 CMake-fixture
+routing gap. The baseline-rule probe and owner/closure are recorded as HC-53 in
+the [carryover register](../../validation/handoff-carryover-register.md#sim-m03-audit-follow-up-2026-10-20).
+Overall repository-check success is not claimed.
+
+Full SIM-M03 remains open for accepted SIM-M02 dynamics/control inputs, admitted
+radar/IR/seeker/actuator and fuze/lethality references, independent per-variant
+validation and fleet coverage. Modeled weapon return transport/assessment and
+accepted fused weapon input also remain open at the existing owner seams.
+Current idealized servo/uplink, decoy timing and post-separation damage geometry
+limits are recorded explicitly. A solver research folder, static convergence or
+a passing native engagement cannot replace those acceptance gates.

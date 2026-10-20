@@ -98,6 +98,29 @@ class EngagementTest(unittest.TestCase):
             with self.assertRaises(fsim.Error):
                 agent._world.seeker_target(carrier.id, "aim-9x")
 
+    def test_direct_agent_strike_status_redacts_range_target(self):
+        with fsim.World("py-strike-status-visibility", publish=False, terrain=False, workers=1) as world:
+            carrier = world.create_vehicle("carrier", "jsbsim:f16c", latitude_deg=40.0,
+                                           altitude_msl_m=6000.0, airspeed_ms=230.0)
+            other = world.create_vehicle("other", "jsbsim:f16c", latitude_deg=40.05,
+                                         altitude_msl_m=6000.0, airspeed_ms=230.0)
+            carrier.load_loadout("mk82 x4")
+            agent = world.create_agent(carrier, "carrier")
+            observer = world.create_agent(other, "observer")
+            carrier.set_payload_state("stations", "operate")
+            world.step()
+            activity = carrier.strike("mk82", target=other)
+            world.step()
+            native = carrier.strike_status(activity)
+            self.assertEqual(native.target, other.id)
+            visible = agent.strike_status(activity)
+            self.assertEqual(visible.target, 0)
+            self.assertEqual(visible, native._replace(target=0))
+            self.assertEqual(agent.strike_status(activity), visible)
+            self.assertEqual(agent.report_strikes().items[0].value.status, visible)
+            self.assertEqual(carrier.strike_status(activity), native)
+            self.assertIsNone(observer.strike_status(activity))
+
 
 if __name__ == "__main__":
     unittest.main()

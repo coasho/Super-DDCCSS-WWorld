@@ -706,6 +706,10 @@ FSIM_API int fsim_strike_status_get(const fsim_world* world, uint64_t activity, 
     fsim_strike_status c;
     fsim_strike_status_init(&c);
     c.phase = static_cast<int32_t>(s->phase), c.jettison = s->jettison ? 1 : 0, c.target = s->target;
+    if (world->agent) {
+        const auto* designation = world->world.designation(c.target);
+        if (!designation || designation->owner != world->agent->vehicle) c.target = 0;
+    }
     c.store_count = static_cast<uint32_t>(s->stores.size()), c.weapon_count = static_cast<uint32_t>(s->weapons.size());
     for (uint32_t i = 0; stores && i < max_stores && i < s->stores.size(); ++i) stores[i] = s->stores[i];
     for (uint32_t i = 0; weapons && i < max_weapons && i < s->weapons.size(); ++i) weapons[i] = s->weapons[i];

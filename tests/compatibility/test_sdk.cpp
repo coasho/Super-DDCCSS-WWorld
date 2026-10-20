@@ -1,6 +1,7 @@
 // The public C++ SDK end to end (linked against fsim.dll like a trainer):
 // a recorded world read back as data, and the environment extension points.
 #include <fsim/Recording.h>
+#include <fsim/Agent.h>
 #include <fsim/VecEnv.h>
 #include <fsim/VecEnvPlugins.h>
 #include <fsim/World.h>
@@ -16,9 +17,123 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 using namespace fsim;
+
+TEST_CASE("direct Agent strike status redacts range targets without changing native correlations", "[sdk][weapons][visibility]") {
+    WorldOptions options;
+    options.name = "sdk-strike-status-visibility";
+    options.publish = false;
+    options.terrain = false;
+    options.workers = 1;
+    options.pinWorkers = false;
+    options.jsbsimRoot = FSIM_TEST_JSBSIM_ROOT;
+    World world(options);
+    VehicleSpec spec;
+    spec.name = "launcher";
+    spec.type = "jsbsim:f16c";
+    spec.initial.latitudeDeg = 40.0;
+    spec.initial.altitudeMslM = 6000.0;
+    spec.initial.airspeedTrueMs = 230.0;
+    Vehicle launcher = world.createVehicle(spec);
+    spec.name = "opponent";
+    spec.initial.latitudeDeg += 0.05;
+    spec.initial.headingDeg = 180.0;
+    Vehicle opponent = world.createVehicle(spec);
+    REQUIRE(launcher.loadLoadout("mk82 x4") == ms::Reason::None);
+    Agent agent = world.createAgent(launcher, "launcher");
+    Agent observer = world.createAgent(opponent, "observer");
+    std::uint16_t stations = 0xFFFF;
+    for (const auto& payload : launcher.payloads())
+        if (payload.family == ms::Family::StoreStation) stations = payload.index;
+    REQUIRE(stations != 0xFFFF);
+    REQUIRE(launcher.submit(ms::StateCommand{stations, ms::PayloadState::Operate}).accepted());
+    world.step();
+
+    ms::StrikeCommand command;
+    command.payload = stations;
+    command.store = "mk82";
+    command.target = opponent.id();
+    const auto result = launcher.submit(command);
+    REQUIRE(result.accepted());
+    world.step();
+    const auto native = launcher.strikeStatus(result.activity);
+    REQUIRE(native);
+    REQUIRE(native->target == opponent.id());
+    const auto visible = agent.strikeStatus(result.activity);
+    REQUIRE(visible);
+    CHECK(visible->target == 0);
+    CHECK(visible->activity == native->activity);
+    CHECK(visible->phase == native->phase);
+    CHECK(visible->jettison == native->jettison);
+    CHECK(visible->stores == native->stores);
+    CHECK(visible->weapons == native->weapons);
+    CHECK(agent.strikeStatus(result.activity)->target == 0);
+    CHECK(launcher.strikeStatus(result.activity)->target == opponent.id());
+    CHECK_FALSE(observer.strikeStatus(result.activity));
+    CHECK_FALSE(agent.strikeStatus(control::activityId(launcher.id(), 0xFFFFFF)));
+
+    // An actor-visible designation remains its track correlation, including
+    // after it lapses. Another platform's designation must still be redacted.
+    REQUIRE(launcher.cancelMission(result.activity).status == control::CommandStatus::Canceled);
+    const std::pair<Vehicle*, Agent*> platforms[] = {{&launcher, &agent}, {&opponent, &observer}};
+    std::uint16_t radars[2] = {0xFFFF, 0xFFFF};
+    for (std::size_t i = 0; i < 2; ++i) {
+        for (const auto& payload : platforms[i].first->payloads())
+            if (payload.family == ms::Family::AirRadar) radars[i] = payload.index;
+        REQUIRE(radars[i] != 0xFFFF);
+        control::HsaCommand hold;
+        hold.headingRad = i == 0 ? 0.0 : 3.14159265358979323846;
+        hold.speed = 230.0;
+        hold.altitudeM = 6000.0;
+        REQUIRE(platforms[i].second->submit(hold).accepted());
+        REQUIRE(platforms[i].second->submit(ms::StateCommand{radars[i], ms::PayloadState::Operate}).accepted());
+    }
+    bool ready[2] = {false, false};
+    for (unsigned step = 0; step < 1200 && (!ready[0] || !ready[1]); ++step) {
+        world.step();
+        for (std::size_t i = 0; i < 2; ++i)
+            for (const auto& payload : platforms[i].second->payloads())
+                if (payload.index == radars[i]) ready[i] = payload.state == ms::PayloadState::Operate;
+    }
+    REQUIRE((ready[0] && ready[1]));
+    for (std::size_t i = 0; i < 2; ++i) {
+        ms::AmtiCommand search;
+        search.payload = radars[i];
+        search.azimuthHalfWidthRad = 5.0 * 3.14159265358979323846 / 180.0;
+        search.bars = 1;
+        search.rangeScaleM = 60000.0;
+        REQUIRE(platforms[i].second->submit(search).accepted());
+    }
+    std::uint64_t tracks[2] = {0, 0};
+    for (unsigned step = 0; step < 600 && (!tracks[0] || !tracks[1]); ++step) {
+        world.step();
+        for (std::size_t i = 0; i < 2; ++i)
+            for (const auto& track : platforms[i].second->amtiTracks(radars[i]))
+                if (track.updates >= 3) tracks[i] = track.id;
+    }
+    REQUIRE((tracks[0] && tracks[1]));
+    const auto ownTarget = agent.designate(radars[0], tracks[0]);
+    const auto foreignTarget = observer.designate(radars[1], tracks[1]);
+    REQUIRE(ownTarget != 0);
+    REQUIRE(foreignTarget != 0);
+    command.target = ownTarget;
+    const auto ownStrike = launcher.submit(command);
+    REQUIRE(ownStrike.accepted());
+    REQUIRE(agent.strikeStatus(ownStrike.activity));
+    CHECK(agent.strikeStatus(ownStrike.activity)->target == ownTarget);
+    REQUIRE(agent.undesignate(ownTarget));
+    CHECK(agent.strikeStatus(ownStrike.activity)->target == ownTarget);
+    REQUIRE(launcher.cancelMission(ownStrike.activity).status == control::CommandStatus::Canceled);
+    command.target = foreignTarget;
+    const auto foreignStrike = launcher.submit(command);
+    REQUIRE(foreignStrike.accepted());
+    REQUIRE(agent.strikeStatus(foreignStrike.activity));
+    CHECK(agent.strikeStatus(foreignStrike.activity)->target == 0);
+    CHECK(launcher.strikeStatus(foreignStrike.activity)->target == foreignTarget);
+}
 
 TEST_CASE("a recording written by a World reads back through fsim::Recording", "[sdk][recording]") {
     const auto path = std::filesystem::temp_directory_path() / "fsim-sdk-test.fsrec";

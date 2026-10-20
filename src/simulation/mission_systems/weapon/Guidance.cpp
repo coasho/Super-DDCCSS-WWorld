@@ -25,7 +25,18 @@ bool finite(V3 a) {
 }
 bool valid(const Observation& observation) {
     return observation.id != 0 && finite(observation.position) && finite(observation.velocity)
-        && std::isfinite(observation.signal) && observation.signal > 0;
+        && std::isfinite(observation.signal) && observation.signal > 0
+        && (std::isnan(observation.admittedRangeM)
+            || (std::isfinite(observation.admittedRangeM) && observation.admittedRangeM >= 0));
+}
+bool valid(const Spec& spec) {
+    return std::isfinite(spec.acquireM) && spec.acquireM >= 0
+        && std::isfinite(spec.gimbalRad) && spec.gimbalRad >= 0 && spec.gimbalRad <= 3.141592653589793
+        && std::isfinite(spec.maxG) && spec.maxG >= 0
+        && std::isfinite(spec.lifeS) && spec.lifeS >= 0
+        && std::isfinite(spec.armingS) && spec.armingS >= 0
+        && std::isfinite(spec.fuzeM) && spec.fuzeM >= 0
+        && std::isfinite(spec.loftRad);
 }
 V3 lateral(V3 acceleration, V3 velocityUnit) {
     return subtract(acceleration, scale(velocityUnit, dot(acceleration, velocityUnit)));
@@ -39,8 +50,16 @@ Output Guidance::update(const Input& in) {
     const bool radar = spec_.seeker == "active_radar";
     const bool sarh = spec_.seeker == "semi_active_radar";
     const bool infrared = spec_.seeker.find("infrared") != std::string::npos;
-    if ((!radar && !sarh && !infrared) || !finite(in.position) || !finite(in.velocity)
-        || !std::isfinite(in.ageS)) return out;
+    if ((!radar && !sarh && !infrared) || !valid(spec_) || !finite(in.position) || !finite(in.velocity)
+        || !std::isfinite(in.ageS) || in.ageS < 0 || !std::isfinite(in.dtS) || in.dtS < 0
+        || (initialized_ && in.ageS < lastAgeS_)) return out;
+    double boresightNorm = 0;
+    if (in.boresight) {
+        if (!finite(*in.boresight)) return out;
+        boresightNorm = std::hypot(in.boresight->x, in.boresight->y, in.boresight->z);
+        if (!(boresightNorm > 0) || !std::isfinite(boresightNorm)) return out;
+    }
+    lastAgeS_ = in.ageS;
 
     out.supported = sarh ? in.illuminated : in.supported;
     if (in.supported && in.estimate && valid(*in.estimate)) {
@@ -57,15 +76,20 @@ Output Guidance::update(const Input& in) {
     if (radar && (!prediction || length(subtract(prediction->position, in.position))
                                     <= acquisition * 1.15)) active_ = true;
     out.active = radar && active_;
+    if (out.active) out.timeToActiveS = 0;
     out.holding = holding_;
     const V3 heading = unit(in.velocity);
+    const V3 seekerAxis = in.boresight ? V3{in.boresight->x / boresightNorm,
+        in.boresight->y / boresightNorm, in.boresight->z / boresightNorm} : heading;
     const double gimbalCosine = std::cos(std::clamp(spec_.gimbalRad, 0.0, 3.141592653589793));
     auto eligible = [&](const Observation& observation) {
         if (!valid(observation)) return false;
         const V3 relative = subtract(observation.position, in.position);
         const double range = length(relative);
-        return range <= acquisition && (range < 1e-9 || length(in.velocity) < 1e-9
-            || dot(unit(relative), heading) >= gimbalCosine);
+        const double admittedRange = std::isnan(observation.admittedRangeM)
+            ? acquisition : observation.admittedRangeM;
+        return range <= admittedRange && (range < 1e-9 || (!in.boresight && length(in.velocity) < 1e-9)
+            || dot(unit(relative), seekerAxis) >= gimbalCosine);
     };
 
     const Observation* observed = nullptr;
@@ -168,6 +192,6 @@ double sweptMissDistance(V3 ownBefore, V3 ownAfter, V3 targetBefore,
     return length(add(before, scale(movement, t)));
 }
 bool armed(double ageS, const Spec& spec) noexcept {
-    return std::isfinite(ageS) && ageS >= 0 && ageS >= std::max(0.0, spec.armingS);
+    return valid(spec) && std::isfinite(ageS) && ageS >= 0 && ageS >= spec.armingS;
 }
 }

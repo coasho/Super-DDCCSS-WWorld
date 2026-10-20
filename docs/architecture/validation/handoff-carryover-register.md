@@ -1214,3 +1214,17 @@ Current execution destinations are:
 Use change-relevant fast tests for each correction. This register does not
 authorize a new full suite, a conflicting build, an incidental model change or
 the next implementation phase.
+
+## SIM-M03 audit follow-up, 2026-10-20
+
+These findings were observed at main `0d4f25a5df3fdd23696e696644cbd0ee32ab23af`
+while implementing the independent SIM-M03 correctness continuation. Their
+[evidence and acceptance boundary](../../sdk/weapon-fidelity-validation.md)
+retain the separate SIM-M02 research and sensor/model dependencies.
+
+| ID | Origin and state | Item | Owner and required closure |
+| --- | --- | --- | --- |
+| HC-53 | Existing baseline defect, reproduced during final checks; open | `testing_scope_checker` passes 100/101 internal tests, failing the all-CMake routing invariant on `tools/validation/missile/native/OpenVspIntersectionFixture.cmake`. A probe using unchanged HEAD rules routes it only through the Python reference safeguards, with no CMake/script classification or Release plan. The selector, rules and fixture script are unchanged by SIM-M03 | Test-infrastructure owner, coordinate with the SIM-M02 fixture owner: classify the actual external CMake script correctly, preserve ordinary-source and shared-build scope semantics, and pass the routing regression on actual configured inventories. No solver/model change or full-suite execution is authorized by recording this item |
+| HC-54 | Existing model timing limit found in the independent native audit; open | Dispensers advance before the seeker's observation pass; fuze history reconstructs a previous decoy position from final velocity despite nonlinear drag/gravity integration | Codex SIM-M03 consumption, with the countermeasure model owner: freeze actual sample times and before/after decoy poses, verify observation/loss/capture and swept-fuze cases across native cadences, then integrate a separately reviewed correction |
+| HC-55 | Existing native lethality geometry limit; open | Subsequent damage assessments receive the original complete Airframe after sections have separated; detached-body damage needs its own explicit contract | Codex SIM-M03 lethality: assess attached geometry consistently with native separation state and freeze supported detached-body behavior within the admitted entity scope; add repeat-burst/separation fixtures before changing production behavior |
+| HC-56 | External physical-model and feature prerequisites; open, full SIM-M03 remains unaccepted | Calibrated seeker/IR/gimbal and fin/autopilot response, actual fuze/fragment/vulnerability inputs, modeled weapon feedback/assessment, accepted fused input and complete per-variant/fleet evidence are missing | Codex SIM-M03 owns complete native/public/model delivery; consume independently accepted SIM-M02 and sensor inputs. Claude retains the SIM-M01 fused-report feature and generic schema/gateway/installed integration seams. Freeze provenance, uncertainty and independent quantitative cases; complete native/public/installed/Viewer evidence without treating these software corrections as model calibration |
