@@ -1,5 +1,6 @@
 // Native engagement lifecycle. JSBSim alone integrates weapon motion.
 #include "simulation/runtime/world/World.h"
+#include "simulation/mission_systems/components/providers/Builtins.h"
 #include "foundation/io/AssetResolver.h"
 #include "foundation/core/Log.h"
 #include "simulation/mission_systems/rf/Path.h"
@@ -101,7 +102,7 @@ void World::prepareEngagements() {
     for (auto& e : entries_) if (e && e->guidance && !e->weaponEnded) {
         const auto& s=pool_->states()[e->slot];
         const auto spec=e->guidance->spec();
-        const auto& seeker=spec.seekerModel;
+        const auto& seeker=e->seekerProvider->config();
         const bool heat=infrared(spec.seeker);
         ms::weapon::Input in;
         in.position=point(s.positionEcef); in.velocity=velocity(s); in.dtS=dt;
@@ -128,8 +129,8 @@ void World::prepareEngagements() {
             const auto& transmitter=pool_->states()[launcher->slot];
             const V ray=delta(position,point(transmitter.positionEcef));
             const double raw[3]={ray.x,ray.y,ray.z}; double body[3]; ms::geom::toBody(transmitter,raw,body);
-            if (!ms::weapon::withinIlluminationBeam(body,illuminator->beamAzimuthRad(),illuminator->beamElevationRad(),
-                    illuminator->pattern().beamwidthRad(false),illuminator->pattern().beamwidthRad(true),seeker)) return false;
+            if (!e->seekerProvider->illuminated(body,illuminator->beamAzimuthRad(),illuminator->beamElevationRad(),
+                    illuminator->pattern().beamwidthRad(false),illuminator->pattern().beamwidthRad(true))) return false;
             ms::rf::PathOptions path; path.ground=ground_.get(); path.frequencyHz=illuminator->spec().frequencyHz;
             if (!std::isfinite(path.frequencyHz) || path.frequencyHz<=0) return false;
             return !ms::rf::computePath({transmitter.latitudeRad,transmitter.longitudeRad,transmitter.altitudeMslM},terminal(position),path).terrainMasked;
@@ -148,11 +149,11 @@ void World::prepareEngagements() {
             double acquire=spec.acquireM;
             if (heat) {
                 const double aspect=dot(r,tv)/(range*std::max(length(tv),seeker.aspectSpeedFloorMs));
-                acquire=ms::weapon::infraredAcquisitionRangeM(spec.acquireM,aspect,target.afterburner[0]>seeker.afterburnerThreshold,seeker);
+                acquire=e->seekerProvider->infraredRange(spec.acquireM,aspect,target.afterburner[0]>seeker.afterburnerThreshold);
             } else {
                 const auto cross=radarCrossSection(e->info.id,candidate->info.id,{});
-                if (cross && cross->modelled) acquire=ms::weapon::radarAcquisitionRangeM(acquire,cross->sigmaM2,true,seeker);
-                if (ms::weapon::radarNotched(dot(r,in.up)/range,dot(tv,r)/range,seeker)) continue;
+                if (cross && cross->modelled) acquire=e->seekerProvider->radarRange(acquire,cross->sigmaM2,true);
+                if (e->seekerProvider->notched(dot(r,in.up)/range,dot(tv,r)/range)) continue;
             }
             if (range>acquire) continue;
             // Terrain masking and the curved radio horizon also apply to the seeker's own sensor.
@@ -167,14 +168,14 @@ void World::prepareEngagements() {
             const V p{decoy.position.x,decoy.position.y,decoy.position.z}, v{decoy.velocity.x,decoy.velocity.y,decoy.velocity.z};
             if (!illuminatedCandidate(p)) continue;
             const V r=delta(p,in.position); const double range=length(r);
-            if (range<seeker.minimumRangeM || range>spec.acquireM || (!heat && ms::weapon::radarNotched(dot(r,in.up)/range,dot(v,r)/range,seeker))) continue;
+            if (range<seeker.minimumRangeM || range>spec.acquireM || (!heat && e->seekerProvider->notched(dot(r,in.up)/range,dot(v,r)/range))) continue;
             ms::rf::PathOptions path; path.ground=ground_.get();
             if (semi && illuminator) path.frequencyHz=illuminator->spec().frequencyHz;
             const auto propagation=ms::rf::computePath({s.latitudeRad,s.longitudeRad,s.altitudeMslM},terminal(p),path);
             if (propagation.terrainMasked) continue;
             // basis: assumed. Relative signature bloom/fade for deterministic seeker discrimination.
             const double age=std::max(0.0,simTime_-decoy.launchTimeS);
-            const double signal=ms::weapon::decoySignal(age,heat,seeker);
+            const double signal=e->seekerProvider->decoySignal(age,heat);
             if (signal>0) in.visible.push_back({decoy.id,p,v,true,signal});
         }
         const auto old=e->origin;
@@ -182,7 +183,7 @@ void World::prepareEngagements() {
         e->origin.phase=output.phase; e->origin.holding=output.holding;
         e->origin.tracking=output.tracking; e->origin.supported=output.supported;
         e->origin.timeToGoS=output.timeToGoS; e->origin.timeToActiveS=output.timeToActiveS;
-        e->origin.burning=s.thrustN[0]>.1;
+        e->origin.burning=e->plantProviders.propulsion ? e->plantProviders.propulsion->burning(s.thrustN[0]) : s.thrustN[0]>.1;
         e->guidanceDemand[0]=output.acceleration.x; e->guidanceDemand[1]=output.acceleration.y; e->guidanceDemand[2]=output.acceleration.z;
         if (output.active && !heat && spec.seeker!="semi_active_radar" &&
                 (old.phase==ms::WeaponPhase::Midcourse || old.phase==ms::WeaponPhase::Unguided)) recordEngagement("activation",*e);
@@ -567,7 +568,12 @@ std::uint32_t World::onRailSeekerObservation(const Entry& launcher,const ms::Sto
     const auto& own=pool_->states()[launcher.slot];
     std::string error; const auto configured=configuredWeaponSpec(card,error);
     if (!configured) return 0;
-    const auto& seeker=configured->seekerModel;
+    const auto profile=payloadProfile(card,error);if(!profile)return 0;
+    ms::components::ProviderContextV1 context{card,*profile,*configured,std::nullopt};
+    auto provider=profile->explicitProfile() ? payloadProviders_.seeker.create(*profile->find("seeker"),context,error)
+        : ms::components::nativeSeekerProviderV1(configured->seekerModel);
+    if(!provider)return 0;
+    const auto& seeker=provider->config();
     double best=seeker.version==1 ? seeker.launchFovRad : card.value("launch_fov_deg",25.0)*ms::geom::kPi/180.0;
     std::uint32_t found=0;
     for (const auto& candidate : entries_) if (candidate && candidate->info.role==ms::Role::Aircraft && candidate->info.id!=launcher.info.id) {
@@ -579,7 +585,7 @@ std::uint32_t World::onRailSeekerObservation(const Entry& launcher,const ms::Sto
         double body[3], raw[3]={r.x,r.y,r.z}; ms::geom::toBody(own,raw,body);
         const double off=std::acos(std::clamp(body[0]/range,-1.0,1.0));
         const double aspect=dot(r,tv)/(range*std::max(length(tv),seeker.aspectSpeedFloorMs));
-        const double reach=ms::weapon::infraredAcquisitionRangeM(configured->acquireM,aspect,target.afterburner[0]>seeker.afterburnerThreshold,seeker);
+        const double reach=provider->infraredRange(configured->acquireM,aspect,target.afterburner[0]>seeker.afterburnerThreshold);
         if (off>=best || range>reach) continue;
         const auto path=radioPath(launcher.info.id,candidate->info.id,{});
         if (path && path->terrainMasked) continue;

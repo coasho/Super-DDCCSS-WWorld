@@ -1,5 +1,32 @@
 # Current capabilities and milestone status
 
+SIM-M03 native provider separation, 2026-10-20, following `bf16f80`: the
+[interface and concrete-model inventory](sdk/payload-native-providers.md)
+distinguishes nine typed execution interfaces from eleven named concrete
+classes. Per-World factory catalogues select per-release instances; native
+execution uses those instances and refuses failed creation before publication.
+The common asset-binding/lifecycle helpers remain abstract. Backend bridges
+retain JSBSim integration. This is a compiled native source-extension contract;
+it does not add an installed external-DLL plugin ABI or calibrated models for
+each equipment variant.
+
+All 24 guided cards now declare explicit controller parameters. The other
+23 cards retain exactly their previous controller values and effect algorithms;
+descriptive implementation IDs do not upgrade physical models. Hangar generation
+preserves all 53 models' physical XML and all 48 engine/nozzle files. Both complete
+native build targets pass. Fresh focused verification is **7/7** Release CTest
+programs, **14/14** Hangar tests and **1/1** installed equipment consumer (34.28 s).
+The scoped physical selections are **118/120** Release and **118/119** Headless,
+zero skips: the original showcase fragment Hit and 6 m component-hit assertions
+still fail. Both unchanged 5 km scenes were rerun fullscreen on these binaries;
+actual nose loss and subsequent upset are visible. The showcase is still
+airborne at 40 s, not a claimed crash. All 87 frozen source/card/model inputs
+match after verification. MK 82/CJ-10A missing physical providers, full-program
+compatibility and complete SIM-M03 physical acceptance remain pending.
+The [delivery plan](superpowers/plans/2026-10-20-payload-native-providers.md)
+records the current evidence; totals in the earlier delivery below retain
+their historical scope.
+
 SIM-M03 component and contact delivery, 2026-10-20: the
 [uniform component contract](sdk/payload-component-configuration.md) covers all
 53 store cards and nine roles per card. Strict sidecars, compiled SDK adapters,
@@ -13,7 +40,7 @@ evidence shows actual nose separation and subsequent upset, principally through
 mechanical contact. Fragment results remain 29/1688 in the native fixture and
 0/1688 in the showcase; they do not validate the fragmentation model.
 
-Current scoped physical regression is Release **117/119** and Headless
+That delivery's scoped physical regression was Release **117/119** and Headless
 **117/118**, zero skips; both complete build targets pass. The original showcase
 fragment Hit and 6 m side-burst component-hit requirements still fail. Six
 focused component CTest programs, 13 focused Hangar checks and the installed

@@ -209,12 +209,17 @@ bool plantAvailableV1(const PlantAdapterV1& selected,const NativePlantIdentityV1
     }
     return true;
 }
-FinCommands plantCommandsV1(const PlantAdapterV1& selected,const AutopilotInput& input,const ControlStopsV1& stops,
+bool plantCommandInputsAvailableV1(const PlantAdapterV1& selected,const AutopilotInput& input,const ControlStopsV1& stops,
     const NativePlantIdentityV1& actual) noexcept {
     if(!selected.hasControl || !plantAvailableV1(selected,actual) || stops.actuatorVersion!=1 ||
        !same(input.actuatorLagS,selected.control.actuatorLagS) || !same(stops.channelRateRadS,selected.control.actuatorRateRadS) ||
        stops.finRateRadS.empty() || !std::all_of(stops.finRateRadS.begin(),stops.finRateRadS.end(),
-           [&](double rate){return same(rate,selected.control.actuatorRateRadS);})) return {};
+           [&](double rate){return same(rate,selected.control.actuatorRateRadS);})) return false;
+    return true;
+}
+FinCommands plantCommandsV1(const PlantAdapterV1& selected,const AutopilotInput& input,const ControlStopsV1& stops,
+    const NativePlantIdentityV1& actual) noexcept {
+    if(!plantCommandInputsAvailableV1(selected,input,stops,actual))return {};
     switch(selected.implementations[0]) {
     case 1: return finCommands(input,selected.control,stops);
     default: return {};

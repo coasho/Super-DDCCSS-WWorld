@@ -69,6 +69,13 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
 # list their tests during the build would fail.
 set(FSIM_CATCH_DISCOVERY DISCOVERY_MODE PRE_TEST)
 
+# Native component factories are exercised through typed execution interfaces.
+add_executable(fsim_payload_providers_test simulation/test_payload_providers.cpp)
+target_link_libraries(fsim_payload_providers_test PRIVATE fsim::ms Catch2::Catch2WithMain)
+fsim_set_warnings(fsim_payload_providers_test)
+add_test(NAME payload_providers COMMAND fsim_payload_providers_test)
+set_tests_properties(payload_providers PROPERTIES LABELS "payload-components" TIMEOUT 30)
+
 # Deliberately independent of the mission-system library: descriptor parsing
 # can be checked before any execution adapter is implemented or linked.
 add_executable(fsim_payload_profile_test

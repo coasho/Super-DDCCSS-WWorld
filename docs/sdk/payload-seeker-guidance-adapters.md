@@ -7,6 +7,14 @@ add no seeker electronics, new guidance law, performance identification or
 equipment calibration. JSBSim remains the sole flight integrator; guidance
 returns an acceleration demand for the native finite-fin controller.
 
+Runtime now selects separate `SeekerProviderV1` and `GuidanceProviderV1`
+interfaces through the [typed native catalogue](payload-native-providers.md).
+Their current concrete models are `EncounterSeekerV1` and
+`VelocityNormalPnGuidanceV1`, in separate component translation units. New
+compatible implementations register their own factories; role/mode names are
+not themselves implementation classes. Sensor observations still come only
+from World-admitted native inputs.
+
 `StoreCard` and installed SDK layouts are unchanged. The immutable-by-ownership
 `components::ProfileV1` sidecar resolves `component_models` from the same store
 JSON. Each numeric descriptor role references an existing `card.parameters`

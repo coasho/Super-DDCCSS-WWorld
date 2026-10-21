@@ -5,7 +5,10 @@ The initial inventory below records the pre-composition snapshot. The subsequent
 profiles across all 53 maintained cards, compiled native adapter selection,
 per-release effect state, phase-specific native asset checks and Hangar input
 ownership. This does not close equipment-fidelity or the remaining SIM-M03
-physical gates. A general registry/runtime replacement/DLL ABI remains absent.
+physical gates. The later [native provider delivery](payload-native-providers.md)
+adds role-specific abstract interfaces, concrete model classes, typed factories
+and per-World registration snapshots. An installed external-DLL ABI remains
+absent. The inventory below is the earlier snapshot, not a current absence claim.
 
 Date: 2026-10-20. Main HEAD: `92ae5ed`. This audit includes the uncommitted
 SIM-M03 repair; it is not an accepted implementation or equipment-fidelity claim.

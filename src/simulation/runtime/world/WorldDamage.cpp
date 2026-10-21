@@ -358,7 +358,8 @@ std::vector<ipc::EngagementEvent> World::detonateAt(const Detonation& d, const C
         const auto profile=payloadProfile(*card->second,error);
         if (!profile) {LOG_WARN("session") << "detonate component profile: " << error;return out;}
         if (profile->explicitProfile()) {
-            scriptedAdapter=ms::damage::makeWarheadAdapter(*card->second,*profile->find("warhead"),error);
+            ms::components::ProviderContextV1 context{*card->second,*profile,{},std::nullopt};
+            scriptedAdapter=payloadProviders_.warhead.create(*profile->find("warhead"),context,error);
             if (!scriptedAdapter) {LOG_WARN("session") << "detonate component selection: " << error;return out;}
             adapter=scriptedAdapter.get();
         }

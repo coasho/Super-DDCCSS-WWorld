@@ -4,9 +4,11 @@ The SDK resolves one versioned component profile for each loaded store card.
 The maintained catalogue has 53 cards and nine declared roles per card: seeker,
 guidance, autopilot, allocator, actuator, fuze, warhead, propulsion and
 aerodynamics. Component availability and physical-model acceptance are separate.
-The current implementation supplies compiled native adapters. It does not
-provide a general provider registry, runtime replacement interface or external
-DLL loading ABI.
+The current implementation supplies [typed native provider registration and
+runtime instances](payload-native-providers.md). Each role has its own abstract
+execution interface and independently registered concrete models. Registration
+is a native source extension compiled with the SDK; an installed external-DLL
+loading ABI is not provided.
 
 The availability declarations describe what actually executes today. All 53
 cards select aerodynamics; the 24 existing guided stores select all nine
@@ -15,6 +17,13 @@ not-applicable. Twenty-seven also declare fuze/warhead not-applicable; the
 MK 82 and CJ-10A declare those two roles unavailable. Their ballistic native
 models do not establish armed effect support. A complete declaration is not
 a claim that every role on every store has a physical implementation.
+
+All 24 maintained guided cards now select explicit autopilot configuration with
+five parameter references. The other 23 cards transcribe their existing generic
+controller defaults; no existing equipment parameter changes. Swept-path fuze
+and zoned-case effect models use descriptive IDs; their former legacy IDs remain
+compatibility aliases. The underlying physical models and their assumptions are
+unchanged. A current interface version does not establish a newer physical law.
 
 ## Card contract
 
@@ -143,10 +152,12 @@ remain active. No model calibration, test criterion or Hit meaning is changed
 to manufacture acceptance. See [the physical investigation](sim-m03-five-km-repair.md)
 for the distinct SIM-M03 gates and their current evidence.
 
-Current software evidence is six focused Release CTest programs passing,
-13 focused Hangar tests passing, and the installed equipment consumer passing.
+Current software evidence is seven focused Release CTest programs passing,
+14 focused Hangar tests passing, and the installed equipment consumer passing
+(1/1, 34.28 s). The typed-provider inventory and extension boundary are recorded
+in [native payload providers](payload-native-providers.md).
 Native tests load and check all 53 generated store models (24 controlled and
 29 ballistic). The separate scoped physical selections retain their failures:
-Release 117/119 and Headless 117/118, with zero skips. The two complete native
+Release 118/120 and Headless 118/119, with zero skips. The two complete native
 build targets pass. Full-program compatibility and calibrated per-variant
 physical acceptance are not inferred from these results.

@@ -1,4 +1,5 @@
 #include "WarheadAdapter.h"
+#include "adapters/NativeWarhead.h"
 
 #include <stdexcept>
 #include <utility>
@@ -6,19 +7,6 @@
 namespace fsim::ms::damage {
 namespace {
 
-class NativeWarhead final : public WarheadAdapter {
-public:
-    NativeWarhead(std::string id, Warhead model) : id_(std::move(id)), model_(std::move(model)) {}
-    std::string_view implementationId() const noexcept override { return id_; }
-    const Warhead& model() const noexcept override { return model_; }
-    Impact assess(const Burst& burst, const AttachedGeometryView& geometry,
-                  const Target& target, Rng& rng) const override {
-        return damage::assess(model_,burst,geometry,target,rng);
-    }
-private:
-    std::string id_;
-    Warhead model_;
-};
 
 bool sameParameter(const Parameter& a, const Parameter& b) {
     return a.value==b.value && a.unit==b.unit && a.uncertainty==b.uncertainty &&
@@ -58,7 +46,7 @@ std::unique_ptr<WarheadAdapter> makeWarheadAdapter(
     error.clear();
     try {
         declaration(card,d);
-        const bool legacy=d.implementationId=="native.warhead.legacy.v1";
+        const bool legacy=d.implementationId=="native.warhead.legacy.v1" || d.implementationId=="native.warhead.zoned_case.v1";
         if (!legacy && d.implementationId!="native.warhead.side_case.v1")
             throw std::runtime_error("unknown warhead implementation '"+d.implementationId+"'");
         const auto bindings={"burst_reference","blast","penetration","assessment"};
@@ -99,7 +87,7 @@ std::unique_ptr<WarheadAdapter> makeWarheadAdapter(
         auto model=warheadOf(card);
         if (!model || model->modelVersion!=(legacy?0u:1u))
             throw std::runtime_error("selected native warhead construction refused its card");
-        return std::make_unique<NativeWarhead>(d.implementationId,std::move(*model));
+        return makeNativeWarheadAdapterV1(d.implementationId,std::move(*model));
     } catch (const std::exception& ex) {
         error=ex.what(); return nullptr;
     }

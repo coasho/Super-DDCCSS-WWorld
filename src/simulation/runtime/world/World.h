@@ -21,6 +21,7 @@
 #include "simulation/mission_systems/weapon/MaterialPoint.h"
 #include "simulation/mission_systems/components/Profile.h"
 #include "simulation/mission_systems/components/Bindings.h"
+#include "simulation/mission_systems/components/Providers.h"
 #include "simulation/mission_systems/weapon/FuzeAdapter.h"
 #include "simulation/mission_systems/weapon/PlantAdapter.h"
 #include "simulation/mission_systems/damage/WarheadAdapter.h"
@@ -107,6 +108,9 @@ public:
     ~World() override;
     World(const World&) = delete;
     World& operator=(const World&) = delete;
+    /// Native source extension. Freeze a catalogue copy before any vehicle is
+    /// created; later replacement cannot alter existing releases or Worlds.
+    bool setPayloadProvidersV1(const ms::components::ProviderRegistryV1&,std::string& error);
 
     // --- Vehicles ------------------------------------------------------------
     /// Create (load) a vehicle. Returns its id, or 0 on failure (logged).
@@ -750,11 +754,13 @@ private:
         bool crewLost = false;             ///< its controls held where they were
         ms::WeaponRecord origin;           ///< a weapon's: the store it was (MS-7; store, station, activity, target, jettisoned)
         std::uint32_t launchSeekerCue = 0; ///< actual on-rail observation, never a designation ID
-        std::unique_ptr<ms::weapon::Guidance> guidance;
+        std::unique_ptr<ms::components::GuidanceProviderV1> guidance;
+        std::unique_ptr<ms::components::SeekerProviderV1> seekerProvider;
         std::shared_ptr<const ms::components::ProfileV1> payloadProfile;
         std::unique_ptr<ms::weapon::FuzeAdapter> fuzeAdapter;
         std::unique_ptr<ms::damage::WarheadAdapter> warheadAdapter;
         ms::weapon::PlantAdapterV1 plantAdapter;
+        ms::components::PlantProvidersV1 plantProviders;
         std::array<std::array<PropertyHandle,3>,5> plantMetadata;
         std::optional<ms::damage::V3> contactNoseFromOriginBodyM; ///< immutable authored point tip; absent: unavailable
         std::optional<ms::damage::V3> burstFromOriginBodyM, fuzeFromOriginBodyM;
@@ -868,6 +874,7 @@ private:
     std::unordered_map<std::string, std::shared_ptr<const ms::damage::Airframe>> airframes_;
     std::map<std::string, std::shared_ptr<const ms::StoreCard>> storeCards_; ///< the store library, read when first needed
     ms::components::BindingsV1 payloadBindings_;
+    ms::components::ProviderRegistryV1 payloadProviders_=ms::components::builtInProvidersV1();
     std::shared_ptr<const ms::components::ProfileV1> payloadProfile(
         const ms::StoreCard&,std::string& error) const;
     bool bindPayloadProfile(std::shared_ptr<const ms::StoreCard>,const std::filesystem::path&,std::string& error);

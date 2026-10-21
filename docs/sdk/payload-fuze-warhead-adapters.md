@@ -6,6 +6,15 @@ random draws, captured-motion requirements and initiation lifecycle. The provide
 selection does not establish physical calibration or close open physical-model
 acceptance gates. StoreCard and public SDK layouts are unchanged.
 
+The [native catalogue](payload-native-providers.md) now selects typed runtime
+instances. Concrete `SweptPathFuzeV1`, `TurningCpaFuzeV1`,
+`ZonedCaseWarheadV1` and `SideCaseWarheadV1` live in separate model files.
+Abstract helpers share lifecycle/snapshot ownership only. The current catalogue
+uses `native.fuze.swept_path.v1` and `native.warhead.zoned_case.v1` for the
+existing version-zero algorithms; the legacy IDs in the reference tables below
+remain exact compatibility aliases. This naming migration changes no timing,
+source sampling, damage mathematics or RNG sequence.
+
 The shared `components::DescriptorV1` resolves `parameter_refs` against the same
 card parameter snapshot. Each available declaration requires configuration version
 1, explicit provenance, a note, validity, the complete provider roles below, and

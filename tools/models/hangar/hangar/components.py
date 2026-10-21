@@ -152,14 +152,21 @@ def migration(card, design):
         return key
     controlled = any(s.get("controls") for s in (design or {}).get("surface", []))
     if controlled:
-        configured = card.get("parameters", {}).get("weapon_execution_version", {}).get("value") == 1
-        roles = {"max_incidence_deg": "control_max_incidence_deg", "rate_time_min_s": "control_rate_time_min_s",
-                 "rate_lag_multiplier": "control_rate_lag_multiplier", "incidence_time_min_s": "control_incidence_time_min_s",
-                 "incidence_rate_multiplier": "control_incidence_rate_multiplier"} if configured else {}
-        descriptor("autopilot", AUTOPILOT, roles, {"model": model, "execution_mode": "configured" if configured else "legacy"})
+        versioned = card.get("parameters", {}).get("weapon_execution_version", {}).get("value") == 1
+        existing = card.get("component_models", {}).get("components", {}).get("autopilot", {})
+        current_refs = existing.get("parameter_refs", {}) if existing.get("bindings", {}).get("execution_mode") == "configured" else {}
+        # Transcribe the current generic controller defaults, not equipment
+        # identification or a new execution/physical model. Separate names
+        # avoid inventing a partial legacy top-level execution block.
+        defaults = {"max_incidence_deg": (15., "deg"), "rate_time_min_s": (.12, "s"),
+                    "rate_lag_multiplier": (3., "1"), "incidence_time_min_s": (.4, "s"),
+                    "incidence_rate_multiplier": (3.333333333333333, "1")}
+        roles = {role: parameter(current_refs.get(role, ("control_" if versioned else "component_control_") + role), value, unit)
+                 for role, (value, unit) in defaults.items()}
+        descriptor("autopilot", AUTOPILOT, roles, {"model": model, "execution_mode": "configured"})
         descriptor("allocator", ALLOCATOR, bindings={"model": model, "design": source})
-        refs = {"lag_s": parameter("control_actuator_lag_s" if configured else "plant_actuator_lag_s", .04, "s"),
-                "rate_rad_s": parameter("control_actuator_rate_rad_s" if configured else "plant_actuator_rate_rad_s", 4., "rad/s")}
+        refs = {"lag_s": parameter("control_actuator_lag_s" if versioned else "plant_actuator_lag_s", .04, "s"),
+                "rate_rad_s": parameter("control_actuator_rate_rad_s" if versioned else "plant_actuator_rate_rad_s", 4., "rad/s")}
         descriptor("actuator", ACTUATOR, refs, {"model": model})
     elif card.get("class") == "aam" or card.get("seeker"):
         for kind in ("autopilot", "allocator", "actuator"):

@@ -2,7 +2,44 @@
 
 ## Current repair delivery status
 
-The [uniform component delivery](payload-component-configuration.md) adds
+The subsequent native-provider separation follows baseline `bf16f80` and is
+documented in the [interface/concrete-model inventory](payload-native-providers.md).
+Nine role interfaces and eleven concrete classes are separated. Production
+World execution selects per-release instances from a copied catalogue. All
+24 guided cards now declare explicit control configuration; controller numbers,
+physical XML and engine/nozzle bytes remain unchanged. This architecture work
+does not repair the original physical-model failures.
+
+On the frozen provider source, both complete builds pass. Fresh focused gates
+pass 7/7 Release CTest programs, 14/14 Hangar tests and 1/1 installed equipment
+consumer (34.28 s). Current scoped physical regression is **118/120** Release
+(75.35 s) and **118/119** Headless (75.09 s), zero skips. The original showcase
+fragment Hit and 6 m side-burst component-hit assertions remain failed. Logs
+are `payload-providers-focused.{log,xml}`, `payload-providers-hangar.log`,
+`payload-providers-installed.{log,xml}` and
+`payload-providers-{release,headless}-physical.{log,xml}` under
+`build/architecture-reviews/`. Later totals in this document describe the
+preceding delivery and remain historical.
+
+Both original 5 km scenes were rerun fullscreen with current binaries. Native
+screenshots `native-providers-functional_004.png` and `_005.png` show the actual
+target's missing nose and upset at 18.9 s and 21.8 s. Its unchanged functional
+fixture reports 2874.88 kg separated dry mass, crew loss, and five seconds of
+continued native motion ending at 5870.09 m and 127.486 m/s; `crashed` is false.
+Showcase screenshot `native-providers-showcase_003.png` shows nose separation
+and upset at 30.3 s. Its native recording ends at 40 s, 4807.9217 m and
+70.5778 m/s, with `crashed=false` and `diverged=false`. These are actual
+mechanical-contact aftermath observations, not fragmentation acceptance or a
+claimed crash. Screenshots are 3840 by 2160 under
+`build/architecture-reviews/sim-m03-five-km-viewer/`, alongside
+`NATIVE-PROVIDERS-functional-native-engagement-1-5000.000000.fsrec` and
+`NATIVE-PROVIDERS-showcase.fsrec` / `.fsrec.engagement.json`. Viewer follows
+the missile during approach and the target after the encounter. The first
+visual harness attempt read a null process exit code; caching the owned process
+handle fixed the harness, and both repeated native producers exited zero.
+Neither producer exit status replaces the original failed damage assertions.
+
+The preceding [uniform component delivery](payload-component-configuration.md) added
 versioned configuration and compiled SDK dispatch for all nine component
 roles across all 53 store cards. Existing numerical inputs and legacy/V1
 execution distinctions are retained. Exact card-source binding, refused
@@ -76,10 +113,10 @@ camera uses replay time to avoid wall-clock capture errors:
 two-scene ray plot is `sim-m03-recorded-ray-coverage.png`; its projections
 illustrate archived 3-D classifications and cannot independently prove hits.
 
-## Current scoped regression evidence
+## Preceding component/contact delivery regression evidence
 
-Both UCRT64 Release and Headless complete build targets pass on the current
-source. The current Release physical selection discovers **119 cases/programs:
+On that preceding delivery, both UCRT64 Release and Headless complete build
+targets passed. Its Release physical selection discovered **119 cases/programs:
 117/119 pass, two fail, zero skips**, in 74.53 s.
 The native engagement program passes all **12 cases**, including the original
 5 km/30 km worker checks, actual functional aftermath, swept encounter state,

@@ -74,7 +74,17 @@ TEST_CASE("Composition resolves every maintained guided card without changing it
         REQUIRE(selected.activationRatio==baseline.activationRatio);REQUIRE(selected.loftAccelerationG==baseline.loftAccelerationG);
         REQUIRE(selected.capabilityVersion==baseline.capabilityVersion);
         REQUIRE(selected.inertialMidcourse==baseline.inertialMidcourse);REQUIRE(selected.launcherUpdates==baseline.launcherUpdates);
-        REQUIRE(selected.control.version==baseline.control.version);REQUIRE(selected.fuzeModelVersion==baseline.fuzeModelVersion);
+        REQUIRE(selected.control.version==1);
+        REQUIRE(selected.control.algorithm==baseline.control.algorithm);
+        REQUIRE(selected.control.allocator==baseline.control.allocator);
+        REQUIRE(selected.control.maxIncidenceRad==baseline.control.maxIncidenceRad);
+        REQUIRE(selected.control.rateTimeMinS==baseline.control.rateTimeMinS);
+        REQUIRE(selected.control.rateLagMultiplier==baseline.control.rateLagMultiplier);
+        REQUIRE(selected.control.incidenceTimeMinS==baseline.control.incidenceTimeMinS);
+        REQUIRE(selected.control.incidenceRateMultiplier==baseline.control.incidenceRateMultiplier);
+        REQUIRE(selected.control.actuatorLagS==baseline.control.actuatorLagS);
+        REQUIRE(selected.control.actuatorRateRadS==baseline.control.actuatorRateRadS);
+        REQUIRE(selected.fuzeModelVersion==baseline.fuzeModelVersion);
         REQUIRE(selected.armingS==baseline.armingS);REQUIRE(selected.fuzeM==baseline.fuzeM);REQUIRE(selected.fuzeDelayS==baseline.fuzeDelayS);
     }
     REQUIRE(guided==24);

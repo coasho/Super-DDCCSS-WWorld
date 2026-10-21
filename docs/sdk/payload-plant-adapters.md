@@ -6,6 +6,12 @@ control implementation or improve the existing weapon model. JSBSim remains the
 only flight, actuator, motor and aerodynamic integrator. The adapter returns
 normalized commands and validates native asset identity; it adds no force path.
 
+The [native provider contract](payload-native-providers.md) separates the five
+role-specific abstract interfaces and concrete backend models. Autopilot command
+generation, allocator channel admission, actuator metadata admission, propulsion
+inventory/burning readback and aerodynamic asset binding have distinct methods
+and typed factories. Common metadata helpers are not concrete component models.
+
 ## Supported configuration version 1
 
 All components use the shared `component_models` sidecar and resolve role names
@@ -42,7 +48,7 @@ labelled `face_drag_diagnostic`, while native generation uses `cargo_xml` and
 source/class, model and authored-design bindings before returning. These
 diagnostic labels do not promote build-up report coefficients to native forces.
 
-Legacy autopilot selection retains control version zero and its original
+Compatibility-only legacy autopilot selection retains control version zero and its original
 operation order/constants. Merely adding a component profile does not add
 `weapon_execution_version` or turn other cards into version-one guidance. A
 configured autopilot consumes the five explicit tuning roles. The native fixed
@@ -50,6 +56,11 @@ fin mixer remains the actual allocator; the generator's pseudoinverse only
 reconstructs equivalent positions from actual fins and does not implement
 failure recovery. Both execution modes validate the selected native actuator
 time constant, channel rate and every physical-fin rate before control runs.
+All 24 maintained guided cards now use `configured` with five explicit control
+references, preserving their existing values. The old top-level execution flag
+is not used as a substitute for this component declaration. Exact numerical
+checks compare every controller setting with the retained baseline separately
+from the now-explicit component version.
 
 ## Motor authority and unchanged numerical inputs
 

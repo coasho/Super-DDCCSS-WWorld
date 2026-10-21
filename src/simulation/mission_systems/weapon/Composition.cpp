@@ -2,6 +2,7 @@
 #include "FuzeAdapter.h"
 #include "PlantAdapter.h"
 #include "simulation/mission_systems/damage/WarheadAdapter.h"
+#include "simulation/mission_systems/components/Providers.h"
 
 #include <cmath>
 #include <stdexcept>
@@ -10,7 +11,14 @@
 namespace fsim::ms::weapon {
 bool configureCompositionV1(const StoreCard& card, const components::ProfileV1& profile,
                             const Spec& baseline, Spec& output, std::string& error) {
+    return configureCompositionV1(card,profile,baseline,output,error,components::builtInProvidersV1());
+}
+bool configureCompositionV1(const StoreCard& card, const components::ProfileV1& selectedProfile,
+                            const Spec& baseline, Spec& output, std::string& error,
+                            const components::ProviderRegistryV1& providers) {
     error.clear();
+    components::ProfileV1 profile;
+    if(!providers.validationProfile(selectedProfile,profile,error))return false;
     try {
         Spec candidate=baseline;
         if(profile.schemaVersion==0) {output=std::move(candidate);return true;}

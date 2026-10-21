@@ -1,4 +1,5 @@
 #include "FuzeAdapter.h"
+#include "adapters/NativeFuze.h"
 
 #include <stdexcept>
 #include <utility>
@@ -6,45 +7,6 @@
 namespace fsim::ms::weapon {
 namespace {
 
-class NativeFuze final : public FuzeAdapter {
-public:
-    NativeFuze(std::string id, Spec spec) : id_(std::move(id)), spec_(std::move(spec)) {}
-    std::string_view implementationId() const noexcept override { return id_; }
-    const Spec& spec() const noexcept override { return spec_; }
-    FuzeResult evaluateProximity(const std::vector<MotionSample>& own, const std::vector<MotionSample>& target,
-        double ageBeforeS, double durationS, double eligibleEndS, bool exclusiveEnd, std::uint32_t targetId) override {
-        if (spec_.fuzeModelVersion==1)
-            return turn_.evaluate(own,target,ageBeforeS,durationS,spec_,eligibleEndS,exclusiveEnd,targetId);
-        return sweptPathFuze(own,target,ageBeforeS,durationS,spec_,eligibleEndS,exclusiveEnd);
-    }
-    ContactFuzeResult evaluateContact(const std::vector<ContactSample>& path,
-        const damage::AttachedGeometryView& geometry, const ContactWindow& window) const override {
-        if (window.armingS!=spec_.armingS || window.lifeS!=spec_.lifeS) return {};
-        return contactFuze(path,geometry,window);
-    }
-    bool commitContact(const ContactFuzeResult& result) noexcept override { return contact_.commit(result); }
-    bool scheduleDelay(double triggerAgeS, std::uint32_t targetId) noexcept override {
-        return delay_.schedule(triggerAgeS,targetId,spec_);
-    }
-    FuzeDelayResultV1 dueDelay(double ageBeforeS, double durationS, double eligibleEndS, bool exclusiveEnd) noexcept override {
-        return delay_.due(ageBeforeS,durationS,spec_,eligibleEndS,exclusiveEnd);
-    }
-    void cancelDelay() noexcept override { delay_.cancel(); }
-    void resetTurnHistory() noexcept override { turn_.reset(); }
-    void resetRelease() noexcept override { contact_.reset(); turn_.reset(); delay_.reset(); }
-    ContactFuzeState& contactState() noexcept override { return contact_; }
-    const ContactFuzeState& contactState() const noexcept override { return contact_; }
-    FuzeTurnStateV1& turnState() noexcept override { return turn_; }
-    const FuzeTurnStateV1& turnState() const noexcept override { return turn_; }
-    FuzeDelayStateV1& delayState() noexcept override { return delay_; }
-    const FuzeDelayStateV1& delayState() const noexcept override { return delay_; }
-private:
-    std::string id_;
-    Spec spec_;
-    ContactFuzeState contact_;
-    FuzeTurnStateV1 turn_;
-    FuzeDelayStateV1 delay_;
-};
 
 void declaration(const components::DescriptorV1& d) {
     if (d.kind!="fuze" || d.availability!=components::AvailabilityV1::Available || d.configurationVersion!=1)
@@ -76,7 +38,7 @@ std::unique_ptr<FuzeAdapter> makeFuzeAdapter(
     error.clear();
     try {
         declaration(d);
-        const bool legacy=d.implementationId=="native.fuze.legacy.v1";
+        const bool legacy=d.implementationId=="native.fuze.legacy.v1" || d.implementationId=="native.fuze.swept_path.v1";
         if (!legacy && d.implementationId!="native.fuze.turning_cpa.v1")
             throw std::runtime_error("unknown fuze implementation '"+d.implementationId+"'");
         const auto bindings={"sensor_reference","target_reference","contact_reference","contact","history","delay"};
@@ -120,7 +82,7 @@ std::unique_ptr<FuzeAdapter> makeFuzeAdapter(
             put("body_length_m","length_m","m"); put("body_diameter_m","diameter_m","m");
             if (!configureGuidance(native,selected,error)) return nullptr;
         }
-        return std::make_unique<NativeFuze>(d.implementationId,std::move(selected));
+        return makeNativeFuzeAdapterV1(d.implementationId,std::move(selected));
     } catch (const std::exception& ex) {
         error=ex.what(); return nullptr;
     }

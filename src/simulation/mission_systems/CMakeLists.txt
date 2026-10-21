@@ -5,6 +5,16 @@ add_library(fsim_ms STATIC
     Cards.cpp
     components/Profile.cpp
     components/Bindings.cpp
+    components/Providers.cpp
+    components/providers/Seeker.cpp
+    components/providers/Guidance.cpp
+    components/providers/Autopilot.cpp
+    components/providers/Allocator.cpp
+    components/providers/Actuator.cpp
+    components/providers/Propulsion.cpp
+    components/providers/Aerodynamics.cpp
+    components/providers/Fuze.cpp
+    components/providers/Warhead.cpp
     Host.h
     Host.cpp
     HostStores.cpp
@@ -16,6 +26,9 @@ add_library(fsim_ms STATIC
     weapon/Seeker.cpp
     weapon/PlantAdapter.cpp
     weapon/FuzeAdapter.cpp
+    weapon/adapters/NativeFuze.cpp
+    weapon/adapters/SweptPathFuzeV1.cpp
+    weapon/adapters/TurningCpaFuzeV1.cpp
     weapon/ContactFuze.h
     weapon/ContactFuze.cpp
     weapon/Autopilot.cpp
@@ -27,6 +40,9 @@ add_library(fsim_ms STATIC
     damage/Damage.h
     damage/Damage.cpp
     damage/WarheadAdapter.cpp
+    damage/adapters/NativeWarhead.cpp
+    damage/adapters/ZonedCaseWarheadV1.cpp
+    damage/adapters/SideCaseWarheadV1.cpp
     damage/State.h
     damage/State.cpp
     damage/Debris.h

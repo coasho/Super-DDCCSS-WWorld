@@ -1,4 +1,5 @@
 #include "simulation/runtime/world/World.h"
+#include "simulation/mission_systems/components/providers/Builtins.h"
 
 #include "simulation/runtime/services/AgentRules.h"
 
@@ -160,6 +161,11 @@ std::shared_ptr<const control::VehicleProfile> readAircraftProfile(const std::st
 
 } // namespace
 
+bool World::setPayloadProvidersV1(const ms::components::ProviderRegistryV1& providers,std::string& error) {
+    if(nextId_!=1 || !storeCards_.empty()) {error="payload providers must be configured before the first native vehicle or store load";return false;}
+    payloadProviders_=providers;error.clear();return true;
+}
+
 std::shared_ptr<const ms::components::ProfileV1> World::payloadProfile(const ms::StoreCard& card,std::string& error) const {
     return payloadBindings_.find(card,error);
 }
@@ -185,7 +191,7 @@ std::optional<ms::weapon::Spec> World::configuredWeaponSpec(const ms::StoreCard&
     const auto profile=payloadProfile(card,error); if (!profile) return std::nullopt;
     if (!profile->explicitProfile()) return configured;
     ms::weapon::Spec selected;
-    if (!ms::weapon::configureCompositionV1(card,*profile,*configured,selected,error)) return std::nullopt;
+    if (!ms::weapon::configureCompositionV1(card,*profile,*configured,selected,error,payloadProviders_)) return std::nullopt;
     configured=std::move(selected);
     return configured;
 }
@@ -2027,7 +2033,7 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
             }
             for (const auto& rate : r.finRates) stops.finRateRadS.push_back(rate.get());
             const auto commands = e->plantAdapter.configured
-                ? ms::weapon::plantCommandsV1(e->plantAdapter,in,stops,nativePlantIdentity(*e))
+                ? e->plantProviders.commands(e->plantAdapter,in,stops,nativePlantIdentity(*e))
                 : ms::weapon::finCommands(in,e->guidance->spec().control,stops);
             e->finControllerAvailable=commands.available;
             e->inputs.aileron = commands.aileron;
@@ -2280,6 +2286,9 @@ void World::flyReleases() {
             std::optional<ms::weapon::Spec> releaseGuidance;
             std::unique_ptr<ms::weapon::FuzeAdapter> releaseFuze;
             std::unique_ptr<ms::damage::WarheadAdapter> releaseWarhead;
+            std::unique_ptr<ms::components::SeekerProviderV1> releaseSeeker;
+            std::unique_ptr<ms::components::GuidanceProviderV1> releaseGuidanceProvider;
+            ms::components::PlantProvidersV1 releasePlantProviders;
             std::string configurationError;
             bool configured=true;
             const bool guided=!r.launch.inert && releasedCard && releasedCard->storeClass=="aam" && !releasedCard->seeker.empty();
@@ -2289,18 +2298,62 @@ void World::flyReleases() {
                 if (configured && guided) {
                     releaseGuidance=configuredWeaponSpec(*releasedCard,configurationError);
                     configured=releaseGuidance.has_value();
+                    if(configured && !releaseProfile->explicitProfile()) {
+                        std::optional<ms::weapon::Observation> initialEstimate;
+                        sim::VehicleState targetEstimate{};
+                        if(designation(r.target) && resolveWeaponTarget(launcher,r.target,targetEstimate)) {
+                            double v[3];ms::geom::velocityEcef(targetEstimate,v);
+                            initialEstimate=ms::weapon::Observation{r.target,
+                                {targetEstimate.positionEcef[0],targetEstimate.positionEcef[1],targetEstimate.positionEcef[2]},
+                                {v[0],v[1],v[2]},false};
+                        }
+                        releaseSeeker=ms::components::nativeSeekerProviderV1(releaseGuidance->seekerModel);
+                        releaseGuidanceProvider=ms::components::nativeGuidanceProviderV1(*releaseGuidance,initialEstimate);
+                    }
                 }
                 if (configured && releaseProfile->explicitProfile()) {
                     const auto& profile=*releaseProfile;
-                    if (guided) {
-                        configured=ms::weapon::configurePlantV1(*profile.find("autopilot"),*profile.find("allocator"),
-                            *profile.find("actuator"),*profile.find("propulsion"),*profile.find("aerodynamics"),
+                    ms::components::ProfileV1 validation=profile;
+                    if(guided)configured=payloadProviders_.validationProfile(profile,validation,configurationError);
+                    else {
+                        const auto select=[&](const char* kind,const auto& table) {
+                            const auto* d=profile.find(kind);
+                            if(!d){configurationError="required native phase descriptor missing";return false;}
+                            if(d->availability!=ms::components::AvailabilityV1::Available)return true;
+                            return table.descriptor(*d,validation.components.at(kind),configurationError);
+                        };
+                        configured=select("aerodynamics",payloadProviders_.aerodynamics);
+                        if(configured && !r.launch.inert)configured=select("propulsion",payloadProviders_.propulsion);
+                    }
+                    if (configured && guided) {
+                        configured=ms::weapon::configurePlantV1(*validation.find("autopilot"),*validation.find("allocator"),
+                            *validation.find("actuator"),*validation.find("propulsion"),*validation.find("aerodynamics"),
                             *releasedCard,releasePlant,configurationError);
-                        if (configured) releaseFuze=ms::weapon::makeFuzeAdapter(*profile.find("fuze"),*releaseGuidance,configurationError);
-                        if (configured && releaseFuze) releaseWarhead=ms::damage::makeWarheadAdapter(*releasedCard,*profile.find("warhead"),configurationError);
-                        configured=configured && releaseFuze && releaseWarhead;
-                    } else if (r.launch.inert) configured=ms::weapon::configureBallisticPlantV1(*profile.find("aerodynamics"),*releasedCard,releasePlant,configurationError);
-                    else configured=ms::weapon::configureUnguidedPlantV1(*profile.find("propulsion"),*profile.find("aerodynamics"),*releasedCard,releasePlant,configurationError);
+                        if (configured) {
+                            std::optional<ms::weapon::Observation> initialEstimate;
+                            sim::VehicleState targetEstimate{};
+                            if(designation(r.target) && resolveWeaponTarget(launcher,r.target,targetEstimate)) {
+                                double v[3];ms::geom::velocityEcef(targetEstimate,v);
+                                initialEstimate=ms::weapon::Observation{r.target,
+                                    {targetEstimate.positionEcef[0],targetEstimate.positionEcef[1],targetEstimate.positionEcef[2]},
+                                    {v[0],v[1],v[2]},false};
+                            }
+                            ms::components::ProviderContextV1 context{*releasedCard,profile,*releaseGuidance,initialEstimate};
+                            releaseSeeker=payloadProviders_.seeker.create(*profile.find("seeker"),context,configurationError);
+                            if(releaseSeeker)releaseGuidanceProvider=payloadProviders_.guidance.create(*profile.find("guidance"),context,configurationError);
+                            if(releaseGuidanceProvider)releaseFuze=payloadProviders_.fuze.create(*profile.find("fuze"),context,configurationError);
+                            if(releaseFuze)releaseWarhead=payloadProviders_.warhead.create(*profile.find("warhead"),context,configurationError);
+                            configured=releaseSeeker && releaseGuidanceProvider && releaseFuze && releaseWarhead;
+                        }
+                    } else if (configured && r.launch.inert) configured=ms::weapon::configureBallisticPlantV1(*validation.find("aerodynamics"),*releasedCard,releasePlant,configurationError);
+                    else if (configured) configured=ms::weapon::configureUnguidedPlantV1(*validation.find("propulsion"),*validation.find("aerodynamics"),*releasedCard,releasePlant,configurationError);
+                    if(configured) {
+                        const char* kinds[]={"autopilot","allocator","actuator","propulsion","aerodynamics"};
+                        for(std::size_t k=0;k<5;++k)if(releasePlant.required[k] && releasePlant.availability[k]==ms::components::AvailabilityV1::Available)
+                            releasePlant.expected[k].fingerprint=ms::weapon::plantFingerprintV1(*profile.find(kinds[k]));
+                        ms::components::ProviderContextV1 context{*releasedCard,profile,releaseGuidance.value_or(ms::weapon::Spec{}),std::nullopt};
+                        configured=payloadProviders_.createPlant(profile,context,releasePlant,releasePlantProviders,configurationError);
+                    }
                 }
             }
             const auto refuse=[&] {
@@ -2315,9 +2368,12 @@ void World::flyReleases() {
                 bool engineMatches=true;
                 if (releasePlant.required[3]) {
                     sim::VehicleState state;model.state(state);
-                    engineMatches=state.engineCount==(releasePlant.availability[3]==ms::components::AvailabilityV1::Available ? 1 : 0);
+                    engineMatches=releasePlant.availability[3]==ms::components::AvailabilityV1::Available
+                        ? state.engineCount>=0 && releasePlantProviders.propulsion &&
+                            releasePlantProviders.propulsion->acceptsEngineCount(static_cast<unsigned>(state.engineCount))
+                        : state.engineCount==0;
                 }
-                if (engineMatches && ms::weapon::plantAvailableV1(releasePlant,nativePlantIdentity(model,releasePlant))) return true;
+                if (engineMatches && releasePlantProviders.available(releasePlant,nativePlantIdentity(model,releasePlant))) return true;
                 configurationError="loaded native component identity differs from the selected card profile";
                 nativeBindingRefused=true;return false;
             };
@@ -2332,6 +2388,8 @@ void World::flyReleases() {
                 w->origin.jettisoned = r.jettisoned;
                 w->payloadProfile=std::move(releaseProfile);
                 w->plantAdapter=std::move(releasePlant);
+                w->plantProviders=std::move(releasePlantProviders);
+                w->seekerProvider=std::move(releaseSeeker);
                 w->fuzeAdapter=std::move(releaseFuze);
                 w->warheadAdapter=std::move(releaseWarhead);
                 if (w->plantAdapter.configured) {
@@ -2346,17 +2404,8 @@ void World::flyReleases() {
                 if (guided) {
                     const auto guidance=*releaseGuidance;
                     const bool infrared=guidance.seeker.find("infrared")!=std::string::npos;
-                    std::optional<ms::weapon::Observation> initialEstimate;
-                    sim::VehicleState targetEstimate{};
-                    // A raw Range entity target is not an onboard observation.
-                    if (designation(r.target) && resolveWeaponTarget(launcher, r.target, targetEstimate)) {
-                        double v[3]; ms::geom::velocityEcef(targetEstimate, v);
-                        initialEstimate = ms::weapon::Observation{r.target,
-                            {targetEstimate.positionEcef[0], targetEstimate.positionEcef[1], targetEstimate.positionEcef[2]},
-                            {v[0], v[1], v[2]}, false};
-                    }
                     w->launchSeekerCue = infrared ? onRailSeekerObservation(*e, *releasedCard) : 0;
-                    w->guidance = std::make_unique<ms::weapon::Guidance>(guidance, initialEstimate);
+                    w->guidance=std::move(releaseGuidanceProvider);
                     auto& wm = pool_->vehicle(w->slot);
                     const auto warhead=w->warheadAdapter ? std::optional<ms::damage::Warhead>{w->warheadAdapter->model()}
                                                         : ms::damage::warheadOf(*releasedCard);
@@ -2563,7 +2612,7 @@ void World::sense() {
         emission.entity=e->info.id; emission.mode=ms::EmitterMode::Seeker;
         emission.state=&states[e->slot]; emission.target=e->origin.holding;
         // basis: assumed. Low-power seeker transmitter; the receiver measures its own bearing and strength.
-        const auto& seeker=e->guidance->spec().seekerModel;
+        const auto seeker=e->seekerProvider ? e->seekerProvider->config() : e->guidance->spec().seekerModel;
         emission.powerW=seeker.emitterPowerW; emission.peakGainDbi=seeker.emitterPeakGainDbi; emission.sidelobeDbi=seeker.emitterSidelobeDbi;
         emission.azimuthHalfWidthRad=emission.elevationHalfWidthRad=seeker.emitterHalfWidthRad;
         emissions_.push_back(emission);

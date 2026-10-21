@@ -543,7 +543,7 @@
         <property value="0">fsim/model/nose-z-in</property>
             <property value="1">fsim/components/autopilot/schema-version</property>
         <property value="1">fsim/components/autopilot/implementation-code</property>
-        <property value="210720790">fsim/components/autopilot/profile-fingerprint</property>
+        <property value="2299971241">fsim/components/autopilot/profile-fingerprint</property>
         <property value="1">fsim/components/allocator/schema-version</property>
         <property value="1">fsim/components/allocator/implementation-code</property>
         <property value="2337924426">fsim/components/allocator/profile-fingerprint</property>

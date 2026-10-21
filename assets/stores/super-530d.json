@@ -563,6 +563,41 @@
       "uncertainty": 0,
       "basis": "assumed",
       "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_control_max_incidence_deg": {
+      "value": 15.0,
+      "unit": "deg",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "component_control_rate_time_min_s": {
+      "value": 0.12,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "component_control_rate_lag_multiplier": {
+      "value": 3.0,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "component_control_incidence_time_min_s": {
+      "value": 0.4,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "component_control_incidence_rate_multiplier": {
+      "value": 3.333333333333333,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
     }
   },
   "sources": {
@@ -659,10 +694,16 @@
         "availability": "available",
         "implementation_id": "fsim.control.load_feedback_cascade",
         "configuration_version": 1,
-        "parameter_refs": {},
+        "parameter_refs": {
+          "max_incidence_deg": "component_control_max_incidence_deg",
+          "rate_time_min_s": "component_control_rate_time_min_s",
+          "rate_lag_multiplier": "component_control_rate_lag_multiplier",
+          "incidence_time_min_s": "component_control_incidence_time_min_s",
+          "incidence_rate_multiplier": "component_control_incidence_rate_multiplier"
+        },
         "bindings": {
           "model": "jsbsim:super530d",
-          "execution_mode": "legacy"
+          "execution_mode": "configured"
         },
         "basis": "assumed",
         "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
@@ -698,7 +739,7 @@
       },
       "fuze": {
         "availability": "available",
-        "implementation_id": "native.fuze.legacy.v1",
+        "implementation_id": "native.fuze.swept_path.v1",
         "configuration_version": 1,
         "parameter_refs": {
           "model_version": "component_fuze_model_version",
@@ -721,7 +762,7 @@
       },
       "warhead": {
         "availability": "available",
-        "implementation_id": "native.warhead.legacy.v1",
+        "implementation_id": "native.warhead.zoned_case.v1",
         "configuration_version": 1,
         "parameter_refs": {
           "warhead_kg": "warhead_kg",

@@ -101,13 +101,32 @@ class ComponentsTest(unittest.TestCase):
                 self.assertEqual(metadata["fsim/components/%s/profile-fingerprint" % kind],
                                  components.fingerprint(components.resolve(selected, kind)))
 
-    def test_migration_does_not_make_legacy_control_versioned_or_missing_guidance_inapplicable(self):
+    def test_migration_declares_explicit_control_without_fabricating_execution_or_missing_guidance(self):
         raw = {"id": "synthetic", "class": "aam", "model": "jsbsim:synthetic", "parameters": {}}
         missing = components.migration(raw, None)
         self.assertEqual(missing["components"]["autopilot"]["availability"], "unavailable")
         selected = components.migration(raw, {"surface": [{"controls": [{}]}]})
         self.assertNotIn("weapon_execution_version", selected["parameters"])
-        self.assertEqual(selected["components"]["autopilot"]["bindings"]["execution_mode"], "legacy")
+        self.assertEqual(selected["components"]["autopilot"]["bindings"]["execution_mode"], "configured")
+        self.assertEqual(len(selected["components"]["autopilot"]["parameter_refs"]), 5)
+
+    def test_all_guided_cards_choose_explicit_control_and_descriptive_effect_models(self):
+        import json
+        from pathlib import Path
+        from hangar import pipeline
+        guided = []
+        for path in sorted((Path(pipeline.repo_root()) / "assets/stores").glob("*.json")):
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            rows = raw["component_models"]["components"]
+            if rows["guidance"]["availability"] != "available":
+                continue
+            guided.append(raw["id"])
+            with self.subTest(store=raw["id"]):
+                self.assertEqual(rows["autopilot"]["bindings"]["execution_mode"], "configured")
+                self.assertEqual(len(rows["autopilot"]["parameter_refs"]), 5)
+                self.assertNotIn("legacy", rows["fuze"]["implementation_id"])
+                self.assertNotIn("legacy", rows["warhead"]["implementation_id"])
+        self.assertEqual(len(guided), 24)
 
     def test_all_store_profiles_preserve_existing_generated_numerics(self):
         import json

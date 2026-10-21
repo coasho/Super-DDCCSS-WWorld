@@ -45,7 +45,9 @@ TEST_CASE("Every maintained payload declares all component roles and resolves ac
         REQUIRE(warhead->model().fragments==existing->fragments);
         REQUIRE(warhead->model().speedMs==existing->speedMs);
         REQUIRE(fuze->spec().fuzeModelVersion==(card->parameters.count("fuze_model_version")?1:0));
-        REQUIRE(plant.control.version==(card->parameters.count("weapon_execution_version")?1:0));
+        REQUIRE(profile.find("autopilot")->bindings.at("execution_mode")=="configured");
+        REQUIRE(profile.find("autopilot")->parameterRefs.size()==5);
+        REQUIRE(plant.control.version==1);
         auto wrong=*profile.find("seeker"); wrong.implementationId="unsupported.provider";
         auto unchanged=spec; REQUIRE_FALSE(weapon::configureSeeker(wrong,spec,error));
         REQUIRE(spec.acquireM==unchanged.acquireM); REQUIRE(spec.seeker==unchanged.seeker);
