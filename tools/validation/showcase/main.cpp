@@ -5,6 +5,7 @@
 #include "foundation/transport/Recording.h"
 #include "simulation/runtime/world/World.h"
 #include "simulation/flight/FlightModel.h"
+#include "FragmentHit.h"
 
 #include <algorithm>
 #include <chrono>
@@ -16,6 +17,7 @@
 #include <initializer_list>
 #include <limits>
 #include <map>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -116,6 +118,7 @@ struct Missile {
     fsim::ms::ActivityId activity = 0;
     std::uint16_t storeIndex = 0;
     std::uint32_t weapon = 0;
+    std::optional<std::uint32_t> streamSlot;
     bool consent = false, acquired = false, activated = false, supported = false, infrared = false;
 };
 
@@ -333,6 +336,8 @@ Json run(const Json& scene, const std::filesystem::path& output, const std::stri
         evidence.set("carrier_id", static_cast<double>(own)).set("target_id", static_cast<double>(opponent));
         evidence.set("radar_track_id", static_cast<double>(track)).set("designation_id", static_cast<double>(designation));
         evidence.set("target_created_time_s", targetCreated);
+        const auto opponentSlot=world.vehicleStreamSlot(opponent);
+        require(opponentSlot.has_value(),"native target stream identity unavailable");
         std::size_t next = 0;
         std::uint32_t viewerWeapon = 0;
         bool viewerTargetFocused = false;
@@ -360,6 +365,8 @@ Json run(const Json& scene, const std::filesystem::path& output, const std::stri
                     if (!status->weapons.empty()) {
                         require(status->weapons.size() == 1 && missile.consent, "native strike did not release exactly one consented store");
                         missile.weapon = status->weapons.front(); ++next;
+                        missile.streamSlot=world.vehicleStreamSlot(missile.weapon);
+                        require(missile.streamSlot.has_value(),"native weapon stream identity unavailable at release");
                         if (live) {
                             focus(world, missile.weapon, "missile");
                             viewerWeapon = missile.weapon;
@@ -371,16 +378,19 @@ Json run(const Json& scene, const std::filesystem::path& output, const std::stri
                 }
             }
             steps.step();
+            // engage() has already published and recorded these events. Drain
+            // the diagnostic outbox once; doing so does not consume recording.
+            const auto nativeEvents=world.takeEngagementEvents();
             for (auto& missile : missiles) if (missile.weapon) {
                 for (const auto& record : world.weapons()) if (record.id == missile.weapon) {
                     missile.acquired = missile.acquired || record.tracking;
                     missile.supported = missile.supported || record.supported;
                     if (live && record.id == viewerWeapon && record.end == fsim::ms::WeaponEnd::Detonated && !viewerTargetFocused) {
-                        const auto events = world.engagementEvents();
-                        const auto hit = std::find_if(events.begin(), events.end(), [&](const auto& event) {
-                            return event.entity == viewerWeapon && event.target == opponent && event.kind == "damage" && event.reason == "warhead";
+                        const auto hit = std::find_if(nativeEvents.begin(), nativeEvents.end(), [&](const auto& event) {
+                            return missile.streamSlot && fsim::showcase::matchingFragmentHit(event,*missile.streamSlot,
+                                *opponentSlot,missile.card,record.endTimeS);
                         });
-                        if (hit != events.end()) {
+                        if (hit != nativeEvents.end()) {
                             focus(world, opponent, "target");
                             viewerTargetFocused = true;
                         }

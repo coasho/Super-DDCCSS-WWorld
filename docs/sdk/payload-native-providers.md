@@ -25,7 +25,7 @@ neither a role name nor a renamed compatibility ID establishes such a change.
 | Propulsion | [PropulsionProviderV1](../../src/simulation/mission_systems/components/interfaces/PropulsionProviderV1.h) | [JsbsimSolidRocketPropulsionV1](../../src/simulation/mission_systems/components/implementations/propulsion/JsbsimSolidRocketPropulsionV1.h) |
 | Aerodynamics | [AerodynamicsProviderV1](../../src/simulation/mission_systems/components/interfaces/AerodynamicsProviderV1.h) | [JsbsimGeneratedStoreAerodynamicsV1](../../src/simulation/mission_systems/components/implementations/aerodynamics/JsbsimGeneratedStoreAerodynamicsV1.h) |
 | Fuze | [weapon::FuzeAdapter](../../src/simulation/mission_systems/components/interfaces/FuzeAdapter.h) | [SweptPathFuzeV1](../../src/simulation/mission_systems/components/implementations/fuze/SweptPathFuzeV1.h), [TurningCpaFuzeV1](../../src/simulation/mission_systems/components/implementations/fuze/TurningCpaFuzeV1.h) |
-| Warhead | [damage::WarheadAdapter](../../src/simulation/mission_systems/components/interfaces/WarheadAdapter.h) | [ZonedCaseWarheadV1](../../src/simulation/mission_systems/components/implementations/warhead/ZonedCaseWarheadV1.h), [SideCaseWarheadV1](../../src/simulation/mission_systems/components/implementations/warhead/SideCaseWarheadV1.h) |
+| Warhead | [damage::WarheadAdapter](../../src/simulation/mission_systems/components/interfaces/WarheadAdapter.h) | [ZonedCaseWarheadV1](../../src/simulation/mission_systems/components/implementations/warhead/ZonedCaseWarheadV1.h), [SideCaseWarheadV1](../../src/simulation/mission_systems/components/implementations/warhead/SideCaseWarheadV1.h), [FiniteZonedCaseWarheadV2](../../src/simulation/mission_systems/components/implementations/warhead/FiniteZonedCaseWarheadV2.h) |
 
 `NativeBindingProviderV1` is a common abstract asset-binding contract, not a
 plant implementation. `NativePlantBindingV1<Interface>` shares immutable model
@@ -61,6 +61,7 @@ components/
     fuze/TurningCpaFuzeV1.h + .cpp
     warhead/ZonedCaseWarheadV1.h + .cpp
     warhead/SideCaseWarheadV1.h + .cpp
+    warhead/FiniteZonedCaseWarheadV2.h + .cpp
   support/                    abstract shared binding/lifecycle helpers
   registration/               role registrations and construction dispatch
   ProviderContextV1.h         borrowed factory input
@@ -86,8 +87,13 @@ weapon/damage adapter factory files. Shared helpers include their contracts
 without depending on registration infrastructure.
 
 The current encounter seeker is one simplified model with four modes, not four
-independently validated equipment implementations. The two warhead wrappers
+independently validated equipment implementations. The V0/V1 warhead wrappers
 retain their existing versioned numerical models and shared native assessor.
+`FiniteZonedCaseWarheadV2` adds a finite annular source and a pinned seven-sector
+game-reference field, selected explicitly by
+`native.warhead.finite_zoned_case.v2` and its exact angular-profile binding.
+Its [original-showcase evidence and calibration boundary](fragment-hit-repair.md#sourced-finite-fragment-field-and-original-showcase-acceptance)
+are separate from the earlier provider-delivery evidence below.
 The descriptive swept-path and zoned-case IDs identify the existing models;
 they do not claim upgraded physical fidelity.
 

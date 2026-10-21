@@ -695,6 +695,9 @@ public:
     /// The engagement's events since last taken: the detonations' and, as the damaged aircraft fly on, their fires'
     /// rates and their sections' separations.
     std::vector<ipc::EngagementEvent> takeEngagementEvents();
+    /// Internal diagnostic mapping for stream-event attribution. Capture while
+    /// the entity is live; a removed/reused slot never resolves an old ID.
+    std::optional<std::uint32_t> vehicleStreamSlot(std::uint32_t id) const noexcept;
     /// What a vehicle's damage is (null: none).
     const ms::damage::VehicleDamage* damage(std::uint32_t id) const noexcept;
     /// A piece that left a hit aircraft flies on as a vehicle of its own (role Debris; its type

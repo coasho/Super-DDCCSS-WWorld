@@ -75,7 +75,7 @@ struct Warhead {
     enum class Kind { Fragmentation, Rod } kind = Kind::Fragmentation;
     double totalKg = 0.0, explosiveKg = 0.0;
     double gurneyMs = 2600.0;      ///< the explosive's sqrt(2E)
-    double tntKg = 0.0;            ///< V1 declared blast equivalent; legacy derives its established Gurney-energy proxy.
+    double tntKg = 0.0;            ///< V1/V2 declared blast equivalent; legacy derives its established Gurney-energy proxy.
     double caseKg = 0.0;           ///< what it throws: its fragments' (or rods') metal
     double diameterM = 0.0, lengthM = 0.0, caseThicknessM = 0.0;
     double fragmentKg = 0.0;       ///< each fragment's (a cube as thick as its case) or rod's (that thick, as long as it)
@@ -84,12 +84,12 @@ struct Warhead {
     double speedMs = 0.0;          ///< thrown at, relative to the missile
     std::vector<Zone> zones;       ///< where (from the nose), each zone's share
     unsigned modelVersion = 0;    ///< Absent card version preserves the legacy point/zone source.
-    enum class FragmentSource { LegacyZones = 0, CylindricalSideCase = 1 } fragmentSource = FragmentSource::LegacyZones;
-    /// V1 fixed centre from the authored nose: structural metres aft/right/up.
+    enum class FragmentSource { LegacyZones = 0, CylindricalSideCase = 1, FiniteZonedCaseV2 = 2 } fragmentSource = FragmentSource::LegacyZones;
+    /// V1/V2 fixed centre from the authored nose: structural metres aft/right/up.
     /// World transforms this point and its velocity at the captured burst epoch.
     std::optional<V3> stationStructuralM;
-    double caseInnerRadiusM = 0.0; ///< V1 annular volume's inner radius; outer radius is diameterM/2.
-    double fragmentCd = 1.3;       ///< V1 explicit card input; legacy retains its established constant.
+    double caseInnerRadiusM = 0.0; ///< V1/V2 annular volume's inner radius; outer radius is diameterM/2.
+    double fragmentCd = 1.3;       ///< V1/V2 explicit card input; legacy retains its established constant.
 };
 
 /// Gurney's cylinder: a case of mass M round a charge C thrown at sqrt(2E) (M/C + 1/2)^-1/2.

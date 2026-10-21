@@ -22,12 +22,18 @@ constexpr double kDiameter = 0.9;       // of the missile's: the warhead's, insi
 constexpr double kRodSpeedMs = 1400.0;  // a continuous rod's speed at most (Talos's, JHU APL Technical Digest 3(2))
 constexpr double kFragmentCd = 1.3;     // a tumbling cube's drag on its presented area, supersonic (Hoerner, ch. 16)
 
-// The spray: War Thunder's datamine gives every air-to-air missile the same seven zones (a game reference - no
-// public source gives a modern warhead's), 60 % of the fragments between 75 and 100 degrees from the nose; a rod
-// warhead's ring a narrow belt about its middle (an estimate)
+// V0's historical five-sector approximation, normalized below. Preserve its
+// established outputs; it omitted the reference's forward and aft sectors.
 const std::vector<Zone> kFragmentZones = {{20.0, 60.0, 0.075}, {60.0, 80.0, 0.10}, {75.0, 100.0, 0.60},
                                           {100.0, 120.0, 0.10}, {120.0, 160.0, 0.075}};
 const std::vector<Zone> kRodZones = {{85.0, 95.0, 1.0}};
+// Complete game-reference angular shares, not measured equipment data:
+// War-Thunder-Datamine ea96f3af75afe1d858f80ac13f212db218bc69ca,
+// aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120c_7.blkx,
+// rocket.damage.shatter.segment[*].angles/countPortion. No damage/radius
+// multipliers are imported. Finite source geometry remains our explicit model.
+const std::vector<Zone> kFiniteZonesV2 = {{0,20,.0375},{20,60,.075},{60,80,.10},{75,100,.60},
+                                         {100,120,.10},{120,160,.075},{160,180,.0125}};
 
 double cardValue(const StoreCard& card, const char* name, double fallback) { return card.value(name, fallback); }
 
@@ -73,7 +79,10 @@ bool slab(const V3& p, const V3& u, const V3& centre, const V3& half, double& en
     int face = 0, exitFace = 0;
     double sign = 1.0, exitSign = 1.0;
     for (int k = 0; k < 3; ++k) {
-        if (std::abs(uc[k]) < 1e-12) {
+        // Only an exactly zero component is parallel. Treating a finite
+        // component as zero can both erase a thin-box entry and admit a ray
+        // which has already left that slab before reaching the other axes.
+        if (uc[k] == 0.0) {
             if (std::abs(pc[k]) > h[k]) return false;
             continue;
         }
@@ -93,13 +102,18 @@ bool slab(const V3& p, const V3& u, const V3& centre, const V3& half, double& en
 bool quad(const V3& p, const V3& u, const std::array<V3, 4>& c, double& s, V3& normal) {
     normal = normalized(cross(c[2] - c[0], c[3] - c[1]));
     const double den = dot(u, normal);
-    if (std::abs(den) < 1e-9) return false;
+    // A shallow finite crossing still belongs to the finite quad. Its edge
+    // tests below reject crossings outside the face; an angular cutoff must
+    // not replace that geometric test.
+    if (!std::isfinite(den) || den == 0.0) return false;
     s = dot(c[0] - p, normal) / den;
-    if (s < 0.0) return false;
+    if (!std::isfinite(s) || s < 0.0) return false;
     const V3 q = p + u * s;
+    if (!std::isfinite(q.x) || !std::isfinite(q.y) || !std::isfinite(q.z)) return false;
     int pos = 0, neg = 0;
     for (std::size_t k = 0; k < 4; ++k) {
         const double side = dot(cross(c[(k + 1) % 4] - c[k], q - c[k]), normal);
+        if (!std::isfinite(side)) return false;
         (side >= 0.0 ? pos : neg) += 1;
     }
     return pos == 4 || neg == 4;
@@ -118,7 +132,7 @@ std::optional<Warhead> warheadOf(const StoreCard& card) {
         for (const auto& parameter : card.parameters)
             if (parameter.first.compare(0,8,"warhead_")==0 && parameter.first!="warhead_kg") return std::nullopt;
     if (const auto version=card.parameters.find("warhead_model_version"); version!=card.parameters.end()) {
-        if (version->second.value!=1.0 || version->second.unit!="1" || card.warheadKind!="fragmentation") return std::nullopt;
+        if ((version->second.value!=1.0 && version->second.value!=2.0) || version->second.unit!="1" || card.warheadKind!="fragmentation") return std::nullopt;
         const auto required=[&](const char* name,const char* unit) {
             const auto found=card.parameters.find(name);
             return found==card.parameters.end() || found->second.unit!=unit ?
@@ -134,11 +148,13 @@ std::optional<Warhead> warheadOf(const StoreCard& card) {
         for (const double value : {source,total,charge,tnt,diameter,modelLength,gurney,structure,ratio,caseDensity,chargeDensity,
                                    structureDensity,cd,station.x,station.y,station.z})
             if (!std::isfinite(value)) return std::nullopt;
-        if (source!=1 || !(total>charge) || !(charge>0) || !(tnt>0) || !(diameter>0) || !(modelLength>0) || !(gurney>0) ||
+        if (source!=version->second.value || !(total>charge) || !(charge>0) || !(tnt>0) || !(diameter>0) || !(modelLength>0) || !(gurney>0) ||
             structure<0 || structure>=1 || !(ratio>0) || ratio>1 || !(caseDensity>0) || !(chargeDensity>0) ||
             !(structureDensity>0) || !(cd>0)) return std::nullopt;
         Warhead w;
-        w.modelVersion=1;w.fragmentSource=Warhead::FragmentSource::CylindricalSideCase;
+        w.modelVersion=static_cast<unsigned>(version->second.value);
+        w.fragmentSource=w.modelVersion==1 ? Warhead::FragmentSource::CylindricalSideCase : Warhead::FragmentSource::FiniteZonedCaseV2;
+        if(w.modelVersion==2)w.zones=kFiniteZonesV2;
         w.stationStructuralM=station;w.fragmentCd=cd;w.totalKg=total;w.explosiveKg=charge;w.gurneyMs=1000*gurney;
         const double inert=total-charge;
         w.caseKg=(1-structure)*inert;w.diameterM=ratio*diameter;
@@ -490,14 +506,26 @@ Impact assess(const Warhead& w, const Burst& burst, const AttachedGeometryView& 
     std::vector<Impact::ComponentHits> comp(af.components.size());
     std::vector<Impact::PanelHits> pan(af.panels.size());
     const bool sideCase=w.modelVersion==1 && w.fragmentSource==Warhead::FragmentSource::CylindricalSideCase;
+    const bool finiteZoned=w.modelVersion==2 && w.fragmentSource==Warhead::FragmentSource::FiniteZonedCaseV2;
+    const bool finiteSource=sideCase || finiteZoned;
     // Explicit versions/sources cannot fall back to the legacy point model.
-    if (w.modelVersion>1 || (w.modelVersion==1 && (!sideCase || !(w.lengthM>0) || !(w.diameterM>0) ||
+    if (w.modelVersion>2 || (w.modelVersion>0 && (!finiteSource || !(w.lengthM>0) || !(w.diameterM>0) ||
         !(w.caseInnerRadiusM>0) || !(w.caseInnerRadiusM<w.diameterM/2) || !(w.fragmentCd>0) ||
         !std::isfinite(w.lengthM) || !std::isfinite(w.diameterM) || !std::isfinite(w.caseInnerRadiusM) ||
         !std::isfinite(w.fragmentCd) || !(length(nose)>0) ||
         !std::isfinite(burst.angularVelocityEcef.x) || !std::isfinite(burst.angularVelocityEcef.y) ||
         !std::isfinite(burst.angularVelocityEcef.z)))) return out;
-    const double decayPerM = target.airDensity * (sideCase?w.fragmentCd:kFragmentCd) * w.fragmentAreaM2 / (2.0 * std::max(w.fragmentKg, 1e-9));
+    if(finiteZoned) {
+        double share=0;
+        if(w.zones.empty())return out;
+        for(const auto& zone:w.zones) {
+            if(!std::isfinite(zone.fromDeg) || !std::isfinite(zone.toDeg) || !std::isfinite(zone.share) ||
+                zone.fromDeg<0 || zone.toDeg>180 || zone.fromDeg>zone.toDeg || !(zone.share>0))return out;
+            share+=zone.share;
+        }
+        if(!std::isfinite(share) || std::abs(share-1)>8*std::numeric_limits<double>::epsilon())return out;
+    }
+    const double decayPerM = target.airDensity * (finiteSource?w.fragmentCd:kFragmentCd) * w.fragmentAreaM2 / (2.0 * std::max(w.fragmentKg, 1e-9));
     out.fragmentsThrown = w.fragments;
     struct Event {
         double s;
@@ -508,15 +536,25 @@ Impact assess(const Warhead& w, const Burst& burst, const AttachedGeometryView& 
     std::vector<Event> events;
     for (int i = 0; i < w.fragments; ++i) {
         V3 d, rayFromBody=p0, sourceVelocity=burst.velocity;
-        if (sideCase) {
-            // Exactly three draws: axial position, azimuth, annular-volume
-            // radius. Position and the outward local normal are correlated.
+        if (finiteSource) {
+            // V1's three draws stay intact. V2 then draws zone and polar
+            // cosine; source position and ejection retain a common azimuth.
             const double axial=w.lengthM*(rng.uniform()-.5);
             const double phi=2*kPi*rng.uniform();
             const double outer=w.diameterM/2, inner=w.caseInnerRadiusM;
             const double radius=std::sqrt(inner*inner+rng.uniform()*(outer*outer-inner*inner));
             d=e1*std::cos(phi)+e2*std::sin(phi);
             const V3 sourceOffset=nose*axial+d*radius;
+            if(finiteZoned) {
+                const double pick=rng.uniform();double cumulative=0;
+                const Zone* zone=&w.zones.back();
+                for(const auto& candidate:w.zones) {
+                    cumulative+=candidate.share;if(pick<cumulative){zone=&candidate;break;}
+                }
+                const double c0=std::cos(zone->fromDeg*kPi/180),c1=std::cos(zone->toDeg*kPi/180);
+                const double cosine=c1+(c0-c1)*rng.uniform();
+                d=nose*cosine+d*std::sqrt(std::max(0.0,1-cosine*cosine));
+            }
             const V3 source=burst.at+sourceOffset;
             rayFromBody=toBody(target,source-target.at);
             sourceVelocity+=cross(burst.angularVelocityEcef,sourceOffset);
@@ -539,7 +577,7 @@ Impact assess(const Warhead& w, const Burst& burst, const AttachedGeometryView& 
         // thrown from the moving missile, met by the moving target
         const V3 rel = sourceVelocity + d * w.speedMs - target.velocity;
         double v = length(rel);
-        if (!(v > 1.0) || (sideCase && !std::isfinite(v))) continue;
+        if (!(v > 1.0) || (finiteSource && !std::isfinite(v))) continue;
         const V3 u = toBody(target, rel * (1.0 / v));
         events.clear();
         for (const std::size_t k : geometry.panelIndices()) {

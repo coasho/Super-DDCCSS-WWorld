@@ -148,6 +148,18 @@ TEST_CASE("selected warhead providers preserve native assessment and RNG exactly
     }
 }
 
+TEST_CASE("finite zoned v2 provider requires its exact pinned angular profile", "[payload-effect-adapters]") {
+    auto card=warheadCard(true);card.parameters["warhead_model_version"].value=2;card.parameters["warhead_fragment_source"].value=2;
+    auto d=warheadDescriptor(card,true);d.parameters=card.parameters;
+    d.implementationId="native.warhead.finite_zoned_case.v2";
+    d.bindings["angular_profile"]="wt.aam.seven_zones.ea96f3af75af.v1";
+    std::string error;auto adapter=dmg::makeWarheadAdapter(card,d,error);INFO(error);REQUIRE(adapter);
+    CHECK(adapter->implementationId()==d.implementationId);CHECK(adapter->model().modelVersion==2);
+    CHECK(adapter->model().zones.size()==7);
+    d.bindings["angular_profile"]="unknown";CHECK_FALSE(dmg::makeWarheadAdapter(card,d,error));
+    d.bindings.erase("angular_profile");CHECK_FALSE(dmg::makeWarheadAdapter(card,d,error));
+}
+
 TEST_CASE("warhead provider refuses incomplete mismatched or unavailable configuration", "[payload-effect-adapters]") {
     const auto card=warheadCard(true); const auto good=warheadDescriptor(card,true);
     for (int failure=0;failure<15;++failure) {

@@ -1,5 +1,66 @@
 # Current capabilities and milestone status
 
+SIM-M03 sourced finite fragment field, 2026-10-21, from `dded7ae`:
+the [original showcase Hit gate is repaired](sdk/fragment-hit-repair.md#sourced-finite-fragment-field-and-original-showcase-acceptance).
+The explicitly admitted V2 finite source uses all seven sectors of a pinned
+game reference; V0/V1 keep their existing contracts. Original scene inputs,
+physical equipment parameter objects and positive Hit/functional assertions
+are preserved. Exact selected-warhead version checks change from 1 to 2.
+Native and independent geometry replay identify the same **53/1688** striking
+rays; real pilot loss, nose separation and continued native flight are recorded.
+Both complete builds pass. Release is **111/111** (263.60 s), Headless
+**111/111** (262.90 s), zero skips; their original recordings and full engagement
+JSON are byte-identical. The feature-owned installed C++/C99/Python equipment
+gate passes **1/1** (38.79 s). The unchanged fullscreen strike harness passes
+with the original 270-degree scene, 1200 native frames through 40 s and two
+visually inspected 3840 x 2160 captures at launch + 1 s and Hit + 0.3 s.
+The source catalogue includes the new concrete class; its **12/12** reporting
+regressions pass without promoting configuration to physical acceptance.
+Real-equipment detector, fragment-field, target vulnerability and independent
+calibration inputs remain missing. Full SIM-M03 physical acceptance stays open;
+no generic joint acceptance or AeroNumericsLab result is claimed.
+
+SIM-M03 fresh showcase coordinate/resource investigation, 2026-10-20, from
+`dded7ae`: [native tracing and independent reconstruction](sdk/fragment-hit-repair.md#fresh-runtime-resource-and-complete-source-chain-check)
+confirm the actual loaded resources and all 1688 sampled source rays. The rays
+miss the damage geometry and every authored contact mesh's bounding box and
+external triangles. Two new regressions first expose finite shallow-ray
+false negatives/positives in box/quad intersection; exact parallel handling and
+non-finite rejection correct them without tuning a replacement tolerance.
+Both complete builds pass; Headless and Release each pass **108/109** selected
+cases, zero skips. The sole failure remains the unchanged `showcase_native`.
+Both original recordings and full engagement JSON remain unchanged. Variant
+detector/initiation and fragment-field admission remain needed; no numerical
+input, equipment asset, scene, original assertion or AeroNumericsLab work changes.
+
+SIM-M03 coordinate/event-chain correction, 2026-10-20, from `dded7ae`:
+[native Fire publication](sdk/fragment-hit-repair.md#coordinate-and-hit-event-chain-follow-up)
+now uses the component's fixed-origin geometry with a matching pose/CG epoch
+and rigid-point velocity; later rate events retain component attachment.
+The showcase matches actual native fragment Hit provenance before requesting
+target focus, rather than treating generic warhead damage as a Hit. Three
+behavioral REDs precede these fixes; positive native Hit/outbox/recording and
+slot-reuse controls also pass. Both complete builds pass. Fresh scoped checks
+are **106/107** Headless (208.45 s) and **106/107** Release (208.18 s), zero skips;
+the only failure remains the original `showcase_native` positive fragment-Hit
+gate. Its complete Release recording and engagement JSON are unchanged from
+before this correction. No geometry solver, equipment input, scene or original
+acceptance assertion is adjusted to manufacture a hit. Full SIM-M03 and the
+remaining physical-model/input gates stay open; no AeroNumericsLab result is used.
+
+SIM-M03 configuration evidence reporting, 2026-10-20, from `dded7ae`: a
+[reproducible offline catalogue](sdk/payload-model-evidence-report.md) separates
+53 store cards / 477 role declarations from 16 indexed concrete classes,
+configuration provenance and unassessed runtime/physical acceptance. The 24
+guided cards share one autopilot, allocator and actuator class/configuration
+per role; distinct model names do not establish independent mature models.
+Report regressions pass 11/11; the existing Hangar component suite passes
+12/12. A fresh serial selection on existing Release binaries passes 4/5, zero
+skips: `showcase_native` still fails with one burst and zero fragment Hits.
+The report imports that failure explicitly, without promoting any component's
+acceptance. No simulation behavior, model/scene input or assertion changes.
+The requested showcase fragment-Hit repair and full SIM-M03 remain open.
+
 SIM-M03 fragment traversal repair, 2026-10-20, from `8147c07`: the fixed 6 m
 side-burst internal-component test now passes without changes to equipment
 parameters, authored geometry or its assertions. The repair removes a future

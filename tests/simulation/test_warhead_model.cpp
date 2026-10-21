@@ -249,3 +249,57 @@ TEST_CASE("warhead v1 refuses overflowing or collapsed finite-source geometry", 
     auto noStructure=good;noStructure.parameters["warhead_structure_fraction"].value=0;
     REQUIRE(dmg::warheadOf(noStructure));
 }
+
+TEST_CASE("warhead v2 keeps finite mass geometry and the complete pinned seven-zone field", "[warhead-model][warhead-v2]") {
+    const auto original=dmg::warheadOf(sourceCard());REQUIRE(original);
+    auto card=sourceCard();card.parameters["warhead_model_version"].value=2;card.parameters["warhead_fragment_source"].value=2;
+    const auto model=dmg::warheadOf(card);REQUIRE(model);
+    CHECK(model->modelVersion==2);REQUIRE(model->zones.size()==7);
+    const std::vector<dmg::Zone> expected{{0,20,.0375},{20,60,.075},{60,80,.1},{75,100,.6},
+        {100,120,.1},{120,160,.075},{160,180,.0125}};
+    double share=0;
+    for(std::size_t k=0;k<expected.size();++k) {
+        CHECK(model->zones[k].fromDeg==expected[k].fromDeg);CHECK(model->zones[k].toDeg==expected[k].toDeg);
+        CHECK(model->zones[k].share==expected[k].share);share+=model->zones[k].share;
+    }
+    CHECK(std::abs(share-1)<1e-15);
+    CHECK(model->caseKg==original->caseKg);CHECK(model->diameterM==original->diameterM);
+    CHECK(model->lengthM==original->lengthM);CHECK(model->caseInnerRadiusM==original->caseInnerRadiusM);
+    CHECK(model->fragmentKg==original->fragmentKg);CHECK(model->fragmentAreaM2==original->fragmentAreaM2);
+    CHECK(model->fragments==original->fragments);CHECK(model->speedMs==original->speedMs);CHECK(model->tntKg==original->tntKg);
+    REQUIRE(model->stationStructuralM);REQUIRE(original->stationStructuralM);
+    checkVector(*model->stationStructuralM,*original->stationStructuralM);
+}
+
+TEST_CASE("warhead v2 finite origins angular sectors and rigid velocities use exactly five draws", "[warhead-model][warhead-v2]") {
+    auto card=sourceCard();card.parameters["warhead_model_version"].value=2;card.parameters["warhead_fragment_source"].value=2;
+    const auto model=dmg::warheadOf(card);REQUIRE(model);auto w=*model;w.fragments=1;w.tntKg=0;
+    const auto cylinder=analyticCylinder();
+    const dmg::V3 centre{1,2,3},velocity{11,-2,5},omega{2,3,4},targetVelocity{3,4,-1};
+    const std::vector<dmg::Zone> zones{{0,20,.0375},{20,60,.075},{60,80,.1},{75,100,.6},
+        {100,120,.1},{120,160,.075},{160,180,.0125}};
+    std::vector<bool> visited(zones.size(),false);
+    for(std::uint64_t seed=0;seed<512;++seed) {
+        fsim::Rng expected(seed);
+        const double x=cylinder.length*(expected.uniform()-.5),phi=2*pi*expected.uniform();
+        const double radius=std::sqrt(cylinder.inner*cylinder.inner+expected.uniform()*(cylinder.outer*cylinder.outer-cylinder.inner*cylinder.inner));
+        const auto pick=expected.uniform();double cumulative=0;std::size_t selected=zones.size()-1;
+        for(std::size_t k=0;k<zones.size();++k) {cumulative+=zones[k].share;if(pick<cumulative){selected=k;break;}}
+        visited[selected]=true;const auto& zone=zones[selected];
+        const double cosine=std::cos(zone.toDeg*pi/180)+(std::cos(zone.fromDeg*pi/180)-std::cos(zone.toDeg*pi/180))*expected.uniform();
+        const dmg::V3 radial{0,-std::cos(phi),-std::sin(phi)};
+        const auto offset=dmg::V3{x,0,0}+radial*radius;
+        const auto direction=dmg::V3{cosine,0,0}+radial*std::sqrt(1-cosine*cosine);
+        const auto relative=velocity+dmg::cross(omega,offset)+direction*w.speedMs-targetVelocity;
+        dmg::Airframe frame;dmg::Airframe::Component box;
+        box.centre=centre+offset+dmg::normalized(relative)*5;box.half={.0001,.0001,.0001};frame.components.push_back(box);
+        dmg::Burst burst;burst.at=centre;burst.axis={1,0,0};burst.velocity=velocity;burst.angularVelocityEcef=omega;
+        auto moving=target();moving.velocity=targetVelocity;fsim::Rng actual(seed);
+        const auto hit=dmg::assess(w,burst,frame,moving,actual);INFO(seed);
+        CHECK(actual.state()==expected.state());REQUIRE(hit.fragmentsStriking==1);REQUIRE(hit.components.size()==1);
+        CHECK(std::abs(hit.components[0].energyJ-.5*w.fragmentKg*dmg::dot(relative,relative))<1e-8);
+        checkVector(hit.impulseBody,relative*w.fragmentKg);
+        checkVector(hit.angularImpulseBody,dmg::cross(centre+offset,relative*w.fragmentKg));
+    }
+    for(const auto seen:visited)CHECK(seen);
+}

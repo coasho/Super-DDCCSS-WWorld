@@ -24,6 +24,7 @@ add_library(fsim_ms STATIC
     components/implementations/seeker/EncounterSeekerV1.cpp
     components/implementations/warhead/SideCaseWarheadV1.cpp
     components/implementations/warhead/ZonedCaseWarheadV1.cpp
+    components/implementations/warhead/FiniteZonedCaseWarheadV2.cpp
     components/registration/ActuatorProvidersV1.cpp
     components/registration/AerodynamicsProvidersV1.cpp
     components/registration/AllocatorProvidersV1.cpp

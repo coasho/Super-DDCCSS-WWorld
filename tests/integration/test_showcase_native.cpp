@@ -3,6 +3,7 @@
 #include "fsim/MissionSystems.h"
 #include "fsim/World.h"
 #include "foundation/transport/Recording.h"
+#include "FragmentHit.h"
 
 #include <algorithm>
 #include <chrono>
@@ -262,7 +263,7 @@ Run successful(const fs::path& executable, const fs::path& directory, const std:
     require(run.evidence.child("weapons").asArray().size() == 1, "consented native strike must release one missile");
     const auto& weapon = run.evidence.child("weapons").asArray().front();
     const auto& modelProfile=weapon.child("model_profile");
-    require(modelProfile.number("execution",0)==1 && modelProfile.number("fuze",0)==1 && modelProfile.number("warhead",0)==1,
+    require(modelProfile.number("execution",0)==1 && modelProfile.number("fuze",0)==1 && modelProfile.number("warhead",0)==2,
             "showcase must consume current versioned native model cards");
     const auto carrierId = static_cast<std::uint32_t>(run.evidence.number("carrier_id", 0));
     const auto targetId = static_cast<std::uint32_t>(run.evidence.number("target_id", 0));
@@ -362,7 +363,11 @@ Run successful(const fs::path& executable, const fs::path& directory, const std:
             }
             if (destructiveEffect(event))
                 require(bursts > 0, "recorded damage or collision effect has no preceding native weapon burst");
-            if (event.kind == static_cast<std::uint8_t>(fsim::ipc::EngagementKind::Hit) && event.slot == targetSlot) ++hits;
+            if (event.kind == static_cast<std::uint8_t>(fsim::ipc::EngagementKind::Hit) && event.slot == targetSlot) {
+                require(fsim::showcase::matchingFragmentHit(event,weaponSlot,targetSlot,weapon.string("store",""),end),
+                        "target Hit must match its native weapon, store, positive count and terminal epoch");
+                ++hits;
+            }
         }
     }
     require(slots.at(carrierId) == carrierSlot && slots.at(targetId) == targetSlot && slots.at(weaponId) == weaponSlot,
@@ -395,14 +400,63 @@ void reject(const fs::path& executable, const fs::path& directory, Json input, c
     require(!fs::exists(output.string() + ".engagement.json"), "rejected input produced native provenance: " + name);
     require(!fs::exists(output), "rejected run preserved a partial or stale recording: " + name);
 }
+
+void eventChain(const fs::path& executable,const fs::path& directory) {
+    const auto input=directory/"event-chain.json", output=directory/"event-chain.fsrec", log=directory/"event-chain.log";
+    write(input,scene().dump());
+    require(execute(executable,input,output,log,"--live")==0,"live event-chain scene failed to execute");
+    const auto evidence=Json::parse(read(output.string()+".engagement.json"));
+    const auto& weapon=evidence.child("weapons").asArray().front();
+    const auto weaponSlot=static_cast<std::uint32_t>(weapon.number("weapon_slot",-1));
+    const auto targetSlot=static_cast<std::uint32_t>(evidence.number("target_slot",-1));
+    const auto end=weapon.number("end_time_s",-1);
+    fsim::ipc::Recording recording;std::string error;
+    require(recording.load(output,&error),"event-chain recording failed: "+error);
+    std::size_t matching=0;
+    for(const auto& frame:recording.frames())for(const auto& event:frame.events)
+        if(event.kind==static_cast<std::uint8_t>(fsim::ipc::EngagementKind::Hit) &&
+            event.slot==targetSlot && event.target==weaponSlot+1 && event.index>0 &&
+            event.simTime==end && std::string(event.name)==weapon.string("store",""))++matching;
+    const auto text=read(log);
+    const bool targetFocus=text.find("live focus target:")!=std::string::npos;
+    require(targetFocus==(matching>0),"live target focus must agree with actual matching recorded fragment Hit; warhead damage is insufficient");
+    std::cout<<"PASS: live focus agrees with "<<matching<<" matching native fragment Hit events\n";
+}
+
+void hitMatching() {
+    using K=fsim::ipc::EngagementKind;
+    fsim::ipc::EngagementEvent event;
+    event.kind=static_cast<std::uint8_t>(K::Hit);event.slot=5;event.target=8;
+    event.index=3;event.simTime=10;std::copy_n("toy-store",10,event.name);
+    const auto match=[](const auto& candidate){return fsim::showcase::matchingFragmentHit(candidate,7,5,"toy-store",10);};
+    require(match(event),"valid native fragment Hit was rejected");
+    for(int defect=0;defect<7;++defect) {
+        auto changed=event;
+        if(defect==0)changed.target=9;
+        if(defect==1)changed.slot=6;
+        if(defect==2)changed.kind=static_cast<std::uint8_t>(K::Detonation);
+        if(defect==3)changed.index=0;
+        if(defect==4)changed.simTime=9;
+        if(defect==5)changed.name[0]='x';
+        if(defect==6)std::fill(std::begin(changed.name),std::end(changed.name),'x');
+        require(!match(changed),"unrelated, stale or malformed event counted as fragment Hit");
+    }
+    require(!fsim::showcase::matchingFragmentHit(event,7,5,"toy-store",std::numeric_limits<double>::quiet_NaN()),
+            "unknown terminal epoch counted as a matching Hit");
+    std::cout<<"PASS: matching positive Hit and eight negative attribution/validity controls\n";
+}
 } // namespace
 
 int main(int argc, char** argv) {
     try {
-        require(argc == 3 || (argc==4 && std::string(argv[3])=="functional"),
-                "usage: fsim_showcase_native_test <flightsim-showcase> <output-directory> [functional]");
+        if(argc==2 && std::string(argv[1])=="hit-matching") {hitMatching();return 0;}
+        require(argc == 3 || (argc==4 && (std::string(argv[3])=="functional" || std::string(argv[3])=="event-chain")),
+                "usage: fsim_showcase_native_test <flightsim-showcase> <output-directory> [functional|event-chain], or hit-matching");
         const fs::path executable = fs::absolute(argv[1]), directory = fs::absolute(argv[2]);
         fs::create_directories(directory);
+        if(argc==4 && std::string(argv[3])=="event-chain") {
+            eventChain(executable,directory);return 0;
+        }
         if (argc==4) {
             successful(executable,directory,"functional",30,false,true);
             std::cout << "PASS: unchanged showcase native functional damage and continued flight\n";

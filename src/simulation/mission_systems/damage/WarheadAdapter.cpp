@@ -47,9 +47,12 @@ std::unique_ptr<WarheadAdapter> makeWarheadAdapter(
     try {
         declaration(card,d);
         const bool legacy=d.implementationId=="native.warhead.legacy.v1" || d.implementationId=="native.warhead.zoned_case.v1";
-        if (!legacy && d.implementationId!="native.warhead.side_case.v1")
+        const bool finiteZoned=d.implementationId=="native.warhead.finite_zoned_case.v2";
+        if (!legacy && !finiteZoned && d.implementationId!="native.warhead.side_case.v1")
             throw std::runtime_error("unknown warhead implementation '"+d.implementationId+"'");
-        const auto bindings={"burst_reference","blast","penetration","assessment"};
+        const std::initializer_list<const char*> bindings=finiteZoned
+            ? std::initializer_list<const char*>{"burst_reference","blast","penetration","assessment","angular_profile"}
+            : std::initializer_list<const char*>{"burst_reference","blast","penetration","assessment"};
         if (legacy) {
             if (!components::slotsV1(d,{"warhead_kg","explosive_kg","gurney_kms","diameter_m"},bindings,error))
                 return nullptr;
@@ -64,6 +67,7 @@ std::unique_ptr<WarheadAdapter> makeWarheadAdapter(
         binding(d,"blast","kingery_bulmash.swisdak_1994.free_air.v1");
         binding(d,"penetration","thor.aluminium_2024_t3.v1");
         binding(d,"assessment","native.fragment_blast.v1");
+        if(finiteZoned)binding(d,"angular_profile","wt.aam.seven_zones.ea96f3af75af.v1");
         const auto number=[&](const char* role,const char* unit) {
             double value=0;
             if (!components::parameterV1(d,role,unit,value,error)) throw std::runtime_error(error);
@@ -76,8 +80,9 @@ std::unique_ptr<WarheadAdapter> makeWarheadAdapter(
                 !(total>0) || charge<0 || charge>total || !(gurney>0) || !(diameter>0))
                 throw std::runtime_error("legacy warhead configuration is outside its supported native domain");
         } else {
-            if (number("warhead_model_version","1")!=1 || number("warhead_fragment_source","1")!=1)
-                throw std::runtime_error("side-case provider requires native source/model version 1");
+            const double expectedVersion=finiteZoned?2:1;
+            if (number("warhead_model_version","1")!=expectedVersion || number("warhead_fragment_source","1")!=expectedVersion)
+                throw std::runtime_error("finite warhead provider requires its exact native source/model version");
             number("warhead_tnt_equivalent_kg","kg"); number("length_m","m");
             number("warhead_structure_fraction","1"); number("warhead_diameter_ratio","1");
             number("warhead_case_density_kg_m3","kg/m^3"); number("warhead_explosive_density_kg_m3","kg/m^3");
@@ -85,7 +90,7 @@ std::unique_ptr<WarheadAdapter> makeWarheadAdapter(
             number("warhead_station_x_m","m"); number("warhead_station_y_m","m"); number("warhead_station_z_m","m");
         }
         auto model=warheadOf(card);
-        if (!model || model->modelVersion!=(legacy?0u:1u))
+        if (!model || model->modelVersion!=(legacy?0u:finiteZoned?2u:1u))
             throw std::runtime_error("selected native warhead construction refused its card");
         return makeNativeWarheadAdapterV1(d.implementationId,std::move(*model));
     } catch (const std::exception& ex) {

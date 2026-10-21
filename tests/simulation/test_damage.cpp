@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -141,10 +142,14 @@ TEST_CASE("a warhead's fragments: Gurney's velocity, the rule's case and fragmen
     CHECK(aim120->fragments > 500);
     CHECK(near(aim120->fragments * aim120->fragmentKg, aim120->caseKg, 0.01 * aim120->caseKg));
     CHECK(aim120->tntKg > aim120->explosiveKg); // the card's declared uncalibrated blast proxy
-    REQUIRE(aim120->modelVersion == 1);
-    // V1 has no angular-zone weights. Requiring their sum to be one tested a
-    // legacy-only field, not the selected finite-source sampling contract.
-    CHECK(aim120->zones.empty());
+    REQUIRE(aim120->modelVersion == 2);
+    // The selected V2 retains finite mass/origin construction while exposing
+    // all seven sectors of its pinned generic game-reference angular field.
+    REQUIRE(aim120->zones.size()==7);
+    CHECK(aim120->zones.front().fromDeg==0);CHECK(aim120->zones.front().toDeg==20);
+    CHECK(aim120->zones.front().share==.0375);
+    CHECK(aim120->zones.back().fromDeg==160);CHECK(aim120->zones.back().toDeg==180);
+    CHECK(aim120->zones.back().share==.0125);
     CHECK(near(aim120->fragments * aim120->fragmentKg, aim120->caseKg, 1e-12));
     // the R-27's rods: fewer, heavier, slower (a continuous rod's speed at most Talos's)
     const auto r27 = warheadOf(*card("r-27er"));
@@ -311,6 +316,58 @@ TEST_CASE("a fragment born inside a body box crosses its outward skin", "[damage
     CHECK(near(hit.impulseBody.y, 0, 1e-12));
     CHECK(near(hit.impulseBody.z, 0, 1e-12));
     CHECK(near(length(hit.angularImpulseBody), 0, 1e-12));
+}
+
+TEST_CASE("a nonzero fragment direction cannot be classified as parallel to a box", "[damage][fragment-boundary]") {
+    // Exact powers of two: at x=1 this ray has y=dy. The finite box either
+    // contains that point or is disjoint; no angular/distance tolerance is needed.
+    const double dy=std::ldexp(1.0,-44);
+    auto w=straightFragment();
+    Airframe frame;
+    Airframe::Component component;
+    component.centre={1,dy,0};component.half={.25,dy/8,1};
+    Burst burst;burst.axis={1,dy,0};
+    bool expected=true;
+    SECTION("finite shallow crossing is retained") {}
+    SECTION("a ray leaving the thin slab before reaching the box misses") {
+        component.centre.y=0;expected=false;
+    }
+    SECTION("a genuinely parallel ray outside the box misses") {burst.axis={1,0,0};expected=false;}
+    frame.components.push_back(component);
+    fsim::Rng rng(61);
+    const auto hit=assess(w,burst,frame,stationaryDamageTarget(),rng);
+    CHECK(hit.fragmentsStriking==(expected?1:0));
+    REQUIRE(hit.components.size()==(expected?1u:0u));
+    if(expected) {
+        CHECK(hit.components[0].energyJ==.5*w.fragmentKg*w.speedMs*w.speedMs);
+        CHECK(near(hit.impulseBody.y,w.fragmentKg*w.speedMs*dy,1e-25));
+    }
+}
+
+TEST_CASE("a finite shallow fragment crossing is not parallel to a surface", "[damage][fragment-boundary]") {
+    const double dy=std::ldexp(1.0,-32);
+    Airframe frame;
+    Airframe::Panel panel;
+    panel.corners={V3{.75,dy,-1},V3{1.25,dy,-1},V3{1.25,dy,1},V3{.75,dy,1}};
+    panel.areaM2=1;frame.panels.push_back(panel);
+    Burst burst;burst.axis={1,dy,0};
+    bool expected=true;
+    SECTION("finite face contains the exact crossing at x one") {}
+    SECTION("plane crossing beyond the finite face misses") {burst.axis={1,dy/2,0};expected=false;}
+    SECTION("a genuinely parallel off-plane ray misses") {burst.axis={1,0,0};expected=false;}
+    SECTION("an unrepresentable crossing cannot enter the finite face through NaN edges") {
+        burst.axis={1,std::numeric_limits<double>::denorm_min(),0};expected=false;
+    }
+    fsim::Rng rng(67);
+    const auto w=straightFragment();
+    const auto hit=assess(w,burst,frame,stationaryDamageTarget(),rng);
+    CHECK(hit.fragmentsStriking==(expected?1:0));
+    REQUIRE(hit.panels.size()==(expected?1u:0u));
+    if(expected) {
+        CHECK(hit.panels[0].hits==1);
+        CHECK(hit.panels[0].perforations==0);
+        CHECK(near(length(hit.impulseBody),w.fragmentKg*w.speedMs,1e-12));
+    }
 }
 
 TEST_CASE("a sub-millimetre surface crossing cannot add fragment energy", "[damage][fragment-boundary]") {
@@ -1103,6 +1160,154 @@ TEST_CASE("a hit in the air follows where it came from: a holed tank's fuel is t
     // at 5 m/s: towards a burst on its own side)
     if (left.pieces > 0) CHECK(left.pieceSide > -4.0 * left.pieces);
     if (right.pieces > 0) CHECK(right.pieceSide < 4.0 * right.pieces);
+}
+
+TEST_CASE("Native component fire events use model-origin geometry at their captured epoch", "[damage][world][event-frame]") {
+    // Reuse the already maintained spill fixture grid. This tests publication
+    // coordinates, not whether a new encounter achieves a prescribed effect.
+    bool seen=false;
+    for (const double aft : {1.0,0.0,2.5,-1.5}) {
+        for (const double off : {3.0,2.0,4.0}) {
+            for (const double below : {0.3,-0.4}) {
+                fsim::session::World world(fsim::modes::options("fire-event-frame"));
+                const auto id=fsim::modes::wing(world,"mig29a",6000,220);
+                world.step(fsim::modes::stepsFor(world,3));
+                const auto before=*world.vehicleState(id);
+                double cg[3]; REQUIRE(world.model(id)->cgFromOriginBodyM(cg));
+                const auto events=world.detonate(burstBeside(before,{-aft,-off,below},{600,80,-30}));
+                const auto* damage=world.damage(id); REQUIRE(damage);
+                for (const auto& event:events) {
+                    if(event.kind!=static_cast<std::uint8_t>(fsim::ipc::EngagementKind::Fire))continue;
+                    const auto& components=damage->airframe().components;
+                    const auto component=std::find_if(components.begin(),components.end(),[&](const auto& c){return c.name==event.name;});
+                    REQUIRE(component!=components.end());
+                    const V3 arm=component->centre-V3{cg[0],cg[1],cg[2]};
+                    const auto* r=before.rotationBodyToEcef;
+                    const double expected[]={before.positionEcef[0]+r[0]*arm.x+r[1]*arm.y+r[2]*arm.z,
+                        before.positionEcef[1]+r[3]*arm.x+r[4]*arm.y+r[5]*arm.z,
+                        before.positionEcef[2]+r[6]*arm.x+r[7]*arm.y+r[8]*arm.z};
+                    INFO("component=" << event.name << " fixture=" << aft << ',' << off << ',' << below);
+                    for(int k=0;k<3;++k)CHECK(std::abs(event.positionEcef[k]-expected[k])<1e-7);
+                    seen=true;
+                }
+                if(seen)break;
+            }
+            if(seen)break;
+        }
+        if(seen)break;
+    }
+    REQUIRE(seen);
+}
+
+TEST_CASE("Native fire-rate updates stay on the moving component with its rigid-point velocity", "[damage][world][event-frame]") {
+    // Establish a burning tank with the same maintained spill-fixture grid
+    // used above. This publication test must not require one particular
+    // angular source to ignite a tank at the grid's first point.
+    std::unique_ptr<fsim::session::World> fixture;
+    std::uint32_t id=0;
+    for(const double aft:{1.0,0.0,2.5,-1.5}) {
+        for(const double off:{3.0,2.0,4.0}) {
+            for(const double below:{0.3,-0.4}) {
+                auto candidate=std::make_unique<fsim::session::World>(fsim::modes::options("fire-rate-event-frame"));
+                const auto candidateId=fsim::modes::wing(*candidate,"mig29a",6000,220);
+                candidate->step(fsim::modes::stepsFor(*candidate,3));
+                const auto before=*candidate->vehicleState(candidateId);
+                candidate->detonate(burstBeside(before,{-aft,-off,below},{600,80,-30}));
+                const auto* damage=candidate->damage(candidateId);REQUIRE(damage);
+                for(const auto& [tank,state]:damage->tanks())if(state.burning) {
+                    id=candidateId;fixture=std::move(candidate);break;
+                }
+                if(fixture)break;
+            }
+            if(fixture)break;
+        }
+        if(fixture)break;
+    }
+    REQUIRE(fixture);auto& world=*fixture;
+    const auto* damage=world.damage(id);REQUIRE(damage);
+    bool burning=false;
+    for(const auto& [tank,state]:damage->tanks())if(state.burning) {
+        // Synthetic depletion forces an extinguishing rate publication, not a different
+        // hit outcome. It also exercises the actual updated native CG.
+        auto fuel=world.model(id)->property("propulsion/tank["+std::to_string(tank)+"]/contents-lbs");
+        REQUIRE(fuel.valid());fuel.set(0);burning=true;
+    }
+    REQUIRE(burning);world.takeEngagementEvents();world.step();
+    const auto current=*world.vehicleState(id);
+    double cg[3];REQUIRE(world.model(id)->cgFromOriginBodyM(cg));
+    bool update=false;
+    for(const auto& event:world.takeEngagementEvents()) {
+        if(event.kind!=static_cast<std::uint8_t>(fsim::ipc::EngagementKind::Fire))continue;
+        const auto& components=damage->airframe().components;
+        const auto component=std::find_if(components.begin(),components.end(),[&](const auto& c){return c.name==event.name;});
+        REQUIRE(component!=components.end());
+        const V3 arm=component->centre-V3{cg[0],cg[1],cg[2]};
+        const auto* omega=current.angularRateBodyRadS;
+        const V3 v{current.velocityBodyMs[0]+omega[1]*arm.z-omega[2]*arm.y,
+            current.velocityBodyMs[1]+omega[2]*arm.x-omega[0]*arm.z,
+            current.velocityBodyMs[2]+omega[0]*arm.y-omega[1]*arm.x};
+        const double armArray[]={arm.x,arm.y,arm.z},velocityArray[]={v.x,v.y,v.z};
+        for(int row=0;row<3;++row) {
+            double p=current.positionEcef[row],speed=0;
+            for(int col=0;col<3;++col) {
+                p+=current.rotationBodyToEcef[3*row+col]*armArray[col];
+                speed+=current.rotationBodyToEcef[3*row+col]*velocityArray[col];
+            }
+            CHECK(std::abs(event.positionEcef[row]-p)<1e-7);
+            CHECK(std::abs(event.velocityEcef[row]-speed)<1e-6);
+        }
+        update=true;
+    }
+    REQUIRE(update);
+}
+
+TEST_CASE("Native stream slots distinguish live identity from removed and reused entries", "[damage][world][event-frame]") {
+    fsim::session::World world(fsim::modes::options("event-stream-identity"));
+    const auto first=fsim::modes::wing(world,"mig29a",6000,220,0);
+    const auto second=fsim::modes::wing(world,"mig29a",6000,220,1);
+    REQUIRE(world.vehicleStreamSlot(first)==0);REQUIRE(world.vehicleStreamSlot(second)==1);
+    REQUIRE(world.removeVehicle(first));CHECK_FALSE(world.vehicleStreamSlot(first));
+    const auto replacement=fsim::modes::wing(world,"mig29a",6000,220,2);
+    CHECK(replacement!=first);CHECK(world.vehicleStreamSlot(replacement)==0);
+    CHECK_FALSE(world.vehicleStreamSlot(first));CHECK_FALSE(world.vehicleStreamSlot(0));
+}
+
+TEST_CASE("Taking native Hit events does not consume their recording", "[damage][world][event-frame]") {
+    namespace fs=std::filesystem;
+    const auto path=fs::temp_directory_path()/("fsim-hit-outbox-"+
+        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".fsrec");
+    fsim::ipc::EngagementEvent nativeHit;
+    {
+        auto options=fsim::modes::options("recorded-hit-outbox");options.recordPath=path;
+        fsim::session::World world(options);
+        const auto id=fsim::modes::wing(world,"mig29a",6000,220);
+        world.step(fsim::modes::stepsFor(world,3));
+        const auto state=*world.vehicleState(id);
+        // The existing positive damage fixture, not a replacement showcase.
+        const auto events=world.detonate(burstBeside(state,{-1,-4,.5},{600,80,-30}));
+        const auto hit=std::find_if(events.begin(),events.end(),[](const auto& event) {
+            return event.kind==static_cast<std::uint8_t>(fsim::ipc::EngagementKind::Hit);
+        });
+        REQUIRE(hit!=events.end());REQUIRE(hit->index>0);nativeHit=*hit;
+        const auto outbox=world.takeEngagementEvents();
+        CHECK(std::count_if(outbox.begin(),outbox.end(),[](const auto& event) {
+            return event.kind==static_cast<std::uint8_t>(fsim::ipc::EngagementKind::Hit);
+        })==1);
+        CHECK(world.takeEngagementEvents().empty());world.step();
+    }
+    fsim::ipc::Recording recording;std::string error;
+    REQUIRE(recording.load(path,&error));
+    unsigned count=0;
+    for(const auto& frame:recording.frames())for(const auto& event:frame.events) {
+        if(event.kind!=static_cast<std::uint8_t>(fsim::ipc::EngagementKind::Hit))continue;
+        CHECK(event.slot==nativeHit.slot);CHECK(event.target==nativeHit.target);
+        CHECK(event.index==nativeHit.index);CHECK(event.simTime==nativeHit.simTime);
+        CHECK(std::string(event.name)==nativeHit.name);
+        CHECK(std::equal(std::begin(event.positionEcef),std::end(event.positionEcef),std::begin(nativeHit.positionEcef)));
+        CHECK(std::equal(std::begin(event.velocityEcef),std::end(event.velocityEcef),std::begin(nativeHit.velocityEcef)));
+        ++count;
+    }
+    CHECK(count==1);fs::remove(path);
 }
 
 TEST_CASE("a section a burst breaks off is thrown away from the burst: up from one below its wing, down from one above it",

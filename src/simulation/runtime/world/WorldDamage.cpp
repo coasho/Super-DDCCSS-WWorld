@@ -262,7 +262,15 @@ std::vector<ipc::EngagementEvent> World::applyDamage(Entry& e, const Detonation&
             auto ev = engagementEvent(e, ipc::EngagementKind::Fire, component);
             if (c.component >= 0) { // (where its component is on it)
                 const auto& centre = a.components[static_cast<std::size_t>(c.component)].centre;
-                for (int r = 0; r < 3; ++r) ev.positionEcef[r] += R[3 * r] * centre.x + R[3 * r + 1] * centre.y + R[3 * r + 2] * centre.z;
+                // Component coordinates are relative to the fixed model
+                // origin, not the CG. Keep pose, CG and rigid-point velocity
+                // at the same captured encounter epoch as the assessment.
+                const auto point=ms::weapon::materialPoint(s,v3(cg),centre);
+                if(!point.valid) {LOG_WARN("session") << "fire component point unavailable for " << e.info.name;break;}
+                for(int k=0;k<3;++k) {
+                    ev.positionEcef[k]=(&point.position.x)[k];
+                    ev.velocityEcef[k]=(&point.velocity.x)[k];
+                }
             }
             ev.amountKg = c.spillKg;
             if (c.spillKg > 0.0 && c.component >= 0) {
@@ -427,7 +435,7 @@ std::vector<ipc::EngagementEvent> World::detonateAt(const Detonation& d, const C
                                    R[6] * cg[0] + R[7] * cg[1] + R[8] * cg[2]};
         for (int r = 0; r < 3; ++r)
             (&t.velocity.x)[r] = R[3 * r] * s.velocityBodyMs[0] + R[3 * r + 1] * s.velocityBodyMs[1] + R[3 * r + 2] * s.velocityBodyMs[2];
-        if (warhead->modelVersion==1) {
+        if (warhead->modelVersion==1 || warhead->modelVersion==2) {
             const auto origin=ms::weapon::materialPoint(s,v3(cg),{});
             if (!origin.valid) continue;
             t.at=origin.position; t.velocity=origin.velocity;
@@ -488,6 +496,14 @@ void World::stepDamage() {
             if (std::abs(leak - before) > kRateReported * std::max(before, 1e-3) && !(before == 0.0 && leak == 0.0)) {
                 const auto& comp = e->damage->airframe().components[static_cast<std::size_t>(std::max(state.component, 0))];
                 auto ev = engagementEvent(*e, ipc::EngagementKind::Fire, comp.name);
+                double cg[3];
+                if(!model.cgFromOriginBodyM(cg)) {LOG_WARN("session") << "fire component CG unavailable for " << e->info.name;continue;}
+                const auto point=ms::weapon::materialPoint(e->working,v3(cg),comp.centre);
+                if(!point.valid) {LOG_WARN("session") << "fire component point unavailable for " << e->info.name;continue;}
+                for(int k=0;k<3;++k) {
+                    ev.positionEcef[k]=(&point.position.x)[k];
+                    ev.velocityEcef[k]=(&point.velocity.x)[k];
+                }
                 ev.massKg = leak;
                 ev.rateKgS = std::min(leak, ms::damage::kBurnMostKgS);
                 engage(ev);
@@ -837,6 +853,12 @@ std::vector<ipc::EngagementEvent> World::takeEngagementEvents() {
     std::vector<ipc::EngagementEvent> out;
     out.swap(engagement_);
     return out;
+}
+
+std::optional<std::uint32_t> World::vehicleStreamSlot(std::uint32_t id) const noexcept {
+    const auto* e=entry(id);
+    if(!e || !e->info.alive)return std::nullopt;
+    return static_cast<std::uint32_t>(e->slot);
 }
 
 const ms::damage::VehicleDamage* World::damage(std::uint32_t id) const noexcept {

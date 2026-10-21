@@ -141,19 +141,19 @@
       "source": "usmc-yellowbook-va49"
     },
     "warhead_model_version": {
-      "value": 1,
+      "value": 2,
       "unit": "1",
       "uncertainty": 0,
       "basis": "assumed",
-      "note": "Explicit SDK warhead model schema1, selected before any encounter evaluation."
+      "note": "Explicit finite-source V2 model selection, fixed from a reviewed generic game-reference angular profile before encounter evaluation; not hardware calibration."
     },
     "warhead_fragment_source": {
-      "value": 1,
+      "value": 2,
       "unit": "1",
       "uncertainty": 0,
       "basis": "assumed",
-      "note": "Model1 selects finite cylindrical side-case volume and correlated radial normal ejection; no game angular weights.",
-      "source": "mil-hdbk-1211"
+      "note": "V2 combines the existing finite annular source with the complete pinned seven-sector game angular field. Uniform solid-angle interpolation within each sector and common position/ejection azimuth are generic assumptions; no measured WDU-41 field is asserted.",
+      "source": "wt-aam-seven-zones-ea96f3af"
     },
     "warhead_station_x_m": {
       "value": 1.66,
@@ -853,6 +853,15 @@
       "accessed": "2026-10-20",
       "note": "Supports distinguishing LOS-normal and velocity-normal guidance laws. No AIM-120 gain or seeker value is published here."
     },
+    "wt-aam-seven-zones-ea96f3af": {
+      "evidence_kind": "game_reference",
+      "title": "Pinned War Thunder AAM seven-sector fragment angular profile, rocket.damage.shatter.segment",
+      "publisher": "War Thunder game data, community extraction by gszabi99",
+      "url": "https://raw.githubusercontent.com/gszabi99/War-Thunder-Datamine/ea96f3af75afe1d858f80ac13f212db218bc69ca/aces.vromfs.bin_u/gamedata/weapons/rocketguns/us_aim_120c_7.blkx",
+      "date": "",
+      "accessed": "2026-10-21",
+      "note": "Only angular intervals and relative count shares are used. Game-reference assumptions, not measured equipment data. No upstream explosive, flight, fuze, radius, damage or penetration multiplier is imported. Source file SHA-256 b0952b5a3c11a1d21d38b00c0d1d94bd019da0abcff20dfa14b84229c147388c."
+    },
     "nasa-control-allocation": {
       "evidence_kind": "government_publication",
       "title": "Control Law - Control Allocation Interaction, NASA NAG-1-2246 final report",
@@ -864,10 +873,10 @@
     }
   },
   "simulation_model": {
-    "version": 1,
+    "version": 2,
     "calibration": "Generic engineering model with explicit assumptions; not a calibrated AIM-120C-7/WDU-41/FZU-49 implementation.",
     "burst_reference": "Fixed material station from the authored nose; Hughes early-family schematic midpoint transferred as an assumption.",
-    "fragmentation": "Finite cylindrical side-case, radial ejection, exact annular case mass and equivalent cubes.",
+    "fragmentation": "Finite annular origins, exact case mass and equivalent cubes, with a complete pinned seven-sector generic game angular field; not a measured WDU-41 distribution.",
     "guidance_control": "Configured velocity-normal PN, reduced-order load-feedback cascade and authored native fin mixer.",
     "contact": "Frictionless perfectly inelastic rigid-body point impulse; no calibrated ballistic penetration or fracture solver."
   },
@@ -1018,7 +1027,7 @@
       },
       "warhead": {
         "availability": "available",
-        "implementation_id": "native.warhead.side_case.v1",
+        "implementation_id": "native.warhead.finite_zoned_case.v2",
         "configuration_version": 1,
         "parameter_refs": {
           "warhead_kg": "warhead_kg",
@@ -1043,10 +1052,12 @@
           "burst_reference": "captured_authored_station_from_nose",
           "blast": "kingery_bulmash.swisdak_1994.free_air.v1",
           "penetration": "thor.aluminium_2024_t3.v1",
-          "assessment": "native.fragment_blast.v1"
+          "assessment": "native.fragment_blast.v1",
+          "angular_profile": "wt.aam.seven_zones.ea96f3af75af.v1"
         },
         "basis": "assumed",
-        "note": "Existing simulator implementation; no equipment calibration.",
+        "source": "wt-aam-seven-zones-ea96f3af",
+        "note": "Finite annular source with the complete pinned game-reference angular field. Uniform solid angle within sectors and source/ejection azimuth correlation are generic assumptions; physical values remain unchanged.",
         "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
       },
       "propulsion": {

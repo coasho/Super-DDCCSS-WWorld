@@ -217,7 +217,7 @@ Outcome engagement(double rangeM, unsigned workers, bool requireHit, bool requir
         if (card) std::cout << "MODEL-ASSET: card=" << card->id << " execution=" << card->value("weapon_execution_version",0)
             << " fuze=" << card->value("fuze_model_version",0) << " warhead=" << card->value("warhead_model_version",0) << '\n';
         configuredAsset=card && card->value("weapon_execution_version",0)==1 &&
-            card->value("fuze_model_version",0)==1 && card->value("warhead_model_version",0)==1;
+            card->value("fuze_model_version",0)==1 && card->value("warhead_model_version",0)==2;
     }
     const auto library=io::AssetResolver{}.find("payloads");
     require(configuredAsset,"native acceptance must consume the current versioned model card, not a stale staged asset; payloads="+

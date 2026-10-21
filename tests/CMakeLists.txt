@@ -180,9 +180,16 @@ if(TARGET flightsim-showcase)
     add_executable(fsim_showcase_native_test integration/test_showcase_native.cpp)
     target_link_libraries(fsim_showcase_native_test PRIVATE fsim::ipc fsim::core fsim::sdk)
     fsim_set_warnings(fsim_showcase_native_test)
+    target_include_directories(fsim_showcase_native_test PRIVATE "${CMAKE_SOURCE_DIR}/tools/validation/showcase")
+    add_test(NAME showcase_hit_matching COMMAND fsim_showcase_native_test hit-matching)
+    set_tests_properties(showcase_hit_matching PROPERTIES LABELS "showcase;native-engagement" TIMEOUT 30)
     add_test(NAME showcase_native COMMAND fsim_showcase_native_test
         $<TARGET_FILE:flightsim-showcase> ${CMAKE_BINARY_DIR}/showcase-native-test)
     set_tests_properties(showcase_native PROPERTIES LABELS "showcase;native-engagement"
+        TIMEOUT 120 WORKING_DIRECTORY $<TARGET_FILE_DIR:flightsim-showcase>)
+    add_test(NAME showcase_event_chain COMMAND fsim_showcase_native_test
+        $<TARGET_FILE:flightsim-showcase> ${CMAKE_BINARY_DIR}/showcase-event-chain-test event-chain)
+    set_tests_properties(showcase_event_chain PROPERTIES LABELS "showcase;native-engagement"
         TIMEOUT 120 WORKING_DIRECTORY $<TARGET_FILE_DIR:flightsim-showcase>)
 endif()
 

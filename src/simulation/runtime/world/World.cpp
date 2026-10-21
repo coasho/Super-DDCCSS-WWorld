@@ -2425,7 +2425,7 @@ void World::flyReleases() {
                     auto& wm = pool_->vehicle(w->slot);
                     const auto warhead=w->warheadAdapter ? std::optional<ms::damage::Warhead>{w->warheadAdapter->model()}
                                                         : ms::damage::warheadOf(*releasedCard);
-                    if (warhead && warhead->modelVersion==1) {
+                    if (warhead && (warhead->modelVersion==1 || warhead->modelVersion==2)) {
                         w->fixedBurstRequired=true;
                         if (w->contactNoseFromOriginBodyM && warhead->stationStructuralM) {
                             const auto station=*warhead->stationStructuralM;

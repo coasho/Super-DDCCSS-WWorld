@@ -10,6 +10,7 @@
 #include "simulation/mission_systems/components/implementations/fuze/TurningCpaFuzeV1.h"
 #include "simulation/mission_systems/components/implementations/warhead/ZonedCaseWarheadV1.h"
 #include "simulation/mission_systems/components/implementations/warhead/SideCaseWarheadV1.h"
+#include "simulation/mission_systems/components/implementations/warhead/FiniteZonedCaseWarheadV2.h"
 #include <catch2/catch_test_macros.hpp>
 #include <type_traits>
 
@@ -43,6 +44,7 @@ TEST_CASE("Named provider headers expose concrete models while shared helpers re
     STATIC_REQUIRE((concreteProviderV1<weapon::FuzeAdapter,weapon::TurningCpaFuzeV1>));
     STATIC_REQUIRE((concreteProviderV1<damage::WarheadAdapter,damage::ZonedCaseWarheadV1>));
     STATIC_REQUIRE((concreteProviderV1<damage::WarheadAdapter,damage::SideCaseWarheadV1>));
+    STATIC_REQUIRE((concreteProviderV1<damage::WarheadAdapter,damage::FiniteZonedCaseWarheadV2>));
     STATIC_REQUIRE(std::is_abstract_v<NativeBindingProviderV1>);
     STATIC_REQUIRE(std::is_abstract_v<NativePlantBindingV1<AutopilotProviderV1>>);
     STATIC_REQUIRE(std::is_abstract_v<weapon::CapturedFuzeLifecycleV1>);
