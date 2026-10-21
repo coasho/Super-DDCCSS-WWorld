@@ -1,5 +1,19 @@
 # Current capabilities and milestone status
 
+SIM-M03 fragment traversal repair, 2026-10-20, from `8147c07`: the fixed 6 m
+side-burst internal-component test now passes without changes to equipment
+parameters, authored geometry or its assertions. The repair removes a future
+skin being processed before an earlier component. The
+[root-cause and validation record](sdk/fragment-hit-repair.md) distinguishes this
+defect from the still-failing showcase fragment-Hit gate: all 1688 captured
+side-case rays miss the supplied target geometry in both native and independent
+intersection checks. The selected contact/turning-CPA/side-case model combination
+does not establish realistic endgame fragment interception. Its original Hit
+criterion remains enforced; contact/blast effects have not been relabeled.
+Current focused gates are Headless 99/99 and Release 99/100, with no skipped
+tests; `showcase_native` is the sole remaining failure. The linked record also
+contains the public-source audit and its equipment-specific evidence limits.
+
 SIM-M03 representative weapon mechanisms, 2026-10-20, from `8daf1e0`: AIM-9M,
 AIM-9X Block I, AIM-7M and AIM-120C-7 now select four independent sampled seeker
 classes and measured guidance. Native on-rail snapshots, release seeding,
@@ -10,7 +24,8 @@ numeric parameter objects and all 101 generated native assets remain unchanged.
 The [delivery and current validation record](sdk/representative-weapon-models.md)
 separates software/native/installed evidence from pending optical, servo, TVC,
 weapon-link, SIM-M02 calibration and Viewer gates. Full SIM-M03 remains open;
-the fixed side-burst component-hit and showcase fragment-Hit gates still fail.
+at that delivery the side-burst component-hit and showcase fragment-Hit gates
+failed. The traversal follow-up above closes the side-burst defect only.
 This package neither imports numerical results nor changes AeroNumericsLab.
 
 SIM-M03 provider source organization, 2026-10-20, following `ab7f89d`: all nine

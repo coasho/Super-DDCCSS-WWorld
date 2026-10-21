@@ -504,8 +504,6 @@ Impact assess(const Warhead& w, const Burst& burst, const AttachedGeometryView& 
         bool skin;
         int index;
         V3 normal;
-        bool done;
-        int containmentDelta;
     };
     std::vector<Event> events;
     for (int i = 0; i < w.fragments; ++i) {
@@ -544,34 +542,31 @@ Impact assess(const Warhead& w, const Burst& burst, const AttachedGeometryView& 
         if (!(v > 1.0) || (sideCase && !std::isfinite(v))) continue;
         const V3 u = toBody(target, rel * (1.0 / v));
         events.clear();
-        std::size_t bornInside = 0;
         for (const std::size_t k : geometry.panelIndices()) {
             const auto& p = af.panels[k];
             double s0, s1;
             V3 n, exitNormal;
             if (p.surface) {
                 if (quad(rayFromBody, u, p.corners, s0, n)) {
-                    events.push_back({std::max(s0 - 1e-3, 0.0), true, static_cast<int>(k), n, false, 1}); // in through one skin,
-                    events.push_back({s0 + 1e-3, true, static_cast<int>(k), n, false, -1}); // out through the other
+                    events.push_back({std::max(s0 - 1e-3, 0.0), true, static_cast<int>(k), n}); // in through one skin,
+                    events.push_back({s0 + 1e-3, true, static_cast<int>(k), n}); // out through the other
                 }
             } else if (slab(rayFromBody, u, p.centre, p.half, s0, s1, n, exitNormal)) {
-                if (s0 < 0.0) ++bornInside;
-                if (s0 >= 0.0) events.push_back({s0, true, static_cast<int>(k), n, false, 1});
-                if (s1 >= 0.0) events.push_back({s1, true, static_cast<int>(k), exitNormal, false, -1});
+                if (s0 >= 0.0) events.push_back({s0, true, static_cast<int>(k), n});
+                if (s1 >= 0.0) events.push_back({s1, true, static_cast<int>(k), exitNormal});
             }
         }
         for (const std::size_t k : geometry.componentIndices()) {
             double s0, s1;
             V3 n, exitNormal;
             if (slab(rayFromBody, u, af.components[k].centre, af.components[k].half, s0, s1, n, exitNormal) && s1 > 0.0)
-                events.push_back({std::max(s0, 0.0), false, static_cast<int>(k), n, false, 0});
+                events.push_back({std::max(s0, 0.0), false, static_cast<int>(k), n});
         }
         if (events.empty()) continue;
         // Preserve source order at ties: panel crossings were added before
         // component hits, and each panel's entry before its exit.
         std::stable_sort(events.begin(), events.end(), [](const Event& a, const Event& b) { return a.s < b.s; });
         bool struck = false;
-        std::size_t containment = bornInside;
         double at = 0.0;
         double transferredMomentum = 0.0;
         auto skin = [&](Event& e) {
@@ -587,26 +582,17 @@ Impact assess(const Warhead& w, const Burst& burst, const AttachedGeometryView& 
             h.momentumNs += u * (w.fragmentKg * (v - after));
             transferredMomentum += w.fragmentKg * (v - after);
             v = after;
-            e.done = true;
             struck = true;
-            if (e.containmentDelta > 0) ++containment;
-            else if (e.containmentDelta < 0 && containment > 0) --containment;
         };
         for (std::size_t k = 0; k < events.size() && v > 0.0; ++k) {
             Event& e = events[k];
-            if (e.done) continue;
             if (e.skin) {
                 skin(e);
                 continue;
             }
-            // a component inside: through the skin over it first (the next skin within a metre)
-            if (containment == 0)
-                for (std::size_t j = k + 1; j < events.size(); ++j)
-                    if (events[j].skin && !events[j].done && events[j].s - e.s < 1.0) {
-                        skin(events[j]);
-                        break;
-                    }
-            if (!(v > 0.0)) break;
+            // Only earlier crossed skins can shield this component. A later
+            // intersection cannot be moved ahead of the component to infer
+            // an unauthored enclosure, including a surface's mid-plane.
             v *= std::exp(-decayPerM * std::max(e.s - at, 0.0));
             at = std::max(e.s, at);
             auto& c = comp[static_cast<std::size_t>(e.index)];

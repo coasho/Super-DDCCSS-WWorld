@@ -140,6 +140,29 @@ TEST_CASE("warhead v1 preserves Galilean relative mechanics and exactly three dr
     CHECK(actual.state()==expected.state());
 }
 
+TEST_CASE("a finite radial side case cannot manufacture a forward-axis fragment hit", "[warhead-model][fragment-order]") {
+    // Synthetic geometry, not AIM-120 equipment inputs. All source points have
+    // x <= length/2. A +X speed of 100 and radial speed of 300 put every ray
+    // outside this small on-axis target before it reaches the target's front.
+    const auto configured=dmg::warheadOf(sourceCard());REQUIRE(configured);
+    auto w=*configured;w.fragments=64;w.speedMs=300;w.tntKg=0;
+    dmg::Airframe frame;dmg::Airframe::Component box;
+    box.centre={2,0,0};box.half={.1,.1,.1};frame.components.push_back(box);
+    const double earliest=(box.centre.x-box.half.x-w.lengthM/2)/100;
+    REQUIRE(earliest>0);
+    REQUIRE(w.caseInnerRadiusM+w.speedMs*earliest>std::hypot(box.half.y,box.half.z));
+    dmg::Burst burst;burst.axis={1,0,0};burst.velocity={100,0,0};
+    for(const std::uint64_t seed:{0ull,7ull,42ull}) {
+        fsim::Rng rng(seed),expected(seed);
+        const auto hit=dmg::assess(w,burst,frame,target(),rng);
+        CHECK(hit.fragmentsThrown==64);CHECK(hit.fragmentsStriking==0);
+        CHECK(hit.components.empty());CHECK(hit.panels.empty());
+        CHECK(dmg::length(hit.impulseBody)==0);CHECK(dmg::length(hit.angularImpulseBody)==0);
+        for(int i=0;i<3*w.fragments;++i)expected.next();
+        CHECK(rng.state()==expected.state());
+    }
+}
+
 TEST_CASE("warhead v1 source points inherit rigid rotation about the common burst centre", "[warhead-model][warhead-spin]") {
     const auto configured=dmg::warheadOf(sourceCard());REQUIRE(configured);auto w=*configured;
     w.fragments=1;w.fragmentKg=.006;w.speedMs=300;w.tntKg=0;

@@ -367,6 +367,10 @@ Run successful(const fs::path& executable, const fs::path& directory, const std:
     }
     require(slots.at(carrierId) == carrierSlot && slots.at(targetId) == targetSlot && slots.at(weaponId) == weaponSlot,
             "evidence slots must match actual recorded native IDs");
+    if (!(bursts == 1 && hits > 0 && loaded && released && removed))
+        std::cerr << "native fragment-Hit gate: bursts=" << bursts << ", fragment_hits=" << hits
+                  << ", loaded=" << loaded << ", released=" << released << ", removed=" << removed
+                  << "; contact/blast damage does not imply a fragment intersection\n";
     require(bursts == 1 && hits > 0 && loaded && released && removed, "native recording must contain inventory release, real burst/damage and weapon removal");
     require(missileSamples > 30 && maximumSpeed > 350.0 && lastMissileFuel < firstMissileFuel,
             "recorded native motor must consume fuel and accelerate the released missile");

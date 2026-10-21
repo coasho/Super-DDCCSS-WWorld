@@ -1000,3 +1000,27 @@ card parameter objects and 101 generated model/engine/nozzle files are preserved
 No shared generic schema, public layout, physics coefficient, fixture criterion
 or independent numerical input changes. Full SIM-M03, calibrated IIR/servo/TVC,
 fitted weapon links and complete Viewer acceptance remain separate pending gates.
+
+## 17. SIM-M03 fragment traversal repair, 2026-10-20
+
+Baseline: main `8147c071d824a16572023dc93b547b1a17254b53`. The user's
+[repair window](../../../superpowers/plans/2026-10-20-sim-m03-fragment-hit-repair.md)
+owns the private fragment traversal and focused regressions. It does not change
+equipment cards, aircraft assets, native fuze contracts, generic integration or
+Claude's independent SIM-M02 inputs and solver workspace.
+
+The fixed 6 m internal-component failure was caused by a later skin being moved
+ahead of an earlier component interception. A new analytic regression first
+fails on the original implementation, then passes when traversal preserves ray
+order; upstream shielding remains effective. The original 6 m assertions pass.
+
+The showcase is not accepted: native and independent geometric checks find no
+intersections for its 1688 captured radial side-case rays at the contact burst.
+The existing target-CG turning-CPA law has not initiated before physical contact.
+Neither contact/blast damage nor crew/section effects are promoted to fragment
+hits. The [repair evidence](../../../sdk/fragment-hit-repair.md) records the
+public-source investigation and its limits separately from the fixed traversal
+defect and from SIM-M02 physical-input acceptance. Headless passes 99/99 selected
+gates; Release passes 99/100 with `showcase_native` still failing and no skipped
+tests. Both native builds passed. The SDK serial build/test slot is released
+at this handoff; no installed-consumer or Viewer acceptance is added.

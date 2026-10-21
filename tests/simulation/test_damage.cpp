@@ -408,6 +408,40 @@ TEST_CASE("an internal component precedes the skin a fragment would exit", "[dam
     CHECK(near(hit.impulseBody.x, w.fragmentKg * w.speedMs, 1e-12));
 }
 
+TEST_CASE("fragment shielding follows actual ray order instead of a nearby future skin", "[damage][fragment-order]") {
+    // Analytic fixture: the component begins at x=.9, while the plate is at
+    // x=1.5. The plate cannot shield an earlier interception, even though it
+    // lies less than a metre away. Moving the plate upstream must shield it.
+    const auto w=straightFragment();
+    Airframe frame;frame.sections.resize(1);
+    frame.sections[0].skinAreaM2=4;
+    frame.sections[0].skinKg=4*2780*.02;
+    Airframe::Component component;component.section=0;
+    component.centre={1,0,0};component.half={.1,.1,.1};
+    frame.components.push_back(component);
+    Airframe::Panel plate;plate.section=0;plate.areaM2=4;
+    double plateX=1.5;
+    bool shield=false;
+    SECTION("a later plate cannot stop a fragment before its first component") {}
+    SECTION("a crossed upstream plate still stops the fragment") {plateX=.5;shield=true;}
+    plate.corners={V3{plateX,-1,-1},V3{plateX,1,-1},V3{plateX,1,1},V3{plateX,-1,1}};
+    frame.panels.push_back(plate);
+    REQUIRE(thorResidual(.02,w.fragmentAreaM2,w.fragmentKg,w.speedMs,0)==0);
+    Burst burst;burst.axis={1,0,0};fsim::Rng rng(53);
+    const auto hit=assess(w,burst,frame,stationaryDamageTarget(),rng);
+    REQUIRE(hit.fragmentsStriking==1);
+    if(shield) {
+        CHECK(hit.components.empty());REQUIRE(hit.panels.size()==1);
+        CHECK(hit.panels[0].hits==1);CHECK(hit.panels[0].perforations==0);
+    } else {
+        REQUIRE(hit.components.size()==1);CHECK(hit.components[0].component==0);
+        CHECK(hit.components[0].energyJ==.5*w.fragmentKg*w.speedMs*w.speedMs);
+        CHECK(hit.panels.empty());
+    }
+    CHECK(near(hit.impulseBody.x,w.fragmentKg*w.speedMs,1e-12));
+    CHECK(near(length(hit.angularImpulseBody),0,1e-12));
+}
+
 TEST_CASE("nested damage boxes retain initial fragment containment", "[damage][fragment-boundary][fragment-occupancy]") {
     // Both closed boxes contain the burst and component. Neither future exit
     // may be advanced ahead of the component just because the count is even.

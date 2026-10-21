@@ -8,6 +8,12 @@ and requested inline execution of the
 This is a software mechanism delivery, not calibrated equipment or complete
 SIM-M03 acceptance.
 
+Follow-up from main `8147c07`: the [fragment traversal repair](fragment-hit-repair.md)
+corrects the 6 m side-burst internal-component failure. The showcase fragment-Hit
+gate remains open with an independently checked non-intersecting spray. The
+verification record below is the original representative-model delivery; use
+the linked repair record for the latest damage checks and remaining model work.
+
 ## Selected equipment and concrete execution
 
 | Card and identity | Concrete seeker | Actual differentiated behavior |
