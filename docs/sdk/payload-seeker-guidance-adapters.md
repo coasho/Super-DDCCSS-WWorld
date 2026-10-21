@@ -1,5 +1,12 @@
 # Payload seeker and guidance adapters
 
+The four [representative weapon profiles](representative-weapon-models.md) now
+select independent sampled seekers and measured guidance through additive private
+V2 execution interfaces. This page's encounter-seeker and Cartesian PN tables
+describe the retained V1 path. The new schemas keep the descriptor envelope and
+all existing numerical parameters while adding exact variant/observable/fidelity
+bindings; they do not claim fitted hardware constants or calibrated imagery.
+
 The native payload component sidecar selects the existing encounter seeker and
 velocity-normal, closing-speed proportional-navigation implementation. These
 adapters make their assumptions explicit and reusable across store cards. They
@@ -96,10 +103,10 @@ providers and shared constraints succeed. Failure leaves the caller's output
 unchanged. Inert and ballistic release applicability remains with World's
 separate native plant checks.
 
-This is the initial compiled typed-adapter capability. The seeker and guidance
-implementation IDs select implementations compiled into the SDK; there is no
-general provider registry, runtime plugin registration or external-DLL provider
-ABI. A new implementation requires native dispatch/code changes and a rebuild.
+Implementation IDs select the compiled models in the typed native provider
+catalogue. Native source extensions can register compatible factories; there is
+no external-DLL provider ABI. New model schemas need their own strict validation,
+and a new implementation requires native source/build integration.
 
 ## Required seeker roles
 

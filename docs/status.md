@@ -1,5 +1,18 @@
 # Current capabilities and milestone status
 
+SIM-M03 representative weapon mechanisms, 2026-10-20, from `8daf1e0`: AIM-9M,
+AIM-9X Block I, AIM-7M and AIM-120C-7 now select four independent sampled seeker
+classes and measured guidance. Native on-rail snapshots, release seeding,
+illumination interruption and autonomous active-radar sensing execute through
+the selected providers. IR/SARH frames contain no launcher Cartesian estimate;
+guidance/association contain no semantic target/decoy attribution. All 53 card
+numeric parameter objects and all 101 generated native assets remain unchanged.
+The [delivery and current validation record](sdk/representative-weapon-models.md)
+separates software/native/installed evidence from pending optical, servo, TVC,
+weapon-link, SIM-M02 calibration and Viewer gates. Full SIM-M03 remains open;
+the fixed side-burst component-hit and showcase fragment-Hit gates still fail.
+This package neither imports numerical results nor changes AeroNumericsLab.
+
 SIM-M03 provider source organization, 2026-10-20, following `ab7f89d`: all nine
 component roles now share the `interfaces/`, `implementations/<role>/`,
 `support/` and `registration/` layout. Eleven concrete models have matching

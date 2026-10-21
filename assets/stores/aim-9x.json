@@ -1,6 +1,6 @@
 {
   "id": "aim-9x",
-  "designation": "AIM-9X Sidewinder",
+  "designation": "AIM-9X Block I Sidewinder",
   "class": "aam",
   "summary": "Short-range imaging-infrared air-to-air missile with jet-vane thrust vectoring, high off-boresight",
   "maker": "Raytheon",
@@ -16,7 +16,7 @@
     "source": "/guidance",
     "note": "Explicit execution declaration transcribed from this card's authored guidance field. False means this profile does not enable the capability; it is not evidence of equipment absence. No seeker, control or fitted-link performance is calibrated; launcher updates still use the explicitly idealized native path."
   },
-  "guidance": "imaging infrared homing (128 x 128 focal plane array), jet-vane thrust vectoring",
+  "guidance": "Block I staring focal-plane-array infrared homing; real equipment has jet-vane thrust-vector control, which is unavailable in the current fin-only plant",
   "motor": "the AIM-9M's motor (Mk 36): 'the same rocket motor and warhead as the AIM-9M'",
   "fuze": "active optical target detector",
   "warhead": "WDU-17/B annular blast-fragmentation (the AIM-9M's)",
@@ -587,6 +587,15 @@
     }
   },
   "sources": {
+    "navair-aim9x-block1": {
+      "evidence_kind": "government_publication",
+      "title": "WD helps Sidewinder reach production milestone",
+      "publisher": "NAVAIR",
+      "url": "https://www.navair.navy.mil/node/10456",
+      "date": "2010-05-19",
+      "accessed": "2026-10-20",
+      "note": "Identifies Block I and distinguishes subsequent Block II datalink and lock-on-after-launch. Supplies no optical, servo or jet-vane calibration."
+    },
     "usn-aim9x": {
       "evidence_kind": "government_publication",
       "title": "AIM-9X Sidewinder Missile (fact file)",
@@ -621,7 +630,7 @@
     "components": {
       "seeker": {
         "availability": "available",
-        "implementation_id": "fsim.seeker.encounter.v1",
+        "implementation_id": "fsim.seeker.imaging_ir.v2",
         "configuration_version": 1,
         "parameter_refs": {
           "acquire_m": "component_seeker_acquire_m",
@@ -655,15 +664,20 @@
           "emitter_half_width_rad": "component_seeker_emitter_half_width_rad"
         },
         "bindings": {
-          "mode": "imaging_infrared"
+          "mode": "imaging_infrared",
+          "variant": "AIM-9X Block I",
+          "measurement_model": "ideal_geometric",
+          "image_model": "geometric_extent",
+          "servo_model": "unavailable"
         },
         "basis": "assumed",
-        "note": "Existing simulator implementation; no equipment calibration.",
-        "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
+        "source": "navair-aim9x-block1",
+        "note": "Independent sampled angular/spatial-extent association; no semantic target/decoy labels. Projected extent is ideal geometry, not a calibrated focal-plane image. Block II functions are not enabled.",
+        "validity": "Optical resolution, thermal signatures, detector noise, servo response and jet-vane plant data unavailable. Numerical inputs remain assumptions; the inherited decoy-resistance multiplier is unused."
       },
       "guidance": {
         "availability": "available",
-        "implementation_id": "fsim.guidance.velocity_normal_pn.v1",
+        "implementation_id": "fsim.guidance.measured_pn.v2",
         "configuration_version": 1,
         "parameter_refs": {
           "navigation_gain": "component_guidance_navigation_gain",
@@ -676,9 +690,9 @@
           "inertial_midcourse": "component_guidance_inertial_midcourse",
           "launcher_updates": "component_guidance_launcher_updates"
         },
-        "bindings": {},
+        "bindings": {"measurement_family": "bearing"},
         "basis": "assumed",
-        "note": "Existing simulator implementation; no equipment calibration.",
+        "note": "Measured LOS history and own-speed PN; no hidden target range/velocity or time-to-intercept. Existing gain and finite-fin control inputs remain assumed; the current allocator provides no thrust-vector control.",
         "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
       },
       "autopilot": {

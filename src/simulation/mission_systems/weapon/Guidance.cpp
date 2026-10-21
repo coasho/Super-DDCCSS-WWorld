@@ -63,12 +63,20 @@ bool configureSeeker(const components::DescriptorV1& descriptor, Spec& spec, std
     spec=std::move(candidate);error.clear();return true;
 }
 bool configureGuidance(const components::DescriptorV1& descriptor, Spec& spec, std::string& error) {
-    if(descriptor.kind!="guidance" || descriptor.implementationId!="fsim.guidance.velocity_normal_pn.v1" ||
+    const bool measured=descriptor.implementationId=="fsim.guidance.measured_pn.v2";
+    if(descriptor.kind!="guidance" || (!measured&&descriptor.implementationId!="fsim.guidance.velocity_normal_pn.v1") ||
             descriptor.configurationVersion!=1 || descriptor.availability!=components::AvailabilityV1::Available) {
         error="unsupported or unavailable guidance component configuration";return false;
     }
     if(!components::slotsV1(descriptor,{"navigation_gain","cue_deg","activation_ratio","loft_deg","loft_acceleration_g",
-            "max_g","life_s","inertial_midcourse","launcher_updates"},{},error)) return false;
+            "max_g","life_s","inertial_midcourse","launcher_updates"},{"measurement_family"},error)) return false;
+    if(measured) {
+        const auto family=descriptor.bindings.find("measurement_family");
+        if(descriptor.bindings.size()!=1||family==descriptor.bindings.end()||
+           family->second!=(spec.seeker=="active_radar"?"radar":"bearing")) {
+            error="measured guidance needs the selected sensor's observable family";return false;
+        }
+    } else if(!descriptor.bindings.empty()) {error="legacy PN accepts no bindings";return false;}
     auto candidate=spec;
     constexpr double radians=3.14159265358979323846/180;
     const struct {const char* role;const char* unit;double Spec::* member;double scale=1;} slots[]={

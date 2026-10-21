@@ -535,6 +535,8 @@ bool World::resetVehicle(std::uint32_t id, const sim::InitialConditions* ic, std
     e->finControllerAvailable=false;
     e->finTelemetry = {};
     e->finControllerTimeS=std::numeric_limits<double>::quiet_NaN();
+    e->onRailSeekers.clear();
+    if(auto* sensor=dynamic_cast<ms::components::SeekerExecutionV2*>(e->seekerProvider.get()))sensor->resetTracking();
     // A pose reset invalidates this tick's captured history, but it is not a
     // new release and does not rearm a consumed contact-initiation channel.
     e->engagementPath.clear();
@@ -2125,6 +2127,8 @@ ms::Reason World::loadStore(std::uint32_t id, std::uint16_t payload, int station
     Entry* e = entry(id);
     if (!e) return ms::Reason::UnknownVehicle;
     const ms::Reason r = e->ms.load(payload, station, store, count, weightRoomKg(*e));
+    if(r==ms::Reason::None)for(const auto& installed:e->ms.stores())
+        if(installed.payload==payload&&installed.station==station)e->onRailSeekers.erase(installed.index);
     applyStoreMasses(); // (the flight model's masses at once: a load is between steps)
     return r;
 }
@@ -2133,6 +2137,7 @@ ms::Reason World::loadLoadout(std::uint32_t id, const std::string& loadout) {
     Entry* e = entry(id);
     if (!e) return ms::Reason::UnknownVehicle;
     const ms::Reason r = e->ms.loadLoadout(loadout, weightRoomKg(*e));
+    if(r==ms::Reason::None)e->onRailSeekers.clear();
     applyStoreMasses();
     return r;
 }
@@ -2344,6 +2349,11 @@ void World::flyReleases() {
                             if(releaseGuidanceProvider)releaseFuze=payloadProviders_.fuze.create(*profile.find("fuze"),context,configurationError);
                             if(releaseFuze)releaseWarhead=payloadProviders_.warhead.create(*profile.find("warhead"),context,configurationError);
                             configured=releaseSeeker && releaseGuidanceProvider && releaseFuze && releaseWarhead;
+                            if(configured&&profile.find("seeker")->bindings.count("measurement_model")&&
+                               (!dynamic_cast<ms::components::SeekerExecutionV2*>(releaseSeeker.get())||
+                                !dynamic_cast<ms::components::MeasuredGuidanceV2*>(releaseGuidanceProvider.get()))) {
+                                configurationError="selected measured model lacks its execution interface";configured=false;
+                            }
                         }
                     } else if (configured && r.launch.inert) configured=ms::weapon::configureBallisticPlantV1(*validation.find("aerodynamics"),*releasedCard,releasePlant,configurationError);
                     else if (configured) configured=ms::weapon::configureUnguidedPlantV1(*validation.find("propulsion"),*validation.find("aerodynamics"),*releasedCard,releasePlant,configurationError);
@@ -2404,7 +2414,13 @@ void World::flyReleases() {
                 if (guided) {
                     const auto guidance=*releaseGuidance;
                     const bool infrared=guidance.seeker.find("infrared")!=std::string::npos;
-                    w->launchSeekerCue = infrared ? onRailSeekerObservation(*e, *releasedCard) : 0;
+                    w->launchSeekerCue = infrared ? onRailSeekerObservation(*e, *releasedCard,r.store) : 0;
+                    if(infrared)if(auto* sensor=dynamic_cast<ms::components::SeekerExecutionV2*>(w->seekerProvider.get())) {
+                        const auto cached=e->onRailSeekers.find(r.store);
+                        if(cached!=e->onRailSeekers.end()&&cached->second.result.tracking&&cached->second.result.track)
+                            sensor->seedTrack(*cached->second.result.track);
+                        e->onRailSeekers.erase(r.store);
+                    }
                     w->guidance=std::move(releaseGuidanceProvider);
                     auto& wm = pool_->vehicle(w->slot);
                     const auto warhead=w->warheadAdapter ? std::optional<ms::damage::Warhead>{w->warheadAdapter->model()}
@@ -2650,6 +2666,7 @@ void World::step(unsigned n) {
         }
         // behaviours that follow another vehicle read it as the step began (StepView); a designated track, its estimate
         if (!designations_.empty()) refreshDesignations();
+        sampleOnRailSeekers();
         prepareEngagements();
         const auto before = pool_->states();
         std::copy(before.begin(), before.end(), stepStates_.begin());
@@ -2750,6 +2767,7 @@ void World::step(unsigned n) {
         ++worldSteps_;
         network_.step(simTime_, options_.dt * options_.frameSkip, this, rng_);
         if (dms_.active()) stepDms();
+        sampleOnRailSeekers();
         recordFrame();
         if (publisher_) {
             for (std::size_t s = 0; s < entries_.size(); ++s)

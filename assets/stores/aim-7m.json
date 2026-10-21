@@ -632,7 +632,7 @@
     "components": {
       "seeker": {
         "availability": "available",
-        "implementation_id": "fsim.seeker.encounter.v1",
+        "implementation_id": "fsim.seeker.semi_active_radar.v2",
         "configuration_version": 1,
         "parameter_refs": {
           "acquire_m": "component_seeker_acquire_m",
@@ -666,15 +666,19 @@
           "emitter_half_width_rad": "component_seeker_emitter_half_width_rad"
         },
         "bindings": {
-          "mode": "semi_active_radar"
+          "mode": "semi_active_radar",
+          "variant": "AIM-7M",
+          "measurement_model": "ideal_geometric",
+          "image_model": "not_applicable",
+          "servo_model": "unavailable"
         },
         "basis": "assumed",
-        "note": "Existing simulator implementation; no equipment calibration.",
-        "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
+        "note": "Independent sampled receiver tracking requires its associated illuminator and both clear propagation legs. No independently measured target-range channel is admitted.",
+        "validity": "Ideal geometric bearings and inherited assumed envelope, not calibrated bistatic received-SNR performance. Fitted waveform, noise and servo response unavailable."
       },
       "guidance": {
         "availability": "available",
-        "implementation_id": "fsim.guidance.velocity_normal_pn.v1",
+        "implementation_id": "fsim.guidance.measured_pn.v2",
         "configuration_version": 1,
         "parameter_refs": {
           "navigation_gain": "component_guidance_navigation_gain",
@@ -687,9 +691,9 @@
           "inertial_midcourse": "component_guidance_inertial_midcourse",
           "launcher_updates": "component_guidance_launcher_updates"
         },
-        "bindings": {},
+        "bindings": {"measurement_family": "bearing"},
         "basis": "assumed",
-        "note": "Existing simulator implementation; no equipment calibration.",
+        "note": "Measured LOS history and own-speed PN with explicit illumination loss. No hidden Cartesian target velocity, range or time-to-intercept is supplied to this bearing-only receiver model.",
         "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
       },
       "autopilot": {

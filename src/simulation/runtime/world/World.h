@@ -22,6 +22,7 @@
 #include "simulation/mission_systems/components/Profile.h"
 #include "simulation/mission_systems/components/Bindings.h"
 #include "simulation/mission_systems/components/Providers.h"
+#include "simulation/mission_systems/components/interfaces/MeasuredGuidanceV2.h"
 #include "simulation/mission_systems/weapon/FuzeAdapter.h"
 #include "simulation/mission_systems/weapon/PlantAdapter.h"
 #include "simulation/mission_systems/damage/WarheadAdapter.h"
@@ -756,6 +757,14 @@ private:
         std::uint32_t launchSeekerCue = 0; ///< actual on-rail observation, never a designation ID
         std::unique_ptr<ms::components::GuidanceProviderV1> guidance;
         std::unique_ptr<ms::components::SeekerProviderV1> seekerProvider;
+        struct OnRailSeekerV2 {
+            const ms::StoreCard* card=nullptr;
+            std::unique_ptr<ms::components::SeekerProviderV1> provider;
+            ms::components::SeekerResultV2 result;
+            std::vector<std::uint32_t> attributions;
+            double timeS=std::numeric_limits<double>::quiet_NaN();
+        };
+        mutable std::map<std::uint16_t,OnRailSeekerV2> onRailSeekers;
         std::shared_ptr<const ms::components::ProfileV1> payloadProfile;
         std::unique_ptr<ms::weapon::FuzeAdapter> fuzeAdapter;
         std::unique_ptr<ms::damage::WarheadAdapter> warheadAdapter;
@@ -909,7 +918,11 @@ private:
     void prepareEngagements();
     bool resolveWeaponTarget(std::uint32_t launcher, std::uint32_t target, sim::VehicleState& out) const;
     ms::Reason weaponLaunchEligibility(const Entry& launcher, std::uint16_t store, std::uint32_t target) const;
-    std::uint32_t onRailSeekerObservation(const Entry& launcher, const ms::StoreCard& card) const;
+    std::uint32_t onRailSeekerObservation(const Entry& launcher, const ms::StoreCard& card, std::uint16_t store) const;
+    const Entry::OnRailSeekerV2* sampleOnRailSeeker(const Entry&,const ms::StoreCard&,std::uint16_t) const;
+    void sampleOnRailSeekers();
+    std::optional<ms::components::ImageExtentV2> projectedSeekerExtent(const Entry&,
+        const sim::VehicleState& observer) const;
     void finishEngagements();
     sim::VehicleState engagementStateAt(const Entry& e, double offsetS) const;
     /// Current decision-step offset; piecewise-linear captured CG offsets from

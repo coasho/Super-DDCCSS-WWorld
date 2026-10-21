@@ -1,6 +1,7 @@
 // Native engagement lifecycle. JSBSim alone integrates weapon motion.
 #include "simulation/runtime/world/World.h"
 #include "simulation/mission_systems/components/registration/BuiltInProvidersV1.h"
+#include "simulation/mission_systems/components/support/MeasuredSeekerV2.h"
 #include "foundation/io/AssetResolver.h"
 #include "foundation/core/Log.h"
 #include "simulation/mission_systems/rf/Path.h"
@@ -179,7 +180,40 @@ void World::prepareEngagements() {
             if (signal>0) in.visible.push_back({decoy.id,p,v,true,signal});
         }
         const auto old=e->origin;
-        const auto output=e->guidance->update(in);
+        ms::weapon::Output output;
+        if(auto* sensor=dynamic_cast<ms::components::SeekerExecutionV2*>(e->seekerProvider.get())) {
+            ms::components::SeekerFrameV2 frame;
+            frame.timeS=simTime_;frame.ageS=in.ageS;frame.dtS=in.dtS;
+            frame.position=in.position;frame.velocity=in.velocity;frame.up=in.up;frame.boresight=*in.boresight;
+            frame.supported=in.supported;frame.illuminated=in.illuminated;
+            frame.configuredIlluminator=illuminator&&launcher?launcher->info.id:0;
+            if(spec.seeker=="active_radar"&&spec.launcherUpdates&&in.estimate)frame.launcherEstimate=ms::components::LauncherEstimateV2{
+                in.estimate->position,in.estimate->velocity,simTime_};
+            for(const auto& observation:in.visible) {
+                ms::components::SeekerSampleV2 sample;
+                const auto relative=delta(observation.position,in.position);const auto range=length(relative);
+                sample.direction=ms::components::measured::unit(relative);sample.signal=observation.signal;
+                if(spec.seeker=="active_radar") {
+                    sample.rangeM=range;
+                    sample.rangeRateMs=dot(delta(observation.velocity,in.velocity),sample.direction);
+                }
+                if(spec.seeker=="imaging_infrared")if(const auto* target=entry(observation.id))
+                    sample.imageExtent=projectedSeekerExtent(*target,s);
+                if(semi) {
+                    sample.illuminator=frame.configuredIlluminator;
+                    // Both actual path queries have passed above; no unrelated
+                    // source or unilluminated candidate enters this snapshot.
+                    sample.transmitterPathClear=true;sample.receiverPathClear=true;
+                }
+                frame.samples.push_back(sample);
+            }
+            const auto result=sensor->sample(frame);
+            if(auto* controller=dynamic_cast<ms::components::MeasuredGuidanceV2*>(e->guidance.get()))
+                output=controller->updateMeasured(frame,result);
+            // Truth attribution is outside the sensor and guidance contracts.
+            output.holding=result.attributionIndex&&*result.attributionIndex<in.visible.size()
+                ?in.visible[*result.attributionIndex].id:old.holding;
+        } else output=e->guidance->update(in);
         e->origin.phase=output.phase; e->origin.holding=output.holding;
         e->origin.tracking=output.tracking; e->origin.supported=output.supported;
         e->origin.timeToGoS=output.timeToGoS; e->origin.timeToActiveS=output.timeToActiveS;
@@ -558,17 +592,23 @@ ms::LaunchZone World::launchZone(std::uint32_t vehicle,const std::string& store,
 std::uint32_t World::seekerTarget(std::uint32_t vehicle,const std::string& store) const {
     const Entry* e=entry(vehicle);
     if (!e) return 0;
-    const ms::StoreCard* card=nullptr;
-    for (const auto& s : e->ms.stores()) if (s.store==store && ms::weapon::onRailObservationAvailable(s.status)) {card=e->ms.storeCard(s.index);break;}
+    const ms::StoreCard* card=nullptr;std::uint16_t index=0;
+    for (const auto& s : e->ms.stores()) if (s.store==store && ms::weapon::onRailObservationAvailable(s.status)) {card=e->ms.storeCard(s.index);index=s.index;break;}
     if (!card || !infrared(card->seeker)) return 0;
-    return onRailSeekerObservation(*e,*card);
+    return onRailSeekerObservation(*e,*card,index);
 }
 
-std::uint32_t World::onRailSeekerObservation(const Entry& launcher,const ms::StoreCard& card) const {
+std::uint32_t World::onRailSeekerObservation(const Entry& launcher,const ms::StoreCard& card,std::uint16_t store) const {
     const auto& own=pool_->states()[launcher.slot];
     std::string error; const auto configured=configuredWeaponSpec(card,error);
     if (!configured) return 0;
     const auto profile=payloadProfile(card,error);if(!profile)return 0;
+    if(const auto* descriptor=profile->find("seeker");descriptor&&descriptor->bindings.count("measurement_model")) {
+        const auto* cached=sampleOnRailSeeker(launcher,card,store);
+        if(!cached||!cached->result.tracking||!cached->result.attributionIndex||
+           *cached->result.attributionIndex>=cached->attributions.size())return 0;
+        return cached->attributions[*cached->result.attributionIndex];
+    }
     ms::components::ProviderContextV1 context{card,*profile,*configured,std::nullopt};
     auto provider=profile->explicitProfile() ? payloadProviders_.seeker.create(*profile->find("seeker"),context,error)
         : ms::components::nativeSeekerProviderV1(configured->seekerModel);
@@ -592,5 +632,111 @@ std::uint32_t World::onRailSeekerObservation(const Entry& launcher,const ms::Sto
         best=off; found=candidate->info.id;
     }
     return found;
+}
+
+std::optional<ms::components::ImageExtentV2> World::projectedSeekerExtent(const Entry& target,
+    const sim::VehicleState& observer) const {
+    using namespace ms::components::measured;
+    using ms::components::measured::dot;
+    if(!target.damage)return std::nullopt;
+    const auto& state=pool_->states()[target.slot];
+    const auto ray=unit(subtract(point(state.positionEcef),point(observer.positionEcef)));
+    const V observerDown{observer.rotationBodyToEcef[2],observer.rotationBodyToEcef[5],observer.rotationBodyToEcef[8]};
+    auto right=unit(cross(observerDown,ray));if(!(norm(right)>0))return std::nullopt;
+    const auto up=unit(cross(ray,right));
+    double cg[3];pool_->vehicle(target.slot).cgFromOriginBodyM(cg);
+    if(!std::all_of(cg,cg+3,[](double v){return std::isfinite(v);}))return std::nullopt;
+    const auto* rotation=state.rotationBodyToEcef;
+    double lowX=std::numeric_limits<double>::infinity(),highX=-lowX,lowY=lowX,highY=-lowX;
+    const auto project=[&](ms::damage::V3 pointBody) {
+        const double b[3]={pointBody.x-cg[0],pointBody.y-cg[1],pointBody.z-cg[2]};
+        V at=point(state.positionEcef);
+        at.x+=rotation[0]*b[0]+rotation[1]*b[1]+rotation[2]*b[2];
+        at.y+=rotation[3]*b[0]+rotation[4]*b[1]+rotation[5]*b[2];
+        at.z+=rotation[6]*b[0]+rotation[7]*b[1]+rotation[8]*b[2];
+        const auto relative=subtract(at,point(observer.positionEcef));const auto forward=dot(relative,ray);
+        if(!(forward>0)||!finite(relative))return;
+        const auto x=std::atan2(dot(relative,right),forward),y=std::atan2(dot(relative,up),forward);
+        lowX=std::min(lowX,x);highX=std::max(highX,x);lowY=std::min(lowY,y);highY=std::max(highY,y);
+    };
+    const auto box=[&](ms::damage::V3 centre,ms::damage::V3 half) {
+        for(int x:{-1,1})for(int y:{-1,1})for(int z:{-1,1})
+            project(centre+ms::damage::V3{x*half.x,y*half.y,z*half.z});
+    };
+    const auto attached=target.damage->attachedGeometry();const auto& frame=attached.airframe();
+    for(const auto i:attached.panelIndices()) {
+        const auto& p=frame.panels[i];if(p.surface)for(const auto& corner:p.corners)project(corner);
+        else box(p.centre,p.half);
+    }
+    for(const auto i:attached.componentIndices()) {const auto& c=frame.components[i];box(c.centre,c.half);}
+    ms::components::ImageExtentV2 extent{highX-lowX,highY-lowY};
+    return validExtent(extent)?std::optional<ms::components::ImageExtentV2>{extent}:std::nullopt;
+}
+
+const World::Entry::OnRailSeekerV2* World::sampleOnRailSeeker(const Entry& launcher,
+    const ms::StoreCard& card,std::uint16_t store) const {
+    std::string error;const auto configured=configuredWeaponSpec(card,error);if(!configured)return nullptr;
+    const auto profile=payloadProfile(card,error);if(!profile)return nullptr;
+    const auto* descriptor=profile->find("seeker");
+    if(!descriptor||!descriptor->bindings.count("measurement_model"))return nullptr;
+    auto& cached=launcher.onRailSeekers[store];
+    if(cached.card!=&card) {
+        cached={};cached.card=&card;
+        ms::components::ProviderContextV1 context{card,*profile,*configured,std::nullopt};
+        cached.provider=payloadProviders_.seeker.create(*descriptor,context,error);
+    }
+    auto* sensor=dynamic_cast<ms::components::SeekerExecutionV2*>(cached.provider.get());
+    if(!sensor)return nullptr;
+    if(cached.timeS==simTime_)return &cached;
+    const auto& own=pool_->states()[launcher.slot];
+    const auto& config=cached.provider->config();ms::components::SeekerFrameV2 frame;
+    frame.timeS=simTime_;frame.dtS=options_.dt*options_.frameSkip;
+    frame.position=point(own.positionEcef);frame.velocity=velocity(own);
+    frame.boresight={own.rotationBodyToEcef[0],own.rotationBodyToEcef[3],own.rotationBodyToEcef[6]};
+    frame.up={std::cos(own.latitudeRad)*std::cos(own.longitudeRad),
+              std::cos(own.latitudeRad)*std::sin(own.longitudeRad),std::sin(own.latitudeRad)};
+    cached.attributions.clear();
+    for(const auto& candidate:entries_)if(candidate&&candidate->info.role==ms::Role::Aircraft&&candidate.get()!=&launcher) {
+        const auto& target=pool_->states()[candidate->slot];if(target.crashed||target.diverged)continue;
+        const auto relative=delta(point(target.positionEcef),frame.position);const auto range=length(relative);
+        if(range<config.minimumRangeM)continue;
+        const auto ray=ms::components::measured::unit(relative);
+        if(dot(ray,frame.boresight)<=std::cos(config.launchFovRad))continue;
+        const auto tv=velocity(target);
+        const auto aspect=dot(relative,tv)/(range*std::max(length(tv),config.aspectSpeedFloorMs));
+        if(range>cached.provider->infraredRange(configured->acquireM,aspect,target.afterburner[0]>config.afterburnerThreshold))continue;
+        const auto path=radioPath(launcher.info.id,candidate->info.id,{});if(path&&path->terrainMasked)continue;
+        ms::components::SeekerSampleV2 sample;sample.direction=ray;sample.signal=config.aircraftSignal;
+        if(configured->seeker=="imaging_infrared")sample.imageExtent=projectedSeekerExtent(*candidate,own);
+        frame.samples.push_back(sample);cached.attributions.push_back(candidate->info.id);
+    }
+    for(const auto* dispenser:dispensers())for(const auto& decoy:dispenser->decoys()) {
+        if(decoy.kind!=ms::countermeasure::Kind::Flare)continue;
+        const V at{decoy.position.x,decoy.position.y,decoy.position.z};
+        const auto relative=delta(at,frame.position);const auto range=length(relative);
+        if(range<config.minimumRangeM||range>configured->acquireM)continue;
+        const auto ray=ms::components::measured::unit(relative);
+        if(dot(ray,frame.boresight)<=std::cos(config.launchFovRad))continue;
+        ms::rf::PathOptions path;path.ground=ground_.get();
+        if(ms::rf::computePath({own.latitudeRad,own.longitudeRad,own.altitudeMslM},terminal(at),path).terrainMasked)continue;
+        ms::components::SeekerSampleV2 sample;sample.direction=ray;
+        sample.signal=cached.provider->decoySignal(std::max(0.,simTime_-decoy.launchTimeS),true);
+        // Cartridge flame geometry/signatures are not invented. An absent
+        // extent is unavailable imagery, never a semantic flare discriminator.
+        frame.samples.push_back(sample);cached.attributions.push_back(decoy.id);
+    }
+    cached.result=sensor->sample(frame);cached.timeS=simTime_;return &cached;
+}
+
+void World::sampleOnRailSeekers() {
+    for(const auto& launcher:entries_)if(launcher) {
+        std::set<std::uint16_t> installed;
+        for(const auto& store:launcher->ms.stores())if(ms::weapon::onRailObservationAvailable(store.status)) {
+            const auto* card=launcher->ms.storeCard(store.index);if(!card||!infrared(card->seeker))continue;
+            installed.insert(store.index);sampleOnRailSeeker(*launcher,*card,store.index);
+        }
+        for(auto it=launcher->onRailSeekers.begin();it!=launcher->onRailSeekers.end();)
+            if(!installed.count(it->first))it=launcher->onRailSeekers.erase(it);else ++it;
+    }
 }
 } // namespace fsim::session

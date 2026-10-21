@@ -1,5 +1,11 @@
 # Native payload provider interfaces and concrete models
 
+The [four representative weapon models](representative-weapon-models.md) add
+four distinct sampled seeker implementations and measured PN guidance. AIM-9M,
+AIM-9X Block I, AIM-7M and AIM-120C-7 select those paths. The other 20 AAM cards
+retain the encounter model. There are now sixteen concrete component models;
+shared parameters and a named class still do not establish equipment calibration.
+
 Component role, abstract execution interface, concrete implementation and
 configured instance are distinct. A card chooses a role's implementation ID
 and parameters. Its factory creates a new instance for the actual release.
@@ -11,8 +17,8 @@ neither a role name nor a renamed compatibility ID establishes such a change.
 
 | Role | Abstract runtime interface | Current concrete model classes |
 | --- | --- | --- |
-| Seeker | [SeekerProviderV1](../../src/simulation/mission_systems/components/interfaces/SeekerProviderV1.h) | [EncounterSeekerV1](../../src/simulation/mission_systems/components/implementations/seeker/EncounterSeekerV1.h) |
-| Guidance | [GuidanceProviderV1](../../src/simulation/mission_systems/components/interfaces/GuidanceProviderV1.h) | [VelocityNormalPnGuidanceV1](../../src/simulation/mission_systems/components/implementations/guidance/VelocityNormalPnGuidanceV1.h) |
+| Seeker | [SeekerProviderV1](../../src/simulation/mission_systems/components/interfaces/SeekerProviderV1.h), additive [SeekerExecutionV2](../../src/simulation/mission_systems/components/interfaces/SeekerExecutionV2.h) | [EncounterSeekerV1](../../src/simulation/mission_systems/components/implementations/seeker/EncounterSeekerV1.h), [NonImagingIrSeekerV2](../../src/simulation/mission_systems/components/implementations/seeker/NonImagingIrSeekerV2.h), [ImagingIrSeekerV2](../../src/simulation/mission_systems/components/implementations/seeker/ImagingIrSeekerV2.h), [SemiActiveRadarSeekerV2](../../src/simulation/mission_systems/components/implementations/seeker/SemiActiveRadarSeekerV2.h), [ActiveRadarSeekerV2](../../src/simulation/mission_systems/components/implementations/seeker/ActiveRadarSeekerV2.h) |
+| Guidance | [GuidanceProviderV1](../../src/simulation/mission_systems/components/interfaces/GuidanceProviderV1.h), additive [MeasuredGuidanceV2](../../src/simulation/mission_systems/components/interfaces/MeasuredGuidanceV2.h) | [VelocityNormalPnGuidanceV1](../../src/simulation/mission_systems/components/implementations/guidance/VelocityNormalPnGuidanceV1.h), [MeasuredPnGuidanceV2](../../src/simulation/mission_systems/components/implementations/guidance/MeasuredPnGuidanceV2.h) |
 | Autopilot | [AutopilotProviderV1](../../src/simulation/mission_systems/components/interfaces/AutopilotProviderV1.h) | [LoadFeedbackCascadeAutopilotV1](../../src/simulation/mission_systems/components/implementations/autopilot/LoadFeedbackCascadeAutopilotV1.h) |
 | Allocator | [AllocatorProviderV1](../../src/simulation/mission_systems/components/interfaces/AllocatorProviderV1.h) | [JsbsimAuthoredFinMixerV1](../../src/simulation/mission_systems/components/implementations/allocator/JsbsimAuthoredFinMixerV1.h) |
 | Actuator | [ActuatorProviderV1](../../src/simulation/mission_systems/components/interfaces/ActuatorProviderV1.h) | [JsbsimLagRateStopsActuatorV1](../../src/simulation/mission_systems/components/implementations/actuator/JsbsimLagRateStopsActuatorV1.h) |

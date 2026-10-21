@@ -876,7 +876,7 @@
     "components": {
       "seeker": {
         "availability": "available",
-        "implementation_id": "fsim.seeker.encounter.v1",
+        "implementation_id": "fsim.seeker.active_radar.v2",
         "configuration_version": 1,
         "parameter_refs": {
           "acquire_m": "seeker_acquire_m",
@@ -910,15 +910,19 @@
           "emitter_half_width_rad": "component_seeker_emitter_half_width_rad"
         },
         "bindings": {
-          "mode": "active_radar"
+          "mode": "active_radar",
+          "variant": "AIM-120C-7",
+          "measurement_model": "ideal_geometric",
+          "image_model": "not_applicable",
+          "servo_model": "unavailable"
         },
         "basis": "assumed",
-        "note": "Existing simulator implementation; no equipment calibration.",
-        "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
+        "note": "Independent inactive/search/acquire/track lifecycle using admitted range, radial-speed and angular history. Launcher estimates never become current detections; autonomous sensing survives support loss after activation.",
+        "validity": "Ideal geometric RF measurements with unavailable hardware covariance. Existing activation/envelope parameters remain assumed; no C-7 sensor or servo calibration."
       },
       "guidance": {
         "availability": "available",
-        "implementation_id": "fsim.guidance.velocity_normal_pn.v1",
+        "implementation_id": "fsim.guidance.measured_pn.v2",
         "configuration_version": 1,
         "parameter_refs": {
           "navigation_gain": "guidance_navigation_gain",
@@ -931,9 +935,9 @@
           "inertial_midcourse": "component_guidance_inertial_midcourse",
           "launcher_updates": "component_guidance_launcher_updates"
         },
-        "bindings": {},
+        "bindings": {"measurement_family": "radar"},
         "basis": "assumed",
-        "note": "Existing simulator implementation; no equipment calibration.",
+        "note": "PN uses measured radial speed and LOS history. Midcourse estimates retain the explicitly idealized launcher-designation path; this is not fitted weapon datalink or return telemetry acceptance.",
         "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
       },
       "autopilot": {

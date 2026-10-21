@@ -624,7 +624,7 @@
     "components": {
       "seeker": {
         "availability": "available",
-        "implementation_id": "fsim.seeker.encounter.v1",
+        "implementation_id": "fsim.seeker.nonimaging_ir.v2",
         "configuration_version": 1,
         "parameter_refs": {
           "acquire_m": "component_seeker_acquire_m",
@@ -658,15 +658,19 @@
           "emitter_half_width_rad": "component_seeker_emitter_half_width_rad"
         },
         "bindings": {
-          "mode": "infrared"
+          "mode": "infrared",
+          "variant": "AIM-9M",
+          "measurement_model": "ideal_geometric",
+          "image_model": "not_applicable",
+          "servo_model": "unavailable"
         },
         "basis": "assumed",
-        "note": "Existing simulator implementation; no equipment calibration.",
-        "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
+        "note": "Sampled unresolved angular-cell intensity centroid using retained assumed range, strength and angular gate. No semantic target/decoy labels, fitted reticle or proprietary rejection logic.",
+        "validity": "Ideal geometric bearings; detector noise, spectral response and servo dynamics unavailable. Numerical inputs remain assumptions; the inherited decoy-resistance multiplier is unused."
       },
       "guidance": {
         "availability": "available",
-        "implementation_id": "fsim.guidance.velocity_normal_pn.v1",
+        "implementation_id": "fsim.guidance.measured_pn.v2",
         "configuration_version": 1,
         "parameter_refs": {
           "navigation_gain": "component_guidance_navigation_gain",
@@ -679,9 +683,9 @@
           "inertial_midcourse": "component_guidance_inertial_midcourse",
           "launcher_updates": "component_guidance_launcher_updates"
         },
-        "bindings": {},
+        "bindings": {"measurement_family": "bearing"},
         "basis": "assumed",
-        "note": "Existing simulator implementation; no equipment calibration.",
+        "note": "Measured LOS history and own-speed PN; no hidden target range/velocity or time-to-intercept. Existing gain and finite-fin control inputs remain assumed.",
         "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
       },
       "autopilot": {

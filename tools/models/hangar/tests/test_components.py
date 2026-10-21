@@ -16,6 +16,22 @@ def card():
 
 
 class ComponentsTest(unittest.TestCase):
+    def test_representative_sensor_selection_does_not_change_generated_physical_assets(self):
+        import json
+        from pathlib import Path
+        from hangar import pipeline, storemodels
+        root = Path(pipeline.repo_root())
+        for store in ("aim-9m", "aim-9x", "aim-7m", "aim-120c"):
+            with self.subTest(store=store):
+                selected = json.loads((root / "assets/stores" / (store + ".json")).read_text(encoding="utf-8"))
+                legacy = copy.deepcopy(selected)
+                rows = legacy["component_models"]["components"]
+                rows["seeker"]["implementation_id"] = "fsim.seeker.encounter.v1"
+                rows["seeker"]["bindings"] = {"mode": legacy["seeker"]}
+                rows["guidance"]["implementation_id"] = "fsim.guidance.velocity_normal_pn.v1"
+                rows["guidance"]["bindings"] = {}
+                self.assertEqual(storemodels.files(selected), storemodels.files(legacy))
+
     def test_resolved_profile_is_immutable_and_consumes_nondefault_actuator(self):
         raw = card()
         selected = components.resolve(raw, "actuator")

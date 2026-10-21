@@ -109,7 +109,7 @@ TEST_CASE("Non-guided store jettison validates the selected native aerodynamic a
 }
 TEST_CASE("A selected native factory refusing creation preserves inventory history and identities", "[payload-components][native-engagement]") {
     auto registry=fsim::ms::components::builtInProvidersV1();std::string error;
-    REQUIRE(registry.guidance.registerFactory("fsim.guidance.velocity_normal_pn.v1","fsim.guidance.velocity_normal_pn.v1",
+    REQUIRE(registry.guidance.registerFactory("fsim.guidance.measured_pn.v2","fsim.guidance.measured_pn.v2",
         [](const auto&,const auto&,auto&) -> std::unique_ptr<fsim::ms::components::GuidanceProviderV1> {return {};},true,error));
     refusedRelease("aim-9x","aim9x",1,false,&registry);
 }
@@ -177,7 +177,7 @@ struct ProviderCounts {
     void made(std::size_t role) {created[role].fetch_add(1,std::memory_order_relaxed);}
     void used(std::size_t role) {executed[role].fetch_add(1,std::memory_order_relaxed);}
 };
-class ObservedSeeker final : public SeekerProviderV1 {
+class ObservedSeeker final : public SeekerProviderV1,public SeekerExecutionV2 {
 public:
     ObservedSeeker(std::unique_ptr<SeekerProviderV1> inner,std::shared_ptr<ProviderCounts> counts):inner_(std::move(inner)),counts_(std::move(counts)){}
     const fsim::ms::weapon::SeekerConfigV1& config() const noexcept override {return inner_->config();}
@@ -186,14 +186,22 @@ public:
     bool notched(double a,double b) const noexcept override {counts_->used(0);return inner_->notched(a,b);}
     double decoySignal(double a,bool b) const noexcept override {counts_->used(0);return inner_->decoySignal(a,b);}
     bool illuminated(const double a[3],double b,double c,double d,double e) const noexcept override {counts_->used(0);return inner_->illuminated(a,b,c,d,e);}
+    SeekerResultV2 sample(const SeekerFrameV2& f) override {
+        auto* p=dynamic_cast<SeekerExecutionV2*>(inner_.get());REQUIRE(p);counts_->used(0);return p->sample(f);
+    }
+    void seedTrack(const SeekerTrackV2& t) override {auto* p=dynamic_cast<SeekerExecutionV2*>(inner_.get());REQUIRE(p);p->seedTrack(t);}
+    void resetTracking() noexcept override {if(auto* p=dynamic_cast<SeekerExecutionV2*>(inner_.get()))p->resetTracking();}
 private:
     std::unique_ptr<SeekerProviderV1> inner_;std::shared_ptr<ProviderCounts> counts_;
 };
-class ObservedGuidance final : public GuidanceProviderV1 {
+class ObservedGuidance final : public GuidanceProviderV1,public MeasuredGuidanceV2 {
 public:
     ObservedGuidance(std::unique_ptr<GuidanceProviderV1> inner,std::shared_ptr<ProviderCounts> counts):inner_(std::move(inner)),counts_(std::move(counts)){}
     fsim::ms::weapon::Spec spec() const noexcept override {return inner_->spec();}
     fsim::ms::weapon::Output update(const fsim::ms::weapon::Input& input) override {counts_->used(1);return inner_->update(input);}
+    fsim::ms::weapon::Output updateMeasured(const SeekerFrameV2& f,const SeekerResultV2& r) override {
+        auto* p=dynamic_cast<MeasuredGuidanceV2*>(inner_.get());REQUIRE(p);counts_->used(1);return p->updateMeasured(f,r);
+    }
 private:
     std::unique_ptr<GuidanceProviderV1> inner_;std::shared_ptr<ProviderCounts> counts_;
 };

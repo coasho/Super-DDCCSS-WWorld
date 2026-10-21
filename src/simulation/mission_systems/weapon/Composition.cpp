@@ -41,6 +41,9 @@ bool configureCompositionV1(const StoreCard& card, const components::ProfileV1& 
             throw std::runtime_error("armed guided composition needs an authored AAM seeker identity");
         if(!configureSeeker(*profile.find("seeker"),candidate,error) ||
                 !configureGuidance(*profile.find("guidance"),candidate,error)) return false;
+        const bool sampled=profile.find("seeker")->bindings.count("measurement_model")!=0;
+        if(sampled!=(profile.find("guidance")->implementationId=="fsim.guidance.measured_pn.v2"))
+            throw std::runtime_error("measured seeker and guidance execution must be selected together");
         if(candidate.seeker!=card.seeker)
             throw std::runtime_error("selected seeker mode disagrees with the store's authored seeker identity");
         const auto& capabilities=card.guidanceCapabilities;

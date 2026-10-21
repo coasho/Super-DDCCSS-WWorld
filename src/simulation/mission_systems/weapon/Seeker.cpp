@@ -7,7 +7,13 @@ namespace {
 constexpr double pi=3.14159265358979323846;
 }
 bool configureSeeker(const components::DescriptorV1& descriptor, SeekerConfigV1& config, std::string& error) {
-    if(descriptor.kind!="seeker" || descriptor.implementationId!="fsim.seeker.encounter.v1" ||
+    const auto& id=descriptor.implementationId;
+    const char* expectedMode=nullptr;const char* variant=nullptr;
+    if(id=="fsim.seeker.nonimaging_ir.v2") {expectedMode="infrared";variant="AIM-9M";}
+    if(id=="fsim.seeker.imaging_ir.v2") {expectedMode="imaging_infrared";variant="AIM-9X Block I";}
+    if(id=="fsim.seeker.semi_active_radar.v2") {expectedMode="semi_active_radar";variant="AIM-7M";}
+    if(id=="fsim.seeker.active_radar.v2") {expectedMode="active_radar";variant="AIM-120C-7";}
+    if(descriptor.kind!="seeker" || (id!="fsim.seeker.encounter.v1"&&!expectedMode) ||
             descriptor.configurationVersion!=1 || descriptor.availability!=components::AvailabilityV1::Available) {
         error="unsupported or unavailable seeker component configuration"; return false;
     }
@@ -17,9 +23,20 @@ bool configureSeeker(const components::DescriptorV1& descriptor, SeekerConfigV1&
             "radar_lookdown_cosine","radar_notch_m_s","illumination_beam_multiplier","aircraft_signal","ir_decoy_peak",
             "ir_decoy_decay_s","radar_decoy_peak","radar_decoy_rise_s","radar_decoy_decay_s","decoy_resistance",
             "association_cosine","emitter_power_w","emitter_peak_gain_dbi","emitter_sidelobe_dbi","emitter_half_width_rad"},
-            {"mode"},error)) return false;
+            {"mode","variant","measurement_model","image_model","servo_model"},error)) return false;
     const auto mode=descriptor.bindings.find("mode");
     if(mode==descriptor.bindings.end()) {error="seeker component needs its exact mode binding";return false;}
+    if(expectedMode) {
+        const auto binding=[&](const char* name,const char* expected) {
+            const auto it=descriptor.bindings.find(name);
+            return it!=descriptor.bindings.end()&&it->second==expected;
+        };
+        if(descriptor.bindings.size()!=5||mode->second!=expectedMode||!binding("variant",variant)||
+           !binding("measurement_model","ideal_geometric")||!binding("servo_model","unavailable")||
+           !binding("image_model",id=="fsim.seeker.imaging_ir.v2"?"geometric_extent":"not_applicable")) {
+            error="measured seeker needs its exact variant, observables and explicit fidelity bindings";return false;
+        }
+    } else if(descriptor.bindings.size()!=1) {error="legacy seeker accepts only its mode binding";return false;}
     SeekerConfigV1 candidate;
     if(mode->second=="active_radar") candidate.mode=SeekerModeV1::ActiveRadar;
     else if(mode->second=="semi_active_radar") candidate.mode=SeekerModeV1::SemiActiveRadar;

@@ -974,3 +974,29 @@ fuze or warhead value is tuned to force a hit. Missing admitted dynamics,
 sensor/control/lethality inputs, modeled weapon links, fused reports and required
 variant/Viewer acceptance remain explicit. Generic schema/gateway ownership
 stays with Claude.
+
+## 16. SIM-M03 representative weapon mechanisms, 2026-10-20
+
+Baseline: main `8daf1e0f3e3bd01359a2b6a8f85b538b93d29bf8`. The user approved the
+four-model design and requested inline implementation. The
+[implementation window](../../../superpowers/plans/2026-10-20-sim-m03-representative-weapons.md)
+records exact paths/symbols, regression-first delivery and the exclusive serial
+SDK native slot. Claude's independent SIM-M02 AeroNumericsLab work remains an
+external dependency and was neither inspected nor modified.
+
+The four selected cards now instantiate `NonImagingIrSeekerV2`,
+`ImagingIrSeekerV2`, `SemiActiveRadarSeekerV2` and `ActiveRadarSeekerV2` with
+`MeasuredPnGuidanceV2`. Private additive sampled interfaces preserve V1 provider
+virtuals and public SDK layouts. World owns physical scene projection,
+non-consuming installed-store snapshots, release seeding and external referee
+attribution. IR/SARH do not receive launcher Cartesian estimates or hidden
+target velocities; semantic decoy labels are absent from tracking/guidance.
+The other 20 AAM cards retain legacy execution.
+
+The [delivery record](../../../sdk/representative-weapon-models.md) identifies
+sources, actual regression failures/corrections, current builds/gates, installed
+feature consumers, native encounters and diagnostic recordings. All 53 numeric
+card parameter objects and 101 generated model/engine/nozzle files are preserved.
+No shared generic schema, public layout, physics coefficient, fixture criterion
+or independent numerical input changes. Full SIM-M03, calibrated IIR/servo/TVC,
+fitted weapon links and complete Viewer acceptance remain separate pending gates.

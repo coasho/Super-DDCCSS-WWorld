@@ -5,6 +5,12 @@ add_library(fsim_ms STATIC
     Cards.cpp
     components/Profile.cpp
     components/Bindings.cpp
+    components/support/MeasuredSeekerV2.cpp
+    components/implementations/seeker/NonImagingIrSeekerV2.cpp
+    components/implementations/seeker/ImagingIrSeekerV2.cpp
+    components/implementations/seeker/SemiActiveRadarSeekerV2.cpp
+    components/implementations/seeker/ActiveRadarSeekerV2.cpp
+    components/implementations/guidance/MeasuredPnGuidanceV2.cpp
     components/PlantProvidersV1.cpp
     components/ProviderRegistryV1.cpp
     components/implementations/actuator/JsbsimLagRateStopsActuatorV1.cpp

@@ -1,6 +1,6 @@
 # SIM-M03 representative weapon model differentiation
 
-Date: 2026-10-20. Status: design for review; no implementation acceptance.
+Date: 2026-10-20. Status: user-approved design; physical acceptance remains open.
 Source baseline: main `b42928644b77fda483927d86e3e87a296f7d5acf`.
 
 ## 1. Objective and assigned boundary
@@ -20,10 +20,11 @@ package neither inspects that workspace nor imports an unaccepted result.
 Generic MA schema, gateway, actor interfaces and installed generic-consumer
 integration remain outside this assignment.
 
-The current write window permits only this design document. Prospective source
-areas in section 9 are not an implementation write window. A reviewed plan must
-record the then-current main HEAD and exact file/symbol ownership before code
-changes or native configure/build/test execution.
+The user subsequently approved inline implementation. The
+[implementation plan](../plans/2026-10-20-sim-m03-representative-weapons.md)
+records the current main baseline and exact file/symbol window. The
+[delivery record](../../sdk/representative-weapon-models.md) distinguishes
+executed mechanisms from missing hardware and physical acceptance inputs.
 
 ## 2. Established source findings
 
