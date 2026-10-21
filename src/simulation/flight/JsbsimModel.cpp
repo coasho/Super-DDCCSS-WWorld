@@ -478,6 +478,41 @@ bool JsbsimModel::applyImpulse(const double linearBodyNs[3], const double angula
     return true;
 }
 
+bool JsbsimModel::rigidMassPropertiesV1(RigidMassPropertiesV1& out) const noexcept {
+    if (!loaded_ || !fdm_) return false;
+    const auto mass=fdm_->GetMassBalance();
+    constexpr double kgPerSlug=14.5939029372064, kgM2PerSlugFt2=1.3558179483314;
+    out.massKg=mass->GetMass()*kgPerSlug;
+    const auto& inertia=mass->GetJ();
+    for (unsigned r=0;r<3;++r) for (unsigned c=0;c<3;++c)
+        out.inertiaBodyKgM2[3*r+c]=inertia(r+1,c+1)*kgM2PerSlugFt2;
+    return std::isfinite(out.massKg) && out.massKg>0;
+}
+
+bool JsbsimModel::nativePositionV1(const double positionEcefM[3], NativePositionV1& out) const noexcept {
+    if (!loaded_ || !fdm_ || !positionEcefM) return false;
+    JSBSim::FGColumnVector3 ecefFeet;
+    for (unsigned k=0;k<3;++k) {
+        const double value=units::metresToFeet(positionEcefM[k]);
+        if (!std::isfinite(value)) return false;
+        ecefFeet(k+1)=value;
+    }
+    if (!(std::hypot(ecefFeet(1),ecefFeet(2),ecefFeet(3))>0)) return false;
+    const auto inertial=fdm_->GetInertial();
+    JSBSim::FGLocation location(ecefFeet);
+    location.SetEllipse(inertial->GetSemimajor(),inertial->GetSemiminor());
+    NativePositionV1 converted;
+    converted.latitudeRad=location.GetGeodLatitudeRad();
+    converted.longitudeRad=location.GetLongitude();
+    // FGInitialCondition and FGPropagate both define ASL by this native
+    // radial difference. Normal ellipsoidal height is a different input.
+    converted.altitudeMslM=units::feetToMetres(location.GetRadius()-location.GetSeaLevelRadius());
+    if (!std::isfinite(converted.latitudeRad) || !std::isfinite(converted.longitudeRad) ||
+        !std::isfinite(converted.altitudeMslM)) return false;
+    out=converted;
+    return true;
+}
+
 double JsbsimModel::refuel(double kg) {
     if (!loaded_ || !(kg > 0.0)) return 0.0;
     constexpr double kLbPerKg = 2.20462262185;

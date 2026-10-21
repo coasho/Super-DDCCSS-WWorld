@@ -26,16 +26,18 @@ struct Intersection {
     bool valid = true;
     bool hit = false;
     Real fraction = 0;
+    Point at{}, normal{};
+    bool ownershipCap=false;
 };
 
-Intersection box(Point p, Point q, damage::V3 centre, damage::V3 half) {
-    const Point c = point(centre), h = point(half), d = subtract(q, p);
+Intersection bounds(Point p, Point q, damage::V3 lowCorner, damage::V3 highCorner) {
+    const Point lowPoint=point(lowCorner), highPoint=point(highCorner), d = subtract(q, p);
     const Real start[] = {p.x, p.y, p.z}, movement[] = {d.x, d.y, d.z};
-    const Real middle[] = {c.x, c.y, c.z}, extent[] = {h.x, h.y, h.z};
+    const Real lower[] = {lowPoint.x,lowPoint.y,lowPoint.z}, upper[] = {highPoint.x,highPoint.y,highPoint.z};
     if (!finite(d)) return {false};
     Real first = 0, last = 1;
     for (int axis = 0; axis < 3; ++axis) {
-        const Real low = middle[axis] - extent[axis], high = middle[axis] + extent[axis];
+        const Real low = lower[axis], high = upper[axis];
         if (!std::isfinite(low) || !std::isfinite(high)) return {false};
         if (movement[axis] == 0) {
             if (start[axis] < low || start[axis] > high) return {};
@@ -60,6 +62,19 @@ Intersection triangle(Point p, Point q, Point a, Point b, Point c) {
     const Real before = dot(n, subtract(p, a)), after = dot(n, subtract(q, a));
     if (!std::isfinite(before) || !std::isfinite(after)) return {false};
     const Point vertices[] = {a, b, c};
+    const auto movement=subtract(q,p);
+    if(!finite(movement)) return {false};
+    const Real norm=std::hypot(n.x,n.y,n.z);
+    if(!(norm>0) || !std::isfinite(norm)) return {false};
+    Point normal{n.x/norm,n.y/norm,n.z/norm};
+    const Real closing=dot(normal,movement);
+    if(!std::isfinite(closing)) return {false};
+    if(closing>0) normal={-normal.x,-normal.y,-normal.z};
+    const auto contact=[&](Real f) -> Intersection {
+        const Point at{p.x+f*movement.x,p.y+f*movement.y,p.z+f*movement.z};
+        if(!finite(at)) return {false};
+        return {true,true,f,at,normal,false};
+    };
     if (before == 0 && after == 0) {
         // A coplanar segment enters the triangle through an edge: clip it by
         // the three oriented half planes. Boundaries remain inclusive.
@@ -79,7 +94,7 @@ Intersection triangle(Point p, Point q, Point a, Point b, Point c) {
                 if (first > last) return {};
             }
         }
-        return {true, true, first};
+        return contact(first);
     }
     if ((before < 0 && after < 0) || (before > 0 && after > 0)) return {};
     const Real denominator = before - after;
@@ -95,11 +110,10 @@ Intersection triangle(Point p, Point q, Point a, Point b, Point c) {
         if (!std::isfinite(side)) return {false};
         if (side < 0) return {};
     }
-    return {true, true, f};
+    return contact(f);
 }
 
 Intersection panel(Point p, Point q, const damage::Airframe::Panel& face) {
-    if (!face.surface) return box(p, q, face.centre, face.half);
     const auto a = triangle(p, q, point(face.corners[0]), point(face.corners[1]), point(face.corners[2]));
     const auto b = triangle(p, q, point(face.corners[0]), point(face.corners[2]), point(face.corners[3]));
     if (!a.valid || !b.valid) return {false};
@@ -108,23 +122,64 @@ Intersection panel(Point p, Point q, const damage::Airframe::Panel& face) {
     return b;
 }
 
-bool validBox(damage::V3 centre, damage::V3 half) {
-    return finite(centre) && finite(half) && half.x >= 0 && half.y >= 0 && half.z >= 0;
+Intersection meshCrossing(Point p,Point q,const damage::ContactMesh& mesh,const damage::AttachedGeometryView& geometry) {
+    const auto broad=bounds(p,q,mesh.low,mesh.high);
+    if (!broad.valid || !broad.hit) return broad;
+    Intersection first;
+    for (std::size_t i=0;i<mesh.triangles.size();++i) {
+        const auto& neighbor=mesh.triangleNeighbors[i];
+        if(neighbor) {
+            const auto& owners=neighbor->kind==damage::ContactMesh::Kind::Panel ? geometry.panelIndices() : geometry.componentIndices();
+            if(std::binary_search(owners.begin(),owners.end(),neighbor->index)) continue;
+        }
+        const auto& indices=mesh.triangles[i];
+        auto hit=triangle(p,q,point(mesh.vertices[indices[0]]),point(mesh.vertices[indices[1]]),point(mesh.vertices[indices[2]]));
+        if (!hit.valid) return {false};
+        hit.ownershipCap=neighbor.has_value();
+        if (hit.hit && (!first.hit || hit.fraction<first.fraction ||
+            (hit.fraction==first.fraction && first.ownershipCap && !hit.ownershipCap))) first=hit;
+    }
+    return first; // A broad-phase overlap alone never authorizes contact.
+}
+
+Intersection meshContains(Point p,const damage::ContactMesh& mesh) {
+    const auto broad=bounds(p,p,mesh.low,mesh.high);
+    if (!broad.valid || !broad.hit) return broad;
+    Real angle=0;
+    for (const auto& indices : mesh.triangles) {
+        const Point vertices[]={point(mesh.vertices[indices[0]]),point(mesh.vertices[indices[1]]),point(mesh.vertices[indices[2]])};
+        const auto boundary=triangle(p,p,vertices[0],vertices[1],vertices[2]);
+        if (!boundary.valid || boundary.hit) return boundary;
+        Point directions[3];
+        for (int k=0;k<3;++k) {
+            const auto d=subtract(vertices[k],p);
+            const Real norm=std::hypot(d.x,d.y,d.z);
+            if (!(norm>0) || !std::isfinite(norm)) return {false};
+            directions[k]={d.x/norm,d.y/norm,d.z/norm};
+        }
+        const Real numerator=dot(directions[0],cross(directions[1],directions[2]));
+        const Real denominator=1+dot(directions[0],directions[1])+dot(directions[1],directions[2])+dot(directions[2],directions[0]);
+        angle+=2*std::atan2(numerator,denominator);
+        if (!std::isfinite(angle)) return {false};
+    }
+    // A consistently wound closed surface has winding 0 outside and +/-1
+    // inside. This topological threshold adds no distance/radius tolerance.
+    constexpr Real twoPi=6.283185307179586476925286766559005768L;
+    return {true,std::abs(angle)>twoPi,0};
 }
 
 bool validGeometry(const damage::AttachedGeometryView& geometry) {
     const auto& source = geometry.airframe();
+    if (!source.contactGeometry) return false;
     for (const auto index : geometry.panelIndices()) {
         if (index >= source.panels.size()) return false;
         const auto& face = source.panels[index];
         if (face.surface) {
             for (const auto corner : face.corners) if (!finite(corner)) return false;
-        } else if (!validBox(face.centre, face.half)) return false;
+        }
     }
     for (const auto index : geometry.componentIndices()) {
         if (index >= source.components.size()) return false;
-        const auto& component = source.components[index];
-        if (!validBox(component.centre, component.half)) return false;
     }
     return true;
 }
@@ -151,10 +206,13 @@ struct Candidate {
     Real offset = 0;
     ContactKind kind = ContactKind::Panel;
     std::size_t index = 0;
+    Point at{}, normal{};
+    bool ownershipCap=false;
 };
 bool earlier(const Candidate& a, const Candidate& b) {
     if (!b.hit || a.offset < b.offset) return true;
     if (a.offset > b.offset) return false;
+    if (a.ownershipCap!=b.ownershipCap) return !a.ownershipCap;
     if (a.kind != b.kind) return a.kind == ContactKind::Panel;
     return a.index < b.index;
 }
@@ -170,13 +228,15 @@ ContactFuzeResult contactFuze(const std::vector<ContactSample>& path,
     const auto& source = geometry.airframe();
     const Point initial = point(path.front().pointBody);
     for (const auto index : geometry.panelIndices()) {
-        const auto overlap = panel(initial, initial, source.panels[index]);
+        const auto* mesh=source.contactGeometry->panel(index);
+        const auto overlap = source.panels[index].surface ? panel(initial,initial,source.panels[index]) :
+                             mesh ? meshContains(initial,*mesh) : Intersection{};
         if (!overlap.valid) return {};
         result.initialOverlap = result.initialOverlap || overlap.hit;
     }
     for (const auto index : geometry.componentIndices()) {
-        const auto& component = source.components[index];
-        const auto overlap = box(initial, initial, component.centre, component.half);
+        const auto* mesh=source.contactGeometry->component(index);
+        const auto overlap = mesh ? meshContains(initial,*mesh) : Intersection{};
         if (!overlap.valid) return {};
         result.initialOverlap = result.initialOverlap || overlap.hit;
     }
@@ -198,23 +258,25 @@ ContactFuzeResult contactFuze(const std::vector<ContactSample>& path,
             if (!hit.hit) return;
             const Real offset = static_cast<Real>(a.offsetS) + hit.fraction *
                 (static_cast<Real>(b.offsetS) - a.offsetS);
-            const Candidate candidate{true, offset, kind, index};
+            const Candidate candidate{true, offset, kind, index,hit.at,hit.normal,hit.ownershipCap};
             if (eligible(offset) && earlier(candidate, first)) first = candidate;
         };
         for (const auto index : geometry.panelIndices()) {
-            const auto hit = panel(p, q, source.panels[index]);
+            const auto* mesh=source.contactGeometry->panel(index);
+            const auto hit = source.panels[index].surface ? panel(p,q,source.panels[index]) :
+                             mesh ? meshCrossing(p,q,*mesh,geometry) : Intersection{};
             if (!hit.valid) return {};
             consider(hit, ContactKind::Panel, index);
         }
         for (const auto index : geometry.componentIndices()) {
-            const auto& component = source.components[index];
-            const auto hit = box(p, q, component.centre, component.half);
+            const auto* mesh=source.contactGeometry->component(index);
+            const auto hit = mesh ? meshCrossing(p,q,*mesh,geometry) : Intersection{};
             if (!hit.valid) return {};
             consider(hit, ContactKind::Component, index);
         }
-        // Every following segment begins at or after this segment's endpoint.
-        // All source primitives above were considered before resolving its ties.
-        if (first.hit) break;
+        // Include a following segment beginning at this exact event time so
+        // authored skin can win a shared-endpoint tie against an exposed cut.
+        if (first.hit && first.offset<static_cast<Real>(b.offsetS)) break;
     }
     if (!first.hit) return result;
     const double offset = static_cast<double>(first.offset);
@@ -229,6 +291,9 @@ ContactFuzeResult contactFuze(const std::vector<ContactSample>& path,
     result.fraction = fraction;
     result.kind = first.kind;
     result.index = first.index;
+    result.pointBody={static_cast<double>(first.at.x),static_cast<double>(first.at.y),static_cast<double>(first.at.z)};
+    result.normalBody={static_cast<double>(first.normal.x),static_cast<double>(first.normal.y),static_cast<double>(first.normal.z)};
+    if(!finite(result.pointBody) || !finite(result.normalBody)) return {};
     return result;
 }
 

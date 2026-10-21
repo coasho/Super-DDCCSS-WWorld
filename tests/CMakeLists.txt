@@ -69,6 +69,48 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
 # list their tests during the build would fail.
 set(FSIM_CATCH_DISCOVERY DISCOVERY_MODE PRE_TEST)
 
+# Deliberately independent of the mission-system library: descriptor parsing
+# can be checked before any execution adapter is implemented or linked.
+add_executable(fsim_payload_profile_test
+    simulation/test_payload_profile.cpp
+    ../src/simulation/mission_systems/components/Bindings.cpp
+    ../src/simulation/mission_systems/components/Profile.cpp)
+fsim_include_view(fsim_payload_profile_test DIRECTORIES ../src/simulation/mission_systems)
+target_include_directories(fsim_payload_profile_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(fsim_payload_profile_test PRIVATE fsim::core Catch2::Catch2WithMain)
+fsim_set_warnings(fsim_payload_profile_test)
+add_test(NAME payload_profile COMMAND fsim_payload_profile_test)
+set_tests_properties(payload_profile PROPERTIES LABELS "payload-components" TIMEOUT 30)
+
+add_executable(fsim_payload_effect_adapters_test simulation/test_payload_effect_adapters.cpp)
+target_link_libraries(fsim_payload_effect_adapters_test PRIVATE fsim::ms Catch2::Catch2WithMain)
+fsim_set_warnings(fsim_payload_effect_adapters_test)
+add_test(NAME payload_effect_adapters COMMAND fsim_payload_effect_adapters_test)
+set_tests_properties(payload_effect_adapters PROPERTIES LABELS "payload-components" TIMEOUT 30)
+
+add_executable(fsim_payload_components_test simulation/test_payload_composition.cpp simulation/test_payload_composition_contract.cpp)
+target_link_libraries(fsim_payload_components_test PRIVATE fsim::ms Catch2::Catch2WithMain)
+target_compile_definitions(fsim_payload_components_test PRIVATE FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores")
+fsim_set_warnings(fsim_payload_components_test)
+add_test(NAME payload_components COMMAND fsim_payload_components_test)
+set_tests_properties(payload_components PROPERTIES LABELS "payload-components" TIMEOUT 30)
+
+add_executable(fsim_payload_plant_adapters_test simulation/test_payload_plant_adapters.cpp)
+target_link_libraries(fsim_payload_plant_adapters_test PRIVATE fsim::ms)
+fsim_set_warnings(fsim_payload_plant_adapters_test)
+add_test(NAME payload_plant_adapters COMMAND fsim_payload_plant_adapters_test)
+set_tests_properties(payload_plant_adapters PROPERTIES LABELS "payload-components" TIMEOUT 30)
+
+add_executable(fsim_payload_native_test simulation/test_payload_composition_native.cpp)
+target_link_libraries(fsim_payload_native_test PRIVATE fsim::session Catch2::Catch2WithMain)
+target_compile_definitions(fsim_payload_native_test PRIVATE FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft"
+    FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores"
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
+add_dependencies(fsim_payload_native_test fsim_payload_cards)
+fsim_set_warnings(fsim_payload_native_test)
+add_test(NAME payload_native COMMAND fsim_payload_native_test)
+set_tests_properties(payload_native PROPERTIES LABELS "payload-components;native-engagement" TIMEOUT 60 RUN_SERIAL TRUE)
+
 foreach(core weapon_guidance fuze countermeasure_core missile_autopilot)
     add_executable(fsim_${core}_test simulation/test_${core}.cpp)
     target_link_libraries(fsim_${core}_test PRIVATE fsim::ms)
@@ -82,6 +124,7 @@ add_test(NAME launch_eligibility COMMAND fsim_launch_eligibility_test)
 
 add_executable(fsim_engagement_native_test simulation/test_engagement_native.cpp)
 target_link_libraries(fsim_engagement_native_test PRIVATE fsim::session)
+add_dependencies(fsim_engagement_native_test fsim_payload_cards)
 target_compile_definitions(fsim_engagement_native_test PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
 add_test(NAME engagement_native COMMAND fsim_engagement_native_test)
 
@@ -101,6 +144,7 @@ set_tests_properties(weapon_employment_core PROPERTIES LABELS "native-engagement
 
 add_executable(fsim_contact_fuze_native_test simulation/test_contact_fuze_native.cpp)
 target_link_libraries(fsim_contact_fuze_native_test PRIVATE fsim::session)
+add_dependencies(fsim_contact_fuze_native_test fsim_payload_cards)
 target_compile_definitions(fsim_contact_fuze_native_test PRIVATE
     FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}" FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
 fsim_set_warnings(fsim_contact_fuze_native_test)
@@ -128,6 +172,7 @@ endif()
 add_executable(fsim_tests
     simulation/test_units.cpp
     simulation/test_damage.cpp
+    simulation/test_warhead_model.cpp
     simulation/test_impact.cpp
     simulation/test_contact_fuze.cpp
     contracts/test_weapon_controls_stream.cpp
@@ -219,6 +264,7 @@ add_executable(fsim_tests
     simulation/test_comm.cpp)
 
 target_link_libraries(fsim_tests PRIVATE fsim::env fsim::session fsim::ms fsim::control fsim::effects fsim::comm fsim::ipc fsim::sim fsim::io fsim::core Catch2::Catch2WithMain)
+add_dependencies(fsim_tests fsim_payload_cards)
 target_compile_definitions(fsim_tests PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
                                                 FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft"
                                                 FSIM_TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/simulation/data")

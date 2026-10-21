@@ -12,10 +12,11 @@ airflow; positive additional drag opposes it. Moments are r cross the SAME force
 about the launch AERORP; JSBSim supplies the current-CG transfer. Body/fin passive
 stability remains in storeaero; zero deflection adds zero force or moment.
 
-Channel command response uses a class-wide assumed 25/s lag and 4 rad/s rate
-limit. Each physical fin AFTER mixing has its own 4 rad/s actuator and authored
-stops; it adds no second lag. This is a
-reduced-order engineering model, not calibrated fin, hinge or servo behavior.
+Channel command response uses the versioned card's explicit lag/rate inputs;
+unversioned cards retain the assumed 25/s lag and 4 rad/s rate limit. Each
+physical fin AFTER mixing has its own selected rate and authored stops; it adds
+no second lag. This is a reduced-order engineering model, not calibrated fin,
+hinge or servo behavior.
 
 Standard channel position reports are the fixed authored mix's least-squares
 equivalent axes reconstructed from ACTUAL physical fin positions. Individual
@@ -24,6 +25,8 @@ the per-fin properties retain that diagnostic information without inventing an
 unactuated axis or reporting command response as physical position.
 """
 import math
+import hashlib
+import json
 import re
 import numpy as np
 from types import SimpleNamespace
@@ -51,6 +54,43 @@ def _number(value, label):
     if not math.isfinite(result):
         raise ValueError("missile control: %s must be finite" % label)
     return result
+
+
+def actuator_profile(card=None):
+    """Only native actuator inputs; full execution validation belongs to MS.
+
+    The content fingerprint identifies the values actually used by this FCS,
+    rather than an unrelated warhead/source edit to the same card.
+    """
+    from . import components
+    selected = components.actuator(card or {})
+    if selected is not None:
+        return selected
+    parameters = (card or {}).get("parameters", {})
+    if not isinstance(parameters, dict):
+        raise ValueError("missile control: card parameters must be an object")
+    if "weapon_execution_version" not in parameters:
+        if any(name in parameters for name in ("control_actuator_lag_s", "control_actuator_rate_rad_s")):
+            raise ValueError("missile control: actuator configuration needs weapon_execution_version")
+        return {"version": 0, "lag_coefficient": LAG, "rate_rad_s": RATE}
+
+    def parameter(name, unit):
+        row = parameters.get(name)
+        if not isinstance(row, dict) or row.get("unit") != unit:
+            raise ValueError("missile control: %s needs explicit %s units" % (name, unit))
+        return _number(row.get("value"), name)
+
+    for name in ("weapon_execution_version", "control_algorithm", "control_allocator"):
+        if parameter(name, "1") != 1:
+            raise ValueError("missile control: unsupported " + name)
+    lag = parameter("control_actuator_lag_s", "s")
+    rate = parameter("control_actuator_rate_rad_s", "rad/s")
+    if lag <= 0 or rate <= 0 or not math.isfinite(1 / lag):
+        raise ValueError("missile control: actuator lag/rate must be positive representable native inputs")
+    consumed = {"version": 1, "card": (card or {}).get("id", ""), "control_algorithm": 1,
+                "control_allocator": 1, "actuator_lag_s": lag, "actuator_rate_rad_s": rate}
+    digest = hashlib.sha256(json.dumps(consumed, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    return {"version": 1, "lag_coefficient": 1 / lag, "rate_rad_s": rate, "sha256": digest}
 
 
 def _effectiveness(fraction):
@@ -216,11 +256,15 @@ def _function(name, expression):
     return node
 
 
-def apply(xml, old_controls, geo, baseline, origin_inches):
+def apply(xml, old_controls, geo, baseline, origin_inches, *, card=None):
     """Extend only an authored controlled missile's XML. Motor files are untouched."""
     control = build(geo, baseline)
     if control is None:
         return xml
+    from . import components
+    components.control(card or {})
+    dynamics = actuator_profile(card)
+    lag, rate = dynamics["lag_coefficient"], dynamics["rate_rad_s"]
     # Controller derivatives and generated force/moment normalization must use
     # the same area and diameter, including on the older build-up path whose
     # passive-only XML rounded these metrics to five decimals.
@@ -229,15 +273,21 @@ def apply(xml, old_controls, geo, baseline, origin_inches):
         xml = re.sub(r'(<%s unit="[A-Z0-9]+">)[^<]*(</%s>)' % (tag, tag),
                      lambda match: match[1] + " %.17g " % number + match[2], xml, count=1)
     fcs = ET.Element("flight_control", name="Finite missile controls (engineering estimates)")
-    metadata = {"version": 1, "surface-limit-rad": max(max(abs(v) for v in limits) for limits in control["channels"].values()),
-                "surface-rate-rad_s": RATE, "channel-rate-rad_s": RATE, "lag-coefficient-s-1": LAG,
+    metadata = {"version": 1, "normalization-version": 1,
+                "surface-limit-rad": max(max(abs(v) for v in limits) for limits in control["channels"].values()),
+                "surface-rate-rad_s": rate, "channel-rate-rad_s": rate, "lag-coefficient-s-1": lag,
                 "fin-count": len(control["fins"])}
+    if dynamics["version"] == 1:
+        metadata["actuator-version"] = 1
     metadata.update({ch + "-limit-rad": max(abs(v) for v in bounds) for ch, bounds in control["channels"].items()})
+    for channel, (low, high) in control["channels"].items():
+        metadata[channel + "-min-rad"] = low
+        metadata[channel + "-max-rad"] = high
     for i, fin in enumerate(control["fins"]):
         metadata["fin-%d-id" % i] = fin["id"]
         metadata["fin-%d-min-rad" % i] = fin["lo"]
         metadata["fin-%d-max-rad" % i] = fin["hi"]
-        metadata["fin-%d-rate-rad_s" % i] = RATE
+        metadata["fin-%d-rate-rad_s" % i] = rate
     for name, number in metadata.items():
         ET.SubElement(fcs, "property", value="%.17g" % number).text = "fsim/missile-control/" + name
     for axis, number in zip("xyz", (origin_inches, 0, 0)):
@@ -252,8 +302,8 @@ def apply(xml, old_controls, geo, baseline, origin_inches):
         ET.SubElement(limits, "max").text = "%.17g" % high
         actuator = ET.SubElement(channels, "actuator", name="fcs/%s-actuator" % channel)
         ET.SubElement(actuator, "input").text = "fcs/%s-control" % channel
-        ET.SubElement(actuator, "lag").text = "%.17g" % LAG
-        ET.SubElement(actuator, "rate_limit").text = "%.17g" % RATE
+        ET.SubElement(actuator, "lag").text = "fsim/missile-control/lag-coefficient-s-1" if dynamics["version"] else "%.17g" % lag
+        ET.SubElement(actuator, "rate_limit").text = "fsim/missile-control/channel-rate-rad_s" if dynamics["version"] else "%.17g" % rate
         stops = ET.SubElement(actuator, "clipto")
         ET.SubElement(stops, "min").text = "%.17g" % low
         ET.SubElement(stops, "max").text = "%.17g" % high
@@ -268,7 +318,7 @@ def apply(xml, old_controls, geo, baseline, origin_inches):
         ET.SubElement(stops, "max").text = "%.17g" % fin["hi"]
         actuator = ET.SubElement(channels, "actuator", name="fcs/fin-%d-actuator" % i)
         ET.SubElement(actuator, "input").text = "fcs/fin-%d-demand-rad" % i
-        ET.SubElement(actuator, "rate_limit").text = "%.17g" % RATE
+        ET.SubElement(actuator, "rate_limit").text = "fsim/missile-control/fin-%d-rate-rad_s" % i if dynamics["version"] else "%.17g" % rate
         stops = ET.SubElement(actuator, "clipto")
         ET.SubElement(stops, "min").text = "%.17g" % fin["lo"]
         ET.SubElement(stops, "max").text = "%.17g" % fin["hi"]
@@ -287,7 +337,8 @@ def apply(xml, old_controls, geo, baseline, origin_inches):
     ET.SubElement(alias, "gain").text = "1"
     ET.SubElement(alias, "output").text = "fcs/aileron-pos-rad"
     ET.indent(fcs, space="    ")
-    xml = xml.replace(old_controls, ET.tostring(fcs, encoding="unicode"), 1)
+    fingerprint = "<!-- Native actuator card profile SHA-256: %s -->\n" % dynamics["sha256"] if dynamics["version"] else ""
+    xml = xml.replace(old_controls, fingerprint + ET.tostring(fcs, encoding="unicode"), 1)
     pre = []
     for name, values in control["derivatives"].items():
         pre.append(_function("fsim/control/" + name, _table(control["mach"], values)))

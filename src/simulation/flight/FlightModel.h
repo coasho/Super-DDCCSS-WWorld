@@ -65,6 +65,32 @@ public:
     }
 };
 
+/// Optional native mass properties, independent of FlightModel's primary vtable.
+/// Capture at the same epoch as state/CG; inertia is the full tensor about CG
+/// in body axes, row-major kg m^2. Unsupported models remain unavailable.
+struct RigidMassPropertiesV1 {
+    double massKg = std::numeric_limits<double>::quiet_NaN();
+    double inertiaBodyKgM2[9] = {};
+};
+class RigidMassSourceV1 {
+public:
+    virtual ~RigidMassSourceV1() = default;
+    virtual bool rigidMassPropertiesV1(RigidMassPropertiesV1& out) const noexcept = 0;
+};
+
+/// Optional position conversion using the flight model's actual planet and
+/// initial-condition altitude convention. No assumed ellipsoid is substituted.
+struct NativePositionV1 {
+    double latitudeRad = std::numeric_limits<double>::quiet_NaN();
+    double longitudeRad = std::numeric_limits<double>::quiet_NaN();
+    double altitudeMslM = std::numeric_limits<double>::quiet_NaN();
+};
+class NativePositionSourceV1 {
+public:
+    virtual ~NativePositionSourceV1() = default;
+    virtual bool nativePositionV1(const double positionEcefM[3], NativePositionV1& out) const noexcept = 0;
+};
+
 /// Flight-dynamics interface hiding JSBSim (design 7.1, ADR-10).
 class FlightModel {
 public:

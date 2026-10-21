@@ -19,25 +19,25 @@
         <location name="VRP" unit="IN"> <x> 374.293 </x> <y> -74.837 </y> <z> -18.556 </z> </location>
     </metrics>
     <mass_balance negated_crossproduct_inertia="false">
-        <ixx unit="SLUG*FT2"> 482.8656 </ixx>
-        <iyy unit="SLUG*FT2"> 1062.2001 </iyy>
-        <izz unit="SLUG*FT2"> 1208.0866 </izz>
-        <ixy unit="SLUG*FT2"> -200.3736 </ixy>
-        <ixz unit="SLUG*FT2"> 122.7273 </ixz>
-        <iyz unit="SLUG*FT2"> -22.3594 </iyz>
-        <emptywt unit="LBS"> 1390.204 </emptywt>
-        <location name="CG" unit="IN"> <x> 374.293 </x> <y> -74.837 </y> <z> -18.556 </z> </location>
+        <ixx unit="SLUG*FT2"> 482.86563900832681 </ixx>
+        <iyy unit="SLUG*FT2"> 1062.2001145304112 </iyy>
+        <izz unit="SLUG*FT2"> 1208.0865738765394 </izz>
+        <ixy unit="SLUG*FT2"> -200.37359022599119 </ixy>
+        <ixz unit="SLUG*FT2"> 122.72731025930348 </ixz>
+        <iyz unit="SLUG*FT2"> -22.359380945877625 </iyz>
+        <emptywt unit="LBS"> 1390.2040283437748 </emptywt>
+        <location name="CG" unit="IN"> <x> 374.29251968503934 </x> <y> -74.837007874015754 </y> <z> -18.556299212598425 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 360.114 </x> <y> -78.740 </y> <z> -0.054 </z> </location>
+            <location unit="IN"> <x> 360.11417322834643 </x> <y> -78.740157480314963 </y> <z> -0.053937007874017243 </z> </location>
         </pointmass>
         <pointmass name="station 1">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 424.291 </x> <y> -147.087 </y> <z> -27.402 </z> </location>
+            <location unit="IN"> <x> 424.29133858267716 </x> <y> -147.08661417322836 </y> <z> -27.401574803149604 </z> </location>
         </pointmass>
         <pointmass name="station 2">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 329.370 </x> <y> -45.945 </y> <z> -24.803 </z> </location>
+            <location unit="IN"> <x> 329.37007874015745 </x> <y> -45.944881889763785 </y> <z> -24.803149606299218 </z> </location>
         </pointmass>
     </mass_balance>
     <ground_reactions>

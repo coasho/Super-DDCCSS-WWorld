@@ -1,5 +1,28 @@
 # Current capabilities and milestone status
 
+SIM-M03 component and contact delivery, 2026-10-20: the
+[uniform component contract](sdk/payload-component-configuration.md) covers all
+53 store cards and nine roles per card. Strict sidecars, compiled SDK adapters,
+phase-specific native binding checks and Hangar generation replace implicit
+component selection without changing the migrated numerical inputs. This is
+configuration/execution infrastructure, not equipment calibration or an external
+DLL provider ABI. Two stores still declare fuze/warhead unavailable explicitly.
+The [physical investigation](sdk/sim-m03-five-km-repair.md) records contact,
+native damage feedback and loaded-piece conservation repairs. Fullscreen live
+evidence shows actual nose separation and subsequent upset, principally through
+mechanical contact. Fragment results remain 29/1688 in the native fixture and
+0/1688 in the showcase; they do not validate the fragmentation model.
+
+Current scoped physical regression is Release **117/119** and Headless
+**117/118**, zero skips; both complete build targets pass. The original showcase
+fragment Hit and 6 m side-burst component-hit requirements still fail. Six
+focused component CTest programs, 13 focused Hangar checks and the installed
+equipment consumer pass. Native asset checks load all 53 generated store models;
+the catalogue comparison preserves existing physical XML and engine/nozzle
+bytes. The independently confirmed pre-existing C172/Skua damage-generation
+drift failures remain recorded. Complete current full-suite and full SIM-M03
+acceptance remain pending. Earlier totals below retain their historical scope.
+
 SIM-M03 SDK delivery continuation, 2026-10-20: the [current delivery record](sdk/sim-m03-reference-continuation.md#7-sdk-delivery-continuation-and-regression-repair) distinguishes software correctness from physical hit acceptance. HC-57's incoming contact energy/mass and HC-58's incomplete package fixture are corrected without changing their criteria. Production SDK code now includes actual-fin C++/C99/Python diagnostics, selected-release validation, capability/illumination corrections and contact initiation. Both complete builds, Release 11/11 focused gates, installed armed-release/control consumers and fullscreen live/v8 replay pass. The unchanged **30 km case passes actual damage evidence** (275/2023 sampled fragment strikes, exact one/two-worker records/events). **Two separate 5 km hit scenes still fail**. Complete Headless first run: **769/775**, 1129.11 s, zero skips; four test-only repairs subsequently pass **4/4**, with production inputs unchanged. Complete current Release: **847/849**, 1127.24 s, zero skips; only the two 5 km hit scenes fail. All 155 frozen source/test/model fingerprints match after that run. Earlier 744/746 and 56/56 totals are historical. Full SIM-M03 remains unaccepted for the failed hit gates, admitted sensor/control/lethality inputs, modeled weapon links, fused input and remaining physical/variant acceptance. No AeroNumericsLab result is imported.
 
 

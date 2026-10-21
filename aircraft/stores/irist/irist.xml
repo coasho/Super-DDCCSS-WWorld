@@ -131,16 +131,25 @@
             <contents unit="LBS"> 55.05525 </contents>
         </tank>
     </propulsion>
+<!-- Native actuator card profile SHA-256: a7fabbd7 -->
 <flight_control name="Finite missile controls (engineering estimates)">
     <property value="1">fsim/missile-control/version</property>
+    <property value="1">fsim/missile-control/normalization-version</property>
     <property value="0.3490658503988659">fsim/missile-control/surface-limit-rad</property>
     <property value="4">fsim/missile-control/surface-rate-rad_s</property>
     <property value="4">fsim/missile-control/channel-rate-rad_s</property>
     <property value="25">fsim/missile-control/lag-coefficient-s-1</property>
     <property value="4">fsim/missile-control/fin-count</property>
+    <property value="1">fsim/missile-control/actuator-version</property>
     <property value="0.3490658503988659">fsim/missile-control/elevator-limit-rad</property>
     <property value="0.3490658503988659">fsim/missile-control/rudder-limit-rad</property>
     <property value="0.3490658503988659">fsim/missile-control/aileron-limit-rad</property>
+    <property value="-0.3490658503988659">fsim/missile-control/elevator-min-rad</property>
+    <property value="0.3490658503988659">fsim/missile-control/elevator-max-rad</property>
+    <property value="-0.3490658503988659">fsim/missile-control/rudder-min-rad</property>
+    <property value="0.3490658503988659">fsim/missile-control/rudder-max-rad</property>
+    <property value="-0.3490658503988659">fsim/missile-control/aileron-min-rad</property>
+    <property value="0.3490658503988659">fsim/missile-control/aileron-max-rad</property>
     <property value="453677541">fsim/missile-control/fin-0-id</property>
     <property value="-0.3490658503988659">fsim/missile-control/fin-0-min-rad</property>
     <property value="0.3490658503988659">fsim/missile-control/fin-0-max-rad</property>
@@ -170,8 +179,8 @@
         </aerosurface_scale>
         <actuator name="fcs/elevator-actuator">
             <input>fcs/elevator-control</input>
-            <lag>25</lag>
-            <rate_limit>4</rate_limit>
+            <lag>fsim/missile-control/lag-coefficient-s-1</lag>
+            <rate_limit>fsim/missile-control/channel-rate-rad_s</rate_limit>
             <clipto>
                 <min>-0.3490658503988659</min>
                 <max>0.3490658503988659</max>
@@ -187,8 +196,8 @@
         </aerosurface_scale>
         <actuator name="fcs/rudder-actuator">
             <input>fcs/rudder-control</input>
-            <lag>25</lag>
-            <rate_limit>4</rate_limit>
+            <lag>fsim/missile-control/lag-coefficient-s-1</lag>
+            <rate_limit>fsim/missile-control/channel-rate-rad_s</rate_limit>
             <clipto>
                 <min>-0.3490658503988659</min>
                 <max>0.3490658503988659</max>
@@ -204,8 +213,8 @@
         </aerosurface_scale>
         <actuator name="fcs/aileron-actuator">
             <input>fcs/aileron-control</input>
-            <lag>25</lag>
-            <rate_limit>4</rate_limit>
+            <lag>fsim/missile-control/lag-coefficient-s-1</lag>
+            <rate_limit>fsim/missile-control/channel-rate-rad_s</rate_limit>
             <clipto>
                 <min>-0.3490658503988659</min>
                 <max>0.3490658503988659</max>
@@ -236,7 +245,7 @@
         </fcs_function>
         <actuator name="fcs/fin-0-actuator">
             <input>fcs/fin-0-demand-rad</input>
-            <rate_limit>4</rate_limit>
+            <rate_limit>fsim/missile-control/fin-0-rate-rad_s</rate_limit>
             <clipto>
                 <min>-0.3490658503988659</min>
                 <max>0.3490658503988659</max>
@@ -267,7 +276,7 @@
         </fcs_function>
         <actuator name="fcs/fin-1-actuator">
             <input>fcs/fin-1-demand-rad</input>
-            <rate_limit>4</rate_limit>
+            <rate_limit>fsim/missile-control/fin-1-rate-rad_s</rate_limit>
             <clipto>
                 <min>-0.3490658503988659</min>
                 <max>0.3490658503988659</max>
@@ -298,7 +307,7 @@
         </fcs_function>
         <actuator name="fcs/fin-2-actuator">
             <input>fcs/fin-2-demand-rad</input>
-            <rate_limit>4</rate_limit>
+            <rate_limit>fsim/missile-control/fin-2-rate-rad_s</rate_limit>
             <clipto>
                 <min>-0.3490658503988659</min>
                 <max>0.3490658503988659</max>
@@ -329,7 +338,7 @@
         </fcs_function>
         <actuator name="fcs/fin-3-actuator">
             <input>fcs/fin-3-demand-rad</input>
-            <rate_limit>4</rate_limit>
+            <rate_limit>fsim/missile-control/fin-3-rate-rad_s</rate_limit>
             <clipto>
                 <min>-0.3490658503988659</min>
                 <max>0.3490658503988659</max>
@@ -416,6 +425,21 @@
         <property value="0">fsim/model/nose-x-in</property>
         <property value="0">fsim/model/nose-y-in</property>
         <property value="0">fsim/model/nose-z-in</property>
+            <property value="1">fsim/components/autopilot/schema-version</property>
+        <property value="1">fsim/components/autopilot/implementation-code</property>
+        <property value="4198954421">fsim/components/autopilot/profile-fingerprint</property>
+        <property value="1">fsim/components/allocator/schema-version</property>
+        <property value="1">fsim/components/allocator/implementation-code</property>
+        <property value="3806989721">fsim/components/allocator/profile-fingerprint</property>
+        <property value="1">fsim/components/actuator/schema-version</property>
+        <property value="1">fsim/components/actuator/implementation-code</property>
+        <property value="2818227159">fsim/components/actuator/profile-fingerprint</property>
+        <property value="1">fsim/components/propulsion/schema-version</property>
+        <property value="1">fsim/components/propulsion/implementation-code</property>
+        <property value="644749065">fsim/components/propulsion/profile-fingerprint</property>
+        <property value="1">fsim/components/aerodynamics/schema-version</property>
+        <property value="1">fsim/components/aerodynamics/implementation-code</property>
+        <property value="4251520809">fsim/components/aerodynamics/profile-fingerprint</property>
     </flight_control>
     <aerodynamics>
     <!-- Fin control derivatives/lag/rate and flap/drag corrections are engineering estimates, not equipment calibration. -->

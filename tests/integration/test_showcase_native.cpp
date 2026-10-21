@@ -11,10 +11,12 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -77,6 +79,79 @@ struct Run {
     Json evidence;
     fsim::ipc::Recording recording;
 };
+
+void functionalResponse(const Run& run) {
+    using K=fsim::ipc::EngagementKind;
+    const auto targetSlot=static_cast<std::uint32_t>(run.evidence.number("target_slot",-1));
+    const auto& response=run.evidence.child("target_response");
+    std::vector<const fsim::ipc::EngagementEvent*> losses;
+    std::vector<std::pair<double,const fsim::ipc::VehicleSample*>> samples;
+    for (const auto& frame : run.recording.frames()) {
+        for (const auto& event : frame.events) if (event.slot==targetSlot &&
+            (event.kind==static_cast<std::uint8_t>(K::Separated) || event.kind==static_cast<std::uint8_t>(K::EngineOut) ||
+             event.kind==static_cast<std::uint8_t>(K::ControlLost) || event.kind==static_cast<std::uint8_t>(K::CrewLost))) losses.push_back(&event);
+        for (const auto& [slot,sample] : frame.samples) if (slot==targetSlot) samples.push_back({frame.simTime,&sample});
+    }
+    require(!losses.empty(),"fixed showcase functional acceptance requires recorded structural separation or engine/control/crew loss; a Hit alone is insufficient");
+    require(response.string("source","")=="native-recording" && response.child("functional_events").asArray().size()==losses.size(),
+            "functional evidence must reproduce actual native component-loss events");
+    double firstLoss=std::numeric_limits<double>::infinity();
+    for (std::size_t i=0;i<losses.size();++i) {
+        const auto& item=response.child("functional_events").asArray()[i];
+        require(item.number("time_s",-1)==losses[i]->simTime && item.number("slot",-1)==targetSlot &&
+                item.string("name","")==losses[i]->name && item.number("index",-1)==losses[i]->index,
+                "functional event evidence differs from the authoritative recording");
+        firstLoss=std::min(firstLoss,losses[i]->simTime);
+    }
+    require(response.number("first_loss_time_s",-1)==firstLoss && !samples.empty(),"functional response needs its native first-loss epoch and flight samples");
+    const fsim::ipc::VehicleSample* before=nullptr;
+    const fsim::ipc::VehicleSample* after=nullptr;
+    double afterTime=0;
+    const auto& evidenceSamples=response.child("samples").asArray();
+    require(evidenceSamples.size()==samples.size(),"continued target evidence must retain every actual captured target sample");
+    for (std::size_t i=0;i<samples.size();++i) {
+        const auto [time,sample]=samples[i];
+        const auto& item=evidenceSamples[i];
+        require(item.number("time_s",-1)==time,"target evidence and native recording clocks disagree");
+        for (std::size_t k=0;k<3;++k)
+            require(item.child("position_ecef_m").asArray()[k].asNumber()==sample->state.positionEcef[k] &&
+                    item.child("body_rates_rad_s").asArray()[k].asNumber()==sample->state.angularRateBodyRadS[k],
+                    "continued target evidence must use recorded native poses and body rates");
+        if (time<firstLoss) before=sample;
+        else {after=sample;afterTime=time;}
+    }
+    require(before && after && afterTime-firstLoss>=5,"functional acceptance must record at least five seconds after native loss");
+    require(!after->state.diverged,"continued damaged target must have finite native motion or a native crash");
+    const double moved=std::hypot(after->state.positionEcef[0]-before->state.positionEcef[0],
+                                  after->state.positionEcef[1]-before->state.positionEcef[1],
+                                  after->state.positionEcef[2]-before->state.positionEcef[2]);
+    bool consequence=false;
+    for (const auto* loss : losses) {
+        if (loss->kind==static_cast<std::uint8_t>(K::Separated))
+            consequence=consequence || (after->derived[fsim::ipc::kDerivedMassKg]>0 &&
+                                        after->derived[fsim::ipc::kDerivedMassKg]<before->derived[fsim::ipc::kDerivedMassKg]);
+        if (loss->kind==static_cast<std::uint8_t>(K::EngineOut) || loss->kind==static_cast<std::uint8_t>(K::ControlLost))
+            for (const auto& property : run.evidence.child("target_native_properties").asArray()) {
+                const auto path=property.string("path","");
+                if (property.number("value",0)!=1) continue;
+                if (loss->kind==static_cast<std::uint8_t>(K::EngineOut) && path.find("/seized")!=std::string::npos) consequence=true;
+                if (loss->kind==static_cast<std::uint8_t>(K::ControlLost) && path.find(loss->name)!=std::string::npos &&
+                    path.find("/malfunction/fail_stuck")!=std::string::npos) consequence=true;
+            }
+        if (loss->kind==static_cast<std::uint8_t>(K::CrewLost)) {
+            const fsim::ipc::VehicleSample* first=nullptr;
+            for (const auto& [time,sample] : samples) if (time>=loss->simTime) {first=sample;break;}
+            if (first && first->inputs.aileron==after->inputs.aileron && first->inputs.elevator==after->inputs.elevator &&
+                first->inputs.rudder==after->inputs.rudder &&
+                std::equal(first->inputs.throttle,first->inputs.throttle+fsim::ControlInputs::kMaxEngines,after->inputs.throttle)) consequence=true;
+        }
+    }
+    require(consequence && (moved>0 || after->state.crashed),
+            "functional loss must have actual native mass/engine/actuator/crew-control consequence and continued recorded motion or a native crash");
+    std::cout << "FUNCTIONAL: recorded_losses=" << losses.size() << " first_loss_s=" << firstLoss
+              << " last_sample_s=" << afterTime << " follow_s=" << afterTime-firstLoss << " moved_m=" << moved
+              << " crashed=" << after->state.crashed << '\n';
+}
 
 bool destructiveEffect(const fsim::ipc::EngagementEvent& event) {
     using K = fsim::ipc::EngagementKind;
@@ -161,7 +236,7 @@ void unthreatenedFlight(const fs::path& directory) {
 }
 
 Run successful(const fs::path& executable, const fs::path& directory, const std::string& name, double captureRate = 30.0,
-               bool live = false) {
+               bool live = false, bool requireFunctional = false) {
     const auto input = directory / (name + ".json");
     const auto output = directory / (name + ".fsrec");
     const auto log = directory / (name + ".log");
@@ -186,6 +261,9 @@ Run successful(const fs::path& executable, const fs::path& directory, const std:
             "capture must preserve native SDK guidance and flight-model cadences");
     require(run.evidence.child("weapons").asArray().size() == 1, "consented native strike must release one missile");
     const auto& weapon = run.evidence.child("weapons").asArray().front();
+    const auto& modelProfile=weapon.child("model_profile");
+    require(modelProfile.number("execution",0)==1 && modelProfile.number("fuze",0)==1 && modelProfile.number("warhead",0)==1,
+            "showcase must consume current versioned native model cards");
     const auto carrierId = static_cast<std::uint32_t>(run.evidence.number("carrier_id", 0));
     const auto targetId = static_cast<std::uint32_t>(run.evidence.number("target_id", 0));
     const auto weaponId = static_cast<std::uint32_t>(weapon.number("id", 0));
@@ -300,6 +378,7 @@ Run successful(const fs::path& executable, const fs::path& directory, const std:
     require(firstTargetPosition.size() == 3 && lastTargetPosition.size() == 3 &&
             std::hypot(firstTargetPosition[0] - lastTargetPosition[0], firstTargetPosition[1] - lastTargetPosition[1], firstTargetPosition[2] - lastTargetPosition[2]) > 500.0,
             "target must fly its native model before the encounter");
+    if (requireFunctional) functionalResponse(run);
     return run;
 }
 
@@ -316,11 +395,18 @@ void reject(const fs::path& executable, const fs::path& directory, Json input, c
 
 int main(int argc, char** argv) {
     try {
-        require(argc == 3, "usage: fsim_showcase_native_test <flightsim-showcase> <output-directory>");
+        require(argc == 3 || (argc==4 && std::string(argv[3])=="functional"),
+                "usage: fsim_showcase_native_test <flightsim-showcase> <output-directory> [functional]");
         const fs::path executable = fs::absolute(argv[1]), directory = fs::absolute(argv[2]);
         fs::create_directories(directory);
+        if (argc==4) {
+            successful(executable,directory,"functional",30,false,true);
+            std::cout << "PASS: unchanged showcase native functional damage and continued flight\n";
+            return 0;
+        }
         unthreatenedFlight(directory);
         const auto first = successful(executable, directory, "first");
+        functionalResponse(first);
         const auto second = successful(executable, directory, "second");
         require(first.evidence.dump() == second.evidence.dump(), "same seed and measured-track scene changed native events or outcome");
         const auto& a = first.recording.frames(); const auto& b = second.recording.frames();

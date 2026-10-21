@@ -19,25 +19,25 @@
         <location name="VRP" unit="IN"> <x> 402.888 </x> <y> -108.984 </y> <z> -29.676 </z> </location>
     </metrics>
     <mass_balance negated_crossproduct_inertia="false">
-        <ixx unit="SLUG*FT2"> 910.8224 </ixx>
-        <iyy unit="SLUG*FT2"> 835.4840 </iyy>
-        <izz unit="SLUG*FT2"> 855.4967 </izz>
-        <ixy unit="SLUG*FT2"> -117.6346 </ixy>
-        <ixz unit="SLUG*FT2"> 58.4180 </ixz>
-        <iyz unit="SLUG*FT2"> -260.1329 </iyz>
-        <emptywt unit="LBS"> 1677.222 </emptywt>
-        <location name="CG" unit="IN"> <x> 402.888 </x> <y> -108.984 </y> <z> -29.676 </z> </location>
+        <ixx unit="SLUG*FT2"> 910.82243122669854 </ixx>
+        <iyy unit="SLUG*FT2"> 835.48402747882835 </iyy>
+        <izz unit="SLUG*FT2"> 855.49666268062151 </izz>
+        <ixy unit="SLUG*FT2"> -117.63463538470276 </ixy>
+        <ixz unit="SLUG*FT2"> 58.417990481300436 </ixz>
+        <iyz unit="SLUG*FT2"> -260.13291123196728 </iyz>
+        <emptywt unit="LBS"> 1677.2215105822879 </emptywt>
+        <location name="CG" unit="IN"> <x> 402.88779527559058 </x> <y> -108.98385826771654 </y> <z> -29.676377952755907 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 394.023 </x> <y> -124.016 </y> <z> 0.000 </z> </location>
+            <location unit="IN"> <x> 394.02322834645673 </x> <y> -124.01574803149606 </y> <z> 0 </z> </location>
         </pointmass>
         <pointmass name="station 1">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 407.520 </x> <y> -168.504 </y> <z> -23.622 </z> </location>
+            <location unit="IN"> <x> 407.51968503937007 </x> <y> -168.50354330708663 </y> <z> -23.622047244094489 </z> </location>
         </pointmass>
         <pointmass name="station 2">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 389.961 </x> <y> -110.590 </y> <z> -23.622 </z> </location>
+            <location unit="IN"> <x> 389.96062992125985 </x> <y> -110.59015748031497 </y> <z> -23.622047244094489 </z> </location>
         </pointmass>
     </mass_balance>
     <ground_reactions>

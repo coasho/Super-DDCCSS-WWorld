@@ -15,6 +15,7 @@
 #include "simulation/mission_systems/weapon/LaunchEligibility.h"
 #include "simulation/mission_systems/weapon/TrackKinematics.h"
 #include "simulation/mission_systems/weapon/Autopilot.h"
+#include "simulation/mission_systems/weapon/Composition.h"
 #include "simulation/flight/Attitude.h"
 
 #include <fstream>
@@ -25,6 +26,7 @@
 #include <cmath>
 #include <cstring>
 #include <new>
+#include <stdexcept>
 
 namespace fsim::session {
 
@@ -32,6 +34,27 @@ namespace {
 
 /// The stream a vehicle's sensors draw from (its radars' looks), apart from its flight model's (stream 0).
 constexpr std::uint64_t kSensorStream = 0x5345'4E53ull;
+
+std::optional<ms::weapon::Spec> legacyWeaponSpec(const ms::StoreCard& card,std::string& error) {
+    ms::weapon::Spec spec;
+    spec.seeker=card.seeker;
+    const bool infrared=spec.seeker.find("infrared")!=std::string::npos;
+    const bool semi=spec.seeker=="semi_active_radar";
+    spec.acquireM=card.value("seeker_acquire_m",infrared ? 13000.0 : (semi ? 60000.0 : 17000.0));
+    spec.gimbalRad=card.value("seeker_gimbal_deg",infrared ? 45.0 : 60.0)*units::kPi/180;
+    spec.maxG=card.value("guidance_max_g",infrared ? 40.0 : 35.0);
+    spec.lifeS=card.value("guidance_life_s",infrared ? 45.0 : 110.0);
+    spec.loftRad=infrared ? 0 : 20*units::kPi/180;
+    spec.fuzeM=card.value("fuze_radius_m",7+std::sqrt(card.value("warhead_kg",12)));
+    const auto& capabilities=card.guidanceCapabilities;
+    spec.capabilityVersion=capabilities.version;
+    spec.inertialMidcourse=capabilities.inertialMidcourse; spec.launcherUpdates=capabilities.launcherUpdates;
+    if (!ms::weapon::configureGuidance(card,spec,error)) return std::nullopt;
+    if (card.parameters.count("warhead_model_version") && !ms::damage::warheadOf(card)) {
+        error="explicit warhead model configuration is unavailable"; return std::nullopt;
+    }
+    return spec;
+}
 
 std::optional<ms::damage::V3> capturedCg(sim::FlightModel& model) {
     double cg[3];
@@ -137,6 +160,61 @@ std::shared_ptr<const control::VehicleProfile> readAircraftProfile(const std::st
 
 } // namespace
 
+std::shared_ptr<const ms::components::ProfileV1> World::payloadProfile(const ms::StoreCard& card,std::string& error) const {
+    return payloadBindings_.find(card,error);
+}
+
+bool World::bindPayloadProfile(std::shared_ptr<const ms::StoreCard> card,const std::filesystem::path& library,std::string& error) {
+    error.clear();
+    if (!card) {error="store card unavailable";return false;}
+    const auto deny=[&] {payloadBindings_.refuse(card,library,error);return false;};
+    if (card->id.empty() || card->id=="." || card->id==".." || card->id.find_first_of("/\\:")!=std::string::npos) {
+        error="store identity is not a library filename";return deny();
+    }
+    if (library.empty()) {error="store component source was not retained with its loaded card";return deny();}
+    ms::components::ProfileV1 resolved;
+    if (!ms::components::readProfileV1(library/(card->id+".json"),*card,resolved,error)) return deny();
+    std::error_code fileError; const auto origin=std::filesystem::weakly_canonical(library,fileError);
+    if (fileError) {error="cannot canonicalize store component source";return deny();}
+    auto profile=std::make_shared<const ms::components::ProfileV1>(std::move(resolved));
+    return payloadBindings_.bind(std::move(card),std::move(profile),origin,error);
+}
+
+std::optional<ms::weapon::Spec> World::configuredWeaponSpec(const ms::StoreCard& card,std::string& error) const {
+    auto configured=legacyWeaponSpec(card,error); if (!configured) return std::nullopt;
+    const auto profile=payloadProfile(card,error); if (!profile) return std::nullopt;
+    if (!profile->explicitProfile()) return configured;
+    ms::weapon::Spec selected;
+    if (!ms::weapon::configureCompositionV1(card,*profile,*configured,selected,error)) return std::nullopt;
+    configured=std::move(selected);
+    return configured;
+}
+
+ms::weapon::NativePlantIdentityV1 World::nativePlantIdentity(const Entry& e) {
+    ms::weapon::NativePlantIdentityV1 identity;
+    for (std::size_t k=0;k<identity.components.size();++k) {
+        auto& row=identity.components[k]; const auto& reads=e.plantMetadata[k];
+        if (reads[0].valid()) row.schemaVersion=reads[0].get();
+        if (reads[1].valid()) row.implementationCode=reads[1].get();
+        if (reads[2].valid()) row.fingerprint=reads[2].get();
+    }
+    return identity;
+}
+
+ms::weapon::NativePlantIdentityV1 World::nativePlantIdentity(sim::FlightModel& model,const ms::weapon::PlantAdapterV1& selected) {
+    ms::weapon::NativePlantIdentityV1 identity;
+    const char* kinds[]={"autopilot","allocator","actuator","propulsion","aerodynamics"};
+    for (std::size_t k=0;k<5;++k) {
+        if (!selected.required[k] || selected.availability[k]!=ms::components::AvailabilityV1::Available) continue;
+        const auto base=std::string("fsim/components/")+kinds[k]+"/";
+        const auto schema=model.property(base+"schema-version"),code=model.property(base+"implementation-code"),fingerprint=model.property(base+"profile-fingerprint");
+        if (schema.valid()) identity.components[k].schemaVersion=schema.get();
+        if (code.valid()) identity.components[k].implementationCode=code.get();
+        if (fingerprint.valid()) identity.components[k].fingerprint=fingerprint.get();
+    }
+    return identity;
+}
+
 World::World(const WorldOptions& options) : options_(options), dmsRng_(Rng::forVehicle(options.seed, 0x444D53u, 0)), rng_(options.seed) {
     options_.frameSkip = std::max(1, options_.frameSkip);
     io::AssetResolver assets;
@@ -228,6 +306,10 @@ control::Reason missionControl(const ms::Host& host, std::string_view capability
 } // namespace
 
 std::uint32_t World::createVehicle(const VehicleSpec& spec) {
+    return createVehicleChecked(spec,{});
+}
+
+std::uint32_t World::createVehicleChecked(const VehicleSpec& spec,const std::function<bool(sim::FlightModel&)>& validate) {
     std::string family, aircraft;
     if (!parseType(spec.type, family, aircraft)) {
         LOG_ERROR("session") << "bad vehicle type '" << spec.type << "'";
@@ -247,7 +329,6 @@ std::uint32_t World::createVehicle(const VehicleSpec& spec) {
     for (auto it = freeSlots_.begin(); it != freeSlots_.end(); ++it)
         if (slotAircraft_[*it] == aircraft) {
             slot = *it;
-            freeSlots_.erase(it);
             break;
         }
     // Terrain under and around the spawn point must be known before JSBSim
@@ -263,6 +344,7 @@ std::uint32_t World::createVehicle(const VehicleSpec& spec) {
             LOG_ERROR("session") << "failed to load aircraft '" << aircraft << "'";
             return 0;
         }
+        if (validate && !validate(*model)) return 0;
         if (!profiles_.count(aircraft)) {
             const auto dir = files.aircraftDir.empty() ? files.jsbsimRoot / "aircraft" : files.aircraftDir;
             const auto profile = readAircraftProfile(aircraft, *model, dir / aircraft / (aircraft + ".xml"));
@@ -273,6 +355,11 @@ std::uint32_t World::createVehicle(const VehicleSpec& spec) {
             std::vector<std::string> errors;
             const auto library = io::AssetResolver{}.find("payloads");
             fits_[aircraft] = library ? ms::readFit(dir / aircraft / "payloads.json", *library, errors) : nullptr;
+            if (library && fits_[aircraft]) for (const auto& [storeId,card]:fits_[aircraft]->stores) {
+                std::string error;
+                if (bindPayloadProfile(card,library->parent_path()/"stores",error)) storeCards_.emplace(storeId,card);
+                else errors.push_back(storeId+": "+error);
+            }
             for (const auto& error : errors) LOG_WARN("session") << "payloads: " << error;
             // what a warhead breaks on it (MS-7g): its damage data beside its definition, if hangar wrote one; its
             // pieces' definitions beside it
@@ -309,7 +396,9 @@ std::uint32_t World::createVehicle(const VehicleSpec& spec) {
         poolInputs_.emplace_back();
         stepStates_.emplace_back();
     } else {
-        pool_->vehicle(slot).reset(spec.initial);
+        if (!pool_->vehicle(slot).reset(spec.initial)) return 0;
+        if (validate && !validate(pool_->vehicle(slot))) return 0;
+        freeSlots_.erase(std::find(freeSlots_.begin(),freeSlots_.end(),slot));
     }
 
     const std::uint32_t id = nextId_++;
@@ -445,6 +534,9 @@ bool World::resetVehicle(std::uint32_t id, const sim::InitialConditions* ic, std
     e->engagementPath.clear();
     e->engagementStates.clear();
     e->engagementCg.clear();
+    e->engagementMatter.clear();
+    if (e->fuzeAdapter) e->fuzeAdapter->resetTurnHistory();
+    else e->fuzeTurn.reset();
     e->inputs.setThrottleAll(e->info.role == ms::Role::Weapon
                                 ? (e->info.initial.enginesRunning ? 1.0 : 0.0)
                                 : (e->info.initial.onGround ? 0.0 : 0.65));
@@ -1813,17 +1905,21 @@ void World::applyEnvironment(sim::FlightModel& model) const {
 void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim::ControlInputs& inputs) {
     Entry* e = entries_[slot].get();
     if (!e) return;
-    const bool needState = captureEngagementMotion_ || e->guidance || !e->effects.empty() || e->stack.activeLevel() != control::Level::Actuator;
+    const bool needState = captureEngagementMotion_ || subStep==0 || e->guidance || !e->effects.empty() || e->stack.activeLevel() != control::Level::Actuator;
     if (needState) model.state(e->working);
     else e->working = pool_->states()[slot];
-    if (captureEngagementMotion_) {
-        const double offset=e->working.simTime-e->engagementModelTimeS;
-        if (std::isfinite(offset) && offset>=0 &&
-            (e->engagementPath.empty() || offset>e->engagementPath.back().offsetS))
+    {
+        // Boundary history is available to SDK historical queries even when
+        // no weapon needs a complete native trajectory. Advance only ordinal
+        // bookkeeping at the unsampled callbacks in that cheaper mode.
+        const auto offset=e->engagementCaptureEpoch.capture(static_cast<unsigned>(subStep),options_.dt,
+            e->working.crashed || e->working.diverged);
+        if (offset && (captureEngagementMotion_ || subStep==0))
         {
-            e->engagementPath.push_back({offset,{e->working.positionEcef[0],e->working.positionEcef[1],e->working.positionEcef[2]}});
+            e->engagementPath.push_back({*offset,{e->working.positionEcef[0],e->working.positionEcef[1],e->working.positionEcef[2]}});
             e->engagementStates.push_back(e->working);
             e->engagementCg.push_back(capturedCg(model));
+            e->engagementMatter.push_back(captureMatter(model));
         }
     }
     const double t = simTime_ + subStep * options_.dt;
@@ -1911,7 +2007,28 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
                 measured.momentBodyNm[k]=r.aeroMoment[k].get()*1.3558179483314;
             }
             in.measured=measured;
-            const auto commands = ms::weapon::finCommands(in);
+            ms::weapon::ControlStopsV1 stops;
+            const auto metadataVersion=[](const PropertyHandle& handle) -> unsigned {
+                if (!handle.valid()) return 0;
+                return handle.get()==1 ? 1u : 2u;
+            };
+            stops.version=metadataVersion(r.normalizationVersion);
+            stops.actuatorVersion=metadataVersion(r.actuatorVersion);
+            if (stops.version==1 &&
+                (!std::all_of(r.lowerStops.begin(),r.lowerStops.end(),[](const auto& h){return h.valid();}) ||
+                 !std::all_of(r.upperStops.begin(),r.upperStops.end(),[](const auto& h){return h.valid();}))) stops.version=2;
+            const double count=r.finCount.get();
+            if (stops.actuatorVersion==1 && (!r.finCount.valid() || !std::isfinite(count) || count<1 ||
+                count>ipc::kWeaponControlMaxFins || count!=std::floor(count) || count!=static_cast<double>(r.finRates.size())))
+                stops.actuatorVersion=2;
+            stops.channelRateRadS=r.channelRate.get();
+            for (std::size_t k=0;k<3;++k) {
+                stops.lowerRad[k]=r.lowerStops[k].get(); stops.upperRad[k]=r.upperStops[k].get();
+            }
+            for (const auto& rate : r.finRates) stops.finRateRadS.push_back(rate.get());
+            const auto commands = e->plantAdapter.configured
+                ? ms::weapon::plantCommandsV1(e->plantAdapter,in,stops,nativePlantIdentity(*e))
+                : ms::weapon::finCommands(in,e->guidance->spec().control,stops);
             e->finControllerAvailable=commands.available;
             e->inputs.aileron = commands.aileron;
             e->inputs.elevator = commands.elevator;
@@ -2062,10 +2179,17 @@ bool World::resolveWeaponTarget(std::uint32_t launcher, std::uint32_t target, si
 
 ms::Reason World::weaponLaunchEligibility(const Entry& launcher, std::uint16_t store, std::uint32_t target) const {
     const auto* card = launcher.ms.storeCard(store);
-    if (!target || !card || card->storeClass != "aam") return ms::Reason::None;
+    if (!card || card->storeClass != "aam") return ms::Reason::None;
+    std::string configurationError;
+    const auto spec=configuredWeaponSpec(*card,configurationError);
+    if (!spec) {
+        LOG_WARN("session") << card->id << ": " << configurationError;
+        return ms::Reason::InvalidParameter;
+    }
+    if (!target) return ms::Reason::None;
     sim::VehicleState estimate{};
     const bool resolved = resolveWeaponTarget(launcher.info.id, target, estimate);
-    const auto eligibility = ms::weapon::checkLaunchEligibility(*card, pool_->states()[launcher.slot], resolved ? &estimate : nullptr);
+    const auto eligibility = ms::weapon::checkLaunchEligibility(*card, pool_->states()[launcher.slot], resolved ? &estimate : nullptr,spec->seekerModel);
     if (eligibility.reason != ms::Reason::None) return eligibility.reason;
     if (!eligibility.illuminationRequired) return ms::Reason::None;
     const auto* d = designation(target);
@@ -2151,7 +2275,54 @@ void World::flyReleases() {
             pool_->vehicle(e->slot).cgFromOriginBodyM(cg);
             for (int k = 0; k < 3; ++k) r.launch.offsetBodyM[k] -= cg[k];
             const ms::StoreCard* releasedCard = e->ms.storeCard(r.store);
-            const std::uint32_t weapon = launchWeapon(launcher, r.launch);
+            std::shared_ptr<const ms::components::ProfileV1> releaseProfile;
+            ms::weapon::PlantAdapterV1 releasePlant;
+            std::optional<ms::weapon::Spec> releaseGuidance;
+            std::unique_ptr<ms::weapon::FuzeAdapter> releaseFuze;
+            std::unique_ptr<ms::damage::WarheadAdapter> releaseWarhead;
+            std::string configurationError;
+            bool configured=true;
+            const bool guided=!r.launch.inert && releasedCard && releasedCard->storeClass=="aam" && !releasedCard->seeker.empty();
+            if (releasedCard) {
+                releaseProfile=payloadProfile(*releasedCard,configurationError);
+                configured=static_cast<bool>(releaseProfile);
+                if (configured && guided) {
+                    releaseGuidance=configuredWeaponSpec(*releasedCard,configurationError);
+                    configured=releaseGuidance.has_value();
+                }
+                if (configured && releaseProfile->explicitProfile()) {
+                    const auto& profile=*releaseProfile;
+                    if (guided) {
+                        configured=ms::weapon::configurePlantV1(*profile.find("autopilot"),*profile.find("allocator"),
+                            *profile.find("actuator"),*profile.find("propulsion"),*profile.find("aerodynamics"),
+                            *releasedCard,releasePlant,configurationError);
+                        if (configured) releaseFuze=ms::weapon::makeFuzeAdapter(*profile.find("fuze"),*releaseGuidance,configurationError);
+                        if (configured && releaseFuze) releaseWarhead=ms::damage::makeWarheadAdapter(*releasedCard,*profile.find("warhead"),configurationError);
+                        configured=configured && releaseFuze && releaseWarhead;
+                    } else if (r.launch.inert) configured=ms::weapon::configureBallisticPlantV1(*profile.find("aerodynamics"),*releasedCard,releasePlant,configurationError);
+                    else configured=ms::weapon::configureUnguidedPlantV1(*profile.find("propulsion"),*profile.find("aerodynamics"),*releasedCard,releasePlant,configurationError);
+                }
+            }
+            const auto refuse=[&] {
+                LOG_WARN("session") << (releasedCard ? releasedCard->id : r.launch.type) << ": native component execution refused: " << configurationError;
+                e->ms.releaseExecutionRefused(r.activity,ms::Reason::InvalidParameter,simTime_);
+                refusals.emplace(r.activity,ms::Reason::InvalidParameter);
+            };
+            if (!configured) {refuse();continue;}
+            bool nativeBindingRefused=false;
+            std::function<bool(sim::FlightModel&)> validate;
+            if (releasePlant.configured) validate=[&](sim::FlightModel& model) {
+                bool engineMatches=true;
+                if (releasePlant.required[3]) {
+                    sim::VehicleState state;model.state(state);
+                    engineMatches=state.engineCount==(releasePlant.availability[3]==ms::components::AvailabilityV1::Available ? 1 : 0);
+                }
+                if (engineMatches && ms::weapon::plantAvailableV1(releasePlant,nativePlantIdentity(model,releasePlant))) return true;
+                configurationError="loaded native component identity differs from the selected card profile";
+                nativeBindingRefused=true;return false;
+            };
+            const std::uint32_t weapon = launchWeaponChecked(launcher,r.launch,validate);
+            if (nativeBindingRefused) {refuse();continue;}
             if (Entry* w = weapon ? entry(weapon) : nullptr) {
                 const auto& info = entry(launcher)->ms.stores();
                 w->origin.store = r.store < info.size() ? info[r.store].store : "";
@@ -2159,21 +2330,22 @@ void World::flyReleases() {
                 w->origin.activity = r.activity;
                 w->origin.target = r.target;
                 w->origin.jettisoned = r.jettisoned;
-                if (!r.jettisoned && releasedCard && releasedCard->storeClass == "aam" && !releasedCard->seeker.empty()) {
-                    ms::weapon::Spec guidance;
-                    guidance.seeker = releasedCard->seeker;
-                    const bool infrared = guidance.seeker.find("infrared") != std::string::npos;
-                    const bool semi = guidance.seeker == "semi_active_radar";
-                    guidance.acquireM = releasedCard->value("seeker_acquire_m", infrared ? 13000.0 : (semi ? 60000.0 : 17000.0));
-                    guidance.gimbalRad = releasedCard->value("seeker_gimbal_deg", infrared ? 45.0 : 60.0) * units::kPi / 180.0;
-                    guidance.maxG = releasedCard->value("guidance_max_g", infrared ? 40.0 : 35.0);
-                    guidance.lifeS = releasedCard->value("guidance_life_s", infrared ? 45.0 : 110.0);
-                    guidance.loftRad = infrared ? 0.0 : 20.0 * units::kPi / 180.0;
-                    guidance.fuzeM = releasedCard->value("fuze_radius_m", 7.0 + std::sqrt(releasedCard->value("warhead_kg", 12.0)));
-                    const auto& capabilities = releasedCard->guidanceCapabilities;
-                    guidance.capabilityVersion = capabilities.version;
-                    guidance.inertialMidcourse = capabilities.inertialMidcourse;
-                    guidance.launcherUpdates = capabilities.launcherUpdates;
+                w->payloadProfile=std::move(releaseProfile);
+                w->plantAdapter=std::move(releasePlant);
+                w->fuzeAdapter=std::move(releaseFuze);
+                w->warheadAdapter=std::move(releaseWarhead);
+                if (w->plantAdapter.configured) {
+                    const char* kinds[]={"autopilot","allocator","actuator","propulsion","aerodynamics"};
+                    const char* fields[]={"schema-version","implementation-code","profile-fingerprint"};
+                    auto& model=pool_->vehicle(w->slot);
+                    for (std::size_t k=0;k<5;++k) if (w->plantAdapter.required[k] &&
+                        w->plantAdapter.availability[k]==ms::components::AvailabilityV1::Available) for (std::size_t j=0;j<3;++j)
+                        w->plantMetadata[k][j]=model.property(std::string("fsim/components/")+kinds[k]+"/"+fields[j]);
+                }
+                if (releasedCard) w->contactNoseFromOriginBodyM=authoredContactNose(pool_->vehicle(w->slot));
+                if (guided) {
+                    const auto guidance=*releaseGuidance;
+                    const bool infrared=guidance.seeker.find("infrared")!=std::string::npos;
                     std::optional<ms::weapon::Observation> initialEstimate;
                     sim::VehicleState targetEstimate{};
                     // A raw Range entity target is not an onboard observation.
@@ -2186,7 +2358,19 @@ void World::flyReleases() {
                     w->launchSeekerCue = infrared ? onRailSeekerObservation(*e, *releasedCard) : 0;
                     w->guidance = std::make_unique<ms::weapon::Guidance>(guidance, initialEstimate);
                     auto& wm = pool_->vehicle(w->slot);
-                    if (ms::damage::warheadOf(*releasedCard)) w->contactNoseFromOriginBodyM=authoredContactNose(wm);
+                    const auto warhead=w->warheadAdapter ? std::optional<ms::damage::Warhead>{w->warheadAdapter->model()}
+                                                        : ms::damage::warheadOf(*releasedCard);
+                    if (warhead && warhead->modelVersion==1) {
+                        w->fixedBurstRequired=true;
+                        if (w->contactNoseFromOriginBodyM && warhead->stationStructuralM) {
+                            const auto station=*warhead->stationStructuralM;
+                            w->burstFromOriginBodyM=*w->contactNoseFromOriginBodyM+ms::damage::V3{-station.x,station.y,-station.z};
+                        }
+                    }
+                    if (guidance.fuzeModelVersion==1 && w->contactNoseFromOriginBodyM && guidance.fuzeStationStructuralM) {
+                        const auto station=*guidance.fuzeStationStructuralM;
+                        w->fuzeFromOriginBodyM=*w->contactNoseFromOriginBodyM+ms::damage::V3{-station.x,station.y,-station.z};
+                    }
                     auto& f = w->finControl;
                     f.version = wm.property("fsim/missile-control/version");
                     f.qbar = wm.property("aero/qbar-psf"); f.area = wm.property("metrics/Sw-sqft");
@@ -2197,11 +2381,21 @@ void World::flyReleases() {
                         f.aeroForce[k]=wm.property(forceAxes[k]); f.aeroMoment[k]=wm.property(momentAxes[k]);
                     }
                     f.lag = wm.property("fsim/missile-control/lag-coefficient-s-1");
+                    f.normalizationVersion=wm.property("fsim/missile-control/normalization-version");
+                    f.actuatorVersion=wm.property("fsim/missile-control/actuator-version");
+                    f.channelRate=wm.property("fsim/missile-control/channel-rate-rad_s");
+                    f.finCount=wm.property("fsim/missile-control/fin-count");
+                    const double finCount=f.finCount.get();
+                    if (std::isfinite(finCount) && finCount>=1 && finCount<=ipc::kWeaponControlMaxFins && std::floor(finCount)==finCount)
+                        for (std::size_t k=0;k<static_cast<std::size_t>(finCount);++k)
+                            f.finRates.push_back(wm.property("fsim/missile-control/fin-"+std::to_string(k)+"-rate-rad_s"));
                     const char* axes[3] = {"aileron", "elevator", "rudder"};
                     const char* inertia[3] = {"ixx", "iyy", "izz"};
                     for (std::size_t k=0; k<3; ++k) {
                         f.inertia[k] = wm.property(std::string("inertia/")+inertia[k]+"-slugs_ft2");
                         f.limits[k] = wm.property(std::string("fsim/missile-control/")+axes[k]+"-limit-rad");
+                        f.lowerStops[k]=wm.property(std::string("fsim/missile-control/")+axes[k]+"-min-rad");
+                        f.upperStops[k]=wm.property(std::string("fsim/missile-control/")+axes[k]+"-max-rad");
                     }
                     const char* coefficients[12] = {"cz-alpha", "cy-beta", "cm-alpha", "cn-beta", "cm-q", "cn-r",
                         "cl-p", "cz-elevator", "cy-rudder", "cm-elevator", "cn-rudder", "cl-aileron"};
@@ -2369,8 +2563,9 @@ void World::sense() {
         emission.entity=e->info.id; emission.mode=ms::EmitterMode::Seeker;
         emission.state=&states[e->slot]; emission.target=e->origin.holding;
         // basis: assumed. Low-power seeker transmitter; the receiver measures its own bearing and strength.
-        emission.powerW=20; emission.peakGainDbi=25; emission.sidelobeDbi=-15;
-        emission.azimuthHalfWidthRad=emission.elevationHalfWidthRad=.35;
+        const auto& seeker=e->guidance->spec().seekerModel;
+        emission.powerW=seeker.emitterPowerW; emission.peakGainDbi=seeker.emitterPeakGainDbi; emission.sidelobeDbi=seeker.emitterSidelobeDbi;
+        emission.azimuthHalfWidthRad=emission.elevationHalfWidthRad=seeker.emitterHalfWidthRad;
         emissions_.push_back(emission);
     }
     // each radar looks on its own (its stream, its detections), on the workers - a contiguous share of them each, in
@@ -2411,13 +2606,17 @@ void World::step(unsigned n) {
         std::copy(before.begin(), before.end(), stepStates_.begin());
         captureEngagementMotion_=std::any_of(entries_.begin(),entries_.end(),
             [](const auto& e){return e && e->info.role==ms::Role::Weapon && !e->weaponEnded;});
-        if (captureEngagementMotion_) for (auto& e : entries_) if (e) {
+        for (auto& e : entries_) if (e) {
+            e->engagementCaptureEpoch={};
             e->engagementPath.clear();
             e->engagementStates.clear();
             e->engagementCg.clear();
-            e->engagementPath.reserve(static_cast<std::size_t>(options_.frameSkip)+1);
-            e->engagementStates.reserve(static_cast<std::size_t>(options_.frameSkip)+1);
-            e->engagementCg.reserve(static_cast<std::size_t>(options_.frameSkip)+1);
+            e->engagementMatter.clear();
+            const auto samples=captureEngagementMotion_ ? static_cast<std::size_t>(options_.frameSkip)+1 : 2;
+            e->engagementPath.reserve(samples);
+            e->engagementStates.reserve(samples);
+            e->engagementCg.reserve(samples);
+            e->engagementMatter.reserve(samples);
             e->engagementModelTimeS=before[e->slot].simTime;
         }
         transferFuel();
@@ -2429,15 +2628,21 @@ void World::step(unsigned n) {
             const auto liveAfter = pool_->states();
             afterStates_.assign(liveAfter.begin(),liveAfter.end());
             const auto& after=afterStates_;
-            if (captureEngagementMotion_) for (auto& e : entries_) if (e) {
+            for (auto& e : entries_) if (e) {
                 const auto& state=after[e->slot];
-                const double offset=state.simTime-e->engagementModelTimeS;
-                if (std::isfinite(offset) && offset>=0 &&
-                    (e->engagementPath.empty() || offset>e->engagementPath.back().offsetS))
+                // In boundary-only mode a newly terminal final snapshot does
+                // not prove a moving segment from the opening pose. Keep the
+                // real opening boundary and refuse that unknown interval.
+                const auto offset=pool_->active(e->slot) &&
+                    (captureEngagementMotion_ || (!state.crashed && !state.diverged))
+                    ? e->engagementCaptureEpoch.capture(static_cast<unsigned>(options_.frameSkip),options_.dt,state.crashed || state.diverged)
+                    : std::nullopt;
+                if (offset)
                 {
-                    e->engagementPath.push_back({offset,{state.positionEcef[0],state.positionEcef[1],state.positionEcef[2]}});
+                    e->engagementPath.push_back({*offset,{state.positionEcef[0],state.positionEcef[1],state.positionEcef[2]}});
                     e->engagementStates.push_back(state);
                     e->engagementCg.push_back(capturedCg(pool_->vehicle(e->slot)));
+                    e->engagementMatter.push_back(captureMatter(pool_->vehicle(e->slot)));
                 }
             }
             const bool weigh = (loadTick_++ & 7u) == 0;
@@ -2678,6 +2883,11 @@ void World::publishMission() {
 }
 
 std::uint32_t World::launchWeapon(std::uint32_t launcher, const ms::WeaponLaunch& launch) {
+    return launchWeaponChecked(launcher,launch,{});
+}
+
+std::uint32_t World::launchWeaponChecked(std::uint32_t launcher,const ms::WeaponLaunch& launch,
+    const std::function<bool(sim::FlightModel&)>& validate) {
     const Entry* from = entry(launcher);
     if (!from) {
         LOG_ERROR("session") << "launchWeapon: no vehicle " << launcher;
@@ -2720,7 +2930,7 @@ std::uint32_t World::launchWeapon(std::uint32_t launcher, const ms::WeaponLaunch
     std::string family, model;
     parseType(launch.type, family, model);
     spec.name = launch.name.empty() ? from->info.name + "-" + model + "-" + std::to_string(nextId_) : launch.name;
-    const std::uint32_t id = createVehicle(spec);
+    const std::uint32_t id = createVehicleChecked(spec,validate);
     Entry* e = entry(id);
     if (!e) return 0;
     e->info.role = ms::Role::Weapon;

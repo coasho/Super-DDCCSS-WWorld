@@ -26,7 +26,7 @@ import numpy as np
 from .files import open_write
 
 LB, FT, IN = 0.45359237, 0.3048, 0.0254
-SLUGFT2 = 1.35581795  # kg m^2 per slug ft^2
+SLUGFT2 = 1.3558179483314  # kg m^2 per slug ft^2, matching the native SDK conversion
 PARTS = ("nose", "left wing", "right wing", "tail")
 STALL_DEG = 20.0
 PLATE_CN = 1.2         # Hoerner: a flat plate broadside to the flow
@@ -135,6 +135,11 @@ def piece_xml(data, section):
 
     def loc(name, p, unit="IN"):
         k = 1.0 / IN
+        if name == "CG":
+            # Preserve the source first moment. Display-oriented rounding of
+            # this physical reference becomes a false orbital momentum on split.
+            return ('        <location name="%s" unit="IN"> <x> %.17g </x> <y> %.17g </y> <z> %.17g </z> </location>'
+                    % (name, p[0] * k, p[1] * k, p[2] * k))
         return ('        <location name="%s" unit="IN"> <x> %.3f </x> <y> %.3f </y> <z> %.3f </z> </location>'
                 % (name, p[0] * k, p[1] * k, p[2] * k))
 
@@ -142,7 +147,7 @@ def piece_xml(data, section):
         k = 1.0 / IN
         return ("""        <pointmass name="%s">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> %.3f </x> <y> %.3f </y> <z> %.3f </z> </location>
+            <location unit="IN"> <x> %.17g </x> <y> %.17g </y> <z> %.17g </z> </location>
         </pointmass>""" % (name, p[0] * k, p[1] * k, p[2] * k))
 
     def contact(name, p):
@@ -256,13 +261,13 @@ def piece_xml(data, section):
 %s
     </metrics>
     <mass_balance negated_crossproduct_inertia="false">
-        <ixx unit="SLUG*FT2"> %.4f </ixx>
-        <iyy unit="SLUG*FT2"> %.4f </iyy>
-        <izz unit="SLUG*FT2"> %.4f </izz>
-        <ixy unit="SLUG*FT2"> %.4f </ixy>
-        <ixz unit="SLUG*FT2"> %.4f </ixz>
-        <iyz unit="SLUG*FT2"> %.4f </iyz>
-        <emptywt unit="LBS"> %.3f </emptywt>
+        <ixx unit="SLUG*FT2"> %.17g </ixx>
+        <iyy unit="SLUG*FT2"> %.17g </iyy>
+        <izz unit="SLUG*FT2"> %.17g </izz>
+        <ixy unit="SLUG*FT2"> %.17g </ixy>
+        <ixz unit="SLUG*FT2"> %.17g </ixz>
+        <iyz unit="SLUG*FT2"> %.17g </iyz>
+        <emptywt unit="LBS"> %.17g </emptywt>
 %s
 %s
 %s

@@ -55,6 +55,11 @@ void VehicleDamage::weaken(int s, const V3& where, double removedM2) {
 }
 
 std::vector<Change> VehicleDamage::apply(const Impact& impact, double airPressurePa, Rng& rng) {
+    return apply(impact,airPressurePa,rng,{});
+}
+
+std::vector<Change> VehicleDamage::apply(const Impact& impact, double airPressurePa, Rng& rng,
+                                        const std::vector<PointImpulse>& contact) {
     std::vector<Change> out;
     const Airframe& a = *airframe_;
     const double thin = std::sqrt(std::clamp(airPressurePa / 101325.0, 0.0, 1.0)); // (fires catch less in thin air: an estimate)
@@ -146,11 +151,17 @@ std::vector<Change> VehicleDamage::apply(const Impact& impact, double airPressur
     for (const auto& h : impact.panels) {
         if (h.panel < 0 || static_cast<std::size_t>(h.panel) >= a.panels.size()) continue;
         const auto& p = a.panels[static_cast<std::size_t>(h.panel)];
-        if (p.section < 0 || !sectionAttached(p.section) || (!(h.impulsePas > 0.0) && h.hits == 0)) continue;
+        if (p.section < 0 || !sectionAttached(p.section) || (!(h.impulsePas > 0.0) && length(h.momentumNs) == 0)) continue;
         const auto& sec = a.sections[static_cast<std::size_t>(p.section)];
         if (!sec.hasRoot) continue;
         const V3 m = p.middle();
         kick[static_cast<std::size_t>(p.section)] += cross(m - sec.root, panelBlastImpulse(p, burst, h.impulsePas) + h.momentumNs);
+    }
+    for (const auto& load : contact) {
+        if (load.section<0 || static_cast<std::size_t>(load.section)>=a.sections.size() || !sectionAttached(load.section)) continue;
+        const auto& section=a.sections[static_cast<std::size_t>(load.section)];
+        if (!section.hasRoot) continue;
+        kick[static_cast<std::size_t>(load.section)] += cross(load.pointBody-section.root,load.momentumNs);
     }
     for (std::size_t s = 0; s < a.sections.size(); ++s) {
         const auto& sec = a.sections[s];
@@ -169,6 +180,25 @@ std::vector<Change> VehicleDamage::apply(const Impact& impact, double airPressur
                 out.push_back(ch);
                 break;
             }
+    }
+    return out;
+}
+
+std::vector<Change> VehicleDamage::detachComponents(int section) {
+    std::vector<Change> out;
+    if (section<0 || static_cast<std::size_t>(section)>=sections_.size() || !sections_[static_cast<std::size_t>(section)].separated) return out;
+    for (std::size_t i=0;i<airframe_->components.size();++i) {
+        const auto& c=airframe_->components[i];
+        if (c.section!=section) continue;
+        Change change; change.component=static_cast<int>(i); change.section=section;
+        if (c.kind=="crew" && !crewLost_) {
+            crewLost_=true; change.kind=Change::Kind::CrewLost;
+        } else if (c.kind=="engine" && c.engine>=0 && !engineOut(c.engine)) {
+            engines_out_.push_back(c.engine); change.kind=Change::Kind::EngineOut; change.engine=c.engine;
+        } else if (c.kind=="control" && !c.channel.empty() && std::find(lostChannels_.begin(),lostChannels_.end(),c.channel)==lostChannels_.end()) {
+            lostChannels_.push_back(c.channel); change.kind=Change::Kind::ControlLost; change.channel=c.channel;
+        } else continue;
+        out.push_back(change);
     }
     return out;
 }

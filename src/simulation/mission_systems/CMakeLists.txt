@@ -3,6 +3,8 @@
 add_library(fsim_ms STATIC
     Cards.h
     Cards.cpp
+    components/Profile.cpp
+    components/Bindings.cpp
     Host.h
     Host.cpp
     HostStores.cpp
@@ -10,6 +12,10 @@ add_library(fsim_ms STATIC
     Model.cpp
     Names.cpp
     weapon/Guidance.cpp
+    weapon/Composition.cpp
+    weapon/Seeker.cpp
+    weapon/PlantAdapter.cpp
+    weapon/FuzeAdapter.cpp
     weapon/ContactFuze.h
     weapon/ContactFuze.cpp
     weapon/Autopilot.cpp
@@ -20,6 +26,7 @@ add_library(fsim_ms STATIC
     esm/Receiver.cpp
     damage/Damage.h
     damage/Damage.cpp
+    damage/WarheadAdapter.cpp
     damage/State.h
     damage/State.cpp
     damage/Debris.h

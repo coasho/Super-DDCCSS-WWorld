@@ -73,6 +73,7 @@ struct Flight {
 
 class VehicleDamage {
 public:
+    struct PointImpulse { int section = -1; V3 pointBody, momentumNs; };
     explicit VehicleDamage(std::shared_ptr<const Airframe> airframe);
     const Airframe& airframe() const noexcept { return *airframe_; }
     /// A snapshot of currently attached geometry, retaining immutable source
@@ -95,6 +96,12 @@ public:
 
     /// A hit: what its fragments and blast break, its chances drawn from `rng`; what changed.
     std::vector<Change> apply(const Impact& impact, double airPressurePa, Rng& rng);
+    /// Mechanical loads are separate from fragment counts, holes and blast.
+    std::vector<Change> apply(const Impact& impact, double airPressurePa, Rng& rng,
+                              const std::vector<PointImpulse>& contact);
+    /// Components physically departing with a separated section cannot keep
+    /// powering/controlling the parent. No probabilistic hit is invented.
+    std::vector<Change> detachComponents(int section);
 
     /// Each holed tank's leak now (kg/s): its holes' orifice flow, the fuel's head under the load factor and the flow's
     /// suction over it.

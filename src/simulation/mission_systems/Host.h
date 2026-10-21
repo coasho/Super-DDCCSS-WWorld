@@ -136,6 +136,8 @@ public:
     /// releases and retain the precise refusal and previously released weapons.
     /// This is not cancellation; queued cancellation semantics are unchanged.
     bool releaseRefused(ActivityId activity, Reason reason, double simTime);
+    /// Native model/asset execution failure, including an inert jettison.
+    bool releaseExecutionRefused(ActivityId activity, Reason reason, double simTime);
     /// The mass a station carries now (kg): its stores still on it.
     double stationMassKg(std::uint16_t payload, int station) const noexcept;
     /// Bumped whenever a station's load changes (a load, a release): the world updates the flight model's masses.
@@ -176,6 +178,7 @@ public:
     std::uint64_t doorsRevision() const noexcept { return doorsRevision_; }
 
 private:
+    bool refuseRelease(ActivityId,Reason,double,bool includeJettison);
     struct Payload {
         PayloadState state = PayloadState::Off;
         PayloadState target = PayloadState::Off; ///< where a warm-up goes

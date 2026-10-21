@@ -100,5 +100,56 @@
       "url": "https://wiki.warthunder.com/",
       "date": "2026-10-09"
     }
+  },
+  "component_models": {
+    "schema_version": 1,
+    "components": {
+      "seeker": {
+        "availability": "not_applicable",
+        "reason": "This card declares no executing guided-store function."
+      },
+      "guidance": {
+        "availability": "not_applicable",
+        "reason": "This card declares no executing guided-store function."
+      },
+      "autopilot": {
+        "availability": "not_applicable",
+        "reason": "No authored native control surfaces on this released store."
+      },
+      "allocator": {
+        "availability": "not_applicable",
+        "reason": "No authored native control surfaces on this released store."
+      },
+      "actuator": {
+        "availability": "not_applicable",
+        "reason": "No authored native control surfaces on this released store."
+      },
+      "fuze": {
+        "availability": "not_applicable",
+        "reason": "This non-weapon card has no armed effects."
+      },
+      "warhead": {
+        "availability": "not_applicable",
+        "reason": "This non-weapon card has no armed effects."
+      },
+      "propulsion": {
+        "availability": "not_applicable",
+        "reason": "Released store has no executing motor phases."
+      },
+      "aerodynamics": {
+        "availability": "available",
+        "implementation_id": "fsim.aerodynamics.jsbsim_generated_store",
+        "configuration_version": 1,
+        "parameter_refs": {},
+        "bindings": {
+          "model": "jsbsim:ptb1500",
+          "design": "aircraft/ptb1500/ptb1500.toml",
+          "source": "slender_store"
+        },
+        "basis": "assumed",
+        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
+        "validity": "Reduced-order engineering model; hardware performance unvalidated."
+      }
+    }
   }
 }

@@ -19,29 +19,29 @@
         <location name="VRP" unit="IN"> <x> 668.890 </x> <y> 204.727 </y> <z> -23.150 </z> </location>
     </metrics>
     <mass_balance negated_crossproduct_inertia="false">
-        <ixx unit="SLUG*FT2"> 107227.2598 </ixx>
-        <iyy unit="SLUG*FT2"> 57331.8785 </iyy>
-        <izz unit="SLUG*FT2"> 146584.7451 </izz>
-        <ixy unit="SLUG*FT2"> 59223.4168 </ixy>
-        <ixz unit="SLUG*FT2"> -4393.1316 </ixz>
-        <iyz unit="SLUG*FT2"> -3145.7043 </iyz>
-        <emptywt unit="LBS"> 18851.964 </emptywt>
-        <location name="CG" unit="IN"> <x> 668.890 </x> <y> 204.727 </y> <z> -23.150 </z> </location>
+        <ixx unit="SLUG*FT2"> 107227.25989792318 </ixx>
+        <iyy unit="SLUG*FT2"> 57331.878609266081 </iyy>
+        <izz unit="SLUG*FT2"> 146584.74525624278 </izz>
+        <ixy unit="SLUG*FT2"> 59223.416911407759 </ixy>
+        <ixz unit="SLUG*FT2"> -4393.131605412349 </ixz>
+        <iyz unit="SLUG*FT2"> -3145.7043294410746 </iyz>
+        <emptywt unit="LBS"> 18851.964132465455 </emptywt>
+        <location name="CG" unit="IN"> <x> 668.88976377952758 </x> <y> 204.7267716535433 </y> <z> -23.150393700787401 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 686.632 </x> <y> 280.020 </y> <z> -2.955 </z> </location>
+            <location unit="IN"> <x> 686.63188976377944 </x> <y> 280.01968503937013 </y> <z> -2.9549212598425192 </z> </location>
         </pointmass>
         <pointmass name="station 4">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 614.961 </x> <y> 177.165 </y> <z> -38.976 </z> </location>
+            <location unit="IN"> <x> 614.96062992125985 </x> <y> 177.16535433070868 </y> <z> -38.976377952755911 </z> </location>
         </pointmass>
         <pointmass name="station 5">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 685.512 </x> <y> 275.591 </y> <z> -41.339 </z> </location>
+            <location unit="IN"> <x> 685.51181102362204 </x> <y> 275.59055118110234 </y> <z> -41.338582677165348 </z> </location>
         </pointmass>
         <pointmass name="station 6">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 750.079 </x> <y> 374.016 </y> <z> -45.276 </z> </location>
+            <location unit="IN"> <x> 750.0787401574803 </x> <y> 374.01574803149606 </y> <z> -45.275590551181104 </z> </location>
         </pointmass>
     </mass_balance>
     <ground_reactions>

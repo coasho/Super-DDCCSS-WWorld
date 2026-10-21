@@ -450,8 +450,16 @@ void Host::released(std::uint16_t store, std::uint32_t weapon, double simTime) {
 }
 
 bool Host::releaseRefused(ActivityId activity, Reason reason, double simTime) {
+    return refuseRelease(activity,reason,simTime,false);
+}
+
+bool Host::releaseExecutionRefused(ActivityId activity,Reason reason,double simTime) {
+    return refuseRelease(activity,reason,simTime,true);
+}
+
+bool Host::refuseRelease(ActivityId activity,Reason reason,double simTime,bool includeJettison) {
     Strike* s = strike(activity);
-    if (!s || s->jettison || reason == Reason::None) return false;
+    if (!s || (s->jettison && !includeJettison) || reason == Reason::None) return false;
     now_ = simTime;
     bool changed = false;
     for (const auto index : s->stores) {

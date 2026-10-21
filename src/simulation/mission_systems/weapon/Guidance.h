@@ -1,20 +1,24 @@
 #pragma once
 
 #include "fsim/MissionSystems.h"
+#include "Autopilot.h"
+#include "Seeker.h"
 #include <cstdint>
 #include <limits>
 #include <optional>
 #include <string>
 #include <vector>
 
+namespace fsim::ms { struct StoreCard; }
 namespace fsim::ms::weapon {
 // All positions/velocities/commands use ECEF metres, metres/second and
 // metres/second squared. up is the local outward unit direction. This core
 // commands acceleration including gravity compensation; JSBSim remains the
 // sole flight integrator. The caller owns expiry (lifeS), impact, damage and
 // terminal events; Guidance must only be updated for a live armed release.
-// basis: assumed. Acquisition range, navigation gain (3.5), 10-degree cue
-// gate, loft and gravity (9.80665 m/s^2) are engineering/game estimates.
+// Acquisition/range/loft and the legacy 3.5 navigation gain/10-degree cue
+// are engineering assumptions. Versioned cards select explicit execution
+// settings; the standard gravity conversion is 9.80665 m/s^2.
 // visible must contain only actual sensor observations after range, gimbal,
 // radar notch and infrared aspect/decoy applicability filtering by the caller.
 // The core defensively reapplies geometric range/gimbal limits. It never
@@ -29,7 +33,20 @@ struct Spec {
     /// explicit authored facts; neither implies a fitted modeled transport.
     unsigned capabilityVersion = 0;
     bool inertialMidcourse = false, launcherUpdates = false;
+    unsigned executionVersion = 0, guidanceAlgorithm = 1;
+    double navigationGain = 3.5, cueRad = .17453292519943295;
+    double activationRatio = 1.15, loftAccelerationG = 2;
+    FinControlConfigV1 control{};
+    unsigned fuzeModelVersion = 0, fuzeAlgorithm = 0;
+    double fuzeDelayS = 0;
+    std::optional<V3> fuzeStationStructuralM{}; ///< x aft from nose, y right, z up.
+    SeekerConfigV1 seekerModel{}; ///< Version zero leaves legacy seeker execution unchanged.
 };
+/// Parse independent optional execution/fuze blocks from the existing numeric
+/// card parameters. An explicit invalid block leaves `spec` unchanged.
+bool configureGuidance(const StoreCard& card, Spec& spec, std::string& error);
+bool configureSeeker(const components::DescriptorV1& descriptor, Spec& spec, std::string& error);
+bool configureGuidance(const components::DescriptorV1& descriptor, Spec& spec, std::string& error);
 struct Observation {
     std::uint32_t id = 0;
     V3 position, velocity;

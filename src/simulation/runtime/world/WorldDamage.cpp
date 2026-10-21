@@ -9,6 +9,7 @@
 #include "simulation/mission_systems/damage/Impact.h"
 
 #include "foundation/core/Log.h"
+#include "foundation/core/Units.h"
 #include "foundation/io/AssetResolver.h"
 
 #include <algorithm>
@@ -33,6 +34,14 @@ constexpr double kThrownMostMs = 60.0;
 constexpr double kRamSprayShare = 0.03;
 
 ms::damage::V3 v3(const double* a) { return {a[0], a[1], a[2]}; }
+ms::damage::V3 rotate(const sim::VehicleState& s, ms::damage::V3 v) {
+    const auto* r=s.rotationBodyToEcef;
+    return {r[0]*v.x+r[1]*v.y+r[2]*v.z,r[3]*v.x+r[4]*v.y+r[5]*v.z,r[6]*v.x+r[7]*v.y+r[8]*v.z};
+}
+ms::damage::V3 unrotate(const sim::VehicleState& s, ms::damage::V3 v) {
+    const auto* r=s.rotationBodyToEcef;
+    return {r[0]*v.x+r[3]*v.y+r[6]*v.z,r[1]*v.x+r[4]*v.y+r[7]*v.z,r[2]*v.x+r[5]*v.y+r[8]*v.z};
+}
 
 
 // a section's place in its model's structural frame (m: x aft, y right, z up) from body axes off its origin
@@ -43,6 +52,120 @@ void structural(const ms::damage::Airframe& a, const ms::damage::V3& body, doubl
 }
 
 } // namespace
+
+std::optional<World::Entry::Matter> World::captureMatter(sim::FlightModel& model) {
+    const auto* source=dynamic_cast<const sim::RigidMassSourceV1*>(&model);
+    Entry::Matter out;
+    if (!source || !source->rigidMassPropertiesV1(out.rigid)) return std::nullopt;
+    const auto p=model.property("atmosphere/P-psf"), t=model.property("atmosphere/T-R"), rho=model.property("atmosphere/rho-slugs_ft3");
+    if (!p.valid() || !t.valid() || !rho.valid()) return std::nullopt;
+    out.pressurePa=p.get()*kPsfToPa; out.temperatureK=t.get()/1.8; out.densityKgM3=rho.get()*kSlugFt3ToKgM3;
+    if (!(out.pressurePa>0) || !(out.temperatureK>0) || !(out.densityKgM3>=0) ||
+        !std::isfinite(out.pressurePa) || !std::isfinite(out.temperatureK) || !std::isfinite(out.densityKgM3)) return std::nullopt;
+    return out;
+}
+
+std::optional<World::Entry::Matter> World::engagementMatterAt(const Entry& e, double offsetS) const {
+    const auto& path=e.engagementPath; const auto& values=e.engagementMatter;
+    if (!std::isfinite(offsetS) || offsetS<0 || values.size()!=path.size() ||
+        e.engagementStates.size()!=path.size() || !ms::weapon::validMotionPath(path)) return std::nullopt;
+    for (std::size_t i=0;i<path.size();++i) {
+        if (i && offsetS>path[i-1].offsetS && !e.engagementStates.front().crashed &&
+            (e.engagementStates[i].crashed || e.engagementStates[i].diverged)) return std::nullopt;
+        if (offsetS==path[i].offsetS) return values[i];
+        if (offsetS<path[i].offsetS) {
+            if (!i || !values[i-1] || !values[i]) return std::nullopt;
+            const double span=path[i].offsetS-path[i-1].offsetS;
+            if (!(span>0)) return std::nullopt;
+            const double f=(offsetS-path[i-1].offsetS)/span;
+            const auto& a=*values[i-1]; const auto& b=*values[i]; auto out=a;
+            const auto mix=[&](double x,double y){return std::fma(f,y-x,x);};
+            out.rigid.massKg=mix(a.rigid.massKg,b.rigid.massKg);
+            for (int k=0;k<9;++k) out.rigid.inertiaBodyKgM2[k]=mix(a.rigid.inertiaBodyKgM2[k],b.rigid.inertiaBodyKgM2[k]);
+            out.pressurePa=mix(a.pressurePa,b.pressurePa); out.temperatureK=mix(a.temperatureK,b.temperatureK);
+            out.densityKgM3=mix(a.densityKgM3,b.densityKgM3);
+            return out;
+        }
+    }
+    if (e.engagementStates.front().crashed && e.engagementStates.back().crashed) return values.back();
+    return std::nullopt;
+}
+
+std::optional<World::ContactTransfer> World::contactTransfer(const Entry& weapon, std::uint32_t victimId,
+    const ms::weapon::ContactFuzeResult& contact) const {
+    const auto* victim=entry(victimId);
+    if (!victim || !contact.valid || !contact.contact) return std::nullopt;
+    const auto victimCg=engagementCgAt(*victim,contact.offsetS);
+    if (!victimCg) return std::nullopt;
+    const auto b=engagementStateAt(*victim,contact.offsetS);
+    ContactTransfer out; out.victim=victimId; out.fraction=contact.fraction; out.pointBody=contact.pointBody;
+    out.pointEcef=v3(b.positionEcef)+rotate(b,contact.pointBody-*victimCg);
+    const auto frame=airframes_.find(victim->info.aircraft);
+    if (frame==airframes_.end()) return std::nullopt;
+    if (contact.kind==ms::weapon::ContactKind::Panel) {
+        if (contact.index>=frame->second->panels.size()) return std::nullopt;
+        out.section=frame->second->panels[contact.index].section;
+    } else {
+        if (contact.index>=frame->second->components.size()) return std::nullopt;
+        out.section=frame->second->components[contact.index].section;
+    }
+    const auto body=[&](const sim::VehicleState& s,const Entry::Matter& matter) {
+        ms::damage::ContactBody result; result.massKg=matter.rigid.massKg;
+        result.velocity=rotate(s,v3(s.velocityBodyMs)); result.angularVelocity=rotate(s,v3(s.angularRateBodyRadS));
+        result.arm=out.pointEcef-v3(s.positionEcef);
+        const auto* r=s.rotationBodyToEcef; const auto* inertia=matter.rigid.inertiaBodyKgM2;
+        for (int row=0;row<3;++row) for (int col=row;col<3;++col) {
+            double value=0;
+            for (int i=0;i<3;++i) for (int j=0;j<3;++j) value+=r[3*row+i]*inertia[3*i+j]*r[3*col+j];
+            result.inertia[3*row+col]=result.inertia[3*col+row]=value;
+        }
+        return result;
+    };
+    // Detection uses captured geometry. Response is a discrete end-of-decision
+    // solve using the actual application mass, inertia, velocities and common
+    // world point. Moving an old impulse to new arms can create kinetic energy.
+    const auto weaponMatter=captureMatter(pool_->vehicle(weapon.slot));
+    const auto victimMatter=captureMatter(pool_->vehicle(victim->slot));
+    if (!weaponMatter || !victimMatter) return std::nullopt;
+    sim::VehicleState applicationA,applicationB;
+    pool_->vehicle(weapon.slot).state(applicationA); pool_->vehicle(victim->slot).state(applicationB);
+    const auto impulse=ms::damage::inelasticBodyContact(body(applicationA,*weaponMatter),body(applicationB,*victimMatter),rotate(b,contact.normalBody));
+    if (!impulse.valid || !impulse.approaching) return std::nullopt;
+    out.impulseEcef=impulse.impulseB; out.weaponImpulseEcef=impulse.impulseA; out.weaponAngularEcef=impulse.angularImpulseA;
+    out.dissipatedJ=impulse.dissipatedJ; out.closingMs=impulse.closingMs;
+    return out;
+}
+
+void World::contactReaction(Entry& weapon,const ContactTransfer& contact) {
+    sim::VehicleState now; pool_->vehicle(weapon.slot).state(now);
+    const auto j=unrotate(now,contact.weaponImpulseEcef);
+    const auto l=unrotate(now,ms::damage::cross(contact.pointEcef-v3(now.positionEcef),contact.weaponImpulseEcef));
+    const double linear[]={j.x,j.y,j.z}, angular[]={l.x,l.y,l.z};
+    pool_->vehicle(weapon.slot).applyImpulse(linear,angular);
+    pool_->refreshState(weapon.slot);
+    LOG_INFO("session") << "body contact weapon=" << weapon.info.id << " victim=" << contact.victim
+        << " closing_m_s=" << contact.closingMs << " dissipated_j=" << contact.dissipatedJ
+        << " impulse_n_s=" << ms::damage::length(contact.impulseEcef);
+}
+
+void World::contactDamage(Entry& weapon,const ContactTransfer& contact) {
+    auto* victim=entry(contact.victim);
+    const double offset=contact.fraction*options_.dt*options_.frameSkip;
+    if (!victim) return;
+    const auto cg=engagementCgAt(*victim,offset);
+    const auto matter=engagementMatterAt(*victim,offset);
+    if (!cg || !matter || !ensureDamage(*victim)) return;
+    const auto s=engagementStateAt(*victim,offset);
+    const auto j=unrotate(s,contact.impulseEcef);
+    ms::damage::Impact impact;
+    impact.impulseBody=j; impact.angularImpulseBody=ms::damage::cross(contact.pointBody,j);
+    const double centre[]={cg->x,cg->y,cg->z};
+    Detonation cause; cause.weapon=weapon.info.id; cause.store=weapon.origin.store;
+    const auto events=applyDamage(*victim,cause,impact,s,centre,matter->pressurePa,
+        {{contact.section,contact.pointBody,j}});
+    for (const auto& event : events) engage(event);
+    recordEngagement("damage",weapon,victim->info.id,"body_contact",victim->crewLost);
+}
 
 ipc::EngagementEvent World::engagementEvent(const Entry& e, ipc::EngagementKind kind, const std::string& name) const {
     ipc::EngagementEvent ev;
@@ -73,20 +196,179 @@ void World::damageFlight(Entry& e, ms::damage::Flight& f) {
     for (std::size_t t = 0; t < r.tanks.size(); ++t) f.tankKg[t] = r.tanks[t].get() * kLbsToKg;
 }
 
-std::vector<ipc::EngagementEvent> World::detonate(const Detonation& d) {
+std::vector<ipc::EngagementEvent> World::applyDamage(Entry& e, const Detonation& d,
+    const ms::damage::Impact& impact, const sim::VehicleState& s, const double* cg,
+    double pressurePa, const std::vector<ms::damage::VehicleDamage::PointImpulse>& contact) {
+    std::vector<ipc::EngagementEvent> out;
+    const Entry* weapon=entry(d.weapon);
+    auto& model=pool_->vehicle(e.slot);
+    const auto af=airframes_.find(e.info.aircraft);
+    if (af==airframes_.end() || !af->second || !e.damage) return out;
+    const auto* R=s.rotationBodyToEcef;
+    // where the burst was from its origin (body axes), and what struck each section's own panels: the fragments'
+    // momentum, and the blast's impulse on each face, away from the burst
+    const ms::damage::V3 burstBody = impact.fromBody * impact.missM;
+    std::vector<ms::damage::V3> sectionImpulse(af->second->sections.size());
+    for (const auto& ph : impact.panels) {
+        if (ph.panel < 0 || static_cast<std::size_t>(ph.panel) >= af->second->panels.size()) continue;
+        const auto& panel = af->second->panels[static_cast<std::size_t>(ph.panel)];
+        if (panel.section < 0 || static_cast<std::size_t>(panel.section) >= sectionImpulse.size()) continue;
+        sectionImpulse[static_cast<std::size_t>(panel.section)] +=
+            ph.momentumNs + ms::damage::panelBlastImpulse(panel,burstBody,ph.impulsePas);
+    }
+    for (const auto& load : contact)
+        if (load.section>=0 && static_cast<std::size_t>(load.section)<sectionImpulse.size())
+            sectionImpulse[static_cast<std::size_t>(load.section)] += load.momentumNs;
+    const double hitKg = model.energy().massKg;
+    // Assessment vectors are in the encounter-time body frame. Apply their
+    // inertial direction in the model's current body frame after the batch.
+    sim::VehicleState currentState; model.state(currentState);
+    double applicationCg[3];
+    const bool hasApplicationCg=model.cgFromOriginBodyM(applicationCg);
+    const auto currentBody=[&](ms::damage::V3 v) {
+        const double body[3]={v.x,v.y,v.z}; double ecef[3],now[3];
+        ms::geom::toEcef(s,body,ecef); ms::geom::toBody(currentState,ecef,now);
+        return v3(now);
+    };
+    const auto currentImpulse=currentBody(impact.impulseBody);
+    {
+        // the blast and the fragments push and turn it (about its CG: the impulse's moment about the origin less
+        // the CG's offset's)
+        const ms::damage::V3 J = currentImpulse;
+        // Transport encounter torque to the actual batch-application CG about
+        // the same fixed world points, preserving global angular momentum.
+        const auto worldImpulse=rotate(s,impact.impulseBody);
+        const auto worldTorque=rotate(s,impact.angularImpulseBody-ms::damage::cross(v3(cg),impact.impulseBody))+
+            ms::damage::cross(v3(s.positionEcef)-v3(currentState.positionEcef),worldImpulse);
+        const ms::damage::V3 L = unrotate(currentState,worldTorque);
+        const double linear[3] = {J.x, J.y, J.z}, angular[3] = {L.x, L.y, L.z};
+        model.applyImpulse(linear, angular);
+    }
+    if (impact.fragmentsStriking > 0) {
+        auto hit = engagementEvent(e, ipc::EngagementKind::Hit, d.store);
+        hit.target = weapon ? static_cast<std::uint32_t>(weapon->slot) + 1 : 0u;
+        hit.index = static_cast<std::uint32_t>(impact.fragmentsStriking);
+        out.push_back(hit);
+    }
+    ms::damage::Flight f;
+    damageFlight(e, f);
+    const auto& a = *af->second;
+    sim::VehicleState afterImpulse; model.state(afterImpulse);
+    for (const auto& c : e.damage->apply(impact, pressurePa, e.damageRng, contact)) {
+        using K = ms::damage::Change::Kind;
+        const std::string component = c.component >= 0 ? a.components[static_cast<std::size_t>(c.component)].name : std::string();
+        switch (c.kind) {
+        case K::Fire: {
+            auto ev = engagementEvent(e, ipc::EngagementKind::Fire, component);
+            if (c.component >= 0) { // (where its component is on it)
+                const auto& centre = a.components[static_cast<std::size_t>(c.component)].centre;
+                for (int r = 0; r < 3; ++r) ev.positionEcef[r] += R[3 * r] * centre.x + R[3 * r + 1] * centre.y + R[3 * r + 2] * centre.z;
+            }
+            ev.amountKg = c.spillKg;
+            if (c.spillKg > 0.0 && c.component >= 0) {
+                // what it throws out at once goes the way the fragments went through it - from the burst, through
+                // the tank, out of its far side - on top of the aircraft's own motion: the fireball is laid along
+                // the aircraft's path, and off it to the side away from the burst
+                double fastest = 0.0;
+                for (const auto& h : impact.components)
+                    if (h.component == c.component) fastest = std::max(fastest, h.fastestMs);
+                const ms::damage::V3 through = ms::damage::normalized(a.components[static_cast<std::size_t>(c.component)].centre - burstBody) *
+                                               (kRamSprayShare * fastest);
+                for (int r = 0; r < 3; ++r) ev.velocityEcef[r] += R[3 * r] * through.x + R[3 * r + 1] * through.y + R[3 * r + 2] * through.z;
+            }
+            if (c.tank >= 0 && static_cast<std::size_t>(c.tank) < f.tankKg.size()) {
+                // what it throws out at once leaves its tank; what leaks on burns on
+                auto& h = e.damageReads.tanks[static_cast<std::size_t>(c.tank)];
+                const double kg = std::max(f.tankKg[static_cast<std::size_t>(c.tank)] - c.spillKg, 0.0);
+                h.set(kg / kLbsToKg);
+                ev.massKg = e.damage->leakKgS(c.tank, kg, s.loadFactor, f.dynamicPressurePa);
+                ev.rateKgS = std::min(ev.massKg, ms::damage::kBurnMostKgS); // (what burns of it; the rest its mist)
+                e.fireRates[c.tank] = ev.massKg;
+            } else if (c.engine >= 0) {
+                // an engine's fire: the fuel its feed was flowing as it failed (an estimate: until it is shut off)
+                ev.rateKgS = model.property("propulsion/engine[" + std::to_string(c.engine) + "]/fuel-flow-rate-pps").get() * kLbsToKg;
+                ev.massKg = ev.rateKgS;
+            }
+            out.push_back(ev);
+            break;
+        }
+        case K::EngineOut: {
+            model.seizeEngine(c.engine);
+            auto ev = engagementEvent(e, ipc::EngagementKind::EngineOut, component);
+            ev.index = static_cast<std::uint32_t>(std::max(c.engine, 0));
+            out.push_back(ev);
+            break;
+        }
+        case K::ControlLost: {
+            const int n = model.failChannel(c.channel);
+            if (n == 0) LOG_WARN("session") << e.info.name << ": no actuator of its '" << c.channel << "' channel to fail";
+            out.push_back(engagementEvent(e, ipc::EngagementKind::ControlLost, c.channel));
+            break;
+        }
+        case K::CrewLost:
+            e.crewLost = true;
+            out.push_back(engagementEvent(e, ipc::EngagementKind::CrewLost, component));
+            break;
+        case K::Separated: { // (the blast's impulse broke its root at once)
+            Thrown thrown;
+            if (hasApplicationCg) thrown.sharedCgFromOriginBodyM=v3(applicationCg);
+            const auto J = currentBody(sectionImpulse[static_cast<std::size_t>(c.section)]);
+            thrown.impulseBody[0] = J.x, thrown.impulseBody[1] = J.y, thrown.impulseBody[2] = J.z;
+            if (std::isfinite(hitKg) && hitKg > 0.0)
+                for (int k = 0; k < 3; ++k) thrown.sharedBody[k] = (&currentImpulse.x)[k] / hitKg;
+            for (int k=0;k<3;++k) thrown.sharedAngularBody[k]=afterImpulse.angularRateBodyRadS[k]-currentState.angularRateBodyRadS[k];
+            separatedAt(e, c.section, nullptr, &thrown, &out);
+            break;
+        }
+        case K::PanelTorn: {
+            auto ev = engagementEvent(e, ipc::EngagementKind::PanelTorn, a.sections[static_cast<std::size_t>(c.section)].name);
+            ev.index = static_cast<std::uint32_t>(c.panel);
+            out.push_back(ev);
+            break;
+        }
+        default:
+            break;
+        }
+    }
+    pool_->refreshState(e.slot);
+    return out;
+}
+
+std::vector<ipc::EngagementEvent> World::detonate(const Detonation& d) { return detonateAt(d,nullptr); }
+
+std::vector<ipc::EngagementEvent> World::detonateAt(const Detonation& d, const ContactTransfer* contact) {
     std::vector<ipc::EngagementEvent> out;
     if (storeCards_.empty()) {
         std::vector<std::string> errors;
-        if (const auto library = io::AssetResolver{}.find("stores")) storeCards_ = ms::readStoreLibrary(*library, errors);
+        if (const auto library = io::AssetResolver{}.find("stores")) {
+            storeCards_ = ms::readStoreLibrary(*library, errors);
+            for (const auto& [id,card]:storeCards_) {
+                std::string error;
+                if (!bindPayloadProfile(card,*library,error)) errors.push_back(id+": "+error);
+            }
+        }
         for (const auto& error : errors) LOG_WARN("session") << "stores: " << error;
     }
     const auto card = storeCards_.find(d.store);
-    const auto warhead = card == storeCards_.end() ? std::nullopt : ms::damage::warheadOf(*card->second);
+    const Entry* weapon = entry(d.weapon);
+    std::unique_ptr<ms::damage::WarheadAdapter> scriptedAdapter;
+    const ms::damage::WarheadAdapter* adapter=weapon && weapon->origin.store==d.store ? weapon->warheadAdapter.get() : nullptr;
+    if (!adapter && card!=storeCards_.end()) {
+        std::string error;
+        const auto profile=payloadProfile(*card->second,error);
+        if (!profile) {LOG_WARN("session") << "detonate component profile: " << error;return out;}
+        if (profile->explicitProfile()) {
+            scriptedAdapter=ms::damage::makeWarheadAdapter(*card->second,*profile->find("warhead"),error);
+            if (!scriptedAdapter) {LOG_WARN("session") << "detonate component selection: " << error;return out;}
+            adapter=scriptedAdapter.get();
+        }
+    }
+    const auto warhead = adapter ? std::optional<ms::damage::Warhead>{adapter->model()}
+        : card == storeCards_.end() ? std::nullopt : ms::damage::warheadOf(*card->second);
     if (!warhead) {
         LOG_WARN("session") << "detonate: '" << d.store << "' has no warhead on its card";
         return out;
     }
-    const Entry* weapon = entry(d.weapon);
     ipc::EngagementEvent burst;
     burst.kind = static_cast<std::uint8_t>(ipc::EngagementKind::Detonation);
     burst.slot = weapon ? static_cast<std::uint32_t>(weapon->slot) : 0u;
@@ -100,16 +382,18 @@ std::vector<ipc::EngagementEvent> World::detonate(const Detonation& d) {
 
     ms::damage::Burst b;
     b.at = v3(d.positionEcef), b.velocity = v3(d.velocityEcef), b.axis = v3(d.axisEcef);
+    if (weapon && std::isfinite(d.stepFraction))
+        if (const auto point=weaponPointAt(*weapon,std::clamp(d.stepFraction,0.0,1.0)*options_.dt*options_.frameSkip,
+                                         weapon->burstFromOriginBodyM))
+            b.angularVelocityEcef={point->angularVelocity.x,point->angularVelocity.y,point->angularVelocity.z};
     const auto liveStates = pool_->states();
     std::vector<sim::VehicleState> states(liveStates.begin(), liveStates.end());
     if (std::isfinite(d.stepFraction)) {
         const double f=std::clamp(d.stepFraction,0.0,1.0);
         for(std::size_t slot=0;slot<states.size() && slot<stepStates_.size();++slot) {
             const auto* e=entries_[slot].get();
-            if (e && captureEngagementMotion_ && ms::weapon::validMotionPath(e->engagementPath))
+            if (e && ms::weapon::validMotionPath(e->engagementPath))
                 states[slot]=engagementStateAt(*e,f*options_.dt*options_.frameSkip);
-            else for(int k=0;k<3;++k)
-                states[slot].positionEcef[k]=stepStates_[slot].positionEcef[k]+f*(states[slot].positionEcef[k]-stepStates_[slot].positionEcef[k]);
         }
     }
     // A burst may create debris. Freeze the victim set and its states before any slot can be appended.
@@ -129,140 +413,46 @@ std::vector<ipc::EngagementEvent> World::detonate(const Detonation& d) {
         for (std::size_t k = 0; k < 3; ++k) t.bodyToEcef[k] = {R[k], R[3 + k], R[6 + k]};
         // (its model's origin, which its airframe's places are from: the state is at its CG)
         double cg[3];
-        model.cgFromOriginBodyM(cg);
+        const bool liveCg=model.cgFromOriginBodyM(cg);
         // Reconstruct attached geometry and its impulse lever at the same
-        // captured epoch as the encounter pose. Uncaptured scripted bursts
-        // retain the legacy current-CG fallback; they have no exact history.
-        if (std::isfinite(d.stepFraction))
-            if (const auto captured=engagementCgAt(*e,std::clamp(d.stepFraction,0.0,1.0)*options_.dt*options_.frameSkip)) {
-                cg[0]=captured->x; cg[1]=captured->y; cg[2]=captured->z;
-            }
+        // captured epoch as the encounter pose. Only a burst without an
+        // explicit historical fraction requests the current native CG.
+        if (std::isfinite(d.stepFraction)) {
+            const auto captured=engagementCgAt(*e,std::clamp(d.stepFraction,0.0,1.0)*options_.dt*options_.frameSkip);
+            if (!captured) {LOG_WARN("session") << "damage encounter CG unavailable for " << e->info.name;continue;}
+            cg[0]=captured->x; cg[1]=captured->y; cg[2]=captured->z;
+        } else if (!liveCg) continue;
         t.at = at - ms::damage::V3{R[0] * cg[0] + R[1] * cg[1] + R[2] * cg[2], R[3] * cg[0] + R[4] * cg[1] + R[5] * cg[2],
                                    R[6] * cg[0] + R[7] * cg[1] + R[8] * cg[2]};
         for (int r = 0; r < 3; ++r)
             (&t.velocity.x)[r] = R[3 * r] * s.velocityBodyMs[0] + R[3 * r + 1] * s.velocityBodyMs[1] + R[3 * r + 2] * s.velocityBodyMs[2];
-        t.airPressurePa = model.property("atmosphere/P-psf").get() * kPsfToPa;
-        t.airTemperatureK = model.property("atmosphere/T-R").get() / 1.8;
-        t.airDensity = model.property("atmosphere/rho-slugs_ft3").get() * kSlugFt3ToKgM3;
-        const ms::damage::Impact impact = ms::damage::assess(*warhead, b, e->damage->attachedGeometry(), t, e->damageRng);
-        // where the burst was from its origin (body axes), and what struck each section's own panels: the fragments'
-        // momentum, and the blast's impulse on each face, away from the burst
-        const ms::damage::V3 burstBody = impact.fromBody * impact.missM;
-        std::vector<ms::damage::V3> sectionImpulse(af->second->sections.size());
-        for (const auto& ph : impact.panels) {
-            if (ph.panel < 0 || static_cast<std::size_t>(ph.panel) >= af->second->panels.size()) continue;
-            const auto& panel = af->second->panels[static_cast<std::size_t>(ph.panel)];
-            if (panel.section < 0 || static_cast<std::size_t>(panel.section) >= sectionImpulse.size()) continue;
-            sectionImpulse[static_cast<std::size_t>(panel.section)] +=
-                ph.momentumNs + ms::damage::panelBlastImpulse(panel,burstBody,ph.impulsePas);
+        if (warhead->modelVersion==1) {
+            const auto origin=ms::weapon::materialPoint(s,v3(cg),{});
+            if (!origin.valid) continue;
+            t.at=origin.position; t.velocity=origin.velocity;
         }
-        const double hitKg = model.energy().massKg;
-        // Assessment vectors are in the encounter-time body frame. Apply their
-        // inertial direction in the model's current body frame after the batch.
-        const auto currentState=pool_->states()[slot];
-        const auto currentBody=[&](ms::damage::V3 v) {
-            const double body[3]={v.x,v.y,v.z}; double ecef[3],now[3];
-            ms::geom::toEcef(s,body,ecef); ms::geom::toBody(currentState,ecef,now);
-            return v3(now);
-        };
-        const auto currentImpulse=currentBody(impact.impulseBody);
-        {
-            // the blast and the fragments push and turn it (about its CG: the impulse's moment about the origin less
-            // the CG's offset's)
-            const ms::damage::V3 J = currentImpulse;
-            const ms::damage::V3 L = currentBody(impact.angularImpulseBody - ms::damage::cross(v3(cg), impact.impulseBody));
-            const double linear[3] = {J.x, J.y, J.z}, angular[3] = {L.x, L.y, L.z};
-            model.applyImpulse(linear, angular);
-        }
-        if (impact.fragmentsStriking > 0) {
-            auto hit = engagementEvent(*e, ipc::EngagementKind::Hit, d.store);
-            hit.target = weapon ? static_cast<std::uint32_t>(weapon->slot) + 1 : 0u;
-            hit.index = static_cast<std::uint32_t>(impact.fragmentsStriking);
-            out.push_back(hit);
-        }
+        const auto matter=std::isfinite(d.stepFraction)
+            ? engagementMatterAt(*e,std::clamp(d.stepFraction,0.0,1.0)*options_.dt*options_.frameSkip) : captureMatter(model);
+        if (!matter) { LOG_WARN("session") << "damage encounter atmosphere unavailable for " << e->info.name; continue; }
+        t.airPressurePa=matter->pressurePa; t.airTemperatureK=matter->temperatureK; t.airDensity=matter->densityKgM3;
+        const auto attached=e->damage->attachedGeometry();
+        ms::damage::Impact impact = adapter ? adapter->assess(b,attached,t,e->damageRng)
+                                          : ms::damage::assess(*warhead, b, attached, t, e->damageRng);
         if (miss < nearest) nearest = miss, out[burstAt].target = static_cast<std::uint32_t>(slot) + 1;
-        ms::damage::Flight f;
-        damageFlight(*e, f);
-        const auto& a = *af->second;
-        for (const auto& c : e->damage->apply(impact, t.airPressurePa, e->damageRng)) {
-            using K = ms::damage::Change::Kind;
-            const std::string component = c.component >= 0 ? a.components[static_cast<std::size_t>(c.component)].name : std::string();
-            switch (c.kind) {
-            case K::Fire: {
-                auto ev = engagementEvent(*e, ipc::EngagementKind::Fire, component);
-                if (c.component >= 0) { // (where its component is on it)
-                    const auto& centre = a.components[static_cast<std::size_t>(c.component)].centre;
-                    for (int r = 0; r < 3; ++r) ev.positionEcef[r] += R[3 * r] * centre.x + R[3 * r + 1] * centre.y + R[3 * r + 2] * centre.z;
-                }
-                ev.amountKg = c.spillKg;
-                if (c.spillKg > 0.0 && c.component >= 0) {
-                    // what it throws out at once goes the way the fragments went through it - from the burst, through
-                    // the tank, out of its far side - on top of the aircraft's own motion: the fireball is laid along
-                    // the aircraft's path, and off it to the side away from the burst
-                    double fastest = 0.0;
-                    for (const auto& h : impact.components)
-                        if (h.component == c.component) fastest = std::max(fastest, h.fastestMs);
-                    const ms::damage::V3 through = ms::damage::normalized(a.components[static_cast<std::size_t>(c.component)].centre - burstBody) *
-                                                   (kRamSprayShare * fastest);
-                    for (int r = 0; r < 3; ++r) ev.velocityEcef[r] += R[3 * r] * through.x + R[3 * r + 1] * through.y + R[3 * r + 2] * through.z;
-                }
-                if (c.tank >= 0 && static_cast<std::size_t>(c.tank) < f.tankKg.size()) {
-                    // what it throws out at once leaves its tank; what leaks on burns on
-                    auto& h = e->damageReads.tanks[static_cast<std::size_t>(c.tank)];
-                    const double kg = std::max(f.tankKg[static_cast<std::size_t>(c.tank)] - c.spillKg, 0.0);
-                    h.set(kg / kLbsToKg);
-                    ev.massKg = e->damage->leakKgS(c.tank, kg, s.loadFactor, f.dynamicPressurePa);
-                    ev.rateKgS = std::min(ev.massKg, ms::damage::kBurnMostKgS); // (what burns of it; the rest its mist)
-                    e->fireRates[c.tank] = ev.massKg;
-                } else if (c.engine >= 0) {
-                    // an engine's fire: the fuel its feed was flowing as it failed (an estimate: until it is shut off)
-                    ev.rateKgS = model.property("propulsion/engine[" + std::to_string(c.engine) + "]/fuel-flow-rate-pps").get() * kLbsToKg;
-                    ev.massKg = ev.rateKgS;
-                }
-                out.push_back(ev);
-                break;
-            }
-            case K::EngineOut: {
-                model.seizeEngine(c.engine);
-                auto ev = engagementEvent(*e, ipc::EngagementKind::EngineOut, component);
-                ev.index = static_cast<std::uint32_t>(std::max(c.engine, 0));
-                out.push_back(ev);
-                break;
-            }
-            case K::ControlLost: {
-                const int n = model.failChannel(c.channel);
-                if (n == 0) LOG_WARN("session") << e->info.name << ": no actuator of its '" << c.channel << "' channel to fail";
-                out.push_back(engagementEvent(*e, ipc::EngagementKind::ControlLost, c.channel));
-                break;
-            }
-            case K::CrewLost:
-                e->crewLost = true;
-                out.push_back(engagementEvent(*e, ipc::EngagementKind::CrewLost, component));
-                break;
-            case K::Separated: { // (the blast's impulse broke its root at once)
-                Thrown thrown;
-                const auto J = currentBody(sectionImpulse[static_cast<std::size_t>(c.section)]);
-                thrown.impulseBody[0] = J.x, thrown.impulseBody[1] = J.y, thrown.impulseBody[2] = J.z;
-                if (std::isfinite(hitKg) && hitKg > 0.0)
-                    for (int k = 0; k < 3; ++k) thrown.sharedBody[k] = (&currentImpulse.x)[k] / hitKg;
-                separated(*e, c.section, nullptr, &thrown);
-                break;
-            }
-            case K::PanelTorn: {
-                auto ev = engagementEvent(*e, ipc::EngagementKind::PanelTorn, a.sections[static_cast<std::size_t>(c.section)].name);
-                ev.index = static_cast<std::uint32_t>(c.panel);
-                out.push_back(ev);
-                break;
-            }
-            default:
-                break;
-            }
+        std::vector<ms::damage::VehicleDamage::PointImpulse> contactLoads;
+        if (contact && contact->victim==e->info.id) {
+            const auto j=unrotate(s,contact->impulseEcef);
+            impact.impulseBody+=j;
+            impact.angularImpulseBody+=ms::damage::cross(contact->pointBody,j);
+            contactLoads.push_back({contact->section,contact->pointBody,j});
         }
+        const auto changes=applyDamage(*e,d,impact,s,cg,t.airPressurePa,contactLoads);
+        out.insert(out.end(),changes.begin(),changes.end());
         LOG_INFO("session") << e->info.name << " hit by " << d.store << " at " << miss << " m: " << impact.fragmentsStriking << " of "
                             << impact.fragmentsThrown << " fragments struck";
-        for (std::size_t k = 0; k < a.sections.size(); ++k)
-            if (a.sections[k].hasRoot)
-                LOG_INFO("session") << "  its " << a.sections[k].name << ": strength left " << e->damage->sections()[k].strength
+        for (std::size_t k = 0; k < af->second->sections.size(); ++k)
+            if (af->second->sections[k].hasRoot)
+                LOG_INFO("session") << "  its " << af->second->sections[k].name << ": strength left " << e->damage->sections()[k].strength
                                     << ", the blast's and the fragments' kick " << e->damage->sections()[k].kick << " of it";
     }
     for (const auto& ev : out) engage(ev);
@@ -336,12 +526,18 @@ bool World::ensureDamage(Entry& e) {
 }
 
 void World::separated(Entry& e, int section, const sim::VehicleState* as, const Thrown* thrown) {
+    separatedAt(e,section,as,thrown,nullptr);
+}
+
+void World::separatedAt(Entry& e, int section, const sim::VehicleState* as, const Thrown* thrown,
+                         std::vector<ipc::EngagementEvent>* events) {
     const auto& a = e.damage->airframe();
     const auto& sec = a.sections[static_cast<std::size_t>(section)];
     auto& model = pool_->vehicle(e.slot);
     // the aircraft as it was, and where its CG is from its model's origin (the section's place is from that)
     Parting part;
-    part.before = as ? *as : pool_->states()[e.slot];
+    if (as) part.before=*as;
+    else model.state(part.before);
     model.cgFromOriginBodyM(part.cgFromOrigin);
     // what leaves with it: its structure, its tanks' fuel, its stations' stores - off the aircraft at once, so its CG,
     // its inertia and its state move to what is left (FlightModel::endMassChange)
@@ -357,24 +553,56 @@ void World::separated(Entry& e, int section, const sim::VehicleState* as, const 
         }
     for (const int station : sec.stations) part.stations.emplace_back(station, e.ms.loseStation(station, simTime_));
     applyStoreMasses(e);
-    // pushed off its root by the break's spring, and the aircraft the other way
-    double partKg = sec.massKg + part.fuelKg;
-    for (const auto& [station, kg] : part.stations) partKg += kg;
-    ms::damage::V3 push = ms::damage::normalized(sec.cg - sec.root) * kSeparationMs;
-    if (thrown && partKg > 0.0) {
-        // a hit broke it off: what struck its own panels pushed it, where what pushed the whole aircraft is already in
-        // the aircraft's motion - it leaves with the difference, away from the burst (and the aircraft the other way)
-        ms::damage::V3 extra = v3(thrown->impulseBody) * (1.0 / partKg) - v3(thrown->sharedBody);
-        if (const double speed = ms::damage::length(extra); speed > kThrownMostMs) extra = extra * (kThrownMostMs / speed);
-        push = push + extra;
+    model.endMassChange(sec.inertia.data(), nullptr);
+    // Load the real departing model before applying the internal impulse. Fuel
+    // and stores move its CG away from the dry section centre; both bodies must
+    // receive their equal/opposite impulses at that same final loaded point.
+    const auto pieceId=launchPiece(e,section,part);
+    if (const auto* piece=entry(pieceId)) {
+        auto& pieceModel=pool_->vehicle(piece->slot);
+        auto& restModel=pool_->vehicle(e.slot);
+        sim::VehicleState pieceState,restState;
+        pieceModel.state(pieceState); restModel.state(restState);
+        const double partKg=pieceModel.energy().massKg;
+        if (std::isfinite(partKg) && partKg>0) {
+            const auto loadedArm=unrotate(part.before,v3(pieceState.positionEcef)-v3(part.before.positionEcef));
+            const auto loadedCg=v3(part.cgFromOrigin)+loadedArm;
+            ms::damage::V3 push=ms::damage::normalized(sec.cg-sec.root)*kSeparationMs;
+            if (thrown) {
+                const auto referenceCg=thrown->sharedCgFromOriginBodyM.value_or(v3(part.cgFromOrigin));
+                auto extra=v3(thrown->impulseBody)*(1/partKg)-v3(thrown->sharedBody)-
+                    ms::damage::cross(v3(thrown->sharedAngularBody),loadedCg-referenceCg);
+                if (const double speed=ms::damage::length(extra); speed>kThrownMostMs) extra=extra*(kThrownMostMs/speed);
+                push+=extra;
+            }
+            const auto impulseEcef=rotate(part.before,push*partKg);
+            const auto pieceImpulse=unrotate(pieceState,impulseEcef);
+            const auto restImpulse=unrotate(restState,impulseEcef*(-1));
+            const auto restArm=unrotate(restState,v3(pieceState.positionEcef)-v3(restState.positionEcef));
+            const auto restAngular=ms::damage::cross(restArm,restImpulse);
+            const double pieceNs[]={pieceImpulse.x,pieceImpulse.y,pieceImpulse.z};
+            const double restNs[]={restImpulse.x,restImpulse.y,restImpulse.z};
+            const double restNms[]={restAngular.x,restAngular.y,restAngular.z};
+            pieceModel.applyImpulse(pieceNs,nullptr);
+            restModel.applyImpulse(restNs,restNms);
+            pool_->refreshState(piece->slot);
+        } else LOG_WARN("session") << e.info.name << ": departing section mass unavailable for its internal impulse";
     }
-    part.pushBody[0] = push.x, part.pushBody[1] = push.y, part.pushBody[2] = push.z;
-    const double reaction[3] = {-partKg * push.x, -partKg * push.y, -partKg * push.z};
-    model.endMassChange(sec.inertia.data(), reaction);
-    engage(engagementEvent(e, ipc::EngagementKind::Separated, sec.name));
+    const auto emit=[&](ipc::EngagementEvent event){ if (events) events->push_back(event); else engage(event); };
+    for (const auto& change : e.damage->detachComponents(section)) {
+        const auto& component=a.components[static_cast<std::size_t>(change.component)];
+        using K=ms::damage::Change::Kind;
+        if (change.kind==K::CrewLost) {
+            e.crewLost=true; emit(engagementEvent(e,ipc::EngagementKind::CrewLost,component.name));
+        } else if (change.kind==K::EngineOut) {
+            model.seizeEngine(change.engine); emit(engagementEvent(e,ipc::EngagementKind::EngineOut,component.name));
+        } else if (change.kind==K::ControlLost) {
+            model.failChannel(change.channel); emit(engagementEvent(e,ipc::EngagementKind::ControlLost,change.channel));
+        }
+    }
+    emit(engagementEvent(e, ipc::EngagementKind::Separated, sec.name));
+    pool_->refreshState(e.slot);
     LOG_INFO("session") << e.info.name << ": its " << sec.name << " failed at its root and left";
-    // it flies on as a piece of its own, its flight model its section's (hangar's pieces), its fuel and stores with it
-    launchPiece(e, section, part);
 }
 
 bool World::separateSection(std::uint32_t id, const std::string& section) {
@@ -410,8 +638,14 @@ std::uint32_t World::launchPiece(Entry& from, int section, const Parting& part) 
     const ms::damage::V3 at = v3(s.positionEcef) + toEcef(r);
     const ms::damage::V3 rate = v3(s.angularRateBodyRadS);
     const ms::damage::V3 dv = toEcef(ms::damage::cross(rate, r) + v3(part.pushBody));
-    double lat, lon, h;
-    ms::damage::geodetic(at, lat, lon, h);
+    const auto* coordinateSource=dynamic_cast<const sim::NativePositionSourceV1*>(&pool_->vehicle(from.slot));
+    sim::NativePositionV1 position;
+    const double ecef[]={at.x,at.y,at.z};
+    if (!coordinateSource || !coordinateSource->nativePositionV1(ecef,position)) {
+        LOG_WARN("session") << from.info.name << ": native position conversion unavailable for its " << sec.name;
+        return 0;
+    }
+    const double lat=position.latitudeRad,lon=position.longitudeRad;
     const double sl = std::sin(lat), cl = std::cos(lat), so = std::sin(lon), co = std::cos(lon);
     const ms::damage::V3 north{-sl * co, -sl * so, cl}, east{-so, co, 0.0}, down{-cl * co, -cl * so, -sl};
     VehicleSpec spec;
@@ -419,15 +653,19 @@ std::uint32_t World::launchPiece(Entry& from, int section, const Parting& part) 
     spec.type = "jsbsim:" + piece;
     spec.aircraftDir = dir->second / "pieces";
     spec.model = from.info.model;
-    spec.initial.latitudeDeg = lat * 180.0 / 3.14159265358979323846;
-    spec.initial.longitudeDeg = lon * 180.0 / 3.14159265358979323846;
-    spec.initial.altitudeMslM = h;
-    spec.initial.rollDeg = s.eulerRad[0] * 180.0 / 3.14159265358979323846;
-    spec.initial.pitchDeg = s.eulerRad[1] * 180.0 / 3.14159265358979323846;
-    spec.initial.headingDeg = s.eulerRad[2] * 180.0 / 3.14159265358979323846;
-    spec.initial.velocityNedMs[0] = s.velocityNedMs[0] + ms::damage::dot(dv, north);
-    spec.initial.velocityNedMs[1] = s.velocityNedMs[1] + ms::damage::dot(dv, east);
-    spec.initial.velocityNedMs[2] = s.velocityNedMs[2] + ms::damage::dot(dv, down);
+    spec.initial.latitudeDeg = units::radiansToDegrees(lat);
+    spec.initial.longitudeDeg = units::radiansToDegrees(lon);
+    spec.initial.altitudeMslM=position.altitudeMslM;
+    // Local NED axes change at the piece's position. Preserve the inherited
+    // inertial attitude and velocity instead of copying the old local values.
+    const ms::damage::V3 bx{R[0],R[3],R[6]},by{R[1],R[4],R[7]},bz{R[2],R[5],R[8]};
+    spec.initial.rollDeg=units::radiansToDegrees(std::atan2(ms::damage::dot(down,by),ms::damage::dot(down,bz)));
+    spec.initial.pitchDeg=units::radiansToDegrees(std::asin(std::clamp(-ms::damage::dot(down,bx),-1.,1.)));
+    spec.initial.headingDeg=units::radiansToDegrees(std::atan2(ms::damage::dot(east,bx),ms::damage::dot(north,bx)));
+    const auto velocityEcef=toEcef(v3(s.velocityBodyMs))+dv;
+    spec.initial.velocityNedMs[0]=ms::damage::dot(velocityEcef,north);
+    spec.initial.velocityNedMs[1]=ms::damage::dot(velocityEcef,east);
+    spec.initial.velocityNedMs[2]=ms::damage::dot(velocityEcef,down);
     spec.initial.airspeedTrueMs = s.airspeedTrueMs;
     for (int k = 0; k < 3; ++k) spec.initial.bodyRatesRadS[k] = s.angularRateBodyRadS[k];
     const std::uint32_t id = createVehicle(spec);

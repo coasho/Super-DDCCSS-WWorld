@@ -292,12 +292,24 @@ def design(name):
             lines.append("")
     m = row["motor"]
     re = 0.5 * m.get("exit", 0.65) * 0.80 * D
+    from . import components
+    legacy_motor = {"exit": [float(_f(L)), 0.0, 0.0], "exit_diameter": float(_f(2*re)),
+        "throat_diameter": float(_f(.9*re)), "cone_length": float(_f(1.1*re*2)), "smoke": m["smoke"],
+        "phase": [{"duration_s": float(_f(d)), "thrust_kn": float(_f(t))} for d,t in m["phases"]]}
+    selected_motor, _ = components.motor(card, {"motor": legacy_motor})
+    chosen = selected_motor["motor"]
+    def configured_number(value):
+        rounded = _f(value)
+        return rounded if float(rounded)==value else "%.17g" % value
     lines += ["# The rocket motor: %s. Its nozzle in the boattail, its exit %.0f %% of the base and its burn's phases assumed" % (m["note"], 100 * m.get("exit", 0.65)),
               "# (none published): only what a replay shows the plume with until a flight model burns it.",
-              "[motor]", "exit = [%s, 0.0, 0.0]" % _f(L), "exit_diameter = %s" % _f(2 * re), "throat_diameter = %s" % _f(0.9 * re),
-              "cone_length = %s" % _f(1.1 * re * 2), 'smoke = "%s"' % m["smoke"]]
-    for d, t in m["phases"]:
-        lines += ["[[motor.phase]]", "duration_s = %s" % _f(d), "thrust_kn = %s" % _f(t)]
+              "[motor]", "exit = [%s]" % ", ".join(configured_number(v) for v in chosen["exit"]),
+              "exit_diameter = %s" % configured_number(chosen["exit_diameter"]),
+              "throat_diameter = %s" % configured_number(chosen["throat_diameter"]),
+              "cone_length = %s" % configured_number(chosen["cone_length"]), 'smoke = "%s"' % chosen["smoke"]]
+    for phase in chosen["phase"]:
+        lines += ["[[motor.phase]]", "duration_s = %s" % configured_number(phase["duration_s"]),
+                  "thrust_kn = %s" % configured_number(phase["thrust_kn"])]
     lines += ["",
               "[mass]",
               "empty = %s                 # kg, the card, motor full" % _f(M),

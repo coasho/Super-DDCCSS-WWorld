@@ -18,7 +18,7 @@ class GroundProvider;
 /// JSBSim adapter: one FGFDMExec per vehicle, JSBSim used as-is (design 7,
 /// ADR-3). Construct and load on one thread; step() may run on any thread as
 /// long as no two threads touch the same instance concurrently.
-class JsbsimModel final : public FlightModel, public TerrainStrikeSourceV1 {
+class JsbsimModel final : public FlightModel, public TerrainStrikeSourceV1, public RigidMassSourceV1, public NativePositionSourceV1 {
 public:
     /// @param dt fixed step in seconds (design 6.4)
     /// @param ground terrain source for gear contact and AGL; shared by all vehicles
@@ -55,6 +55,8 @@ public:
     bool applyImpulse(const double linearBodyNs[3], const double angularBodyNms[3]) override;
     bool endMassChange(const double partInertia[6], const double impulseBodyNs[3]) override;
     bool terrainStrikeSnapshotV1(TerrainStrikeSnapshotV1& incoming) const noexcept override;
+    bool rigidMassPropertiesV1(RigidMassPropertiesV1& out) const noexcept override;
+    bool nativePositionV1(const double positionEcefM[3], NativePositionV1& out) const noexcept override;
 
     /// Direct access for tests and tooling only.
     JSBSim::FGFDMExec& exec() noexcept { return *fdm_; }

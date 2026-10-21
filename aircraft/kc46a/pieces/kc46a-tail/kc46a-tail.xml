@@ -19,17 +19,17 @@
         <location name="VRP" unit="IN"> <x> 1663.565 </x> <y> 0.000 </y> <z> 233.121 </z> </location>
     </metrics>
     <mass_balance negated_crossproduct_inertia="false">
-        <ixx unit="SLUG*FT2"> 67850.2991 </ixx>
-        <iyy unit="SLUG*FT2"> 99107.8948 </iyy>
-        <izz unit="SLUG*FT2"> 91440.2050 </izz>
-        <ixy unit="SLUG*FT2"> 0.0018 </ixy>
-        <ixz unit="SLUG*FT2"> 5991.3625 </ixz>
-        <iyz unit="SLUG*FT2"> -0.7974 </iyz>
-        <emptywt unit="LBS"> 19987.690 </emptywt>
-        <location name="CG" unit="IN"> <x> 1663.565 </x> <y> 0.000 </y> <z> 233.121 </z> </location>
+        <ixx unit="SLUG*FT2"> 67850.299137295689 </ixx>
+        <iyy unit="SLUG*FT2"> 99107.894954017567 </iyy>
+        <izz unit="SLUG*FT2"> 91440.2050899069 </izz>
+        <ixy unit="SLUG*FT2"> 0.0017849004012509828 </ixy>
+        <ixz unit="SLUG*FT2"> 5991.3625055614493 </ixz>
+        <iyz unit="SLUG*FT2"> -0.79741531769111573 </iyz>
+        <emptywt unit="LBS"> 19987.690335267322 </emptywt>
+        <location name="CG" unit="IN"> <x> 1663.5649606299214 </x> <y> 0 </y> <z> 233.12125984251966 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 1663.565 </x> <y> 0.000 </y> <z> 233.121 </z> </location>
+            <location unit="IN"> <x> 1663.5649606299214 </x> <y> 0 </y> <z> 233.12125984251966 </z> </location>
         </pointmass>
 <!-- no store station -->
     </mass_balance>

@@ -2,6 +2,8 @@
 
 #include <array>
 #include <optional>
+#include <limits>
+#include <vector>
 
 namespace fsim::ms::weapon {
 // Private reduced-order engineering controller. Derivatives are signed BODY
@@ -30,7 +32,27 @@ struct FinCommands {
     double aileron = 0, elevator = 0, rudder = 0;
     bool available = false;
 };
+/// Versioned private execution settings. Version zero preserves legacy callers.
+/// Algorithm/allocator 1 select the reduced-order cascade/authored fin mixer.
+struct FinControlConfigV1 {
+    unsigned version = 0, algorithm = 1, allocator = 1;
+    double maxIncidenceRad = .2617993877991494;
+    double rateTimeMinS = .12, rateLagMultiplier = 3;
+    double incidenceTimeMinS = .4, incidenceRateMultiplier = 3.333333333333333;
+    double actuatorLagS = .04, actuatorRateRadS = 4;
+};
+/// Optional native zero-centred normalized-command mapping, in axis order
+/// aileron/elevator/rudder. Zero means genuinely absent legacy metadata.
+struct ControlStopsV1 {
+    unsigned version = 0;
+    std::array<double,3> lowerRad{}, upperRad{};
+    unsigned actuatorVersion = 0;
+    double channelRateRadS = std::numeric_limits<double>::quiet_NaN();
+    std::vector<double> finRateRadS;
+};
 // Only normalized commands. There is no force/moment output or force fallback.
 // Stateless feedback avoids integrator windup and cross-release/reset history.
 FinCommands finCommands(const AutopilotInput& in) noexcept;
+FinCommands finCommands(const AutopilotInput& in, const FinControlConfigV1& config,
+                         const ControlStopsV1& stops = {}) noexcept;
 }

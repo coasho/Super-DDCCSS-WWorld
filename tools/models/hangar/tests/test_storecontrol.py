@@ -92,7 +92,115 @@ def evaluate(store, responses=None, alpha=0.0, beta=0.0, qbar=100.0, mach=0.6):
     return model, Expressions(model, props)
 
 
+def native_actuator_value(model, text):
+    """Resolve the actual native numeric literal or published property input."""
+    try:
+        return float(text)
+    except ValueError:
+        node = next(n for n in model.findall("./flight_control/property") if n.text == text)
+        return float(node.get("value"))
+
+
 class StoreControlTest(unittest.TestCase):
+    def test_card_selected_native_actuator_dynamics_reach_all_fcs_actuators(self):
+        c = card("aim-120c")
+        for name, value, unit in (("weapon_execution_version", 1, "1"),
+                                  ("control_algorithm", 1, "1"), ("control_allocator", 1, "1"),
+                                  ("control_actuator_lag_s", .08, "s"),
+                                  ("control_actuator_rate_rad_s", 3.25, "rad/s")):
+            c["parameters"][name] = {"value": value, "unit": unit}
+        model = ET.fromstring(storebodies.files(c)[c["model"].removeprefix("jsbsim:") + ".xml"])
+        metadata = {n.text: float(n.get("value")) for n in model.findall("./flight_control/property")}
+        self.assertEqual(metadata.get("fsim/missile-control/actuator-version"), 1)
+        self.assertEqual(metadata["fsim/missile-control/lag-coefficient-s-1"], 12.5)
+        self.assertEqual(metadata["fsim/missile-control/channel-rate-rad_s"], 3.25)
+        fins = 0
+        for actuator in model.findall("./flight_control/channel/actuator"):
+            name = actuator.get("name")
+            rate_key = actuator.findtext("rate_limit")
+            self.assertIn(rate_key, metadata, "the native FCS must consume the published rate rather than a stale literal")
+            self.assertEqual(metadata[rate_key], 3.25)
+            if name.startswith("fcs/fin-"):
+                fins += 1
+            else:
+                self.assertEqual(actuator.findtext("lag"), "fsim/missile-control/lag-coefficient-s-1")
+        self.assertGreater(fins, 0)
+
+    def test_native_actuator_profile_fingerprint_and_explicit_refusals(self):
+        from hangar import storecontrol
+        c = {"id": "synthetic", "parameters": {name: {"value": value, "unit": unit}
+             for name, value, unit in (("weapon_execution_version", 1, "1"),
+                ("control_algorithm", 1, "1"), ("control_allocator", 1, "1"),
+                ("control_actuator_lag_s", .08, "s"), ("control_actuator_rate_rad_s", 3.25, "rad/s"))}}
+        first = storecontrol.actuator_profile(c)
+        self.assertEqual(first, storecontrol.actuator_profile(copy.deepcopy(c)))
+        other = copy.deepcopy(c)
+        other["parameters"]["control_actuator_rate_rad_s"]["value"] = 2.5
+        self.assertNotEqual(first["sha256"], storecontrol.actuator_profile(other)["sha256"])
+        for defect in range(7):
+            bad = copy.deepcopy(c)
+            if defect == 0:
+                del bad["parameters"]["weapon_execution_version"]
+            elif defect == 1:
+                bad["parameters"]["weapon_execution_version"]["value"] = 2
+            elif defect == 2:
+                del bad["parameters"]["control_actuator_lag_s"]
+            elif defect == 3:
+                bad["parameters"]["control_actuator_lag_s"]["unit"] = "ms"
+            elif defect == 4:
+                bad["parameters"]["control_actuator_rate_rad_s"]["value"] = 0
+            elif defect == 5:
+                bad["parameters"]["control_actuator_lag_s"]["value"] = float("nan")
+            else:
+                bad["parameters"]["control_allocator"]["value"] = True
+            with self.subTest(defect=defect), self.assertRaises(ValueError):
+                storecontrol.actuator_profile(bad)
+        self.assertEqual(storecontrol.actuator_profile(), {"version": 0, "lag_coefficient": 25, "rate_rad_s": 4})
+
+    def test_unversioned_generator_call_retains_legacy_actuator_literals(self):
+        from hangar import storecontrol
+        c = card("aim-120c")
+        geo = storeaero.geometry(c)
+        baseline = storeaero.coefficients(geo, c["id"])
+        source = '<fdm_config><flight_control name="old"/></fdm_config>'
+        model = ET.fromstring(storecontrol.apply(source, '<flight_control name="old"/>', geo, baseline, 0))
+        metadata = {n.text: float(n.get("value")) for n in model.findall("./flight_control/property")}
+        self.assertNotIn("fsim/missile-control/actuator-version", metadata)
+        for actuator in model.findall("./flight_control/channel/actuator"):
+            self.assertEqual(float(actuator.findtext("rate_limit")), 4)
+            if not actuator.get("name").startswith("fcs/fin-"):
+                self.assertEqual(float(actuator.findtext("lag")), 25)
+
+    def test_signed_normalization_metadata_matches_each_native_axis_range(self):
+        model, _ = evaluate("aim-120c")
+        metadata = {n.text: float(n.get("value")) for n in model.findall("./flight_control/property")}
+        self.assertEqual(metadata.get("fsim/missile-control/normalization-version"), 1)
+        for node in model.findall("./flight_control/channel/aerosurface_scale"):
+            channel = node.get("name").removeprefix("fcs/").removesuffix("-control")
+            for bound in ("min", "max"):
+                self.assertEqual(metadata.get("fsim/missile-control/%s-%s-rad" % (channel, bound)),
+                                 float(node.findtext("range/" + bound)))
+
+    def test_asymmetric_authored_stops_retain_distinct_signed_metadata(self):
+        from hangar import storecontrol
+        c = card("aim-120c")
+        geo = storeaero.geometry(c)
+        for surface in geo["design"]["surface"]:
+            for control in surface.get("controls", []):
+                control["limits"] = [-10, 30]
+        baseline = storeaero.coefficients(geo, c["id"])
+        source = '<fdm_config><metrics><wingarea unit="FT2">1</wingarea><wingspan unit="FT">1</wingspan><chord unit="FT">1</chord></metrics><flight_control name="old"/><aerodynamics/></fdm_config>'
+        model = ET.fromstring(storecontrol.apply(source, '<flight_control name="old"/>', geo, baseline, 0))
+        metadata = {n.text: float(n.get("value")) for n in model.findall("./flight_control/property")}
+        different = False
+        for node in model.findall("./flight_control/channel/aerosurface_scale"):
+            channel = node.get("name").removeprefix("fcs/").removesuffix("-control")
+            low, high = float(node.findtext("range/min")), float(node.findtext("range/max"))
+            self.assertEqual(metadata["fsim/missile-control/%s-min-rad" % channel], low)
+            self.assertEqual(metadata["fsim/missile-control/%s-max-rad" % channel], high)
+            different |= low != -high
+        self.assertTrue(different, "the synthetic authored design must actually exercise asymmetric travel")
+
     def test_distinct_authored_surfaces_cannot_share_one_physical_fin_identity(self):
         c = card("aim-120c")
         geo = storeaero.geometry(c)
@@ -186,8 +294,8 @@ class StoreControlTest(unittest.TestCase):
             with self.subTest(channel=channel):
                 actuator = model.find(".//actuator[@name='fcs/%s-actuator']" % channel)
                 self.assertIsNotNone(actuator, "released controlled missiles must execute finite JSBSim actuators")
-                self.assertGreater(float(actuator.findtext("lag")), 0)
-                self.assertGreater(float(actuator.findtext("rate_limit")), 0)
+                self.assertGreater(native_actuator_value(model, actuator.findtext("lag")), 0)
+                self.assertGreater(native_actuator_value(model, actuator.findtext("rate_limit")), 0)
                 self.assertLess(float(actuator.findtext("clipto/min")), 0)
                 self.assertGreater(float(actuator.findtext("clipto/max")), 0)
                 self.assertEqual(actuator.findtext("output"), "fcs/%s-response-rad" % channel)
@@ -216,7 +324,7 @@ class StoreControlTest(unittest.TestCase):
                 self.assertEqual(actuator.get("name"), "fcs/fin-%d-actuator" % i)
                 self.assertEqual(actuator.findtext("input"), "fcs/fin-%d-demand-rad" % i)
                 self.assertEqual(actuator.findtext("output"), "fcs/fin-%d-delta-rad" % i)
-                self.assertEqual(float(actuator.findtext("rate_limit")), 4.0)
+                self.assertEqual(native_actuator_value(model, actuator.findtext("rate_limit")), 4.0)
                 self.assertIsNone(actuator.find("lag"), "channel response already owns the assumed lag")
                 self.assertLess(float(actuator.findtext("clipto/min")), 0)
                 self.assertGreater(float(actuator.findtext("clipto/max")), 0)

@@ -76,7 +76,7 @@ def point_contact_nose(design):
     return tip if not mirrored and first["w"] == 0 and first["top"] == first["bottom"] else None
 
 
-def _ignition_time_thrust_rows(phases):
+def _ignition_time_thrust_rows(phases, *, coast_n=COAST_N, buildup_s=BUILDUP):
     """A validated pulsed motor's vacuum thrust (lbf) against native ignition time (s).
 
     A consumed-mass axis can skip a low-thrust coast in one integration step. The
@@ -84,10 +84,10 @@ def _ignition_time_thrust_rows(phases):
     Preserve the existing 2 N coast and its grain/impulse. The first native sine
     ramp delays every subsequent boundary by its lost effective burn time.
     """
-    if phases[0]["duration_s"] < BUILDUP:
+    if phases[0]["duration_s"] < buildup_s:
         raise ValueError("motor: ignition-time table requires the first phase to cover buildup")
-    forces = [max(1000.0 * p["thrust_kn"], COAST_N) / LBF for p in phases]
-    deficit = BUILDUP * (1.0 - 2.0 / math.pi)
+    forces = [max(1000.0 * p["thrust_kn"], coast_n) / LBF for p in phases]
+    deficit = buildup_s * (1.0 - 2.0 / math.pi)
     rows, elapsed = [(0.0, forces[0])], 0.0
     for index, phase in enumerate(phases):
         elapsed += phase["duration_s"]
@@ -116,7 +116,7 @@ def _inertia(design, m, length):
     return e["ixx"], e["iyy"]
 
 
-def motor_of(design, m, cg, radius):
+def motor_of(design, m, cg, radius, *, settings=None):
     """Its motor as its flight model has it, from its design's phases: {propellant_kg, burn_s, rows [(lb burnt, lbf)],
     grain: radius, bore, length, x (m), exit_x, exit_area}; None without one."""
     if "motor" not in design:
@@ -137,10 +137,16 @@ def motor_of(design, m, cg, radius):
     phases = (motor or {}).get("phase", [])
     if not phases:
         return None
-    isp = ISP.get(motor.get("smoke"), ISP_PLAIN)
+    settings = settings or {}
+    isp = settings.get("isp_s", ISP.get(motor.get("smoke"), ISP_PLAIN))
+    coast = settings.get("coast_thrust_n", COAST_N)
+    density = settings.get("grain_density_kg_m3", GRAIN_DENSITY)
+    grain_radius = settings.get("grain_radius_fraction", GRAIN_RADIUS)
+    grain_port = settings.get("grain_port_area_fraction", GRAIN_PORT)
+    grain_aft = settings.get("grain_aft_clearance_m", GRAIN_AFT)
     rows, burnt, impulse, burn_s = [], 0.0, 0.0, 0.0
     for i, p in enumerate(phases):
-        newtons = quantity(max(1000.0 * p["thrust_kn"], COAST_N), "simulated phase thrust", True)
+        newtons = quantity(max(1000.0 * p["thrust_kn"], coast), "simulated phase thrust", True)
         phase_impulse = quantity(newtons * p["duration_s"], "simulated phase impulse", True)
         impulse = quantity(impulse + phase_impulse, "total simulated impulse", True)
         burn_s = quantity(burn_s + p["duration_s"], "total simulated burn duration", True)
@@ -160,12 +166,12 @@ def motor_of(design, m, cg, radius):
     if burnt >= m:
         raise ValueError("motor: propellant mass must be less than launch mass")
     empty = quantity(m - burnt, "remaining structure mass", True)
-    R = quantity(GRAIN_RADIUS * radius, "grain radius", True)
-    volume_per_length = quantity(GRAIN_DENSITY * math.pi * R * R * (1.0 - GRAIN_PORT), "grain mass per length", True)
+    R = quantity(grain_radius * radius, "grain radius", True)
+    volume_per_length = quantity(density * math.pi * R * R * (1.0 - grain_port), "grain mass per length", True)
     length = quantity(burnt / volume_per_length, "grain length", True)
-    bore = quantity(2.0 * R * math.sqrt(GRAIN_PORT), "grain bore", True)
+    bore = quantity(2.0 * R * math.sqrt(grain_port), "grain bore", True)
     quantity(length * length, "grain squared length", True)
-    x = quantity(motor["exit"][0] - motor.get("cone_length", 0.0) - GRAIN_AFT - 0.5 * length, "grain centre")
+    x = quantity(motor["exit"][0] - motor.get("cone_length", 0.0) - grain_aft - 0.5 * length, "grain centre")
     try:
         exit_area = quantity(0.25 * math.pi * motor["exit_diameter"] ** 2, "nozzle exit area", True)
     except OverflowError as error:
@@ -196,7 +202,13 @@ def motor_of(design, m, cg, radius):
                 raise
             raise ValueError("motor: invalid body geometry or structure inertia") from error
     return dict(isp=isp, propellant_kg=burnt, burn_s=burn_s, rows=rows, radius=R, bore=bore, length=length, x=x,
-                exit_x=motor["exit"][0], exit_area=exit_area)
+                exit_x=motor["exit"][0], exit_area=exit_area, phases=phases, grain_density_kg_m3=density)
+
+
+def card_motor_of(card, design, m, cg, radius):
+    from . import components
+    selected, settings = components.motor(card, design)
+    return motor_of(selected, m, cg, radius, settings=settings)
 
 
 def _table(mach, values, indent, precise=False):
@@ -284,7 +296,8 @@ def files(card):
     if geo is None or geo.get("design") is None:
         return None
     design = geo["design"]
-    b = storeaero.coefficients(geo, card["id"])
+    from . import components
+    b = components.coefficients(card, geo)
     precise = "input" in b
     S, d = b["S"], b["d"]
     area_ft2, diameter_ft = S / FT ** 2, d / FT
@@ -298,7 +311,8 @@ def files(card):
     nose = min(body["stations"][0]["x"] for body in design["body"])
     tail = max(body["stations"][-1]["x"] for body in design["body"])
     ixx, iyy = _inertia(design, m, tail - nose)
-    motor = motor_of(design, m, cg, r)
+    design, motor_settings = components.motor(card, design)
+    motor = motor_of(design, m, cg, r, settings=motor_settings)
     empty, empty_cg = m, cg
     if motor:
         # its structure, burnt out: what JSBSim adds its grain to - the whole its design's, its motor full
@@ -502,7 +516,7 @@ def files(card):
                           "    <!-- Offline derivative-payload SHA-256: %s -->\n    <aerodynamics>%s" %
                           (b["input"]["sha256"], payload_digest(dict(b, cg_m=cg)), domain))
     from . import storecontrol
-    xml = storecontrol.apply(xml, controls, geo, b, cg * k)
+    xml = storecontrol.apply(xml, controls, geo, b, cg * k, card=card)
     # apply replaces the FCS of a controlled missile. Publish geometry after
     # that transformation so native contact sensing retains the authored tip.
     tip = point_contact_nose(design)
@@ -519,7 +533,9 @@ def files(card):
         if any(phase["thrust_kn"] == 0.0 for phase in design["motor"]["phase"]):
             table_name = _IGNITION_TIME_THRUST
             table_text = "\n".join("            %.17g %.17g" % row
-                                   for row in _ignition_time_thrust_rows(design["motor"]["phase"]))
+                                   for row in _ignition_time_thrust_rows(design["motor"]["phase"],
+                                       coast_n=(motor_settings or {}).get("coast_thrust_n", COAST_N),
+                                       buildup_s=(motor_settings or {}).get("buildup_s", BUILDUP)))
         out["Engines/%s_motor.xml" % name] = """<?xml version="1.0"?>
 <!-- Written by hangar (storemodels.py) from the design of %s: its motor's phases there (assumed: none is published),
      %.1f kg of propellant at %.0f s (assumed), burning %.1f s. Do not edit. -->
@@ -532,11 +548,23 @@ def files(card):
         </tableData>
     </thrust_table>
 </rocket_engine>
-""" % (name, motor["propellant_kg"], motor["isp"], motor["burn_s"], name, motor["isp"], BUILDUP, table_name, table_text)
+""" % (name, motor["propellant_kg"], motor["isp"], motor["burn_s"], name, motor["isp"],
+       (motor_settings or {}).get("buildup_s", BUILDUP), table_name, table_text)
+        # Preserve original textual values when exact; never silently round a
+        # different selected card input to the legacy presentation precision.
+        if motor_settings:
+            for tag, value, precision in (("isp", motor["isp"], 1),
+                    ("builduptime", motor_settings["buildup_s"], 2)):
+                if float(("%.*f" % (precision, value))) != value:
+                    import re
+                    key = "Engines/%s_motor.xml" % name
+                    out[key] = re.sub(r"(<%s>)[^<]*(</%s>)" % (tag, tag),
+                        lambda match: match[1] + " %.17g " % value + match[2], out[key], count=1)
         out["Engines/%s_nozzle.xml" % name] = """<?xml version="1.0"?>
 <!-- Written by hangar (storemodels.py): the nozzle's exit of %s's design. Do not edit. -->
 <nozzle name="%s nozzle">
     <area unit="FT2"> %.6f </area>
 </nozzle>
 """ % (name, name, motor["exit_area"] / FT ** 2)
+    out[name + ".xml"] = components.stamp(out[name + ".xml"], card)
     return out

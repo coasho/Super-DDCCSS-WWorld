@@ -16,6 +16,7 @@
 #include <array>
 #include <cmath>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -34,6 +35,33 @@ inline V3 cross(const V3& a, const V3& b) noexcept { return {a.y * b.z - a.z * b
 inline double length(const V3& a) noexcept { return std::sqrt(dot(a, a)); }
 inline V3 normalized(const V3& a) noexcept { const double l = length(a); return l > 0.0 ? a * (1.0 / l) : V3{}; }
 
+/// Closed authored contact volumes, separate from damage/penetration boxes.
+/// Source identities refer to the unchanged Airframe panel/component arrays.
+struct ContactMesh {
+    enum class Kind { Panel, Component } kind = Kind::Panel;
+    struct Neighbor { Kind kind=Kind::Panel; std::size_t index=0; };
+    std::size_t index = 0;
+    std::vector<V3> vertices;
+    std::vector<std::array<std::size_t, 3>> triangles;
+    /// Parallel to triangles: null is authored skin; an owner hides an
+    /// artificial ownership cut while that source remains attached.
+    std::vector<std::optional<Neighbor>> triangleNeighbors;
+    V3 low, high; ///< Derived by validation, never accepted from serialized bounds.
+};
+struct Airframe;
+class ContactGeometryV1 {
+public:
+    const ContactMesh* panel(std::size_t index) const noexcept;
+    const ContactMesh* component(std::size_t index) const noexcept;
+private:
+    friend bool setContactGeometryV1(Airframe&, std::vector<ContactMesh>, std::string&);
+    std::vector<ContactMesh> meshes_;
+    std::vector<std::size_t> panels_, components_;
+};
+/// Validate closed, consistently wound two-manifold meshes and seal their
+/// bounds/lookups once. Failure leaves the previous immutable geometry intact.
+bool setContactGeometryV1(Airframe& frame, std::vector<ContactMesh> meshes, std::string& error);
+
 // -- the warhead ------------------------------------------------------------------------------------------------
 
 /// A share of the fragments thrown between two angles from the missile's nose (degrees).
@@ -47,7 +75,7 @@ struct Warhead {
     enum class Kind { Fragmentation, Rod } kind = Kind::Fragmentation;
     double totalKg = 0.0, explosiveKg = 0.0;
     double gurneyMs = 2600.0;      ///< the explosive's sqrt(2E)
-    double tntKg = 0.0;            ///< the charge as TNT for its blast (its Gurney energy against TNT's)
+    double tntKg = 0.0;            ///< V1 declared blast equivalent; legacy derives its established Gurney-energy proxy.
     double caseKg = 0.0;           ///< what it throws: its fragments' (or rods') metal
     double diameterM = 0.0, lengthM = 0.0, caseThicknessM = 0.0;
     double fragmentKg = 0.0;       ///< each fragment's (a cube as thick as its case) or rod's (that thick, as long as it)
@@ -55,6 +83,13 @@ struct Warhead {
     int fragments = 0;
     double speedMs = 0.0;          ///< thrown at, relative to the missile
     std::vector<Zone> zones;       ///< where (from the nose), each zone's share
+    unsigned modelVersion = 0;    ///< Absent card version preserves the legacy point/zone source.
+    enum class FragmentSource { LegacyZones = 0, CylindricalSideCase = 1 } fragmentSource = FragmentSource::LegacyZones;
+    /// V1 fixed centre from the authored nose: structural metres aft/right/up.
+    /// World transforms this point and its velocity at the captured burst epoch.
+    std::optional<V3> stationStructuralM;
+    double caseInnerRadiusM = 0.0; ///< V1 annular volume's inner radius; outer radius is diameterM/2.
+    double fragmentCd = 1.3;       ///< V1 explicit card input; legacy retains its established constant.
 };
 
 /// Gurney's cylinder: a case of mass M round a charge C thrown at sqrt(2E) (M/C + 1/2)^-1/2.
@@ -125,6 +160,7 @@ struct Airframe {
     std::vector<Section> sections;
     std::vector<Panel> panels;
     std::vector<Component> components;
+    std::shared_ptr<const ContactGeometryV1> contactGeometry; ///< Absent legacy data cannot authorize contact.
     int section(const std::string& name) const noexcept;
     /// A section's skin's thickness (m): its skin's mass over its area, in aluminium.
     double skinThicknessM(int section) const noexcept;
@@ -158,8 +194,9 @@ V3 panelBlastImpulse(const Airframe::Panel& panel, const V3& burstBody, double i
 
 /// The detonation, and the target as the fragments find it (ECEF; the target's attitude body to ECEF, rows).
 struct Burst {
-    V3 at, velocity;  ///< the warhead's centre and the missile's velocity (m/s)
+    V3 at, velocity;  ///< the warhead's common centre and that point's velocity (m/s)
     V3 axis;          ///< the missile's nose
+    V3 angularVelocityEcef{}; ///< V1 source rigid-body angular velocity (rad/s); ignored by the legacy point source.
 };
 struct Target {
     V3 at, velocity;                ///< its model's origin and velocity

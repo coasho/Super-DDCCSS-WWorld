@@ -416,6 +416,14 @@ def files(card):
     nozzle's (storebodies.py). None: its card lacks what it is written from."""
     text = store_xml(card) or cargo_xml(card)
     if text is not None:
+        from . import components
+        selected = components.resolve(card, "aerodynamics")
+        if selected is not None:
+            source = "bluff_cargo" if card.get("class") == "cargo" else "slender_store"
+            components._available(selected, components.AERODYNAMICS, (), ("model", "design", "source"), card)
+            if selected["bindings"]["source"] != source:
+                raise ValueError("components: native store aerodynamic source mismatch")
+            text = components.stamp(text, card)
         return {model_name(card) + ".xml": text}
     from . import storebodies
     return storebodies.files(card)

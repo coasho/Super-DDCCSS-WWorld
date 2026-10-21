@@ -1,6 +1,7 @@
 #include "simulation/mission_systems/Cards.h"
 
 #include "foundation/core/Json.h"
+#include "simulation/mission_systems/components/Profile.h"
 
 #include <algorithm>
 #include <fstream>
@@ -165,6 +166,7 @@ const Loadout* Fit::loadout(const std::string& name) const noexcept {
 }
 
 std::shared_ptr<const StoreCard> readStoreCard(const std::filesystem::path& file, std::vector<std::string>& errors) {
+    const auto errorsBefore=errors.size();
     const auto doc = readJson(file, errors);
     if (!doc) {
         errors.push_back(file.string() + ": cannot be read");
@@ -197,6 +199,11 @@ std::shared_ptr<const StoreCard> readStoreCard(const std::filesystem::path& file
             errors.push_back(where + "warhead_kind is 'fragmentation' or 'rod'");
         if (!card->warheadKind.empty() && (!card->parameters.count("warhead_kg") || !card->parameters.count("explosive_kg")))
             errors.push_back(where + "a warhead needs its warhead_kg and explosive_kg");
+        components::ProfileV1 profile; std::string profileError;
+        if (!components::parseProfileV1(*doc,*card,profile,profileError)) {
+            errors.push_back(where+profileError); return nullptr;
+        }
+        if (profile.explicitProfile() && errors.size()!=errorsBefore) return nullptr;
         return card;
     } catch (const std::exception& ex) {
         errors.push_back(where + ex.what());

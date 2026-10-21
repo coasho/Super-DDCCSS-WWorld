@@ -23,6 +23,11 @@ AutopilotInput flight() {
     in.rollDamping = -100;
     return in;
 }
+ControlStopsV1 actualActuators() {
+    ControlStopsV1 native; native.actuatorVersion=1;
+    native.channelRateRadS=4; native.finRateRadS={4,4,4,4};
+    return native;
+}
 void level_trim_uses_specific_force_and_gravity() {
     auto in = flight();
     in.demandBody = {0, 0, -9.80665};
@@ -35,6 +40,65 @@ void level_trim_uses_specific_force_and_gravity() {
             "Level gravity compensation must trim lift without demanding a spurious pitch rate");
     require(std::abs(out.rudder) < 1e-12 && std::abs(out.aileron) < 1e-12,
             "Level trim must not invent yaw or roll demand");
+}
+void asymmetric_native_stop_normalization_preserves_requested_radians() {
+    auto in=flight(); in.limitsRad.fill(.3);
+    in.demandBody={0,0,-9.80665}; in.gravityBody={0,0,9.80665};
+    in.alphaRad=100*9.80665/9000;
+    FinControlConfigV1 config; config.version=1;
+    auto stops=actualActuators(); stops.version=1;
+    stops.lowerRad.fill(-.1); stops.upperRad.fill(.3);
+    const auto out=finCommands(in,config,stops);
+    // Independent JSBSim zero-centred scale: negative input uses |lower|.
+    const double actual=out.elevator*(out.elevator<0 ? .1 : .3);
+    require(out.available && std::abs(actual+.5*in.alphaRad)<1e-12,
+            "Asymmetric native stops must realize the requested negative trim radians, not a maximum-absolute-stop surrogate");
+}
+void configured_control_response_and_refusals_are_executed() {
+    auto in=flight(); in.ratesRadS[0]=.3; in.rollDamping=0;
+    FinControlConfigV1 config; config.version=1;
+    const auto native=actualActuators();
+    const auto ordinary=finCommands(in,config,native);
+    config.rateTimeMinS=.24;
+    const auto slower=finCommands(in,config,native);
+    require(ordinary.available && slower.available && std::abs(slower.aileron-.5*ordinary.aileron)<1e-12,
+            "The configured rate-response minimum must change the synthetic servo law rather than only metadata");
+    for(int defect=0;defect<5;++defect) {
+        auto bad=config;
+        if(defect==0) bad.version=2;
+        if(defect==1) bad.algorithm=2;
+        if(defect==2) bad.allocator=2;
+        if(defect==3) bad.rateTimeMinS=0;
+        if(defect==4) bad.maxIncidenceRad=std::numeric_limits<double>::quiet_NaN();
+        const auto out=finCommands(in,bad,native);
+        require(!out.available && out.aileron==0 && out.elevator==0 && out.rudder==0,
+                "Explicit unsupported or malformed control configuration must refuse with neutral commands");
+    }
+    auto badStops=native; badStops.version=1;
+    require(!finCommands(in,config,badStops).available,"Present malformed signed stops must not fall back to legacy normalization");
+    badStops.version=2;
+    require(!finCommands(in,config,badStops).available,"Unknown signed-stop metadata must refuse");
+}
+void configured_native_actuator_mismatch_is_unavailable() {
+    auto in=flight(); FinControlConfigV1 config; config.version=1;
+    const auto native=actualActuators();
+    require(finCommands(in,config,native).available,"Matching native actuator inputs must retain configured control");
+    config.actuatorLagS=.08;
+    require(!finCommands(in,config,native).available,
+            "A configured actuator time constant must not masquerade as the different actual native lag");
+    config.actuatorLagS=.04;
+    auto wrong=native; wrong.channelRateRadS=3;
+    require(!finCommands(in,config,wrong).available,"A native channel-rate mismatch must refuse");
+    wrong=native; wrong.finRateRadS[2]=3;
+    require(!finCommands(in,config,wrong).available,"Every physical fin's actual rate must match the selected plant");
+    wrong=native; wrong.finRateRadS.clear();
+    require(!finCommands(in,config,wrong).available,"Configured native fin dynamics cannot be inferred from an empty inventory");
+    wrong=native; wrong.actuatorVersion=0;
+    require(!finCommands(in,config,wrong).available,"A configured profile requires explicit native actuator metadata");
+    config.actuatorLagS=in.actuatorLagS=.08; config.actuatorRateRadS=3.25;
+    auto selected=native; selected.channelRateRadS=3.25; selected.finRateRadS.assign(4,3.25);
+    require(finCommands(in,config,selected).available,
+            "Matching nondefault card/native actuator inputs must execute the selected finite plant");
 }
 void signed_tail_and_canard_authority() {
     for (const double zDelta : {-2000., 2000.}) {
@@ -290,7 +354,9 @@ void overflowing_inertial_coupling_is_unavailable_and_neutral() {
 }
 int main() {
     unsigned passed = 0;
-    for (const auto test : {overflowing_inertial_coupling_is_unavailable_and_neutral,
+    for (const auto test : {asymmetric_native_stop_normalization_preserves_requested_radians,
+             configured_native_actuator_mismatch_is_unavailable, configured_control_response_and_refusals_are_executed,
+             overflowing_inertial_coupling_is_unavailable_and_neutral,
              level_trim_uses_specific_force_and_gravity, signed_tail_and_canard_authority,
              demands_saturate_without_unlimited_authority, no_authority_or_invalid_plant_is_neutral,
              saturated_request_has_no_windup_history, finite_lag_synthetic_plant_tracks_a_step,

@@ -4,6 +4,7 @@
 #include "foundation/io/AssetResolver.h"
 #include "foundation/transport/Recording.h"
 #include "simulation/runtime/world/World.h"
+#include "simulation/flight/FlightModel.h"
 
 #include <algorithm>
 #include <chrono>
@@ -52,6 +53,53 @@ double number(const Json& object, const char* key, double fallback, double minim
 
 Json numeric(double value) { return std::isfinite(value) ? Json(value) : Json(nullptr); }
 Json vector(const double* values) { return Json(Json::Array{Json(values[0]), Json(values[1]), Json(values[2])}); }
+
+const char* functionalKind(std::uint8_t kind) {
+    using K=fsim::ipc::EngagementKind;
+    switch(static_cast<K>(kind)) {
+        case K::Separated: return "separated";
+        case K::EngineOut: return "engine_out";
+        case K::ControlLost: return "control_lost";
+        case K::CrewLost: return "crew_lost";
+        default: return nullptr;
+    }
+}
+
+// Referee evidence from the existing recording, never another flight/damage model.
+Json targetResponse(const fsim::ipc::Recording& recording,std::uint32_t slot) {
+    Json out(Json::Object{});
+    Json::Array events,samples;
+    double firstLoss=std::numeric_limits<double>::infinity();
+    for (const auto& frame : recording.frames()) {
+        for (const auto& event : frame.events) if (event.slot==slot) if (const char* kind=functionalKind(event.kind)) {
+            Json item(Json::Object{});
+            item.set("kind",kind).set("time_s",event.simTime).set("slot",static_cast<double>(event.slot));
+            item.set("index",static_cast<double>(event.index)).set("name",event.name);
+            item.set("position_ecef_m",vector(event.positionEcef)).set("velocity_ecef_m_s",vector(event.velocityEcef));
+            events.push_back(std::move(item)); firstLoss=std::min(firstLoss,event.simTime);
+        }
+        for (const auto& [sampleSlot,sample] : frame.samples) if (sampleSlot==slot) {
+            const auto& state=sample.state;
+            Json item(Json::Object{});
+            item.set("time_s",frame.simTime).set("position_ecef_m",vector(state.positionEcef));
+            item.set("velocity_ned_m_s",vector(state.velocityNedMs)).set("euler_rad",vector(state.eulerRad));
+            item.set("body_rates_rad_s",vector(state.angularRateBodyRadS));
+            item.set("altitude_m",numeric(state.altitudeMslM)).set("speed_m_s",numeric(state.airspeedTrueMs));
+            item.set("mass_kg",sample.derived[fsim::ipc::kDerivedMassKg]>0 ? numeric(sample.derived[fsim::ipc::kDerivedMassKg]) : Json(nullptr));
+            item.set("crashed",state.crashed).set("diverged",state.diverged);
+            item.set("axis_inputs",Json(Json::Array{Json(sample.inputs.aileron),Json(sample.inputs.elevator),Json(sample.inputs.rudder)}));
+            Json::Array thrust,throttle;
+            for (int k=0;k<fsim::sim::VehicleState::kMaxEngines;++k) {
+                thrust.push_back(numeric(state.thrustN[k])); throttle.push_back(numeric(sample.inputs.throttle[k]));
+            }
+            item.set("thrust_n",Json(std::move(thrust))).set("throttle_inputs",Json(std::move(throttle)));
+            samples.push_back(std::move(item));
+        }
+    }
+    out.set("source","native-recording").set("first_loss_time_s",numeric(firstLoss));
+    out.set("functional_events",Json(std::move(events))).set("samples",Json(std::move(samples)));
+    return out;
+}
 
 std::string sceneHash(const std::string& text) {
     std::uint64_t hash = 14695981039346656037ull;
@@ -368,12 +416,28 @@ Json run(const Json& scene, const std::filesystem::path& output, const std::stri
             item.set("launch_time_s", record->launchTimeS).set("end_time_s", record->end == fsim::ms::WeaponEnd::InFlight ? Json(nullptr) : numeric(record->endTimeS));
             item.set("terminal_kind", fsim::ms::weaponEndName(record->end));
             item.set("seeker", record->seeker).set("acquired", missile.acquired).set("activated", missile.activated).set("supported", missile.supported);
+            if (const auto* card=world.missionSystems(own)->storeCard(missile.storeIndex)) {
+                Json profile(Json::Object{});
+                profile.set("execution",card->value("weapon_execution_version",0)).set("fuze",card->value("fuze_model_version",0))
+                    .set("warhead",card->value("warhead_model_version",0));
+                item.set("model_profile",std::move(profile));
+            }
             item.set("max_speed_m_s", missile.maximumSpeed).set("miss_m", numeric(record->missM)).set("holding_id", static_cast<double>(record->holding));
             weapons.push_back(std::move(item));
             std::printf("native weapon %u: %s, launch %.6f s, end %s at %.6f s, maximum speed %.3f m/s\n",
                         record->id, record->store.c_str(), record->launchTimeS, fsim::ms::weaponEndName(record->end), record->endTimeS, missile.maximumSpeed);
         }
         evidence.set("weapons", Json(std::move(weapons)));
+        Json::Array failures;
+        // The same native paths are available through the SDK's property handles.
+        // Quiet enumeration avoids creating optional properties or warning on absence.
+        for (const char* prefix : {"fcs","propulsion"})
+            for (const auto& [name,value] : world.model(opponent)->properties(prefix))
+                if (name.find("/malfunction/fail_stuck")!=std::string::npos || name.find("/seized")!=std::string::npos) {
+                    Json item(Json::Object{});
+                    item.set("path",std::string(prefix)+"/"+name).set("value",numeric(value)); failures.push_back(std::move(item));
+                }
+        evidence.set("target_native_properties",Json(std::move(failures)));
     } // Close the native recorder before reading its authoritative entity slots.
     fsim::ipc::Recording recording;
     std::string error;
@@ -390,6 +454,7 @@ Json run(const Json& scene, const std::filesystem::path& output, const std::stri
         weapon.set("weapon_slot", static_cast<double>(slots.at(id)));
     }
     evidence.set("weapons", Json(std::move(weapons)));
+    evidence.set("target_response",targetResponse(recording,slots.at(opponent)));
     evidence.set("recorded_frames", static_cast<double>(recording.frames().size()));
     return evidence;
 }

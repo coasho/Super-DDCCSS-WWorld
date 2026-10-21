@@ -120,7 +120,11 @@
         </contact>
     </ground_reactions>
     <propulsion/>
-    <flight_control name="none"/>
+    <flight_control name="none">
+        <property value="1">fsim/components/aerodynamics/schema-version</property>
+        <property value="1">fsim/components/aerodynamics/implementation-code</property>
+        <property value="3635982506">fsim/components/aerodynamics/profile-fingerprint</property>
+    </flight_control>
     <aerodynamics>
         <axis name="AXIAL">
             <function name="aero/coefficient/CA">

@@ -3,6 +3,7 @@
 // what they strike, deterministic from the damage stream.
 #include "simulation/mission_systems/damage/Damage.h"
 #include "simulation/mission_systems/damage/State.h"
+#include "simulation/mission_systems/weapon/MaterialPoint.h"
 #include "mode_flights.h"
 #include "simulation/flight/JsbsimModel.h"
 
@@ -20,6 +21,80 @@
 
 using namespace fsim::ms;
 using namespace fsim::ms::damage;
+
+TEST_CASE("A fixed burst point keeps its location and velocity when the CG reference moves", "[damage][material-point]") {
+    fsim::sim::VehicleState s{};
+    for (int i=0;i<9;++i) s.rotationBodyToEcef[i]=(i%4==0 ? 1.0 : 0.0);
+    s.positionEcef[0]=100; s.positionEcef[1]=200; s.positionEcef[2]=300;
+    s.velocityBodyMs[0]=10; s.velocityBodyMs[1]=20; s.velocityBodyMs[2]=30;
+    s.angularRateBodyRadS[2]=2;
+    const auto first=fsim::ms::weapon::materialPoint(s,{1,0,0},{3,0,0});
+    REQUIRE(first.valid);
+    CHECK(first.position.x==102); CHECK(first.position.y==200); CHECK(first.position.z==300);
+    CHECK(first.velocity.x==10); CHECK(first.velocity.y==24); CHECK(first.velocity.z==30);
+    s.positionEcef[0]+=1; s.velocityBodyMs[1]+=2;
+    const auto moved=fsim::ms::weapon::materialPoint(s,{2,0,0},{3,0,0});
+    REQUIRE(moved.valid);
+    CHECK(length(moved.position-first.position)==0); CHECK(length(moved.velocity-first.velocity)==0);
+    CHECK(moved.angularVelocity.z==2);
+}
+
+TEST_CASE("A mechanical impulse loads the root without inventing fragment hits", "[damage][contact-energy]") {
+    auto frame = std::make_shared<Airframe>();
+    frame->nUltimate[1] = 9;
+    frame->sections.resize(1);
+    auto& section = frame->sections[0];
+    section.hasRoot = true;
+    section.axes = {{0, 1, 0}};
+    section.strengthNm = {1};
+    Airframe::Panel face;
+    face.section = 0;
+    face.corners = {{{1, -1, -1}, {1, 1, -1}, {1, 1, 1}, {1, -1, 1}}};
+    frame->panels.push_back(face);
+    VehicleDamage damage(frame);
+    Impact impact;
+    Impact::PanelHits load;
+    load.panel = 0;
+    load.momentumNs = {0, 0, 100};
+    impact.panels.push_back(load);
+    fsim::Rng rng(19);
+    const auto before = rng.state();
+    const auto changes = damage.apply(impact, 101325, rng);
+    REQUIRE(damage.sections()[0].kick > 1);
+    REQUIRE(damage.sections()[0].separated);
+    CHECK(std::any_of(changes.begin(), changes.end(), [](const Change& c) { return c.kind == Change::Kind::Separated; }));
+    CHECK(impact.fragmentsThrown == 0);
+    CHECK(impact.fragmentsStriking == 0);
+    CHECK(damage.sections()[0].holeM2 == 0);
+    CHECK(rng.state() == before);
+}
+
+TEST_CASE("A localized contact uses its real point rather than a damage-panel midpoint", "[damage][contact-energy]") {
+    auto frame=std::make_shared<Airframe>(); frame->nUltimate[1]=9; frame->sections.resize(1);
+    auto& section=frame->sections[0]; section.hasRoot=true; section.axes={{0,1,0}}; section.strengthNm={1};
+    Airframe::Panel face; face.section=0;
+    face.corners={{{10,-1,-1},{10,1,-1},{10,1,1},{10,-1,1}}}; frame->panels.push_back(face);
+    VehicleDamage damage(frame); fsim::Rng rng(5); const auto before=rng.state();
+    const auto changes=damage.apply(Impact{},101325,rng,{{0,section.root,{0,0,1e6}}});
+    CHECK(changes.empty()); CHECK(damage.sections()[0].kick==0); CHECK_FALSE(damage.sections()[0].separated);
+    CHECK(damage.sections()[0].holeM2==0); CHECK(rng.state()==before);
+}
+
+TEST_CASE("Departed components cannot keep operating on the parent aircraft", "[damage][contact-energy]") {
+    auto frame=std::make_shared<Airframe>(); frame->sections.resize(2);
+    for (auto& section:frame->sections) section.hasRoot=true;
+    Airframe::Component crew; crew.section=0; crew.kind="crew"; frame->components.push_back(crew);
+    Airframe::Component engine; engine.section=0; engine.kind="engine"; engine.engine=0; frame->components.push_back(engine);
+    Airframe::Component control; control.section=0; control.kind="control"; control.channel="elevator"; frame->components.push_back(control);
+    engine.section=1; engine.engine=1; frame->components.push_back(engine);
+    VehicleDamage damage(frame);
+    CHECK(damage.detachComponents(0).empty()); CHECK_FALSE(damage.crewLost());
+    REQUIRE(damage.separate(0));
+    const auto changes=damage.detachComponents(0);
+    CHECK(changes.size()==3); CHECK(damage.crewLost()); CHECK(damage.engineOut(0)); CHECK_FALSE(damage.engineOut(1));
+    REQUIRE(damage.lostChannels().size()==1); CHECK(damage.lostChannels()[0]=="elevator");
+    CHECK(damage.detachComponents(0).empty());
+}
 
 namespace {
 
@@ -51,8 +126,8 @@ TEST_CASE("a warhead's fragments: Gurney's velocity, the rule's case and fragmen
     // Gurney's cylinder: M/C = 1 throws at sqrt(2E) / sqrt(1.5)
     CHECK(near(gurneyCylinder(2700.0, 1.0, 1.0), 2700.0 / std::sqrt(1.5), 1e-9));
     CHECK(gurneyCylinder(2700.0, 1.0, 0.0) == 0.0);
-    // the AIM-120C's WDU-41/B: 20 kg, 7.17 kg of PBXN-110 - its case (0.85 of the rest) thrown at some 1.8 km/s,
-    // in cubes as thick as the case, a few grams each, more than a thousand of them
+    // The explicitly assumed generic profile on this card retains the original
+    // mass inputs. These checks do not establish measured WDU-41/B performance.
     const auto aim120 = warheadOf(*card("aim-120c"));
     REQUIRE(aim120);
     CHECK(aim120->kind == Warhead::Kind::Fragmentation);
@@ -65,10 +140,12 @@ TEST_CASE("a warhead's fragments: Gurney's velocity, the rule's case and fragmen
     CHECK(aim120->fragmentKg < 0.02);
     CHECK(aim120->fragments > 500);
     CHECK(near(aim120->fragments * aim120->fragmentKg, aim120->caseKg, 0.01 * aim120->caseKg));
-    CHECK(aim120->tntKg > aim120->explosiveKg); // (an HMX fill: more than its weight of TNT)
-    double shares = 0.0;
-    for (const Zone& z : aim120->zones) shares += z.share;
-    CHECK(near(shares, 1.0, 1e-12));
+    CHECK(aim120->tntKg > aim120->explosiveKg); // the card's declared uncalibrated blast proxy
+    REQUIRE(aim120->modelVersion == 1);
+    // V1 has no angular-zone weights. Requiring their sum to be one tested a
+    // legacy-only field, not the selected finite-source sampling contract.
+    CHECK(aim120->zones.empty());
+    CHECK(near(aim120->fragments * aim120->fragmentKg, aim120->caseKg, 1e-12));
     // the R-27's rods: fewer, heavier, slower (a continuous rod's speed at most Talos's)
     const auto r27 = warheadOf(*card("r-27er"));
     REQUIRE(r27);

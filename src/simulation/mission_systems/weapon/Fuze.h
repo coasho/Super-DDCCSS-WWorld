@@ -16,6 +16,11 @@ struct FuzeResult {
 };
 
 namespace fuze_detail {
+inline bool validModel(const Spec& spec) noexcept {
+    if (spec.fuzeModelVersion==0) return spec.fuzeAlgorithm==0;
+    return spec.fuzeModelVersion==1 && spec.fuzeAlgorithm==1 &&
+           std::isfinite(spec.fuzeDelayS) && spec.fuzeDelayS>=0;
+}
 inline bool finite(V3 v) noexcept {
     return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
 }
@@ -30,10 +35,13 @@ inline V3 at(V3 before, V3 movement, double fraction) noexcept {
 
 // Linear relative-motion sweep restricted to the armed, live ages [armingS,
 // lifeS). The outer step includes both supplied endpoints. fraction is in the
-// ORIGINAL step, at closest approach in that interval; this deliberately
-// preserves the native burst-at-closest-approach convention, not first sphere
-// entry. At an excluded expiry endpoint, only a strict interior overlap can
-// trigger, and its returned fraction must represent an age below lifeS.
+// ORIGINAL step. Model 0 preserves the legacy interval minimum (including its
+// clamped endpoints). Explicit model 1/law 1 initiates only at an actual linear
+// stationary point captured in the active interval, never at a clamped approach
+// endpoint. A stationary relative overlap alone establishes no V1 turn. Path
+// corners and retained cross-decision history belong to MotionHistory.h.
+// Legacy expiry may retain strict interior overlap; V1 never nudges an excluded
+// stationary point into a live initiation.
 //
 // valid=false rejects malformed inputs or overflowing geometry. A valid step
 // with no active interval returns no geometry (NaNs). The caller still owns
@@ -41,7 +49,8 @@ inline V3 at(V3 before, V3 movement, double fraction) noexcept {
 inline FuzeResult sweptFuze(V3 ownBefore, V3 ownAfter, V3 targetBefore, V3 targetAfter,
                             double ageBeforeS, double ageAfterS, const Spec& spec) noexcept {
     FuzeResult result;
-    if (!fuze_detail::finite(ownBefore) || !fuze_detail::finite(ownAfter)
+    if (!fuze_detail::validModel(spec)
+        || !fuze_detail::finite(ownBefore) || !fuze_detail::finite(ownAfter)
         || !fuze_detail::finite(targetBefore) || !fuze_detail::finite(targetAfter)
         || !std::isfinite(ageBeforeS) || !std::isfinite(ageAfterS)
         || ageBeforeS < 0 || ageAfterS <= ageBeforeS
@@ -72,6 +81,9 @@ inline FuzeResult sweptFuze(V3 ownBefore, V3 ownAfter, V3 targetBefore, V3 targe
 
     const double unconstrained = square > 0 ? -projection / square : first;
     if (!std::isfinite(unconstrained)) return FuzeResult{};
+    const bool actualCpa=square>0 && unconstrained>=first && unconstrained<=last &&
+                         (!expiryEnd || unconstrained<last) &&
+                         ageAt(unconstrained)>=spec.armingS && ageAt(unconstrained)<spec.lifeS;
     double closest = std::clamp(unconstrained, first, last);
     const V3 endpoint = fuze_detail::at(before, movement, closest);
     const double endpointMiss = std::hypot(endpoint.x, endpoint.y, endpoint.z);
@@ -94,7 +106,8 @@ inline FuzeResult sweptFuze(V3 ownBefore, V3 ownAfter, V3 targetBefore, V3 targe
     if (!fuze_detail::finite(relative) || !std::isfinite(miss)) return FuzeResult{};
     result.missM = miss;
     result.fraction = closest;
-    result.triggered = !excludedContact && miss <= spec.fuzeM;
+    result.triggered = !excludedContact && miss <= spec.fuzeM &&
+                       (spec.fuzeModelVersion==0 || actualCpa);
     return result;
 }
 

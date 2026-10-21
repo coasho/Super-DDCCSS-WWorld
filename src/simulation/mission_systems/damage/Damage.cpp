@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <fstream>
 #include <limits>
+#include <map>
+#include <set>
 #include <sstream>
 
 namespace fsim::ms::damage {
@@ -112,6 +114,59 @@ double gurneyCylinder(double gurneyMs, double caseKg, double chargeKg) noexcept 
 
 std::optional<Warhead> warheadOf(const StoreCard& card) {
     if (card.warheadKind.empty()) return std::nullopt;
+    if (card.parameters.find("warhead_model_version")==card.parameters.end())
+        for (const auto& parameter : card.parameters)
+            if (parameter.first.compare(0,8,"warhead_")==0 && parameter.first!="warhead_kg") return std::nullopt;
+    if (const auto version=card.parameters.find("warhead_model_version"); version!=card.parameters.end()) {
+        if (version->second.value!=1.0 || version->second.unit!="1" || card.warheadKind!="fragmentation") return std::nullopt;
+        const auto required=[&](const char* name,const char* unit) {
+            const auto found=card.parameters.find(name);
+            return found==card.parameters.end() || found->second.unit!=unit ?
+                std::numeric_limits<double>::quiet_NaN() : found->second.value;
+        };
+        const double source=required("warhead_fragment_source","1"), total=required("warhead_kg","kg"), charge=required("explosive_kg","kg");
+        const double tnt=required("warhead_tnt_equivalent_kg","kg");
+        const double diameter=required("diameter_m","m"), modelLength=required("length_m","m"), gurney=required("gurney_kms","km/s");
+        const double structure=required("warhead_structure_fraction","1"), ratio=required("warhead_diameter_ratio","1");
+        const double caseDensity=required("warhead_case_density_kg_m3","kg/m^3"), chargeDensity=required("warhead_explosive_density_kg_m3","kg/m^3");
+        const double structureDensity=required("warhead_structure_density_kg_m3","kg/m^3"), cd=required("warhead_fragment_cd","1");
+        const V3 station{required("warhead_station_x_m","m"),required("warhead_station_y_m","m"),required("warhead_station_z_m","m")};
+        for (const double value : {source,total,charge,tnt,diameter,modelLength,gurney,structure,ratio,caseDensity,chargeDensity,
+                                   structureDensity,cd,station.x,station.y,station.z})
+            if (!std::isfinite(value)) return std::nullopt;
+        if (source!=1 || !(total>charge) || !(charge>0) || !(tnt>0) || !(diameter>0) || !(modelLength>0) || !(gurney>0) ||
+            structure<0 || structure>=1 || !(ratio>0) || ratio>1 || !(caseDensity>0) || !(chargeDensity>0) ||
+            !(structureDensity>0) || !(cd>0)) return std::nullopt;
+        Warhead w;
+        w.modelVersion=1;w.fragmentSource=Warhead::FragmentSource::CylindricalSideCase;
+        w.stationStructuralM=station;w.fragmentCd=cd;w.totalKg=total;w.explosiveKg=charge;w.gurneyMs=1000*gurney;
+        const double inert=total-charge;
+        w.caseKg=(1-structure)*inert;w.diameterM=ratio*diameter;
+        const double outer=w.diameterM/2;
+        const double volume=charge/chargeDensity+w.caseKg/caseDensity+structure*inert/structureDensity;
+        w.lengthM=volume/(kPi*outer*outer);
+        const double annulus=w.caseKg/(caseDensity*kPi*w.lengthM);
+        const double innerSquared=outer*outer-annulus;
+        if (!(outer>0) || !(innerSquared>0) || !(w.lengthM>0) || !std::isfinite(w.lengthM)) return std::nullopt;
+        w.caseInnerRadiusM=std::sqrt(innerSquared);
+        // Stable exact-annulus thickness, rather than the thin-wall estimate.
+        w.caseThicknessM=annulus/(outer+w.caseInnerRadiusM);
+        if (station.x-w.lengthM/2<0 || station.x+w.lengthM/2>modelLength ||
+            std::hypot(station.y,station.z)+outer>diameter/2) return std::nullopt;
+        const double cubeKg=caseDensity*w.caseThicknessM*w.caseThicknessM*w.caseThicknessM;
+        if (!(cubeKg>0) || !std::isfinite(cubeKg)) return std::nullopt;
+        const double count=std::round(w.caseKg/cubeKg);
+        if (!(count>=1) || count>std::numeric_limits<int>::max() || !std::isfinite(count)) return std::nullopt;
+        w.fragments=static_cast<int>(count);
+        // Integerizing the equivalent-cube rule must not create/lose case mass.
+        w.fragmentKg=w.caseKg/count;
+        w.fragmentAreaM2=1.5*std::pow(w.fragmentKg/caseDensity,2.0/3.0);
+        w.speedMs=gurneyCylinder(w.gurneyMs,w.caseKg,charge);
+        w.tntKg=tnt; // Blast equivalence cannot be inferred from fragment-driving Gurney energy.
+        if (!(w.speedMs>0) || !std::isfinite(w.speedMs) || !(w.fragmentAreaM2>0) || !std::isfinite(w.fragmentAreaM2) ||
+            !std::isfinite(w.tntKg) || !std::isfinite(w.caseThicknessM) || !std::isfinite(w.fragmentKg)) return std::nullopt;
+        return w;
+    }
     Warhead w;
     w.kind = card.warheadKind == "rod" ? Warhead::Kind::Rod : Warhead::Kind::Fragmentation;
     w.totalKg = cardValue(card, "warhead_kg", 0.0);
@@ -205,6 +260,102 @@ V3 panelBlastImpulse(const Airframe::Panel& panel, const V3& burstBody, double i
     return normalized(to) * (-impulsePas * 0.5 * panel.areaM2 * facing);
 }
 
+const ContactMesh* ContactGeometryV1::panel(std::size_t index) const noexcept {
+    return index < panels_.size() && panels_[index] < meshes_.size() ? &meshes_[panels_[index]] : nullptr;
+}
+const ContactMesh* ContactGeometryV1::component(std::size_t index) const noexcept {
+    return index < components_.size() && components_[index] < meshes_.size() ? &meshes_[components_[index]] : nullptr;
+}
+
+bool setContactGeometryV1(Airframe& frame, std::vector<ContactMesh> meshes, std::string& error) {
+    try {
+        constexpr std::size_t maxVertices = 1000000, maxTriangles = 2000000;
+        auto geometry = std::shared_ptr<ContactGeometryV1>(new ContactGeometryV1);
+        geometry->panels_.assign(frame.panels.size(), meshes.size());
+        geometry->components_.assign(frame.components.size(), meshes.size());
+        std::size_t totalVertices = 0, totalTriangles = 0;
+        for (std::size_t i = 0; i < meshes.size(); ++i) {
+            auto& mesh = meshes[i];
+            auto* lookup = mesh.kind == ContactMesh::Kind::Panel ? &geometry->panels_ :
+                           mesh.kind == ContactMesh::Kind::Component ? &geometry->components_ : nullptr;
+            if (!lookup || mesh.index >= lookup->size() || (*lookup)[mesh.index] != meshes.size())
+                throw std::runtime_error("contact geometry has an invalid or duplicate source identity");
+            if (mesh.kind == ContactMesh::Kind::Panel && frame.panels[mesh.index].surface)
+                throw std::runtime_error("a finite surface panel cannot also be a closed contact volume");
+            if (mesh.vertices.size() < 4 || mesh.triangles.size() < 4 ||
+                mesh.vertices.size() > maxVertices - totalVertices || mesh.triangles.size() > maxTriangles - totalTriangles)
+                throw std::runtime_error("contact mesh size is invalid or exceeds the geometry limit");
+            if (mesh.triangleNeighbors.size()!=mesh.triangles.size())
+                throw std::runtime_error("contact triangle provenance must be explicit and parallel to its faces");
+            for (const auto& neighbor : mesh.triangleNeighbors) if(neighbor) {
+                const auto size=neighbor->kind==ContactMesh::Kind::Panel ? frame.panels.size() :
+                                neighbor->kind==ContactMesh::Kind::Component ? frame.components.size() : 0;
+                if (neighbor->index>=size || (neighbor->kind==mesh.kind && neighbor->index==mesh.index))
+                    throw std::runtime_error("contact ownership cut has an invalid or self neighbor");
+            }
+            totalVertices += mesh.vertices.size(); totalTriangles += mesh.triangles.size();
+            mesh.low = mesh.high = mesh.vertices.front();
+            std::set<std::array<double, 3>> positions;
+            for (const auto v : mesh.vertices) {
+                if (!std::isfinite(v.x) || !std::isfinite(v.y) || !std::isfinite(v.z) ||
+                    !positions.insert({v.x, v.y, v.z}).second)
+                    throw std::runtime_error("contact mesh vertices must be finite and welded");
+                mesh.low.x=std::min(mesh.low.x,v.x); mesh.low.y=std::min(mesh.low.y,v.y); mesh.low.z=std::min(mesh.low.z,v.z);
+                mesh.high.x=std::max(mesh.high.x,v.x); mesh.high.y=std::max(mesh.high.y,v.y); mesh.high.z=std::max(mesh.high.z,v.z);
+            }
+            using Edge = std::pair<std::size_t, std::size_t>;
+            std::map<Edge, std::pair<unsigned, int>> edges;
+            std::vector<std::map<std::size_t,std::vector<std::size_t>>> links(mesh.vertices.size());
+            std::vector<bool> used(mesh.vertices.size(), false);
+            long double volume = 0;
+            const auto origin = mesh.vertices.front();
+            for (const auto& triangle : mesh.triangles) {
+                for (const auto index : triangle) {
+                    if (index >= mesh.vertices.size()) throw std::runtime_error("contact triangle index is out of range");
+                    used[index]=true;
+                }
+                const auto a=mesh.vertices[triangle[0]], b=mesh.vertices[triangle[1]], c=mesh.vertices[triangle[2]];
+                const long double ux=static_cast<long double>(b.x)-a.x, uy=static_cast<long double>(b.y)-a.y, uz=static_cast<long double>(b.z)-a.z;
+                const long double vx=static_cast<long double>(c.x)-a.x, vy=static_cast<long double>(c.y)-a.y, vz=static_cast<long double>(c.z)-a.z;
+                const long double nx=uy*vz-uz*vy, ny=uz*vx-ux*vz, nz=ux*vy-uy*vx;
+                const long double square=nx*nx+ny*ny+nz*nz;
+                if (!(square>0) || !std::isfinite(square)) throw std::runtime_error("contact mesh has a collapsed or overflowing triangle");
+                volume += (static_cast<long double>(a.x)-origin.x)*nx +
+                          (static_cast<long double>(a.y)-origin.y)*ny + (static_cast<long double>(a.z)-origin.z)*nz;
+                for (int k=0;k<3;++k) {
+                    const auto from=triangle[static_cast<std::size_t>(k)], to=triangle[static_cast<std::size_t>((k+1)%3)];
+                    auto& edge=edges[{std::min(from,to),std::max(from,to)}];
+                    ++edge.first; edge.second += from<to ? 1 : -1;
+                    const auto other=triangle[static_cast<std::size_t>((k+2)%3)];
+                    links[from][to].push_back(other); links[from][other].push_back(to);
+                }
+            }
+            if (!std::isfinite(volume) || volume==0 || std::find(used.begin(),used.end(),false)!=used.end())
+                throw std::runtime_error("contact mesh has no closed volume or has unused vertices");
+            for (const auto& edge : edges)
+                if (edge.second.first!=2 || edge.second.second!=0)
+                    throw std::runtime_error("contact mesh must be a closed consistently wound two-manifold");
+            for (const auto& link : links) {
+                std::set<std::size_t> visited;
+                std::vector<std::size_t> pending{link.begin()->first};
+                while (!pending.empty()) {
+                    const auto vertex=pending.back();pending.pop_back();
+                    if (!visited.insert(vertex).second) continue;
+                    const auto& neighbours=link.at(vertex);
+                    if (neighbours.size()!=2) throw std::runtime_error("contact mesh has a non-manifold vertex");
+                    pending.insert(pending.end(),neighbours.begin(),neighbours.end());
+                }
+                if (visited.size()!=link.size()) throw std::runtime_error("contact mesh has disconnected vertex fans");
+            }
+            (*lookup)[mesh.index]=i;
+        }
+        geometry->meshes_=std::move(meshes);
+        frame.contactGeometry=std::move(geometry);
+        error.clear();
+        return true;
+    } catch (const std::exception& ex) { error=ex.what(); return false; }
+}
+
 std::optional<Airframe> readAirframe(const std::filesystem::path& file, std::string& error) {
     std::ifstream in(file, std::ios::binary);
     if (!in) {
@@ -277,6 +428,48 @@ std::optional<Airframe> readAirframe(const std::filesystem::path& file, std::str
             x.fuelKg = c.number("fuel_kg", 0.0);
             a.components.push_back(std::move(x));
         }
+        if (doc.has("contact_geometry")) {
+            const auto& contact=doc.child("contact_geometry");
+            if (!contact.isObject() || !contact.child("version").isNumber() || contact.child("version").asNumber()!=1)
+                throw std::runtime_error("unsupported explicit contact geometry version");
+            const auto index=[](const core::Json& value,std::size_t limit) {
+                const double n=value.asNumber();
+                if (!std::isfinite(n) || n<0 || n>=static_cast<double>(limit) || std::floor(n)!=n)
+                    throw std::runtime_error("invalid contact geometry index");
+                return static_cast<std::size_t>(n);
+            };
+            std::vector<ContactMesh> meshes;
+            for (const auto& serialized : contact.child("meshes").asArray()) {
+                if (meshes.size()>=a.panels.size()+a.components.size()) throw std::runtime_error("too many contact meshes");
+                ContactMesh mesh;
+                const auto kind=serialized.child("kind").asString();
+                if (kind!="panel" && kind!="component") throw std::runtime_error("invalid contact geometry source kind");
+                mesh.kind=kind=="panel" ? ContactMesh::Kind::Panel : ContactMesh::Kind::Component;
+                mesh.index=index(serialized.child("index"),kind=="panel" ? a.panels.size() : a.components.size());
+                const auto& vertices=serialized.child("vertices").asArray();
+                const auto& triangles=serialized.child("triangles").asArray();
+                if (vertices.size()>1000000 || triangles.size()>2000000) throw std::runtime_error("contact mesh exceeds reader size limit");
+                for (const auto& vertex : vertices) mesh.vertices.push_back(readV3(vertex));
+                for (const auto& triangle : triangles) {
+                    const auto& t=triangle.asArray();
+                    if (t.size()!=3) throw std::runtime_error("a contact triangle needs three indices");
+                    mesh.triangles.push_back({index(t[0],mesh.vertices.size()),index(t[1],mesh.vertices.size()),index(t[2],mesh.vertices.size())});
+                }
+                const auto& neighbors=serialized.child("triangle_neighbors").asArray();
+                if(neighbors.size()!=mesh.triangles.size()) throw std::runtime_error("contact triangle provenance count mismatch");
+                for(const auto& neighbor : neighbors) {
+                    if(neighbor.isNull()) {mesh.triangleNeighbors.emplace_back(std::nullopt);continue;}
+                    if(!neighbor.isObject()) throw std::runtime_error("invalid contact triangle provenance");
+                    const auto neighborKind=neighbor.child("kind").asString();
+                    if(neighborKind!="panel" && neighborKind!="component") throw std::runtime_error("invalid contact neighbor kind");
+                    mesh.triangleNeighbors.emplace_back(ContactMesh::Neighbor{
+                        neighborKind=="panel" ? ContactMesh::Kind::Panel : ContactMesh::Kind::Component,
+                        index(neighbor.child("index"),neighborKind=="panel" ? a.panels.size() : a.components.size())});
+                }
+                meshes.push_back(std::move(mesh));
+            }
+            if (!setContactGeometryV1(a,std::move(meshes),error)) throw std::runtime_error(error);
+        }
         return a;
     } catch (const std::exception& ex) {
         error = file.string() + ": " + ex.what();
@@ -296,7 +489,15 @@ Impact assess(const Warhead& w, const Burst& burst, const AttachedGeometryView& 
     const V3 e2 = cross(nose, e1);
     std::vector<Impact::ComponentHits> comp(af.components.size());
     std::vector<Impact::PanelHits> pan(af.panels.size());
-    const double decayPerM = target.airDensity * kFragmentCd * w.fragmentAreaM2 / (2.0 * std::max(w.fragmentKg, 1e-9));
+    const bool sideCase=w.modelVersion==1 && w.fragmentSource==Warhead::FragmentSource::CylindricalSideCase;
+    // Explicit versions/sources cannot fall back to the legacy point model.
+    if (w.modelVersion>1 || (w.modelVersion==1 && (!sideCase || !(w.lengthM>0) || !(w.diameterM>0) ||
+        !(w.caseInnerRadiusM>0) || !(w.caseInnerRadiusM<w.diameterM/2) || !(w.fragmentCd>0) ||
+        !std::isfinite(w.lengthM) || !std::isfinite(w.diameterM) || !std::isfinite(w.caseInnerRadiusM) ||
+        !std::isfinite(w.fragmentCd) || !(length(nose)>0) ||
+        !std::isfinite(burst.angularVelocityEcef.x) || !std::isfinite(burst.angularVelocityEcef.y) ||
+        !std::isfinite(burst.angularVelocityEcef.z)))) return out;
+    const double decayPerM = target.airDensity * (sideCase?w.fragmentCd:kFragmentCd) * w.fragmentAreaM2 / (2.0 * std::max(w.fragmentKg, 1e-9));
     out.fragmentsThrown = w.fragments;
     struct Event {
         double s;
@@ -308,24 +509,39 @@ Impact assess(const Warhead& w, const Burst& burst, const AttachedGeometryView& 
     };
     std::vector<Event> events;
     for (int i = 0; i < w.fragments; ++i) {
-        // its zone, its direction in it (uniform over the zone's solid angle)
-        double pick = rng.uniform(), acc = 0.0;
-        const Zone* zone = &w.zones.back();
-        for (const Zone& z : w.zones) {
-            acc += z.share;
-            if (pick < acc) {
-                zone = &z;
-                break;
+        V3 d, rayFromBody=p0, sourceVelocity=burst.velocity;
+        if (sideCase) {
+            // Exactly three draws: axial position, azimuth, annular-volume
+            // radius. Position and the outward local normal are correlated.
+            const double axial=w.lengthM*(rng.uniform()-.5);
+            const double phi=2*kPi*rng.uniform();
+            const double outer=w.diameterM/2, inner=w.caseInnerRadiusM;
+            const double radius=std::sqrt(inner*inner+rng.uniform()*(outer*outer-inner*inner));
+            d=e1*std::cos(phi)+e2*std::sin(phi);
+            const V3 sourceOffset=nose*axial+d*radius;
+            const V3 source=burst.at+sourceOffset;
+            rayFromBody=toBody(target,source-target.at);
+            sourceVelocity+=cross(burst.angularVelocityEcef,sourceOffset);
+        } else {
+            // Legacy draw order, point source and weighted angular zones.
+            double pick = rng.uniform(), acc = 0.0;
+            const Zone* zone = &w.zones.back();
+            for (const Zone& z : w.zones) {
+                acc += z.share;
+                if (pick < acc) {
+                    zone = &z;
+                    break;
+                }
             }
+            const double c0 = std::cos(zone->fromDeg * kPi / 180.0), c1 = std::cos(zone->toDeg * kPi / 180.0);
+            const double ct = c1 + (c0 - c1) * rng.uniform(), st = std::sqrt(std::max(1.0 - ct * ct, 0.0));
+            const double phi = 2.0 * kPi * rng.uniform();
+            d = nose * ct + (e1 * std::cos(phi) + e2 * std::sin(phi)) * st;
         }
-        const double c0 = std::cos(zone->fromDeg * kPi / 180.0), c1 = std::cos(zone->toDeg * kPi / 180.0);
-        const double ct = c1 + (c0 - c1) * rng.uniform(), st = std::sqrt(std::max(1.0 - ct * ct, 0.0));
-        const double phi = 2.0 * kPi * rng.uniform();
-        const V3 d = nose * ct + (e1 * std::cos(phi) + e2 * std::sin(phi)) * st;
         // thrown from the moving missile, met by the moving target
-        const V3 rel = burst.velocity + d * w.speedMs - target.velocity;
+        const V3 rel = sourceVelocity + d * w.speedMs - target.velocity;
         double v = length(rel);
-        if (!(v > 1.0)) continue;
+        if (!(v > 1.0) || (sideCase && !std::isfinite(v))) continue;
         const V3 u = toBody(target, rel * (1.0 / v));
         events.clear();
         std::size_t bornInside = 0;
@@ -334,11 +550,11 @@ Impact assess(const Warhead& w, const Burst& burst, const AttachedGeometryView& 
             double s0, s1;
             V3 n, exitNormal;
             if (p.surface) {
-                if (quad(p0, u, p.corners, s0, n)) {
+                if (quad(rayFromBody, u, p.corners, s0, n)) {
                     events.push_back({std::max(s0 - 1e-3, 0.0), true, static_cast<int>(k), n, false, 1}); // in through one skin,
                     events.push_back({s0 + 1e-3, true, static_cast<int>(k), n, false, -1}); // out through the other
                 }
-            } else if (slab(p0, u, p.centre, p.half, s0, s1, n, exitNormal)) {
+            } else if (slab(rayFromBody, u, p.centre, p.half, s0, s1, n, exitNormal)) {
                 if (s0 < 0.0) ++bornInside;
                 if (s0 >= 0.0) events.push_back({s0, true, static_cast<int>(k), n, false, 1});
                 if (s1 >= 0.0) events.push_back({s1, true, static_cast<int>(k), exitNormal, false, -1});
@@ -347,7 +563,7 @@ Impact assess(const Warhead& w, const Burst& burst, const AttachedGeometryView& 
         for (const std::size_t k : geometry.componentIndices()) {
             double s0, s1;
             V3 n, exitNormal;
-            if (slab(p0, u, af.components[k].centre, af.components[k].half, s0, s1, n, exitNormal) && s1 > 0.0)
+            if (slab(rayFromBody, u, af.components[k].centre, af.components[k].half, s0, s1, n, exitNormal) && s1 > 0.0)
                 events.push_back({std::max(s0, 0.0), false, static_cast<int>(k), n, false, 0});
         }
         if (events.empty()) continue;
@@ -409,7 +625,7 @@ Impact assess(const Warhead& w, const Burst& burst, const AttachedGeometryView& 
             // slowing in the air before/between strikes transfers to the air.
             const V3 j = u * transferredMomentum;
             out.impulseBody += j;
-            out.angularImpulseBody += cross(p0, j); // (along its line from the burst: any point of it the same)
+            out.angularImpulseBody += cross(rayFromBody, j); // Any point on this fragment's actual ray gives its moment.
         }
     }
     // the blast on each panel: side-on, reflected as far as its face looks at the burst

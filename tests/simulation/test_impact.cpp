@@ -18,6 +18,67 @@ using namespace fsim;
 using namespace fsim::modes;
 namespace dmg = fsim::ms::damage;
 
+namespace contact_tests {
+using namespace dmg;
+ContactBody body(double mass, double ix=1, double iy=1, double iz=1) {
+    ContactBody out; out.massKg=mass; out.inertia[0]=ix; out.inertia[4]=iy; out.inertia[8]=iz; return out;
+}
+bool close(double a,double b) { return std::abs(a-b)<1e-10; }
+
+TEST_CASE("Central body contact conserves momentum and loses exactly the analytic energy", "[contact-energy]") {
+    auto a=body(2), b=body(3); a.velocity={-5,0,0};
+    const auto out=inelasticBodyContact(a,b,{1,0,0});
+    REQUIRE(out.valid); REQUIRE(out.approaching);
+    CHECK(close(out.effectiveMassKg,1.2)); CHECK(close(out.impulseA.x,6));
+    CHECK(out.impulseB.x==-out.impulseA.x); CHECK(close(out.dissipatedJ,15));
+    const auto va=a.velocity+out.impulseA*(1/a.massKg), vb=b.velocity+out.impulseB*(1/b.massKg);
+    CHECK(close(va.x,-2)); CHECK(close(vb.x,-2));
+    CHECK(close(.5*a.massKg*dot(va,va)+.5*b.massKg*dot(vb,vb),10));
+}
+
+TEST_CASE("Off-centre contact includes both rotational inertias and angular momentum", "[contact-energy]") {
+    auto a=body(2,2,3,4), b=body(3,5,6,7);
+    a.velocity={-5,0,0}; a.arm={0,1,0}; b.arm={0,0,1};
+    const auto out=inelasticBodyContact(a,b,{1,0,0});
+    REQUIRE(out.valid); REQUIRE(out.approaching);
+    CHECK(close(out.effectiveMassKg,.8)); CHECK(close(out.impulseA.x,4));
+    const auto va=a.velocity+out.impulseA*(1/a.massKg), vb=b.velocity+out.impulseB*(1/b.massKg);
+    const V3 wa{out.angularImpulseA.x/2,out.angularImpulseA.y/3,out.angularImpulseA.z/4};
+    const V3 wb{out.angularImpulseB.x/5,out.angularImpulseB.y/6,out.angularImpulseB.z/7};
+    CHECK(close((va+cross(wa,a.arm)-vb-cross(wb,b.arm)).x,0));
+    const double after=.5*a.massKg*dot(va,va)+.5*b.massKg*dot(vb,vb)+
+        .5*dot(wa,{2*wa.x,3*wa.y,4*wa.z})+.5*dot(wb,{5*wb.x,6*wb.y,7*wb.z});
+    CHECK(close(25-after,out.dissipatedJ));
+    const auto beforeL=cross(a.arm*(-1),a.velocity*a.massKg);
+    const auto afterL=cross(a.arm*(-1),va*a.massKg)+cross(b.arm*(-1),vb*b.massKg)+
+        V3{2*wa.x,3*wa.y,4*wa.z}+V3{5*wb.x,6*wb.y,7*wb.z};
+    CHECK(length(afterL-beforeL)<1e-10);
+    CHECK(length(va*a.massKg+vb*b.massKg-a.velocity*a.massKg)<1e-10);
+}
+
+TEST_CASE("Body contact retains inertia products and Galilean invariance", "[contact-energy]") {
+    auto a=body(2,2,2,4), b=body(3); a.inertia[1]=a.inertia[3]=.5;
+    a.arm={0,0,1}; a.velocity={-5,0,0};
+    const auto first=inelasticBodyContact(a,b,{1,0,0});
+    REQUIRE(first.valid); CHECK(close(first.impulseA.x,150.0/41));
+    a.velocity+={120,-70,30}; b.velocity+={120,-70,30};
+    const auto boosted=inelasticBodyContact(a,b,{7,0,0});
+    REQUIRE(boosted.valid); CHECK(length(boosted.impulseA-first.impulseA)<1e-10);
+    CHECK(close(boosted.dissipatedJ,first.dissipatedJ));
+}
+
+TEST_CASE("Separating tangent and invalid bodies cannot acquire contact impulse", "[contact-energy]") {
+    auto a=body(2),b=body(3); a.velocity={2,3,0};
+    auto out=inelasticBodyContact(a,b,{1,0,0});
+    REQUIRE(out.valid); CHECK_FALSE(out.approaching); CHECK(length(out.impulseA)==0);
+    a.velocity={0,3,0}; out=inelasticBodyContact(a,b,{1,0,0});
+    REQUIRE(out.valid); CHECK_FALSE(out.approaching);
+    a.massKg=0; CHECK_FALSE(inelasticBodyContact(a,b,{1,0,0}).valid);
+    a.massKg=2; a.inertia[4]=-1; CHECK_FALSE(inelasticBodyContact(a,b,{1,0,0}).valid);
+    a=body(2); CHECK_FALSE(inelasticBodyContact(a,b,{}).valid);
+}
+} // namespace contact_tests
+
 namespace {
 
 

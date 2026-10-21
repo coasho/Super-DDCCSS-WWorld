@@ -1,6 +1,7 @@
 // Native engagement lifecycle. JSBSim alone integrates weapon motion.
 #include "simulation/runtime/world/World.h"
 #include "foundation/io/AssetResolver.h"
+#include "foundation/core/Log.h"
 #include "simulation/mission_systems/rf/Path.h"
 #include "simulation/mission_systems/weapon/Fuze.h"
 #include "simulation/mission_systems/weapon/Seeker.h"
@@ -100,6 +101,7 @@ void World::prepareEngagements() {
     for (auto& e : entries_) if (e && e->guidance && !e->weaponEnded) {
         const auto& s=pool_->states()[e->slot];
         const auto spec=e->guidance->spec();
+        const auto& seeker=spec.seekerModel;
         const bool heat=infrared(spec.seeker);
         ms::weapon::Input in;
         in.position=point(s.positionEcef); in.velocity=velocity(s); in.dtS=dt;
@@ -127,7 +129,7 @@ void World::prepareEngagements() {
             const V ray=delta(position,point(transmitter.positionEcef));
             const double raw[3]={ray.x,ray.y,ray.z}; double body[3]; ms::geom::toBody(transmitter,raw,body);
             if (!ms::weapon::withinIlluminationBeam(body,illuminator->beamAzimuthRad(),illuminator->beamElevationRad(),
-                    illuminator->pattern().beamwidthRad(false),illuminator->pattern().beamwidthRad(true))) return false;
+                    illuminator->pattern().beamwidthRad(false),illuminator->pattern().beamwidthRad(true),seeker)) return false;
             ms::rf::PathOptions path; path.ground=ground_.get(); path.frequencyHz=illuminator->spec().frequencyHz;
             if (!std::isfinite(path.frequencyHz) || path.frequencyHz<=0) return false;
             return !ms::rf::computePath({transmitter.latitudeRad,transmitter.longitudeRad,transmitter.altitudeMslM},terminal(position),path).terrainMasked;
@@ -141,16 +143,16 @@ void World::prepareEngagements() {
             if (!illuminatedCandidate(point(target.positionEcef))) continue;
             const V r=delta(point(target.positionEcef),in.position);
             const double range=length(r);
-            if (range<1.0 || (!heat && range>spec.acquireM)) continue;
+            if (range<seeker.minimumRangeM || (!heat && range>spec.acquireM)) continue;
             const V tv=velocity(target);
             double acquire=spec.acquireM;
             if (heat) {
-                const double aspect=dot(r,tv)/(range*std::max(length(tv),1.0));
-                acquire=ms::weapon::infraredAcquisitionRangeM(spec.acquireM,aspect,target.afterburner[0]>.5);
+                const double aspect=dot(r,tv)/(range*std::max(length(tv),seeker.aspectSpeedFloorMs));
+                acquire=ms::weapon::infraredAcquisitionRangeM(spec.acquireM,aspect,target.afterburner[0]>seeker.afterburnerThreshold,seeker);
             } else {
                 const auto cross=radarCrossSection(e->info.id,candidate->info.id,{});
-                if (cross && cross->modelled) acquire*=std::clamp(std::pow(std::max(cross->sigmaM2,.001)/5.0,.25),.4,1.0);
-                if (dot(r,in.up)/range<-.03 && std::fabs(dot(tv,r)/range)<28.0) continue;
+                if (cross && cross->modelled) acquire=ms::weapon::radarAcquisitionRangeM(acquire,cross->sigmaM2,true,seeker);
+                if (ms::weapon::radarNotched(dot(r,in.up)/range,dot(tv,r)/range,seeker)) continue;
             }
             if (range>acquire) continue;
             // Terrain masking and the curved radio horizon also apply to the seeker's own sensor.
@@ -158,21 +160,21 @@ void World::prepareEngagements() {
             if (semi && illuminator) path.frequencyHz=illuminator->spec().frequencyHz;
             const auto propagation=radioPath(e->info.id,candidate->info.id,path);
             if (propagation && propagation->terrainMasked) continue;
-            in.visible.push_back({candidate->info.id,point(target.positionEcef),tv,false,1.0,acquire});
+            in.visible.push_back({candidate->info.id,point(target.positionEcef),tv,false,seeker.aircraftSignal,acquire});
         }
         for (const auto* dispenser : dispensers()) for (const auto& decoy : dispenser->decoys()) {
             if (heat != (decoy.kind==ms::countermeasure::Kind::Flare)) continue;
             const V p{decoy.position.x,decoy.position.y,decoy.position.z}, v{decoy.velocity.x,decoy.velocity.y,decoy.velocity.z};
             if (!illuminatedCandidate(p)) continue;
             const V r=delta(p,in.position); const double range=length(r);
-            if (range<1 || range>spec.acquireM || (!heat && dot(r,in.up)/range<-.03 && std::fabs(dot(v,r)/range)<28)) continue;
+            if (range<seeker.minimumRangeM || range>spec.acquireM || (!heat && ms::weapon::radarNotched(dot(r,in.up)/range,dot(v,r)/range,seeker))) continue;
             ms::rf::PathOptions path; path.ground=ground_.get();
             if (semi && illuminator) path.frequencyHz=illuminator->spec().frequencyHz;
             const auto propagation=ms::rf::computePath({s.latitudeRad,s.longitudeRad,s.altitudeMslM},terminal(p),path);
             if (propagation.terrainMasked) continue;
             // basis: assumed. Relative signature bloom/fade for deterministic seeker discrimination.
             const double age=std::max(0.0,simTime_-decoy.launchTimeS);
-            const double signal=heat?6*std::exp(-age/2.0):3*std::min(1.0,age/.3)*std::exp(-age/6.0);
+            const double signal=ms::weapon::decoySignal(age,heat,seeker);
             if (signal>0) in.visible.push_back({decoy.id,p,v,true,signal});
         }
         const auto old=e->origin;
@@ -212,8 +214,10 @@ void World::prepareEngagements() {
 sim::VehicleState World::engagementStateAt(const Entry& e,double offsetS) const {
     const auto& path=e.engagementPath;
     const auto& states=e.engagementStates;
-    if (!captureEngagementMotion_ || states.size()!=path.size() || !ms::weapon::validMotionPath(path))
+    if (!std::isfinite(offsetS) || offsetS<0 || states.size()!=path.size() || !ms::weapon::validMotionPath(path))
         return pool_->states()[e.slot];
+    for (std::size_t k=0;k<path.size();++k)
+        if (offsetS==path[k].offsetS) return states[k];
     for (std::size_t k=1;k<path.size();++k) if (offsetS<=path[k].offsetS) {
         const double f=std::clamp((offsetS-path[k-1].offsetS)/(path[k].offsetS-path[k-1].offsetS),0.0,1.0);
         auto state=states[k];
@@ -224,6 +228,9 @@ sim::VehicleState World::engagementStateAt(const Entry& e,double offsetS) const 
         const auto a=velocity(states[k-1]),b=velocity(states[k]);
         const double v[3]={a.x+f*(b.x-a.x),a.y+f*(b.y-a.y),a.z+f*(b.z-a.z)};
         ms::geom::toBody(state,v,state.velocityBodyMs);
+        for (std::size_t axis=0;axis<3;++axis)
+            state.angularRateBodyRadS[axis]=states[k-1].angularRateBodyRadS[axis]+
+                f*(states[k].angularRateBodyRadS[axis]-states[k-1].angularRateBodyRadS[axis]);
         const auto geo=terminal(pos);
         state.latitudeRad=geo.latitudeRad; state.longitudeRad=geo.longitudeRad; state.altitudeMslM=geo.heightM;
         const double sl=std::sin(geo.latitudeRad),cl=std::cos(geo.latitudeRad);
@@ -240,10 +247,17 @@ sim::VehicleState World::engagementStateAt(const Entry& e,double offsetS) const 
 std::optional<ms::damage::V3> World::engagementCgAt(const Entry& e,double offsetS) const {
     const auto& path=e.engagementPath;
     const auto& cg=e.engagementCg;
-    if (!captureEngagementMotion_ || !std::isfinite(offsetS) || offsetS<0 ||
+    if (!std::isfinite(offsetS) || offsetS<0 ||
         path.size()!=cg.size() || path.size()!=e.engagementStates.size() ||
         !ms::weapon::validMotionPath(path)) return std::nullopt;
+    for (std::size_t k=0;k<path.size();++k) if (offsetS==path[k].offsetS) {
+        if (k && !e.engagementStates.front().crashed &&
+            (e.engagementStates[k].crashed || e.engagementStates[k].diverged)) return std::nullopt;
+        return cg[k];
+    }
     for (std::size_t k=1;k<path.size();++k) if (offsetS<=path[k].offsetS) {
+        if (!e.engagementStates.front().crashed &&
+            (e.engagementStates[k].crashed || e.engagementStates[k].diverged)) return std::nullopt;
         if (!cg[k-1] || !cg[k]) return std::nullopt;
         const double f=std::clamp((offsetS-path[k-1].offsetS)/(path[k].offsetS-path[k-1].offsetS),0.0,1.0);
         const auto a=*cg[k-1],b=*cg[k];
@@ -253,36 +267,113 @@ std::optional<ms::damage::V3> World::engagementCgAt(const Entry& e,double offset
     }
     // The native stopped-body convention is a constant final pose/CG, never
     // a prediction of continuing flight after the captured history ends.
-    if (offsetS<=path.back().offsetS || e.engagementStates.back().crashed) return cg.back();
+    if (offsetS<=path.back().offsetS ||
+        (e.engagementStates.front().crashed && e.engagementStates.back().crashed)) return cg.back();
     return std::nullopt;
 }
 
+std::optional<ms::weapon::MaterialPointSample> World::weaponPointAt(const Entry& e,double offsetS,
+    const std::optional<ms::damage::V3>& pointFromOrigin) const {
+    const auto state=engagementStateAt(e,offsetS);
+    if (!pointFromOrigin) {
+        ms::weapon::MaterialPointSample out;
+        out.valid=true; out.position={state.positionEcef[0],state.positionEcef[1],state.positionEcef[2]};
+        double v[3]; ms::geom::velocityEcef(state,v); out.velocity={v[0],v[1],v[2]};
+        const auto* r=state.rotationBodyToEcef; out.axis={r[0],r[3],r[6]};
+        const auto* w=state.angularRateBodyRadS;
+        out.angularVelocity={r[0]*w[0]+r[1]*w[1]+r[2]*w[2],r[3]*w[0]+r[4]*w[1]+r[5]*w[2],r[6]*w[0]+r[7]*w[1]+r[8]*w[2]};
+        return out;
+    }
+    const auto cg=engagementCgAt(e,offsetS);
+    if (!cg) return std::nullopt;
+    auto out=ms::weapon::materialPoint(state,*cg,*pointFromOrigin);
+    if (!out.valid) return std::nullopt;
+    return out;
+}
+
 void World::finishEngagements() {
+    // All offsets use observed native integration ordinals. A terminal pose
+    // may have been corrected by the FDM and cannot define a moving segment.
+    const auto capturedCutoff=[&](const Entry& body) {
+        const auto& path=body.engagementPath;
+        const auto& states=body.engagementStates;
+        if (path.empty() || states.size()!=path.size()) return std::pair<double,bool>{0,true};
+        double end=std::min(options_.dt*options_.frameSkip,path.back().offsetS);
+        const bool terminal=states.back().crashed || states.back().diverged;
+        if (terminal) end=path.size()>1 ? path[path.size()-2].offsetS : 0;
+        if (states.back().crashed) {
+            if (const auto* source=dynamic_cast<const sim::TerrainStrikeSourceV1*>(&pool_->vehicle(body.slot))) {
+                sim::VehicleState incoming;
+                if (source->terrainStrikeStateV1(incoming) && std::isfinite(incoming.simTime)) {
+                    // The incoming state was captured at an actual native
+                    // boundary. Resolve that raw epoch, never subtract clocks
+                    // or round it forward into an unobserved integration.
+                    double nativeEnd=0;
+                    bool known=incoming.simTime<=states.front().simTime;
+                    for (std::size_t k=0;!known && k<states.size();++k)
+                        if (states[k].simTime==incoming.simTime) {nativeEnd=path[k].offsetS;known=true;}
+                    end=known ? std::min(end,nativeEnd) : 0;
+                }
+            }
+        }
+        return std::pair<double,bool>{end,terminal};
+    };
+    const auto capturedPrefix=[](std::vector<ms::weapon::MotionSample> path,double end) {
+        while (!path.empty() && path.back().offsetS>end) path.pop_back();
+        return path;
+    };
     std::vector<std::uint32_t> ended;
     std::vector<std::uint32_t> weapons;
-    for (const auto& e : entries_) if (e && e->guidance && !e->weaponEnded) weapons.push_back(e->info.id);
+    for (const auto& e : entries_) if (e && (e->guidance || e->contactNoseFromOriginBodyM) && !e->weaponEnded) weapons.push_back(e->info.id);
     for (const auto id : weapons) if (Entry* e=entry(id)) {
-        const auto spec=e->guidance->spec();
+        auto spec=e->fuzeAdapter ? e->fuzeAdapter->spec() : e->guidance ? e->guidance->spec() : ms::weapon::Spec{};
+        if (!e->guidance) { spec.armingS=0; spec.lifeS=std::numeric_limits<double>::max(); }
         const double age=simTime_-e->info.launchTimeS;
         const auto s=pool_->states()[e->slot];
-        const auto before=stepStates_[e->slot];
         e->origin.burning=s.thrustN[0]>.1;
         const double dt=options_.dt*options_.frameSkip;
-        const double liveEnd=std::clamp(s.simTime-before.simTime,0.0,dt);
+        const double ageBefore=e->fuzeAgeBoundaryS;
+        e->fuzeAgeBoundaryS=ageBefore+dt;
+        const auto ownCutoff=capturedCutoff(*e);
+        const double liveEnd=ownCutoff.first;
         bool burst=false;
         double fraction=1;
         std::uint32_t burstTarget=e->origin.holding;
         bool contactInitiation=false;
+        std::optional<ContactTransfer> mechanical;
+        auto sensorPath=capturedPrefix(e->engagementPath,liveEnd);
+        if (spec.fuzeModelVersion==1) {
+            if (!e->fuzeFromOriginBodyM) sensorPath.clear();
+            else for (auto& sample : sensorPath) {
+                const auto sensor=weaponPointAt(*e,sample.offsetS,e->fuzeFromOriginBodyM);
+                if (!sensor) {sensorPath.clear();break;}
+                sample.position={sensor->position.x,sensor->position.y,sensor->position.z};
+            }
+        }
+        const auto evaluateFuze=[&](const std::vector<ms::weapon::MotionSample>& targetPath,double end,bool exclusive) {
+            const auto fuze=e->fuzeAdapter
+                ? e->fuzeAdapter->evaluateProximity(sensorPath,targetPath,
+                    spec.fuzeModelVersion==1 ? ageBefore : std::max(0.0,age-dt),dt,end,exclusive,e->origin.holding)
+                : spec.fuzeModelVersion==1
+                ? e->fuzeTurn.evaluate(sensorPath,targetPath,ageBefore,dt,spec,end,exclusive,e->origin.holding)
+                : ms::weapon::sweptPathFuze(sensorPath,targetPath,std::max(0.0,age-dt),dt,spec,end,exclusive);
+            if (fuze.valid && std::isfinite(fuze.missM)) {
+                e->origin.missM=std::isfinite(e->origin.missM)?std::min(e->origin.missM,fuze.missM):fuze.missM;
+                if (spec.fuzeModelVersion==1) {
+                    if (fuze.triggered) {
+                        if (e->fuzeAdapter) e->fuzeAdapter->scheduleDelay(ageBefore+fuze.fraction*dt,e->origin.holding);
+                        else e->fuzeDelay.schedule(ageBefore+fuze.fraction*dt,e->origin.holding,spec);
+                    }
+                } else {burst=fuze.triggered;fraction=fuze.fraction;}
+            }
+        };
         if (e->origin.tracking) {
-            const double ageBefore=std::max(0.0,age-dt);
             const Entry* held=entry(e->origin.holding);
             if (held) {
-                const auto fuze=ms::weapon::sweptPathFuze(e->engagementPath,held->engagementPath,
-                        ageBefore,dt,spec,liveEnd,s.crashed || s.diverged);
-                if (fuze.valid && std::isfinite(fuze.missM)) {
-                    e->origin.missM=std::isfinite(e->origin.missM)?std::min(e->origin.missM,fuze.missM):fuze.missM;
-                    burst=fuze.triggered; fraction=fuze.fraction;
-                }
+                const auto targetCutoff=capturedCutoff(*held);
+                const double end=std::min(liveEnd,targetCutoff.first);
+                evaluateFuze(capturedPrefix(held->engagementPath,targetCutoff.first),end,
+                    ownCutoff.second || (targetCutoff.second && targetCutoff.first<=liveEnd));
             } else for (const auto& trajectory : decoyTrajectories_)
                 if (trajectory.valid && trajectory.before.state.id==e->origin.holding) {
                     const double end=std::min(liveEnd,trajectory.liveDurationS);
@@ -295,30 +386,25 @@ void World::finishEngagements() {
                         const auto p=sample.state.position;
                         path.push_back({offset,{p.x,p.y,p.z}});
                     }
-                    const auto fuze=ms::weapon::sweptPathFuze(e->engagementPath,path,ageBefore,dt,spec,end,
-                        s.crashed || s.diverged || (trajectory.expires && trajectory.liveDurationS<=liveEnd));
-                    if (fuze.valid && std::isfinite(fuze.missM)) {
-                        e->origin.missM=fuze.missM; burst=fuze.triggered; fraction=fuze.fraction;
-                    }
+                    evaluateFuze(path,end,s.crashed || s.diverged || (trajectory.expires && trajectory.liveDurationS<=liveEnd));
                 }
+        } else if (e->fuzeAdapter) e->fuzeAdapter->resetTurnHistory();
+        else e->fuzeTurn.reset();
+        if (spec.fuzeModelVersion==1) {
+            const auto due=e->fuzeAdapter ? e->fuzeAdapter->dueDelay(ageBefore,dt,liveEnd,s.crashed || s.diverged)
+                : e->fuzeDelay.due(ageBefore,dt,spec,liveEnd,s.crashed || s.diverged);
+            if (due.valid && due.due) {burst=true;fraction=due.fraction;burstTarget=due.targetId;}
         }
-        if (!e->contactFuze.consumed() && e->contactNoseFromOriginBodyM && !e->origin.jettisoned &&
+        const auto& contactState=e->fuzeAdapter ? e->fuzeAdapter->contactState() : e->contactFuze;
+        const auto cancelDelay=[&] {
+            if (e->fuzeAdapter) e->fuzeAdapter->cancelDelay(); else e->fuzeDelay.cancel();
+        };
+        if (!contactState.consumed() && e->contactNoseFromOriginBodyM &&
             captureEngagementMotion_ && ms::weapon::validMotionPath(e->engagementPath) &&
             e->engagementPath.size()>=2 && e->engagementStates.size()==e->engagementPath.size() &&
             e->engagementCg.size()==e->engagementPath.size()) {
-            double contactEnd=std::min(liveEnd,e->engagementPath.back().offsetS);
-            bool exclusive=s.crashed || s.diverged;
-            if (exclusive) {
-                // Do not interpolate through a native arrest's corrected pose
-                // or a divergent endpoint. This channel admits only its known
-                // moving prefix; the cutoff is discrete, not a solved terrain TOI.
-                contactEnd=std::min(contactEnd,e->engagementPath[e->engagementPath.size()-2].offsetS);
-                if (s.crashed) if (const auto* source=dynamic_cast<const sim::TerrainStrikeSourceV1*>(&pool_->vehicle(e->slot))) {
-                    sim::VehicleState incoming;
-                    if (source->terrainStrikeStateV1(incoming) && std::isfinite(incoming.simTime))
-                        contactEnd=std::min(contactEnd,std::max(0.0,incoming.simTime-e->engagementModelTimeS));
-                }
-            }
+            double contactEnd=liveEnd;
+            bool exclusive=ownCutoff.second;
             ms::weapon::ContactFuzeResult firstContact;
             std::uint32_t physicalVictim=0;
             // Physical geometry is independent of seeker holding/tracking.
@@ -338,9 +424,8 @@ void World::finishEngagements() {
                 }
                 if (targetStates.back().diverged ||
                     (targetStates.back().crashed && !stepStates_[candidate->slot].crashed)) {
-                    if (targetPath.size()<2) continue;
-                    const double boundary=targetPath[targetPath.size()-2].offsetS;
-                    if (boundary<=end) {end=boundary;exclusiveEnd=true;}
+                    const auto targetCutoff=capturedCutoff(*candidate);
+                    if (targetCutoff.first<=end) {end=targetCutoff.first;exclusiveEnd=true;}
                 }
                 if (!(end>0)) continue;
                 std::vector<double> times{0,end};
@@ -371,8 +456,9 @@ void World::finishEngagements() {
                                                 r[2]*delta.x+r[5]*delta.y+r[8]*delta.z}});
                 }
                 const auto geometry=candidate->damage ? candidate->damage->attachedGeometry() : ms::damage::AttachedGeometryView(*frame->second);
-                const auto contact=ms::weapon::contactFuze(relative,geometry,
-                    {std::max(0.0,age-dt),dt,spec.armingS,spec.lifeS,end,exclusiveEnd});
+                const ms::weapon::ContactWindow window{std::max(0.0,age-dt),dt,spec.armingS,spec.lifeS,end,exclusiveEnd};
+                const auto contact=e->fuzeAdapter ? e->fuzeAdapter->evaluateContact(relative,geometry,window)
+                    : ms::weapon::contactFuze(relative,geometry,window);
                 if (contact.valid && contact.contact && (!firstContact.contact || contact.offsetS<firstContact.offsetS ||
                     (contact.offsetS==firstContact.offsetS && candidate->info.id<physicalVictim))) {
                     firstContact=contact;physicalVictim=candidate->info.id;
@@ -381,8 +467,19 @@ void World::finishEngagements() {
             // Commit the earliest physical contact even before arming. An
             // earlier proximity initiation retains its existing semantics;
             // exact initiation-time ties also preserve proximity priority.
-            if (e->contactFuze.commit(firstContact) && (!burst || firstContact.fraction<fraction)) {
-                burst=true;fraction=firstContact.fraction;burstTarget=physicalVictim;contactInitiation=true;
+            const bool committed=e->fuzeAdapter ? e->fuzeAdapter->commitContact(firstContact) : e->contactFuze.commit(firstContact);
+            const bool armedContact=committed && e->guidance && !e->origin.jettisoned;
+            if (firstContact.contact && (!burst || firstContact.fraction<=fraction)) {
+                mechanical=contactTransfer(*e,physicalVictim,firstContact);
+                if (armedContact && (!burst || firstContact.fraction<fraction)) {
+                    burst=true;fraction=firstContact.fraction;burstTarget=physicalVictim;contactInitiation=true;
+                    cancelDelay();
+                } else if (mechanical && burst && firstContact.fraction<fraction) {
+                    // An earlier mechanical impulse invalidates a later
+                    // captured free-flight encounter; do not detonate from it.
+                    burst=false;
+                    cancelDelay();
+                }
             }
         }
         if (burst) {
@@ -390,16 +487,22 @@ void World::finishEngagements() {
             det.store=e->origin.store; det.weapon=e->info.id;
             det.stepFraction=fraction;
             const auto burstState=engagementStateAt(*e,fraction*dt);
-            for(int k=0;k<3;++k) {
-                det.positionEcef[k]=burstState.positionEcef[k];
-                det.axisEcef[k]=burstState.rotationBodyToEcef[k*3];
+            const auto burstPoint=weaponPointAt(*e,fraction*dt,e->burstFromOriginBodyM);
+            if (!burstPoint || (e->fixedBurstRequired && !e->burstFromOriginBodyM)) {
+                LOG_WARN("session") << "weapon burst material point unavailable for " << e->info.name;
+                continue;
             }
-            ms::geom::velocityEcef(burstState,det.velocityEcef);
+            for(int k=0;k<3;++k) {
+                det.positionEcef[k]=(&burstPoint->position.x)[k];
+                det.axisEcef[k]=(&burstPoint->axis.x)[k];
+                det.velocityEcef[k]=(&burstPoint->velocity.x)[k];
+            }
             if (contactInitiation) if (const auto* victim=entry(burstTarget)) {
                 const auto at=engagementStateAt(*victim,fraction*dt);
                 e->origin.missM=length(delta(point(burstState.positionEcef),point(at.positionEcef)));
             }
-            const auto damage=detonate(det);
+            if (mechanical) contactReaction(*e,*mechanical);
+            const auto damage=detonateAt(det,mechanical ? &*mechanical : nullptr);
             recordEngagement("detonation",*e,burstTarget,contactInitiation?"contact":"");
             combatEvents_.back().positionEcef[0]=det.positionEcef[0];
             combatEvents_.back().positionEcef[1]=det.positionEcef[1];
@@ -413,10 +516,18 @@ void World::finishEngagements() {
             }
             auto endedState=burstState;
             std::copy_n(det.positionEcef,3,endedState.positionEcef);
+            ms::geom::toBody(endedState,det.velocityEcef,endedState.velocityBodyMs);
             const auto pose=terminal(point(det.positionEcef));
             endedState.latitudeRad=pose.latitudeRad; endedState.longitudeRad=pose.longitudeRad; endedState.altitudeMslM=pose.heightM;
+            const double sl=std::sin(pose.latitudeRad),cl=std::cos(pose.latitudeRad),so=std::sin(pose.longitudeRad),co=std::cos(pose.longitudeRad);
+            const auto* v=det.velocityEcef;
+            endedState.velocityNedMs[0]=-sl*co*v[0]-sl*so*v[1]+cl*v[2];
+            endedState.velocityNedMs[1]=-so*v[0]+co*v[1]; endedState.velocityNedMs[2]=-cl*co*v[0]-cl*so*v[1]-sl*v[2];
             endWeapon(*e,ms::WeaponEnd::Detonated,endedState); ended.push_back(e->info.id);
-        } else if (!s.crashed && (age>=spec.lifeS || s.diverged)) {
+        } else if (mechanical) {
+            contactReaction(*e,*mechanical);
+            contactDamage(*e,*mechanical);
+        } else if (e->guidance && !s.crashed && (age>=spec.lifeS || s.diverged)) {
             recordEngagement("expiry",*e,0,s.diverged?"flight_diverged":"battery_expired");
             endWeapon(*e,ms::WeaponEnd::Expired,s); ended.push_back(e->info.id);
         }
@@ -454,18 +565,21 @@ std::uint32_t World::seekerTarget(std::uint32_t vehicle,const std::string& store
 
 std::uint32_t World::onRailSeekerObservation(const Entry& launcher,const ms::StoreCard& card) const {
     const auto& own=pool_->states()[launcher.slot];
-    double best=card.value("launch_fov_deg",25.0)*ms::geom::kPi/180.0;
+    std::string error; const auto configured=configuredWeaponSpec(card,error);
+    if (!configured) return 0;
+    const auto& seeker=configured->seekerModel;
+    double best=seeker.version==1 ? seeker.launchFovRad : card.value("launch_fov_deg",25.0)*ms::geom::kPi/180.0;
     std::uint32_t found=0;
     for (const auto& candidate : entries_) if (candidate && candidate->info.role==ms::Role::Aircraft && candidate->info.id!=launcher.info.id) {
         const auto& target=pool_->states()[candidate->slot];
         if (target.crashed || target.diverged) continue;
         const V r=delta(point(target.positionEcef),point(own.positionEcef)), tv=velocity(target);
         const double range=length(r);
-        if (range<1) continue;
+        if (range<seeker.minimumRangeM) continue;
         double body[3], raw[3]={r.x,r.y,r.z}; ms::geom::toBody(own,raw,body);
         const double off=std::acos(std::clamp(body[0]/range,-1.0,1.0));
-        const double aspect=dot(r,tv)/(range*std::max(length(tv),1.0));
-        const double reach=ms::weapon::infraredAcquisitionRangeM(card.value("seeker_acquire_m",13000.0),aspect,target.afterburner[0]>.5);
+        const double aspect=dot(r,tv)/(range*std::max(length(tv),seeker.aspectSpeedFloorMs));
+        const double reach=ms::weapon::infraredAcquisitionRangeM(configured->acquireM,aspect,target.afterburner[0]>seeker.afterburnerThreshold,seeker);
         if (off>=best || range>reach) continue;
         const auto path=radioPath(launcher.info.id,candidate->info.id,{});
         if (path && path->terrainMasked) continue;

@@ -254,6 +254,143 @@ def _panels(aircraft, origin):
     return panels
 
 
+def _contact_weld(vertices, triangles, neighbors):
+    """The damage document's five-decimal grid, with exact integer area tests.
+    Welding closes numerical seams, never a physical gap between distinct meshes.
+    """
+    vertices = np.round(np.asarray(vertices, float), 5)
+    if not np.isfinite(vertices).all() or np.max(np.abs(vertices), initial=0.0) > 9e13:
+        raise ValueError("contact vertices are not finite representable coordinates")
+    unique, remap = np.unique(vertices, axis=0, return_inverse=True)
+    remap = remap.reshape(-1)
+    quantized = np.rint(unique * 100000).astype(np.int64)
+    kept, kept_neighbors = [], []
+    triangles = np.asarray(triangles, int).reshape(-1, 3)
+    if len(neighbors) != len(triangles):
+        raise ValueError("contact face provenance must be parallel to triangles")
+    for tri, neighbor in zip(triangles, neighbors):
+        t = tuple(int(remap[i]) for i in tri)
+        a, b, c = (quantized[i] for i in t)
+        u = [int(b[k]) - int(a[k]) for k in range(3)]
+        v = [int(c[k]) - int(a[k]) for k in range(3)]
+        if any((u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0])):
+            kept.append(t)
+            kept_neighbors.append(neighbor)
+    if not kept:
+        return np.zeros((0, 3)), np.zeros((0, 3), int), []
+    triangles = np.asarray(kept, int)
+    used, indices = np.unique(triangles, return_inverse=True)
+    return unique[used], indices.reshape(-1, 3), kept_neighbors
+
+
+def _contact_clip(vertices, triangles, low, high, origin, low_neighbor, high_neighbor):
+    """Clip an authored skin to a longitudinal ownership interval, not its
+    damage box's width/height. Cuts are capped as closed volume boundaries.
+    """
+    from .shape import breakup
+    vertices, triangles = np.asarray(vertices, float), np.asarray(triangles, int)
+    points, faces = [], []
+    x = vertices[triangles, 0]
+    selected = triangles[(x.max(axis=1) >= low) & (x.min(axis=1) <= high)]
+    for tri in selected:
+        polygon = [vertices[i].copy() for i in tri]
+        for plane, direction in ((low, 1), (high, -1)):
+            clipped = []
+            for k, current in enumerate(polygon):
+                previous = polygon[k - 1]
+                inside = direction * (current[0] - plane) >= 0
+                previous_inside = direction * (previous[0] - plane) >= 0
+                if inside != previous_inside:
+                    f = (plane - previous[0]) / (current[0] - previous[0])
+                    crossing = previous + f * (current - previous)
+                    crossing[0] = plane
+                    clipped.append(crossing)
+                if inside:
+                    clipped.append(current)
+            polygon = clipped
+            if not polygon:
+                break
+        if len(polygon) < 3:
+            continue
+        base = len(points)
+        points.extend(polygon)
+        faces.extend((base, base + k, base + k + 1) for k in range(1, len(polygon) - 1))
+    vertices, triangles, neighbors = _contact_weld([_body_axes(p, origin) for p in points], faces, [None] * len(faces))
+    if not len(triangles):
+        raise ValueError("authored body contact interval has no surface")
+    caps, cap_triangles, _ = breakup.caps(vertices, triangles)
+    if len(cap_triangles):
+        # Original authored blunt-end triangles already belong to the source
+        # skin. Only newly introduced ownership cuts carry neighbor identities.
+        for triangle in cap_triangles:
+            x = np.round(caps[triangle, 0], 5)
+            if np.all(x == round(float(origin[0] - low), 5)):
+                neighbors.append(low_neighbor)
+            elif np.all(x == round(float(origin[0] - high), 5)):
+                neighbors.append(high_neighbor)
+            else:
+                raise ValueError("contact closure is not on an authored longitudinal cut")
+        triangles = np.vstack([triangles, cap_triangles + len(vertices)])
+        vertices = np.vstack([vertices, caps])
+    vertices, triangles, neighbors = _contact_weld(vertices, triangles, neighbors)
+    edges = {}
+    for tri in triangles:
+        for a, b in zip(tri, np.roll(tri, -1)):
+            edge = (min(int(a), int(b)), max(int(a), int(b)))
+            count, orientation = edges.get(edge, (0, 0))
+            edges[edge] = (count + 1, orientation + (1 if a < b else -1))
+    if not edges or any(count != 2 or orientation != 0 for count, orientation in edges.values()):
+        raise ValueError("authored contact skin did not form a closed oriented two-manifold")
+    return vertices, triangles, neighbors
+
+
+def contact_geometry(aircraft, origin, existing_panels):
+    """Additive physical contact data, independent of strength/aero generation.
+
+    Body.skin is the maintained authored shape. Each closed mesh retains one
+    existing damage-panel identity, so its removal follows the same section.
+    Internal vulnerability boxes do not become external physical surfaces.
+    """
+    origin = np.asarray(origin, float)
+    meshes = []
+    for body in aircraft.bodies:
+        vertices, triangles, _ = body.skin()
+        # The generator's damage ownership intervals, exactly as _panels writes
+        # them. Match by source identity/order, not by the rounded box extent.
+        source = [(i, p) for i, p in enumerate(existing_panels)
+                  if p.get("kind") == "body" and p.get("body") == body.name]
+        n = max(1, int(math.ceil((body.x[-1] - body.x[0]) / PANEL_LENGTH)))
+        cursor, cells = 0, {}
+        for k in range(n):
+            low = body.x[0] + (body.x[-1] - body.x[0]) * k / n
+            high = body.x[0] + (body.x[-1] - body.x[0]) * (k + 1) / n
+            w, top, bottom, _, _ = body.section(0.5 * (low + high))
+            if float(w) <= 1e-3 or float(top - bottom) <= 1e-3:
+                continue
+            for sign in body.copies():
+                if cursor >= len(source):
+                    raise ValueError("damage panels do not match authored body " + body.name)
+                index, _ = source[cursor]
+                cursor += 1
+                cells[k, sign] = (index, low, high)
+        if cursor != len(source):
+            raise ValueError("unused damage panels for authored body " + body.name)
+        for (k, sign), (index, low, high) in cells.items():
+            selected = triangles
+            if body.mirror:
+                half = len(vertices) // 2
+                selected = triangles[(triangles < half).all(axis=1) if sign > 0 else (triangles >= half).all(axis=1)]
+            adjacent = []
+            for next_k in (k - 1, k + 1):
+                neighbor = cells.get((next_k, sign))
+                adjacent.append({"kind": "panel", "index": neighbor[0]} if neighbor is not None else None)
+            clipped, faces, neighbors = _contact_clip(vertices, selected, low, high, origin, *adjacent)
+            meshes.append({"kind": "panel", "index": index,
+                           "vertices": clipped.tolist(), "triangles": faces.tolist(),
+                           "triangle_neighbors": neighbors})
+    return {"version": 1, "meshes": meshes}
+
+
 def _strength(roots, shares, masses, design_kg, n):
     """Each section's ultimate root bending (N m, about each axis; n the ultimate load factor): a wing's lift less
     the relief of its structure alone (its tanks empty - the case its root is sized by); the nose's and the tail's the
@@ -396,6 +533,7 @@ def damage_data(aircraft, model=None, mass_model=None, origin=None):
         "sections": sections,
         "panels": panels,
         "components": components,
+        "contact_geometry": contact_geometry(aircraft, origin, panels),
     }
 
 

@@ -5,7 +5,6 @@
   "summary": "Medium-range active-radar air-to-air missile, inertial midcourse with datalink updates",
   "maker": "Raytheon",
   "model": "jsbsim:aim120c",
-
   "powerable": true,
   "jettisonable": true,
   "seeker": "active_radar",
@@ -19,7 +18,7 @@
   },
   "guidance": "inertial midcourse with datalink updates, terminal active radar homing",
   "motor": "solid rocket, booster only (C-5 on), reduced-smoke HTPB",
-  "fuze": "FZU-49 proximity and impact",
+  "fuze": "Target detecting device; separate FZU-49 safe/arm device; configured ideal proximity/contact simulator model",
   "warhead": "WDU-41/B blast-fragmentation",
   "warhead_kind": "fragmentation",
   "explosive": "PBXN-110",
@@ -94,9 +93,9 @@
       "value": 7.17,
       "unit": "kg",
       "uncertainty": 1.08,
-      "basis": "published",
-      "source": "wt-datamine",
-      "note": "a game reference: War Thunder's us_aim_120c_7 (PBXN-110); no manufacturer or encyclopedia gives the charge"
+      "basis": "assumed",
+      "source": "usmc-yellowbook-va49",
+      "note": "Retained7.17kg engineering fill proxy. Government VA49 NEWQD is15.8000lb=7.166759446kg; NEWQD is hazard accounting, not proof of chemical fill. No calibrated PBXN-110 fill mass is claimed; no value was selected from hit outcomes."
     },
     "gurney_kms": {
       "value": 2.6,
@@ -132,6 +131,650 @@
       "uncertainty": 0.366,
       "basis": "assumed",
       "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+    },
+    "warhead_net_explosive_weight_qd_kg": {
+      "value": 7.166759446,
+      "unit": "kg",
+      "uncertainty": 0,
+      "basis": "published",
+      "note": "VA49 quantity-distance net explosive weight only; not a replacement for chemical fill.",
+      "source": "usmc-yellowbook-va49"
+    },
+    "warhead_model_version": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Explicit SDK warhead model schema1, selected before any encounter evaluation."
+    },
+    "warhead_fragment_source": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Model1 selects finite cylindrical side-case volume and correlated radial normal ejection; no game angular weights.",
+      "source": "mil-hdbk-1211"
+    },
+    "warhead_station_x_m": {
+      "value": 1.66,
+      "unit": "m",
+      "uncertainty": 0.18,
+      "basis": "assumed",
+      "note": "Structural metres aft/right/up from the authored nose. x nominal3.66*((549+632)/2-138)/(1135-138)=1.661m, rounded1.66; Hughes early-family armament schematic transferred to C-7 as an assumption. The0.18m assigned model standard uncertainty is not a measured C-7 confidence bound.",
+      "source": "hughes-amraam-cutaway"
+    },
+    "warhead_station_y_m": {
+      "value": 0,
+      "unit": "m",
+      "uncertainty": 0.02,
+      "basis": "assumed",
+      "note": "Axisymmetric source centre on the authored missile axis; an explicit generic geometry assumption, not measured C-7 installation data.",
+      "source": "hughes-amraam-cutaway"
+    },
+    "warhead_station_z_m": {
+      "value": 0,
+      "unit": "m",
+      "uncertainty": 0.02,
+      "basis": "assumed",
+      "note": "Axisymmetric source centre on the authored missile axis; an explicit generic geometry assumption, not measured C-7 installation data.",
+      "source": "hughes-amraam-cutaway"
+    },
+    "warhead_structure_fraction": {
+      "value": 0.15,
+      "unit": "1",
+      "uncertainty": 0.1,
+      "basis": "assumed",
+      "note": "Retained generic share of non-explosive mass for safe/arm, booster and end structures; no measured WDU-41 mass allocation."
+    },
+    "warhead_diameter_ratio": {
+      "value": 0.9,
+      "unit": "1",
+      "uncertainty": 0.05,
+      "basis": "assumed",
+      "note": "Retained generic outer case diameter / missile diameter; source envelope is validated inside the authored body."
+    },
+    "warhead_case_density_kg_m3": {
+      "value": 7850,
+      "unit": "kg/m^3",
+      "uncertainty": 785,
+      "basis": "assumed",
+      "note": "Retained generic steel-case material idealization; actual WDU-41 fragment material/construction is not calibrated."
+    },
+    "warhead_explosive_density_kg_m3": {
+      "value": 1700,
+      "unit": "kg/m^3",
+      "uncertainty": 170,
+      "basis": "assumed",
+      "note": "Retained generic cast explosive bulk density used for the source-volume estimate; not a published PBXN-110 lot density."
+    },
+    "warhead_structure_density_kg_m3": {
+      "value": 2780,
+      "unit": "kg/m^3",
+      "uncertainty": 278,
+      "basis": "assumed",
+      "note": "Retained generic aluminium-like safe/arm/structure density for volume budgeting; not a hardware composition claim."
+    },
+    "warhead_fragment_cd": {
+      "value": 1.3,
+      "unit": "1",
+      "uncertainty": 0.4,
+      "basis": "assumed",
+      "note": "Retained constant tumbling-cube drag approximation; no Mach-dependent WDU-41 calibration."
+    },
+    "weapon_execution_version": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Explicit SDK execution schema1; frozen per actual release."
+    },
+    "guidance_algorithm": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Velocity-normal PN with closing-speed gain. Supported mathematical convention, not a claim about classified AIM-120 software.",
+      "source": "apl-homing-guidance"
+    },
+    "guidance_navigation_gain": {
+      "value": 3.5,
+      "unit": "1",
+      "uncertainty": 1,
+      "basis": "assumed",
+      "note": "Retained engineering navigation ratio; no scene-fit or manufacturer calibration.",
+      "source": "apl-homing-guidance"
+    },
+    "guidance_cue_deg": {
+      "value": 10,
+      "unit": "deg",
+      "uncertainty": 5,
+      "basis": "assumed",
+      "note": "Retained engineering acquisition association cone.",
+      "source": "apl-homing-guidance"
+    },
+    "guidance_activation_ratio": {
+      "value": 1.15,
+      "unit": "1",
+      "uncertainty": 0.15,
+      "basis": "assumed",
+      "note": "Retained generic activation range / seeker acquisition range.",
+      "source": "apl-homing-guidance"
+    },
+    "guidance_loft_deg": {
+      "value": 20,
+      "unit": "deg",
+      "uncertainty": 10,
+      "basis": "assumed",
+      "note": "Retained generic supported-midcourse loft angle.",
+      "source": "apl-homing-guidance"
+    },
+    "guidance_loft_acceleration_g": {
+      "value": 2,
+      "unit": "1",
+      "uncertainty": 1,
+      "basis": "assumed",
+      "note": "Retained generic loft acceleration multiplier.",
+      "source": "apl-homing-guidance"
+    },
+    "control_algorithm": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Reduced-order load-feedback cascade using signed native aerodynamic derivatives; generates actuator commands only.",
+      "source": "nasa-control-allocation"
+    },
+    "control_allocator": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Authored native fin mixer with actual lag, rate, stops and failure states; no ideal-force fallback.",
+      "source": "nasa-control-allocation"
+    },
+    "control_max_incidence_deg": {
+      "value": 15,
+      "unit": "deg",
+      "uncertainty": 5,
+      "basis": "assumed",
+      "note": "Retained small-incidence engineering bound for the reduced-order model; not a published missile aerodynamic limit.",
+      "source": "nasa-control-allocation"
+    },
+    "control_rate_time_min_s": {
+      "value": 0.12,
+      "unit": "s",
+      "uncertainty": 0.06,
+      "basis": "assumed",
+      "note": "Retained inner-loop minimum response time; independent engineering controller design assumption.",
+      "source": "nasa-control-allocation"
+    },
+    "control_rate_lag_multiplier": {
+      "value": 3,
+      "unit": "1",
+      "uncertainty": 1,
+      "basis": "assumed",
+      "note": "Retained native actuator time-constant multiplier for inner response.",
+      "source": "nasa-control-allocation"
+    },
+    "control_incidence_time_min_s": {
+      "value": 0.4,
+      "unit": "s",
+      "uncertainty": 0.2,
+      "basis": "assumed",
+      "note": "Retained outer-loop minimum response time; not an equipment measurement.",
+      "source": "nasa-control-allocation"
+    },
+    "control_incidence_rate_multiplier": {
+      "value": 3.333333333333333,
+      "unit": "1",
+      "uncertainty": 1,
+      "basis": "assumed",
+      "note": "Retained outer/inner response time multiplier.",
+      "source": "nasa-control-allocation"
+    },
+    "seeker_acquire_m": {
+      "value": 17000,
+      "unit": "m",
+      "uncertainty": 8500,
+      "basis": "assumed",
+      "note": "Retained generic native acquisition-range assumption; not a calibrated seeker range."
+    },
+    "seeker_gimbal_deg": {
+      "value": 60,
+      "unit": "deg",
+      "uncertainty": 15,
+      "basis": "assumed",
+      "note": "Retained generic active-radar seeker gimbal assumption."
+    },
+    "guidance_max_g": {
+      "value": 35,
+      "unit": "1",
+      "uncertainty": 10,
+      "basis": "assumed",
+      "note": "Retained generic guidance demand limit; native fin/aerodynamic authority can realize less.",
+      "source": "apl-homing-guidance"
+    },
+    "guidance_life_s": {
+      "value": 110,
+      "unit": "s",
+      "uncertainty": 30,
+      "basis": "assumed",
+      "note": "Retained generic guidance/battery execution lifetime assumption.",
+      "source": "apl-homing-guidance"
+    },
+    "fuze_model_version": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Explicit ideal simulator initiation schema1, distinct from hardware safe/arm/TDD identity.",
+      "source": "mil-hdbk-1211"
+    },
+    "fuze_proximity_algorithm": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Actual captured turning-point CPA inside the admitted radius, not an approaching endpoint clamped to a decision boundary.",
+      "source": "mil-hdbk-1211"
+    },
+    "fuze_arming_s": {
+      "value": 1,
+      "unit": "s",
+      "uncertainty": 1,
+      "basis": "assumed",
+      "note": "Retained generic one-second arming assumption; no published FZU-49 timing is asserted.",
+      "source": "mil-hdbk-1211"
+    },
+    "fuze_radius_m": {
+      "value": 11.47213595499958,
+      "unit": "m",
+      "uncertainty": 6,
+      "basis": "assumed",
+      "note": "Retained generic point-reference detection radius from the prior7+sqrt(warhead_kg) rule, now explicit. It is not a published RF sensitivity or lethality radius.",
+      "source": "mil-hdbk-1211"
+    },
+    "fuze_delay_s": {
+      "value": 0,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Selected zero-delay ideal simulator model. Hardware detection-to-burst latency is uncalibrated; no delay was fitted to these scenes.",
+      "source": "mil-hdbk-1211"
+    },
+    "fuze_station_x_m": {
+      "value": 1.46,
+      "unit": "m",
+      "uncertainty": 0.15,
+      "basis": "assumed",
+      "note": "Generic material sensor reference derived from the Hughes early-family TDD schematic midpoint525..548 relative to nose138/tail1135. Not an RF phase-centre measurement or C-7 installation calibration.",
+      "source": "hughes-amraam-cutaway"
+    },
+    "fuze_station_y_m": {
+      "value": 0,
+      "unit": "m",
+      "uncertainty": 0.02,
+      "basis": "assumed",
+      "note": "Axisymmetric ideal sensor reference, structural metres right from authored nose.",
+      "source": "hughes-amraam-cutaway"
+    },
+    "fuze_station_z_m": {
+      "value": 0,
+      "unit": "m",
+      "uncertainty": 0.02,
+      "basis": "assumed",
+      "note": "Axisymmetric ideal sensor reference, structural metres up from authored nose.",
+      "source": "hughes-amraam-cutaway"
+    },
+    "warhead_tnt_equivalent_kg": {
+      "value": 8.141158290782048,
+      "unit": "kg",
+      "uncertainty": 3.0,
+      "basis": "assumed",
+      "note": "Independent generic blast TNT-equivalent input. Retains the prior nominal blast magnitude; the former Gurney-ratio heuristic is not evidence of physical TNT equivalence. Fragment Gurney-speed changes no longer silently change blast yield. No WDU-41/PBXN-110 blast calibration is claimed."
+    },
+    "control_actuator_lag_s": {
+      "value": 0.04,
+      "unit": "s",
+      "uncertainty": 0.02,
+      "basis": "assumed",
+      "note": "Retained native first-order actuator time constant (former fixed coefficient25/s). An explicit generic plant assumption, not an AIM-120 equipment measurement."
+    },
+    "control_actuator_rate_rad_s": {
+      "value": 4,
+      "unit": "rad/s",
+      "uncertainty": 2,
+      "basis": "assumed",
+      "note": "Retained native physical-fin slew limit. An explicit generic plant assumption; native fin states, stops and failures remain authoritative."
+    },
+    "plant_motor_isp_s": {
+      "value": 245.0,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_coast_thrust_n": {
+      "value": 2.0,
+      "unit": "N",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_buildup_s": {
+      "value": 0.05,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_grain_density_kg_m3": {
+      "value": 1750.0,
+      "unit": "kg/m^3",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_grain_radius_fraction": {
+      "value": 0.9,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_grain_port_area_fraction": {
+      "value": 0.15,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_grain_aft_clearance_m": {
+      "value": 0.03,
+      "unit": "m",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_phase_count": {
+      "value": 2,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_exit_diameter_m": {
+      "value": 0.0925,
+      "unit": "m",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_throat_diameter_m": {
+      "value": 0.0416,
+      "unit": "m",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_cone_length_m": {
+      "value": 0.1017,
+      "unit": "m",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_exit_x_m": {
+      "value": 3.66,
+      "unit": "m",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_exit_y_m": {
+      "value": 0.0,
+      "unit": "m",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_exit_z_m": {
+      "value": 0.0,
+      "unit": "m",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_phase_0_duration_s": {
+      "value": 2.5,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_phase_0_thrust_kn": {
+      "value": 22,
+      "unit": "kN",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_phase_1_duration_s": {
+      "value": 5.5,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_phase_1_thrust_kn": {
+      "value": 7,
+      "unit": "kN",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "component_seeker_launch_fov_deg": {
+      "value": 55,
+      "unit": "deg",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_minimum_range_m": {
+      "value": 1,
+      "unit": "m",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_aspect_speed_floor_m_s": {
+      "value": 1,
+      "unit": "m/s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_afterburner_threshold": {
+      "value": 0.5,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_ir_aspect_min": {
+      "value": 0.45,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_ir_aspect_span": {
+      "value": 0.55,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_ir_afterburner_multiplier": {
+      "value": 1.35,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_radar_rcs_floor_m2": {
+      "value": 0.001,
+      "unit": "m^2",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_radar_rcs_reference_m2": {
+      "value": 5,
+      "unit": "m^2",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_radar_rcs_exponent": {
+      "value": 0.25,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_radar_range_scale_min": {
+      "value": 0.4,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_radar_range_scale_max": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_radar_lookdown_cosine": {
+      "value": -0.03,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_radar_notch_m_s": {
+      "value": 28,
+      "unit": "m/s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_illumination_beam_multiplier": {
+      "value": 3,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_aircraft_signal": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_ir_decoy_peak": {
+      "value": 6,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_ir_decoy_decay_s": {
+      "value": 2,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_radar_decoy_peak": {
+      "value": 3,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_radar_decoy_rise_s": {
+      "value": 0.3,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_radar_decoy_decay_s": {
+      "value": 6,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_decoy_resistance": {
+      "value": 1.6,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_association_cosine": {
+      "value": 0.999390827019096,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_emitter_power_w": {
+      "value": 20,
+      "unit": "W",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_emitter_peak_gain_dbi": {
+      "value": 25,
+      "unit": "dBi",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_emitter_sidelobe_dbi": {
+      "value": -15,
+      "unit": "dBi",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_seeker_emitter_half_width_rad": {
+      "value": 0.35,
+      "unit": "rad",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_guidance_inertial_midcourse": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_guidance_launcher_updates": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
     }
   },
   "sources": {
@@ -165,12 +808,292 @@
       "url": "https://en.wikipedia.org/w/index.php?title=AIM-120_AMRAAM&oldid=1377668538",
       "date": "2026-09-30"
     },
-    "wt-datamine": {
-      "evidence_kind": "game_reference",
-      "title": "War Thunder datamine: rocketguns weapon files (a game reference: the game's own values, not a manufacturer's)",
-      "publisher": "gszabi99/War-Thunder-Datamine (GitHub)",
-      "url": "https://github.com/gszabi99/War-Thunder-Datamine/tree/master/aces.vromfs.bin_u/gamedata/weapons/rocketguns",
-      "date": "2026-10-09"
+    "hughes-amraam-cutaway": {
+      "evidence_kind": "manufacturer_figure_reproduced",
+      "title": "Hughes AMRAAM cutaway, reproduced in Quo Vadis - AMRAAM? (Australian Aviation, September 1986)",
+      "publisher": "Hughes artwork, reproduced by Carlo Kopp / Air Power Australia",
+      "url": "https://ausairpower.net/USAF/000-AIM-120A-2S.jpg",
+      "date": "1986-09",
+      "accessed": "2026-10-20",
+      "note": "Primary manufacturer artwork on secondary hosting, attributed at https://ausairpower.net/amraam.html . Early family schematic, not a C-7 engineering drawing. Nominal stations derive from independent nose/tail/interface image measurements; family transfer and uncertainty are assumptions."
+    },
+    "usmc-yellowbook-va49": {
+      "evidence_kind": "government_publication",
+      "title": "Ammunition and Explosives Hazard Classification (Yellow Book), VA49 WDU-41/B and VA05/VA51 armament assemblies",
+      "publisher": "U.S. Army, hosted by U.S. Marine Corps",
+      "url": "https://www.fuji.marines.mil/portals/111/documents/range%20control/yellowbook.pdf",
+      "date": "",
+      "accessed": "2026-10-20",
+      "note": "VA49 publishes NEWQD 15.8000 lb (7.166759446 kg). Hazard quantity-distance accounting does not by itself establish chemical fill mass. Official indexed table was available; direct download returned403 during review."
+    },
+    "sandia-gurney-1970": {
+      "evidence_kind": "government_publication",
+      "title": "Gurney Energy of Explosives: Estimation of the Velocity and Impulse Imparted to Driven Metal, SC-RR-70-790",
+      "publisher": "Sandia Laboratories / J. E. Kennedy",
+      "url": "https://www.osti.gov/servlets/purl/4441869",
+      "date": "1970-12",
+      "accessed": "2026-10-20",
+      "note": "Supports the generic Gurney model; does not calibrate PBXN-110 or WDU-41 parameters."
+    },
+    "mil-hdbk-1211": {
+      "evidence_kind": "government_publication",
+      "title": "MIL-HDBK-1211(MI), Missile Flight Simulation Part One: Surface-to-Air Missiles, section2-2.4/Figures2-19 and2-20",
+      "publisher": "U.S. Department of Defense",
+      "url": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=116871",
+      "date": "1995-07-17",
+      "accessed": "2026-10-20",
+      "note": "Generic sensor/initiation/fragment/target methodology, not modern missile equipment data."
+    },
+    "apl-homing-guidance": {
+      "evidence_kind": "research_paper",
+      "title": "Basic Principles of Homing Guidance, equations19-22",
+      "publisher": "Johns Hopkins APL / Palumbo, Blauwkamp and Lloyd",
+      "url": "https://www.jhuapl.edu/Content/techdigest/pdf/V29-N01/29-01-Palumbo_Principles_Rev2018.pdf",
+      "date": "2010",
+      "accessed": "2026-10-20",
+      "note": "Supports distinguishing LOS-normal and velocity-normal guidance laws. No AIM-120 gain or seeker value is published here."
+    },
+    "nasa-control-allocation": {
+      "evidence_kind": "government_publication",
+      "title": "Control Law - Control Allocation Interaction, NASA NAG-1-2246 final report",
+      "publisher": "NASA / Durham and Nelson",
+      "url": "https://ntrs.nasa.gov/api/citations/20010029666/downloads/20010029666.pdf",
+      "date": "2001",
+      "accessed": "2026-10-20",
+      "note": "Methodology for inversion, effectiveness and allocation; numeric response constants here remain engineering assumptions."
+    }
+  },
+  "simulation_model": {
+    "version": 1,
+    "calibration": "Generic engineering model with explicit assumptions; not a calibrated AIM-120C-7/WDU-41/FZU-49 implementation.",
+    "burst_reference": "Fixed material station from the authored nose; Hughes early-family schematic midpoint transferred as an assumption.",
+    "fragmentation": "Finite cylindrical side-case, radial ejection, exact annular case mass and equivalent cubes.",
+    "guidance_control": "Configured velocity-normal PN, reduced-order load-feedback cascade and authored native fin mixer.",
+    "contact": "Frictionless perfectly inelastic rigid-body point impulse; no calibrated ballistic penetration or fracture solver."
+  },
+  "component_models": {
+    "schema_version": 1,
+    "components": {
+      "seeker": {
+        "availability": "available",
+        "implementation_id": "fsim.seeker.encounter.v1",
+        "configuration_version": 1,
+        "parameter_refs": {
+          "acquire_m": "seeker_acquire_m",
+          "gimbal_deg": "seeker_gimbal_deg",
+          "launch_fov_deg": "component_seeker_launch_fov_deg",
+          "minimum_range_m": "component_seeker_minimum_range_m",
+          "aspect_speed_floor_m_s": "component_seeker_aspect_speed_floor_m_s",
+          "afterburner_threshold": "component_seeker_afterburner_threshold",
+          "ir_aspect_min": "component_seeker_ir_aspect_min",
+          "ir_aspect_span": "component_seeker_ir_aspect_span",
+          "ir_afterburner_multiplier": "component_seeker_ir_afterburner_multiplier",
+          "radar_rcs_floor_m2": "component_seeker_radar_rcs_floor_m2",
+          "radar_rcs_reference_m2": "component_seeker_radar_rcs_reference_m2",
+          "radar_rcs_exponent": "component_seeker_radar_rcs_exponent",
+          "radar_range_scale_min": "component_seeker_radar_range_scale_min",
+          "radar_range_scale_max": "component_seeker_radar_range_scale_max",
+          "radar_lookdown_cosine": "component_seeker_radar_lookdown_cosine",
+          "radar_notch_m_s": "component_seeker_radar_notch_m_s",
+          "illumination_beam_multiplier": "component_seeker_illumination_beam_multiplier",
+          "aircraft_signal": "component_seeker_aircraft_signal",
+          "ir_decoy_peak": "component_seeker_ir_decoy_peak",
+          "ir_decoy_decay_s": "component_seeker_ir_decoy_decay_s",
+          "radar_decoy_peak": "component_seeker_radar_decoy_peak",
+          "radar_decoy_rise_s": "component_seeker_radar_decoy_rise_s",
+          "radar_decoy_decay_s": "component_seeker_radar_decoy_decay_s",
+          "decoy_resistance": "component_seeker_decoy_resistance",
+          "association_cosine": "component_seeker_association_cosine",
+          "emitter_power_w": "component_seeker_emitter_power_w",
+          "emitter_peak_gain_dbi": "component_seeker_emitter_peak_gain_dbi",
+          "emitter_sidelobe_dbi": "component_seeker_emitter_sidelobe_dbi",
+          "emitter_half_width_rad": "component_seeker_emitter_half_width_rad"
+        },
+        "bindings": {
+          "mode": "active_radar"
+        },
+        "basis": "assumed",
+        "note": "Existing simulator implementation; no equipment calibration.",
+        "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
+      },
+      "guidance": {
+        "availability": "available",
+        "implementation_id": "fsim.guidance.velocity_normal_pn.v1",
+        "configuration_version": 1,
+        "parameter_refs": {
+          "navigation_gain": "guidance_navigation_gain",
+          "cue_deg": "guidance_cue_deg",
+          "activation_ratio": "guidance_activation_ratio",
+          "loft_deg": "guidance_loft_deg",
+          "loft_acceleration_g": "guidance_loft_acceleration_g",
+          "max_g": "guidance_max_g",
+          "life_s": "guidance_life_s",
+          "inertial_midcourse": "component_guidance_inertial_midcourse",
+          "launcher_updates": "component_guidance_launcher_updates"
+        },
+        "bindings": {},
+        "basis": "assumed",
+        "note": "Existing simulator implementation; no equipment calibration.",
+        "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
+      },
+      "autopilot": {
+        "availability": "available",
+        "implementation_id": "fsim.control.load_feedback_cascade",
+        "configuration_version": 1,
+        "parameter_refs": {
+          "max_incidence_deg": "control_max_incidence_deg",
+          "rate_time_min_s": "control_rate_time_min_s",
+          "rate_lag_multiplier": "control_rate_lag_multiplier",
+          "incidence_time_min_s": "control_incidence_time_min_s",
+          "incidence_rate_multiplier": "control_incidence_rate_multiplier"
+        },
+        "bindings": {
+          "model": "jsbsim:aim120c",
+          "execution_mode": "configured"
+        },
+        "basis": "assumed",
+        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
+        "validity": "Reduced-order engineering model; hardware performance unvalidated."
+      },
+      "allocator": {
+        "availability": "available",
+        "implementation_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+        "configuration_version": 1,
+        "parameter_refs": {},
+        "bindings": {
+          "model": "jsbsim:aim120c",
+          "design": "aircraft/aim120c/aim120c.toml"
+        },
+        "basis": "assumed",
+        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
+        "validity": "Reduced-order engineering model; hardware performance unvalidated."
+      },
+      "actuator": {
+        "availability": "available",
+        "implementation_id": "fsim.actuator.jsbsim_lag_rate_stops",
+        "configuration_version": 1,
+        "parameter_refs": {
+          "lag_s": "control_actuator_lag_s",
+          "rate_rad_s": "control_actuator_rate_rad_s"
+        },
+        "bindings": {
+          "model": "jsbsim:aim120c"
+        },
+        "basis": "assumed",
+        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
+        "validity": "Reduced-order engineering model; hardware performance unvalidated."
+      },
+      "fuze": {
+        "availability": "available",
+        "implementation_id": "native.fuze.turning_cpa.v1",
+        "configuration_version": 1,
+        "parameter_refs": {
+          "model_version": "fuze_model_version",
+          "algorithm": "fuze_proximity_algorithm",
+          "arming_s": "fuze_arming_s",
+          "life_s": "guidance_life_s",
+          "radius_m": "fuze_radius_m",
+          "delay_s": "fuze_delay_s",
+          "station_x_m": "fuze_station_x_m",
+          "station_y_m": "fuze_station_y_m",
+          "station_z_m": "fuze_station_z_m",
+          "body_length_m": "length_m",
+          "body_diameter_m": "diameter_m"
+        },
+        "bindings": {
+          "sensor_reference": "captured_authored_station_from_nose",
+          "target_reference": "captured_target_cg",
+          "contact_reference": "captured_authored_nose",
+          "contact": "native.authored_point_contact.v1",
+          "history": "native.captured_piecewise_linear.v1",
+          "delay": "native.captured_fixed_delay.v1"
+        },
+        "basis": "assumed",
+        "note": "Existing simulator implementation; no equipment calibration.",
+        "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
+      },
+      "warhead": {
+        "availability": "available",
+        "implementation_id": "native.warhead.side_case.v1",
+        "configuration_version": 1,
+        "parameter_refs": {
+          "warhead_kg": "warhead_kg",
+          "explosive_kg": "explosive_kg",
+          "gurney_kms": "gurney_kms",
+          "diameter_m": "diameter_m",
+          "warhead_model_version": "warhead_model_version",
+          "warhead_fragment_source": "warhead_fragment_source",
+          "warhead_tnt_equivalent_kg": "warhead_tnt_equivalent_kg",
+          "length_m": "length_m",
+          "warhead_structure_fraction": "warhead_structure_fraction",
+          "warhead_diameter_ratio": "warhead_diameter_ratio",
+          "warhead_case_density_kg_m3": "warhead_case_density_kg_m3",
+          "warhead_explosive_density_kg_m3": "warhead_explosive_density_kg_m3",
+          "warhead_structure_density_kg_m3": "warhead_structure_density_kg_m3",
+          "warhead_fragment_cd": "warhead_fragment_cd",
+          "warhead_station_x_m": "warhead_station_x_m",
+          "warhead_station_y_m": "warhead_station_y_m",
+          "warhead_station_z_m": "warhead_station_z_m"
+        },
+        "bindings": {
+          "burst_reference": "captured_authored_station_from_nose",
+          "blast": "kingery_bulmash.swisdak_1994.free_air.v1",
+          "penetration": "thor.aluminium_2024_t3.v1",
+          "assessment": "native.fragment_blast.v1"
+        },
+        "basis": "assumed",
+        "note": "Existing simulator implementation; no equipment calibration.",
+        "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
+      },
+      "propulsion": {
+        "availability": "available",
+        "implementation_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+        "configuration_version": 1,
+        "parameter_refs": {
+          "isp_s": "plant_motor_isp_s",
+          "coast_thrust_n": "plant_motor_coast_thrust_n",
+          "buildup_s": "plant_motor_buildup_s",
+          "grain_density_kg_m3": "plant_motor_grain_density_kg_m3",
+          "grain_radius_fraction": "plant_motor_grain_radius_fraction",
+          "grain_port_area_fraction": "plant_motor_grain_port_area_fraction",
+          "grain_aft_clearance_m": "plant_motor_grain_aft_clearance_m",
+          "phase_count": "plant_motor_phase_count",
+          "exit_diameter_m": "plant_motor_exit_diameter_m",
+          "throat_diameter_m": "plant_motor_throat_diameter_m",
+          "cone_length_m": "plant_motor_cone_length_m",
+          "exit_x_m": "plant_motor_exit_x_m",
+          "exit_y_m": "plant_motor_exit_y_m",
+          "exit_z_m": "plant_motor_exit_z_m",
+          "phase_0_duration_s": "plant_motor_phase_0_duration_s",
+          "phase_0_thrust_kn": "plant_motor_phase_0_thrust_kn",
+          "phase_1_duration_s": "plant_motor_phase_1_duration_s",
+          "phase_1_thrust_kn": "plant_motor_phase_1_thrust_kn"
+        },
+        "bindings": {
+          "model": "jsbsim:aim120c",
+          "design": "aircraft/aim120c/aim120c.toml",
+          "motor": "Engines/aim120c_motor.xml",
+          "nozzle": "Engines/aim120c_nozzle.xml",
+          "smoke": "reduced"
+        },
+        "basis": "assumed",
+        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
+        "validity": "Reduced-order engineering model; hardware performance unvalidated."
+      },
+      "aerodynamics": {
+        "availability": "available",
+        "implementation_id": "fsim.aerodynamics.jsbsim_generated_store",
+        "configuration_version": 1,
+        "parameter_refs": {},
+        "bindings": {
+          "model": "jsbsim:aim120c",
+          "design": "aircraft/aim120c/aim120c.toml",
+          "source": "component_build_up"
+        },
+        "basis": "assumed",
+        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
+        "validity": "Reduced-order engineering model; hardware performance unvalidated."
+      }
     }
   }
 }

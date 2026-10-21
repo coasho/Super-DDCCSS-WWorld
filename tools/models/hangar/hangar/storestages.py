@@ -306,9 +306,12 @@ def aero(d):
     card = card_of(d)
     cg = float(d.aircraft.spec["mass"]["empty_cg"][0])
     if _box(d):
+        from . import components
+        source = components.diagnostic_source(card, getattr(d, "path", None))
         L, W, H = _par(card, "length_m"), _par(card, "width_m"), _par(card, "height_m")
         cd = _par(card, "drag_cd", 1.1)
-        data = {"kind": "box", "cd": cd, "front_m2": W * H, "side_m2": L * H, "top_m2": L * W}
+        data = {"kind": "box", "cd": cd, "front_m2": W * H, "side_m2": L * H, "top_m2": L * W,
+                "coefficient_authority": "face_drag_diagnostic", "native_aerodynamics_source": source}
         m = _par(card, "mass_kg")
         vt = [math.sqrt(2.0 * m * G / (1.225 * cd * s)) for s in (W * H, L * W)]
         checks = [info("its faces' drag coefficient", cd, note="its card's drag_cd: a bluff body's on each face, broadside to the flow"),
@@ -320,7 +323,8 @@ def aero(d):
     geo = storeaero.geometry(card)
     if geo is None or geo.get("source") != "its design":
         raise ValueError("%s: its build-up does not read its design (its card %s names another)" % (d.name, card["id"]))
-    b = storeaero.coefficients(geo, card["id"])
+    from . import components
+    b = components.diagnostic_coefficients(card, geo)
     s = storeaero.summary(geo, b)
     cds, parts = storedrag.build_up(card)
     checks = []
@@ -345,6 +349,8 @@ def aero(d):
             "cyb": b["cyb"], "cnb": b["cnb"], "cnr": b["cnr"], "clp": b["clp"], "cross_n": b["cross_n"], "cross_m": b["cross_m"],
             "drag_area_m2": cds, "drag": {k: parts[k] for k in ("body", "base", "fins", "frontal")}, "munk_m3": parts["munk"],
             "side_slope_m2": parts["slope"], "side_arm_m": parts["arm"], "cp_m": s["normal_cp_m"], "cg_m": cg}
+    if card.get("class") in ("tank", "pod"):
+        data.update(coefficient_authority="geometry_diagnostic", native_aerodynamics_source="slender_store")
     if "input" in b:
         data.update({key: b[key] for key in ("ca", "cross_y", "cross_ym", "turn", "input")})
         checks.append(info("coefficient input", b["input"]["path"], note="SHA-256 " + b["input"]["sha256"]))
@@ -377,17 +383,17 @@ def propulsion(d):
     from . import storebodies
     a = d.aircraft
     body = next(b for b in a.bodies if getattr(b, "kind", "") == "fuselage")
-    m = storebodies.motor_of(a.spec, float(a.spec["mass"]["empty"]), float(a.spec["mass"]["empty_cg"][0]), 0.5 * float(max(body.w)))
+    m = storebodies.card_motor_of(card_of(d), a.spec, float(a.spec["mass"]["empty"]), float(a.spec["mass"]["empty_cg"][0]), 0.5 * float(max(body.w)))
     if m is None:
         return d.save("propulsion", {"checks": [info("propulsion", "none", note="a visual-only motor declaration without phases")]})
-    phases = motor.get("phase", [])
+    phases = m["phases"]
     impulse = sum(1000.0 * p["thrust_kn"] * p["duration_s"] for p in phases)
     checks = [info("its motor's burn", "%.1f s, %.0f kN s" % (m["burn_s"], impulse / 1000.0),
                    note="its design's phases (assumed: none is published): %s kN" % ", ".join("%g" % p["thrust_kn"] for p in phases)),
               info("its propellant", m["propellant_kg"], "kg", note="what that impulse takes at %.0f s (its smoke's specific impulse: assumed)" % m["isp"]),
               info("its share of the launch mass", 100.0 * m["propellant_kg"] / float(a.spec["mass"]["empty"]), "%"),
               info("its grain", "%.2f m long, %.3f m across, a bore of %.3f m" % (m["length"], 2.0 * m["radius"], m["bore"]), "",
-                   note="a cylinder in the body ahead of its nozzle, at %.0f kg/m3 (assumed)" % storebodies.GRAIN_DENSITY),
+                   note="a cylinder in the body ahead of its nozzle, at %.0f kg/m3 (assumed)" % m["grain_density_kg_m3"]),
               check("its grain fits its body", m["x"] - 0.5 * m["length"], float(body.x[0]) + 0.3 * float(body.x[-1] - body.x[0]), None, "m", level="warn",
                     note="its forward end, from the nose: behind the first three tenths (its seeker, its warhead)")]
     return d.save("propulsion", {"motor": {k: v for k, v in m.items() if k != "rows"}, "checks": checks})
@@ -432,7 +438,7 @@ def build(d, force=False):
         a = d.aircraft
         body = next(b for b in a.bodies if getattr(b, "kind", "") == "fuselage")
         launch = float(a.spec["mass"]["empty_cg"][0])
-        m = storebodies.motor_of(a.spec, want, launch, 0.5 * float(max(body.w)))
+        m = storebodies.card_motor_of(card, a.spec, want, launch, 0.5 * float(max(body.w)))
         R, rb, lg, xg, mp = m["radius"], 0.5 * m["bore"], m["length"], m["x"], m["propellant_kg"]
         got_inertia = [got_inertia[0] + 0.5 * mp * (R * R + rb * rb)] + [
             i + mp * (3.0 * (R * R + rb * rb) + lg * lg) / 12.0 + mp * (xg - launch) ** 2 + empty * (cg - launch) ** 2 for i in got_inertia[1:]]
@@ -635,7 +641,7 @@ def _burn(d, card):
     a = d.aircraft
     body = next(b for b in a.bodies if getattr(b, "kind", "") == "fuselage")
     launch = float(a.spec["mass"]["empty"])
-    m = storebodies.motor_of(a.spec, launch, float(a.spec["mass"]["empty_cg"][0]), 0.5 * float(max(body.w)))
+    m = storebodies.card_motor_of(card_of(d), a.spec, launch, float(a.spec["mass"]["empty_cg"][0]), 0.5 * float(max(body.w)))
     fsim, w = _world("hangar-store-burn")
     checks, track = [], []
     try:

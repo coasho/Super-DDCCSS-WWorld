@@ -2,6 +2,8 @@
 #include "simulation/mission_systems/weapon/Seeker.h"
 #include "simulation/mission_systems/weapon/TrackKinematics.h"
 #include "simulation/mission_systems/Model.h"
+#include "simulation/mission_systems/Cards.h"
+#include "simulation/mission_systems/components/Profile.h"
 #include "foundation/core/Attitude.h"
 
 #include <algorithm>
@@ -11,6 +13,7 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 using namespace fsim::ms::weapon;
 using fsim::ms::WeaponPhase;
@@ -29,6 +32,271 @@ Input flight() {
     in.dtS = 0.05;
     in.supported = true;
     return in;
+}
+using Descriptor=fsim::ms::components::DescriptorV1;
+void componentNumber(Descriptor& descriptor,const char* role,double value,const char* unit) {
+    fsim::ms::Parameter p; p.value=value; p.unit=unit; p.note="Synthetic analytic adapter fixture; no equipment calibration.";
+    descriptor.parameters[role]=p;
+    descriptor.parameterRefs[role]=std::string("synthetic_")+role;
+}
+Descriptor seekerDescriptor(const char* mode) {
+    Descriptor d; d.kind="seeker"; d.implementationId="fsim.seeker.encounter.v1";
+    d.availability=fsim::ms::components::AvailabilityV1::Available; d.bindings["mode"]=mode;
+    const bool heat=std::string(mode).find("infrared")!=std::string::npos;
+    const struct {const char* role;double value;const char* unit;} values[]={
+        {"acquire_m",heat?13000.0:std::string(mode)=="semi_active_radar"?60000.0:17000.0,"m"},
+        {"gimbal_deg",heat?45.0:60.0,"deg"},{"launch_fov_deg",heat?25.0:55.0,"deg"},
+        {"minimum_range_m",1,"m"},{"aspect_speed_floor_m_s",1,"m/s"},{"afterburner_threshold",.5,"1"},
+        {"ir_aspect_min",.45,"1"},{"ir_aspect_span",.55,"1"},{"ir_afterburner_multiplier",1.35,"1"},
+        {"radar_rcs_floor_m2",.001,"m^2"},{"radar_rcs_reference_m2",5,"m^2"},{"radar_rcs_exponent",.25,"1"},
+        {"radar_range_scale_min",.4,"1"},{"radar_range_scale_max",1,"1"},{"radar_lookdown_cosine",-.03,"1"},
+        {"radar_notch_m_s",28,"m/s"},{"illumination_beam_multiplier",3,"1"},{"aircraft_signal",1,"1"},
+        {"ir_decoy_peak",6,"1"},{"ir_decoy_decay_s",2,"s"},{"radar_decoy_peak",3,"1"},
+        {"radar_decoy_rise_s",.3,"s"},{"radar_decoy_decay_s",6,"s"},
+        {"decoy_resistance",std::string(mode)=="imaging_infrared"?5.0:1.6,"1"},{"association_cosine",.999390827019096,"1"},
+        {"emitter_power_w",20,"W"},{"emitter_peak_gain_dbi",25,"dBi"},{"emitter_sidelobe_dbi",-15,"dBi"},
+        {"emitter_half_width_rad",.35,"rad"}};
+    for(const auto& p:values) componentNumber(d,p.role,p.value,p.unit);
+    return d;
+}
+Descriptor guidanceDescriptor(const char* mode) {
+    Descriptor d; d.kind="guidance"; d.implementationId="fsim.guidance.velocity_normal_pn.v1";
+    d.availability=fsim::ms::components::AvailabilityV1::Available;
+    const bool heat=std::string(mode).find("infrared")!=std::string::npos;
+    const struct {const char* role;double value;const char* unit;} values[]={
+        {"navigation_gain",3.5,"1"},{"cue_deg",10,"deg"},{"activation_ratio",1.15,"1"},
+        {"loft_deg",heat?0.0:20.0,"deg"},{"loft_acceleration_g",2,"1"},
+        {"max_g",heat?40.0:35.0,"1"},{"life_s",heat?45.0:110.0,"s"},
+        {"inertial_midcourse",heat?0.0:1.0,"1"},{"launcher_updates",heat?0.0:1.0,"1"}};
+    for(const auto& p:values) componentNumber(d,p.role,p.value,p.unit);
+    return d;
+}
+bool sameScalar(double a,double b) { return a==b || (std::isnan(a)&&std::isnan(b)); }
+bool sameOutput(const Output& a,const Output& b) {
+    return a.phase==b.phase && a.active==b.active && a.tracking==b.tracking && a.supported==b.supported &&
+        a.holding==b.holding && a.acceleration.x==b.acceleration.x && a.acceleration.y==b.acceleration.y &&
+        a.acceleration.z==b.acceleration.z && sameScalar(a.timeToGoS,b.timeToGoS) && sameScalar(a.timeToActiveS,b.timeToActiveS);
+}
+void component_seeker_configuration_resolves_all_four_modes() {
+    for(const char* mode:{"active_radar","semi_active_radar","infrared","imaging_infrared"}) {
+        auto d=seekerDescriptor(mode); SeekerConfigV1 c; Spec spec; std::string error;
+        require(configureSeeker(d,c,error) && c.version==1 && std::string(seekerModeNameV1(c.mode))==mode &&
+                c.acquireM==d.parameters["acquire_m"].value && c.radarNotchMs==28 && c.emitterPowerW==20,
+                "The selected seeker adapter must resolve each supported mode and its declared numeric references");
+        require(configureSeeker(d,spec,error) && spec.seeker==mode && spec.acquireM==c.acquireM &&
+                spec.gimbalRad==c.gimbalRad && spec.seekerModel.version==1 && spec.executionVersion==0,
+                "Seeker configuration must synchronize its existing geometry fields without upgrading guidance execution");
+    }
+}
+void component_seeker_refusals_are_atomic() {
+    auto d=seekerDescriptor("infrared"); SeekerConfigV1 expected; std::string error;
+    require(configureSeeker(d,expected,error),"Synthetic seeker setup failed");
+    for(int defect=0;defect<12;++defect) {
+        auto bad=d; auto retained=expected;
+        if(defect==0) bad.implementationId="unknown";
+        if(defect==1) bad.configurationVersion=2;
+        if(defect==2) bad.kind="guidance";
+        if(defect==3) bad.availability=fsim::ms::components::AvailabilityV1::Unavailable;
+        if(defect==4) bad.availability=fsim::ms::components::AvailabilityV1::NotApplicable;
+        if(defect==5) bad.bindings["mode"]="custom_infrared";
+        if(defect==6) bad.bindings["unexpected"]="infrared";
+        if(defect==7) bad.parameters.erase("ir_aspect_min");
+        if(defect==8) bad.parameters["gimbal_deg"].unit="rad";
+        if(defect==9) bad.parameters["ir_decoy_decay_s"].value=0;
+        if(defect==10) bad.parameters["acquire_m"].value=std::numeric_limits<double>::quiet_NaN();
+        if(defect==11) componentNumber(bad,"unexpected",1,"1");
+        require(!configureSeeker(bad,retained,error) && !error.empty() && retained.mode==expected.mode &&
+                retained.irAspectMin==expected.irAspectMin && retained.gimbalRad==expected.gimbalRad,
+                "Explicit unsupported or malformed seeker settings must fail without replacing the accepted configuration");
+    }
+}
+void component_seeker_numeric_assumptions_are_consumed() {
+    SeekerConfigV1 c; c.version=1; c.mode=SeekerModeV1::Infrared;
+    c.irAspectMin=.2; c.irAspectSpan=.8; c.irAfterburnerMultiplier=2;
+    require(std::abs(infraredAcquisitionRangeM(1000,0,true,c)-1200)<1e-12,
+            "IR admission must consume configured aspect/afterburner assumptions");
+    c.radarRcsFloorM2=1; c.radarRcsReferenceM2=16; c.radarRcsExponent=.5; c.radarRangeScaleMin=.1; c.radarRangeScaleMax=2;
+    require(radarAcquisitionRangeM(1000,4,true,c)==500 && radarAcquisitionRangeM(1000,4,false,c)==1000,
+            "Radar admission must consume configured RCS scaling only when modelled");
+    c.radarLookdownCosine=-.2; c.radarNotchMs=10;
+    require(!radarNotched(-.1,0,c) && radarNotched(-.3,9,c) && !radarNotched(-.3,10,c),
+            "The existing notch comparisons must use configured thresholds and retain their exclusive boundary");
+    c.irDecoyPeak=9; c.irDecoyDecayS=4; c.radarDecoyPeak=7; c.radarDecoyRiseS=2; c.radarDecoyDecayS=8;
+    require(std::abs(decoySignal(4,true,c)-9*std::exp(-1.0))<1e-12 &&
+                std::abs(decoySignal(1,false,c)-3.5*std::exp(-.125))<1e-12,
+            "Decoy observation strengths must consume configured bloom/fade assumptions");
+    c.illuminationBeamMultiplier=1; const double ray[]={std::cos(.2),std::sin(.2),0};
+    require(!withinIlluminationBeam(ray,0,0,.1,.1,c),
+            "SARH beam admission must consume the configured beam-width multiplier");
+
+    auto descriptor=seekerDescriptor("imaging_infrared"); descriptor.parameters["decoy_resistance"].value=2;
+    descriptor.parameters["association_cosine"].value=.9;
+    Spec spec; std::string error;require(configureSeeker(descriptor,spec,error),"Synthetic discrimination setup failed");
+    Guidance configured(spec); auto in=flight();in.supported=false;in.visible={{42,{1000,0,0},{}}};
+    require(configured.update(in).holding==42,"Synthetic seeker must first hold its aircraft observation");
+    in.ageS=.1; in.visible.push_back({99,{1000,100,0},{},true,3});
+    require(configured.update(in).holding==99,
+            "Native association must use its configured resistance and angular cell rather than mode-name constants");
+}
+void component_guidance_selection_consumes_its_configuration() {
+    auto d=guidanceDescriptor("active_radar"); d.parameters["navigation_gain"].value=7;
+    d.parameters["max_g"].value=1000; d.parameters["life_s"].value=90;
+    Spec parsed{"active_radar"}; parsed.control.actuatorLagS=.123; parsed.fuzeM=7; std::string error;
+    require(configureGuidance(d,parsed,error) && parsed.executionVersion==1 && parsed.guidanceAlgorithm==1 &&
+                parsed.navigationGain==7 && parsed.maxG==1000 && parsed.lifeS==90 && parsed.capabilityVersion==1 &&
+                parsed.control.actuatorLagS==.123 && parsed.fuzeM==7,
+            "Guidance descriptor selection must resolve only its own fields and select the existing PN implementation");
+    Spec baseline{"active_radar"}; baseline.maxG=1000;
+    auto in=flight(); in.supported=false; in.visible={{42,{10000,500,0},{-200,0,0}}};
+    const auto actual=Guidance(parsed).update(in), prior=Guidance(baseline).update(in);
+    require(actual.tracking && prior.tracking && std::abs(actual.acceleration.y-2*prior.acceleration.y)<1e-12,
+            "The selected existing PN implementation must use its descriptor's gain");
+    for(int defect=0;defect<7;++defect) {
+        auto bad=d; auto retained=parsed;
+        if(defect==0) bad.implementationId="unknown";
+        if(defect==1) bad.configurationVersion=2;
+        if(defect==2) bad.parameters["navigation_gain"].value=2;
+        if(defect==3) bad.parameters["launcher_updates"].value=.5;
+        if(defect==4) bad.parameters.erase("cue_deg");
+        if(defect==5) bad.parameters["life_s"].unit="ms";
+        if(defect==6) bad.bindings["method"]="PN";
+        require(!configureGuidance(bad,retained,error) && !error.empty() && retained.navigationGain==7 && retained.lifeS==90,
+                "A malformed guidance descriptor must preserve its accepted configuration atomically");
+    }
+}
+void component_configuration_preserves_current_four_mode_outputs() {
+    constexpr double radians=3.14159265358979323846/180;
+    for(const char* mode:{"active_radar","semi_active_radar","infrared","imaging_infrared"}) {
+        const bool heat=std::string(mode).find("infrared")!=std::string::npos;
+        Spec expected{mode}; expected.acquireM=heat?13000:std::string(mode)=="semi_active_radar"?60000:17000;
+        expected.gimbalRad=(heat?45:60)*radians; expected.maxG=heat?40:35; expected.lifeS=heat?45:110;
+        expected.loftRad=(heat?0:20)*radians; expected.capabilityVersion=1;
+        expected.inertialMidcourse=!heat; expected.launcherUpdates=!heat;
+        Spec resolved; std::string error;
+        require(configureSeeker(seekerDescriptor(mode),resolved,error) && configureGuidance(guidanceDescriptor(mode),resolved,error),
+                "Synthetic component profile setup failed");
+        Guidance before(expected),after(resolved); auto in=flight();
+        in.estimate=Observation{42,{30000,0,0},{-200,0,0}};
+        for(int frame=0;frame<4;++frame) {
+            in.ageS=frame*.05; in.illuminated=frame>0;
+            if(frame==1) in.visible={{42,{10000,500,0},{-200,0,0}}};
+            if(frame==2) in.visible={{42,{10000,500,0},{-200,0,0}},{99,{10000,501,0},{-200,0,0},true,10}};
+            if(frame==3) {in.visible.clear();in.supported=false;in.illuminated=false;}
+            require(sameOutput(before.update(in),after.update(in)),
+                    "Explicit descriptors containing retained assumptions must preserve every existing numeric output and phase");
+        }
+    }
+}
+void component_instances_own_release_state_and_configuration_values() {
+    auto descriptor=seekerDescriptor("imaging_infrared"); Spec spec; std::string error;
+    require(configureSeeker(descriptor,spec,error) && configureGuidance(guidanceDescriptor("imaging_infrared"),spec,error),
+            "Synthetic independent release setup failed");
+    Guidance first(spec),second(spec); auto in=flight();in.supported=false;in.visible={{42,{1000,0,0},{}}};
+    require(first.update(in).holding==42,"First release must acquire its own contact");
+    descriptor.parameters["decoy_resistance"].value=.1; spec.seekerModel.decoyResistance=.1;
+    in.ageS=.1; in.visible={{42,{1000,0,0},{}},{99,{1000,1,0},{},true,3}};
+    require(first.update(in).holding==42,"An executing release must not retain mutable descriptor/configuration references");
+    in.visible.clear(); in.ageS=.2;
+    const auto held=first.update(in),fresh=second.update(in);
+    require(held.phase==WeaponPhase::Lost && held.holding==42 && fresh.phase==WeaponPhase::Seeking && fresh.holding==0,
+            "A second release must not inherit acquisition, held contact or accepted-clock state");
+}
+fsim::ms::StoreCard configuredCard() {
+    fsim::ms::StoreCard card;
+    for(const auto& item : std::vector<std::pair<std::string,double>>{
+        {"weapon_execution_version",1},{"guidance_algorithm",1},{"guidance_navigation_gain",4.25},
+        {"guidance_cue_deg",10},{"guidance_activation_ratio",1.15},{"guidance_loft_deg",20},
+        {"guidance_loft_acceleration_g",2},{"control_algorithm",1},{"control_allocator",1},
+        {"control_max_incidence_deg",15},{"control_rate_time_min_s",.12},
+        {"control_rate_lag_multiplier",3},{"control_incidence_time_min_s",.4},
+        {"control_incidence_rate_multiplier",3.333333333333333},
+        {"control_actuator_lag_s",.04},{"control_actuator_rate_rad_s",4}}) {
+        fsim::ms::Parameter parameter; parameter.value=item.second;
+        parameter.unit=item.first=="control_actuator_rate_rad_s" ? "rad/s" : item.first.find("_deg")!=std::string::npos ? "deg" :
+            item.first.size()>=2 && item.first.compare(item.first.size()-2,2,"_s")==0 ? "s" : "1";
+        card.parameters.emplace(item.first,std::move(parameter));
+    }
+    return card;
+}
+void card_execution_configuration_is_atomic_and_explicit() {
+    auto card=configuredCard(); Spec spec{"active_radar"}; std::string error;
+    require(configureGuidance(card,spec,error) && spec.executionVersion==1 && spec.guidanceAlgorithm==1 &&
+            spec.navigationGain==4.25 && spec.control.version==1 && spec.control.actuatorLagS==.04 &&
+            spec.control.actuatorRateRadS==4 && error.empty(),
+            "Card execution parameters must configure actual native guidance and control settings");
+    for(int defect=0;defect<14;++defect) {
+        auto bad=card; auto retained=spec;
+        if(defect==0) bad.parameters["weapon_execution_version"].value=2;
+        if(defect==1) bad.parameters["guidance_algorithm"].value=2;
+        if(defect==2) bad.parameters.erase("guidance_navigation_gain");
+        if(defect==3) bad.parameters["control_rate_time_min_s"].value=0;
+        if(defect==4) bad.parameters["guidance_cue_deg"].value=std::numeric_limits<double>::infinity();
+        if(defect==5) bad.parameters.erase("weapon_execution_version");
+        if(defect==6) bad.parameters["control_allocator"].value=2;
+        if(defect==7) bad.parameters["control_rate_time_min_s"].unit="ms";
+        if(defect==8) bad.parameters["guidance_navigation_gain"].value=2;
+        if(defect==9) bad.parameters.erase("control_actuator_lag_s");
+        if(defect==10) bad.parameters["control_actuator_lag_s"].value=0;
+        if(defect==11) bad.parameters["control_actuator_rate_rad_s"].unit="deg/s";
+        if(defect==12) bad.parameters["control_actuator_rate_rad_s"].value=-1;
+        if(defect==13) bad.parameters["control_actuator_lag_s"].value=std::numeric_limits<double>::denorm_min();
+        require(!configureGuidance(bad,retained,error) && !error.empty() && retained.navigationGain==spec.navigationGain &&
+                retained.control.rateTimeMinS==spec.control.rateTimeMinS && retained.control.actuatorLagS==spec.control.actuatorLagS &&
+                retained.control.actuatorRateRadS==spec.control.actuatorRateRadS,
+                "An explicit malformed profile must fail atomically without becoming a legacy/default profile");
+    }
+    fsim::ms::StoreCard legacy; Spec original{"infrared"}; original.loftRad=.123;
+    require(configureGuidance(legacy,original,error) && original.executionVersion==0 && original.loftRad==.123,
+            "A genuinely absent profile must preserve the caller's unversioned execution");
+    legacy.parameters["fuze_radius_m"].value=7;
+    original.fuzeM=7;
+    require(configureGuidance(legacy,original,error) && original.fuzeModelVersion==0 && original.fuzeM==7,
+            "The pre-existing standalone fuze-radius parameter must not silently opt an external card into a new block");
+}
+void independent_fuze_configuration_is_strict_and_atomic() {
+    fsim::ms::StoreCard card;
+    const auto add=[&](const char* key,double value,const char* unit) {
+        fsim::ms::Parameter p; p.value=value; p.unit=unit; card.parameters[key]=p;
+    };
+    add("length_m",3.66,"m"); add("diameter_m",.1778,"m");
+    add("fuze_model_version",1,"1"); add("fuze_proximity_algorithm",1,"1");
+    add("fuze_arming_s",1,"s"); add("fuze_radius_m",12,"m"); add("fuze_delay_s",0,"s");
+    add("fuze_station_x_m",1.5,"m"); add("fuze_station_y_m",0,"m"); add("fuze_station_z_m",0,"m");
+    Spec parsed{"active_radar"}; std::string error;
+    require(configureGuidance(card,parsed,error) && parsed.executionVersion==0 && parsed.fuzeModelVersion==1 &&
+            parsed.fuzeAlgorithm==1 && parsed.armingS==1 && parsed.fuzeM==12 && parsed.fuzeDelayS==0 &&
+            parsed.fuzeStationStructuralM && parsed.fuzeStationStructuralM->x==1.5,
+            "The optional fuze block must configure a declared station/law without changing legacy guidance");
+    for(int defect=0;defect<11;++defect) {
+        auto bad=card; auto retained=parsed;
+        if(defect==0) bad.parameters["fuze_model_version"].value=2;
+        if(defect==1) bad.parameters["fuze_proximity_algorithm"].value=2;
+        if(defect==2) bad.parameters.erase("fuze_model_version");
+        if(defect==3) bad.parameters.erase("fuze_station_z_m");
+        if(defect==4) bad.parameters["fuze_station_x_m"].value=3.67;
+        if(defect==5) bad.parameters["fuze_station_y_m"].value=.09;
+        if(defect==6) bad.parameters["fuze_arming_s"].value=parsed.lifeS;
+        if(defect==7) bad.parameters["fuze_delay_s"].value=parsed.lifeS;
+        if(defect==8) bad.parameters["fuze_radius_m"].unit="ft";
+        if(defect==9) bad.parameters["diameter_m"].value=0;
+        if(defect==10) bad.parameters["fuze_radius_m"].value=-1;
+        require(!configureGuidance(bad,retained,error) && !error.empty() && retained.fuzeM==parsed.fuzeM &&
+                retained.fuzeStationStructuralM && retained.fuzeStationStructuralM->x==1.5,
+                "Malformed/unsupported fuze metadata must not fall back, move its station or partially mutate execution");
+    }
+}
+void configured_navigation_gain_changes_only_the_synthetic_pn_request() {
+    auto card=configuredCard(); Spec one{"active_radar"}; one.maxG=1000;
+    std::string error; require(configureGuidance(card,one,error),"Synthetic card setup failed");
+    auto twice=one; twice.navigationGain=2*one.navigationGain;
+    auto in=flight(); in.visible={{42,{10000,500,0},{-200,0,0}}}; in.estimate=in.visible[0];
+    const auto a=Guidance(one).update(in),b=Guidance(twice).update(in);
+    require(a.tracking && b.tracking && a.acceleration.y>0 && std::abs(b.acceleration.y-2*a.acceleration.y)<1e-12,
+            "The selected PN implementation must consume its configured gain in a non-saturated analytic fixture");
+    twice.guidanceAlgorithm=2;
+    const auto refused=Guidance(twice).update(in);
+    require(refused.phase==WeaponPhase::Unguided && length(refused.acceleration)==0 && !refused.tracking,
+            "An unknown explicitly selected guidance algorithm must not silently execute PN");
 }
 void active_activation_and_reacquisition() {
     Guidance guidance(Spec{"active_radar"});
@@ -766,6 +1034,15 @@ void invalid_capability_version_fails_closed() {
 
 int main(int argc, char** argv) {
     const struct { const char* name; void (*run)(); } tests[] = {
+        {"component seeker configuration", component_seeker_configuration_resolves_all_four_modes},
+        {"component seeker refusal", component_seeker_refusals_are_atomic},
+        {"component seeker arithmetic", component_seeker_numeric_assumptions_are_consumed},
+        {"component guidance selection", component_guidance_selection_consumes_its_configuration},
+        {"component output equivalence", component_configuration_preserves_current_four_mode_outputs},
+        {"component release independence", component_instances_own_release_state_and_configuration_values},
+        {"configured execution", card_execution_configuration_is_atomic_and_explicit},
+        {"configured navigation dispatch", configured_navigation_gain_changes_only_the_synthetic_pn_request},
+        {"configured fuze", independent_fuze_configuration_is_strict_and_atomic},
         {"active", active_activation_and_reacquisition},
         {"active search steering", active_search_retains_estimate_steering},
         {"stale", unsupported_estimates_do_not_update_truth},
@@ -797,12 +1074,15 @@ int main(int argc, char** argv) {
         {"sarh correction", sarh_radio_correction_is_distinct_from_illumination},
         {"capability version", invalid_capability_version_fails_closed},
     };
+    unsigned executed=0;
     for (const auto& test : tests) {
         if (argc > 1 && std::string(argv[1]) != test.name) continue;
+        ++executed;
         try { test.run(); std::cout << "PASS " << test.name << '\n'; }
         catch (const std::exception& error) {
             std::cerr << "FAIL " << test.name << ": " << error.what() << '\n';
             return 1;
         }
     }
+    if(!executed) {std::cerr<<"FAIL no weapon-guidance tests matched the selector\n";return 2;}
 }

@@ -93,5 +93,56 @@
       "basis": "assumed",
       "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
     }
+  },
+  "component_models": {
+    "schema_version": 1,
+    "components": {
+      "seeker": {
+        "availability": "not_applicable",
+        "reason": "This card declares no executing guided-store function."
+      },
+      "guidance": {
+        "availability": "not_applicable",
+        "reason": "This card declares no executing guided-store function."
+      },
+      "autopilot": {
+        "availability": "not_applicable",
+        "reason": "No authored native control surfaces on this released store."
+      },
+      "allocator": {
+        "availability": "not_applicable",
+        "reason": "No authored native control surfaces on this released store."
+      },
+      "actuator": {
+        "availability": "not_applicable",
+        "reason": "No authored native control surfaces on this released store."
+      },
+      "fuze": {
+        "availability": "unavailable",
+        "reason": "Armed bomb effects are not authored or implemented for this card; inert release only."
+      },
+      "warhead": {
+        "availability": "unavailable",
+        "reason": "Armed bomb effects are not authored or implemented for this card; inert release only."
+      },
+      "propulsion": {
+        "availability": "not_applicable",
+        "reason": "Released store has no executing motor phases."
+      },
+      "aerodynamics": {
+        "availability": "available",
+        "implementation_id": "fsim.aerodynamics.jsbsim_generated_store",
+        "configuration_version": 1,
+        "parameter_refs": {},
+        "bindings": {
+          "model": "jsbsim:cj10a",
+          "design": "aircraft/cj10a/cj10a.toml",
+          "source": "component_build_up"
+        },
+        "basis": "assumed",
+        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
+        "validity": "Reduced-order engineering model; hardware performance unvalidated."
+      }
+    }
   }
 }

@@ -270,6 +270,17 @@ void armedAndWorkers() {
     require(first==second,"worker count must preserve deterministic contact burst coordinates");
 }
 void batched() { armed(8,2); }
+void unarmedPhysicalImpulse() {
+    Fixture fixture;
+    fixture.placeCrossing();
+    fixture.world.step();
+    fixture.assertNoDetonation();
+    const auto* damage = fixture.world.damage(fixture.victim);
+    require(damage != nullptr, "unarmed physical contact must assess mechanical loading independently of a warhead");
+    require(std::any_of(damage->sections().begin(), damage->sections().end(), [](const auto& section) {
+        return section.kick > 0 || section.separated;
+    }), "a real closing body contact must reach native structural loading without fragment Hit fabrication");
+}
 void unarmed() {
     Fixture fixture;
     fixture.placeCrossing();
@@ -277,6 +288,7 @@ void unarmed() {
     fixture.assertNoDetonation();
     require(fixture.relativeNose().z>.05,"unarmed point must actually cross the finite wing plane");
     fixture.ageUntilArmed();
+    require(fixture.world.resetVehicle(fixture.victim),"restore physical victim geometry before testing consumed channel");
     fixture.placeCrossing(); // Same released weapon; a reset is not a new release.
     fixture.world.step();
     fixture.assertNoDetonation();
@@ -287,7 +299,11 @@ void inert() {
     fixture.ageUntilArmed(); fixture.placeCrossing(); fixture.world.step(); fixture.assertNoDetonation();
     require(record(fixture.world,fixture.missile).jettisoned,"contact must preserve inert jettison provenance");
     require(fixture.relativeNose().z>.05,"inert point must actually cross the finite wing plane");
-    require(fixture.world.damage(fixture.victim)==nullptr,"inert contact probe must not create damage lifecycle state");
+    const auto* damage=fixture.world.damage(fixture.victim);
+    require(damage!=nullptr,"inert body still transfers kinetic impulse without a warhead");
+    require(std::any_of(damage->sections().begin(),damage->sections().end(),[](const auto& section) {
+        return section.kick>0 || section.separated;
+    }),"inert kinetic contact must load actual structure rather than create a fragment Hit");
 }
 void nearMiss() {
     Fixture fixture;
@@ -304,6 +320,7 @@ void detached() {
 int main(int argc,char** argv) {
     struct Test { const char* name; void (*run)(); };
     const Test tests[]={{"armed lost seeker and worker determinism",armedAndWorkers},
+                        {"unarmed body contact carries kinetic impulse",unarmedPhysicalImpulse},
                         {"batched native point contact",batched},{"unarmed first contact stays consumed",unarmed},
                         {"inert jettison physical crossing",inert},{"finite geometry near miss",nearMiss},
                         {"detached geometry excluded",detached}};

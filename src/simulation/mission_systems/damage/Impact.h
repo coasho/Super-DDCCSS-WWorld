@@ -23,6 +23,24 @@
 
 namespace fsim::ms::damage {
 
+/// One rigid body at a captured contact epoch. Every vector and the symmetric
+/// inertia tensor use the same Cartesian frame; arm is contact point minus CG.
+/// This is a frictionless, perfectly inelastic point-contact model, not a
+/// ballistic penetration, fracture-energy or equipment lethality model.
+struct ContactBody {
+    double massKg = 0;
+    double inertia[9] = {};
+    V3 velocity, angularVelocity, arm;
+};
+struct BodyContactOutcome {
+    bool valid = false, approaching = false;
+    V3 impulseA, impulseB, angularImpulseA, angularImpulseB;
+    double closingMs = 0, effectiveMassKg = 0, dissipatedJ = 0;
+};
+/// normal points from B towards A. Equal/opposite impulses remove only closing
+/// normal point velocity. Separating/tangent contact transfers no impulse.
+BodyContactOutcome inelasticBodyContact(const ContactBody& a, const ContactBody& b, V3 normal) noexcept;
+
 constexpr double kBulkDensityKgM3 = 120.0; ///< an aircraft's mass over its body's volume (an estimate: 80 - 160)
 constexpr double kCrushShare = 0.25;       ///< of its body's size (m / rho)^(1/3): about half its depth
 constexpr double kGroundGiveM = 0.3;       ///< what soil gives under it (an estimate; rock none, water more)

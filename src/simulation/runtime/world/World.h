@@ -16,6 +16,14 @@
 #include "simulation/mission_systems/weapon/Guidance.h"
 #include "simulation/mission_systems/weapon/MotionHistory.h"
 #include "simulation/mission_systems/weapon/ContactFuze.h"
+#include "simulation/mission_systems/weapon/FuzeDelay.h"
+#include "simulation/mission_systems/weapon/CaptureEpoch.h"
+#include "simulation/mission_systems/weapon/MaterialPoint.h"
+#include "simulation/mission_systems/components/Profile.h"
+#include "simulation/mission_systems/components/Bindings.h"
+#include "simulation/mission_systems/weapon/FuzeAdapter.h"
+#include "simulation/mission_systems/weapon/PlantAdapter.h"
+#include "simulation/mission_systems/damage/WarheadAdapter.h"
 #include "simulation/mission_systems/countermeasure/Dispenser.h"
 #include "simulation/mission_systems/rcs/Table.h"
 #include "simulation/flight_control/Features.h"
@@ -715,6 +723,11 @@ private:
         std::vector<ms::weapon::MotionSample> engagementPath; ///< worker-owned native samples for this step
         std::vector<sim::VehicleState> engagementStates; ///< same indices: pose/velocity at each native sample
         std::vector<std::optional<ms::damage::V3>> engagementCg; ///< same epochs: CG from fixed origin, body metres
+        struct Matter {
+            sim::RigidMassPropertiesV1 rigid;
+            double pressurePa=0, temperatureK=0, densityKgM3=0;
+        };
+        std::vector<std::optional<Matter>> engagementMatter; ///< native mass/inertia/atmosphere at the same epochs
         double engagementModelTimeS = 0; ///< model clock at the beginning of this World step
         unsigned controlDivider = 1;
         bool forceApplied = false;         ///< external force pushed last step (needs zeroing)
@@ -738,12 +751,25 @@ private:
         ms::WeaponRecord origin;           ///< a weapon's: the store it was (MS-7; store, station, activity, target, jettisoned)
         std::uint32_t launchSeekerCue = 0; ///< actual on-rail observation, never a designation ID
         std::unique_ptr<ms::weapon::Guidance> guidance;
+        std::shared_ptr<const ms::components::ProfileV1> payloadProfile;
+        std::unique_ptr<ms::weapon::FuzeAdapter> fuzeAdapter;
+        std::unique_ptr<ms::damage::WarheadAdapter> warheadAdapter;
+        ms::weapon::PlantAdapterV1 plantAdapter;
+        std::array<std::array<PropertyHandle,3>,5> plantMetadata;
         std::optional<ms::damage::V3> contactNoseFromOriginBodyM; ///< immutable authored point tip; absent: unavailable
+        std::optional<ms::damage::V3> burstFromOriginBodyM, fuzeFromOriginBodyM;
+        bool fixedBurstRequired=false;
         ms::weapon::ContactFuzeState contactFuze; ///< one contact-initiation channel per actual release
+        ms::weapon::FuzeTurnStateV1 fuzeTurn;
+        ms::weapon::FuzeDelayStateV1 fuzeDelay;
+        double fuzeAgeBoundaryS=0; ///< contiguous captured release-age boundary, independent of clock subtraction
+        ms::weapon::CaptureEpochV1 engagementCaptureEpoch;
         double guidanceDemand[3] = {0, 0, 0}; ///< ECEF specific acceleration, never applied as a force
         struct FinControlReads {
-            PropertyHandle version, qbar, area, diameter, lag;
+            PropertyHandle version, qbar, area, diameter, lag, normalizationVersion, actuatorVersion, channelRate, finCount;
             std::array<PropertyHandle, 3> inertia, limits;
+            std::array<PropertyHandle, 3> lowerStops, upperStops;
+            std::vector<PropertyHandle> finRates;
             std::array<PropertyHandle, 12> derivatives;
             std::array<PropertyHandle, 3> aeroForce, aeroMoment;
         } finControl;
@@ -804,6 +830,8 @@ private:
     };
 
     Entry* entry(std::uint32_t id) noexcept;
+    std::uint32_t createVehicleChecked(const VehicleSpec&,const std::function<bool(sim::FlightModel&)>&);
+    std::uint32_t launchWeaponChecked(std::uint32_t,const ms::WeaponLaunch&,const std::function<bool(sim::FlightModel&)>&);
     /// After a binding was recorded: the platform's grants and policy activities made the bindings' (bindMaService).
     void settleMaOwnership(Entry& e, std::uint32_t platform, control::ControllerId bound);
     const Entry* entry(std::uint32_t id) const noexcept;
@@ -839,6 +867,13 @@ private:
     /// Each aircraft type's damage data (MS-7g: hangar's <type>.damage.json beside its definition; none: it takes none)
     std::unordered_map<std::string, std::shared_ptr<const ms::damage::Airframe>> airframes_;
     std::map<std::string, std::shared_ptr<const ms::StoreCard>> storeCards_; ///< the store library, read when first needed
+    ms::components::BindingsV1 payloadBindings_;
+    std::shared_ptr<const ms::components::ProfileV1> payloadProfile(
+        const ms::StoreCard&,std::string& error) const;
+    bool bindPayloadProfile(std::shared_ptr<const ms::StoreCard>,const std::filesystem::path&,std::string& error);
+    std::optional<ms::weapon::Spec> configuredWeaponSpec(const ms::StoreCard&,std::string& error) const;
+    static ms::weapon::NativePlantIdentityV1 nativePlantIdentity(const Entry&);
+    static ms::weapon::NativePlantIdentityV1 nativePlantIdentity(sim::FlightModel&,const ms::weapon::PlantAdapterV1&);
     std::vector<ipc::EngagementEvent> engagement_;                           ///< events not yet taken
     std::unordered_map<std::string, std::filesystem::path> aircraftDirs_; ///< each aircraft type's definition's directory
     /// One vehicle's station masses as its stores now are (applyStoreMasses's, at once).
@@ -857,7 +892,11 @@ private:
     struct Thrown {
         double impulseBody[3] = {0.0, 0.0, 0.0};
         double sharedBody[3] = {0.0, 0.0, 0.0};
+        double sharedAngularBody[3] = {0.0, 0.0, 0.0};
+        std::optional<ms::damage::V3> sharedCgFromOriginBodyM;
     };
+    void separatedAt(Entry& e, int section, const sim::VehicleState* as, const Thrown* thrown,
+                     std::vector<ipc::EngagementEvent>* events);
     std::uint32_t launchPiece(Entry& from, int section, const Parting& part);
     void stepDamage();
     void prepareEngagements();
@@ -870,6 +909,24 @@ private:
     /// the fixed model origin in body metres. Stopped bodies hold the last
     /// native value. Missing/invalid captures never use the final model's CG.
     std::optional<ms::damage::V3> engagementCgAt(const Entry& e, double offsetS) const;
+    std::optional<ms::weapon::MaterialPointSample> weaponPointAt(const Entry& e, double offsetS,
+        const std::optional<ms::damage::V3>& pointFromOrigin) const;
+    static std::optional<Entry::Matter> captureMatter(sim::FlightModel& model);
+    std::optional<Entry::Matter> engagementMatterAt(const Entry& e, double offsetS) const;
+    struct ContactTransfer {
+        std::uint32_t victim=0;
+        int section=-1;
+        ms::damage::V3 pointBody, pointEcef, impulseEcef, weaponImpulseEcef, weaponAngularEcef;
+        double fraction=0, dissipatedJ=0, closingMs=0;
+    };
+    std::optional<ContactTransfer> contactTransfer(const Entry& weapon, std::uint32_t victim,
+                                                   const ms::weapon::ContactFuzeResult& contact) const;
+    void contactReaction(Entry& weapon, const ContactTransfer& contact);
+    void contactDamage(Entry& weapon, const ContactTransfer& contact);
+    std::vector<ipc::EngagementEvent> detonateAt(const Detonation& detonation, const ContactTransfer* contact);
+    std::vector<ipc::EngagementEvent> applyDamage(Entry& victim, const Detonation& cause,
+        const ms::damage::Impact& impact, const sim::VehicleState& encounter, const double* cg,
+        double pressurePa, const std::vector<ms::damage::VehicleDamage::PointImpulse>& contact);
     void recordEngagement(const std::string& kind, const Entry& entity, std::uint32_t target = 0,
                           const std::string& reason = "", bool destroyed = false);
     std::vector<ms::EngagementEvent> combatEvents_;

@@ -126,6 +126,102 @@ TEST_CASE("a MiG-29A's left wing parts with its missiles: it and its piece carry
     CHECK(lost == 3);
 }
 
+TEST_CASE("a loaded departing section conserves linear and angular momentum at its actual CG",
+          "[damage][stores][mass][world][loaded-conservation]") {
+    session::World w(options("mass-loaded-angular"));
+    const auto id = wing(w, "mig29a", 6000.0, 220.0);
+    REQUIRE(w.loadLoadout(id, "air-to-air") == ms::Reason::None);
+    w.step(stepsFor(w, 2.0));
+    // MassBalance precedes propulsion in a native tick. Reconcile fuel already
+    // burnt by the last tick before defining this zero-integration baseline.
+    REQUIRE(w.model(id)->beginMassChange());
+    REQUIRE(w.model(id)->endMassChange(nullptr,nullptr));
+    // Zero initial spin isolates the internal separation impulse. No native
+    // integration occurs between these snapshots: external loads do no work.
+    const double zeroRates[3]{};
+    dynamic_cast<sim::JsbsimModel&>(*w.model(id)).setBodyRates(zeroRates);
+    const Body before = body(*w.model(id));
+    const auto* coordinateSource = dynamic_cast<const sim::NativePositionSourceV1*>(w.model(id));
+    REQUIRE(coordinateSource != nullptr);
+    sim::NativePositionV1 nativePosition;
+    REQUIRE(coordinateSource->nativePositionV1(before.r.cgEcef,nativePosition));
+    sim::VehicleState nativeState;
+    w.model(id)->state(nativeState);
+    CHECK(std::abs(nativePosition.latitudeRad-nativeState.latitudeRad) < 1e-14);
+    CHECK(std::abs(nativePosition.longitudeRad-nativeState.longitudeRad) < 1e-14);
+    CHECK(std::abs(nativePosition.altitudeMslM-nativeState.altitudeMslM) < 1e-8);
+    const auto angularMomentum = [&](sim::FlightModel& model, const Body& value, V frameVelocity) {
+        const auto* source = dynamic_cast<const sim::RigidMassSourceV1*>(&model);
+        REQUIRE(source != nullptr);
+        sim::RigidMassPropertiesV1 mass;
+        REQUIRE(source->rigidMassPropertiesV1(mass));
+        const auto* inertia = mass.inertiaBodyKgM2;
+        const auto* rate = value.r.ratesBody;
+        const V spinBody{inertia[0]*rate[0]+inertia[1]*rate[1]+inertia[2]*rate[2],
+                         inertia[3]*rate[0]+inertia[4]*rate[1]+inertia[5]*rate[2],
+                         inertia[6]*rate[0]+inertia[7]*rate[1]+inertia[8]*rate[2]};
+        const auto* r = value.r.bodyToEcef;
+        const V spin{r[0]*spinBody.x+r[1]*spinBody.y+r[2]*spinBody.z,
+                     r[3]*spinBody.x+r[4]*spinBody.y+r[5]*spinBody.z,
+                     r[6]*spinBody.x+r[7]*spinBody.y+r[8]*spinBody.z};
+        return cross(value.cg-before.cg,(value.velocity-frameVelocity)*value.kg)+spin;
+    };
+    // Use the frame translating with the original CG. Subtracting a common
+    // velocity does not change conservation when mass, first moment and linear
+    // momentum are conserved; those are checked separately below. In the fixed
+    // Earth frame a nanometre of coordinate roundoff multiplies the aircraft's
+    // entire bulk momentum, obscuring the much smaller separation impulse.
+    const V initialAngular = angularMomentum(*w.model(id),before,before.velocity);
+    const V initialEarthAngular = angularMomentum(*w.model(id),before,{});
+    REQUIRE(w.separateSection(id, "left wing"));
+    std::uint32_t piece = 0;
+    for (const auto candidate : w.vehicleIds())
+        if (w.info(candidate)->role == ms::Role::Debris) piece = candidate;
+    REQUIRE(piece != 0);
+    const Body rest = body(*w.model(id)), part = body(*w.model(piece));
+    REQUIRE(part.kg > 600);
+    REQUIRE((part.cg-part.origin).length() > .01);
+    const V initialLinear = before.velocity*before.kg;
+    const V finalLinear = rest.velocity*rest.kg+part.velocity*part.kg;
+    const V finalAngular = angularMomentum(*w.model(id),rest,before.velocity)+
+                           angularMomentum(*w.model(piece),part,before.velocity);
+    const V finalEarthAngular = angularMomentum(*w.model(id),rest,{})+angularMomentum(*w.model(piece),part,{});
+    const V firstMoment = (rest.cg-before.cg)*rest.kg+(part.cg-before.cg)*part.kg;
+    const V centreResidual = firstMoment*(1/(rest.kg+part.kg));
+    const auto print = [](const char* name, V value) {
+        INFO(name << " = " << value.x << ", " << value.y << ", " << value.z);
+        std::printf("LOADED-CONSERVATION %s %.17g %.17g %.17g\n",name,value.x,value.y,value.z);
+    };
+    std::printf("LOADED-CONSERVATION mass before %.17g rest %.17g part %.17g residual %.17g\n",
+                before.kg,rest.kg,part.kg,rest.kg+part.kg-before.kg);
+    print("centre_residual",centreResidual);
+    print("rest_origin_residual",rest.origin-before.origin);
+    print("initial_velocity",before.velocity);
+    print("rest_velocity_delta",rest.velocity-before.velocity);
+    print("part_velocity_delta",part.velocity-before.velocity);
+    print("initial_rates",{before.r.ratesBody[0],before.r.ratesBody[1],before.r.ratesBody[2]});
+    print("rest_rates",{rest.r.ratesBody[0],rest.r.ratesBody[1],rest.r.ratesBody[2]});
+    print("part_rates",{part.r.ratesBody[0],part.r.ratesBody[1],part.r.ratesBody[2]});
+    print("linear_residual",finalLinear-initialLinear);
+    print("angular_residual",finalAngular-initialAngular);
+    print("earth_frame_angular_residual",finalEarthAngular-initialEarthAngular);
+    print("earth_frame_translation_term",cross(firstMoment,before.velocity));
+    for (const auto candidate : {id,piece}) {
+        sim::VehicleState state;
+        w.model(candidate)->state(state);
+        const auto* r=state.rotationBodyToEcef;
+        const auto* v=state.velocityBodyMs;
+        const V fromBody{r[0]*v[0]+r[1]*v[1]+r[2]*v[2],r[3]*v[0]+r[4]*v[1]+r[5]*v[2],r[6]*v[0]+r[7]*v[1]+r[8]*v[2]};
+        print(candidate==id ? "rest_native_velocity_consistency" : "part_native_velocity_consistency",
+              fromBody-body(*w.model(candidate)).velocity);
+    }
+    CAPTURE((finalLinear-initialLinear).length(), (finalAngular-initialAngular).length());
+    CHECK((finalLinear-initialLinear).length() < .001);
+    CHECK((finalAngular-initialAngular).length() < .001);
+    CHECK(std::abs(rest.kg+part.kg-before.kg) < 1e-8);
+    CHECK(centreResidual.length() < 1e-8);
+}
+
 TEST_CASE("stores jettisoned: the carrier's airframe flies on without a jump, though its CG moved", "[stores][mass][world]") {
     session::World w(options("mass-release"));
     const auto id = wing(w, "f16c", 5000.0, 220.0);

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace fsim::ms::weapon {
 namespace {
@@ -22,8 +23,7 @@ double surface(const ControlAxis& a, double inertia, double angle, double rate, 
                           a.momentAngle * angle - a.momentRate * rate - momentResidual) / a.momentControl;
     return delta / limit;
 }
-}
-FinCommands finCommands(const AutopilotInput& in) noexcept {
+FinCommands cascade(const AutopilotInput& in,const FinControlConfigV1& config,const ControlStopsV1& stops) noexcept {
     if (!std::isfinite(in.massKg) || in.massKg <= 0 || !std::isfinite(in.speedMs) || in.speedMs < 1 ||
         !std::isfinite(in.actuatorLagS) || in.actuatorLagS <= 0 ||
         !std::isfinite(in.alphaRad) || !std::isfinite(in.betaRad) ||
@@ -75,15 +75,16 @@ FinCommands finCommands(const AutopilotInput& in) noexcept {
     double alpha = reference(in.pitch, in.massKg * in.demandBody[2], qPath,pitchForce,pitchMoment-couplingMoment[1]);
     double beta = reference(in.yaw, in.massKg * in.demandBody[1], rPath,yawForce,yawMoment-couplingMoment[2]);
     if (!std::isfinite(alpha) || !std::isfinite(beta)) return {};
-    // Assumed reduced-order control envelope: combined incidence <=15 degrees.
-    constexpr double maxIncidence = .2617993877991494;
+    // Configured reduced-order control envelope (legacy default: 15 degrees).
+    const double maxIncidence = config.maxIncidenceRad;
     const double incidence = std::hypot(alpha, beta);
     if (!std::isfinite(incidence)) return {};
     if (incidence > maxIncidence) alpha *= maxIncidence / incidence, beta *= maxIncidence / incidence;
     // Estimated bandwidth, explicitly slower than the finite actuator. The
     // nominal 40 ms actuator gives 120 ms rate and 400 ms incidence response.
-    const double rateTime = std::max(.12, 3 * in.actuatorLagS);
-    const double incidenceTime = std::max(.4, 3.333333333333333 * rateTime);
+    const double rateTime = std::max(config.rateTimeMinS, config.rateLagMultiplier * in.actuatorLagS);
+    const double incidenceTime = std::max(config.incidenceTimeMinS, config.incidenceRateMultiplier * rateTime);
+    if (!std::isfinite(rateTime) || !std::isfinite(incidenceTime)) return {};
     const double qDemand = qPath + (alpha - in.alphaRad) / incidenceTime;
     const double rDemand = rPath - (beta - in.betaRad) / incidenceTime;
     FinCommands out;
@@ -95,10 +96,59 @@ FinCommands finCommands(const AutopilotInput& in) noexcept {
         out.aileron = (-in.inertiaKgM2[0] * in.ratesRadS[0] / rateTime + couplingMoment[0] - in.rollDamping * in.ratesRadS[0] - rollMoment) /
                        (in.rollMomentPerRad * in.limitsRad[0]);
     if (!std::isfinite(out.elevator) || !std::isfinite(out.rudder) || !std::isfinite(out.aileron)) return {};
-    out.elevator = std::clamp(out.elevator, -1., 1.);
-    out.rudder = std::clamp(out.rudder, -1., 1.);
-    out.aileron = std::clamp(out.aileron, -1., 1.);
+    // The authored native mixer takes normalized virtual channels. Its scale
+    // is zero-centred: asymmetric negative travel uses |lower|, not max(|stop|).
+    const auto normalize=[&](double command,std::size_t axis) {
+        if (stops.version==0) return std::clamp(command,-1.,1.);
+        const double radians=command*in.limitsRad[axis];
+        if (!std::isfinite(radians)) return std::numeric_limits<double>::quiet_NaN();
+        const double extent=radians<0 ? -stops.lowerRad[axis] : stops.upperRad[axis];
+        return extent>0 ? std::clamp(radians/extent,-1.,1.) : 0.;
+    };
+    out.elevator = normalize(out.elevator,1);
+    out.rudder = normalize(out.rudder,2);
+    out.aileron = normalize(out.aileron,0);
+    if (!std::isfinite(out.elevator) || !std::isfinite(out.rudder) || !std::isfinite(out.aileron)) return {};
     out.available = true;
     return out;
+}
+}
+FinCommands finCommands(const AutopilotInput& in) noexcept { return finCommands(in,FinControlConfigV1{}); }
+FinCommands finCommands(const AutopilotInput& in,const FinControlConfigV1& requested,const ControlStopsV1& stops) noexcept {
+    if (requested.version>1 || stops.version>1 || stops.actuatorVersion>1) return {};
+    // Unversioned callers retain every original constant and operation order.
+    const auto config=requested.version==0 ? FinControlConfigV1{} : requested;
+    if (!std::isfinite(config.maxIncidenceRad) || config.maxIncidenceRad<=0 || config.maxIncidenceRad>=1.5707963267948966
+        || !std::isfinite(config.rateTimeMinS) || config.rateTimeMinS<=0
+        || !std::isfinite(config.rateLagMultiplier) || config.rateLagMultiplier<=0
+        || !std::isfinite(config.incidenceTimeMinS) || config.incidenceTimeMinS<=0
+        || !std::isfinite(config.incidenceRateMultiplier) || config.incidenceRateMultiplier<=0) return {};
+    if (requested.version==1) {
+        // Metadata is consumed by the native FCS itself. Check the actual
+        // time constant, channel rate and every physical-fin rate; never
+        // replace the measured plant input with its card expectation.
+        const auto same=[](double actual,double expected) {
+            return std::isfinite(actual) && std::isfinite(expected) && actual>0 && expected>0 &&
+                std::abs(actual-expected)<=16*std::numeric_limits<double>::epsilon()*std::max(actual,expected);
+        };
+        if (stops.actuatorVersion!=1 || !same(in.actuatorLagS,config.actuatorLagS)
+            || !same(stops.channelRateRadS,config.actuatorRateRadS) || stops.finRateRadS.empty()
+            || !std::all_of(stops.finRateRadS.begin(),stops.finRateRadS.end(),
+                [&](double actual){return same(actual,config.actuatorRateRadS);})) return {};
+    }
+    if (stops.version==1) for(std::size_t axis=0;axis<3;++axis) {
+        const double low=stops.lowerRad[axis], high=stops.upperRad[axis];
+        if (!std::isfinite(low) || !std::isfinite(high) || low>0 || high<0 || low>high
+            || std::max(-low,high)!=in.limitsRad[axis]
+            || (low==high && (axis!=0 || in.limitsRad[axis]!=0))) return {};
+    }
+    switch(config.algorithm) {
+    case 1:
+        switch(config.allocator) {
+        case 1: return cascade(in,config,stops); // native authored mixer, no invented per-fin allocator
+        default: return {};
+        }
+    default: return {};
+    }
 }
 }

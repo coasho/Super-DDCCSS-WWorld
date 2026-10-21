@@ -37,18 +37,26 @@ struct ContactFuzeResult {
     double fraction = std::numeric_limits<double>::quiet_NaN(); ///< Original decision-step fraction.
     ContactKind kind = ContactKind::Panel;
     std::size_t index = std::numeric_limits<std::size_t>::max(); ///< Immutable Airframe source index.
+    /// Exact selected-face contact, in target body metres from fixed origin.
+    damage::V3 pointBody{std::numeric_limits<double>::quiet_NaN(),std::numeric_limits<double>::quiet_NaN(),std::numeric_limits<double>::quiet_NaN()};
+    /// Unit selected-face normal, oriented against the incoming captured
+    /// segment. Coplanar contact has zero normal closing movement. Unavailable
+    /// point/normal values remain NaN when no contact is returned.
+    damage::V3 normalBody{std::numeric_limits<double>::quiet_NaN(),std::numeric_limits<double>::quiet_NaN(),std::numeric_limits<double>::quiet_NaN()};
 };
 
-/// Sweep a point against the view's finite panel faces, body boxes and component
-/// boxes. No radius, skin thickness, closest-approach substitution or arming
+/// Sweep a point against finite panel faces and validated authored closed
+/// contact meshes. Damage boxes are not physical narrow-phase geometry;
+/// legacy data without contact_geometry v1 is unavailable. No radius, skin thickness, closest-approach substitution or arming
 /// restart is added. Life is exclusive; arming is inclusive. The first physical
 /// crossing is selected before testing arming. Initial overlap (including a
 /// boundary) suppresses this target's whole sweep; an unavailable sample rejects
 /// it rather than bridging a gap. A short history is never extrapolated.
 ///
 /// Pure per-target evaluation: compare all candidates before committing the
-/// globally earliest crossing to ContactFuzeState. Exact ties prefer a panel,
-/// then its lower immutable source index. The caller resolves target-ID ties.
+/// globally earliest crossing to ContactFuzeState. Ownership caps are hidden
+/// while their adjacent owner is attached. Exact ties prefer authored skin,
+/// then a panel, then its lower immutable source index. The caller resolves target-ID ties.
 ContactFuzeResult contactFuze(const std::vector<ContactSample>& path,
                               const damage::AttachedGeometryView& geometry,
                               const ContactWindow& window);

@@ -2,9 +2,11 @@
 #include "simulation/runtime/world/World.h"
 #include "simulation/flight/FlightModel.h"
 #include "simulation/mission_systems/Model.h"
+#include "foundation/io/AssetResolver.h"
 
 #include <algorithm>
 #include <cmath>
+#include <chrono>
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
@@ -12,6 +14,7 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 
 #ifndef FSIM_TEST_JSBSIM_ROOT
@@ -22,16 +25,26 @@ using namespace fsim;
 namespace {
 constexpr double kPi = 3.14159265358979323846, kDeg = kPi / 180.0;
 void require(bool value, const std::string& message) { if (!value) throw std::runtime_error(message); }
+bool visualRun() {const auto* value=std::getenv("FSIM_ENGAGEMENT_VISUAL");return value && std::string(value)=="1";}
+void step(session::World& world,unsigned count=1) {
+    if (!visualRun()) {world.step(count);return;}
+    for (unsigned i=0;i<count;++i) {
+        world.step();
+        std::this_thread::sleep_for(std::chrono::duration<double>(world.dt()*world.frameSkip()));
+    }
+}
 
 session::WorldOptions options(const std::string& name, unsigned workers = 1) {
     session::WorldOptions o;
     o.name = name; o.workers = workers; o.pinWorkers = false; o.publish = false; o.seed = 17;
     o.jsbsimRoot = FSIM_TEST_JSBSIM_ROOT;
+    if (visualRun()) o.publish=true;
+    if(const char* prefix=std::getenv("FSIM_ENGAGEMENT_RECORD")) o.recordPath=std::string(prefix)+"-"+name+".fsrec";
     return o;
 }
 
 void advance(session::World& w, double seconds) {
-    w.step(static_cast<unsigned>(std::lround(seconds / (w.dt() * w.frameSkip()))));
+    step(w,static_cast<unsigned>(std::lround(seconds / (w.dt() * w.frameSkip()))));
 }
 
 std::uint32_t aircraft(session::World& w, const std::string& name, double eastM, double headingDeg) {
@@ -57,7 +70,7 @@ std::uint16_t payload(const session::World& w, std::uint32_t id, ms::Family fami
 void operate(session::World& w, std::uint32_t id, std::uint16_t index) {
     const auto result = w.submit(id, ms::StateCommand{index, ms::PayloadState::Operate});
     require(result.accepted() || result.reason == ms::Reason::AlreadyInState, "payload operation rejected");
-    for (unsigned i = 0; i < 1200 && w.missionSystems(id)->payloads()[index].state != ms::PayloadState::Operate; ++i) w.step();
+    for (unsigned i = 0; i < 1200 && w.missionSystems(id)->payloads()[index].state != ms::PayloadState::Operate; ++i) step(w);
     require(w.missionSystems(id)->payloads()[index].state == ms::PayloadState::Operate, "payload warmup did not finish");
 }
 
@@ -123,14 +136,92 @@ void replayableEvents(session::World& w, std::uint32_t missile) {
 
 struct Outcome { ms::WeaponRecord record; std::vector<ms::EngagementEvent> events; bool burned = false, coasted = false; };
 
-Outcome engagement(double rangeM, unsigned workers, bool requireHit) {
+void functionalDamageAndContinuedFlight(session::World& w,std::uint32_t target,std::uint32_t missile,
+                                       double beforeMassKg,const sim::VehicleState& beforeEncounter) {
+    const auto functional=[&]() {
+        const auto* damage=w.damage(target);
+        if (!damage) return false;
+        if (damage->crewLost() || !damage->lostChannels().empty()) return true;
+        for (const auto& section : damage->sections()) if (section.separated) return true;
+        const auto* state=w.vehicleState(target);
+        for (int engine=0;state && engine<state->engineCount;++engine) if (damage->engineOut(engine)) return true;
+        return false;
+    };
+    const double damageDeadline=w.simTime()+5;
+    while (!functional() && w.simTime()<damageDeadline) step(w);
+    require(functional(),"fixed-scene functional acceptance requires native structural separation or engine/control/crew loss; a hit alone is insufficient");
+    bool linked=false;
+    for (const auto& event : w.engagementEvents())
+        if (event.entity==missile && event.target==target && event.kind=="damage") linked=true;
+    require(linked,"functional target loss must have an authoritative damage event from this released weapon");
+    const auto first=*w.vehicleState(target);
+    const auto held=*w.inputs(target);
+    const double followStart=w.simTime();
+    const auto* damage=w.damage(target);
+    const bool crewAtFirst=damage->crewLost();
+    double separatedKg=0;
+    for (std::size_t k=0;k<damage->sections().size();++k)
+        if (damage->sections()[k].separated) separatedKg+=damage->airframe().sections[k].massKg;
+    bool nativeConsequence=separatedKg>0 && beforeMassKg-w.model(target)->energy().massKg>=separatedKg-1e-6;
+    unsigned engineLosses=0,channelLosses=0;
+    for (int engine=0;engine<first.engineCount;++engine) if (damage->engineOut(engine)) {
+        const auto seized=w.model(target)->property("propulsion/engine["+std::to_string(engine)+"]/seized");
+        require(seized.valid() && seized.get()==1,"native engine loss must seize the actual JSBSim engine");
+        nativeConsequence=true; ++engineLosses;
+    }
+    for (const auto& channel : damage->lostChannels()) {
+        bool stuck=false;
+        for (const auto& [name,value] : w.model(target)->properties("fcs"))
+            if (name.find(channel)!=std::string::npos && name.find("/malfunction/fail_stuck")!=std::string::npos && value==1) stuck=true;
+        require(stuck,"native control loss must set a real JSBSim actuator failure for "+channel);
+        nativeConsequence=true; ++channelLosses;
+    }
+    advance(w,5);
+    const auto last=*w.vehicleState(target);
+    require(w.simTime()>=followStart+5-w.dt()*w.frameSkip(),"functional acceptance must continue native simulation for five seconds after loss");
+    require(!last.diverged,"damaged native aircraft must retain a finite integrated outcome, including an authoritative crash");
+    for (int k=0;k<3;++k)
+        require(std::isfinite(last.positionEcef[k]) && std::isfinite(last.velocityNedMs[k]) &&
+                std::isfinite(last.angularRateBodyRadS[k]) && std::isfinite(last.eulerRad[k]),
+                "continued damaged flight contains nonfinite native motion");
+    if (crewAtFirst) {
+        const auto& after=*w.inputs(target);
+        require(after.aileron==held.aileron && after.elevator==held.elevator && after.rudder==held.rudder &&
+                std::equal(after.throttle,after.throttle+sim::ControlInputs::kMaxEngines,held.throttle),
+                "crew loss must stop subsequent native crew control updates");
+        nativeConsequence=true;
+    }
+    const double moved=std::hypot(last.positionEcef[0]-first.positionEcef[0],last.positionEcef[1]-first.positionEcef[1],
+                                  last.positionEcef[2]-first.positionEcef[2]);
+    require(nativeConsequence && (moved>0 || last.crashed),
+            "functional loss must alter native mass/engine/control ownership and retain actual later motion or a native crash");
+    std::cout << "FUNCTIONAL: target=" << target << " weapon=" << missile << " separated_dry_kg=" << separatedKg
+              << " engine_losses=" << engineLosses << " control_losses=" << channelLosses << " crew_lost=" << damage->crewLost()
+              << " follow_s=" << w.simTime()-followStart << " moved_m=" << moved << " crashed=" << last.crashed
+              << " altitude_before_m=" << beforeEncounter.altitudeMslM << " altitude_after_m=" << last.altitudeMslM
+              << " speed_before_ms=" << beforeEncounter.airspeedTrueMs << " speed_after_ms=" << last.airspeedTrueMs << '\n';
+}
+
+Outcome engagement(double rangeM, unsigned workers, bool requireHit, bool requireFunctional=false) {
     session::World w(options("native-engagement-" + std::to_string(workers) + "-" + std::to_string(rangeM), workers));
     const auto own = aircraft(w, "launcher", 0, 90);
+    if (visualRun()) w.focusViewer(own);
     const auto stations = payload(w, own, ms::Family::StoreStation);
     const auto radar = payload(w, own, ms::Family::AirRadar);
     require(w.loadStore(own, stations, 1, "aim-120c") == ms::Reason::None, "missile load rejected");
     operate(w, own, stations); operate(w, own, radar);
     advance(w, 10);
+    bool configuredAsset=false;
+    for (const auto& store : w.missionSystems(own)->stores()) if (store.store && std::string(store.store)=="aim-120c") {
+        const auto* card=w.missionSystems(own)->storeCard(store.index);
+        if (card) std::cout << "MODEL-ASSET: card=" << card->id << " execution=" << card->value("weapon_execution_version",0)
+            << " fuze=" << card->value("fuze_model_version",0) << " warhead=" << card->value("warhead_model_version",0) << '\n';
+        configuredAsset=card && card->value("weapon_execution_version",0)==1 &&
+            card->value("fuze_model_version",0)==1 && card->value("warhead_model_version",0)==1;
+    }
+    const auto library=io::AssetResolver{}.find("payloads");
+    require(configuredAsset,"native acceptance must consume the current versioned model card, not a stale staged asset; payloads="+
+        (library ? library->string() : std::string("unavailable")));
     const auto* ownState = w.vehicleState(own);
     require(ownState && !ownState->crashed && !ownState->diverged && std::fabs(ownState->altitudeMslM - 6000) < 100,
             "launcher failed stable 6000-metre setup");
@@ -149,7 +240,7 @@ Outcome engagement(double rangeM, unsigned workers, bool requireHit) {
     require(w.submit(own, scan).accepted(), "native AMTI search rejected");
     std::uint64_t track = 0;
     for (unsigned i = 0; i < 150 && !track; ++i) {
-        w.step();
+        step(w);
         for (const auto& observation : w.amtiTracks(own, radar))
             if (observation.truth == target && observation.updates >= 3) { track = observation.id; break; }
     }
@@ -177,14 +268,15 @@ Outcome engagement(double rangeM, unsigned workers, bool requireHit) {
         const auto status = w.strikeStatus(accepted.activity);
         require(status.has_value(), "strike activity status missing");
         if (status->phase == ms::StrikePhase::AwaitingConsent) break;
-        w.step();
+        step(w);
     }
     require(w.strikeStatus(accepted.activity)->phase == ms::StrikePhase::AwaitingConsent, "missile warmup must reach consent request");
     require(w.weapons().empty(), "awaiting consent must preserve weapon inventory");
     require(w.strikeConsent(accepted.activity, true) == ms::Reason::None, "release consent rejected");
-    for (unsigned i = 0; i < 30 && w.weapons().empty(); ++i) w.step();
+    for (unsigned i = 0; i < 30 && w.weapons().empty(); ++i) step(w);
     require(w.weapons().size() == 1, "consent must release exactly one native weapon");
     const auto missile = w.weapons().front().id;
+    if (visualRun()) w.focusViewer(missile);
     const auto motorThrust = w.model(missile)->property("propulsion/engine/vacuum-thrust_lbs");
     require(motorThrust.valid(), "native rocket thrust property missing");
     // Opt-in referee diagnostics only. All inputs/observations are read after
@@ -213,9 +305,12 @@ Outcome engagement(double rangeM, unsigned workers, bool requireHit) {
     Outcome out;
     bool acquired = false, activated = false, supported = false, nativeCoast = false, midcourseSupported = false;
     double minRange = std::numeric_limits<double>::infinity(), maxSpeed = 0;
+    double targetMassBeforeEncounter=w.model(target)->energy().massKg;
+    sim::VehicleState targetBeforeEncounter=*w.vehicleState(target);
     for (unsigned i = 0; i < 3600 && w.alive(missile); ++i) {
         const auto beforeWeapon=*w.vehicleState(missile),beforeTarget=*w.vehicleState(target);
-        w.step();
+        if (requireFunctional) {targetMassBeforeEncounter=w.model(target)->energy().massKg;targetBeforeEncounter=beforeTarget;}
+        step(w);
         const auto record = weapon(w, missile);
         out.burned = out.burned || record.burning;
         out.coasted = out.coasted || (out.burned && !record.burning && w.alive(missile));
@@ -266,6 +361,7 @@ Outcome engagement(double rangeM, unsigned workers, bool requireHit) {
         }
     }
     out.record = weapon(w, missile);
+    if (visualRun()) w.focusViewer(target);
     for (const auto& event : w.engagementEvents()) if (event.entity == missile && event.kind == "activation") activated = true;
     std::cout << "DIAGNOSTIC: range=" << rangeM << " workers=" << workers << " end=" << ms::weaponEndName(out.record.end)
               << " phase=" << ms::weaponPhaseName(out.record.phase) << " min_range_m=" << minRange << " miss_m=" << out.record.missM
@@ -297,6 +393,7 @@ Outcome engagement(double rangeM, unsigned workers, bool requireHit) {
         // acceptance cases separately require actual native hit evidence.
         if (requireHit) require(damageEvent, "fixed-scene hit acceptance requires actual target damage; detonation alone is insufficient");
     }
+    if (requireFunctional) functionalDamageAndContinuedFlight(w,target,missile,targetMassBeforeEncounter,targetBeforeEncounter);
     replayableEvents(w, missile);
     out.events = w.engagementEvents();
     return out;
@@ -310,6 +407,7 @@ void headOnAndWorkers() {
     for (std::size_t i = 0; i < single.events.size(); ++i)
         require(sameEvent(single.events[i], parallel.events[i]), "worker counts must preserve exact engagement event content");
 }
+void fiveKilometreFunctionalAcceptance() { engagement(5000,1,true,true); }
 
 void poweredThenCoasting() {
     const auto outcome = engagement(30000, 1, false);
@@ -336,11 +434,11 @@ void truthTargetCannotSupplySupport() {
     ms::StrikeCommand strike;
     strike.payload = stations; strike.store = "aim-120c"; strike.target = target; strike.consent = true;
     require(w.submit(own, strike).accepted(), "platform strike rejected");
-    for (unsigned i = 0; i < 150 && w.weapons().empty(); ++i) w.step();
+    for (unsigned i = 0; i < 150 && w.weapons().empty(); ++i) step(w);
     require(w.weapons().size() == 1, "platform strike failed to release");
     const auto missile = w.weapons().front().id;
     for (unsigned i = 0; i < 30; ++i) {
-        w.step();
+        step(w);
         const auto r = weapon(w, missile);
         require(!r.supported && !r.tracking && r.holding == 0 && std::isnan(r.timeToGoS),
                 "direct target entity must not synthesize launcher updates or seeker observations outside acquisition range");
@@ -355,7 +453,7 @@ void truthTargetCannotSupplySupport() {
     require(w.resetVehicle(missile,&slow),"low-energy missile reset failed");
     auto contents=w.model(missile)->property("propulsion/tank[0]/contents-lbs");
     require(contents.valid(),"missile native propellant property missing"); contents.set(0);
-    w.step();
+    step(w);
     require(w.alive(missile) && w.vehicleState(missile)->airspeedTrueMs<180 &&
             !weapon(w,missile).burning && weapon(w,missile).end==ms::WeaponEnd::InFlight,
             "A live slow coasting weapon must continue native flight until contact or configured life expiry");
@@ -440,10 +538,10 @@ void infraredReleaseKeepsOnRailContact() {
     require(w.seekerTarget(own,"aim-9x")==intended,"on-rail infrared observation must select on-axis contact");
     ms::StrikeCommand strike; strike.payload=stations; strike.store="aim-9x"; strike.target=intended; strike.consent=true;
     require(w.submit(own,strike).accepted(),"observed infrared release rejected");
-    for(unsigned i=0;i<150 && w.weapons().empty();++i) w.step();
+    for(unsigned i=0;i<150 && w.weapons().empty();++i) step(w);
     require(w.weapons().size()==1,"infrared strike must release one weapon");
     const auto missile=w.weapons().front().id;
-    w.step();
+    step(w);
     const auto record=weapon(w,missile);
     require(record.tracking && record.holding==intended,"released infrared seeker must acquire its on-rail contact rather than a nearer off-axis contact");
 }
@@ -453,7 +551,7 @@ void sweptDamageUsesEncounterPositions() {
     session::World w(settings);
     const auto victim=aircraft(w,"fast-victim",0,90);
     const auto before=*w.vehicleState(victim);
-    w.step();
+    step(w);
     const auto after=*w.vehicleState(victim);
     session::Detonation burst; burst.store="aim-120c"; burst.stepFraction=.5;
     double endpointDistanceSquared=0;
@@ -481,12 +579,12 @@ void sweptDamageRetainsEncounterCg() {
         ms::StrikeCommand strike; strike.payload=stations; strike.store="aim-9x";
         strike.target=target; strike.consent=true;
         require(w.submit(victim,strike).accepted(),"CG fixture release rejected");
-        for(unsigned i=0;i<150 && w.weapons().empty();++i) w.step();
+        for(unsigned i=0;i<150 && w.weapons().empty();++i) step(w);
         require(w.weapons().size()==1,"CG fixture needs a guided release to capture native motion");
         const auto encounter=*w.vehicleState(victim);
         auto* model=w.model(victim);
         double cgBefore[3]; require(model->cgFromOriginBodyM(cgBefore),"CG fixture offset unavailable");
-        w.step();
+        step(w);
         if(changeLaterMass) {
             auto pilot=model->property("inertia/pointmass-weight-lbs");
             require(pilot.valid(),"CG fixture pilot pointmass missing");
@@ -518,6 +616,46 @@ void sweptDamageRetainsEncounterCg() {
             "A later mass/CG change must not move encounter-time geometry or rewrite its damage assessment");
 }
 
+void noWeaponSweptDamageRetainsEncounterCg() {
+    const auto assess=[](bool changeLaterMass) {
+        auto settings=options("native-boundary-damage-cg"); settings.frameSkip=4;
+        session::World w(settings);
+        const auto victim=aircraft(w,"boundary-victim",0,90);
+        const auto encounter=*w.vehicleState(victim);
+        auto* model=w.model(victim);
+        double cgBefore[3]; require(model->cgFromOriginBodyM(cgBefore),"Boundary CG fixture offset unavailable");
+        step(w);
+        require(w.weapons().empty(),"Boundary history must be available without any released weapon");
+        if(changeLaterMass) {
+            auto pilot=model->property("inertia/pointmass-weight-lbs");
+            require(pilot.valid() && model->beginMassChange(),"Boundary CG fixture mass transaction unavailable");
+            pilot.set(0);
+            require(model->endMassChange(nullptr,nullptr),"Boundary CG fixture mass transaction failed");
+            double cgAfter[3]; require(model->cgFromOriginBodyM(cgAfter),"Changed boundary CG unavailable");
+            require(std::abs(cgAfter[0]-cgBefore[0])>1e-3,"Boundary fixture must actually change the later CG");
+        }
+        session::Detonation burst; burst.store="aim-120c"; burst.stepFraction=0;
+        const auto* r=encounter.rotationBodyToEcef;
+        for(int k=0;k<3;++k) {
+            burst.positionEcef[k]=encounter.positionEcef[k]-r[3*k]*cgBefore[0]-r[3*k+1]*cgBefore[1]-r[3*k+2]*cgBefore[2]+4*r[3*k+1];
+            burst.velocityEcef[k]=600*r[3*k]; burst.axisEcef[k]=r[3*k];
+        }
+        const auto events=w.detonate(burst);
+        const auto* damage=w.damage(victim);
+        require(damage && !events.empty() && events.front().target!=0,"A no-weapon captured encounter must be assessed");
+        std::vector<double> result;
+        bool loaded=false;
+        for(const auto& section:damage->sections()) {
+            result.insert(result.end(),{section.strength,section.kick,section.holeM2,section.tornM2});
+            loaded=loaded || section.kick>0 || section.holeM2>0 || section.tornM2>0;
+        }
+        require(loaded,"The no-weapon captured encounter must produce real section loading");
+        return result;
+    };
+    require(assess(false)==assess(true),
+            "Later mass removal cannot rewrite a no-weapon boundary encounter's CG or damage assessment");
+}
+
 void batchedNativeContactPrecedesArming() {
     auto settings=options("native-contact-before-arming"); settings.frameSkip=240;
     session::World w(settings);
@@ -529,7 +667,7 @@ void batchedNativeContactPrecedesArming() {
     ms::StrikeCommand strike; strike.payload=stations; strike.store="aim-9x";
     strike.target=target; strike.consent=true;
     require(w.submit(own,strike).accepted(),"IR contact fixture strike rejected");
-    for (unsigned i=0;i<10 && w.weapons().empty();++i) w.step();
+    for (unsigned i=0;i<10 && w.weapons().empty();++i) step(w);
     require(w.weapons().size()==1,"IR contact fixture release failed");
     const auto missile=w.weapons().front().id;
     const auto initial=*w.vehicleState(missile);
@@ -548,7 +686,7 @@ void batchedNativeContactPrecedesArming() {
     const auto controls=w.weaponControlsV1(missile);
     require(controls.has_value(),"contact fixture live weapon diagnostic missing");
     const auto weaponSlot=controls->slot;
-    w.step();
+    step(w);
     const auto record=weapon(w,missile);
     require(record.holding==target,"contact fixture must acquire the crossing target before native stepping");
     require(!w.alive(missile) && record.end==ms::WeaponEnd::Impact,
@@ -581,7 +719,7 @@ void inertJettison() {
     require(w.weapons().size() == 1, "jettison must create one native inert body");
     const auto missile = w.weapons().front().id;
     for (unsigned i = 0; i < 1800 && w.alive(missile); ++i) {
-        w.step();
+        step(w);
         const auto r = weapon(w, missile);
         require(r.jettisoned && r.phase == ms::WeaponPhase::Unguided && !r.tracking && !r.supported && !r.burning,
                 "jettisoned missile must remain unguided, unpowered and unsupported");
@@ -597,12 +735,14 @@ void inertJettison() {
 int main(int argc,char** argv) {
     struct Test { const char* name; void (*run)(); };
     const Test tests[] = {{"head-on armed engagement and worker determinism", headOnAndWorkers},
+                          {"five-kilometre native functional damage and continued flight", fiveKilometreFunctionalAcceptance},
                           {"JSBSim motor powered flight then coast", poweredThenCoasting},
                           {"thirty-kilometre native control regression", thirtyKilometreNativeControlRegression},
                           {"truth target cannot supply midcourse support", truthTargetCannotSupplySupport},
                           {"two-victim detonation safely appends native debris", detonationAssessesBothAircraftWhileCreatingDebris},
                           {"infrared release keeps on-rail contact", infraredReleaseKeepsOnRailContact},
                           {"swept damage uses encounter positions", sweptDamageUsesEncounterPositions},
+                          {"no-weapon swept damage retains encounter CG", noWeaponSweptDamageRetainsEncounterCg},
                           {"swept damage retains encounter CG", sweptDamageRetainsEncounterCg},
                           {"batched native contact precedes arming", batchedNativeContactPrecedesArming},
                           {"inert jettison", inertJettison}};

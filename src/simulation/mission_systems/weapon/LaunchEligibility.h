@@ -10,6 +10,7 @@ struct StoreCard;
 }
 
 namespace fsim::ms::weapon {
+struct SeekerConfigV1;
 
 /// Target/FOV rejection, or the next facts an eligible selected AAM needs.
 struct LaunchEligibility {
@@ -32,6 +33,8 @@ struct IlluminationFacts {
 /// Pure rules for each selected AAM; inventory selection and host admission stay with the caller.
 LaunchEligibility checkLaunchEligibility(const StoreCard& card, const sim::VehicleState& own,
                                         const sim::VehicleState* target);
+LaunchEligibility checkLaunchEligibility(const StoreCard& card, const sim::VehicleState& own,
+                                        const sim::VehicleState* target, const SeekerConfigV1&);
 Reason checkLaunchIllumination(std::uint32_t launcher, const IlluminationFacts& facts) noexcept;
 
 } // namespace fsim::ms::weapon

@@ -2,8 +2,60 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace fsim::ms::damage {
+
+namespace {
+bool finiteVector(V3 a) { return std::isfinite(a.x) && std::isfinite(a.y) && std::isfinite(a.z); }
+// Cholesky solve preserves the full inertia tensor, including products of
+// inertia. Invalid/non-positive tensors are unavailable, never replaced by a
+// guessed diagonal or a body-size estimate.
+bool inertiaSolve(const double* m, V3 rhs, V3& out) {
+    double scale = 0;
+    for (int i=0;i<9;++i) { if (!std::isfinite(m[i])) return false; scale=std::max(scale,std::abs(m[i])); }
+    const double roundoff=64*std::numeric_limits<double>::epsilon()*scale;
+    if (std::abs(m[1]-m[3])>roundoff || std::abs(m[2]-m[6])>roundoff || std::abs(m[5]-m[7])>roundoff || !(m[0]>0)) return false;
+    const double l00=std::sqrt(m[0]), l10=m[3]/l00, l20=m[6]/l00;
+    const double d11=m[4]-l10*l10;
+    if (!(d11>0)) return false;
+    const double l11=std::sqrt(d11), l21=(m[7]-l20*l10)/l11;
+    const double d22=m[8]-l20*l20-l21*l21;
+    if (!(d22>0)) return false;
+    const double l22=std::sqrt(d22);
+    const double y0=rhs.x/l00, y1=(rhs.y-l10*y0)/l11, y2=(rhs.z-l20*y0-l21*y1)/l22;
+    out.z=y2/l22; out.y=(y1-l21*out.z)/l11; out.x=(y0-l10*out.y-l20*out.z)/l00;
+    return finiteVector(out);
+}
+}
+
+BodyContactOutcome inelasticBodyContact(const ContactBody& a, const ContactBody& b, V3 normal) noexcept {
+    BodyContactOutcome out;
+    if (!(a.massKg>0) || !(b.massKg>0) || !std::isfinite(a.massKg) || !std::isfinite(b.massKg) ||
+        !finiteVector(a.velocity) || !finiteVector(b.velocity) || !finiteVector(a.angularVelocity) ||
+        !finiteVector(b.angularVelocity) || !finiteVector(a.arm) || !finiteVector(b.arm) || !finiteVector(normal)) return out;
+    const double norm=std::hypot(normal.x,normal.y,normal.z);
+    if (!(norm>0) || !std::isfinite(norm)) return out;
+    const V3 n=normal*(1/norm), ca=cross(a.arm,n), cb=cross(b.arm,n);
+    V3 ia,ib;
+    if (!inertiaSolve(a.inertia,ca,ia) || !inertiaSolve(b.inertia,cb,ib)) return out;
+    const double inverseMass=1/a.massKg+1/b.massKg+dot(ca,ia)+dot(cb,ib);
+    const V3 relative=a.velocity+cross(a.angularVelocity,a.arm)-b.velocity-cross(b.angularVelocity,b.arm);
+    if (!(inverseMass>0) || !std::isfinite(inverseMass) || !finiteVector(relative)) return out;
+    out.closingMs=-dot(relative,n);
+    if (!std::isfinite(out.closingMs)) return {};
+    out.valid=true;
+    out.effectiveMassKg=1/inverseMass;
+    if (!(out.closingMs>0)) return out;
+    const double magnitude=out.closingMs*out.effectiveMassKg;
+    out.dissipatedJ=.5*out.closingMs*magnitude;
+    if (!std::isfinite(magnitude) || !std::isfinite(out.dissipatedJ)) return {};
+    out.approaching=true;
+    out.impulseA=n*magnitude; out.impulseB=out.impulseA*(-1);
+    out.angularImpulseA=cross(a.arm,out.impulseA); out.angularImpulseB=cross(b.arm,out.impulseB);
+    if (!finiteVector(out.angularImpulseA) || !finiteVector(out.angularImpulseB)) return {};
+    return out;
+}
 
 namespace {
 double smooth(double lo, double hi, double x) noexcept {

@@ -2,9 +2,45 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
 #include "fsim/MissionSystems.h"
 
+namespace fsim::ms::components { struct DescriptorV1; }
 namespace fsim::ms::weapon {
+
+enum class SeekerModeV1 { Unknown, ActiveRadar, SemiActiveRadar, Infrared, ImagingInfrared };
+
+/// Private resolved assumptions for the existing encounter seeker. Version
+/// zero retains legacy callers; explicit descriptors must resolve version one.
+/// Instances contain values only, never references to a card or global state.
+struct SeekerConfigV1 {
+    unsigned version = 0;
+    SeekerModeV1 mode = SeekerModeV1::Unknown;
+    double acquireM = 17000, gimbalRad = 1.047, launchFovRad = .4363323129985824;
+    double minimumRangeM = 1, aspectSpeedFloorMs = 1, afterburnerThreshold = .5;
+    double irAspectMin = .45, irAspectSpan = .55, irAfterburnerMultiplier = 1.35;
+    double radarRcsFloorM2 = .001, radarRcsReferenceM2 = 5, radarRcsExponent = .25;
+    double radarRangeScaleMin = .4, radarRangeScaleMax = 1;
+    double radarLookdownCosine = -.03, radarNotchMs = 28, illuminationBeamMultiplier = 3;
+    double aircraftSignal = 1, irDecoyPeak = 6, irDecoyDecayS = 2;
+    double radarDecoyPeak = 3, radarDecoyRiseS = .3, radarDecoyDecayS = 6;
+    double decoyResistance = 1.6, associationCosine = .999390827019096;
+    double emitterPowerW = 20, emitterPeakGainDbi = 25, emitterSidelobeDbi = -15, emitterHalfWidthRad = .35;
+};
+
+bool configureSeeker(const components::DescriptorV1& descriptor, SeekerConfigV1& config, std::string& error);
+bool validSeekerConfigV1(const SeekerConfigV1& config) noexcept;
+const char* seekerModeNameV1(SeekerModeV1 mode) noexcept;
+
+double infraredAcquisitionRangeM(double baseM, double aspectCosine, bool afterburning,
+                                 const SeekerConfigV1& config) noexcept;
+double radarAcquisitionRangeM(double baseM, double sigmaM2, bool modelled,
+                              const SeekerConfigV1& config) noexcept;
+bool radarNotched(double verticalCosine, double targetRadialSpeedMs, const SeekerConfigV1& config) noexcept;
+double decoySignal(double ageS, bool infrared, const SeekerConfigV1& config) noexcept;
+bool withinIlluminationBeam(const double directionBody[3], double azimuthRad,
+                           double elevationRad, double azimuthBeamwidthRad,
+                           double elevationBeamwidthRad, const SeekerConfigV1& config) noexcept;
 
 /// The existing on-rail query remains available before preparation, and also
 /// while a prepared missile waits for consent. Gone/warming stores are absent.
