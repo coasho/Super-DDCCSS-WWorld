@@ -1,5 +1,29 @@
 # Current capabilities and milestone status
 
+SIM-M03 provider source organization, 2026-10-20, following `ab7f89d`: all nine
+component roles now share the `interfaces/`, `implementations/<role>/`,
+`support/` and `registration/` layout. Eleven concrete models have matching
+class-named `.h`/`.cpp` files; their classes are named declarations rather than
+anonymous definitions hidden in role-named source files. The
+[source index](sdk/payload-native-providers.md#source-organization) links both
+abstract interfaces and concrete model headers. Existing namespaces, virtual
+declarations, model cards, numerical expressions and generated assets are
+preserved. An existing configured-graph violation was repaired by making the
+profile test link the production Mission Systems module instead of recompiling
+its source files; the architecture rule remains unchanged.
+
+Both complete native build targets pass. Current focused evidence is Release
+**10/10** (seven component/guidance programs and three architecture/interface
+gates), Headless **7/7**, and installed equipment consumer **1/1**. Current
+scoped physical regression is Release **118/120** (75.14 s), Headless
+**118/119** (75.21 s), zero skips. The original showcase fragment Hit and 6 m
+component-hit failures remain active. Both unchanged 5 km scenes were rerun
+fullscreen; each complete native recording is byte-identical to the preceding
+provider delivery. The
+[organization delivery record](superpowers/plans/2026-10-20-payload-provider-layout.md)
+separates these software checks from unresolved physical-model acceptance.
+Earlier dated entries below retain their original scope.
+
 SIM-M03 native provider separation, 2026-10-20, following `bf16f80`: the
 [interface and concrete-model inventory](sdk/payload-native-providers.md)
 distinguishes nine typed execution interfaces from eleven named concrete

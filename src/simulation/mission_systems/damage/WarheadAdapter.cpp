@@ -1,5 +1,5 @@
 #include "WarheadAdapter.h"
-#include "adapters/NativeWarhead.h"
+#include "simulation/mission_systems/components/registration/EffectFactoriesV1.h"
 
 #include <stdexcept>
 #include <utility>

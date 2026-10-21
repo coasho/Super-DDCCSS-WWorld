@@ -76,15 +76,11 @@ fsim_set_warnings(fsim_payload_providers_test)
 add_test(NAME payload_providers COMMAND fsim_payload_providers_test)
 set_tests_properties(payload_providers PROPERTIES LABELS "payload-components" TIMEOUT 30)
 
-# Deliberately independent of the mission-system library: descriptor parsing
-# can be checked before any execution adapter is implemented or linked.
-add_executable(fsim_payload_profile_test
-    simulation/test_payload_profile.cpp
-    ../src/simulation/mission_systems/components/Bindings.cpp
-    ../src/simulation/mission_systems/components/Profile.cpp)
+# Exercise the production module rather than recompiling its sources here.
+add_executable(fsim_payload_profile_test simulation/test_payload_profile.cpp)
 fsim_include_view(fsim_payload_profile_test DIRECTORIES ../src/simulation/mission_systems)
 target_include_directories(fsim_payload_profile_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries(fsim_payload_profile_test PRIVATE fsim::core Catch2::Catch2WithMain)
+target_link_libraries(fsim_payload_profile_test PRIVATE fsim::ms Catch2::Catch2WithMain)
 fsim_set_warnings(fsim_payload_profile_test)
 add_test(NAME payload_profile COMMAND fsim_payload_profile_test)
 set_tests_properties(payload_profile PROPERTIES LABELS "payload-components" TIMEOUT 30)

@@ -1,5 +1,5 @@
 #include "simulation/runtime/world/World.h"
-#include "simulation/mission_systems/components/providers/Builtins.h"
+#include "simulation/mission_systems/components/registration/BuiltInProvidersV1.h"
 
 #include "simulation/runtime/services/AgentRules.h"
 

@@ -5,16 +5,30 @@ add_library(fsim_ms STATIC
     Cards.cpp
     components/Profile.cpp
     components/Bindings.cpp
-    components/Providers.cpp
-    components/providers/Seeker.cpp
-    components/providers/Guidance.cpp
-    components/providers/Autopilot.cpp
-    components/providers/Allocator.cpp
-    components/providers/Actuator.cpp
-    components/providers/Propulsion.cpp
-    components/providers/Aerodynamics.cpp
-    components/providers/Fuze.cpp
-    components/providers/Warhead.cpp
+    components/PlantProvidersV1.cpp
+    components/ProviderRegistryV1.cpp
+    components/implementations/actuator/JsbsimLagRateStopsActuatorV1.cpp
+    components/implementations/aerodynamics/JsbsimGeneratedStoreAerodynamicsV1.cpp
+    components/implementations/allocator/JsbsimAuthoredFinMixerV1.cpp
+    components/implementations/autopilot/LoadFeedbackCascadeAutopilotV1.cpp
+    components/implementations/fuze/SweptPathFuzeV1.cpp
+    components/implementations/fuze/TurningCpaFuzeV1.cpp
+    components/implementations/guidance/VelocityNormalPnGuidanceV1.cpp
+    components/implementations/propulsion/JsbsimSolidRocketPropulsionV1.cpp
+    components/implementations/seeker/EncounterSeekerV1.cpp
+    components/implementations/warhead/SideCaseWarheadV1.cpp
+    components/implementations/warhead/ZonedCaseWarheadV1.cpp
+    components/registration/ActuatorProvidersV1.cpp
+    components/registration/AerodynamicsProvidersV1.cpp
+    components/registration/AllocatorProvidersV1.cpp
+    components/registration/AutopilotProvidersV1.cpp
+    components/registration/BuiltInProvidersV1.cpp
+    components/registration/EffectFactoriesV1.cpp
+    components/registration/FuzeProvidersV1.cpp
+    components/registration/GuidanceProvidersV1.cpp
+    components/registration/PropulsionProvidersV1.cpp
+    components/registration/SeekerProvidersV1.cpp
+    components/registration/WarheadProvidersV1.cpp
     Host.h
     Host.cpp
     HostStores.cpp
@@ -26,9 +40,6 @@ add_library(fsim_ms STATIC
     weapon/Seeker.cpp
     weapon/PlantAdapter.cpp
     weapon/FuzeAdapter.cpp
-    weapon/adapters/NativeFuze.cpp
-    weapon/adapters/SweptPathFuzeV1.cpp
-    weapon/adapters/TurningCpaFuzeV1.cpp
     weapon/ContactFuze.h
     weapon/ContactFuze.cpp
     weapon/Autopilot.cpp
@@ -40,9 +51,6 @@ add_library(fsim_ms STATIC
     damage/Damage.h
     damage/Damage.cpp
     damage/WarheadAdapter.cpp
-    damage/adapters/NativeWarhead.cpp
-    damage/adapters/ZonedCaseWarheadV1.cpp
-    damage/adapters/SideCaseWarheadV1.cpp
     damage/State.h
     damage/State.cpp
     damage/Debris.h
