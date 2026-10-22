@@ -17,17 +17,17 @@ rules, not complete physical-effects coverage or a fresh visual acceptance run.
 | `463lpallet` | store | - | a rigid body: nothing on it moves or burns | - |
 | `a10c` | attack | turbofan x2 | exhaust: 2 nozzle(s); moving surfaces: aileron, elevator, flaps, lef, rudder, speedbrake; gear; wing vapour and vortices | - |
 | `a10tank600gal` | store | - | a rigid body: nothing on it moves or burns | - |
-| `aim120c` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: elevator+aileron | - |
-| `aim120d` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: elevator+aileron | - |
-| `aim7m` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: elevator+aileron | - |
-| `aim9m` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: elevator+rudder; turned by the airstream: rolleron | - |
-| `aim9x` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: elevator+aileron | - |
+| `aim120c` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
+| `aim120d` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
+| `aim7m` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
+| `aim9m` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin; turned by the airstream: rolleron | - |
+| `aim9x` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
 | `anaaq28` | store | - | a rigid body: nothing on it moves or burns | - |
 | `analq131` | store | - | a rigid body: nothing on it moves or burns | - |
 | `analq184` | store | - | a rigid body: nothing on it moves or burns | - |
 | `analq99` | store | - | a rigid body: nothing on it moves or burns | - |
 | `anasq228` | store | - | a rigid body: nothing on it moves or burns | - |
-| `asraam` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: elevator+aileron | - |
+| `asraam` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
 | `b52h` | bomber | turbofan x8 | exhaust: 8 nozzle(s); moving surfaces: aileron, elevator, flaps, rudder, speedbrake; gear; weapon-bay doors; wing vapour and vortices | - |
 | `c130j` | transport | turboprop x4 | exhaust: 0 nozzle(s), 4 placed by its manifest; 4 propeller(s) or rotor(s) turning at their engines' rpm; moving surfaces: aileron, elevator, flaps, rudder; gear; wing vapour and vortices | - |
 | `c172` | light_ga | piston x1 | exhaust: 0 nozzle(s), 1 placed by its manifest; 1 propeller(s) or rotor(s) turning at their engines' rpm; moving surfaces: aileron, elevator, flaps, rudder; wing vapour and vortices | - |
@@ -52,36 +52,36 @@ rules, not complete physical-effects coverage or a fresh visual acceptance run.
 | `gripentank1100l` | store | - | a rigid body: nothing on it moves or burns | - |
 | `h6k` | bomber | turbofan x2 | exhaust: 2 nozzle(s); moving surfaces: aileron, elevator, flaps, rudder; gear; wing vapour and vortices | - |
 | `iris` | multirotor | - | 4 propeller(s) or rotor(s) turning at their engines' rpm | - |
-| `irist` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: elevator+aileron | - |
+| `irist` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
 | `j10a` | fighter | turbofan x1 | exhaust: 1 nozzle(s); moving surfaces: elevator, elevator+aileron, lef, rudder, speedbrake; gear; wing vapour and vortices | - |
 | `j10tank1600l` | store | - | a rigid body: nothing on it moves or burns | - |
 | `j10tank800l` | store | - | a rigid body: nothing on it moves or burns | - |
 | `j20a` | fighter | turbofan x2 | exhaust: 2 nozzle(s); moving surfaces: aileron+flaps, elevator, elevator+aileron, lef, rudder; gear; weapon-bay doors; wing vapour and vortices | - |
 | `kc135r` | transport | turbofan x4 | exhaust: 4 nozzle(s); moving surfaces: aileron, elevator, flaps, rudder, speedbrake; gear; wing vapour and vortices | - |
 | `kc46a` | transport | turbofan x2 | exhaust: 2 nozzle(s); moving surfaces: aileron, elevator, flaps, rudder, speedbrake; gear; wing vapour and vortices | - |
-| `magic2` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: elevator+rudder; turned by the airstream: freeroll | - |
-| `meteor` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: elevator+aileron | - |
-| `micaem` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: elevator+aileron | - |
-| `micair` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: elevator+aileron | - |
+| `magic2` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin; turned by the airstream: freeroll | - |
+| `meteor` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
+| `micaem` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
+| `micair` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
 | `mig29a` | fighter | turbofan x2 | exhaust: 2 nozzle(s); moving surfaces: aileron, elevator+aileron, flaps, lef, rudder, speedbrake; gear; wing vapour and vortices | - |
 | `mirage2000` | fighter | turbofan x1 | exhaust: 1 nozzle(s); moving surfaces: elevator+aileron, lef, rudder, speedbrake; gear; wing vapour and vortices | - |
 | `mk82` | store | - | a rigid body: nothing on it moves or burns | - |
-| `pl10` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: elevator+aileron | - |
-| `pl12` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: elevator+aileron | - |
-| `pl15` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: elevator+aileron | - |
-| `pl8` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: aileron, elevator+rudder | - |
+| `pl10` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
+| `pl12` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
+| `pl15` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
+| `pl8` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
 | `ptb1150` | store | - | a rigid body: nothing on it moves or burns | - |
 | `ptb1500` | store | - | a rigid body: nothing on it moves or burns | - |
 | `ptb2000` | store | - | a rigid body: nothing on it moves or burns | - |
 | `ptb800` | store | - | a rigid body: nothing on it moves or burns | - |
-| `r27er` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: aileron, elevator+aileron | - |
-| `r27et` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: aileron, elevator+aileron | - |
-| `r27r` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: aileron, elevator+aileron | - |
-| `r27t` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: aileron, elevator+aileron | - |
-| `r37m` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: elevator+aileron | - |
-| `r60m` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: elevator+rudder | - |
-| `r73` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: aileron, elevator+rudder | - |
-| `r77m` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: elevator+aileron | - |
+| `r27er` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
+| `r27et` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
+| `r27r` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
+| `r27t` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
+| `r37m` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
+| `r60m` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
+| `r73` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
+| `r77m` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
 | `rafale` | fighter | turbofan x2 | exhaust: 2 nozzle(s); moving surfaces: elevator+aileron, elevator+speedbrake, lef, rudder; gear; wing vapour and vortices | - |
 | `rc135w` | transport | turbofan x4 | exhaust: 4 nozzle(s); moving surfaces: aileron, elevator, flaps, rudder, speedbrake; gear; wing vapour and vortices | - |
 | `rpl522` | store | - | a rigid body: nothing on it moves or burns | - |
@@ -93,7 +93,7 @@ rules, not complete physical-effects coverage or a fresh visual acceptance run.
 | `su25` | attack | turbofan x2 | exhaust: 2 nozzle(s); moving surfaces: aileron, elevator, flaps, lef, rudder, speedbrake; gear; wing vapour and vortices | - |
 | `su27s` | fighter | turbofan x2 | exhaust: 2 nozzle(s); moving surfaces: aileron+flaps, elevator+aileron, lef, rudder, speedbrake; gear; wing vapour and vortices | - |
 | `su57` | fighter | turbofan x2 | exhaust: 2 nozzle(s); moving surfaces: aileron+flaps, aileron+speedbrake, elevator, elevator+aileron, lef, rudder+speedbrake; gear; weapon-bay doors; wing vapour and vortices | - |
-| `super530d` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: elevator+aileron | - |
+| `super530d` | missile |  rocket motor | a rocket's plume and smoke trail (its nozzle, its `rocket` line); moving surfaces: fin | - |
 | `tank300gal` | store | - | a rigid body: nothing on it moves or burns | - |
 | `tank370gal` | store | - | a rigid body: nothing on it moves or burns | - |
 | `tank610gal` | store | - | a rigid body: nothing on it moves or burns | - |

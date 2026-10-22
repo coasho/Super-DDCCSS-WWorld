@@ -53,13 +53,16 @@ void structural(const ms::damage::Airframe& a, const ms::damage::V3& body, doubl
 
 } // namespace
 
-std::optional<World::Entry::Matter> World::captureMatter(sim::FlightModel& model) {
+std::optional<World::Entry::Matter> World::captureMatter(const Entry& e, sim::FlightModel& model) {
     const auto* source=dynamic_cast<const sim::RigidMassSourceV1*>(&model);
     Entry::Matter out;
     if (!source || !source->rigidMassPropertiesV1(out.rigid)) return std::nullopt;
-    const auto p=model.property("atmosphere/P-psf"), t=model.property("atmosphere/T-R"), rho=model.property("atmosphere/rho-slugs_ft3");
-    if (!p.valid() || !t.valid() || !rho.valid()) return std::nullopt;
-    out.pressurePa=p.get()*kPsfToPa; out.temperatureK=t.get()/1.8; out.densityKgM3=rho.get()*kSlugFt3ToKgM3;
+    static constexpr const char* paths[]={"atmosphere/P-psf","atmosphere/T-R","atmosphere/rho-slugs_ft3"};
+    auto& reads=e.matterAtmosphere;
+    for (std::size_t k=0;k<reads.size();++k)
+        if (!reads[k].valid()) reads[k]=model.property(paths[k]);
+    if (!reads[0].valid() || !reads[1].valid() || !reads[2].valid()) return std::nullopt;
+    out.pressurePa=reads[0].get()*kPsfToPa; out.temperatureK=reads[1].get()/1.8; out.densityKgM3=reads[2].get()*kSlugFt3ToKgM3;
     if (!(out.pressurePa>0) || !(out.temperatureK>0) || !(out.densityKgM3>=0) ||
         !std::isfinite(out.pressurePa) || !std::isfinite(out.temperatureK) || !std::isfinite(out.densityKgM3)) return std::nullopt;
     return out;
@@ -124,8 +127,8 @@ std::optional<World::ContactTransfer> World::contactTransfer(const Entry& weapon
     // Detection uses captured geometry. Response is a discrete end-of-decision
     // solve using the actual application mass, inertia, velocities and common
     // world point. Moving an old impulse to new arms can create kinetic energy.
-    const auto weaponMatter=captureMatter(pool_->vehicle(weapon.slot));
-    const auto victimMatter=captureMatter(pool_->vehicle(victim->slot));
+    const auto weaponMatter=captureMatter(weapon,pool_->vehicle(weapon.slot));
+    const auto victimMatter=captureMatter(*victim,pool_->vehicle(victim->slot));
     if (!weaponMatter || !victimMatter) return std::nullopt;
     sim::VehicleState applicationA,applicationB;
     pool_->vehicle(weapon.slot).state(applicationA); pool_->vehicle(victim->slot).state(applicationB);
@@ -441,7 +444,7 @@ std::vector<ipc::EngagementEvent> World::detonateAt(const Detonation& d, const C
             t.at=origin.position; t.velocity=origin.velocity;
         }
         const auto matter=std::isfinite(d.stepFraction)
-            ? engagementMatterAt(*e,std::clamp(d.stepFraction,0.0,1.0)*options_.dt*options_.frameSkip) : captureMatter(model);
+            ? engagementMatterAt(*e,std::clamp(d.stepFraction,0.0,1.0)*options_.dt*options_.frameSkip) : captureMatter(*e,model);
         if (!matter) { LOG_WARN("session") << "damage encounter atmosphere unavailable for " << e->info.name; continue; }
         t.airPressurePa=matter->pressurePa; t.airTemperatureK=matter->temperatureK; t.airDensity=matter->densityKgM3;
         const auto attached=e->damage->attachedGeometry();

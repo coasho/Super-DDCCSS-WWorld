@@ -1,0 +1,3447 @@
+{
+ "lineage": {
+  "manifest_sha256": "316c50f51aaf808a4c9d589ea27a074cd0d7130c880ddd5d9fe13c6aa881871f",
+  "launch": {
+   "exit_code": 0,
+   "timed_out": false,
+   "wall_s": 7322.872375700012,
+   "manifest_sha256": "316c50f51aaf808a4c9d589ea27a074cd0d7130c880ddd5d9fe13c6aa881871f",
+   "raw_log_sha256": "59870c5225aa7ecb1d8add9309bc296dad63619a4761b2976822ead9dc4c5797"
+  },
+  "grids": {
+   "coarse": {
+    "results_plan_equals_manifest_plan": true,
+    "passes": [
+     {
+      "alpha": "0",
+      "folder": "alpha-0/pass-0",
+      "config_sha256": "ef37773ac8ed5b050d84a147d75ab505d69cae97d14f1e3748f6c73bf8c29a1b",
+      "config_is_frozen_effective": true,
+      "mesh_is_plan_mesh": true,
+      "solver": "D:\\ENV\\physics\\su2-8.5.0-source\\build\\SU2_CFD\\src\\SU2_CFD.exe",
+      "solver_is_plan_solver": true,
+      "history_sha256": "116afd9d601522b95c4fec6c86b8faa4f4277ae83869b94effb1591dc4195b43",
+      "history_unchanged": true,
+      "checkpoint_sha256": "8a0752bda14a6cf002d2f6646285ceddd19b916f59c260acf712f7ab09d8cb13",
+      "checkpoint_unchanged": true
+     },
+     {
+      "alpha": "2",
+      "folder": "alpha-2/pass-0",
+      "config_sha256": "dd685e1f51b671986120ac31ad55bcfa60c2dd7664deaf55233791e0b1eff598",
+      "config_is_frozen_effective": true,
+      "mesh_is_plan_mesh": true,
+      "solver": "D:\\ENV\\physics\\su2-8.5.0-source\\build\\SU2_CFD\\src\\SU2_CFD.exe",
+      "solver_is_plan_solver": true,
+      "history_sha256": "e4d0cf4cec2247e2fbff1c808c92d34f1d8cff244d10fa579f5288e31158d077",
+      "history_unchanged": true,
+      "checkpoint_sha256": "97ad67b61ad2960aa2fb18c84d3c8c782eb30f48deb924c08fdd18da682f653a",
+      "checkpoint_unchanged": true
+     }
+    ],
+    "bound": true,
+    "solver_sha256": "43dc9366efa5eb2b76f0c47f87f6d41aac4318aee8a933a004464949b4299dce",
+    "mesh_sha256": "491ff6eb5be6071aa4acfc51c1cfa25e5f1452a6817f10e69dc485b95d9716cf"
+   },
+   "local": {
+    "results_plan_equals_manifest_plan": true,
+    "passes": [
+     {
+      "alpha": "0",
+      "folder": "alpha-0/pass-0",
+      "config_sha256": "ef37773ac8ed5b050d84a147d75ab505d69cae97d14f1e3748f6c73bf8c29a1b",
+      "config_is_frozen_effective": true,
+      "mesh_is_plan_mesh": true,
+      "solver": "D:\\ENV\\physics\\su2-8.5.0-source\\build\\SU2_CFD\\src\\SU2_CFD.exe",
+      "solver_is_plan_solver": true,
+      "history_sha256": "fec89ddf66de95c98adf7996546d4bbc219ef41bb16261552cafb2619315f834",
+      "history_unchanged": true,
+      "checkpoint_sha256": "47126b90673139bdad7beed0d12f8bc33cca925ac79c819e5e138b74b4eae52f",
+      "checkpoint_unchanged": true
+     },
+     {
+      "alpha": "2",
+      "folder": "alpha-2/pass-0",
+      "config_sha256": "dd685e1f51b671986120ac31ad55bcfa60c2dd7664deaf55233791e0b1eff598",
+      "config_is_frozen_effective": true,
+      "mesh_is_plan_mesh": true,
+      "solver": "D:\\ENV\\physics\\su2-8.5.0-source\\build\\SU2_CFD\\src\\SU2_CFD.exe",
+      "solver_is_plan_solver": true,
+      "history_sha256": "58236667241f9e2e66f258ac23ba1fa0c724d9b9371c5b49abdc270eba494dc6",
+      "history_unchanged": true,
+      "checkpoint_sha256": "d1455610a995cc8379f4fc8b41c555ea2dde619835e0f35ee586677d610906ab",
+      "checkpoint_unchanged": true
+     }
+    ],
+    "bound": true,
+    "solver_sha256": "43dc9366efa5eb2b76f0c47f87f6d41aac4318aee8a933a004464949b4299dce",
+    "mesh_sha256": "65a8c6f9f80a48e5c069022dc9e390c6e2c8955b381eeb58a1300dc3420beaca"
+   }
+  },
+  "problems": [],
+  "passed": true
+ },
+ "grids": {
+  "coarse": {
+   "status": "complete",
+   "launches": 2,
+   "cumulative_solver_s": 449.797907900007,
+   "physical_gates": {
+    "conditions_match": {
+     "passed": true,
+     "evaluated": true,
+     "basis": "accepted Task 02 aero.physical_gates on the final native SU2 values"
+    },
+    "nonnegative_wind_drag": {
+     "passed": false,
+     "evaluated": true,
+     "basis": "accepted Task 02 aero.physical_gates on the final native SU2 values",
+     "native_wind_cd": {
+      "0": -0.01322806303,
+      "2": 0.02165442091
+     },
+     "reconstructed_wind_cd": {
+      "0": -0.013228063030390825,
+      "2": 0.02165442090741511
+     }
+    },
+    "zero_alpha_symmetry": {
+     "passed": true,
+     "evaluated": true,
+     "basis": "accepted Task 02 aero.physical_gates on the final native SU2 values",
+     "native_cn": -3.882232535e-13,
+     "tolerance": 0.02
+    },
+    "zero_alpha_pitch_symmetry": {
+     "passed": true,
+     "evaluated": true,
+     "basis": "accepted Task 02 aero.physical_gates on the final native SU2 values",
+     "native_cm": -2.676015214e-11,
+     "tolerance": 0.02
+    }
+   },
+   "angles": {
+    "0": {
+     "status": "converged",
+     "reason_code": null,
+     "native_predicates": {
+      "final_inner_iter": 1764,
+      "rows": 1765,
+      "rms_rho": -10.34842812,
+      "residual_limit": -9.0,
+      "residual_met": true,
+      "cauchy": {
+       "Cauchy[CD]": 1.488298894e-12,
+       "Cauchy[CL]": 9.465976614e-13,
+       "Cauchy[CMy]": 9.843721629e-12
+      },
+      "cauchy_eps": 1e-11,
+      "cauchy_met_strict": true,
+      "conv_startiter": 200,
+      "all_native_criteria_met": true,
+      "original_acceptance_cauchy_below_1e-10_strict": true,
+      "original_acceptance_rms_at_most_minus_9": true,
+      "stopped_before_iteration_cap": true
+     },
+     "seconds": 244.48955249998835,
+     "parser_predicates": {
+      "status": "converged",
+      "residual_log10": -10.34842812,
+      "rows": 1765,
+      "rows_at_least_200": true,
+      "cauchy_within_0_and_1e-10": true,
+      "load_stability": {
+       "ca": {
+        "span": 9.999999092680234e-12,
+        "span_limit": 0.00010132280630363,
+        "mean_drift": 2.000000165480742e-11,
+        "mean_drift_limit": 1.0132280630363e-05,
+        "stable": true
+       },
+       "cn": {
+        "span": 2.2123157793000003e-12,
+        "span_limit": 0.00010000000000006556,
+        "mean_drift": 2.7119424924519997e-13,
+        "mean_drift_limit": 1.0000000000006555e-05,
+        "stable": true
+       },
+       "cm": {
+        "span": 3.4496568759999995e-11,
+        "span_limit": 0.00010000000000344762,
+        "mean_drift": 3.1697171504099995e-11,
+        "mean_drift_limit": 1.0000000000344762e-05,
+        "stable": true
+       }
+      },
+      "load_window_samples": 100
+     },
+     "gates": {
+      "strict_iterative_convergence": true,
+      "empirical_endpoint_envelope": true,
+      "finite_positive_state": true,
+      "pressure_load_reconstruction": true
+     },
+     "envelope": {
+      "eligible": true,
+      "functionals": {
+       "ca": {
+        "column": "CFx",
+        "endpoint": -0.01322806303,
+        "span": 3.0000000747487654e-11,
+        "drift": 2.000000165480742e-11,
+        "two_printed_quanta": 2e-11,
+        "envelope": 7.000000240229507e-11,
+        "limit": 1e-08,
+        "passed": true
+       },
+       "cn": {
+        "column": "CFz",
+        "endpoint": -3.882232535e-13,
+        "span": 6.156068223e-12,
+        "drift": 2.7119424924519997e-13,
+        "two_printed_quanta": 2e-21,
+        "envelope": 6.4272624742452e-12,
+        "limit": 1e-08,
+        "passed": true
+       },
+       "cm": {
+        "column": "CMy",
+        "endpoint": -2.676015214e-11,
+        "span": 6.735671552e-11,
+        "drift": 3.1697171504099995e-11,
+        "two_printed_quanta": 2e-19,
+        "envelope": 9.905388722409999e-11,
+        "limit": 1e-08,
+        "passed": true
+       },
+       "wind_cd": {
+        "column": "CD",
+        "endpoint": -0.01322806303,
+        "span": 3.0000000747487654e-11,
+        "drift": 2.000000165480742e-11,
+        "two_printed_quanta": 2e-11,
+        "envelope": 7.000000240229507e-11,
+        "limit": 1e-08,
+        "passed": true
+       }
+      },
+      "window": 100,
+      "limit": 1e-08,
+      "rigorous": false,
+      "definition": "archived empirical endpoint envelope, reproduced bitwise on all 8 archived cases: span = max(range(last 100), range(previous 100)); drift = |fsum(last 100)/100 - fsum(previous 100)/100|; two_printed_quanta = 2*10**(floor(log10(max |v| over the last 200)) - 9); envelope = span + drift + two_printed_quanta; passed = envelope <= 1e-8. An empirical settling indicator, not a rigorous error bound. Range of the older window alone and quanta from the older window also fit the archive; the conservative maximum is used. A window whose values are all exactly zero has zero printed quanta (not in the archive).",
+      "passed": true
+     },
+     "state": {
+      "passed": true,
+      "points": 10351,
+      "density_min": 1.0201484105119605,
+      "pressure_min": 87162.2094551475,
+      "checkpoint_sha256": "8a0752bda14a6cf002d2f6646285ceddd19b916f59c260acf712f7ab09d8cb13"
+     },
+     "native_final": {
+      "CFx": -0.01322806303,
+      "CFy": -3.179359551e-11,
+      "CFz": -3.882232535e-13,
+      "CMx": 5.862504049e-13,
+      "CMy": -2.676015214e-11,
+      "CMz": -2.997151735e-10,
+      "CD": -0.01322806303,
+      "CL": -3.882232535e-13,
+      "RefForce": 633.9726869
+     },
+     "reconstructed_total": {
+      "ca": -0.013228063030390825,
+      "cy": -3.1792780179685475e-11,
+      "cn": -3.8741693070075977e-13,
+      "cm": -2.6758478205380655e-11,
+      "cmx": 5.863204231410105e-13,
+      "cmz": -2.9971581621809495e-10,
+      "wind_cd": -0.013228063030390825
+     },
+     "reconstruction_check": {
+      "ca": {
+       "column": "CFx",
+       "reconstructed": -0.013228063030390825,
+       "native": -0.01322806303,
+       "difference": -3.9082452552019475e-13,
+       "print_quantum": 1e-11,
+       "accumulation_budget": 4.4004448024216745e-11,
+       "budget": 5.400444802421674e-11,
+       "passed": true
+      },
+      "cn": {
+       "column": "CFz",
+       "reconstructed": -3.8741693070075977e-13,
+       "native": -3.882232535e-13,
+       "difference": 8.063227992402113e-16,
+       "print_quantum": 1e-22,
+       "accumulation_budget": 6.869586020242607e-11,
+       "budget": 6.869586020252607e-11,
+       "passed": true
+      },
+      "cm": {
+       "column": "CMy",
+       "reconstructed": -2.6758478205380655e-11,
+       "native": -2.676015214e-11,
+       "difference": 1.6739346193441055e-15,
+       "print_quantum": 1e-20,
+       "accumulation_budget": 3.5576875514285336e-10,
+       "budget": 3.5576875515285335e-10,
+       "passed": true
+      },
+      "wind_cd": {
+       "column": "CD",
+       "reconstructed": -0.013228063030390825,
+       "native": -0.01322806303,
+       "difference": -3.9082452552019475e-13,
+       "print_quantum": 1e-11,
+       "accumulation_budget": 4.400445977309686e-11,
+       "budget": 5.400445977309686e-11,
+       "passed": true
+      },
+      "reference_force": {
+       "column": "RefForce",
+       "reconstructed": 633.9726869258521,
+       "native": 633.9726869,
+       "difference": 2.5852159524220042e-08,
+       "budget": 1.0000225232343682e-07,
+       "passed": true
+      },
+      "passed": true,
+      "budget_definition": "one 10-significant-digit print quantum of the native value (twice its maximal print rounding) plus the documented accumulation budget of pressure_loads",
+      "totals_passed": true,
+      "closure_passed": true
+     },
+     "closure_passed": true,
+     "groups": {
+      "body": {
+       "ca": 0.13899204491090877,
+       "cn": 7.493801468169397e-12,
+       "cm": -1.000992468535475e-10
+      },
+      "fore_fins": {
+       "ca": -0.08597175730945254,
+       "cn": 4.0168604170833086e-14,
+       "cm": 1.7790408327002152e-14
+      },
+      "rear_fins": {
+       "ca": -0.06624835063184704,
+       "cn": -7.92138700304099e-12,
+       "cm": 7.332297823983984e-11
+      }
+     },
+     "per_cad": {
+      "body_base": {
+       "ca": 0.10152128564950287,
+       "cn": 0.0,
+       "cm": -1.5823850524322535e-11
+      },
+      "body_boattail": {
+       "ca": -0.009912864662382732,
+       "cn": 1.478474330238195e-11,
+       "cm": -1.5047925482991695e-10
+      },
+      "body_cylinder": {
+       "ca": 0.0005608902975262595,
+       "cn": -7.316131917539344e-12,
+       "cm": 6.597838413813194e-11
+      },
+      "body_nose": {
+       "ca": 0.04682273362626236,
+       "cn": 2.5190083326789665e-14,
+       "cm": 2.2547436256005455e-13
+      },
+      "tail_lower_mirrored_y": {
+       "ca": -0.016562087657898433,
+       "cn": 0.0020180355255287456,
+       "cm": -0.013313034126697654
+      },
+      "tail_lower_positive_y": {
+       "ca": -0.016562087657954506,
+       "cn": 0.002018035522112825,
+       "cm": -0.013313034094851208
+      },
+      "tail_upper_mirrored_y": {
+       "ca": -0.016562087657924215,
+       "cn": -0.002018035529688542,
+       "cm": 0.013313034165289696
+      },
+      "tail_upper_positive_y": {
+       "ca": -0.016562087658069886,
+       "cn": -0.0020180355258744157,
+       "cm": 0.013313034129582143
+      },
+      "wing_lower_mirrored_y": {
+       "ca": -0.021492939327363302,
+       "cn": -0.07318924495892232,
+       "cm": 0.0010993802082481475
+      },
+      "wing_lower_positive_y": {
+       "ca": -0.021492939327362914,
+       "cn": -0.0731892449589785,
+       "cm": 0.001099380208235046
+      },
+      "wing_upper_mirrored_y": {
+       "ca": -0.02149293932736333,
+       "cn": 0.07318924495894218,
+       "cm": -0.0010993802082418795
+      },
+      "wing_upper_positive_y": {
+       "ca": -0.021492939327363004,
+       "cn": 0.0731892449589988,
+       "cm": -0.0010993802082235236
+      }
+     }
+    },
+    "2": {
+     "status": "converged",
+     "reason_code": null,
+     "native_predicates": {
+      "final_inner_iter": 1469,
+      "rows": 1470,
+      "rms_rho": -9.665058142,
+      "residual_limit": -9.0,
+      "residual_met": true,
+      "cauchy": {
+       "Cauchy[CD]": 8.162703846e-12,
+       "Cauchy[CL]": 6.748092745e-13,
+       "Cauchy[CMy]": 9.762102735e-12
+      },
+      "cauchy_eps": 1e-11,
+      "cauchy_met_strict": true,
+      "conv_startiter": 200,
+      "all_native_criteria_met": true,
+      "original_acceptance_cauchy_below_1e-10_strict": true,
+      "original_acceptance_rms_at_most_minus_9": true,
+      "stopped_before_iteration_cap": true
+     },
+     "seconds": 205.30835540001863,
+     "parser_predicates": {
+      "status": "converged",
+      "residual_log10": -9.665058142,
+      "rows": 1470,
+      "rows_at_least_200": true,
+      "cauchy_within_0_and_1e-10": true,
+      "load_stability": {
+       "ca": {
+        "span": 5.996345087133648e-11,
+        "span_limit": 0.00010152071409414807,
+        "mean_drift": 8.604754929419922e-11,
+        "mean_drift_limit": 1.0152071409414808e-05,
+        "stable": true
+       },
+       "cn": {
+        "span": 2.0941026690479703e-12,
+        "span_limit": 0.00020559550016909393,
+        "mean_drift": 3.0049296384504487e-12,
+        "mean_drift_limit": 2.0559550016909395e-05,
+        "stable": true
+       },
+       "cm": {
+        "span": 1.000000082740371e-10,
+        "span_limit": 0.0001723060220749,
+        "mean_drift": 1.3399992226936774e-10,
+        "mean_drift_limit": 1.723060220749e-05,
+        "stable": true
+       }
+      },
+      "load_window_samples": 100
+     },
+     "gates": {
+      "strict_iterative_convergence": true,
+      "empirical_endpoint_envelope": true,
+      "finite_positive_state": true,
+      "pressure_load_reconstruction": true
+     },
+     "envelope": {
+      "eligible": true,
+      "functionals": {
+       "ca": {
+        "column": "CFx",
+        "endpoint": -0.01520714098,
+        "span": 1.1000000042782343e-10,
+        "drift": 8.890000020855826e-11,
+        "two_printed_quanta": 2e-11,
+        "envelope": 2.189000006363817e-10,
+        "limit": 1e-08,
+        "passed": true
+       },
+       "cn": {
+        "column": "CFz",
+        "endpoint": 1.055955002,
+        "span": 0.0,
+        "drift": 0.0,
+        "two_printed_quanta": 2e-09,
+        "envelope": 2e-09,
+        "limit": 1e-08,
+        "passed": true
+       },
+       "cm": {
+        "column": "CMy",
+        "endpoint": -0.7230602207,
+        "span": 2.000000165480742e-10,
+        "drift": 1.3399992226936774e-10,
+        "two_printed_quanta": 2e-10,
+        "envelope": 5.33999938817442e-10,
+        "limit": 1e-08,
+        "passed": true
+       },
+       "wind_cd": {
+        "column": "CD",
+        "endpoint": 0.02165442091,
+        "span": 1.0999999869309995e-10,
+        "drift": 8.610000212794233e-11,
+        "two_printed_quanta": 2e-11,
+        "envelope": 2.161000008210423e-10,
+        "limit": 1e-08,
+        "passed": true
+       }
+      },
+      "window": 100,
+      "limit": 1e-08,
+      "rigorous": false,
+      "definition": "archived empirical endpoint envelope, reproduced bitwise on all 8 archived cases: span = max(range(last 100), range(previous 100)); drift = |fsum(last 100)/100 - fsum(previous 100)/100|; two_printed_quanta = 2*10**(floor(log10(max |v| over the last 200)) - 9); envelope = span + drift + two_printed_quanta; passed = envelope <= 1e-8. An empirical settling indicator, not a rigorous error bound. Range of the older window alone and quanta from the older window also fit the archive; the conservative maximum is used. A window whose values are all exactly zero has zero printed quanta (not in the archive).",
+      "passed": true
+     },
+     "state": {
+      "passed": true,
+      "points": 10351,
+      "density_min": 1.017275381037264,
+      "pressure_min": 86391.463427727,
+      "checkpoint_sha256": "97ad67b61ad2960aa2fb18c84d3c8c782eb30f48deb924c08fdd18da682f653a"
+     },
+     "native_final": {
+      "CFx": -0.01520714098,
+      "CFy": -1.614977318e-10,
+      "CFz": 1.055955002,
+      "CMx": 2.188917403e-12,
+      "CMy": -0.7230602207,
+      "CMz": -1.52012926e-09,
+      "CD": 0.02165442091,
+      "CL": 1.055842464,
+      "RefForce": 633.9726869
+     },
+     "reconstructed_total": {
+      "ca": -0.015207140984403497,
+      "cy": -1.6149700676474942e-10,
+      "cn": 1.0559550020609092,
+      "cm": -0.7230602206528524,
+      "cmx": 2.189083728881856e-12,
+      "cmz": -1.5201298269431731e-09,
+      "wind_cd": 0.02165442090741511
+     },
+     "reconstruction_check": {
+      "ca": {
+       "column": "CFx",
+       "reconstructed": -0.015207140984403497,
+       "native": -0.01520714098,
+       "difference": -4.403496664528994e-12,
+       "print_quantum": 1e-11,
+       "accumulation_budget": 4.435869846923674e-11,
+       "budget": 5.4358698469236735e-11,
+       "passed": true
+      },
+      "cn": {
+       "column": "CFz",
+       "reconstructed": 1.0559550020609092,
+       "native": 1.055955002,
+       "difference": 6.090927762159026e-11,
+       "print_quantum": 1e-09,
+       "accumulation_budget": 6.951123003974187e-11,
+       "budget": 1.069511230039742e-09,
+       "passed": true
+      },
+      "cm": {
+       "column": "CMy",
+       "reconstructed": -0.7230602206528524,
+       "native": -0.7230602207,
+       "difference": 4.71476191421516e-11,
+       "print_quantum": 1e-10,
+       "accumulation_budget": 3.610126319322267e-10,
+       "budget": 4.6101263193222673e-10,
+       "passed": true
+      },
+      "wind_cd": {
+       "column": "CD",
+       "reconstructed": 0.02165442090741511,
+       "native": 0.02165442091,
+       "difference": -2.5848906348713285e-12,
+       "print_quantum": 1e-11,
+       "accumulation_budget": 4.675762952206242e-11,
+       "budget": 5.675762952206242e-11,
+       "passed": true
+      },
+      "reference_force": {
+       "column": "RefForce",
+       "reconstructed": 633.9726869258523,
+       "native": 633.9726869,
+       "difference": 2.5852273211057764e-08,
+       "budget": 1.0000225232343682e-07,
+       "passed": true
+      },
+      "passed": true,
+      "budget_definition": "one 10-significant-digit print quantum of the native value (twice its maximal print rounding) plus the documented accumulation budget of pressure_loads",
+      "totals_passed": true,
+      "closure_passed": true
+     },
+     "closure_passed": true,
+     "groups": {
+      "body": {
+       "ca": 0.13699347557044092,
+       "cn": 0.6371098398520935,
+       "cm": 0.6147509101127061
+      },
+      "fore_fins": {
+       "ca": -0.08592113617785091,
+       "cn": 0.26266312346057213,
+       "cm": 0.10273940421515014
+      },
+      "rear_fins": {
+       "ca": -0.0662794803769935,
+       "cn": 0.15618203874824363,
+       "cm": -1.4405505349807086
+      }
+     },
+     "per_cad": {
+      "body_base": {
+       "ca": 0.10124035730106162,
+       "cn": 0.0,
+       "cm": -0.0002031641716413574
+      },
+      "body_boattail": {
+       "ca": -0.009936232710484187,
+       "cn": 0.009268929459747654,
+       "cm": -0.09108987411907694
+      },
+      "body_cylinder": {
+       "ca": 0.00056139612035942,
+       "cn": 0.5145462754588089,
+       "cm": -0.2880937053360345
+      },
+      "body_nose": {
+       "ca": 0.04512795485950405,
+       "cn": 0.11329463493353695,
+       "cm": 0.994137653739459
+      },
+      "tail_lower_mirrored_y": {
+       "ca": -0.016571473134861976,
+       "cn": 0.04133567860289988,
+       "cm": -0.3759748232149804
+      },
+      "tail_lower_positive_y": {
+       "ca": -0.016571473135161364,
+       "cn": 0.041335678585543614,
+       "cm": -0.3759748230532149
+      },
+      "tail_upper_mirrored_y": {
+       "ca": -0.01656826705313577,
+       "cn": 0.03675534077051433,
+       "cm": -0.3443004442683903
+      },
+      "tail_upper_positive_y": {
+       "ca": -0.01656826705383439,
+       "cn": 0.036755340789285794,
+       "cm": -0.344300444444123
+      },
+      "wing_lower_mirrored_y": {
+       "ca": -0.02143543332162403,
+       "cn": -0.005634295665016105,
+       "cm": 0.02733904791723326
+      },
+      "wing_lower_positive_y": {
+       "ca": -0.021435433321621806,
+       "cn": -0.0056342956653277956,
+       "cm": 0.0273390479171471
+      },
+      "wing_upper_mirrored_y": {
+       "ca": -0.02152513476730327,
+       "cn": 0.1369658573953181,
+       "cm": 0.024030654190343222
+      },
+      "wing_upper_positive_y": {
+       "ca": -0.0215251347673018,
+       "cn": 0.1369658573955979,
+       "cm": 0.02403065419042656
+      }
+     }
+    }
+   }
+  },
+  "local": {
+   "status": "complete",
+   "launches": 2,
+   "cumulative_solver_s": 6870.962808200042,
+   "physical_gates": {
+    "conditions_match": {
+     "passed": true,
+     "evaluated": true,
+     "basis": "accepted Task 02 aero.physical_gates on the final native SU2 values"
+    },
+    "nonnegative_wind_drag": {
+     "passed": true,
+     "evaluated": true,
+     "basis": "accepted Task 02 aero.physical_gates on the final native SU2 values",
+     "native_wind_cd": {
+      "0": 0.01877668787,
+      "2": 0.05045087511
+     },
+     "reconstructed_wind_cd": {
+      "0": 0.018776687870204447,
+      "2": 0.050450875107113116
+     }
+    },
+    "zero_alpha_symmetry": {
+     "passed": true,
+     "evaluated": true,
+     "basis": "accepted Task 02 aero.physical_gates on the final native SU2 values",
+     "native_cn": -7.293267817e-11,
+     "tolerance": 0.02
+    },
+    "zero_alpha_pitch_symmetry": {
+     "passed": true,
+     "evaluated": true,
+     "basis": "accepted Task 02 aero.physical_gates on the final native SU2 values",
+     "native_cm": 6.632431542e-10,
+     "tolerance": 0.02
+    }
+   },
+   "angles": {
+    "0": {
+     "status": "converged",
+     "reason_code": null,
+     "native_predicates": {
+      "final_inner_iter": 9115,
+      "rows": 9116,
+      "rms_rho": -10.66153799,
+      "residual_limit": -9.0,
+      "residual_met": true,
+      "cauchy": {
+       "Cauchy[CD]": 3.608929822e-12,
+       "Cauchy[CL]": 1.065205216e-12,
+       "Cauchy[CMy]": 9.714904677e-12
+      },
+      "cauchy_eps": 1e-11,
+      "cauchy_met_strict": true,
+      "conv_startiter": 200,
+      "all_native_criteria_met": true,
+      "original_acceptance_cauchy_below_1e-10_strict": true,
+      "original_acceptance_rms_at_most_minus_9": true,
+      "stopped_before_iteration_cap": true
+     },
+     "seconds": 3741.3425523000187,
+     "parser_predicates": {
+      "status": "converged",
+      "residual_log10": -10.66153799,
+      "rows": 9116,
+      "rows_at_least_200": true,
+      "cauchy_within_0_and_1e-10": true,
+      "load_stability": {
+       "ca": {
+        "span": 3.999999984016789e-11,
+        "span_limit": 0.00010187766878878,
+        "mean_drift": 3.989999997067173e-11,
+        "mean_drift_limit": 1.0187766878878001e-05,
+        "stable": true
+       },
+       "cn": {
+        "span": 7.193764230000004e-12,
+        "span_limit": 0.00010000000000763546,
+        "mean_drift": 6.239239923600006e-12,
+        "mean_drift_limit": 1.0000000000763545e-05,
+        "stable": true
+       },
+       "cm": {
+        "span": 6.502316340000003e-11,
+        "span_limit": 0.00010000000006940666,
+        "mean_drift": 5.6113948387999876e-11,
+        "mean_drift_limit": 1.0000000006940667e-05,
+        "stable": true
+       }
+      },
+      "load_window_samples": 100
+     },
+     "gates": {
+      "strict_iterative_convergence": true,
+      "empirical_endpoint_envelope": true,
+      "finite_positive_state": true,
+      "pressure_load_reconstruction": true
+     },
+     "envelope": {
+      "eligible": true,
+      "functionals": {
+       "ca": {
+        "column": "CFx",
+        "endpoint": 0.01877668787,
+        "span": 3.999999984016789e-11,
+        "drift": 3.989999997067173e-11,
+        "two_printed_quanta": 2e-11,
+        "envelope": 9.989999981083961e-11,
+        "limit": 1e-08,
+        "passed": true
+       },
+       "cn": {
+        "column": "CFz",
+        "endpoint": -7.293267817e-11,
+        "span": 1.1616217819999988e-11,
+        "drift": 6.239239923600006e-12,
+        "two_printed_quanta": 2e-20,
+        "envelope": 1.7855457763599993e-11,
+        "limit": 1e-08,
+        "passed": true
+       },
+       "cm": {
+        "column": "CMy",
+        "endpoint": 6.632431542e-10,
+        "span": 1.0811774339999997e-10,
+        "drift": 5.6113948387999876e-11,
+        "two_printed_quanta": 2e-19,
+        "envelope": 1.6423169198799984e-10,
+        "limit": 1e-08,
+        "passed": true
+       },
+       "wind_cd": {
+        "column": "CD",
+        "endpoint": 0.01877668787,
+        "span": 3.999999984016789e-11,
+        "drift": 3.989999997067173e-11,
+        "two_printed_quanta": 2e-11,
+        "envelope": 9.989999981083961e-11,
+        "limit": 1e-08,
+        "passed": true
+       }
+      },
+      "window": 100,
+      "limit": 1e-08,
+      "rigorous": false,
+      "definition": "archived empirical endpoint envelope, reproduced bitwise on all 8 archived cases: span = max(range(last 100), range(previous 100)); drift = |fsum(last 100)/100 - fsum(previous 100)/100|; two_printed_quanta = 2*10**(floor(log10(max |v| over the last 200)) - 9); envelope = span + drift + two_printed_quanta; passed = envelope <= 1e-8. An empirical settling indicator, not a rigorous error bound. Range of the older window alone and quanta from the older window also fit the archive; the conservative maximum is used. A window whose values are all exactly zero has zero printed quanta (not in the archive).",
+      "passed": true
+     },
+     "state": {
+      "passed": true,
+      "points": 28119,
+      "density_min": 1.037913562374068,
+      "pressure_min": 89746.03440550694,
+      "checkpoint_sha256": "47126b90673139bdad7beed0d12f8bc33cca925ac79c819e5e138b74b4eae52f"
+     },
+     "native_final": {
+      "CFx": 0.01877668787,
+      "CFy": -5.670100424e-11,
+      "CFz": -7.293267817e-11,
+      "CMx": -1.145903966e-12,
+      "CMy": 6.632431542e-10,
+      "CMz": -5.354230584e-10,
+      "CD": 0.01877668787,
+      "CL": -7.293267817e-11,
+      "RefForce": 633.9726869
+     },
+     "reconstructed_total": {
+      "ca": 0.018776687870204447,
+      "cy": -5.670128770817884e-11,
+      "cn": -7.293150250725861e-11,
+      "cm": 6.632434450769715e-10,
+      "cmx": -1.1458325871203132e-12,
+      "cmz": -5.354219062299306e-10,
+      "wind_cd": 0.018776687870204447
+     },
+     "reconstruction_check": {
+      "ca": {
+       "column": "CFx",
+       "reconstructed": 0.018776687870204447,
+       "native": 0.01877668787,
+       "difference": 2.0444756998472258e-13,
+       "print_quantum": 1e-11,
+       "accumulation_budget": 8.779008788265346e-11,
+       "budget": 9.779008788265346e-11,
+       "passed": true
+      },
+      "cn": {
+       "column": "CFz",
+       "reconstructed": -7.293150250725861e-11,
+       "native": -7.293267817e-11,
+       "difference": 1.1756627413845922e-15,
+       "print_quantum": 1e-20,
+       "accumulation_budget": 1.4558907043173237e-10,
+       "budget": 1.4558907044173236e-10,
+       "passed": true
+      },
+      "cm": {
+       "column": "CMy",
+       "reconstructed": 6.632434450769715e-10,
+       "native": 6.632431542e-10,
+       "difference": 2.908769714564418e-16,
+       "print_quantum": 1e-19,
+       "accumulation_budget": 7.212254164611833e-10,
+       "budget": 7.212254165611833e-10,
+       "passed": true
+      },
+      "wind_cd": {
+       "column": "CD",
+       "reconstructed": 0.018776687870204447,
+       "native": 0.01877668787,
+       "difference": 2.0444756998472258e-13,
+       "print_quantum": 1e-11,
+       "accumulation_budget": 8.779010455970241e-11,
+       "budget": 9.779010455970242e-11,
+       "passed": true
+      },
+      "reference_force": {
+       "column": "RefForce",
+       "reconstructed": 633.9726869258521,
+       "native": 633.9726869,
+       "difference": 2.5852159524220042e-08,
+       "budget": 1.0000225232343682e-07,
+       "passed": true
+      },
+      "passed": true,
+      "budget_definition": "one 10-significant-digit print quantum of the native value (twice its maximal print rounding) plus the documented accumulation budget of pressure_loads",
+      "totals_passed": true,
+      "closure_passed": true
+     },
+     "closure_passed": true,
+     "groups": {
+      "body": {
+       "ca": 0.14809195722297422,
+       "cn": -6.027965383139225e-11,
+       "cm": 5.474925483720479e-10
+      },
+      "fore_fins": {
+       "ca": -0.07887326400765325,
+       "cn": -5.619481629870048e-14,
+       "cm": -1.9362438068749097e-14
+      },
+      "rear_fins": {
+       "ca": -0.05044200534511653,
+       "cn": -1.259565385956766e-11,
+       "cm": 1.1577025914299231e-10
+      }
+     },
+     "per_cad": {
+      "body_base": {
+       "ca": 0.109518382908586,
+       "cn": 0.0,
+       "cm": -4.165026262351382e-11
+      },
+      "body_boattail": {
+       "ca": -0.005393972650708065,
+       "cn": -4.594355116908108e-11,
+       "cm": 4.625920412965334e-10
+      },
+      "body_cylinder": {
+       "ca": -2.1556222914250062e-05,
+       "cn": -1.4318914091253417e-11,
+       "cm": 1.2669563720209467e-10
+      },
+      "body_nose": {
+       "ca": 0.04398910318801054,
+       "cn": -1.7188571057754374e-14,
+       "cm": -1.448675030663401e-13
+      },
+      "tail_lower_mirrored_y": {
+       "ca": -0.012610501335908048,
+       "cn": 0.03414155974893625,
+       "cm": -0.31487450370701997
+      },
+      "tail_lower_positive_y": {
+       "ca": -0.012610501336151228,
+       "cn": 0.03414155973798242,
+       "cm": -0.3148745036043109
+      },
+      "tail_upper_mirrored_y": {
+       "ca": -0.012610501336145068,
+       "cn": -0.034141559754665526,
+       "cm": 0.31487450375969084
+      },
+      "tail_upper_positive_y": {
+       "ca": -0.012610501336912187,
+       "cn": -0.034141559744848796,
+       "cm": 0.3148745036674103
+      },
+      "wing_lower_mirrored_y": {
+       "ca": -0.019718316001913642,
+       "cn": 0.11532341949817315,
+       "cm": 0.019151768215525816
+      },
+      "wing_lower_positive_y": {
+       "ca": -0.019718316001913195,
+       "cn": 0.11532341949813096,
+       "cm": 0.019151768215505755
+      },
+      "wing_upper_mirrored_y": {
+       "ca": -0.019718316001913615,
+       "cn": -0.11532341949819948,
+       "cm": -0.01915176821553055
+      },
+      "wing_upper_positive_y": {
+       "ca": -0.0197183160019128,
+       "cn": -0.11532341949816084,
+       "cm": -0.01915176821552038
+      }
+     }
+    },
+    "2": {
+     "status": "converged",
+     "reason_code": null,
+     "native_predicates": {
+      "final_inner_iter": 7990,
+      "rows": 7991,
+      "rms_rho": -10.27953484,
+      "residual_limit": -9.0,
+      "residual_met": true,
+      "cauchy": {
+       "Cauchy[CD]": 9.957354385e-12,
+       "Cauchy[CL]": 1.354900136e-12,
+       "Cauchy[CMy]": 7.514890153e-12
+      },
+      "cauchy_eps": 1e-11,
+      "cauchy_met_strict": true,
+      "conv_startiter": 200,
+      "all_native_criteria_met": true,
+      "original_acceptance_cauchy_below_1e-10_strict": true,
+      "original_acceptance_rms_at_most_minus_9": true,
+      "stopped_before_iteration_cap": true
+     },
+     "seconds": 3129.620255900023,
+     "parser_predicates": {
+      "status": "converged",
+      "residual_log10": -10.27953484,
+      "rows": 7991,
+      "rows_at_least_200": true,
+      "cauchy_within_0_and_1e-10": true,
+      "load_stability": {
+       "ca": {
+        "span": 1.0342902923010655e-10,
+        "span_limit": 0.00010159112401561314,
+        "mean_drift": 1.1288041681933869e-10,
+        "mean_drift_limit": 1.0159112401561314e-05,
+        "stable": true
+       },
+       "cn": {
+        "span": 9.993894600768272e-11,
+        "span_limit": 0.00019899663594715562,
+        "mean_drift": 1.3214107585923784e-10,
+        "mean_drift_limit": 1.989966359471556e-05,
+        "stable": true
+       },
+       "cm": {
+        "span": 9.99999860695766e-10,
+        "span_limit": 0.000254581440359,
+        "mean_drift": 1.2199998788986477e-09,
+        "mean_drift_limit": 2.54581440359e-05,
+        "stable": true
+       }
+      },
+      "load_window_samples": 100
+     },
+     "gates": {
+      "strict_iterative_convergence": true,
+      "empirical_endpoint_envelope": true,
+      "finite_positive_state": true,
+      "pressure_load_reconstruction": true
+     },
+     "envelope": {
+      "eligible": true,
+      "functionals": {
+       "ca": {
+        "column": "CFx",
+        "endpoint": 0.0159112401,
+        "span": 1.1999999952050366e-10,
+        "drift": 1.1239999903045472e-10,
+        "two_printed_quanta": 2e-11,
+        "envelope": 2.5239999855095837e-10,
+        "limit": 1e-08,
+        "passed": true
+       },
+       "cn": {
+        "column": "CFz",
+        "endpoint": 0.9899663595,
+        "span": 1.000000082740371e-10,
+        "drift": 1.2699996609910613e-10,
+        "two_printed_quanta": 2e-10,
+        "envelope": 4.2699997437314326e-10,
+        "limit": 1e-08,
+        "passed": true
+       },
+       "cm": {
+        "column": "CMy",
+        "endpoint": -1.545814404,
+        "span": 1.000000082740371e-09,
+        "drift": 1.2199998788986477e-09,
+        "two_printed_quanta": 2e-09,
+        "envelope": 4.219999961639018e-09,
+        "limit": 1e-08,
+        "passed": true
+       },
+       "wind_cd": {
+        "column": "CD",
+        "endpoint": 0.05045087511,
+        "span": 1.09999995223653e-10,
+        "drift": 1.0819999757272214e-10,
+        "two_printed_quanta": 2e-11,
+        "envelope": 2.381999927963751e-10,
+        "limit": 1e-08,
+        "passed": true
+       }
+      },
+      "window": 100,
+      "limit": 1e-08,
+      "rigorous": false,
+      "definition": "archived empirical endpoint envelope, reproduced bitwise on all 8 archived cases: span = max(range(last 100), range(previous 100)); drift = |fsum(last 100)/100 - fsum(previous 100)/100|; two_printed_quanta = 2*10**(floor(log10(max |v| over the last 200)) - 9); envelope = span + drift + two_printed_quanta; passed = envelope <= 1e-8. An empirical settling indicator, not a rigorous error bound. Range of the older window alone and quanta from the older window also fit the archive; the conservative maximum is used. A window whose values are all exactly zero has zero printed quanta (not in the archive).",
+      "passed": true
+     },
+     "state": {
+      "passed": true,
+      "points": 28119,
+      "density_min": 1.0355012280996279,
+      "pressure_min": 87069.81555197244,
+      "checkpoint_sha256": "d1455610a995cc8379f4fc8b41c555ea2dde619835e0f35ee586677d610906ab"
+     },
+     "native_final": {
+      "CFx": 0.0159112401,
+      "CFy": -7.623781803e-11,
+      "CFz": 0.9899663595,
+      "CMx": 8.714799462e-13,
+      "CMy": -1.545814404,
+      "CMz": -7.188116613e-10,
+      "CD": 0.05045087511,
+      "CL": 0.9888080045,
+      "RefForce": 633.9726869
+     },
+     "reconstructed_total": {
+      "ca": 0.015911240104604325,
+      "cy": -7.623720211746292e-11,
+      "cn": 0.989966359531979,
+      "cm": -1.545814404139389,
+      "cmx": 8.711061258635744e-13,
+      "cmz": -7.188123882912893e-10,
+      "wind_cd": 0.050450875107113116
+     },
+     "reconstruction_check": {
+      "ca": {
+       "column": "CFx",
+       "reconstructed": 0.015911240104604325,
+       "native": 0.0159112401,
+       "difference": 4.604323866619353e-12,
+       "print_quantum": 1e-11,
+       "accumulation_budget": 8.901520839823224e-11,
+       "budget": 9.901520839823225e-11,
+       "passed": true
+      },
+      "cn": {
+       "column": "CFz",
+       "reconstructed": 0.989966359531979,
+       "native": 0.9899663595,
+       "difference": 3.197897502360547e-11,
+       "print_quantum": 1e-10,
+       "accumulation_budget": 1.484281609545533e-10,
+       "budget": 2.484281609545533e-10,
+       "passed": true
+      },
+      "cm": {
+       "column": "CMy",
+       "reconstructed": -1.545814404139389,
+       "native": -1.545814404,
+       "difference": -1.3938916687550318e-10,
+       "print_quantum": 1e-09,
+       "accumulation_budget": 7.296299022074989e-10,
+       "budget": 1.7296299022074989e-09,
+       "passed": true
+      },
+      "wind_cd": {
+       "column": "CD",
+       "reconstructed": 0.050450875107113116,
+       "native": 0.05045087511,
+       "difference": -2.886885175357179e-12,
+       "print_quantum": 1e-11,
+       "accumulation_budget": 9.414109566155671e-11,
+       "budget": 1.0414109566155671e-10,
+       "passed": true
+      },
+      "reference_force": {
+       "column": "RefForce",
+       "reconstructed": 633.9726869258523,
+       "native": 633.9726869,
+       "difference": 2.5852273211057764e-08,
+       "budget": 1.0000225232343682e-07,
+       "passed": true
+      },
+      "passed": true,
+      "budget_definition": "one 10-significant-digit print quantum of the native value (twice its maximal print rounding) plus the documented accumulation budget of pressure_loads",
+      "totals_passed": true,
+      "closure_passed": true
+     },
+     "closure_passed": true,
+     "groups": {
+      "body": {
+       "ca": 0.14505575878851618,
+       "cn": 0.5366662136721142,
+       "cm": 0.10330556364321039
+      },
+      "fore_fins": {
+       "ca": -0.07874702571077342,
+       "cn": 0.2623186591028149,
+       "cm": 0.10402852527986078
+      },
+      "rear_fins": {
+       "ca": -0.050397492973138426,
+       "cn": 0.19098148675704993,
+       "cm": -1.7531484930624601
+      }
+     },
+     "per_cad": {
+      "body_base": {
+       "ca": 0.10903607138713414,
+       "cn": 0.0,
+       "cm": -8.2676617712588e-05
+      },
+      "body_boattail": {
+       "ca": -0.005664962283658155,
+       "cn": 0.00944332083266005,
+       "cm": -0.09281476791165884
+      },
+      "body_cylinder": {
+       "ca": -2.3337003028639517e-05,
+       "cn": 0.42500967583840765,
+       "cm": -0.7078360383942357
+      },
+      "body_nose": {
+       "ca": 0.04170798668806882,
+       "cn": 0.10221321700104656,
+       "cm": 0.9040390465668176
+      },
+      "tail_lower_mirrored_y": {
+       "ca": -0.01257031055195288,
+       "cn": 0.08335163318522364,
+       "cm": -0.7667692683209102
+      },
+      "tail_lower_positive_y": {
+       "ca": -0.01257031055258334,
+       "cn": 0.08335163316686271,
+       "cm": -0.766769268148274
+      },
+      "tail_upper_mirrored_y": {
+       "ca": -0.01262843593421538,
+       "cn": 0.012139110192962318,
+       "cm": -0.10980497820678745
+      },
+      "tail_upper_positive_y": {
+       "ca": -0.012628435934386823,
+       "cn": 0.012139110212001241,
+       "cm": -0.1098049783864886
+      },
+      "wing_lower_mirrored_y": {
+       "ca": -0.019676501437817996,
+       "cn": 0.1822538923970406,
+       "cm": 0.04536029496727
+      },
+      "wing_lower_positive_y": {
+       "ca": -0.019676501437818465,
+       "cn": 0.1822538923969693,
+       "cm": 0.04536029496723164
+      },
+      "wing_upper_mirrored_y": {
+       "ca": -0.0196970114175691,
+       "cn": -0.05109456284562968,
+       "cm": 0.006653967672668782
+      },
+      "wing_upper_positive_y": {
+       "ca": -0.019697011417567856,
+       "cn": -0.05109456284556533,
+       "cm": 0.006653967672690366
+      }
+     }
+    }
+   }
+  }
+ },
+ "coarse_versus_local": {
+  "available": true,
+  "totals": {
+   "0": {
+    "ca": {
+     "coarse": -0.013228063030390825,
+     "local": 0.018776687870204447,
+     "local_minus_coarse": 0.03200475090059527
+    },
+    "cn": {
+     "coarse": -3.8741693070075977e-13,
+     "local": -7.293150250725861e-11,
+     "local_minus_coarse": -7.254408557655785e-11
+    },
+    "cm": {
+     "coarse": -2.6758478205380655e-11,
+     "local": 6.632434450769715e-10,
+     "local_minus_coarse": 6.900019232823521e-10
+    },
+    "wind_cd": {
+     "coarse": -0.013228063030390825,
+     "local": 0.018776687870204447,
+     "local_minus_coarse": 0.03200475090059527
+    }
+   },
+   "2": {
+    "ca": {
+     "coarse": -0.015207140984403497,
+     "local": 0.015911240104604325,
+     "local_minus_coarse": 0.031118381089007822
+    },
+    "cn": {
+     "coarse": 1.0559550020609092,
+     "local": 0.989966359531979,
+     "local_minus_coarse": -0.06598864252893022
+    },
+    "cm": {
+     "coarse": -0.7230602206528524,
+     "local": -1.545814404139389,
+     "local_minus_coarse": -0.8227541834865367
+    },
+    "wind_cd": {
+     "coarse": 0.02165442090741511,
+     "local": 0.050450875107113116,
+     "local_minus_coarse": 0.028796454199698007
+    }
+   }
+  },
+  "increments": {
+   "cn": {
+    "coarse": 1.0559550020612967,
+    "local": 0.9899663596049105,
+    "local_minus_coarse": -0.06598864245638614
+   },
+   "cm": {
+    "coarse": -0.7230602206260939,
+    "local": -1.5458144048026325,
+    "local_minus_coarse": -0.8227541841765387
+   },
+   "ca": {
+    "coarse": -0.001979077954012672,
+    "local": -0.0028654477656001216,
+    "local_minus_coarse": -0.0008863698115874497
+   }
+  },
+  "groups": {
+   "body": {
+    "alpha0_ca": {
+     "coarse": 0.13899204491090877,
+     "local": 0.14809195722297422,
+     "local_minus_coarse": 0.009099912312065445
+    },
+    "alpha0_cn": {
+     "coarse": 7.493801468169397e-12,
+     "local": -6.027965383139225e-11,
+     "local_minus_coarse": -6.777345529956165e-11
+    },
+    "alpha0_cm": {
+     "coarse": -1.000992468535475e-10,
+     "local": 5.474925483720479e-10,
+     "local_minus_coarse": 6.475917952255954e-10
+    },
+    "alpha2_ca": {
+     "coarse": 0.13699347557044092,
+     "local": 0.14505575878851618,
+     "local_minus_coarse": 0.008062283218075256
+    },
+    "alpha2_cn": {
+     "coarse": 0.6371098398520935,
+     "local": 0.5366662136721142,
+     "local_minus_coarse": -0.10044362617997926
+    },
+    "alpha2_cm": {
+     "coarse": 0.6147509101127061,
+     "local": 0.10330556364321039,
+     "local_minus_coarse": -0.5114453464694957
+    },
+    "increment_cn": {
+     "coarse": 0.6371098398445997,
+     "local": 0.5366662137323939,
+     "local_minus_coarse": -0.10044362611220581
+    },
+    "increment_cm": {
+     "coarse": 0.6147509102128054,
+     "local": 0.10330556309571784,
+     "local_minus_coarse": -0.5114453471170876
+    }
+   },
+   "fore_fins": {
+    "alpha0_ca": {
+     "coarse": -0.08597175730945254,
+     "local": -0.07887326400765325,
+     "local_minus_coarse": 0.007098493301799291
+    },
+    "alpha0_cn": {
+     "coarse": 4.0168604170833086e-14,
+     "local": -5.619481629870048e-14,
+     "local_minus_coarse": -9.636342046953357e-14
+    },
+    "alpha0_cm": {
+     "coarse": 1.7790408327002152e-14,
+     "local": -1.9362438068749097e-14,
+     "local_minus_coarse": -3.715284639575125e-14
+    },
+    "alpha2_ca": {
+     "coarse": -0.08592113617785091,
+     "local": -0.07874702571077342,
+     "local_minus_coarse": 0.007174110467077485
+    },
+    "alpha2_cn": {
+     "coarse": 0.26266312346057213,
+     "local": 0.2623186591028149,
+     "local_minus_coarse": -0.00034446435775725703
+    },
+    "alpha2_cm": {
+     "coarse": 0.10273940421515014,
+     "local": 0.10402852527986078,
+     "local_minus_coarse": 0.0012891210647106438
+    },
+    "increment_cn": {
+     "coarse": 0.26266312346053194,
+     "local": 0.26231865910287105,
+     "local_minus_coarse": -0.0003444643576608897
+    },
+    "increment_cm": {
+     "coarse": 0.10273940421513235,
+     "local": 0.10402852527988014,
+     "local_minus_coarse": 0.0012891210647477946
+    }
+   },
+   "rear_fins": {
+    "alpha0_ca": {
+     "coarse": -0.06624835063184704,
+     "local": -0.05044200534511653,
+     "local_minus_coarse": 0.015806345286730514
+    },
+    "alpha0_cn": {
+     "coarse": -7.92138700304099e-12,
+     "local": -1.259565385956766e-11,
+     "local_minus_coarse": -4.674266856526669e-12
+    },
+    "alpha0_cm": {
+     "coarse": 7.332297823983984e-11,
+     "local": 1.1577025914299231e-10,
+     "local_minus_coarse": 4.244728090315247e-11
+    },
+    "alpha2_ca": {
+     "coarse": -0.0662794803769935,
+     "local": -0.050397492973138426,
+     "local_minus_coarse": 0.015881987403855068
+    },
+    "alpha2_cn": {
+     "coarse": 0.15618203874824363,
+     "local": 0.19098148675704993,
+     "local_minus_coarse": 0.0347994480088063
+    },
+    "alpha2_cm": {
+     "coarse": -1.4405505349807086,
+     "local": -1.7531484930624601,
+     "local_minus_coarse": -0.3125979580817515
+    },
+    "increment_cn": {
+     "coarse": 0.15618203875616501,
+     "local": 0.19098148676964558,
+     "local_minus_coarse": 0.03479944801348056
+    },
+    "increment_cm": {
+     "coarse": -1.4405505350540315,
+     "local": -1.7531484931782304,
+     "local_minus_coarse": -0.3125979581241989
+    }
+   }
+  },
+  "per_cad": {
+   "body_base": {
+    "alpha0_ca": {
+     "coarse": 0.10152128564950287,
+     "local": 0.109518382908586,
+     "local_minus_coarse": 0.007997097259083125
+    },
+    "alpha0_cn": {
+     "coarse": 0.0,
+     "local": 0.0,
+     "local_minus_coarse": 0.0
+    },
+    "alpha0_cm": {
+     "coarse": -1.5823850524322535e-11,
+     "local": -4.165026262351382e-11,
+     "local_minus_coarse": -2.5826412099191285e-11
+    },
+    "alpha2_ca": {
+     "coarse": 0.10124035730106162,
+     "local": 0.10903607138713414,
+     "local_minus_coarse": 0.007795714086072519
+    },
+    "alpha2_cn": {
+     "coarse": 0.0,
+     "local": 0.0,
+     "local_minus_coarse": 0.0
+    },
+    "alpha2_cm": {
+     "coarse": -0.0002031641716413574,
+     "local": -8.2676617712588e-05,
+     "local_minus_coarse": 0.00012048755392876942
+    },
+    "increment_cn": {
+     "coarse": 0.0,
+     "local": 0.0,
+     "local_minus_coarse": 0.0
+    },
+    "increment_cm": {
+     "coarse": -0.00020316415581750688,
+     "local": -8.267657606232537e-05,
+     "local_minus_coarse": 0.00012048757975518151
+    }
+   },
+   "body_boattail": {
+    "alpha0_ca": {
+     "coarse": -0.009912864662382732,
+     "local": -0.005393972650708065,
+     "local_minus_coarse": 0.004518892011674667
+    },
+    "alpha0_cn": {
+     "coarse": 1.478474330238195e-11,
+     "local": -4.594355116908108e-11,
+     "local_minus_coarse": -6.072829447146303e-11
+    },
+    "alpha0_cm": {
+     "coarse": -1.5047925482991695e-10,
+     "local": 4.625920412965334e-10,
+     "local_minus_coarse": 6.130712961264503e-10
+    },
+    "alpha2_ca": {
+     "coarse": -0.009936232710484187,
+     "local": -0.005664962283658155,
+     "local_minus_coarse": 0.004271270426826032
+    },
+    "alpha2_cn": {
+     "coarse": 0.009268929459747654,
+     "local": 0.00944332083266005,
+     "local_minus_coarse": 0.00017439137291239658
+    },
+    "alpha2_cm": {
+     "coarse": -0.09108987411907694,
+     "local": -0.09281476791165884,
+     "local_minus_coarse": -0.0017248937925818941
+    },
+    "increment_cn": {
+     "coarse": 0.00926892944496291,
+     "local": 0.009443320878603601,
+     "local_minus_coarse": 0.0001743914336406905
+    },
+    "increment_cm": {
+     "coarse": -0.09108987396859769,
+     "local": -0.09281476837425089,
+     "local_minus_coarse": -0.0017248944056531962
+    }
+   },
+   "body_cylinder": {
+    "alpha0_ca": {
+     "coarse": 0.0005608902975262595,
+     "local": -2.1556222914250062e-05,
+     "local_minus_coarse": -0.0005824465204405095
+    },
+    "alpha0_cn": {
+     "coarse": -7.316131917539344e-12,
+     "local": -1.4318914091253417e-11,
+     "local_minus_coarse": -7.002782173714073e-12
+    },
+    "alpha0_cm": {
+     "coarse": 6.597838413813194e-11,
+     "local": 1.2669563720209467e-10,
+     "local_minus_coarse": 6.071725306396273e-11
+    },
+    "alpha2_ca": {
+     "coarse": 0.00056139612035942,
+     "local": -2.3337003028639517e-05,
+     "local_minus_coarse": -0.0005847331233880596
+    },
+    "alpha2_cn": {
+     "coarse": 0.5145462754588089,
+     "local": 0.42500967583840765,
+     "local_minus_coarse": -0.08953659962040128
+    },
+    "alpha2_cm": {
+     "coarse": -0.2880937053360345,
+     "local": -0.7078360383942357,
+     "local_minus_coarse": -0.4197423330582012
+    },
+    "increment_cn": {
+     "coarse": 0.5145462754661251,
+     "local": 0.4250096758527266,
+     "local_minus_coarse": -0.0895365996133985
+    },
+    "increment_cm": {
+     "coarse": -0.2880937054020129,
+     "local": -0.7078360385209314,
+     "local_minus_coarse": -0.41974233311891845
+    }
+   },
+   "body_nose": {
+    "alpha0_ca": {
+     "coarse": 0.04682273362626236,
+     "local": 0.04398910318801054,
+     "local_minus_coarse": -0.0028336304382518204
+    },
+    "alpha0_cn": {
+     "coarse": 2.5190083326789665e-14,
+     "local": -1.7188571057754374e-14,
+     "local_minus_coarse": -4.237865438454404e-14
+    },
+    "alpha0_cm": {
+     "coarse": 2.2547436256005455e-13,
+     "local": -1.448675030663401e-13,
+     "local_minus_coarse": -3.7034186562639464e-13
+    },
+    "alpha2_ca": {
+     "coarse": 0.04512795485950405,
+     "local": 0.04170798668806882,
+     "local_minus_coarse": -0.0034199681714352295
+    },
+    "alpha2_cn": {
+     "coarse": 0.11329463493353695,
+     "local": 0.10221321700104656,
+     "local_minus_coarse": -0.011081417932490387
+    },
+    "alpha2_cm": {
+     "coarse": 0.994137653739459,
+     "local": 0.9040390465668176,
+     "local_minus_coarse": -0.0900986071726414
+    },
+    "increment_cn": {
+     "coarse": 0.11329463493351176,
+     "local": 0.10221321700106376,
+     "local_minus_coarse": -0.011081417932448004
+    },
+    "increment_cm": {
+     "coarse": 0.9941376537392335,
+     "local": 0.9040390465669624,
+     "local_minus_coarse": -0.09009860717227103
+    }
+   },
+   "tail_lower_mirrored_y": {
+    "alpha0_ca": {
+     "coarse": -0.016562087657898433,
+     "local": -0.012610501335908048,
+     "local_minus_coarse": 0.003951586321990386
+    },
+    "alpha0_cn": {
+     "coarse": 0.0020180355255287456,
+     "local": 0.03414155974893625,
+     "local_minus_coarse": 0.0321235242234075
+    },
+    "alpha0_cm": {
+     "coarse": -0.013313034126697654,
+     "local": -0.31487450370701997,
+     "local_minus_coarse": -0.3015614695803223
+    },
+    "alpha2_ca": {
+     "coarse": -0.016571473134861976,
+     "local": -0.01257031055195288,
+     "local_minus_coarse": 0.004001162582909095
+    },
+    "alpha2_cn": {
+     "coarse": 0.04133567860289988,
+     "local": 0.08335163318522364,
+     "local_minus_coarse": 0.04201595458232376
+    },
+    "alpha2_cm": {
+     "coarse": -0.3759748232149804,
+     "local": -0.7667692683209102,
+     "local_minus_coarse": -0.3907944451059298
+    },
+    "increment_cn": {
+     "coarse": 0.03931764307737113,
+     "local": 0.04921007343628739,
+     "local_minus_coarse": 0.009892430358916258
+    },
+    "increment_cm": {
+     "coarse": -0.3626617890882827,
+     "local": -0.4518947646138902,
+     "local_minus_coarse": -0.0892329755256075
+    }
+   },
+   "tail_lower_positive_y": {
+    "alpha0_ca": {
+     "coarse": -0.016562087657954506,
+     "local": -0.012610501336151228,
+     "local_minus_coarse": 0.0039515863218032785
+    },
+    "alpha0_cn": {
+     "coarse": 0.002018035522112825,
+     "local": 0.03414155973798242,
+     "local_minus_coarse": 0.032123524215869594
+    },
+    "alpha0_cm": {
+     "coarse": -0.013313034094851208,
+     "local": -0.3148745036043109,
+     "local_minus_coarse": -0.3015614695094597
+    },
+    "alpha2_ca": {
+     "coarse": -0.016571473135161364,
+     "local": -0.01257031055258334,
+     "local_minus_coarse": 0.004001162582578025
+    },
+    "alpha2_cn": {
+     "coarse": 0.041335678585543614,
+     "local": 0.08335163316686271,
+     "local_minus_coarse": 0.0420159545813191
+    },
+    "alpha2_cm": {
+     "coarse": -0.3759748230532149,
+     "local": -0.766769268148274,
+     "local_minus_coarse": -0.39079444509505906
+    },
+    "increment_cn": {
+     "coarse": 0.03931764306343079,
+     "local": 0.04921007342888029,
+     "local_minus_coarse": 0.009892430365449505
+    },
+    "increment_cm": {
+     "coarse": -0.3626617889583637,
+     "local": -0.45189476454396305,
+     "local_minus_coarse": -0.08923297558559934
+    }
+   },
+   "tail_upper_mirrored_y": {
+    "alpha0_ca": {
+     "coarse": -0.016562087657924215,
+     "local": -0.012610501336145068,
+     "local_minus_coarse": 0.003951586321779147
+    },
+    "alpha0_cn": {
+     "coarse": -0.002018035529688542,
+     "local": -0.034141559754665526,
+     "local_minus_coarse": -0.03212352422497698
+    },
+    "alpha0_cm": {
+     "coarse": 0.013313034165289696,
+     "local": 0.31487450375969084,
+     "local_minus_coarse": 0.30156146959440117
+    },
+    "alpha2_ca": {
+     "coarse": -0.01656826705313577,
+     "local": -0.01262843593421538,
+     "local_minus_coarse": 0.0039398311189203904
+    },
+    "alpha2_cn": {
+     "coarse": 0.03675534077051433,
+     "local": 0.012139110192962318,
+     "local_minus_coarse": -0.024616230577552013
+    },
+    "alpha2_cm": {
+     "coarse": -0.3443004442683903,
+     "local": -0.10980497820678745,
+     "local_minus_coarse": 0.23449546606160285
+    },
+    "increment_cn": {
+     "coarse": 0.038773376300202875,
+     "local": 0.04628066994762785,
+     "local_minus_coarse": 0.007507293647424973
+    },
+    "increment_cm": {
+     "coarse": -0.35761347843367997,
+     "local": -0.4246794819664783,
+     "local_minus_coarse": -0.06706600353279835
+    }
+   },
+   "tail_upper_positive_y": {
+    "alpha0_ca": {
+     "coarse": -0.016562087658069886,
+     "local": -0.012610501336912187,
+     "local_minus_coarse": 0.003951586321157699
+    },
+    "alpha0_cn": {
+     "coarse": -0.0020180355258744157,
+     "local": -0.034141559744848796,
+     "local_minus_coarse": -0.03212352421897438
+    },
+    "alpha0_cm": {
+     "coarse": 0.013313034129582143,
+     "local": 0.3148745036674103,
+     "local_minus_coarse": 0.3015614695378282
+    },
+    "alpha2_ca": {
+     "coarse": -0.01656826705383439,
+     "local": -0.012628435934386823,
+     "local_minus_coarse": 0.003939831119447566
+    },
+    "alpha2_cn": {
+     "coarse": 0.036755340789285794,
+     "local": 0.012139110212001241,
+     "local_minus_coarse": -0.024616230577284553
+    },
+    "alpha2_cm": {
+     "coarse": -0.344300444444123,
+     "local": -0.1098049783864886,
+     "local_minus_coarse": 0.23449546605763438
+    },
+    "increment_cn": {
+     "coarse": 0.03877337631516021,
+     "local": 0.04628066995685004,
+     "local_minus_coarse": 0.007507293641689831
+    },
+    "increment_cm": {
+     "coarse": -0.3576134785737051,
+     "local": -0.42467948205389894,
+     "local_minus_coarse": -0.06706600348019381
+    }
+   },
+   "wing_lower_mirrored_y": {
+    "alpha0_ca": {
+     "coarse": -0.021492939327363302,
+     "local": -0.019718316001913642,
+     "local_minus_coarse": 0.0017746233254496598
+    },
+    "alpha0_cn": {
+     "coarse": -0.07318924495892232,
+     "local": 0.11532341949817315,
+     "local_minus_coarse": 0.18851266445709547
+    },
+    "alpha0_cm": {
+     "coarse": 0.0010993802082481475,
+     "local": 0.019151768215525816,
+     "local_minus_coarse": 0.018052388007277667
+    },
+    "alpha2_ca": {
+     "coarse": -0.02143543332162403,
+     "local": -0.019676501437817996,
+     "local_minus_coarse": 0.0017589318838060336
+    },
+    "alpha2_cn": {
+     "coarse": -0.005634295665016105,
+     "local": 0.1822538923970406,
+     "local_minus_coarse": 0.1878881880620567
+    },
+    "alpha2_cm": {
+     "coarse": 0.02733904791723326,
+     "local": 0.04536029496727,
+     "local_minus_coarse": 0.018021247050036743
+    },
+    "increment_cn": {
+     "coarse": 0.06755494929390621,
+     "local": 0.06693047289886744,
+     "local_minus_coarse": -0.0006244763950387644
+    },
+    "increment_cm": {
+     "coarse": 0.02623966770898511,
+     "local": 0.026208526751744187,
+     "local_minus_coarse": -3.114095724092436e-05
+    }
+   },
+   "wing_lower_positive_y": {
+    "alpha0_ca": {
+     "coarse": -0.021492939327362914,
+     "local": -0.019718316001913195,
+     "local_minus_coarse": 0.0017746233254497187
+    },
+    "alpha0_cn": {
+     "coarse": -0.0731892449589785,
+     "local": 0.11532341949813096,
+     "local_minus_coarse": 0.18851266445710946
+    },
+    "alpha0_cm": {
+     "coarse": 0.001099380208235046,
+     "local": 0.019151768215505755,
+     "local_minus_coarse": 0.018052388007270707
+    },
+    "alpha2_ca": {
+     "coarse": -0.021435433321621806,
+     "local": -0.019676501437818465,
+     "local_minus_coarse": 0.0017589318838033413
+    },
+    "alpha2_cn": {
+     "coarse": -0.0056342956653277956,
+     "local": 0.1822538923969693,
+     "local_minus_coarse": 0.1878881880622971
+    },
+    "alpha2_cm": {
+     "coarse": 0.0273390479171471,
+     "local": 0.04536029496723164,
+     "local_minus_coarse": 0.018021247050084538
+    },
+    "increment_cn": {
+     "coarse": 0.0675549492936507,
+     "local": 0.06693047289883833,
+     "local_minus_coarse": -0.000624476394812376
+    },
+    "increment_cm": {
+     "coarse": 0.026239667708912055,
+     "local": 0.026208526751725882,
+     "local_minus_coarse": -3.114095718617302e-05
+    }
+   },
+   "wing_upper_mirrored_y": {
+    "alpha0_ca": {
+     "coarse": -0.02149293932736333,
+     "local": -0.019718316001913615,
+     "local_minus_coarse": 0.0017746233254497153
+    },
+    "alpha0_cn": {
+     "coarse": 0.07318924495894218,
+     "local": -0.11532341949819948,
+     "local_minus_coarse": -0.18851266445714165
+    },
+    "alpha0_cm": {
+     "coarse": -0.0010993802082418795,
+     "local": -0.01915176821553055,
+     "local_minus_coarse": -0.018052388007288672
+    },
+    "alpha2_ca": {
+     "coarse": -0.02152513476730327,
+     "local": -0.0196970114175691,
+     "local_minus_coarse": 0.0018281233497341697
+    },
+    "alpha2_cn": {
+     "coarse": 0.1369658573953181,
+     "local": -0.05109456284562968,
+     "local_minus_coarse": -0.1880604202409478
+    },
+    "alpha2_cm": {
+     "coarse": 0.024030654190343222,
+     "local": 0.006653967672668782,
+     "local_minus_coarse": -0.01737668651767444
+    },
+    "increment_cn": {
+     "coarse": 0.06377661243637593,
+     "local": 0.0642288566525698,
+     "local_minus_coarse": 0.0004522442161938728
+    },
+    "increment_cm": {
+     "coarse": 0.0251300343985851,
+     "local": 0.025805735888199333,
+     "local_minus_coarse": 0.0006757014896142319
+    }
+   },
+   "wing_upper_positive_y": {
+    "alpha0_ca": {
+     "coarse": -0.021492939327363004,
+     "local": -0.0197183160019128,
+     "local_minus_coarse": 0.0017746233254502045
+    },
+    "alpha0_cn": {
+     "coarse": 0.0731892449589988,
+     "local": -0.11532341949816084,
+     "local_minus_coarse": -0.18851266445715964
+    },
+    "alpha0_cm": {
+     "coarse": -0.0010993802082235236,
+     "local": -0.01915176821552038,
+     "local_minus_coarse": -0.018052388007296857
+    },
+    "alpha2_ca": {
+     "coarse": -0.0215251347673018,
+     "local": -0.019697011417567856,
+     "local_minus_coarse": 0.0018281233497339441
+    },
+    "alpha2_cn": {
+     "coarse": 0.1369658573955979,
+     "local": -0.05109456284556533,
+     "local_minus_coarse": -0.18806042024116323
+    },
+    "alpha2_cm": {
+     "coarse": 0.02403065419042656,
+     "local": 0.006653967672690366,
+     "local_minus_coarse": -0.017376686517736193
+    },
+    "increment_cn": {
+     "coarse": 0.06377661243659911,
+     "local": 0.0642288566525955,
+     "local_minus_coarse": 0.00045224421599639186
+    },
+    "increment_cm": {
+     "coarse": 0.02513003439865008,
+     "local": 0.025805735888210744,
+     "local_minus_coarse": 0.0006757014895606636
+    }
+   }
+  }
+ },
+ "determinism": {
+  "local_vs_task05_pass0_first_1600_rows": {
+   "0": {
+    "compared_rows": 1600,
+    "identical_rows": 1600,
+    "first_difference_row": null,
+    "reference_rows": 1600,
+    "candidate_rows": 9116,
+    "same_header": true,
+    "reference": "work\\05\\runs\\paired-01\\run\\alpha-0\\pass-0\\history.csv"
+   },
+   "2": {
+    "compared_rows": 1600,
+    "identical_rows": 1600,
+    "first_difference_row": null,
+    "reference_rows": 1600,
+    "candidate_rows": 7991,
+    "same_header": true,
+    "reference": "work\\05\\runs\\paired-01\\run\\alpha-2\\pass-0\\history.csv"
+   }
+  },
+  "coarse_rerun_vs_archived": {
+   "0": {
+    "compared_rows": 1429,
+    "identical_rows": 0,
+    "first_difference_row": 0,
+    "reference_rows": 1429,
+    "candidate_rows": 1765,
+    "same_header": true,
+    "reference": "mesh_sensitivity\\grids\\coarse\\alpha-0\\history.csv",
+    "first_difference": {
+     "archived": "          0,           0,           0,      -2.117916122,     -0.1544348032,      -0.710555127,     -0.7283699589,       3.373934987,       633.9726869,       1",
+     "rerun": "          0,           0,           0,      -2.117916122,     -0.1544348032,      -0.710555127,     -0.7283699589,       3.373934987,       633.9726869,       1"
+    }
+   },
+   "2": {
+    "compared_rows": 1174,
+    "identical_rows": 0,
+    "first_difference_row": 0,
+    "reference_rows": 1174,
+    "candidate_rows": 1470,
+    "same_header": true,
+    "reference": "mesh_sensitivity\\grids\\coarse\\alpha-2\\history.csv",
+    "first_difference": {
+     "archived": "          0,           0,           0,      -2.101179718,    -0.08220676807,      -0.707368479,      -0.716097818,        3.39067139,       633.9726869,       1",
+     "rerun": "          0,           0,           0,      -2.101179718,    -0.08220676807,      -0.707368479,      -0.716097818,        3.39067139,       633.9726869,       1"
+    }
+   }
+  },
+  "revision_vs_completion_rows": {
+   "coarse/0": {
+    "compared_rows": 1379,
+    "identical_rows": 1379,
+    "first_difference_row": null,
+    "reference_rows": 1379,
+    "candidate_rows": 1765,
+    "same_header": true,
+    "reference": "work\\completion\\su2\\runs\\attempt-01\\run\\coarse\\alpha-0\\pass-0\\history.csv"
+   },
+   "coarse/2": {
+    "compared_rows": 1174,
+    "identical_rows": 1174,
+    "first_difference_row": null,
+    "reference_rows": 1174,
+    "candidate_rows": 1470,
+    "same_header": true,
+    "reference": "work\\completion\\su2\\runs\\attempt-01\\run\\coarse\\alpha-2\\pass-0\\history.csv"
+   },
+   "local/0": {
+    "compared_rows": 6724,
+    "identical_rows": 6724,
+    "first_difference_row": null,
+    "reference_rows": 6724,
+    "candidate_rows": 9116,
+    "same_header": true,
+    "reference": "work\\completion\\su2\\runs\\attempt-01\\run\\local\\alpha-0\\pass-0\\history.csv"
+   },
+   "local/2": {
+    "compared_rows": 5597,
+    "identical_rows": 5597,
+    "first_difference_row": null,
+    "reference_rows": 5597,
+    "candidate_rows": 7991,
+    "same_header": true,
+    "reference": "work\\completion\\su2\\runs\\attempt-01\\run\\local\\alpha-2\\pass-0\\history.csv"
+   }
+  }
+ },
+ "archived_reconstruction": {
+  "coarse-alpha-0": {
+   "total": {
+    "ca": -0.013228063134494157,
+    "cn": -3.786954732914367e-12,
+    "cm": -1.5565129869036255e-10,
+    "wind_cd": -0.013228063134494157
+   },
+   "native_final": {
+    "ca": -0.01322806313,
+    "cn": -3.788778481e-12,
+    "cm": -1.556496111e-10,
+    "wind_cd": -0.01322806313
+   },
+   "native_minus_reconstructed": {
+    "ca": 4.494156782830494e-12,
+    "cn": -1.8237480856328763e-15,
+    "cm": 1.687590362549373e-15,
+    "wind_cd": 4.494156782830494e-12
+   },
+   "native_check": {
+    "ca": {
+     "column": "CFx",
+     "reconstructed": -0.013228063134494157,
+     "native": -0.01322806313,
+     "difference": -4.494156782830494e-12,
+     "print_quantum": 1e-11,
+     "accumulation_budget": 4.400444802082291e-11,
+     "budget": 5.4004448020822905e-11,
+     "passed": true
+    },
+    "cn": {
+     "column": "CFz",
+     "reconstructed": -3.786954732914367e-12,
+     "native": -3.788778481e-12,
+     "difference": 1.8237480856328763e-15,
+     "print_quantum": 1e-21,
+     "accumulation_budget": 6.869586019994997e-11,
+     "budget": 6.869586020094997e-11,
+     "passed": true
+    },
+    "cm": {
+     "column": "CMy",
+     "reconstructed": -1.5565129869036255e-10,
+     "native": -1.556496111e-10,
+     "difference": -1.687590362549373e-15,
+     "print_quantum": 1e-19,
+     "accumulation_budget": 3.557687551253133e-10,
+     "budget": 3.557687552253133e-10,
+     "passed": true
+    },
+    "wind_cd": {
+     "column": "CD",
+     "reconstructed": -0.013228063134494157,
+     "native": -0.01322806313,
+     "difference": -4.494156782830494e-12,
+     "print_quantum": 1e-11,
+     "accumulation_budget": 4.400445976970312e-11,
+     "budget": 5.400445976970312e-11,
+     "passed": true
+    },
+    "reference_force": {
+     "column": "RefForce",
+     "reconstructed": 633.9726869258521,
+     "native": 633.9726869,
+     "difference": 2.5852159524220042e-08,
+     "budget": 1.0000225232343682e-07,
+     "passed": true
+    },
+    "passed": true,
+    "budget_definition": "one 10-significant-digit print quantum of the native value (twice its maximal print rounding) plus the documented accumulation budget of pressure_loads"
+   },
+   "closure_passed": true,
+   "per_cad": {
+    "body_base": {
+     "ca": 0.10152128540531494,
+     "cn": 0.0,
+     "cm": -9.690740427411939e-11
+    },
+    "body_boattail": {
+     "ca": -0.009912864535437287,
+     "cn": 9.16539050723962e-11,
+     "cm": -9.329036849835715e-10
+    },
+    "body_cylinder": {
+     "ca": 0.0005608902976607949,
+     "cn": -4.6172941506850854e-11,
+     "cm": 4.134950188689699e-10
+    },
+    "body_nose": {
+     "ca": 0.04682273363201997,
+     "cn": 1.3725377434067344e-13,
+     "cm": 1.2343734863167134e-12
+    },
+    "tail_lower_mirrored_y": {
+     "ca": -0.01656208765590729,
+     "cn": 0.002018035517381528,
+     "cm": -0.013313034052170037
+    },
+    "tail_lower_positive_y": {
+     "ca": -0.016562087656268015,
+     "cn": 0.0020180354945701934,
+     "cm": -0.013313033839590276
+    },
+    "tail_upper_mirrored_y": {
+     "ca": -0.016562087656070174,
+     "cn": -0.0020180355433243526,
+     "cm": 0.0133130342928775
+    },
+    "tail_upper_positive_y": {
+     "ca": -0.016562087657017506,
+     "cn": -0.002018035518242837,
+     "cm": 0.013313034058209383
+    },
+    "wing_lower_mirrored_y": {
+     "ca": -0.021492939327197952,
+     "cn": -0.07318924494875645,
+     "cm": 0.0010993802112810988
+    },
+    "wing_lower_positive_y": {
+     "ca": -0.021492939327196012,
+     "cn": -0.07318924494909723,
+     "cm": 0.0010993802111927086
+    },
+    "wing_upper_mirrored_y": {
+     "ca": -0.021492939327199125,
+     "cn": 0.07318924494885293,
+     "cm": -0.0010993802112389693
+    },
+    "wing_upper_positive_y": {
+     "ca": -0.021492939327196498,
+     "cn": 0.07318924494921104,
+     "cm": -0.001099380211131009
+    }
+   },
+   "groups": {
+    "body": {
+     "ca": 0.13899204479955843,
+     "cn": 4.5618217339886024e-11,
+     "cm": -6.150816969024043e-10
+    },
+    "fore_fins": {
+     "ca": -0.08597175730878959,
+     "cn": 2.102960751992558e-13,
+     "cm": 1.0382910216278837e-13
+    },
+    "rear_fins": {
+     "ca": -0.06624835062526298,
+     "cn": -4.9615468147999646e-11,
+     "cm": 4.5932656910987893e-10
+    }
+   },
+   "checkpoint_sha256": "66a972247d3e2a2abffce361a8ea520c640263d10088ad40c90c143c576776a7",
+   "rows": 1429
+  },
+  "coarse-alpha-2": {
+   "total": {
+    "ca": -0.015207140631419484,
+    "cn": 1.0559550019069013,
+    "cm": -0.7230602211496656,
+    "wind_cd": 0.021654421254809295
+   },
+   "native_final": {
+    "ca": -0.01520714063,
+    "cn": 1.055955002,
+    "cm": -0.7230602211,
+    "wind_cd": 0.02165442125
+   },
+   "native_minus_reconstructed": {
+    "ca": 1.4194843217518738e-12,
+    "cn": 9.30986399083622e-11,
+    "cm": 4.966560496200145e-11,
+    "wind_cd": -4.809295323093821e-12
+   },
+   "native_check": {
+    "ca": {
+     "column": "CFx",
+     "reconstructed": -0.015207140631419484,
+     "native": -0.01520714063,
+     "difference": -1.4194843217518738e-12,
+     "print_quantum": 1e-11,
+     "accumulation_budget": 4.435869846567083e-11,
+     "budget": 5.435869846567083e-11,
+     "passed": true
+    },
+    "cn": {
+     "column": "CFz",
+     "reconstructed": 1.0559550019069013,
+     "native": 1.055955002,
+     "difference": -9.30986399083622e-11,
+     "print_quantum": 1e-09,
+     "accumulation_budget": 6.951123003343384e-11,
+     "budget": 1.0695112300334339e-09,
+     "passed": true
+    },
+    "cm": {
+     "column": "CMy",
+     "reconstructed": -0.7230602211496656,
+     "native": -0.7230602211,
+     "difference": -4.966560496200145e-11,
+     "print_quantum": 1e-10,
+     "accumulation_budget": 3.6101263189644903e-10,
+     "budget": 4.6101263189644905e-10,
+     "passed": true
+    },
+    "wind_cd": {
+     "column": "CD",
+     "reconstructed": 0.021654421254809295,
+     "native": 0.02165442125,
+     "difference": 4.809295323093821e-12,
+     "print_quantum": 1e-11,
+     "accumulation_budget": 4.6757629518278217e-11,
+     "budget": 5.6757629518278215e-11,
+     "passed": true
+    },
+    "reference_force": {
+     "column": "RefForce",
+     "reconstructed": 633.9726869258523,
+     "native": 633.9726869,
+     "difference": 2.5852273211057764e-08,
+     "budget": 1.0000225232343682e-07,
+     "passed": true
+    },
+    "passed": true,
+    "budget_definition": "one 10-significant-digit print quantum of the native value (twice its maximal print rounding) plus the documented accumulation budget of pressure_loads"
+   },
+   "closure_passed": true,
+   "per_cad": {
+    "body_base": {
+     "ca": 0.10124035709237543,
+     "cn": 0.0,
+     "cm": -0.00020316446872657262
+    },
+    "body_boattail": {
+     "ca": -0.00993623219158656,
+     "cn": 0.009268929658023176,
+     "cm": -0.09108987613665526
+    },
+    "body_cylinder": {
+     "ca": 0.0005613961210082612,
+     "cn": 0.5145462752557084,
+     "cm": -0.2880937045088044
+    },
+    "body_nose": {
+     "ca": 0.045127954875035625,
+     "cn": 0.11329463493639833,
+     "cm": 0.994137653751054
+    },
+    "tail_lower_mirrored_y": {
+     "ca": -0.01657147312689815,
+     "cn": 0.041335678610813255,
+     "cm": -0.37597482329714904
+    },
+    "tail_lower_positive_y": {
+     "ca": -0.016571473128720125,
+     "cn": 0.04133567850825547,
+     "cm": -0.37597482234168617
+    },
+    "tail_upper_mirrored_y": {
+     "ca": -0.01656826704585384,
+     "cn": 0.03675534070562169,
+     "cm": -0.3443004436603658
+    },
+    "tail_upper_positive_y": {
+     "ca": -0.016568267049812197,
+     "cn": 0.03675534081461121,
+     "cm": -0.3443004446801675
+    },
+    "wing_lower_mirrored_y": {
+     "ca": -0.021435433321278258,
+     "cn": -0.005634295642327548,
+     "cm": 0.02733904792275529
+    },
+    "wing_lower_positive_y": {
+     "ca": -0.02143543332126712,
+     "cn": -0.005634295643930521,
+     "cm": 0.02733904792230971
+    },
+    "wing_upper_mirrored_y": {
+     "ca": -0.021525134767212017,
+     "cn": 0.13696585735112413,
+     "cm": 0.02403065417367533
+    },
+    "wing_upper_positive_y": {
+     "ca": -0.021525134767210522,
+     "cn": 0.13696585735260375,
+     "cm": 0.024030654174094782
+    }
+   },
+   "groups": {
+    "body": {
+     "ca": 0.13699347589683275,
+     "cn": 0.6371098398501299,
+     "cm": 0.6147509086368678
+    },
+    "fore_fins": {
+     "ca": -0.08592113617696792,
+     "cn": 0.2626631234174698,
+     "cm": 0.10273940419283512
+    },
+    "rear_fins": {
+     "ca": -0.06627948035128431,
+     "cn": 0.15618203863930163,
+     "cm": -1.4405505339793685
+    }
+   },
+   "checkpoint_sha256": "160e47313ae9b6b3dd8480eb60b4d979585a58b457275226cb99a5d6db137203",
+   "rows": 1174
+  },
+  "medium-alpha-0": {
+   "total": {
+    "ca": -0.03698914284917044,
+    "cn": -1.7491577797963149e-10,
+    "cm": 1.6006270359703625e-09,
+    "wind_cd": -0.03698914284917044
+   },
+   "native_final": {
+    "ca": -0.03698914285,
+    "cn": -1.749156607e-10,
+    "cm": 1.600619719e-09,
+    "wind_cd": -0.03698914285
+   },
+   "native_minus_reconstructed": {
+    "ca": -8.29558643999917e-13,
+    "cn": 1.1727963149153035e-16,
+    "cm": -7.316970362432781e-15,
+    "wind_cd": -8.29558643999917e-13
+   },
+   "native_check": {
+    "ca": {
+     "column": "CFx",
+     "reconstructed": -0.03698914284917044,
+     "native": -0.03698914285,
+     "difference": 8.29558643999917e-13,
+     "print_quantum": 1e-11,
+     "accumulation_budget": 5.360348784522389e-11,
+     "budget": 6.360348784522389e-11,
+     "passed": true
+    },
+    "cn": {
+     "column": "CFz",
+     "reconstructed": -1.7491577797963149e-10,
+     "native": -1.749156607e-10,
+     "difference": -1.1727963149153035e-16,
+     "print_quantum": 1e-19,
+     "accumulation_budget": 9.023411779809238e-11,
+     "budget": 9.023411789809238e-11,
+     "passed": true
+    },
+    "cm": {
+     "column": "CMy",
+     "reconstructed": 1.6006270359703625e-09,
+     "native": 1.600619719e-09,
+     "difference": 7.316970362432781e-15,
+     "print_quantum": 1e-18,
+     "accumulation_budget": 4.955120076052642e-10,
+     "budget": 4.955120086052642e-10,
+     "passed": true
+    },
+    "wind_cd": {
+     "column": "CD",
+     "reconstructed": -0.03698914284917044,
+     "native": -0.03698914285,
+     "difference": 8.29558643999917e-13,
+     "print_quantum": 1e-11,
+     "accumulation_budget": 5.360352069818233e-11,
+     "budget": 6.360352069818233e-11,
+     "passed": true
+    },
+    "reference_force": {
+     "column": "RefForce",
+     "reconstructed": 633.9726869258521,
+     "native": 633.9726869,
+     "difference": 2.5852159524220042e-08,
+     "budget": 1.0000225232343682e-07,
+     "passed": true
+    },
+    "passed": true,
+    "budget_definition": "one 10-significant-digit print quantum of the native value (twice its maximal print rounding) plus the documented accumulation budget of pressure_loads"
+   },
+   "closure_passed": true,
+   "per_cad": {
+    "body_base": {
+     "ca": 0.05408209815039659,
+     "cn": 0.0,
+     "cm": -9.330424841132828e-11
+    },
+    "body_boattail": {
+     "ca": 0.012662650012389682,
+     "cn": -1.1348640968054628e-10,
+     "cm": 1.1413398682430847e-09
+    },
+    "body_cylinder": {
+     "ca": 0.0004900190759467243,
+     "cn": -3.000298615257533e-11,
+     "cm": 2.648608430414586e-10
+    },
+    "body_nose": {
+     "ca": 0.025432040563569205,
+     "cn": -1.8952034505560946e-14,
+     "cm": -1.688141653960671e-13
+    },
+    "tail_lower_mirrored_y": {
+     "ca": -0.013667574923332142,
+     "cn": -0.041692272160357514,
+     "cm": 0.379112830846916
+    },
+    "tail_lower_positive_y": {
+     "ca": -0.013667574923466038,
+     "cn": -0.0416922721604137,
+     "cm": 0.3791128308475391
+    },
+    "tail_upper_mirrored_y": {
+     "ca": -0.013667574924005114,
+     "cn": 0.041692272144791695,
+     "cm": -0.3791128307026088
+    },
+    "tail_upper_positive_y": {
+     "ca": -0.0136675749241099,
+     "cn": 0.04169227214490761,
+     "cm": -0.3791128307038275
+    },
+    "wing_lower_mirrored_y": {
+     "ca": -0.01874641273914,
+     "cn": -0.07474629228486139,
+     "cm": -0.02489606517986884
+    },
+    "wing_lower_positive_y": {
+     "ca": -0.01874641273914039,
+     "cn": -0.07474629228487527,
+     "cm": -0.024896065179873257
+    },
+    "wing_upper_mirrored_y": {
+     "ca": -0.018746412739139507,
+     "cn": 0.07474629228469308,
+     "cm": 0.024896065179806953
+    },
+    "wing_upper_positive_y": {
+     "ca": -0.018746412739139552,
+     "cn": 0.07474629228470805,
+     "cm": 0.024896065179815793
+    }
+   },
+   "groups": {
+    "body": {
+     "ca": 0.0926668078023022,
+     "cn": -1.4350834786762717e-10,
+     "cm": 1.312727648707819e-09
+    },
+    "fore_fins": {
+     "ca": -0.07498565095655944,
+     "cn": -3.3552088296145413e-13,
+     "cm": -1.193512148412832e-13
+    },
+    "rear_fins": {
+     "ca": -0.054670299694913195,
+     "cn": -3.107190922904286e-11,
+     "cm": 2.8801873847738484e-10
+    }
+   },
+   "checkpoint_sha256": "8fde0e2404662ca5a4dc502c6fc23701de9c9ad5032d4c52a59823e6b23aa569",
+   "rows": 416
+  },
+  "medium-alpha-2": {
+   "total": {
+    "ca": -0.037722442405988994,
+    "cn": 0.9475360372389959,
+    "cm": -1.1221128507711222,
+    "wind_cd": -0.004630932106178376
+   },
+   "native_final": {
+    "ca": -0.03772244241,
+    "cn": 0.9475360372,
+    "cm": -1.122112851,
+    "wind_cd": -0.004630932106
+   },
+   "native_minus_reconstructed": {
+    "ca": -4.011006804471862e-12,
+    "cn": -3.899591760614385e-11,
+    "cm": -2.2887780559699422e-10,
+    "wind_cd": 1.7837554350252915e-13
+   },
+   "native_check": {
+    "ca": {
+     "column": "CFx",
+     "reconstructed": -0.037722442405988994,
+     "native": -0.03772244241,
+     "difference": 4.011006804471862e-12,
+     "print_quantum": 1e-11,
+     "accumulation_budget": 5.4179477480491623e-11,
+     "budget": 6.417947748049162e-11,
+     "passed": true
+    },
+    "cn": {
+     "column": "CFz",
+     "reconstructed": 0.9475360372389959,
+     "native": 0.9475360372,
+     "difference": 3.899591760614385e-11,
+     "print_quantum": 1e-10,
+     "accumulation_budget": 9.148663209279486e-11,
+     "budget": 1.9148663209279488e-10,
+     "passed": true
+    },
+    "cm": {
+     "column": "CMy",
+     "reconstructed": -1.1221128507711222,
+     "native": -1.122112851,
+     "difference": 2.2887780559699422e-10,
+     "print_quantum": 1e-09,
+     "accumulation_budget": 5.012535559726386e-10,
+     "budget": 1.5012535559726386e-09,
+     "passed": true
+    },
+    "wind_cd": {
+     "column": "CD",
+     "reconstructed": -0.004630932106178376,
+     "native": -0.004630932106,
+     "difference": -1.7837554350252915e-13,
+     "print_quantum": 1e-12,
+     "accumulation_budget": 5.733937307634124e-11,
+     "budget": 5.833937307634124e-11,
+     "passed": true
+    },
+    "reference_force": {
+     "column": "RefForce",
+     "reconstructed": 633.9726869258523,
+     "native": 633.9726869,
+     "difference": 2.5852273211057764e-08,
+     "budget": 1.0000225232343682e-07,
+     "passed": true
+    },
+    "passed": true,
+    "budget_definition": "one 10-significant-digit print quantum of the native value (twice its maximal print rounding) plus the documented accumulation budget of pressure_loads"
+   },
+   "closure_passed": true,
+   "per_cad": {
+    "body_base": {
+     "ca": 0.05421105325505049,
+     "cn": 0.0,
+     "cm": -0.0001709158494671604
+    },
+    "body_boattail": {
+     "ca": 0.012789486611475163,
+     "cn": 0.005667377201033347,
+     "cm": -0.05548753129566572
+    },
+    "body_cylinder": {
+     "ca": 0.0004897529956265575,
+     "cn": 0.3994273832293042,
+     "cm": -0.46226663143534297
+    },
+    "body_nose": {
+     "ca": 0.024348437966957296,
+     "cn": 0.09836084092976415,
+     "cm": 0.8711022432575857
+    },
+    "tail_lower_mirrored_y": {
+     "ca": -0.013582023810475444,
+     "cn": 0.002786142199378428,
+     "cm": -0.029742086482124015
+    },
+    "tail_lower_positive_y": {
+     "ca": -0.01358202381181462,
+     "cn": 0.0027861421965655097,
+     "cm": -0.02974208645444826
+    },
+    "tail_upper_mirrored_y": {
+     "ca": -0.013723042443934333,
+     "cn": 0.08311656069663241,
+     "cm": -0.7598830641045597
+    },
+    "tail_upper_positive_y": {
+     "ca": -0.013723042444564385,
+     "cn": 0.08311656069965971,
+     "cm": -0.7598830641340236
+    },
+    "wing_lower_mirrored_y": {
+     "ca": -0.018580633866763792,
+     "cn": -0.004834826349491441,
+     "cm": 0.0017176505604560971
+    },
+    "wing_lower_positive_y": {
+     "ca": -0.01858063386677119,
+     "cn": -0.0048348263496485605,
+     "cm": 0.0017176505603717887
+    },
+    "wing_upper_mirrored_y": {
+     "ca": -0.018894886495387078,
+     "cn": 0.14097234139285297,
+     "cm": 0.050262492303008846
+    },
+    "wing_upper_positive_y": {
+     "ca": -0.018894886495387658,
+     "cn": 0.14097234139294526,
+     "cm": 0.050262492303086756
+    }
+   },
+   "groups": {
+    "body": {
+     "ca": 0.0918387308291095,
+     "cn": 0.5034556013601017,
+     "cm": 0.3531771646771098
+    },
+    "fore_fins": {
+     "ca": -0.07495104072430972,
+     "cn": 0.2722750300866582,
+     "cm": 0.1039602857269235
+    },
+    "rear_fins": {
+     "ca": -0.054610132510788785,
+     "cn": 0.17180540579223605,
+     "cm": -1.5792503011751555
+    }
+   },
+   "checkpoint_sha256": "19c6c3b379b6a770bd32bb7b07ba264b6db765568e09cb5a51c633e84f4a8924",
+   "rows": 542
+  },
+  "fine-alpha-0": {
+   "total": {
+    "ca": -0.014225538439177211,
+    "cn": -2.3540131014657442e-11,
+    "cm": 2.1708824594929507e-10,
+    "wind_cd": -0.014225538439177211
+   },
+   "native_final": {
+    "ca": -0.01422553844,
+    "cn": -2.354343162e-11,
+    "cm": 2.170879032e-10,
+    "wind_cd": -0.01422553844
+   },
+   "native_minus_reconstructed": {
+    "ca": -8.227880182731795e-13,
+    "cn": -3.3006053425581724e-15,
+    "cm": -3.427492950732375e-16,
+    "wind_cd": -8.227880182731795e-13
+   },
+   "native_check": {
+    "ca": {
+     "column": "CFx",
+     "reconstructed": -0.014225538439177211,
+     "native": -0.01422553844,
+     "difference": 8.227880182731795e-13,
+     "print_quantum": 1e-11,
+     "accumulation_budget": 8.103639301456013e-11,
+     "budget": 9.103639301456013e-11,
+     "passed": true
+    },
+    "cn": {
+     "column": "CFz",
+     "reconstructed": -2.3540131014657442e-11,
+     "native": -2.354343162e-11,
+     "difference": 3.3006053425581724e-15,
+     "print_quantum": 1e-20,
+     "accumulation_budget": 1.3423474644086974e-10,
+     "budget": 1.3423474645086973e-10,
+     "passed": true
+    },
+    "cm": {
+     "column": "CMy",
+     "reconstructed": 2.1708824594929507e-10,
+     "native": 2.170879032e-10,
+     "difference": 3.427492950732375e-16,
+     "print_quantum": 1e-19,
+     "accumulation_budget": 7.623156882462618e-10,
+     "budget": 7.623156883462618e-10,
+     "passed": true
+    },
+    "wind_cd": {
+     "column": "CD",
+     "reconstructed": -0.014225538439177211,
+     "native": -0.01422553844,
+     "difference": 8.227880182731795e-13,
+     "print_quantum": 1e-11,
+     "accumulation_budget": 8.103640564937638e-11,
+     "budget": 9.103640564937638e-11,
+     "passed": true
+    },
+    "reference_force": {
+     "column": "RefForce",
+     "reconstructed": 633.9726869258521,
+     "native": 633.9726869,
+     "difference": 2.5852159524220042e-08,
+     "budget": 1.0000225232343682e-07,
+     "passed": true
+    },
+    "passed": true,
+    "budget_definition": "one 10-significant-digit print quantum of the native value (twice its maximal print rounding) plus the documented accumulation budget of pressure_loads"
+   },
+   "closure_passed": true,
+   "per_cad": {
+    "body_base": {
+     "ca": 0.09213499417135773,
+     "cn": 0.0,
+     "cm": -5.854730139707201e-12
+    },
+    "body_boattail": {
+     "ca": 0.01896111615864947,
+     "cn": -1.1053848383296033e-11,
+     "cm": 1.1063445523197055e-10
+    },
+    "body_cylinder": {
+     "ca": 4.679993676928118e-06,
+     "cn": -5.94429991517367e-12,
+     "cm": 5.236321893100067e-11
+    },
+    "body_nose": {
+     "ca": 0.012383504203630335,
+     "cn": -4.150726655502791e-15,
+     "cm": -3.685227271777667e-14
+    },
+    "tail_lower_mirrored_y": {
+     "ca": -0.015691381966551104,
+     "cn": -0.008055082201273517,
+     "cm": 0.07864010248549183
+    },
+    "tail_lower_positive_y": {
+     "ca": -0.01569138196655147,
+     "cn": -0.008055082201210708,
+     "cm": 0.07864010248490963
+    },
+    "tail_upper_mirrored_y": {
+     "ca": -0.015691381966661578,
+     "cn": 0.008055082198025634,
+     "cm": -0.07864010245548049
+    },
+    "tail_upper_positive_y": {
+     "ca": -0.015691381966658046,
+     "cn": 0.00805508219796522,
+     "cm": -0.07864010245491965
+    },
+    "wing_lower_mirrored_y": {
+     "ca": -0.01873607627501753,
+     "cn": 0.049463071583364465,
+     "cm": -0.007604038555603984
+    },
+    "wing_lower_positive_y": {
+     "ca": -0.018736076275017298,
+     "cn": 0.049463071583365506,
+     "cm": -0.007604038555604566
+    },
+    "wing_upper_mirrored_y": {
+     "ca": -0.01873607627501735,
+     "cn": -0.04946307158338871,
+     "cm": 0.007604038555594516
+    },
+    "wing_upper_positive_y": {
+     "ca": -0.01873607627501729,
+     "cn": -0.04946307158338572,
+     "cm": 0.0076040385555948735
+    }
+   },
+   "groups": {
+    "body": {
+     "ca": 0.12348429452731446,
+     "cn": -1.7002299025125206e-11,
+     "cm": 1.5710609175054624e-10
+    },
+    "fore_fins": {
+     "ca": -0.07494430510006947,
+     "cn": -4.4460567336657435e-14,
+     "cm": -1.9160975718000697e-14
+    },
+    "rear_fins": {
+     "ca": -0.0627655278664222,
+     "cn": -6.4933714221955785e-12,
+     "cm": 6.000131517446683e-11
+    }
+   },
+   "checkpoint_sha256": "c279651fef78418f07d32ff984ca79486c39d02a3710952825f26d78d4170971",
+   "rows": 201
+  },
+  "fine-alpha-2": {
+   "total": {
+    "ca": -0.0149811167215248,
+    "cn": 0.800099763075578,
+    "cm": -1.333756280155932,
+    "wind_cd": 0.012951088413133666
+   },
+   "native_final": {
+    "ca": -0.01498111672,
+    "cn": 0.8000997631,
+    "cm": -1.33375628,
+    "wind_cd": 0.01295108841
+   },
+   "native_minus_reconstructed": {
+    "ca": 1.5247993839784257e-12,
+    "cn": 2.442201996188942e-11,
+    "cm": 1.5593193403162786e-10,
+    "wind_cd": -3.1336652023261635e-12
+   },
+   "native_check": {
+    "ca": {
+     "column": "CFx",
+     "reconstructed": -0.0149811167215248,
+     "native": -0.01498111672,
+     "difference": -1.5247993839784257e-12,
+     "print_quantum": 1e-11,
+     "accumulation_budget": 8.166149127070392e-11,
+     "budget": 9.166149127070393e-11,
+     "passed": true
+    },
+    "cn": {
+     "column": "CFz",
+     "reconstructed": 0.800099763075578,
+     "native": 0.8000997631,
+     "difference": -2.442201996188942e-11,
+     "print_quantum": 1e-10,
+     "accumulation_budget": 1.3549198286963184e-10,
+     "budget": 2.3549198286963183e-10,
+     "passed": true
+    },
+    "cm": {
+     "column": "CMy",
+     "reconstructed": -1.333756280155932,
+     "native": -1.33375628,
+     "difference": -1.5593193403162786e-10,
+     "print_quantum": 1e-09,
+     "accumulation_budget": 7.65991804243609e-10,
+     "budget": 1.7659918042436092e-09,
+     "passed": true
+    },
+    "wind_cd": {
+     "column": "CD",
+     "reconstructed": 0.012951088413133666,
+     "native": 0.01295108841,
+     "difference": 3.1336652023261635e-12,
+     "print_quantum": 1e-11,
+     "accumulation_budget": 8.634038540449069e-11,
+     "budget": 9.63403854044907e-11,
+     "passed": true
+    },
+    "reference_force": {
+     "column": "RefForce",
+     "reconstructed": 633.9726869258523,
+     "native": 633.9726869,
+     "difference": 2.5852273211057764e-08,
+     "budget": 1.0000225232343682e-07,
+     "passed": true
+    },
+    "passed": true,
+    "budget_definition": "one 10-significant-digit print quantum of the native value (twice its maximal print rounding) plus the documented accumulation budget of pressure_loads"
+   },
+   "closure_passed": true,
+   "per_cad": {
+    "body_base": {
+     "ca": 0.09236871653585942,
+     "cn": 0.0,
+     "cm": -0.00010214749090170204
+    },
+    "body_boattail": {
+     "ca": 0.019074272590389213,
+     "cn": 0.005998566294733332,
+     "cm": -0.05898012614365079
+    },
+    "body_cylinder": {
+     "ca": 3.3120089448840183e-06,
+     "cn": 0.2825223319155904,
+     "cm": -0.5427562660169536
+    },
+    "body_nose": {
+     "ca": 0.011329103533949704,
+     "cn": 0.08149007205943304,
+     "cm": 0.7298737051377795
+    },
+    "tail_lower_mirrored_y": {
+     "ca": -0.015498662212661916,
+     "cn": 0.03705988304231349,
+     "cm": -0.3345246834479949
+    },
+    "tail_lower_positive_y": {
+     "ca": -0.01549866221266428,
+     "cn": 0.03705988304242904,
+     "cm": -0.33452468344906405
+    },
+    "tail_upper_mirrored_y": {
+     "ca": -0.015880027282932512,
+     "cn": 0.048934773202836915,
+     "cm": -0.45291265099501227
+    },
+    "tail_upper_positive_y": {
+     "ca": -0.015880027282922433,
+     "cn": 0.04893477320273318,
+     "cm": -0.4529126509940489
+    },
+    "wing_lower_mirrored_y": {
+     "ca": -0.018718137119504336,
+     "cn": 0.1170322359977404,
+     "cm": 0.02218038150643764
+    },
+    "wing_lower_positive_y": {
+     "ca": -0.018718137119504055,
+     "cn": 0.11703223599774173,
+     "cm": 0.02218038150643634
+    },
+    "wing_upper_mirrored_y": {
+     "ca": -0.01878143408023931,
+     "cn": 0.012017504160010567,
+     "cm": 0.03436123011551978
+    },
+    "wing_upper_positive_y": {
+     "ca": -0.01878143408023917,
+     "cn": 0.01201750416001582,
+     "cm": 0.03436123011552106
+    }
+   },
+   "groups": {
+    "body": {
+     "ca": 0.12277540466914322,
+     "cn": 0.37001097026975677,
+     "cm": 0.1280351654862734
+    },
+    "fore_fins": {
+     "ca": -0.07499914239948688,
+     "cn": 0.2580994803155085,
+     "cm": 0.11308322324391482
+    },
+    "rear_fins": {
+     "ca": -0.06275737899118114,
+     "cn": 0.1719893124903126,
+     "cm": -1.5748746688861202
+    }
+   },
+   "checkpoint_sha256": "73d553c3f3384f972b7da8b5c2420e1b1072cdefbf867c790cd8319d57e5c3cf",
+   "rows": 201
+  },
+  "fourth-alpha-0": {
+   "total": {
+    "ca": -0.010862996380781371,
+    "cn": 3.358729008626161e-12,
+    "cm": -3.381331574582972e-11,
+    "wind_cd": -0.010862996380781371
+   },
+   "native_final": {
+    "ca": -0.01086299638,
+    "cn": 3.354895775e-12,
+    "cm": -3.381462705e-11,
+    "wind_cd": -0.01086299638
+   },
+   "native_minus_reconstructed": {
+    "ca": 7.813714952842332e-13,
+    "cn": -3.8332336261607665e-15,
+    "cm": -1.3113041702803989e-15,
+    "wind_cd": 7.813714952842332e-13
+   },
+   "native_check": {
+    "ca": {
+     "column": "CFx",
+     "reconstructed": -0.010862996380781371,
+     "native": -0.01086299638,
+     "difference": -7.813714952842332e-13,
+     "print_quantum": 1e-11,
+     "accumulation_budget": 1.1876840927874022e-10,
+     "budget": 1.287684092787402e-10,
+     "passed": true
+    },
+    "cn": {
+     "column": "CFz",
+     "reconstructed": 3.358729008626161e-12,
+     "native": 3.354895775e-12,
+     "difference": 3.8332336261607665e-15,
+     "print_quantum": 1e-21,
+     "accumulation_budget": 2.0359501041860848e-10,
+     "budget": 2.0359501041960849e-10,
+     "passed": true
+    },
+    "cm": {
+     "column": "CMy",
+     "reconstructed": -3.381331574582972e-11,
+     "native": -3.381462705e-11,
+     "difference": 1.3113041702803989e-15,
+     "print_quantum": 1e-20,
+     "accumulation_budget": 1.2616921266409763e-09,
+     "budget": 1.2616921266509763e-09,
+     "passed": true
+    },
+    "wind_cd": {
+     "column": "CD",
+     "reconstructed": -0.010862996380781371,
+     "native": -0.01086299638,
+     "difference": -7.813714952842332e-13,
+     "print_quantum": 1e-11,
+     "accumulation_budget": 1.187684189270192e-10,
+     "budget": 1.2876841892701918e-10,
+     "passed": true
+    },
+    "reference_force": {
+     "column": "RefForce",
+     "reconstructed": 633.9726869258521,
+     "native": 633.9726869,
+     "difference": 2.5852159524220042e-08,
+     "budget": 1.0000225232343682e-07,
+     "passed": true
+    },
+    "passed": true,
+    "budget_definition": "one 10-significant-digit print quantum of the native value (twice its maximal print rounding) plus the documented accumulation budget of pressure_loads"
+   },
+   "closure_passed": true,
+   "per_cad": {
+    "body_base": {
+     "ca": 0.06986447213716994,
+     "cn": 0.0,
+     "cm": -1.8288320713679343e-12
+    },
+    "body_boattail": {
+     "ca": 0.0273294510863045,
+     "cn": 1.7925467006042564e-12,
+     "cm": -1.7867485442530798e-11
+    },
+    "body_cylinder": {
+     "ca": 0.00013799540665039185,
+     "cn": 9.502120386058894e-13,
+     "cm": -8.528595635689301e-12
+    },
+    "body_nose": {
+     "ca": 0.0072760055483386465,
+     "cn": 1.064419767633217e-15,
+     "cm": 7.661398661294602e-15
+    },
+    "tail_lower_mirrored_y": {
+     "ca": -0.013711166836905903,
+     "cn": 0.00472076826939052,
+     "cm": -0.04613638468852813
+    },
+    "tail_lower_positive_y": {
+     "ca": -0.013711166836993987,
+     "cn": 0.0047207682671280525,
+     "cm": -0.046136384667529576
+    },
+    "tail_upper_mirrored_y": {
+     "ca": -0.013711166836849415,
+     "cn": -0.004720768269480807,
+     "cm": 0.04613638468952616
+    },
+    "tail_upper_positive_y": {
+     "ca": -0.013711166836992621,
+     "cn": -0.0047207682664227296,
+     "cm": 0.0461363846609379
+    },
+    "wing_lower_mirrored_y": {
+     "ca": -0.01515656330287592,
+     "cn": -0.02098392174355257,
+     "cm": -0.003886774253148923
+    },
+    "wing_lower_positive_y": {
+     "ca": -0.015156563302875929,
+     "cn": -0.020983921743561562,
+     "cm": -0.003886774253152505
+    },
+    "wing_upper_mirrored_y": {
+     "ca": -0.015156563302875806,
+     "cn": 0.02098392174355035,
+     "cm": 0.0038867742531441996
+    },
+    "wing_upper_positive_y": {
+     "ca": -0.015156563302875268,
+     "cn": 0.020983921743563658,
+     "cm": 0.0038867742531548143
+    }
+   },
+   "groups": {
+    "body": {
+     "ca": 0.10460792417846347,
+     "cn": 2.743823158977779e-12,
+     "cm": -2.821725175092674e-11
+    },
+    "fore_fins": {
+     "ca": -0.060626253211502924,
+     "cn": -1.2986301512697067e-16,
+     "cm": -2.413676186459613e-15
+    },
+    "rear_fins": {
+     "ca": -0.054844667347741925,
+     "cn": 6.150357126635088e-13,
+     "cm": -5.5936503187165195e-12
+    }
+   },
+   "checkpoint_sha256": "fe09f3e672c1e5f2171e5a6e32a9b08216ccfb7fd02ffbb35bb80f64a37812d0",
+   "rows": 223
+  },
+  "fourth-alpha-2": {
+   "total": {
+    "ca": -0.011812099918765178,
+    "cn": 0.7579182363044226,
+    "cm": -1.1404640747872332,
+    "wind_cd": 0.01464606068202462
+   },
+   "native_final": {
+    "ca": -0.01181209992,
+    "cn": 0.7579182363,
+    "cm": -1.140464075,
+    "wind_cd": 0.01464606068
+   },
+   "native_minus_reconstructed": {
+    "ca": -1.2348212730106667e-12,
+    "cn": -4.422573418594311e-12,
+    "cm": -2.127666931528438e-10,
+    "wind_cd": -2.0246200549411952e-12
+   },
+   "native_check": {
+    "ca": {
+     "column": "CFx",
+     "reconstructed": -0.011812099918765178,
+     "native": -0.01181209992,
+     "difference": 1.2348212730106667e-12,
+     "print_quantum": 1e-11,
+     "accumulation_budget": 1.195598648926821e-10,
+     "budget": 1.295598648926821e-10,
+     "passed": true
+    },
+    "cn": {
+     "column": "CFz",
+     "reconstructed": 0.7579182363044226,
+     "native": 0.7579182363,
+     "difference": 4.422573418594311e-12,
+     "print_quantum": 1e-10,
+     "accumulation_budget": 2.0505948222052174e-10,
+     "budget": 3.0505948222052173e-10,
+     "passed": true
+    },
+    "cm": {
+     "column": "CMy",
+     "reconstructed": -1.1404640747872332,
+     "native": -1.140464075,
+     "difference": 2.127666931528438e-10,
+     "print_quantum": 1e-09,
+     "accumulation_budget": 1.266117217303941e-09,
+     "budget": 2.2661172173039413e-09,
+     "passed": true
+    },
+    "wind_cd": {
+     "column": "CD",
+     "reconstructed": 0.01464606068202462,
+     "native": 0.01464606068,
+     "difference": 2.0246200549411952e-12,
+     "print_quantum": 1e-11,
+     "accumulation_budget": 1.266435389549981e-10,
+     "budget": 1.3664353895499808e-10,
+     "passed": true
+    },
+    "reference_force": {
+     "column": "RefForce",
+     "reconstructed": 633.9726869258523,
+     "native": 633.9726869,
+     "difference": 2.5852273211057764e-08,
+     "budget": 1.0000225232343682e-07,
+     "passed": true
+    },
+    "passed": true,
+    "budget_definition": "one 10-significant-digit print quantum of the native value (twice its maximal print rounding) plus the documented accumulation budget of pressure_loads"
+   },
+   "closure_passed": true,
+   "per_cad": {
+    "body_base": {
+     "ca": 0.07004351153612084,
+     "cn": 0.0,
+     "cm": -7.47154759135547e-06
+    },
+    "body_boattail": {
+     "ca": 0.02738390228348348,
+     "cn": 0.004453048270606411,
+     "cm": -0.04369012322556606
+    },
+    "body_cylinder": {
+     "ca": 0.00013741920049502846,
+     "cn": 0.22919464411280038,
+     "cm": -0.41323278612896897
+    },
+    "body_nose": {
+     "ca": 0.006296277785064968,
+     "cn": 0.07361061014103062,
+     "cm": 0.6604957199069302
+    },
+    "tail_lower_mirrored_y": {
+     "ca": -0.013496488575815667,
+     "cn": 0.04796562090101609,
+     "cm": -0.44161701201193937
+    },
+    "tail_lower_positive_y": {
+     "ca": -0.013496488575817117,
+     "cn": 0.0479656209005456,
+     "cm": -0.4416170120076277
+    },
+    "tail_upper_mirrored_y": {
+     "ca": -0.013965637285977902,
+     "cn": 0.032728363219764224,
+     "cm": -0.2964161929367477
+    },
+    "tail_upper_positive_y": {
+     "ca": -0.013965637286051266,
+     "cn": 0.03272836322111269,
+     "cm": -0.29641619294945915
+    },
+    "wing_lower_mirrored_y": {
+     "ca": -0.014980624947810741,
+     "cn": 0.054205241984989154,
+     "cm": 0.03081813862421534
+    },
+    "wing_lower_positive_y": {
+     "ca": -0.01498062494781078,
+     "cn": 0.05420524198499913,
+     "cm": 0.030818138624219744
+    },
+    "wing_upper_mirrored_y": {
+     "ca": -0.01539385455232318,
+     "cn": 0.09043074078378231,
+     "cm": 0.03520035943265039
+    },
+    "wing_upper_positive_y": {
+     "ca": -0.015393854552322854,
+     "cn": 0.09043074078377593,
+     "cm": 0.03520035943265131
+    }
+   },
+   "groups": {
+    "body": {
+     "ca": 0.10386111080516433,
+     "cn": 0.3072583025244374,
+     "cm": 0.20356533900480386
+    },
+    "fore_fins": {
+     "ca": -0.060748959000267555,
+     "cn": 0.2892719655375465,
+     "cm": 0.1320369961137368
+    },
+    "rear_fins": {
+     "ca": -0.05492425172366195,
+     "cn": 0.1613879682424386,
+     "cm": -1.476066409905774
+    }
+   },
+   "checkpoint_sha256": "7922483488044d507d5cf72c6d29cade32ccec4282bad39cbb813a1beb6ce5b6",
+   "rows": 232
+  }
+ },
+ "drag_account": {
+  "endpoints": [
+   "archived-coarse",
+   "archived-medium",
+   "archived-fine",
+   "archived-fourth",
+   "completion-coarse",
+   "completion-local"
+  ],
+  "total_ca_alpha0": {
+   "archived-coarse": -0.013228063134494157,
+   "archived-medium": -0.03698914284917044,
+   "archived-fine": -0.014225538439177211,
+   "archived-fourth": -0.010862996380781371,
+   "completion-coarse": -0.013228063030390825,
+   "completion-local": 0.018776687870204447
+  },
+  "per_cad_ca_alpha0": {
+   "body_base": {
+    "archived-coarse": 0.10152128540531494,
+    "archived-medium": 0.05408209815039659,
+    "archived-fine": 0.09213499417135773,
+    "archived-fourth": 0.06986447213716994,
+    "completion-coarse": 0.10152128564950287,
+    "completion-local": 0.109518382908586
+   },
+   "body_boattail": {
+    "archived-coarse": -0.009912864535437287,
+    "archived-medium": 0.012662650012389682,
+    "archived-fine": 0.01896111615864947,
+    "archived-fourth": 0.0273294510863045,
+    "completion-coarse": -0.009912864662382732,
+    "completion-local": -0.005393972650708065
+   },
+   "body_cylinder": {
+    "archived-coarse": 0.0005608902976607949,
+    "archived-medium": 0.0004900190759467243,
+    "archived-fine": 4.679993676928118e-06,
+    "archived-fourth": 0.00013799540665039185,
+    "completion-coarse": 0.0005608902975262595,
+    "completion-local": -2.1556222914250062e-05
+   },
+   "body_nose": {
+    "archived-coarse": 0.04682273363201997,
+    "archived-medium": 0.025432040563569205,
+    "archived-fine": 0.012383504203630335,
+    "archived-fourth": 0.0072760055483386465,
+    "completion-coarse": 0.04682273362626236,
+    "completion-local": 0.04398910318801054
+   },
+   "tail_lower_mirrored_y": {
+    "archived-coarse": -0.01656208765590729,
+    "archived-medium": -0.013667574923332142,
+    "archived-fine": -0.015691381966551104,
+    "archived-fourth": -0.013711166836905903,
+    "completion-coarse": -0.016562087657898433,
+    "completion-local": -0.012610501335908048
+   },
+   "tail_lower_positive_y": {
+    "archived-coarse": -0.016562087656268015,
+    "archived-medium": -0.013667574923466038,
+    "archived-fine": -0.01569138196655147,
+    "archived-fourth": -0.013711166836993987,
+    "completion-coarse": -0.016562087657954506,
+    "completion-local": -0.012610501336151228
+   },
+   "tail_upper_mirrored_y": {
+    "archived-coarse": -0.016562087656070174,
+    "archived-medium": -0.013667574924005114,
+    "archived-fine": -0.015691381966661578,
+    "archived-fourth": -0.013711166836849415,
+    "completion-coarse": -0.016562087657924215,
+    "completion-local": -0.012610501336145068
+   },
+   "tail_upper_positive_y": {
+    "archived-coarse": -0.016562087657017506,
+    "archived-medium": -0.0136675749241099,
+    "archived-fine": -0.015691381966658046,
+    "archived-fourth": -0.013711166836992621,
+    "completion-coarse": -0.016562087658069886,
+    "completion-local": -0.012610501336912187
+   },
+   "wing_lower_mirrored_y": {
+    "archived-coarse": -0.021492939327197952,
+    "archived-medium": -0.01874641273914,
+    "archived-fine": -0.01873607627501753,
+    "archived-fourth": -0.01515656330287592,
+    "completion-coarse": -0.021492939327363302,
+    "completion-local": -0.019718316001913642
+   },
+   "wing_lower_positive_y": {
+    "archived-coarse": -0.021492939327196012,
+    "archived-medium": -0.01874641273914039,
+    "archived-fine": -0.018736076275017298,
+    "archived-fourth": -0.015156563302875929,
+    "completion-coarse": -0.021492939327362914,
+    "completion-local": -0.019718316001913195
+   },
+   "wing_upper_mirrored_y": {
+    "archived-coarse": -0.021492939327199125,
+    "archived-medium": -0.018746412739139507,
+    "archived-fine": -0.01873607627501735,
+    "archived-fourth": -0.015156563302875806,
+    "completion-coarse": -0.02149293932736333,
+    "completion-local": -0.019718316001913615
+   },
+   "wing_upper_positive_y": {
+    "archived-coarse": -0.021492939327196498,
+    "archived-medium": -0.018746412739139552,
+    "archived-fine": -0.01873607627501729,
+    "archived-fourth": -0.015156563302875268,
+    "completion-coarse": -0.021492939327363004,
+    "completion-local": -0.0197183160019128
+   }
+  },
+  "sign_consistent_classes": {
+   "drag_producing": [
+    "body_base",
+    "body_nose"
+   ],
+   "thrust_producing": [
+    "tail_lower_mirrored_y",
+    "tail_lower_positive_y",
+    "tail_upper_mirrored_y",
+    "tail_upper_positive_y",
+    "wing_lower_mirrored_y",
+    "wing_lower_positive_y",
+    "wing_upper_mirrored_y",
+    "wing_upper_positive_y"
+   ]
+  },
+  "sum_of_positive_contributions": {
+   "archived-coarse": 0.1489049093349957,
+   "archived-medium": 0.0926668078023022,
+   "archived-fine": 0.12348429452731446,
+   "archived-fourth": 0.10460792417846347,
+   "completion-coarse": 0.1489049095732915,
+   "completion-local": 0.15350748609659653
+  },
+  "sum_of_negative_contributions": {
+   "archived-coarse": -0.16213297246948985,
+   "archived-medium": -0.12965595065147265,
+   "archived-fine": -0.13770983296649167,
+   "archived-fourth": -0.11547092055924485,
+   "completion-coarse": -0.1621329726036823,
+   "completion-local": -0.13473079822639208
+  },
+  "cancellation_ratio": {
+   "archived-coarse": 0.08158774204292968,
+   "archived-medium": 0.2852868893661558,
+   "archived-fine": 0.10330081834198905,
+   "archived-fourth": 0.09407560213575916,
+   "completion-coarse": 0.0815877413333159,
+   "completion-local": 0.12231773412267971
+  },
+  "archived_sequence_coarse_to_fourth": [
+   -0.013228063134494157,
+   -0.03698914284917044,
+   -0.014225538439177211,
+   -0.010862996380781371
+  ],
+  "archived_steps": [
+   -0.02376107971467628,
+   0.022763604409993227,
+   0.00336254205839584
+  ],
+  "archived_sequence_monotone": false
+ },
+ "native_processes_started": 0
+}

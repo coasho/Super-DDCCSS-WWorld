@@ -221,3 +221,21 @@ directly or indirectly, from Original Software provided by NASA, under NOSA 1.3
 section 3.C. [LICENSE.OpenVSP](LICENSE.OpenVSP) retains upstream's exact notice.
 GTE headers/libraries are neither copied nor redistributed here; the patch
 consumes their existing upstream Boost Software License 1.0 distribution.
+
+## Continuous near-body wake transport candidate
+
+The 2026-10-21 [numerical handoff](numerics/README.md) imports AeroNumericsLab's
+modified VSPAERO 7.2.2 R2 patch and retains its original source, executable and
+input identities. It extends the native off-body sampling treatment to the
+steady wake update with continuous weights. The retained two-angle cases pass
+their original outer convergence and active-wake containment checks. This
+does not establish load accuracy, spatial convergence or equipment calibration;
+the SU2 coarse negative-drag case remains failed and no runtime coefficient
+table is admitted.
+
+The imported alteration is attributed to AeroNumericsLab's completion-revision
+delivery. Integration modification originator: **Super-DDCCSS-WWorld**, dated
+**2026-10-21**. Super-DDCCSS-WWorld identifies itself as the originator of this
+integration alteration and consents to its characterization as a Modification
+derived, directly or indirectly, from Original Software provided by NASA under
+NOSA 1.3 section 3.C. The exact [OpenVSP license](LICENSE.OpenVSP) is retained.

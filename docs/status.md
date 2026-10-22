@@ -1,5 +1,39 @@
 # Current capabilities and milestone status
 
+Numerical handoff integration and full regeneration, 2026-10-22, from main
+`d5c8203`: the [integration and validation record](sdk/missile-flight-validation.md#aeronumericslab-integration-2026-10-21)
+contains the hash-bound AeroNumericsLab candidates, fresh modified VSPAERO R2
+runs, strict wake containment and required-schema corrections. The LAB remains
+read only. Coarse zero-angle negative drag remains failed; no CFD coefficient
+table is admitted to runtime and overall load accuracy is not established.
+
+All 35 aircraft execute forced regeneration: 25 end cleanly and ten retain
+the documented B-29 ceiling/damping failures, with zero generated aircraft
+products changed. All 53 stores are forcibly recreated, including a second
+complete batch on the corrected runtime; every child exits zero. All 36 RCS
+tables pass their original bounded numerical verification after B-52H, F-35A
+and J-20A are recomputed with their original recipes. Only those three numerical
+payloads change. A persistent model/table binding gate prevents stale reuse.
+
+Full-suite failures first reproduce retained crew incapacitation after physical
+reset, steady-state allocations in boundary-history capture, undeclared source
+categories and outdated synthetic motor-fixture boundaries. Narrow corrections
+retain the original reset/zero-allocation assertions and all 128 original motor
+assertion-call ASTs. A new real-crew-loss regression is RED before the reset
+correction. Two live showcase fixtures now share a CTest resource lock; their
+scenes, assertions and timeouts are unchanged.
+
+Final complete suites pass **910/910 Release** (1161.75 s) and **836/836
+Headless** (1142.08 s), zero skips, with exact discovered-inventory/JUnit
+agreement. Installed-consumer checks pass within both suites. All 1,057 frozen
+source inputs and four sets of 813 runtime files retain their SHA256 identities
+through the tests. The original showcase recording and complete engagement JSON
+remain byte-identical, including its positive fragment Hit; the full control
+digest is also unchanged. All 53 store parameter objects and 130 payload cards
+match the baseline. Full SIM-M02/SIM-M03 physical acceptance, independent load
+accuracy and equipment/variant calibration remain open. Earlier dated entries
+below retain their original verification scope.
+
 SIM-M03 sourced finite fragment field, 2026-10-21, from `dded7ae`:
 the [original showcase Hit gate is repaired](sdk/fragment-hit-repair.md#sourced-finite-fragment-field-and-original-showcase-acceptance).
 The explicitly admitted V2 finite source uses all seven sectors of a pinned

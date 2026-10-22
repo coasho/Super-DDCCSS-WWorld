@@ -1,4 +1,4 @@
-# AIM-9X Sidewinder, built by hangar from public data (ADR-30, MS-7e1) - written by `python -m hangar missiles aim9x`
+# AIM-9X Block I Sidewinder, built by hangar from public data (ADR-30, MS-7e1) - written by `python -m hangar missiles aim9x`
 # (tools/hangar/hangar/missiles.py), one rule for every missile: edit the table there and write it again.
 #
 # Frame: metres, x aft from the nose's tip, y right, z up from the body's axis. The card (assets/stores/aim-9x.json)
@@ -9,7 +9,7 @@
 
 [aircraft]
 name = "aim9x"
-description = "AIM-9X Sidewinder (hangar build)"
+description = "AIM-9X Block I Sidewinder (hangar build)"
 category = "missile"
 card = "aim-9x"             # its store card: the published figures this design holds
 

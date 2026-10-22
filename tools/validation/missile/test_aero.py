@@ -15,6 +15,7 @@ import test_aero_vsp_case
 import test_aero_vsp_native
 import test_aero_vsp_adb
 import test_aero_hangar
+import test_aero_schema
 import types
 
 _SPEC = importlib.util.spec_from_file_location("missile_aero", Path(__file__).with_name("aero.py"))
@@ -41,6 +42,11 @@ class StaticAero(unittest.TestCase):
         patch=mock.patch.object(aero,"assess_adb",side_effect=self.synthetic_adb,create=True)
         self.adb_call=patch.start()
         self.addCleanup(patch.stop)
+        # These orchestration fixtures contain synthetic ADB bytes. The separate
+        # delivery-derived containment suite reads actual retained native bytes.
+        wake=mock.patch.object(aero,"assess_wake",return_value={"passed":True},create=True)
+        self.wake_call=wake.start()
+        self.addCleanup(wake.stop)
 
     @staticmethod
     def synthetic_adb(path,geometry,pair,**arguments):
@@ -117,6 +123,7 @@ class StaticAero(unittest.TestCase):
                 native_cg=[reference["moment_x_m"],0,0])
             row.update(geometry_sha256=aero.sha256(output/"missile.vspgeom"),
                 native_config_sha256=aero.sha256(folder/"missile.vspaero"),
+                wake_containment={"passed":True},
                 actual_geometry=self.synthetic_adb(folder/"missile.adb",folder/"missile.vspgeom",pair))
             rows.append(row)
         aero.save(output/"vsp-frame-cases.json",{"status":"computed","result":rows,"model_accepted":False})
@@ -152,6 +159,9 @@ class StaticAero(unittest.TestCase):
                 row=aero.assess_single_vsp_case(case,pair,ref)
                 self.assertTrue(row["actual_geometry"]["passed"])
                 self.assertEqual(self.adb_call.call_args.kwargs["wake_nodes"],16)
+                with mock.patch.object(aero,"assess_wake",return_value={"passed":False,"failures":[{"trail":2}]}):
+                    with self.assertRaisesRegex(ValueError,"containment"):
+                        aero.assess_single_vsp_case(case,pair,ref)
                 for config in ("missing\n","NumWakeNodes = 8\nNumWakeNodes = 16\n","NumWakeNodes = 8.0\n"):
                     (case/"missile.vspaero").write_text(config)
                     with self.subTest(config=config),self.assertRaises(ValueError):aero.assess_single_vsp_case(case,pair,ref)
@@ -723,6 +733,7 @@ def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromModule(test_aero_vsp_native))
     tests.addTests(loader.loadTestsFromModule(test_aero_vsp_adb))
     tests.addTests(loader.loadTestsFromModule(test_aero_hangar))
+    tests.addTests(loader.loadTestsFromModule(test_aero_schema))
     return tests
 
 

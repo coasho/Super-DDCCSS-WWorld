@@ -5,7 +5,7 @@
 <fdm_config name="aim9x" version="2.0" release="ALPHA">
     <fileheader>
         <author> hangar </author>
-        <description> AIM-9X Sidewinder, released </description>
+        <description> AIM-9X Block I Sidewinder, released </description>
     </fileheader>
     <metrics>
         <wingarea unit="FT2"> 0.13635384781205698 </wingarea>

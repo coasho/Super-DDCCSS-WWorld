@@ -73,6 +73,22 @@ add_test(NAME missile_aero_reference_checker
     COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/missile/test_aero.py")
 set_tests_properties(missile_flight_reference_checker missile_aero_reference_checker
     PROPERTIES LABELS "simulation;model-reference" TIMEOUT 30)
+add_test(NAME missile_wake_containment_checker
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/missile/test_aero_wake_containment.py")
+set_tests_properties(missile_wake_containment_checker
+    PROPERTIES LABELS "simulation;model-reference" TIMEOUT 180)
+add_test(NAME numerics_delivery_replay
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/missile/review_numerics.py"
+            --out "${CMAKE_BINARY_DIR}/numerics-delivery-review.json")
+set_tests_properties(numerics_delivery_replay
+    PROPERTIES LABELS "simulation;model-reference" TIMEOUT 180)
+add_test(NAME resource_rcs_binding
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/resources/check_rcs.py"
+            --aircraft-root "${CMAKE_SOURCE_DIR}/aircraft" --output "${CMAKE_BINARY_DIR}/rcs-asset-binding.json")
+add_test(NAME resource_rcs_binding_checker
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/resources/test_rcs_binding.py")
+set_tests_properties(resource_rcs_binding PROPERTIES LABELS "simulation;resources;model-reference" TIMEOUT 300)
+set_tests_properties(resource_rcs_binding_checker PROPERTIES LABELS "simulation;resources;model-reference" TIMEOUT 30)
 # Separate versioned extension contracts; these checks do not execute SDK handlers.
 add_test(NAME ma_engagement_contract
     COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/ma_engagement/check.py" --repo "${CMAKE_SOURCE_DIR}")

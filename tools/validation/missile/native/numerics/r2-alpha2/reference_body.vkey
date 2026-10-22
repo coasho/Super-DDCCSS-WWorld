@@ -1,0 +1,27 @@
+# VSPGEOM v3 Tag Key File
+D:/ENV/physics/openvsp-3.55.0-geometry-stage-build/replay/exact-v2-probe/original/reference_body.vspgeom
+9
+
+# part#,geom#,surf#,gname,gid,thick,plate,copy#,geomcopy#
+1,4,0,Authored AIM120C body_S,OKPTCMFQYU,1,0,1,5
+2,1,0,wing upper_C,WIDYPEVFVP,0,3,1,2
+3,3,0,wing upper mirrored_C,RZPCKXCRYZ,0,3,1,4
+4,7,0,wing lower_C,IOUXXXRATR,0,3,1,8
+5,5,0,wing lower mirrored_C,NEVLQSBDFD,0,3,1,6
+6,6,0,tail fin upper_C,KJWHVRGHXB,0,3,1,7
+7,8,0,tail fin upper mirrored_C,BEIMSTKJIO,0,3,1,9
+8,2,0,tail fin lower_C,UJZRWWMPSA,0,3,1,3
+9,0,0,tail fin lower mirrored_C,XUBUNOZGPK,0,3,1,1
+
+9
+
+# tag#,part#,ssname1,ssname2,...,ssid1,ssid2,...
+1,1
+2,2
+3,3
+4,4
+5,5
+6,6
+7,7
+8,8
+9,9

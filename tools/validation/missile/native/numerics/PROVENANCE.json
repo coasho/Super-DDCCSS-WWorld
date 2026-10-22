@@ -1,0 +1,256 @@
+{
+  "schema_version": 1,
+  "origin": "D:/Projects/Cpp/AeroNumericsLab",
+  "baseline": "d5c820380d4bed50fb45ef3d5399175586a8f094",
+  "status": "software integration; no aerodynamic model admission",
+  "files": [
+    {
+      "source": "work/02/tests/test_su2_schema_continuation.py",
+      "source_sha256": "7ad6a0d5b9ae9ab3841027c851872592656f5a8ad0d8f593699c870e48e39850",
+      "bytes": 12379,
+      "target": "tools/validation/missile/test_aero_schema.py",
+      "target_sha256": "f3923a7e0b1603028930f1881353f7a4393412750fce1775aa50befcdab55de0",
+      "derivation": "Import retargeted to the project parser; regression assertions unchanged. Run documentation retargeted to project paths."
+    },
+    {
+      "source": "work/completion/panel_closure/assess_saved_geometry.py",
+      "source_sha256": "f63bf41385ed21bbae37bf2145da9898952b881e4dcbe0276cbdf4788e0f153f",
+      "bytes": 41322,
+      "target": "tools/validation/missile/aero_vsp_geometry.py",
+      "target_sha256": "05c990af13db989ac2d99ce4e158ac311cfd55227b535731f0a77c2ed394d6fa",
+      "derivation": "Five function bodies extracted unchanged; imports reduced."
+    },
+    {
+      "source": "work/completion-revision/vspaero/tools/wake_containment.py",
+      "source_sha256": "adfdbe675be22c0a96d0a6ff149e9ed45ba7c69804d7f29f1e49c0370078e92f",
+      "bytes": 17647,
+      "target": "tools/validation/missile/aero_wake_containment.py",
+      "target_sha256": "f9e8b127c5651d16767610b2cf1f5bd4ba2d4c4cfcdb5d51e4bb438e6887c79a",
+      "derivation": "Project geometry import and explicit basename; finite/size/count guards added after a failing NaN regression. Run documentation retargeted to project paths."
+    },
+    {
+      "source": "work/completion-revision/vspaero/tests/test_wake_containment.py",
+      "source_sha256": "5080fa099c7edbeae573df6f382ddc6ad5f34b25dac6b7b068c395e8590f054a",
+      "bytes": 9133,
+      "target": "tools/validation/missile/test_aero_wake_containment.py",
+      "target_sha256": "0af032a9504cd7ae154473ec938f20f529b1fc9cdd13d2d8ec1d43efcfb2f722",
+      "derivation": "Project fixture/import paths; original seven tests unchanged; NaN circulation regression added. Run documentation retargeted to project paths."
+    },
+    {
+      "source": "work/completion-revision/vspaero/tests/negative_control/naive_containment.py",
+      "source_sha256": "b47f1cb6426a0bf0537b52ad50b364c997a0216d7785e85016893706478b3c0c",
+      "bytes": 996,
+      "target": "tools/validation/missile/native/numerics/naive_containment.py",
+      "target_sha256": "328091fdb7b3114e29080a6864b5069116e394a8d341ee8d1edebbd327362b82",
+      "derivation": "Negative-control import retargeted to the project containment module."
+    },
+    {
+      "source": "deliveries/completion-revision/source-diffs/vspaero/VSP_Solver.C.continuous-near-body-wake-r2.patch",
+      "source_sha256": "c71f26f714c35ea5b5e0d37230e5217d3d4e9aea6a7a28b8ceb93b54d8893470",
+      "bytes": 4867,
+      "target": "tools/validation/missile/native/vspaero-7.2.2-continuous-near-body-wake-r2.patch",
+      "target_sha256": "c71f26f714c35ea5b5e0d37230e5217d3d4e9aea6a7a28b8ceb93b54d8893470"
+    },
+    {
+      "source": "deliveries/completion-revision/source-diffs/vspaero/LICENSE.OpenVSP",
+      "source_sha256": "380ae9ac8ecce9f00822d74da9fab782d09fbeeafd9d4550355eebb0929c8166",
+      "bytes": 13867,
+      "target": "tools/validation/missile/native/numerics/LICENSE.OpenVSP",
+      "target_sha256": "380ae9ac8ecce9f00822d74da9fab782d09fbeeafd9d4550355eebb0929c8166"
+    },
+    {
+      "source": "deliveries/completion-revision/README.md",
+      "source_sha256": "22df691d793ff6bed84f55c31da0e6c37157d95963b0b2da43a0615175239b7e",
+      "bytes": 19811,
+      "target": "tools/validation/missile/native/numerics/DELIVERY.md",
+      "target_sha256": "22df691d793ff6bed84f55c31da0e6c37157d95963b0b2da43a0615175239b7e"
+    },
+    {
+      "source": "deliveries/completion-revision/su2/analysis/mesh-sensitivity.json",
+      "source_sha256": "7aea3ef4cafee3701510ce98c29db33e52a3f06c9e510762ca962c260cb36596",
+      "bytes": 106482,
+      "target": "tools/validation/missile/native/numerics/mesh-sensitivity.json",
+      "target_sha256": "7aea3ef4cafee3701510ce98c29db33e52a3f06c9e510762ca962c260cb36596"
+    },
+    {
+      "source": "deliveries/completion-revision/su2/cauchy-limit-derivation.json",
+      "source_sha256": "5cc4cefb7793064cdc36c4f71cc6a080269eaeebce9042adb258f36c312d6e64",
+      "bytes": 6051,
+      "target": "tools/validation/missile/native/numerics/cauchy-limit-derivation.json",
+      "target_sha256": "5cc4cefb7793064cdc36c4f71cc6a080269eaeebce9042adb258f36c312d6e64"
+    },
+    {
+      "source": "convergence/strength-summary.json",
+      "source_sha256": "411546dba623557de28203febc88dd290c25cf6bad2a94d61b89adabbc00ccf9",
+      "bytes": 175771,
+      "target": "tools/validation/missile/native/numerics/strength-summary.json",
+      "target_sha256": "411546dba623557de28203febc88dd290c25cf6bad2a94d61b89adabbc00ccf9"
+    },
+    {
+      "source": "convergence/cases/alpha0/reference_body.adb",
+      "source_sha256": "d65610a2b011de2d74c336c48e22fa3423cad6f093504c87a7d8d6273d4f6f64",
+      "bytes": 387476,
+      "target": "tools/validation/missile/native/numerics/archive-alpha0/reference_body.adb",
+      "target_sha256": "d65610a2b011de2d74c336c48e22fa3423cad6f093504c87a7d8d6273d4f6f64"
+    },
+    {
+      "source": "convergence/cases/alpha0/reference_body.vspgeom",
+      "source_sha256": "065d932167a3e0cfdd28443fbf94f7f698cb51ecec71135f08036f0f81f46ef9",
+      "bytes": 518392,
+      "target": "tools/validation/missile/native/numerics/archive-alpha0/reference_body.vspgeom",
+      "target_sha256": "065d932167a3e0cfdd28443fbf94f7f698cb51ecec71135f08036f0f81f46ef9"
+    },
+    {
+      "source": "convergence/cases/alpha0/reference_body.vkey",
+      "source_sha256": "5b874cac4ff8701edc29f54a6eb234558fee5d49e6345ed5eaaf4060d85176da",
+      "bytes": 713,
+      "target": "tools/validation/missile/native/numerics/archive-alpha0/reference_body.vkey",
+      "target_sha256": "5b874cac4ff8701edc29f54a6eb234558fee5d49e6345ed5eaaf4060d85176da"
+    },
+    {
+      "source": "work/completion-revision/vspaero/runs/r2-continuous-near-body-wake-alpha0/reference_body.adb",
+      "source_sha256": "8fdd3c9079a2bcd9cfdc3a13fc8056cd03cfa28dd7adee869a368850d461500e",
+      "bytes": 387476,
+      "target": "tools/validation/missile/native/numerics/r2-alpha0/reference_body.adb",
+      "target_sha256": "8fdd3c9079a2bcd9cfdc3a13fc8056cd03cfa28dd7adee869a368850d461500e"
+    },
+    {
+      "source": "work/completion-revision/vspaero/runs/r2-continuous-near-body-wake-alpha0/reference_body.vspgeom",
+      "source_sha256": "065d932167a3e0cfdd28443fbf94f7f698cb51ecec71135f08036f0f81f46ef9",
+      "bytes": 518392,
+      "target": "tools/validation/missile/native/numerics/r2-alpha0/reference_body.vspgeom",
+      "target_sha256": "065d932167a3e0cfdd28443fbf94f7f698cb51ecec71135f08036f0f81f46ef9"
+    },
+    {
+      "source": "work/completion-revision/vspaero/runs/r2-continuous-near-body-wake-alpha0/reference_body.vkey",
+      "source_sha256": "5b874cac4ff8701edc29f54a6eb234558fee5d49e6345ed5eaaf4060d85176da",
+      "bytes": 713,
+      "target": "tools/validation/missile/native/numerics/r2-alpha0/reference_body.vkey",
+      "target_sha256": "5b874cac4ff8701edc29f54a6eb234558fee5d49e6345ed5eaaf4060d85176da"
+    },
+    {
+      "source": "work/completion-revision/vspaero/runs/r2-continuous-near-body-wake-alpha0/reference_body.vspaero",
+      "source_sha256": "36ad325e6a41f6460c69d169e5632e3ebabd09d92a054c08901ae4c98d634dea",
+      "bytes": 970,
+      "target": "tools/validation/missile/native/numerics/r2-alpha0/reference_body.vspaero",
+      "target_sha256": "36ad325e6a41f6460c69d169e5632e3ebabd09d92a054c08901ae4c98d634dea"
+    },
+    {
+      "source": "work/completion-revision/vspaero/runs/r2-continuous-near-body-wake-alpha0/reference_body.polar",
+      "source_sha256": "573036668a50adf0f1cf544a40b19b58b46c21c5b1b9fb669ba00cf7f1401b1e",
+      "bytes": 3025,
+      "target": "tools/validation/missile/native/numerics/r2-alpha0/reference_body.polar",
+      "target_sha256": "573036668a50adf0f1cf544a40b19b58b46c21c5b1b9fb669ba00cf7f1401b1e"
+    },
+    {
+      "source": "work/completion-revision/vspaero/runs/r2-continuous-near-body-wake-alpha0/reference_body.history",
+      "source_sha256": "33559374f3ddda78e35de91033d47509dfd0aff8d2f465a232343fdc9e74e67f",
+      "bytes": 8421,
+      "target": "tools/validation/missile/native/numerics/r2-alpha0/reference_body.history",
+      "target_sha256": "33559374f3ddda78e35de91033d47509dfd0aff8d2f465a232343fdc9e74e67f"
+    },
+    {
+      "source": "work/completion-revision/vspaero/runs/r2-continuous-near-body-wake-alpha0/run.log",
+      "source_sha256": "993c699afa85794d7ca4be7f0a799eaa514bb8258cc5ae191e6a20b9264b5a54",
+      "bytes": 334742,
+      "target": "tools/validation/missile/native/numerics/r2-alpha0/solver.txt",
+      "target_sha256": "993c699afa85794d7ca4be7f0a799eaa514bb8258cc5ae191e6a20b9264b5a54"
+    },
+    {
+      "source": "work/completion-revision/vspaero/runs/r2-continuous-near-body-wake-alpha2/reference_body.adb",
+      "source_sha256": "f50a8480a551ed60b7cd618dc38116086c0817e553e61a001b00f07ed1cfca28",
+      "bytes": 387476,
+      "target": "tools/validation/missile/native/numerics/r2-alpha2/reference_body.adb",
+      "target_sha256": "f50a8480a551ed60b7cd618dc38116086c0817e553e61a001b00f07ed1cfca28"
+    },
+    {
+      "source": "work/completion-revision/vspaero/runs/r2-continuous-near-body-wake-alpha2/reference_body.vspgeom",
+      "source_sha256": "065d932167a3e0cfdd28443fbf94f7f698cb51ecec71135f08036f0f81f46ef9",
+      "bytes": 518392,
+      "target": "tools/validation/missile/native/numerics/r2-alpha2/reference_body.vspgeom",
+      "target_sha256": "065d932167a3e0cfdd28443fbf94f7f698cb51ecec71135f08036f0f81f46ef9"
+    },
+    {
+      "source": "work/completion-revision/vspaero/runs/r2-continuous-near-body-wake-alpha2/reference_body.vkey",
+      "source_sha256": "5b874cac4ff8701edc29f54a6eb234558fee5d49e6345ed5eaaf4060d85176da",
+      "bytes": 713,
+      "target": "tools/validation/missile/native/numerics/r2-alpha2/reference_body.vkey",
+      "target_sha256": "5b874cac4ff8701edc29f54a6eb234558fee5d49e6345ed5eaaf4060d85176da"
+    },
+    {
+      "source": "work/completion-revision/vspaero/runs/r2-continuous-near-body-wake-alpha2/reference_body.vspaero",
+      "source_sha256": "958d89e4349757eafa6fcf77b197f0c7aa4f5d9f547449ada3d8bb996dbea5c0",
+      "bytes": 1006,
+      "target": "tools/validation/missile/native/numerics/r2-alpha2/reference_body.vspaero",
+      "target_sha256": "958d89e4349757eafa6fcf77b197f0c7aa4f5d9f547449ada3d8bb996dbea5c0"
+    },
+    {
+      "source": "work/completion-revision/vspaero/runs/r2-continuous-near-body-wake-alpha2/reference_body.polar",
+      "source_sha256": "a9bcdd71b67fab5177bd4db1c60a052847e153e7c27b42911f7ca3e4931cb979",
+      "bytes": 3025,
+      "target": "tools/validation/missile/native/numerics/r2-alpha2/reference_body.polar",
+      "target_sha256": "a9bcdd71b67fab5177bd4db1c60a052847e153e7c27b42911f7ca3e4931cb979"
+    },
+    {
+      "source": "work/completion-revision/vspaero/runs/r2-continuous-near-body-wake-alpha2/reference_body.history",
+      "source_sha256": "d042eef081de580c2760f5c26578b62c70a0900b52ac424afdeec4ea913827a3",
+      "bytes": 17111,
+      "target": "tools/validation/missile/native/numerics/r2-alpha2/reference_body.history",
+      "target_sha256": "d042eef081de580c2760f5c26578b62c70a0900b52ac424afdeec4ea913827a3"
+    },
+    {
+      "source": "work/completion-revision/vspaero/runs/r2-continuous-near-body-wake-alpha2/run.log",
+      "source_sha256": "ca0fe8fe58d3308d30fe14318236fd9ad4c7c5fdcac832c359ba1b6f2a88fe4d",
+      "bytes": 904774,
+      "target": "tools/validation/missile/native/numerics/r2-alpha2/solver.txt",
+      "target_sha256": "ca0fe8fe58d3308d30fe14318236fd9ad4c7c5fdcac832c359ba1b6f2a88fe4d"
+    },
+    {
+      "source": "work/02/candidate/tools/validation/reference_body/aero.py",
+      "source_sha256": "f8e4b12689b056cd702dd4a7df64cd8a2ea4129dc029cba5f61c1310ad2f5c5f",
+      "bytes": 47554
+    },
+    {
+      "source": "work/completion-revision/su2/runs/attempt-01/run/coarse/alpha-0/pass-0/history.csv",
+      "source_sha256": "116afd9d601522b95c4fec6c86b8faa4f4277ae83869b94effb1591dc4195b43",
+      "target": "tools/validation/missile/native/numerics/su2-coarse-alpha0.csv",
+      "target_sha256": "116afd9d601522b95c4fec6c86b8faa4f4277ae83869b94effb1591dc4195b43",
+      "bytes": 706400
+    },
+    {
+      "source": "work/completion-revision/su2/runs/attempt-01/run/coarse/alpha-2/pass-0/history.csv",
+      "source_sha256": "e4d0cf4cec2247e2fbff1c808c92d34f1d8cff244d10fa579f5288e31158d077",
+      "target": "tools/validation/missile/native/numerics/su2-coarse-alpha2.csv",
+      "target_sha256": "e4d0cf4cec2247e2fbff1c808c92d34f1d8cff244d10fa579f5288e31158d077",
+      "bytes": 588400
+    },
+    {
+      "source": "work/completion-revision/su2/runs/attempt-01/run/local/alpha-0/pass-0/history.csv",
+      "source_sha256": "fec89ddf66de95c98adf7996546d4bbc219ef41bb16261552cafb2619315f834",
+      "target": "tools/validation/missile/native/numerics/su2-local-alpha0.csv",
+      "target_sha256": "fec89ddf66de95c98adf7996546d4bbc219ef41bb16261552cafb2619315f834",
+      "bytes": 3646800
+    },
+    {
+      "source": "work/completion-revision/su2/runs/attempt-01/run/local/alpha-2/pass-0/history.csv",
+      "source_sha256": "58236667241f9e2e66f258ac23ba1fa0c724d9b9371c5b49abdc270eba494dc6",
+      "target": "tools/validation/missile/native/numerics/su2-local-alpha2.csv",
+      "target_sha256": "58236667241f9e2e66f258ac23ba1fa0c724d9b9371c5b49abdc270eba494dc6",
+      "bytes": 3196800
+    },
+    {
+      "source": "work/completion-revision/vspaero/tools/run_vspaero.py",
+      "source_sha256": "bf56460a7d7bf53f00e12661a5296b6b8c93bcf27b49cacf4f95cb8ad8ba7984",
+      "bytes": 8192,
+      "target": "tools/validation/missile/run_numerics_vspaero.py",
+      "target_sha256": "588de1f5ddf02f035a96162d988d79035f0e7c0d3ede0f9e4409dbecc60133b6",
+      "derivation": "Input root retargeted to checked-in released fixtures; native command, budgets and guards unchanged. Source text normalized to LF. Run documentation retargeted to project paths."
+    }
+  ],
+  "source_review": {
+    "r2_patch_roundtrip": true,
+    "reference_unit_sha256": "5a8c97d10bebba850091df5ac247ae24918dc244ae6ee4be9f2e325b8c39fc7d",
+    "corrected_unit_sha256": "1bf4afa5d6d7c232aec38d50c45640f75940cc3d2752ce8e0e74eacc8acf106c",
+    "executable_sha256": "bf462933fd3f35c3ff321712faa59fef74717d25344260c067f4dd1625aa26d0"
+  }
+}

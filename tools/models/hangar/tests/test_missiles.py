@@ -183,7 +183,9 @@ class Missiles(unittest.TestCase):
                 aircraft = types.SimpleNamespace(spec={"motor": spec, "mass": {"empty": 2.0, "empty_cg": [1.0, 0.0, 0.0]}},
                                                  bodies=[types.SimpleNamespace(kind="fuselage", w=[0.2], x=[0.0, 2.0])])
                 d = types.SimpleNamespace(aircraft=aircraft, save=lambda stage, data: data)
-                result = storestages.propulsion(d)
+                # Synthetic motor cases isolate the card-file boundary, not motor validation.
+                with mock.patch.object(storestages, "card_of", return_value={}):
+                    result = storestages.propulsion(d)
                 self.assertNotIn("motor", result)
                 self.assertEqual(result["checks"][0]["value"], "none")
 
@@ -194,7 +196,8 @@ class Missiles(unittest.TestCase):
                 aircraft = types.SimpleNamespace(spec={"motor": spec, "mass": {"empty": 2.0, "empty_cg": [1.0, 0.0, 0.0]}},
                                                  bodies=[types.SimpleNamespace(kind="fuselage", w=[0.2], x=[0.0, 2.0])])
                 d = types.SimpleNamespace(aircraft=aircraft, save=lambda stage, data: data)
-                with self.assertRaisesRegex(ValueError, "motor:"):
+                with mock.patch.object(storestages, "card_of", return_value={}), \
+                        self.assertRaisesRegex(ValueError, "motor:"):
                     storestages.propulsion(d)
 
     def test_motor_burn_commands_ignition_before_stepping_and_closes_world(self):
@@ -221,8 +224,10 @@ class Missiles(unittest.TestCase):
                 world = types.SimpleNamespace(create_vehicle=mock.Mock(return_value=vehicle), step_seconds=0.05,
                                               step=step, close=lambda: events.append(("close",)))
                 with mock.patch.object(storestages, "_world", return_value=(None, world)), \
-                        mock.patch.object(storebodies, "motor_of", return_value=motor):
+                        mock.patch.object(storestages, "card_of", return_value={"model": "synthetic-model"}), \
+                        mock.patch.object(storebodies, "card_motor_of", return_value=motor) as selected_motor:
                     result = storestages._burn(design, {"model": "synthetic-model"})
+                selected_motor.assert_called_once_with({"model": "synthetic-model"}, aircraft.spec, 2.0, 0.5, 0.1)
                 self.assertEqual(events[0], ("ignite", {"throttle": 1}))
                 self.assertEqual(events[-1], ("close",))
                 self.assertEqual(sum(event[0] == "close" for event in events), 1)

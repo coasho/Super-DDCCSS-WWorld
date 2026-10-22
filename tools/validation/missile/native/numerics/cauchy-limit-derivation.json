@@ -1,0 +1,166 @@
+{
+ "definition": "Derive the native Cauchy limit that lets the unchanged 1e-8 endpoint envelope hold (completion revision, SU2).\n\nSU2 8.5.0 stops a coefficient field when C_cauchy < CONV_CAUCHY_EPS, where C_cauchy is the mean over\nCONV_CAUCHY_ELEMS = 100 iterations of |dC| / max(|C|, 0.1) (SU2_CFD/src/output/COutput.cpp:954-965). The acceptance\nenvelope of a functional f (work/completion/su2/pressure_loads.py::endpoint_envelope) is unchanged:\n    span + drift + two printed quanta <= 1e-8\nover the last two 100-sample windows. It is evaluated on CFx, CFz, CMy and CD.\n\n**Bound.** Let the recent window change f by S in total and the older window by at most g * S. Then\nspan <= g * S and drift <= (1 + g) * S, so\n    envelope <= (1 + 2 g) S + 2 q.\n- A monitored field f (CD, CL, CMy) at the native stop has S <= 100 * eps * max(|f|, 0.1).\n- The body-axis forces combine them: |dCFx| <= |dCD| cos a + |dCL| sin a and |dCFz| <= |dCL| cos a + |dCD| sin a.\n\nSo the envelope can hold only if\n    eps <= (1e-8 - 2 q_f) / ((1 + 2 g_f) * 100 * M_f)\nfor every functional f and every grid/angle point of the comparison. M_f is its monitored-magnitude combination,\nq_f its printed quantum, and g_f its measured older/recent change ratio over the last 200 rows of the completion\nhistories (`work/completion/su2/runs/attempt-01`, the same discretization and stops).\n\nThe result records each bound and the largest power of ten not above the smallest bound. It also records whether\nthe template value 1E-10 and the chosen 1E-11 are admissible. No native process is run.",
+ "points": [
+  {
+   "grid": "coarse",
+   "alpha_deg": 0.0,
+   "rows": 1379,
+   "functionals": {
+    "cm": {
+     "column": "CMy",
+     "older_over_recent_change": 2.2386842602469326,
+     "g": 2.2386842602469326,
+     "printed_quantum": 1e-19,
+     "monitored_magnitude": 0.1,
+     "eps_bound": 1.8256942110768097e-10
+    },
+    "wind_cd": {
+     "column": "CD",
+     "older_over_recent_change": 2.153846166163717,
+     "g": 2.153846166163717,
+     "printed_quantum": 1e-11,
+     "monitored_magnitude": 0.1,
+     "eps_bound": 1.8802898463452855e-10
+    },
+    "ca": {
+     "column": "CFx",
+     "older_over_recent_change": 2.153846166163717,
+     "g": 2.153846166163717,
+     "printed_quantum": 1e-11,
+     "monitored_magnitude": 0.1,
+     "eps_bound": 1.8802898463452855e-10
+    },
+    "cn": {
+     "column": "CFz",
+     "older_over_recent_change": 2.337298025239129,
+     "g": 2.337298025239129,
+     "printed_quantum": 1e-19,
+     "monitored_magnitude": 0.1,
+     "eps_bound": 1.7622399745894148e-10
+    }
+   }
+  },
+  {
+   "grid": "coarse",
+   "alpha_deg": 2.0,
+   "rows": 1174,
+   "functionals": {
+    "cm": {
+     "column": "CMy",
+     "older_over_recent_change": 2.1956521398088396,
+     "g": 2.1956521398088396,
+     "printed_quantum": 1e-10,
+     "monitored_magnitude": 0.723060221,
+     "eps_bound": 2.513956522137513e-11
+    },
+    "wind_cd": {
+     "column": "CD",
+     "older_over_recent_change": 3.4047618687693433,
+     "g": 3.4047618687693433,
+     "printed_quantum": 1e-11,
+     "monitored_magnitude": 0.1,
+     "eps_bound": 1.2779268410477204e-10
+    },
+    "ca": {
+     "column": "CFx",
+     "older_over_recent_change": 3.2173912868038363,
+     "g": 3.2173912868038363,
+     "printed_quantum": 1e-11,
+     "monitored_magnitude": 0.13678745329263808,
+     "eps_bound": 9.813320997722518e-11
+    },
+    "cn": {
+     "column": "CFz",
+     "older_over_recent_change": 1.0,
+     "g": 1.0,
+     "printed_quantum": 1e-09,
+     "monitored_magnitude": 1.0586892229690898,
+     "eps_bound": 2.518838020460821e-11
+    }
+   }
+  },
+  {
+   "grid": "local",
+   "alpha_deg": 0.0,
+   "rows": 6724,
+   "functionals": {
+    "cm": {
+     "column": "CMy",
+     "older_over_recent_change": 1.2473218931120174,
+     "g": 1.2473218931120174,
+     "printed_quantum": 1e-18,
+     "monitored_magnitude": 0.1,
+     "eps_bound": 2.861521977553257e-10
+    },
+    "wind_cd": {
+     "column": "CD",
+     "older_over_recent_change": 1.1176470582232791,
+     "g": 1.1176470582232791,
+     "printed_quantum": 1e-11,
+     "monitored_magnitude": 0.1,
+     "eps_bound": 3.0847272738719037e-10
+    },
+    "ca": {
+     "column": "CFx",
+     "older_over_recent_change": 1.1176470582232791,
+     "g": 1.1176470582232791,
+     "printed_quantum": 1e-11,
+     "monitored_magnitude": 0.1,
+     "eps_bound": 3.0847272738719037e-10
+    },
+    "cn": {
+     "column": "CFz",
+     "older_over_recent_change": 1.2716358264548338,
+     "g": 1.2716358264548338,
+     "printed_quantum": 1e-19,
+     "monitored_magnitude": 0.1,
+     "eps_bound": 2.822250445174924e-10
+    }
+   }
+  },
+  {
+   "grid": "local",
+   "alpha_deg": 2.0,
+   "rows": 5597,
+   "functionals": {
+    "cm": {
+     "column": "CMy",
+     "older_over_recent_change": 1.0909090982494085,
+     "g": 1.0909090982494085,
+     "printed_quantum": 1e-09,
+     "monitored_magnitude": 1.545814306,
+     "eps_bound": 1.626512119163307e-11
+    },
+    "wind_cd": {
+     "column": "CD",
+     "older_over_recent_change": 1.111111113447439,
+     "g": 1.111111113447439,
+     "printed_quantum": 1e-11,
+     "monitored_magnitude": 0.1,
+     "eps_bound": 3.097241374818928e-10
+    },
+    "ca": {
+     "column": "CFx",
+     "older_over_recent_change": 1.0961538475010797,
+     "g": 1.0961538475010797,
+     "printed_quantum": 1e-11,
+     "monitored_magnitude": 0.13444798399650965,
+     "eps_bound": 2.3252598995336366e-10
+    },
+    "cn": {
+     "column": "CFz",
+     "older_over_recent_change": 1.076923083492444,
+     "g": 1.076923083492444,
+     "printed_quantum": 1e-10,
+     "monitored_magnitude": 0.9916955876575514,
+     "eps_bound": 3.133337587561035e-11
+    }
+   }
+  }
+ ],
+ "smallest_bound": 1.626512119163307e-11,
+ "largest_power_of_ten_not_above": 1e-11,
+ "template_1e-10_admissible": false,
+ "chosen_1e-11_admissible": true,
+ "chosen_equals_largest_admissible_power_of_ten": true
+}

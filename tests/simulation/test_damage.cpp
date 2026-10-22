@@ -13,6 +13,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <cstdlib>
 #include <filesystem>
 #include <limits>
@@ -1366,4 +1367,35 @@ TEST_CASE("a section a burst breaks off is thrown away from the burst: up from o
     // and no faster than a whole section is thrown
     CHECK(std::abs(under.down / under.pieces) < 61.0);
     CHECK(std::abs(over.down / over.pieces) < 61.0);
+}
+
+TEST_CASE("a physical reset restores flight control after native crew loss", "[damage][world][reset]") {
+    fsim::session::World fresh(fsim::modes::options("damage-reset-fresh"));
+    fsim::session::World restored(fsim::modes::options("damage-reset-restored"));
+    const auto baseline=fsim::modes::wing(fresh,"f16c",6000.0,220.0);
+    const auto id=fsim::modes::wing(restored,"f16c",6000.0,220.0);
+    const auto initial=restored.info(id)->initial;
+    REQUIRE(restored.separateSection(id,"nose"));
+    const auto events=restored.takeEngagementEvents();
+    REQUIRE(std::any_of(events.begin(),events.end(),[](const auto& e) {
+        return e.kind==static_cast<std::uint8_t>(fsim::ipc::EngagementKind::CrewLost) && std::string(e.name)=="pilot";
+    }));
+    REQUIRE(restored.resetVehicle(id,&initial));
+    REQUIRE(restored.damage(id)==nullptr);
+    CHECK(restored.model(id)->energy().massKg==fresh.model(baseline)->energy().massKg);
+    const fsim::control::AttitudeCommand demand{0.1,0.03,fsim::control::kHold,0.7,fsim::control::kHold,220.0};
+    REQUIRE(fresh.command(baseline,demand));
+    REQUIRE(restored.command(id,demand));
+    fresh.step(32);
+    restored.step(32);
+    const auto& expected=*fresh.vehicleState(baseline);
+    const auto& actual=*restored.vehicleState(id);
+    REQUIRE_FALSE(actual.crashed);
+    REQUIRE_FALSE(actual.diverged);
+    CHECK(actual.aileronRad==expected.aileronRad);
+    CHECK(actual.elevatorRad==expected.elevatorRad);
+    CHECK(actual.rudderRad==expected.rudderRad);
+    CHECK(std::memcmp(actual.positionEcef,expected.positionEcef,sizeof actual.positionEcef)==0);
+    CHECK(std::memcmp(actual.velocityBodyMs,expected.velocityBodyMs,sizeof actual.velocityBodyMs)==0);
+    CHECK(std::memcmp(actual.angularRateBodyRadS,expected.angularRateBodyRadS,sizeof actual.angularRateBodyRadS)==0);
 }

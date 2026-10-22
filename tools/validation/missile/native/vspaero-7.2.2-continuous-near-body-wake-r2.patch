@@ -1,0 +1,115 @@
+--- a/VSP_Solver.C
++++ b/VSP_Solver.C
+@@ -7862,6 +7862,112 @@
+                 
+        if ( !TimeAccurate_ ) {
+                    
++          // reference_body completion revision correction (R2): continuous near-body wake transport velocity.
++          // The wake update samples the flow at each wake edge centre, an off-body field point where the raw
++          // vortex-lattice sum is singular next to a panel surface. The native off-body rule of this solver
++          // (CalculateSurfaceInducedVelocityAtOffBodyPoint) replaces such samples by the 1/distance-weighted mean
++          // of the adjacent surface-loop velocities within one fine-edge length. Here the same ingredients are used
++          // with continuous weights: phi = 1 - d/L per fine surface edge (zero at the native cutoff), the
++          // surface direction weighted by phi/d, and the blend weight beta = 1 - prod(1 - phi).
++
++          {
++
++             int RBC_e, RBC_j, RBC_Wake = 0, RBC_Near = 0, RBC_Count, RBC_L1, RBC_L2;
++             double RBC_xyz[3], RBC_d, RBC_phi, RBC_w, RBC_W, RBC_P, RBC_S[3], RBC_R[3], RBC_B[3];
++             double RBC_SMag, RBC_RMag, RBC_BMag, RBC_Beta, RBC_BetaMax = 0.;
++             VSP_EDGE *RBC_Ve;
++             INTERACTION_LISTS *RBC_List;
++
++             VSP_GRID &RBC_Grid = VSPGeom().Grid(MGLevel_);
++
++             for ( RBC_e = 1 ; RBC_e <= RBC_Grid.NumberOfEdges() ; RBC_e++ ) {
++
++                VSP_EDGE &RBC_Edge = RBC_Grid.EdgeList(RBC_e);
++
++                if ( !RBC_Edge.IsWakeEdge() ) continue;
++
++                RBC_Wake++;
++
++                RBC_xyz[0] = RBC_Edge.xyz_c()[0];
++                RBC_xyz[1] = RBC_Edge.xyz_c()[1];
++                RBC_xyz[2] = RBC_Edge.xyz_c()[2];
++
++                RBC_List = CreateInteractionList(0, 0, RBC_xyz);
++
++                RBC_W = 0.;
++                RBC_P = 1.;
++                RBC_Count = 0;
++                RBC_S[0] = RBC_S[1] = RBC_S[2] = 0.;
++
++                for ( RBC_j = 1 ; RBC_j <= RBC_List->NumberOfInteractionEdges ; RBC_j++ ) {
++
++                   RBC_Ve = RBC_List->EdgeInteractionList[RBC_j];
++
++                   if ( RBC_Ve->Level() != 1 || RBC_Ve->SurfaceID() <= 0 ) continue;
++
++                   if ( Mach_ >= 1. && RBC_xyz[0] - RBC_Ve->Xc() <= 0. ) continue;
++
++                   RBC_d = sqrt( pow(RBC_xyz[0] - RBC_Ve->Xc(), 2.)
++                               + pow(RBC_xyz[1] - RBC_Ve->Yc(), 2.)
++                               + pow(RBC_xyz[2] - RBC_Ve->Zc(), 2.) );
++
++                   if ( RBC_d >= RBC_Ve->Length() ) continue;
++
++                   RBC_phi = 1. - RBC_d / RBC_Ve->Length();
++
++                   RBC_w = RBC_phi / MAX(1.e-7, RBC_d);
++
++                   RBC_L1 = RBC_Ve->Loop1();
++                   RBC_L2 = RBC_Ve->Loop2();
++
++                   RBC_S[0] += RBC_w * 0.5 * ( VSPGeom().Grid(MGLevel_).LoopList(RBC_L1).U() + VSPGeom().Grid(MGLevel_).LoopList(RBC_L2).U() );
++                   RBC_S[1] += RBC_w * 0.5 * ( VSPGeom().Grid(MGLevel_).LoopList(RBC_L1).V() + VSPGeom().Grid(MGLevel_).LoopList(RBC_L2).V() );
++                   RBC_S[2] += RBC_w * 0.5 * ( VSPGeom().Grid(MGLevel_).LoopList(RBC_L1).W() + VSPGeom().Grid(MGLevel_).LoopList(RBC_L2).W() );
++
++                   RBC_W += RBC_w;
++
++                   RBC_P *= ( 1. - RBC_phi );
++
++                   RBC_Count++;
++
++                }
++
++                if ( RBC_Count == 0 || RBC_W <= 0. ) continue;
++
++                RBC_SMag = sqrt(vector_dot(RBC_S,RBC_S));
++
++                RBC_R[0] = RBC_Edge.U();
++                RBC_R[1] = RBC_Edge.V();
++                RBC_R[2] = RBC_Edge.W();
++
++                RBC_RMag = sqrt(vector_dot(RBC_R,RBC_R));
++
++                if ( RBC_SMag <= 0. || RBC_RMag <= 0. ) continue;
++
++                RBC_Beta = 1. - RBC_P;
++
++                RBC_BetaMax = MAX(RBC_BetaMax, RBC_Beta);
++
++                RBC_B[0] = ( 1. - RBC_Beta ) * RBC_R[0] / RBC_RMag + RBC_Beta * RBC_S[0] / RBC_SMag;
++                RBC_B[1] = ( 1. - RBC_Beta ) * RBC_R[1] / RBC_RMag + RBC_Beta * RBC_S[1] / RBC_SMag;
++                RBC_B[2] = ( 1. - RBC_Beta ) * RBC_R[2] / RBC_RMag + RBC_Beta * RBC_S[2] / RBC_SMag;
++
++                RBC_BMag = sqrt(vector_dot(RBC_B,RBC_B));
++
++                if ( RBC_BMag <= 0. ) continue;
++
++                RBC_Edge.U() = RBC_RMag * RBC_B[0] / RBC_BMag;
++                RBC_Edge.V() = RBC_RMag * RBC_B[1] / RBC_BMag;
++                RBC_Edge.W() = RBC_RMag * RBC_B[2] / RBC_BMag;
++
++                RBC_Near++;
++
++             }
++
++             printf("REFERENCE_BODY_NEAR_BODY_WAKE_SAMPLES wake_iter=%d wake_edges=%d near_body=%d max_weight=%.17g\n", CurrentWakeIteration_, RBC_Wake, RBC_Near, RBC_BetaMax);
++
++          }
++
+           for ( m = 1 ; m <= VSPGeom().NumberOfVortexSheets() ; m++ ) {     
+           
+              VSPGeom().VortexSheet(m).UpdateWakeLocation(WakeRelax_,ResMax,ResL2);

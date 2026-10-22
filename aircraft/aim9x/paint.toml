@@ -1,4 +1,4 @@
-# AIM-9X Sidewinder's paint, by one rule for every missile (tools/hangar/hangar/missiles.py): light grey overall; the seeker's dome glass
+# AIM-9X Block I Sidewinder's paint, by one rule for every missile (tools/hangar/hangar/missiles.py): light grey overall; the seeker's dome glass
 # a yellow band on the warhead (a live round) and a brown one on the motor - the maker's colour code (MIL-STD-1168, STANAG 2953); the bands' places assumed
 [paint]
 scheme = "single"

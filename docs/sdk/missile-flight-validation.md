@@ -935,7 +935,7 @@ overrides and incomplete/nonfinite histories cannot produce a passing report.
 
 The software fixes and powered-flight agreement do not close these gates.
 
-Delivery review also identified an unfixed orchestration issue in `parse_su2`:
+The earlier delivery review identified an orchestration issue in `parse_su2`:
 when density has not reached its target, missing native Cauchy columns produce
 `NotConverged` before the schema check. A mocked two-pass reproduction shows
 that the outgoing checkpoint can then continue to a later valid history.
@@ -944,3 +944,149 @@ output must terminate without restart. The numerical research handoff includes
 this convergence-check defect. Existing retained native histories contain the
 required columns, and no failed aerodynamic result is admitted. Evidence is
 `aero/load-audit/su2-entropy/release-missing-cauchy-review.json`.
+
+### AeroNumericsLab integration, 2026-10-21
+
+The user opened the integration/regeneration window at main `d5c8203` and
+authorized retaining improved numerical candidates for subsequent correction.
+The source allowlist and serial build/test ownership are recorded in the
+[campaign plan](../superpowers/plans/2026-10-21-numerics-integration-regeneration.md).
+The standalone LAB remains read only.
+
+The [import manifest](../../tools/validation/missile/native/numerics/PROVENANCE.json)
+binds selected delivery source bytes to their project derivatives and retained
+native data. The Task 02 schema-order correction is now in `parse_su2`:
+mandatory columns precede any continuable classification. The delivery's 12
+regressions reproduce 17 failing assertions against the old project parser and
+then pass against the correction. The complete standard-library aerodynamic
+guard suite passes 162/162. These checks execute no CFD process.
+
+The modified VSPAERO R2 patch is retained with its OpenVSP license, exact base
+and resulting source hashes, native executable identity and unchanged released
+N8/80 cases. Independent patch application reconstructs the delivered source
+exactly. Existing exact-intersection/panel-closure fixes are reused; no second
+geometry repair or replacement of their original assertions is introduced.
+
+The active-wake containment check now runs in both the worker and parent's
+fresh raw-case assessment, including VKEY identity. A coordinate-only stand-in
+fails six of the original seven delivery tests; the actual reader passes them.
+Integration review additionally reproduced acceptance of NaN circulation and
+added a failing regression before finite-data and resource-bound guards. The
+resulting native-fixture suite passes 8/8. Synthetic process-orchestration tests
+mock this binary-reader seam; the separate geometry suite reads real retained
+ADB/VSPGEOM/VKEY bytes and changes both packed and internal coordinates together.
+
+The reproducible [review entrypoint](../../tools/validation/missile/native/numerics/README.md)
+reassesses all four retained SU2 histories and both R2 native cases. The R2
+iteration, solved-geometry, containment and paired physical checks pass; the
+local SU2 pair passes its physical checks. The original coarse alpha-0 wind
+drag remains negative and explicitly fails its original physical gate. The
+review requires that failure to remain visible; `review_passed` is reproducible
+delivery disposition, while `model_accepted` stays false. Two-grid sensitivity
+and iteration convergence do not establish load accuracy or superiority over
+the current full empirical game model. No candidate coefficients are imported
+into runtime tables, and no calibrated damping, crossflow, viscous or real
+equipment channel is inferred.
+
+#### Regeneration and complete-suite follow-up, 2026-10-21/22
+
+All 35 aircraft designs execute the full forced campaign, with raw per-design
+logs. The generator reports zero changed aircraft products: 25 designs end
+cleanly and ten retain the previously documented [B-29 limitations](../hangar.md#built-again).
+The ceiling-table checks fail for C-17A, EA-18G, F-15C, F-22A, F/A-18C,
+MiG-29A, Mirage 2000, Su-27S and Su-57; Su-25 short-period damping is 0.2868
+against the existing 0.3 lower bound. No calibration or assertion changes are
+made to clear them. The first forced store batch recreates all 53 models and
+flight models, with every child exit code zero. Registration also restores the
+generator's existing C130-to-C130J viewer mapping, and generated AIM-9X names
+now reflect its already declared Block I card identity.
+
+The unchanged native RCS verifier checks all 36 existing tables using their
+original recipes, including Phong 0.5 rather than the current CLI default.
+B-52H, F-35A and J-20A fail the original noise-relative comparison. Their old
+tables and headers are retained in the evidence directory; complete four-band,
+61-elevation recomputation followed by the original five-elevation comparison
+passes for all three. Only those three numerical payloads change. The other
+33 payloads remain byte-identical; verified provenance is updated where needed.
+The new persistent [binding gate](../../tools/validation/resources/README.md)
+rejects stale model bytes and invalid recorded verification. Its ten unit
+regressions include CLI stale-success replacement; no electromagnetic accuracy
+or full angular verification is inferred from file binding.
+
+The first full suites discover and execute 909 Release and 835 Headless cases,
+without skips. They finish at 905/909 and 831/835, with the same four failures.
+Both original showcase gates pass. During that first campaign, 1,057 source
+inputs remain unchanged, and each of four staged runtime roots matches 813
+source files by raw SHA256. All 105 frozen RCS generator/model/signature inputs
+also retain their hashes.
+
+The failures lead to narrow software corrections, rather than different model
+parameters or relaxed gates:
+
+- Physical reset cleared the damage object but retained `crewLost`, suppressing
+  later controller updates. A new real-nose-separation regression first produces
+  native pilot loss and fails six exact control/trajectory comparisons after
+  reset. Clearing the physical incapacitation flag makes it pass and restores
+  the original SDK bitwise reset check. Authority, tasks and MA bindings retain
+  their existing reset semantics.
+- Boundary-history material capture repeatedly resolves two long atmospheric
+  property paths at both boundaries: four allocations per healthy vehicle per
+  decision. Per-Entry bindings now follow the existing cached-handle pattern;
+  values and validity are sampled afresh, missing bindings remain retryable,
+  and reset invalidates the cache. The original 34 zero-allocation cases pass.
+  The complete control digest is byte-identical before and after correction,
+  SHA256 `ac6ebfe62c84dfd154dfcbcb0a6ef64f41242097c7253e24b685d6bef9d26bba`.
+- Two AIM-120C source labels used undeclared vocabulary. The existing categories
+  now identify the [APL original](https://www.jhuapl.edu/Content/techdigest/pdf/V29-N01/29-01-Palumbo_Principles_Rev2018.pdf)
+  as `research_publication` and the [secondary publication of Hughes artwork](https://ausairpower.net/amraam.html)
+  as `secondary_reference`. Attribution, caveats and all parameter objects remain
+  unchanged; the source-category validator is unchanged.
+- Old synthetic propulsion fixtures did not supply the new card-file boundary
+  and mocked the former motor factory. Correcting those seams preserves all 128
+  original assertion-call ASTs and adds a factory-argument check. The aggregate
+  suite passes 43/43 without changing production motor validation.
+
+The parallel focused run additionally reproduces two live showcase fixtures
+publishing the same fixed world simultaneously. A shared CTest resource lock
+serializes those two fixtures within the existing concurrent scheduler. Their
+scenes, assertions and 120-second timeouts remain unchanged. The resulting
+focused selection passes 8/8. The corrected showcase recording retains SHA256
+`a04d9dc1f5054cd0d736b68d3631996aead09e96f5e702fce3b4ed6a56834093` and
+its complete engagement JSON retains
+`f995ba37a10f55ec9ee21ed473f5214918eef732075466117ddc09571853f8e3`.
+
+Raw generation logs, failed and corrected JUnit files, source/runtime hash
+snapshots and native replay results are under
+`build/architecture-reviews/numerics-integration-20261021/`. Final full-suite
+results after the repairs and renewed store generation are kept in its separate
+`final/` directory. Numerical-model admission remains independent of software
+and resource-consistency acceptance.
+
+The final campaign recreates all 53 stores on the corrected SDK and repeats
+both complete inventories, without excluding the initial failures:
+
+| Final check | Result |
+| --- | --- |
+| Forced store recreation | 53/53 child exit codes zero; registration and effects audit pass |
+| Complete UCRT64 Release CTest | 910/910, 1161.75 s, zero skips |
+| Complete UCRT64 Headless CTest | 836/836, 1142.08 s, zero skips |
+| Inventory coverage | Each JUnit name multiset exactly matches its freshly discovered inventory |
+| Resources after both full suites | All 1,057 frozen source inputs unchanged; four runtime roots each match 813 source files |
+| RCS generation identity | All 105 frozen executable/operator/model/signature inputs unchanged after final builds |
+| Physical input identity | All 53 store parameter objects and 130 payload cards equal the baseline; only two source-category labels differ |
+| Original native showcase | Both presets pass; original recording and complete engagement JSON retain the hashes above |
+| Payload evidence report | Fresh report imports both complete successful JUnit files; physical acceptance is not promoted |
+
+Every one of the final workflow's 15 phases exits zero. Initial failed full
+runs, the six-assertion crew-reset RED, the publisher-conflict RED and corrected
+focused/full results are retained separately. These are current software and
+resource-consistency results; no new manual fullscreen Viewer acceptance or
+external SU2 cold-start campaign is claimed.
+
+Remaining physical/input gates are explicit: coarse zero-angle negative drag;
+a spatial-convergence family and independent load-accuracy reference; dynamic
+damping, crossflow and viscous channels; equipment/variant calibration,
+including detector/initiation, fragment field, vulnerability and measured motor
+curves. The ten aircraft ceiling/damping failures above remain failures in
+their own right. Iterative convergence and software regression success do not
+establish overall aerodynamic superiority over the existing game model.

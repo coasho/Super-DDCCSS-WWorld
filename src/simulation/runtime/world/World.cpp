@@ -543,6 +543,7 @@ bool World::resetVehicle(std::uint32_t id, const sim::InitialConditions* ic, std
     e->engagementStates.clear();
     e->engagementCg.clear();
     e->engagementMatter.clear();
+    e->matterAtmosphere = {};
     if (e->fuzeAdapter) e->fuzeAdapter->resetTurnHistory();
     else e->fuzeTurn.reset();
     e->inputs.setThrottleAll(e->info.role == ms::Role::Weapon
@@ -556,6 +557,7 @@ bool World::resetVehicle(std::uint32_t id, const sim::InitialConditions* ic, std
     // whole again: what a hit or a ground strike broke, holed and set alight is forgotten with the flight it was in
     // (its flight model's reset put its mass and its inertia back)
     e->damage.reset();
+    e->crewLost = false;
     e->damageReads = {};
     e->fireRates.clear();
     e->wreckFireUntilS = 0.0;
@@ -1927,7 +1929,7 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
             e->engagementPath.push_back({*offset,{e->working.positionEcef[0],e->working.positionEcef[1],e->working.positionEcef[2]}});
             e->engagementStates.push_back(e->working);
             e->engagementCg.push_back(capturedCg(model));
-            e->engagementMatter.push_back(captureMatter(model));
+            e->engagementMatter.push_back(captureMatter(*e,model));
         }
     }
     const double t = simTime_ + subStep * options_.dt;
@@ -2708,7 +2710,7 @@ void World::step(unsigned n) {
                     e->engagementPath.push_back({*offset,{state.positionEcef[0],state.positionEcef[1],state.positionEcef[2]}});
                     e->engagementStates.push_back(state);
                     e->engagementCg.push_back(capturedCg(pool_->vehicle(e->slot)));
-                    e->engagementMatter.push_back(captureMatter(pool_->vehicle(e->slot)));
+                    e->engagementMatter.push_back(captureMatter(*e,pool_->vehicle(e->slot)));
                 }
             }
             const bool weigh = (loadTick_++ & 7u) == 0;

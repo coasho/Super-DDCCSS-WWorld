@@ -809,7 +809,7 @@
       "date": "2026-09-30"
     },
     "hughes-amraam-cutaway": {
-      "evidence_kind": "manufacturer_figure_reproduced",
+      "evidence_kind": "secondary_reference",
       "title": "Hughes AMRAAM cutaway, reproduced in Quo Vadis - AMRAAM? (Australian Aviation, September 1986)",
       "publisher": "Hughes artwork, reproduced by Carlo Kopp / Air Power Australia",
       "url": "https://ausairpower.net/USAF/000-AIM-120A-2S.jpg",
@@ -845,7 +845,7 @@
       "note": "Generic sensor/initiation/fragment/target methodology, not modern missile equipment data."
     },
     "apl-homing-guidance": {
-      "evidence_kind": "research_paper",
+      "evidence_kind": "research_publication",
       "title": "Basic Principles of Homing Guidance, equations19-22",
       "publisher": "Johns Hopkins APL / Palumbo, Blauwkamp and Lloyd",
       "url": "https://www.jhuapl.edu/Content/techdigest/pdf/V29-N01/29-01-Palumbo_Principles_Rev2018.pdf",

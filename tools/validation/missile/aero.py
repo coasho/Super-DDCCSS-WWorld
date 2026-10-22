@@ -79,12 +79,14 @@ def parse_su2(path, alpha_deg, residual_limit=-8.0):
         except KeyError as error:
             raise ValueError("missing SU2 iteration, coefficient or convergence column") from error
         values.append(coefficients)
-    if rho > finite(residual_limit, "residual limit"):
-        raise NotConverged("SU2 density residual did not reach the frozen convergence limit: %g" % rho)
+    # The complete required schema is checked before any continuable classification:
+    # malformed output is terminal and never authorizes checkpoint continuation.
     try:
         cauchy = {key: row[key] for key in ("Cauchy[CD]", "Cauchy[CL]", "Cauchy[CMy]")}
     except KeyError as error:
         raise ValueError("missing SU2 native Cauchy convergence columns") from error
+    if rho > finite(residual_limit, "residual limit"):
+        raise NotConverged("SU2 density residual did not reach the frozen convergence limit: %g" % rho)
     if any(value < 0 or value > SU2_CAUCHY_MAXIMUM for value in cauchy.values()):
         raise NotConverged("SU2 native Cauchy targets were not met: " + json.dumps(cauchy, sort_keys=True))
     if len(values) < 2 * SU2_LOAD_WINDOW:
@@ -457,10 +459,16 @@ def parametric_vsp(vsp, design, folder):
     return frames
 
 
-def assess_single_vsp_case(folder, pair, reference):
+def assess_wake(folder, basename):
+    # Optional NumPy is needed only for explicit native aerodynamic campaigns.
+    from aero_wake_containment import assess
+    return assess(folder, basename)
+
+
+def assess_single_vsp_case(folder, pair, reference, *, basename="missile", log_name="solver.log"):
     """Freshly assess raw loads and the actual single-case native geometry."""
     folder = Path(folder)
-    config = folder / "missile.vspaero"
+    config = folder / (basename + ".vspaero")
     try:
         setup = config.read_text(encoding="utf-8")
     except (OSError, UnicodeError) as error:
@@ -470,15 +478,18 @@ def assess_single_vsp_case(folder, pair, reference):
         raise ValueError("one exact native NumWakeNodes integer is required")
     wake_nodes = int(values[0])
     cg = rotate_vector([reference["moment_x_m"], 0, 0], pair["roll_deg"])
-    row = assess_case(folder / "missile.polar", folder / "missile.history", folder / "solver.log", pair,
+    row = assess_case(folder / (basename + ".polar"), folder / (basename + ".history"), folder / log_name, pair,
                       bref=reference["length_m"], cref=reference["length_m"],
                       reference_area=reference["area_m2"], native_cg=cg)
-    actual = assess_adb(folder / "missile.adb", folder / "missile.vspgeom", pair,
+    actual = assess_adb(folder / (basename + ".adb"), folder / (basename + ".vspgeom"), pair,
                         bref=reference["length_m"], cref=reference["length_m"],
                         reference_area=reference["area_m2"], native_cg=cg, wake_nodes=wake_nodes)
     if actual.get("passed") is not True:
         raise ValueError("VSPAERO actual solved geometry failed: " + json.dumps(actual.get("checks", {}), sort_keys=True))
-    row.update(actual_geometry=actual, native_config_sha256=sha256(config))
+    containment = assess_wake(folder, basename)
+    if containment.get("passed") is not True:
+        raise ValueError("VSPAERO active wake containment failed: " + json.dumps(containment.get("failures", []), sort_keys=True))
+    row.update(actual_geometry=actual, wake_containment=containment, native_config_sha256=sha256(config))
     return row
 
 
@@ -749,7 +760,8 @@ def campaign(args, output, report):
             current = assess_single_vsp_case(case, pair, record["reference"])
             if (current["native_config_sha256"] != saved.get("native_config_sha256") or
                     current["raw_files"] != saved.get("raw_files") or
-                    current["actual_geometry"]["raw_files"] != saved.get("actual_geometry", {}).get("raw_files")):
+                    current["actual_geometry"]["raw_files"] != saved.get("actual_geometry", {}).get("raw_files") or
+                    current["wake_containment"] != saved.get("wake_containment")):
                 raise ValueError("current raw native case files changed after worker assessment")
             run["result"].append(current)
         rows = run["result"]

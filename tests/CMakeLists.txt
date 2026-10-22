@@ -191,6 +191,9 @@ if(TARGET flightsim-showcase)
         $<TARGET_FILE:flightsim-showcase> ${CMAKE_BINARY_DIR}/showcase-event-chain-test event-chain)
     set_tests_properties(showcase_event_chain PROPERTIES LABELS "showcase;native-engagement"
         TIMEOUT 120 WORKING_DIRECTORY $<TARGET_FILE_DIR:flightsim-showcase>)
+    # Both live fixtures publish the same fixed scenario world.
+    set_tests_properties(showcase_native showcase_event_chain
+        PROPERTIES RESOURCE_LOCK showcase_native_world)
 endif()
 
 add_executable(fsim_tests

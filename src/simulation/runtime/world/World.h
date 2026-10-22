@@ -736,6 +736,8 @@ private:
             double pressurePa=0, temperatureK=0, densityKgM3=0;
         };
         std::vector<std::optional<Matter>> engagementMatter; ///< native mass/inertia/atmosphere at the same epochs
+        // Worker-owned property bindings; native values are still sampled at each boundary.
+        mutable std::array<sim::PropertyHandle, 3> matterAtmosphere;
         double engagementModelTimeS = 0; ///< model clock at the beginning of this World step
         unsigned controlDivider = 1;
         bool forceApplied = false;         ///< external force pushed last step (needs zeroing)
@@ -934,7 +936,7 @@ private:
     std::optional<ms::damage::V3> engagementCgAt(const Entry& e, double offsetS) const;
     std::optional<ms::weapon::MaterialPointSample> weaponPointAt(const Entry& e, double offsetS,
         const std::optional<ms::damage::V3>& pointFromOrigin) const;
-    static std::optional<Entry::Matter> captureMatter(sim::FlightModel& model);
+    static std::optional<Entry::Matter> captureMatter(const Entry& e, sim::FlightModel& model);
     std::optional<Entry::Matter> engagementMatterAt(const Entry& e, double offsetS) const;
     struct ContactTransfer {
         std::uint32_t victim=0;

@@ -1,0 +1,7310 @@
+{
+  "scope": "Source-qualified final steady circulation and active/disabled trail classification",
+  "paths_relative_to_lab_root": true,
+  "cases": {
+    "alpha0": {
+      "native_gamma_surface_count": 1040,
+      "native_gamma_wake_count": 280,
+      "direct_ADB_wake_Gamma0_all_zero": true,
+      "strips": [
+        {
+          "sheet": 1,
+          "strip": 1,
+          "physical_part": 2,
+          "te_nodes": [
+            461,
+            1021
+          ],
+          "native_te_edge": 1710,
+          "signed_TE_edge": -1710,
+          "owners": [
+            {
+              "loop": 921,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.015150437120508998
+          ],
+          "derived_edge_gamma": 0.015150437120508998,
+          "derived_steady_strip_gamma": -0.015150437120508998
+        },
+        {
+          "sheet": 1,
+          "strip": 2,
+          "physical_part": 2,
+          "te_nodes": [
+            1021,
+            1030
+          ],
+          "native_te_edge": 1742,
+          "signed_TE_edge": -1742,
+          "owners": [
+            {
+              "loop": 929,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.014608000408387495
+          ],
+          "derived_edge_gamma": 0.014608000408387495,
+          "derived_steady_strip_gamma": -0.014608000408387495
+        },
+        {
+          "sheet": 1,
+          "strip": 3,
+          "physical_part": 2,
+          "te_nodes": [
+            1030,
+            1039
+          ],
+          "native_te_edge": 1759,
+          "signed_TE_edge": -1759,
+          "owners": [
+            {
+              "loop": 937,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.012831240329230253
+          ],
+          "derived_edge_gamma": 0.012831240329230253,
+          "derived_steady_strip_gamma": -0.012831240329230253
+        },
+        {
+          "sheet": 1,
+          "strip": 4,
+          "physical_part": 2,
+          "te_nodes": [
+            1039,
+            1048
+          ],
+          "native_te_edge": 1776,
+          "signed_TE_edge": -1776,
+          "owners": [
+            {
+              "loop": 945,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.01031512373629464
+          ],
+          "derived_edge_gamma": 0.01031512373629464,
+          "derived_steady_strip_gamma": -0.01031512373629464
+        },
+        {
+          "sheet": 1,
+          "strip": 5,
+          "physical_part": 2,
+          "te_nodes": [
+            1048,
+            1057
+          ],
+          "native_te_edge": 1793,
+          "signed_TE_edge": -1793,
+          "owners": [
+            {
+              "loop": 953,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.006789361774274994
+          ],
+          "derived_edge_gamma": 0.006789361774274994,
+          "derived_steady_strip_gamma": -0.006789361774274994
+        },
+        {
+          "sheet": 2,
+          "strip": 1,
+          "physical_part": 5,
+          "te_nodes": [
+            466,
+            837
+          ],
+          "native_te_edge": 1811,
+          "signed_TE_edge": -1811,
+          "owners": [
+            {
+              "loop": 761,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.020267659185955942
+          ],
+          "derived_edge_gamma": 0.020267659185955942,
+          "derived_steady_strip_gamma": -0.020267659185955942
+        },
+        {
+          "sheet": 2,
+          "strip": 2,
+          "physical_part": 5,
+          "te_nodes": [
+            837,
+            846
+          ],
+          "native_te_edge": 1841,
+          "signed_TE_edge": -1841,
+          "owners": [
+            {
+              "loop": 769,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.022042178949026246
+          ],
+          "derived_edge_gamma": 0.022042178949026246,
+          "derived_steady_strip_gamma": -0.022042178949026246
+        },
+        {
+          "sheet": 2,
+          "strip": 3,
+          "physical_part": 5,
+          "te_nodes": [
+            846,
+            855
+          ],
+          "native_te_edge": 1858,
+          "signed_TE_edge": -1858,
+          "owners": [
+            {
+              "loop": 777,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.018904875702861534
+          ],
+          "derived_edge_gamma": 0.018904875702861534,
+          "derived_steady_strip_gamma": -0.018904875702861534
+        },
+        {
+          "sheet": 2,
+          "strip": 4,
+          "physical_part": 5,
+          "te_nodes": [
+            855,
+            864
+          ],
+          "native_te_edge": 1875,
+          "signed_TE_edge": -1875,
+          "owners": [
+            {
+              "loop": 785,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.014450489821027947
+          ],
+          "derived_edge_gamma": 0.014450489821027947,
+          "derived_steady_strip_gamma": -0.014450489821027947
+        },
+        {
+          "sheet": 2,
+          "strip": 5,
+          "physical_part": 5,
+          "te_nodes": [
+            864,
+            873
+          ],
+          "native_te_edge": 1892,
+          "signed_TE_edge": -1892,
+          "owners": [
+            {
+              "loop": 793,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.009492501934800139
+          ],
+          "derived_edge_gamma": 0.009492501934800139,
+          "derived_steady_strip_gamma": -0.009492501934800139
+        },
+        {
+          "sheet": 3,
+          "strip": 1,
+          "physical_part": 6,
+          "te_nodes": [
+            472,
+            976
+          ],
+          "native_te_edge": 1615,
+          "signed_TE_edge": -1615,
+          "owners": [
+            {
+              "loop": 881,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.015060350147107032
+          ],
+          "derived_edge_gamma": -0.015060350147107032,
+          "derived_steady_strip_gamma": 0.015060350147107032
+        },
+        {
+          "sheet": 3,
+          "strip": 2,
+          "physical_part": 6,
+          "te_nodes": [
+            976,
+            985
+          ],
+          "native_te_edge": 1641,
+          "signed_TE_edge": -1641,
+          "owners": [
+            {
+              "loop": 889,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.014508911051150654
+          ],
+          "derived_edge_gamma": -0.014508911051150654,
+          "derived_steady_strip_gamma": 0.014508911051150654
+        },
+        {
+          "sheet": 3,
+          "strip": 3,
+          "physical_part": 6,
+          "te_nodes": [
+            985,
+            994
+          ],
+          "native_te_edge": 1658,
+          "signed_TE_edge": -1658,
+          "owners": [
+            {
+              "loop": 897,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.012779273697143462
+          ],
+          "derived_edge_gamma": -0.012779273697143462,
+          "derived_steady_strip_gamma": 0.012779273697143462
+        },
+        {
+          "sheet": 3,
+          "strip": 4,
+          "physical_part": 6,
+          "te_nodes": [
+            994,
+            1003
+          ],
+          "native_te_edge": 1675,
+          "signed_TE_edge": -1675,
+          "owners": [
+            {
+              "loop": 905,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.010282003097306222
+          ],
+          "derived_edge_gamma": -0.010282003097306222,
+          "derived_steady_strip_gamma": 0.010282003097306222
+        },
+        {
+          "sheet": 3,
+          "strip": 5,
+          "physical_part": 6,
+          "te_nodes": [
+            1003,
+            1012
+          ],
+          "native_te_edge": 1692,
+          "signed_TE_edge": -1692,
+          "owners": [
+            {
+              "loop": 913,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.006855085164124062
+          ],
+          "derived_edge_gamma": -0.006855085164124062,
+          "derived_steady_strip_gamma": 0.006855085164124062
+        },
+        {
+          "sheet": 4,
+          "strip": 1,
+          "physical_part": 9,
+          "te_nodes": [
+            477,
+            792
+          ],
+          "native_te_edge": 1512,
+          "signed_TE_edge": -1512,
+          "owners": [
+            {
+              "loop": 721,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.021149231652070548
+          ],
+          "derived_edge_gamma": -0.021149231652070548,
+          "derived_steady_strip_gamma": 0.021149231652070548
+        },
+        {
+          "sheet": 4,
+          "strip": 2,
+          "physical_part": 9,
+          "te_nodes": [
+            792,
+            801
+          ],
+          "native_te_edge": 1544,
+          "signed_TE_edge": -1544,
+          "owners": [
+            {
+              "loop": 729,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.023177422300051695
+          ],
+          "derived_edge_gamma": -0.023177422300051695,
+          "derived_steady_strip_gamma": 0.023177422300051695
+        },
+        {
+          "sheet": 4,
+          "strip": 3,
+          "physical_part": 9,
+          "te_nodes": [
+            801,
+            810
+          ],
+          "native_te_edge": 1561,
+          "signed_TE_edge": -1561,
+          "owners": [
+            {
+              "loop": 737,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.019921662197938873
+          ],
+          "derived_edge_gamma": -0.019921662197938873,
+          "derived_steady_strip_gamma": 0.019921662197938873
+        },
+        {
+          "sheet": 4,
+          "strip": 4,
+          "physical_part": 9,
+          "te_nodes": [
+            810,
+            819
+          ],
+          "native_te_edge": 1578,
+          "signed_TE_edge": -1578,
+          "owners": [
+            {
+              "loop": 745,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.015276135432549796
+          ],
+          "derived_edge_gamma": -0.015276135432549796,
+          "derived_steady_strip_gamma": 0.015276135432549796
+        },
+        {
+          "sheet": 4,
+          "strip": 5,
+          "physical_part": 9,
+          "te_nodes": [
+            819,
+            828
+          ],
+          "native_te_edge": 1595,
+          "signed_TE_edge": -1595,
+          "owners": [
+            {
+              "loop": 753,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.009986586392908578
+          ],
+          "derived_edge_gamma": -0.009986586392908578,
+          "derived_steady_strip_gamma": 0.009986586392908578
+        },
+        {
+          "sheet": 5,
+          "strip": 1,
+          "physical_part": 3,
+          "te_nodes": [
+            884,
+            882
+          ],
+          "native_te_edge": 1909,
+          "signed_TE_edge": 1909,
+          "owners": [
+            {
+              "loop": 801,
+              "direction": -1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.03401533783491334
+          ],
+          "derived_edge_gamma": -0.03401533783491334,
+          "derived_steady_strip_gamma": -0.03401533783491334
+        },
+        {
+          "sheet": 5,
+          "strip": 2,
+          "physical_part": 3,
+          "te_nodes": [
+            882,
+            893
+          ],
+          "native_te_edge": 1940,
+          "signed_TE_edge": -1940,
+          "owners": [
+            {
+              "loop": 809,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.03365667888768836
+          ],
+          "derived_edge_gamma": 0.03365667888768836,
+          "derived_steady_strip_gamma": -0.03365667888768836
+        },
+        {
+          "sheet": 5,
+          "strip": 3,
+          "physical_part": 3,
+          "te_nodes": [
+            893,
+            902
+          ],
+          "native_te_edge": 1957,
+          "signed_TE_edge": -1957,
+          "owners": [
+            {
+              "loop": 817,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.027387444428306665
+          ],
+          "derived_edge_gamma": 0.027387444428306665,
+          "derived_steady_strip_gamma": -0.027387444428306665
+        },
+        {
+          "sheet": 5,
+          "strip": 4,
+          "physical_part": 3,
+          "te_nodes": [
+            902,
+            911
+          ],
+          "native_te_edge": 1974,
+          "signed_TE_edge": -1974,
+          "owners": [
+            {
+              "loop": 825,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.0205511529862242
+          ],
+          "derived_edge_gamma": 0.0205511529862242,
+          "derived_steady_strip_gamma": -0.0205511529862242
+        },
+        {
+          "sheet": 5,
+          "strip": 5,
+          "physical_part": 3,
+          "te_nodes": [
+            911,
+            920
+          ],
+          "native_te_edge": 1991,
+          "signed_TE_edge": -1991,
+          "owners": [
+            {
+              "loop": 833,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.0045557167758655814
+          ],
+          "derived_edge_gamma": 0.0045557167758655814,
+          "derived_steady_strip_gamma": -0.0045557167758655814
+        },
+        {
+          "sheet": 6,
+          "strip": 1,
+          "physical_part": 4,
+          "te_nodes": [
+            931,
+            929
+          ],
+          "native_te_edge": 2205,
+          "signed_TE_edge": 2205,
+          "owners": [
+            {
+              "loop": 841,
+              "direction": -1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.0065977788143195895
+          ],
+          "derived_edge_gamma": 0.0065977788143195895,
+          "derived_steady_strip_gamma": 0.0065977788143195895
+        },
+        {
+          "sheet": 6,
+          "strip": 2,
+          "physical_part": 4,
+          "te_nodes": [
+            929,
+            940
+          ],
+          "native_te_edge": 2236,
+          "signed_TE_edge": -2236,
+          "owners": [
+            {
+              "loop": 849,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.013246849019241815
+          ],
+          "derived_edge_gamma": -0.013246849019241815,
+          "derived_steady_strip_gamma": 0.013246849019241815
+        },
+        {
+          "sheet": 6,
+          "strip": 3,
+          "physical_part": 4,
+          "te_nodes": [
+            940,
+            949
+          ],
+          "native_te_edge": 2253,
+          "signed_TE_edge": -2253,
+          "owners": [
+            {
+              "loop": 857,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.01602868071290089
+          ],
+          "derived_edge_gamma": -0.01602868071290089,
+          "derived_steady_strip_gamma": 0.01602868071290089
+        },
+        {
+          "sheet": 6,
+          "strip": 4,
+          "physical_part": 4,
+          "te_nodes": [
+            949,
+            958
+          ],
+          "native_te_edge": 2270,
+          "signed_TE_edge": -2270,
+          "owners": [
+            {
+              "loop": 865,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.017328654567140066
+          ],
+          "derived_edge_gamma": -0.017328654567140066,
+          "derived_steady_strip_gamma": 0.017328654567140066
+        },
+        {
+          "sheet": 6,
+          "strip": 5,
+          "physical_part": 4,
+          "te_nodes": [
+            958,
+            967
+          ],
+          "native_te_edge": 2287,
+          "signed_TE_edge": -2287,
+          "owners": [
+            {
+              "loop": 873,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.013631964070318772
+          ],
+          "derived_edge_gamma": -0.013631964070318772,
+          "derived_steady_strip_gamma": 0.013631964070318772
+        },
+        {
+          "sheet": 7,
+          "strip": 1,
+          "physical_part": 7,
+          "te_nodes": [
+            1068,
+            1066
+          ],
+          "native_te_edge": 2008,
+          "signed_TE_edge": 2008,
+          "owners": [
+            {
+              "loop": 961,
+              "direction": -1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.015601120155106103
+          ],
+          "derived_edge_gamma": 0.015601120155106103,
+          "derived_steady_strip_gamma": 0.015601120155106103
+        },
+        {
+          "sheet": 7,
+          "strip": 2,
+          "physical_part": 7,
+          "te_nodes": [
+            1066,
+            1077
+          ],
+          "native_te_edge": 2038,
+          "signed_TE_edge": -2038,
+          "owners": [
+            {
+              "loop": 969,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.010749173411271238
+          ],
+          "derived_edge_gamma": -0.010749173411271238,
+          "derived_steady_strip_gamma": 0.010749173411271238
+        },
+        {
+          "sheet": 7,
+          "strip": 3,
+          "physical_part": 7,
+          "te_nodes": [
+            1077,
+            1086
+          ],
+          "native_te_edge": 2055,
+          "signed_TE_edge": -2055,
+          "owners": [
+            {
+              "loop": 977,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.005067856844392064
+          ],
+          "derived_edge_gamma": -0.005067856844392064,
+          "derived_steady_strip_gamma": 0.005067856844392064
+        },
+        {
+          "sheet": 7,
+          "strip": 4,
+          "physical_part": 7,
+          "te_nodes": [
+            1086,
+            1095
+          ],
+          "native_te_edge": 2072,
+          "signed_TE_edge": -2072,
+          "owners": [
+            {
+              "loop": 985,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.0004184012880686977
+          ],
+          "derived_edge_gamma": 0.0004184012880686977,
+          "derived_steady_strip_gamma": -0.0004184012880686977
+        },
+        {
+          "sheet": 7,
+          "strip": 5,
+          "physical_part": 7,
+          "te_nodes": [
+            1095,
+            1104
+          ],
+          "native_te_edge": 2089,
+          "signed_TE_edge": -2089,
+          "owners": [
+            {
+              "loop": 993,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.002499215382944378
+          ],
+          "derived_edge_gamma": 0.002499215382944378,
+          "derived_steady_strip_gamma": -0.002499215382944378
+        },
+        {
+          "sheet": 8,
+          "strip": 1,
+          "physical_part": 8,
+          "te_nodes": [
+            1115,
+            1113
+          ],
+          "native_te_edge": 2106,
+          "signed_TE_edge": 2106,
+          "owners": [
+            {
+              "loop": 1001,
+              "direction": -1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.01151303370080789
+          ],
+          "derived_edge_gamma": 0.01151303370080789,
+          "derived_steady_strip_gamma": 0.01151303370080789
+        },
+        {
+          "sheet": 8,
+          "strip": 2,
+          "physical_part": 8,
+          "te_nodes": [
+            1113,
+            1124
+          ],
+          "native_te_edge": 2137,
+          "signed_TE_edge": -2137,
+          "owners": [
+            {
+              "loop": 1009,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.007652828930882601
+          ],
+          "derived_edge_gamma": -0.007652828930882601,
+          "derived_steady_strip_gamma": 0.007652828930882601
+        },
+        {
+          "sheet": 8,
+          "strip": 3,
+          "physical_part": 8,
+          "te_nodes": [
+            1124,
+            1133
+          ],
+          "native_te_edge": 2154,
+          "signed_TE_edge": -2154,
+          "owners": [
+            {
+              "loop": 1017,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.003594604375447229
+          ],
+          "derived_edge_gamma": -0.003594604375447229,
+          "derived_steady_strip_gamma": 0.003594604375447229
+        },
+        {
+          "sheet": 8,
+          "strip": 4,
+          "physical_part": 8,
+          "te_nodes": [
+            1133,
+            1142
+          ],
+          "native_te_edge": 2171,
+          "signed_TE_edge": -2171,
+          "owners": [
+            {
+              "loop": 1025,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.0001918260184851422
+          ],
+          "derived_edge_gamma": 0.0001918260184851422,
+          "derived_steady_strip_gamma": -0.0001918260184851422
+        },
+        {
+          "sheet": 8,
+          "strip": 5,
+          "physical_part": 8,
+          "te_nodes": [
+            1142,
+            1151
+          ],
+          "native_te_edge": 2188,
+          "signed_TE_edge": -2188,
+          "owners": [
+            {
+              "loop": 1033,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.0076733956934740616
+          ],
+          "derived_edge_gamma": 0.0076733956934740616,
+          "derived_steady_strip_gamma": -0.0076733956934740616
+        }
+      ],
+      "trails": [
+        {
+          "trail": 1,
+          "sheet": 1,
+          "local_trail": 1,
+          "te_node": 461,
+          "concave_internal_record": true,
+          "adjacent_strip_gamma_left": 0.0,
+          "adjacent_strip_gamma_right": -0.015150437120508998,
+          "derived_streamwise_gamma": 0.015150437120508998,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": false
+        },
+        {
+          "trail": 2,
+          "sheet": 1,
+          "local_trail": 2,
+          "te_node": 1021,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.015150437120508998,
+          "adjacent_strip_gamma_right": -0.014608000408387495,
+          "derived_streamwise_gamma": -0.0005424367121215027,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 3,
+          "sheet": 1,
+          "local_trail": 3,
+          "te_node": 1030,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.014608000408387495,
+          "adjacent_strip_gamma_right": -0.012831240329230253,
+          "derived_streamwise_gamma": -0.001776760079157242,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 4,
+          "sheet": 1,
+          "local_trail": 4,
+          "te_node": 1039,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.012831240329230253,
+          "adjacent_strip_gamma_right": -0.01031512373629464,
+          "derived_streamwise_gamma": -0.0025161165929356126,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 5,
+          "sheet": 1,
+          "local_trail": 5,
+          "te_node": 1048,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.01031512373629464,
+          "adjacent_strip_gamma_right": -0.006789361774274994,
+          "derived_streamwise_gamma": -0.0035257619620196468,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 6,
+          "sheet": 1,
+          "local_trail": 6,
+          "te_node": 1057,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.006789361774274994,
+          "adjacent_strip_gamma_right": 0.0,
+          "derived_streamwise_gamma": -0.006789361774274994,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 7,
+          "sheet": 2,
+          "local_trail": 1,
+          "te_node": 466,
+          "concave_internal_record": true,
+          "adjacent_strip_gamma_left": 0.0,
+          "adjacent_strip_gamma_right": -0.020267659185955942,
+          "derived_streamwise_gamma": 0.020267659185955942,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": false
+        },
+        {
+          "trail": 8,
+          "sheet": 2,
+          "local_trail": 2,
+          "te_node": 837,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.020267659185955942,
+          "adjacent_strip_gamma_right": -0.022042178949026246,
+          "derived_streamwise_gamma": 0.0017745197630703036,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 9,
+          "sheet": 2,
+          "local_trail": 3,
+          "te_node": 846,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.022042178949026246,
+          "adjacent_strip_gamma_right": -0.018904875702861534,
+          "derived_streamwise_gamma": -0.003137303246164711,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 10,
+          "sheet": 2,
+          "local_trail": 4,
+          "te_node": 855,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.018904875702861534,
+          "adjacent_strip_gamma_right": -0.014450489821027947,
+          "derived_streamwise_gamma": -0.004454385881833587,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 11,
+          "sheet": 2,
+          "local_trail": 5,
+          "te_node": 864,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.014450489821027947,
+          "adjacent_strip_gamma_right": -0.009492501934800139,
+          "derived_streamwise_gamma": -0.004957987886227809,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 12,
+          "sheet": 2,
+          "local_trail": 6,
+          "te_node": 873,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.009492501934800139,
+          "adjacent_strip_gamma_right": 0.0,
+          "derived_streamwise_gamma": -0.009492501934800139,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 13,
+          "sheet": 3,
+          "local_trail": 1,
+          "te_node": 472,
+          "concave_internal_record": true,
+          "adjacent_strip_gamma_left": 0.0,
+          "adjacent_strip_gamma_right": 0.015060350147107032,
+          "derived_streamwise_gamma": -0.015060350147107032,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": false
+        },
+        {
+          "trail": 14,
+          "sheet": 3,
+          "local_trail": 2,
+          "te_node": 976,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.015060350147107032,
+          "adjacent_strip_gamma_right": 0.014508911051150654,
+          "derived_streamwise_gamma": 0.0005514390959563773,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 15,
+          "sheet": 3,
+          "local_trail": 3,
+          "te_node": 985,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.014508911051150654,
+          "adjacent_strip_gamma_right": 0.012779273697143462,
+          "derived_streamwise_gamma": 0.0017296373540071925,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 16,
+          "sheet": 3,
+          "local_trail": 4,
+          "te_node": 994,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.012779273697143462,
+          "adjacent_strip_gamma_right": 0.010282003097306222,
+          "derived_streamwise_gamma": 0.00249727059983724,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 17,
+          "sheet": 3,
+          "local_trail": 5,
+          "te_node": 1003,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.010282003097306222,
+          "adjacent_strip_gamma_right": 0.006855085164124062,
+          "derived_streamwise_gamma": 0.00342691793318216,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 18,
+          "sheet": 3,
+          "local_trail": 6,
+          "te_node": 1012,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.006855085164124062,
+          "adjacent_strip_gamma_right": 0.0,
+          "derived_streamwise_gamma": 0.006855085164124062,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 19,
+          "sheet": 4,
+          "local_trail": 1,
+          "te_node": 477,
+          "concave_internal_record": true,
+          "adjacent_strip_gamma_left": 0.0,
+          "adjacent_strip_gamma_right": 0.021149231652070548,
+          "derived_streamwise_gamma": -0.021149231652070548,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": false
+        },
+        {
+          "trail": 20,
+          "sheet": 4,
+          "local_trail": 2,
+          "te_node": 792,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.021149231652070548,
+          "adjacent_strip_gamma_right": 0.023177422300051695,
+          "derived_streamwise_gamma": -0.002028190647981147,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 21,
+          "sheet": 4,
+          "local_trail": 3,
+          "te_node": 801,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.023177422300051695,
+          "adjacent_strip_gamma_right": 0.019921662197938873,
+          "derived_streamwise_gamma": 0.0032557601021128216,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 22,
+          "sheet": 4,
+          "local_trail": 4,
+          "te_node": 810,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.019921662197938873,
+          "adjacent_strip_gamma_right": 0.015276135432549796,
+          "derived_streamwise_gamma": 0.004645526765389077,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 23,
+          "sheet": 4,
+          "local_trail": 5,
+          "te_node": 819,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.015276135432549796,
+          "adjacent_strip_gamma_right": 0.009986586392908578,
+          "derived_streamwise_gamma": 0.005289549039641218,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 24,
+          "sheet": 4,
+          "local_trail": 6,
+          "te_node": 828,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.009986586392908578,
+          "adjacent_strip_gamma_right": 0.0,
+          "derived_streamwise_gamma": 0.009986586392908578,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 25,
+          "sheet": 5,
+          "local_trail": 1,
+          "te_node": 884,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.0,
+          "adjacent_strip_gamma_right": -0.03401533783491334,
+          "derived_streamwise_gamma": 0.03401533783491334,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 26,
+          "sheet": 5,
+          "local_trail": 2,
+          "te_node": 882,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.03401533783491334,
+          "adjacent_strip_gamma_right": -0.03365667888768836,
+          "derived_streamwise_gamma": -0.0003586589472249768,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 27,
+          "sheet": 5,
+          "local_trail": 3,
+          "te_node": 893,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.03365667888768836,
+          "adjacent_strip_gamma_right": -0.027387444428306665,
+          "derived_streamwise_gamma": -0.006269234459381698,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 28,
+          "sheet": 5,
+          "local_trail": 4,
+          "te_node": 902,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.027387444428306665,
+          "adjacent_strip_gamma_right": -0.0205511529862242,
+          "derived_streamwise_gamma": -0.006836291442082466,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 29,
+          "sheet": 5,
+          "local_trail": 5,
+          "te_node": 911,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.0205511529862242,
+          "adjacent_strip_gamma_right": -0.0045557167758655814,
+          "derived_streamwise_gamma": -0.015995436210358618,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 30,
+          "sheet": 5,
+          "local_trail": 6,
+          "te_node": 920,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.0045557167758655814,
+          "adjacent_strip_gamma_right": 0.0,
+          "derived_streamwise_gamma": -0.0045557167758655814,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 31,
+          "sheet": 6,
+          "local_trail": 1,
+          "te_node": 931,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.0,
+          "adjacent_strip_gamma_right": 0.0065977788143195895,
+          "derived_streamwise_gamma": -0.0065977788143195895,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 32,
+          "sheet": 6,
+          "local_trail": 2,
+          "te_node": 929,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.0065977788143195895,
+          "adjacent_strip_gamma_right": 0.013246849019241815,
+          "derived_streamwise_gamma": -0.006649070204922225,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 33,
+          "sheet": 6,
+          "local_trail": 3,
+          "te_node": 940,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.013246849019241815,
+          "adjacent_strip_gamma_right": 0.01602868071290089,
+          "derived_streamwise_gamma": -0.0027818316936590766,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 34,
+          "sheet": 6,
+          "local_trail": 4,
+          "te_node": 949,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.01602868071290089,
+          "adjacent_strip_gamma_right": 0.017328654567140066,
+          "derived_streamwise_gamma": -0.0012999738542391753,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 35,
+          "sheet": 6,
+          "local_trail": 5,
+          "te_node": 958,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.017328654567140066,
+          "adjacent_strip_gamma_right": 0.013631964070318772,
+          "derived_streamwise_gamma": 0.003696690496821295,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 36,
+          "sheet": 6,
+          "local_trail": 6,
+          "te_node": 967,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.013631964070318772,
+          "adjacent_strip_gamma_right": 0.0,
+          "derived_streamwise_gamma": 0.013631964070318772,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 37,
+          "sheet": 7,
+          "local_trail": 1,
+          "te_node": 1068,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.0,
+          "adjacent_strip_gamma_right": 0.015601120155106103,
+          "derived_streamwise_gamma": -0.015601120155106103,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 38,
+          "sheet": 7,
+          "local_trail": 2,
+          "te_node": 1066,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.015601120155106103,
+          "adjacent_strip_gamma_right": 0.010749173411271238,
+          "derived_streamwise_gamma": 0.004851946743834865,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 39,
+          "sheet": 7,
+          "local_trail": 3,
+          "te_node": 1077,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.010749173411271238,
+          "adjacent_strip_gamma_right": 0.005067856844392064,
+          "derived_streamwise_gamma": 0.005681316566879174,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 40,
+          "sheet": 7,
+          "local_trail": 4,
+          "te_node": 1086,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.005067856844392064,
+          "adjacent_strip_gamma_right": -0.0004184012880686977,
+          "derived_streamwise_gamma": 0.005486258132460762,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 41,
+          "sheet": 7,
+          "local_trail": 5,
+          "te_node": 1095,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.0004184012880686977,
+          "adjacent_strip_gamma_right": -0.002499215382944378,
+          "derived_streamwise_gamma": 0.0020808140948756805,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 42,
+          "sheet": 7,
+          "local_trail": 6,
+          "te_node": 1104,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.002499215382944378,
+          "adjacent_strip_gamma_right": 0.0,
+          "derived_streamwise_gamma": -0.002499215382944378,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 43,
+          "sheet": 8,
+          "local_trail": 1,
+          "te_node": 1115,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.0,
+          "adjacent_strip_gamma_right": 0.01151303370080789,
+          "derived_streamwise_gamma": -0.01151303370080789,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 44,
+          "sheet": 8,
+          "local_trail": 2,
+          "te_node": 1113,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.01151303370080789,
+          "adjacent_strip_gamma_right": 0.007652828930882601,
+          "derived_streamwise_gamma": 0.003860204769925289,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 45,
+          "sheet": 8,
+          "local_trail": 3,
+          "te_node": 1124,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.007652828930882601,
+          "adjacent_strip_gamma_right": 0.003594604375447229,
+          "derived_streamwise_gamma": 0.004058224555435372,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 46,
+          "sheet": 8,
+          "local_trail": 4,
+          "te_node": 1133,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.003594604375447229,
+          "adjacent_strip_gamma_right": -0.0001918260184851422,
+          "derived_streamwise_gamma": 0.003786430393932371,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 47,
+          "sheet": 8,
+          "local_trail": 5,
+          "te_node": 1142,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.0001918260184851422,
+          "adjacent_strip_gamma_right": -0.0076733956934740616,
+          "derived_streamwise_gamma": 0.007481569674988919,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 48,
+          "sheet": 8,
+          "local_trail": 6,
+          "te_node": 1151,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.0076733956934740616,
+          "adjacent_strip_gamma_right": 0.0,
+          "derived_streamwise_gamma": -0.0076733956934740616,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        }
+      ],
+      "definite_interior_points": [
+        {
+          "trail": 14,
+          "te": 976,
+          "node": 2,
+          "xyz": [
+            2.3744468688964844,
+            -0.03980400413274765,
+            0.03963566571474075
+          ],
+          "solid_angle": 12.566370614359172,
+          "solid_angle_inside": true,
+          "body_distance_m": 0.03210860807379167,
+          "float32_coordinate_half_spacings_m": [
+            1.1920928955078125e-07,
+            1.862645149230957e-09,
+            1.862645149230957e-09
+          ],
+          "float32_coordinate_radius_m": 1.192383898293914e-07,
+          "classification": "definite_interior_beyond_float32_rounding",
+          "strength_mapping": {
+            "trail": 14,
+            "sheet": 3,
+            "local_trail": 2,
+            "te_node": 976,
+            "concave_internal_record": false,
+            "adjacent_strip_gamma_left": 0.015060350147107032,
+            "adjacent_strip_gamma_right": 0.014508911051150654,
+            "derived_streamwise_gamma": 0.0005514390959563773,
+            "raw_ADB_wake_Gamma0_values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "effective_induction_active": true
+          },
+          "adjacent_native_edges": [
+            {
+              "native_edge": 2468,
+              "native_orientation": [
+                1264,
+                1265
+              ],
+              "owners": [
+                {
+                  "loop": 1111,
+                  "direction": 1
+                },
+                {
+                  "loop": 1118,
+                  "direction": -1
+                }
+              ],
+              "derived_edge_gamma": 0.0005514390959563773
+            },
+            {
+              "native_edge": 2471,
+              "native_orientation": [
+                1265,
+                1266
+              ],
+              "owners": [
+                {
+                  "loop": 1112,
+                  "direction": 1
+                },
+                {
+                  "loop": 1119,
+                  "direction": -1
+                }
+              ],
+              "derived_edge_gamma": 0.0005514390959563773
+            }
+          ]
+        },
+        {
+          "trail": 20,
+          "te": 792,
+          "node": 2,
+          "xyz": [
+            2.375063896179199,
+            0.04257584735751152,
+            0.0428885854780674
+          ],
+          "solid_angle": 12.566370614359172,
+          "solid_angle_inside": true,
+          "body_distance_m": 0.02790940547029088,
+          "float32_coordinate_half_spacings_m": [
+            1.1920928955078125e-07,
+            1.862645149230957e-09,
+            1.862645149230957e-09
+          ],
+          "float32_coordinate_radius_m": 1.192383898293914e-07,
+          "classification": "definite_interior_beyond_float32_rounding",
+          "strength_mapping": {
+            "trail": 20,
+            "sheet": 4,
+            "local_trail": 2,
+            "te_node": 792,
+            "concave_internal_record": false,
+            "adjacent_strip_gamma_left": 0.021149231652070548,
+            "adjacent_strip_gamma_right": 0.023177422300051695,
+            "derived_streamwise_gamma": -0.002028190647981147,
+            "raw_ADB_wake_Gamma0_values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "effective_induction_active": true
+          },
+          "adjacent_native_edges": [
+            {
+              "native_edge": 2550,
+              "native_orientation": [
+                1312,
+                1313
+              ],
+              "owners": [
+                {
+                  "loop": 1146,
+                  "direction": 1
+                },
+                {
+                  "loop": 1153,
+                  "direction": -1
+                }
+              ],
+              "derived_edge_gamma": -0.002028190647981147
+            },
+            {
+              "native_edge": 2553,
+              "native_orientation": [
+                1313,
+                1314
+              ],
+              "owners": [
+                {
+                  "loop": 1147,
+                  "direction": 1
+                },
+                {
+                  "loop": 1154,
+                  "direction": -1
+                }
+              ],
+              "derived_edge_gamma": -0.002028190647981147
+            }
+          ]
+        },
+        {
+          "trail": 21,
+          "te": 801,
+          "node": 3,
+          "xyz": [
+            2.8138744831085205,
+            0.05597247928380966,
+            0.05615798383951187
+          ],
+          "solid_angle": 12.566370614359176,
+          "solid_angle_inside": true,
+          "body_distance_m": 0.009410466745709745,
+          "float32_coordinate_half_spacings_m": [
+            1.1920928955078125e-07,
+            1.862645149230957e-09,
+            1.862645149230957e-09
+          ],
+          "float32_coordinate_radius_m": 1.192383898293914e-07,
+          "classification": "definite_interior_beyond_float32_rounding",
+          "strength_mapping": {
+            "trail": 21,
+            "sheet": 4,
+            "local_trail": 3,
+            "te_node": 801,
+            "concave_internal_record": false,
+            "adjacent_strip_gamma_left": 0.023177422300051695,
+            "adjacent_strip_gamma_right": 0.019921662197938873,
+            "derived_streamwise_gamma": 0.0032557601021128216,
+            "raw_ADB_wake_Gamma0_values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "effective_induction_active": true
+          },
+          "adjacent_native_edges": [
+            {
+              "native_edge": 2574,
+              "native_orientation": [
+                1321,
+                1322
+              ],
+              "owners": [
+                {
+                  "loop": 1154,
+                  "direction": 1
+                },
+                {
+                  "loop": 1161,
+                  "direction": -1
+                }
+              ],
+              "derived_edge_gamma": 0.0032557601021128216
+            },
+            {
+              "native_edge": 2576,
+              "native_orientation": [
+                1322,
+                1323
+              ],
+              "owners": [
+                {
+                  "loop": 1155,
+                  "direction": 1
+                },
+                {
+                  "loop": 1162,
+                  "direction": -1
+                }
+              ],
+              "derived_edge_gamma": 0.0032557601021128216
+            }
+          ]
+        }
+      ],
+      "model_accepted": false,
+      "input_directory": "convergence/cases/alpha0"
+    },
+    "alpha2": {
+      "native_gamma_surface_count": 1040,
+      "native_gamma_wake_count": 280,
+      "direct_ADB_wake_Gamma0_all_zero": true,
+      "strips": [
+        {
+          "sheet": 1,
+          "strip": 1,
+          "physical_part": 2,
+          "te_nodes": [
+            461,
+            1021
+          ],
+          "native_te_edge": 1710,
+          "signed_TE_edge": -1710,
+          "owners": [
+            {
+              "loop": 921,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -1.596938604859777
+          ],
+          "derived_edge_gamma": -1.596938604859777,
+          "derived_steady_strip_gamma": 1.596938604859777
+        },
+        {
+          "sheet": 1,
+          "strip": 2,
+          "physical_part": 2,
+          "te_nodes": [
+            1021,
+            1030
+          ],
+          "native_te_edge": 1742,
+          "signed_TE_edge": -1742,
+          "owners": [
+            {
+              "loop": 929,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -1.6235967885564615
+          ],
+          "derived_edge_gamma": -1.6235967885564615,
+          "derived_steady_strip_gamma": 1.6235967885564615
+        },
+        {
+          "sheet": 1,
+          "strip": 3,
+          "physical_part": 2,
+          "te_nodes": [
+            1030,
+            1039
+          ],
+          "native_te_edge": 1759,
+          "signed_TE_edge": -1759,
+          "owners": [
+            {
+              "loop": 937,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -1.50103770722079
+          ],
+          "derived_edge_gamma": -1.50103770722079,
+          "derived_steady_strip_gamma": 1.50103770722079
+        },
+        {
+          "sheet": 1,
+          "strip": 4,
+          "physical_part": 2,
+          "te_nodes": [
+            1039,
+            1048
+          ],
+          "native_te_edge": 1776,
+          "signed_TE_edge": -1776,
+          "owners": [
+            {
+              "loop": 945,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -1.2731527981465134
+          ],
+          "derived_edge_gamma": -1.2731527981465134,
+          "derived_steady_strip_gamma": 1.2731527981465134
+        },
+        {
+          "sheet": 1,
+          "strip": 5,
+          "physical_part": 2,
+          "te_nodes": [
+            1048,
+            1057
+          ],
+          "native_te_edge": 1793,
+          "signed_TE_edge": -1793,
+          "owners": [
+            {
+              "loop": 953,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.8940195534596946
+          ],
+          "derived_edge_gamma": -0.8940195534596946,
+          "derived_steady_strip_gamma": 0.8940195534596946
+        },
+        {
+          "sheet": 2,
+          "strip": 1,
+          "physical_part": 5,
+          "te_nodes": [
+            466,
+            837
+          ],
+          "native_te_edge": 1811,
+          "signed_TE_edge": -1811,
+          "owners": [
+            {
+              "loop": 761,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            1.546189165536145
+          ],
+          "derived_edge_gamma": 1.546189165536145,
+          "derived_steady_strip_gamma": -1.546189165536145
+        },
+        {
+          "sheet": 2,
+          "strip": 2,
+          "physical_part": 5,
+          "te_nodes": [
+            837,
+            846
+          ],
+          "native_te_edge": 1841,
+          "signed_TE_edge": -1841,
+          "owners": [
+            {
+              "loop": 769,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            1.6701313157056437
+          ],
+          "derived_edge_gamma": 1.6701313157056437,
+          "derived_steady_strip_gamma": -1.6701313157056437
+        },
+        {
+          "sheet": 2,
+          "strip": 3,
+          "physical_part": 5,
+          "te_nodes": [
+            846,
+            855
+          ],
+          "native_te_edge": 1858,
+          "signed_TE_edge": -1858,
+          "owners": [
+            {
+              "loop": 777,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            1.5382765735962745
+          ],
+          "derived_edge_gamma": 1.5382765735962745,
+          "derived_steady_strip_gamma": -1.5382765735962745
+        },
+        {
+          "sheet": 2,
+          "strip": 4,
+          "physical_part": 5,
+          "te_nodes": [
+            855,
+            864
+          ],
+          "native_te_edge": 1875,
+          "signed_TE_edge": -1875,
+          "owners": [
+            {
+              "loop": 785,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            1.2999992220770757
+          ],
+          "derived_edge_gamma": 1.2999992220770757,
+          "derived_steady_strip_gamma": -1.2999992220770757
+        },
+        {
+          "sheet": 2,
+          "strip": 5,
+          "physical_part": 5,
+          "te_nodes": [
+            864,
+            873
+          ],
+          "native_te_edge": 1892,
+          "signed_TE_edge": -1892,
+          "owners": [
+            {
+              "loop": 793,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.9104454821679328
+          ],
+          "derived_edge_gamma": 0.9104454821679328,
+          "derived_steady_strip_gamma": -0.9104454821679328
+        },
+        {
+          "sheet": 3,
+          "strip": 1,
+          "physical_part": 6,
+          "te_nodes": [
+            472,
+            976
+          ],
+          "native_te_edge": 1615,
+          "signed_TE_edge": -1615,
+          "owners": [
+            {
+              "loop": 881,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            1.6384062409340283
+          ],
+          "derived_edge_gamma": 1.6384062409340283,
+          "derived_steady_strip_gamma": -1.6384062409340283
+        },
+        {
+          "sheet": 3,
+          "strip": 2,
+          "physical_part": 6,
+          "te_nodes": [
+            976,
+            985
+          ],
+          "native_te_edge": 1641,
+          "signed_TE_edge": -1641,
+          "owners": [
+            {
+              "loop": 889,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            1.6403121355372896
+          ],
+          "derived_edge_gamma": 1.6403121355372896,
+          "derived_steady_strip_gamma": -1.6403121355372896
+        },
+        {
+          "sheet": 3,
+          "strip": 3,
+          "physical_part": 6,
+          "te_nodes": [
+            985,
+            994
+          ],
+          "native_te_edge": 1658,
+          "signed_TE_edge": -1658,
+          "owners": [
+            {
+              "loop": 897,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            1.512606683246241
+          ],
+          "derived_edge_gamma": 1.512606683246241,
+          "derived_steady_strip_gamma": -1.512606683246241
+        },
+        {
+          "sheet": 3,
+          "strip": 4,
+          "physical_part": 6,
+          "te_nodes": [
+            994,
+            1003
+          ],
+          "native_te_edge": 1675,
+          "signed_TE_edge": -1675,
+          "owners": [
+            {
+              "loop": 905,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            1.2826220376845554
+          ],
+          "derived_edge_gamma": 1.2826220376845554,
+          "derived_steady_strip_gamma": -1.2826220376845554
+        },
+        {
+          "sheet": 3,
+          "strip": 5,
+          "physical_part": 6,
+          "te_nodes": [
+            1003,
+            1012
+          ],
+          "native_te_edge": 1692,
+          "signed_TE_edge": -1692,
+          "owners": [
+            {
+              "loop": 913,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.9017324400383854
+          ],
+          "derived_edge_gamma": 0.9017324400383854,
+          "derived_steady_strip_gamma": -0.9017324400383854
+        },
+        {
+          "sheet": 4,
+          "strip": 1,
+          "physical_part": 9,
+          "te_nodes": [
+            477,
+            792
+          ],
+          "native_te_edge": 1512,
+          "signed_TE_edge": -1512,
+          "owners": [
+            {
+              "loop": 721,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -1.684875108551694
+          ],
+          "derived_edge_gamma": -1.684875108551694,
+          "derived_steady_strip_gamma": 1.684875108551694
+        },
+        {
+          "sheet": 4,
+          "strip": 2,
+          "physical_part": 9,
+          "te_nodes": [
+            792,
+            801
+          ],
+          "native_te_edge": 1544,
+          "signed_TE_edge": -1544,
+          "owners": [
+            {
+              "loop": 729,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -1.7062432756512103
+          ],
+          "derived_edge_gamma": -1.7062432756512103,
+          "derived_steady_strip_gamma": 1.7062432756512103
+        },
+        {
+          "sheet": 4,
+          "strip": 3,
+          "physical_part": 9,
+          "te_nodes": [
+            801,
+            810
+          ],
+          "native_te_edge": 1561,
+          "signed_TE_edge": -1561,
+          "owners": [
+            {
+              "loop": 737,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -1.5707212319941017
+          ],
+          "derived_edge_gamma": -1.5707212319941017,
+          "derived_steady_strip_gamma": 1.5707212319941017
+        },
+        {
+          "sheet": 4,
+          "strip": 4,
+          "physical_part": 9,
+          "te_nodes": [
+            810,
+            819
+          ],
+          "native_te_edge": 1578,
+          "signed_TE_edge": -1578,
+          "owners": [
+            {
+              "loop": 745,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -1.3284390566368378
+          ],
+          "derived_edge_gamma": -1.3284390566368378,
+          "derived_steady_strip_gamma": 1.3284390566368378
+        },
+        {
+          "sheet": 4,
+          "strip": 5,
+          "physical_part": 9,
+          "te_nodes": [
+            819,
+            828
+          ],
+          "native_te_edge": 1595,
+          "signed_TE_edge": -1595,
+          "owners": [
+            {
+              "loop": 753,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.9318908242842068
+          ],
+          "derived_edge_gamma": -0.9318908242842068,
+          "derived_steady_strip_gamma": 0.9318908242842068
+        },
+        {
+          "sheet": 5,
+          "strip": 1,
+          "physical_part": 3,
+          "te_nodes": [
+            884,
+            882
+          ],
+          "native_te_edge": 1909,
+          "signed_TE_edge": 1909,
+          "owners": [
+            {
+              "loop": 801,
+              "direction": -1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.518215686952147
+          ],
+          "derived_edge_gamma": 0.518215686952147,
+          "derived_steady_strip_gamma": 0.518215686952147
+        },
+        {
+          "sheet": 5,
+          "strip": 2,
+          "physical_part": 3,
+          "te_nodes": [
+            882,
+            893
+          ],
+          "native_te_edge": 1940,
+          "signed_TE_edge": -1940,
+          "owners": [
+            {
+              "loop": 809,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.5305493667291981
+          ],
+          "derived_edge_gamma": -0.5305493667291981,
+          "derived_steady_strip_gamma": 0.5305493667291981
+        },
+        {
+          "sheet": 5,
+          "strip": 3,
+          "physical_part": 3,
+          "te_nodes": [
+            893,
+            902
+          ],
+          "native_te_edge": 1957,
+          "signed_TE_edge": -1957,
+          "owners": [
+            {
+              "loop": 817,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.5061839057218137
+          ],
+          "derived_edge_gamma": -0.5061839057218137,
+          "derived_steady_strip_gamma": 0.5061839057218137
+        },
+        {
+          "sheet": 5,
+          "strip": 4,
+          "physical_part": 3,
+          "te_nodes": [
+            902,
+            911
+          ],
+          "native_te_edge": 1974,
+          "signed_TE_edge": -1974,
+          "owners": [
+            {
+              "loop": 825,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.44144563805773884
+          ],
+          "derived_edge_gamma": -0.44144563805773884,
+          "derived_steady_strip_gamma": 0.44144563805773884
+        },
+        {
+          "sheet": 5,
+          "strip": 5,
+          "physical_part": 3,
+          "te_nodes": [
+            911,
+            920
+          ],
+          "native_te_edge": 1991,
+          "signed_TE_edge": -1991,
+          "owners": [
+            {
+              "loop": 833,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.43296393721232895
+          ],
+          "derived_edge_gamma": -0.43296393721232895,
+          "derived_steady_strip_gamma": 0.43296393721232895
+        },
+        {
+          "sheet": 6,
+          "strip": 1,
+          "physical_part": 4,
+          "te_nodes": [
+            931,
+            929
+          ],
+          "native_te_edge": 2205,
+          "signed_TE_edge": 2205,
+          "owners": [
+            {
+              "loop": 841,
+              "direction": -1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.49191545797038616
+          ],
+          "derived_edge_gamma": -0.49191545797038616,
+          "derived_steady_strip_gamma": -0.49191545797038616
+        },
+        {
+          "sheet": 6,
+          "strip": 2,
+          "physical_part": 4,
+          "te_nodes": [
+            929,
+            940
+          ],
+          "native_te_edge": 2236,
+          "signed_TE_edge": -2236,
+          "owners": [
+            {
+              "loop": 849,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.54200560647589
+          ],
+          "derived_edge_gamma": 0.54200560647589,
+          "derived_steady_strip_gamma": -0.54200560647589
+        },
+        {
+          "sheet": 6,
+          "strip": 3,
+          "physical_part": 4,
+          "te_nodes": [
+            940,
+            949
+          ],
+          "native_te_edge": 2253,
+          "signed_TE_edge": -2253,
+          "owners": [
+            {
+              "loop": 857,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.6916360983601029
+          ],
+          "derived_edge_gamma": 0.6916360983601029,
+          "derived_steady_strip_gamma": -0.6916360983601029
+        },
+        {
+          "sheet": 6,
+          "strip": 4,
+          "physical_part": 4,
+          "te_nodes": [
+            949,
+            958
+          ],
+          "native_te_edge": 2270,
+          "signed_TE_edge": -2270,
+          "owners": [
+            {
+              "loop": 865,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.7276900696392249
+          ],
+          "derived_edge_gamma": 0.7276900696392249,
+          "derived_steady_strip_gamma": -0.7276900696392249
+        },
+        {
+          "sheet": 6,
+          "strip": 5,
+          "physical_part": 4,
+          "te_nodes": [
+            958,
+            967
+          ],
+          "native_te_edge": 2287,
+          "signed_TE_edge": -2287,
+          "owners": [
+            {
+              "loop": 873,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.672384073334036
+          ],
+          "derived_edge_gamma": 0.672384073334036,
+          "derived_steady_strip_gamma": -0.672384073334036
+        },
+        {
+          "sheet": 7,
+          "strip": 1,
+          "physical_part": 7,
+          "te_nodes": [
+            1068,
+            1066
+          ],
+          "native_te_edge": 2008,
+          "signed_TE_edge": 2008,
+          "owners": [
+            {
+              "loop": 961,
+              "direction": -1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.6484234596098547
+          ],
+          "derived_edge_gamma": -0.6484234596098547,
+          "derived_steady_strip_gamma": -0.6484234596098547
+        },
+        {
+          "sheet": 7,
+          "strip": 2,
+          "physical_part": 7,
+          "te_nodes": [
+            1066,
+            1077
+          ],
+          "native_te_edge": 2038,
+          "signed_TE_edge": -2038,
+          "owners": [
+            {
+              "loop": 969,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.6697082112683653
+          ],
+          "derived_edge_gamma": 0.6697082112683653,
+          "derived_steady_strip_gamma": -0.6697082112683653
+        },
+        {
+          "sheet": 7,
+          "strip": 3,
+          "physical_part": 7,
+          "te_nodes": [
+            1077,
+            1086
+          ],
+          "native_te_edge": 2055,
+          "signed_TE_edge": -2055,
+          "owners": [
+            {
+              "loop": 977,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.597505671224266
+          ],
+          "derived_edge_gamma": 0.597505671224266,
+          "derived_steady_strip_gamma": -0.597505671224266
+        },
+        {
+          "sheet": 7,
+          "strip": 4,
+          "physical_part": 7,
+          "te_nodes": [
+            1086,
+            1095
+          ],
+          "native_te_edge": 2072,
+          "signed_TE_edge": -2072,
+          "owners": [
+            {
+              "loop": 985,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.49795876963190655
+          ],
+          "derived_edge_gamma": 0.49795876963190655,
+          "derived_steady_strip_gamma": -0.49795876963190655
+        },
+        {
+          "sheet": 7,
+          "strip": 5,
+          "physical_part": 7,
+          "te_nodes": [
+            1095,
+            1104
+          ],
+          "native_te_edge": 2089,
+          "signed_TE_edge": -2089,
+          "owners": [
+            {
+              "loop": 993,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            0.4260057328563499
+          ],
+          "derived_edge_gamma": 0.4260057328563499,
+          "derived_steady_strip_gamma": -0.4260057328563499
+        },
+        {
+          "sheet": 8,
+          "strip": 1,
+          "physical_part": 8,
+          "te_nodes": [
+            1115,
+            1113
+          ],
+          "native_te_edge": 2106,
+          "signed_TE_edge": 2106,
+          "owners": [
+            {
+              "loop": 1001,
+              "direction": -1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.6783336219018998
+          ],
+          "derived_edge_gamma": 0.6783336219018998,
+          "derived_steady_strip_gamma": 0.6783336219018998
+        },
+        {
+          "sheet": 8,
+          "strip": 2,
+          "physical_part": 8,
+          "te_nodes": [
+            1113,
+            1124
+          ],
+          "native_te_edge": 2137,
+          "signed_TE_edge": -2137,
+          "owners": [
+            {
+              "loop": 1009,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.6417992667728256
+          ],
+          "derived_edge_gamma": -0.6417992667728256,
+          "derived_steady_strip_gamma": 0.6417992667728256
+        },
+        {
+          "sheet": 8,
+          "strip": 3,
+          "physical_part": 8,
+          "te_nodes": [
+            1124,
+            1133
+          ],
+          "native_te_edge": 2154,
+          "signed_TE_edge": -2154,
+          "owners": [
+            {
+              "loop": 1017,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.7481702741802053
+          ],
+          "derived_edge_gamma": -0.7481702741802053,
+          "derived_steady_strip_gamma": 0.7481702741802053
+        },
+        {
+          "sheet": 8,
+          "strip": 4,
+          "physical_part": 8,
+          "te_nodes": [
+            1133,
+            1142
+          ],
+          "native_te_edge": 2171,
+          "signed_TE_edge": -2171,
+          "owners": [
+            {
+              "loop": 1025,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.7758746182885047
+          ],
+          "derived_edge_gamma": -0.7758746182885047,
+          "derived_steady_strip_gamma": 0.7758746182885047
+        },
+        {
+          "sheet": 8,
+          "strip": 5,
+          "physical_part": 8,
+          "te_nodes": [
+            1142,
+            1151
+          ],
+          "native_te_edge": 2188,
+          "signed_TE_edge": -2188,
+          "owners": [
+            {
+              "loop": 1033,
+              "direction": 1
+            }
+          ],
+          "emitted_surface_gamma": [
+            -0.7065426631307995
+          ],
+          "derived_edge_gamma": -0.7065426631307995,
+          "derived_steady_strip_gamma": 0.7065426631307995
+        }
+      ],
+      "trails": [
+        {
+          "trail": 1,
+          "sheet": 1,
+          "local_trail": 1,
+          "te_node": 461,
+          "concave_internal_record": true,
+          "adjacent_strip_gamma_left": 0.0,
+          "adjacent_strip_gamma_right": 1.596938604859777,
+          "derived_streamwise_gamma": -1.596938604859777,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": false
+        },
+        {
+          "trail": 2,
+          "sheet": 1,
+          "local_trail": 2,
+          "te_node": 1021,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 1.596938604859777,
+          "adjacent_strip_gamma_right": 1.6235967885564615,
+          "derived_streamwise_gamma": -0.0266581836966846,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 3,
+          "sheet": 1,
+          "local_trail": 3,
+          "te_node": 1030,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 1.6235967885564615,
+          "adjacent_strip_gamma_right": 1.50103770722079,
+          "derived_streamwise_gamma": 0.1225590813356714,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 4,
+          "sheet": 1,
+          "local_trail": 4,
+          "te_node": 1039,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 1.50103770722079,
+          "adjacent_strip_gamma_right": 1.2731527981465134,
+          "derived_streamwise_gamma": 0.22788490907427672,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 5,
+          "sheet": 1,
+          "local_trail": 5,
+          "te_node": 1048,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 1.2731527981465134,
+          "adjacent_strip_gamma_right": 0.8940195534596946,
+          "derived_streamwise_gamma": 0.37913324468681875,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 6,
+          "sheet": 1,
+          "local_trail": 6,
+          "te_node": 1057,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.8940195534596946,
+          "adjacent_strip_gamma_right": 0.0,
+          "derived_streamwise_gamma": 0.8940195534596946,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 7,
+          "sheet": 2,
+          "local_trail": 1,
+          "te_node": 466,
+          "concave_internal_record": true,
+          "adjacent_strip_gamma_left": 0.0,
+          "adjacent_strip_gamma_right": -1.546189165536145,
+          "derived_streamwise_gamma": 1.546189165536145,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": false
+        },
+        {
+          "trail": 8,
+          "sheet": 2,
+          "local_trail": 2,
+          "te_node": 837,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -1.546189165536145,
+          "adjacent_strip_gamma_right": -1.6701313157056437,
+          "derived_streamwise_gamma": 0.12394215016949861,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 9,
+          "sheet": 2,
+          "local_trail": 3,
+          "te_node": 846,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -1.6701313157056437,
+          "adjacent_strip_gamma_right": -1.5382765735962745,
+          "derived_streamwise_gamma": -0.1318547421093692,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 10,
+          "sheet": 2,
+          "local_trail": 4,
+          "te_node": 855,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -1.5382765735962745,
+          "adjacent_strip_gamma_right": -1.2999992220770757,
+          "derived_streamwise_gamma": -0.2382773515191987,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 11,
+          "sheet": 2,
+          "local_trail": 5,
+          "te_node": 864,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -1.2999992220770757,
+          "adjacent_strip_gamma_right": -0.9104454821679328,
+          "derived_streamwise_gamma": -0.389553739909143,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 12,
+          "sheet": 2,
+          "local_trail": 6,
+          "te_node": 873,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.9104454821679328,
+          "adjacent_strip_gamma_right": 0.0,
+          "derived_streamwise_gamma": -0.9104454821679328,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 13,
+          "sheet": 3,
+          "local_trail": 1,
+          "te_node": 472,
+          "concave_internal_record": true,
+          "adjacent_strip_gamma_left": 0.0,
+          "adjacent_strip_gamma_right": -1.6384062409340283,
+          "derived_streamwise_gamma": 1.6384062409340283,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": false
+        },
+        {
+          "trail": 14,
+          "sheet": 3,
+          "local_trail": 2,
+          "te_node": 976,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -1.6384062409340283,
+          "adjacent_strip_gamma_right": -1.6403121355372896,
+          "derived_streamwise_gamma": 0.0019058946032612933,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 15,
+          "sheet": 3,
+          "local_trail": 3,
+          "te_node": 985,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -1.6403121355372896,
+          "adjacent_strip_gamma_right": -1.512606683246241,
+          "derived_streamwise_gamma": -0.12770545229104857,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 16,
+          "sheet": 3,
+          "local_trail": 4,
+          "te_node": 994,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -1.512606683246241,
+          "adjacent_strip_gamma_right": -1.2826220376845554,
+          "derived_streamwise_gamma": -0.22998464556168563,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 17,
+          "sheet": 3,
+          "local_trail": 5,
+          "te_node": 1003,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -1.2826220376845554,
+          "adjacent_strip_gamma_right": -0.9017324400383854,
+          "derived_streamwise_gamma": -0.38088959764617003,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 18,
+          "sheet": 3,
+          "local_trail": 6,
+          "te_node": 1012,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.9017324400383854,
+          "adjacent_strip_gamma_right": 0.0,
+          "derived_streamwise_gamma": -0.9017324400383854,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 19,
+          "sheet": 4,
+          "local_trail": 1,
+          "te_node": 477,
+          "concave_internal_record": true,
+          "adjacent_strip_gamma_left": 0.0,
+          "adjacent_strip_gamma_right": 1.684875108551694,
+          "derived_streamwise_gamma": -1.684875108551694,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": false
+        },
+        {
+          "trail": 20,
+          "sheet": 4,
+          "local_trail": 2,
+          "te_node": 792,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 1.684875108551694,
+          "adjacent_strip_gamma_right": 1.7062432756512103,
+          "derived_streamwise_gamma": -0.021368167099516278,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 21,
+          "sheet": 4,
+          "local_trail": 3,
+          "te_node": 801,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 1.7062432756512103,
+          "adjacent_strip_gamma_right": 1.5707212319941017,
+          "derived_streamwise_gamma": 0.13552204365710852,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 22,
+          "sheet": 4,
+          "local_trail": 4,
+          "te_node": 810,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 1.5707212319941017,
+          "adjacent_strip_gamma_right": 1.3284390566368378,
+          "derived_streamwise_gamma": 0.24228217535726393,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 23,
+          "sheet": 4,
+          "local_trail": 5,
+          "te_node": 819,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 1.3284390566368378,
+          "adjacent_strip_gamma_right": 0.9318908242842068,
+          "derived_streamwise_gamma": 0.39654823235263104,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 24,
+          "sheet": 4,
+          "local_trail": 6,
+          "te_node": 828,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.9318908242842068,
+          "adjacent_strip_gamma_right": 0.0,
+          "derived_streamwise_gamma": 0.9318908242842068,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 25,
+          "sheet": 5,
+          "local_trail": 1,
+          "te_node": 884,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.0,
+          "adjacent_strip_gamma_right": 0.518215686952147,
+          "derived_streamwise_gamma": -0.518215686952147,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 26,
+          "sheet": 5,
+          "local_trail": 2,
+          "te_node": 882,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.518215686952147,
+          "adjacent_strip_gamma_right": 0.5305493667291981,
+          "derived_streamwise_gamma": -0.012333679777051021,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 27,
+          "sheet": 5,
+          "local_trail": 3,
+          "te_node": 893,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.5305493667291981,
+          "adjacent_strip_gamma_right": 0.5061839057218137,
+          "derived_streamwise_gamma": 0.024365461007384348,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 28,
+          "sheet": 5,
+          "local_trail": 4,
+          "te_node": 902,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.5061839057218137,
+          "adjacent_strip_gamma_right": 0.44144563805773884,
+          "derived_streamwise_gamma": 0.06473826766407487,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 29,
+          "sheet": 5,
+          "local_trail": 5,
+          "te_node": 911,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.44144563805773884,
+          "adjacent_strip_gamma_right": 0.43296393721232895,
+          "derived_streamwise_gamma": 0.00848170084540989,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 30,
+          "sheet": 5,
+          "local_trail": 6,
+          "te_node": 920,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.43296393721232895,
+          "adjacent_strip_gamma_right": 0.0,
+          "derived_streamwise_gamma": 0.43296393721232895,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 31,
+          "sheet": 6,
+          "local_trail": 1,
+          "te_node": 931,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.0,
+          "adjacent_strip_gamma_right": -0.49191545797038616,
+          "derived_streamwise_gamma": 0.49191545797038616,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 32,
+          "sheet": 6,
+          "local_trail": 2,
+          "te_node": 929,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.49191545797038616,
+          "adjacent_strip_gamma_right": -0.54200560647589,
+          "derived_streamwise_gamma": 0.05009014850550386,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 33,
+          "sheet": 6,
+          "local_trail": 3,
+          "te_node": 940,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.54200560647589,
+          "adjacent_strip_gamma_right": -0.6916360983601029,
+          "derived_streamwise_gamma": 0.14963049188421285,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 34,
+          "sheet": 6,
+          "local_trail": 4,
+          "te_node": 949,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.6916360983601029,
+          "adjacent_strip_gamma_right": -0.7276900696392249,
+          "derived_streamwise_gamma": 0.03605397127912202,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 35,
+          "sheet": 6,
+          "local_trail": 5,
+          "te_node": 958,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.7276900696392249,
+          "adjacent_strip_gamma_right": -0.672384073334036,
+          "derived_streamwise_gamma": -0.05530599630518884,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 36,
+          "sheet": 6,
+          "local_trail": 6,
+          "te_node": 967,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.672384073334036,
+          "adjacent_strip_gamma_right": 0.0,
+          "derived_streamwise_gamma": -0.672384073334036,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 37,
+          "sheet": 7,
+          "local_trail": 1,
+          "te_node": 1068,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.0,
+          "adjacent_strip_gamma_right": -0.6484234596098547,
+          "derived_streamwise_gamma": 0.6484234596098547,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 38,
+          "sheet": 7,
+          "local_trail": 2,
+          "te_node": 1066,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.6484234596098547,
+          "adjacent_strip_gamma_right": -0.6697082112683653,
+          "derived_streamwise_gamma": 0.021284751658510626,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 39,
+          "sheet": 7,
+          "local_trail": 3,
+          "te_node": 1077,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.6697082112683653,
+          "adjacent_strip_gamma_right": -0.597505671224266,
+          "derived_streamwise_gamma": -0.07220254004409932,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 40,
+          "sheet": 7,
+          "local_trail": 4,
+          "te_node": 1086,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.597505671224266,
+          "adjacent_strip_gamma_right": -0.49795876963190655,
+          "derived_streamwise_gamma": -0.09954690159235946,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 41,
+          "sheet": 7,
+          "local_trail": 5,
+          "te_node": 1095,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.49795876963190655,
+          "adjacent_strip_gamma_right": -0.4260057328563499,
+          "derived_streamwise_gamma": -0.07195303677555664,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 42,
+          "sheet": 7,
+          "local_trail": 6,
+          "te_node": 1104,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": -0.4260057328563499,
+          "adjacent_strip_gamma_right": 0.0,
+          "derived_streamwise_gamma": -0.4260057328563499,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 43,
+          "sheet": 8,
+          "local_trail": 1,
+          "te_node": 1115,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.0,
+          "adjacent_strip_gamma_right": 0.6783336219018998,
+          "derived_streamwise_gamma": -0.6783336219018998,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 44,
+          "sheet": 8,
+          "local_trail": 2,
+          "te_node": 1113,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.6783336219018998,
+          "adjacent_strip_gamma_right": 0.6417992667728256,
+          "derived_streamwise_gamma": 0.036534355129074214,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 45,
+          "sheet": 8,
+          "local_trail": 3,
+          "te_node": 1124,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.6417992667728256,
+          "adjacent_strip_gamma_right": 0.7481702741802053,
+          "derived_streamwise_gamma": -0.1063710074073797,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 46,
+          "sheet": 8,
+          "local_trail": 4,
+          "te_node": 1133,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.7481702741802053,
+          "adjacent_strip_gamma_right": 0.7758746182885047,
+          "derived_streamwise_gamma": -0.02770434410829936,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 47,
+          "sheet": 8,
+          "local_trail": 5,
+          "te_node": 1142,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.7758746182885047,
+          "adjacent_strip_gamma_right": 0.7065426631307995,
+          "derived_streamwise_gamma": 0.06933195515770518,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        },
+        {
+          "trail": 48,
+          "sheet": 8,
+          "local_trail": 6,
+          "te_node": 1151,
+          "concave_internal_record": false,
+          "adjacent_strip_gamma_left": 0.7065426631307995,
+          "adjacent_strip_gamma_right": 0.0,
+          "derived_streamwise_gamma": 0.7065426631307995,
+          "raw_ADB_wake_Gamma0_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "effective_induction_active": true
+        }
+      ],
+      "definite_interior_points": [
+        {
+          "trail": 1,
+          "te": 461,
+          "node": 2,
+          "xyz": [
+            2.378899097442627,
+            0.06295134127140045,
+            -0.0473877415060997
+          ],
+          "solid_angle": 12.566370614359172,
+          "solid_angle_inside": true,
+          "body_distance_m": 0.008570107393629713,
+          "float32_coordinate_half_spacings_m": [
+            1.1920928955078125e-07,
+            3.725290298461914e-09,
+            1.862645149230957e-09
+          ],
+          "float32_coordinate_radius_m": 1.192820269360048e-07,
+          "classification": "definite_interior_beyond_float32_rounding",
+          "strength_mapping": {
+            "trail": 1,
+            "sheet": 1,
+            "local_trail": 1,
+            "te_node": 461,
+            "concave_internal_record": true,
+            "adjacent_strip_gamma_left": 0.0,
+            "adjacent_strip_gamma_right": 1.596938604859777,
+            "derived_streamwise_gamma": -1.596938604859777,
+            "raw_ADB_wake_Gamma0_values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "effective_induction_active": false
+          },
+          "adjacent_native_edges": [
+            {
+              "native_edge": 2306,
+              "native_orientation": [
+                1160,
+                1161
+              ],
+              "owners": [
+                {
+                  "loop": 1041,
+                  "direction": -1
+                }
+              ],
+              "derived_edge_gamma": -1.596938604859777
+            },
+            {
+              "native_edge": 2309,
+              "native_orientation": [
+                1161,
+                1162
+              ],
+              "owners": [
+                {
+                  "loop": 1042,
+                  "direction": -1
+                }
+              ],
+              "derived_edge_gamma": -1.596938604859777
+            }
+          ]
+        },
+        {
+          "trail": 1,
+          "te": 461,
+          "node": 3,
+          "xyz": [
+            2.817798376083374,
+            0.06291843950748444,
+            -0.032061077654361725
+          ],
+          "solid_angle": 12.566370614359172,
+          "solid_angle_inside": true,
+          "body_distance_m": 0.01714021646622496,
+          "float32_coordinate_half_spacings_m": [
+            1.1920928955078125e-07,
+            3.725290298461914e-09,
+            1.862645149230957e-09
+          ],
+          "float32_coordinate_radius_m": 1.192820269360048e-07,
+          "classification": "definite_interior_beyond_float32_rounding",
+          "strength_mapping": {
+            "trail": 1,
+            "sheet": 1,
+            "local_trail": 1,
+            "te_node": 461,
+            "concave_internal_record": true,
+            "adjacent_strip_gamma_left": 0.0,
+            "adjacent_strip_gamma_right": 1.596938604859777,
+            "derived_streamwise_gamma": -1.596938604859777,
+            "raw_ADB_wake_Gamma0_values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "effective_induction_active": false
+          },
+          "adjacent_native_edges": [
+            {
+              "native_edge": 2309,
+              "native_orientation": [
+                1161,
+                1162
+              ],
+              "owners": [
+                {
+                  "loop": 1042,
+                  "direction": -1
+                }
+              ],
+              "derived_edge_gamma": -1.596938604859777
+            },
+            {
+              "native_edge": 2312,
+              "native_orientation": [
+                1162,
+                1163
+              ],
+              "owners": [
+                {
+                  "loop": 1043,
+                  "direction": -1
+                }
+              ],
+              "derived_edge_gamma": -1.596938604859777
+            }
+          ]
+        },
+        {
+          "trail": 1,
+          "te": 461,
+          "node": 4,
+          "xyz": [
+            3.256697416305542,
+            0.06288553774356842,
+            -0.016734419390559196
+          ],
+          "solid_angle": 12.566370614359174,
+          "solid_angle_inside": true,
+          "body_distance_m": 0.022192436157981776,
+          "float32_coordinate_half_spacings_m": [
+            1.1920928955078125e-07,
+            3.725290298461914e-09,
+            9.313225746154785e-10
+          ],
+          "float32_coordinate_radius_m": 1.1927111915609665e-07,
+          "classification": "definite_interior_beyond_float32_rounding",
+          "strength_mapping": {
+            "trail": 1,
+            "sheet": 1,
+            "local_trail": 1,
+            "te_node": 461,
+            "concave_internal_record": true,
+            "adjacent_strip_gamma_left": 0.0,
+            "adjacent_strip_gamma_right": 1.596938604859777,
+            "derived_streamwise_gamma": -1.596938604859777,
+            "raw_ADB_wake_Gamma0_values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "effective_induction_active": false
+          },
+          "adjacent_native_edges": [
+            {
+              "native_edge": 2312,
+              "native_orientation": [
+                1162,
+                1163
+              ],
+              "owners": [
+                {
+                  "loop": 1043,
+                  "direction": -1
+                }
+              ],
+              "derived_edge_gamma": -1.596938604859777
+            },
+            {
+              "native_edge": 2315,
+              "native_orientation": [
+                1163,
+                1164
+              ],
+              "owners": [
+                {
+                  "loop": 1044,
+                  "direction": -1
+                }
+              ],
+              "derived_edge_gamma": -1.596938604859777
+            }
+          ]
+        },
+        {
+          "trail": 7,
+          "te": 466,
+          "node": 2,
+          "xyz": [
+            2.378899097442627,
+            -0.0627472996711731,
+            -0.04765758290886879
+          ],
+          "solid_angle": 12.566370614359174,
+          "solid_angle_inside": true,
+          "body_distance_m": 0.008570111057622884,
+          "float32_coordinate_half_spacings_m": [
+            1.1920928955078125e-07,
+            3.725290298461914e-09,
+            1.862645149230957e-09
+          ],
+          "float32_coordinate_radius_m": 1.192820269360048e-07,
+          "classification": "definite_interior_beyond_float32_rounding",
+          "strength_mapping": {
+            "trail": 7,
+            "sheet": 2,
+            "local_trail": 1,
+            "te_node": 466,
+            "concave_internal_record": true,
+            "adjacent_strip_gamma_left": 0.0,
+            "adjacent_strip_gamma_right": -1.546189165536145,
+            "derived_streamwise_gamma": 1.546189165536145,
+            "raw_ADB_wake_Gamma0_values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "effective_induction_active": false
+          },
+          "adjacent_native_edges": [
+            {
+              "native_edge": 2388,
+              "native_orientation": [
+                1208,
+                1209
+              ],
+              "owners": [
+                {
+                  "loop": 1076,
+                  "direction": -1
+                }
+              ],
+              "derived_edge_gamma": 1.546189165536145
+            },
+            {
+              "native_edge": 2391,
+              "native_orientation": [
+                1209,
+                1210
+              ],
+              "owners": [
+                {
+                  "loop": 1077,
+                  "direction": -1
+                }
+              ],
+              "derived_edge_gamma": 1.546189165536145
+            }
+          ]
+        },
+        {
+          "trail": 7,
+          "te": 466,
+          "node": 3,
+          "xyz": [
+            2.817798376083374,
+            -0.06278020888566971,
+            -0.03233092278242111
+          ],
+          "solid_angle": 12.566370614359174,
+          "solid_angle_inside": true,
+          "body_distance_m": 0.017140213331443842,
+          "float32_coordinate_half_spacings_m": [
+            1.1920928955078125e-07,
+            3.725290298461914e-09,
+            1.862645149230957e-09
+          ],
+          "float32_coordinate_radius_m": 1.192820269360048e-07,
+          "classification": "definite_interior_beyond_float32_rounding",
+          "strength_mapping": {
+            "trail": 7,
+            "sheet": 2,
+            "local_trail": 1,
+            "te_node": 466,
+            "concave_internal_record": true,
+            "adjacent_strip_gamma_left": 0.0,
+            "adjacent_strip_gamma_right": -1.546189165536145,
+            "derived_streamwise_gamma": 1.546189165536145,
+            "raw_ADB_wake_Gamma0_values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "effective_induction_active": false
+          },
+          "adjacent_native_edges": [
+            {
+              "native_edge": 2391,
+              "native_orientation": [
+                1209,
+                1210
+              ],
+              "owners": [
+                {
+                  "loop": 1077,
+                  "direction": -1
+                }
+              ],
+              "derived_edge_gamma": 1.546189165536145
+            },
+            {
+              "native_edge": 2394,
+              "native_orientation": [
+                1210,
+                1211
+              ],
+              "owners": [
+                {
+                  "loop": 1078,
+                  "direction": -1
+                }
+              ],
+              "derived_edge_gamma": 1.546189165536145
+            }
+          ]
+        },
+        {
+          "trail": 7,
+          "te": 466,
+          "node": 4,
+          "xyz": [
+            3.256697416305542,
+            -0.06281311064958572,
+            -0.017004264518618584
+          ],
+          "solid_angle": 12.56637061435917,
+          "solid_angle_inside": true,
+          "body_distance_m": 0.02219243438805127,
+          "float32_coordinate_half_spacings_m": [
+            1.1920928955078125e-07,
+            3.725290298461914e-09,
+            9.313225746154785e-10
+          ],
+          "float32_coordinate_radius_m": 1.1927111915609665e-07,
+          "classification": "definite_interior_beyond_float32_rounding",
+          "strength_mapping": {
+            "trail": 7,
+            "sheet": 2,
+            "local_trail": 1,
+            "te_node": 466,
+            "concave_internal_record": true,
+            "adjacent_strip_gamma_left": 0.0,
+            "adjacent_strip_gamma_right": -1.546189165536145,
+            "derived_streamwise_gamma": 1.546189165536145,
+            "raw_ADB_wake_Gamma0_values": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "effective_induction_active": false
+          },
+          "adjacent_native_edges": [
+            {
+              "native_edge": 2394,
+              "native_orientation": [
+                1210,
+                1211
+              ],
+              "owners": [
+                {
+                  "loop": 1078,
+                  "direction": -1
+                }
+              ],
+              "derived_edge_gamma": 1.546189165536145
+            },
+            {
+              "native_edge": 2397,
+              "native_orientation": [
+                1211,
+                1212
+              ],
+              "owners": [
+                {
+                  "loop": 1079,
+                  "direction": -1
+                }
+              ],
+              "derived_edge_gamma": 1.546189165536145
+            }
+          ]
+        }
+      ],
+      "model_accepted": false,
+      "input_directory": "convergence/cases/alpha2"
+    }
+  },
+  "source_contract": "Surface Gamma0 is emitted as double. Steady wake Grid Gamma equals signed TE edge Gamma, then wake edge Gamma is oriented adjacent wake-loop difference (StallFactor/VortexStretchingRatio=1 in this steady non-stall control). Concave edges induce zero velocity independently of stored circulation.",
+  "unavailable": "Intermediate per-iteration circulation and individual induced-velocity contributions are not emitted. Derived final strengths are not evidence that a specific vortex caused a residual.",
+  "source_units_directory": "convergence/source-witness",
+  "flow_executed": false
+}
