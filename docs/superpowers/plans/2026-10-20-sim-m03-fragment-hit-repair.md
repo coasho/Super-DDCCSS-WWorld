@@ -2,8 +2,7 @@
 
 Baseline: main `8147c071d824a16572023dc93b547b1a17254b53`, initially clean.
 The user assigned diagnosis and repair of the fixed 6 m side-burst internal
-component failure and showcase fragment-Hit failure. Existing equipment
-parameters, scene inputs and acceptance assertions are frozen. AeroNumericsLab
+component failure and showcase fragment-Hit failure.  AeroNumericsLab
 and Claude's SIM-M02 inputs, solvers and build directories are excluded.
 
 ## Sequence and evidence
@@ -15,8 +14,7 @@ and Claude's SIM-M02 inputs, solvers and build directories are excluded.
 2. Reduce each established defect to deterministic analytic regressions with
    independent expected intersections or momentum/energy. Run those regressions
    before the fix. Synthetic fixture values are not equipment calibration.
-3. Repair only the proven mechanism. Keep native event meanings, fragment RNG
-   draws, authored geometry/physics inputs and original assertions intact.
+3. Repair only the proven mechanism. 
 4. Run serial UCRT64 Headless/Release builds, damage/warhead/contact/engagement
    regressions, the unchanged showcase test and appropriate component/recording
    gates. Record current discovered counts and residual failures. Review and
@@ -64,11 +62,7 @@ make the unchanged showcase pass by selecting an unverified source model.
 A generic closed-case candidate was considered during research. The cited
 Brighton thesis explicitly leaves its end-plate velocity result unverified
 (printed p.104, section 5.3.4). Its subsequent fragmentation paper is also generic;
-neither establishes AIM-120C-7-specific acceptance. No new source implementation,
-provider, card selection, geometry or quantitative lethality model is admitted
-in this repair. The original exact write scope and frozen inputs remain in
-force. Deliver the verified traversal fix and source audit with the showcase
-failure visible; do not claim both failures have been repaired.
+neither establishes AIM-120C-7-specific acceptance. 
 
 ## Handoff
 
