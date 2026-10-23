@@ -91,12 +91,16 @@ class Data(unittest.TestCase):
 class Current(unittest.TestCase):
     def test_committed_files_are_what_the_designs_write(self):
         # (two small designs: each committed file what damage.py writes from its design now)
+        from hangar.aero.model import AeroModel
         for name in ("c172", "skua"):
             with self.subTest(name):
                 a = Aircraft.load(os.path.join(pipeline.repo_root(), "aircraft", name, name + ".toml"))
                 out = os.path.join(os.environ.get("FSIM_TEST_OUTPUT") or tempfile.mkdtemp(), name + ".damage.json")
                 os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
-                damage.write(a, out, MassModel(a).empty()["cg"])
+                # The model stage passes the aerodynamic model for an aircraft with a wing
+                # (pipeline _components): the side centres of pressure come from it.
+                model = AeroModel(a) if any(s.kind == "wing" for s in a.surfaces) else None
+                damage.write(a, out, MassModel(a).empty()["cg"], model=model)
                 with open(out, encoding="utf-8") as f, \
                         open(os.path.join(pipeline.repo_root(), "aircraft", name, name + ".damage.json"), encoding="utf-8") as g:
                     self.assertEqual(f.read(), g.read(), "%s.damage.json is stale: fsim hangar %s --stage model" % (name, name))

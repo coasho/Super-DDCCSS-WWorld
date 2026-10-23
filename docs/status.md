@@ -22,14 +22,21 @@ assertion or geometry (three substitute the 20 degree R-60M for the AIM-9X, one
 reads the card's migrated `component_*` value instead of a legacy default).
 Focused native cases pass **10/10**, the showcase/engagement set **4/4**, and
 Headless repeats its **8/8** focused cases; the scope checker passes after the
-Headless preset is rebuilt. The complete Release suite (911 cases) leaves five
-failures that reproduce on unmodified `004e1f7` with this work stashed:
-`package_consumer` (installed tree lacks `LICENSE-JSBSim.txt`), `sdk_boundary`
-(stale vision API in `docs/sdk/boundary.md`) and three Hangar generated-byte
-comparisons (float rendering such as `-0.25` versus `-0.25000000000000006`,
-including models this branch never edited). Full SIM-M03 physical acceptance,
-the remaining estimated inputs and the range-equation, radiometric, Gurney/Mott,
-fuze-link and motor-ballistics algorithm work stay open.
+Headless preset is rebuilt. Four pre-existing failures were repaired on this
+branch: `package_consumer` now finds the vendored JSBSim LGPL text (retained at
+`third_party/jsbsim/COPYING` and recorded in `THIRD_PARTY_NOTICES.md`); the
+fifteen guided stores' JSBSim XML and the `c172`/`skua` damage data were
+regenerated to match the current generators; and the damage gate now passes the
+aerodynamic model that the model stage passes. The Python package also stages
+NVIDIA Flow's `nvflow.dll` and `nvflowext.dll`, which the vision renderer loads
+at run time and the package previously omitted. `sdk_boundary` remains failing
+on this host: `import fsim.vision` from `build/ucrt64-release/python/fsim/bin`
+fails with WinError 1114 although the byte-identical DLL set loads from
+`build/ucrt64-release/bin`; the same condition makes the SDK's vision test skip,
+so this is recorded as an unresolved runtime/environment issue rather than
+masked. Full SIM-M03 physical acceptance, the remaining estimated inputs and
+the range-equation, radiometric, Gurney/Mott, fuze-link and motor-ballistics
+algorithm work stay open.
 
 Numerical handoff integration and full regeneration, 2026-10-22, from main
 `d5c8203`: the [integration and validation record](sdk/missile-flight-validation.md#aeronumericslab-integration-2026-10-21)

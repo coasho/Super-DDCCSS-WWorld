@@ -165,21 +165,28 @@ assertion or geometry:
 | `test_contact_fuze_native.cpp` | its lost-seeker guard places the target outside 45 degrees | the same R-60M substitution; the guard, placement and contact assertions are unchanged |
 | `test_payload_composition_contract.cpp` | its legacy baseline read only legacy `seeker_*` keys, which the migrated cards do not carry | the baseline falls back to the card's `component_*` parameter, so it compares composition with the card's declared value instead of a hard-coded class default |
 
-Full Release suite, `004e1f7` plus this work, 911 cases: **five failures remain
-and are pre-existing on this host**, verified by stashing this branch's changes
-and re-running the same cases on the unmodified tree:
+Full Release suite, `004e1f7` plus this work, 911 cases: five failures were
+found on the unmodified tree (verified by stashing this branch's changes and
+re-running the same cases) and four are now repaired:
 
-* `package_consumer`: the installed SDK tree lacks `share/doc/flightsim/LICENSE-JSBSim.txt`;
-* `sdk_boundary`: `docs/sdk/boundary.md` is stale for the vision API;
-* `hangar test_stores.StoresTest`, `hangar test_missiles.Missiles`,
-  `hangar test_damage.Current`: the committed generated files differ from what
-  the current generators write (a `-0.25000000000000006` versus `-0.25` float
-  rendering, and `-0.0` versus `0.0`), including models this branch never edited.
+* `package_consumer`: the vendored JSBSim tree had no `COPYING`, so the install
+  rule silently skipped `LICENSE-JSBSim.txt`. The LGPL-2.1 text is now retained
+  at `third_party/jsbsim/COPYING` (upstream v1.3.1, hash recorded in
+  `THIRD_PARTY_NOTICES.md`) and the consumer installs it;
+* `hangar test_stores.StoresTest`, `hangar test_missiles.Missiles`: the fifteen
+  guided stores' committed JSBSim XML differed from the current generator
+  (`-0.25000000000000006` versus `-0.25`). The XMLs were regenerated;
+* `hangar test_damage.Current`: the `c172`/`skua` damage data and the
+  aerodynamic-model argument the gate passes now match the model stage;
+* the Python package now stages NVIDIA Flow's `nvflow.dll` and `nvflowext.dll`,
+  which the vision renderer opens at run time and the package omitted.
 
-`testing_scope_checker` compares the Release inventory with the Headless
-inventory. It passes after the Headless preset is configured and rebuilt on
-this tree; a stale Headless binary reports the strengthened 004e1f7 cases as
-Release-only.
+`testing_scope_checker` passes after the Headless preset is rebuilt on this
+tree. `sdk_boundary` still fails on this host: `import fsim.vision` from
+`build/ucrt64-release/python/fsim/bin` fails with WinError 1114 while the
+byte-identical DLL set loads from `build/ucrt64-release/bin`; the SDK vision
+test skips under the same condition. It is recorded as an unresolved
+runtime/environment issue, not masked by changing the check.
 
 ## Remaining work
 

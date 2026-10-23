@@ -61,6 +61,12 @@ them locally; using them is subject to the providers' terms:
 flightsim builds JSBSim 1.3.1 from the tracked vendored source in `third_party/jsbsim`, with
 the following changes generated into the build tree by `cmake/JsbsimPatches.cmake`:
 
+The LGPL-2.1 text itself is retained at `third_party/jsbsim/COPYING`, fetched from
+`https://raw.githubusercontent.com/JSBSim-Team/jsbsim/v1.3.1/COPYING` (SHA-256
+`1e7e6ba5a5bde32f1ae5a7c37a082d1ab03cf89354f7f936ac40be9e39a6531`). Upstream's own
+`.gitignore` lists it, so it is added explicitly; the SDK install rule and the
+package-consumer gate require it under `share/doc/flightsim/LICENSE-JSBSim.txt`.
+
 - In `src/models/FGLGear.cpp`, the projection of a wheel's strut on the ground normal is
   bounded at 45 degrees. Upstream divides the wheel's compression and ground force by that
   projection, so a wheel meeting the ground sideways, as in a cartwheel, got an unbounded force.

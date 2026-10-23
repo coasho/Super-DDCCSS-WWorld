@@ -120,6 +120,7 @@ add_custom_target(python_package ALL
         "-DEXES=${_fsim_py_exes}"
         "-DSEARCH=${FSIM_UCRT64_ROOT}/bin;${CMAKE_BINARY_DIR}/bin"
         "-DOBJDUMP=${FSIM_UCRT64_ROOT}/bin/objdump.exe"
+        "-DEXTRA=${FSIM_FLOW_RUNTIME}"
         "-DDEST=${FSIM_PY_PACKAGE}/bin"
         "-DLABEL=python package"
         -P ${CMAKE_SOURCE_DIR}/cmake/DeployRuntime.cmake

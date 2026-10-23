@@ -395,19 +395,19 @@
             <function>
                 <sum>
                     <product>
-                        <value>-0.25000000000000006</value>
+                        <value>-0.25</value>
                         <property>fcs/fin-0-delta-rad</property>
                     </product>
                     <product>
-                        <value>0.25000000000000011</value>
+                        <value>0.25</value>
                         <property>fcs/fin-1-delta-rad</property>
                     </product>
                     <product>
-                        <value>-0.25000000000000006</value>
+                        <value>-0.25</value>
                         <property>fcs/fin-2-delta-rad</property>
                     </product>
                     <product>
-                        <value>0.25</value>
+                        <value>0.25000000000000006</value>
                         <property>fcs/fin-3-delta-rad</property>
                     </product>
                 </sum>
