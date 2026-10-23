@@ -1,5 +1,20 @@
 # Current capabilities and milestone status
 
+Complete Release verification, 2026-10-23, at `4a4fbbe`: **911 cases,
+910 pass, 1 fail, zero skipped**, 6267.50 s. The sole failure is
+`control_alloc`, which counted a one-time platform allocation inside the
+envelope-protection case's measured window: 1-4 allocations of 264 bytes, one
+per worker thread, at the first counted step. Moving the window later still
+leaves a single allocation inside it, and the count does not grow with the
+number of steps. The production sources are unchanged from `004e1f7`
+(`git diff 004e1f7..HEAD -- src include` is empty), so this is recorded as a
+pre-existing benchmark flake that needs a symbolized profiling session, not a
+simulation regression. Every gate repaired on this branch passes in the full
+run: `package_consumer`, `hangar test_stores`, `hangar test_missiles`,
+`hangar test_damage.Current`, `testing_scope_checker` and `sdk_boundary`;
+`python_sdk` is 68/68, including the two vision cases that now execute instead
+of skipping.
+
 SIM-M03 per-model component baseline, 2026-10-23, from main `004e1f7`
 (branch `opencode/sim-m03`): the [public-data matrix](sdk/missile-public-data-matrix.md)
 records the 24 AAM cards' component identity and every admitted public source.
