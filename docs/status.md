@@ -1,5 +1,36 @@
 # Current capabilities and milestone status
 
+SIM-M03 per-model component baseline, 2026-10-23, from main `004e1f7`
+(branch `opencode/sim-m03`): the [public-data matrix](sdk/missile-public-data-matrix.md)
+records the 24 AAM cards' component identity and every admitted public source.
+Published off-boresight corrections make the high off-boresight missiles
+consistent with their sources: AIM-9X Block I, ASRAAM, IRIS-T and PL-10 move
+from 45/25 degree gimbal/launch field to 90/90, R-73's launch field moves to
+the manufacturer's 45 degrees, and the R-60M's 13 km seeker reach is replaced
+by a derived 6 km (0.75 x its published 8 km launch range) with its legacy
+45 degree gimbal reduced to a 20 degree estimate. No engagement outcome,
+scene or physical-acceptance assertion is changed. Two weapon-employment
+fixtures that needed a target outside an IR seeker field now use the R-60M,
+because the AIM-9X's published 90 degree field admits the fixture's 40 degree
+target; their assertions and geometry are unchanged. New gates
+`missile_card_facts` and `missile_card_facts_apply_check` check the card set,
+component types, provenance, parameter references and physical bounds against
+the fact table; `apply_missile_facts.py` reproduces the cards and reports
+drift. The corrected fields invalidated four fixtures that had encoded the old
+45/25 degree field as a premise; each was repaired without weakening its
+assertion or geometry (three substitute the 20 degree R-60M for the AIM-9X, one
+reads the card's migrated `component_*` value instead of a legacy default).
+Focused native cases pass **10/10**, the showcase/engagement set **4/4**, and
+Headless repeats its **8/8** focused cases; the scope checker passes after the
+Headless preset is rebuilt. The complete Release suite (911 cases) leaves five
+failures that reproduce on unmodified `004e1f7` with this work stashed:
+`package_consumer` (installed tree lacks `LICENSE-JSBSim.txt`), `sdk_boundary`
+(stale vision API in `docs/sdk/boundary.md`) and three Hangar generated-byte
+comparisons (float rendering such as `-0.25` versus `-0.25000000000000006`,
+including models this branch never edited). Full SIM-M03 physical acceptance,
+the remaining estimated inputs and the range-equation, radiometric, Gurney/Mott,
+fuze-link and motor-ballistics algorithm work stay open.
+
 Numerical handoff integration and full regeneration, 2026-10-22, from main
 `d5c8203`: the [integration and validation record](sdk/missile-flight-validation.md#aeronumericslab-integration-2026-10-21)
 contains the hash-bound AeroNumericsLab candidates, fresh modified VSPAERO R2

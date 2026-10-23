@@ -109,7 +109,10 @@ void all_selected_aams_are_validated_atomically() {
     const auto payload = stations(world, own);
     require(world.loadStore(own, payload, 1, "aim-120c") == ms::Reason::None,
             "Fixture active radar missile load failed");
-    require(world.loadStore(own, payload, 2, "aim-9x") == ms::Reason::None,
+    // A legacy 20-degree IR seeker: the AIM-9X's published 90-degree field now
+    // admits the 40-degree target, so it can no longer stand for "outside its
+    // own FOV". The assertion and geometry are unchanged.
+    require(world.loadStore(own, payload, 2, "r-60m") == ms::Reason::None,
             "Fixture infrared missile load failed");
     operate(world, own, payload);
     const auto target = targetAt(world, own, 40);
@@ -261,7 +264,7 @@ void release_time_fov_loss_refuses_every_due_store_atomically() {
     const auto own = launcher(world);
     const auto payload = stations(world, own);
     require(world.loadStore(own, payload, 1, "aim-120c") == ms::Reason::None
-                && world.loadStore(own, payload, 2, "aim-9x") == ms::Reason::None,
+                && world.loadStore(own, payload, 2, "r-60m") == ms::Reason::None,
             "Fixture mixed due stores must load");
     operate(world, own, payload);
     const auto target = targetAt(world, own, 0);

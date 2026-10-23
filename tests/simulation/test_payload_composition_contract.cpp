@@ -14,11 +14,16 @@ struct Fixture {
 weapon::Spec baselineFor(const StoreCard& card) {
     weapon::Spec spec;spec.seeker=card.seeker;
     const bool heat=card.seeker.find("infrared")!=std::string::npos;
-    spec.acquireM=card.value("seeker_acquire_m",heat?13000:card.seeker=="semi_active_radar"?60000:17000);
-    spec.gimbalRad=card.value("seeker_gimbal_deg",heat?45:60)*3.14159265358979323846/180;
-    spec.maxG=card.value("guidance_max_g",heat?40:35);spec.lifeS=card.value("guidance_life_s",heat?45:110);
+    // The card's declared value is the legacy field when present and the migrated
+    // component parameter otherwise: a card that moved its seeker/fuze numbers to
+    // component_* must still compose to the same values its legacy path reads.
+    spec.acquireM=card.value("seeker_acquire_m",card.value("component_seeker_acquire_m",
+        heat?13000:card.seeker=="semi_active_radar"?60000:17000));
+    spec.gimbalRad=card.value("seeker_gimbal_deg",card.value("component_seeker_gimbal_deg",heat?45:60))*3.14159265358979323846/180;
+    spec.maxG=card.value("guidance_max_g",card.value("component_guidance_max_g",heat?40:35));
+    spec.lifeS=card.value("guidance_life_s",card.value("component_guidance_life_s",heat?45:110));
     spec.loftRad=heat?0:20*3.14159265358979323846/180;
-    spec.fuzeM=card.value("fuze_radius_m",7+std::sqrt(card.value("warhead_kg",12)));
+    spec.fuzeM=card.value("fuze_radius_m",card.value("component_fuze_radius_m",7+std::sqrt(card.value("warhead_kg",12))));
     spec.capabilityVersion=card.guidanceCapabilities.version;
     spec.inertialMidcourse=card.guidanceCapabilities.inertialMidcourse;spec.launcherUpdates=card.guidanceCapabilities.launcherUpdates;
     std::string error;REQUIRE(weapon::configureGuidance(card,spec,error));

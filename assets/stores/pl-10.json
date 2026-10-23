@@ -258,18 +258,20 @@
       "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
     },
     "component_seeker_gimbal_deg": {
-      "value": 45,
+      "value": 90,
       "unit": "deg",
-      "uncertainty": 0,
-      "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "uncertainty": 10,
+      "basis": "published",
+      "source": "twz-china-aam",
+      "note": "Secondary reporting states a 90 degree off-boresight capability for the imaging infrared seeker."
     },
     "component_seeker_launch_fov_deg": {
-      "value": 25,
+      "value": 90,
       "unit": "deg",
-      "uncertainty": 0,
-      "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "uncertainty": 10,
+      "basis": "published",
+      "source": "twz-china-aam",
+      "note": "Same reporting; the pre-release field must admit the claimed off-boresight angle."
     },
     "component_seeker_minimum_range_m": {
       "value": 1,
@@ -581,6 +583,15 @@
     }
   },
   "sources": {
+    "twz-china-aam": {
+      "evidence_kind": "secondary_reference",
+      "title": "A Guide To China's Increasingly Impressive Air-To-Air Missile Inventory",
+      "publisher": "The War Zone",
+      "url": "https://www.twz.com/a-guide-to-chinas-increasingly-impressive-air-to-air-missile-inventory",
+      "date": "",
+      "accessed": "2026-10-23",
+      "note": "Secondary reference: PL-10 imaging infrared seeker, reportedly 90 degree off-boresight capability."
+    },
     "cctv-name-report": {
       "evidence_kind": "secondary_reference",
       "title": "CCTV News: public PL-series designations (identity report)",

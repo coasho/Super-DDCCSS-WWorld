@@ -109,11 +109,13 @@ struct Fixture {
             stations = p.index; found = true;
         }
         require(found, "native stations missing");
-        require(world.loadStore(launcher,stations,1,"aim-9x") == ms::Reason::None, "AIM-9X load rejected");
+        // A legacy 20-degree seeker keeps the victim outside the seeker field at the
+        // fixture's 45-degree guard; the AIM-9X's published 90-degree field now tracks it.
+        require(world.loadStore(launcher,stations,1,"r-60m") == ms::Reason::None, "R-60M load rejected");
         if (inert) {
             ms::JettisonCommand command; command.payload = stations; command.emergency = true;
             for (const auto& store : world.missionSystems(launcher)->stores())
-                if (std::string(store.store) == "aim-9x") command.stores.push_back(store.index);
+                if (std::string(store.store) == "r-60m") command.stores.push_back(store.index);
             require(command.stores.size() == 1, "fixture must select exactly its loaded missile");
             require(world.submit(launcher,command).accepted(), "native jettison rejected");
         } else {
@@ -129,7 +131,7 @@ struct Fixture {
             initial.altitudeMslM = own.altitudeMslM;
             formerTarget = aircraft(world,"observed-release-target",initial);
             ms::StrikeCommand command;
-            command.payload=stations; command.store="aim-9x"; command.target=formerTarget; command.consent=true;
+            command.payload=stations; command.store="r-60m"; command.target=formerTarget; command.consent=true;
             require(world.submit(launcher,command).accepted(), "observed infrared Host release rejected");
         }
         for (unsigned i=0; i<2000 && world.weapons().empty(); ++i) world.step();

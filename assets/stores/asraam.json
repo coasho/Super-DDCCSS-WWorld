@@ -279,18 +279,20 @@
       "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
     },
     "component_seeker_gimbal_deg": {
-      "value": 45,
+      "value": 90,
       "unit": "deg",
-      "uncertainty": 0,
-      "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "uncertainty": 10,
+      "basis": "published",
+      "source": "hushkit-sraam",
+      "note": "Secondary reporting credits the ASRAAM seeker with plus/minus 90 degree off-boresight angles; no manufacturer figure was found."
     },
     "component_seeker_launch_fov_deg": {
-      "value": 25,
+      "value": 90,
       "unit": "deg",
-      "uncertainty": 0,
-      "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "uncertainty": 10,
+      "basis": "published",
+      "source": "hushkit-sraam",
+      "note": "Same off-boresight reporting; a high off-boresight missile must retain its seeker field before release."
     },
     "component_seeker_minimum_range_m": {
       "value": 1,
@@ -602,6 +604,15 @@
     }
   },
   "sources": {
+    "hushkit-sraam": {
+      "evidence_kind": "secondary_reference",
+      "title": "Ten best air-to-air missiles (short range)",
+      "publisher": "Hush-Kit",
+      "url": "https://hushkit.net/2016/12/05/ten-most-formidable-dogfight-missiles/",
+      "date": "2016-12-05",
+      "accessed": "2026-10-23",
+      "note": "Secondary reference crediting an imaging infrared seeker with plus/minus 90 degree off-boresight angles for ASRAAM-class missiles."
+    },
     "mbda-asraam-identity": {
       "evidence_kind": "manufacturer_publication",
       "title": "ASRAAM",

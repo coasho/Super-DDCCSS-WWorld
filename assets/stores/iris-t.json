@@ -262,18 +262,20 @@
       "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
     },
     "component_seeker_gimbal_deg": {
-      "value": 45,
+      "value": 90,
       "unit": "deg",
-      "uncertainty": 0,
-      "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "uncertainty": 10,
+      "basis": "published",
+      "source": "deagel-iris-t",
+      "note": "Secondary reference credits a plus/minus 90 degree look angle; Saab publishes the seeker type and dimensions but not a gimbal limit."
     },
     "component_seeker_launch_fov_deg": {
-      "value": 25,
+      "value": 90,
       "unit": "deg",
-      "uncertainty": 0,
-      "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "uncertainty": 10,
+      "basis": "published",
+      "source": "deagel-iris-t",
+      "note": "Derived from the same reported look angle so a lock can be taken before release."
     },
     "component_seeker_minimum_range_m": {
       "value": 1,
@@ -585,6 +587,15 @@
     }
   },
   "sources": {
+    "deagel-iris-t": {
+      "evidence_kind": "secondary_reference",
+      "title": "IRIS-T",
+      "publisher": "Deagel",
+      "url": "https://www.deagel.com/weapons/iris-t/a001103",
+      "date": "",
+      "accessed": "2026-10-23",
+      "note": "Secondary reference crediting a plus/minus 90 degree look angle and a 128 x 128 imaging seeker."
+    },
     "diehl-irist-identity": {
       "evidence_kind": "manufacturer_publication",
       "title": "Guided Missiles: IRIS-T",

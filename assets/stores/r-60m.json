@@ -259,18 +259,19 @@
       "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
     },
     "component_seeker_acquire_m": {
-      "value": 13000,
+      "value": 6000,
       "unit": "m",
-      "uncertainty": 0,
-      "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "uncertainty": 1500,
+      "basis": "derived",
+      "source": "wp-r60",
+      "note": "0.75 x the card's published 8 km maximum launch range (range_km, source wp-r60): an 8 km missile cannot usefully acquire at 13 km. Derived from the published kinematic range, not a measured seeker range."
     },
     "component_seeker_gimbal_deg": {
-      "value": 45,
+      "value": 20,
       "unit": "deg",
-      "uncertainty": 0,
+      "uncertainty": 8,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "The R-60's OGS-60TI seeker is published at 12 degrees off-boresight; the R-60M's Komar-M seeker is credited with a wider but unpublished limit. 20 degrees is an engineering estimate; the previous 45 degrees treated a legacy reticle missile as high off-boresight."
     },
     "component_seeker_launch_fov_deg": {
       "value": 25,

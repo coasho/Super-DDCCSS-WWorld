@@ -266,15 +266,16 @@ TEST_CASE("stores: launch target and FOV refusals precede host admission without
     const auto launcher = wing(w, "f16c", 5000.0, 220.0);
     const auto stations = stationsOf(w, launcher);
     REQUIRE(w.loadStore(launcher, stations, 1, "aim-120c") == ms::Reason::None);
-    REQUIRE(w.loadStore(launcher, stations, 9, "aim-9x") == ms::Reason::None);
+    REQUIRE(w.loadStore(launcher, stations, 9, "r-60m") == ms::Reason::None);
     const auto betweenDefaults = launchTarget(w, launcher, 40.0);
     const auto behind = launchTarget(w, launcher, 180.0);
     ms::StrikeCommand strike;
     strike.payload = stations;
     strike.target = betweenDefaults;
 
-    // The imaging-infrared default is 25 degrees; the radar default is 55.
-    strike.store = "aim-9x";
+    // The R-60M's 20-degree field cannot see the 40-degree target; the radar
+    // default is 55. (The AIM-9X's published 90-degree field admits it.)
+    strike.store = "r-60m";
     launchRejectedUnchanged(w, launcher, strike, ms::Reason::OutOfReach);
     strike.store = "aim-120c";
     launchRejectedUnchanged(w, launcher, strike, ms::Reason::PayloadOff);
@@ -283,7 +284,7 @@ TEST_CASE("stores: launch target and FOV refusals precede host admission without
     // its own envelope, including a later IR store in a mixed selection.
     strike.stores = {1};
     launchRejectedUnchanged(w, launcher, strike, ms::Reason::OutOfReach);
-    strike.store = "aim-9x";
+    strike.store = "r-60m";
     strike.stores = {1, 0};
     launchRejectedUnchanged(w, launcher, strike, ms::Reason::OutOfReach);
     strike.stores.clear();

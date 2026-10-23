@@ -1,0 +1,429 @@
+{
+  "schema": "missile-public-data-v1",
+  "reviewed": "2026-10-23",
+  "policy": [
+    "A published value is admitted only with a source whose title, publisher and URL are recorded here and copied into the card.",
+    "A value that no public source states is an engineering estimate: the card carries basis 'assumed', the estimate method, and a non-zero uncertainty. No value is chosen from an engagement outcome.",
+    "Seeker mode, warhead kind, fuze arrangement and motor type are identity facts, checked against public descriptions rather than inferred from simulation behaviour.",
+    "Gimbal and launch field of view are the missile's published off-boresight capability where a source states it. A seeker that cannot be cued that far is a modelling defect, not a tuning choice."
+  ],
+  "sources": {
+    "navair-aim9x": {
+      "evidence_kind": "government_publication",
+      "title": "AIM-9X Sidewinder",
+      "publisher": "U.S. Navy, Naval Air Systems Command (NAVAIR)",
+      "url": "https://www.navair.navy.mil/product/AIM-9X-Sidewinder",
+      "date": "",
+      "accessed": "2026-10-23",
+      "note": "Manufacturer/service description of the imaging infrared seeker and high off-boresight capability."
+    },
+    "odin-aim9": {
+      "evidence_kind": "government_publication",
+      "title": "AIM-9 Sidewinder, Worldwide Equipment Guide",
+      "publisher": "U.S. Army Training and Doctrine Command (ODIN)",
+      "url": "https://odin.t2com.army.mil/WEG/Asset/0db9c0b4d28eb6f367e6bb589f358e0b",
+      "date": "",
+      "accessed": "2026-10-23",
+      "note": "States up to 90 degrees off-boresight for the AIM-9X."
+    },
+    "roe-r73e": {
+      "evidence_kind": "manufacturer_publication",
+      "title": "R-73E air-to-air guided missile",
+      "publisher": "Rosoboronexport",
+      "url": "http://roe.ru/en/production/aerospace-forces/air-weapons/guided-weapons/air-to-air-guided-missiles/r-73e/",
+      "date": "",
+      "accessed": "2026-10-23",
+      "note": "Manufacturer catalogue: off-boresight angles of plus/minus 45 degrees, line-of-sight rates up to 60 degrees per second."
+    },
+    "mbda-mica": {
+      "evidence_kind": "manufacturer_publication",
+      "title": "MICA family",
+      "publisher": "MBDA",
+      "url": "https://www.mbda-systems.com/products/air-dominance/mica-family/mica",
+      "date": "",
+      "accessed": "2026-10-23",
+      "note": "Manufacturer page: 112 kg, 3.1 m, infrared and radio-frequency variants. The page does not publish a gimbal limit."
+    },
+    "saab-iris-t": {
+      "evidence_kind": "manufacturer_publication",
+      "title": "IRIS-T",
+      "publisher": "Saab",
+      "url": "https://www.saab.com/products/iris-t",
+      "date": "",
+      "accessed": "2026-10-23",
+      "note": "Manufacturer page: length 2936 mm, diameter 127 mm, imaging infrared seeker."
+    },
+    "deagel-iris-t": {
+      "evidence_kind": "secondary_reference",
+      "title": "IRIS-T",
+      "publisher": "Deagel",
+      "url": "https://www.deagel.com/weapons/iris-t/a001103",
+      "date": "",
+      "accessed": "2026-10-23",
+      "note": "Secondary reference crediting a plus/minus 90 degree look angle and a 128 x 128 imaging seeker."
+    },
+    "hushkit-sraam": {
+      "evidence_kind": "secondary_reference",
+      "title": "Ten best air-to-air missiles (short range)",
+      "publisher": "Hush-Kit",
+      "url": "https://hushkit.net/2016/12/05/ten-most-formidable-dogfight-missiles/",
+      "date": "2016-12-05",
+      "accessed": "2026-10-23",
+      "note": "Secondary reference crediting an imaging infrared seeker with plus/minus 90 degree off-boresight angles for ASRAAM-class missiles."
+    },
+    "twz-china-aam": {
+      "evidence_kind": "secondary_reference",
+      "title": "A Guide To China's Increasingly Impressive Air-To-Air Missile Inventory",
+      "publisher": "The War Zone",
+      "url": "https://www.twz.com/a-guide-to-chinas-increasingly-impressive-air-to-air-missile-inventory",
+      "date": "",
+      "accessed": "2026-10-23",
+      "note": "Secondary reference: PL-10 imaging infrared seeker, reportedly 90 degree off-boresight capability."
+    },
+    "weaponsystems-r60": {
+      "evidence_kind": "secondary_reference",
+      "title": "Molniya R-60",
+      "publisher": "Weaponsystems.net",
+      "url": "https://weaponsystems.net/system/218-Molniya%20R-60",
+      "date": "",
+      "accessed": "2026-10-23",
+      "note": "Published target angle of 12 degrees off-boresight for the R-60's OGS-60TI seeker; continuous-rod warhead of 2.7 to 3 kg."
+    }
+  },
+  "cards": {
+    "aim-120c": {
+      "designation": "AIM-120C-7 AMRAAM",
+      "seeker_mode": "active_radar",
+      "warhead_kind": "fragmentation",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "solid_rocket",
+      "published": {},
+      "estimates": {
+        "gimbal_deg": "60 degrees of seeker gimbal is retained as a class-typical estimate; no public AMRAAM gimbal figure was found."
+      }
+    },
+    "aim-120d": {
+      "designation": "AIM-120D AMRAAM",
+      "seeker_mode": "active_radar",
+      "warhead_kind": "fragmentation",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "solid_rocket",
+      "published": {},
+      "estimates": {
+        "gimbal_deg": "60 degrees of seeker gimbal is retained as a class-typical estimate; no public AMRAAM gimbal figure was found."
+      }
+    },
+    "aim-7m": {
+      "designation": "AIM-7M Sparrow",
+      "seeker_mode": "semi_active_radar",
+      "warhead_kind": "fragmentation",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "solid_rocket",
+      "published": {},
+      "estimates": {
+        "gimbal_deg": "60 degrees is retained as a class-typical estimate for a semi-active Sparrow-era antenna."
+      }
+    },
+    "aim-9m": {
+      "designation": "AIM-9M Sidewinder",
+      "seeker_mode": "infrared",
+      "warhead_kind": "fragmentation",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "solid_rocket",
+      "published": {},
+      "estimates": {
+        "gimbal_deg": "45 degrees is retained as an estimate for the reticle seeker; the AIM-9M is not a high off-boresight missile."
+      }
+    },
+    "aim-9x": {
+      "designation": "AIM-9X Block I Sidewinder",
+      "seeker_mode": "imaging_infrared",
+      "warhead_kind": "fragmentation",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "solid_rocket",
+      "published": {
+        "gimbal_deg": {
+          "value": 90,
+          "uncertainty": 0,
+          "source": "odin-aim9",
+          "note": "High off-boresight capability reported as up to 90 degrees; the NAVAIR product description states the high off-boresight imaging seeker without a numeric limit."
+        },
+        "launch_fov_deg": {
+          "value": 90,
+          "uncertainty": 0,
+          "source": "odin-aim9",
+          "note": "A seeker cued to 90 degrees must retain that field before release; the launch field cannot be narrower than the published off-boresight capability."
+        }
+      },
+      "estimates": {}
+    },
+    "asraam": {
+      "designation": "AIM-132 ASRAAM",
+      "seeker_mode": "imaging_infrared",
+      "warhead_kind": "fragmentation",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "dual_burn_solid_rocket",
+      "published": {
+        "gimbal_deg": {
+          "value": 90,
+          "uncertainty": 10,
+          "source": "hushkit-sraam",
+          "note": "Secondary reporting credits the ASRAAM seeker with plus/minus 90 degree off-boresight angles; no manufacturer figure was found."
+        },
+        "launch_fov_deg": {
+          "value": 90,
+          "uncertainty": 10,
+          "source": "hushkit-sraam",
+          "note": "Same off-boresight reporting; a high off-boresight missile must retain its seeker field before release."
+        }
+      },
+      "estimates": {}
+    },
+    "iris-t": {
+      "designation": "IRIS-T",
+      "seeker_mode": "imaging_infrared",
+      "warhead_kind": "fragmentation",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "thrust_vector_solid_rocket",
+      "published": {
+        "gimbal_deg": {
+          "value": 90,
+          "uncertainty": 10,
+          "source": "deagel-iris-t",
+          "note": "Secondary reference credits a plus/minus 90 degree look angle; Saab publishes the seeker type and dimensions but not a gimbal limit."
+        },
+        "launch_fov_deg": {
+          "value": 90,
+          "uncertainty": 10,
+          "source": "deagel-iris-t",
+          "note": "Derived from the same reported look angle so a lock can be taken before release."
+        }
+      },
+      "estimates": {}
+    },
+    "magic-2": {
+      "designation": "R.550 Magic 2",
+      "seeker_mode": "infrared",
+      "warhead_kind": "fragmentation",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "solid_rocket",
+      "published": {},
+      "estimates": {
+        "gimbal_deg": "45 degrees is retained as an estimate; the Magic 2 predates high off-boresight seekers and no public gimbal figure was found."
+      }
+    },
+    "meteor": {
+      "designation": "Meteor",
+      "seeker_mode": "active_radar",
+      "warhead_kind": "fragmentation",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "throttleable_ducted_rocket",
+      "published": {},
+      "estimates": {
+        "gimbal_deg": "60 degrees is retained as a class-typical active-radar estimate; MBDA does not publish a gimbal limit."
+      }
+    },
+    "mica-em": {
+      "designation": "MICA EM",
+      "seeker_mode": "active_radar",
+      "warhead_kind": "fragmentation",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "solid_rocket",
+      "published": {},
+      "estimates": {
+        "gimbal_deg": "60 degrees is retained; public reporting credits about 60 degrees but MBDA publishes no figure."
+      }
+    },
+    "mica-ir": {
+      "designation": "MICA IR",
+      "seeker_mode": "imaging_infrared",
+      "warhead_kind": "fragmentation",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "solid_rocket",
+      "published": {},
+      "estimates": {
+        "gimbal_deg": "60 degrees is retained; public reporting credits about 60 degrees but MBDA publishes no figure."
+      }
+    },
+    "pl-8": {
+      "designation": "PL-8",
+      "seeker_mode": "infrared",
+      "warhead_kind": "fragmentation",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "solid_rocket",
+      "published": {},
+      "estimates": {
+        "gimbal_deg": "45 degrees is retained as an estimate for a Python-3 derivative seeker; no public figure was found."
+      }
+    },
+    "pl-10": {
+      "designation": "PL-10",
+      "seeker_mode": "imaging_infrared",
+      "warhead_kind": "fragmentation",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "solid_rocket",
+      "published": {
+        "gimbal_deg": {
+          "value": 90,
+          "uncertainty": 10,
+          "source": "twz-china-aam",
+          "note": "Secondary reporting states a 90 degree off-boresight capability for the imaging infrared seeker."
+        },
+        "launch_fov_deg": {
+          "value": 90,
+          "uncertainty": 10,
+          "source": "twz-china-aam",
+          "note": "Same reporting; the pre-release field must admit the claimed off-boresight angle."
+        }
+      },
+      "estimates": {}
+    },
+    "pl-12": {
+      "designation": "PL-12",
+      "seeker_mode": "active_radar",
+      "warhead_kind": "fragmentation",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "dual_thrust_solid_rocket",
+      "published": {},
+      "estimates": {
+        "gimbal_deg": "60 degrees is retained as a class-typical active-radar estimate."
+      }
+    },
+    "pl-15": {
+      "designation": "PL-15",
+      "seeker_mode": "active_radar",
+      "warhead_kind": "fragmentation",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "dual_pulse_solid_rocket",
+      "published": {},
+      "estimates": {
+        "gimbal_deg": "60 degrees is retained as a class-typical active-radar estimate; the public description of an AESA seeker does not give a gimbal limit."
+      }
+    },
+    "r-27er": {
+      "designation": "R-27ER",
+      "seeker_mode": "semi_active_radar",
+      "warhead_kind": "rod",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "solid_rocket",
+      "published": {},
+      "estimates": {
+        "gimbal_deg": "60 degrees is retained as a class-typical semi-active estimate."
+      }
+    },
+    "r-27et": {
+      "designation": "R-27ET",
+      "seeker_mode": "infrared",
+      "warhead_kind": "rod",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "solid_rocket",
+      "published": {},
+      "estimates": {
+        "gimbal_deg": "60 degrees is retained as an estimate for the R-27T family seeker."
+      }
+    },
+    "r-27r": {
+      "designation": "R-27R",
+      "seeker_mode": "semi_active_radar",
+      "warhead_kind": "rod",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "solid_rocket",
+      "published": {},
+      "estimates": {
+        "gimbal_deg": "60 degrees is retained as a class-typical semi-active estimate."
+      }
+    },
+    "r-27t": {
+      "designation": "R-27T",
+      "seeker_mode": "infrared",
+      "warhead_kind": "rod",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "solid_rocket",
+      "published": {},
+      "estimates": {
+        "gimbal_deg": "60 degrees is retained as an estimate for the R-27T family seeker."
+      }
+    },
+    "r-37m": {
+      "designation": "R-37M",
+      "seeker_mode": "active_radar",
+      "warhead_kind": "fragmentation",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "dual_pulse_solid_rocket",
+      "published": {},
+      "estimates": {
+        "gimbal_deg": "60 degrees is retained as a class-typical active-radar estimate."
+      }
+    },
+    "r-60m": {
+      "designation": "R-60M",
+      "seeker_mode": "infrared",
+      "warhead_kind": "rod",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "solid_rocket",
+      "published": {},
+      "estimates": {
+        "gimbal_deg": "20 degrees is an engineering estimate: the R-60's OGS-60TI seeker is published at 12 degrees off-boresight and the R-60M's improved Komar-M seeker has no published limit."
+      },
+      "calibrated": {
+        "acquire_m": {
+          "value": 6000,
+          "uncertainty": 1500,
+          "basis": "derived",
+          "note": "0.75 x the card's published 8 km maximum launch range (range_km, source wp-r60): an 8 km missile cannot usefully acquire at 13 km. Derived from the published kinematic range, not a measured seeker range.",
+          "source": "wp-r60"
+        },
+        "gimbal_deg": {
+          "value": 20,
+          "uncertainty": 8,
+          "basis": "assumed",
+          "note": "The R-60's OGS-60TI seeker is published at 12 degrees off-boresight; the R-60M's Komar-M seeker is credited with a wider but unpublished limit. 20 degrees is an engineering estimate; the previous 45 degrees treated a legacy reticle missile as high off-boresight."
+        }
+      }
+    },
+    "r-73": {
+      "designation": "R-73",
+      "seeker_mode": "infrared",
+      "warhead_kind": "rod",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "solid_rocket",
+      "published": {
+        "gimbal_deg": {
+          "value": 45,
+          "uncertainty": 0,
+          "source": "roe-r73e",
+          "note": "Manufacturer catalogue states off-boresight angles of plus/minus 45 degrees."
+        },
+        "launch_fov_deg": {
+          "value": 45,
+          "uncertainty": 0,
+          "source": "roe-r73e",
+          "note": "The pre-release seeker field follows the same manufacturer off-boresight figure."
+        }
+      },
+      "estimates": {}
+    },
+    "r-77m": {
+      "designation": "R-77M",
+      "seeker_mode": "active_radar",
+      "warhead_kind": "rod",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "dual_pulse_solid_rocket",
+      "published": {},
+      "estimates": {
+        "gimbal_deg": "60 degrees is retained as a class-typical active-radar estimate."
+      }
+    },
+    "super-530d": {
+      "designation": "Super 530D",
+      "seeker_mode": "semi_active_radar",
+      "warhead_kind": "fragmentation",
+      "fuze_arrangement": "proximity_contact",
+      "motor_kind": "solid_rocket",
+      "published": {},
+      "estimates": {
+        "gimbal_deg": "60 degrees is retained as a class-typical semi-active estimate."
+      }
+    }
+  }
+}

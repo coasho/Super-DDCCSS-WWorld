@@ -267,15 +267,17 @@
       "value": 45,
       "unit": "deg",
       "uncertainty": 0,
-      "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "basis": "published",
+      "source": "roe-r73e",
+      "note": "Manufacturer catalogue states off-boresight angles of plus/minus 45 degrees."
     },
     "component_seeker_launch_fov_deg": {
-      "value": 25,
+      "value": 45,
       "unit": "deg",
       "uncertainty": 0,
-      "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "basis": "published",
+      "source": "roe-r73e",
+      "note": "The pre-release seeker field follows the same manufacturer off-boresight figure."
     },
     "component_seeker_minimum_range_m": {
       "value": 1,
@@ -587,6 +589,15 @@
     }
   },
   "sources": {
+    "roe-r73e": {
+      "evidence_kind": "manufacturer_publication",
+      "title": "R-73E air-to-air guided missile",
+      "publisher": "Rosoboronexport",
+      "url": "http://roe.ru/en/production/aerospace-forces/air-weapons/guided-weapons/air-to-air-guided-missiles/r-73e/",
+      "date": "",
+      "accessed": "2026-10-23",
+      "note": "Manufacturer catalogue: off-boresight angles of plus/minus 45 degrees, line-of-sight rates up to 60 degrees per second."
+    },
     "sk-mod-identity": {
       "evidence_kind": "government_publication",
       "title": "Kempoviny, 25 June 2008, printed page 4",

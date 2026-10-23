@@ -89,6 +89,15 @@ add_test(NAME resource_rcs_binding_checker
     COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/resources/test_rcs_binding.py")
 set_tests_properties(resource_rcs_binding PROPERTIES LABELS "simulation;resources;model-reference" TIMEOUT 300)
 set_tests_properties(resource_rcs_binding_checker PROPERTIES LABELS "simulation;resources;model-reference" TIMEOUT 30)
+# Missile card identity and provenance against the reviewed public-data fact table (tools/validation/payload_models).
+add_test(NAME missile_card_facts
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/payload_models/check_missile_facts.py"
+            --repo "${CMAKE_SOURCE_DIR}")
+add_test(NAME missile_card_facts_apply_check
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/payload_models/apply_missile_facts.py"
+            --repo "${CMAKE_SOURCE_DIR}" --check)
+set_tests_properties(missile_card_facts missile_card_facts_apply_check
+    PROPERTIES LABELS "simulation;payload-components;model-reference" TIMEOUT 30)
 # Separate versioned extension contracts; these checks do not execute SDK handlers.
 add_test(NAME ma_engagement_contract
     COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/ma_engagement/check.py" --repo "${CMAKE_SOURCE_DIR}")
