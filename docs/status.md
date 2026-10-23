@@ -29,14 +29,16 @@ fifteen guided stores' JSBSim XML and the `c172`/`skua` damage data were
 regenerated to match the current generators; and the damage gate now passes the
 aerodynamic model that the model stage passes. The Python package also stages
 NVIDIA Flow's `nvflow.dll` and `nvflowext.dll`, which the vision renderer loads
-at run time and the package previously omitted. `sdk_boundary` remains failing
-on this host: `import fsim.vision` from `build/ucrt64-release/python/fsim/bin`
-fails with WinError 1114 although the byte-identical DLL set loads from
-`build/ucrt64-release/bin`; the same condition makes the SDK's vision test skip,
-so this is recorded as an unresolved runtime/environment issue rather than
-masked. Full SIM-M03 physical acceptance, the remaining estimated inputs and
-the range-equation, radiometric, Gurney/Mott, fuze-link and motor-ballistics
-algorithm work stay open.
+at run time and the package previously omitted. `sdk_boundary` is now fixed: the
+vision load failed because the Python package carried `fsim/bin` but not the
+sibling `lib/ossl-modules` OpenSSL resolves beside its DLL; GDAL's
+initialization requests an OpenSSL provider, and the missing module aborted the
+whole load with `ERROR_DLL_INIT_FAILED` (WinError 1114). The package now stages
+the toolchain's `ossl-modules` into `fsim/lib/ossl-modules`, `import
+fsim.vision` succeeds, and `python_sdk test_vision` executes its two GPU cases
+instead of skipping them. Full SIM-M03 physical acceptance, the remaining
+estimated inputs and the range-equation, radiometric, Gurney/Mott, fuze-link and
+motor-ballistics algorithm work stay open.
 
 Numerical handoff integration and full regeneration, 2026-10-22, from main
 `d5c8203`: the [integration and validation record](sdk/missile-flight-validation.md#aeronumericslab-integration-2026-10-21)

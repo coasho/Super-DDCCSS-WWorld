@@ -106,6 +106,16 @@ if(TARGET fsim_vision AND EXISTS ${CMAKE_BINARY_DIR}/share/flightsim/models)
         COMMAND ${CMAKE_COMMAND} -E rm -rf ${_fsim_py_share}/models
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_BINARY_DIR}/share/flightsim/models ${_fsim_py_share}/models)
 endif()
+# OpenSSL resolves its providers beside the library (bin/../lib/ossl-modules).
+# A package that carries only bin/ leaves that path empty, and a dependent that
+# requests a provider during initialization (GDAL's curl/XML chain does) aborts
+# the whole DLL load: libgdal-38.dll then fails with ERROR_DLL_INIT_FAILED.
+if(EXISTS "${FSIM_UCRT64_ROOT}/lib/ossl-modules")
+    list(APPEND _fsim_py_stage_commands
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${FSIM_PY_PACKAGE}/lib/ossl-modules
+        COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${FSIM_UCRT64_ROOT}/lib/ossl-modules
+                ${FSIM_PY_PACKAGE}/lib/ossl-modules)
+endif()
 list(APPEND _fsim_py_stage_commands
     COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${CMAKE_SOURCE_DIR}/assets/payloads ${_fsim_py_share}/payloads
     COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${CMAKE_SOURCE_DIR}/assets/stores ${_fsim_py_share}/stores)

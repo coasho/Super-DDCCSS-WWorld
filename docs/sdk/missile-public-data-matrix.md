@@ -182,11 +182,13 @@ re-running the same cases) and four are now repaired:
   which the vision renderer opens at run time and the package omitted.
 
 `testing_scope_checker` passes after the Headless preset is rebuilt on this
-tree. `sdk_boundary` still fails on this host: `import fsim.vision` from
-`build/ucrt64-release/python/fsim/bin` fails with WinError 1114 while the
-byte-identical DLL set loads from `build/ucrt64-release/bin`; the SDK vision
-test skips under the same condition. It is recorded as an unresolved
-runtime/environment issue, not masked by changing the check.
+tree. `sdk_boundary` is now fixed as well: the package's native dependencies
+loaded, but OpenSSL resolves its providers beside the library
+(`bin/../lib/ossl-modules`); the package had no `lib/`, GDAL's initialization
+requested a provider, and the missing module aborted the DLL load with
+`ERROR_DLL_INIT_FAILED`. Staging the toolchain's `ossl-modules` into
+`fsim/lib/ossl-modules` lets `fsim.vision` import and makes the SDK's vision
+cases run rather than skip.
 
 ## Remaining work
 
