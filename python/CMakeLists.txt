@@ -9,6 +9,7 @@
 # a wheel beside it.
 
 set(FSIM_PYTHON_EXECUTABLE "" CACHE FILEPATH "CPython >= 3.11 (python.org or conda) the Python SDK is built for; empty = the py launcher's")
+set(FSIM_PYTHON_TEST_PATH "" CACHE PATH "Optional project-local Python dependencies for SDK and Hangar tests")
 
 # A usable CPython: 3.11+, with the stable-ABI DLL (python3.dll) beside it.
 set(_fsim_py_probe [=[
@@ -138,6 +139,24 @@ if(FSIM_BUILD_TESTS)
     # Each module has an output folder of its own. The build checks the glob again (CONFIGURE_DEPENDS), so adding or
     # removing a test module reconfigures; the stress module's methods are read from its text, so its edits do too.
     file(GLOB _fsim_py_test_modules CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/tests/compatibility/python/test_*.py)
+    # Reviewed CPU-only SDK modules. New modules keep the conservative serial
+    # slot until reviewed; vision, CUDA VecEnv and RCS remain serialized.
+    set(_fsim_py_parallel_modules
+        test_activities test_adapters test_agents test_altimeter
+        test_batch_recording_binding_compatibility test_binding_compatibility
+        test_catalog test_controllers test_curve_references
+        test_domain_binding_compatibility test_endurance test_engagement test_envelope
+        test_esm test_fleet test_intercept test_isolation test_launch test_load_limits
+        test_magnetic test_marshall test_mass_accounting test_ma_composition
+        test_ma_equipment test_ma_joint test_ma_reports test_ma_service test_mission
+        test_mission_concurrency test_mission_systems test_mission_training
+        test_must_fly test_navigation test_nurbs test_package_imports test_pattern_shapes
+        test_performance_profile test_plugin test_radar test_reports test_route_branches
+        test_route_loiters test_route_paths test_route_plans test_route_points
+        test_route_rnp test_route_segments test_route_states test_route_terminators
+        test_schedule test_state_data test_stores test_tasks test_terrain_check
+        test_testbench_entry test_turn_points test_weapons test_weapon_controls
+        test_weapon_telemetry test_world test_world_binding_compatibility)
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/tests/compatibility/python/test_mission_concurrency.py)
     foreach(_fsim_py_test_file ${_fsim_py_test_modules})
         get_filename_component(_fsim_py_test_module ${_fsim_py_test_file} NAME_WE)
@@ -168,6 +187,13 @@ if(FSIM_BUILD_TESTS)
                 list(APPEND _fsim_py_test_env "FSIM_TEST_PLUGIN=$<TARGET_FILE:climb_task>")
             endif()
             set_tests_properties("${_fsim_py_test}" PROPERTIES ENVIRONMENT "${_fsim_py_test_env}" LABELS "${_fsim_py_test_labels}" TIMEOUT 900)
+            if(_fsim_py_test_module IN_LIST _fsim_py_parallel_modules)
+                set_property(TEST "${_fsim_py_test}" APPEND PROPERTY LABELS slot-read-only)
+            endif()
+            if(FSIM_PYTHON_TEST_PATH)
+                set_property(TEST "${_fsim_py_test}" APPEND PROPERTY ENVIRONMENT_MODIFICATION
+                    "PYTHONPATH=path_list_append:${FSIM_PYTHON_TEST_PATH}")
+            endif()
             if(stress IN_LIST _fsim_py_test_labels)  # (two busy threads each: the range's and the actor's)
                 set_tests_properties("${_fsim_py_test}" PROPERTIES PROCESSORS 2)
             endif()
@@ -195,6 +221,15 @@ if(FSIM_BUILD_TESTS)
     # output folder of its own (the classes found here: CMake looks again when
     # a test file changes)
     file(GLOB _hangar_modules ${CMAKE_SOURCE_DIR}/tools/models/hangar/tests/test_*.py)
+    # Reviewed pure arithmetic/geometry or per-class temporary-output cases.
+    # New modules default to the serial slot. Canonical authored-table/cache
+    # writers are intentionally absent; they keep RUN_SERIAL below.
+    set(_hangar_parallel_modules
+        test_breakup test_control_kinematics test_damage test_effects
+        test_engineering test_execution_resource_caps test_fleet_build
+        test_flightcal test_gear_plan_cache test_mach_topology test_mass_accounting
+        test_methods test_performance test_pipeline test_rotor_power
+        test_store_discovery test_vlm_condition_cache test_vulnerability)
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_hangar_modules})
     foreach(_hangar_file ${_hangar_modules})
         get_filename_component(_hangar_module ${_hangar_file} NAME_WE)
@@ -202,7 +237,7 @@ if(FSIM_BUILD_TESTS)
         foreach(_hangar_line ${_hangar_classes})
             string(REGEX REPLACE "^class ([A-Za-z0-9_]+)\\(.*" "\\1" _hangar_class "${_hangar_line}")
             set(_hangar_test "hangar ${_hangar_module}.${_hangar_class}")
-            add_test(NAME "${_hangar_test}" COMMAND "${FSIM_PYTHON}" -m unittest "tests.${_hangar_module}.${_hangar_class}"
+            add_test(NAME "${_hangar_test}" COMMAND "${FSIM_PYTHON}" -m unittest -v "tests.${_hangar_module}.${_hangar_class}"
                      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tools/models/hangar)
             # (the timeout catches a hang: test_methods.Model3D takes ~110 s alone but ~870 s on CI's 4-core runner
             # among 16 tests at once, so 900 s timed it out; a native crash prints the Python stack it died in -
@@ -211,6 +246,19 @@ if(FSIM_BUILD_TESTS)
             # thread each, as the tests run 16 at once anyway)
             set_tests_properties("${_hangar_test}" PROPERTIES TIMEOUT 1800 LABELS hangar
                 ENVIRONMENT "PYTHONPATH=${FSIM_PY_STAGE};FSIM_TEST_OUTPUT=${CMAKE_BINARY_DIR}/hangar-test/${_hangar_module}.${_hangar_class};PYTHONFAULTHANDLER=1;OPENBLAS_NUM_THREADS=1")
+            if(_hangar_module IN_LIST _hangar_parallel_modules)
+                set_property(TEST "${_hangar_test}" APPEND PROPERTY LABELS slot-read-only)
+            endif()
+            if(_hangar_test STREQUAL "hangar test_methods.Model3D" OR
+               _hangar_test STREQUAL "hangar test_vulnerability.Dispensers" OR
+               _hangar_test STREQUAL "hangar test_vulnerability.Components")
+                set_tests_properties("${_hangar_test}" PROPERTIES PROCESSORS 8)
+                set_property(TEST "${_hangar_test}" APPEND PROPERTY ENVIRONMENT "FSIM_HANGAR_THREADS=8")
+            endif()
+            if(FSIM_PYTHON_TEST_PATH)
+                set_property(TEST "${_hangar_test}" APPEND PROPERTY ENVIRONMENT_MODIFICATION
+                    "PYTHONPATH=path_list_append:${FSIM_PYTHON_TEST_PATH}")
+            endif()
         endforeach()
     endforeach()
 endif()
@@ -225,3 +273,7 @@ install(CODE "execute_process(COMMAND \"${FSIM_PYTHON}\" \"${CMAKE_CURRENT_SOURC
                   message(FATAL_ERROR \"python: the wheel could not be built\")
               endif()"
         COMPONENT python)
+
+if(FSIM_BUILD_TESTS)
+    include(${CMAKE_SOURCE_DIR}/cmake/SerialVerification.cmake)
+endif()

@@ -781,6 +781,12 @@ void World::impacted(Entry& e, const sim::VehicleState& fallback, const sim::Veh
         for (int k = 0; k < 3; ++k) thrown.positionEcef[k] = after.positionEcef[k] + (&normal.x)[k] * clear;
         thrown.latitudeRad = after.latitudeRad, thrown.longitudeRad = after.longitudeRad;
         thrown.velocityNedMs[0] = dmg::dot(o.after, north), thrown.velocityNedMs[1] = dmg::dot(o.after, east), thrown.velocityNedMs[2] = dmg::dot(o.after, down);
+        // launchPiece consumes body velocity. Keep every representation of
+        // this same post-impact vector consistent; retaining the incoming
+        // body velocity discards the native rebound and immediately drives
+        // detached pieces back into the terrain.
+        for (int k = 0; k < 3; ++k)
+            thrown.velocityBodyMs[k] = R[k] * o.after.x + R[3 + k] * o.after.y + R[6 + k] * o.after.z;
         thrown.airspeedTrueMs = dmg::length(o.after);
         for (const auto& c : e.damage->loads(flight)) {
             separated(e, c.section, &thrown);

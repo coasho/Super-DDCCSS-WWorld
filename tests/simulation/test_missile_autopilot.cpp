@@ -177,6 +177,33 @@ void finite_lag_synthetic_plant_tracks_a_step() {
                 "Actual synthetic aerodynamic acceleration must settle within 0.1 m/s2 of the step demand");
     }
 }
+void assigned_actuator_poles_control_unstable_native_plants() {
+    for(const double sign:{-1.,1.}) for(const double lag:{.02,.04,.08}) {
+        auto in=flight();in.actuatorLagS=lag;
+        // Independent unstable rigid-body plant, not fitted equipment data.
+        in.pitch={-45000,sign*14000,40000,sign*18000,-1800};
+        FinControlConfigV1 config;config.version=1;config.actuatorLagS=lag;
+        auto stops=actualActuators();in.demandBody={0,0,-25};
+        double angle=0,rate=0,delta=0;constexpr double dt=.00025;
+        for(unsigned step=0;step<40000;++step) {
+            const auto& a=in.pitch;
+            const double force=a.forceAngle*angle+a.forceControl*delta;
+            const double moment=a.momentAngle*angle+a.momentRate*rate+a.momentControl*delta;
+            in.alphaRad=angle;in.ratesRadS[1]=rate;
+            in.measured=AeroFeedback{{0,0,force},{0,moment,0},{0,delta,0}};
+            const auto out=actuatorAwareCommands(in,config,stops);
+            require(out.available,"Actuator-aware inversion must accept finite controllable feedback");
+            angle+=(rate+force/(in.massKg*in.speedMs))*dt;
+            rate+=moment/in.inertiaKgM2[1]*dt;
+            delta+=std::clamp((out.elevator*in.limitsRad[1]-delta)/lag,-4.,4.)*dt;
+            require(std::isfinite(angle)&&std::abs(angle)<.3,"Unstable finite-actuator plant must remain controlled");
+        }
+        require(std::abs((in.pitch.forceAngle*angle+in.pitch.forceControl*delta)/in.massKg+25)<.1,
+                "Independent unstable plant must settle to demanded actual acceleration");
+        in.measured.reset();require(!actuatorAwareCommands(in,config,stops).available,
+                "Missing actual effector feedback must refuse");
+    }
+}
 void two_axis_canard_does_not_require_roll_authority() {
     auto in = flight();
     in.rollMomentPerRad = 0; in.limitsRad[0] = 0; in.ratesRadS[0] = 1;
@@ -354,7 +381,8 @@ void overflowing_inertial_coupling_is_unavailable_and_neutral() {
 }
 int main() {
     unsigned passed = 0;
-    for (const auto test : {asymmetric_native_stop_normalization_preserves_requested_radians,
+    for (const auto test : {assigned_actuator_poles_control_unstable_native_plants,
+             asymmetric_native_stop_normalization_preserves_requested_radians,
              configured_native_actuator_mismatch_is_unavailable, configured_control_response_and_refusals_are_executed,
              overflowing_inertial_coupling_is_unavailable_and_neutral,
              level_trim_uses_specific_force_and_gravity, signed_tail_and_canard_authority,

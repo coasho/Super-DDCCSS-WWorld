@@ -129,7 +129,10 @@ class SectionPolar:
         # (the sharpness is read off the upper surface, so it already carries
         # most of the camber's effect)
         self.clmax = o.get("clmax", base + 0.25 * camber_gain)
-        self.clmin = o.get("clmin", -(base - 0.45 * camber_gain) * 0.95)
+        # An uncambered source has no preferred lift direction. Camber and
+        # explicit authored limits may break reflection; an arbitrary 0.95
+        # multiplier must not introduce that asymmetry into every section.
+        self.clmin = o.get("clmin", -(base - 0.45 * camber_gain))
         # stall sharpness from the stall type
         # (and how much lift survives it: Viterna's A2 term, scaled)
         if dy < 1.9 or t < 0.09:
@@ -166,8 +169,17 @@ class SectionPolar:
         hi = np.linspace(self.alpha0, self.alpha0 + self.clmax / self.a0 + reach, 800)
         lo = np.linspace(self.alpha0 + self.clmin / self.a0 - reach, self.alpha0, 800)
         for _ in range(4):
-            self._clmax_int += self.clmax - self.evaluate(hi)[0].max()
-            self._clmin_int += self.clmin - self.evaluate(lo)[0].min()
+            upper_error = self.clmax - self.evaluate(hi)[0].max()
+            lower_error = self.clmin - self.evaluate(lo)[0].min()
+            if self.alpha0 == 0.0 and self.clmax == -self.clmin:
+                # One shared peak level preserves an exactly symmetric source;
+                # independent sequential updates otherwise amplify roundoff and
+                # let each update observe different opposite-side limits.
+                self._clmax_int += 0.5 * (upper_error - lower_error)
+                self._clmin_int = -self._clmax_int
+            else:
+                self._clmax_int += upper_error
+                self._clmin_int += lower_error
         self.vortex = float(np.clip(float(vortex), 0.0, 1.0))   # how much the vortex regime replaces the stall
 
     def evaluate(self, alpha, delta=None, vortex=None):
@@ -265,13 +277,16 @@ def evaluate(p, alpha, delta=None, vortex=None, alpha_suction=None, x_ac=None):
     dcd = 0.9 * p.flap_chord**1.38 * np.sin(d) ** 2 * p.cd_flap_k
     dcm = p.cm_flap * eff * d * ext
     a_l0 = p.alpha0 + dal0
-    clmax = p._clmax_int + dclmax
-    clmin = p._clmin_int + 0.3 * dcl0
+    clmax = p._clmax_int + np.where(dcl0 >= 0., dclmax, 0.3 * dcl0)
+    clmin = p._clmin_int + np.where(dcl0 >= 0., 0.3 * dcl0, dclmax)
     # forward attached: linear, soft-clipped to [clmin, clmax]
     lin = p.a0 * (a - a_l0)
     k = 12.0
-    cl_f = -np.logaddexp(-k * lin, -k * clmax) / k           # smooth min(lin, clmax)
-    cl_f = np.logaddexp(k * cl_f, k * clmin) / k              # smooth max(., clmin)
+    # Simultaneous smooth clamp. Sequential soft-min/soft-max adds a neutral
+    # offset even with symmetric bounds; paired corrections preserve reflection
+    # and cancel exactly at zero for a symmetric section. Same sharpness k.
+    cl_f = lin + (np.logaddexp(0., k * (clmin - lin))
+                  - np.logaddexp(0., k * (lin - clmax))) / k
     cd_f = p.cd0 + p.k_drag * (cl_f - p.cl_dmin - 0.5 * dcl0) ** 2 + dcd
     xa = 0.0 if x_ac is None else np.asarray(x_ac, float)
     cm_f = p.cm0 + dcm - xa * (cl_f + p.a0 * a_l0) * np.cos(a)
@@ -295,8 +310,8 @@ def evaluate(p, alpha, delta=None, vortex=None, alpha_suction=None, x_ac=None):
     # reversed attached flow around 180 deg (the trailing edge leads)
     ar = wrap(a - np.pi)
     lin_r = p.a0_rev * ar
-    cl_r = -np.logaddexp(-k * lin_r, -k * p.clmax_rev) / k
-    cl_r = np.logaddexp(k * cl_r, -k * p.clmax_rev) / k
+    cl_r = lin_r + (np.logaddexp(0., k * (-p.clmax_rev - lin_r))
+                    - np.logaddexp(0., k * (lin_r - p.clmax_rev))) / k
     cd_r = 1.5 * p.cd0 + 2 * p.k_drag * cl_r**2 + dcd
     cm_r = -(cl_r * ca + cd_r * sa) * 0.5                    # its normal force acts at the three-quarter chord
     # weights: attached-forward inside the stall angles, reversed near 180 deg

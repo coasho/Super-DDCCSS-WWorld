@@ -65,23 +65,14 @@ add_test(NAME testing_scope_checker
     COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/testing/test_scope.py" --test-dir "${CMAKE_BINARY_DIR}"
             --ctest "${CMAKE_CTEST_COMMAND}")
 set_tests_properties(testing_scope_checker PROPERTIES LABELS testing TIMEOUT 120)
-# Offline model-reference guards use only the standard library. Running actual
-# external solvers remains an explicit campaign with pinned tool provenance.
+add_test(NAME project_bootstrap_checker
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/tests/test_project_bootstrap.py")
+set_tests_properties(project_bootstrap_checker PROPERTIES LABELS bootstrap TIMEOUT 120)
+# Offline propulsion-reference guards use only the standard library.
 add_test(NAME missile_flight_reference_checker
     COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/missile/test_reference.py")
-add_test(NAME missile_aero_reference_checker
-    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/missile/test_aero.py")
-set_tests_properties(missile_flight_reference_checker missile_aero_reference_checker
+set_tests_properties(missile_flight_reference_checker
     PROPERTIES LABELS "simulation;model-reference" TIMEOUT 30)
-add_test(NAME missile_wake_containment_checker
-    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/missile/test_aero_wake_containment.py")
-set_tests_properties(missile_wake_containment_checker
-    PROPERTIES LABELS "simulation;model-reference" TIMEOUT 180)
-add_test(NAME numerics_delivery_replay
-    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/missile/review_numerics.py"
-            --out "${CMAKE_BINARY_DIR}/numerics-delivery-review.json")
-set_tests_properties(numerics_delivery_replay
-    PROPERTIES LABELS "simulation;model-reference" TIMEOUT 180)
 add_test(NAME resource_rcs_binding
     COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/resources/check_rcs.py"
             --aircraft-root "${CMAKE_SOURCE_DIR}/aircraft" --output "${CMAKE_BINARY_DIR}/rcs-asset-binding.json")

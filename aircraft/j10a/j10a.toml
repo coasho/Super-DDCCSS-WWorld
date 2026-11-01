@@ -337,3 +337,8 @@ flaps = "Jane's: flaperons on the delta wing's trailing edge, the canards trimmi
 drag_devices = "Jane's: airbrakes on the rear fuselage"
 releasable_stores = "Jane's: eleven hardpoints"
 aerobatic = "Jane's: +9 g (fsim/envelope/clean/n_max)"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

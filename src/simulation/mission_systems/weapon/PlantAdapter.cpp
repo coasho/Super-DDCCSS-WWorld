@@ -71,6 +71,9 @@ bool configurePlantV1(const DescriptorV1& autopilot,const DescriptorV1& allocato
         if(executing && (card.model.rfind("jsbsim:",0)!=0 || card.model.size()==7))
             throw std::runtime_error("executing plant needs a native JSBSim model identity");
         const auto model=card.model.size()>7 ? card.model.substr(7) : std::string{};
+        const bool ducted=propulsion.implementationId=="fsim.propulsion.jsbsim_ducted_rocket.v1";
+        const bool turbofan=propulsion.implementationId=="fsim.propulsion.jsbsim_turbofan.v1";
+        const bool actuatorAware=autopilot.implementationId=="fsim.control.actuator_aware_cascade.v1";
         for(std::size_t i=0;i<5;++i) {
             const auto& d=*descriptors[i];
             if(d.kind!=kinds[i] || d.configurationVersion!=1) throw std::runtime_error("unsupported plant component kind/version");
@@ -81,14 +84,15 @@ bool configurePlantV1(const DescriptorV1& autopilot,const DescriptorV1& allocato
                 if(d.reason.empty()) throw std::runtime_error(d.kind+" needs an availability reason");
                 continue;
             }
-            if(d.implementationId!=ids[i]) throw std::runtime_error(d.kind+" selects an unsupported compiled adapter");
+            if(d.implementationId!=ids[i] && !(i==3&&(ducted||turbofan)) && !(i==0&&actuatorAware)) throw std::runtime_error(d.kind+" selects an unsupported compiled adapter");
             if(d.bindings.find("model")==d.bindings.end() || d.bindings.at("model")!=card.model)
                 throw std::runtime_error(d.kind+" native model identity mismatch");
             for(const auto* role:{"design","motor","nozzle","table"}) if(d.bindings.count(role) && !path(d.bindings.at(role)))
                 throw std::runtime_error(d.kind+" has an invalid asset binding");
             if(d.bindings.count("design") && d.bindings.at("design")!="aircraft/"+model+"/"+model+".toml")
                 throw std::runtime_error(d.kind+" authored design identity mismatch");
-            next.implementations[i]=1;next.expected[i]={1,1,static_cast<double>(plantFingerprintV1(d))};
+            const unsigned code=i==3&&turbofan ? 3 : (i==3&&ducted)||(i==0&&actuatorAware)?2:1;
+            next.implementations[i]=code;next.expected[i]={1,static_cast<double>(code),static_cast<double>(plantFingerprintV1(d))};
         }
         next.hasControl=autopilot.availability==AvailabilityV1::Available;
         if(next.hasControl!=(allocator.availability==AvailabilityV1::Available) || next.hasControl!=(actuator.availability==AvailabilityV1::Available))
@@ -97,10 +101,21 @@ bool configurePlantV1(const DescriptorV1& autopilot,const DescriptorV1& allocato
             const auto mode=autopilot.bindings.find("execution_mode");
             if(mode==autopilot.bindings.end()) throw std::runtime_error("autopilot execution_mode missing");
             if(mode->second=="legacy") {
+                if(actuatorAware)throw std::runtime_error("actuator-aware control requires configured native dynamics");
                 slots(autopilot,{}, {"model","execution_mode"});
                 if(card.parameters.count("weapon_execution_version")) throw std::runtime_error("explicit execution cannot silently select legacy control");
             } else if(mode->second=="configured") {
-                slots(autopilot,{"max_incidence_deg","rate_time_min_s","rate_lag_multiplier","incidence_time_min_s","incidence_rate_multiplier"}, {"model","execution_mode"});
+                const auto vector=autopilot.bindings.find("thrust_vector");
+                if(vector!=autopilot.bindings.end()) {
+                    if(vector->second!="jsbsim_nozzle_v1")throw std::runtime_error("unsupported thrust-vector control binding");
+                    slots(autopilot,{"max_incidence_deg","rate_time_min_s","rate_lag_multiplier","incidence_time_min_s","incidence_rate_multiplier",
+                        "tvc_limit_rad","tvc_rate_rad_s"},{"model","execution_mode","thrust_vector"});
+                    next.control.thrustVector=true;
+                    next.control.thrustVectorLimitRad=number(autopilot,"tvc_limit_rad","rad");
+                    next.control.thrustVectorRateRadS=number(autopilot,"tvc_rate_rad_s","rad/s");
+                    if(next.control.thrustVectorLimitRad<=0 || next.control.thrustVectorLimitRad>=1.5707963267948966 ||
+                        next.control.thrustVectorRateRadS<=0)throw std::runtime_error("thrust-vector angle/rate outside finite actuator domain");
+                } else slots(autopilot,{"max_incidence_deg","rate_time_min_s","rate_lag_multiplier","incidence_time_min_s","incidence_rate_multiplier"}, {"model","execution_mode"});
                 next.control.version=1;
                 next.control.maxIncidenceRad=number(autopilot,"max_incidence_deg","deg")*(3.14159265358979323846/180);
                 next.control.rateTimeMinS=number(autopilot,"rate_time_min_s","s");
@@ -116,13 +131,38 @@ bool configurePlantV1(const DescriptorV1& autopilot,const DescriptorV1& allocato
             if(next.control.actuatorLagS<=0 || !std::isfinite(1/next.control.actuatorLagS) || next.control.actuatorRateRadS<=0)
                 throw std::runtime_error("actuator configuration outside native finite lag/rate domain");
         }
-        if(propulsion.availability==AvailabilityV1::Available) {
+        if(propulsion.availability==AvailabilityV1::Available && turbofan) {
+            slots(propulsion,{"thrust_dry_kn","bypass_ratio","tsfc_dry","fuel_capacity_kg","fuel_cg_x_m",
+                "dry_mass_kg","cruise_speed_ms","governor_time_s"},{"model","design","engine","nozzle"});
+            const std::pair<const char*,const char*> values[]={{"thrust_dry_kn","kN"},{"bypass_ratio","1"},
+                {"tsfc_dry","lb/(lbf*h)"},{"fuel_capacity_kg","kg"},{"fuel_cg_x_m","m"},
+                {"dry_mass_kg","kg"},{"cruise_speed_ms","m/s"},{"governor_time_s","s"}};
+            for(const auto& [role,unit]:values)if(number(propulsion,role,unit)<=0)
+                throw std::runtime_error("turbofan needs finite positive sizing, fuel and governor inputs");
+            if(propulsion.bindings.at("engine")!="Engines/"+model+"_engine0.xml" ||
+               propulsion.bindings.at("nozzle")!="Engines/"+model+"_nozzle0.xml")
+                throw std::runtime_error("turbofan engine/nozzle asset binding mismatch");
+        } else if(propulsion.availability==AvailabilityV1::Available) {
             const double n=number(propulsion,"phase_count","1");
             if(n<1 || n>1024 || n!=std::floor(n)) throw std::runtime_error("propulsion phase_count invalid");
-            const std::map<std::string,std::string> fixed={{"isp_s","s"},{"coast_thrust_n","N"},{"buildup_s","s"},
+            std::map<std::string,std::string> fixed={{"isp_s","s"},{"coast_thrust_n","N"},{"buildup_s","s"},
                 {"grain_density_kg_m3","kg/m^3"},{"grain_radius_fraction","1"},{"grain_port_area_fraction","1"},
                 {"grain_aft_clearance_m","m"},{"phase_count","1"},{"exit_x_m","m"},{"exit_y_m","m"},{"exit_z_m","m"},
                 {"exit_diameter_m","m"},{"throat_diameter_m","m"},{"cone_length_m","m"}};
+            if(ducted) {
+                if(n!=2)throw std::runtime_error("ducted rocket requires booster and fuel-ledger phases");
+                const std::map<std::string,std::string> cycle={{"capture_area_m2","m^2"},{"fuel_flow_max_kg_s","kg/s"},
+                    {"heating_value_j_kg","J/kg"},{"combustion_efficiency","1"},{"pressure_recovery","1"},
+                    {"air_cp_j_kg_k","J/(kg*K)"},{"gas_cp_j_kg_k","J/(kg*K)"},{"gas_gamma","1"},
+                    {"fuel_air_ratio_max","1"},{"lightoff_mach","Mach"},{"target_mach","Mach"},
+                    {"valve_minimum","1"},{"speed_gain","1"},{"valve_lag_s","s"},{"valve_rate_s_1","1/s"}};
+                fixed.insert(cycle.begin(),cycle.end());
+                const auto value=[&](const char* key){return number(propulsion,key,cycle.at(key).c_str());};
+                if(value("combustion_efficiency")>1 || value("pressure_recovery")>1 ||
+                    value("gas_gamma")<=1 || value("gas_gamma")>=2 || value("fuel_air_ratio_max")>=1 ||
+                    value("valve_minimum")>1 || value("lightoff_mach")<=1 || value("target_mach")<=value("lightoff_mach"))
+                    throw std::runtime_error("ducted rocket cycle/controller inputs outside supported domain");
+            }
             std::set<std::string> roles;
             for(const auto& [role,unit]:fixed) {
                 const double value=number(propulsion,role,unit.c_str());roles.insert(role);
@@ -151,12 +191,8 @@ bool configurePlantV1(const DescriptorV1& autopilot,const DescriptorV1& allocato
         if(aerodynamics.availability==AvailabilityV1::Available) {
             const auto found=aerodynamics.bindings.find("source");
             if(found==aerodynamics.bindings.end()) throw std::runtime_error("aerodynamics source missing");
-            if(found->second=="offline_table") slots(aerodynamics,{}, {"model","design","source","table"});
-            else {
-                slots(aerodynamics,{}, {"model","design","source"});
-                if(found->second!="component_build_up" && found->second!="slender_store" && found->second!="bluff_cargo")
-                    throw std::runtime_error("aerodynamics source unsupported");
-            }
+            slots(aerodynamics,{}, {"model","design","source"});
+            if(found->second!="vlm") throw std::runtime_error("aircraft VLM aerodynamic source required");
         }
         next.configured=true;output=std::move(next);error.clear();return true;
     } catch(const std::exception& ex) {error=ex.what();return false;}
@@ -202,6 +238,8 @@ bool plantAvailableV1(const PlantAdapterV1& selected,const NativePlantIdentityV1
         if(selected.availability[i]==AvailabilityV1::NotApplicable) continue;
         switch(selected.implementations[i]) {
         case 1: break; // the compiled JSBSim/readback adapters admitted above
+        case 2: if(i!=3&&i!=0)return false;break; // finite-actuator control or ducted sustainer
+        case 3: if(i!=3)return false;break; // native liquid-fuel turbofan
         default: return false;
         }
         const auto& a=actual.components[i];const auto& e=selected.expected[i];
@@ -222,6 +260,7 @@ FinCommands plantCommandsV1(const PlantAdapterV1& selected,const AutopilotInput&
     if(!plantCommandInputsAvailableV1(selected,input,stops,actual))return {};
     switch(selected.implementations[0]) {
     case 1: return finCommands(input,selected.control,stops);
+    case 2: return actuatorAwareCommands(input,selected.control,stops);
     default: return {};
     }
 }

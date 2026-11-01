@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- Written by hangar (tools/hangar/hangar/pieces.py) from rafale's damage data: its right wing flying on its own once it parts
+<!-- Written by hangar (tools/models/hangar/hangar/pieces.py) from rafale's damage data: its right wing flying on its own once it parts
      (MS-7g). Its aerodynamics a tumbling piece's - estimates, said so there. Do not edit: hangar's model stage of rafale writes it. -->
 <fdm_config name="rafale-right-wing" version="2.0" release="ALPHA">
     <fileheader>
@@ -33,15 +33,15 @@
         </pointmass>
         <pointmass name="station 12">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 406.77165354330714 </x> <y> 108.50629921259842 </y> <z> -29.803149606299215 </z> </location>
+            <location unit="IN"> <x> 406.77165354330714 </x> <y> 108.50629921259844 </y> <z> -29.803149606299215 </z> </location>
         </pointmass>
         <pointmass name="station 13">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 439.60629921259846 </x> <y> 165.35669291338584 </y> <z> -33.070866141732282 </z> </location>
+            <location unit="IN"> <x> 439.60629921259846 </x> <y> 165.35669291338581 </y> <z> -33.070866141732282 </z> </location>
         </pointmass>
         <pointmass name="station 14">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 472.20472440944883 </x> <y> 212.60078740157485 </y> <z> -11.811023622047244 </z> </location>
+            <location unit="IN"> <x> 472.20472440944883 </x> <y> 212.60078740157479 </y> <z> -11.811023622047244 </z> </location>
         </pointmass>
     </mass_balance>
     <ground_reactions>

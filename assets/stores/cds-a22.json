@@ -2,7 +2,7 @@
   "id": "cds-a22",
   "designation": "CDS bundle (A-22)",
   "class": "cargo",
-  "summary": "a container delivery system bundle: an A-22 cargo bag on its skid board, rigged for airdrop at its limit",
+  "summary": "A-22 bare cargo container, 52 x 43 x 60 in maximum-height configuration from ASD-TR-61-326; no parachute modeled",
   "maker": "(US Army / Air Force container delivery system)",
   "model": "jsbsim:cdsa22",
   "powerable": false,
@@ -11,37 +11,57 @@
     "mass_kg": {
       "value": 998.0,
       "unit": "kg",
-      "uncertainty": 0.0,
+      "uncertainty": 100.0,
       "basis": "assumed",
-      "note": "2,200 lb rigged, the most an A-22 bundle is rigged to (the figure as publicly given, set down from memory: not read for this card) - a load chosen for the card; its parachute is not modelled: it falls as the box it is"
+      "note": "Chosen 998 kg loaded fixture, near the published 2200 lb capacity (printed p.1). Actual test-model mass and cargo distribution were not reported; no mass calibration claim."
     },
     "length_m": {
-      "value": 1.36,
+      "value": 1.3208,
       "unit": "m",
-      "uncertainty": 0.02,
-      "basis": "assumed",
-      "note": "its skid board 53.5 in along the hold (the figure as publicly given, set down from memory: not read for this card)"
+      "basis": "derived",
+      "source": "asd-tr-61-326",
+      "uncertainty": 0.0127,
+      "note": "52 in * 0.0254 m/in; printed pp.1,25,27: maximum-height bare A-22 container tested. Half-inch geometry screening allowance is assumed, not a measured tolerance."
     },
     "width_m": {
-      "value": 1.22,
+      "value": 1.0922,
       "unit": "m",
-      "uncertainty": 0.02,
-      "basis": "assumed",
-      "note": "48 in across (the figure as publicly given, set down from memory: not read for this card)"
+      "basis": "derived",
+      "source": "asd-tr-61-326",
+      "uncertainty": 0.0127,
+      "note": "43 in * 0.0254 m/in; printed pp.1,25,27: maximum-height bare A-22 container tested. Half-inch geometry screening allowance is assumed, not a measured tolerance."
     },
     "height_m": {
-      "value": 1.4,
+      "value": 1.524,
       "unit": "m",
-      "uncertainty": 0.4,
-      "basis": "assumed",
-      "note": "the bag's height loaded: up to some 83 in (the figure as publicly given, set down from memory: not read for this card); 1.4 m taken"
+      "basis": "derived",
+      "source": "asd-tr-61-326",
+      "uncertainty": 0.0127,
+      "note": "60 in * 0.0254 m/in; printed pp.1,25,27: maximum-height bare A-22 container tested. Half-inch geometry screening allowance is assumed, not a measured tolerance."
     },
-    "drag_cd": {
-      "value": 1.1,
-      "unit": "",
-      "uncertainty": 0.15,
+    "airframe_aerodynamics_version": {
+      "value": 1,
+      "unit": "1",
+      "source": "hangar-vlm",
+      "basis": "derived",
+      "uncertainty": 0,
+      "note": "Versioned shared-table runtime binding; zero uncertainty is not an accuracy claim."
+    },
+    "drag_area_m2": {
+      "value": 3.0187035541599023,
+      "unit": "m2",
+      "source": "hangar-vlm",
       "basis": "assumed",
-      "note": "a box broadside to the flow: 1.1 on its face (Hoerner, Fluid-Dynamic Drag: a cube or a short rectangular block face-on, 1.05 to 1.2), the same for each face - an estimate, as every released store's aerodynamics"
+      "uncertainty": 3.0187035541599023,
+      "note": "Engineering estimate A_D = CD_simulated*S_geometry at neutral Mach .3. Inputs, dated model-specific searches and method limits are in hangar-vlm.simulation and the evidence catalog. Assumed one-sigma screening uncertainty is |A_D| in m2; its coverage probability is not established. Equipment drag error remains unknown; the table evidence basis is simulated."
+    },
+    "analysis_speed_ms": {
+      "value": 20.60448,
+      "unit": "m/s",
+      "basis": "derived",
+      "source": "asd-tr-61-326",
+      "uncertainty": 0.01524,
+      "note": "67.6 ft/s * 0.3048 m/ft, printed p.26. Uncertainty is half the reported 0.1ft/s digit only, not total tunnel uncertainty. Full-scale solver Reynolds extrapolates the scaled tests."
     }
   },
   "sources": {
@@ -50,6 +70,133 @@
       "publisher": "Wikipedia",
       "url": "https://en.wikipedia.org/wiki/Container_Delivery_System",
       "date": "2026-10-10"
+    },
+    "hangar-vlm": {
+      "title": "Shared Hangar aircraft VLM tables",
+      "url": "aero/vlm-carriage-8ce370d42fabd147ac7be66d3f5cb6f96fa65ae769c57823992770787fcaf8b6.json",
+      "evidence_kind": "game_reference",
+      "note": "Same base, rate and Mach data as the released JSBSim model; no equipment calibration claim.",
+      "simulation": {
+        "basis": "simulated",
+        "tool": "Hangar shared aircraft VLM",
+        "version": "0.1.0",
+        "design_sha256": "6e7a796694b21a27ad4d16825cb9580002e98f405413ff7eb84a745618197c85",
+        "card_inputs": {
+          "length_m": 1.3208,
+          "mass_kg": 998.0,
+          "width_m": 1.0922,
+          "height_m": 1.524,
+          "analysis_speed_ms": 20.60448
+        },
+        "table_inputs_hash": "f0d9649cc70881bf",
+        "table_sha256": "8ce370d42fabd147ac7be66d3f5cb6f96fa65ae769c57823992770787fcaf8b6",
+        "input_geometry": "aircraft/cdsa22/cdsa22.toml",
+        "domain": {
+          "mach": [
+            0.0,
+            5.0
+          ],
+          "alpha_deg": [
+            -180.0,
+            180.0
+          ],
+          "beta_deg": [
+            -90.0,
+            90.0
+          ]
+        },
+        "method_sources": [
+          "Katz and Plotkin, Low-Speed Aerodynamics, vortex lattice",
+          "Shared aero/model.py, tables.py and mach.py; engineering extensions are not equipment measurements"
+        ],
+        "solver_sha256": "1fe905d01b307fc9398dda9ddd1b78ab2960d66c80ffd7346a2baf5e255f78bf",
+        "generic_validation": {
+          "schema": "fsim.generic-vlm-validation.v1",
+          "basis": "simulated",
+          "tool": "Hangar shared aircraft VLM",
+          "version": "0.1.0",
+          "source_url": "https://www.mas.bg.ac.rs/_media/istrazivanje/fme/vol48/4/5_d_damljanovic_et_al.pdf",
+          "source_locator": "Figure 1 p.762; Tables 2--10 pp.766--768",
+          "native_library": {
+            "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-release\\python\\fsim\\bin\\libfsim.dll",
+            "sha256": "10a8a36fc36b7ad7d23a6e4eede348ca18946bba913d66e93912fabec831d533"
+          },
+          "fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+          "metrics": {
+            "CZ": {
+              "count": 9,
+              "nrmse_percent": 13.89268657599672,
+              "max_absolute_error": 0.13199607890094234
+            },
+            "Cm": {
+              "count": 9,
+              "nrmse_percent": 82.05273561633099,
+              "max_absolute_error": 0.06616153821858019
+            }
+          },
+          "assessed_domain": {
+            "mach": [
+              0.77,
+              1.0,
+              1.17
+            ],
+            "alpha_deg": [
+              2.0,
+              6.0,
+              10.0
+            ],
+            "beta_deg": [
+              0.0
+            ]
+          },
+          "equipment_accuracy_claim": false,
+          "parameters_fitted": false,
+          "limitations": [
+            "Generic AGARD-B geometry, not any of the 88 authored equipment models.",
+            "The publication pools facilities/model sizes and includes M0.8/M1.2 runs with the M0.77/M1.17 groups; no common Reynolds condition is supplied.",
+            "Body-normal force is derived as CN=CLf*cos(alpha)+CDf*sin(alpha), cancelling axial base-pressure force; reported CZ=-CN.",
+            "The 4% biconvex wing uses the existing shared section; its tiny specified leading-edge radius is not separately resolved.",
+            "Density/Reynolds and sting/wall interference differences remain. Residuals are not an equipment confidence interval.",
+            "No beta, dynamic derivative, powered flow or extreme-angle qualification follows from these conditions."
+          ],
+          "source_pdf_sha256": "e2a1c05987115e665dd8a06a6250b7dbcbe0511df7b99227a293a77cadf5e0d5",
+          "observations_and_geometry": "docs/data/hangar-generic-validation.json"
+        },
+        "uncertainty": {
+          "basis": "simulated",
+          "tool": "Hangar shared aircraft VLM",
+          "version": "0.1.0",
+          "geometry_source": "aircraft/cdsa22/cdsa22.toml",
+          "geometry_sha256": "204af226d435a4bf1aa00cb52434bdf51060df1b1d4479f508f0d1b53f64951e",
+          "analysis_inputs": {
+            "max_mach": 5.0,
+            "speed": 250.0
+          },
+          "method": "Coupled vortex-lattice/body/section/rate solution, common Mach extensions and common JSBSim tables; retained overrides are listed separately.",
+          "table_domain": "Actual Mach/alpha/beta bounds are read from the generated product in hangar-vlm.simulation; no narrowing of the authored envelope.",
+          "assumed_relative_half_width": 1.64105471232662,
+          "uncertainty_basis": "assumed engineering screening range, not measured equipment error or a probabilistic confidence interval",
+          "uncertainty_formula": "Inside the generic comparison conditions: max(1,2*generic_NRMSE/100); outside them no finite equipment-error bound is established.",
+          "boundaries": "Generic validation cannot identify equipment-specific separated flow, powered flow, Reynolds effects or extreme-angle errors; those remain unknown.",
+          "coverage_probability": null,
+          "uncertainty_components": {
+            "CZ_assumed_relative_half_width": 1.0,
+            "Cm_assumed_relative_half_width": 1.64105471232662
+          },
+          "uncertainty_application": "Assumed screening envelope only, not a measured model error or statistical bound. Applies to generic CZ/Cm comparison conditions; no finite equipment-error bound outside those conditions and no calibrated CD/CY/Cl/Cn uncertainty.",
+          "input_assumptions": "Author-declared geometry and shared section/body correlations. Surface sections, sweep, twist, controls, body stations, mass/CG, analysis speed and all retained overrides are readable in aircraft/cdsa22/cdsa22.toml. Product extrema are generation coverage, not a validated physical domain.",
+          "generic_validation_ref": "generic_validation and docs/data/hangar-generic-validation.json"
+        }
+      }
+    },
+    "asd-tr-61-326": {
+      "title": "ASD-TR-61-326 / AD0270535, Determination of the Minimum Sized Parachute Required for Stabilization of the A-22 Cargo Container",
+      "url": "https://archive.org/download/DTIC_AD0270535/DTIC_AD0270535.pdf",
+      "report": "ASD-TR-61-326",
+      "publisher": "USAF Aeronautical Systems Division; University of Minnesota",
+      "retrieved": "2026-10-30",
+      "sha256": "a3162363cc6d16fa59d15de275790b5d8156adf1dac32257877289ae0c1a725c",
+      "evidence": "Original scaled-model wind-tunnel measurements; Fig.27 visually transcribed, PDF p.56 / printed p.42."
     }
   },
   "component_models": {
@@ -95,11 +242,11 @@
         "bindings": {
           "model": "jsbsim:cdsa22",
           "design": "aircraft/cdsa22/cdsa22.toml",
-          "source": "bluff_cargo"
+          "source": "vlm"
         },
         "basis": "assumed",
-        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
-        "validity": "Reduced-order engineering model; hardware performance unvalidated."
+        "note": "Shared aircraft VLM model and tables; no independent store force model.",
+        "validity": "Source geometry and model correlations; equipment accuracy requires independent validation."
       }
     }
   }

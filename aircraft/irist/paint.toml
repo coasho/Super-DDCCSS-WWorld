@@ -4,8 +4,8 @@
 scheme = "single"
 colours = ["#c4c8cc"]
 bands = [
-  { x = [0.9996, 1.0496], colour = "#c8a020" },
-  { x = [1.8522, 1.9022], colour = "#6b4a2b" },
+  { x = [0.9982, 1.0482], colour = "#c8a020" },
+  { x = [1.8497, 1.8997], colour = "#6b4a2b" },
 ]
 panel_lines = 0.0
 wear = 0.03

@@ -336,3 +336,8 @@ flaps = "Wikipedia's C-130J article and its sources: Lockheed-Fowler trailing-ed
 drag_devices = "Lockheed Martin fact sheet and the C-130 flight manual: no spoilers or airbrakes; drag comes from the propellers and flaps"
 releasable_stores = "US Air Force Research Laboratory, Rapid Dragon (2021): palletized cruise missiles released from the cargo hold of C-130-series aircraft; cargo airdrop over the ramp"
 aerobatic = "USAF fact sheet: a transport, not cleared for aerobatic manoeuvres"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

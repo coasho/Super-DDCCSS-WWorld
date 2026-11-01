@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- Written by hangar (tools/hangar/hangar/pieces.py) from mirage2000's damage data: its right wing flying on its own once it parts
+<!-- Written by hangar (tools/models/hangar/hangar/pieces.py) from mirage2000's damage data: its right wing flying on its own once it parts
      (MS-7g). Its aerodynamics a tumbling piece's - estimates, said so there. Do not edit: hangar's model stage of mirage2000 writes it. -->
 <fdm_config name="mirage2000-right-wing" version="2.0" release="ALPHA">
     <fileheader>
@@ -26,7 +26,7 @@
         <ixz unit="SLUG*FT2"> 123.16890346931875 </ixz>
         <iyz unit="SLUG*FT2"> 21.437797040355683 </iyz>
         <emptywt unit="LBS"> 1392.4861654970077 </emptywt>
-        <location name="CG" unit="IN"> <x> 374.31732283464567 </x> <y> 74.758661417322841 </y> <z> -18.490944881889764 </z> </location>
+        <location name="CG" unit="IN"> <x> 374.31732283464567 </x> <y> 74.75905511811024 </y> <z> -18.490944881889764 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
             <location unit="IN"> <x> 360.11417322834643 </x> <y> 78.740157480314963 </y> <z> -0.053937007874017243 </z> </location>

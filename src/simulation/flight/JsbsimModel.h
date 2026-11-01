@@ -3,6 +3,7 @@
 #include "simulation/flight/FlightModel.h"
 
 #include <memory>
+#include <array>
 #include <string>
 #include <vector>
 
@@ -18,7 +19,7 @@ class GroundProvider;
 /// JSBSim adapter: one FGFDMExec per vehicle, JSBSim used as-is (design 7,
 /// ADR-3). Construct and load on one thread; step() may run on any thread as
 /// long as no two threads touch the same instance concurrently.
-class JsbsimModel final : public FlightModel, public TerrainStrikeSourceV1, public RigidMassSourceV1, public NativePositionSourceV1 {
+class JsbsimModel final : public FlightModel, public TerrainStrikeSourceV1, public TerrainContactSourceV1, public RigidMassSourceV1, public NativePositionSourceV1 {
 public:
     /// @param dt fixed step in seconds (design 6.4)
     /// @param ground terrain source for gear contact and AGL; shared by all vehicles
@@ -55,7 +56,14 @@ public:
     bool applyImpulse(const double linearBodyNs[3], const double angularBodyNms[3]) override;
     bool endMassChange(const double partInertia[6], const double impulseBodyNs[3]) override;
     bool terrainStrikeSnapshotV1(TerrainStrikeSnapshotV1& incoming) const noexcept override;
+    bool terrainContactSnapshotV1(TerrainContactSnapshotV1& out) const noexcept override {
+        if(!structuralObservedValid_)return false;
+        out=structuralObserved_;return true;
+    }
     bool rigidMassPropertiesV1(RigidMassPropertiesV1& out) const noexcept override;
+    /// Native control-only airframe acceleration, excluding rotor reaction and
+    /// propulsion moments. False for old products without the versioned split.
+    bool ownRotorAirframeAccelerationV1(double acceleration[3],double lagS[3],double specificForceBody[3],bool& passiveIncluded);
     bool nativePositionV1(const double positionEcefM[3], NativePositionV1& out) const noexcept override;
 
     /// Direct access for tests and tooling only.
@@ -97,6 +105,8 @@ private:
     bool crashed_ = false;     ///< struck the terrain: frozen where it struck, on the surface (VehicleState::crashed)
     VehicleState crashState_;  ///< its state as it was stopped there
     VehicleState structuralIncoming_{};
+    TerrainContactSnapshotV1 structuralObserved_{};
+    bool structuralObservedValid_ = false;
     double structuralIncomingMassKg_ = std::numeric_limits<double>::quiet_NaN();
     bool structuralContact_ = false; ///< contiguous STRUCTURE contact, never gear-only landing contact
     std::uint32_t stepCount_ = 0;
@@ -116,6 +126,9 @@ private:
     /// A battery, where the aircraft's FCS has one (fsim/battery/...: hangar's multirotors and electric wings,
     /// docs/rotorcraft.md, docs/hangar.md)
     PropertyHandle batteryCharge_, batteryCapacity_, batteryPower_;
+    std::array<PropertyHandle,10> rotorAirframeReads_;
+    std::array<PropertyHandle,4> rotorPassiveReads_;
+    bool rotorAirframeBound_ = false;
     /// Per engine: the rotor's speed where its thruster has none of its own -
     /// a direct thruster whose rotor the flight control system spins (a
     /// multirotor's motors: propulsion/engine[i]/rotor-rpm, docs/rotorcraft.md)

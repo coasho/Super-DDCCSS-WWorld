@@ -335,3 +335,8 @@ flaps = "Jane's All the World's Aircraft: flaperons give the flap function"
 drag_devices = "Jane's All the World's Aircraft: no dedicated speed brake; the rudders, flaperons and ailerons deflect as one"
 releasable_stores = "USAF F-22 fact sheet: internal weapons bays for AIM-120, AIM-9 and GBU-32"
 aerobatic = "USAF F-22 fact sheet: +9 g (fsim/envelope/clean/n_max)"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

@@ -541,7 +541,8 @@ Command RecoveryBehavior::vertical(const ControlContext& ctx, double dt) {
     // straight down over its hover point, at kDescentMs, to below the ground (the ground stops it) - while it is still over
     // the ground (turned into the wind over its spot, the UH-1H drifted 30 m as it came down)
     if (!s.onGround) settledS_ = 0.0;
-    if (std::hypot(s.velocityNedMs[0], s.velocityNedMs[1]) < kStillMs) descentMslM_ = std::max(descentMslM_ - kDescentMs * dt, elevationM_ - 5.0);
+    if (std::hypot(s.velocityNedMs[0], s.velocityNedMs[1]) < kStillMs && geo::distanceM(s.latitudeRad,s.longitudeRad,lat,lon)<1.0)
+        descentMslM_ = std::max(descentMslM_ - kDescentMs * dt, elevationM_ - 5.0);
     return PositionCommand{lat, lon, descentMslM_, 2.0, 1.0, heading};
 }
 

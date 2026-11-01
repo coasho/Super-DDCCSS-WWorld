@@ -306,3 +306,8 @@ retractable_gear = "Eurofighter GmbH: retractable gear"
 drag_devices = "Eurofighter GmbH: a dorsal airbrake behind the canopy"
 releasable_stores = "Eurofighter GmbH: thirteen hardpoints"
 aerobatic = "Eurofighter GmbH: +9 g (fsim/envelope/clean/n_max)"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

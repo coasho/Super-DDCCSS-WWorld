@@ -8,7 +8,7 @@ Start with [current status](status.md) for implemented capabilities, milestone b
 | --- | --- |
 | [Development](development.md) | Environment, build variants, contribution rules and validation |
 | [Resources](resources.md) | Authoritative inputs, generation steps, generated files and runtime consumers |
-| [Hangar](hangar.md) | Aircraft and store design pipeline, mass accounting, calibration and rebuilds |
+| [Hangar system](hangar-system.md) | Single guide for design inputs, mass accounting, shared VLM, calibration, JSBSim runtime integration and setup/build/run/stop |
 | [Testbench](../src/applications/testbench/README.md) | Local scenario UI, headless suites and flight-stability checks |
 | [Map assets](../assets/config/maps.README.md) | Offline map plans, tile downloads, coverage and package layout |
 | [Internal type codes](type-codes.md) | Short names used in development and domain discussions |
@@ -56,7 +56,7 @@ Evidence applies to the date, build, scenario and scope it records. Source inspe
 | --- | --- |
 | [Engagement delivery validation](sdk/engagement-validation.md) | Dated local build/regression and native/browser encounter results, reproduction paths and exclusions |
 | [Native viewer validation](sdk/viewer-validation.md) | Dated fullscreen native GPU checks, renderer lifecycle regressions, scene and performance evidence, and exclusions |
-| [Stores build report](hangar-stores-build.md), [JSON record](hangar-stores-build.json) | Store pipeline outputs, sizes and timings from a recorded generation run |
+| [Hangar construction and evidence](hangar-system.md) | Shared VLM workflow and current machine-readable fleet/native/runtime report locations |
 | [Model effects inventory](hangar-effects.md) | Generated visual nodes and effect metadata available to consumers |
 | [Flight-stability results](../src/applications/testbench/results/stability/SUMMARY.md) | Per-aircraft recorded checks, with raw JSON beside the summary |
 

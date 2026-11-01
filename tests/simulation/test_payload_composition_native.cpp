@@ -1,4 +1,6 @@
 #include "simulation/runtime/world/World.h"
+#include "simulation/mission_systems/weapon/Composition.h"
+#include <cmath>
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <cstdlib>
@@ -19,6 +21,18 @@ public:
             if (!std::filesystem::exists(source/file)) continue;
             std::filesystem::copy_file(source/file,root_/model/file);
             files_.push_back(root_/model/file);
+        }
+        // A stale native identity is the fault under test. Supply the genuine
+        // carriage table so admission reaches that guard rather than failing
+        // earlier because the fixture omitted a required physical asset.
+        if(std::filesystem::is_directory(source/"aero")) {
+            std::filesystem::create_directories(root_/model/"aero");
+            for(const auto& file:std::filesystem::directory_iterator(source/"aero"))
+                if(file.is_regular_file() && file.path().extension()==".json" &&
+                    file.path().filename().string().rfind("vlm-carriage-",0)==0) {
+                    const auto destination=root_/model/"aero"/file.path().filename();
+                    std::filesystem::copy_file(file.path(),destination);files_.push_back(destination);
+                }
         }
         const auto xml=root_/model/(model+".xml"); std::ifstream in(xml,std::ios::binary);
         std::stringstream stream;stream<<in.rdbuf();in.close(); auto text=stream.str();
@@ -43,6 +57,7 @@ public:
 #endif
         std::error_code error;
         for (const auto& file:files_) std::filesystem::remove(file,error);
+        std::filesystem::remove(root_/model_/"aero",error);
         std::filesystem::remove(root_/model_/"Engines",error);
         std::filesystem::remove(root_/model_,error);std::filesystem::remove(root_,error);
     }
@@ -107,6 +122,72 @@ TEST_CASE("Inert missile jettison validates the selected native aerodynamic asse
 TEST_CASE("Non-guided store jettison validates the selected native aerodynamic asset", "[payload-components][native-engagement]") {
     refusedRelease("mk82","mk82",3,true);
 }
+
+TEST_CASE("Armed ballistic stores use native terrain contact while unarmed releases remain inert", "[payload-components][native-engagement]") {
+    using namespace fsim;
+    for(const auto mode:{0,1,2}) {
+        INFO("0=armed contact, 1=pre-arming contact, 2=inert jettison; mode="<<mode);
+        session::WorldOptions options;options.name="ballistic-native-contact";options.publish=false;
+        options.pinWorkers=false;options.workers=1;options.jsbsimRoot=FSIM_TEST_JSBSIM_ROOT;
+        session::World world(options);
+        session::VehicleSpec spec;spec.type="jsbsim:f16c";spec.name="carrier";
+        spec.initial.altitudeMslM=6000;spec.initial.airspeedTrueMs=250;
+        const auto own=world.createVehicle(spec);REQUIRE(own);
+        std::uint16_t stations=0;bool found=false;
+        for(const auto& p:world.missionSystems(own)->payloads())if(p.family==ms::Family::StoreStation){stations=p.index;found=true;}
+        REQUIRE(found);REQUIRE(world.loadStore(own,stations,3,"mk82")==ms::Reason::None);
+        if(mode==2) {
+            ms::JettisonCommand c;c.payload=stations;c.emergency=true;REQUIRE(world.submit(own,c).accepted());
+        } else {
+            REQUIRE(world.submit(own,ms::StateCommand{stations,ms::PayloadState::Operate}).accepted());
+            for(unsigned k=0;k<1000 && world.missionSystems(own)->payloads()[stations].state!=ms::PayloadState::Operate;++k)world.step();
+            REQUIRE(world.missionSystems(own)->payloads()[stations].state==ms::PayloadState::Operate);
+            ms::StrikeCommand c;c.payload=stations;c.store="mk82";c.consent=true;REQUIRE(world.submit(own,c).accepted());
+        }
+        for(unsigned k=0;k<600 && world.weapons().empty();++k)world.step();
+        REQUIRE(world.weapons().size()==1);const auto weapon=world.weapons().front().id;
+        // Vehicle.reset deliberately preserves release age and the fuze latch.
+        // Wait only the armed cases, then provide an explicit physical impact.
+        if(mode!=1)for(unsigned k=0;k<90;++k)world.step();
+        sim::InitialConditions impact;impact.altitudeMslM=2;impact.airspeedTrueMs=0;
+        impact.velocityNedMs[0]=0;impact.velocityNedMs[1]=0;impact.velocityNedMs[2]=40;
+        impact.enginesRunning=false;REQUIRE(world.resetVehicle(weapon,&impact));
+        for(unsigned k=0;k<300 && world.alive(weapon);++k)world.step();
+        if(mode==0)REQUIRE_FALSE(world.alive(weapon));
+        else if(world.alive(weapon)) {
+            // A spring-arrested body need not cross the terminal crash depth.
+            // Prove that the earlier unarmed initiation cannot be rearmed by
+            // resetting its pose after the arming time and striking again.
+            if(mode==1) {
+                const auto* source=dynamic_cast<const sim::TerrainContactSourceV1*>(world.model(weapon));
+                REQUIRE(source);sim::TerrainContactSnapshotV1 contact;REQUIRE(source->terrainContactSnapshotV1(contact));
+                REQUIRE(contact.state.simTime<1.0);
+            }
+            impact.velocityNedMs[2]=80;
+            REQUIRE(world.resetVehicle(weapon,&impact));
+            for(unsigned k=0;k<300 && world.alive(weapon);++k)world.step();
+        }
+        const auto records=world.weapons();REQUIRE(records.size()==1);
+        if(mode==0)CHECK(records.front().end==ms::WeaponEnd::Detonated);
+        else CHECK(records.front().end!=ms::WeaponEnd::Detonated);
+        unsigned detonations=0;
+        for(const auto& event:world.engagementEvents())if(event.entity==weapon && event.kind=="detonation") {
+            ++detonations;for(double coordinate:event.positionEcef)CHECK(std::isfinite(coordinate));
+        }
+        CHECK(detonations==(mode==0?1:0));
+    }
+}
+TEST_CASE("Terrain initiation uses captured native ordinals at large clocks and exact window boundaries", "[payload-components]") {
+    sim::TerrainContactSnapshotV1 contact;contact.state.simTime=1e12;
+    const std::uint64_t opening=1000000000;
+    contact.outerStep=opening+4;contact.substep=contact.substeps=8;
+    REQUIRE(sim::terrainContactOffsetV1(contact,opening,4,1./120)==4./120);
+    contact.substep=1;REQUIRE(sim::terrainContactOffsetV1(contact,opening,4,1./120)==(3.+1./8)/120);
+    contact.outerStep=opening;CHECK_FALSE(sim::terrainContactOffsetV1(contact,opening,4,1./120));
+    contact.outerStep=opening+5;CHECK_FALSE(sim::terrainContactOffsetV1(contact,opening,4,1./120));
+    contact.outerStep=opening+4;contact.substep=9;CHECK_FALSE(sim::terrainContactOffsetV1(contact,opening,4,1./120));
+}
+
 TEST_CASE("A selected native factory refusing creation preserves inventory history and identities", "[payload-components][native-engagement]") {
     auto registry=fsim::ms::components::builtInProvidersV1();std::string error;
     REQUIRE(registry.guidance.registerFactory("fsim.guidance.measured_pn.v2","fsim.guidance.measured_pn.v2",
@@ -146,7 +227,7 @@ TEST_CASE("All maintained native store assets load and match their selected comp
         INFO(name); ms::components::ProfileV1 profile;std::string error;
         REQUIRE(ms::components::readProfileV1(library/(name+".json"),*card,profile,error));
         ms::weapon::PlantAdapterV1 selected;
-        if (card->seeker.empty()) {
+        if (profile.find("guidance")->availability!=ms::components::AvailabilityV1::Available) {
             REQUIRE(ms::weapon::configureBallisticPlantV1(*profile.find("aerodynamics"),*card,selected,error));++ballistic;
         } else {
             REQUIRE(ms::weapon::configurePlantV1(*profile.find("autopilot"),*profile.find("allocator"),*profile.find("actuator"),
@@ -167,7 +248,127 @@ TEST_CASE("All maintained native store assets load and match their selected comp
         REQUIRE(std::isfinite(model->energy().massKg));REQUIRE(model->energy().massKg>0);
         REQUIRE(world.removeVehicle(id));
     }
-    REQUIRE(full==24);REQUIRE(ballistic==29);REQUIRE(world.weapons().empty());
+    REQUIRE(full==25);REQUIRE(ballistic==28);REQUIRE(world.weapons().empty());
+}
+
+TEST_CASE("Inertial waypoint guidance freezes authorized input and cannot consume target truth", "[payload-components]") {
+    using namespace fsim;
+    std::vector<std::string> errors;const auto cards=ms::readStoreLibrary(FSIM_TEST_STORE_DIR,errors);REQUIRE(errors.empty());
+    unsigned tested=0;
+    for(const auto& [name,card]:cards) {
+        ms::components::ProfileV1 profile;std::string error;
+        REQUIRE(ms::components::readProfileV1(std::filesystem::path(FSIM_TEST_STORE_DIR)/(name+".json"),*card,profile,error));
+        const auto* descriptor=profile.find("guidance");
+        if(!descriptor || descriptor->implementationId!="fsim.guidance.inertial_waypoint.v1")continue;
+        ++tested;ms::weapon::Spec spec;REQUIRE(ms::weapon::configureCompositionV1(*card,profile,spec,spec,error));
+        ms::weapon::Observation aim{123,{6379137,10000,1000},{0,0,0},false};
+        ms::components::ProviderContextV1 context{*card,profile,spec,aim};
+        const auto& registry=ms::components::builtInProvidersV1();
+        auto guidance=registry.guidance.create(*descriptor,context,error);REQUIRE(guidance);
+        ms::weapon::Input input;input.position={6379137,0,0};input.velocity={0,200,0};input.up={1,0,0};input.dtS=1./30;
+        const auto baseline=guidance->update(input);REQUIRE(baseline.phase==ms::WeaponPhase::Midcourse);
+        CHECK_FALSE(baseline.tracking);CHECK_FALSE(baseline.active);CHECK(baseline.holding==0);
+        input.estimate=ms::weapon::Observation{456,{NAN,NAN,NAN},{NAN,NAN,NAN},true};
+        input.visible.push_back(*input.estimate);input.supported=true;input.illuminated=true;
+        const auto ignored=guidance->update(input);
+        CHECK(ignored.acceleration.x==baseline.acceleration.x);CHECK(ignored.acceleration.y==baseline.acceleration.y);CHECK(ignored.acceleration.z==baseline.acceleration.z);
+        CHECK(std::hypot(ignored.acceleration.x,ignored.acceleration.y,ignored.acceleration.z)<=spec.maxG*9.80665);
+        context.initialEstimate.reset();CHECK_FALSE(registry.guidance.create(*descriptor,context,error));CHECK_FALSE(error.empty());
+        aim.velocity.y=1.;context.initialEstimate=aim;auto movingCoordinate=registry.guidance.create(*descriptor,context,error);REQUIRE(movingCoordinate);
+        CHECK(movingCoordinate->update(input).acceleration.x==baseline.acceleration.x);
+        input.position={6379137,0,1000};input.velocity={0,-200,0};
+        const auto opposite=guidance->update(input);CHECK(opposite.phase==ms::WeaponPhase::Midcourse);CHECK(opposite.acceleration.x>9.80665);
+        const double huge=std::numeric_limits<double>::max();input.velocity={huge,huge,huge};const auto overflow=guidance->update(input);
+        CHECK(overflow.phase==ms::WeaponPhase::Unguided);CHECK(std::isfinite(overflow.acceleration.x));CHECK(std::isfinite(overflow.acceleration.y));CHECK(std::isfinite(overflow.acceleration.z));
+    }
+    REQUIRE(tested==1);
+}
+
+TEST_CASE("Liquid-fuel inertial stores fly an authorized linked coordinate without terminal tracking", "[payload-components][native-engagement]") {
+    using namespace fsim;
+    std::vector<std::string> errors;const auto cards=ms::readStoreLibrary(FSIM_TEST_STORE_DIR,errors);REQUIRE(errors.empty());
+    unsigned tested=0;
+    for(const auto& [name,card]:cards) {
+        ms::components::ProfileV1 profile;std::string error;
+        REQUIRE(ms::components::readProfileV1(std::filesystem::path(FSIM_TEST_STORE_DIR)/(name+".json"),*card,profile,error));
+        if(profile.find("propulsion")->implementationId!="fsim.propulsion.jsbsim_turbofan.v1")continue;
+        ++tested;INFO(name);
+        session::WorldOptions options;options.name="native-linked-coordinate-cruise";options.publish=false;
+        options.pinWorkers=false;options.workers=1;options.jsbsimRoot=FSIM_TEST_JSBSIM_ROOT;
+        session::World world(options);
+        session::VehicleSpec aircraft;aircraft.name="carrier";aircraft.type="jsbsim:h6k";
+        aircraft.initial.latitudeDeg=0;aircraft.initial.longitudeDeg=0;aircraft.initial.altitudeMslM=6000;
+        aircraft.initial.headingDeg=90;aircraft.initial.airspeedTrueMs=200;
+        const auto carrier=world.createVehicle(aircraft);REQUIRE(carrier);
+        aircraft.name="sensor donor";aircraft.type="jsbsim:f16c";
+        const auto donor=world.createVehicle(aircraft);REQUIRE(donor);
+        aircraft.name="observed coordinate source";aircraft.initial.latitudeDeg=.01;aircraft.initial.longitudeDeg=.18;
+        aircraft.initial.headingDeg=270;
+        const auto target=world.createVehicle(aircraft);REQUIRE(target);
+        for(const auto id:{carrier,donor,target}) {
+            control::HsaCommand hold;hold.headingRad=(id==target?270.:90.)*3.14159265358979323846/180;
+            hold.speed=200;hold.speedReference=static_cast<double>(control::SpeedReference::TrueAirspeed);
+            REQUIRE(world.submit(id,hold).accepted());
+        }
+        comm::NetSpec net;net.name="modeled targeting link";net.latencyS=.01;net.jitterS=0;net.dataRateBps=1e6;
+        const auto network=world.createNet(net);REQUIRE(network);
+        const auto source=world.assignSystem(donor,0x4001,"DONOR");REQUIRE(source);
+        REQUIRE(world.joinNet(donor,network));REQUIRE(world.joinNet(carrier,network));
+        comm::DisseminationPlan plan;plan.tracksPeriodS=.2;REQUIRE(world.setDissemination(donor,plan));
+        REQUIRE(world.loadStore(carrier,0,1,name)==ms::Reason::None);
+        REQUIRE(world.submit(donor,ms::StateCommand{0,ms::PayloadState::Operate}).accepted());
+        REQUIRE(world.submit(carrier,ms::StateCommand{0,ms::PayloadState::Operate}).accepted());
+        ms::AmtiCommand search;search.payload=0;search.azimuthHalfWidthRad=.2;search.bars=1;search.rangeScaleM=60000;
+        REQUIRE(world.submit(donor,search).accepted());
+        std::uint32_t designation=0;std::uint64_t observed=0;
+        for(unsigned k=0;k<1200 && !designation;++k) {
+            world.step();
+            // Referee attribution selects the fixture's measured track; only
+            // its genuinely delivered report reaches the launcher's guidance.
+            for(const auto& track:world.amtiTracks(donor,0))if(track.truth==target && track.updates>=3)observed=track.id;
+            if(observed)for(const auto& report:world.dms().linkTracks(carrier))
+                if(report.source==source && report.report.track==observed && report.report.payload==0)
+                    designation=world.designateLink(carrier,source,0,observed);
+        }
+        REQUIRE(designation>=session::World::kDesignations);
+        REQUIRE(world.vehicleState(designation));const auto aim=*world.vehicleState(designation);
+        ms::StrikeCommand strike;strike.payload=0;strike.store=name;strike.target=designation;strike.consent=true;
+        REQUIRE(world.submit(carrier,strike).accepted());
+        for(unsigned k=0;k<600 && world.weapons().empty();++k)world.step();
+        REQUIRE(world.weapons().size()==1);const auto id=world.weapons().front().id;
+        auto* model=world.model(id);REQUIRE(model);
+        const auto initial=model->energy();double cgBefore[3];REQUIRE(model->cgFromOriginBodyM(cgBefore));
+        REQUIRE(std::abs(initial.massKg-card->value("mass_kg",0))<.02);REQUIRE(initial.fuelKg>0);
+        const auto distance=[&] {
+            const auto* s=world.vehicleState(id);REQUIRE(s);
+            return std::hypot(s->positionEcef[0]-aim.positionEcef[0],s->positionEcef[1]-aim.positionEcef[1],s->positionEcef[2]-aim.positionEcef[2]);
+        };
+        const double before=distance();
+        REQUIRE(world.undesignate(carrier,designation));
+        REQUIRE(world.removeVehicle(target));REQUIRE(world.removeVehicle(donor));REQUIRE(world.removeVehicle(carrier));
+        double maximumThrust=0;
+        for(unsigned k=0;k<900;++k) {
+            world.step();REQUIRE(world.alive(id));const auto& s=*world.vehicleState(id);
+            REQUIRE_FALSE(s.crashed);REQUIRE_FALSE(s.diverged);
+            for(double value:s.thrustN)maximumThrust=std::max(maximumThrust,value);
+            const auto record=world.weapons().front();REQUIRE_FALSE(record.tracking);REQUIRE_FALSE(record.supported);
+            REQUIRE(record.holding==0);REQUIRE(record.phase==ms::WeaponPhase::Midcourse);
+        }
+        REQUIRE(maximumThrust>0);CHECK(distance()<before-5000);
+        const auto supplied=model->energy();CHECK(supplied.fuelKg<initial.fuelKg);CHECK(supplied.massKg<initial.massKg);
+        double cgAfter[3];REQUIRE(model->cgFromOriginBodyM(cgAfter));CHECK(cgAfter[0]>cgBefore[0]);
+        const auto* propulsion=profile.find("propulsion");double cruise=0;
+        REQUIRE(ms::components::parameterV1(*propulsion,"cruise_speed_ms","m/s",cruise,error));
+        INFO("native speed="<<world.vehicleState(id)->airspeedTrueMs<<", configured="<<cruise);
+        CHECK(std::abs(world.vehicleState(id)->airspeedTrueMs-cruise)<.03*cruise);
+        auto tank=model->property("propulsion/tank[0]/contents-lbs");REQUIRE(tank.valid());tank.set(0);
+        world.step(300);REQUIRE(world.alive(id));CHECK(model->energy().fuelKg==0);CHECK(model->energy().starved);
+        CHECK(model->energy().fuelFlowKgS==0);
+        for(const auto& event:world.engagementEvents())if(event.entity==id) {
+            CHECK(event.kind!="acquisition");CHECK(event.kind!="activation");CHECK(event.kind!="detonation");
+        }
+    }
+    REQUIRE(tested==1);
 }
 
 namespace {

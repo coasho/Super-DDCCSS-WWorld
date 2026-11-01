@@ -1,4 +1,5 @@
 #include "simulation/mission_systems/weapon/PlantAdapter.h"
+#include "simulation/mission_systems/components/implementations/propulsion/JsbsimDuctedRocketPropulsionV1.h"
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
@@ -25,7 +26,7 @@ void adapterDispatchAndActualIdentityAreRequired() {
     require(plantFingerprintV1(s)==3348686125u,"Python and native profile identity encoding must agree exactly");
     auto p=descriptor("propulsion","");p.availability=AvailabilityV1::NotApplicable;p.reason="Unpowered synthetic plant";p.bindings.clear();
     auto d=descriptor("aerodynamics","fsim.aerodynamics.jsbsim_generated_store");
-    d.bindings["design"]="aircraft/synthetic/synthetic.toml";d.bindings["source"]="component_build_up";
+    d.bindings["design"]="aircraft/synthetic/synthetic.toml";d.bindings["source"]="vlm";
     PlantAdapterV1 adapter;std::string error;
     require(configurePlantV1(a,m,s,p,d,card,adapter,error),"Supported native backend must configure");
     NativePlantIdentityV1 actual;actual.components=adapter.expected;
@@ -51,7 +52,7 @@ void adapterDispatchAndActualIdentityAreRequired() {
 void ballisticPhaseRequiresOnlyGenuineNativeAerodynamics() {
     StoreCard card;card.id="synthetic";card.model="jsbsim:synthetic";
     auto aero=descriptor("aerodynamics","fsim.aerodynamics.jsbsim_generated_store");
-    aero.bindings["design"]="aircraft/synthetic/synthetic.toml";aero.bindings["source"]="component_build_up";
+    aero.bindings["design"]="aircraft/synthetic/synthetic.toml";aero.bindings["source"]="vlm";
     const auto original=aero;
     PlantAdapterV1 selected;std::string error;
     require(configureBallisticPlantV1(aero,card,selected,error),"Ballistic release must select its available native aerodynamic adapter");
@@ -77,7 +78,7 @@ void ballisticPhaseRequiresOnlyGenuineNativeAerodynamics() {
 void unguidedNonInertPhaseStillRequiresNativePropulsion() {
     StoreCard card;card.id="synthetic";card.model="jsbsim:synthetic";
     auto aero=descriptor("aerodynamics","fsim.aerodynamics.jsbsim_generated_store");
-    aero.bindings["design"]="aircraft/synthetic/synthetic.toml";aero.bindings["source"]="component_build_up";
+    aero.bindings["design"]="aircraft/synthetic/synthetic.toml";aero.bindings["source"]="vlm";
     auto prop=descriptor("propulsion","fsim.propulsion.jsbsim_generated_solid_rocket");
     prop.bindings.insert({{"design","aircraft/synthetic/synthetic.toml"},{"motor","Engines/synthetic_motor.xml"},
                          {"nozzle","Engines/synthetic_nozzle.xml"},{"smoke","reduced"}});
@@ -110,9 +111,45 @@ void unguidedNonInertPhaseStillRequiresNativePropulsion() {
     require(plantAvailableV1(selected,actual) && selected.required[3] && selected.availability[3]==AvailabilityV1::NotApplicable,
             "Unpowered release retains the explicit not-applicable status without inventing a motor");
 }
+void ductedRocketRequiresItsOwnCycleIdentityAndTwoEngines() {
+    StoreCard card;card.id="synthetic";card.model="jsbsim:synthetic";
+    auto aero=descriptor("aerodynamics","fsim.aerodynamics.jsbsim_generated_store");
+    aero.bindings["design"]="aircraft/synthetic/synthetic.toml";aero.bindings["source"]="vlm";
+    auto prop=descriptor("propulsion","fsim.propulsion.jsbsim_ducted_rocket.v1");
+    prop.bindings.insert({{"design","aircraft/synthetic/synthetic.toml"},{"motor","Engines/synthetic_motor.xml"},
+        {"nozzle","Engines/synthetic_nozzle.xml"},{"smoke","reduced"}});
+    for(const auto& [role,unit,value]:{
+        std::tuple{"isp_s","s",245.},{"coast_thrust_n","N",2.},{"buildup_s","s",.05},
+        {"grain_density_kg_m3","kg/m^3",1750.},{"grain_radius_fraction","1",.9},
+        {"grain_port_area_fraction","1",.15},{"grain_aft_clearance_m","m",.03},{"phase_count","1",2.},
+        {"exit_x_m","m",1.},{"exit_y_m","m",0.},{"exit_z_m","m",0.},{"exit_diameter_m","m",.1},
+        {"throat_diameter_m","m",.04},{"cone_length_m","m",.12},
+        {"phase_0_duration_s","s",2.},{"phase_0_thrust_kn","kN",25.},
+        {"phase_1_duration_s","s",25.},{"phase_1_thrust_kn","kN",3.},
+        {"capture_area_m2","m^2",.0119},{"fuel_flow_max_kg_s","kg/s",.3},
+        {"heating_value_j_kg","J/kg",40e6},{"combustion_efficiency","1",.9},{"pressure_recovery","1",.85},
+        {"air_cp_j_kg_k","J/(kg*K)",1004.5},{"gas_cp_j_kg_k","J/(kg*K)",1150.},{"gas_gamma","1",1.33},
+        {"fuel_air_ratio_max","1",.08},{"lightoff_mach","Mach",1.5},{"target_mach","Mach",3.5},
+        {"valve_minimum","1",.15},{"speed_gain","1",.5},{"valve_lag_s","s",.1},{"valve_rate_s_1","1/s",10.}})
+        parameter(prop,role,role,value,unit);
+    PlantAdapterV1 selected;std::string error;
+    require(configureUnguidedPlantV1(prop,aero,card,selected,error),"Complete ducted cycle must configure independently of a solid rocket");
+    require(selected.implementations[3]==2 && selected.expected[3].implementationCode==2,"Ducted cycle needs a distinct actual native identity");
+    NativePlantIdentityV1 actual;actual.components[3]=selected.expected[3];actual.components[4]=selected.expected[4];
+    require(plantAvailableV1(selected,actual),"Matching ducted native metadata must be admitted");
+    actual.components[3].implementationCode=1;
+    require(!plantAvailableV1(selected,actual),"A solid rocket cannot satisfy a selected ducted-cycle profile");
+    components::JsbsimDuctedRocketPropulsionV1 provider(card.model);
+    require(provider.acceptsEngineCount(2) && !provider.acceptsEngineCount(1) && !provider.acceptsEngineCount(3),
+        "Ducted propulsion needs its distinct booster and sustainer engines");
+    const auto retained=selected;prop.parameters.erase("capture_area_m2");
+    require(!configureUnguidedPlantV1(prop,aero,card,selected,error) && selected.expected[3].fingerprint==retained.expected[3].fingerprint,
+        "Missing atmosphere-capture input must refuse atomically without a solid fallback");
+}
 }
 int main() {
     try {adapterDispatchAndActualIdentityAreRequired();ballisticPhaseRequiresOnlyGenuineNativeAerodynamics();
-        unguidedNonInertPhaseStillRequiresNativePropulsion();std::cout<<"3 payload plant adapter cases passed\n";}
+        unguidedNonInertPhaseStillRequiresNativePropulsion();ductedRocketRequiresItsOwnCycleIdentityAndTwoEngines();
+        std::cout<<"4 payload plant adapter cases passed\n";}
     catch(const std::exception& e) {std::cerr<<e.what()<<'\n';return 1;}
 }

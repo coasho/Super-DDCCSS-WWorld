@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- Written by hangar (tools/hangar/hangar/pieces.py) from kc46a's damage data: its right wing flying on its own once it parts
+<!-- Written by hangar (tools/models/hangar/hangar/pieces.py) from kc46a's damage data: its right wing flying on its own once it parts
      (MS-7g). Its aerodynamics a tumbling piece's - estimates, said so there. Do not edit: hangar's model stage of kc46a writes it. -->
 <fdm_config name="kc46a-right-wing" version="2.0" release="ALPHA">
     <fileheader>
@@ -14,9 +14,9 @@
         <htailarm unit="FT"> 0 </htailarm>
         <vtailarea unit="FT2"> 0 </vtailarea>
         <vtailarm unit="FT"> 0 </vtailarm>
-        <location name="AERORP" unit="IN"> <x> 956.979 </x> <y> 346.609 </y> <z> 113.931 </z> </location>
-        <location name="EYEPOINT" unit="IN"> <x> 956.979 </x> <y> 346.609 </y> <z> 113.931 </z> </location>
-        <location name="VRP" unit="IN"> <x> 956.979 </x> <y> 346.609 </y> <z> 113.931 </z> </location>
+        <location name="AERORP" unit="IN"> <x> 956.979 </x> <y> 346.610 </y> <z> 113.931 </z> </location>
+        <location name="EYEPOINT" unit="IN"> <x> 956.979 </x> <y> 346.610 </y> <z> 113.931 </z> </location>
+        <location name="VRP" unit="IN"> <x> 956.979 </x> <y> 346.610 </y> <z> 113.931 </z> </location>
     </metrics>
     <mass_balance negated_crossproduct_inertia="false">
         <ixx unit="SLUG*FT2"> 280547.15528594458 </ixx>
@@ -26,7 +26,7 @@
         <ixz unit="SLUG*FT2"> 16549.549419680261 </ixz>
         <iyz unit="SLUG*FT2"> 59967.143693636135 </iyz>
         <emptywt unit="LBS"> 27136.010356611598 </emptywt>
-        <location name="CG" unit="IN"> <x> 956.9791338582678 </x> <y> 346.6094488188977 </y> <z> 113.93149606299211 </z> </location>
+        <location name="CG" unit="IN"> <x> 956.9791338582678 </x> <y> 346.60984251968506 </y> <z> 113.93149606299211 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
             <location unit="IN"> <x> 898.82913385826771 </x> <y> 316.92913385826773 </y> <z> 151.36968503937007 </z> </location>

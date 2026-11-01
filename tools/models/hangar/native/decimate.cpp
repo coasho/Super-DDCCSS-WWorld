@@ -67,6 +67,7 @@ struct Entry {
 /// as they are.
 void simplify(Mesh& m, std::vector<std::uint16_t>& material, const std::vector<char>& locked, double maxError,
               std::size_t targetFaces, double sharpDeg, double featureWeight,
+              const std::function<bool(V3)>& acceptPoint,
               std::vector<std::uint32_t>* origin = nullptr) {
     const std::size_t nv = m.v.size(), nf = m.f.size();
     if (nf < 8) { // too small to simplify: every vertex stays where it was
@@ -166,6 +167,32 @@ void simplify(Mesh& m, std::vector<std::uint16_t>& material, const std::vector<c
     std::priority_queue<Entry, std::vector<Entry>, std::greater<Entry>> heap(std::greater<Entry>(), std::move(seed));
 
     std::vector<char> deadV(nv, 0), deadF(nf, 0);
+    struct PointHash {
+        std::size_t operator()(const std::array<double,3>& point) const {
+            std::size_t value=0;
+            for (double coordinate : point)
+                value ^= std::hash<double>{}(coordinate) + std::size_t{0x9e3779b9} + (value<<6) + (value>>2);
+            return value;
+        }
+    };
+    // Each independent block owns its cache. Keys retain exact coordinates;
+    // no quantization changes the physical constraint or collapse ordering.
+    std::unordered_map<std::array<double,3>,bool,PointHash> sourceChecks;
+    auto withinSource = [&](const V3 (&triangle)[3]) {
+        if (!acceptPoint) return true;
+        for (const V3 point : {triangle[0],triangle[1],triangle[2],
+                              (triangle[0]+triangle[1]+triangle[2])*(1.0/3.0)}) {
+            const std::array<double,3> key{point.x,point.y,point.z};
+            auto found=sourceChecks.find(key);
+            if (found==sourceChecks.end()) {
+                const bool accepted=acceptPoint(point);
+                if (sourceChecks.size()>=100000) sourceChecks.clear();
+                found=sourceChecks.emplace(key,accepted).first;
+            }
+            if (!found->second) return false;
+        }
+        return true;
+    };
     std::size_t faces = nf;
     const double maxCost = maxError * maxError;
     std::vector<std::uint32_t> fa, fb, shared, na, nb, common;
@@ -212,12 +239,16 @@ void simplify(Mesh& m, std::vector<std::uint16_t>& material, const std::vector<c
                 }
                 const V3 n0 = cross(p[1] - p[0], p[2] - p[0]), n1 = cross(q[1] - q[0], q[2] - q[0]);
                 const double l0 = length(n0), l1 = length(n1);
-                if (sliver && l0 <= 1e-14) continue;
+                if (sliver && l0 <= 1e-14) {
+                    if (!withinSource(q)) return false;
+                    continue;
+                }
                 if (l1 <= 1e-14 || dot(n0, n1) < 0.3 * l0 * l1) return false;
                 const double e0 = dot(q[1] - q[0], q[1] - q[0]), e1 = dot(q[2] - q[1], q[2] - q[1]), e2 = dot(q[0] - q[2], q[0] - q[2]);
                 const double f0 = dot(p[1] - p[0], p[1] - p[0]), f1 = dot(p[2] - p[1], p[2] - p[1]), f2 = dot(p[0] - p[2], p[0] - p[2]);
                 const double qNew = l1 / std::max({e0, e1, e2}), qOld = l0 / std::max({f0, f1, f2, 1e-30});
                 if (qNew < 0.02 && qNew < 0.5 * qOld) return false;
+                if (!withinSource(q)) return false;
             }
         }
         m.v[a] = target;
@@ -371,7 +402,7 @@ void blocks(Mesh& m, std::vector<std::uint16_t>& material, const DecimateOptions
                 part.mat.push_back(material[f]);
             }
             std::vector<std::uint32_t> kept;
-            simplify(part.mesh, part.mat, lock, o.maxError, 0, o.sharpDeg, o.featureWeight, &kept);
+            simplify(part.mesh, part.mat, lock, o.maxError, 0, o.sharpDeg, o.featureWeight, o.acceptPoint, &kept);
             part.global.assign(part.mesh.v.size(), ~std::uint32_t{0});
             for (std::size_t i = 0; i < kept.size(); ++i)
                 if (lock[kept[i]]) part.global[i] = source[kept[i]];
@@ -419,7 +450,7 @@ void decimate(Mesh& m, std::vector<std::uint16_t>& material, const DecimateOptio
     threads = std::min(threads, 32u);
     if (o.blocks && m.f.size() > 400000) blocks(m, material, o, threads);
     if (o.serial)
-        simplify(m, material, std::vector<char>(m.v.size(), 0), o.maxError, o.targetFaces, o.sharpDeg, o.featureWeight);
+        simplify(m, material, std::vector<char>(m.v.size(), 0), o.maxError, o.targetFaces, o.sharpDeg, o.featureWeight, o.acceptPoint);
 }
 
 } // namespace meshkit

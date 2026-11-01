@@ -3,6 +3,7 @@
 #include "foundation/core/Json.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <limits>
@@ -257,7 +258,7 @@ struct WingFrame {
 class Wing final : public Node {
 public:
     Wing(const Json& j, const std::vector<std::unique_ptr<FoilTable>>& foils)
-        : f_(j), inflate_(j.number("inflate", 0.0)), mat_(materialOf(j)) {
+        : f_(j), inflate_(j.number("inflate", 0.0)), mat_(materialOf(j)), physical_(j.boolean("physical_foil", false)) {
         const auto idx = list(j, "foils");
         if (idx.size() != 2) fail("a wing segment needs two foils");
         for (int e = 0; e < 2; ++e) {
@@ -265,6 +266,8 @@ public:
             if (k >= foils.size()) fail("a wing segment names a foil that is not there");
             foil_[e] = foils[k].get();
         }
+        if (physical_ && !foil_[0]->sameStations(*foil_[1]))
+            fail("physical foil blending requires common source chord stations");
         box = f_.bounds(0.3).padded(inflate_);
     }
 
@@ -290,13 +293,16 @@ private:
     double section(V3 p, double t) const {
         const auto a = f_.at(p, t);
         const double X = a.xi / a.chord, Z = a.zeta / a.chord;
-        return lerp(foil_[0]->sdf(X, Z), foil_[1]->sdf(X, Z), t) * a.chord - inflate_;
+        const double distance = physical_ ? foil_[0]->physicalBlend(*foil_[1], t, X, Z)
+                                          : lerp(foil_[0]->sdf(X, Z), foil_[1]->sdf(X, Z), t);
+        return distance * a.chord - inflate_;
     }
 
     WingFrame f_;
     const FoilTable* foil_[2] = {nullptr, nullptr};
     double inflate_;
     int mat_;
+    bool physical_;
 };
 
 /// The part of a wing segment between two stations (t0..t1 along it) and
@@ -638,7 +644,14 @@ public:
 
     Sample below(V3 p, double cutoff) const override {
         const std::size_t n = kids_.size();
-        std::vector<double> lb(n);
+        if(n==0)fail("a union needs children"); // retain the constructor invariant for local storage analysis
+        // Every scene query visits the same immutable operator tree. Keep
+        // ordinary union bounds on the stack instead of allocating a vector
+        // for each node of every point. Oversized graphs retain the original
+        // dynamic storage. Evaluation and child order are unchanged.
+        std::array<double,32> local;
+        std::vector<double> overflow(n>local.size()?n:0);
+        double* lb=n>local.size()?overflow.data():local.data();
         std::size_t first = 0;
         for (std::size_t i = 0; i < n; ++i) {
             lb[i] = kids_[i]->box.distance(p);
@@ -758,6 +771,47 @@ private:
     NodePtr kid_;
 };
 
+/// A physical rigid pose. Distances and wall thickness remain unchanged.
+class Rigid final : public Node {
+public:
+    Rigid(NodePtr kid, const Json& j) : kid_(std::move(kid)), translation_(vec(j.child("translation"))) {
+        const Json& rotation = j.child("rotation");
+        if (!rotation.isArray() || rotation.asArray().size() != 3) fail("rigid rotation needs three rows");
+        for (std::size_t i = 0; i < 3; ++i) rows_[i] = vec(rotation.asArray()[i]);
+        constexpr double tolerance = 256.0 * std::numeric_limits<double>::epsilon();
+        if (!std::isfinite(translation_.x) || !std::isfinite(translation_.y) || !std::isfinite(translation_.z))
+            fail("rigid translation must be finite");
+        for (std::size_t i = 0; i < 3; ++i) {
+            for (std::size_t k = 0; k < 3; ++k) {
+                const double value = dot(rows_[i], rows_[k]);
+                if (!std::isfinite(value) || std::fabs(value - (i == k ? 1.0 : 0.0)) > tolerance)
+                    fail("rigid rotation must be orthonormal");
+            }
+        }
+        if (std::fabs(dot(rows_[0], cross(rows_[1], rows_[2])) - 1.0) > 3.0 * tolerance)
+            fail("rigid rotation must be right-handed and orthonormal");
+        for (int corner = 0; corner < 8; ++corner) {
+            const V3 p{corner & 1 ? kid_->box.hi.x : kid_->box.lo.x,
+                       corner & 2 ? kid_->box.hi.y : kid_->box.lo.y,
+                       corner & 4 ? kid_->box.hi.z : kid_->box.lo.z};
+            box.add(V3{dot(rows_[0], p), dot(rows_[1], p), dot(rows_[2], p)} + translation_);
+        }
+    }
+    Sample eval(V3 p) const override { return below(p, kFar); }
+    Sample below(V3 p, double cutoff) const override {
+        const V3 d = p - translation_;
+        const V3 local{rows_[0].x * d.x + rows_[1].x * d.y + rows_[2].x * d.z,
+                       rows_[0].y * d.x + rows_[1].y * d.y + rows_[2].y * d.z,
+                       rows_[0].z * d.x + rows_[1].z * d.y + rows_[2].z * d.z};
+        return kid_->below(local, cutoff);
+    }
+
+private:
+    NodePtr kid_;
+    V3 rows_[3];
+    V3 translation_;
+};
+
 /// Its child grown by r (shrunk for r < 0): the gap around a control surface.
 class Offset final : public Node {
 public:
@@ -810,6 +864,7 @@ NodePtr build(const Json& j, const Scene& scene) {
         if (o == "paint") return std::make_unique<Paint>(build(j.child("child"), scene), materialOf(j));
         if (o == "offset") return std::make_unique<Offset>(build(j.child("child"), scene), j.number("r", 0.0));
         if (o == "reflect") return std::make_unique<Reflect>(build(j.child("child"), scene));
+        if (o == "rigid") return std::make_unique<Rigid>(build(j.child("child"), scene), j);
         fail("unknown operator '" + o + "'");
     }
     const Json* prim = j.find("prim");
@@ -830,7 +885,8 @@ NodePtr build(const Json& j, const Scene& scene) {
 
 } // namespace
 
-FoilTable::FoilTable(const std::vector<double>& x, const std::vector<double>& upper, const std::vector<double>& lower) {
+FoilTable::FoilTable(const std::vector<double>& x, const std::vector<double>& upper, const std::vector<double>& lower)
+    : x_(x), upper_(upper), lower_(lower) {
     const std::size_t n = x.size();
     if (n < 3 || upper.size() != n || lower.size() != n) fail("a foil needs matching x, upper and lower lists");
     for (std::size_t i = 1; i < n; ++i)
@@ -863,6 +919,49 @@ FoilTable::FoilTable(const std::vector<double>& x, const std::vector<double>& up
                 static_cast<float>(inside ? -d : d);
         }
     }
+}
+
+double FoilTable::physicalBlend(const FoilTable& other, double t, double X, double Z) const {
+    // Physical station geometry interpolates coordinates, as Surface.station
+    // does. Blending signed distances instead changes camber/thickness and is
+    // suitable only for the existing rendering field, never CFD source checks.
+    // The wing validates shared chord stations once, when constructed. Search
+    // outward from X; horizontal separation is an exact lower bound on a
+    // segment's Euclidean distance. This skips distant segments without a
+    // texture approximation or a change to the physical profile.
+    double best = std::numeric_limits<double>::infinity();
+    auto edge = [&](double x0, double z0, double x1, double z1) {
+        best = std::min(best, segment2(X, Z, x0, z0, x1, z1));
+    };
+    auto sides = [&](std::size_t i) {
+        edge(x_[i - 1], lerp(upper_[i - 1], other.upper_[i - 1], t),
+             x_[i], lerp(upper_[i], other.upper_[i], t));
+        edge(x_[i - 1], lerp(lower_[i - 1], other.lower_[i - 1], t),
+             x_[i], lerp(lower_[i], other.lower_[i], t));
+    };
+    const auto found = std::upper_bound(x_.begin(), x_.end(), X);
+    const std::size_t centre = std::min(std::max<std::size_t>(static_cast<std::size_t>(found-x_.begin()),1),x_.size()-1);
+    sides(centre);
+    std::size_t left=centre-1, right=centre+1;
+    while (left>0 || right<x_.size()) {
+        if (left>0) {
+            const double dx=std::max(X-x_[left],0.0);
+            if (dx*dx>best) left=0;
+            else sides(left--);
+        }
+        if (right<x_.size()) {
+            const double dx=std::max(x_[right-1]-X,0.0);
+            if (dx*dx>best) right=x_.size();
+            else sides(right++);
+        }
+    }
+    for (std::size_t i : {std::size_t{0}, x_.size() - 1}) {
+        edge(x_[i], lerp(upper_[i], other.upper_[i], t), x_[i], lerp(lower_[i], other.lower_[i], t));
+    }
+    const double upper = lerp(interp(x_, upper_, X), interp(other.x_, other.upper_, X), t);
+    const double lower = lerp(interp(x_, lower_, X), interp(other.x_, other.lower_, X), t);
+    const bool inside = X > x_.front() && X < x_.back() && Z > lower && Z < upper;
+    return (inside ? -1.0 : 1.0) * std::sqrt(best);
 }
 
 double FoilTable::sdf(double X, double Z) const {

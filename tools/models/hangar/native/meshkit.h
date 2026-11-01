@@ -75,3 +75,21 @@ struct mk_scene;
 MK_API mk_scene* mk_scene_new(const char* scene_json, char* error, int error_size);
 MK_API void mk_scene_eval(const mk_scene* scene, const double* points, int n, double* distance, int* material);
 MK_API void mk_scene_free(mk_scene* scene);
+
+/// Independent double-precision physical boundary output. Existing display ABI is
+/// unchanged. No normal splitting, coordinate rounding or fragment removal.
+struct mk_physical_mesh {
+    int vertex_count;
+    int triangle_count;
+    double* positions;
+    std::uint32_t* indices;
+    int boundary_edges;
+    int nonmanifold_edges;
+    int misoriented_edges;
+    int components;
+    double seconds;
+    char error[512];
+};
+MK_API int mk_simplify_physical(const char* scene_json,const double* points,int point_count,
+                               const std::uint32_t* triangles,int triangle_count,mk_physical_mesh* out);
+MK_API void mk_release_physical(mk_physical_mesh* mesh);

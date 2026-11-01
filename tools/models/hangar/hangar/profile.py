@@ -34,7 +34,8 @@ def fly_results(directory):
     """The design's flight-test results (out/fly.json), or {} before it has flown."""
     path = os.path.join(directory, "out", "fly.json")
     if not os.path.isfile(path):
-        return {}
+        from .flightcal import read
+        return read(directory).get('fly',{}).get('results',{}).get('design',{})
     with open(path, encoding="utf-8") as f:
         return json.load(f).get("results", {}).get("design", {})
 
@@ -43,7 +44,8 @@ def performance_tables(directory):
     """The design's performance tables (out/performance.json's), or {} before they are flown."""
     path = os.path.join(directory, "out", "performance.json")
     if not os.path.isfile(path):
-        return {}
+        from .flightcal import read
+        return read(directory).get('performance',{}).get('tables',{})
     with open(path, encoding="utf-8") as f:
         return json.load(f).get("tables", {})
 

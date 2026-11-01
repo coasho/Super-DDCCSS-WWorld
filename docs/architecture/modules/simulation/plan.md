@@ -1,5 +1,18 @@
 # Simulation module plan
 
+<!-- SIM-M02 functional acceptance correction begin -->
+Current functional correction, 2026-11-01: SIM-M02 is not formally accepted. All88 designs were regenerated from current geometry/cards; the common engineering matrix has88 engineering-complete-uncalibrated and0 blocked designs, separately from functional acceptance. The retained native repairs cover body quadrature, physical rotor inertia, passive tail damping, mechanical hub work, capture damping with unity cruise gain, complete-cascade response/lookahead, waypoint transit, landing-position capture and momentum-aware terminal hover. Original headless control fixtures: 6/6, 498 assertions passed and0 failed. Current Release original selection: 6/9 cases, 18 failed assertions; native AAM: 12/13; installed package consumer: 1 executed. Original scenes, assertions and thresholds are unchanged. RPM-window survival, fall preconditions and the qbar matched-state premise remain unclosed; missing exact-model measurements are not the reason. Normal run.ps1 Release entry loaded the current DLLs and exact regenerated UH-1H XML, refused a poisoned exact XML, and flew a real-time orbit-to-hover diagnostic at3840x2160. This is runtime/entrypoint evidence, not whole-fleet physical or complete visual acceptance. All-table integrity checks cover7067 XML tables and3611335 cells; 1165 consistency predicates are not physical tests. Generation/install took1139.453s; the separately timed all88 basic-use pass took812.276s. That basic pass predates final native-only control changes and is not relabeled as a fresh final-DLL run. The earlier full headless attempt was interrupted with753/867 completed records and11 failures; no final full headless/Release pass is claimed. Current source/products, matrix, full-table inventory, raw failures, source review and replay patch: `build/architecture-reviews/sim-m02-functional-resolution-20261101/`.
+<!-- SIM-M02 functional acceptance correction end -->
+
+Aerodynamic evidence policy and the Hangar-to-runtime workflow are
+maintained in the [Hangar system guide](../../../hangar-system.md). This document
+retains its architectural, ownership and milestone contracts.
+
+The [SIM-M02 engineering-completeness gate](../../../hangar-system.md#sim-m02-aerodynamic-engineering-completeness-gate)
+supersedes the dated solver selections and acceptance assignments below.
+VLM is the baseline; bounded CFD and labeled engineering estimates are
+admissible, and measured exact-model data is optional calibration.
+
 ## 1. Responsibility and completion criteria
 
 Simulation is the sole owner of the native World clock and physical execution: flight, controls, physical disturbances, sensor measurements, modeled communication delivery, release, weapon guidance, fuzes, collisions, damage and native Agent/C2 permission enforcement.
@@ -83,7 +96,7 @@ The [Mission Systems work allocation](ms-work-allocation.md) assigns the next mo
 | ID | Original scope | Current delivered basis | Remaining output |
 | --- | --- | --- | --- |
 | SIM-M01 | MS-4b/MS-5/MS-6 refinements | Radar, tracking, detection/signal processing and engagement modes | Sourced measurement-error floors/glint/boresight; tracker/fusion work; signal-level track/cued/STT and processing limits |
-| SIM-M02 | MS-7c | Generated missile geometry/JSBSim and native powered flight | SU2/VSPAERO aerodynamic cross-checks, RocketPy motor/powered-flight comparison, calibrated model provenance |
+| SIM-M02 | MS-7c | Generated missile geometry/JSBSim and native powered flight | Generic engineering-completeness acceptance for all designs: complete six-degree-of-freedom/aero/propulsion/control components, finite full-envelope tables, provenance, installed-product evidence and disclosed aggregate production timing; measured exact-model calibration is separate and optional; RocketPy motor/powered-flight software comparison and input provenance |
 | SIM-M03 | MS-7d | Native radar/IR guidance, seekers, fuzes and damage using stated assumptions | Calibrated seeker/sensor and fin/autopilot response, documented fuze/lethality fidelity and repeatable encounter evidence |
 | SIM-M04 | MS-8 | Advisory launch-zone queries | Flyout-derived DLZ/WEZ with published-performance comparison and explicit uncertainty |
 | SIM-M05 | MS-9b | RWR contacts, active-seeker emissions and native chaff/flare behavior | Full ESM/electronic attack and calibrated countermeasure/sensor interaction |
@@ -128,3 +141,8 @@ Use the existing launcher/presets and the [acceptance matrix](../../validation/a
 Required structural coverage includes flight/control, RF/radar/track, stores/native engagement/damage/countermeasures, Agent/C2/DMS ownership, scenario mapping, output parity, installed consumers and old binaries. A headless simulation build cannot link Vulkan/VSG/Flow.
 
 A structural handoff lists moved symbols/files, remaining old-path compatibility shims, target/import graph, preserved exports/types, tests and pending model gates. The final simulation plan remains open until all selected SIM-M criteria are either achieved with evidence or explicitly deferred by the user; structural acceptance alone does not make that claim.
+
+
+<!-- SIM-M02 current generated verification begin -->
+Current production delivery: 88 engineering-complete-uncalibrated, 0 engineering-complete and 0 blocked designs. All 31 fixed wings, four rotorcraft and 53 stores (including all24 AAMs) use the same source-driven method and component rules. Aggregate production generation/install: 1045.836 seconds; current basic usability: 813.329 seconds. Current basic execution covers 88 native and 88 installed consumers, 2112 short-flight observations and 10 core/package fixtures (0 failed, 0 skipped). Production integrity inventories 16776 logical/serialized table entries and 3611335 XML coefficient cells. These are separately counted from document consistency predicates. This dated basic-use result does not establish formal SIM-M02 acceptance; no full regression or full-envelope dynamic coverage is claimed. Exact-model measurement calibration remains optional. Evidence: `build/architecture-reviews/sim-m02-delivery-20261031/`.
+<!-- SIM-M02 current generated verification end -->

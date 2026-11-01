@@ -1,0 +1,15 @@
+# Fitted from declared calibration observations through the SDK.
+[calibration]
+
+[provenance]
+schema = "fsim.hangar-calibration.v1"
+method = "shared-aircraft-vlm"
+status = "sdk-reference-fit"
+observed_source_sha256 = "623a8cb4bac69adf6f0470d18bce89cc79ab4a42ca3ae5f28f18b6f1d9906a69"
+catalog_sha256 = "bbdf9e2ef31b7cbd42d58b0a2a2e9a092519f2f031638effc26d4df96bbd285b"
+reference_inputs_sha256 = "27dbef86e0f0cf17dd1282b4015fbcdfcf58a1c921e33e0bd2e686b984d4e6bb"
+calibration_case_ids = ["Bitcraze-2015-7570", "Bitcraze-2015-10885", "Bitcraze-2015-13522", "Bitcraze-2015-15924", "Bitcraze-2015-18179", "Bitcraze-2015-20539"]
+scope = "Declared observations only; independent errors are in the campaign report"
+
+[physical_fit]
+"rotors.thrust_n_per_rpm2" = 2.2917551135171294e-10

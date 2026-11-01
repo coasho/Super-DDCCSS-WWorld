@@ -52,11 +52,14 @@ class FoilTable {
 public:
     FoilTable(const std::vector<double>& x, const std::vector<double>& upper, const std::vector<double>& lower);
     double sdf(double X, double Z) const;
+    double physicalBlend(const FoilTable& other, double t, double X, double Z) const;
+    bool sameStations(const FoilTable& other) const { return this == &other || x_ == other.x_; }
 
 private:
     static constexpr double kX0 = -0.25, kX1 = 1.25, kZ0 = -0.3, kZ1 = 0.3, kStep = 0.0015;
     int nx_ = 0, nz_ = 0;
     std::vector<float> d_;
+    std::vector<double> x_, upper_, lower_;
 };
 
 struct Scene {

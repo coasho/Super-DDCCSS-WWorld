@@ -1,218 +1,149 @@
 # Current capabilities and milestone status
 
-Numerical handoff integration and full regeneration, 2026-10-22, from main
-`d5c8203`: the [integration and validation record](sdk/missile-flight-validation.md#aeronumericslab-integration-2026-10-21)
-contains the hash-bound AeroNumericsLab candidates, fresh modified VSPAERO R2
-runs, strict wake containment and required-schema corrections. The LAB remains
-read only. Coarse zero-angle negative drag remains failed; no CFD coefficient
-table is admitted to runtime and overall load accuracy is not established.
+The [2026-11-01 SIM-M02 delivery receipt](data/sim-m02-functional-delivery-20261101.json)
+records the retained source hashes, actual passing and failing gates, replay
+review and local archive checksums. Formal SIM-M02 acceptance remains false.
 
-All 35 aircraft execute forced regeneration: 25 end cleanly and ten retain
-the documented B-29 ceiling/damping failures, with zero generated aircraft
-products changed. All 53 stores are forcibly recreated, including a second
-complete batch on the corrected runtime; every child exits zero. All 36 RCS
-tables pass their original bounded numerical verification after B-52H, F-35A
-and J-20A are recomputed with their original recipes. Only those three numerical
-payloads change. A persistent model/table binding gate prevents stale reuse.
+<!-- SIM-M02 functional acceptance correction begin -->
+Current functional correction, 2026-11-01: SIM-M02 is not formally accepted. All88 designs were regenerated from current geometry/cards; the common engineering matrix has88 engineering-complete-uncalibrated and0 blocked designs, separately from functional acceptance. The retained native repairs cover body quadrature, physical rotor inertia, passive tail damping, mechanical hub work, capture damping with unity cruise gain, complete-cascade response/lookahead, waypoint transit, landing-position capture and momentum-aware terminal hover. Original headless control fixtures: 6/6, 498 assertions passed and0 failed. Current Release original selection: 6/9 cases, 18 failed assertions; native AAM: 12/13; installed package consumer: 1 executed. Original scenes, assertions and thresholds are unchanged. RPM-window survival, fall preconditions and the qbar matched-state premise remain unclosed; missing exact-model measurements are not the reason. Normal run.ps1 Release entry loaded the current DLLs and exact regenerated UH-1H XML, refused a poisoned exact XML, and flew a real-time orbit-to-hover diagnostic at3840x2160. This is runtime/entrypoint evidence, not whole-fleet physical or complete visual acceptance. All-table integrity checks cover7067 XML tables and3611335 cells; 1165 consistency predicates are not physical tests. Generation/install took1139.453s; the separately timed all88 basic-use pass took812.276s. That basic pass predates final native-only control changes and is not relabeled as a fresh final-DLL run. The earlier full headless attempt was interrupted with753/867 completed records and11 failures; no final full headless/Release pass is claimed. Current source/products, matrix, full-table inventory, raw failures, source review and replay patch: `build/architecture-reviews/sim-m02-functional-resolution-20261101/`.
+<!-- SIM-M02 functional acceptance correction end -->
 
-Full-suite failures first reproduce retained crew incapacitation after physical
-reset, steady-state allocations in boundary-history capture, undeclared source
-categories and outdated synthetic motor-fixture boundaries. Narrow corrections
-retain the original reset/zero-allocation assertions and all 128 original motor
-assertion-call ASTs. A new real-crew-loss regression is RED before the reset
-correction. Two live showcase fixtures now share a CTest resource lock; their
-scenes, assertions and timeouts are unchanged.
+SIM-M02 applicability correction, 2026-10-31: the common audit derives
+applicability, presence and check outcome from one project-declaration rule.
+Unavailable required implementations remain `required / present=false / failed`;
+missing declarations or "inert release only" wording cannot waive a role.
+Only an explicitly defined configuration without the installed role may be
+`not_applicable / check passed`. Both `engineering-complete` and
+`engineering-complete-uncalibrated` are accepted completion states; missing
+measurement calibration alone is not a block. Native armed unguided contact effects,
+explicit terrain-contact initiation and an inertial-waypoint turbofan composition
+are now implemented. A fresh all-design clean replay determines the current
+matrix and whole-regression outcome; targeted passes are not milestone closure.
 
-Final complete suites pass **910/910 Release** (1161.75 s) and **836/836
-Headless** (1142.08 s), zero skips, with exact discovered-inventory/JUnit
-agreement. Installed-consumer checks pass within both suites. All 1,057 frozen
-source inputs and four sets of 813 runtime files retain their SHA256 identities
-through the tests. The original showcase recording and complete engagement JSON
-remain byte-identical, including its positive fragment Hit; the full control
-digest is also unchanged. All 53 store parameter objects and 130 payload cards
-match the baseline. Full SIM-M02/SIM-M03 physical acceptance, independent load
-accuracy and equipment/variant calibration remain open. Earlier dated entries
-below retain their original verification scope.
+AAM repair verification, 2026-10-30: the
+complete before/after diagnostic report (`build/architecture-reviews/aam-closure-20261030/index.html`)
+records the same 48 frozen cases with reverse flow reduced from eight to zero,
+peak absolute alpha 179.9218 to 13.9515 deg and peak absolute load 1178.2669 to
+12.8935 g. Fixed wingless Mach/downwash topology and PL-10 finite-actuator/nonlinear
+control; all 24 cards now use measured seeker families and PN. Four models have
+finite equivalent native TVC, and Meteor has a separate atmosphere-fed throttled
+sustainer, all explicitly uncalibrated engineering models. Earlier repair checks:
+60 Python tests, 12 native gates (11 plus one targeted fixture retest), 83,436
+actual fin angles with no hinge/rate/stop mismatch, and all 24 full-scene
+fullscreen 1x live cases with 96 inspected 3840 x 2160 captures and matching
+preflight outcomes. There are 37 detonations and 11 still in flight at 40 s;
+no miss or native damage meaning was overwritten. All 53 store products were
+republished, and independent MK82/A-22 retained-reference gains remain valid.
+[Full equipment closure remains incomplete](sdk/weapon-fidelity-validation.md#all24-aam-repairs-and-remaining-gates-2026-10-30):
+measured aerodynamic calibration, GPS/fitted weapon links/commanded dual-pulse
+mechanisms and equipment envelope acceptance remain separate evidence, not
+SIM-M02 entry blockers. The complete generic engineering audit is recorded
+below; unavailable required components remain engineering blocks.
+This is diagnostic feature evidence, not installed public-endpoint joint
+acceptance.
 
-SIM-M03 sourced finite fragment field, 2026-10-21, from `dded7ae`:
-the [original showcase Hit gate is repaired](sdk/fragment-hit-repair.md#sourced-finite-fragment-field-and-original-showcase-acceptance).
-The explicitly admitted V2 finite source uses all seven sectors of a pinned
-game reference; V0/V1 keep their existing contracts. Original scene inputs,
-physical equipment parameter objects and positive Hit/functional assertions
-are preserved. Exact selected-warhead version checks change from 1 to 2.
-Native and independent geometry replay identify the same **53/1688** striking
-rays; real pilot loss, nose separation and continued native flight are recorded.
-Both complete builds pass. Release is **111/111** (263.60 s), Headless
-**111/111** (262.90 s), zero skips; their original recordings and full engagement
-JSON are byte-identical. The feature-owned installed C++/C99/Python equipment
-gate passes **1/1** (38.79 s). The unchanged fullscreen strike harness passes
-with the original 270-degree scene, 1200 native frames through 40 s and two
-visually inspected 3840 x 2160 captures at launch + 1 s and Hit + 0.3 s.
-The source catalogue includes the new concrete class; its **12/12** reporting
-regressions pass without promoting configuration to physical acceptance.
-Real-equipment detector, fragment-field, target vulnerability and independent
-calibration inputs remain missing. Full SIM-M03 physical acceptance stays open;
-no generic joint acceptance or AeroNumericsLab result is claimed.
+Viewer / all-AAM diagnostics, 2026-10-30: on-screen visualization is mandatory fullscreen at primary display resolution and real time 1x, with Earth, terrain, clouds, sunlight/shadows and all native effects. Removed speed/effect/hide switches, panel close/collapse controls and raw-detection hiding. Missing maps, cloud/atmosphere textures or cloud/sea shader pipelines fail initialization explicitly. All24 AAMs were rerun with the final program: complete live 40-second worlds, 96 captures at 3840 x 2160 and unchanged native outcomes. All 40,104 actual fin angles match the rendered hinges. The [single fidelity guide](sdk/weapon-fidelity-validation.md#all24-aam-campaign-2026-10-30) records each model and the remaining physical departures; this presentation repair does not close those defects or establish equipment calibration. Renderer regression: 77/77. Original windowed/accelerated captures remain invalidated.
 
-SIM-M03 fresh showcase coordinate/resource investigation, 2026-10-20, from
-`dded7ae`: [native tracing and independent reconstruction](sdk/fragment-hit-repair.md#fresh-runtime-resource-and-complete-source-chain-check)
-confirm the actual loaded resources and all 1688 sampled source rays. The rays
-miss the damage geometry and every authored contact mesh's bounding box and
-external triangles. Two new regressions first expose finite shallow-ray
-false negatives/positives in box/quad intersection; exact parallel handling and
-non-finite rejection correct them without tuning a replacement tolerance.
-Both complete builds pass; Headless and Release each pass **108/109** selected
-cases, zero skips. The sole failure remains the unchanged `showcase_native`.
-Both original recordings and full engagement JSON remain unchanged. Variant
-detector/initiation and fragment-field admission remain needed; no numerical
-input, equipment asset, scene, original assertion or AeroNumericsLab work changes.
+SIM-M02 current replay uses the same forced geometry/card -> VLM -> generated
+JSBSim -> native/installed workflow for 31 fixed-wing aircraft, four rotorcraft
+and 53 stores, including all 24 AAMs. The [component matrix](data/sim-m02-engineering-completeness.csv)
+and generated current verification block below are authoritative for the latest
+completed epoch. Raw receipts and delivery are under
+`build/architecture-reviews/sim-m02-closure-20261031/`. The superseded 86/2
+matrix describes missing native armed-store execution before the generic
+composition repair; it is not the current-source result. Required roles have
+not been relabeled not_applicable. Whole-program acceptance additionally
+requires current unfiltered headless/Release regressions and independent review.
 
-SIM-M03 coordinate/event-chain correction, 2026-10-20, from `dded7ae`:
-[native Fire publication](sdk/fragment-hit-repair.md#coordinate-and-hit-event-chain-follow-up)
-now uses the component's fixed-origin geometry with a matching pose/CG epoch
-and rigid-point velocity; later rate events retain component attachment.
-The showcase matches actual native fragment Hit provenance before requesting
-target focus, rather than treating generic warhead damage as a Hit. Three
-behavioral REDs precede these fixes; positive native Hit/outbox/recording and
-slot-reuse controls also pass. Both complete builds pass. Fresh scoped checks
-are **106/107** Headless (208.45 s) and **106/107** Release (208.18 s), zero skips;
-the only failure remains the original `showcase_native` positive fragment-Hit
-gate. Its complete Release recording and engagement JSON are unchanged from
-before this correction. No geometry solver, equipment input, scene or original
-acceptance assertion is adjusted to manufacture a hit. Full SIM-M03 and the
-remaining physical-model/input gates stay open; no AeroNumericsLab result is used.
+The previous 12-batch report is superseded for acceptance: its aggregate wall
+was **2,151.704 seconds (35.86 minutes)**, comprising 1,312.165 seconds generation
+and 839.539 seconds serial installation/validation. Its 18,480 native conditions
+were sampling, not full-envelope validation. The 1,733 applicability/check/status
+predicates were consistency checks, not independent physical tests. Its selected
+12 AAM, 19 compatibility and 48 method gates did not establish full regression.
 
-SIM-M03 configuration evidence reporting, 2026-10-20, from `dded7ae`: a
-[reproducible offline catalogue](sdk/payload-model-evidence-report.md) separates
-53 store cards / 477 role declarations from 16 indexed concrete classes,
-configuration provenance and unassessed runtime/physical acceptance. The 24
-guided cards share one autopilot, allocator and actuator class/configuration
-per role; distinct model names do not establish independent mature models.
-Report regressions pass 11/11; the existing Hangar component suite passes
-12/12. A fresh serial selection on existing Release binaries passes 4/5, zero
-skips: `showcase_native` still fails with one burst and zero fragment Hits.
-The report imports that failure explicitly, without promoting any component's
-acceptance. No simulation behavior, model/scene input or assertion changes.
-The requested showcase fragment-Hit repair and full SIM-M03 remain open.
+<!-- SIM-M02 current generated verification begin -->
+Current production delivery: 88 engineering-complete-uncalibrated, 0 engineering-complete and 0 blocked designs. All 31 fixed wings, four rotorcraft and 53 stores (including all24 AAMs) use the same source-driven method and component rules. Aggregate production generation/install: 1045.836 seconds; current basic usability: 813.329 seconds. Current basic execution covers 88 native and 88 installed consumers, 2112 short-flight observations and 10 core/package fixtures (0 failed, 0 skipped). Production integrity inventories 16776 logical/serialized table entries and 3611335 XML coefficient cells. These are separately counted from document consistency predicates. This dated basic-use result does not establish formal SIM-M02 acceptance; no full regression or full-envelope dynamic coverage is claimed. Exact-model measurement calibration remains optional. Evidence: `build/architecture-reviews/sim-m02-delivery-20261031/`.
+<!-- SIM-M02 current generated verification end -->
 
-SIM-M03 fragment traversal repair, 2026-10-20, from `8147c07`: the fixed 6 m
-side-burst internal-component test now passes without changes to equipment
-parameters, authored geometry or its assertions. The repair removes a future
-skin being processed before an earlier component. The
-[root-cause and validation record](sdk/fragment-hit-repair.md) distinguishes this
-defect from the still-failing showcase fragment-Hit gate: all 1688 captured
-side-case rays miss the supplied target geometry in both native and independent
-intersection checks. The selected contact/turning-CPA/side-case model combination
-does not establish realistic endgame fragment interception. Its original Hit
-criterion remains enforced; contact/blast effects have not been relabeled.
-Current focused gates are Headless 99/99 and Release 99/100, with no skipped
-tests; `showcase_native` is the sole remaining failure. The linked record also
-contains the public-source audit and its equipment-specific evidence limits.
+Acceptance is
+the [generic engineering-completeness gate](hangar-system.md#sim-m02-aerodynamic-engineering-completeness-gate),
+not exact-model data availability. The
+[88-row measured-calibration ledger](data/hangar-vlm-errors-status.csv) still
+records 3 calibrated, 53 blocked and 32 historical labels; those are optional
+calibration states and do not block SIM-M02. Whole-program regression is separate
+from structural and table completeness. VLM is the baseline;
+bounded CFD and labeled engineering estimates are admissible. A design is
+blocked only for a missing required dimension/component/table, or an explicit operational generation/validation timeout. The latest acceptance reports the entire campaign against a 20-minute performance target; exceeding it is disclosed and does not silently waive any component check.
 
-SIM-M03 representative weapon mechanisms, 2026-10-20, from `8daf1e0`: AIM-9M,
-AIM-9X Block I, AIM-7M and AIM-120C-7 now select four independent sampled seeker
-classes and measured guidance. Native on-rail snapshots, release seeding,
-illumination interruption and autonomous active-radar sensing execute through
-the selected providers. IR/SARH frames contain no launcher Cartesian estimate;
-guidance/association contain no semantic target/decoy attribution. All 53 card
-numeric parameter objects and all 101 generated native assets remain unchanged.
-The [delivery and current validation record](sdk/representative-weapon-models.md)
-separates software/native/installed evidence from pending optical, servo, TVC,
-weapon-link, SIM-M02 calibration and Viewer gates. Full SIM-M03 remains open;
-at that delivery the side-burst component-hit and showcase fragment-Hit gates
-failed. The traversal follow-up above closes the side-burst defect only.
-This package neither imports numerical results nor changes AeroNumericsLab.
+The 53 stores retain their measured-calibration labels in the
+[measurement and source report](data/hangar-vlm-errors.html) and source catalog;
+they are not a separate SIM-M02 gate. A source audit or SDK load does not
+establish an equipment error percentage. The table below is optional measured-
+calibration evidence, not a per-model SIM-M02 acceptance list.
 
-SIM-M03 provider source organization, 2026-10-20, following `ab7f89d`: all nine
-component roles now share the `interfaces/`, `implementations/<role>/`,
-`support/` and `registration/` layout. Eleven concrete models have matching
-class-named `.h`/`.cpp` files; their classes are named declarations rather than
-anonymous definitions hidden in role-named source files. The
-[source index](sdk/payload-native-providers.md#source-organization) links both
-abstract interfaces and concrete model headers. Existing namespaces, virtual
-declarations, model cards, numerical expressions and generated assets are
-preserved. An existing configured-graph violation was repaired by making the
-profile test link the production Mission Systems module instead of recompiling
-its source files; the architecture rule remains unchanged.
+| Model and matched quantity | Baseline holdout NRMSE | Retained NRMSE | Outcome |
+|---|---:|---:|---|
+| MK82 clean configuration 1, zero-incidence CD | 7.4365% | 7.2435% | Candidate 2 retained: 2.5960% relative reduction; original Salisbury training and six Melbourne holdouts unchanged; below the 10% KPI |
+| A-22 maximum-height bare-container CD | 24.5713% | 18.3121% | Retained: 25.4735% relative reduction; ASD-TR-61-326 Fig.27, 1/6 model fitted and 1/8 plus 1/4 models held out; scaled-model CD only, not full-scale or parachute validation |
+| IRIS+ unpowered bare-frame drag area | 22.1635% | 21.2105% | Base-drag shape and constant area fitted on original C58a training; C59a held out |
+| IRIS+ CL / Cm | 74.7318% / 148.7179% | unchanged | No lift or pitch-moment improvement |
+| F15C zero-lift CD | 17.1655% | unchanged | No fidelity gain; configuration and XML restored byte for byte |
+| F16C zero-lift CD | 12.1191% | unchanged | No fidelity gain; configuration and XML restored byte for byte |
 
-Both complete native build targets pass. Current focused evidence is Release
-**10/10** (seven component/guidance programs and three architecture/interface
-gates), Headless **7/7**, and installed equipment consumer **1/1**. Current
-scoped physical regression is Release **118/120** (75.14 s), Headless
-**118/119** (75.21 s), zero skips. The original showcase fragment Hit and 6 m
-component-hit failures remain active. Both unchanged 5 km scenes were rerun
-fullscreen; each complete native recording is byte-identical to the preceding
-provider delivery. The
-[organization delivery record](superpowers/plans/2026-10-20-payload-provider-layout.md)
-separates these software checks from unresolved physical-model acceptance.
-Earlier dated entries below retain their original scope.
+The common fitter now solves bound-constrained steps instead of clipping an
+unconstrained answer. Physically justified store candidates with at least a 2%
+relative NRMSE decrease on original holdouts are retained; the 10% fidelity KPI
+is a separate decision. An unchanged fit retains its existing
+configuration and source-bound profiles. Inherited performance parameters,
+including fighter throttle ratios, remain individually unverified even where
+other parameters have a source-based fit.
 
-SIM-M03 native provider separation, 2026-10-20, following `bf16f80`: the
-[interface and concrete-model inventory](sdk/payload-native-providers.md)
-distinguishes nine typed execution interfaces from eleven named concrete
-classes. Per-World factory catalogues select per-release instances; native
-execution uses those instances and refuses failed creation before publication.
-The common asset-binding/lifecycle helpers remain abstract. Backend bridges
-retain JSBSim integration. This is a compiled native source-extension contract;
-it does not add an installed external-DLL plugin ABI or calibrated models for
-each equipment variant.
+The earlier AAM publication retained a
+[geometry/card/cache/table binding manifest](data/hangar-aam-bindings.json)
+for its own generation epoch. The current repaired products and fresh installed
+hashes are the complete campaign receipts linked above; that earlier manifest
+is not a substitute for them. The fleet is evaluated by the generic engineering-completeness
+gate. Public datasets and the generic AGARD-B comparison are validation
+evidence, not per-model entry requirements. VLM/DATCOM/CFD outputs remain
+simulated engineering estimates; exact-model calibration is a separate optional
+label and does not block SIM-M02. Bounded CFD attempts are allowed; historical
+solver failures are not acceptance conditions. The
+[current rule](hangar-system.md#sim-m02-aerodynamic-engineering-completeness-gate)
+supersedes the dated solver-based plans below.
 
-All 24 guided cards now declare explicit controller parameters. The other
-23 cards retain exactly their previous controller values and effect algorithms;
-descriptive implementation IDs do not upgrade physical models. Hangar generation
-preserves all 53 models' physical XML and all 48 engine/nozzle files. Both complete
-native build targets pass. Fresh focused verification is **7/7** Release CTest
-programs, **14/14** Hangar tests and **1/1** installed equipment consumer (34.28 s).
-The scoped physical selections are **118/120** Release and **118/119** Headless,
-zero skips: the original showcase fragment Hit and 6 m component-hit assertions
-still fail. Both unchanged 5 km scenes were rerun fullscreen on these binaries;
-actual nose loss and subsequent upset are visible. The showcase is still
-airborne at 40 s, not a claimed crash. All 87 frozen source/card/model inputs
-match after verification. MK 82/CJ-10A missing physical providers, full-program
-compatibility and complete SIM-M03 physical acceptance remain pending.
-The [delivery plan](superpowers/plans/2026-10-20-payload-native-providers.md)
-records the current evidence; totals in the earlier delivery below retain
-their historical scope.
+UH1H retains zero fuel-order breaches; UH60 retains pass. This is model
+consistency evidence, not a real fuel-flow accuracy measurement. Rotorcraft
+remain last in priority, after every store and fixed-wing aircraft. Current
+commands and receipts live under `build/hangar-calibration/closure/`; the
+[single Hangar guide](hangar-system.md) documents normal reproduction,
+assumptions and limits. No new clean-directory or visual Viewer acceptance is
+claimed for these changes.
 
-SIM-M03 component and contact delivery, 2026-10-20: the
-[uniform component contract](sdk/payload-component-configuration.md) covers all
-53 store cards and nine roles per card. Strict sidecars, compiled SDK adapters,
-phase-specific native binding checks and Hangar generation replace implicit
-component selection without changing the migrated numerical inputs. This is
-configuration/execution infrastructure, not equipment calibration or an external
-DLL provider ABI. Two stores still declare fuze/warhead unavailable explicitly.
-The [physical investigation](sdk/sim-m03-five-km-repair.md) records contact,
-native damage feedback and loaded-piece conservation repairs. Fullscreen live
-evidence shows actual nose separation and subsequent upset, principally through
-mechanical contact. Fragment results remain 29/1688 in the native fixture and
-0/1688 in the showcase; they do not validate the fragmentation model.
-
-That delivery's scoped physical regression was Release **117/119** and Headless
-**117/118**, zero skips; both complete build targets pass. The original showcase
-fragment Hit and 6 m side-burst component-hit requirements still fail. Six
-focused component CTest programs, 13 focused Hangar checks and the installed
-equipment consumer pass. Native asset checks load all 53 generated store models;
-the catalogue comparison preserves existing physical XML and engine/nozzle
-bytes. The independently confirmed pre-existing C172/Skua damage-generation
-drift failures remain recorded. Complete current full-suite and full SIM-M03
-acceptance remain pending. Earlier totals below retain their historical scope.
-
-SIM-M03 SDK delivery continuation, 2026-10-20: the [current delivery record](sdk/sim-m03-reference-continuation.md#7-sdk-delivery-continuation-and-regression-repair) distinguishes software correctness from physical hit acceptance. HC-57's incoming contact energy/mass and HC-58's incomplete package fixture are corrected without changing their criteria. Production SDK code now includes actual-fin C++/C99/Python diagnostics, selected-release validation, capability/illumination corrections and contact initiation. Both complete builds, Release 11/11 focused gates, installed armed-release/control consumers and fullscreen live/v8 replay pass. The unchanged **30 km case passes actual damage evidence** (275/2023 sampled fragment strikes, exact one/two-worker records/events). **Two separate 5 km hit scenes still fail**. Complete Headless first run: **769/775**, 1129.11 s, zero skips; four test-only repairs subsequently pass **4/4**, with production inputs unchanged. Complete current Release: **847/849**, 1127.24 s, zero skips; only the two 5 km hit scenes fail. All 155 frozen source/test/model fingerprints match after that run. Earlier 744/746 and 56/56 totals are historical. Full SIM-M03 remains unaccepted for the failed hit gates, admitted sensor/control/lethality inputs, modeled weapon links, fused input and remaining physical/variant acceptance. No AeroNumericsLab result is imported.
-
+SIM-M03 current mechanism baseline: finite native fin control and actual-fin
+C++/C99/Python diagnostics, optional live telemetry and v8 replay are implemented.
+The [weapon fidelity guide](sdk/weapon-fidelity-validation.md) consolidates the
+selected seeker/guidance mechanisms, control assumptions and remaining equipment
+gaps. The [fragment repair record](sdk/fragment-hit-repair.md) retains the native
+Hit/functional-damage repair and its dated evidence. The
+[actual-fin contract](sdk/weapon-controls.md) governs visual synchronization.
+These earlier deliveries are not a fresh all-AAM kill-chain or visual acceptance;
+the current fleet campaign must report each model's observed behavior separately.
 
 ## Mission Systems allocation (2026-10-17, planning handoff)
 
-The [MS allocation](architecture/modules/simulation/ms-work-allocation.md) maps the ten retained SIM-M model packages to complete feature owners. Codex owns SIM-M02 missile aerodynamics/propulsion; Claude owns SIM-M01 radar processing/tracking. Each includes its required public interfaces, examples, tests and evidence. The current [missile validation record](sdk/missile-flight-validation.md) supersedes the initial SIM-M02 first-slice stop point under the user's continuation instruction. Its software agreement and failed aerodynamic gates remain distinct from physical-model acceptance. The 2026-10-18 continuation adds native wake-mapping regressions, actual solved-geometry checks and an explicit initial-model comparison. An exact native triangle-intersection correction now passes 280 finite-geometry controls and 56 separate input-policy checks (3/3 external CTest cases), plus both unchanged saved-CAD closure/domain audits, removing the demonstrated buried-panel defect. SU2 spatial/discretization and VSPAERO free-wake convergence remain under investigation with their original acceptance limits.
+The [MS allocation](architecture/modules/simulation/ms-work-allocation.md)
+maps the retained model packages to complete feature owners. Codex owns SIM-M02
+aerodynamics/propulsion; Claude owns SIM-M01 radar processing/tracking. Earlier
+release, motor and mesher receipts retain their dated scope in the
+[missile validation record](sdk/missile-flight-validation.md). Current
+shared VLM construction and open equipment-data/runtime gates are recorded at the
+top of this status page and in the sole [Hangar guide](hangar-system.md);
+VSPAERO and component force-generation routes are retired.
 
 The original MS physical-model goals remain distinct from MA-training M0-M8 and from the accepted directory migration. HC-06 native inputs and Claude's generic integration retain their existing ownership and dependency order; existing Agent equipment APIs are consumed rather than reimplemented. IFF remains required before multi-aircraft 2v2/4v4 acceptance. HC-07, HC-45, HC-02, HC-35 and the nonblocking HC-52 follow-up are carried forward; planning does not close them or authorize a full-suite run.
 
-SIM-M03 continuation, 2026-10-20: the user assigned the complete package while Claude continues SIM-M02 numerical work in the separate AeroNumericsLab directory. Independent seeker-observation, fuze-time, fragment-momentum and actor-status visibility corrections are recorded in the [weapon fidelity validation](sdk/weapon-fidelity-validation.md). Full SIM-M03 remains open for the accepted model/sensor inputs and per-variant physical validation; dependency-bound calibration awaits the numerical handoff.
-
 HC-53 follow-up, 2026-10-20: the external-only OpenVSP fixture has an exact required reference-check route. Selector/reference checks pass 2/2 on each configured Headless/Release inventory (105 selector and 150 reference methods each). Missing-guard and mixed shared-CMake controls pass; [HC-53 is closed](architecture/validation/hc-53-test-routing-2026-10-20.md). This changes no solver or simulation model.
-
-SIM-M03 finite-control priority, 2026-10-20: [actual fin control](sdk/missile-control-validation.md) replaces ideal guidance force/moment injection with a bounded autopilot, finite channel response, individual fin actuators and geometry-derived aerodynamic forces/moments across 24 AAM models. Standard position feedback derives from actual fins. Motor/nozzle files and public layouts are preserved. The [research note](sdk/weapon-model-research.md) retains source evaluation and initial HC-54/HC-55 proposals. Actuator/control constants are engineering estimates; per-variant physical acceptance remains open.
-
-SIM-M03 continued physical-chain review, 2026-10-20: the [audit inventory](sdk/sim-m03-physical-chain-audit.md) covers decoy sampling/lifetime/wind, native-substep fuze/contact timing, attached damage geometry, consistent section impulse, measured designation velocity, source-scoped SARH illumination, current thrust and removal of arbitrary low-speed expiry. Its dated verification section states the actual gates run. Accepted SIM-M02 dynamics/control inputs, calibrated sensing/lethality, modeled weapon links/fused feedback and detached-body damage contracts remain pending.
 
 Progress reviewed: 2026-10-16, `main` at `d344e2b`. M7 core is accepted; M8 generic is implemented, corrected after its independent review, and awaits independent acceptance (below); prior full-suite results retain their dated scope.
 First maintenance pass reviewed: 2026-10-12, `2b83f24` (implementation baseline `32e78a6`).
@@ -261,11 +192,11 @@ criterion. Update this page and the affected reference together when a capabilit
 | Agent, MA core, range and referee separation | Implemented agent handles, authority checks, measured designations, messaging and process-isolation interfaces; the ADR records AB-1 through AB-6. | [Agent API](sdk/agents.md), [ADR-31](architecture/design/agent-boundary.md), generated [boundary table](sdk/boundary.md). | Truth snapshots remain range/referee interfaces. New exports require classification and boundary checks; original engagement-scoring acceptance remains distinct from API access classification. |
 | Mission Systems host and payload data | Implemented discovery, payload state/BIT, capabilities, activities, grants, cards and aircraft fits. | [Mission Systems API](sdk/mission-systems.md), [ADR-30](architecture/modules/simulation/adr-30-mission-systems.md). | A card or installed payload does not prove its whole physical model exists. Per-capability support and per-aircraft fits remain relevant. |
 | RF, RCS, radar and tracking | Implemented RF propagation, mesh-derived RCS tables, detection radar, trackers and signal processing. RWS/TWS/STT and ACM presets are present. The roadmap records MS-1 through MS-6 and MS-4b deliveries. | [Mission Systems API](sdk/mission-systems.md), [dated MS progress](architecture/modules/simulation/adr-30-mission-systems.md), `tests/simulation/test_radar_modes.cpp`, `tests/simulation/test_signal.cpp`, `tests/simulation/test_track.cpp`. | Signal-level processing has a different cost from detection-level processing. Loaded-store RCS and other model gaps remain in the backlog. |
-| Aircraft and store generation | Implemented Hangar designs, models, JSBSim files, manifests, carriage and the recorded store build. | [Resource ownership](resources.md), [Hangar](hangar.md), [store build record](hangar-stores-build.md). | Source inputs, generated designs and runtime products have different editing rules. Reproducible generation does not establish calibrated real-world flight performance. |
+| Aircraft and store generation | Implemented Hangar designs, models, JSBSim files, manifests, carriage and the recorded store build. | [Resource ownership](resources.md), [Hangar](hangar-system.md), [shared VLM workflow and receipts](hangar-system.md). | Source inputs, generated designs and runtime products have different editing rules. Reproducible generation does not establish calibrated real-world flight performance. |
 | Native missile engagements | Implemented release, native motor/flight state, radar and infrared seeker observations, guidance, countermeasures, fuzes, damage, terminal records and replayable events. Recorded delivery at the implementation baseline. | [Engagement contract](sdk/engagement.md), [delivery validation](sdk/engagement-validation.md), `tests/simulation/test_engagement_native.cpp`. | Guidance, fin response, seekers, decoys and launch-zone parameters are game estimates. This is not completion of the original high-fidelity MS-7c/MS-7d/MS-7f criteria. |
-| SIM-M02 propulsion/aero comparison | Corrected foreign-World launcher dispatch, pulse-coast timing and actual released-weapon ignition/reset; Hangar requests burn ignition explicitly. Controlled native/RocketPy comparison passed 48/48 cases across 24 authored AAMs on the final native binary. | [Conditions, changes, evidence and reproduction](sdk/missile-flight-validation.md); main baseline `57bc4c7`, 2026-10-17 continuation. | Real motor/geometry data admission remains pending. Actual SU2/VSPAERO trials failed physical/convergence gates; no aerodynamic coefficients were imported. SIM-M02 remains open. |
+| SIM-M02 propulsion/aero comparison | Corrected foreign-World launcher dispatch, pulse-coast timing and actual released-weapon ignition/reset; Hangar requests burn ignition explicitly. The dated controlled native/RocketPy comparison passed 48/48 cases across 24 authored AAMs. | [Conditions, changes, evidence and reproduction](sdk/missile-flight-validation.md); main baseline `57bc4c7`, 2026-10-17 continuation. | The latest all-design component matrix records 88 engineering-complete-uncalibrated designs with native fuze/warhead implementations present. Static coverage, dynamic sampling and unfiltered regression remain separate evidence; whole SIM-M02 acceptance requires every original regression gate to pass. Missing measurement calibration is not a block; historical RocketPy totals are not current full-envelope equipment accuracy. |
 | SIM-M03 independent correctness | Shared on-rail/released IR envelope, body-axis seeker eligibility, fail-closed guidance inputs, unknown timing, active-interval fuze sweeps, target-only fragment momentum and direct actor strike-status visibility. | [Current evidence and required inputs](sdk/weapon-fidelity-validation.md); baseline `0d4f25a`, 2026-10-20. | Calibrated seeker/fin/autopilot/fuze/lethality, modeled flyout feedback/fused updates and complete variant/fleet acceptance remain open. Await accepted SIM-M02 and sensor/model inputs. |
-| SIM-M03 finite controls | Bounded autopilot commands finite individual fins; geometric aerodynamic forces/moments replace ideal guidance reactions in all 24 current AAM models. Actual-fin C++/C99/Python Range diagnostics, native jam state, live transport and v8 Viewer replay are implemented. | [Control model](sdk/missile-control-validation.md), [actual-fin contract](sdk/weapon-controls.md), [current delivery evidence](sdk/sim-m03-reference-continuation.md#7-sdk-delivery-continuation-and-regression-repair). | Engineering estimates still require measured control/dynamic inputs and per-variant physical acceptance. The jam diagnostic has unavailable neutral controller decisions; it does not prove fault recovery. The unchanged 5 km hit gate and remaining SIM-M03 gates stay open. |
+| SIM-M03 finite controls | Bounded autopilot commands finite individual fins; geometric aerodynamic forces/moments replace ideal guidance reactions in all 24 current AAM models. Actual-fin C++/C99/Python Range diagnostics, native jam state, live transport and v8 Viewer replay are implemented. | [Control and actual-fin contract](sdk/weapon-controls.md), [current delivery evidence](sdk/sim-m03-reference-continuation.md#7-sdk-delivery-continuation-and-regression-repair). | Engineering estimates still require measured control/dynamic inputs and per-variant physical acceptance. The jam diagnostic has unavailable neutral controller decisions; it does not prove fault recovery. The original positive-Hit software gate passed in the [2026-10-21 sourced-fragment continuation](sdk/fragment-hit-repair.md#sourced-finite-fragment-field-and-original-showcase-acceptance). Current fleet departures and equipment-specific gates remain separately recorded in the fidelity guide. |
 | Launch zones and countermeasures | Implemented advisory launch-zone queries and native chaff/flare inventory, releases, motion and expiry. | [Engagement contract](sdk/engagement.md), `tests/simulation/test_countermeasure_core.cpp`, `tests/simulation/test_weapon_guidance.cpp`. | Advisory envelopes do not guarantee intercepts or satisfy MS-8's original published-range acceptance. Direct dispenser APIs do not mean every electronic-attack capability is implemented. |
 | Warning receivers and other sensors | ESM/RWR contacts are implemented. Other payload families retain their own support states and staged modeling work. | [Mission Systems API](sdk/mission-systems.md), `src/simulation/mission_systems/esm/`, [remaining MS stages](architecture/modules/simulation/adr-30-mission-systems.md). | Native seeker and dispenser support is not a claim that full IRST imagery, IFF, jamming, all guns, PNT, or the OMS bridge is complete. |
 | Native viewer, effects and vision | Optional Vulkan/VSG viewer and vision modules exist, with terrain, aircraft/store visuals and engagement effects. Native fullscreen lifecycle and screenshot corrections have passed focused GPU checks. | [Viewer](sdk/viewer.md), [vision](sdk/vision.md), [current viewer validation](sdk/viewer-validation.md), [Hangar effects](hangar-effects.md). | The viewer-correction baseline failed the 4K performance gate for three of four scenes; performance of the replacement native hit fixture has not been remeasured. Aircraft materials retain existing detail; aircraft cast shadows are not enabled. Current acceptance is scoped by the linked record; older GPU observations retain their original hardware and build scope. |
@@ -863,7 +794,7 @@ with its dated baseline and include environments. ARCH-07 has not started.
 - **Visualization:** now in `src/visualization`:
   - `render`;
   - `scene` (`fsim_world`), with the visual effects in `vfx/effects`;
-  - the optional Flow solver in `vfx/flow`;
+  - the Flow solver in `vfx/flow` (required by the Viewer);
   - `ui`;
   - the new `vision_core`, which renders read-only vehicle frames offscreen.
 - **Read-only inputs:** the scene and UI read contracts. The family-code range and the constraint bits the UI names are

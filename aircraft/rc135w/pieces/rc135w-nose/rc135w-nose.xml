@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- Written by hangar (tools/hangar/hangar/pieces.py) from rc135w's damage data: its nose flying on its own once it parts
+<!-- Written by hangar (tools/models/hangar/hangar/pieces.py) from rc135w's damage data: its nose flying on its own once it parts
      (MS-7g). Its aerodynamics a tumbling piece's - estimates, said so there. Do not edit: hangar's model stage of rc135w writes it. -->
 <fdm_config name="rc135w-nose" version="2.0" release="ALPHA">
     <fileheader>
@@ -26,10 +26,10 @@
         <ixz unit="SLUG*FT2"> 1910.4641616433832 </ixz>
         <iyz unit="SLUG*FT2"> -1.1987523855988469 </iyz>
         <emptywt unit="LBS"> 27922.04505115463 </emptywt>
-        <location name="CG" unit="IN"> <x> 236.08464566929132 </x> <y> -0.001968503937007874 </y> <z> 35.432283464566929 </z> </location>
+        <location name="CG" unit="IN"> <x> 236.08464566929132 </x> <y> -0.0015748031496062994 </y> <z> 35.432283464566929 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 236.08464566929132 </x> <y> -0.001968503937007874 </y> <z> 35.432283464566929 </z> </location>
+            <location unit="IN"> <x> 236.08464566929132 </x> <y> -0.0015748031496062994 </y> <z> 35.432283464566929 </z> </location>
         </pointmass>
 <!-- no store station -->
     </mass_balance>

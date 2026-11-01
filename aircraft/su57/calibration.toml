@@ -5,3 +5,12 @@
 wave_drag_efficiency = 2.0000   # Raymer's E_WD: the wave drag over Sears-Haack's
 throttle_ratio = 1.3281   # the engines' TR: the compressor-face temperature ratio at the turbine's limit
 # fitted: maximum Mach 2.005 at 36000 ft (target 2)
+
+[provenance]
+schema = "fsim.hangar-calibration.v1"
+method = "shared-aircraft-vlm"
+status = "existing-performance-fit"
+observed_source_sha256 = "cab73db99827c6b18e2d97a3756ee3fa44f828b0e74fdce36976355a91608d39"
+target_keys = ["max_mach", "max_mach_altitude_ft", "service_ceiling_ft"]
+scope = "Declared reference targets only; no six-axis equipment accuracy certification"
+historical_fit_note = "Retained performance overrides are not newly validated equipment data"

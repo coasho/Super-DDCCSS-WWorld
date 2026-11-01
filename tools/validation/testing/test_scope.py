@@ -8,7 +8,7 @@ an empty selection and no changes are errors, through the command itself. The li
 a build before the inventory is listed, names resolved to the rebuilt inventory's numbers, and a run held to exactly
 its selection. Discovery in small private trees: the Python import closure (shared fixtures and scripts a test runs
 included), compile commands and local headers, and excluded directories never entered. Given a build, the rules file
-against the real repository and that build's CTest inventory: every path pattern matches a tracked file, and every
+against the real source project and that build's CTest inventory: every path pattern matches an inventoried source file, and every
 label and test pattern a scope names selects at least one test (a render scope's patterns excepted on a build without
 the renderer). No case here launches a native tool, build or CTest run except listing that given build's inventory.
 Standard library only."""
@@ -88,70 +88,6 @@ class GlobTest(unittest.TestCase):
                 self.assertEqual(scope.glob_match(path, pattern), expected)
 
 
-class ExternalFixtureTest(unittest.TestCase):
-    fixture = "tools/validation/missile/native/OpenVspIntersectionFixture.cmake"
-    scope_name = "external OpenVSP intersection fixture"
-
-    def setUp(self):
-        self.rules = scope.load_rules()
-        self.inventory = [
-            {"index": i, "name": name, "labels": [], "command": ["python", name]}
-            for i, name in enumerate(("missile_aero_reference_checker", "missile_flight_reference_checker",
-                                      "ma_contract", "unrelated"), 1)
-        ]
-
-    def test_external_fixture_runs_its_reference_guard_without_an_sdk_build(self):
-        for tier in ("targeted", "integration"):
-            with self.subTest(tier=tier):
-                p = scope.plan([self.fixture], self.rules, self.inventory, {}, tier, preset=scope.HEADLESS)
-                self.assertEqual(p["scopes"], [self.scope_name])
-                self.assertEqual(p["selected"], ["missile_aero_reference_checker"])
-                self.assertTrue(p["headless"])
-                self.assertFalse(p["build"])
-                self.assertFalse(p["release"])
-                self.assertEqual(p["escalate"], [])
-                self.assertEqual(p["errors"], [])
-
-    def test_missing_external_guard_blocks_execution_even_with_other_selected_checks(self):
-        inventory = [t for t in self.inventory if t["name"] != "missile_aero_reference_checker"]
-        for paths in ([self.fixture], [self.fixture, "docs/status.md"]):
-            for build_first in (False, True):
-                with self.subTest(paths=paths, build_first=build_first), tempfile.TemporaryDirectory() as logs:
-                    calls = []
-                    status, report = scope.select(
-                        paths, self.rules, "targeted", 1, run=True, build=build_first, log_dir=logs,
-                        executables={}, dependents={}, readers={}, evidence=None,
-                        discover=lambda preset: inventory,
-                        builder=lambda preset: calls.append("build") or 0,
-                        runner=lambda command, log: calls.append("run") or 0,
-                        measured=lambda preset: {}, recorder=lambda logs, preset: 0)
-                    self.assertEqual(status, 3, report)
-                    self.assertIn("missing-required-tests", [e["reason"] for e in report["errors"]])
-                    self.assertEqual(calls, [])
-
-    def test_shared_sdk_cmake_still_escalates_both_presets_beside_an_external_fixture(self):
-        shared = "src/simulation/mission_systems/CMakeLists.txt"
-        for preset in (scope.HEADLESS, scope.RELEASE):
-            with self.subTest(preset=preset):
-                p = scope.plan([self.fixture, shared], self.rules, self.inventory, {}, preset=preset)
-                self.assertTrue(p["build"])
-                self.assertTrue(p["headless"])
-                self.assertTrue(p["release"])
-                self.assertIn(shared + " (build system)", p["escalate"])
-                self.assertEqual(p["selected"], sorted(t["name"] for t in self.inventory))
-                self.assertEqual(p["errors"], [])
-
-    def test_external_exception_claims_only_the_known_fixture(self):
-        def claims(path):
-            return [r["name"] for r in self.rules
-                    if any(scope.glob_match(path, pattern) for pattern in r["paths"])
-                    and not any(scope.glob_match(path, pattern) for pattern in r.get("except", []))]
-        self.assertIn(self.scope_name, claims(self.fixture))
-        for path in ("tools/validation/missile/native/UnreviewedFixture.cmake",
-                     "tools/validation/missile/native/vsp_triangle_boundary.cpp",
-                     "src/simulation/mission_systems/CMakeLists.txt"):
-            with self.subTest(path=path):
-                self.assertNotIn(self.scope_name, claims(path))
 
 
 class PlanTest(unittest.TestCase):
@@ -872,7 +808,7 @@ class ArchitectureGatesRequiredTest(unittest.TestCase):
 
     PATHS = ["tools/architecture/configured.py", "tools/architecture/check.py", "cmake/ArchitectureChecks.cmake"]
     GATES = ["architecture_boundary", "architecture_checker", "architecture_configured", "architecture_configured_checker"]
-    OTHER = ["sdk_boundary", "include_view_core"]
+    OTHER = ["sdk_boundary", "include_view_core", "project_bootstrap_checker"]
 
     def setUp(self):
         self.calls = []
@@ -885,7 +821,7 @@ class ArchitectureGatesRequiredTest(unittest.TestCase):
     def inventory(self, gates):
         tests = synthetic(self.OTHER + list(gates))
         for t in tests:
-            t["labels"] = ["architecture"]
+            t["labels"] = ["bootstrap" if t["name"] == "project_bootstrap_checker" else "architecture"]
         return tests
 
     def discover(self, preset):
@@ -917,6 +853,18 @@ class ArchitectureGatesRequiredTest(unittest.TestCase):
                 self.assertEqual(list(report["presets"]), [scope.HEADLESS, scope.RELEASE])
                 for preset in (scope.HEADLESS, scope.RELEASE):
                     self.assertLessEqual(set(self.GATES), set(report["presets"][preset]["selected"]))
+                    if path == "cmake/ArchitectureChecks.cmake":
+                        self.assertIn("project_bootstrap_checker", report["presets"][preset]["selected"])
+
+    def test_architecture_registration_requires_the_independent_bootstrap_gate(self):
+        for missing in (scope.HEADLESS, scope.RELEASE):
+            with self.subTest(preset=missing):
+                self.inventories = {preset: self.inventory(self.GATES) for preset in (scope.HEADLESS, scope.RELEASE)}
+                self.inventories[missing] = [t for t in self.inventories[missing] if t["name"] != "project_bootstrap_checker"]
+                status, report = self.plan_only(["cmake/ArchitectureChecks.cmake"])
+                self.assertEqual(status, 3)
+                self.assertEqual([(e["preset"], e["scope"], e["missing"]) for e in report["errors"]],
+                                 [(missing, "project-contained bootstrap", ["^project_bootstrap_checker$"])])
 
     def test_an_inventory_with_only_the_legacy_gate_fails_on_each_preset(self):
         # (the review's probe: each inventory holds architecture_boundary alone)
@@ -1197,6 +1145,146 @@ class CommandTest(unittest.TestCase):
         self.assertIn("python/fsim/no_such_module_xyz.py", out)
 
 
+class SourceInventoryTest(unittest.TestCase):
+    """The inventory belongs to this source root, including exports inside another checkout."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name).resolve()
+        (self.root / "src").mkdir()
+        (self.root / "src/a.cpp").write_text("", encoding="utf-8")
+        (self.root / "CMakeLists.txt").write_text("", encoding="utf-8")
+
+    def test_excluded_source_roots_fail_before_resolution_or_git(self):
+        excluded = self.root / ".codex" / "never-inspected"
+        # This excluded path is lexical only; no directory is created or entered.
+        with mock.patch.object(Path, "resolve", side_effect=AssertionError("excluded roots must not be resolved")), \
+                mock.patch.object(scope.subprocess, "run", side_effect=AssertionError("excluded roots must not reach Git")):
+            with self.assertRaisesRegex(ValueError, "Excluded"):
+                scope.source_files(excluded)
+            with mock.patch.object(scope, "REPO", excluded):
+                with self.assertRaisesRegex(ValueError, "Excluded"):
+                    scope.changed_paths("HEAD")
+
+    def test_git_inventory_clears_inherited_redirection_but_preserves_tool_paths(self):
+        overrides = dict(GIT_DIR="foreign-metadata", GIT_WORK_TREE=str(self.root), GIT_INDEX_FILE="foreign-index",
+                         GIT_COMMON_DIR="foreign-common", GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="core.worktree",
+                         GIT_CONFIG_VALUE_0=str(self.root), GIT_CEILING_DIRECTORIES="foreign-ceiling")
+
+        def isolated(command, **kwargs):
+            env = kwargs.get("env")
+            self.assertIsNotNone(env, "repository reads require an explicit isolated environment")
+            self.assertFalse([key for key in env if key.upper().startswith("GIT_")])
+            self.assertEqual(env.get("PATH"), os.environ.get("PATH"))
+            return subprocess.CompletedProcess(command, 0, str(self.root)+"\n" if "rev-parse" in command else "src/a.cpp\0", "")
+
+        with mock.patch.dict(os.environ, overrides), mock.patch.object(scope.subprocess, "run", side_effect=isolated) as run:
+            self.assertEqual(scope.source_files(self.root), ["src/a.cpp"])
+            self.assertEqual({key: os.environ[key] for key in overrides}, overrides)
+        self.assertEqual(run.call_count, 2)
+
+    def test_git_change_reads_use_the_same_isolated_environment(self):
+        replies = [str(self.root)+"\n", "src/a.cpp\n", "new.py\n"]
+
+        def isolated(command, **kwargs):
+            env = kwargs.get("env")
+            self.assertIsNotNone(env)
+            self.assertFalse([key for key in env if key.upper().startswith("GIT_")])
+            self.assertEqual(env.get("PATH"), os.environ.get("PATH"))
+            return subprocess.CompletedProcess(command, 0, replies.pop(0), "")
+
+        with mock.patch.dict(os.environ, GIT_DIR="foreign-metadata", GIT_WORK_TREE=str(self.root), GIT_INDEX_FILE="foreign-index"), \
+                mock.patch.object(scope, "REPO", self.root), mock.patch.object(scope.subprocess, "run", side_effect=isolated):
+            self.assertEqual(scope.changed_paths("HEAD"), ["new.py", "src/a.cpp"])
+        self.assertEqual(replies, [])
+
+    def test_dangling_local_git_metadata_is_not_a_git_free_export(self):
+        for response in (subprocess.CompletedProcess([], 128, "", "broken git file"), FileNotFoundError("git")):
+            options = {"side_effect": response} if isinstance(response, Exception) else {"return_value": response}
+            with self.subTest(response=type(response).__name__), \
+                    mock.patch.object(scope.os.path, "lexists", return_value=True) as lexists, \
+                    mock.patch.object(scope.subprocess, "run", **options):
+                with self.assertRaisesRegex(ValueError, "Git|checkout"):
+                    scope.source_files(self.root)
+                self.assertIn(mock.call(self.root / ".git"), lexists.call_args_list)
+
+    def test_valid_git_file_keeps_exact_checkout_inventory(self):
+        # A valid Git-file layout is admitted without inspecting any other checkout.
+        (self.root / ".git").write_text("gitdir: mocked-metadata-not-read\n", encoding="utf-8")
+        with mock.patch.object(scope.subprocess, "run", side_effect=[
+                subprocess.CompletedProcess([], 0, str(self.root)+"\n", ""),
+                subprocess.CompletedProcess([], 0, "src/a.cpp\0", "")]):
+            self.assertEqual(scope.source_files(self.root), ["src/a.cpp"])
+
+    def test_an_exact_git_root_retains_cached_and_untracked_inventory(self):
+        replies = [subprocess.CompletedProcess([], 0, str(self.root)+"\n", ""),
+                   subprocess.CompletedProcess([], 0, "src/a.cpp\0new source.py\0odd\nname.py\0.codex/hidden.py\0", "")]
+        with mock.patch.object(scope.subprocess, "run", side_effect=replies) as run, \
+                mock.patch.object(scope.os, "walk", side_effect=AssertionError("a checkout must use its index")):
+            self.assertEqual(scope.source_files(self.root), ["new source.py", "odd\nname.py", "src/a.cpp"])
+        self.assertEqual(run.call_args_list[0].args[0], ["git", "rev-parse", "--show-toplevel"])
+        command = run.call_args_list[1].args[0]
+        self.assertIn("ls-files", command)
+        self.assertIn("--cached", command)
+        self.assertIn("--others", command)
+        self.assertIn("--exclude-standard", command)
+        self.assertIn("-z", command)
+
+    def test_a_git_free_export_does_not_use_the_parent_checkout_inventory(self):
+        parent = subprocess.CompletedProcess([], 0, str(self.root.parent)+"\n", "")
+        with mock.patch.object(scope.subprocess, "run", return_value=parent) as run:
+            self.assertEqual(scope.source_files(self.root), ["CMakeLists.txt", "src/a.cpp"])
+        self.assertEqual(run.call_count, 1, "never ask the parent repository for ls-files")
+
+    def test_a_standalone_source_tree_works_without_git_metadata_or_git_executable(self):
+        for failure in (subprocess.CompletedProcess([], 128, "", "not a repository"), FileNotFoundError("git")):
+            with self.subTest(failure=type(failure).__name__):
+                options = {"side_effect": failure} if isinstance(failure, Exception) else {"return_value": failure}
+                with mock.patch.object(scope.subprocess, "run", **options):
+                    self.assertEqual(scope.source_files(self.root), ["CMakeLists.txt", "src/a.cpp"])
+
+    def test_a_broken_or_redirected_local_checkout_does_not_fall_back(self):
+        (self.root / ".git").mkdir()
+        for result in (subprocess.CompletedProcess([], 128, "", "broken repository"),
+                       subprocess.CompletedProcess([], 0, str(self.root.parent)+"\n", "")):
+            with self.subTest(exit_code=result.returncode), mock.patch.object(scope.subprocess, "run", return_value=result):
+                with self.assertRaisesRegex(ValueError, "Git|checkout"):
+                    scope.source_files(self.root)
+
+    def test_git_inventory_failure_stays_a_failure(self):
+        failure = subprocess.CalledProcessError(128, ["git", "ls-files"])
+        with mock.patch.object(scope.subprocess, "run", side_effect=[
+                subprocess.CompletedProcess([], 0, str(self.root)+"\n", ""), failure]):
+            with self.assertRaises(subprocess.CalledProcessError):
+                scope.source_files(self.root)
+
+    def test_export_walk_prunes_excluded_outputs_before_descent(self):
+        visited = []
+
+        def walk(root):
+            dirs = [".codex", ".CODEX", ".git", ".local", "build", "src"]
+            visited.append(str(root))
+            yield str(root), dirs, ["CMakeLists.txt"]
+            self.assertEqual(dirs, ["src"])
+            nested = [".codex", ".local", "build"]
+            visited.append(str(self.root / "src"))
+            yield str(self.root / "src"), nested, ["a.cpp"]
+            self.assertEqual(nested, [])
+
+        # Excluded directory names are simulated, never created or entered.
+        with mock.patch.object(scope.subprocess, "run", return_value=subprocess.CompletedProcess([], 128, "", "")), \
+                mock.patch.object(scope.os, "walk", walk):
+            self.assertEqual(scope.source_files(self.root), ["CMakeLists.txt", "src/a.cpp"])
+        self.assertEqual(visited, [str(self.root), str(self.root / "src")])
+
+    def test_automatic_change_discovery_rejects_a_parent_repository(self):
+        with mock.patch.object(scope, "REPO", self.root), mock.patch.object(scope.subprocess, "run", return_value=
+                subprocess.CompletedProcess([], 0, str(self.root.parent)+"\n", "")):
+            with self.assertRaisesRegex(ValueError, "--paths"):
+                scope.changed_paths("HEAD")
+
+
 class DiscoveryTest(unittest.TestCase):
     """Discovery in small private trees."""
 
@@ -1246,15 +1334,23 @@ class DiscoveryTest(unittest.TestCase):
         self.assertEqual(found, {"tests/test_a.cpp": {"fsim_a_test"}, "tests/support.h": {"fsim_a_test"}, "tests/deeper.h": {"fsim_a_test"}})
 
     def test_excluded_directories_are_never_entered(self):
-        root = self.tree({"tests/CMakeLists.txt": "add_executable(fsim_a_test test_a.cpp)\n", "tests/test_a.cpp": "",
-                          "tests/.codex/CMakeLists.txt": "add_executable(hidden_test hidden.cpp)\n", "tests/.codex/hidden.cpp": "",
-                          "tests/sub/.codex/x/CMakeLists.txt": "add_executable(deep_hidden_test h.cpp)\n"})
+        root = self.tree({"tests/CMakeLists.txt": "add_executable(fsim_a_test test_a.cpp)\n", "tests/test_a.cpp": ""})
         entered, real = [], os.walk
 
         def recording(top, *a, **k):
             for here, dirs, files in real(top, *a, **k):
                 entered.append(Path(here).as_posix())
+                # Simulate excluded children without creating or entering them.
+                # Like os.walk(topdown=True), inspect the caller-mutated list
+                # only after it resumes this generator.
+                dirs.append('.codex')
                 yield here, dirs, files
+                self.assertNotIn('.codex', dirs, 'the walker must prune before descent')
+                if Path(here) == root / 'tests':
+                    nested = ['.codex']
+                    entered.append((root / 'tests/sub').as_posix())
+                    yield str(root / 'tests/sub'), nested, []
+                    self.assertNotIn('.codex', nested, 'nested exclusions must also be pruned')
         with mock.patch.object(scope.os, "walk", recording):
             found = scope.test_executables(root, [])
         self.assertEqual(found, {"tests/test_a.cpp": {"fsim_a_test"}})
@@ -1308,9 +1404,7 @@ class RulesTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.rules = scope.load_rules()
-        cls.files = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard", "--exclude=.codex", "--", ".",
-                                    ":(exclude,glob)**/.codex/**"],
-                                   cwd=scope.REPO, capture_output=True, text=True, check=True).stdout.splitlines()
+        cls.files = scope.source_files()
         cls.tests = scope.inventory(test_dir=ARGS.test_dir) if ARGS.test_dir else None
 
     def test_every_scope_is_well_formed(self):

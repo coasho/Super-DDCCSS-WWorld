@@ -417,3 +417,26 @@ flaps = "US Army TM 1-1520-237-10: a helicopter, with no flaps"
 drag_devices = "US Army TM 1-1520-237-10: a helicopter, with no spoilers or airbrakes"
 releasable_stores = "US Army FM 20-32 (mine/countermine operations): the Volcano (M139) mine dispenser on the UH-60A/L; external stores support system stations"
 aerobatic = "The platform's aerobatics are a wing's manoeuvres flown by load factor (docs/flight-autonomy.md, rule R10)"
+
+# Existing physical-shell reference, shared with the airframe VLM model.
+[reference]
+area = 210.09762367488003
+span = 16.355567999999998
+chord = 0.52730399999999999
+aero_point = [9.15416, 0.0, 6.278879999999999]
+
+# Estimated project-designed pitch servos; no equipment calibration.
+# Phase is a target; native-step floor and realized phase are reported.
+# Explicit mechanical envelopes apply after all mixing and SAS.
+[control_actuators]
+version = 1
+method = "phase-budget-servo"
+phase_target_deg = 10.0
+cyclic_limit_deg = 20.0
+collective_limits_deg = [-10.0, 45.0]
+pedal_limits_deg = [-45.0, 45.0]
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

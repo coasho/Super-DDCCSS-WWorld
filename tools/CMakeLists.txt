@@ -1,5 +1,6 @@
 add_subdirectory(data/tile_prefetch)
 add_subdirectory(validation/showcase)
+add_subdirectory(validation/native_flight_probe)
 if(FSIM_HAS_FLOW)
     add_subdirectory(validation/flow_calibrate) # (NVIDIA Flow's fireballs against the measured ones)
 endif()

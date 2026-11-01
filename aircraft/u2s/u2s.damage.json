@@ -93,8 +93,8 @@
     }
    ],
    "stations": [],
-   "normal_share": 0.10332,
-   "side_share": 0.28919,
+   "normal_share": 0.10305,
+   "side_share": 0.28313,
    "normal_cp": [
     0.40173,
     0.0,
@@ -148,8 +148,8 @@
     }
    ],
    "stations": [],
-   "normal_share": 0.41554,
-   "side_share": -0.00089,
+   "normal_share": 0.41567,
+   "side_share": -0.0009,
    "normal_cp": [
     -0.111,
     -7.0423,
@@ -157,7 +157,7 @@
    ],
    "side_cp": [
     1.82483,
-    17.605,
+    17.60502,
     0.45486
    ],
    "root": {
@@ -177,7 +177,7 @@
    "skin_area_m2": 79.72147,
    "skin_kg": 216.07656,
    "strength_nm": [
-    1461380.7527
+    1461869.51289
    ]
   },
   {
@@ -219,8 +219,8 @@
     }
    ],
    "stations": [],
-   "normal_share": 0.41554,
-   "side_share": -0.00448,
+   "normal_share": 0.41567,
+   "side_share": -0.00452,
    "normal_cp": [
     -0.111,
     7.0423,
@@ -248,7 +248,7 @@
    "skin_area_m2": 79.72147,
    "skin_kg": 216.07656,
    "strength_nm": [
-    1461380.75278
+    1461869.51289
    ]
   },
   {
@@ -269,11 +269,11 @@
    ],
    "tanks": [],
    "stations": [],
-   "normal_share": 0.0656,
-   "side_share": 0.71619,
+   "normal_share": 0.06562,
+   "side_share": 0.72229,
    "normal_cp": [
     -7.81755,
-    -0.0,
+    0.0,
     -0.62
    ],
    "side_cp": [
@@ -303,8 +303,8 @@
    "skin_area_m2": 52.48829,
    "skin_kg": 165.61188,
    "strength_nm": [
-    46505.90994,
-    53837.97398
+    46520.19944,
+    53837.97275
    ]
   }
  ],

@@ -154,26 +154,16 @@ public:
     std::uint64_t massRevision() const noexcept { return storeRevision_ + fuelRevision_; }
     /// The stores on a station gone with the part of the aircraft it was on (MS-7g): Lost, no longer its mass; theirs.
     double loseStation(int station, double simTime);
-    /// A point where the stores and their carriage add drag (MS-7g): its station's place (body axes, from the model's
-    /// origin - its empty CG) and its CD S below Mach 0.8 (m^2). A store's own (its card's drag_area_m2) while it is on,
-    /// with its lugs under an ejector; the carriage itself - a launcher rail, a pylon and its rack - from the first time
-    /// its station holds a store until the part of the aircraft it is on goes (a released store leaves its pylon);
-    /// nothing in a weapon bay (its doors shut), for a wingtip's rail (the airframe's own) or a missile's fuselage well.
-    /// In a sideslip its stores also turn and push the aircraft (their cards' figures, hangar storedrag.py; a store in a
-    /// fuselage well is part of the fuselage's outline: none): their bodies' unstable moment, q munkM3 sin(2 beta), a
-    /// couple that turns the nose away from the wind (Munk: why tanks cost directional stability); their fins' and
-    /// bases' side force, q sideSlopeM2 sin(beta) - half their cards', as carried fins measure - acting sideArmM behind the
-    /// station.
+    /// Mounting-hardware drag at a station, in body axes from the model origin.
+    /// A released store leaves its pylon/rail; a lost station removes both.
+    /// The store's own six-axis loads use CarriedAirframeV1 and its VLM tables.
     struct DragPoint {
         double positionM[3] = {0.0, 0.0, 0.0};
         double areaM2 = 0.0;
-        double munkM3 = 0.0;
-        double sideSlopeM2 = 0.0;
-        double sideArmM = 0.0;
     };
     void carriageDrag(std::vector<DragPoint>& out) const;
-    /// A store's drag in carriage at that Mach number over its drag below Mach 0.8: its transonic rise.
-    static double storeDragMachFactor(double mach) noexcept;
+    struct CarriedAirframeV1 { const StoreCard* card = nullptr; double positionM[3]{}; };
+    void carriedAirframesV1(std::vector<CarriedAirframeV1>& out) const;
     /// Bumped whenever a weapon bay's doors move (StoreInfo::bayDoors): what a viewer draws, nothing the flight sees.
     std::uint64_t doorsRevision() const noexcept { return doorsRevision_; }
 

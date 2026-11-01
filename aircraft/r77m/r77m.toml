@@ -14,10 +14,8 @@ category = "missile"
 card = "r-77m"             # its store card: the published figures this design holds
 
 [analysis]
+max_mach = 5.0 # Retains the former store table Mach domain.
 speed = 900.0                # m/s: the Reynolds numbers (Mach 3 at altitude) - assumed
-
-[model]
-cell_m = 0.0015               # the mesher's cell: its lattice fins' walls a few of them thick
 
 # The body: an ogive radome 2.6 calibres long, the cylinder, a boattail over the nozzle (assumed)
 [[body]]
@@ -58,17 +56,16 @@ sections = [
   { le = [1.6, 0.1061, -0.1061], chord = 1.1 },
 ]
 
-# The tail fins: lattice (grid) fins, all-moving, 0.15 m wide, 3 cells across; root chord 0.12 m, tip 0.12 m, 0.2 m out from the body, their tips across the card's span (assumed from photographs)
+# The tail fins: all-moving about their spindles; root chord 0.12 m, tip 0.12 m, 0.2 m out from the body, their tips across the card's span (assumed from photographs)
 [[surface]]
 name = "tail fin upper"
 kind = "fin"
 mirror = true
-airfoil = "plate"
+airfoil = "biconvex4"
 sections = [
   { le = [3.5, 0.0686, 0.0686], chord = 0.12 },
   { le = [3.5, 0.2121, 0.2121], chord = 0.12 },
 ]
-lattice = { width = 0.15, cells = 3 }
 controls = [
   { name = "tail fin upper", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
 ]
@@ -77,12 +74,11 @@ controls = [
 name = "tail fin lower"
 kind = "fin"
 mirror = true
-airfoil = "plate"
+airfoil = "biconvex4"
 sections = [
   { le = [3.5, 0.0686, -0.0686], chord = 0.12 },
   { le = [3.5, 0.2121, -0.2121], chord = 0.12 },
 ]
-lattice = { width = 0.15, cells = 3 }
 controls = [
   { name = "tail fin lower", channel = "elevator", mix = { rudder = 1.0, aileron = 1.0 }, span = [0.0, 1.0], chord_fraction = 1.0, pivot = 0.45, limits = [-20, 20] },
 ]
@@ -112,3 +108,15 @@ gyration = [0.0189, 0.289, 0.289]  # radii of gyration over length - assumed (a 
 
 [dimensions]                  # the card: the span tip to tip across opposite fins
 length = 3.71
+
+# Derived normalization only; this does not add a physical wing.
+[reference]
+area = 0.031415926535897934
+span = 0.20000000000000001
+chord = 0.20000000000000001
+aero_point = [1.855, 0.0, 0.0]
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

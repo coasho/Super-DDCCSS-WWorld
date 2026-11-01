@@ -41,7 +41,7 @@ std::unique_ptr<FuzeAdapter> makeFuzeAdapter(
         const bool legacy=d.implementationId=="native.fuze.legacy.v1" || d.implementationId=="native.fuze.swept_path.v1";
         if (!legacy && d.implementationId!="native.fuze.turning_cpa.v1")
             throw std::runtime_error("unknown fuze implementation '"+d.implementationId+"'");
-        const auto bindings={"sensor_reference","target_reference","contact_reference","contact","history","delay"};
+        const auto bindings={"sensor_reference","target_reference","contact_reference","contact","history","delay","terrain_contact"};
         if (legacy) {
             if (!components::slotsV1(d,{"model_version","algorithm","arming_s","life_s","radius_m"},bindings,error))
                 return nullptr;
@@ -51,6 +51,7 @@ std::unique_ptr<FuzeAdapter> makeFuzeAdapter(
         binding(d,"target_reference","captured_target_cg"); binding(d,"contact_reference","captured_authored_nose");
         binding(d,"contact","native.authored_point_contact.v1"); binding(d,"history","native.captured_piecewise_linear.v1");
         binding(d,"delay",legacy?"none":"native.captured_fixed_delay.v1");
+        if(d.bindings.count("terrain_contact"))binding(d,"terrain_contact","native.structure_contact.v1");
         const auto number=[&](const char* role,const char* unit) {
             double value=0;
             if (!components::parameterV1(d,role,unit,value,error)) throw std::runtime_error(error);

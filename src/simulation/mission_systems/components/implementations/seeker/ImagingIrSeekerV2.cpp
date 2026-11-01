@@ -28,6 +28,7 @@ SeekerResultV2 ImagingIrSeekerV2::sample(const SeekerFrameV2& raw) {
         }
     }
     auto result=finish(f,chosen);
+    if(!result.valid)return {};
     // Ideal spatial/extent association, not pixel imagery or an IRCM classifier.
     // Missing competing extent data never becomes evidence of a flare.
     result.spatialFeaturesAvailable=spatial;cached_=result;return result;

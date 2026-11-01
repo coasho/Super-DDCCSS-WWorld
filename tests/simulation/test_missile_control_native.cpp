@@ -71,19 +71,19 @@ std::uint32_t createAircraft(session::World& world, const std::string& name, con
 struct Fixture {
     session::World world;
     std::uint32_t missile = 0;
-    explicit Fixture(unsigned workers) : world(options(workers)) {
+    explicit Fixture(unsigned workers,const std::string& store="aim-120c",double targetEastM=10000) : world(options(workers)) {
         sim::InitialConditions initial;
         initial.altitudeMslM = 6000; initial.airspeedTrueMs = 250; initial.headingDeg = 90;
         const auto launcher = createAircraft(world, "launcher", initial);
         const auto stations = payload(world, launcher, ms::Family::StoreStation);
         const auto radar = payload(world, launcher, ms::Family::AirRadar);
-        require(world.loadStore(launcher, stations, 1, "aim-120c") == ms::Reason::None, "AIM-120C load rejected");
+        require(world.loadStore(launcher, stations, 1, store) == ms::Reason::None, "fixture store load rejected");
         operate(world, launcher, stations); operate(world, launcher, radar);
         advance(world, 10);
         const auto launchState = *world.vehicleState(launcher);
         require(!launchState.crashed && !launchState.diverged, "launcher setup became invalid");
         initial.latitudeDeg = launchState.latitudeRad / kDeg + 1000 / 6371000.0 / kDeg;
-        initial.longitudeDeg = launchState.longitudeRad / kDeg + 10000 / (6371000 * std::cos(launchState.latitudeRad)) / kDeg;
+        initial.longitudeDeg = launchState.longitudeRad / kDeg + targetEastM / (6371000 * std::cos(launchState.latitudeRad)) / kDeg;
         initial.headingDeg = 0;
         const auto target = createAircraft(world, "crossing-target", initial);
         ms::AmtiCommand scan;
@@ -105,7 +105,7 @@ struct Fixture {
         stt.track = track; stt.rangeScaleM = 60000;
         require(world.submit(launcher, stt).accepted(), "native target tracking rejected");
         ms::StrikeCommand strike;
-        strike.payload = stations; strike.store = "aim-120c"; strike.target = designation;
+        strike.payload = stations; strike.store = store; strike.target = designation;
         const auto request = world.submit(launcher, strike);
         require(request.accepted(), "native strike request rejected");
         for (unsigned i = 0; i < 240; ++i) {
@@ -121,7 +121,7 @@ struct Fixture {
         require(world.weapons().size() == 1, "native consent must release exactly one missile");
         const auto record = world.weapons().front();
         missile = record.id;
-        require(!record.jettisoned && record.seeker == "active_radar", "fixture did not release an armed guided missile");
+        require(!record.jettisoned && record.seeker == ((store=="aim-9x"||store=="pl-10")?"imaging_infrared":"active_radar"), "fixture did not release an armed guided missile");
     }
     sim::PropertyHandle property(const char* name) {
         auto* model = world.model(missile);
@@ -501,6 +501,72 @@ void nativeControlResetReplaysFreshModel() {
 }
 }
 
+namespace {
+void localDerivativePlantRetainsActualFinTelemetry() {
+    Fixture fixture(1,"pl-10",4500.);
+    auto version=fixture.property("fsim/missile-control/version");
+    require(version.get()==2,"Local incidence controller requires native derivative metadata version 2");
+    for(unsigned i=0;i<30;++i) {
+        fixture.world.step();const auto read=fixture.world.weaponControlsV1(fixture.missile);
+        require(read && read->available && read->controllerAvailable && read->fins.size()==4,
+            "Local derivative selection must retain all four actual fin identities and telemetry");
+        for(const auto& fin:read->fins)require(fin.valid,"Local derivative model requires real valid native fin samples");
+    }
+    version.set(1);fixture.world.step();
+    const auto rejected=fixture.world.weaponControlsV1(fixture.missile);
+    require(rejected && !rejected->available && !rejected->controllerAvailable,
+        "Wrong native metadata must not silently select version-1 telemetry/control");
+}
+void nativeVectoringNozzleConservesThrustAndProducesCurrentCgTorque() {
+    Fixture fixture(1,"aim-9x",4500.);
+    Telemetry telemetry(fixture);
+    const auto pitch=fixture.property("propulsion/engine/pitch-angle-rad");
+    const auto yaw=fixture.property("propulsion/engine/yaw-angle-rad");
+    const auto limit=fixture.property("fsim/thrust-vector-control/limit_rad");
+    const auto rate=fixture.property("fsim/thrust-vector-control/rate_rad_s");
+    const auto origin=fixture.property("fsim/model/origin-x-in");
+    const auto nozzle=fixture.property("propulsion/engine/x-position");
+    const std::array<sim::PropertyHandle,3> force={fixture.property("forces/fbx-prop-lbs"),
+        fixture.property("forces/fby-prop-lbs"),fixture.property("forces/fbz-prop-lbs")};
+    const std::array<sim::PropertyHandle,3> moment={fixture.property("moments/l-prop-lbsft"),
+        fixture.property("moments/m-prop-lbsft"),fixture.property("moments/n-prop-lbsft")};
+    double previousPitch=pitch.get(),previousYaw=yaw.get(),maximum=0.;
+    const double dt=fixture.world.dt()*fixture.world.frameSkip();
+    for(unsigned i=0;i<24;++i) {
+        fixture.world.step();telemetry.noIdealActuation();
+        const auto* state=fixture.world.vehicleState(fixture.missile);
+        require(state && !state->diverged && !state->crashed,"native vector fixture must remain physically live");
+        const double p=pitch.get(),y=yaw.get();maximum=std::max({maximum,std::abs(p),std::abs(y)});
+        require(std::abs(p)<=limit.get()+1e-12 && std::abs(y)<=limit.get()+1e-12,
+            "actual native nozzle must obey its explicit finite stops");
+        require(std::abs(p-previousPitch)<=rate.get()*dt+1e-10 && std::abs(y-previousYaw)<=rate.get()*dt+1e-10,
+            "actual native nozzle motion must obey its finite rate");
+        const double thrust=state->thrustN[0];
+        const std::array<double,3> expected={thrust*std::cos(p)*std::cos(y),thrust*std::cos(p)*std::sin(y),-thrust*std::sin(p)};
+        std::array<double,3> actual{};
+        const double tolerance=1e-8*std::max(1.,thrust);
+        for(std::size_t k=0;k<3;++k) {
+            actual[k]=force[k].get()*4.4482216152605;
+            require(std::abs(actual[k]-expected[k])<=tolerance,"nozzle orientation must rotate native thrust without adding energy or force");
+        }
+        double cg[3]{};require(fixture.world.model(fixture.missile)->cgFromOriginBodyM(cg),"current native CG required");
+        const std::array<double,3> arm={-(nozzle.get()-origin.get())*.0254-cg[0],-cg[1],-cg[2]};
+        const std::array<double,3> torque={arm[1]*actual[2]-arm[2]*actual[1],
+            arm[2]*actual[0]-arm[0]*actual[2],arm[0]*actual[1]-arm[1]*actual[0]};
+        for(std::size_t k=0;k<3;++k)
+            require(std::abs(moment[k].get()*1.3558179483314-torque[k])<=tolerance,
+                "native vector moment must equal the real nozzle arm cross thrust about current CG");
+        previousPitch=p;previousYaw=y;
+    }
+    require(maximum>1e-6,"crossing-target native guidance must exercise real nozzle motion");
+    fixture.property("fsim/thrust-vector-control/rate_rad_s").set(0);
+    fixture.world.step();
+    const auto read=fixture.world.weaponControlsV1(fixture.missile);
+    require(read && !read->controllerAvailable && read->commands[0]==0 && read->commands[1]==0 && read->commands[2]==0,
+        "mismatched actual vector metadata must refuse neutral control rather than silently selecting fin-only execution");
+}
+}
+
 int main() {
     const struct { const char* name; void (*run)(); } cases[] = {
         {"finite surfaces and no ideal external actuation", finiteSurfaceResponse},
@@ -514,6 +580,8 @@ int main() {
         {"moving-wing native plant signs", movingWingPlant},
         {"all 24 current missile native control plants", currentFleetPlants},
         {"native actuator reset replays a fresh control plant", nativeControlResetReplaysFreshModel},
+          {"native finite nozzle thrust and current-CG moment", nativeVectoringNozzleConservesThrustAndProducesCurrentCgTorque},
+          {"local derivative plant retains actual fin telemetry", localDerivativePlantRetainsActualFinTelemetry},
     };
     unsigned passed = 0;
     for (const auto& test : cases) {

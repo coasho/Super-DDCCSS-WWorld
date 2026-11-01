@@ -66,21 +66,21 @@ tests = ["^testing_scope_checker$"]
 build = false
 
 [[scope]]
+name = "project-contained bootstrap"
+paths = ["setup.ps1", "build.ps1", "run.ps1", "stop.ps1", "tools/bootstrap/**", "tools/tests/**",
+         "cmake/ArchitectureChecks.cmake"]
+labels = ["bootstrap"]
+build = false
+release = true
+[scope.requires]
+ucrt64-headless = ["^project_bootstrap_checker$"]
+ucrt64-release = ["^project_bootstrap_checker$"]
+
+[[scope]]
 name = "missile flight and aerodynamic reference safeguards"
 paths = ["tools/validation/missile/**"]
-except = ["tools/validation/missile/native/OpenVspIntersectionFixture.cmake"]
-tests = ["^missile_flight_reference_checker$", "^missile_aero_reference_checker$"]
+tests = ["^missile_flight_reference_checker$"]
 build = false
-
-# This file is included only by an explicit external OpenVSP geometry/API build.
-# Its repository guards do not compile that external project or configure the SDK.
-[[scope]]
-name = "external OpenVSP intersection fixture"
-paths = ["tools/validation/missile/native/OpenVspIntersectionFixture.cmake"]
-tests = ["^missile_aero_reference_checker$"]
-build = false
-[scope.requires]
-ucrt64-headless = ["^missile_aero_reference_checker$"]
 
 # --- MA training (docs/sdk/mission-training.md) -----------------------------------------------------------------------
 # Targeted: the build-tree tests over the changed code. Integration: also the installed consumers and the domain's whole
@@ -239,7 +239,7 @@ render_only = true
 # projects that their own scopes claim.
 [[scope]]
 name = "build system"
-paths = ["CMakeLists.txt", "CMakePresets.json", "cmake/**", "deps/**", "third_party/**", "src/**/CMakeLists.txt",
+paths = ["CMakeLists.txt", "CMakePresets.json", "**/*.cmake", "cmake/**", "deps/**", "third_party/**", "src/**/CMakeLists.txt",
          "examples/**/CMakeLists.txt", "tools/**/CMakeLists.txt", "tests/CMakeLists.txt", "python/CMakeLists.txt"]
 except = ["cmake/RunMissionPackageConsumer.cmake", "cmake/ArchitectureChecks.cmake", "cmake/RunPackageConsumer.cmake",
           "cmake/RunEquipmentPackageConsumer.cmake", "cmake/PackageConfig.cmake", "cmake/CleanDist.cmake", "cmake/TestDistComponents.cmake",

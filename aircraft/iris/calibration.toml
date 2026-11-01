@@ -1,0 +1,14 @@
+# Fitted from declared calibration observations through the SDK.
+[calibration]
+base_drag_scale = 2.0621546067304823
+extra_drag_area_m2 = 0.017937512013538322
+
+[provenance]
+schema = "fsim.hangar-calibration.v1"
+method = "shared-aircraft-vlm"
+status = "sdk-reference-fit"
+observed_source_sha256 = "db16a55f2302609106d4d58f5ecbf0b15ce5bf79f7eca11d30766a66bc07b071"
+catalog_sha256 = "4aeeb18598f1dec4461f10efab8503767578e49ac75176993d4ac6af9fd46db3"
+reference_inputs_sha256 = "a5cc6cd8e3fbb9a30ea8bc6a545fa01dbbb52314261b25d7bba0140cc071f853"
+calibration_case_ids = ["NASA-C58a-5-drag_area_m2", "NASA-C58a-6-drag_area_m2", "NASA-C58a-7-drag_area_m2", "NASA-C58a-8-drag_area_m2", "NASA-C58a-9-drag_area_m2", "NASA-C58a-10-drag_area_m2", "NASA-C58a-11-drag_area_m2", "NASA-C58a-12-drag_area_m2", "NASA-C58a-13-drag_area_m2", "NASA-C58a-14-drag_area_m2", "NASA-C58a-15-drag_area_m2"]
+scope = "Declared observations only; independent errors are in the campaign report"

@@ -275,3 +275,8 @@ flaps = "Dassault Aviation: a tailless delta whose elevons trim and control pitc
 drag_devices = "Jane's: airbrakes above and below the wings"
 releasable_stores = "Dassault Aviation: nine hardpoints"
 aerobatic = "Dassault Aviation: +9 g (fsim/envelope/clean/n_max)"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

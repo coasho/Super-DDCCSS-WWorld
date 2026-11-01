@@ -404,3 +404,8 @@ flaps = "Boeing 737-700 data: trailing-edge flaps"
 drag_devices = "Boeing 737-700 data: flight and ground spoilers"
 releasable_stores = "Royal Australian Air Force E-7A data: unarmed"
 aerobatic = "Royal Australian Air Force E-7A data: a large AEW&C aircraft, not cleared for aerobatics"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

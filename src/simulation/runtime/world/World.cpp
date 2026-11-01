@@ -8,6 +8,7 @@
 #include "foundation/io/AssetResolver.h"
 #include "foundation/platform/Threads.h"
 #include "simulation/flight_control/Laws.h"
+#include "simulation/flight_control/RotorResponseV1.h"
 #include "simulation/flight_control/Profile.h"
 #include "fsim/ControllerRegistry.h"
 #include "simulation/flight/JsbsimModel.h"
@@ -532,6 +533,7 @@ bool World::resetVehicle(std::uint32_t id, const sim::InitialConditions* ic, std
     // A flight model's reset returns its air to calm and standard: the world's, as a new vehicle's (design 7.2)
     applyEnvironment(model);
     e->inputs = sim::ControlInputs{};
+    e->rotorAirframeTimeS=std::numeric_limits<double>::quiet_NaN();
     e->finControllerAvailable=false;
     e->finTelemetry = {};
     e->finControllerTimeS=std::numeric_limits<double>::quiet_NaN();
@@ -543,6 +545,10 @@ bool World::resetVehicle(std::uint32_t id, const sim::InitialConditions* ic, std
     e->engagementStates.clear();
     e->engagementCg.clear();
     e->engagementMatter.clear();
+    // A pose-bound terrain initiation cannot survive teleportation. This
+    // cancels its pending burst, without resetting the consumed contact latch.
+    e->arrestedBurst.reset();
+    e->groundBurstAgeS.reset();
     e->matterAtmosphere = {};
     if (e->fuzeAdapter) e->fuzeAdapter->resetTurnHistory();
     else e->fuzeTurn.reset();
@@ -1983,7 +1989,9 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
         const auto& r = e->finControl;
         const auto& s = e->working;
         double cg[3]{};
-        if (r.version.get() == 1 && model.cgFromOriginBodyM(cg) &&
+        const double derivativeVersion=e->plantAdapter.configured && e->plantAdapter.implementations[0]==2 ? 2.:1.;
+        if (r.version.get() == derivativeVersion && model.cgFromOriginBodyM(cg) &&
+            (!r.referenceVersion.valid() || (r.referenceVersion.get()==1 && r.aeroReferenceX.valid() && std::isfinite(r.aeroReferenceX.get()))) &&
             std::all_of(r.aeroForce.begin(),r.aeroForce.end(),[](const auto& p){return p.valid();}) &&
             std::all_of(r.aeroMoment.begin(),r.aeroMoment.end(),[](const auto& p){return p.valid();})) {
             ms::weapon::AutopilotInput in;
@@ -2001,14 +2009,17 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
                 in.limitsRad[k] = r.limits[k].get();
             }
             const double qS = r.qbar.get() * r.area.get() * 4.4482216152605;
-            const double d = r.diameter.get() * .3048;
-            const double qSd = qS * d, damping = qSd * d / (2 * std::max(in.speedMs, 1.));
+            const double chord = r.diameter.get() * .3048,span=r.span.get()*.3048;
+            const double qSc=qS*chord,qSb=qS*span;
+            const double pitchDamping=qSc*chord/(2*std::max(in.speedMs,1.));
+            const double lateralDamping=qSb*span/(2*std::max(in.speedMs,1.));
+            const double lever=cg[0]-(r.referenceVersion.valid()?r.aeroReferenceX.get():0.);
             auto c = [&](std::size_t k) { return r.derivatives[k].get(); };
-            in.pitch = {qS*c(0), qS*c(7), qSd*c(2)+cg[0]*qS*c(0),
-                        qSd*c(9)+cg[0]*qS*c(7), damping*c(4)};
-            in.yaw = {qS*c(1), qS*c(8), qSd*c(3)-cg[0]*qS*c(1),
-                      qSd*c(10)-cg[0]*qS*c(8), damping*c(5)};
-            in.rollMomentPerRad = qSd*c(11); in.rollDamping = damping*c(6);
+            in.pitch = {qS*c(0), qS*c(7), qSc*c(2)+lever*qS*c(0),
+                        qSc*c(9)+lever*qS*c(7), pitchDamping*c(4)};
+            in.yaw = {qS*c(1), qS*c(8), qSb*c(3)-lever*qS*c(1),
+                      qSb*c(10)-lever*qS*c(8), lateralDamping*c(5)};
+            in.rollMomentPerRad = qSb*c(11); in.rollDamping = lateralDamping*c(6);
             ms::weapon::AeroFeedback measured;
             measured.controlRad={s.aileronRad,s.elevatorRad,s.rudderRad};
             for (std::size_t k=0;k<3;++k) {
@@ -2017,6 +2028,36 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
                 measured.momentBodyNm[k]=r.aeroMoment[k].get()*1.3558179483314;
             }
             in.measured=measured;
+            const auto& control=e->guidance->spec().control;
+            bool vectorReady=!control.thrustVector && !r.vectorVersion.valid();
+            if(control.thrustVector) {
+                vectorReady=r.vectorVersion.valid() && r.vectorVersion.get()==1 &&
+                    r.vectorLimit.valid() && r.vectorLimit.get()==control.thrustVectorLimitRad &&
+                    r.vectorRate.valid() && r.vectorRate.get()==control.thrustVectorRateRadS &&
+                    r.vectorPitchGain.valid() && r.vectorYawGain.valid() && r.vectorExitX.valid() &&
+                    r.vectorPitch.valid() && r.vectorYaw.valid() &&
+                    std::all_of(r.propulsionForce.begin(),r.propulsionForce.end(),[](const auto& h){return h.valid();}) &&
+                    std::all_of(r.propulsionMoment.begin(),r.propulsionMoment.end(),[](const auto& h){return h.valid();});
+                if(vectorReady) {
+                    const double pitch=r.vectorPitch.get(),yaw=r.vectorYaw.get(),thrust=s.thrustN[0];
+                    const double pitchGain=r.vectorPitchGain.get(),yawGain=r.vectorYawGain.get();
+                    const double arm=r.vectorExitX.get()-cg[0];
+                    vectorReady=std::isfinite(pitch)&&std::isfinite(yaw)&&std::isfinite(thrust)&&
+                        std::isfinite(pitchGain)&&std::isfinite(yawGain)&&std::isfinite(arm)&&
+                        std::abs(pitch)<=control.thrustVectorLimitRad+1e-12 &&
+                        std::abs(yaw)<=control.thrustVectorLimitRad+1e-12;
+                    if(vectorReady) {
+                        const double fz=-thrust*std::cos(pitch)*pitchGain;
+                        const double fy=thrust*std::cos(pitch)*std::cos(yaw)*yawGain;
+                        in.pitch.forceControl+=fz;in.pitch.momentControl-=arm*fz;
+                        in.yaw.forceControl+=fy;in.yaw.momentControl+=arm*fy;
+                        for(std::size_t k=0;k<3;++k) {
+                            in.measured->forceBodyN[k]+=r.propulsionForce[k].get()*4.4482216152605;
+                            in.measured->momentBodyNm[k]+=r.propulsionMoment[k].get()*1.3558179483314;
+                        }
+                    }
+                }
+            }
             ms::weapon::ControlStopsV1 stops;
             const auto metadataVersion=[](const PropertyHandle& handle) -> unsigned {
                 if (!handle.valid()) return 0;
@@ -2036,7 +2077,7 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
                 stops.lowerRad[k]=r.lowerStops[k].get(); stops.upperRad[k]=r.upperStops[k].get();
             }
             for (const auto& rate : r.finRates) stops.finRateRadS.push_back(rate.get());
-            const auto commands = e->plantAdapter.configured
+            const auto commands = !vectorReady ? ms::weapon::FinCommands{} : e->plantAdapter.configured
                 ? e->plantProviders.commands(e->plantAdapter,in,stops,nativePlantIdentity(*e))
                 : ms::weapon::finCommands(in,e->guidance->spec().control,stops);
             e->finControllerAvailable=commands.available;
@@ -2060,6 +2101,41 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
     // Aircraft control still runs at the configured FDM rate; lost crews hold.
     if (e->info.role != ms::Role::Weapon && static_cast<unsigned>(subStep) % e->controlDivider == 0 && !e->crewLost) {
         control::ControlContext ctx{e->info.id, e->working, e->sensed.state, options_.dt * e->controlDivider, &stepView_, &e->rng};
+        control::OwnRotorPlantV1 rotor;
+        double acceleration[3],lag[3];
+        if(auto* native=dynamic_cast<sim::JsbsimModel*>(&model);
+           native && native->ownRotorAirframeAccelerationV1(acceleration,lag,rotor.specificForceBody,rotor.passiveForceIncluded)) {
+            const double elapsed=e->working.simTime-e->rotorAirframeTimeS;
+            const bool consecutive=std::isfinite(elapsed) && elapsed>0 && elapsed<=1.5*ctx.dt;
+            rotor.available=true;
+            for(unsigned k=0;k<3;++k) {
+                // First-order actuator inverse of the modeled disturbance:
+                // f + tau*f_dot. The secant uses consecutive native epochs;
+                // a reset/gap starts without a derivative impulse.
+                rotor.angularAcceleration[k]=acceleration[k]+(consecutive ? lag[k]*(acceleration[k]-e->rotorAirframeAcceleration[k])/elapsed : 0.0);
+                rotor.available=rotor.available && std::isfinite(rotor.angularAcceleration[k]);
+                e->rotorAirframeAcceleration[k]=acceleration[k];
+            }
+            e->rotorAirframeTimeS=e->working.simTime;
+        } else e->rotorAirframeTimeS=std::numeric_limits<double>::quiet_NaN();
+        const auto& runtime=e->stack.config();
+        const auto courseOwner=runtime.owner[static_cast<std::size_t>(control::Axis::Roll)];
+        bool completeCourseOwner=courseOwner<control::kSlotCount;
+        for(auto axis:{control::Axis::Pitch,control::Axis::Yaw,control::Axis::Thrust})
+            completeCourseOwner=completeCourseOwner && runtime.owner[static_cast<std::size_t>(axis)]==courseOwner;
+        if(completeCourseOwner && e->profile && e->profile->hover.header.present()) {
+            const auto* velocity=dynamic_cast<const control::RotorVelocity*>(e->stack.controller(control::Level::Velocity));
+            const auto* attitude=dynamic_cast<const control::RotorAttitude*>(e->stack.controller(control::Level::Attitude));
+            const auto* allocation=dynamic_cast<const control::RotorAllocation*>(e->stack.controller(control::Level::Acceleration));
+            if(velocity && attitude && allocation) {
+                const auto& hover=e->profile->hover;
+                rotor.courseBandwidthRadS=control::rotorCourseResponseV1(*velocity,*attitude,*allocation,
+                    hover.roll,hover.pitch,ctx.dt);
+                rotor.coursePerformance=&e->stack.config().performance;
+                rotor.positionController=dynamic_cast<const control::RotorPosition*>(e->stack.controller(control::Level::Position));
+            }
+        }
+        control::OwnRotorPlantScopeV1 ownPlant(&stepView_,e->info.id,rotor);
         e->stack.update(ctx, e->inputs);
         // the effectors ControlInputs has no room for, when their demand changes
         const auto& fx = e->stack.effectors();
@@ -2298,10 +2374,14 @@ void World::flyReleases() {
             ms::components::PlantProvidersV1 releasePlantProviders;
             std::string configurationError;
             bool configured=true;
-            const bool guided=!r.launch.inert && releasedCard && releasedCard->storeClass=="aam" && !releasedCard->seeker.empty();
+            bool armedEffects=false;
+            bool releaseTerrainContact=false;
+            bool guided=!r.launch.inert && releasedCard && releasedCard->storeClass=="aam" && !releasedCard->seeker.empty();
             if (releasedCard) {
                 releaseProfile=payloadProfile(*releasedCard,configurationError);
                 configured=static_cast<bool>(releaseProfile);
+                if(configured && !r.launch.inert && releaseProfile->explicitProfile())
+                    guided=releaseProfile->find("guidance") && releaseProfile->find("guidance")->availability!=ms::components::AvailabilityV1::NotApplicable;
                 if (configured && guided) {
                     releaseGuidance=configuredWeaponSpec(*releasedCard,configurationError);
                     configured=releaseGuidance.has_value();
@@ -2320,8 +2400,13 @@ void World::flyReleases() {
                 }
                 if (configured && releaseProfile->explicitProfile()) {
                     const auto& profile=*releaseProfile;
+                    const auto* fuze=profile.find("fuze");
+                    const auto* warhead=profile.find("warhead");
+                    armedEffects=!r.launch.inert &&
+                        ((fuze && fuze->availability!=ms::components::AvailabilityV1::NotApplicable) ||
+                         (warhead && warhead->availability!=ms::components::AvailabilityV1::NotApplicable));
                     ms::components::ProfileV1 validation=profile;
-                    if(guided)configured=payloadProviders_.validationProfile(profile,validation,configurationError);
+                    if(guided || armedEffects)configured=payloadProviders_.validationProfile(profile,validation,configurationError);
                     else {
                         const auto select=[&](const char* kind,const auto& table) {
                             const auto* d=profile.find(kind);
@@ -2346,11 +2431,12 @@ void World::flyReleases() {
                                     {v[0],v[1],v[2]},false};
                             }
                             ms::components::ProviderContextV1 context{*releasedCard,profile,*releaseGuidance,initialEstimate};
-                            releaseSeeker=payloadProviders_.seeker.create(*profile.find("seeker"),context,configurationError);
-                            if(releaseSeeker)releaseGuidanceProvider=payloadProviders_.guidance.create(*profile.find("guidance"),context,configurationError);
+                            const bool needsSeeker=profile.find("seeker")->availability!=ms::components::AvailabilityV1::NotApplicable;
+                            if(needsSeeker)releaseSeeker=payloadProviders_.seeker.create(*profile.find("seeker"),context,configurationError);
+                            if(!needsSeeker || releaseSeeker)releaseGuidanceProvider=payloadProviders_.guidance.create(*profile.find("guidance"),context,configurationError);
                             if(releaseGuidanceProvider)releaseFuze=payloadProviders_.fuze.create(*profile.find("fuze"),context,configurationError);
                             if(releaseFuze)releaseWarhead=payloadProviders_.warhead.create(*profile.find("warhead"),context,configurationError);
-                            configured=releaseSeeker && releaseGuidanceProvider && releaseFuze && releaseWarhead;
+                            configured=(!needsSeeker || releaseSeeker) && releaseGuidanceProvider && releaseFuze && releaseWarhead;
                             if(configured&&profile.find("seeker")->bindings.count("measurement_model")&&
                                (!dynamic_cast<ms::components::SeekerExecutionV2*>(releaseSeeker.get())||
                                 !dynamic_cast<ms::components::MeasuredGuidanceV2*>(releaseGuidanceProvider.get()))) {
@@ -2359,6 +2445,21 @@ void World::flyReleases() {
                         }
                     } else if (configured && r.launch.inert) configured=ms::weapon::configureBallisticPlantV1(*validation.find("aerodynamics"),*releasedCard,releasePlant,configurationError);
                     else if (configured) configured=ms::weapon::configureUnguidedPlantV1(*validation.find("propulsion"),*validation.find("aerodynamics"),*releasedCard,releasePlant,configurationError);
+                    if(configured && armedEffects && !guided) {
+                        releaseGuidance=configuredWeaponSpec(*releasedCard,configurationError);
+                        configured=releaseGuidance.has_value();
+                        if(configured) {
+                            ms::components::ProviderContextV1 context{*releasedCard,profile,*releaseGuidance,std::nullopt};
+                            releaseFuze=payloadProviders_.fuze.create(*profile.find("fuze"),context,configurationError);
+                            if(releaseFuze)releaseWarhead=payloadProviders_.warhead.create(*profile.find("warhead"),context,configurationError);
+                            configured=releaseFuze && releaseWarhead;
+                        }
+                    }
+                    if(configured && releaseFuze) {
+                        const auto* selected=validation.find("fuze");
+                        releaseTerrainContact=selected && selected->bindings.count("terrain_contact") &&
+                            selected->bindings.at("terrain_contact")=="native.structure_contact.v1";
+                    }
                     if(configured) {
                         const char* kinds[]={"autopilot","allocator","actuator","propulsion","aerodynamics"};
                         for(std::size_t k=0;k<5;++k)if(releasePlant.required[k] && releasePlant.availability[k]==ms::components::AvailabilityV1::Available)
@@ -2403,6 +2504,7 @@ void World::flyReleases() {
                 w->plantProviders=std::move(releasePlantProviders);
                 w->seekerProvider=std::move(releaseSeeker);
                 w->fuzeAdapter=std::move(releaseFuze);
+                w->terrainContactEnabled=releaseTerrainContact;
                 w->warheadAdapter=std::move(releaseWarhead);
                 if (w->plantAdapter.configured) {
                     const char* kinds[]={"autopilot","allocator","actuator","propulsion","aerodynamics"};
@@ -2413,6 +2515,22 @@ void World::flyReleases() {
                         w->plantMetadata[k][j]=model.property(std::string("fsim/components/")+kinds[k]+"/"+fields[j]);
                 }
                 if (releasedCard) w->contactNoseFromOriginBodyM=authoredContactNose(pool_->vehicle(w->slot));
+                if (releasedCard && (guided || armedEffects)) {
+                    const auto warhead=w->warheadAdapter ? std::optional<ms::damage::Warhead>{w->warheadAdapter->model()}
+                                                        : ms::damage::warheadOf(*releasedCard);
+                    if (warhead && (warhead->modelVersion==1 || warhead->modelVersion==2)) {
+                        w->fixedBurstRequired=true;
+                        if (w->contactNoseFromOriginBodyM && warhead->stationStructuralM) {
+                            const auto station=*warhead->stationStructuralM;
+                            w->burstFromOriginBodyM=*w->contactNoseFromOriginBodyM+ms::damage::V3{-station.x,station.y,-station.z};
+                        }
+                    }
+                    const auto& spec=*releaseGuidance;
+                    if (spec.fuzeModelVersion==1 && w->contactNoseFromOriginBodyM && spec.fuzeStationStructuralM) {
+                        const auto station=*spec.fuzeStationStructuralM;
+                        w->fuzeFromOriginBodyM=*w->contactNoseFromOriginBodyM+ms::damage::V3{-station.x,station.y,-station.z};
+                    }
+                }
                 if (guided) {
                     const auto guidance=*releaseGuidance;
                     const bool infrared=guidance.seeker.find("infrared")!=std::string::npos;
@@ -2425,27 +2543,30 @@ void World::flyReleases() {
                     }
                     w->guidance=std::move(releaseGuidanceProvider);
                     auto& wm = pool_->vehicle(w->slot);
-                    const auto warhead=w->warheadAdapter ? std::optional<ms::damage::Warhead>{w->warheadAdapter->model()}
-                                                        : ms::damage::warheadOf(*releasedCard);
-                    if (warhead && (warhead->modelVersion==1 || warhead->modelVersion==2)) {
-                        w->fixedBurstRequired=true;
-                        if (w->contactNoseFromOriginBodyM && warhead->stationStructuralM) {
-                            const auto station=*warhead->stationStructuralM;
-                            w->burstFromOriginBodyM=*w->contactNoseFromOriginBodyM+ms::damage::V3{-station.x,station.y,-station.z};
-                        }
-                    }
-                    if (guidance.fuzeModelVersion==1 && w->contactNoseFromOriginBodyM && guidance.fuzeStationStructuralM) {
-                        const auto station=*guidance.fuzeStationStructuralM;
-                        w->fuzeFromOriginBodyM=*w->contactNoseFromOriginBodyM+ms::damage::V3{-station.x,station.y,-station.z};
-                    }
                     auto& f = w->finControl;
                     f.version = wm.property("fsim/missile-control/version");
                     f.qbar = wm.property("aero/qbar-psf"); f.area = wm.property("metrics/Sw-sqft");
                     f.diameter = wm.property("metrics/cbarw-ft");
+                    f.span = wm.property("metrics/bw-ft");
+                    f.referenceVersion=wm.property("fsim/missile-control/reference-version");
+                    f.aeroReferenceX=wm.property("fsim/missile-control/aero-reference-x-m");
                     const char* forceAxes[]={"forces/fbx-aero-lbs","forces/fby-aero-lbs","forces/fbz-aero-lbs"};
                     const char* momentAxes[]={"moments/l-aero-lbsft","moments/m-aero-lbsft","moments/n-aero-lbsft"};
                     for (std::size_t k=0;k<3;++k) {
                         f.aeroForce[k]=wm.property(forceAxes[k]); f.aeroMoment[k]=wm.property(momentAxes[k]);
+                    }
+                    if(!wm.properties("fsim/thrust-vector-control").empty()) {
+                        const std::string prefix="fsim/thrust-vector-control/";
+                        f.vectorVersion=wm.property(prefix+"version");f.vectorLimit=wm.property(prefix+"limit_rad");
+                        f.vectorRate=wm.property(prefix+"rate_rad_s");f.vectorPitchGain=wm.property(prefix+"pitch_gain");
+                        f.vectorYawGain=wm.property(prefix+"yaw_gain");f.vectorExitX=wm.property(prefix+"exit_x_body_m");
+                        f.vectorPitch=wm.property("propulsion/engine/pitch-angle-rad");
+                        f.vectorYaw=wm.property("propulsion/engine/yaw-angle-rad");
+                        const char* force[]={"forces/fbx-prop-lbs","forces/fby-prop-lbs","forces/fbz-prop-lbs"};
+                        const char* moment[]={"moments/l-prop-lbsft","moments/m-prop-lbsft","moments/n-prop-lbsft"};
+                        for(std::size_t k=0;k<3;++k) {
+                            f.propulsionForce[k]=wm.property(force[k]);f.propulsionMoment[k]=wm.property(moment[k]);
+                        }
                     }
                     f.lag = wm.property("fsim/missile-control/lag-coefficient-s-1");
                     f.normalizationVersion=wm.property("fsim/missile-control/normalization-version");
@@ -2737,6 +2858,7 @@ void World::step(unsigned n) {
             std::vector<std::uint32_t> impacts;
             for (std::size_t s = 0; s < entries_.size(); ++s)
                 if (Entry* e = entries_[s].get(); e && s < after.size() && e->info.role == ms::Role::Weapon && after[s].crashed) {
+                    if(e->arrestedBurst)continue; // a native contact delay owns the stationary release
                     sim::VehicleState at = after[s]; // (where it struck; its speed as the step began: the strike stopped it)
                     const auto& history=e->engagementStates;
                     auto prior=captureEngagementMotion_ && history.size()>1 && history.back().crashed
@@ -2747,8 +2869,16 @@ void World::step(unsigned n) {
                     // (a store's strike is a strike: what it does - a tank's fuel left bursting into fire - is told
                     // before it ends there)
                     if (s < stepStates_.size() && !stepStates_[s].crashed) impacted(*e, prior, after[s]);
-                    endWeapon(*e, ms::WeaponEnd::Impact, at);
-                    impacts.push_back(e->info.id);
+                    if(e->groundBurstAgeS) {
+                        double cg[3];
+                        if(pool_->vehicle(s).cgFromOriginBodyM(cg)) {
+                            auto point=ms::weapon::materialPoint(after[s],{cg[0],cg[1],cg[2]},
+                                e->burstFromOriginBodyM.value_or(ms::damage::V3{cg[0],cg[1],cg[2]}));
+                            if(point.valid)e->arrestedBurst=point;
+                        }
+                    }
+                    if(!e->arrestedBurst)endWeapon(*e, ms::WeaponEnd::Impact, at);
+                    if(e->weaponEnded)impacts.push_back(e->info.id);
                 }
             for (const std::uint32_t id : impacts) removeVehicle(id);
             // an aircraft, or a piece of one, that struck the ground: what the strike does to it (MS-7g)

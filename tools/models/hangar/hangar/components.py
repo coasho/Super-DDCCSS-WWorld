@@ -4,9 +4,12 @@ import math
 from pathlib import PurePosixPath
 import struct
 AUTOPILOT = "fsim.control.load_feedback_cascade"
+ACTUATOR_AWARE_AUTOPILOT = "fsim.control.actuator_aware_cascade.v1"
 ALLOCATOR = "fsim.allocator.jsbsim_authored_fin_mixer"
 ACTUATOR = "fsim.actuator.jsbsim_lag_rate_stops"
 PROPULSION = "fsim.propulsion.jsbsim_generated_solid_rocket"
+DUCTED_PROPULSION = "fsim.propulsion.jsbsim_ducted_rocket.v1"
+TURBOFAN_PROPULSION = "fsim.propulsion.jsbsim_turbofan.v1"
 AERODYNAMICS = "fsim.aerodynamics.jsbsim_generated_store"
 
 def resolve(card, kind):
@@ -122,7 +125,17 @@ def control(card):
     mode = row["bindings"].get("execution_mode")
     roles = {"max_incidence_deg": "deg", "rate_time_min_s": "s", "rate_lag_multiplier": "1",
              "incidence_time_min_s": "s", "incidence_rate_multiplier": "1"} if mode == "configured" else {}
-    _available(row, AUTOPILOT, roles, ("model", "execution_mode"), card)
+    bindings=['model','execution_mode']
+    if 'thrust_vector' in row['bindings']:
+        from . import thrustvector
+        thrustvector.inputs(card)
+        roles.update(tvc_limit_rad='rad',tvc_rate_rad_s='rad/s');bindings.append('thrust_vector')
+    implementation=row['implementation_id']
+    if implementation not in (AUTOPILOT,ACTUATOR_AWARE_AUTOPILOT):
+        raise ValueError('components: unsupported autopilot')
+    _available(row, implementation, roles, bindings, card)
+    if implementation==ACTUATOR_AWARE_AUTOPILOT and mode!='configured':
+        raise ValueError('components: actuator-aware control requires configured native dynamics')
     if mode not in ("legacy", "configured") or (mode == "legacy" and "weapon_execution_version" in card.get("parameters", {})):
         raise ValueError("components: invalid or contradictory autopilot execution mode")
     for role, unit in roles.items():
@@ -168,7 +181,7 @@ def migration(card, design):
         refs = {"lag_s": parameter("control_actuator_lag_s" if versioned else "plant_actuator_lag_s", .04, "s"),
                 "rate_rad_s": parameter("control_actuator_rate_rad_s" if versioned else "plant_actuator_rate_rad_s", 4., "rad/s")}
         descriptor("actuator", ACTUATOR, refs, {"model": model})
-    elif card.get("class") == "aam" or card.get("seeker"):
+    elif card.get("class") in ("aam","cruise_missile") or card.get("seeker"):
         for kind in ("autopilot", "allocator", "actuator"):
             descriptor(kind, "", availability="unavailable", reason="No executing authored control plant is available for this guided store.")
     else:
@@ -189,25 +202,55 @@ def migration(card, design):
         refs = {role: parameter("plant_motor_" + role, value, unit) for role, (value, unit) in values.items()}
         descriptor("propulsion", PROPULSION, refs, {"model": model, "design": source, "motor": "Engines/%s_motor.xml" % name,
                    "nozzle": "Engines/%s_nozzle.xml" % name, "smoke": native_motor.get("smoke", "reduced")})
-    elif design is None and card.get("class") == "aam":
+    elif (design or {}).get('engine') or 'store_propulsion' in (design or {}):
+        descriptor('propulsion','',availability='unavailable',
+            reason='An authored air-breathing engine requires an explicit versioned propulsion component.')
+    elif design is None and card.get("class") in ("aam","cruise_missile"):
         descriptor("propulsion", "", availability="unavailable", reason="No authored native motor design is available.")
     else:
-        descriptor("propulsion", "", availability="not_applicable", reason="Released store has no executing motor phases.")
+        descriptor("propulsion", "", availability="not_applicable", reason="The authored released configuration has no rocket motor or air-breathing engine.")
     if model.startswith("jsbsim:") and (design is not None or card.get("class") in ("tank", "pod", "cargo")):
-        aero_source = "bluff_cargo" if card.get("class") == "cargo" else "slender_store" if card.get("class") in ("tank", "pod") else "component_build_up"
+        aero_source = "vlm"
         bindings = {"model": model, "design": source, "source": aero_source}
-        if (design or {}).get("store", {}).get("aero_table"):
-            bindings.update(source="offline_table", table=design["store"]["aero_table"])
         descriptor("aerodynamics", AERODYNAMICS, bindings=bindings)
     else:
         descriptor("aerodynamics", "", availability="unavailable", reason="No generated native aerodynamic model is available.")
+    # Migration fills missing declarations; it cannot downgrade a selected
+    # physical backend or discard optional native vector/cycle inputs.
+    existing=card.get('component_models',{}).get('components',{})
+    for kind in rows:
+        if kind in existing:rows[kind]=copy.deepcopy(existing[kind])
+    if native_motor and native_motor.get('kind')=='ducted_rocket' and rows['propulsion'].get('implementation_id')!=DUCTED_PROPULSION:
+        descriptor('propulsion','',availability='unavailable',
+            reason='An explicitly typed ducted rocket requires declared cycle and controller inputs.')
+    if (design or {}).get('engine') or 'store_propulsion' in (design or {}):
+        config=(design or {}).get('store_propulsion',{});engines=(design or {}).get('engine',[])
+        if ((design or {}).get('motor') or not isinstance(config,dict) or type(config.get('version')) is not int or config['version']!=1 or
+                not isinstance(engines,list) or len(engines)!=1 or not isinstance(engines[0],dict) or engines[0].get('type')!='turbofan' or
+                rows['propulsion'].get('availability')!='available' or
+                rows['propulsion'].get('implementation_id')!=TURBOFAN_PROPULSION):
+            descriptor('propulsion','',availability='unavailable',
+                reason='Authored engine hardware requires a supported versioned source and its explicit propulsion component.')
     return {"id": card.get("id", ""), "parameters": additions, "components": rows}
 
 def motor(card, design):
+    native_motor=design.get('motor',{})
+    if not isinstance(native_motor,dict):
+        raise ValueError('motor: declaration must be a mapping')
     row = resolve(card, "propulsion")
+    if design.get('engine') or 'store_propulsion' in design:
+        from . import turbofanstore
+        turbofanstore.inputs(card,design)
+        return design,None
+    if native_motor.get('kind')=='ducted_rocket' and (row is None or row.get('implementation_id')!=DUCTED_PROPULSION):
+        raise ValueError('components: explicitly typed ducted rocket requires its declared cycle/controller profile')
     if row is None: return design, None
+    if row.get('implementation_id')==TURBOFAN_PROPULSION:
+        from . import turbofanstore
+        turbofanstore.inputs(card,design)
+        return design,None
     if row["availability"] == "not_applicable":
-        if design.get("motor", {}).get("phase"): raise ValueError("components: executing motor cannot be not_applicable")
+        if native_motor.get("phase"): raise ValueError("components: executing motor cannot be not_applicable")
         return design, None
     values = row["parameters"]
     count = number(row, "phase_count", "1")
@@ -216,7 +259,13 @@ def motor(card, design):
         "grain_port_area_fraction", "grain_aft_clearance_m", "phase_count", "exit_x_m", "exit_y_m", "exit_z_m",
         "exit_diameter_m", "throat_diameter_m", "cone_length_m"}
     roles.update("phase_%d_%s" % (i, suffix) for i in range(int(count)) for suffix in ("duration_s", "thrust_kn"))
-    _available(row, PROPULSION, roles, ("model", "design", "motor", "nozzle", "smoke"), card)
+    ducted=row.get('implementation_id')==DUCTED_PROPULSION
+    if ducted:
+        from . import ductedrocket
+        roles.update(ductedrocket.ROLES)
+        if count!=2:raise ValueError('components: ducted propulsion needs booster and fuel-ledger phases')
+        ductedrocket.inputs(card)
+    _available(row, DUCTED_PROPULSION if ducted else PROPULSION, roles, ("model", "design", "motor", "nozzle", "smoke"), card)
     name = card["model"][7:]
     if row["bindings"]["motor"] != "Engines/%s_motor.xml" % name or row["bindings"]["nozzle"] != "Engines/%s_nozzle.xml" % name:
         raise ValueError("components: motor/nozzle asset identity mismatch")
@@ -229,6 +278,7 @@ def motor(card, design):
         raise ValueError("components: invalid cylindrical grain fractions")
     out = copy.deepcopy(design)
     selected = copy.deepcopy(out.get("motor", {}))
+    if ducted:selected['kind']='ducted_rocket'
     selected.update(exit=[number(row, "exit_%s_m" % axis, "m") for axis in "xyz"],
         exit_diameter=number(row, "exit_diameter_m", "m"), throat_diameter=number(row, "throat_diameter_m", "m"),
         cone_length=number(row, "cone_length_m", "m"), smoke=row["bindings"]["smoke"],
@@ -242,69 +292,96 @@ def motor(card, design):
     return out, settings
 
 
+def contact_effects_v1(card,*,arming_s,life_s,source,terrain_contact=False):
+    """Author explicit contact-only native effects from supplied source inputs.
+
+    No equipment identity, charge estimate or applicability is inferred here.
+    Callers supply the physical warhead parameters and project configuration.
+    Native factories still validate/admit execution at actual release.
+    """
+    if source not in card.get('sources',{}):raise ValueError('Effects require an explicit source/derivation record')
+    if card.get('warhead_kind') not in ('fragmentation','rod'):raise ValueError('Effects require an authored warhead kind')
+    out=copy.deepcopy(card);parameters=out.setdefault('parameters',{})
+    for key,unit in (('warhead_kg','kg'),('explosive_kg','kg'),('gurney_kms','km/s'),('diameter_m','m')):
+        p=parameters.get(key,{})
+        if p.get('unit')!=unit or not isinstance(p.get('value'),(int,float)) or not math.isfinite(float(p['value'])):
+            raise ValueError('Missing canonical effects input '+key)
+    if not 0<parameters['explosive_kg']['value']<parameters['warhead_kg']['value'] or parameters['gurney_kms']['value']<=0 or parameters['diameter_m']['value']<=0:
+        raise ValueError('Effects mass/geometry inputs outside their supported domain')
+    if not math.isfinite(arming_s) or not math.isfinite(life_s) or not 0<=arming_s<life_s:raise ValueError('Invalid contact fuze timing')
+    refs={}
+    for role,value,unit in (('model_version',0,'1'),('algorithm',0,'1'),('arming_s',arming_s,'s'),('life_s',life_s,'s'),('radius_m',0,'m')):
+        key='component_contact_fuze_'+role;refs[role]=key
+        parameters[key]=dict(value=value,unit=unit,basis='assumed',uncertainty=0 if role in ('model_version','algorithm','radius_m') else value,
+            source=source,note='Explicit project contact-only model setting; estimated, not measured hardware; zero is a selection/absent proximity channel, not an accuracy claim.')
+    common=dict(availability='available',configuration_version=1,basis='assumed',source=source,
+        note='Explicit native contact/fragment-blast engineering configuration.',
+        validity='Engineering virtual configuration only; no fitted fuze timing or measured fragment-pattern accuracy.')
+    rows=out['component_models']['components']
+    rows['fuze']=dict(common,implementation_id='native.fuze.swept_path.v1',parameter_refs=refs,
+        bindings=dict(sensor_reference='captured_weapon_cg',target_reference='captured_target_cg',
+            contact_reference='captured_authored_nose',contact='native.authored_point_contact.v1',
+            history='native.captured_piecewise_linear.v1',delay='none'))
+    rows['warhead']=dict(common,implementation_id='native.warhead.zoned_case.v1',
+        parameter_refs={key:key for key in ('warhead_kg','explosive_kg','gurney_kms','diameter_m')},
+        bindings=dict(burst_reference='captured_weapon_cg',blast='kingery_bulmash.swisdak_1994.free_air.v1',
+            penetration='thor.aluminium_2024_t3.v1',assessment='native.fragment_blast.v1'))
+    if type(terrain_contact) is not bool:raise ValueError('Terrain contact is an explicit versioned sensor selection')
+    if terrain_contact:
+        rows['fuze']['bindings']['terrain_contact']='native.structure_contact.v1'
+        rows['fuze']['note']+=' Authored STRUCTURE-support contact initiates the same one-shot channel; this is an estimated configuration, not a nose-only or case-only hardware claim.'
+    return out
+
+
 def coefficients(card, geo):
-    from . import storeaero
-    row = resolve(card, "aerodynamics")
-    if row is None: return storeaero.coefficients(geo, card["id"])
-    source = row["bindings"].get("source")
-    bindings = ("model", "design", "source", "table") if source == "offline_table" else ("model", "design", "source")
-    _available(row, AERODYNAMICS, (), bindings, card)
-    from pathlib import Path
-    from . import pipeline
-    if not geo.get("design_path") or Path(geo["design_path"]).resolve() != (Path(pipeline.repo_root()) / row["bindings"]["design"]).resolve():
-        raise ValueError("components: selected aerodynamic geometry does not match bound authored asset")
-    if source == "component_build_up": return storeaero.build_up(geo)
-    if source == "offline_table":
-        from . import storetables
-        return storetables.load(geo, card["id"], row["bindings"]["table"])
-    raise ValueError("components: unsupported finned-store aerodynamic source")
+    from . import airframe
+    row=resolve(card,'aerodynamics')
+    if row is not None:
+        _available(row,AERODYNAMICS,(),('model','design','source'),card)
+        if row['bindings']['source']!='vlm':
+            raise ValueError('components: the aircraft VLM source is mandatory')
+    return airframe.coefficients(geo['design_path'])
 
 
 def diagnostic_source(card, design_path):
-    """Validate the stage's source binding without choosing native forces."""
-    expected = {"tank": "slender_store", "pod": "slender_store", "cargo": "bluff_cargo"}.get(card.get("class"))
-    row = resolve(card, "aerodynamics")
-    if row is None:
-        return expected
-    source = row["bindings"].get("source")
-    bindings = ("model", "design", "source", "table") if source == "offline_table" else ("model", "design", "source")
-    _available(row, AERODYNAMICS, (), bindings, card)
-    if (expected is not None and source != expected) or (expected is None and source not in ("component_build_up", "offline_table")):
-        raise ValueError("components: diagnostic source does not match the native store class")
-    from pathlib import Path
-    from . import pipeline
-    if not design_path or Path(design_path).resolve() != (Path(pipeline.repo_root()) / row["bindings"]["design"]).resolve():
-        raise ValueError("components: diagnostic design does not match bound authored asset")
-    return source
+    row=resolve(card,'aerodynamics')
+    if row is not None:
+        _available(row,AERODYNAMICS,(),('model','design','source'),card)
+        if row['bindings'].get('source')!='vlm':
+            raise ValueError('components: the aircraft VLM source is mandatory')
+    return 'vlm'
 
 
-def diagnostic_coefficients(card, geo):
-    """Existing geometry-report coefficients; nonfinned native forces differ."""
-    from . import storeaero
-    source = diagnostic_source(card, geo.get("design_path"))
-    if source == "slender_store" or "component_models" not in card:
-        # Preserve the stage's original report path exactly. The native tank
-        # and pod still execute storemodels.store_xml, not these coefficients.
-        return storeaero.coefficients(geo, card["id"])
-    if source == "bluff_cargo":
-        raise ValueError("components: cargo diagnostics require the existing face-drag stage")
-    return coefficients(card, geo)
+def diagnostic_coefficients(card,geo):
+    return coefficients(card,geo)
 
 
 def stamp(xml, card):
-    if "component_models" not in card: return xml
-    rows = []
-    for kind, implementation in zip(("autopilot", "allocator", "actuator", "propulsion", "aerodynamics"),
-                                  (AUTOPILOT, ALLOCATOR, ACTUATOR, PROPULSION, AERODYNAMICS)):
-        row = resolve(card, kind)
-        if row["availability"] != "available": continue
-        if row["implementation_id"] != implementation:
-            raise ValueError("components: unsupported generated native implementation")
-        for leaf, value in (("schema-version", 1), ("implementation-code", 1), ("profile-fingerprint", fingerprint(row))):
-            rows.append('        <property value="%s">fsim/components/%s/%s</property>' % (value, kind, leaf))
-    metadata = "\n".join(rows)
-    if '</flight_control>' in xml: return xml.replace('</flight_control>', metadata + '\n    </flight_control>', 1)
-    return xml.replace('<flight_control name="none"/>', '<flight_control name="none">\n' + metadata + '\n    </flight_control>', 1)
+    """Publish each selected native descriptor once, including empty FCS shells."""
+    if 'component_models' not in card:return xml
+    import xml.etree.ElementTree as ET
+    root=ET.fromstring(xml);fcs=root.find('flight_control')
+    if fcs is None:fcs=ET.SubElement(root,'flight_control',name='Native component metadata')
+    for node in list(fcs):
+        if node.tag=='property' and (node.text or '').startswith('fsim/components/'):
+            fcs.remove(node)
+    for kind,implementation in zip(('autopilot','allocator','actuator','propulsion','aerodynamics'),
+                                  (AUTOPILOT,ALLOCATOR,ACTUATOR,PROPULSION,AERODYNAMICS)):
+        row=resolve(card,kind)
+        if row['availability']!='available':continue
+        code=1
+        if kind=='autopilot' and row['implementation_id']==ACTUATOR_AWARE_AUTOPILOT:
+            implementation=ACTUATOR_AWARE_AUTOPILOT;code=2
+        if kind=='propulsion' and row['implementation_id']==DUCTED_PROPULSION:
+            implementation=DUCTED_PROPULSION;code=2
+        if kind=='propulsion' and row['implementation_id']==TURBOFAN_PROPULSION:
+            implementation=TURBOFAN_PROPULSION;code=3
+        if row['implementation_id']!=implementation:
+            raise ValueError('components: unsupported generated native implementation')
+        for leaf,value in (('schema-version',1),('implementation-code',code),('profile-fingerprint',fingerprint(row))):
+            ET.SubElement(fcs,'property',value=str(value)).text='fsim/components/'+kind+'/'+leaf
+    ET.indent(root,space='    ')
+    return ET.tostring(root,encoding='unicode')
 
 
 def proposals(root):

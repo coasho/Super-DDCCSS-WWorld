@@ -1,11 +1,16 @@
 # ADR-27: Rotorcraft in the capability architecture
 
+This ADR records the existing SDK control and presentation contracts. Its dated
+analytical flight-model results are historical. Current shared VLM airframe
+aerodynamics and retained physical rotor propulsion are tracked in the
+[single Hangar system guide](hangar-system.md) and [status](status.md).
+
 | | |
 | --- | --- |
 | Status | Accepted and implemented 2026-09-26, from the owner's request of that day (section 10); the 3D models rebuilt from three-views the same day, at the owner's request |
 | Extends | ADR-26 ([control-architecture.md](control-architecture.md)), which stays in force |
 | Scope | Four real rotorcraft - two quadrotors, two conventional helicopters - built from published data, and what the control architecture, hangar and the viewer needed to fly and show them without fixed-wing assumptions |
-| Related | [hangar.md](hangar.md#rotorcraft) (the pipeline); [sdk/control.md](sdk/control.md#rotorcraft); [sdk/viewer.md](sdk/viewer.md) |
+| Related | [Hangar system](hangar-system.md#inputs-products-and-ownership) (the pipeline); [sdk/control.md](sdk/control.md#rotorcraft); [sdk/viewer.md](sdk/viewer.md) |
 
 ## 1. Context
 
@@ -304,6 +309,56 @@ and alpha unknown.
 
 ### 3.6 Control laws for rotorcraft
 
+The position controller includes measured ground-velocity damping during
+capture. For the designed velocity PI, let its proportional gain be `Kv` and
+its integral gain `Ki=Kv^2/4`. The outer position gain is `27Kv/64` and the
+velocity feedback is `11/16`. Including the complete error integrated by the
+velocity PI gives the ideal characteristic polynomial
+`(s+3Kv/16)(s+3Kv/4)^2`. This is a critically damped fast pair separated
+fourfold from the capture pole, not a claim about the nonlinear aircraft's
+complete poles. Inner dynamics, saturation and moving-frame guidance still
+require their original flight scenarios. The attractive velocity keeps the
+existing distance/braking estimate; velocity feedback can command additional
+braking, within the configured transit-speed norm limit. With
+`v_des=min(V_limit,Kx*distance/(1+beta),v_stopping)`, the command is
+`(1+beta)*v_des*direction-beta*v_ground`. This preserves the local position
+coefficient while giving aligned cruise unity DC gain; damping previously
+reduced steady cruise to `V_limit/(1+beta)`. The stopping estimate bounds desired
+steady speed, not instantaneous commanded speed or a global stopping proof.
+
+The private `RotorResponseV1` method estimates the achieved small-signal
+horizontal response of the installed built-in rate, attitude and velocity
+cascade. Its seventh-order model uses the current controller gains, the
+identified plant's separate damping and power, actuator lag, and a conservative
+first-order approximation of one control-period delay. It checks Routh-Hurwitz
+stability and the first half-power and 45-degree phase crossings. Both the
+curvature speed bound and path lookahead use this response with the existing
+one-third margin; acceleration, braking and the PI acceleration inverse retain
+their original physical limits and gains. The cache keys all current model
+parameters, so replacing or retuning a controller cannot retain an old result.
+Only a complete built-in cascade with one primary-axis owner, inside its own
+vehicle's current native callback, supplies this estimate. Other configurations
+retain the original planning fallback. Wrench availability remains separate.
+This is an estimated linear response, not measured bandwidth or a nonlinear
+tracking guarantee. The original hover and 24-context orbit fixtures passed
+337 assertions on 2026-11-01 without changing their scenes or thresholds;
+raw evidence is `build/architecture-reviews/sim-m02-functional-resolution-20261101/response-lookahead-original.{xml,log}`.
+
+The normal built-in waypoint behavior uses the active position controller's
+own speed, altitude and heading settings for transit within its stopping
+envelope. It returns to the original position command after final capture.
+The private same-world, same-vehicle callback binding restricts this path to a
+complete built-in cascade; custom controllers retain their original path.
+Landing descent also requires the existing one-metre horizontal capture area,
+as well as the existing low-speed condition. An untimed terminal fixed-point
+hover completes when the remaining distance plus the existing stopping
+estimate fits its unchanged capture radius. This avoids releasing active point
+control while residual momentum carries the vehicle outside it. Timed,
+repeating, terminated and moving-frame continuations retain their contracts.
+The retained six original control scenarios passed498 assertions in headless;
+all six cases also passed in Release on2026-11-01. Original physical survival/fall/qbar failures are
+separately retained; these control results do not establish milestone closure.
+
 Four built-in controllers (`src/simulation/flight_control/Rotor.cpp`), chosen for rotorcraft by
 the control section and designed from the hover section by the same pole
 placement as ADR-26's step 5a (`designRotorLaws`):
@@ -320,8 +375,38 @@ level's pseudo-controls are still rates and a load factor.
 
 ### 3.7 hangar
 
+Physical drive inertia and effective handling response are distinct source
+quantities. Optional `[rotor.main.physical_inertia]` version 1 with method
+`physical-flap-time`, positive `flap_lag_s`, `source` and `basis` derives the
+physical blade inertia, polar drive inertia and first mass moment. It retains
+the original effective flap lag and flapping moment for the handling model.
+Absent this declaration, the mapping is identity. NASA TM-73254 Table 3
+footnote a explicitly distinguishes the physical 0.072 s value from the
+retained 0.144 s handling value; this transfer is an engineering derivation,
+not a new measurement.
+
+An authored tail damping derivative requires a versioned `damping_model`.
+The current `native-hover-passive-dc-yaw-excess` method subtracts the isolated
+native rotor's linearized DC slope at an actual simulated hover point, then
+adds only a nonnegative instantaneous excess at the current physical tail
+force port. ExternalReactions evaluates the current air-relative hub velocity
+after Auxiliary and MassBalance; the native force transfer supplies its CG
+moment. The correction is passive relative to the air. It matches the declared
+DC normal-flow yaw derivative at the reference CG; lateral/roll derivatives,
+rotor-on interference and frequency response are not claimed calibrated.
+`tail-damping.json` records the native point, source/method hashes and acquired
+input identities. Changed generator/source inputs make the component
+unavailable until `hangar MODEL fly` identifies it again. The build publishes
+only complete XML atomically.
+
+The rotor coefficient model retains its existing advance-ratio bound. Mechanical
+H-force power projection uses the actual hub in-plane velocity, including when
+the coefficient model reaches that bound. Clipping a coefficient's input must
+not clip the velocity at which an applied force does work. This accounting
+repair does not validate coefficient extrapolation beyond the model's domain.
+
 A rotorcraft pipeline beside the fixed-wing one (`tools/models/hangar/hangar/rotorcraft`,
-[hangar.md](hangar.md#rotorcraft)): `build` writes the JSBSim aircraft and its
+[Hangar system](hangar-system.md#inputs-products-and-ownership)): `build` writes the JSBSim aircraft and its
 profile, `model` the viewer's model, `fly` flies it in the platform's own
 JSBSim - the hover's trim, the published trims, step responses, and the
 identification that fills the hover section - `performance` flies its

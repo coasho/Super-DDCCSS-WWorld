@@ -318,3 +318,8 @@ retractable_gear = "United Aircraft Corporation data: retractable gear"
 flaps = "United Aircraft Corporation data: flaperons on the wing's trailing edge"
 releasable_stores = "United Aircraft Corporation data: internal weapons bays"
 aerobatic = "United Aircraft Corporation data: +9 g (fsim/envelope/clean/n_max)"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

@@ -11,6 +11,7 @@
 #include <input_output/FGGroundCallback.h>
 #include <input_output/FGPropertyManager.h>
 #include <input_output/FGXMLElement.h>
+#include <input_output/FGXMLFileRead.h>
 #include <math/FGColumnVector3.h>
 #include <math/FGLocation.h>
 #include <math/FGMatrix33.h>
@@ -18,6 +19,7 @@
 #include <models/FGAccelerations.h>
 #include <models/FGAtmosphere.h>
 #include <models/FGAuxiliary.h>
+#include <models/FGAircraft.h>
 #include <models/FGExternalReactions.h>
 #include <models/atmosphere/FGWinds.h>
 #include <models/FGFCS.h>
@@ -36,10 +38,48 @@
 
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
+#include <utility>
 
 namespace fsim::sim {
 
 namespace {
+
+// Generated numerical resolution, read before LoadModel: JSBSim FCS filters
+// calculate their fixed-dt coefficients while loading. Stock/old products
+// retain exactly one step. No public layout or simulation-clock change.
+int generatedIntegrationSubsteps(const AircraftSpec& aircraft) {
+    const auto base = aircraft.aircraftDir.empty() ? aircraft.jsbsimRoot / "aircraft" : aircraft.aircraftDir;
+    const auto file = base / aircraft.name / (aircraft.name + ".xml");
+    JSBSim::FGXMLFileRead reader;
+    auto root = reader.LoadXMLDocument(SGPath(file.string()), false);
+    if (!root) return 1; // The ordinary loader reports the missing/invalid file.
+    auto fcs = root->FindElement("flight_control");
+    if (!fcs) return 1;
+    double version = 0.0, count = 1.0, rotational = 1.0;
+    for (auto property = fcs->FindElement("property"); property; property = fcs->FindNextElement("property")) {
+        if (!property->GetNumDataLines()) continue;
+        const auto name = property->GetDataLine();
+        if (name == "fsim/integration-v1/version") version = property->GetAttributeValueAsNumber("value");
+        if (name == "fsim/integration-v1/substeps") count = property->GetAttributeValueAsNumber("value");
+        if (name == "fsim/integration-v1/rotational-rate-method") rotational = property->GetAttributeValueAsNumber("value");
+    }
+    if (version == 0.0 && count == 1.0) return 1;
+    if ((version != 1.0 && version != 2.0) || !std::isfinite(count) || count < 1.0 || count > 4096.0 || count != std::floor(count) ||
+        (version == 2.0 && rotational != 4.0))
+        throw std::runtime_error("invalid generated integration-v1 metadata");
+    return static_cast<int>(count);
+}
+
+void applyGeneratedRateIntegrator(JSBSim::FGFDMExec& fdm) {
+    const PropertyHandle version(fdm.GetPropertyManager()->GetNode("fsim/integration-v1/version",false));
+    if (!version.valid() || version.get()!=2.0) return;
+    const PropertyHandle method(fdm.GetPropertyManager()->GetNode("fsim/integration-v1/rotational-rate-method",false));
+    if (!method.valid() || method.get()!=4.0) throw std::runtime_error("invalid generated rotational-rate integrator");
+    // FGPropagate::InitModel resets this selector to Euler. Apply only at
+    // initialization, before RunIC seeds all derivative history entries.
+    fdm.SetPropertyValue("simulation/integrator/rate/rotational",4.0);
+}
 
 /// JSBSim ground callback backed by a GroundProvider (design 7.3). Modelled on
 /// FGDefaultGroundCallback but with the terrain height taken from the provider
@@ -226,9 +266,11 @@ JsbsimModel::JsbsimModel(double dt, std::shared_ptr<const GroundProvider> ground
 JsbsimModel::~JsbsimModel() = default;
 
 bool JsbsimModel::load(const AircraftSpec& aircraft, const InitialConditions& ic) {
+    rotorAirframeBound_=false;
     loaded_ = false;
     diverged_ = crashed_ = false;
     structuralContact_ = false;
+    structuralObservedValid_ = false;
     stepCount_ = 0;
 
     const SGPath root(aircraft.jsbsimRoot.string());
@@ -238,6 +280,15 @@ bool JsbsimModel::load(const AircraftSpec& aircraft, const InitialConditions& ic
     fdm_->SetSystemsPath(SGPath("systems"));
 
     try {
+        // LoadModel may reuse the property tree. An earlier generated asset
+        // must not leave version2 selectors on a later stock/legacy load.
+        for (const auto& [name,value] : std::array{
+                std::pair{"fsim/integration-v1/version",0.0},
+                std::pair{"fsim/integration-v1/substeps",1.0},
+                std::pair{"fsim/integration-v1/rotational-rate-method",1.0}}) {
+            if (fdm_->GetPropertyManager()->GetNode(name,false)) fdm_->SetPropertyValue(name,value);
+        }
+        fdm_->Setdt(dt_ / generatedIntegrationSubsteps(aircraft));
         if (!fdm_->LoadModel(aircraft.name)) {
             LOG_ERROR("sim") << "JSBSim failed to load aircraft '" << aircraft.name << "' from "
                              << (aircraft.aircraftDir.empty() ? aircraft.jsbsimRoot / "aircraft" : aircraft.aircraftDir).string();
@@ -263,6 +314,7 @@ bool JsbsimModel::load(const AircraftSpec& aircraft, const InitialConditions& ic
     saveInitialProperties();
 
     try {
+        applyGeneratedRateIntegrator(*fdm_);
         applyInitialConditions(ic);
         if (!fdm_->RunIC()) {
             LOG_ERROR("sim") << "JSBSim RunIC failed for '" << aircraft.name << "'";
@@ -309,6 +361,7 @@ bool JsbsimModel::reset(const InitialConditions& ic) {
     if (!loaded_) return false;
     diverged_ = crashed_ = false;
     structuralContact_ = false;
+    structuralObservedValid_ = false;
     stepCount_ = 0;
     try {
         // RunIC() reopens every output file; JSBSim only closes them when a
@@ -340,6 +393,7 @@ bool JsbsimModel::reset(const InitialConditions& ic) {
             baseJ_ = loadedBaseJ_;
         }
         changing_ = false;
+        applyGeneratedRateIntegrator(*fdm_);
         applyInitialConditions(ic);
         if (!fdm_->RunIC()) {
             LOG_ERROR("sim") << "JSBSim RunIC failed on reset";
@@ -487,6 +541,59 @@ bool JsbsimModel::rigidMassPropertiesV1(RigidMassPropertiesV1& out) const noexce
     for (unsigned r=0;r<3;++r) for (unsigned c=0;c<3;++c)
         out.inertiaBodyKgM2[3*r+c]=inertia(r+1,c+1)*kgM2PerSlugFt2;
     return std::isfinite(out.massKg) && out.massKg>0;
+}
+
+bool JsbsimModel::ownRotorAirframeAccelerationV1(double acceleration[3],double lagS[3],double specificForceBody[3],bool& passiveIncluded) {
+    passiveIncluded=false;
+    if(!loaded_ || crashed_ || !fdm_ || !acceleration || !lagS || !specificForceBody)return false;
+    if(!rotorAirframeBound_) {
+        // This optional observer is absent on fixed-wing and older assets.
+        // Query without the public unknown-property warning side effect.
+        const auto optional=[&](const std::string& name){return PropertyHandle(fdm_->GetPropertyManager()->GetNode(name,false));};
+        rotorAirframeReads_[0]=optional("fsim/rotor-airframe-v1/version");
+        const char* axes[]={"drag","side","lift","roll","pitch","yaw"};
+        for(unsigned k=0;k<6;++k)rotorAirframeReads_[k+1]=optional(std::string("fsim/rotor-airframe-v1/")+axes[k]);
+        const char* rates[]={"roll","pitch","yaw"};
+        for(unsigned k=0;k<3;++k)rotorAirframeReads_[k+7]=optional(std::string("fsim/hover/")+rates[k]+"/lag_s");
+        rotorPassiveReads_[0]=optional("fsim/rotor-passive-v1/version");
+        for(unsigned k=0;k<3;++k)rotorPassiveReads_[k+1]=optional(std::string("fsim/rotor-passive-v1/")+"xyz"[k]+"-lbs");
+        rotorAirframeBound_=true;
+    }
+    for(const auto& read:rotorAirframeReads_)if(!read.valid() || !std::isfinite(read.get()))return false;
+    if(rotorAirframeReads_[0].get()!=1)return false;
+    for(unsigned k=0;k<3;++k) {
+        lagS[k]=rotorAirframeReads_[k+7].get();
+        if(!(lagS[k]>0))return false;
+    }
+    // Same native frame convention and CG transfer as FGAerodynamics::Run.
+    // The six post-functions contain the common airframe alone, so this
+    // retains propulsive torque, rotor damping and rotor reaction authority.
+    const JSBSim::FGColumnVector3 wind(-rotorAirframeReads_[1].get(),rotorAirframeReads_[2].get(),-rotorAirframeReads_[3].get());
+    const auto force=fdm_->GetAuxiliary()->GetTw2b()*wind;
+    JSBSim::FGColumnVector3 passive(0.,0.,0.);
+    if(rotorPassiveReads_[0].valid()) {
+        if(rotorPassiveReads_[0].get()!=1)return false;
+        for(unsigned k=0;k<3;++k) {
+            if(!rotorPassiveReads_[k+1].valid() || !std::isfinite(rotorPassiveReads_[k+1].get()))return false;
+            passive(k+1)=rotorPassiveReads_[k+1].get();
+        }
+        passiveIncluded=true;
+    }
+    const auto nonthrustForce=force+passive;
+    const auto mass=fdm_->GetMassBalance();
+    if(!(mass->GetMass()>0))return false;
+    const auto arm=mass->StructuralToBody(fdm_->GetAircraft()->GetXYZrp());
+    const JSBSim::FGColumnVector3 moment(rotorAirframeReads_[4].get(),rotorAirframeReads_[5].get(),rotorAirframeReads_[6].get());
+    const auto omega=fdm_->GetPropagate()->GetPQRi();
+    const auto gyro=omega*(mass->GetJ()*omega);
+    const auto native=fdm_->GetAccelerations();
+    const auto bias=mass->GetJinv()*(moment+arm*nonthrustForce-gyro)+native->GetPQRdot()-native->GetPQRidot();
+    for(unsigned k=0;k<3;++k) {
+        acceleration[k]=bias(k+1);
+        specificForceBody[k]=nonthrustForce(k+1)*.3048/mass->GetMass(); // lb/slug = ft/s^2
+        if(!std::isfinite(acceleration[k]) || !std::isfinite(specificForceBody[k]))return false;
+    }
+    return true;
 }
 
 bool JsbsimModel::nativePositionV1(const double positionEcefM[3], NativePositionV1& out) const noexcept {
@@ -841,8 +948,11 @@ void JsbsimModel::cacheCommandNodes() {
 void JsbsimModel::step(const ControlInputs& in) {
     if (!loaded_ || diverged_ || crashed_) return;
 
-    // Retain the state entering the first structural contact, not a later
-    // spring-decelerated state. Gear contact alone is a landing, not this seam.
+    // Preserve TerrainStrikeSourceV1's fixed-tick incoming observation and
+    // mass. Numerical substeps must not move that established boundary or
+    // replace it with a dissipative contact state. A contact gap invisible
+    // at fixed-tick boundaries also cannot rewrite the legacy history.
+    // TerrainContactSourceV1 independently records the exact substep below.
     if (!structuralContact_) {
         state(structuralIncoming_);
         structuralIncomingMassKg_ = fdm_->GetMassBalance()->GetWeight() * 0.45359237;
@@ -857,17 +967,29 @@ void JsbsimModel::step(const ControlInputs& in) {
     rightBrakeCmd_.set(in.brakeRight);
     for (std::size_t i = 0; i < throttleCmd_.size(); ++i) throttleCmd_[i].set(in.throttle[i]);
 
-    fdm_->Run();
-    ++stepCount_;
-
-    const auto ground = fdm_->GetGroundReactions();
-    structuralContact_ = false;
-    for (int k = 0; k < ground->GetNumGearUnits(); ++k) {
-        const auto contact = ground->GetGearUnit(k);
-        if (!contact->IsBogey() && contact->GetCompLen() > 0.0) { structuralContact_ = true; break; }
+    // Hold the SDK input for the complete fixed outer tick. The generated
+    // internal step is constant for the model, including reset and coast.
+    const int substeps = std::max(1, static_cast<int>(std::llround(dt_ / fdm_->GetDeltaT())));
+    for (int substep = 0; substep < substeps; ++substep) {
+        const bool wasContact=structuralContact_;
+        fdm_->Run();
+        if (substep == 0) ++stepCount_;
+        const auto ground = fdm_->GetGroundReactions();
+        structuralContact_ = false;
+        for (int k = 0; k < ground->GetNumGearUnits(); ++k) {
+            const auto contact = ground->GetGearUnit(k);
+            if (!contact->IsBogey() && contact->GetCompLen() > 0.0) { structuralContact_ = true; break; }
+        }
+        if(structuralContact_ && !wasContact && !structuralObservedValid_) {
+            state(structuralObserved_.state);
+            structuralObserved_.outerStep=stepCount_;
+            structuralObserved_.substep=static_cast<unsigned>(substep+1);
+            structuralObserved_.substeps=static_cast<unsigned>(substeps);
+            structuralObservedValid_=cgFromOriginBodyM(structuralObserved_.cgFromOriginBodyM);
+        }
+        if (checkDivergence()) checkTerrainStrike();
+        if (crashed_ || diverged_) break;
     }
-
-    if (checkDivergence()) checkTerrainStrike();
 }
 
 bool JsbsimModel::terrainStrikeSnapshotV1(TerrainStrikeSnapshotV1& incoming) const noexcept {
@@ -1067,6 +1189,7 @@ double JsbsimModel::engineFuelFlowKgS(int engine) const {
     const auto& propulsion = fdm_->GetPropulsion();
     if (static_cast<unsigned>(engine) >= propulsion->GetNumEngines()) return 0.0;
     const auto e = propulsion->GetEngine(static_cast<unsigned>(engine));
+    if(e->GetStarved())return 0.; // native demand is not supplied fuel after starvation
     // (a rocket's propellant: its fuel's and its oxidiser's, of which a solid motor's grain is all the first)
     double flow = e->GetFuelFlowRate();
     if (e->GetType() == JSBSim::FGEngine::etRocket) {
@@ -1095,7 +1218,9 @@ EnergyOnBoard JsbsimModel::energy() const {
         double flow = 0.0;
         for (unsigned i = 0; i < propulsion->GetNumEngines(); ++i) {
             const auto engine = propulsion->GetEngine(i);
-            flow += engine->GetFuelFlowRate(); // lb/s
+            // JSBSim may retain a positive requested/idle flow after its
+            // supply is exhausted. No fuel is actually burned in that state.
+            if(!engine->GetStarved())flow += engine->GetFuelFlowRate(); // lb/s
             // (JSBSim counts an engine no tank feeds as starved: a tail rotor's drive burns nothing)
             if (engine->GetNumSourceTanks() > 0 && engine->GetStarved()) e.starved = true;
         }

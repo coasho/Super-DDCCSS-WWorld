@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <stdexcept>
 #include <thread>
 #include <unordered_map>
 #include <utility>
@@ -32,6 +33,7 @@ struct BrickOut {
     std::vector<V3> v;
     std::vector<EdgeKey> key;
     std::vector<std::array<std::uint32_t, 3>> f;
+    bool unresolved = false;
 };
 
 struct Grid {
@@ -49,7 +51,8 @@ struct Grid {
     }
 };
 
-void brick(const Node& root, const Grid& g, long long bi, long long bj, long long bk, double safety, BrickOut& out) {
+void brick(const Node& root, const Grid& g, long long bi, long long bj, long long bk, double safety,
+           double rootError, BrickOut& out) {
     const long long i0 = bi * kBrick, j0 = bj * kBrick, k0 = bk * kBrick;
     // refine: keep the leaf cells the surface may pass through
     struct Cell {
@@ -99,7 +102,23 @@ void brick(const Node& root, const Grid& g, long long bi, long long bj, long lon
         const auto it = made.find(key);
         if (it != made.end()) return it->second;
         const V3 pa = g.at(ci[lo][0], ci[lo][1], ci[lo][2]), pb = g.at(ci[hi][0], ci[hi][1], ci[hi][2]);
-        const double t = cv[lo] / (cv[lo] - cv[hi]);
+        double t = cv[lo] / (cv[lo] - cv[hi]);
+        if (rootError > 0.0) {
+            // A physical oracle is available: locate its actual zero instead
+            // of the zero of linearly interpolated corner samples. Keep the
+            // bracket and the canonical edge ordering on every worker.
+            double lower=0.0,upper=1.0,fa=cv[lo],fb=cv[hi];
+            bool accepted=false;
+            for (int iteration=0;iteration<48;++iteration) {
+                const double distance=root.eval(lerp(pa,pb,t)).d;
+                if (!std::isfinite(distance)) break;
+                if (std::fabs(distance)<=rootError) { accepted=true;break; }
+                if ((distance<0.0)==(fa<0.0)) { lower=t;fa=distance; }
+                else { upper=t;fb=distance; }
+                t=std::clamp(lower-fa*(upper-lower)/(fb-fa),lower+.1*(upper-lower),upper-.1*(upper-lower));
+            }
+            if (!accepted) out.unresolved=true;
+        }
         const auto idx = static_cast<std::uint32_t>(out.v.size());
         out.v.push_back(lerp(pa, pb, t));
         out.key.push_back(key);
@@ -175,13 +194,16 @@ Mesh polygonize(const Node& root, const Box& domain, const PolygonizeOptions& op
         for (;;) {
             const long long b = next.fetch_add(1);
             if (b >= total) break;
-            brick(root, g, b % bx, (b / bx) % by, b / (bx * by), options.safety, outs[static_cast<std::size_t>(b)]);
+            brick(root, g, b % bx, (b / bx) % by, b / (bx * by), options.safety,
+                  options.rootError,outs[static_cast<std::size_t>(b)]);
         }
     };
     std::vector<std::thread> pool;
     for (unsigned t = 1; t < threads; ++t) pool.emplace_back(work);
     work();
     for (auto& t : pool) t.join();
+    for (const auto& out : outs)
+        if (out.unresolved) throw std::runtime_error("meshkit: physical edge intersection did not converge");
 
     // weld: a vertex on a brick's face is made by both bricks, from the same
     // grid edge and the same corner values; the first brick's copy stays

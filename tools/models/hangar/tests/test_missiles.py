@@ -591,7 +591,15 @@ class NativeShowcaseConsumers(unittest.TestCase):
 class Lattice(unittest.TestCase):
     def test_grid_fins(self):
         from hangar.shape import lattice
-        a = Aircraft.load(_design("r77m"))
+        # A manufactured grid-fin geometry checks the renderer, independently
+        # of the authored R77M's conventional tail (Army ODIN, K-77M/Izd.180).
+        import tomllib
+        spec=tomllib.loads(pathlib.Path(_design('r77m')).read_text(encoding='utf-8'))
+        spec['model']={'cell_m':.0015}
+        for surface in spec['surface']:
+            if surface.get('controls'):
+                surface['lattice']={'width':.15,'cells':3}
+        a = Aircraft(spec)
         fins = [s for s in a.surfaces if s.lattice]
         self.assertEqual(len(fins), 2)  # the upper and lower pairs of its X, each mirrored
         self.assertEqual(a.cell, 0.0015)  # (its [model] cell: walls a few cells thick)

@@ -11,8 +11,8 @@ stages read; this module is how it was made, so a better shape is entered in sto
 
 A store's design differs from an aircraft's in three things: its category is "store" (a missile's is "missile": it
 has its own writer, missiles.py); its reference is its frontal area and its diameter, as its flight model's; and
-`[store]` says what the build-up cannot read from its body - a pod's wake (its rounded tail's separated flow), a cargo
-store's box.
+`[store]` identifies a cargo box for physical mass/contact construction.
+All aerodynamic coefficients come from the shared aircraft solver.
 """
 import json
 import math
@@ -60,8 +60,6 @@ def _spec(name, card):
         return s
     s = dict(stores.tank_spec(card))
     s["profile"] = [(x, r * s["diameter"] / 2.0) for x, r in s["profile"]]
-    if "base" in s:
-        s["wake"] = s["base"] * s["diameter"]
     return s
 
 
@@ -110,6 +108,11 @@ def design(name):
     """(the design's text, its paint's text) of the store `name`."""
     card = cards()[name]
     par = card["parameters"]
+    speed = par.get("analysis_speed_ms", {}).get("value")
+    if speed is not None and (not isinstance(speed, (int, float)) or not math.isfinite(speed) or speed <= 0):
+        raise ValueError("Store analysis_speed_ms must be finite and positive")
+    speed_line = ("speed = 250.0                # m/s: the Reynolds numbers of its carriage - assumed" if speed is None else
+                  "speed = %s # m/s: declared reference analysis speed from the store card" % repr(float(speed)))
     M, L = par["mass_kg"]["value"], par["length_m"]["value"]
     head = ["# %s, a store built by hangar from its card (docs/hangar.md, Stores) - written by `python -m hangar storedesigns %s`" % (card["designation"], name),
             "# (tools/hangar/hangar/storedesigns.py), one rule for every %s: edit stores.py's shape and write it again." % card["class"],
@@ -129,7 +132,7 @@ def design(name):
         body += ["  { x = %s, w = %s, top = %s, bottom = %s, n = 16 }," % (_f(x), _f(w), _f(0.5 * h), _f(-0.5 * h)) for x, w, h in rows]
         body += ["]", ""]
         fins, span = [], ref
-        store = ["[store]", 'shape = "box"            # a bluff body: its faces\' drag (its card\'s drag_cd), not a body of revolution\'s',
+        store = ["[store]", 'shape = "box"            # physical mass/contact geometry; aerodynamics use the shared solver',
                  "width = %s" % _f(W), "height = %s" % _f(H), ""]
         colour, band = (0.36, 0.38, 0.26), None
     else:
@@ -137,7 +140,7 @@ def design(name):
         D = s["diameter"]
         head += ["# figures: %s m long, %s m across, %s kg%s. Its shape is its class's, the same for every %s (assumed from" % (
             _f(L), _f(D), _f(M), " empty (its fuel is what its station holds)" if card["class"] == "tank" else "", card["class"]),
-                 "# photographs: stores.py) - it shapes the picture, the build-up's drag and where its fins act.", ""]
+                 "# photographs: stores.py) - geometry for the shared airframe solver and the rendered model.", ""]
         r = 0.5 * D
         area, ref, cg = math.pi * r * r, D, s["cg"]
         if card["class"] == "bomb":
@@ -157,16 +160,12 @@ def design(name):
             span = max(fin_span, ref) if fin_span > 0.0 else ref
             fins = ["# Its fins: %d round its tail (assumed from photographs)" % f["count"]] + fins
         store = []
-        if "wake" in s:
-            store = ["[store]",
-                     "wake = %s                # m: its rounded tail's separated flow, a blunt base's of this diameter to its drag (stores.py)" % _f(s["wake"]),
-                     ""]
         colour, band = s["colour"], (s.get("band"), s.get("band_at"))
     g = _gyration(*inertia, M, span, L)
     lines = head + [
         "[aircraft]", 'name = "%s"' % name, 'description = "%s (hangar build)"' % card["designation"], 'category = "store"',
         'card = "%s"             # its store card: the published figures this design holds' % card["id"], "",
-        "[analysis]", "speed = 250.0                # m/s: the Reynolds numbers of its carriage - assumed", "",
+        "[analysis]", "max_mach = 5.0 # Retains the former store table Mach domain.", speed_line, "",
         "[reference]                  # a store's: its frontal area and its diameter (its width), as its flight model's",
         "area = %s" % _f(area), "span = %s" % _f(ref), "chord = %s" % _f(ref), "aero_point = [%s, 0.0, 0.0]" % _f(cg), ""]
     if card["class"] in TRIANGLES:
@@ -186,6 +185,10 @@ def design(name):
     if band and band[0]:
         paint += ["bands = [", '  { x = [%s, %s], colour = "%s" },' % (_f(band[1][0]), _f(band[1][1]), _hex(band[0])), "]"]
     paint += ["panel_lines = 0.0", "wear = 0.03", "gloss = 0.3"]
+    # Source reconstruction must retain the same shared numerical contract as
+    # every authored aircraft/store, rather than dropping it on regeneration.
+    lines += ["", "# Shared source-derived fixed resolution; no equipment-specific timestep.",
+              "[integration]", "version = 2", 'mode = "derived"']
     return "\n".join(lines) + "\n", "\n".join(paint) + "\n"
 
 

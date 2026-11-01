@@ -3,7 +3,7 @@
 #
 # Frame: metres, x aft from its nose, y right, z up from its axis. The card (assets/stores/mk82.json) holds its
 # figures: 2.21 m long, 0.273 m across, 226.8 kg. Its shape is its class's, the same for every bomb (assumed from
-# photographs: stores.py) - it shapes the picture, the build-up's drag and where its fins act.
+# photographs: stores.py) - geometry for the shared airframe solver and the rendered model.
 
 [aircraft]
 name = "mk82"
@@ -12,6 +12,7 @@ category = "store"
 card = "mk82"             # its store card: the published figures this design holds
 
 [analysis]
+max_mach = 5.0 # Retains the former store table Mach domain.
 speed = 250.0                # m/s: the Reynolds numbers of its carriage - assumed
 
 [reference]                  # a store's: its frontal area and its diameter (its width), as its flight model's
@@ -68,3 +69,8 @@ gyration = [0.595458, 0.580645, 1.01273]  # a solid cylinder's (assumed)
 
 [dimensions]                  # the card
 length = 2.21
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

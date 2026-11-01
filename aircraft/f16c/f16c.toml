@@ -396,3 +396,8 @@ flaps = "NASA TP-1538 and Jane's: flaperons give the flap function"
 drag_devices = "Jane's All the World's Aircraft: split speed brakes either side of the nozzle"
 releasable_stores = "USAF F-16 fact sheet: nine stations for air-to-air and air-to-ground weapons"
 aerobatic = "USAF F-16 fact sheet: +9 g (fsim/envelope/clean/n_max)"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

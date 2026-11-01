@@ -11,6 +11,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <vector>
 
 namespace meshkit {
@@ -23,6 +24,7 @@ struct DecimateOptions {
     bool blocks = true;           ///< a parallel first pass on large meshes
     bool serial = true;           ///< the final pass over the whole mesh
     unsigned threads = 0;         ///< for the first pass (0: all cores); the mesh is the same on any number
+    std::function<bool(V3)> acceptPoint; ///< optional physical-source constraint
 };
 
 /// Simplifies m in place; material holds one entry per triangle and follows it.

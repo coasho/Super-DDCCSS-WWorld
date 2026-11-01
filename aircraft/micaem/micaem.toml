@@ -14,6 +14,7 @@ category = "missile"
 card = "mica-em"             # its store card: the published figures this design holds
 
 [analysis]
+max_mach = 5.0 # Retains the former store table Mach domain.
 speed = 900.0                # m/s: the Reynolds numbers (Mach 3 at altitude) - assumed
 
 # The body: an ogive radome 2.6 calibres long, the cylinder, a boattail over the nozzle (assumed)
@@ -102,3 +103,15 @@ gyration = [0.0181, 0.289, 0.289]  # radii of gyration over length - assumed (a 
 [dimensions]                  # the card: the span tip to tip across opposite fins
 length = 3.1
 span = 0.48
+
+# Derived normalization only; this does not add a physical wing.
+[reference]
+area = 0.020106192982974676
+span = 0.16
+chord = 0.16
+aero_point = [1.55, 0.0, 0.0]
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

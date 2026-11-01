@@ -20,6 +20,10 @@ rail, a Mk 82's on an ejector). All of it estimated, the same way for every airc
 """
 import json
 import os
+import hashlib
+import math
+from functools import lru_cache
+from pathlib import Path
 
 import numpy as np
 
@@ -40,18 +44,55 @@ def _store_card(card_id):
         return json.load(f)
 
 
-#: of a carried store's own fins' and base's side force, what they give on a station (src/simulation/mission_systems/HostStores.cpp kCarriedFins)
-CARRIED_FINS = 0.5
+@lru_cache(maxsize=64)
+def _store_model(path, source_hash, calibration_hash):
+    # Source tables are ready after the fleet aero stage. Reading them here
+    # avoids depending on whether a concurrent store publisher has run yet.
+    from . import airframe
+    from .verify import TableModel
+    d=airframe.design(path)
+    return d.aircraft,TableModel(d.calibrated(d.tables()))
 
 
-def directional_load(aircraft):
+def _yaw_gradient(store, position, mach, alpha_deg):
+    """Neutral store yaw derivative about the carrier CG, in m^3/rad.
+
+    Use the same wind/body transform and reference arm as StoreFlightBinding.
+    The source model supplies both force and moment; no scalar store formula.
+    """
+    from .verify import body_forces
+    if not store.get('model','').startswith('jsbsim:'):
+        raise ValueError('Carried store requires an authored VLM model')
+    name=store['model'].removeprefix('jsbsim:')
+    if not name or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_' for c in name):
+        raise ValueError('Carried store requires an authored VLM model')
+    path=Path(pipeline.repo_root())/'aircraft'/name/(name+'.toml')
+    calibration=path.parent/'calibration.toml'
+    digest=lambda p:hashlib.sha256(p.read_bytes()).hexdigest() if p.is_file() else ''
+    a,model=_store_model(str(path),digest(path),digest(calibration))
+    origin=np.asarray(a.spec['mass']['empty_cg'],float)
+    arm=np.asarray(position,float)+(a.aero_point-origin)*np.array([-1.,1.,-1.])
+    h=1.e-4
+    values=[]
+    for beta in (-h,h):
+        coefficient=model.evaluate(alpha_deg,math.degrees(beta),mach=mach)
+        force,moment=body_forces(coefficient,math.radians(alpha_deg),beta,1.,a.S,a.b,a.c)
+        values.append(moment[2]+np.cross(arm,force)[2])
+    return float((values[1]-values[0])/(2*h))
+
+
+@lru_cache(maxsize=64)
+def _empty_cg(aircraft):
+    from .mass import MassModel
+    return np.asarray(MassModel(aircraft).empty()['cg'],float)
+
+
+def directional_load(aircraft, mach=.3, alpha_deg=0., cg=None):
     """What the stores an aircraft's loadouts hang on it take from its weathercock stability, at the most: its yawing
     moment per unit of dynamic pressure and of sideslip (m^3; negative: the nose turned away from the wind), the sum
-    over its stations of the worst store its loadouts put on each. As the world works a carried store's moment out
-    (simulation/runtime/world/World.cpp, ms::Host::carriageDrag): its body's unstable couple, -2 x its Munk volume, and
-    its fins' and base's side force - half its card's slope, as carried - acting its side arm behind its station, the
-    station's place from the empty aircraft's CG; a missile in a fuselage well and a store in a bay or a hold give none
-    (in the fuselage's outline). A store that steadies it (fins well behind the CG) is not counted: it may not be
+    over its stations of the worst store its loadouts put on each. Differentiate the common neutral aircraft
+    tables at the scheduled Mach/alpha, including the store's moment and its force arm to the carrier CG.
+    Internal bays/holds are shielded, as in the native binding. A store that steadies it is not counted: it may not be
     carried. 0 without stations or loadouts. Divided by the wing's area and span, the change of Cn_beta."""
     fit = os.path.join(aircraft.dir, "payloads.json")
     if not os.path.isfile(fit):
@@ -69,19 +110,23 @@ def directional_load(aircraft):
     if card is None:
         return 0.0
     places = {s["number"]: s for s in card["stations"]}
+    shift=np.zeros(3)
+    if cg is not None:
+        shift=(np.asarray(cg,float)-_empty_cg(aircraft))*np.array([-1.,1.,-1.])
     worst = {}
+    derivatives={}
     for lo in fit.get("loadouts", []):
         for e in lo.get("stations", []):
             st, store = places.get(e.get("station")), _store_card(e.get("store", ""))
             if st is None or store is None:
                 continue
             name = st.get("name", "")
-            if "bay" in name or "cargo" in st.get("takes", []) or (store.get("class") == "aam" and "fuselage" in name):
+            if "bay" in name:
                 continue
-            par = store["parameters"]
-            value = lambda key: float(par[key]["value"]) if key in par else 0.0  # noqa: E731
-            slope = CARRIED_FINS * value("side_slope_m2")
-            moment = -(float(st["position_m"][0]) - value("side_arm_m")) * slope - 2.0 * value("munk_volume_m3")
+            key=(st['number'],store['id'])
+            if key not in derivatives:
+                derivatives[key]=_yaw_gradient(store,np.asarray(st['position_m'],float)-shift,mach,alpha_deg)
+            moment=derivatives[key]
             worst[st["number"]] = min(worst.get(st["number"], 0.0), moment * int(e.get("count", 1)))
     return float(sum(worst.values()))
 

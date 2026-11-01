@@ -15,6 +15,7 @@ SeekerResultV2 SemiActiveRadarSeekerV2::sample(const SeekerFrameV2& f) {
                !s.transmitterPathClear||!s.receiverPathClear;
     }),candidates.end());
     auto result=finish(receiver,nearest(receiver,candidates));
+    if(!result.valid)return {};
     result.supported=f.illuminated&&f.configuredIlluminator!=0;cached_=result;return result;
 }
 }

@@ -217,11 +217,11 @@ def write(spec, out_dir, profile_xml=""):
         # PX4's motor model: each rotor's drag -w c v in the rotor's plane (none along its axis)
         kx, kz = r["rotor_drag"], 0.0
     drag = """    <function name="aero/%(n)s/rotor-speed-sum"> <sum> %(ws)s </sum> </function>
-    <axis name="X"> <function name="aero/force/%(n)s-rotor-drag-x"> <product> <value> %(kx)s </value> <property> aero/%(n)s/rotor-speed-sum </property> <property> velocities/u-aero-fps </property> </product> </function> </axis>
-    <axis name="Y"> <function name="aero/force/%(n)s-rotor-drag-y"> <product> <value> %(kx)s </value> <property> aero/%(n)s/rotor-speed-sum </property> <property> velocities/v-aero-fps </property> </product> </function> </axis>
+    <axis name="X"> <function name="aero/force/%(n)s-rotor-drag-x"> <description>fsim.passive-rotor-force.v1</description> <product> <value> %(kx)s </value> <property> aero/%(n)s/rotor-speed-sum </property> <property> velocities/u-aero-fps </property> </product> </function> </axis>
+    <axis name="Y"> <function name="aero/force/%(n)s-rotor-drag-y"> <description>fsim.passive-rotor-force.v1</description> <product> <value> %(kx)s </value> <property> aero/%(n)s/rotor-speed-sum </property> <property> velocities/v-aero-fps </property> </product> </function> </axis>
 """ % dict(n=name, ws=" ".join(speeds), kx=_f(-kx * M_PER_FT / N_PER_LBF))
     if kz:
-        z_axis.insert(0, """<function name="aero/force/%(n)s-rotor-drag-z"> <product> <value> %(kz)s </value> <property> aero/%(n)s/rotor-speed-sum </property> <property> velocities/w-aero-fps </property> </product> </function>"""
+        z_axis.insert(0, """<function name="aero/force/%(n)s-rotor-drag-z"> <description>fsim.passive-rotor-force.v1</description> <product> <value> %(kz)s </value> <property> aero/%(n)s/rotor-speed-sum </property> <property> velocities/w-aero-fps </property> </product> </function>"""
                       % dict(n=name, kz=_f(-kz * M_PER_FT / N_PER_LBF)))
     # one <axis> per name: JSBSim keeps the functions of an axis's last element only (FGAerodynamics::Load
     # assigns each element's, it does not add them) - a second Z axis once dropped the rotors' drag along it
@@ -315,6 +315,12 @@ def write(spec, out_dir, profile_xml=""):
            yaw=" ".join(yaw), drag=drag, ge=ground_effect)
     with open_write(os.path.join(out_dir, name + ".xml"), "w", encoding="utf-8", newline="\n") as f:
         f.write(xml)
+    from pathlib import Path
+    from .. import airframe
+    target=Path(out_dir)/(name+'.xml')
+    authored=Path(out_dir)/(name+'.toml')
+    updated=airframe.install(target.read_text(encoding='utf-8'),authored,spec=spec,propulsion_body_loads=True)
+    target.write_text(updated,encoding='utf-8',newline='\n')
     return dict(kT=kT, kQ=kQ, omega_max=wmax, thrust_max_n=t_max, hover=weight / 4 / t_max,
                 hover_rpm=math.sqrt(weight / 4 / kT) * RPM_PER_RADS, thrust_to_weight=4 * t_max / weight,
                 **{key: ground[key] for key in ("feet_spring_n_per_m", "feet_damping_n_per_mps", "tops_spring_n_per_m",

@@ -14,7 +14,9 @@ entry = importlib.import_module("fsim_testbench.__main__")
 
 class TestTestbenchEntry(unittest.TestCase):
     def setUp(self):
-        self.scratch = tempfile.TemporaryDirectory(prefix="fsim-testbench-entry-", dir="D:/ENV/tmp")
+        temporary_root = Path(__file__).resolve().parents[3] / ".local/tmp"
+        temporary_root.mkdir(parents=True, exist_ok=True)
+        self.scratch = tempfile.TemporaryDirectory(prefix="fsim-testbench-entry-", dir=temporary_root)
         self.addCleanup(self.scratch.cleanup)
         self.root = Path(self.scratch.name)
         self.selected_bin = self.root / "build/ucrt64-headless/bin"

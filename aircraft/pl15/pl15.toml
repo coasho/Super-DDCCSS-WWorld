@@ -2,7 +2,7 @@
 # (tools/hangar/hangar/missiles.py), one rule for every missile: edit the table there and write it again.
 #
 # Frame: metres, x aft from the nose's tip, y right, z up from the body's axis. The card (assets/stores/pl-15.json)
-# holds the published figures: length 3.996 m, diameter 0.203 m, mass 210 kg; span 0.45 m (assumed from photographs (the card has none)), tip to tip across
+# holds the published figures: length 4 m, diameter 0.203 m, mass 210 kg; span 0.45 m (assumed from photographs (the card has none)), tip to tip across
 # opposite fins. Its surfaces fly in an X, 45 deg from the vertical, as it hangs on its launcher (assumed for all).
 # Assumed from photographs, the same way for every missile: the nose's shape and length, each surface's place,
 # chords and sweep, the motor's nozzle and burn, the CG. They only shape the picture until the aero stage runs.
@@ -14,6 +14,7 @@ category = "missile"
 card = "pl-15"             # its store card: the published figures this design holds
 
 [analysis]
+max_mach = 5.0 # Retains the former store table Mach domain.
 speed = 900.0                # m/s: the Reynolds numbers (Mach 3 at altitude) - assumed
 
 # The body: an ogive radome 2.8 calibres long, the cylinder, a boattail over the nozzle (assumed)
@@ -30,8 +31,8 @@ stations = [
   { x = 0.341, w = 0.1714, top = 0.0857, bottom = -0.0857, n = 2 },
   { x = 0.4547, w = 0.1951, top = 0.0976, bottom = -0.0976, n = 2 },
   { x = 0.5684, w = 0.203, top = 0.1015, bottom = -0.1015, n = 2 },
-  { x = 3.8742, w = 0.203, top = 0.1015, bottom = -0.1015, n = 2 },
-  { x = 3.996, w = 0.1624, top = 0.0812, bottom = -0.0812, n = 2 },
+  { x = 3.8782, w = 0.203, top = 0.1015, bottom = -0.1015, n = 2 },
+  { x = 4, w = 0.1624, top = 0.0812, bottom = -0.0812, n = 2 },
 ]
 
 # The tail fins: all-moving about their spindles; root chord 0.3 m, tip 0.14 m, 0.1235 m out from the body, their tips across the card's span (assumed from photographs)
@@ -81,8 +82,20 @@ thrust_kn = 12
 
 [mass]
 empty = 210                 # kg, the card, motor full
-empty_cg = [1.998, 0.0, 0.0]  # assumed: half way along
+empty_cg = [2, 0.0, 0.0]  # assumed: half way along
 gyration = [0.0178, 0.289, 0.289]  # radii of gyration over length - assumed (a slender rod's: L/sqrt(12))
 
 [dimensions]                  # the card: the span tip to tip across opposite fins
-length = 3.996
+length = 4
+
+# Derived normalization only; this does not add a physical wing.
+[reference]
+area = 0.032365472915445448
+span = 0.20300000000000001
+chord = 0.20300000000000001
+aero_point = [2.0, 0.0, 0.0]
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

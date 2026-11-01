@@ -1,0 +1,23 @@
+[calibration]
+extra_drag_area_m2 = 0.0017621684384979
+# No independent fit is available; the shared model has no per-model overrides.
+
+[reference]
+kind = "configuration-drag-index"
+source_url = "https://www.rand.org/content/dam/rand/pubs/monograph_reports/2005/MR1216.pdf"
+source_table = "A.2: four AIM-120 in fuselage wells; variant unspecified"
+drag_index = 5.2
+wing_area_m2 = 56.485048320000004
+quantity = 4
+hardware_area_m2_per_store = 0.0
+mach = 0.8
+validity = "Nominal carriage configuration fit; Mach0.8 and DI=10000*CD convention are declared comparison assumptions because RAND does not specify those conditions. Not six-axis equipment validation."
+
+[provenance]
+schema = "fsim.hangar-calibration.v1"
+method = "shared-aircraft-vlm"
+status = "configuration-reference-fit"
+observed_source_sha256 = "beef86158daa68ddfe9495fe6e4c267d3cc237df3e732703a8d4ac837071a814"
+target_keys = []
+scope = "Declared reference targets only; no six-axis equipment accuracy certification"
+historical_fit_note = "Retained performance overrides are not newly validated equipment data"

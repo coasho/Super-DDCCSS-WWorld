@@ -1,0 +1,11 @@
+[calibration]
+# No independent fit is available; the shared model has no per-model overrides.
+
+[provenance]
+schema = "fsim.hangar-calibration.v1"
+method = "shared-aircraft-vlm"
+status = "unfitted"
+observed_source_sha256 = "f8741f6d1d0c1bc1a180f8a863fdfb234433c7b76e82eb5a1f2a448fd253c44a"
+target_keys = ["max_mach", "max_mach_altitude_ft", "operational_ceiling_ft"]
+scope = "Declared reference targets only; no six-axis equipment accuracy certification"
+historical_fit_note = "Retained performance overrides are not newly validated equipment data"

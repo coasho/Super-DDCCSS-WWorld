@@ -7,7 +7,7 @@
     build       the JSBSim aircraft (+ a glTF model), found by the platform as jsbsim:<name>
     verify      JSBSim flies exactly the tables (forces at random states)
     fly         flight tests: trim, stall, climb, speed, modes, robustness
-    calibrate   the drag (or engine) fitted to the published top speed
+    calibrate   SDK measurements, sourced calibration and independent holdouts
     autopilot   the platform's control loops tuned for it, written into the JSBSim aircraft
     report      one HTML page with everything
 
@@ -24,6 +24,7 @@ import os
 import pickle
 import re
 import time
+from pathlib import Path
 
 import numpy as np
 
@@ -167,10 +168,10 @@ def keep_date(path, text, date=XML_DATE):
 
 
 class Design:
-    def __init__(self, path, log=print):
+    def __init__(self, path, log=print, aircraft=None):
         self.path = path
         self.dir = os.path.dirname(path)
-        self.aircraft = Aircraft.load(path)
+        self.aircraft = aircraft if aircraft is not None else Aircraft.load(path)
         self.name = self.aircraft.name
         self.out = os.path.join(self.dir, "out")
         os.makedirs(self.out, exist_ok=True)
@@ -200,6 +201,9 @@ class Design:
     def load(self, stage):
         p = os.path.join(self.out, stage + ".json")
         if not os.path.isfile(p):
+            if stage=='ground':
+                from .flightcal import read
+                return read(self.dir).get(stage)
             return None
         with open(p, encoding="utf-8") as f:
             return json.load(f)
@@ -301,9 +305,12 @@ class Design:
             self._aero_model = AeroModel(self.aircraft)
         return self._aero_model
 
+    def table_inputs_hash(self):
+        return self.spec_hash("surface", "body", "intake", "reference", "analysis", "gear", "engine", "strut")
+
     def tables(self, force=False):
         from .aero import tables as T
-        key = self.spec_hash("surface", "body", "intake", "reference", "analysis", "gear", "engine")
+        key = self.table_inputs_hash()
         cache = os.path.join(self.out, "tables_quick.pkl" if self.quick else "tables.pkl")
         if not force and os.path.isfile(cache):
             with open(cache, "rb") as f:
@@ -337,9 +344,70 @@ class Design:
         """The zero-lift drag over Mach with the calibration's wave-drag
         efficiency (cheap; the calibration is not part of the tables' key)."""
         if tabs.get("mach") is not None and "E_WD" in tabs["mach"]:
-            from .aero.mach import _drag
+            from .aero.mach import _drag, _fair
             tabs["mach"].update(_drag(self.aircraft, tabs, tabs["mach"]))
-        return tabs
+            exponent = float(self.aircraft.calibration.get("wave_drag_rise_exponent", 1.0))
+            if not np.isfinite(exponent) or not 1.0 <= exponent <= 4.0:
+                raise ValueError("wave_drag_rise_exponent must be finite and between one and four")
+            if exponent != 1.0:
+                # A source-fitted correction of the existing normalized rise.
+                # Neither its onset nor the supersonic amplitude is inferred
+                # from curvature. Fit those separately only when observations
+                # identify them. Default 1 preserves every existing table.
+                tabs = dict(tabs)
+                t = tabs["mach"] = dict(tabs["mach"])
+                peak = t["E_WD"] * 4.5 * np.pi * (t["A_max_m2"] / t["length_m"])**2 / self.aircraft.S
+                cr, dd = t["M_cr"], t["M_dd"]
+                if not cr < dd < 1.05 or peak <= 0.0:
+                    raise ValueError("Wave-rise curvature requires ordered onset/divergence/peak anchors")
+                grid = t["mach"]
+                sub = grid < 1.2
+                wave = np.array([0.0 if m <= cr else float(_fair([cr, dd, 1.05, 1.2],
+                    [0.0, 0.002, peak, peak], m)) for m in grid[sub]])
+                delta = np.zeros_like(grid)
+                delta[sub] = peak * np.clip(wave / peak, 0.0, 1.0)**exponent - wave
+                t["dCD0"] = t["dCD0"] + delta
+                t["wave_drag_rise_exponent"] = exponent
+        return self._with_body_reynolds(tabs)
+
+    def _with_body_reynolds(self, tabs):
+        """Optional body-friction Reynolds variation at a declared atmosphere.
+
+        The base geometry uses analysis.speed and NU0. Its existing Mach
+        increment already includes compressibility: add only the difference
+        from evaluating that same Cf correlation at Re=M*a*length/nu.
+        Reference temperature/density are fixed simulation inputs, not fitted
+        equipment measurements. No pressure, lift or moment term is scaled.
+        """
+        cal = self.aircraft.calibration
+        if not cal.get("body_friction_reynolds_coupling", 0.0):
+            return tabs
+        if float(cal["body_friction_reynolds_coupling"]) != 1.0:
+            raise ValueError("body_friction_reynolds_coupling must be zero or one")
+        temperature = float(cal.get("body_friction_temperature_k", 0.0))
+        density = float(cal.get("body_friction_density_kg_m3", 0.0))
+        if not np.isfinite([temperature, density]).all() or min(temperature, density) <= 0.0:
+            raise ValueError("Body friction requires a finite positive reference atmosphere")
+        from .aero.bodies import BodyAero
+        from .aero.model import NU0
+        from .aero.section import skin_friction
+        speed = float(self.aircraft.spec.get("analysis", {}).get("speed", 50.0))
+        if not np.isfinite(speed) or speed <= 0.0:
+            raise ValueError("Body friction requires a positive reference speed")
+        viscosity = 1.716e-5 * (temperature / 273.15)**1.5 * (273.15 + 110.4) / (temperature + 110.4)
+        nu = viscosity / density
+        sound = float(np.sqrt(1.4 * 287.05287 * temperature))
+        out = dict(tabs)
+        t = out["mach"] = dict(tabs["mach"])
+        grid = t["mach"]
+        delta = np.zeros_like(grid)
+        for body in BodyAero(self.aircraft, speed, NU0, 0.0).parts:
+            length = float(body["x"][-1] - body["x"][0])
+            cf0 = skin_friction(speed * length / NU0)
+            ratios = np.array([skin_friction(max(float(m) * sound, 1.e-6) * length / nu, float(m)) / cf0 for m in grid])
+            delta += float(body["friction"]) / self.aircraft.S * (ratios - (1.0 + 0.144 * grid**2)**-0.65)
+        t["dCD0"] = t["dCD0"] + delta
+        return out
 
     def aero(self, force=False):
         from .aero import tables as T
@@ -905,14 +973,21 @@ class Design:
         return out
 
     def calibrated(self, tabs):
-        """The tables with the calibration's extra drag area (drag along the
-        flow, the same at every attitude) added to the base drag."""
+        """Apply source-fitted base-drag shape and area through the shared writer.
+
+        Scale only the existing base CD shape, before the attitude-independent
+        area offset. Mach increments, lift, moments and source tables retain
+        their definitions. Defaults preserve the uncalibrated solver exactly.
+        """
         extra = float(self.aircraft.calibration.get("extra_drag_area_m2", 0.0))
-        if not extra:
+        scale = float(self.aircraft.calibration.get("base_drag_scale", 1.0))
+        if not np.isfinite(scale) or scale <= 0.0:
+            raise ValueError("base_drag_scale must be finite and positive")
+        if not extra and scale == 1.0:
             return tabs
         out = dict(tabs)
         out["base"] = dict(tabs["base"])
-        out["base"]["CD"] = tabs["base"]["CD"] + extra / self.aircraft.S
+        out["base"]["CD"] = scale * tabs["base"]["CD"] + extra / self.aircraft.S
         return out
 
     # -- verify ---------------------------------------------------------------------------------
@@ -1029,7 +1104,14 @@ class Design:
             extra.append(float(fighter["top_altitude_m"]))
         if "top_altitude_m" in flown:
             extra.append(float(flown["top_altitude_m"]))
-        t = P.fly(self.name, ceiling, stall_tas, alpha_max, extra_altitudes=extra, log=self.log)
+        # Measure the same generated physical aircraft without instantiating
+        # combat sensors for hundreds of aerodynamic trial vehicles. Keep
+        # mass, propulsion, FCS and profile data; the SDK still owns dynamics.
+        from .sdk_measurements import Measurements
+        fixture = Measurements(self.name, Path(self.out) / 'performance-runtime')
+        runtime_name, _ = fixture.fixture(self.aircraft.calibration, neutral=False)
+        t = P.fly(runtime_name, ceiling, stall_tas, alpha_max, extra_altitudes=extra,
+                  log=self.log, jsbsim_root=str(fixture.scratch))
         checks = self._performance_checks(P, t, flown)
         plots.performance(t, self.img("performance.png"), self.name)
         out = self.save("performance", {"tables": t, "checks": checks, "images": ["performance.png"]})
@@ -1425,90 +1507,8 @@ class Design:
                 info("crash tests: deepest point below ground", crashes[deep]["deepest_m"], "m", note=deep)]
 
 
-EWD_MAX = 6.0   # the most wave drag calibration gives a subsonic jet too fast with conventional sections
 
 
-def _calibrate_fighter(d):
-    """A fighter's engine and supersonic drag to its published top speed.
-    First the engines' throttle ratio TR (where the turbine reaches its
-    temperature limit: how much thrust is left at high Mach), between 1.0
-    and 1.5; if even 1.5 falls short, then the wave drag's E_WD (Raymer
-    12.46), from the area distribution's 2 down to 1.2, a smooth one's -
-    and if the top speed jumps past the target there (through the transonic
-    drag rise or not), E_WD 1.2 and TR again. Each is a bisection on the
-    maximum level Mach number at the target altitude, the aircraft rebuilt
-    and accelerated at full afterburner every step."""
-    from . import flight as F
-    from .fcs import options
-    t = d.targets
-    a = d.aircraft
-    if "max_mach" not in t:
-        return d.save("calibrate", {"checks": [info("nothing to calibrate", "needs a max_mach target")]})
-    alt = float(t.get("max_mach_altitude_ft", 36000.0)) * 0.3048
-    target = float(t["max_mach"])
-    opts = options(a)
-    history = []
-    ewd0 = float(a.spec.get("analysis", {}).get("wave_drag_efficiency", 2.0))
-
-    def measure(tr, ewd):
-        _write_calibration(d, {"throttle_ratio": float(tr), "wave_drag_efficiency": float(ewd)})
-        d.aircraft = Aircraft.load(d.path)
-        d.build()
-        f = F.Flight(a.name, name="hangar-cal-" + a.name)
-        try:
-            pilot = F.FighterPilot(f.dt, opts["n_max"], opts["n_min"]) if opts else F.FighterPilot(f.dt)
-            m, _ = F.max_level_mach(f, pilot, alt, start_mach=0.9, seconds=420.0)
-        finally:
-            f.close()
-        history.append({"throttle_ratio": float(tr), "wave_drag_efficiency": float(ewd), "max_mach": float(m)})
-        d.log("  calibrate: TR %.3f, E_WD %.2f -> Mach %.3f at %.0f ft" % (tr, ewd, m, alt / 0.3048))
-        return m
-
-    def bisect(f_of, lo, hi, m_lo, m_hi):
-        x, m = (lo, m_lo) if abs(m_lo - target) < abs(m_hi - target) else (hi, m_hi)
-        if (m_lo - target) * (m_hi - target) >= 0:
-            return x, m
-        for _ in range(8):
-            x = 0.5 * (lo + hi)
-            m = f_of(x)
-            if abs(m - target) < 0.01:
-                break
-            if (m - target) * (m_lo - target) > 0:
-                lo, m_lo = x, m
-            else:
-                hi, m_hi = x, m
-        return x, m
-
-    tr_lo, tr_hi = 1.0, 1.5
-    m_lo, m_hi = measure(tr_lo, ewd0), measure(tr_hi, ewd0)
-    tr, m = bisect(lambda x: measure(x, ewd0), tr_lo, tr_hi, m_lo, m_hi)
-    ewd = ewd0
-    if m_hi < target - 0.01:
-        # the engine alone cannot: less wave drag, down to a smooth area distribution's
-        tr = tr_hi
-        m_e = measure(tr, 1.2)
-        ewd, m = bisect(lambda x: measure(tr, x), 1.2, ewd0, m_e, m_hi)
-        if abs(m - target) > 0.03 and m_e > target:
-            # the top speed jumps across the target: the transonic drag rise
-            # holds the aircraft, or with a little less of it, it breaks
-            # through and runs on well past. The smooth area distribution's
-            # wave drag then, to break through, and a lower throttle ratio to
-            # stop it at the target
-            ewd = 1.2
-            tr, m = bisect(lambda x: measure(x, ewd), tr_lo, tr_hi, measure(tr_lo, ewd), m_e)
-    _write_calibration(d, {"throttle_ratio": float(tr), "wave_drag_efficiency": float(ewd)},
-                       note="fitted: maximum Mach %.3f at %.0f ft (target %g)" % (m, alt / 0.3048, target))
-    d.aircraft = Aircraft.load(d.path)
-    d.build()
-    # a miss is a warning: both corrections at their bounds is an engine or a
-    # drag estimate that falls short, which the fly stage's checks then show
-    checks = [check("maximum Mach number after calibration", m, target - 0.03, target + 0.03, level="warn",
-                    note="at %.0f ft" % (alt / 0.3048)),
-              check("engine throttle ratio TR", tr, 1.0, 1.5, level="warn",
-                    note="theta0 where the turbine reaches its limit: Mach %.2f at 36,000 ft" % math.sqrt(max((tr / 0.7519 - 1.0) / 0.2, 0.0))),
-              check("wave-drag efficiency E_WD", ewd, 1.2, 3.5, level="warn", note="Raymer: 1.2 a smooth area distribution, 2-3 typical")]
-    return d.save("calibrate", {"calibration": {"throttle_ratio": tr, "wave_drag_efficiency": ewd}, "history": history,
-                                "checks": checks})
 
 
 def _top_mach(d, altitude_m, start_mach, seconds=420.0):
@@ -1590,187 +1590,18 @@ def fit_drag_area(measure, target, first, steps=10, tol=0.004):
     return a, m
 
 
-def _calibrate_subsonic_drag(d, alt, target, m_cr):
-    """A subsonic jet whose top speed lies below its wing's drag rise: the
-    extra drag area (the wing's sections as the design has them) that holds
-    it to its published top speed at its height."""
-    history = []
-
-    def measure(area):
-        _write_calibration(d, {"extra_drag_area_m2": float(area)})
-        d.aircraft = Aircraft.load(d.path)
-        d.build()
-        m = _top_mach(d, alt, 0.95 * target)
-        history.append({"extra_drag_area_m2": float(area), "max_mach": float(m)})
-        d.log("  calibrate: extra drag area %.3f m2 -> Mach %.3f at %.0f ft" % (area, m, alt / 0.3048))
-        return m
-
-    area, m = fit_drag_area(measure, target, 0.002 * d.aircraft.S)
-    cal = {"extra_drag_area_m2": float(area)}
-    _write_calibration(d, cal, note="fitted: maximum Mach %.3f at %.0f ft (target %g), below the wing's drag rise (M_cr %.3f)"
-                       % (m, alt / 0.3048, target, m_cr))
-    d.aircraft = Aircraft.load(d.path)
-    d.build()
-    checks = [check("maximum Mach number after calibration", m, target - 0.03, target + 0.03, level="warn",
-                    note="at %.0f ft; below the wing's drag rise (critical Mach %.3f)" % (alt / 0.3048, m_cr)),
-              check("extra drag area", area, 0.0, 0.03 * d.aircraft.S, "m2", level="warn",
-                    note="CD %+.4f: what the estimate leaves out (antennas, radomes' pressure drag, gaps)"
-                    % (area / d.aircraft.S))]
-    return d.save("calibrate", {"calibration": cal, "history": history, "checks": checks})
 
 
-def _calibrate_subsonic(d):
-    """A subsonic jet (a transport, a tanker) to its published top speed.
-    Up there its high-bypass engines run well below their throttle ratio -
-    their thrust is the same at any TR the fighters' fit ranges over - and
-    what holds it is its wing's transonic drag rise, from Korn's
-    drag-divergence Mach number (Raymer 12.5.10). So the fit is Korn's
-    airfoil technology factor kappa_A, from conventional sections' 0.87 to
-    supercritical ones' 0.95: a bisection on the maximum level Mach number
-    flown at the published height, the aircraft rebuilt every step. The
-    engines' throttle ratio stays the design's. A jet too fast even with
-    conventional sections (an older, thicker wing than Korn's relation
-    knows: the B-52's) gets more wave drag instead, E_WD from the design's
-    up to EWD_MAX. A top speed below the wing's drag rise (conventional
-    sections') - the E-3's, its rotodome's drag holding it - is none of the
-    wing's doing: there the fit is an extra drag area, as the light
-    aircraft's (fit_drag_area)."""
-    from .aero.mach import E_WD, KORN_KAPPA, KORN_SUPERCRITICAL, drag_rise_mach
-    t = d.targets
-    alt = top_speed_altitude(t)
-    target = float(t["max_mach"])
-    history = []
-    _, m_cr = drag_rise_mach(d.aircraft, KORN_KAPPA)
-    if target < m_cr + BELOW_DRAG_RISE:
-        return _calibrate_subsonic_drag(d, alt, target, m_cr)
-
-    ewd0 = float(d.aircraft.spec.get("analysis", {}).get("wave_drag_efficiency", E_WD))
-
-    def measure(kappa, ewd=None):
-        cal = {"korn_kappa": float(kappa)}
-        if ewd is not None:
-            cal["wave_drag_efficiency"] = float(ewd)
-        _write_calibration(d, cal)
-        d.aircraft = Aircraft.load(d.path)
-        d.build()
-        m = _top_mach(d, alt, 0.95 * target)
-        history.append(dict(cal, max_mach=float(m)))
-        d.log("  calibrate: kappa %.4f%s -> Mach %.3f at %.0f ft"
-              % (kappa, "" if ewd is None else ", E_WD %.2f" % ewd, m, alt / 0.3048))
-        return m
-
-    kappa, m = fit_kappa(measure, target)
-    cal = {"korn_kappa": float(kappa)}
-    if m > target + 0.01 and kappa <= KORN_KAPPA + 1e-9:
-        # too fast even with conventional sections: more wave drag
-        lo, hi = ewd0, EWD_MAX
-        m_lo, m_hi = m, measure(kappa, hi)
-        ewd, m = (hi, m_hi)
-        if m_hi < target:
-            for _ in range(8):
-                ewd = 0.5 * (lo + hi)
-                m = measure(kappa, ewd)
-                if abs(m - target) < 0.005:
-                    break
-                if m > target:
-                    lo, m_lo = ewd, m
-                else:
-                    hi, m_hi = ewd, m
-        cal["wave_drag_efficiency"] = float(ewd)
-    _write_calibration(d, cal, note="fitted: maximum Mach %.3f at %.0f ft (target %g)" % (m, alt / 0.3048, target))
-    d.aircraft = Aircraft.load(d.path)
-    d.build()
-    m_dd = d.tables()["mach"].get("M_dd", float("nan"))
-    checks = [check("maximum Mach number after calibration", m, target - 0.03, target + 0.03, level="warn",
-                    note="at %.0f ft" % (alt / 0.3048)),
-              check("Korn's airfoil technology factor kappa_A", kappa, KORN_KAPPA, KORN_SUPERCRITICAL, level="warn",
-                    note="Raymer 12.5.10: 0.87 conventional sections, 0.95 supercritical; drag divergence at Mach %.3f" % m_dd,
-                    fmt="%.3f")]
-    if "wave_drag_efficiency" in cal:
-        checks.append(check("wave-drag efficiency E_WD", cal["wave_drag_efficiency"], 1.2, 3.5, level="warn",
-                            note="Raymer: 1.2 a smooth area distribution, 2-3 typical; more stands for a thick wing's shock drag"))
-    return d.save("calibrate", {"calibration": cal, "history": history, "checks": checks})
 
 
 def _calibrate(d):
-    """Fit what the physics cannot know to published performance: an extra
-    drag area (struts, cooling, gear legs, antennas, gaps) to the maximum level
-    speed and the propeller pitch to the best rate of climb. Damped Newton on
-    the two, finite-difference sensitivities from quick flight tests of the
-    rebuilt aircraft. A design that gives its propeller's pitch
-    ([engine.propeller] pitch, the real one's) keeps it: the drag area alone
-    is fitted, to the top speed, and the climb is a prediction. The result
-    goes to calibration.toml beside the design - reviewable, and deleted to
-    return to the pure estimate."""
-    t = d.targets
-    a = d.aircraft
-    if any(e.type == "turbofan" for e in a.engines):
-        if "max_mach" in t and float(t["max_mach"]) < 1.0:
-            return _calibrate_subsonic(d)
-        return _calibrate_fighter(d)
-    # the real propeller's pitch, or a constant-speed propeller: none to fit,
-    # the drag alone to the top speed
-    fixed = all("pitch" in (e.prop_spec or {}) or e.type == "turboprop" for e in a.engines if e.has_propeller)
-    needs = ("max_speed_ktas",) if fixed else ("max_speed_ktas", "climb_rate_fpm")
-    if not a.engines or not all(k in t for k in needs):
-        return d.save("calibrate", {"checks": [info("nothing to calibrate", "needs %s targets" % " and ".join(needs))]})
-    fly = d.load("fly")
-    if not fly:
-        raise SystemExit("calibrate needs a fly stage first (it takes the climb speed from it)")
-    vy = fly["results"]["design"]["climb"]["rows"][0]["speed_ms"]
-    target = np.array([t["max_speed_ktas"], t.get("climb_rate_fpm", float("nan"))])
-    if fixed:
-        return _calibrate_drag(d, target, vy)
-    x = np.array([float(a.calibration.get("extra_drag_area_m2", 0.0)), float(a.engines[0].prop_pitch or 0.75 * a.engines[0].prop_diameter)])
-    D = a.engines[0].prop_diameter
-    lo, hi = np.array([0.0, 0.45 * D]), np.array([0.25 * a.S, 1.3 * D])
-    history = []
+    from pathlib import Path
+    from . import reference_campaign
+    result=reference_campaign.execute_model(d.name,reference_campaign.load_catalog(),
+        Path(d.out)/'reference-runtime')
+    return d.save('calibrate',result)
 
-    def measure(x):
-        _write_calibration(d, {"extra_drag_area_m2": float(x[0]), "propeller_pitch_m": [float(x[1])] * len(a.engines)})
-        y = np.array(_light_performance(d, target[0], vy))
-        history.append({"extra_drag_area_m2": float(x[0]), "propeller_pitch_m": float(x[1]), "max_speed_kt": y[0], "climb_fpm": y[1]})
-        d.log("  calibrate: drag area %+.3f m2, pitch %.3f m -> %.1f kt, %.0f ft/min" % (x[0], x[1], y[0], y[1]))
-        return y
 
-    y = measure(x)
-    steps = np.array([0.02, 0.04])
-    trust = np.array([0.12 * a.S * 0.05 / 0.05, 0.12 * D])   # largest step: drag area (m2), pitch (m)
-    trust[0] = max(0.05, 0.02 * a.S)
-    for _ in range(8):
-        err = (target - y) / target
-        if np.all(np.isfinite(y)) and np.all(np.abs(err) < 0.015):
-            break
-        J = np.empty((2, 2))
-        for k in range(2):
-            xk = x.copy()
-            xk[k] += steps[k]
-            J[:, k] = (measure(xk) - y) / steps[k]
-        if not np.all(np.isfinite(J)):
-            break
-        step, *_ = np.linalg.lstsq(J, target - y, rcond=None)
-        # trust region: no step larger than a physically small change
-        scale = np.max(np.abs(step) / trust)
-        if scale > 1.0:
-            step = step / scale
-        x_new = np.clip(x + step, lo, hi)
-        y_new = measure(x_new)
-        # accept only an improvement (both measured); else shrink the region
-        if np.all(np.isfinite(y_new)) and np.sum(((target - y_new) / target) ** 2) < np.sum(((target - y) / target) ** 2):
-            x, y = x_new, y_new
-        else:
-            trust *= 0.5
-    measure(x)   # leave the aircraft built at the best point
-    _write_calibration(d, {"extra_drag_area_m2": float(x[0]), "propeller_pitch_m": [float(x[1])] * len(a.engines)},
-                       note="fitted: max speed %.1f kt (target %g), climb %.0f ft/min (target %g)" % (y[0], target[0], y[1], target[1]))
-    d.aircraft = Aircraft.load(d.path)
-    d.build()
-    checks = [check("maximum level speed after calibration", y[0], 0.985 * target[0], 1.015 * target[0], "KTAS"),
-              check("rate of climb after calibration", y[1], 0.97 * target[1], 1.03 * target[1], "ft/min"),
-              info("extra drag area", x[0], "m2", note="CD %+.4f: what the build-up does not see" % (x[0] / a.S)),
-              info("propeller pitch", x[1], "m", note="pitch/diameter %.2f" % (x[1] / D))]
-    return d.save("calibrate", {"calibration": {"extra_drag_area_m2": x[0], "propeller_pitch_m": x[1]}, "history": history,
-                                "checks": checks})
 
 
 def _light_performance(d, v_kt, vy):
@@ -1788,96 +1619,8 @@ def _light_performance(d, v_kt, vy):
     return vmax, c["rate_ms"] / 0.3048 * 60
 
 
-def _calibrate_drag(d, target, vy):
-    """The extra drag area alone, to the top speed, for a design that gives
-    its propeller's real pitch: the target bracketed (more drag, slower),
-    then secants inside the bracket. The climb rate stays a prediction."""
-    a = d.aircraft
-    history = []
-
-    def measure(drag):
-        _write_calibration(d, {"extra_drag_area_m2": float(drag)})
-        v, climb = _light_performance(d, target[0], vy)
-        history.append({"extra_drag_area_m2": float(drag), "max_speed_kt": v, "climb_fpm": climb})
-        d.log("  calibrate: drag area %+.3f m2 -> %.1f kt, %.0f ft/min" % (drag, v, climb))
-        return v
-
-    top, tol = 0.25 * a.S, 0.003 * target[0]
-    x = float(a.calibration.get("extra_drag_area_m2", 0.0))
-    speed = {x: measure(x)}
-    step = max(0.02, 0.005 * a.S)
-    while abs(speed[x] - target[0]) > tol:
-        nx = float(np.clip(x + (step if speed[x] > target[0] else -step), 0.0, top))
-        if nx == x:
-            break
-        speed[nx] = measure(nx)
-        if (speed[nx] - target[0]) * (speed[x] - target[0]) <= 0:
-            break
-        x, step = nx, 2.0 * step
-    for _ in range(6):
-        best = min(speed, key=lambda k: abs(speed[k] - target[0]))
-        fast = [k for k in speed if speed[k] > target[0]]
-        slow = [k for k in speed if speed[k] < target[0]]
-        if abs(speed[best] - target[0]) <= tol or not fast or not slow:
-            break
-        x1, x2 = max(fast), min(slow)
-        nx = float(np.clip(x1 + (target[0] - speed[x1]) * (x2 - x1) / (speed[x2] - speed[x1]), 0.0, top))
-        if nx in speed:
-            break
-        speed[nx] = measure(nx)
-    x = min(speed, key=lambda k: abs(speed[k] - target[0]))
-    row = [h for h in history if h["extra_drag_area_m2"] == x][-1]
-    v, climb = row["max_speed_kt"], row["climb_fpm"]
-    _write_calibration(d, {"extra_drag_area_m2": x},
-                       note="fitted: max speed %.1f kt (target %g); climb %.0f ft/min predicted%s"
-                       % (v, target[0], climb, " (published %g)" % target[1] if np.isfinite(target[1]) else ""))
-    d.aircraft = Aircraft.load(d.path)
-    d.build()
-    e = d.aircraft.engines[0]
-    top = d._max_speed_altitude()
-    checks = [check("maximum level speed after calibration", v, 0.985 * target[0], 1.015 * target[0], "KTAS",
-                    note="" if top <= 100.0 else "at {:,.0f} ft".format(top / 0.3048)),
-              (check("rate of climb, predicted", climb, 0.95 * target[1], 1.05 * target[1], "ft/min",
-                     note="with the propeller's own pitch" if e.type != "turboprop" else "constant-speed propellers")
-               if np.isfinite(target[1]) else info("rate of climb, predicted", climb, "ft/min")),
-              info("extra drag area", x, "m2", note="CD %+.4f: what the build-up does not see" % (x / a.S))]
-    if e.type != "turboprop":
-        checks.append(info("propeller pitch", e.prop_pitch, "m",
-                           note="the design's own, pitch/diameter %.2f" % (e.prop_pitch / e.prop_diameter)))
-    return d.save("calibrate", {"calibration": {"extra_drag_area_m2": x}, "history": history, "checks": checks})
 
 
-def _write_calibration(d, cal, note=""):
-    lines = ["# Written by hangar calibrate (%s) to meet the [targets] of %s:" % (time.strftime("%Y-%m-%d %H:%M"),
-                                                                              os.path.basename(d.path)),
-             "# corrections for what the physics estimate does not see. Delete this file to",
-             "# go back to the pure estimate.", "[calibration]"]
-    if "extra_drag_area_m2" in cal:
-        lines.append("extra_drag_area_m2 = %.4f   # drag along the flow, added to the estimate (m2)" % cal["extra_drag_area_m2"])
-    if "propeller_pitch_m" in cal:
-        lines.append("propeller_pitch_m = [%s]   # geometric pitch at 75 %% radius, per engine"
-                     % ", ".join("%.4f" % p for p in cal["propeller_pitch_m"]))
-    if "wave_drag_efficiency" in cal:
-        lines.append("wave_drag_efficiency = %.4f   # Raymer's E_WD: the wave drag over Sears-Haack's" % cal["wave_drag_efficiency"])
-    if "throttle_ratio" in cal:
-        lines.append("throttle_ratio = %.4f   # the engines' TR: the compressor-face temperature ratio at the turbine's limit"
-                     % cal["throttle_ratio"])
-    if "korn_kappa" in cal:
-        lines.append("korn_kappa = %.4f   # Korn's airfoil technology factor: where the wing's drag diverges" % cal["korn_kappa"])
-    if note:
-        lines.append("# " + note)
-    path = os.path.join(d.dir, "calibration.toml")
-    # rewritten every step: on Windows a scanner that still has the last one
-    # mapped makes the truncation fail for a moment (EINVAL, EACCES)
-    for attempt in range(20):
-        try:
-            with open_write(path, "w", encoding="utf-8", newline="\n") as f:
-                f.write("\n".join(lines) + "\n")
-            return
-        except OSError:
-            if attempt == 19:
-                raise
-            time.sleep(0.25)
 
 
 def _roughness(tabs):

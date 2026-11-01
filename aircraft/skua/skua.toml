@@ -174,3 +174,8 @@ flaps = "This design: slotted flaps"
 drag_devices = "This design: flaps only, no spoilers or airbrakes"
 releasable_stores = "This design: no stores stations or release mechanism"
 aerobatic = "This design: a light UAV, not designed for aerobatic loads"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

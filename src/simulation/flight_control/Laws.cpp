@@ -186,7 +186,9 @@ std::vector<ControllerSetting> designRotorLaws(const VehicleProfile& p) {
     const double mass = known(h.massKg) ? h.massKg : 1000.0;
     double speed = helicopter ? 30.0 : std::clamp(8.0 * std::cbrt(mass / 1.5), 2.0, 15.0);
     if (known(e.casMaxMs)) speed = std::min(speed, 0.6 * e.casMaxMs);
-    set(po, "horizontal.gain", wVelocity / 2.5), set(po, "max_speed", speed), set(po, "deceleration", 0.5 * kG * std::tan(tilt));
+    // RotorPosition's beta=11/16 includes velocity feedback in the PI error.
+    // This places its ideal poles at -3Kv/16, -3Kv/4, -3Kv/4.
+    set(po, "horizontal.gain", 27.0 * wVelocity / 64.0), set(po, "max_speed", speed), set(po, "deceleration", 0.5 * kG * std::tan(tilt));
     set(po, "velocity.lag_s", 1.0 / wVelocity);
     set(po, "altitude.gain", wHeight / 3.0);
     set(po, "max_vertical_speed", helicopter ? 5.0 : std::clamp(2.0 * std::cbrt(mass / 1.5), 0.5, 3.0));

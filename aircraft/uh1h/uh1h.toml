@@ -46,6 +46,13 @@ tip_loss = 1.0                     # the report has none
 inflow_lag_s = 0.1                 # the report's inflow is quasi-static; this lag's effective one is ~0.03 s
 ground_effect_g1 = 0.28            # K_G = 1 - exp(-(Z/D)/G1), eq. 10a (table 3)
 
+[rotor.main.physical_inertia]
+version = 1
+method = "physical-flap-time"
+flap_lag_s = 0.072                 # Table 3 footnote a: actual value based on one blade's inertia
+source = "NASA TM-73254 (1977), Table 3 footnote a, printed p.17/PDF p.24; https://ntrs.nasa.gov/api/citations/19770024231/downloads/19770024231.pdf#page=24"
+basis = "estimated"                # published physical time -> Lock number -> blade/drive inertia; no new measurement
+
 [rotor.tail]
 radius_ft = 4.25                   # table 2
 chord_ft = 0.70
@@ -67,6 +74,12 @@ inflow_lag_s = 0.1
 # eq. 37), several times the isolated rotor's. The difference acts at the tail rotor.
 damping_lb_per_fps = 14.9
 damping_arm_ft = [28.0, 6.88]      # l_TR, h_TR (table 3)
+
+[rotor.tail.damping_model]
+version = 1
+method = "native-hover-passive-dc-yaw-excess"
+source = "NASA TM-73254 (1977), eq.37-38 and Table3 T4/l_TR; current physical tail port, DC normal-flow yaw derivative only"
+basis = "estimated"                # instantaneous passive excess from an actual simulated native hover point; transient response uncalibrated
 
 [engine]
 type = "turboshaft"
@@ -383,3 +396,26 @@ flaps = "US Army TM 55-1520-210-10: a helicopter, with no flaps"
 drag_devices = "US Army TM 55-1520-210-10: a helicopter, with no spoilers or airbrakes"
 releasable_stores = "US Army FM 20-32 (mine/countermine operations): the M56 mine dispensing subsystem on the UH-1H"
 aerobatic = "The platform's aerobatics are a wing's manoeuvres flown by load factor (docs/flight-autonomy.md, rule R10)"
+
+# Existing physical-shell reference, shared with the airframe VLM model.
+[reference]
+area = 169.93954141056
+span = 14.709648
+chord = 0.53339999999999999
+aero_point = [3.556, 0.0, 1.397]
+
+# Estimated project-designed pitch servos; no equipment calibration.
+# Phase is a target; native-step floor and realized phase are reported.
+# Explicit mechanical envelopes apply after all mixing and SAS.
+[control_actuators]
+version = 1
+method = "phase-budget-servo"
+phase_target_deg = 10.0
+cyclic_limit_deg = 20.0
+collective_limits_deg = [-10.0, 45.0]
+pedal_limits_deg = [-45.0, 45.0]
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

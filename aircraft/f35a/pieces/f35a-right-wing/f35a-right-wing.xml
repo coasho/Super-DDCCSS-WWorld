@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- Written by hangar (tools/hangar/hangar/pieces.py) from f35a's damage data: its right wing flying on its own once it parts
+<!-- Written by hangar (tools/models/hangar/hangar/pieces.py) from f35a's damage data: its right wing flying on its own once it parts
      (MS-7g). Its aerodynamics a tumbling piece's - estimates, said so there. Do not edit: hangar's model stage of f35a writes it. -->
 <fdm_config name="f35a-right-wing" version="2.0" release="ALPHA">
     <fileheader>
@@ -14,9 +14,9 @@
         <htailarm unit="FT"> 0 </htailarm>
         <vtailarea unit="FT2"> 0 </vtailarea>
         <vtailarm unit="FT"> 0 </vtailarm>
-        <location name="AERORP" unit="IN"> <x> 401.925 </x> <y> 108.591 </y> <z> -29.482 </z> </location>
-        <location name="EYEPOINT" unit="IN"> <x> 401.925 </x> <y> 108.591 </y> <z> -29.482 </z> </location>
-        <location name="VRP" unit="IN"> <x> 401.925 </x> <y> 108.591 </y> <z> -29.482 </z> </location>
+        <location name="AERORP" unit="IN"> <x> 401.925 </x> <y> 108.590 </y> <z> -29.482 </z> </location>
+        <location name="EYEPOINT" unit="IN"> <x> 401.925 </x> <y> 108.590 </y> <z> -29.482 </z> </location>
+        <location name="VRP" unit="IN"> <x> 401.925 </x> <y> 108.590 </y> <z> -29.482 </z> </location>
     </metrics>
     <mass_balance negated_crossproduct_inertia="false">
         <ixx unit="SLUG*FT2"> 918.20148238346542 </ixx>
@@ -26,14 +26,14 @@
         <ixz unit="SLUG*FT2"> 51.304550205731367 </ixz>
         <iyz unit="SLUG*FT2"> 257.21360336702037 </iyz>
         <emptywt unit="LBS"> 1693.2642407543142 </emptywt>
-        <location name="CG" unit="IN"> <x> 401.92519685039372 </x> <y> 108.59055118110237 </y> <z> -29.481889763779527 </z> </location>
+        <location name="CG" unit="IN"> <x> 401.92519685039372 </x> <y> 108.59015748031496 </y> <z> -29.481889763779527 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
             <location unit="IN"> <x> 394.02322834645673 </x> <y> 124.01574803149606 </y> <z> 0 </z> </location>
         </pointmass>
         <pointmass name="station 10">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 389.96062992125985 </x> <y> 110.59094488188978 </y> <z> -23.622047244094489 </z> </location>
+            <location unit="IN"> <x> 389.96062992125985 </x> <y> 110.59094488188975 </y> <z> -23.622047244094489 </z> </location>
         </pointmass>
         <pointmass name="station 11">
             <weight unit="LBS"> 0 </weight>

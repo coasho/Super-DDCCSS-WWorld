@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- Written by hangar (tools/hangar/hangar/pieces.py) from j10a's damage data: its right wing flying on its own once it parts
+<!-- Written by hangar (tools/models/hangar/hangar/pieces.py) from j10a's damage data: its right wing flying on its own once it parts
      (MS-7g). Its aerodynamics a tumbling piece's - estimates, said so there. Do not edit: hangar's model stage of j10a writes it. -->
 <fdm_config name="j10a-right-wing" version="2.0" release="ALPHA">
     <fileheader>
@@ -26,7 +26,7 @@
         <ixz unit="SLUG*FT2"> 198.05692964197576 </ixz>
         <iyz unit="SLUG*FT2"> 140.05903980966067 </iyz>
         <emptywt unit="LBS"> 1460.4256460486758 </emptywt>
-        <location name="CG" unit="IN"> <x> 402.08031496062995 </x> <y> 75.014566929133863 </y> <z> -23.098818897637795 </z> </location>
+        <location name="CG" unit="IN"> <x> 402.08031496062995 </x> <y> 75.014960629921262 </y> <z> -23.098818897637795 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
             <location unit="IN"> <x> 398.64055118110235 </x> <y> 78.740157480314963 </y> <z> -1.9448818897637796 </z> </location>

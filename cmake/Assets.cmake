@@ -42,8 +42,13 @@ add_custom_target(fsim_cloud_assets ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${CMAKE_SOURCE_DIR}/assets/clouds ${FSIM_SHARE_DIR}/clouds
     COMMENT "flightsim: the clouds' files into share/flightsim/clouds")
 
-# The payload cards (ADR-30, section 6; assets/payloads): one per real payload type, with its sources.
+# Cards and authored flight models use the same installed layout in every
+# executable build, including Headless. Python and installation reuse this
+# staging script; source-tree fallback must not hide a missing executable copy.
 add_custom_target(fsim_payload_cards ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${CMAKE_SOURCE_DIR}/assets/payloads ${FSIM_SHARE_DIR}/payloads
     COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${CMAKE_SOURCE_DIR}/assets/stores ${FSIM_SHARE_DIR}/stores
-    COMMENT "flightsim: the payload and store cards into share/flightsim/payloads and stores")
+    COMMAND ${CMAKE_COMMAND} "-DSRC=${CMAKE_SOURCE_DIR}/aircraft" "-DDEST=${FSIM_SHARE_DIR}/aircraft"
+        -P ${CMAKE_SOURCE_DIR}/cmake/StageDesigns.cmake
+    COMMENT "flightsim: payload cards and authored flight models into share/flightsim"
+    VERBATIM)

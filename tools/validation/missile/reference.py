@@ -34,7 +34,10 @@ def verify_environment(actual, requested, *, spherical=False):
 def axial_drag(text):
     """Read the supported emitted CA product, including every constant factor."""
     try:
-        nodes = ET.fromstring(text).findall(".//axis[@name='AXIAL']/function[@name='aero/coefficient/CA']")
+        root=ET.fromstring(text)
+        if root.find("./aerodynamics/function[@name='fsim/aerodynamics/vlm-version']") is not None:
+            return _shared_axial_drag(root)
+        nodes = root.findall(".//axis[@name='AXIAL']/function[@name='aero/coefficient/CA']")
         if len(nodes) != 1:
             raise ValueError("one axial CA function is required")
         product = nodes[0].find("product")
@@ -63,6 +66,58 @@ def axial_drag(text):
         return rows
     except (ET.ParseError, AttributeError, TypeError, OverflowError) as error:
         raise ValueError("unsupported generated axial drag") from error
+
+
+def _shared_axial_drag(root):
+    """Read the complete neutral common-writer drag, without another model."""
+    import bisect
+    aero=root.find('aerodynamics')
+    functions={n.get('name'):n for n in aero.iter('function') if n.get('name')}
+    props={'aero/qbar-psf':1.,'metrics/Sw-sqft':1.,'aero/h_b-mac-ft':1.e9,
+           'aero/bi2vel':0.,'aero/ci2vel':0.,'aero/cl-squared':0.,'aero/alphadot-rad_sec':0.}
+    props.update({'velocities/'+k+'-aero-rad_sec':0. for k in 'pqr'})
+    props['velocities/vt-fps']=1.
+    props.update({'aero/'+angle+'-'+unit:0. for angle in ('alpha','beta') for unit in ('rad','deg')})
+    def interpolate(x,xs,ys):
+        x=min(max(x,xs[0]),xs[-1]);i=max(0,min(len(xs)-2,bisect.bisect_right(xs,x)-1))
+        return ys[i]+(ys[i+1]-ys[i])*(x-xs[i])/(xs[i+1]-xs[i])
+    def property_value(name):
+        name=name.strip()
+        if name.startswith('-'):return -property_value(name[1:])
+        if name in props:return props[name]
+        if name in functions:return evaluate(functions[name])
+        if name.startswith('fcs/'):return 0.
+        if name in ('metrics/bw-ft','metrics/cbarw-ft'):return 1.
+        raise ValueError('Unsupported neutral VLM property: '+name)
+    def evaluate(node):
+        if node.tag=='value':return float(node.text)
+        if node.tag=='property':return property_value(node.text)
+        if node.tag=='table':
+            variables=node.findall('independentVar')
+            lines=[list(map(float,line.split())) for line in node.findtext('tableData').splitlines() if line.strip()]
+            if len(variables)==1:return interpolate(property_value(variables[0].text),[r[0] for r in lines],[r[1] for r in lines])
+            if len(variables)!=2:raise ValueError('Unsupported VLM table dimension')
+            row=property_value(next(v.text for v in variables if v.get('lookup')=='row'))
+            col=property_value(next(v.text for v in variables if v.get('lookup')=='column'))
+            return interpolate(row,[r[0] for r in lines[1:]],[interpolate(col,lines[0],r[1:]) for r in lines[1:]])
+        values=[evaluate(n) for n in node if n.tag!='description']
+        if node.tag=='function':return values[0]
+        if node.tag=='product':return math.prod(values)
+        if node.tag=='sum':return sum(values)
+        if node.tag=='difference':return values[0]-values[1]
+        if node.tag=='quotient':return values[0]/values[1]
+        if node.tag=='max':return max(values)
+        if node.tag=='min':return min(values)
+        raise ValueError('Unsupported neutral VLM expression: '+node.tag)
+    rows=functions['aero/function/mach-dCD0'].findtext('table/tableData')
+    machs=[float(row.split()[0]) for row in rows.splitlines() if row.strip()]
+    result=[]
+    for mach in machs:
+        props['velocities/mach']=mach
+        props['aero/cl-squared']=sum(evaluate(fn) for fn in aero.findall("axis[@name='LIFT']/function"))**2
+        drag=sum(evaluate(fn) for fn in aero.findall("axis[@name='DRAG']/function"))
+        result.append([mach,_number(drag,'shared neutral drag')])
+    return result
 
 
 def verify_generated(generated, folder):

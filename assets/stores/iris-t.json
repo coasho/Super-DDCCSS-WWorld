@@ -26,30 +26,34 @@
     "mass_kg": {
       "value": 87.4,
       "unit": "kg",
-      "uncertainty": 1.0,
-      "basis": "published",
-      "source": "wp-irist"
+      "uncertainty": 2.0,
+      "basis": "assumed",
+      "source": "wp-irist",
+      "note": "Saab and Diehl public pages do not state mass; 87.4 kg is a secondary estimate"
     },
     "length_m": {
-      "value": 2.94,
+      "value": 2.936,
       "unit": "m",
-      "uncertainty": 0.01,
+      "uncertainty": 0.001,
       "basis": "published",
-      "source": "wp-irist"
+      "source": "saab-iris-t",
+      "note": "Saab specification: 2936 mm"
     },
     "diameter_m": {
       "value": 0.127,
       "unit": "m",
-      "uncertainty": 0.002,
+      "uncertainty": 0.001,
       "basis": "published",
-      "source": "wp-irist"
+      "source": "saab-iris-t",
+      "note": "Saab specification: 127 mm"
     },
     "span_m": {
       "value": 0.447,
       "unit": "m",
-      "uncertainty": 0.005,
-      "basis": "published",
-      "source": "wp-irist"
+      "uncertainty": 0.02,
+      "basis": "assumed",
+      "source": "wp-irist",
+      "note": "No official span is published; 0.447 m is a secondary/photo estimate"
     },
     "warhead_kg": {
       "value": 11.4,
@@ -101,32 +105,12 @@
       "note": "no source names its explosive: as PBXN-110, a modern HMX-based fill - an estimate"
     },
     "drag_area_m2": {
-      "value": 0.00476,
-      "unit": "m^2",
-      "uncertainty": 0.00143,
+      "value": 0.0038689844470933626,
+      "unit": "m2",
+      "source": "hangar-vlm",
       "basis": "assumed",
-      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its design (hangar storedrag.py: Hoerner's body of revolution 0.00226, its base 0.00056, its fins' friction 0.00194 m^2): an estimate by one method for every store"
-    },
-    "munk_volume_m3": {
-      "value": 0.03554,
-      "unit": "m^3",
-      "uncertainty": 0.01066,
-      "basis": "assumed",
-      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.0360 m^3 from its design, times Lamb's k2 - k1 = 0.989 for its fineness 23.1 (hangar storedrag.py): an estimate by one method for every store"
-    },
-    "side_slope_m2": {
-      "value": 0.26711,
-      "unit": "m^2",
-      "uncertainty": 0.08013,
-      "basis": "assumed",
-      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
-    },
-    "side_arm_m": {
-      "value": 1.1934,
-      "unit": "m",
-      "uncertainty": 0.293,
-      "basis": "assumed",
-      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+      "uncertainty": 0.0038689844470933626,
+      "note": "Engineering estimate A_D = CD_simulated*S_geometry at neutral Mach .3. Inputs, dated model-specific searches and method limits are in hangar-vlm.simulation and the evidence catalog. Assumed one-sigma screening uncertainty is |A_D| in m2; its coverage probability is not established. Equipment drag error remains unknown; the table evidence basis is simulated."
     },
     "plant_actuator_lag_s": {
       "value": 0.04,
@@ -582,6 +566,30 @@
       "uncertainty": 0,
       "basis": "assumed",
       "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "airframe_aerodynamics_version": {
+      "value": 1,
+      "unit": "1",
+      "source": "hangar-vlm",
+      "basis": "derived",
+      "uncertainty": 0,
+      "note": "Versioned shared-table runtime binding; zero uncertainty is not an accuracy claim."
+    },
+    "plant_tvc_limit_rad": {
+      "value": 0.17453292519943295,
+      "unit": "rad",
+      "basis": "assumed",
+      "uncertainty": 0.08726646259971647,
+      "source": "native-vector-engineering",
+      "note": "Equivalent thrust-vector engineering assumption, with 50 percent unvalidated screening uncertainty. Does not calibrate physical jet-vane angle, effectiveness, rate, lag, losses or maximum maneuver performance."
+    },
+    "plant_tvc_rate_rad_s": {
+      "value": 4.0,
+      "unit": "rad/s",
+      "basis": "assumed",
+      "uncertainty": 2.0,
+      "source": "native-vector-engineering",
+      "note": "Equivalent thrust-vector engineering assumption, with 50 percent unvalidated screening uncertainty. Does not calibrate physical jet-vane angle, effectiveness, rate, lag, losses or maximum maneuver performance."
     }
   },
   "sources": {
@@ -592,7 +600,16 @@
       "url": "https://new.diehl.com/defence/en/products/guided-missiles",
       "date": "",
       "accessed": "2026-10-17",
-      "note": "Identity reference only; no model parameter is calibrated from this page."
+      "note": "Manufacturer identity reference; Saab's specification page supplies length and diameter."
+    },
+    "saab-iris-t": {
+      "evidence_kind": "manufacturer_publication",
+      "title": "IRIS-T",
+      "publisher": "Saab",
+      "url": "https://www.saab.com/products/iris-t",
+      "date": "",
+      "accessed": "2026-10-29",
+      "note": "Manufacturer specification: length 2936 mm, diameter 127 mm; no mass or span."
     },
     "wp-irist": {
       "evidence_kind": "secondary_reference",
@@ -600,6 +617,131 @@
       "publisher": "Wikipedia (revision 1378922613)",
       "url": "https://en.wikipedia.org/w/index.php?title=IRIS-T&oldid=1378922613",
       "date": "2026-10-06"
+    },
+    "hangar-vlm": {
+      "title": "Shared Hangar aircraft VLM tables",
+      "url": "aero/vlm-carriage-7a41b8ae6c38efc1123cdc68065528f4fc08915c737260a8e3ced52b0927641c.json",
+      "evidence_kind": "game_reference",
+      "note": "Same base, rate and Mach data as the released JSBSim model; no equipment calibration claim.",
+      "simulation": {
+        "basis": "simulated",
+        "tool": "Hangar shared aircraft VLM",
+        "version": "0.1.0",
+        "design_sha256": "729b60498ca49545b94269fd09b9599a8f5f388e20bb8c86668ae0921d5aecca",
+        "card_inputs": {
+          "length_m": 2.936,
+          "diameter_m": 0.127,
+          "span_m": 0.447,
+          "mass_kg": 87.4
+        },
+        "table_inputs_hash": "af60cf5808e4cbe6",
+        "table_sha256": "7a41b8ae6c38efc1123cdc68065528f4fc08915c737260a8e3ced52b0927641c",
+        "input_geometry": "aircraft/irist/irist.toml",
+        "domain": {
+          "mach": [
+            0.0,
+            5.0
+          ],
+          "alpha_deg": [
+            -180.0,
+            180.0
+          ],
+          "beta_deg": [
+            -90.0,
+            90.0
+          ]
+        },
+        "method_sources": [
+          "Katz and Plotkin, Low-Speed Aerodynamics, vortex lattice",
+          "Shared aero/model.py, tables.py and mach.py; engineering extensions are not equipment measurements"
+        ],
+        "solver_sha256": "1fe905d01b307fc9398dda9ddd1b78ab2960d66c80ffd7346a2baf5e255f78bf",
+        "generic_validation": {
+          "schema": "fsim.generic-vlm-validation.v1",
+          "basis": "simulated",
+          "tool": "Hangar shared aircraft VLM",
+          "version": "0.1.0",
+          "source_url": "https://www.mas.bg.ac.rs/_media/istrazivanje/fme/vol48/4/5_d_damljanovic_et_al.pdf",
+          "source_locator": "Figure 1 p.762; Tables 2--10 pp.766--768",
+          "native_library": {
+            "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-release\\python\\fsim\\bin\\libfsim.dll",
+            "sha256": "10a8a36fc36b7ad7d23a6e4eede348ca18946bba913d66e93912fabec831d533"
+          },
+          "fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+          "metrics": {
+            "CZ": {
+              "count": 9,
+              "nrmse_percent": 13.89268657599672,
+              "max_absolute_error": 0.13199607890094234
+            },
+            "Cm": {
+              "count": 9,
+              "nrmse_percent": 82.05273561633099,
+              "max_absolute_error": 0.06616153821858019
+            }
+          },
+          "assessed_domain": {
+            "mach": [
+              0.77,
+              1.0,
+              1.17
+            ],
+            "alpha_deg": [
+              2.0,
+              6.0,
+              10.0
+            ],
+            "beta_deg": [
+              0.0
+            ]
+          },
+          "equipment_accuracy_claim": false,
+          "parameters_fitted": false,
+          "limitations": [
+            "Generic AGARD-B geometry, not any of the 88 authored equipment models.",
+            "The publication pools facilities/model sizes and includes M0.8/M1.2 runs with the M0.77/M1.17 groups; no common Reynolds condition is supplied.",
+            "Body-normal force is derived as CN=CLf*cos(alpha)+CDf*sin(alpha), cancelling axial base-pressure force; reported CZ=-CN.",
+            "The 4% biconvex wing uses the existing shared section; its tiny specified leading-edge radius is not separately resolved.",
+            "Density/Reynolds and sting/wall interference differences remain. Residuals are not an equipment confidence interval.",
+            "No beta, dynamic derivative, powered flow or extreme-angle qualification follows from these conditions."
+          ],
+          "source_pdf_sha256": "e2a1c05987115e665dd8a06a6250b7dbcbe0511df7b99227a293a77cadf5e0d5",
+          "observations_and_geometry": "docs/data/hangar-generic-validation.json"
+        },
+        "uncertainty": {
+          "basis": "simulated",
+          "tool": "Hangar shared aircraft VLM",
+          "version": "0.1.0",
+          "geometry_source": "aircraft/irist/irist.toml",
+          "geometry_sha256": "4c45e05627e99f900bd7e12dd8b065e704661fcb6c57b1da01aa6839d51c0ce1",
+          "analysis_inputs": {
+            "max_mach": 5.0,
+            "speed": 900.0
+          },
+          "method": "Coupled vortex-lattice/body/section/rate solution, common Mach extensions and common JSBSim tables; retained overrides are listed separately.",
+          "table_domain": "Actual Mach/alpha/beta bounds are read from the generated product in hangar-vlm.simulation; no narrowing of the authored envelope.",
+          "assumed_relative_half_width": 1.64105471232662,
+          "uncertainty_basis": "assumed engineering screening range, not measured equipment error or a probabilistic confidence interval",
+          "uncertainty_formula": "Inside the generic comparison conditions: max(1,2*generic_NRMSE/100); outside them no finite equipment-error bound is established.",
+          "boundaries": "Generic validation cannot identify equipment-specific separated flow, powered flow, Reynolds effects or extreme-angle errors; those remain unknown.",
+          "coverage_probability": null,
+          "uncertainty_components": {
+            "CZ_assumed_relative_half_width": 1.0,
+            "Cm_assumed_relative_half_width": 1.64105471232662
+          },
+          "uncertainty_application": "Assumed screening envelope only, not a measured model error or statistical bound. Applies to generic CZ/Cm comparison conditions; no finite equipment-error bound outside those conditions and no calibrated CD/CY/Cl/Cn uncertainty.",
+          "input_assumptions": "Author-declared geometry and shared section/body correlations. Surface sections, sweep, twist, controls, body stations, mass/CG, analysis speed and all retained overrides are readable in aircraft/irist/irist.toml. Product extrema are generation coverage, not a validated physical domain.",
+          "generic_validation_ref": "generic_validation and docs/data/hangar-generic-validation.json"
+        }
+      }
+    },
+    "native-vector-engineering": {
+      "title": "Finite equivalent thrust-vector actuator and native nozzle transform",
+      "publisher": "JSBSim / project engineering assumptions",
+      "url": "https://jsbsim-team.github.io/jsbsim/classJSBSim_1_1FGForce.html",
+      "accessed": "2026-10-30",
+      "evidence_kind": "game_reference",
+      "note": "Reference for native force-frame rotation and moment arm only. Vector angle/rate are uncalibrated engineering inputs, not measured vane or nozzle data. Native virtual-channel lag is retained once."
     }
   },
   "component_models": {
@@ -607,7 +749,7 @@
     "components": {
       "seeker": {
         "availability": "available",
-        "implementation_id": "fsim.seeker.encounter.v1",
+        "implementation_id": "fsim.seeker.imaging_ir.v2",
         "configuration_version": 1,
         "parameter_refs": {
           "acquire_m": "component_seeker_acquire_m",
@@ -641,15 +783,19 @@
           "emitter_half_width_rad": "component_seeker_emitter_half_width_rad"
         },
         "bindings": {
-          "mode": "imaging_infrared"
+          "mode": "imaging_infrared",
+          "variant": "IRIS-T",
+          "measurement_model": "ideal_geometric",
+          "servo_model": "unavailable",
+          "image_model": "geometric_extent"
         },
         "basis": "assumed",
-        "note": "Existing simulator implementation; no equipment calibration.",
-        "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
+        "note": "Independent native measured-seeker lifecycle. Existing authored numeric inputs are retained. Terminal IR/SARH use bearing histories; IIR may associate geometric extents. Referee target identity/velocity is not a terminal tracking input.",
+        "validity": "Engineering sensor family, not a calibrated detector, reticle, AESA receiver, gimbal servo, radiometric image or countermeasure processor. Exact variant identifies this card and supplies no hardware calibration."
       },
       "guidance": {
         "availability": "available",
-        "implementation_id": "fsim.guidance.velocity_normal_pn.v1",
+        "implementation_id": "fsim.guidance.measured_pn.v2",
         "configuration_version": 1,
         "parameter_refs": {
           "navigation_gain": "component_guidance_navigation_gain",
@@ -662,10 +808,12 @@
           "inertial_midcourse": "component_guidance_inertial_midcourse",
           "launcher_updates": "component_guidance_launcher_updates"
         },
-        "bindings": {},
+        "bindings": {
+          "measurement_family": "bearing"
+        },
         "basis": "assumed",
-        "note": "Existing simulator implementation; no equipment calibration.",
-        "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
+        "note": "PN from admitted measurement history. Existing navigation gain, acceleration limit, lifetime and capability declarations are unchanged. Permitted launch/launcher estimates are kept separately for inertial midcourse; current launcher updates remain an idealized designation path.",
+        "validity": "Uncalibrated engineering guidance. No hidden target range or velocity in terminal bearing guidance; no claim of GPS, fitted weapon link, hardware covariance, full-envelope or equipment performance."
       },
       "autopilot": {
         "availability": "available",
@@ -676,15 +824,18 @@
           "rate_time_min_s": "component_control_rate_time_min_s",
           "rate_lag_multiplier": "component_control_rate_lag_multiplier",
           "incidence_time_min_s": "component_control_incidence_time_min_s",
-          "incidence_rate_multiplier": "component_control_incidence_rate_multiplier"
+          "incidence_rate_multiplier": "component_control_incidence_rate_multiplier",
+          "tvc_limit_rad": "plant_tvc_limit_rad",
+          "tvc_rate_rad_s": "plant_tvc_rate_rad_s"
         },
         "bindings": {
           "model": "jsbsim:irist",
-          "execution_mode": "configured"
+          "execution_mode": "configured",
+          "thrust_vector": "jsbsim_nozzle_v1"
         },
         "basis": "assumed",
-        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
-        "validity": "Reduced-order engineering model; hardware performance unvalidated."
+        "note": "Signed finite aerodynamic-fin plus equivalent thrust-vector control using current-CG moments, native thrust and same-frame force/moment feedback. All physical forces and moments are integrated by JSBSim.",
+        "validity": "Uncalibrated combined-effectiveness engineering controller. Fin and nozzle actuators have finite stops/rates, with the existing virtual-channel lag applied once; no measured jet-vane or nozzle hardware response or high-off-boresight envelope is established."
       },
       "allocator": {
         "availability": "available",
@@ -798,11 +949,11 @@
         "bindings": {
           "model": "jsbsim:irist",
           "design": "aircraft/irist/irist.toml",
-          "source": "component_build_up"
+          "source": "vlm"
         },
         "basis": "assumed",
-        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
-        "validity": "Reduced-order engineering model; hardware performance unvalidated."
+        "note": "Shared aircraft VLM model and tables; no independent store force model.",
+        "validity": "Source geometry and model correlations; equipment accuracy requires independent validation."
       }
     }
   }

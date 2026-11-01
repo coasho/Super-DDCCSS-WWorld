@@ -1,6 +1,7 @@
 #include "simulation/flight_control/Route.h"
 
 #include "simulation/flight_control/Atmosphere.h"
+#include "simulation/flight_control/OwnRotorPlant.h"
 #include "foundation/core/Geodesy.h"
 #include "fsim/GuidanceModes.h"
 #include "fsim/Magnetic.h"
@@ -235,11 +236,21 @@ double mostTurnRate(const Performance& f, const sim::VehicleState& s, double pla
 double lateralAcceleration(const Performance& f) noexcept { return 0.8 * known(f.maxAccelerationMs2, kG * std::tan(0.35)); }
 double braking(const Performance& f) noexcept { return 0.8 * known(f.maxDecelerationMs2, known(f.maxAccelerationMs2, kG * std::tan(0.35))); }
 
+double courseResponse(const Performance& performance) noexcept {
+    const auto& context=ownRotorPlantContextV1;
+    const auto& response=context.snapshot;
+    return context.owner && context.vehicle && response.coursePerformance==&performance &&
+        std::isfinite(response.courseBandwidthRadS) && response.courseBandwidthRadS>0
+        ? response.courseBandwidthRadS : performance.courseBandwidthRadS(0.0);
+}
+
 } // namespace
 
 double lateralLimit(const Performance& performance, double radiusM) noexcept {
-    // round the radius at 80 % of its acceleration, and at a turn rate its velocity loop follows (Performance::turnRadiusM)
-    return std::min(std::sqrt(lateralAcceleration(performance) * radiusM), radiusM * performance.courseBandwidthRadS(0.0) / 3.0);
+    // Live built-in rotor cascade: estimated achieved response, not its PI Kp.
+    // Outside that same-vehicle callback, retain the public planning fallback.
+    const double bandwidth=courseResponse(performance);
+    return std::min(std::sqrt(lateralAcceleration(performance) * radiusM), radiusM * bandwidth / 3.0);
 }
 
 double brakingLimit(const Performance& performance, double speedAfterMs, double toGoM) noexcept {
@@ -294,7 +305,9 @@ VelocityCommand follow(const ControlContext& ctx, const sim::VehicleState& s, co
         // turn ends it reverses. An integral on the course error (its zero at
         // a quarter of the bandwidth) takes out the rest.
         const double bandwidth = perf.courseBandwidthRadS(0.0);
-        const double lookahead = std::max(3.0 * v / bandwidth, 3.0);
+        // The same achieved response and one-third margin as the curvature
+        // limit; the PI Kp below still determines the acceleration inverse.
+        const double lookahead = std::max(3.0 * v / courseResponse(perf), 3.0);
         const double wanted = fix.courseRad - std::atan(e / lookahead); // the track that closes on the path
         const double most = known(perf.maxAccelerationMs2, kG * std::tan(0.35));
         const double band = 0.25 * most / bandwidth, lag = (v * v * curvatureAhead(v / bandwidth) - trims.taken) / bandwidth;
@@ -302,7 +315,10 @@ VelocityCommand follow(const ControlContext& ctx, const sim::VehicleState& s, co
         const double ground = std::hypot(s.velocityNedMs[0], s.velocityNedMs[1]);
         if (ground > 1.0 && v > 1.0) {
             const double error = geo::wrapPi(wanted - std::atan2(s.velocityNedMs[1], s.velocityNedMs[0]));
-            if (std::abs(error) < 0.3) trims.courseRadS = std::clamp(trims.courseRadS + 0.25 * bandwidth * bandwidth * error * ctx.dt, -0.3, 0.3);
+            // This trim is an angle, unlike the wing's turn-rate trim below.
+            // For gamma_dot = bandwidth * (gamma_ref - gamma), placing the
+            // integral zero at bandwidth/4 gives bias_dot = bandwidth/4 * e.
+            if (std::abs(error) < 0.3) trims.courseRadS = std::clamp(trims.courseRadS + 0.25 * bandwidth * error * ctx.dt, -0.3, 0.3);
         }
         course = geo::wrapPi(wanted + std::clamp(lag / std::max(v, 0.5), -0.8, 0.8) + trims.courseRadS);
         heading = course;

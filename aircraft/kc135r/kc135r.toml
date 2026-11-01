@@ -523,3 +523,8 @@ flaps = "C-135 data: trailing-edge flaps"
 drag_devices = "C-135 data: spoilers"
 releasable_stores = "USAF KC-135 fact sheet: an unarmed tanker"
 aerobatic = "USAF KC-135 fact sheet: a tanker, not cleared for aerobatics"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

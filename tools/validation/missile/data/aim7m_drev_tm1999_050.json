@@ -1,0 +1,91 @@
+{
+  "schema": "fsim.missile-wind-tunnel.v1",
+  "model": "aim7m",
+  "source": {
+    "report": "DREV-TM-1999-050",
+    "title": "Aerodynamic Coefficients Measurement on a Model of a Sparrow AIM-7M Missile in the DREV Trisonic Wind Tunnel",
+    "author": "E. Y. Fournier",
+    "publisher": "Defence Research Establishment Valcartier",
+    "date": "1999-07",
+    "classification": "UNCLASSIFIED / Unlimited Distribution",
+    "url": "https://archive.org/details/micro_IA40243311_1824",
+    "pdf": "https://archive.org/download/micro_IA40243311_1824/micro_IA40243311_1824.pdf",
+    "ocr": "https://archive.org/download/micro_IA40243311_1824/micro_IA40243311_1824_djvu.txt",
+    "local_pdf": "build/architecture-reviews/sim-m02-sources/aim7m-drev-tm-1999-050.pdf",
+    "local_ocr": "build/architecture-reviews/sim-m02-sources/aim7m-drev-tm-1999-050-ocr.txt",
+    "pdf_sha256": "a20ad2dd7be88118d8c0ca0dbfe3307e8aa173c928ed3861b9623b9a32bc8e1c",
+    "ocr_sha256": "17c532424926f1c827178e4aaaaf637b83326b45c7f959d3e1b19dbf13a5f1ae",
+    "locator": "Body printed pages 1-19; Tables C-1 to C-12; Figures D-1 onward",
+    "admission": "Source is public and unclassified. Coefficients are admitted only for the measured model-scale conditions. Drag values are incomplete."
+  },
+  "test": {
+    "facility": "DREV trisonic wind tunnel",
+    "model_scale": "1:7",
+    "body_diameter_m": 0.03,
+    "model_length_m": 0.531,
+    "mach": [1.5, 2.0, 2.5, 3.0, 3.5, 4.0],
+    "alpha_deg": [-10.0, 10.0],
+    "roll_deg": [0.0, 45.0],
+    "wing_deflection_deg": [0.0, 10.0, 20.0],
+    "slope_definition": "Linear slope over alpha -5 to +5 deg. Values are treated as per radian; the OCR text does not print the unit, but the magnitudes are consistent with per-radian slopes. The validator uses radians.",
+    "reference": "CNalpha, CMalpha, XCP; XCP in calibers of the reference diameter.",
+    "configuration": "AIM-7M model; F1 clean body, F2 control wings, F3 tail fins, F4 both, F5 both plus antennas and attachment pins. Tables C-1 to C-12 use the F4 configuration unless the source states otherwise.",
+    "reynolds_note": "Lower than free-flight values at high Mach; exact run Reynolds numbers are in the report, not in these tables."
+  },
+  "tables": [
+    {"mach": 1.5, "roll_deg": 0.0, "wing_deflection_deg": 0.0, "cn_alpha_per_rad": 42.710, "cm_alpha_per_rad": -57.149, "xcp_cal": 1.3381, "locator": "Table C-1", "note": "Only 0 deg wing value is legible in OCR; verify 10/20 deg in PDF."},
+    {"mach": 1.5, "roll_deg": 0.0, "wing_deflection_deg": 10.0, "cn_alpha_per_rad": null, "cm_alpha_per_rad": null, "xcp_cal": null, "locator": "Table C-1", "note": "OCR value missing; verify in PDF."},
+    {"mach": 1.5, "roll_deg": 0.0, "wing_deflection_deg": 20.0, "cn_alpha_per_rad": null, "cm_alpha_per_rad": null, "xcp_cal": null, "locator": "Table C-1", "note": "OCR value missing; verify in PDF."},
+
+    {"mach": 2.0, "roll_deg": 0.0, "wing_deflection_deg": 0.0, "cn_alpha_per_rad": 33.264, "cm_alpha_per_rad": -46.155, "xcp_cal": 1.3875, "locator": "Table C-2"},
+    {"mach": 2.0, "roll_deg": 0.0, "wing_deflection_deg": 10.0, "cn_alpha_per_rad": 33.622, "cm_alpha_per_rad": -49.511, "xcp_cal": 1.4726, "locator": "Table C-2"},
+    {"mach": 2.0, "roll_deg": 0.0, "wing_deflection_deg": 20.0, "cn_alpha_per_rad": 33.247, "cm_alpha_per_rad": -55.185, "xcp_cal": 1.6599, "locator": "Table C-2"},
+
+    {"mach": 2.5, "roll_deg": 0.0, "wing_deflection_deg": 0.0, "cn_alpha_per_rad": 27.167, "cm_alpha_per_rad": -35.027, "xcp_cal": 1.2893, "locator": "Table C-3"},
+    {"mach": 2.5, "roll_deg": 0.0, "wing_deflection_deg": 10.0, "cn_alpha_per_rad": 27.462, "cm_alpha_per_rad": -28.206, "xcp_cal": 1.0271, "locator": "Table C-3"},
+    {"mach": 2.5, "roll_deg": 0.0, "wing_deflection_deg": 20.0, "cn_alpha_per_rad": 25.395, "cm_alpha_per_rad": -15.861, "xcp_cal": 0.6246, "locator": "Table C-3"},
+
+    {"mach": 3.0, "roll_deg": 0.0, "wing_deflection_deg": 0.0, "cn_alpha_per_rad": 24.448, "cm_alpha_per_rad": -27.093, "xcp_cal": 1.1082, "locator": "Table C-4"},
+    {"mach": 3.0, "roll_deg": 0.0, "wing_deflection_deg": 10.0, "cn_alpha_per_rad": 24.992, "cm_alpha_per_rad": -20.578, "xcp_cal": 0.8234, "locator": "Table C-4"},
+    {"mach": 3.0, "roll_deg": 0.0, "wing_deflection_deg": 20.0, "cn_alpha_per_rad": 25.445, "cm_alpha_per_rad": -19.441, "xcp_cal": 0.7640, "locator": "Table C-4"},
+
+    {"mach": 3.5, "roll_deg": 0.0, "wing_deflection_deg": 0.0, "cn_alpha_per_rad": 21.841, "cm_alpha_per_rad": -23.047, "xcp_cal": 1.0552, "locator": "Table C-5"},
+    {"mach": 3.5, "roll_deg": 0.0, "wing_deflection_deg": 10.0, "cn_alpha_per_rad": 22.632, "cm_alpha_per_rad": -19.068, "xcp_cal": 0.8425, "locator": "Table C-5"},
+    {"mach": 3.5, "roll_deg": 0.0, "wing_deflection_deg": 20.0, "cn_alpha_per_rad": 23.920, "cm_alpha_per_rad": -17.924, "xcp_cal": 0.7493, "locator": "Table C-5"},
+
+    {"mach": 4.0, "roll_deg": 0.0, "wing_deflection_deg": 0.0, "cn_alpha_per_rad": null, "cm_alpha_per_rad": null, "xcp_cal": null, "locator": "Table C-6", "note": "OCR values missing; verify in PDF."},
+
+    {"mach": 1.5, "roll_deg": 45.0, "wing_deflection_deg": 0.0, "cn_alpha_per_rad": 42.504, "cm_alpha_per_rad": -50.963, "xcp_cal": 1.1990, "locator": "Table C-7", "note": "Only 0 deg wing value is legible in OCR; verify 10/20 deg in PDF."},
+    {"mach": 1.5, "roll_deg": 45.0, "wing_deflection_deg": 10.0, "cn_alpha_per_rad": null, "cm_alpha_per_rad": null, "xcp_cal": null, "locator": "Table C-7", "note": "OCR value missing; verify in PDF."},
+    {"mach": 1.5, "roll_deg": 45.0, "wing_deflection_deg": 20.0, "cn_alpha_per_rad": null, "cm_alpha_per_rad": null, "xcp_cal": null, "locator": "Table C-7", "note": "OCR value missing; verify in PDF."},
+
+    {"mach": 2.0, "roll_deg": 45.0, "wing_deflection_deg": 0.0, "cn_alpha_per_rad": 33.467, "cm_alpha_per_rad": -43.848, "xcp_cal": 1.3102, "locator": "Table C-8"},
+    {"mach": 2.0, "roll_deg": 45.0, "wing_deflection_deg": 10.0, "cn_alpha_per_rad": 33.703, "cm_alpha_per_rad": -58.087, "xcp_cal": 1.7235, "locator": "Table C-8"},
+    {"mach": 2.0, "roll_deg": 45.0, "wing_deflection_deg": 20.0, "cn_alpha_per_rad": 36.294, "cm_alpha_per_rad": -67.475, "xcp_cal": 1.8591, "locator": "Table C-8"},
+
+    {"mach": 2.5, "roll_deg": 45.0, "wing_deflection_deg": 0.0, "cn_alpha_per_rad": 26.189, "cm_alpha_per_rad": -33.976, "xcp_cal": 1.2973, "locator": "Table C-9"},
+    {"mach": 2.5, "roll_deg": 45.0, "wing_deflection_deg": 10.0, "cn_alpha_per_rad": 26.294, "cm_alpha_per_rad": -25.887, "xcp_cal": 0.9845, "locator": "Table C-9"},
+    {"mach": 2.5, "roll_deg": 45.0, "wing_deflection_deg": 20.0, "cn_alpha_per_rad": 25.679, "cm_alpha_per_rad": -18.492, "xcp_cal": 0.7201, "locator": "Table C-9"},
+
+    {"mach": 3.0, "roll_deg": 45.0, "wing_deflection_deg": 0.0, "cn_alpha_per_rad": 24.176, "cm_alpha_per_rad": -26.146, "xcp_cal": 1.0815, "locator": "Table C-10"},
+    {"mach": 3.0, "roll_deg": 45.0, "wing_deflection_deg": 10.0, "cn_alpha_per_rad": 25.059, "cm_alpha_per_rad": -21.421, "xcp_cal": 0.8548, "locator": "Table C-10"},
+    {"mach": 3.0, "roll_deg": 45.0, "wing_deflection_deg": 20.0, "cn_alpha_per_rad": 25.574, "cm_alpha_per_rad": -21.334, "xcp_cal": 0.8342, "locator": "Table C-10"},
+
+    {"mach": 3.5, "roll_deg": 45.0, "wing_deflection_deg": 0.0, "cn_alpha_per_rad": 21.544, "cm_alpha_per_rad": -23.760, "xcp_cal": 1.1029, "locator": "Table C-11"},
+    {"mach": 3.5, "roll_deg": 45.0, "wing_deflection_deg": 10.0, "cn_alpha_per_rad": 22.846, "cm_alpha_per_rad": -21.247, "xcp_cal": 0.9300, "locator": "Table C-11"},
+    {"mach": 3.5, "roll_deg": 45.0, "wing_deflection_deg": 20.0, "cn_alpha_per_rad": 24.003, "cm_alpha_per_rad": -20.946, "xcp_cal": 0.8727, "locator": "Table C-11"},
+
+    {"mach": 4.0, "roll_deg": 45.0, "wing_deflection_deg": 0.0, "cn_alpha_per_rad": 19.251, "cm_alpha_per_rad": -16.438, "xcp_cal": 0.8539, "locator": "Table C-12", "note": "Only 0 deg wing value is legible in OCR; verify 10/20 deg in PDF."},
+    {"mach": 4.0, "roll_deg": 45.0, "wing_deflection_deg": 10.0, "cn_alpha_per_rad": null, "cm_alpha_per_rad": null, "xcp_cal": null, "locator": "Table C-12", "note": "OCR value missing; verify in PDF."},
+    {"mach": 4.0, "roll_deg": 45.0, "wing_deflection_deg": 20.0, "cn_alpha_per_rad": null, "cm_alpha_per_rad": null, "xcp_cal": null, "locator": "Table C-12", "note": "OCR value missing; verify in PDF."}
+  ],
+  "limits": [
+    "1:7 scale model, not full-scale AIM-7M.",
+    "Lower Reynolds numbers than free flight at high Mach.",
+    "Sting interference is stated as 10-15% for drag.",
+    "Drag coefficients are incomplete after the axial-force balance failed; do not infer a full drag table.",
+    "Normal force and pitching moment were repeated with the overload balance; 45 deg roll pitching moment differs from AIM-7F reference by up to about 20% at some angles.",
+    "The report compares with AIM-7F data, not a full-scale AIM-7M flight database.",
+    "Tables C-1 to C-12 are OCR-extracted here; verify every value against the PDF before production admission."
+  ]
+}

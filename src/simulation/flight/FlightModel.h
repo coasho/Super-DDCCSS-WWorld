@@ -6,9 +6,11 @@
 #include "fsim/VehicleState.h"
 
 #include <cstdint>
+#include <cmath>
 #include <filesystem>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -63,6 +65,29 @@ public:
         incoming = snapshot.state;
         return true;
     }
+};
+
+/// Actual first STRUCTURE-contact sample, before terminal arrest changes pose.
+/// Separate optional seam: FlightModel and TerrainStrikeSourceV1 stay unchanged.
+struct TerrainContactSnapshotV1 {
+    VehicleState state;
+    double cgFromOriginBodyM[3] = {};
+    std::uint64_t outerStep = 0;
+    unsigned substep = 0, substeps = 0;
+};
+inline std::optional<double> terrainContactOffsetV1(const TerrainContactSnapshotV1& contact,
+    std::uint64_t opening,unsigned steps,double dt) noexcept {
+    if(contact.outerStep<=opening || !steps || !std::isfinite(dt) || dt<=0 ||
+       !contact.substeps || !contact.substep || contact.substep>contact.substeps)return std::nullopt;
+    const auto count=contact.outerStep-opening;
+    if(count>steps)return std::nullopt;
+    const double offset=dt*(static_cast<double>(count-1)+static_cast<double>(contact.substep)/contact.substeps);
+    return std::isfinite(offset) ? std::optional<double>{offset}:std::nullopt;
+}
+class TerrainContactSourceV1 {
+public:
+    virtual ~TerrainContactSourceV1() = default;
+    virtual bool terrainContactSnapshotV1(TerrainContactSnapshotV1&) const noexcept = 0;
 };
 
 /// Optional native mass properties, independent of FlightModel's primary vtable.

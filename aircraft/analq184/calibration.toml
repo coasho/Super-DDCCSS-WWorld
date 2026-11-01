@@ -1,0 +1,23 @@
+[calibration]
+extra_drag_area_m2 = 0.037372175758054224
+# No independent fit is available; the shared model has no per-model overrides.
+
+[reference]
+kind = "configuration-drag-index"
+source_url = "https://www.rand.org/content/dam/rand/pubs/monograph_reports/2005/MR1216.pdf"
+source_table = "A.4: ALQ-184-5 index18 plus pylon/adapter index11"
+drag_index = 29.0
+wing_area_m2 = 27.870912
+quantity = 1
+hardware_area_m2_per_store = 0.031
+mach = 0.8
+validity = "Nominal carriage configuration fit; Mach0.8 and DI=10000*CD convention are declared comparison assumptions because RAND does not specify those conditions. Not six-axis equipment validation."
+
+[provenance]
+schema = "fsim.hangar-calibration.v1"
+method = "shared-aircraft-vlm"
+status = "configuration-reference-fit"
+observed_source_sha256 = "408f9a4e0d208c893da20859dd0a145e2c5825d4723eced9f02f30d6e68f7f3a"
+target_keys = []
+scope = "Declared reference targets only; no six-axis equipment accuracy certification"
+historical_fit_note = "Retained performance overrides are not newly validated equipment data"

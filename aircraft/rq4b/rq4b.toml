@@ -297,3 +297,8 @@ retractable_gear = "Northrop Grumman RQ-4 data: retractable gear"
 flaps = "Northrop Grumman RQ-4 data: trailing-edge flaps"
 releasable_stores = "USAF RQ-4 fact sheet: an unarmed reconnaissance UAV"
 aerobatic = "USAF RQ-4 fact sheet: a high-altitude long-endurance UAV, not cleared for aerobatics"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

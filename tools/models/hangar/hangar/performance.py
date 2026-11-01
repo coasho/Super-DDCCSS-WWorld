@@ -1,8 +1,10 @@
 """The performance tables (ADR-29 FA-3a; docs/flight-autonomy.md, SUB-02): what a design flies level, climbs
 and descends at, and the fuel it burns, against altitude, weight and speed.
 
-Flown in the platform's own JSBSim through its velocity loop, the envelope protection off (as the flight tests
-fly: they measure the aircraft, not the platform's limits), every condition at once in one world. At each
+Flown in the platform's own JSBSim, the envelope protection off (as the flight tests
+fly: they measure the aircraft, not the platform's limits), in one world with reusable steady-trial batches.
+Fixed-power runs use the authored load-factor interface where present and the SDK velocity loop otherwise;
+steady fuel-flow points use the velocity loop. At each
 altitude (fractions of the service ceiling the flight tests found, and the height the design publishes its top
 speed at) and weight (the tanks a tenth, half and wholly full of their capacity, and as the aircraft file fills them
 - where its flight tests fly - if that is none of those):
@@ -102,6 +104,28 @@ def altitudes(ceiling_m, extra=()):
     return sorted(hs)
 
 
+class _LoadFactorPower:
+    """Fly the authored load-factor law at fixed power, through the SDK.
+
+    Use the existing flight-test pilot for this physical control interface.
+    A velocity/attitude cascade's near-ceiling pitch transient can otherwise
+    be measured as lost excess power, despite identical thrust and weight.
+    """
+
+    def __init__(self,fleet,vehicle,throttle):
+        from .flight import FighterPilot
+        from .fcs import DEFAULTS
+        self.vehicle=vehicle;self.throttle=throttle
+        self.height=vehicle.state.altitude_msl_m
+        self.pilot=FighterPilot(fleet.w.step_seconds,
+            fleet.prop(vehicle,'fsim/envelope/clean/n_max',DEFAULTS['n_max']),
+            fleet.prop(vehicle,'fsim/envelope/clean/n_min',DEFAULTS['n_min']))
+        self.advance()
+
+    def advance(self):
+        self.pilot.fly(self.vehicle,self.vehicle.state,self.height,self.throttle)
+
+
 class _Fleet:
     """Vehicles flying at once in one world, their states read together."""
 
@@ -165,6 +189,8 @@ class _Fleet:
         Axis = self.fsim.Axis
         if veh.state.crashed:
             return None  # (it struck the ground while it settled: a wreck takes no command - its run is one on the ground)
+        if self.prop(veh,'fsim/effectors/pitch',0.)==1.:
+            return _LoadFactorPower(self,veh,throttle)
         act = veh.submit(self.fsim.Level.VELOCITY, vertical_speed_ms=0.0, heading_rad=0.0, axes=Axis.LATERAL | Axis.PITCH)
         veh.submit(self.fsim.Level.ACTUATOR, throttle=float(throttle), axes=Axis.THRUST)
         return act
@@ -175,6 +201,9 @@ class _Fleet:
         (fields: the activity's others, an airspeed)."""
         if act is None:
             return  # (a wreck's: power() gave it none)
+        if isinstance(act,_LoadFactorPower):
+            act.height=h_ref
+            return
         try:
             act.update(vertical_speed_ms=float(np.clip(HOLD_GAIN * (h_ref - h), -HOLD_MAX_MS, HOLD_MAX_MS)), heading_rad=0.0, **fields)
         except Exception:  # noqa: BLE001
@@ -267,7 +296,8 @@ def fly(kind, ceiling_m, stall_tas_sl_ms, alpha_max_deg, extra_altitudes=(), wor
     `alpha_max_deg` the angle the stall is read at."""
     import fsim
     kind = kind if ":" in kind else "jsbsim:" + kind
-    opts = dict(publish=False, workers=workers, terrain=False)
+    from .resources import threads
+    opts = dict(publish=False, workers=threads(workers), terrain=False)
     if jsbsim_root:
         opts["jsbsim_root"] = jsbsim_root
     world = fsim.World("hangar-performance", **opts)
@@ -342,20 +372,23 @@ def fly(kind, ceiling_m, stall_tas_sl_ms, alpha_max_deg, extra_altitudes=(), wor
                        "vs": [], "h": [], "alpha": [], "done": False}
         run_group(fleet, idle, settle_s=15.0, seconds=IDLE_SECONDS, every=every, throttle=0.0, stop=lambda r: _idle_done(r, alpha_max_deg))
         log("  performance: idle (%.0f s)" % (time.time() - t0))
-        # -- level flight at sixteen speeds, a weight at a time -------------------------------------------------
+        # -- level flight at sixteen speeds per altitude/weight -------------------------------------------------
         steady = {}
         for j in range(len(fractions)):
-            batch = {}
             for c in conds:
                 if c[1] != j or c not in idle:
                     continue
+                # Reuse the existing SDK flight-model slots rather than
+                # instantiate every altitude's sixteen aircraft at once.
+                batch = {}
                 lo, hi = curves[c]["lo"], 0.97 * curves[c]["top"]
                 for k, f in enumerate(SPEED_FRACTIONS):
                     v = lo + f * (hi - lo)
                     veh = fleet.spawn(kind, hs[c[0]], v, fractions[j])
                     batch[c + (k,)] = {"veh": veh, "v": v, "h0": hs[c[0]], "act": fleet.level(veh, v)}
-            _fly_level(fleet, batch, every)
-            steady.update(batch)
+                _fly_level(fleet, batch, every)
+                steady.update(batch)
+            log("  performance: level weight %d/%d (%.0f s)" % (j+1,len(fractions),time.time()-t0))
         log("  performance: level (%.0f s)" % (time.time() - t0))
     finally:
         fsim.set_log_level(level)
@@ -447,6 +480,10 @@ def _spots(fleet, kind, hs, conds, full, stall_tas, every, fractions):
     for r in live:
         r["act"] = fleet.power(r["veh"], 1.0)
     for s in range(int(round(SPOT_RUN_S / dt))):
+        for r in live:
+            if isinstance(r['act'],_LoadFactorPower):
+                r['act'].height=r['h0']
+                if not r['veh'].state.crashed:r['act'].advance()
         world.step()
         if s % every:
             continue
@@ -509,6 +546,8 @@ def run_group(fleet, runs, settle_s, seconds, every, throttle, stop):
     """Fly each run's vehicle settled at its start for settle_s, then level at `throttle` (its height held),
     recording its history every `every` steps until stop(run) or `seconds` pass; each run's vehicle removed as it
     ends."""
+    if not runs:
+        return
     world, dt = fleet.w, fleet.w.step_seconds
     world.step(int(round(settle_s / dt)))
     live = list(runs.values())
@@ -516,8 +555,14 @@ def run_group(fleet, runs, settle_s, seconds, every, throttle, stop):
         r["act"] = fleet.power(r["veh"], throttle)
     n = int(round(seconds / dt))
     for s in range(n):
+        if not live:
+            break
+        for r in live:
+            if isinstance(r['act'],_LoadFactorPower):
+                r['act'].height=r['h0']
+                if not r['veh'].state.crashed:r['act'].advance()
         world.step()
-        if s % every or not live:
+        if s % every:
             continue
         t = (s + 1) * dt
         still = []
@@ -655,7 +700,8 @@ def climbs(kind, points, jsbsim_root=None, workers=0):
     climb it made and the speed it gained or lost, as a rate of height - at the mean height and speed it flew.
     Returns [(height m, speed m/s, excess power m/s)], NaN where it could not fly it."""
     import fsim
-    opts = dict(publish=False, workers=workers, terrain=False)
+    from .resources import threads
+    opts = dict(publish=False, workers=threads(workers), terrain=False)
     if jsbsim_root:
         opts["jsbsim_root"] = jsbsim_root
     world = fsim.World("hangar-climbs", **opts)

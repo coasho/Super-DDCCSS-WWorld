@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- Written by hangar (tools/hangar/hangar/pieces.py) from c172's damage data: its left wing flying on its own once it parts
+<!-- Written by hangar (tools/models/hangar/hangar/pieces.py) from c172's damage data: its left wing flying on its own once it parts
      (MS-7g). Its aerodynamics a tumbling piece's - estimates, said so there. Do not edit: hangar's model stage of c172 writes it. -->
 <fdm_config name="c172-left-wing" version="2.0" release="ALPHA">
     <fileheader>

@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- Written by hangar (tools/hangar/hangar/pieces.py) from kc135r's damage data: its tail flying on its own once it parts
+<!-- Written by hangar (tools/models/hangar/hangar/pieces.py) from kc135r's damage data: its tail flying on its own once it parts
      (MS-7g). Its aerodynamics a tumbling piece's - estimates, said so there. Do not edit: hangar's model stage of kc135r writes it. -->
 <fdm_config name="kc135r-tail" version="2.0" release="ALPHA">
     <fileheader>
@@ -26,10 +26,10 @@
         <ixz unit="SLUG*FT2"> 4130.4347658858205 </ixz>
         <iyz unit="SLUG*FT2"> -0.64951197989654563 </iyz>
         <emptywt unit="LBS"> 10299.680283422756 </emptywt>
-        <location name="CG" unit="IN"> <x> 1443.5716535433071 </x> <y> 0.0007874015748031496 </y> <z> 116.56535433070864 </z> </location>
+        <location name="CG" unit="IN"> <x> 1443.5716535433071 </x> <y> 0.0007874015748031497 </y> <z> 116.56535433070864 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 1443.5716535433071 </x> <y> 0.0007874015748031496 </y> <z> 116.56535433070864 </z> </location>
+            <location unit="IN"> <x> 1443.5716535433071 </x> <y> 0.0007874015748031497 </y> <z> 116.56535433070864 </z> </location>
         </pointmass>
 <!-- no store station -->
     </mass_balance>

@@ -350,3 +350,8 @@ flaps = "Jane's: flaperons give the flap function"
 drag_devices = "Jane's: a dorsal airbrake"
 releasable_stores = "Jane's: ten hardpoints"
 aerobatic = "Sukhoi data: +9 g (fsim/envelope/clean/n_max)"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

@@ -1,5 +1,12 @@
 include(Catch)
 
+# The tools subtree is configured before top-level enable_testing(). Register
+# its feature-owned test here, after testing has been enabled.
+if(TARGET hangar_meshkit_parallel_test)
+    add_test(NAME hangar_meshkit_parallel COMMAND hangar_meshkit_parallel_test)
+    set_tests_properties(hangar_meshkit_parallel PROPERTIES TIMEOUT 30 LABELS "hangar;native;meshkit")
+endif()
+
 # Exercise the user-facing entry points and a separately installed SDK. The
 # consumer must link and run against the install tree, including runtime data.
 if(WIN32)
@@ -202,6 +209,7 @@ add_executable(fsim_tests
     simulation/test_warhead_model.cpp
     simulation/test_impact.cpp
     simulation/test_contact_fuze.cpp
+    simulation/test_contact_integration.cpp
     contracts/test_weapon_controls_stream.cpp
     simulation/test_mass_change.cpp
     simulation/test_store_binding.cpp
@@ -279,6 +287,7 @@ add_executable(fsim_tests
     simulation/test_laws.cpp
     simulation/test_manoeuvres.cpp
     simulation/test_rotorcraft.cpp
+    simulation/test_rotor_allocation.cpp
     simulation/test_support.cpp
     simulation/test_world.cpp
     simulation/test_terrain.cpp
@@ -450,7 +459,7 @@ foreach(_stress_case "batch" "SameStep" "NextStep")
     add_test(NAME "mission_training_stress ${_stress_case}" COMMAND fsim_mission_training_test "${_stress_spec}")
     # (two busy threads each - the range's and the actor's - which ctest -j counts; the cases' own deadline is a hang
     # guard under that timeout, not a speed bound)
-    set_tests_properties("mission_training_stress ${_stress_case}" PROPERTIES LABELS "ma-training;stress" TIMEOUT 900 PROCESSORS 2)
+    set_tests_properties("mission_training_stress ${_stress_case}" PROPERTIES LABELS "ma-training;stress;slot-read-only" TIMEOUT 900 PROCESSORS 2)
 endforeach()
 
 # Joint acceptance, generic part (M8; docs/sdk/ma-training-validation.md): the recorded joint chains replayed through
@@ -473,7 +482,7 @@ set_tests_properties(mission_c_abi PROPERTIES LABELS ma-training TIMEOUT 300)
 foreach(_stress_mode same next)
     add_test(NAME "mission_c_abi_stress ${_stress_mode}" COMMAND fsim_mission_c_abi_test
              "${CMAKE_SOURCE_DIR}/tests/training/fixtures/mission_training/contract" "${FSIM_JSBSIM_DATA_DIR}" stress ${_stress_mode})
-    set_tests_properties("mission_c_abi_stress ${_stress_mode}" PROPERTIES LABELS "ma-training;stress" TIMEOUT 900 PROCESSORS 2)
+    set_tests_properties("mission_c_abi_stress ${_stress_mode}" PROPERTIES LABELS "ma-training;stress;slot-read-only" TIMEOUT 900 PROCESSORS 2)
 endforeach()
 
 # The neutral contracts alone (ARCH-02): built against fsim::contracts and nothing else, so a contract that needed a
@@ -741,7 +750,7 @@ if(FSIM_WITH_RENDER)
     fsim_set_warnings(fsim_render_tests)
     fsim_relax_third_party_warnings(fsim_render_tests)
     # (the render label: tools/validation/testing/scopes.toml selects these on ucrt64-release for a renderer change)
-    catch_discover_tests(fsim_render_tests ${FSIM_CATCH_DISCOVERY} PROPERTIES LABELS render)
+    catch_discover_tests(fsim_render_tests ${FSIM_CATCH_DISCOVERY} PROPERTIES LABELS render RUN_SERIAL TRUE)
     # Fullscreen screenshot readback must capture the frame just presented (needs a Vulkan window).
     add_executable(fsim_viewer_screenshot_test visualization/test_viewer_screenshot.cpp)
     target_link_libraries(fsim_viewer_screenshot_test PRIVATE fsim::render vsgXchange::vsgXchange)
@@ -818,3 +827,6 @@ if(TARGET flightsim-flow-calibrate)
     set_tests_properties("NVIDIA Flow: an engagement's fires against the observed - CCPS's fireballs, the photographed detonations, API RP 521's jet flames - each within its tolerance"
         PROPERTIES LABELS render)
 endif()
+
+include(${CMAKE_SOURCE_DIR}/cmake/SerialVerification.cmake)
+

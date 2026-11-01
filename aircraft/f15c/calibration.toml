@@ -1,7 +1,15 @@
-# Written by hangar calibrate (2026-09-24 18:54) to meet the [targets] of f15c.toml:
-# corrections for what the physics estimate does not see. Delete this file to
-# go back to the pure estimate.
+# Fitted from declared calibration observations through the SDK.
 [calibration]
-wave_drag_efficiency = 1.2000   # Raymer's E_WD: the wave drag over Sears-Haack's
-throttle_ratio = 1.5000   # the engines' TR: the compressor-face temperature ratio at the turbine's limit
-# fitted: maximum Mach 2.433 at 40000 ft (target 2.5)
+extra_drag_area_m2 = 0.28435853362823604
+throttle_ratio = 1.5
+wave_drag_efficiency = 2.695330759507347
+
+[provenance]
+schema = "fsim.hangar-calibration.v1"
+method = "shared-aircraft-vlm"
+status = "sdk-reference-fit"
+observed_source_sha256 = "5608fc2b244747a784a65ced82280c5c785883f5d3d633def9450337bd67d633"
+catalog_sha256 = "bbdf9e2ef31b7cbd42d58b0a2a2e9a092519f2f031638effc26d4df96bbd285b"
+reference_inputs_sha256 = "bdb0f5ff15af386dac30a5c342165a2f4d7b212bc9e7786432ebef9bda75cf9c"
+calibration_case_ids = ["TP3414-f15c-CD0-M0.6", "TP3414-f15c-CD0-M1.3"]
+scope = "Declared observations only; independent errors are in the campaign report"

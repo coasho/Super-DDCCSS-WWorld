@@ -130,10 +130,10 @@ MISSILES = {
                           dict(role="canard", x=0.40, root=0.18, tip=0.05, s=0.1075, control="moving", pivot=0.5),
                           dict(role="tail", x=2.40, root=0.45, tip=0.15, span=True, control="aileron")],
                 motor=dict(smoke="aluminised", phases=[(4.0, 14.0)], note="solid (the card); aluminised assumed from its trail in photographs")),
+    # K-77M/Izd.180 conventional fins: https://odin.t2com.army.mil/WEG/Asset/70822f0f2e8de125f5a54a9c42a022ba
     "r77m": dict(card="r-77m", paint=OTHER, nose="radome", cal=2.6, span_m=0.60,
                  surfaces=[dict(role="strake", x=1.50, root=1.20, tip=1.10, s=0.05, control="fixed"),
-                           dict(role="tail", x=3.50, root=0.12, tip=0.12, span=True, control="lattice", width=0.15, cells=3)],
-                 cell=0.0015,
+                           dict(role="tail", x=3.50, root=0.12, tip=0.12, span=True, control="moving")],
                  motor=dict(smoke="reduced", phases=[(4.0, 25.0), (6.0, 0.0), (4.0, 12.0)], note="dual pulse (the card); its smoke assumed")),
     # (its wings' root 0.95 m: a 1.10 m root swept 77 deg met the body in an edge the mesher left open)
     "super530d": dict(card="super-530d", paint=NATO, nose="radome", cal=2.4,
@@ -223,6 +223,7 @@ def design(name):
              'card = "%s"             # its store card: the published figures this design holds' % row["card"],
              "",
              "[analysis]",
+             "max_mach = 5.0 # Retains the former store table Mach domain.",
              "speed = 900.0                # m/s: the Reynolds numbers (Mach 3 at altitude) - assumed",
              ""]
     if row.get("cell"):
@@ -307,6 +308,7 @@ def design(name):
               "exit_diameter = %s" % configured_number(chosen["exit_diameter"]),
               "throat_diameter = %s" % configured_number(chosen["throat_diameter"]),
               "cone_length = %s" % configured_number(chosen["cone_length"]), 'smoke = "%s"' % chosen["smoke"]]
+    if chosen.get('kind')=='ducted_rocket':lines.append('kind = "ducted_rocket"')
     for phase in chosen["phase"]:
         lines += ["[[motor.phase]]", "duration_s = %s" % configured_number(phase["duration_s"]),
                   "thrust_kn = %s" % configured_number(phase["thrust_kn"])]
@@ -320,7 +322,13 @@ def design(name):
               "length = %s" % _f(L)]
     if "span_m" in par:
         lines.append("span = %s" % _f(span))
-    return "\n".join(lines) + "\n", _paint(row, card, body, L)
+    lines += ['', '# Derived normalization only; this does not add a physical wing.',
+              '[reference]', 'area = %.17g'%(math.pi*(D/2)**2),
+              'span = %.17g'%D, 'chord = %.17g'%D,
+              'aero_point = [%s, 0.0, 0.0]'%str(float(_f(.5*L)))]
+    from .integration import source_options
+    options=source_options(os.path.join(pipeline.repo_root(),'aircraft',name,name+'.toml'))
+    return "\n".join(lines) + "\n"+options, _paint(row, card, body, L)
 
 
 def _paint(row, card, body, L):

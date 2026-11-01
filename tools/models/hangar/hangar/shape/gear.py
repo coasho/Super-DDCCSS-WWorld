@@ -49,7 +49,17 @@ A single leg (not mirrored) is a centre leg - a fork round its wheel, free to
 fold across the centre line - also where it stands beside it (the A-10's and
 the Su-25's nose wheels, clear of the gun).
 """
+from collections import OrderedDict
 import contextlib
+from contextvars import ContextVar
+import copy
+import hashlib
+import math
+import os
+from pathlib import Path
+import struct
+import sys
+import threading
 
 import numpy as np
 
@@ -534,12 +544,240 @@ def swept(leg, pts, steps=30, bogie=None):
     return np.vstack([leg.turned(pts, f, bogie) for f in np.linspace(0.0, 1.0, steps + 1)])
 
 
-def bays(aircraft, solid, foils):
-    """Per retractable leg: the bay it folds into (a cut for the airframe),
-    the doors over it, and how far the stowed leg would stand out of the skin
-    (m; the airframe's own, before the bay is cut)."""
+_BAY_PLAN_CACHE = ContextVar('hangar_request_bay_plans', default=None)
+
+
+class _UnsupportedPlan(ValueError):
+    """Reuse is optional for graphs outside the explicitly supported types."""
+
+
+def _plan_bytes(value):
+    """Exact typed content and object-alias topology; cycles are unsupported.
+
+    Only builtin containers/scalars, finite numeric NumPy arrays/scalars and
+    exact Leg instances are accepted. No user conversion, pickle or disk cache
+    is involved. Array object aliases survive deepcopy; overlapping distinct
+    array views are unsupported because deepcopy does not retain their views.
+    """
+    memo, active, arrays, anchors, output = {}, set(), [], [], bytearray()
+
+    def blob(tag, raw):
+        output.extend(tag + struct.pack('>Q', len(raw)) + raw)
+
+    def emit(item):
+        kind = type(item)
+        if item is None:
+            output.extend(b'N')
+        elif kind is bool:
+            output.extend(b'T' if item else b'F')
+        elif kind is int:
+            blob(b'I', str(item).encode('ascii'))
+        elif kind is float:
+            if not math.isfinite(item):
+                raise _UnsupportedPlan('Nonfinite scalar')
+            output.extend(b'D' + struct.pack('>d', item))
+        elif kind is str:
+            blob(b'S', item.encode('utf-8'))
+        elif kind is bytes:
+            blob(b'B', item)
+        elif isinstance(item, np.generic) and item.dtype.kind in 'biuf':
+            if not bool(np.isfinite(item)):
+                raise _UnsupportedPlan('Nonfinite NumPy scalar')
+            blob(b'G', item.dtype.str.encode('ascii'))
+            blob(b'V', item.tobytes())
+        elif kind in (list, tuple, dict, np.ndarray, Leg):
+            identity = id(item)
+            if identity in active:
+                raise _UnsupportedPlan('Cyclic graph')
+            if identity in memo:
+                output.extend(b'R' + struct.pack('>Q', memo[identity]))
+                return
+            memo[identity] = len(memo)
+            # Shape tuples and other temporary containers must stay alive:
+            # otherwise CPython may recycle an id during this one traversal.
+            anchors.append(item)
+            active.add(identity)
+            if kind is np.ndarray:
+                if item.dtype.kind not in 'biuf' or not np.isfinite(item).all():
+                    raise _UnsupportedPlan('Unsupported array')
+                if any(np.shares_memory(item, previous) for previous in arrays):
+                    raise _UnsupportedPlan('Overlapping distinct array views')
+                arrays.append(item)
+                blob(b'A', item.dtype.str.encode('ascii'))
+                emit(tuple(item.shape))
+                blob(b'V', item.tobytes(order='C'))
+            elif kind is Leg:
+                output.extend(b'L')
+                emit(vars(item))
+            elif kind is dict:
+                output.extend(b'M' + struct.pack('>Q', len(item)))
+                for key, child in item.items():
+                    if type(key) is not str:
+                        raise _UnsupportedPlan('Dictionary keys must be strings')
+                    emit(key)
+                    emit(child)
+            else:
+                output.extend((b'[' if kind is list else b'(') + struct.pack('>Q', len(item)))
+                for child in item:
+                    emit(child)
+            active.remove(identity)
+        else:
+            raise _UnsupportedPlan('Unsupported graph type')
+
+    emit(value)
+    return bytes(output)
+
+
+def _cache_dependencies():
+    """Pin the actual loaded native code, Python implementation and thread mode."""
+    from . import airframe, meshkit
+    library = meshkit.library()
+    if library is None:
+        raise _UnsupportedPlan('No native library')
+    native = Path(library._name).resolve(strict=True)
+    paths = [Path(__file__), Path(airframe.__file__), Path(meshkit.__file__), native]
+    return dict(files=[(str(path.resolve()), hashlib.sha256(path.read_bytes()).digest()) for path in paths],
+                numpy=np.__version__, errors=np.geterr(), thread=threading.get_ident(),
+                environment={key: os.environ.get(key) for key in
+                             ('FSIM_HANGAR_THREADS', 'OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS')},
+                constants=[DOORS, DOOR, CLEAR, GROUND_CLEAR, SETTLE, DOOR_REACH,
+                           GAP, METAL, SKIN, STRUT, TYRE])
+
+
+def _plan_key(todo, solid, foils):
     from . import meshkit
+    inputs = dict(solid=solid, foils=foils, legs=[vars(leg) for leg in todo])
+    # Reject unsupported/cyclic graphs before JSON or any native dependency load.
+    raw = _plan_bytes(inputs)
+    return _plan_bytes((b'hangar.request-gear-plan.v1', raw,
+                        meshkit._dump({'root': solid, 'foils': foils}), _cache_dependencies()))
+
+
+def _plan_size(value, seen=None):
+    """Conservative retained Python graph accounting, including owned array data."""
+    seen = set() if seen is None else seen
+    if id(value) in seen:
+        return 0
+    seen.add(id(value))
+    size = sys.getsizeof(value)
+    if type(value) is np.ndarray:
+        return size + value.nbytes  # Deliberately conservative for owned arrays.
+    if type(value) is Leg:
+        return size + _plan_size(vars(value), seen)
+    if type(value) is dict:
+        return size + sum(_plan_size(k, seen) + _plan_size(v, seen) for k, v in value.items())
+    if type(value) in (list, tuple):
+        return size + sum(_plan_size(child, seen) for child in value)
+    return size
+
+
+class _BayPlanCache:
+    def __init__(self, max_entries, max_bytes):
+        self.max_entries, self.max_bytes = max_entries, max_bytes
+        self.entries, self.retained_bytes = OrderedDict(), 0
+        self.lock = threading.RLock()
+        self.closed = False
+
+    def get(self, key):
+        with self.lock:
+            if self.closed or key not in self.entries:
+                return None
+            snapshot, _ = self.entries[key]
+            result = copy.deepcopy(snapshot)
+            self.entries.move_to_end(key)
+            return result
+
+    def put(self, key, snapshot):
+        # Entry allowance covers tuple/OrderedDict bookkeeping as well as the
+        # complete key and graph. Active return copies are outside this bound.
+        size = _plan_size(snapshot) + sys.getsizeof(key) + 1024
+        if size > self.max_bytes:
+            return
+        with self.lock:
+            if self.closed or key in self.entries:
+                return
+            while self.entries and (len(self.entries) >= self.max_entries
+                                    or self.retained_bytes + size > self.max_bytes):
+                _, (_, removed) = self.entries.popitem(last=False)
+                self.retained_bytes -= removed
+            self.entries[key] = (snapshot, size)
+            self.retained_bytes += size
+
+    def clear(self):
+        with self.lock:
+            self.entries.clear()
+            self.retained_bytes = 0
+            self.closed = True
+
+
+@contextlib.contextmanager
+def _bay_plan_reuse(*, max_entries=4, max_bytes=64*1024*1024):
+    """One authored request, at most four plans/64 MiB retained graph and keys.
+
+    Ordinary callers remain uncached. Context-local state does not implicitly
+    cross worker threads; nested requests restore the previous request. Every
+    supported cold/warm result is a detached whole-graph copy, including fitted
+    and mirrored Leg state and internal aliases. No native handles are retained.
+    """
+    if (type(max_entries) is not int or not 1 <= max_entries <= 4
+            or type(max_bytes) is not int or not 1 <= max_bytes <= 64*1024*1024):
+        raise ValueError('Gear reuse limits must be within four entries and 64 MiB')
+    cache = _BayPlanCache(max_entries, max_bytes)
+    token = _BAY_PLAN_CACHE.set(cache)
+    try:
+        yield cache
+    finally:
+        cache.clear()
+        _BAY_PLAN_CACHE.reset(token)
+
+
+def _complete_plan(plan, count):
+    if type(plan) is not list or len(plan) != count:
+        return False
+    return all(type(row) is dict and {'leg', 'cut', 'doors', 'cover', 'protrusion', 'allowed'} <= row.keys()
+               and type(row['leg']) is Leg and type(row['cut']) is dict and type(row['doors']) is list
+               and (row['cover'] is None or type(row['cover']) is dict)
+               and type(row['protrusion']) in (int, float) and math.isfinite(row['protrusion'])
+               and type(row['allowed']) in (int, float) and math.isfinite(row['allowed']) for row in plan)
+
+
+def bays(aircraft, solid, foils):
+    """Per retractable leg: bay, doors and stowed protrusion, before its cut.
+
+    Reuse is explicitly request-scoped; unsupported graphs use the original
+    uncached algorithm. Cached plans never alias caller inputs or other results.
+    """
     todo = [leg for leg in legs(aircraft) if leg.retractable]
+    cache = _BAY_PLAN_CACHE.get()
+    if cache is None or cache.closed or not todo:
+        return _bays_uncached(todo, solid, foils)
+    try:
+        key = _plan_key(todo, solid, foils)
+        hit = cache.get(key)
+    except (OSError, TypeError, ValueError, RecursionError):
+        return _bays_uncached(todo, solid, foils)
+    if hit is not None:
+        return hit
+    plan = _bays_uncached(todo, solid, foils)
+    if not _complete_plan(plan, len(todo)):
+        return plan
+    try:
+        _plan_bytes(plan)
+        snapshot = copy.deepcopy(plan)
+        result = copy.deepcopy(snapshot)
+        # A caller/dependency mutation during the cold computation cannot seed
+        # an entry under a key describing a different input.
+        fresh = [leg for leg in legs(aircraft) if leg.retractable]
+        if key == _plan_key(fresh, solid, foils):
+            cache.put(key, snapshot)
+        return result
+    except (OSError, TypeError, ValueError, RecursionError):
+        return plan
+
+
+def _bays_uncached(todo, solid, foils):
+    """Original cold algorithm and candidate order; no native state escapes."""
+    from . import meshkit
     if not todo:
         return []
     with meshkit.Probe({"foils": foils, "root": solid}) as probe:

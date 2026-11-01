@@ -27,7 +27,7 @@ import struct
 
 import numpy as np
 
-from .aero.vlm import channel_gain
+from .geometry.controls import channel_gain
 from .geometry import airfoil as af
 from .report.render import COLOURS, CONTROL_COLOURS
 from .files import open_write
@@ -393,7 +393,7 @@ def hinge(surface, piece):
     """A control piece's hinge in the design frame: (point, unit axis, gain)
     such that turning the piece by gain * delta about the axis (right hand)
     is what JSBSim's channel means by +delta - the convention the
-    aerodynamic model uses (aero.vlm.channel_gain) - with gain >= 0."""
+    aerodynamic model uses (geometry.controls.channel_gain) - with gain >= 0."""
     ctrl = surface.controls[piece["control"] - 1]
     p0, p1 = piece["hinge"]
     axis = (p1 - p0) / np.linalg.norm(p1 - p0)

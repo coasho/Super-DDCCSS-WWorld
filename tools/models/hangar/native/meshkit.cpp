@@ -1,6 +1,7 @@
 #include "meshkit.h"
 
 #include "decimate.h"
+#include "parallel.hpp"
 #include "polygonize.h"
 #include "sdf.h"
 
@@ -191,20 +192,7 @@ void shade(const Mesh& m, const std::vector<std::uint16_t>& mat, double sharpDeg
 /// fn(i) for every i below n, on `threads` threads (0: all cores).
 template <typename F>
 void parallel(std::size_t n, unsigned threads, F fn) {
-    threads = std::min(32u, threads ? threads : std::max(1u, std::thread::hardware_concurrency()));
-    std::atomic<std::size_t> next{0};
-    auto work = [&]() {
-        for (;;) {
-            const std::size_t start = next.fetch_add(4096);
-            if (start >= n) break;
-            const std::size_t end = std::min(n, start + 4096);
-            for (std::size_t i = start; i < end; ++i) fn(i);
-        }
-    };
-    std::vector<std::thread> pool;
-    for (unsigned t = 1; t < threads; ++t) pool.emplace_back(work);
-    work();
-    for (auto& t : pool) t.join();
+    meshkit::detail::parallel(n, threads, std::move(fn));
 }
 
 void setError(char* dst, std::size_t size, const char* what) {
@@ -232,6 +220,10 @@ MK_API int mk_build(const char* scene_json, mk_mesh* out) {
         po.cell = doc.number("cell", 0.01);
         po.safety = doc.number("safety", 1.5);
         po.threads = static_cast<unsigned>(std::max(0.0, doc.number("threads", 0.0)));
+        const double sourceError = doc.number("source_error", 0.0);
+        if (!std::isfinite(sourceError) || sourceError < 0.0)
+            throw std::runtime_error("meshkit: source_error must be finite and nonnegative");
+        po.rootError = sourceError*.01;
         auto lap = std::chrono::steady_clock::now();
         Mesh m = polygonize(*scene.root, domain, po);
         out->seconds_polygonize = std::chrono::duration<double>(std::chrono::steady_clock::now() - lap).count();
@@ -251,6 +243,14 @@ MK_API int mk_build(const char* scene_json, mk_mesh* out) {
         dop.blocks = doc.boolean("blocks", true);
         dop.serial = doc.boolean("serial", true);
         dop.threads = po.threads;
+        if (sourceError > 0.0) {
+            dop.acceptPoint = [&scene, sourceError](V3 point) {
+                // An accumulated plane quadric is not a bound against the
+                // original physical scene. Check each proposed replacement.
+                // below() may return only a lower bound at/above its cutoff.
+                return std::fabs(scene.root->below(point,sourceError).d) < sourceError;
+            };
+        }
         lap = std::chrono::steady_clock::now();
         decimate(m, mat, dop);
         out->seconds_decimate = std::chrono::duration<double>(std::chrono::steady_clock::now() - lap).count();
@@ -287,11 +287,12 @@ MK_API void mk_release(mk_mesh* mesh) {
 
 struct mk_scene {
     Scene scene;
+    unsigned threads = 0;
 };
 
 namespace {
-void evalAll(const Scene& scene, const double* points, int n, double* distance, int* material) {
-    parallel(static_cast<std::size_t>(std::max(n, 0)), 0, [&](std::size_t i) {
+void evalAll(const Scene& scene, const double* points, int n, double* distance, int* material, unsigned threads) {
+    parallel(static_cast<std::size_t>(std::max(n, 0)), threads, [&](std::size_t i) {
         const Sample s = scene.root->eval({points[3 * i], points[3 * i + 1], points[3 * i + 2]});
         distance[i] = s.d;
         if (material != nullptr) material[i] = s.material;
@@ -302,7 +303,9 @@ void evalAll(const Scene& scene, const double* points, int n, double* distance, 
 MK_API int mk_eval(const char* scene_json, const double* points, int n, double* distance, int* material, char* error,
                    int error_size) {
     try {
-        evalAll(buildScene(fsim::core::Json::parse(scene_json, "scene")), points, n, distance, material);
+        const auto doc = fsim::core::Json::parse(scene_json, "scene");
+        const auto threads = static_cast<unsigned>(std::max(0.0, doc.number("threads", 0.0)));
+        evalAll(buildScene(doc), points, n, distance, material, threads);
     } catch (const std::exception& e) {
         if (error != nullptr) setError(error, static_cast<std::size_t>(std::max(error_size, 0)), e.what());
         return 1;
@@ -312,7 +315,9 @@ MK_API int mk_eval(const char* scene_json, const double* points, int n, double* 
 
 MK_API mk_scene* mk_scene_new(const char* scene_json, char* error, int error_size) {
     try {
-        return new mk_scene{buildScene(fsim::core::Json::parse(scene_json, "scene"))};
+        const auto doc = fsim::core::Json::parse(scene_json, "scene");
+        const auto threads = static_cast<unsigned>(std::max(0.0, doc.number("threads", 0.0)));
+        return new mk_scene{buildScene(doc), threads};
     } catch (const std::exception& e) {
         if (error != nullptr) setError(error, static_cast<std::size_t>(std::max(error_size, 0)), e.what());
         return nullptr;
@@ -320,7 +325,94 @@ MK_API mk_scene* mk_scene_new(const char* scene_json, char* error, int error_siz
 }
 
 MK_API void mk_scene_eval(const mk_scene* scene, const double* points, int n, double* distance, int* material) {
-    evalAll(scene->scene, points, n, distance, material);
+    evalAll(scene->scene, points, n, distance, material, scene->threads);
 }
 
 MK_API void mk_scene_free(mk_scene* scene) { delete scene; }
+
+MK_API void mk_release_physical(mk_physical_mesh* mesh) {
+    if (mesh==nullptr) return;
+    delete[] mesh->positions;
+    delete[] mesh->indices;
+    mesh->positions=nullptr;
+    mesh->indices=nullptr;
+    mesh->vertex_count=mesh->triangle_count=0;
+}
+
+MK_API int mk_simplify_physical(const char* scene_json,const double* points,int point_count,
+                               const std::uint32_t* triangles,int triangle_count,mk_physical_mesh* out) {
+    if (out==nullptr) return 1;
+    std::memset(out,0,sizeof(*out));
+    const auto started=std::chrono::steady_clock::now();
+    try {
+        if (points==nullptr || triangles==nullptr || point_count<4 || triangle_count<4)
+            throw std::runtime_error("meshkit: complete physical boundary input required");
+        const auto doc=fsim::core::Json::parse(scene_json,"physical scene");
+        const Scene scene=buildScene(doc);
+        const double sourceError=doc.number("source_error",0.0);
+        const double quadricError=doc.number("error",0.0);
+        if (!std::isfinite(sourceError) || sourceError<=0.0 || !std::isfinite(quadricError) || quadricError<0.0)
+            throw std::runtime_error("meshkit: positive physical source bound and nonnegative quadric error required");
+        Mesh mesh;
+        mesh.v.reserve(static_cast<std::size_t>(point_count));
+        mesh.f.reserve(static_cast<std::size_t>(triangle_count));
+        auto within=[&](V3 point) { return std::fabs(scene.root->eval(point).d)<=sourceError; };
+        for (int i=0;i<point_count;++i) {
+            const auto k=3*static_cast<std::size_t>(i);
+            const V3 point{points[k],points[k+1],points[k+2]};
+            if (!std::isfinite(point.x) || !std::isfinite(point.y) || !std::isfinite(point.z) || !within(point))
+                throw std::runtime_error("meshkit: input boundary violates its physical source bound");
+            mesh.v.push_back(point);
+        }
+        for (int i=0;i<triangle_count;++i) {
+            const auto k=3*static_cast<std::size_t>(i);
+            const std::array<std::uint32_t,3> face{triangles[k],triangles[k+1],triangles[k+2]};
+            for (auto index:face)
+                if (index>=static_cast<std::uint32_t>(point_count))
+                    throw std::runtime_error("meshkit: physical boundary index out of range");
+            const auto a=mesh.v[face[0]],b=mesh.v[face[1]],c=mesh.v[face[2]];
+            const double area=length(cross(b-a,c-a));
+            if (!std::isfinite(area) || area<=0.0 || !within((a+b+c)*(1.0/3.0)))
+                throw std::runtime_error("meshkit: input facet violates its physical source bound or has zero area");
+            mesh.f.push_back(face);
+        }
+        const Stats before=measure(mesh);
+        if (before.boundary || before.nonmanifold || before.misoriented)
+            throw std::runtime_error("meshkit: input physical boundary is not closed and consistently oriented");
+        std::vector<std::uint16_t> materials(mesh.f.size(),0);
+        DecimateOptions options;
+        options.maxError=quadricError;
+        options.sharpDeg=doc.number("sharp_deg",48.0);
+        options.blocks=doc.boolean("blocks",true);
+        options.serial=doc.boolean("serial",true);
+        options.threads=static_cast<unsigned>(std::max(0.0,doc.number("threads",1.0)));
+        options.acceptPoint=[&scene,sourceError](V3 point) {
+            return std::fabs(scene.root->below(point,sourceError).d)<sourceError;
+        };
+        decimate(mesh,materials,options);
+        const Stats after=measure(mesh);
+        if (after.boundary || after.nonmanifold || after.misoriented || after.components!=before.components)
+            throw std::runtime_error("meshkit: physical simplification changed closed boundary topology");
+        out->vertex_count=static_cast<int>(mesh.v.size());
+        out->triangle_count=static_cast<int>(mesh.f.size());
+        out->positions=new double[3*mesh.v.size()];
+        out->indices=new std::uint32_t[3*mesh.f.size()];
+        for (std::size_t i=0;i<mesh.v.size();++i) {
+            out->positions[3*i]=mesh.v[i].x;
+            out->positions[3*i+1]=mesh.v[i].y;
+            out->positions[3*i+2]=mesh.v[i].z;
+        }
+        for (std::size_t i=0;i<mesh.f.size();++i)
+            for (std::size_t k=0;k<3;++k) out->indices[3*i+k]=mesh.f[i][k];
+        out->boundary_edges=after.boundary;
+        out->nonmanifold_edges=after.nonmanifold;
+        out->misoriented_edges=after.misoriented;
+        out->components=after.components;
+    } catch (const std::exception& error) {
+        mk_release_physical(out);
+        setError(out->error,sizeof(out->error),error.what());
+        return 1;
+    }
+    out->seconds=std::chrono::duration<double>(std::chrono::steady_clock::now()-started).count();
+    return 0;
+}

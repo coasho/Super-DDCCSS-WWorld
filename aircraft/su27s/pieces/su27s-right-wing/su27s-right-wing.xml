@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- Written by hangar (tools/hangar/hangar/pieces.py) from su27s's damage data: its right wing flying on its own once it parts
+<!-- Written by hangar (tools/models/hangar/hangar/pieces.py) from su27s's damage data: its right wing flying on its own once it parts
      (MS-7g). Its aerodynamics a tumbling piece's - estimates, said so there. Do not edit: hangar's model stage of su27s writes it. -->
 <fdm_config name="su27s-right-wing" version="2.0" release="ALPHA">
     <fileheader>
@@ -26,10 +26,10 @@
         <ixz unit="SLUG*FT2"> 101.03071741200939 </ixz>
         <iyz unit="SLUG*FT2"> 468.23694934950538 </iyz>
         <emptywt unit="LBS"> 3181.1877479332375 </emptywt>
-        <location name="CG" unit="IN"> <x> 556.05314960629926 </x> <y> 129.4787401574803 </y> <z> -17.988188976377955 </z> </location>
+        <location name="CG" unit="IN"> <x> 556.05314960629926 </x> <y> 129.47913385826772 </y> <z> -17.988188976377955 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 556.05314960629926 </x> <y> 129.4787401574803 </y> <z> -17.988188976377955 </z> </location>
+            <location unit="IN"> <x> 556.05314960629926 </x> <y> 129.47913385826772 </y> <z> -17.988188976377955 </z> </location>
         </pointmass>
         <pointmass name="station 7">
             <weight unit="LBS"> 0 </weight>

@@ -3,7 +3,7 @@
 #
 # Frame: metres, x aft from its nose, y right, z up from its axis. The card (assets/stores/an-alq-99.json) holds its
 # figures: 4.7 m long, 0.62 m across, 435 kg. Its shape is its class's, the same for every pod (assumed from
-# photographs: stores.py) - it shapes the picture, the build-up's drag and where its fins act.
+# photographs: stores.py) - geometry for the shared airframe solver and the rendered model.
 
 [aircraft]
 name = "analq99"
@@ -12,6 +12,7 @@ category = "store"
 card = "an-alq-99"             # its store card: the published figures this design holds
 
 [analysis]
+max_mach = 5.0 # Retains the former store table Mach domain.
 speed = 250.0                # m/s: the Reynolds numbers of its carriage - assumed
 
 [reference]                  # a store's: its frontal area and its diameter (its width), as its flight model's
@@ -22,9 +23,6 @@ aero_point = [2.35, 0.0, 0.0]
 
 [model]
 triangles = 6000             # its model's at most: a store's, drawn on every station that carries one
-
-[store]
-wake = 0.62                # m: its rounded tail's separated flow, a blunt base's of this diameter to its drag (stores.py)
 
 # Its body: a body of revolution, its radius along it its class's profile
 [[body]]
@@ -50,3 +48,8 @@ gyration = [1, 0.584837, 1.033358]  # a thin shell's, as its flight model's (ass
 
 [dimensions]                  # the card
 length = 4.7
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

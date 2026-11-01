@@ -330,3 +330,8 @@ flaps = "Jane's: plain trailing-edge flaps"
 drag_devices = "Jane's: airbrakes between the engine nozzles"
 releasable_stores = "Jane's: six underwing hardpoints"
 aerobatic = "Mikoyan data: +9 g (fsim/envelope/clean/n_max)"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

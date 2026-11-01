@@ -29,6 +29,9 @@ struct SeekerConfigV1 {
 };
 
 bool configureSeeker(const components::DescriptorV1& descriptor, SeekerConfigV1& config, std::string& error);
+/// A measured profile's exact variant must belong to the card being composed.
+/// This is identity validation, not a claim of equipment-specific calibration.
+bool seekerVariantMatchesV2(const components::DescriptorV1&, const std::string& storeId) noexcept;
 bool validSeekerConfigV1(const SeekerConfigV1& config) noexcept;
 const char* seekerModeNameV1(SeekerModeV1 mode) noexcept;
 

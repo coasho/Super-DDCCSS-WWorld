@@ -1,0 +1,227 @@
+{
+  "schema": "fsim.sim-m02.tracked-delivery.v1",
+  "date": "2026-11-01",
+  "base_head": "004e1f7455e9a19af231e2d795f65f2bf4c5f4ba",
+  "formal_acceptance": false,
+  "scope": "Reviewed source/product patch plus this tracked receipt; unrelated working-tree changes excluded",
+  "engineering_matrix": {
+    "engineering-complete": 0,
+    "engineering-complete-uncalibrated": 88,
+    "blocked": 0
+  },
+  "engineering_labels_scope": "All88 source/component/table contracts; labels are not a whole-functional or whole-regression pass",
+  "table_checks": {
+    "serialized_bundle_numeric_values": 4653538,
+    "mandatory_generation_predicates": 17892,
+    "logical_numeric_table_values": 4419019,
+    "native_xml_coefficient_cells": 3611335,
+    "native_xml_axis_knots": 522331,
+    "runtime_json_numeric_values": 7894752,
+    "carriage_serialized_table_values": 868903,
+    "designs": 88,
+    "native_xml_tables": 7067,
+    "table_inventory_entries": 16776,
+    "unique_production_products": 439,
+    "consistency_predicates": 1165,
+    "native_dynamic_samples": 0,
+    "test_executions": 0,
+    "cfd_tables": 0
+  },
+  "source_sha256": {
+    "src/simulation/flight_control/Rotor.cpp": "9fd85d7c301e051735f653cb6c35d4735a77ea8af0f7adf8968f79cd2649f261",
+    "src/simulation/flight_control/RotorResponseV1.h": "0d3fac4be4ddf194bd883dbf7b8105a892787195d291ed297acfdfe24f216c21",
+    "src/simulation/flight_control/OwnRotorPlant.h": "7f960b1031faa16000337a31678d42281e41e70eb160a13d2a2879575f81a963",
+    "src/simulation/flight_control/Route.cpp": "a4cd94fb3ca0c131730d14cfb2fba18481a146e420d4ebdce7abe22acbfe65a6",
+    "src/simulation/flight_control/Builtin.cpp": "d083af12b013554b73dad9fc54a9638a6bd395b647e7aa273ed2a0b27f884a7a",
+    "src/simulation/flight_control/Guidance.cpp": "848637ad1c87c95a57eef22d61a2a8f25753d52bd051189d8e4e5d8f095dd855",
+    "src/simulation/flight_control/Recovery.cpp": "045d564278afc8a8d38dcd3ae4fb9d31e35a18558eaa929fad8caa0d58a114cf",
+    "src/simulation/runtime/world/World.cpp": "7a681f1e1dbe550b5b6c18d7580818abb11997bc85fad2421e668ee510cca2dd",
+    "cmake/JsbsimPatches.cmake": "d0b264289a8ca8b8155c85e96dd1b3d5c9bafd9d8c46c98af0e3136ee53b7c8c"
+  },
+  "native_dll_sha256": "67f780ffe3e969477ff9c760d7b7b1bb9cd3400118bc1fb009a7a0c0c3ca444b",
+  "final_headless_controls": {
+    "cases": 6,
+    "passed": 6,
+    "assertions_passed": 498,
+    "assertions_failed": 0
+  },
+  "final_release_original_scenes": {
+    "cases": 9,
+    "passed": 6,
+    "failed": 3,
+    "assertions_passed": 12290,
+    "assertions_failed": 18
+  },
+  "final_native_aam": {
+    "passed": 12,
+    "total": 13
+  },
+  "final_installed_consumer": {
+    "executed": 1,
+    "failed": 0
+  },
+  "normal_entry": {
+    "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-functional-resolution-20261101\\normal-entry-final",
+    "native_seconds": 164.9999999999932,
+    "wall_seconds": 166.22508370000287,
+    "activity_state": "2",
+    "product_poison_refused": true,
+    "libraries": {
+      "libfsim.dll": {
+        "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-release\\python\\fsim\\bin\\libfsim.dll",
+        "sha256": "67f780ffe3e969477ff9c760d7b7b1bb9cd3400118bc1fb009a7a0c0c3ca444b"
+      },
+      "libJSBSim.dll": {
+        "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-release\\python\\fsim\\bin\\libJSBSim.dll",
+        "sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7"
+      }
+    },
+    "observations": 1650
+  },
+  "full_regression": {
+    "discovered": 867,
+    "completed_records": 753,
+    "failed": 11,
+    "completed_before_final_control_repairs": true,
+    "whole_pass": false,
+    "release_full_executed": false,
+    "failed_records": [
+      {
+        "number": "657",
+        "name": "missile_control_native",
+        "seconds": 15.13
+      },
+      {
+        "number": "366",
+        "name": "pattern: every class orbits its centre at the radius asked, calm and in a crosswind, down to a multirotor's 2 m",
+        "seconds": 97.76
+      },
+      {
+        "number": "332",
+        "name": "route loiters: a route that ends in a hover stops as the hover pattern and a loiter point's hover do - its position loop's approach from where it would stop - and completes at its point",
+        "seconds": 37.85
+      },
+      {
+        "number": "665",
+        "name": "fleet: every advertised capability flies its case within its class's thresholds - shard 1 of 16",
+        "seconds": 667.32
+      },
+      {
+        "number": "245",
+        "name": "recovery: a rotorcraft in a wind within its limit lands into it on its spot; beyond it, it goes around to its approach point, and waved off again fails crosswind_limit, its hover held there; the wind dropped, it lands (RCV-02, 4.66)",
+        "seconds": 3.52
+      },
+      {
+        "number": "398",
+        "name": "guidance: rotorcraft fly a route given no airspeed at their position loops' own speed",
+        "seconds": 2.74
+      },
+      {
+        "number": "80",
+        "name": "rotorcraft: a helicopter's rotor speed stops where its rotors' does, driven past it",
+        "seconds": 0.4
+      },
+      {
+        "number": "76",
+        "name": "rotorcraft: a quadrotor that strikes the ground comes to rest, whatever its attitude",
+        "seconds": 2.12
+      },
+      {
+        "number": "331",
+        "name": "route loiters: a rotorcraft stops and hovers at a point inside its route for its time, then flies on; its route's last, a hover until canceled: completed as it arrives, it hovers on",
+        "seconds": 0.98
+      },
+      {
+        "number": "78",
+        "name": "rotorcraft: a Crazyflie commanded after it has fallen 124 m strikes the ground and flies on or lies there",
+        "seconds": 0.42
+      },
+      {
+        "number": "669",
+        "name": "fleet: every advertised capability flies its case within its class's thresholds - shard 5 of 16",
+        "seconds": 672.59
+      }
+    ],
+    "interrupted_attempt_artifact_wall_seconds": 2021.1072640419006,
+    "timing_basis": "CTest raw log creation through recorded process interruption UTC; wall interval, not process CPU time"
+  },
+  "earlier_all88_basic": {
+    "scope": "All88 native+installed short-use checks were executed before the final native-only control repairs; their immutable DLL binding remains in basic/basic-usability.json",
+    "counts": {
+      "designs": 88,
+      "native_consumers": 88,
+      "installed_consumers": 88,
+      "short_flight_samples": 2112,
+      "released_store_bodies": 106,
+      "envelope_sampling_conditions": 0
+    }
+  },
+  "timing": {
+    "generation_install_seconds": 1139.4533122000012,
+    "earlier_basic_seconds": 812.2760291000013,
+    "generation_plus_basic_seconds": 1951.7293413000025,
+    "final_selected_native_seconds": 106.6279224,
+    "artifact_work_window_seconds": 12566.716014385223,
+    "work_window_basis": "Owner artifact creation through completed packaging; includes attempts, reasoning, gaps and partial regression, not pure tool CPU time"
+  },
+  "independent_review": {
+    "reviewer": "/root/independent_review",
+    "execution_by_reviewer": false,
+    "source_verdict": "No new blocking source finding in the retained reviewed changes; prior source receipt is preserved as historical.",
+    "replay_bytes": {
+      "schema": "fsim.sim-m02.independent-replay-byte-review.v1",
+      "reviewer": "/root/independent_review",
+      "manifest_sha256": "c0ece77805438364f00878d657e6695f61093b34e1593988caf788b7f76450e8",
+      "source_export": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/z3",
+      "base_head": "004e1f7455e9a19af231e2d795f65f2bf4c5f4ba",
+      "snapshot_paths_checked": 2028,
+      "present_files_hashed": 1985,
+      "deleted_paths_verified_absent": 43,
+      "snapshot_bytes_hashed": 660690878,
+      "changed_paths_checked": 1036,
+      "patch_sha256": "1ddbda54ddeaf197d4b954025621512ec63216aee876d39292dc94f5df0740ed",
+      "patch_bytes": 166526255,
+      "export_dot_git_absent": true,
+      "failures": [],
+      "elapsed_seconds": 8.9475539,
+      "writes_performed": false,
+      "tests_executed": 0,
+      "independent_apply_performed": false,
+      "real_index_unchanged": "Root-reported; no independent before/after index comparison",
+      "formal_acceptance": false
+    }
+  },
+  "artifacts": {
+    "local_directory": "build\\architecture-reviews\\sim-m02-functional-resolution-20261101",
+    "sdk": {
+      "path": "build\\architecture-reviews\\sim-m02-functional-resolution-20261101\\sim-m02-current-sdk.zip",
+      "sha256": "8c033e131d86baed54eb0151be5ce902305e7628b3912bff4b502449d776e5f2",
+      "bytes": 922125686
+    },
+    "evidence": {
+      "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-functional-resolution-20261101\\evidence.zip",
+      "bytes": 115887394,
+      "sha256": "d7cfc1c9427513ceb7356efb3fdf0dc5b73059fe03725a89e6ed6881b328b9e7",
+      "payload_files": 931,
+      "elapsed_seconds": 9.69580169999972
+    },
+    "source_patch": {
+      "patch_sha256": "1ddbda54ddeaf197d4b954025621512ec63216aee876d39292dc94f5df0740ed",
+      "patch_bytes": 166526255,
+      "source_export": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\z3",
+      "real_index_unchanged": true,
+      "byte_verification_failures": [],
+      "patch_changed_file_count": 1036
+    },
+    "uploaded_as_git_blobs": false,
+    "availability": "Large archives and raw logs remain in the local delivery directory; tracked code/products/matrix and this summary are committed"
+  },
+  "remaining": [
+    "Original aerodynamic-qbar comparison does not hold its stated matched-state premise after55 native substeps; assertion remains failed.",
+    "Original62m and124m fall speed preconditions remain failed with the current estimated airframe drag; no unsupported drag fit applied.",
+    "Original helicopter manual dive/flare impacts terrain before the full RPM assertion window; high-advance-ratio rotor behavior remains unvalidated.",
+    "Whole current headless/Release regressions have not passed; the earlier interrupted run also recorded fleet shard failures."
+  ],
+  "measurement_calibration": "Optional; absence of exact-model measurements is not a component/table blocker",
+  "staged_format_review": "Reviewed byte-exact snapshot retained. CRLF-aware diff check reports existing cosmetic EOF blank lines in aircraft/cf2/cf2.toml and tests/CMakeLists.txt, and one trailing space in tools/bootstrap/project.py; no physical tolerances or generated XML were edited for formatting."
+}

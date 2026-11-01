@@ -139,3 +139,7 @@ if(FSIM_BUILD_TESTS)
 endif()
 
 include(cmake/Install.cmake)
+
+if(FSIM_BUILD_TESTS)
+    include(cmake/SerialVerification.cmake)
+endif()

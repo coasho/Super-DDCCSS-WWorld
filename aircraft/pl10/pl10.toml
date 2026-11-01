@@ -14,6 +14,7 @@ category = "missile"
 card = "pl-10"             # its store card: the published figures this design holds
 
 [analysis]
+max_mach = 5.0 # Retains the former store table Mach domain.
 speed = 900.0                # m/s: the Reynolds numbers (Mach 3 at altitude) - assumed
 
 # The infrared seeker's glass dome (40 % of the body's radius - assumed), on its cone
@@ -108,3 +109,15 @@ gyration = [0.0187, 0.289, 0.289]  # radii of gyration over length - assumed (a 
 
 [dimensions]                  # the card: the span tip to tip across opposite fins
 length = 3
+
+# Derived normalization only; this does not add a physical wing.
+[reference]
+area = 0.020106192982974676
+span = 0.16
+chord = 0.16
+aero_point = [1.5, 0.0, 0.0]
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

@@ -546,3 +546,8 @@ flaps = "Knaack (1988) and NASA SP-468: Fowler flaps"
 drag_devices = "B. Schiff, AOPA Pilot, May 2015: spoilers roll the H (it has no ailerons) and serve as airbrakes"
 releasable_stores = "USAF fact sheet: bombs and missiles in the bomb bay and on underwing pylons"
 aerobatic = "USAF fact sheet: a strategic bomber, not cleared for aerobatic manoeuvres"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

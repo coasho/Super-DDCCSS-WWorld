@@ -577,3 +577,30 @@ TEST_CASE("state snapshots never move as the store grows", "[sim][stable]") {
     CHECK(states.size() == 3000u);
     CHECK_THROWS_AS(states.emplace_back(), std::length_error);
 }
+
+TEST_CASE("native substeps preserve first terrain contact inside the public tick", "[sim][jsbsim][integration]") {
+    const double outerDt = 0.1;
+    auto ground = std::make_shared<FlatGround>(0.0);
+    JsbsimModel model(outerDt, ground);
+    InitialConditions initial;
+    initial.altitudeMslM = 6.0;
+    initial.airspeedTrueMs = 400.0;
+    initial.velocityNedMs[0] = initial.velocityNedMs[1] = 0.0;
+    initial.velocityNedMs[2] = 400.0;
+    initial.enginesRunning = false;
+    const auto fixture = std::filesystem::path(__FILE__).parent_path() / "data" / "integration_contact";
+    REQUIRE(model.load(AircraftSpec{"substep_contact", kRoot, fixture}, initial));
+    VehicleState before;
+    model.state(before);
+    REQUIRE_FALSE(before.crashed);
+    model.step(ControlInputs{});
+    VehicleState after;
+    model.state(after);
+    CHECK(after.crashed);
+    CHECK_FALSE(after.diverged);
+    CHECK(after.simTime < outerDt);
+    TerrainStrikeSnapshotV1 incoming;
+    REQUIRE(model.terrainStrikeSnapshotV1(incoming));
+    CHECK(incoming.massKg > 0.0);
+    CHECK(incoming.state.simTime < outerDt);
+}

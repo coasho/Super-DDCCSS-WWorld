@@ -1,0 +1,15 @@
+# Fitted from declared calibration observations through the SDK.
+[calibration]
+base_drag_scale = 0.9500315508356607
+
+[provenance]
+schema = "fsim.hangar-calibration.v1"
+method = "shared-aircraft-vlm"
+status = "sdk-reference-fit"
+observed_source_sha256 = "233e3a25daeab899ea905b7779ea722b9789517571a8a957ff552a99049e03db"
+catalog_sha256 = "2b0fd41f4dbeeaf4f0325bb62c52d06992b02ba68d4b9b02b0af91b0f271ac6e"
+reference_inputs_sha256 = "727648ebef30b6a7336b62b700ad69da81114c20a6fc06c37b77decef9dcdf56"
+fitted_parameter_names = ["base_drag_scale"]
+simulated_method_input_names = []
+calibration_case_ids = ["A22-bare-1-6"]
+scope = "Declared observations only; independent errors are in the campaign report"

@@ -4,17 +4,21 @@
     python -m hangar <design> --quick          the same, coarse and short: a first look
     python -m hangar new <name> [--like c172]  start a design from another
     python -m hangar list                      the designs in aircraft/
+    python -m hangar calibrate --model all --require-all
+                                             sourced SDK fits and untouched holdouts; incomplete if references are missing
     python -m hangar register                  the viewer's stand-ins for stock aircraft (aircraft/models.txt)
     python -m hangar storedesigns [<name> ..]  the tanks', pods', bombs' and cargo's designs, from their cards (hangar/storedesigns.py)
     python -m hangar stores [<stage> ...]      every store - missiles too - through its stages (hangar/storestages.py)
     python -m hangar effects [--record FILE]   what each model gives the viewer's effects, and what is missing (hangar/effects.py)
-    python -m hangar storemodels               the tanks' and pods' flight models once released (hangar/storemodels.py)
-    python -m hangar storedrag                 each store card's drag in carriage, isolated (hangar/storedrag.py)
+    python -m hangar storemodels               compatibility alias for stores aero build
+    python -m hangar storedrag                 compatibility alias for stores aero build
 
 <design> is a name (aircraft/<name>/<name>.toml) or a path to a .toml.
 Stages: geometry aero mass propulsion build verify fly report (in that order;
-"all" runs these), and calibrate: fit extra drag and propeller pitch to the
-[targets] (after fly; writes calibration.toml, rebuilds). Outputs: aircraft/<name>/out/ - report.html, the
+"all" runs these), and calibrate: run the same public-reference SDK campaign
+for aircraft and stores, update physical calibration and runtime profiles, and
+measure untouched holdouts. Missing data remain explicitly incomplete.
+Outputs: aircraft/<name>/out/ - report.html, the
 stage JSON files and the images; the product - <name>.xml, Engines/, the .glb
 model - in aircraft/<name>/, where the platform finds it as jsbsim:<name>.
 """
@@ -29,12 +33,19 @@ from .files import open_write
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == 'engineering':
+        from . import engineering
+        return engineering.main(argv[1:])
+    if argv and argv[0] == 'calibrate':
+        from . import reference_campaign
+        return reference_campaign.main(argv[1:])
     if argv and argv[0] == "list":
         import json
         import tomllib
         from . import storestages
         root = os.path.join(pipeline.repo_root(), "aircraft")
         for name in sorted(os.listdir(root)):
+            if name.casefold()=='.codex':continue
             toml = os.path.join(root, name, name + ".toml")
             if os.path.isfile(toml):
                 built = os.path.isfile(os.path.join(root, name, name + ".xml"))
@@ -70,14 +81,9 @@ def main(argv=None):
     if argv and argv[0] == "stores":
         from . import storestages
         return storestages.main(argv[1:])
-    if argv and argv[0] == "storedrag":
-        from . import storedrag
-        storedrag.main()
-        return 0
-    if argv and argv[0] == "storemodels":
-        from . import storemodels
-        storemodels.main()
-        return 0
+    if argv and argv[0] in ("storedrag","storemodels"):
+        from . import storestages
+        return storestages.main(["aero","build"]+argv[1:])
     if argv and argv[0] == "new":
         p = argparse.ArgumentParser(prog="hangar new")
         p.add_argument("name")
@@ -105,6 +111,15 @@ def main(argv=None):
     path = pipeline.find_design(a.design)
     from . import rotorcraft
     if rotorcraft.kind_of(path):
+        if 'calibrate' in a.stages:
+            from pathlib import Path
+            from . import reference_campaign
+            for stage in a.stages:
+                if stage == 'calibrate':
+                    reference_campaign.execute_model(Path(path).stem,reference_campaign.load_catalog(),Path(path).parent/'out/reference-runtime')
+                else:
+                    rotorcraft.run(path,[stage])
+            return 0
         # a helicopter or a multirotor: the rotorcraft pipeline (hangar/rotorcraft)
         stages = list(rotorcraft.STAGES) if a.stages == ["all"] else a.stages
         _, done = rotorcraft.run(path, stages)

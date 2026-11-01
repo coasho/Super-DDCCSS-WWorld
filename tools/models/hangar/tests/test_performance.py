@@ -2,6 +2,8 @@
 each against a result it must give. Fast; no platform needed (the tables are flown by the performance stage)."""
 import math
 import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import numpy as np
 
@@ -31,6 +33,59 @@ def run(start, v_max, held=True, seconds=1200.0):
 
 
 class PerformanceTest(unittest.TestCase):
+    def test_fixed_power_load_factor_airframe_uses_its_authored_control_interface(self):
+        state=SimpleNamespace(altitude_msl_m=1000.,velocity_ned_ms=(0.,0.,0.),
+                              euler_rad=(0.,0.,0.),crashed=False)
+        values={'fsim/effectors/pitch':1.,'fsim/envelope/clean/n_max':4.,'fsim/envelope/clean/n_min':-1.}
+        vehicle=SimpleNamespace(state=state,get_property=lambda key:values[key],
+                                submit=Mock(),command_actuator=Mock())
+        fleet=P._Fleet(SimpleNamespace(Axis=SimpleNamespace()),SimpleNamespace(step_seconds=.1))
+        act=fleet.power(vehicle,.7)
+        P._Fleet.hold(act,1200.,1000.)
+        act.advance()
+        vehicle.submit.assert_not_called()
+        command=vehicle.command_actuator.call_args.kwargs
+        self.assertEqual(command['throttle'],.7)
+        self.assertLess(command['elevator'],0.)
+        self.assertGreaterEqual(command['elevator'],-1.)
+
+    def test_no_sdk_steps_after_last_trial_has_finished(self):
+        world=SimpleNamespace(step_seconds=.1,step=Mock())
+        state=SimpleNamespace(airspeed_true_ms=100.,airspeed_calibrated_ms=100.,
+                              velocity_ned_ms=(0.,0.,0.),altitude_msl_m=1000.,
+                              alpha_rad=0.,on_ground=False,crashed=False,altitude_agl_m=1000.)
+        vehicle=SimpleNamespace(state=state,remove=Mock())
+        fleet=SimpleNamespace(w=world,power=Mock(),hold=Mock())
+        record=dict(veh=vehicle,h0=1000.,t=[],v=[],vs=[],h=[],alpha=[])
+        P.run_group(fleet,{'trial':record},settle_s=2.,seconds=1200.,every=5,
+                    throttle=1.,stop=lambda r:True)
+        self.assertEqual(record['t'],[.1])
+        self.assertTrue(record['done'])
+        self.assertEqual(world.step.call_args_list,[unittest.mock.call(20),unittest.mock.call()])
+        vehicle.remove.assert_called_once()
+
+    def test_load_factor_pilot_runs_at_every_physics_step_not_only_record_samples(self):
+        world=SimpleNamespace(step_seconds=.1,step=Mock())
+        state=SimpleNamespace(airspeed_true_ms=100.,airspeed_calibrated_ms=100.,
+                              velocity_ned_ms=(0.,0.,0.),altitude_msl_m=1000.,
+                              euler_rad=(0.,0.,0.),alpha_rad=0.,on_ground=False,
+                              crashed=False,altitude_agl_m=1000.)
+        values={'fsim/effectors/pitch':1.,'fsim/envelope/clean/n_max':4.,'fsim/envelope/clean/n_min':-1.}
+        vehicle=SimpleNamespace(state=state,get_property=lambda key:values[key],
+                                command_actuator=Mock(),remove=Mock())
+        fleet=P._Fleet(SimpleNamespace(Axis=SimpleNamespace()),world)
+        record=dict(veh=vehicle,h0=1000.,t=[],v=[],vs=[],h=[],alpha=[])
+        P.run_group(fleet,{'trial':record},settle_s=0.,seconds=1200.,every=5,
+                    throttle=1.,stop=lambda row:len(row['t'])==2)
+        self.assertEqual(len(record['t']),2)
+        self.assertEqual(vehicle.command_actuator.call_count,7)  # initial command plus six actual steps
+
+    def test_no_sdk_steps_for_an_empty_trial_group(self):
+        world=SimpleNamespace(step_seconds=.1,step=Mock())
+        fleet=SimpleNamespace(w=world,power=Mock(),hold=Mock())
+        P.run_group(fleet,{},settle_s=20.,seconds=1200.,every=5,throttle=1.,stop=lambda r:True)
+        world.step.assert_not_called()
+
     def test_the_extremum_between_its_neighbours(self):
         # a parabola's vertex, read off five samples of it: exact
         x = np.array([10.0, 20.0, 30.0, 40.0, 50.0])

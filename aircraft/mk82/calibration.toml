@@ -1,0 +1,21 @@
+# Fitted from declared calibration observations through the SDK.
+[calibration]
+body_friction_density_kg_m3 = 1.1116683389856714
+body_friction_reynolds_coupling = 1.0
+body_friction_temperature_k = 281.65102236356387
+extra_drag_area_m2 = 0.0030627708865117666
+korn_kappa = 0.9299999999999999
+wave_drag_efficiency = 1.2
+wave_drag_rise_exponent = 2.0882491001430443
+
+[provenance]
+schema = "fsim.hangar-calibration.v1"
+method = "shared-aircraft-vlm"
+status = "sdk-reference-fit"
+observed_source_sha256 = "9bf577d4e9d2ebf571c208ddd2f28aa64c982f9d23084a4aec555587073ef7d6"
+catalog_sha256 = "2b0fd41f4dbeeaf4f0325bb62c52d06992b02ba68d4b9b02b0af91b0f271ac6e"
+reference_inputs_sha256 = "76efeba76b07e35da20e77567473332234008d8ef83e4cacc3b8c8904b31f8d0"
+fitted_parameter_names = ["extra_drag_area_m2", "korn_kappa", "wave_drag_rise_exponent"]
+simulated_method_input_names = ["body_friction_density_kg_m3", "body_friction_reynolds_coupling", "body_friction_temperature_k", "wave_drag_efficiency"]
+calibration_case_ids = ["Salisbury-S1-0.5", "Salisbury-S1-0.6", "Salisbury-S1-0.7", "Salisbury-S1-0.8", "Salisbury-S1-0.9", "Salisbury-S1-0.95"]
+scope = "Declared observations only; independent errors are in the campaign report"

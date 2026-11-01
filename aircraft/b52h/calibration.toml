@@ -5,3 +5,12 @@
 wave_drag_efficiency = 5.0000   # Raymer's E_WD: the wave drag over Sears-Haack's
 korn_kappa = 0.8700   # Korn's airfoil technology factor: where the wing's drag diverges
 # fitted: maximum Mach 0.909 at 20700 ft (target 0.906)
+
+[provenance]
+schema = "fsim.hangar-calibration.v1"
+method = "shared-aircraft-vlm"
+status = "existing-performance-fit"
+observed_source_sha256 = "0b1bcd215927dad01c9a1ae1872a8a745b49be8cf6a0a75cd49b65f41acd97e9"
+target_keys = ["max_mach", "max_mach_altitude_ft", "service_ceiling_ft"]
+scope = "Declared reference targets only; no six-axis equipment accuracy certification"
+historical_fit_note = "Retained performance overrides are not newly validated equipment data"

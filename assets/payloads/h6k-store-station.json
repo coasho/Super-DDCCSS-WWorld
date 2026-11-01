@@ -25,7 +25,8 @@
       "launcher": "pylon ejector rack",
       "ejection_ms": 3.0,
       "takes": [
-        "bomb"
+        "bomb",
+        "cruise_missile"
       ],
       "max_kg": 2500.0,
       "capacity": 1,
@@ -45,7 +46,8 @@
       "launcher": "pylon ejector rack",
       "ejection_ms": 3.0,
       "takes": [
-        "bomb"
+        "bomb",
+        "cruise_missile"
       ],
       "max_kg": 2500.0,
       "capacity": 1,
@@ -65,7 +67,8 @@
       "launcher": "pylon ejector rack",
       "ejection_ms": 3.0,
       "takes": [
-        "bomb"
+        "bomb",
+        "cruise_missile"
       ],
       "max_kg": 2500.0,
       "capacity": 1,
@@ -85,7 +88,8 @@
       "launcher": "pylon ejector rack",
       "ejection_ms": 3.0,
       "takes": [
-        "bomb"
+        "bomb",
+        "cruise_missile"
       ],
       "max_kg": 2500.0,
       "capacity": 1,
@@ -105,7 +109,8 @@
       "launcher": "pylon ejector rack",
       "ejection_ms": 3.0,
       "takes": [
-        "bomb"
+        "bomb",
+        "cruise_missile"
       ],
       "max_kg": 2500.0,
       "capacity": 1,
@@ -125,7 +130,8 @@
       "launcher": "pylon ejector rack",
       "ejection_ms": 3.0,
       "takes": [
-        "bomb"
+        "bomb",
+        "cruise_missile"
       ],
       "max_kg": 2500.0,
       "capacity": 1,

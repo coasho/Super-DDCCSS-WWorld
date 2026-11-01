@@ -303,3 +303,8 @@ flaps = "NASA TM-4433: trailing-edge flaps"
 drag_devices = "Jane's All the World's Aircraft: a dorsal speed brake"
 releasable_stores = "US Navy F/A-18 fact sheet: nine stations for air-to-air and air-to-ground weapons"
 aerobatic = "US Navy F/A-18 fact sheet: +7.5 g (fsim/envelope/clean/n_max)"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

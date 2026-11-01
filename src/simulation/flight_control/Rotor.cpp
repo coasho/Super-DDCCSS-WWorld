@@ -1,10 +1,13 @@
 #include "fsim/RotorControllers.h"
 
 #include "simulation/flight_control/Registry.h"
+#include "simulation/flight_control/OwnRotorPlant.h"
+#include "simulation/flight_control/RotorAllocationV1.h"
 #include "foundation/core/Geodesy.h"
 #include "foundation/core/Units.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 
@@ -21,6 +24,17 @@ bool resumed(const ControlContext& ctx, double& lastTime) noexcept {
     const bool stale = lastTime >= 0.0 && (t - lastTime > 1.5 * ctx.dt || t < lastTime);
     lastTime = t;
     return stale;
+}
+
+double withAirframeBias(RotorRateAxis& axis,double demand,double rate,double dt,double bias) noexcept {
+    if(!(std::abs(axis.power)>1e-9))return axis.trim;
+    const double error=demand-rate;
+    const double proportional=std::max(axis.bandwidth-axis.damping,0.25*axis.bandwidth);
+    const double accel=axis.damping*demand+proportional*error;
+    const double next=axis.sum+axis.integral*error*dt;
+    const double u=axis.trim+(accel+next-bias)/axis.power;
+    if(u>=-1 && u<=1){axis.sum=next;return u;}
+    return std::clamp(axis.trim+(accel+axis.sum-bias)/axis.power,-1.0,1.0);
 }
 
 } // namespace
@@ -67,21 +81,28 @@ Command RotorAllocation::update(const ControlContext& ctx, const Command& in) {
     const auto& s = ctx.sensed;
     if (resumed(ctx, lastTime_)) reset();
     const double* rate = s.angularRateBodyRadS;
+    OwnRotorPlantV1 plant;
+    const auto* native=dynamic_cast<const OwnRotorPlantViewV1*>(ctx.world);
+    const bool compensate=native && native->ownRotorPlantV1(ctx.vehicleId,plant) && plant.available;
+    const auto update=[&](RotorRateAxis& axis,double demand,unsigned k) {
+        return compensate ? withAirframeBias(axis,demand,rate[k],ctx.dt,plant.angularAcceleration[k])
+                          : axis.update(demand,rate[k],ctx.dt);
+    };
     ActuatorCommand out;
     if (ctx.engaged & axisBit(Axis::Roll)) {
-        out.aileron = roll.update(orHold(c.rollRateRadS, 0.0), rate[0], ctx.dt);
+        out.aileron = update(roll,orHold(c.rollRateRadS,0.0),0);
     } else {
         roll.reset(); // someone else flies it: start afresh when it comes back
         out.aileron = kHold;
     }
     if (ctx.engaged & axisBit(Axis::Pitch)) {
-        out.elevator = pitch.update(orHold(c.pitchRateRadS, 0.0), rate[1], ctx.dt);
+        out.elevator = update(pitch,orHold(c.pitchRateRadS,0.0),1);
     } else {
         pitch.reset();
         out.elevator = kHold;
     }
     if (ctx.engaged & axisBit(Axis::Yaw)) {
-        out.rudder = yaw.update(orHold(c.yawRateRadS, 0.0), rate[2], ctx.dt);
+        out.rudder = update(yaw,orHold(c.yawRateRadS,0.0),2);
     } else {
         yaw.reset();
         out.rudder = kHold;
@@ -199,6 +220,28 @@ Command RotorVelocity::update(const ControlContext& ctx, const Command& in) {
     AttitudeCommand out{kHold, kHold, kHold, kHold, kHold, kHold};
     const double dt = ctx.dt;
 
+    OwnRotorPlantV1 plant;
+    const auto* view=dynamic_cast<const OwnRotorPlantViewV1*>(ctx.world);
+    bool forceAware=view && view->ownRotorPlantV1(ctx.vehicleId,plant) && plant.available && plant.passiveForceIncluded && std::abs(heavePower)>1e-9 &&
+        (ctx.engaged & kCyclic)==kCyclic && (ctx.engaged & axisBit(Axis::Thrust));
+    double airframeX=0,airframeY=0,airframeDown=0,support=kG;
+    if(forceAware) {
+        const double roll=ctx.state.eulerRad[0],pitch=ctx.state.eulerRad[1];
+        const auto* force=plant.specificForceBody;
+        airframeX=std::cos(pitch)*force[0]+std::sin(pitch)*(std::sin(roll)*force[1]+std::cos(roll)*force[2]);
+        airframeY=std::cos(roll)*force[1]-std::sin(roll)*force[2];
+        airframeDown=-std::sin(pitch)*force[0]+std::cos(pitch)*(std::sin(roll)*force[1]+std::cos(roll)*force[2]);
+        const double error=orHold(c.verticalSpeedMs,0.)+s.velocityNedMs[2];
+        const double tilt=std::max(std::cos(roll)*std::cos(pitch),.5);
+        const auto throttle=[&](double integral){return throttleTrim+((kG+airframeDown+verticalKp*error+integral)/tilt-kG)/heavePower;};
+        const double nextZ=sumZ_+verticalKi*error*dt,candidate=throttle(nextZ);
+        const double acceptedZ=candidate>=0 && candidate<=1 ? nextZ:sumZ_;
+        const double acceptedThrottle=std::clamp(throttle(acceptedZ),0.,1.);
+        support=std::max(0.,(kG+heavePower*(acceptedThrottle-throttleTrim))*tilt);
+        forceAware=std::isfinite(support)&&std::isfinite(airframeX)&&std::isfinite(airframeY)&&std::isfinite(airframeDown)&&std::isfinite(acceptedThrottle);
+        if(forceAware){sumZ_=acceptedZ;out.throttle=acceptedThrottle;}
+    }
+
     // over the ground or through the air: the velocity error along the heading and to its right
     if (ctx.engaged & kCyclic) {
         double ex, ey;
@@ -219,14 +262,32 @@ Command RotorVelocity::update(const ControlContext& ctx, const Command& in) {
         // overshoot: its gain falls off as band^2 / (band^2 + error^2), band the error the proportional term answers
         // with a quarter of the tilt. Forward it may trim the whole tilt - the drag of a fast multirotor takes most of
         // it (a Crazyflie's best range, 22 of its 24 degrees: ADR-29 FA-3e); sideways half, as an orbit needs
-        const double aMax = kG * std::tan(maxTiltRad);
+        const double aMax = (forceAware?support:kG) * std::tan(maxTiltRad);
         const double band = horizontalKp > 0.0 ? 0.25 * aMax / horizontalKp : 1.0, band2 = band * band;
-        sumX_ = std::clamp(sumX_ + horizontalKi * band2 / (band2 + ex * ex) * ex * dt, -aMax, aMax);
-        sumY_ = std::clamp(sumY_ + horizontalKi * band2 / (band2 + ey * ey) * ey * dt, -0.5 * aMax, 0.5 * aMax);
-        const double ax = std::clamp(horizontalKp * ex + sumX_, -aMax, aMax);
-        const double ay = std::clamp(horizontalKp * ey + sumY_, -aMax, aMax);
-        out.pitchRad = pitchTrimRad - std::atan(ax / kG);
-        out.rollRad = rollTrimRad + std::atan(ay * std::cos(out.pitchRad) / kG);
+        const auto increment=[&](double error) {
+            const double denominator=band2+error*error;
+            return denominator>0 ? horizontalKi*(band2/denominator)*error*dt:0.;
+        };
+        double nextX=std::clamp(sumX_+increment(ex),-aMax,aMax);
+        double nextY=std::clamp(sumY_+increment(ey),-.5*aMax,.5*aMax);
+        if(forceAware) {
+            const auto allocate=[&](double ax,double ay) {
+                return allocateRotorThrustV1(ax,ay,support,maxTiltRad,pitchTrimRad,rollTrimRad);
+            };
+            const double ax=horizontalKp*ex+nextX-airframeX,ay=horizontalKp*ey+nextY-airframeY;
+            const auto limited=allocate(ax,ay);
+            const double rx=ax-support*std::tan(pitchTrimRad-limited.pitch);
+            const double ry=ay-support*std::tan(limited.roll-rollTrimRad)/std::cos(limited.pitch);
+            const auto delta=rotorIntegralIncrementV1(nextX-sumX_,nextY-sumY_,rx,ry,limited.saturated);
+            sumX_=std::clamp(sumX_+delta[0],-aMax,aMax);sumY_=std::clamp(sumY_+delta[1],-.5*aMax,.5*aMax);
+            const auto demand=allocate(horizontalKp*ex+sumX_-airframeX,horizontalKp*ey+sumY_-airframeY);
+            out.pitchRad=demand.pitch;out.rollRad=demand.roll;
+        } else {
+            sumX_=nextX;sumY_=nextY;
+            const double ax=std::clamp(horizontalKp*ex+sumX_,-aMax,aMax),ay=std::clamp(horizontalKp*ey+sumY_,-aMax,aMax);
+            out.pitchRad=pitchTrimRad-std::atan(ax/kG);
+            out.rollRad=rollTrimRad+std::atan(ay*std::cos(out.pitchRad)/kG);
+        }
     } else {
         sumX_ = sumY_ = 0.0;
         northHold_ = s.velocityNedMs[0], eastHold_ = s.velocityNedMs[1];
@@ -239,12 +300,17 @@ Command RotorVelocity::update(const ControlContext& ctx, const Command& in) {
         const double tilt = std::max(std::cos(phi) * std::cos(theta), 0.5);
         const double feed = throttleTrim + ((1.0 / tilt - 1.0) * kG + heaveDamping * target) / heavePower;
         const double next = sumZ_ + verticalKi * error * dt;
+        // Force-aware collective and accepted integral were computed before
+        // tilt allocation. Its measured drag already covers the corresponding
+        // identified damping; the legacy path below retains that approximation.
+        if(!forceAware) {
         const double u = feed + (verticalKp * error + next) / heavePower;
         if (u >= 0.0 && u <= 1.0) {
             sumZ_ = next;
             out.throttle = u;
         } else {
             out.throttle = std::clamp(feed + (verticalKp * error + sumZ_) / heavePower, 0.0, 1.0);
+        }
         }
     } else {
         sumZ_ = 0.0;
@@ -290,9 +356,21 @@ Command RotorPosition::update(const ControlContext& ctx, const Command& in) {
         // first, then the deceleration (v tau + v^2 / 2a = distance): arriving, it slows to a halt
         const double a = decelerationMs2, tau = velocityLagS;
         const double stopping = a * (std::sqrt(tau * tau + 2.0 * distance / a) - tau);
-        const double speed = std::min({orHold(c.airspeedMs, maxSpeedMs), horizontalGain * distance, stopping});
-        out.northMs = distance > 1e-6 ? speed * north / distance : 0.0;
-        out.eastMs = distance > 1e-6 ? speed * east / distance : 0.0;
+        constexpr double beta = 11.0 / 16.0;
+        // Damping must not reduce the declared steady transit speed by
+        // 1/(1+beta). Normalize its speed reference to unit DC gain, while
+        // retaining the exact near-capture position coefficient and poles.
+        const double speed = std::min({orHold(c.airspeedMs, maxSpeedMs), horizontalGain * distance / (1.0+beta), stopping});
+        // The velocity PI integrates the complete setpoint error too.
+        // Ki=Kv^2/4, Kx=27Kv/64 and beta=11/16 give the ideal polynomial
+        // (s+3Kv/16)(s+3Kv/4)^2, a fourfold-separated critically damped pair.
+        // This ground-velocity damping also opposes capture momentum.
+        const double vn = (distance > 1e-6 ? (1.0+beta) * speed * north / distance : 0.0) - beta * s.velocityNedMs[0];
+        const double ve = (distance > 1e-6 ? (1.0+beta) * speed * east / distance : 0.0) - beta * s.velocityNedMs[1];
+        const double demand = std::hypot(vn, ve), limit = orHold(c.airspeedMs, maxSpeedMs);
+        const double scale = demand > limit && demand > 0.0 ? limit / demand : 1.0;
+        out.northMs = scale * vn;
+        out.eastMs = scale * ve;
     }
     if (ctx.engaged & axisBit(Axis::Thrust))
         out.verticalSpeedMs = std::clamp(altitudeGain * (c.altitudeMslM - s.altitudeMslM), -maxVerticalSpeedMs, maxVerticalSpeedMs);

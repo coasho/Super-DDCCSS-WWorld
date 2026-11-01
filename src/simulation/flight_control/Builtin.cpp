@@ -2,6 +2,7 @@
 
 #include "simulation/flight_control/Registry.h"
 #include "simulation/flight_control/Route.h"
+#include "simulation/flight_control/OwnRotorPlant.h"
 #include "foundation/core/Geodesy.h"
 #include "fsim/GuidanceModes.h"
 #include "fsim/RotorControllers.h"
@@ -518,6 +519,25 @@ Command WaypointsBehavior::update(const ControlContext& ctx, const Command& in) 
     }
     PositionCommand out = c.points[index_];
     if (isHold(out.airspeedMs)) out.airspeedMs = airspeed_;
+    const auto& native=ownRotorPlantContextV1;
+    const auto* position=native.owner==ctx.world && native.vehicle==ctx.vehicleId ? native.snapshot.positionController:nullptr;
+    if(hovers_ && !finished_ && position && position->decelerationMs2>0 && position->velocityLagS>=0 &&
+       std::isfinite(position->decelerationMs2) && std::isfinite(position->velocityLagS)) {
+        // Ordered waypoint capture is transit, not a hover at every fix.
+        // Preserve the active position loop's speed/height/heading parameters;
+        // use its stopping envelope until capture, then its normal final hold.
+        double north,east;
+        geo::localNorthEastM(s.latitudeRad,s.longitudeRad,out.latitudeRad,out.longitudeRad,north,east);
+        const double remaining=std::hypot(north,east),a=position->decelerationMs2,tau=position->velocityLagS;
+        const double stopping=a*(std::sqrt(tau*tau+2*remaining/a)-tau);
+        const double speed=std::min(orHold(out.airspeedMs,position->maxSpeedMs),stopping);
+        if(remaining>1e-6 && std::isfinite(speed) && speed>=0) {
+            const double heading=!isHold(out.headingRad) ? out.headingRad : remaining>std::max(20.,out.captureRadiusM) ? std::atan2(east,north):kHold;
+            const double vertical=std::clamp(position->altitudeGain*(out.altitudeMslM-s.altitudeMslM),
+                -position->maxVerticalSpeedMs,position->maxVerticalSpeedMs);
+            return VelocityCommand{kHold,vertical,heading,kHold,speed*north/remaining,speed*east/remaining};
+        }
+    }
     return out;
 }
 

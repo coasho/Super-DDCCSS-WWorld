@@ -19,10 +19,7 @@ import numpy as np
 
 COEFFS = ("CD", "CY", "CL", "Cl", "Cm", "Cn")
 CHANNEL_COEFFS = {
-    "elevator": ("CD", "CL", "Cm"),
-    "flap": ("CD", "CL", "Cm"),
-    "aileron": ("CD", "CY", "Cl", "Cn"),
-    "rudder": ("CD", "CY", "Cl", "Cn"),
+    channel: COEFFS for channel in ("elevator", "flap", "aileron", "rudder")
 }
 
 
@@ -56,15 +53,18 @@ def build(model, alpha=None, beta=None, progress=None):
     else:
         b_deg = np.array([-90, -40, -15, -5, 0, 5, 15, 40, 90], float) if quick else beta_grid()
     a_rad, b_rad = np.radians(a_deg), np.radians(b_deg)
-    out = {"alpha": a_deg, "beta": b_deg}
+    out = {"alpha": a_deg, "beta": b_deg,
+           "_panels": 0 if model.lat is None else model.lat.n_panels}
     total = len(a_deg) * len(b_deg)
     done = 0
     # base: all six over alpha x beta
-    base = {k: np.zeros((len(a_deg), len(b_deg))) for k in COEFFS}
-    for j, b in enumerate(b_rad):
-        for i, a in enumerate(a_rad):
+    base = {k: np.zeros((len(a_deg), len(b_deg))) for k in (*COEFFS,'CDi')}
+    # Keep a wake angle resident across sideslip/deflection evaluations. This
+    # changes traversal only: every original knot and nonlinear solve remains.
+    for i, a in enumerate(a_rad):
+        for j, b in enumerate(b_rad):
             c = model.evaluate(a, b)
-            for k in COEFFS:
+            for k in base:
                 base[k][i, j] = c[k]
             done += 1
         if progress:
@@ -75,48 +75,82 @@ def build(model, alpha=None, beta=None, progress=None):
         m = jb.get(round(-b, 6))
         if m is None or m < j:
             continue
-        for k in ("CD", "CL", "Cm"):
+        for k in ("CD", "CL", "Cm",'CDi'):
             avg = 0.5 * (base[k][:, j] + base[k][:, m])
             base[k][:, j] = base[k][:, m] = avg
         for k in ("CY", "Cl", "Cn"):
             odd = 0.5 * (base[k][:, j] - base[k][:, m])
             base[k][:, j], base[k][:, m] = odd, -odd
     out["base"] = base
-    zero = {k: base[k][:, jb[0.0]] for k in COEFFS}
+    zero = {k: base[k][:, jb[0.0]] for k in base}
     # controls: increments over alpha x deflection
     a_ctl = a_deg
     ctrl = {}
     for ch in model.aircraft.channels():
         lo, hi = model.aircraft.channel_limits(ch)
         d_deg = control_grid(lo, hi, (12.0 if quick else 5.0) if hi - lo > 12 else 2.5)
-        tab = {k: np.zeros((len(a_ctl), len(d_deg))) for k in CHANNEL_COEFFS[ch]}
-        for jd, d in enumerate(d_deg):
-            for i, a in enumerate(np.radians(a_ctl)):
+        tab = {k: np.zeros((len(a_ctl), len(d_deg))) for k in (*CHANNEL_COEFFS[ch],'CDi')}
+        for i, a in enumerate(np.radians(a_ctl)):
+            for jd, d in enumerate(d_deg):
                 if abs(d) < 1e-9:
                     continue
                 c = model.evaluate(a, 0.0, controls={ch: math.radians(d)})
                 for k in tab:
                     tab[k][i, jd] = c[k] - zero[k][i]
             if progress:
-                progress("control " + ch, jd + 1, len(d_deg))
+                progress("control " + ch, i + 1, len(a_ctl))
         ctrl[ch] = {"deflection": d_deg, **tab}
     out["controls"] = ctrl
+    # An actuator binding selects a physical control piece, not another force
+    # model. Individual fin saturation/lag therefore reaches this same lattice.
+    native = []
+    if model.lat is not None and model.aircraft.spec.get('aircraft', {}).get('card'):
+        from .. import finregistry
+        L = model.lat
+        for index, piece in enumerate(L.pieces):
+            strips = np.flatnonzero(L.piece == index)
+            k = int(strips[0])
+            surface = L.surfaces[int(L.surface_index[k])]
+            side = 1 if L.c4[k, 1] >= 0 else -1
+            orientation = float(L.orient[k])
+            low, high = sorted((math.degrees(piece['lo'] * orientation),
+                                math.degrees(piece['hi'] * orientation)))
+            deflection = control_grid(low, high)
+            values = {key: np.zeros((len(a_deg), len(deflection))) for key in (*COEFFS,'CDi')}
+            for i, alpha_value in enumerate(a_rad):
+                for j, delta in enumerate(np.radians(deflection)):
+                    if abs(delta) < 1.e-12:
+                        continue
+                    response = model.evaluate(alpha_value, pieces={index: float(delta * orientation)})
+                    for key in values:
+                        values[key][i, j] = response[key] - zero[key][i]
+            native.append(dict(id=finregistry.identity(surface, piece['control'], side),
+                property='fcs/fin-%d-delta-rad' % index,
+                deflection=np.radians(deflection), lo=math.radians(low), hi=math.radians(high),
+                gains={ch: gain * orientation for ch, gain in piece['own'].items()},
+                channel=piece['control'].channel, values=values))
+            if progress:
+                progress('physical control', index + 1, len(L.pieces))
+    out['native_controls'] = native
     # rates: derivatives over alpha, by central differences
     h = 0.03
     rates = {}
     for name, kw, keys in (("p", "p", ("CY", "Cl", "Cn")), ("r", "r", ("CY", "Cl", "Cn")), ("q", "q", ("CL", "Cm", "CD"))):
-        tab = {k: np.zeros(len(a_ctl)) for k in keys}
+        tab = {k: np.zeros(len(a_ctl)) for k in (*COEFFS,'CDi')}
         for i, a in enumerate(np.radians(a_ctl)):
             cp = model.evaluate(a, 0.0, **{kw: h})
             cm = model.evaluate(a, 0.0, **{kw: -h})
-            for k in keys:
+            for k in tab:
                 tab[k][i] = (cp[k] - cm[k]) / (2 * h)
         rates[name] = tab
         if progress:
             progress("rate " + name, 1, 1)
     out["rates"] = rates
     despike_rates(model, out)
-    out["alphadot"] = alphadot(model)
+    # Quasi-steady VLM has no additional unsteady states. The tail downwash
+    # lag below supplies CL/Cm; other first-order unsteady derivatives are
+    # explicitly estimated as zero, rather than silently absent columns.
+    out["alphadot"] = dict.fromkeys(COEFFS, 0.0) | alphadot(model)
     out["ground_effect"] = ground_effect(model)
     from .mach import mach_effects
     from .model import AeroModel
@@ -184,7 +218,11 @@ def alphadot(model):
     with the tail's lift slope and the downwash gradient taken from the
     lattice solution."""
     a = model.aircraft
-    tails = [s for s in a.surfaces if s.kind == "htail"]
+    # A wingless rotorcraft/stabilizer or an upstream surface cannot inherit
+    # an aircraft-tail delay from the geometry normalizer's fallback wing.
+    tails = [s for s in a.surfaces if s.kind == "htail" and a.wing is not None
+             and a.wing.kind == "wing" and s is not a.wing
+             and s.mac[1][0] > a.wing.mac[1][0]]
     if not tails:
         return {"CL": 0.0, "Cm": 0.0, "deps_dalpha": 0.0}
     tail = tails[0]
@@ -241,6 +279,8 @@ def ground_effect(model):
     (16 h/b)^2 / (1 + (16 h/b)^2) for the induced drag, and a lift gain
     rising to ~20 % at the ground (the trend JSBSim's GA models use)."""
     hb = np.array([0.0, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1])
+    if not model.aircraft.surfaces:
+        return {"h_b": hb, "lift": np.ones_like(hb), "drag": np.ones_like(hb)}
     k = (16 * hb) ** 2
     drag = np.where(hb > 0, k / (1 + k), 0.0)
     lift = 1.0 + 0.2 * np.exp(-hb / 0.12) * (hb < 1.05)

@@ -241,7 +241,7 @@ def piece_xml(data, section):
                           _table(alpha, _normal_table(plate, aspect), 20), _table(alpha, _cp_table(plate), 20),
                           qS, DAMPING["Cmq"], qS, DAMPING["Clp"], qS, DAMPING["Cnr"])
     return """<?xml version="1.0"?>
-<!-- Written by hangar (tools/hangar/hangar/pieces.py) from %s's damage data: its %s flying on its own once it parts
+<!-- Written by hangar (tools/models/hangar/hangar/pieces.py) from %s's damage data: its %s flying on its own once it parts
      (MS-7g). Its aerodynamics a tumbling piece's - estimates, said so there. Do not edit: hangar's model stage of %s writes it. -->
 <fdm_config name="%s" version="2.0" release="ALPHA">
     <fileheader>

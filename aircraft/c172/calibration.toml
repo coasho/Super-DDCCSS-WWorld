@@ -1,6 +1,13 @@
-# Written by hangar calibrate (2026-09-24 18:52) to meet the [targets] of c172.toml:
-# corrections for what the physics estimate does not see. Delete this file to
-# go back to the pure estimate.
+# Fitted from declared calibration observations through the SDK.
 [calibration]
-extra_drag_area_m2 = 0.2348   # drag along the flow, added to the estimate (m2)
-# fitted: max speed 122.7 kt (target 123); climb 715 ft/min predicted (published 700)
+extra_drag_area_m2 = 0.18092721365700906
+
+[provenance]
+schema = "fsim.hangar-calibration.v1"
+method = "shared-aircraft-vlm"
+status = "sdk-reference-fit"
+observed_source_sha256 = "8f191edf0ad072cc7a745ae93d2d747bb5f89fa7d003f36f011583f4f59c2e6b"
+catalog_sha256 = "5f05a4da5ab7d8114b2c36f0269786d0425072f0af4b00934103a32dbb68be11"
+reference_inputs_sha256 = "c2daa35f4823153c4ec589dbfae777fccce97898e26d29a742ba0bb3b8e197c5"
+calibration_case_ids = ["poh-climb-20C-2000", "poh-climb-20C-6000"]
+scope = "Declared observations only; independent errors are in the campaign report"

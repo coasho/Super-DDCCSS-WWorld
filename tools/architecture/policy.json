@@ -113,7 +113,7 @@
     "roots": {
       "tests": ["contracts", "simulation", "training", "visualization", "compatibility", "integration"],
       "examples": ["simulation", "training", "visualization"],
-      "tools": ["architecture", "models", "data", "validation", "launch"]
+      "tools": ["architecture", "models", "data", "validation", "launch", "bootstrap", "tests"]
     },
     "root_files": ["CMakeLists.txt"],
     "exceptions": []

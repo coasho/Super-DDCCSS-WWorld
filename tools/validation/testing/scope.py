@@ -39,6 +39,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import sys
 import tomllib
@@ -86,12 +87,97 @@ def walk(root, keep):
                 yield Path(here) / name
 
 
+def _source_root(path):
+    """Reject excluded names before filesystem resolution can inspect them."""
+    path = Path(path)
+    if any(part.casefold() == ".codex" for part in path.parts):
+        raise ValueError("Excluded source root")
+    path = path.absolute()
+    if any(part.casefold() == ".codex" for part in path.parts):
+        raise ValueError("Excluded source root")
+    resolved = path.resolve()
+    if any(part.casefold() == ".codex" for part in resolved.parts):
+        raise ValueError("Excluded source root")
+    return resolved
+
+
+def _git_environment():
+    """Repository reads ignore inherited Git overrides, retaining PATH/tools.
+
+    GIT_DIR/GIT_WORK_TREE can spoof the discovered root; GIT_INDEX_FILE and
+    common/object/config overrides can select foreign data even with that root.
+    Remove the whole GIT_ override family only in these child environments.
+    """
+    return {key: value for key, value in os.environ.items() if not key.upper().startswith("GIT_")}
+
+
+def _git_toplevel(repo):
+    """Use Git only for this exact project, never an enclosing checkout.
+
+    A Git-free source export can sit below another checkout. Git discovery
+    succeeds there but names that parent's top level, not the exported source.
+    Broken or redirected local Git metadata remains an error.
+    """
+    metadata = os.path.lexists(repo / ".git")
+    try:
+        result = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=repo,
+                                capture_output=True, text=True, timeout=30, env=_git_environment())
+    except OSError as error:
+        if metadata:
+            raise ValueError("Cannot inspect this project's local Git checkout") from error
+        return None
+    root = _source_root(result.stdout.strip()) if result.returncode == 0 and result.stdout.strip() else None
+    if root != repo and metadata:
+        raise ValueError("Local Git checkout does not resolve to this project's source root")
+    return root
+
+
+def source_files(repo=REPO):
+    """Project-relative source inventory for a checkout or Git-free export.
+
+    Exact checkouts retain Git's cached/untracked and ignore semantics. Exports
+    enumerate their own source tree, pruning metadata and generated outputs
+    before descent. No symlink, junction or other reparse point is followed.
+    This inventories paths; it does not claim source-hash/model qualification.
+    """
+    repo = _source_root(repo)
+    if _git_toplevel(repo) == repo:
+        command = ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--exclude=.codex", "--", ".",
+                   ":(exclude,glob)**/.codex/**"]
+        output = subprocess.run(command, cwd=repo, capture_output=True, text=True, check=True, timeout=30,
+                                env=_git_environment()).stdout
+        return sorted({name for name in output.split("\0") if name and
+                       not any(part.casefold() == ".codex" for part in Path(name).parts)})
+
+    excluded = {name.casefold() for name in EXCLUDED_DIRS} | {"build", ".local"}
+
+    def linked(path):
+        information = path.lstat()
+        return stat.S_ISLNK(information.st_mode) or bool(
+            getattr(information, "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0))
+
+    found = []
+    for here, dirs, files in os.walk(repo):
+        # Name exclusions are checked before inspecting the child itself.
+        dirs[:] = sorted(name for name in dirs if name.casefold() not in excluded and not linked(Path(here) / name))
+        for name in sorted(files):
+            path = Path(here) / name
+            if name.casefold() not in excluded and not linked(path):
+                found.append(path.relative_to(repo).as_posix())
+    return sorted(found)
+
+
 def changed_paths(base):
     """The working tree's changed and untracked paths against `base` (never inside a .codex directory)."""
+    repo = _source_root(REPO)
+    if _git_toplevel(repo) != repo:
+        raise ValueError("Automatic change discovery requires this project's Git root; use --paths in a source export")
     exclude = [":(exclude,glob)**/.codex/**", ":(exclude).codex"]
-    diff = subprocess.run(["git", "diff", "--name-only", base, "--", "."] + exclude, cwd=REPO, capture_output=True, text=True, check=True).stdout
-    untracked = subprocess.run(["git", "ls-files", "--others", "--exclude-standard", "--", "."] + exclude, cwd=REPO, capture_output=True,
-                               text=True, check=True).stdout
+    env = _git_environment()
+    diff = subprocess.run(["git", "diff", "--name-only", base, "--", "."] + exclude, cwd=repo, capture_output=True,
+                          text=True, check=True, env=env).stdout
+    untracked = subprocess.run(["git", "ls-files", "--others", "--exclude-standard", "--", "."] + exclude, cwd=repo, capture_output=True,
+                               text=True, check=True, env=env).stdout
     return sorted({p.strip() for p in (diff + untracked).splitlines() if p.strip()})
 
 

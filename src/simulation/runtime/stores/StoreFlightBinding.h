@@ -2,6 +2,7 @@
 
 #include "fsim/Property.h"
 #include "simulation/mission_systems/Host.h"
+#include "simulation/runtime/stores/StoreAerodynamicsV1.h"
 
 #include <cstdint>
 #include <string>
@@ -42,6 +43,9 @@ private:
     std::vector<ms::Host::DragPoint> drag;
     std::uint64_t dragRevision = ~0ull;
     PropertyHandle dragQbar;
+    PropertyHandle dragDensity;
+    struct Airframe { std::shared_ptr<const StoreAerodynamicsV1> table; std::array<double,3> position; };
+    std::vector<Airframe> airframes;
     /// The stations' mass revision its host was last told its weight for (control::CapabilityHost::setLoad).
     std::uint64_t loadRevision = ~0ull;
 };

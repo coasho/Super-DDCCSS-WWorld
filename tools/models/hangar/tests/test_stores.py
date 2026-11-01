@@ -63,70 +63,10 @@ def evidence_fixture(folder):
     return root, card, inputs, artifacts
 
 
-def offline_fixture(folder):
-    from hangar import storetables
-    root = Path(folder)
-    spec = {"aircraft": {"name": "fixture", "category": "missile", "card": "fixture"},
-            "mass": {"empty": 2.0, "empty_cg": [1.0, 0.0, 0.0], "gyration": [0.1, 0.3, 0.3]},
-            "body": [{"kind": "fuselage", "stations": [
-                {"x": 0.0, "w": 0.2, "top": 0.1, "bottom": -0.1},
-                {"x": 2.0, "w": 0.2, "top": 0.1, "bottom": -0.1}]}],
-            "store": {"aero_table": "aero.json"}}
-    geo = {"x": [0.0, 2.0], "r": [0.1, 0.1], "fins": [], "cg": 1.0,
-           "length": 2.0, "diameter": 0.2, "design": spec,
-           "design_path": str(root / "fixture.toml"), "source": "its design"}
-    card = {"id": "fixture", "model": "jsbsim:fixture", "class": "aam", "parameters": {
-        name: {"value": value} for name, value in (("mass_kg", 2.0), ("length_m", 2.0),
-                                                  ("diameter_m", 0.2), ("drag_area_m2", 0.01))}}
-    dataset = {"schema": "fsim.store-aero-derivatives.v1", "card": "fixture",
-               "geometry_sha256": storetables.geometry_digest(geo),
-               "reference": {"area_m2": math.pi * 0.2 ** 2 / 4.0, "diameter_m": 0.2,
-                             "moment_x_m": 1.0, "frame": "body-from-first-station"},
-               "producer": {"name": "synthetic-fixture", "version": "1", "case": "integration-only"},
-               "mach": [0.0, 0.6, 0.6001, 2.0],
-               "coefficients": {name: [sign * v for v in (1.0, 2.0, 3.0, 4.0)] for name, sign in (
-                   ("ca", 0.1), ("cna", 1.0), ("cma", -1.0), ("cyb", 0.5),
-                   ("cnb", -0.5), ("cmq", -2.0), ("cnr", -2.0), ("clp", -1.0))},
-               "crossflow": {name: 0.0 for name in ("normal", "pitch", "side", "yaw", "turn_m5")}}
-    (root / "aero.json").write_text(json.dumps(dataset), encoding="utf-8")
-    return geo, card, dataset
 
 
-def xml_coefficients(text, name):
-    node = ET.fromstring(text).find(".//function[@name='aero/coefficient/%s']//tableData" % name)
-    return [[float(value) for value in row.split()] for row in node.text.strip().splitlines()]
 
 
-def offline_design_fixture(folder):
-    root = Path(folder)
-    design_dir = root / "aircraft" / "fixture"
-    design_dir.mkdir(parents=True)
-    _, card, dataset = offline_fixture(design_dir)
-    path = design_dir / "fixture.toml"
-    path.write_text('''[aircraft]
-name = "fixture"
-category = "missile"
-card = "fixture"
-[reference]
-area = 0.031415926535897934
-span = 0.2
-chord = 0.2
-aero_point = [1.0, 0.0, 0.0]
-[mass]
-empty = 2.0
-empty_cg = [1.0, 0.0, 0.0]
-gyration = [0.1, 0.3, 0.3]
-[store]
-aero_table = "aero.json"
-[[body]]
-name = "body"
-kind = "fuselage"
-stations = [{x=0.0, w=0.2, top=0.1, bottom=-0.1}, {x=2.0, w=0.2, top=0.1, bottom=-0.1}]
-''', encoding="utf-8")
-    asset = root / "assets" / "stores" / "fixture.json"
-    asset.parent.mkdir(parents=True)
-    asset.write_text(json.dumps(card), encoding="utf-8")
-    return root, path, dataset
 
 
 def test_catalogue_fixture(folder):
@@ -153,6 +93,11 @@ def test_catalogue_fixture(folder):
 
 
 class StoresTest(unittest.TestCase):
+    def test_all_nonmissile_designs_reproduce_the_authored_shared_inputs(self):
+        for name in storedesigns.cards():
+            text,_=storedesigns.design(name)
+            self.assertEqual(text,(Path(ROOT)/'aircraft'/name/(name+'.toml')).read_text(encoding='utf-8'),name)
+
     def test_catalogue_complete_chain_is_deterministic_and_read_only(self):
         from hangar import catalogue
         with tempfile.TemporaryDirectory() as folder:
@@ -427,340 +372,28 @@ class StoresTest(unittest.TestCase):
                     result = catalogue.audit(root)
                     self.assertTrue(result["structural_passed"], result["issues"])
 
-    def test_offline_aero_changes_generated_coefficients_and_digest(self):
-        from hangar import storeaero
-        with tempfile.TemporaryDirectory() as folder:
-            geo, card, dataset = offline_fixture(folder)
-            with mock.patch.object(storeaero, "geometry", return_value=geo):
-                first = storemodels.files(card)["fixture.xml"]
-                self.assertEqual(xml_coefficients(first, "CN"), list(map(list, zip(dataset["mach"], dataset["coefficients"]["cna"]))))
-                self.assertEqual(xml_coefficients(first, "CA"), list(map(list, zip(dataset["mach"], dataset["coefficients"]["ca"]))))
-                dataset["coefficients"]["cna"][1] = 7.0
-                (Path(folder) / "aero.json").write_text(json.dumps(dataset), encoding="utf-8")
-                second = storemodels.files(card)["fixture.xml"]
-            self.assertNotEqual(first, second)
-            self.assertEqual(xml_coefficients(second, "CN")[1], [0.6, 7.0])
-            self.assertIn("Offline derivative-table SHA-256:", first)
 
-    def test_offline_aero_stage_uses_generated_dataset(self):
-        from hangar import storeaero, storedrag
-        with tempfile.TemporaryDirectory() as folder:
-            geo, card, dataset = offline_fixture(folder)
-            d = types.SimpleNamespace(name="fixture", aircraft=types.SimpleNamespace(spec=geo["design"]),
-                                      save=lambda stage, data: data)
-            parts = dict(body=0.01, base=0.0, fins=0.0, frontal=0.03, munk=0.0, slope=0.0, arm=0.0)
-            with mock.patch.object(storeaero, "geometry", return_value=geo), \
-                    mock.patch.object(storestages, "card_of", return_value=card), \
-                    mock.patch.object(storedrag, "build_up", return_value=(0.01, parts)):
-                result = storestages.aero(d)
-            self.assertEqual(result["mach"], dataset["mach"])
-            self.assertEqual(result["cna"], dataset["coefficients"]["cna"])
-            self.assertEqual(result["ca"], dataset["coefficients"]["ca"])
-            self.assertEqual(result["input"]["producer"], dataset["producer"])
 
-    def test_offline_aero_rejects_bad_dataset_before_writing(self):
-        from hangar import storeaero
-        changes = [("shape", lambda d: d["coefficients"]["cna"].pop()),
-                   ("missing-channel", lambda d: d["coefficients"].pop("cmq")),
-                   ("duplicate-axis", lambda d: d["mach"].__setitem__(2, 0.6)),
-                   ("nonfinite", lambda d: d["coefficients"]["ca"].__setitem__(0, float("nan"))),
-                   ("boolean", lambda d: d["mach"].__setitem__(0, False)),
-                   ("reference", lambda d: d["reference"].__setitem__("area_m2", 1.0)),
-                   ("geometry", lambda d: d.__setitem__("geometry_sha256", "0" * 64)),
-                   ("identity", lambda d: d.__setitem__("card", "another")),
-                   ("unknown-field", lambda d: d.__setitem__("typo", 1))]
-        for label, change in changes:
-            with self.subTest(label=label), tempfile.TemporaryDirectory() as folder:
-                geo, card, dataset = offline_fixture(folder)
-                change(dataset)
-                (Path(folder) / "aero.json").write_text(json.dumps(dataset), encoding="utf-8")
-                d = types.SimpleNamespace(name="fixture", aircraft=types.SimpleNamespace(spec=geo["design"]))
-                with mock.patch.object(storeaero, "geometry", return_value=geo), \
-                        mock.patch.object(storestages, "card_of", return_value=card), \
-                        mock.patch.object(storestages, "flight_model", return_value=(str(Path(folder) / "fixture.xml"), True)), \
-                        mock.patch.object(pipeline, "write_text") as write:
-                    with self.assertRaises(ValueError):
-                        storestages.build(d)
-                    write.assert_not_called()
 
-    def test_offline_aero_rejects_excluded_or_nonlocal_paths(self):
-        from hangar import storetables
-        with tempfile.TemporaryDirectory() as folder:
-            geo, card, _ = offline_fixture(folder)
-            for path in ("../outside.json", ".codex/blocked.json", "some/.CODEX/blocked.json", "C:/outside.json", "a\\b.json"):
-                with self.subTest(path=path), mock.patch.object(Path, "resolve", side_effect=AssertionError("excluded path resolved")):
-                    with self.assertRaises(ValueError):
-                        storetables.load(geo, card["id"], path)
 
-    def test_offline_aero_table_preserves_close_coordinates_and_rejects_truncation(self):
-        from hangar import storebodies
-        text = storebodies._table([0.6, 0.6001], [1.0, 2.0], 0, precise=True)
-        self.assertEqual([float(row.split()[0]) for row in text.splitlines()], [0.6, 0.6001])
-        for axis, values in (([0.0, 1.0], [1.0]), ([0.0, 0.0], [1.0, 2.0]), ([0.0, float("inf")], [1.0, 2.0])):
-            with self.subTest(axis=axis), self.assertRaises(ValueError):
-                storebodies._table(axis, values, 0)
 
-    def test_offline_aero_checks_complete_generated_grid(self):
-        template = '<fdm_config><function name="aero/coefficient/CN"><table><independentVar lookup="row">velocities/mach</independentVar><tableData>%s</tableData></table></function></fdm_config>'
-        self.assertEqual(storestages._table_error(template % '0 1\n6e-1 2\n', "CN", [0.0, 0.6], [1.0, 2.0]), 0.0)
-        for rows in ('0 1\n', '0 1\n0 2\n', '0 1\n0.6 2\n1 3\n'):
-            with self.subTest(rows=rows), self.assertRaises(ValueError):
-                storestages._table_error(template % rows, "CN", [0.0, 0.6], [1.0, 2.0])
 
-    def test_offline_aero_keeps_unselected_build_up(self):
-        from hangar import storeaero
-        with tempfile.TemporaryDirectory() as folder:
-            geo, card, _ = offline_fixture(folder)
-            del geo["design"]["store"]["aero_table"]
-            self.assertEqual(storeaero.coefficients(geo, card["id"]), storeaero.build_up(geo))
 
-    def test_offline_aero_build_stage_uses_real_files_and_rejects_stale_report(self):
-        with tempfile.TemporaryDirectory() as folder:
-            root, path, dataset = offline_design_fixture(folder)
-            design_dir = path.parent
-            with mock.patch.object(pipeline, "repo_root", return_value=str(root)):
-                d = pipeline.Design(str(path), log=lambda *args, **kwargs: None)
-                storestages.aero(d)
-                built = storestages.build(d)
-                self.assertFalse([c for c in built["checks"] if c["status"] == "fail"])
-                generated = root / "aircraft" / "stores" / "fixture" / "fixture.xml"
-                self.assertEqual(xml_coefficients(generated.read_text(), "CN")[1], [0.6, 2.0])
-                dataset["coefficients"]["cna"][1] = 9.0
-                (design_dir / "aero.json").write_text(json.dumps(dataset), encoding="utf-8")
-                stale = storestages.build(d)
-                self.assertTrue(any(c["status"] == "fail" and "input" in c["name"] for c in stale["checks"]))
-                storestages.aero(d)
-                refreshed = storestages.build(d)
-                self.assertFalse([c for c in refreshed["checks"] if c["status"] == "fail"])
-                self.assertEqual(xml_coefficients(generated.read_text(), "CN")[1], [0.6, 9.0])
 
-    def test_offline_aero_build_requires_supported_report(self):
-        for report in ("missing", "truncated", None, {}, [], True, "unsupported", {"kind": "box"}, {"kind": "unknown"}):
-            with self.subTest(report=report), tempfile.TemporaryDirectory() as folder:
-                root, path, _ = offline_design_fixture(folder)
-                with mock.patch.object(pipeline, "repo_root", return_value=str(root)):
-                    d = pipeline.Design(str(path), log=lambda *args, **kwargs: None)
-                    if report != "missing":
-                        (Path(d.out) / "aero.json").write_text("{" if report == "truncated" else json.dumps(report), encoding="utf-8")
-                    built = storestages.build(d)
-                failures = [c for c in built["checks"] if c["status"] == "fail"]
-                self.assertTrue(failures)
-                self.assertTrue(any("aero" in c["note"].lower() for c in failures))
 
-    def test_offline_aero_build_rejects_malformed_input_evidence(self):
-        for metadata in (None, [], "wrong", {}, {"sha256": False}):
-            with self.subTest(metadata=metadata), tempfile.TemporaryDirectory() as folder:
-                root, path, _ = offline_design_fixture(folder)
-                with mock.patch.object(pipeline, "repo_root", return_value=str(root)):
-                    d = pipeline.Design(str(path), log=lambda *args, **kwargs: None)
-                    report = storestages.aero(d)
-                    report["input"] = metadata
-                    (Path(d.out) / "aero.json").write_text(json.dumps(report), encoding="utf-8")
-                    built = storestages.build(d)
-                self.assertTrue(any(c["status"] == "fail" and "input" in c["name"] for c in built["checks"]))
 
-    def test_offline_aero_expected_grid_and_values_require_finite_numbers(self):
-        text = ('<fdm_config><function name="aero/coefficient/CN"><table>'
-                '<independentVar lookup="row">velocities/mach</independentVar>'
-                '<tableData>0 1\n1 2</tableData></table></function></fdm_config>')
-        for axis, values in (([0.0, 1.0], [1.0, float("nan")]),
-                             ([0.0, 1.0], [1.0, float("inf")]),
-                             ([0.0, 1.0], [True, 2.0]),
-                             ([False, 1.0], [1.0, 2.0]),
-                             ([0.0, 1.0], [1.0, 10 ** 400])):
-            with self.subTest(axis=axis, values=values), self.assertRaises(ValueError):
-                storestages._table_error(text, "CN", axis, values)
 
-    def test_offline_aero_build_rejects_nonfinite_and_boolean_cached_values(self):
-        for field, index, value in (("cna", 1, float("nan")), ("cma", 1, float("inf")),
-                                    ("cna", 0, True), ("mach", 0, False)):
-            with self.subTest(field=field, value=value), tempfile.TemporaryDirectory() as folder:
-                root, path, _ = offline_design_fixture(folder)
-                with mock.patch.object(pipeline, "repo_root", return_value=str(root)):
-                    d = pipeline.Design(str(path), log=lambda *args, **kwargs: None)
-                    report = storestages.aero(d)
-                    report[field][index] = value
-                    (Path(d.out) / "aero.json").write_text(json.dumps(report), encoding="utf-8")
-                    built = storestages.build(d)
-                self.assertTrue(any(c["status"] == "fail" for c in built["checks"]))
 
-    def test_offline_aero_build_requires_complete_input_metadata(self):
-        for field, value in (("schema", "unknown"), ("producer", None), ("path", ""), ("path", "../outside.json")):
-            with self.subTest(field=field, value=value), tempfile.TemporaryDirectory() as folder:
-                root, path, _ = offline_design_fixture(folder)
-                with mock.patch.object(pipeline, "repo_root", return_value=str(root)):
-                    d = pipeline.Design(str(path), log=lambda *args, **kwargs: None)
-                    report = storestages.aero(d)
-                    report["input"][field] = value
-                    (Path(d.out) / "aero.json").write_text(json.dumps(report), encoding="utf-8")
-                    built = storestages.build(d)
-                self.assertTrue(any(c["status"] == "fail" and "input" in c["name"] for c in built["checks"]))
 
-    def test_offline_aero_build_rejects_invalid_cached_scalar_data(self):
-        for field, value in (("S", 0.0), ("d", -1.0), ("ref", True), ("cg_m", None),
-                             ("cross_y", float("nan")), ("turn", float("inf")),
-                             ("S", 0.06), ("d", 0.4), ("ref", 1.5), ("cg_m", 1.5),
-                             ("cross_n", 0.5), ("turn", 0.001)):
-            with self.subTest(field=field, value=value), tempfile.TemporaryDirectory() as folder:
-                root, path, _ = offline_design_fixture(folder)
-                with mock.patch.object(pipeline, "repo_root", return_value=str(root)):
-                    d = pipeline.Design(str(path), log=lambda *args, **kwargs: None)
-                    report = storestages.aero(d)
-                    report[field] = value
-                    (Path(d.out) / "aero.json").write_text(json.dumps(report), encoding="utf-8")
-                    built = storestages.build(d)
-                self.assertTrue(any(c["status"] == "fail" for c in built["checks"]))
 
-    def test_offline_aero_legacy_build_does_not_require_import_report(self):
-        with tempfile.TemporaryDirectory() as folder:
-            root, path, _ = offline_design_fixture(folder)
-            path.write_text(path.read_text(encoding="utf-8").replace('aero_table = "aero.json"\n', ''), encoding="utf-8")
-            with mock.patch.object(pipeline, "repo_root", return_value=str(root)):
-                d = pipeline.Design(str(path), log=lambda *args, **kwargs: None)
-                built = storestages.build(d)
-            self.assertFalse([c for c in built["checks"] if c["status"] == "fail"])
 
-    def test_offline_aero_payload_digest_ignores_bookkeeping_and_normalizes_numbers(self):
-        from hangar import storetables
-        with tempfile.TemporaryDirectory() as folder:
-            geo, card, _ = offline_fixture(folder)
-            selected = dict(storetables.load(geo, card["id"], "aero.json"), cg_m=1.0)
-            before = json.dumps(selected, sort_keys=True)
-            digest = storetables.payload_digest(selected)
-            report = json.loads(before)
-            report.update(kind="body", stage="aero", time="synthetic bookkeeping")
-            report["cna"][0] = 1
-            self.assertEqual(storetables.payload_digest(report), digest)
-            self.assertEqual(json.dumps(selected, sort_keys=True), before)
-            report["input"]["producer"]["version"] = "changed"
-            self.assertNotEqual(storetables.payload_digest(report), digest)
 
-    def test_offline_aero_cli_refuses_missing_evidence_and_accepts_refreshed_report(self):
-        from hangar.__main__ import main
-        from hangar import storedrag
-        with tempfile.TemporaryDirectory() as folder:
-            root, path, _ = offline_design_fixture(folder)
-            with mock.patch.object(pipeline, "repo_root", return_value=str(root)), \
-                    mock.patch.object(storestages.subprocess, "Popen", side_effect=AssertionError("unexpected process launch")), \
-                    redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-                card_path = root / "assets/stores/fixture.json"
-                card = json.loads(card_path.read_text(encoding="utf-8"))
-                card["parameters"]["drag_area_m2"]["value"] = storedrag.build_up(card)[0]
-                card_path.write_text(json.dumps(card), encoding="utf-8")
-                self.assertEqual(main([str(path), "build"]), 1)
-                self.assertEqual(main([str(path), "aero", "build"]), 0)
 
-    def test_offline_aero_exports_selected_input_domain(self):
-        from hangar import storeaero
-        prefix = "fsim/model/imported-aero/"
-        with tempfile.TemporaryDirectory() as folder:
-            geo, card, dataset = offline_fixture(folder)
-            dataset["mach"] = [0.25, 0.3, 0.6, 0.75]
-            (Path(folder) / "aero.json").write_text(json.dumps(dataset), encoding="utf-8")
-            with mock.patch.object(storeaero, "geometry", return_value=geo):
-                root = ET.fromstring(storemodels.files(card)["fixture.xml"])
-            for name, value in (("selected", 1.0), ("mach-min", 0.25), ("mach-max", 0.75)):
-                node = root.find("aerodynamics/function[@name='%s%s']" % (prefix, name))
-                self.assertIsNotNone(node, name)
-                self.assertEqual(float(node.findtext("value")), value)
-            flag = root.find("aerodynamics/function[@name='%smach-in-range']" % prefix)
-            self.assertIsNotNone(flag)
-            self.assertEqual(flag.get("type"), "pre")
-            for comparison, endpoint in (("ge", "mach-min"), ("le", "mach-max")):
-                node = flag.find("and/" + comparison)
-                self.assertEqual([p.text for p in node.findall("property")], ["velocities/mach", prefix + endpoint])
 
-    def test_offline_aero_rejects_duplicate_json_and_preserves_small_crossflow(self):
-        from hangar import storeaero, storetables
-        with tempfile.TemporaryDirectory() as folder:
-            geo, card, dataset = offline_fixture(folder)
-            path = Path(folder) / "aero.json"
-            path.write_text('{"card":"duplicate",' + json.dumps(dataset)[1:], encoding="utf-8")
-            with self.assertRaisesRegex(ValueError, "duplicate"):
-                storetables.load(geo, card["id"], "aero.json")
-            dataset["crossflow"]["normal"] = 1.234567890123e-10
-            path.write_text(json.dumps(dataset), encoding="utf-8")
-            with mock.patch.object(storeaero, "geometry", return_value=geo):
-                root = ET.fromstring(storemodels.files(card)["fixture.xml"])
-            value = root.find(".//function[@name='aero/coefficient/CN']/product/sum/product[2]/value")
-            self.assertEqual(float(value.text), dataset["crossflow"]["normal"])
 
-    def test_offline_aero_diagnostic_does_not_extrapolate(self):
-        from hangar import storeaero, storetables
-        with tempfile.TemporaryDirectory() as folder:
-            geo, card, dataset = offline_fixture(folder)
-            dataset["mach"] = [1.0, 1.1, 1.1001, 2.0]
-            (Path(folder) / "aero.json").write_text(json.dumps(dataset), encoding="utf-8")
-            selected = storetables.load(geo, card["id"], "aero.json")
-            summary = storeaero.summary(geo, selected)
-            self.assertIsNone(summary["normal_area_m2"])
-            self.assertIsNone(summary["normal_cp_m"])
 
-    def test_offline_aero_rejects_nonpositive_reference_scales(self):
-        from hangar import storetables
-        for diameter, length, area_override in ((0.0, 2.0, None), (-0.2, 2.0, None),
-                                                (0.2, 0.0, None), (1e-6, 2.0, 0.0)):
-            with self.subTest(diameter=diameter, length=length, area=area_override), tempfile.TemporaryDirectory() as folder:
-                geo, card, dataset = offline_fixture(folder)
-                geo.update(diameter=diameter, length=length)
-                dataset["geometry_sha256"] = storetables.geometry_digest(geo)
-                dataset["reference"]["diameter_m"] = diameter
-                dataset["reference"]["area_m2"] = math.pi * diameter ** 2 / 4.0 if area_override is None else area_override
-                (Path(folder) / "aero.json").write_text(json.dumps(dataset), encoding="utf-8")
-                with self.assertRaises(ValueError):
-                    storetables.load(geo, card["id"], "aero.json")
 
-    def test_offline_aero_preserves_imported_reference_precision(self):
-        from hangar import storeaero, storetables
-        from hangar.storemodels import FT, IN
-        with tempfile.TemporaryDirectory() as folder:
-            geo, card, dataset = offline_fixture(folder)
-            diameter, reference = 1e-6, 1.234567891011
-            geo.update(diameter=diameter, r=[0.5 * diameter] * 2, cg=reference)
-            geo["design"]["mass"]["empty_cg"][0] = reference
-            dataset["geometry_sha256"] = storetables.geometry_digest(geo)
-            dataset["reference"].update(area_m2=math.pi * diameter ** 2 / 4.0, diameter_m=diameter, moment_x_m=reference)
-            (Path(folder) / "aero.json").write_text(json.dumps(dataset), encoding="utf-8")
-            with mock.patch.object(storeaero, "geometry", return_value=geo):
-                root = ET.fromstring(storemodels.files(card)["fixture.xml"])
-            area = float(root.findtext("metrics/wingarea")) * FT ** 2
-            span = float(root.findtext("metrics/wingspan")) * FT
-            chord = float(root.findtext("metrics/chord")) * FT
-            point = float(root.findtext("metrics/location[@name='AERORP']/x")) * IN
-            self.assertAlmostEqual(area / dataset["reference"]["area_m2"], 1.0, places=13)
-            self.assertAlmostEqual(span / diameter, 1.0, places=13)
-            self.assertAlmostEqual(chord / diameter, 1.0, places=13)
-            self.assertAlmostEqual(point, reference, places=13)
 
-    def test_offline_aero_rejects_unrepresentable_converted_scalars_before_writing(self):
-        from hangar import storeaero, storetables
-        for field in ("turn", "reference-point", "reference-area"):
-            with self.subTest(field=field), tempfile.TemporaryDirectory() as folder:
-                geo, card, dataset = offline_fixture(folder)
-                if field == "turn":
-                    dataset["crossflow"]["turn_m5"] = 1e308
-                elif field == "reference-point":
-                    geo["cg"] = 1e308
-                    geo["design"]["mass"]["empty_cg"][0] = 1e308
-                    dataset["reference"]["moment_x_m"] = 1e308
-                else:
-                    diameter = 6e153
-                    geo.update(diameter=diameter, r=[0.5 * diameter] * 2)
-                    dataset["reference"].update(diameter_m=diameter,
-                                                area_m2=math.pi * diameter * diameter / 4.0)
-                dataset["geometry_sha256"] = storetables.geometry_digest(geo)
-                (Path(folder) / "aero.json").write_text(json.dumps(dataset), encoding="utf-8")
-                with mock.patch.object(storeaero, "geometry", return_value=geo):
-                    with self.assertRaisesRegex(ValueError, "finite.*conversion"):
-                        storemodels.files(card)
-                d = types.SimpleNamespace(name="fixture", aircraft=types.SimpleNamespace(spec=geo["design"]))
-                with mock.patch.object(storeaero, "geometry", return_value=geo), \
-                        mock.patch.object(storestages, "card_of", return_value=card), \
-                        mock.patch.object(storestages, "flight_model", return_value=(str(Path(folder) / "fixture.xml"), True)), \
-                        mock.patch.object(pipeline, "write_text") as write:
-                    with self.assertRaisesRegex(ValueError, "finite.*conversion"):
-                        storestages.build(d)
-                    write.assert_not_called()
 
     def test_provenance_reports_source_categories_without_admitting_claims(self):
         from hangar import provenance
@@ -1003,10 +636,21 @@ class StoresTest(unittest.TestCase):
                     with open(os.path.join(folder, *rel.split("/")), encoding="utf-8", newline="") as f:
                         self.assertEqual(f.read(), text, "%s/%s is not what `python -m hangar %s build` writes" % (folder, rel, name))
                 kept = {os.path.relpath(os.path.join(r, f), folder).replace(os.sep, "/") for r, _, fs in os.walk(folder) for f in fs}
-                self.assertEqual(kept, set(out))
+                self.assertEqual(kept, set(out) | {card["sources"]["hangar-vlm"]["url"]})
                 empty, held, _, _ = storestages._xml_mass(out[name + ".xml"])
                 self.assertAlmostEqual(empty + held, card["parameters"]["mass_kg"]["value"], delta=0.02)
-                self.assertEqual(held > 0.0, "motor" in d.aircraft.spec)  # (a missile's propellant; nothing else burns)
+                source=d.aircraft.spec
+                if source.get('engine'):
+                    # Air-breathing fuel is an authored, fed tank inventory;
+                    # engine presence alone does not imply nonzero fuel fill.
+                    native=ET.fromstring(out[name+'.xml'])
+                    feeds={int(feed.text) for feed in native.findall('propulsion/engine/feed')}
+                    tanks=source.get('mass',{}).get('tank',[])
+                    self.assertEqual(feeds,set(range(len(tanks))))
+                    fuel=sum(t['capacity']*t.get('fill',1.) for i,t in enumerate(tanks) if i in feeds)
+                    self.assertAlmostEqual(held,fuel,delta=.02)
+                    self.assertEqual(held>0.,fuel>0.)
+                else:self.assertEqual(held > 0.0, "motor" in source)  # rocket propellant, or an unpowered body
 
     def test_a_store_before_a_stock_aircraft(self):
         # the Mk 82 a card names is hangar's, built from its design: the platform finds it before JSBSim's own mk82

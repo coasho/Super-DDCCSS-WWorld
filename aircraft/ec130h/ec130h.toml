@@ -374,3 +374,8 @@ flaps = "C-130H data: Lockheed-Fowler trailing-edge flaps"
 drag_devices = "C-130H data: no spoilers or airbrakes"
 releasable_stores = "USAF EC-130H fact sheet: the Compass Call mission equipment fills the hold; no weapons stations"
 aerobatic = "USAF EC-130H fact sheet: a transport airframe, not cleared for aerobatics"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

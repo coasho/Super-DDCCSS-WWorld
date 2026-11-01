@@ -13,7 +13,8 @@ performance  the performance tables (ADR-29 FA-3b; rotorcraft/performance.py): t
              section (it builds again after them)
 report       out/report.html: the checks, the tables and the plots
 
-docs/rotorcraft.md is the design record; docs/hangar.md the tool's manual.
+docs/rotorcraft.md describes rotor propulsion; docs/hangar-system.md is the
+shared airframe aerodynamic and normal build guide.
 """
 import json
 import math
@@ -25,7 +26,7 @@ from .. import __version__
 from ..files import open_write
 
 KINDS = ("helicopter", "multirotor")
-STAGES = ("build", "model", "fly", "performance", "report")
+STAGES = ("aero", "build", "model", "fly", "performance", "report")
 
 #: profile codes (include/fsim/VehicleProfile.h)
 CLASS = {"helicopter": 12, "multirotor": 13}
@@ -64,7 +65,8 @@ class Rotorcraft:
     def load(self, stage):
         p = os.path.join(self.out, stage + ".json")
         if not os.path.isfile(p):
-            return None
+            from ..flightcal import read
+            return read(self.dir).get(stage)
         with open(p, encoding="utf-8") as f:
             return json.load(f)
 
@@ -183,6 +185,10 @@ class Rotorcraft:
         return "\n".join(lines) + "\n"
 
     # -- stages ----------------------------------------------------------------------------------
+    def aero(self):
+        from .. import airframe
+        return airframe.stage(airframe.design(self.path,log=self.log))
+
     def build(self):
         if self.kind == "helicopter":
             from . import heli
@@ -218,7 +224,24 @@ class Rotorcraft:
 
     def fly(self):
         from . import fly
+        from . import tail_damping
+        damping = None
+        if tail_damping.declaration(self.spec) is not None:
+            self.build()
+            # Bootstrap/reference trim is a native observation, never an engine
+            # power proxy. Rebuild the component before identifying the plant.
+            session = fly.Session(self)
+            try:
+                trim, vehicle = session.trim(0.)
+                if trim is None or not trim['steady']:
+                    raise RuntimeError('Tail damping requires a steady native hover reference')
+                damping = tail_damping.identify(self, vehicle)
+            finally:
+                session.close()
+            self.build()
         results = fly.run(self)
+        if damping is not None:
+            results['tail_damping'] = damping
         self.save("fly", results)
         if results.get("hover"):
             self.write_hover(results["hover"])

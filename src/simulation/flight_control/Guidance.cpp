@@ -859,6 +859,9 @@ void RouteBehavior::scheduleArrival(const ControlContext& ctx, const Performance
 Command RouteBehavior::loiter(const ControlContext& ctx, const Performance& perf, bool begins) {
     const route::Plan& p = *plan_;
     const RouteLoiter& l = *loiterAhead_;
+    const bool captureStop=hovers_ && !p.terminated && !p.repeat && target_==p.last() &&
+        l.pattern.pattern==static_cast<double>(PatternKind::Hover) && isHold(l.pattern.durationS) &&
+        isHold(l.shape.orbits) && isHold(l.endTimeS);
     if (begins) { // from where the aircraft is: at its point now, its shape, its frame (a moving point's, it moves with) and its end time
         const Waypoint& w = p.points[target_];
         PatternCommand c = l.pattern;
@@ -877,11 +880,22 @@ Command RouteBehavior::loiter(const ControlContext& ctx, const Performance& perf
         loiter_->begin(ctx, loiterCommand_);
         loiter_->wind_ = wind_; // (the estimate it flew in)
         const bool ends = !isHold(l.pattern.durationS) || !isHold(l.shape.orbits) || !isHold(l.endTimeS) || terminated;
-        if (!ends && target_ == p.last() && !p.repeat) ended_ = finished_ = true; // (the route's end: it loiters on)
+        if (!ends && target_ == p.last() && !p.repeat && !captureStop) ended_ = finished_ = true; // (the route's end: it loiters on)
         loiterBegun(ctx, c, shape); // (a window at its point met, and when it will be left: 4.33)
     }
     if (p.terminated) holdEnds(ctx, ctx.sensed); // (a hold's terminator: at its altitude, or commanded - 4.38)
     Command out = loiter_->update(ctx, loiterCommand_);
+    if(captureStop) {
+        if(const auto* hold=std::get_if<PositionCommand>(&out)) {
+            const auto& s=ctx.sensed;
+            const double remaining=geo::distanceM(s.latitudeRad,s.longitudeRad,hold->latitudeRad,hold->longitudeRad);
+            const double stopping=route::stoppingDistanceM(perf,std::hypot(s.velocityNedMs[0],s.velocityNedMs[1]));
+            // Crossing the capture circle with residual momentum is not a
+            // captured hover: completing releases the active point control.
+            if(remaining+stopping<hold->captureRadiusM && std::abs(s.altitudeMslM-hold->altitudeMslM)<2.0)
+                ended_=finished_=true;
+        } else ended_=finished_=true; // moving-frame continuation keeps its established contract
+    }
     if (const Reason why = loiter_->failure(); why != Reason::None) failure_ = why; // (its frame's vehicle gone)
     if ((arrivalPoint_ >= 0 || arrivalState_ >= 0) && !ended_) loiterArrival(ctx, perf); // (its estimate through it: 4.33, 4.34)
     if (ended_ || !loiter_->finished()) return out;

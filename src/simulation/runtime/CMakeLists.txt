@@ -32,7 +32,9 @@ add_library(fsim_session STATIC
     services/MaReports.h
     services/MaReports.cpp
     stores/StoreFlightBinding.h
-    stores/StoreFlightBinding.cpp)
+    stores/StoreFlightBinding.cpp
+    stores/StoreAerodynamicsV1.cpp
+    stores/StoreAerodynamicsV1.h)
 add_library(fsim::session ALIAS fsim_session)
 fsim_include_view(fsim_session)
 target_link_libraries(fsim_session PUBLIC fsim::contracts fsim::modeled_dms fsim::ms fsim::control fsim::effects

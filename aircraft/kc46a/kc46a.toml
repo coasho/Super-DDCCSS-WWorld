@@ -416,3 +416,8 @@ flaps = "Boeing 767 data: trailing-edge flaps"
 drag_devices = "Boeing 767 data: flight and ground spoilers"
 releasable_stores = "USAF KC-46 fact sheet: an unarmed tanker"
 aerobatic = "USAF KC-46 fact sheet: a tanker, not cleared for aerobatics"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

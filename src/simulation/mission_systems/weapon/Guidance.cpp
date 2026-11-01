@@ -63,6 +63,26 @@ bool configureSeeker(const components::DescriptorV1& descriptor, Spec& spec, std
     spec=std::move(candidate);error.clear();return true;
 }
 bool configureGuidance(const components::DescriptorV1& descriptor, Spec& spec, std::string& error) {
+    if(descriptor.implementationId=="fsim.guidance.inertial_waypoint.v1") {
+        if(descriptor.kind!="guidance" || descriptor.configurationVersion!=1 ||
+           descriptor.availability!=components::AvailabilityV1::Available ||
+           descriptor.parameters.size()!=4 || descriptor.parameterRefs.size()!=4 ||
+           descriptor.bindings.size()!=1 || !descriptor.bindings.count("navigation") ||
+           descriptor.bindings.at("navigation")!="frozen_authorized_static_aimpoint") {
+            error="invalid inertial waypoint guidance declaration";return false;
+        }
+        double minimum,maximum,limit,life;
+        if(!components::parameterV1(descriptor,"response_min_s","s",minimum,error) ||
+           !components::parameterV1(descriptor,"response_max_s","s",maximum,error) ||
+           !components::parameterV1(descriptor,"max_g","1",limit,error) ||
+           !components::parameterV1(descriptor,"life_s","s",life,error))return false;
+        if(minimum<=0 || maximum<minimum || limit<=1 || !std::isfinite(limit*9.80665) || life<=0 || !spec.seeker.empty()) {
+            error="inertial waypoint guidance needs finite timing, normal authority and no terminal seeker";return false;
+        }
+        auto selected=spec;selected.capabilityVersion=1;selected.inertialMidcourse=true;
+        selected.launcherUpdates=false;selected.maxG=limit;selected.lifeS=life;
+        spec=std::move(selected);error.clear();return true;
+    }
     const bool measured=descriptor.implementationId=="fsim.guidance.measured_pn.v2";
     if(descriptor.kind!="guidance" || (!measured&&descriptor.implementationId!="fsim.guidance.velocity_normal_pn.v1") ||
             descriptor.configurationVersion!=1 || descriptor.availability!=components::AvailabilityV1::Available) {

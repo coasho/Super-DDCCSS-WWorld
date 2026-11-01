@@ -4,3 +4,12 @@
 [calibration]
 extra_drag_area_m2 = 1.2361   # drag along the flow, added to the estimate (m2)
 # fitted: maximum Mach 0.573 at 328 ft (target 0.576), below the wing's drag rise (M_cr 0.599)
+
+[provenance]
+schema = "fsim.hangar-calibration.v1"
+method = "shared-aircraft-vlm"
+status = "existing-performance-fit"
+observed_source_sha256 = "7141d103ccdd846e753974d0eb44418661b7e809628530517e022d674b315ffc"
+target_keys = ["max_mach", "max_mach_altitude_ft", "max_speed_ktas"]
+scope = "Declared reference targets only; no six-axis equipment accuracy certification"
+historical_fit_note = "Retained performance overrides are not newly validated equipment data"

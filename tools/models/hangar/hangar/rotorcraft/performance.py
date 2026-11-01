@@ -41,7 +41,7 @@ ALTITUDES_M = (100.0, 1000.0, 2000.0, 3000.0)
 FUEL_FRACTIONS = (0.1, 0.55, 1.0)
 TOP = 0.97               # the level points run to this fraction of the top speed
 SETTLE_S = 40.0          # a level point settles...
-AVERAGE_S = 5.0          # ...then is averaged, a helicopter's fuel flowing
+AVERAGE_S = 30.0         # ...then averaged over several hold cycles, a helicopter's fuel flowing
 CLIMB_RAMP_S = 15.0      # a full-power climb's power rises from the level point's to the limit over this...
 CLIMB_SETTLE_S = 30.0    # ...it settles (from the start)...
 CLIMB_AVERAGE_S = 30.0   # ...then its climb is averaged over half a minute (where the hold rings, several cycles)...
@@ -55,6 +55,24 @@ BISECT = 8               # the top speed's bracket halved this often
 TILT_MARGIN_DEG = 0.5    # a trim at its pitch limit (within this) could not hold its speed
 
 
+def _native_level_hold(vehicle, speed):
+    """SDK body-forward velocity control with the original height reference.
+
+    These tables have always sampled body u, not the total speed norm. The
+    lower-level velocity command expresses u directly; HSA's true airspeed
+    reference expresses the norm, which differs by cos(alpha)*cos(beta).
+    """
+    import fsim
+    height=vehicle.state.altitude_msl_m
+    activity=vehicle.submit(fsim.Level.VELOCITY,airspeed_ms=speed,vertical_speed_ms=0.,heading_rad=0.,range=fsim.RangePolicy.NONE)
+    def update():
+        # Low-level Activity.update replaces a setpoint; unlike HSA.update it
+        # does not merge missing fields with the previous command.
+        activity.update(airspeed_ms=speed,heading_rad=0.,
+                        vertical_speed_ms=float(np.clip(.4*(height-vehicle.state.altitude_msl_m),-3.,3.)))
+    return update
+
+
 class _Runs:
     """The runs of one rotorcraft: a trim at a speed and a weight, level or at full power."""
 
@@ -65,6 +83,7 @@ class _Runs:
         # 0.8 of the envelope's bank and pitch): a speed only a steeper tilt holds is one the platform does not fly, so
         # the tables end short of it (ADR-29 FA-3e: the multirotors' best range lies at the top of their speeds)
         env = r.spec.get("envelope", {})
+        self.cas_max_kt=float(env.get('cas_max_kt',float('inf')))
         tilt = 20.0 if self.heli else 30.0
         for key in ("bank_max_deg", "pitch_max_deg"):
             if key in env:
@@ -92,9 +111,15 @@ class _Runs:
         col = col0 if col0 is not None else (0.5 if heli else s._hover_throttle())
         hold = fly.Hold(r.kind, s.dt, col, speed, v.state.altitude_msl_m, level=heli and speed >= 60 * KT, gains=self.gains,
                         tilt_max=self.tilt, power=power, power_target=POWER_LIMIT if climb else None)
+        if not heli:
+            # Measure production control authority, not the incidental limit
+            # of the identification tool's hover-only control law. NONE keeps
+            # the previous performance table from clamping its own retest.
+            native_hold=_native_level_hold(v,speed)
         settle, average = (CLIMB_SETTLE_S, CLIMB_AVERAGE_S) if climb else (SETTLE_S, AVERAGE_S)
         n_settle, n = int(round(settle / s.dt)), int(round((settle + average) / s.dt))
         acc = []
+        calibrated=[]
         for k in range(n):
             if k == n_settle and heli and not climb:
                 v.set_property("propulsion/fuel_freeze", 0)  # (the engines report the fuel they burn)
@@ -102,8 +127,12 @@ class _Runs:
                 hold.power_target = min(POWER_LIMIT, power0 + (POWER_LIMIT - power0) * (k + 1) * s.dt / CLIMB_RAMP_S)
             st = v.state
             u, vv = s.body_velocity(v)
-            c = hold(st, u, vv)
-            v.command_actuator(aileron=c["ail"], elevator=c["ele"], rudder=c["rud"], throttle=c["col"])
+            if heli:
+                c = hold(st, u, vv)
+                v.command_actuator(aileron=c["ail"], elevator=c["ele"], rudder=c["rud"], throttle=c["col"])
+            else:
+                native_hold()
+                c = dict(col=v.get_property('fcs/throttle-cmd-norm'))
             s.world.step()
             if v.state.diverged:
                 return None
@@ -117,9 +146,11 @@ class _Runs:
             else:
                 row += [v.get_property("fsim/battery/power-w"), float("nan")]
             acc.append(row)
+            calibrated.append(v.get_property('velocities/vc-kts'))
         a = np.mean(acc, axis=0)
         half = len(acc) // 2
         out = dict(tas_ms=float(a[0]), vz_ms=float(a[1]), throttle=float(a[2]), pitch_deg=float(a[3]), rotor_rpm=float(a[4]),
+                   calibrated_speed_kt=float(np.mean(calibrated)),
                    vz_halves=float(np.mean(np.array(acc[half:])[:, 1]) - np.mean(np.array(acc[:half])[:, 1])))
         if heli:
             out.update(power=float(a[5]), shaft_power_w=float(a[5]) * r.spec["engine"]["power_shp"] * 745.7, fuel_kg_s=float(a[6]))
@@ -137,7 +168,7 @@ class _Runs:
             power = res["power"] < POWER_LIMIT and abs(res["rotor_rpm"] / self.rpm - 1.0) < GOVERNED
         else:
             power = res["throttle"] < 0.99
-        return held and power and not tilted
+        return held and power and not tilted and res.get('calibrated_speed_kt',float('inf'))<=self.cas_max_kt
 
     def climbed(self, res, speed):
         """Whether a full-power climb held its speed, its average stationary, the rotor governed."""
@@ -148,7 +179,13 @@ class _Runs:
         """The least and the top level speed at a condition (NaN, NaN if none holds): the hover's 0 if it holds,
         else doubling from 1 m/s to the first that holds; then doubling on to the first that does not, and the
         bracket halved BISECT times."""
-        holds = lambda v: self.within(self.run(h, v, fraction), v)  # noqa: E731
+        achieved = {}
+        def holds(speed):
+            observation = self.run(h, speed, fraction)
+            accepted = self.within(observation, speed)
+            if accepted:
+                achieved[speed] = observation['tas_ms']
+            return accepted
         lo = 0.0 if holds(0.0) else None
         if lo is None:
             v = 1.0
@@ -168,7 +205,11 @@ class _Runs:
         for _ in range(BISECT):
             m = 0.5 * (a + b)
             a, b = (m, b) if holds(m) else (a, m)
-        return lo, a
+        # The settling tolerance admits a small tracking residual. Publishing
+        # the requested speed would turn that residual into an overstated
+        # runtime limit. A transient overshoot also cannot extend the requested
+        # bound that was actually tested. Publish their common supported band.
+        return (0.0 if lo == 0.0 else max(lo,achieved[lo])), min(a,achieved[a])
 
 
 def fly_tables(r, log=print):
@@ -268,6 +309,8 @@ def flown_burn(r, t):
         v = s.spawn(speed, 1.0 if heli else None)
         hold = fly.Hold(r.kind, s.dt, 0.5 if heli else s._hover_throttle(), speed, v.state.altitude_msl_m, level=heli and speed >= 60 * KT,
                         gains=runs.gains, tilt_max=runs.tilt)
+        if not heli:
+            native_hold=_native_level_hold(v,speed)
         store = (lambda: v.get_property("propulsion/total-fuel-lbs") * LB) if heli else (lambda: v.get_property("fsim/battery/charge-j"))
         n_settle, k, n = int(round(SETTLE_S / s.dt)), 0, None
         while n is None or k < n:
@@ -278,8 +321,11 @@ def flown_burn(r, t):
                 n = n_settle + int(round(seconds / s.dt))
             st = v.state
             u, vv = s.body_velocity(v)
-            c = hold(st, u, vv)
-            v.command_actuator(aileron=c["ail"], elevator=c["ele"], rudder=c["rud"], throttle=c["col"])
+            if heli:
+                c = hold(st, u, vv)
+                v.command_actuator(aileron=c["ail"], elevator=c["ele"], rudder=c["rud"], throttle=c["col"])
+            else:
+                native_hold()
             s.world.step()
             k += 1
         used = (before - store()) / ((n - n_settle) * s.dt)

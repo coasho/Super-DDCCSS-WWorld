@@ -291,3 +291,8 @@ retractable_gear = "Saab JAS 39C data: retractable gear"
 drag_devices = "Saab JAS 39C data: two airbrakes on the rear fuselage"
 releasable_stores = "Saab JAS 39C data: eight hardpoints"
 aerobatic = "Saab JAS 39C data: +9 g (fsim/envelope/clean/n_max)"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

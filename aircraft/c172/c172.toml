@@ -215,3 +215,8 @@ flaps = "Cessna 172P Pilot's Operating Handbook: electrically operated single-sl
 drag_devices = "Cessna 172P Pilot's Operating Handbook: no spoilers or airbrakes"
 releasable_stores = "FAA type certificate data sheet 3A12 and the Pilot's Operating Handbook: no provisions for external stores"
 aerobatic = "Cessna 172P Pilot's Operating Handbook: normal and utility categories; aerobatic manoeuvres beyond the utility category's are prohibited"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

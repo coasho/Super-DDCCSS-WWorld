@@ -23,3 +23,17 @@ if(MINGW)
     # every design after a relink
     target_link_options(hangar_meshkit PRIVATE -Wl,--no-insert-timestamp)
 endif()
+
+if(FSIM_BUILD_TESTS)
+    find_package(Threads REQUIRED)
+    add_executable(hangar_meshkit_parallel_test tests/test_parallel.cpp)
+    target_include_directories(hangar_meshkit_parallel_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_compile_features(hangar_meshkit_parallel_test PRIVATE cxx_std_17)
+    target_link_libraries(hangar_meshkit_parallel_test PRIVATE Threads::Threads)
+    set_target_properties(hangar_meshkit_parallel_test PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
+    fsim_set_warnings(hangar_meshkit_parallel_test)
+    if(NOT MSVC)
+        target_link_options(hangar_meshkit_parallel_test PRIVATE -static)
+    endif()
+endif()

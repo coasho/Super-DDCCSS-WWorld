@@ -478,3 +478,8 @@ flaps = "C-135 data: trailing-edge flaps"
 drag_devices = "C-135 data: spoilers"
 releasable_stores = "USAF RC-135 fact sheet: unarmed"
 aerobatic = "USAF RC-135 fact sheet: a large reconnaissance aircraft, not cleared for aerobatics"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

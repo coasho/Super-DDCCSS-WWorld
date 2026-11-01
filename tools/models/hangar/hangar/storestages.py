@@ -1,36 +1,7 @@
-"""A store through the pipeline (docs/hangar.md, Stores): a missile, a bomb, a tank, a pod or a cargo store is a design
-like an aircraft - aircraft/<name>/<name>.toml, its card (assets/stores) the published figures it holds - built by the
-same command and the same stages,
+"""Store physical configuration and SDK checks around the common aircraft VLM pipeline.
 
-    python -m hangar <name> [stage ...] [--force]     one store's (default: all of DEFAULT)
-    python -m hangar stores [stage ...] [--force] [--jobs N] [--record FILE]
-                                                      every store's, several at once
-
---force makes each output again whatever is cached: its model meshed anew, its flight model's files removed and
-written. Each run notes what its model and its flight model took to make and what they weigh (out/model.json,
-out/build.json); --record writes every store's as a table (docs/hangar-stores-build.md), with --jobs 1 one store at
-a time, so that no store's time is another's.
-
-each stage a store's own where an aircraft's would say nothing of it:
-
-  geometry    the aircraft's (its summary and views); its length and width against its card
-  aero        its build-up (storeaero.py: slender body, Barrowman, Jorgensen; storedrag.py: Hoerner) from the design -
-              and its card's carriage figures (its drag area, its Munk volume, its fins' side force) held to it; a
-              cargo store's faces
-  mass        the aircraft's mass model; its mass against its card's
-  propulsion  none - or a missile's motor: its design's phases as its flight model burns them (storebodies.py)
-  build       its flight model, aircraft/stores/<model>/<model>.xml, written: a tank's, a pod's and a cargo store's
-              from its card (storemodels.py), a missile's and a bomb's from its design, a missile's with its motor's
-              files (storebodies.py); its mass, its inertia and its lift held to the design
-  model       the aircraft's (model3d.py), aircraft/<name>/<name>.glb; a cargo store's box (stores.py)
-  verify      the platform loads it: what it weighs and where its CG is, against the design
-  fly         carried and released: on a station of an aircraft that takes it, jettisoned, followed to the ground -
-              the station's mass, the released vehicle's, its fall an unpowered body's; a missile's motor burnt (made on
-              its own, the platform lights it): its propellant, its burn's time, the speed it gains
-  report      the aircraft's page
-
-calibrate, autopilot, performance and ground are not a store's: it has no published performance to fit, no loops and
-no wheels.
+All authored stores share aero.model/tables/mach and the common JSBSim writer.
+These stages retain store mass, grain, propulsion, carriage and release checks.
 """
 import json
 import math
@@ -47,9 +18,9 @@ from .pipeline import check, info
 from .files import open_write
 
 DEFAULT = ("geometry", "aero", "mass", "propulsion", "build", "model", "verify", "fly", "report")
-NOT_A_STORES = {"calibrate": "it has no published performance to fit", "autopilot": "it has no control loops",
+NOT_A_STORES = {"autopilot": "it has no control loops",
                 "performance": "it flies no tables", "ground": "it has no wheels: its fall ends the fly stage"}
-TITLES = {"geometry": "Geometry", "aero": "Aerodynamics: its build-up, and its card's figures", "mass": "Mass", "propulsion": "Propulsion",
+TITLES = {"geometry": "Geometry", "aero": "Aerodynamics: shared aircraft VLM", "mass": "Mass", "propulsion": "Propulsion",
           "build": "Its flight model", "verify": "The platform loads it", "fly": "Carried and released"}
 LB, IN, G = 0.45359237, 0.0254, 9.80665
 
@@ -64,6 +35,8 @@ def designs():
     root = os.path.join(pipeline.repo_root(), "aircraft")
     out = {}
     for name in sorted(os.listdir(root)):
+        if name.casefold() == '.codex':
+            continue
         path = os.path.join(root, name, name + ".toml")
         if os.path.isfile(path) and is_store(path):
             out[name] = path
@@ -96,6 +69,9 @@ def flight_model(card):
 def inertia(d):
     """(Ixx, Iyy, Izz) kg m2 of the store as it is launched, about its CG: the mass model's - but a missile's radii of
     gyration are over its length (missiles.py: a slender rod's), not Roskam's over half of it."""
+    if d.aircraft.spec.get('store_propulsion',{}).get('version')==1:
+        from .turbofanstore import full_mass_properties
+        return tuple(full_mass_properties(d.aircraft.spec)[2])
     from .mass import MassModel
     e = MassModel(d.aircraft).empty()
     if d.aircraft.category == "missile":
@@ -217,71 +193,24 @@ def glb_triangles(path):
 
 def _xml_mass(text):
     """(its empty weight, what its tanks hold, its CG's x from the nose m, [ixx, iyy, izz] kg m2) as its file has them."""
-    num = lambda pattern: float(re.search(pattern, text).group(1))
-    empty = num(r"<emptywt[^>]*>\s*([-\d.eE+]+)") * LB
-    held = sum(float(v) for v in re.findall(r"<contents[^>]*>\s*([-\d.eE+]+)", text)) * LB
-    cg = re.search(r'<location name="CG" unit="IN">\s*<x>\s*([-\d.eE+]+)', text)
-    k = 1.35581795
-    inertia = [num(r"<%s unit=\"SLUG\*FT2\">\s*([-\d.eE+]+)" % a) * k for a in ("ixx", "iyy", "izz")]
-    return empty, held, float(cg.group(1)) * IN if cg else None, inertia
+    import xml.etree.ElementTree as ET
+    root=ET.fromstring(text);balance=root.find('mass_balance')
+    def value(node,units):
+        if node is None or node.get('unit') not in units:raise ValueError('Missing supported mass-property unit')
+        number=float(node.text)*units[node.get('unit')]
+        if not math.isfinite(number):raise ValueError('Nonfinite generated mass property')
+        return number
+    empty=value(balance.find('emptywt'),{'LBS':LB,'KG':1.})
+    held=sum(value(t,{'LBS':LB,'KG':1.}) for t in root.findall('propulsion/tank/contents'))
+    cg=balance.find("location[@name='CG']")
+    location=float(cg.findtext('x'))*{'IN':IN,'M':1.}[cg.get('unit')]
+    inertia=[value(balance.find(axis),{'SLUG*FT2':1.35581795,'KG*M2':1.}) for axis in ('ixx','iyy','izz')]
+    return empty,held,location,inertia
 
 
 # --- the stages -----------------------------------------------------------------------------------------------------
-def _table_error(text, function, mach, values):
-    """Largest relative coefficient error; reject absent, duplicate or incomplete grids."""
-    try:
-        if (not isinstance(mach, list) or not isinstance(values, list) or len(mach) != len(values) or len(mach) < 2 or
-                any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) for v in mach + values) or
-                any(m < 0 or (i and m <= mach[i - 1]) for i, m in enumerate(mach))):
-            raise ValueError("expected table needs finite numeric values and a strictly increasing nonnegative Mach grid")
-        node = ET.fromstring(text).find(".//function[@name='aero/coefficient/%s']" % function)
-        tables = node.findall(".//table") if node is not None else []
-        if len(tables) != 1 or tables[0].findtext("independentVar").strip() != "velocities/mach":
-            raise ValueError("missing or ambiguous Mach table")
-        rows = [row.split() for row in tables[0].findtext("tableData").strip().splitlines()]
-        if any(len(row) != 2 for row in rows):
-            raise ValueError("each table row needs a coordinate and a coefficient")
-        rows = [(float(m), float(v)) for m, v in rows]
-        if (len(mach) != len(values) or len(mach) < 2 or [m for m, _ in rows] != list(mach) or
-                any(not math.isfinite(v) for row in rows for v in row) or
-                any(m <= rows[i - 1][0] for i, (m, _) in enumerate(rows) if i)):
-            raise ValueError("generated Mach grid differs from the complete expected grid")
-        return max(abs(got - want) / max(abs(want), 1e-9) for (_, got), want in zip(rows, values))
-    except (AttributeError, TypeError, ET.ParseError, OverflowError) as error:
-        raise ValueError("missing or malformed generated coefficient table") from error
 
 
-def _aero_table_checks(text, data):
-    fields = [("lift slope", "cna", "CN"), ("moment slope about its launch CG", "cma", "Cm")]
-    marker = re.search(r"Offline derivative-table SHA-256: ([0-9a-f]{64})", text)
-    imported = "Offline derivative-table SHA-256:" in text or (isinstance(data, dict) and "input" in data)
-    checks = []
-    if not isinstance(data, dict) or data.get("kind") != "body":
-        return [check("its imported aero report is supported", 0, 1, 1,
-                      note="missing or unsupported body report; run aero again before accepting the build")]
-    if imported:
-        from .storetables import payload_digest
-        metadata = data.get("input")
-        expected = metadata.get("sha256") if isinstance(metadata, dict) else None
-        checks.append(check("its coefficient input is the aero report's", int(marker is not None and marker[1] == expected), 1, 1,
-                            note="re-run aero after changing the selected input"))
-        payload_marker = re.search(r"Offline derivative-payload SHA-256: ([0-9a-f]{64})", text)
-        try:
-            matches = payload_marker is not None and payload_marker[1] == payload_digest(data)
-            note = "re-run aero after changing the selected input or report"
-        except ValueError as problem:
-            matches, note = False, str(problem) + "; run aero again"
-        checks.append(check("its imported coefficient input payload is the aero report's", int(matches), 1, 1, note=note))
-        fields += [(key, key, function) for key, function in (("ca", "CA"), ("cyb", "CY"), ("cnb", "Cn"),
-                                                             ("cmq", "Cmq"), ("cnr", "Cnr"), ("clp", "Clp"))]
-    for label, key, function in fields:
-        try:
-            error = 100.0 * _table_error(text, function, data["mach"], data[key])
-            note = "the largest difference over the complete selected Mach grid"
-        except (KeyError, ValueError) as problem:
-            error, note = None, str(problem) + "; run aero again"
-        checks.append(check("its file's %s is its design's" % label, error, None, 0.5, "%", note=note))
-    return checks
 
 
 def geometry(d):
@@ -302,59 +231,10 @@ def geometry(d):
     return d.save("geometry", g)
 
 
-def aero(d):
-    card = card_of(d)
-    cg = float(d.aircraft.spec["mass"]["empty_cg"][0])
-    if _box(d):
-        from . import components
-        source = components.diagnostic_source(card, getattr(d, "path", None))
-        L, W, H = _par(card, "length_m"), _par(card, "width_m"), _par(card, "height_m")
-        cd = _par(card, "drag_cd", 1.1)
-        data = {"kind": "box", "cd": cd, "front_m2": W * H, "side_m2": L * H, "top_m2": L * W,
-                "coefficient_authority": "face_drag_diagnostic", "native_aerodynamics_source": source}
-        m = _par(card, "mass_kg")
-        vt = [math.sqrt(2.0 * m * G / (1.225 * cd * s)) for s in (W * H, L * W)]
-        checks = [info("its faces' drag coefficient", cd, note="its card's drag_cd: a bluff body's on each face, broadside to the flow"),
-                  info("drag area end on, side on, flat", "%.2f, %.2f, %.2f" % (cd * W * H, cd * L * H, cd * L * W), "m2"),
-                  info("its fall's speed at sea level, end on and flat", "%.0f, %.0f" % (vt[0], vt[1]), "m/s", note="where its drag is its weight")]
-        data["terminal_ms"] = vt
-        return d.save("aero", dict(data, checks=checks))
-    from . import storeaero, storedrag
-    geo = storeaero.geometry(card)
-    if geo is None or geo.get("source") != "its design":
-        raise ValueError("%s: its build-up does not read its design (its card %s names another)" % (d.name, card["id"]))
-    from . import components
-    b = components.diagnostic_coefficients(card, geo)
-    s = storeaero.summary(geo, b)
-    cds, parts = storedrag.build_up(card)
-    checks = []
-    # the card's carriage figures are this design's: what its aircraft feels while it carries it
-    for key, value, unit in (("drag_area_m2", cds, "m2"), ("munk_volume_m3", parts["munk"], "m3"), ("side_slope_m2", parts["slope"], "m2"),
-                             ("side_arm_m", parts["arm"], "m")):
-        held = _par(card, key)
-        if held is None:
-            checks.append(check("its card's %s" % key, None, level="warn", note="the card has none: python -m hangar storedrag"))
-            continue
-        tol = max(2e-5, 0.002 * abs(value))
-        checks.append(check("its card's %s is its design's" % key, held, value - tol, value + tol, unit, note="built up from the design: %.5g" % value,
-                            fmt="%.5g"))
-    slope = None if s["normal_area_m2"] is None else s["normal_area_m2"] / b["S"]
-    margin = None if s["normal_cp_m"] is None else (s["normal_cp_m"] - s["cg_m"]) / geo["diameter"]
-    checks += [info("drag area in carriage, below Mach 0.8", cds, "m2", note="body %.5f, base %.5f, fins %.5f (Hoerner)" % (parts["body"], parts["base"], parts["fins"])),
-               info("normal-force slope, Mach 0.6", slope, "/rad", note="on its frontal area %.4f m2" % b["S"]),
-               info("centre of pressure behind its CG, Mach 0.6", margin if margin is None or abs(margin) < 50.0 else "far ahead", "calibres",
-                    note="outside the selected Mach grid" if margin is None else "it weathercocks" if margin > 0.0 else
-                    "ahead of its CG: free, it tumbles (Munk's couple, no fins to hold it)")]
-    data = {"kind": "body", "S": b["S"], "d": b["d"], "ref": b["ref"], "mach": b["mach"], "cna": b["cna"], "cma": b["cma"], "cmq": b["cmq"],
-            "cyb": b["cyb"], "cnb": b["cnb"], "cnr": b["cnr"], "clp": b["clp"], "cross_n": b["cross_n"], "cross_m": b["cross_m"],
-            "drag_area_m2": cds, "drag": {k: parts[k] for k in ("body", "base", "fins", "frontal")}, "munk_m3": parts["munk"],
-            "side_slope_m2": parts["slope"], "side_arm_m": parts["arm"], "cp_m": s["normal_cp_m"], "cg_m": cg}
-    if card.get("class") in ("tank", "pod"):
-        data.update(coefficient_authority="geometry_diagnostic", native_aerodynamics_source="slender_store")
-    if "input" in b:
-        data.update({key: b[key] for key in ("ca", "cross_y", "cross_ym", "turn", "input")})
-        checks.append(info("coefficient input", b["input"]["path"], note="SHA-256 " + b["input"]["sha256"]))
-    return d.save("aero", dict(data, checks=checks))
+def aero(d, force=False):
+    from . import airframe, components
+    components.diagnostic_source(card_of(d),d.path)
+    return airframe.stage(d,force=force)
 
 
 def mass(d):
@@ -365,7 +245,8 @@ def mass(d):
     m, cg = mm.loaded()
     g = mm.gyration()
     want = _par(card, "mass_kg")
-    checks = [check("mass against its card", e["mass"], want - 0.01, want + 0.01, "kg",
+    liquid=d.aircraft.spec.get('store_propulsion',{}).get('version')==1
+    checks = [check("mass against its card", m if liquid else e["mass"], want - 0.01, want + 0.01, "kg",
                     note="the card: %.6g kg%s" % (want, " (a tank's: dry; its %.0f kg of fuel is its station's)" % _par(card, "fuel_kg")
                                                    if _par(card, "fuel_kg") else "")),
               info("its CG from its nose", float(e["cg"][0]), "m"),
@@ -377,6 +258,12 @@ def mass(d):
 
 
 def propulsion(d):
+    if d.aircraft.spec.get('store_propulsion',{}).get('version')==1:
+        from .turbofanstore import inputs
+        values=inputs(card_of(d),d.aircraft.spec)
+        return d.save('propulsion',{'method':'common JSBSim turbine/thrust-lapse tables; liquid fuel mass flow',
+            'basis':'estimated','version':1,'inputs':values,'checks':[info('native turbofan',values['thrust_dry_kn'],'kN',
+            note='Explicit virtual engine sizing; native spool/fuel/starvation, no solid rocket phases or grain.')]})
     if "motor" not in d.aircraft.spec:
         return d.save("propulsion", {"checks": [info("propulsion", "none", note="an unpowered store")]})
     motor = d.aircraft.spec["motor"]
@@ -418,6 +305,14 @@ def build(d, force=False):
         os.makedirs(os.path.dirname(paths[rel]), exist_ok=True)
         if pipeline.write_text(paths[rel], text):
             changed.append(rel)
+    from . import airframe
+    airframe.publish_store(card,d,d.calibrated(d.tables()))
+    from . import aero_evidence
+    aero_evidence.publish_binding(d,card)
+    # Keep already-built SDK cards consistent with the new carriage-table hash
+    # during normal Hangar build/verify/fly, including a model-only rebuild.
+    from .runtime_products import stage_built_project_sdks
+    stage_built_project_sdks(d.path)
     seconds = time.perf_counter() - t0
     sizes = {rel: os.path.getsize(p) for rel, p in paths.items()}
     main = os.path.basename(path)
@@ -432,7 +327,15 @@ def build(d, force=False):
     checks.append(check("its mass is its card's", empty + held, want - 0.02, want + 0.02, "kg",
                         note="its structure %.2f kg%s" % (empty, " and %.2f kg of propellant" % held if held else "")))
     want_inertia = inertia(d)
-    if held > 0.0:
+    if held>0 and d.aircraft.spec.get('store_propulsion',{}).get('version')==1:
+        from .turbofanstore import full_mass_properties
+        full,launch,_=full_mass_properties(d.aircraft.spec)
+        tanks=d.aircraft.spec['mass']['tank']
+        shift=empty*(cg-launch)**2+sum(t['capacity']*t.get('fill',1.)*(t['position'][0]-launch)**2 for t in tanks)
+        got_inertia=[got_inertia[0],got_inertia[1]+shift,got_inertia[2]+shift]
+        actual=(empty*cg+sum(t['capacity']*t.get('fill',1.)*t['position'][0] for t in tanks))/full
+        checks.append(check("its CG at launch is its design's",actual,launch-.002,launch+.002,'m',note='Dry structure plus authored liquid fuel tanks; native fuel consumption shifts CG/inertia.'))
+    elif held > 0.0:
         # its file has its structure burnt out, and JSBSim adds its grain: the two together, about its launch CG
         from . import storebodies
         a = d.aircraft
@@ -447,15 +350,6 @@ def build(d, force=False):
     for axis, got, want_i in zip(("Ixx", "Iyy", "Izz"), got_inertia, want_inertia):
         checks.append(check("its %s is its design's" % axis, got, 0.98 * want_i, 1.02 * want_i, "kg m2",
                             note="the design: %.4g%s" % (want_i, " (its motor full)" if held > 0.0 else "")))
-    imported = "Offline derivative-table SHA-256:" in text
-    try:
-        aero_data = d.load("aero")
-    except (OSError, ValueError):
-        if not imported:
-            raise
-        aero_data = None
-    if imported or (aero_data and aero_data.get("kind") == "body" and card.get("class") in ("aam", "bomb")):
-        checks += _aero_table_checks(text, aero_data)
     return d.save("build", {"path": path, "written": True, "changed": changed, "seconds": seconds, "bytes": sizes, "checks": checks})
 
 
@@ -487,6 +381,8 @@ def _world(name):
 
 def verify(d):
     card = card_of(d)
+    from . import aero_evidence
+    aero_evidence.verify_binding(d, card)
     fsim, w = _world("hangar-store-verify")
     checks = []
     try:
@@ -514,6 +410,8 @@ def carrier_for(card):
     need = _par(card, "mass_kg") + (_par(card, "fuel_kg") or 0.0)
     found = []
     for name in sorted(os.listdir(os.path.join(root, "aircraft"))):
+        if name.casefold() == '.codex':
+            continue
         fit = os.path.join(root, "aircraft", name, "payloads.json")
         if not os.path.isfile(fit) or not os.path.isfile(os.path.join(root, "aircraft", name, name + ".xml")):
             continue
@@ -694,9 +592,11 @@ STAGES = {"geometry": geometry, "aero": aero, "mass": mass, "propulsion": propul
 
 
 def run(d, stage, force=False):
+    if stage == 'calibrate':
+        return pipeline._calibrate(d)
     if stage in NOT_A_STORES:
         return {"checks": [info(stage, "not a store's", note=NOT_A_STORES[stage])]}
-    if stage in ("build", "model"):
+    if stage in ("aero", "build", "model"):
         return STAGES[stage](d, force=force)
     return STAGES[stage](d)
 

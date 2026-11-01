@@ -18,6 +18,7 @@ def card(name):
 class Expressions:
     """Evaluate emitted algebra for synthetic conditions, without JSBSim motion."""
     def __init__(self, model, properties):
+        self.model=model
         self.functions = {n.get("name"): n for n in model.findall(".//function[@name]")}
         self.fcs = {}
         for node in model.findall(".//fcs_function"):
@@ -55,6 +56,14 @@ class Expressions:
         if n.tag == "property":
             return self.property(n.text.strip())
         if n.tag == "table":
+            variables=n.findall("independentVar")
+            if len(variables)==2:
+                import numpy as np
+                row=self.property(next(v.text for v in variables if v.get('lookup')=='row'))
+                col=self.property(next(v.text for v in variables if v.get('lookup')=='column'))
+                lines=[list(map(float,line.split())) for line in n.findtext('tableData').splitlines() if line.strip()]
+                return float(np.interp(row,[v[0] for v in lines[1:]],
+                    [np.interp(col,lines[0],v[1:]) for v in lines[1:]]))
             x = self.property(n.findtext("independentVar"))
             rows = [list(map(float, r.split())) for r in n.findtext("tableData").splitlines() if r.strip()]
             if x <= rows[0][0]:
@@ -72,6 +81,10 @@ class Expressions:
             return math.prod(values)
         if n.tag == "difference":
             return values[0] - values[1]
+        if n.tag == "quotient":
+            return values[0] / values[1]
+        if n.tag == "max":
+            return max(values)
         if n.tag == "sin":
             return math.sin(values[0])
         if n.tag == "cos":
@@ -82,14 +95,39 @@ class Expressions:
 def evaluate(store, responses=None, alpha=0.0, beta=0.0, qbar=100.0, mach=0.6):
     c = card(store)
     name = c["model"].removeprefix("jsbsim:")
-    model = ET.fromstring(storebodies.files(c)[name + ".xml"])
-    props = {"aero/alpha-rad": alpha, "aero/beta-rad": beta, "aero/qbar-psf": qbar,
-             "velocities/mach": mach, "fcs/elevator-response-rad": 0.0,
+    model = ET.parse(Path(pipeline.repo_root())/"aircraft/stores"/name/(name+".xml")).getroot()
+    props = {"aero/alpha-deg": math.degrees(alpha),"aero/beta-deg": math.degrees(beta),"aero/alpha-rad": alpha, "aero/beta-rad": beta, "aero/qbar-psf": qbar,
+             "velocities/mach": mach, "velocities/vt-fps": 1000.0, "fcs/elevator-response-rad": 0.0,
              "fcs/rudder-response-rad": 0.0, "fcs/aileron-response-rad": 0.0}
     props.update(responses or {})
     props["metrics/Sw-sqft"] = float(model.findtext("metrics/wingarea"))
     props["metrics/cbarw-ft"] = float(model.findtext("metrics/chord"))
+    props["metrics/bw-ft"] = float(model.findtext("metrics/wingspan"))
     return model, Expressions(model, props)
+
+
+def install_fixture(source,geo):
+    from hangar import storecontrol
+    from hangar.geometry import Aircraft
+    from hangar.aero.model import AeroModel
+    from hangar.aero.tables import build
+    a=Aircraft(geo['design'],geo['design_path'])
+    table=build(AeroModel(a),alpha=[-4.,-2.,0.,2.,4.],beta=[-3.,0.,3.])
+    return storecontrol.install(source,a,table,{})
+
+
+def physical_layout(geo):
+    import numpy as np
+    from hangar.geometry import Aircraft
+    from hangar.aero.vlm import Lattice
+    from hangar.finregistry import identity
+    a=Aircraft(geo['design'],geo['design_path']);lattice=Lattice(a)
+    fins=[]
+    for i,piece in enumerate(lattice.pieces):
+        k=int(np.flatnonzero(lattice.piece==i)[0])
+        surface=lattice.surfaces[int(lattice.surface_index[k])]
+        fins.append(dict(id=identity(surface,piece['control'],1 if lattice.c4[k,1]>=0 else -1)))
+    return dict(fins=fins)
 
 
 def native_actuator_value(model, text):
@@ -102,6 +140,30 @@ def native_actuator_value(model, text):
 
 
 class StoreControlTest(unittest.TestCase):
+    def test_directional_jacobian_uses_signed_fin_interval_and_mach_drag(self):
+        import numpy as np
+        from hangar import storecontrol
+        from hangar.aero.tables import COEFFS
+        values={key:np.zeros((3,3)) for key in (*COEFFS,'CDi')}
+        values['CL'][:]=[-.4,0.,.6]
+        values['CD'][:]=values['CDi'][:]=[.02,0.,.04]
+        piece=dict(gains={'elevator':-2.},lo=-.2,hi=.2,
+                   deflection=np.array([-.2,0.,.2]),channel='elevator',values=values)
+        tables=dict(alpha=np.array([-10.,0.,10.]),native_controls=[piece],
+                    mach=dict(mach=np.array([0.,2.]),K_elevator=np.array([1.,3.]),
+                              induced_factor=np.array([1.,2.])))
+        before=copy.deepcopy(tables)
+        forward=storecontrol.control_jacobian(tables,'elevator',1.)
+        backward=storecontrol.control_jacobian(tables,'elevator',1.,direction=-1)
+        self.assertAlmostEqual(forward[2],-8.)
+        self.assertAlmostEqual(backward[2],-12.)
+        self.assertAlmostEqual(forward[0],.6)
+        self.assertAlmostEqual(backward[0],-1.2)
+        for key in values:np.testing.assert_array_equal(values[key],before['native_controls'][0]['values'][key])
+        piece['lo']=0.
+        np.testing.assert_array_equal(storecontrol.control_jacobian(tables,'elevator',1.),np.zeros(6))
+        with self.assertRaises(ValueError):storecontrol.control_jacobian(tables,'elevator',1.,direction=0)
+
     def test_card_selected_native_actuator_dynamics_reach_all_fcs_actuators(self):
         c = card("aim-120c")
         for name, value, unit in (("weapon_execution_version", 1, "1"),
@@ -162,8 +224,8 @@ class StoreControlTest(unittest.TestCase):
         c = card("aim-120c")
         geo = storeaero.geometry(c)
         baseline = storeaero.coefficients(geo, c["id"])
-        source = '<fdm_config><flight_control name="old"/></fdm_config>'
-        model = ET.fromstring(storecontrol.apply(source, '<flight_control name="old"/>', geo, baseline, 0))
+        source = '<fdm_config><flight_control name="old"/><aerodynamics/></fdm_config>'
+        model = ET.fromstring(install_fixture(source,geo))
         metadata = {n.text: float(n.get("value")) for n in model.findall("./flight_control/property")}
         self.assertNotIn("fsim/missile-control/actuator-version", metadata)
         for actuator in model.findall("./flight_control/channel/actuator"):
@@ -190,7 +252,7 @@ class StoreControlTest(unittest.TestCase):
                 control["limits"] = [-10, 30]
         baseline = storeaero.coefficients(geo, c["id"])
         source = '<fdm_config><metrics><wingarea unit="FT2">1</wingarea><wingspan unit="FT">1</wingspan><chord unit="FT">1</chord></metrics><flight_control name="old"/><aerodynamics/></fdm_config>'
-        model = ET.fromstring(storecontrol.apply(source, '<flight_control name="old"/>', geo, baseline, 0))
+        model = ET.fromstring(install_fixture(source,geo))
         metadata = {n.text: float(n.get("value")) for n in model.findall("./flight_control/property")}
         different = False
         for node in model.findall("./flight_control/channel/aerosurface_scale"):
@@ -199,7 +261,13 @@ class StoreControlTest(unittest.TestCase):
             self.assertEqual(metadata["fsim/missile-control/%s-min-rad" % channel], low)
             self.assertEqual(metadata["fsim/missile-control/%s-max-rad" % channel], high)
             different |= low != -high
-        self.assertTrue(different, "the synthetic authored design must actually exercise asymmetric travel")
+        # Opposed physical fin orientations can make the combined channel's
+        # travel symmetric; the signed physical stops must still be retained.
+        for i in range(int(metadata['fsim/missile-control/fin-count'])):
+            low=metadata['fsim/missile-control/fin-%d-min-rad'%i]
+            high=metadata['fsim/missile-control/fin-%d-max-rad'%i]
+            different |= low != -high
+        self.assertTrue(different, "the synthetic authored physical fins must retain asymmetric travel")
 
     def test_distinct_authored_surfaces_cannot_share_one_physical_fin_identity(self):
         c = card("aim-120c")
@@ -207,31 +275,32 @@ class StoreControlTest(unittest.TestCase):
         duplicate = copy.deepcopy(next(s for s in geo["design"]["surface"] if s.get("controls")))
         geo["design"]["surface"].append(duplicate)
         with self.assertRaisesRegex(ValueError, "identity|collision|duplicate"):
-            from hangar import storecontrol
-            storecontrol.build(geo, storeaero.coefficients(geo, c["id"]))
+            from hangar import airframe
+            airframe.design(geo["design_path"],spec=geo["design"])
 
     def test_physical_fin_identity_is_stable_and_shared_across_aerodynamic_patches(self):
         from hangar import storecontrol
         c = card("aim-120c")
         geo = storeaero.geometry(c)
         baseline = storeaero.coefficients(geo, c["id"])
-        ordinary = storecontrol.build(geo, baseline)
+        ordinary = physical_layout(geo)
         ids = [fin.get("id") for fin in ordinary["fins"]]
         self.assertTrue(all(isinstance(key, int) and key > 0 for key in ids),
                         "physical fins need nonzero stable authored identities")
         self.assertEqual(len(ids), len(set(ids)))
-        original = storecontrol.Surface
-        def subdivided(spec):
-            surface = original(spec)
+        from hangar.geometry import aircraft as aircraft_module
+        original = aircraft_module.Surface
+        def subdivided(spec,*args):
+            surface = original(spec,*args)
             surface.eta_sections = sorted(set(surface.eta_sections) | {0.5})
             return surface
-        with mock.patch.object(storecontrol, "Surface", side_effect=subdivided):
-            split = storecontrol.build(geo, baseline)
+        with mock.patch.object(aircraft_module, "Surface", side_effect=subdivided):
+            split = physical_layout(geo)
         self.assertEqual(sorted(fin["id"] for fin in split["fins"]), sorted(ids),
                          "a numerical aero-patch split must not create another physical actuator")
         reordered = copy.deepcopy(geo)
         reordered["design"]["surface"].reverse()
-        self.assertEqual(sorted(fin["id"] for fin in storecontrol.build(reordered, baseline)["fins"]), sorted(ids),
+        self.assertEqual(sorted(fin["id"] for fin in physical_layout(reordered)["fins"]), sorted(ids),
                          "reordering authored surfaces must preserve fin identity")
         model, _ = evaluate("aim-120c")
         metadata = {node.text: float(node.get("value")) for node in model.findall("./flight_control/property")}
@@ -324,7 +393,7 @@ class StoreControlTest(unittest.TestCase):
                 self.assertEqual(actuator.get("name"), "fcs/fin-%d-actuator" % i)
                 self.assertEqual(actuator.findtext("input"), "fcs/fin-%d-demand-rad" % i)
                 self.assertEqual(actuator.findtext("output"), "fcs/fin-%d-delta-rad" % i)
-                self.assertEqual(native_actuator_value(model, actuator.findtext("rate_limit")), 4.0)
+                self.assertEqual(native_actuator_value(model, actuator.findtext("rate_limit")), card("aim-120c")["parameters"]["control_actuator_rate_rad_s"]["value"])
                 self.assertIsNone(actuator.find("lag"), "channel response already owns the assumed lag")
                 self.assertLess(float(actuator.findtext("clipto/min")), 0)
                 self.assertGreater(float(actuator.findtext("clipto/max")), 0)
@@ -376,6 +445,21 @@ class StoreControlTest(unittest.TestCase):
                                for axis, component in zip("xyz", airflow))
                     self.assertLessEqual(work, 1e-10)
 
+
+    def test_controlled_complete_model_cannot_add_aerodynamic_energy(self):
+        for alpha, beta in ((0, 0), (0.3, -0.2), (-0.4, 0.15), (1.2, -0.6)):
+            for delta in (-0.3, -0.05, 0.05, 0.3):
+                with self.subTest(alpha=alpha, beta=beta, delta=delta):
+                    _, e = evaluate("aim-120c", {"fcs/elevator-response-rad": delta,
+                        "fcs/rudder-response-rad": -delta, "fcs/aileron-response-rad": delta}, alpha=alpha, beta=beta)
+                    # Unloading a coupled surface can reduce drag. Passivity
+                    # applies to the complete model, not to that signed delta.
+                    e.properties.update({'aero/bi2vel':0.,'aero/ci2vel':0.,'aero/alphadot-rad_sec':0.,
+                        'aero/cl-squared':0.,'aero/h_b-mac-ft':10000.,
+                        **{'velocities/'+k+'-aero-rad_sec':0. for k in 'pqr'}})
+                    work=-sum(e.eval(fn) for fn in e.model.findall("./aerodynamics/axis[@name='DRAG']/function"))
+                    self.assertLessEqual(work, 1e-10)
+
     def test_scheduled_stability_and_damping_preserve_selected_baseline(self):
         c = card("aim-120c")
         geo = storeaero.geometry(c)
@@ -387,6 +471,28 @@ class StoreControlTest(unittest.TestCase):
             for output, (source, sign) in mapping.items():
                 with self.subTest(mach=mach, output=output):
                     self.assertAlmostEqual(e.property("fsim/control/" + output), sign * b[source][index], delta=1e-12)
+
+    def test_local_incidence_derivatives_match_generated_native_force_and_moment(self):
+        # Independent finite differences of the emitted complete native
+        # wind-axis functions, transformed to body force. No _body call.
+        h=1e-4
+        for degree in (-8.,-4.,4.,8.):
+            angle=math.radians(degree);mach=2.6
+            _,center=evaluate('pl-10',alpha=angle,mach=mach)
+            def loads(alpha):
+                model,e=evaluate('pl-10',alpha=alpha,mach=mach)
+                e.properties.update({'aero/bi2vel':0.,'aero/ci2vel':0.,'aero/alphadot-rad_sec':0.,
+                    'aero/cl-squared':0.,'aero/h_b-mac-ft':10000.,
+                    **{'velocities/'+k+'-aero-rad_sec':0. for k in 'pqr'}})
+                def total(axis):return sum(e.eval(fn) for fn in model.findall("./aerodynamics/axis[@name='"+axis+"']/function"))
+                qs=e.properties['aero/qbar-psf']*e.properties['metrics/Sw-sqft']
+                return ((-total('LIFT')*math.cos(alpha)-total('DRAG')*math.sin(alpha))/qs,
+                        total('PITCH')/(qs*e.properties['metrics/cbarw-ft']))
+            before,after=loads(angle-h),loads(angle+h)
+            for index,name in enumerate(('cz-alpha','cm-alpha')):
+                with self.subTest(degree=degree,name=name):
+                    expected=(after[index]-before[index])/(2*h)
+                    self.assertAlmostEqual(center.property('fsim/control/'+name),expected,delta=abs(expected)*2e-4+1e-6)
 
     def test_uncontrolled_bomb_output_remains_unchanged(self):
         root = Path(pipeline.repo_root())

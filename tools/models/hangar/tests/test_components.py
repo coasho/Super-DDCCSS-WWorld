@@ -16,6 +16,23 @@ def card():
 
 
 class ComponentsTest(unittest.TestCase):
+    def test_migration_preserves_declared_new_mechanisms(self):
+        import json,tomllib
+        from pathlib import Path
+        from hangar import pipeline
+        root=Path(pipeline.repo_root())
+        for name in ('aim-9x','meteor','pl-10'):
+            raw=json.loads((root/'assets/stores'/(name+'.json')).read_text(encoding='utf-8'))
+            model=raw['model'].removeprefix('jsbsim:')
+            design=tomllib.loads((root/'aircraft'/model/(model+'.toml')).read_text(encoding='utf-8'))
+            proposal=components.migration(raw,design)
+            for role in ('autopilot','propulsion'):
+                self.assertEqual(proposal['components'][role],raw['component_models']['components'][role])
+        absent=components.migration({'id':'missing','model':'jsbsim:missing','parameters':{}},
+            {'motor':{'kind':'ducted_rocket','phase':[{'duration_s':1.,'thrust_kn':1.}],
+                      'exit':[1.,0.,0.],'exit_diameter':.1}})
+        self.assertEqual(absent['components']['propulsion']['availability'],'unavailable')
+
     def test_representative_sensor_selection_does_not_change_generated_physical_assets(self):
         import json
         from pathlib import Path
@@ -110,7 +127,11 @@ class ComponentsTest(unittest.TestCase):
             self.assertEqual(legacy[asset], configured[asset])
         before, after = ET.fromstring(legacy["aim120c.xml"]), ET.fromstring(configured["aim120c.xml"])
         for node in ("metrics", "mass_balance", "propulsion", "aerodynamics", "ground_reactions"):
-            self.assertEqual(ET.tostring(before.find(node)), ET.tostring(after.find(node)), node)
+            # A following FCS replacement may reindent the separator outside
+            # this subtree. Every byte within the physical subtree still agrees.
+            left, right = before.find(node), after.find(node)
+            left.tail = right.tail = None
+            self.assertEqual(ET.tostring(left), ET.tostring(right), node)
         metadata = {n.text: float(n.get("value")) for n in after.findall("./flight_control/property")}
         for kind in proposal["components"]:
             if proposal["components"][kind]["availability"] == "available":
@@ -131,24 +152,60 @@ class ComponentsTest(unittest.TestCase):
         from pathlib import Path
         from hangar import pipeline
         guided = []
+        required_guided=set();aam=set()
         for path in sorted((Path(pipeline.repo_root()) / "assets/stores").glob("*.json")):
             raw = json.loads(path.read_text(encoding="utf-8"))
+            if raw.get('class') in ('aam','cruise_missile'):required_guided.add(raw['id'])
+            if raw.get('class')=='aam':aam.add(raw['id'])
             rows = raw["component_models"]["components"]
             if rows["guidance"]["availability"] != "available":
                 continue
             guided.append(raw["id"])
             with self.subTest(store=raw["id"]):
                 self.assertEqual(rows["autopilot"]["bindings"]["execution_mode"], "configured")
-                self.assertEqual(len(rows["autopilot"]["parameter_refs"]), 5)
+                vector=bool(rows['autopilot'].get('bindings',{}).get('thrust_vector'))
+                self.assertEqual(len(rows["autopilot"]["parameter_refs"]), 7 if vector else 5)
+                if vector:self.assertEqual(rows['autopilot']['bindings']['thrust_vector'],'jsbsim_nozzle_v1')
                 self.assertNotIn("legacy", rows["fuze"]["implementation_id"])
                 self.assertNotIn("legacy", rows["warhead"]["implementation_id"])
-        self.assertEqual(len(guided), 24)
+        self.assertEqual(len(aam),24)
+        self.assertEqual(set(guided),required_guided,'every authored guided class requires guidance, including air-breathing stores')
 
-    def test_all_store_profiles_preserve_existing_generated_numerics(self):
+    def test_authored_airbreathing_hardware_cannot_migrate_to_not_applicable(self):
+        raw={'id':'synthetic','class':'cruise_missile','model':'jsbsim:synthetic','parameters':{}}
+        design={'engine':[{'type':'turbofan'}],'store_propulsion':{'version':1}}
+        for row in (None,{'availability':'not_applicable','reason':'missing implementation'},
+                    {'availability':'unavailable','reason':'missing selection'}):
+            card=copy.deepcopy(raw)
+            if row is not None:card['component_models']={'schema_version':1,'components':{'propulsion':row}}
+            with self.subTest(row=row):
+                self.assertEqual(components.migration(card,design)['components']['propulsion']['availability'],'unavailable')
+
+    def test_typed_airbreathing_source_refuses_missing_or_incompatible_selection(self):
+        from hangar import turbofanstore
+        raw={'id':'synthetic','class':'cruise_missile','model':'jsbsim:synthetic','parameters':{}}
+        design={'engine':[{'type':'turbofan'}],'store_propulsion':{'version':1}}
+        available=dict(availability='available',implementation_id=components.PROPULSION,
+            configuration_version=1,parameter_refs={},bindings={},basis='assumed',note='Fixture',validity='Fixture')
+        for row in (None,{'availability':'not_applicable','reason':'not selected'},
+                    {'availability':'unavailable','reason':'not implemented'},available):
+            card=copy.deepcopy(raw)
+            if row is not None:card['component_models']={'schema_version':1,'components':{'propulsion':row}}
+            with self.subTest(row=row),self.assertRaises(ValueError):turbofanstore.inputs(card,design)
+        for changed in ({'engine':[{'type':'turbofan'}],'store_propulsion':{'version':2}},
+                        {'engine':[],'store_propulsion':{'version':1}},
+                        {'engine':[{'type':'turbofan'},{'type':'turbofan'}],'store_propulsion':{'version':1}},
+                        {'engine':[{'type':'turbofan'}]}):
+            with self.subTest(design=changed),self.assertRaises(ValueError):turbofanstore.inputs(raw,changed)
+        self.assertIsNone(turbofanstore.inputs(raw,{}),'legacy non-engine source behavior remains unchanged')
+        mixed=copy.deepcopy(design);mixed['motor']={'phase':[{'duration_s':1.,'thrust_kn':1.}]}
+        with self.assertRaisesRegex(ValueError,'mixed rocket'):turbofanstore.inputs(raw,mixed)
+
+    def test_retained_legacy_store_profiles_preserve_existing_generated_numerics(self):
         import json
         from pathlib import Path
         import xml.etree.ElementTree as ET
-        from hangar import pipeline, storemodels
+        from hangar import pipeline, storemodels,storeaero,storestages
         root = Path(pipeline.repo_root())
         paths = sorted((root / "assets/stores").glob("*.json"))
         self.assertGreater(len(paths), 0, "the equivalence gate must visit the actual store catalogue")
@@ -173,13 +230,71 @@ class ComponentsTest(unittest.TestCase):
             return value(model)
 
         checked = 0
+        legacy_names=set();typed_names=set()
         for path in paths:
             with self.subTest(store=path.stem):
                 selected = json.loads(path.read_text(encoding="utf-8"))
                 self.assertIn("component_models", selected, "every maintained store must declare its providers")
+                # Compatibility gate for the retained original implementations.
+                # New physical mechanisms have separate source/native tests;
+                # removing their descriptors must never enable them implicitly.
+                rows=selected['component_models']['components']
+                autopilot=rows['autopilot']
+                geometry=storeaero.geometry(selected) or {}
+                design=geometry.get('design',{})
+                if design.get('engine') or 'store_propulsion' in design:
+                    # A newly typed physical source has no descriptor-free
+                    # legacy representation. Refuse missing selection rather
+                    # than silently generating an unpowered asset.
+                    legacy=copy.deepcopy(selected);legacy.pop('component_models')
+                    card_bytes=path.read_bytes()
+                    with self.assertRaises(ValueError):storemodels.files(legacy)
+                    after=storemodels.files(selected)
+                    self.assertIsNotNone(after)
+                    self.assertEqual(after,storemodels.files(selected),'typed native generation is deterministic')
+                    self.assertEqual(path.read_bytes(),card_bytes,'text generation cannot mutate source cards')
+                    model_name=selected['model'].removeprefix('jsbsim:')
+                    model=ET.fromstring(after[model_name+'.xml'])
+                    engines=model.findall('propulsion/engine');tanks=design['mass']['tank']
+                    self.assertEqual(len(engines),len(design['engine']))
+                    self.assertEqual(len(model.findall('propulsion/tank')),len(tanks))
+                    for engine in engines:
+                        engine_path='Engines/'+engine.get('file')+'.xml'
+                        nozzle_path='Engines/'+engine.find('thruster').get('file')+'.xml'
+                        self.assertIn(engine_path,after);self.assertIn(nozzle_path,after)
+                        self.assertEqual(ET.fromstring(after[engine_path]).tag,'turbine_engine')
+                        self.assertEqual(ET.fromstring(after[nozzle_path]).tag,'direct')
+                        self.assertEqual({int(n.text) for n in engine.findall('feed')},set(range(len(tanks))))
+                    governor=model.find("flight_control/property[.='fsim/cruise-governor-v1/version']")
+                    self.assertIsNotNone(governor);self.assertEqual(governor.get('value'),'1')
+                    empty,held,_,_=storestages._xml_mass(after[model_name+'.xml'])
+                    fuel=sum(t['capacity']*t.get('fill',1.) for t in tanks)
+                    self.assertAlmostEqual(held,fuel,delta=.02)
+                    self.assertAlmostEqual(empty+held,selected['parameters']['mass_kg']['value'],delta=.02)
+                    typed_names.add(path.stem);checked+=1
+                    continue
+                if autopilot.get('bindings',{}).get('thrust_vector'):
+                    del autopilot['bindings']['thrust_vector']
+                    for role in ('tvc_limit_rad','tvc_rate_rad_s'):del autopilot['parameter_refs'][role]
+                if autopilot.get('implementation_id')==components.ACTUATOR_AWARE_AUTOPILOT:
+                    autopilot['implementation_id']=components.AUTOPILOT
+                if rows['propulsion'].get('implementation_id')==components.DUCTED_PROPULSION:
+                    from hangar import ductedrocket
+                    rows['propulsion']['implementation_id']=components.PROPULSION
+                    for role in ductedrocket.ROLES:del rows['propulsion']['parameter_refs'][role]
                 legacy = copy.deepcopy(selected)
                 legacy.pop("component_models")
-                before, after = storemodels.files(legacy), storemodels.files(selected)
+                card_bytes=path.read_bytes()
+                if design.get('motor',{}).get('kind')=='ducted_rocket':
+                    # The retained legacy fixture predates the explicitly typed
+                    # ducted design as well as its component descriptor.
+                    from unittest import mock
+                    geometry=copy.deepcopy(geometry)
+                    geometry['design']['motor'].pop('kind',None)
+                    with mock.patch.object(storeaero,'geometry',return_value=geometry):
+                        before,after=storemodels.files(legacy),storemodels.files(selected)
+                else:before, after = storemodels.files(legacy), storemodels.files(selected)
+                self.assertEqual(path.read_bytes(),card_bytes,"text generation must not publish or mutate source cards")
                 self.assertIsNotNone(before, "existing store must have a native generated model")
                 self.assertIsNotNone(after, "explicit profile cannot lose a native generated model")
                 self.assertEqual(set(before), set(after), "component migration cannot replace the native asset inventory")
@@ -191,9 +306,12 @@ class ComponentsTest(unittest.TestCase):
                         properties = {n.text for n in old_model.findall("./flight_control/property")}
                         self.assertEqual(normalize(before[asset], properties), normalize(after[asset], properties), asset)
                 checked += 1
-        self.assertEqual(checked, len(paths), "every discovered store must complete the strict equivalence comparison")
+                legacy_names.add(path.stem)
+        self.assertEqual(checked, len(paths), "every discovered store must complete legacy equivalence or the explicit typed-source contract")
+        self.assertFalse(legacy_names & typed_names)
+        self.assertEqual(legacy_names | typed_names,{p.stem for p in paths},'all discovered stores require legacy or typed-source contract coverage')
 
-    def test_nonfinned_stage_diagnostics_preserve_legacy_values_for_three_classes(self):
+    def test_nonfinned_stage_uses_shared_vlm_for_three_classes(self):
         import json
         from pathlib import Path
         from unittest import mock
@@ -212,8 +330,8 @@ class ComponentsTest(unittest.TestCase):
                 with mock.patch.object(storestages, "card_of", return_value=raw):
                     after = storestages.aero(design)
                 self.assertEqual(before, after, "profile selection cannot alter existing diagnostic values/checks")
-                self.assertEqual(after["coefficient_authority"], "face_drag_diagnostic" if kind == "cargo" else "geometry_diagnostic")
-                self.assertEqual(after["native_aerodynamics_source"], "bluff_cargo" if kind == "cargo" else "slender_store")
+                self.assertEqual(after["kind"], "airframe")
+                self.assertEqual(after["method"], "vlm")
 
     def test_nonfinned_stage_validates_explicit_descriptor_before_early_return(self):
         import json

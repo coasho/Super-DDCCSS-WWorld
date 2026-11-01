@@ -459,3 +459,8 @@ flaps = "Boeing 707-320B data: trailing-edge flaps"
 drag_devices = "Boeing 707-320B data: flight and ground spoilers"
 releasable_stores = "USAF E-3 fact sheet: unarmed"
 aerobatic = "USAF E-3 fact sheet: a large airborne warning aircraft, not cleared for aerobatics"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

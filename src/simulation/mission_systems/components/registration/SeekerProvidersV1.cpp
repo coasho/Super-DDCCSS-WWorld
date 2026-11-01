@@ -20,10 +20,18 @@ void registerNativeSeekerV1(ProviderRegistryV1& registry) {
         registry.seeker.registerFactory(id,id,
             [](const DescriptorV1& d,const ProviderContextV1& ctx,std::string& e)->std::unique_ptr<SeekerProviderV1> {
                 auto spec=ctx.spec;if(!weapon::configureSeeker(d,spec,e))return {};
-                if(spec.seeker=="infrared")return std::make_unique<NonImagingIrSeekerV2>(spec);
-                if(spec.seeker=="imaging_infrared")return std::make_unique<ImagingIrSeekerV2>(spec);
-                if(spec.seeker=="semi_active_radar")return std::make_unique<SemiActiveRadarSeekerV2>(spec);
+                if(!weapon::seekerVariantMatchesV2(d,ctx.card.id)) {
+                    e="measured seeker variant does not belong to the provider's store";return {};
+                }
                 if(spec.seeker=="active_radar")return std::make_unique<ActiveRadarSeekerV2>(spec,ctx.initialEstimate);
+                std::unique_ptr<MeasuredSeekerV2> sensor;
+                if(spec.seeker=="infrared")sensor=std::make_unique<NonImagingIrSeekerV2>(spec);
+                if(spec.seeker=="imaging_infrared")sensor=std::make_unique<ImagingIrSeekerV2>(spec);
+                if(spec.seeker=="semi_active_radar")sensor=std::make_unique<SemiActiveRadarSeekerV2>(spec);
+                if(sensor) {
+                    if(ctx.initialEstimate)sensor->seedNavigationEstimate(*ctx.initialEstimate);
+                    return sensor;
+                }
                 e="unsupported measured seeker mode";return {};
             },false,error);
     }

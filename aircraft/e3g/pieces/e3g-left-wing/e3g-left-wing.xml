@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- Written by hangar (tools/hangar/hangar/pieces.py) from e3g's damage data: its left wing flying on its own once it parts
+<!-- Written by hangar (tools/models/hangar/hangar/pieces.py) from e3g's damage data: its left wing flying on its own once it parts
      (MS-7g). Its aerodynamics a tumbling piece's - estimates, said so there. Do not edit: hangar's model stage of e3g writes it. -->
 <fdm_config name="e3g-left-wing" version="2.0" release="ALPHA">
     <fileheader>
@@ -29,7 +29,7 @@
         <location name="CG" unit="IN"> <x> 918.85393700787404 </x> <y> -335.33267716535437 </y> <z> -28.865748031496064 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 965.49540682414704 </x> <y> -486.54855643044618 </y> <z> 20.403937007874013 </z> </location>
+            <location unit="IN"> <x> 965.49540682414704 </x> <y> -486.54855643044624 </y> <z> 20.403937007874013 </z> </location>
         </pointmass>
 <!-- no store station -->
     </mass_balance>
@@ -42,7 +42,7 @@
             <damping_coeff unit="LBS/FT/SEC"> 43197 </damping_coeff>
         </contact>
         <contact type="STRUCTURE" name="end 2">
-            <location unit="IN"> <x> 526.011 </x> <y> -52.494 </y> <z> -32.926 </z> </location>
+            <location unit="IN"> <x> 526.011 </x> <y> -52.493 </y> <z> -32.926 </z> </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.5 </dynamic_friction>
             <spring_coeff unit="LBS/FT"> 431967 </spring_coeff>

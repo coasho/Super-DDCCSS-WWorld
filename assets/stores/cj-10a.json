@@ -1,11 +1,11 @@
 {
   "id": "cj-10a",
   "designation": "CJ-10A",
-  "class": "bomb",
-  "summary": "Land-attack cruise missile (the Hong Niao / DH-10 family's), as the H-6K carries it under its wings. A body on its station and, released, an inert one: its turbofan, its wings and its guidance are not modelled",
+  "class": "cruise_missile",
+  "summary": "Project land-attack cruise missile configuration; inertial waypoint guidance, controlled lifting airframe and turbofan are required. Variant identity and hardware calibration remain separate optional evidence.",
   "maker": "CASIC",
   "model": "jsbsim:cj10a",
-  "powerable": false,
+  "powerable": true,
   "jettisonable": true,
   "sources": {
     "xinhua-cj10a-caution": {
@@ -30,6 +30,136 @@
       "publisher": "Wikipedia (revision 1371980611)",
       "url": "https://en.wikipedia.org/w/index.php?title=CJ-10_(missile)&oldid=1371980611",
       "date": "2026-10-11"
+    },
+    "hangar-vlm": {
+      "title": "Shared Hangar aircraft VLM tables",
+      "url": "aero/vlm-carriage-082be8b119de479343daa8f473eb2a8eef9e3756c5694252258ca4fba8e740bd.json",
+      "evidence_kind": "game_reference",
+      "note": "Same base, rate and Mach data as the released JSBSim model; no equipment calibration claim.",
+      "simulation": {
+        "basis": "simulated",
+        "tool": "Hangar shared aircraft VLM",
+        "version": "0.1.0",
+        "design_sha256": "90ab47929767c81d1df38e3d2dd008374bc121ce4d5598f9891b59fa205e226c",
+        "card_inputs": {
+          "length_m": 6.4,
+          "diameter_m": 0.75,
+          "mass_kg": 1800.0
+        },
+        "table_inputs_hash": "f6118a87dbb907c2",
+        "table_sha256": "082be8b119de479343daa8f473eb2a8eef9e3756c5694252258ca4fba8e740bd",
+        "input_geometry": "aircraft/cj10a/cj10a.toml",
+        "domain": {
+          "mach": [
+            0.0,
+            5.0
+          ],
+          "alpha_deg": [
+            -180.0,
+            180.0
+          ],
+          "beta_deg": [
+            -90.0,
+            90.0
+          ]
+        },
+        "method_sources": [
+          "Katz and Plotkin, Low-Speed Aerodynamics, vortex lattice",
+          "Shared aero/model.py, tables.py and mach.py; engineering extensions are not equipment measurements"
+        ],
+        "solver_sha256": "1fe905d01b307fc9398dda9ddd1b78ab2960d66c80ffd7346a2baf5e255f78bf",
+        "generic_validation": {
+          "schema": "fsim.generic-vlm-validation.v1",
+          "basis": "simulated",
+          "tool": "Hangar shared aircraft VLM",
+          "version": "0.1.0",
+          "source_url": "https://www.mas.bg.ac.rs/_media/istrazivanje/fme/vol48/4/5_d_damljanovic_et_al.pdf",
+          "source_locator": "Figure 1 p.762; Tables 2--10 pp.766--768",
+          "native_library": {
+            "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-release\\python\\fsim\\bin\\libfsim.dll",
+            "sha256": "10a8a36fc36b7ad7d23a6e4eede348ca18946bba913d66e93912fabec831d533"
+          },
+          "fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+          "metrics": {
+            "CZ": {
+              "count": 9,
+              "nrmse_percent": 13.89268657599672,
+              "max_absolute_error": 0.13199607890094234
+            },
+            "Cm": {
+              "count": 9,
+              "nrmse_percent": 82.05273561633099,
+              "max_absolute_error": 0.06616153821858019
+            }
+          },
+          "assessed_domain": {
+            "mach": [
+              0.77,
+              1.0,
+              1.17
+            ],
+            "alpha_deg": [
+              2.0,
+              6.0,
+              10.0
+            ],
+            "beta_deg": [
+              0.0
+            ]
+          },
+          "equipment_accuracy_claim": false,
+          "parameters_fitted": false,
+          "limitations": [
+            "Generic AGARD-B geometry, not any of the 88 authored equipment models.",
+            "The publication pools facilities/model sizes and includes M0.8/M1.2 runs with the M0.77/M1.17 groups; no common Reynolds condition is supplied.",
+            "Body-normal force is derived as CN=CLf*cos(alpha)+CDf*sin(alpha), cancelling axial base-pressure force; reported CZ=-CN.",
+            "The 4% biconvex wing uses the existing shared section; its tiny specified leading-edge radius is not separately resolved.",
+            "Density/Reynolds and sting/wall interference differences remain. Residuals are not an equipment confidence interval.",
+            "No beta, dynamic derivative, powered flow or extreme-angle qualification follows from these conditions."
+          ],
+          "source_pdf_sha256": "e2a1c05987115e665dd8a06a6250b7dbcbe0511df7b99227a293a77cadf5e0d5",
+          "observations_and_geometry": "docs/data/hangar-generic-validation.json"
+        },
+        "uncertainty": {
+          "basis": "simulated",
+          "tool": "Hangar shared aircraft VLM",
+          "version": "0.1.0",
+          "geometry_source": "aircraft/cj10a/cj10a.toml",
+          "geometry_sha256": "7719d20183bdab72a6befa0779482492f0b9ab303930fc4912fdd08986bae9df",
+          "analysis_inputs": {
+            "max_mach": 5.0,
+            "speed": 250.0
+          },
+          "method": "Coupled vortex-lattice/body/section/rate solution, common Mach extensions and common JSBSim tables; retained overrides are listed separately.",
+          "table_domain": "Actual Mach/alpha/beta bounds are read from the generated product in hangar-vlm.simulation; no narrowing of the authored envelope.",
+          "assumed_relative_half_width": 1.64105471232662,
+          "uncertainty_basis": "assumed engineering screening range, not measured equipment error or a probabilistic confidence interval",
+          "uncertainty_formula": "Inside the generic comparison conditions: max(1,2*generic_NRMSE/100); outside them no finite equipment-error bound is established.",
+          "boundaries": "Generic validation cannot identify equipment-specific separated flow, powered flow, Reynolds effects or extreme-angle errors; those remain unknown.",
+          "coverage_probability": null,
+          "uncertainty_components": {
+            "CZ_assumed_relative_half_width": 1.0,
+            "Cm_assumed_relative_half_width": 1.64105471232662
+          },
+          "uncertainty_application": "Assumed screening envelope only, not a measured model error or statistical bound. Applies to generic CZ/Cm comparison conditions; no finite equipment-error bound outside those conditions and no calibrated CD/CY/Cl/Cn uncertainty.",
+          "input_assumptions": "Author-declared geometry and shared section/body correlations. Surface sections, sweep, twist, controls, body stations, mass/CG, analysis speed and all retained overrides are readable in aircraft/cj10a/cj10a.toml. Product extrema are generation coverage, not a validated physical domain.",
+          "generic_validation_ref": "generic_validation and docs/data/hangar-generic-validation.json"
+        }
+      }
+    },
+    "project-contact-effects-v1": {
+      "title": "Project contact-only native effects engineering configuration v1",
+      "publisher": "Super-DDCCSS-WWorld",
+      "url": "docs/hangar-system.md",
+      "evidence_kind": "game_reference",
+      "note": "Selected generic native contact fuze and existing fragment/blast model; timing and Gurney input are explicit engineering estimates, not equipment measurements."
+    },
+    "project-virtual-cruise-v1": {
+      "evidence_kind": "game_reference",
+      "title": "Explicit project cruise configuration v1",
+      "url": "aircraft/cj10a/cj10a.toml",
+      "version": "1",
+      "note": "Engineering design inputs and derived controller, not variant hardware measurements. Engine uses shared JSBSim/Mattingly lapse model; wing uses common VLM. Static authorized aimpoint only; no terminal seeker."
     }
   },
   "parameters": {
@@ -66,32 +196,221 @@
       "note": "'500 kg (1,100 lb)'"
     },
     "drag_area_m2": {
-      "value": 0.05455,
-      "unit": "m^2",
-      "uncertainty": 0.01636,
+      "value": 0.07180162783303382,
+      "unit": "m2",
+      "source": "hangar-vlm",
       "basis": "assumed",
-      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its design (hangar storedrag.py: Hoerner's body of revolution 0.02748, its base 0.01975, its fins' friction 0.00732 m^2): an estimate by one method for every store"
+      "uncertainty": 0.07180162783303382,
+      "note": "Engineering estimate A_D = CD_simulated*S_geometry at neutral Mach .3. Inputs, dated model-specific searches and method limits are in hangar-vlm.simulation and the evidence catalog. Assumed one-sigma screening uncertainty is |A_D| in m2; its coverage probability is not established. Equipment drag error remains unknown; the table evidence basis is simulated."
     },
-    "munk_volume_m3": {
-      "value": 2.28894,
-      "unit": "m^3",
-      "uncertainty": 0.68668,
+    "airframe_aerodynamics_version": {
+      "value": 1,
+      "unit": "1",
+      "source": "hangar-vlm",
+      "basis": "derived",
+      "uncertainty": 0,
+      "note": "Versioned shared-table runtime binding; zero uncertainty is not an accuracy claim."
+    },
+    "explosive_kg": {
+      "value": 250.0,
+      "unit": "kg",
       "basis": "assumed",
-      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 2.4792 m^3 from its design, times Lamb's k2 - k1 = 0.923 for its fineness 8.5 (hangar storedrag.py): an estimate by one method for every store"
+      "source": "project-contact-effects-v1",
+      "uncertainty": 125.0,
+      "note": "Engineering equivalent charge fraction one half of current authored warhead mass; not published CJ-10A explosive-fill data."
     },
-    "side_slope_m2": {
-      "value": 2.67514,
-      "unit": "m^2",
-      "uncertainty": 0.80254,
+    "gurney_kms": {
+      "value": 2.6,
+      "unit": "km/s",
       "basis": "assumed",
-      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
+      "source": "project-contact-effects-v1",
+      "uncertainty": 0.5,
+      "note": "Explicit existing generic native Gurney input (Damage.cpp legacy default); estimated response, not a measured charge property."
     },
-    "side_arm_m": {
-      "value": 2.9219,
+    "component_contact_fuze_model_version": {
+      "value": 0,
+      "unit": "1",
+      "basis": "assumed",
+      "uncertainty": 0,
+      "source": "project-virtual-cruise-v1",
+      "note": "Explicit project contact-only model setting; estimated, not measured hardware; zero is a selection/absent proximity channel, not an accuracy claim."
+    },
+    "component_contact_fuze_algorithm": {
+      "value": 0,
+      "unit": "1",
+      "basis": "assumed",
+      "uncertainty": 0,
+      "source": "project-virtual-cruise-v1",
+      "note": "Explicit project contact-only model setting; estimated, not measured hardware; zero is a selection/absent proximity channel, not an accuracy claim."
+    },
+    "component_contact_fuze_arming_s": {
+      "value": 1.0,
+      "unit": "s",
+      "basis": "assumed",
+      "uncertainty": 1.0,
+      "source": "project-virtual-cruise-v1",
+      "note": "Explicit project contact-only model setting; estimated, not measured hardware; zero is a selection/absent proximity channel, not an accuracy claim."
+    },
+    "component_contact_fuze_life_s": {
+      "value": 6000.0,
+      "unit": "s",
+      "basis": "assumed",
+      "uncertainty": 6000.0,
+      "source": "project-virtual-cruise-v1",
+      "note": "Explicit project contact-only model setting; estimated, not measured hardware; zero is a selection/absent proximity channel, not an accuracy claim."
+    },
+    "component_contact_fuze_radius_m": {
+      "value": 0,
       "unit": "m",
-      "uncertainty": 0.64,
       "basis": "assumed",
-      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+      "uncertainty": 0,
+      "source": "project-virtual-cruise-v1",
+      "note": "Explicit project contact-only model setting; estimated, not measured hardware; zero is a selection/absent proximity channel, not an accuracy claim."
+    },
+    "component_control_max_incidence_deg": {
+      "value": 15.0,
+      "unit": "deg",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "component_control_rate_time_min_s": {
+      "value": 0.12,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "component_control_rate_lag_multiplier": {
+      "value": 3.0,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "component_control_incidence_time_min_s": {
+      "value": 0.4,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "component_control_incidence_rate_multiplier": {
+      "value": 3.333333333333333,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_actuator_lag_s": {
+      "value": 0.04,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_actuator_rate_rad_s": {
+      "value": 4.0,
+      "unit": "rad/s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_turbofan_thrust_dry_kn": {
+      "value": 6.0,
+      "unit": "kN",
+      "basis": "assumed",
+      "source": "project-virtual-cruise-v1",
+      "uncertainty": 3.0,
+      "note": "Explicit virtual configuration v1; 50% engineering uncertainty allowance, not a confidence interval or measured value."
+    },
+    "plant_turbofan_bypass_ratio": {
+      "value": 1.0,
+      "unit": "1",
+      "basis": "assumed",
+      "source": "project-virtual-cruise-v1",
+      "uncertainty": 0.5,
+      "note": "Explicit virtual configuration v1; 50% engineering uncertainty allowance, not a confidence interval or measured value."
+    },
+    "plant_turbofan_tsfc_dry": {
+      "value": 0.8,
+      "unit": "lb/(lbf*h)",
+      "basis": "assumed",
+      "source": "project-virtual-cruise-v1",
+      "uncertainty": 0.4,
+      "note": "Explicit virtual configuration v1; 50% engineering uncertainty allowance, not a confidence interval or measured value."
+    },
+    "plant_turbofan_fuel_capacity_kg": {
+      "value": 600.0,
+      "unit": "kg",
+      "basis": "assumed",
+      "source": "project-virtual-cruise-v1",
+      "uncertainty": 300.0,
+      "note": "Explicit virtual configuration v1; 50% engineering uncertainty allowance, not a confidence interval or measured value."
+    },
+    "plant_turbofan_fuel_cg_x_m": {
+      "value": 3.2,
+      "unit": "m",
+      "basis": "assumed",
+      "source": "project-virtual-cruise-v1",
+      "uncertainty": 1.6,
+      "note": "Explicit virtual configuration v1; 50% engineering uncertainty allowance, not a confidence interval or measured value."
+    },
+    "plant_turbofan_dry_mass_kg": {
+      "value": 1200.0,
+      "unit": "kg",
+      "basis": "assumed",
+      "source": "project-virtual-cruise-v1",
+      "uncertainty": 600.0,
+      "note": "Explicit virtual configuration v1; 50% engineering uncertainty allowance, not a confidence interval or measured value."
+    },
+    "plant_turbofan_cruise_speed_ms": {
+      "value": 200.0,
+      "unit": "m/s",
+      "basis": "assumed",
+      "source": "project-virtual-cruise-v1",
+      "uncertainty": 100.0,
+      "note": "Explicit virtual configuration v1; 50% engineering uncertainty allowance, not a confidence interval or measured value."
+    },
+    "plant_turbofan_governor_time_s": {
+      "value": 5.0,
+      "unit": "s",
+      "basis": "assumed",
+      "source": "project-virtual-cruise-v1",
+      "uncertainty": 2.5,
+      "note": "Explicit virtual configuration v1; 50% engineering uncertainty allowance, not a confidence interval or measured value."
+    },
+    "component_inertial_response_min_s": {
+      "value": 2.0,
+      "unit": "s",
+      "basis": "assumed",
+      "source": "project-virtual-cruise-v1",
+      "uncertainty": 1.0,
+      "note": "Explicit virtual configuration v1; 50% engineering uncertainty allowance, not a confidence interval or measured value."
+    },
+    "component_inertial_response_max_s": {
+      "value": 20.0,
+      "unit": "s",
+      "basis": "assumed",
+      "source": "project-virtual-cruise-v1",
+      "uncertainty": 10.0,
+      "note": "Explicit virtual configuration v1; 50% engineering uncertainty allowance, not a confidence interval or measured value."
+    },
+    "component_inertial_max_g": {
+      "value": 2.0,
+      "unit": "1",
+      "basis": "assumed",
+      "source": "project-virtual-cruise-v1",
+      "uncertainty": 1.0,
+      "note": "Explicit virtual configuration v1; 50% engineering uncertainty allowance, not a confidence interval or measured value."
+    },
+    "component_inertial_life_s": {
+      "value": 6000.0,
+      "unit": "s",
+      "basis": "assumed",
+      "source": "project-virtual-cruise-v1",
+      "uncertainty": 3000.0,
+      "note": "Explicit virtual configuration v1; 50% engineering uncertainty allowance, not a confidence interval or measured value."
     }
   },
   "component_models": {
@@ -99,35 +418,143 @@
     "components": {
       "seeker": {
         "availability": "not_applicable",
-        "reason": "This card declares no executing guided-store function."
+        "reason": "The project configuration selects inertial waypoint navigation with no terminal seeker installed."
       },
       "guidance": {
-        "availability": "not_applicable",
-        "reason": "This card declares no executing guided-store function."
+        "availability": "available",
+        "implementation_id": "fsim.guidance.inertial_waypoint.v1",
+        "configuration_version": 1,
+        "parameter_refs": {
+          "response_min_s": "component_inertial_response_min_s",
+          "response_max_s": "component_inertial_response_max_s",
+          "max_g": "component_inertial_max_g",
+          "life_s": "component_inertial_life_s"
+        },
+        "bindings": {
+          "navigation": "frozen_authorized_static_aimpoint"
+        },
+        "basis": "assumed",
+        "source": "project-virtual-cruise-v1",
+        "note": "Explicit versioned project design; actual native execution is required.",
+        "validity": "Estimated virtual configuration, without exact-variant performance calibration."
       },
       "autopilot": {
-        "availability": "not_applicable",
-        "reason": "No authored native control surfaces on this released store."
+        "availability": "available",
+        "implementation_id": "fsim.control.load_feedback_cascade",
+        "configuration_version": 1,
+        "parameter_refs": {
+          "max_incidence_deg": "component_control_max_incidence_deg",
+          "rate_time_min_s": "component_control_rate_time_min_s",
+          "rate_lag_multiplier": "component_control_rate_lag_multiplier",
+          "incidence_time_min_s": "component_control_incidence_time_min_s",
+          "incidence_rate_multiplier": "component_control_incidence_rate_multiplier"
+        },
+        "bindings": {
+          "model": "jsbsim:cj10a",
+          "execution_mode": "configured"
+        },
+        "basis": "assumed",
+        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
+        "validity": "Reduced-order engineering model; hardware performance unvalidated."
       },
       "allocator": {
-        "availability": "not_applicable",
-        "reason": "No authored native control surfaces on this released store."
+        "availability": "available",
+        "implementation_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+        "configuration_version": 1,
+        "parameter_refs": {},
+        "bindings": {
+          "model": "jsbsim:cj10a",
+          "design": "aircraft/cj10a/cj10a.toml"
+        },
+        "basis": "assumed",
+        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
+        "validity": "Reduced-order engineering model; hardware performance unvalidated."
       },
       "actuator": {
-        "availability": "not_applicable",
-        "reason": "No authored native control surfaces on this released store."
+        "availability": "available",
+        "implementation_id": "fsim.actuator.jsbsim_lag_rate_stops",
+        "configuration_version": 1,
+        "parameter_refs": {
+          "lag_s": "plant_actuator_lag_s",
+          "rate_rad_s": "plant_actuator_rate_rad_s"
+        },
+        "bindings": {
+          "model": "jsbsim:cj10a"
+        },
+        "basis": "assumed",
+        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
+        "validity": "Reduced-order engineering model; hardware performance unvalidated."
       },
       "fuze": {
-        "availability": "unavailable",
-        "reason": "Armed bomb effects are not authored or implemented for this card; inert release only."
+        "availability": "available",
+        "configuration_version": 1,
+        "basis": "assumed",
+        "source": "project-virtual-cruise-v1",
+        "note": "Explicit native contact/fragment-blast engineering configuration. Authored STRUCTURE-support contact initiates the same one-shot channel; this is an estimated configuration, not a nose-only or case-only hardware claim.",
+        "validity": "Engineering virtual configuration only; no fitted fuze timing or measured fragment-pattern accuracy.",
+        "implementation_id": "native.fuze.swept_path.v1",
+        "parameter_refs": {
+          "model_version": "component_contact_fuze_model_version",
+          "algorithm": "component_contact_fuze_algorithm",
+          "arming_s": "component_contact_fuze_arming_s",
+          "life_s": "component_contact_fuze_life_s",
+          "radius_m": "component_contact_fuze_radius_m"
+        },
+        "bindings": {
+          "sensor_reference": "captured_weapon_cg",
+          "target_reference": "captured_target_cg",
+          "contact_reference": "captured_authored_nose",
+          "contact": "native.authored_point_contact.v1",
+          "history": "native.captured_piecewise_linear.v1",
+          "delay": "none",
+          "terrain_contact": "native.structure_contact.v1"
+        }
       },
       "warhead": {
-        "availability": "unavailable",
-        "reason": "Armed bomb effects are not authored or implemented for this card; inert release only."
+        "availability": "available",
+        "configuration_version": 1,
+        "basis": "assumed",
+        "source": "project-virtual-cruise-v1",
+        "note": "Explicit native contact/fragment-blast engineering configuration.",
+        "validity": "Engineering virtual configuration only; no fitted fuze timing or measured fragment-pattern accuracy.",
+        "implementation_id": "native.warhead.zoned_case.v1",
+        "parameter_refs": {
+          "warhead_kg": "warhead_kg",
+          "explosive_kg": "explosive_kg",
+          "gurney_kms": "gurney_kms",
+          "diameter_m": "diameter_m"
+        },
+        "bindings": {
+          "burst_reference": "captured_weapon_cg",
+          "blast": "kingery_bulmash.swisdak_1994.free_air.v1",
+          "penetration": "thor.aluminium_2024_t3.v1",
+          "assessment": "native.fragment_blast.v1"
+        }
       },
       "propulsion": {
-        "availability": "not_applicable",
-        "reason": "Released store has no executing motor phases."
+        "availability": "available",
+        "implementation_id": "fsim.propulsion.jsbsim_turbofan.v1",
+        "configuration_version": 1,
+        "parameter_refs": {
+          "thrust_dry_kn": "plant_turbofan_thrust_dry_kn",
+          "bypass_ratio": "plant_turbofan_bypass_ratio",
+          "tsfc_dry": "plant_turbofan_tsfc_dry",
+          "fuel_capacity_kg": "plant_turbofan_fuel_capacity_kg",
+          "fuel_cg_x_m": "plant_turbofan_fuel_cg_x_m",
+          "dry_mass_kg": "plant_turbofan_dry_mass_kg",
+          "cruise_speed_ms": "plant_turbofan_cruise_speed_ms",
+          "governor_time_s": "plant_turbofan_governor_time_s"
+        },
+        "bindings": {
+          "model": "jsbsim:cj10a",
+          "design": "aircraft/cj10a/cj10a.toml",
+          "engine": "Engines/cj10a_engine0.xml",
+          "nozzle": "Engines/cj10a_nozzle0.xml"
+        },
+        "basis": "assumed",
+        "source": "project-virtual-cruise-v1",
+        "note": "Explicit versioned project design; actual native execution is required.",
+        "validity": "Estimated virtual configuration, without exact-variant performance calibration."
       },
       "aerodynamics": {
         "availability": "available",
@@ -137,12 +564,24 @@
         "bindings": {
           "model": "jsbsim:cj10a",
           "design": "aircraft/cj10a/cj10a.toml",
-          "source": "component_build_up"
+          "source": "vlm"
         },
         "basis": "assumed",
-        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
-        "validity": "Reduced-order engineering model; hardware performance unvalidated."
+        "note": "Shared aircraft VLM model and tables; no independent store force model.",
+        "validity": "Source geometry and model correlations; equipment accuracy requires independent validation."
       }
     }
-  }
+  },
+  "explosive": "Estimated conventional charge",
+  "warhead": "Estimated generic fragmenting-case model",
+  "warhead_kind": "fragmentation",
+  "guidance_capabilities": {
+    "version": 1,
+    "inertial_midcourse": true,
+    "launcher_updates": false,
+    "basis": "assumed",
+    "source": "project-virtual-cruise-v1",
+    "note": "Formal static inertial aimpoint configuration. No terminal seeker is installed; no post-release target observation is claimed."
+  },
+  "guidance": "Frozen authorized static aimpoint; native finite aerodynamic control"
 }

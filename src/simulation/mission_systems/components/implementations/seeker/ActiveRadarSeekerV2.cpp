@@ -6,6 +6,10 @@ ActiveRadarSeekerV2::ActiveRadarSeekerV2(weapon::Spec s,std::optional<weapon::Ob
     if(initial&&finite(initial->position)&&finite(initial->velocity))
         estimate_=LauncherEstimateV2{initial->position,initial->velocity,0};
 }
+void ActiveRadarSeekerV2::resetTracking() noexcept {
+    MeasuredSeekerV2::resetTracking();
+    active_=false;initialEpoch_=true;estimate_.reset();
+}
 SeekerResultV2 ActiveRadarSeekerV2::sample(const SeekerFrameV2& f) {
     const auto admission=admit(f);
     if(admission==Admission::Repeated)return cached_;

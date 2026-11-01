@@ -458,3 +458,8 @@ flaps = "T.O. 1C-17A-1: externally blown flaps"
 drag_devices = "T.O. 1C-17A-1: spoilers that serve as speed brakes and ground spoilers"
 releasable_stores = "US Air Force Research Laboratory, Rapid Dragon (2021): a palletized JASSM released from a C-17A's hold; cargo airdrop over the ramp"
 aerobatic = "T.O. 1C-17A-1: +2.5 g (fsim/envelope/clean/n_max); a transport, not cleared for aerobatics"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

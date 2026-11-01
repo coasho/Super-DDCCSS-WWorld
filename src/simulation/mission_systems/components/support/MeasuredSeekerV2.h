@@ -19,6 +19,9 @@ bool validExtent(const ImageExtentV2&) noexcept;
 class MeasuredSeekerV2 : public SeekerProviderV1, public SeekerExecutionV2 {
 public:
     explicit MeasuredSeekerV2(weapon::Spec);
+    /// The admitted launch designation is navigation input, never a terminal
+    /// detector measurement. Its epoch is bound on the first accepted frame.
+    void seedNavigationEstimate(const weapon::Observation&);
     const weapon::SeekerConfigV1& config() const noexcept override;
     double infraredRange(double,double,bool) const noexcept override;
     double radarRange(double,double,bool) const noexcept override;
@@ -41,5 +44,7 @@ protected:
 private:
     double lastSampleS_=std::numeric_limits<double>::quiet_NaN();
     std::uint32_t nextTrack_=1;
+    std::optional<LauncherEstimateV2> navigation_;
+    bool initialNavigationEpoch_=false;
 };
 }

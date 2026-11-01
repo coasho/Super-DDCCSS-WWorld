@@ -5,10 +5,18 @@ import ctypes
 import json
 import os
 import sys
+import threading
 
 import numpy as np
 
 _LIB = None
+_PROBE_TOTALS = dict(queries=0,requested_points=0,native_points=0,cache_hits=0)
+_PROBE_TOTALS_LOCK = threading.Lock()
+
+
+def probe_cache_stats():
+    """Process-local diagnostic counts; no geometry result is kept globally."""
+    with _PROBE_TOTALS_LOCK:return dict(_PROBE_TOTALS)
 
 
 class _Mesh(ctypes.Structure):
@@ -56,6 +64,10 @@ def library():
 
 
 def _dump(scene):
+    from ..resources import threads
+    cap=threads()
+    if cap:
+        scene=dict(scene,threads=threads(scene.get('threads',0)))
     return json.dumps(scene, separators=(",", ":"), default=_plain).encode()
 
 
@@ -100,7 +112,14 @@ class Probe:
     """A scene built once to be evaluated many times (probe(points) -> the
     distances and materials); free it with close(), or use it in a with."""
 
-    def __init__(self, scene):
+    def __init__(self, scene, *, cache_capacity=65536):
+        if type(cache_capacity) is not int or not 0<=cache_capacity<=65536:
+            raise ValueError('Probe cache capacity must be an integer in [0,65536]')
+        self._h = None
+        self._cache = {}
+        self._cache_capacity = cache_capacity
+        self._cache_lock = threading.RLock()
+        self._stats = dict(queries=0,requested_points=0,native_points=0,cache_hits=0)
         self._lib = library()
         if self._lib is None:
             raise MeshError("hangar_meshkit is not built")
@@ -111,17 +130,61 @@ class Probe:
 
     def __call__(self, points):
         p = np.ascontiguousarray(np.asarray(points, np.float64).reshape(-1, 3))
+        if self._cache_capacity and len(p)<=4096:p=p.copy()
+        # Keep this handle alive through native evaluation. Independent scenes
+        # and native batches may run in parallel; calls on one Probe serialize.
+        with self._cache_lock:
+            if not self._h:raise MeshError('Probe is closed')
+            return self._evaluate(p)
+
+    def _evaluate(self,p):
         d = np.empty(len(p))
         mat = np.empty(len(p), np.int32)
-        self._lib.mk_scene_eval(self._h, p.ctypes.data_as(ctypes.POINTER(ctypes.c_double)), len(p),
-                                d.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-                                mat.ctypes.data_as(ctypes.POINTER(ctypes.c_int)))
+        # Scene handles are immutable. Small fitting queries repeatedly contain
+        # identical corners/face centres. Reuse only the exact 24 input bytes:
+        # no rounding, proximity matching, source cache or altered fit sample.
+        # Large scans bypass the cache so memory and lookup work stay bounded.
+        keys=[row.tobytes() for row in p] if self._cache_capacity and len(p)<=4096 else None
+        if keys is None:
+            with self._cache_lock:
+                self._stats['queries']+=1;self._stats['requested_points']+=len(p);self._stats['native_points']+=len(p)
+            self._lib.mk_scene_eval(self._h,p.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),len(p),
+                d.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),mat.ctypes.data_as(ctypes.POINTER(ctypes.c_int)))
+            return d,mat
+        missing=[];positions={}
+        with self._cache_lock:
+            self._stats['queries']+=1;self._stats['requested_points']+=len(p)
+            for i,key in enumerate(keys):
+                value=self._cache.get(key)
+                if value is not None:d[i],mat[i]=value
+                else:
+                    if key not in positions:positions[key]=[];missing.append(i)
+                    positions[key].append(i)
+            self._stats['cache_hits']+=len(p)-len(missing)
+            self._stats['native_points']+=len(missing)
+        if missing:
+            query=np.ascontiguousarray(p[missing]);dist=np.empty(len(query));material=np.empty(len(query),np.int32)
+            self._lib.mk_scene_eval(self._h,query.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),len(query),
+                dist.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),material.ctypes.data_as(ctypes.POINTER(ctypes.c_int)))
+            with self._cache_lock:
+                for k,i in enumerate(missing):
+                    value=(dist[k],material[k])
+                    key=keys[i]
+                    for index in positions[key]:d[index],mat[index]=value
+                    if key not in self._cache and len(self._cache)>=self._cache_capacity:
+                        self._cache.pop(next(iter(self._cache)))  # bounded FIFO; eviction changes cost only
+                    self._cache[key]=value
         return d, mat
 
     def close(self):
-        if self._h:
-            self._lib.mk_scene_free(self._h)
-            self._h = None
+        if not hasattr(self,'_cache_lock'):return
+        with self._cache_lock:
+            if self._h:
+                self._lib.mk_scene_free(self._h)
+                self._h = None
+                with _PROBE_TOTALS_LOCK:
+                    for key,value in self._stats.items():_PROBE_TOTALS[key]+=value
+                self._cache.clear()
 
     def __enter__(self):
         return self

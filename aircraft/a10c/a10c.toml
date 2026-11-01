@@ -414,3 +414,8 @@ flaps = "Jenkins, Fairchild-Republic A/OA-10 Warthog: trailing-edge flaps"
 drag_devices = "USAF fact sheet and Jenkins: split ailerons that open as speed brakes (decelerons)"
 releasable_stores = "USAF fact sheet: eleven stations for bombs, missiles and rockets"
 aerobatic = "USAF fact sheet and design limits: +7.33 g (fsim/envelope/clean/n_max), flown in loops and rolls"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

@@ -38,6 +38,11 @@ MeasuredSeekerV2::Admission MeasuredSeekerV2::admit(const SeekerFrameV2& f) cons
 }
 void MeasuredSeekerV2::resetTracking() noexcept {
     track_.reset();cached_={};lastSampleS_=std::numeric_limits<double>::quiet_NaN();nextTrack_=1;
+    navigation_.reset();initialNavigationEpoch_=false;
+}
+void MeasuredSeekerV2::seedNavigationEstimate(const weapon::Observation& estimate) {
+    if((!spec_.inertialMidcourse&&!spec_.launcherUpdates) || !finite(estimate.position) || !finite(estimate.velocity))return;
+    navigation_=LauncherEstimateV2{estimate.position,estimate.velocity,0};initialNavigationEpoch_=true;
 }
 void MeasuredSeekerV2::seedTrack(const SeekerTrackV2& t) {
     if(!t.localId||!std::isfinite(t.sampleTimeS)||!finite(t.direction)||!(norm(t.direction)>0)||
@@ -88,7 +93,28 @@ std::optional<std::size_t> MeasuredSeekerV2::nearest(const SeekerFrameV2& f,cons
 }
 SeekerResultV2 MeasuredSeekerV2::finish(const SeekerFrameV2& f,std::optional<std::size_t> selected,
                                        std::optional<weapon::V3> aggregate) {
+    // Keep navigation separate from the detector: IR/SARH terminal samples
+    // still contain no Cartesian target position, velocity or true range.
+    auto navigation=navigation_;
+    if(navigation&&initialNavigationEpoch_) {
+        const auto epoch=f.timeS-f.ageS;
+        if(!std::isfinite(epoch)||epoch<0)return {};
+        navigation->sampleTimeS=epoch;
+    }
+    if(spec_.launcherUpdates&&f.supported&&f.launcherEstimate) {
+        const auto& update=*f.launcherEstimate;
+        if(!std::isfinite(update.sampleTimeS)||update.sampleTimeS<0||update.sampleTimeS>f.timeS||
+           !finite(update.position)||!finite(update.velocity))return {};
+        if(!navigation||update.sampleTimeS>=navigation->sampleTimeS)navigation=update;
+    }
+    auto prediction=navigation;
+    if(prediction) {
+        prediction->position=add(prediction->position,scale(prediction->velocity,f.timeS-prediction->sampleTimeS));
+        prediction->sampleTimeS=f.timeS;
+        if(!finite(prediction->position))return {};
+    }
     SeekerResultV2 next;next.valid=true;next.supported=f.supported;next.track=track_;
+    if(spec_.inertialMidcourse)next.midcourseEstimate=prediction;
     if(selected) {
         const auto& s=f.samples[*selected];SeekerTrackV2 t;
         t.direction=unit(aggregate.value_or(s.direction));t.sampleTimeS=f.timeS;
@@ -107,6 +133,7 @@ SeekerResultV2 MeasuredSeekerV2::finish(const SeekerFrameV2& f,std::optional<std
         if(!track_||!cached_.tracking)nextTrack_=nextTrack_==std::numeric_limits<std::uint32_t>::max()?1:nextTrack_+1;
         track_=t;next.track=t;next.tracking=true;next.attributionIndex=selected;
     }
+    navigation_=navigation;initialNavigationEpoch_=false;
     lastSampleS_=f.timeS;cached_=next;return cached_;
 }
 }

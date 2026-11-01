@@ -35,34 +35,46 @@ bool configureCompositionV1(const StoreCard& card, const components::ProfileV1& 
                     d->availability!=components::AvailabilityV1::NotApplicable)
                 throw std::runtime_error(std::string("composition has unknown availability for '")+kind+"'");
         }
-        // This helper composes an armed guided release. Inert/ballistic stores
-        // retain their separate applicable plant checks in the World owner.
-        if(card.storeClass!="aam" || card.seeker.empty())
+        const bool guided=profile.find("guidance")->availability==components::AvailabilityV1::Available;
+        const bool inertial=guided && profile.find("guidance")->implementationId=="fsim.guidance.inertial_waypoint.v1";
+        if(inertial && (!card.seeker.empty() || profile.find("seeker")->availability!=components::AvailabilityV1::NotApplicable))
+            throw std::runtime_error("inertial waypoint composition must formally omit its terminal seeker");
+        if(guided && !inertial && (card.storeClass!="aam" || card.seeker.empty()))
             throw std::runtime_error("armed guided composition needs an authored AAM seeker identity");
-        if(!configureSeeker(*profile.find("seeker"),candidate,error) ||
+        if(guided) {
+        if((!inertial && !configureSeeker(*profile.find("seeker"),candidate,error)) ||
                 !configureGuidance(*profile.find("guidance"),candidate,error)) return false;
         const bool sampled=profile.find("seeker")->bindings.count("measurement_model")!=0;
         if(sampled!=(profile.find("guidance")->implementationId=="fsim.guidance.measured_pn.v2"))
             throw std::runtime_error("measured seeker and guidance execution must be selected together");
+        if(sampled && !seekerVariantMatchesV2(*profile.find("seeker"),card.id))
+            throw std::runtime_error("selected measured seeker variant disagrees with the store identity");
         if(candidate.seeker!=card.seeker)
             throw std::runtime_error("selected seeker mode disagrees with the store's authored seeker identity");
         const auto& capabilities=card.guidanceCapabilities;
         if(capabilities.version>1 || (capabilities.version==1 &&
                 (candidate.inertialMidcourse!=capabilities.inertialMidcourse || candidate.launcherUpdates!=capabilities.launcherUpdates)))
             throw std::runtime_error("selected guidance capabilities disagree with the store's authored capability declaration");
+        } else {
+            for(const auto* kind:{"seeker","guidance","autopilot","allocator","actuator"})
+                if(profile.find(kind)->availability!=components::AvailabilityV1::NotApplicable)
+                    throw std::runtime_error(std::string("unguided composition requires an explicitly uninstalled '")+kind+"' role");
+        }
 
         PlantAdapterV1 plant;
+        if(guided) {
         if(!configurePlantV1(*profile.find("autopilot"),*profile.find("allocator"),*profile.find("actuator"),
                 *profile.find("propulsion"),*profile.find("aerodynamics"),card,plant,error)) return false;
         if(!plant.hasControl) throw std::runtime_error("armed guided composition needs its available finite control providers");
         for(const auto availability:plant.availability) if(availability==components::AvailabilityV1::Unavailable)
             throw std::runtime_error("armed guided composition has an unavailable native plant component");
         candidate.control=plant.control;
+        } else if(!configureUnguidedPlantV1(*profile.find("propulsion"),*profile.find("aerodynamics"),card,plant,error)) return false;
 
         const double guidanceLifeS=candidate.lifeS;
         const auto fuze=makeFuzeAdapter(*profile.find("fuze"),candidate,error);
         if(!fuze) return false;
-        if(fuze->spec().lifeS!=guidanceLifeS)
+        if(guided && fuze->spec().lifeS!=guidanceLifeS)
             throw std::runtime_error("selected guidance and fuze lifetimes disagree");
         if(fuze->spec().fuzeModelVersion==1) {
             const auto canonical=[&](const char* name) {

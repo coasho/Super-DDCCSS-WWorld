@@ -11,6 +11,7 @@ category = "store"
 card = "463l-pallet"             # its store card: the published figures this design holds
 
 [analysis]
+max_mach = 5.0 # Retains the former store table Mach domain.
 speed = 250.0                # m/s: the Reynolds numbers of its carriage - assumed
 
 [reference]                  # a store's: its frontal area and its diameter (its width), as its flight model's
@@ -20,7 +21,7 @@ chord = 2.24
 aero_point = [1.37, 0.0, 0.0]
 
 [store]
-shape = "box"            # a bluff body: its faces' drag (its card's drag_cd), not a body of revolution's
+shape = "box"            # physical mass/contact geometry; aerodynamics use the shared solver
 width = 2.24
 height = 1.5
 
@@ -43,3 +44,8 @@ gyration = [0.694843, 0.658204, 0.820602]  # a uniform block's (assumed)
 [dimensions]                  # the card
 length = 2.74
 span = 2.24
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

@@ -229,7 +229,7 @@ def sideslip_gain(tabs, aircraft, inertia, mach, alpha_deg):
     from .carriage import directional_load
     d = derivatives_at(tabs, alpha_deg, mach)
     dx = inertia[1][0] - aircraft.aero_point[0]
-    cnb = d["Cnb"] + d["CYb"] * dx / aircraft.b + directional_load(aircraft) / (aircraft.S * aircraft.b)
+    cnb = d["Cnb"] + d["CYb"] * dx / aircraft.b + directional_load(aircraft,mach,alpha_deg,inertia[1]) / (aircraft.S * aircraft.b)
     power = -(d.get("Cn_rudder", 0.0) + d.get("CY_rudder", 0.0) * dx / aircraft.b)
     if cnb >= SIDESLIP_FEEDBACK_CNB or abs(power) < 1e-6:
         return 0.0
@@ -484,11 +484,10 @@ def design_point(tabs, aircraft, inertia, qbar_pa, mach, opt, cma_line=None):
     Nb_s = Nb * math.cos(ar) - Lb * math.sin(ar)       # dynamic directional stability (stability axes)
     w_dr = max(opt["dutch_roll_omega"], math.sqrt(max(Nb_s, 0.0)))
     # The sideslip feedback makes the stiffness up to the law's, for the aircraft with the most its loadouts hang
-    # on it: its stores' bodies turn its nose from the wind (carriage.directional_load: a Gripen's three tanks, its
-    # pod and its missiles take 0.03 /rad of Cn_beta - what a delta at 10 deg has left), and a law sized for the clean
+    # on it, using the common store VLM loads (carriage.directional_load). A law sized only for the clean
     # airframe then lets the sideslip of a sustained turn grow until it departs. Clean, it is that much stiffer.
     from .carriage import directional_load
-    Nb_loaded = Nb + Q * directional_load(aircraft) / Izz
+    Nb_loaded = Nb + Q * directional_load(aircraft,mach,alpha,cg) / Izz
     Nb_s_loaded = Nb_loaded * math.cos(ar) - Lb * math.sin(ar)
     w_law = opt["dutch_roll_omega"]
     short = min(Nb_s - w_dr * w_dr, Nb_s_loaded - w_law * w_law, 0.0)  # (1/s^2: what the airframe lacks, loaded or not)

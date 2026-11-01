@@ -113,6 +113,59 @@ FinCommands cascade(const AutopilotInput& in,const FinControlConfigV1& config,co
     return out;
 }
 }
+FinCommands actuatorAwareCommands(const AutopilotInput& in,const FinControlConfigV1& config,const ControlStopsV1& stops) noexcept {
+    auto out=finCommands(in,config,stops);
+    if(!out.available || config.version!=1 || !in.measured)return {};
+    const double rateTime=std::max(config.rateTimeMinS,config.rateLagMultiplier*in.actuatorLagS);
+    const double angleTime=std::max(config.incidenceTimeMinS,config.incidenceRateMultiplier*rateTime);
+    const double lag=1/in.actuatorLagS,fast=1/rateTime,slow=1/angleTime;
+    const double p2=lag+fast+slow,p1=lag*fast+lag*slow+fast*slow,p0=lag*fast*slow;
+    const auto& m=*in.measured;const auto& w=in.ratesRadS;const auto& j=in.inertiaKgM2;
+    const double gyro[3]={(j[2]-j[1])*w[1]*w[2],(j[0]-j[2])*w[0]*w[2],(j[1]-j[0])*w[0]*w[1]};
+    struct Axis {const ControlAxis* plant;double sign,angle,rate,inertia,delta,forceResidual,momentResidual,path,reference;};
+    Axis axes[2]={{&in.pitch,1,in.alphaRad,w[1],j[1],m.controlRad[1],0,0,0,0},
+                  {&in.yaw,-1,in.betaRad,w[2],j[2],m.controlRad[2],0,0,0,0}};
+    for(unsigned i=0;i<2;++i) {
+        auto& x=axes[i];const auto& a=*x.plant;const unsigned forceAxis=i?1u:2u,momentAxis=i?2u:1u;
+        x.forceResidual=m.forceBodyN[forceAxis]-a.forceAngle*x.angle-a.forceControl*x.delta;
+        x.momentResidual=m.momentBodyNm[momentAxis]-a.momentAngle*x.angle-a.momentRate*x.rate-a.momentControl*x.delta-gyro[momentAxis];
+        x.path=-x.sign*(in.demandBody[forceAxis]+in.gravityBody[forceAxis])/in.speedMs;
+        x.reference=reference(a,in.massKg*in.demandBody[forceAxis],x.path,x.forceResidual,x.momentResidual);
+    }
+    const double incidence=std::hypot(axes[0].reference,axes[1].reference);
+    if(!std::isfinite(incidence))return {};
+    for(unsigned i=0;i<2;++i) {
+        auto& x=axes[i];const auto& a=*x.plant;const double mv=in.massKg*in.speedMs;
+        if(incidence>config.maxIncidenceRad) {
+            x.reference*=config.maxIncidenceRad/incidence;
+            // Once angle is constrained, curvature must use the achievable
+            // trim force, rather than the rejected high-g request.
+            const double denominator=mv-x.sign*a.forceControl*a.momentRate/a.momentControl;
+            if(!std::isfinite(denominator)||std::abs(denominator)<1e-9)return {};
+            const double force=forceSlope(a)*x.reference+x.forceResidual-a.forceControl*x.momentResidual/a.momentControl;
+            x.path=-x.sign*(force+in.massKg*in.gravityBody[i?1:2])/denominator;
+        }
+        const double trim=-(a.momentAngle*x.reference+a.momentRate*x.path+x.momentResidual)/a.momentControl;
+        // Characteristic polynomial of [angle, rate, actual surface] with the
+        // finite first-order actuator. Assign three real negative poles using
+        // the existing response times, without tuning per-missile gains.
+        const double aa=a.forceAngle/mv,b=x.sign,c=a.forceControl/mv;
+        const double d=a.momentAngle/x.inertia,e=a.momentRate/x.inertia,f=a.momentControl/x.inertia;
+        const double det=aa*e-b*d,kDelta=(p2+aa+e)/lag-1;
+        const double u=c,v=f,y=b*f-c*e,z=c*d-aa*f;
+        const double determinant=u*z-v*y;
+        if(!std::isfinite(determinant)||std::abs(determinant)<1e-12*std::max({std::abs(u*z),std::abs(v*y),1.}))return {};
+        const double rhs1=(p1-det+lag*(1+kDelta)*(aa+e))/lag;
+        const double rhs0=(p0-lag*(1+kDelta)*det)/lag;
+        const double kAngle=(rhs1*z-v*rhs0)/determinant,kRate=(u*rhs0-rhs1*y)/determinant;
+        const double command=trim-kAngle*(x.angle-x.reference)-kRate*(x.rate-x.path)-kDelta*(x.delta-trim);
+        const unsigned axis=i?2:1;
+        const double extent=stops.version==1 ? (command<0?-stops.lowerRad[axis]:stops.upperRad[axis]):in.limitsRad[axis];
+        if(!std::isfinite(command)||!std::isfinite(extent)||extent<=0)return {};
+        (i?out.rudder:out.elevator)=std::clamp(command/extent,-1.,1.);
+    }
+    return out;
+}
 FinCommands finCommands(const AutopilotInput& in) noexcept { return finCommands(in,FinControlConfigV1{}); }
 FinCommands finCommands(const AutopilotInput& in,const FinControlConfigV1& requested,const ControlStopsV1& stops) noexcept {
     if (requested.version>1 || stops.version>1 || stops.actuatorVersion>1) return {};
@@ -124,6 +177,9 @@ FinCommands finCommands(const AutopilotInput& in,const FinControlConfigV1& reque
         || !std::isfinite(config.incidenceTimeMinS) || config.incidenceTimeMinS<=0
         || !std::isfinite(config.incidenceRateMultiplier) || config.incidenceRateMultiplier<=0) return {};
     if (requested.version==1) {
+        if(config.thrustVector && (!std::isfinite(config.thrustVectorLimitRad) || config.thrustVectorLimitRad<=0 ||
+            config.thrustVectorLimitRad>=1.5707963267948966 || !std::isfinite(config.thrustVectorRateRadS) ||
+            config.thrustVectorRateRadS<=0))return {};
         // Metadata is consumed by the native FCS itself. Check the actual
         // time constant, channel rate and every physical-fin rate; never
         // replace the measured plant input with its card expectation.

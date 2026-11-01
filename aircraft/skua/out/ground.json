@@ -1,0 +1,36 @@
+{
+ "turn_radius_m": 1.7324083246934812,
+ "left_m": 1.7324083246934812,
+ "right_m": 1.6901146716754898,
+ "geometric_m": 1.7583855484509583,
+ "yaw_accel_rad_s2": 1.9822854958074965,
+ "checks": [
+  {
+   "name": "tightest turn on its wheels, 3 m/s",
+   "value": 1.7324083246934812,
+   "unit": "m",
+   "expected": "0.879 .. 17.6",
+   "status": "pass",
+   "note": "left 1.7 m, right 1.7 m; its wheelbase and steering limit give 1.8 m"
+  },
+  {
+   "name": "its yaw acceleration on its wheels, the rudder full over",
+   "value": 1.9822854958074965,
+   "unit": "rad/s^2",
+   "expected": "",
+   "status": "info",
+   "note": "left 1.982, right 2.009"
+  },
+  {
+   "name": "on its wheels through the turns",
+   "value": 1.0,
+   "unit": "",
+   "expected": "1 ..",
+   "status": "pass",
+   "note": ""
+  }
+ ],
+ "stage": "ground",
+ "hangar": "0.1.0",
+ "time": "2026-10-26 03:40:57"
+}

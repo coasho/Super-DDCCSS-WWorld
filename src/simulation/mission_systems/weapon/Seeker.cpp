@@ -1,18 +1,53 @@
 #include "Seeker.h"
 #include "simulation/mission_systems/components/Profile.h"
 #include <array>
+#include <iterator>
 
 namespace fsim::ms::weapon {
 namespace {
 constexpr double pi=3.14159265358979323846;
+struct Variant { const char* card; const char* name; const char* mode; };
+constexpr Variant variants[]={
+    {"aim-120c","AIM-120C-7","active_radar"},
+    {"aim-120d","AIM-120D","active_radar"},
+    {"aim-7m","AIM-7M","semi_active_radar"},
+    {"aim-9m","AIM-9M","infrared"},
+    {"aim-9x","AIM-9X Block I","imaging_infrared"},
+    {"asraam","AIM-132 ASRAAM","imaging_infrared"},
+    {"iris-t","IRIS-T","imaging_infrared"},
+    {"magic-2","R.550 Magic 2","infrared"},
+    {"meteor","Meteor","active_radar"},
+    {"mica-em","MICA EM","active_radar"},
+    {"mica-ir","MICA IR","imaging_infrared"},
+    {"pl-10","PL-10","imaging_infrared"},
+    {"pl-12","PL-12","active_radar"},
+    {"pl-15","PL-15","active_radar"},
+    {"pl-8","PL-8","infrared"},
+    {"r-27er","R-27ER","semi_active_radar"},
+    {"r-27et","R-27ET","infrared"},
+    {"r-27r","R-27R","semi_active_radar"},
+    {"r-27t","R-27T","infrared"},
+    {"r-37m","R-37M","active_radar"},
+    {"r-60m","R-60M","infrared"},
+    {"r-73","R-73","infrared"},
+    {"r-77m","R-77M","active_radar"},
+    {"super-530d","Super 530D","semi_active_radar"}
+};
+}
+bool seekerVariantMatchesV2(const components::DescriptorV1& descriptor,const std::string& storeId) noexcept {
+    const auto variant=descriptor.bindings.find("variant"),mode=descriptor.bindings.find("mode");
+    if(variant==descriptor.bindings.end() || mode==descriptor.bindings.end())return false;
+    return std::any_of(std::begin(variants),std::end(variants),[&](const auto& v) {
+        return storeId==v.card && variant->second==v.name && mode->second==v.mode;
+    });
 }
 bool configureSeeker(const components::DescriptorV1& descriptor, SeekerConfigV1& config, std::string& error) {
     const auto& id=descriptor.implementationId;
-    const char* expectedMode=nullptr;const char* variant=nullptr;
-    if(id=="fsim.seeker.nonimaging_ir.v2") {expectedMode="infrared";variant="AIM-9M";}
-    if(id=="fsim.seeker.imaging_ir.v2") {expectedMode="imaging_infrared";variant="AIM-9X Block I";}
-    if(id=="fsim.seeker.semi_active_radar.v2") {expectedMode="semi_active_radar";variant="AIM-7M";}
-    if(id=="fsim.seeker.active_radar.v2") {expectedMode="active_radar";variant="AIM-120C-7";}
+    const char* expectedMode=nullptr;
+    if(id=="fsim.seeker.nonimaging_ir.v2") expectedMode="infrared";
+    if(id=="fsim.seeker.imaging_ir.v2") expectedMode="imaging_infrared";
+    if(id=="fsim.seeker.semi_active_radar.v2") expectedMode="semi_active_radar";
+    if(id=="fsim.seeker.active_radar.v2") expectedMode="active_radar";
     if(descriptor.kind!="seeker" || (id!="fsim.seeker.encounter.v1"&&!expectedMode) ||
             descriptor.configurationVersion!=1 || descriptor.availability!=components::AvailabilityV1::Available) {
         error="unsupported or unavailable seeker component configuration"; return false;
@@ -31,7 +66,10 @@ bool configureSeeker(const components::DescriptorV1& descriptor, SeekerConfigV1&
             const auto it=descriptor.bindings.find(name);
             return it!=descriptor.bindings.end()&&it->second==expected;
         };
-        if(descriptor.bindings.size()!=5||mode->second!=expectedMode||!binding("variant",variant)||
+        const bool supportedVariant=std::any_of(std::begin(variants),std::end(variants),[&](const auto& v) {
+            return mode->second==v.mode && binding("variant",v.name);
+        });
+        if(descriptor.bindings.size()!=5||mode->second!=expectedMode||!supportedVariant||
            !binding("measurement_model","ideal_geometric")||!binding("servo_model","unavailable")||
            !binding("image_model",id=="fsim.seeker.imaging_ir.v2"?"geometric_extent":"not_applicable")) {
             error="measured seeker needs its exact variant, observables and explicit fidelity bindings";return false;

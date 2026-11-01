@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- Written by hangar (tools/hangar/hangar/pieces.py) from j20a's damage data: its right wing flying on its own once it parts
+<!-- Written by hangar (tools/models/hangar/hangar/pieces.py) from j20a's damage data: its right wing flying on its own once it parts
      (MS-7g). Its aerodynamics a tumbling piece's - estimates, said so there. Do not edit: hangar's model stage of j20a writes it. -->
 <fdm_config name="j20a-right-wing" version="2.0" release="ALPHA">
     <fileheader>
@@ -14,9 +14,9 @@
         <htailarm unit="FT"> 0 </htailarm>
         <vtailarea unit="FT2"> 0 </vtailarea>
         <vtailarm unit="FT"> 0 </vtailarm>
-        <location name="AERORP" unit="IN"> <x> 549.613 </x> <y> 108.046 </y> <z> -41.602 </z> </location>
-        <location name="EYEPOINT" unit="IN"> <x> 549.613 </x> <y> 108.046 </y> <z> -41.602 </z> </location>
-        <location name="VRP" unit="IN"> <x> 549.613 </x> <y> 108.046 </y> <z> -41.602 </z> </location>
+        <location name="AERORP" unit="IN"> <x> 549.613 </x> <y> 108.047 </y> <z> -41.602 </z> </location>
+        <location name="EYEPOINT" unit="IN"> <x> 549.613 </x> <y> 108.047 </y> <z> -41.602 </z> </location>
+        <location name="VRP" unit="IN"> <x> 549.613 </x> <y> 108.047 </y> <z> -41.602 </z> </location>
     </metrics>
     <mass_balance negated_crossproduct_inertia="false">
         <ixx unit="SLUG*FT2"> 2471.6103398130472 </ixx>
@@ -26,7 +26,7 @@
         <ixz unit="SLUG*FT2"> 952.8107896711798 </ixz>
         <iyz unit="SLUG*FT2"> 728.55981233739749 </iyz>
         <emptywt unit="LBS"> 2366.8764975036943 </emptywt>
-        <location name="CG" unit="IN"> <x> 549.61259842519689 </x> <y> 108.0464566929134 </y> <z> -41.60157480314961 </z> </location>
+        <location name="CG" unit="IN"> <x> 549.61259842519689 </x> <y> 108.04685039370079 </y> <z> -41.60157480314961 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
             <location unit="IN"> <x> 548.73543307086618 </x> <y> 99.409448818897644 </y> <z> -5.7362204724409436 </z> </location>

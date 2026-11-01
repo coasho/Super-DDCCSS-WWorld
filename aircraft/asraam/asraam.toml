@@ -14,6 +14,7 @@ category = "missile"
 card = "asraam"             # its store card: the published figures this design holds
 
 [analysis]
+max_mach = 5.0 # Retains the former store table Mach domain.
 speed = 900.0                # m/s: the Reynolds numbers (Mach 3 at altitude) - assumed
 
 # The infrared seeker's glass dome (40 % of the body's radius - assumed), on its cone
@@ -91,3 +92,16 @@ gyration = [0.02, 0.289, 0.289]  # radii of gyration over length - assumed (a sl
 [dimensions]                  # the card: the span tip to tip across opposite fins
 length = 2.9
 span = 0.45
+
+# Derived normalization only; this does not add a physical wing.
+[reference]
+area = 0.021642431790580088
+span = 0.16600000000000001
+chord = 0.16600000000000001
+aero_point = [1.45, 0.0, 0.0]
+
+# Numerical resolution from the common inertia / derivative bound. This
+# selects 18 internal steps at 120 Hz; no aerodynamic or propulsion gain.
+[integration]
+version = 2
+mode = "derived"

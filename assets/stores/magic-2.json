@@ -24,33 +24,36 @@
   "explosive": "HBX",
   "parameters": {
     "mass_kg": {
-      "value": 89.0,
+      "value": 90.0,
       "unit": "kg",
       "uncertainty": 1.0,
       "basis": "published",
-      "source": "wp-magic"
+      "source": "odin-magic2",
+      "note": "ODIN: 90 kg"
     },
     "length_m": {
-      "value": 2.72,
+      "value": 2.75,
       "unit": "m",
-      "uncertainty": 0.03,
+      "uncertainty": 0.02,
       "basis": "published",
-      "source": "wp-magic",
-      "note": "the French article gives 2.75 m"
+      "source": "odin-magic2",
+      "note": "ODIN: 2.75 m"
     },
     "diameter_m": {
       "value": 0.157,
       "unit": "m",
-      "uncertainty": 0.002,
+      "uncertainty": 0.001,
       "basis": "published",
-      "source": "wp-magic"
+      "source": "odin-magic2",
+      "note": "ODIN: 157 mm"
     },
     "span_m": {
       "value": 0.66,
       "unit": "m",
       "uncertainty": 0.01,
       "basis": "published",
-      "source": "wp-magic"
+      "source": "odin-magic2",
+      "note": "ODIN: 0.66 m"
     },
     "warhead_kg": {
       "value": 12.7,
@@ -105,32 +108,12 @@
       "note": "HBX (RDX/TNT/aluminium) is not in Cooper's table: between Tritonal (2.32) and TNT (2.44) - an estimate"
     },
     "drag_area_m2": {
-      "value": 0.0065,
-      "unit": "m^2",
-      "uncertainty": 0.00195,
+      "value": 0.004918015784781503,
+      "unit": "m2",
+      "source": "hangar-vlm",
       "basis": "assumed",
-      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its design (hangar storedrag.py: Hoerner's body of revolution 0.00263, its base 0.00097, its fins' friction 0.00289 m^2): an estimate by one method for every store"
-    },
-    "munk_volume_m3": {
-      "value": 0.04919,
-      "unit": "m^3",
-      "uncertainty": 0.01476,
-      "basis": "assumed",
-      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.0502 m^3 from its design, times Lamb's k2 - k1 = 0.980 for its fineness 17.2 (hangar storedrag.py): an estimate by one method for every store"
-    },
-    "side_slope_m2": {
-      "value": 0.75854,
-      "unit": "m^2",
-      "uncertainty": 0.22756,
-      "basis": "assumed",
-      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
-    },
-    "side_arm_m": {
-      "value": 0.5055,
-      "unit": "m",
-      "uncertainty": 0.2707,
-      "basis": "assumed",
-      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+      "uncertainty": 0.004918015784781503,
+      "note": "Engineering estimate A_D = CD_simulated*S_geometry at neutral Mach .3. Inputs, dated model-specific searches and method limits are in hangar-vlm.simulation and the evidence catalog. Assumed one-sigma screening uncertainty is |A_D| in m2; its coverage probability is not established. Equipment drag error remains unknown; the table evidence basis is simulated."
     },
     "plant_actuator_lag_s": {
       "value": 0.04,
@@ -586,6 +569,14 @@
       "uncertainty": 0,
       "basis": "assumed",
       "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "airframe_aerodynamics_version": {
+      "value": 1,
+      "unit": "1",
+      "source": "hangar-vlm",
+      "basis": "derived",
+      "uncertainty": 0,
+      "note": "Versioned shared-table runtime binding; zero uncertainty is not an accuracy claim."
     }
   },
   "sources": {
@@ -597,6 +588,15 @@
       "date": "",
       "accessed": "2026-10-17",
       "note": "Identity only, using the official page indexed text; a current full-page retrieval failed. No parameter is calibrated from this reference."
+    },
+    "odin-magic2": {
+      "evidence_kind": "government_publication",
+      "title": "R550 Magic 2 French Short-Range Air-to-Air Missile",
+      "publisher": "U.S. Army ODIN Worldwide Equipment Guide",
+      "url": "https://odin.t2com.army.mil/WEG/Asset/4b9d75c575e2554bf05b6e292ff43223",
+      "date": "2024-06-14",
+      "accessed": "2026-10-29",
+      "note": "Public U.S. government equipment description: 2.75 m length, 157 mm diameter, 0.66 m span, 90 kg."
     },
     "wp-magic": {
       "evidence_kind": "secondary_reference",
@@ -611,6 +611,123 @@
       "publisher": "gszabi99/War-Thunder-Datamine (GitHub)",
       "url": "https://github.com/gszabi99/War-Thunder-Datamine/tree/master/aces.vromfs.bin_u/gamedata/weapons/rocketguns",
       "date": "2026-10-09"
+    },
+    "hangar-vlm": {
+      "title": "Shared Hangar aircraft VLM tables",
+      "url": "aero/vlm-carriage-3f4daee40976a8d0779996d0267e445144e2496235ddd4e1c4418a32a39bcf2e.json",
+      "evidence_kind": "game_reference",
+      "note": "Same base, rate and Mach data as the released JSBSim model; no equipment calibration claim.",
+      "simulation": {
+        "basis": "simulated",
+        "tool": "Hangar shared aircraft VLM",
+        "version": "0.1.0",
+        "design_sha256": "9700af343625aed5c88ff1353e947ef14c3af4dfaab590d0f154ad765e1333b3",
+        "card_inputs": {
+          "length_m": 2.75,
+          "diameter_m": 0.157,
+          "span_m": 0.66,
+          "mass_kg": 90.0
+        },
+        "table_inputs_hash": "e004bbb5d4ab1e76",
+        "table_sha256": "3f4daee40976a8d0779996d0267e445144e2496235ddd4e1c4418a32a39bcf2e",
+        "input_geometry": "aircraft/magic2/magic2.toml",
+        "domain": {
+          "mach": [
+            0.0,
+            5.0
+          ],
+          "alpha_deg": [
+            -180.0,
+            180.0
+          ],
+          "beta_deg": [
+            -90.0,
+            90.0
+          ]
+        },
+        "method_sources": [
+          "Katz and Plotkin, Low-Speed Aerodynamics, vortex lattice",
+          "Shared aero/model.py, tables.py and mach.py; engineering extensions are not equipment measurements"
+        ],
+        "solver_sha256": "1fe905d01b307fc9398dda9ddd1b78ab2960d66c80ffd7346a2baf5e255f78bf",
+        "generic_validation": {
+          "schema": "fsim.generic-vlm-validation.v1",
+          "basis": "simulated",
+          "tool": "Hangar shared aircraft VLM",
+          "version": "0.1.0",
+          "source_url": "https://www.mas.bg.ac.rs/_media/istrazivanje/fme/vol48/4/5_d_damljanovic_et_al.pdf",
+          "source_locator": "Figure 1 p.762; Tables 2--10 pp.766--768",
+          "native_library": {
+            "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-release\\python\\fsim\\bin\\libfsim.dll",
+            "sha256": "10a8a36fc36b7ad7d23a6e4eede348ca18946bba913d66e93912fabec831d533"
+          },
+          "fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+          "metrics": {
+            "CZ": {
+              "count": 9,
+              "nrmse_percent": 13.89268657599672,
+              "max_absolute_error": 0.13199607890094234
+            },
+            "Cm": {
+              "count": 9,
+              "nrmse_percent": 82.05273561633099,
+              "max_absolute_error": 0.06616153821858019
+            }
+          },
+          "assessed_domain": {
+            "mach": [
+              0.77,
+              1.0,
+              1.17
+            ],
+            "alpha_deg": [
+              2.0,
+              6.0,
+              10.0
+            ],
+            "beta_deg": [
+              0.0
+            ]
+          },
+          "equipment_accuracy_claim": false,
+          "parameters_fitted": false,
+          "limitations": [
+            "Generic AGARD-B geometry, not any of the 88 authored equipment models.",
+            "The publication pools facilities/model sizes and includes M0.8/M1.2 runs with the M0.77/M1.17 groups; no common Reynolds condition is supplied.",
+            "Body-normal force is derived as CN=CLf*cos(alpha)+CDf*sin(alpha), cancelling axial base-pressure force; reported CZ=-CN.",
+            "The 4% biconvex wing uses the existing shared section; its tiny specified leading-edge radius is not separately resolved.",
+            "Density/Reynolds and sting/wall interference differences remain. Residuals are not an equipment confidence interval.",
+            "No beta, dynamic derivative, powered flow or extreme-angle qualification follows from these conditions."
+          ],
+          "source_pdf_sha256": "e2a1c05987115e665dd8a06a6250b7dbcbe0511df7b99227a293a77cadf5e0d5",
+          "observations_and_geometry": "docs/data/hangar-generic-validation.json"
+        },
+        "uncertainty": {
+          "basis": "simulated",
+          "tool": "Hangar shared aircraft VLM",
+          "version": "0.1.0",
+          "geometry_source": "aircraft/magic2/magic2.toml",
+          "geometry_sha256": "02810a3eee8f7fbcc428af4c90eb62cc8966af13d87629f642598431d0aecf4b",
+          "analysis_inputs": {
+            "max_mach": 5.0,
+            "speed": 900.0
+          },
+          "method": "Coupled vortex-lattice/body/section/rate solution, common Mach extensions and common JSBSim tables; retained overrides are listed separately.",
+          "table_domain": "Actual Mach/alpha/beta bounds are read from the generated product in hangar-vlm.simulation; no narrowing of the authored envelope.",
+          "assumed_relative_half_width": 1.64105471232662,
+          "uncertainty_basis": "assumed engineering screening range, not measured equipment error or a probabilistic confidence interval",
+          "uncertainty_formula": "Inside the generic comparison conditions: max(1,2*generic_NRMSE/100); outside them no finite equipment-error bound is established.",
+          "boundaries": "Generic validation cannot identify equipment-specific separated flow, powered flow, Reynolds effects or extreme-angle errors; those remain unknown.",
+          "coverage_probability": null,
+          "uncertainty_components": {
+            "CZ_assumed_relative_half_width": 1.0,
+            "Cm_assumed_relative_half_width": 1.64105471232662
+          },
+          "uncertainty_application": "Assumed screening envelope only, not a measured model error or statistical bound. Applies to generic CZ/Cm comparison conditions; no finite equipment-error bound outside those conditions and no calibrated CD/CY/Cl/Cn uncertainty.",
+          "input_assumptions": "Author-declared geometry and shared section/body correlations. Surface sections, sweep, twist, controls, body stations, mass/CG, analysis speed and all retained overrides are readable in aircraft/magic2/magic2.toml. Product extrema are generation coverage, not a validated physical domain.",
+          "generic_validation_ref": "generic_validation and docs/data/hangar-generic-validation.json"
+        }
+      }
     }
   },
   "component_models": {
@@ -618,7 +735,7 @@
     "components": {
       "seeker": {
         "availability": "available",
-        "implementation_id": "fsim.seeker.encounter.v1",
+        "implementation_id": "fsim.seeker.nonimaging_ir.v2",
         "configuration_version": 1,
         "parameter_refs": {
           "acquire_m": "component_seeker_acquire_m",
@@ -652,15 +769,19 @@
           "emitter_half_width_rad": "component_seeker_emitter_half_width_rad"
         },
         "bindings": {
-          "mode": "infrared"
+          "mode": "infrared",
+          "variant": "R.550 Magic 2",
+          "measurement_model": "ideal_geometric",
+          "servo_model": "unavailable",
+          "image_model": "not_applicable"
         },
         "basis": "assumed",
-        "note": "Existing simulator implementation; no equipment calibration.",
-        "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
+        "note": "Independent native measured-seeker lifecycle. Existing authored numeric inputs are retained. Terminal IR/SARH use bearing histories; IIR may associate geometric extents. Referee target identity/velocity is not a terminal tracking input.",
+        "validity": "Engineering sensor family, not a calibrated detector, reticle, AESA receiver, gimbal servo, radiometric image or countermeasure processor. Exact variant identifies this card and supplies no hardware calibration."
       },
       "guidance": {
         "availability": "available",
-        "implementation_id": "fsim.guidance.velocity_normal_pn.v1",
+        "implementation_id": "fsim.guidance.measured_pn.v2",
         "configuration_version": 1,
         "parameter_refs": {
           "navigation_gain": "component_guidance_navigation_gain",
@@ -673,10 +794,12 @@
           "inertial_midcourse": "component_guidance_inertial_midcourse",
           "launcher_updates": "component_guidance_launcher_updates"
         },
-        "bindings": {},
+        "bindings": {
+          "measurement_family": "bearing"
+        },
         "basis": "assumed",
-        "note": "Existing simulator implementation; no equipment calibration.",
-        "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
+        "note": "PN from admitted measurement history. Existing navigation gain, acceleration limit, lifetime and capability declarations are unchanged. Permitted launch/launcher estimates are kept separately for inertial midcourse; current launcher updates remain an idealized designation path.",
+        "validity": "Uncalibrated engineering guidance. No hidden target range or velocity in terminal bearing guidance; no claim of GPS, fitted weapon link, hardware covariance, full-envelope or equipment performance."
       },
       "autopilot": {
         "availability": "available",
@@ -809,11 +932,11 @@
         "bindings": {
           "model": "jsbsim:magic2",
           "design": "aircraft/magic2/magic2.toml",
-          "source": "component_build_up"
+          "source": "vlm"
         },
         "basis": "assumed",
-        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
-        "validity": "Reduced-order engineering model; hardware performance unvalidated."
+        "note": "Shared aircraft VLM model and tables; no independent store force model.",
+        "validity": "Source geometry and model correlations; equipment accuracy requires independent validation."
       }
     }
   }

@@ -287,3 +287,15 @@ flaps = "3DR IRIS+ specifications: a quadrotor, with no flaps"
 drag_devices = "3DR IRIS+ specifications: a quadrotor, with no spoilers or airbrakes"
 releasable_stores = "3DR IRIS+ specifications: a camera mount, no release mechanism or stores stations"
 aerobatic = "The platform's aerobatics are a wing's manoeuvres flown by load factor (docs/flight-autonomy.md, rule R10)"
+
+# Existing physical-shell reference, shared with the airframe VLM model.
+[reference]
+area = 0.20514600312652803
+span = 0.51107730144000008
+chord = 0.51107730144000008
+aero_point = [0.0, 0.0, 0.0]
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

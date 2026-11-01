@@ -349,3 +349,8 @@ flaps = "Lockheed Martin U-2S data: trailing-edge flaps"
 drag_devices = "Lockheed Martin U-2S data: spoilers and aft-fuselage speed brakes"
 releasable_stores = "USAF U-2 fact sheet: unarmed"
 aerobatic = "USAF U-2 fact sheet: a high-altitude reconnaissance aircraft, not cleared for aerobatics"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

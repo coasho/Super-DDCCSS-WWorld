@@ -1,0 +1,23 @@
+[calibration]
+extra_drag_area_m2 = -0.0053900901883480318
+# No independent fit is available; the shared model has no per-model overrides.
+
+[reference]
+kind = "configuration-drag-index"
+source_url = "https://www.rand.org/content/dam/rand/pubs/monograph_reports/2005/MR1216.pdf"
+source_table = "A.4: two 370-gallon tanks"
+drag_index = 35.0
+wing_area_m2 = 27.870912
+quantity = 2
+hardware_area_m2_per_store = 0.031
+mach = 0.8
+validity = "Nominal carriage configuration fit; Mach0.8 and DI=10000*CD convention are declared comparison assumptions because RAND does not specify those conditions. Not six-axis equipment validation."
+
+[provenance]
+schema = "fsim.hangar-calibration.v1"
+method = "shared-aircraft-vlm"
+status = "configuration-reference-fit"
+observed_source_sha256 = "be458a3aa604eb207b4cc252ddce4eb248e0c6074547c5934dd356de13c674d6"
+target_keys = []
+scope = "Declared reference targets only; no six-axis equipment accuracy certification"
+historical_fit_note = "Retained performance overrides are not newly validated equipment data"

@@ -16,6 +16,7 @@ compile_commands.json
 
 # Tooling caches
 /.cache/
+/.local/
 __pycache__/
 
 # Runtime output

@@ -24,6 +24,7 @@
 #include "simulation/mission_systems/components/Providers.h"
 #include "simulation/mission_systems/components/interfaces/MeasuredGuidanceV2.h"
 #include "simulation/mission_systems/weapon/FuzeAdapter.h"
+#include "simulation/flight_control/OwnRotorPlant.h"
 #include "simulation/mission_systems/weapon/PlantAdapter.h"
 #include "simulation/mission_systems/damage/WarheadAdapter.h"
 #include "simulation/mission_systems/countermeasure/Dispenser.h"
@@ -742,6 +743,8 @@ private:
         unsigned controlDivider = 1;
         bool forceApplied = false;         ///< external force pushed last step (needs zeroing)
         bool windApplied = false;
+        double rotorAirframeAcceleration[3] = {};
+        double rotorAirframeTimeS = std::numeric_limits<double>::quiet_NaN();
         control::NavigationSettings navigation; ///< its recovery point and reserve
         ms::Host ms;                       ///< its Mission Systems (ADR-30)
         std::uint64_t missionSignature = ~0ull; ///< what its published Mission record shows (~0: not yet written)
@@ -783,15 +786,21 @@ private:
         ms::weapon::FuzeTurnStateV1 fuzeTurn;
         ms::weapon::FuzeDelayStateV1 fuzeDelay;
         double fuzeAgeBoundaryS=0; ///< contiguous captured release-age boundary, independent of clock subtraction
+        bool terrainContactEnabled=false; ///< explicit validated STRUCTURE-contact sensor; absent is legacy identity
+        std::optional<ms::weapon::MaterialPointSample> arrestedBurst; ///< actual ground-contact station retained for a delayed fuze
+        std::optional<double> groundBurstAgeS; ///< target-independent terrain contact delay; separate from target-scoped proximity delay
         ms::weapon::CaptureEpochV1 engagementCaptureEpoch;
         double guidanceDemand[3] = {0, 0, 0}; ///< ECEF specific acceleration, never applied as a force
         struct FinControlReads {
-            PropertyHandle version, qbar, area, diameter, lag, normalizationVersion, actuatorVersion, channelRate, finCount;
+            PropertyHandle version, qbar, area, diameter, span, referenceVersion, aeroReferenceX, lag, normalizationVersion, actuatorVersion, channelRate, finCount;
             std::array<PropertyHandle, 3> inertia, limits;
             std::array<PropertyHandle, 3> lowerStops, upperStops;
             std::vector<PropertyHandle> finRates;
             std::array<PropertyHandle, 12> derivatives;
             std::array<PropertyHandle, 3> aeroForce, aeroMoment;
+            PropertyHandle vectorVersion,vectorLimit,vectorRate,vectorPitchGain,vectorYawGain,vectorExitX;
+            PropertyHandle vectorPitch,vectorYaw;
+            std::array<PropertyHandle,3> propulsionForce,propulsionMoment;
         } finControl;
         struct FinTelemetryReads {
             bool bound=false;
@@ -814,7 +823,7 @@ private:
     /// What the control cascades see of other vehicles during a step: each
     /// one's state as the step began (Control.h, WorldView), whichever worker
     /// steps which vehicle and however far it has got.
-    class StepView final : public control::WorldView {
+    class StepView final : public control::WorldView, public control::OwnRotorPlantViewV1 {
     public:
         explicit StepView(const World& world) noexcept : world_(world) {}
         const sim::VehicleState* vehicleState(std::uint32_t id) const noexcept override;
@@ -823,6 +832,12 @@ private:
         std::uint32_t vehicles(std::uint32_t* ids, std::uint32_t max) const noexcept override { return world_.vehicles(ids, max); }
         /// Its own report, for the vehicle whose control update asks (4.37: a route's branch).
         bool navigation(std::uint32_t id, control::NavigationReport& out) const noexcept override { return world_.navigation(id, out); }
+        bool ownRotorPlantV1(std::uint32_t id,control::OwnRotorPlantV1& out) const noexcept override {
+            const auto& context=control::ownRotorPlantContextV1;
+            if(context.owner!=this || context.vehicle!=id || !context.snapshot.available)return false;
+            out=context.snapshot;return true;
+        }
+
 
     private:
         const World& world_;
@@ -929,6 +944,8 @@ private:
     std::optional<ms::components::ImageExtentV2> projectedSeekerExtent(const Entry&,
         const sim::VehicleState& observer) const;
     void finishEngagements();
+    bool groundWeaponContact(Entry&,const sim::TerrainContactSnapshotV1&,double age,double offset);
+    void detonateArrestedWeapon(Entry&,double fraction);
     sim::VehicleState engagementStateAt(const Entry& e, double offsetS) const;
     /// Current decision-step offset; piecewise-linear captured CG offsets from
     /// the fixed model origin in body metres. Stopped bodies hold the last

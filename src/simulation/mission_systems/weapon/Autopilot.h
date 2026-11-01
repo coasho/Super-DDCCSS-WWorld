@@ -40,6 +40,8 @@ struct FinControlConfigV1 {
     double rateTimeMinS = .12, rateLagMultiplier = 3;
     double incidenceTimeMinS = .4, incidenceRateMultiplier = 3.333333333333333;
     double actuatorLagS = .04, actuatorRateRadS = 4;
+    bool thrustVector = false;
+    double thrustVectorLimitRad = 0, thrustVectorRateRadS = 0;
 };
 /// Optional native zero-centred normalized-command mapping, in axis order
 /// aileron/elevator/rudder. Zero means genuinely absent legacy metadata.
@@ -55,4 +57,7 @@ struct ControlStopsV1 {
 FinCommands finCommands(const AutopilotInput& in) noexcept;
 FinCommands finCommands(const AutopilotInput& in, const FinControlConfigV1& config,
                          const ControlStopsV1& stops = {}) noexcept;
+// Separately selected finite-actuator model; original callers retain finCommands.
+FinCommands actuatorAwareCommands(const AutopilotInput& in, const FinControlConfigV1& config,
+                                  const ControlStopsV1& stops) noexcept;
 }

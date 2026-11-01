@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- Written by hangar (tools/hangar/hangar/pieces.py) from rafale's damage data: its tail flying on its own once it parts
+<!-- Written by hangar (tools/models/hangar/hangar/pieces.py) from rafale's damage data: its tail flying on its own once it parts
      (MS-7g). Its aerodynamics a tumbling piece's - estimates, said so there. Do not edit: hangar's model stage of rafale writes it. -->
 <fdm_config name="rafale-tail" version="2.0" release="ALPHA">
     <fileheader>
@@ -26,10 +26,10 @@
         <ixz unit="SLUG*FT2"> 342.44174933028313 </ixz>
         <iyz unit="SLUG*FT2"> 0.037991826309271955 </iyz>
         <emptywt unit="LBS"> 6942.0521337252649 </emptywt>
-        <location name="CG" unit="IN"> <x> 478.58622047244097 </x> <y> -0.00039370078740157453 </y> <z> 8.2311023622047248 </z> </location>
+        <location name="CG" unit="IN"> <x> 478.58622047244097 </x> <y> -0.00039370078740157485 </y> <z> 8.2311023622047248 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 478.58622047244097 </x> <y> -0.00039370078740157453 </y> <z> 8.2311023622047248 </z> </location>
+            <location unit="IN"> <x> 478.58622047244097 </x> <y> -0.00039370078740157485 </y> <z> 8.2311023622047248 </z> </location>
         </pointmass>
 <!-- no store station -->
     </mass_balance>

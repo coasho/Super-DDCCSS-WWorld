@@ -4,3 +4,12 @@
 [calibration]
 extra_drag_area_m2 = 0.4200   # drag along the flow, added to the estimate (m2)
 # fitted: max speed 361.0 kt (target 362); climb 2766 ft/min predicted
+
+[provenance]
+schema = "fsim.hangar-calibration.v1"
+method = "shared-aircraft-vlm"
+status = "existing-performance-fit"
+observed_source_sha256 = "38828ef80666a5bf2dca298f1f86723dfbf364d1d2fe82ffc083a560b1a6eff2"
+target_keys = ["max_speed_altitude_ft", "max_speed_ktas"]
+scope = "Declared reference targets only; no six-axis equipment accuracy certification"
+historical_fit_note = "Retained performance overrides are not newly validated equipment data"

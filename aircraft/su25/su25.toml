@@ -342,3 +342,8 @@ flaps = "Wikipedia and Russian Wikipedia, Sukhoi Su-25: trailing-edge flaps"
 drag_devices = "Wikipedia and Russian Wikipedia, Sukhoi Su-25: split airbrakes in the wing-tip pods"
 releasable_stores = "Wikipedia and Russian Wikipedia, Sukhoi Su-25: ten underwing hardpoints"
 aerobatic = "Wikipedia and Russian Wikipedia, Sukhoi Su-25: +6.5 g (fsim/envelope/clean/n_max), flown in loops and rolls"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

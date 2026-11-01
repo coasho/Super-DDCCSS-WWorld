@@ -16,11 +16,11 @@ The 2026-10-11 documentation snapshot contains **35 aircraft designs and 53 stor
 | Tank, pod, bomb and cargo shape | `hangar/storedesigns.py`, `hangar/stores.py` tables and cards | `python -m hangar storedesigns [<name> ...]` | Generated store TOML / paint; store stages read these |
 | Released store flight physics | Store card and generated design; store build-up modules | `hangar/storestages.py`, `storemodels.py`, `storedrag.py` | `aircraft/stores/<name>/<name>.xml` and missile `Engines/`; carriage drag fields in cards |
 | Stock-aircraft visual stand-ins | Aircraft `stands_in_for` declarations and generated geometry/CG | `python -m hangar register` | `aircraft/models.txt`; viewer stand-in mapping, not replacement stock flight physics |
-| Flight/control profile | Design, calibration and stage observations | Hangar fly, autopilot, performance and profile writers | `autopilot.toml`, rotorcraft `hover.toml`, profile properties and performance/fuel tables embedded in XML |
+| Flight/control profile | Source limits, complete admitted CFD and measured stage observations | Hangar fly, autopilot, performance and profile writers | `autopilot.toml`, rotorcraft `hover.toml`, profile properties and performance/fuel tables embedded in XML |
 | Damage and breakup geometry | Design mass/structure, geometry and vulnerability inputs | Hangar model stage, `damage.py` and `vulnerability.py` | `<name>.damage.json`, JSBSim `pieces/`, GLB sections and manifest components; world's damage chain and viewer |
 | Radar cross section | Generated closed geometry; `aircraft/<name>/signature.json` and `assets/signature/treatments.json` | `tools/models/rcs` / `flightsim-rcs` | `aircraft/<name>/rcs.bin`; mission-system RCS lookup |
 | Stage checks and aircraft report | The design and actual stage run | Hangar stages and HTML report writer | `aircraft/<name>/out/<stage>.json`, images, `report.html`; review evidence, not shipped design inputs |
-| Store build report | Actual store generation run | `hangar stores --record docs/hangar-stores-build.md` | [hangar-stores-build.md](hangar-stores-build.md) and JSON companion; generated dated evidence |
+| Complete CFD fleet report | Actual native construction and runtime stage results | Normal `build.ps1` / Hangar fleet entrypoint | `.local/campaigns/hangar/<run>/fleet-build.json`, native reports and per-design stage JSON; see [Hangar system](hangar-system.md) |
 | SDK principal inventory | [sdk/boundary.toml](sdk/boundary.toml) | `tools/validation/boundary/boundary.py render`, against DLL exports and Python package | [sdk/boundary.md](sdk/boundary.md); generated inventory, checked by `sdk_boundary` |
 | Cloud renderer assets | `assets/clouds/` shaders, textures, lookup tables and notices | `fsim_cloud_assets` build copy | `build/<preset>/share/flightsim/clouds`; renderer |
 | Global cloud coverage | NASA Blue Marble cloud TIFF, optionally supplied locally | `tools/data/cloud_map/make_cloud_map.py` | `assets/maps/clouds/earth-clouds-8192.png`; viewer weather coverage |
@@ -35,23 +35,15 @@ An ordinary aircraft TOML is authored directly. Its XML, GLB, manifest, generate
 
 Missile and other store TOMLs have an additional generation layer. Their headers name the writer. Published length, diameter/span and mass come from the JSON card; assumptions about shape, CG, fins and motor/layout come from the generator tables. Improve the card or the relevant table, then rewrite the TOML before running its stages. Editing only generated TOML loses the correction at the next design-generation run. The missile command and non-missile store command are distinct; the `stores` command processes both kinds through their appropriate stages.
 
-Autopilot and performance files are derived aircraft data, not global controller presets. A change to aerodynamics, mass, propulsion, controls or calibration can make them stale; use the stage order documented in [hangar.md](hangar.md). Rotorcraft have their own stage dispatch and hover identification. Preserve generated XML dates when content is unchanged and compare GLB bytes for unexplained churn. Keep source citations, explicitly assumed values and generator provenance visible.
+Autopilot and performance files are derived aircraft data, not global controller presets. A change to aerodynamics, mass, propulsion, controls can make them stale; use the stage order documented in [Hangar system](hangar-system.md). Rotorcraft have their own stage dispatch and hover identification. Preserve generated XML dates when content is unchanged and compare GLB bytes for unexplained churn. Keep source citations, explicitly assumed values and generator provenance visible.
 
-The following are **regeneration examples**, not commands to run for a documentation-only change. They assume the selected build already contains the Python SDK and dependencies. In PowerShell, select the preset before the command:
+Use the four normal entry scripts and the single [Hangar system guide](hangar-system.md)
+for setup, complete aircraft/store CFD construction and SDK/Viewer execution.
+The fleet builder owns machine-readable per-model/native/runtime receipts.
+Do not regenerate a second Markdown status table or copy historical mixed-method
+PASS/timing rows into current CFD evidence. `--force` requests a real rebuild;
+selected tables and cards change only after complete independent publication.
 
-```powershell
-.\fsim.cmd --preset ucrt64-headless hangar list
-.\fsim.cmd --preset ucrt64-headless hangar missiles aim120c
-.\fsim.cmd --preset ucrt64-headless hangar storedesigns tank370gal
-.\fsim.cmd --preset ucrt64-headless hangar aim120c
-.\fsim.cmd --preset ucrt64-headless hangar register
-.\fsim.cmd --preset ucrt64-headless hangar stores --jobs 1 --record docs/hangar-stores-build.md
-.\fsim.cmd --preset ucrt64-headless hangar effects
-```
-
-For a full aircraft campaign, set `$env:PYTHONPATH = "$PWD/tools/models/hangar"`, then run `.\fsim.cmd --preset ucrt64-headless python tools/models/hangar/rebuild_all.py --jobs 6`. It runs each design in its own process and retains raw per-design logs in `build/hangar-rebuild`; `--only f16c c172` narrows the corpus. It is a potentially long regeneration, not a documentation validation step. For a long run, Hangar's native libraries stay loaded: point PYTHONPATH and FSIM_BIN at a deliberate copy of the selected build's Python package and bin directory and use that copy's staged Python launcher if rebuilding the original build concurrently. Record the copy's provenance.
-
-The store report's `--force` option forces model and flight-model regeneration; use it only when that evidence is intended. The report rows and JSON companion belong to the tool. Update current status separately after reviewing the run, failures and generated diffs.
 
 The generated effects inventory reports missing entries under the generator's current audit rules. Rotorcraft
 exhaust/wake omissions are excluded from that count and remain B-59 in [backlog.md](backlog.md). A zero count does
@@ -60,7 +52,7 @@ JSBSim flies the launcher, target and released weapon, and the SDK owns guidance
 Missing native support fails the scene instead of substituting a scripted trajectory or scheduled burst. The
 plume comparison measures rendered shape and brightness; it does not calibrate real-world missile performance.
 Older scripted-fixture measurements retain their original dates and scope in the [viewer guide](sdk/viewer.md).
-For continuous live viewer acceptance, use [Hangar's `--live` launcher](hangar.md#missiles) with one fullscreen
+For continuous live viewer acceptance, use [Hangar's `--live` launcher](hangar-system.md#3-model-contract-and-reproducibility) with one fullscreen
 viewer attached to the exact published World for the entire native run. Captured frames are evidence for their
 individual times, not proof that the complete live release, flight and aftermath were observed.
 

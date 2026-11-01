@@ -14,6 +14,7 @@ std::optional<ms::WeaponControlSnapshotV1> World::weaponControlsV1(std::uint32_t
     out.commands={e->inputs.aileron,e->inputs.elevator,e->inputs.rudder};
     auto& model=pool_->vehicle(e->slot);
     auto& cache=e->finTelemetry;
+    const double expectedVersion=e->plantAdapter.configured && e->plantAdapter.implementations[0]==2 ? 2.:1.;
     const auto value=[](const PropertyHandle& h) {
         return h.valid()?h.get():std::numeric_limits<double>::quiet_NaN();
     };
@@ -29,7 +30,7 @@ std::optional<ms::WeaponControlSnapshotV1> World::weaponControlsV1(std::uint32_t
         cache.version=bind(metadata,"fsim/missile-control/","version");
         cache.count=bind(metadata,"fsim/missile-control/","fin-count");
         const double count=value(cache.count);
-        if(value(cache.version)==1 && std::isfinite(count) && count>=1 &&
+        if(value(cache.version)==expectedVersion && std::isfinite(count) && count>=1 &&
            count<=ipc::kWeaponControlMaxFins && count==std::floor(count)) {
             for(const auto& property:model.properties("fcs")) fcs.insert(property.first);
             cache.fins.resize(static_cast<std::size_t>(count));
@@ -49,7 +50,7 @@ std::optional<ms::WeaponControlSnapshotV1> World::weaponControlsV1(std::uint32_t
         }
     }
     const double count=value(cache.count);
-    if(value(cache.version)!=1 || !std::isfinite(count) || count<1 ||
+    if(value(cache.version)!=expectedVersion || !std::isfinite(count) || count<1 ||
        count!=static_cast<double>(cache.fins.size())) return out;
     std::set<std::uint32_t> ids;
     for(std::uint32_t i=0;i<static_cast<std::uint32_t>(count);++i) {

@@ -38,34 +38,51 @@ class TableModel:
     def __init__(self, tables):
         self.t = tables
 
-    def evaluate(self, alpha_deg, beta_deg, p=0.0, q=0.0, r=0.0, adot=0.0, controls_deg=None, mach=0.0, cl2=None):
+    def evaluate(self, alpha_deg, beta_deg, p=0.0, q=0.0, r=0.0, adot=0.0, controls_deg=None, mach=0.0, cl2=None, pieces_rad=None, h_b=float('inf'), ge_e=.85, aspect_ratio=None):
         """p, q, r, adot non-dimensional (p b/2V, ...); controls in degrees;
-        cl2: the lift coefficient squared the induced-drag terms use (JSBSim:
-        the last step's; default: this state's)."""
+        cl2 is retained for existing callers; current products derive drag
+        from the VLM circulation component rather than previous-frame lift."""
         t = self.t
         a, b = t["alpha"], t["beta"]
         mt = t.get("mach")
         K = (lambda key: float(np.interp(mach, mt["mach"], mt[key]))) if mt is not None else (lambda key: 1.0 if key[0] == "K" else 0.0)
         out = {k: _interp2(a, b, t["base"][k], alpha_deg, beta_deg) for k in COEFFS}
+        induced=_interp2(a,b,t['base']['CDi'],alpha_deg,beta_deg)
         cl_base = out["CL"]
-        out["CL"] *= K("K_L")
+        ge=t.get('ground_effect')
+        lift_ge=float(np.interp(h_b,ge['h_b'],ge['lift'])) if ge is not None else 1.
+        out["CL"] *= K("K_L")*lift_ge
         for k in ("CY", "Cl", "Cn"):
             out[k] *= K("K_Y")
         out["Cm"] += cl_base * K("dCm_dCL")
-        for ch, d in (controls_deg or {}).items():
+        for ch, d in ({} if t.get('native_controls') else (controls_deg or {})).items():
             if ch not in t["controls"]:
                 continue
             tab = t["controls"][ch]
             for k in tab:
-                if k != "deflection":
-                    out[k] += _interp2(a, tab["deflection"], tab[k], alpha_deg, d) * K("K_" + ch)
+                if k in COEFFS:
+                    out[k] += _interp2(a, tab["deflection"], tab[k], alpha_deg, d) * K("K_" + ch) * (lift_ge if k=='CL' and ch=='flap' else 1.)
+            induced+=_interp2(a,tab['deflection'],tab['CDi'],alpha_deg,d)*K('K_'+ch)
+        for i, piece in enumerate(t.get('native_controls', [])):
+            delta = (pieces_rad or {}).get(i, sum(g * math.radians((controls_deg or {}).get(ch, 0.))
+                                                for ch, g in piece['gains'].items()))
+            delta = float(np.clip(delta, piece['lo'], piece['hi']))
+            for key, values in piece['values'].items():
+                if key in COEFFS:out[key] += _interp2(a, piece['deflection'], values, alpha_deg, delta) * K('K_' + piece['channel'])
+            induced+=_interp2(a,piece['deflection'],piece['values']['CDi'],alpha_deg,delta)*K('K_'+piece['channel'])
         for rate, val in (("p", p), ("r", r), ("q", q)):
             for k, data in t["rates"][rate].items():
-                if k != "CD":
+                if k in COEFFS:
                     out[k] += float(np.interp(alpha_deg, a, data)) * val * K("K_L")
-        out["CL"] += t["alphadot"]["CL"] * adot * K("K_L")
-        out["Cm"] += t["alphadot"]["Cm"] * adot * K("K_L")
-        out["CD"] += K("dCD0") + (out["CL"] ** 2 if cl2 is None else cl2) * K("dK")
+            induced+=float(np.interp(alpha_deg,a,t['rates'][rate]['CDi']))*val*K('K_L')
+        for k in COEFFS:
+            out[k] += t["alphadot"].get(k, 0.0) * adot * K("K_L")
+        factor=float(np.interp(mach,mt['mach'],mt['induced_factor'])) if mt is not None else 1.
+        drag_ge=float(np.interp(h_b,ge['h_b'],ge['drag'])) if ge is not None else 1.
+        # Correct only the circulation-induced component computed by VLM.
+        # A global CL^2 decrement also removed separated/profile drag and,
+        # with JSBSim's previous-frame lift, could create aerodynamic thrust.
+        out['CD']+=K('dCD0')+induced*(factor*drag_ge-1.)
         return out
 
 
@@ -120,7 +137,7 @@ def compare(rows, tables, aircraft, model=None):
         V = max(s["vt"], 1.0)
         nd = dict(p=s["p"] * b / (2 * V), q=s["q"] * c / (2 * V), r=s["r"] * b / (2 * V), adot=s["adot"] * c / (2 * V))
         ctl = {"elevator": s["de"], "aileron": s["da"], "rudder": s["dr"], "flap": s["df"]}
-        coef = tm.evaluate(math.degrees(s["alpha"]), math.degrees(s["beta"]), controls_deg=ctl, mach=s["mach"], cl2=s["cl2"], **nd)
+        coef = tm.evaluate(math.degrees(s["alpha"]), math.degrees(s["beta"]), controls_deg=ctl, mach=s["mach"], cl2=s["cl2"], h_b=s['hb'], aspect_ratio=b*b/S, **nd)
         if gear is not None and s.get("gear", 0.0) > 0.0:
             coef["CD"] += s["gear"] * gear[0] / S
             coef["Cm"] += s["gear"] * gear[0] / S * (gear[1][2] - arp[2]) / c

@@ -2725,8 +2725,14 @@ class DragDevices(unittest.TestCase):
         fs = drag_device_functions(d, tables, a)
         self.assertEqual([axis for axis, _ in fs], ["DRAG", "PITCH", "LIFT", "PITCH"])
         lift = fs[2][1]
-        for cl in (0.2, 1.0):  # (at no sideslip)
-            self.assertIn("%10.5f" % (-SPOILER_LIFT_LOSS * d.wing_area / a.S * cl), lift)
+        import xml.etree.ElementTree as ET
+        table=ET.fromstring(lift).find('.//table')
+        self.assertEqual(table.findtext('independentVar').strip(),'aero/alpha-deg')
+        rows=[[float(v) for v in line.split()] for line in table.findtext('tableData').splitlines() if line.strip()]
+        self.assertEqual([len(row) for row in rows],[2,2])
+        self.assertEqual([row[0] for row in rows],[0.,10.])
+        for row,cl in zip(rows,(0.2,1.0)):  # same five-decimal numeric contract, at no sideslip
+            self.assertEqual('%10.5f'%row[1],'%10.5f'%(-SPOILER_LIFT_LOSS*d.wing_area/a.S*cl))
 
     def test_surfaces_deflected_as_one(self):
         # the F-22A's: its rudders' and ailerons' drag from their own tables at their deflections, its forces cancelling

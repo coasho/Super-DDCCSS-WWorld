@@ -349,7 +349,10 @@ class VLM:
         """Make the operators those of a wake at alpha_w (rad; clipped to the
         solved range), interpolated between the two nearest solved angles."""
         aw = float(np.clip(alpha_w, self.wake[0], self.wake[-1]))
-        if self._current is not None and abs(aw - self._current) < 1e-9:
+        # Approximate cache matching makes the selected operator depend on the
+        # preceding condition. Nonlinear separation can amplify that tiny
+        # mismatch. Only an identical requested wake may reuse the operator.
+        if self._current is not None and aw == self._current:
             return
         i = int(np.clip(np.searchsorted(self.wake, aw) - 1, 0, len(self.wake) - 2))
         t = (aw - self.wake[i]) / (self.wake[i + 1] - self.wake[i])
@@ -371,16 +374,31 @@ class VLM:
             if d:
                 g = g + d * (gv @ v + gw @ w)
         if decamber is not None:
-            G = np.tensordot(v, self.dec_v, 1) + np.tensordot(w, self.dec_w, 1)
+            G = self.decamber_panels(v, w)
             g = g + G @ decamber
         return g
 
     def decamber_response(self, v, w):
         """d(strip circulation)/d(decambering), (n_s, n_s), for a condition."""
-        return np.tensordot(v, self.S_dec_v, 1) + np.tensordot(w, self.S_dec_w, 1)
+        return self._condition_response(v, w)[0]
 
     def decamber_panels(self, v, w):
-        return np.tensordot(v, self.dec_v, 1) + np.tensordot(w, self.dec_w, 1)
+        return self._condition_response(v, w)[1]
+
+    def _condition_response(self, v, w):
+        """One exact, bounded memo per wake/velocity/rate condition.
+
+        Control deflections change the circulation RHS, not these linear
+        contractions. Reuse their identical results without changing a solve,
+        grid, iteration budget or floating-point expression.
+        """
+        key = (self._current, tuple(v), tuple(w))
+        if getattr(self, '_response_key', None) != key:
+            self._response_value = (
+                np.tensordot(v, self.S_dec_v, 1) + np.tensordot(w, self.S_dec_w, 1),
+                np.tensordot(v, self.dec_v, 1) + np.tensordot(w, self.dec_w, 1))
+            self._response_key = key
+        return self._response_value
 
     def air_velocity(self, points, v, w):
         """Free stream plus rotation at points: v - omega x r."""

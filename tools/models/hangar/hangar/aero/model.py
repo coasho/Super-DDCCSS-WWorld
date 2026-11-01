@@ -275,6 +275,13 @@ class AeroModel:
         an = a.spec.get("analysis", {})
         self.speed = float(speed or an.get("speed", 50.0))       # m/s, for Reynolds numbers
         self.mach = mach
+        if not a.surfaces:
+            self.lat = self.vlm = None
+            self.S, self.b, self.c = a.S, a.b, a.c
+            self.ref = a.aero_point
+            self.bodies = BodyAero(a, self.speed, NU0, mach)
+            self.drag_area = float(an.get("drag_area", 0.0))
+            return
         self.lat = Lattice(a, density * float(an.get("density", 1.0)))
         self.vlm = VLM(self.lat, mach) if wake_deg is None else VLM(self.lat, mach, wake_deg)
         L = self.lat
@@ -418,7 +425,7 @@ class AeroModel:
         return area
 
     # -- one condition --------------------------------------------------------------------------
-    def evaluate(self, alpha, beta=0.0, p=0.0, q=0.0, r=0.0, controls=None, detail=False):
+    def evaluate(self, alpha, beta=0.0, p=0.0, q=0.0, r=0.0, controls=None, detail=False, pieces=None):
         """Coefficients at alpha, beta (rad), non-dimensional rates and
         control channel deflections {channel: rad}."""
         controls = controls or {}
@@ -426,13 +433,22 @@ class AeroModel:
         xw, yw, zw = wind_axes(alpha, beta)
         v = np.array([xw[0], -xw[1], xw[2]])               # air velocity, design frame (V = 1)
         w = np.array([-2.0 * p / self.b, 2.0 * q / self.c, -2.0 * r / self.b])  # body rates -> design frame
+        if L is None:
+            F, M = self.bodies.forces(v, w, self.ref)
+            F += .5 * self.drag_area * v
+            return self._coefficients(F, M, alpha, beta, {} if detail else None)
         theta = math.degrees(math.acos(max(-1.0, min(1.0, v[0]))))  # flow angle off the x axis
         w_ind = 1.0 - float(smoothstep((theta - 30.0) / 30.0))
         self._theta = theta
         # the wakes leave along the free stream, seen in the plane of symmetry
         self.vlm.select(math.atan2(v[2], max(v[0], 1e-6)))
         own = L.deflections(controls) if controls else None
-        delta = L.strip_deflections(own) if controls else np.zeros(L.n_strips)
+        if pieces is not None:
+            own = np.zeros(len(L.pieces)) if own is None else own.copy()
+            for index, value in pieces.items():
+                piece = L.pieces[index]
+                own[index] = float(np.clip(value, piece['lo'], piece['hi']))
+        delta = L.strip_deflections(own) if own is not None else np.zeros(L.n_strips)
         F, M, info = self._surfaces(v, w, delta, own, w_ind)
         Fb, Mb = self.bodies.forces(v, w, self.ref, info["body_induced"])
         info["body_moment"] = Mb
@@ -441,15 +457,17 @@ class AeroModel:
         F = F + 0.5 * self.drag_area * v   # excrescences, along the flow
         # wing-body interference in sideslip (a body-axis rolling moment)
         M = M - np.array([self.clb_wing_body * math.sin(beta) * math.cos(alpha) * w_ind * 0.5 * self.S * self.b, 0.0, 0.0])
-        return self._coefficients(F, M, alpha, beta, info if detail else None)
+        return self._coefficients(F, M, alpha, beta, info if detail else None,
+                                  info['circulatory_drag'])
 
-    def _coefficients(self, F, M, alpha, beta, info):
+    def _coefficients(self, F, M, alpha, beta, info, circulatory_drag=0.):
         qS = 0.5 * self.S
         Fb, Mb = to_body(F), to_body(M)
         xw, yw, zw = wind_axes(alpha, beta)
         out = {"CD": -Fb @ xw / qS, "CY": Fb @ yw / qS, "CL": -Fb @ zw / qS,
                "Cl": Mb[0] / (qS * self.b), "Cm": Mb[1] / (qS * self.c), "Cn": Mb[2] / (qS * self.b),
                "CX": Fb[0] / qS, "CZ": Fb[2] / qS}
+        out['CDi']=circulatory_drag
         if info is not None:
             out["detail"] = info
         return out
@@ -532,12 +550,14 @@ class AeroModel:
             mean = 1.0
             flows = [(np.ones(L.n_strips), 1.0, coupling, vortex)]
         Fk = Mk = 0.0
+        circulatory=0.
         body_ind = None
         parts = []
         for part, part_bodies, wc, vx in flows:
             s, a_eff, res = self._scales(lin, wc, vx)
             f_k, m_k, b_k, info = self._strips(lin, s, a_eff, wc, vx)
             Fk, Mk = Fk + part[:, None] * f_k, Mk + part[:, None] * m_k
+            circulatory=circulatory+part[:,None]*info['circulatory_force']
             if b_k is not None:
                 body_ind = part_bodies * b_k if body_ind is None else body_ind + part_bodies * b_k
             info["residual"] = res
@@ -546,6 +566,7 @@ class AeroModel:
         info.update({"alpha_geo": a_geo, "cl_lin": cl_lin, "burst": B, "beta_local": beta_k, "eps": eps, "a_lin": a_lin,
                      "dec": dec, "a0_thin": a0_thin, "vortex_share": mean, "body_induced": body_ind, "strip_moment": Mk,
                      "residual": max(p[1]["residual"] for p in parts), "flows": [(p, i["scale"]) for p, i in parts]})
+        info['circulatory_drag']=float(circulatory.sum(axis=0)@v/(.5*self.S))
         return Fk.sum(axis=0), Mk.sum(axis=0), info
 
     def _scales(self, lin, wc, vortex):
@@ -657,16 +678,19 @@ class AeroModel:
         a_i = a_geo - a_eff
         k_loc = np.clip(np.cos(a_i) - np.tan(np.clip(a_eff, -1.4, 1.4)) * np.sin(a_i), 0.5, 1.2)
         qa = 0.5 * un**2 * L.area * lin["f_sweep"] * k_loc
-        Fk = (qa * cl)[:, None] * lift_dir + (qa * cd)[:, None] * fe
+        circulatory=(qa * cl)[:, None] * lift_dir
+        Fk = circulatory + (qa * cd)[:, None] * fe
         if self.trefftz:
-            Fk = Fk + trefftz_correction(L, self.group, lin["U"], lin["v"], un, qa * cl, lift_dir, wc)
+            correction=trefftz_correction(L, self.group, lin["U"], lin["v"], un, qa * cl, lift_dir, wc)
+            Fk=Fk+correction
+            circulatory=circulatory+correction
         Mk = np.cross(L.c4 - self.ref, Fk) + (qa * L.chord * cm)[:, None] * L.e
         body_ind = None
         if self.vlm.body_W is not None:
             scaled = gamma * (wc[L.strip] * s[self.panel_group])
             body_ind = np.einsum("mnk,n->mk", self.vlm.body_W, scaled)
         info = {"alpha_eff": a_eff, "cl": cl, "scale": dict(zip(self.group_names, s)), "induced": ind * s[None, :],
-                "w_ind": wc}
+                "w_ind": wc, 'circulatory_force':circulatory}
         return Fk, Mk, body_ind, info
 
 

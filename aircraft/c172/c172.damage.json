@@ -82,8 +82,8 @@
    ],
    "tanks": [],
    "stations": [],
-   "normal_share": 0.13602,
-   "side_share": 0.25824,
+   "normal_share": 0.13496,
+   "side_share": 0.24156,
    "normal_cp": [
     -0.08036,
     0.0,
@@ -127,8 +127,8 @@
     }
    ],
    "stations": [],
-   "normal_share": 0.38267,
-   "side_share": 0.00609,
+   "normal_share": 0.38314,
+   "side_share": 0.00623,
    "normal_cp": [
     -0.08052,
     -2.72,
@@ -156,7 +156,7 @@
    "skin_area_m2": 16.21954,
    "skin_kg": 33.78691,
    "strength_nm": [
-    40486.32014
+    40547.11558
    ]
   },
   {
@@ -188,8 +188,8 @@
     }
    ],
    "stations": [],
-   "normal_share": 0.38267,
-   "side_share": 0.00444,
+   "normal_share": 0.38314,
+   "side_share": 0.00454,
    "normal_cp": [
     -0.08052,
     2.72,
@@ -217,7 +217,7 @@
    "skin_area_m2": 16.21954,
    "skin_kg": 33.78691,
    "strength_nm": [
-    40486.32014
+    40547.11558
    ]
   },
   {
@@ -238,8 +238,8 @@
    ],
    "tanks": [],
    "stations": [],
-   "normal_share": 0.09864,
-   "side_share": 0.73122,
+   "normal_share": 0.09876,
+   "side_share": 0.74767,
    "normal_cp": [
     -4.82291,
     0.0,
@@ -272,8 +272,8 @@
    "skin_area_m2": 11.41267,
    "skin_kg": 9.3466,
    "strength_nm": [
-    4585.66766,
-    5939.77144
+    4591.2895,
+    5939.7714
    ]
   }
  ],

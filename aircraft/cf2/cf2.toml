@@ -36,7 +36,7 @@ radius_m = 0.0231348               # LN
 height_m = 0.0
 # FLU corners (x, y signs) and turning sense seen from above: GPD's cf2x (0 and 2 counter-clockwise)
 layout = [["front right", 1, -1, "ccw"], ["rear right", -1, -1, "cw"], ["rear left", -1, 1, "ccw"], ["front left", 1, 1, "cw"]]
-thrust_n_per_rpm2 = 3.1582e-10     # C_T, LN eq. 2.3.4
+thrust_n_per_rpm2 = 2.2917551135171294e-10 # SDK reference fit; see calibration.toml
 torque_nm_per_rpm2 = 7.9379e-12    # C_D, LN eq. 2.3.7
 max_rpm = 21666.0                  # LN eq. 2.6.1 at PWM 65535
 lag_up_s = 0.0647                  # KB eq. 5: -0.002 s / ln(0.9695404)
@@ -304,3 +304,18 @@ flaps = "Bitcraze Crazyflie 2.0 datasheet: a quadrotor, with no flaps"
 drag_devices = "Bitcraze Crazyflie 2.0 datasheet: a quadrotor, with no spoilers or airbrakes"
 releasable_stores = "Bitcraze Crazyflie 2.0 datasheet: no payload release mechanism or stores stations"
 aerobatic = "The platform's aerobatics are a wing's manoeuvres flown by load factor (docs/flight-autonomy.md, rule R10)"
+
+# Existing physical-shell reference, shared with the airframe VLM model.
+[reference]
+area = 0.0049589188253683202
+span = 0.079460000592000007
+chord = 0.079460000592000007
+aero_point = [0.0, 0.0, 0.0]
+
+# Numerical resolution, not a force or measurement fit. The common derivative /
+# inertia bound selects four fixed internal steps at the 120 Hz SDK clock.
+# The unchanged 120 m/s full-command native fixture requires this resolution.
+[integration]
+version = 2
+mode = "derived"
+

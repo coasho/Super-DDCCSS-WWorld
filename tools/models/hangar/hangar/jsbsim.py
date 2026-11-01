@@ -28,20 +28,23 @@ REF_LENGTH = {"Cl": "metrics/bw-ft", "Cm": "metrics/cbarw-ft", "Cn": "metrics/bw
 
 def _loc(p, indent):
     pad = " " * indent
-    return "%s<x> %.4f </x>\n%s<y> %.4f </y>\n%s<z> %.4f </z>" % (pad, p[0], pad, p[1], pad, p[2])
+    return "%s<x> %.17g </x>\n%s<y> %.17g </y>\n%s<z> %.17g </z>" % (pad, p[0], pad, p[1], pad, p[2])
 
 
-def _table2(rows, cols, data, row_prop, col_prop, indent):
+def _table2(rows, cols, data, row_prop, col_prop, indent, full_precision=False):
     pad = " " * indent
-    head = pad + "          " + "".join("%10.2f" % c for c in cols)
-    body = "\n".join(pad + "%10.2f" % r + "".join("%10.5f" % v for v in data[i]) for i, r in enumerate(rows))
+    # Generated coefficients are data, not display text. Five decimal places
+    # erased small-body damping and amplified rate-term errors at large rates.
+    # Keep the optional argument for existing callers; all products are precise.
+    head=pad+'    '+' '.join('%.17g'%v for v in cols)
+    body='\n'.join(pad+' '.join('%.17g'%v for v in (r,*data[i])) for i,r in enumerate(rows))
     return ("%s<table>\n%s  <independentVar lookup=\"row\">%s</independentVar>\n%s  <independentVar lookup=\"column\">%s</independentVar>\n"
             "%s  <tableData>\n%s\n%s\n%s  </tableData>\n%s</table>") % (pad, pad, row_prop, pad, col_prop, pad, head, body, pad, pad)
 
 
 def _table1(rows, data, row_prop, indent):
     pad = " " * indent
-    body = "\n".join(pad + "    %10.2f %10.5f" % (r, v) for r, v in zip(rows, data))
+    body = "\n".join(pad + "    %.17g %.17g" % (r, v) for r, v in zip(rows, data))
     return "%s<table>\n%s  <independentVar lookup=\"row\">%s</independentVar>\n%s  <tableData>\n%s\n%s  </tableData>\n%s</table>" % (
         pad, pad, row_prop, pad, body, pad, pad)
 
@@ -56,11 +59,13 @@ def _function(name, description, factors, table, indent=6):
 
 MACH_LIFT, MACH_SIDE, MACH_DCM = "aero/function/mach-lift", "aero/function/mach-side", "aero/function/mach-dCm-dCL"
 MACH_CD0, MACH_DK = "aero/function/mach-dCD0", "aero/function/mach-dK"
+MACH_INDUCED = 'aero/function/mach-induced-factor'
+INDUCED_LOW = 'aero/function/CDi-low'
 CL_COEFFICIENT = "aero/function/CL-base"
 
 
 def _mach_function(name, description, mach, values):
-    rows = "\n".join("            %8.3f %12.6f" % (m, v) for m, v in zip(mach, values))
+    rows = "\n".join("            %.17g %.17g" % (m, v) for m, v in zip(mach, values))
     return """      <function name="%s">
         <description>%s</description>
         <table>
@@ -183,7 +188,9 @@ def speedbrake_xml(devices):
 
 
 def aerodynamics_xml(tables, aircraft, ge_e=0.85):
-    """The <aerodynamics> element from the tables (tables.build)."""
+    """The <aerodynamics> element from the shared VLM component tables."""
+    import xml.etree.ElementTree as ET
+    from .storecontrol import _op,_property,_value
     a = tables["alpha"]
     b = tables["beta"]
     out = {axis: [] for axis in AXES.values()}
@@ -191,7 +198,7 @@ def aerodynamics_xml(tables, aircraft, ge_e=0.85):
     ge = tables["ground_effect"]
     ge_lift = _table1(ge["h_b"], ge["lift"], "aero/h_b-mac-ft", 8)
     mt = tables.get("mach")
-    pre = []
+    pre = ['<function name="fsim/aerodynamics/vlm-version" type="pre"><value>1</value></function>']
     if mt is not None:
         m = mt["mach"]
         pre.append(_mach_function(MACH_LIFT, "lift, and damping, over its low-speed value (hangar: aero/mach.py)", m, mt["K_L"]))
@@ -199,6 +206,7 @@ def aerodynamics_xml(tables, aircraft, ge_e=0.85):
         pre.append(_mach_function(MACH_DCM, "pitching moment per unit low-speed lift: the neutral point's move", m, mt["dCm_dCL"]))
         pre.append(_mach_function(MACH_CD0, "zero-lift drag's change: friction and wave drag", m, mt["dCD0"]))
         pre.append(_mach_function(MACH_DK, "induced-drag factor's change (per CL^2)", m, mt["dK"]))
+        pre.append(_mach_function(MACH_INDUCED,'Circulation-induced drag over its low-speed component',m,mt['induced_factor']))
         for ch in tables["controls"]:
             pre.append(_mach_function(mach_channel(ch), "%s power over its low-speed value" % ch, m, mt["K_" + ch]))
         pad = " " * 6
@@ -223,47 +231,102 @@ def aerodynamics_xml(tables, aircraft, ge_e=0.85):
                            for f in qs + [REF_LENGTH["Cm"], CL_COEFFICIENT, MACH_DCM])
         out["PITCH"].append("%s<function name=\"aero/coefficient/Cm_mach\">\n%s  <description>Cm from the neutral point's move with Mach"
                             "</description>\n%s  <product>\n%s\n%s  </product>\n%s</function>" % (pad, pad, pad, props, pad, pad))
-        for name, desc, fs in (("CD_mach", "zero-lift drag's change with Mach: friction, wave drag", qs + [MACH_CD0]),
-                               ("CD_induced_mach", "induced drag's change with Mach (leading-edge suction lost)",
-                                qs + ["aero/cl-squared", MACH_DK])):
+        for name, desc, fs in (("CD_mach", "zero-lift drag's change with Mach: friction, wave drag", qs + [MACH_CD0]),):
             props = "\n".join("%s    <property>%s</property>" % (pad, f) for f in fs)
             out["DRAG"].append("%s<function name=\"aero/coefficient/%s\">\n%s  <description>%s</description>\n"
                                "%s  <product>\n%s\n%s  </product>\n%s</function>" % (pad, name, pad, desc, pad, props, pad, pad))
-    for ch, t in tables["controls"].items():
+    for ch, t in ({} if tables.get('native_controls') else tables["controls"]).items():
         prop = CHANNEL_PROPERTY[ch]
         for k in t:
-            if k == "deflection":
+            if k not in AXES:
                 continue
             factors = qs + ([REF_LENGTH[k]] if k in REF_LENGTH else []) + ([mach_channel(ch)] if mt is not None else [])
             tab = _table2(a, t["deflection"], t[k], "aero/alpha-deg", prop, 8)
             if k == "CL" and ch == "flap":
                 tab = tab + "\n" + ge_lift
             out[AXES[k]].append(_function("%s_%s" % (k, ch), "%s increment from %s (deg), over alpha" % (k, ch), factors, tab))
+    for index, piece in enumerate(tables.get('native_controls', [])):
+        from .storecontrol import _op, _property, _value
+        import xml.etree.ElementTree as ET
+        components={}
+        for key, values in piece['values'].items():
+            if key not in AXES:continue
+            factors = qs + ([REF_LENGTH[key]] if key in REF_LENGTH else [])
+            if mt is not None:
+                factors += [mach_channel(piece['channel'])]
+            tab = _table2(a, piece['deflection'], values, 'aero/alpha-deg', piece['property'], 8, full_precision=True)
+            name='fsim/vlm/fin-%d/%s'%(index,key)
+            diagnostic=_function(name,'Shared VLM actuator increment',factors,tab)
+            diagnostic=diagnostic.replace('aero/coefficient/'+name, name, 1)
+            pre.append(diagnostic.replace('<function name=','<function type="pre" name=',1))
+            components[key]=_property(name)
+            out[AXES[key]].append(_function('%s_fin_%d' % (key, index),
+                'Coupled VLM increment from physical actuator %d' % index, factors, tab))
+        def trig(kind,angle):return _op(kind,_property('aero/'+angle+'-rad'))
+        def term(key,*factors):return _op('product',components[key],*factors)
+        body={'force-x':_op('sum',term('CD',_value(-1),trig('cos','alpha'),trig('cos','beta')),
+                term('CY',_value(-1),trig('cos','alpha'),trig('sin','beta')),term('CL',trig('sin','alpha'))),
+            'force-y':_op('sum',term('CD',_value(-1),trig('sin','beta')),term('CY',trig('cos','beta'))),
+            'force-z':_op('sum',term('CD',_value(-1),trig('sin','alpha'),trig('cos','beta')),
+                term('CY',_value(-1),trig('sin','alpha'),trig('sin','beta')),term('CL',_value(-1),trig('cos','alpha'))),
+            'moment-l':components['Cl'],'moment-m':components['Cm'],'moment-n':components['Cn']}
+        for key,expression in body.items():
+            node=ET.Element('function',name='fsim/fin-control/fin-%d/'%index+key,type='pre');node.append(expression)
+            pre.append(ET.tostring(node,encoding='unicode'))
+    if tables.get('native_controls'):
+        for kind,axes,unit in (('force','xyz','lbs'),('moment','lmn','lbsft')):
+            for axis in axes:
+                node=ET.Element('function',name='aero/%s/fsim-fin-%s-%s'%(kind,axis,unit),type='pre')
+                node.append(_op('sum',*(_property('fsim/fin-control/fin-%d/%s-%s'%(i,kind,axis))
+                    for i in range(len(tables['native_controls'])))))
+                pre.append(ET.tostring(node,encoding='unicode'))
     rate_prop = {"p": ("aero/bi2vel", "velocities/p-aero-rad_sec"), "r": ("aero/bi2vel", "velocities/r-aero-rad_sec"),
                  "q": ("aero/ci2vel", "velocities/q-aero-rad_sec")}
     for rate, ks in tables["rates"].items():
         for k, data in ks.items():
-            if k == "CD":
+            if k not in AXES:
                 continue
             factors = qs + ([REF_LENGTH[k]] if k in REF_LENGTH else []) + list(rate_prop[rate]) + lift_k
             out[AXES[k]].append(_function("%s%s" % (k, rate), "%s per %s (non-dimensional), over alpha" % (k, rate), factors,
                                           _table1(a, data, "aero/alpha-deg", 8)))
     ad = tables["alphadot"]
-    for k in ("CL", "Cm"):
-        factors = qs + ([REF_LENGTH[k]] if k in REF_LENGTH else []) + ["aero/ci2vel", "aero/alphadot-rad_sec", "value:%.5f" % ad[k]] + lift_k
+    for k in AXES:
+        factors = qs + ([REF_LENGTH[k]] if k in REF_LENGTH else []) + ["aero/ci2vel", "aero/alphadot-rad_sec", "value:%.17g" % ad.get(k, 0.0)] + lift_k
         pad = " " * 6
         props = "\n".join("%s    <property>%s</property>" % (pad, f) if not f.startswith("value:") else "%s    <value>%s</value>" % (pad, f[6:])
                           for f in factors)
         out[AXES[k]].append("%s<function name=\"aero/coefficient/%sadot\">\n%s  <description>%s per alpha-dot (downwash lag at the tail)</description>\n"
                             "%s  <product>\n%s\n%s  </product>\n%s</function>" % (pad, k, pad, k, pad, props, pad, pad))
     # ground effect on induced drag: (factor - 1) CL^2 / (pi A e)
-    A = aircraft.b**2 / aircraft.S
     ge_drag = ge["drag"] - 1.0
     pad = " " * 6
+    terms=[ET.fromstring(_table2(a,b,tables['base']['CDi'],'aero/alpha-deg','aero/beta-deg',8,full_precision=True))]
+    for channel,table in ({} if tables.get('native_controls') else tables['controls']).items():
+        factors=[_property(mach_channel(channel))] if mt is not None else []
+        terms.append(_op('product',*factors,ET.fromstring(_table2(a,table['deflection'],table['CDi'],
+            'aero/alpha-deg',CHANNEL_PROPERTY[channel],8,full_precision=True))))
+    for piece in tables.get('native_controls',[]):
+        factors=[_property(mach_channel(piece['channel']))] if mt is not None else []
+        terms.append(_op('product',*factors,ET.fromstring(_table2(a,piece['deflection'],piece['values']['CDi'],
+            'aero/alpha-deg',piece['property'],8,full_precision=True))))
+    for rate,table in tables['rates'].items():
+        length='metrics/cbarw-ft' if rate=='q' else 'metrics/bw-ft'
+        inverse=_op('quotient',_property(length),_op('product',_value(2.),
+            _op('max',_value(1.e-9),_property('velocities/vt-fps'))))
+        factors=[inverse,_property(rate_prop[rate][1])]+([_property(MACH_LIFT)] if mt is not None else [])
+        terms.append(_op('product',*factors,ET.fromstring(_table1(a,table['CDi'],'aero/alpha-deg',8))))
+    node=ET.Element('function',name=INDUCED_LOW,type='pre');node.append(_op('sum',*terms))
+    pre.append(ET.tostring(node,encoding='unicode'))
+    induced_factor=_property(MACH_INDUCED) if mt is not None else _value(1.)
+    node=ET.Element('function',name='aero/coefficient/CD_induced_mach')
+    node.append(_op('product',*[_property(p) for p in qs],_property(INDUCED_LOW),
+                    _op('difference',induced_factor,_value(1.))))
+    out['DRAG'].append(ET.tostring(node,encoding='unicode'))
     out["DRAG"].append("%s<function name=\"aero/coefficient/CD_ground\">\n%s  <description>Induced drag change in ground effect</description>\n"
                        "%s  <product>\n%s    <property>aero/qbar-psf</property>\n%s    <property>metrics/Sw-sqft</property>\n"
-                       "%s    <property>aero/cl-squared</property>\n%s    <value>%.5f</value>\n%s\n%s  </product>\n%s</function>"
-                       % (pad, pad, pad, pad, pad, pad, pad, 1.0 / (math.pi * A * ge_e),
+                       "%s    <property>%s</property>\n%s    %s\n%s\n%s  </product>\n%s</function>"
+                       % (pad, pad, pad, pad, pad, pad, INDUCED_LOW, pad,
+                          '<property>'+MACH_INDUCED+'</property>' if mt is not None else '<value>1</value>',
                           _table1(ge["h_b"], ge_drag, "aero/h_b-mac-ft", 8), pad, pad))
     # its drag devices (docs/flight-autonomy.md, 4.55)
     from .drag import drag_devices
@@ -684,10 +747,12 @@ def flight_control_xml(aircraft, fbw=None, yaw_damper=None, autopilot=None, prof
         </aerosurface_scale>
         <actuator name="fcs/elevator-actuator">
           <input>fcs/elevator-control</input>
+          <lag>40</lag>
           <rate_limit>2.0</rate_limit>
+          <clipto><min>%.17g</min><max>%.17g</max></clipto>
           <output>fcs/elevator-pos-rad</output>
         </actuator>
-      </channel>""" % (lo, hi))
+      </channel>""" % (lo, hi, math.radians(lo), math.radians(hi)))
     if "aileron" in ch:
         lo, hi = lim["aileron"]
         parts.append("""      <channel name="Roll">
@@ -703,7 +768,9 @@ def flight_control_xml(aircraft, fbw=None, yaw_damper=None, autopilot=None, prof
         </aerosurface_scale>
         <actuator name="fcs/left-aileron-actuator">
           <input>fcs/left-aileron-control</input>
+          <lag>40</lag>
           <rate_limit>2.0</rate_limit>
+          <clipto><min>%.17g</min><max>%.17g</max></clipto>
           <output>fcs/left-aileron-pos-rad</output>
         </actuator>
         <pure_gain name="fcs/right-aileron">
@@ -711,7 +778,7 @@ def flight_control_xml(aircraft, fbw=None, yaw_damper=None, autopilot=None, prof
           <gain>-1</gain>
           <output>fcs/right-aileron-pos-rad</output>
         </pure_gain>
-      </channel>""" % (lo, hi))
+      </channel>""" % (lo, hi, math.radians(lo), math.radians(hi)))
     if "rudder" in ch:
         lo, hi = lim["rudder"]
         parts.append("""      <channel name="Yaw">
@@ -727,7 +794,9 @@ def flight_control_xml(aircraft, fbw=None, yaw_damper=None, autopilot=None, prof
         </aerosurface_scale>%s
         <actuator name="fcs/rudder-actuator">
           <input>%s</input>
+          <lag>40</lag>
           <rate_limit>2.0</rate_limit>
+          <clipto><min>%.17g</min><max>%.17g</max></clipto>
           <output>fcs/rudder-pos-rad</output>
         </actuator>
         <!-- the nose or tail wheel steers with the rudder pedals (JSBSim steers from
@@ -738,7 +807,7 @@ def flight_control_xml(aircraft, fbw=None, yaw_damper=None, autopilot=None, prof
           <output>fcs/steer-cmd-norm</output>
         </pure_gain>
       </channel>""" % (lo, hi, "\n" + _yaw_damper_xml(yaw_damper, lo, hi) if yaw_damper is not None else "",
-                       "fcs/rudder-sum" if yaw_damper is not None else "fcs/rudder-control"))
+                       "fcs/rudder-sum" if yaw_damper is not None else "fcs/rudder-control", math.radians(lo), math.radians(hi)))
     if "flap" in ch:
         lo, hi = lim["flap"]
         steps = [0.0, 0.25, 0.5, 0.75, 1.0]
@@ -861,7 +930,20 @@ def flight_control_xml(aircraft, fbw=None, yaw_damper=None, autopilot=None, prof
     if tvc:
         parts.append(tvc)
     parts.append("    </flight_control>")
-    return "\n".join(parts)
+    import xml.etree.ElementTree as ET
+    root=ET.fromstring("\n".join(parts))
+    physical={'fcs/elevator-pos-rad':'elevator','fcs/left-aileron-pos-rad':'aileron','fcs/rudder-pos-rad':'rudder'}
+    for actuator in root.findall('.//actuator'):
+        output=(actuator.findtext('output') or '').strip()
+        if output not in physical:continue
+        if actuator.find('lag') is None:ET.SubElement(actuator,'lag').text='40'
+        if actuator.find('clipto') is None:
+            low,high=aircraft.channel_limits(physical[output])
+            clip=ET.SubElement(actuator,'clipto')
+            ET.SubElement(clip,'min').text='%.17g'%math.radians(low)
+            ET.SubElement(clip,'max').text='%.17g'%math.radians(high)
+    ET.indent(root,space='    ')
+    return ET.tostring(root,encoding='unicode')
 
 
 def battery_xml(aircraft):
@@ -1315,9 +1397,9 @@ def aircraft_xml(aircraft, tables, mass_model, engine_files, notes="", fbw=None,
 """ % (__version__, os.path.basename(a.path or a.name), datetime.date.today().isoformat(), notes, a.name,
        datetime.date.today().isoformat(), __version__, a.description or a.name, references_xml(a.spec, "      "))
     metrics = """    <metrics>
-      <wingarea unit="M2"> %.4f </wingarea>
-      <wingspan unit="M"> %.4f </wingspan>
-      <chord unit="M"> %.4f </chord>
+      <wingarea unit="M2"> %.17g </wingarea>
+      <wingspan unit="M"> %.17g </wingspan>
+      <chord unit="M"> %.17g </chord>
       <htailarea unit="M2"> %.4f </htailarea>
       <htailarm unit="M"> %.4f </htailarm>
       <vtailarea unit="M2"> %.4f </vtailarea>
@@ -1335,19 +1417,21 @@ def aircraft_xml(aircraft, tables, mass_model, engine_files, notes="", fbw=None,
 """ % (a.S, a.b, a.c, htail[0].area if htail else 0.0, arm(htail[0]) if htail else 0.0,
        fins[0].area if fins else 0.0, arm(fins[0]) if fins else 0.0, _loc(a.aero_point, 8), _loc(eye, 8), _loc(e["cg"], 8))
     mass = """    <mass_balance negated_crossproduct_inertia="false">
-      <ixx unit="KG*M2"> %.2f </ixx>
-      <iyy unit="KG*M2"> %.2f </iyy>
-      <izz unit="KG*M2"> %.2f </izz>
-      <ixy unit="KG*M2"> %.3f </ixy>
-      <ixz unit="KG*M2"> %.3f </ixz>
-      <iyz unit="KG*M2"> %.3f </iyz>
-      <emptywt unit="KG"> %.2f </emptywt>
+      <ixx unit="KG*M2"> %.17g </ixx>
+      <iyy unit="KG*M2"> %.17g </iyy>
+      <izz unit="KG*M2"> %.17g </izz>
+      <ixy unit="KG*M2"> %.17g </ixy>
+      <ixz unit="KG*M2"> %.17g </ixz>
+      <iyz unit="KG*M2"> %.17g </iyz>
+      <emptywt unit="KG"> %.17g </emptywt>
       <location name="CG" unit="M">
 %s
       </location>
 %s
     </mass_balance>
 """ % (e["ixx"], e["iyy"], e["izz"], e["ixy"], e["ixz"], e["iyz"], e["mass"], _loc(e["cg"], 8), points)
-    return "".join([header, metrics, mass, ground_reactions_xml(a, mass_model), "\n",
+    xml = "".join([header, metrics, mass, ground_reactions_xml(a, mass_model), "\n",
                     propulsion_xml(a, mass_model, engine_files), "\n", flight_control_xml(a, fbw, yaw_damper, autopilot, profile), "\n",
                     aerodynamics_xml(tables, a), "\n</fdm_config>\n"])
+    from . import integration
+    return integration.install(xml,a,tables)

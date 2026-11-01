@@ -22,6 +22,11 @@ bool infrared(const std::string& seeker) { return seeker.find("infrared") != std
 double length(V v) { return std::sqrt(v.x*v.x+v.y*v.y+v.z*v.z); }
 V delta(V a, V b) { return {a.x-b.x,a.y-b.y,a.z-b.z}; }
 double dot(V a, V b) { return a.x*b.x+a.y*b.y+a.z*b.z; }
+double totalWeaponThrust(const sim::VehicleState& s) {
+    double sum=0;
+    for(int i=0;i<s.engineCount && i<sim::VehicleState::kMaxEngines;++i)sum+=s.thrustN[i];
+    return sum;
+}
 ms::rf::Terminal terminal(V p) {
     const double horizontal=std::hypot(p.x,p.y);
     double latitude=std::atan2(p.z,horizontal*(1-.00669437999014)), n=6378137;
@@ -101,9 +106,9 @@ void World::prepareEngagements() {
     const double dt = options_.dt*options_.frameSkip;
     decoyTrajectories_.clear();
     for (auto& e : entries_) if (e && e->guidance && !e->weaponEnded) {
+        if(e->arrestedBurst)continue;
         const auto& s=pool_->states()[e->slot];
         const auto spec=e->guidance->spec();
-        const auto& seeker=e->seekerProvider->config();
         const bool heat=infrared(spec.seeker);
         ms::weapon::Input in;
         in.position=point(s.positionEcef); in.velocity=velocity(s); in.dtS=dt;
@@ -111,6 +116,18 @@ void World::prepareEngagements() {
         in.ageS=simTime_-e->info.launchTimeS;
         in.launchCue=heat?e->launchSeekerCue:0;
         in.up={std::cos(s.latitudeRad)*std::cos(s.longitudeRad),std::cos(s.latitudeRad)*std::sin(s.longitudeRad),std::sin(s.latitudeRad)};
+        if(!e->seekerProvider) {
+            // A formally uninstalled terminal seeker cannot enumerate candidate
+            // truth or refresh the authorized launch-time aimpoint.
+            const auto output=e->guidance->update(in);
+            e->origin.phase=output.phase;e->origin.holding=0;
+            e->origin.tracking=false;e->origin.supported=false;
+            e->origin.timeToGoS=output.timeToGoS;e->origin.timeToActiveS=output.timeToActiveS;
+            e->origin.burning=e->plantProviders.propulsion && e->plantProviders.propulsion->burning(totalWeaponThrust(s));
+            e->guidanceDemand[0]=output.acceleration.x;e->guidanceDemand[1]=output.acceleration.y;e->guidanceDemand[2]=output.acceleration.z;
+            continue;
+        }
+        const auto& seeker=e->seekerProvider->config();
         const auto* d=designation(e->origin.target);
         const Entry* launcher=entry(e->info.launcher);
         const ms::radar::Radar* illuminator=nullptr;
@@ -187,7 +204,7 @@ void World::prepareEngagements() {
             frame.position=in.position;frame.velocity=in.velocity;frame.up=in.up;frame.boresight=*in.boresight;
             frame.supported=in.supported;frame.illuminated=in.illuminated;
             frame.configuredIlluminator=illuminator&&launcher?launcher->info.id:0;
-            if(spec.seeker=="active_radar"&&spec.launcherUpdates&&in.estimate)frame.launcherEstimate=ms::components::LauncherEstimateV2{
+            if(spec.launcherUpdates&&in.estimate)frame.launcherEstimate=ms::components::LauncherEstimateV2{
                 in.estimate->position,in.estimate->velocity,simTime_};
             for(const auto& observation:in.visible) {
                 ms::components::SeekerSampleV2 sample;
@@ -217,7 +234,7 @@ void World::prepareEngagements() {
         e->origin.phase=output.phase; e->origin.holding=output.holding;
         e->origin.tracking=output.tracking; e->origin.supported=output.supported;
         e->origin.timeToGoS=output.timeToGoS; e->origin.timeToActiveS=output.timeToActiveS;
-        e->origin.burning=e->plantProviders.propulsion ? e->plantProviders.propulsion->burning(s.thrustN[0]) : s.thrustN[0]>.1;
+        e->origin.burning=e->plantProviders.propulsion ? e->plantProviders.propulsion->burning(totalWeaponThrust(s)) : totalWeaponThrust(s)>.1;
         e->guidanceDemand[0]=output.acceleration.x; e->guidanceDemand[1]=output.acceleration.y; e->guidanceDemand[2]=output.acceleration.z;
         if (output.active && !heat && spec.seeker!="semi_active_radar" &&
                 (old.phase==ms::WeaponPhase::Midcourse || old.phase==ms::WeaponPhase::Unguided)) recordEngagement("activation",*e);
@@ -326,6 +343,62 @@ std::optional<ms::weapon::MaterialPointSample> World::weaponPointAt(const Entry&
     return out;
 }
 
+bool World::groundWeaponContact(Entry& e,const sim::TerrainContactSnapshotV1& observed,double age,double offset) {
+    if(!e.terrainContactEnabled || !e.fuzeAdapter || !e.warheadAdapter || e.origin.jettisoned)return false;
+    const auto& spec=e.fuzeAdapter->spec();
+    const double dt=options_.dt*options_.frameSkip;
+    ms::weapon::ContactFuzeResult contact;
+    contact.valid=true;contact.contact=true;contact.triggered=ms::weapon::armed(age,spec) && age<spec.lifeS;
+    contact.offsetS=offset;contact.fraction=offset/dt;
+    // The signal is the observed native terrain strike, not a predicted hit.
+    if(!e.fuzeAdapter->commitContact(contact))return false;
+    const auto* cg=observed.cgFromOriginBodyM;
+    if(!std::all_of(cg,cg+3,[](double x){return std::isfinite(x);}) ||
+       (e.fixedBurstRequired && !e.burstFromOriginBodyM))return false;
+    auto point=ms::weapon::materialPoint(observed.state,{cg[0],cg[1],cg[2]},
+        e.burstFromOriginBodyM.value_or(ms::damage::V3{cg[0],cg[1],cg[2]}));
+    if(!point.valid)return false;
+    e.fuzeAdapter->cancelDelay();
+    if(spec.fuzeModelVersion==1 && spec.fuzeDelayS>0) {
+        const double due=age+spec.fuzeDelayS;
+        if(!std::isfinite(due) || due>=spec.lifeS)return false;
+        e.groundBurstAgeS=due;
+    } else {e.arrestedBurst=point;detonateArrestedWeapon(e,contact.fraction);}
+    return true;
+}
+
+void World::detonateArrestedWeapon(Entry& e,double fraction) {
+    if(!e.arrestedBurst || e.weaponEnded)return;
+    const auto point=*e.arrestedBurst;
+    Detonation det;det.store=e.origin.store;det.weapon=e.info.id;det.stepFraction=fraction;
+    for(int k=0;k<3;++k) {
+        det.positionEcef[k]=(&point.position.x)[k];
+        det.velocityEcef[k]=(&point.velocity.x)[k];
+        det.axisEcef[k]=(&point.axis.x)[k];
+    }
+    const auto damage=detonateAt(det,nullptr);
+    recordEngagement("detonation",e,0,"ground_contact");
+    auto& event=combatEvents_.back();
+    std::copy_n(det.positionEcef,3,event.positionEcef);
+    std::copy_n(det.velocityEcef,3,event.velocityEcef);
+    std::set<std::uint32_t> victims;
+    for(const auto& hit:damage)if(hit.kind!=static_cast<std::uint8_t>(ipc::EngagementKind::Detonation) && hit.slot<entries_.size()) {
+        const auto* victim=entries_[hit.slot].get();
+        if(victim && victims.insert(victim->info.id).second)recordEngagement("damage",e,victim->info.id,"warhead",victim->crewLost);
+    }
+    auto ended=pool_->states()[e.slot];
+    std::copy_n(det.positionEcef,3,ended.positionEcef);
+    ms::geom::toBody(ended,det.velocityEcef,ended.velocityBodyMs);
+    const auto location=terminal({point.position.x,point.position.y,point.position.z});
+    ended.latitudeRad=location.latitudeRad;ended.longitudeRad=location.longitudeRad;ended.altitudeMslM=location.heightM;
+    const double sl=std::sin(location.latitudeRad),cl=std::cos(location.latitudeRad);
+    const double so=std::sin(location.longitudeRad),co=std::cos(location.longitudeRad);
+    const auto* v=det.velocityEcef;
+    ended.velocityNedMs[0]=-sl*co*v[0]-sl*so*v[1]+cl*v[2];
+    ended.velocityNedMs[1]=-so*v[0]+co*v[1];ended.velocityNedMs[2]=-cl*co*v[0]-cl*so*v[1]-sl*v[2];
+    endWeapon(e,ms::WeaponEnd::Detonated,ended);
+}
+
 void World::finishEngagements() {
     // All offsets use observed native integration ordinals. A terminal pose
     // may have been corrected by the FDM and cannot define a moving segment.
@@ -359,16 +432,54 @@ void World::finishEngagements() {
     };
     std::vector<std::uint32_t> ended;
     std::vector<std::uint32_t> weapons;
-    for (const auto& e : entries_) if (e && (e->guidance || e->contactNoseFromOriginBodyM) && !e->weaponEnded) weapons.push_back(e->info.id);
+    for (const auto& e : entries_) if (e && (e->guidance || e->fuzeAdapter || e->contactNoseFromOriginBodyM) && !e->weaponEnded) weapons.push_back(e->info.id);
     for (const auto id : weapons) if (Entry* e=entry(id)) {
+        if(e->arrestedBurst) {
+            const double dt=options_.dt*options_.frameSkip;
+            const double before=e->fuzeAgeBoundaryS;e->fuzeAgeBoundaryS+=dt;
+            if(e->groundBurstAgeS && *e->groundBurstAgeS>=before && *e->groundBurstAgeS<=e->fuzeAgeBoundaryS)
+                detonateArrestedWeapon(*e,(*e->groundBurstAgeS-before)/dt);
+            else if(!e->groundBurstAgeS || *e->groundBurstAgeS<before || e->fuzeAgeBoundaryS>=e->fuzeAdapter->spec().lifeS)
+                endWeapon(*e,ms::WeaponEnd::Expired,pool_->states()[e->slot]);
+            if(e->weaponEnded)ended.push_back(e->info.id);
+            continue;
+        }
         auto spec=e->fuzeAdapter ? e->fuzeAdapter->spec() : e->guidance ? e->guidance->spec() : ms::weapon::Spec{};
-        if (!e->guidance) { spec.armingS=0; spec.lifeS=std::numeric_limits<double>::max(); }
+        if (!e->guidance && !e->fuzeAdapter) { spec.armingS=0; spec.lifeS=std::numeric_limits<double>::max(); }
         const double age=simTime_-e->info.launchTimeS;
         const auto s=pool_->states()[e->slot];
-        e->origin.burning=s.thrustN[0]>.1;
+        e->origin.burning=totalWeaponThrust(s)>.1;
         const double dt=options_.dt*options_.frameSkip;
         const double ageBefore=e->fuzeAgeBoundaryS;
         e->fuzeAgeBoundaryS=ageBefore+dt;
+        sim::TerrainContactSnapshotV1 groundContact;
+        std::optional<double> groundOffset;
+        if(e->terrainContactEnabled && e->fuzeAdapter && !e->fuzeAdapter->contactState().consumed()) {
+            if(const auto* source=dynamic_cast<const sim::TerrainContactSourceV1*>(&pool_->vehicle(e->slot))) {
+                if(source->terrainContactSnapshotV1(groundContact) && !e->engagementStates.empty()) {
+                    // Integer native outer/substep ordinals survive accumulated
+                    // floating-clock rounding at the final capture boundary.
+                    groundOffset=sim::terrainContactOffsetV1(groundContact,e->engagementStates.front().stepCount,
+                        static_cast<unsigned>(options_.frameSkip),options_.dt);
+                }
+            }
+        }
+        const auto pendingGround=[&] {
+          if(e->groundBurstAgeS && *e->groundBurstAgeS<=e->fuzeAgeBoundaryS) {
+            const double offset=*e->groundBurstAgeS-ageBefore;
+            auto point=offset>=0 ? weaponPointAt(*e,offset,e->burstFromOriginBodyM) : std::nullopt;
+            if(!point && s.crashed) {
+                double cg[3];
+                if(pool_->vehicle(e->slot).cgFromOriginBodyM(cg))point=ms::weapon::materialPoint(s,
+                    {cg[0],cg[1],cg[2]},e->burstFromOriginBodyM.value_or(ms::damage::V3{cg[0],cg[1],cg[2]}));
+            }
+            if(point && point->valid){e->arrestedBurst=*point;detonateArrestedWeapon(*e,std::clamp(offset/dt,0.0,1.0));}
+            else endWeapon(*e,ms::WeaponEnd::Expired,s);
+            ended.push_back(e->info.id);return true;
+          }
+          return e->groundBurstAgeS.has_value();
+        };
+        if(pendingGround())continue;
         const auto ownCutoff=capturedCutoff(*e);
         const double liveEnd=ownCutoff.first;
         bool burst=false;
@@ -438,7 +549,7 @@ void World::finishEngagements() {
             captureEngagementMotion_ && ms::weapon::validMotionPath(e->engagementPath) &&
             e->engagementPath.size()>=2 && e->engagementStates.size()==e->engagementPath.size() &&
             e->engagementCg.size()==e->engagementPath.size()) {
-            double contactEnd=liveEnd;
+            double contactEnd=groundOffset ? std::min(liveEnd,*groundOffset) : liveEnd;
             bool exclusive=ownCutoff.second;
             ms::weapon::ContactFuzeResult firstContact;
             std::uint32_t physicalVictim=0;
@@ -503,7 +614,7 @@ void World::finishEngagements() {
             // earlier proximity initiation retains its existing semantics;
             // exact initiation-time ties also preserve proximity priority.
             const bool committed=e->fuzeAdapter ? e->fuzeAdapter->commitContact(firstContact) : e->contactFuze.commit(firstContact);
-            const bool armedContact=committed && e->guidance && !e->origin.jettisoned;
+            const bool armedContact=committed && (e->guidance || e->fuzeAdapter) && !e->origin.jettisoned;
             if (firstContact.contact && (!burst || firstContact.fraction<=fraction)) {
                 mechanical=contactTransfer(*e,physicalVictim,firstContact);
                 if (armedContact && (!burst || firstContact.fraction<fraction)) {
@@ -516,6 +627,12 @@ void World::finishEngagements() {
                     cancelDelay();
                 }
             }
+        }
+        if(groundOffset && !e->fuzeAdapter->contactState().consumed() &&
+           (!burst || *groundOffset<fraction*dt)) {
+            groundWeaponContact(*e,groundContact,ageBefore+*groundOffset,*groundOffset);
+            if(e->weaponEnded){ended.push_back(e->info.id);continue;}
+            if(pendingGround())continue;
         }
         if (burst) {
             Detonation det;
@@ -562,7 +679,7 @@ void World::finishEngagements() {
         } else if (mechanical) {
             contactReaction(*e,*mechanical);
             contactDamage(*e,*mechanical);
-        } else if (e->guidance && !s.crashed && (age>=spec.lifeS || s.diverged)) {
+        } else if ((e->guidance || e->fuzeAdapter) && !s.crashed && (age>=spec.lifeS || s.diverged)) {
             recordEngagement("expiry",*e,0,s.diverged?"flight_diverged":"battery_expired");
             endWeapon(*e,ms::WeaponEnd::Expired,s); ended.push_back(e->info.id);
         }

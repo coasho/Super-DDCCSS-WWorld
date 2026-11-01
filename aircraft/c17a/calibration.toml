@@ -4,3 +4,12 @@
 [calibration]
 korn_kappa = 0.9300   # Korn's airfoil technology factor: where the wing's drag diverges
 # fitted: maximum Mach 0.874 at 28000 ft (target 0.875)
+
+[provenance]
+schema = "fsim.hangar-calibration.v1"
+method = "shared-aircraft-vlm"
+status = "existing-performance-fit"
+observed_source_sha256 = "83bbaece46033ba3699cd8d7e526e421bf166063bf16928b360c2ba46d6c87f5"
+target_keys = ["max_mach", "max_mach_altitude_ft", "operational_ceiling_ft"]
+scope = "Declared reference targets only; no six-axis equipment accuracy certification"
+historical_fit_note = "Retained performance overrides are not newly validated equipment data"

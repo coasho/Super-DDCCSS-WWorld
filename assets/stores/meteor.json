@@ -26,24 +26,26 @@
     "mass_kg": {
       "value": 190.0,
       "unit": "kg",
-      "uncertainty": 5.0,
+      "uncertainty": 1.0,
       "basis": "published",
-      "source": "wp-meteor",
-      "note": "the French article gives 185 kg"
+      "source": "mbda-meteor-identity",
+      "note": "MBDA specification: 190 kg"
     },
     "length_m": {
-      "value": 3.65,
+      "value": 3.7,
       "unit": "m",
-      "uncertainty": 0.01,
+      "uncertainty": 0.02,
       "basis": "published",
-      "source": "wp-meteor"
+      "source": "mbda-meteor-identity",
+      "note": "MBDA specification: 3.7 m"
     },
     "diameter_m": {
       "value": 0.178,
       "unit": "m",
-      "uncertainty": 0.002,
+      "uncertainty": 0.001,
       "basis": "published",
-      "source": "wp-meteor"
+      "source": "mbda-meteor-identity",
+      "note": "MBDA specification: 178 mm"
     },
     "warhead_kg": {
       "value": 12.0,
@@ -97,32 +99,12 @@
       "note": "no source names its explosive: as PBXN-110, a modern HMX-based fill - an estimate"
     },
     "drag_area_m2": {
-      "value": 0.00591,
-      "unit": "m^2",
-      "uncertainty": 0.00177,
+      "value": 0.005028325120068794,
+      "unit": "m2",
+      "source": "hangar-vlm",
       "basis": "assumed",
-      "note": "the isolated store's CD S below Mach 0.8 at a Reynolds number of 1e7 per metre, built up from its design (hangar storedrag.py: Hoerner's body of revolution 0.00383, its base 0.00118, its fins' friction 0.00090 m^2): an estimate by one method for every store"
-    },
-    "munk_volume_m3": {
-      "value": 0.08329,
-      "unit": "m^3",
-      "uncertainty": 0.02499,
-      "basis": "assumed",
-      "note": "its body's unstable moment across a flow, q x this x sin(2 x angle) (Munk, NACA Report 184): its volume 0.0845 m^3 from its design, times Lamb's k2 - k1 = 0.986 for its fineness 20.5 (hangar storedrag.py): an estimate by one method for every store"
-    },
-    "side_slope_m2": {
-      "value": 0.18987,
-      "unit": "m^2",
-      "uncertainty": 0.05696,
-      "basis": "assumed",
-      "note": "its fins' and base's force across it per radian of crossflow, over the dynamic pressure (hangar storedrag.py: one fin pair's Helmbold slope carried onto the body, slender-body theory's base): an estimate by one method for every store"
-    },
-    "side_arm_m": {
-      "value": 1.5889,
-      "unit": "m",
-      "uncertainty": 0.365,
-      "basis": "assumed",
-      "note": "where that force acts, behind the store's CG (hangar storedrag.py: its fins' quarter chords, its base)"
+      "uncertainty": 0.005028325120068794,
+      "note": "Engineering estimate A_D = CD_simulated*S_geometry at neutral Mach .3. Inputs, dated model-specific searches and method limits are in hangar-vlm.simulation and the evidence catalog. Assumed one-sigma screening uncertainty is |A_D| in m2; its coverage probability is not established. Equipment drag error remains unknown; the table evidence basis is simulated."
     },
     "plant_actuator_lag_s": {
       "value": 0.04,
@@ -592,6 +574,134 @@
       "uncertainty": 0,
       "basis": "assumed",
       "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "airframe_aerodynamics_version": {
+      "value": 1,
+      "unit": "1",
+      "source": "hangar-vlm",
+      "basis": "derived",
+      "uncertainty": 0,
+      "note": "Versioned shared-table runtime binding; zero uncertainty is not an accuracy claim."
+    },
+    "ducted_capture_area_m2": {
+      "value": 0.0119,
+      "unit": "m^2",
+      "basis": "assumed",
+      "uncertainty": 0.00595,
+      "source": "nasa-ramjet-cycle-engineering",
+      "note": "Explicit engineering cycle/control assumption; 50 percent screening uncertainty is unvalidated and does not establish statistical coverage. Not fitted to an encounter, card maximum speed or measured hardware."
+    },
+    "ducted_fuel_flow_max_kg_s": {
+      "value": 0.3,
+      "unit": "kg/s",
+      "basis": "assumed",
+      "uncertainty": 0.15,
+      "source": "nasa-ramjet-cycle-engineering",
+      "note": "Explicit engineering cycle/control assumption; 50 percent screening uncertainty is unvalidated and does not establish statistical coverage. Not fitted to an encounter, card maximum speed or measured hardware."
+    },
+    "ducted_heating_value_j_kg": {
+      "value": 40000000.0,
+      "unit": "J/kg",
+      "basis": "assumed",
+      "uncertainty": 20000000.0,
+      "source": "nasa-ramjet-cycle-engineering",
+      "note": "Explicit engineering cycle/control assumption; 50 percent screening uncertainty is unvalidated and does not establish statistical coverage. Not fitted to an encounter, card maximum speed or measured hardware."
+    },
+    "ducted_combustion_efficiency": {
+      "value": 0.9,
+      "unit": "1",
+      "basis": "assumed",
+      "uncertainty": 0.45,
+      "source": "nasa-ramjet-cycle-engineering",
+      "note": "Explicit engineering cycle/control assumption; 50 percent screening uncertainty is unvalidated and does not establish statistical coverage. Not fitted to an encounter, card maximum speed or measured hardware."
+    },
+    "ducted_pressure_recovery": {
+      "value": 0.85,
+      "unit": "1",
+      "basis": "assumed",
+      "uncertainty": 0.425,
+      "source": "nasa-ramjet-cycle-engineering",
+      "note": "Explicit engineering cycle/control assumption; 50 percent screening uncertainty is unvalidated and does not establish statistical coverage. Not fitted to an encounter, card maximum speed or measured hardware."
+    },
+    "ducted_air_cp_j_kg_k": {
+      "value": 1004.5,
+      "unit": "J/(kg*K)",
+      "basis": "assumed",
+      "uncertainty": 502.25,
+      "source": "nasa-ramjet-cycle-engineering",
+      "note": "Explicit engineering cycle/control assumption; 50 percent screening uncertainty is unvalidated and does not establish statistical coverage. Not fitted to an encounter, card maximum speed or measured hardware."
+    },
+    "ducted_gas_cp_j_kg_k": {
+      "value": 1150.0,
+      "unit": "J/(kg*K)",
+      "basis": "assumed",
+      "uncertainty": 575.0,
+      "source": "nasa-ramjet-cycle-engineering",
+      "note": "Explicit engineering cycle/control assumption; 50 percent screening uncertainty is unvalidated and does not establish statistical coverage. Not fitted to an encounter, card maximum speed or measured hardware."
+    },
+    "ducted_gas_gamma": {
+      "value": 1.33,
+      "unit": "1",
+      "basis": "assumed",
+      "uncertainty": 0.665,
+      "source": "nasa-ramjet-cycle-engineering",
+      "note": "Explicit engineering cycle/control assumption; 50 percent screening uncertainty is unvalidated and does not establish statistical coverage. Not fitted to an encounter, card maximum speed or measured hardware."
+    },
+    "ducted_fuel_air_ratio_max": {
+      "value": 0.08,
+      "unit": "1",
+      "basis": "assumed",
+      "uncertainty": 0.04,
+      "source": "nasa-ramjet-cycle-engineering",
+      "note": "Explicit engineering cycle/control assumption; 50 percent screening uncertainty is unvalidated and does not establish statistical coverage. Not fitted to an encounter, card maximum speed or measured hardware."
+    },
+    "ducted_lightoff_mach": {
+      "value": 1.5,
+      "unit": "Mach",
+      "basis": "assumed",
+      "uncertainty": 0.75,
+      "source": "nasa-ramjet-cycle-engineering",
+      "note": "Explicit engineering cycle/control assumption; 50 percent screening uncertainty is unvalidated and does not establish statistical coverage. Not fitted to an encounter, card maximum speed or measured hardware."
+    },
+    "ducted_target_mach": {
+      "value": 3.5,
+      "unit": "Mach",
+      "basis": "assumed",
+      "uncertainty": 1.75,
+      "source": "nasa-ramjet-cycle-engineering",
+      "note": "Explicit engineering cycle/control assumption; 50 percent screening uncertainty is unvalidated and does not establish statistical coverage. Not fitted to an encounter, card maximum speed or measured hardware."
+    },
+    "ducted_valve_minimum": {
+      "value": 0.15,
+      "unit": "1",
+      "basis": "assumed",
+      "uncertainty": 0.075,
+      "source": "nasa-ramjet-cycle-engineering",
+      "note": "Explicit engineering cycle/control assumption; 50 percent screening uncertainty is unvalidated and does not establish statistical coverage. Not fitted to an encounter, card maximum speed or measured hardware."
+    },
+    "ducted_speed_gain": {
+      "value": 0.5,
+      "unit": "1",
+      "basis": "assumed",
+      "uncertainty": 0.25,
+      "source": "nasa-ramjet-cycle-engineering",
+      "note": "Explicit engineering cycle/control assumption; 50 percent screening uncertainty is unvalidated and does not establish statistical coverage. Not fitted to an encounter, card maximum speed or measured hardware."
+    },
+    "ducted_valve_lag_s": {
+      "value": 0.1,
+      "unit": "s",
+      "basis": "assumed",
+      "uncertainty": 0.05,
+      "source": "nasa-ramjet-cycle-engineering",
+      "note": "Explicit engineering cycle/control assumption; 50 percent screening uncertainty is unvalidated and does not establish statistical coverage. Not fitted to an encounter, card maximum speed or measured hardware."
+    },
+    "ducted_valve_rate_s_1": {
+      "value": 10.0,
+      "unit": "1/s",
+      "basis": "assumed",
+      "uncertainty": 5.0,
+      "source": "nasa-ramjet-cycle-engineering",
+      "note": "Explicit engineering cycle/control assumption; 50 percent screening uncertainty is unvalidated and does not establish statistical coverage. Not fitted to an encounter, card maximum speed or measured hardware."
     }
   },
   "sources": {
@@ -602,7 +712,7 @@
       "url": "https://www.mbda-systems.com/products/air-dominance/meteor",
       "date": "",
       "accessed": "2026-10-17",
-      "note": "Identity reference only; no model parameter is calibrated from this page."
+      "note": "Manufacturer specification page; supplies mass, length and diameter only."
     },
     "wp-meteor": {
       "evidence_kind": "secondary_reference",
@@ -617,6 +727,130 @@
       "publisher": "Wikipedia, fr (revision 239384836)",
       "url": "https://fr.wikipedia.org/w/index.php?title=Meteor_%28missile%29&oldid=239384836",
       "date": "2026-09-10"
+    },
+    "hangar-vlm": {
+      "title": "Shared Hangar aircraft VLM tables",
+      "url": "aero/vlm-carriage-0b3b1fd2c3d4f397a48e3c637e82f5f61875b0137cb729449b8ef53ce772505d.json",
+      "evidence_kind": "game_reference",
+      "note": "Same base, rate and Mach data as the released JSBSim model; no equipment calibration claim.",
+      "simulation": {
+        "basis": "simulated",
+        "tool": "Hangar shared aircraft VLM",
+        "version": "0.1.0",
+        "design_sha256": "f4787eb8461933b8038bc49aa169128b3b3ae97c1b91a210a1bf63f5eaf5d0f6",
+        "card_inputs": {
+          "length_m": 3.7,
+          "diameter_m": 0.178,
+          "mass_kg": 190.0
+        },
+        "table_inputs_hash": "8dd31b994cdfc461",
+        "table_sha256": "0b3b1fd2c3d4f397a48e3c637e82f5f61875b0137cb729449b8ef53ce772505d",
+        "input_geometry": "aircraft/meteor/meteor.toml",
+        "domain": {
+          "mach": [
+            0.0,
+            5.0
+          ],
+          "alpha_deg": [
+            -180.0,
+            180.0
+          ],
+          "beta_deg": [
+            -90.0,
+            90.0
+          ]
+        },
+        "method_sources": [
+          "Katz and Plotkin, Low-Speed Aerodynamics, vortex lattice",
+          "Shared aero/model.py, tables.py and mach.py; engineering extensions are not equipment measurements"
+        ],
+        "solver_sha256": "1fe905d01b307fc9398dda9ddd1b78ab2960d66c80ffd7346a2baf5e255f78bf",
+        "generic_validation": {
+          "schema": "fsim.generic-vlm-validation.v1",
+          "basis": "simulated",
+          "tool": "Hangar shared aircraft VLM",
+          "version": "0.1.0",
+          "source_url": "https://www.mas.bg.ac.rs/_media/istrazivanje/fme/vol48/4/5_d_damljanovic_et_al.pdf",
+          "source_locator": "Figure 1 p.762; Tables 2--10 pp.766--768",
+          "native_library": {
+            "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-release\\python\\fsim\\bin\\libfsim.dll",
+            "sha256": "10a8a36fc36b7ad7d23a6e4eede348ca18946bba913d66e93912fabec831d533"
+          },
+          "fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+          "metrics": {
+            "CZ": {
+              "count": 9,
+              "nrmse_percent": 13.89268657599672,
+              "max_absolute_error": 0.13199607890094234
+            },
+            "Cm": {
+              "count": 9,
+              "nrmse_percent": 82.05273561633099,
+              "max_absolute_error": 0.06616153821858019
+            }
+          },
+          "assessed_domain": {
+            "mach": [
+              0.77,
+              1.0,
+              1.17
+            ],
+            "alpha_deg": [
+              2.0,
+              6.0,
+              10.0
+            ],
+            "beta_deg": [
+              0.0
+            ]
+          },
+          "equipment_accuracy_claim": false,
+          "parameters_fitted": false,
+          "limitations": [
+            "Generic AGARD-B geometry, not any of the 88 authored equipment models.",
+            "The publication pools facilities/model sizes and includes M0.8/M1.2 runs with the M0.77/M1.17 groups; no common Reynolds condition is supplied.",
+            "Body-normal force is derived as CN=CLf*cos(alpha)+CDf*sin(alpha), cancelling axial base-pressure force; reported CZ=-CN.",
+            "The 4% biconvex wing uses the existing shared section; its tiny specified leading-edge radius is not separately resolved.",
+            "Density/Reynolds and sting/wall interference differences remain. Residuals are not an equipment confidence interval.",
+            "No beta, dynamic derivative, powered flow or extreme-angle qualification follows from these conditions."
+          ],
+          "source_pdf_sha256": "e2a1c05987115e665dd8a06a6250b7dbcbe0511df7b99227a293a77cadf5e0d5",
+          "observations_and_geometry": "docs/data/hangar-generic-validation.json"
+        },
+        "uncertainty": {
+          "basis": "simulated",
+          "tool": "Hangar shared aircraft VLM",
+          "version": "0.1.0",
+          "geometry_source": "aircraft/meteor/meteor.toml",
+          "geometry_sha256": "5b618c71b03b2d3838f4e0f17cbc6d8d8f29a1083ad5c56c8a9beb74f46d6d11",
+          "analysis_inputs": {
+            "max_mach": 5.0,
+            "speed": 900.0
+          },
+          "method": "Coupled vortex-lattice/body/section/rate solution, common Mach extensions and common JSBSim tables; retained overrides are listed separately.",
+          "table_domain": "Actual Mach/alpha/beta bounds are read from the generated product in hangar-vlm.simulation; no narrowing of the authored envelope.",
+          "assumed_relative_half_width": 1.64105471232662,
+          "uncertainty_basis": "assumed engineering screening range, not measured equipment error or a probabilistic confidence interval",
+          "uncertainty_formula": "Inside the generic comparison conditions: max(1,2*generic_NRMSE/100); outside them no finite equipment-error bound is established.",
+          "boundaries": "Generic validation cannot identify equipment-specific separated flow, powered flow, Reynolds effects or extreme-angle errors; those remain unknown.",
+          "coverage_probability": null,
+          "uncertainty_components": {
+            "CZ_assumed_relative_half_width": 1.0,
+            "Cm_assumed_relative_half_width": 1.64105471232662
+          },
+          "uncertainty_application": "Assumed screening envelope only, not a measured model error or statistical bound. Applies to generic CZ/Cm comparison conditions; no finite equipment-error bound outside those conditions and no calibrated CD/CY/Cl/Cn uncertainty.",
+          "input_assumptions": "Author-declared geometry and shared section/body correlations. Surface sections, sweep, twist, controls, body stations, mass/CG, analysis speed and all retained overrides are readable in aircraft/meteor/meteor.toml. Product extrema are generation coverage, not a validated physical domain.",
+          "generic_validation_ref": "generic_validation and docs/data/hangar-generic-validation.json"
+        }
+      }
+    },
+    "nasa-ramjet-cycle-engineering": {
+      "title": "Ramjet thrust and atmosphere-fed thermodynamic cycle",
+      "publisher": "NASA Glenn",
+      "url": "https://www.grc.nasa.gov/www/BGH/ramth.html",
+      "accessed": "2026-10-30",
+      "evidence_kind": "government_publication",
+      "note": "Reference for conservation equations only. No numeric input below is a measured Meteor cycle map; capture area is twice the existing authored 0.085 by 0.070 m intake estimate. Fuel reservoir and booster retain the original authored mass ledger."
     }
   },
   "component_models": {
@@ -624,7 +858,7 @@
     "components": {
       "seeker": {
         "availability": "available",
-        "implementation_id": "fsim.seeker.encounter.v1",
+        "implementation_id": "fsim.seeker.active_radar.v2",
         "configuration_version": 1,
         "parameter_refs": {
           "acquire_m": "component_seeker_acquire_m",
@@ -658,15 +892,19 @@
           "emitter_half_width_rad": "component_seeker_emitter_half_width_rad"
         },
         "bindings": {
-          "mode": "active_radar"
+          "mode": "active_radar",
+          "variant": "Meteor",
+          "measurement_model": "ideal_geometric",
+          "servo_model": "unavailable",
+          "image_model": "not_applicable"
         },
         "basis": "assumed",
-        "note": "Existing simulator implementation; no equipment calibration.",
-        "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
+        "note": "Independent native measured-seeker lifecycle. Existing authored numeric inputs are retained. Terminal IR/SARH use bearing histories; IIR may associate geometric extents. Referee target identity/velocity is not a terminal tracking input.",
+        "validity": "Engineering sensor family, not a calibrated detector, reticle, AESA receiver, gimbal servo, radiometric image or countermeasure processor. Exact variant identifies this card and supplies no hardware calibration."
       },
       "guidance": {
         "availability": "available",
-        "implementation_id": "fsim.guidance.velocity_normal_pn.v1",
+        "implementation_id": "fsim.guidance.measured_pn.v2",
         "configuration_version": 1,
         "parameter_refs": {
           "navigation_gain": "component_guidance_navigation_gain",
@@ -679,10 +917,12 @@
           "inertial_midcourse": "component_guidance_inertial_midcourse",
           "launcher_updates": "component_guidance_launcher_updates"
         },
-        "bindings": {},
+        "bindings": {
+          "measurement_family": "radar"
+        },
         "basis": "assumed",
-        "note": "Existing simulator implementation; no equipment calibration.",
-        "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
+        "note": "PN from admitted measurement history. Existing navigation gain, acceleration limit, lifetime and capability declarations are unchanged. Permitted launch/launcher estimates are kept separately for inertial midcourse; current launcher updates remain an idealized designation path.",
+        "validity": "Uncalibrated engineering guidance. No hidden target range or velocity in terminal bearing guidance; no claim of GPS, fitted weapon link, hardware covariance, full-envelope or equipment performance."
       },
       "autopilot": {
         "availability": "available",
@@ -776,7 +1016,7 @@
       },
       "propulsion": {
         "availability": "available",
-        "implementation_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+        "implementation_id": "fsim.propulsion.jsbsim_ducted_rocket.v1",
         "configuration_version": 1,
         "parameter_refs": {
           "isp_s": "plant_motor_isp_s",
@@ -796,7 +1036,22 @@
           "phase_0_duration_s": "plant_motor_phase_0_duration_s",
           "phase_0_thrust_kn": "plant_motor_phase_0_thrust_kn",
           "phase_1_duration_s": "plant_motor_phase_1_duration_s",
-          "phase_1_thrust_kn": "plant_motor_phase_1_thrust_kn"
+          "phase_1_thrust_kn": "plant_motor_phase_1_thrust_kn",
+          "capture_area_m2": "ducted_capture_area_m2",
+          "fuel_flow_max_kg_s": "ducted_fuel_flow_max_kg_s",
+          "heating_value_j_kg": "ducted_heating_value_j_kg",
+          "combustion_efficiency": "ducted_combustion_efficiency",
+          "pressure_recovery": "ducted_pressure_recovery",
+          "air_cp_j_kg_k": "ducted_air_cp_j_kg_k",
+          "gas_cp_j_kg_k": "ducted_gas_cp_j_kg_k",
+          "gas_gamma": "ducted_gas_gamma",
+          "fuel_air_ratio_max": "ducted_fuel_air_ratio_max",
+          "lightoff_mach": "ducted_lightoff_mach",
+          "target_mach": "ducted_target_mach",
+          "valve_minimum": "ducted_valve_minimum",
+          "speed_gain": "ducted_speed_gain",
+          "valve_lag_s": "ducted_valve_lag_s",
+          "valve_rate_s_1": "ducted_valve_rate_s_1"
         },
         "bindings": {
           "model": "jsbsim:meteor",
@@ -806,8 +1061,9 @@
           "smoke": "reduced"
         },
         "basis": "assumed",
-        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
-        "validity": "Reduced-order engineering model; hardware performance unvalidated."
+        "note": "Independent native solid booster and throttleable atmosphere-fed sustainer. JSBSim owns finite fuel-valve response, two contiguous original-grain mass ledgers, thermodynamic net thrust and fuel consumption. No external guidance force or equipment fit.",
+        "validity": "Uncalibrated ideal-gas engineering cycle with pressure/combustion losses and a fully expanded equivalent nozzle; no measured Meteor gas-generator, inlet, combustor, nozzle or speed-management map. Original booster and launch mass/CG/inertia retained.",
+        "source": "nasa-ramjet-cycle-engineering"
       },
       "aerodynamics": {
         "availability": "available",
@@ -817,11 +1073,11 @@
         "bindings": {
           "model": "jsbsim:meteor",
           "design": "aircraft/meteor/meteor.toml",
-          "source": "component_build_up"
+          "source": "vlm"
         },
         "basis": "assumed",
-        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
-        "validity": "Reduced-order engineering model; hardware performance unvalidated."
+        "note": "Shared aircraft VLM model and tables; no independent store force model.",
+        "validity": "Source geometry and model correlations; equipment accuracy requires independent validation."
       }
     }
   }

@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- Written by hangar (tools/hangar/hangar/pieces.py) from su27s's damage data: its nose flying on its own once it parts
+<!-- Written by hangar (tools/models/hangar/hangar/pieces.py) from su27s's damage data: its nose flying on its own once it parts
      (MS-7g). Its aerodynamics a tumbling piece's - estimates, said so there. Do not edit: hangar's model stage of su27s writes it. -->
 <fdm_config name="su27s-nose" version="2.0" release="ALPHA">
     <fileheader>
@@ -14,9 +14,9 @@
         <htailarm unit="FT"> 0 </htailarm>
         <vtailarea unit="FT2"> 0 </vtailarea>
         <vtailarm unit="FT"> 0 </vtailarm>
-        <location name="AERORP" unit="IN"> <x> 199.178 </x> <y> -0.001 </y> <z> -31.902 </z> </location>
-        <location name="EYEPOINT" unit="IN"> <x> 199.178 </x> <y> -0.001 </y> <z> -31.902 </z> </location>
-        <location name="VRP" unit="IN"> <x> 199.178 </x> <y> -0.001 </y> <z> -31.902 </z> </location>
+        <location name="AERORP" unit="IN"> <x> 199.178 </x> <y> -0.000 </y> <z> -31.902 </z> </location>
+        <location name="EYEPOINT" unit="IN"> <x> 199.178 </x> <y> -0.000 </y> <z> -31.902 </z> </location>
+        <location name="VRP" unit="IN"> <x> 199.178 </x> <y> -0.000 </y> <z> -31.902 </z> </location>
     </metrics>
     <mass_balance negated_crossproduct_inertia="false">
         <ixx unit="SLUG*FT2"> 1090.7064416870664 </ixx>
@@ -26,10 +26,10 @@
         <ixz unit="SLUG*FT2"> 395.4632778389385 </ixz>
         <iyz unit="SLUG*FT2"> 0.092482917897876341 </iyz>
         <emptywt unit="LBS"> 7204.1429180124869 </emptywt>
-        <location name="CG" unit="IN"> <x> 199.17834645669291 </x> <y> -0.0007874015748031497 </y> <z> -31.901968503937013 </z> </location>
+        <location name="CG" unit="IN"> <x> 199.17834645669291 </x> <y> -0.00039370078740157485 </y> <z> -31.901968503937013 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 199.17834645669291 </x> <y> -0.0007874015748031497 </y> <z> -31.901968503937013 </z> </location>
+            <location unit="IN"> <x> 199.17834645669291 </x> <y> -0.00039370078740157485 </y> <z> -31.901968503937013 </z> </location>
         </pointmass>
 <!-- no store station -->
     </mass_balance>

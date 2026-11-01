@@ -1,0 +1,983 @@
+{
+  "schema": "fsim.aam-geometry-table-binding.v1",
+  "models": [
+    {
+      "model": "aim120c",
+      "card": "aim-120c",
+      "calibration_status": "historical",
+      "card_sha256": "00e584b94e571d73a8ae3bdbfc51e88a30b124dda6fb551a515ffb2a247d4226",
+      "geometry_sha256": "beef86158daa68ddfe9495fe6e4c267d3cc237df3e732703a8d4ac837071a814",
+      "card_geometry_inputs": {
+        "length_m": 3.66,
+        "diameter_m": 0.1778,
+        "span_m": 0.483,
+        "mass_kg": 161.5
+      },
+      "table_inputs_key": "e383a0f3cdf367d1",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "A.2: four AIM-120 in fuselage wells; variant unspecified; Nominal carriage configuration fit; Mach0.8 and DI=10000*CD convention are declared comparison assumptions because RAND does not specify those conditions. Not six-axis equipment validation. Retained only as historical override. Formula used historically: total drag area = wing_area_m2*drag_index/10000; per-store correction subtracts authored hardware and baseline table drag. The DI convention, reference Mach0.8 and hardware split are assumed, not published test conditions. No independent holdout exists.",
+      "source_geometry": {
+        "length_m": 3.66,
+        "diameter_m": 0.1778,
+        "mass_kg": 161.5,
+        "span_m": 0.4830953529066493
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "e383a0f3cdf367d1",
+      "table_path": "aircraft/stores/aim120c/aero/vlm-carriage-cfc3970add98d912c056c8f2e0b8c7cfbd1a06d658f951aa4d9f5f659c79be2e.json",
+      "published_table_sha256": "cfc3970add98d912c056c8f2e0b8c7cfbd1a06d658f951aa4d9f5f659c79be2e",
+      "current_table_sha256": "cfc3970add98d912c056c8f2e0b8c7cfbd1a06d658f951aa4d9f5f659c79be2e",
+      "card_reference_geometry_sha256": "beef86158daa68ddfe9495fe6e4c267d3cc237df3e732703a8d4ac837071a814",
+      "card_reference_table_sha256": "cfc3970add98d912c056c8f2e0b8c7cfbd1a06d658f951aa4d9f5f659c79be2e",
+      "xml_sha256": "8666b2e6995ae263a2efd03871524495656f4ae43faa6b1d5c0b6290e93cfd62",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "No public specific AIM-120C7 force/coefficient series retrieved, with configuration and Mach/alpha/beta/Re and independent measured holdouts. Existing RAND override remains historical.",
+        "source_review_pointer": "model_audits.aim120c.source_reviews",
+        "search_record_pointer": "model_audits.aim120c.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy",
+        "historical_override_scope": "RAND configuration override remains historical; it cannot satisfy this blocked exact-model aerodynamic gate."
+      }
+    },
+    {
+      "model": "aim120d",
+      "card": "aim-120d",
+      "calibration_status": "blocked",
+      "card_sha256": "98ecc7d5965eac052f0d3b3fd5db1806af11e2155bc474830029b3c9cd779f06",
+      "geometry_sha256": "bd43b120bce57169d6f66efff9c3a7e6b7709bbc551c35190aa710c706110634",
+      "card_geometry_inputs": {
+        "length_m": 3.66,
+        "diameter_m": 0.1778,
+        "span_m": 0.483,
+        "mass_kg": 161.5
+      },
+      "table_inputs_key": "e383a0f3cdf367d1",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "The FY2024 DOT&E AMRAAM report and AFTC D-3 firing announcement describe operational testing. Numeric model-specific six-axis polars are not released in these records; D-3 software/propulsion test success cannot validate the authored AIM-120D exterior coefficients.",
+      "source_geometry": {
+        "length_m": 3.66,
+        "diameter_m": 0.1778,
+        "mass_kg": 161.5,
+        "span_m": 0.4830953529066493
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "e383a0f3cdf367d1",
+      "table_path": "aircraft/stores/aim120d/aero/vlm-carriage-837bb950f7ec383b0d3e7d11256abaefe8b6d7fb0763170f2d369fd329cbec99.json",
+      "published_table_sha256": "837bb950f7ec383b0d3e7d11256abaefe8b6d7fb0763170f2d369fd329cbec99",
+      "current_table_sha256": "837bb950f7ec383b0d3e7d11256abaefe8b6d7fb0763170f2d369fd329cbec99",
+      "card_reference_geometry_sha256": "bd43b120bce57169d6f66efff9c3a7e6b7709bbc551c35190aa710c706110634",
+      "card_reference_table_sha256": "837bb950f7ec383b0d3e7d11256abaefe8b6d7fb0763170f2d369fd329cbec99",
+      "xml_sha256": "f7230fbec2b16e664725e39ef9aafe0ecf93f5feaa6232d3f9b1ca0cf2d8c26c",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "The FY2024 DOT&E AMRAAM report and AFTC D-3 firing announcement describe operational testing. Numeric model-specific six-axis polars are not released in these records; D-3 software/propulsion test success cannot validate the authored AIM-120D exterior coefficients.",
+        "source_review_pointer": "model_audits.aim120d.source_reviews",
+        "search_record_pointer": "model_audits.aim120d.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "aim7m",
+      "card": "aim-7m",
+      "calibration_status": "blocked",
+      "card_sha256": "5339876d4856ed2adb65dd5303db1949d6a9e6c18e392197703592fedcbba176",
+      "geometry_sha256": "a29c8edf485245264a78830453abc88f901f8d23cc3bb308a2acacb91aa58ffe",
+      "card_geometry_inputs": {
+        "length_m": 3.64,
+        "diameter_m": 0.203,
+        "span_m": 1.0,
+        "mass_kg": 225.0
+      },
+      "table_inputs_key": "8a028e128d15dca3",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "Fournier DREV TM-1999-050 (July 1999) is an identified AIM-7M wind-tunnel report. Only its citation in the grid-fin-projectile paper has been retrieved, not its coefficient tables or conditions. It remains an unresolved primary-data lead, not evidence that no such experiment exists. AIM-7C trajectories and game data are rejected.",
+      "source_geometry": {
+        "length_m": 3.64,
+        "diameter_m": 0.203,
+        "mass_kg": 225,
+        "span_m": 1.000131831310253
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "8a028e128d15dca3",
+      "table_path": "aircraft/stores/aim7m/aero/vlm-carriage-ec8655f7b5b5e3512950ffa66a9f8266b7edb4567f876bb9280b124343d133ed.json",
+      "published_table_sha256": "ec8655f7b5b5e3512950ffa66a9f8266b7edb4567f876bb9280b124343d133ed",
+      "current_table_sha256": "ec8655f7b5b5e3512950ffa66a9f8266b7edb4567f876bb9280b124343d133ed",
+      "card_reference_geometry_sha256": "a29c8edf485245264a78830453abc88f901f8d23cc3bb308a2acacb91aa58ffe",
+      "card_reference_table_sha256": "ec8655f7b5b5e3512950ffa66a9f8266b7edb4567f876bb9280b124343d133ed",
+      "xml_sha256": "786e5ec0da140285fe6f2a830fa80941424ac0b29360c18b2fa9dd3ee8294599",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "Fournier DREV TM-1999-050 (July 1999) is an identified AIM-7M wind-tunnel report. Only its citation in the grid-fin-projectile paper has been retrieved, not its coefficient tables or conditions. It remains an unresolved primary-data lead, not evidence that no such experiment exists. AIM-7C trajectories and game data are rejected.",
+        "source_review_pointer": "model_audits.aim7m.source_reviews",
+        "search_record_pointer": "model_audits.aim7m.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "aim9m",
+      "card": "aim-9m",
+      "calibration_status": "blocked",
+      "card_sha256": "3bef227eb49bc89e2f5a0105f2de9421f910045797932e17dc9729522d68624c",
+      "geometry_sha256": "f07a37b8019bf4ac8143adb3dc8c0f324ec26f6364efa3410086af479e529023",
+      "card_geometry_inputs": {
+        "length_m": 2.87,
+        "diameter_m": 0.127,
+        "span_m": 0.63,
+        "mass_kg": 85.5
+      },
+      "table_inputs_key": "cbc48ab4c2aead1b",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "DOI 10.3849/aimt.01373 explicitly reports CFD and RASAERO comparisons and states that wind-tunnel verification was not available. NAVAIR identifies AIM-9M but does not publish a force/moment polar. Neither simulated agreement nor older Sidewinder variants establishes measured AIM-9M error.",
+      "source_geometry": {
+        "length_m": 2.87,
+        "diameter_m": 0.127,
+        "mass_kg": 85.5,
+        "span_m": 0.6298907206809766
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "cbc48ab4c2aead1b",
+      "table_path": "aircraft/stores/aim9m/aero/vlm-carriage-8d560019f048ef4417b41bd240cbb050300c20382ee1a0fa174bf8c356490468.json",
+      "published_table_sha256": "8d560019f048ef4417b41bd240cbb050300c20382ee1a0fa174bf8c356490468",
+      "current_table_sha256": "8d560019f048ef4417b41bd240cbb050300c20382ee1a0fa174bf8c356490468",
+      "card_reference_geometry_sha256": "f07a37b8019bf4ac8143adb3dc8c0f324ec26f6364efa3410086af479e529023",
+      "card_reference_table_sha256": "8d560019f048ef4417b41bd240cbb050300c20382ee1a0fa174bf8c356490468",
+      "xml_sha256": "a092e56392dc2890a82cabb78a8cf940d4bd95193413cc1cf447cd263ea5a690",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "DOI 10.3849/aimt.01373 explicitly reports CFD and RASAERO comparisons and states that wind-tunnel verification was not available. NAVAIR identifies AIM-9M but does not publish a force/moment polar. Neither simulated agreement nor older Sidewinder variants establishes measured AIM-9M error.",
+        "source_review_pointer": "model_audits.aim9m.source_reviews",
+        "search_record_pointer": "model_audits.aim9m.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "aim9x",
+      "card": "aim-9x",
+      "calibration_status": "blocked",
+      "card_sha256": "fdfc14a0def3be18fa1df6ddb42dfebd45b77535a141929186f3b271d177bdea",
+      "geometry_sha256": "8cb578f46f93919a55c19de3cb41ff71087e415be0aca354845ef70bbe9d21a3",
+      "card_geometry_inputs": {
+        "length_m": 3.018,
+        "diameter_m": 0.127,
+        "span_m": 0.45,
+        "mass_kg": 84.0
+      },
+      "table_inputs_key": "47637b33bac0609a",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "The authored missile is Block I. Located DOT&E and Federal Register records concern Block II/II+ operational capabilities and releases. These neither match the authored block nor provide measured aerodynamic coefficient rows; off-boresight capability is a combined seeker/control result.",
+      "source_geometry": {
+        "length_m": 3.018,
+        "diameter_m": 0.127,
+        "mass_kg": 84,
+        "span_m": 0.4500027555471188
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "47637b33bac0609a",
+      "table_path": "aircraft/stores/aim9x/aero/vlm-carriage-15444197620c94c14c6b1c256eb510120cfd9a707fe31d71c5a8f73b41e26bf1.json",
+      "published_table_sha256": "15444197620c94c14c6b1c256eb510120cfd9a707fe31d71c5a8f73b41e26bf1",
+      "current_table_sha256": "15444197620c94c14c6b1c256eb510120cfd9a707fe31d71c5a8f73b41e26bf1",
+      "card_reference_geometry_sha256": "8cb578f46f93919a55c19de3cb41ff71087e415be0aca354845ef70bbe9d21a3",
+      "card_reference_table_sha256": "15444197620c94c14c6b1c256eb510120cfd9a707fe31d71c5a8f73b41e26bf1",
+      "xml_sha256": "05da7eee7d07bd2548e6788a6502113bc0de6c4e1302fafc5dc8728cd913216c",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "The authored missile is Block I. Located DOT&E and Federal Register records concern Block II/II+ operational capabilities and releases. These neither match the authored block nor provide measured aerodynamic coefficient rows; off-boresight capability is a combined seeker/control result.",
+        "source_review_pointer": "model_audits.aim9x.source_reviews",
+        "search_record_pointer": "model_audits.aim9x.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "asraam",
+      "card": "asraam",
+      "calibration_status": "blocked",
+      "card_sha256": "a712ae6fed266e6becd1fb89b95ff50a894b20236bc4df3f1c0b1e65c380cf42",
+      "geometry_sha256": "20f42412458d40d36d92ebc341481564cf3ba711ed54604dc513dc16654b96ba",
+      "card_geometry_inputs": {
+        "length_m": 2.9,
+        "diameter_m": 0.166,
+        "span_m": 0.45,
+        "mass_kg": 88.0
+      },
+      "table_inputs_key": "8ac260ca2f7afbee",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "AEDC documents AIM-132 separation testing in the 4-foot transonic tunnel in 2008; the public account provides test objectives and photographs, not balance coefficients at specified alpha/beta/Mach/Re. This confirms tests existed without furnishing an admissible numerical table.",
+      "source_geometry": {
+        "length_m": 2.9,
+        "diameter_m": 0.166,
+        "mass_kg": 88,
+        "span_m": 0.4500027555471188
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "8ac260ca2f7afbee",
+      "table_path": "aircraft/stores/asraam/aero/vlm-carriage-8b4a122581d35d0771f2cc149418973f5b902e8c94493076a77a0d0d0b82d863.json",
+      "published_table_sha256": "8b4a122581d35d0771f2cc149418973f5b902e8c94493076a77a0d0d0b82d863",
+      "current_table_sha256": "8b4a122581d35d0771f2cc149418973f5b902e8c94493076a77a0d0d0b82d863",
+      "card_reference_geometry_sha256": "20f42412458d40d36d92ebc341481564cf3ba711ed54604dc513dc16654b96ba",
+      "card_reference_table_sha256": "8b4a122581d35d0771f2cc149418973f5b902e8c94493076a77a0d0d0b82d863",
+      "xml_sha256": "6d2809f076060af84325aeee8854c3edb9abfd9dd08384edf26b4847d0e91440",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "AEDC documents AIM-132 separation testing in the 4-foot transonic tunnel in 2008; the public account provides test objectives and photographs, not balance coefficients at specified alpha/beta/Mach/Re. This confirms tests existed without furnishing an admissible numerical table.",
+        "source_review_pointer": "model_audits.asraam.source_reviews",
+        "search_record_pointer": "model_audits.asraam.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "irist",
+      "card": "iris-t",
+      "calibration_status": "blocked",
+      "card_sha256": "e8d06ee570f9eccbd64012e3175ff8039c2adeb1e2ffe399e699e5c468440a34",
+      "geometry_sha256": "4c45e05627e99f900bd7e12dd8b065e704661fcb6c57b1da01aa6839d51c0ce1",
+      "card_geometry_inputs": {
+        "length_m": 2.936,
+        "diameter_m": 0.127,
+        "span_m": 0.447,
+        "mass_kg": 87.4
+      },
+      "table_inputs_key": "63a3cefedb4d6473",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "Buschek, Control Engineering Practice 11(5),551-558, DOI10.1016/S0967-0661(02)00063-1, reports real ground-launched IRIS-T autopilot tests. The retrieved publisher sections do not disclose the representative aerodynamic coefficient dataset or full conditions. ICAS2024-0035 uses numerical virtual flight, not measured equipment polars.",
+      "source_geometry": {
+        "length_m": 2.936,
+        "diameter_m": 0.127,
+        "mass_kg": 87.4,
+        "span_m": 0.44689148570989806
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "63a3cefedb4d6473",
+      "table_path": "aircraft/stores/irist/aero/vlm-carriage-64df07b04c788ec66b6d69b2a1f3cdd88c739fcae3ecc6caaefa8bfb2f7bdda3.json",
+      "published_table_sha256": "64df07b04c788ec66b6d69b2a1f3cdd88c739fcae3ecc6caaefa8bfb2f7bdda3",
+      "current_table_sha256": "64df07b04c788ec66b6d69b2a1f3cdd88c739fcae3ecc6caaefa8bfb2f7bdda3",
+      "card_reference_geometry_sha256": "4c45e05627e99f900bd7e12dd8b065e704661fcb6c57b1da01aa6839d51c0ce1",
+      "card_reference_table_sha256": "64df07b04c788ec66b6d69b2a1f3cdd88c739fcae3ecc6caaefa8bfb2f7bdda3",
+      "xml_sha256": "cf9112b4a19bbcd2d3f2f2b65600cedb98d8a74a0644e876c64e3025eb95fdde",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "Buschek, Control Engineering Practice 11(5),551-558, DOI10.1016/S0967-0661(02)00063-1, reports real ground-launched IRIS-T autopilot tests. The retrieved publisher sections do not disclose the representative aerodynamic coefficient dataset or full conditions. ICAS2024-0035 uses numerical virtual flight, not measured equipment polars.",
+        "source_review_pointer": "model_audits.irist.source_reviews",
+        "search_record_pointer": "model_audits.irist.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "magic2",
+      "card": "magic-2",
+      "calibration_status": "blocked",
+      "card_sha256": "ea2b986b84a0c7b0ce58cd33f994a1fac25e9ec035aaacb0cfedc1f5037265c1",
+      "geometry_sha256": "02810a3eee8f7fbcc428af4c90eb62cc8966af13d87629f642598431d0aecf4b",
+      "card_geometry_inputs": {
+        "length_m": 2.75,
+        "diameter_m": 0.157,
+        "span_m": 0.66,
+        "mass_kg": 90.0
+      },
+      "table_inputs_key": "dcc312fed22a63f5",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "R.550 Magic 2 catalog/ODIN entries give weapon dimensions and capabilities. They do not provide original wind-tunnel balance rows, controls or Reynolds conditions. Magic 1 and generic canard missiles cannot supply Magic 2 measured coefficients; the revised 90-kg card is an input, not aerodynamic validation.",
+      "source_geometry": {
+        "length_m": 2.75,
+        "diameter_m": 0.157,
+        "mass_kg": 90,
+        "span_m": 0.6598720482032862
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "dcc312fed22a63f5",
+      "table_path": "aircraft/stores/magic2/aero/vlm-carriage-7a78bce7bc90fe3524a344cc0ef840b7d872ffe159095ec83caacb49db155b42.json",
+      "published_table_sha256": "7a78bce7bc90fe3524a344cc0ef840b7d872ffe159095ec83caacb49db155b42",
+      "current_table_sha256": "7a78bce7bc90fe3524a344cc0ef840b7d872ffe159095ec83caacb49db155b42",
+      "card_reference_geometry_sha256": "02810a3eee8f7fbcc428af4c90eb62cc8966af13d87629f642598431d0aecf4b",
+      "card_reference_table_sha256": "7a78bce7bc90fe3524a344cc0ef840b7d872ffe159095ec83caacb49db155b42",
+      "xml_sha256": "0ae983db9ce1827b6be87cbe99e31918f1f818b1c8b7e44d01450925f63d6574",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "R.550 Magic 2 catalog/ODIN entries give weapon dimensions and capabilities. They do not provide original wind-tunnel balance rows, controls or Reynolds conditions. Magic 1 and generic canard missiles cannot supply Magic 2 measured coefficients; the revised 90-kg card is an input, not aerodynamic validation.",
+        "source_review_pointer": "model_audits.magic2.source_reviews",
+        "search_record_pointer": "model_audits.magic2.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "meteor",
+      "card": "meteor",
+      "calibration_status": "blocked",
+      "card_sha256": "289c6920f9e63265db300d2765766103dc9554cfff0a66fb993a90de1648f564",
+      "geometry_sha256": "5b618c71b03b2d3838f4e0f17cbc6d8d8f29a1083ad5c56c8a9beb74f46d6d11",
+      "card_geometry_inputs": {
+        "length_m": 3.7,
+        "diameter_m": 0.178,
+        "mass_kg": 190.0
+      },
+      "table_inputs_key": "b6695340114a6df7",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "MBDA product and 2008 firing reports describe the ducted-rocket motor and controlled-flight trials. They do not publish force/moment tables or inlet/motor operating states. Meteorite dark-flight literature and Astra SFDR tests concern different objects and are excluded.",
+      "source_geometry": {
+        "length_m": 3.7,
+        "diameter_m": 0.178,
+        "mass_kg": 190
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "b6695340114a6df7",
+      "table_path": "aircraft/stores/meteor/aero/vlm-carriage-2a5ec678471ecf545b81a6af03ea3738714f78a41b410b3614b93a5ae9c66be5.json",
+      "published_table_sha256": "2a5ec678471ecf545b81a6af03ea3738714f78a41b410b3614b93a5ae9c66be5",
+      "current_table_sha256": "2a5ec678471ecf545b81a6af03ea3738714f78a41b410b3614b93a5ae9c66be5",
+      "card_reference_geometry_sha256": "5b618c71b03b2d3838f4e0f17cbc6d8d8f29a1083ad5c56c8a9beb74f46d6d11",
+      "card_reference_table_sha256": "2a5ec678471ecf545b81a6af03ea3738714f78a41b410b3614b93a5ae9c66be5",
+      "xml_sha256": "17bd24fe05ea0992d668b1b4cd4ec2f63ec5c3c6e176fe666c43484a82372b7b",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "MBDA product and 2008 firing reports describe the ducted-rocket motor and controlled-flight trials. They do not publish force/moment tables or inlet/motor operating states. Meteorite dark-flight literature and Astra SFDR tests concern different objects and are excluded.",
+        "source_review_pointer": "model_audits.meteor.source_reviews",
+        "search_record_pointer": "model_audits.meteor.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "micaem",
+      "card": "mica-em",
+      "calibration_status": "blocked",
+      "card_sha256": "dcc142647d6fa7cd756626fc911f9afce1687f8b2a04cc377180ba1a86da809f",
+      "geometry_sha256": "ce0312962fa61dd444287cf58eb4d6ef505f551b790e04ab1b31f47607f09121",
+      "card_geometry_inputs": {
+        "length_m": 3.1,
+        "diameter_m": 0.16,
+        "span_m": 0.48,
+        "mass_kg": 112.0
+      },
+      "table_inputs_key": "e05c9bb841063036",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "The 2019 MICA aerodynamic-capability study (pp.9-15) compares CFD component combinations. MBDA product descriptions and game flight models contain no measured EM-variant coefficient table. The RF radome must not inherit IR nose measurements without a geometric equivalence argument.",
+      "source_geometry": {
+        "length_m": 3.1,
+        "diameter_m": 0.16,
+        "mass_kg": 112,
+        "span_m": 0.4799840830694284
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "e05c9bb841063036",
+      "table_path": "aircraft/stores/micaem/aero/vlm-carriage-1845086fffc6b703cf1cd3327f809627a652bf96a56b4a5282d35dce452a4363.json",
+      "published_table_sha256": "1845086fffc6b703cf1cd3327f809627a652bf96a56b4a5282d35dce452a4363",
+      "current_table_sha256": "1845086fffc6b703cf1cd3327f809627a652bf96a56b4a5282d35dce452a4363",
+      "card_reference_geometry_sha256": "ce0312962fa61dd444287cf58eb4d6ef505f551b790e04ab1b31f47607f09121",
+      "card_reference_table_sha256": "1845086fffc6b703cf1cd3327f809627a652bf96a56b4a5282d35dce452a4363",
+      "xml_sha256": "6a29d2e03a9042f0381b128756112aff0920945bf9e7e977f63e9e0def4a3fe0",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "The 2019 MICA aerodynamic-capability study (pp.9-15) compares CFD component combinations. MBDA product descriptions and game flight models contain no measured EM-variant coefficient table. The RF radome must not inherit IR nose measurements without a geometric equivalence argument.",
+        "source_review_pointer": "model_audits.micaem.source_reviews",
+        "search_record_pointer": "model_audits.micaem.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "micair",
+      "card": "mica-ir",
+      "calibration_status": "blocked",
+      "card_sha256": "ad4864beeeb5fa9fc3539465cdcad6437b71f4f0488c70ba722ca476f295b7b5",
+      "geometry_sha256": "448a4e84f8ed7eeb16f718df1140bbfe30786ef33d5660d814784a0cebf1f7fb",
+      "card_geometry_inputs": {
+        "length_m": 3.1,
+        "diameter_m": 0.16,
+        "span_m": 0.48,
+        "mass_kg": 112.0
+      },
+      "table_inputs_key": "1eebcb0fac86c289",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "MBDA VL-MICA NG is a surface-launched next-generation installation, not the authored air-launched MICA IR. The 2019 MICA study is CFD. Neither provides original air-launched IR-variant balance coefficients with nozzle, controls and Reynolds conditions.",
+      "source_geometry": {
+        "length_m": 3.1,
+        "diameter_m": 0.16,
+        "mass_kg": 112,
+        "span_m": 0.4799840830694284
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "1eebcb0fac86c289",
+      "table_path": "aircraft/stores/micair/aero/vlm-carriage-c3681429c7af7f7325eb548aef2062863de71794ac3ff42ef9fc221ee93d6469.json",
+      "published_table_sha256": "c3681429c7af7f7325eb548aef2062863de71794ac3ff42ef9fc221ee93d6469",
+      "current_table_sha256": "c3681429c7af7f7325eb548aef2062863de71794ac3ff42ef9fc221ee93d6469",
+      "card_reference_geometry_sha256": "448a4e84f8ed7eeb16f718df1140bbfe30786ef33d5660d814784a0cebf1f7fb",
+      "card_reference_table_sha256": "c3681429c7af7f7325eb548aef2062863de71794ac3ff42ef9fc221ee93d6469",
+      "xml_sha256": "5e949bdab770283bf28dc782818b8da759a21b13abdfa2646dccb91911837bc0",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "MBDA VL-MICA NG is a surface-launched next-generation installation, not the authored air-launched MICA IR. The 2019 MICA study is CFD. Neither provides original air-launched IR-variant balance coefficients with nozzle, controls and Reynolds conditions.",
+        "source_review_pointer": "model_audits.micair.source_reviews",
+        "search_record_pointer": "model_audits.micair.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "pl10",
+      "card": "pl-10",
+      "calibration_status": "blocked",
+      "card_sha256": "79ccd830b9d1d257239d1d5db024b0a15cca906795de3fe082d0718c7e348e84",
+      "geometry_sha256": "a17e97086930864587dedc5f4ed685f52e8e84652d2ca1b65b42315d776f17b4",
+      "card_geometry_inputs": {
+        "length_m": 3.0,
+        "diameter_m": 0.16,
+        "mass_kg": 89.0
+      },
+      "table_inputs_key": "96688d6182501406",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "PL-10 patent/pseudolite/Pl-Rh wire matches are unrelated to the Chinese short-range air-to-air missile. Public capability descriptions do not release a model-specific experimental polar or actuator/TVC state. No generic canard/slender-body polar is substituted as measured PL-10 data.",
+      "source_geometry": {
+        "length_m": 3.0,
+        "diameter_m": 0.16,
+        "mass_kg": 89
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "96688d6182501406",
+      "table_path": "aircraft/stores/pl10/aero/vlm-carriage-e6349402f18598801e920e59db5b5a66361975b6a98118af1bb066fe9b1bab72.json",
+      "published_table_sha256": "e6349402f18598801e920e59db5b5a66361975b6a98118af1bb066fe9b1bab72",
+      "current_table_sha256": "e6349402f18598801e920e59db5b5a66361975b6a98118af1bb066fe9b1bab72",
+      "card_reference_geometry_sha256": "a17e97086930864587dedc5f4ed685f52e8e84652d2ca1b65b42315d776f17b4",
+      "card_reference_table_sha256": "e6349402f18598801e920e59db5b5a66361975b6a98118af1bb066fe9b1bab72",
+      "xml_sha256": "d1ac1ea89b3df4339e4b2df7b23e7786251feb37c2ccdf6b18ce117b0651d988",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "PL-10 patent/pseudolite/Pl-Rh wire matches are unrelated to the Chinese short-range air-to-air missile. Public capability descriptions do not release a model-specific experimental polar or actuator/TVC state. No generic canard/slender-body polar is substituted as measured PL-10 data.",
+        "source_review_pointer": "model_audits.pl10.source_reviews",
+        "search_record_pointer": "model_audits.pl10.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "pl12",
+      "card": "pl-12",
+      "calibration_status": "blocked",
+      "card_sha256": "e9e8503b2cc3f14b8621c1133cc4a86d9f0b610a5ef530ab65916248e6d89017",
+      "geometry_sha256": "94f69ffb37bfa47bf346d8b7a6db780a80df468b6f30bc44e2c7f35b496d9ef2",
+      "card_geometry_inputs": {
+        "length_m": 3.93,
+        "diameter_m": 0.203,
+        "span_m": 0.67,
+        "mass_kg": 180.0
+      },
+      "table_inputs_key": "40f931fe11a55a34",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "PL-12/SD-10 must be distinguished from the Transavia PL-12 agricultural aircraft and PL-12 structural plates. Those test reports are wrong identities. Located missile equipment summaries lack original balance coefficients, motor/base state, alpha/beta/Mach/Re and control settings.",
+      "source_geometry": {
+        "length_m": 3.93,
+        "diameter_m": 0.203,
+        "mass_kg": 180,
+        "span_m": 0.6700543858523724
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "40f931fe11a55a34",
+      "table_path": "aircraft/stores/pl12/aero/vlm-carriage-d22e64898a8de9fbf091ba0382d958dab9a51a7125861be20d45bb95fd1d6f7e.json",
+      "published_table_sha256": "d22e64898a8de9fbf091ba0382d958dab9a51a7125861be20d45bb95fd1d6f7e",
+      "current_table_sha256": "d22e64898a8de9fbf091ba0382d958dab9a51a7125861be20d45bb95fd1d6f7e",
+      "card_reference_geometry_sha256": "94f69ffb37bfa47bf346d8b7a6db780a80df468b6f30bc44e2c7f35b496d9ef2",
+      "card_reference_table_sha256": "d22e64898a8de9fbf091ba0382d958dab9a51a7125861be20d45bb95fd1d6f7e",
+      "xml_sha256": "9f6f57b75a3dbd80aacd79edc28bd7e6792f1bb031bcd2b3033c82fda89116fd",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "PL-12/SD-10 must be distinguished from the Transavia PL-12 agricultural aircraft and PL-12 structural plates. Those test reports are wrong identities. Located missile equipment summaries lack original balance coefficients, motor/base state, alpha/beta/Mach/Re and control settings.",
+        "source_review_pointer": "model_audits.pl12.source_reviews",
+        "search_record_pointer": "model_audits.pl12.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "pl15",
+      "card": "pl-15",
+      "calibration_status": "blocked",
+      "card_sha256": "f9fd2bd9461e18e03cde946eb733d526b3daec1108cc0276258ec26e42d155c1",
+      "geometry_sha256": "8385ecaea424e5491a7f27d51f97072d7926e21fa316c9b27ff06cf94e9d3169",
+      "card_geometry_inputs": {
+        "length_m": 4.0,
+        "diameter_m": 0.203,
+        "mass_kg": 210.0
+      },
+      "table_inputs_key": "7c2344d36dcfcd7d",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "Army ODIN identifies the PL-15 missile but is a compiled specification record. Range/engagement claims and an external appearance do not establish coefficient targets; track-and-field PL15 and Mercury trajectory reports are unrelated. No measured PL-15 polar was recovered.",
+      "source_geometry": {
+        "length_m": 4.0,
+        "diameter_m": 0.203,
+        "mass_kg": 210
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "7c2344d36dcfcd7d",
+      "table_path": "aircraft/stores/pl15/aero/vlm-carriage-e8b4c437f7c53fec4bfbeafa948eb21a26be5bcfe278529e3cfd5015baad589d.json",
+      "published_table_sha256": "e8b4c437f7c53fec4bfbeafa948eb21a26be5bcfe278529e3cfd5015baad589d",
+      "current_table_sha256": "e8b4c437f7c53fec4bfbeafa948eb21a26be5bcfe278529e3cfd5015baad589d",
+      "card_reference_geometry_sha256": "8385ecaea424e5491a7f27d51f97072d7926e21fa316c9b27ff06cf94e9d3169",
+      "card_reference_table_sha256": "e8b4c437f7c53fec4bfbeafa948eb21a26be5bcfe278529e3cfd5015baad589d",
+      "xml_sha256": "1590b926025600cb88d56ab091ed4c08df16af4bc726a931d57da8944afbb38a",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "Army ODIN identifies the PL-15 missile but is a compiled specification record. Range/engagement claims and an external appearance do not establish coefficient targets; track-and-field PL15 and Mercury trajectory reports are unrelated. No measured PL-15 polar was recovered.",
+        "source_review_pointer": "model_audits.pl15.source_reviews",
+        "search_record_pointer": "model_audits.pl15.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "pl8",
+      "card": "pl-8",
+      "calibration_status": "blocked",
+      "card_sha256": "3bf4e599285f76eb61b722b2597e4b9f1bd8436b81f3c021a7d6ab13cb732894",
+      "geometry_sha256": "0c090a6ae84c7c3992e291c587bf2ada8d164ddf5056a5190344d16f47c04c25",
+      "card_geometry_inputs": {
+        "length_m": 2.95,
+        "diameter_m": 0.16,
+        "span_m": 0.8,
+        "mass_kg": 115.0
+      },
+      "table_inputs_key": "5290aae59045f4f8",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "The PL-8 is a Chinese Python-3 derivative; a licensed family relationship alone does not establish identical test geometry, seeker nose, motor/base condition or coefficient normalization. Located secondary histories provide no original PL-8 numerical aerodynamic table.",
+      "source_geometry": {
+        "length_m": 2.95,
+        "diameter_m": 0.16,
+        "mass_kg": 115,
+        "span_m": 0.7998791908782226
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "5290aae59045f4f8",
+      "table_path": "aircraft/stores/pl8/aero/vlm-carriage-87c0aa44052c03b0cb3d7bd9b4aafcb687cc02ae658e6847bd33bbf8da847f51.json",
+      "published_table_sha256": "87c0aa44052c03b0cb3d7bd9b4aafcb687cc02ae658e6847bd33bbf8da847f51",
+      "current_table_sha256": "87c0aa44052c03b0cb3d7bd9b4aafcb687cc02ae658e6847bd33bbf8da847f51",
+      "card_reference_geometry_sha256": "0c090a6ae84c7c3992e291c587bf2ada8d164ddf5056a5190344d16f47c04c25",
+      "card_reference_table_sha256": "87c0aa44052c03b0cb3d7bd9b4aafcb687cc02ae658e6847bd33bbf8da847f51",
+      "xml_sha256": "f20d4cb10da83fc3610c9131db144e1636b17a78af45c2f03c5974dbc3b1d9f3",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "The PL-8 is a Chinese Python-3 derivative; a licensed family relationship alone does not establish identical test geometry, seeker nose, motor/base condition or coefficient normalization. Located secondary histories provide no original PL-8 numerical aerodynamic table.",
+        "source_review_pointer": "model_audits.pl8.source_reviews",
+        "search_record_pointer": "model_audits.pl8.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "r27er",
+      "card": "r-27er",
+      "calibration_status": "blocked",
+      "card_sha256": "5a2a6e0aa3a9f7e0df7224d6cae30fd4c5a191c113e5c8697a34ad33600fb8d4",
+      "geometry_sha256": "abf43d8bbd73d6c9ddcd5e691f02f698909bdaebc266fab0990d3b9f4d338a8a",
+      "card_geometry_inputs": {
+        "length_m": 4.78,
+        "diameter_m": 0.26,
+        "span_m": 0.803,
+        "mass_kg": 350.0
+      },
+      "table_inputs_key": "eb3fc0b0984f24bb",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "R-27ER is the longer radar-guided extended-range version. ODIN/family brochures and community CFD are not original measured ER aerodynamic polars. R-27R/T and ET differ in body/nose/motor; those cannot be assigned to ER as experimental targets.",
+      "source_geometry": {
+        "length_m": 4.78,
+        "diameter_m": 0.26,
+        "mass_kg": 350,
+        "span_m": 0.8029904607154433
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "eb3fc0b0984f24bb",
+      "table_path": "aircraft/stores/r27er/aero/vlm-carriage-3e4593eb7e5e3b196beb40a6f7eda6633fd5ede82c645c3fad76ae631ace1dbd.json",
+      "published_table_sha256": "3e4593eb7e5e3b196beb40a6f7eda6633fd5ede82c645c3fad76ae631ace1dbd",
+      "current_table_sha256": "3e4593eb7e5e3b196beb40a6f7eda6633fd5ede82c645c3fad76ae631ace1dbd",
+      "card_reference_geometry_sha256": "abf43d8bbd73d6c9ddcd5e691f02f698909bdaebc266fab0990d3b9f4d338a8a",
+      "card_reference_table_sha256": "3e4593eb7e5e3b196beb40a6f7eda6633fd5ede82c645c3fad76ae631ace1dbd",
+      "xml_sha256": "e33e7557d6d73589fad3b590fefc6188c553ea203c44b7079edc328a190e4b21",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "R-27ER is the longer radar-guided extended-range version. ODIN/family brochures and community CFD are not original measured ER aerodynamic polars. R-27R/T and ET differ in body/nose/motor; those cannot be assigned to ER as experimental targets.",
+        "source_review_pointer": "model_audits.r27er.source_reviews",
+        "search_record_pointer": "model_audits.r27er.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "r27et",
+      "card": "r-27et",
+      "calibration_status": "blocked",
+      "card_sha256": "e2a3aa9fa9c76412bd53b8db07f8625f3bc55988e0775ede737960c244bd1f87",
+      "geometry_sha256": "c6cf14a84bebe079015d08e4c71f77149a54257312f5c8dfb3a3f3eae9b5d051",
+      "card_geometry_inputs": {
+        "length_m": 4.49,
+        "diameter_m": 0.26,
+        "span_m": 0.803,
+        "mass_kg": 348.0
+      },
+      "table_inputs_key": "e044ea4abeca57a8",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "R-27ET is the IR extended-range variant. The retrieved ER/family listing does not release an ET force table and does not resolve IR nose and motor/base configuration. Game-manual range/weight tables are not experimental aerodynamic evidence.",
+      "source_geometry": {
+        "length_m": 4.49,
+        "diameter_m": 0.26,
+        "mass_kg": 348,
+        "span_m": 0.8029904607154433
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "e044ea4abeca57a8",
+      "table_path": "aircraft/stores/r27et/aero/vlm-carriage-18285a10312b9097b156bca2b7c710f42e9b87d011b2fa7466cc2dfacb57416b.json",
+      "published_table_sha256": "18285a10312b9097b156bca2b7c710f42e9b87d011b2fa7466cc2dfacb57416b",
+      "current_table_sha256": "18285a10312b9097b156bca2b7c710f42e9b87d011b2fa7466cc2dfacb57416b",
+      "card_reference_geometry_sha256": "c6cf14a84bebe079015d08e4c71f77149a54257312f5c8dfb3a3f3eae9b5d051",
+      "card_reference_table_sha256": "18285a10312b9097b156bca2b7c710f42e9b87d011b2fa7466cc2dfacb57416b",
+      "xml_sha256": "110bbe618185739ea9900199e99d1829a507841ff3f0520794f4040f8ce09bf5",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "R-27ET is the IR extended-range variant. The retrieved ER/family listing does not release an ET force table and does not resolve IR nose and motor/base configuration. Game-manual range/weight tables are not experimental aerodynamic evidence.",
+        "source_review_pointer": "model_audits.r27et.source_reviews",
+        "search_record_pointer": "model_audits.r27et.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "r27r",
+      "card": "r-27r",
+      "calibration_status": "blocked",
+      "card_sha256": "f8ad4c05a71ecaab9fe3c99dce8f968af369aa78cd04e029284de62ce96d1bff",
+      "geometry_sha256": "a4085a7200c8f870edeab80e170a54bd74183623f3c0454aee600f5e7281417f",
+      "card_geometry_inputs": {
+        "length_m": 4.08,
+        "diameter_m": 0.23,
+        "span_m": 0.772,
+        "mass_kg": 253.0
+      },
+      "table_inputs_key": "85055b97b830a240",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "The shorter semi-active-radar R-27R cannot inherit coefficients from ER or infrared T variants. Located brochures/ODIN and scale-model painting guides give identity/appearance, not a wind-tunnel coefficient matrix with normalization and controls.",
+      "source_geometry": {
+        "length_m": 4.08,
+        "diameter_m": 0.23,
+        "mass_kg": 253,
+        "span_m": 0.7718777623432352
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "85055b97b830a240",
+      "table_path": "aircraft/stores/r27r/aero/vlm-carriage-80280e66ac3f257f9e453bb2543022f5890477434fc835e0f70a24b1be6ffbe7.json",
+      "published_table_sha256": "80280e66ac3f257f9e453bb2543022f5890477434fc835e0f70a24b1be6ffbe7",
+      "current_table_sha256": "80280e66ac3f257f9e453bb2543022f5890477434fc835e0f70a24b1be6ffbe7",
+      "card_reference_geometry_sha256": "a4085a7200c8f870edeab80e170a54bd74183623f3c0454aee600f5e7281417f",
+      "card_reference_table_sha256": "80280e66ac3f257f9e453bb2543022f5890477434fc835e0f70a24b1be6ffbe7",
+      "xml_sha256": "3e410d5284fae1f5a95591e68efff997551aee0e52671d882b605c072de28a13",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "The shorter semi-active-radar R-27R cannot inherit coefficients from ER or infrared T variants. Located brochures/ODIN and scale-model painting guides give identity/appearance, not a wind-tunnel coefficient matrix with normalization and controls.",
+        "source_review_pointer": "model_audits.r27r.source_reviews",
+        "search_record_pointer": "model_audits.r27r.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "r27t",
+      "card": "r-27t",
+      "calibration_status": "blocked",
+      "card_sha256": "4f9303b7a0bc8eb423d3745ab3ce7c45dd61b0020cca257b000ec11ac1e17a60",
+      "geometry_sha256": "578b4d45cd39ef00962a53e11a21336b0352732773e2dba75ef2f8679389f393",
+      "card_geometry_inputs": {
+        "length_m": 3.795,
+        "diameter_m": 0.23,
+        "span_m": 0.774,
+        "mass_kg": 253.0
+      },
+      "table_inputs_key": "f4d052f57a71106a",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "R-27T infrared nose and shorter motor distinguish it from R/ET/ER. Family descriptions and game manuals do not provide T-specific measured coefficients. Unrelated structural/wind-tunnel papers with text token 27t are rejected.",
+      "source_geometry": {
+        "length_m": 3.795,
+        "diameter_m": 0.23,
+        "mass_kg": 253,
+        "span_m": 0.7741405040430323
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "f4d052f57a71106a",
+      "table_path": "aircraft/stores/r27t/aero/vlm-carriage-f84b654297ffb6060f2a9222821614cd1b55ecab8ae369a17df61db4d10dc098.json",
+      "published_table_sha256": "f84b654297ffb6060f2a9222821614cd1b55ecab8ae369a17df61db4d10dc098",
+      "current_table_sha256": "f84b654297ffb6060f2a9222821614cd1b55ecab8ae369a17df61db4d10dc098",
+      "card_reference_geometry_sha256": "578b4d45cd39ef00962a53e11a21336b0352732773e2dba75ef2f8679389f393",
+      "card_reference_table_sha256": "f84b654297ffb6060f2a9222821614cd1b55ecab8ae369a17df61db4d10dc098",
+      "xml_sha256": "e4ad120543466591aa4e2859cb35de4c615ccb78704a862851982cafc6683e38",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "R-27T infrared nose and shorter motor distinguish it from R/ET/ER. Family descriptions and game manuals do not provide T-specific measured coefficients. Unrelated structural/wind-tunnel papers with text token 27t are rejected.",
+        "source_review_pointer": "model_audits.r27t.source_reviews",
+        "search_record_pointer": "model_audits.r27t.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "r37m",
+      "card": "r-37m",
+      "calibration_status": "blocked",
+      "card_sha256": "8400ce0facdae1f409293a9bb4f1def837153baaea22f5d8d55935629b0ccdca",
+      "geometry_sha256": "5ee1c2353e03858601d87cc70d4dba2291a169792c3e301b3ea6805921450c9e",
+      "card_geometry_inputs": {
+        "length_m": 4.06,
+        "diameter_m": 0.38,
+        "span_m": 0.72,
+        "mass_kg": 510.0
+      },
+      "table_inputs_key": "512d8af32e17f996",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "R-37M and export RVV-BD naming/capability summaries do not establish the exact authored variant and coefficient normalization. Located trial announcements disclose no numerical force/moment tables; wind-energy r=37m results are unrelated.",
+      "source_geometry": {
+        "length_m": 4.06,
+        "diameter_m": 0.38,
+        "mass_kg": 510,
+        "span_m": 0.72011754596038
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "512d8af32e17f996",
+      "table_path": "aircraft/stores/r37m/aero/vlm-carriage-bd734c8b9e747a804f85d63937016e312d802d72ea3f6fdcfe88e374f8129e17.json",
+      "published_table_sha256": "bd734c8b9e747a804f85d63937016e312d802d72ea3f6fdcfe88e374f8129e17",
+      "current_table_sha256": "bd734c8b9e747a804f85d63937016e312d802d72ea3f6fdcfe88e374f8129e17",
+      "card_reference_geometry_sha256": "5ee1c2353e03858601d87cc70d4dba2291a169792c3e301b3ea6805921450c9e",
+      "card_reference_table_sha256": "bd734c8b9e747a804f85d63937016e312d802d72ea3f6fdcfe88e374f8129e17",
+      "xml_sha256": "48958532306c26b31dcb0d9e5545eed20456fd33b454659bb2ffd992f4873df5",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "R-37M and export RVV-BD naming/capability summaries do not establish the exact authored variant and coefficient normalization. Located trial announcements disclose no numerical force/moment tables; wind-energy r=37m results are unrelated.",
+        "source_review_pointer": "model_audits.r37m.source_reviews",
+        "search_record_pointer": "model_audits.r37m.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "r60m",
+      "card": "r-60m",
+      "calibration_status": "blocked",
+      "card_sha256": "23e7ad53846ced29c006968b5abeab11e5bd597f8f9eb627045dc1e4581d9c69",
+      "geometry_sha256": "f25620deaf597b77e140960ca264f41fcd87cce8a1eef7e62ea641780c61b42e",
+      "card_geometry_inputs": {
+        "length_m": 2.132,
+        "diameter_m": 0.12,
+        "span_m": 0.39,
+        "mass_kg": 45.0
+      },
+      "table_inputs_key": "e4145e98df971f32",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "The RWD R-60M equipment page gives missile technical characteristics, not the original aerodynamic tests. R-60 base-variant descriptions and DCS Lua tables are rejected as measured M-variant evidence. Exact canard setting, Reynolds and powered/base state remain unmatched.",
+      "source_geometry": {
+        "length_m": 2.132,
+        "diameter_m": 0.12,
+        "mass_kg": 45,
+        "span_m": 0.3900401005024996
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "e4145e98df971f32",
+      "table_path": "aircraft/stores/r60m/aero/vlm-carriage-0cea6ef5e20c941c9558ebe0d1ae2f41d6ac8bb90db5e0cfea7632efd489bbbb.json",
+      "published_table_sha256": "0cea6ef5e20c941c9558ebe0d1ae2f41d6ac8bb90db5e0cfea7632efd489bbbb",
+      "current_table_sha256": "0cea6ef5e20c941c9558ebe0d1ae2f41d6ac8bb90db5e0cfea7632efd489bbbb",
+      "card_reference_geometry_sha256": "f25620deaf597b77e140960ca264f41fcd87cce8a1eef7e62ea641780c61b42e",
+      "card_reference_table_sha256": "0cea6ef5e20c941c9558ebe0d1ae2f41d6ac8bb90db5e0cfea7632efd489bbbb",
+      "xml_sha256": "89421872a8d8fc69d37133c19b0513007a056986a0355574d580198d40f77e2a",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "The RWD R-60M equipment page gives missile technical characteristics, not the original aerodynamic tests. R-60 base-variant descriptions and DCS Lua tables are rejected as measured M-variant evidence. Exact canard setting, Reynolds and powered/base state remain unmatched.",
+        "source_review_pointer": "model_audits.r60m.source_reviews",
+        "search_record_pointer": "model_audits.r60m.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "r73",
+      "card": "r-73",
+      "calibration_status": "blocked",
+      "card_sha256": "5b78d86da34ae559b10b51eae5c52a3893ce009fc943d8924775f017885da160",
+      "geometry_sha256": "7b19c21c2da1c2a87127f26509133a807ff81a9fda002413f0d617706ae8f2f2",
+      "card_geometry_inputs": {
+        "length_m": 2.93,
+        "diameter_m": 0.165,
+        "span_m": 0.51,
+        "mass_kg": 105.0
+      },
+      "table_inputs_key": "4813075e4cb85761",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "ICAS2016-0319 Section3.1/Figure2 uses a 1:6.3 R-73-shaped experimental model with added roll tabs. CSIR-NAL discusses LCA wing flutter with an attached R-73. Neither is an isolated, full-scale, authored-configuration R-73 coefficient matrix.",
+      "source_geometry": {
+        "length_m": 2.93,
+        "diameter_m": 0.165,
+        "mass_kg": 105,
+        "span_m": 0.509965410591738
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "4813075e4cb85761",
+      "table_path": "aircraft/stores/r73/aero/vlm-carriage-1b3f9dca01d0004aa2eec26ad4e034e5bfc9fb714659ddabc08367922c070eeb.json",
+      "published_table_sha256": "1b3f9dca01d0004aa2eec26ad4e034e5bfc9fb714659ddabc08367922c070eeb",
+      "current_table_sha256": "1b3f9dca01d0004aa2eec26ad4e034e5bfc9fb714659ddabc08367922c070eeb",
+      "card_reference_geometry_sha256": "7b19c21c2da1c2a87127f26509133a807ff81a9fda002413f0d617706ae8f2f2",
+      "card_reference_table_sha256": "1b3f9dca01d0004aa2eec26ad4e034e5bfc9fb714659ddabc08367922c070eeb",
+      "xml_sha256": "257236afb529bbd4b98dd78e694084fb5b78f53beff6982b7ddbd0b65a1af81d",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "ICAS2016-0319 Section3.1/Figure2 uses a 1:6.3 R-73-shaped experimental model with added roll tabs. CSIR-NAL discusses LCA wing flutter with an attached R-73. Neither is an isolated, full-scale, authored-configuration R-73 coefficient matrix.",
+        "source_review_pointer": "model_audits.r73.source_reviews",
+        "search_record_pointer": "model_audits.r73.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "r77m",
+      "card": "r-77m",
+      "calibration_status": "blocked",
+      "card_sha256": "247e57eae9b44c9d0f388ad9d7b8f1c55657a31137d0333ca7826f69f5ac522a",
+      "geometry_sha256": "9606cf414d9dce0196e4e5d3d0c90eecbec46964ca7a1f183a7a11a1b731cfcc",
+      "card_geometry_inputs": {
+        "length_m": 3.71,
+        "diameter_m": 0.2,
+        "mass_kg": 190.0
+      },
+      "table_inputs_key": "2c95f41374f2c70b",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "Located older R-77M discussions use that name for proposed ramjet variants, conflicting with the authored modern conventional-fin configuration. RVV-AE grid-fin data are also a different geometry. Public carriage photographs and range descriptions cannot resolve a matched measured polar.",
+      "source_geometry": {
+        "length_m": 3.71,
+        "diameter_m": 0.2,
+        "mass_kg": 190
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "2c95f41374f2c70b",
+      "table_path": "aircraft/stores/r77m/aero/vlm-carriage-fe64152169c6b35ce05035012fd72c7f1bb828bee3ac6461f70d108114aad694.json",
+      "published_table_sha256": "fe64152169c6b35ce05035012fd72c7f1bb828bee3ac6461f70d108114aad694",
+      "current_table_sha256": "fe64152169c6b35ce05035012fd72c7f1bb828bee3ac6461f70d108114aad694",
+      "card_reference_geometry_sha256": "9606cf414d9dce0196e4e5d3d0c90eecbec46964ca7a1f183a7a11a1b731cfcc",
+      "card_reference_table_sha256": "fe64152169c6b35ce05035012fd72c7f1bb828bee3ac6461f70d108114aad694",
+      "xml_sha256": "7bf8883fe2debf392e01aafc67a0ca422f7ae89d7b36b70589002a4e7282457e",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "Located older R-77M discussions use that name for proposed ramjet variants, conflicting with the authored modern conventional-fin configuration. RVV-AE grid-fin data are also a different geometry. Public carriage photographs and range descriptions cannot resolve a matched measured polar.",
+        "source_review_pointer": "model_audits.r77m.source_reviews",
+        "search_record_pointer": "model_audits.r77m.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    },
+    {
+      "model": "super530d",
+      "card": "super-530d",
+      "calibration_status": "blocked",
+      "card_sha256": "99787924524ff18a3550b58f3cc8a82ab4d57517e226b70d4fa53c0b26eca872",
+      "geometry_sha256": "010563eaa6507b40522281cb0881df89f88d572c1332b33b6915132fe7d6bd92",
+      "card_geometry_inputs": {
+        "length_m": 3.8,
+        "diameter_m": 0.263,
+        "span_m": 0.62,
+        "mass_kg": 270.0
+      },
+      "table_inputs_key": "f92cf6c241ee4a36",
+      "has_specific_model_coefficient_data": false,
+      "data_gap": "A preserved Matra Super530D wind-tunnel model and blueprints are advertised by a collector; the balance data are not supplied. The collector listing establishes an artefact, not numerical observations. Super530F/R530 and game tactical references are not D-specific measured polars.",
+      "source_geometry": {
+        "length_m": 3.8,
+        "diameter_m": 0.263,
+        "mass_kg": 270,
+        "span_m": 0.6199912257443649
+      },
+      "canonical_geometry_matches": true,
+      "base_cache_key": "f92cf6c241ee4a36",
+      "table_path": "aircraft/stores/super530d/aero/vlm-carriage-0a8de750ed04d4c457045b748b0cd87fc787696c2c7204ebf3348b04c23bf37e.json",
+      "published_table_sha256": "0a8de750ed04d4c457045b748b0cd87fc787696c2c7204ebf3348b04c23bf37e",
+      "current_table_sha256": "0a8de750ed04d4c457045b748b0cd87fc787696c2c7204ebf3348b04c23bf37e",
+      "card_reference_geometry_sha256": "010563eaa6507b40522281cb0881df89f88d572c1332b33b6915132fe7d6bd92",
+      "card_reference_table_sha256": "0a8de750ed04d4c457045b748b0cd87fc787696c2c7204ebf3348b04c23bf37e",
+      "xml_sha256": "0b5fe06afca1acdc3115d03b04e64ce7ef4fc1afc56d02ae0619a40c057dd8f6",
+      "consistent": true,
+      "aerodynamic_gate": {
+        "status": "blocked",
+        "exact_model_data_available": false,
+        "unknown_reason": "A preserved Matra Super530D wind-tunnel model and blueprints are advertised by a collector; the balance data are not supplied. The collector listing establishes an artefact, not numerical observations. Super530F/R530 and game tactical references are not D-specific measured polars.",
+        "source_review_pointer": "model_audits.super530d.source_reviews",
+        "search_record_pointer": "model_audits.super530d.searches",
+        "estimated_table_basis": "simulated",
+        "solver_convergence_required": false,
+        "acceptance_policy_pointer": "aam_aerodynamic_gate_policy"
+      }
+    }
+  ],
+  "scope": "Geometry/cache/card/table consistency only; not a real-data calibration or equipment fidelity claim"
+}

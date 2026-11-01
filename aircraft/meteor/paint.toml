@@ -6,8 +6,8 @@ colours = ["#c4c8cc"]
 radome = "#d8dadc"
 radome_x = 0.4984
 bands = [
-  { x = [1.241, 1.291], colour = "#c8a020" },
-  { x = [2.2995, 2.3495], colour = "#6b4a2b" },
+  { x = [1.258, 1.308], colour = "#c8a020" },
+  { x = [2.331, 2.381], colour = "#6b4a2b" },
 ]
 panel_lines = 0.0
 wear = 0.03

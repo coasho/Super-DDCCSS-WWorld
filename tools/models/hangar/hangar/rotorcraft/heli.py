@@ -170,14 +170,32 @@ def rotor_data(spec):
     else:
         lock = 16.0 / (mr["flap_lag_s"] * omega)  # the flapping lag the design gives: 16/(gamma Omega)
     ib = RHO0 * mr["lift_slope"] * mr["chord_ft"] * R ** 4 / lock
-    sb = 1.5 * ib / R  # a uniform blade's first mass moment about the hinge
+    # An effective handling-response lag need not imply physical blade mass.
+    # Keep its aerodynamic Lock/flapping response, but derive drive energy and
+    # physical mass moments from the independently declared physical model.
+    physical_lock = lock
+    inertia = mr.get("physical_inertia")
+    if inertia is not None:
+        if (set(inertia) != {"version", "method", "flap_lag_s", "source", "basis"}
+                or type(inertia["version"]) is not int or inertia["version"] != 1
+                or inertia["method"] != "physical-flap-time"
+                or inertia["basis"] not in ("measured", "estimated", "simulated")
+                or not isinstance(inertia["source"], str) or not inertia["source"].strip()):
+            raise ValueError("Unsupported or unsourced physical rotor inertia model")
+        physical_tau = inertia["flap_lag_s"]
+        if isinstance(physical_tau, bool) or not math.isfinite(physical_tau) or physical_tau <= 0:
+            raise ValueError("Physical blade flapping time must be finite and positive")
+        physical_lock = 16.0 / (physical_tau * omega)
+    physical_ib = RHO0 * mr["lift_slope"] * mr["chord_ft"] * R ** 4 / physical_lock
+    sb = 1.5 * physical_ib / R  # a uniform physical blade's first mass moment about the hinge
     tr_R = tr["radius_ft"]
     tr_omega = tr["tip_speed_fps"] / tr_R if "tip_speed_fps" in tr else tr["rpm"] * 2 * math.pi / 60
     tr_chord = tr.get("chord_ft", tr.get("solidity", 0.0) * math.pi * tr_R / tr["blades"])
     tr_lock = tr.get("lock", 4.0)
     tr_ib = RHO0 * tr["lift_slope"] * tr_chord * tr_R ** 4 / tr_lock
-    j = 1.10 * mr["blades"] * ib + tr["blades"] * tr_ib * (tr_omega / omega) ** 2  # + 10 % for the hub, bar and drive
-    return dict(omega=omega, rpm=mr["rpm"], lock=lock, ib=ib, sb=sb, flap_lag=16.0 / (lock * omega),
+    j = 1.10 * mr["blades"] * physical_ib + tr["blades"] * tr_ib * (tr_omega / omega) ** 2  # + 10 % for the hub, bar and drive
+    return dict(omega=omega, rpm=mr["rpm"], lock=lock, ib=ib, physical_lock=physical_lock, physical_ib=physical_ib,
+                sb=sb, flap_lag=16.0 / (lock * omega),
                 tr_omega=tr_omega, tr_rpm=tr_omega * 60 / (2 * math.pi), tr_chord=tr_chord, tr_ib=tr_ib,
                 tr_flap_lag=16.0 / (tr_lock * tr_omega), j=j)
 
@@ -224,6 +242,8 @@ def write(spec, out_dir, profile_xml=""):
   <liftcurveslope Xunit="1/RAD"> %(a)s </liftcurveslope>
   <twist unit="DEG"> %(tw)s </twist>
   <hingeoffset unit="FT"> %(e)s </hingeoffset>
+  <!-- Effective flapping response and physical polar/drive inertia are independent
+       when the authored versioned physical_inertia model distinguishes them. -->
   <flappingmoment unit="SLUG*FT2"> %(ib)s </flappingmoment>
   <massmoment> %(sb)s </massmoment>
   <polarmoment unit="SLUG*FT2"> %(jp)s </polarmoment>
@@ -234,7 +254,7 @@ def write(spec, out_dir, profile_xml=""):
 %(ge)s</rotor>
 """ % dict(n=name, d=_f(2 * mr["radius_ft"]), b=mr["blades"], rpm=_f(rd["rpm"]), maxrpm=_f(ROTOR_MAX_SHARE * rd["rpm"]), minrpm=_f(ROTOR_MIN_RPM),
            c=_f(mr["chord_ft"]), a=_f(mr["lift_slope"]), tw=_f(mr["twist_deg"]), e=_f(hinge), ib=_f(rd["ib"]),
-           sb=_f(rd["sb"]), jp=_f(mr["blades"] * rd["ib"]), lag=_f(mr.get("inflow_lag_s", 0.1)),
+           sb=_f(rd["sb"]), jp=_f(mr["blades"] * rd["physical_ib"]), lag=_f(mr.get("inflow_lag_s", 0.1)),
            tl=_f(mr.get("tip_loss", 1.0)), model=mr.get("force_model", "heffley"), ge=ge))
     _write(os.path.join(out_dir, "Engines", name + "_tail_rotor.xml"), """<?xml version="1.0"?>
 <rotor name="%(n)s tail rotor">
@@ -378,10 +398,22 @@ def write(spec, out_dir, profile_xml=""):
            hx=_f(mr["hub_in"][0]), hy=_f(mr["hub_in"][1]), hz=_f(mr["hub_in"][2]), mast=_f(90.0 - mr.get("mast_tilt_deg", 0.0)),
            sense=1 if mr.get("sense", "ccw") == "ccw" else -1, tx=_f(tr["hub_in"][0]), ty=_f(tr["hub_in"][1]),
            tz=_f(tr["hub_in"][2]), cant=_f(tr.get("cant_deg", 0.0)), tyaw=tr_yaw, profile=profile_xml,
-           fcs=_fcs(spec, rd, p_max), aero=_aero(spec, rd), trk=_f(rd["tr_omega"] / rd["omega"]),
+           fcs=_fcs(spec, rd, p_max), aero="", trk=_f(rd["tr_omega"] / rd["omega"]),
            # the main rotor's shaft, down along it (JSBSim's body axes: x forward, z down), which its torque turns about
            sx=_f(-math.sin(math.radians(mr.get("mast_tilt_deg", 0.0)))), sz=_f(math.cos(math.radians(mr.get("mast_tilt_deg", 0.0)))))
-    _write(os.path.join(out_dir, name + ".xml"), xml)
+    from pathlib import Path
+    from .. import airframe
+    target=Path(out_dir)/(name+'.xml')
+    authored=Path(out_dir)/(name+'.toml')
+    updated=airframe.install(xml,authored,spec=spec,propulsion_body_loads=False)
+    from . import tail_damping
+    import xml.etree.ElementTree as ET
+    runtime = ET.fromstring(updated)
+    tail_damping.install(runtime, spec, out_dir)
+    ET.indent(runtime, space='    ')
+    updated = ET.tostring(runtime, encoding='unicode') + '\n'
+    from ..files import atomic_write_text
+    atomic_write_text(target, updated)
     return dict(rd, p_max=p_max)
 
 
@@ -422,6 +454,7 @@ def _fcs(spec, rd, p_max):
     # the pitch bias actuator (TM-85890 figure 11)
     if c.get("pitch_bias_actuator") == "uh60":
         out.append("""    <channel name="pitch bias actuator">
+      <pure_gain name="%(p)su-kt"> <input> velocities/u-aero-fps </input> <gain> 0.5924838012958963 </gain> </pure_gain>
       <!-- TM-85890 figure 11: pitch attitude, pitch rate and airspeed (80 to 180 kt) to an actuator
            of 15 %% authority, 3 %%/s, added to the longitudinal cyclic (0.1 in per %% aft) -->
       <fcs_function name="%(p)sq-deg"> <function> <todegrees> <property> velocities/q-rad_sec </property> </todegrees> </function> </fcs_function>
@@ -687,486 +720,3 @@ def _engine_channel(spec, rd, p_max, p):
 
 
 # --- the airframe -------------------------------------------------------------------------------
-
-def _aero(spec, rd):
-    model = spec["airframe"]["model"]
-    if model == "tm73254":
-        return _aero_tm73254(spec, rd)
-    if model == "tm85890":
-        return _aero_tm85890(spec, rd)
-    raise ValueError("unknown airframe model %r (tm73254, tm85890)" % model)
-
-
-def _tail_rotor_damping(spec, rd):
-    """The tail rotor's damping beyond the isolated rotor's, where the design fits it to flight
-    (TM-73254 eq. 37-38): the isolated rotor's own, dT/dv in hover by momentum and blade element,
-    is what FGRotor supplies; the difference acts at the tail rotor. Returns (k, l, h) or None."""
-    tr = spec["rotor"]["tail"]
-    if "damping_lb_per_fps" not in tr:
-        return None
-    R, sigma = tr["radius_ft"], tr["blades"] * rd["tr_chord"] / (math.pi * tr["radius_ft"])
-    vt = rd["tr_omega"] * R
-    rho_a_vt2 = RHO0 * math.pi * R ** 2 * vt ** 2
-    # the hover's tail rotor thrust: the main rotor's torque over the arm, from the hover power at 60 % of the limit
-    l_tr, h_tr = tr["damping_arm_ft"]
-    thrust = 0.5 * spec["engine"]["power_shp"] * HP / rd["omega"] / l_tr
-    lam = math.sqrt(thrust / rho_a_vt2 / 2)
-    a = tr["lift_slope"]
-    own = rho_a_vt2 / vt * 2 * a * sigma * lam / (16 * lam + a * sigma)
-    return tr["damping_lb_per_fps"] - own, l_tr, h_tr
-
-
-def _aero_tm73254(spec, rd):
-    af = spec["airframe"]
-    fu, st, fi = af["fuselage"], af["stabilizer"], af["fin"]
-    name = spec["aircraft"]["name"]
-    a = "aero/" + name + "/"
-    t = math.radians(spec["rotor"]["main"].get("mast_tilt_deg", 0.0))
-    ct, s_t = math.cos(t), math.sin(t)
-    h2 = st["h1"] * math.tan(math.radians(st["stall_deg"]))
-    k2 = fi["k1"] * math.tan(math.radians(fi["stall_deg"]))
-    tr_damp = _tail_rotor_damping(spec, rd)
-    d = dict(a=a, p="fcs/" + name + "/", ct=_f(ct), st=_f(s_t), nst=_f(-s_t), d1=_f(fu["d1"]), d2=_f(fu["d2"]), d3=_f(fu["d3"]),
-             l1=_f(fu["l1"]), y1=_f(fu["y1"]), m1=_f(fu["m1"]), n1=_f(fu["n1"]), h1=_f(st["h1"]), h2=_f(h2), h4=_f(st["h4"]),
-             lhs=_f(st["arm_ft"]), k1=_f(fi["k1"]), k2=_f(k2), f1=_f(fi["f1"]), lvf=_f(fi["arm_ft"]),
-             sa=_f(math.radians(st["stall_deg"])), sb=_f(math.pi - math.radians(st["stall_deg"])),
-             fa=_f(math.radians(fi["stall_deg"])), fb=_f(math.pi - math.radians(fi["stall_deg"])))
-    s = """    <!-- TM-73254 eq. 42-60, in the report's body axes - the shaft's - the velocities turned into them
-         and the forces and moments back -->
-    <function name="%(a)su-s">
-      <sum> <product> <value> %(ct)s </value> <property> velocities/u-aero-fps </property> </product>
-        <product> <value> %(st)s </value> <property> velocities/w-aero-fps </property> </product> </sum>
-    </function>
-    <function name="%(a)sw-s">
-      <sum> <product> <value> %(nst)s </value> <property> velocities/u-aero-fps </property> </product>
-        <product> <value> %(ct)s </value> <property> velocities/w-aero-fps </property> </product> </sum>
-    </function>
-    <function name="%(a)sr-s">
-      <sum> <product> <value> %(nst)s </value> <property> velocities/p-aero-rad_sec </property> </product>
-        <product> <value> %(ct)s </value> <property> velocities/r-aero-rad_sec </property> </product> </sum>
-    </function>
-    <function name="%(a)ssign-u">
-      <description> sgn u, smoothed over 1 ft/s so the force is continuous through hover </description>
-      <quotient> <property> %(a)su-s </property>
-        <sqrt> <sum> <product> <property> %(a)su-s </property> <property> %(a)su-s </property> </product> <value> 1 </value> </sum> </sqrt> </quotient>
-    </function>
-    <function name="%(a)sfus-x-s">
-      <description> eq. 42: X_F = -D1 u|u| + L1 w^2 sgn u </description>
-      <sum>
-        <product> <value> -%(d1)s </value> <property> %(a)su-s </property> <abs> <property> %(a)su-s </property> </abs> </product>
-        <product> <value> %(l1)s </value> <property> %(a)sw-s </property> <property> %(a)sw-s </property> <property> %(a)ssign-u </property> </product>
-      </sum>
-    </function>
-    <function name="%(a)sfus-z-s">
-      <description> eq. 44: Z_F = w (-D3 |w| - L1 |u|) </description>
-      <product> <property> %(a)sw-s </property>
-        <difference> <product> <value> -%(d3)s </value> <abs> <property> %(a)sw-s </property> </abs> </product>
-          <product> <value> %(l1)s </value> <abs> <property> %(a)su-s </property> </abs> </product> </difference> </product>
-    </function>
-    <function name="%(a)sw-h">
-      <description> eq. 54: the stabilizer's normal velocity: its incidence, the pitch rate and the rotor's downwash </description>
-      <sum> <property> %(a)sw-s </property>
-        <product> <property> %(a)su-s </property> <property> %(p)sstab-rad </property> </product>
-        <product> <value> %(lhs)s </value> <property> velocities/q-aero-rad_sec </property> </product>
-        <product> <value> -1 </value> <property> propulsion/engine[0]/vi-fps </property> </product> </sum>
-    </function>
-    <function name="%(a)salpha-h">
-      <atan2> <property> %(a)sw-h </property> <property> %(a)su-s </property> </atan2>
-    </function>
-    <function name="%(a)sstab-z-s">
-      <description> eq. 57-59: linear to the stall, and within it of reversed flow; stalled between </description>
-      <sum>
-        <product> <value> -%(h4)s </value> <property> %(a)sw-h </property> <abs> <property> %(a)sw-h </property> </abs> </product>
-        <ifthen> <or> <le> <abs> <property> %(a)salpha-h </property> </abs> <value> %(sa)s </value> </le>
-                      <ge> <abs> <property> %(a)salpha-h </property> </abs> <value> %(sb)s </value> </ge> </or>
-          <product> <value> -%(h1)s </value> <property> %(a)sw-h </property> <property> %(a)su-s </property> </product>
-          <product> <value> -%(h2)s </value> <property> %(a)su-s </property> <property> %(a)su-s </property>
-            <sign> <property> %(a)salpha-h </property> </sign> </product>
-        </ifthen>
-      </sum>
-    </function>
-    <function name="%(a)sv-f">
-      <description> eq. 48: the fin's side wind (+ from the left) </description>
-      <sum> <product> <value> -1 </value> <property> velocities/v-aero-fps </property> </product>
-        <product> <value> %(lvf)s </value> <property> %(a)sr-s </property> </product> </sum>
-    </function>
-    <function name="%(a)salpha-f">
-      <atan2> <property> %(a)sv-f </property> <property> %(a)su-s </property> </atan2>
-    </function>
-    <function name="%(a)sfin-y">
-      <description> eq. 50-52 </description>
-      <sum>
-        <product> <value> %(f1)s </value> <property> %(a)sv-f </property> <abs> <property> %(a)sv-f </property> </abs> </product>
-        <ifthen> <or> <le> <abs> <property> %(a)salpha-f </property> </abs> <value> %(fa)s </value> </le>
-                      <ge> <abs> <property> %(a)salpha-f </property> </abs> <value> %(fb)s </value> </ge> </or>
-          <product> <value> %(k1)s </value> <property> %(a)sv-f </property> <property> %(a)su-s </property> </product>
-          <product> <value> %(k2)s </value> <property> %(a)su-s </property> <property> %(a)su-s </property>
-            <sign> <property> %(a)salpha-f </property> </sign> </product>
-        </ifthen>
-      </sum>
-    </function>
-    <function name="%(a)sfus-n-s">
-      <description> eq. 46: N_F = -N1 v u </description>
-      <product> <value> -%(n1)s </value> <property> velocities/v-aero-fps </property> <property> %(a)su-s </property> </product>
-    </function>
-    <function name="%(a)sn-s">
-      <description> the yawing moment about the shaft: eq. 46 and 53 </description>
-      <sum> <property> %(a)sfus-n-s </property>
-        <product> <value> -%(lvf)s </value> <property> %(a)sfin-y </property> </product> </sum>
-    </function>
-""" % d
-    y_terms = ["<property> %sfin-y </property>" % a]
-    l_terms = ["<product> <value> %(nst)s </value> <property> %(a)sn-s </property> </product>" % d]
-    n_terms = ["<product> <value> %(ct)s </value> <property> %(a)sn-s </property> </product>" % d]
-    if tr_damp:
-        k, l_tr, h_tr = tr_damp
-        s += """    <function name="%(a)str-damping-y">
-      <description> the tail rotor's damping beyond the isolated rotor's: the design's fit to flight (TM-73254
-        eq. 37-38) less what the rotor model supplies, at the tail rotor </description>
-      <product> <value> %(k)s </value>
-        <sum> <property> velocities/v-aero-fps </property>
-          <product> <value> %(nl)s </value> <property> velocities/r-aero-rad_sec </property> </product>
-          <product> <value> %(h)s </value> <property> velocities/p-aero-rad_sec </property> </product> </sum> </product>
-    </function>
-""" % dict(a=a, k=_f(-k), nl=_f(-l_tr), h=_f(h_tr))
-        y_terms.append("<property> %str-damping-y </property>" % a)
-        l_terms.append("<product> <value> %s </value> <property> %str-damping-y </property> </product>" % (_f(h_tr), a))
-        n_terms.append("<product> <value> %s </value> <property> %str-damping-y </property> </product>" % (_f(-l_tr), a))
-    s += """    <axis name="X">
-      <function name="aero/force/%(n)s-x">
-        <sum>
-          <product> <value> %(ct)s </value> <property> %(a)sfus-x-s </property> </product>
-          <product> <value> %(nst)s </value> <sum> <property> %(a)sfus-z-s </property> <property> %(a)sstab-z-s </property> </sum> </product>
-        </sum>
-      </function>
-    </axis>
-    <axis name="Y">
-      <function name="aero/force/%(n)s-y">
-        <description> eq. 43, the fin and the tail rotor's damping </description>
-        <sum>
-          <product> <property> velocities/v-aero-fps </property>
-            <difference> <product> <value> -%(d2)s </value> <abs> <property> velocities/v-aero-fps </property> </abs> </product>
-              <product> <value> %(y1)s </value> <abs> <property> %(a)su-s </property> </abs> </product> </difference> </product>
-          %(y)s
-        </sum>
-      </function>
-    </axis>
-    <axis name="Z">
-      <function name="aero/force/%(n)s-z">
-        <sum>
-          <product> <value> %(st)s </value> <property> %(a)sfus-x-s </property> </product>
-          <product> <value> %(ct)s </value> <sum> <property> %(a)sfus-z-s </property> <property> %(a)sstab-z-s </property> </sum> </product>
-        </sum>
-      </function>
-    </axis>
-    <axis name="ROLL">
-      <function name="aero/moment/%(n)s-l"> <sum> %(l)s </sum> </function>
-    </axis>
-    <axis name="PITCH">
-      <function name="aero/moment/%(n)s-m">
-        <description> eq. 45 and 60 </description>
-        <sum>
-          <product> <value> %(m1)s </value> <property> %(a)sw-s </property> <abs> <property> %(a)su-s </property> </abs> </product>
-          <product> <value> %(lhs)s </value> <property> %(a)sstab-z-s </property> </product>
-        </sum>
-      </function>
-    </axis>
-    <axis name="YAW">
-      <function name="aero/moment/%(n)s-n"> <sum> %(nn)s </sum> </function>
-    </axis>
-""" % dict(d, n=name, y="\n          ".join(y_terms), l=" ".join(l_terms), nn=" ".join(n_terms))
-    return s
-
-
-def _surface(a, which, sf, cg, hub, R, stall_tr_wash=None):
-    """TM-84281 appendix E and transformations T5-T8: the horizontal stabilator or the fin through
-    360 deg, in the local wind; the main rotor's wash where the wake reaches it."""
-    aft = (sf["sta"] - cg[0]) / 12.0
-    above = (sf["wl"] - cg[2]) / 12.0
-    lift_slope = 2 * math.pi / (1 + 2 / sf["aspect"])
-    q = "%s%s-" % (a, which)
-    if which == "hs":
-        v = """<sum> <property> velocities/v-aero-fps </property> <product> <value> %s </value> <property> velocities/r-aero-rad_sec </property> </product> </sum>""" % _f(-aft)
-        w = """<sum> <property> velocities/w-aero-fps </property> <product> <value> %s </value> <property> velocities/q-aero-rad_sec </property> </product>
-        <product> <value> %s </value> <property> %swake-hs </property> <property> propulsion/engine[0]/vi-fps </property> </product> </sum>""" % (_f(aft), _f(-sf["rotor_wash"]), a)
-    else:
-        v = """<sum> <property> velocities/v-aero-fps </property> <product> <value> %s </value> <property> velocities/r-aero-rad_sec </property> </product>
-        <product> <value> %s </value> <property> propulsion/engine[1]/vi-fps </property> </product> </sum>""" % (_f(-aft), _f(sf["tail_rotor_wash"] * stall_tr_wash))
-        w = """<sum> <property> velocities/w-aero-fps </property> <product> <value> %s </value> <property> velocities/q-aero-rad_sec </property> </product>
-        <product> <value> -1 </value> <property> %swake-vf </property> <property> propulsion/engine[0]/vi-fps </property> </product> </sum>""" % (_f(aft), a)
-    s = """    <function name="%(q)su"> <property> velocities/u-aero-fps </property> </function>
-    <function name="%(q)sv"> %(v)s </function>
-    <function name="%(q)sw"> %(w)s </function>
-    <function name="%(q)svmag">
-      <max> <value> 0.1 </value> <sqrt> <sum> <pow> <property> %(q)su </property> <value> 2 </value> </pow>
-        <pow> <property> %(q)sv </property> <value> 2 </value> </pow> <pow> <property> %(q)sw </property> <value> 2 </value> </pow> </sum> </sqrt> </max>
-    </function>
-""" % dict(q=q, v=v, w=w)
-    if which == "hs":
-        s += """    <function name="%(q)salpha-raw">
-      <description> + the stabilator's incidence (leading edge up: trailing edge down) </description>
-      <sum> <atan2> <property> %(q)sw </property> <property> %(q)su </property> </atan2> <property> %(inc)s </property> </sum>
-    </function>
-    <function name="%(q)salpha"> <atan2> <sin> <property> %(q)salpha-raw </property> </sin> <cos> <property> %(q)salpha-raw </property> </cos> </atan2> </function>
-    <function name="%(q)sbeta"> <asin> <quotient> <property> %(q)sv </property> <property> %(q)svmag </property> </quotient> </asin> </function>
-    <function name="%(q)sa">
-      <product> <value> %(ls)s </value> <pow> <cos> <property> %(q)sbeta </property> </cos> <value> 2 </value> </pow> </product>
-    </function>
-""" % dict(q=q, inc=sf["incidence_property"], ls=_f(lift_slope))
-    else:
-        s += """    <function name="%(q)salpha"> <atan2> <property> %(q)sv </property> <property> %(q)su </property> </atan2> </function>
-    <function name="%(q)sbeta"> <asin> <quotient> <property> %(q)sw </property> <property> %(q)svmag </property> </quotient> </asin> </function>
-    <function name="%(q)sa">
-      <product> <value> %(ls)s </value> <pow> <cos> <sum> <property> %(q)sbeta </property> <value> %(sw)s </value> </sum> </cos> <value> 2 </value> </pow> </product>
-    </function>
-""" % dict(q=q, ls=_f(lift_slope), sw=_f(sf["sweep_rad"]))
-    s += """    <function name="%(q)salpha-s">
-      <min> <quotient> <value> %(clm)s </value> <property> %(q)sa </property> </quotient> <value> 0.785398 </value> </min>
-    </function>
-    <function name="%(q)sclm"> <product> <property> %(q)salpha-s </property> <property> %(q)sa </property> </product> </function>
-    <function name="%(q)salpha-i">
-      <description> the angle folded into 0..90 deg </description>
-      <ifthen> <le> <abs> <property> %(q)salpha </property> </abs> <value> 1.570796 </value> </le>
-        <abs> <property> %(q)salpha </property> </abs>
-        <difference> <value> 3.141593 </value> <abs> <property> %(q)salpha </property> </abs> </difference>
-      </ifthen>
-    </function>
-    <function name="%(q)scl0">
-      <ifthen> <lt> <property> %(q)salpha-i </property> <property> %(q)salpha-s </property> </lt>
-        <product> <property> %(q)sa </property> <property> %(q)salpha-i </property> </product>
-        <ifthen> <lt> <property> %(q)salpha-i </property> <product> <value> 1.2 </value> <property> %(q)salpha-s </property> </product> </lt>
-          <difference> <property> %(q)sclm </property>
-            <product> <property> %(q)sa </property> <difference> <property> %(q)salpha-i </property> <property> %(q)salpha-s </property> </difference> </product> </difference>
-          <product> <value> 0.8 </value> <property> %(q)sclm </property>
-            <difference> <value> 1 </value>
-              <pow> <quotient>
-                <difference> <property> %(q)salpha-i </property> <product> <value> 1.2 </value> <property> %(q)salpha-s </property> </product> </difference>
-                <difference> <value> 1.570796 </value> <product> <value> 1.2 </value> <property> %(q)salpha-s </property> </product> </difference>
-              </quotient> <value> 2 </value> </pow> </difference> </product>
-        </ifthen>
-      </ifthen>
-    </function>
-    <function name="%(q)scl">
-      <product> <property> %(q)scl0 </property>
-        <ifthen> <le> <abs> <property> %(q)salpha </property> </abs> <value> 1.570796 </value> </le>
-          <sign> <property> %(q)salpha </property> </sign>
-          <product> <value> -0.8 </value> <sign> <property> %(q)salpha </property> </sign> </product>
-        </ifthen> </product>
-    </function>
-    <function name="%(q)scd">
-      <sum>
-        <ifthen> <le> <property> %(q)salpha-i </property> <value> 0.35 </value> </le>
-          <sum> <value> 0.009 </value> <product> <value> 0.11 </value> <property> %(q)salpha-i </property> <property> %(q)salpha-i </property> </product> </sum>
-          <sum> <value> -0.1254 </value> <product> <value> 0.9415 </value> <property> %(q)salpha-i </property> </product>
-            <product> <value> 0.977525 </value> <pow> <sin> <property> %(q)salpha-i </property> </sin> <value> 2 </value> </pow> </product> </sum>
-        </ifthen>
-        <quotient> <product> <property> %(q)scl </property> <property> %(q)scl </property> </product> <value> %(k)s </value> </quotient>
-      </sum>
-    </function>
-    <function name="%(q)sf">
-      <product> <value> 0.5 </value> <property> atmosphere/rho-slugs_ft3 </property> <pow> <property> %(q)svmag </property> <value> 2 </value> </pow> <value> %(s)s </value> </product>
-    </function>
-""" % dict(q=q, clm=_f(sf["cl_max"]), k=_f(0.8 * math.pi * sf["aspect"]), s=_f(sf["area_ft2"] * sf["q_ratio"]))
-    if which == "hs":
-        s += """    <function name="%(q)sx">
-      <product> <property> %(q)sf </property> <sum>
-        <product> <value> -1 </value> <property> %(q)scd </property> <cos> <property> %(q)sbeta </property> </cos> <cos> <property> %(q)salpha </property> </cos> </product>
-        <product> <property> %(q)scl </property> <sin> <property> %(q)salpha </property> </sin> </product> </sum> </product>
-    </function>
-    <function name="%(q)sy"> <product> <value> -1 </value> <property> %(q)sf </property> <property> %(q)scd </property> <sin> <property> %(q)sbeta </property> </sin> </product> </function>
-    <function name="%(q)sz">
-      <product> <property> %(q)sf </property> <sum>
-        <product> <value> -1 </value> <property> %(q)scl </property> <cos> <property> %(q)salpha </property> </cos> </product>
-        <product> <value> -1 </value> <property> %(q)scd </property> <cos> <property> %(q)sbeta </property> </cos> <sin> <property> %(q)salpha </property> </sin> </product> </sum> </product>
-    </function>
-""" % dict(q=q)
-    else:
-        s += """    <function name="%(q)sx">
-      <product> <property> %(q)sf </property> <sum>
-        <product> <value> -1 </value> <property> %(q)scd </property> <cos> <property> %(q)sbeta </property> </cos> <cos> <property> %(q)salpha </property> </cos> </product>
-        <product> <property> %(q)scl </property> <sin> <property> %(q)salpha </property> </sin> </product> </sum> </product>
-    </function>
-    <function name="%(q)sy">
-      <product> <property> %(q)sf </property> <sum>
-        <product> <value> -1 </value> <property> %(q)scl </property> <cos> <property> %(q)salpha </property> </cos> </product>
-        <product> <value> -1 </value> <property> %(q)scd </property> <cos> <property> %(q)sbeta </property> </cos> <sin> <property> %(q)salpha </property> </sin> </product> </sum> </product>
-    </function>
-    <function name="%(q)sz"> <product> <value> -1 </value> <property> %(q)sf </property> <property> %(q)scd </property> <sin> <property> %(q)sbeta </property> </sin> </product> </function>
-""" % dict(q=q)
-    return s, aft, above
-
-
-# TM-85890 p. 2-3: the fuselage's wind-tunnel regressions (drag, lift, side force; pitch, roll, yaw
-# moments over q, ft2 and ft3), in the tunnel's angles: alpha_f and psi_w (deg where a power of it)
-_FUSELAGE_85890 = """    <function name="%(a)sfus-d">
-      <description> D/q = 90.0555 sin^2 a - 41.5604 cos a + 2.94684 cos 4p - 103.141 cos 2p - 0.535350e-6 p^4 + 160.2049 </description>
-      <product> <property> %(a)sfus-qbar </property> <sum>
-        <product> <value> 90.0555 </value> <pow> <sin> <property> %(a)sfus-a </property> </sin> <value> 2 </value> </pow> </product>
-        <product> <value> -41.5604 </value> <cos> <property> %(a)sfus-a </property> </cos> </product>
-        <product> <value> 2.94684 </value> <cos> <product> <value> 4 </value> <property> %(a)sfus-p </property> </product> </cos> </product>
-        <product> <value> -103.141 </value> <cos> <product> <value> 2 </value> <property> %(a)sfus-p </property> </product> </cos> </product>
-        <product> <value> -0.535350e-6 </value> <pow> <property> %(a)spsi-w-deg </property> <value> 4 </value> </pow> </product>
-        <value> 160.2049 </value> </sum> </product>
-    </function>
-    <function name="%(a)sfus-lift">
-      <description> L/q = 29.3616 sin a + 43.4680 sin 2a - 81.8924 sin^2 a - 84.1469 cos a - 0.0821406 p + 3.00102 sin 4p + 0.0323477 p^2 + 85.3496 </description>
-      <product> <property> %(a)sfus-qbar </property> <sum>
-        <product> <value> 29.3616 </value> <sin> <property> %(a)sfus-a </property> </sin> </product>
-        <product> <value> 43.4680 </value> <sin> <product> <value> 2 </value> <property> %(a)sfus-a </property> </product> </sin> </product>
-        <product> <value> -81.8924 </value> <pow> <sin> <property> %(a)sfus-a </property> </sin> <value> 2 </value> </pow> </product>
-        <product> <value> -84.1469 </value> <cos> <property> %(a)sfus-a </property> </cos> </product>
-        <product> <value> -0.0821406 </value> <property> %(a)spsi-w-deg </property> </product>
-        <product> <value> 3.00102 </value> <sin> <product> <value> 4 </value> <property> %(a)sfus-p </property> </product> </sin> </product>
-        <product> <value> 0.0323477 </value> <pow> <property> %(a)spsi-w-deg </property> <value> 2 </value> </pow> </product>
-        <value> 85.3496 </value> </sum> </product>
-    </function>
-    <function name="%(a)sfus-side">
-      <description> Y/q = 35.3999 sin p + 71.8019 sin 2p - 8.04823 sin 4p </description>
-      <product> <property> %(a)sfus-qbar </property> <sum>
-        <product> <value> 35.3999 </value> <sin> <property> %(a)sfus-p </property> </sin> </product>
-        <product> <value> 71.8019 </value> <sin> <product> <value> 2 </value> <property> %(a)sfus-p </property> </product> </sin> </product>
-        <product> <value> -8.04823 </value> <sin> <product> <value> 4 </value> <property> %(a)sfus-p </property> </product> </sin> </product> </sum> </product>
-    </function>
-    <function name="%(a)sfus-pitch">
-      <description> M/q = 2.37925 a(deg) + 728.026 sin 2a + 426.760 sin^2 a + 348.072 cos a - 510.581 cos^3 p + 56.111 </description>
-      <product> <property> %(a)sfus-qbar </property> <sum>
-        <product> <value> 2.37925 </value> <property> %(a)salpha-f-deg </property> </product>
-        <product> <value> 728.026 </value> <sin> <product> <value> 2 </value> <property> %(a)sfus-a </property> </product> </sin> </product>
-        <product> <value> 426.760 </value> <pow> <sin> <property> %(a)sfus-a </property> </sin> <value> 2 </value> </pow> </product>
-        <product> <value> 348.072 </value> <cos> <property> %(a)sfus-a </property> </cos> </product>
-        <product> <value> -510.581 </value> <pow> <cos> <property> %(a)sfus-p </property> </cos> <value> 3 </value> </pow> </product>
-        <value> 56.111 </value> </sum> </product>
-    </function>
-    <function name="%(a)sfus-roll">
-      <description> l/q by |p|: 0 to 10 deg; to 25: sgn p (455.707 cos^4 p - 428.639); to 90: 614.797 sin p + sgn p (-47.7213 cos 4p - 290.504 cos^3 p + 735.507 cos^4 p - 669.266) </description>
-      <product> <property> %(a)sfus-qbar </property>
-        <ifthen> <le> <abs> <property> %(a)spsi-w-deg </property> </abs> <value> 10 </value> </le> <value> 0 </value>
-          <ifthen> <le> <abs> <property> %(a)spsi-w-deg </property> </abs> <value> 25 </value> </le>
-            <product> <sign> <property> %(a)sfus-p </property> </sign>
-              <sum> <product> <value> 455.707 </value> <pow> <cos> <property> %(a)sfus-p </property> </cos> <value> 4 </value> </pow> </product> <value> -428.639 </value> </sum> </product>
-            <sum> <product> <value> 614.797 </value> <sin> <property> %(a)sfus-p </property> </sin> </product>
-              <product> <sign> <property> %(a)sfus-p </property> </sign> <sum>
-                <product> <value> -47.7213 </value> <cos> <product> <value> 4 </value> <property> %(a)sfus-p </property> </product> </cos> </product>
-                <product> <value> -290.504 </value> <pow> <cos> <property> %(a)sfus-p </property> </cos> <value> 3 </value> </pow> </product>
-                <product> <value> 735.507 </value> <pow> <cos> <property> %(a)sfus-p </property> </cos> <value> 4 </value> </pow> </product>
-                <value> -669.266 </value> </sum> </product> </sum>
-          </ifthen>
-        </ifthen> </product>
-    </function>
-    <function name="%(a)sfus-yaw">
-      <description> N/q: |p| to 20 deg: -278.133 sin 2p + 422.644 sin 4p - 1.83172; beyond: 220.0 sin 2p + sgn p (671.0 cos^4 p - 429.0) </description>
-      <product> <property> %(a)sfus-qbar </property>
-        <ifthen> <le> <abs> <property> %(a)spsi-w-deg </property> </abs> <value> 20 </value> </le>
-          <sum> <product> <value> -278.133 </value> <sin> <product> <value> 2 </value> <property> %(a)sfus-p </property> </product> </sin> </product>
-            <product> <value> 422.644 </value> <sin> <product> <value> 4 </value> <property> %(a)sfus-p </property> </product> </sin> </product>
-            <value> -1.83172 </value> </sum>
-          <sum> <product> <value> 220.0 </value> <sin> <product> <value> 2 </value> <property> %(a)sfus-p </property> </product> </sin> </product>
-            <product> <sign> <property> %(a)sfus-p </property> </sign>
-              <sum> <product> <value> 671.0 </value> <pow> <cos> <property> %(a)sfus-p </property> </cos> <value> 4 </value> </pow> </product> <value> -429.0 </value> </sum> </product> </sum>
-        </ifthen> </product>
-    </function>
-"""
-
-
-def _wake(a, tag, aft_hub, below_hub, R):
-    """1 in the main rotor's wake, 0 out of it (a simplification of TM-84281's interpolated wake
-    charts): the wake's column, skewed back by chi = atan(mu / -lambda), spans the hub's x +- R at a
-    depth h; smoothed over 2 ft at its edges."""
-    h = max(below_hub, 0.5)
-    return """    <function name="%(a)swake-%(t)s">
-      <description> %(t)s: %(l).1f ft aft of the hub, %(h).1f ft below it </description>
-      <product>
-        <max> <value> 0 </value> <min> <value> 1 </value>
-          <quotient> <difference> <sum> <value> %(r)s </value> <product> <value> %(h)s </value> <property> %(a)swake-tan-chi </property> </product> </sum> <value> %(l)s </value> </difference> <value> 2 </value> </quotient> </min> </max>
-        <max> <value> 0 </value> <min> <value> 1 </value>
-          <quotient> <difference> <value> %(l)s </value> <difference> <product> <value> %(h)s </value> <property> %(a)swake-tan-chi </property> </product> <value> %(r)s </value> </difference> </difference> <value> 2 </value> </quotient> </min> </max>
-      </product>
-    </function>
-""" % dict(a=a, t=tag, l=aft_hub, h=h, r=_f(R))
-
-
-def _aero_tm85890(spec, rd):
-    af = spec["airframe"]
-    name = spec["aircraft"]["name"]
-    a = "aero/" + name + "/"
-    cg = spec["mass"]["cg_in"]
-    mr = spec["rotor"]["main"]
-    hub = mr["hub_in"]
-    R = mr["radius_ft"]
-    fref = af["fuselage_ref_in"]
-    f_aft, f_above = (fref[0] - cg[0]) / 12.0, (fref[1] - cg[2]) / 12.0
-    hs = dict(af["horizontal"], incidence_property="fcs/%s/stab-rad" % name)
-    vf = dict(af["fin"])
-    cant = math.radians(spec["rotor"]["tail"].get("cant_deg", 0.0))
-    s = """    <!-- the main rotor's wake: its skew angle chi from the vertical, tan chi = mu / -lambda -->
-    <function name="%(a)swake-tan-chi">
-      <quotient> <property> propulsion/engine[0]/advance-ratio </property>
-        <max> <value> 0.002 </value> <abs> <property> propulsion/engine[0]/inflow-ratio </property> </abs> </max> </quotient>
-    </function>
-""" % dict(a=a)
-    s += _wake(a, "fus", (fref[0] - hub[0]) / 12.0, (hub[2] - fref[1]) / 12.0, R)
-    s += _wake(a, "hs", (hs["sta"] - hub[0]) / 12.0, (hub[2] - hs["wl"]) / 12.0, R)
-    s += _wake(a, "vf", (vf["sta"] - hub[0]) / 12.0, (hub[2] - vf["wl"]) / 12.0, R)
-    s += """    <function name="fcs/%(n)s/u-kt"> <product> <property> velocities/u-aero-fps </property> <value> 0.592484 </value> </product> </function>
-    <!-- TM-85890's fuselage: its angles with the rotor's downwash and the rates at its reference point -->
-    <function name="%(a)sfus-w">
-      <sum> <property> velocities/w-aero-fps </property>
-        <product> <value> %(fa)s </value> <property> velocities/q-aero-rad_sec </property> </product>
-        <product> <value> -1 </value> <property> %(a)swake-fus </property> <property> propulsion/engine[0]/vi-fps </property> </product> </sum>
-    </function>
-    <function name="%(a)sfus-v">
-      <sum> <property> velocities/v-aero-fps </property> <product> <value> %(nfa)s </value> <property> velocities/r-aero-rad_sec </property> </product> </sum>
-    </function>
-    <function name="%(a)sfus-vmag">
-      <max> <value> 1 </value> <sqrt> <sum> <pow> <property> velocities/u-aero-fps </property> <value> 2 </value> </pow>
-        <pow> <property> %(a)sfus-v </property> <value> 2 </value> </pow> <pow> <property> %(a)sfus-w </property> <value> 2 </value> </pow> </sum> </sqrt> </max>
-    </function>
-    <function name="%(a)sfus-qbar">
-      <product> <value> 0.5 </value> <property> atmosphere/rho-slugs_ft3 </property> <pow> <property> %(a)sfus-vmag </property> <value> 2 </value> </pow> </product>
-    </function>
-    <function name="%(a)salpha-f-deg">
-      <todegrees> <atan2> <property> %(a)sfus-w </property> <abs> <property> velocities/u-aero-fps </property> </abs> </atan2> </todegrees>
-    </function>
-    <function name="%(a)spsi-w-deg">
-      <product> <value> -1 </value> <todegrees> <atan2> <property> %(a)sfus-v </property>
-        <sqrt> <sum> <pow> <property> velocities/u-aero-fps </property> <value> 2 </value> </pow> <pow> <property> %(a)sfus-w </property> <value> 2 </value> </pow> </sum> </sqrt> </atan2> </todegrees> </product>
-    </function>
-    <function name="%(a)sfus-a"> <toradians> <property> %(a)salpha-f-deg </property> </toradians> </function>
-    <function name="%(a)sfus-p"> <toradians> <property> %(a)spsi-w-deg </property> </toradians> </function>
-""" % dict(a=a, n=name, fa=_f(f_aft), nfa=_f(-f_aft))
-    s += _FUSELAGE_85890 % dict(a=a)
-    s += """    <!-- wind to body: drag along the local wind, lift normal to it in the plane of symmetry, the side force along y -->
-    <function name="%(a)sfus-x">
-      <sum> <product> <value> -1 </value> <property> %(a)sfus-d </property> <quotient> <property> velocities/u-aero-fps </property> <property> %(a)sfus-vmag </property> </quotient> </product>
-        <product> <property> %(a)sfus-lift </property> <sin> <property> %(a)sfus-a </property> </sin> </product> </sum>
-    </function>
-    <function name="%(a)sfus-y">
-      <sum> <product> <value> -1 </value> <property> %(a)sfus-d </property> <quotient> <property> %(a)sfus-v </property> <property> %(a)sfus-vmag </property> </quotient> </product>
-        <property> %(a)sfus-side </property> </sum>
-    </function>
-    <function name="%(a)sfus-z">
-      <sum> <product> <value> -1 </value> <property> %(a)sfus-d </property> <quotient> <property> %(a)sfus-w </property> <property> %(a)sfus-vmag </property> </quotient> </product>
-        <product> <value> -1 </value> <property> %(a)sfus-lift </property> <cos> <property> %(a)sfus-a </property> </cos> </product> </sum>
-    </function>
-""" % dict(a=a)
-    hs_xml, hs_aft, hs_above = _surface(a, "hs", hs, cg, hub, R)
-    vf_xml, vf_aft, vf_above = _surface(a, "vf", vf, cg, hub, R, stall_tr_wash=math.cos(cant))
-    s += hs_xml + vf_xml
-
-    def moments(aft, above, prefix):
-        # a point `aft` ft behind the c.g. and `above` ft above it: L = h Y, M = -h X + a Z, N = -a Y
-        return ("<product> <value> %s </value> <property> %sy </property> </product>" % (_f(above), prefix),
-                "<product> <value> %s </value> <property> %sx </property> </product> <product> <value> %s </value> <property> %sz </property> </product>"
-                % (_f(-above), prefix, _f(aft), prefix),
-                "<product> <value> %s </value> <property> %sy </property> </product>" % (_f(-aft), prefix))
-    fl, fm, fn = moments(f_aft, f_above, a + "fus-")
-    hl, hm, hn = moments(hs_aft, hs_above, a + "hs-")
-    vl, vm, vn = moments(vf_aft, vf_above, a + "vf-")
-    s += """    <axis name="X"> <function name="aero/force/%(n)s-x"> <sum> <property> %(a)sfus-x </property> <property> %(a)shs-x </property> <property> %(a)svf-x </property> </sum> </function> </axis>
-    <axis name="Y"> <function name="aero/force/%(n)s-y"> <sum> <property> %(a)sfus-y </property> <property> %(a)shs-y </property> <property> %(a)svf-y </property> </sum> </function> </axis>
-    <axis name="Z"> <function name="aero/force/%(n)s-z"> <sum> <property> %(a)sfus-z </property> <property> %(a)shs-z </property> <property> %(a)svf-z </property> </sum> </function> </axis>
-    <axis name="ROLL"> <function name="aero/moment/%(n)s-l"> <sum> <property> %(a)sfus-roll </property> %(fl)s %(hl)s %(vl)s </sum> </function> </axis>
-    <axis name="PITCH"> <function name="aero/moment/%(n)s-m"> <sum> <property> %(a)sfus-pitch </property> %(fm)s %(hm)s %(vm)s </sum> </function> </axis>
-    <axis name="YAW"> <function name="aero/moment/%(n)s-n"> <sum> <property> %(a)sfus-yaw </property> %(fn)s %(hn)s %(vn)s </sum> </function> </axis>
-""" % dict(n=name, a=a, fl=fl, fm=fm, fn=fn, hl=hl, hm=hm, hn=hn, vl=vl, vm=vm, vn=vn)
-    return s

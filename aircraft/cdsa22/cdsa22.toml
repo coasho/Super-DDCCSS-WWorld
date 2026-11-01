@@ -2,7 +2,7 @@
 # (tools/hangar/hangar/storedesigns.py), one rule for every cargo: edit stores.py's shape and write it again.
 #
 # Frame: metres, x aft from its nose, y right, z up from its axis. The card (assets/stores/cds-a22.json) holds its
-# figures: 1.36 m long, 1.22 m wide, 1.4 m high, 998 kg as loaded. A box of that size, its mass throughout (assumed).
+# figures: 1.3208 m long, 1.0922 m wide, 1.524 m high, 998 kg as loaded. A box of that size, its mass throughout (assumed).
 
 [aircraft]
 name = "cdsa22"
@@ -11,18 +11,19 @@ category = "store"
 card = "cds-a22"             # its store card: the published figures this design holds
 
 [analysis]
-speed = 250.0                # m/s: the Reynolds numbers of its carriage - assumed
+max_mach = 5.0 # Retains the former store table Mach domain.
+speed = 20.60448 # m/s: declared reference analysis speed from the store card
 
 [reference]                  # a store's: its frontal area and its diameter (its width), as its flight model's
-area = 1.708
-span = 1.22
-chord = 1.22
-aero_point = [0.68, 0.0, 0.0]
+area = 1.664513
+span = 1.0922
+chord = 1.0922
+aero_point = [0.6604, 0.0, 0.0]
 
 [store]
-shape = "box"            # a bluff body: its faces' drag (its card's drag_cd), not a body of revolution's
-width = 1.22
-height = 1.4
+shape = "box"            # physical mass/contact geometry; aerodynamics use the shared solver
+width = 1.0922
+height = 1.524
 
 # Its box: a rectangle the whole way (a superellipse of a high power: its edges sharp)
 [[body]]
@@ -30,16 +31,21 @@ name = "load"
 kind = "fuselage"
 stations = [
   { x = 0, w = 0, top = 0, bottom = 0, n = 16 },
-  { x = 0.002, w = 1.22, top = 0.7, bottom = -0.7, n = 16 },
-  { x = 1.358, w = 1.22, top = 0.7, bottom = -0.7, n = 16 },
-  { x = 1.36, w = 0, top = 0, bottom = 0, n = 16 },
+  { x = 0.002, w = 1.0922, top = 0.762, bottom = -0.762, n = 16 },
+  { x = 1.3188, w = 1.0922, top = 0.762, bottom = -0.762, n = 16 },
+  { x = 1.3208, w = 0, top = 0, bottom = 0, n = 16 },
 ]
 
 [mass]
 empty = 998                 # kg, the card
-empty_cg = [0.68, 0.0, 0.0]  # assumed: half way along
-gyration = [0.878797, 0.828591, 0.817698]  # a uniform block's (assumed)
+empty_cg = [0.6604, 0.0, 0.0]  # assumed: half way along
+gyration = [0.991127, 0.881544, 0.820152]  # a uniform block's (assumed)
 
 [dimensions]                  # the card
-length = 1.36
-span = 1.22
+length = 1.3208
+span = 1.0922
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

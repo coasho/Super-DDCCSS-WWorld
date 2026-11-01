@@ -9,12 +9,14 @@ collective (a helicopter) or each rotor's thrust (a multirotor, with roll, pitch
 """
 import math
 import os
+import hashlib
+from pathlib import Path
 
 import numpy as np
 
 KT = 0.514444
 G0 = 9.80665
-FDM_DT = 1.0 / 120.0  # the platform's JSBSim step (four to a world step)
+FDM_DT = 1.0 / 120.0  # public flight step; a model may use finer native integration
 
 
 class Hold:
@@ -84,7 +86,8 @@ def _gains(r):
     Nr = sum(multi.MIX * tmax * kQ / kT for _ in rows) / m["izz"]
     wr = min(15.0, 1.0 / (3.0 * r.spec["rotors"]["lag_up_s"]))  # the rate loop's bandwidth
     wa = wr / 4.0
-    return {"th": wa * wr / Lq, "q": wr / Lq, "ph": wa * wr / Lr, "p": wr / Lr, "r": 2.0 * wr / Nr, "psi": wa,
+    return {"th": wa * wr / Lq, "q": wr / Lq, "ph": wa * wr / Lr, "p": wr / Lr,
+            "r": 2.0 * wr / Nr, "psi": wa,
             "vz": 0.25 / (4 * tmax / (m["mass_kg"])) * 4, "vzi": 0.1, "att_i": 0.0}
 
 
@@ -109,6 +112,12 @@ class Session:
         self.n += 1
         self.v = self.world.create_vehicle("r%d" % self.n, type="jsbsim:" + self.r.name, latitude_deg=37.6, longitude_deg=-122.4,
                                            altitude_msl_m=self.altitude_m, heading_deg=0.0, airspeed_ms=speed_ms)
+        self.native_dt = float(self.v.get_property("simulation/dt"))
+        if not math.isfinite(self.native_dt) or self.native_dt <= 0.0:
+            raise RuntimeError("Rotorcraft identification requires a finite positive native integration step")
+        steps = FDM_DT / self.native_dt
+        if not math.isclose(steps, round(steps), rel_tol=1e-9, abs_tol=1e-9) or steps < 1:
+            raise RuntimeError("Native integration step does not divide the public flight step")
         self.v.set_protection("off")  # the aircraft, not the platform's envelope protection (flight.Flight)
         if fuel_fraction is not None:
             from .heli import fuel_of
@@ -173,6 +182,7 @@ class Session:
         key = {"roll": "aileron", "pitch": "elevator", "yaw": "rudder", "heave": "throttle"}[axis]
         stepped = dict(base)
         stepped[key] = base[key] + size
+        initial_up_ms = -v.state.velocity_ned_ms[2]
         v.command_actuator(**stepped)
         t, y, x = [], [], []
         for k in range(int(round(seconds / self.dt))):
@@ -181,25 +191,51 @@ class Session:
             p, q, rr = s.angular_rate_body_rad_s
             t.append((k + 1) * self.dt)
             if axis == "heave":
-                y.append(-v.get_property("accelerations/n-pilot-z-norm") * G0 - G0)  # vertical acceleration, + up
                 x.append(-s.velocity_ned_ms[2])
             else:
                 y.append({"roll": p, "pitch": q, "yaw": rr}[axis])
+        if axis == "heave":
+            # Differentiate the actual CG vertical velocity. Pilot-axis
+            # specific force includes attitude and eye-point terms, and is not
+            # vertical acceleration even in a steady tilted hover.
+            y = np.gradient(np.array([initial_up_ms] + x), self.dt)[1:]
         return np.array(t), np.array(y), np.array(x) if x else None
 
 
-def step_input(t, size, lag, delay):
+def step_input(t, size, lag, delay, native_tustin=False, native_dt=FDM_DT):
     """The step as the airframe feels it: through the actuator's lag, a JSBSim step late (its
     forces move the aircraft on the next step: Propagate runs first)."""
     te = np.maximum(t - delay, 0.0)
+    if native_tustin:
+        if not math.isfinite(native_dt) or native_dt <= 0:
+            raise ValueError('Invalid native integration step')
+        poles=list(lag) if isinstance(lag,(tuple,list)) else [lag]
+        if not poles:return np.where(t>delay,size,0.)
+        if not all(math.isfinite(v) and v>0 for v in poles):raise ValueError('Invalid implemented input pole')
+        counts=np.maximum(np.rint(te/native_dt).astype(int),0)
+        history=np.zeros(int(np.max(counts))+1);previous_x=np.zeros(len(poles));previous_y=np.zeros(len(poles))
+        for k in range(1,len(history)):
+            current=float(size)
+            for i,tau in enumerate(poles):
+                b=native_dt/(2*tau+native_dt);a=(2*tau-native_dt)/(2*tau+native_dt)
+                output=b*(current+previous_x[i])+a*previous_y[i]
+                previous_x[i]=current;previous_y[i]=output;current=output
+            history[k]=current
+        return history[counts]
+    if isinstance(lag,(tuple,list)):
+        if len(lag)!=2 or not all(math.isfinite(v) and v>0 for v in lag):
+            raise ValueError('Identification needs two finite positive serial response poles')
+        a,b=map(float,lag)
+        if a==b:return size*(1-(1+te/a)*np.exp(-te/a))
+        return size*(1-(a*np.exp(-te/a)-b*np.exp(-te/b))/(a-b))
     return size * (1.0 - np.exp(-te / lag)) if lag > 0 else np.where(t > delay, size, 0.0)
 
 
-def identify(t, y, size, lag, dt, x=None, delay=FDM_DT):
+def identify(t, y, size, lag, dt, x=None, delay=FDM_DT, native_tustin=False, native_dt=FDM_DT):
     """ydot = -d y + P u_f, u_f the step through the actuator's lag: least squares for the control
     power P (per unit command, per s^2) and the damping d (1/s). For the heave the measured signal
     is the acceleration a = -d w + P u_f, w the vertical speed (x)."""
-    u_f = step_input(t, size, lag, delay)
+    u_f = step_input(t, size, lag, delay,native_tustin=native_tustin,native_dt=native_dt)
     if x is None:
         ydot = np.gradient(y, dt)
         A = np.column_stack([-y, u_f])
@@ -218,6 +254,12 @@ def run(r):
     s = Session(r)
     checks, results = [], {}
     try:
+        # Bind the identification to the physical input model, before the fly
+        # stage replaces its hover profile. These are input hashes, not a claim
+        # that the subsequently rebuilt XML has identical bytes.
+        inputs = [Path(r.path), Path(r.dir) / (r.name + ".xml"), Path(__file__)]
+        results["identification_inputs"] = {
+            str(path.resolve()): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
         kind = r.kind
         hover, v = s.trim(0.0)
         if hover is None:
@@ -261,13 +303,29 @@ def run(r):
         plant, steps = {}, {}
         for axis, size in (("roll", 0.03), ("pitch", 0.03), ("yaw", 0.05), ("heave", 0.03)):
             t, y, x = s.step_response(hover, axis, size, 1.0 if kind == "helicopter" else 0.5)
-            P, d, err = identify(t, y, size, lags[axis], s.dt, x)
-            plant[axis] = dict(power=P, damping=d, lag_s=lags[axis], delay_s=FDM_DT, fit_error=err)
+            P, d, err = identify(t, y, size, lags[axis], s.dt, x,delay=s.native_dt,
+                                 native_tustin=kind=='helicopter',native_dt=s.native_dt)
+            poles=list(lags[axis]) if isinstance(lags[axis],(tuple,list)) else [lags[axis]]
+            equivalent_lag=sum(poles)
+            exact_input=step_input(t,size,lags[axis],s.native_dt,native_tustin=kind=='helicopter',native_dt=s.native_dt)
+            equivalent_input=step_input(t,size,equivalent_lag,s.native_dt)
+            plant[axis] = dict(power=P, damping=d, lag_s=equivalent_lag, delay_s=s.native_dt, fit_error=err,
+                method='native-step-serial-poles-ls-v4',basis='simulated',serial_lags_s=poles,
+                native_dt_s=s.native_dt, observation_dt_s=s.dt,
+                observation='sampled CG upward NED velocity derivative' if axis=='heave' else 'sampled body angular rate derivative',
+                input_response='implemented FCS Tustin lag/actuator cascade; additional rotor inflow/SAS dynamics remain in fitted residual' if kind=='helicopter' else 'continuous first-order motor approximation; native nonlinear motor response remains in fitted residual',
+                lag_reduction='sum of serial first-order low-frequency group delays; approximation',
+                lag_reduction_step_relative_l2=float(np.linalg.norm(exact_input-equivalent_input)/max(np.linalg.norm(exact_input),1e-12)),
+                lag_reduction_phase_error_deg=math.degrees(sum(math.atan(v/equivalent_lag) for v in poles)-math.atan(1)) if poles else 0.)
             steps[axis] = dict(t=t.tolist(), y=y.tolist(), x=None if x is None else x.tolist(), size=size)
             checks.append(_c("hover %s control power" % axis, P, "rad/s2" if axis != "heave" else "m/s2", "", "info",
-                             note="damping %.3g 1/s, lag %.3g s, fit %.0f %%" % (d, lags[axis], 100 * err)))
+                             note="damping %.3g 1/s, equivalent lag %.3g s, fit %.0f %%" % (d, equivalent_lag, 100 * err)))
         results["plant"] = plant
         results["steps"] = steps
+        results["identification_clock"] = dict(public_flight_dt_s=FDM_DT,
+            native_integration_dt_s=s.native_dt, observation_dt_s=s.dt,
+            native_steps_per_public_step=int(round(FDM_DT / s.native_dt)),
+            force_delay_native_steps=1, method='native-step-serial-poles-ls-v4', basis='simulated')
         results["hover"] = _hover_section(r, hover, plant, s.altitude_m)
         results["performance"] = {}
     finally:
@@ -286,7 +344,14 @@ def _lags(r):
         rd = heli.rotor_data(r.spec)
         c = r.spec["controls"]
         flap = c.get("flap_lag_s", rd["flap_lag"])
-        return {"roll": flap, "pitch": flap, "yaw": rd["tr_flap_lag"], "heave": c.get("collective_lag_s", flap)}
+        implemented={"roll":[flap],"pitch":[flap],"yaw":[],
+                     "heave":[] if 'collective_root_rad' in c else [c.get('collective_lag_s',.01)]}
+        config=r.spec.get('control_actuators')
+        if config:
+            phase=math.radians(float(config['phase_target_deg']))
+            servo_design={"roll":flap,"pitch":flap,"yaw":rd['tr_flap_lag'],"heave":c.get('collective_lag_s',flap)}
+            return {axis:tuple(poles+[max(FDM_DT,math.tan(phase)*servo_design[axis])]) for axis,poles in implemented.items()}
+        return {axis:tuple(poles) for axis,poles in implemented.items()}
     lag = r.spec["rotors"]["lag_up_s"]
     return {"roll": lag, "pitch": lag, "yaw": lag, "heave": lag}
 

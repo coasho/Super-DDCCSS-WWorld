@@ -14,6 +14,7 @@ category = "missile"
 card = "r-27et"             # its store card: the published figures this design holds
 
 [analysis]
+max_mach = 5.0 # Retains the former store table Mach domain.
 speed = 900.0                # m/s: the Reynolds numbers (Mach 3 at altitude) - assumed
 
 # The infrared seeker's glass dome (45 % of the body's radius - assumed), on its cone
@@ -141,3 +142,15 @@ gyration = [0.0203, 0.289, 0.289]  # radii of gyration over length - assumed (a 
 [dimensions]                  # the card: the span tip to tip across opposite fins
 length = 4.49
 span = 0.803
+
+# Derived normalization only; this does not add a physical wing.
+[reference]
+area = 0.053092915845667513
+span = 0.26000000000000001
+chord = 0.26000000000000001
+aero_point = [2.245, 0.0, 0.0]
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

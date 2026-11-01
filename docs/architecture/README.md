@@ -97,7 +97,7 @@ correction): each is one body at its own path, with no copy or redirect elsewher
 | Reference | [SDK API reference](../sdk/README.md) | public_api_reference | Retained in `docs/sdk`; architecture documents link to it rather than duplicate it (D15) |
 | Reference | [Status](../status.md), [backlog](../backlog.md) | status, backlog | Retained (D16, D17) |
 | Reference | [Development guide](../development.md), [resources](../resources.md) | development_guide, resource_guide | Retained (D18, D19) |
-| Reference | [Hangar](../hangar.md), [effects record](../hangar-effects.md) | resource_reference | Retained (D21, D22) |
+| Reference | [Hangar](../hangar-system.md), [effects record](../hangar-effects.md) | resource_reference | Retained (D21, D22) |
 | Instructions | [AGENTS.md](../../AGENTS.md) | project_instructions | Released for link updates (D20); its links name no relocated document, so none changed |
 
 ## Decisions for implementation

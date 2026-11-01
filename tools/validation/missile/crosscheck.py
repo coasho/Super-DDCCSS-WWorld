@@ -73,7 +73,7 @@ def runtime(native_bin):
     numerical_sources = {inspect.getfile(cls) for cls in (Environment, Flight, Function, Rocket, SolidMotor)}
     numerical_sources.update((__file__, str(Path(__file__).with_name("reference.py"))))
     numerical_sources.update(str(ROOT / "tools/models/hangar/hangar" / (name + ".py")) for name in
-                             ("storeaero", "storebodies", "motorinputs", "storemodels", "storedrag", "storetables"))
+                             ("storeaero", "storebodies", "motorinputs", "storemodels", "airframe", "verify", "jsbsim"))
     return {"python_sdk": digest(fsim.__file__), "python_executable": digest(sys.executable), "libraries": records,
             "rocketpy_version": importlib.metadata.version("rocketpy"),
             "numpy_version": importlib.metadata.version("numpy"), "scipy_version": importlib.metadata.version("scipy"),

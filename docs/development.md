@@ -77,7 +77,7 @@ For CTest expressions containing shell operators such as `|`, invoke `ctest --pr
 cmake --install build/ucrt64-release --component viewer --prefix D:/ENV/fsim-viewer
 ```
 
-For direct staged Python use, `build/<preset>/python/fsim-python.cmd` selects that package; Hangar also needs `tools/models/hangar` on PYTHONPATH. See [hangar.md](hangar.md) for stages; resource regeneration is a separate task from writing documentation. `Testbench.cmd` uses the same preset selection: explicit arguments run synchronously and return the testbench exit code; a no-argument launch opens a minimized console. The headless preset opens the testbench window alone; a viewer requires a render preset. See [testbench setup](../src/applications/testbench/README.md#how-to-open-it).
+For direct staged Python use, `build/<preset>/python/fsim-python.cmd` selects that package; Hangar also needs `tools/models/hangar` on PYTHONPATH. See [Hangar system](hangar-system.md) for stages; resource regeneration is a separate task from writing documentation. `Testbench.cmd` uses the same preset selection: explicit arguments run synchronously and return the testbench exit code; a no-argument launch opens a minimized console. The headless preset opens the testbench window alone; a viewer requires a render preset. See [testbench setup](../src/applications/testbench/README.md#how-to-open-it).
 
 The `dist` target builds enabled install targets and produces separate SDK, tools, examples, viewer (when enabled) and Python (when available) trees. The standalone SDK component includes DLLs, headers, CMake exports, runtime JSBSim data, designed aircraft/store models, payload/store cards and notices. Render SDKs also include optional vision model/cloud resources. Installation copies generated products rather than running Hangar. See [resources.md](resources.md#staging-and-runtime-search) and the [installed-consumer guidance](sdk/README.md#building-against-the-sdk).
 
@@ -284,7 +284,7 @@ Report the checkout/commit, preset, command, environment, elapsed time, tested s
 
 [status.md](status.md) owns current capability and milestone status. Keep architecture documents as design/rationale, roadmap documents as sequencing/history, [backlog.md](backlog.md) as unresolved work, and generated reports as dated evidence. Update cross-links instead of copying another live status table. A documented limitation stays unresolved until implementation and acceptance evidence support changing it.
 
-`docs/sdk/boundary.toml` is the editable principal inventory; `docs/sdk/boundary.md` is rendered output. `docs/hangar-stores-build.md` and its JSON companion are generated build evidence; regenerate them with their owning tool rather than hand-editing rows. [resources.md](resources.md) lists the other owners.
+`docs/sdk/boundary.toml` is the editable principal inventory; `docs/sdk/boundary.md` is rendered output. Hangar has one maintained [system guide](hangar-system.md); current fleet/native/runtime evidence is machine-readable and belongs to its builder. [resources.md](resources.md) lists the other owners.
 
 Regenerate the canonical boundary page from the render build with both native DLLs and its Python package:
 

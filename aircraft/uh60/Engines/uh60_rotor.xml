@@ -10,6 +10,8 @@
   <liftcurveslope Xunit="1/RAD"> 5.73 </liftcurveslope>
   <twist unit="DEG"> -18 </twist>
   <hingeoffset unit="FT"> 1.25 </hingeoffset>
+  <!-- Effective flapping response and physical polar/drive inertia are independent
+       when the authored versioned physical_inertia model distinguishes them. -->
   <flappingmoment unit="SLUG*FT2"> 1490.1769 </flappingmoment>
   <massmoment> 83.312166 </massmoment>
   <polarmoment unit="SLUG*FT2"> 5960.7078 </polarmoment>

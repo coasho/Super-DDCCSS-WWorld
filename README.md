@@ -4,33 +4,39 @@ A Windows C++17 flight-simulation platform for reinforcement learning, flight au
 
 Start with [current capabilities, milestones and validation limits](docs/status.md). The [documentation index](docs/README.md) separates usage guides, API contracts, design decisions and recorded evidence.
 
+## Quick start
+
+```powershell
+.\setup.ps1
+.\build.ps1
+.\run.ps1 -Mode demo -Background -Arguments @('--fullscreen', '--offline')
+.\stop.ps1
+```
+
+This builds the SDK and Viewer and runs selected designs through Hangar.
+The [single Hangar guide](docs/hangar-system.md) explains the unified aircraft/store
+VLM workflow, SDK comparisons with public measurements, unknown errors and
+reproducible commands.
+
+
 ## Build and test
 
-The supported repository presets use **Windows x64, MSYS2 UCRT64 GCC, Ninja and CMake 3.25+**. The toolchain defaults to `D:/ENV/DevLanguages/Cpp/msys2/ucrt64`; keep toolchains, Python environments and caches under `D:/ENV`. Run these PowerShell commands from the repository root with the UCRT64 tools available:
+The one-command bootstrap supports Windows x64 with pinned CPython, UCRT64
+GNU tools and native dependencies. Setup reuses compatible installed tools
+read-only and downloads only missing components. Downloads, overlays, caches,
+process records and build products stay inside this project. The lock file is
+`tools/bootstrap/dependencies.lock.json`.
 
-```powershell
-$env:PATH = "D:\ENV\DevLanguages\Cpp\msys2\ucrt64\bin;$env:PATH"
-New-Item -ItemType Directory -Force D:\ENV\tmp | Out-Null
-$env:TMP = $env:TEMP = $env:TORCH_EXTENSIONS_DIR = 'D:\ENV\tmp'
-.\fsim.cmd --preset ucrt64-headless build
-.\fsim.cmd --preset ucrt64-headless test
-```
+`build.ps1` compiles both Headless SDK and Viewer, verifies or regenerates the
+selected Hangar products, stages resources, and runs both suites with `-Test`.
+Use `-Plan` to inspect commands. Hangar cannot be bypassed with `-SkipHangar`.
+The [Hangar guide](docs/hangar-system.md#normal-entrypoints)
+covers model selection, numerical methods, resource limits and logs.
 
-The launcher defaults to `ucrt64-headless`, and `build` configures that preset automatically when its cache is absent. This is the canonical headless path: no Vulkan stack or GPU is required. Tests fetch Catch2 on first configuration. Configuration can also fetch a sample visual model. The Python SDK is enabled when a python.org or conda **CPython 3.11+** with development headers and `python3.dll` is found; MSYS2 Python is not suitable. Use `.\fsim.cmd --preset ucrt64-headless configure -DFSIM_PYTHON_EXECUTABLE=D:/ENV/<environment>/python.exe` before building if discovery does not find yours. For Python/Hangar tests, provision numpy, scipy, matplotlib and Pillow in that environment before testing. See [development setup and validation](docs/development.md) for dependencies and focused checks.
-
-JSBSim and the VSG stack are tracked vendored sources in `third_party/`; this checkout has no Git submodules to initialize.
-
-For the optional viewer and vision module, install the Vulkan/glslang and VSG dependency prerequisites first, and retain the vendored NVIDIA Flow headers and DLLs. The VSG superbuild supplies the prefix used by the render presets:
-
-```powershell
-cmake -S deps --preset deps-ucrt64
-cmake --build build/deps-ucrt64
-.\fsim.cmd --preset ucrt64-release configure
-.\fsim.cmd --preset ucrt64-release build
-.\fsim.cmd --preset ucrt64-release test
-```
-
-`ucrt64-debug` also enables rendering and needs the same dependencies. These commands describe the checked-in build configuration; recorded results and outstanding failures are linked from [status](docs/status.md).
+Developers can also use the existing UCRT64 presets and `fsim.cmd` directly.
+See [development setup and validation](docs/development.md) for that manual
+workflow, native dependency details and focused tests. Recorded results and
+outstanding physical-model limits are linked from [status](docs/status.md).
 
 ## Run
 

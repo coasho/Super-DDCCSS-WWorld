@@ -67,6 +67,42 @@ TEST_CASE("Representative IR guidance depends on measured bearing history rather
     }
 }
 
+TEST_CASE("Every authored AAM selects independent measured terminal sensing and guidance", "[representative-weapons][fleet]") {
+    std::vector<std::string> errors;
+    const auto cards=readStoreLibrary(std::filesystem::path(FSIM_TEST_STORE_DIR),errors);
+    REQUIRE(errors.empty());
+    unsigned count=0;
+    for(const auto& [id,card]:cards) if(card->storeClass=="aam") {
+        INFO(id);Runtime runtime(id.c_str());
+        CHECK(dynamic_cast<SeekerExecutionV2*>(runtime.sensor.get())!=nullptr);
+        CHECK(dynamic_cast<MeasuredGuidanceV2*>(runtime.guidance.get())!=nullptr);
+        ++count;
+    }
+    REQUIRE(count==24);
+}
+
+TEST_CASE("Every authored IR terminal profile is invariant to hidden target range and velocity", "[representative-weapons][fleet]") {
+    std::vector<std::string> errors;
+    const auto cards=readStoreLibrary(std::filesystem::path(FSIM_TEST_STORE_DIR),errors);
+    REQUIRE(errors.empty());
+    unsigned count=0;
+    for(const auto& [id,card]:cards) if(card->storeClass=="aam" &&
+            (card->seeker=="infrared" || card->seeker=="imaging_infrared")) {
+        INFO(id);Runtime first(id.c_str()),second(id.c_str());
+        auto a=frame(0);a.visible={{17,{1000,0,0},{-100,40,0},false,1}};
+        auto b=a;b.visible.front().position.x=2000;b.visible.front().velocity={100,-30,0};
+        first.step(a);second.step(b);
+        a.ageS=b.ageS=.1;a.visible.front().position.y=10;b.visible.front().position.y=20;
+        const auto x=first.step(a),y=second.step(b);
+        REQUIRE(x.tracking);REQUIRE(y.tracking);
+        CHECK(x.acceleration.x==Catch::Approx(y.acceleration.x).margin(1e-10));
+        CHECK(x.acceleration.y==Catch::Approx(y.acceleration.y).margin(1e-10));
+        CHECK(std::isnan(x.timeToGoS));CHECK(std::isnan(y.timeToGoS));
+        ++count;
+    }
+    REQUIRE(count==12);
+}
+
 TEST_CASE("Representative IR discrimination cannot consult semantic decoy attribution", "[representative-weapons]") {
     for(const auto* id:{"aim-9m","aim-9x"}) {
         INFO(id);Runtime first(id),second(id);
@@ -163,12 +199,96 @@ TEST_CASE("Sensor sampling is non-consuming per epoch and invalid epochs do not 
     first.resetTracking();f.samples.clear();CHECK_FALSE(first.sample(f).tracking);
 }
 
+TEST_CASE("IR and SARH navigation propagates only admitted dated estimates and resets independently", "[representative-weapons]") {
+    for(const auto mode:{weapon::SeekerModeV1::ImagingInfrared,weapon::SeekerModeV1::SemiActiveRadar}) {
+        auto spec=syntheticSpec(mode);spec.inertialMidcourse=true;spec.launcherUpdates=true;
+        std::unique_ptr<MeasuredSeekerV2> sensor;
+        if(mode==weapon::SeekerModeV1::ImagingInfrared)sensor=std::make_unique<ImagingIrSeekerV2>(spec);
+        else sensor=std::make_unique<SemiActiveRadarSeekerV2>(spec);
+        sensor->seedNavigationEstimate({17,{10000,0,0},{-100,0,0},false,1});
+        auto f=sensorFrame(100);f.ageS=0;f.supported=false;
+        auto r=sensor->sample(f);REQUIRE(r.valid);REQUIRE(r.midcourseEstimate);
+        CHECK_FALSE(r.tracking);CHECK_FALSE(r.track);
+        CHECK(r.midcourseEstimate->position.x==10000);
+        f.timeS=101;f.ageS=1;
+        // An undelivered update is not a navigation observation.
+        f.launcherEstimate=LauncherEstimateV2{{50000,0,0},{0,0,0},101};
+        r=sensor->sample(f);REQUIRE(r.midcourseEstimate);
+        CHECK(r.midcourseEstimate->position.x==9900);
+        f.timeS=102;f.ageS=2;f.supported=true;
+        f.launcherEstimate=LauncherEstimateV2{{9000,0,0},{-50,0,0},101.5};
+        r=sensor->sample(f);REQUIRE(r.valid);REQUIRE(r.midcourseEstimate);
+        CHECK(r.midcourseEstimate->position.x==8975);
+        f.timeS=103;f.ageS=3;f.launcherEstimate->sampleTimeS=104;
+        CHECK_FALSE(sensor->sample(f).valid);
+        // Rejected future data cannot replace the retained last navigation fix.
+        f.supported=false;f.launcherEstimate.reset();
+        r=sensor->sample(f);REQUIRE(r.valid);REQUIRE(r.midcourseEstimate);
+        CHECK(r.midcourseEstimate->position.x==8925);
+        sensor->resetTracking();f.timeS=104;f.ageS=4;
+        r=sensor->sample(f);REQUIRE(r.valid);CHECK_FALSE(r.midcourseEstimate);
+    }
+}
+
+TEST_CASE("Disabled IR navigation cannot ingest launcher estimates or infer target range", "[representative-weapons]") {
+    auto spec=syntheticSpec(weapon::SeekerModeV1::ImagingInfrared);
+    spec.inertialMidcourse=false;spec.launcherUpdates=false;
+    ImagingIrSeekerV2 sensor(spec);
+    sensor.seedNavigationEstimate({17,{10000,0,0},{-100,0,0},false,1});
+    auto f=sensorFrame(0);f.supported=true;f.launcherEstimate=LauncherEstimateV2{{10000,0,0},{-100,0,0},0};
+    const auto r=sensor.sample(f);REQUIRE(r.valid);CHECK_FALSE(r.midcourseEstimate);CHECK_FALSE(r.track);
+}
+
+TEST_CASE("A rejected future navigation update preserves the last accepted IR and SARH snapshot", "[representative-weapons]") {
+    for(const auto mode:{weapon::SeekerModeV1::ImagingInfrared,weapon::SeekerModeV1::SemiActiveRadar}) {
+        auto spec=syntheticSpec(mode);spec.inertialMidcourse=true;spec.launcherUpdates=true;
+        std::unique_ptr<MeasuredSeekerV2> sensor;
+        if(mode==weapon::SeekerModeV1::ImagingInfrared)sensor=std::make_unique<ImagingIrSeekerV2>(spec);
+        else sensor=std::make_unique<SemiActiveRadarSeekerV2>(spec);
+        auto f=sensorFrame(0);f.supported=f.illuminated=true;f.configuredIlluminator=7;
+        auto s=point(0);s.illuminator=7;s.transmitterPathClear=s.receiverPathClear=true;f.samples={s};
+        const auto accepted=sensor->sample(f);REQUIRE(accepted.valid);REQUIRE(accepted.tracking);REQUIRE(accepted.track);
+        f.timeS=f.ageS=1;f.launcherEstimate=LauncherEstimateV2{{10000,0,0},{-100,0,0},2};
+        CHECK_FALSE(sensor->sample(f).valid);
+        f.timeS=f.ageS=0;f.samples.clear();f.launcherEstimate.reset();
+        const auto retained=sensor->sample(f);
+        REQUIRE(retained.valid);REQUIRE(retained.tracking);REQUIRE(retained.track);
+        CHECK(retained.track->localId==accepted.track->localId);
+        CHECK(retained.track->sampleTimeS==accepted.track->sampleTimeS);
+    }
+}
+
+TEST_CASE("Measured composition rejects a different admitted variant in the same family", "[representative-weapons]") {
+    std::vector<std::string> errors;const auto root=std::filesystem::path(FSIM_TEST_STORE_DIR);
+    const auto cards=readStoreLibrary(root,errors);REQUIRE(errors.empty());
+    const auto card=cards.at("aim-120c");ProfileV1 profile;std::string error;
+    REQUIRE(readProfileV1(root/"aim-120c.json",*card,profile,error));
+    profile.components.at("seeker").bindings["variant"]="Meteor";
+    weapon::Spec spec;spec.seeker=card->seeker;spec.acquireM=123;
+    CHECK_FALSE(weapon::configureCompositionV1(*card,profile,spec,spec,error));
+    CHECK(spec.acquireM==123);CHECK(error.find("variant")!=std::string::npos);
+}
+
 TEST_CASE("Measured IR preserves unsupported launcher-update and legacy-call semantics", "[representative-weapons]") {
     Runtime runtime("aim-9m");auto* controller=dynamic_cast<MeasuredGuidanceV2*>(runtime.guidance.get());REQUIRE(controller);
     auto f=sensorFrame(0);f.supported=true;SeekerResultV2 r;r.valid=true;r.supported=true;
     const auto output=controller->updateMeasured(f,r);CHECK_FALSE(output.supported);
     CHECK_FALSE(runtime.guidance->update(frame(0)).tracking);
     CHECK(std::isnan(output.timeToGoS));CHECK(std::isnan(output.timeToActiveS));
+}
+
+TEST_CASE("Active radar reset clears activation and prior navigation without affecting another receiver", "[representative-weapons]") {
+    auto spec=syntheticSpec(weapon::SeekerModeV1::ActiveRadar);
+    spec.launcherUpdates=true;spec.inertialMidcourse=true;
+    ActiveRadarSeekerV2 reset(spec,std::nullopt),independent(spec,std::nullopt);
+    auto f=sensorFrame(0);f.supported=true;
+    f.launcherEstimate=LauncherEstimateV2{{50,0,0},{0,0,0},0};
+    REQUIRE(reset.sample(f).active);REQUIRE(independent.sample(f).active);
+    reset.resetTracking();f.timeS=f.ageS=1;
+    f.launcherEstimate=LauncherEstimateV2{{10000,0,0},{-100,0,0},1};
+    const auto fresh=reset.sample(f),retained=independent.sample(f);
+    REQUIRE(fresh.valid);CHECK_FALSE(fresh.active);CHECK(retained.active);
+    REQUIRE(fresh.midcourseEstimate);CHECK(fresh.midcourseEstimate->position.x==10000);
 }
 
 TEST_CASE("Measured component schemas reject false variants and mismatched observables atomically", "[representative-weapons]") {

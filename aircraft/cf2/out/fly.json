@@ -1,0 +1,348 @@
+{
+ "identification_inputs": {
+  "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\cf2\\cf2.toml": "e4cd03d85fb0546d55cce0685192003a551a079cff37c58921842f00eefcc8fa",
+  "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\cf2\\cf2.xml": "6e89ffd29bc70ba6b62c89de9e59da542e0d7cc26b26a9d01c3d2ec7fc68bbf1",
+  "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\tools\\models\\hangar\\hangar\\rotorcraft\\fly.py": "5fba1be28d061184096cc6f07b6ea7c20d39e56789c82e3909b426863787a346"
+ },
+ "hover_trim": {
+  "aileron": -9.407973480522043e-16,
+  "elevator": -6.589145977735222e-12,
+  "rudder": -3.0394125536848194e-16,
+  "throttle": 0.6148568421387978,
+  "phi_deg": -5.316431363963949e-10,
+  "theta_deg": 6.4257578728997e-05,
+  "u_ms": 3.3466443600717125e-08,
+  "v_ms": -7.739352315413396e-10,
+  "vz_ms": 4.562696863073157e-08,
+  "rpm": 16988.918847930163,
+  "steady": true
+ },
+ "plant": {
+  "roll": {
+   "power": 219.1113848293975,
+   "damping": 0.03549910762414456,
+   "lag_s": 0.0647,
+   "delay_s": 0.0006944444444444445,
+   "fit_error": 0.03464212097748353,
+   "method": "native-step-serial-poles-ls-v4",
+   "basis": "simulated",
+   "serial_lags_s": [
+    0.0647
+   ],
+   "native_dt_s": 0.0006944444444444445,
+   "observation_dt_s": 0.03333333333333333,
+   "observation": "sampled body angular rate derivative",
+   "input_response": "continuous first-order motor approximation; native nonlinear motor response remains in fitted residual",
+   "lag_reduction": "sum of serial first-order low-frequency group delays; approximation",
+   "lag_reduction_step_relative_l2": 0.0,
+   "lag_reduction_phase_error_deg": 0.0
+  },
+  "pitch": {
+   "power": -212.93489901891456,
+   "damping": 0.03830661580289431,
+   "lag_s": 0.0647,
+   "delay_s": 0.0006944444444444445,
+   "fit_error": 0.03465323166653079,
+   "method": "native-step-serial-poles-ls-v4",
+   "basis": "simulated",
+   "serial_lags_s": [
+    0.0647
+   ],
+   "native_dt_s": 0.0006944444444444445,
+   "observation_dt_s": 0.03333333333333333,
+   "observation": "sampled body angular rate derivative",
+   "input_response": "continuous first-order motor approximation; native nonlinear motor response remains in fitted residual",
+   "lag_reduction": "sum of serial first-order low-frequency group delays; approximation",
+   "lag_reduction_step_relative_l2": 0.0,
+   "lag_reduction_phase_error_deg": 0.0
+  },
+  "yaw": {
+   "power": -173.59174261753094,
+   "damping": 0.042208761407055276,
+   "lag_s": 0.0647,
+   "delay_s": 0.0006944444444444445,
+   "fit_error": 0.03467784237050062,
+   "method": "native-step-serial-poles-ls-v4",
+   "basis": "simulated",
+   "serial_lags_s": [
+    0.0647
+   ],
+   "native_dt_s": 0.0006944444444444445,
+   "observation_dt_s": 0.03333333333333333,
+   "observation": "sampled body angular rate derivative",
+   "input_response": "continuous first-order motor approximation; native nonlinear motor response remains in fitted residual",
+   "lag_reduction": "sum of serial first-order low-frequency group delays; approximation",
+   "lag_reduction_step_relative_l2": 0.0,
+   "lag_reduction_phase_error_deg": 0.0
+  },
+  "heave": {
+   "power": 15.716271638091138,
+   "damping": 0.23131836055461882,
+   "lag_s": 0.0647,
+   "delay_s": 0.0006944444444444445,
+   "fit_error": 0.007042034680903505,
+   "method": "native-step-serial-poles-ls-v4",
+   "basis": "simulated",
+   "serial_lags_s": [
+    0.0647
+   ],
+   "native_dt_s": 0.0006944444444444445,
+   "observation_dt_s": 0.03333333333333333,
+   "observation": "sampled CG upward NED velocity derivative",
+   "input_response": "continuous first-order motor approximation; native nonlinear motor response remains in fitted residual",
+   "lag_reduction": "sum of serial first-order low-frequency group delays; approximation",
+   "lag_reduction_step_relative_l2": 0.0,
+   "lag_reduction_phase_error_deg": 0.0
+  }
+ },
+ "steps": {
+  "roll": {
+   "t": [
+    0.03333333333333333,
+    0.06666666666666667,
+    0.1,
+    0.13333333333333333,
+    0.16666666666666666,
+    0.2,
+    0.23333333333333334,
+    0.26666666666666666,
+    0.3,
+    0.3333333333333333,
+    0.36666666666666664,
+    0.4,
+    0.43333333333333335,
+    0.4666666666666667,
+    0.5
+   ],
+   "y": [
+    0.04643738174507105,
+    0.1614008068284771,
+    0.3173048453817785,
+    0.49766583779251505,
+    0.6926369648196593,
+    0.8963362198996006,
+    1.1052506707941536,
+    1.3172834980022656,
+    1.5311855339566665,
+    1.7462167110073616,
+    1.9619452801951682,
+    2.1781298336440273,
+    2.3946513882488425,
+    2.6114759136935066,
+    2.828634544616534
+   ],
+   "x": null,
+   "size": 0.03
+  },
+  "pitch": {
+   "t": [
+    0.03333333333333333,
+    0.06666666666666667,
+    0.1,
+    0.13333333333333333,
+    0.16666666666666666,
+    0.2,
+    0.23333333333333334,
+    0.26666666666666666,
+    0.3,
+    0.3333333333333333,
+    0.36666666666666664,
+    0.4,
+    0.43333333333333335,
+    0.4666666666666667,
+    0.5
+   ],
+   "y": [
+    -0.0451115214737229,
+    -0.1567925677761565,
+    -0.3082453031572373,
+    -0.4834566741893859,
+    -0.672860887073616,
+    -0.8707435212679503,
+    -1.073690937610659,
+    -1.2796641698938356,
+    -1.4874461364283094,
+    -1.696312284893739,
+    -1.9058353231476421,
+    -2.115770836351194,
+    -2.3259920979098165,
+    -2.5364549919673083,
+    -2.7471812009384986
+   ],
+   "x": null,
+   "size": 0.03
+  },
+  "yaw": {
+   "t": [
+    0.03333333333333333,
+    0.06666666666666667,
+    0.1,
+    0.13333333333333333,
+    0.16666666666666666,
+    0.2,
+    0.23333333333333334,
+    0.26666666666666666,
+    0.3,
+    0.3333333333333333,
+    0.36666666666666664,
+    0.4,
+    0.43333333333333335,
+    0.4666666666666667,
+    0.5
+   ],
+   "y": [
+    -0.06125974565116765,
+    -0.2129170691229247,
+    -0.4185811430954724,
+    -0.6565072124643448,
+    -0.9137057424380784,
+    -1.1824171731245734,
+    -1.458006147185672,
+    -1.7377036138113096,
+    -2.019855405168663,
+    -2.303473357823461,
+    -2.5879671642469346,
+    -2.8729841872883504,
+    -3.158313768964702,
+    -3.443830066628967,
+    -3.7294579045257996
+   ],
+   "x": null,
+   "size": 0.05
+  },
+  "heave": {
+   "t": [
+    0.03333333333333333,
+    0.06666666666666667,
+    0.1,
+    0.13333333333333333,
+    0.16666666666666666,
+    0.2,
+    0.23333333333333334,
+    0.26666666666666666,
+    0.3,
+    0.3333333333333333,
+    0.36666666666666664,
+    0.4,
+    0.43333333333333335,
+    0.4666666666666667,
+    0.5
+   ],
+   "y": [
+    0.1761455719860564,
+    0.2946073404780357,
+    0.36398558474317616,
+    0.4038170455846385,
+    0.42592476647871025,
+    0.4374281758341756,
+    0.4426000986622707,
+    0.4439998725871013,
+    0.4431586785885406,
+    0.4409919196091664,
+    0.43804660984047605,
+    0.43464952065847245,
+    0.4309958019045034,
+    0.4272019619536234,
+    0.4252808988227261
+   ],
+   "x": [
+    0.0031498056886586734,
+    0.011506062160403554,
+    0.022790295053861053,
+    0.03577176780994863,
+    0.04971143142617029,
+    0.06416675224186265,
+    0.07887330981511533,
+    0.09367342548601403,
+    0.10847330132092207,
+    0.12321733739191673,
+    0.13787276262819984,
+    0.15242044471461513,
+    0.16684939733876467,
+    0.18115349817491536,
+    0.1953295281356729
+   ],
+   "size": 0.03
+  }
+ },
+ "identification_clock": {
+  "public_flight_dt_s": 0.008333333333333333,
+  "native_integration_dt_s": 0.0006944444444444445,
+  "observation_dt_s": 0.03333333333333333,
+  "native_steps_per_public_step": 12,
+  "force_delay_native_steps": 1,
+  "method": "native-step-serial-poles-ls-v4",
+  "basis": "simulated"
+ },
+ "hover": {
+  "altitude_m": 100.0,
+  "mass_kg": 0.027,
+  "throttle_trim": 0.6148568421387978,
+  "aileron_trim": -9.407973480522043e-16,
+  "elevator_trim": -6.589145977735222e-12,
+  "rudder_trim": -3.0394125536848194e-16,
+  "roll_attitude_deg": -5.316431363963949e-10,
+  "pitch_attitude_deg": 6.4257578728997e-05,
+  "roll/power": 219.1113848293975,
+  "roll/damping": 0.03549910762414456,
+  "roll/lag_s": 0.0647,
+  "pitch/power": -212.93489901891456,
+  "pitch/damping": 0.03830661580289431,
+  "pitch/lag_s": 0.0647,
+  "yaw/power": -173.59174261753094,
+  "yaw/damping": 0.042208761407055276,
+  "yaw/lag_s": 0.0647,
+  "heave/power": 15.716271638091138,
+  "heave/damping": 0.23131836055461882,
+  "heave/lag_s": 0.0647
+ },
+ "performance": {},
+ "checks": [
+  {
+   "name": "hover trim steady",
+   "value": 1.0,
+   "unit": "",
+   "expected": "1",
+   "status": "pass",
+   "note": ""
+  },
+  {
+   "name": "hover roll control power",
+   "value": 219.1113848293975,
+   "unit": "rad/s2",
+   "expected": "",
+   "status": "info",
+   "note": "damping 0.0355 1/s, equivalent lag 0.0647 s, fit 3 %"
+  },
+  {
+   "name": "hover pitch control power",
+   "value": -212.93489901891456,
+   "unit": "rad/s2",
+   "expected": "",
+   "status": "info",
+   "note": "damping 0.0383 1/s, equivalent lag 0.0647 s, fit 3 %"
+  },
+  {
+   "name": "hover yaw control power",
+   "value": -173.59174261753094,
+   "unit": "rad/s2",
+   "expected": "",
+   "status": "info",
+   "note": "damping 0.0422 1/s, equivalent lag 0.0647 s, fit 3 %"
+  },
+  {
+   "name": "hover heave control power",
+   "value": 15.716271638091138,
+   "unit": "m/s2",
+   "expected": "",
+   "status": "info",
+   "note": "damping 0.231 1/s, equivalent lag 0.0647 s, fit 1 %"
+  }
+ ],
+ "images": [
+  "fly_steps.png"
+ ],
+ "stage": "fly",
+ "hangar": "0.1.0",
+ "time": "2026-11-01 00:13:47"
+}

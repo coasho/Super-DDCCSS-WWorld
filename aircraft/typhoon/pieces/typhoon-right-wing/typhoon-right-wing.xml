@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- Written by hangar (tools/hangar/hangar/pieces.py) from typhoon's damage data: its right wing flying on its own once it parts
+<!-- Written by hangar (tools/models/hangar/hangar/pieces.py) from typhoon's damage data: its right wing flying on its own once it parts
      (MS-7g). Its aerodynamics a tumbling piece's - estimates, said so there. Do not edit: hangar's model stage of typhoon writes it. -->
 <fdm_config name="typhoon-right-wing" version="2.0" release="ALPHA">
     <fileheader>
@@ -26,7 +26,7 @@
         <ixz unit="SLUG*FT2"> 137.87554607169727 </ixz>
         <iyz unit="SLUG*FT2"> 112.46411820086735 </iyz>
         <emptywt unit="LBS"> 1586.8277502110541 </emptywt>
-        <location name="CG" unit="IN"> <x> 400.12677165354336 </x> <y> 96.638976377952758 </y> <z> -15.403543307086617 </z> </location>
+        <location name="CG" unit="IN"> <x> 400.12677165354336 </x> <y> 96.639370078740157 </y> <z> -15.403543307086617 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
             <location unit="IN"> <x> 390.47716535433074 </x> <y> 101.37795275590553 </y> <z> 0 </z> </location>

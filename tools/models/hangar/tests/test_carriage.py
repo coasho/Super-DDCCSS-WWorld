@@ -54,6 +54,18 @@ class Carriage(unittest.TestCase):
         for name in ("f16c", "mig29a", "a10c", "c17a"):
             self.assertLessEqual(carriage.directional_load(_design(name)), 0.0, name)
 
+    def test_common_store_yaw_load_uses_force_arm_and_ignores_legacy_scalars(self):
+        import copy
+        store=carriage._store_card('aim-120c')
+        base=carriage._yaw_gradient(store,[0.,0.,0.],.3,0.)
+        forward=carriage._yaw_gradient(store,[2.,0.,0.],.3,0.)
+        self.assertNotEqual(base,0.)
+        self.assertNotEqual(forward,base)
+        changed=copy.deepcopy(store)
+        for key in ('munk_volume_m3','side_slope_m2','side_arm_m'):
+            changed['parameters'][key]={'value':1.e12}
+        self.assertEqual(carriage._yaw_gradient(changed,[2.,0.,0.],.3,0.),forward)
+
     def test_skin_above(self):
         p, t = _plate(2.0)
         self.assertAlmostEqual(carriage._skin_above(p, t, 0.0, 0.0, 1.0), 2.0)

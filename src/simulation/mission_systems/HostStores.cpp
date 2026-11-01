@@ -17,23 +17,8 @@ constexpr std::size_t kEndedStrikesKept = 64;
 // a second)
 constexpr double kDoorsOpenS = 0.5, kDoorsHoldS = 1.0, kDoorsShutS = 0.8;
 constexpr double kJettisonRippleS = 0.1; ///< a standard jettison's stores leave one after another (an emergency's together)
-// A store's drag on its aircraft (carriageDrag), CD S (m^2), by one rule for every aircraft - tests/simulation/test_store_drag.cpp
-// compares what it gives with the published drag indices (RAND MR-1216-AF's F-16C and F-15C tables):
-// - the store's own (its card's drag_area_m2) times its interference, 1.0: a single store under a pylon flew at its
-//   free drag (Lutz & Matecki, AGARD-CP-373: a 320 L tank under the Alpha Jet's pylon, K 1.0) and sat on the
-//   isolated drag's line in NASA's summary (Shrout & Kelly 1966: single pylon stores and tangent mounts);
-// - a store an ejector holds hangs by its lugs: 0.007, +70 - 90 % of a clean Mk 82's (DSTO-TR-0554, its T- and D-lugs);
-// - its pylon and rack 0.024: the F-16's drag indices 7 (its centreline pylon), 8 (its wing tank pylon) - forum quotes
-//   of its flight manual, unverified - and 11 (RAND's pylon and adapter), their mean 8.7 on its 300 ft^2;
-// - a launcher rail 0.0068: RAND's F-15C four LAU-128 4.8 on its 608 ft^2; none on a wingtip (the airframe's own);
-// - a missile in a fuselage station's well (an F-15's, a Typhoon's AIM-120) its own drag alone: no pylon, no lugs to
-//   the air (RAND's F-15C four AIM-120 5.2: 0.0073 each, the card's 0.0075).
-constexpr double kInterference = 1.0;
-// In a sideslip (DragPoint): a store's body's unstable moment its card's, the perfect fluid's (Munk's NACA Report 184
-// found a bare hull's measured moment to agree with it; Hopkins' NACA RM A51C14 has real bodies' somewhat under it: an
-// upper figure). Its fins' and base's side force half its card's: a carried store's fins gave about half what the
-// isolated fins' theory does (NASA TN D-3582).
-constexpr double kCarriedFins = 0.5;
+// Mounting hardware retains its existing areas. Every store's own six-axis
+// loads come from its authored shared-aircraft VLM product, not these areas.
 constexpr double kLugsCdsM2 = 0.007;
 constexpr double kPylonCdsM2 = 0.024;
 constexpr double kRailCdsM2 = 0.0068;
@@ -555,33 +540,25 @@ void Host::carriageDrag(std::vector<DragPoint>& out) const {
             if (counted) p.areaM2 = 0.0;
             else racks.push_back(&c.station->rack);
         }
-        double sideMoment = 0.0;
         for (const auto& s : stores_)
             if (s.payload == c.payload && s.station == c.station && !gone(s.status)) {
-                p.areaM2 += kInterference * s.card->value("drag_area_m2", 0.0) + (c.mount == Mount::Pylon ? kLugsCdsM2 : 0.0);
-                if (c.mount == Mount::Well) continue; // (in the fuselage's outline: its crossflow the fuselage's)
-                const double slope = kCarriedFins * s.card->value("side_slope_m2", 0.0);
-                p.munkM3 += s.card->value("munk_volume_m3", 0.0);
-                p.sideSlopeM2 += slope;
-                sideMoment += slope * s.card->value("side_arm_m", 0.0);
+                p.areaM2 += c.mount == Mount::Pylon ? kLugsCdsM2 : 0.0;
             }
-        if (p.sideSlopeM2 > 0.0) p.sideArmM = sideMoment / p.sideSlopeM2;
         if (p.areaM2 > 0.0) out.push_back(p);
     }
 }
 
-double Host::storeDragMachFactor(double mach) noexcept {
-    // its transonic rise, one shape for every store: the Mk 82's measured one (DSTO-TR-0554 table 6, its database smoothed
-    // from the tunnel's: 0.1498 at Mach 0.8 to 0.3638 at 1.2), flat below Mach 0.8; beyond 1.2 falling as a body's wave drag
-    // does (an estimate). A pylon store's rise starts earlier than its wing's (NACA RM L7K20): not followed.
-    static constexpr double kMach[] = {0.8, 0.9, 0.95, 1.0, 1.05, 1.1, 1.2, 1.5, 2.0};
-    static constexpr double kFactor[] = {1.0, 1.02, 1.07, 1.28, 2.12, 2.37, 2.43, 2.2, 1.8};
-    constexpr std::size_t n = sizeof kMach / sizeof kMach[0];
-    if (!(mach > kMach[0])) return 1.0;
-    for (std::size_t i = 1; i < n; ++i)
-        if (mach < kMach[i]) return kFactor[i - 1] + (kFactor[i] - kFactor[i - 1]) * (mach - kMach[i - 1]) / (kMach[i] - kMach[i - 1]);
-    return kFactor[n - 1];
+void Host::carriedAirframesV1(std::vector<CarriedAirframeV1>& out) const {
+    out.clear();
+    for (const auto& store : stores_) {
+        if (gone(store.status) || !store.station->bay.empty() ||
+            std::find(lostStations_.begin(),lostStations_.end(),store.station->number)!=lostStations_.end()) continue;
+        CarriedAirframeV1 point;point.card=store.card.get();
+        for(unsigned k=0;k<3;++k)point.positionM[k]=store.station->positionM[k];
+        out.push_back(point);
+    }
 }
+
 
 double Host::massOf(const StoreSlot& s) noexcept { return s.card->value("mass_kg", 0.0) + s.fuelKg; }
 

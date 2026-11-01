@@ -1,0 +1,556 @@
+{
+ "results": {
+  "design": {
+   "type": "jsbsim:u2s",
+   "trim_sweep": [
+    {
+     "ok": true,
+     "alpha_deg": 4.743719471811691,
+     "throttle": 0.20561789612860318,
+     "elevator_deg": -10.088898442470253,
+     "pitch_trim": -0.40355576474462396,
+     "pitch_deg": 4.743719543552273,
+     "speed_ms": 50.487370020800824,
+     "kcas": 97.67201339330087,
+     "method": "jsbsim"
+    },
+    {
+     "ok": true,
+     "alpha_deg": 1.9743763589011012,
+     "throttle": 0.18808955854534506,
+     "elevator_deg": -5.700968261372832,
+     "pitch_trim": -0.22803863272310126,
+     "pitch_deg": 1.9743764191324409,
+     "speed_ms": 59.45070745202994,
+     "kcas": 115.01375965530696,
+     "method": "jsbsim"
+    },
+    {
+     "ok": true,
+     "alpha_deg": 0.2239936517622305,
+     "throttle": 0.19793818039606545,
+     "elevator_deg": -3.4471318571389196,
+     "pitch_trim": -0.13788521519130695,
+     "pitch_deg": 0.22399370080099096,
+     "speed_ms": 68.41404488325908,
+     "kcas": 132.35619270930093,
+     "method": "jsbsim"
+    },
+    {
+     "ok": true,
+     "alpha_deg": -0.9524082244375346,
+     "throttle": 0.21863894722637942,
+     "elevator_deg": -2.0078595151027314,
+     "pitch_trim": -0.08031434618333375,
+     "pitch_deg": -0.9524081911834975,
+     "speed_ms": 77.37738231448817,
+     "kcas": 149.69940844594723,
+     "method": "jsbsim"
+    },
+    {
+     "ok": true,
+     "alpha_deg": -1.779245902272046,
+     "throttle": 0.2457173634016142,
+     "elevator_deg": -1.008338214104454,
+     "pitch_trim": -0.04033351127821614,
+     "pitch_deg": -1.7792458814578138,
+     "speed_ms": 86.34071974571732,
+     "kcas": 167.04349965266385,
+     "method": "jsbsim"
+    },
+    {
+     "ok": true,
+     "alpha_deg": -2.381565429066695,
+     "throttle": 0.2751998629955824,
+     "elevator_deg": -0.2934418893764438,
+     "pitch_trim": -0.011737670544577618,
+     "pitch_deg": -2.381565421660688,
+     "speed_ms": 95.30405717694643,
+     "kcas": 184.38855568134167,
+     "method": "jsbsim"
+    },
+    {
+     "ok": true,
+     "alpha_deg": -2.8374119712005417,
+     "throttle": 0.30575531194328,
+     "elevator_deg": 0.23794412112780114,
+     "pitch_trim": 0.01586293461005209,
+     "pitch_deg": -2.8374119782770766,
+     "speed_ms": 104.26739460817561,
+     "kcas": 201.73466214146072,
+     "method": "jsbsim"
+    },
+    {
+     "ok": true,
+     "alpha_deg": -3.1958688950493963,
+     "throttle": 0.3379481090496199,
+     "elevator_deg": 0.6410368071228312,
+     "pitch_trim": 0.042735768826010906,
+     "pitch_deg": -3.195868917573702,
+     "speed_ms": 113.2307320394047,
+     "kcas": 219.08190062044963,
+     "method": "jsbsim"
+    },
+    {
+     "ok": true,
+     "alpha_deg": -3.476002219995543,
+     "throttle": 0.37036730400785883,
+     "elevator_deg": 0.9498990342277975,
+     "pitch_trim": 0.06332657514162318,
+     "pitch_deg": -3.4760022588637676,
+     "speed_ms": 122.19406947063383,
+     "kcas": 236.43034843284366,
+     "method": "jsbsim"
+    },
+    {
+     "ok": true,
+     "alpha_deg": -3.699107751204762,
+     "throttle": 0.40167922373177034,
+     "elevator_deg": 1.1913470708681615,
+     "pitch_trim": 0.07942310401906665,
+     "pitch_deg": -3.699107807329252,
+     "speed_ms": 131.15740690186294,
+     "kcas": 253.78007839941995,
+     "method": "jsbsim"
+    },
+    {
+     "ok": true,
+     "alpha_deg": -3.879479872924883,
+     "throttle": 0.43192142956558,
+     "elevator_deg": 1.38253148288994,
+     "pitch_trim": 0.09216872602472158,
+     "pitch_deg": -3.879479947196994,
+     "speed_ms": 140.1207443330921,
+     "kcas": 271.1311586572274,
+     "method": "jsbsim"
+    },
+    {
+     "ok": true,
+     "alpha_deg": -4.0271436060496555,
+     "throttle": 0.4615525497757458,
+     "elevator_deg": 1.5351468566539102,
+     "pitch_trim": 0.1023430799151723,
+     "pitch_deg": -4.027143699272377,
+     "speed_ms": 149.0840817643212,
+     "kcas": 288.48365250105013,
+     "method": "jsbsim"
+    },
+    {
+     "ok": true,
+     "alpha_deg": -4.149228543802161,
+     "throttle": 0.4919306550591058,
+     "elevator_deg": 1.6570083968388054,
+     "pitch_trim": 0.11046717911237397,
+     "pitch_deg": -4.149228656635474,
+     "speed_ms": 158.04741919555033,
+     "kcas": 305.83761825652346,
+     "method": "jsbsim"
+    }
+   ],
+   "max_speed_ms": 275.51810458934796,
+   "stall": {
+    "stall_kcas": 84.98454509191055,
+    "stall_tas_ms": 43.90206088765287,
+    "cl_max": 1.1192186061107046,
+    "alpha_at_stall": 7.9874729946118785,
+    "time_s": 149.93333333333334,
+    "break": "elevator limit"
+   },
+   "stall_1500": {
+    "stall_kcas": 81.86099321420868,
+    "stall_tas_ms": 45.24893649200629,
+    "cl_max": 1.1715660287052707,
+    "alpha_at_stall": 14.727200720506808,
+    "time_s": 146.16666666666666,
+    "break": "sink rate"
+   },
+   "stall_landing": {
+    "stall_kcas": 74.72260081592543,
+    "stall_tas_ms": 38.57053479576306,
+    "cl_max": 1.4506742276602718,
+    "alpha_at_stall": 5.896973858380502,
+    "time_s": 48.13333333333333,
+    "break": "elevator limit",
+    "approach_pitch_deg": -4.8746190849184625
+   },
+   "climb": {
+    "rows": [
+     {
+      "altitude_m": 30.0,
+      "speed_ms": 122.92577048542803,
+      "rate_ms": 54.53963028639128
+     },
+     {
+      "altitude_m": 1500.0,
+      "speed_ms": 132.2679145442897,
+      "rate_ms": 49.947660815958116
+     },
+     {
+      "altitude_m": 3000.0,
+      "speed_ms": 142.69220732969288,
+      "rate_ms": 46.19613955051064
+     },
+     {
+      "altitude_m": 4500.0,
+      "speed_ms": 154.37041201152303,
+      "rate_ms": 41.3563420074119
+     },
+     {
+      "altitude_m": 18327.15592379344,
+      "speed_ms": 200.94402845214844,
+      "rate_ms": 3.83107823503081
+     },
+     {
+      "altitude_m": 19327.15592379344,
+      "speed_ms": 217.4286736547576,
+      "rate_ms": 2.1007482123455734
+     }
+    ],
+    "service_ceiling_m": 19751.790735360926,
+    "highest_climb_m": 19327.15592379344
+   },
+   "top_altitude_m": 18288.0,
+   "max_mach_top": 0.8176579370146462,
+   "modes": {
+    "short_period": {
+     "omega_n": 3.4942991065014724,
+     "zeta": 0.5302385547287132,
+     "period_s": 2.120808894910444
+    },
+    "phugoid": {
+     "omega_n": 0.15356888597050236,
+     "zeta": 0.026617463780552696,
+     "period_s": 40.92894361960669
+    },
+    "long_eigs": [
+     [
+      -1.8528121080211746,
+      2.9626362480174846
+     ],
+     [
+      -1.8528121080211746,
+      -2.9626362480174846
+     ],
+     [
+      -0.0040876142601396735,
+      0.15351447536920243
+     ],
+     [
+      -0.0040876142601396735,
+      -0.15351447536920243
+     ]
+    ],
+    "dutch_roll": {
+     "omega_n": 1.1952848812701666,
+     "zeta": 0.13087634263656872,
+     "period_s": 5.302248731044074
+    },
+    "roll": {
+     "time_constant_s": 0.1945302138050187
+    },
+    "spiral": {
+     "eigenvalue": -0.0040955294868716356,
+     "time_to_double_s": null,
+     "time_to_half_s": 169.24482726393572
+    },
+    "lat_eigs": [
+     [
+      -5.140589630988217,
+      0.0
+     ],
+     [
+      -0.15643451366942468,
+      1.1850038777683587
+     ],
+     [
+      -0.15643451366942468,
+      -1.1850038777683587
+     ],
+     [
+      -0.0040955294868716356,
+      0.0
+     ]
+    ]
+   },
+   "modes_linear": {
+    "short_period": {
+     "omega_n": 3.480943376496927,
+     "zeta": 0.5606502218975163,
+     "period_s": 2.1798414908637107
+    },
+    "phugoid": {
+     "omega_n": 0.15131396453352705,
+     "zeta": 0.042926360905391314,
+     "period_s": 41.56247088930989
+    },
+    "dutch_roll": {
+     "omega_n": 1.1818929049025204,
+     "zeta": 0.13024833006215397,
+     "period_s": 5.361880988100881
+    },
+    "roll": {
+     "time_constant_s": 0.19093598430988926
+    },
+    "spiral": {
+     "eigenvalue": 0.010121155572622258,
+     "time_to_double_s": 68.48498430702018
+    },
+    "long_eigs": [
+     [
+      -1.9515916764456918,
+      2.8824046764473787
+     ],
+     [
+      -1.9515916764456918,
+      -2.8824046764473787
+     ],
+     [
+      -0.0064953578515917635,
+      0.15117448921439505
+     ],
+     [
+      -0.0064953578515917635,
+      -0.15117448921439505
+     ]
+    ],
+    "lat_eigs": [
+     [
+      -5.237357450531688,
+      0.0
+     ],
+     [
+      -0.15393957717586143,
+      1.1718248355611154
+     ],
+     [
+      -0.15393957717586143,
+      -1.1718248355611154
+     ],
+     [
+      0.010121155572622258,
+      0.0
+     ]
+    ]
+   },
+   "linear_trim": {
+    "alpha_trim_deg": -1.0395110913502785,
+    "CL": 0.36081655169711363,
+    "speed_ms": 83.41391568654045,
+    "altitude_m": 1500.0,
+    "Cma_cg": -0.9633390915496638,
+    "Cnb_cg": 0.03453053015799984,
+    "Clb_cg": -0.03696806990148338
+   },
+   "robustness": {
+    "runs": 40,
+    "diverged": 0,
+    "which": []
+   },
+   "crashes": {
+    "flat drop": {
+     "blew_up": false,
+     "impact_ms": 54.22104891372534,
+     "fastest_after_ms": 54.30644176958143,
+     "max_rate_deg_s": 42.54525806863665,
+     "bounce_m": 0.008971238660944625,
+     "deepest_m": 0.9265842231204109,
+     "final_speed_ms": 0.0
+    },
+    "nose dive": {
+     "blew_up": false,
+     "impact_ms": 0.0,
+     "fastest_after_ms": 0.0,
+     "max_rate_deg_s": 0.0,
+     "bounce_m": 0.0,
+     "deepest_m": 0.452065076753315,
+     "final_speed_ms": 0.0
+    },
+    "wing tip": {
+     "blew_up": false,
+     "impact_ms": 66.09189342469107,
+     "fastest_after_ms": 66.09189342469107,
+     "max_rate_deg_s": 13.14303281664404,
+     "bounce_m": 0.0,
+     "deepest_m": 0.6349708041209698,
+     "final_speed_ms": 0.0
+    },
+    "tail strike": {
+     "blew_up": false,
+     "impact_ms": 35.95648398851503,
+     "fastest_after_ms": 35.95648398851503,
+     "max_rate_deg_s": 8.779377507469002,
+     "bounce_m": 0.3380784622753277,
+     "deepest_m": 0.4742064632513179,
+     "final_speed_ms": 0.0
+    },
+    "inverted": {
+     "blew_up": false,
+     "impact_ms": 67.09785295653322,
+     "fastest_after_ms": 67.09785295653322,
+     "max_rate_deg_s": 74.11114989074403,
+     "bounce_m": 0.06086667458173278,
+     "deepest_m": 0.46389352283538665,
+     "final_speed_ms": 0.0
+    },
+    "cartwheel": {
+     "blew_up": false,
+     "impact_ms": 70.30002876688086,
+     "fastest_after_ms": 70.30002876688086,
+     "max_rate_deg_s": 7.321930890002092,
+     "bounce_m": 0.6452346271093266,
+     "deepest_m": 0.6750245278156086,
+     "final_speed_ms": 0.0
+    }
+   },
+   "seconds": 5.561437129974365
+  }
+ },
+ "checks": [
+  {
+   "name": "stall speed, clean, sea level",
+   "value": 84.98454509191055,
+   "unit": "KCAS",
+   "expected": "",
+   "status": "info",
+   "note": ""
+  },
+  {
+   "name": "maximum level speed, sea level",
+   "value": 535.5648128646616,
+   "unit": "KTAS",
+   "expected": "",
+   "status": "info",
+   "note": ""
+  },
+  {
+   "name": "maximum Mach number at 60,000 ft (full thrust)",
+   "value": 0.8176579370146462,
+   "unit": "",
+   "expected": "0.679 .. 0.751",
+   "status": "warn",
+   "note": "target 0.715"
+  },
+  {
+   "name": "best rate of climb, sea level",
+   "value": 10736.147694171512,
+   "unit": "ft/min",
+   "expected": "",
+   "status": "info",
+   "note": ""
+  },
+  {
+   "name": "service ceiling",
+   "value": 64802.46304252272,
+   "unit": "ft",
+   "expected": "5.95e+04 .. 8.05e+04",
+   "status": "pass",
+   "note": "climbed at up to 63409 ft; target 7e+04"
+  },
+  {
+   "name": "short period damping",
+   "value": 0.5606502218975163,
+   "unit": "",
+   "expected": "0.3 .. 2",
+   "status": "pass",
+   "note": "MIL-F-8785C level 1: 0.3-2.0; JSBSim response: 0.53"
+  },
+  {
+   "name": "short period frequency",
+   "value": 3.480943376496927,
+   "unit": "rad/s",
+   "expected": "",
+   "status": "info",
+   "note": "JSBSim response: 3.49"
+  },
+  {
+   "name": "phugoid damping",
+   "value": 0.042926360905391314,
+   "unit": "",
+   "expected": "0.04 ..",
+   "status": "pass",
+   "note": "MIL-F-8785C level 1: > 0.04; JSBSim response: 0.0266"
+  },
+  {
+   "name": "phugoid period",
+   "value": 41.56247088930989,
+   "unit": "s",
+   "expected": "",
+   "status": "info",
+   "note": "JSBSim response: 40.9"
+  },
+  {
+   "name": "dutch roll damping",
+   "value": 0.13024833006215397,
+   "unit": "",
+   "expected": "0.08 ..",
+   "status": "pass",
+   "note": "MIL-F-8785C level 1: > 0.08; JSBSim response: 0.131"
+  },
+  {
+   "name": "dutch roll frequency",
+   "value": 1.1818929049025204,
+   "unit": "rad/s",
+   "expected": "0.4 ..",
+   "status": "pass",
+   "note": "MIL-F-8785C level 1: > 0.4; JSBSim response: 1.2"
+  },
+  {
+   "name": "roll mode time constant",
+   "value": 0.19093598430988926,
+   "unit": "s",
+   "expected": ".. 1.4",
+   "status": "pass",
+   "note": "MIL-F-8785C level 1: < 1.4; JSBSim response: 0.195"
+  },
+  {
+   "name": "spiral time to double",
+   "value": 68.48498430702018,
+   "unit": "s",
+   "expected": "12 ..",
+   "status": "pass",
+   "note": "MIL-F-8785C level 1: > 12 (infinite: spirally stable)"
+  },
+  {
+   "name": "random-state runs that diverged",
+   "value": 0.0,
+   "unit": "",
+   "expected": ".. 0",
+   "status": "pass",
+   "note": "of 40: attitudes, rates, speeds and controls at random"
+  },
+  {
+   "name": "crash tests that blew up",
+   "value": 0.0,
+   "unit": "",
+   "expected": ".. 0",
+   "status": "pass",
+   "note": "into the ground at idle: flat drop, nose dive, wing tip, tail strike, inverted, cartwheel"
+  },
+  {
+   "name": "crash tests: speed gained on impact",
+   "value": 1.0015749023223797,
+   "unit": "x",
+   "expected": ".. 1.3",
+   "status": "pass",
+   "note": "largest ratio of speed after impact to speed at it (flat drop); above 1 the contacts add energy"
+  },
+  {
+   "name": "crash tests: deepest point below ground",
+   "value": 0.9265842231204109,
+   "unit": "m",
+   "expected": "",
+   "status": "info",
+   "note": "flat drop"
+  }
+ ],
+ "images": [
+  "fly_trim.png",
+  "fly_climb.png",
+  "fly_stall.png",
+  "fly_longitudinal.png",
+  "fly_lateral.png"
+ ],
+ "stage": "fly",
+ "hangar": "0.1.0",
+ "time": "2026-10-26 03:49:07"
+}

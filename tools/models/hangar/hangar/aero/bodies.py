@@ -271,7 +271,12 @@ class BodyAero:
             k += n
             U = vel[:, 0]
             vy, vz = vel[:, 1], vel[:, 2]
-            dx = np.gradient(p["x"])
+            # Nodal trapezoidal weights: gradient(x) assigns a full interval
+            # to both endpoints and integrates even a constant density too high.
+            intervals = np.diff(p["x"])
+            dx = np.concatenate(([0.5 * intervals[0]],
+                                 0.5 * (intervals[:-1] + intervals[1:]),
+                                 [0.5 * intervals[-1]]))
             live = ~p["inside"]
             # potential (slender body): f = rho U d/dx(S_a v_c), up to the separation station
             fz = rho * U * np.gradient(p["s_v"] * vz, p["x"]) * p["potential"]

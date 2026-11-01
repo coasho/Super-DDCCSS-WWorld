@@ -131,8 +131,8 @@ endfunction()
 #    the inflow, and the ground-height filter, at the state it starts from.
 # 2. <model> classical </model> in a rotor's file (default: heffley, upstream's
 #    forms) computes the in-plane forces and the torque from the classical
-#    blade-element expressions NASA TM-73254 flies (Talbot and Corliss 1977,
-#    eq. 1-4). Upstream's minimum-complexity forms (thrust times a flapping
+#    blade-element force expressions NASA TM-73254 flies (Talbot and Corliss
+#    1977, eq. 1-3). Upstream's minimum-complexity forms (thrust times a flapping
 #    angle) leave a UH-1H unstable in angle of attack at 60 kt where the
 #    classical ones, and its flight records, are stable (docs/rotorcraft.md).
 #    In that model the ground effect scales the inflow's steady state
@@ -163,6 +163,9 @@ set(_new [=[  double v_induced;  // induced velocity, usually positive [ft/s]
   double p_w, q_w;
 ]=])
 _fsim_jsbsim_edit(_text _old _new FGRotor.h "members")
+set(_old [=[  void calc_torque(double theta_0);]=])
+set(_new [=[  void calc_torque(double theta_0, double hubInPlaneVelocity);]=])
+_fsim_jsbsim_edit(_text _old _new FGRotor.h "actual rotor mechanical power velocity")
 _fsim_jsbsim_write(models/propulsion/FGRotor.h _text "")
 
 _fsim_jsbsim_read(models/propulsion/FGRotor.cpp _text)
@@ -252,20 +255,26 @@ set(_new [=[  J_side = BladeNum * BladeChord * Radius * rho * sqr(Omega*Radius) 
   }
 ]=])
 _fsim_jsbsim_edit(_text _old _new FGRotor.cpp "in-plane forces")
-set(_old [=[                     - (Thrust*lambda + H_drag*mu)*Radius;
-]=])
-set(_new [=[                     - (Thrust*lambda + H_drag*mu)*Radius;
-
-  // flightsim patch: the classical torque, TM-73254 eq. 4
-  if (ClassicalModel) {
-    const double t075 = theta_0 + 0.75 * BladeTwist, mu2 = sqr(mu);
-    const double r9 = BladeNum*BladeChord*Radius*rho*sqr(Omega*Radius) * LiftCurveSlope/2.0 * Radius;
-    Torque = r9 * ( delta_dr*(1.0 + mu2)/(4.0*LiftCurveSlope) - lambda*t075/3.0 - 0.5*sqr(lambda)
-                    - (sqr(a_1) + sqr(b_1))/8.0 - 0.5*mu2*(0.5*sqr(a0) + 0.375*sqr(a_1) + sqr(b_1)/8.0)
-                    - 0.5*mu*lambda*a_1 + mu*a0*b_1/3.0 );
-  }
-]=])
-_fsim_jsbsim_edit(_text _old _new FGRotor.cpp "torque")
+set(_old [=[void FGRotor::calc_torque(double theta_0)]=])
+set(_new [=[void FGRotor::calc_torque(double theta_0, double hubInPlaneVelocity)]=])
+_fsim_jsbsim_edit(_text _old _new FGRotor.cpp "actual rotor torque input")
+set(_old [=[                     - (Thrust*lambda + H_drag*mu)*Radius;]=])
+set(_new [=[                     // flightsim patch: coefficient mu is bounded at 0.7,
+                     // but the applied H force does work at the actual hub
+                     // speed. Never use a clipped speed for mechanical power.
+                     - (Thrust*lambda + H_drag*hubInPlaneVelocity/(Omega*Radius))*Radius;]=])
+_fsim_jsbsim_edit(_text _old _new FGRotor.cpp "rotor mechanical work projection")
+set(_old [=[  calc_torque(theta_col);]=])
+set(_new [=[  calc_torque(theta_col, vHub_ca(eU));]=])
+_fsim_jsbsim_edit(_text _old _new FGRotor.cpp "rotor actual hub power port")
+# Keep upstream's work balance Q = Q_profile - R*(T*lambda + H*mu)
+# for both force models. The deleted TM-73254 eq. 4 override independently
+# approximated torque using an untwisted 3/4-radius pitch, while thrust here
+# integrates twist and reverse flow and H retains higher advance-ratio terms.
+# Those different truncations do not conserve the work of the forces actually
+# applied. At the original UH-1H 61 m/s trim the override charged over twice
+# that work, with a larger excess at the lighter weight. This is a power
+# accounting correction, not a fitted efficiency or a change of force model.
 set(_old [=[    filtered_hagl = damp_hagl.execute(h_agl_ft) + GroundEffectShift;
 ]=])
 set(_new [=[    if (FreshStart) { // flightsim patch: the filter starts at the height
@@ -533,6 +542,9 @@ set(_old [=[#include "input_output/FGLog.h"
 ]=])
 set(_new [=[#include "input_output/FGLog.h"
 #include "FGGroundReactions.h" // flightsim patch: the impact limit's
+#include "FGPropagate.h" // flightsim patch: actual rate coefficients/history
+#include "simulation/flight/RateIntegrationV1.h"
+#include <algorithm>
 ]=])
 _fsim_jsbsim_edit(_text _old _new FGAccelerations.cpp "include")
 set(_old [=[namespace JSBSim {
@@ -556,10 +568,67 @@ const double kImpactMargin = 5.0 / 0.3048; // ft/s
 // How fast a contact point so limited may leave the ground: an airframe
 // driven into it comes back up at a walk.
 const double kImpactRecovery = 0.5 / 0.3048; // ft/s
-// JSBSim's default rate integrators, which flightsim keeps: the translational
+// Legacy assets keep JSBSim's default rate integrators: the translational
 // rate's Adams-Bashforth 2 applies 1.5 times the step's acceleration (less
 // half the last step's), the rotational rate's Euler the step's.
 const double kTranslationalGain = 1.5;
+
+// Version2 generated models opt into a contact map consistent with their
+// actual rate integrators. Older assets retain the literal legacy branch.
+bool RateConsistentContact(FGFDMExec* fdm)
+{
+  const auto node = fdm->GetPropertyManager()->GetNode("fsim/integration-v1/version", false);
+  return node && node->getIntValue() == 2;
+}
+
+struct ContactRateMap {
+  double translation = 1.0, rotation = 1.0;
+  FGColumnVector3 translationHistory, rotationHistory;
+
+  FGColumnVector3 Linear(const FGAccelerations::Inputs& in,
+      const FGColumnVector3& relative, const FGColumnVector3& inertial) const
+  {
+    // ECI derivative history is summed before transforming to current body
+    // axes. Frame/planet kinematics enter once, not once per AB coefficient.
+    return in.Ti2b * (translation * inertial + translationHistory)
+      + (relative - in.Ti2b * inertial);
+  }
+  FGColumnVector3 Angular(const FGColumnVector3& relative,
+      const FGColumnVector3& inertial) const
+  {
+    return rotation * inertial + rotationHistory + (relative - inertial);
+  }
+};
+
+ContactRateMap ContactRates(FGFDMExec* fdm)
+{
+  using fsim::sim::detail::rateIntegrationV1;
+  static_assert(FGPropagate::eAdamsBashforth3 == 4 && FGPropagate::eAdamsBashforth5 == 9,
+    "Review the native rate integration enum/weights");
+  const auto propagate = fdm->GetPropagate();
+  const auto translation = rateIntegrationV1(static_cast<int>(fdm->GetPropertyValue("simulation/integrator/rate/translational")));
+  const auto rotation = rateIntegrationV1(static_cast<int>(fdm->GetPropertyValue("simulation/integrator/rate/rotational")));
+  const auto& state = propagate->GetVState();
+  if (!translation.valid || !rotation.valid || state.dqUVWidot.size() < 4 || state.dqPQRidot.size() < 4
+      || propagate->GetRate() != fdm->GetAccelerations()->GetRate()) {
+    LogException error;
+    error << "Unsupported native contact rate method, history or update cadence";
+    throw error;
+  }
+  ContactRateMap result;
+  result.translation = translation.current();
+  result.rotation = rotation.current();
+  for (unsigned component = 1; component <= 3; ++component) {
+    std::array<double, 4> v{}, w{};
+    for (unsigned j = 0; j < 4; ++j) {
+      v[j] = state.dqUVWidot[j](component);
+      w[j] = state.dqPQRidot[j](component);
+    }
+    result.translationHistory(component) = translation.history(v);
+    result.rotationHistory(component) = rotation.history(w);
+  }
+  return result;
+}
 
 // a contact point the ground pushes
 struct ImpactPoint {
@@ -578,11 +647,16 @@ void LimitImpact(FGFDMExec* fdm, FGAccelerations::Inputs& in, double dt, const F
   vector<LagrangeMultiplier*>& multipliers = *in.MultipliersList;
   if (multipliers.empty() || dt <= 0.0 || fdm->GetTrimStatus()) return;
 
+  const bool consistent = RateConsistentContact(fdm);
+  const ContactRateMap rates = consistent ? ContactRates(fdm) : ContactRateMap{};
+  const double translationGain = consistent ? rates.translation : kTranslationalGain;
+  const double rotationGain = consistent ? rates.rotation : 1.0;
+
   // What the ground's forces do to the step's speed and rate. When no contact
   // point can gain the margin from them, whatever its approach, nothing more
   // is done: the usual case.
-  const FGColumnVector3 dv = (kTranslationalGain * dt / in.Mass) * in.GroundForce;
-  const FGColumnVector3 dw = dt * (in.Jinv * in.GroundMoment);
+  const FGColumnVector3 dv = (translationGain * dt / in.Mass) * in.GroundForce;
+  const FGColumnVector3 dw = (rotationGain * dt) * (in.Jinv * in.GroundMoment);
   double reach = 0.0;
   for (const LagrangeMultiplier* m : multipliers) reach = max(reach, DotProduct(m->LeverArm, m->LeverArm));
   if (dv.Magnitude() + dw.Magnitude() * sqrt(reach) <= kImpactMargin) return;
@@ -622,20 +696,39 @@ void LimitImpact(FGFDMExec* fdm, FGAccelerations::Inputs& in, double dt, const F
   }
   if (!over || k != multipliers.size()) return;
 
+  // A deliberately frozen degree of freedom may leave a normal constraint
+  // uncontrollable. Its zero mobility also has zero cross-response (PSD mass
+  // metric); leave that authored force alone, without disabling other points.
+  if (consistent) {
+    points.erase(std::remove_if(points.begin(), points.end(), [&](const ImpactPoint& p) {
+      const auto linear = (translationGain / in.Mass) * p.n;
+      const auto angular = rotationGain * (in.Jinv * (p.r * p.n));
+      const double mobility = DotProduct(p.n, linear + angular * p.r);
+      if (!(mobility >= 0.0)) {
+        LogException error;
+        error << "Invalid normal contact rate response";
+        throw error;
+      }
+      return mobility == 0.0;
+    }), points.end());
+    if (points.empty()) return;
+  }
+
   // The forces that stop the points' approach in the step, none leaving
   // faster than kImpactRecovery, each no more than its gear's: a[i*n+j] is
   // the speed along n_i a unit force at j gives in the step.
   const size_t n = points.size();
   vector<double> a(n * n);
   for (size_t j = 0; j < n; ++j) {
-    const FGColumnVector3 dvj = (kTranslationalGain * dt / in.Mass) * points[j].n;
-    const FGColumnVector3 dwj = dt * (in.Jinv * (points[j].r * points[j].n));
+    const FGColumnVector3 dvj = (translationGain * dt / in.Mass) * points[j].n;
+    const FGColumnVector3 dwj = (rotationGain * dt) * (in.Jinv * (points[j].r * points[j].n));
     for (size_t i = 0; i < n; ++i) a[i * n + j] = DotProduct(points[i].n, dvj + dwj * points[i].r);
   }
   // the body's speed and rate after the step, as the integrators will make
   // them, and each point's speed along its normal without the ground's forces
-  const FGColumnVector3 vNext = v + dt * (in.Ti2b * (kTranslationalGain * uvwidot - (kTranslationalGain - 1.0) * lastUVWidot));
-  const FGColumnVector3 wNext = w + dt * pqridot;
+  const FGColumnVector3 vNext = consistent ? v + dt * rates.Linear(in, uvwdot, uvwidot)
+    : v + dt * (in.Ti2b * (kTranslationalGain * uvwidot - (kTranslationalGain - 1.0) * lastUVWidot));
+  const FGColumnVector3 wNext = consistent ? w + dt * rates.Angular(pqrdot, pqridot) : w + dt * pqridot;
   for (size_t i = 0; i < n; ++i) {
     double theirs = 0.0;
     for (size_t j = 0; j < n; ++j) theirs += a[i * n + j] * points[j].force;
@@ -699,7 +792,76 @@ set(_new [=[  const FGColumnVector3 lastUVWidot = vUVWidot; // flightsim patch: 
   }
 ]=])
 _fsim_jsbsim_edit(_text _old _new FGAccelerations.cpp "the call")
+
+# The same declared rate map drives tangential contact. Force bounds, PGS
+# iteration/convergence limits and authored ground coefficients stay unchanged.
+set(_old [=[  // If no gears are in contact with the ground then return
+  if (!n) return;
+]=])
+set(_new [=[  // If no gears are in contact with the ground then return
+  if (!n) return;
+  // flightsim patch: dt0/trim and older assets retain the legacy solve.
+  const bool consistent = dt > 0.0 && !FDMExec->GetTrimStatus() && RateConsistentContact(FDMExec);
+  const ContactRateMap rates = consistent ? ContactRates(FDMExec) : ContactRateMap{};
+]=])
+_fsim_jsbsim_edit(_text _old _new FGAccelerations.cpp "friction rate map")
+set(_old [=[    FGColumnVector3 v1 = U / in.Mass;
+    FGColumnVector3 v2 = in.Jinv * (r*U); // Should be J^-T but J is symmetric and so is J^-1
+]=])
+set(_new [=[    FGColumnVector3 v1 = U / in.Mass;
+    FGColumnVector3 v2 = in.Jinv * (r*U); // Should be J^-T but J is symmetric and so is J^-1
+    if (consistent) { v1 *= rates.translation; v2 *= rates.rotation; }
+]=])
+_fsim_jsbsim_edit(_text _old _new FGAccelerations.cpp "friction response coefficients")
+set(_old [=[  // Translation
+  FGColumnVector3 vdot = vUVWdot;
+  if (dt > 0.) // Zeroes out the relative movement between the aircraft and the ground
+    vdot += (in.vUVW - in.Tec2b * in.TerrainVelocity) / dt;
+
+  // Rotation
+  FGColumnVector3 wdot = vPQRdot;
+  if (dt > 0.) // Zeroes out the relative movement between the aircraft and the ground
+    wdot += (in.vPQR - in.Tec2b * in.TerrainAngularVel) / dt;
+]=])
+set(_new [=[  // Translation
+  FGColumnVector3 vdot = vUVWdot;
+  if (dt > 0.) // Zeroes out the relative movement between the aircraft and the ground
+    vdot += (in.vUVW - in.Tec2b * in.TerrainVelocity) / dt;
+
+  // Rotation
+  FGColumnVector3 wdot = vPQRdot;
+  if (dt > 0.) // Zeroes out the relative movement between the aircraft and the ground
+    wdot += (in.vPQR - in.Tec2b * in.TerrainAngularVel) / dt;
+  if (consistent) {
+    // flightsim patch: upcoming AB history contains total prior derivatives,
+    // including prior constraint reactions. Never push/pop the native deque.
+    vdot = rates.Linear(in, vUVWdot, vUVWidot)
+      + (in.vUVW - in.Tec2b * in.TerrainVelocity) / dt;
+    wdot = rates.Angular(vPQRdot, vPQRidot)
+      + (in.vPQR - in.Tec2b * in.TerrainAngularVel) / dt;
+  }
+]=])
+_fsim_jsbsim_edit(_text _old _new FGAccelerations.cpp "friction history predictor")
+set(_old [=[    rhs[i] = -DotProduct(U, vdot + wdot*r)/d;
+]=])
+set(_new [=[    if (consistent && !(d > 0.0)) {
+      if (d != 0.0) {
+        LogException error;
+        error << "Invalid contact rate response diagonal";
+        throw error;
+      }
+      // A frozen rate cannot be stopped by a force along this constraint.
+      rhs[i] = 0.0;
+      for (unsigned int j=0; j<n; ++j) a[i*n+j] = 0.0;
+      a[i*n+i] = 1.0;
+      multipliers[i]->value = 0.0;
+      continue;
+    }
+    rhs[i] = -DotProduct(U, vdot + wdot*r)/d;
+]=])
+_fsim_jsbsim_edit(_text _old _new FGAccelerations.cpp "frozen contact rate")
 _fsim_jsbsim_write(models/FGAccelerations.cpp _text Models)
+target_include_directories(Models PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 # ---------------------------------------------------------------------------
 # models/flight_control/FGActuator.cpp: an actuator after a reset.

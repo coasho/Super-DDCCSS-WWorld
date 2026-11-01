@@ -17,10 +17,12 @@ add_library(fsim_ms STATIC
     components/implementations/aerodynamics/JsbsimGeneratedStoreAerodynamicsV1.cpp
     components/implementations/allocator/JsbsimAuthoredFinMixerV1.cpp
     components/implementations/autopilot/LoadFeedbackCascadeAutopilotV1.cpp
+    components/implementations/autopilot/ActuatorAwareCascadeAutopilotV1.cpp
     components/implementations/fuze/SweptPathFuzeV1.cpp
     components/implementations/fuze/TurningCpaFuzeV1.cpp
     components/implementations/guidance/VelocityNormalPnGuidanceV1.cpp
     components/implementations/propulsion/JsbsimSolidRocketPropulsionV1.cpp
+    components/implementations/propulsion/JsbsimDuctedRocketPropulsionV1.cpp
     components/implementations/seeker/EncounterSeekerV1.cpp
     components/implementations/warhead/SideCaseWarheadV1.cpp
     components/implementations/warhead/ZonedCaseWarheadV1.cpp

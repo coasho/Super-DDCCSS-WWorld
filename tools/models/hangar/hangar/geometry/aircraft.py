@@ -261,7 +261,10 @@ class Aircraft:
         # shapes the 3D model draws and nothing else sees - no drag, no mass, no area (docs/hangar.md, Fairings)
         self.fairings = [Body(b) for b in spec.get("fairing", [])]
         self.gear = [Gear(g) for g in spec.get("gear", [])]
-        self.engines = [Engine(e) for e in spec.get("engine", [])]
+        engine_specs = spec.get("engine", [])
+        # A rotating propulsion system is authored as a separate object. Its
+        # airframe still enters the same aerodynamic geometry/model pipeline.
+        self.engines = [Engine(e) for e in engine_specs] if isinstance(engine_specs, list) else []
         self.motor = Motor(spec["motor"]) if "motor" in spec else None  # a missile's rocket (drawn only)
         # the mesher's cell (m) when the design sets one ([model] cell_m: a missile's lattice fins' thin walls)
         self.cell = spec.get("model", {}).get("cell_m")
@@ -271,15 +274,23 @@ class Aircraft:
         self.struts = [Strut(s) for s in spec.get("strut", [])]
         # a store (a tank, a pod, a pallet of cargo) may have no fin: its reference is its [reference] then - its
         # frontal area and its diameter, as its flight model's (hangar/storedesigns.py)
-        if not self.surfaces and not (self.category in ("store", "missile") and "area" in spec.get("reference", {})):
-            raise ValueError("%s: no [[surface]] defined" % self.name)
+        if not self.surfaces and not self.bodies:
+            raise ValueError("%s: no aerodynamic surfaces or bodies defined" % self.name)
         schedules = sorted({tuple(d.schedule) for _, d in self.leading_devices()})
         if len(schedules) > 1:
             raise ValueError("%s: the leading-edge devices follow one schedule (the flight controls' "
                              "fcs/lef-pos-deg), not %s" % (self.name, " and ".join(map(str, schedules))))
         wings = [s for s in self.surfaces if s.kind == "wing"]
         self.wing = wings[0] if wings else self.surfaces[0] if self.surfaces else None
-        ref = spec.get("reference", {})
+        ref = dict(spec.get("reference", {}))
+        if not self.surfaces and "area" not in ref:
+            # Reference quantities normalize forces; they do not create a wing
+            # or add lift. Read the actual body's cross-section and extent.
+            width = max(float(np.max(b.w)) for b in self.bodies)
+            height = max(float(np.max(b.top - b.bottom)) for b in self.bodies)
+            length = max(float(b.x[-1]) for b in self.bodies) - min(float(b.x[0]) for b in self.bodies)
+            ref = dict(area=width * height, span=width, chord=length,
+                       aero_point=spec.get("mass", {}).get("empty_cg", [0., 0., 0.]))
         if self.wing is None:
             mac, mac_le = float(ref["chord"]), np.asarray(ref.get("aero_point", [0.0, 0.0, 0.0]), float)
             mac_le = mac_le - np.array([0.25 * mac, 0.0, 0.0])
@@ -325,21 +336,21 @@ class Aircraft:
 
     @classmethod
     def load(cls, path):
-        with open(path, "rb") as f:
-            spec = tomllib.load(f)
-        a = cls(spec, path)
-        cal = os.path.join(os.path.dirname(os.path.abspath(path)), "calibration.toml")
-        a.calibration = {}
-        if os.path.isfile(cal):
-            with open(cal, "rb") as f:
-                a.calibration = tomllib.load(f).get("calibration", {})
-            for e, pitch in zip(a.engines, a.calibration.get("propeller_pitch_m", [])):
-                e.prop_pitch = float(pitch)
-            if "throttle_ratio" in a.calibration:
-                for e in a.engines:
-                    if e.type == "turbofan":
-                        e.throttle_ratio = float(a.calibration["throttle_ratio"])
-        return a
+            with open(path, "rb") as f:
+                spec = tomllib.load(f)
+            a = cls(spec, path)
+            cal = os.path.join(os.path.dirname(os.path.abspath(path)), "calibration.toml")
+            a.calibration = {}
+            if os.path.isfile(cal):
+                with open(cal, "rb") as f:
+                    a.calibration = tomllib.load(f).get("calibration", {})
+                for e, pitch in zip(a.engines, a.calibration.get("propeller_pitch_m", [])):
+                    e.prop_pitch = float(pitch)
+                if "throttle_ratio" in a.calibration:
+                    for e in a.engines:
+                        if e.type == "turbofan":
+                            e.throttle_ratio = float(a.calibration["throttle_ratio"])
+            return a
 
     # -- components -----------------------------------------------------------------------------
     def surface(self, kind):

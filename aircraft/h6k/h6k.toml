@@ -414,3 +414,8 @@ retractable_gear = "Wikipedia, Xi'an H-6 and Tupolev Tu-16: retractable gear"
 flaps = "Wikipedia, Xi'an H-6 and Tupolev Tu-16: trailing-edge flaps"
 releasable_stores = "Wikipedia, Xi'an H-6 (the H-6K): six underwing pylons for cruise missiles"
 aerobatic = "Wikipedia, Xi'an H-6 (the H-6K): a bomber, not cleared for aerobatic manoeuvres"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

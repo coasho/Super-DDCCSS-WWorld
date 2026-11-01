@@ -311,3 +311,8 @@ retractable_gear = "Public reference works: retractable gear"
 flaps = "Public reference works: flaperons on the wing's trailing edge"
 releasable_stores = "Public reference works: internal weapons bays"
 aerobatic = "Public reference works: +9 g (fsim/envelope/clean/n_max)"
+
+# Shared source-derived fixed resolution; no equipment-specific timestep.
+[integration]
+version = 2
+mode = "derived"

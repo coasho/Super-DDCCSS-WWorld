@@ -36,7 +36,7 @@ import numpy as np
 from .section import flap_tau
 
 MACH_SUB = (0.0, 0.3, 0.5, 0.6, 0.7, 0.8, 0.85, 0.9)
-MACH_SUP = (1.2, 1.4, 1.6, 1.8, 2.0, 2.3, 2.6)
+MACH_SUP = (1.2, 1.4, 1.6, 1.8, 2.0, 2.3, 2.6, 3.0, 4.0, 5.0)
 KORN_KAPPA = 0.87   # conventional (not supercritical) sections
 KORN_SUPERCRITICAL = 0.95   # supercritical ones (Raymer 12.5.10)
 E_WD = 2.0          # Raymer: 1.2 for a smooth Sears-Haack-like area distribution, 2-3 for poor ones
@@ -182,7 +182,13 @@ def mach_effects(aircraft, build_model, base, progress=None):
     induced drag)."""
     a = aircraft
     top = float(a.spec.get("analysis", {}).get("max_mach", 0.9 if not any(e.type == "turbofan" for e in a.engines) else 2.6))
-    sub = [m for m in MACH_SUB if m <= max(top, 0.3) + 1e-9]
+    if not a.surfaces:
+        grid = np.array(sorted(set([0., top] + [m for m in MACH_SUB + MACH_SUP if m <= top])))
+        cd0 = build_model(0.).evaluate(0.)['CD']
+        return dict(mach=grid, K_L=np.ones_like(grid), K_Y=np.ones_like(grid),
+                    dCm_dCL=np.zeros_like(grid), dK=np.zeros_like(grid),induced_factor=np.ones_like(grid),
+                    dCD0=np.array([build_model(float(m)).evaluate(0.)['CD']-cd0 for m in grid]))
+    sub = sorted(set([m for m in MACH_SUB if m <= top + 1e-9] + [min(top, 0.9)]))
     # subsonic: the model at each Mach number
     lin = {}
     centres = {}
@@ -203,19 +209,26 @@ def mach_effects(aircraft, build_model, base, progress=None):
             for m, v in lin.items()}
     mach = list(sub)
     # supersonic: linear theory, relative to the same estimate at Mach 0.9
-    if top > 1.0 and 0.9 in rows:
-        horiz = [s for s in a.surfaces if s.kind not in ("fin", "vtail")]
-        nums = [dict(_surface_numbers(s), share=s.area / a.S) for s in horiz]
+    if top > 0.9 and 0.9 in rows:
+        def horizontal_share(s):
+            span = s.sections[-1].le[1:] - s.sections[0].le[1:]
+            return float(span[0] ** 2 / np.dot(span, span))
+        horiz = [s for s in a.surfaces if horizontal_share(s) > 1.e-12]
+        nums = [dict(_surface_numbers(s), share=s.area * horizontal_share(s) / a.S) for s in horiz]
         for n, s in zip(nums, horiz):
             if id(s) in centres:
                 n["x_lattice"] = centres[id(s)]
         eps0 = [_tail_downwash(a, s) for s in horiz]
-        wing = next(i for i, s in enumerate(horiz) if s is a.wing)
+        wing = next((i for i, s in enumerate(horiz) if s is a.wing),
+                    max(range(len(horiz)), key=lambda i: nums[i]['share']))
         fins = [_surface_numbers(s) for s in a.surfaces if s.kind in ("fin", "vtail")]
         cla9, xnp9 = _combine(nums, 0.9, eps0)
         w9 = lift_slope(nums[wing], 0.9)
         fin9 = lift_slope(fins[0], 0.9) if fins else 1.0
-        for m in (x for x in MACH_SUP if x <= top + 1e-9):
+        # Retain an engineering anchor beyond a transonic-only domain, and
+        # evaluate the authored endpoint even when it is not a stock knot.
+        sup = sorted(set([x for x in MACH_SUP if x <= top + 1e-9] + [max(top, 1.2)]))
+        for m in sup:
             # the downwash behind the wing falls with the wing's lift slope
             eps = [e * lift_slope(nums[wing], m) / w9 for e in eps0]
             cla, xnp = _combine(nums, m, eps)
@@ -252,13 +265,20 @@ def mach_effects(aircraft, build_model, base, progress=None):
 def _tail_downwash(aircraft, surf):
     """The downwash gradient at a surface from the wing ahead of it (DATCOM's
     2 CL_alpha,w / (pi A) at the tail, halved with the distance): 0 for the
-    wing itself, a strake or a canard."""
+    wing itself, a strake or a canard. The geometry's normalization fallback
+    `wing` may be an arbitrary fin on a wingless airframe; it cannot define
+    a physical wing wake. Those surfaces retain the coupled VLM interaction
+    already present in their base tables, without a second aircraft-tail
+    correction. A surface ahead of or abreast of a real wing is not its tail.
+    """
     w = aircraft.wing
-    if surf is w or surf.kind in ("strake", "canard"):
+    if w is None or w.kind != "wing" or surf is w or surf.kind in ("strake", "canard"):
         return 0.0
     num = _surface_numbers(w)
     cla = lift_slope(num, 0.0)
     arm = _surface_numbers(surf)["x_quarter"] - num["x_quarter"]
+    if arm <= 0.0:
+        return 0.0
     return float(2.0 * cla / (math.pi * w.aspect_ratio) * (1.0 - 0.25 * min(arm / (0.5 * w.span), 1.0)))
 
 
@@ -317,7 +337,8 @@ def _drag(a, base, table):
     lost = lost * lost * (3.0 - 2.0 * lost)
     K = (1.0 - lost) * K0 + lost / cla
     dK = K - K0 / table["K_L"] ** 2
-    return {"dCD0": dcd0, "dK": dK, "K0": float(K0), "CD0": float(CD0), "M_dd": float(m_dd), "M_cr": float(m_cr),
+    return {"dCD0": dcd0, "dK": dK, 'induced_factor':K*table['K_L']**2/K0,
+            "K0": float(K0), "CD0": float(CD0), "M_dd": float(m_dd), "M_cr": float(m_cr),
             "A_max_m2": amax, "length_m": float(length), "E_WD": ewd, "korn_kappa": kappa}
 
 
