@@ -1,0 +1,706 @@
+{
+  "schema": "fsim.aam-qbar-delivery.v1",
+  "date": "2026-11-01",
+  "basis": "simulated",
+  "base_head": "9f4f31801f08fc9e22ce9f1ecb1b408d01913586",
+  "scope": "Approved AAM matched-state observation correction; not whole equipment fidelity or SIM-M02 closure",
+  "user_approval": "The user explicitly accepted the proposed first-native-force observation correction",
+  "observation_boundary_changed": true,
+  "physics_coefficients_changed": false,
+  "initial_conditions_commands_public_dt_preserved": true,
+  "complete_public_step_preserved": true,
+  "original_comparison_bound": 1e-08,
+  "original_case_before": {
+    "passed": 12,
+    "total": 13,
+    "exit_code": 1,
+    "receipt": "build\\architecture-reviews\\aam-qbar-resolution-20261101\\original-before.json"
+  },
+  "corrected_native_cases_per_preset": {
+    "passed": 13,
+    "total": 13
+  },
+  "all24_sampling": [
+    {
+      "preset": "ucrt64-headless",
+      "passed": 24,
+      "elapsed_seconds": 14.786856000002444,
+      "report": "build\\architecture-reviews\\aam-qbar-resolution-20261101\\final24-headless\\observation.json",
+      "sha256": "1f329a64d1cb84d7ad949d09573dc3e3197821e6a384732de53b422516f66a48",
+      "source_sha256": {
+        "src/simulation/flight/NativeStepObservationV1.h": "6be362cddab3b34b72c1a47398ac4cbdf392a32b113e61eb200d877d384609a5",
+        "src/simulation/flight/JsbsimModel.cpp": "c78ba217bd11e13dc9c598190c38e5c9166d1f9aece3f84e01cf8b4e63bb80d0",
+        "tools/validation/native_flight_probe/main.cpp": "a49262b95100e13d6c4ee7a9afa1129bf1fc887b1e6662ca0911260535f164f9",
+        "tools/validation/aerodynamics/aam_qbar_observation.py": "b9a908c3bc066139ede7e6eb8ac75eb737bc2514d0e8f3b0edaa74d1e209f70f",
+        "tests/simulation/test_missile_control_native.cpp": "4a28c1f000098e39710c4973dad4b001509e2fbc87b91a9ef0a4e9e8fef7e64e"
+      },
+      "executable_sha256": "a646e7b6781c55f03aea0f64c49f27fb503f54301bd12cb5f1f6c805bed1ec97",
+      "observed_native_evaluations": 3454,
+      "normalized_load_comparisons": 144,
+      "terminal_state_comparisons": 48,
+      "named_state_values_per_plant": 104,
+      "terminal_properties_per_plant": 20,
+      "rows": [
+        {
+          "design": "aim120c",
+          "passed": true,
+          "substeps": 55,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "b3f2ec2943d2ff1f11e75d39edef3f582636394d5f1be1eb4a3fbbc55b5243d3",
+          "trace_sha256": "16e32d8b44354a10bfce92e38a831ee7027f3d8b8530a411411ee12fdcf573a9"
+        },
+        {
+          "design": "aim120d",
+          "passed": true,
+          "substeps": 55,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "f44271ce85867c19b2081fc4011ebf24a0c6a5322916502f44a67201c59a649f",
+          "trace_sha256": "527e82856117a215511b146bc30739919f619bf0278028ca84cf0cb7f396ec15"
+        },
+        {
+          "design": "aim7m",
+          "passed": true,
+          "substeps": 71,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "3b41602c584c18fd65d4994e3cd4788a5d4ad116ac7d967c180a5a30dc8d501b",
+          "trace_sha256": "d8312b9f8eee5b31e5d301b2bc0c90e820c141156af3189e9520f3841efe1522"
+        },
+        {
+          "design": "aim9m",
+          "passed": true,
+          "substeps": 106,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "39a8ea110be90fba268c0de6a5cf4fca7f29e5a1533467a61003ec40370c7d34",
+          "trace_sha256": "722dd712aa70172ff857e7e84de04bd222d6c3290a14c5390a77e85bd3bac022"
+        },
+        {
+          "design": "aim9x",
+          "passed": true,
+          "substeps": 83,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "4fb58a105f7e02665df33a63792aabbaa646037076feb08d900693b2ada2c09e",
+          "trace_sha256": "de613980a232708d83033b80044b87c3c6fb6c69d24937f8bc5d9a1a70ee434b"
+        },
+        {
+          "design": "asraam",
+          "passed": true,
+          "substeps": 66,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "170bc4d1976e87589bcaf3bf6e340d4797713a3847ce40e35a9e8cf07c5b5b1f",
+          "trace_sha256": "f0ea14c54b7c36e88c2ea5e024fd77f35b64b36b000ecb8cea5799637bde3faa"
+        },
+        {
+          "design": "irist",
+          "passed": true,
+          "substeps": 130,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "c2fb99df42325f69bb6685afa9ac1dc7cc629cb7966599be1f07ba175b5425d0",
+          "trace_sha256": "ff4927c7c159695ea2e4e56dbe429e34708463251331ed41db6c5ad498440951"
+        },
+        {
+          "design": "magic2",
+          "passed": true,
+          "substeps": 88,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "3b832b29154d6d35be7c1e7cef81e1ed2c4299eb8cfe0500622262d3e46946d1",
+          "trace_sha256": "c38746b09f4d843685480041d2d53413fd850acd14a3af23e94beb866ccc3857"
+        },
+        {
+          "design": "meteor",
+          "passed": true,
+          "substeps": 49,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "a6d97a573d5128d3850e6b9a332fa5a22165f20de4bc455f08eb476cbb7d9a2a",
+          "trace_sha256": "9b5b9229e24f4bcd9c3ec3824b2de873ee95c968887313b0f7942632a0c57e2b"
+        },
+        {
+          "design": "micaem",
+          "passed": true,
+          "substeps": 104,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "f6cba8b4b4a016e2bde53f22ae76b4da2f5525d6d5ac6aec95cdf603c5810e2a",
+          "trace_sha256": "375e8d38599fbda141acc780ed72186d7cbd7e916eb1a2c9ab5371737c8b5945"
+        },
+        {
+          "design": "micair",
+          "passed": true,
+          "substeps": 104,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "e3d3d9e04eca19fa8332c96c3f989e5c77a63954fd32ebccb7443f5a89a47a0e",
+          "trace_sha256": "dbc8ee7b70024f20198c26a5004dba652433db1a47d52fbb536554006f62d956"
+        },
+        {
+          "design": "pl10",
+          "passed": true,
+          "substeps": 95,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "da32476ed6696837d3c35a72cb7e9a12db4105fc4cd89e1ae8692ba03c196483",
+          "trace_sha256": "986a065fe41e5b50e886f2476ccb0931b8f8790ee122368148570f5e8ac6e723"
+        },
+        {
+          "design": "pl12",
+          "passed": true,
+          "substeps": 57,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "7983e10bab6235f2ead1496c2d035b469e14c626b37d344af0d9ad777bd54b34",
+          "trace_sha256": "2527a393c7276bf21f8b24c63d802da5190241600c72b625e608ca49c41aecf3"
+        },
+        {
+          "design": "pl15",
+          "passed": true,
+          "substeps": 45,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "0708cd2cfedf89e814bb028ad584fb90c67ce07fa9b13df728b621c74bf73b2f",
+          "trace_sha256": "4f48a4465e1aefaa2ce4d07bc14f7b745094aa0020d75fff70d5426480a61dc1"
+        },
+        {
+          "design": "pl8",
+          "passed": true,
+          "substeps": 101,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "10c4145215649945def9a14f7c2d4017150ae6bd41371cc853a6f845d9dbe36b",
+          "trace_sha256": "e4e2f228160f142b2de2e156e9073ffb5cc6eca8777fc6195ac6f1c5159298c4"
+        },
+        {
+          "design": "r27er",
+          "passed": true,
+          "substeps": 50,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "059c3f3fa0ef5317b74f4160bb62501f3741311652bd1bfc5f533b8a4914ea73",
+          "trace_sha256": "7ad2dc54c07296d60f5023f7153dd5683d9b061d957d5ff75d9569be445c3203"
+        },
+        {
+          "design": "r27et",
+          "passed": true,
+          "substeps": 50,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "dba9ca70c8477106a831842db3e9c396d68081838e488a3883ff67dd9a4ba32c",
+          "trace_sha256": "71342991d3300a18c7fcb82878d4fa8be86238742f98aea3d1de75c85ff26ece"
+        },
+        {
+          "design": "r27r",
+          "passed": true,
+          "substeps": 55,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "142bd53321a13b91aa0bddbb0fa347369785fe7f433f4a9bda3b56875eb73d20",
+          "trace_sha256": "c7ef4586619cb583ca4079b2db5da305066fb936c3d9d308019fccce794b50ad"
+        },
+        {
+          "design": "r27t",
+          "passed": true,
+          "substeps": 55,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "51306dc955e45b0fa8b0d2933a810600a7e167f7add5aa713dad0e464939b885",
+          "trace_sha256": "6598a358e4c6608c66ba8fe7c3b30b1a6c21c7a79b3cfb18f4ea3fba83e27920"
+        },
+        {
+          "design": "r37m",
+          "passed": true,
+          "substeps": 40,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "b180ba394f515435efb5152a7e15bc6d6e39838ae2c6051427151011efe8afff",
+          "trace_sha256": "d5613405690d4b2e87b57bd88a9ac38f2ddad15612a346df6ccbef3358a969f6"
+        },
+        {
+          "design": "r60m",
+          "passed": true,
+          "substeps": 91,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "f25adc93fe6e1ae1e8155ed2da8ebfe0af9c12d62b3a743c79fc5c7a59807968",
+          "trace_sha256": "b201f3231f5f63284c91e2fe43fcd51e21068895f50c8e65a6252eb3a22aa35a"
+        },
+        {
+          "design": "r73",
+          "passed": true,
+          "substeps": 68,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "431bc49b9715573b151b5986f0bf398462de4318a77abc497bddb1c32dce59ff",
+          "trace_sha256": "d9382e085db56ff2ad10d49e3e262413010701591d7145f171edf3c9b77b4513"
+        },
+        {
+          "design": "r77m",
+          "passed": true,
+          "substeps": 68,
+          "original_terminal_passed": true,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "26d2ac14917c2d285224b2cbb6a6cea0f8f6b7def46b9eb68e8fd4c01ce1530c",
+          "trace_sha256": "39a03cd06df4a55cece189d5c66468a74d4037524249a7d1c76050abcd77ca3c"
+        },
+        {
+          "design": "super530d",
+          "passed": true,
+          "substeps": 41,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-headless/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "9390e78257a8193f4a72db0db90fb8aefb914474a3a87aef5395f8ecc9ea4eff",
+          "product_sha256": "dfc3b2fe7e3cf6b6214728c3c6001284e71b583962a95f6e1a21f6c5c6eb04ba",
+          "trace_sha256": "07d8f5bd2bae45b42a405f1657ef4ef8f5ae9d43bcb4eccfabec38f26c174397"
+        }
+      ]
+    },
+    {
+      "preset": "ucrt64-release",
+      "passed": 24,
+      "elapsed_seconds": 14.765229399999953,
+      "report": "build\\architecture-reviews\\aam-qbar-resolution-20261101\\final24-release\\observation.json",
+      "sha256": "e9a110a920e71d07c695b991b31174bc3fd8c5b99821363bdf1235077c5f9b41",
+      "source_sha256": {
+        "src/simulation/flight/NativeStepObservationV1.h": "6be362cddab3b34b72c1a47398ac4cbdf392a32b113e61eb200d877d384609a5",
+        "src/simulation/flight/JsbsimModel.cpp": "c78ba217bd11e13dc9c598190c38e5c9166d1f9aece3f84e01cf8b4e63bb80d0",
+        "tools/validation/native_flight_probe/main.cpp": "a49262b95100e13d6c4ee7a9afa1129bf1fc887b1e6662ca0911260535f164f9",
+        "tools/validation/aerodynamics/aam_qbar_observation.py": "b9a908c3bc066139ede7e6eb8ac75eb737bc2514d0e8f3b0edaa74d1e209f70f",
+        "tests/simulation/test_missile_control_native.cpp": "4a28c1f000098e39710c4973dad4b001509e2fbc87b91a9ef0a4e9e8fef7e64e"
+      },
+      "executable_sha256": "81593e89be85497ddec13d7964199175d8386f5174a3cb537fa8456399ddfb1b",
+      "observed_native_evaluations": 3454,
+      "normalized_load_comparisons": 144,
+      "terminal_state_comparisons": 48,
+      "named_state_values_per_plant": 104,
+      "terminal_properties_per_plant": 20,
+      "rows": [
+        {
+          "design": "aim120c",
+          "passed": true,
+          "substeps": 55,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "b3f2ec2943d2ff1f11e75d39edef3f582636394d5f1be1eb4a3fbbc55b5243d3",
+          "trace_sha256": "16e32d8b44354a10bfce92e38a831ee7027f3d8b8530a411411ee12fdcf573a9"
+        },
+        {
+          "design": "aim120d",
+          "passed": true,
+          "substeps": 55,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "f44271ce85867c19b2081fc4011ebf24a0c6a5322916502f44a67201c59a649f",
+          "trace_sha256": "527e82856117a215511b146bc30739919f619bf0278028ca84cf0cb7f396ec15"
+        },
+        {
+          "design": "aim7m",
+          "passed": true,
+          "substeps": 71,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "3b41602c584c18fd65d4994e3cd4788a5d4ad116ac7d967c180a5a30dc8d501b",
+          "trace_sha256": "d8312b9f8eee5b31e5d301b2bc0c90e820c141156af3189e9520f3841efe1522"
+        },
+        {
+          "design": "aim9m",
+          "passed": true,
+          "substeps": 106,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "39a8ea110be90fba268c0de6a5cf4fca7f29e5a1533467a61003ec40370c7d34",
+          "trace_sha256": "722dd712aa70172ff857e7e84de04bd222d6c3290a14c5390a77e85bd3bac022"
+        },
+        {
+          "design": "aim9x",
+          "passed": true,
+          "substeps": 83,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "4fb58a105f7e02665df33a63792aabbaa646037076feb08d900693b2ada2c09e",
+          "trace_sha256": "de613980a232708d83033b80044b87c3c6fb6c69d24937f8bc5d9a1a70ee434b"
+        },
+        {
+          "design": "asraam",
+          "passed": true,
+          "substeps": 66,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "170bc4d1976e87589bcaf3bf6e340d4797713a3847ce40e35a9e8cf07c5b5b1f",
+          "trace_sha256": "f0ea14c54b7c36e88c2ea5e024fd77f35b64b36b000ecb8cea5799637bde3faa"
+        },
+        {
+          "design": "irist",
+          "passed": true,
+          "substeps": 130,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "c2fb99df42325f69bb6685afa9ac1dc7cc629cb7966599be1f07ba175b5425d0",
+          "trace_sha256": "ff4927c7c159695ea2e4e56dbe429e34708463251331ed41db6c5ad498440951"
+        },
+        {
+          "design": "magic2",
+          "passed": true,
+          "substeps": 88,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "3b832b29154d6d35be7c1e7cef81e1ed2c4299eb8cfe0500622262d3e46946d1",
+          "trace_sha256": "c38746b09f4d843685480041d2d53413fd850acd14a3af23e94beb866ccc3857"
+        },
+        {
+          "design": "meteor",
+          "passed": true,
+          "substeps": 49,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "a6d97a573d5128d3850e6b9a332fa5a22165f20de4bc455f08eb476cbb7d9a2a",
+          "trace_sha256": "9b5b9229e24f4bcd9c3ec3824b2de873ee95c968887313b0f7942632a0c57e2b"
+        },
+        {
+          "design": "micaem",
+          "passed": true,
+          "substeps": 104,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "f6cba8b4b4a016e2bde53f22ae76b4da2f5525d6d5ac6aec95cdf603c5810e2a",
+          "trace_sha256": "375e8d38599fbda141acc780ed72186d7cbd7e916eb1a2c9ab5371737c8b5945"
+        },
+        {
+          "design": "micair",
+          "passed": true,
+          "substeps": 104,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "e3d3d9e04eca19fa8332c96c3f989e5c77a63954fd32ebccb7443f5a89a47a0e",
+          "trace_sha256": "dbc8ee7b70024f20198c26a5004dba652433db1a47d52fbb536554006f62d956"
+        },
+        {
+          "design": "pl10",
+          "passed": true,
+          "substeps": 95,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "da32476ed6696837d3c35a72cb7e9a12db4105fc4cd89e1ae8692ba03c196483",
+          "trace_sha256": "986a065fe41e5b50e886f2476ccb0931b8f8790ee122368148570f5e8ac6e723"
+        },
+        {
+          "design": "pl12",
+          "passed": true,
+          "substeps": 57,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "7983e10bab6235f2ead1496c2d035b469e14c626b37d344af0d9ad777bd54b34",
+          "trace_sha256": "2527a393c7276bf21f8b24c63d802da5190241600c72b625e608ca49c41aecf3"
+        },
+        {
+          "design": "pl15",
+          "passed": true,
+          "substeps": 45,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "0708cd2cfedf89e814bb028ad584fb90c67ce07fa9b13df728b621c74bf73b2f",
+          "trace_sha256": "4f48a4465e1aefaa2ce4d07bc14f7b745094aa0020d75fff70d5426480a61dc1"
+        },
+        {
+          "design": "pl8",
+          "passed": true,
+          "substeps": 101,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "10c4145215649945def9a14f7c2d4017150ae6bd41371cc853a6f845d9dbe36b",
+          "trace_sha256": "e4e2f228160f142b2de2e156e9073ffb5cc6eca8777fc6195ac6f1c5159298c4"
+        },
+        {
+          "design": "r27er",
+          "passed": true,
+          "substeps": 50,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "059c3f3fa0ef5317b74f4160bb62501f3741311652bd1bfc5f533b8a4914ea73",
+          "trace_sha256": "7ad2dc54c07296d60f5023f7153dd5683d9b061d957d5ff75d9569be445c3203"
+        },
+        {
+          "design": "r27et",
+          "passed": true,
+          "substeps": 50,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "dba9ca70c8477106a831842db3e9c396d68081838e488a3883ff67dd9a4ba32c",
+          "trace_sha256": "71342991d3300a18c7fcb82878d4fa8be86238742f98aea3d1de75c85ff26ece"
+        },
+        {
+          "design": "r27r",
+          "passed": true,
+          "substeps": 55,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "142bd53321a13b91aa0bddbb0fa347369785fe7f433f4a9bda3b56875eb73d20",
+          "trace_sha256": "c7ef4586619cb583ca4079b2db5da305066fb936c3d9d308019fccce794b50ad"
+        },
+        {
+          "design": "r27t",
+          "passed": true,
+          "substeps": 55,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "51306dc955e45b0fa8b0d2933a810600a7e167f7add5aa713dad0e464939b885",
+          "trace_sha256": "6598a358e4c6608c66ba8fe7c3b30b1a6c21c7a79b3cfb18f4ea3fba83e27920"
+        },
+        {
+          "design": "r37m",
+          "passed": true,
+          "substeps": 40,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "b180ba394f515435efb5152a7e15bc6d6e39838ae2c6051427151011efe8afff",
+          "trace_sha256": "d5613405690d4b2e87b57bd88a9ac38f2ddad15612a346df6ccbef3358a969f6"
+        },
+        {
+          "design": "r60m",
+          "passed": true,
+          "substeps": 91,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "f25adc93fe6e1ae1e8155ed2da8ebfe0af9c12d62b3a743c79fc5c7a59807968",
+          "trace_sha256": "b201f3231f5f63284c91e2fe43fcd51e21068895f50c8e65a6252eb3a22aa35a"
+        },
+        {
+          "design": "r73",
+          "passed": true,
+          "substeps": 68,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "431bc49b9715573b151b5986f0bf398462de4318a77abc497bddb1c32dce59ff",
+          "trace_sha256": "d9382e085db56ff2ad10d49e3e262413010701591d7145f171edf3c9b77b4513"
+        },
+        {
+          "design": "r77m",
+          "passed": true,
+          "substeps": 68,
+          "original_terminal_passed": true,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "26d2ac14917c2d285224b2cbb6a6cea0f8f6b7def46b9eb68e8fd4c01ce1530c",
+          "trace_sha256": "39a03cd06df4a55cece189d5c66468a74d4037524249a7d1c76050abcd77ca3c"
+        },
+        {
+          "design": "super530d",
+          "passed": true,
+          "substeps": 41,
+          "original_terminal_passed": false,
+          "loaded_jsbsim_library": "D:/Projects/Cpp/Super-DDCCSS-WWorld/build/ucrt64-release/bin/libJSBSim.dll",
+          "loaded_jsbsim_sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+          "product_sha256": "dfc3b2fe7e3cf6b6214728c3c6001284e71b583962a95f6e1a21f6c5c6eb04ba",
+          "trace_sha256": "07d8f5bd2bae45b42a405f1657ef4ef8f5ae9d43bcb4eccfabec38f26c174397"
+        }
+      ]
+    }
+  ],
+  "headless_gates": {
+    "path": "build\\architecture-reviews\\aam-qbar-resolution-20261101\\headless-junit.xml",
+    "sha256": "6ba7cc7ca6125fb9ef65344115adbcc711e3f1a183dba8031d4c5c0edcc6acbf",
+    "tests": 7,
+    "failures": 0,
+    "skipped": 0,
+    "elapsed_case_seconds": 111.5129108,
+    "cases": [
+      {
+        "name": "representative_weapon_native",
+        "seconds": 4.41396,
+        "passed": true
+      },
+      {
+        "name": "weapon_guidance",
+        "seconds": 0.0308352,
+        "passed": true
+      },
+      {
+        "name": "fuze",
+        "seconds": 0.0276229,
+        "passed": true
+      },
+      {
+        "name": "missile_autopilot",
+        "seconds": 0.0661127,
+        "passed": true
+      },
+      {
+        "name": "engagement_native",
+        "seconds": 83.839,
+        "passed": true
+      },
+      {
+        "name": "missile_control_native",
+        "seconds": 14.956,
+        "passed": true
+      },
+      {
+        "name": "contact_fuze_native",
+        "seconds": 8.17938,
+        "passed": true
+      }
+    ]
+  },
+  "release_initial_gates": {
+    "path": "build\\architecture-reviews\\aam-qbar-resolution-20261101\\release-junit.xml",
+    "sha256": "ca69f74a3d5e8e65a29de4bbdc8d36354042c73cb73d4d922f515068b8fe82f1",
+    "tests": 8,
+    "failures": 1,
+    "skipped": 0,
+    "elapsed_case_seconds": 140.9664628,
+    "cases": [
+      {
+        "name": "equipment_package_consumer",
+        "seconds": 29.9412,
+        "passed": false
+      },
+      {
+        "name": "representative_weapon_native",
+        "seconds": 4.55305,
+        "passed": true
+      },
+      {
+        "name": "weapon_guidance",
+        "seconds": 0.0280808,
+        "passed": true
+      },
+      {
+        "name": "fuze",
+        "seconds": 0.0277182,
+        "passed": true
+      },
+      {
+        "name": "missile_autopilot",
+        "seconds": 0.0691438,
+        "passed": true
+      },
+      {
+        "name": "engagement_native",
+        "seconds": 83.6576,
+        "passed": true
+      },
+      {
+        "name": "missile_control_native",
+        "seconds": 14.659,
+        "passed": true
+      },
+      {
+        "name": "contact_fuze_native",
+        "seconds": 8.03067,
+        "passed": true
+      }
+    ]
+  },
+  "installed_after_existing_python_package_refresh": {
+    "path": "build\\architecture-reviews\\aam-qbar-resolution-20261101\\installed-junit.xml",
+    "sha256": "6e93c008a3f95ad1372f8d6ccbfc1065cc0ed2299dd39c1407705506a5fde97d",
+    "tests": 1,
+    "failures": 0,
+    "skipped": 0,
+    "elapsed_case_seconds": 43.0613,
+    "cases": [
+      {
+        "name": "equipment_package_consumer",
+        "seconds": 43.0613,
+        "passed": true
+      }
+    ]
+  },
+  "normal_entry": {
+    "command": "& ./run.ps1 -Mode headless -Preset ucrt64-release -Arguments @('--aircraft','aim120c','--vehicles','1','--workers','1','--steps','120','--frame-skip','1','--print-every','120')",
+    "exit_code": 0,
+    "elapsed_seconds": 0.7971402,
+    "finite_flight_confirmed": true,
+    "product_sha256": "b3f2ec2943d2ff1f11e75d39edef3f582636394d5f1be1eb4a3fbbc55b5243d3",
+    "executable_sha256": "e0aad58e465fbe1e23f7616d051b96c65e4f5b41f4a43b1fef02acffb5b9e2d0",
+    "native_log": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\.local\\logs\\414ea178a25146429d1936dcd1eeb714-000.log",
+    "native_log_sha256": "e86ab44f9be4581c4f2ad451e151c37b8bb8b3c8f8b9f2c27837dc7b4904f747",
+    "process_record": "build\\architecture-reviews\\aam-qbar-resolution-20261101\\normal-process.json"
+  },
+  "stale_install_failure": "First Release install gate refused an older staged Python SDK DLL; refreshed with the existing python_package build target, then reran only that gate",
+  "independent_review": {
+    "kind": "Read-only source and artifact review; no independent native execution",
+    "outcome": "No blocking source finding; two provenance/wording findings closed",
+    "checked": "Loaded DLL, executable and five source hashes independently checked with zero mismatches; final restoration/noninterference records inspected"
+  },
+  "limitations": [
+    "This is bounded native sampling, not full-envelope dynamic validation or measurement calibration",
+    "The former terminal comparison still fails for 23 of 24 designs per preset and remains diagnostic",
+    "Rotor RPM/fall and current full headless/Release whole-program acceptance are outside this AAM correction; formal SIM-M02 closure is not claimed",
+    "Observer read-only use is a trusted synchronous callback contract, not an access-control mechanism"
+  ],
+  "commands": {
+    "headless-gates.log": "> \"ctest\" \"--preset\" \"ucrt64-headless\" \"--no-tests=error\" \"-j\" \"1\" \"--timeout\" \"120\" \"-R\" \"^(missile_control_native|engagement_native|contact_fuze_native|representative_weapon_native|weapon_guidance|fuze|missile_autopilot)$\" \"--output-junit\" \"D:/Projects/Cpp/Super-DDCCSS-WWorld/build/architecture-reviews/aam-qbar-resolution-20261101/headless-junit.xml\"",
+    "release-gates.log": "> \"ctest\" \"--preset\" \"ucrt64-release\" \"--no-tests=error\" \"-j\" \"1\" \"--timeout\" \"120\" \"-R\" \"^(missile_control_native|engagement_native|contact_fuze_native|representative_weapon_native|weapon_guidance|fuze|missile_autopilot|equipment_package_consumer)$\" \"--output-junit\" \"D:/Projects/Cpp/Super-DDCCSS-WWorld/build/architecture-reviews/aam-qbar-resolution-20261101/release-junit.xml\"",
+    "installed-gate.log": "> \"ctest\" \"--preset\" \"ucrt64-release\" \"--no-tests=error\" \"-j\" \"1\" \"--timeout\" \"120\" \"-R\" \"^equipment_package_consumer$\" \"--output-junit\" \"D:/Projects/Cpp/Super-DDCCSS-WWorld/build/architecture-reviews/aam-qbar-resolution-20261101/installed-junit.xml\"",
+    "final-release-build.log": "> \"cmake\" \"--build\" \"--preset\" \"ucrt64-release\" \"--target\" \"fsim-native-flight-probe\" \"fsim_missile_control_native_test\" \"fsim_engagement_native_test\" \"fsim_contact_fuze_native_test\" \"fsim_weapon_seeker_native_test\" \"fsim\" \"flightsim\" \"--parallel\" \"8\"",
+    "refresh-python-package.log": "> \"cmake\" \"--build\" \"--preset\" \"ucrt64-release\" \"--target\" \"python_package\" \"--parallel\" \"8\""
+  },
+  "evidence_root": "build\\architecture-reviews\\aam-qbar-resolution-20261101",
+  "installed_provenance": {
+    "path": "build\\ucrt64-release\\equipment-package-consumer\\provenance.sha256",
+    "sha256": "8ac446599a3f62d6abc883a2661a9a8794274196c293cec8da8373df2a068d09"
+  },
+  "installed_runtime": {
+    "libfsim.dll": {
+      "sha256": "268c77659c814191afb9a34832a484756fe727c138a8a367d5fb0f2cf0efc60f",
+      "sdk": "build\\ucrt64-release\\equipment-package-consumer\\installed SDK\\bin\\libfsim.dll",
+      "python": "build\\ucrt64-release\\equipment-package-consumer\\installed python\\fsim\\bin\\libfsim.dll"
+    },
+    "libJSBSim.dll": {
+      "sha256": "4b617542c72dd783f58ba81b33f986db2565338766728638737b48f4282392b7",
+      "sdk": "build\\ucrt64-release\\equipment-package-consumer\\installed SDK\\bin\\libJSBSim.dll",
+      "python": "build\\ucrt64-release\\equipment-package-consumer\\installed python\\fsim\\bin\\libJSBSim.dll"
+    }
+  }
+}

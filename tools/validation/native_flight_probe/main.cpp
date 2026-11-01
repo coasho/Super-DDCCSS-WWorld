@@ -2,10 +2,13 @@
 // or award acceptance; all observations come from the native World and FDM.
 #include "simulation/runtime/world/World.h"
 #include "simulation/flight/JsbsimModel.h"
+#include "simulation/flight/NativeStepObservationV1.h"
+#include <array>
 #include <algorithm>
 #include <chrono>
 #include <cctype>
 #include <cmath>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -14,6 +17,34 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
+namespace {
+// Serialize every named public state field, excluding structure padding.
+std::vector<double> stateValues(const fsim::sim::VehicleState& s) {
+    std::vector<double> values={s.simTime,s.latitudeRad,s.longitudeRad,s.altitudeMslM,s.altitudeAglM,
+        s.airspeedTrueMs,s.airspeedCalibratedMs,s.mach,s.alphaRad,s.betaRad,s.loadFactor,
+        s.aileronRad,s.elevatorRad,s.rudderRad,s.flapsRad,s.gearPosition,
+        static_cast<double>(s.engineCount),s.speedbrakePosition,s.fuelKg,static_cast<double>(s.stepCount),
+        static_cast<double>(s.onGround),static_cast<double>(s.diverged),static_cast<double>(s.crashed),
+        s.leadingEdgeFlapRad,static_cast<double>(s.wheelCount)};
+    const auto append=[&](const auto& a){values.insert(values.end(),std::begin(a),std::end(a));};
+    append(s.positionEcef);append(s.attitudeEcefToBody);append(s.eulerRad);append(s.velocityBodyMs);
+    append(s.velocityNedMs);append(s.angularRateBodyRadS);append(s.accelerationBodyMs2);
+    append(s.throttlePosition);append(s.thrustN);append(s.rotationBodyToEcef);append(s.engineRpm);
+    append(s.engineN2);append(s.afterburner);append(s.nozzlePosition);append(s.wheelCompressionM);
+    append(s.wheelSteerRad);append(s.wheelSpeedMs);
+    return values;
+}
+}
 
 int main(int argc,char** argv) {
     using namespace fsim;
@@ -57,6 +88,7 @@ int main(int argc,char** argv) {
             const std::vector<std::string> requested={"simulation/dt","fsim/integration-v1/substeps","simulation/sim-time-sec",
                 "aero/alpha-rad","aero/beta-rad","velocities/mach","aero/qbar-psf","atmosphere/rho-slugs_ft3",
                 "velocities/u-fps","velocities/v-fps","velocities/w-fps","fcs/elevator-pos-rad",
+                "fcs/aileron-pos-rad","fcs/rudder-pos-rad",
                 "aero/force/fsim-fin-x-lbs","aero/force/fsim-fin-y-lbs","aero/force/fsim-fin-z-lbs",
                 "aero/moment/fsim-fin-l-lbsft","aero/moment/fsim-fin-m-lbsft","aero/moment/fsim-fin-n-lbsft"};
             file<<std::setprecision(17)<<"plant,stage";for(const auto& name:requested)file<<','<<name;file<<'\n';
@@ -70,10 +102,86 @@ int main(int argc,char** argv) {
                 file<<'\n';
             };
             row(ordinary,"ordinary","before");row(thin,"thin","before");
+            struct Trace {
+                std::vector<sim::PropertyHandle> properties;
+                std::vector<std::vector<double>> samples;
+                unsigned count=0;
+                bool overflow=false;
+                static void observe(void* context,unsigned substep,unsigned substeps) noexcept {
+                    auto& trace=*static_cast<Trace*>(context);
+                    if(substep!=trace.count+1 || substeps!=trace.samples.size() || substep>trace.samples.size()) {
+                        trace.overflow=true;return;
+                    }
+                    auto& values=trace.samples[substep-1];
+                    for(std::size_t k=0;k<values.size();++k)values[k]=trace.properties[k].get();
+                    ++trace.count;
+                }
+            };
             sim::ControlInputs input;input.gearDown=0;input.elevator=.05;
-            ordinary.step(input);thin.step(input);
+            std::size_t stateValueCount=0;
+            unsigned observedSubsteps=0;
+            for(auto item:std::array{std::pair{&ordinary,"ordinary"},std::pair{&thin,"thin"}}) {
+                Trace trace;
+                for(const auto& property:requested)trace.properties.push_back(item.first->property(property));
+                const double nativeDt=trace.properties[0].get();
+                const double schedule=item.first->dt()/nativeDt;
+                if(!std::isfinite(schedule) || schedule<1 || schedule>4096 || std::abs(schedule-std::round(schedule))>1e-8)
+                    throw std::runtime_error("Invalid generated native observation count");
+                const auto count=static_cast<unsigned>(std::lround(schedule));
+                observedSubsteps=count;
+                trace.samples.assign(count,std::vector<double>(requested.size()));
+                const auto previousObserver=sim::nativeStepObserverV1;
+                {
+                    sim::ScopedNativeStepObserverV1 observe({item.first,&trace,&Trace::observe});
+                    item.first->step(input);
+                }
+                const auto restoredObserver=sim::nativeStepObserverV1;
+                if(previousObserver.model!=restoredObserver.model || previousObserver.context!=restoredObserver.context ||
+                   previousObserver.observe!=restoredObserver.observe)
+                    throw std::runtime_error("Native observer scope was not restored");
+                if(trace.overflow || trace.count!=count)throw std::runtime_error("Incomplete native observation trace");
+                for(unsigned k=0;k<count;++k) {
+                    file<<item.second<<",native-"<<k+1;
+                    for(double value:trace.samples[k]) {
+                        if(!std::isfinite(value))throw std::runtime_error("Nonfinite native observation");
+                        file<<','<<value;
+                    }
+                    file<<'\n';
+                }
+                sim::JsbsimModel unobserved(1.0/120.0,ground);
+                if(!unobserved.load(aircraft,initial))throw std::runtime_error("Cannot load unobserved comparison plant");
+                if(item.first==&thin)unobserved.setAtmosphere(288.15,101325.0/2);
+                unobserved.step(input);
+                row(unobserved,item.second,"unobserved-after");
+                sim::VehicleState observedState,unobservedState;
+                item.first->state(observedState);unobserved.state(unobservedState);
+                const auto a=stateValues(observedState),b=stateValues(unobservedState);
+                stateValueCount=a.size();
+                if(a.size()!=b.size() || std::memcmp(a.data(),b.data(),a.size()*sizeof(double))!=0)
+                    throw std::runtime_error("Native observer changed the public-step state");
+                for(std::size_t k=0;k<requested.size();++k) {
+                    const double observed=trace.properties[k].get(),plain=unobserved.property(requested[k]).get();
+                    if(std::memcmp(&observed,&plain,sizeof(double))!=0)
+                        throw std::runtime_error("Native observer changed a final property");
+                }
+            }
             row(ordinary,"ordinary","after");row(thin,"thin","after");
-            file.close();std::cout<<"schema=fsim.native-qbar-diagnostic.v1 model="<<model
+            file.close();
+            std::string nativeLibrary;
+#ifdef _WIN32
+            std::array<wchar_t,32768> modulePath{};
+            const auto module=GetModuleHandleW(L"libJSBSim.dll");
+            const auto length=module ? GetModuleFileNameW(module,modulePath.data(),static_cast<DWORD>(modulePath.size())) : 0;
+            if(length==0 || length>=modulePath.size())throw std::runtime_error("Cannot identify loaded JSBSim library");
+            nativeLibrary=std::filesystem::path(modulePath.data()).generic_string();
+#endif
+            std::ofstream certificate(output+".json",std::ios::binary);
+            certificate<<"{\"schema\":\"fsim.native-qbar-diagnostic.v2\",\"model\":\""<<model
+                <<"\",\"substeps_per_plant\":"<<observedSubsteps<<",\"public_state_values_per_plant\":"<<stateValueCount
+                <<",\"final_properties_per_plant\":"<<requested.size()
+                <<",\"loaded_jsbsim_library\":\""<<nativeLibrary
+                <<"\",\"observer_scope_restored\":true,\"observed_unobserved_bitwise_identity\":true}\n";
+            std::cout<<"schema=fsim.native-qbar-diagnostic.v2 model="<<model
                 <<" elapsed_seconds="<<std::chrono::duration<double>(std::chrono::steady_clock::now()-start).count()<<"\n";
             return 0;
         }

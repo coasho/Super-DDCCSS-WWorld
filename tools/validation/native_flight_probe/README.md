@@ -21,3 +21,28 @@ The complete engineering workflow, status meanings, full static table checks,
 native sampling and independent regression requirements are in
 `docs/hangar-system.md`. Diagnostic excitation cannot replace a frozen test
 scenario without explicit acceptance-policy authorization.
+
+## Matched-state AAM pressure observation
+
+The approved qbar fixture correction reads the first evaluated native force
+sample, then still executes the complete original public step. It preserves
+initial conditions, commands and the `1e-8` comparison bound. This changes the
+observation boundary: the old end-step comparison is retained as a diagnostic,
+not relabeled as passing. No aerodynamic coefficient or integration interval is
+changed. Different pressure plants may legitimately have different final states.
+
+```powershell
+& ./tools/launch/fsim.ps1 --preset ucrt64-release build --target fsim-native-flight-probe fsim_missile_control_native_test
+& D:/ENV/python/3.13/python.exe -B tools/validation/aerodynamics/aam_qbar_observation.py --preset ucrt64-release --output build/architecture-reviews/aam-qbar-resolution-20261101/replay-release
+```
+
+The generic roster tool runs all 24 AAMs with one rule, bounded at 60 seconds
+per process. Each CSV retains every native force evaluation and the terminal
+values. Each plant is also run without observation; all 104 named public-state
+values and 20 final properties must be bitwise identical. Six normalized native
+fin loads are compared at equal Mach, alpha, beta and actual fin positions.
+Reports bind the executable, actually loaded JSBSim DLL, current source files
+and generated model XML by SHA-256. This is bounded native sampling, not a
+full-envelope validation or measurement calibration. The private observer is
+model-scoped, thread-local and restored on scope exit. Its read-only use is a
+trusted callback contract, not a public SDK permission mechanism.

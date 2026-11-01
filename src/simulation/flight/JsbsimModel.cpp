@@ -4,6 +4,7 @@
 #include "foundation/core/Units.h"
 #include "simulation/flight/GroundProvider.h"
 #include "simulation/flight/JsbsimLog.h"
+#include "simulation/flight/NativeStepObservationV1.h"
 
 #include <FGFDMExec.h>
 #include <initialization/FGInitialCondition.h>
@@ -973,6 +974,9 @@ void JsbsimModel::step(const ControlInputs& in) {
     for (int substep = 0; substep < substeps; ++substep) {
         const bool wasContact=structuralContact_;
         fdm_->Run();
+        const auto observer=nativeStepObserverV1;
+        if(observer.model==this && observer.observe)
+            observer.observe(observer.context,static_cast<unsigned>(substep+1),static_cast<unsigned>(substeps));
         if (substep == 0) ++stepCount_;
         const auto ground = fdm_->GetGroundReactions();
         structuralContact_ = false;

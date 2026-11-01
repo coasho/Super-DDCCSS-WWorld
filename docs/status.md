@@ -1,11 +1,36 @@
 # Current capabilities and milestone status
 
+<!-- AAM qbar observation correction begin -->
+AAM qbar observation correction, 2026-11-01: the explicitly approved fixture
+now reads the first evaluated native force sample at exactly matched Mach,
+alpha, beta and actual fin positions, while completing the original public
+step. Initial conditions, commands and the `1e-8` bound are preserved; the
+observation boundary changed. Corrected native control cases pass 13/13 in
+both headless and Release. Related registered headless gates pass 7/7 and
+Release native gates pass 7/7; the installed public consumer passes 1/1 after
+refreshing an older staged Python SDK DLL using the existing package target.
+The first failed install receipt is retained. All24 AAMs pass the common
+six-load pressure comparison in each preset: 3,454 observed native evaluations
+per preset, 48 complete observed/unobserved terminal-state comparisons, and no
+state difference. The two roster runs took 14.787 and 14.765 seconds. These are
+sampling and noninterference checks, not whole-envelope validation. The former
+terminal comparison still fails for 23/24 designs per preset and is retained
+separately; no force coefficient or flight step was altered to fit it. Normal
+`run.ps1` Release headless entry also loaded the current AAM product and
+completed finite flight. Independent read-only review found no blocking source
+defect; its two provenance/wording findings were closed. Exact commands, current
+DLL/product/source hashes, actual counts and raw paths are in the
+[AAM receipt](data/aam-qbar-observation-20261101.json).
+This closes the scoped qbar observation defect; it does not claim formal
+SIM-M02 closure or supersede the retained rotor/full-regression failures.
+<!-- AAM qbar observation correction end -->
+
 The [2026-11-01 SIM-M02 delivery receipt](data/sim-m02-functional-delivery-20261101.json)
 records the retained source hashes, actual passing and failing gates, replay
 review and local archive checksums. Formal SIM-M02 acceptance remains false.
 
 <!-- SIM-M02 functional acceptance correction begin -->
-Current functional correction, 2026-11-01: SIM-M02 is not formally accepted. All88 designs were regenerated from current geometry/cards; the common engineering matrix has88 engineering-complete-uncalibrated and0 blocked designs, separately from functional acceptance. The retained native repairs cover body quadrature, physical rotor inertia, passive tail damping, mechanical hub work, capture damping with unity cruise gain, complete-cascade response/lookahead, waypoint transit, landing-position capture and momentum-aware terminal hover. Original headless control fixtures: 6/6, 498 assertions passed and0 failed. Current Release original selection: 6/9 cases, 18 failed assertions; native AAM: 12/13; installed package consumer: 1 executed. Original scenes, assertions and thresholds are unchanged. RPM-window survival, fall preconditions and the qbar matched-state premise remain unclosed; missing exact-model measurements are not the reason. Normal run.ps1 Release entry loaded the current DLLs and exact regenerated UH-1H XML, refused a poisoned exact XML, and flew a real-time orbit-to-hover diagnostic at3840x2160. This is runtime/entrypoint evidence, not whole-fleet physical or complete visual acceptance. All-table integrity checks cover7067 XML tables and3611335 cells; 1165 consistency predicates are not physical tests. Generation/install took1139.453s; the separately timed all88 basic-use pass took812.276s. That basic pass predates final native-only control changes and is not relabeled as a fresh final-DLL run. The earlier full headless attempt was interrupted with753/867 completed records and11 failures; no final full headless/Release pass is claimed. Current source/products, matrix, full-table inventory, raw failures, source review and replay patch: `build/architecture-reviews/sim-m02-functional-resolution-20261101/`.
+Current functional correction, 2026-11-01: SIM-M02 is not formally accepted. All88 designs were regenerated from current geometry/cards; the common engineering matrix has88 engineering-complete-uncalibrated and0 blocked designs, separately from functional acceptance. The retained native repairs cover body quadrature, physical rotor inertia, passive tail damping, mechanical hub work, capture damping with unity cruise gain, complete-cascade response/lookahead, waypoint transit, landing-position capture and momentum-aware terminal hover. Original headless control fixtures: 6/6, 498 assertions passed and0 failed. Current Release original selection: 6/9 cases, 18 failed assertions; pre-observation-correction native AAM: 12/13; installed package consumer: 1 executed. Original scenes, assertions and thresholds are unchanged. RPM-window survival and fall preconditions remain unclosed; the qbar result is superseded by the approved observation correction above; missing exact-model measurements are not the reason. Normal run.ps1 Release entry loaded the current DLLs and exact regenerated UH-1H XML, refused a poisoned exact XML, and flew a real-time orbit-to-hover diagnostic at3840x2160. This is runtime/entrypoint evidence, not whole-fleet physical or complete visual acceptance. All-table integrity checks cover7067 XML tables and3611335 cells; 1165 consistency predicates are not physical tests. Generation/install took1139.453s; the separately timed all88 basic-use pass took812.276s. That basic pass predates final native-only control changes and is not relabeled as a fresh final-DLL run. The earlier full headless attempt was interrupted with753/867 completed records and11 failures; no final full headless/Release pass is claimed. Current source/products, matrix, full-table inventory, raw failures, source review and replay patch: `build/architecture-reviews/sim-m02-functional-resolution-20261101/`.
 <!-- SIM-M02 functional acceptance correction end -->
 
 SIM-M02 applicability correction, 2026-10-31: the common audit derives

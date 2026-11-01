@@ -4,6 +4,7 @@
 #include "simulation/flight/FlightModel.h"
 #include "simulation/flight/GroundProvider.h"
 #include "simulation/flight/JsbsimModel.h"
+#include "simulation/flight/NativeStepObservationV1.h"
 
 #include <algorithm>
 #include <array>
@@ -343,6 +344,39 @@ sim::InitialConditions plantInitialConditions() {
 sim::AircraftSpec plantSpec(const std::string& name) {
     return {name, FSIM_TEST_JSBSIM_ROOT, std::filesystem::path(FSIM_TEST_AIRCRAFT_DIR) / "stores"};
 }
+struct FirstNativeForceSample {
+    std::array<sim::PropertyHandle, 8> properties;
+    std::array<double, 8> first{};
+    unsigned samples = 0, expected = 0;
+    bool ordered = true;
+    explicit FirstNativeForceSample(sim::JsbsimModel& model) {
+        const char* names[] = {"aero/qbar-psf", "fcs/elevator-pos-rad", "aero/force/fsim-fin-z-lbs",
+                              "velocities/mach", "aero/alpha-rad", "aero/beta-rad",
+                              "fcs/aileron-pos-rad", "fcs/rudder-pos-rad"};
+        for (std::size_t i = 0; i < properties.size(); ++i) properties[i] = nativeProperty(model, names[i]);
+        const double nativeDt = nativeProperty(model, "simulation/dt").get();
+        require(std::isfinite(nativeDt) && nativeDt > 0, "qbar sample requires a valid native integration interval");
+        const double count = model.dt() / nativeDt;
+        require(count >= 1 && count <= 4096 && std::abs(count - std::round(count)) < 1e-8,
+                "qbar sample requires a complete integer native-step schedule");
+        expected = static_cast<unsigned>(std::lround(count));
+    }
+    static void observe(void* context, unsigned substep, unsigned substeps) noexcept {
+        auto& sample = *static_cast<FirstNativeForceSample*>(context);
+        sample.ordered = sample.ordered && substep == sample.samples + 1 && substeps == sample.expected;
+        if (sample.samples == 0)
+            for (std::size_t i = 0; i < sample.first.size(); ++i) sample.first[i] = sample.properties[i].get();
+        ++sample.samples;
+    }
+    void advance(sim::JsbsimModel& model, const sim::ControlInputs& input) {
+        {
+            sim::ScopedNativeStepObserverV1 observer({&model, this, observe});
+            model.step(input); // Execute the entire original public step, including all later native samples.
+        }
+        require(ordered && samples == expected, "qbar observation must retain every native integration step");
+        for (const double value : first) require(std::isfinite(value), "first native force sample must be finite");
+    }
+};
 void aerodynamicResponseDependsOnQbar() {
     const double dt = 1.0 / 120;
     auto ground = std::make_shared<sim::FlatGround>(0);
@@ -356,23 +390,34 @@ void aerodynamicResponseDependsOnQbar() {
     thin.setAtmosphere(288.15, 101325.0 / 2);
     sim::ControlInputs input;
     input.gearDown = 0; input.elevator = .05;
-    ordinary.step(input); thin.step(input);
-    const double ordinaryQbar = nativeProperty(ordinary, "aero/qbar-psf").get();
-    const double thinQbar = nativeProperty(thin, "aero/qbar-psf").get();
+    FirstNativeForceSample ordinarySample(ordinary), thinSample(thin);
+    ordinarySample.advance(ordinary, input); thinSample.advance(thin, input);
+    for (std::size_t i = 3; i < ordinarySample.first.size(); ++i)
+        require(ordinarySample.first[i] == thinSample.first[i],
+                "qbar comparison requires exactly matched sampled Mach, alpha, beta and lateral fin positions");
+    const double ordinaryQbar = ordinarySample.first[0];
+    const double thinQbar = thinSample.first[0];
     require(std::isfinite(ordinaryQbar) && ordinaryQbar > 0 && std::isfinite(thinQbar)
                 && thinQbar > 0 && thinQbar < .75 * ordinaryQbar,
             "native qbar must respond substantially to the synthetic pressure change");
-    const auto ordinaryPosition = nativeProperty(ordinary, "fcs/elevator-pos-rad").get();
-    const auto thinPosition = nativeProperty(thin, "fcs/elevator-pos-rad").get();
+    const auto ordinaryPosition = ordinarySample.first[1];
+    const auto thinPosition = thinSample.first[1];
     require(ordinaryPosition != 0 && ordinaryPosition == thinPosition,
             "qbar comparison must use identical actual finite fin deflections");
-    const double ordinaryForce = nativeProperty(ordinary, "aero/force/fsim-fin-z-lbs").get();
-    const double thinForce = nativeProperty(thin, "aero/force/fsim-fin-z-lbs").get();
+    const double ordinaryForce = ordinarySample.first[2];
+    const double thinForce = thinSample.first[2];
     require(std::isfinite(ordinaryForce) && std::abs(ordinaryForce) > 1e-6 && std::isfinite(thinForce),
             "qbar comparison must exercise actual native fin aerodynamic force");
     const double a = ordinaryForce / ordinaryQbar, b = thinForce / thinQbar;
     require(std::abs(a - b) <= 1e-8 * std::max(1.0, std::abs(a)),
             "matched first-step native fin force must scale with measured qbar");
+    const double finalA = nativeProperty(ordinary, "aero/force/fsim-fin-z-lbs").get() /
+                          nativeProperty(ordinary, "aero/qbar-psf").get();
+    const double finalB = nativeProperty(thin, "aero/force/fsim-fin-z-lbs").get() /
+                          nativeProperty(thin, "aero/qbar-psf").get();
+    std::cout << "QBAR: first-state difference=" << std::abs(a - b)
+              << "; evolved end-step difference=" << std::abs(finalA - finalB)
+              << "; complete native samples=" << ordinarySample.samples << ',' << thinSample.samples << '\n';
     for (auto* model : {&ordinary, &thin}) {
         require(std::abs(nativeProperty(*model, "external_reactions/fsim/magnitude").get()) <= kNumericalTolerance
                     && std::abs(nativeProperty(*model, "external_reactions/fsim/magnitude-lbsft").get()) <= kNumericalTolerance,

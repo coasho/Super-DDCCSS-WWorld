@@ -12,6 +12,7 @@ add_library(fsim_sim STATIC
     JsbsimLog.cpp
     JsbsimModel.h
     JsbsimModel.cpp
+    NativeStepObservationV1.h
     SimRunner.h
     SimRunner.cpp
     SnapshotBuffer.h
