@@ -2,6 +2,7 @@ import math
 import os
 import tempfile
 import unittest
+from functional_scope import deferred_rotor
 
 import numpy as np
 
@@ -691,6 +692,7 @@ class CapabilityTest(unittest.TestCase):
 class RotorcraftTest(unittest.TestCase):
     """The rotorcraft (docs/rotorcraft.md): their own controls' names, velocity over the ground, rows with the new fields."""
 
+    @deferred_rotor
     def test_quadrotor_through_the_capability_calls(self):
         world = make_world(name="py-rotorcraft")
         iris = world.create_vehicle("iris", type="jsbsim:iris", latitude_deg=37.62, longitude_deg=-122.38, altitude_msl_m=100.0,

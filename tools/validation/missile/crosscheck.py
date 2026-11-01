@@ -71,9 +71,9 @@ def runtime(native_bin):
     import inspect
     from rocketpy import Environment, Flight, Function, Rocket, SolidMotor
     numerical_sources = {inspect.getfile(cls) for cls in (Environment, Flight, Function, Rocket, SolidMotor)}
-    numerical_sources.update((__file__, str(Path(__file__).with_name("reference.py"))))
+    numerical_sources.update((__file__, str(Path(__file__).with_name("reference.py")),str(Path(__file__).with_name("ducted_reference.py"))))
     numerical_sources.update(str(ROOT / "tools/models/hangar/hangar" / (name + ".py")) for name in
-                             ("storeaero", "storebodies", "motorinputs", "storemodels", "airframe", "verify", "jsbsim"))
+                             ("storeaero", "storebodies", "motorinputs", "storemodels", "airframe", "verify", "jsbsim", "ductedrocket", "components"))
     return {"python_sdk": digest(fsim.__file__), "python_executable": digest(sys.executable), "libraries": records,
             "rocketpy_version": importlib.metadata.version("rocketpy"),
             "numpy_version": importlib.metadata.version("numpy"), "scipy_version": importlib.metadata.version("scipy"),
@@ -107,13 +107,17 @@ def inputs(model):
     # Read the emitted axial table: its rounding is part of the generated model.
     import xml.etree.ElementTree as ET
     xml = ET.fromstring(generated[model + ".xml"])
-    drag = axial_drag(generated[model + ".xml"])
+    from ducted_reference import configuration, propulsion_functions
+    ducted = configuration(card,xml)
+    if ducted:
+        motor = storebodies.card_motor_of(card,design,mass,cg,geo['diameter']/2)
+    drag = axial_drag(generated[model + ".xml"],propulsion_functions=propulsion_functions(xml) if ducted else ())
     structure = xml.find("mass_balance")
     dry_mass = float(structure.findtext("emptywt")) * LB
     dry_cg = float(structure.find("location[@name='CG']/x").text) * 0.0254
     dry_inertia = [float(structure.findtext(a)) * SLUGFT2 for a in ("iyy", "izz", "ixx")]
     return {"model": model, "card": card_id, "design": design, "motor": motor,
-            "mass": mass, "cg": cg, "dry_mass": dry_mass, "dry_cg": dry_cg, "dry_inertia": dry_inertia,
+            "mass": mass, "cg": cg, "dry_mass": dry_mass, "dry_cg": dry_cg, "dry_inertia": dry_inertia,"ducted":ducted,
             "radius": math.sqrt(coefficients["S"] / math.pi), "drag": drag, "generated": generated,
             "records": records + [digest(source), digest(card_path)]}
 
@@ -165,10 +169,16 @@ def native(data, dt, atmosphere, times, folder, *, spherical=False):
                                    temperature_k=vehicle.get_property("atmosphere/T-R") / 1.8)
         verify_environment(initial_environment, atmosphere, spherical=spherical)
         rows = []
+        cycle_impulse = 0.
         for time in times:
             steps = round(time / dt) - round(world.time / dt)
             if steps:
-                world.step(steps)
+                if data['ducted']:
+                    for _ in range(steps):
+                        world.step(1)
+                        cycle_impulse += min(0.,vehicle.get_property('fsim/ducted-rocket/engine[1]/net-thrust-n'))*dt
+                else:
+                    world.step(steps)
             state = vehicle.state
             if state.diverged or abs(world.time - time) > 1e-8:
                 raise ValueError("native flight diverged or missed a sample: expected %.9g, got %.9g, step %.9g, diverged %s" %
@@ -176,7 +186,12 @@ def native(data, dt, atmosphere, times, folder, *, spherical=False):
             rows.append([time, vehicle.mass_kg, -state.velocity_ned_ms[2], state.altitude_msl_m])
         vacuum_impulse = vehicle.get_property("propulsion/engine/total-vac-impulse") * LBF
         fixture_records = [digest(model_dir / p) for p in data["generated"]]
-        return rows, vacuum_impulse, initial_environment, fixture_records
+        extra={}
+        if data['ducted']:
+            extra=dict(combined_impulse_ns=vacuum_impulse+vehicle.get_property('propulsion/engine[1]/total-vac-impulse')*LBF+cycle_impulse,
+                       remaining_fuel_kg=vehicle.get_property('propulsion/tank[1]/contents-lbs')*LB,
+                       impulse_quadrature='Exact positive native engine accumulators plus public-step right endpoint signed-negative cycle quadrature',quadrature_dt_s=dt)
+        return rows, vacuum_impulse, initial_environment, fixture_records,extra
     finally:
         if world is not None:
             world.close()
@@ -187,6 +202,9 @@ def native(data, dt, atmosphere, times, folder, *, spherical=False):
 
 
 def rocketpy(data, atmosphere, times, initial_environment, *, max_step, spherical=False):
+    if data['ducted']:
+        from ducted_reference import flight
+        return flight(data,atmosphere,times,initial_environment,max_step=max_step,spherical=spherical)
     from rocketpy import Environment, Flight, Function, Rocket, SolidMotor
     from hangar.storebodies import BUILDUP, COAST_N, GRAIN_DENSITY
     # Preserve the current model's explicitly documented 2 N between pulses.
@@ -222,7 +240,7 @@ def rocketpy(data, atmosphere, times, initial_environment, *, max_step, spherica
     if flight.solution[-1][0] < times[-1] - 1e-8:
         raise ValueError("RocketPy reference terminated before the complete sample interval")
     rows = [[t, float(rocket.total_mass(t)), float(flight.vz(t)), float(flight.z(t))] for t in times]
-    return rows, float(motor.total_impulse), curve[-1][0]
+    return rows, float(motor.total_impulse), curve[-1][0],dict(method='RocketPy Flight with SolidMotor',basis='simulated')
 
 
 def campaign(models, native_bin, *, spherical=False, rates=(240, 480)):
@@ -238,18 +256,30 @@ def campaign(models, native_bin, *, spherical=False, rates=(240, 480)):
         times = [i / 20 for i in range(math.ceil(duration * 20) + 1)]
         for case, atmosphere in ATMOSPHERES.items():
             runs = []
+            expected_run = None
             for divisor in rates:
                 with tempfile.TemporaryDirectory(prefix="fsim-reference-") as temporary:
-                    actual, impulse, initial, fixtures = native(data, 1 / divisor, atmosphere, times, Path(temporary), spherical=spherical)
-                    expected, expected_impulse, burnout = rocketpy(data, atmosphere, times, initial, max_step=1 / 960, spherical=spherical)
+                    actual, impulse, initial, fixtures,native_extra = native(data, 1 / divisor, atmosphere, times, Path(temporary), spherical=spherical)
+                    # Both native resolutions start at exactly the same declared
+                    # reference state. Integrate that immutable reference once.
+                    if expected_run is None:
+                        expected_run = rocketpy(data, atmosphere, times, initial, max_step=1 / 960, spherical=spherical)
+                        reference_initial = initial
+                    elif initial != reference_initial:
+                        raise ValueError('Native resolution changed the initial reference environment')
+                    expected, expected_impulse, burnout,reference_extra = expected_run
                 comparison = compare(actual, expected, LIMITS)
                 impulse_error = abs(impulse - expected_impulse) / expected_impulse
                 comparison["passed"] &= impulse_error <= 0.005
+                if data['ducted']:
+                    combined_error=abs(native_extra['combined_impulse_ns']-reference_extra['combined_impulse_ns'])/abs(reference_extra['combined_impulse_ns'])
+                    comparison['combined_propulsion_relative_impulse_error']=combined_error
+                    comparison['passed'] &= combined_error<=0.005
                 runs.append({"native_dt_s": 1 / divisor, "comparison": comparison,
                              "vacuum_impulse_ns": impulse, "reference_impulse_ns": expected_impulse,
                              "relative_impulse_error": impulse_error, "reference_burnout_s": burnout,
                              "native": actual, "reference": expected, "instrumented_models": fixtures,
-                             "initial_environment": initial})
+                             "initial_environment": initial,"native_propulsion":native_extra,"reference_method":reference_extra})
             convergence = runs[1]["comparison"]["max_abs"]["speed_ms"] <= runs[0]["comparison"]["max_abs"]["speed_ms"] + 0.1
             results.append({"model": name, "case": case, "atmosphere": atmosphere,
                             "passed": all(r["comparison"]["passed"] for r in runs) and convergence,
@@ -262,6 +292,8 @@ def campaign(models, native_bin, *, spherical=False, rates=(240, 480)):
             "planet": {"kind": "nonrotating_spherical" if spherical else "native_wgs84_with_flat_reference",
                        "radius_m": PLANET_RADIUS_M if spherical else None,
                        "mu_m3_s2": PLANET_MU_M3_S2 if spherical else None},
+            "reference_integrations": len(results),"native_resolution_runs":sum(len(r['runs']) for r in results),
+            "reference_reuse": "one identical-state reference per atmosphere/design; both native resolutions still executed",
             "provenance": provenance, "cases": results}
 
 

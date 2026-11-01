@@ -5,6 +5,7 @@
 
 #include "fsim/Control.h"
 #include "simulation/runtime/world/World.h"
+#include "functional_scope.h"
 
 #include <catch2/catch_test_macros.hpp>
 

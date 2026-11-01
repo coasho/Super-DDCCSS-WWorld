@@ -962,6 +962,10 @@ void Radar::track(double time, double az, double el, const sim::VehicleState& ow
     const double cone = std::cos(std::min(kPi, 1.5 * (bwAz + bwEl) + 1e-9));
     const bool byTime = staring() || acquiring_;
     auto looked = [&](const track::Track& tr) {
+        // STT gives its designated track the dwell. Other picture tracks
+        // coast even inside the same beam; they cannot consume its return.
+        // The existing measurement-validation gate still applies unchanged.
+        if (staring() && tr.id != designated_) return track::MultiTargetTracker::Not;
         const track::Gaussian& g = tr.state();
         const double dt = time - g.t;
         double d[3];

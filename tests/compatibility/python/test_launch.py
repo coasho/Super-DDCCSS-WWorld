@@ -3,6 +3,7 @@ in a crosswind; a Crazyflie lifts to its hover; refused naming the field - an ai
 air. A rejected takeoff (4.50), a taxi (4.51), and a route that starts on the ground (4.52)."""
 import math
 import unittest
+from functional_scope import deferred_rotor
 
 import fsim
 import fsim.agra
@@ -55,6 +56,7 @@ class LaunchTest(unittest.TestCase):
                 self.assertLess(worst, 22.5)  # (half a runway)
                 self.assertGreater(v.state.altitude_agl_m, 400.0)
 
+    @deferred_rotor
     def test_a_rotorcraft_lifts_to_its_hover(self):
         w = world("py-lift")
         v, lat0, lon0 = parked(w, "cf2")

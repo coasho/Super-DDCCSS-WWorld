@@ -4,6 +4,7 @@
 #include "simulation/flight_control/Adapter.h"
 #include "fsim/Control.h"
 #include "simulation/runtime/world/World.h"
+#include "functional_scope.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -212,6 +213,7 @@ TEST_CASE("guidance: loiter circles at its radius, a rotorcraft's as small as it
         INFO(c.type);
         session::World w(options("guidance-loiter"));
         const bool isWing = std::string(c.type) == "c172x";
+        if (testscope::deferRotor(!isWing, c.type)) continue;
         const auto v = isWing ? wing(w, "c172x") : rotor(w, c.type);
         const sim::VehicleState s0 = *w.vehicleState(v);
         BehaviorCommand loiter;

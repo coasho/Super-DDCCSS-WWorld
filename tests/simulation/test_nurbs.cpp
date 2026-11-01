@@ -271,6 +271,7 @@ TEST_CASE("nurbs: a wing and a multirotor fly a rational cubic S and a circle as
         double limit; ///< off the curve at most, m
     };
     for (const Aircraft& a : {Aircraft{"c172x", false, 0.0, 12.0}, Aircraft{"iris", true, 20.0, 0.5}}) {
+        if (testscope::deferRotor(a.rotor, a.type)) continue;
         INFO(a.type);
         session::World w(options("nurbs-flights"));
         const auto v = a.rotor ? rotor(w, a.type, 20.0) : wing(w, a.type, 1500.0, 55.0);

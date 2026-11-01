@@ -2,6 +2,8 @@
 // an ellipsoid, a cylinder, a cone, a rectangular cone at a point (on the Earth or in a frame, turned, moving), or a geocentric
 // box - entered: at a height inside it, toward a point well inside, and completed once the aircraft is in it.
 #include "mode_flights.h"
+#include <array>
+#include <optional>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -71,23 +73,30 @@ OpVolume at(const sim::VehicleState& s, VolumeShape shape, double north, double 
 
 TEST_CASE("must fly: a volume of each shape entered, and completed once in it - per class (MFY-06)", "[modes][must_fly]") {
     session::World w(options("must-fly-volumes"));
-    const auto iris = rotor(w, "iris", 15.0, 6), uh60 = rotor(w, "uh60", 15.0, 9);
+    std::optional<std::array<std::uint32_t, 2>> rotorIds;
+    if (!testscope::deferRotor()) rotorIds = std::array{rotor(w, "iris", 15.0, 6), rotor(w, "uh60", 15.0, 9)};
+    else { w.step(stepsFor(w, 15.0)); w.step(stepsFor(w, 15.0)); }
     const auto c172 = wing(w, "c172x", 1500.0, 55.0), f16 = wing(w, "f16c", 3000.0, 160.0, 3);
-    const sim::VehicleState a = *w.vehicleState(c172), b = *w.vehicleState(f16), c = *w.vehicleState(uh60), d = *w.vehicleState(iris);
+    const sim::VehicleState a = *w.vehicleState(c172), b = *w.vehicleState(f16);
     // a sphere 5 km east of the C172, round 1,800 m; a cone ahead of the F-16C, its vertex 6 km east at its height, opening east
     // 10 degrees each side; a dome 300 m north of the UH-60A; a column 60 m north of the IRIS, 50 to 150 m up
     OpVolume sphere = at(a, VolumeShape::Sphere, 0.0, 5000.0, 1800.0);
     sphere.radiusM = 800.0;
     OpVolume cone = at(b, VolumeShape::Cone, 0.0, 6000.0, b.altitudeMslM);
     cone.halfAngleRad = 10.0 * kDeg, cone.rangeM = 10000.0, cone.yawRad = 90.0 * kDeg;
-    OpVolume dome = at(c, VolumeShape::Dome, 300.0, 0.0, c.altitudeMslM - 100.0);
-    dome.radiusM = 200.0;
-    OpVolume column = at(d, VolumeShape::Cylinder, 60.0, 0.0, d.altitudeMslM - 50.0);
-    column.radiusM = 15.0, column.lengthM = 100.0, column.pitchRad = 90.0 * kDeg; // (its x up)
+    OpVolume dome, column;
+    if (rotorIds) {
+        const sim::VehicleState c = *w.vehicleState((*rotorIds)[1]), d = *w.vehicleState((*rotorIds)[0]);
+        dome = at(c, VolumeShape::Dome, 300.0, 0.0, c.altitudeMslM - 100.0);
+        dome.radiusM = 200.0;
+        column = at(d, VolumeShape::Cylinder, 60.0, 0.0, d.altitudeMslM - 50.0);
+        column.radiusM = 15.0, column.lengthM = 100.0, column.pitchRad = 90.0 * kDeg; // (its x up)
+    }
     MustFlyCommand into;
     into.location = static_cast<double>(MustFlyLocation::Volume);
     std::vector<std::pair<std::uint32_t, ActivityId>> all;
-    const std::pair<std::uint32_t, const OpVolume*> cases[] = {{c172, &sphere}, {f16, &cone}, {uh60, &dome}, {iris, &column}};
+    std::vector<std::pair<std::uint32_t, const OpVolume*>> cases = {{c172, &sphere}, {f16, &cone}};
+    if (rotorIds) { cases.emplace_back((*rotorIds)[1], &dome); cases.emplace_back((*rotorIds)[0], &column); }
     for (const auto& [v, volume] : cases) {
         const CommandResult r = w.submit(v, into, *volume);
         INFO(v << ": " << reasonName(r.reason) << " at " << r.index);
@@ -104,12 +113,14 @@ TEST_CASE("must fly: a volume of each shape entered, and completed once in it - 
     const double off = std::hypot(n, ended[1].s.altitudeMslM - b.altitudeMslM);
     INFO("the F-16C " << e << " m past the cone's vertex, " << off << " m off its axis");
     CHECK((e > 0.0 && off <= e * std::tan(10.0 * kDeg) + 1.0));
-    offsetFrom(dome.latitudeRad, dome.longitudeRad, ended[2].s, n, e);
-    const double up = ended[2].s.altitudeMslM - dome.altitudeM;
-    CHECK((up >= -1.0 && std::sqrt(n * n + e * e + up * up) <= 201.0));
-    offsetFrom(column.latitudeRad, column.longitudeRad, ended[3].s, n, e);
-    const double high = ended[3].s.altitudeMslM - column.altitudeM;
-    CHECK((std::hypot(n, e) <= 16.0 && high >= 49.0 && high <= 101.0));
+    if (rotorIds) {
+        offsetFrom(dome.latitudeRad, dome.longitudeRad, ended[2].s, n, e);
+        const double up = ended[2].s.altitudeMslM - dome.altitudeM;
+        CHECK((up >= -1.0 && std::sqrt(n * n + e * e + up * up) <= 201.0));
+        offsetFrom(column.latitudeRad, column.longitudeRad, ended[3].s, n, e);
+        const double high = ended[3].s.altitudeMslM - column.altitudeM;
+        CHECK((std::hypot(n, e) <= 16.0 && high >= 49.0 && high <= 101.0));
+    }
     CHECK(w.supportTable(c172)->find("fsim.guidance.must_fly")->support == Support::Supported);
 }
 

@@ -24,17 +24,32 @@ import os
 import pickle
 import re
 import time
+import tempfile
 from pathlib import Path
 
 import numpy as np
 
 from . import __version__
 from .geometry import Aircraft
-from .files import open_write
+from .files import open_write, replace
 
 STAGES = ("geometry", "aero", "mass", "propulsion", "build", "model", "verify", "fly", "ground", "calibrate", "autopilot", "performance", "report")
 DEFAULT = ("geometry", "aero", "mass", "propulsion", "build", "model", "verify", "fly", "ground", "autopilot", "performance", "report")
 KT = 0.514444
+
+
+def _write_table_cache(path, tables):
+    """Readers see a complete old or new table, including parallel generation."""
+    temporary=None
+    try:
+        with tempfile.NamedTemporaryFile(dir=os.path.dirname(path),prefix='tables-',suffix='.tmp',delete=False) as stream:
+            temporary=Path(stream.name)
+            pickle.dump(tables,stream)
+            stream.flush()
+            os.fsync(stream.fileno())
+        replace(temporary,path)
+    finally:
+        if temporary is not None:temporary.unlink(missing_ok=True)
 
 
 def check(name, value, lo=None, hi=None, unit="", level="fail", note="", fmt="%.3g"):
@@ -222,7 +237,14 @@ class Design:
             with open(f, "rb") as fh:
                 blob += hashlib.sha1(fh.read()).hexdigest()
         # airfoil files referenced by path change the result too
-        for f in sorted(glob.glob(os.path.join(self.dir, "*.dat"))):
+        foils={str(Path(p).resolve()) for p in glob.glob(os.path.join(self.dir, "*.dat"))}
+        for surface in spec.get('surface',[]):
+            for part in [surface,*surface.get('sections',[])]:
+                foil=part.get('airfoil')
+                if isinstance(foil,str):
+                    path=Path(self.dir)/foil
+                    if path.is_file():foils.add(str(path.resolve()))
+        for f in sorted(foils):
             blob += open(f, "rb").read().decode("latin-1")
         return hashlib.sha1(blob.encode()).hexdigest()[:16]
 
@@ -321,8 +343,7 @@ class Design:
                     saved["_despiked"] = True
                     if any(T._spikes(saved["alpha"], tab[k]) for tab in saved["rates"].values() for k in tab):
                         T.despike_rates(self.aero_model(), saved, log=self.log)
-                    with open_write(cache, "wb") as f:
-                        pickle.dump(saved, f)
+                    _write_table_cache(cache,saved)
                 return self._with_wave_drag(saved)
         m = self.aero_model()
         t0 = time.time()
@@ -335,8 +356,7 @@ class Design:
         tabs = T.build(m, progress=progress)
         tabs["_key"] = key
         tabs["_despiked"] = True
-        with open_write(cache, "wb") as f:
-            pickle.dump(tabs, f)
+        _write_table_cache(cache,tabs)
         self.log("  aero: tables built in %.0f s" % (time.time() - t0))
         return self._with_wave_drag(tabs)
 

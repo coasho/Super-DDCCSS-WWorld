@@ -6,6 +6,7 @@
 #include "fsim/GuidanceModes.h"
 #include "fsim/VehicleProfile.h"
 #include "mode_flights.h"
+#include <optional>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -83,6 +84,7 @@ TEST_CASE("pattern: every class orbits its centre at the radius asked, calm and 
     for (const Orbit a : {Orbit{"c172x", false, 1500.0, 55.0, 800.0, 12.0, 5.0, 40.0}, Orbit{"b52h", false, 3000.0, 180.0, 9000.0, 12.0, 15.0, 30.0},
                           Orbit{"f16c", false, 3000.0, 160.0, 4000.0, 12.0, 10.0, 40.0}, Orbit{"uh60", true, 100.0, 20.0, 150.0, 12.0, 3.0, 8.0},
                           Orbit{"iris", true, 100.0, 4.0, 10.0, 5.0, 0.5, 1.5}, Orbit{"iris", true, 100.0, 1.0, 2.0, 0.0, 0.3, 0.3}}) {
+        if (testscope::deferRotor(a.rotor, a.type)) continue;
         for (const double wind : {0.0, a.windMs}) {
             for (const double clockwise : {1.0, 0.0}) {
                 INFO(a.type << " R " << a.radiusM << ", wind " << wind << (clockwise == 1.0 ? ", right" : ", left"));
@@ -131,7 +133,8 @@ TEST_CASE("pattern: a racetrack and a hold fly their legs and half circles; a fi
     const auto racer = wing(w, "c172x", 1500.0, 55.0, 0), hold = wing(w, "c172x", 1500.0, 55.0, 3), eight = wing(w, "c172x", 1500.0, 55.0, 6);
     settle(w, {racer, hold, eight}, 5.0);
     session::World calm(options("patterns-small")); // (a multirotor that cruises at 4 m/s, in no wind)
-    const auto quad = rotor(calm, "iris", 15.0, 9);
+    std::optional<std::uint32_t> quad;
+    if (!testscope::deferRotor()) quad = rotor(calm, "iris", 15.0, 9);
     auto ahead = [&](std::uint32_t v, double east) {
         const auto& s = *w.vehicleState(v);
         return std::pair<double, double>{s.latitudeRad, s.longitudeRad + east / (kR * std::cos(s.latitudeRad))};
@@ -153,11 +156,15 @@ TEST_CASE("pattern: a racetrack and a hold fly their legs and half circles; a fi
     f8.pattern = code(PatternKind::FigureEight), f8.latitudeRad = eightLat, f8.longitudeRad = eightLon, f8.courseRad = 0.0, f8.radiusM = 700.0;
     const ActivityId c = submit(w, eight, f8);
     // a multirotor's small racetrack, 20 m legs, 5 m turns, where it is
-    PatternCommand small;
-    small.pattern = code(PatternKind::Racetrack), small.courseRad = 0.5 * kPi, small.legM = 20.0, small.radiusM = 5.0, small.speed = 3.0;
-    const auto& q0 = *calm.vehicleState(quad);
-    const double quadLat = q0.latitudeRad, quadLon = q0.longitudeRad;
-    const ActivityId d = submit(calm, quad, small);
+    std::optional<ActivityId> d;
+    double quadLat = kHold, quadLon = kHold;
+    if (quad) {
+        PatternCommand small;
+        small.pattern = code(PatternKind::Racetrack), small.courseRad = 0.5 * kPi, small.legM = 20.0, small.radiusM = 5.0, small.speed = 3.0;
+        const auto& q0 = *calm.vehicleState(*quad);
+        quadLat = q0.latitudeRad; quadLon = q0.longitudeRad;
+        d = submit(calm, *quad, small);
+    }
 
     // what the hold made of its defaults: its speed now, rate one at that plus the wind, a minute's legs
     const double holdTas = w.vehicleState(hold)->airspeedTrueMs;
@@ -168,7 +175,7 @@ TEST_CASE("pattern: a racetrack and a hold fly their legs and half circles; a fi
     const double holdRadius = std::max(gusted / (3.0 * kDeg), gusted * gusted / (9.80665 * std::tan(25.0 * kDeg)));
     const double holdLeg = held.progress.speedMs * 60.0;
     w.step(stepsFor(w, 240.0)); // entered, a lap and more
-    calm.step(stepsFor(calm, 240.0));
+    if (quad) calm.step(stepsFor(calm, 240.0));
     double offTrack = 0.0, offHold = 0.0, offEight = 0.0, offSmall = 0.0, nearCentre = 1e9;
     int crossings = 0;
     bool wasNear = false;
@@ -176,7 +183,7 @@ TEST_CASE("pattern: a racetrack and a hold fly their legs and half circles; a fi
     int inboundN = 0;
     for (unsigned k = 0; k < stepsFor(w, 600.0); ++k) {
         w.step();
-        calm.step();
+        if (quad) calm.step();
         offTrack = std::max(offTrack, offRacetrack(from(*w.vehicleState(racer), trackLat, trackLon), 0.0, 800.0, 4000.0));
         const Local hp = from(*w.vehicleState(hold), holdLat, holdLon);
         offHold = std::max(offHold, offRacetrack(hp, 0.5 * kPi, holdRadius, holdLeg));
@@ -190,27 +197,32 @@ TEST_CASE("pattern: a racetrack and a hold fly their legs and half circles; a fi
         nearCentre = std::min(nearCentre, centre);
         if (centre < 150.0 && !wasNear) ++crossings;
         wasNear = centre < 150.0;
-        const Local sp = from(*calm.vehicleState(quad), quadLat, quadLon);
-        offSmall = std::max(offSmall, offRacetrack(sp, 0.5 * kPi, 5.0, 20.0));
+        if (quad) {
+            const Local sp = from(*calm.vehicleState(*quad), quadLat, quadLon);
+            offSmall = std::max(offSmall, offRacetrack(sp, 0.5 * kPi, 5.0, 20.0));
+        }
     }
     const int holdLaps = static_cast<int>(w.activity(b)->progress.laps);
-    std::printf("pattern shapes: racetrack %.1f m off, hold %.1f m off (R %.0f, legs %.0f m; inbound %.0f s a lap, at %.1f deg), figure-eight %.1f m off "
+    if (quad) std::printf("pattern shapes: racetrack %.1f m off, hold %.1f m off (R %.0f, legs %.0f m; inbound %.0f s a lap, at %.1f deg), figure-eight %.1f m off "
                 "(%d crossings, %.0f m from the centre), multirotor racetrack %.2f m off\n",
                 offTrack, offHold, holdRadius, holdLeg, inboundS / std::max(holdLaps, 1), inboundCourse / std::max(inboundN, 1) / kDeg, offEight,
                 crossings, nearCentre, offSmall);
+    else std::printf("pattern shapes: wing errors %.1f/%.1f/%.1f m; rotor flight population deferred\n", offTrack, offHold, offEight);
     CHECK(offTrack < 60.0);
     CHECK(offHold < 60.0);
     CHECK(std::abs(inboundCourse / inboundN - 0.5 * kPi) < 3.0 * kDeg); // inbound the way it arrived
     CHECK(offEight < 60.0);
     CHECK(crossings >= 2);  // through the centre, each circle
     CHECK(nearCentre < 50.0);
-    CHECK(offSmall < 1.5);
+    if (quad) CHECK(offSmall < 1.5);
     for (const ActivityId id : {a, b, c}) {
         CHECK(w.activity(id)->state == ActivityState::Active);
         CHECK(w.activity(id)->progress.laps >= 1);
     }
-    CHECK(calm.activity(d)->state == ActivityState::Active);
-    CHECK(calm.activity(d)->progress.laps >= 10);
+    if (d) {
+        CHECK(calm.activity(*d)->state == ActivityState::Active);
+        CHECK(calm.activity(*d)->progress.laps >= 10);
+    }
     CHECK(w.activity(a)->progress.segments == 4);
     CHECK(w.activity(c)->progress.segments == 2);
 }

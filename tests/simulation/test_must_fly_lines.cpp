@@ -97,18 +97,33 @@ std::vector<Flown> flyThrough(session::World& w, const std::vector<std::uint32_t
 
 TEST_CASE("must fly: a corridor flown through, each turn within its widths, per class (MFY-05)", "[modes][must_fly]") {
     session::World w(options("must-fly-lines"));
-    const auto iris = rotor(w, "iris", 15.0, 6), uh60 = rotor(w, "uh60", 15.0, 9);
+    std::vector<std::uint32_t> rotorIds;
+    if (!testscope::deferRotor()) {
+        rotorIds.push_back(rotor(w, "iris", 15.0, 6));
+        rotorIds.push_back(rotor(w, "uh60", 15.0, 9));
+    } else {
+        w.step(stepsFor(w, 15.0));
+        w.step(stepsFor(w, 15.0));
+    }
     const auto c172 = wing(w, "c172x", 1500.0, 55.0), f16 = wing(w, "f16c", 3000.0, 160.0, 3);
     // an L ahead of the C172 (a right angle left), a Z ahead of the F-16C (two 45-degree turns), an S ahead of the UH-60A
     // and the IRIS (two 45-degree turns) - each wide enough for its turns
     const Corridor l(*w.vehicleState(c172), {{0.0, 3000.0}, {0.0, 7000.0}, {4000.0, 7000.0}}, 500.0);
     const Corridor z(*w.vehicleState(f16), {{0.0, 8000.0}, {0.0, 20000.0}, {8000.0, 28000.0}, {8000.0, 40000.0}}, 3000.0);
-    const Corridor s(*w.vehicleState(uh60), {{300.0, 0.0}, {900.0, 0.0}, {1300.0, 400.0}, {1900.0, 400.0}}, 150.0);
-    const Corridor i(*w.vehicleState(iris), {{30.0, 0.0}, {90.0, 0.0}, {130.0, 40.0}, {190.0, 40.0}}, 25.0);
+    std::vector<Corridor> rotorCorridors;
+    if (!rotorIds.empty()) {
+        rotorCorridors.reserve(2);
+        rotorCorridors.emplace_back(*w.vehicleState(rotorIds[1]), std::vector<std::pair<double, double>>{{300.0, 0.0}, {900.0, 0.0}, {1300.0, 400.0}, {1900.0, 400.0}}, 150.0);
+        rotorCorridors.emplace_back(*w.vehicleState(rotorIds[0]), std::vector<std::pair<double, double>>{{30.0, 0.0}, {90.0, 0.0}, {130.0, 40.0}, {190.0, 40.0}}, 25.0);
+    }
     MustFlyCommand through;
     through.location = static_cast<double>(MustFlyLocation::Line);
-    const std::vector<std::uint32_t> ids = {c172, f16, uh60, iris};
-    const std::vector<const Corridor*> corridors = {&l, &z, &s, &i};
+    std::vector<std::uint32_t> ids = {c172, f16};
+    std::vector<const Corridor*> corridors = {&l, &z};
+    if (!rotorIds.empty()) {
+        ids.push_back(rotorIds[1]); ids.push_back(rotorIds[0]);
+        corridors.push_back(&rotorCorridors[0]); corridors.push_back(&rotorCorridors[1]);
+    }
     std::vector<ActivityId> acts;
     for (std::size_t k = 0; k < ids.size(); ++k) {
         const CommandResult r = w.submit(ids[k], through, corridors[k]->line);

@@ -4,6 +4,7 @@
 // nothing. A fly-by's arc is on its path. Refused as a point is, naming it.
 #include "fsim/GuidanceModes.h"
 #include "mode_flights.h"
+#include <optional>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -110,7 +111,9 @@ TEST_CASE("route RNP: farther off its path than its segment's RNP, its activity 
 TEST_CASE("route RNP: a fly-by's arc is on its path; a rotorcraft past a fly-over corner off its next leg says so", "[modes]") {
     session::World w(options("route-rnp-corners"));
     const auto v = wing(w, "c172", 1500.0, 55.0);
-    const auto quad = rotor(w, "iris", 15.0, 6);
+    std::optional<std::uint32_t> quad;
+    if (!testscope::deferRotor()) quad = rotor(w, "iris", 15.0, 6);
+    else w.step(stepsFor(w, 15.0));
     // a C172 east 3 km, a fly-by turn there north, 4 km on - an RNP of 30 m on both segments
     const auto& s0 = *w.vehicleState(v);
     Waypoint a = at(s0.latitudeRad, s0.longitudeRad, 0.0, 3000.0), b = at(s0.latitudeRad, s0.longitudeRad, 4000.0, 3000.0);
@@ -118,12 +121,15 @@ TEST_CASE("route RNP: a fly-by's arc is on its path; a rotorcraft past a fly-ove
     const CommandResult r = w.submit(v, RouteCommand{}, std::vector<Waypoint>{a, b});
     REQUIRE(r.accepted());
     // an IRIS north 100 m, flown over, then east 100 m at 5 m/s over the ground: 0.5 m on its second leg
-    const auto& q0 = *w.vehicleState(quad);
-    Waypoint p = at(q0.latitudeRad, q0.longitudeRad, 100.0, 0.0), e = at(q0.latitudeRad, q0.longitudeRad, 100.0, 100.0);
-    p.speed = 5.0, p.speedReference = static_cast<double>(SpeedReference::GroundSpeed), p.turn = static_cast<double>(TurnType::FlyOver);
-    e.rnpM = 0.5;
-    const CommandResult rq = w.submit(quad, RouteCommand{}, std::vector<Waypoint>{p, e});
-    REQUIRE(rq.accepted());
+    std::optional<CommandResult> rq;
+    if (quad) {
+        const auto& q0 = *w.vehicleState(*quad);
+        Waypoint p = at(q0.latitudeRad, q0.longitudeRad, 100.0, 0.0), e = at(q0.latitudeRad, q0.longitudeRad, 100.0, 100.0);
+        p.speed = 5.0, p.speedReference = static_cast<double>(SpeedReference::GroundSpeed), p.turn = static_cast<double>(TurnType::FlyOver);
+        e.rnpM = 0.5;
+        rq = w.submit(*quad, RouteCommand{}, std::vector<Waypoint>{p, e});
+        REQUIRE(rq->accepted());
+    }
     Watch whole, rotorFirst, rotorSecond;
     for (unsigned k = 0; k < stepsFor(w, 150.0); ++k) {
         w.step();
@@ -133,25 +139,30 @@ TEST_CASE("route RNP: a fly-by's arc is on its path; a rotorcraft past a fly-ove
             whole.farthest = std::max(whole.farthest, std::abs(rr.progress.crossTrackM));
             whole.flagged += flagged ? 1 : 0, ++whole.steps;
         }
-        const ActivityRecord& rq2 = *w.activity(rq.activity);
-        if (rq2.live()) {
-            Watch& o = rq2.progress.segment == 0 ? rotorFirst : rotorSecond;
-            const bool flagged = (rq2.constraints & kActivityNavigationPerformance) != 0;
-            const double off = std::abs(rq2.progress.crossTrackM);
-            ++o.steps, o.farthest = std::max(o.farthest, off), o.flagged += flagged ? 1 : 0;
-            if (&o == &rotorSecond && off > 0.5 && !flagged) ++o.missed;
-            if (&o == &rotorSecond && off < 0.45 && flagged) ++o.spurious;
+        if (rq) {
+            const ActivityRecord& rq2 = *w.activity(rq->activity);
+            if (rq2.live()) {
+                Watch& o = rq2.progress.segment == 0 ? rotorFirst : rotorSecond;
+                const bool flagged = (rq2.constraints & kActivityNavigationPerformance) != 0;
+                const double off = std::abs(rq2.progress.crossTrackM);
+                ++o.steps, o.farthest = std::max(o.farthest, off), o.flagged += flagged ? 1 : 0;
+                if (&o == &rotorSecond && off > 0.5 && !flagged) ++o.missed;
+                if (&o == &rotorSecond && off < 0.45 && flagged) ++o.spurious;
+            }
         }
     }
-    std::printf("route RNP: a C172's fly-by, %.2f m off its path at most (RNP 30 m), said so %d of %d steps; an IRIS past its fly-over corner %.2f m off "
+    if (rq) std::printf("route RNP: a C172's fly-by, %.2f m off its path at most (RNP 30 m), said so %d of %d steps; an IRIS past its fly-over corner %.2f m off "
                 "its next leg at most (RNP 0.5 m), said so %d of %d steps (missed %d, %d well within); before it, %d\n",
                 whole.farthest, whole.flagged, whole.steps, rotorSecond.farthest, rotorSecond.flagged, rotorSecond.steps, rotorSecond.missed,
                 rotorSecond.spurious, rotorFirst.flagged);
+    else std::printf("route RNP: wing off %.2f, flagged %d/%d; rotor flight population deferred\n", whole.farthest, whole.flagged, whole.steps);
     CHECK(whole.farthest < 30.0);
     CHECK(whole.flagged == 0);
-    CHECK(rotorSecond.farthest > 0.5);
-    CHECK(rotorSecond.flagged > 0);
-    CHECK(rotorSecond.missed == 0);
-    CHECK(rotorSecond.spurious == 0);
-    CHECK(rotorFirst.flagged == 0); // (its first segment has none)
+    if (rq) {
+        CHECK(rotorSecond.farthest > 0.5);
+        CHECK(rotorSecond.flagged > 0);
+        CHECK(rotorSecond.missed == 0);
+        CHECK(rotorSecond.spurious == 0);
+        CHECK(rotorFirst.flagged == 0); // (its first segment has none)
+    }
 }

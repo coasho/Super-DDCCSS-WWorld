@@ -93,7 +93,14 @@ bool cameFromWithin(double trackRad, double minRad, double maxRad, double slackD
 
 TEST_CASE("must fly: a point flown over at its altitude, completed as it is passed - per class (MFY-01)", "[modes][must_fly]") {
     session::World w(options("must-fly-point"));
-    const auto iris = rotor(w, "iris", 15.0, 6), uh60 = rotor(w, "uh60", 15.0, 9); // (settled first: the wings are let go at once)
+    std::vector<std::uint32_t> rotorIds;
+    if (!testscope::deferRotor()) {
+        rotorIds.push_back(rotor(w, "iris", 15.0, 6));
+        rotorIds.push_back(rotor(w, "uh60", 15.0, 9));
+    } else {
+        w.step(stepsFor(w, 15.0));
+        w.step(stepsFor(w, 15.0));
+    }
     const auto c172 = wing(w, "c172x", 1500.0, 55.0), f16 = wing(w, "f16c", 3000.0, 160.0, 3);
     struct Case {
         std::uint32_t v;
@@ -101,10 +108,12 @@ TEST_CASE("must fly: a point flown over at its altitude, completed as it is pass
         const char* name;
     };
     // ahead and to the side - some 20 s of flight at a wing's speed, or a rotorcraft's cruise - 100 m up (a rotorcraft 20 m)
-    const Case cases[] = {{c172, 1500.0, 4000.0, 100.0, 200.0, 40.0, 20.0, "c172x"},
-                          {f16, 3000.0, 9000.0, 100.0, 200.0, 80.0, 30.0, "f16c"},
-                          {iris, 80.0, 60.0, 20.0, 120.0, 5.0, 3.0, "iris"},
-                          {uh60, 600.0, 450.0, 20.0, 120.0, 15.0, 5.0, "uh60"}};
+    std::vector<Case> cases = {{c172, 1500.0, 4000.0, 100.0, 200.0, 40.0, 20.0, "c172x"},
+                               {f16, 3000.0, 9000.0, 100.0, 200.0, 80.0, 30.0, "f16c"}};
+    if (!rotorIds.empty()) {
+        cases.push_back({rotorIds[0], 80.0, 60.0, 20.0, 120.0, 5.0, 3.0, "iris"});
+        cases.push_back({rotorIds[1], 600.0, 450.0, 20.0, 120.0, 15.0, 5.0, "uh60"});
+    }
     std::vector<ActivityId> ids;
     std::vector<MustFlyCommand> commands;
     for (const Case& k : cases) {

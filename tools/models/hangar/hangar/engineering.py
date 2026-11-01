@@ -311,6 +311,51 @@ def structure(xml, product, card, category, required_powered=False, extra_xml=()
     return components, checks, xml_tables
 
 
+def generation_inputs(record):
+    """Explicit geometry, control/profile and carried-equipment input closure.
+
+    Optional absence is bound too: adding an identification/profile file must
+    invalidate reuse just as editing one does. External file inputs are refused.
+    """
+    import tomllib
+    inputs={};presence={};visited=set()
+    def bind(path):
+        path=Path(path).resolve()
+        if not path.is_relative_to(ROOT.resolve()) or '.codex' in {p.casefold() for p in path.parts}:
+            raise ValueError('Generation input escapes allowed project source: '+str(path))
+        relative=path.relative_to(ROOT.resolve()).as_posix()
+        presence[relative]=path.is_file()
+        if presence[relative]:inputs[relative]=sha(path)
+    def design(path):
+        path=Path(path).resolve()
+        if path in visited:return
+        visited.add(path);bind(path)
+        directory=path.parent
+        for name in ('calibration.toml','autopilot.toml','hover.toml','tail-damping.json','flight-calibration.json',
+                     'out/fly.json','out/performance.json','out/ground.json','payloads.json'):
+            bind(directory/name)
+        spec=tomllib.loads(path.read_text(encoding='utf-8'))
+        for surface in spec.get('surface',[]):
+            for part in [surface,*surface.get('sections',[])]:
+                foil=part.get('airfoil')
+                if isinstance(foil,str) and (directory/foil).is_file():bind(directory/foil)
+        for foil in directory.glob('*.dat'):bind(foil)
+        fit=directory/'payloads.json'
+        if not fit.is_file():return
+        payload=json.loads(fit.read_text(encoding='utf-8'))
+        for item in payload.get('payloads',[]):bind(ROOT/'assets/payloads'/(item.get('card','')+'.json'))
+        for loadout in payload.get('loadouts',[]):
+            for station in loadout.get('stations',[]):
+                card=ROOT/'assets/stores'/(station.get('store','')+'.json');bind(card)
+                if card.is_file():
+                    model=json.loads(card.read_text(encoding='utf-8')).get('model','')
+                    if model.startswith('jsbsim:'):
+                        name=model.removeprefix('jsbsim:');design(ROOT/'aircraft'/name/(name+'.toml'))
+    design(record['path'])
+    bind(Path(__file__).with_name('public_data.json'))
+    return inputs,presence
+
+
 def generate(record, out, geometry_threads=1):
     if type(geometry_threads) is not int or not 1<=geometry_threads<=16:raise ValueError('Geometry threads must be an integer from 1 to 16')
     from . import airframe, storestages, rotorcraft, damage, pieces
@@ -352,16 +397,7 @@ def generate(record, out, geometry_threads=1):
     resolution=integration.settings(ET.parse(xml).getroot(),d.aircraft,tables)
     required_powered=bool(card.get('powerable')) if card else record['category']=='rotorcraft' or bool(d.aircraft.engines)
     components, structural, xml_inventory = structure(xml.read_text(encoding='utf-8'), product, card, record['category'],required_powered,[p for p in detached if p.suffix=='.xml'],design_spec=d.aircraft.spec)
-    inputs = {str(Path(record['path']).relative_to(ROOT)): sha(record['path'])}
-    if record['category'] == 'rotorcraft':
-        for filename in ('hover.toml', 'tail-damping.json'):
-            identification = Path(record['path']).with_name(filename)
-            if identification.is_file(): inputs[str(identification.relative_to(ROOT))] = sha(identification)
-    calibration=Path(record['path']).with_name('calibration.toml')
-    if calibration.is_file():
-        inputs[str(calibration.relative_to(ROOT))]=sha(calibration)
-    for foil in sorted(Path(record['path']).parent.glob('*.dat')):
-        inputs[str(foil.relative_to(ROOT))]=sha(foil)
+    inputs,input_presence = generation_inputs(record)
     if card:
         cp = ROOT / 'assets/stores' / (card['id'] + '.json')
         inputs[str(cp.relative_to(ROOT))] = sha(cp)
@@ -381,10 +417,12 @@ def generate(record, out, geometry_threads=1):
             version=VERSION,source='tools/models/hangar/native')
     a = d.aircraft
     from .drag import gear_drag
-    bundle = dict(schema=VERSION, name=record['name'], category=record['category'], basis='simulated', sources=SOURCES,
+    from .carriage import _CONTROL_DESIGN_REPORTS
+    control_design=[value for key,value in _CONTROL_DESIGN_REPORTS.items() if key[0]==a.name]
+    bundle = dict(control_design=control_design, schema=VERSION, name=record['name'], category=record['category'], basis='simulated', sources=SOURCES,
         auxiliary_inventory=[dict(name=str(p.relative_to(product)),method='Current geometry -> native-fitted shared damage and detached-body writers',basis='estimated',version=VERSION,
             source=str(Path(record['path']).relative_to(ROOT)),derivation='damage.py:write and pieces.py:write; geometry-derived mass/CG/inertia, strip load shares and explicit tumbling-body estimates; no new measured data') for p in detached],
-        input_sha256=inputs, generator_sha256=generator, geometry_backend=geometry_backend, table_inputs_hash=d.table_inputs_hash(), regenerated=True,
+        input_sha256=inputs, input_presence=input_presence, generator_sha256=generator, geometry_backend=geometry_backend, table_inputs_hash=d.table_inputs_hash(), regenerated=True,
         reference=dict(S=a.S, b=a.b, c=a.c, arp=a.aero_point.tolist()), gear_drag=gear_drag(a), tables=tables,
         components=components, integration=resolution, lifting_panels=int(t.get('_panels',0)), inventory=inventory+xml_inventory, checks=checks+structural,
         limitations=['Finite full-angle tables are engineering continuation, not measured high-angle fidelity.',
@@ -405,9 +443,9 @@ def generate(record, out, geometry_threads=1):
     stage_built_project_sdks(record['path'])
     products = [xml,*detached] + sorted((product/'Engines').glob('*.xml')) + sorted((product/'aero').glob('vlm-carriage-*.json'))
     receipt = dict(record, product_directory=str(product.relative_to(ROOT/'aircraft')), class_name=card.get('class') if card else None,
-        input_sha256=inputs, generator_sha256=generator, geometry_backend=geometry_backend, table_inputs_hash=d.table_inputs_hash(),
+        input_sha256=inputs, input_presence=input_presence, generator_sha256=generator, geometry_backend=geometry_backend, table_inputs_hash=d.table_inputs_hash(),
         products={str(p.relative_to(ROOT/'aircraft')): sha(p) for p in products}, checks=checks+structural,
-        components=components, integration=resolution, lifting_panels=int(t.get('_panels',0)), table_count=len(inventory)+len(xml_inventory), generation_seconds=time.monotonic()-start,
+        control_design=control_design, components=components, integration=resolution, lifting_panels=int(t.get('_panels',0)), table_count=len(inventory)+len(xml_inventory), generation_seconds=time.monotonic()-start,
         native_dll_sha256=sha(ROOT/'build/ucrt64-release/python/fsim/bin/libfsim.dll'),
         reference_bundle=dict(name=reference_path.name,sha256=sha(reference_path),scope='Test-only reference; not a native runtime asset'))
     receipt['generation_phase_worker_seconds']=dict(forced_aerodynamic_tables=table_seconds,runtime_xml=runtime_xml_seconds,
@@ -472,6 +510,8 @@ def reusable_generation(folder,record):
         row=json.loads(receipt.read_text(encoding='utf-8'))
         if row['name']!=record['name'] or row['category']!=record['category']:return None
         if not row['checks'] or not all(c['passed'] for c in row['checks']):return None
+        for relative,present in row['input_presence'].items():
+            if (ROOT/relative).is_file()!=present:return None
         for kind in ('input_sha256','generator_sha256'):
             for relative,expected in row[kind].items():
                 path=Path(relative)
@@ -519,6 +559,7 @@ def production(args):
         OPENBLAS_NUM_THREADS='1',OMP_NUM_THREADS='1',FSIM_HANGAR_THREADS='1',
         FSIM_ENGINEERING_DEADLINE_OWNER='campaign',PYTHONDONTWRITEBYTECODE='1',
         HANGAR_MESHKIT_DIR=str(ROOT/'build/ucrt64-release/python'))
+    env['PYTHONPATH']=os.pathsep.join(filter(None,[str(Path(__file__).parent.parent),env.get('PYTHONPATH','')]))
     phases=[];commands=[]
     def invoke(argv,log):
         tick=time.monotonic()

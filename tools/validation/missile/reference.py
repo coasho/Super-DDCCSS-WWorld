@@ -31,12 +31,12 @@ def verify_environment(actual, requested, *, spherical=False):
             raise ValueError("native reference environment differs: " + key)
 
 
-def axial_drag(text):
+def axial_drag(text, *, propulsion_functions=()):
     """Read the supported emitted CA product, including every constant factor."""
     try:
         root=ET.fromstring(text)
         if root.find("./aerodynamics/function[@name='fsim/aerodynamics/vlm-version']") is not None:
-            return _shared_axial_drag(root)
+            return _shared_axial_drag(root, propulsion_functions=propulsion_functions)
         nodes = root.findall(".//axis[@name='AXIAL']/function[@name='aero/coefficient/CA']")
         if len(nodes) != 1:
             raise ValueError("one axial CA function is required")
@@ -68,7 +68,7 @@ def axial_drag(text):
         raise ValueError("unsupported generated axial drag") from error
 
 
-def _shared_axial_drag(root):
+def _shared_axial_drag(root, *, propulsion_functions=()):
     """Read the complete neutral common-writer drag, without another model."""
     import bisect
     aero=root.find('aerodynamics')
@@ -114,8 +114,8 @@ def _shared_axial_drag(root):
     result=[]
     for mach in machs:
         props['velocities/mach']=mach
-        props['aero/cl-squared']=sum(evaluate(fn) for fn in aero.findall("axis[@name='LIFT']/function"))**2
-        drag=sum(evaluate(fn) for fn in aero.findall("axis[@name='DRAG']/function"))
+        props['aero/cl-squared']=sum(evaluate(fn) for fn in aero.findall("axis[@name='LIFT']/function") if fn.get('name') not in propulsion_functions)**2
+        drag=sum(evaluate(fn) for fn in aero.findall("axis[@name='DRAG']/function") if fn.get('name') not in propulsion_functions)
         result.append([mach,_number(drag,'shared neutral drag')])
     return result
 

@@ -434,7 +434,7 @@ class StoreControlTest(unittest.TestCase):
                     actual = e.property("aero/moment/fsim-fin-%s-lbsft" % moment) / (qS * reference * delta)
                     self.assertAlmostEqual(actual, e.property("fsim/control/c%s-%s" % (moment, channel)), delta=1e-8)
 
-    def test_control_increment_cannot_add_aerodynamic_energy(self):
+    def test_control_increment_matches_complete_model_drag_change(self):
         for alpha, beta in ((0, 0), (0.3, -0.2), (-0.4, 0.15), (1.2, -0.6)):
             for delta in (-0.3, -0.05, 0.05, 0.3):
                 with self.subTest(alpha=alpha, beta=beta, delta=delta):
@@ -443,7 +443,20 @@ class StoreControlTest(unittest.TestCase):
                     airflow = (math.cos(alpha) * math.cos(beta), math.sin(beta), math.sin(alpha) * math.cos(beta))
                     work = sum(e.property("aero/force/fsim-fin-%s-lbs" % axis) * component
                                for axis, component in zip("xyz", airflow))
-                    self.assertLessEqual(work, 1e-10)
+                    # Unloading may reduce drag. The signed fin diagnostic
+                    # excludes the separate global circulation correction;
+                    # include its change when comparing complete models.
+                    _, neutral = evaluate("aim-120c", {}, alpha=alpha, beta=beta)
+                    conditions={'aero/bi2vel':0.,'aero/ci2vel':0.,'aero/alphadot-rad_sec':0.,
+                        'aero/cl-squared':0.,'aero/h_b-mac-ft':10000.,
+                        **{'velocities/'+k+'-aero-rad_sec':0. for k in 'pqr'}}
+                    for model in (e,neutral):model.properties.update(conditions)
+                    def drag(model, circulation_only=False):
+                        return sum(model.eval(fn) for fn in model.model.findall("./aerodynamics/axis[@name='DRAG']/function")
+                            if not circulation_only or fn.get('name') in
+                            ('aero/coefficient/CD_induced_mach','aero/coefficient/CD_ground'))
+                    correction=drag(e,True)-drag(neutral,True)
+                    self.assertAlmostEqual(work-correction,drag(neutral)-drag(e),delta=1e-10)
 
 
     def test_controlled_complete_model_cannot_add_aerodynamic_energy(self):

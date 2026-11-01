@@ -6,6 +6,7 @@
 #include "fsim/ControlStack.h"
 #include "fsim/GuidanceModes.h"
 #include "mode_flights.h"
+#include <optional>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -188,9 +189,12 @@ TEST_CASE("route terminators: a radius to fix's arc round its centre, flown by a
     const double qlat = q0.latitudeRad, qlon = q0.longitudeRad, qr = 50.0;
     std::vector<Waypoint> qpoints = {at(qlat, qlon, 40.0, 0.0), at(qlat, qlon, 40.0 + qr, -qr), at(qlat, qlon, 40.0 + qr, -qr - 40.0)};
     qpoints[1].terminator = code(PathTerminator::RadiusToFix);
-    const CommandResult qc = w.submit(quad, RouteCommand{}, qpoints, {}, {}, {}, {}, {}, std::vector<RouteTerminator>{arcRound(1, qlat, qlon, 40.0, -qr, false)});
-    INFO(reasonName(qc.reason) << " at " << qc.index);
-    REQUIRE(qc.accepted());
+    std::optional<CommandResult> qc;
+    if (!testscope::deferRotor()) {
+        qc = w.submit(quad, RouteCommand{}, qpoints, {}, {}, {}, {}, {}, std::vector<RouteTerminator>{arcRound(1, qlat, qlon, 40.0, -qr, false)});
+        INFO(reasonName(qc->reason) << " at " << qc->index);
+        REQUIRE(qc->accepted());
+    }
     // off the arc while its segment is flown, all of it
     double arcOff = 0.0, qOff = 0.0;
     int arcSamples = 0, qSamples = 0;
@@ -203,23 +207,26 @@ TEST_CASE("route terminators: a radius to fix's arc round its centre, flown by a
             arcOff = std::max(arcOff, std::abs(std::hypot(n + r, e - 3000.0) - r));
             ++arcSamples;
         }
-        const ActivityProgress& h = w.activity(qc.activity)->progress;
-        if (w.activity(qc.activity)->live() && h.segment == 1 && h.segmentPercent > 5.0 && h.segmentPercent < 95.0) {
-            double n, e;
-            apart(qlat, qlon, w.vehicleState(quad)->latitudeRad, w.vehicleState(quad)->longitudeRad, n, e);
-            qOff = std::max(qOff, std::abs(std::hypot(n - 40.0, e + qr) - qr));
-            ++qSamples;
+        if (qc) {
+            const ActivityProgress& h = w.activity(qc->activity)->progress;
+            if (w.activity(qc->activity)->live() && h.segment == 1 && h.segmentPercent > 5.0 && h.segmentPercent < 95.0) {
+                double n, e;
+                apart(qlat, qlon, w.vehicleState(quad)->latitudeRad, w.vehicleState(quad)->longitudeRad, n, e);
+                qOff = std::max(qOff, std::abs(std::hypot(n - 40.0, e + qr) - qr));
+                ++qSamples;
+            }
         }
     }
-    std::printf("route terminators, arcs: a C172 %.1f m off its 1,500 m radius to fix (%d samples), an IRIS %.2f m off its 50 m one (%d); "
+    if (qc) std::printf("route terminators, arcs: a C172 %.1f m off its 1,500 m radius to fix (%d samples), an IRIS %.2f m off its 50 m one (%d); "
                 "both %s, %s\n",
-                arcOff, arcSamples, qOff, qSamples, activityStateName(w.activity(c.activity)->state), activityStateName(w.activity(qc.activity)->state));
+                arcOff, arcSamples, qOff, qSamples, activityStateName(w.activity(c.activity)->state), activityStateName(w.activity(qc->activity)->state));
+    else std::printf("route terminators: wing off %.1f, %d samples, %s; rotor flight population deferred\n", arcOff, arcSamples, activityStateName(w.activity(c.activity)->state));
     CHECK(arcSamples > 100);
-    CHECK(qSamples > 20);
+    if (qc) CHECK(qSamples > 20);
     CHECK(arcOff < 20.0);
-    CHECK(qOff < 1.0);
+    if (qc) CHECK(qOff < 1.0);
     CHECK(w.activity(c.activity)->state == ActivityState::Completed);
-    CHECK(w.activity(qc.activity)->state == ActivityState::Completed);
+    if (qc) CHECK(w.activity(qc->activity)->state == ActivityState::Completed);
 }
 
 TEST_CASE("route terminators: refused as a point is, naming it - data that is none, a leg its segment does not define, an arc or a "

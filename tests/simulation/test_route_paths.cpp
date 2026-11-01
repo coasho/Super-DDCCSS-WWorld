@@ -5,6 +5,7 @@
 #include "fsim/ControlStack.h"
 #include "fsim/GuidanceModes.h"
 #include "mode_flights.h"
+#include <optional>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -78,7 +79,9 @@ TEST_CASE("route paths: along its links - into another path, round a loop - its 
           "[modes]") {
     session::World w(options("route-paths"));
     const auto v = wing(w, "c172", 1500.0, 55.0);
-    const auto quad = rotor(w, "iris", 15.0, 6);
+    std::optional<std::uint32_t> quad;
+    if (!testscope::deferRotor()) quad = rotor(w, "iris", 15.0, 6);
+    else w.step(stepsFor(w, 15.0));
     w.step(stepsFor(w, 2.0));
     const auto& s0 = *w.vehicleState(v);
     std::vector<RoutePath> paths;
@@ -86,12 +89,16 @@ TEST_CASE("route paths: along its links - into another path, round a loop - its 
     const CommandResult r = w.submit(v, RouteCommand{}, points, {}, {}, {}, paths);
     INFO(reasonName(r.reason) << " at " << r.index);
     REQUIRE(r.accepted());
-    const auto& q0 = *w.vehicleState(quad);
     std::vector<RoutePath> qpaths;
-    std::vector<Waypoint> qpoints = threePaths(q0.latitudeRad, q0.longitudeRad, 20.0, qpaths);
-    for (Waypoint& p : qpoints) p.speed = 3.0, p.speedReference = static_cast<double>(SpeedReference::GroundSpeed);
-    const CommandResult rq = w.submit(quad, RouteCommand{}, qpoints, {}, {}, {}, qpaths);
-    REQUIRE(rq.accepted());
+    std::vector<Waypoint> qpoints;
+    std::optional<CommandResult> rq;
+    if (quad) {
+        const auto& q0 = *w.vehicleState(*quad);
+        qpoints = threePaths(q0.latitudeRad, q0.longitudeRad, 20.0, qpaths);
+        for (Waypoint& p : qpoints) p.speed = 3.0, p.speedReference = static_cast<double>(SpeedReference::GroundSpeed);
+        rq = w.submit(*quad, RouteCommand{}, qpoints, {}, {}, {}, qpaths);
+        REQUIRE(rq->accepted());
+    }
     // read back as given: its points in their order, their links, its paths
     Setpoint sp;
     REQUIRE(w.activitySetpoint(r.activity, sp));
@@ -107,21 +114,24 @@ TEST_CASE("route paths: along its links - into another path, round a loop - its 
     for (unsigned k = 0; k < stepsFor(w, 900.0); ++k) {
         w.step();
         watch(w, v, r.activity, points, f);
-        watch(w, quad, rq.activity, qpoints, fq);
+        if (rq) watch(w, *quad, rq->activity, qpoints, fq);
     }
-    std::printf("route paths: a C172 flew %s (%u laps round B), nearest A %.0f %.0f, B %.0f %.0f %.0f %.0f, C %.0f %.0f m; an IRIS flew %s (%u laps), "
+    if (rq) std::printf("route paths: a C172 flew %s (%u laps round B), nearest A %.0f %.0f, B %.0f %.0f %.0f %.0f, C %.0f %.0f m; an IRIS flew %s (%u laps), "
                 "nearest B %.2f %.2f %.2f %.2f, C %.1f %.1f m\n",
                 list(f.order).c_str(), f.laps, f.nearest[0], f.nearest[1], f.nearest[2], f.nearest[3], f.nearest[4], f.nearest[5], f.nearest[6], f.nearest[7],
                 list(fq.order).c_str(), fq.laps, fq.nearest[2], fq.nearest[3], fq.nearest[4], fq.nearest[5], fq.nearest[6], fq.nearest[7]);
+    else std::printf("route paths: C172 %s, %u laps; rotor flight population deferred\n", list(f.order).c_str(), f.laps);
     REQUIRE(f.order.size() >= 11);
     CHECK(list(std::vector<std::uint32_t>(f.order.begin(), f.order.begin() + 11)) == "0 1 2 3 4 5 2 3 4 5 2");
     CHECK(f.laps >= 1);
     for (int i = 0; i < 6; ++i) CHECK(f.nearest[static_cast<std::size_t>(i)] < 400.0); // (a fly-by's arc cuts its corner)
     CHECK(std::min(f.nearest[6], f.nearest[7]) > 2000.0);                                // (C never flown)
-    REQUIRE(fq.order.size() >= 11);
-    CHECK(list(std::vector<std::uint32_t>(fq.order.begin(), fq.order.begin() + 11)) == "0 1 2 3 4 5 2 3 4 5 2");
-    for (int i = 2; i < 6; ++i) CHECK(fq.nearest[static_cast<std::size_t>(i)] < 5.0);
-    CHECK(std::min(fq.nearest[6], fq.nearest[7]) > 15.0);
+    if (rq) {
+        REQUIRE(fq.order.size() >= 11);
+        CHECK(list(std::vector<std::uint32_t>(fq.order.begin(), fq.order.begin() + 11)) == "0 1 2 3 4 5 2 3 4 5 2");
+        for (int i = 2; i < 6; ++i) CHECK(fq.nearest[static_cast<std::size_t>(i)] < 5.0);
+        CHECK(std::min(fq.nearest[6], fq.nearest[7]) > 15.0);
+    }
     CHECK(w.activity(r.activity)->live()); // (round and round: no end)
 }
 

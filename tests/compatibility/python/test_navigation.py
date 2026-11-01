@@ -2,6 +2,7 @@
 flies on and how much it has, its endurance, its playtime to a recovery point and its contingency."""
 import math
 import unittest
+from functional_scope import deferred_rotor
 
 import fsim
 from fsim import agra
@@ -75,6 +76,7 @@ class NavigationTest(unittest.TestCase):
         self.assertEqual(r.endurance_s, 0.0)
         self.assertEqual(r.contingency, fsim.Contingency.FLIGHT_CRITICAL)
 
+    @deferred_rotor
     def test_a_battery(self):
         w = make_world()
         v = w.create_vehicle("cf2", "jsbsim:cf2", latitude_deg=40.0, longitude_deg=0.0, altitude_msl_m=100.0, airspeed_ms=0.0)

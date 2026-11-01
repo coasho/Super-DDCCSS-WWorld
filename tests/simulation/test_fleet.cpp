@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cmath>
+#include "functional_scope.h"
 #include <filesystem>
 #include <functional>
 #include <limits>
@@ -112,6 +113,11 @@ public:
             default: p.cls = Class::Direct; break;
             }
             p.rotor = isRotorcraft(profile.identity.family);
+            if (testscope::deferRotor(p.rotor, p.type.c_str())) {
+                REQUIRE(w_.removeVehicle(id));
+                continue;
+            }
+            if (testscope::nonRotorClosure()) std::cout << "FSIM_SCOPE_FLEET_FIXED_WING: " << p.type << '\n';
             p.tasMs = std::isfinite(profile.plant.tasMs) ? profile.plant.tasMs : (std::isfinite(perf.cruiseTasMs) ? perf.cruiseTasMs : 100.0);
             p.cruiseMs = std::isfinite(perf.cruiseTasMs) ? perf.cruiseTasMs : p.tasMs;
             p.minCasMs = perf.minCasMs;

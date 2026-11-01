@@ -5,6 +5,7 @@ its refusals carry, what the ground allows - and flies some of its cases to
 the same thresholds."""
 import math
 import unittest
+from functional_scope import nonrotor_closure
 
 import fsim
 from fsim import Level
@@ -12,6 +13,8 @@ from fsim import Level
 #: one aircraft of each class the thresholds are set for
 CLASSES = {"c172": "fixed-wing direct", "f16c": "fixed-wing fly-by-wire", "uh60": "helicopter", "iris": "multirotor"}
 ROTOR = {"uh60", "iris"}
+if nonrotor_closure():
+    CLASSES = {kind: family for kind, family in CLASSES.items() if family not in ('helicopter', 'multirotor')}
 EARTH_M = 6371000.0
 SUPPORT_VALUES = {"gear": (1.0,), "flaps": (0.0,), "wheel_brakes": (0.0, 0.0), "speedbrake": (0.0,), "pitch_trim": (0.0,),
                   "engines": (0.5, fsim.HOLD, fsim.HOLD, fsim.HOLD)}

@@ -6,6 +6,7 @@
 #include "simulation/flight_control/Route.h"
 #include "fsim/Frames.h"
 #include "mode_flights.h"
+#include <optional>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -200,14 +201,17 @@ TEST_CASE("curve references: laid out along great circles and rhumb lines; turne
     const FrameId otherId = w.createFrame(other);
     VelocityCommand northward;
     northward.northMs = 2.0, northward.eastMs = 0.0, northward.verticalSpeedMs = 0.0;
-    REQUIRE(w.submit(leader, northward).accepted());
+    if (!testscope::deferRotor()) REQUIRE(w.submit(leader, northward).accepted());
     CurveShape beside;
     beside.frame = static_cast<double>(otherId), beside.frameYM = 20.0;
     CurveCommand carried;
     carried.speedMinMs = carried.speedMaxMs = 3.0;
     const NurbsSegment up = straight(0.0, 0.0, 0.0, 150.0, 0.0, 0.0);
-    const CommandResult d = w.submit(follower, carried, Span<const NurbsSegment>(&up, 1), {}, &beside);
-    REQUIRE(d.accepted());
+    std::optional<CommandResult> d;
+    if (!testscope::deferRotor()) {
+        d = w.submit(follower, carried, Span<const NurbsSegment>(&up, 1), {}, &beside);
+        REQUIRE(d->accepted());
+    }
 
     auto crossRhumb = [&](const sim::VehicleState& s) { // (off the rhumb line at 45 degrees: its departure east, across)
         const double lonOn = r0.longitudeRad + (mercator(s.latitudeRad) - mercator(r0.latitudeRad)); // (tan 45 degrees)
@@ -244,22 +248,24 @@ TEST_CASE("curve references: laid out along great circles and rhumb lines; turne
             shipTrack += std::remainder(std::atan2(ve, vn) - line, 2.0 * kPi), ++shipTracks;
         }
         // the IRIS's: 20 m east of the UH-1H
-        if (w.activity(d.activity)->live() && t > 20.0 && t < 30.0) {
+        if (d && w.activity(d->activity)->live() && t > 20.0 && t < 30.0) {
             const auto& l = *w.vehicleState(leader);
             const auto& f = *w.vehicleState(follower);
             carriedOff = std::max(carriedOff, std::abs((f.longitudeRad - l.longitudeRad) * kR * std::cos(l.latitudeRad) - 20.0));
         }
-        if (k == stepsFor(w, 30.0)) { // the curve not yet done: the UH-1H gone
+        if (d && k == stepsFor(w, 30.0)) { // the curve not yet done: the UH-1H gone
             REQUIRE(w.removeVehicle(leader));
         }
-        if (t > 60.0) stillAfter = std::max(stillAfter, groundSpeed(*w.vehicleState(follower)));
+        if (d && t > 60.0) stillAfter = std::max(stillAfter, groundSpeed(*w.vehicleState(follower)));
     }
-    const ActivityRecord& lost = *w.activity(d.activity);
-    std::printf("curve references: a great circle's end %.2f m from its own (in the plane %.1f m), flown %.1f m off it; a rhumb line's end %.2f m "
+    std::optional<ActivityRecord> lost;
+    if (d) lost = *w.activity(d->activity);
+    if (lost) std::printf("curve references: a great circle's end %.2f m from its own (in the plane %.1f m), flown %.1f m off it; a rhumb line's end %.2f m "
                 "from its own (in the plane %.1f m), flown %.1f m off it;\n  a ship's abeam, across it %.1f m, its track over the ship %.2f deg off; "
                 "beside a UH-1H within %.2f m, it gone: %s (%s), holding (%.2f m/s)\n",
                 gcEndOff, gcPlainOff, gcOff, rhumbEndOff, rhumbPlainOff, rhumbOff, shipOff, shipTracks ? shipTrack / shipTracks / kDeg : 0.0, carriedOff,
-                activityStateName(lost.state), reasonName(lost.reason), stillAfter);
+                activityStateName(lost->state), reasonName(lost->reason), stillAfter);
+    else std::printf("curve references: wing GC %.3f m off, rhumb %.3f m off, ship %.3f m off; rotor flight population deferred\n", gcOff, rhumbOff, shipOff);
     CHECK(gcEndOff < 1.0);
     CHECK(gcPlainOff > 40.0);
     CHECK(gcOff < 15.0);
@@ -269,10 +275,12 @@ TEST_CASE("curve references: laid out along great circles and rhumb lines; turne
     CHECK(shipTracks > 0);
     CHECK(shipOff < 10.0); // (left where it was put, 1.5 km; its cross-track in turned axes read as if north-up, 579 m)
     CHECK(std::abs(shipTrack / std::max(shipTracks, 1)) < 1.0 * kDeg);
-    CHECK(carriedOff < 0.5);
-    CHECK(lost.state == ActivityState::Failed);
-    CHECK(lost.reason == Reason::TargetLost);
-    CHECK(stillAfter < 1.0);
+    if (lost) {
+        CHECK(carriedOff < 0.5);
+        CHECK(lost->state == ActivityState::Failed);
+        CHECK(lost->reason == Reason::TargetLost);
+        CHECK(stillAfter < 1.0);
+    }
 }
 
 TEST_CASE("curve references: its points turned in three dimensions - by a fixed frame's attitude, climbing with its pitch, an absolute "
@@ -318,18 +326,21 @@ TEST_CASE("curve references: its points turned in three dimensions - by a fixed 
     const FrameId bodyId = w.createFrame(body);
     VelocityCommand northward;
     northward.northMs = 2.0, northward.eastMs = 0.0, northward.verticalSpeedMs = 0.0;
-    REQUIRE(w.submit(leader, northward).accepted());
+    if (!testscope::deferRotor()) REQUIRE(w.submit(leader, northward).accepted());
     CurveShape right;
     right.frame = static_cast<double>(bodyId), right.frameRotation = static_cast<double>(FrameRotation::Attitude), right.frameYM = 20.0;
     CurveCommand along = turned;
     along.speedMinMs = along.speedMaxMs = 3.0;
     const NurbsSegment nose = straight(0.0, 0.0, 0.0, 200.0, 0.0, 0.0);
-    const CommandResult b = w.submit(follower, along, Span<const NurbsSegment>(&nose, 1), {}, &right);
-    REQUIRE(b.accepted());
+    std::optional<CommandResult> b;
+    if (!testscope::deferRotor()) {
+        b = w.submit(follower, along, Span<const NurbsSegment>(&nose, 1), {}, &right);
+        REQUIRE(b->accepted());
+    }
     double sideOff = 0.0, levelOff = 0.0, pitchMost = 0.0;
     for (unsigned k = 0; k < stepsFor(w, 140.0); ++k) {
         w.step();
-        if (w.simTime() - t0 < 20.0 || w.simTime() - t0 > 60.0) continue;
+        if (!b || w.simTime() - t0 < 20.0 || w.simTime() - t0 > 60.0) continue;
         const auto& l = *w.vehicleState(leader);
         const auto& f = *w.vehicleState(follower);
         const route::Attitude m(vehiclePose(l)); // (north, east and down from its body's axes: turned back)
@@ -340,17 +351,20 @@ TEST_CASE("curve references: its points turned in three dimensions - by a fixed 
         pitchMost = std::max(pitchMost, std::abs(l.eulerRad[1]));
     }
     const double flownUp = w.vehicleState(v)->altitudeMslM - s0.altitudeMslM;
-    std::printf("curve references, in three dimensions: its end %.1f m east and %.2f m up (absolute: %.1f m east, %.3f m up), flown %.1f m up; "
+    if (b) std::printf("curve references, in three dimensions: its end %.1f m east and %.2f m up (absolute: %.1f m east, %.3f m up), flown %.1f m up; "
                 "in the UH-1H's axes %.2f m off its side and %.2f m off its level, the UH-1H pitched up to %.1f deg\n",
                 endEast, endUp, keptEast, keptUp, flownUp, sideOff, levelOff, pitchMost / kDeg);
+    else std::printf("curve references: wing end %.1f m east/%.2f m up, absolute %.1f/%.3f, flown %.1f m up; rotor flight population deferred\n", endEast, endUp, keptEast, keptUp, flownUp);
     CHECK(std::abs(endEast - 6000.0 * std::cos(2.0 * kDeg)) < 1.0);
     CHECK(std::abs(endUp - 6000.0 * std::sin(2.0 * kDeg)) < 0.5);
     CHECK(std::abs(keptEast - 6000.0 * std::cos(2.0 * kDeg)) < 1.0);
     CHECK(std::abs(keptUp - 50.0) < 1e-9);
     CHECK(std::abs(flownUp - 6000.0 * std::sin(2.0 * kDeg)) < 15.0);
     CHECK(w.activity(r.activity)->state == ActivityState::Completed);
-    CHECK(sideOff < 1.0);
-    CHECK(levelOff < 1.5); // (0.84 m: the line swings up and down with the UH-1H's pitch, a metre a degree 60 m along it)
+    if (b) {
+        CHECK(sideOff < 1.0);
+        CHECK(levelOff < 1.5); // (0.84 m: the line swings up and down with the UH-1H's pitch, a metre a degree 60 m along it)
+    }
 }
 
 TEST_CASE("curve references: what does not make a reference is refused, naming the field; where a curve is changes only with its segments",

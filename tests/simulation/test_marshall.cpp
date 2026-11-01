@@ -85,28 +85,33 @@ TEST_CASE("marshall: a stack of four holds its separation - per class (ASM-01)",
     for (int i = 0; i < 4; ++i) c172.push_back(wingAt(w, "c172x", 1500.0 + 304.8 * i, 55.0, i));
     for (int i = 0; i < 4; ++i) f16.push_back(wingAt(w, "f16c", 3000.0 + 304.8 * i, 160.0, 4 + i));
     std::vector<std::uint32_t> uh60, iris;
-    for (int i = 0; i < 4; ++i) uh60.push_back(rotorNear(w, "uh60", i));
-    for (int i = 0; i < 4; ++i) iris.push_back(rotorNear(w, "iris", 10 + i));
+    if (!testscope::deferRotor()) {
+        for (int i = 0; i < 4; ++i) uh60.push_back(rotorNear(w, "uh60", i));
+        for (int i = 0; i < 4; ++i) iris.push_back(rotorNear(w, "iris", 10 + i));
+    }
     fly(w, 15.0); // (settled, as rotor() leaves one)
-    const sim::VehicleState a = *w.vehicleState(c172[0]), b = *w.vehicleState(f16[0]), c = *w.vehicleState(uh60[0]), d = *w.vehicleState(iris[0]);
+    const sim::VehicleState a = *w.vehicleState(c172[0]), b = *w.vehicleState(f16[0]);
     constexpr double kR = 6371008.8;
     const double latA = a.latitudeRad + 2000.0 / kR, lonA = a.longitudeRad + 3000.0 / (kR * std::cos(a.latitudeRad));
     const double latB = b.latitudeRad, lonB = b.longitudeRad + 12000.0 / (kR * std::cos(b.latitudeRad));
-    const double latC = c.latitudeRad + 300.0 / kR, lonC = c.longitudeRad, latD = d.latitudeRad + 40.0 / kR, lonD = d.longitudeRad;
     struct Stack {
         std::vector<std::uint32_t> ids;
         MarshallCommand m;
         double separation;
         std::vector<ActivityId> acts;
     };
-    MarshallCommand hover = stack(latC, lonC, c.altitudeMslM + 50.0, 30.0);
-    hover.pattern = static_cast<double>(PatternKind::Hover);
-    MarshallCommand small = stack(latD, lonD, d.altitudeMslM + 10.0, 10.0);
-    small.pattern = static_cast<double>(PatternKind::Hover);
     std::vector<Stack> stacks = {{c172, stack(latA, lonA, 1500.0, kHold, 1500.0), 304.8, {}},
-                                 {f16, stack(latB, lonB, 3000.0, kHold, 5000.0), 304.8, {}},
-                                 {uh60, hover, 30.0, {}},
-                                 {iris, small, 10.0, {}}};
+                                 {f16, stack(latB, lonB, 3000.0, kHold, 5000.0), 304.8, {}}};
+    if (!uh60.empty()) {
+        const sim::VehicleState c = *w.vehicleState(uh60[0]), d = *w.vehicleState(iris[0]);
+        const double latC = c.latitudeRad + 300.0 / kR, lonC = c.longitudeRad, latD = d.latitudeRad + 40.0 / kR, lonD = d.longitudeRad;
+        MarshallCommand hover = stack(latC, lonC, c.altitudeMslM + 50.0, 30.0);
+        hover.pattern = static_cast<double>(PatternKind::Hover);
+        MarshallCommand small = stack(latD, lonD, d.altitudeMslM + 10.0, 10.0);
+        small.pattern = static_cast<double>(PatternKind::Hover);
+        stacks.push_back({uh60, hover, 30.0, {}});
+        stacks.push_back({iris, small, 10.0, {}});
+    }
     for (Stack& s : stacks)
         for (std::size_t i = 0; i < s.ids.size(); ++i) {
             const CommandResult r = w.submit(s.ids[i], s.m, PatternShape{});
@@ -141,7 +146,7 @@ TEST_CASE("marshall: a stack of four holds its separation - per class (ASM-01)",
         CHECK(leastApart[j] >= 0.99 * stacks[j].separation); // (its separation held)
     }
     CHECK(w.supportTable(c172[0])->find("fsim.guidance.marshall")->support == Support::Supported);
-    CHECK(w.supportTable(uh60[0])->find("fsim.guidance.marshall/hover")->support == Support::Supported);
+    if (!uh60.empty()) CHECK(w.supportTable(uh60[0])->find("fsim.guidance.marshall/hover")->support == Support::Supported);
     CHECK(w.supportTable(c172[0])->find("fsim.guidance.marshall/hover")->support ==
           w.supportTable(c172[0])->find("fsim.guidance.pattern/hover")->support); // (as its hover's: the stock c172x declares nothing)
 }

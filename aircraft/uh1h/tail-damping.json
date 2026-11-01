@@ -3,19 +3,19 @@
   "basis": "estimated",
   "operating_point_basis": "simulated",
   "acquisition_inputs": {
-    "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\uh1h\\uh1h.xml": "9b008978f9cfd1fc06c1f0fb5bf528dcde2e537d0bc77e3f9938c3e287bd70cd",
-    "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\uh1h\\Engines\\uh1h_engine.xml": "fffe996f2ac53942b21e7dc835862c09cfbd155a148d02d42e37e3bdecd31a27",
-    "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\uh1h\\Engines\\uh1h_rotor.xml": "2158e15fc55cc738ec864cb7e64c6e8d322d1f5aa1909f4802b06f519fa4750a",
-    "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\uh1h\\Engines\\uh1h_tail_drive.xml": "b26af1e4211b5851fdc45f81f10096e5542299a3273b42f87b7613c72fb56987",
-    "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\uh1h\\Engines\\uh1h_tail_rotor.xml": "19ddd5607924de1fc5c7c4565ecca0b3153135cfb213f584057782b4f4570d87",
-    "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-release\\python\\fsim\\bin\\libfsim.dll": "c0c191163b8c768e141e0d7e0a63f2b4c31bee5cfbbdb03a2d70c21d5bc5c15d",
-    "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-release\\python\\fsim\\_native.pyd": "a7ca69d76751f9279f4ff5b306eeb55f81cdcc03251710c5d0649afe6a40efcb"
+    "D:\\ENV\\tmp\\sim-m02-close-20261101\\source-v2\\aircraft\\uh1h\\uh1h.xml": "e388b59add1bbd6e01b592ce7c516013b7cb39d5cb001b97ba4666d6978ffc3b",
+    "D:\\ENV\\tmp\\sim-m02-close-20261101\\source-v2\\aircraft\\uh1h\\Engines\\uh1h_engine.xml": "fffe996f2ac53942b21e7dc835862c09cfbd155a148d02d42e37e3bdecd31a27",
+    "D:\\ENV\\tmp\\sim-m02-close-20261101\\source-v2\\aircraft\\uh1h\\Engines\\uh1h_rotor.xml": "2158e15fc55cc738ec864cb7e64c6e8d322d1f5aa1909f4802b06f519fa4750a",
+    "D:\\ENV\\tmp\\sim-m02-close-20261101\\source-v2\\aircraft\\uh1h\\Engines\\uh1h_tail_drive.xml": "b26af1e4211b5851fdc45f81f10096e5542299a3273b42f87b7613c72fb56987",
+    "D:\\ENV\\tmp\\sim-m02-close-20261101\\source-v2\\aircraft\\uh1h\\Engines\\uh1h_tail_rotor.xml": "19ddd5607924de1fc5c7c4565ecca0b3153135cfb213f584057782b4f4570d87",
+    "D:\\ENV\\tmp\\sim-m02-close-20261101\\source-v2\\build\\ucrt64-release\\python\\fsim\\bin\\libfsim.dll": "638f2ff1016374ab94bb1bdd165e01ce23a7f103548fb8caf4ec6a26fb4bb7c3",
+    "D:\\ENV\\tmp\\sim-m02-close-20261101\\source-v2\\build\\ucrt64-release\\python\\fsim\\_native.pyd": "e9680c3dec9ff0a9329ce216cc85128db073cd2c837f4dd061fd038bc8343f49"
   },
   "source_hashes": {
     "aircraft/uh1h/calibration.toml": "60259bec3e6974e9a9abd4ba0bab0c6199569ec5f013a437437b27e08646e456",
     "aircraft/uh1h/uh1h.toml": "2408c4fcec781e22d03e834b723f5c903a8d279f58ef8d78028fb3352beac38c",
     "cmake/JsbsimPatches.cmake": "d0b264289a8ca8b8155c85e96dd1b3d5c9bafd9d8c46c98af0e3136ee53b7c8c",
-    "third_party/jsbsim/src/models/propulsion/FGRotor.cpp": "79a6b96321d35e4b3b5a6f8bf9c35d7bb6d36df0625993a7517c7494b606458e",
+    "third_party/jsbsim/src/models/propulsion/FGRotor.cpp": "557f7a25f93bc05c5090571c4a3ef1128737fb5a34013ba067eead1dc01a33f7",
     "tools/models/hangar/hangar/__init__.py": "76aae06621a5af95a626a9d1529b2ecb20392f76da722a8cfaffd19a0d6284cf",
     "tools/models/hangar/hangar/__main__.py": "b63b9e9d0a36f4965a039c4e2cdbf5c37d20105d2480da009b687b4b1bfbf11b",
     "tools/models/hangar/hangar/actuator_models.py": "0385bf9b282bfbc63709a1b0e089b1b1a3a48eaacf5ed53981815508b34d0933",
@@ -31,7 +31,7 @@
     "tools/models/hangar/hangar/applicability.py": "2d09fa9459fccc4151599750ed886f41d28e7196441a30099fb3c5a692948330",
     "tools/models/hangar/hangar/autopilot.py": "6baee8c566f56efb562f091dd904efd014d290bde382a4b7aa5b91e2651f6a72",
     "tools/models/hangar/hangar/calibration.py": "c92b4560d9d5c6062c59d8586e6719c275b03547230215493fcd76c19c282f71",
-    "tools/models/hangar/hangar/carriage.py": "85939cd758bd945b827a9e6173a6765d9c86e511c986649281074cdc0508ef62",
+    "tools/models/hangar/hangar/carriage.py": "074b4918e7b0aaf8cfc3af6c9fe57ddd7ba8803d5cf21c244246c87926ba58cf",
     "tools/models/hangar/hangar/catalogue.py": "7bb1e896098cdddc37e2d71cfd87898e0324645a97d17e14dbe9809fdd807c75",
     "tools/models/hangar/hangar/components.py": "a0c9aa33274655bebdacb335949758e3d8138fd8f30c1b822fd6338876c577bd",
     "tools/models/hangar/hangar/damage.py": "37d1e3d94d94af630e9a6002a8c801846b27b0025610d4d8ee701c7530ab5aa2",
@@ -39,7 +39,7 @@
     "tools/models/hangar/hangar/drag.py": "4e4d7465b32b4e05e1938140684315aee8c304c710feeecdc7928b3c15093907",
     "tools/models/hangar/hangar/ductedrocket.py": "5c9b1f14107e944edf5d69d7d2726c716c080c42744d2015d0ad6e3a471468b5",
     "tools/models/hangar/hangar/effects.py": "7519c4dd855f8db20eadc90548817ba36b1772c8905813ed59fa78d52600c8cf",
-    "tools/models/hangar/hangar/engineering.py": "ed4ae8a158e9efb87ac3c62e2a72e78d8eed1d54d307100a8863d6c3900acc6e",
+    "tools/models/hangar/hangar/engineering.py": "5d198193013ae7bf58906a4c1d2b905db9d455eb5231bfcbcfb025cc026ce466",
     "tools/models/hangar/hangar/engineering_runtime.py": "8a0fc39da083afd41b31777fadd57f07ebeddf0a360a0d2fb2483a7f6ea72849",
     "tools/models/hangar/hangar/engineering_tables.py": "d6fea69a429839f16fedfc4bedb9611dbf19b5e1230f9a9b6fd379a9289c7e95",
     "tools/models/hangar/hangar/fcs.py": "a49accd18a87c18a88028bbfca23994282c778307812b7fa6bdde476b9248249",
@@ -65,7 +65,7 @@
     "tools/models/hangar/hangar/motorinputs.py": "87404698e21ec0db69a1d2fb5fd72422073772b77d52ebc709f727936363b01c",
     "tools/models/hangar/hangar/performance.py": "41c0f8a6571aa66d4c0bbdd768861e2d446b5b00b88beaddd3116862d5b4469e",
     "tools/models/hangar/hangar/pieces.py": "7be3b30b8f1be57a4ca6ac2116418332575fead222a960dba142d2500ef73bdc",
-    "tools/models/hangar/hangar/pipeline.py": "6457e2efa0b4a5eddfc669303a2d896a6f9526657d5b57758e78f5f230883835",
+    "tools/models/hangar/hangar/pipeline.py": "c34e3c95c361d8efa3fcd7fb79f39523ddc478f9d5159de9ee6a77f93394fad6",
     "tools/models/hangar/hangar/profile.py": "07937955ba1967f3499459916143ec1e2c0e364b5f0c69d478cba5dc1c5232b3",
     "tools/models/hangar/hangar/propulsion.py": "fc2684af58a9e0b4614a6c7e10fd6ce2cb4816c93109466ebd3c6058fb32c5ec",
     "tools/models/hangar/hangar/provenance.py": "a81af589fa3d8882a5e949335fdca67df1ce9a49576827f2b969b14334e74379",
@@ -116,11 +116,11 @@
   },
   "source": "NASA TM-73254 (1977), eq.37-38 and Table3 T4/l_TR; current physical tail port, DC normal-flow yaw derivative only",
   "operating_point": {
-    "rho": 0.0023541639991987817,
+    "rho": 0.002354163999378821,
     "rpm": 1662.7010948762352,
-    "mu": 4.439890779348821e-07,
-    "lambda": -0.04634803775826724,
-    "ct": 0.004296949895682865,
+    "mu": 1.2129200399068784e-06,
+    "lambda": -0.046343531165144176,
+    "ct": 0.004296126537858308,
     "native_dt_s": 0.002777777777777778
   },
   "derivation": {
@@ -134,14 +134,14 @@
       -1.0,
       -5.308333333333334
     ],
-    "native_instantaneous_lb_per_fps": 14.848413084844251,
-    "native_dc_lb_per_fps": 4.10114088664912,
-    "target_normal_dc_lb_per_fps": 15.326199422913836,
-    "excess_dc_lb_per_fps": 11.225058536264715,
-    "native_linearized_inflow_time_s": 0.027620061909748105,
-    "native_inflow_pole": 0.9008129562737048,
-    "inflow_slope": 2.620556692695408,
-    "target_yaw_damping_lb_ft_s": 11569.37436824672,
+    "native_instantaneous_lb_per_fps": 14.848413085989273,
+    "native_dc_lb_per_fps": 4.1009591856008605,
+    "target_normal_dc_lb_per_fps": 15.326199424085935,
+    "excess_dc_lb_per_fps": 11.225240238485075,
+    "native_linearized_inflow_time_s": 0.027618838200766792,
+    "native_inflow_pole": 0.9008085615893464,
+    "inflow_slope": 2.6207171088472387,
+    "target_yaw_damping_lb_ft_s": 11569.374369131509,
     "source_arms_ft": [
       28.0,
       6.88
@@ -152,5 +152,54 @@
       55.0
     ],
     "limitation": "Normal-flow DC yaw transfer at reference CG only. Instantaneous positive excess adds damping at all frequencies; lateral/roll and transient matching are not claimed. Power accounting is relative to the air, including wind energy."
+  },
+  "acquisition_certificate": {
+    "crashed": false,
+    "diverged": false,
+    "on_ground": false,
+    "altitude_msl_m": 100.00000349374116,
+    "altitude_agl_m": 99.999477254773,
+    "euler_rad": [
+      -0.029441337434675773,
+      0.0771627669243779,
+      1.6871658289669444e-05
+    ],
+    "contact_wow": {
+      "gear/unit[0]/WOW": 0.0,
+      "gear/unit[1]/WOW": 0.0,
+      "gear/unit[2]/WOW": 0.0,
+      "gear/unit[3]/WOW": 0.0,
+      "contact/unit[4]/WOW": 0.0,
+      "contact/unit[5]/WOW": 0.0,
+      "contact/unit[6]/WOW": 0.0,
+      "contact/unit[7]/WOW": 0.0,
+      "contact/unit[8]/WOW": 0.0,
+      "contact/unit[9]/WOW": 0.0,
+      "contact/unit[10]/WOW": 0.0,
+      "contact/unit[11]/WOW": 0.0,
+      "contact/unit[12]/WOW": 0.0,
+      "contact/unit[13]/WOW": 0.0,
+      "contact/unit[14]/WOW": 0.0,
+      "contact/unit[15]/WOW": 0.0,
+      "contact/unit[16]/WOW": 0.0,
+      "contact/unit[17]/WOW": 0.0,
+      "contact/unit[18]/WOW": 0.0,
+      "contact/unit[19]/WOW": 0.0
+    },
+    "trim": {
+      "aileron": 0.15415968434337768,
+      "elevator": -0.017647626427788925,
+      "rudder": -0.026920396357570618,
+      "throttle": 0.3542606890988131,
+      "phi_deg": -1.6871663794475642,
+      "theta_deg": 4.421097545686653,
+      "u_ms": 0.0006293885319273939,
+      "v_ms": -0.0024750600208074047,
+      "vz_ms": 1.0725084800777675e-05,
+      "rpm": 323.70000304803165,
+      "steady": true,
+      "power_shp": 570.6943920480298
+    },
+    "airborne_valid": true
   }
 }

@@ -3,6 +3,7 @@
 Short execution only; no envelope sweep, fitting, full regression or retry loop.
 """
 import argparse
+import csv
 import json
 import os
 from pathlib import Path
@@ -12,6 +13,7 @@ import sys
 import time
 import uuid
 import xml.etree.ElementTree as ET
+from engineering_scope import functional_rows
 
 ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/'tools/models/hangar'))
@@ -39,6 +41,15 @@ def main(args):
         expected=Path('stores')/row['name'] if category=='store' else Path(row['name'])
         if row['category']!=category or Path(row['product_directory'])!=expected:
             raise ValueError('Unexpected consumer product path: '+row['name'])
+    active,deferred=functional_rows(matrix['designs'],args.functional_scope)
+    for row in deferred:
+        row['runtime']={}
+        row['basic_usability']=dict(passed=None,deferred=True,scope='User-deferred rotor functional acceptance; not executed or passed')
+        row['runtime_evidence_scope']='Engineering components/tables retained; rotor functional acceptance deferred at lowest priority'
+        e.dump(production/row['name']/'result.json',row)
+        for mode in ('native','installed'):
+            e.dump(production/row['name']/(mode+'.json'),dict(schema='fsim.sim-m02.functional-deferred.v1',
+                design=row['name'],mode=mode,executed=False,passed=None,priority='lowest',functional_scope=args.functional_scope))
     env=os.environ.copy();env.update(TMP='D:/ENV/tmp',TEMP='D:/ENV/tmp',TORCH_EXTENSIONS_DIR='D:/ENV/tmp',
         OPENBLAS_NUM_THREADS='1',OMP_NUM_THREADS='1',PYTHONDONTWRITEBYTECODE='1')
     shell=env.get('FSIM_BUILD_POWERSHELL') or shutil.which('pwsh') or shutil.which('powershell')
@@ -50,6 +61,8 @@ def main(args):
         installed_manifest_sha256=e.sha(production/'installed-production-manifest.json'),
         input_matrix_sha256=e.sha(out/'input-production-matrix.json'),
         generation_receipts={row['name']:e.sha(production/row['name']/'generation.json') for row in matrix['designs']})
+    binding.update(functional_scope=args.functional_scope,scope_implementation_sha256=e.sha(Path(__file__).with_name('engineering_scope.py')),
+        declared_designs=88,active_designs=len(active),deferred_designs=[r['name'] for r in deferred])
     def run(name,argv,environment=env,cwd=ROOT,timeout=180):
         tick=time.monotonic();log=out/(name+'.log')
         with log.open('wb') as stream:
@@ -80,30 +93,33 @@ def main(args):
                 FSIM_DLL_DIR=str(sdk/'fsim/bin'),PATH=str(sdk/'fsim/bin')+';'+os.environ.get('SystemRoot','C:/Windows')+'/System32')
             manifest=out/(mode+'-batch.json')
             manifest.unlink(missing_ok=True);run_id=uuid.uuid4().hex
-            originals={data/'aircraft'/row['product_directory']/(row['name']+'.xml'):None for row in matrix['designs']}
+            originals={data/'aircraft'/row['product_directory']/(row['name']+'.xml'):None for row in active}
             originals={path:path.read_bytes() for path in originals}
             try:
                 code=run(mode+'-batch',[sys.executable,'-I','-B',batch_probe,'--production',production,
-                    '--sdk',sdk,'--data',data,'--probe',probe,'--mode',mode,'--output',manifest,'--run-id',run_id],worker,work,timeout=180*88)
+                    '--sdk',sdk,'--data',data,'--probe',probe,'--mode',mode,'--output',manifest,'--run-id',run_id,
+                    '--functional-scope',args.functional_scope],worker,work,timeout=180*len(active))
             finally:
                 failures.extend(dict(mode=mode,error=error) for error in restore(originals))
             try:
                 batch=json.loads(manifest.read_text(encoding='utf-8'))
                 if (batch.get('schema')!='fsim.sim-m02.consumer-batch.v1' or batch.get('run_id')!=run_id
                     or batch.get('mode')!=mode or Path(batch['sdk'])!=sdk or Path(batch['data'])!=data
-                    or batch.get('probe_sha256')!=e.sha(probe) or batch.get('worker_sha256')!=e.sha(batch_probe)):
+                    or batch.get('probe_sha256')!=e.sha(probe) or batch.get('worker_sha256')!=e.sha(batch_probe)
+                    or batch.get('functional_scope')!=args.functional_scope
+                    or batch.get('scope_implementation_sha256')!=binding['scope_implementation_sha256']):
                     raise ValueError('Consumer batch provenance mismatch')
                 records=batch['records']
-                if (len(records)>88 or len({r['name'] for r in records})!=len(records)
-                    or any(r['name'] not in {row['name'] for row in matrix['designs']} or type(r['exit_code']) is not int for r in records)):
+                if (len(records)>len(active) or len({r['name'] for r in records})!=len(records)
+                    or any(r['name'] not in {row['name'] for row in active} or type(r['exit_code']) is not int for r in records)):
                     raise ValueError('Consumer batch record identities differ from declared roster')
             except (ValueError,KeyError,TypeError,OSError) as error:
                 failures.append(dict(mode=mode,error='Invalid current batch manifest: '+str(error)));batch={'records':[]}
             batches[mode]={record['name']:record for record in batch['records']}
-            if code or set(batches[mode])!={row['name'] for row in matrix['designs']}:
+            if code or set(batches[mode])!={row['name'] for row in active}:
                 failures.append(dict(mode=mode,error='Incomplete or failed isolated consumer batch',exit_code=code))
         binding['batch_manifests']={mode:e.sha(out/(mode+'-batch.json')) for mode in batches if (out/(mode+'-batch.json')).is_file()}
-    for row in matrix['designs']:
+    for row in active:
         folder=production/row['name'];row['runtime']={};errors=[]
         for mode,sdk,data in [('native',build/'python',build/'share/flightsim'),('installed',prefix,prefix/'share/flightsim')]:
             worker=env.copy()
@@ -150,16 +166,28 @@ def main(args):
         skipped=sum(c.find('skipped') is not None for c in cases),junit=str(junit),exit_code=code)
     if code or native['failed'] or native['skipped']:failures.append(dict(native_components=native))
     e.publish(production,matrix['designs'],e.roster())
+    # Engineering labels retain their three-state contract. Functional
+    # population is separate and cannot turn deferred consumers into passes.
+    matrix_csv=production/'matrix.csv'
+    with matrix_csv.open(encoding='utf-8',newline='') as stream:
+        reader=csv.DictReader(stream);columns=reader.fieldnames;rows=list(reader)
+    active_names={row['name'] for row in active}
+    with matrix_csv.open('w',encoding='utf-8',newline='') as stream:
+        writer=csv.DictWriter(stream,fieldnames=[*columns,'functional_scope','functional_population'])
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(dict(row,functional_scope=args.functional_scope,
+                functional_population='active' if row['design'] in active_names else 'deferred-lowest-priority'))
     index=production/'index.html'
     index.write_text(index.read_text(encoding='utf-8').replace(
         'No native dynamic sampling or consumer execution was performed in this production-only delivery.',
-        'Basic native and installed consumer execution was performed separately; no envelope sweep or full regression was run.'),encoding='utf-8')
+        f'Basic native and installed execution covered {len(active)} designs; {len(deferred)} rotor designs are explicitly deferred, not passed. All88 engineering records remain. No envelope sweep or full regression was run by this basic tool.'),encoding='utf-8')
     binding['output_matrix_sha256']=e.sha(production/'matrix.json')
     binding['runtime_results']={row['name']+'/'+mode+'.json':e.sha(production/row['name']/(mode+'.json'))
-        for row in matrix['designs'] for mode in ('native','installed') if (production/row['name']/(mode+'.json')).is_file()}
+        for row in active for mode in ('native','installed') if (production/row['name']/(mode+'.json')).is_file()}
     result=dict(schema='fsim.sim-m02.basic-usability.v1',elapsed_seconds=time.monotonic()-started,
         counts=counts,native_components=native,failures=failures,commands=commands,binding=binding,
-        scope='All88 native/installed basic usability and declared core component fixtures. No full regression or dynamic full-envelope claim.')
+        scope=f'{len(active)} native/installed basic consumers; {len(deferred)} explicitly deferred rotor designs; all88 engineering records retained. No full regression or dynamic full-envelope claim.')
     e.dump(out/'basic-usability.json',result)
     print(json.dumps(dict(counts=counts,native_components=native,failed=len(failures),elapsed_seconds=result['elapsed_seconds']),indent=2),flush=True)
     return int(bool(failures))
@@ -168,4 +196,5 @@ def main(args):
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--production',required=True);p.add_argument('--output',required=True)
     p.add_argument('--consumer-execution',choices=('isolated-per-design','batched-v1'),default='isolated-per-design')
+    p.add_argument('--functional-scope',choices=('all','sim-m02-nonrotor-v1'),default='all')
     raise SystemExit(main(p.parse_args()))

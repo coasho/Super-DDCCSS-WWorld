@@ -157,6 +157,7 @@ TEST_CASE("evade: never below its floor over the terrain; the floor holding its 
         INFO(c.type << " at " << c.altitudeM << " m");
         session::World w(options("behaviours-evade"));
         const bool rotorcraft = std::string(c.type) == "uh1h";
+        if (testscope::deferRotor(rotorcraft, c.type)) continue;
         const auto v = rotorcraft ? rotor(w, c.type) : wing(w, c.type, c.altitudeM, c.tasMs);
         const auto threat = wing(w, "c172x", c.altitudeM + 200.0, 55.0, 1);
         cruise(w, threat);

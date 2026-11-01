@@ -340,7 +340,7 @@
             </direction>
             <function>
                 <product>
-                    <value>-11.225058536264715</value>
+                    <value>-11.225240238485075</value>
                     <sum>
                         <product>
                             <value>1</value>
@@ -1535,7 +1535,7 @@
         <property value="1">fsim/rotor-tail-damping-v1/required</property>
         <property value="1">fsim/rotor-tail-damping-v1/version</property>
         <property value="1">fsim/rotor-tail-damping-v1/available</property>
-        <property value="11.225058536264715">fsim/rotor-tail-damping-v1/excess-dc-lb-per-fps</property>
+        <property value="11.225240238485075">fsim/rotor-tail-damping-v1/excess-dc-lb-per-fps</property>
     </flight_control>
     <aerodynamics>
         <function name="fsim/aerodynamics/vlm-version" type="pre">

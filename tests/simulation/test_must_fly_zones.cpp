@@ -3,6 +3,8 @@
 // route aims a little inside its nearest point (or its edge the window's way), and the must fly completes once the aircraft is
 // in it.
 #include "mode_flights.h"
+#include <array>
+#include <optional>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -69,9 +71,13 @@ std::vector<Ended> flyUntilEnded(session::World& w, const std::vector<std::pair<
 
 TEST_CASE("must fly: a zone of each shape entered, and completed once in it - per class (MFY-04)", "[modes][must_fly]") {
     session::World w(options("must-fly-zones"));
-    const auto iris = rotor(w, "iris", 15.0, 6), uh60 = rotor(w, "uh60", 15.0, 9);
+    std::optional<std::array<std::uint32_t, 2>> rotorIds;
+    if (!testscope::deferRotor()) rotorIds = std::array{rotor(w, "iris", 15.0, 6), rotor(w, "uh60", 15.0, 9)};
+    else { w.step(stepsFor(w, 15.0)); w.step(stepsFor(w, 15.0)); }
     const auto c172 = wing(w, "c172x", 1500.0, 55.0), f16 = wing(w, "f16c", 3000.0, 160.0, 3);
-    const sim::VehicleState a = *w.vehicleState(c172), b = *w.vehicleState(f16), c = *w.vehicleState(uh60), d = *w.vehicleState(iris);
+    const sim::VehicleState a = *w.vehicleState(c172), b = *w.vehicleState(f16);
+    std::optional<sim::VehicleState> c, d;
+    if (rotorIds) { c = *w.vehicleState((*rotorIds)[1]); d = *w.vehicleState((*rotorIds)[0]); }
     // an ellipse 5 km east of the C172, 1.5 by 0.8 km, its major axis north
     OpZone ellipse;
     ellipse.shape = static_cast<double>(ZoneShape::Ellipse);
@@ -84,18 +90,21 @@ TEST_CASE("must fly: a zone of each shape entered, and completed once in it - pe
     rectangle.widthM = 3000.0, rectangle.heightM = 6000.0, rectangle.orientationRad = 30.0 * kDeg;
     // a polygon ahead of the UH-60A, a hole in its middle
     OpZone polygon;
-    polygon.shape = static_cast<double>(ZoneShape::Polygon);
-    polygon.vertices = {vertex(c, 300.0, -300.0), vertex(c, 900.0, -300.0), vertex(c, 900.0, 300.0), vertex(c, 300.0, 300.0)};
-    polygon.holes = {{vertex(c, 500.0, -100.0), vertex(c, 700.0, -100.0), vertex(c, 700.0, 100.0), vertex(c, 500.0, 100.0)}};
-    // a slant range area 200 m north of the IRIS: 50 to 150 m out, bearings 150 to 210 degrees (its side toward the IRIS)
     OpZone slant;
-    slant.shape = static_cast<double>(ZoneShape::SlantRange);
-    placeFrom(d, 200.0, 0.0, slant.latitudeRad, slant.longitudeRad);
-    slant.rangeMinM = 50.0, slant.rangeMaxM = 150.0, slant.azimuthMinRad = 150.0 * kDeg, slant.azimuthMaxRad = -150.0 * kDeg;
+    if (rotorIds) {
+        polygon.shape = static_cast<double>(ZoneShape::Polygon);
+        polygon.vertices = {vertex(*c, 300.0, -300.0), vertex(*c, 900.0, -300.0), vertex(*c, 900.0, 300.0), vertex(*c, 300.0, 300.0)};
+        polygon.holes = {{vertex(*c, 500.0, -100.0), vertex(*c, 700.0, -100.0), vertex(*c, 700.0, 100.0), vertex(*c, 500.0, 100.0)}};
+        // a slant range area 200 m north of the IRIS: 50 to 150 m out, bearings 150 to 210 degrees (its side toward the IRIS)
+        slant.shape = static_cast<double>(ZoneShape::SlantRange);
+        placeFrom(*d, 200.0, 0.0, slant.latitudeRad, slant.longitudeRad);
+        slant.rangeMinM = 50.0, slant.rangeMaxM = 150.0, slant.azimuthMinRad = 150.0 * kDeg, slant.azimuthMaxRad = -150.0 * kDeg;
+    }
     MustFlyCommand into;
     into.location = static_cast<double>(MustFlyLocation::Zone);
     std::vector<std::pair<std::uint32_t, ActivityId>> all;
-    const std::pair<std::uint32_t, const OpZone*> cases[] = {{c172, &ellipse}, {f16, &rectangle}, {uh60, &polygon}, {iris, &slant}};
+    std::vector<std::pair<std::uint32_t, const OpZone*>> cases = {{c172, &ellipse}, {f16, &rectangle}};
+    if (rotorIds) { cases.emplace_back((*rotorIds)[1], &polygon); cases.emplace_back((*rotorIds)[0], &slant); }
     for (const auto& [v, zone] : cases) {
         const CommandResult r = w.submit(v, into, *zone);
         INFO(v << ": " << reasonName(r.reason) << " at " << r.index);
@@ -111,11 +120,13 @@ TEST_CASE("must fly: a zone of each shape entered, and completed once in it - pe
     offset(rectangle.latitudeRad, rectangle.longitudeRad, ended[1].latitudeRad, ended[1].longitudeRad, n, e);
     const double along = n * std::cos(30.0 * kDeg) + e * std::sin(30.0 * kDeg), across = -n * std::sin(30.0 * kDeg) + e * std::cos(30.0 * kDeg);
     CHECK((std::abs(along) <= 3001.0 && std::abs(across) <= 1501.0));
-    offset(c.latitudeRad, c.longitudeRad, ended[2].latitudeRad, ended[2].longitudeRad, n, e);
-    CHECK((n >= 299.0 && n <= 901.0 && std::abs(e) <= 301.0 && !(n > 501.0 && n < 699.0 && std::abs(e) < 99.0)));
-    offset(slant.latitudeRad, slant.longitudeRad, ended[3].latitudeRad, ended[3].longitudeRad, n, e);
-    const double range = std::hypot(n, e), bearing = std::atan2(e, n);
-    CHECK((range >= 49.0 && range <= 151.0 && std::abs(std::remainder(bearing - kPi, 2.0 * kPi)) <= 30.5 * kDeg));
+    if (rotorIds) {
+        offset(c->latitudeRad, c->longitudeRad, ended[2].latitudeRad, ended[2].longitudeRad, n, e);
+        CHECK((n >= 299.0 && n <= 901.0 && std::abs(e) <= 301.0 && !(n > 501.0 && n < 699.0 && std::abs(e) < 99.0)));
+        offset(slant.latitudeRad, slant.longitudeRad, ended[3].latitudeRad, ended[3].longitudeRad, n, e);
+        const double range = std::hypot(n, e), bearing = std::atan2(e, n);
+        CHECK((range >= 49.0 && range <= 151.0 && std::abs(std::remainder(bearing - kPi, 2.0 * kPi)) <= 30.5 * kDeg));
+    }
     CHECK(w.supportTable(c172)->find("fsim.guidance.must_fly")->support == Support::Supported);
 }
 

@@ -15,6 +15,12 @@ import runpy
 import sys
 import subprocess
 import time
+import importlib.util
+
+_scope_spec=importlib.util.spec_from_file_location('engineering_scope',Path(__file__).with_name('engineering_scope.py'))
+_scope_module=importlib.util.module_from_spec(_scope_spec)
+_scope_spec.loader.exec_module(_scope_module)
+functional_rows=_scope_module.functional_rows
 
 
 # A separate minimal watchdog can enforce the deadline while native code owns
@@ -97,10 +103,13 @@ def main(args):
         if '.codex' in {part.casefold() for part in path.parts}:raise ValueError('Excluded path')
     rows=json.loads((production/'matrix.json').read_text(encoding='utf-8'))['designs']
     if len(rows)!=88 or len({row['name'] for row in rows})!=88:raise ValueError('Exactly88 unique designs required')
+    rows,deferred=functional_rows(rows,args.functional_scope)
     records=[]
     def publish():
         temporary=output.with_name(output.name+'.'+args.run_id+'.tmp')
         value=json.dumps(dict(schema='fsim.sim-m02.consumer-batch.v1',mode=args.mode,run_id=args.run_id,
+            functional_scope=args.functional_scope,deferred_designs=[r['name'] for r in deferred],
+            scope_implementation_sha256=hashlib.sha256(Path(__file__).with_name('engineering_scope.py').read_bytes()).hexdigest(),
             probe_sha256=hashlib.sha256(probe.read_bytes()).hexdigest(),sdk=str(sdk),data=str(data),
             worker_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
             elapsed_seconds=time.monotonic()-started,records=records),indent=2)+'\n'
@@ -161,4 +170,5 @@ if __name__=='__main__':
     for name in ('production','sdk','data','probe','output'):parser.add_argument('--'+name,required=True)
     parser.add_argument('--mode',choices=('native','installed'),required=True)
     parser.add_argument('--run-id',required=True)
+    parser.add_argument('--functional-scope',choices=('all','sim-m02-nonrotor-v1'),default='all')
     raise SystemExit(main(parser.parse_args()))

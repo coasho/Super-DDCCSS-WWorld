@@ -12,6 +12,7 @@
 #include "fsim/Magnetic.h"
 #include "fsim/VehicleProfile.h"
 #include "mode_flights.h"
+#include <optional>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -133,6 +134,7 @@ TEST_CASE("pattern shapes: two circles make a racetrack and a figure-eight for e
     for (const Shape& a : {Shape{"c172x", false, 55.0, 8.0, 800.0, 1100.0, 4000.0, false, 60.0}, Shape{"c172x", false, 55.0, 8.0, 700.0, 900.0, 3000.0, true, 60.0},
                           Shape{"uh60", true, 20.0, 0.0, 150.0, 250.0, 800.0, false, 15.0}, Shape{"uh60", true, 20.0, 0.0, 150.0, 200.0, 600.0, true, 15.0},
                           Shape{"iris", true, 3.0, 0.0, 5.0, 8.0, 30.0, false, 1.5}, Shape{"iris", true, 3.0, 0.0, 5.0, 5.0, 20.0, true, 1.5}}) {
+        if (testscope::deferRotor(a.rotor, a.type)) continue;
         INFO(a.type << (a.eight ? " figure-eight" : " racetrack") << " R " << a.r1 << " and " << a.r2);
         session::World w(options("pattern-circles"));
         if (a.windMs > 0.0) setWind(w, 270.0, a.windMs);
@@ -362,31 +364,33 @@ TEST_CASE("pattern shapes: laps complete it; an entry point is flown to and an e
     CHECK(std::abs(degreesApart(timedTrack, kPi)) < 5.0);
 
     // a multirotor's: to its entry point east of the centre, once round, out at its west (north: right turns)
-    session::World calm(options("pattern-ends-small"));
-    const auto quad = rotor(calm, "iris", 15.0);
-    const auto& q0 = *calm.vehicleState(quad);
-    const double qLat = q0.latitudeRad + 30.0 / kR, qLon = q0.longitudeRad;
-    PatternCommand small;
-    PatternShape smallShape;
-    small.latitudeRad = qLat, small.longitudeRad = qLon, small.radiusM = 10.0, small.speed = 3.0, smallShape.orbits = 1.0;
-    std::tie(smallShape.entryLatitudeRad, smallShape.entryLongitudeRad) = at(Local{0.0, 10.0}, qLat, qLon);
-    std::tie(smallShape.exitLatitudeRad, smallShape.exitLongitudeRad) = at(Local{0.0, -10.0}, qLat, qLon);
-    const ActivityId q = submit(calm, quad, small, smallShape);
-    double qEntry = 1e9, qExit = kHold;
-    for (unsigned k = 0; k < stepsFor(calm, 120.0) && isHold(qExit); ++k) {
-        calm.step();
-        const Local p = from(*calm.vehicleState(quad), qLat, qLon);
-        qEntry = std::min(qEntry, std::hypot(p.north, p.east - 10.0));
-        if (!calm.activity(q)->live()) qExit = std::hypot(p.north, p.east + 10.0);
+    if (!testscope::deferRotor()) {
+        session::World calm(options("pattern-ends-small"));
+        const auto quad = rotor(calm, "iris", 15.0);
+        const auto& q0 = *calm.vehicleState(quad);
+        const double qLat = q0.latitudeRad + 30.0 / kR, qLon = q0.longitudeRad;
+        PatternCommand small;
+        PatternShape smallShape;
+        small.latitudeRad = qLat, small.longitudeRad = qLon, small.radiusM = 10.0, small.speed = 3.0, smallShape.orbits = 1.0;
+        std::tie(smallShape.entryLatitudeRad, smallShape.entryLongitudeRad) = at(Local{0.0, 10.0}, qLat, qLon);
+        std::tie(smallShape.exitLatitudeRad, smallShape.exitLongitudeRad) = at(Local{0.0, -10.0}, qLat, qLon);
+        const ActivityId q = submit(calm, quad, small, smallShape);
+        double qEntry = 1e9, qExit = kHold;
+        for (unsigned k = 0; k < stepsFor(calm, 120.0) && isHold(qExit); ++k) {
+            calm.step();
+            const Local p = from(*calm.vehicleState(quad), qLat, qLon);
+            qEntry = std::min(qEntry, std::hypot(p.north, p.east - 10.0));
+            if (!calm.activity(q)->live()) qExit = std::hypot(p.north, p.east + 10.0);
+        }
+        calm.step(stepsFor(calm, 5.0));
+        const double qTrack = track(*calm.vehicleState(quad));
+        std::printf("pattern ends, multirotor: entry passed %.2f m off; exit %.2f m off, then track %.1f deg\n", qEntry, qExit, qTrack / kDeg);
+        CHECK(calm.activity(q)->state == ActivityState::Completed);
+        CHECK(calm.activity(q)->progress.laps == 1);
+        CHECK(qEntry < 1.5);
+        CHECK(qExit < 1.5);
+        CHECK(std::abs(degreesApart(qTrack, 0.0)) < 10.0);
     }
-    calm.step(stepsFor(calm, 5.0));
-    const double qTrack = track(*calm.vehicleState(quad));
-    std::printf("pattern ends, multirotor: entry passed %.2f m off; exit %.2f m off, then track %.1f deg\n", qEntry, qExit, qTrack / kDeg);
-    CHECK(calm.activity(q)->state == ActivityState::Completed);
-    CHECK(calm.activity(q)->progress.laps == 1);
-    CHECK(qEntry < 1.5);
-    CHECK(qExit < 1.5);
-    CHECK(std::abs(degreesApart(qTrack, 0.0)) < 10.0);
 }
 
 TEST_CASE("pattern shapes: what does not make a pattern is refused naming the field; an UPDATE of either way replaces both", "[modes]") {
@@ -748,6 +752,7 @@ TEST_CASE("pattern shapes: a rotorcraft's hover over its point, its duration fro
         shape = PatternShape{}, shape.turnType = 0.0;
         refusedAt(c, shape, 26);
     }
+    if (testscope::deferRotor()) return; // Static family/shape refusals above remain covered.
     const double t0 = w.simTime();
     bool moved = false, turned = false;
     for (unsigned k = 0; k < stepsFor(w, 150.0); ++k) {
@@ -857,12 +862,13 @@ TEST_CASE("pattern shapes: a pattern's point in a frame - fixed, moving, a vehic
     REQUIRE(otherId != 0);
     VelocityCommand north;
     north.northMs = 2.0, north.eastMs = 0.0, north.verticalSpeedMs = 0.0;
-    REQUIRE(w.submit(leader, north).accepted());
+    if (!testscope::deferRotor()) REQUIRE(w.submit(leader, north).accepted());
     PatternCommand hover;
     hover.pattern = code(PatternKind::Hover);
     PatternShape beside;
     beside.frame = static_cast<double>(otherId), beside.frameYM = 15.0;
-    const ActivityId e = submit(w, follower, hover, beside);
+    std::optional<ActivityId> e;
+    if (!testscope::deferRotor()) e = submit(w, follower, hover, beside);
     // what does not make one: a frame not the session's, offsets without their frame
     {
         PatternShape none;
@@ -893,23 +899,29 @@ TEST_CASE("pattern shapes: a pattern's point in a frame - fixed, moving, a vehic
             placedWorst = std::max(placedWorst, std::abs(std::hypot(r.north, r.east) - 1000.0));
             placedHeight = std::max(placedHeight, std::abs(w.vehicleState(placed)->altitudeMslM - upPoint.altitudeMslM));
         }
-        const auto& lead = *w.vehicleState(leader);
-        const Local f = from(*w.vehicleState(follower), lead.latitudeRad, lead.longitudeRad);
-        const double kept = std::hypot(f.north, f.east - 15.0);
-        if (isHold(keptArrived) && kept < 1.0) keptArrived = t;
-        if (!isHold(keptArrived) && t - keptArrived > 5.0) keptWorst = std::max(keptWorst, kept);
+        if (e) {
+            const auto& lead = *w.vehicleState(leader);
+            const Local f = from(*w.vehicleState(follower), lead.latitudeRad, lead.longitudeRad);
+            const double kept = std::hypot(f.north, f.east - 15.0);
+            if (isHold(keptArrived) && kept < 1.0) keptArrived = t;
+            if (!isHold(keptArrived) && t - keptArrived > 5.0) keptWorst = std::max(keptWorst, kept);
+        }
     }
-    const ActivityRecord& held = *w.activity(e);
-    CHECK(held.live());
-    // the other gone: nothing to hover beside
-    REQUIRE(w.removeVehicle(leader));
+    if (e) {
+        const ActivityRecord& held = *w.activity(*e);
+        CHECK(held.live());
+        // the other gone: nothing to hover beside
+        REQUIRE(w.removeVehicle(leader));
+    }
     w.step(stepsFor(w, 5.0));
-    const ActivityRecord& lost = *w.activity(e);
-    const double drift = groundSpeed(*w.vehicleState(follower));
-    std::printf("pattern frames: an orbit round a ship's point %.1f m off its circle (round a still one %.1f m); round a fixed frame's point "
+    std::optional<ActivityRecord> lost;
+    double drift = kHold;
+    if (e) { lost = *w.activity(*e); drift = groundSpeed(*w.vehicleState(follower)); }
+    if (lost) std::printf("pattern frames: an orbit round a ship's point %.1f m off its circle (round a still one %.1f m); round a fixed frame's point "
                 "%.1f m off, %.1f m off its height; beside a rotorcraft flying north, there at %.1f s and then within %.2f m; it gone, %s (%s), "
                 "%.2f m/s over the ground\n",
-                shipWorst, stillWorst, placedWorst, placedHeight, keptArrived, keptWorst, activityStateName(lost.state), reasonName(lost.reason), drift);
+                shipWorst, stillWorst, placedWorst, placedHeight, keptArrived, keptWorst, activityStateName(lost->state), reasonName(lost->reason), drift);
+    else std::printf("pattern frames: wing ship %.1f m off, still %.1f m, fixed %.1f m, height %.1f m; rotor flight population deferred\n", shipWorst, stillWorst, placedWorst, placedHeight);
     CHECK(w.activity(a)->live());
     CHECK(w.activity(b)->live());
     // (2.9 m round the ship's point - flown as though the frame were still, 67 m - and 1.4 m round the fixed frame's, its height
@@ -917,11 +929,13 @@ TEST_CASE("pattern shapes: a pattern's point in a frame - fixed, moving, a vehic
     CHECK(shipWorst < 10.0);
     CHECK(placedWorst < 10.0);
     CHECK(placedHeight < 2.0);
-    REQUIRE_FALSE(isHold(keptArrived));
-    CHECK(keptWorst < 0.5);
-    CHECK(lost.state == ActivityState::Failed);
-    CHECK(lost.reason == Reason::TargetLost);
-    CHECK(drift < 1.0);
+    if (lost) {
+        REQUIRE_FALSE(isHold(keptArrived));
+        CHECK(keptWorst < 0.5);
+        CHECK(lost->state == ActivityState::Failed);
+        CHECK(lost->reason == Reason::TargetLost);
+        CHECK(drift < 1.0);
+    }
     // an UPDATE: a point leaves the frame; a frame replaces the point
     PatternCommand there;
     std::tie(there.latitudeRad, there.longitudeRad) = at(Local{0.0, 0.0}, fixed.latitudeRad, fixed.longitudeRad);

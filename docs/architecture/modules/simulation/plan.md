@@ -1,7 +1,47 @@
 # Simulation module plan
 
+<!-- SIM-M02 final closure begin -->
+SIM-M02 is **closed for the user-authorized 31 fixed-wing and 53 store functional scope** on 2026-11-01. All 4 rotor functional populations are explicitly deferred at lowest priority, not passed. The common engineering matrix still covers all 88 designs: **88 engineering-complete-uncalibrated, 0 blocked**. Missing equipment measurements are optional calibration limits, not missing components. Required but unavailable components remain required, absent, failed and blocked; the native armed-store implementations do not use an inert-release waiver.
+
+The current clean-source execution covers all 840 selected headless CTest cases, followed by the exact 2 approved repair rechecks (79 nested methods). The first headless run's 2 failures are retained. Independent current Release execution passes **914/914**, with the exact 28 authorized rotor-only cases excluded from both preset inventories. All 16 fleet shards retain all 31 fixed wings. Additional current evidence is 24/24 matched-state AAM observations (3,454 native evaluations), 48/48 powered axial comparisons at both 480/960 Hz, and 84 native plus 84 installed consumers with 2,016 short-flight observations, 106 released bodies and 10/10 component/package fixtures. These distinct populations are not added into a fabricated single test total.
+
+Exhaustive static checks cover 7,067 native XML tables, 3,611,335 coefficient cells, 522,331 axis knots and 16,776 inventory entries. Every table retains method/source/version/basis, finite-value/grid and interpolation/extrapolation checks. The 1,165 applicability/check/status consistency predicates are **not physical tests**. Native short-flight, pressure and axial checks are sampling/method comparisons, not full-envelope equipment validation. CFD tables: 0; newly measured aerodynamic tables: 0.
+
+Current-source all-design generation, mandatory-component recovery, installation, basic use and full-table auditing take **2,845.286 seconds in total**. This exceeds the 20-minute aspiration; no under-20-minute or historical aggregate speedup is claimed. The dominant measured job is C-17A at 1,290.243 seconds, including 926.975 seconds for fresh damage/detached models. Fresh preparation avoids repeating cold generation in each regression fixture, bounded immutable caches preserve exact inputs, and both native integration resolutions reuse one identical-state numerical reference per atmosphere/design. Complete and interrupted regression/attempt times and end-to-end elapsed time are separately recorded, not hidden by batch partitions.
+
+The root normal `run.ps1` entry and the clean-source entry each complete the unchanged 40-second native encounter at 1x, fullscreen 3840x2160. The SDK produces launch, acquisition, contact detonation and damage; rendered captures preserve those outcomes. The scene executable statically links `fsim::core` and was rebuilt from current source; actual JSBSim DLL identity is recorded separately from the root public Python SDK's actual libfsim/JSBSim DLL identities. All 439 generated products match the accepted manifest in source, staged data and the installed package. This is concrete entrypoint and package evidence, without claiming all-design visual or equipment calibration acceptance.
+
+The [final receipt](../../../data/sim-m02-final-closure-20261101.json), [88-design matrix](../../../data/sim-m02-engineering-completeness.csv), and `build/architecture-reviews/sim-m02-final-closure-20261101/delivery.md` identify the exact commands, original failures, independent reviews, current counts, source/product hashes, complete installed SDK, one HEAD-based exact-byte patch and successful patch replay. This dated closure supersedes the historical SIM-M02 nonacceptance entries below; those original failures remain available as history. Rotor fitness remains in its separate authorized deferral ledger.
+<!-- SIM-M02 final closure end -->
+
+<!-- SIM-M02 authorized closure boundary begin -->
+The superseding 2026-11-01 user instruction defers **all rotor functional
+issues at lowest priority**. This SIM-M02 functional closure covers 31 fixed-wing
+and 53 store designs. The 4 rotor designs retain their all-design engineering
+component/table records; their flight fitness is deferred, not passed.
+The [versioned deferred-scenario ledger](../../../data/sim-m02-deferred-rotor-issues-20261101.json) names 28 rotor-only native
+flight cases and 4 rotor-only Python methods. Mixed fixtures retain fixed-wing
+conditions, World clock advances, assertions and thresholds through the
+explicit tests-only `sim-m02-nonrotor-v1` population scope. All 16 fleet shards
+remain and must collectively cover exactly 31 maintained fixed wings. Generic
+API/lifecycle/layout/mathematical checks may include rotor types without
+claiming rotor flight acceptance. Default test behavior remains all-family.
+All 88 source/component/table applicability rules remain unchanged; no required
+role becomes not_applicable. Closure execution reconciles the complete CTest
+inventory minus the exact deferred native cases, separately accounts for
+nested deferred methods/platform skips, and binds current source/binaries.
+Use `tools/validation/aerodynamics/sim_m02_closure.py --preset PRESET --output
+OUTPUT --powershell POWERSHELL_PATH --production PRODUCTION --git-source-root MAIN_CHECKOUT`
+after building the preset and forcing all-design generation. The generation
+preflight binds current authored/optional profile inputs, runtime products and
+intermediate cache keys, and rejects unequal bin/tests/Python DLL copies.
+HEAD-tracked historical output inputs and all explicitly consumed profile files
+remain immutable during regression; other new derived reports/caches are
+recorded separately from source files.
+<!-- SIM-M02 authorized closure boundary end -->
+
 <!-- SIM-M02 functional acceptance correction begin -->
-Current functional correction, 2026-11-01: SIM-M02 is not formally accepted. All88 designs were regenerated from current geometry/cards; the common engineering matrix has88 engineering-complete-uncalibrated and0 blocked designs, separately from functional acceptance. The retained native repairs cover body quadrature, physical rotor inertia, passive tail damping, mechanical hub work, capture damping with unity cruise gain, complete-cascade response/lookahead, waypoint transit, landing-position capture and momentum-aware terminal hover. Original headless control fixtures: 6/6, 498 assertions passed and0 failed. Current Release original selection: 6/9 cases, 18 failed assertions; native AAM: 12/13; installed package consumer: 1 executed. Original scenes, assertions and thresholds are unchanged. RPM-window survival, fall preconditions and the qbar matched-state premise remain unclosed; missing exact-model measurements are not the reason. Normal run.ps1 Release entry loaded the current DLLs and exact regenerated UH-1H XML, refused a poisoned exact XML, and flew a real-time orbit-to-hover diagnostic at3840x2160. This is runtime/entrypoint evidence, not whole-fleet physical or complete visual acceptance. All-table integrity checks cover7067 XML tables and3611335 cells; 1165 consistency predicates are not physical tests. Generation/install took1139.453s; the separately timed all88 basic-use pass took812.276s. That basic pass predates final native-only control changes and is not relabeled as a fresh final-DLL run. The earlier full headless attempt was interrupted with753/867 completed records and11 failures; no final full headless/Release pass is claimed. Current source/products, matrix, full-table inventory, raw failures, source review and replay patch: `build/architecture-reviews/sim-m02-functional-resolution-20261101/`.
+Historical pre-deferral functional correction, 2026-11-01: SIM-M02 is not formally accepted. All88 designs were regenerated from current geometry/cards; the common engineering matrix has88 engineering-complete-uncalibrated and0 blocked designs, separately from functional acceptance. The retained native repairs cover body quadrature, physical rotor inertia, passive tail damping, mechanical hub work, capture damping with unity cruise gain, complete-cascade response/lookahead, waypoint transit, landing-position capture and momentum-aware terminal hover. Original headless control fixtures: 6/6, 498 assertions passed and0 failed. Current Release original selection: 6/9 cases, 18 failed assertions; native AAM: 12/13; installed package consumer: 1 executed. Original scenes, assertions and thresholds are unchanged. RPM-window survival, fall preconditions and the qbar matched-state premise remain unclosed; missing exact-model measurements are not the reason. Normal run.ps1 Release entry loaded the current DLLs and exact regenerated UH-1H XML, refused a poisoned exact XML, and flew a real-time orbit-to-hover diagnostic at3840x2160. This is runtime/entrypoint evidence, not whole-fleet physical or complete visual acceptance. All-table integrity checks cover7067 XML tables and3611335 cells; 1165 consistency predicates are not physical tests. Generation/install took1139.453s; the separately timed all88 basic-use pass took812.276s. That basic pass predates final native-only control changes and is not relabeled as a fresh final-DLL run. The earlier full headless attempt was interrupted with753/867 completed records and11 failures; no final full headless/Release pass is claimed. Current source/products, matrix, full-table inventory, raw failures, source review and replay patch: `build/architecture-reviews/sim-m02-functional-resolution-20261101/`.
 <!-- SIM-M02 functional acceptance correction end -->
 
 Aerodynamic evidence policy and the Hangar-to-runtime workflow are
@@ -143,6 +183,6 @@ Required structural coverage includes flight/control, RF/radar/track, stores/nat
 A structural handoff lists moved symbols/files, remaining old-path compatibility shims, target/import graph, preserved exports/types, tests and pending model gates. The final simulation plan remains open until all selected SIM-M criteria are either achieved with evidence or explicitly deferred by the user; structural acceptance alone does not make that claim.
 
 
-<!-- SIM-M02 current generated verification begin -->
+<!-- SIM-M02 historical generated verification begin -->
 Current production delivery: 88 engineering-complete-uncalibrated, 0 engineering-complete and 0 blocked designs. All 31 fixed wings, four rotorcraft and 53 stores (including all24 AAMs) use the same source-driven method and component rules. Aggregate production generation/install: 1045.836 seconds; current basic usability: 813.329 seconds. Current basic execution covers 88 native and 88 installed consumers, 2112 short-flight observations and 10 core/package fixtures (0 failed, 0 skipped). Production integrity inventories 16776 logical/serialized table entries and 3611335 XML coefficient cells. These are separately counted from document consistency predicates. This dated basic-use result does not establish formal SIM-M02 acceptance; no full regression or full-envelope dynamic coverage is claimed. Exact-model measurement calibration remains optional. Evidence: `build/architecture-reviews/sim-m02-delivery-20261031/`.
-<!-- SIM-M02 current generated verification end -->
+<!-- SIM-M02 historical generated verification end -->

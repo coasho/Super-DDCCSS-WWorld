@@ -7,6 +7,7 @@
 // and speed profiles, repeats and ends, progress point by point, UPDATE
 // mid-route, and the waypoint a rejection is about.
 #include "mode_flights.h"
+#include <optional>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -187,6 +188,7 @@ TEST_CASE("route: every class flies its legs, fly-by turns and a fly-over point,
     for (const Aircraft a : {Aircraft{"c172x", false, 1500.0, 55.0, 12.0, 50.0}, Aircraft{"b52h", false, 3000.0, 180.0, 12.0, 50.0},
                              Aircraft{"f16c", false, 3000.0, 160.0, 12.0, 50.0}, Aircraft{"uh60", true, 100.0, 20.0, 12.0, 15.0},
                              Aircraft{"iris", true, 100.0, 5.0, 5.0, 3.0}}) {
+        if (testscope::deferRotor(a.rotor, a.type)) continue;
         for (const double wind : {0.0, a.windMs}) {
             INFO(a.type << ", wind " << wind);
             session::World w(options("routes-classes"));
@@ -344,14 +346,22 @@ TEST_CASE("route: a route that repeats flies laps; one that ends continues, orbi
     loiter.end = static_cast<double>(EndBehavior::Loiter);
     const std::vector<Waypoint> out = {at(o.latitudeRad, o.longitudeRad, 0, 3000), at(o.latitudeRad, o.longitudeRad, 3000, 3000)};
     const ActivityId orbit = w.submit(orbiter, loiter, out).activity;
-    const auto hoverer = rotor(w, "iris", 15.0, 6), goer = rotor(w, "uh60", 15.0, 9);
-    const auto& h = *w.vehicleState(hoverer);
-    const std::vector<Waypoint> hop = {at(h.latitudeRad, h.longitudeRad, 0, 40), at(h.latitudeRad, h.longitudeRad, 40, 40)};
-    const ActivityId hover = w.submit(hoverer, loiter, hop).activity;
-    const auto& g = *w.vehicleState(goer);
-    const std::vector<Waypoint> dash = {at(g.latitudeRad, g.longitudeRad, 0, 500), at(g.latitudeRad, g.longitudeRad, 500, 500)};
-    const ActivityId go = w.submit(goer, RouteCommand{}, dash).activity;
-    REQUIRE((orbit != 0 && hover != 0 && go != 0));
+    std::vector<std::uint32_t> rotorIds;
+    std::vector<Waypoint> hop;
+    std::optional<ActivityId> hover, go;
+    if (!testscope::deferRotor()) {
+        rotorIds = {rotor(w, "iris", 15.0, 6), rotor(w, "uh60", 15.0, 9)};
+        const auto& h = *w.vehicleState(rotorIds[0]);
+        hop = {at(h.latitudeRad, h.longitudeRad, 0, 40), at(h.latitudeRad, h.longitudeRad, 40, 40)};
+        hover = w.submit(rotorIds[0], loiter, hop).activity;
+        const auto& g = *w.vehicleState(rotorIds[1]);
+        const std::vector<Waypoint> dash = {at(g.latitudeRad, g.longitudeRad, 0, 500), at(g.latitudeRad, g.longitudeRad, 500, 500)};
+        go = w.submit(rotorIds[1], RouteCommand{}, dash).activity;
+        REQUIRE((orbit != 0 && *hover != 0 && *go != 0));
+    } else {
+        w.step(stepsFor(w, 15.0)); w.step(stepsFor(w, 15.0));
+        REQUIRE(orbit != 0);
+    }
 
     std::uint32_t lastSegment = 0, wraps = 0;
     double orbitMin = 1e9, orbitMax = 0.0, done = -1.0;
@@ -371,9 +381,10 @@ TEST_CASE("route: a route that repeats flies laps; one that ends continues, orbi
         }
     }
     const double radius = w.performance(orbiter)->turnRadiusM(55.0);
-    std::printf("route ends: %u laps (%u wraps); orbit %.0f to %.0f m (R %.0f); iris %.2f m from its point at %.2f m/s; uh60 on at %.1f deg, %.1f m/s\n",
-                w.activity(laps)->progress.laps, wraps, orbitMin, orbitMax, radius, distance(*w.vehicleState(hoverer), hop[1]),
-                groundSpeed(*w.vehicleState(hoverer)), track(*w.vehicleState(goer)) / kDeg, groundSpeed(*w.vehicleState(goer)));
+    if (hover) std::printf("route ends: %u laps (%u wraps); orbit %.0f to %.0f m (R %.0f); iris %.2f m from its point at %.2f m/s; uh60 on at %.1f deg, %.1f m/s\n",
+                w.activity(laps)->progress.laps, wraps, orbitMin, orbitMax, radius, distance(*w.vehicleState(rotorIds[0]), hop[1]),
+                groundSpeed(*w.vehicleState(rotorIds[0])), track(*w.vehicleState(rotorIds[1])) / kDeg, groundSpeed(*w.vehicleState(rotorIds[1])));
+    else std::printf("route ends: %u laps (%u wraps); orbit %.0f to %.0f m (R %.0f); rotor flight population deferred\n", w.activity(laps)->progress.laps, wraps, orbitMin, orbitMax, radius);
     CHECK(w.activity(laps)->progress.laps >= 2);
     CHECK(w.activity(laps)->progress.laps == wraps);
     CHECK(w.activity(orbit)->state == ActivityState::Completed); // at its last point, then on as its end says
@@ -381,12 +392,14 @@ TEST_CASE("route: a route that repeats flies laps; one that ends continues, orbi
     CHECK(orbitMin > 0.8 * radius);
     CHECK(orbitMax < 1.25 * radius);
     CHECK(std::abs(w.activity(orbit)->progress.crossTrackM) < 50.0); // off its last leg when it ended: not the orbit's radius
-    CHECK(w.activity(hover)->state == ActivityState::Completed);
-    CHECK(distance(*w.vehicleState(hoverer), hop[1]) < 2.0);
-    CHECK(groundSpeed(*w.vehicleState(hoverer)) < 0.3);
-    CHECK(w.activity(go)->state == ActivityState::Completed);
-    CHECK(std::abs(degreesApart(track(*w.vehicleState(goer)), 0.0)) < 3.0); // the last leg's course, north
-    CHECK(std::abs(groundSpeed(*w.vehicleState(goer)) - w.performance(goer)->cruiseTasMs) < 1.0); // at the speed it was given: its cruise
+    if (hover) {
+        CHECK(w.activity(*hover)->state == ActivityState::Completed);
+        CHECK(distance(*w.vehicleState(rotorIds[0]), hop[1]) < 2.0);
+        CHECK(groundSpeed(*w.vehicleState(rotorIds[0])) < 0.3);
+        CHECK(w.activity(*go)->state == ActivityState::Completed);
+        CHECK(std::abs(degreesApart(track(*w.vehicleState(rotorIds[1])), 0.0)) < 3.0); // the last leg's course, north
+        CHECK(std::abs(groundSpeed(*w.vehicleState(rotorIds[1])) - w.performance(rotorIds[1])->cruiseTasMs) < 1.0); // at the speed it was given: its cruise
+    }
 }
 
 TEST_CASE("route: progress point by point, an UPDATE mid-route flies the new route from where it is", "[modes]") {

@@ -3,6 +3,7 @@ MA_FlightControlModesPerformanceProfileType): the airspeeds against altitude, th
 excess power, descents, decelerations and burn, the attitudes, rates, turn and climb, at the vehicle's condition now."""
 import math
 import unittest
+from functional_scope import deferred_rotor
 
 import fsim
 from fsim import agra
@@ -48,6 +49,7 @@ class PerformanceProfileTest(unittest.TestCase):
         self.assertEqual(a["MaxOrientationLimits"][0]["OrientationLimits"]["Roll"], p.max_orientation[0].roll_rad)
         self.assertIsNone(a["MaxOrientationLimits"][0]["OrientationLimits"]["Yaw"])
 
+    @deferred_rotor
     def test_a_quadrotors_battery(self):
         w = make_world()
         v = w.create_vehicle("iris", "jsbsim:iris", latitude_deg=40.0, longitude_deg=0.0, altitude_msl_m=100.0, airspeed_ms=0.0)

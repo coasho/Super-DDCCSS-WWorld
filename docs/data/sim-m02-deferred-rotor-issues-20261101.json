@@ -1,0 +1,68 @@
+{
+  "schema": "fsim.sim-m02.deferred-physical-scenarios.v2",
+  "date": "2026-11-01",
+  "scope_id": "sim-m02-nonrotor-v1",
+  "priority": "lowest",
+  "authority": "Superseding explicit user clarification: all rotor functional issues are deferred; close31fixed-wing and53store functions first",
+  "functional_counts": {
+    "fixed-wing": 31,
+    "store": 53
+  },
+  "deferred_counts": {
+    "rotorcraft": 4
+  },
+  "deferred_not_passed": true,
+  "component_and_table_rules_unchanged": true,
+  "expected_excluded_per_preset": 28,
+  "excluded_tests": [
+    "rotorcraft: the manoeuvre suite, flown by the rotorcraft loops designed from each aircraft's hover",
+    "rotorcraft: two worlds fly the same commands to the same bits",
+    "rotorcraft: asked beyond its top speed and flown so, a multirotor's velocity loop holds its fastest at its tilt, and comes back asked less",
+    "rotorcraft: a quadrotor that strikes the ground comes to rest, whatever its attitude",
+    "rotorcraft: a quadrotor parked stays still, and dropped a little comes to rest without bouncing up again",
+    "rotorcraft: a Crazyflie commanded after it has fallen 124 m strikes the ground and flies on or lies there",
+    "rotorcraft: a helicopter let go from its hover, or dropped on its back or its side, stays whole on the ground",
+    "rotorcraft: a helicopter's rotor speed stops where its rotors' does, driven past it",
+    "rotorcraft: the stock AH-1S's engine starts in a reused slot as on a new model",
+    "rotorcraft: a helicopter whose blades strike the ground cuts its engine and its rotor stops",
+    "terrain: a rotorcraft's hsa below the ground is refused where it hovers, at once",
+    "navigation: a helicopter's fuel and a quadrotor's battery, each against its flight",
+    "recovery: a rotorcraft flies to a hover over the runway and lands straight down on its spot (RCV-04)",
+    "recovery: a rotorcraft in a wind within its limit lands into it on its spot; beyond it, it goes around to its approach point, and waved off again fails crosswind_limit, its hover held there; the wind dropped, it lands (RCV-02, 4.66)",
+    "recovery: a rotorcraft going around flies FA's own landing path's chained missed approach before its next approach (RCV-03, 4.66)",
+    "landing route: a rotorcraft flies its points and lands on its runway's spot, as its recovery does (4.59, 4.53)",
+    "launch: a rotorcraft lifts to its hover over where it stands, within a metre (LCH-04)",
+    "route states: a rotorcraft through its states; one in a frame placed where the frame is at its time",
+    "route loiters: a rotorcraft stops and hovers at a point inside its route for its time, then flies on; its route's last, a hover until canceled: completed as it arrives, it hovers on",
+    "route loiters: a route that ends in a hover stops as the hover pattern and a loiter point's hover do - its position loop's approach from where it would stop - and completes at its point",
+    "route loiters: a rotorcraft whose stop reaches back into the turn before its point slows on the turn and stops at the point, calm and in a tailwind - a route's end and a loiter point's hover alike, its nose on the last leg's course",
+    "hsa: a rotorcraft hovers facing a heading in wind, and holds a course by ground speed or airspeed",
+    "a rotorcraft's airspeed is held to its tables' top level speed at the altitude and weight: clamped, or refused under Reject",
+    "guidance: rotorcraft fly a route given no airspeed at their position loops' own speed",
+    "guidance: a rotorcraft's hold keeps its hover in wind",
+    "guidance: a rotorcraft flies an airspeed along its nose",
+    "performance profile: a rotorcraft's most airspeed at each altitude is what its commands are held to there",
+    "route branches: the operator's input - held until commanded, then taken as the point is next come to; a time window; a loiter point's as its loiter ends"
+  ],
+  "python_deferred_methods": [
+    "test_world.RotorcraftTest.test_quadrotor_through_the_capability_calls",
+    "test_launch.LaunchTest.test_a_rotorcraft_lifts_to_its_hover",
+    "test_navigation.NavigationTest.test_a_battery",
+    "test_performance_profile.PerformanceProfileTest.test_a_quadrotors_battery"
+  ],
+  "issues": [
+    {
+      "id": "SIM-M02-ROTOR-DEFER-01",
+      "problem": "Original62m/124m fall, impact-speed, rebound and settling acceptance remains deferred"
+    },
+    {
+      "id": "SIM-M02-ROTOR-DEFER-02",
+      "problem": "Helicopter high-speed dive/flare, rotor-speed window and high-advance-ratio response remains deferred"
+    },
+    {
+      "id": "SIM-M02-ROTOR-DEFER-03",
+      "problem": "All rotor flight-control fitness including hover/orbit/position/routes, raw actuator motion and waypoint approach is deferred"
+    }
+  ],
+  "boundary": "All88 engineering component/table checks remain. The28 rotor-only native flight cases and4 rotor-only Python methods are deferred, not passed. Mixed fixtures retain wing conditions, World clock advances, assertions and thresholds through the optional tests-only family scope. Generic API/lifecycle/layout/mathematical contracts may still include rotor types; initialization/warmup needed by mixed contract fixtures is preparation, not rotor flight acceptance. Default tests retain all-family behavior."
+}

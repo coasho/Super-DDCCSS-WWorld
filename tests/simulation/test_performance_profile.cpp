@@ -165,7 +165,7 @@ TEST_CASE("performance profile: its configuration - the flaps and the gear out, 
 
 TEST_CASE("performance profile: a rotorcraft's from the hover; a stock aircraft's from its Performance", "[performance-profile]") {
     session::World w(options("profile-others"));
-    SECTION("the UH-60A: from the hover, its fuel, its climb, its tilt's accelerations") {
+    if (!testscope::deferRotor()) SECTION("the UH-60A: from the hover, its fuel, its climb, its tilt's accelerations") {
         const auto id = rotor(w, "uh60");
         PerformanceProfile p;
         REQUIRE(w.performanceProfile(id, FlightMode::HsaCsa, p) == Reason::None);
@@ -180,7 +180,7 @@ TEST_CASE("performance profile: a rotorcraft's from the hover; a stock aircraft'
         CHECK(std::isnan(p.maxAltitudeMslM)); // (its ceiling far above the rows flown)
         CHECK(p.bestRangeAirspeed.front().value > 50.0);
     }
-    SECTION("the IRIS+: its battery's power, no climb") {
+    if (!testscope::deferRotor()) SECTION("the IRIS+: its battery's power, no climb") {
         const auto id = rotor(w, "iris");
         PerformanceProfile p;
         REQUIRE(w.performanceProfile(id, FlightMode::WaypointFollowing, p) == Reason::None);

@@ -24,6 +24,8 @@ import hashlib
 import math
 from functools import lru_cache
 from pathlib import Path
+import threading
+import copy
 
 import numpy as np
 
@@ -34,6 +36,12 @@ RACK = dict(length=0.9, width=0.25, depth=0.14)
 PYLON_THICK = 0.12
 EMBED = 0.06  # m: how far a pylon reaches into the skin above it (its top hidden inside)
 DEFAULT = {"rail": (3.66, 0.1778, 0.483), "ejector": (2.21, 0.273, 0.40)}  # m: an AIM-120C's, a Mk 82's (their cards; its fins assumed)
+_CONTROL_DESIGN_REPORTS = {}
+CONTROL_DESIGN_MODEL_SET = 'fsim.store-yaw-control-idealizations.v1'
+CONTROL_DESIGN_SOURCES = {
+    'attached': 'https://ntrs.nasa.gov/api/citations/19930091249/downloads/19930091249.pdf',
+    'nominal_separated': 'https://ntrs.nasa.gov/api/citations/19770023140/downloads/19770023140.pdf',
+}
 
 
 def _store_card(card_id):
@@ -81,6 +89,82 @@ def _yaw_gradient(store, position, mach, alpha_deg):
     return float((values[1]-values[0])/(2*h))
 
 
+def _attached_recovery_design_model(body):
+    """Control-design alternative; nominal aerodynamic integration is unchanged.
+
+    NACA TR184 pp15-17 distinguishes attached potential flow and real rear
+    recovery. NASA CR145251 pp18-19 supplies the nominal separation model.
+    Neither case is a measured or continuous real-load bound.
+    """
+    model=copy.copy(body)
+    model.parts=[dict(p,potential=np.ones_like(p['potential'])) for p in body.parts]
+    return model
+
+
+@lru_cache(maxsize=32)
+def _recovery_models(path, source_hash, calibration_hash, mach):
+    from .aero.model import AeroModel
+    aircraft,_=_store_model(path,source_hash,calibration_hash)
+    nominal=AeroModel(aircraft,mach=mach)
+    return nominal,_attached_recovery_design_model(nominal.bodies),threading.RLock()
+
+
+@lru_cache(maxsize=256)
+def _recovery_gradient(path, source_hash, calibration_hash, mach, alpha_deg):
+    from .aero.model import wind_axes,to_body
+    flow,attached,lock=_recovery_models(path,source_hash,calibration_hash,mach)
+    alpha=math.radians(alpha_deg);h=1.e-4;differences=[]
+    with lock:  # The lattice's wake selection and per-condition flow are mutable.
+        for beta in (-h,h):
+            result=flow.evaluate(alpha,beta,detail=True)
+            induced=result.get('detail',{}).get('body_induced')
+            xw,_,_=wind_axes(alpha,beta)
+            velocity=np.array([xw[0],-xw[1],xw[2]])
+            force,moment=flow.bodies.forces(velocity,np.zeros(3),flow.ref,induced)
+            other_force,other_moment=attached.forces(velocity,np.zeros(3),flow.ref,induced)
+            # Common forces use rho=1, |V|=1: q=1/2. Normalize by that
+            # dynamic pressure, as for the nominal shared-table prediction.
+            differences.append(np.r_[to_body(other_force-force),to_body(other_moment-moment)]/.5)
+    return tuple((differences[1]-differences[0])/(2*h))
+
+
+def _yaw_design_cases(store, position, mach, alpha_deg):
+    """Two declared control-design idealizations, not measured load bounds.
+
+    Keep the nominal shared-table prediction. Its alternative changes only
+    the body's potential-pressure recovery using the common force integrator;
+    fin loads, finite endpoints and the carrier-CG moment transfer remain.
+    NACA TR184 pp15-17 motivates this design uncertainty. NASA CR145251
+    pp18-19 describes the nominal separated-pressure idealization. Neither
+    establishes that all real shapes/conditions lie between these two cases.
+    """
+    nominal_gradient=_yaw_gradient(store,position,mach,alpha_deg)
+    from .aero.mach import MACH_SUB
+    path=Path(pipeline.repo_root())/'aircraft'/store['model'].removeprefix('jsbsim:')
+    source=path/(path.name+'.toml');calibration=path/'calibration.toml'
+    digest=lambda p:hashlib.sha256(p.read_bytes()).hexdigest() if p.is_file() else ''
+    source_hash,calibration_hash=digest(source),digest(calibration)
+    aircraft,_=_store_model(str(source),source_hash,calibration_hash)
+    origin=np.asarray(aircraft.spec['mass']['empty_cg'],float)
+    arm=np.asarray(position,float)+(aircraft.aero_point-origin)*np.array([-1.,1.,-1.])
+    # This pressure-recovery idealization is subsonic. Use the same upper
+    # PG boundary as the common Mach build; above it hold its correction as
+    # an explicitly estimated continuation. The nominal table keeps its full
+    # scheduled Mach response and unchanged fin loads.
+    recovery_mach=min(float(mach),float(MACH_SUB[-1]))
+    delta=np.asarray(_recovery_gradient(str(source),source_hash,calibration_hash,recovery_mach,float(alpha_deg)))
+    alternative=nominal_gradient+float(delta[5]+np.cross(arm,delta[:3])[2])
+    if not all(math.isfinite(v) for v in (nominal_gradient,alternative)):
+        raise ValueError('Nonfinite store control-design idealization')
+    root=Path(pipeline.repo_root())
+    versions={str(source.relative_to(root)):source_hash}
+    if calibration.is_file():versions[str(calibration.relative_to(root))]=calibration_hash
+    return dict(derivatives=dict(nominal_shared=nominal_gradient,attached_recovery_design=alternative),
+        recovery_mach=recovery_mach,recovery_mach_hold=float(mach)>recovery_mach,
+        recovery_mach_domain=[0.,float(MACH_SUB[-1])],source_sha256=versions,
+        frozen_contributions='Nominal shared-table fin loads; identical geometry/endpoints/CG transfer; PG induced velocity at recovery_mach held in the recovery comparison')
+
+
 @lru_cache(maxsize=64)
 def _empty_cg(aircraft):
     from .mass import MassModel
@@ -88,15 +172,28 @@ def _empty_cg(aircraft):
 
 
 def directional_load(aircraft, mach=.3, alpha_deg=0., cg=None):
+    """Control-sizing penalty across loadouts and two declared flow ideals.
+
+    This is not the nominal native force or a certified real-load envelope.
+    See directional_load_cases for both predictions and their provenance.
+    """
+    return directional_load_cases(aircraft,mach,alpha_deg,cg)['selected_station_sum_m3_per_rad']
+
+
+def directional_load_cases(aircraft, mach=.3, alpha_deg=0., cg=None):
     """What the stores an aircraft's loadouts hang on it take from its weathercock stability, at the most: its yawing
     moment per unit of dynamic pressure and of sideslip (m^3; negative: the nose turned away from the wind), the sum
     over its stations of the worst store its loadouts put on each. Differentiate the common neutral aircraft
     tables at the scheduled Mach/alpha, including the store's moment and its force arm to the carrier CG.
     Internal bays/holds are shielded, as in the native binding. A store that steadies it is not counted: it may not be
     carried. 0 without stations or loadouts. Divided by the wing's area and span, the change of Cn_beta."""
+    report=dict(method=CONTROL_DESIGN_MODEL_SET,basis='estimated',sources=CONTROL_DESIGN_SOURCES,
+        conditions=dict(mach=float(mach),alpha_deg=float(alpha_deg),carrier_cg_m=None if cg is None else list(map(float,cg))),
+        assumptions='Control sizing against nominal shared tables and attached-pressure recovery; not a continuous separation or measured real-load bound',
+        rows=[],station_selections=[],selected_station_sum_m3_per_rad=0.)
     fit = os.path.join(aircraft.dir, "payloads.json")
     if not os.path.isfile(fit):
-        return 0.0
+        return report
     with open(fit, encoding="utf-8") as f:
         fit = json.load(f)
     card = None
@@ -108,12 +205,12 @@ def directional_load(aircraft, mach=.3, alpha_deg=0., cg=None):
             if c.get("family") == "store_station" and "stations" in c:
                 card = c
     if card is None:
-        return 0.0
+        return report
     places = {s["number"]: s for s in card["stations"]}
     shift=np.zeros(3)
     if cg is not None:
         shift=(np.asarray(cg,float)-_empty_cg(aircraft))*np.array([-1.,1.,-1.])
-    worst = {}
+    worst = {};winning={}
     derivatives={}
     for lo in fit.get("loadouts", []):
         for e in lo.get("stations", []):
@@ -125,10 +222,21 @@ def directional_load(aircraft, mach=.3, alpha_deg=0., cg=None):
                 continue
             key=(st['number'],store['id'])
             if key not in derivatives:
-                derivatives[key]=_yaw_gradient(store,np.asarray(st['position_m'],float)-shift,mach,alpha_deg)
+                evidence=_yaw_design_cases(store,np.asarray(st['position_m'],float)-shift,mach,alpha_deg)
+                cases=evidence.pop('derivatives')
+                selected=min(cases,key=cases.get)
+                derivatives[key]=cases[selected]
+                report['rows'].append(dict(station=st['number'],store=store['id'],derivatives_m3_per_rad=cases,selected_case=selected,**evidence))
             moment=derivatives[key]
-            worst[st["number"]] = min(worst.get(st["number"], 0.0), moment * int(e.get("count", 1)))
-    return float(sum(worst.values()))
+            count=int(e.get('count',1));penalty=moment*count;station=st['number']
+            if station not in worst or penalty<worst[station]:
+                worst[station]=min(0.,penalty)
+                winning[station]=dict(station=station,store=store['id'],count=count,
+                    per_unit_m3_per_rad=moment,selected_penalty_m3_per_rad=worst[station])
+    report['selected_station_sum_m3_per_rad']=float(sum(worst.values()))
+    report['station_selections']=[winning[k] for k in sorted(winning)]
+    _CONTROL_DESIGN_REPORTS[(aircraft.name,float(mach),float(alpha_deg),tuple(map(float,cg)) if cg is not None else None)]=report
+    return report
 
 
 def _size(card):

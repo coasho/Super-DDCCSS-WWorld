@@ -1,0 +1,504 @@
+{
+  "schema": "fsim.sim-m02.final-closure.v1",
+  "date": "2026-11-01",
+  "base_head": "fe832c07359a2727dc4722502cd1660194332070",
+  "milestone": "SIM-M02",
+  "closed": true,
+  "scope": {
+    "engineering_designs": 88,
+    "fixed_wing_functional_designs": 31,
+    "store_functional_designs": 53,
+    "aam_subset": 24,
+    "deferred_rotor_designs": 4,
+    "authority": "Explicit user deferral of all rotor functional issues at lowestpriority; originalnonrotor scenes/limits retained except expressly approved qbar observation and signed-increment predicate corrections"
+  },
+  "engineering_labels": {
+    "engineering-complete-uncalibrated": 88
+  },
+  "blocked_designs": [],
+  "measurement_calibration": "Optional separate ledger; uncalibrated is accepted engineering completion, not measured hardware fidelity",
+  "full_table_counts": {
+    "serialized_bundle_numeric_values": 4709354,
+    "mandatory_generation_predicates": 17892,
+    "logical_numeric_table_values": 4419019,
+    "native_xml_coefficient_cells": 3611335,
+    "native_xml_axis_knots": 522331,
+    "runtime_json_numeric_values": 7894752,
+    "carriage_serialized_table_values": 868903,
+    "designs": 88,
+    "native_xml_tables": 7067,
+    "table_inventory_entries": 16776,
+    "unique_production_products": 439,
+    "consistency_predicates": 1165,
+    "native_dynamic_samples": 0,
+    "test_executions": 10,
+    "cfd_tables": 0,
+    "basic_native_designs": 84,
+    "basic_installed_designs": 84,
+    "basic_flight_observations": 2016,
+    "basic_released_store_bodies": 106
+  },
+  "basic_counts": {
+    "designs": 84,
+    "native_consumers": 84,
+    "installed_consumers": 84,
+    "short_flight_samples": 2016,
+    "released_store_bodies": 106,
+    "envelope_sampling_conditions": 0
+  },
+  "basic_components": {
+    "executed": 10,
+    "failed": 0,
+    "skipped": 0,
+    "junit": "D:\\ENV\\tmp\\sim-m02-close-20261101\\source-v2\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\basic\\basic-native.junit.xml",
+    "exit_code": 0
+  },
+  "headless": {
+    "unique_cases": 840,
+    "full_executions": 840,
+    "full_failed_cases_preserved": 2,
+    "approved_recheck_executions": 2,
+    "recheck_unittest_methods": 79,
+    "coverage": "Complete fullrun plus exact approved rechecks; not a first-pass zero-failure run",
+    "evidence": "headless-approved-rechecks/coverage.json"
+  },
+  "release": {
+    "discovered": 942,
+    "selected": 914,
+    "executed": 914,
+    "failed": [],
+    "elapsed_seconds": 3453.1279244000034,
+    "nested_methods": {
+      "unittest_methods": 1231,
+      "user_deferred_methods": [
+        "test_launch.LaunchTest.test_a_rotorcraft_lifts_to_its_hover",
+        "test_navigation.NavigationTest.test_a_battery",
+        "test_performance_profile.PerformanceProfileTest.test_a_quadrotors_battery",
+        "test_world.RotorcraftTest.test_quadrotor_through_the_capability_calls"
+      ],
+      "platform_optional_skips": [],
+      "source_export_bridged_methods": [
+        "tests.test_bootstrap_snapshot.SourceCheckout.test_git_checkout_preserves_byte_bound_products_and_the_real_index"
+      ],
+      "unexpected_skips": []
+    },
+    "evidence": "release-final/regression.json"
+  },
+  "independent_aam": {
+    "designs": 24,
+    "passed": 24,
+    "elapsed_seconds": 14.659825100003218,
+    "tolerance": 1e-08,
+    "evidence": "aam-independent/observation.json"
+  },
+  "independent_powered_reference": {
+    "cases": 48,
+    "native_resolution_runs": 96,
+    "passed": 48,
+    "scope": "axial unguided flight under declared game inputs; lateral/control behavior excluded",
+    "equipment_validation": "pending",
+    "evidence": "powered-independent-final.json"
+  },
+  "normal_entry": {
+    "normal-clean": {
+      "entry": {
+        "schema": "fsim.sim-m02.normal-nonrotor-entry.v1",
+        "source_root": "D:\\ENV\\tmp\\sim-m02-close-20261101\\source-v2",
+        "entry": "run.ps1",
+        "viewer_arguments": [
+          "--world",
+          "AAM aim120c head-on",
+          "--fullscreen",
+          "--width",
+          "3840",
+          "--height",
+          "2160",
+          "--tile-cache",
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\maps",
+          "--offline",
+          "--camera",
+          "chase",
+          "--chase-distance",
+          "35",
+          "--imagery",
+          "satellite",
+          "--elevation",
+          "terrarium",
+          "--clouds",
+          "scattered",
+          "--sun-utc",
+          "20",
+          "--screenshot",
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-clean\\fullscreen.png",
+          "--screenshot-after",
+          "15",
+          "--screenshot-frames",
+          "5",
+          "--screenshot-every",
+          "8.5",
+          "--stats",
+          "55.0",
+          "--trace",
+          "2"
+        ],
+        "publisher_arguments": [
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-entry.py",
+          "publisher"
+        ],
+        "scene_sha256": "d3da892a730767c93c9dc5e341091191335b5f83f5352089ace7636195fe1603",
+        "real_time_factor": 1,
+        "resolution": [
+          3840,
+          2160
+        ],
+        "native_outcome_preserved": true,
+        "publisher_exit_code": 0,
+        "viewer_exit_code": 0,
+        "images": [
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-clean\\fullscreen_000.png",
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-clean\\fullscreen_001.png",
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-clean\\fullscreen_002.png",
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-clean\\fullscreen_003.png",
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-clean\\fullscreen_004.png"
+        ],
+        "passed": true,
+        "elapsed_seconds": 52.185221500003536
+      },
+      "presentation": {
+        "schema": "fsim.sim-m02.normal-presentation-review.v1",
+        "passed": true,
+        "review": "Rendered captures inspected; not an options-only check",
+        "resolution": [
+          3840,
+          2160
+        ],
+        "fullscreen": true,
+        "real_time_factor": 1,
+        "observed": [
+          "native F16C scene populated",
+          "cloud volume and shaded ground backdrop",
+          "sun-lit and shaded aircraft surfaces",
+          "native released AAM geometry and engine exhaust",
+          "native target damage/upset after the preserved contact outcome"
+        ],
+        "configured_and_preserved": [
+          "Earth satellite imagery",
+          "terrain elevation",
+          "scattered clouds",
+          "sunlight",
+          "aircraft shadows",
+          "engine exhaust",
+          "condensation/contrails",
+          "native explosion/fire/smoke effects"
+        ],
+        "limits": [
+          "Captures do not establish every effect is triggered or every design is visually accepted",
+          "A brief contact flash can fall between periodic captures; native contact/damage events retained",
+          "Terrain resolution is limited to the available external offline tile cache"
+        ],
+        "native_events": [
+          {
+            "kind": "launch",
+            "time_s": 13.033333333333298,
+            "reason": ""
+          },
+          {
+            "kind": "activation",
+            "time_s": 13.033333333333298,
+            "reason": ""
+          },
+          {
+            "kind": "acquisition",
+            "time_s": 13.033333333333298,
+            "reason": ""
+          },
+          {
+            "kind": "detonation",
+            "time_s": 17.600000000000033,
+            "reason": "contact"
+          },
+          {
+            "kind": "damage",
+            "time_s": 17.600000000000033,
+            "reason": "warhead"
+          }
+        ],
+        "recorded_frames": 1200,
+        "scene_duration_s": 40,
+        "outcome_altered": false,
+        "evidence": [
+          {
+            "path": "build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-clean\\fullscreen_000.png",
+            "sha256": "0c9525bb2d02775738f0b58cd1db4e11897ccceda181743b74f43f896a67dbb9"
+          },
+          {
+            "path": "build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-clean\\fullscreen_001.png",
+            "sha256": "96df40f2568297e948ecd8c0481c37972fcf23cd1db4668ff4f04a04b8ba033b"
+          },
+          {
+            "path": "build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-clean\\fullscreen_002.png",
+            "sha256": "fe4d9274a709c1160a8cd3ea9db0fa8ab55c127e2a6a731f06bcaa990e2d8629"
+          },
+          {
+            "path": "build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-clean\\fullscreen_003.png",
+            "sha256": "cbf934ed655ddf1a4b94685941ccc19b2ea0e8439694e43029adb200d0094adb"
+          },
+          {
+            "path": "build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-clean\\fullscreen_004.png",
+            "sha256": "d9db4a9e1f9c16c4edda89230b394a0f6e299481444ac5138e4fe52a20e66e16"
+          }
+        ]
+      },
+      "loaded_modules": {
+        "command": [
+          "D:\\ENV\\tmp\\sim-m02-close-20261101\\source-v2\\build\\ucrt64-release\\bin\\flightsim-showcase.exe",
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-clean\\scene.json",
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-clean\\native.fsrec",
+          "--live"
+        ],
+        "libraries": {
+          "libJSBSim.dll": {
+            "path": "D:\\ENV\\tmp\\sim-m02-close-20261101\\source-v2\\build\\ucrt64-release\\bin\\libJSBSim.dll",
+            "sha256": "a5f348c6a8f087298e01ddbb280ca77b8a2f8fb700ff8f4ad2a5cf0f7f180493"
+          }
+        },
+        "aircraft_search_path": "D:\\ENV\\tmp\\sim-m02-close-20261101\\source-v2\\aircraft",
+        "native_wall_seconds": 40.048675700003514,
+        "declared_live_seconds": 40.0,
+        "exit_code": 0,
+        "static_consumer": {
+          "path": "D:\\ENV\\tmp\\sim-m02-close-20261101\\source-v2\\build\\ucrt64-release\\bin\\flightsim-showcase.exe",
+          "sha256": "bccd4292e11b702e9d3ae157b12a7de57c3ac3c8922577c05a1f6cdceef1a7e4",
+          "core_linkage": "static fsim::core, rebuilt from current source; not libfsim.dll"
+        }
+      }
+    },
+    "normal-root": {
+      "entry": {
+        "schema": "fsim.sim-m02.normal-nonrotor-entry.v1",
+        "source_root": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld",
+        "entry": "run.ps1",
+        "viewer_arguments": [
+          "--world",
+          "AAM aim120c head-on",
+          "--fullscreen",
+          "--width",
+          "3840",
+          "--height",
+          "2160",
+          "--tile-cache",
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\maps",
+          "--offline",
+          "--camera",
+          "chase",
+          "--chase-distance",
+          "35",
+          "--imagery",
+          "satellite",
+          "--elevation",
+          "terrarium",
+          "--clouds",
+          "scattered",
+          "--sun-utc",
+          "20",
+          "--screenshot",
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-root\\fullscreen.png",
+          "--screenshot-after",
+          "15",
+          "--screenshot-frames",
+          "5",
+          "--screenshot-every",
+          "8.5",
+          "--stats",
+          "55.0",
+          "--trace",
+          "2"
+        ],
+        "publisher_arguments": [
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-entry.py",
+          "publisher"
+        ],
+        "scene_sha256": "d3da892a730767c93c9dc5e341091191335b5f83f5352089ace7636195fe1603",
+        "real_time_factor": 1,
+        "resolution": [
+          3840,
+          2160
+        ],
+        "native_outcome_preserved": true,
+        "publisher_exit_code": 0,
+        "viewer_exit_code": 0,
+        "images": [
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-root\\fullscreen_000.png",
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-root\\fullscreen_001.png",
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-root\\fullscreen_002.png",
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-root\\fullscreen_003.png",
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-root\\fullscreen_004.png"
+        ],
+        "passed": true,
+        "elapsed_seconds": 52.26723430000129
+      },
+      "presentation": {
+        "schema": "fsim.sim-m02.normal-presentation-review.v1",
+        "passed": true,
+        "review": "Rendered captures inspected; not an options-only check",
+        "resolution": [
+          3840,
+          2160
+        ],
+        "fullscreen": true,
+        "real_time_factor": 1,
+        "observed": [
+          "native F16C scene populated",
+          "cloud volume and shaded ground backdrop",
+          "sun-lit and shaded aircraft surfaces",
+          "native released AAM geometry and engine exhaust",
+          "native target damage/upset after the preserved contact outcome"
+        ],
+        "configured_and_preserved": [
+          "Earth satellite imagery",
+          "terrain elevation",
+          "scattered clouds",
+          "sunlight",
+          "aircraft shadows",
+          "engine exhaust",
+          "condensation/contrails",
+          "native explosion/fire/smoke effects"
+        ],
+        "limits": [
+          "Captures do not establish every effect is triggered or every design is visually accepted",
+          "A brief contact flash can fall between periodic captures; native contact/damage events retained",
+          "Terrain resolution is limited to the available external offline tile cache"
+        ],
+        "native_events": [
+          {
+            "kind": "launch",
+            "time_s": 13.033333333333298,
+            "reason": ""
+          },
+          {
+            "kind": "activation",
+            "time_s": 13.033333333333298,
+            "reason": ""
+          },
+          {
+            "kind": "acquisition",
+            "time_s": 13.033333333333298,
+            "reason": ""
+          },
+          {
+            "kind": "detonation",
+            "time_s": 17.600000000000033,
+            "reason": "contact"
+          },
+          {
+            "kind": "damage",
+            "time_s": 17.600000000000033,
+            "reason": "warhead"
+          }
+        ],
+        "recorded_frames": 1200,
+        "scene_duration_s": 40,
+        "outcome_altered": false,
+        "evidence": [
+          {
+            "path": "build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-root\\fullscreen_000.png",
+            "sha256": "5e7ff362235e53374f413dd1fbb16f0f80880415966fdd41e8dec2dd3e45714d"
+          },
+          {
+            "path": "build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-root\\fullscreen_001.png",
+            "sha256": "b6dad6dee9495f61bd39928da5b80cd69e32c6fc189cad78c362ce1ef4dadf27"
+          },
+          {
+            "path": "build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-root\\fullscreen_002.png",
+            "sha256": "5ffa5f696722daadd004ec413278963eebf2f8ded7d08c8fe590fdae48d22fa1"
+          },
+          {
+            "path": "build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-root\\fullscreen_003.png",
+            "sha256": "743258e631fc9ec2f0e95102a6d453e1e7fdd734d14f22178fa3fbd90494a929"
+          },
+          {
+            "path": "build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-root\\fullscreen_004.png",
+            "sha256": "71eefb8fe047d517090934bc5345d1742a7cd75087e300c74bca15b879a699d6"
+          }
+        ]
+      },
+      "loaded_modules": {
+        "command": [
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-release\\bin\\flightsim-showcase.exe",
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-root\\scene.json",
+          "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\normal-root\\native.fsrec",
+          "--live"
+        ],
+        "libraries": {
+          "libJSBSim.dll": {
+            "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-release\\bin\\libJSBSim.dll",
+            "sha256": "a5f348c6a8f087298e01ddbb280ca77b8a2f8fb700ff8f4ad2a5cf0f7f180493"
+          }
+        },
+        "aircraft_search_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft",
+        "native_wall_seconds": 40.06816070000059,
+        "declared_live_seconds": 40.0,
+        "exit_code": 0,
+        "static_consumer": {
+          "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-release\\bin\\flightsim-showcase.exe",
+          "sha256": "dd048b2a7674c6a2ff3f9dfa2633acc35db7f8b85fc2846c7779f209695c91f2",
+          "core_linkage": "static fsim::core, rebuilt from current source; not libfsim.dll"
+        }
+      }
+    }
+  },
+  "normal_public_sdk": {
+    "passed": true,
+    "entry": "run.ps1 -Mode python -Preset ucrt64-release",
+    "libraries": {
+      "libfsim.dll": {
+        "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-release\\python\\fsim\\bin\\libfsim.dll",
+        "sha256": "638f2ff1016374ab94bb1bdd165e01ce23a7f103548fb8caf4ec6a26fb4bb7c3"
+      },
+      "libJSBSim.dll": {
+        "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-release\\python\\fsim\\bin\\libJSBSim.dll",
+        "sha256": "a5f348c6a8f087298e01ddbb280ca77b8a2f8fb700ff8f4ad2a5cf0f7f180493"
+      }
+    },
+    "python_sdk": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-release\\python\\fsim\\__init__.py",
+    "world_time_s": 0.1,
+    "vehicle_mass_kg": 12094.916658760594,
+    "altitude_msl_m": 5999.995425631187,
+    "diverged": 0,
+    "scope": "Current root public SDK native execution identity; not a replacement for full regression or envelope validation"
+  },
+  "normal_root_static_build": {
+    "exit_code": 0,
+    "elapsed_seconds": 4.1260404,
+    "target": "flightsim-showcase",
+    "purpose": "Rebuild root normal static native consumer from current source, preserving unrelated authored presentation changes"
+  },
+  "timing": "aggregate-tool-timing.json",
+  "sdk_archive": {
+    "schema": "fsim.sim-m02.complete-sdk-archive.v1",
+    "prefix": "D:\\ENV\\sim-m02-final-20261101",
+    "archive": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101\\sim-m02-sdk-runtime.zip",
+    "sha256": "d3a4c8809764f21a4a7e4fb124baf7c6236eda36e1aaea1fb41404f0797b05bd",
+    "bytes": 966115268,
+    "file_count": 2745,
+    "product_count": 439,
+    "native_dll_sha256": "638f2ff1016374ab94bb1bdd165e01ce23a7f103548fb8caf4ec6a26fb4bb7c3",
+    "elapsed_seconds": 61.74742349999724,
+    "scope": "Complete CMake installed SDK/components with regenerated products. Existing Earth/terrain tile cache is an external project data dependency, not an aerodynamic asset or an included copy of user caches."
+  },
+  "component_applicability": "Required+unavailable is failed/blocked; no implementation-driven not_applicable or inert-release waiver",
+  "consistency": "Internal applicability/check/status predicates are not physical tests; see consistency-predicates.json",
+  "limitations": [
+    "All4rotor flight-control/position/route/hover/orbit/RPM/fall functions are expressly deferred, not passed",
+    "Engineering continuation and two control-design flow idealizations do not establish equipment accuracy or universal physical uncertainty bounds",
+    "No CFD used; no new measured per-design data claimed",
+    "Full-table checks are exhaustive for serialized tables; native short flights and pressure/axial comparisons are explicitly sampling/method behavior checks"
+  ],
+  "evidence_root": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m02-final-closure-20261101",
+  "patch": "sim-m02-final.patch",
+  "patch_replay": "patch-manifest.json",
+  "independent_source_review": "independent-source-review.json",
+  "independent_functional_review": "independent-functional-review-final.json",
+  "publication": "publication.json",
+  "hash_cycle_policy": "Patch includes this tracked receipt; patch/evidence archive/publication hashes are provided only in external sidecars"
+}

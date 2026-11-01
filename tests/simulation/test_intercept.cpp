@@ -103,6 +103,7 @@ TEST_CASE("intercept: each method joins where it should, and flies the plan from
                              {"uh60", true, 600.0, 300.0, 15.0, 10.0},
                              {"iris", true, 150.0, 60.0, 5.0, 3.0}};
     for (const Class& k : classes) {
+        if (testscope::deferRotor(k.rotor, k.type)) continue;
         for (int m = -1; m < static_cast<int>(InterceptMethod::Count); ++m) {
             INFO(k.type << ", method " << m);
             session::World w(options("intercept-methods"));

@@ -2,6 +2,7 @@
 // turn point to the point after it - ARINC 424's radius to fix - flown by a wing and a rotorcraft; a capture's course; a
 // fly-by's radius given, and one too tight clamped or refused; and what does not make a turn point refused, naming it.
 #include "mode_flights.h"
+#include <optional>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -36,7 +37,9 @@ void apart(double lat0, double lon0, double lat, double lon, double& north, doub
 TEST_CASE("turn points: an arc from a start turn point to an end turn point, flown by a wing and a rotorcraft; its geometry read back",
           "[modes]") {
     session::World w(options("turn-points-arcs"));
-    const auto quad = rotor(w, "iris", 15.0, 6);
+    std::optional<std::uint32_t> quad;
+    if (!testscope::deferRotor()) quad = rotor(w, "iris", 15.0, 6);
+    else w.step(stepsFor(w, 15.0));
     const auto v = wing(w, "c172x", 1500.0, 55.0); // (east)
     w.step(stepsFor(w, 1.0));
     // east 3 km, then a quarter circle of 1,200 m round to the right - south - and on south 3 km
@@ -54,14 +57,19 @@ TEST_CASE("turn points: an arc from a start turn point to an end turn point, flo
     CHECK(sp.waypoints[0].turnRadiusM == r);
     CHECK(sp.waypoints[1].courseRad == kPi);
     // a rotorcraft's: north 40 m, a half-circle-less quarter of 30 m round to the left, on west
-    const auto& q0 = *w.vehicleState(quad);
-    const double qlat = q0.latitudeRad, qlon = q0.longitudeRad, qr = 30.0;
-    Waypoint a0 = at(qlat, qlon, 40.0, 0.0), a1 = at(qlat, qlon, 40.0 + qr, -qr), a2 = at(qlat, qlon, 40.0 + qr, -qr - 40.0);
-    a0.turn = code(TurnType::StartTurn), a0.turnRadiusM = qr;
-    a1.turn = code(TurnType::EndTurn);
-    const CommandResult qc = w.submit(quad, RouteCommand{}, std::vector<Waypoint>{a0, a1, a2});
-    INFO(reasonName(qc.reason) << " at " << qc.index);
-    REQUIRE(qc.accepted());
+    std::optional<CommandResult> qc;
+    double qlat = kHold, qlon = kHold;
+    const double qr = 30.0;
+    if (quad) {
+        const auto& q0 = *w.vehicleState(*quad);
+        qlat = q0.latitudeRad; qlon = q0.longitudeRad;
+        Waypoint a0 = at(qlat, qlon, 40.0, 0.0), a1 = at(qlat, qlon, 40.0 + qr, -qr), a2 = at(qlat, qlon, 40.0 + qr, -qr - 40.0);
+        a0.turn = code(TurnType::StartTurn), a0.turnRadiusM = qr;
+        a1.turn = code(TurnType::EndTurn);
+        qc = w.submit(*quad, RouteCommand{}, std::vector<Waypoint>{a0, a1, a2});
+        INFO(reasonName(qc->reason) << " at " << qc->index);
+        REQUIRE(qc->accepted());
+    }
     // off the arc while its segment is flown, in its middle (its centre 1,200 m south of its start)
     double arcOff = 0.0, qOff = 0.0, arcFirst = 1e18, arcLast = -1e18;
     int arcSamples = 0, qSamples = 0;
@@ -75,22 +83,25 @@ TEST_CASE("turn points: an arc from a start turn point to an end turn point, flo
             arcFirst = std::min(arcFirst, g.segmentPercent), arcLast = std::max(arcLast, g.segmentPercent);
             ++arcSamples;
         }
-        const ActivityProgress& h = w.activity(qc.activity)->progress;
-        if (w.activity(qc.activity)->live() && h.segment == 1 && h.segmentPercent > 15.0 && h.segmentPercent < 85.0) {
-            double n, e;
-            apart(qlat, qlon, w.vehicleState(quad)->latitudeRad, w.vehicleState(quad)->longitudeRad, n, e);
-            qOff = std::max(qOff, std::abs(std::hypot(n - 40.0, e + qr) - qr));
-            ++qSamples;
+        if (qc) {
+            const ActivityProgress& h = w.activity(qc->activity)->progress;
+            if (w.activity(qc->activity)->live() && h.segment == 1 && h.segmentPercent > 15.0 && h.segmentPercent < 85.0) {
+                double n, e;
+                apart(qlat, qlon, w.vehicleState(*quad)->latitudeRad, w.vehicleState(*quad)->longitudeRad, n, e);
+                qOff = std::max(qOff, std::abs(std::hypot(n - 40.0, e + qr) - qr));
+                ++qSamples;
+            }
         }
     }
-    std::printf("turn points, arcs: a C172x %.1f m off its 1,200 m arc (%d samples), an IRIS %.2f m off its 30 m one (%d); both %s, %s\n", arcOff,
-                arcSamples, qOff, qSamples, activityStateName(w.activity(c.activity)->state), activityStateName(w.activity(qc.activity)->state));
+    if (qc) std::printf("turn points, arcs: a C172x %.1f m off its 1,200 m arc (%d samples), an IRIS %.2f m off its 30 m one (%d); both %s, %s\n", arcOff,
+                arcSamples, qOff, qSamples, activityStateName(w.activity(c.activity)->state), activityStateName(w.activity(qc->activity)->state));
+    else std::printf("turn points: wing off %.1f, %d samples, %s; rotor flight population deferred\n", arcOff, arcSamples, activityStateName(w.activity(c.activity)->state));
     CHECK(arcSamples > 100);
-    CHECK(qSamples > 20);
+    if (qc) CHECK(qSamples > 20);
     CHECK(arcOff < 15.0);
-    CHECK(qOff < 0.5);
+    if (qc) CHECK(qOff < 0.5);
     CHECK(w.activity(c.activity)->state == ActivityState::Completed);
-    CHECK(w.activity(qc.activity)->state == ActivityState::Completed);
+    if (qc) CHECK(w.activity(qc->activity)->state == ActivityState::Completed);
 }
 
 TEST_CASE("turn points: a capture's course flown; a fly-by's radius given, one too tight clamped or refused", "[modes]") {

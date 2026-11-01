@@ -4,6 +4,7 @@
 #include "simulation/flight_control/Route.h"
 #include "fsim/GuidanceModes.h"
 #include "mode_flights.h"
+#include <optional>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -101,16 +102,21 @@ TEST_CASE("route arrivals: a rotorcraft slowed over the ground; a window between
           "in turn",
           "[modes]") {
     session::World w(options("route-arrivals-between"));
-    const auto quad = rotor(w, "iris", 15.0, 6);
+    std::optional<std::uint32_t> quad;
+    if (!testscope::deferRotor()) quad = rotor(w, "iris", 15.0, 6);
+    else w.step(stepsFor(w, 15.0));
     const auto v = wing(w, "c172", 1500.0, 55.0);
     const double t0 = w.simTime();
     // an IRIS north 300 m at 5 m/s over the ground (some 60 s): its window at 90-100 s
-    const auto& q0 = *w.vehicleState(quad);
-    Waypoint q = at(q0.latitudeRad, q0.longitudeRad, 300.0, 0.0);
-    q.speed = 5.0, q.speedReference = static_cast<double>(SpeedReference::GroundSpeed);
-    q.arrivalBeginS = t0 + 90.0, q.arrivalEndS = t0 + 100.0;
-    const CommandResult rq = w.submit(quad, RouteCommand{}, std::vector<Waypoint>{q});
-    REQUIRE(rq.accepted());
+    std::optional<CommandResult> rq;
+    if (quad) {
+        const auto& q0 = *w.vehicleState(*quad);
+        Waypoint q = at(q0.latitudeRad, q0.longitudeRad, 300.0, 0.0);
+        q.speed = 5.0, q.speedReference = static_cast<double>(SpeedReference::GroundSpeed);
+        q.arrivalBeginS = t0 + 90.0, q.arrivalEndS = t0 + 100.0;
+        rq = w.submit(*quad, RouteCommand{}, std::vector<Waypoint>{q});
+        REQUIRE(rq->accepted());
+    }
     // a C172 east: 3 km; 5 km on to a point at 200-205 s (slowed); 5 km on at its own speed, and 5 km on to 370-400 s (as
     // planned from there, it arrives in it)
     const auto& s0 = *w.vehicleState(v);
@@ -130,12 +136,13 @@ TEST_CASE("route arrivals: a rotorcraft slowed over the ground; a window between
         if (rr.live() && rr.progress.segment != last) reached[last] = t, last = rr.progress.segment;
         if (!rr.live() && isHold(reached[3])) reached[3] = t;
         if (rr.live() && rr.progress.segment == 2 && rr.progress.segmentPercent > 40.0 && isHold(ownSpeed)) ownSpeed = rr.progress.speedMs;
-        if (isHold(quadArrived) && !w.activity(rq.activity)->live()) quadArrived = t;
+        if (rq && isHold(quadArrived) && !w.activity(rq->activity)->live()) quadArrived = t;
     }
-    std::printf("route arrivals: an IRIS's window 90-100 s arrived at %.1f s (aimed 92.5); a C172's 200-205 s at %.1f s (aimed 201.25), then at %.1f m/s "
+    if (rq) std::printf("route arrivals: an IRIS's window 90-100 s arrived at %.1f s (aimed 92.5); a C172's 200-205 s at %.1f s (aimed 201.25), then at %.1f m/s "
                 "its own, and 370-400 s at %.1f s\n",
                 quadArrived, reached[1], ownSpeed, reached[3]);
-    CHECK(std::abs(quadArrived - 92.5) < 2.0);
+    else std::printf("route arrivals: wing reached %.1f/%.1f, speed %.1f; rotor flight population deferred\n", reached[1], reached[3], ownSpeed);
+    if (rq) CHECK(std::abs(quadArrived - 92.5) < 2.0);
     CHECK(std::abs(reached[1] - 201.25) < 2.0);
     CHECK(std::abs(ownSpeed - 55.0) < 1e-9); // (the point after its window: as planned)
     CHECK((reached[3] > 370.0 && reached[3] < 400.0));
