@@ -173,20 +173,31 @@ track::TrackerSettings Radar::trackerSettings() const {
 }
 
 AmtiTrack Radar::report(const track::Track& tr, double now, const sim::VehicleState& own) const {
+    const track::Gaussian g = [&] {
+        if (tr.imm) {auto bank=*tr.imm;bank.predictTo(std::max(now,tr.state().t));return bank.state();}
+        return track::predict(tr.state(),std::max(now,tr.state().t),tracker_.settings().motion);
+    }();
+    return reportAt(tr,g,own);
+}
+
+std::optional<AmtiTrack> Radar::measurementReport(const track::Track& tr, const sim::VehicleState& own) const {
+    for(auto it=tr.points.rbegin();it!=tr.points.rend();++it)
+        if(it->update)return reportAt(tr,it->g,own);
+    return std::nullopt; // no retained measured posterior: never relabel a prediction
+}
+
+AmtiTrack Radar::reportAt(const track::Track& tr, const track::Gaussian& g, const sim::VehicleState& own) const {
     AmtiTrack out;
     out.id = tr.id;
-    out.timeS = now;
+    out.timeS = g.t;
     out.updates = tr.updates;
+    out.lastUpdateS = tr.lastUpdateT; // retained even when bounded history contains predictions only
     for (auto it = tr.points.rbegin(); it != tr.points.rend(); ++it)
         if (it->update) {
             out.lastUpdateS = it->g.t;
             out.truth = it->truth;
             break;
         }
-    const track::Gaussian g = [&] {
-        if (tr.imm) {auto bank=*tr.imm;bank.predictTo(std::max(now,tr.state().t));return bank.state();}
-        return track::predict(tr.state(),std::max(now,tr.state().t),tracker_.settings().motion);
-    }();
     for (std::size_t i = 0; i < 6; ++i) out.stateEcef[i] = g.x.a[i];
     for (std::size_t i = 0; i < 36; ++i) out.covarianceEcef[i] = g.p.a[i];
     const double p[3] = {g.x.a[0], g.x.a[2], g.x.a[4]}, v[3] = {g.x.a[1], g.x.a[3], g.x.a[5]};

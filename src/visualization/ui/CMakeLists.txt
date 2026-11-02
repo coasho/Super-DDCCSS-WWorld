@@ -12,6 +12,7 @@ add_library(fsim_ui STATIC
     MissionGui.h
     MissionGui.cpp)
 add_library(fsim::ui ALIAS fsim_ui)
+target_sources(fsim_ui PRIVATE FusionGui.h FusionGui.cpp)
 
 fsim_include_view(fsim_ui)
 target_link_libraries(fsim_ui PUBLIC fsim::render fsim::world fsim::ipc fsim::core vsg::vsg vsgImGui::vsgImGui)

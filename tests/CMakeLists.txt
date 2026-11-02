@@ -211,6 +211,7 @@ add_executable(fsim_tests
     simulation/test_contact_fuze.cpp
     simulation/test_contact_integration.cpp
     contracts/test_weapon_controls_stream.cpp
+    contracts/test_fusion_stream.cpp
     simulation/test_mass_change.cpp
     simulation/test_store_binding.cpp
     simulation/test_store_drag.cpp

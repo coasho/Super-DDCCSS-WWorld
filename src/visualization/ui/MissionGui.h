@@ -10,6 +10,7 @@
 // window collapses from its title bar; key p shows or hides them all.
 
 #include "contracts/world_stream/WorldLayout.h"
+#include "contracts/world_stream/FusionFrameV1.h"
 #include "visualization/ui/ViewerControls.h"
 
 #include <vsg/all.h>
@@ -40,6 +41,8 @@ private:
 
     std::shared_ptr<ViewerControls> controls_;
     std::unique_ptr<ipc::MissionRecord> record_;
+    std::unique_ptr<ipc::FusionRecordV1> fusion_;
+    bool fusionValid_=false;
     bool valid_ = false;     ///< a record read for the slot shown
     bool mirrored_ = false;  ///< a world is attached (else nothing to show)
     mutable bool showHits_ = true; ///< the radar displays' raw detections (else their tracks alone)

@@ -1,36 +1,30 @@
 # Current capabilities and milestone status
 
 <!-- SIM-M01 continuation begin -->
-SIM-M01 is **engineering-complete-uncalibrated** under the 2026-11-02 user
-clarification adopting SIM-M02's completion rule. All 17 declared air-radar
-cards/fits have complete engineering functions and reproducible installed
-delivery; equipment accuracy calibration is a separate ledger: **0/17 admitted**.
-The roster still lists all 35 airframes. Eighteen without an authored air-radar
-fit are explicit inventory entries, not verified equipment-absence claims.
+SIM-M01 is **complete**, with actual equipment accuracy calibration in the
+user-approved separate ledger (0/17 admitted). All 17 declared air-radar fits,
+35 selected airframe configurations and 60 bundled model contracts
+are reconciled. Components, signal modes, error mechanisms, IMM, native radar/link
+fusion, public interfaces and normal Viewer integration are delivered.
 
-The common implementation includes signal-level volume/cued/STT/TWS/high-PRF
-processing, ambiguity handling, optional nonthermal errors and IMM, and native
-C++/C99/Python V1 radar/link fusion. Current repairs close stale-row admission,
-stale contributor capacity, delayed-sample association, causal dwell timestamps
-and the MESA fixed-array all-round aperture defect. MESA's equivalent fixed-face
-gains/sectors remain explicit engineering assumptions rather than measured data.
+Current full regression passes **865/865 Headless** and
+**939/939 Release**, with the unchanged 28 previously approved
+M02 rotor exclusions per preset and no M01 exclusions. Fresh installed C++/C99/
+Python consumers, 181 mode/lifecycle stages and 181 exact cross-worker replay stages
+pass. Two complete real-time fullscreen source scenes and ten actual 3840x2160 captures
+verify multi-source fusion and loss; the installed product separately captures
+the complete display lifecycle through retention expiry. Counts overlap.
 
-The final clean-source dependency regression passes **71/71 Headless** and
-**72/72 Release**. Fresh installed C++/C99/Python consumers and every fit pass
-**181 native mode/lifecycle stages plus 181 cross-worker replay stages**. Counts
-overlap and are not added into an independent physical-test total. Four-quadrant
-detection/signal cases and installed AEW rear-hemisphere returns are included.
-The eight-aircraft/four-worker scene sustains **47.672x real time**, with
-28 fused entities and zero rejected native inputs. The rebuilt normal repository
-SDK passes 15 related checks and exactly replays the installed E7 report sequence.
+The native repairs cover the five earlier boundaries plus recycled source-ID
+admission/history, measured-epoch link publication and history timestamp rollover. WorldLayout v9, SDK ABI,
+permissions and strict actor method lists remain frozen. The Viewer copies SDK
+knowledge through a generation/frame-checked V1 sidecar; it never simulates it.
 
-Current [delivery](data/sim-m01-20261102-delivery.json),
-[fit matrix](data/sim-m01-20261102-fit-matrix.csv),
-[radar matrix](data/sim-m01-20261102-radar-matrix.csv) and
-[completion / reproduction record](sdk/sim-m01-completion.md) separate engineering
-acceptance, numerical-method comparison and equipment calibration. No new Viewer
-presentation acceptance or whole-project full regression is claimed. Earlier
-mandatory-calibration statements and the 2026-11-01 counts are historical.
+See [full quality acceptance](data/sim-m01-20261102-full-quality.json),
+[applicability](data/sim-m01-20261102-applicability.json) and
+[completion/reproduction](sdk/sim-m01-completion.md). Hardware measurements,
+published/derived/assumed parameters and method agreement remain distinct.
+The preceding bounded campaign is historical, not current full-regression proof.
 <!-- SIM-M01 continuation end -->
 
 <!-- SIM-M02 final closure begin -->

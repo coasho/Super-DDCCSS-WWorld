@@ -1,6 +1,83 @@
 # SIM-M01 radar and fusion completion
 
-## Current engineering closure (2026-11-02)
+## Current full quality closure (2026-11-02)
+
+SIM-M01 is complete under the user's confirmed SIM-M02 engineering rule. All
+required M01 components, applicable functions, method fixtures, integration and
+reproducible delivery gates are closed. Actual equipment accuracy calibration is
+the separately accepted uncertainty ledger: 0/17 admitted, 17 uncalibrated.
+It is not counted as measured accuracy or a waived engineering function.
+
+The current source starts at main `ad63ed484016f94e8ddb9cb0b0621abe860a2f9f`.
+Three further native defects are fixed: recycled sensor IDs cannot erase admitted
+provenance on a capacity refusal or route a newer track back into older history;
+link publication preserves the last measured posterior's epoch rather than
+renewing its freshness whenever a predicted estimate is broadcast; bounded
+prediction history cannot reset the cached last measurement time to zero. Own AMTI
+getters still provide current-time predictions. Original public layouts, enum
+numbers, defaults, permission checks and strict actor callable lists remain
+unchanged. No generic gateway schema is added.
+
+Native fusion now reaches the normal Viewer through a versioned observational
+sidecar. Exact frame sequence, publisher PID/incarnation and vehicle generation
+are checked. IDs, state, source count/kinds, sample age, unknown identity, complete
+state/covariance and refusal counts come from the SDK. The display reports its
+128-entity truncation explicitly; public SDK reports remain untruncated. The
+Viewer performs no association or state estimation. Missing sidecars, including
+old recordings, display unavailable. Recording-only worlds retain their original
+working path and have an explicit regression guard.
+
+| Current acceptance population | Result |
+| --- | --- |
+| Entire Headless CTest inventory | 865/865 executed passed; 893 discovered |
+| Entire Release CTest inventory | 939/939 executed passed; 967 discovered |
+| Existing approved M02 rotor scope | 28 excluded per preset, not passed; unchanged policy SHA; no M01 exclusions |
+| Installed C++ / C99 / Python | Fresh consumers, actual loaded-module identity and source/product hashes passed |
+| Authored airframe applicability | 35/35 selected configurations reconciled; 17 air-radar fits fully exercised |
+| Bundled JSBSim models | 60 exact model/adjacent-fit contracts; no inferred aliases |
+| Native mode/lifecycle stages | 181 passed; 181 exact one/four-worker replay stages |
+| Actual fullscreen presentation | Two complete 65-second scenes; ten reviewed 3840x2160 primary-display captures |
+| Actual combined knowledge | Receiver radar and delivered link coexist in native fused entities in both scenes |
+| Production inputs | All 88 current generations bound; E7 forcibly regenerated after the MESA change, products unchanged |
+
+Dependency counts (77 Headless / 78 Release) overlap the complete inventories;
+they are not additional independent physical tests. Nested Python methods,
+approved rotor methods, source/binary/configuration stability and all 16 fixed-wing
+fleet shards are reconciled from actual logs. Original physical bounds and
+independent numerical tolerances are unchanged. The terrain-free eight-aircraft
+native radar benchmark sustains 47.377x real time with
+28 fused entities and zero refused native inputs. This is a
+bounded SDK throughput result, not full-program performance or equipment accuracy.
+
+The observational scenes run at 1x, primary-display fullscreen with Earth imagery,
+terrain, clouds, sunlight, shadows and native effects enabled. They exercise
+fighter search/STT/TWS/velocity search, all-round AEW surveillance, delivered-link
+knowledge, actual multi-source fusion, power-off, loss and retention expiry.
+The visual-only capture driver was corrected after full native regression so the
+Viewer stays open through expiry; both complete scenes were then re-executed
+and their actual primary-display captures reviewed. Native inputs and binaries
+are unchanged. The earlier screenshot-driver run remains superseded evidence.
+No hit, explosion or identity is invented. These are non-isolated diagnostics,
+not strict actor-process joint acceptance or a DCS performance comparison.
+
+The complete selected-fit and equipment-family distinction is recorded in
+[applicability](../data/sim-m01-20261102-applicability.json). Missing authored
+equipment is never relabeled as proven physical absence. MESA equivalent sector
+gains, the two CV-diffusion IMM models, local-plane multipath centroid, bounded
+CI grid, greedy association and identity-default optional residual coefficients
+retain their explicit mathematical/equipment limits. These disclosed model
+approximations are not hidden calibrated hardware behavior.
+
+[Current quality receipt](../data/sim-m01-20261102-full-quality.json) joins raw full
+inventories/JUnit, installed consumers and hash-bound actual capture review.
+[Reproduction](../../tools/validation/radar/README.md) uses the normal UCRT64
+presets, full.py, current 88 generation/cache inputs and the existing map set.
+The source, complete installed SDK/Viewer/maps, raw evidence, exact source patch
+and archive manifests are delivered under
+`build/architecture-reviews/sim-m01-full-20261102/`. Prior failed preflight and
+diagnostic attempts remain evidence; they are not counted as completed gates.
+
+## Superseded bounded engineering closure (2026-11-02)
 
 The user confirmed the SIM-M02 completion rule: required engineering components,
 functions, theory and reproducible delivery must close; unavailable equipment

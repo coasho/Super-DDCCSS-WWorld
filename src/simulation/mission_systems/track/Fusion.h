@@ -97,14 +97,18 @@ private:
            !std::isfinite(logDet(o.estimate.p)) ||
            std::any_of(o.estimate.x.a.begin(),o.estimate.x.a.end(),[](double v){return !std::isfinite(v);})) {++rejected_;return;}
         const Key k=key(s);const auto observed=project(o.estimate,now_);Row* best=nullptr;
+        Row* owner=nullptr;
+        double newest=-std::numeric_limits<double>::infinity();
         for(auto& r:rows_) {
             auto found=r.sources.find(k);
             if(found==r.sources.end())continue;
-            if(s.sampleTimeS<=found->second.sampleTimeS)return; // duplicates do not tighten covariance or refresh lifetime
-            if(distance(project(r.estimate,now_),observed)<=settings_.gateSquared)best=&r;
-            else r.sources.erase(found); // a recycled sensor track number is not a fused identity
-            break;
+            if(found->second.sampleTimeS>newest)owner=&r,newest=found->second.sampleTimeS;
         }
+        // A sensor can recycle a track number while the old entity coasts.
+        // Retain its admitted historical provenance and route later reports to
+        // the newest source epoch. Refused admission never edits an old row.
+        if(s.sampleTimeS<=newest)return;
+        if(owner&&distance(project(owner->estimate,now_),observed)<=settings_.gateSquared)best=owner;
         if(!best) {
             double nearest=settings_.gateSquared;
             for(auto& r:rows_) {

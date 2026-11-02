@@ -1,0 +1,1615 @@
+{
+  "schema": "fsim.sim-m01.applicability.v1",
+  "passed": true,
+  "fits": [
+    {
+      "design": "a10c",
+      "disposition": "selected_configuration_uses_other_families_or_no_mission_payload",
+      "selected_configuration": "attack electro-optical / weapons fit",
+      "families": [
+        "comm_terminal",
+        "countermeasures",
+        "gun",
+        "store_station"
+      ],
+      "fit_sha256": "6b72db81cf46b012ad28c0d5d54e57af4778284f3c6e058a5bda1c29d4a084af",
+      "evidence": [
+        {
+          "source": "https://www.af.mil/About-Us/Fact-Sheets/Display/Article/104490/a-10c-thunderbolt-ii/",
+          "claim": "Selected role/equipment context; not an exhaustive physical-absence proof"
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "b52h",
+      "disposition": "selected_configuration_uses_other_families_or_no_mission_payload",
+      "selected_configuration": "legacy APQ-166 ground/navigation radar; not the APQ-188 modernization",
+      "families": [
+        "comm_terminal",
+        "countermeasures",
+        "electronic_attack",
+        "esm",
+        "ground_map_radar",
+        "passive_optical",
+        "store_station"
+      ],
+      "fit_sha256": "2eb60f0883dbd4e8f32c1eb96f3db8ab2b775a81740864fbd1cb85020d9f2abd",
+      "evidence": [
+        {
+          "source": "https://www.esd.whs.mil/Portals/54/Documents/FOID/Reading%20Room/Selected_Acquisition_Reports/June_2025_MSARs/B-52_RMP_MSAR_Jun_2025_Amended.pdf",
+          "claim": "Selected role/equipment context; not an exhaustive physical-absence proof"
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "c130j",
+      "disposition": "selected_configuration_uses_other_families_or_no_mission_payload",
+      "selected_configuration": "APN-241 weather/navigation radar",
+      "families": [
+        "esm",
+        "store_station",
+        "weather_radar"
+      ],
+      "fit_sha256": "7dea31689b8a4df9e5d137722517aa9b6fc45160cb3fb8f1d92bfbf163309018",
+      "evidence": [
+        {
+          "source": "https://www.lockheedmartin.com/content/dam/lockheed-martin/aero/documents/sustainment/csc/service-news/sn-mag-v21-v30/V26N01.pdf",
+          "claim": "Selected role/equipment context; not an exhaustive physical-absence proof"
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "c172",
+      "disposition": "selected_configuration_uses_other_families_or_no_mission_payload",
+      "selected_configuration": "selected civil trainer with no authored mission payload",
+      "families": [],
+      "fit_sha256": "8a199d0196c021c691ae65ddd72fe05d6cd5a0394ea746ee1e89ac7c147eecf8",
+      "evidence": [
+        {
+          "source": "https://cessna.txtav.com/en/piston/cessna-skyhawk",
+          "claim": "Selected role/equipment context; not an exhaustive physical-absence proof"
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "c17a",
+      "disposition": "selected_configuration_uses_other_families_or_no_mission_payload",
+      "selected_configuration": "authored weather-radar / transport fit",
+      "families": [
+        "countermeasures",
+        "passive_optical",
+        "store_station",
+        "weather_radar"
+      ],
+      "fit_sha256": "8d20a06fe15a8c5f10c533c5bd3676d19577a00a0ce6b9777b9f7b7ed55a689c",
+      "evidence": [
+        {
+          "source": "https://www.amc.af.mil/About-Us/Fact-Sheets/Display/Article/977489/c-17-globemaster-iii/",
+          "claim": "Selected role/equipment context; not an exhaustive physical-absence proof"
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "cf2",
+      "disposition": "selected_configuration_uses_other_families_or_no_mission_payload",
+      "selected_configuration": "selected Crazyflie research quadrotor, no mission payload",
+      "families": [],
+      "fit_sha256": "95c301353bda48907ecf6093b4a59fc30a034aa3f45c06340693715beb20a067",
+      "evidence": [
+        {
+          "source": "https://www.bitcraze.io/products/old-products/crazyflie-2-0/",
+          "claim": "Selected role/equipment context; not an exhaustive physical-absence proof"
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "e3g",
+      "disposition": "applicable_complete_native_air_radar",
+      "selected_configuration": "authored an-apy-2",
+      "families": [
+        "air_radar",
+        "comm_terminal",
+        "esm"
+      ],
+      "fit_sha256": "f72233bc568dbb78ec3ca8926a67c487cfd01b75067ee71dc49830ddd76ea7ea",
+      "evidence": [
+        {
+          "card": "an-apy-2",
+          "sources": {
+            "wp-e3g": {
+              "title": "Boeing E-3 Sentry",
+              "publisher": "Wikipedia (revision 1378217304)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Boeing_E-3_Sentry&oldid=1378217304",
+              "date": "2026-10-03"
+            },
+            "wp-r-aewc": {
+              "title": "Airborne early warning and control",
+              "publisher": "Wikipedia (revision 1366577862)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Airborne_early_warning_and_control&oldid=1366577862",
+              "date": "2026-07-28"
+            },
+            "airvectors": {
+              "title": "Search result summarising G. Goebel, \"Radar Systems\", airvectors.net (ttradar_6)",
+              "publisher": "airvectors.net (not opened)",
+              "url": "https://vc.airvectors.net/ttradar_6.html",
+              "date": ""
+            },
+            "wp-r-ps05": {
+              "title": "PS-05/A",
+              "publisher": "Wikipedia (revision 1357555494)",
+              "url": "https://en.wikipedia.org/w/index.php?title=PS-05/A&oldid=1357555494",
+              "date": "2026-06-03"
+            },
+            "stimson": {
+              "title": "G. W. Stimson, \"Introduction to Airborne Radar\", 2nd ed. (ISBN 1-891121-01-4), p. 144",
+              "publisher": "SciTech Publishing, 1998",
+              "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
+              "date": "1998",
+              "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+            }
+          }
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "e7a",
+      "disposition": "applicable_complete_native_air_radar",
+      "selected_configuration": "authored mesa",
+      "families": [
+        "air_radar",
+        "countermeasures",
+        "esm"
+      ],
+      "fit_sha256": "64de0d3932df5983d91ef7e6eae0aa8286efbb18bf4a7bcba32e340163475762",
+      "evidence": [
+        {
+          "card": "mesa",
+          "sources": {
+            "wp-e7a": {
+              "title": "Boeing E-7 Wedgetail",
+              "publisher": "Wikipedia (revision 1378367230)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Boeing_E-7_Wedgetail&oldid=1378367230",
+              "date": "2026-10-04"
+            },
+            "wp-r-mesa": {
+              "title": "Multi-role Electronically Scanned Array",
+              "publisher": "Wikipedia (revision 1268577951)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Multi-role_Electronically_Scanned_Array&oldid=1268577951",
+              "date": "2025-01-10"
+            },
+            "wp-r-ps05": {
+              "title": "PS-05/A",
+              "publisher": "Wikipedia (revision 1357555494)",
+              "url": "https://en.wikipedia.org/w/index.php?title=PS-05/A&oldid=1357555494",
+              "date": "2026-06-03"
+            },
+            "stimson": {
+              "title": "G. W. Stimson, \"Introduction to Airborne Radar\", 2nd ed. (ISBN 1-891121-01-4), p. 144",
+              "publisher": "SciTech Publishing, 1998",
+              "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
+              "date": "1998",
+              "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+            },
+            "ng-mesa-all-round": {
+              "title": "Multi-Role Electronically Scanned Array (MESA) Surveillance Radar",
+              "publisher": "Northrop Grumman",
+              "url": "https://www.northropgrumman.com/what-we-do/mission-solutions/radars/multi-role-electronically-scanned-array-mesa-surveillance-radar",
+              "date": "2026-11-02",
+              "use": "360-degree coverage and hardware class only; not measured directional gains"
+            },
+            "ng-mesa-arrays": {
+              "title": "Northrop Grumman Rolls Out First MESA Radar Antenna for Australia's Wedgetail AEW&C Aircraft",
+              "publisher": "Northrop Grumman press release",
+              "url": "https://www.globenewswire.com/news-release/2002/11/06/291813/189/en/northrop-grumman-rolls-out-first-mesa-radar-antenna-for-australia-s-wedgetail-aew-c-aircraft.html",
+              "date": "2002-11-06",
+              "use": "Side-emitting arrays and a top-hat end-fire array; no admitted quantitative face patterns"
+            }
+          }
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "ea18g",
+      "disposition": "applicable_complete_native_air_radar",
+      "selected_configuration": "authored an-apg-79",
+      "families": [
+        "air_radar",
+        "electronic_attack",
+        "esm",
+        "store_station"
+      ],
+      "fit_sha256": "412b0b60adc3b8da4a5ba92b509ec4e6f16980ed5d81243a78c5d4ab0c0b81b8",
+      "evidence": [
+        {
+          "card": "an-apg-79",
+          "sources": {
+            "wp-ea18g": {
+              "title": "Boeing EA-18G Growler",
+              "publisher": "Wikipedia (revision 1377595294)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Boeing_EA-18G_Growler&oldid=1377595294",
+              "date": "2026-09-30"
+            },
+            "wp-r-apg79": {
+              "title": "AN/APG-79",
+              "publisher": "Wikipedia (revision 1361080654)",
+              "url": "https://en.wikipedia.org/w/index.php?title=AN/APG-79&oldid=1361080654",
+              "date": "2026-06-25"
+            },
+            "wp-r-ps05": {
+              "title": "PS-05/A",
+              "publisher": "Wikipedia (revision 1357555494)",
+              "url": "https://en.wikipedia.org/w/index.php?title=PS-05/A&oldid=1357555494",
+              "date": "2026-06-03"
+            },
+            "stimson": {
+              "title": "G. W. Stimson, \"Introduction to Airborne Radar\", 2nd ed. (ISBN 1-891121-01-4), p. 144",
+              "publisher": "SciTech Publishing, 1998",
+              "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
+              "date": "1998",
+              "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+            }
+          }
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "ec130h",
+      "disposition": "selected_configuration_uses_other_families_or_no_mission_payload",
+      "selected_configuration": "Compass Call electronic-attack fit",
+      "families": [
+        "electronic_attack"
+      ],
+      "fit_sha256": "cd133b62a393a672bd09a0308864c66223b9dfef576fed5aa33af17a84741fd8",
+      "evidence": [
+        {
+          "source": "https://www.af.mil/About-Us/Fact-Sheets/Display/article/104550/ec-130h-compass-call/",
+          "claim": "Selected role/equipment context; not an exhaustive physical-absence proof"
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "f15c",
+      "disposition": "applicable_complete_native_air_radar",
+      "selected_configuration": "authored an-apg-63v3",
+      "families": [
+        "air_radar",
+        "countermeasures",
+        "electronic_attack",
+        "esm",
+        "gun",
+        "pnt",
+        "store_station"
+      ],
+      "fit_sha256": "2c1014be03b8e2ad420d923f8730c03cde61d715560775e2315df1f9db59147a",
+      "evidence": [
+        {
+          "card": "an-apg-63v3",
+          "sources": {
+            "wp-f15c": {
+              "title": "McDonnell Douglas F-15 Eagle",
+              "publisher": "Wikipedia (revision 1377800910)",
+              "url": "https://en.wikipedia.org/w/index.php?title=McDonnell_Douglas_F-15_Eagle&oldid=1377800910",
+              "date": "2026-10-01"
+            },
+            "wp-r-ps05": {
+              "title": "PS-05/A",
+              "publisher": "Wikipedia (revision 1357555494)",
+              "url": "https://en.wikipedia.org/w/index.php?title=PS-05/A&oldid=1357555494",
+              "date": "2026-06-03"
+            },
+            "stimson": {
+              "title": "G. W. Stimson, \"Introduction to Airborne Radar\", 2nd ed. (ISBN 1-891121-01-4), p. 144",
+              "publisher": "SciTech Publishing, 1998",
+              "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
+              "date": "1998",
+              "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+            }
+          }
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "f16c",
+      "disposition": "applicable_complete_native_air_radar",
+      "selected_configuration": "authored an-apg-68v9",
+      "families": [
+        "air_radar",
+        "countermeasures",
+        "electronic_attack",
+        "esm",
+        "gun",
+        "store_station"
+      ],
+      "fit_sha256": "5aa077dc79591d4093a951787b9b7cc2d10d9e81f5e2e35da9fcd2de39fb2de8",
+      "evidence": [
+        {
+          "card": "an-apg-68v9",
+          "sources": {
+            "du-apg68v9": {
+              "title": "APG-68(V)9 Radar for Block 50/52 F-16",
+              "publisher": "Defense Update",
+              "url": "https://defense-update.com/?p=8720",
+              "date": ""
+            },
+            "dii-apg68v9": {
+              "title": "APG-68(V)9 Radars for Pakistan's F-16s",
+              "publisher": "Defense Industry Daily",
+              "url": "https://www.defenseindustrydaily.com/apg68-v9-radars-for-pakistans-f16s-updated-02804/",
+              "date": ""
+            },
+            "wp-r-apg68": {
+              "title": "AN/APG-68",
+              "publisher": "Wikipedia (revision 1365672840)",
+              "url": "https://en.wikipedia.org/w/index.php?title=AN/APG-68&oldid=1365672840",
+              "date": "2026-07-23"
+            },
+            "wp-r-ps05": {
+              "title": "PS-05/A",
+              "publisher": "Wikipedia (revision 1357555494)",
+              "url": "https://en.wikipedia.org/w/index.php?title=PS-05/A&oldid=1357555494",
+              "date": "2026-06-03"
+            },
+            "stimson": {
+              "title": "G. W. Stimson, \"Introduction to Airborne Radar\", 2nd ed. (ISBN 1-891121-01-4), p. 144",
+              "publisher": "SciTech Publishing, 1998",
+              "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
+              "date": "1998",
+              "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+            }
+          }
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "f22a",
+      "disposition": "applicable_complete_native_air_radar",
+      "selected_configuration": "authored an-apg-77",
+      "families": [
+        "air_radar",
+        "comm_terminal",
+        "countermeasures",
+        "esm",
+        "gun",
+        "passive_optical",
+        "store_station"
+      ],
+      "fit_sha256": "b9e42f2910c85bedb7f24fe4ff6f3722847f6e53aeada948adfa1879c24b8ab4",
+      "evidence": [
+        {
+          "card": "an-apg-77",
+          "sources": {
+            "wp-f22a": {
+              "title": "Lockheed Martin F-22 Raptor",
+              "publisher": "Wikipedia (revision 1375913406)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_Martin_F-22_Raptor&oldid=1375913406",
+              "date": "2026-09-20"
+            },
+            "wp-r-apg77": {
+              "title": "AN/APG-77",
+              "publisher": "Wikipedia (revision 1361490404)",
+              "url": "https://en.wikipedia.org/w/index.php?title=AN/APG-77&oldid=1361490404",
+              "date": "2026-06-28"
+            },
+            "wp-r-ps05": {
+              "title": "PS-05/A",
+              "publisher": "Wikipedia (revision 1357555494)",
+              "url": "https://en.wikipedia.org/w/index.php?title=PS-05/A&oldid=1357555494",
+              "date": "2026-06-03"
+            },
+            "stimson": {
+              "title": "G. W. Stimson, \"Introduction to Airborne Radar\", 2nd ed. (ISBN 1-891121-01-4), p. 144",
+              "publisher": "SciTech Publishing, 1998",
+              "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
+              "date": "1998",
+              "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+            }
+          }
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "f35a",
+      "disposition": "applicable_complete_native_air_radar",
+      "selected_configuration": "authored an-apg-81",
+      "families": [
+        "air_radar",
+        "comm_terminal",
+        "esm",
+        "gun",
+        "passive_optical",
+        "store_station"
+      ],
+      "fit_sha256": "cd136cdd5b04b8a5a68095038e51d8be7c806a115d90ab2ce7f0ed57d9b17ad3",
+      "evidence": [
+        {
+          "card": "an-apg-81",
+          "sources": {
+            "wp-f35a": {
+              "title": "Lockheed Martin F-35 Lightning II",
+              "publisher": "Wikipedia (revision 1378856932)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Lockheed_Martin_F-35_Lightning_II&oldid=1378856932",
+              "date": "2026-10-06"
+            },
+            "wp-r-ps05": {
+              "title": "PS-05/A",
+              "publisher": "Wikipedia (revision 1357555494)",
+              "url": "https://en.wikipedia.org/w/index.php?title=PS-05/A&oldid=1357555494",
+              "date": "2026-06-03"
+            },
+            "stimson": {
+              "title": "G. W. Stimson, \"Introduction to Airborne Radar\", 2nd ed. (ISBN 1-891121-01-4), p. 144",
+              "publisher": "SciTech Publishing, 1998",
+              "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
+              "date": "1998",
+              "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+            }
+          }
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "fa18c",
+      "disposition": "applicable_complete_native_air_radar",
+      "selected_configuration": "authored an-apg-73",
+      "families": [
+        "air_radar",
+        "electronic_attack",
+        "esm",
+        "gun",
+        "store_station"
+      ],
+      "fit_sha256": "fe8c421ddb204fa57a3110141be3545892320935b4cb53aac8bb89fc901cb887",
+      "evidence": [
+        {
+          "card": "an-apg-73",
+          "sources": {
+            "wp-fa18c": {
+              "title": "McDonnell Douglas F/A-18 Hornet",
+              "publisher": "Wikipedia (revision 1378488706)",
+              "url": "https://en.wikipedia.org/w/index.php?title=McDonnell_Douglas_F%2FA-18_Hornet&oldid=1378488706",
+              "date": "2026-10-04"
+            },
+            "wp-r-apg65": {
+              "title": "AN/APG-65 radar family",
+              "publisher": "Wikipedia (revision 1362072238)",
+              "url": "https://en.wikipedia.org/w/index.php?title=AN/APG-65_radar_family&oldid=1362072238",
+              "date": "2026-07-01"
+            },
+            "wp-r-ps05": {
+              "title": "PS-05/A",
+              "publisher": "Wikipedia (revision 1357555494)",
+              "url": "https://en.wikipedia.org/w/index.php?title=PS-05/A&oldid=1357555494",
+              "date": "2026-06-03"
+            },
+            "stimson": {
+              "title": "G. W. Stimson, \"Introduction to Airborne Radar\", 2nd ed. (ISBN 1-891121-01-4), p. 144",
+              "publisher": "SciTech Publishing, 1998",
+              "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
+              "date": "1998",
+              "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+            }
+          }
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "gripen",
+      "disposition": "applicable_complete_native_air_radar",
+      "selected_configuration": "authored ps-05a",
+      "families": [
+        "air_radar",
+        "comm_terminal",
+        "esm",
+        "gun",
+        "passive_optical",
+        "store_station"
+      ],
+      "fit_sha256": "d57805d7e72248ad0d8e0fff7e96decec41f4b6592ccd7b61d6fa6351a488cc2",
+      "evidence": [
+        {
+          "card": "ps-05a",
+          "sources": {
+            "wp-gripen": {
+              "title": "Saab JAS 39 Gripen",
+              "publisher": "Wikipedia (revision 1378862791)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Saab_JAS_39_Gripen&oldid=1378862791",
+              "date": "2026-10-06"
+            },
+            "wp-r-ps05": {
+              "title": "PS-05/A",
+              "publisher": "Wikipedia (revision 1357555494)",
+              "url": "https://en.wikipedia.org/w/index.php?title=PS-05/A&oldid=1357555494",
+              "date": "2026-06-03"
+            },
+            "stimson": {
+              "title": "G. W. Stimson, \"Introduction to Airborne Radar\", 2nd ed. (ISBN 1-891121-01-4), p. 144",
+              "publisher": "SciTech Publishing, 1998",
+              "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
+              "date": "1998",
+              "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+            },
+            "ll-est-track": {
+              "title": "Tracking and Parameter Estimation (Introduction to Radar Systems, slides EST&TRACK-1 to 41, 7/31/2008): slides 27-31",
+              "publisher": "MIT Lincoln Laboratory",
+              "url": "https://www.ll.mit.edu/media/6981",
+              "date": "2026-10-17",
+              "verified": "retrieved 2026-10-17, SHA-256 8ab4c3dd0a74f28a9efc1cbddd616d28b63f136293f70150781678791521bae9; its text read: slide 27 about 10:1 beam splitting at a ~13 dB threshold, slide 28 a bias error's definition, slides 30-31 the real-world limits (calibration, amplitude fluctuations, angle noise or glint, multipath) - mechanisms, no value for any radar"
+            },
+            "mw-fusionradarsensor": {
+              "title": "fusionRadarSensor (AzimuthBiasFraction, ElevationBiasFraction, RangeBiasFraction, RangeRateBiasFraction)",
+              "publisher": "MathWorks, Sensor Fusion and Tracking Toolbox documentation, release R2026b",
+              "url": "https://www.mathworks.com/help/fusion/ref/fusionradarsensor-system-object.html",
+              "date": "2026-10-17",
+              "verified": "read 2026-10-17: each bias fraction a fraction of that axis's resolution (the azimuth resolution typically the half-power beamwidth) that sets a lower bound on its accuracy; defaults 0.1 (azimuth, elevation) and 0.05 (range, range rate); no formula given. A proprietary generic model's documented convention, not data about this radar"
+            }
+          }
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "h6k",
+      "disposition": "selected_configuration_uses_other_families_or_no_mission_payload",
+      "selected_configuration": "authored ground-map / electro-optical / weapons fit",
+      "families": [
+        "ground_map_radar",
+        "passive_optical",
+        "store_station"
+      ],
+      "fit_sha256": "b77927f716525682d7bbafbab2a14e3e8dd773142ca932d6fedfbd985498f7b0",
+      "evidence": [
+        {
+          "source": "aircraft/h6k/payloads.json",
+          "claim": "Selected role/equipment context; not an exhaustive physical-absence proof"
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "iris",
+      "disposition": "selected_configuration_uses_other_families_or_no_mission_payload",
+      "selected_configuration": "selected research quadrotor, no mission payload",
+      "families": [],
+      "fit_sha256": "4572241d16709e5d6bd413c66c058748977fbe74b8145150d1d07d019096cf0a",
+      "evidence": [
+        {
+          "source": "aircraft/iris/payloads.json",
+          "claim": "Selected role/equipment context; not an exhaustive physical-absence proof"
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "j10a",
+      "disposition": "applicable_complete_native_air_radar",
+      "selected_configuration": "authored type-1473",
+      "families": [
+        "air_radar",
+        "gun",
+        "store_station"
+      ],
+      "fit_sha256": "a003af7d13fd9b0bd07e8f0bb2d593054de868fe45272369867cc3b659bca139",
+      "evidence": [
+        {
+          "card": "type-1473",
+          "sources": {
+            "wp-j10a": {
+              "title": "Chengdu J-10",
+              "publisher": "Wikipedia (revision 1378859868)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Chengdu_J-10&oldid=1378859868",
+              "date": "2026-10-06"
+            },
+            "wp-j20a": {
+              "title": "Chengdu J-20",
+              "publisher": "Wikipedia (revision 1378338980)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Chengdu_J-20&oldid=1378338980",
+              "date": "2026-10-04"
+            },
+            "wp-r-ps05": {
+              "title": "PS-05/A",
+              "publisher": "Wikipedia (revision 1357555494)",
+              "url": "https://en.wikipedia.org/w/index.php?title=PS-05/A&oldid=1357555494",
+              "date": "2026-06-03"
+            },
+            "stimson": {
+              "title": "G. W. Stimson, \"Introduction to Airborne Radar\", 2nd ed. (ISBN 1-891121-01-4), p. 144",
+              "publisher": "SciTech Publishing, 1998",
+              "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
+              "date": "1998",
+              "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+            }
+          }
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "j20a",
+      "disposition": "applicable_complete_native_air_radar",
+      "selected_configuration": "authored type-1475",
+      "families": [
+        "air_radar",
+        "passive_optical",
+        "store_station"
+      ],
+      "fit_sha256": "7e7da7cb0e81c278318f675c358d699e3fb8d744189210926c53b53f615116cf",
+      "evidence": [
+        {
+          "card": "type-1475",
+          "sources": {
+            "wp-j20a": {
+              "title": "Chengdu J-20",
+              "publisher": "Wikipedia (revision 1378338980)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Chengdu_J-20&oldid=1378338980",
+              "date": "2026-10-04"
+            },
+            "wp-r-ps05": {
+              "title": "PS-05/A",
+              "publisher": "Wikipedia (revision 1357555494)",
+              "url": "https://en.wikipedia.org/w/index.php?title=PS-05/A&oldid=1357555494",
+              "date": "2026-06-03"
+            },
+            "stimson": {
+              "title": "G. W. Stimson, \"Introduction to Airborne Radar\", 2nd ed. (ISBN 1-891121-01-4), p. 144",
+              "publisher": "SciTech Publishing, 1998",
+              "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
+              "date": "1998",
+              "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+            }
+          }
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "kc135r",
+      "disposition": "selected_configuration_uses_other_families_or_no_mission_payload",
+      "selected_configuration": "authored tanker weather-radar fit",
+      "families": [
+        "weather_radar"
+      ],
+      "fit_sha256": "ecc2517f90517f4aeabf581b15bcbb30396ca9fcc45e09c3f5d0ef7afe2c9a37",
+      "evidence": [
+        {
+          "source": "https://www.af.mil/About-Us/Fact-Sheets/Display/Article/1529736/kc-135-stratotanker/",
+          "claim": "Selected role/equipment context; not an exhaustive physical-absence proof"
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "kc46a",
+      "disposition": "selected_configuration_uses_other_families_or_no_mission_payload",
+      "selected_configuration": "authored tanker self-protection / navigation fit; no claim of physical weather-radar absence",
+      "families": [
+        "electronic_attack",
+        "esm",
+        "passive_optical",
+        "pnt"
+      ],
+      "fit_sha256": "36b6603d5873669ff741d12f8ae368c006a6b280d94a4cd50abd49063b0df71a",
+      "evidence": [
+        {
+          "source": "https://www.boeing.com/defense/tankers-and-transports/kc-46-pegasus",
+          "claim": "Selected role/equipment context; not an exhaustive physical-absence proof"
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "mig29a",
+      "disposition": "applicable_complete_native_air_radar",
+      "selected_configuration": "authored n019",
+      "families": [
+        "air_radar",
+        "esm",
+        "gun",
+        "passive_optical",
+        "store_station"
+      ],
+      "fit_sha256": "473fd0684db1d1ace53eee52c58c4f6dbe396b33268c7a0deeda374a8a9fa6cd",
+      "evidence": [
+        {
+          "card": "n019",
+          "sources": {
+            "wp-mig29a": {
+              "title": "Mikoyan MiG-29",
+              "publisher": "Wikipedia (revision 1378805039)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Mikoyan_MiG-29&oldid=1378805039",
+              "date": "2026-10-06"
+            },
+            "wp-r-ps05": {
+              "title": "PS-05/A",
+              "publisher": "Wikipedia (revision 1357555494)",
+              "url": "https://en.wikipedia.org/w/index.php?title=PS-05/A&oldid=1357555494",
+              "date": "2026-06-03"
+            },
+            "stimson": {
+              "title": "G. W. Stimson, \"Introduction to Airborne Radar\", 2nd ed. (ISBN 1-891121-01-4), p. 144",
+              "publisher": "SciTech Publishing, 1998",
+              "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
+              "date": "1998",
+              "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+            }
+          }
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "mirage2000",
+      "disposition": "applicable_complete_native_air_radar",
+      "selected_configuration": "authored thomson-csf-rdi",
+      "families": [
+        "air_radar",
+        "countermeasures",
+        "electronic_attack",
+        "esm",
+        "gun",
+        "store_station"
+      ],
+      "fit_sha256": "2ecbcd054aff98fdf5c9a04228c26c1c66cd6dbcac125e504154fd1c425d36d4",
+      "evidence": [
+        {
+          "card": "thomson-csf-rdi",
+          "sources": {
+            "wp-mirage2000": {
+              "title": "Dassault Mirage 2000",
+              "publisher": "Wikipedia (revision 1378195004)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Dassault_Mirage_2000&oldid=1378195004",
+              "date": "2026-10-03"
+            },
+            "wp-r-ps05": {
+              "title": "PS-05/A",
+              "publisher": "Wikipedia (revision 1357555494)",
+              "url": "https://en.wikipedia.org/w/index.php?title=PS-05/A&oldid=1357555494",
+              "date": "2026-06-03"
+            },
+            "stimson": {
+              "title": "G. W. Stimson, \"Introduction to Airborne Radar\", 2nd ed. (ISBN 1-891121-01-4), p. 144",
+              "publisher": "SciTech Publishing, 1998",
+              "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
+              "date": "1998",
+              "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+            }
+          }
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "rafale",
+      "disposition": "applicable_complete_native_air_radar",
+      "selected_configuration": "authored rbe2-aa",
+      "families": [
+        "air_radar",
+        "esm",
+        "gun",
+        "passive_optical",
+        "store_station"
+      ],
+      "fit_sha256": "6ba7488333a9340868189aff39a74748d14fddefe1fb79e0a8d2de300b39e064",
+      "evidence": [
+        {
+          "card": "rbe2-aa",
+          "sources": {
+            "wp-rafale": {
+              "title": "Dassault Rafale",
+              "publisher": "Wikipedia (revision 1377238412)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Dassault_Rafale&oldid=1377238412",
+              "date": "2026-09-28"
+            },
+            "wp-r-rbe2": {
+              "title": "RBE2",
+              "publisher": "Wikipedia (revision 1371341641)",
+              "url": "https://en.wikipedia.org/w/index.php?title=RBE2&oldid=1371341641",
+              "date": "2026-08-26"
+            },
+            "wp-r-ps05": {
+              "title": "PS-05/A",
+              "publisher": "Wikipedia (revision 1357555494)",
+              "url": "https://en.wikipedia.org/w/index.php?title=PS-05/A&oldid=1357555494",
+              "date": "2026-06-03"
+            },
+            "stimson": {
+              "title": "G. W. Stimson, \"Introduction to Airborne Radar\", 2nd ed. (ISBN 1-891121-01-4), p. 144",
+              "publisher": "SciTech Publishing, 1998",
+              "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
+              "date": "1998",
+              "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+            }
+          }
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "rc135w",
+      "disposition": "selected_configuration_uses_other_families_or_no_mission_payload",
+      "selected_configuration": "Rivet Joint signals-intelligence fit",
+      "families": [
+        "esm"
+      ],
+      "fit_sha256": "20e163ad31252b91b1e86178f1ff14f0886d512e42245466b102bacbc5506fab",
+      "evidence": [
+        {
+          "source": "https://www.raf.mod.uk/aircraft/airseeker-rc-135w-rivet-joint/",
+          "claim": "Selected role/equipment context; not an exhaustive physical-absence proof"
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "rq4b",
+      "disposition": "selected_configuration_uses_other_families_or_no_mission_payload",
+      "selected_configuration": "authored EISS SAR/EOIR configuration; not a Block40 MP-RTIP fit",
+      "families": [
+        "passive_optical",
+        "sar"
+      ],
+      "fit_sha256": "ebcb937cd08ee46af039a407f47dac50713d41754a58bcc4f21ef54a7b97ad37",
+      "evidence": [
+        {
+          "source": "https://www.rtx.com/raytheon/what-we-do/air/globalhawk-iss",
+          "claim": "Selected role/equipment context; not an exhaustive physical-absence proof"
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "skua",
+      "disposition": "selected_configuration_uses_other_families_or_no_mission_payload",
+      "selected_configuration": "project design explicitly selects no mission payload",
+      "families": [],
+      "fit_sha256": "b1a4771f01c70853592a7e514c880e05f9f97fe3c56551fadb179ad6b086c852",
+      "evidence": [
+        {
+          "source": "aircraft/skua/payloads.json",
+          "claim": "Selected role/equipment context; not an exhaustive physical-absence proof"
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "su25",
+      "disposition": "selected_configuration_uses_other_families_or_no_mission_payload",
+      "selected_configuration": "authored laser / warning-receiver / weapons fit; not an upgraded radar configuration",
+      "families": [
+        "countermeasures",
+        "esm",
+        "gun",
+        "passive_optical",
+        "store_station"
+      ],
+      "fit_sha256": "412739ee7a76a137b0bc888528fcfc9dac64593234711f4db975725e6e093c94",
+      "evidence": [
+        {
+          "source": "aircraft/su25/payloads.json",
+          "claim": "Selected role/equipment context; not an exhaustive physical-absence proof"
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "su27s",
+      "disposition": "applicable_complete_native_air_radar",
+      "selected_configuration": "authored n001",
+      "families": [
+        "air_radar",
+        "esm",
+        "gun",
+        "passive_optical",
+        "store_station"
+      ],
+      "fit_sha256": "b87a3250c1d36ecc7c1859af9dd234fc135faeb9fe149586df4d543339a9c0a4",
+      "evidence": [
+        {
+          "card": "n001",
+          "sources": {
+            "wp-su27s": {
+              "title": "Sukhoi Su-27",
+              "publisher": "Wikipedia (revision 1378428873)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Sukhoi_Su-27&oldid=1378428873",
+              "date": "2026-10-04"
+            },
+            "wp-r-n001": {
+              "title": "Mech radar",
+              "publisher": "Wikipedia (revision 1372541993)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Mech_radar&oldid=1372541993",
+              "date": "2026-09-01"
+            },
+            "wp-r-ps05": {
+              "title": "PS-05/A",
+              "publisher": "Wikipedia (revision 1357555494)",
+              "url": "https://en.wikipedia.org/w/index.php?title=PS-05/A&oldid=1357555494",
+              "date": "2026-06-03"
+            },
+            "stimson": {
+              "title": "G. W. Stimson, \"Introduction to Airborne Radar\", 2nd ed. (ISBN 1-891121-01-4), p. 144",
+              "publisher": "SciTech Publishing, 1998",
+              "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
+              "date": "1998",
+              "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+            }
+          }
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "su57",
+      "disposition": "applicable_complete_native_air_radar",
+      "selected_configuration": "authored n036-byelka",
+      "families": [
+        "air_radar",
+        "electronic_attack",
+        "gun",
+        "passive_optical",
+        "store_station"
+      ],
+      "fit_sha256": "873b908f3dc227c61d38e8795d758a5f3baa624ca98d23ab6d4d31cc6f58fbe3",
+      "evidence": [
+        {
+          "card": "n036-byelka",
+          "sources": {
+            "wp-su57": {
+              "title": "Sukhoi Su-57",
+              "publisher": "Wikipedia (revision 1376999114)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Sukhoi_Su-57&oldid=1376999114",
+              "date": "2026-09-27"
+            },
+            "wp-r-n036": {
+              "title": "Byelka (radar)",
+              "publisher": "Wikipedia (revision 1330435902)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Byelka_(radar)&oldid=1330435902",
+              "date": "2025-12-31"
+            },
+            "wp-r-ps05": {
+              "title": "PS-05/A",
+              "publisher": "Wikipedia (revision 1357555494)",
+              "url": "https://en.wikipedia.org/w/index.php?title=PS-05/A&oldid=1357555494",
+              "date": "2026-06-03"
+            },
+            "stimson": {
+              "title": "G. W. Stimson, \"Introduction to Airborne Radar\", 2nd ed. (ISBN 1-891121-01-4), p. 144",
+              "publisher": "SciTech Publishing, 1998",
+              "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
+              "date": "1998",
+              "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+            }
+          }
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "typhoon",
+      "disposition": "applicable_complete_native_air_radar",
+      "selected_configuration": "authored captor-m",
+      "families": [
+        "air_radar",
+        "comm_terminal",
+        "esm",
+        "gun",
+        "passive_optical",
+        "store_station"
+      ],
+      "fit_sha256": "8f4bd891e5a8c591686dbb4a42bf5ff6be205825f0cde646e728bc50a875746c",
+      "evidence": [
+        {
+          "card": "captor-m",
+          "sources": {
+            "wp-typhoon": {
+              "title": "Eurofighter Typhoon",
+              "publisher": "Wikipedia (revision 1378850990)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Eurofighter_Typhoon&oldid=1378850990",
+              "date": "2026-10-06"
+            },
+            "wp-r-captor": {
+              "title": "Euroradar CAPTOR",
+              "publisher": "Wikipedia (revision 1373444063)",
+              "url": "https://en.wikipedia.org/w/index.php?title=Euroradar_CAPTOR&oldid=1373444063",
+              "date": "2026-09-06"
+            },
+            "stimson": {
+              "title": "G. W. Stimson, \"Introduction to Airborne Radar\", 2nd ed. (ISBN 1-891121-01-4), p. 144",
+              "publisher": "SciTech Publishing, 1998",
+              "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
+              "date": "1998",
+              "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+            }
+          }
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "u2s",
+      "disposition": "selected_configuration_uses_other_families_or_no_mission_payload",
+      "selected_configuration": "ASARS-2 SAR / electro-optical / SIGINT fit",
+      "families": [
+        "comm_terminal",
+        "passive_optical",
+        "sar"
+      ],
+      "fit_sha256": "78d8772635fc7d0bd43e6e748aa24367380c385fb230a26af903aaf54857e985",
+      "evidence": [
+        {
+          "source": "https://www.beale.af.mil/News/Article-Display/Article/3825542/the-eyes-and-ears-of-the-u-2/",
+          "claim": "Selected role/equipment context; not an exhaustive physical-absence proof"
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "uh1h",
+      "disposition": "selected_configuration_uses_other_families_or_no_mission_payload",
+      "selected_configuration": "authored utility-helicopter / door-gun fit",
+      "families": [
+        "gun"
+      ],
+      "fit_sha256": "ef8c4a65578723797c9b5b31900caeaef6754b37b48646f6f1763ed935448c7a",
+      "evidence": [
+        {
+          "source": "aircraft/uh1h/payloads.json",
+          "claim": "Selected role/equipment context; not an exhaustive physical-absence proof"
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    },
+    {
+      "design": "uh60",
+      "disposition": "selected_configuration_uses_other_families_or_no_mission_payload",
+      "selected_configuration": "authored utility-helicopter fit; not an MH-60R maritime-radar configuration",
+      "families": [
+        "countermeasures",
+        "gun",
+        "store_station"
+      ],
+      "fit_sha256": "937d498d57fb5f3b035b495b8e0b720c94facd7e319126503cfeb06c89add726",
+      "evidence": [
+        {
+          "source": "aircraft/uh60/payloads.json",
+          "claim": "Selected role/equipment context; not an exhaustive physical-absence proof"
+        }
+      ],
+      "engineering_assignment_closed": true,
+      "verified_physical_equipment_absence": false
+    }
+  ],
+  "source_rule": "Air-radar M01 applies to selected authored air_radar cards. Ground-map, weather, EW, EOIR and utility fits are distinct contracts, not absent implementations of M01 air radar.",
+  "stock_models": [
+    {
+      "model": "737",
+      "relative_xml": "third_party/jsbsim/aircraft/737/737.xml",
+      "xml_sha256": "1ac0bde51e3665306ebdc70f7920748aaf1b58a0f5443b63eed400dbf92be338",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "787-8",
+      "relative_xml": "third_party/jsbsim/aircraft/787-8/787-8.xml",
+      "xml_sha256": "addb1f90f8175c9e826d5baad7de6289dd6e4404182d3de20487038228d21089",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "A320",
+      "relative_xml": "third_party/jsbsim/aircraft/A320/A320.xml",
+      "xml_sha256": "a159391b479bc0adafe0b912647a4d34070dbde4f13cd9408ba6806e60f61d9b",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "A4",
+      "relative_xml": "third_party/jsbsim/aircraft/A4/A4.xml",
+      "xml_sha256": "ff38cca247abecdb8f333849f9eae6835305ad45e333770601070fc652d2e994",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "ah1s",
+      "relative_xml": "third_party/jsbsim/aircraft/ah1s/ah1s.xml",
+      "xml_sha256": "9534329bfd106230f9bbb4df551b1f3c4bff1f4c8b2e66c865e98dfd108a5448",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "B17",
+      "relative_xml": "third_party/jsbsim/aircraft/B17/B17.xml",
+      "xml_sha256": "a6d546ec85e5677dae14f3425e67007d2d312c7442c8a9b63a864f61882a15f6",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "B747",
+      "relative_xml": "third_party/jsbsim/aircraft/B747/B747.xml",
+      "xml_sha256": "da5c74608dc7a53402270efa150083316d87018726ea25c66a2f30be05e484a9",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "ball",
+      "relative_xml": "third_party/jsbsim/aircraft/ball/ball.xml",
+      "xml_sha256": "6e8dc031b5b039d41e0a414f306bfde6edcae9245deeaa2f2914425e1d3509bd",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "ballx",
+      "relative_xml": "third_party/jsbsim/aircraft/ballx/ballx.xml",
+      "xml_sha256": "ccbca3a9b378624b4098661e77cb6b8d88f6d0143da19fbbc673eb3a3afa2d3c",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "blank",
+      "relative_xml": "third_party/jsbsim/aircraft/blank/blank.xml",
+      "xml_sha256": "88d2a5e7d6ebe08e24bb78eee62fadaada2b11a8635807a22ba155c221403486",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "Boeing314",
+      "relative_xml": "third_party/jsbsim/aircraft/Boeing314/Boeing314.xml",
+      "xml_sha256": "c1a1647b613c4c968d23b950b2534e080118844c754c56b96dbb3835201e120f",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "C130",
+      "relative_xml": "third_party/jsbsim/aircraft/C130/C130.xml",
+      "xml_sha256": "88c2cd5a3da01fdd3390c6337e46ab22d84b10e6c1cbb15166e7a1bfcdedcee1",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "c172p",
+      "relative_xml": "third_party/jsbsim/aircraft/c172p/c172p.xml",
+      "xml_sha256": "0af58c613f7bca7e1d85f4b2e178a4d7b0b14dda6d5f79b38c571d9911187aa4",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "c172r",
+      "relative_xml": "third_party/jsbsim/aircraft/c172r/c172r.xml",
+      "xml_sha256": "9d6233236fd55b078336f200a556d66d051d9a7f367f3ecfc314f374c5e8a4c9",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "c172x",
+      "relative_xml": "third_party/jsbsim/aircraft/c172x/c172x.xml",
+      "xml_sha256": "b736f4b7560d5aab4d2a69026798be1d369b2b2bb5ddcf627aebfd441ba71840",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "c182",
+      "relative_xml": "third_party/jsbsim/aircraft/c182/c182.xml",
+      "xml_sha256": "59baad3a1bad8c0c889fed5252651296141c3452fce0e0d443923bfc0e8e79c2",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "c310",
+      "relative_xml": "third_party/jsbsim/aircraft/c310/c310.xml",
+      "xml_sha256": "9db38b94a1359cf529a3c986e0a7746bf8f89f1019660be032667ea7f6613c69",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "Camel",
+      "relative_xml": "third_party/jsbsim/aircraft/Camel/Camel.xml",
+      "xml_sha256": "5a943180be3bc7305b4fb4c40d562f09a4fc968161f40942c79faa198631bd01",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "Concorde",
+      "relative_xml": "third_party/jsbsim/aircraft/Concorde/Concorde.xml",
+      "xml_sha256": "c2475bf0c4a1c69216855d5b7a3c684ea595679ed09dbbbf10f7783ed5e244fb",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "DHC6",
+      "relative_xml": "third_party/jsbsim/aircraft/DHC6/DHC6.xml",
+      "xml_sha256": "ea870e4866aef6be46e6ab8e139c26b398a2ebd220f293b8bd97a6c36fb08ec6",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "dr1",
+      "relative_xml": "third_party/jsbsim/aircraft/dr1/dr1.xml",
+      "xml_sha256": "bd394cb162b91e4a11e97e2fbf490e1d5a9ddb0feeed4f5a4c8cf237cedc22f8",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "f104",
+      "relative_xml": "third_party/jsbsim/aircraft/f104/f104.xml",
+      "xml_sha256": "70e6f07c8db4ac8e5cc7ebb0b9340c2618ababe008ce97a48eb4da70436fd804",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "f15",
+      "relative_xml": "third_party/jsbsim/aircraft/f15/f15.xml",
+      "xml_sha256": "19c6d2f82705489410a835dacc8d08be88149d321e00822c338f4676046e8c87",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "f16",
+      "relative_xml": "third_party/jsbsim/aircraft/f16/f16.xml",
+      "xml_sha256": "78edd90534338204913c35ed50d7c222eecac1b83c454c73ad70bf6d4907ea2f",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "f22",
+      "relative_xml": "third_party/jsbsim/aircraft/f22/f22.xml",
+      "xml_sha256": "93b85e4364c6cd97bc4d39444b666936b2f97491babf1cac3fffed1cebbdeb22",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "F450",
+      "relative_xml": "third_party/jsbsim/aircraft/F450/F450.xml",
+      "xml_sha256": "ed23086b7bb872a45ea849961a1871207584cc19c687e771e5a89d5d9834918f",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "F4N",
+      "relative_xml": "third_party/jsbsim/aircraft/F4N/F4N.xml",
+      "xml_sha256": "7c90297faa2b8eb6d2e21e646c96aff4dce1f8b7bc2b1fa047d05d834e562a4a",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "F80C",
+      "relative_xml": "third_party/jsbsim/aircraft/F80C/F80C.xml",
+      "xml_sha256": "8c79d679b446360503a0daa78a291889f6304a8e76b622a452659f0b8eb19390",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "fokker100",
+      "relative_xml": "third_party/jsbsim/aircraft/fokker100/fokker100.xml",
+      "xml_sha256": "8f149e025b505305847b2729c7ce51255e3693922d9ebacd2a57aff0ef83acef",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "fokker50",
+      "relative_xml": "third_party/jsbsim/aircraft/fokker50/fokker50.xml",
+      "xml_sha256": "dd6507d48e51e27423c89af29a036ae7e8c797add03df115bdbc2e4132932a89",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "global5000",
+      "relative_xml": "third_party/jsbsim/aircraft/global5000/global5000.xml",
+      "xml_sha256": "e5b1e5ed68bc3f132b79f1304ad530e922dcc115fd0c692758c4bafe9ed1f43b",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "J246",
+      "relative_xml": "third_party/jsbsim/aircraft/J246/J246.xml",
+      "xml_sha256": "c2b10d89db28d50b94d3c995c5690a75c42c0d30405df9373dac4a72949e47a1",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "J3Cub",
+      "relative_xml": "third_party/jsbsim/aircraft/J3Cub/J3Cub.xml",
+      "xml_sha256": "a0a0a59d7f914243ffa7dd84f4399fdc2b98f78175f39faf030489612ddd7ce5",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "L17",
+      "relative_xml": "third_party/jsbsim/aircraft/L17/L17.xml",
+      "xml_sha256": "4472cb86623b4fc6529381a270f09d722d52d352428787d93610d349aa23ccbf",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "L410",
+      "relative_xml": "third_party/jsbsim/aircraft/L410/L410.xml",
+      "xml_sha256": "f14615e924609f23c025592f2d1d66ce8c75c13b82e70b61a0ad04fc17c76cee",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "MD11",
+      "relative_xml": "third_party/jsbsim/aircraft/MD11/MD11.xml",
+      "xml_sha256": "8addf6e948beaa287813107175cbaa31a50cd96cb9f63805c9e225906b8bffc2",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "minisgs",
+      "relative_xml": "third_party/jsbsim/aircraft/minisgs/minisgs.xml",
+      "xml_sha256": "78f6fb0c37b2df93e27a7f229f424e88651ecf65ead29604bf2748c8e7edc35c",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "mk82",
+      "relative_xml": "third_party/jsbsim/aircraft/mk82/mk82.xml",
+      "xml_sha256": "01fa24a9281838529dae30a65b994101d4189234bd9ae19e177b25fabebeb541",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "OV10",
+      "relative_xml": "third_party/jsbsim/aircraft/OV10/OV10.xml",
+      "xml_sha256": "64026c94ac3a953ffcc2d953b13c44c5d250825c1d7b51b2e3f9c780ace72c3a",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "p51d",
+      "relative_xml": "third_party/jsbsim/aircraft/p51d/p51d.xml",
+      "xml_sha256": "cb6835a38fe40db873b2f77d298cbc01700aefc86b19b3c7eda68be726e89da0",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "pa28",
+      "relative_xml": "third_party/jsbsim/aircraft/pa28/pa28.xml",
+      "xml_sha256": "fe8dc2bf299dba99e14420a0dfe01465ddc10130d8142db720e1df3ceffba88b",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "paraglider",
+      "relative_xml": "third_party/jsbsim/aircraft/paraglider/paraglider.xml",
+      "xml_sha256": "81c0ec3234ebf4ad04f23ec5708a4e2adc1ae12b785a8d0bcf56c2efced55e0a",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "pc7",
+      "relative_xml": "third_party/jsbsim/aircraft/pc7/pc7.xml",
+      "xml_sha256": "3dc90c1be908206d3aef87e706fb2cf053850ffc12b9fc4d83e0f52428755038",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "pogo-jsbsim",
+      "relative_xml": "third_party/jsbsim/aircraft/pogo-jsbsim/pogo-jsbsim.xml",
+      "xml_sha256": "06af053ebe0dd37aa2fd370d7d4a7a4b5302f58d24dffb585f39e4bf4b7ba04d",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "Pterosaur",
+      "relative_xml": "third_party/jsbsim/aircraft/Pterosaur/Pterosaur.xml",
+      "xml_sha256": "eda73aa8365d9cff4f3e06885ebca8cef83b52d3ed71d6016f5140531058563e",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "SGS",
+      "relative_xml": "third_party/jsbsim/aircraft/SGS/SGS.xml",
+      "xml_sha256": "374c2b9cfe2d4b570e77512c9dfd5a1d55e46f7ded05e4430d603e919a8395f3",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "sgs126",
+      "relative_xml": "third_party/jsbsim/aircraft/sgs126/sgs126.xml",
+      "xml_sha256": "5ed59fe8fdcf0aa980e3c675cdf4b42d76c84a80e5c718a9e3e120dd3f62d108",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "sgs233",
+      "relative_xml": "third_party/jsbsim/aircraft/sgs233/sgs233.xml",
+      "xml_sha256": "37cea20ce0675db6bf30ffa14e934da0bbf83e522d593a94849adc828c041715",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "Short_S23",
+      "relative_xml": "third_party/jsbsim/aircraft/Short_S23/Short_S23.xml",
+      "xml_sha256": "b4ba55cceeaca5057bacfb59b510bf3bdc8e9ea19efbd007904700ab2439282f",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "Shuttle",
+      "relative_xml": "third_party/jsbsim/aircraft/Shuttle/Shuttle.xml",
+      "xml_sha256": "938d9c6d4bbda5d47087e01ac338a8506b186e29ac639c561f6c10d7e5093b26",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "Submarine_Scout",
+      "relative_xml": "third_party/jsbsim/aircraft/Submarine_Scout/Submarine_Scout.xml",
+      "xml_sha256": "c795c5adddc827b104b0e768410d79dfcfb815a013971c339fd4202cb61401c8",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "T37",
+      "relative_xml": "third_party/jsbsim/aircraft/T37/T37.xml",
+      "xml_sha256": "24b3ab90063e62a6b5e6ba969e43b9ed9ccc980d32fcb213a765c331025a57e9",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "T38",
+      "relative_xml": "third_party/jsbsim/aircraft/T38/T38.xml",
+      "xml_sha256": "3cb59fc46cef473b8b89c591651faf67f1e05954cb98db297d121fc8e58368b0",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "t6texan2",
+      "relative_xml": "third_party/jsbsim/aircraft/t6texan2/t6texan2.xml",
+      "xml_sha256": "93e66a368324391d6b3c7d7254052772427919e3ddfa57b1defceb978729feae",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "weather-balloon",
+      "relative_xml": "third_party/jsbsim/aircraft/weather-balloon/weather-balloon.xml",
+      "xml_sha256": "d18c047e57a3ba5466e4990fa28d5498931fdf8823fc98f531c4ab770c7a8a4b",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "wrightFlyer1903",
+      "relative_xml": "third_party/jsbsim/aircraft/wrightFlyer1903/wrightFlyer1903.xml",
+      "xml_sha256": "928035c648d7cd2ef1becd4f6661a384c643abc5ef9b81cb4446412d3a255f64",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "X15",
+      "relative_xml": "third_party/jsbsim/aircraft/X15/X15.xml",
+      "xml_sha256": "d1b13422428164d19ffa9621821df07b9de7c3844e9d2895f51abbc3108a26d6",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "x24b",
+      "relative_xml": "third_party/jsbsim/aircraft/x24b/x24b.xml",
+      "xml_sha256": "bc23037e654e46972d08766f6f506f39ed81440411a1ba3d2b5348e5296d74eb",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "XB-70",
+      "relative_xml": "third_party/jsbsim/aircraft/XB-70/XB-70.xml",
+      "xml_sha256": "c82939f0ac7f5c6218802d9d17361312ec0eed07554f19a10ab9110ab2ebeda9",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    },
+    {
+      "model": "ZLT-NT",
+      "relative_xml": "third_party/jsbsim/aircraft/ZLT-NT/ZLT-NT.xml",
+      "xml_sha256": "dbf5583ce6ec5914064ea33918d290e86f4c562f32180a57bc9d39815d7ea30d",
+      "adjacent_fit": false,
+      "fit_sha256": null,
+      "disposition": "adjacent_fit_only_no_inferred_airframe_alias"
+    }
+  ],
+  "stock_resolution": "Runtime resolves an exact JSBSim model and reads its adjacent payloads.json; neither a matching prefix nor a real-world type name aliases another fit.",
+  "custom_models": "External/custom JSBSim model names are open-ended inputs, not a finite claimed equipment roster. The same explicit adjacent-fit contract applies.",
+  "physical_calibration": false
+}

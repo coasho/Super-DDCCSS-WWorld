@@ -793,7 +793,12 @@ std::vector<std::uint64_t> World::publishNative(std::uint32_t entity, comm::Topi
         }
         for (const ms::PayloadInfo& p : e->ms.payloads()) {
             if (p.family != ms::Family::AirRadar || (payload != 0xFFFFu && p.index != payload)) continue;
-            for (const ms::AmtiTrack& t : amtiTracks(entity, p.index)) { // (its numbering and estimate, never `truth`)
+            const auto* radar=e->ms.radar(p.index);
+            if(!radar)continue;
+            for (const auto& track : radar->tracks()) { // original measurement epoch, never refreshed by prediction
+                const auto measured=radar->measurementReport(track,pool_->states()[e->slot]);
+                if(!measured)continue;
+                const auto& t=*measured;
                 comm::EntityReport r;
                 r.track = t.id, r.payload = p.index, r.updates = t.updates, r.timeS = t.timeS;
                 r.latitudeRad = t.latitudeRad, r.longitudeRad = t.longitudeRad, r.heightM = t.heightM;
@@ -3007,6 +3012,25 @@ void World::fillStatus() {
         if (!e) {
             std::fill(d, d + ipc::kDerivedCount, 0.0);
             continue;
+        }
+        // Observational V1 sidecar: copy native fusion knowledge, never rebuild
+        // association or sensor truth in a viewer/client.
+        if(publisher_) {
+            ipc::FusionRecordV1 fusion;
+            fusion.vehicleId=e->info.id;fusion.generation=e->info.generation;fusion.timeS=simTime_;
+            fusion.rejectedInputs=e->fusion.rejected();fusion.capacityRefusals=e->fusion.capacityRefusals();
+            const auto picture=e->fusion.snapshot();fusion.total=static_cast<std::uint32_t>(picture.size());
+            for(const auto& source:picture) {
+                if(fusion.count>=ipc::kFusionDisplayEntitiesV1)break;
+                auto& target=fusion.entities[fusion.count++];target.id=source.id;target.state=static_cast<std::uint32_t>(source.state);
+                target.sourceCount=static_cast<std::uint32_t>(source.sources.size());
+                for(const auto& contributor:source.sources)target.sourceKinds|=1u<<static_cast<unsigned>(contributor.kind);
+                target.identityKnown=source.identityKnown?1u:0u;target.standardIdentity=source.standardIdentity;
+                target.lastUpdateS=source.lastUpdateS;target.validUntilS=source.validUntilS;
+                std::copy(std::begin(source.stateEcef),std::end(source.stateEcef),target.stateEcef);
+                std::copy(std::begin(source.covarianceEcef),std::end(source.covarianceEcef),target.covarianceEcef);
+            }
+            publisher_->setFusion(static_cast<std::uint32_t>(s),fusion);
         }
         const control::Performance& p = e->host.performance();
         const double mass = e->host.massKg();

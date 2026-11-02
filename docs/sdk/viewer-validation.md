@@ -1,5 +1,21 @@
 # Native viewer validation
 
+<!-- SIM-M01 full quality begin -->
+SIM-M01 full quality acceptance, 2026-11-02: the normal native Viewer presents the
+SDK fusion V1 sidecar, preserving exact frame/incarnation/vehicle-generation,
+unknown identity, source summary, age, covariance and explicit count/truncation.
+Both fighter and AEW worlds run complete 65-second, 1x, 3840x2160 fullscreen scenes.
+Ten actual captures are reviewed with Earth/terrain/clouds/sunlight/shadows and
+native effects enabled. Both scenes produce actual combined local-radar and
+delivered-link fused entities and lost reports after power-off. Installed product
+acceptance additionally captures the actual primary display through expiry at
+62 seconds, with complete native traces through 65 seconds. The
+evidence is observational and non-isolated; it is not physical calibration or
+generic installed actor-endpoint joint acceptance. Replayed legacy recordings
+have no fusion sidecar and display unavailable. See
+[current M01 record](sim-m01-completion.md) and its full quality receipt.
+<!-- SIM-M01 full quality end -->
+
 Date: 2026-10-12. Checkout: `main`, starting commit `c2641e9cf51d2f84befa96d6a1d0b592029898d4`,
 with the viewer corrections described below. This record covers the native Vulkan/VSG viewer and offscreen
 Vision on this machine. The earlier [engagement delivery record](engagement-validation.md) remains headless

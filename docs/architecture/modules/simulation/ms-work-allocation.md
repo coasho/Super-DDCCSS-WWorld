@@ -1,5 +1,16 @@
 # Mission Systems work allocation
 
+<!-- SIM-M01 full quality begin -->
+The current [SIM-M01 completion record](../../../sdk/sim-m01-completion.md)
+supersedes the dated radar implementation snapshots and original ownership below.
+The user assigned the complete continuation to the current owner on 2026-11-01
+and confirmed the SIM-M02 engineering rule on 2026-11-02: components, applicable
+functions, methods, integration and reproducible delivery must close; empirical
+equipment accuracy remains a separate uncertainty ledger. The current native
+radar package does not assert generic A-GRA wire-schema conformance or transfer
+other owners' frozen gateway contracts.
+<!-- SIM-M01 full quality end -->
+
 Date: 2026-10-17. Initial planning baseline: main `5c80892`; source and implementation coverage rechecked at main `6170ec6`. This allocation starts MS planning; it makes no new implementation, protocol-conformance or model-acceptance claim.
 
 ## 1. Scope and authority

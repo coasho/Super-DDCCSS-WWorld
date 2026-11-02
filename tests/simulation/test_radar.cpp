@@ -450,6 +450,19 @@ TEST_CASE("radar for the viewers: each vehicle's payloads and radar picture in t
     w.publishNow();
     ipc::WorldMirror mirror;
     REQUIRE(mirror.open("radar-mirror"));
+    mirror.pollTable();sim::SnapshotBatch fusionPose;REQUIRE(mirror.pollSnapshot(fusionPose));
+    ipc::FusionRecordV1 fused;REQUIRE(mirror.fusion(0,fused));
+    const auto nativePicture=w.fusedTracksV1(own);
+    REQUIRE(!nativePicture.empty());
+    REQUIRE(fused.total==nativePicture.size());REQUIRE(fused.count==nativePicture.size());
+    for(std::size_t i=0;i<nativePicture.size();++i) {
+        const auto& expected=nativePicture[i];const auto& actual=fused.entities[i];
+        CHECK(actual.id==expected.id);CHECK(actual.state==static_cast<std::uint32_t>(expected.state));
+        CHECK(actual.sourceCount==expected.sources.size());CHECK(actual.lastUpdateS==expected.lastUpdateS);
+        CHECK(actual.validUntilS==expected.validUntilS);CHECK_FALSE(actual.identityKnown);
+        for(std::size_t k=0;k<6;++k)CHECK(actual.stateEcef[k]==expected.stateEcef[k]);
+        for(std::size_t k=0;k<36;++k)CHECK(actual.covarianceEcef[k]==expected.covarianceEcef[k]);
+    }
     ipc::MissionRecord m;
     REQUIRE(mirror.mission(0, m));
     CHECK(m.vehicleId == own);
@@ -490,6 +503,33 @@ TEST_CASE("radar for the viewers: each vehicle's payloads and radar picture in t
     REQUIRE(mirror.mission(1, t));
     CHECK(t.vehicleId == 0);
     CHECK(t.payloadCount == 0);
+}
+
+TEST_CASE("radar reports preserve measurement time after bounded prediction history rolls over", "[ms][radar][track]") {
+    radar::Radar sensor(radar::specOf(*card("an-apg-68v9")),3);
+    ms::track::Track track;track.id=9;
+    ms::track::Gaussian initial;initial.t=100;initial.x.a[0]=6378137+6000;
+    for(std::size_t i=0;i<6;++i)initial.p(i,i)=1;
+    track.append({initial,true,1,3});
+    for(std::size_t i=1;i<=ms::track::Track::kHistory+3;++i)
+        track.append({ms::track::predict(track.state(),100+.02*static_cast<double>(i),sensor.trackerSettings().motion),false,0,0});
+    sim::VehicleState own{};own.positionEcef[0]=6378137+5000;own.attitudeEcefToBody[0]=1;
+    const auto report=sensor.report(track,102,own);
+    CHECK(report.timeS==102);CHECK(report.lastUpdateS==100);
+    CHECK_FALSE(sensor.measurementReport(track,own)); // no retained posterior: never invent one from prediction
+}
+
+TEST_CASE("radar link reports preserve the measurement epoch instead of refreshing coasted estimates", "[ms][radar][fusion]") {
+    session::World w(options("radar-link-age"));std::uint32_t own=0,target=0;
+    REQUIRE(!search(w,own,target,6).empty());
+    const auto tracks=w.amtiTracks(own,0);REQUIRE(!tracks.empty());
+    const auto net=w.dms().createNet({});REQUIRE(w.dms().join(own,net));REQUIRE(w.dms().join(target,net));
+    comm::DmsReason why;REQUIRE(!w.publishNative(own,comm::topic::kEntity,0,{w.dms().systemOf(target)},why).empty());
+    w.step(40);const auto received=w.dms().linkTracks(target);REQUIRE(!received.empty());
+    for(const auto& report:received) {
+        const auto source=std::find_if(tracks.begin(),tracks.end(),[&](const auto& track){return track.id==report.report.track;});
+        REQUIRE(source!=tracks.end());CHECK(report.report.timeS==source->lastUpdateS);
+    }
 }
 
 TEST_CASE("radars in parallel: every radar of a world looks on the workers, the same looks to the bit as on one", "[ms][radar]") {

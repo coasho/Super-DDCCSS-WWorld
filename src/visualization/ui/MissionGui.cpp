@@ -1,4 +1,5 @@
 #include "visualization/ui/MissionGui.h"
+#include "visualization/ui/FusionGui.h"
 
 #include "visualization/ui/Colour.h"
 
@@ -79,9 +80,10 @@ Column column(std::uint32_t payload) {
 } // namespace
 
 MissionGui::MissionGui(std::shared_ptr<ViewerControls> controls)
-    : controls_(std::move(controls)), record_(std::make_unique<ipc::MissionRecord>()) {}
+    : controls_(std::move(controls)), record_(std::make_unique<ipc::MissionRecord>()),fusion_(std::make_unique<ipc::FusionRecordV1>()) {}
 
 void MissionGui::update(const ipc::WorldMirror* mirror, int slot, const std::string& name, double simTime) {
+    fusionValid_=false;
     mirrored_ = mirror && mirror->valid();
     simTime_ = simTime;
     name_ = name;
@@ -91,9 +93,11 @@ void MissionGui::update(const ipc::WorldMirror* mirror, int slot, const std::str
     }
     if (slot != slot_) valid_ = false, slot_ = slot; // (another vehicle: read it whole)
     if (mirror->mission(static_cast<std::uint32_t>(slot), *record_, valid_ ? record_->revision : ~0ull)) valid_ = true;
+    fusionValid_=mirror->fusion(static_cast<std::uint32_t>(slot),*fusion_);
 }
 
 void MissionGui::record(vsg::CommandBuffer&) const {
+    if (mirrored_) drawFusionV1(*fusion_,fusionValid_,name_);
     if (!mirrored_ || !controls_->showMission.load(std::memory_order_relaxed)) return;
     drawPayloads();
     if (valid_) {

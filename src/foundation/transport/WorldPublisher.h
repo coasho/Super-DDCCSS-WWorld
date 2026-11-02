@@ -4,6 +4,7 @@
 #include "contracts/world_stream/WorldLayout.h"
 #include "foundation/platform/SharedMemory.h"
 #include "foundation/transport/WeaponControlsSegment.h"
+#include "foundation/transport/FusionSegment.h"
 
 #include <cstdint>
 #include <string>
@@ -41,6 +42,7 @@ public:
     void setEnvironment(const sim::EnvironmentState& environment) noexcept;
     /// A vehicle slot's Mission Systems record (its seq ignored): written whole, its revision bumped.
     void setMission(std::uint32_t index, const MissionRecord& record) noexcept;
+    void setFusion(std::uint32_t index,const FusionRecordV1& record);
     /// Ask the viewers to follow this vehicle (its id); each request is followed once, then the user's choice stands.
     void requestFocus(std::uint32_t vehicleId) noexcept;
 
@@ -67,6 +69,8 @@ private:
     Options options_;
     platform::SharedMemory memory_;
     WeaponControlsSegment finSegment_;
+    FusionSegment fusionSegment_;
+    std::vector<std::unique_ptr<FusionRecordV1>> fusionRows_;
     WorldHeader* header_ = nullptr;
     unsigned char* base_ = nullptr;
     std::uint32_t writeSlot_ = 0;

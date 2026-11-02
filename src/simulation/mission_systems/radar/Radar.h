@@ -229,6 +229,8 @@ public:
     std::size_t tentativeTracks() const noexcept { return tracker_.holding().size(); }
     /// A track as the SDK reports it, predicted to `now`, relative to the carrier's state `own`.
     AmtiTrack report(const track::Track& t, double now, const sim::VehicleState& own) const;
+    /// Latest measurement posterior for link publication; prediction is not a new observation.
+    std::optional<AmtiTrack> measurementReport(const track::Track& t, const sim::VehicleState& own) const;
     void clearTracks();
 
     /// The SNR (dB) one dwell would give against a target of `sigmaM2` at `rangeM` on the beam's axis, free space:
@@ -275,6 +277,7 @@ public:
     track::TrackerSettings trackerSettings() const;
 
 private:
+    AmtiTrack reportAt(const track::Track& t, const track::Gaussian& g, const sim::VehicleState& own) const;
     void plan();
     void dwell(double time, double az, double el, const sim::VehicleState& own, const Scene& scene);
     // --- its engagement modes (MS-4b)

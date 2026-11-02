@@ -1,10 +1,16 @@
 """One common SIM-M01 functional population and dependency-test selection."""
 
-TEST_PATTERN=(r'radar|trackers|track covariance|track IMM|track fusion|signal level|propagation|aperture|radio path|'
+TEST_PATTERN=(r'radar|trackers|track covariance|track IMM|track fusion|fusion stream V1|signal level|propagation|aperture|radio path|'
     r'python_sdk test_(fusion|agents|esm|mission_systems|binding_compatibility|world_binding_compatibility|vec_env)|'
     r'architecture_boundary|sdk_guard_checker|sdk_boundary|ma_contract|^c_abi$')
 
 METHOD_TESTS=(
+    'radar reports preserve measurement time after bounded prediction history rolls over',
+    'radar link reports preserve the measurement epoch instead of refreshing coasted estimates',
+    'track fusion V1: refused recycled source IDs preserve admitted provenance',
+    'track fusion V1: recycled source history cannot steal its newer track',
+    'fusion stream V1: exact snapshots reject foreign publishers old frames and recycled vehicles',
+    'fusion stream V1: loss identity covariance and truncation remain explicit',
     'radar all-round arrays: declared surveillance measures every body quadrant',
     'track fusion V1: covariance intersection against Stone Soup 1.9.1',
     'track IMM: nonlinear posteriors against independently generated FilterPy1.4.5',

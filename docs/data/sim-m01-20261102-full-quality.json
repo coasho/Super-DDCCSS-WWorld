@@ -1,0 +1,61 @@
+{
+  "schema": "fsim.sim-m01.full-quality-delivery.v1",
+  "engineering_acceptance": true,
+  "m01_unclosed_gates": [],
+  "full_regression": {
+    "ucrt64-headless": {
+      "discovered": 893,
+      "passed": 865,
+      "rotor_deferred": 28,
+      "nested_methods": 1232
+    },
+    "ucrt64-release": {
+      "discovered": 967,
+      "passed": 939,
+      "rotor_deferred": 28,
+      "nested_methods": 1232
+    }
+  },
+  "airframes": 35,
+  "air_radar_fits": 17,
+  "stock_models": 60,
+  "native_sampling_stages": 181,
+  "cross_worker_replay_stages": 181,
+  "visual_scenarios": 2,
+  "actual_reviewed_captures": 10,
+  "resolution": [
+    3840,
+    2160
+  ],
+  "real_time_factors": [
+    0.999993154839237,
+    0.9999933347445734
+  ],
+  "equipment_accuracy": {
+    "admitted": 0,
+    "uncalibrated": 17,
+    "rule": "User-approved separate empirical calibration ledger; no missing engineering gate is waived"
+  },
+  "inputs": [
+    {
+      "path": "D:\\ENV\\tmp\\m01q-1102\\build\\architecture-reviews\\m01-verified\\full-campaign.json",
+      "sha256": "517c2de693c2553a2909817282ae77d9af67515c1ee4048cac32f2631fa36139"
+    },
+    {
+      "path": "D:\\ENV\\tmp\\m01q-1102\\build\\architecture-reviews\\m01-verified\\engineering\\sim-m01-delivery.json",
+      "sha256": "70fce44711efc55e8c2321577cfacb9d51884bd52ca8cdb19c879adb8e0360db"
+    },
+    {
+      "path": "D:\\ENV\\tmp\\m01q-1102\\build\\architecture-reviews\\m01-verified\\applicability.json",
+      "sha256": "9c0973eeccf7a01c440a02b9162c54905cf0a63bb03f3d1a299102e193dc588b"
+    },
+    {
+      "path": "D:\\ENV\\tmp\\m01q-1102\\build\\architecture-reviews\\m01-verified\\visual\\visual.json",
+      "sha256": "0e60814535e3f712b8ce2bfad79c9a3c232ac76abd7775f3c3eec4e4c654483a"
+    },
+    {
+      "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m01-full-20261102\\visual-review.json",
+      "sha256": "751452b5976d0b4ea016ba548c31277f431b7bac96115c3802804977a4d84788"
+    }
+  ]
+}

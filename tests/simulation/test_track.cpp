@@ -137,6 +137,33 @@ TEST_CASE("track fusion V1: sample age governs association even after delayed de
     CHECK(current[1].id!=id);CHECK(current[1].state==ms::FusionStateV1::Live);
 }
 
+TEST_CASE("track fusion V1: refused recycled source IDs preserve admitted provenance", "[ms][track][fusion][sim-m01]") {
+    Fusion::Settings settings;settings.capacity=1;Fusion fusion(settings);
+    Fusion::Observation a;a.source.track=1;a.source.system=1;
+    a.source.sampleTimeS=a.source.receivedTimeS=a.estimate.t=1;
+    a.estimate.x.a={10000,0,2000,0,3000,0};a.estimate.p=identity<6>();
+    fusion.advance(1,{a});const auto initial=fusion.snapshot();REQUIRE(initial.size()==1);
+    auto recycled=a;recycled.source.sampleTimeS=recycled.source.receivedTimeS=recycled.estimate.t=2;
+    recycled.estimate.x.a[0]+=1e6;fusion.advance(2,{recycled});
+    const auto after=fusion.snapshot();REQUIRE(after.size()==1);
+    REQUIRE(after[0].sources.size()==1);CHECK(after[0].sources[0].sampleTimeS==1);
+    CHECK(after[0].id==initial[0].id);CHECK(after[0].lastUpdateS==1);
+    CHECK(fusion.capacityRefusals()==1);
+}
+
+TEST_CASE("track fusion V1: recycled source history cannot steal its newer track", "[ms][track][fusion][sim-m01]") {
+    Fusion fusion;Fusion::Observation a;a.source.track=1;a.source.system=1;
+    a.source.sampleTimeS=a.source.receivedTimeS=a.estimate.t=1;
+    a.estimate.x.a={10000,0,2000,0,3000,0};a.estimate.p=identity<6>();fusion.advance(1,{a});
+    auto b=a;b.source.sampleTimeS=b.source.receivedTimeS=b.estimate.t=2;b.estimate.x.a[0]+=1e6;
+    fusion.advance(2,{b});auto picture=fusion.snapshot();REQUIRE(picture.size()==2);
+    REQUIRE(picture[0].sources.size()==1);REQUIRE(picture[1].sources.size()==1);
+    const auto newest=picture[1].id;
+    b.source.sampleTimeS=b.source.receivedTimeS=b.estimate.t=3;fusion.advance(3,{b});picture=fusion.snapshot();
+    REQUIRE(picture.size()==2);CHECK(picture[1].id==newest);CHECK(picture[1].lastUpdateS==3);
+    CHECK(picture[0].lastUpdateS==1);CHECK(picture[0].sources[0].sampleTimeS==1);
+}
+
 namespace {
 
 namespace fs = std::filesystem;

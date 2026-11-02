@@ -49,6 +49,7 @@ bool WorldMirror::open(const std::string& name) {
 }
 
 void WorldMirror::close() {
+    fusionSegment_.close();
     finSegment_.close(); weaponControls_.clear();
     if (attached_ && header_) const_cast<WorldHeader*>(header_)->readers.fetch_sub(1, std::memory_order_relaxed);
     attached_ = false;
@@ -188,6 +189,18 @@ bool WorldMirror::pollSnapshot(sim::SnapshotBatch& out) {
         return true;
     }
     return false;
+}
+
+bool WorldMirror::fusion(std::uint32_t index,FusionRecordV1& out) const noexcept {
+    out={};if(!header_||replaced()||index>=capacity()||!lastSequence_)return false;
+    if(!fusionSegment_.read(lastSequence_,index,out)) {
+        if(!fusionSegment_.open(name_,header_->publisherPid,incarnation_)||!fusionSegment_.read(lastSequence_,index,out))return false;
+    }
+    const auto* current=row(index);const auto before=current->seq.load(std::memory_order_acquire);
+    const auto id=current->id;const auto generation=current->generation;const bool alive=current->alive!=0;
+    std::atomic_thread_fence(std::memory_order_acquire);
+    if((before&1u)||current->seq.load(std::memory_order_acquire)!=before||!alive||out.vehicleId!=id||out.generation!=generation){out={};return false;}
+    return true;
 }
 
 bool WorldMirror::mission(std::uint32_t slot, MissionRecord& out, std::uint64_t known) const noexcept {

@@ -71,6 +71,8 @@ WorldPublisher::WorldPublisher(const Options& options) : options_(options) {
     std::atomic_thread_fence(std::memory_order_seq_cst);
     h->magic = kMagic;
     finSegment_.create(options_.name,options_.capacity,h->publisherPid,h->incarnation.load(std::memory_order_acquire));
+    fusionSegment_.create(options_.name,options_.capacity,h->publisherPid,incarnation);
+    fusionRows_.resize(options_.capacity);
     header_ = h;
     writeSlot_ = 1;
     WorldRegistry::add(options_.name);
@@ -135,6 +137,7 @@ void WorldPublisher::setControlLevel(std::uint32_t index, std::uint8_t level) no
 
 void WorldPublisher::clearVehicle(std::uint32_t index) noexcept {
     if (!header_ || index >= header_->capacity) return;
+    fusionRows_[index].reset();
     VehicleRecord* r = row(index);
     r->seq.fetch_add(1, std::memory_order_acq_rel);
     r->alive = 0;
@@ -172,6 +175,12 @@ bool WorldPublisher::due() const noexcept {
     return header_ && static_cast<double>(platform::Clock::nanoseconds() - lastPublishNs_) * 1e-9 >= options_.publishIntervalSeconds;
 }
 
+void WorldPublisher::setFusion(std::uint32_t index,const FusionRecordV1& record) {
+    if(!header_||index>=fusionRows_.size())return;
+    if(!fusionRows_[index])fusionRows_[index]=std::make_unique<FusionRecordV1>();
+    *fusionRows_[index]=record;
+}
+
 bool WorldPublisher::publish(double simTime, Span<const sim::VehicleState> states, Span<const sim::ControlInputs> inputs,
                              bool force, Span<const FlightStatus> status,
                              const std::vector<ms::WeaponControlSnapshotV1>& controls) noexcept {
@@ -192,6 +201,7 @@ bool WorldPublisher::publish(double simTime, Span<const sim::VehicleState> state
     s->seq.fetch_add(1, std::memory_order_acq_rel);
     s->sequence = header_->publishSequence.load(std::memory_order_relaxed) + 1;
     finSegment_.publish(s->sequence,controls);
+    fusionSegment_.publish(s->sequence,fusionRows_);
     s->simTime = simTime;
     s->wallNs = now;
     for (std::uint32_t i = 0; i < n; ++i) {

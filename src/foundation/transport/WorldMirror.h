@@ -3,6 +3,7 @@
 #include "contracts/world_stream/WorldLayout.h"
 #include "foundation/platform/SharedMemory.h"
 #include "foundation/transport/WeaponControlsSegment.h"
+#include "foundation/transport/FusionSegment.h"
 #include "contracts/world_stream/SnapshotBatch.h"
 
 #include <cstdint>
@@ -81,6 +82,7 @@ public:
     /// A vehicle slot's Mission Systems record (seqlock copy) if its revision is not `known`; false if unchanged,
     /// torn eight times running, or out of range.
     bool mission(std::uint32_t slot, MissionRecord& out, std::uint64_t known = ~0ull) const noexcept;
+    bool fusion(std::uint32_t slot,FusionRecordV1& out) const noexcept;
 
 private:
     const VehicleRecord* row(std::uint32_t index) const noexcept;
@@ -89,6 +91,7 @@ private:
 
     platform::SharedMemory memory_;
     WeaponControlsSegment finSegment_;
+    mutable FusionSegment fusionSegment_;
     std::vector<ms::WeaponControlSnapshotV1> weaponControls_;
     const WorldHeader* header_ = nullptr;
     const unsigned char* base_ = nullptr;

@@ -1,5 +1,63 @@
 # SIM-M01 engineering verification
 
+## Full quality campaign
+
+`full.py` is the complete delivery gate. It runs the bounded engineering campaign
+below, the entire discovered CTest inventory in both presets, selected-fit and
+bundled-model applicability, and two complete live native Viewer scenarios. The
+only exclusions are the unchanged 28 user-approved M02 rotor scenarios; no M01
+scenario is excluded. A dependency selector alone cannot establish this gate.
+
+Use a short ordinary clean source export under D:/ENV/tmp for the full Windows
+campaign. The earlier deep replay produced a261-character VLM-table path that
+the C++ filesystem rejected; an identical34-character file passed the same native
+predicate. This observed platform limit is retained in the evidence. The full
+runner also initializes the ignored, dependency-free Rust example's Cargo.lock
+offline before binding immutable regression inputs. Original assertions, source
+stability checks and the approved scope remain unchanged.
+
+```powershell
+& D:/ENV/python/3.13/python.exe tools/validation/radar/full.py `
+    --output build/architecture-reviews/sim-m01-full-reproduction `
+    --production <current-88-design-generation-directory> `
+    --git-source-root D:/Projects/Cpp/Super-DDCCSS-WWorld `
+    --deps-prefix build/deps-ucrt64/install `
+    --catch2-source build/ucrt64-release/_deps/catch2-src `
+    --maps-dir assets/maps `
+    --powershell C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe --jobs 12
+```
+
+The production input is a complete hash-verified generation epoch and its current
+intermediate `aircraft/<design>/out/tables.pkl` files. The delivery's production
+directory and source/cache archive supply these exact inputs. For new source
+inputs, generate them through the normal `fsim hangar engineering production`
+entry point. Unchanged historical generations are retained only with exact
+current input/product hashes; changed designs require actual forced regeneration.
+No stale receipt is relabeled as a new generation.
+
+`visual.py` verifies actual primary-display fullscreen window bounds, PNG
+dimensions, real-time pace, native sensor/link knowledge, actual multi-source
+radar/link fusion, lost states and expiry. It runs five captures of each complete
+65-second fighter/AEW scene through the normal launcher. The complete Earth,
+terrain, clouds, sunlight and native effects remain enabled. `quality_report.py`
+additionally requires a hash-bound review of all ten actual captures and joins
+the full inventories, JUnit results, method cases and installed-product evidence.
+The scenes are explicitly non-isolated observational diagnostics; their visual
+appearance is not measured equipment accuracy.
+
+For interactive public-SDK use, run
+`fsim --preset ucrt64-release python examples/simulation/python/radar_fusion.py`
+and attach `fsim --preset ucrt64-release viewer --world radar-fusion --fullscreen`.
+Use `--mode aew` on the Python example for the all-round surveillance scene.
+The example makes Agent requests; only the SDK performs sensing, modeled link
+delivery, tracking and covariance intersection. The Viewer presents its V1
+sidecar with exact frame, publisher incarnation and vehicle generation checks;
+the existing WorldLayout v9 remains unchanged. Missing sidecars are unavailable,
+and display truncation is explicit. Replayed old recordings have no fusion
+sidecar and show unavailable, without an invented reconstruction.
+
+## Bounded engineering campaign
+
 Run from the repository root on main, using the existing installed UCRT64
 dependencies and CPython. This command configures/builds both existing presets,
 runs every test in the common dependency selector, installs a new C++/C99/Python
@@ -92,6 +150,6 @@ directional gains, actual sector transitions or tracking accuracy. The existing
 Under the 2026-11-02 user clarification, unavailable real-equipment accuracy
 calibration is a separate uncertainty ledger. It does not waive a component,
 failed native function, missing fit stage or provenance defect. Method agreement
-is not equipment validation. The selector covers M01 and its dependencies;
-neither whole-project full regression nor new Viewer presentation acceptance is
-claimed. SIM-M02's separate rotor deferrals are not used to skip an M01 fit.
+is not equipment validation. This bounded selector covers M01 and dependencies;
+full regression and actual Viewer review additionally require `full.py` and
+`quality_report.py` above. M02's separate rotor deferrals never skip an M01 fit.
