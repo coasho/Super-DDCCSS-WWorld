@@ -1,5 +1,32 @@
 # Current capabilities and milestone status
 
+<!-- SIM-M01 continuation begin -->
+SIM-M01 is **not formally accepted**. The2026-11-01 user assignment includes
+actual-equipment accuracy calibration as a mandatory closure condition. The
+current roster has35 airframes and17 declared air-radar fits/cards; the bounded
+primary-source search admits **0/17 complete equipment-calibration records**.
+The Chalmers PS-05/A study explicitly removes metric scales for confidentiality,
+so its plots cannot supply metre-error calibration.
+
+The common implementation now provides optional nonthermal residual mechanisms,
+signal-level cued/STT/high-PRF processing, ambiguity-aware temporal resolution,
+IMM and native V1 radar/link fusion through C++/C99/Python. Existing Python
+signatures and default actor callable lists are preserved. Functional sampling,
+software-method comparison and source review do not waive calibration. Current
+commands, source/variant limits, installed-product and replay receipts belong to
+the [SIM-M01 record](sdk/sim-m01-completion.md),
+[35-airframe/17-card coverage](data/sim-m01-coverage-20261101.json) and
+[public-source ledger](data/sim-m01-public-sources-20261101.json).
+Fresh M01 evidence is65/65 related Release cases from the clean HEAD-derived
+export,17/17 selected Headless cases, installed C++/C99/Python consumers and
+17 declared radar fits with79 native sampling stages. The normal SDK launcher
+loads the rebuilt product. The covariance producer repair removes726 valid-input
+refusals in the retained eight-aircraft scene without relaxing fusion validation.
+These are functional/method results, not equipment calibration, whole-project
+regression or new Viewer acceptance. The [radar matrix](data/sim-m01-20261101-radar-matrix.csv)
+retains17 required calibration failures; SIM-M01 is not formally closed.
+<!-- SIM-M01 continuation end -->
+
 <!-- SIM-M02 final closure begin -->
 SIM-M02 is **closed for the user-authorized 31 fixed-wing and 53 store functional scope** on 2026-11-01. All 4 rotor functional populations are explicitly deferred at lowest priority, not passed. The common engineering matrix still covers all 88 designs: **88 engineering-complete-uncalibrated, 0 blocked**. Missing equipment measurements are optional calibration limits, not missing components. Required but unavailable components remain required, absent, failed and blocked; the native armed-store implementations do not use an inert-release waiver.
 

@@ -1,4 +1,5 @@
 #pragma once
+#include "simulation/mission_systems/radar/Unfold.h"
 // An air-to-air search radar at the detection level (ADR-30, MS-4; A-GRA's
 // AMTI): its scan, its dwells, and on each the radar equation against every
 // entity in its beam -
@@ -31,6 +32,7 @@
 #include "fsim/MissionSystems.h"
 #include "simulation/mission_systems/radar/Detection.h"
 #include "simulation/mission_systems/radar/Signal.h"
+#include "simulation/mission_systems/radar/Errors.h"
 #include "simulation/mission_systems/rf/Antenna.h"
 #include "simulation/mission_systems/track/Tracker.h"
 
@@ -56,6 +58,7 @@ using Mode = AmtiMode;
 
 /// A radar's design, from its card (assets/payloads/<card>.json).
 struct Spec {
+    ErrorParameters errors;
     double frequencyHz = 9.5e9;
     double polarizationRad = 0.0;        ///< from the vertical towards the horizontal
     rf::ApertureSpec aperture;
@@ -98,6 +101,8 @@ struct Spec {
     int trackConfirm = 3;                ///< updates that confirm a track (M of its first looks)
     int trackDropLooks = 3;              ///< expected looks without an update that drop a track (and, looked at or not, that many frames and one more)
     double trackVelocitySigma = 300.0;   ///< a new track's velocity uncertainty across the line of sight, m/s an axis
+    double trackManeuverNoise = 0.0;    ///< explicit second IMM diffusion; zero preserves the original single model
+    double trackModelSojournS = 10.0;   ///< mean time in either IMM mode, seconds
     // Its engagement modes (MS-4b)
     /// How long it keeps a track it cannot update, in single-target track and in acquisition (a scan's tracks go by
     /// their looks, above): an assumption - 3 s, of the few seconds public descriptions of fighter radars' memory
@@ -130,12 +135,13 @@ struct Search {
     int bars = 2;
     double rangeScaleM = 150e3;
     /// Signal level (MS-6): each dwell through the radar's samples and processing (Signal.h), not the detection
-    /// level's closed forms. Medium PRF modes.
+    /// level's closed forms. Medium PRF for resolved-range modes; high PRF for velocity search.
     bool signalLevel = false;
 };
 
 /// One detection: a look that crossed the threshold, measured.
 struct Detection {
+    bool resolved = true;              ///< internal: unresolved aliases cannot seed/update a Cartesian track
     std::uint64_t serial = 0;            ///< the detections before it
     double timeS = 0.0;
     std::uint32_t truth = 0;             ///< the entity that made it (the simulation's knowledge, not the radar's)
@@ -168,6 +174,9 @@ public:
     }
     /// Whether there is ground at all (a scene of free space has none: no clutter).
     virtual bool hasGround() const { return true; }
+    /// Uniform-volume RMS scale of the currently attached geometry, metres;
+    /// zero denotes a point/unknown extent, never a guessed equipment value.
+    virtual double targetExtentRmsM(std::uint32_t) const {return 0.;}
 };
 
 class Radar {
@@ -195,7 +204,7 @@ public:
     /// seeker's to find). It ends with the track.
     bool illuminating() const noexcept { return active_ && search_.illuminate && staring(); }
     /// Its random stream restarts from `seed` (a vehicle reset with a seed).
-    void reseed(std::uint64_t seed) { rng_.seed(seed), signalStream_.reseed(seed ^ kSignalStream); }
+    void reseed(std::uint64_t seed) { rng_.seed(seed), signalStream_.reseed(seed ^ kSignalStream);errors_.reseed(seed^0x4d30314552524f52ull); }
     bool active() const noexcept { return active_; }
     const Search& searching() const noexcept { return search_; }
 
@@ -302,8 +311,10 @@ private:
     std::mt19937_64 rng_;
     static constexpr std::uint64_t kSignalStream = 0x5167a1ull; ///< (the signal level's stream: apart from the detection level's)
     signal::Stream signalStream_;
+    MeasurementErrors errors_;
     signal::Waveform waveform_;  ///< the signal level's, for the planned dwell
     signal::Stats signalStats_;
+    std::deque<UnfoldLook> unfoldLooks_;
     double signalQ_ = 0.0, signalQAt_ = 0.0; ///< the CFAR's peak survival, and the interval threshold it was found at
     double signalLossDb_[3] = {};            ///< the chain's mean processing loss there, by fluctuation (processingLossDb; NaN: not yet)
     void dwellSignal(double time, double az, double el, const sim::VehicleState& own, const Scene& scene);
@@ -317,7 +328,7 @@ private:
     double snapshotTimeS_ = 0.0;
     /// A dwell's detections kept (numbered, located) and given to its tracker: both levels'.
     void finish(double time, double az, double el, const sim::VehicleState& own, const double r[9], const double vOwn[3],
-                std::vector<Detection>& found);
+                std::vector<Detection>& found,const Scene& scene);
     bool active_ = false;
     Search search_;
     std::vector<std::pair<double, double>> positions_; ///< the frame's beam positions (az, el), body axes

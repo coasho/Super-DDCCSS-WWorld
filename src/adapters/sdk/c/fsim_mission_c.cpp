@@ -1,6 +1,7 @@
 // C ABI for Mission Systems over session::World.
 
 #include "fsim/fsim_c.h"
+#include "fsim/fsim_fusion.h"
 
 #include "CAbiSupport.h"
 #include "Handles.h"
@@ -524,6 +525,54 @@ FSIM_API int fsim_vehicle_amti_tracks(const fsim_world* world, uint32_t id, uint
 }
 
 // --- Contacts (ABI 1.71; ADR-30 MS-9a) --------------------------------------------------
+
+FSIM_API void fsim_fused_entity_v1_init(fsim_fused_entity_v1* v){if(v)*v={},v->struct_size=sizeof(*v);}
+FSIM_API void fsim_fusion_source_v1_init(fsim_fusion_source_v1* v){if(v)*v={},v->struct_size=sizeof(*v);}
+FSIM_API void fsim_fusion_status_v1_init(fsim_fusion_status_v1* v){if(v)*v={},v->struct_size=sizeof(*v);}
+
+FSIM_API int fsim_vehicle_fused_tracks_v1(const fsim_world* world,uint32_t entity,fsim_fused_entity_v1* out,uint32_t max,uint32_t* count) {
+    FSIM_AGENT_VEHICLE(world,entity,FSIM_NOT_ALLOWED);
+    if(!world||!count||(max&&(!out||out[0].struct_size<sizeof(fsim_fused_entity_v1))))return FSIM_INVALID_ARGUMENT;
+    return guard("fsim_vehicle_fused_tracks_v1",[&]() -> int {
+        const auto list=world->world.fusedTracksV1(entity);const auto stride=max?out[0].struct_size:0;
+        for(std::size_t i=0;i<std::min<std::size_t>(max,list.size());++i) {
+            fsim_fused_entity_v1 v;fsim_fused_entity_v1_init(&v);const auto& t=list[i];
+            v.id=t.id;v.state=static_cast<uint32_t>(t.state);v.time_s=t.timeS;v.last_update_s=t.lastUpdateS;v.valid_until_s=t.validUntilS;
+            v.identity_known=t.identityKnown;v.standard_identity=t.standardIdentity;v.source_count=static_cast<uint32_t>(t.sources.size());
+            std::copy(std::begin(t.stateEcef),std::end(t.stateEcef),v.state_ecef);
+            std::copy(std::begin(t.covarianceEcef),std::end(t.covarianceEcef),v.covariance_ecef);
+            auto* slot=reinterpret_cast<fsim_fused_entity_v1*>(reinterpret_cast<char*>(out)+i*stride);slot->struct_size=stride;copyOut(v,slot);
+        }
+        *count=static_cast<uint32_t>(list.size());return FSIM_OK;
+    });
+}
+FSIM_API int fsim_vehicle_fused_sources_v1(const fsim_world* world,uint32_t entity,uint64_t fused_id,fsim_fusion_source_v1* out,uint32_t max,uint32_t* count) {
+    FSIM_AGENT_VEHICLE(world,entity,FSIM_NOT_ALLOWED);
+    if(!world||!count||!fused_id||(max&&(!out||out[0].struct_size<sizeof(fsim_fusion_source_v1))))return FSIM_INVALID_ARGUMENT;
+    return guard("fsim_vehicle_fused_sources_v1",[&]() -> int {
+        for(const auto& t:world->world.fusedTracksV1(entity))if(t.id==fused_id) {
+            const auto stride=max?out[0].struct_size:0;
+            for(std::size_t i=0;i<std::min<std::size_t>(max,t.sources.size());++i) {
+                fsim_fusion_source_v1 v;fsim_fusion_source_v1_init(&v);const auto& s=t.sources[i];
+                v.kind=static_cast<uint32_t>(s.kind);v.system=s.system;v.payload=s.payload;v.track=s.track;
+                v.sample_time_s=s.sampleTimeS;v.received_time_s=s.receivedTimeS;v.diagonal_link_covariance=s.diagonalLinkCovariance;
+                auto* slot=reinterpret_cast<fsim_fusion_source_v1*>(reinterpret_cast<char*>(out)+i*stride);slot->struct_size=stride;copyOut(v,slot);
+            }
+            *count=static_cast<uint32_t>(t.sources.size());return FSIM_OK;
+        }
+        *count=0;return FSIM_INVALID_ARGUMENT;
+    });
+}
+FSIM_API int fsim_vehicle_fusion_status_v1(const fsim_world* world,uint32_t entity,fsim_fusion_status_v1* out) {
+    FSIM_AGENT_VEHICLE(world,entity,FSIM_NOT_ALLOWED);
+    if(!world||!out||out->struct_size<sizeof(*out))return FSIM_INVALID_ARGUMENT;
+    return guard("fsim_vehicle_fusion_status_v1",[&]() -> int {
+        const auto s=world->world.fusionStatusV1(entity);fsim_fusion_status_v1 v;fsim_fusion_status_v1_init(&v);
+        v.time_s=s.timeS;v.entity_capacity=s.entityCapacity;v.source_capacity=s.sourceCapacity;
+        v.rejected_inputs=s.rejectedInputs;v.capacity_refusals=s.capacityRefusals;
+        return copyOut(v,out)?FSIM_OK:FSIM_INVALID_ARGUMENT;
+    });
+}
 
 FSIM_API void fsim_contact_init(fsim_contact* contact) {
     if (contact) *contact = fsim_contact{}, contact->struct_size = sizeof *contact;

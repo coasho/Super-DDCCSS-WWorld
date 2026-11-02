@@ -390,6 +390,13 @@ std::vector<ms::AmtiTrack> Vehicle::amtiTracks(std::uint16_t payload) const {
     return world_ ? world_->impl_->amtiTracks(id_, payload) : std::vector<ms::AmtiTrack>{};
 }
 
+std::vector<ms::FusedEntityV1> Vehicle::fusedTracksV1() const {
+    return world_?world_->impl_->fusedTracksV1(id_):std::vector<ms::FusedEntityV1>{};
+}
+ms::FusionStatusV1 Vehicle::fusionStatusV1() const {
+    return world_?world_->impl_->fusionStatusV1(id_):ms::FusionStatusV1{};
+}
+
 std::vector<ms::Contact> Vehicle::contacts(std::uint16_t payload) const {
     return world_ ? world_->impl_->contacts(id_, payload) : std::vector<ms::Contact>{};
 }

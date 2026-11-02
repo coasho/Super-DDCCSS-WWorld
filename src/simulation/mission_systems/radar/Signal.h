@@ -25,6 +25,7 @@
 // time (Radar::dwellPfa), so both levels promise the same false-alarm rate.
 
 #include <cstdint>
+#include <array>
 #include <limits>
 #include <utility>
 #include <vector>
@@ -68,6 +69,8 @@ struct Waveform {
 /// 150 and 300 m/s (the same design for every radar, in speed: a lower frequency's PRFs lower in proportion), each
 /// interval dwellS / prfs, transmitting `duty` of the time, its gates `gateM` apart.
 Waveform mediumPrf(double frequencyHz, double dwellS, int prfs, int m, double gateM, double duty);
+/// High PRF with an unambiguous declared velocity interval. Range stays folded.
+Waveform highPrf(double frequencyHz,double dwellS,int prfs,int m,double gateM,double duty,double maxAbsRateMs);
 
 /// A target as one dwell sees it.
 struct Echo {
@@ -81,6 +84,9 @@ struct Echo {
 };
 
 struct Settings {
+    bool reportAmbiguities = false; ///< retain equally supported range/rate aliases for temporal resolution
+    bool velocityOnly = false;   ///< associate Doppler only; never unfold ambiguous range into a track
+    bool knownNoiseThreshold = false; ///< exponential threshold using modeled receiver/clutter power, not range CA-CFAR
     double pfaInterval = 1e-6;    ///< a cell's false-alarm probability in one interval (before the M of N)
     int cfarCells = 16;           ///< reference cells (half each side)
     int cfarGuard = 2;            ///< guard cells each side
@@ -107,6 +113,7 @@ struct Hit {
     double snr = 0.0;                            ///< estimated, the agreeing intervals' summed (linear)
     int intervals = 0;                           ///< that agreed
     std::uint32_t truth = 0;                     ///< the echo most of its cells were made by (0: noise)
+    std::vector<std::array<double,2>> hypotheses; ///< measured [range, rate] aliases, without target truth
 };
 
 /// What a dwell's processing did (for the tests and the displays).
@@ -178,7 +185,7 @@ double noiseShare(int gate, double chips, double period) noexcept;
 /// `idealPfaInterval` where given (> 0: a detection level's own, which counts its false agreements otherwise), else the
 /// chain's. Deterministic: about a millisecond for a Rayleigh target, some tens for the others (their table).
 double processingLossDb(const Waveform& waveform, double pfaInterval, int cfarCells, int fluctuation = 1,
-                        double idealPfaInterval = 0.0) noexcept;
+                        double idealPfaInterval = 0.0,bool knownNoiseThreshold=false) noexcept;
 
 /// One dwell: its echoes through the waveform's intervals and the processing. `stream` draws the noise and the
 /// fluctuations.

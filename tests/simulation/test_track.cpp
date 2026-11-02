@@ -9,6 +9,7 @@
 #include "foundation/core/Json.h"
 #include "simulation/mission_systems/track/Assignment.h"
 #include "simulation/mission_systems/track/Tracker.h"
+#include "simulation/mission_systems/track/Fusion.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
@@ -21,6 +22,81 @@
 
 using namespace fsim;
 using namespace fsim::ms::track;
+
+TEST_CASE("track IMM: identity modes preserve the ordinary UKF and coast covariance", "[ms][track][imm]") {
+    Gaussian initial;initial.x.a={10000,100,2000,-20,3000,5};initial.p=100.0*identity<6>();
+    ConstantVelocity motion;for(double& q:motion.q)q=2;
+    Imm imm(initial,motion,motion,5);
+    RadarMeasurement measurement;measurement.noise=identity<4>();
+    imm.predictTo(1.0);
+    const auto single=predict(initial,1.0,motion);
+    for(std::size_t i=0;i<36;++i) CHECK(std::fabs(imm.state().p.a[i]-single.p.a[i])<1e-10);
+    const Meas z=measurement.function(single.x);
+    Gaussian expected;REQUIRE(update(single,predictMeasurement(single,measurement,Filter::Ukf),z,expected));
+    REQUIRE(imm.observe(z,measurement,Filter::Ukf));
+    for(std::size_t i=0;i<6;++i) CHECK(std::fabs(imm.state().x.a[i]-expected.x.a[i])<1e-10);
+    for(std::size_t i=0;i<36;++i) CHECK(std::fabs(imm.state().p.a[i]-expected.p.a[i])<1e-10);
+    CHECK(imm.probabilities()[0]==.5);
+    CHECK_THROWS_AS(imm.predictTo(.5),std::invalid_argument);
+}
+
+TEST_CASE("track covariance: nonlinear updates preserve covariance symmetry in Earth coordinates", "[ms][track][sim-m01]") {
+    Gaussian g;g.x.a={-4000000,100,4000000,50,2500000,-20};g.p=100.*identity<6>();
+    ConstantVelocity motion;for(double& q:motion.q)q=100;
+    RadarMeasurement sensor;sensor.translation[0]=-4010000;sensor.translation[1]=3997000;sensor.translation[2]=2498500;
+    sensor.noise(0,0)=sensor.noise(1,1)=1e-9;sensor.noise(2,2)=sensor.noise(3,3)=1;
+    for(int step=1;step<=50;++step) {
+        const auto prior=predict(g,.05*step,motion);auto z=sensor.function(prior.x);
+        z.a[0]+=1e-5*std::sin(step);z.a[1]+=1e-5*std::cos(step);z.a[2]+=.1*std::sin(step);
+        REQUIRE(update(prior,predictMeasurement(prior,sensor,Filter::Ukf),z,g));
+        for(std::size_t i=0;i<6;++i)for(std::size_t j=0;j<i;++j)REQUIRE(g.p(i,j)==g.p(j,i));
+    }
+}
+
+TEST_CASE("track fusion V1: duplicate knowledge cannot manufacture information and loss retains identity", "[ms][track][fusion][sim-m01]") {
+    Fusion fusion;Fusion::Observation a;
+    a.source.track=1;a.source.system=10;a.source.sampleTimeS=a.source.receivedTimeS=1;
+    a.estimate.t=1;a.estimate.x.a={10000,100,2000,0,3000,0};a.estimate.p=100.*identity<6>();
+    auto b=a;b.source.kind=ms::FusionSourceKindV1::DeliveredLink;b.source.system=20;b.source.diagonalLinkCovariance=true;
+    fusion.advance(1,{a,b});const auto first=fusion.snapshot();REQUIRE(first.size()==1);
+    CHECK(first[0].sources.size()==2);CHECK_FALSE(first[0].identityKnown);
+    for(std::size_t i=0;i<6;++i)CHECK(std::fabs(first[0].covarianceEcef[i*6+i]-100)<1e-10);
+    fusion.advance(1,{a,b});const auto duplicate=fusion.snapshot();CHECK(duplicate[0].id==first[0].id);
+    for(std::size_t i=0;i<36;++i)CHECK(duplicate[0].covarianceEcef[i]==first[0].covarianceEcef[i]);
+    fusion.advance(14,{});const auto lost=fusion.snapshot();REQUIRE(lost.size()==1);
+    CHECK(lost[0].state==ms::FusionStateV1::Lost);CHECK(lost[0].id==first[0].id);
+    CHECK(lost[0].lastUpdateS==1);CHECK(lost[0].sources[1].receivedTimeS==1);
+    auto future=a;future.source.sampleTimeS=future.source.receivedTimeS=15;future.estimate.t=15;
+    fusion.advance(14,{future});CHECK(fusion.rejected()==1);
+}
+
+TEST_CASE("track fusion V1: distinct same-sensor tracks stay distinct and capacity refuses explicitly", "[ms][track][fusion][sim-m01]") {
+    Fusion::Settings settings;settings.capacity=2;Fusion fusion(settings);
+    Fusion::Observation a;a.source.track=1;a.source.sampleTimeS=a.source.receivedTimeS=1;
+    a.estimate.t=1;a.estimate.x.a={10000,0,2000,0,3000,0};a.estimate.p=identity<6>();
+    auto b=a;b.source.track=2;b.estimate.x.a[0]+=.1;
+    auto c=b;c.source.track=3;c.estimate.x.a[0]+=.1;
+    fusion.advance(1,{a,b,c});CHECK(fusion.snapshot().size()==2);CHECK(fusion.capacityRefusals()==1);
+    auto invalid=a;invalid.estimate.p(0,1)=std::numeric_limits<double>::quiet_NaN();
+    fusion.advance(1,{invalid});CHECK(fusion.rejected()==1);
+}
+
+TEST_CASE("track IMM: a maneuver changes model probability and empty looks retain finite estimates", "[ms][track][imm]") {
+    Gaussian initial;initial.x.a={10000,0,1000,0,3000,0};initial.p=identity<6>();
+    ConstantVelocity quiet,maneuver;for(double& q:quiet.q)q=.01;for(double& q:maneuver.q)q=100;
+    Imm imm(initial,quiet,maneuver,10);
+    RadarMeasurement sensor;sensor.noise=.000001*identity<4>();sensor.noise(2,2)=1;sensor.noise(3,3)=1;
+    auto truth=initial.x;
+    for(int i=1;i<=4;++i) {
+        truth.a[0]=10000+10*i*i;truth.a[1]=20*i;
+        imm.predictTo(i);REQUIRE(imm.observe(sensor.function(truth),sensor,Filter::Ukf));
+    }
+    CHECK(imm.probabilities()[1]>.5);
+    const double before=trace(imm.state().p);imm.predictTo(5);
+    CHECK(trace(imm.state().p)>before);
+    for(double p:imm.probabilities()) CHECK(std::isfinite(p));
+    CHECK_THROWS_AS(Imm(initial,quiet,maneuver,0),std::invalid_argument);
+}
 
 namespace {
 
@@ -81,6 +157,28 @@ double worst(const Gaussian& g, const State& x, const Covar& p) {
 }
 
 } // namespace
+
+TEST_CASE("track IMM: nonlinear posteriors against independently generated FilterPy1.4.5", "[ms][track][imm]") {
+    std::ifstream in(kSource/"tests/simulation/data/track/imm-crosscheck-v3.json");REQUIRE(in.good());
+    std::stringstream text;text<<in.rdbuf();const auto doc=core::Json::parse(text.str());
+    Gaussian g;g.x=matrix<6,1>(doc.child("initial").child("x"));g.p=matrix<6,6>(doc.child("initial").child("p"));
+    ConstantVelocity quiet,maneuver;
+    for(double& q:quiet.q)q=doc.child("process_noise").asArray()[0].asNumber();
+    for(double& q:maneuver.q)q=doc.child("process_noise").asArray()[1].asNumber();
+    Imm imm(g,quiet,maneuver,doc.number("sojourn_s",0));
+    RadarMeasurement sensor;sensor.noise=matrix<4,4>(doc.child("measurement_noise"));
+    int checked=0;
+    for(const auto& step:doc.child("steps").asArray()) {
+        INFO("time "<<step.number("t",0));imm.predictTo(step.number("t",0));
+        REQUIRE(imm.observe(matrix<4,1>(step.child("z")),sensor,Filter::Ukf));
+        const auto x=matrix<6,1>(step.child("x"));const auto p=matrix<6,6>(step.child("p"));
+        for(std::size_t i=0;i<6;++i) CHECK(std::fabs(imm.state().x.a[i]-x.a[i])<=1e-8);
+        for(std::size_t i=0;i<36;++i) CHECK(std::fabs(imm.state().p.a[i]-p.a[i])<=1e-7);
+        for(std::size_t i=0;i<2;++i) CHECK(std::fabs(imm.probabilities()[i]-step.child("probabilities").asArray()[i].asNumber())<=1e-10);
+        ++checked;
+    }
+    CHECK(checked==5);
+}
 
 TEST_CASE("trackers against Stone Soup: one target's EKF and UKF posteriors, step by step", "[ms][track]") {
     const auto doc = fixture();

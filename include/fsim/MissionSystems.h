@@ -238,8 +238,8 @@ struct AmtiCommand {
     int bars = 2;                                    ///< elevation bars, 1-8
     double rangeScaleM = 150e3;                      ///< targets beyond it are not reported (and the main beam's clutter beyond it not met)
     /// MS-6: the search at the signal level - each dwell through the radar's samples and processing, the ground's
-    /// clutter among them - instead of the detection level's closed forms. Medium-PRF modes (not velocity search);
-    /// a Volume task only.
+    /// clutter among them - instead of the detection level's closed forms. Medium PRF for resolved-range
+    /// search/acquisition/track; high PRF for velocity search, whose range remains ambiguous.
     bool signalLevel = false;
     // MS-4b (A-GRA's AMTI_CapabilityEnum, and its TargetVolume: a sensor-referenced volume or an entity)
     AmtiTask task = AmtiTask::Volume;

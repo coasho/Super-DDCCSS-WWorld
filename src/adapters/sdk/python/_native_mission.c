@@ -1,8 +1,57 @@
 /* Mission Systems bindings for fsim._native. */
 #define FSIM_PY_NO_BUFFER_TYPE
 #include "_native_world.h"
+#include "fsim/fsim_fusion.h"
 
 #include <math.h>
+
+static PyObject* fusion_vector_v1(const double* values,Py_ssize_t n) {
+    PyObject* tuple=PyTuple_New(n);if(!tuple)return NULL;
+    for(Py_ssize_t i=0;i<n;++i){PyObject* v=PyFloat_FromDouble(values[i]);if(!v){Py_DECREF(tuple);return NULL;}PyTuple_SetItem(tuple,i,v);}
+    return tuple;
+}
+
+PyObject* world_fusion_status_v1(PyObject* o,PyObject* const* args,Py_ssize_t n) {
+    WorldObject* self=(WorldObject*)o;uint32_t id;
+    if(!check_args(n,1,1,"fusion_status_v1")||!as_u32(args[0],&id))return NULL;
+    fsim_fusion_status_v1 s;fsim_fusion_status_v1_init(&s);
+    if(fsim_vehicle_fusion_status_v1(self->world,id,&s)!=FSIM_OK)return fail();
+    return Py_BuildValue("(dKKII)",s.time_s,(unsigned long long)s.rejected_inputs,(unsigned long long)s.capacity_refusals,s.entity_capacity,s.source_capacity);
+}
+
+PyObject* world_fused_tracks_v1(PyObject* o,PyObject* const* args,Py_ssize_t n) {
+    WorldObject* self=(WorldObject*)o;uint32_t id,count=0;
+    if(!check_args(n,1,1,"fused_tracks_v1")||!as_u32(args[0],&id))return NULL;
+    if(fsim_vehicle_fused_tracks_v1(self->world,id,NULL,0,&count)!=FSIM_OK)return fail();
+    fsim_fused_entity_v1* entities=count?(fsim_fused_entity_v1*)PyMem_Malloc(count*sizeof(*entities)):NULL;
+    if(count&&!entities)return PyErr_NoMemory();
+    if(count){fsim_fused_entity_v1_init(entities);uint32_t got=0;
+        if(fsim_vehicle_fused_tracks_v1(self->world,id,entities,count,&got)!=FSIM_OK){PyMem_Free(entities);return fail();}
+        if(got<count)count=got;
+    }
+    PyObject* list=PyList_New(0);
+    for(uint32_t i=0;list&&i<count;++i) {
+        const fsim_fused_entity_v1* e=&entities[i];uint32_t ns=0;
+        if(fsim_vehicle_fused_sources_v1(self->world,id,e->id,NULL,0,&ns)!=FSIM_OK){Py_CLEAR(list);fail();break;}
+        fsim_fusion_source_v1* source=ns?(fsim_fusion_source_v1*)PyMem_Malloc(ns*sizeof(*source)):NULL;
+        if(ns&&!source){Py_CLEAR(list);PyErr_NoMemory();break;}
+        if(ns){fsim_fusion_source_v1_init(source);uint32_t got=0;
+            if(fsim_vehicle_fused_sources_v1(self->world,id,e->id,source,ns,&got)!=FSIM_OK){PyMem_Free(source);Py_CLEAR(list);fail();break;}
+            if(got<ns)ns=got;
+        }
+        PyObject* sources=PyList_New(0);
+        for(uint32_t j=0;sources&&j<ns;++j){const fsim_fusion_source_v1* s=&source[j];
+            PyObject* item=Py_BuildValue("(IIIIKdd)",s->kind,s->system,s->payload,s->diagonal_link_covariance,(unsigned long long)s->track,s->sample_time_s,s->received_time_s);
+            if(!item||PyList_Append(sources,item)<0){Py_XDECREF(item);Py_CLEAR(sources);break;}Py_DECREF(item);
+        }
+        PyMem_Free(source);
+        PyObject* state=fusion_vector_v1(e->state_ecef,6);PyObject* covariance=fusion_vector_v1(e->covariance_ecef,36);
+        if(!sources||!state||!covariance){Py_XDECREF(sources);Py_XDECREF(state);Py_XDECREF(covariance);Py_CLEAR(list);break;}
+        PyObject* row=Py_BuildValue("(KIdddIINNN)",(unsigned long long)e->id,e->state,e->time_s,e->last_update_s,e->valid_until_s,e->identity_known,e->standard_identity,state,covariance,sources);
+        if(!row||PyList_Append(list,row)<0){Py_XDECREF(row);Py_CLEAR(list);break;}Py_DECREF(row);
+    }
+    PyMem_Free(entities);return list;
+}
 
 /* designate(id, payload, track) -> target id (0: no such track now); undesignate(id, target); designations(id);
  * designation_truth(target) (ABI 1.58; ADR-31, AB-2b) */

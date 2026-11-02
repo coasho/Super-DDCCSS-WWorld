@@ -2659,6 +2659,60 @@ std::vector<ms::AmtiTrack> World::amtiTracks(std::uint32_t id, std::uint16_t pay
     return e->ms.amtiTracks(payload, simTime_, pool_->states()[e->slot]);
 }
 
+std::vector<ms::FusedEntityV1> World::fusedTracksV1(std::uint32_t id) const {
+    const Entry* e=entry(id);return e?e->fusion.snapshot():std::vector<ms::FusedEntityV1>{};
+}
+
+ms::FusionStatusV1 World::fusionStatusV1(std::uint32_t id) const {
+    ms::FusionStatusV1 status;status.timeS=simTime_;
+    if(const auto* e=entry(id))status.rejectedInputs=e->fusion.rejected(),status.capacityRefusals=e->fusion.capacityRefusals();
+    return status;
+}
+
+void World::fuseTracksV1() {
+    const auto states=pool_->states();
+    for(auto& pointer:entries_) {
+        if(!pointer)continue;
+        auto& e=*pointer;std::vector<ms::track::Fusion::Observation> observations;
+        const auto system=dms_.systemOf(e.info.id);
+        for(const auto& payload:e.ms.payloads()) {
+            if(payload.family!=ms::Family::AirRadar)continue;
+            for(const auto& track:e.ms.amtiTracks(payload.index,simTime_,states[e.slot])) {
+                ms::track::Fusion::Observation o;
+                o.source.system=system;o.source.payload=track.payload;o.source.track=track.id;
+                o.source.sampleTimeS=o.source.receivedTimeS=track.lastUpdateS;
+                o.estimate.t=track.timeS;
+                std::copy(std::begin(track.stateEcef),std::end(track.stateEcef),o.estimate.x.a.begin());
+                std::copy(std::begin(track.covarianceEcef),std::end(track.covarianceEcef),o.estimate.p.a.begin());
+                observations.push_back(std::move(o));
+            }
+        }
+        // Read the modeled DMS picture, never the consuming public inbox.
+        if(const auto* links=dms_.linkTracksOf(e.info.id))for(const auto& link:*links) {
+            ms::track::Fusion::Observation o;
+            o.source.kind=ms::FusionSourceKindV1::DeliveredLink;o.source.system=link.source;
+            o.source.payload=link.report.payload;o.source.track=link.report.track;
+            o.source.sampleTimeS=link.report.timeS;o.source.receivedTimeS=link.receivedS;
+            o.source.diagonalLinkCovariance=true;o.estimate.t=link.report.timeS;
+            if(const auto state=estimateOf(link,link.report.timeS)) {
+                double velocity[3];ms::geom::velocityEcef(*state,velocity);
+                for(std::size_t i=0;i<3;++i) {
+                    o.estimate.x.a[2*i]=state->positionEcef[i];o.estimate.x.a[2*i+1]=velocity[i];
+                    const double p=link.report.positionSigmaM,v=link.report.velocitySigmaMs;
+                    // The wire supplies three-axis RMS values, not isotropic
+                    // covariances. With arbitrary anisotropy/cross-correlation,
+                    // normalized trace(P)=6 gives P <= 6*diag(p^2,v^2,...).
+                    // Fusion then propagates this bound from the sample epoch.
+                    o.estimate.p(2*i,2*i)=p>0&&std::isfinite(p)?6*p*p:0;
+                    o.estimate.p(2*i+1,2*i+1)=v>0&&std::isfinite(v)?6*v*v:0;
+                }
+            }
+            observations.push_back(std::move(o)); // missing/invalid covariance is explicitly rejected by fusion
+        }
+        e.fusion.advance(simTime_,std::move(observations));
+    }
+}
+
 std::vector<ms::Contact> World::contacts(std::uint32_t id, std::uint16_t payload) const {
     const Entry* e = entry(id);
     return e ? e->ms.contacts(payload) : std::vector<ms::Contact>{};
@@ -2686,6 +2740,24 @@ void World::sense() {
             if (!rcs || !rcs->modelled) return std::numeric_limits<double>::quiet_NaN();
             fluctuation = rcs->fluctuation;
             return rcs->sigmaM2;
+        }
+        double targetExtentRmsM(std::uint32_t target)const override {
+            const auto* e=world.entry(target);
+            if(!e||!e->damage)return 0.;
+            const auto view=e->damage->attachedGeometry();const auto& frame=view.airframe();
+            if(!frame.contactGeometry)return 0.;
+            double lo[3]={INFINITY,INFINITY,INFINITY},hi[3]={-INFINITY,-INFINITY,-INFINITY};
+            bool any=false;
+            auto include=[&](const ms::damage::ContactMesh* mesh){
+                if(!mesh)return;
+                any=true;const double low[3]={mesh->low.x,mesh->low.y,mesh->low.z},high[3]={mesh->high.x,mesh->high.y,mesh->high.z};
+                for(int k=0;k<3;++k){lo[k]=std::min(lo[k],low[k]);hi[k]=std::max(hi[k],high[k]);}
+            };
+            for(auto i:view.panelIndices())include(frame.contactGeometry->panel(i));
+            for(auto i:view.componentIndices())include(frame.contactGeometry->component(i));
+            if(!any)return 0.;
+            double squared=0;for(int k=0;k<3;++k)squared+=(hi[k]-lo[k])*(hi[k]-lo[k]);
+            return std::sqrt(squared/12.); // uniform bounding-volume RMS, explicitly an engineering geometry scale
         }
         double pathLossDb(std::uint32_t target, double frequencyHz) const override {
             const Entry* a = world.entry(own);
@@ -2899,6 +2971,7 @@ void World::step(unsigned n) {
         ++worldSteps_;
         network_.step(simTime_, options_.dt * options_.frameSkip, this, rng_);
         if (dms_.active()) stepDms();
+        fuseTracksV1();
         sampleOnRailSeekers();
         recordFrame();
         if (publisher_) {

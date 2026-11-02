@@ -325,14 +325,14 @@ CommandResult Host::submit(const AmtiCommand& command, const CommandOptions& opt
     if (valid) switch (command.task) {
         case AmtiTask::Volume:
             valid = command.mode != AmtiMode::SingleTargetTrack && rotodome == (command.mode == AmtiMode::Surveillance) &&
-                    !(command.signalLevel && command.mode == AmtiMode::VelocitySearch) && command.track == 0 && !command.illuminate;
+                    command.track == 0 && !command.illuminate;
             break;
         case AmtiTask::Cued: // (a fighter's radar; what it acquires, it tracks alone)
-            valid = !rotodome && scans && !command.signalLevel;
+            valid = !rotodome && scans;
             break;
         case AmtiTask::Track: // (a fighter's radar; its scan kept on the track, or every dwell on it - and then it may light it)
             valid = !rotodome && (command.mode == AmtiMode::TrackWhileScan || command.mode == AmtiMode::SingleTargetTrack) &&
-                    !command.signalLevel && command.track != 0 && (!command.illuminate || command.mode == AmtiMode::SingleTargetTrack);
+                    command.track != 0 && (!command.illuminate || command.mode == AmtiMode::SingleTargetTrack);
             break;
         }
     if (!valid) return r.reason = Reason::InvalidParameter, r;

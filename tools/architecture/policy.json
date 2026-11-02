@@ -62,6 +62,8 @@
     "include/fsim/Pid.h": {"domain": "simulation", "kind": "value"},
     "include/fsim/Capability.h": {"domain": "simulation", "kind": "interface"},
     "include/fsim/MissionSystems.h": {"domain": "simulation", "kind": "interface"},
+    "include/fsim/Fusion.h": {"domain": "simulation", "kind": "value"},
+    "include/fsim/fsim_fusion.h": {"domain": "adapters", "kind": "c_abi"},
     "include/fsim/Control.h": {"domain": "simulation", "kind": "interface"},
     "include/fsim/ControlStack.h": {"domain": "simulation", "kind": "interface"},
     "include/fsim/ControllerRegistry.h": {"domain": "simulation", "kind": "interface"},

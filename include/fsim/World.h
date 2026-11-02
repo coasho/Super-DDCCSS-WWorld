@@ -18,6 +18,7 @@
 #include "fsim/Export.h"
 #include "fsim/MissionSystems.h"
 #include "fsim/Frames.h"
+#include "fsim/Fusion.h"
 #include "fsim/GroundProvider.h"
 #include "fsim/InitialConditions.h"
 #include "fsim/PerformanceProfile.h"
@@ -385,6 +386,9 @@ public:
     /// A radar payload's confirmed tracks (MS-5: Stone Soup's GNN tracker on its detections, false alarms among them),
     /// predicted to the world's time.
     std::vector<ms::AmtiTrack> amtiTracks(std::uint16_t payload) const;
+    /// V1 platform knowledge fused from its own sensors and actually delivered links; no target truth.
+    std::vector<ms::FusedEntityV1> fusedTracksV1() const;
+    ms::FusionStatusV1 fusionStatusV1() const;
     /// What a payload's passive sensor holds (MS-9a): a warning receiver's emitters - each a bearing with its error,
     /// the power it arrives with, and what the emitter does as far as its signal says (ms::Contact: a search, a lock,
     /// an illumination; `warning` for those on the carrier itself). Empty for a payload with no such sensor, or not

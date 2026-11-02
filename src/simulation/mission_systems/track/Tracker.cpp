@@ -12,6 +12,30 @@ namespace {
 
 constexpr double kInf = std::numeric_limits<double>::infinity();
 
+Imm bank(const Track& tr, const TrackerSettings& s) {
+    if (tr.imm) return *tr.imm;
+    ConstantVelocity maneuver;
+    for (double& q : maneuver.q) q=s.maneuverNoise;
+    return Imm(tr.state(),s.motion,maneuver,s.modelSojournS);
+}
+
+Gaussian predictionFor(const Track& tr,double t,const TrackerSettings& s) {
+    if (!(s.maneuverNoise>0)) return predict(tr.state(),t,s.motion);
+    auto imm=bank(tr,s);imm.predictTo(t);return imm.state();
+}
+
+void filterPoint(Track& tr,const TrackerSettings& s,const Hypothesis& h,const Detection* d,TrackPoint& p) {
+    if (s.maneuverNoise>0) {
+        auto imm=bank(tr,s);imm.predictTo(h.prediction.t);
+        p.update=d && imm.observe(d->z,d->model,s.filter);
+        p.g=imm.state();tr.imm=std::move(imm);
+    } else {
+        p.g=h.prediction;
+        if (d) p.update=update(h.prediction,h.mp,d->z,p.g);
+    }
+    if (p.update) p.detection=d->id,p.truth=d->truth;
+}
+
 /// d^T S^-1 d (S symmetric positive definite: its inverse is Stone Soup's pinv).
 double squaredMahalanobis(const Meas& d, const MeasCovar& s) noexcept {
     MeasCovar inv;
@@ -71,7 +95,7 @@ std::vector<std::vector<Hypothesis>> distanceHypotheses(const std::vector<const 
                                                         double t, const TrackerSettings& s, double missedDistance) {
     std::vector<std::vector<Hypothesis>> out(tracks.size());
     for (std::size_t k = 0; k < tracks.size(); ++k) {
-        const Gaussian prediction = predict(tracks[k]->state(), t, s.motion);
+        const Gaussian prediction = predictionFor(*tracks[k], t, s);
         Hypothesis missed;
         missed.prediction = prediction;
         missed.distance = missedDistance;
@@ -247,11 +271,10 @@ std::vector<Track> MultiTargetTracker::initiate(double t, const std::vector<Dete
             TrackPoint p;
             if (h.detection >= 0) {
                 const Detection& d = detections[static_cast<std::size_t>(h.detection)];
-                if (update(h.prediction, h.mp, d.z, p.g)) p.update = true, p.detection = d.id, p.truth = d.truth;
-                else p.g = h.prediction;
+                filterPoint(holding_[k], s_, h, &d, p);
                 associated[static_cast<std::size_t>(h.detection)] = 1;
             } else if (how[n] == Expected) {
-                p.g = h.prediction;
+                filterPoint(holding_[k],s_,h,nullptr,p);
             } else {
                 continue; // (not expected to be seen: no miss)
             }
@@ -293,11 +316,10 @@ void MultiTargetTracker::step(double t, const std::vector<Detection>& detections
             TrackPoint p;
             if (h.detection >= 0) {
                 const Detection& d = detections[static_cast<std::size_t>(h.detection)];
-                if (update(h.prediction, h.mp, d.z, p.g)) p.update = true, p.detection = d.id, p.truth = d.truth;
-                else p.g = h.prediction;
+                filterPoint(tracks_[k], s_, h, &d, p);
                 associated[static_cast<std::size_t>(h.detection)] = 1;
             } else if (how[n] == Expected) {
-                p.g = h.prediction;
+                filterPoint(tracks_[k],s_,h,nullptr,p);
             } else {
                 continue; // (not expected to be seen: no miss)
             }

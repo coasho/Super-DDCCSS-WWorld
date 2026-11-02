@@ -83,6 +83,14 @@ bool update(const Gaussian& prediction, const MeasurementPrediction& mp, const M
     const Mat<6, 4> gain = mp.cross * sInv;
     out.x = prediction.x + gain * RadarMeasurement::difference(z, mp.z);
     out.p = prediction.p - gain * mp.s * transpose(gain);
+    // Cov(X,X) is symmetric. Independent matrix-product paths accumulate
+    // slightly different roundoff in the two triangles; retain their mean
+    // as one shared native covariance value. No eigenvalue clipping, noise
+    // inflation or validation tolerance change is applied.
+    for(std::size_t i=0;i<6;++i)for(std::size_t j=0;j<i;++j) {
+        const double covariance=.5*out.p(i,j)+.5*out.p(j,i);
+        out.p(i,j)=out.p(j,i)=covariance;
+    }
     out.t = prediction.t;
     return true;
 }

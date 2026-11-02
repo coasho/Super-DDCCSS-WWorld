@@ -112,15 +112,28 @@ Spec specOf(const Card& c) {
     s.angleFloorBeamwidths = c.value("angle_floor_beamwidths", 0.0);
     s.rangeFloorResolutions = c.value("range_floor_resolutions", 0.0);
     s.rangeRateFloorResolutions = c.value("range_rate_floor_resolutions", 0.0);
+    s.trackManeuverNoise = c.value("track_maneuver_noise", 0.0);
+    s.trackModelSojournS = c.value("track_model_sojourn_s", s.trackModelSojournS);
+    s.errors.azimuthBiasRad=c.value("boresight_az_bias_deg",0)*kDeg;
+    s.errors.elevationBiasRad=c.value("boresight_el_bias_deg",0)*kDeg;
+    s.errors.radomeAzimuthSlope=c.value("radome_az_slope",0);
+    s.errors.radomeElevationSlope=c.value("radome_el_slope",0);
+    s.errors.driftStdRad=c.value("boresight_drift_std_deg",0)*kDeg;
+    s.errors.correlationS=c.value("boresight_correlation_s",60);
+    s.errors.glintExtentFraction=c.value("glint_target_rms_fraction",0);
+    s.errors.reflectionCoefficient=c.value("multipath_reflection_coefficient",0);
+    s.errors.multipathStdRad=c.value("multipath_std_deg",0)*kDeg;
+    if(!s.errors.valid())return s;
     // (a floor below zero or not a number describes no radar: refused, never read as none)
-    for (const double f : {s.angleFloorBeamwidths, s.rangeFloorResolutions, s.rangeRateFloorResolutions})
+    for (const double f : {s.angleFloorBeamwidths, s.rangeFloorResolutions, s.rangeRateFloorResolutions,s.trackManeuverNoise,s.trackProcessNoise})
         if (!std::isfinite(f) || f < 0.0) return s;
+    if (!std::isfinite(s.trackModelSojournS) || s.trackModelSojournS<=0) return s;
     s.ok = true;
     return s;
 }
 
 Radar::Radar(const Spec& spec, std::uint64_t seed)
-    : spec_(spec), pattern_(spec.aperture, spec.frequencyHz), rng_(seed), signalStream_(seed ^ kSignalStream) {
+    : spec_(spec), pattern_(spec.aperture, spec.frequencyHz), rng_(seed), signalStream_(seed ^ kSignalStream),errors_(spec.errors,seed^0x4d30314552524f52ull) {
     rf::preparePath(spec.frequencyHz); // (its paths' tables built with the vehicle, not in the step of its first look)
     clearTracks();
 }
@@ -131,6 +144,8 @@ track::TrackerSettings Radar::trackerSettings() const {
     // EKF's update lands outside its own covariance, and the target's next look in the same pass starts a duplicate)
     t.filter = track::Filter::Ukf;
     for (double& q : t.motion.q) q = spec_.trackProcessNoise;
+    t.maneuverNoise = spec_.trackManeuverNoise;
+    t.modelSojournS = spec_.trackModelSojournS;
     t.association = track::Association::Gnn;
     t.missedDistance = t.initiatorMissedDistance = spec_.trackGate;
     // a new track: its position and range rate from its first detection, its velocity across the line of sight unknown
@@ -153,7 +168,10 @@ AmtiTrack Radar::report(const track::Track& tr, double now, const sim::VehicleSt
             out.truth = it->truth;
             break;
         }
-    const track::Gaussian g = track::predict(tr.state(), std::max(now, tr.state().t), tracker_.settings().motion);
+    const track::Gaussian g = [&] {
+        if (tr.imm) {auto bank=*tr.imm;bank.predictTo(std::max(now,tr.state().t));return bank.state();}
+        return track::predict(tr.state(),std::max(now,tr.state().t),tracker_.settings().motion);
+    }();
     for (std::size_t i = 0; i < 6; ++i) out.stateEcef[i] = g.x.a[i];
     for (std::size_t i = 0; i < 36; ++i) out.covarianceEcef[i] = g.p.a[i];
     const double p[3] = {g.x.a[0], g.x.a[2], g.x.a[4]}, v[3] = {g.x.a[1], g.x.a[3], g.x.a[5]};
@@ -182,6 +200,7 @@ AmtiTrack Radar::report(const track::Track& tr, double now, const sim::VehicleSt
 }
 
 void Radar::clearTracks() {
+    unfoldLooks_.clear();
     const double coast = tracker_.settings().coastS;
     tracker_ = track::MultiTargetTracker(trackerSettings());
     tracker_.setCapacity(spec_.trackCapacity, 4096);
@@ -196,7 +215,12 @@ void Radar::search(const Search& s, double simTime) {
     lost_ = acquiring_ = false;
     acquireLeft_ = 0;
     plan();
-    waveform_ = signal::mediumPrf(spec_.frequencyHz, dwellS_, spec_.mediumPrfs, spec_.mediumM, spec_.rangeResolutionM, kDuty);
+    waveform_ = search_.mode==Mode::VelocitySearch
+        ? signal::highPrf(spec_.frequencyHz,dwellS_,spec_.highPrfs,spec_.highM,spec_.rangeResolutionM,kDuty,kMaxTargetSpeedMs+kNominalSpeedMs)
+        : signal::mediumPrf(spec_.frequencyHz,dwellS_,spec_.mediumPrfs,spec_.mediumM,spec_.rangeResolutionM,kDuty);
+    signalQ_=0;
+    unfoldLooks_.clear();
+    for(double& loss:signalLossDb_)loss=std::numeric_limits<double>::quiet_NaN();
     // a track not updated for its drop looks' frames, and one more, is dropped - one that left the scan's coverage too.
     // Every dwell on one track, it goes by the radar's memory time instead; an acquisition's small volume (a frame of
     // a few dwells) keeps the tracks it had for that long at least.
@@ -427,7 +451,7 @@ void Radar::step(double simTime, const sim::VehicleState& carrier, const Scene& 
 }
 
 void Radar::dwell(double time, double az, double el, const sim::VehicleState& own, const Scene& scene) {
-    if (search_.signalLevel && search_.mode != Mode::VelocitySearch) return dwellSignal(time, az, el, own, scene);
+    if (search_.signalLevel) return dwellSignal(time, az, el, own, scene);
     constexpr std::size_t kMax = 512;
     std::uint32_t ids[kMax];
     const sim::VehicleState* states[kMax];
@@ -541,11 +565,55 @@ void Radar::dwell(double time, double az, double el, const sim::VehicleState& ow
             ++falseAlarms_;
         }
     }
-    finish(time, az, el, own, r, vOwn, found);
+    finish(time, az, el, own, r, vOwn, found,scene);
 }
 
 void Radar::finish(double time, double az, double el, const sim::VehicleState& own, const double r[9], const double vOwn[3],
-                   std::vector<Detection>& found) {
+                   std::vector<Detection>& found,const Scene& scene) {
+    if(spec_.errors.enabled()) {
+        errors_.advance(time);
+        std::uint32_t ids[512];const sim::VehicleState* targets[512];
+        const auto count=scene.targets(ids,targets,512);
+        const double up[3]={std::cos(own.latitudeRad)*std::cos(own.longitudeRad),std::cos(own.latitudeRad)*std::sin(own.longitudeRad),std::sin(own.latitudeRad)};
+        std::vector<Detection> corrected;corrected.reserve(found.size());
+        for(auto det:found) {
+            const double extent=det.truth?scene.targetExtentRmsM(det.truth):0;
+            const auto bias=errors_.bias(det.azimuthRad,det.elevationRad,det.rangeM,extent);
+            bool multipath=false,valid=true;
+            if(spec_.errors.reflectionCoefficient!=0 && det.truth && scene.hasGround())for(std::size_t i=0;i<count;++i)if(ids[i]==det.truth) {
+                const auto& target=*targets[i];const double ground=scene.surfaceHeightM(target.latitudeRad,target.longitudeRad);
+                if(!std::isfinite(ground))break;
+                // Ellipsoid height from ECEF and geodetic latitude, avoiding
+                // an MSL/ellipsoid subtraction in low-elevation multipath.
+                constexpr double a=6378137.,e2=6.69437999014e-3;
+                const double sl=std::sin(target.latitudeRad),cl=std::cos(target.latitudeRad);
+                const double tu[3]={cl*std::cos(target.longitudeRad),cl*std::sin(target.longitudeRad),sl};
+                const double n=a/std::sqrt(1-e2*sl*sl);
+                const double height=dot(target.positionEcef,tu)-n*(1-e2*sl*sl)-ground;
+                if(!(height>0))break;
+                std::array<double,3> direct{},image{},mixed{};double rd=0,ri=0;
+                double d[3],im[3];for(int k=0;k<3;++k){d[k]=target.positionEcef[k]-own.positionEcef[k];im[k]=d[k]-2*height*up[k];rd+=d[k]*d[k];ri+=im[k]*im[k];}
+                rd=std::sqrt(rd);ri=std::sqrt(ri);
+                if(!(rd>0&&ri>0))break;
+                for(std::size_t k=0;k<3;++k)for(std::size_t j=0;j<3;++j){direct[k]+=r[3*j+k]*d[j]/rd;image[k]+=r[3*j+k]*im[j]/ri;}
+                const double ownHeight=height-dot(d,up);
+                if(!(ownHeight>0))break;
+                const double difference=4*height*ownHeight/(ri+rd); // stable image/direct path difference
+                valid=MeasurementErrors::reflectedDirection(direct,image,difference,kLight/spec_.frequencyHz,spec_.errors.reflectionCoefficient,mixed);
+                if(valid) {
+                    det.azimuthRad+=std::remainder(std::atan2(mixed[1],mixed[0])-std::atan2(direct[1],direct[0]),2*kPi);
+                    det.elevationRad+=std::atan2(-mixed[2],std::hypot(mixed[0],mixed[1]))-std::atan2(-direct[2],std::hypot(direct[0],direct[1]));
+                    multipath=true;
+                }
+                break;
+            }
+            const double variance=errors_.angularVariance(det.rangeM,extent,multipath);
+            det.azimuthRad+=bias[0];det.elevationRad+=bias[1];
+            det.sigma[0]=std::sqrt(det.sigma[0]*det.sigma[0]+variance);det.sigma[1]=std::sqrt(det.sigma[1]*det.sigma[1]+variance);
+            if(valid&&std::isfinite(det.azimuthRad)&&std::isfinite(det.elevationRad)&&std::isfinite(variance))corrected.push_back(det);
+        }
+        found=std::move(corrected);
+    }
     for (Detection& det : found) {
         det.serial = detectionCount_++;
         const double mb[3] = {std::cos(det.elevationRad) * std::cos(det.azimuthRad), std::cos(det.elevationRad) * std::sin(det.azimuthRad),
@@ -556,7 +624,12 @@ void Radar::finish(double time, double az, double el, const sim::VehicleState& o
         detections_.push_back(det);
         if (detections_.size() > kKeep) detections_.pop_front();
     }
-    if (search_.mode == Mode::VelocitySearch) return; // (high PRF: its range ambiguous - no tracks)
+    if (search_.mode == Mode::VelocitySearch) {
+        // A velocity-only look supplies no Cartesian update. Existing tracks
+        // still age and expire; switching modes cannot freeze their lifetime.
+        tracker_.step(time,{},[](const track::Track&){return track::MultiTargetTracker::Not;});
+        return;
+    }
     track(time, az, el, own, r, vOwn, found);
 }
 
@@ -622,12 +695,20 @@ void Radar::dwellSignal(double time, double az, double el, const sim::VehicleSta
         echoes.push_back(e);
     }
     signal::Settings set;
+    set.reportAmbiguities=true;
+    const bool high=search_.mode==Mode::VelocitySearch;
+    set.velocityOnly=high;set.knownNoiseThreshold=high;
     const int intervals = static_cast<int>(waveform_.intervals.size());
     // the interval threshold for the false-alarm time: its peak survival (a simulation, ~20 ms) kept while the
     // threshold stays within 20 % of where it was found - it changes slowly with it
     const double pfaDwell = dwellPfa(search_.mode, dwellS_, search_.rangeScaleM, speed);
-    double p = signalQ_ > 0.0 ? signal::intervalPfa(pfaDwell, waveform_, set.coincidence, signalQ_) : 0.0;
-    if (!(signalQ_ > 0.0) || std::fabs(p / signalQAt_ - 1.0) > 0.2) {
+    double receiverCells=0;
+    for(const auto& iv:waveform_.intervals)receiverCells+=static_cast<double>(iv.gates-iv.blankedGates)*iv.pulses;
+    // A known receiver-power threshold controls the union of tested high-PRF
+    // cells. Range is ambiguous and is not a CA-CFAR reference dimension.
+    double p = high ? std::min(.5,-std::expm1(-dwellS_/spec_.falseAlarmTimeS)/std::max(1.,receiverCells))
+                    : signalQ_ > 0.0 ? signal::intervalPfa(pfaDwell, waveform_, set.coincidence, signalQ_) : 0.0;
+    if (!high && (!(signalQ_ > 0.0) || std::fabs(p / signalQAt_ - 1.0) > 0.2)) {
         p = signal::intervalPfa(pfaDwell, waveform_, set.coincidence, set.cfarCells);
         signalQ_ = signal::peakSurvival(p, set.cfarCells), signalQAt_ = p;
         for (double& l : signalLossDb_) l = std::numeric_limits<double>::quiet_NaN();
@@ -639,7 +720,7 @@ void Radar::dwellSignal(double time, double az, double el, const sim::VehicleSta
     // while transmitting, the peaks' share) - so on average both levels detect alike
     auto lossDb = [&](int fluctuation) {
         double& l = signalLossDb_[static_cast<std::size_t>(std::clamp(fluctuation, 0, 2))];
-        if (std::isnan(l)) l = signal::processingLossDb(waveform_, p, set.cfarCells, fluctuation, detectionIntervalPfa(search_.mode, pfaDwell));
+        if (std::isnan(l)) l = signal::processingLossDb(waveform_, p, set.cfarCells, fluctuation, detectionIntervalPfa(search_.mode, pfaDwell),high);
         return l;
     };
     for (signal::Echo& e : echoes) e.snr *= std::pow(10.0, lossDb(e.fluctuation) / 10.0);
@@ -657,11 +738,15 @@ void Radar::dwellSignal(double time, double az, double el, const sim::VehicleSta
     set.pfaInterval = p;
     set.rangeScaleM = search_.rangeScaleM;
     set.maxRateMs = rateSpanMs(search_.mode, speed) / 2.0, set.minRateMs = -set.maxRateMs;
+    if(high)set.minRateMs=std::max(set.minRateMs,-waveform_.intervals.front().ambiguousRateMs/2),set.maxRateMs=-speed;
     const auto hits = signal::dwell(waveform_, echoes, set, signalStream_, &signalStats_, &clutter_, &snapshot_);
     snapshotTimeS_ = time;
     // the processor's detections, measured as it measured them
     std::vector<Detection> found;
     found.reserve(hits.size());
+    while(!unfoldLooks_.empty()&&time-unfoldLooks_.front().timeS>spec_.trackMemoryS)unfoldLooks_.pop_front();
+    std::vector<UnfoldCandidate> thisLook;
+    std::vector<std::size_t> lookDetections;
     for (const auto& h : hits) {
         Detection det;
         det.timeS = time;
@@ -678,9 +763,52 @@ void Radar::dwellSignal(double time, double az, double el, const sim::VehicleSta
         det.sigma[1] = bwAz / (spec_.monopulseSlope * root);
         det.sigma[2] = spec_.rangeResolutionM / root;
         det.sigma[3] = doppler / root;
+        if(!high) {
+            // Temporal resolution uses raw receiver positions and their full
+            // thermal covariance, before the separately modeled floor/glint/
+            // boresight/multipath corrections in finish().
+            double minimum=det.rangeM,maximum=det.rangeM;
+            for(const auto& alias:h.hypotheses)minimum=std::min(minimum,alias[0]),maximum=std::max(maximum,alias[0]);
+            const bool rangeResolved=maximum-minimum<waveform_.gateM/2;
+            det.resolved=h.hypotheses.size()<=1;
+            if(rangeResolved) {
+                det.sigma[2]=std::hypot(det.sigma[2],std::max(maximum-det.rangeM,det.rangeM-minimum));
+                const double ca=std::cos(det.azimuthRad),sa=std::sin(det.azimuthRad),ce=std::cos(det.elevationRad),se=std::sin(det.elevationRad);
+                const double derivatives[3][3]={{ce*ca,ce*sa,-se},
+                    {-det.rangeM*ce*sa,det.rangeM*ce*ca,0},{-det.rangeM*se*ca,-det.rangeM*se*sa,-det.rangeM*ce}};
+                UnfoldCandidate current;current.look.timeS=time;current.rateSigmaMs=det.sigma[3];
+                current.aliases=h.hypotheses;
+                if(current.aliases.empty())current.aliases.push_back({det.rangeM,det.rangeRateMs});
+                std::array<std::array<double,3>,3> axes{};
+                for(std::size_t i=0;i<3;++i) {
+                    current.ownVelocity[i]=vOwn[i];
+                    for(std::size_t j=0;j<3;++j)for(std::size_t k=0;k<3;++k)axes[k][i]+=r[3*i+j]*derivatives[k][j];
+                    current.direction[i]=axes[0][i];
+                    current.look.position[i]=own.positionEcef[i]+det.rangeM*current.direction[i];
+                }
+                const double sigma[3]={det.sigma[2],det.sigma[1],det.sigma[0]};
+                for(std::size_t i=0;i<3;++i)for(std::size_t j=0;j<3;++j)for(std::size_t k=0;k<3;++k)
+                    current.look.covariance[3*i+j]+=axes[k][i]*axes[k][j]*sigma[k]*sigma[k];
+                thisLook.push_back(std::move(current));lookDetections.push_back(found.size());
+            }
+        }
+        if(high)det.sigma[2]=search_.rangeScaleM/std::sqrt(12.); // folded range is not a resolved position
         if (h.truth == 0) ++falseAlarms_;
         found.push_back(det);
     }
+    const auto resolved=resolveAliases(thisLook,{unfoldLooks_.begin(),unfoldLooks_.end()},
+        kMaxTargetSpeedMs,spec_.trackGate,std::max(spec_.trackProcessNoise,spec_.trackManeuverNoise));
+    for(std::size_t i=0;i<thisLook.size();++i) {
+        auto& det=found[lookDetections[i]];
+        if(!det.resolved&&resolved[i])det.rangeM=(*resolved[i])[0],det.rangeRateMs=(*resolved[i])[1],det.resolved=true;
+    }
+    for(auto& det:found)if(!det.resolved) {
+        // Legacy reports expose sigma rather than an alias list. Bound the
+        // entire declared domain and exclude unresolved returns from tracks.
+        det.sigma[2]=std::max(det.sigma[2],search_.rangeScaleM);
+        det.sigma[3]=std::max(det.sigma[3],set.maxRateMs-set.minRateMs);
+    }
+    for(const auto& look:thisLook) {if(unfoldLooks_.size()>=512)unfoldLooks_.pop_front();unfoldLooks_.push_back(look.look);}
     // its floors (SIM-M01): an error the processing's own does not shrink below, each drawn from the signal level's
     // stream after the dwell's own draws (none at all where the card gives no floor), its spread added to what the
     // processing reports
@@ -695,7 +823,7 @@ void Radar::dwellSignal(double time, double az, double el, const sim::VehicleSta
                     det.sigma[k] = floored(det.sigma[k], floors[k]);
                 }
         }
-    finish(time, az, el, own, r, vOwn, found);
+    finish(time, az, el, own, r, vOwn, found,scene);
 }
 
 void Radar::clutterMap(const sim::VehicleState& own, const double r[9], const double vOwn[3], const double beamBody[3], const Scene& scene,
@@ -941,6 +1069,7 @@ void Radar::track(double time, double az, double el, const sim::VehicleState& ow
     std::vector<track::Detection> dets;
     dets.reserve(found.size());
     for (const Detection& d : found) {
+        if(!d.resolved)continue;
         track::Detection t;
         t.t = time;
         t.z.a = {d.elevationRad, -d.azimuthRad, d.rangeM, d.rangeRateMs};

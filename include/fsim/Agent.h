@@ -18,6 +18,7 @@
 #include "fsim/Control.h"
 #include "fsim/Export.h"
 #include "fsim/Frames.h"
+#include "fsim/Fusion.h"
 #include "fsim/MAReports.h"
 #include "fsim/MAService.h"
 #include "fsim/MissionSystems.h"
@@ -248,6 +249,8 @@ public:
     /// Its radar's detections and tracks, `truth` 0: the entity behind each is the referee's.
     std::vector<ms::AmtiDetection> amtiDetections(std::uint16_t payload, std::uint64_t since = 0) const;
     std::vector<ms::AmtiTrack> amtiTracks(std::uint16_t payload) const;
+    std::vector<ms::FusedEntityV1> fusedTracksV1() const;
+    ms::FusionStatusV1 fusionStatusV1() const;
     ms::CommandResult cancelMission(ms::ActivityId activity);
     std::optional<ms::ActivityRecord> missionActivity(ms::ActivityId activity) const;
     std::vector<ms::ActivityRecord> missionActivities() const;

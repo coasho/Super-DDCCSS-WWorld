@@ -509,6 +509,13 @@ std::vector<ms::AmtiTrack> Agent::amtiTracks(std::uint16_t payload) const {
     for (auto& t : list) session::agentReport(t);
     return list;
 }
+
+std::vector<ms::FusedEntityV1> Agent::fusedTracksV1() const {
+    FSIM_AGENT_AUDIT;return FSIM_AGENT_VEHICLE_OF.fusedTracksV1();
+}
+ms::FusionStatusV1 Agent::fusionStatusV1() const {
+    FSIM_AGENT_AUDIT;return FSIM_AGENT_VEHICLE_OF.fusionStatusV1();
+}
 ms::CommandResult Agent::cancelMission(ms::ActivityId activity) {
     FSIM_AGENT_AUDIT;
     if (!own(activity)) return msRefused(ms::Reason::NotAllowed);

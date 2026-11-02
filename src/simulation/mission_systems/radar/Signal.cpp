@@ -8,6 +8,8 @@
 #include <complex>
 #include <chrono>
 #include <unordered_map>
+#include <map>
+#include <stdexcept>
 
 namespace fsim::ms::radar::signal {
 namespace {
@@ -130,6 +132,33 @@ double Window::noiseGain() noexcept {
 }
 
 double cfarAlpha(int n, double pfa) noexcept { return n * (std::pow(pfa, -1.0 / n) - 1.0); }
+
+Waveform highPrf(double frequencyHz,double dwellS,int prfs,int m,double gateM,double duty,double maxAbsRateMs) {
+    if (!std::isfinite(frequencyHz) || frequencyHz<=0 || !std::isfinite(dwellS) || dwellS<=0 ||
+        prfs<1 || prfs>32 || m<1 || m>prfs || !std::isfinite(gateM) || gateM<=0 ||
+        !std::isfinite(duty) || duty<=0 || duty>=1 || !std::isfinite(maxAbsRateMs) || maxAbsRateMs<=0)
+        throw std::invalid_argument("Invalid high-PRF receiver domain");
+    Waveform w;w.wavelengthM=kLight/frequencyHz;w.gateM=gateM;w.m=m;
+    w.rateResolutionMs=w.wavelengthM/(2*(dwellS/prfs));
+    for(int i=0;i<prfs;++i) {
+        Interval iv;
+        // The lowest PRF covers both signed endpoints; stagger upward within
+        // one octave for eclipse diversity, without using target truth.
+        iv.ambiguousRateMs=2*maxAbsRateMs*std::pow(2.,static_cast<double>(i)/prfs);
+        iv.prfHz=2*iv.ambiguousRateMs/w.wavelengthM;
+        const double pulses=dwellS/prfs*iv.prfHz;
+        if(pulses>65536)throw std::invalid_argument("High-PRF coherent pulse budget exceeded");
+        iv.pulses=std::max(4,static_cast<int>(std::lround(pulses)));
+        iv.ambiguousRangeM=kLight/(2*iv.prfHz);iv.pulseS=duty/iv.prfHz;
+        const double gates=iv.ambiguousRangeM/gateM;
+        if(!std::isfinite(gates) || gates>4000000 || gates*iv.pulses>4000000)
+            throw std::invalid_argument("High-PRF receive-cell budget exceeded");
+        iv.gates=std::max(1,static_cast<int>(gates));
+        iv.blankedGates=std::min(iv.gates,static_cast<int>(std::ceil(kLight*iv.pulseS/(2*gateM))));
+        w.intervals.push_back(iv);
+    }
+    return w;
+}
 
 Waveform mediumPrf(double frequencyHz, double dwellS, int prfs, int m, double gateM, double duty) {
     Waveform w;
@@ -289,14 +318,21 @@ std::vector<Hit> dwell(const Waveform& waveform, const std::vector<Echo>& echoes
                 prefix[static_cast<std::size_t>(r) + 1] = prefix[static_cast<std::size_t>(r)] + power[static_cast<std::size_t>(r) * static_cast<std::size_t>(m) + static_cast<std::size_t>(k)];
             for (int r = 0; r < rows; ++r) {
                 if (zeroRate && std::fabs(r - altitudeGate) <= 2.0) continue;
-                const int lo0 = std::max(0, r - guard - half), lo1 = std::max(0, r - guard);
-                const int hi0 = std::min(rows, r + guard + 1), hi1 = std::min(rows, r + guard + half + 1);
-                const double sum = (prefix[static_cast<std::size_t>(lo1)] - prefix[static_cast<std::size_t>(lo0)]) +
-                                   (hi1 > hi0 ? prefix[static_cast<std::size_t>(hi1)] - prefix[static_cast<std::size_t>(hi0)] : 0.0);
-                const int count = (lo1 - lo0) + std::max(0, hi1 - hi0);
-                if (count < 4) continue;
-                const double mean = sum / count, here = at(r, k);
-                if (!(here > alpha[count] * mean)) continue;
+                double mean=0,threshold=0;
+                if(settings.knownNoiseThreshold) {
+                    mean=m*share[static_cast<std::size_t>(r)]*noiseGain;
+                    threshold=-std::log(settings.pfaInterval);
+                } else {
+                    const int lo0 = std::max(0, r - guard - half), lo1 = std::max(0, r - guard);
+                    const int hi0 = std::min(rows, r + guard + 1), hi1 = std::min(rows, r + guard + half + 1);
+                    const double sum = (prefix[static_cast<std::size_t>(lo1)] - prefix[static_cast<std::size_t>(lo0)]) +
+                                       (hi1 > hi0 ? prefix[static_cast<std::size_t>(hi1)] - prefix[static_cast<std::size_t>(hi0)] : 0.0);
+                    const int count = (lo1 - lo0) + std::max(0, hi1 - hi0);
+                    if (count < 4) continue;
+                    mean=sum/count;threshold=alpha[count];
+                }
+                const double here=at(r,k);
+                if (!(here > threshold * mean)) continue;
                 // where the ground's clutter is (above a tenth of the noise), the clutter map's threshold too: the
                 // cell's expected power - the noise's and the clutter's through the window's taps - times -ln(p) (an
                 // exponential of known mean crosses it with probability p, however the clutter varies around it)
@@ -359,6 +395,35 @@ std::vector<Hit> dwell(const Waveform& waveform, const std::vector<Echo>& echoes
         }
     }
 
+    if(settings.velocityOnly) {
+        // Doppler associations use no target identity and no range unfolding.
+        // Same-rate returns are unresolved in velocity search, as declared.
+        std::vector<Hit> hits;
+        std::vector<bool> used(peaks.size(),false);
+        for(std::size_t i=0;i<peaks.size();++i) {
+            if(used[i] || peaks[i].rateMs<settings.minRateMs || peaks[i].rateMs>settings.maxRateMs)continue;
+            std::uint32_t seen=0;double sum=0,weighted=0,az=0,el=0;std::size_t strongest=i;
+            std::vector<std::size_t> members;
+            for(std::size_t j=i;j<peaks.size();++j) {
+                const auto& p=peaks[j];
+                if(used[j] || (seen&(1u<<p.interval)) || std::fabs(p.rateMs-peaks[i].rateMs)>waveform.rateResolutionMs)continue;
+                seen|=1u<<p.interval;members.push_back(j);
+                const double weight=std::max(p.snr,1e-12);sum+=weight;weighted+=weight*p.rateMs;
+                az+=weight*p.monoAz;el+=weight*p.monoEl;
+                if(p.snr>peaks[strongest].snr)strongest=j;
+            }
+            int count=0;for(auto mask=seen;mask;mask>>=1)count+=static_cast<int>(mask&1u);
+            if(count<waveform.m)continue;
+            // A rejected candidate owns no peaks. A later seed may use these
+            // returns to form a valid M-of-N coincidence.
+            for(auto j:members)used[j]=true;
+            Hit h;h.rangeM=peaks[strongest].rangeM;h.rangeRateMs=weighted/sum;
+            h.monopulseAz=az/sum;h.monopulseEl=el/sum;h.snr=sum;h.intervals=count;h.truth=peaks[strongest].truth;
+            hits.push_back(h);
+        }
+        if(stats){stats->cells+=cells;stats->peaks+=peaks.size();stats->hits+=hits.size();stats->processS+=std::chrono::duration<double>(std::chrono::steady_clock::now()-started).count();}
+        return hits;
+    }
     // the M of N: each detection unfolded to every range and range rate it may be, counted where intervals agree
     struct Cell {
         std::uint32_t mask = 0;
@@ -438,6 +503,11 @@ std::vector<Hit> dwell(const Waveform& waveform, const std::vector<Echo>& echoes
     // used (the rest of a resolved target's aliases agree elsewhere only by its own detections - ghosts)
     std::vector<Hit> hits;
     std::vector<char> used(peaks.size(), 0);
+    std::map<std::array<int,32>,std::vector<const Candidate*>> alternatives;
+    if(settings.reportAmbiguities)for(const auto& c:candidates) {
+        std::array<int,32> peakKey{};std::copy(std::begin(c.best),std::end(c.best),peakKey.begin());
+        alternatives[peakKey].push_back(&c);
+    }
     for (Candidate c : candidates) {
         int count = 0;
         for (int i = 0; i < n; ++i) {
@@ -445,6 +515,7 @@ std::vector<Hit> dwell(const Waveform& waveform, const std::vector<Echo>& echoes
             count += c.best[i] >= 0 ? 1 : 0;
         }
         if (count < waveform.m) continue;
+        if(settings.reportAmbiguities && count!=c.count)continue;
         for (int i = 0; i < n; ++i)
             if (c.best[i] >= 0) used[static_cast<std::size_t>(c.best[i])] = 1;
         Hit h;
@@ -466,6 +537,23 @@ std::vector<Hit> dwell(const Waveform& waveform, const std::vector<Echo>& echoes
             ++votes[pk.truth];
         }
         h.rangeM /= weight, h.rangeRateMs /= weight, h.monopulseAz /= weight, h.monopulseEl /= weight;
+        if(settings.reportAmbiguities) {
+            std::array<int,32> peakKey{};std::copy(std::begin(c.best),std::end(c.best),peakKey.begin());
+            for(const auto* a:alternatives[peakKey]) {
+                double range=0,rate=0,total=0;
+                for(int i=0;i<n;++i)if(a->best[i]>=0) {
+                    const auto& pk=peaks[static_cast<std::size_t>(a->best[i])];
+                    const auto& iv=waveform.intervals[static_cast<std::size_t>(i)];
+                    const double w=std::max(pk.snr,1e-6);
+                    range+=w*(pk.rangeM+std::round((static_cast<double>(a->rc)*dr-pk.rangeM)/iv.ambiguousRangeM)*iv.ambiguousRangeM);
+                    rate+=w*(pk.rateMs+std::round((static_cast<double>(a->vc)*dv-pk.rateMs)/iv.ambiguousRateMs)*iv.ambiguousRateMs);total+=w;
+                }
+                const std::array<double,2> hypothesis={range/total,rate/total};
+                if(std::none_of(h.hypotheses.begin(),h.hypotheses.end(),[&](const auto& old){
+                    return std::fabs(old[0]-hypothesis[0])<dr/2&&std::fabs(old[1]-hypothesis[1])<dv/2;
+                }))h.hypotheses.push_back(hypothesis);
+            }
+        }
         int most = 0;
         for (const auto& [t, v] : votes)
             if (v > most || (v == most && t < h.truth)) most = v, h.truth = t;
@@ -554,7 +642,7 @@ double noiseShare(int gate, double chips, double period) noexcept {
     return std::clamp((std::min(gate + chips, period) - std::max(static_cast<double>(gate), chips)) / chips, 0.0, 1.0);
 }
 
-double processingLossDb(const Waveform& waveform, double pfaInterval, int cfarCells, int fluctuation, double idealPfaInterval) noexcept {
+double processingLossDb(const Waveform& waveform, double pfaInterval, int cfarCells, int fluctuation, double idealPfaInterval,bool knownNoiseThreshold) noexcept {
     const int n = static_cast<int>(waveform.intervals.size()), m = waveform.m;
     if (n <= 0) return 0.0;
     const double alpha = cfarAlpha(cfarCells, pfaInterval);
@@ -573,12 +661,14 @@ double processingLossDb(const Waveform& waveform, double pfaInterval, int cfarCe
             windowed(spec.data(), out.data(), pulses);
             return std::norm(out[0]) / std::norm(Window::a[0] * pulses);
         };
+        // Scalloping depends on Doppler offset, not range-gate straddle.
+        std::array<double,kGrid> scallops{};
+        for(int b=0;b<kGrid;++b)scallops[static_cast<std::size_t>(b)]=scallop((b+.5)/kGrid-.5);
         const double chips = iv.pulseS * kLight / 2.0 / waveform.gateM, period = iv.ambiguousRangeM / waveform.gateM;
         for (int a = 0; a < kGrid; ++a) {
             const double delta = (a + 0.5) / kGrid; // the gate straddle
             for (int b = 0; b < kGrid; ++b) {
-                const double x = (b + 0.5) / kGrid - 0.5; // the filter offset
-                const double sc = scallop(x);
+                const double sc = scallops[static_cast<std::size_t>(b)];
                 for (int c = 0; c < kPositions; ++c) {
                     // where in the PRI the echo falls: blanked, partly eclipsed at either end, or whole - the larger
                     // of its two gates' responses (a gate the receiver samples)
@@ -595,13 +685,24 @@ double processingLossDb(const Waveform& waveform, double pfaInterval, int cfarCe
             }
         }
     }
+    // Keep the identical quadrature samples, but evaluate repeated exact
+    // losses once. No binning, interpolation, grid or acceptance change.
+    std::vector<std::vector<std::pair<double,std::size_t>>> weightedLosses(losses.size());
+    for(std::size_t i=0;i<losses.size();++i) {
+        std::sort(losses[i].begin(),losses[i].end());
+        for(double loss:losses[i]) {
+            auto& weights=weightedLosses[i];
+            if(!weights.empty()&&weights.back().first==loss)++weights.back().second;
+            else weights.emplace_back(loss,1);
+        }
+    }
     // one interval's Pd under CA-CFAR at an SNR x: a Rayleigh target's closed form; the others', the fixed threshold's
     // Pd at alpha z averaged over the reference cells' mean z (a gamma of N, mean 1), tabulated in x (dB)
     const Fluctuation f = fluctuation == 0 ? Fluctuation::Steady : fluctuation == 2 ? Fluctuation::DominantScatterer : Fluctuation::Rayleigh;
     constexpr double kLoDb = -20.0, kStepDb = 0.25;
     constexpr int kTable = 281; // (to +50 dB)
     std::vector<double> table;
-    if (f != Fluctuation::Rayleigh) {
+    if (f != Fluctuation::Rayleigh && !knownNoiseThreshold) {
         const double cells = cfarCells, spread = 1.0 / std::sqrt(cells);
         const double z0 = std::max(1e-6, 1.0 - 7.0 * spread), z1 = 1.0 + 10.0 * spread;
         constexpr int kZ = 160;
@@ -622,6 +723,7 @@ double processingLossDb(const Waveform& waveform, double pfaInterval, int cfarCe
         }
     }
     auto pdCell = [&](double x) {
+        if(knownNoiseThreshold)return probabilityOfDetection(x,pfaInterval,f);
         if (f == Fluctuation::Rayleigh) return std::pow(1.0 + alpha / (cfarCells * (1.0 + x)), -cfarCells);
         const double u = (10.0 * std::log10(std::max(x, 1e-30)) - kLoDb) / kStepDb;
         if (u <= 0.0) return table.front();
@@ -633,8 +735,8 @@ double processingLossDb(const Waveform& waveform, double pfaInterval, int cfarCe
         std::vector<double> p(static_cast<std::size_t>(n));
         for (int i = 0; i < n; ++i) {
             double sum = 0.0;
-            for (const double l : losses[static_cast<std::size_t>(i)])
-                sum += pdCell(snr / n * l);
+            for (const auto& loss : weightedLosses[static_cast<std::size_t>(i)])
+                sum += static_cast<double>(loss.second)*pdCell(snr / n * loss.first);
             p[static_cast<std::size_t>(i)] = sum / static_cast<double>(losses[static_cast<std::size_t>(i)].size());
         }
         // at least m of the n, each its own probability (a recursion over the count)

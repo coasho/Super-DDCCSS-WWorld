@@ -29,6 +29,7 @@
 #include "simulation/mission_systems/damage/WarheadAdapter.h"
 #include "simulation/mission_systems/countermeasure/Dispenser.h"
 #include "simulation/mission_systems/rcs/Table.h"
+#include "simulation/mission_systems/track/Fusion.h"
 #include "simulation/flight_control/Features.h"
 #include "simulation/communications/dms/Dms.h"
 #include "simulation/runtime/services/MaCore.h"
@@ -490,6 +491,8 @@ public:
     std::vector<ms::AmtiDetection> amtiDetections(std::uint32_t id, std::uint16_t payload, std::uint64_t since = 0) const;
     /// A radar payload's confirmed tracks (MS-5), predicted to now.
     std::vector<ms::AmtiTrack> amtiTracks(std::uint32_t id, std::uint16_t payload) const;
+    std::vector<ms::FusedEntityV1> fusedTracksV1(std::uint32_t id) const;
+    ms::FusionStatusV1 fusionStatusV1(std::uint32_t id) const;
     /// What a payload's passive sensor holds (MS-9a: a warning receiver's emitters).
     std::vector<ms::Contact> contacts(std::uint32_t id, std::uint16_t payload) const;
     ms::CommandResult cancelMission(std::uint32_t id, control::Caller caller, ms::ActivityId activity);
@@ -711,6 +714,7 @@ public:
 
 private:
     struct Entry {
+        ms::track::Fusion fusion;
         VehicleInfo info;
         std::size_t slot = 0;
         control::ControlStack stack;       ///< the control runtime
@@ -1024,6 +1028,7 @@ private:
     std::unique_ptr<ipc::MissionRecord> missionScratch_; ///< publishMission's record, reused
     /// The sensors' looks after a step (MS-4).
     void sense();
+    void fuseTracksV1();
     /// The vehicles' Mission Systems records for the viewers, those whose payloads or radars changed (MS-4).
     void publishMission();
     std::vector<sim::ControlInputs> poolInputs_;

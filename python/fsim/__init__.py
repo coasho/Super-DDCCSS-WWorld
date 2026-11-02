@@ -64,6 +64,7 @@ from ._state import (  # noqa: E402
     recorded_sample_dtype,
     vehicle_state_dtype,
 )
+from .fusion import FusedEntityV1, FusionSourceV1, FusionStateV1, FusionSourceKindV1, FusionStatusV1
 from .world import (  # noqa: E402
     MissionActivity,
     MissionCapability,
@@ -347,6 +348,7 @@ __all__ = [
     "AmtiTask",
     "AmtiDetection",
     "AmtiTrack",
+    "FusedEntityV1", "FusionSourceV1", "FusionStateV1", "FusionSourceKindV1", "FusionStatusV1",
     "Contact",
     "ContactKind",
     "EmitterMode",

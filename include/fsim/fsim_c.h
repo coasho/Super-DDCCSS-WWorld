@@ -2819,7 +2819,7 @@ typedef struct fsim_amti_command {
     double azimuth_half_width_rad;    /* (60 deg) */
     double elevation_centre_rad;      /* above the body's x-y plane (0) */
     double range_scale_m;             /* (150 km) */
-    int32_t signal_level;             /* ABI 1.55 (MS-6): 1, the search at the signal level (medium-PRF modes); read where
+    int32_t signal_level;             /* ABI 1.55 (MS-6): signal receiver for search, acquisition or track; high PRF in velocity search; read where
                                          the caller's struct_size has it */
     int32_t reserved;
     /* ABI 1.70 (MS-4b), read where the caller's struct_size has them */

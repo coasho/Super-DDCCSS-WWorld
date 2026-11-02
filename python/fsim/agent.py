@@ -130,6 +130,21 @@ class Agent:
 
     __slots__ = ("_world", "_vehicle", "vehicle_id", "controller", "agent_name")
 
+    def fused_tracks_v1(self):
+        """V1 own-platform fusion report. Existing default actor callable lists are unchanged."""
+        return self._vehicle.fused_tracks_v1()
+
+    def fusion_status_v1(self):
+        return self._vehicle.fusion_status_v1()
+
+    def amti_track_v1(self, *args, **kwargs):
+        """Versioned signal-capable track command; existing callable lists unchanged."""
+        return self._vehicle.amti_track_v1(*args, **kwargs)
+
+    def amti_acquire_v1(self, *args, **kwargs):
+        """Versioned signal-capable acquisition command; existing callable lists unchanged."""
+        return self._vehicle.amti_acquire_v1(*args, **kwargs)
+
     def __init__(self, range_world, vehicle, name=""):
         vid = vehicle.id if isinstance(vehicle, Vehicle) else int(vehicle)
         handle = range_world._h.create_agent(vid, name)

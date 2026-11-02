@@ -3044,7 +3044,7 @@ int main(int argc, char** argv) {
         CHECK(real == 1);
         CHECK(fsim_vehicle_amti_detections(world, jet, 0, rs.detections, det, 4, &count) == FSIM_OK && count == 0);
         CHECK(rs.signal_level == 0);
-        /* ABI 1.55 (MS-6): the same search at the signal level - its own detections of the bandit; not in velocity search */
+        /* ABI 1.55 (MS-6), extended by SIM-M01: signal receiver detections and high-PRF velocity-search admission. */
         ac.signal_level = 1;
         CHECK(fsim_vehicle_amti_search(world, jet, &ac, NULL, &mr) == FSIM_OK && mr.status == FSIM_COMMAND_ACCEPTED && mr.activity != 0);
         {
@@ -3057,9 +3057,9 @@ int main(int argc, char** argv) {
             CHECK(real > 0);
         }
         ac.mode = FSIM_AMTI_VELOCITY_SEARCH;
-        CHECK(fsim_vehicle_amti_search(world, jet, &ac, NULL, &mr) == FSIM_OK && mr.status == FSIM_COMMAND_REJECTED &&
-              strcmp(fsim_ms_reason_name(mr.reason), "invalid_parameter") == 0);
+        CHECK(fsim_vehicle_amti_search(world, jet, &ac, NULL, &mr) == FSIM_OK && mr.status == FSIM_COMMAND_ACCEPTED);
         CHECK(fsim_vehicle_radar_status(world, jet, 0, &rs) == FSIM_OK);
+        CHECK(rs.signal_level == 1 && rs.mode == FSIM_AMTI_VELOCITY_SEARCH);
         CHECK(fsim_ms_activity_cancel(world, rs.activity, NULL, &mr) == FSIM_OK && mr.status == FSIM_COMMAND_CANCELED);
         CHECK(fsim_vehicle_radar_status(world, jet, 0, &rs) == FSIM_OK && rs.searching == 0 && rs.activity == 0);
         /* ABI 1.70 (MS-4b): its engagement modes - a track it holds followed alone and lit; a track it does not hold

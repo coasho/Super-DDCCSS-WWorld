@@ -1,0 +1,18 @@
+card,designation,fitted_designs,functional_sampling,stages,basis,calibration_required,calibration_present,calibration_check,status,blocker,card_sha256
+an-apg-63v3,AN/APG-63(V)3,f15c,passed,5,simulated,True,False,failed,blocked,No admitted variant-specific independent accuracy-calibration receipt,cacce60b546d7be2835f63f4513ee580ca65319ffd1ad13e43a7a513e5a6371f
+an-apg-68v9,AN/APG-68(V)9,f16c,passed,5,simulated,True,False,failed,blocked,No admitted variant-specific independent accuracy-calibration receipt,3b37ef74cf1fd6fdf4645bf86657fbc0775ab9d16d79800a84099060c776ea5d
+an-apg-73,AN/APG-73,fa18c,passed,5,simulated,True,False,failed,blocked,No admitted variant-specific independent accuracy-calibration receipt,c38eb4811d2ba0ca72afddc0b909bbe8741763d69b7395cb9ec68aee9bdf31f9
+an-apg-77,AN/APG-77,f22a,passed,5,simulated,True,False,failed,blocked,No admitted variant-specific independent accuracy-calibration receipt,8354fa5df8bbcb2725699ecbc36e699f2291338c669970b1bd3fa4f4e71aeb51
+an-apg-79,AN/APG-79,ea18g,passed,5,simulated,True,False,failed,blocked,No admitted variant-specific independent accuracy-calibration receipt,4b6284eafef2bf2a154b125ac3230c8af34a8ec305c05c5cd1ade9ae9143f6cf
+an-apg-81,AN/APG-81,f35a,passed,5,simulated,True,False,failed,blocked,No admitted variant-specific independent accuracy-calibration receipt,e8bcc67854d0b7216fb5a05c61aaf2a2e1bceea920d427c84a23e55e1d420549
+an-apy-2,AN/APY-2,e3g,passed,2,simulated,True,False,failed,blocked,No admitted variant-specific independent accuracy-calibration receipt,9a41f49933847ef02736889c1961d71b606c8839fc43568c28b8b967f976c1aa
+captor-m,Euroradar Captor-M,typhoon,passed,5,simulated,True,False,failed,blocked,No admitted variant-specific independent accuracy-calibration receipt,c0e60f441beecb835ccd451d158150f8c60dd4b7e0b3866d1102b921e53f96e5
+mesa,MESA,e7a,passed,2,simulated,True,False,failed,blocked,No admitted variant-specific independent accuracy-calibration receipt,1535bb184db70461c9bbb33f8c3544437b5c4fb861a0a7178992b8db8a8d8251
+n001,N001 Myech,su27s,passed,5,simulated,True,False,failed,blocked,No admitted variant-specific independent accuracy-calibration receipt,75ce11fb50ffd57a6a825f82284bb427f9a89c85c4dd0d054c649199d34ef949
+n019,N019 Sapfir-29,mig29a,passed,5,simulated,True,False,failed,blocked,No admitted variant-specific independent accuracy-calibration receipt,6c7efa972d7b0c97206a49dfcdf381a257442d73ceaed4214a19c65b40e22970
+n036-byelka,N036 Byelka,su57,passed,5,simulated,True,False,failed,blocked,No admitted variant-specific independent accuracy-calibration receipt,d2fa25aab4e525279bbbb480efcf9c61d10d31bbc5a0102fdbc0e6c787a6fe17
+ps-05a,PS-05/A,gripen,passed,5,simulated,True,False,failed,blocked,No admitted variant-specific independent accuracy-calibration receipt,51caa545b70f387a66c7c6a82690bdf946d2c58a4b89433c7a26b9f774386e82
+rbe2-aa,RBE2 AA,rafale,passed,5,simulated,True,False,failed,blocked,No admitted variant-specific independent accuracy-calibration receipt,2f48a5c153a651de2c9604fbba3e034a0e224eba7cefa3b306d7e88e5bb3fd7c
+thomson-csf-rdi,Thomson-CSF RDI,mirage2000,passed,5,simulated,True,False,failed,blocked,No admitted variant-specific independent accuracy-calibration receipt,3b14b4453df5d06a8831aaa4702264b87cfe27c70d2cf508673e430f20f8281f
+type-1473,Type 1473,j10a,passed,5,simulated,True,False,failed,blocked,No admitted variant-specific independent accuracy-calibration receipt,262f636bae0c1dc67ff66a03705a67ff3a5581c9c2271958ed29d75f42c444ae
+type-1475,Type 1475 (KLJ-5),j20a,passed,5,simulated,True,False,failed,blocked,No admitted variant-specific independent accuracy-calibration receipt,28de1943b10c47b62d4f01c5c10f5abd3ea5c6297e1ea1fcb862b8535a243f12

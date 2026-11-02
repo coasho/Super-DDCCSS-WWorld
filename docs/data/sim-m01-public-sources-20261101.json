@@ -1,0 +1,431 @@
+{
+  "schema": "fsim.sim-m01.independent-public-source-search.v1",
+  "reviewer": "/root/independent_review",
+  "main_base_head": "596bacacbbbe06d9985227add12393db8e93a4cc",
+  "source_method": "Internet search/open of primary manufacturer, government and originalresearch publications; linked secondary/game results rejected. No simulator/test/build execution or MAINsource edits.",
+  "roster_sha256": "345b997568263d097fc3df6d93dc7d71385e9730865d3d190a735d16122e9c4e",
+  "cards_searched": 17,
+  "equipment_calibration_admitted": 0,
+  "exhaustive_search_claim": false,
+  "formal_acceptance": false,
+  "sources": {
+    "rtx_f15": {
+      "url": "https://prd-sc102-cdn.rtx.com/-/media/project/raytheon-technologies/shared/f/farnborough/corp_rtx_capabilities_f15_final_copy_7-20.pdf?rev=-1",
+      "publisher": "RTX",
+      "kind": "Manufacturer capability listing",
+      "useful_claim": "Lists APG-63(V)3 on the F-15 product portfolio.",
+      "non_admission": "No radar range/angle/range-rate error observations or conditions."
+    },
+    "lm_v9": {
+      "url": "https://news.lockheedmartin.com/2002-06-25-Performance-Flight-Testing-of-Updated-Radar-Under-Way-for-Lockheed-Martin-F-16-New-Technology-Expected-to-Significantly-Increase-Radar-Performance",
+      "publisher": "Lockheed Martin",
+      "kind": "Manufacturer flight-test announcement",
+      "variant": "APG-68(V)9, Edwards AFB development flight testing, June2002",
+      "useful_claim": "Reports meeting/exceeding performance specifications and improved antenna pointing via digitalboresighting.",
+      "non_admission": "No numeric pointing/range/rate error statistic, uncertainty, residual data or detailed test conditions."
+    },
+    "rtx_apg73": {
+      "url": "https://investors.rtx.com/static-files/ba8dc3dc-cb84-496a-9f6c-9a9fee99cd4e",
+      "publisher": "Raytheon annual filing",
+      "kind": "Manufacturer support/program description",
+      "useful_claim": "Identifies Canadian APG-73 support work.",
+      "non_admission": "Support activity is not a measured accuracy dataset."
+    },
+    "ng77": {
+      "url": "https://www.northropgrumman.com/what-we-do/mission-solutions/radars/an-apg-77-aesa",
+      "publisher": "Northrop Grumman",
+      "kind": "Manufacturer product description",
+      "useful_claim": "Identifies F-22 radar design, integration and test responsibility.",
+      "non_admission": "No quantitative radar accuracy or error distribution."
+    },
+    "congress77": {
+      "url": "https://www.congress.gov/107/chrg/CHRG-107shrg75349/CHRG-107shrg75349.pdf",
+      "publisher": "US Senate",
+      "kind": "Government program testimony",
+      "useful_claim": "Reports F-22 flight-test radar detection/tracking meeting or exceeding specifications.",
+      "non_admission": "Unpublished specification values and no measured error table; older software context cannot become current variant calibration."
+    },
+    "dote79": {
+      "url": "https://www.dote.osd.mil/Portals/97/pub/reports/FY2008/other/2008DOTEAnnualReport.pdf",
+      "publisher": "DOT&E",
+      "kind": "Government operational-test assessment",
+      "variant": "F/A-18E/F APG-79, SCS H4E, November2007-July2008",
+      "useful_claim": "154flight hours/111sorties; public assessment says detailed performance results are classified.",
+      "non_admission": "Test counts and qualitative assessment do not disclose accuracy residuals or measurement conditions."
+    },
+    "navair79": {
+      "url": "https://www.navair.navy.mil/node/6236",
+      "publisher": "NAVAIR",
+      "kind": "Government technology description",
+      "useful_claim": "Describes search-while-track improving multi-target track quality.",
+      "non_admission": "Qualitative improvement, not numerical calibration.",
+      "variant": "APG-79 F/A-18E/F; related to but not interchangeable with APG-73"
+    },
+    "ng81": {
+      "url": "https://investor.northropgrumman.com/news-releases/news-release-details/northrop-grummans-apg-81-radar-sensor-performs-flawlessly-first",
+      "publisher": "Northrop Grumman",
+      "kind": "Manufacturer first-flight report",
+      "variant": "F-35 BF-4 mission-systems test, Block0.5 software, June2010",
+      "useful_claim": "Reports long-range tracking at multiple aspects and over300prior testbed hours; Block0.5 comprised60percent of eventual software.",
+      "non_admission": "No numeric measurement errors, raw data or statistical accuracy conditions; early software variant."
+    },
+    "e3": {
+      "url": "https://www.af.mil/About-Us/Fact-Sheets/Display/Article/104504/e-3-sentry-awacs/",
+      "publisher": "USAF",
+      "kind": "Government platform fact sheet",
+      "useful_claim": "E-3 radar surveillance capability and platform identity.",
+      "access": "Search result available; direct fetch returned403.",
+      "non_admission": "No admitted APY-2 error data; platform/detection capability does not establish exact radar/software variant accuracy."
+    },
+    "leonardo_m": {
+      "url": "https://www.leonardo.com/documents/15646808/16736339/body_Leonardo_DSRI_Investor_PresentationOK%2B%281%29.pdf?t=1547217397479",
+      "publisher": "Leonardo",
+      "kind": "Manufacturer investor capability presentation",
+      "useful_claim": "Lists Captor M-Scan under Typhoon sensing.",
+      "non_admission": "No measured range/angle/rate errors."
+    },
+    "leonardo_e": {
+      "url": "https://uk.leonardo.com/documents/64103/22616345/LDO_UK24_00622%2BECRS%2BMK0%2BLQ.pdf",
+      "publisher": "Leonardo",
+      "kind": "Manufacturer related-variant brochure",
+      "variant": "ECRS Mk0 / Captor-E",
+      "useful_claim": "AESA product identifies CAPTOR M as a related system.",
+      "non_admission": "Different radar variant; cannot transfer AESA specifications to mechanical Captor-M."
+    },
+    "mesa": {
+      "url": "https://boeing.mediaroom.com/2006-03-09-Boeing-Wedgetail-Team-Completes-Major-Radar-Testing-Milestone",
+      "publisher": "Boeing",
+      "kind": "Manufacturer test-program milestone",
+      "variant": "Australian Wedgetail 737 MESA, March2006",
+      "useful_claim": "Ground compatibility testing completed; aircraft/environment calibration and towed-sphere/aircraft/ship testing described as subsequent activities.",
+      "non_admission": "Planned calibration is not completed measured accuracy; no error residuals published."
+    },
+    "chalmers": {
+      "url": "https://publications.lib.chalmers.se/records/fulltext/140898.pdf",
+      "publisher": "Chalmers University / author Magnus Wennberg, Saab EDS thesis",
+      "kind": "Primary comparison-method validation with deliberately unscaled radar plots; not numerical equipment accuracy calibration",
+      "variant": "PS-05/A STT; exact radar/software modification unspecified",
+      "useful_claim": "Three actual STT range-comparison flights, PDFpp45-54.",
+      "non_admission": "Section3.5 explicitly assumes radar/GPS sufficiently accurate and validates the comparison method. Target schematics are not to scale and all model dimensions were removed for confidentiality. Histogram distance axes have no numerical scale. No numerical radarerror may be recovered by digitization or inferred aircraft length; GPS accuracy is not radar accuracy.",
+      "access": "Independent webtext inspection ofSection3.5 and visual inspection of owner-rendered chalmers-page51.png/page53.png; bothhistogram distanceaxes lacknumerical ticks.",
+      "local_pdf": "chalmers-140898.pdf",
+      "local_pdf_sha256": "9ad9d7d53b100c44ff8bb41eb523323cbf61dc55adab47bdc2c6ad81c10174cf",
+      "local_pdf_hash_independently_verified": true,
+      "section": "3.5 Test of Comparison Method, especially the final two paragraphs before3.5.1"
+    },
+    "saab_mk4": {
+      "url": "https://www.saab.com/globalassets/products/surveillance/ps-05a-fighter-radar/ps-05-a-mk4.pdf",
+      "publisher": "Saab",
+      "kind": "Manufacturer specification brochure",
+      "variant": "PS-05/A Mk4, April2015",
+      "useful_claim": "Advertises3m/submetre SAR resolution and100percentlow-altitude/40percenthigh-altitude acquisition-range improvement.",
+      "non_admission": "SAR resolution and detection/acquisition range are not air-target measurement accuracy; Mk4 identity cannot be assumed for genericPS-05/A card."
+    },
+    "dassault_rbe2": {
+      "url": "https://www.dassault-aviation.com/en/defense/rafale/detect-and-pursue/",
+      "publisher": "Dassault Aviation",
+      "kind": "Manufacturer product capability description",
+      "variant": "RBE2/AESA",
+      "useful_claim": "Describes all-aspect multi-target air tracking, terrain maps and Meteor-compatible detectionrange.",
+      "non_admission": "No quantitative radar error statistic or measured calibration data."
+    },
+    "rdi": {
+      "url": "https://www.defense.gouv.fr/air/actualites/mirage-2000c-rdi-tire-sa-reverence",
+      "publisher": "French Ministry of Armed Forces",
+      "kind": "Government operational history",
+      "variant": "Mirage2000C RDI",
+      "useful_claim": "Identifies service history and retirement of Mirage2000C RDI.",
+      "non_admission": "No radar measurement-error data. Mirage2000-5 RDY documents are a different radar."
+    },
+    "rostec36": {
+      "url": "https://rostec.ru/media/news/radar-istoriya-velikogo-izobreteniya/?sphrase_id=7718953",
+      "publisher": "Rostec",
+      "kind": "Manufacturer/holding-company radar history",
+      "variant": "N036 Byelka",
+      "useful_claim": "Indexed text says flight tests confirmed declared parameters while much system detail was undisclosed.",
+      "access": "Indexed source text reviewed; direct canonical fetch timedout.",
+      "non_admission": "No numerical measurementerror/conditions; qualitative flight-test success cannot calibrate card."
+    },
+    "ukr019": {
+      "url": "https://hups.mil.gov.ua/assets/doc/science/stud-conf/XXI_Naukova_konferenciya_2025.pdf",
+      "publisher": "Ivan Kozhedub Kharkiv National Air Force University",
+      "kind": "Primary conference method abstract",
+      "variant": "N019 mentioned in adaptivefiltering discussion",
+      "useful_claim": "Discusses Kalman/Wiener filtering to improve resistance to interference.",
+      "non_admission": "No actual N019 test observations, quantitative uncertainty or variant-specific measurement dataset."
+    },
+    "casi": {
+      "url": "https://www.airuniversity.af.edu/Portals/10/CASI/documents/Research/Infrastructure/2020-11-%2030%20Air-to-Air%20Missiles%20and%20Guidance%20Systems.pdf",
+      "publisher": "US Air University CASI",
+      "kind": "Government analysis; secondary source for Chinese equipment claims",
+      "useful_claim": "Discusses Type1473 and hypothesized Type1475/KLJ-5 development/identity and detectionrange claims.",
+      "non_admission": "Not primary radar measurement evidence; uncertain variant attribution and detectionrange do not supply accuracy statistics."
+    }
+  },
+  "radars": [
+    {
+      "card": "an-apg-63v3",
+      "designation": "AN/APG-63(V)3",
+      "candidate_source_ids": [
+        "rtx_f15"
+      ],
+      "equipment_calibration_admitted": false,
+      "status": "no_admissible_measurement_found_in_this_bounded_search",
+      "reason": "See source-specific non-admission reasons; no claim of absence from allpublicsources.",
+      "query_patterns": [
+        "\"APG-63(V)3\" accuracy site:rtx.com",
+        "\"APG-63\" \"range error\""
+      ]
+    },
+    {
+      "card": "an-apg-68v9",
+      "designation": "AN/APG-68(V)9",
+      "candidate_source_ids": [
+        "lm_v9"
+      ],
+      "equipment_calibration_admitted": false,
+      "status": "no_admissible_measurement_found_in_this_bounded_search",
+      "reason": "See source-specific non-admission reasons; no claim of absence from allpublicsources.",
+      "query_patterns": [
+        "\"APG-68\" accuracy site:northropgrumman.com",
+        "\"APG-68\" \"mrad\""
+      ]
+    },
+    {
+      "card": "an-apg-73",
+      "designation": "AN/APG-73",
+      "candidate_source_ids": [
+        "rtx_apg73",
+        "navair79"
+      ],
+      "equipment_calibration_admitted": false,
+      "status": "no_admissible_measurement_found_in_this_bounded_search",
+      "reason": "See source-specific non-admission reasons; no claim of absence from allpublicsources.",
+      "query_patterns": [
+        "\"AN/APG-73\" site:rtx.com",
+        "\"APG-73\" \"angular accuracy\""
+      ]
+    },
+    {
+      "card": "an-apg-77",
+      "designation": "AN/APG-77",
+      "candidate_source_ids": [
+        "ng77",
+        "congress77"
+      ],
+      "equipment_calibration_admitted": false,
+      "status": "no_admissible_measurement_found_in_this_bounded_search",
+      "reason": "See source-specific non-admission reasons; no claim of absence from allpublicsources.",
+      "query_patterns": [
+        "\"APG-77\" accuracy site:northropgrumman.com"
+      ]
+    },
+    {
+      "card": "an-apg-79",
+      "designation": "AN/APG-79",
+      "candidate_source_ids": [
+        "dote79",
+        "navair79"
+      ],
+      "equipment_calibration_admitted": false,
+      "status": "no_admissible_measurement_found_in_this_bounded_search",
+      "reason": "See source-specific non-admission reasons; no claim of absence from allpublicsources.",
+      "query_patterns": [
+        "\"APG-79\" accuracy site:dote.osd.mil"
+      ]
+    },
+    {
+      "card": "an-apg-81",
+      "designation": "AN/APG-81",
+      "candidate_source_ids": [
+        "ng81"
+      ],
+      "equipment_calibration_admitted": false,
+      "status": "no_admissible_measurement_found_in_this_bounded_search",
+      "reason": "See source-specific non-admission reasons; no claim of absence from allpublicsources.",
+      "query_patterns": [
+        "\"APG-81\" accuracy site:northropgrumman.com"
+      ]
+    },
+    {
+      "card": "an-apy-2",
+      "designation": "AN/APY-2",
+      "candidate_source_ids": [
+        "e3"
+      ],
+      "equipment_calibration_admitted": false,
+      "status": "no_admissible_measurement_found_in_this_bounded_search",
+      "reason": "See source-specific non-admission reasons; no claim of absence from allpublicsources.",
+      "query_patterns": [
+        "\"APY-2\" accuracy site:af.mil",
+        "\"APY-2\" \"accuracy\" radar feet"
+      ]
+    },
+    {
+      "card": "captor-m",
+      "designation": "Euroradar Captor-M",
+      "candidate_source_ids": [
+        "leonardo_m",
+        "leonardo_e"
+      ],
+      "equipment_calibration_admitted": false,
+      "status": "no_admissible_measurement_found_in_this_bounded_search",
+      "reason": "See source-specific non-admission reasons; no claim of absence from allpublicsources.",
+      "query_patterns": [
+        "\"Captor-M\" accuracy site:leonardo.com",
+        "CAPTOR M radar [manufacturer-domain filter]"
+      ]
+    },
+    {
+      "card": "mesa",
+      "designation": "MESA",
+      "candidate_source_ids": [
+        "mesa"
+      ],
+      "equipment_calibration_admitted": false,
+      "status": "no_admissible_measurement_found_in_this_bounded_search",
+      "reason": "See source-specific non-admission reasons; no claim of absence from allpublicsources.",
+      "query_patterns": [
+        "\"MESA\" test radar accuracy site:northropgrumman.com"
+      ]
+    },
+    {
+      "card": "n001",
+      "designation": "N001 Myech",
+      "candidate_source_ids": [],
+      "equipment_calibration_admitted": false,
+      "status": "no_admissible_measurement_found_in_this_bounded_search",
+      "reason": "No quantitative primary equipmentaccuracy source surfaced; retrieved secondary/game material was not admitted.",
+      "query_patterns": [
+        "\"N001\" \"range accuracy\"",
+        "\"\u041d001\" \"\u0442\u043e\u0447\u043d\u043e\u0441\u0442\u044c\" \"\u041d\u0418\u0418\u041f\"",
+        "\"N001\" site:roe.ru radar"
+      ]
+    },
+    {
+      "card": "n019",
+      "designation": "N019 Sapfir-29",
+      "candidate_source_ids": [
+        "ukr019"
+      ],
+      "equipment_calibration_admitted": false,
+      "status": "no_admissible_measurement_found_in_this_bounded_search",
+      "reason": "See source-specific non-admission reasons; no claim of absence from allpublicsources.",
+      "query_patterns": [
+        "\"N019\" \"angular accuracy\"",
+        "\"\u041d019\" \"\u0424\u0430\u0437\u043e\u0442\u0440\u043e\u043d\" \"\u0442\u043e\u0447\u043d\u043e\u0441\u0442\u044c\"",
+        "N019 radar [manufacturer-domain filter]"
+      ]
+    },
+    {
+      "card": "n036-byelka",
+      "designation": "N036 Byelka",
+      "candidate_source_ids": [
+        "rostec36"
+      ],
+      "equipment_calibration_admitted": false,
+      "status": "no_admissible_measurement_found_in_this_bounded_search",
+      "reason": "See source-specific non-admission reasons; no claim of absence from allpublicsources.",
+      "query_patterns": [
+        "\"\u041d036\" \"\u0442\u043e\u0447\u043d\u043e\u0441\u0442\u044c\" \u0440\u0430\u0434\u0430\u0440 \u043d\u0438\u0438\u043f",
+        "\"\u041d036\" \"\u0411\u0435\u043b\u043a\u0430\" site:rostec.ru/media"
+      ]
+    },
+    {
+      "card": "ps-05a",
+      "designation": "PS-05/A",
+      "candidate_source_ids": [
+        "chalmers",
+        "saab_mk4"
+      ],
+      "equipment_calibration_admitted": false,
+      "status": "non_numeric_method_validation_not_admitted",
+      "reason": "Primary radar plots do exist, but deliberately absent metric scale and method-validation assumptions preclude numerical PS05equipmentcalibration.",
+      "query_patterns": [
+        "\"PS-05\" accuracy site:saab.com",
+        "\"PS-05/A\" radar \"150\" site:saab.com"
+      ]
+    },
+    {
+      "card": "rbe2-aa",
+      "designation": "RBE2 AA",
+      "candidate_source_ids": [
+        "dassault_rbe2"
+      ],
+      "equipment_calibration_admitted": false,
+      "status": "no_admissible_measurement_found_in_this_bounded_search",
+      "reason": "See source-specific non-admission reasons; no claim of absence from allpublicsources.",
+      "query_patterns": [
+        "\"RBE2\" accuracy site:thalesgroup.com",
+        "RBE2 AESA radar [manufacturer/government-domain filter]"
+      ]
+    },
+    {
+      "card": "thomson-csf-rdi",
+      "designation": "Thomson-CSF RDI",
+      "candidate_source_ids": [
+        "rdi"
+      ],
+      "equipment_calibration_admitted": false,
+      "status": "no_admissible_measurement_found_in_this_bounded_search",
+      "reason": "See source-specific non-admission reasons; no claim of absence from allpublicsources.",
+      "query_patterns": [
+        "\"RDI\" radar accuracy site:dassault-aviation.com",
+        "\"RDI\" radar \"milliradian\""
+      ]
+    },
+    {
+      "card": "type-1473",
+      "designation": "Type 1473",
+      "candidate_source_ids": [
+        "casi"
+      ],
+      "equipment_calibration_admitted": false,
+      "status": "no_admissible_measurement_found_in_this_bounded_search",
+      "reason": "See source-specific non-admission reasons; no claim of absence from allpublicsources.",
+      "query_patterns": [
+        "\"Type 1473\" radar accuracy CETC",
+        "\"1473\" \u96f7\u8fbe \u7cbe\u5ea6 \u4e2d\u7535\u79d1",
+        "\"\u96f7\u8fbe\" \"1473\" site:cetc.com.cn"
+      ]
+    },
+    {
+      "card": "type-1475",
+      "designation": "Type 1475 (KLJ-5)",
+      "candidate_source_ids": [
+        "casi"
+      ],
+      "equipment_calibration_admitted": false,
+      "status": "no_admissible_measurement_found_in_this_bounded_search",
+      "reason": "See source-specific non-admission reasons; no claim of absence from allpublicsources.",
+      "query_patterns": [
+        "\"KLJ-5\" accuracy site:avic.com",
+        "\"1475\" \u96f7\u8fbe \u7cbe\u5ea6 \u4e2d\u822a",
+        "\"\u96f7\u8fbe\" \"1475\" site:avic.com"
+      ]
+    }
+  ],
+  "admission_requirements": [
+    "Exact card hardware/software variant or justified correspondence",
+    "Actual radar observations and measurementchannel/error definition",
+    "Range/aspect/RCS/SNR/mode/update/ECM/environment conditions sufficient to reproduce the measurement",
+    "Reference-position/time alignment and uncertainty, separately from radar uncertainty",
+    "Independent held-out residuals and documented calibration/uncertainty; specifications/methodagreement alone insufficient"
+  ],
+  "excluded_evidence_classes": [
+    "GPS/INSaccuracy is reference-instrument accuracy, not radarsensor accuracy",
+    "SAR/range resolution is not measurementerror RMS or confidence bound",
+    "Detectionrange, numberoftracks, testhours and meetsspecclaims do not identify error distributions",
+    "Game models, forums and sources repeating unspecified secondary estimates are not primary equipmentcalibration",
+    "Different radarvariants cannot be substituted because their names or platforms are related"
+  ],
+  "method_only_reference": {
+    "url": "https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Covariance.from_cholesky.html",
+    "use": "Supports mathematically equivalent SPDGaussian likelihood representation via Cholesky; not radarequipment evidence"
+  },
+  "conclusion": "No calibration admission from this bounded pass. The Chalmers plots cannot yield numerical radarerrors: explicit scale removal and method-validation assumptions preclude calibration by digitization. All17formal calibration gates remain unclosed by this search.",
+  "query_record_scope": "Representative terms/domain patterns from this bounded search, not a complete verbatim webtool request transcript.",
+  "updated_utc": "2026-11-02T05:15:34.8248902Z",
+  "recorded_at": "2026-11-01T20:49:40.451977-08:00",
+  "source_review_receipt_sha256": "df51919045563a8ffbae44f69b2d8c7a764e755ca8c17bfc4b1a1f579b15e92a"
+}

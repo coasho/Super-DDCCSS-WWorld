@@ -1,0 +1,30 @@
+{
+  "schema": "fsim.sim-m01.delivery.v1",
+  "formal_acceptance": false,
+  "closure_rule": "Actual equipment accuracy calibration is mandatory by explicit user instruction",
+  "airframes": 35,
+  "sampled_air_radar_fits": 17,
+  "native_sampling_stages": 79,
+  "equipment_calibrated": 0,
+  "calibration_blocked": 17,
+  "calibration_cannot_be_replaced_by_functional_sampling": true,
+  "loaded_sdk": {
+    "name": "libfsim.dll",
+    "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m01-completion-20261101\\sdk-final\\fsim\\bin\\libfsim.dll",
+    "sha256": "3bf0f3f2f4fff3ea17685435119106312bfc163ec28c539cf764c58fa7af99da"
+  },
+  "inputs": [
+    {
+      "path": "docs\\data\\sim-m01-coverage-20261101.json",
+      "sha256": "e3bf7979e96b1e2b74e6683ed6d72cfcac93e73ee4b656227f3e540b431bf9fb"
+    },
+    {
+      "path": "build\\architecture-reviews\\sim-m01-completion-20261101\\fleet-provenance-results.json",
+      "sha256": "e9337bb46385f30534979acd0da042c3571277da0907c2bf1d874c9db5efc70a"
+    },
+    {
+      "path": "build\\architecture-reviews\\sim-m01-completion-20261101\\final-installed.json",
+      "sha256": "32545edf149ba480d2e15aec3d7899a4663fb68fcf3ad74b2f2b86159a6444ac"
+    }
+  ]
+}

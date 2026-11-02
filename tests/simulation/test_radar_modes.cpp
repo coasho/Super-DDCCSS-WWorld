@@ -676,3 +676,62 @@ TEST_CASE("radar modes through the World (MS-4b): an air-combat acquisition - bo
     CHECK(dwells[0] == dwells[1]);
     CHECK(range[0] == range[1]);
 }
+
+TEST_CASE("radar signal modes: cued acquisition becomes a real signal-level STT and loses an absent target", "[ms][radar][radar-modes][sim-m01]") {
+    session::World w(options("radar-signal-cue"));Rig rig(w);
+    const auto target=rig.target(0,8,5000,0,-200);rig.sigmaM2=100;
+    auto spec=specOf("an-apg-68v9");spec.mediumPrfs=3;spec.mediumM=2;
+    radar::Radar radar(spec,19);
+    radar::Search search;search.signalLevel=true;search.task=radar::Task::Cued;
+    search.rangeScaleM=12000;search.bars=1;search.azimuthHalfWidthRad=radar.pattern().beamwidthRad(false)/2;
+    radar.search(search,rig.time);
+    for(int i=0;i<60 && radar.task()!=radar::Task::Track;++i)rig.step(radar,.05);
+    INFO("Signal acquisition: " << radar.detectionCount() << " detections, " << radar.tracks().size() << " confirmed tracks");
+    std::string measurements;
+    for(const auto& d:radar.detections())if(measurements.size()<1800)
+        measurements+=" ["+std::to_string(d.timeS)+","+std::to_string(d.truth)+","+std::to_string(d.rangeM)+","+
+            std::to_string(d.rangeRateMs)+","+std::to_string(d.sigma[2])+","+std::to_string(d.sigma[3])+"]";
+    INFO("time, scoring truth, measured range/rate, reported sigma: " << measurements);
+    REQUIRE(radar.task()==radar::Task::Track);REQUIRE(radar.searching().signalLevel);
+    REQUIRE(radar.designated()!=0);CHECK(Rig::trackOf(radar,target)!=nullptr);
+    const auto before=radar.detectionCount();rig.run(radar,.2);CHECK(radar.detectionCount()>before);
+    rig.states.clear();rig.run(radar,spec.trackMemoryS+.2);CHECK(radar.lost());
+}
+
+TEST_CASE("radar signal modes: high PRF measures closing velocity without a resolved-range track", "[ms][radar][radar-modes][sim-m01]") {
+    session::World w(options("radar-signal-velocity"));Rig rig(w);
+    rig.target(0,8,5000,0,-200);rig.sigmaM2=100;
+    auto spec=specOf("an-apg-68v9");radar::Radar radar(spec,19);
+    radar::Search search;search.signalLevel=true;search.mode=radar::Mode::VelocitySearch;
+    search.rangeScaleM=12000;search.bars=1;search.azimuthHalfWidthRad=radar.pattern().beamwidthRad(false)/2;
+    radar.search(search,rig.time);rig.run(radar,.3);
+    REQUIRE(radar.detectionCount()>0);CHECK(radar.tracks().empty());
+    const auto& detections=radar.detections();bool measured=false;
+    for(const auto& d:detections)if(d.truth==1){CHECK(std::fabs(d.rangeRateMs+450)<30);CHECK(d.rangeM<3000);measured=true;}
+    CHECK(measured);
+}
+
+TEST_CASE("radar ambiguity: competing priors and shared returns cannot manufacture velocity resolution", "[ms][radar][sim-m01]") {
+    radar::UnfoldLook a,b;a.timeS=b.timeS=0;a.position={10000,0,0};b.position={10450,0,0};
+    for(std::size_t i=0;i<3;++i)a.covariance[4*i]=b.covariance[4*i]=.01;
+    radar::UnfoldCandidate current;current.look=a;current.look.timeS=.5;current.look.position[0]=10300;
+    current.direction={1,0,0};current.ownVelocity={250,0,0};current.rateSigmaMs=.1;
+    current.aliases={{{10000,-550}},{{10000,350}}};
+    const auto ambiguous=radar::resolveAliases({current},{a,b},1000,4,1);
+    CHECK_FALSE(ambiguous[0]);
+    const auto unique=radar::resolveAliases({current},{a},1000,4,1);
+    REQUIRE(unique[0]);CHECK((*unique[0])[1]==350);
+    const auto shared=radar::resolveAliases({current,current},{a},1000,4,1);
+    CHECK_FALSE(shared[0]);CHECK_FALSE(shared[1]);
+}
+
+TEST_CASE("radar modes: velocity-only looks let inherited Cartesian tracks expire", "[ms][radar][radar-modes][sim-m01]") {
+    session::World w(options("radar-velocity-coast"));Rig rig(w);rig.target(0,8,5000,0,-200);rig.sigmaM2=100;
+    auto spec=specOf("an-apg-68v9");radar::Radar radar(spec,19);
+    radar::Search search;search.task=radar::Task::Cued;search.rangeScaleM=12000;search.bars=1;
+    search.azimuthHalfWidthRad=radar.pattern().beamwidthRad(false)/2;radar.search(search,rig.time);
+    for(int i=0;i<60&&radar.task()!=radar::Task::Track;++i)rig.step(radar,.05);
+    REQUIRE_FALSE(radar.tracks().empty());
+    search.task=radar::Task::Volume;search.mode=radar::Mode::VelocitySearch;radar.search(search,rig.time);
+    rig.run(radar,spec.trackMemoryS+3);CHECK(radar.tracks().empty());
+}

@@ -16,12 +16,12 @@ Use the [SDK access terminology](agents.md#sdk-access-terminology) for service b
 
 | Principal | C++ | C | Python |
 | --- | ---: | ---: | ---: |
-| agent | 156 | 223 | 207 |
+| agent | 158 | 226 | 211 |
 | ma_core | 2 | 2 | 2 |
-| range | 212 | 104 | 272 |
+| range | 214 | 104 | 276 |
 | referee | 51 | 46 | 50 |
 | platform | 264 | 13 | 12 |
-| value | 87 | 150 | 112 |
+| value | 87 | 153 | 112 |
 
 ## SDK access findings
 
@@ -45,6 +45,10 @@ Use the [SDK access terminology](agents.md#sdk-access-terminology) for service b
   - C++: `fsim::Agent::designateLink`, `fsim::Agent::linkTracks`, `fsim::Agent::peers`, `fsim::Agent::publishPosition`, `fsim::Agent::publishStatus`, `fsim::Agent::publishTracks`
   - C: `fsim_dms_link_track_count`, `fsim_dms_link_track_get`, `fsim_dms_peer_count`, `fsim_dms_peer_get`, `fsim_dms_publish`, `fsim_vehicle_designate_link`, `fsim_vehicle_designation_source`
   - Python: `fsim.agent.Agent.designate_link`, `fsim.agent.Agent.designation_source`, `fsim.agent.Agent.link_tracks`, `fsim.agent.Agent.peers`, `fsim.agent.Agent.publish_position`, `fsim.agent.Agent.publish_status`, `fsim.agent.Agent.publish_tracks`
+- **Additive V1 own-platform fusion; native sensor/delivered-link knowledge only, no truth identity; default actor callable lists unchanged**
+  - C++: `fsim::Agent::fusedTracksV1`, `fsim::Agent::fusionStatusV1`
+  - C: `fsim_vehicle_fused_sources_v1`, `fsim_vehicle_fused_tracks_v1`, `fsim_vehicle_fusion_status_v1`
+  - Python: `fsim.agent.Agent.amti_acquire_v1`, `fsim.agent.Agent.amti_track_v1`, `fsim.agent.Agent.fused_tracks_v1`, `fsim.agent.Agent.fusion_status_v1`
 - **Any command (NEW), behaviours and must flies among them - Mission Systems' commands too, through C++'s submit: a behaviour's or a must fly's target may be another vehicle's id, a strike's an entity's**
   - C: `fsim_vehicle_submit`, `fsim_vehicle_submit_batch`, `fsim_vehicle_submit_behavior`, `fsim_vehicle_submit_must_fly`, `fsim_vehicle_submit_must_fly_line`, `fsim_vehicle_submit_must_fly_volume`
 - **C2 authority (AB-5a): as an MA, the authority over its platform - who declared which role (its own RBAC configuration's names), C2's designation, C2's direct commands; as a C2 system, A-GRA's C2 messages, typed - its role declared, designations, direct commands and their cancels - and their statuses as the MAs answered (each MA's core authorizes them)**
@@ -155,6 +159,9 @@ Use the [SDK access terminology](agents.md#sdk-access-terminology) for service b
   - Python: `fsim.mission.MissionEpisode.close`, `fsim.mission.MissionEpisode.diagnostic`, `fsim.mission.MissionEpisode.endpoint`, `fsim.mission.MissionEpisode.referee`, `fsim.mission.MissionEpisode.reset`, `fsim.mission.MissionEpisode.step`
 - **Objects that lead back to the World or the Vehicle: the range's (an agent's own objects do not carry them)**
   - Python: `fsim.world.Activity.vehicle`, `fsim.world.Activity.world`, `fsim.world.Vehicle.world`
+- **Range-owned vehicle facade of the same V1 knowledge reports; ownership does not add sensor truth**
+  - C++: `fsim::Vehicle::fusedTracksV1`, `fsim::Vehicle::fusionStatusV1`
+  - Python: `fsim.world.Vehicle.amti_acquire_v1`, `fsim.world.Vehicle.amti_track_v1`, `fsim.world.Vehicle.fused_tracks_v1`, `fsim.world.Vehicle.fusion_status_v1`
 - **Scenarios and plug-ins: loaded, applied, registered**
   - C++: `fsim::applyScenario`, `fsim::control::ControllerRegistry::add`, `fsim::control::ControllerRegistry::addBehavior`, `fsim::dumpScenario`, `fsim::effects::createBuiltinEffect`, `fsim::loadScenario`, `fsim::parseScenario`, `fsim::registerAction`, `fsim::registerObservation`, `fsim::registerTask`
   - C: `fsim_scenario_apply`, `fsim_scenario_destroy`, `fsim_scenario_load`, `fsim_scenario_parse`, `fsim_scenario_vehicle_count`, `fsim_scenario_world_options`
@@ -296,3 +303,5 @@ Use the [SDK access terminology](agents.md#sdk-access-terminology) for service b
   - C++: `fsim::version`
   - C: `fsim_abi_version`, `fsim_last_error`, `fsim_log_level`, `fsim_set_last_error`, `fsim_set_log_level`, `fsim_version`, `fsim_vision_set_log_level`
   - Python: `fsim._convert.as_array`, `fsim._threads.short_openmp_spin`, `fsim._threads.torch_threads`, `fsim.set_log_level`
+- **V1 fusion record initializers**
+  - C: `fsim_fused_entity_v1_init`, `fsim_fusion_source_v1_init`, `fsim_fusion_status_v1_init`

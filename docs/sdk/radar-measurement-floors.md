@@ -235,3 +235,13 @@ Weather, SAR and ground-map radar cards remain SIM-M07's. Still open beyond this
 - multipath;
 - signal-level track and velocity modes;
 - the PS-05/A's per-card validation and its remaining assumed parameters.
+
+## 4. Current continuation (2026-11-01)
+
+The user reassigned the remaining SIM-M01 package on main and explicitly retained
+actual-equipment accuracy calibration as a closure condition. The dated freeze
+and results above remain historical. Current common residual mechanisms,
+signal modes, IMM, native fusion, SDK interfaces, evidence limits and fresh
+receipts are maintained in [SIM-M01 completion](sim-m01-completion.md). Generic
+mechanism implementation and functional sampling do not calibrate the17 radar
+cards. The PS-05/A's existing assumed fractions remain assumptions.

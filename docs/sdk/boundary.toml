@@ -1393,3 +1393,27 @@ names = [
     "fsim::World::engagementEvents", "fsim::World::decoys",
     "fsim.world.World.engagement_events", "fsim.world.World.decoys",
 ]
+
+[[rule]]
+principal = "agent"
+note = "Additive V1 own-platform fusion; native sensor/delivered-link knowledge only, no truth identity; default actor callable lists unchanged"
+names = [
+    "fsim_vehicle_fused_tracks_v1", "fsim_vehicle_fused_sources_v1", "fsim_vehicle_fusion_status_v1",
+    "fsim::Agent::fusedTracksV1", "fsim::Agent::fusionStatusV1",
+    "fsim.agent.Agent.fused_tracks_v1", "fsim.agent.Agent.fusion_status_v1",
+    "fsim.agent.Agent.amti_track_v1", "fsim.agent.Agent.amti_acquire_v1",
+]
+
+[[rule]]
+principal = "range"
+note = "Range-owned vehicle facade of the same V1 knowledge reports; ownership does not add sensor truth"
+names = [
+    "fsim::Vehicle::fusedTracksV1", "fsim::Vehicle::fusionStatusV1",
+    "fsim.world.Vehicle.fused_tracks_v1", "fsim.world.Vehicle.fusion_status_v1",
+    "fsim.world.Vehicle.amti_track_v1", "fsim.world.Vehicle.amti_acquire_v1",
+]
+
+[[rule]]
+principal = "value"
+note = "V1 fusion record initializers"
+names = ["fsim_fused_entity_v1_init", "fsim_fusion_source_v1_init", "fsim_fusion_status_v1_init"]

@@ -134,7 +134,7 @@ class RadarTest(unittest.TestCase):
         self.assertEqual(v.amti_detections(since=found[-1].serial + 1), [])
         self.assertEqual(v.mission_activity(activity).state, fsim.ActivityState.ACTIVE)
         self.assertFalse(status.signal_level)
-        # the same search at the signal level (MS-6): its own detections of the bandit; not in velocity search
+        # The same search at the signal level, then the additive SIM-M01 high-PRF capability.
         activity = v.amti_search(azimuth_half_width_rad=math.radians(30.0), signal_level=True)
         before = v.radar_status().detections
         w.step(300)
@@ -143,9 +143,9 @@ class RadarTest(unittest.TestCase):
         seen = [d for d in v.amti_detections(since=before) if d.truth == bandit.id]
         self.assertGreater(len(seen), 0)
         self.assertTrue(all(15e3 < d.range_m < 31e3 and d.range_rate_ms < -300.0 for d in seen))
-        with self.assertRaises(fsim.MissionRejected) as vs:
-            v.amti_search(mode="velocity_search", signal_level=True)
-        self.assertEqual(vs.exception.reason, "invalid_parameter")
+        activity = v.amti_search(mode="velocity_search", signal_level=True)
+        self.assertTrue(v.radar_status().signal_level)
+        self.assertEqual(v.radar_status().mode, fsim.AmtiMode.VELOCITY_SEARCH)
         v.cancel_mission(activity)
         self.assertFalse(v.radar_status().searching)
 

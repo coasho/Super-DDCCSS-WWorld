@@ -1178,3 +1178,25 @@ TEST_CASE("radar floors (SIM-M01): across the assumption's band - the angle erro
         previous = run.positionSigmaM;
     }
 }
+
+TEST_CASE("radar residual errors: identity, correlated bias and geometric glint scale", "[ms][radar][sim-m01]") {
+    using fsim::ms::radar::ErrorParameters;using fsim::ms::radar::MeasurementErrors;
+    MeasurementErrors identity;identity.advance(1);const auto z=identity.bias(.2,.1,1000,10);
+    CHECK(z[0]==0);CHECK(z[1]==0);CHECK(identity.angularVariance(1000,10,false)==0);
+    ErrorParameters parameters;parameters.azimuthBiasRad=.001;parameters.elevationBiasRad=-.002;
+    parameters.radomeAzimuthSlope=.01;parameters.driftStdRad=.0001;parameters.correlationS=60;
+    MeasurementErrors errors(parameters,18);errors.advance(1);const auto first=errors.bias(.2,.1,1000,0);
+    errors.advance(1);const auto same=errors.bias(.2,.1,1000,0);CHECK(first[0]==same[0]);CHECK(first[1]==same[1]);
+    parameters.glintExtentFraction=.2;MeasurementErrors glint(parameters,18);
+    CHECK(glint.glintSigma(2000,10)*2==glint.glintSigma(1000,10));
+    CHECK(glint.angularVariance(1000,10,false)>parameters.driftStdRad*parameters.driftStdRad);
+    parameters.correlationS=0;CHECK_FALSE(parameters.valid());
+}
+
+TEST_CASE("radar residual errors: unresolved image arrival and exact null are explicit", "[ms][radar][sim-m01]") {
+    using fsim::ms::radar::MeasurementErrors;
+    const std::array<double,3> direct={1,0,0},image={.8,0,.6};std::array<double,3> out;
+    REQUIRE(MeasurementErrors::reflectedDirection(direct,image,0,.03,0,out));CHECK(out==direct);
+    REQUIRE(MeasurementErrors::reflectedDirection(direct,image,0,.03,.5,out));CHECK(out[2]>0);
+    CHECK_FALSE(MeasurementErrors::reflectedDirection(direct,image,0,.03,-1,out));
+}

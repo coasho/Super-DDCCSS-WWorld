@@ -1,0 +1,728 @@
+{
+  "schema": "fsim.sim-m01.current-coverage.v1",
+  "closure_rule": "Actual equipment accuracy calibration is mandatory by explicit user instruction",
+  "main_source": "Current authored roster and payload cards; no representative or cloned-default coverage",
+  "airframes": 35,
+  "air_radar_cards": 17,
+  "fits": [
+    {
+      "design": "a10c",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\a10c\\payloads.json",
+      "fit_sha256": "6b72db81cf46b012ad28c0d5d54e57af4778284f3c6e058a5bda1c29d4a084af",
+      "air_radars": [],
+      "installation_assessment": "no_air_radar_declared_not_a_verified_absence_claim"
+    },
+    {
+      "design": "b52h",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\b52h\\payloads.json",
+      "fit_sha256": "2eb60f0883dbd4e8f32c1eb96f3db8ab2b775a81740864fbd1cb85020d9f2abd",
+      "air_radars": [],
+      "installation_assessment": "no_air_radar_declared_not_a_verified_absence_claim"
+    },
+    {
+      "design": "c130j",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\c130j\\payloads.json",
+      "fit_sha256": "7dea31689b8a4df9e5d137722517aa9b6fc45160cb3fb8f1d92bfbf163309018",
+      "air_radars": [],
+      "installation_assessment": "no_air_radar_declared_not_a_verified_absence_claim"
+    },
+    {
+      "design": "c172",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\c172\\payloads.json",
+      "fit_sha256": "8a199d0196c021c691ae65ddd72fe05d6cd5a0394ea746ee1e89ac7c147eecf8",
+      "air_radars": [],
+      "installation_assessment": "no_air_radar_declared_not_a_verified_absence_claim"
+    },
+    {
+      "design": "c17a",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\c17a\\payloads.json",
+      "fit_sha256": "8d20a06fe15a8c5f10c533c5bd3676d19577a00a0ce6b9777b9f7b7ed55a689c",
+      "air_radars": [],
+      "installation_assessment": "no_air_radar_declared_not_a_verified_absence_claim"
+    },
+    {
+      "design": "cf2",
+      "category": "rotorcraft",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\cf2\\payloads.json",
+      "fit_sha256": "95c301353bda48907ecf6093b4a59fc30a034aa3f45c06340693715beb20a067",
+      "air_radars": [],
+      "installation_assessment": "no_air_radar_declared_not_a_verified_absence_claim"
+    },
+    {
+      "design": "e3g",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\e3g\\payloads.json",
+      "fit_sha256": "f72233bc568dbb78ec3ca8926a67c487cfd01b75067ee71dc49830ddd76ea7ea",
+      "air_radars": [
+        {
+          "payload": "radar",
+          "card": "an-apy-2"
+        }
+      ],
+      "installation_assessment": "declared_fit_only"
+    },
+    {
+      "design": "e7a",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\e7a\\payloads.json",
+      "fit_sha256": "64de0d3932df5983d91ef7e6eae0aa8286efbb18bf4a7bcba32e340163475762",
+      "air_radars": [
+        {
+          "payload": "radar",
+          "card": "mesa"
+        }
+      ],
+      "installation_assessment": "declared_fit_only"
+    },
+    {
+      "design": "ea18g",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\ea18g\\payloads.json",
+      "fit_sha256": "412b0b60adc3b8da4a5ba92b509ec4e6f16980ed5d81243a78c5d4ab0c0b81b8",
+      "air_radars": [
+        {
+          "payload": "radar",
+          "card": "an-apg-79"
+        }
+      ],
+      "installation_assessment": "declared_fit_only"
+    },
+    {
+      "design": "ec130h",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\ec130h\\payloads.json",
+      "fit_sha256": "cd133b62a393a672bd09a0308864c66223b9dfef576fed5aa33af17a84741fd8",
+      "air_radars": [],
+      "installation_assessment": "no_air_radar_declared_not_a_verified_absence_claim"
+    },
+    {
+      "design": "f15c",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\f15c\\payloads.json",
+      "fit_sha256": "2c1014be03b8e2ad420d923f8730c03cde61d715560775e2315df1f9db59147a",
+      "air_radars": [
+        {
+          "payload": "radar",
+          "card": "an-apg-63v3"
+        }
+      ],
+      "installation_assessment": "declared_fit_only"
+    },
+    {
+      "design": "f16c",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\f16c\\payloads.json",
+      "fit_sha256": "5aa077dc79591d4093a951787b9b7cc2d10d9e81f5e2e35da9fcd2de39fb2de8",
+      "air_radars": [
+        {
+          "payload": "radar",
+          "card": "an-apg-68v9"
+        }
+      ],
+      "installation_assessment": "declared_fit_only"
+    },
+    {
+      "design": "f22a",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\f22a\\payloads.json",
+      "fit_sha256": "b9e42f2910c85bedb7f24fe4ff6f3722847f6e53aeada948adfa1879c24b8ab4",
+      "air_radars": [
+        {
+          "payload": "radar",
+          "card": "an-apg-77"
+        }
+      ],
+      "installation_assessment": "declared_fit_only"
+    },
+    {
+      "design": "f35a",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\f35a\\payloads.json",
+      "fit_sha256": "cd136cdd5b04b8a5a68095038e51d8be7c806a115d90ab2ce7f0ed57d9b17ad3",
+      "air_radars": [
+        {
+          "payload": "radar",
+          "card": "an-apg-81"
+        }
+      ],
+      "installation_assessment": "declared_fit_only"
+    },
+    {
+      "design": "fa18c",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\fa18c\\payloads.json",
+      "fit_sha256": "fe8c421ddb204fa57a3110141be3545892320935b4cb53aac8bb89fc901cb887",
+      "air_radars": [
+        {
+          "payload": "radar",
+          "card": "an-apg-73"
+        }
+      ],
+      "installation_assessment": "declared_fit_only"
+    },
+    {
+      "design": "gripen",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\gripen\\payloads.json",
+      "fit_sha256": "d57805d7e72248ad0d8e0fff7e96decec41f4b6592ccd7b61d6fa6351a488cc2",
+      "air_radars": [
+        {
+          "payload": "radar",
+          "card": "ps-05a"
+        }
+      ],
+      "installation_assessment": "declared_fit_only"
+    },
+    {
+      "design": "h6k",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\h6k\\payloads.json",
+      "fit_sha256": "b77927f716525682d7bbafbab2a14e3e8dd773142ca932d6fedfbd985498f7b0",
+      "air_radars": [],
+      "installation_assessment": "no_air_radar_declared_not_a_verified_absence_claim"
+    },
+    {
+      "design": "iris",
+      "category": "rotorcraft",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\iris\\payloads.json",
+      "fit_sha256": "4572241d16709e5d6bd413c66c058748977fbe74b8145150d1d07d019096cf0a",
+      "air_radars": [],
+      "installation_assessment": "no_air_radar_declared_not_a_verified_absence_claim"
+    },
+    {
+      "design": "j10a",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\j10a\\payloads.json",
+      "fit_sha256": "a003af7d13fd9b0bd07e8f0bb2d593054de868fe45272369867cc3b659bca139",
+      "air_radars": [
+        {
+          "payload": "radar",
+          "card": "type-1473"
+        }
+      ],
+      "installation_assessment": "declared_fit_only"
+    },
+    {
+      "design": "j20a",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\j20a\\payloads.json",
+      "fit_sha256": "7e7da7cb0e81c278318f675c358d699e3fb8d744189210926c53b53f615116cf",
+      "air_radars": [
+        {
+          "payload": "radar",
+          "card": "type-1475"
+        }
+      ],
+      "installation_assessment": "declared_fit_only"
+    },
+    {
+      "design": "kc135r",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\kc135r\\payloads.json",
+      "fit_sha256": "ecc2517f90517f4aeabf581b15bcbb30396ca9fcc45e09c3f5d0ef7afe2c9a37",
+      "air_radars": [],
+      "installation_assessment": "no_air_radar_declared_not_a_verified_absence_claim"
+    },
+    {
+      "design": "kc46a",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\kc46a\\payloads.json",
+      "fit_sha256": "36b6603d5873669ff741d12f8ae368c006a6b280d94a4cd50abd49063b0df71a",
+      "air_radars": [],
+      "installation_assessment": "no_air_radar_declared_not_a_verified_absence_claim"
+    },
+    {
+      "design": "mig29a",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\mig29a\\payloads.json",
+      "fit_sha256": "473fd0684db1d1ace53eee52c58c4f6dbe396b33268c7a0deeda374a8a9fa6cd",
+      "air_radars": [
+        {
+          "payload": "radar",
+          "card": "n019"
+        }
+      ],
+      "installation_assessment": "declared_fit_only"
+    },
+    {
+      "design": "mirage2000",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\mirage2000\\payloads.json",
+      "fit_sha256": "2ecbcd054aff98fdf5c9a04228c26c1c66cd6dbcac125e504154fd1c425d36d4",
+      "air_radars": [
+        {
+          "payload": "radar",
+          "card": "thomson-csf-rdi"
+        }
+      ],
+      "installation_assessment": "declared_fit_only"
+    },
+    {
+      "design": "rafale",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\rafale\\payloads.json",
+      "fit_sha256": "6ba7488333a9340868189aff39a74748d14fddefe1fb79e0a8d2de300b39e064",
+      "air_radars": [
+        {
+          "payload": "radar",
+          "card": "rbe2-aa"
+        }
+      ],
+      "installation_assessment": "declared_fit_only"
+    },
+    {
+      "design": "rc135w",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\rc135w\\payloads.json",
+      "fit_sha256": "20e163ad31252b91b1e86178f1ff14f0886d512e42245466b102bacbc5506fab",
+      "air_radars": [],
+      "installation_assessment": "no_air_radar_declared_not_a_verified_absence_claim"
+    },
+    {
+      "design": "rq4b",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\rq4b\\payloads.json",
+      "fit_sha256": "ebcb937cd08ee46af039a407f47dac50713d41754a58bcc4f21ef54a7b97ad37",
+      "air_radars": [],
+      "installation_assessment": "no_air_radar_declared_not_a_verified_absence_claim"
+    },
+    {
+      "design": "skua",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\skua\\payloads.json",
+      "fit_sha256": "b1a4771f01c70853592a7e514c880e05f9f97fe3c56551fadb179ad6b086c852",
+      "air_radars": [],
+      "installation_assessment": "no_air_radar_declared_not_a_verified_absence_claim"
+    },
+    {
+      "design": "su25",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\su25\\payloads.json",
+      "fit_sha256": "412739ee7a76a137b0bc888528fcfc9dac64593234711f4db975725e6e093c94",
+      "air_radars": [],
+      "installation_assessment": "no_air_radar_declared_not_a_verified_absence_claim"
+    },
+    {
+      "design": "su27s",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\su27s\\payloads.json",
+      "fit_sha256": "b87a3250c1d36ecc7c1859af9dd234fc135faeb9fe149586df4d543339a9c0a4",
+      "air_radars": [
+        {
+          "payload": "radar",
+          "card": "n001"
+        }
+      ],
+      "installation_assessment": "declared_fit_only"
+    },
+    {
+      "design": "su57",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\su57\\payloads.json",
+      "fit_sha256": "873b908f3dc227c61d38e8795d758a5f3baa624ca98d23ab6d4d31cc6f58fbe3",
+      "air_radars": [
+        {
+          "payload": "radar",
+          "card": "n036-byelka"
+        }
+      ],
+      "installation_assessment": "declared_fit_only"
+    },
+    {
+      "design": "typhoon",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\typhoon\\payloads.json",
+      "fit_sha256": "8f4bd891e5a8c591686dbb4a42bf5ff6be205825f0cde646e728bc50a875746c",
+      "air_radars": [
+        {
+          "payload": "radar",
+          "card": "captor-m"
+        }
+      ],
+      "installation_assessment": "declared_fit_only"
+    },
+    {
+      "design": "u2s",
+      "category": "fixed-wing",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\u2s\\payloads.json",
+      "fit_sha256": "78d8772635fc7d0bd43e6e748aa24367380c385fb230a26af903aaf54857e985",
+      "air_radars": [],
+      "installation_assessment": "no_air_radar_declared_not_a_verified_absence_claim"
+    },
+    {
+      "design": "uh1h",
+      "category": "rotorcraft",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\uh1h\\payloads.json",
+      "fit_sha256": "ef8c4a65578723797c9b5b31900caeaef6754b37b48646f6f1763ed935448c7a",
+      "air_radars": [],
+      "installation_assessment": "no_air_radar_declared_not_a_verified_absence_claim"
+    },
+    {
+      "design": "uh60",
+      "category": "rotorcraft",
+      "fit_path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\aircraft\\uh60\\payloads.json",
+      "fit_sha256": "937d498d57fb5f3b035b495b8e0b720c94facd7e319126503cfeb06c89add726",
+      "air_radars": [],
+      "installation_assessment": "no_air_radar_declared_not_a_verified_absence_claim"
+    }
+  ],
+  "radars": [
+    {
+      "card": "an-apg-63v3",
+      "designation": "AN/APG-63(V)3",
+      "card_sha256": "cacce60b546d7be2835f63f4513ee580ca65319ffd1ad13e43a7a513e5a6371f",
+      "fitted_designs": [
+        "f15c"
+      ],
+      "nonthermal_floors": {
+        "angle_floor_beamwidths": null,
+        "range_floor_resolutions": null,
+        "range_rate_floor_resolutions": null
+      },
+      "calibration": null,
+      "status": "blocked",
+      "blockers": [
+        "No admitted variant-specific independent accuracy-calibration receipt"
+      ],
+      "numerical_or_simulated_reference_is_equipment_calibration": false
+    },
+    {
+      "card": "an-apg-68v9",
+      "designation": "AN/APG-68(V)9",
+      "card_sha256": "3b37ef74cf1fd6fdf4645bf86657fbc0775ab9d16d79800a84099060c776ea5d",
+      "fitted_designs": [
+        "f16c"
+      ],
+      "nonthermal_floors": {
+        "angle_floor_beamwidths": null,
+        "range_floor_resolutions": null,
+        "range_rate_floor_resolutions": null
+      },
+      "calibration": null,
+      "status": "blocked",
+      "blockers": [
+        "No admitted variant-specific independent accuracy-calibration receipt"
+      ],
+      "numerical_or_simulated_reference_is_equipment_calibration": false
+    },
+    {
+      "card": "an-apg-73",
+      "designation": "AN/APG-73",
+      "card_sha256": "c38eb4811d2ba0ca72afddc0b909bbe8741763d69b7395cb9ec68aee9bdf31f9",
+      "fitted_designs": [
+        "fa18c"
+      ],
+      "nonthermal_floors": {
+        "angle_floor_beamwidths": null,
+        "range_floor_resolutions": null,
+        "range_rate_floor_resolutions": null
+      },
+      "calibration": null,
+      "status": "blocked",
+      "blockers": [
+        "No admitted variant-specific independent accuracy-calibration receipt"
+      ],
+      "numerical_or_simulated_reference_is_equipment_calibration": false
+    },
+    {
+      "card": "an-apg-77",
+      "designation": "AN/APG-77",
+      "card_sha256": "8354fa5df8bbcb2725699ecbc36e699f2291338c669970b1bd3fa4f4e71aeb51",
+      "fitted_designs": [
+        "f22a"
+      ],
+      "nonthermal_floors": {
+        "angle_floor_beamwidths": null,
+        "range_floor_resolutions": null,
+        "range_rate_floor_resolutions": null
+      },
+      "calibration": null,
+      "status": "blocked",
+      "blockers": [
+        "No admitted variant-specific independent accuracy-calibration receipt"
+      ],
+      "numerical_or_simulated_reference_is_equipment_calibration": false
+    },
+    {
+      "card": "an-apg-79",
+      "designation": "AN/APG-79",
+      "card_sha256": "4b6284eafef2bf2a154b125ac3230c8af34a8ec305c05c5cd1ade9ae9143f6cf",
+      "fitted_designs": [
+        "ea18g"
+      ],
+      "nonthermal_floors": {
+        "angle_floor_beamwidths": null,
+        "range_floor_resolutions": null,
+        "range_rate_floor_resolutions": null
+      },
+      "calibration": null,
+      "status": "blocked",
+      "blockers": [
+        "No admitted variant-specific independent accuracy-calibration receipt"
+      ],
+      "numerical_or_simulated_reference_is_equipment_calibration": false
+    },
+    {
+      "card": "an-apg-81",
+      "designation": "AN/APG-81",
+      "card_sha256": "e8bcc67854d0b7216fb5a05c61aaf2a2e1bceea920d427c84a23e55e1d420549",
+      "fitted_designs": [
+        "f35a"
+      ],
+      "nonthermal_floors": {
+        "angle_floor_beamwidths": null,
+        "range_floor_resolutions": null,
+        "range_rate_floor_resolutions": null
+      },
+      "calibration": null,
+      "status": "blocked",
+      "blockers": [
+        "No admitted variant-specific independent accuracy-calibration receipt"
+      ],
+      "numerical_or_simulated_reference_is_equipment_calibration": false
+    },
+    {
+      "card": "an-apy-2",
+      "designation": "AN/APY-2",
+      "card_sha256": "9a41f49933847ef02736889c1961d71b606c8839fc43568c28b8b967f976c1aa",
+      "fitted_designs": [
+        "e3g"
+      ],
+      "nonthermal_floors": {
+        "angle_floor_beamwidths": null,
+        "range_floor_resolutions": null,
+        "range_rate_floor_resolutions": null
+      },
+      "calibration": null,
+      "status": "blocked",
+      "blockers": [
+        "No admitted variant-specific independent accuracy-calibration receipt"
+      ],
+      "numerical_or_simulated_reference_is_equipment_calibration": false
+    },
+    {
+      "card": "captor-m",
+      "designation": "Euroradar Captor-M",
+      "card_sha256": "c0e60f441beecb835ccd451d158150f8c60dd4b7e0b3866d1102b921e53f96e5",
+      "fitted_designs": [
+        "typhoon"
+      ],
+      "nonthermal_floors": {
+        "angle_floor_beamwidths": null,
+        "range_floor_resolutions": null,
+        "range_rate_floor_resolutions": null
+      },
+      "calibration": null,
+      "status": "blocked",
+      "blockers": [
+        "No admitted variant-specific independent accuracy-calibration receipt"
+      ],
+      "numerical_or_simulated_reference_is_equipment_calibration": false
+    },
+    {
+      "card": "mesa",
+      "designation": "MESA",
+      "card_sha256": "1535bb184db70461c9bbb33f8c3544437b5c4fb861a0a7178992b8db8a8d8251",
+      "fitted_designs": [
+        "e7a"
+      ],
+      "nonthermal_floors": {
+        "angle_floor_beamwidths": null,
+        "range_floor_resolutions": null,
+        "range_rate_floor_resolutions": null
+      },
+      "calibration": null,
+      "status": "blocked",
+      "blockers": [
+        "No admitted variant-specific independent accuracy-calibration receipt"
+      ],
+      "numerical_or_simulated_reference_is_equipment_calibration": false
+    },
+    {
+      "card": "n001",
+      "designation": "N001 Myech",
+      "card_sha256": "75ce11fb50ffd57a6a825f82284bb427f9a89c85c4dd0d054c649199d34ef949",
+      "fitted_designs": [
+        "su27s"
+      ],
+      "nonthermal_floors": {
+        "angle_floor_beamwidths": null,
+        "range_floor_resolutions": null,
+        "range_rate_floor_resolutions": null
+      },
+      "calibration": null,
+      "status": "blocked",
+      "blockers": [
+        "No admitted variant-specific independent accuracy-calibration receipt"
+      ],
+      "numerical_or_simulated_reference_is_equipment_calibration": false
+    },
+    {
+      "card": "n019",
+      "designation": "N019 Sapfir-29",
+      "card_sha256": "6c7efa972d7b0c97206a49dfcdf381a257442d73ceaed4214a19c65b40e22970",
+      "fitted_designs": [
+        "mig29a"
+      ],
+      "nonthermal_floors": {
+        "angle_floor_beamwidths": null,
+        "range_floor_resolutions": null,
+        "range_rate_floor_resolutions": null
+      },
+      "calibration": null,
+      "status": "blocked",
+      "blockers": [
+        "No admitted variant-specific independent accuracy-calibration receipt"
+      ],
+      "numerical_or_simulated_reference_is_equipment_calibration": false
+    },
+    {
+      "card": "n036-byelka",
+      "designation": "N036 Byelka",
+      "card_sha256": "d2fa25aab4e525279bbbb480efcf9c61d10d31bbc5a0102fdbc0e6c787a6fe17",
+      "fitted_designs": [
+        "su57"
+      ],
+      "nonthermal_floors": {
+        "angle_floor_beamwidths": null,
+        "range_floor_resolutions": null,
+        "range_rate_floor_resolutions": null
+      },
+      "calibration": null,
+      "status": "blocked",
+      "blockers": [
+        "No admitted variant-specific independent accuracy-calibration receipt"
+      ],
+      "numerical_or_simulated_reference_is_equipment_calibration": false
+    },
+    {
+      "card": "ps-05a",
+      "designation": "PS-05/A",
+      "card_sha256": "51caa545b70f387a66c7c6a82690bdf946d2c58a4b89433c7a26b9f774386e82",
+      "fitted_designs": [
+        "gripen"
+      ],
+      "nonthermal_floors": {
+        "angle_floor_beamwidths": {
+          "value": 0.1,
+          "unit": "1",
+          "uncertainty": 0.09,
+          "basis": "assumed",
+          "source": "mw-fusionradarsensor",
+          "note": "the floor of each look's angle errors, a fraction of the plane's half-power beamwidth (SIM-M01, docs/sdk/radar-measurement-floors.md): assumed - no PS-05/A accuracy is published; the value is the documented default of a generic radar model's lower bound (mw-fusionradarsensor), the mechanisms behind such a floor (calibration, glint, multipath) those ll-est-track lists; the band 0.01-0.19 covers a precision fire-control radar's to a coarse one's",
+          "evidence": "This value sets a lower bound on the azimuthal accuracy of the radar"
+        },
+        "range_floor_resolutions": {
+          "value": 0.05,
+          "unit": "1",
+          "uncertainty": 0.045,
+          "basis": "assumed",
+          "source": "mw-fusionradarsensor",
+          "note": "the floor of each look's range errors, a fraction of its range resolution (SIM-M01): assumed, as angle_floor_beamwidths - the same model's documented default",
+          "evidence": "This property sets a lower bound on the range accuracy of the radar"
+        },
+        "range_rate_floor_resolutions": {
+          "value": 0.05,
+          "unit": "1",
+          "uncertainty": 0.045,
+          "basis": "assumed",
+          "source": "mw-fusionradarsensor",
+          "note": "the floor of each look's range-rate errors, a fraction of its Doppler resolution (SIM-M01): assumed, as angle_floor_beamwidths - the same model's documented default",
+          "evidence": "This property sets a lower bound on the range rate accuracy of the radar"
+        }
+      },
+      "calibration": null,
+      "status": "blocked",
+      "blockers": [
+        "No admitted variant-specific independent accuracy-calibration receipt"
+      ],
+      "numerical_or_simulated_reference_is_equipment_calibration": false
+    },
+    {
+      "card": "rbe2-aa",
+      "designation": "RBE2 AA",
+      "card_sha256": "2f48a5c153a651de2c9604fbba3e034a0e224eba7cefa3b306d7e88e5bb3fd7c",
+      "fitted_designs": [
+        "rafale"
+      ],
+      "nonthermal_floors": {
+        "angle_floor_beamwidths": null,
+        "range_floor_resolutions": null,
+        "range_rate_floor_resolutions": null
+      },
+      "calibration": null,
+      "status": "blocked",
+      "blockers": [
+        "No admitted variant-specific independent accuracy-calibration receipt"
+      ],
+      "numerical_or_simulated_reference_is_equipment_calibration": false
+    },
+    {
+      "card": "thomson-csf-rdi",
+      "designation": "Thomson-CSF RDI",
+      "card_sha256": "3b14b4453df5d06a8831aaa4702264b87cfe27c70d2cf508673e430f20f8281f",
+      "fitted_designs": [
+        "mirage2000"
+      ],
+      "nonthermal_floors": {
+        "angle_floor_beamwidths": null,
+        "range_floor_resolutions": null,
+        "range_rate_floor_resolutions": null
+      },
+      "calibration": null,
+      "status": "blocked",
+      "blockers": [
+        "No admitted variant-specific independent accuracy-calibration receipt"
+      ],
+      "numerical_or_simulated_reference_is_equipment_calibration": false
+    },
+    {
+      "card": "type-1473",
+      "designation": "Type 1473",
+      "card_sha256": "262f636bae0c1dc67ff66a03705a67ff3a5581c9c2271958ed29d75f42c444ae",
+      "fitted_designs": [
+        "j10a"
+      ],
+      "nonthermal_floors": {
+        "angle_floor_beamwidths": null,
+        "range_floor_resolutions": null,
+        "range_rate_floor_resolutions": null
+      },
+      "calibration": null,
+      "status": "blocked",
+      "blockers": [
+        "No admitted variant-specific independent accuracy-calibration receipt"
+      ],
+      "numerical_or_simulated_reference_is_equipment_calibration": false
+    },
+    {
+      "card": "type-1475",
+      "designation": "Type 1475 (KLJ-5)",
+      "card_sha256": "28de1943b10c47b62d4f01c5c10f5abd3ea5c6297e1ea1fcb862b8535a243f12",
+      "fitted_designs": [
+        "j20a"
+      ],
+      "nonthermal_floors": {
+        "angle_floor_beamwidths": null,
+        "range_floor_resolutions": null,
+        "range_rate_floor_resolutions": null
+      },
+      "calibration": null,
+      "status": "blocked",
+      "blockers": [
+        "No admitted variant-specific independent accuracy-calibration receipt"
+      ],
+      "numerical_or_simulated_reference_is_equipment_calibration": false
+    }
+  ],
+  "equipment_calibrated": 0,
+  "calibration_blocked": 17,
+  "formal_acceptance": false,
+  "scope": "Inventory/calibration gate only; independent functionality, mode, integration and performance gates are additionally required",
+  "elapsed_seconds": 0.192685200003325
+}

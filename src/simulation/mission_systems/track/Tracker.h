@@ -23,9 +23,11 @@
 //    reduced).
 
 #include "simulation/mission_systems/track/Filters.h"
+#include "simulation/mission_systems/track/Imm.h"
 
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <vector>
 
 namespace fsim::ms::track {
@@ -50,6 +52,7 @@ struct Track {
     std::vector<TrackPoint> points; ///< its last kHistory points
     std::uint32_t updates = 0;      ///< every update, ever
     double lastUpdateT = 0.0;       ///< its last update's time (its first point's, before any)
+    std::optional<Imm> imm;         ///< explicit two-mode tracking; absent preserves the original single model
     const Gaussian& state() const noexcept { return points.back().g; }
     void append(const TrackPoint& p);
     static constexpr std::size_t kHistory = 32;
@@ -82,6 +85,8 @@ struct TrackerSettings {
     /// (Stone Soup's UpdateTimeDeleter, with the deleters above: CompositeDeleter's any) - a track that left the
     /// sensor's coverage, never missed again, goes in its time
     double coastS = 0.0;
+    double maneuverNoise = 0.0;    ///< >0: second IMM diffusion, m^2/s^3; explicit engineering/equipment input
+    double modelSojournS = 10.0;   ///< continuous Markov mean sojourn (seconds), not per-World-step probability
 };
 
 /// A single target-detection hypothesis (detection -1: missed).
@@ -108,7 +113,11 @@ std::vector<std::vector<double>> associateJpda(const std::vector<std::vector<Hyp
 
 class MultiTargetTracker {
 public:
-    explicit MultiTargetTracker(const TrackerSettings& s) : s_(s) {}
+    explicit MultiTargetTracker(const TrackerSettings& s) : s_(s) {
+        if (!std::isfinite(s.maneuverNoise) || s.maneuverNoise < 0 ||
+            (s.maneuverNoise > 0 && (s.association != Association::Gnn || !std::isfinite(s.modelSojournS) || s.modelSojournS <= 0)))
+            throw std::invalid_argument("IMM requires GNN, nonnegative diffusion and positive sojourn");
+    }
     /// One time step: its detections (all at `t`). `looked`, where given, says how the step's sensor saw each track
     /// (confirmed and held) - a scanning radar's beam: Expected, in its main lobe (a detection expected: a miss
     /// counts); Possible, near enough for a detection of it to come from there (it may associate one; a miss does

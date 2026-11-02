@@ -1001,3 +1001,50 @@ What is still not fitted, and why:
 
 The cards hold identity and sources only so far. Their parameters (power, aperture, bands, published ranges, each
 with its uncertainty and basis) are filled stage by stage: the radars at MS-4, the missiles at MS-7.
+
+<!-- SIM-M01 V1 extension begin -->
+
+## Radar and platform fusion V1 (2026-11-01)
+
+The common radar receiver now accepts signal-level cued acquisition, track/STT
+and velocity search through the existing native command's `signalLevel` /
+`signal_level` field. High PRF reports folded range and closing velocity; those
+ambiguous ranges cannot update Cartesian tracks. Inherited position tracks coast
+and expire. Equally supported medium-PRF aliases remain unresolved until all
+feasible prior-return associations support one velocity. Sensor power-off clears
+that temporal history with the track file.
+
+Existing Python signatures remain unchanged. The additive methods
+`Vehicle.amti_track_v1(..., signal_level=True)` and
+`Vehicle.amti_acquire_v1(..., signal_level=True)` expose the new combinations;
+`Agent` has the corresponding own-platform methods. Existing `amti_search`
+already has the `signal_level` argument. Native C++ and C99 command layouts,
+old methods, defaults and enum values are unchanged.
+
+`Vehicle::fusedTracksV1()` / `Agent::fusedTracksV1()` return immutable snapshots of
+native sensor/link-derived platform knowledge. Python uses `fused_tracks_v1()`.
+The additive C99 header `<fsim/fsim_fusion.h>` provides
+`fsim_vehicle_fused_tracks_v1`, a separate untruncated source query and a status
+query. Initialize each sized C record with its V1 initializer before copying.
+Count-only, short-buffer and repeated reads do not consume reports or DMS inboxes.
+
+The V1 state is interleaved ECEF `[x,vx,y,vy,z,vz]`, with a row-major6x6
+covariance. Each source retains kind/system/payload/track, sample/receive times,
+and whether legacy link covariance was reconstructed conservatively from RMS
+summaries. Covariance intersection assumes unknown cross-correlation. Report
+identities are local fusion IDs, not target-truth entity IDs; identity remains
+unknown without an identity measurement. Live, coasting and lost states retain
+age/provenance, with explicit capacity/refusal telemetry. Empty fusion is absence
+of admitted knowledge, not proof that no target exists.
+
+These methods retain own-Agent native checks. Existing strict-actor callable
+lists are unchanged; the new V1 calls do not silently expand a frozen process
+endpoint. Integration through a future explicit endpoint version is distinct
+from direct SDK Agent use.
+
+The [SIM-M01 record](sim-m01-completion.md) separates common mechanisms,
+functional sampling, software-reference checks and actual-equipment calibration.
+The user retains calibration as mandatory for formal SIM-M01 closure. No generic
+bias fraction, guessed glint coefficient, public range claim or software-only
+comparison is relabeled as a calibrated device.
+<!-- SIM-M01 V1 extension end -->
