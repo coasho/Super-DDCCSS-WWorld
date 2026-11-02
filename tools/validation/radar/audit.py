@@ -1,4 +1,8 @@
-"""Current roster, fitted air radars and non-waivable calibration accounting."""
+"""Current radar roster and separate equipment-calibration uncertainty ledger.
+
+Inventory success never establishes engineering acceptance: native functions,
+methods, installed consumers and regressions are joined by report.py.
+"""
 import argparse
 import hashlib
 import json
@@ -42,19 +46,31 @@ def audit(receipts):
     rows=[]
     for name,(path,card) in cards.items():
         parameters=card.get('parameters',{});calibration=accepted.get(name)
-        rows.append(dict(card=name,designation=card['designation'],card_sha256=digest(path),
+        sources=card.get('sources',{})
+        issues=[]
+        for parameter,value in parameters.items():
+            if not isinstance(value,dict) or value.get('basis') not in ('published','derived','assumed'):
+                issues.append('Missing parameter evidence classification: '+parameter);continue
+            if value.get('source') not in sources:issues.append('Unknown parameter source: '+parameter)
+            if not isinstance(value.get('unit'),str):issues.append('Missing parameter unit: '+parameter)
+            if not isinstance(value.get('uncertainty'),(int,float)) or value['uncertainty']<0:
+                issues.append('Missing nonnegative declared uncertainty: '+parameter)
+        rows.append(dict(card=name,designation=card['designation'],card_path=str(path.relative_to(ROOT)),card_sha256=digest(path),
             fitted_designs=[r['design'] for r in fits if any(p['card']==name for p in r['air_radars'])],
             nonthermal_floors={k:parameters.get(k) for k in ('angle_floor_beamwidths','range_floor_resolutions','range_rate_floor_resolutions')},
-            calibration=calibration,status='calibrated' if calibration else 'blocked',
-            blockers=[] if calibration else ['No admitted variant-specific independent accuracy-calibration receipt'],
+            calibration=calibration,status='calibrated' if calibration else 'uncalibrated',
+            blockers=issues,calibration_limit=None if calibration else 'No admitted variant-specific independent accuracy-calibration receipt',
+            parameter_count=len(parameters),parameter_evidence_counts={basis:sum(isinstance(p,dict) and p.get('basis')==basis for p in parameters.values())
+                for basis in ('published','derived','assumed')},
             numerical_or_simulated_reference_is_equipment_calibration=False))
-    return dict(schema='fsim.sim-m01.current-coverage.v1',closure_rule='Actual equipment accuracy calibration is mandatory by explicit user instruction',
+    return dict(schema='fsim.sim-m01.current-coverage.v2',closure_rule='2026-11-02 user clarification: complete engineering functions and reproducible delivery required; equipment calibration is a separate uncertainty ledger',
         main_source='Current authored roster and payload cards; no representative or cloned-default coverage',
         airframes=len(fits),air_radar_cards=len(rows),fits=fits,radars=rows,
         equipment_calibrated=sum(r['status']=='calibrated' for r in rows),
-        calibration_blocked=sum(r['status']=='blocked' for r in rows),
-        formal_acceptance=bool(rows) and all(r['status']=='calibrated' for r in rows),
-        scope='Inventory/calibration gate only; independent functionality, mode, integration and performance gates are additionally required')
+        calibration_pending=sum(r['status']=='uncalibrated' for r in rows),
+        inventory_passed=bool(rows) and all(not r['blockers'] and r['fitted_designs'] for r in rows),
+        formal_acceptance=False,
+        scope='Inventory only; functional, method, performance, regression and installed-product gates additionally required')
 
 
 def main():
@@ -64,7 +80,7 @@ def main():
     result=audit(a.calibration_receipts);result['elapsed_seconds']=time.perf_counter()-started
     a.output.parent.mkdir(parents=True,exist_ok=True);a.output.write_text(json.dumps(result,indent=2,allow_nan=False)+'\n',encoding='utf-8')
     print(json.dumps({k:v for k,v in result.items() if k not in ('fits','radars')}))
-    raise SystemExit(0 if result['formal_acceptance'] else 2)
+    raise SystemExit(0 if result['inventory_passed'] else 2)
 
 
 if __name__=='__main__':main()

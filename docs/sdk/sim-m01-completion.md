@@ -1,12 +1,119 @@
 # SIM-M01 radar and fusion completion
 
+## Current engineering closure (2026-11-02)
+
+The user confirmed the SIM-M02 completion rule: required engineering components,
+functions, theory and reproducible delivery must close; unavailable equipment
+accuracy calibration remains a separate uncertainty ledger. This supersedes the
+older mandatory-equipment-calibration condition preserved below. SIM-M01 is
+**engineering-complete-uncalibrated for all 17 declared air-radar fits/cards**.
+The actual-equipment accuracy ledger remains **0/17 admitted, 17 uncalibrated**.
+No required missing function is waived by that separation.
+
+The first reviewed 62-file M01 baseline was committed and pushed as `b1e8a20`,
+after rerunning 17 selected checks. The continuation starts from full main HEAD
+`b1e8a208da7fa344b4b9bee4324944678c293b94`. Unrelated working-tree changes are
+preserved; no branch, Git worktree or excluded directory is used.
+
+### Delivered mechanisms and repairs
+
+Signal-level volume, cued acquisition, STT, TWS and velocity search use the native
+receiver, scheduling, waveform and processing chain. Ambiguous high-PRF range
+does not update Cartesian tracks. The common optional residual-error mechanisms,
+IMM and source-preserving native radar/link fusion remain available through
+additive C++/C99/Python interfaces with unchanged legacy layouts, enum values,
+default actor method lists and permissions. Cards keep legacy CV and identity
+residual defaults unless authored; no invented per-equipment accuracy is enabled.
+
+Five reproduced production defects are repaired:
+
+1. Expired terminal retention releases entity capacity before this tick's input
+   admission, rather than refusing a valid new source for another tick.
+2. Expired contributor history can release bounded source slots on a live entity.
+   Current/recent provenance is preserved; the bounded source list is not an
+   indefinite historical audit. A stale replay cannot reclaim its slot.
+3. Sample age, including delayed transport, governs association validity.
+4. Dwell scheduling roundoff cannot timestamp a measurement after world time;
+   strict future-input validation remains intact.
+5. An explicitly configured fixed-face electronic aperture supports the declared
+   all-round MESA scan. Detection, signal echoes and clutter use the same
+   beam-selected face transform. Single-face defaults are unchanged.
+
+MESA's manufacturer identifies side-emitting and top-hat end-fire hardware with
+360-degree coverage. The four equivalent look directions, uniform sectors and
+common face gain are explicitly **assumed approximations**, not four asserted
+physical panels or admitted directional gain measurements. Its legacy
+`rotation_rpm` denotes the assumed revisit clock, not physical antenna rotation.
+The [component/method matrix](../../tools/validation/radar/README.md#theory-and-independent-references)
+records the other model limits, including the local-plane angular multipath
+centroid, two CV-diffusion IMM modes, bounded-grid CI and greedy association.
+Original physical assertions and reference tolerances are unchanged.
+
+### Current verification
+
+| Population | Actual result | Limit |
+| --- | --- | --- |
+| Clean-source Headless dependency CTest | 71/71 passed | Complete frozen M01/RF/interface selector |
+| Clean-source Release dependency CTest | 72/72 passed | Same selector, including its render-side geometry case |
+| Fresh installation and C++/C99/Python consumers | 9/9 commands passed | Actual loaded SDK/JSBSim identities and source/product hashes |
+| Declared radar fits | 17/17; 181 stages | All 35 airframes reconciled; 18 have no declared air radar |
+| Exact one/four-worker native replay | 17/17; 181 repeated stages | Actual status, local tracks, fused state/covariance/provenance |
+| Independent CI method | 12 Stone Soup 1.9.1 cases | One CTest; not hardware calibration |
+| Existing IMM and filter references | Passing original FilterPy / Stone Soup fixtures | Original numerical tolerances |
+| Normal repository product | 15/15 related checks; SDK usability and exact E7 installed-report replay | Native paths/hashes retained; no GUI presentation claim |
+| Receipt admission/refusal checker | 7/7 checks | Artifact consistency, not physical-model tests |
+
+The eight-aircraft/four-worker native benchmark, radar on, measures
+47.672x real time: 600 timed steps / 20 simulated seconds in
+0.419537s, p99 1.048ms, 28 fused entities and zero rejected inputs.
+Radar-off is measured separately. This bounded terrain-free SDK scene establishes
+neither full-simulator nor Viewer performance. Test names containing class
+"calibration" refer to the preexisting SNR fit to published detection-range
+claims; they do not change the equipment measurement-accuracy ledger.
+
+The final complete verification command takes 435.673s including both
+configure/build/test presets, installation, full fit replay, performance and
+normal entry. The first completed 589.194s campaign is retained as superseded
+after the all-round defect was found. Additional diagnostic and root-production
+build/test costs are separately logged; these numbers are not total engineering
+time. Failed-before logs remain intact.
+
+### Reproduction and delivery
+
+Use the single command in the [verification README](../../tools/validation/radar/README.md).
+`campaign.py` uses the existing normal UCRT64 presets and SDK launcher, requires
+a fresh output/prefix, executes serially and joins actual raw/JUnit/module/hash
+receipts before producing acceptance. Inventory or a policy change alone cannot
+pass. The source export used for final verification matches 2,892 independently
+replayed source/input files; source stayed frozen throughout the final campaign.
+The final documentation updates do not alter those compiled inputs.
+
+Tracked [delivery](../data/sim-m01-20261102-delivery.json),
+[radar matrix](../data/sim-m01-20261102-radar-matrix.csv) and
+[fit matrix](../data/sim-m01-20261102-fit-matrix.csv) retain calibration separately.
+Detailed evidence, one main-HEAD-based feature patch, complete installed SDK ZIP,
+archive manifests and handoff are under
+`build/architecture-reviews/sim-m01-closure-20261102/`. The actual final campaign
+and installed prefix are under
+`build/sim-m01-closure-replay-20261102/build/architecture-reviews/sim-m01-final-v2-20261102/`.
+The existing public-source ledger remains dated evidence rather than an
+exhaustive claim that no further public measurement exists. Whole-project full
+regression, new Viewer presentation and measured equipment accuracy are separate
+from this engineering closure.
+
+## Historical 2026-11-01 execution record
+
+The requirements and "current" counts below describe the superseded assignment.
+They remain historical evidence; the 2026-11-02 engineering closure above governs
+the delivered state.
+
 The 2026-11-01 user assignment transfers the remaining SIM-M01 package to the
 current implementation owner. Main baseline: `596bacacbbbe06d9985227add12393db8e93a4cc`.
 The user explicitly retains actual-equipment accuracy calibration as a formal
 closure requirement. Engineering estimates and numerical-method agreement must
 not be substituted for that requirement.
 
-## Scope and implementation order
+### Scope and implementation order
 
 1. Reconcile all maintained airframes and fitted air-radar variants. Admit only
    source-backed equipment measurements with their conditions, units and
@@ -29,7 +136,7 @@ not be substituted for that requirement.
    installed consumer and normal entrypoint. Keep method, functional,
    performance and equipment-calibration evidence separate.
 
-## Method references and reuse
+### Method references and reuse
 
 - Existing Stone Soup-derived nonlinear filters and association remain the
   foundation. The historical absence of an IMM in that pinned reference does
@@ -44,14 +151,14 @@ not be substituted for that requirement.
   tests the comparison method. Its GPS/INS accuracy is not radar accuracy:
   <https://publications.lib.chalmers.se/records/fulltext/140898.pdf>.
 
-## Acceptance accounting
+### Acceptance accounting
 
 Current execution receipts belong under
 `build/architecture-reviews/sim-m01-completion-20261101/`. Source/path ownership,
 preexisting changes and exclusive native-slot acquisition are recorded before
 implementation. No SIM-M01 completion is claimed by this design record.
 
-## Implemented mechanisms and explicit limits
+### Implemented mechanisms and explicit limits
 
 | Mechanism | Current implementation | Equipment-calibration limit |
 | --- | --- | --- |
@@ -78,7 +185,7 @@ innovation are both recorded. Earlier mismatched fixtures and failure logs
 remain retained; tolerances stay mean 1e-8, covariance 1e-7 and probability 1e-10.
 This is software-method comparison, not hardware validation.
 
-## Equipment evidence admission
+### Equipment evidence admission
 
 The public-source ledger covers all 17 air-radar cards. A qualitative flight-test
 announcement, detection range, SAR resolution, another variant, GPS reference
@@ -96,7 +203,7 @@ source/variant applicability and predictive parameter uncertainty require
 independent admission. The roster audit separately reports this unresolved
 mandatory calibration condition. No native functional pass changes that status.
 
-## Current execution and delivery (2026-11-01 assignment)
+### Current execution and delivery (2026-11-01 assignment)
 
 The clean HEAD-derived source export passes **65/65 M01-related Release CTest
 cases** in 230.869s. The repository Headless build passes **17/17 selected

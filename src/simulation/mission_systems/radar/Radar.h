@@ -62,6 +62,7 @@ struct Spec {
     double frequencyHz = 9.5e9;
     double polarizationRad = 0.0;        ///< from the vertical towards the horizontal
     rf::ApertureSpec aperture;
+    unsigned azimuthFaces = 1;          ///< equivalent uniformly spaced fixed azimuth faces; one preserves the existing aperture
     double averagePowerW = 1000.0;
     double noiseFigureDb = 3.0;
     double systemLossDb = 8.0;

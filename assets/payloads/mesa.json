@@ -125,7 +125,7 @@
       "uncertainty": 3.0,
       "basis": "assumed",
       "source": "wp-r-mesa",
-      "note": "its 360 deg revisit taken as a rotodome's (assumed)"
+      "note": "Equivalent 360-degree scan revisit clock only (assumed); this fixed electronic array does not physically rotate."
     },
     "notch_ms": {
       "value": 15.0,
@@ -166,6 +166,14 @@
       "basis": "assumed",
       "source": "wp-r-ps05",
       "note": "an airborne early-warning radar's transmitter (assumed, as for every one)"
+    },
+    "azimuth_faces": {
+      "value": 4,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "source": "ng-mesa-arrays",
+      "note": "Four equivalent fixed look directions, not four claimed physical panels. Uniform azimuth sectors and the existing common aperture/gain are an explicit engineering approximation to side/end-fire coverage; actual sector boundaries, end-fire gain and aperture differences remain uncalibrated. Zero uncertainty denotes the discrete chosen method, not measured hardware certainty."
     }
   },
   "sources": {
@@ -193,6 +201,20 @@
       "url": "https://books.google.com/books?id=RIxTAAAAMAAJ",
       "date": "1998",
       "verified": "the sentence searched in the book itself (Google Books full-text search of this edition, 2026-10-07): \"In radars for fighter aircraft, a false-alarm time\" and \"false-alarm time of a minute or so is generally considered acceptable\" both match on p. 144, a control phrase (\"an hour or so\") does not; the page itself is not previewed"
+    },
+    "ng-mesa-all-round": {
+      "title": "Multi-Role Electronically Scanned Array (MESA) Surveillance Radar",
+      "publisher": "Northrop Grumman",
+      "url": "https://www.northropgrumman.com/what-we-do/mission-solutions/radars/multi-role-electronically-scanned-array-mesa-surveillance-radar",
+      "date": "2026-11-02",
+      "use": "360-degree coverage and hardware class only; not measured directional gains"
+    },
+    "ng-mesa-arrays": {
+      "title": "Northrop Grumman Rolls Out First MESA Radar Antenna for Australia's Wedgetail AEW&C Aircraft",
+      "publisher": "Northrop Grumman press release",
+      "url": "https://www.globenewswire.com/news-release/2002/11/06/291813/189/en/northrop-grumman-rolls-out-first-mesa-radar-antenna-for-australia-s-wedgetail-aew-c-aircraft.html",
+      "date": "2002-11-06",
+      "use": "Side-emitting arrays and a top-hat end-fire array; no admitted quantitative face patterns"
     }
   },
   "validation": [

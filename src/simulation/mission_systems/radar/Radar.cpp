@@ -55,6 +55,18 @@ void geodetic(const double p[3], double& lat, double& lon, double& h) noexcept {
 /// thermal term itself, to the bit, where there is no floor.
 double floored(double thermal, double floor) noexcept { return floor > 0.0 ? std::hypot(thermal, floor) : thermal; }
 
+/// Evaluate an explicitly authored multi-face electronic aperture in the face
+/// selected by the transmitted beam, not independently for each target/clutter
+/// direction. Uniform equivalent faces are an engineering approximation; this
+/// transform supplies no measured per-face gain or hardware sector boundary.
+double multiFaceGain(const rf::Pattern& pattern,unsigned faces,const double direction[3],const double beam[3]) noexcept {
+    const double spacing=2*kPi/faces;
+    const double centre=std::round(std::atan2(beam[1],beam[0])/spacing)*spacing;
+    const double c=std::cos(centre),s=std::sin(centre);
+    const double local[3]={c*direction[0]+s*direction[1],-s*direction[0]+c*direction[1],direction[2]};
+    return pattern.gain(local,-s*beam[0]+c*beam[1],beam[2]);
+}
+
 } // namespace
 
 Spec specOf(const Card& c) {
@@ -77,6 +89,9 @@ Spec specOf(const Card& c) {
         s.aperture.taylorSidelobeDb = sll;
     }
     s.aperture.electronic = c.value("electronic", 0.0) != 0.0;
+    const double faces=c.value("azimuth_faces",1);
+    if(!std::isfinite(faces)||faces<1||faces>64||faces!=std::floor(faces)||(!s.aperture.electronic&&faces!=1))return s;
+    s.azimuthFaces=static_cast<unsigned>(faces);
     s.aperture.scanExponent = c.value("scan_exponent", 1.5);
     s.aperture.efficiency = c.value("aperture_efficiency", 0.7);
     s.aperture.peakGainDbi = c.value("peak_gain_dbi", 0.0);
@@ -412,7 +427,10 @@ void Radar::step(double simTime, const sim::VehicleState& carrier, const Scene& 
     velocityEcef(now, vNow);
     int guard = 0;
     while (clock_ + dwellS_ <= simTime + 1e-12 && guard++ < 100000) {
-        clock_ += dwellS_;
+        // The scheduling comparison tolerates floating-point equality. Keep
+        // its accepted dwell epoch causal: strict downstream sample-age and
+        // future-input validation must not receive a timestamp beyond now.
+        clock_ = std::min(clock_ + dwellS_, simTime);
         lag_ = std::max(0.0, simTime - clock_);
         for (int i = 0; i < 3; ++i) own.positionEcef[i] = now.positionEcef[i] - vNow[i] * lag_;
         double az = 0.0, el = 0.0;
@@ -502,7 +520,7 @@ void Radar::dwell(double time, double az, double el, const sim::VehicleState& ow
         if (off > 3.0 * std::max(bwAz, bwEl)) continue;
         double gain;
         if (spec_.aperture.electronic) {
-            gain = pattern_.gainDbi(db, sy, sz);
+            gain = spec_.azimuthFaces==1?pattern_.gainDbi(db, sy, sz):10*std::log10(multiFaceGain(pattern_,spec_.azimuthFaces,db,beamBody));
         } else { // the antenna pointed along the beam: the target in its own frame
             double y[3] = {-beamBody[1], beamBody[0], 0.0};
             const double yl = std::hypot(y[0], y[1]);
@@ -664,7 +682,7 @@ void Radar::dwellSignal(double time, double az, double el, const sim::VehicleSta
         if (off > 3.0 * std::max(bwAz, bwEl)) continue;
         double gain;
         if (spec_.aperture.electronic) {
-            gain = pattern_.gainDbi(db, sy, sz);
+            gain = spec_.azimuthFaces==1?pattern_.gainDbi(db, sy, sz):10*std::log10(multiFaceGain(pattern_,spec_.azimuthFaces,db,beamBody));
         } else {
             double y[3] = {-beamBody[1], beamBody[0], 0.0};
             const double yl = std::hypot(y[0], y[1]);
@@ -855,7 +873,7 @@ void Radar::clutterMap(const sim::VehicleState& own, const double r[9], const do
     auto gain2 = [&](const double db[3]) { // the two-way gain (linear) towards a body direction, the beam as it points now
         double g;
         if (spec_.aperture.electronic) {
-            g = pattern_.gain(db, sy, sz);
+            g = spec_.azimuthFaces==1?pattern_.gain(db, sy, sz):multiFaceGain(pattern_,spec_.azimuthFaces,db,beamBody);
         } else {
             double y[3] = {-beamBody[1], beamBody[0], 0.0};
             const double yl = std::hypot(y[0], y[1]);

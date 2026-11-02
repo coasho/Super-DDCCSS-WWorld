@@ -50,11 +50,12 @@ public:
     void advance(double now,std::vector<Observation> observations) {
         if(!std::isfinite(now)||now<now_)throw std::invalid_argument("Fusion clock moved backwards");
         now_=now;
+        // A bounded lost-record tail preserves explicit loss transitions.
+        // Release expired retention before enforcing this tick's admission
+        // capacity. Otherwise an already expired row can refuse a new source.
+        rows_.erase(std::remove_if(rows_.begin(),rows_.end(),[&](const auto& r){return now_-r.lastReceived>2*settings_.maximumAgeS;}),rows_.end());
         std::stable_sort(observations.begin(),observations.end(),[](const auto& a,const auto& b){return key(a.source)<key(b.source);});
         for(const auto& observation:observations)ingest(observation);
-        // A bounded lost-record tail gives explicit loss transitions rather
-        // than silently deleting identities as soon as their inputs expire.
-        rows_.erase(std::remove_if(rows_.begin(),rows_.end(),[&](const auto& r){return now_-r.lastReceived>2*settings_.maximumAgeS;}),rows_.end());
     }
     std::vector<FusedEntityV1> snapshot() const {
         std::vector<FusedEntityV1> result;
@@ -107,10 +108,10 @@ private:
         if(!best) {
             double nearest=settings_.gateSquared;
             for(auto& r:rows_) {
-                if(now_>r.lastReceived+settings_.maximumAgeS)continue;
+                if(now_>std::min(r.lastReceived,r.lastSample)+settings_.maximumAgeS)continue;
                 bool conflict=false;
                 for(const auto& source:r.sources)
-                    if(sameSensor(source.second,s)&&key(source.second)!=k && now_-source.second.receivedTimeS<=settings_.maximumAgeS)conflict=true;
+                    if(sameSensor(source.second,s)&&key(source.second)!=k && now_-source.second.sampleTimeS<=settings_.maximumAgeS)conflict=true;
                 if(conflict)continue;
                 const double d=distance(project(r.estimate,now_),observed);
                 if(d<nearest)nearest=d,best=&r;
@@ -120,9 +121,18 @@ private:
             if(rows_.size()>=settings_.capacity){++capacityRefusals_;return;}
             Row r;r.id=nextId_++;r.estimate=observed;rows_.push_back(std::move(r));best=&rows_.back();
         } else {
-            if(!best->sources.count(k)&&best->sources.size()>=settings_.sourcesPerEntity){++capacityRefusals_;return;}
+            // Retain recent contributor provenance; reclaim expired history
+            // only when a new live contributor needs its bounded slot. A live
+            // entity must not become permanently full of dead source keys.
+            const bool reclaim=!best->sources.count(k)&&best->sources.size()>=settings_.sourcesPerEntity;
+            auto expired=[&](const auto& source){return now_-source.second.sampleTimeS>settings_.maximumAgeS;};
+            if(reclaim&&static_cast<std::size_t>(std::count_if(best->sources.begin(),best->sources.end(),
+                [&](const auto& source){return !expired(source);}))>=settings_.sourcesPerEntity){++capacityRefusals_;return;}
             Gaussian combined;
             if(!intersect(project(best->estimate,now_),observed,combined)){++rejected_;return;}
+            if(reclaim)for(auto it=best->sources.begin();it!=best->sources.end();) {
+                if(expired(*it))it=best->sources.erase(it);else ++it;
+            }
             best->estimate=combined;
         }
         best->sources[k]=s;best->lastSample=std::max(best->lastSample,s.sampleTimeS);

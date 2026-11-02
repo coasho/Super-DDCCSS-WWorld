@@ -735,3 +735,33 @@ TEST_CASE("radar modes: velocity-only looks let inherited Cartesian tracks expir
     search.task=radar::Task::Volume;search.mode=radar::Mode::VelocitySearch;radar.search(search,rig.time);
     rig.run(radar,spec.trackMemoryS+3);CHECK(radar.tracks().empty());
 }
+
+TEST_CASE("radar dwell timestamps: scheduling roundoff cannot publish future measurements", "[ms][radar][sim-m01]") {
+    session::World w(options("radar-dwell-epoch"));Rig rig(w);
+    rig.target(0,8,5000,0,-200);rig.sigmaM2=100;
+    auto spec=specOf("an-apg-79");spec.dwellS=.1;
+    radar::Radar radar(spec,19);radar::Search search;
+    search.rangeScaleM=12000;search.bars=1;search.azimuthHalfWidthRad=radar.pattern().beamwidthRad(false)/2;
+    radar.search(search,rig.time);rig.step(radar,std::nextafter(.1,0.));
+    REQUIRE(radar.detectionCount()>0);
+    for(const auto& detection:radar.detections())CHECK(detection.timeS<=rig.time);
+}
+
+TEST_CASE("radar all-round arrays: declared surveillance measures every body quadrant", "[ms][radar][sim-m01]") {
+    for(const char* card:{"an-apy-2","mesa"})for(bool signal:{false,true}) {
+        INFO(card<<", signal level "<<signal);
+        session::World w(options("radar-all-round"));Rig rig(w);rig.sigmaM2=100;
+        // All quadrants close at 200 m/s: isolate angular coverage from the
+        // deliberately rejected zero-Doppler stationary-clutter domain.
+        rig.target(0,20,5000,0,50);rig.target(20,0,5000,-200,250);
+        rig.target(0,-20,5000,0,450);rig.target(-20,0,5000,200,250);
+        auto spec=specOf(card);radar::Radar radar(spec,19);radar::Search search;
+        search.mode=radar::Mode::Surveillance;search.rangeScaleM=50000;search.bars=1;search.signalLevel=signal;
+        radar.search(search,rig.time);rig.run(radar,12);
+        for(std::uint32_t target=1;target<=4;++target) {
+            INFO("Body quadrant target "<<target);
+            CHECK(std::any_of(radar.detections().begin(),radar.detections().end(),
+                [&](const auto& detection){return detection.truth==target;}));
+        }
+    }
+}

@@ -47,8 +47,10 @@ def main():
             if (sha(content) if content is not None else None)==preexisting[name]:skipped.append(name);continue
             if name!=GUIDE or content is None or MARKER not in content:raise ValueError('Review mixed-owner edits before packaging: '+name)
             prefix,extension=content.split(MARKER,1)
-            if sha(prefix)!=preexisting[name]:raise ValueError('Preexisting guide bytes changed')
-            content=git('show',head+':'+name)+MARKER+extension
+            if sha(prefix)!=window.get('guide_prefix_sha256',preexisting[name]):raise ValueError('Preexisting guide bytes changed')
+            # A continuation may replace its already committed extension. Keep
+            # the original HEAD guide prefix and exactly one owned marker.
+            content=git('show',head+':'+name).split(MARKER,1)[0]+MARKER+extension
         elif tracked and name not in logical:continue
         if content is None:
             updates.append('0 '+'0'*40+'\t'+name+'\n');entries.append(dict(path=name,deleted=True));continue

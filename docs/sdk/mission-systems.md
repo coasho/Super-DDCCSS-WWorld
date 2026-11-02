@@ -1004,7 +1004,7 @@ with its uncertainty and basis) are filled stage by stage: the radars at MS-4, t
 
 <!-- SIM-M01 V1 extension begin -->
 
-## Radar and platform fusion V1 (2026-11-01)
+## Radar and platform fusion V1 (2026-11-02)
 
 The common radar receiver now accepts signal-level cued acquisition, track/STT
 and velocity search through the existing native command's `signalLevel` /
@@ -1044,7 +1044,21 @@ from direct SDK Agent use.
 
 The [SIM-M01 record](sim-m01-completion.md) separates common mechanisms,
 functional sampling, software-reference checks and actual-equipment calibration.
-The user retains calibration as mandatory for formal SIM-M01 closure. No generic
-bias fraction, guessed glint coefficient, public range claim or software-only
-comparison is relabeled as a calibrated device.
+The 2026-11-02 user clarification accepts engineering closure with equipment
+calibration in a separate ledger. All 17 declared radar fits pass the current
+engineering gates; equipment accuracy remains 0/17 admitted. Generic bias/glint
+parameters, public range claims and software agreement are not measured device
+calibration. Earlier deferred-IMM/signal-mode labels above are historical.
+
+Fusion uses original sample age after delayed delivery, releases expired entity
+retention before admission and can reclaim expired contributor-history slots
+when a new source needs bounded capacity. Source lists retain bounded recent
+provenance, not an indefinite audit. Dwell epochs never exceed current world time.
+
+The common optional `azimuth_faces` card parameter defines equivalent uniformly
+spaced fixed electronic look directions. Its default is one; MESA explicitly
+chooses four to repair the forward-only aperture defect in its declared all-round
+scan. Echoes and clutter use the same beam-selected face transform. Actual MESA
+side/end-fire gain and sector boundaries remain uncalibrated approximations;
+its legacy `rotation_rpm` is the assumed revisit clock, not physical rotation.
 <!-- SIM-M01 V1 extension end -->

@@ -1,0 +1,64 @@
+{
+  "schema": "fsim.sim-m01.engineering-delivery.v2",
+  "engineering_acceptance": true,
+  "closure_rule": "2026-11-02 user clarification: complete engineering functions and reproducible delivery required; equipment calibration is a separate uncertainty ledger",
+  "airframes": 35,
+  "sampled_air_radar_fits": 17,
+  "radar_cards": 17,
+  "native_sampling_stages": 181,
+  "cross_worker_replay_stages": 181,
+  "equipment_calibrated": 0,
+  "calibration_pending": 17,
+  "acceptance_scope": "Declared air-radar processing, tracking and platform radar/link fusion; engineering complete, equipment accuracy uncalibrated",
+  "equipment_accuracy_accepted": false,
+  "whole_project_regression": false,
+  "new_viewer_acceptance": false,
+  "regressions": {
+    "headless": {
+      "executed": 71,
+      "elapsed_s": 69.41058300000441,
+      "scope": "Complete declared M01 dependency selector; not whole-project regression"
+    },
+    "release": {
+      "executed": 72,
+      "elapsed_s": 69.77301560000342,
+      "scope": "Complete declared M01 dependency selector; not whole-project regression"
+    }
+  },
+  "calibration_cannot_be_replaced_by_functional_sampling": true,
+  "loaded_sdk": {
+    "name": "libfsim.dll",
+    "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\sim-m01-closure-replay-20261102\\build\\architecture-reviews\\sim-m01-final-v2-20261102\\sdk\\fsim\\bin\\libfsim.dll",
+    "sha256": "f7812a8b1bfb84924654753bc947762370e2d99cf2997b31ab55ff9a5f138abc"
+  },
+  "inputs": [
+    {
+      "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\sim-m01-closure-replay-20261102\\build\\architecture-reviews\\sim-m01-final-v2-20261102\\coverage.json",
+      "sha256": "6cb5d7a9953ef2d8c45cc8a617d8438535108cd49b389032c55ecc874a3ce726"
+    },
+    {
+      "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\sim-m01-closure-replay-20261102\\build\\architecture-reviews\\sim-m01-final-v2-20261102\\installed-fleet-results.json",
+      "sha256": "0ec1c943fb96eeeb2265dc6fee236fa6448ad31c56ff9e16406750d530de2660"
+    },
+    {
+      "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\sim-m01-closure-replay-20261102\\build\\architecture-reviews\\sim-m01-final-v2-20261102\\installed.json",
+      "sha256": "2843b9fe6350b5e681875f8d3950b6ec90c61e1e8de471071af9c76f17f53256"
+    },
+    {
+      "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\sim-m01-closure-replay-20261102\\build\\architecture-reviews\\sim-m01-final-v2-20261102\\ucrt64-headless-regression.json",
+      "sha256": "9f7a1c60b628ee8195763146e306a24fcb20c6657b60884fd26512c3ff4877d0"
+    },
+    {
+      "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\sim-m01-closure-replay-20261102\\build\\architecture-reviews\\sim-m01-final-v2-20261102\\ucrt64-release-regression.json",
+      "sha256": "05def5b294e1dfc4ff44937ee956a34d00e0656a5d94cb0556b6a6ee33028380"
+    },
+    {
+      "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\sim-m01-closure-replay-20261102\\build\\architecture-reviews\\sim-m01-final-v2-20261102\\performance.json",
+      "sha256": "03df04875e35057732fc96c3e4f95c87a7fc4a6d530ab1c4ac17050e03b988cd"
+    },
+    {
+      "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\sim-m01-closure-replay-20261102\\build\\architecture-reviews\\sim-m01-final-v2-20261102\\normal.json",
+      "sha256": "03791b04822001688bff08be08d6dcc7e79f615ebcf58cd99fdb90765a75616c"
+    }
+  ]
+}

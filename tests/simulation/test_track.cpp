@@ -98,6 +98,45 @@ TEST_CASE("track IMM: a maneuver changes model probability and empty looks retai
     CHECK_THROWS_AS(Imm(initial,quiet,maneuver,0),std::invalid_argument);
 }
 
+TEST_CASE("track fusion V1: expired retention releases capacity before accepting this tick", "[ms][track][fusion][sim-m01]") {
+    Fusion::Settings settings;settings.capacity=1;settings.maximumAgeS=1;Fusion fusion(settings);
+    Fusion::Observation a;a.source.track=1;a.source.sampleTimeS=a.source.receivedTimeS=1;
+    a.estimate.t=1;a.estimate.x.a={10000,0,2000,0,3000,0};a.estimate.p=identity<6>();
+    fusion.advance(1,{a});const auto first=fusion.snapshot();REQUIRE(first.size()==1);
+    auto b=a;b.source.track=2;b.source.sampleTimeS=b.source.receivedTimeS=b.estimate.t=3.01;
+    fusion.advance(3.01,{b});const auto current=fusion.snapshot();
+    REQUIRE(current.size()==1);CHECK(current[0].id!=first[0].id);
+    CHECK(current[0].sources.front().track==2);CHECK(fusion.capacityRefusals()==0);
+}
+
+TEST_CASE("track fusion V1: stale contributors cannot permanently exhaust a live entity", "[ms][track][fusion][sim-m01]") {
+    Fusion::Settings settings;settings.sourcesPerEntity=2;settings.maximumAgeS=1;settings.processNoise=0;
+    Fusion fusion(settings);Fusion::Observation a;
+    a.source.track=1;a.source.system=1;a.source.sampleTimeS=a.source.receivedTimeS=a.estimate.t=1;
+    a.estimate.x.a={10000,0,2000,0,3000,0};a.estimate.p=identity<6>();
+    auto b=a;b.source.system=2;fusion.advance(1,{a,b});
+    const auto id=fusion.snapshot().front().id;
+    a.source.sampleTimeS=a.source.receivedTimeS=a.estimate.t=1.75;fusion.advance(1.75,{a});
+    auto c=a;c.source.system=3;c.source.sampleTimeS=c.source.receivedTimeS=c.estimate.t=2.25;
+    fusion.advance(2.25,{c});const auto current=fusion.snapshot();REQUIRE(current.size()==1);
+    CHECK(current[0].id==id);CHECK(current[0].lastUpdateS==2.25);
+    REQUIRE(current[0].sources.size()==2);CHECK(current[0].sources[0].system==1);
+    CHECK(current[0].sources[1].system==3);CHECK(fusion.capacityRefusals()==0);
+    fusion.advance(2.25,{b});CHECK(fusion.rejected()==1); // stale replay cannot reclaim its slot
+}
+
+TEST_CASE("track fusion V1: sample age governs association even after delayed delivery", "[ms][track][fusion][sim-m01]") {
+    Fusion::Settings settings;settings.maximumAgeS=1;settings.processNoise=0;Fusion fusion(settings);
+    Fusion::Observation a;a.source.track=1;a.source.sampleTimeS=1;a.source.receivedTimeS=a.estimate.t=1.9;
+    a.estimate.x.a={10000,0,2000,0,3000,0};a.estimate.p=identity<6>();
+    fusion.advance(1.9,{a});const auto id=fusion.snapshot().front().id;
+    auto b=a;b.source.kind=ms::FusionSourceKindV1::DeliveredLink;b.source.system=2;
+    b.source.sampleTimeS=b.source.receivedTimeS=b.estimate.t=2.1;
+    fusion.advance(2.1,{b});const auto current=fusion.snapshot();REQUIRE(current.size()==2);
+    CHECK(current[0].id==id);CHECK(current[0].state==ms::FusionStateV1::Lost);
+    CHECK(current[1].id!=id);CHECK(current[1].state==ms::FusionStateV1::Live);
+}
+
 namespace {
 
 namespace fs = std::filesystem;
@@ -202,6 +241,25 @@ TEST_CASE("trackers against Stone Soup: one target's EKF and UKF posteriors, ste
         CHECK(most < 1e-6);
     }
     CHECK(checked >= 50);
+}
+
+TEST_CASE("track fusion V1: covariance intersection against Stone Soup 1.9.1", "[ms][track][fusion][sim-m01]") {
+    std::ifstream in(kSource/"tests/simulation/data/track/ci-crosscheck-v1.json");REQUIRE(in.good());
+    std::stringstream text;text<<in.rdbuf();const auto doc=core::Json::parse(text.str());
+    REQUIRE(doc.string("reference_version","")=="1.9.1");
+    int count=0;
+    for(const auto& row:doc.child("cases").asArray()) {
+        INFO(row.string("name",""));Gaussian a,b,result;
+        const auto& inputs=row.child("inputs").asArray();REQUIRE(inputs.size()==2);
+        a.x=matrix<6,1>(inputs[0].child("x"));a.p=matrix<6,6>(inputs[0].child("p"));
+        b.x=matrix<6,1>(inputs[1].child("x"));b.p=matrix<6,6>(inputs[1].child("p"));
+        REQUIRE(intersect(a,b,result));
+        const auto x=matrix<6,1>(row.child("x"));const auto p=matrix<6,6>(row.child("p"));
+        for(std::size_t i=0;i<6;++i)CHECK_THAT(result.x.a[i],Catch::Matchers::WithinAbs(x.a[i],1e-7));
+        for(std::size_t i=0;i<36;++i)CHECK_THAT(result.p.a[i],Catch::Matchers::WithinAbs(p.a[i],1e-9));
+        CHECK(std::isfinite(logDet(result.p)));++count;
+    }
+    CHECK(count==12);
 }
 
 TEST_CASE("trackers against Stone Soup: GNN and JPDA multi-target trackers, their tracks at every step", "[ms][track]") {

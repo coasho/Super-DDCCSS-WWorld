@@ -45,8 +45,11 @@ def main():
         cases=[sample(False),sample(True)])
     result['elapsed_s']=time.perf_counter()-start
     result['native_input_acceptance']=all(row['rejected_inputs']==0 for row in result['cases'])
+    result['real_time_acceptance']=all(row['real_time_factor']>=1 for row in result['cases'])
+    result['functional_acceptance']=result['cases'][0]['fused_entities']==0 and result['cases'][1]['fused_entities']>0
+    result['passed']=result['native_input_acceptance'] and result['real_time_acceptance'] and result['functional_acceptance']
     a.output.write_text(json.dumps(result,indent=2,allow_nan=False)+'\n',encoding='utf-8');print(json.dumps(result))
-    raise SystemExit(not result['native_input_acceptance'])
+    raise SystemExit(not result['passed'])
 
 
 if __name__=='__main__':main()
