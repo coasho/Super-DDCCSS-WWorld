@@ -488,9 +488,52 @@
         <property value="0">fsim/model/nose-x-in</property>
         <property value="0">fsim/model/nose-y-in</property>
         <property value="0">fsim/model/nose-z-in</property>
+        <property value="1">fsim/rocket-feed-v1/engine[0]/version</property>
+        <property value="1">fsim/thrust-vector-control/version</property>
+        <property value="0.17453292519943295">fsim/thrust-vector-control/limit_rad</property>
+        <property value="4">fsim/thrust-vector-control/rate_rad_s</property>
+        <property value="0.5">fsim/thrust-vector-control/pitch_gain</property>
+        <property value="0.5">fsim/thrust-vector-control/yaw_gain</property>
+        <property value="-1.5">fsim/thrust-vector-control/exit_x_body_m</property>
+        <channel name="Finite equivalent thrust-vector nozzle (engineering assumptions)">
+            <fcs_function name="fsim/thrust-vector-control/pitch-demand-rad">
+                <function>
+                    <product>
+                        <property>fsim/thrust-vector-control/pitch_gain</property>
+                        <property>fcs/elevator-response-rad</property>
+                    </product>
+                </function>
+            </fcs_function>
+            <actuator name="fsim/thrust-vector-control/pitch-actuator">
+                <input>fsim/thrust-vector-control/pitch-demand-rad</input>
+                <rate_limit>fsim/thrust-vector-control/rate_rad_s</rate_limit>
+                <clipto>
+                    <min>-0.17453292519943295</min>
+                    <max>0.17453292519943295</max>
+                </clipto>
+                <output>propulsion/engine/pitch-angle-rad</output>
+            </actuator>
+            <fcs_function name="fsim/thrust-vector-control/yaw-demand-rad">
+                <function>
+                    <product>
+                        <property>fsim/thrust-vector-control/yaw_gain</property>
+                        <property>fcs/rudder-response-rad</property>
+                    </product>
+                </function>
+            </fcs_function>
+            <actuator name="fsim/thrust-vector-control/yaw-actuator">
+                <input>fsim/thrust-vector-control/yaw-demand-rad</input>
+                <rate_limit>fsim/thrust-vector-control/rate_rad_s</rate_limit>
+                <clipto>
+                    <min>-0.17453292519943295</min>
+                    <max>0.17453292519943295</max>
+                </clipto>
+                <output>propulsion/engine/yaw-angle-rad</output>
+            </actuator>
+        </channel>
         <property value="1">fsim/components/autopilot/schema-version</property>
         <property value="2">fsim/components/autopilot/implementation-code</property>
-        <property value="1715362714">fsim/components/autopilot/profile-fingerprint</property>
+        <property value="930946775">fsim/components/autopilot/profile-fingerprint</property>
         <property value="1">fsim/components/allocator/schema-version</property>
         <property value="1">fsim/components/allocator/implementation-code</property>
         <property value="3529545194">fsim/components/allocator/profile-fingerprint</property>
@@ -503,6 +546,9 @@
         <property value="1">fsim/components/aerodynamics/schema-version</property>
         <property value="1">fsim/components/aerodynamics/implementation-code</property>
         <property value="384800066">fsim/components/aerodynamics/profile-fingerprint</property>
+        <property value="3">fsim/components/seeker/schema-version</property>
+        <property value="2">fsim/components/seeker/implementation-code</property>
+        <property value="115810124">fsim/components/seeker/profile-fingerprint</property>
         <property value="2">fsim/integration-v1/version</property>
         <property value="95">fsim/integration-v1/substeps</property>
         <property value="4">fsim/integration-v1/rotational-rate-method</property>

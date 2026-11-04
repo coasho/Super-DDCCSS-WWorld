@@ -244,7 +244,16 @@ max_takeoff = 38000           # kg, its maximum take-off weight: the article's F
 empty = 19700                 # 43,340 lb (USAF)
 empty_cg = [10.566, 0.0, -0.350]  # loaded, 2 % of the MAC behind the neutral point hangar finds
 # no published inertia: radii of gyration like the F-15's
-gyration = [0.270, 0.430, 0.550]
+# Retired unsupported class/other-aircraft prior: nonphysical-inertia-triangle.
+# Use the same geometry/component masses for whole and departing sections.
+# Retractable gear uses the declared clean Leg transform; fixed gear is unchanged.
+# This is an uncalibrated engineering distribution, with a declared 25%
+# moment screening half-width; this is not measured equipment accuracy.
+inertia_reference = "geometry-clean-v1"
+retired_gyration = [0.270, 0.430, 0.550]
+retired_inertia_tensor_kgm2 = [66016.59829200002, 325975.83774800005, 392919.57320000016, -0.160158498565324, 26446.024574917767, 1.4422301408637384]
+inertia_reference_reason = "nonphysical-inertia-triangle"
+inertia_uncertainty_fraction = 0.25
 [[mass.payload]]
 name = "pilot"
 kind = "crew"

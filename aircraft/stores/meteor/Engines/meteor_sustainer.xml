@@ -1,1 +1,109 @@
-<rocket_engine name="meteor atmosphere-fed engineering sustainer"><function name="fsim/ducted-rocket/engine[#]/fuel-kg-s" type="pre"><product><property>propulsion/engine[1]/fuel-flow-rate-pps</property><value>0.45359237000000002</value></product></function><function name="fsim/ducted-rocket/engine[#]/air-kg-s" type="pre"><ifthen><and><gt><property>fsim/ducted-rocket/engine[1]/fuel-kg-s</property><value>0</value></gt><ge><property>velocities/mach</property><value>1.5</value></ge></and><product><property>atmosphere/rho-slugs_ft3</property><value>515.37881839319607</value><property>velocities/vt-fps</property><value>0.0036271200000000006</value></product><value>0</value></ifthen></function><function name="fsim/ducted-rocket/engine[#]/inlet-temperature-k" type="pre"><product><property>atmosphere/T-R</property><value>0.55555555555555558</value><sum><value>1</value><product><value>0.20000000000000001</value><property>velocities/mach</property><property>velocities/mach</property></product></sum></product></function><function name="fsim/ducted-rocket/engine[#]/burned-fuel-kg-s" type="pre"><min><property>fsim/ducted-rocket/engine[1]/fuel-kg-s</property><product><property>fsim/ducted-rocket/engine[1]/air-kg-s</property><value>0.080000000000000002</value></product></min></function><function name="fsim/ducted-rocket/engine[#]/total-temperature-k" type="pre"><quotient><sum><product><property>fsim/ducted-rocket/engine[1]/air-kg-s</property><value>1004.5</value><property>fsim/ducted-rocket/engine[1]/inlet-temperature-k</property></product><product><property>fsim/ducted-rocket/engine[1]/burned-fuel-kg-s</property><value>36000000</value></product></sum><max><value>9.9999999999999998e-13</value><product><sum><property>fsim/ducted-rocket/engine[1]/air-kg-s</property><property>fsim/ducted-rocket/engine[1]/fuel-kg-s</property></sum><value>1150</value></product></max></quotient></function><function name="fsim/ducted-rocket/engine[#]/pressure-ratio" type="pre"><max><value>1</value><product><value>0.84999999999999998</value><pow><sum><value>1</value><product><value>0.20000000000000001</value><property>velocities/mach</property><property>velocities/mach</property></product></sum><value>3.5</value></pow></product></max></function><function name="fsim/ducted-rocket/engine[#]/exit-speed-m-s" type="pre"><sqrt><max><value>0</value><product><value>2300</value><property>fsim/ducted-rocket/engine[1]/total-temperature-k</property><difference><value>1</value><pow><property>fsim/ducted-rocket/engine[1]/pressure-ratio</property><value>-0.24812030075187974</value></pow></difference></product></max></sqrt></function><function name="fsim/ducted-rocket/engine[#]/net-thrust-n" type="pre"><difference><product><sum><property>fsim/ducted-rocket/engine[1]/air-kg-s</property><property>fsim/ducted-rocket/engine[1]/fuel-kg-s</property></sum><property>fsim/ducted-rocket/engine[1]/exit-speed-m-s</property></product><product><property>fsim/ducted-rocket/engine[1]/air-kg-s</property><property>velocities/vt-fps</property><value>0.30480000000000002</value></product></difference></function><isp><function><quotient><max><value>0</value><property>fsim/ducted-rocket/engine[1]/net-thrust-n</property></max><max><value>9.9999999999999998e-13</value><product><property>fsim/ducted-rocket/engine[1]/fuel-kg-s</property><value>9.8066499999999994</value></product></max></quotient></function></isp><propflowmax unit="LBS/SEC">0.66138678655463268</propflowmax><mixtureratio>0</mixtureratio><minthrottle>0.000001</minthrottle></rocket_engine>
+<rocket_engine name="meteor atmosphere-fed engineering sustainer">
+    <isp>
+        <function>
+            <quotient>
+                <property>fsim/ducted-inlet-v2/engine[1]/gross-thrust-n</property>
+                <max>
+                    <value>9.9999999999999998e-13</value>
+                    <product>
+                        <property>fsim/ducted-inlet-v2/engine[1]/fuel-kg-s</property>
+                        <value>9.8066499999999994</value>
+                    </product>
+                </max>
+            </quotient>
+        </function>
+    </isp>
+    <propflowmax unit="LBS/SEC">0.66138678655463268</propflowmax>
+    <mixtureratio>0</mixtureratio>
+    <minthrottle>0.000001</minthrottle>
+    <property value="0">fsim/ducted-inlet-v2/outflow-kg-s</property>
+    <property value="0">fsim/ducted-inlet-v2/outflow-enthalpy-w</property>
+    <property value="0">fsim/ducted-inlet-v2/outflow-momentum-x-n</property>
+    <property value="0">fsim/ducted-inlet-v2/outflow-momentum-y-n</property>
+    <property value="0">fsim/ducted-inlet-v2/outflow-momentum-z-n</property>
+    <function name="fsim/ducted-inlet-v2/engine[#]/fuel-kg-s" type="pre">
+        <product>
+            <property>propulsion/engine[1]/fuel-flow-rate-pps</property>
+            <value>0.45359237000000002</value>
+        </product>
+    </function>
+    <function name="fsim/ducted-inlet-v2/engine[#]/burned-fuel-kg-s" type="pre">
+        <min>
+            <property>fsim/ducted-inlet-v2/engine[1]/fuel-kg-s</property>
+            <product>
+                <property>fsim/ducted-inlet-v2/outflow-kg-s</property>
+                <value>0.080000000000000002</value>
+            </product>
+        </min>
+    </function>
+    <function name="fsim/ducted-inlet-v2/engine[#]/total-temperature-k" type="pre">
+        <quotient>
+            <sum>
+                <property>fsim/ducted-inlet-v2/outflow-enthalpy-w</property>
+                <product>
+                    <property>fsim/ducted-inlet-v2/engine[1]/burned-fuel-kg-s</property>
+                    <value>36000000</value>
+                </product>
+            </sum>
+            <max>
+                <value>9.9999999999999998e-13</value>
+                <product>
+                    <sum>
+                        <property>fsim/ducted-inlet-v2/outflow-kg-s</property>
+                        <property>fsim/ducted-inlet-v2/engine[1]/fuel-kg-s</property>
+                    </sum>
+                    <value>1150</value>
+                </product>
+            </max>
+        </quotient>
+    </function>
+    <function name="fsim/ducted-inlet-v2/engine[#]/pressure-ratio" type="pre">
+        <max>
+            <value>1</value>
+            <product>
+                <value>0.84999999999999998</value>
+                <pow>
+                    <quotient>
+                        <property>fsim/ducted-inlet-v2/outflow-enthalpy-w</property>
+                        <max>
+                            <value>9.9999999999999998e-13</value>
+                            <product>
+                                <property>fsim/ducted-inlet-v2/outflow-kg-s</property>
+                                <value>558.05555555555554</value>
+                                <property>atmosphere/T-R</property>
+                            </product>
+                        </max>
+                    </quotient>
+                    <value>3.5</value>
+                </pow>
+            </product>
+        </max>
+    </function>
+    <function name="fsim/ducted-inlet-v2/engine[#]/exit-speed-m-s" type="pre">
+        <sqrt>
+            <max>
+                <value>0</value>
+                <product>
+                    <value>2300</value>
+                    <property>fsim/ducted-inlet-v2/engine[1]/total-temperature-k</property>
+                    <difference>
+                        <value>1</value>
+                        <pow>
+                            <property>fsim/ducted-inlet-v2/engine[1]/pressure-ratio</property>
+                            <value>-0.24812030075187974</value>
+                        </pow>
+                    </difference>
+                </product>
+            </max>
+        </sqrt>
+    </function>
+    <function name="fsim/ducted-inlet-v2/engine[#]/gross-thrust-n" type="pre">
+        <product>
+            <sum>
+                <property>fsim/ducted-inlet-v2/outflow-kg-s</property>
+                <property>fsim/ducted-inlet-v2/engine[1]/fuel-kg-s</property>
+            </sum>
+            <property>fsim/ducted-inlet-v2/engine[1]/exit-speed-m-s</property>
+        </product>
+    </function>
+</rocket_engine>

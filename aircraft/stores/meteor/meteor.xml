@@ -37,6 +37,14 @@
             <y> 0 </y>
             <z> 0 </z>
         </location>
+        <pointmass name="Finite resident inlet air v2">
+            <weight unit="LBS">0</weight>
+            <location unit="M">
+                <x>2.5750000000000002</x>
+                <y>0</y>
+                <z>0</z>
+            </location>
+        </pointmass>
     </mass_balance>
     <ground_reactions>
         <contact type="STRUCTURE" name="body front">
@@ -468,6 +476,7 @@
         <property value="0">fsim/model/nose-x-in</property>
         <property value="0">fsim/model/nose-y-in</property>
         <property value="0">fsim/model/nose-z-in</property>
+        <property value="1">fsim/rocket-feed-v1/engine[0]/version</property>
         <property value="1">fsim/components/autopilot/schema-version</property>
         <property value="1">fsim/components/autopilot/implementation-code</property>
         <property value="3503888558">fsim/components/autopilot/profile-fingerprint</property>
@@ -478,11 +487,14 @@
         <property value="1">fsim/components/actuator/implementation-code</property>
         <property value="652578357">fsim/components/actuator/profile-fingerprint</property>
         <property value="1">fsim/components/propulsion/schema-version</property>
-        <property value="2">fsim/components/propulsion/implementation-code</property>
-        <property value="1766933416">fsim/components/propulsion/profile-fingerprint</property>
+        <property value="5">fsim/components/propulsion/implementation-code</property>
+        <property value="24269591">fsim/components/propulsion/profile-fingerprint</property>
         <property value="1">fsim/components/aerodynamics/schema-version</property>
         <property value="1">fsim/components/aerodynamics/implementation-code</property>
         <property value="2131540101">fsim/components/aerodynamics/profile-fingerprint</property>
+        <property value="3">fsim/components/seeker/schema-version</property>
+        <property value="3">fsim/components/seeker/implementation-code</property>
+        <property value="713056816">fsim/components/seeker/profile-fingerprint</property>
         <property value="2">fsim/integration-v1/version</property>
         <property value="49">fsim/integration-v1/substeps</property>
         <property value="4">fsim/integration-v1/rotational-rate-method</property>
@@ -531,6 +543,212 @@
                 <output>fcs/throttle-pos-norm[1]</output>
             </actuator>
         </channel>
+        <channel name="Finite convective inlet air inventory v2">
+            <fcs_function name="fsim/ducted-inlet-v2/capture-kg-s">
+                <function>
+                    <ifthen>
+                        <and>
+                            <ge>
+                                <property>simulation/sim-time-sec</property>
+                                <value>2</value>
+                            </ge>
+                            <ge>
+                                <property>velocities/mach</property>
+                                <value>1.5</value>
+                            </ge>
+                        </and>
+                        <product>
+                            <property>atmosphere/rho-slugs_ft3</property>
+                            <value>6.1330079388790333</value>
+                            <max>
+                                <value>0</value>
+                                <product>
+                                    <property>velocities/u-aero-fps</property>
+                                    <value>0.30480000000000002</value>
+                                </product>
+                            </max>
+                        </product>
+                        <value>0</value>
+                    </ifthen>
+                </function>
+            </fcs_function>
+            <fcs_function name="fsim/ducted-inlet-v2/incoming-enthalpy-w">
+                <function>
+                    <product>
+                        <property>fsim/ducted-inlet-v2/capture-kg-s</property>
+                        <sum>
+                            <product>
+                                <value>558.05555555555554</value>
+                                <property>atmosphere/T-R</property>
+                            </product>
+                            <product>
+                                <value>0.5</value>
+                                <sum>
+                                    <product>
+                                        <product>
+                                            <property>velocities/u-aero-fps</property>
+                                            <value>0.30480000000000002</value>
+                                        </product>
+                                        <product>
+                                            <property>velocities/u-aero-fps</property>
+                                            <value>0.30480000000000002</value>
+                                        </product>
+                                    </product>
+                                    <product>
+                                        <product>
+                                            <property>velocities/v-aero-fps</property>
+                                            <value>0.30480000000000002</value>
+                                        </product>
+                                        <product>
+                                            <property>velocities/v-aero-fps</property>
+                                            <value>0.30480000000000002</value>
+                                        </product>
+                                    </product>
+                                    <product>
+                                        <product>
+                                            <property>velocities/w-aero-fps</property>
+                                            <value>0.30480000000000002</value>
+                                        </product>
+                                        <product>
+                                            <property>velocities/w-aero-fps</property>
+                                            <value>0.30480000000000002</value>
+                                        </product>
+                                    </product>
+                                </sum>
+                            </product>
+                        </sum>
+                    </product>
+                </function>
+            </fcs_function>
+            <fcs_function name="fsim/ducted-inlet-v2/incoming-momentum-x-n">
+                <function>
+                    <product>
+                        <property>fsim/ducted-inlet-v2/capture-kg-s</property>
+                        <product>
+                            <property>velocities/u-aero-fps</property>
+                            <value>0.30480000000000002</value>
+                        </product>
+                    </product>
+                </function>
+            </fcs_function>
+            <fcs_function name="fsim/ducted-inlet-v2/incoming-momentum-y-n">
+                <function>
+                    <product>
+                        <property>fsim/ducted-inlet-v2/capture-kg-s</property>
+                        <product>
+                            <property>velocities/v-aero-fps</property>
+                            <value>0.30480000000000002</value>
+                        </product>
+                    </product>
+                </function>
+            </fcs_function>
+            <fcs_function name="fsim/ducted-inlet-v2/incoming-momentum-z-n">
+                <function>
+                    <product>
+                        <property>fsim/ducted-inlet-v2/capture-kg-s</property>
+                        <product>
+                            <property>velocities/w-aero-fps</property>
+                            <value>0.30480000000000002</value>
+                        </product>
+                    </product>
+                </function>
+            </fcs_function>
+            <lag_filter name="fsim/ducted-inlet-v2/outflow-kg-s-filter">
+                <input>fsim/ducted-inlet-v2/capture-kg-s</input>
+                <c1>10</c1>
+                <output>fsim/ducted-inlet-v2/outflow-kg-s</output>
+            </lag_filter>
+            <lag_filter name="fsim/ducted-inlet-v2/outflow-enthalpy-w-filter">
+                <input>fsim/ducted-inlet-v2/incoming-enthalpy-w</input>
+                <c1>10</c1>
+                <output>fsim/ducted-inlet-v2/outflow-enthalpy-w</output>
+            </lag_filter>
+            <lag_filter name="fsim/ducted-inlet-v2/outflow-momentum-x-n-filter">
+                <input>fsim/ducted-inlet-v2/incoming-momentum-x-n</input>
+                <c1>10</c1>
+                <output>fsim/ducted-inlet-v2/outflow-momentum-x-n</output>
+            </lag_filter>
+            <lag_filter name="fsim/ducted-inlet-v2/outflow-momentum-y-n-filter">
+                <input>fsim/ducted-inlet-v2/incoming-momentum-y-n</input>
+                <c1>10</c1>
+                <output>fsim/ducted-inlet-v2/outflow-momentum-y-n</output>
+            </lag_filter>
+            <lag_filter name="fsim/ducted-inlet-v2/outflow-momentum-z-n-filter">
+                <input>fsim/ducted-inlet-v2/incoming-momentum-z-n</input>
+                <c1>10</c1>
+                <output>fsim/ducted-inlet-v2/outflow-momentum-z-n</output>
+            </lag_filter>
+            <fcs_function name="fsim/ducted-inlet-v2/resident-air-mass-kg">
+                <function>
+                    <product>
+                        <value>0.10000000000000001</value>
+                        <property>fsim/ducted-inlet-v2/outflow-kg-s</property>
+                    </product>
+                </function>
+            </fcs_function>
+            <fcs_function name="fsim/ducted-inlet-v2/resident-enthalpy-j">
+                <function>
+                    <product>
+                        <value>0.10000000000000001</value>
+                        <property>fsim/ducted-inlet-v2/outflow-enthalpy-w</property>
+                    </product>
+                </function>
+            </fcs_function>
+            <fcs_function name="fsim/ducted-inlet-v2/resident-momentum-x-kg-m-s">
+                <function>
+                    <product>
+                        <value>-0.10000000000000001</value>
+                        <property>fsim/ducted-inlet-v2/outflow-momentum-x-n</property>
+                    </product>
+                </function>
+            </fcs_function>
+            <fcs_function name="fsim/ducted-inlet-v2/resident-momentum-y-kg-m-s">
+                <function>
+                    <product>
+                        <value>-0.10000000000000001</value>
+                        <property>fsim/ducted-inlet-v2/outflow-momentum-y-n</property>
+                    </product>
+                </function>
+            </fcs_function>
+            <fcs_function name="fsim/ducted-inlet-v2/resident-momentum-z-kg-m-s">
+                <function>
+                    <product>
+                        <value>-0.10000000000000001</value>
+                        <property>fsim/ducted-inlet-v2/outflow-momentum-z-n</property>
+                    </product>
+                </function>
+            </fcs_function>
+            <fcs_function name="fsim/ducted-inlet-v2/resident-air-native-weight">
+                <function>
+                    <product>
+                        <value>0.22046226218487758</value>
+                        <property>fsim/ducted-inlet-v2/outflow-kg-s</property>
+                    </product>
+                </function>
+                <output>inertia/pointmass-weight-lbs[0]</output>
+            </fcs_function>
+        </channel>
+        <property value="2">fsim/ducted-inlet-v2/version</property>
+        <property value="1">fsim/ducted-inlet-v2/engine[1]/finite-fuel-v2</property>
+        <property value="0.011900000000000001">fsim/ducted-inlet-v2/input-capture_area_m2</property>
+        <property value="0.29999999999999999">fsim/ducted-inlet-v2/input-fuel_flow_max_kg_s</property>
+        <property value="40000000">fsim/ducted-inlet-v2/input-heating_value_j_kg</property>
+        <property value="0.90000000000000002">fsim/ducted-inlet-v2/input-combustion_efficiency</property>
+        <property value="0.84999999999999998">fsim/ducted-inlet-v2/input-pressure_recovery</property>
+        <property value="1004.5">fsim/ducted-inlet-v2/input-air_cp_j_kg_k</property>
+        <property value="1150">fsim/ducted-inlet-v2/input-gas_cp_j_kg_k</property>
+        <property value="1.3300000000000001">fsim/ducted-inlet-v2/input-gas_gamma</property>
+        <property value="0.080000000000000002">fsim/ducted-inlet-v2/input-fuel_air_ratio_max</property>
+        <property value="1.5">fsim/ducted-inlet-v2/input-lightoff_mach</property>
+        <property value="3.5">fsim/ducted-inlet-v2/input-target_mach</property>
+        <property value="0.14999999999999999">fsim/ducted-inlet-v2/input-valve_minimum</property>
+        <property value="0.5">fsim/ducted-inlet-v2/input-speed_gain</property>
+        <property value="0.10000000000000001">fsim/ducted-inlet-v2/input-valve_lag_s</property>
+        <property value="10">fsim/ducted-inlet-v2/input-valve_rate_s_1</property>
+        <property value="0.10000000000000001">fsim/ducted-inlet-v2/input-inlet_residence_s</property>
+        <property value="0.10000000000000001">fsim/ducted-inlet-v2/residence-s</property>
+        <property value="0.20000000000000001">fsim/ducted-inlet-v2/maximum-native-substep-s</property>
+        <property value="0">fsim/ducted-inlet-v2/resident-pointmass-index</property>
     </flight_control>
     <aerodynamics>
         <function name="fsim/control/cl-aileron" type="pre">
@@ -5866,23 +6084,6 @@
                     </table>
                 </product>
             </function>
-            <function name="fsim/ducted-rocket/ram-drag-drag">
-                <product>
-                    <value>-0.2248089430997105</value>
-                    <min>
-                        <value>0</value>
-                        <property>fsim/ducted-rocket/engine[1]/net-thrust-n</property>
-                    </min>
-                    <product>
-                        <cos>
-                            <property>aero/alpha-rad</property>
-                        </cos>
-                        <cos>
-                            <property>aero/beta-rad</property>
-                        </cos>
-                    </product>
-                </product>
-            </function>
         </axis>
         <axis name="SIDE">
             <function name="aero/coefficient/CY_base">
@@ -6728,23 +6929,6 @@
                     <property>aero/function/mach-lift</property>
                 </product>
             </function>
-            <function name="fsim/ducted-rocket/ram-drag-side">
-                <product>
-                    <value>-0.2248089430997105</value>
-                    <min>
-                        <value>0</value>
-                        <property>fsim/ducted-rocket/engine[1]/net-thrust-n</property>
-                    </min>
-                    <product>
-                        <cos>
-                            <property>aero/alpha-rad</property>
-                        </cos>
-                        <sin>
-                            <property>aero/beta-rad</property>
-                        </sin>
-                    </product>
-                </product>
-            </function>
         </axis>
         <axis name="LIFT">
             <function name="aero/coefficient/CL_base">
@@ -7511,18 +7695,6 @@
                     <property>aero/alphadot-rad_sec</property>
                     <value>0</value>
                     <property>aero/function/mach-lift</property>
-                </product>
-            </function>
-            <function name="fsim/ducted-rocket/ram-drag-lift">
-                <product>
-                    <value>0.2248089430997105</value>
-                    <min>
-                        <value>0</value>
-                        <property>fsim/ducted-rocket/engine[1]/net-thrust-n</property>
-                    </min>
-                    <sin>
-                        <property>aero/alpha-rad</property>
-                    </sin>
                 </product>
             </function>
         </axis>
@@ -10098,4 +10270,158 @@
             </function>
         </axis>
     </aerodynamics>
+    <external_reactions>
+        <function name="fsim/ducted-inlet-v2/ram-reaction-x-n" type="pre">
+            <sum>
+                <product>
+                    <value>-1</value>
+                    <property>fsim/ducted-inlet-v2/outflow-momentum-x-n</property>
+                </product>
+                <product>
+                    <value>0.10000000000000001</value>
+                    <difference>
+                        <product>
+                            <property>velocities/qi-rad_sec</property>
+                            <property>fsim/ducted-inlet-v2/outflow-momentum-z-n</property>
+                        </product>
+                        <product>
+                            <property>velocities/ri-rad_sec</property>
+                            <property>fsim/ducted-inlet-v2/outflow-momentum-y-n</property>
+                        </product>
+                    </difference>
+                </product>
+                <ifthen>
+                    <le>
+                        <property>fsim/ducted-inlet-v2/engine[1]/fuel-kg-s</property>
+                        <value>9.9999999999999998e-13</value>
+                    </le>
+                    <property>fsim/ducted-inlet-v2/engine[1]/gross-thrust-n</property>
+                    <value>0</value>
+                </ifthen>
+            </sum>
+        </function>
+        <force name="fsim/ducted-inlet-v2/ram-reaction-x" frame="BODY">
+            <function>
+                <product>
+                    <value>0.2248089430997105</value>
+                    <property>fsim/ducted-inlet-v2/ram-reaction-x-n</property>
+                </product>
+            </function>
+            <location unit="M">
+                <x>2.5750000000000002</x>
+                <y>0</y>
+                <z>0</z>
+            </location>
+            <direction>
+                <x>1</x>
+                <y>0</y>
+                <z>0</z>
+            </direction>
+        </force>
+        <function name="fsim/ducted-inlet-v2/net-propulsion-force-x-n" type="pre">
+            <sum>
+                <product>
+                    <value>4.4482216152604996</value>
+                    <property>forces/fbx-prop-lbs</property>
+                </product>
+                <property>fsim/ducted-inlet-v2/ram-reaction-x-n</property>
+            </sum>
+        </function>
+        <function name="fsim/ducted-inlet-v2/ram-reaction-y-n" type="pre">
+            <sum>
+                <product>
+                    <value>-1</value>
+                    <property>fsim/ducted-inlet-v2/outflow-momentum-y-n</property>
+                </product>
+                <product>
+                    <value>0.10000000000000001</value>
+                    <difference>
+                        <product>
+                            <property>velocities/ri-rad_sec</property>
+                            <property>fsim/ducted-inlet-v2/outflow-momentum-x-n</property>
+                        </product>
+                        <product>
+                            <property>velocities/pi-rad_sec</property>
+                            <property>fsim/ducted-inlet-v2/outflow-momentum-z-n</property>
+                        </product>
+                    </difference>
+                </product>
+            </sum>
+        </function>
+        <force name="fsim/ducted-inlet-v2/ram-reaction-y" frame="BODY">
+            <function>
+                <product>
+                    <value>0.2248089430997105</value>
+                    <property>fsim/ducted-inlet-v2/ram-reaction-y-n</property>
+                </product>
+            </function>
+            <location unit="M">
+                <x>2.5750000000000002</x>
+                <y>0</y>
+                <z>0</z>
+            </location>
+            <direction>
+                <x>0</x>
+                <y>1</y>
+                <z>0</z>
+            </direction>
+        </force>
+        <function name="fsim/ducted-inlet-v2/net-propulsion-force-y-n" type="pre">
+            <sum>
+                <product>
+                    <value>4.4482216152604996</value>
+                    <property>forces/fby-prop-lbs</property>
+                </product>
+                <property>fsim/ducted-inlet-v2/ram-reaction-y-n</property>
+            </sum>
+        </function>
+        <function name="fsim/ducted-inlet-v2/ram-reaction-z-n" type="pre">
+            <sum>
+                <product>
+                    <value>-1</value>
+                    <property>fsim/ducted-inlet-v2/outflow-momentum-z-n</property>
+                </product>
+                <product>
+                    <value>0.10000000000000001</value>
+                    <difference>
+                        <product>
+                            <property>velocities/pi-rad_sec</property>
+                            <property>fsim/ducted-inlet-v2/outflow-momentum-y-n</property>
+                        </product>
+                        <product>
+                            <property>velocities/qi-rad_sec</property>
+                            <property>fsim/ducted-inlet-v2/outflow-momentum-x-n</property>
+                        </product>
+                    </difference>
+                </product>
+            </sum>
+        </function>
+        <force name="fsim/ducted-inlet-v2/ram-reaction-z" frame="BODY">
+            <function>
+                <product>
+                    <value>0.2248089430997105</value>
+                    <property>fsim/ducted-inlet-v2/ram-reaction-z-n</property>
+                </product>
+            </function>
+            <location unit="M">
+                <x>2.5750000000000002</x>
+                <y>0</y>
+                <z>0</z>
+            </location>
+            <direction>
+                <x>0</x>
+                <y>0</y>
+                <z>1</z>
+            </direction>
+        </force>
+        <function name="fsim/ducted-inlet-v2/net-propulsion-force-z-n" type="pre">
+            <sum>
+                <product>
+                    <value>4.4482216152604996</value>
+                    <property>forces/fbz-prop-lbs</property>
+                </product>
+                <property>fsim/ducted-inlet-v2/ram-reaction-z-n</property>
+            </sum>
+        </function>
+    </external_reactions>
 </fdm_config>

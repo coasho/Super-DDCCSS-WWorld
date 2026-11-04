@@ -245,7 +245,16 @@ empty = 9750                  # J-10A (estimates)
 # loaded, 6 % of the MAC behind the neutral point hangar finds
 empty_cg = [8.880, 0.0, 0.250]
 # no published inertia: radii of gyration of the class
-gyration = [0.250, 0.400, 0.510]
+# Retired unsupported class/other-aircraft prior: incompatible-with-component-masses-and-physical-mounted-support.
+# Use the same geometry/component masses for whole and departing sections.
+# Retractable gear uses the declared clean Leg transform; fixed gear is unchanged.
+# This is an uncalibrated engineering distribution, with a declared 25%
+# moment screening half-width; this is not measured equipment accuracy.
+inertia_reference = "geometry-clean-v1"
+retired_gyration = [0.250, 0.400, 0.510]
+retired_inertia_tensor_kgm2 = [14375.429859375003, 112365.50364000001, 112890.40813440003, 0.05840984892408289, 2834.497017130515, 0.009047495020157907]
+inertia_reference_reason = "incompatible-with-component-masses-and-physical-mounted-support"
+inertia_uncertainty_fraction = 0.25
 [[mass.payload]]
 name = "pilot"
 kind = "crew"

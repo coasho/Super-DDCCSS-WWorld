@@ -43,6 +43,12 @@
       "publisher": "RAND MR-1216-AF (DTIC ADA411700)",
       "url": "https://archive.org/stream/DTIC_ADA411700/DTIC_ADA411700_djvu.txt",
       "date": "2026-10-10"
+    },
+    "afmc-aim120d-2012": {
+      "title": "Edwards test squadron returns to Red Flag",
+      "publisher": "U.S. Air Force Materiel Command",
+      "url": "https://www.afmc.af.mil/News/Article-Display/Article/153727/edwards-test-squadron-returns-to-red-flag",
+      "date": "2012-02-13"
     }
   },
   "payloads": [
@@ -166,6 +172,37 @@
         {
           "station": 5,
           "store": "an-alq-184"
+        }
+      ]
+    },
+    {
+      "name": "air superiority AIM-120D",
+      "note": "AFMC documents AIM-120D capability on F-16 M6.1+ in 2012. This explicit game fit selects that integration; exact mixed station arrangement follows the existing authored AMRAAM/Sidewinder fit, an engineering configuration rather than a photographed load.",
+      "source": "afmc-aim120d-2012",
+      "stations": [
+        {
+          "station": 1,
+          "store": "aim-120d"
+        },
+        {
+          "station": 9,
+          "store": "aim-120d"
+        },
+        {
+          "station": 2,
+          "store": "aim-9x"
+        },
+        {
+          "station": 8,
+          "store": "aim-9x"
+        },
+        {
+          "station": 3,
+          "store": "aim-120d"
+        },
+        {
+          "station": 7,
+          "store": "aim-120d"
         }
       ]
     }

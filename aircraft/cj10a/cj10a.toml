@@ -97,6 +97,7 @@ governor_time_s = 5.0
 [mass]
 empty = 1200.0               # kg: explicit dry/fuel split, including the warhead
 empty_cg = [2.7, 0.0, 0.0]
+gyration_reference = "body-length-v1"
 gyration = [0.08, 0.28, 0.29] # radii / body length; engineering mass distribution
 [[mass.tank]]
 name = "cruise fuel"

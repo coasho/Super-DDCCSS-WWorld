@@ -488,6 +488,7 @@
         <property value="0">fsim/model/nose-x-in</property>
         <property value="0">fsim/model/nose-y-in</property>
         <property value="0">fsim/model/nose-z-in</property>
+        <property value="1">fsim/rocket-feed-v1/engine[0]/version</property>
         <property value="1">fsim/thrust-vector-control/version</property>
         <property value="0.17453292519943295">fsim/thrust-vector-control/limit_rad</property>
         <property value="4">fsim/thrust-vector-control/rate_rad_s</property>
@@ -545,6 +546,9 @@
         <property value="1">fsim/components/aerodynamics/schema-version</property>
         <property value="1">fsim/components/aerodynamics/implementation-code</property>
         <property value="4232681852">fsim/components/aerodynamics/profile-fingerprint</property>
+        <property value="3">fsim/components/seeker/schema-version</property>
+        <property value="2">fsim/components/seeker/implementation-code</property>
+        <property value="4013902714">fsim/components/seeker/profile-fingerprint</property>
         <property value="2">fsim/integration-v1/version</property>
         <property value="104">fsim/integration-v1/substeps</property>
         <property value="4">fsim/integration-v1/rotational-rate-method</property>

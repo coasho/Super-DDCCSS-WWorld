@@ -1,0 +1,81 @@
+{
+  "cells": [],
+  "design": "iris",
+  "fluid_policy_v1": {
+    "basis": "assumed",
+    "drag_coefficient": 1.0,
+    "law": "quadratic_unresolved_tumbling_v1",
+    "note": "Unresolved tumbling pressure-drag engineering policy; not FAA/OEM calibration or air Cd.",
+    "screening_uncertainty_fraction": 1.0
+  },
+  "frame": "body_origin_forward_right_down_m",
+  "ledger": {
+    "capacity_conserved": true,
+    "containment_certified": true,
+    "disjoint_certified": true,
+    "exclusions_certified": true,
+    "tanks": []
+  },
+  "limits": {
+    "max_assignment_edges": 2097152,
+    "max_cells": 65536,
+    "max_depth": 60,
+    "max_glb_bytes": 268435456,
+    "max_screened_cells": 1048576,
+    "max_seconds": 300.0,
+    "max_triangles": 2097152,
+    "max_vertices": 2097152,
+    "min_extent_m": 1e-07
+  },
+  "method": {
+    "origin_design_m": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "version": 1
+  },
+  "no_liquid_reason": "No positive liquid capacity in the authored native tank contract",
+  "schema": "fsim.liquid-occupancy.v1",
+  "sources": [
+    {
+      "path": "iris.toml",
+      "role": "design",
+      "sha256": "5e5d8b02dba5354fe58799b76a01641b2cd1a7c3e047074d822d4984a0525f6d"
+    },
+    {
+      "path": "liquid.py",
+      "role": "producer",
+      "sha256": "3e4fde71494e63e60c7ea62fa21637a55f5743916a054509b682fe80859be9e0"
+    },
+    {
+      "path": "body.py",
+      "role": "geometry_body",
+      "sha256": "eeff95fd7ded4f8eca1aa3debec7c23cb42e7f2ec90d8255fac90611b0a3ba1d"
+    },
+    {
+      "path": "aircraft.py",
+      "role": "geometry_aircraft_engine",
+      "sha256": "0db1f872e8bd6589234f4d8682851a32679391690fedcd438c2a6bd5917856f7"
+    },
+    {
+      "path": "jsbsim.py",
+      "role": "native_engine_order",
+      "sha256": "b8734ecc6d996128335b4bfd2db564fdeb49749a351a397e9bd057aff6492dac"
+    },
+    {
+      "path": "__init__.py",
+      "role": "normal_model_stage",
+      "sha256": "ebcadf94c3ee14145d7e3e7c10d56a9ec46b94c58583d6c0a47bb26a5c9935af"
+    },
+    {
+      "path": "canonical-design-spec",
+      "role": "effective_design_spec",
+      "sha256": "1805d81f4a672688cc92ddb9c02afd4ad84c0fcf5bdbf36b07accac14ce799e4"
+    }
+  ],
+  "tanks": [],
+  "uncertainty": {
+    "distribution": "liquid-inapplicable"
+  }
+}

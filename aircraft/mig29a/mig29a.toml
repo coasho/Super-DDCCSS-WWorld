@@ -242,7 +242,16 @@ max_takeoff = 18000           # kg, its maximum take-off weight: the article's M
 empty = 11000                 # MiG-29A (Jane's)
 empty_cg = [9.262, 0.0, -0.350]
 # no published inertia: radii of gyration of the class (F-16 and F-15)
-gyration = [0.255, 0.405, 0.520]
+# Retired unsupported class/other-aircraft prior: incompatible-with-component-masses-and-physical-mounted-support.
+# Use the same geometry/component masses for whole and departing sections.
+# Retractable gear uses the declared clean Leg transform; fixed gear is unchanged.
+# This is an uncalibrated engineering distribution, with a declared 25%
+# moment screening half-width; this is not measured equipment accuracy.
+inertia_reference = "geometry-clean-v1"
+retired_gyration = [0.255, 0.405, 0.520]
+retired_inertia_tensor_kgm2 = [23076.488159999997, 134376.80874749998, 152271.50796, -0.0016589315975928521, 3656.8563784313537, 0.07164917064674331]
+inertia_reference_reason = "incompatible-with-component-masses-and-physical-mounted-support"
+inertia_uncertainty_fraction = 0.25
 [[mass.payload]]
 name = "pilot"
 kind = "crew"

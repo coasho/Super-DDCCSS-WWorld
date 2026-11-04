@@ -2,14 +2,12 @@
   "_comment": [
     "Defaults for flightsim-viewer. Read from <exe>/../config/viewer.json, which",
     "is this file in both the build tree and an installed package. Command-line",
-    "flags override anything set here; anything omitted here keeps the built-in",
-    "default. Run the viewer with --help to see the flags."
+    "Source and camera flags override settings here. Presentation is always",
+    "fullscreen at native display resolution, real time 1x, with all effects."
   ],
 
   "window": {
-    "width": 1600,
-    "height": 900,
-    "fullscreen": false,
+    "fullscreen": true,
     "msaa": 4,
     "fovDeg": 30,
     "maxFps": 0
@@ -17,8 +15,8 @@
 
   "map": {
     "_comment": [
-      "imagery: satellite | osm | bing | none | a {z}/{x}/{y} URL template.",
-      "elevation: terrarium | none | a {z}/{x}/{y} URL template.",
+      "imagery: satellite | osm | bing | a {z}/{x}/{y} URL template.",
+      "elevation: terrarium | a {z}/{x}/{y} URL template.",
       "tileCache: where the map tiles are. Empty means the local map set,",
       "maps/ beside the program (in the build tree a junction to the source",
       "tree's assets/maps, which fetch-maps.cmd fills; in a package its own",
@@ -40,5 +38,5 @@
     "zoomToCursor": true
   },
 
-  "gui": true
+  "clouds": "scattered"
 }

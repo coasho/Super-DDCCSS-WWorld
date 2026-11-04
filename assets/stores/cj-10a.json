@@ -40,7 +40,7 @@
         "basis": "simulated",
         "tool": "Hangar shared aircraft VLM",
         "version": "0.1.0",
-        "design_sha256": "90ab47929767c81d1df38e3d2dd008374bc121ce4d5598f9891b59fa205e226c",
+        "design_sha256": "ee8242714fb3768577e0ba16383c91919e03792a99b29dbe5e3f898b2d34a0d3",
         "card_inputs": {
           "length_m": 6.4,
           "diameter_m": 0.75,
@@ -411,6 +411,118 @@
       "source": "project-virtual-cruise-v1",
       "uncertainty": 3000.0,
       "note": "Explicit virtual configuration v1; 50% engineering uncertainty allowance, not a confidence interval or measured value."
+    },
+    "own_navigation_version": {
+      "value": 2,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_gnss_fitted": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_imu_period_s": {
+      "value": 0.01,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_gnss_period_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_maximum_integration_step_s": {
+      "value": 0.005,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_accelerometer_noise_density": {
+      "value": 0.03,
+      "unit": "m/s^2 sqrt(s)",
+      "uncertainty": 0.015,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_gyro_noise_density": {
+      "value": 0.0001,
+      "unit": "rad/s sqrt(s)",
+      "uncertainty": 5e-05,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_accelerometer_bias_sigma": {
+      "value": 0.01,
+      "unit": "m/s^2",
+      "uncertainty": 0.005,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_gyro_bias_sigma": {
+      "value": 0.0001,
+      "unit": "rad/s",
+      "uncertainty": 5e-05,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_accelerometer_bias_walk_density": {
+      "value": 0.0001,
+      "unit": "m/s^2/sqrt(s)",
+      "uncertainty": 5e-05,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_gyro_bias_walk_density": {
+      "value": 1e-06,
+      "unit": "rad/s/sqrt(s)",
+      "uncertainty": 5e-07,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_initial_position_sigma_m": {
+      "value": 5.0,
+      "unit": "m",
+      "uncertainty": 2.5,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_initial_velocity_sigma_ms": {
+      "value": 0.5,
+      "unit": "m/s",
+      "uncertainty": 0.25,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_initial_attitude_sigma_rad": {
+      "value": 0.001,
+      "unit": "rad",
+      "uncertainty": 0.0005,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_gnss_position_sigma_m": {
+      "value": 3.0,
+      "unit": "m",
+      "uncertainty": 1.5,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_gnss_velocity_sigma_ms": {
+      "value": 0.1,
+      "unit": "m/s",
+      "uncertainty": 0.05,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
     }
   },
   "component_models": {
@@ -422,7 +534,7 @@
       },
       "guidance": {
         "availability": "available",
-        "implementation_id": "fsim.guidance.inertial_waypoint.v1",
+        "implementation_id": "equipment.cj-10a.guidance",
         "configuration_version": 1,
         "parameter_refs": {
           "response_min_s": "component_inertial_response_min_s",
@@ -440,7 +552,7 @@
       },
       "autopilot": {
         "availability": "available",
-        "implementation_id": "fsim.control.load_feedback_cascade",
+        "implementation_id": "equipment.cj-10a.autopilot",
         "configuration_version": 1,
         "parameter_refs": {
           "max_incidence_deg": "component_control_max_incidence_deg",
@@ -459,7 +571,7 @@
       },
       "allocator": {
         "availability": "available",
-        "implementation_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+        "implementation_id": "equipment.cj-10a.allocator",
         "configuration_version": 1,
         "parameter_refs": {},
         "bindings": {
@@ -472,7 +584,7 @@
       },
       "actuator": {
         "availability": "available",
-        "implementation_id": "fsim.actuator.jsbsim_lag_rate_stops",
+        "implementation_id": "equipment.cj-10a.actuator",
         "configuration_version": 1,
         "parameter_refs": {
           "lag_s": "plant_actuator_lag_s",
@@ -492,7 +604,7 @@
         "source": "project-virtual-cruise-v1",
         "note": "Explicit native contact/fragment-blast engineering configuration. Authored STRUCTURE-support contact initiates the same one-shot channel; this is an estimated configuration, not a nose-only or case-only hardware claim.",
         "validity": "Engineering virtual configuration only; no fitted fuze timing or measured fragment-pattern accuracy.",
-        "implementation_id": "native.fuze.swept_path.v1",
+        "implementation_id": "equipment.cj-10a.fuze",
         "parameter_refs": {
           "model_version": "component_contact_fuze_model_version",
           "algorithm": "component_contact_fuze_algorithm",
@@ -517,7 +629,7 @@
         "source": "project-virtual-cruise-v1",
         "note": "Explicit native contact/fragment-blast engineering configuration.",
         "validity": "Engineering virtual configuration only; no fitted fuze timing or measured fragment-pattern accuracy.",
-        "implementation_id": "native.warhead.zoned_case.v1",
+        "implementation_id": "equipment.cj-10a.warhead",
         "parameter_refs": {
           "warhead_kg": "warhead_kg",
           "explosive_kg": "explosive_kg",
@@ -533,7 +645,7 @@
       },
       "propulsion": {
         "availability": "available",
-        "implementation_id": "fsim.propulsion.jsbsim_turbofan.v1",
+        "implementation_id": "equipment.cj-10a.propulsion",
         "configuration_version": 1,
         "parameter_refs": {
           "thrust_dry_kn": "plant_turbofan_thrust_dry_kn",
@@ -558,7 +670,7 @@
       },
       "aerodynamics": {
         "availability": "available",
-        "implementation_id": "fsim.aerodynamics.jsbsim_generated_store",
+        "implementation_id": "equipment.cj-10a.aerodynamics",
         "configuration_version": 1,
         "parameter_refs": {},
         "bindings": {

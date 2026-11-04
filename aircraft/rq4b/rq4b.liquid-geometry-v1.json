@@ -1,0 +1,11 @@
+{
+  "schema": "fsim.inferred-liquid-vessels.v1",
+  "design": "rq4b",
+  "basis": "theoretical_inference",
+  "geometry": "original_source_wing_root_strip_v1",
+  "attachment": "sealed_whole_native_tank_wing_module_v1",
+  "tanks": [
+    {"index": 0, "section": "left wing", "surface": "wing"},
+    {"index": 1, "section": "right wing", "surface": "wing"}
+  ]
+}

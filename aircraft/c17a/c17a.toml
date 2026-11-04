@@ -350,7 +350,16 @@ empty_cg = [20.50, 0.0, 4.30] # estimate: placed from the neutral point the aero
 # radii of gyration (estimate): the Boeing 747's (Heffley and Jewell, NASA
 # CR-2144: Ixx 18.2, Iyy 33.1, Izz 49.7 million slug ft2 at 636,600 lb),
 # reduced for the fuel the empty aircraft does not carry
-gyration = [0.27, 0.36, 0.45]
+# Retired unsupported class/other-aircraft prior: nonphysical-inertia-triangle.
+# Use the same geometry/component masses for whole and departing sections.
+# Retractable gear uses the declared clean Leg transform; fixed gear is unchanged.
+# This is an uncalibrated engineering distribution, with a declared 25%
+# moment screening half-width; this is not measured equipment accuracy.
+inertia_reference = "geometry-clean-v1"
+retired_gyration = [0.27, 0.36, 0.45]
+retired_inertia_tensor_kgm2 = [6240189.134025002, 11676190.466304, 17786042.01005625, 18.886111363253026, 1986285.943010551, 45.47481859127238]
+inertia_reference_reason = "nonphysical-inertia-triangle"
+inertia_uncertainty_fraction = 0.25
 [mass.component]              # kg, estimates: jet-transport weight fractions of the take-off weight (Roskam)
 wing = 27000
 htail = 3000

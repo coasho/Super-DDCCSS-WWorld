@@ -14,7 +14,7 @@
     "launcher_updates": false,
     "basis": "assumed",
     "source": "/guidance",
-    "note": "Explicit execution declaration transcribed from this card's authored guidance field. False means this profile does not enable the capability; it is not evidence of equipment absence. No seeker, control or fitted-link performance is calibrated; launcher updates still use the explicitly idealized native path."
+    "note": "Explicit engineering receive-fit declaration from this card's authored guidance. Enabled launcher updates execute through the native release-bound finite transport and accepted platform fusion; false does not assert hardware absence. A return transmitter is enabled only by a separately sourced exact variant/launcher profile. Numeric transport, navigation and feedback policies remain disclosed engineering assumptions, not calibrated equipment performance."
   },
   "guidance": "infrared homing",
   "motor": "dual-mode solid rocket (260 mm)",
@@ -74,7 +74,7 @@
       "uncertainty": 0.5,
       "basis": "published",
       "source": "ru-r27",
-      "note": "Скорость ракеты 4,5 М"
+      "note": "小泻芯褉芯褋褌褜 褉邪泻械褌褘 4,5 袦"
     },
     "power_up_s": {
       "value": 1.0,
@@ -256,205 +256,205 @@
     "component_seeker_acquire_m": {
       "value": 13000,
       "unit": "m",
-      "uncertainty": 0,
+      "uncertainty": 6500.0,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_gimbal_deg": {
       "value": 45,
       "unit": "deg",
-      "uncertainty": 0,
+      "uncertainty": 22.5,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_launch_fov_deg": {
       "value": 25,
       "unit": "deg",
-      "uncertainty": 0,
+      "uncertainty": 12.5,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_minimum_range_m": {
       "value": 1,
       "unit": "m",
-      "uncertainty": 0,
+      "uncertainty": 0.5,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_aspect_speed_floor_m_s": {
       "value": 1,
       "unit": "m/s",
-      "uncertainty": 0,
+      "uncertainty": 0.5,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_afterburner_threshold": {
       "value": 0.5,
       "unit": "1",
-      "uncertainty": 0,
+      "uncertainty": 0.25,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_ir_aspect_min": {
       "value": 0.45,
       "unit": "1",
-      "uncertainty": 0,
+      "uncertainty": 0.225,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_ir_aspect_span": {
       "value": 0.55,
       "unit": "1",
-      "uncertainty": 0,
+      "uncertainty": 0.275,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_ir_afterburner_multiplier": {
       "value": 1.35,
       "unit": "1",
-      "uncertainty": 0,
+      "uncertainty": 0.675,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_radar_rcs_floor_m2": {
       "value": 0.001,
       "unit": "m^2",
-      "uncertainty": 0,
+      "uncertainty": 0.0005,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_radar_rcs_reference_m2": {
       "value": 5,
       "unit": "m^2",
-      "uncertainty": 0,
+      "uncertainty": 2.5,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_radar_rcs_exponent": {
       "value": 0.25,
       "unit": "1",
-      "uncertainty": 0,
+      "uncertainty": 0.125,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_radar_range_scale_min": {
       "value": 0.4,
       "unit": "1",
-      "uncertainty": 0,
+      "uncertainty": 0.2,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_radar_range_scale_max": {
       "value": 1,
       "unit": "1",
-      "uncertainty": 0,
+      "uncertainty": 0.5,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_radar_lookdown_cosine": {
       "value": -0.03,
       "unit": "1",
-      "uncertainty": 0,
+      "uncertainty": 0.015,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_radar_notch_m_s": {
       "value": 28,
       "unit": "m/s",
-      "uncertainty": 0,
+      "uncertainty": 14.0,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_illumination_beam_multiplier": {
       "value": 3,
       "unit": "1",
-      "uncertainty": 0,
+      "uncertainty": 1.5,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_aircraft_signal": {
       "value": 1,
       "unit": "1",
-      "uncertainty": 0,
+      "uncertainty": 0.5,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_ir_decoy_peak": {
       "value": 6,
       "unit": "1",
-      "uncertainty": 0,
+      "uncertainty": 3.0,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_ir_decoy_decay_s": {
       "value": 2,
       "unit": "s",
-      "uncertainty": 0,
+      "uncertainty": 1.0,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_radar_decoy_peak": {
       "value": 3,
       "unit": "1",
-      "uncertainty": 0,
+      "uncertainty": 1.5,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_radar_decoy_rise_s": {
       "value": 0.3,
       "unit": "s",
-      "uncertainty": 0,
+      "uncertainty": 0.15,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_radar_decoy_decay_s": {
       "value": 6,
       "unit": "s",
-      "uncertainty": 0,
+      "uncertainty": 3.0,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_decoy_resistance": {
       "value": 1.6,
       "unit": "1",
-      "uncertainty": 0,
+      "uncertainty": 0.8,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_association_cosine": {
       "value": 0.999390827019096,
       "unit": "1",
-      "uncertainty": 0,
+      "uncertainty": 0.499695413509548,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_emitter_power_w": {
       "value": 20,
       "unit": "W",
-      "uncertainty": 0,
+      "uncertainty": 10.0,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_emitter_peak_gain_dbi": {
       "value": 25,
       "unit": "dBi",
-      "uncertainty": 0,
+      "uncertainty": 12.5,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_emitter_sidelobe_dbi": {
       "value": -15,
       "unit": "dBi",
-      "uncertainty": 0,
+      "uncertainty": 7.5,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_seeker_emitter_half_width_rad": {
       "value": 0.35,
       "unit": "rad",
-      "uncertainty": 0,
+      "uncertainty": 0.175,
       "basis": "assumed",
-      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
     },
     "component_guidance_navigation_gain": {
       "value": 3.5,
@@ -589,9 +589,576 @@
       "basis": "derived",
       "uncertainty": 0,
       "note": "Versioned shared-table runtime binding; zero uncertainty is not an accuracy claim."
+    },
+    "sensor_v3_sample_period_s": {
+      "value": 0.02,
+      "unit": "s",
+      "uncertainty": 0.01,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_processing_delay_s": {
+      "value": 0.01,
+      "unit": "s",
+      "uncertainty": 0.005,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_gimbal_rate_rad_s": {
+      "value": 6,
+      "unit": "rad/s",
+      "uncertainty": 3.0,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_gimbal_lag_s": {
+      "value": 0.02,
+      "unit": "s",
+      "uncertainty": 0.01,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_track_lag_s": {
+      "value": 0.03,
+      "unit": "s",
+      "uncertainty": 0.015,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_field_half_angle_rad": {
+      "value": 0.12,
+      "unit": "rad",
+      "uncertainty": 0.06,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_angle_noise_rad": {
+      "value": 0.0004,
+      "unit": "rad",
+      "uncertainty": 0.0002,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_angle_resolution_rad": {
+      "value": 0.002,
+      "unit": "rad",
+      "uncertainty": 0.001,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_range_noise_m": {
+      "value": 2,
+      "unit": "m",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_range_rate_noise_m_s": {
+      "value": 0.5,
+      "unit": "m/s",
+      "uncertainty": 0.25,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_frequency_hz": {
+      "value": 10000000000.0,
+      "unit": "Hz",
+      "uncertainty": 5000000000.0,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_noise_figure_db": {
+      "value": 6,
+      "unit": "dB",
+      "uncertainty": 3.0,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_system_loss_db": {
+      "value": 6,
+      "unit": "dB",
+      "uncertainty": 3.0,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_bandwidth_hz": {
+      "value": 1000000.0,
+      "unit": "Hz",
+      "uncertainty": 500000.0,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_detection_snr": {
+      "value": 10,
+      "unit": "1",
+      "uncertainty": 5.0,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_ir_intensity_w_sr": {
+      "value": 5951.443475231609,
+      "unit": "W/sr",
+      "uncertainty": 2975.7217376158046,
+      "basis": "assumed",
+      "note": "Explicit engineering input with 50 percent screening uncertainty; no exact-variant measurement. Method: docs/sdk/weapon-sensing-engineering.md. IR equivalent broadband intensity normalizes inherited nominal reach at a declared reference band fraction 0.325."
+    },
+    "sensor_v3_ir_extinction_m_1": {
+      "value": 1e-05,
+      "unit": "1/m",
+      "uncertainty": 5e-06,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_ir_noise_w_m2": {
+      "value": 1e-06,
+      "unit": "W/m^2",
+      "uncertainty": 5e-07,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_background_w_m2": {
+      "value": 1e-07,
+      "unit": "W/m^2",
+      "uncertainty": 5e-08,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_track_memory_s": {
+      "value": 0.12,
+      "unit": "s",
+      "uncertainty": 0.06,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_temperature_k": {
+      "value": 290,
+      "unit": "K",
+      "uncertainty": 145.0,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_ir_band_low_um": {
+      "value": 3,
+      "unit": "um",
+      "uncertainty": 1.5,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_ir_band_high_um": {
+      "value": 5,
+      "unit": "um",
+      "uncertainty": 2.5,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_ir_source_temperature_k": {
+      "value": 900,
+      "unit": "K",
+      "uncertainty": 450.0,
+      "basis": "assumed",
+      "note": "Shared engineering assumption with 50 percent screening uncertainty, not fitted equipment. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_search_rate_rad_s": {
+      "value": 2,
+      "unit": "rad/s",
+      "uncertainty": 1,
+      "basis": "assumed",
+      "note": "Shared finite search angular frequency,50 percent screening uncertainty; not hardware calibration. Method: docs/sdk/weapon-sensing-engineering.md."
+    },
+    "sensor_v3_lookdown_clutter_db": {
+      "value": 10,
+      "unit": "dB",
+      "uncertainty": 5,
+      "basis": "assumed",
+      "note": "Reduced-order lookdown clutter screening penalty from scene elevation,50 percent screening uncertainty; no fitted terrain or hardware claim."
+    },
+    "own_navigation_version": {
+      "value": 2,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_gnss_fitted": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_imu_period_s": {
+      "value": 0.01,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_gnss_period_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_maximum_integration_step_s": {
+      "value": 0.005,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_accelerometer_noise_density": {
+      "value": 0.03,
+      "unit": "m/s^2 sqrt(s)",
+      "uncertainty": 0.015,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_gyro_noise_density": {
+      "value": 0.0001,
+      "unit": "rad/s sqrt(s)",
+      "uncertainty": 5e-05,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_accelerometer_bias_sigma": {
+      "value": 0.01,
+      "unit": "m/s^2",
+      "uncertainty": 0.005,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_gyro_bias_sigma": {
+      "value": 0.0001,
+      "unit": "rad/s",
+      "uncertainty": 5e-05,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_accelerometer_bias_walk_density": {
+      "value": 0.0001,
+      "unit": "m/s^2/sqrt(s)",
+      "uncertainty": 5e-05,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_gyro_bias_walk_density": {
+      "value": 1e-06,
+      "unit": "rad/s/sqrt(s)",
+      "uncertainty": 5e-07,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_initial_position_sigma_m": {
+      "value": 5.0,
+      "unit": "m",
+      "uncertainty": 2.5,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_initial_velocity_sigma_ms": {
+      "value": 0.5,
+      "unit": "m/s",
+      "uncertainty": 0.25,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_initial_attitude_sigma_rad": {
+      "value": 0.001,
+      "unit": "rad",
+      "uncertainty": 0.0005,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_gnss_position_sigma_m": {
+      "value": 3.0,
+      "unit": "m",
+      "uncertainty": 1.5,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "own_nav_gnss_velocity_sigma_ms": {
+      "value": 0.1,
+      "unit": "m/s",
+      "uncertainty": 0.05,
+      "basis": "assumed",
+      "note": "Body-IMU strapdown engineering policy; not measured variant IMU performance. See docs/sdk/weapon-navigation-strapdown-v2.md. Noise densities use continuous covariance intensity convention."
+    },
+    "receiver_reticle_periods": {
+      "value": 12,
+      "unit": "1",
+      "uncertainty": 1,
+      "basis": "assumed",
+      "source": "native-conscan-engineering-v1",
+      "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+    },
+    "receiver_reticle_samples_per_scan": {
+      "value": 128,
+      "unit": "1",
+      "uncertainty": 64,
+      "basis": "assumed",
+      "source": "native-conscan-engineering-v1",
+      "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+    },
+    "receiver_reticle_spatial_samples": {
+      "value": 4,
+      "unit": "1",
+      "uncertainty": 2,
+      "basis": "assumed",
+      "source": "native-conscan-engineering-v1",
+      "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+    },
+    "receiver_reticle_scan_radius_rad": {
+      "value": 0.024,
+      "unit": "rad",
+      "uncertainty": 0.012,
+      "basis": "assumed",
+      "source": "native-conscan-engineering-v1",
+      "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+    },
+    "receiver_reticle_stop_radius_rad": {
+      "value": 0.048,
+      "unit": "rad",
+      "uncertainty": 0.024,
+      "basis": "assumed",
+      "source": "native-conscan-engineering-v1",
+      "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+    },
+    "receiver_reticle_frequency_hz": {
+      "value": 132.62911924324612,
+      "unit": "Hz",
+      "uncertainty": 66.31455962162306,
+      "basis": "assumed",
+      "source": "native-conscan-engineering-v1",
+      "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+    },
+    "receiver_image_width": {
+      "value": 64,
+      "unit": "1",
+      "uncertainty": 32.0,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "receiver_image_height": {
+      "value": 64,
+      "unit": "1",
+      "uncertainty": 32.0,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "receiver_adc_bits": {
+      "value": 14,
+      "unit": "1",
+      "uncertainty": 7.0,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "receiver_exposure_samples": {
+      "value": 4,
+      "unit": "1",
+      "uncertainty": 2.0,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "receiver_pixel_pitch_rad": {
+      "value": 0.0015,
+      "unit": "rad",
+      "uncertainty": 0.00075,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "receiver_psf_sigma_rad": {
+      "value": 0.00075,
+      "unit": "rad",
+      "uncertainty": 0.000375,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "receiver_aperture_area_m2": {
+      "value": 0.0033183072403542195,
+      "unit": "m^2",
+      "uncertainty": 0.0016591536201771098,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "receiver_optical_transmission": {
+      "value": 0.65,
+      "unit": "1",
+      "uncertainty": 0.325,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "receiver_quantum_efficiency": {
+      "value": 0.6,
+      "unit": "1",
+      "uncertainty": 0.3,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "receiver_effective_wavelength_m": {
+      "value": 4e-06,
+      "unit": "m",
+      "uncertainty": 2e-06,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "receiver_integration_s": {
+      "value": 1e-05,
+      "unit": "s",
+      "uncertainty": 5e-06,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "receiver_pixel_response_s": {
+      "value": 0.0001,
+      "unit": "s",
+      "uncertainty": 5e-05,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "receiver_read_noise_electrons": {
+      "value": 12,
+      "unit": "electron",
+      "uncertainty": 6.0,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "receiver_dark_current_electrons_s": {
+      "value": 100,
+      "unit": "electron/s",
+      "uncertainty": 50.0,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "receiver_full_well_electrons": {
+      "value": 1000000.0,
+      "unit": "electron",
+      "uncertainty": 500000.0,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "receiver_detection_sigma": {
+      "value": 5,
+      "unit": "1",
+      "uncertainty": 2.5,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "receiver_background_radius_pixels": {
+      "value": 5,
+      "unit": "1",
+      "uncertainty": 2.5,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "receiver_minimum_feature_pixels": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0.5,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "receiver_association_gate_rad": {
+      "value": 0.035,
+      "unit": "rad",
+      "uncertainty": 0.0175,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "scene_sky_temperature_k": {
+      "value": 230,
+      "unit": "K",
+      "uncertainty": 115.0,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "scene_ground_temperature_k": {
+      "value": 288.15,
+      "unit": "K",
+      "uncertainty": 144.075,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "scene_body_emissivity": {
+      "value": 0.85,
+      "unit": "1",
+      "uncertainty": 0.425,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "scene_skin_recovery_factor": {
+      "value": 0.9,
+      "unit": "1",
+      "uncertainty": 0.45,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "scene_engine_heat_fraction": {
+      "value": 0.05,
+      "unit": "1",
+      "uncertainty": 0.025,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "scene_exhaust_emissivity": {
+      "value": 0.3,
+      "unit": "1",
+      "uncertainty": 0.15,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "scene_exhaust_area_scale": {
+      "value": 0.2,
+      "unit": "1",
+      "uncertainty": 0.1,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "scene_flare_temperature_k": {
+      "value": 2400,
+      "unit": "K",
+      "uncertainty": 1200.0,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "scene_flare_emissivity": {
+      "value": 0.8,
+      "unit": "1",
+      "uncertainty": 0.4,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "scene_flare_initial_radius_m": {
+      "value": 0.08,
+      "unit": "m",
+      "uncertainty": 0.04,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "scene_flare_expansion_m_s": {
+      "value": 0.04,
+      "unit": "m/s",
+      "uncertainty": 0.02,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
+    },
+    "scene_flare_cooling_s": {
+      "value": 2,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "Explicit physical receiver/scene engineering policy. Software grid/waveform settings are selected model inputs; 50 percent screening intervals on physical assumptions are not measured equipment confidence bounds. See docs/sdk/weapon-thermal-image.md and weapon-radio-receiver.md. No scene outcome was used to fit this value."
     }
   },
   "sources": {
+    "native-conscan-engineering-v1": {
+      "title": "Declared scalar conical-scan optical/electronic design",
+      "publisher": "Project engineering derivation",
+      "url": "docs/research/sim-m03/thermal-reticle-method.md",
+      "accessed": "2026-11-03",
+      "evidence_kind": "engineering_derivation",
+      "note": "R=min(width,height)*pitch/2; r=R/2; n=max(1,floor(pi*r/(8*psfSigma))); f=1/(2*pi*n*responseTime).128 phase samples and4x4 spatial quadrature are explicit numerical design. Method references: NAWCWD TP8347(2013),7-1.33-37 and Howser,JHUAPL16(1),1995,27-33. Independent SA-14-only reference: DOI10.1016/j.infrared.2010.07.001,100Hz*12=1200Hz. No OEM AAM constants, fitted scene outcome or empirical calibration are claimed."
+    },
     "foi-identity": {
       "evidence_kind": "research_publication",
       "title": "Beyond Bursting Bubbles (FOI-R--4991--SE)",
@@ -610,7 +1177,7 @@
     },
     "ru-r27": {
       "evidence_kind": "secondary_reference",
-      "title": "Р-27 (авиационная ракета)",
+      "title": "袪-27 (邪胁懈邪褑懈芯薪薪邪褟 褉邪泻械褌邪)",
       "publisher": "Wikipedia, ru (revision 154454224)",
       "url": "https://ru.wikipedia.org/w/index.php?title=%D0%A0-27_%28%D0%B0%D0%B2%D0%B8%D0%B0%D1%86%D0%B8%D0%BE%D0%BD%D0%BD%D0%B0%D1%8F_%D1%80%D0%B0%D0%BA%D0%B5%D1%82%D0%B0%29&oldid=154454224",
       "date": "2026-08-15"
@@ -631,7 +1198,7 @@
         "basis": "simulated",
         "tool": "Hangar shared aircraft VLM",
         "version": "0.1.0",
-        "design_sha256": "0be9b53e7b4b2ac53a603548cae9ffa4cf006d9e5d0357e6caf863bd59a02ca0",
+        "design_sha256": "959611c43fb8b88ce665c60c7fe93dded4661be342990174dd111c00e5b09f62",
         "card_inputs": {
           "length_m": 4.49,
           "diameter_m": 0.26,
@@ -738,6 +1305,14 @@
           "generic_validation_ref": "generic_validation and docs/data/hangar-generic-validation.json"
         }
       }
+    },
+    "jhuapl-homing-2010": {
+      "evidence_kind": "research_publication",
+      "title": "Basic Principles of Homing Guidance",
+      "publisher": "Johns Hopkins APL Technical Digest 29(1), pp.25-41",
+      "url": "https://www.jhuapl.edu/sites/default/files/2024-09/29-01-Palumbo_Principles_Rev2018.pdf",
+      "accessed": "2026-11-02",
+      "note": "Homing-loop methods only; no exact equipment constants taken from this source."
     }
   },
   "component_models": {
@@ -745,7 +1320,7 @@
     "components": {
       "seeker": {
         "availability": "available",
-        "implementation_id": "fsim.seeker.nonimaging_ir.v2",
+        "implementation_id": "equipment.r-27et.seeker",
         "configuration_version": 1,
         "parameter_refs": {
           "acquire_m": "component_seeker_acquire_m",
@@ -776,22 +1351,89 @@
           "emitter_power_w": "component_seeker_emitter_power_w",
           "emitter_peak_gain_dbi": "component_seeker_emitter_peak_gain_dbi",
           "emitter_sidelobe_dbi": "component_seeker_emitter_sidelobe_dbi",
-          "emitter_half_width_rad": "component_seeker_emitter_half_width_rad"
+          "emitter_half_width_rad": "component_seeker_emitter_half_width_rad",
+          "sample_period_s": "sensor_v3_sample_period_s",
+          "processing_delay_s": "sensor_v3_processing_delay_s",
+          "gimbal_rate_rad_s": "sensor_v3_gimbal_rate_rad_s",
+          "gimbal_lag_s": "sensor_v3_gimbal_lag_s",
+          "track_lag_s": "sensor_v3_track_lag_s",
+          "field_half_angle_rad": "sensor_v3_field_half_angle_rad",
+          "angle_noise_rad": "sensor_v3_angle_noise_rad",
+          "angle_resolution_rad": "sensor_v3_angle_resolution_rad",
+          "range_noise_m": "sensor_v3_range_noise_m",
+          "range_rate_noise_m_s": "sensor_v3_range_rate_noise_m_s",
+          "frequency_hz": "sensor_v3_frequency_hz",
+          "noise_figure_db": "sensor_v3_noise_figure_db",
+          "system_loss_db": "sensor_v3_system_loss_db",
+          "bandwidth_hz": "sensor_v3_bandwidth_hz",
+          "detection_snr": "sensor_v3_detection_snr",
+          "ir_intensity_w_sr": "sensor_v3_ir_intensity_w_sr",
+          "ir_extinction_m_1": "sensor_v3_ir_extinction_m_1",
+          "ir_noise_w_m2": "sensor_v3_ir_noise_w_m2",
+          "background_w_m2": "sensor_v3_background_w_m2",
+          "track_memory_s": "sensor_v3_track_memory_s",
+          "temperature_k": "sensor_v3_temperature_k",
+          "ir_band_low_um": "sensor_v3_ir_band_low_um",
+          "ir_band_high_um": "sensor_v3_ir_band_high_um",
+          "ir_source_temperature_k": "sensor_v3_ir_source_temperature_k",
+          "search_rate_rad_s": "sensor_v3_search_rate_rad_s",
+          "lookdown_clutter_db": "sensor_v3_lookdown_clutter_db",
+          "receiver_reticle_periods": "receiver_reticle_periods",
+          "receiver_reticle_samples_per_scan": "receiver_reticle_samples_per_scan",
+          "receiver_reticle_spatial_samples": "receiver_reticle_spatial_samples",
+          "receiver_reticle_scan_radius_rad": "receiver_reticle_scan_radius_rad",
+          "receiver_reticle_stop_radius_rad": "receiver_reticle_stop_radius_rad",
+          "receiver_reticle_frequency_hz": "receiver_reticle_frequency_hz",
+          "receiver_image_width": "receiver_image_width",
+          "receiver_image_height": "receiver_image_height",
+          "receiver_adc_bits": "receiver_adc_bits",
+          "receiver_exposure_samples": "receiver_exposure_samples",
+          "receiver_pixel_pitch_rad": "receiver_pixel_pitch_rad",
+          "receiver_psf_sigma_rad": "receiver_psf_sigma_rad",
+          "receiver_aperture_area_m2": "receiver_aperture_area_m2",
+          "receiver_optical_transmission": "receiver_optical_transmission",
+          "receiver_quantum_efficiency": "receiver_quantum_efficiency",
+          "receiver_effective_wavelength_m": "receiver_effective_wavelength_m",
+          "receiver_integration_s": "receiver_integration_s",
+          "receiver_pixel_response_s": "receiver_pixel_response_s",
+          "receiver_read_noise_electrons": "receiver_read_noise_electrons",
+          "receiver_dark_current_electrons_s": "receiver_dark_current_electrons_s",
+          "receiver_full_well_electrons": "receiver_full_well_electrons",
+          "receiver_detection_sigma": "receiver_detection_sigma",
+          "receiver_background_radius_pixels": "receiver_background_radius_pixels",
+          "receiver_minimum_feature_pixels": "receiver_minimum_feature_pixels",
+          "receiver_association_gate_rad": "receiver_association_gate_rad",
+          "scene_sky_temperature_k": "scene_sky_temperature_k",
+          "scene_ground_temperature_k": "scene_ground_temperature_k",
+          "scene_body_emissivity": "scene_body_emissivity",
+          "scene_skin_recovery_factor": "scene_skin_recovery_factor",
+          "scene_engine_heat_fraction": "scene_engine_heat_fraction",
+          "scene_exhaust_emissivity": "scene_exhaust_emissivity",
+          "scene_exhaust_area_scale": "scene_exhaust_area_scale",
+          "scene_flare_temperature_k": "scene_flare_temperature_k",
+          "scene_flare_emissivity": "scene_flare_emissivity",
+          "scene_flare_initial_radius_m": "scene_flare_initial_radius_m",
+          "scene_flare_expansion_m_s": "scene_flare_expansion_m_s",
+          "scene_flare_cooling_s": "scene_flare_cooling_s"
         },
         "bindings": {
           "mode": "infrared",
           "variant": "R-27ET",
-          "measurement_model": "ideal_geometric",
-          "servo_model": "unavailable",
-          "image_model": "not_applicable"
+          "measurement_model": "radiometric_engineering_v1",
+          "servo_model": "stabilized_finite_v1",
+          "image_model": "not_applicable",
+          "receiver_model": "thermal_conscan_reticle.v1",
+          "reticle_pattern": "stationary_radial_spokes.v1",
+          "reticle_design": "blur_response_limited.v1",
+          "navigation_frame": "strapdown_body_ecef.v1"
         },
         "basis": "assumed",
-        "note": "Independent native measured-seeker lifecycle. Existing authored numeric inputs are retained. Terminal IR/SARH use bearing histories; IIR may associate geometric extents. Referee target identity/velocity is not a terminal tracking input.",
-        "validity": "Engineering sensor family, not a calibrated detector, reticle, AESA receiver, gimbal servo, radiometric image or countermeasure processor. Exact variant identifies this card and supplies no hardware calibration."
+        "note": "Explicit native focal-plane/quadrant or aperture/waveform receiver before association; epoch-aligned own strapdown pose reconstructs measured LOS. Scene signatures and detector constants are disclosed engineering assumptions, not hardware calibration.",
+        "validity": "Radiometric engineering receiver v1; nonzero uncertainty is an unvalidated screening interval, not fitted hardware calibration. Scene time quantization is bounded by the World decision step."
       },
       "guidance": {
         "availability": "available",
-        "implementation_id": "fsim.guidance.measured_pn.v2",
+        "implementation_id": "equipment.r-27et.guidance",
         "configuration_version": 1,
         "parameter_refs": {
           "navigation_gain": "component_guidance_navigation_gain",
@@ -808,12 +1450,12 @@
           "measurement_family": "bearing"
         },
         "basis": "assumed",
-        "note": "PN from admitted measurement history. Existing navigation gain, acceleration limit, lifetime and capability declarations are unchanged. Permitted launch/launcher estimates are kept separately for inertial midcourse; current launcher updates remain an idealized designation path.",
+        "note": "PN from admitted measurement history. Existing navigation gain, acceleration limit, lifetime and capability declarations are unchanged. Permitted launch estimates remain separate inertial-midcourse inputs. Where an authored receive fit is admitted, WorldWeaponLinks delivers accepted platform fusion through finite modeled transport before guidance can consume an update; unsupported fitted paths remain unavailable. Return telemetry requires its separately admitted equipment and launcher integration.",
         "validity": "Uncalibrated engineering guidance. No hidden target range or velocity in terminal bearing guidance; no claim of GPS, fitted weapon link, hardware covariance, full-envelope or equipment performance."
       },
       "autopilot": {
         "availability": "available",
-        "implementation_id": "fsim.control.load_feedback_cascade",
+        "implementation_id": "equipment.r-27et.autopilot",
         "configuration_version": 1,
         "parameter_refs": {
           "max_incidence_deg": "component_control_max_incidence_deg",
@@ -832,7 +1474,7 @@
       },
       "allocator": {
         "availability": "available",
-        "implementation_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+        "implementation_id": "equipment.r-27et.allocator",
         "configuration_version": 1,
         "parameter_refs": {},
         "bindings": {
@@ -845,7 +1487,7 @@
       },
       "actuator": {
         "availability": "available",
-        "implementation_id": "fsim.actuator.jsbsim_lag_rate_stops",
+        "implementation_id": "equipment.r-27et.actuator",
         "configuration_version": 1,
         "parameter_refs": {
           "lag_s": "plant_actuator_lag_s",
@@ -860,7 +1502,7 @@
       },
       "fuze": {
         "availability": "available",
-        "implementation_id": "native.fuze.swept_path.v1",
+        "implementation_id": "equipment.r-27et.fuze",
         "configuration_version": 1,
         "parameter_refs": {
           "model_version": "component_fuze_model_version",
@@ -870,6 +1512,7 @@
           "radius_m": "component_fuze_radius_m"
         },
         "bindings": {
+          "target_detection_v1": "native.time_armed_geometric_scene.v1",
           "sensor_reference": "captured_weapon_cg",
           "target_reference": "captured_target_cg",
           "contact_reference": "captured_authored_nose",
@@ -883,7 +1526,7 @@
       },
       "warhead": {
         "availability": "available",
-        "implementation_id": "native.warhead.zoned_case.v1",
+        "implementation_id": "equipment.r-27et.warhead",
         "configuration_version": 1,
         "parameter_refs": {
           "warhead_kg": "warhead_kg",
@@ -898,12 +1541,12 @@
           "assessment": "native.fragment_blast.v1"
         },
         "basis": "assumed",
-        "note": "Existing simulator implementation; no equipment calibration.",
+        "note": "Generic uncalibrated homogenized finite connected-ring execution; shared material vertices, conservative case mass, finite segment interception, continuity bounded by total equivalent rod length then local breakup. Rod dimensions, weld integrity and equipment lethality remain engineering assumptions; no new hardware constants or scene outcomes calibrate this configuration; retained generic Gurney/rod-speed approximations are not R27 measurements.",
         "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
       },
       "propulsion": {
         "availability": "available",
-        "implementation_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+        "implementation_id": "equipment.r-27et.propulsion",
         "configuration_version": 1,
         "parameter_refs": {
           "isp_s": "plant_motor_isp_s",
@@ -938,7 +1581,7 @@
       },
       "aerodynamics": {
         "availability": "available",
-        "implementation_id": "fsim.aerodynamics.jsbsim_generated_store",
+        "implementation_id": "equipment.r-27et.aerodynamics",
         "configuration_version": 1,
         "parameter_refs": {},
         "bindings": {
@@ -951,5 +1594,8 @@
         "validity": "Source geometry and model correlations; equipment accuracy requires independent validation."
       }
     }
+  },
+  "simulation_model": {
+    "calibration": "R-27ET is uncalibrated. R-27ET combines the 348 kg extended-motor airframe with scalar thermal reticle sensing, not ER SARH. It retains a distinct body length/CG and a connected-ring warhead even where charge and motor-phase inputs are shared. Retained card anchors: mass 348.0 kg (published; source wp-r27; uncertainty 5.0), length 4.49 m (derived; source ru-r27; uncertainty 0.05), diameter 0.26 m (published; source ru-r27; uncertainty 0.003), warhead 39.0 kg (published; source wp-r27; uncertainty 1.0), explosive 15.0 kg (published; source wt-datamine; uncertainty 2.25). Current receiver thermal_conscan_reticle.v1; control fsim.control.load_feedback_cascade; propulsion fsim.propulsion.jsbsim_generated_solid_rocket; fuze native.fuze.swept_path.v1; warhead native.warhead.connected_ring.v1. Exact ET thermal receiver/dome response, extended-motor impulse and connected-rod expansion remain inferred; ER radar performance and base T mass cannot serve as ET calibration. Source classes and uncertainty records remain unchanged; assumed, derived and game-reference values are not promoted to equipment measurements. Per-model theory, parameter deltas and numerical method routes are in docs/research/sim-m03/component-methods/per-model-effects-components.json and per-model-six-components.json; the separate docs/research/sim-m03/calibration-ledger.json identifies the remaining equipment comparisons. Arithmetic or native scenario verification does not establish held-out accuracy. No admitted same-model independent baseline-to-new held-out calibration receipt is claimed; engineering completion continues through its own gates."
   }
 }

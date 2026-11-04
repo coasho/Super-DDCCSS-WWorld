@@ -230,7 +230,16 @@ max_takeoff = 34000           # kg, its maximum take-off weight: the article's S
 empty = 18000                 # estimate
 empty_cg = [11.459, 0.0, -0.400]  # loaded, 5 % of the MAC ahead of the neutral point hangar finds
 # no published inertia: radii of gyration like the Su-27's
-gyration = [0.265, 0.430, 0.550]
+# Retired unsupported class/other-aircraft prior: nonphysical-inertia-triangle.
+# Use the same geometry/component masses for whole and departing sections.
+# Retractable gear uses the declared clean Leg transform; fixed gear is unchanged.
+# This is an uncalibrated engineering distribution, with a declared 25%
+# moment screening half-width; this is not measured equipment accuracy.
+inertia_reference = "geometry-clean-v1"
+retired_gyration = [0.265, 0.430, 0.550]
+retired_inertia_tensor_kgm2 = [62826.445125, 338501.986245, 399674.1962812502, -0.8462636537998544, 25827.382799667248, 0.6042503851060425]
+inertia_reference_reason = "nonphysical-inertia-triangle"
+inertia_uncertainty_fraction = 0.25
 [[mass.payload]]
 name = "pilot"
 kind = "crew"

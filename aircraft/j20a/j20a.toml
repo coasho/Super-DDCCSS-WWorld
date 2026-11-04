@@ -233,7 +233,16 @@ max_takeoff = 37000           # kg, its maximum take-off weight: the article's e
 empty = 19400                 # estimate
 empty_cg = [11.505, 0.0, -0.350]
 # no published inertia: radii of gyration of the class
-gyration = [0.260, 0.430, 0.540]
+# Retired unsupported class/other-aircraft prior: incompatible-with-component-masses-and-physical-mounted-support.
+# Use the same geometry/component masses for whole and departing sections.
+# Retractable gear uses the declared clean Leg transform; fixed gear is unchanged.
+# This is an uncalibrated engineering distribution, with a declared 25%
+# moment screening half-width; this is not measured equipment accuracy.
+inertia_reference = "geometry-clean-v1"
+retired_gyration = [0.260, 0.430, 0.540]
+retired_inertia_tensor_kgm2 = [55493.616386, 406089.62777600007, 415723.1766165, 0.8052629137160378, -946.4692005081745, 0.37089630866362405]
+inertia_reference_reason = "incompatible-with-component-masses-and-physical-mounted-support"
+inertia_uncertainty_fraction = 0.25
 [[mass.payload]]
 name = "pilot"
 kind = "crew"

@@ -83,6 +83,7 @@ thrust_kn = 12
 [mass]
 empty = 210                 # kg, the card, motor full
 empty_cg = [2, 0.0, 0.0]  # assumed: half way along
+gyration_reference = "body-length-v1"
 gyration = [0.0178, 0.289, 0.289]  # radii of gyration over length - assumed (a slender rod's: L/sqrt(12))
 
 [dimensions]                  # the card: the span tip to tip across opposite fins

@@ -242,7 +242,7 @@
       },
       "aerodynamics": {
         "availability": "available",
-        "implementation_id": "fsim.aerodynamics.jsbsim_generated_store",
+        "implementation_id": "equipment.tank-300gal.aerodynamics",
         "configuration_version": 1,
         "parameter_refs": {},
         "bindings": {

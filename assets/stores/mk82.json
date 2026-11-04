@@ -279,7 +279,7 @@
         "source": "project-contact-effects-v1",
         "note": "Explicit native contact/fragment-blast engineering configuration. Authored STRUCTURE-support contact initiates the same one-shot channel; this is an estimated configuration, not a nose-only or case-only hardware claim.",
         "validity": "Engineering virtual configuration only; no fitted fuze timing or measured fragment-pattern accuracy.",
-        "implementation_id": "native.fuze.swept_path.v1",
+        "implementation_id": "equipment.mk82.fuze",
         "parameter_refs": {
           "model_version": "component_contact_fuze_model_version",
           "algorithm": "component_contact_fuze_algorithm",
@@ -304,7 +304,7 @@
         "source": "project-contact-effects-v1",
         "note": "Explicit native contact/fragment-blast engineering configuration.",
         "validity": "Engineering virtual configuration only; no fitted fuze timing or measured fragment-pattern accuracy.",
-        "implementation_id": "native.warhead.zoned_case.v1",
+        "implementation_id": "equipment.mk82.warhead",
         "parameter_refs": {
           "warhead_kg": "warhead_kg",
           "explosive_kg": "explosive_kg",
@@ -324,7 +324,7 @@
       },
       "aerodynamics": {
         "availability": "available",
-        "implementation_id": "fsim.aerodynamics.jsbsim_generated_store",
+        "implementation_id": "equipment.mk82.aerodynamics",
         "configuration_version": 1,
         "parameter_refs": {},
         "bindings": {

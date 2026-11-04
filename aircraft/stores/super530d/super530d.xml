@@ -548,6 +548,7 @@
         <property value="0">fsim/model/nose-x-in</property>
         <property value="0">fsim/model/nose-y-in</property>
         <property value="0">fsim/model/nose-z-in</property>
+        <property value="1">fsim/rocket-feed-v1/engine[0]/version</property>
         <property value="1">fsim/components/autopilot/schema-version</property>
         <property value="1">fsim/components/autopilot/implementation-code</property>
         <property value="1688560120">fsim/components/autopilot/profile-fingerprint</property>
@@ -563,6 +564,9 @@
         <property value="1">fsim/components/aerodynamics/schema-version</property>
         <property value="1">fsim/components/aerodynamics/implementation-code</property>
         <property value="1130000831">fsim/components/aerodynamics/profile-fingerprint</property>
+        <property value="3">fsim/components/seeker/schema-version</property>
+        <property value="4">fsim/components/seeker/implementation-code</property>
+        <property value="867791648">fsim/components/seeker/profile-fingerprint</property>
         <property value="2">fsim/integration-v1/version</property>
         <property value="41">fsim/integration-v1/substeps</property>
         <property value="4">fsim/integration-v1/rotational-rate-method</property>

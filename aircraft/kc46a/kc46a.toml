@@ -303,7 +303,16 @@ max_takeoff = 188241           # kg, its maximum take-off weight: 415,000 lb (th
 empty = 82377                 # kg: 181,610 lb (USAF, Boeing)
 empty_cg = [23.30, 0.0, 4.10] # estimate: placed from the neutral point the aero stage finds
 # radii of gyration (estimate): a twin-engined jet transport's (Roskam)
-gyration = [0.25, 0.37, 0.45]
+# Retired unsupported class/other-aircraft prior: incompatible-with-component-masses-and-physical-mounted-support.
+# Use the same geometry/component masses for whole and departing sections.
+# Retractable gear uses the declared clean Leg transform; fixed gear is unchanged.
+# This is an uncalibrated engineering distribution, with a declared 25%
+# moment screening half-width; this is not measured equipment accuracy.
+inertia_reference = "geometry-clean-v1"
+retired_gyration = [0.25, 0.37, 0.45]
+retired_inertia_tensor_kgm2 = [2912676.8273015623, 7190054.54195625, 10027285.195479888, -1.7512643866567545, 337084.8882892575, 2.2592979990949464]
+inertia_reference_reason = "incompatible-with-component-masses-and-physical-mounted-support"
+inertia_uncertainty_fraction = 0.25
 [mass.component]              # kg, estimates: jet-transport weight fractions of the take-off weight (Roskam)
 wing = 18800
 htail = 1900

@@ -14,22 +14,22 @@
         <htailarm unit="FT"> 0 </htailarm>
         <vtailarea unit="FT2"> 0 </vtailarea>
         <vtailarm unit="FT"> 0 </vtailarm>
-        <location name="AERORP" unit="IN"> <x> 500.757 </x> <y> 0.000 </y> <z> 21.812 </z> </location>
-        <location name="EYEPOINT" unit="IN"> <x> 500.757 </x> <y> 0.000 </y> <z> 21.812 </z> </location>
-        <location name="VRP" unit="IN"> <x> 500.757 </x> <y> 0.000 </y> <z> 21.812 </z> </location>
+        <location name="AERORP" unit="IN"> <x> 500.391 </x> <y> -0.000 </y> <z> 22.443 </z> </location>
+        <location name="EYEPOINT" unit="IN"> <x> 500.391 </x> <y> -0.000 </y> <z> 22.443 </z> </location>
+        <location name="VRP" unit="IN"> <x> 500.391 </x> <y> -0.000 </y> <z> 22.443 </z> </location>
     </metrics>
     <mass_balance negated_crossproduct_inertia="false">
-        <ixx unit="SLUG*FT2"> 1509.789092642736 </ixx>
-        <iyy unit="SLUG*FT2"> 4827.120498039234 </iyy>
-        <izz unit="SLUG*FT2"> 4420.0456317717944 </izz>
-        <ixy unit="SLUG*FT2"> 0.015820708101997347 </ixy>
-        <ixz unit="SLUG*FT2"> 675.44078548822904 </ixz>
-        <iyz unit="SLUG*FT2"> -0.0017480222937871197 </iyz>
-        <emptywt unit="LBS"> 7200.849917294684 </emptywt>
-        <location name="CG" unit="IN"> <x> 500.7570866141732 </x> <y> 0 </y> <z> 21.812204724409451 </z> </location>
+        <ixx unit="SLUG*FT2"> 1094.8936158266645 </ixx>
+        <iyy unit="SLUG*FT2"> 3795.3879601215644 </iyy>
+        <izz unit="SLUG*FT2"> 3883.1714979896883 </izz>
+        <ixy unit="SLUG*FT2"> 0.031944755014666662 </ixy>
+        <ixz unit="SLUG*FT2"> 239.71924741031074 </ixz>
+        <iyz unit="SLUG*FT2"> 0.014297208940622618 </iyz>
+        <emptywt unit="LBS"> 5997.7205410385541 </emptywt>
+        <location name="CG" unit="IN"> <x> 500.3906025940413 </x> <y> -0.00046507593729804047 </y> <z> 22.443425056330121 </z> </location>
         <pointmass name="fuel">
             <weight unit="LBS"> 0 </weight>
-            <location unit="IN"> <x> 500.7570866141732 </x> <y> 0 </y> <z> 21.812204724409451 </z> </location>
+            <location unit="IN"> <x> 500.3906025940413 </x> <y> -0.00046507593729804047 </y> <z> 22.443425056330121 </z> </location>
         </pointmass>
 <!-- no store station -->
     </mass_balance>
@@ -38,15 +38,15 @@
             <location unit="IN"> <x> 624.409 </x> <y> -52.461 </y> <z> 154.724 </z> </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.5 </dynamic_friction>
-            <spring_coeff unit="LBS/FT"> 144017 </spring_coeff>
-            <damping_coeff unit="LBS/FT/SEC"> 14402 </damping_coeff>
+            <spring_coeff unit="LBS/FT"> 119954 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 11995 </damping_coeff>
         </contact>
         <contact type="STRUCTURE" name="end 2">
             <location unit="IN"> <x> 347.047 </x> <y> 52.461 </y> <z> -3.937 </z> </location>
             <static_friction> 0.8 </static_friction>
             <dynamic_friction> 0.5 </dynamic_friction>
-            <spring_coeff unit="LBS/FT"> 144017 </spring_coeff>
-            <damping_coeff unit="LBS/FT/SEC"> 14402 </damping_coeff>
+            <spring_coeff unit="LBS/FT"> 119954 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 11995 </damping_coeff>
         </contact>
     </ground_reactions>
     <propulsion/>
@@ -61,16 +61,16 @@
                     <table>
                       <independentVar>aero/alpha-deg</independentVar>
                       <tableData>
-                         -180.0000    0.00000
-                         -175.0000    0.18318
-                         -170.0000    0.36636
-                         -165.0000    0.54954
-                         -160.0000    0.58618
-                         -150.0000    0.60000
-                         -135.0000    0.84853
-                         -120.0000    1.03923
-                         -105.0000    1.15911
-                          -90.0000    1.20000
+                         -180.0000   -0.00000
+                         -175.0000   -0.18318
+                         -170.0000   -0.36636
+                         -165.0000   -0.54954
+                         -160.0000   -0.58618
+                         -150.0000   -0.60000
+                         -135.0000   -0.84853
+                         -120.0000   -1.03923
+                         -105.0000   -1.15911
+                          -90.0000   -1.20000
                           -75.0000   -1.15911
                           -60.0000   -1.03923
                           -45.0000   -0.84853
@@ -88,16 +88,16 @@
                            45.0000    0.84853
                            60.0000    1.03923
                            75.0000    1.15911
-                           90.0000   -1.20000
-                          105.0000   -1.15911
-                          120.0000   -1.03923
-                          135.0000   -0.84853
-                          150.0000   -0.60000
-                          160.0000   -0.58618
-                          165.0000   -0.54954
-                          170.0000   -0.36636
-                          175.0000   -0.18318
-                          180.0000   -0.00000
+                           90.0000    1.20000
+                          105.0000    1.15911
+                          120.0000    1.03923
+                          135.0000    0.84853
+                          150.0000    0.60000
+                          160.0000    0.58618
+                          165.0000    0.54954
+                          170.0000    0.36636
+                          175.0000    0.18318
+                          180.0000    0.00000
                       </tableData>
                     </table>
                 </product>
@@ -136,16 +136,16 @@
                     <table>
                       <independentVar>aero/alpha-deg</independentVar>
                       <tableData>
-                         -180.0000    0.00000
-                         -175.0000    0.18318
-                         -170.0000    0.36636
-                         -165.0000    0.54954
-                         -160.0000    0.58618
-                         -150.0000    0.60000
-                         -135.0000    0.84853
-                         -120.0000    1.03923
-                         -105.0000    1.15911
-                          -90.0000    1.20000
+                         -180.0000   -0.00000
+                         -175.0000   -0.18318
+                         -170.0000   -0.36636
+                         -165.0000   -0.54954
+                         -160.0000   -0.58618
+                         -150.0000   -0.60000
+                         -135.0000   -0.84853
+                         -120.0000   -1.03923
+                         -105.0000   -1.15911
+                          -90.0000   -1.20000
                           -75.0000   -1.15911
                           -60.0000   -1.03923
                           -45.0000   -0.84853
@@ -163,16 +163,16 @@
                            45.0000    0.84853
                            60.0000    1.03923
                            75.0000    1.15911
-                           90.0000   -1.20000
-                          105.0000   -1.15911
-                          120.0000   -1.03923
-                          135.0000   -0.84853
-                          150.0000   -0.60000
-                          160.0000   -0.58618
-                          165.0000   -0.54954
-                          170.0000   -0.36636
-                          175.0000   -0.18318
-                          180.0000   -0.00000
+                           90.0000    1.20000
+                          105.0000    1.15911
+                          120.0000    1.03923
+                          135.0000    0.84853
+                          150.0000    0.60000
+                          160.0000    0.58618
+                          165.0000    0.54954
+                          170.0000    0.36636
+                          175.0000    0.18318
+                          180.0000    0.00000
                       </tableData>
                     </table>
                     <table>
