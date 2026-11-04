@@ -35,3 +35,9 @@ imgui.ini
 
 # Working output of tools/models/hangar (reports, images, cached tables)
 aircraft/*/out/
+
+# SIM-M03 raw research dumps and transient test outputs (retained locally, not source)
+/artifacts/sim-m03/research/flight-records/
+/artifacts/sim-m03/physical-components/
+/architecture-reviews/
+/__tracked_surface.stl
