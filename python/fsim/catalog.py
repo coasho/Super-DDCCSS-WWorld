@@ -18,7 +18,7 @@ import json
 import os
 
 __all__ = ["Loadout", "Manifest", "aircraft", "fit", "loadouts", "manifest", "model", "payload", "payloads", "share_dir", "store",
-           "stores"]
+           "stores", "equipment_models", "equipment_model"]
 
 _SHARE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "share", "flightsim")
 
@@ -39,6 +39,27 @@ def share_dir():
     return _SHARE
 
 
+def equipment_models():
+    """Equipment-specific component models and their separately identified mechanisms.
+
+    This is static installed model metadata, not a live sensor report or hardware
+    accuracy claim. Each call returns independent caller-owned dictionaries.
+    """
+    document = _json("equipment_models.json")
+    if document.get("schema_version") != 1:
+        raise ValueError("unsupported equipment-model catalogue")
+    return sorted(document["models"], key=lambda row: row["model_id"])
+
+
+def equipment_model(model_id):
+    """Find a model by its exact equipment identity or retained store-card alias."""
+    name = _name(model_id)
+    matches = [row for row in equipment_models() if name in (row["model_id"], row["store_id"])]
+    if len(matches) != 1:
+        raise KeyError(name)
+    return matches[0]
+
+
 def _name(name):
     name = str(name)
     if not name or name != os.path.basename(name) or name.startswith("."):
@@ -49,7 +70,7 @@ def _name(name):
 def _json(*parts):
     path = os.path.join(_SHARE, *parts)
     if not os.path.isfile(path):
-        raise KeyError(os.path.splitext(parts[-1])[0] if len(parts) == 2 else parts[-2])
+        raise KeyError(os.path.splitext(parts[-1])[0] if len(parts) <= 2 else parts[-2])
     with open(path, encoding="utf8") as f:
         return json.load(f)
 

@@ -8,6 +8,7 @@ add_library(fsim_simulation_api STATIC
     WorldOptions.cpp
     World.cpp
     Agent.cpp
+    WeaponLink.cpp
     Recording.cpp)
 add_library(fsim::simulation_api ALIAS fsim_simulation_api)
 fsim_include_view(fsim_simulation_api)

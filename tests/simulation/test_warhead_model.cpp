@@ -1,5 +1,6 @@
 // Independent analytical finite side-case source checks, not equipment calibration.
 #include "simulation/mission_systems/damage/Damage.h"
+#include "simulation/mission_systems/damage/WarheadAdapter.h"
 #include <catch2/catch_test_macros.hpp>
 #include <cmath>
 #include <limits>
@@ -70,6 +71,107 @@ dmg::Target target() {
     dmg::Target t;t.bodyToEcef={dmg::V3{1,0,0},dmg::V3{0,1,0},dmg::V3{0,0,1}};t.airDensity=0;return t;
 }
 } // namespace
+
+TEST_CASE("one finite scene source conserves every gram across legacy and versioned construction", "[warhead-model][scene-effects]") {
+    for(const auto& card:{legacyCard(),sourceCard()}) {
+        const auto model=dmg::warheadOf(card);REQUIRE(model);
+        fsim::Rng rng(57);dmg::Burst burst;burst.axis={1,0,0};burst.angularVelocityEcef={0,0,4};
+        const auto field=dmg::emitFragmentFieldV1(*model,burst,rng);REQUIRE(field.valid);
+        REQUIRE(field.projectiles.size()==static_cast<std::size_t>(model->fragments));
+        double mass=0;
+        for(const auto& particle:field.projectiles) {
+            mass+=particle.massKg;
+            CHECK(std::abs(particle.at.x)<=model->lengthM/2);
+            CHECK(std::hypot(particle.at.y,particle.at.z)<=model->diameterM/2+1e-14);
+            const auto relative=particle.velocity-dmg::cross(burst.angularVelocityEcef,particle.at);
+            CHECK(std::abs(dmg::length(relative)-model->speedMs)<1e-9);
+        }
+        CHECK(std::abs(mass-model->caseKg)<1e-9);
+    }
+}
+
+TEST_CASE("connected source has shared vertices finite material and explicit breakup", "[warhead-model][scene-effects][connected-rod]") {
+    const auto constructed=dmg::warheadOf(legacyCard());REQUIRE(constructed);auto model=*constructed;
+    model.kind=dmg::Warhead::Kind::Rod;model.fragments=16;model.lengthM=.5;model.diameterM=.1;
+    dmg::Burst burst;burst.axis={1,0,0};burst.angularVelocityEcef={2,1,0};fsim::Rng rng(4);
+    const auto ring=dmg::emitFragmentFieldV1(model,burst,rng,true);REQUIRE(ring.valid);
+    double mass=0;
+    for(std::size_t i=0;i<ring.projectiles.size();++i) {
+        const auto& edge=ring.projectiles[i];const auto& neighbor=ring.projectiles[(i+1)%ring.projectiles.size()];
+        REQUIRE(edge.segment);CHECK(dmg::length(edge.end-neighbor.at)==0);
+        CHECK(dmg::length(edge.endVelocity-neighbor.velocity)==0);CHECK(edge.breakupAgeS>0);mass+=edge.massKg;
+        const double breakRadius=.05+model.speedMs*edge.breakupAgeS;
+        CHECK(std::abs(2*pi*breakRadius-model.fragments*model.lengthM)<1e-10);
+    }
+    CHECK(std::abs(mass-model.caseKg)<1e-12);
+    model.kind=dmg::Warhead::Kind::Fragmentation;const auto state=rng.state();
+    CHECK_FALSE(dmg::emitFragmentFieldV1(model,burst,rng,true).valid);CHECK(rng.state()==state);
+}
+
+TEST_CASE("connected ring intercepts its annulus without filling the central gap", "[warhead-model][scene-effects][connected-rod]") {
+    const auto constructed=dmg::warheadOf(legacyCard());REQUIRE(constructed);auto model=*constructed;
+    model.kind=dmg::Warhead::Kind::Rod;model.fragments=16;model.lengthM=1;model.diameterM=.2;model.speedMs=100;model.tntKg=0;
+    dmg::Burst burst;burst.axis={0,0,1};fsim::Rng rng(3);const auto ring=dmg::emitFragmentFieldV1(model,burst,rng,true);REQUIRE(ring.valid);
+    dmg::Airframe annulus,centre;dmg::Airframe::Component box;box.half={.02,.02,.02};box.centre={1,0,0};annulus.components.push_back(box);
+    box.centre={0,0,0};centre.components.push_back(box);dmg::SceneEnvironmentV1 environment;environment.airDensity=0;environment.maxFlightTimeS=.02;
+    const auto result=dmg::assessSceneV1(ring,{{1,dmg::AttachedGeometryView(annulus),target()},{2,dmg::AttachedGeometryView(centre),target()}},environment);
+    REQUIRE(result.valid);CHECK_FALSE(result.victims[0].impact.components.empty());CHECK(result.victims[1].impact.components.empty());
+    CHECK(result.absorbedMassKg<=model.caseKg);CHECK(std::abs(result.absorbedMassKg+result.remainingMassKg-model.caseKg)<1e-10);
+}
+
+TEST_CASE("air-slowed connected material cannot break at an unreached vacuum opening radius", "[warhead-model][scene-effects][connected-rod][effects-quality-boundary]") {
+    const auto constructed=dmg::warheadOf(legacyCard());REQUIRE(constructed);auto model=*constructed;
+    model.kind=dmg::Warhead::Kind::Rod;model.fragments=16;model.lengthM=.5;model.diameterM=.2;model.speedMs=100;model.fragmentAreaM2=1;model.tntKg=0;
+    dmg::Burst burst;burst.axis={0,0,1};fsim::Rng rng(3);const auto ring=dmg::emitFragmentFieldV1(model,burst,rng,true);REQUIRE(ring.valid);
+    dmg::SceneEnvironmentV1 environment;environment.airDensity=2;environment.maxFlightTimeS=.02;
+    const auto& element=ring.projectiles.front();
+    const double drag=environment.airDensity*element.cd*element.areaM2/(2*element.massKg);
+    const double propagatedRadius=model.diameterM/2+std::log1p(drag*model.speedMs*environment.maxFlightTimeS)/drag;
+    const double availableRadius=model.fragments*model.lengthM/(2*pi);
+    REQUIRE(propagatedRadius<availableRadius); // Independent premise, not a selected hit outcome.
+    const auto result=dmg::assessSceneV1(ring,{},environment);REQUIRE(result.valid);
+    // Each element is slowed so strongly that the available material length
+    // cannot yet be reached. The vacuum clock is not the physical opening.
+    CHECK(ring.projectiles.front().breakupAgeS<environment.maxFlightTimeS);
+    CHECK(result.rodBreakups==0);CHECK_FALSE(result.firstRodBreakAgeS);
+}
+
+TEST_CASE("legacy construction refuses unrepresentable fragment counts before integer conversion", "[warhead-model][scene-effects][effects-quality-boundary]") {
+    auto card=legacyCard();card.parameters["diameter_m"].value=1e-30;
+    CHECK_FALSE(dmg::warheadOf(card));
+    card=legacyCard();card.parameters["gurney_kms"].value=std::numeric_limits<double>::max()/2;
+    CHECK_FALSE(dmg::warheadOf(card));
+}
+
+TEST_CASE("connected-ring provider explicitly admits scene execution without changing the old adapter contract", "[warhead-model][scene-effects][connected-rod]") {
+    auto card=legacyCard();card.warheadKind="rod";
+    fsim::ms::components::DescriptorV1 descriptor;descriptor.kind="warhead";
+    descriptor.implementationId="native.warhead.connected_ring.v1";
+    descriptor.availability=fsim::ms::components::AvailabilityV1::Available;descriptor.configurationVersion=1;
+    descriptor.basis=fsim::ms::Basis::Assumed;descriptor.note="Independent synthetic explicit topology admission.";
+    descriptor.validity="Generic geometry and dispatch, not equipment calibration.";
+    for(const char* role:{"warhead_kg","explosive_kg","gurney_kms","diameter_m"}) {
+        card.parameters[role].note="Synthetic engineering proxy for independent provider admission, not measured equipment data.";
+        descriptor.parameterRefs[role]=role;descriptor.parameters[role]=card.parameters.at(role);
+    }
+    descriptor.bindings={{"burst_reference","captured_weapon_cg"},{"blast","kingery_bulmash.swisdak_1994.free_air.v1"},
+        {"penetration","thor.aluminium_2024_t3.v1"},{"assessment","native.fragment_blast.v1"}};
+    std::string error;const auto adapter=dmg::makeWarheadAdapter(card,descriptor,error);INFO(error);REQUIRE(adapter);
+    const auto* scene=dynamic_cast<const dmg::WarheadSceneExecutionV2*>(adapter.get());REQUIRE(scene);
+    dmg::Burst burst;burst.axis={1,0,0};fsim::Rng rng(4);const auto field=scene->emitScene(burst,rng);
+    REQUIRE(field.valid);REQUIRE_FALSE(field.projectiles.empty());CHECK(field.projectiles.front().segment);
+    card.warheadKind="fragmentation";CHECK_FALSE(dmg::makeWarheadAdapter(card,descriptor,error));
+}
+
+TEST_CASE("invalid drag and overflowing source axes refuse before advancing the physical RNG", "[warhead-model][scene-effects][effects-quality-boundary]") {
+    const auto model=dmg::warheadOf(sourceCard());REQUIRE(model);dmg::Burst burst;burst.axis={1,0,0};fsim::Rng rng(77);
+    const auto state=rng.state();
+    for(const double cd:{0.0,-1.0,std::numeric_limits<double>::quiet_NaN(),std::numeric_limits<double>::infinity()}) {
+        auto invalid=*model;invalid.fragmentCd=cd;CHECK_FALSE(dmg::emitFragmentFieldV1(invalid,burst,rng).valid);CHECK(rng.state()==state);
+    }
+    burst.axis={std::numeric_limits<double>::max()/2,0,0};
+    CHECK_FALSE(dmg::emitFragmentFieldV1(*model,burst,rng).valid);CHECK(rng.state()==state);
+}
 
 TEST_CASE("warhead v1 requires explicit finite configuration and an in-model source", "[warhead-model]") {
     const auto good=sourceCard();REQUIRE(dmg::warheadOf(good));

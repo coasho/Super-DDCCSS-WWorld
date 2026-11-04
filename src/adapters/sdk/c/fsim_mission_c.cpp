@@ -2,6 +2,7 @@
 
 #include "fsim/fsim_c.h"
 #include "fsim/fsim_fusion.h"
+#include "fsim/fsim_weapon_link.h"
 
 #include "CAbiSupport.h"
 #include "Handles.h"
@@ -15,6 +16,110 @@
 #include <vector>
 
 // --- Mission Systems (ABI 1.49; ADR-30) --------------------------------------------
+
+FSIM_API void fsim_weapon_link_capability_v1_init(fsim_weapon_link_capability_v1* p){if(p)*p={},p->struct_size=sizeof(*p);}
+FSIM_API void fsim_weapon_assessment_request_v1_init(fsim_weapon_assessment_request_v1* p){if(p){*p={};p->struct_size=sizeof(*p);p->period_s=.2;p->duration_s=30;}}
+FSIM_API void fsim_weapon_assessment_receipt_v1_init(fsim_weapon_assessment_receipt_v1* p){if(p)*p={},p->struct_size=sizeof(*p);}
+FSIM_API void fsim_weapon_assessment_status_v1_init(fsim_weapon_assessment_status_v1* p){if(p)*p={},p->struct_size=sizeof(*p);}
+FSIM_API void fsim_weapon_feedback_v1_init(fsim_weapon_feedback_v1* p){if(p)*p={},p->struct_size=sizeof(*p);}
+FSIM_API void fsim_weapon_fused_designation_v1_init(fsim_weapon_fused_designation_v1* p){if(p)*p={},p->struct_size=sizeof(*p);}
+
+FSIM_API int fsim_weapon_link_instance_v1(fsim_world* world,uint32_t platform,uint64_t* instance) {
+    FSIM_AGENT_VEHICLE(world,platform,FSIM_NOT_ALLOWED);
+    if(!world||!instance||(!world->world.missionSystems(platform)&&!world->world.c2Node(platform)))
+        return fail(FSIM_INVALID_ARGUMENT,"fsim_weapon_link_instance_v1: world, valid endpoint and instance output required");
+    return guard("fsim_weapon_link_instance_v1",[&]() -> int {
+        world->world.weaponLinkAccessV1();*instance=world->world.weaponLinkInstanceV1();return FSIM_OK;
+    });
+}
+FSIM_API int fsim_weapon_link_capability_get_v1(const fsim_world* world,uint32_t platform,uint32_t weapon,fsim_weapon_link_capability_v1* out) {
+    FSIM_AGENT_VEHICLE(world,platform,FSIM_NOT_ALLOWED);
+    if(!world||!out||out->struct_size<sizeof(*out))
+        return fail(FSIM_INVALID_ARGUMENT,"fsim_weapon_link_capability_get_v1: world and full-sized output required");
+    return guard("fsim_weapon_link_capability_get_v1",[&]() -> int {
+        const auto c=world->world.weaponLinkCapabilityV1(platform,world->agent?world->agent->controller:0,weapon);
+        fsim_weapon_link_capability_v1 v;fsim_weapon_link_capability_v1_init(&v);
+        v.weapon=c.weapon;v.instance=c.instance;v.activity=c.activity;v.direction=static_cast<uint32_t>(c.profile.direction);v.reason=static_cast<uint32_t>(c.reason);
+        const auto& p=c.profile;v.update_period_s=p.updatePeriodS;v.feedback_period_s=p.feedbackPeriodS;v.latency_s=p.latencyS;
+        v.data_rate_bps=p.dataRateBps;v.range_m=p.rangeM;v.frequency_hz=p.frequencyHz;v.maximum_age_s=p.maximumAgeS;
+        v.assessment_timeout_s=p.assessmentTimeoutS;v.retention_s=p.retentionS;
+        v.loss_probability=p.lossProbability;v.maximum_queue_s=p.maximumQueueS;
+        v.queue_capacity=p.queueCapacity;v.report_capacity=p.reportCapacity;v.assessment_capacity=p.assessmentCapacity;v.jitter_s=p.jitterS;
+        std::memcpy(v.direction_source,p.directionSource.data(),std::min(p.directionSource.size(),sizeof(v.direction_source)-1));
+        return copyOut(v,out)?FSIM_OK:fail(FSIM_INVALID_ARGUMENT,"fsim_weapon_link_capability_get_v1: output struct_size cannot receive a value");
+    });
+}
+FSIM_API int fsim_weapon_fused_designate_v1(fsim_world* world,uint32_t platform,uint64_t instance,uint64_t entity,uint32_t* target) {
+    FSIM_AGENT_VEHICLE(world,platform,FSIM_NOT_ALLOWED);
+    if(!world||!target)return fail(FSIM_INVALID_ARGUMENT,"fsim_weapon_fused_designate_v1: world and target output required");
+    return guard("fsim_weapon_fused_designate_v1",[&]() -> int {*target=world->world.designateFusedV1(platform,instance,entity);return FSIM_OK;});
+}
+FSIM_API int fsim_weapon_fused_designations_v1(const fsim_world* world,uint32_t platform,fsim_weapon_fused_designation_v1* out,uint32_t max,uint32_t* count) {
+    FSIM_AGENT_VEHICLE(world,platform,FSIM_NOT_ALLOWED);
+    if(count)*count=0;
+    if(!world||!count||(max&&(!out||out[0].struct_size<sizeof(*out))))
+        return fail(FSIM_INVALID_ARGUMENT,"fsim_weapon_fused_designations_v1: world, count and full-sized rows for nonzero capacity required");
+    return guard("fsim_weapon_fused_designations_v1",[&]() -> int {
+        const auto rows=world->world.fusedDesignationsV1(platform);const auto stride=max?out[0].struct_size:0;
+        for(std::size_t i=0;i<std::min<std::size_t>(max,rows.size());++i){fsim_weapon_fused_designation_v1 v;fsim_weapon_fused_designation_v1_init(&v);
+            v.target=rows[i].target;v.entity=rows[i].entity;v.valid=rows[i].valid;
+            auto* slot=reinterpret_cast<fsim_weapon_fused_designation_v1*>(reinterpret_cast<char*>(out)+i*stride);slot->struct_size=stride;copyOut(v,slot);}
+        *count=static_cast<uint32_t>(rows.size());return FSIM_OK;
+    });
+}
+FSIM_API int fsim_weapon_assess_v1(fsim_world* world,uint32_t platform,const fsim_weapon_assessment_request_v1* request,fsim_weapon_assessment_receipt_v1* out) {
+    FSIM_AGENT_VEHICLE(world,platform,FSIM_NOT_ALLOWED);
+    if(!world||!request||request->struct_size<sizeof(*request)||!out||out->struct_size<sizeof(*out))
+        return fail(FSIM_INVALID_ARGUMENT,"fsim_weapon_assess_v1: world, full-sized request and full-sized receipt required");
+    return guard("fsim_weapon_assess_v1",[&]() -> int {
+        fsim::ms::WeaponAssessmentRequestV1 q;q.instance=request->instance;q.weapon=request->weapon;q.requestId=request->request_id;q.periodS=request->period_s;q.durationS=request->duration_s;
+        const auto r=world->world.assessWeaponV1(platform,world->agent?world->agent->controller:0,q);
+        fsim_weapon_assessment_receipt_v1 v;fsim_weapon_assessment_receipt_v1_init(&v);v.accepted=r.accepted;v.assessment=r.assessment;v.request_id=r.requestId;v.reason=static_cast<uint32_t>(r.reason);
+        return copyOut(v,out)?FSIM_OK:fail(FSIM_INVALID_ARGUMENT,"fsim_weapon_assess_v1: output struct_size cannot receive a value");
+    });
+}
+FSIM_API int fsim_weapon_assessment_cancel_v1(fsim_world* world,uint32_t platform,uint64_t instance,uint32_t weapon,uint64_t assessment,uint32_t* canceled) {
+    FSIM_AGENT_VEHICLE(world,platform,FSIM_NOT_ALLOWED);
+    if(!world||!canceled)return fail(FSIM_INVALID_ARGUMENT,"fsim_weapon_assessment_cancel_v1: world and canceled output required");
+    return guard("fsim_weapon_assessment_cancel_v1",[&]() -> int {
+        *canceled=world->world.cancelWeaponAssessmentV1(platform,world->agent?world->agent->controller:0,instance,weapon,assessment);return FSIM_OK;
+    });
+}
+FSIM_API int fsim_weapon_assessment_status_get_v1(const fsim_world* world,uint32_t platform,uint32_t weapon,uint64_t assessment,fsim_weapon_assessment_status_v1* out) {
+    FSIM_AGENT_VEHICLE(world,platform,FSIM_NOT_ALLOWED);
+    if(!world||!out||out->struct_size<sizeof(*out))
+        return fail(FSIM_INVALID_ARGUMENT,"fsim_weapon_assessment_status_get_v1: world and full-sized output required");
+    return guard("fsim_weapon_assessment_status_get_v1",[&]() -> int {
+        const auto r=world->world.weaponAssessmentStatusV1(platform,world->agent?world->agent->controller:0,weapon,assessment);
+        fsim_weapon_assessment_status_v1 v;fsim_weapon_assessment_status_v1_init(&v);v.assessment=r.assessment;v.request_id=r.requestId;
+        v.state=static_cast<uint32_t>(r.state);v.reason=static_cast<uint32_t>(r.reason);v.requested_time_s=r.requestedTimeS;v.expires_time_s=r.expiresTimeS;
+        v.last_received_known=r.lastReceivedTimeS.has_value();v.last_received_time_s=r.lastReceivedTimeS.value_or(0);
+        return copyOut(v,out)?FSIM_OK:fail(FSIM_INVALID_ARGUMENT,"fsim_weapon_assessment_status_get_v1: output struct_size cannot receive a value");
+    });
+}
+FSIM_API int fsim_weapon_feedback_get_v1(const fsim_world* world,uint32_t platform,uint32_t weapon,uint64_t assessment,uint64_t since,fsim_weapon_feedback_v1* out,uint32_t max,uint32_t* count) {
+    FSIM_AGENT_VEHICLE(world,platform,FSIM_NOT_ALLOWED);
+    if(count)*count=0;
+    if(!world||!count||(max&&(!out||out[0].struct_size<sizeof(*out))))
+        return fail(FSIM_INVALID_ARGUMENT,"fsim_weapon_feedback_get_v1: world, count and full-sized rows for nonzero capacity required");
+    return guard("fsim_weapon_feedback_get_v1",[&]() -> int {
+        const auto status=world->world.weaponAssessmentStatusV1(platform,world->agent?world->agent->controller:0,weapon,assessment);
+        if(status.reason!=fsim::ms::WeaponLinkReasonV1::None&&status.reason!=fsim::ms::WeaponLinkReasonV1::Expired)
+            return fail(status.reason==fsim::ms::WeaponLinkReasonV1::NotOwner?FSIM_NOT_ALLOWED:FSIM_INVALID_ARGUMENT,
+                "Weapon feedback unavailable, native reason "+std::to_string(static_cast<std::uint32_t>(status.reason)));
+        const auto rows=world->world.weaponFeedbackV1(platform,world->agent?world->agent->controller:0,weapon,assessment,since);
+        const auto stride=max?out[0].struct_size:0;
+        for(std::size_t i=0;i<std::min<std::size_t>(max,rows.size());++i){const auto& r=rows[i];fsim_weapon_feedback_v1 v;fsim_weapon_feedback_v1_init(&v);
+            v.weapon=r.weapon;v.assessment=r.assessment;v.sequence=r.sequence;v.sample_time_s=r.sampleTimeS;v.sent_time_s=r.sentTimeS;v.received_time_s=r.receivedTimeS;v.valid_until_s=r.validUntilS;
+            v.navigation_valid=r.navigationValid;v.tracking=r.tracking;v.active=r.active;v.supported=r.supported;v.end_of_flight=r.endOfFlight;
+            v.time_to_active_known=r.timeToActiveS.has_value();v.time_to_intercept_known=r.timeToInterceptS.has_value();
+            v.time_to_active_s=r.timeToActiveS.value_or(0);v.time_to_intercept_s=r.timeToInterceptS.value_or(0);std::copy_n(r.stateEcef,6,v.state_ecef);
+            v.navigation_time_s=r.navigationTimeS;v.navigation_gnss_aided=r.navigationGnssAided;
+            std::copy_n(r.navigationCovariance,36,v.navigation_covariance);
+            auto* slot=reinterpret_cast<fsim_weapon_feedback_v1*>(reinterpret_cast<char*>(out)+i*stride);slot->struct_size=stride;copyOut(v,slot);}
+        *count=static_cast<uint32_t>(rows.size());return FSIM_OK;
+    });
+}
 
 namespace {
 

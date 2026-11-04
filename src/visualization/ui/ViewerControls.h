@@ -11,7 +11,6 @@ namespace fsim::ui {
 struct ViewerControls {
     std::atomic<bool> paused{false};
     std::atomic<bool> singleStep{false};
-    std::atomic<double> timeFactor{1.0};
     std::atomic<double> seekTo{-1.0};   ///< replay: jump to this simulation time (< 0 = none), consumed by the loop
     // Replay extent written by the loop for the GUI (both 0 when not replaying).
     std::atomic<double> replayStart{0.0}, replayEnd{0.0};
@@ -23,14 +22,6 @@ struct ViewerControls {
     std::atomic<bool> cameraReset{false};
     // Camera telemetry written by the loop for the GUI.
     std::atomic<double> eyeLatDeg{0.0}, eyeLonDeg{0.0}, eyeAltM{0.0}, eyeDistanceM{0.0};
-    std::atomic<bool> showVehicleList{true};
-    std::atomic<bool> showCameras{true};   ///< the "cameras" window (trainer camera images), when a world publishes any
-    std::atomic<bool> showMonitor{true};
-    std::atomic<bool> showLabels{true};
-    std::atomic<bool> showTrails{true};
-    std::atomic<bool> showEffects{true};   ///< exhaust, condensation, vapour and contrails
-    std::atomic<bool> showClouds{true};
-    std::atomic<bool> showMission{true};   ///< the Mission Systems windows (payloads, radar displays) of the followed vehicle
     std::atomic<bool> quit{false};
 
     // Read-only telemetry written by the loop for the GUI.

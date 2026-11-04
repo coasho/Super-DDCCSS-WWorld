@@ -2,6 +2,7 @@
 # records (contracts); commands go through a separate adapter, never this library.
 add_library(fsim_ui STATIC
     ViewerControls.h
+    MandatoryPanel.h
     Colour.h
     MonitorGui.h
     MonitorGui.cpp
@@ -13,6 +14,7 @@ add_library(fsim_ui STATIC
     MissionGui.cpp)
 add_library(fsim::ui ALIAS fsim_ui)
 target_sources(fsim_ui PRIVATE FusionGui.h FusionGui.cpp)
+target_sources(fsim_ui PRIVATE WeaponDiagnosticsGui.h WeaponDiagnosticsGui.cpp)
 
 fsim_include_view(fsim_ui)
 target_link_libraries(fsim_ui PUBLIC fsim::render fsim::world fsim::ipc fsim::core vsg::vsg vsgImGui::vsgImGui)

@@ -462,6 +462,7 @@ static PyMethodDef world_methods[] = {
          "command_id=0) -> result"),
     FAST("radar_status", world_radar_status, "radar_status(id, payload) -> tuple, or None for a payload that is not a radar"),
     FAST("amti_tracks", world_amti_tracks, "amti_tracks(id, payload) -> [(id, payload, time, last_update, updates, truth, lat, lon, h, vn, ve, vd, sp, sv, range, az, el, rate)]"),
+    FAST("weapon_links_v1",world_weapon_links_v1,"weapon_links_v1(op, platform, ...): explicit versioned facade"),
     FAST("fused_tracks_v1",world_fused_tracks_v1,"fused_tracks_v1(id): non-consuming permitted platform knowledge"),
     FAST("fusion_status_v1",world_fusion_status_v1,"fusion_status_v1(id): processing limits and refusal counters"),
     FAST("contacts", world_contacts, "contacts(id, payload) -> [(id, payload, kind, mode, warning, truth, first, time, az, el, sigma, range, rate, lat, lon, h, strength, frequency, size)]"),

@@ -17,6 +17,32 @@ double forceSlope(const ControlAxis& a) {
 double reference(const ControlAxis& a, double force, double pathRate, double forceResidual, double momentResidual) {
     return (force - forceResidual + a.forceControl * (a.momentRate * pathRate + momentResidual) / a.momentControl) / forceSlope(a);
 }
+// Configured measured-load laws know actual axial force. Their demand is a
+// velocity-direction acceleration: F_t-m*D_t=(F_x-m*D_x)*incidence.
+// Keep legacy/optional-feedback and zero-axial operation order unchanged.
+bool directionalAxial(const AutopilotInput& in,const FinControlConfigV1& config) {
+    return config.version==1&&in.measured&&(in.measured->forceBodyN[0]!=0||
+        in.demandBody[0]!=0||in.gravityBody[0]!=0);
+}
+double directionalReference(const ControlAxis& a,const AutopilotInput& in,unsigned forceAxis,double sign,
+                            double path,double forceResidual,double momentResidual,bool axial) {
+    if(!axial)return reference(a,in.massKg*in.demandBody[forceAxis],path,forceResidual,momentResidual);
+    const double denominator=forceSlope(a)-in.measured->forceBodyN[0]+in.massKg*in.demandBody[0]-
+        sign*a.forceControl*a.momentRate*(in.demandBody[0]+in.gravityBody[0])/(a.momentControl*in.speedMs);
+    if(!std::isfinite(denominator)||std::abs(denominator)<1e-6*std::max(std::abs(a.forceAngle),1.))
+        return std::numeric_limits<double>::quiet_NaN();
+    return (in.massKg*in.demandBody[forceAxis]-forceResidual+
+        a.forceControl*(a.momentRate*path+momentResidual)/a.momentControl)/denominator;
+}
+double feasiblePath(const ControlAxis& a,const AutopilotInput& in,unsigned forceAxis,double sign,
+                    double angle,double forceResidual,double momentResidual,bool axial) {
+    const double denominator=in.massKg*in.speedMs-sign*a.forceControl*a.momentRate/a.momentControl;
+    double force=forceSlope(a)*angle+forceResidual-a.forceControl*momentResidual/a.momentControl;
+    if(axial)force-=(in.measured->forceBodyN[0]+in.massKg*in.gravityBody[0])*angle;
+    if(!std::isfinite(denominator)||std::abs(denominator)<1e-9||!std::isfinite(force))
+        return std::numeric_limits<double>::quiet_NaN();
+    return -sign*(force+in.massKg*in.gravityBody[forceAxis])/denominator;
+}
 double surface(const ControlAxis& a, double inertia, double angle, double rate, double rateDemand,
                double rateTime, double limit, double momentResidual, double couplingMoment) {
     const double delta = (inertia * (rateDemand - rate) / rateTime + couplingMoment -
@@ -68,18 +94,35 @@ FinCommands cascade(const AutopilotInput& in,const FinControlConfigV1& config,co
     }
     // Demand is specific force including gravity compensation. Path curvature
     // instead uses net acceleration. UVWdot is not an accelerometer signal.
-    const double qPath = -(in.demandBody[2] + in.gravityBody[2]) / in.speedMs;
-    const double rPath = (in.demandBody[1] + in.gravityBody[1]) / in.speedMs;
+    double qPath = -(in.demandBody[2] + in.gravityBody[2]) / in.speedMs;
+    double rPath = (in.demandBody[1] + in.gravityBody[1]) / in.speedMs;
     // Constant-rate trim also needs the coupling torque. Its balancing fin
     // deflection contributes direct force, so compensate before solving trim.
-    double alpha = reference(in.pitch, in.massKg * in.demandBody[2], qPath,pitchForce,pitchMoment-couplingMoment[1]);
-    double beta = reference(in.yaw, in.massKg * in.demandBody[1], rPath,yawForce,yawMoment-couplingMoment[2]);
+    const bool axial=directionalAxial(in,config);
+    double alpha=directionalReference(in.pitch,in,2,1,qPath,pitchForce,pitchMoment-couplingMoment[1],axial);
+    double beta=directionalReference(in.yaw,in,1,-1,rPath,yawForce,yawMoment-couplingMoment[2],axial);
+    if(axial) {
+        qPath+=(in.demandBody[0]+in.gravityBody[0])*alpha/in.speedMs;
+        rPath-=(in.demandBody[0]+in.gravityBody[0])*beta/in.speedMs;
+    }
     if (!std::isfinite(alpha) || !std::isfinite(beta)) return {};
     // Configured reduced-order control envelope (legacy default: 15 degrees).
     const double maxIncidence = config.maxIncidenceRad;
     const double incidence = std::hypot(alpha, beta);
     if (!std::isfinite(incidence)) return {};
-    if (incidence > maxIncidence) alpha *= maxIncidence / incidence, beta *= maxIncidence / incidence;
+    if (incidence > maxIncidence) {
+        alpha *= maxIncidence / incidence, beta *= maxIncidence / incidence;
+        if (config.version==1) {
+            // The rejected force request is no longer the achievable path
+            // curvature. Solve force and moment trim together at the retained
+            // incidence, including direct fin force, damping and Euler torque.
+            // Unversioned callers and unconstrained commands retain their
+            // original arithmetic and behavior.
+            qPath=feasiblePath(in.pitch,in,2,1,alpha,pitchForce,pitchMoment-couplingMoment[1],axial);
+            rPath=feasiblePath(in.yaw,in,1,-1,beta,yawForce,yawMoment-couplingMoment[2],axial);
+            if (!std::isfinite(qPath) || !std::isfinite(rPath)) return {};
+        }
+    }
     // Estimated bandwidth, explicitly slower than the finite actuator. The
     // nominal 40 ms actuator gives 120 ms rate and 400 ms incidence response.
     const double rateTime = std::max(config.rateTimeMinS, config.rateLagMultiplier * in.actuatorLagS);
@@ -121,6 +164,7 @@ FinCommands actuatorAwareCommands(const AutopilotInput& in,const FinControlConfi
     const double lag=1/in.actuatorLagS,fast=1/rateTime,slow=1/angleTime;
     const double p2=lag+fast+slow,p1=lag*fast+lag*slow+fast*slow,p0=lag*fast*slow;
     const auto& m=*in.measured;const auto& w=in.ratesRadS;const auto& j=in.inertiaKgM2;
+    const bool axial=directionalAxial(in,config);
     const double gyro[3]={(j[2]-j[1])*w[1]*w[2],(j[0]-j[2])*w[0]*w[2],(j[1]-j[0])*w[0]*w[1]};
     struct Axis {const ControlAxis* plant;double sign,angle,rate,inertia,delta,forceResidual,momentResidual,path,reference;};
     Axis axes[2]={{&in.pitch,1,in.alphaRad,w[1],j[1],m.controlRad[1],0,0,0,0},
@@ -130,7 +174,8 @@ FinCommands actuatorAwareCommands(const AutopilotInput& in,const FinControlConfi
         x.forceResidual=m.forceBodyN[forceAxis]-a.forceAngle*x.angle-a.forceControl*x.delta;
         x.momentResidual=m.momentBodyNm[momentAxis]-a.momentAngle*x.angle-a.momentRate*x.rate-a.momentControl*x.delta-gyro[momentAxis];
         x.path=-x.sign*(in.demandBody[forceAxis]+in.gravityBody[forceAxis])/in.speedMs;
-        x.reference=reference(a,in.massKg*in.demandBody[forceAxis],x.path,x.forceResidual,x.momentResidual);
+        x.reference=directionalReference(a,in,forceAxis,x.sign,x.path,x.forceResidual,x.momentResidual,axial);
+        if(axial)x.path+=x.sign*(in.demandBody[0]+in.gravityBody[0])*x.reference/in.speedMs;
     }
     const double incidence=std::hypot(axes[0].reference,axes[1].reference);
     if(!std::isfinite(incidence))return {};
@@ -140,16 +185,15 @@ FinCommands actuatorAwareCommands(const AutopilotInput& in,const FinControlConfi
             x.reference*=config.maxIncidenceRad/incidence;
             // Once angle is constrained, curvature must use the achievable
             // trim force, rather than the rejected high-g request.
-            const double denominator=mv-x.sign*a.forceControl*a.momentRate/a.momentControl;
-            if(!std::isfinite(denominator)||std::abs(denominator)<1e-9)return {};
-            const double force=forceSlope(a)*x.reference+x.forceResidual-a.forceControl*x.momentResidual/a.momentControl;
-            x.path=-x.sign*(force+in.massKg*in.gravityBody[i?1:2])/denominator;
+            x.path=feasiblePath(a,in,i?1u:2u,x.sign,x.reference,x.forceResidual,x.momentResidual,axial);
+            if(!std::isfinite(x.path))return {};
         }
         const double trim=-(a.momentAngle*x.reference+a.momentRate*x.path+x.momentResidual)/a.momentControl;
         // Characteristic polynomial of [angle, rate, actual surface] with the
         // finite first-order actuator. Assign three real negative poles using
         // the existing response times, without tuning per-missile gains.
-        const double aa=a.forceAngle/mv,b=x.sign,c=a.forceControl/mv;
+        const double aa=axial?(a.forceAngle-m.forceBodyN[0]-in.massKg*in.gravityBody[0])/mv:a.forceAngle/mv;
+        const double b=x.sign,c=a.forceControl/mv;
         const double d=a.momentAngle/x.inertia,e=a.momentRate/x.inertia,f=a.momentControl/x.inertia;
         const double det=aa*e-b*d,kDelta=(p2+aa+e)/lag-1;
         const double u=c,v=f,y=b*f-c*e,z=c*d-aa*f;

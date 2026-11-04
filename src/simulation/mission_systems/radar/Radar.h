@@ -32,6 +32,7 @@
 #include "fsim/MissionSystems.h"
 #include "simulation/mission_systems/radar/Detection.h"
 #include "simulation/mission_systems/radar/Signal.h"
+#include "simulation/mission_systems/radar/IlluminationClockV1.h"
 #include "simulation/mission_systems/radar/Errors.h"
 #include "simulation/mission_systems/rf/Antenna.h"
 #include "simulation/mission_systems/track/Tracker.h"
@@ -242,6 +243,9 @@ public:
     double detectionRangeM(double sigmaM2, double pd, int fluctuation, Mode mode = Mode::RangeWhileSearch) const noexcept;
     /// The signal level's waveform for the planned dwell, and what its processing has done (MS-6).
     const signal::Waveform& waveform() const noexcept { return waveform_; }
+    /// Private listener view only: no change to the radar scheduler, native
+    /// detection arithmetic, public layout or transmitted PRF program.
+    IlluminationClockV1 illuminationClockV1() const noexcept {return {illuminating(),clock_,dwellS_};}
     const signal::Stats& signalStats() const noexcept { return signalStats_; }
     /// The last signal-level dwell's clutter (per interval, receive gates by filters).
     const signal::ClutterMap& clutter() const noexcept { return clutter_; }

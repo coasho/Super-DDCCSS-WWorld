@@ -65,6 +65,7 @@ struct Change {
 /// The flight state the consequences read (body axes; SI).
 struct Flight {
     V3 aeroForceN;              ///< the aerodynamic force on the whole aircraft
+    V3 airVelocityBodyMs;       ///< actual air-relative velocity, for dissipative damage drag
     V3 specificForceMs2;        ///< every force but gravity over the mass: what an accelerometer at the CG reads
     V3 rateRadS, rateDotRadS2;  ///< body rates and their rates
     double dynamicPressurePa = 0.0, airPressurePa = 101325.0;
@@ -75,6 +76,20 @@ class VehicleDamage {
 public:
     struct PointImpulse { int section = -1; V3 pointBody, momentumNs; };
     explicit VehicleDamage(std::shared_ptr<const Airframe> airframe);
+    /// Independent state for an already departed section. Original immutable
+    /// geometry/index identities and body-origin coordinates remain intact.
+    /// The caller supplies that original material origin in its native pose.
+    VehicleDamage(std::shared_ptr<const Airframe> airframe, int ownedSection);
+    /// Transfer already accumulated material state after the parent joint has
+    /// departed. Geometry is translated to the child's fixed native origin;
+    /// source array indices remain unchanged. No parent state is mutated.
+    std::unique_ptr<VehicleDamage> detachedState(int section,V3 newOriginInOldBody={}) const;
+    /// Detached piece models carry aggregate fuel as a native point mass.
+    /// These per-source tank quantities partition that mass; World writes their
+    /// sum back to the native model after a physical leak, never a second body.
+    bool setDetachedFuelKg(int tank,double contentsKg);
+    std::optional<double> detachedFuelKg(int tank) const;
+    double removeDetachedFuelKg(int tank,double requestedKg);
     const Airframe& airframe() const noexcept { return *airframe_; }
     /// A snapshot of currently attached geometry, retaining immutable source
     /// arrays and their indices. The shared Airframe must outlive the view.
@@ -99,6 +114,10 @@ public:
     /// Mechanical loads are separate from fragment counts, holes and blast.
     std::vector<Change> apply(const Impact& impact, double airPressurePa, Rng& rng,
                               const std::vector<PointImpulse>& contact);
+    /// Additive liquid continuation: actual deposited energy after the first
+    /// physical puncture can ignite fuel without inventing another hole/hit.
+    /// Rows with nonzero hit counts already belong to the original apply path.
+    std::vector<Change> applyLiquidEnergyV1(const Impact&,double airPressurePa,Rng&);
     /// Components physically departing with a separated section cannot keep
     /// powering/controlling the parent. No probabilistic hit is invented.
     std::vector<Change> detachComponents(int section);
@@ -126,6 +145,8 @@ private:
     std::vector<int> engines_out_;
     std::vector<std::string> lostChannels_;
     bool crewLost_ = false;
+    int ownedSection_ = -1;
+    std::map<int,double> detachedFuelKg_;
     std::vector<double> span_; ///< each section's reach from its root (for where its damage is)
     bool sectionAttached(int section) const noexcept;
     void weaken(int section, const V3& where, double removedM2);

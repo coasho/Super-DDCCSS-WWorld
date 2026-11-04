@@ -9,4 +9,10 @@ public:
     bool acceptsEngineCount(unsigned count) const noexcept override;
     bool burning(double nativeThrustN) const noexcept override;
 };
+class JsbsimDuctedRocketPropulsionV2 final : public NativePlantBindingV1<PropulsionProviderV1> {
+public:
+    explicit JsbsimDuctedRocketPropulsionV2(std::string model);
+    bool acceptsEngineCount(unsigned count) const noexcept override;
+    bool burning(double nativeThrustN) const noexcept override;
+};
 }

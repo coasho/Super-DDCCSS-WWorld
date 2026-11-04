@@ -25,6 +25,8 @@
 #include "foundation/io/TerrainTiles.h"
 #include "fsim/MissionSystems.h"
 #include "foundation/transport/Recording.h"
+#include "foundation/transport/WeaponDiagnosticsV1.h"
+#include "foundation/transport/WeaponDiagnosticCaptureBindingV1.h"
 #include "foundation/transport/WorldMirror.h"
 #include "foundation/transport/WorldRegistry.h"
 #include "foundation/core/Json.h"
@@ -40,6 +42,7 @@
 #include "visualization/ui/MissionGui.h"
 #include "visualization/ui/MonitorGui.h"
 #include "visualization/ui/ViewerControls.h"
+#include "visualization/ui/WeaponDiagnosticsGui.h"
 #include "visualization/vfx/effects/Airflow.h"
 #include "visualization/vfx/effects/WingVapour.h"
 #include "visualization/vfx/effects/FlowVolumes.h"
@@ -81,6 +84,19 @@ sim::VehicleState drawnState(const sim::VehicleState& state, const double* deriv
     return drawn;
 }
 
+// The additive panel appears when native weapon data exist. Legacy/noncombat
+// worlds without this optional sidecar retain their original presentation.
+class WeaponDiagnosticsLayerV1 : public vsg::Inherit<vsg::Command, WeaponDiagnosticsLayerV1> {
+public:
+    explicit WeaponDiagnosticsLayerV1(vsg::ref_ptr<ui::WeaponDiagnosticsGui> gui) : gui_(std::move(gui)) {}
+    void record(vsg::CommandBuffer& commands) const override {
+        const auto snapshot = gui_->snapshot();
+        if (snapshot && (snapshot->rosterCount || snapshot->entity)) gui_->record(commands);
+    }
+private:
+    vsg::ref_ptr<ui::WeaponDiagnosticsGui> gui_;
+};
+
 
 struct ViewerOptions {
     // Source
@@ -88,6 +104,7 @@ struct ViewerOptions {
     bool list = false;
     std::string worldName;       // --world: attach to this world (default: the newest)
     std::string replayPath;      // --replay: play a recording instead of a live world
+    std::string weaponDiagnosticsReplayPath; // optional exact-capture .wdiag override
     unsigned capacity = 256;     // slots to prepare before a world is attached
 
     // Demo scenario
@@ -113,12 +130,9 @@ struct ViewerOptions {
     /// Draw only what is already in tileCache and never fetch a tile (the
     /// default; --online, or map.offline false, lets it download).
     bool offline = true;
-    bool gui = true;   ///< panels, labels and trails; --no-gui leaves only the rendered scene
-    bool effects = true; ///< exhaust, condensation, vapour and contrails (--no-effects, key e)
-    std::string clouds = "world"; ///< --clouds: the world's weather, or a sky of our own (key k)
+    std::string clouds = "scattered"; ///< cloud rendering is always active
     double seaWindMs = -1.0;      ///< --sea-wind: the wind the sea is made for, whatever the weather says (< 0: the weather's)
     bool zoomToCursor = true; ///< wheel zooms towards the pointer rather than straight in
-    bool sun = true;
     double sunUtcHours = -1.0;
     std::string modelPath;
     std::string modelForward, modelUp;
@@ -159,6 +173,7 @@ void usage(const char* prog) {
         "\n"
         "  --demo                   fly the built-in scenario instead of attaching to a trainer\n"
         "  --replay <file.fsrec>    play back a recording\n"
+        "  --weapon-diagnostics-replay <file.wdiag>  exact-capture companion (default: <replay>.wdiag)\n"
         "  --list                   list live worlds and exit\n"
         "\n"
         "  --view lat,lon,alt,dist[,az,el]   start looking at that place\n"
@@ -166,10 +181,8 @@ void usage(const char* prog) {
         "  --aircraft <name>        JSBSim aircraft for --demo (c172x)\n"
         "  --vehicles <n>           how many (8)\n"
         "\n"
-        "  --fullscreen  --width <px>  --height <px>\n"
-        "  --no-gui                 just the rendered scene, no panels or labels\n"
-        "  --no-effects             no exhaust, condensation, vapour or contrails (key e)\n"
-        "  --clouds <sky>           world (its weather; default), clear, few, scattered, broken, overcast, rain, off (key k)\n"
+        "  Fullscreen at the primary display resolution; real time 1x; all scene effects enabled.\n"
+        "  --clouds <sky>           world (its weather), clear, few, scattered (default), broken, overcast, rain\n"
         "  --screenshot <file.png>  save a frame and exit\n"
         "\n"
         "  --config <file>          settings file (default: <exe>/../config/viewer.json)\n"
@@ -177,11 +190,11 @@ void usage(const char* prog) {
         "\n"
         "  --help-all               every option, including the diagnostic ones\n"
         "\n"
-        "Most of what the flags reach is in config/viewer.json - window size, map\n"
+        "Most of what the flags reach is in config/viewer.json - map\n"
         "sources, where the tiles live - and a flag overrides the file for one run.\n"
         "\n"
         "Keys: space pause, . step, tab next vehicle, c camera, -/= zoom, r reset view,\n"
-        "      [ ] time factor, l list, m monitor, n labels, t trails, e effects, k clouds, esc quit\n"
+        "      esc quit\n"
         "Mouse: left drag rotates, space + left drag pans (not while locked to a vehicle), wheel zooms towards the pointer\n",
         prog);
 }
@@ -194,7 +207,8 @@ void usageAll(const char* prog) {
         "  --world <name>           attach to this world (default: the newest published one)\n"
         "  --list                   list live worlds and exit\n"
         "  --capacity <n>           vehicle slots to prepare (256)\n"
-        "  --replay <file.fsrec>    play back a recording made with WorldOptions::recordPath (space pause, . step, [ ] speed, timeline seek, home)\n"
+        "  --replay <file.fsrec>    play back a recording made with WorldOptions::recordPath (space pause, . step, timeline seek, home)\n"
+        "  --weapon-diagnostics-replay <file.wdiag>  exact native diagnostic companion; no image/outcome interpolation\n"
         "Demo mode: run the built-in scenario in the demo publisher (flightsim-demo), launched beside the viewer.\n"
         "  --demo                   enable demo mode\n"
         "  --aircraft <name>        JSBSim aircraft (c172x)\n"
@@ -202,7 +216,6 @@ void usageAll(const char* prog) {
         "  --assets <dir>           extra asset directory (models/<type>.glb per vehicle type), searched first\n"
         "  --vehicles <n>           number of vehicles (8)\n"
         "  --workers <n>            sim workers (auto)\n"
-        "  --time-factor <x>        simulation speed (1.0)\n"
         "  --lat <deg> --lon <deg>  spawn centre (KSFO)\n"
         "  --alt <m>                spawn altitude MSL (1500)\n"
         "  --speed <m/s>            spawn airspeed (auto: its weight carried at CL 0.5, at least 58)\n"
@@ -225,20 +238,16 @@ void usageAll(const char* prog) {
         "  --trace <i>              print vehicle i's state once per second\n"
         "  --no-interpolate         draw raw snapshots (sample-and-hold) instead of interpolating\n"
         "Scene:\n"
-        "  --imagery satellite|osm|bing|none|<url template with {z}/{x}/{y}>   (satellite = Esri World Imagery)\n"
-        "  --elevation terrarium|none|<url template>   relief from Terrarium-encoded tiles (default terrarium)\n"
+        "  --imagery satellite|osm|bing|<url template with {z}/{x}/{y}>   (satellite = Esri World Imagery)\n"
+        "  --elevation terrarium|<url template>   relief from Terrarium-encoded tiles (default terrarium)\n"
         "  --config <file>          settings file (default: <exe>/../config/viewer.json; flags win)\n"
         "  --tile-cache <dir>       where map tiles are read (overrides map.tileCache; default: maps/ beside the program)\n"
         "  --online                 also download tiles the map set lacks, into it (default: offline, never fetch)\n"
         "  --no-zoom-to-cursor      the wheel zooms straight in rather than towards the pointer "
         "(osgEarth zoomToMouse is on by default)\n"
-        "  --no-gui                 no panels, labels or trails: just the rendered scene "
-        "(for looking at the graphics)\n"
-        "  --no-effects             no exhaust flames, condensation, vapour or contrails (config \"effects\"; key e)\n"
-        "  --clouds <sky>           world: the weather the world publishes (default); or clear, few, scattered,\n"
-        "                           broken, overcast, rain - a sky of its own, whatever the world says; off: none (config \"clouds\"; key k)\n"
+        "  --clouds <sky>           world: the weather the world publishes; or clear, few, scattered (default),\n"
+        "                           broken, overcast, rain - a sky of its own, whatever the world says\n"
         "  --sea-wind <m/s>         the wind the sea's waves are made for, whatever the weather says (looking at the sea)\n"
-        "  --no-sun                 headlight instead of sun + ambient lighting\n"
         "  --sun-utc <hours>        sun position for this UTC hour (default: the world's time)\n"
         "  --bing-key <key>         Bing Maps key for --imagery bing\n"
         "  --max-level <n>          custom pyramid max level (17)\n"
@@ -254,8 +263,8 @@ void usageAll(const char* prog) {
         "  --chase-azimuth <deg>  --chase-elevation <deg>   where the camera sits (180 = behind, 14 up)\n"
         "  --follow <slot>          start on that vehicle, or go to it when it appears (zero-based recording slot; native scene evidence reports entity slots)\n"
         "  --log-level <lvl>\n"
-        "Keys: space pause (demo), . step (demo), tab next vehicle, c camera, -/= zoom, r reset view, [ ] time factor (demo),\n"
-        "      l list, m monitor, n labels, t trails, e effects, k clouds, esc quit\n"
+        "Keys: space pause (demo), . step (demo), tab next vehicle, c camera, -/= zoom, r reset view,\n"
+        "      esc quit\n"
         "Mouse: left drag rotates, wheel zooms (6 m .. whole Earth), space + left drag pans - drags the globe in free mode or\n"
         "      while no vehicle exists; locked to a vehicle the camera only rotates; the eye never goes below the terrain\n",
         prog);
@@ -277,7 +286,7 @@ std::filesystem::path configPath(int argc, char** argv) {
 /// read, so a flag always wins over the file and the file always wins over the
 /// built-in default. Anything absent, misspelt or of the wrong shape leaves
 /// the default alone: a viewer that will not start because one line of JSON is
-/// wrong is worse than one that starts with a 1600x900 window.
+/// wrong is worse than one that starts with the complete default scene.
 bool applyConfig(ViewerOptions& o, const std::filesystem::path& file) {
     std::ifstream in(file, std::ios::binary);
     if (!in) return false;
@@ -293,7 +302,7 @@ bool applyConfig(ViewerOptions& o, const std::filesystem::path& file) {
     const auto& window = doc.child("window");
     o.window.width = static_cast<std::uint32_t>(window.number("width", o.window.width));
     o.window.height = static_cast<std::uint32_t>(window.number("height", o.window.height));
-    o.window.fullscreen = window.boolean("fullscreen", o.window.fullscreen);
+    o.window.fullscreen = true;
     o.window.fieldOfViewDeg = window.number("fovDeg", o.window.fieldOfViewDeg);
     o.window.maxFps = window.number("maxFps", o.window.maxFps);
     if (window.has("msaa")) {
@@ -337,8 +346,6 @@ bool applyConfig(ViewerOptions& o, const std::filesystem::path& file) {
 
     o.offline = map.boolean("offline", o.offline);
     o.zoomToCursor = doc.child("camera").boolean("zoomToCursor", o.zoomToCursor);
-    o.gui = doc.boolean("gui", o.gui);
-    o.effects = doc.boolean("effects", o.effects);
     o.clouds = doc.string("clouds", o.clouds);
     return true;
 }
@@ -357,13 +364,14 @@ bool parse(int argc, char** argv, ViewerOptions& o) {
             else if (a == "--list") o.list = true;
             else if (a == "--world") o.worldName = next();
             else if (a == "--replay") o.replayPath = next();
+            else if (a == "--weapon-diagnostics-replay") o.weaponDiagnosticsReplayPath = next();
             else if (a == "--capacity") o.capacity = static_cast<unsigned>(std::stoul(next()));
             else if (a == "--aircraft") o.aircraft = next();
             else if (a == "--jsbsim-root") o.jsbsimRoot = next();
             else if (a == "--assets") o.assetDirs.push_back(next());
             else if (a == "--vehicles") o.vehicles = static_cast<unsigned>(std::stoul(next()));
             else if (a == "--workers") o.workers = static_cast<unsigned>(std::stoul(next()));
-            else if (a == "--time-factor") o.timeFactor = std::stod(next());
+            else if (a == "--time-factor") { std::fprintf(stderr,"visualization is fixed at real time; --time-factor is unsupported\n"); return false; }
             else if (a == "--lat") o.latitudeDeg = std::stod(next());
             else if (a == "--lon") o.longitudeDeg = std::stod(next());
             else if (a == "--alt") o.altitudeM = std::stod(next());
@@ -382,7 +390,7 @@ bool parse(int argc, char** argv, ViewerOptions& o) {
             } else if (a == "--elevation") {
                 const std::string v = next();
                 if (v == "terrarium") o.earth.elevationUrl = world::kAwsTerrariumUrl;
-                else if (v == "none") o.earth.elevationUrl.clear();
+                else if (v == "none") { std::fprintf(stderr,"terrain elevation is mandatory\n"); return false; }
                 else o.earth.elevationUrl = v;
             } else if (a == "--terrain-zoom") o.terrainZoom = static_cast<unsigned>(std::stoul(next()));
             else if (a == "--config") next(); // already read, before the command line
@@ -390,11 +398,11 @@ bool parse(int argc, char** argv, ViewerOptions& o) {
             else if (a == "--offline") o.offline = true;
             else if (a == "--online") o.offline = false;
             else if (a == "--no-zoom-to-cursor") o.zoomToCursor = false;
-            else if (a == "--no-gui") o.gui = false;
-            else if (a == "--no-effects") o.effects = false;
+            else if (a == "--no-gui") { std::fprintf(stderr,"complete visualization is mandatory\n"); return false; }
+            else if (a == "--no-effects") { std::fprintf(stderr,"all visual effects are mandatory\n"); return false; }
             else if (a == "--clouds") o.clouds = next();
             else if (a == "--sea-wind") o.seaWindMs = std::atof(next());
-            else if (a == "--no-sun") o.sun = false;
+            else if (a == "--no-sun") { std::fprintf(stderr,"sunlight and shadows are mandatory\n"); return false; }
             else if (a == "--sun-utc") o.sunUtcHours = std::stod(next());
             else if (a == "--on-ground") o.onGround = true;
             else if (a == "--bing-key") o.earth.bingKey = next();
@@ -448,6 +456,11 @@ bool parse(int argc, char** argv, ViewerOptions& o) {
             return false;
         }
     }
+    if (o.earth.source == world::EarthSettings::Source::None || o.clouds == "off") {
+        std::fprintf(stderr,"Earth and clouds cannot be disabled\n"); return false;
+    }
+    o.window.fullscreen=true; o.timeFactor=1.0;
+    if(o.earth.elevationUrl.empty()) o.earth.elevationUrl=world::kAwsTerrariumUrl;
     return o.vehicles >= 1;
 }
 
@@ -522,8 +535,7 @@ int main(int argc, char** argv) {
                       : !opt.replayPath.empty() ? "flightsim - replay " + opt.replayPath
                                                 : "flightsim - waiting for a training application";
     if (opt.earth.elevationUrl.empty()) opt.earth.elevationUrl = world::kAwsTerrariumUrl;
-    if (opt.earth.source == world::EarthSettings::Source::None) opt.earth.elevationUrl.clear();
-    opt.window.headlight = !opt.sun;
+    opt.window.headlight = false;
     if (opt.tileCache.empty()) opt.tileCache = platform::mapsDir(); // (the local map set, never %LOCALAPPDATA%)
     opt.window.tileCacheDir = opt.tileCache; // the renderer and the CPU tiles share one cache
     if (opt.offline) {
@@ -558,13 +570,43 @@ int main(int argc, char** argv) {
 
     // --- Recording playback (--replay) ------------------------------------------------
     ipc::Recording recording;
+    ipc::BoundWeaponDiagnosticsReplayV1 weaponDiagnosticsReplay;
+    bool weaponDiagnosticsReplayLoaded = false;
+    std::unique_ptr<ipc::WeaponDiagnosticFrameV1> weaponDiagnosticsReplayScratch;
+    std::optional<double> lastWeaponDiagnosticsReplayTime;
+    if (!opt.weaponDiagnosticsReplayPath.empty() && opt.replayPath.empty()) {
+        LOG_ERROR("app") << "--weapon-diagnostics-replay requires --replay from the same native capture";
+        return 1;
+    }
     if (!opt.replayPath.empty()) {
         std::string error;
+        const auto companion = opt.weaponDiagnosticsReplayPath.empty() ? opt.replayPath + ".wdiag" : opt.weaponDiagnosticsReplayPath;
+        std::error_code companionError;
+        if(std::filesystem::is_regular_file(companion,companionError))
+            weaponDiagnosticsReplayLoaded=weaponDiagnosticsReplay.open(opt.replayPath,companion,error);
+        // Watch before loading flight bytes; a replacement during load must
+        // never join old in-memory flight A with newly verified diagnostic B.
         if (!recording.load(opt.replayPath, &error)) {
             LOG_ERROR("app") << error;
             return 1;
         }
         slots = std::max<std::size_t>(1, recording.header().capacity);
+        if (std::filesystem::is_regular_file(companion, companionError)) {
+            if(weaponDiagnosticsReplayLoaded&&!weaponDiagnosticsReplay.rewind()) {
+                weaponDiagnosticsReplayLoaded=false;error=weaponDiagnosticsReplay.errorV1();
+            }
+            if (weaponDiagnosticsReplayLoaded) {
+                weaponDiagnosticsReplayScratch = std::make_unique<ipc::WeaponDiagnosticFrameV1>();
+                LOG_INFO("app") << "weapon diagnostic companion '" << companion << "', exact native-time join";
+            } else {
+                LOG_WARN("app") << "unbound weapon diagnostic companion '" << companion << "'; diagnostics unavailable: "<<error;
+            }
+        }
+        else weaponDiagnosticsReplayLoaded=false;
+        if (!opt.weaponDiagnosticsReplayPath.empty() && !weaponDiagnosticsReplayLoaded) {
+            LOG_ERROR("app") << "the explicitly requested weapon diagnostic companion could not be validated";
+            return 1;
+        }
     }
     const bool replay = !recording.frames().empty();
     std::size_t replayFrame = static_cast<std::size_t>(-1);
@@ -607,14 +649,23 @@ int main(int argc, char** argv) {
 
     // --- Scene -------------------------------------------------------------------
     auto scene = vsg::Group::create();
+    // VSG 1.1.16 reserves traversal bit 0 for directional shadow passes.
+    // Only solid aircraft/stores cast these shadows. Planet tiles use a
+    // different paged LOD in a light camera; including them produces false
+    // self-shadow stripes. Sky/volume passes must not write shadow depth.
+    const auto addBackdrop = [&](vsg::ref_ptr<vsg::Node> node) {
+        auto visible = vsg::Switch::create();
+        visible->addChild(vsg::MASK_ALL & ~vsg::Mask(1), node);
+        scene->addChild(visible);
+    };
     int day = 172; double hours = 12.0;
     world::currentUtc(day, hours);
     if (opt.sunUtcHours >= 0.0) hours = opt.sunUtcHours;
     vsg::dvec3 sunDir = world::sunDirectionEcef(day, hours);
     world::SkyDome sky(viewer.options(), sunDir);
-    scene->addChild(sky.node());
+    addBackdrop(sky.node());
     vsg::ref_ptr<vsg::Node> sunLight;
-    if (opt.sun) {
+    { // Sunlight and its shadow maps are mandatory.
         sunLight = world::createSunLight(day, hours);
         scene->addChild(sunLight);
     }
@@ -635,15 +686,21 @@ int main(int argc, char** argv) {
             world::setSeaFloorDepth(-25.0f);
             LOG_INFO("app") << "the sea: " << path.string() << " (" << w << " x " << h << ")";
         } else {
-            LOG_INFO("app") << "no sea map at " << path.string() << " (tools/data/ocean_map/make_ocean_map.py): the imagery's sea";
+            LOG_ERROR("app") << "required sea map missing or invalid: " << path.string()
+                             << " (tools/data/ocean_map/make_ocean_map.py)";
+            return 1;
         }
     }
     std::unique_ptr<world::Atmosphere> atmosphere;
     if (auto earth = world::createEarth(opt.earth, viewer.options(), ellipsoid)) {
-        scene->addChild(earth);
-        if (auto caps = world::createPolarCaps(ellipsoid, viewer.options())) scene->addChild(caps); // Mercator tiles end at 85 deg
+        addBackdrop(earth);
+        if (auto caps = world::createPolarCaps(ellipsoid, viewer.options())) addBackdrop(caps); // Mercator tiles end at 85 deg
         // (added after the clouds' shade and the sea, so the air is blended over the globe rather than hidden by it)
         atmosphere = std::make_unique<world::Atmosphere>(viewer.options(), ellipsoid, sunDir);
+    }
+    if (!atmosphere) {
+        LOG_ERROR("app") << "required Earth/atmosphere renderer could not be created";
+        return 1;
     }
     // the cloud behind the vehicles (and its shadow on the ground) after the ground and the air, and before the
     // vehicles; the cloud in front of them just after them
@@ -660,11 +717,16 @@ int main(int argc, char** argv) {
             earthClouds = map;
             LOG_INFO("app") << "the Earth's clouds: " << path.string() << " (" << w << " x " << h << ")";
         } else {
-            LOG_INFO("app") << "no Earth cloud map at " << path.string() << " (tools/data/cloud_map/make_cloud_map.py): the world's cover everywhere";
+            LOG_ERROR("app") << "required Earth cloud map missing or invalid: " << path.string()
+                             << " (tools/data/cloud_map/make_cloud_map.py)";
+            return 1;
         }
     }
     const auto cloudFiles = assets.find("clouds");
-    if (!cloudFiles) LOG_WARN("app") << "no clouds: share/flightsim/clouds is missing";
+    if (!cloudFiles) {
+        LOG_ERROR("app") << "required cloud/effect assets are missing: share/flightsim/clouds";
+        return 1;
+    }
     world::Clouds clouds(viewer.options(), cloudFiles.value_or(std::filesystem::path{}), earthClouds, seaMap);
     std::optional<world::Clouds::Weather> ownSky; // a sky of our own (--clouds), else the world's
     {
@@ -680,8 +742,8 @@ int main(int argc, char** argv) {
         if (ownSky) clouds.setWeather(*ownSky);
         if (opt.seaWindMs >= 0.0) clouds.setSeaWind(opt.seaWindMs);
     }
-    scene->addChild(clouds.under()); // (the clouds' shade on the ground, and the sea)
-    if (atmosphere) scene->addChild(atmosphere->node());
+    addBackdrop(clouds.under()); // (the clouds' shade on the ground, and the sea)
+    if (atmosphere) addBackdrop(atmosphere->node());
 
     world::VehicleVisuals::Settings visualSettings;
     if (opt.modelPath.empty()) {
@@ -711,12 +773,17 @@ int main(int argc, char** argv) {
     world::VehicleVisuals visuals(slots, visualSettings, viewer.options());
     visuals.setCompiler([&viewer](vsg::ref_ptr<vsg::Node> node) { return viewer.compile(node); });
     scene->addChild(visuals.node());
-    scene->addChild(clouds.over());
+    addBackdrop(clouds.over());
     world::Trails trails(slots, 900, 0.25, viewer.options());
-    scene->addChild(trails.node());
+    addBackdrop(trails.node());
     // After the vehicles: vapour and contrails blend over them.
     world::Airflow airflow(slots, viewer.options(), cloudFiles ? *cloudFiles / "shaders" : std::filesystem::path{}, clouds.atmosphere(),
                            viewer.coarseShading());
+    if (!airflow.valid()) {
+        LOG_ERROR("viewer") << "required contrail/smoke renderer could not be initialized";
+        viewer.quiesce();
+        return 1;
+    }
     std::unique_ptr<world::FlowVolumes> flow; // (the engagement's fires as a fluid: below)
     // each aircraft's span and mass without fuel, from its JSBSim definition (the contrails' wake vortex), by type
     std::map<std::string, std::optional<io::AircraftMetrics>> metricsByType;
@@ -735,17 +802,17 @@ int main(int argc, char** argv) {
         airflow.setAircraft(slot, m ? m->wingspanM : 0.0, m ? m->emptyMassKg + m->pointMassKg : 0.0);
         if (flow) flow->setAircraft(slot, m ? m->wingspanM : 0.0, m ? m->emptyMassKg + m->pointMassKg : 0.0);
     };
-    scene->addChild(airflow.node());
+    addBackdrop(airflow.node());
     // the engagement's detonations and fires (MS-7h), solved as a fluid by NVIDIA Flow: the one way they are drawn
     flow = std::make_unique<world::FlowVolumes>(viewer.options(), cloudFiles ? *cloudFiles / "shaders" : std::filesystem::path{},
                                                 clouds.atmosphere(), viewer.coarseShading());
     if (flow->available()) {
-        scene->addChild(flow->node());
+        addBackdrop(flow->node());
         airflow.setFireHandOver(world::FlowVolumes::nearFieldThinning());
     }
     else {
-        LOG_ERROR("viewer") << "no fire solver (NVIDIA Flow: cmake/Flow.cmake): detonations and fireballs are NOT drawn";
-        flow.reset();
+        LOG_ERROR("viewer") << "required fire/explosion renderer unavailable (NVIDIA Flow: cmake/Flow.cmake)";
+        return 1;
     }
     world::WingVapour vapour(slots, viewer.options());
     // (the gas round the aircraft is drawn over the scene: Viewer::setScene's overScene)
@@ -777,18 +844,6 @@ int main(int argc, char** argv) {
     };
     auto storeRecord = std::make_unique<ipc::MissionRecord>();
     std::vector<std::uint64_t> storeRevision; // per slot: the mission record's revision last drawn (~0: read it again)
-    if (!opt.gui) {
-        // Looking at the graphics, not at the instruments: nothing drawn over
-        // the scene, and nothing drawn in it that is not the world itself.
-        controls->showMonitor.store(false);
-        controls->showVehicleList.store(false);
-        controls->showCameras.store(false);
-        controls->showLabels.store(false);
-        controls->showTrails.store(false);
-    }
-    controls->showEffects.store(opt.effects);
-    if (opt.clouds == "off") controls->showClouds.store(false); // (key k shows them)
-    controls->timeFactor.store(opt.timeFactor);
     controls->cameraMode.store(opt.cameraMode);
     auto gui = ui::MonitorGui::create(controls, replay ? "replay " + opt.replayPath : opt.aircraft);
     auto imgui = viewer.createImGui(); // (for the pass over the scene, where it is drawn last)
@@ -798,6 +853,10 @@ int main(int argc, char** argv) {
     imgui->addChild(cameraPreview);
     auto missionGui = ui::MissionGui::create(controls); // (the followed vehicle's payloads and radar displays, from the world's records)
     imgui->addChild(missionGui);
+    auto weaponDiagnosticsGui = ui::WeaponDiagnosticsGui::create();
+    imgui->addChild(WeaponDiagnosticsLayerV1::create(weaponDiagnosticsGui));
+    std::uint32_t weaponDiagnosticsFollowId = 0;
+    std::uint64_t weaponDiagnosticsFollowGeneration = 0;
     ImGui::GetIO().IniFilename = nullptr;
     ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = true; // a drag that starts inside a panel is never a panel move
     if (const double dpi = platform::systemDpiScale(); dpi > 1.01) {
@@ -809,9 +868,13 @@ int main(int argc, char** argv) {
     viewer.setDepthPrepass(visuals.node()); // (where the vapour's rays end)
     // the gas round the aircraft, built before the scene is set: it is drawn in the pass over the scene, whose
     // pipelines are made when the scene is compiled
-    vapour.build(viewer.depthPrepass().first, viewer.window()->extent2D().width, viewer.window()->extent2D().height, nullptr,
-                 visuals.exhaustData(), cloudFiles ? world::loadBlueNoise(*cloudFiles) : vsg::ref_ptr<vsg::ImageInfo>{},
-                 viewer.sceneColour());
+    if (!vapour.build(viewer.depthPrepass().first, viewer.window()->extent2D().width, viewer.window()->extent2D().height, nullptr,
+                      visuals.exhaustData(), cloudFiles ? world::loadBlueNoise(*cloudFiles) : vsg::ref_ptr<vsg::ImageInfo>{},
+                      viewer.sceneColour())) {
+        LOG_ERROR("viewer") << "required condensation/exhaust renderer could not be initialized";
+        viewer.quiesce();
+        return 1;
+    }
     auto beforePass = vsg::Group::create();
     // --stats: the GPU's time per pass too (timestamps between them)
     render::GpuTimer gpuTimer;
@@ -848,8 +911,14 @@ int main(int argc, char** argv) {
     }
     if (!viewer.setScene(scene, ellipsoid, imgui, beforePass, over)) return 1;
     vapour.compiled();
-    clouds.build(viewer.window()->extent2D().width, viewer.window()->extent2D().height,
-                 [&viewer](vsg::ref_ptr<vsg::Node> node) { return viewer.compile(node); });
+    try {
+        clouds.build(viewer.window()->extent2D().width, viewer.window()->extent2D().height,
+                     [&viewer](vsg::ref_ptr<vsg::Node> node) { return viewer.compile(node); });
+    } catch (const std::exception& error) {
+        LOG_ERROR("viewer") << "complete scene initialization failed: " << error.what();
+        viewer.quiesce();
+        return 1;
+    }
     if (opt.demo) // the demo's vehicles are all of one type: draw that type's model if it has one (after the scene compile)
         for (unsigned i = 0; i < opt.vehicles && i < slots; ++i) {
             visuals.setModel(i, {}, "jsbsim:" + opt.aircraft);
@@ -1064,7 +1133,7 @@ int main(int argc, char** argv) {
 
         if (runner) {
             paused = controls->paused.load(std::memory_order_relaxed);
-            timeFactor = controls->timeFactor.load(std::memory_order_relaxed);
+            timeFactor = 1.0;
             runner->setPaused(paused);
             runner->setTimeFactor(timeFactor);
             if (controls->singleStep.exchange(false)) runner->singleStep();
@@ -1078,7 +1147,7 @@ int main(int argc, char** argv) {
         } else if (replay) {
             // Playback clock in simulation time, paced by the demo controls; loops at the end.
             paused = controls->paused.load(std::memory_order_relaxed);
-            timeFactor = controls->timeFactor.load(std::memory_order_relaxed);
+            timeFactor = 1.0;
             const auto& frames = recording.frames();
             const bool step = controls->singleStep.exchange(false);
             if (!paused) {
@@ -1409,12 +1478,12 @@ int main(int argc, char** argv) {
             else interpolator.update(viewer.frameSeconds(), timeFactor, paused);
             const auto& states = opt.interpolate ? interpolator.states() : batch->states;
             visuals.setWeaponControlsTime(interpolator.renderSimTime(),opt.interpolate);
-            visuals.setExhaust(controls->showEffects.load(std::memory_order_relaxed));
+            visuals.setExhaust(true);
             visuals.update(Span<const sim::VehicleState>(states));
             viewer.setSceneCopied(!visuals.flames().empty()); // (the exhausts' heat haze reads it; nothing else does)
             visuals.setSelected(selected);
             trails.setSelected(selected);
-            trails.setVisible(controls->showTrails.load(std::memory_order_relaxed));
+            trails.setVisible(true);
             trails.update(Span<const sim::VehicleState>(batch->states), (runner || replay) ? batch->simTime : static_cast<double>(batch->wallNs) * 1e-9);
 
             controls->snapshotSequence.store(batch->sequence, std::memory_order_relaxed);
@@ -1434,7 +1503,6 @@ int main(int argc, char** argv) {
             // the labels, where the vehicles are drawn: with this frame's camera, not the last one's (put on the screen
             // before the camera moved, they were as far off as it had moved since - a fighter's chase camera 1.5 m a
             // frame at 160 fps, more after a long frame - and jumped about their aircraft as the frames' lengths varied)
-            gui->setShowLabels(controls->showLabels.load(std::memory_order_relaxed));
             const auto& states = opt.interpolate ? interpolator.states() : batch->states;
             std::vector<ui::MonitorGui::Label> labels;
             const vsg::dmat4 viewProj = viewer.camera()->projectionMatrix->transform() * viewer.camera()->viewMatrix->transform();
@@ -1462,7 +1530,7 @@ int main(int argc, char** argv) {
         }
         sky.update(viewer.lookAt()->eye);
         // the clouds, before the light: a deck overhead dims the sun where the camera looks
-        clouds.setVisible(controls->showClouds.load(std::memory_order_relaxed));
+        clouds.setVisible(true);
         clouds.setScreen(viewer.window()->extent2D().width, viewer.window()->extent2D().height);
         // (the ground the clouds' shadow falls on: under what the camera looks at - the followed vehicle, or the
         // free camera's focus - and not under the selected vehicle wherever the camera is)
@@ -1486,13 +1554,13 @@ int main(int argc, char** argv) {
             const double sunUp = vsg::dot(vsg::normalize(sunDir), vsg::normalize(viewer.lookAt()->eye));
             const float light = static_cast<float>(std::clamp((sunUp + 0.10) / 0.25, 0.0, 1.0));
             visuals.setDaylight(light);
-            airflow.setVisible(controls->showEffects.load(std::memory_order_relaxed));
+            airflow.setVisible(true);
             airflow.setScreen(viewer.window()->extent2D().width, viewer.window()->extent2D().height);
             if (flow) {
-                flow->setVisible(controls->showEffects.load(std::memory_order_relaxed));
+                flow->setVisible(true);
                 flow->setScreen(viewer.window()->extent2D().width, viewer.window()->extent2D().height);
             }
-            vapour.setVisible(controls->showEffects.load(std::memory_order_relaxed));
+            vapour.setVisible(true);
             vapour.setScreen(viewer.window()->extent2D().width, viewer.window()->extent2D().height);
             if (batch) {
                 const Span<const sim::VehicleState> drawn(opt.interpolate ? interpolator.states() : batch->states);
@@ -1557,6 +1625,54 @@ int main(int argc, char** argv) {
         gui->setBatch(batch);
         gui->setStatus(flightStatus);
         cameraPreview->update();
+        if (replay) {
+            if (replayFrame < recording.frames().size()) {
+                const double nativeTime = recording.frames()[replayFrame].simTime;
+                // Guard even while paused at the same native frame: ordinary
+                // capture invalidation must also remove a retained GUI image.
+                if (!lastWeaponDiagnosticsReplayTime || *lastWeaponDiagnosticsReplayTime != nativeTime || weaponDiagnosticsReplayLoaded) {
+                    if (weaponDiagnosticsReplayLoaded && weaponDiagnosticsReplay.atTime(nativeTime, *weaponDiagnosticsReplayScratch)) {
+                        weaponDiagnosticsGui->setReplayFrame(*weaponDiagnosticsReplayScratch, weaponDiagnosticsReplayScratch->worldFrame, nativeTime);
+                    } else {
+                        weaponDiagnosticsGui->setReplayUnavailable(0, nativeTime);
+                    }
+                    lastWeaponDiagnosticsReplayTime = nativeTime;
+                }
+            } else {
+                weaponDiagnosticsGui->setReplayUnavailable(0, replayTime);
+            }
+        } else {
+            ui::WeaponDiagnosticsGui::Source source;
+            std::uint64_t diagnosticPid = 0, completedFrame = 0;
+            std::uint32_t diagnosticIncarnation = 0;
+            if (mirror.valid() && ipc::weaponDiagnosticWorldIdentityV1(mirror.name(), diagnosticPid, diagnosticIncarnation, completedFrame) &&
+                diagnosticPid == mirror.publisherPid() && !mirror.replaced() && completedFrame >= mirrored.sequence) {
+                source.world = mirror.name(); source.publisherPid = diagnosticPid; source.publisherIncarnation = diagnosticIncarnation;
+                source.worldFrame = mirrored.sequence; source.simTimeS = mirrored.simTime;
+                source.publisherAlive = mirror.publisherAlive(); source.publisherAgeS = mirror.ageSeconds();
+                source.paused = controls->paused.load(std::memory_order_relaxed);
+            } else {
+                weaponDiagnosticsFollowId = 0; weaponDiagnosticsFollowGeneration = 0;
+            }
+            weaponDiagnosticsGui->setSource(std::move(source));
+            weaponDiagnosticsGui->update();
+            const auto diagnosticFrame = weaponDiagnosticsGui->snapshot();
+            const auto at = static_cast<std::size_t>(std::max(selected, 0));
+            if (mirror.valid() && selected >= 0 && at < mirror.vehicles().size() && diagnosticFrame) {
+                const auto& followed = mirror.vehicles()[at];
+                if (followed.alive && (followed.id != weaponDiagnosticsFollowId || followed.generation != weaponDiagnosticsFollowGeneration)) {
+                    for (std::uint32_t row = 0; row < diagnosticFrame->rosterCount; ++row) {
+                        const auto& weapon = diagnosticFrame->roster[row];
+                        if (weapon.entity == followed.id && weapon.generation == followed.generation) {
+                            if (weaponDiagnosticsGui->selectWeapon(followed.id, followed.generation)) {
+                                weaponDiagnosticsFollowId = followed.id; weaponDiagnosticsFollowGeneration = followed.generation;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
         {
             const std::size_t at = static_cast<std::size_t>(std::max(selected, 0));
             missionGui->update(mirror.valid() ? &mirror : nullptr, anyAlive ? selected : -1, at < meta.size() ? meta[at].name : std::string(),

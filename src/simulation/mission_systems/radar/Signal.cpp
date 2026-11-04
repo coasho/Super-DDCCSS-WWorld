@@ -1,4 +1,5 @@
 #include "simulation/mission_systems/radar/Signal.h"
+#include "simulation/mission_systems/radar/SignalDiagnosticsV1.h"
 
 #include "simulation/mission_systems/radar/Detection.h"
 
@@ -184,10 +185,11 @@ Waveform mediumPrf(double frequencyHz, double dwellS, int prfs, int m, double ga
     return w;
 }
 
-std::vector<Hit> dwell(const Waveform& waveform, const std::vector<Echo>& echoes, const Settings& settings, Stream& stream, Stats* stats,
-                       const ClutterMap* clutter, Snapshot* snapshot) {
+static std::vector<Hit> dwellImpl(const Waveform& waveform, const std::vector<Echo>& echoes, const Settings& settings, Stream& stream, Stats* stats,
+                       const ClutterMap* clutter, Snapshot* snapshot,CellDiagnosticsV1* diagnostics,DwellObservationV1* observation=nullptr) {
     const auto started = std::chrono::steady_clock::now();
     if (snapshot) snapshot->kept = false, snapshot->peaks.clear();
+    if(diagnostics)*diagnostics={};
     const int n = static_cast<int>(waveform.intervals.size());
     const double noiseGain = Window::noiseGain();
     const double lambda = waveform.wavelengthM;
@@ -253,6 +255,7 @@ std::vector<Hit> dwell(const Waveform& waveform, const std::vector<Echo>& echoes
             if (!(echo.rangeM > 0.0) || !(echo.snr > 0.0)) continue;
             // this interval's amplitude: its fluctuation's draw, its phase uniform
             double p = echo.snr / (n * m);
+            if(observation)p=echo.snr*observation->intervalEnergyFraction.at(static_cast<std::size_t>(i))/m;
             if (echo.fluctuation == 1) p *= -std::log(1.0 - stream.uniform());
             else if (echo.fluctuation == 2) p *= 0.5 * (-std::log(1.0 - stream.uniform()) - std::log(1.0 - stream.uniform()));
             const double phase = 2.0 * kPi * stream.uniform();
@@ -282,6 +285,7 @@ std::vector<Hit> dwell(const Waveform& waveform, const std::vector<Echo>& echoes
         power.resize(grid.size());
         for (std::size_t c = 0; c < grid.size(); ++c) power[c] = std::norm(grid[c]);
         const bool shown = snapshot && snapshot->interval == i;
+        const bool diagnosticShown=diagnostics&&shown;
         if (shown) { // (a display's copy: the cells over a filter's noise)
             Snapshot& s = *snapshot;
             s.kept = true, s.rows = rows, s.filters = m, s.firstGate = g0;
@@ -292,6 +296,12 @@ std::vector<Hit> dwell(const Waveform& waveform, const std::vector<Echo>& echoes
             s.power.resize(power.size());
             const double unit = 1.0 / (m * noiseGain);
             for (std::size_t c = 0; c < power.size(); ++c) s.power[c] = static_cast<float>(power[c] * unit);
+        }
+        if(diagnosticShown) {
+            diagnostics->kept=true;diagnostics->interval=i;diagnostics->rows=rows;diagnostics->filters=m;
+            diagnostics->tested.assign(power.size(),0);diagnostics->thermalNoiseRelative.assign(power.size(),0);
+            diagnostics->localNoiseRelative.assign(power.size(),0);diagnostics->cfarThresholdRelative.assign(power.size(),0);
+            diagnostics->clutterThresholdRelative.assign(power.size(),0);diagnostics->decisionThresholdRelative.assign(power.size(),0);
         }
         const int half = settings.cfarCells / 2, guard = settings.cfarGuard;
         double alpha[64] = {};
@@ -330,6 +340,26 @@ std::vector<Hit> dwell(const Waveform& waveform, const std::vector<Echo>& echoes
                     const int count = (lo1 - lo0) + std::max(0, hi1 - hi0);
                     if (count < 4) continue;
                     mean=sum/count;threshold=alpha[count];
+                }
+                if(diagnosticShown) {
+                    const auto cell=static_cast<std::size_t>(r)*static_cast<std::size_t>(m)+static_cast<std::size_t>(k);
+                    const double normalization=1/(m*noiseGain),thermal=m*share[static_cast<std::size_t>(r)]*noiseGain;
+                    double clutterPower=0;
+                    if(cl) {
+                        const double* expected=cl+static_cast<std::size_t>(r)*static_cast<std::size_t>(m);
+                        for(int tapIndex=-(Window::kTaps-1);tapIndex<Window::kTaps;++tapIndex) {
+                            const double tap=tapIndex==0?Window::a[0]:.5*Window::a[std::abs(tapIndex)];
+                            clutterPower+=tap*tap*expected[((k-tapIndex)%m+m)%m];
+                        }
+                    }
+                    const double cfar=threshold*mean;
+                    const double clutterThreshold=clutterPower>.1*thermal?-std::log(settings.pfaInterval)*(thermal+clutterPower):0;
+                    diagnostics->tested[cell]=1;
+                    diagnostics->thermalNoiseRelative[cell]=static_cast<float>(thermal*normalization);
+                    diagnostics->localNoiseRelative[cell]=static_cast<float>(mean*normalization);
+                    diagnostics->cfarThresholdRelative[cell]=static_cast<float>(cfar*normalization);
+                    diagnostics->clutterThresholdRelative[cell]=static_cast<float>(clutterThreshold*normalization);
+                    diagnostics->decisionThresholdRelative[cell]=static_cast<float>(std::max(cfar,clutterThreshold)*normalization);
                 }
                 const double here=at(r,k);
                 if (!(here > threshold * mean)) continue;
@@ -393,6 +423,15 @@ std::vector<Hit> dwell(const Waveform& waveform, const std::vector<Echo>& echoes
                 if (shown) snapshot->peaks.emplace_back(r, k);
             }
         }
+    }
+
+    if(observation) {
+        observation->peaks.clear();observation->peaks.reserve(peaks.size());
+        for(const auto& peak:peaks)observation->peaks.push_back({static_cast<unsigned>(peak.interval),
+            observation->intervalTimeS.at(static_cast<std::size_t>(peak.interval)),peak.rangeM,peak.rateMs,
+            peak.snr,peak.monoAz,peak.monoEl,peak.truth});
+        if(stats){stats->cells+=cells;stats->peaks+=peaks.size();stats->processS+=std::chrono::duration<double>(std::chrono::steady_clock::now()-started).count();}
+        return {};
     }
 
     if(settings.velocityOnly) {
@@ -564,6 +603,28 @@ std::vector<Hit> dwell(const Waveform& waveform, const std::vector<Echo>& echoes
         stats->processS += std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
     }
     return hits;
+}
+
+std::vector<Hit> dwell(const Waveform& waveform,const std::vector<Echo>& echoes,const Settings& settings,Stream& stream,
+    Stats* stats,const ClutterMap* clutter,Snapshot* snapshot) {
+    return dwellImpl(waveform,echoes,settings,stream,stats,clutter,snapshot,nullptr);
+}
+std::vector<Hit> dwellWithDiagnosticsV1(const Waveform& waveform,const std::vector<Echo>& echoes,const Settings& settings,Stream& stream,
+    Stats* stats,const ClutterMap* clutter,Snapshot* snapshot,CellDiagnosticsV1* diagnostics) {
+    return dwellImpl(waveform,echoes,settings,stream,stats,clutter,snapshot,diagnostics);
+}
+bool dwellObservedV1(const Waveform& waveform,const std::vector<Echo>& echoes,const Settings& settings,Stream& stream,
+    Stats* stats,const ClutterMap* clutter,Snapshot* snapshot,CellDiagnosticsV1* diagnostics,DwellObservationV1& observation) {
+    const auto count=waveform.intervals.size();
+    if(!count||count>32||observation.intervalEnergyFraction.size()!=count||observation.intervalTimeS.size()!=count)return false;
+    double total=0;
+    for(std::size_t i=0;i<count;++i) {
+        const double fraction=observation.intervalEnergyFraction[i],epoch=observation.intervalTimeS[i];
+        if(!std::isfinite(fraction)||fraction<=0||!std::isfinite(epoch)||epoch<0)return false;
+        total+=fraction;
+    }
+    if(std::abs(total-1)>1e-12)return false;
+    (void)dwellImpl(waveform,echoes,settings,stream,stats,clutter,snapshot,diagnostics,&observation);return true;
 }
 
 int coincidences(int m, int tol) noexcept {

@@ -4,6 +4,32 @@
 #include <set>
 
 namespace fsim::session {
+void World::applyWeaponPulseV1(Entry& e,sim::FlightModel& model,double nativeNowS) {
+    if(!e.plantAdapter.configured||e.plantAdapter.implementations[3]!=4)return;
+    if(!e.pulseManagerV1) {
+        if(!e.payloadProfile)return;
+        const auto* descriptor=e.payloadProfile->find("propulsion");if(!descriptor)return;
+        ms::weapon::PulsePolicyV1 policy;std::string error;
+        if(!ms::weapon::configurePulseV1(*descriptor,policy,error))return;
+        e.pulseManagerV1=std::make_unique<ms::weapon::PulseManagerV1>(policy);
+    }
+    // Current versioned models declare these leaves. An unavailable/invalid
+    // native interface cannot turn an unburned reserve into an ideal force.
+    const auto version=model.property("fsim/motor-pulse/version");
+    const auto age=model.property("fsim/motor-pulse/native-age-s");
+    auto command=model.property("fsim/motor-pulse/second-command");
+    if(!version.valid()||version.get()!=1||!age.valid()||!command.valid())return;
+    ms::weapon::PulseInputV1 input;
+    input.timeS=nativeNowS;input.nativeAgeS=age.get();
+    input.speedMs=std::numeric_limits<double>::quiet_NaN();input.fuelKg=e.working.fuelKg;
+    if(const auto binding=weaponLinksV1_.find(e.info.id);binding!=weaponLinksV1_.end()&&(binding->second.navigation||binding->second.strapdownNavigation)) {
+        const auto navigation=binding->second.navigationEstimate();
+        if(navigation.valid)input.speedMs=std::hypot(std::hypot(navigation.velocity.x,navigation.velocity.y),navigation.velocity.z);
+    }
+    if(e.origin.tracking&&std::isfinite(e.origin.timeToGoS)&&e.origin.timeToGoS>=0)input.timeToGoS=e.origin.timeToGoS;
+    const auto decision=e.pulseManagerV1->update(input);
+    command.set(decision.valid&&decision.ignite?1.:0.);
+}
 std::optional<ms::WeaponControlSnapshotV1> World::weaponControlsV1(std::uint32_t weapon) const {
     const auto* e=entry(weapon);
     if(!e || e->info.role!=ms::Role::Weapon || e->weaponEnded) return std::nullopt;
@@ -14,7 +40,7 @@ std::optional<ms::WeaponControlSnapshotV1> World::weaponControlsV1(std::uint32_t
     out.commands={e->inputs.aileron,e->inputs.elevator,e->inputs.rudder};
     auto& model=pool_->vehicle(e->slot);
     auto& cache=e->finTelemetry;
-    const double expectedVersion=e->plantAdapter.configured && e->plantAdapter.implementations[0]==2 ? 2.:1.;
+    const double expectedVersion=e->plantAdapter.configured && (e->plantAdapter.implementations[0]==2||e->plantAdapter.implementations[0]==3) ? 2.:1.;
     const auto value=[](const PropertyHandle& h) {
         return h.valid()?h.get():std::numeric_limits<double>::quiet_NaN();
     };

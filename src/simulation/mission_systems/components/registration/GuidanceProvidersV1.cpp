@@ -1,6 +1,7 @@
 #include "BuiltInProvidersV1.h"
 #include "simulation/mission_systems/components/implementations/guidance/VelocityNormalPnGuidanceV1.h"
 #include "simulation/mission_systems/components/implementations/guidance/MeasuredPnGuidanceV2.h"
+#include "simulation/mission_systems/weapon/NavigationConfigurationV2.h"
 #include <algorithm>
 #include <cmath>
 
@@ -67,6 +68,8 @@ void registerNativeGuidanceV1(ProviderRegistryV1& registry) {
     std::string error;
     registry.guidance.registerFactory("fsim.guidance.inertial_waypoint.v1","fsim.guidance.inertial_waypoint.v1",
         [](const DescriptorV1& d,const ProviderContextV1& ctx,std::string& e)->std::unique_ptr<GuidanceProviderV1> {
+            std::optional<weapon::NavigationStrapdownConfigV2> navigation;
+            if(!weapon::navigationConfigurationV2(ctx.card,navigation,e))return {};
             auto spec=ctx.spec;if(!weapon::configureGuidance(d,spec,e))return {};
             if(!ctx.initialEstimate || ctx.initialEstimate->decoy || !ctx.initialEstimate->id) {
                 e="inertial waypoint release needs an authorized static aimpoint";return {};
@@ -83,11 +86,15 @@ void registerNativeGuidanceV1(ProviderRegistryV1& registry) {
         },false,error);
     registry.guidance.registerFactory("fsim.guidance.velocity_normal_pn.v1","fsim.guidance.velocity_normal_pn.v1",
         [](const DescriptorV1& d,const ProviderContextV1& ctx,std::string& e) -> std::unique_ptr<GuidanceProviderV1> {
+            std::optional<weapon::NavigationStrapdownConfigV2> navigation;
+            if(!weapon::navigationConfigurationV2(ctx.card,navigation,e))return {};
             auto spec=ctx.spec;if(!weapon::configureGuidance(d,spec,e))return {};
             return nativeGuidanceProviderV1(std::move(spec),ctx.initialEstimate);
         },false,error);
     registry.guidance.registerFactory("fsim.guidance.measured_pn.v2","fsim.guidance.measured_pn.v2",
         [](const DescriptorV1& d,const ProviderContextV1& ctx,std::string& e)->std::unique_ptr<GuidanceProviderV1> {
+            std::optional<weapon::NavigationStrapdownConfigV2> navigation;
+            if(!weapon::navigationConfigurationV2(ctx.card,navigation,e))return {};
             auto spec=ctx.spec;if(!weapon::configureGuidance(d,spec,e))return {};
             return std::make_unique<MeasuredPnGuidanceV2>(std::move(spec));
         },false,error);

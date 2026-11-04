@@ -2,6 +2,7 @@
 #define FSIM_PY_NO_BUFFER_TYPE
 #include "_native_world.h"
 #include "fsim/fsim_fusion.h"
+#include "fsim/fsim_weapon_link.h"
 
 #include <math.h>
 
@@ -9,6 +10,74 @@ static PyObject* fusion_vector_v1(const double* values,Py_ssize_t n) {
     PyObject* tuple=PyTuple_New(n);if(!tuple)return NULL;
     for(Py_ssize_t i=0;i<n;++i){PyObject* v=PyFloat_FromDouble(values[i]);if(!v){Py_DECREF(tuple);return NULL;}PyTuple_SetItem(tuple,i,v);}
     return tuple;
+}
+
+static PyObject* link_optional_v1(uint32_t known,double value) {
+    if(known)return PyFloat_FromDouble(value);
+    Py_INCREF(Py_None);return Py_None;
+}
+PyObject* world_weapon_links_v1(PyObject* o,PyObject* const* args,Py_ssize_t n) {
+    WorldObject* self=(WorldObject*)o;uint32_t op,id,weapon;uint64_t instance,assessment,request,since;
+    if(!check_args(n,2,7,"weapon_links_v1")||!as_u32(args[0],&op)||!as_u32(args[1],&id))return NULL;
+    if(op==0&&n==2){if(fsim_weapon_link_instance_v1(self->world,id,&instance)!=FSIM_OK)return fail();return PyLong_FromUnsignedLongLong(instance);}
+    if(op==1&&n==3) {
+        if(!as_u32(args[2],&weapon))return NULL;
+        fsim_weapon_link_capability_v1 c;fsim_weapon_link_capability_v1_init(&c);
+        if(fsim_weapon_link_capability_get_v1(self->world,id,weapon,&c)!=FSIM_OK)return fail();
+        return Py_BuildValue("(KKIIIdddddddddsddIIId)",(unsigned long long)c.instance,(unsigned long long)c.activity,c.weapon,c.direction,c.reason,
+            c.update_period_s,c.feedback_period_s,c.latency_s,c.data_rate_bps,c.range_m,c.frequency_hz,c.maximum_age_s,c.assessment_timeout_s,c.retention_s,c.direction_source,
+            c.loss_probability,c.maximum_queue_s,c.queue_capacity,c.report_capacity,c.assessment_capacity,c.jitter_s);
+    }
+    if(op==2&&n==4){uint32_t target;uint64_t entity;
+        if(!as_u64(args[2],&instance)||!as_u64(args[3],&entity))return NULL;
+        if(fsim_weapon_fused_designate_v1(self->world,id,instance,entity,&target)!=FSIM_OK)return fail();
+        return PyLong_FromUnsignedLong(target);}
+    if(op==3&&n==2){uint32_t count=0;
+        if(fsim_weapon_fused_designations_v1(self->world,id,NULL,0,&count)!=FSIM_OK)return fail();
+        fsim_weapon_fused_designation_v1* rows=count?PyMem_Malloc(count*sizeof(*rows)):NULL;
+        if(count&&!rows)return PyErr_NoMemory();
+        if(count){fsim_weapon_fused_designation_v1_init(rows);uint32_t got=0;
+            if(fsim_weapon_fused_designations_v1(self->world,id,rows,count,&got)!=FSIM_OK){PyMem_Free(rows);return fail();}if(got<count)count=got;}
+        PyObject* list=PyList_New(0);
+        for(uint32_t i=0;list&&i<count;++i){PyObject* row=Py_BuildValue("(IKI)",rows[i].target,(unsigned long long)rows[i].entity,rows[i].valid);
+            if(!row||PyList_Append(list,row)<0){Py_XDECREF(row);Py_CLEAR(list);break;}Py_DECREF(row);}
+        PyMem_Free(rows);return list;
+    }
+    if(op==4&&n==7){
+        if(!as_u64(args[2],&instance)||!as_u32(args[3],&weapon)||!as_u64(args[4],&request))return NULL;
+        const double period=PyFloat_AsDouble(args[5]),duration=PyFloat_AsDouble(args[6]);if(PyErr_Occurred())return NULL;
+        fsim_weapon_assessment_request_v1 q;fsim_weapon_assessment_request_v1_init(&q);q.instance=instance;q.weapon=weapon;q.request_id=request;q.period_s=period;q.duration_s=duration;
+        fsim_weapon_assessment_receipt_v1 r;fsim_weapon_assessment_receipt_v1_init(&r);
+        if(fsim_weapon_assess_v1(self->world,id,&q,&r)!=FSIM_OK)return fail();
+        return Py_BuildValue("(IKKI)",r.accepted,(unsigned long long)r.assessment,(unsigned long long)r.request_id,r.reason);
+    }
+    if(op==5&&n==5){uint32_t canceled;
+        if(!as_u64(args[2],&instance)||!as_u32(args[3],&weapon)||!as_u64(args[4],&assessment))return NULL;
+        if(fsim_weapon_assessment_cancel_v1(self->world,id,instance,weapon,assessment,&canceled)!=FSIM_OK)return fail();
+        return PyBool_FromLong(canceled!=0);}
+    if(op==6&&n==4){
+        if(!as_u32(args[2],&weapon)||!as_u64(args[3],&assessment))return NULL;
+        fsim_weapon_assessment_status_v1 s;fsim_weapon_assessment_status_v1_init(&s);
+        if(fsim_weapon_assessment_status_get_v1(self->world,id,weapon,assessment,&s)!=FSIM_OK)return fail();
+        return Py_BuildValue("(KKIIddN)",(unsigned long long)s.assessment,(unsigned long long)s.request_id,s.state,s.reason,s.requested_time_s,s.expires_time_s,link_optional_v1(s.last_received_known,s.last_received_time_s));
+    }
+    if(op==7&&n==5){uint32_t count=0;
+        if(!as_u32(args[2],&weapon)||!as_u64(args[3],&assessment)||!as_u64(args[4],&since))return NULL;
+        if(fsim_weapon_feedback_get_v1(self->world,id,weapon,assessment,since,NULL,0,&count)!=FSIM_OK)return fail();
+        fsim_weapon_feedback_v1* rows=count?PyMem_Malloc(count*sizeof(*rows)):NULL;
+        if(count&&!rows)return PyErr_NoMemory();
+        if(count){fsim_weapon_feedback_v1_init(rows);uint32_t got=0;
+            if(fsim_weapon_feedback_get_v1(self->world,id,weapon,assessment,since,rows,count,&got)!=FSIM_OK){PyMem_Free(rows);return fail();}if(got<count)count=got;}
+        PyObject* list=PyList_New(0);
+        for(uint32_t i=0;list&&i<count;++i){const fsim_weapon_feedback_v1* r=&rows[i];
+            PyObject* row=Py_BuildValue("(KKIddddIIIIINNNdNI)",(unsigned long long)r->assessment,(unsigned long long)r->sequence,r->weapon,
+                r->sample_time_s,r->sent_time_s,r->received_time_s,r->valid_until_s,r->navigation_valid,r->tracking,r->active,r->supported,r->end_of_flight,
+                fusion_vector_v1(r->state_ecef,6),link_optional_v1(r->time_to_active_known,r->time_to_active_s),link_optional_v1(r->time_to_intercept_known,r->time_to_intercept_s),
+                r->navigation_time_s,fusion_vector_v1(r->navigation_covariance,36),r->navigation_gnss_aided);
+            if(!row||PyList_Append(list,row)<0){Py_XDECREF(row);Py_CLEAR(list);break;}Py_DECREF(row);}
+        PyMem_Free(rows);return list;
+    }
+    PyErr_SetString(PyExc_TypeError,"weapon_links_v1: invalid operation or argument count");return NULL;
 }
 
 PyObject* world_fusion_status_v1(PyObject* o,PyObject* const* args,Py_ssize_t n) {

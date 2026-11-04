@@ -13,10 +13,6 @@ void KeyHandler::apply(vsg::KeyPressEvent& e) {
     case vsg::KEY_Space: // (pause on its release: held for a drag, it pans)
         if (!spaceDown_) spaceDown_ = true, spaceUsed_ = false;
         break;
-    case vsg::KEY_v:
-    case vsg::KEY_V:
-        c.showCameras.store(!c.showCameras.load(std::memory_order_relaxed), std::memory_order_relaxed);
-        break;
     case vsg::KEY_Home:
         c.seekTo.store(0.0, std::memory_order_relaxed);
         break;
@@ -37,43 +33,9 @@ void KeyHandler::apply(vsg::KeyPressEvent& e) {
     case vsg::KEY_Plus:
         c.cameraZoom.store(0.8, std::memory_order_relaxed);
         break;
-    case vsg::KEY_l:
-    case vsg::KEY_L:
-        c.showVehicleList.store(!c.showVehicleList.load(std::memory_order_relaxed), std::memory_order_relaxed);
-        break;
-    case vsg::KEY_m:
-    case vsg::KEY_M:
-        c.showMonitor.store(!c.showMonitor.load(std::memory_order_relaxed), std::memory_order_relaxed);
-        break;
-    case vsg::KEY_Leftbracket:
-        c.timeFactor.store(std::max(0.05, c.timeFactor.load(std::memory_order_relaxed) * 0.5), std::memory_order_relaxed);
-        break;
-    case vsg::KEY_Rightbracket:
-        c.timeFactor.store(std::min(64.0, c.timeFactor.load(std::memory_order_relaxed) * 2.0), std::memory_order_relaxed);
-        break;
     case vsg::KEY_r:
     case vsg::KEY_R:
         c.cameraReset.store(true, std::memory_order_relaxed);
-        break;
-    case vsg::KEY_n:
-    case vsg::KEY_N:
-        c.showLabels.store(!c.showLabels.load(std::memory_order_relaxed), std::memory_order_relaxed);
-        break;
-    case vsg::KEY_t:
-    case vsg::KEY_T:
-        c.showTrails.store(!c.showTrails.load(std::memory_order_relaxed), std::memory_order_relaxed);
-        break;
-    case vsg::KEY_e:
-    case vsg::KEY_E:
-        c.showEffects.store(!c.showEffects.load(std::memory_order_relaxed), std::memory_order_relaxed);
-        break;
-    case vsg::KEY_k:
-    case vsg::KEY_K:
-        c.showClouds.store(!c.showClouds.load(std::memory_order_relaxed), std::memory_order_relaxed);
-        break;
-    case vsg::KEY_p:
-    case vsg::KEY_P:
-        c.showMission.store(!c.showMission.load(std::memory_order_relaxed), std::memory_order_relaxed);
         break;
     case vsg::KEY_Escape:
         c.quit.store(true, std::memory_order_relaxed);

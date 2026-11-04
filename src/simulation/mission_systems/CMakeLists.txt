@@ -6,10 +6,17 @@ add_library(fsim_ms STATIC
     components/Profile.cpp
     components/Bindings.cpp
     components/support/MeasuredSeekerV2.cpp
+    components/support/ReceiverConfigurationV1.cpp
+    components/support/ReceiverConfigurationV3.cpp
     components/implementations/seeker/NonImagingIrSeekerV2.cpp
     components/implementations/seeker/ImagingIrSeekerV2.cpp
     components/implementations/seeker/SemiActiveRadarSeekerV2.cpp
     components/implementations/seeker/ActiveRadarSeekerV2.cpp
+    components/implementations/seeker/EngineeringSeekerV3.cpp
+    components/implementations/seeker/ThermalImageReceiverV1.cpp
+    components/implementations/seeker/ThermalReticleReceiverV1.cpp
+    components/implementations/seeker/RadioReceiverV1.cpp
+    components/implementations/seeker/RadioTemporalCoincidenceV1.cpp
     components/implementations/guidance/MeasuredPnGuidanceV2.cpp
     components/PlantProvidersV1.cpp
     components/ProviderRegistryV1.cpp
@@ -18,6 +25,7 @@ add_library(fsim_ms STATIC
     components/implementations/allocator/JsbsimAuthoredFinMixerV1.cpp
     components/implementations/autopilot/LoadFeedbackCascadeAutopilotV1.cpp
     components/implementations/autopilot/ActuatorAwareCascadeAutopilotV1.cpp
+    components/implementations/autopilot/OperatingPointAutopilotV1.cpp
     components/implementations/fuze/SweptPathFuzeV1.cpp
     components/implementations/fuze/TurningCpaFuzeV1.cpp
     components/implementations/guidance/VelocityNormalPnGuidanceV1.cpp
@@ -32,6 +40,7 @@ add_library(fsim_ms STATIC
     components/registration/AllocatorProvidersV1.cpp
     components/registration/AutopilotProvidersV1.cpp
     components/registration/BuiltInProvidersV1.cpp
+    components/registration/EquipmentModels.cpp
     components/registration/EffectFactoriesV1.cpp
     components/registration/FuzeProvidersV1.cpp
     components/registration/GuidanceProvidersV1.cpp
@@ -45,6 +54,12 @@ add_library(fsim_ms STATIC
     Model.cpp
     Names.cpp
     weapon/Guidance.cpp
+    weapon/WeaponLink.cpp
+    weapon/NavigationV1.cpp
+    weapon/NavigationStrapdownV2.cpp
+    weapon/NavigationCaptureV2.h
+    weapon/NavigationConfigurationV2.cpp
+    weapon/PulseManagerV1.cpp
     weapon/Composition.cpp
     weapon/Seeker.cpp
     weapon/PlantAdapter.cpp
@@ -52,6 +67,7 @@ add_library(fsim_ms STATIC
     weapon/ContactFuze.h
     weapon/ContactFuze.cpp
     weapon/Autopilot.cpp
+    weapon/OperatingPointControlV1.cpp
     weapon/LaunchEligibility.h
     weapon/LaunchEligibility.cpp
     countermeasure/Dispenser.cpp
@@ -95,7 +111,7 @@ add_library(fsim::ms ALIAS fsim_ms)
 fsim_include_view(fsim_ms)
 target_include_directories(fsim_ms PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_compile_definitions(fsim_ms PRIVATE FSIM_BUILDING)
-target_link_libraries(fsim_ms PUBLIC fsim::core)
+target_link_libraries(fsim_ms PUBLIC fsim::core fsim::contracts)
 fsim_set_warnings(fsim_ms)
 # NTIA's reference implementations (third_party/ntia, public domain), compiled as they are: their own warnings off
 set_source_files_properties(rf/NtiaItm.cpp rf/NtiaP528.cpp PROPERTIES

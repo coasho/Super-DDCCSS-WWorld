@@ -83,6 +83,7 @@ function(fsim_install_designs component)
     # their payloads' cards (ADR-30): the fits staged above name them
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/assets/payloads DESTINATION share/flightsim COMPONENT ${component})
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/assets/stores DESTINATION share/flightsim COMPONENT ${component}) # (the stores' cards, MS-7)
+    install(FILES ${CMAKE_SOURCE_DIR}/tools/models/hangar/hangar/data/equipment_models.json DESTINATION share/flightsim COMPONENT ${component})
 endfunction()
 
 # Simulation is usable with any one of these components installed on its own.

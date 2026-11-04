@@ -123,6 +123,39 @@ void demands_saturate_without_unlimited_authority() {
     require(std::abs(out.elevator) <= 1 && std::abs(out.rudder) <= 1 && std::abs(out.aileron) <= 1,
             "The controller may only request bounded normalized surface commands");
 }
+void clipped_incidence_retains_simultaneous_force_and_moment_trim() {
+    // A constrained incidence cannot retain the rejected request's curvature.
+    // Solve the two independent steady-state force/moment equations first;
+    // the controller must retain that feasible physical trim under overload.
+    for (const bool yaw : {false, true}) for (const bool feedback : {false, true}) {
+        auto in=flight(); FinControlConfigV1 config; config.version=1; config.maxIncidenceRad=.1;
+        const auto& axis=yaw?in.yaw:in.pitch;
+        const unsigned forceAxis=yaw?1u:2u,momentAxis=yaw?2u:1u;
+        const double sign=yaw?-1.:1.,angle=config.maxIncidenceRad;
+        const double forceResidual=feedback?7.:0.,momentResidual=feedback?15.:0.;
+        in.demandBody[forceAxis]=-300; in.gravityBody[forceAxis]=9.80665;
+        const double effective=axis.forceAngle-axis.forceControl*axis.momentAngle/axis.momentControl;
+        const double force=effective*angle+forceResidual-axis.forceControl*momentResidual/axis.momentControl;
+        const double denominator=in.massKg*in.speedMs-sign*axis.forceControl*axis.momentRate/axis.momentControl;
+        const double path=-sign*(force+in.massKg*in.gravityBody[forceAxis])/denominator;
+        const double delta=-(axis.momentAngle*angle+axis.momentRate*path+momentResidual)/axis.momentControl;
+        (yaw?in.betaRad:in.alphaRad)=angle; in.ratesRadS[momentAxis]=path;
+        const double actualForce=axis.forceAngle*angle+axis.forceControl*delta+forceResidual;
+        const double actualMoment=axis.momentAngle*angle+axis.momentRate*path+axis.momentControl*delta+momentResidual;
+        require(std::abs(actualForce+in.massKg*in.gravityBody[forceAxis]+sign*in.massKg*in.speedMs*path)<1e-9 &&
+                    std::abs(actualMoment)<1e-9,
+                "Independent clipped fixture must balance actual force and moment simultaneously");
+        if (feedback) {
+            AeroFeedback measured; measured.forceBodyN[forceAxis]=actualForce;
+            measured.momentBodyNm[momentAxis]=actualMoment; measured.controlRad[momentAxis]=delta;
+            in.measured=measured;
+        }
+        const auto out=finCommands(in,config,actualActuators());
+        const double command=yaw?out.rudder:out.elevator;
+        require(out.available && std::abs(command)<1 && std::abs(command*in.limitsRad[momentAxis]-delta)<1e-12,
+                "Configured incidence-limited overload must retain the feasible physical trim, including direct control force and damping");
+    }
+}
 void no_authority_or_invalid_plant_is_neutral() {
     auto in = flight(); in.demandBody = {0, 20, -20};
     in.pitch.momentControl = 0;
@@ -364,6 +397,95 @@ void coupled_constant_rate_trim_retains_actual_control_force() {
                     "Gyroscopic constant-rate trim must retain the actual fins and their direct forces");
         }
 }
+void measured_axial_force_preserves_known_directional_trim() {
+    // Start with a known Euler moment equilibrium and native body-force
+    // balance, not the controller's trim inversion. Axial thrust/drag changes
+    // velocity direction at finite incidence even when transverse force is fixed.
+    for(const double axialForce:{-2500.,8000.}) for(const double sign:{-1.,1.})
+        for(const double rollSign:{-1.,1.}) for(const bool aware:{false,true}) {
+            auto in=flight();in.rollMomentPerRad=0;in.rollDamping=0;in.limitsRad[0]=0;
+            in.alphaRad=sign*.04;in.betaRad=sign*.03;in.ratesRadS={rollSign*.1,sign*.005,-sign*.004};
+            const auto& w=in.ratesRadS;const auto& j=in.inertiaKgM2;
+            const double gy=(j[0]-j[2])*w[0]*w[2],gz=(j[1]-j[0])*w[0]*w[1];
+            constexpr double rz=7,ry=-5,my=15,mz=-11;
+            const double elevator=(gy-in.pitch.momentAngle*in.alphaRad-in.pitch.momentRate*w[1]-my)/in.pitch.momentControl;
+            const double rudder=(gz-in.yaw.momentAngle*in.betaRad-in.yaw.momentRate*w[2]-mz)/in.yaw.momentControl;
+            const double fz=in.pitch.forceAngle*in.alphaRad+in.pitch.forceControl*elevator+rz;
+            const double fy=in.yaw.forceAngle*in.betaRad+in.yaw.forceControl*rudder+ry;
+            const double az=-in.speedMs*w[1]-fz/in.massKg+axialForce/in.massKg*in.alphaRad;
+            const double ay=in.speedMs*w[2]-fy/in.massKg+axialForce/in.massKg*in.betaRad;
+            constexpr double g=9.80665;
+            const double a=1+in.alphaRad*in.alphaRad+in.betaRad*in.betaRad;
+            const double b=2*(az*in.alphaRad+ay*in.betaRad),c=az*az+ay*ay-g*g;
+            require(b*b-4*a*c>0,"Known axial trim must admit a real gravity direction");
+            const double gx=(-b-std::sqrt(b*b-4*a*c))/(2*a);
+            in.gravityBody={gx,ay+gx*in.betaRad,az+gx*in.alphaRad};
+            constexpr double dx=1.5;
+            in.demandBody={dx,fy/in.massKg-(axialForce/in.massKg-dx)*in.betaRad,
+                fz/in.massKg-(axialForce/in.massKg-dx)*in.alphaRad};
+            in.measured=AeroFeedback{{axialForce,fy,fz},{0,gy,gz},{0,elevator,rudder}};
+            // Independently substitute into the body-velocity direction rates.
+            const double alphaDot=w[1]+(fz/in.massKg+in.gravityBody[2]-(axialForce/in.massKg+gx)*in.alphaRad)/in.speedMs;
+            const double betaDot=-w[2]+(fy/in.massKg+in.gravityBody[1]-(axialForce/in.massKg+gx)*in.betaRad)/in.speedMs;
+            require(std::abs(alphaDot)<1e-12&&std::abs(betaDot)<1e-12&&std::abs(
+                in.gravityBody[0]*in.gravityBody[0]+in.gravityBody[1]*in.gravityBody[1]+in.gravityBody[2]*in.gravityBody[2]-g*g)<1e-10,
+                "Independent axial fixture must balance both incidence rates and physical gravity");
+            FinControlConfigV1 config;config.version=1;
+            const auto out=aware?actuatorAwareCommands(in,config,actualActuators()):finCommands(in,config,actualActuators());
+            require(out.available&&out.aileron==0&&std::abs(out.elevator)<1&&std::abs(out.rudder)<1,
+                "Known axial-force trim must retain finite unsaturated authority");
+            require(std::abs(out.elevator*in.limitsRad[1]-elevator)<1e-11&&
+                    std::abs(out.rudder*in.limitsRad[2]-rudder)<1e-11,
+                "Both configured laws must preserve directional-force trim with axial thrust or drag, residual loads and Euler coupling");
+        }
+}
+void measured_axial_force_preserves_incidence_capped_trim() {
+    for(const bool yaw:{false,true}) for(const double sign:{-1.,1.}) for(const bool aware:{false,true}) {
+        auto in=flight();const auto& axis=yaw?in.yaw:in.pitch;const unsigned component=yaw?2u:1u,force=yaw?1u:2u;
+        const double angle=sign*.04,delta=-axis.momentAngle*angle/axis.momentControl;
+        const double transverse=axis.forceAngle*angle+axis.forceControl*delta;
+        constexpr double fx=8000,g=9.80665;
+        const double v=fx/in.massKg*angle-transverse/in.massKg,a=1+angle*angle,b=2*v*angle,c=v*v-g*g;
+        require(b*b-4*a*c>0,"Capped axial trim must admit a physical gravity direction");
+        const double gx=(-b-std::sqrt(b*b-4*a*c))/(2*a);
+        in.gravityBody[0]=gx;in.gravityBody[force]=v+gx*angle;
+        (yaw?in.betaRad:in.alphaRad)=angle;in.demandBody[0]=1.5;in.demandBody[force]=-sign*300;
+        AeroFeedback measured;measured.forceBodyN[0]=fx;measured.forceBodyN[force]=transverse;measured.controlRad[component]=delta;
+        in.measured=measured;FinControlConfigV1 config;config.version=1;config.maxIncidenceRad=.04;
+        const auto out=aware?actuatorAwareCommands(in,config,actualActuators()):finCommands(in,config,actualActuators());
+        const double command=yaw?out.rudder:out.elevator;
+        require(out.available&&std::abs(command)<1&&std::abs(command*in.limitsRad[component]-delta)<1e-11,
+            "Incidence-capped overload must retain achievable axial-force trim rather than rejected demand curvature");
+    }
+}
+void measured_axial_finite_plant_tracks_directional_force() {
+    for(const bool aware:{false,true}) {
+        auto in=flight();FinControlConfigV1 config;config.version=1;in.demandBody={0,8,-20};
+        constexpr double fx=10000,dt=.00025;
+        double alpha=0,beta=0,q=0,r=0,elevator=0,rudder=0;
+        for(unsigned step=0;step<40000;++step) {
+            const double fz=in.pitch.forceAngle*alpha+in.pitch.forceControl*elevator;
+            const double fy=in.yaw.forceAngle*beta+in.yaw.forceControl*rudder;
+            const double my=in.pitch.momentAngle*alpha+in.pitch.momentRate*q+in.pitch.momentControl*elevator;
+            const double mz=in.yaw.momentAngle*beta+in.yaw.momentRate*r+in.yaw.momentControl*rudder;
+            in.alphaRad=alpha;in.betaRad=beta;in.ratesRadS={0,q,r};
+            in.measured=AeroFeedback{{fx,fy,fz},{0,my,mz},{0,elevator,rudder}};
+            const auto out=aware?actuatorAwareCommands(in,config,actualActuators()):finCommands(in,config,actualActuators());
+            require(out.available,"Actual finite axial plant must retain available configured commands");
+            alpha+=(q+(fz-fx*alpha)/(in.massKg*in.speedMs))*dt;
+            beta+=(-r+(fy-fx*beta)/(in.massKg*in.speedMs))*dt;
+            q+=my/in.inertiaKgM2[1]*dt;r+=mz/in.inertiaKgM2[2]*dt;
+            elevator+=std::clamp((out.elevator*in.limitsRad[1]-elevator)/in.actuatorLagS,-4.,4.)*dt;
+            rudder+=std::clamp((out.rudder*in.limitsRad[2]-rudder)/in.actuatorLagS,-4.,4.)*dt;
+            require(std::isfinite(alpha)&&std::isfinite(beta)&&std::hypot(alpha,beta)<.3,
+                "Independent finite axial plant must stay bounded without ideal actuator authority");
+        }
+        const double fz=in.pitch.forceAngle*alpha+in.pitch.forceControl*elevator;
+        const double fy=in.yaw.forceAngle*beta+in.yaw.forceControl*rudder;
+        require(std::abs((fz-fx*alpha)/in.massKg+20)<.1&&std::abs((fy-fx*beta)/in.massKg-8)<.1,
+            "Both actual laws must settle velocity-normal force including the axial projection");
+    }
+}
 void overflowing_inertial_coupling_is_unavailable_and_neutral() {
     // Every supplied scalar and the decoupled rate-servo arithmetic remain
     // finite, but products of two rates overflow the required Euler torque.
@@ -386,6 +508,10 @@ int main() {
              configured_native_actuator_mismatch_is_unavailable, configured_control_response_and_refusals_are_executed,
              overflowing_inertial_coupling_is_unavailable_and_neutral,
              level_trim_uses_specific_force_and_gravity, signed_tail_and_canard_authority,
+             clipped_incidence_retains_simultaneous_force_and_moment_trim,
+             measured_axial_force_preserves_known_directional_trim,
+             measured_axial_force_preserves_incidence_capped_trim,
+             measured_axial_finite_plant_tracks_directional_force,
              demands_saturate_without_unlimited_authority, no_authority_or_invalid_plant_is_neutral,
              saturated_request_has_no_windup_history, finite_lag_synthetic_plant_tracks_a_step,
              two_axis_canard_does_not_require_roll_authority, nonlinear_native_loads_do_not_become_hidden_tracking_bias,

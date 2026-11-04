@@ -288,6 +288,8 @@ from .world import (  # noqa: E402
 )
 from .vecenv import VecEnv  # noqa: E402
 from .agent import Agent, AgentActivity, Referee, StrikeReport  # noqa: E402
+from .weapon_link import (WeaponLinksV1, RemoteWeaponLinksV1, weapon_link_calls_v1, WeaponLinkDirectionV1, WeaponLinkReasonV1, WeaponAssessmentStateV1,
+                          WeaponLinkCapabilityV1, WeaponAssessmentReceiptV1, WeaponAssessmentStatusV1, WeaponFeedbackV1, FusedDesignationV1)
 from . import agra  # noqa: E402,F401
 from . import mission  # noqa: E402,F401
 from . import training  # noqa: E402,F401
@@ -336,6 +338,8 @@ def load_plugin(path):
 
 __all__ = [
     "Agent",
+    "WeaponLinksV1", "RemoteWeaponLinksV1", "weapon_link_calls_v1", "WeaponLinkDirectionV1", "WeaponLinkReasonV1", "WeaponAssessmentStateV1",
+    "WeaponLinkCapabilityV1", "WeaponAssessmentReceiptV1", "WeaponAssessmentStatusV1", "WeaponFeedbackV1", "FusedDesignationV1",
     "AgentActivity",
     "StrikeReport",
     "Referee",

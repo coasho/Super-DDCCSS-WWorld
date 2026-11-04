@@ -1,0 +1,31 @@
+{
+  "schema": "fsim.third-party-source.v1",
+  "name": "PicoSHA2",
+  "version": "v1.0.1",
+  "upstream": "https://github.com/okdshin/PicoSHA2",
+  "commit": "161cb3fc4170fa7a3eca9e582cebd27cc4d1fe29",
+  "license": "MIT",
+  "license_path": "LICENSE",
+  "modifications": "None; source and license are byte-identical to the pinned official commit.",
+  "runtime_dependencies": [
+    "C++ standard library"
+  ],
+  "scope": "Private SHA256 content-digest implementation for native recording companion provenance; no authentication or encryption claim.",
+  "files": [
+    {
+      "path": "picosha2.h",
+      "url": "https://raw.githubusercontent.com/okdshin/PicoSHA2/161cb3fc4170fa7a3eca9e582cebd27cc4d1fe29/picosha2.h",
+      "sha256": "b13c180161ffac8d0adc81e033e493c409457c4d1258ab9781ac80579ba3bdd8"
+    },
+    {
+      "path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/okdshin/PicoSHA2/161cb3fc4170fa7a3eca9e582cebd27cc4d1fe29/LICENSE",
+      "sha256": "6c30eb1f37554ec4199cb82a8c86d9e7a852da78a757832bebb03ac9ddc44ff1"
+    }
+  ],
+  "readme": {
+    "url": "https://raw.githubusercontent.com/okdshin/PicoSHA2/161cb3fc4170fa7a3eca9e582cebd27cc4d1fe29/README.md",
+    "sha256": "211c460310f0d2a9b918b785af959694878c54a8ab88d787a14b99b28ff04f43",
+    "verified_scope": "Official properties: header-file only, standard-library dependencies, MIT; incremental hash256_one_by_one API."
+  }
+}

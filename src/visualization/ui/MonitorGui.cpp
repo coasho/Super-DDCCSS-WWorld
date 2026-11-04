@@ -1,4 +1,5 @@
 #include "visualization/ui/MonitorGui.h"
+#include "visualization/ui/MandatoryPanel.h"
 
 #include "foundation/core/Units.h"
 #include "visualization/ui/Colour.h"
@@ -27,7 +28,7 @@ struct Layout {
     float monitorMaxHeight;               ///< so the monitor stops above the list rather than under it
 };
 
-Layout layout(bool listShown) {
+Layout layout() {
     Layout l;
     l.scale = ImGui::GetIO().FontGlobalScale;
     l.margin = 12.0f * l.scale;
@@ -38,7 +39,7 @@ Layout layout(bool listShown) {
     l.listWidth = std::min(460.0f * l.scale, std::max(280.0f, l.display.x * 0.55f));
     l.listHeight = std::min(240.0f * l.scale, std::max(110.0f, l.display.y * 0.30f));
     l.listTop = std::max(l.margin, l.display.y - l.listHeight - l.margin);
-    l.monitorMaxHeight = (listShown ? l.listTop : l.display.y) - 2.0f * l.margin;
+    l.monitorMaxHeight = l.listTop - 2.0f * l.margin;
     return l;
 }
 
@@ -64,9 +65,9 @@ int MonitorGui::severity(const ipc::FlightStatus& status, const char** word) noe
 }
 
 void MonitorGui::record(vsg::CommandBuffer&) const {
-    if (showLabels_) drawLabels();
-    if (controls_->showMonitor.load(std::memory_order_relaxed)) drawMonitor();
-    if (controls_->showVehicleList.load(std::memory_order_relaxed)) drawVehicleList();
+    drawLabels();
+    drawMonitor();
+    drawVehicleList();
 }
 
 void MonitorGui::drawLabels() const {
@@ -90,14 +91,14 @@ void MonitorGui::drawLabels() const {
 }
 
 void MonitorGui::drawMonitor() const {
-    const Layout l = layout(controls_->showVehicleList.load(std::memory_order_relaxed));
+    const Layout l = layout();
     ImGui::SetNextWindowPos(ImVec2(l.margin, l.margin), ImGuiCond_FirstUseEver);
     // Height 0: ImGui fits it to the content, so nothing is ever cut off. The
     // constraint stops that fit where the vehicle list begins; past it the
     // panel scrolls instead of growing under the list.
     ImGui::SetNextWindowSize(ImVec2(l.panelWidth, 0.0f), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSizeConstraints(ImVec2(l.panelWidth * 0.6f, 0.0f), ImVec2(FLT_MAX, l.monitorMaxHeight));
-    if (!ImGui::Begin("flightsim", nullptr, ImGuiWindowFlags_NoCollapse)) {
+    if (!beginMandatoryPanel("flightsim")) {
         ImGui::End();
         return;
     }
@@ -168,10 +169,7 @@ void MonitorGui::drawMonitor() const {
         ImGui::SameLine();
         if (ImGui::Button("step  [.]")) controls_->singleStep.store(true, std::memory_order_relaxed);
 
-        float factor = static_cast<float>(controls_->timeFactor.load(std::memory_order_relaxed));
-        ImGui::SetNextItemWidth(-1.0f);
-        if (ImGui::SliderFloat("##timefactor", &factor, 0.1f, 32.0f, "time x%.2f", ImGuiSliderFlags_Logarithmic))
-            controls_->timeFactor.store(static_cast<double>(factor), std::memory_order_relaxed);
+        ImGui::TextUnformatted("Real time 1x");
 
         const double start = controls_->replayStart.load(std::memory_order_relaxed);
         const double end = controls_->replayEnd.load(std::memory_order_relaxed);
@@ -200,21 +198,7 @@ void MonitorGui::drawMonitor() const {
                 controls_->eyeDistanceM.load(std::memory_order_relaxed));
 
     ImGui::Separator();
-    bool list = controls_->showVehicleList.load(std::memory_order_relaxed);
-    if (ImGui::Checkbox("list [l]", &list)) controls_->showVehicleList.store(list, std::memory_order_relaxed);
-    ImGui::SameLine();
-    bool cams = controls_->showCameras.load(std::memory_order_relaxed);
-    if (ImGui::Checkbox("cameras [v]", &cams)) controls_->showCameras.store(cams, std::memory_order_relaxed);
-    ImGui::SameLine();
-    bool effects = controls_->showEffects.load(std::memory_order_relaxed);
-    if (ImGui::Checkbox("effects [e]", &effects)) controls_->showEffects.store(effects, std::memory_order_relaxed);
-    ImGui::SameLine();
-    bool clouds = controls_->showClouds.load(std::memory_order_relaxed);
-    if (ImGui::Checkbox("clouds [k]", &clouds)) controls_->showClouds.store(clouds, std::memory_order_relaxed);
-    if (source_.mirror) {
-        bool mission = controls_->showMission.load(std::memory_order_relaxed);
-        if (ImGui::Checkbox("payloads [p]", &mission)) controls_->showMission.store(mission, std::memory_order_relaxed);
-    }
+    ImGui::TextUnformatted("All visual effects enabled");
 
     if (batch_ && !batch_->states.empty()) {
         const int sel = std::clamp(controls_->selectedVehicle.load(std::memory_order_relaxed), 0,
@@ -229,9 +213,6 @@ void MonitorGui::drawMonitor() const {
                     units::metresPerSecondToKnots(s.airspeedTrueMs), units::radiansToDegrees(s.alphaRad));
         ImGui::Text("roll %.0f  pitch %.0f  hdg %.0f", units::radiansToDegrees(s.eulerRad[0]),
                     units::radiansToDegrees(s.eulerRad[1]), units::radiansToDegrees(s.eulerRad[2]));
-        // (its flight status: above the vehicle list where that is shown - this panel fills its height in a small window)
-        if (status_ && static_cast<std::size_t>(sel) < status_->size() && !controls_->showVehicleList.load(std::memory_order_relaxed))
-            drawStatus(s, (*status_)[static_cast<std::size_t>(sel)], true);
     }
     ImGui::End();
 }
@@ -302,12 +283,12 @@ void MonitorGui::drawStatus(const sim::VehicleState& s, const ipc::FlightStatus&
 
 void MonitorGui::drawVehicleList() const {
     if (!batch_) return;
-    const Layout l = layout(true);
+    const Layout l = layout();
     // Anchored to the bottom-left of the window that exists, and never taller
     // than a third of it, so the whole table is always on screen.
     ImGui::SetNextWindowPos(ImVec2(l.margin, l.listTop), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(l.listWidth, l.listHeight), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("vehicles", nullptr)) {
+    if (!beginMandatoryPanel("vehicles")) {
         ImGui::End();
         return;
     }

@@ -20,6 +20,7 @@ class StoreFlightBinding {
 public:
     void bind(const ms::Host& host, sim::FlightModel& model, const std::vector<std::string>* names);
     void applyMasses(const ms::Host& host, sim::FlightModel& model);
+    void invalidateMasses() noexcept;
     double weightRoomKg(double maximumKg, double weighedKg, double carriedKg, unsigned tick);
     bool hasStations() const noexcept;
     bool loadChanged() const noexcept;

@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<!-- Numerical step-admission fixture only; no airbreathing capability or equipment claim. -->
+<fdm_config name="inlet_step_admission" version="2.0">
+<metrics><wingarea unit="FT2">1</wingarea><wingspan unit="FT">1</wingspan><chord unit="FT">1</chord>
+<location name="AERORP" unit="IN"><x>0</x><y>0</y><z>0</z></location>
+<location name="EYEPOINT" unit="IN"><x>0</x><y>0</y><z>0</z></location>
+<location name="VRP" unit="IN"><x>0</x><y>0</y><z>0</z></location></metrics>
+<mass_balance><ixx unit="SLUG*FT2">1</ixx><iyy unit="SLUG*FT2">1</iyy><izz unit="SLUG*FT2">1</izz><emptywt unit="LBS">10</emptywt>
+<location name="CG" unit="IN"><x>0</x><y>0</y><z>0</z></location></mass_balance>
+<ground_reactions/><propulsion/>
+<flight_control name="Step admission only"><property value="2">fsim/ducted-inlet-v2/version</property>
+<property value="0.001">fsim/ducted-inlet-v2/residence-s</property>
+<property value="0.002">fsim/ducted-inlet-v2/maximum-native-substep-s</property></flight_control><aerodynamics/>
+</fdm_config>

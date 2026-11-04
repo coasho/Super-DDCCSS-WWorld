@@ -51,7 +51,7 @@ TEST_CASE("Every maintained payload declares all component roles and resolves ac
         REQUIRE(autopilot->parameterRefs.size()==(vector?7:5));
         REQUIRE(plant.control.thrustVector==vector);
         if(vector) {
-            REQUIRE((id=="aim-9x" || id=="iris-t" || id=="mica-em" || id=="mica-ir"));
+            REQUIRE((id=="aim-9x" || id=="iris-t" || id=="mica-em" || id=="mica-ir" || id=="pl-10" || id=="r-73"));
             REQUIRE(autopilot->bindings.at("thrust_vector")=="jsbsim_nozzle_v1");
             REQUIRE(plant.control.thrustVectorLimitRad==autopilot->parameters.at("tvc_limit_rad").value);
             REQUIRE(plant.control.thrustVectorRateRadS==autopilot->parameters.at("tvc_rate_rad_s").value);

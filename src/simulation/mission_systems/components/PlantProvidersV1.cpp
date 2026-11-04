@@ -1,4 +1,5 @@
 #include "PlantProvidersV1.h"
+#include "interfaces/OperatingPointControlV1.h"
 #include <cmath>
 
 namespace fsim::ms::components {
@@ -20,6 +21,22 @@ weapon::FinCommands PlantProvidersV1::commands(const weapon::PlantAdapterV1& sel
         std::abs(command.elevator)<=1 && std::abs(command.rudder)<=1;};
     if(!valid(output))return {};
     output=allocator->allocate(output,stops);
+    return valid(output) ? output : weapon::FinCommands{};
+}
+
+weapon::FinCommands PlantProvidersV1::commandsOperatingPointV1(const weapon::PlantAdapterV1& selected,
+    const weapon::OperatingPointInputV1& input,const weapon::NativePlantIdentityV1& actual) const noexcept {
+    if(selected.implementations[0]!=3 || !available(selected,actual) ||
+       !weapon::plantCommandInputsAvailableV1(selected,input.plant,input.stops,actual))return {};
+    if(!autopilot || !allocator || !actuator || !actuator->accepts(input.plant,input.stops))return {};
+    const auto* sibling=dynamic_cast<const OperatingPointControlV1*>(autopilot.get());
+    if(!sibling)return {};
+    auto output=sibling->commandsOperatingPointV1(input).commands;
+    const auto valid=[](const auto& command) {return command.available && std::isfinite(command.aileron) &&
+        std::isfinite(command.elevator) && std::isfinite(command.rudder) && std::abs(command.aileron)<=1 &&
+        std::abs(command.elevator)<=1 && std::abs(command.rudder)<=1;};
+    if(!valid(output))return {};
+    output=allocator->allocate(output,input.stops);
     return valid(output) ? output : weapon::FinCommands{};
 }
 

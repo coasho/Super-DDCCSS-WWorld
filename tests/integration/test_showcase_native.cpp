@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <map>
@@ -364,6 +365,11 @@ Run successful(const fs::path& executable, const fs::path& directory, const std:
             if (destructiveEffect(event))
                 require(bursts > 0, "recorded damage or collision effect has no preceding native weapon burst");
             if (event.kind == static_cast<std::uint8_t>(fsim::ipc::EngagementKind::Hit) && event.slot == targetSlot) {
+                if (!fsim::showcase::matchingFragmentHit(event,weaponSlot,targetSlot,weapon.string("store",""),end))
+                    std::cerr << "unmatched actual fragment Hit: source=" << event.target << " expected=" << weaponSlot+1
+                              << ", victim=" << event.slot << ", count=" << event.index << ", time="
+                              << std::setprecision(17) << event.simTime << ", terminal=" << end
+                              << ", store=" << event.name << " expected=" << weapon.string("store","") << '\n';
                 require(fsim::showcase::matchingFragmentHit(event,weaponSlot,targetSlot,weapon.string("store",""),end),
                         "target Hit must match its native weapon, store, positive count and terminal epoch");
                 ++hits;

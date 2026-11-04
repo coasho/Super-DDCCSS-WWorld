@@ -23,6 +23,14 @@ void registerNativePropulsionV1(ProviderRegistryV1& registry) {
         [](const DescriptorV1&,const ProviderContextV1& ctx,std::string& e) -> std::unique_ptr<PropulsionProviderV1> {
             e.clear();return std::make_unique<JsbsimSolidRocketPropulsionV1>(ctx.card.model);
         },false,error);
+    registry.propulsion.registerFactory("fsim.propulsion.jsbsim_commanded_dual_pulse.v1","fsim.propulsion.jsbsim_commanded_dual_pulse.v1",
+        [](const DescriptorV1&,const ProviderContextV1& ctx,std::string& e) -> std::unique_ptr<PropulsionProviderV1> {
+            e.clear();return std::make_unique<JsbsimSolidRocketPropulsionV1>(ctx.card.model);
+        },false,error);
+    registry.propulsion.registerFactory("fsim.propulsion.jsbsim_ducted_rocket.v2","fsim.propulsion.jsbsim_ducted_rocket.v2",
+        [](const DescriptorV1&,const ProviderContextV1& ctx,std::string& e) -> std::unique_ptr<PropulsionProviderV1> {
+            e.clear();return std::make_unique<JsbsimDuctedRocketPropulsionV2>(ctx.card.model);
+        },false,error);
     registry.propulsion.registerFactory("fsim.propulsion.jsbsim_ducted_rocket.v1","fsim.propulsion.jsbsim_ducted_rocket.v1",
         [](const DescriptorV1&,const ProviderContextV1& ctx,std::string& e) -> std::unique_ptr<PropulsionProviderV1> {
             e.clear();return std::make_unique<JsbsimDuctedRocketPropulsionV1>(ctx.card.model);

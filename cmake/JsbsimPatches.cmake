@@ -309,6 +309,13 @@ _fsim_jsbsim_write(models/propulsion/FGRotor.cpp _text Propulsion)
 
 foreach(_includer FGEngine.cpp FGTurboProp.cpp)
     _fsim_jsbsim_read(models/propulsion/${_includer} _text)
+    if(_includer STREQUAL "FGEngine.cpp")
+        set(_old [=[  : in(input), EngineNumber(engine_number)
+]=])
+        set(_new [=[  : in(input), EngineNumber(engine_number), Thruster(nullptr)
+]=])
+        _fsim_jsbsim_edit(_text _old _new FGEngine.cpp "exception-safe thruster initialization")
+    endif()
     _fsim_jsbsim_write(models/propulsion/${_includer} _text Propulsion)
 endforeach()
 
@@ -349,6 +356,13 @@ set(_old [=[  /** Determines the thrust.*/
 set(_new [=[  // flightsim patch (cmake/JsbsimPatches.cmake): restore per-run rocket state.
   void ResetToIC(void) override;
 
+  // Additive nonvirtual functions only: no layout/vtable changes.
+  bool UsesFiniteFuelV2(void) const;
+  double RequestFiniteFuelV2(void) const;
+  void ReserveFiniteFuelV2(double pounds);
+  bool UsesFiniteRocketFeedV1(void) const;
+  void ApplyFiniteRocketFeedV1(void);
+
   /** Determines the thrust.*/
   void Calculate(void);
 ]=])
@@ -361,6 +375,58 @@ _fsim_jsbsim_edit(_text _old _new FGRocket.h "rocket relocated header include")
 _fsim_jsbsim_write(models/propulsion/FGRocket.h _text "")
 
 _fsim_jsbsim_read(models/propulsion/FGRocket.cpp _text)
+set(_old [=[#include "FGThruster.h"
+]=])
+set(_new [=[#include "FGThruster.h"
+#include "models/FGPropulsion.h"
+#include "models/propulsion/FGTank.h"
+#include <algorithm>
+#include <limits>
+]=])
+_fsim_jsbsim_edit(_text _old _new FGRocket.cpp "commanded pulse native feed eligibility")
+set(_old [=[  : FGEngine(engine_number, input), isp_function(nullptr), FDMExec(exec)
+]=])
+set(_new [=[  : FGEngine(engine_number, input), Isp(0.0), ThrustTable(nullptr), isp_function(nullptr), FDMExec(exec)
+]=])
+# FGEngine::Load calls virtual ResetToIC before the derived constructor body
+# initializes its thrust table. The reset override must see a defined pointer.
+_fsim_jsbsim_edit(_text _old _new FGRocket.cpp "constructor-safe rocket reset")
+set(_old [=[{
+  Load(exec, el);
+]=])
+set(_new [=[{
+  try {
+  Load(exec, el);
+]=])
+_fsim_jsbsim_edit(_text _old _new FGRocket.cpp "rocket construction cleanup boundary")
+set(_old [=[  Debug(0);
+}
+
+//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+FGRocket::~FGRocket(void)
+]=])
+set(_new [=[  Debug(0);
+  } catch (...) {
+    // Constructor failure does not invoke the derived destructor. Remove
+    // callback bindings while their owners are still alive; Unbind snapshots
+    // getter values and must precede base/Thruster teardown.
+    auto manager = exec->GetPropertyManager();
+    manager->Unbind(this);
+    if (Thruster) manager->Unbind(Thruster);
+    delete ThrustTable;
+    ThrustTable = nullptr;
+    delete isp_function;
+    isp_function = nullptr;
+    throw;
+  }
+}
+
+//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+FGRocket::~FGRocket(void)
+]=])
+_fsim_jsbsim_edit(_text _old _new FGRocket.cpp "failed rocket owner binding cleanup")
 set(_old [=[void FGRocket::Calculate(void)
 ]=])
 set(_new [=[// flightsim patch (cmake/JsbsimPatches.cmake): do not carry a previous
@@ -376,6 +442,23 @@ void FGRocket::ResetToIC(void)
   It = ItVac = 0.0;
   VacThrust = 0.0;
   Flameout = false;
+  {
+    const auto prefix = "fsim/ducted-inlet-v2/engine[" + std::to_string(EngineNumber) + "]/";
+    for (const auto* leaf : {"requested-fuel-lbs", "reserved-fuel-lbs"})
+      if (const auto node = FDMExec->GetPropertyManager()->GetNode(prefix + leaf, false)) node->setDoubleValue(0.0);
+  }
+  {
+    const auto prefix = "fsim/rocket-feed-v1/engine[" + std::to_string(EngineNumber) + "]/";
+    for (const auto* leaf : {"valid", "requested-fuel-lbs", "supplied-fuel-lbs", "eligible-fuel-lbs",
+                            "group-count", "group-priority", "requested-vacuum-thrust-lbs"})
+      if (const auto node = FDMExec->GetPropertyManager()->GetNode(prefix + leaf, false)) node->setDoubleValue(0.0);
+  }
+  if (ThrustTable && ThrustTable->GetName() == "fsim/commanded-dual-pulse-v1") {
+    auto pm = FDMExec->GetPropertyManager();
+    for (const auto* leaf : {"second-command", "native-age-s", "virtual-age-s"})
+      pm->GetNode(string("fsim/motor-pulse/") + leaf, true)->setDoubleValue(0.0);
+    pm->GetNode("fsim/motor-pulse/second-ignition-age-s", true)->setDoubleValue(-1.0);
+  }
 }
 
 void FGRocket::Calculate(void)
@@ -398,11 +481,232 @@ set(_new [=[      // flightsim patch (SIM-M02): a versioned opt-in ignition-time
       // table preserves a pulse motor's low/zero-thrust coast. A consumed-mass
       // step can leap over that interval. Other tables keep upstream semantics;
       // the existing BurnTime latch, buildup and reset own the time coordinate.
-      const double thrustCoordinate = ThrustTable->GetName() == "fsim/ignition-time-thrust-v1"
+      const bool commandedPulse = ThrustTable->GetName() == "fsim/commanded-dual-pulse-v1";
+      double thrustCoordinate = ThrustTable->GetName() == "fsim/ignition-time-thrust-v1"
                                     ? BurnTime : TotalPropellantExpended;
-      VacThrust = ThrustTable->GetValue(thrustCoordinate)
+      bool pulseHold = false;
+      bool pulseInputsValid = true;
+      double pulseFuelLbs = 0.0;
+      if (commandedPulse) {
+        auto pm = FDMExec->GetPropertyManager();
+        const auto value = [&](const char* leaf) {
+          auto node = pm->GetNode(string("fsim/motor-pulse/") + leaf, false);
+          return node ? node->getDoubleValue() : HUGE_VAL;
+        };
+        const double start = value("second-start-s"), firstEnd = value("first-end-s");
+        const double limit = value("hold-limit-s");
+        double ignition = value("second-ignition-age-s");
+        const auto propulsion = FDMExec->GetPropulsion();
+        unsigned priority = std::numeric_limits<unsigned>::max(), feeds = 0;
+        double minimumShare = std::numeric_limits<double>::infinity();
+        std::vector<unsigned> seen;
+        bool duplicateFeed = false;
+        for (const auto id : SourceTanks) {
+          if (id >= propulsion->GetNumTanks()) continue;
+          if (std::find(seen.begin(), seen.end(), id) != seen.end()) {duplicateFeed = true; break;}
+          seen.push_back(id);
+          const auto tank = propulsion->GetTank(id);
+          const auto rank = tank->GetPriority();
+          if (tank->GetType() != FGTank::ttFUEL || !tank->GetSelected() || rank == 0 ||
+              rank > propulsion->GetNumTanks() || !std::isfinite(tank->GetContents()) ||
+              !std::isfinite(tank->GetUnusable()) || tank->GetContents() <= tank->GetUnusable()) continue;
+          if (rank < priority) {priority = rank; feeds = 0; minimumShare = std::numeric_limits<double>::infinity();}
+          if (rank == priority) {++feeds; minimumShare = std::min(minimumShare, tank->GetContents() - tank->GetUnusable());}
+        }
+        // ConsumeFuel divides the requested mass equally across the current
+        // native priority group. Bound its request by that group's smallest
+        // usable share so every pound behind this step's impulse is consumed;
+        // a deselected, unusable or lower-priority tank cannot supply it.
+        if (!duplicateFeed && feeds && std::isfinite(minimumShare)) pulseFuelLbs = minimumShare * feeds;
+        const bool valid = value("version") == 1.0 && std::isfinite(firstEnd) && firstEnd > 0.0 &&
+          std::isfinite(start) && start > firstEnd && std::isfinite(limit) && limit > 0.0 &&
+          std::isfinite(ignition) && std::isfinite(Isp) && Isp > 0.0 &&
+          std::isfinite(TotalIspVariation) && TotalIspVariation > -1.0 &&
+          std::isfinite(ThrustVariation) && ThrustVariation >= -1.0 &&
+          std::isfinite(pulseFuelLbs) && pulseFuelLbs > 0.0;
+        pulseInputsValid = valid;
+        thrustCoordinate = BurnTime;
+        pulseHold = !valid;
+        if (valid && BurnTime >= start) {
+          const double command = value("second-command");
+          if (ignition < 0.0 && std::isfinite(command) && command == 1.0 && BurnTime <= start + limit) {
+            ignition = BurnTime;
+            pm->GetNode("fsim/motor-pulse/second-ignition-age-s", true)->setDoubleValue(ignition);
+          }
+          pulseHold = ignition < 0.0;
+          thrustCoordinate = pulseHold ? start : start + BurnTime - ignition;
+        }
+        pm->GetNode("fsim/motor-pulse/virtual-age-s", true)->setDoubleValue(thrustCoordinate);
+      }
+      VacThrust = (pulseHold ? 0.0 : ThrustTable->GetValue(thrustCoordinate))
 ]=])
 _fsim_jsbsim_edit(_text _old _new FGRocket.cpp "versioned pulse time coordinate")
+# The commanded mode alone cannot advance an unignited empty engine, and
+# bounds each step's vacuum impulse by the actual remaining fed propellant.
+set(_old [=[      BurnTime += in.TotalDeltaT; // Increment burn time
+]=])
+set(_new [=[      if (commandedPulse && (pulseHold || !std::isfinite(VacThrust) || VacThrust < 0.0))
+        VacThrust = 0.0;
+      if (commandedPulse && pulseInputsValid && pulseFuelLbs > 0.0 && in.TotalDeltaT > 0.0)
+        VacThrust = std::min(VacThrust, pulseFuelLbs * Isp * (1.0 + TotalIspVariation) / in.TotalDeltaT);
+      if (!commandedPulse || (pulseInputsValid && (pulseFuelLbs > 0.0 || BurnTime > 0.0)))
+        BurnTime += in.TotalDeltaT; // Legacy order unchanged.
+      if (commandedPulse)
+        FDMExec->GetPropertyManager()->GetNode("fsim/motor-pulse/native-age-s", true)->setDoubleValue(BurnTime);
+]=])
+_fsim_jsbsim_edit(_text _old _new FGRocket.cpp "commanded pulse age and energy bound")
+set(_old [=[double FGRocket::CalcFuelNeed(void)
+{
+]=])
+set(_new [=[double FGRocket::CalcFuelNeed(void)
+{
+  if (UsesFiniteFuelV2() || UsesFiniteRocketFeedV1()) return FuelExpended; // Already reserved actual native fuel.
+  if (ThrustTable && ThrustTable->GetName() == "fsim/commanded-dual-pulse-v1" &&
+      (!std::isfinite(VacThrust) || VacThrust < 0.0 || !std::isfinite(Isp) || Isp <= 0.0 ||
+       !std::isfinite(TotalIspVariation) || TotalIspVariation <= -1.0 ||
+       !std::isfinite(ThrustVariation) || ThrustVariation < -1.0)) {
+    FuelFlowRate = FuelExpended = 0.0;
+    return 0.0;
+  }
+]=])
+_fsim_jsbsim_edit(_text _old _new FGRocket.cpp "commanded pulse malformed variation fuel guard")
+# V2 alone reserves the actual selected native fuel batch before Calculate.
+# State is kept in existing fuel fields and explicit per-engine properties;
+# no class member, virtual method or retained V1 execution order changes.
+set(_old [=[void FGRocket::Calculate(void)
+]=])
+set(_new [=[bool FGRocket::UsesFiniteRocketFeedV1(void) const
+{
+  const auto version = FDMExec->GetPropertyManager()->GetNode(
+    "fsim/rocket-feed-v1/engine[" + std::to_string(EngineNumber) + "]/version", false);
+  // Absent/zero is exactly the legacy path. An unsupported explicit version
+  // still selects the refusal path, never an implicit legacy fallback.
+  return version && version->getDoubleValue() != 0.0;
+}
+
+void FGRocket::ApplyFiniteRocketFeedV1(void)
+{
+  if (!UsesFiniteRocketFeedV1()) return;
+  const auto manager = FDMExec->GetPropertyManager();
+  const auto prefix = "fsim/rocket-feed-v1/engine[" + std::to_string(EngineNumber) + "]/";
+  const auto propulsion = FDMExec->GetPropulsion();
+  const auto set = [&](const char* leaf, double value) {
+    manager->GetNode(prefix + leaf, true)->setDoubleValue(value);
+  };
+  const double version = manager->GetNode(prefix + "version", false)->getDoubleValue();
+  const double requestedThrust = VacThrust;
+  const double effectiveIsp = Isp * (1.0 + TotalIspVariation);
+  bool valid = version == 1.0 && ThrustTable && Thruster && Thruster->GetType() == FGThruster::ttNozzle &&
+    std::isfinite(in.TotalDeltaT) && in.TotalDeltaT > 0.0 && std::isfinite(Isp) && Isp > 0.0 &&
+    std::isfinite(TotalIspVariation) && TotalIspVariation > -1.0 &&
+    std::isfinite(effectiveIsp) && effectiveIsp > 0.0 &&
+    std::isfinite(ThrustVariation) && ThrustVariation >= -1.0 &&
+    std::isfinite(requestedThrust) && requestedThrust >= 0.0 && !SourceTanks.empty();
+  std::vector<unsigned> seen, feeds;
+  int priority = std::numeric_limits<int>::max();
+  double available = 0.0, requested = 0.0;
+  for (const int raw : SourceTanks) {
+    if (raw < 0 || static_cast<std::size_t>(raw) >= propulsion->GetNumTanks()) {valid = false; break;}
+    const auto id = static_cast<unsigned>(raw);
+    if (std::find(seen.begin(), seen.end(), id) != seen.end()) {valid = false; break;}
+    seen.push_back(id);
+    const auto tank = propulsion->GetTank(id);
+    if (tank->GetType() != FGTank::ttFUEL || !std::isfinite(tank->GetContents()) || tank->GetContents() < 0.0 ||
+        !std::isfinite(tank->GetUnusable()) || tank->GetUnusable() < 0.0) {valid = false; break;}
+    const int rank = tank->GetPriority();
+    if (!tank->GetSelected() || rank <= 0 || static_cast<std::size_t>(rank) > propulsion->GetNumTanks() ||
+        tank->GetContents() <= tank->GetUnusable()) continue;
+    if (rank < priority) {priority = rank; feeds.clear();}
+    if (rank == priority) feeds.push_back(id);
+  }
+  if (valid) {
+    requested = requestedThrust / Isp / (1.0 + TotalIspVariation) * in.TotalDeltaT;
+    for (const auto id : feeds) {
+      const auto tank = propulsion->GetTank(id);
+      available += tank->GetContents() - tank->GetUnusable();
+    }
+    valid = std::isfinite(requested) && requested >= 0.0 &&
+      std::isfinite(requested / in.TotalDeltaT) && std::isfinite(available);
+  }
+  double supplied = 0.0;
+  bool fullSupply = valid && !feeds.empty();
+  if (valid && !propulsion->GetFuelFreeze() && !FDMExec->GetTrimStatus() && !feeds.empty()) {
+    // Preserve native priority and equal-share debit exactly, including a
+    // short tank. Do not invent redistribution or borrow a lower priority.
+    const double share = requested / static_cast<double>(feeds.size());
+    for (const auto id : feeds) {
+      const auto tank = propulsion->GetTank(id);const double before = tank->GetContents();
+      // Account the physical requested/available batch before subtraction.
+      // Rounded tank subtraction remains a separate mass-ledger check.
+      const double usable = before - tank->GetUnusable();
+      fullSupply = fullSupply && usable >= share;
+      supplied += std::min(share, usable);
+      tank->Drain(share);
+    }
+  }
+  if (propulsion->GetFuelFreeze() || FDMExec->GetTrimStatus()) fullSupply = false;
+  if (fullSupply) supplied = requested;
+  SetStarved(!valid || feeds.empty());
+  FuelExpended = supplied;
+  FuelFlowRate = valid ? supplied / in.TotalDeltaT : 0.0;
+  OxidizerExpended = OxidizerFlowRate = 0.0;
+  PropellantFlowRate = FuelFlowRate;
+  VacThrust = fullSupply ? requestedThrust : (valid ? FuelFlowRate * effectiveIsp : 0.0);
+  set("valid", valid ? 1.0 : 0.0);
+  set("requested-vacuum-thrust-lbs", std::isfinite(requestedThrust) ? requestedThrust : 0.0);
+  set("requested-fuel-lbs", valid ? requested : 0.0);
+  set("supplied-fuel-lbs", supplied);
+  set("eligible-fuel-lbs", valid ? available : 0.0);
+  set("group-count", valid ? static_cast<double>(feeds.size()) : 0.0);
+  set("group-priority", valid && !feeds.empty() ? static_cast<double>(priority) : 0.0);
+}
+
+bool FGRocket::UsesFiniteFuelV2(void) const
+{
+  if (UsesFiniteRocketFeedV1()) return false; // mixed explicit policies cannot reserve twice
+  const auto manager = FDMExec->GetPropertyManager();
+  const auto version = manager->GetNode("fsim/ducted-inlet-v2/version", false);
+  const auto enabled = manager->GetNode("fsim/ducted-inlet-v2/engine[" + std::to_string(EngineNumber) + "]/finite-fuel-v2", false);
+  return version && version->getDoubleValue() == 2.0 && enabled && enabled->getDoubleValue() == 1.0;
+}
+
+double FGRocket::RequestFiniteFuelV2(void) const
+{
+  const double throttle = in.ThrottlePos[EngineNumber];
+  if (ThrustTable || MxR != 0.0 || !std::isfinite(in.TotalDeltaT) || in.TotalDeltaT <= 0.0 ||
+      !std::isfinite(PropFlowMax) || PropFlowMax <= 0.0 || !std::isfinite(MinThrottle) ||
+      !std::isfinite(throttle) || throttle < MinThrottle || throttle > 1.0) return 0.0;
+  const double requested = PropFlowMax * throttle * in.TotalDeltaT;
+  return std::isfinite(requested) && requested > 0.0 ? requested : 0.0;
+}
+
+void FGRocket::ReserveFiniteFuelV2(double pounds)
+{
+  const double request = RequestFiniteFuelV2();
+  FuelExpended = std::isfinite(pounds) ? std::max(0.0, std::min(pounds, request)) : 0.0;
+  FuelFlowRate = in.TotalDeltaT > 0.0 ? FuelExpended / in.TotalDeltaT : 0.0;
+  FuelUsedLbs += FuelExpended;
+  OxidizerExpended = OxidizerFlowRate = 0.0;
+  SetStarved(FuelExpended <= 0.0);
+  const auto prefix = "fsim/ducted-inlet-v2/engine[" + std::to_string(EngineNumber) + "]/";
+  auto manager = FDMExec->GetPropertyManager();
+  manager->GetNode(prefix + "requested-fuel-lbs", true)->setDoubleValue(request);
+  manager->GetNode(prefix + "reserved-fuel-lbs", true)->setDoubleValue(FuelExpended);
+}
+
+void FGRocket::Calculate(void)
+]=])
+_fsim_jsbsim_edit(_text _old _new FGRocket.cpp "V2 actual finite fuel reservation helpers")
+set(_old [=[  LoadThrusterInputs();
+  It += Thruster->Calculate(VacThrust) * in.TotalDeltaT;
+]=])
+set(_new [=[  // Explicit V1 reserves the actual selected native feed batch before
+  // force/nozzle/impulse evaluation; absent policy leaves legacy behavior.
+  ApplyFiniteRocketFeedV1();
+  LoadThrusterInputs();
+  It += Thruster->Calculate(VacThrust) * in.TotalDeltaT;
+]=])
+_fsim_jsbsim_edit(_text _old _new FGRocket.cpp "V1 supply-backed solid rocket force")
 _fsim_jsbsim_write(models/propulsion/FGRocket.cpp _text Propulsion)
 # FGPropulsion constructs the engine and must see the same virtual override.
 target_include_directories(Models BEFORE PRIVATE ${_fsim_jsbsim_patched})
@@ -436,6 +740,64 @@ set(_new [=[    for (auto& engine: Engines) {
       steady=false;
 ]=])
 _fsim_jsbsim_edit(_text _old _new FGPropulsion.cpp "rocket initial burn")
+# Keep the legacy Calculate/ConsumeFuel order byte-for-byte in its branch.
+# V2 explicitly reserves finite selected native tank contents before the
+# engine's heat/Isp/force evaluation, including a fractional final batch.
+set(_old [=[    engine->Calculate();
+    ConsumeFuel(engine.get());
+    vForces  += engine->GetBodyForces();]=])
+set(_new [=[    auto* finiteRocket = engine->GetType() == FGEngine::etRocket ? dynamic_cast<FGRocket*>(engine.get()) : nullptr;
+    if (finiteRocket && finiteRocket->UsesFiniteFuelV2()) {
+      double reserved = 0.0;
+      double remaining = finiteRocket->RequestFiniteFuelV2();
+      if (!FuelFreeze && !FDMExec->GetTrimStatus() && !FDMExec->IntegrationSuspended()) {
+        std::vector<unsigned> feeds;
+        int priority = std::numeric_limits<int>::max();
+        for (unsigned i = 0; i < engine->GetNumSourceTanks(); ++i) {
+          const unsigned id = engine->GetSourceTank(i);
+          if (id >= Tanks.size()) continue;
+          const auto& tank = Tanks[id];
+          if (tank->GetType() != FGTank::ttFUEL || !tank->GetSelected() || tank->GetPriority() <= 0 ||
+              !std::isfinite(tank->GetContents()) || !std::isfinite(tank->GetUnusable()) ||
+              tank->GetContents() <= tank->GetUnusable()) continue;
+          if (tank->GetPriority() < priority) {priority = tank->GetPriority(); feeds.clear();}
+          if (tank->GetPriority() == priority && std::find(feeds.begin(), feeds.end(), id) == feeds.end()) feeds.push_back(id);
+        }
+        // Equal share at native priority, with bounded redistribution of a
+        // short tank's unused share. Never drain unusable or unselected fuel.
+        const auto passes = feeds.size() + 1;
+        for (std::size_t pass = 0; pass < passes && remaining > 0.0 && !feeds.empty(); ++pass) {
+          const double share = remaining / static_cast<double>(feeds.size());
+          double consumed = 0.0;
+          for (const auto id : feeds) {
+            const auto& tank = Tanks[id];const double before = tank->GetContents();
+            const double amount = std::max(0.0, std::min(share, before - tank->GetUnusable()));
+            tank->Drain(amount);
+            consumed += std::max(0.0, before - tank->GetContents());
+          }
+          if (consumed <= 0.0) break;
+          reserved += consumed;remaining = std::max(0.0, remaining - consumed);
+          feeds.erase(std::remove_if(feeds.begin(), feeds.end(), [&](unsigned id) {
+            return Tanks[id]->GetContents() <= Tanks[id]->GetUnusable();
+          }), feeds.end());
+        }
+      }
+      finiteRocket->ReserveFiniteFuelV2(reserved);
+      engine->Calculate();
+    } else {
+      engine->Calculate();
+      if (!finiteRocket || !finiteRocket->UsesFiniteRocketFeedV1()) ConsumeFuel(engine.get());
+    }
+    vForces  += engine->GetBodyForces();]=])
+_fsim_jsbsim_edit(_text _old _new FGPropulsion.cpp "V2 native actual fuel before thrust")
+set(_old [=[#include <array>
+]=])
+set(_new [=[#include <array>
+#include <algorithm>
+#include <limits>
+#include <cmath>
+]=])
+_fsim_jsbsim_edit(_text _old _new FGPropulsion.cpp "finite fuel standard headers")
 _fsim_jsbsim_write(models/FGPropulsion.cpp _text Models)
 
 # ---------------------------------------------------------------------------

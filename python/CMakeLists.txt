@@ -109,6 +109,7 @@ if(TARGET fsim_vision AND EXISTS ${CMAKE_BINARY_DIR}/share/flightsim/models)
 endif()
 list(APPEND _fsim_py_stage_commands
     COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${CMAKE_SOURCE_DIR}/assets/payloads ${_fsim_py_share}/payloads
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/tools/models/hangar/hangar/data/equipment_models.json ${_fsim_py_share}/equipment_models.json
     COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${CMAKE_SOURCE_DIR}/assets/stores ${_fsim_py_share}/stores)
 list(APPEND _fsim_py_stage_commands
     COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_SOURCE_DIR}/aircraft -DDEST=${_fsim_py_share}/aircraft

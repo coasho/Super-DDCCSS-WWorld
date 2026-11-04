@@ -1,5 +1,6 @@
 #include "visualization/ui/MissionGui.h"
 #include "visualization/ui/FusionGui.h"
+#include "visualization/ui/MandatoryPanel.h"
 
 #include "visualization/ui/Colour.h"
 
@@ -97,8 +98,8 @@ void MissionGui::update(const ipc::WorldMirror* mirror, int slot, const std::str
 }
 
 void MissionGui::record(vsg::CommandBuffer&) const {
-    if (mirrored_) drawFusionV1(*fusion_,fusionValid_,name_);
-    if (!mirrored_ || !controls_->showMission.load(std::memory_order_relaxed)) return;
+    if (!mirrored_) return;
+    drawFusionV1(*fusion_,fusionValid_,name_);
     drawPayloads();
     if (valid_) {
         for (std::uint32_t i = 0; i < record_->radarCount && i < ipc::kMissionRadars; ++i) drawRadar(record_->radars[i]);
@@ -114,7 +115,7 @@ void MissionGui::drawPayloads() const {
     ImGui::SetNextWindowSize(ImVec2(std::min(470.0f * k, display.x * 0.45f), 0.0f), ImGuiCond_FirstUseEver);
     char title[128];
     std::snprintf(title, sizeof title, "mission systems - %s###mission", name_.empty() ? "?" : name_.c_str());
-    if (!ImGui::Begin(title, nullptr)) {
+    if (!beginMandatoryPanel(title)) {
         ImGui::End();
         return;
     }
@@ -182,7 +183,7 @@ void MissionGui::drawRadar(const ipc::MissionRadar& r) const {
     ImGui::SetNextWindowSize(ImVec2(place.width, place.radarHeight), ImGuiCond_FirstUseEver);
     char title[128];
     std::snprintf(title, sizeof title, "%s###radar%u", p ? p->designation : "radar", static_cast<unsigned>(r.payload));
-    if (!ImGui::Begin(title, nullptr)) {
+    if (!beginMandatoryPanel(title)) {
         ImGui::End();
         return;
     }
@@ -213,7 +214,6 @@ void MissionGui::drawRadar(const ipc::MissionRadar& r) const {
         ImGui::TextDisabled(operating ? "an AMTI command starts its search" : "the SDK powers it to operate, then commands a search");
     }
 
-    ImGui::Checkbox("hits", &showHits_); // (raw detections, false alarms among them; off: the tracks alone)
     // the display
     ImVec2 avail = ImGui::GetContentRegionAvail();
     // (its height leaves room for the two lines under it - the counts and the legend - so the window needs no scrollbar;
@@ -292,7 +292,7 @@ void MissionGui::drawRadar(const ipc::MissionRadar& r) const {
             const float bx = x(r.beamAzimuthRad);
             dl->AddLine(ImVec2(bx, p0.y), ImVec2(bx, p1.y), colour(140, 255, 160, 160), 2.0f * k);
         }
-        for (std::uint32_t i = 0; showHits_ && i < r.recentCount && i < ipc::kMissionDetections; ++i)
+        for (std::uint32_t i = 0; i < r.recentCount && i < ipc::kMissionDetections; ++i)
             mark(x(r.recent[i].azimuthRad), y(r.recent[i].rangeM), r.recent[i]);
         for (std::uint32_t i = 0; i < r.trackCount && i < ipc::kMissionTracks; ++i)
             if (r.tracks[i].rangeM <= scale) trackMark(x(r.tracks[i].azimuthRad), y(r.tracks[i].rangeM), r.tracks[i]);
@@ -312,7 +312,7 @@ void MissionGui::drawRadar(const ipc::MissionRadar& r) const {
         if (r.searching) dl->AddLine(c, at(r.beamAzimuthRad, scale), colour(140, 255, 160, 200), 2.0f * k);
         dl->AddTriangleFilled(ImVec2(c.x, c.y - 6.0f * k), ImVec2(c.x - 4.0f * k, c.y + 4.0f * k), ImVec2(c.x + 4.0f * k, c.y + 4.0f * k),
                               colour(220, 220, 220, 255));
-        for (std::uint32_t i = 0; showHits_ && i < r.recentCount && i < ipc::kMissionDetections; ++i) {
+        for (std::uint32_t i = 0; i < r.recentCount && i < ipc::kMissionDetections; ++i) {
             const ImVec2 q = at(r.recent[i].azimuthRad, r.recent[i].rangeM);
             mark(q.x, q.y, r.recent[i]);
         }
@@ -350,7 +350,7 @@ void MissionGui::drawRangeDoppler(const ipc::MissionRangeDoppler& rd) const {
     ImGui::SetNextWindowSize(ImVec2(place.width, place.mapHeight), ImGuiCond_FirstUseEver);
     char title[128];
     std::snprintf(title, sizeof title, "%s range-Doppler###rd", p ? p->designation : "radar");
-    if (!ImGui::Begin(title, nullptr)) {
+    if (!beginMandatoryPanel(title)) {
         ImGui::End();
         return;
     }

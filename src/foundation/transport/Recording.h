@@ -35,6 +35,9 @@ public:
     void writeEvent(const EngagementEvent& event);
     void writeWeaponControls(double simTime,const std::vector<ms::WeaponControlSnapshotV1>& controls);
     void close();
+    /// Checked flush and close for optional capture completion. No open writer
+    /// is a refusal; the original void close and file format stay unchanged.
+    bool finishV1();
     std::uint64_t bytesWritten() const noexcept { return bytes_; }
 
 private:

@@ -259,7 +259,7 @@ TEST_CASE("Inertial waypoint guidance freezes authorized input and cannot consum
         ms::components::ProfileV1 profile;std::string error;
         REQUIRE(ms::components::readProfileV1(std::filesystem::path(FSIM_TEST_STORE_DIR)/(name+".json"),*card,profile,error));
         const auto* descriptor=profile.find("guidance");
-        if(!descriptor || descriptor->implementationId!="fsim.guidance.inertial_waypoint.v1")continue;
+        if(!descriptor || equipment::mechanism(descriptor->implementationId)!="fsim.guidance.inertial_waypoint.v1")continue;
         ++tested;ms::weapon::Spec spec;REQUIRE(ms::weapon::configureCompositionV1(*card,profile,spec,spec,error));
         ms::weapon::Observation aim{123,{6379137,10000,1000},{0,0,0},false};
         ms::components::ProviderContextV1 context{*card,profile,spec,aim};
@@ -291,7 +291,7 @@ TEST_CASE("Liquid-fuel inertial stores fly an authorized linked coordinate witho
     for(const auto& [name,card]:cards) {
         ms::components::ProfileV1 profile;std::string error;
         REQUIRE(ms::components::readProfileV1(std::filesystem::path(FSIM_TEST_STORE_DIR)/(name+".json"),*card,profile,error));
-        if(profile.find("propulsion")->implementationId!="fsim.propulsion.jsbsim_turbofan.v1")continue;
+        if(equipment::mechanism(profile.find("propulsion")->implementationId)!="fsim.propulsion.jsbsim_turbofan.v1")continue;
         ++tested;INFO(name);
         session::WorldOptions options;options.name="native-linked-coordinate-cruise";options.publish=false;
         options.pinWorkers=false;options.workers=1;options.jsbsimRoot=FSIM_TEST_JSBSIM_ROOT;
@@ -452,7 +452,7 @@ public:
 template<class Wrapper,class Interface>
 bool observeBinding(ProviderTableV1<Interface>& target,const ProviderTableV1<Interface>& original,const std::string& id,
     std::shared_ptr<ProviderCounts> counts,std::size_t role,std::string& error) {
-    return target.registerFactory(id,id,[table=original,counts,role](const auto& d,const auto& ctx,auto& e) -> std::unique_ptr<Interface> {
+    return target.registerFactory(id,std::string(fsim::equipment::mechanism(id)),[table=original,counts,role](const auto& d,const auto& ctx,auto& e) -> std::unique_ptr<Interface> {
         auto inner=table.create(d,ctx,e);if(!inner)return {};counts->made(role);
         return std::make_unique<Wrapper>(std::move(inner),counts,role);
     },true,error);
@@ -478,10 +478,10 @@ TEST_CASE("Native World executes replacement providers from a frozen per-World c
     REQUIRE(card);REQUIRE(errors.empty());ProfileV1 profile;
     REQUIRE(readProfileV1(std::filesystem::path(FSIM_TEST_STORE_DIR)/"aim-9x.json",*card,profile,error));
     const auto id=[&](const char* role){return profile.find(role)->implementationId;};
-    REQUIRE(registry.seeker.registerFactory(id("seeker"),id("seeker"),[table=defaults.seeker,counts](const auto& d,const auto& ctx,auto& e) -> std::unique_ptr<SeekerProviderV1> {
+    REQUIRE(registry.seeker.registerFactory(id("seeker"),std::string(equipment::mechanism(id("seeker"))),[table=defaults.seeker,counts](const auto& d,const auto& ctx,auto& e) -> std::unique_ptr<SeekerProviderV1> {
         auto inner=table.create(d,ctx,e);if(!inner)return {};counts->made(0);return std::make_unique<ObservedSeeker>(std::move(inner),counts);
     },true,error));
-    REQUIRE(registry.guidance.registerFactory(id("guidance"),id("guidance"),[table=defaults.guidance,counts](const auto& d,const auto& ctx,auto& e) -> std::unique_ptr<GuidanceProviderV1> {
+    REQUIRE(registry.guidance.registerFactory(id("guidance"),std::string(equipment::mechanism(id("guidance"))),[table=defaults.guidance,counts](const auto& d,const auto& ctx,auto& e) -> std::unique_ptr<GuidanceProviderV1> {
         auto inner=table.create(d,ctx,e);if(!inner)return {};counts->made(1);return std::make_unique<ObservedGuidance>(std::move(inner),counts);
     },true,error));
     REQUIRE(observeBinding<ObservedAutopilot>(registry.autopilot,defaults.autopilot,id("autopilot"),counts,2,error));
@@ -489,17 +489,17 @@ TEST_CASE("Native World executes replacement providers from a frozen per-World c
     REQUIRE(observeBinding<ObservedActuator>(registry.actuator,defaults.actuator,id("actuator"),counts,4,error));
     REQUIRE(observeBinding<ObservedPropulsion>(registry.propulsion,defaults.propulsion,id("propulsion"),counts,5,error));
     REQUIRE(observeBinding<ObservedAerodynamics>(registry.aerodynamics,defaults.aerodynamics,id("aerodynamics"),counts,6,error));
-    REQUIRE(registry.fuze.registerFactory(id("fuze"),id("fuze"),[table=defaults.fuze,counts](const auto& d,const auto& ctx,auto& e) {
+    REQUIRE(registry.fuze.registerFactory(id("fuze"),std::string(equipment::mechanism(id("fuze"))),[table=defaults.fuze,counts](const auto& d,const auto& ctx,auto& e) {
         auto inner=table.create(d,ctx,e);if(inner)counts->made(7);return inner;
     },true,error));
-    REQUIRE(registry.warhead.registerFactory(id("warhead"),id("warhead"),[table=defaults.warhead,counts](const auto& d,const auto& ctx,auto& e) -> std::unique_ptr<ms::damage::WarheadAdapter> {
+    REQUIRE(registry.warhead.registerFactory(id("warhead"),std::string(equipment::mechanism(id("warhead"))),[table=defaults.warhead,counts](const auto& d,const auto& ctx,auto& e) -> std::unique_ptr<ms::damage::WarheadAdapter> {
         auto inner=table.create(d,ctx,e);if(!inner)return {};counts->made(8);return std::make_unique<ObservedWarhead>(std::move(inner),counts);
     },true,error));
     session::WorldOptions options;options.name="payload-provider-dispatch";options.publish=false;
     options.pinWorkers=false;options.workers=1;options.jsbsimRoot=FSIM_TEST_JSBSIM_ROOT;
     session::World world(options);REQUIRE(world.setPayloadProvidersV1(registry,error));
     // Mutation of the caller's catalogue cannot replace this World's snapshot.
-    REQUIRE(registry.guidance.registerFactory(id("guidance"),id("guidance"),[](const auto&,const auto&,auto&) -> std::unique_ptr<GuidanceProviderV1> {return {};},true,error));
+    REQUIRE(registry.guidance.registerFactory(id("guidance"),std::string(equipment::mechanism(id("guidance"))),[](const auto&,const auto&,auto&) -> std::unique_ptr<GuidanceProviderV1> {return {};},true,error));
     session::VehicleSpec spec;spec.type="jsbsim:f16c";spec.name="carrier";
     spec.initial.latitudeDeg=36.25;spec.initial.longitudeDeg=-115.03;
     spec.initial.altitudeMslM=6000;spec.initial.airspeedTrueMs=250;spec.initial.headingDeg=90;

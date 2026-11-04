@@ -9,6 +9,7 @@
 #include "visualization/vfx/effects/Exhaust.h"
 #include "visualization/scene/Interpolator.h"
 #include "visualization/scene/Propellants.h"
+#include "visualization/scene/Sky.h"
 #include "foundation/core/Json.h"
 #include "foundation/transport/Recording.h"
 #include "visualization/scene/VehicleVisuals.h"
@@ -19,6 +20,7 @@
 #include <vsgXchange/all.h>
 
 #include <cmath>
+#include <cstdlib>
 #include <set>
 #include <filesystem>
 #include <functional>
@@ -29,6 +31,114 @@
 
 using namespace fsim;
 using Joint = world::VehicleVisuals::Joint;
+
+TEST_CASE("sunlight always includes aircraft shadow maps", "[render][visuals][required_effects]") {
+    const auto light=world::createSunLight(172,20);
+    const auto group=light.cast<vsg::Group>(); REQUIRE(group);
+    bool found=false;
+    for(const auto& child:group->children) if(const auto sun=child.cast<vsg::DirectionalLight>();sun && sun->name=="sun") {
+        REQUIRE(sun->shadowSettings); CHECK(sun->shadowSettings->shadowMapCount>0); found=true;
+    }
+    CHECK(found);
+}
+
+TEST_CASE("all authored AAM physical fins synchronize to native recording snapshots", "[render][visuals][aam_fleet]") {
+    using core::Json;
+    const std::filesystem::path aircraft=FSIM_TEST_AIRCRAFT_DIR;
+    const char* campaign=std::getenv("FSIM_AAM_CHAIN_MANIFEST");
+    const auto input=campaign ? std::filesystem::path(campaign) : aircraft.parent_path()/"docs/data/hangar-aam-bindings.json";
+    std::ifstream in(input); REQUIRE(in.good());
+    const std::string text((std::istreambuf_iterator<char>(in)),{});
+    const auto manifest=Json::parse(text,input.string());
+    Json::Array results;
+    std::set<std::string> covered;
+    for(const auto& entry:manifest.child("models").asArray()) {
+        const auto model=entry.string("model",""); CAPTURE(model);
+        if(campaign && entry.string("run_status","")!="ok") continue;
+        world::VehicleVisuals::Settings settings; settings.modelDirs.push_back(aircraft);
+        world::VehicleVisuals visuals(1,settings,vsg::Options::create(vsgXchange::all::create()));
+        visuals.setModel(0,{},"jsbsim:"+model);
+        const auto& pose=visuals.pose(0);
+        std::set<std::uint32_t> ids;
+        for(const auto& joint:pose.joints) if(joint.kind==Joint::Fin) ids.insert(joint.finId);
+        REQUIRE_FALSE(ids.empty());
+        std::ifstream xml(aircraft/"stores"/model/(model+".xml")); REQUIRE(xml.good());
+        const std::string source((std::istreambuf_iterator<char>(xml)),{});
+        std::set<std::uint32_t> authored;
+        const std::regex pattern(R"fin(<property value="([0-9]+)">fsim/missile-control/fin-[0-9]+-id</property>)fin");
+        for(std::sregex_iterator it(source.begin(),source.end(),pattern),end;it!=end;++it)
+            authored.insert(static_cast<std::uint32_t>(std::stoull((*it)[1].str())));
+        CHECK(ids==authored);
+        std::size_t samples=0,angles=0,unavailable=0,saturated=0,rateViolations=0,limitViolations=0,mismatches=0;
+        double peak=0,matrixError=0;
+        std::map<std::uint32_t,std::pair<double,double>> previous;
+        const auto consume=[&](ms::WeaponControlSnapshotV1 control,const sim::VehicleState& state,double time) {
+            control.slot=0; visuals.setWeaponControlsFrame(time,{control});
+            visuals.setWeaponControlsTime(time,false); std::vector<sim::VehicleState> states{state}; visuals.update(states);
+            ++samples; unavailable+=!control.controllerAvailable;
+            std::set<std::uint32_t> measured;
+            for(const auto& fin:control.fins) if(control.available && fin.valid) {
+                measured.insert(fin.id); peak=std::max(peak,std::abs(fin.actualRad)); ++angles;
+                saturated+=std::abs(fin.actualRad)>=.99*std::max(std::abs(fin.minimumRad),std::abs(fin.maximumRad));
+                limitViolations+=fin.actualRad<fin.minimumRad-1e-9 || fin.actualRad>fin.maximumRad+1e-9;
+                const auto at=previous.find(fin.id);
+                if(at!=previous.end() && time>at->second.first)
+                    rateViolations+=std::abs(fin.actualRad-at->second.second)>fin.rateRadS*(time-at->second.first)+1e-8;
+                previous[fin.id]={time,fin.actualRad};
+                for(std::size_t j=0;j<pose.joints.size();++j) if(pose.joints[j].kind==Joint::Fin && pose.joints[j].finId==fin.id) {
+                    const auto& joint=pose.joints[j];
+                    mismatches+=!std::isfinite(joint.finAngleRad) || std::abs(joint.finAngleRad-fin.actualRad)>1e-12;
+                    const auto expected=joint.rest*vsg::rotate(joint.gain*fin.actualRad,vsg::dvec3(1,0,0));
+                    for(std::size_t c=0;c<4;++c) for(std::size_t r=0;r<4;++r)
+                        matrixError=std::max(matrixError,std::abs(pose.transforms[j]->matrix[c][r]-expected[c][r]));
+                }
+            }
+            CHECK(measured==ids);
+        };
+        if(campaign) {
+            ipc::Recording recording; std::string error;
+            REQUIRE(recording.load(entry.string("recording",""),&error));
+            std::ifstream ev(entry.string("evidence","")); REQUIRE(ev.good());
+            const std::string raw((std::istreambuf_iterator<char>(ev)),{});
+            const auto evidence=Json::parse(raw);
+            const auto weapon=static_cast<std::uint32_t>(evidence.child("weapons").asArray().front().number("id",0));
+            for(const auto& frame:recording.frames()) for(const auto& control:frame.weaponControls) if(control.entity==weapon) {
+                const auto sample=std::find_if(frame.samples.begin(),frame.samples.end(),[&](const auto& pair){return pair.first==control.slot;});
+                REQUIRE(sample!=frame.samples.end()); CHECK(control.sampleTimeS==frame.simTime);
+                consume(control,sample->second.state,frame.simTime);
+            }
+        } else {
+            // Ordinary regression uses declared synthetic angles. A campaign
+            // run instead requires actual v8 native recording samples above.
+            for(int step=0;step<2;++step) {
+                ms::WeaponControlSnapshotV1 control; control.entity=42; control.generation=1;
+                control.available=control.controllerAvailable=true; control.sampleTimeS=step+1.;
+                for(const auto id:ids) {
+                    ms::WeaponFinStateV1 fin; fin.id=id; fin.valid=true;
+                    fin.actualRad=fin.demandRad=step ? -.08:.1; fin.minimumRad=-.35;fin.maximumRad=.35;fin.rateRadS=4;
+                    control.fins.push_back(fin);
+                }
+                sim::VehicleState state;state.simTime=step+1.;consume(control,state,state.simTime);
+            }
+        }
+        CHECK(samples>0); CHECK(angles>0); CHECK(mismatches==0); CHECK(matrixError<1e-12);
+        CHECK(limitViolations==0); CHECK(rateViolations==0);
+        covered.insert(model);
+        Json row(Json::Object{}); row.set("model",model).set("scenario",entry.string("scenario","synthetic"));
+        row.set("samples",static_cast<double>(samples)).set("fin_angles",static_cast<double>(angles));
+        row.set("unique_fin_ids",static_cast<double>(ids.size())).set("peak_actual_rad",peak);
+        row.set("controller_unavailable_samples",static_cast<double>(unavailable)).set("saturated_angles",static_cast<double>(saturated));
+        row.set("rate_violations",static_cast<double>(rateViolations)).set("limit_violations",static_cast<double>(limitViolations));
+        row.set("angle_mismatches",static_cast<double>(mismatches)).set("matrix_error_max",matrixError);
+        results.push_back(std::move(row));
+    }
+    if(campaign) {
+        Json report(Json::Object{});report.set("source","actual-v8-recording-through-production-VehicleVisuals");
+        report.set("models",Json(std::move(results))).set("distinct_models",static_cast<double>(covered.size()));
+        std::ofstream out(input.parent_path()/"fin-render-audit.json");out<<report.dump()<<'\n';CHECK(out.good());
+    }
+    CHECK(covered.size()==24);
+}
 
 TEST_CASE("physical fin nodes require actual telemetry instead of equivalent axis motion", "[render][visuals][weapon_controls]") {
     Joint fin;

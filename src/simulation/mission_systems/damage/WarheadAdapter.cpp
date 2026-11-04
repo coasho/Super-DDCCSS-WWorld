@@ -1,4 +1,5 @@
 #include "WarheadAdapter.h"
+#include "simulation/mission_systems/components/support/EquipmentSelectionV1.h"
 #include "simulation/mission_systems/components/registration/EffectFactoriesV1.h"
 
 #include <stdexcept>
@@ -43,10 +44,16 @@ void binding(const components::DescriptorV1& d, const char* role, const char* ex
 
 std::unique_ptr<WarheadAdapter> makeWarheadAdapter(
     const StoreCard& card, const components::DescriptorV1& d, std::string& error) {
+    if(d.implementationId.rfind("equipment.",0)==0) {
+        components::DescriptorV1 normalized;
+        if(!components::equipmentSelectionV1(d,"warhead",&card,normalized,error))return {};
+        return makeWarheadAdapter(card,normalized,error);
+    }
     error.clear();
     try {
         declaration(card,d);
-        const bool legacy=d.implementationId=="native.warhead.legacy.v1" || d.implementationId=="native.warhead.zoned_case.v1";
+        const bool connected=d.implementationId=="native.warhead.connected_ring.v1";
+        const bool legacy=connected || d.implementationId=="native.warhead.legacy.v1" || d.implementationId=="native.warhead.zoned_case.v1";
         const bool finiteZoned=d.implementationId=="native.warhead.finite_zoned_case.v2";
         if (!legacy && !finiteZoned && d.implementationId!="native.warhead.side_case.v1")
             throw std::runtime_error("unknown warhead implementation '"+d.implementationId+"'");
@@ -54,6 +61,8 @@ std::unique_ptr<WarheadAdapter> makeWarheadAdapter(
             ? std::initializer_list<const char*>{"burst_reference","blast","penetration","assessment","angular_profile"}
             : std::initializer_list<const char*>{"burst_reference","blast","penetration","assessment"};
         if (legacy) {
+            if(connected&&card.warheadKind!="rod")
+                throw std::runtime_error("connected-ring provider requires an explicitly authored rod warhead");
             if (!components::slotsV1(d,{"warhead_kg","explosive_kg","gurney_kms","diameter_m"},bindings,error))
                 return nullptr;
             if (card.parameters.count("warhead_model_version"))

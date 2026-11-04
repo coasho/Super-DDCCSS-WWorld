@@ -16,7 +16,7 @@ struct ViewerSettings {
     std::string title = "flightsim";
     std::uint32_t width = 1600;
     std::uint32_t height = 900;
-    bool fullscreen = false;
+    bool fullscreen = true; // On-screen views always use the primary display fullscreen.
     bool debugLayer = false;   ///< VK_LAYER_KHRONOS_validation
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_4_BIT;
     double fieldOfViewDeg = 30.0;

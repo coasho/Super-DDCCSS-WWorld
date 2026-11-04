@@ -35,6 +35,7 @@ public:
 
 private:
     struct Camera {
+        unsigned sourceIndex = 0; ///< Original publisher table slot, even when earlier textures were refused.
         ipc::VisionMirror::Camera info;
         vsg::ref_ptr<vsg::ubvec4Array2D> pixels;
         vsg::ref_ptr<vsgImGui::Texture> texture;

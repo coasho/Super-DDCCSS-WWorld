@@ -5,6 +5,7 @@
 #include "foundation/core/StableArray.h"
 #include "simulation/flight/ControlInputs.h"
 #include "simulation/flight/FlightModel.h"
+#include "simulation/flight/NativeStepObservationV1.h"
 #include "simulation/flight/VehicleState.h"
 
 #include <atomic>
@@ -54,6 +55,10 @@ public:
     /// vehicles copies `states()` before step() (session::World::StepView).
     using PreStep = std::function<void(std::size_t vehicle, int subStep, FlightModel& model, ControlInputs& inputs)>;
     void setPreStep(PreStep hook) { preStep_ = std::move(hook); }
+    /// Additive private read-only native observation, scoped around exactly one
+    /// model step. Existing thread-local observers are explicitly fanned out.
+    using NativeObserverFactory=std::function<NativeStepObserverV1(std::size_t,int,FlightModel&)>;
+    void setNativeObserverFactoryV1(NativeObserverFactory factory) {nativeObserverFactoryV1_=std::move(factory);}
 
     /// Inactive vehicles are skipped by step() (removed vehicles keep their slot).
     void setActive(std::size_t i, bool active) noexcept { active_[i] = active ? 1 : 0; }
@@ -100,6 +105,7 @@ private:
     core::StableArray<VehicleState> states_{kMaxVehicles};
     std::vector<unsigned char> active_;
     PreStep preStep_;
+    NativeObserverFactory nativeObserverFactoryV1_;
 
     unsigned workerCount_;
     bool pinWorkers_;

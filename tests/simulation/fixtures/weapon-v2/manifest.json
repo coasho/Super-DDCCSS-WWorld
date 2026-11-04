@@ -1,0 +1,48 @@
+{
+  "schema": "fsim.weapon-v2-native-fixture-source.v1",
+  "generator": "tests/simulation/fixtures/weapon_v2_assets.py",
+  "generator_sha256": "ddec2ec406a1094375761c3dbb7cec2112640fd122dd6367b05528d51f5d0782",
+  "scope": "Exactly four explicit retained V2 detector profiles for unchanged native compatibility assertions. Current24 V3 production acceptance is separate.",
+  "verification_scope": "Current input, generated fixture and generator hashes are checked before every native fixture staging build.",
+  "files": [
+    {
+      "input": "assets/stores/aim-9m.json",
+      "input_sha256": "f35b00d8c6bbaa9f6f5816ad2f60eecd47de477f2384ac373915d8b2bcd9cd3a",
+      "fixture": "tests/simulation/fixtures/weapon-v2/aim-9m.json",
+      "fixture_sha256": "59941b6919def9f63b0717f9f1edf8281fe1823368d8209a7ebd7f76ca90dde3",
+      "selected_seeker": "fsim.seeker.nonimaging_ir.v2"
+    },
+    {
+      "input": "assets/stores/aim-9x.json",
+      "input_sha256": "b81fe278c626e7aa33cc69d5bbc5e7f98a5986654cd8d0d9057ada07d56cd4b3",
+      "fixture": "tests/simulation/fixtures/weapon-v2/aim-9x.json",
+      "fixture_sha256": "c19b30db859613c5b10ba5e71cc455caca9d76bc00519b92942d0588b853378a",
+      "selected_seeker": "fsim.seeker.imaging_ir.v2"
+    },
+    {
+      "input": "assets/stores/aim-7m.json",
+      "input_sha256": "0bebf52b9c769fa2402f048fd60db57acb93158b0bc44ab81e1aa1b2666b1a64",
+      "fixture": "tests/simulation/fixtures/weapon-v2/aim-7m.json",
+      "fixture_sha256": "546265a53a51729afb396011fa1f1a73fab250975af96f7448c9c093d1d7958a",
+      "selected_seeker": "fsim.seeker.semi_active_radar.v2"
+    },
+    {
+      "input": "assets/stores/aim-120c.json",
+      "input_sha256": "4ee469959b3c5a1f4c150102ad919a117804dbc4984604c06f02bc61bde3c230",
+      "fixture": "tests/simulation/fixtures/weapon-v2/aim-120c.json",
+      "fixture_sha256": "77aef352b24eb4e15b193b60e8644cbe66ff1e718bbf3839ef701a238ad147f8",
+      "selected_seeker": "fsim.seeker.active_radar.v2"
+    }
+  ],
+  "source_immutability_verified": true,
+  "dependencies": {
+    "catalogue": {
+      "path": "tools/models/hangar/hangar/data/equipment_models.json",
+      "sha256": "a4995a221e5f0f9092c1e3f1095b1cfaf9c0aa8f26e791ab577409710366d8be"
+    },
+    "normalizer": {
+      "path": "tools/models/hangar/hangar/equipment_models.py",
+      "sha256": "7a7993bad3cc5823d9cc53c5ae01b8ef255cf5acf9738335296925274740e418"
+    }
+  }
+}

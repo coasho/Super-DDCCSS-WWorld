@@ -13,6 +13,7 @@
 #include <fstream>
 #include <regex>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 
 namespace fsim::world {
@@ -523,7 +524,8 @@ void Clouds::setScreen(std::uint32_t width, std::uint32_t height) {
 }
 
 void Clouds::build(std::uint32_t width, std::uint32_t height, Compiler compiler) {
-    if (built_ || dir_.empty()) return;
+    if (built_) return;
+    if (dir_.empty()) throw std::runtime_error("Required cloud assets directory is empty");
     const auto root = dir_ / "shaders";
     auto shadowShader = shaderFile(root, "shadow.comp", VK_SHADER_STAGE_COMPUTE_BIT);
     auto shadowResolveShader = shaderFile(root, "shadowResolve.comp", VK_SHADER_STAGE_COMPUTE_BIT);
@@ -555,8 +557,7 @@ void main() {
         ok = shaders->compile(two);
     }
     if (!ok) {
-        LOG_WARN("world") << "cloud shaders did not build; no clouds";
-        return;
+        throw std::runtime_error("Required cloud shaders did not build: " + root.string());
     }
 
     // takram's textures and the atmosphere's tables
@@ -566,8 +567,7 @@ void main() {
     auto weatherMap = rgbaPng(dir_ / "local_weather.png");
     auto turbulence = rgbaPng(dir_ / "turbulence.png");
     if (!stbn || !shape || !detail || !weatherMap || !turbulence || !atmosphere_.valid()) {
-        LOG_WARN("world") << "clouds: takram's textures are not all in " << dir_.string() << "; no clouds";
-        return;
+        throw std::runtime_error("Required cloud textures or atmosphere tables are missing: " + dir_.string());
     }
     auto global = earthMap_;
     if (!global) {
@@ -777,16 +777,14 @@ void main() {
             stages[i] = shaderFile(root, names[i], VK_SHADER_STAGE_COMPUTE_BIT);
             vsg::ShaderStages one{stages[i]};
             if (!stages[i] || !shaders->compile(one)) {
-                LOG_WARN("world") << "sea: " << names[i] << " did not build; no sea";
-                return;
+                throw std::runtime_error("Required sea shader did not build: " + (root / names[i]).string());
             }
         }
         auto seaVertex = shaderFile(root, "ocean/ocean.vert", VK_SHADER_STAGE_VERTEX_BIT);
         auto seaFragment = shaderFile(root, "ocean/ocean.frag", VK_SHADER_STAGE_FRAGMENT_BIT);
         vsg::ShaderStages two{seaVertex, seaFragment};
         if (!seaVertex || !seaFragment || !shaders->compile(two)) {
-            LOG_WARN("world") << "sea: ocean/ocean.vert or ocean.frag did not build; no sea";
-            return;
+            throw std::runtime_error("Required sea vertex/fragment shaders did not build: " + root.string());
         }
         auto spectrum = makeImage(VK_FORMAT_R16G16B16A16_SFLOAT, kSeaMap, kSeaMap, kSeaCascades);
         auto slopes = makeImage(VK_FORMAT_R16G16B16A16_SFLOAT, kSeaMap, kSeaMap, kSeaCascades);
@@ -933,12 +931,10 @@ void main() {
     for (auto node : std::initializer_list<vsg::ref_ptr<vsg::Node>>{computeSwitch_, underSwitch_, overSwitch_})
         compiled = (!compiler || compiler(node)) && compiled;
     if (!compiled) {
-        LOG_WARN("world") << "could not compile the clouds";
-        return;
+        throw std::runtime_error("Required cloud rendering pipelines could not compile");
     }
     if (seaBuilt_ && compiler && !(compiler(seaComputeSwitch_) && compiler(seaDrawSwitch_))) {
-        LOG_WARN("world") << "could not compile the sea";
-        seaBuilt_ = false;
+        throw std::runtime_error("Required sea rendering pipelines could not compile");
     }
     compute_->addChild(computeSwitch_);
     under_->addChild(underSwitch_);
@@ -949,6 +945,7 @@ void main() {
     }
     setScreen(width, height);
     built_ = true;
+    LOG_INFO("world") << "required cloud pipelines ready; sea=" << (seaBuilt_ ? "ready" : "not supplied");
 }
 
 void Clouds::update(const vsg::dmat4& view, const vsg::dmat4& projection, const vsg::dvec3& eyeEcef, const vsg::EllipsoidModel& ellipsoid,

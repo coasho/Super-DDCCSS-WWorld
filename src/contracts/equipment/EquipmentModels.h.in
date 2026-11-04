@@ -1,0 +1,34 @@
+#pragma once
+// Generated from the single maintained equipment catalogue. These are neutral
+// model identities, not simulation state or equipment-accuracy certificates.
+#include <array>
+#include <string_view>
+
+namespace fsim::equipment {
+struct Model {
+    std::string_view storeId,modelId,designation,cardDesignation,nativeModel;
+};
+struct ComponentModel {
+    std::string_view storeId,modelId,kind,selectionId,mechanismId,name;
+};
+inline constexpr std::array<Model,@FSIM_EQUIPMENT_MODEL_COUNT@> models{{
+@FSIM_EQUIPMENT_MODEL_ROWS@}};
+inline constexpr std::array<ComponentModel,@FSIM_EQUIPMENT_COMPONENT_COUNT@> components{{
+@FSIM_EQUIPMENT_COMPONENT_ROWS@}};
+inline const Model* model(std::string_view store) noexcept {
+    for(const auto& entry:models)if(entry.storeId==store)return &entry;
+    return nullptr;
+}
+inline const ComponentModel* component(std::string_view selection) noexcept {
+    if(selection.substr(0,10)!="equipment.")return nullptr;
+    for(const auto& entry:components)if(entry.selectionId==selection)return &entry;
+    return nullptr;
+}
+inline std::string_view mechanism(std::string_view selection) noexcept {
+    const auto* entry=component(selection);return entry?entry->mechanismId:selection;
+}
+inline const ComponentModel* component(std::string_view store,std::string_view kind) noexcept {
+    for(const auto& entry:components)if(entry.storeId==store&&entry.kind==kind)return &entry;
+    return nullptr;
+}
+}

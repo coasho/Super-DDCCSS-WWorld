@@ -1,4 +1,5 @@
 #include "simulation/flight/JsbsimModel.h"
+#include "simulation/flight/PassiveRolleronV1.h"
 
 #include "foundation/core/Log.h"
 #include "foundation/core/Units.h"
@@ -35,6 +36,8 @@
 #include <models/propulsion/FGTank.h>
 #include <models/propulsion/FGThruster.h>
 #include <models/propulsion/FGTurbine.h>
+#include <models/propulsion/FGPiston.h>
+#include <models/propulsion/FGTurboProp.h>
 #include <simgear/misc/sg_path.hxx>
 
 #include <algorithm>
@@ -225,6 +228,19 @@ void JsbsimModel::saveInitialProperties() {
     for (unsigned i = 0; i < fdm_->GetPropulsion()->GetNumEngines(); ++i)
         for (const char* path : {"fcs/advance-cmd-norm", "fcs/feather-cmd-norm"})
             if (auto* n = pm->GetNode(path, static_cast<int>(i))) nodes.push_back(n);
+    // FGMassBalance::InitModel leaves authored PointMass weights/locations
+    // tied to their last values. Restore the actual loaded fuel/station
+    // point masses, including their centroids, before RunIC recomputes CG/J.
+    // Damage-added point masses are created later and retain their separate
+    // damageMasses_ reset path; derived mass-balance outputs are not saved.
+    for (int i = 0;; ++i) {
+        auto* weight = pm->GetNode("inertia/pointmass-weight-lbs", i, false);
+        if (!weight) break;
+        nodes.push_back(weight);
+        for (const char* path : {"inertia/pointmass-location-X-inches", "inertia/pointmass-location-Y-inches",
+                                "inertia/pointmass-location-Z-inches"})
+            if (auto* n = pm->GetNode(path, i, false)) nodes.push_back(n);
+    }
     initialProperties_.clear();
     initialProperties_.reserve(nodes.size());
     for (SGPropertyNode* n : nodes) {
@@ -254,6 +270,10 @@ JsbsimModel::JsbsimModel(double dt, std::shared_ptr<const GroundProvider> ground
     // Quiet JSBSim's own console chatter before the first instance prints its banner.
     JSBSim::FGJSBBase::debug_lvl = 0;
 
+    createNativeExecV1();
+}
+
+void JsbsimModel::createNativeExecV1() {
     fdm_ = std::make_unique<JSBSim::FGFDMExec>();
     fdm_->SetDebugLevel(0);
     fdm_->Setdt(dt_);
@@ -264,10 +284,42 @@ JsbsimModel::JsbsimModel(double dt, std::shared_ptr<const GroundProvider> ground
     inertial->SetGroundCallback(groundCallback_);
 }
 
+void JsbsimModel::clearNativeBindingsV1() {
+    // Raw property pointers and initial-state entries must never outlive their
+    // native property tree. Drop them BEFORE the old exec Unbinds its models.
+    passiveRolleron_.reset();passiveRolleronOutputs_.clear();passiveReaction_={};
+    throttleCmd_.clear();rotorRpm_.clear();initialProperties_.clear();
+    rotorAirframeReads_={};rotorPassiveReads_={};rotorAirframeBound_=false;
+    for(auto* handle:{&aileronCmd_,&elevatorCmd_,&rudderCmd_,&flapCmd_,&gearCmd_,&leftBrakeCmd_,&rightBrakeCmd_,
+        &speedbrakeCmd_,&pitchTrimCmd_,&extForceMag_,&extForceX_,&extForceY_,&extForceZ_,&extMomentMag_,
+        &extMomentL_,&extMomentM_,&extMomentN_,&extLocX_,&extLocY_,&extLocZ_,&cgX_,&cgY_,&cgZ_,
+        &lefPosDeg_,&batteryCharge_,&batteryCapacity_,&batteryPower_})*handle={};
+    failedActuators_.clear();damageMasses_.clear();damageMassesUsed_=0;
+    loadedBaseJ_.clear();baseJ_.clear();changing_=false;
+    std::fill(std::begin(baseCgIn_),std::end(baseCgIn_),0.);
+    std::fill(std::begin(changeCgIn_),std::end(changeCgIn_),0.);
+    crashState_={};structuralIncoming_={};structuralObserved_={};lastGood_={};
+}
+
 JsbsimModel::~JsbsimModel() = default;
 
 bool JsbsimModel::load(const AircraftSpec& aircraft, const InitialConditions& ic) {
+    // Upstream LoadModel reuses a property tree and re-allocates model owners
+    // without the destructor's Unbind phase. A complete new load therefore
+    // owns a fresh exec; reset() deliberately keeps its existing contract.
+    if(!fdm_||!fdm_->GetModelName().empty()) {
+        const auto random=fdm_?fdm_->GetRandomGenerator():nullptr;
+        clearNativeBindingsV1();groundCallback_=nullptr;
+        fdm_.reset(); // Destructor Unbinds callbacks while old models live.
+        try {
+            createNativeExecV1();
+            if(random)*fdm_->GetRandomGenerator()=*random;
+        } catch(const std::exception& error) {
+            loaded_=false;LOG_ERROR("sim")<<"JSBSim fresh reload failed: "<<error.what();return false;
+        }
+    }
     rotorAirframeBound_=false;
+    passiveRolleron_.reset();passiveRolleronOutputs_.clear();
     loaded_ = false;
     diverged_ = crashed_ = false;
     structuralContact_ = false;
@@ -285,6 +337,9 @@ bool JsbsimModel::load(const AircraftSpec& aircraft, const InitialConditions& ic
         // must not leave version2 selectors on a later stock/legacy load.
         for (const auto& [name,value] : std::array{
                 std::pair{"fsim/integration-v1/version",0.0},
+                std::pair{"fsim/passive-rolleron-v1/version",0.0},
+                std::pair{"fsim/passive-rolleron-v1/count",0.0},
+                std::pair{"fsim/ducted-inlet-v2/version",0.0},
                 std::pair{"fsim/integration-v1/substeps",1.0},
                 std::pair{"fsim/integration-v1/rotational-rate-method",1.0}}) {
             if (fdm_->GetPropertyManager()->GetNode(name,false)) fdm_->SetPropertyValue(name,value);
@@ -295,6 +350,7 @@ bool JsbsimModel::load(const AircraftSpec& aircraft, const InitialConditions& ic
                              << (aircraft.aircraftDir.empty() ? aircraft.jsbsimRoot / "aircraft" : aircraft.aircraftDir).string();
             return false;
         }
+        bindPassivePlantV1();
     } catch (const std::exception& e) {
         LOG_ERROR("sim") << "JSBSim exception loading '" << aircraft.name << "': " << e.what();
         return false;
@@ -382,6 +438,8 @@ bool JsbsimModel::reset(const InitialConditions& ic) {
         for (unsigned i = 0; i < propulsion->GetNumEngines(); ++i)
             if (auto* thruster = propulsion->GetEngine(i)->GetThruster()) thruster->SetRPM(0.0);
         restoreInitialProperties();
+        if(passiveRolleron_)passiveRolleron_->reset();
+        passiveReaction_[0].set(0);passiveReaction_[4].set(0);
         // what damage changed (an engine's seizure JSBSim's own reset clears)
         for (const auto& name : failedActuators_) fdm_->SetPropertyValue(name, 0.0);
         failedActuators_.clear();
@@ -750,6 +808,15 @@ void JsbsimModel::installExternalReaction() {
     moment->AddAttribute("frame", "BODY");
     moment->AddChildElement(triplet("direction", "1", "0", "0"));
     reactions->AddChildElement(moment);
+    // Owned passive-plant reaction is independent of World damage/effects.
+    auto* passiveForce=new JSBSim::Element("force");
+    passiveForce->AddAttribute("name","fsim_rolleron");passiveForce->AddAttribute("frame","BODY");
+    auto* passiveLocation=triplet("location","0","0","0");passiveLocation->AddAttribute("unit","IN");
+    passiveForce->AddChildElement(passiveLocation);passiveForce->AddChildElement(triplet("direction","1","0","0"));
+    reactions->AddChildElement(passiveForce);
+    auto* passiveMoment=new JSBSim::Element("moment");
+    passiveMoment->AddAttribute("name","fsim_rolleron");passiveMoment->AddAttribute("frame","BODY");
+    passiveMoment->AddChildElement(triplet("direction","1","0","0"));reactions->AddChildElement(passiveMoment);
     try {
         // An aircraft with its own <external_reactions> (f16: pushback, hook) has
         // already tied the summary properties; Load() ties them again and logs an
@@ -778,6 +845,9 @@ void JsbsimModel::installExternalReaction() {
     cgZ_ = property("inertia/cg-z-in");
     extForceMag_.set(0.0);
     extMomentMag_.set(0.0);
+    const char* passiveNames[]={"magnitude","x","y","z","magnitude-lbsft","l","m","n","location-x-in","location-y-in","location-z-in"};
+    for(std::size_t k=0;k<passiveReaction_.size();++k)passiveReaction_[k]=property(std::string("external_reactions/fsim_rolleron/")+passiveNames[k]);
+    passiveReaction_[0].set(0);passiveReaction_[4].set(0);
 }
 
 // Engines running with full mixture from the first step (an airborne start
@@ -946,6 +1016,113 @@ void JsbsimModel::cacheCommandNodes() {
     }
 }
 
+void JsbsimModel::bindPassivePlantV1() {
+    auto pm=fdm_->GetPropertyManager();
+    const auto read=[&](const std::string& path) {
+        const auto* node=pm->GetNode(path,false);
+        if(!node||!std::isfinite(node->getDoubleValue()))throw std::runtime_error("missing/nonfinite native plant metadata: "+path);
+        return node->getDoubleValue();
+    };
+    const auto integer=[&](const std::string& path,double maximum) {
+        const double value=read(path);
+        if(value<0||value>maximum||value!=std::floor(value))throw std::runtime_error("invalid native plant integer: "+path);
+        return value;
+    };
+    const auto inlet=pm->GetNode("fsim/ducted-inlet-v2/version",false);
+    if(inlet&&inlet->getDoubleValue()!=0) {
+        const double version=read("fsim/ducted-inlet-v2/version");
+        const double residence=read("fsim/ducted-inlet-v2/residence-s");
+        const double maximum=read("fsim/ducted-inlet-v2/maximum-native-substep-s");
+        if(version!=2||residence<=0||!std::isfinite(2*residence)||maximum!=2*residence||
+           !std::isfinite(fdm_->GetDeltaT())||fdm_->GetDeltaT()<=0||fdm_->GetDeltaT()>maximum)
+            throw std::runtime_error("invalid finite inlet residence/native-substep admission");
+    }
+    const auto version=pm->GetNode("fsim/passive-rolleron-v1/version",false);
+    if(!version||version->getDoubleValue()==0)return;
+    if(read("fsim/passive-rolleron-v1/version")!=1)throw std::runtime_error("unsupported passive rolleron version");
+    const auto count=static_cast<std::size_t>(integer("fsim/passive-rolleron-v1/count",32));
+    if(!count||read("fsim/passive-rolleron-v1/relative-input-uncertainty")<=0)
+        throw std::runtime_error("invalid passive rolleron count/uncertainty");
+    std::vector<RolleronConfigV1> configs;configs.reserve(count);passiveRolleronOutputs_.reserve(count);
+    for(std::size_t k=0;k<count;++k) {
+        const auto prefix="fsim/passive-rolleron-v1/fin-"+std::to_string(k)+"/";
+        const auto number=[&](const char* name){return read(prefix+name);};
+        RolleronConfigV1 c;
+        c.finId=static_cast<std::uint32_t>(integer(prefix+"fin-id",4294967295.));
+        c.finIndex=static_cast<std::size_t>(integer(prefix+"fin-index",31));
+        c.nativeDeflectionSign=number("native-deflection-sign");
+        c.centreFromOriginBodyM={number("centre-from-origin-body-m-x"),number("centre-from-origin-body-m-y"),number("centre-from-origin-body-m-z")};
+        c.hingeAxisBody={number("hinge-axis-body-x"),number("hinge-axis-body-y"),number("hinge-axis-body-z")};
+        c.wheelRadiusM=number("wheel-radius-m");c.captureAreaM2=number("capture-area-m2");
+        c.wheelInertiaKgM2=number("wheel-inertia-kg-m2");c.wheelDriveCoefficient=number("wheel-drive-coefficient");
+        c.freeSpinRatio=number("free-spin-ratio");c.wheelDragCoefficient=number("wheel-drag-coefficient");
+        c.bearingDampingNms=number("bearing-damping-nms");c.hingeInertiaKgM2=number("hinge-inertia-kg-m2");
+        c.hingeStiffnessNmRad=number("hinge-stiffness-nm-rad");c.hingeDampingNmsRad=number("hinge-damping-nms-rad");
+        c.hingeAerodynamicStiffnessM3=number("hinge-aerodynamic-stiffness-m3");c.limitRad=number("limit-rad");c.rateRadS=number("rate-rad-s");
+        const auto generic="fsim/missile-control/fin-"+std::to_string(c.finIndex)+"-";
+        if(read(generic+"id")!=c.finId||read(generic+"actuation-kind-v1")!=2||
+           read(generic+"min-rad")!=-c.limitRad||read(generic+"max-rad")!=c.limitRad||read(generic+"rate-rad_s")!=c.rateRadS)
+            throw std::runtime_error("passive rolleron metadata disagrees with its actual fin identity/bounds");
+        const auto angle=pm->GetNode(prefix+"angle-rad",false);
+        if(!angle||!pm->GetNode("fcs/fin-"+std::to_string(c.finIndex)+"-delta-rad",false))
+            throw std::runtime_error("passive rolleron lacks its actual native aerodynamic fin property");
+        passiveRolleronOutputs_.push_back({PropertyHandle(angle),PropertyHandle(pm->GetNode(prefix+"wheel-rad-s",true)),
+            PropertyHandle(pm->GetNode(prefix+"rate-rad-s",true))});
+        configs.push_back(c);
+    }
+    passiveRolleron_=std::make_unique<PassiveRolleronV1>(std::move(configs));
+}
+
+bool JsbsimModel::nativeThermalSnapshotV1(NativeThermalSnapshotV1& out) const noexcept {
+    out={};if(!loaded_)return false;
+    const double ambient=fdm_->GetAtmosphere()->GetTemperature()*5./9.;
+    if(std::isfinite(ambient)&&ambient>0){out.ambientAvailable=true;out.ambientTemperatureK=ambient;}
+    const auto propulsion=fdm_->GetPropulsion();
+    if(propulsion->GetNumEngines()>out.engineGasTemperatureK.size())return false;
+    out.engineCount=static_cast<unsigned>(propulsion->GetNumEngines());
+    for(unsigned k=0;k<out.engineCount;++k) {
+        const auto engine=propulsion->GetEngine(k);double temperature=0;
+        auto kind=NativeGasTemperatureKindV1::Unavailable;
+        if(const auto* turbine=dynamic_cast<const JSBSim::FGTurbine*>(engine.get())) {
+            temperature=turbine->GetEGT()+273.15;kind=NativeGasTemperatureKindV1::ExhaustGas;
+        } else if(const auto* piston=dynamic_cast<const JSBSim::FGPiston*>(engine.get())) {
+            // FGPiston::GetEGT is reset-only in the maintained native plant.
+            // Its bound egt-degF getter follows the actual live exhaust state.
+            temperature=(piston->getExhaustGasTemp_degF()-32.)*(5./9.)+273.15;kind=NativeGasTemperatureKindV1::ExhaustGas;
+        } else if(const auto* turboprop=dynamic_cast<const JSBSim::FGTurboProp*>(engine.get())) {
+            temperature=turboprop->GetITT()+273.15;kind=NativeGasTemperatureKindV1::InterTurbine;
+        }
+        if(kind!=NativeGasTemperatureKindV1::Unavailable&&std::isfinite(temperature)&&temperature>0) {
+            out.engineGasTemperatureK[k]=temperature;out.engineGasTemperatureKind[k]=kind;
+        }
+    }
+    return true;
+}
+
+bool JsbsimModel::advancePassivePlantV1() {
+    if(!passiveRolleron_)return true;
+    const auto velocity=fdm_->GetAuxiliary()->GetAeroUVW();const auto omega=fdm_->GetPropagate()->GetPQRi();
+    double cg[3];if(!cgFromOriginBodyM(cg))return false;
+    RolleronInputV1 input;input.dtS=fdm_->GetDeltaT();input.densityKgM3=fdm_->GetAtmosphere()->GetDensity()*515.3788183931961;
+    input.airVelocityBodyMs={velocity(1)*.3048,velocity(2)*.3048,velocity(3)*.3048};
+    input.angularRateInertialBodyRadS={omega(1),omega(2),omega(3)};input.cgFromOriginBodyM={cg[0],cg[1],cg[2]};
+    const auto result=passiveRolleron_->advance(input);
+    if(!result.valid||result.fins.size()!=passiveRolleronOutputs_.size())return false;
+    for(std::size_t k=0;k<result.fins.size();++k) {
+        passiveRolleronOutputs_[k][0].set(result.fins[k].angleRad);
+        passiveRolleronOutputs_[k][1].set(result.fins[k].wheelRadS);
+        passiveRolleronOutputs_[k][2].set(result.fins[k].rateRadS);
+    }
+    const auto force=result.forceBodyN,torque=result.torqueBodyNm;
+    const double f=std::hypot(force.x,force.y,force.z),m=std::hypot(torque.x,torque.y,torque.z);
+    for(std::size_t k=0;k<3;++k)passiveReaction_[k+8].set(fdm_->GetMassBalance()->GetXYZcg(static_cast<int>(k+1)));
+    if(f>0){passiveReaction_[1].set(force.x/f);passiveReaction_[2].set(force.y/f);passiveReaction_[3].set(force.z/f);}
+    if(m>0){passiveReaction_[5].set(torque.x/m);passiveReaction_[6].set(torque.y/m);passiveReaction_[7].set(torque.z/m);}
+    passiveReaction_[0].set(f*units::kNewtonsToPoundsForce);
+    passiveReaction_[4].set(m*units::kNewtonsToPoundsForce*units::kMetresToFeet);
+    return true;
+}
+
 void JsbsimModel::step(const ControlInputs& in) {
     if (!loaded_ || diverged_ || crashed_) return;
 
@@ -973,6 +1150,11 @@ void JsbsimModel::step(const ControlInputs& in) {
     const int substeps = std::max(1, static_cast<int>(std::llround(dt_ / fdm_->GetDeltaT())));
     for (int substep = 0; substep < substeps; ++substep) {
         const bool wasContact=structuralContact_;
+        if(!advancePassivePlantV1()) {
+            diverged_=true;
+            LOG_ERROR("sim") << "invalid native passive-plant state at step " << stepCount_;
+            return;
+        }
         fdm_->Run();
         const auto observer=nativeStepObserverV1;
         if(observer.model==this && observer.observe)

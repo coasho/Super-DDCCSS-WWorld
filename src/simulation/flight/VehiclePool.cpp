@@ -7,6 +7,23 @@
 #include <string>
 
 namespace fsim::sim {
+namespace {
+void observedStep(FlightModel& model,const ControlInputs& input,NativeStepObserverV1 observer) {
+    if(!observer.model||!observer.observe){model.step(input);return;}
+    struct Fanout {
+        NativeStepObserverV1 primary,previous;
+        static void observe(void* context,unsigned step,unsigned steps) noexcept {
+            const auto& self=*static_cast<Fanout*>(context);
+            self.primary.observe(self.primary.context,step,steps);
+            const auto& old=self.previous;
+            if(old.model==self.primary.model&&old.observe&&
+               (old.context!=self.primary.context||old.observe!=self.primary.observe))old.observe(old.context,step,steps);
+        }
+    } fanout{observer,nativeStepObserverV1};
+    ScopedNativeStepObserverV1 scope({observer.model,&fanout,&Fanout::observe});
+    model.step(input);
+}
+}
 
 VehiclePool::VehiclePool(unsigned workers, bool pinWorkers)
     : workerCount_(workers <= 1 ? 0u : workers), pinWorkers_(pinWorkers) {
@@ -51,11 +68,12 @@ void VehiclePool::runRange(std::size_t begin, std::size_t end, const Job& job) {
                 ControlInputs in = job.inputs[i];
                 for (int k = 0; k < job.frameSkip; ++k) {
                     preStep_(i, k, m, in);
-                    m.step(in);
+                    observedStep(m,in,nativeObserverFactoryV1_?nativeObserverFactoryV1_(i,k,m):NativeStepObserverV1{});
                 }
             } else {
                 const ControlInputs& in = job.inputs[i];
-                for (int k = 0; k < job.frameSkip; ++k) m.step(in);
+                for (int k = 0; k < job.frameSkip; ++k)
+                    observedStep(m,in,nativeObserverFactoryV1_?nativeObserverFactoryV1_(i,k,m):NativeStepObserverV1{});
             }
         }
         m.state(states_[i]);

@@ -61,7 +61,6 @@ public:
         int severity = 0; ///< severity() of its vehicle: its label amber (1) or red (2)
     };
     void setLabels(std::vector<Label> labels) { labels_ = std::move(labels); }
-    void setShowLabels(bool on) { showLabels_ = on; }
 
     void record(vsg::CommandBuffer&) const override;
 
@@ -77,7 +76,6 @@ private:
     std::string aircraft_;
     const sim::SnapshotBatch* batch_ = nullptr;
     std::vector<Label> labels_;
-    bool showLabels_ = true;
     Source source_;
     std::vector<VehicleMeta> vehicles_;
     const std::vector<ipc::FlightStatus>* status_ = nullptr;

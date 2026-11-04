@@ -5,6 +5,7 @@
 #include "simulation/mission_systems/components/implementations/seeker/ImagingIrSeekerV2.h"
 #include "simulation/mission_systems/components/implementations/seeker/SemiActiveRadarSeekerV2.h"
 #include "simulation/mission_systems/components/implementations/seeker/ActiveRadarSeekerV2.h"
+#include "simulation/mission_systems/components/support/ReceiverConfigurationV1.h"
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 
@@ -14,7 +15,7 @@ using namespace fsim::ms::components;
 struct Runtime {
     std::unique_ptr<GuidanceProviderV1> guidance;
     std::unique_ptr<SeekerProviderV1> sensor;
-    explicit Runtime(const char* id) {
+    explicit Runtime(const char* id,bool idealContract=true) {
         std::vector<std::string> errors;
         const auto library=std::filesystem::path(FSIM_TEST_STORE_DIR);
         const auto cards=readStoreLibrary(library,errors);
@@ -22,6 +23,23 @@ struct Runtime {
         const auto card=cards.at(id);
         ProfileV1 profile;std::string error;
         REQUIRE(readProfileV1(library/(std::string(id)+".json"),*card,profile,error));
+        // These existing tests supply admitted ideal observables, not scene
+        // physics. Preserve that V2 contract explicitly while the separate
+        // all-current-profile case and engineering suite exercise V3.
+        if(idealContract) {
+            DescriptorV1 scalar;ReceiverConfigurationV2 receiver;
+            REQUIRE(receiverConfigurationV2(*profile.find("seeker"),scalar,receiver,error));
+            profile.components.at("seeker")=std::move(scalar);
+            auto& selectedSensor=profile.components.at("seeker");
+            if(selectedSensor.implementationId.size()>3&&selectedSensor.implementationId.substr(selectedSensor.implementationId.size()-3)==".v3") {
+                selectedSensor.implementationId.replace(selectedSensor.implementationId.size()-3,3,".v2");
+                selectedSensor.bindings["measurement_model"]="ideal_geometric";selectedSensor.bindings["servo_model"]="unavailable";
+                for(auto it=selectedSensor.parameterRefs.begin();it!=selectedSensor.parameterRefs.end();) {
+                    if(it->second.rfind("sensor_v3_",0)==0) {selectedSensor.parameters.erase(it->first);it=selectedSensor.parameterRefs.erase(it);}
+                    else ++it;
+                }
+            }
+        }
         weapon::Spec spec;spec.seeker=card->seeker;
         REQUIRE(weapon::configureCompositionV1(*card,profile,spec,spec,error));
         ProviderContextV1 context{*card,profile,spec,std::nullopt};
@@ -73,9 +91,15 @@ TEST_CASE("Every authored AAM selects independent measured terminal sensing and 
     REQUIRE(errors.empty());
     unsigned count=0;
     for(const auto& [id,card]:cards) if(card->storeClass=="aam") {
-        INFO(id);Runtime runtime(id.c_str());
+        INFO(id);Runtime runtime(id.c_str(),false);
         CHECK(dynamic_cast<SeekerExecutionV2*>(runtime.sensor.get())!=nullptr);
         CHECK(dynamic_cast<MeasuredGuidanceV2*>(runtime.guidance.get())!=nullptr);
+        auto* raw=dynamic_cast<SeekerExecutionV2*>(runtime.sensor.get());REQUIRE(raw);
+        SeekerFrameV2 missingPhysicalScene;
+        CHECK_FALSE(raw->sample(missingPhysicalScene).valid);
+        if(card->seeker=="infrared"||card->seeker=="imaging_infrared")
+            CHECK(dynamic_cast<ThermalSeekerExecutionV1*>(runtime.sensor.get())!=nullptr);
+        else CHECK(dynamic_cast<RadioSeekerExecutionV1*>(runtime.sensor.get())!=nullptr);
         ++count;
     }
     REQUIRE(count==24);

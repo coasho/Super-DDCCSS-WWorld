@@ -406,6 +406,7 @@ public:
     ma::Collection<comm::PendingConsent> reportConsents(const ma::ReportOptions& options = {}) const;
 
 private:
+    friend class WeaponLinksV1;
     friend class World;
     /// (the range's binding by Agent reads which World made it: fsim/MAService.h)
     friend FSIM_API bool bindMAService(World& world, const Agent& agent, std::uint64_t serviceId,

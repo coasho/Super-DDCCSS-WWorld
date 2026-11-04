@@ -43,8 +43,8 @@ struct ContactMesh {
     std::size_t index = 0;
     std::vector<V3> vertices;
     std::vector<std::array<std::size_t, 3>> triangles;
-    /// Parallel to triangles: null is authored skin; an owner hides an
-    /// artificial ownership cut while that source remains attached.
+    /// Parallel to triangles: null is authored skin; a neighbor marks an
+    /// artificial ownership cut, which is never an authored physical skin.
     std::vector<std::optional<Neighbor>> triangleNeighbors;
     V3 low, high; ///< Derived by validation, never accepted from serialized bounds.
 };
@@ -202,6 +202,7 @@ struct Target {
     V3 at, velocity;                ///< its model's origin and velocity
     std::array<V3, 3> bodyToEcef{}; ///< the body axes (x, y, z) in ECEF
     double airPressurePa = 101325.0, airTemperatureK = 288.15, airDensity = 1.225;
+    V3 angularVelocityEcef{};
 };
 
 /// What the burst does to the target.
@@ -234,5 +235,75 @@ Impact assess(const Warhead& warhead, const Burst& burst, const Airframe& airfra
 /// Assess only the view's attached source geometry, preserving source IDs and
 /// the same fragment-direction RNG draws as the full-source overload.
 Impact assess(const Warhead& warhead, const Burst& burst, const AttachedGeometryView& geometry, const Target& target, Rng& rng);
+
+/// An immutable physical population shared by every victim of one burst. The
+/// additive scene path does not change the historical single-target assessor.
+struct FragmentFieldV1 {
+    struct Projectile {
+        std::uint64_t sourceOrdinalV1=0; ///< Native source ordinal, retained through causal flight; zero unknown.
+        V3 at, velocity;
+        double massKg=0, areaM2=0, cd=1.3;
+        bool segment=false;
+        V3 end, endVelocity;
+        /// A homogenized connected ring unfolds until this time. Thereafter
+        /// each element is a finite, constant-length, independently flying rod.
+        double expansionPerS=0, breakupAgeS=0;
+        double materialLengthM=0;
+        std::vector<std::array<std::uint64_t,5>> crossedFaces;
+        std::vector<std::array<std::uint64_t,2>> struckVictims;
+    };
+    bool valid=false;
+    double caseKg=0, tntKg=0;
+    Burst burst;
+    std::vector<Projectile> projectiles;
+    double ageS=0;
+    std::size_t emittedCount=0;
+    bool applyBlast=true;
+};
+/// Every source is finite; legacy point-source profiles retain their angular
+/// law but use their already-derived case envelope. A connected ring is an
+/// explicit configuration choice, never inferred from the broad rod family.
+/// Refusal is atomic with respect to the caller's RNG.
+FragmentFieldV1 emitFragmentFieldV1(const Warhead&, const Burst&, Rng&, bool connectedRod=false);
+struct SceneVictimV1 {
+    struct MotionSample { double offsetS=0;Target target; };
+    std::uint64_t identity=0;
+    AttachedGeometryView geometry;
+    Target target;
+    std::uint64_t generation=0;
+    std::vector<MotionSample> motion={}; ///< Captured origin/attitude segments; no extrapolation beyond the last sample.
+};
+struct SceneEnvironmentV1 {
+    double airDensity=1.225;
+    V3 airVelocity;
+    V3 gravityEcef;
+    double maxFlightTimeS=1;
+    double maxSubstepS=.002; ///< Captured affine flight intervals; convergence is independently tested.
+};
+struct SceneImpactV1 { std::uint64_t identity=0; Impact impact; };
+struct SceneAssessmentV1 {
+    bool valid=false;
+    std::vector<SceneImpactV1> victims; ///< Sorted by stable identity.
+    V3 transferredMomentumEcef, airMomentumEcef, remainingMomentumEcef, retainedMomentumEcef, gravityImpulseEcef;
+    double remainingMassKg=0, absorbedMassKg=0;
+    unsigned projectilesStriking=0;
+    unsigned rodBreakups=0;
+    std::optional<double> firstRodBreakAgeS;
+    std::optional<double> firstStrikeAgeS;
+    FragmentFieldV1 continuation;
+};
+/// One globally ordered traversal, with moving target origins and a retained
+/// residual projectile after each skin crossing. Solid component interception
+/// absorbs that projectile once. Crossings tie by stable identity/source index.
+/// Geometry attitudes are frozen over the bounded fragment-flight interval;
+/// air drag uses a piecewise straight flight approximation between crossings.
+/// Scene angularImpulseBody sums moments about each instantaneous moving
+/// structural origin, expressed in the initial target's body axes. Its consumer
+/// must not add a fixed-world origin translation when applying that spin moment.
+/// This additive scene convention does not change the legacy assess contract.
+/// Blast uses the established free-air fit separately; blast occlusion is not
+/// inferred from the fragment shadow. Invalid input returns no partial result.
+SceneAssessmentV1 assessSceneV1(const FragmentFieldV1&, const std::vector<SceneVictimV1>&,
+                              const SceneEnvironmentV1&);
 
 } // namespace fsim::ms::damage

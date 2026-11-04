@@ -462,6 +462,7 @@ public:
 
 private:
     friend class World;
+    friend class WeaponLinksV1;
     Vehicle(World* world, std::uint32_t id) noexcept : world_(world), id_(id) {}
     World* world_ = nullptr;
     std::uint32_t id_ = 0;
@@ -704,6 +705,7 @@ public:
 
 private:
     friend class Vehicle;
+    friend class WeaponLinksV1;
     friend class Environment;
     friend class Agent;
     friend class Referee;

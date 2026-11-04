@@ -10,6 +10,20 @@ namespace fsim::ms::weapon {
 
 enum class SeekerModeV1 { Unknown, ActiveRadar, SemiActiveRadar, Infrared, ImagingInfrared };
 
+/// Versioned engineering sensor dynamics; every value is an admitted estimate,
+/// separate from the retained ideal V2 model. SI units throughout.
+struct SensorEngineeringV3 {
+    unsigned version=0;
+    double samplePeriodS=.02, processingDelayS=.01, gimbalRateRadS=6, gimbalLagS=.02;
+    double trackLagS=.03, fieldHalfAngleRad=.12, angleNoiseRad=.0004;
+    double rangeNoiseM=2, rangeRateNoiseMs=.5, frequencyHz=10e9;
+    double noiseFigureDb=6, systemLossDb=6, bandwidthHz=1e6, detectionSnr=10;
+    double irIntensityWSr=1000, irExtinctionPerM=.00001, irNoiseWm2=1e-6;
+    double backgroundWm2=1e-7, memoryS=.12, temperatureK=290;
+    double irBandLowUm=3, irBandHighUm=5, irSourceTemperatureK=900, angleResolutionRad=.002, searchRateRadS=2;
+    double lookdownClutterDb=10;
+};
+
 /// Private resolved assumptions for the existing encounter seeker. Version
 /// zero retains legacy callers; explicit descriptors must resolve version one.
 /// Instances contain values only, never references to a card or global state.
@@ -26,6 +40,7 @@ struct SeekerConfigV1 {
     double radarDecoyPeak = 3, radarDecoyRiseS = .3, radarDecoyDecayS = 6;
     double decoyResistance = 1.6, associationCosine = .999390827019096;
     double emitterPowerW = 20, emitterPeakGainDbi = 25, emitterSidelobeDbi = -15, emitterHalfWidthRad = .35;
+    SensorEngineeringV3 engineering{};
 };
 
 bool configureSeeker(const components::DescriptorV1& descriptor, SeekerConfigV1& config, std::string& error);

@@ -169,8 +169,16 @@ void RecordWriter::writeEvent(const EngagementEvent& event) {
 }
 
 void RecordWriter::close() {
-    if (file_) std::fclose(file_);
-    file_ = nullptr;
+    if (file_) (void)finishV1();
+}
+
+bool RecordWriter::finishV1() {
+    if (!file_) return false;
+    auto* file=file_;file_=nullptr;
+    const bool written=std::ferror(file)==0;
+    const bool flushed=std::fflush(file)==0;
+    const bool closed=std::fclose(file)==0;
+    return written&&flushed&&closed;
 }
 
 void RecordWriter::writeWeaponControls(double simTime,const std::vector<ms::WeaponControlSnapshotV1>& controls) {

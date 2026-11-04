@@ -1,4 +1,5 @@
 #include "Guidance.h"
+#include "simulation/mission_systems/components/support/EquipmentSelectionV1.h"
 #include "simulation/mission_systems/Cards.h"
 #include "simulation/mission_systems/components/Profile.h"
 #include <algorithm>
@@ -63,6 +64,11 @@ bool configureSeeker(const components::DescriptorV1& descriptor, Spec& spec, std
     spec=std::move(candidate);error.clear();return true;
 }
 bool configureGuidance(const components::DescriptorV1& descriptor, Spec& spec, std::string& error) {
+    if(descriptor.implementationId.rfind("equipment.",0)==0) {
+        components::DescriptorV1 normalized;
+        if(!components::equipmentSelectionV1(descriptor,"guidance",nullptr,normalized,error))return false;
+        return configureGuidance(normalized,spec,error);
+    }
     if(descriptor.implementationId=="fsim.guidance.inertial_waypoint.v1") {
         if(descriptor.kind!="guidance" || descriptor.configurationVersion!=1 ||
            descriptor.availability!=components::AvailabilityV1::Available ||

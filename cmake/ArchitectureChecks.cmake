@@ -21,6 +21,94 @@ if(NOT _fsim_checks_python)
     return()
 endif()
 message(STATUS "Repository architecture checks: ${_fsim_checks_python} (independent of Python SDK)")
+add_test(NAME weapon_quality_admission
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/weapon_quality/test_acceptance.py")
+set_tests_properties(weapon_quality_admission PROPERTIES LABELS "sim-m03;testing" TIMEOUT 120)
+foreach(_component_check IN ITEMS component_matrix component_report component_public full_chain component_reference_run
+        component_references_kinematics component_references_effects)
+    if(_component_check STREQUAL "component_references_kinematics" AND NOT FSIM_PYTHON_TEST_PATH)
+        continue()
+    endif()
+    add_test(NAME "weapon_quality_${_component_check}"
+        COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/weapon_quality/test_${_component_check}.py")
+    set_tests_properties("weapon_quality_${_component_check}" PROPERTIES
+        LABELS "sim-m03;testing;component-reference" TIMEOUT 180
+        ENVIRONMENT "PYTHONPATH=${FSIM_PYTHON_TEST_PATH};TMP=D:/ENV/tmp;TEMP=D:/ENV/tmp;TORCH_EXTENSIONS_DIR=D:/ENV/tmp")
+endforeach()
+foreach(_reference_kind IN ITEMS effects kinematics)
+    if(_reference_kind STREQUAL "effects")
+        set(_reference_target fsim_component_effect_reference_native_test)
+        set(_reference_test component_effect_reference_native)
+    else()
+        set(_reference_target fsim_component_reference_native_test)
+        set(_reference_test component_reference_native)
+    endif()
+    if(TARGET ${_reference_target})
+        add_test(NAME "${_reference_test}"
+            COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/weapon_quality/component_reference_run.py"
+                --kind "${_reference_kind}" --executable "$<TARGET_FILE:${_reference_target}>"
+                --output "${CMAKE_BINARY_DIR}/validation/component_reference_runs/${_reference_kind}")
+        set_tests_properties("${_reference_test}" PROPERTIES
+            LABELS "payload-components;sim-m03;component-reference" TIMEOUT 360 RUN_SERIAL TRUE
+            ENVIRONMENT "PYTHONPATH=${FSIM_PYTHON_TEST_PATH};TMP=D:/ENV/tmp;TEMP=D:/ENV/tmp;TORCH_EXTENSIONS_DIR=D:/ENV/tmp")
+    endif()
+endforeach()
+add_test(NAME weapon_quality_delivery
+    COMMAND "${_fsim_checks_python}" -B -W error::ResourceWarning
+        "${CMAKE_SOURCE_DIR}/tools/validation/weapon_quality/test_delivery.py")
+set_tests_properties(weapon_quality_delivery PROPERTIES LABELS "sim-m03;package;testing" TIMEOUT 120)
+add_test(NAME weapon_quality_maps
+    COMMAND "${_fsim_checks_python}" -B -W error::ResourceWarning
+        "${CMAKE_SOURCE_DIR}/tools/validation/weapon_quality/test_maps.py")
+set_tests_properties(weapon_quality_maps PROPERTIES LABELS "sim-m03;package;testing" TIMEOUT 120)
+add_test(NAME weapon_quality_explosive_fixtures
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/weapon_quality/test_explosives.py")
+set_tests_properties(weapon_quality_explosive_fixtures PROPERTIES LABELS "sim-m03;testing" TIMEOUT 120)
+add_test(NAME weapon_quality_effects_population
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/weapon_quality/test_effects_population.py")
+set_tests_properties(weapon_quality_effects_population PROPERTIES LABELS "sim-m03;testing" TIMEOUT 120)
+add_test(NAME weapon_quality_liquid_population
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/weapon_quality/test_liquid_population.py")
+set_tests_properties(weapon_quality_liquid_population PROPERTIES LABELS "sim-m03;testing" TIMEOUT 120)
+add_test(NAME weapon_quality_external_tanks
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/weapon_quality/test_external_tanks.py")
+set_tests_properties(weapon_quality_external_tanks PROPERTIES LABELS "sim-m03;testing" TIMEOUT 120)
+add_test(NAME weapon_quality_liquid_vessel_policy
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/weapon_quality/test_liquid_vessel_policy.py")
+set_tests_properties(weapon_quality_liquid_vessel_policy PROPERTIES LABELS "sim-m03;testing" TIMEOUT 120)
+# The complete model campaign supplies this existing authoring dependency path.
+# Keep the ordinary standard-library repository checks independently available.
+if(FSIM_PYTHON_TEST_PATH)
+    add_test(NAME weapon_quality_model_methods
+        COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/weapon_quality/model_methods.py"
+            --source-root "${CMAKE_SOURCE_DIR}" --build-dir "${CMAKE_BINARY_DIR}"
+            --dependency-path "${FSIM_PYTHON_TEST_PATH}")
+    set_tests_properties(weapon_quality_model_methods PROPERTIES LABELS "sim-m03;hangar;testing" TIMEOUT 180 RUN_SERIAL TRUE)
+endif()
+add_test(NAME weapon_quality_backend_epoch
+    COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/weapon_quality/test_backend_epoch.py")
+set_tests_properties(weapon_quality_backend_epoch PROPERTIES LABELS "sim-m03;testing" TIMEOUT 120)
+  add_test(NAME weapon_quality_countermeasures
+      COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/weapon_quality/test_countermeasures.py")
+  set_tests_properties(weapon_quality_countermeasures PROPERTIES LABELS "sim-m03;testing" TIMEOUT 120)
+  add_test(NAME weapon_quality_authored_fits
+      COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/weapon_quality/test_fits.py")
+  set_tests_properties(weapon_quality_authored_fits PROPERTIES LABELS "sim-m03;testing" TIMEOUT 120)
+if(FSIM_WITH_RENDER AND TARGET fsim_python)
+    add_test(NAME aam_campaign_tools
+        COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/validation/viewer_perf/test_aam_campaign.py")
+    set_tests_properties(aam_campaign_tools PROPERTIES LABELS "sim-m03;render;testing" TIMEOUT 120
+        ENVIRONMENT "PYTHONPATH=${CMAKE_BINARY_DIR}/python;TMP=D:/ENV/tmp;TEMP=D:/ENV/tmp;TORCH_EXTENSIONS_DIR=D:/ENV/tmp")
+endif()
+if(TARGET flightsim-showcase)
+    add_test(NAME engagement_interactive
+        COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/launch/test_engagement.py"
+            --build "${CMAKE_BINARY_DIR}" --scene "${CMAKE_SOURCE_DIR}/tools/validation/viewer_perf/engagement.json"
+            --out "${CMAKE_BINARY_DIR}/validation/engagement-interactive")
+    set_tests_properties(engagement_interactive PROPERTIES
+        LABELS "sim-m03;native-engagement;launcher" TIMEOUT 90 RUN_SERIAL TRUE
+        ENVIRONMENT "TMP=D:/ENV/tmp;TEMP=D:/ENV/tmp;TORCH_EXTENSIONS_DIR=D:/ENV/tmp")
+endif()
 add_test(NAME architecture_boundary
     COMMAND "${_fsim_checks_python}" -B "${CMAKE_SOURCE_DIR}/tools/architecture/check.py" --repo "${CMAKE_SOURCE_DIR}")
 add_test(NAME architecture_checker

@@ -7,6 +7,8 @@
 #include "interfaces/AerodynamicsProviderV1.h"
 #include <memory>
 
+namespace fsim::ms::weapon {struct OperatingPointInputV1;}
+
 namespace fsim::ms::components {
 
 struct PlantProvidersV1 {
@@ -18,6 +20,10 @@ struct PlantProvidersV1 {
     bool available(const weapon::PlantAdapterV1&, const weapon::NativePlantIdentityV1&) const noexcept;
     weapon::FinCommands commands(const weapon::PlantAdapterV1&, const weapon::AutopilotInput&,
         const weapon::ControlStopsV1&, const weapon::NativePlantIdentityV1&) const noexcept;
+    /// Additive nonvirtual dispatch; all retained role admission and output
+    /// guards remain authoritative around the versioned sibling execution.
+    weapon::FinCommands commandsOperatingPointV1(const weapon::PlantAdapterV1&,
+        const weapon::OperatingPointInputV1&,const weapon::NativePlantIdentityV1&) const noexcept;
 };
 
 } // namespace fsim::ms::components

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "simulation/flight/FlightModel.h"
+#include "simulation/flight/NativeThermalSourceV1.h"
 
 #include <memory>
 #include <array>
@@ -15,11 +16,12 @@ class FGGroundCallback;
 namespace fsim::sim {
 
 class GroundProvider;
+class PassiveRolleronV1;
 
 /// JSBSim adapter: one FGFDMExec per vehicle, JSBSim used as-is (design 7,
 /// ADR-3). Construct and load on one thread; step() may run on any thread as
 /// long as no two threads touch the same instance concurrently.
-class JsbsimModel final : public FlightModel, public TerrainStrikeSourceV1, public TerrainContactSourceV1, public RigidMassSourceV1, public NativePositionSourceV1 {
+class JsbsimModel final : public FlightModel, public TerrainStrikeSourceV1, public TerrainContactSourceV1, public RigidMassSourceV1, public NativePositionSourceV1, public NativeThermalSourceV1 {
 public:
     /// @param dt fixed step in seconds (design 6.4)
     /// @param ground terrain source for gear contact and AGL; shared by all vehicles
@@ -65,6 +67,7 @@ public:
     /// propulsion moments. False for old products without the versioned split.
     bool ownRotorAirframeAccelerationV1(double acceleration[3],double lagS[3],double specificForceBody[3],bool& passiveIncluded);
     bool nativePositionV1(const double positionEcefM[3], NativePositionV1& out) const noexcept override;
+    bool nativeThermalSnapshotV1(NativeThermalSnapshotV1& out) const noexcept override;
 
     /// Direct access for tests and tooling only.
     JSBSim::FGFDMExec& exec() noexcept { return *fdm_; }
@@ -83,12 +86,16 @@ public:
     void setBodyRates(const double ratesBody[3]);
 
 private:
+    void createNativeExecV1();
+    void clearNativeBindingsV1();
     void silenceOutputs();
     void installExternalReaction();
     void startEngines();
     void applyInitialConditions(const InitialConditions& ic);
     void settleOnGround(const InitialConditions& ic);
     void cacheCommandNodes();
+    void bindPassivePlantV1();
+    bool advancePassivePlantV1();
     void saveInitialProperties();
     void restoreInitialProperties();
     bool checkDivergence();
@@ -122,6 +129,9 @@ private:
     // External reaction injected at load (design 9.5): magnitude + unit direction properties.
     PropertyHandle extForceMag_, extForceX_, extForceY_, extForceZ_, extMomentMag_, extMomentL_, extMomentM_, extMomentN_;
     PropertyHandle extLocX_, extLocY_, extLocZ_, cgX_, cgY_, cgZ_;
+    std::unique_ptr<PassiveRolleronV1> passiveRolleron_;
+    std::vector<std::array<PropertyHandle,3>> passiveRolleronOutputs_;
+    std::array<PropertyHandle,11> passiveReaction_;
     PropertyHandle lefPosDeg_; ///< leading-edge flaps, where the aircraft's FCS has them (fcs/lef-pos-deg)
     /// A battery, where the aircraft's FCS has one (fsim/battery/...: hangar's multirotors and electric wings,
     /// docs/rotorcraft.md, docs/hangar.md)

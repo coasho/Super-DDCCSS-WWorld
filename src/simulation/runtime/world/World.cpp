@@ -1,9 +1,15 @@
 #include "simulation/runtime/world/World.h"
+#include "simulation/runtime/world/WorldLiquidMaterials.h"
 #include "simulation/mission_systems/components/registration/BuiltInProvidersV1.h"
+#include "simulation/mission_systems/weapon/OperatingPointControlV1.h"
+#include "simulation/mission_systems/weapon/ControlObservationV1.h"
+#include "simulation/mission_systems/components/interfaces/SeekerLaunchNavigationV1.h"
+#include "simulation/mission_systems/components/interfaces/GuidanceStateResetV1.h"
 
 #include "simulation/runtime/services/AgentRules.h"
 
 #include "foundation/core/Log.h"
+#include "foundation/transport/WeaponDiagnosticCaptureBindingV1.h"
 #include "foundation/core/Units.h"
 #include "foundation/io/AssetResolver.h"
 #include "foundation/platform/Threads.h"
@@ -28,6 +34,7 @@
 #include <cmath>
 #include <cstring>
 #include <new>
+#include <set>
 #include <stdexcept>
 
 namespace fsim::session {
@@ -246,6 +253,10 @@ World::World(const WorldOptions& options) : options_(options), dmsRng_(Rng::forV
     pool_->setPreStep([this](std::size_t slot, int subStep, sim::FlightModel& model, sim::ControlInputs& inputs) {
         preStep(slot, subStep, model, inputs);
     });
+    pool_->setNativeObserverFactoryV1([this](std::size_t slot,int subStep,sim::FlightModel& model) {
+        auto* e=entries_[slot].get();
+        return e?weaponNavigationObserverV2(*e,model,simTime_+subStep*options_.dt):sim::NativeStepObserverV1{};
+    });
 
     if (options_.publish) {
         ipc::WorldPublisher::Options po;
@@ -258,18 +269,38 @@ World::World(const WorldOptions& options) : options_(options), dmsRng_(Rng::forV
         publisher_->setEnvironment(environment_);
     }
     if (!options_.recordPath.empty()) {
+        // Invalidate BEFORE either capture output is truncated, including
+        // worlds without a publisher/diagnostic frame. A failed invalidation
+        // leaves the previous files untouched and refuses this recording.
+        std::string bindingError;
+        const bool invalidated=ipc::invalidateWeaponDiagnosticCaptureBindingV1(options_.recordPath.string()+".wdiag",bindingError);
         ipc::RecordingHeader rh;
         rh.capacity = options_.capacity;
         rh.dt = options_.dt;
         rh.frameSkip = options_.frameSkip;
         copyName(rh.name, ipc::kNameLength, options_.name);
-        recorder_.open(options_.recordPath, rh);
+        if(invalidated)weaponDiagnosticCaptureBindingReadyV1_=recorder_.open(options_.recordPath, rh);
+        else LOG_ERROR("session")<<"recording refused: cannot invalidate previous diagnostic capture: "<<bindingError;
     }
     LOG_INFO("session") << "world '" << options_.name << "': dt " << options_.dt << " s, frame skip " << options_.frameSkip << ", "
                         << workers << " worker(s)" << (published() ? ", published" : "");
 }
 
-World::~World() = default;
+World::~World() {
+    if(weaponLinkAccess_){std::lock_guard<std::mutex> lock(weaponLinkAccess_->mutex);weaponLinkAccess_->world=nullptr;}
+    ipc::WeaponDiagnosticCaptureCompletionV1 completion;
+    completion.recordingBytes=recorder_.bytesWritten();
+    completion.recordingClosedSuccessfully=recorder_.finishV1();
+    if(weaponDiagnosticsRecorderV1_) {
+        const bool diagnosticsClosed=weaponDiagnosticsRecorderV1_->finishCaptureV1(completion);
+        weaponDiagnosticsRecorderV1_.reset();
+        if(weaponDiagnosticCaptureBindingReadyV1_&&diagnosticsClosed) {
+            std::string error;
+            if(!ipc::finalizeWeaponDiagnosticCaptureBindingV1(options_.recordPath,options_.recordPath.string()+".wdiag",completion,error))
+                LOG_WARN("session")<<"diagnostic capture remains unavailable: "<<error;
+        }
+    }
+}
 
 bool World::parseType(const std::string& type, std::string& family, std::string& aircraft) {
     const auto colon = type.find(':');
@@ -378,6 +409,13 @@ std::uint32_t World::createVehicleChecked(const VehicleSpec& spec,const std::fun
                     if (auto a = ms::damage::readAirframe(file, error)) airframes_[aircraft] = std::make_shared<const ms::damage::Airframe>(std::move(*a));
                     else LOG_WARN("session") << "damage data: " << error;
                 }
+                bool declared=false;std::string liquidError;
+                const auto frame=airframes_.find(aircraft);
+                auto liquid=readLiquidMaterialDatasetV1(dir/aircraft,aircraft,
+                    frame==airframes_.end()?nullptr:frame->second.get(),declared,liquidError);
+                if(liquid)liquidMaterials_[aircraft]=std::move(liquid);
+                else if(declared)liquidMaterialErrors_[aircraft]=liquidError;
+                else if(!liquidError.empty())LOG_WARN("session") << "legacy liquid declaration: " << liquidError;
             }
             // its point masses' names in order (their properties are indexed so): the stations' are hangar's "station N"
             {
@@ -396,6 +434,9 @@ std::uint32_t World::createVehicleChecked(const VehicleSpec& spec,const std::fun
                     names.push_back(xml.substr(q0 + 6, q1 - q0 - 6));
                 }
             }
+        }
+        if(const auto refused=liquidMaterialErrors_.find(aircraft);refused!=liquidMaterialErrors_.end()) {
+            LOG_ERROR("session") << "required liquid material input: " << refused->second;return 0;
         }
         slot = pool_->add(std::move(model));
         entries_.emplace_back();
@@ -418,6 +459,7 @@ std::uint32_t World::createVehicleChecked(const VehicleSpec& spec,const std::fun
     e->info.initial = spec.initial;
     e->info.alive = true;
     e->info.generation = 1;
+    if(const auto liquid=liquidMaterials_.find(aircraft);liquid!=liquidMaterials_.end())e->liquidMaterials=liquid->second;
     e->slot = slot;
     e->rng = Rng::forVehicle(options_.seed, 0, id);
     e->controlDivider = std::max(1u, spec.controlDivider);
@@ -532,13 +574,23 @@ bool World::resetVehicle(std::uint32_t id, const sim::InitialConditions* ic, std
     }
     // A flight model's reset returns its air to calm and standard: the world's, as a new vehicle's (design 7.2)
     applyEnvironment(model);
+    e->storeFlight.invalidateMasses();
+    applyStoreMasses(*e);
+    // Write retained inventory BEFORE reconciling the reset plant's derived
+    // mass/CG/J. An empty supported transaction applies no physical impulse
+    // or wrapper CG relocation; custom models keep their optional contract.
+    if(e->storeFlight.hasStations()&&model.beginMassChange())model.endMassChange(nullptr,nullptr);
     e->inputs = sim::ControlInputs{};
     e->rotorAirframeTimeS=std::numeric_limits<double>::quiet_NaN();
     e->finControllerAvailable=false;
+    e->guidanceDecisionTimeS=std::numeric_limits<double>::quiet_NaN();e->seekerResultV2={};
     e->finTelemetry = {};
+    e->diagnosticPropertiesBoundV1=false;e->diagnosticPropertiesV1.clear();
     e->finControllerTimeS=std::numeric_limits<double>::quiet_NaN();
-    e->onRailSeekers.clear();
+    e->finNavigationTimeS=std::numeric_limits<double>::quiet_NaN();
+    e->onRailSeekers.clear();e->seekerAttributionsV3.clear();e->pulseManagerV1.reset();
     if(auto* sensor=dynamic_cast<ms::components::SeekerExecutionV2*>(e->seekerProvider.get()))sensor->resetTracking();
+    if(auto* guidance=dynamic_cast<ms::components::GuidanceStateResetV1*>(e->guidance.get()))guidance->resetGuidanceStateV1();
     // A pose reset invalidates this tick's captured history, but it is not a
     // new release and does not rearm a consumed contact-initiation channel.
     e->engagementPath.clear();
@@ -550,8 +602,10 @@ bool World::resetVehicle(std::uint32_t id, const sim::InitialConditions* ic, std
     e->arrestedBurst.reset();
     e->groundBurstAgeS.reset();
     e->matterAtmosphere = {};
+    e->matterFuelBound=false;e->matterFuelReads.clear();
     if (e->fuzeAdapter) e->fuzeAdapter->resetTurnHistory();
     else e->fuzeTurn.reset();
+    e->proximityTurnsV1.clear();
     e->inputs.setThrottleAll(e->info.role == ms::Role::Weapon
                                 ? (e->info.initial.enginesRunning ? 1.0 : 0.0)
                                 : (e->info.initial.onGround ? 0.0 : 0.65));
@@ -568,10 +622,14 @@ bool World::resetVehicle(std::uint32_t id, const sim::InitialConditions* ic, std
     e->fireRates.clear();
     e->wreckFireUntilS = 0.0;
     e->wreckFireName.clear();
+    const auto restoredEnergy=model.energy();
+    e->host.setLoad(restoredEnergy.massKg,restoredEnergy.fuelKg);
+    e->storeFlight.loadPublished();
     poolInputs_[e->slot] = e->inputs;
     model.state(e->working);
     e->sensed.state = e->working;
     pool_->refreshState(e->slot);
+    resetWeaponNavigationV1(*e);
     ++e->info.generation;
     publishVehicle(*e);
     return true;
@@ -943,7 +1001,7 @@ bool World::undesignate(std::uint32_t owner, std::uint32_t target) {
     if (target <= kDesignations || target - kDesignations > designations_.size()) return false;
     Designation& d = designations_[target - kDesignations - 1];
     if (d.owner != owner || !d.valid) return false;
-    d.valid = false;
+    d.valid = false;d.retiredV1=true;
     return true;
 }
 
@@ -955,7 +1013,7 @@ const World::Designation* World::designation(std::uint32_t target) const noexcep
 std::vector<World::Designation> World::designations(std::uint32_t owner) const {
     std::vector<Designation> out;
     for (const Designation& d : designations_)
-        if (d.owner == owner) out.push_back(d);
+        if (d.owner == owner && !d.fusedEntityV1) out.push_back(d);
     return out;
 }
 
@@ -964,6 +1022,13 @@ void World::refreshDesignations() {
         if (!d.valid) continue;
         d.valid = false; // (lapsed, unless its track is still held)
         if (!entry(d.owner)) continue;
+        if(d.fusedEntityV1) {
+            if(const auto fused=fusedWeaponInputV1(d.owner,d.id)) {
+                sim::VehicleState state{};
+                if(resolveWeaponTarget(d.owner,d.id,state))d.estimate=state,d.valid=true;
+            }
+            continue;
+        }
         if (d.source != comm::kNoSystem) { // (a network track: its last report, carried forward)
             if (const comm::LinkTrack* t = dms_.linkTrack(d.owner, d.source, d.payload, d.track))
                 if (const auto estimate=estimateOf(*t,simTime_)) d.estimate=*estimate,d.valid=true;
@@ -1986,16 +2051,23 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
     }
     if (options_.storeDrag && e->storeFlight.addDrag(e->working, model, push, turn)) pushed = true;
     if (e->guidance) {
+        const bool navigationReadyV2=advanceWeaponNavigationReadV2(*e,e->working,t,e->sensed.gnssValid);
+        if(navigationReadyV2)applyWeaponPulseV1(*e,model,simTime_+subStep*options_.dt);
         // Guidance requests specific acceleration. The finite native FCS and
         // fin aerodynamics alone realise it; no guidance external reaction.
         e->inputs.aileron = e->inputs.elevator = e->inputs.rudder = 0;
         e->finControllerAvailable=false;
         e->finControllerTimeS=simTime_+subStep*options_.dt;
+        e->finNavigationTimeS=std::numeric_limits<double>::quiet_NaN();
         const auto& r = e->finControl;
         const auto& s = e->working;
+        const bool totalAxialRequired=e->plantAdapter.configured&&e->plantAdapter.control.version==1;
+        const double totalAxialN=totalAxialRequired&&r.totalAxialForce.valid()?
+            r.totalAxialForce.get()*4.4482216152605:std::numeric_limits<double>::quiet_NaN();
         double cg[3]{};
-        const double derivativeVersion=e->plantAdapter.configured && e->plantAdapter.implementations[0]==2 ? 2.:1.;
-        if (r.version.get() == derivativeVersion && model.cgFromOriginBodyM(cg) &&
+        const double derivativeVersion=e->plantAdapter.configured && (e->plantAdapter.implementations[0]==2||e->plantAdapter.implementations[0]==3) ? 2.:1.;
+        if (navigationReadyV2 && r.version.get() == derivativeVersion && model.cgFromOriginBodyM(cg) &&
+            (!totalAxialRequired||std::isfinite(totalAxialN)) &&
             (!r.referenceVersion.valid() || (r.referenceVersion.get()==1 && r.aeroReferenceX.valid() && std::isfinite(r.aeroReferenceX.get()))) &&
             std::all_of(r.aeroForce.begin(),r.aeroForce.end(),[](const auto& p){return p.valid();}) &&
             std::all_of(r.aeroMoment.begin(),r.aeroMoment.end(),[](const auto& p){return p.valid();})) {
@@ -2004,12 +2076,33 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
             const double gravity[3] = {-9.80665 * std::cos(s.latitudeRad) * std::cos(s.longitudeRad),
                 -9.80665 * std::cos(s.latitudeRad) * std::sin(s.longitudeRad), -9.80665 * std::sin(s.latitudeRad)};
             ms::geom::toBody(s, gravity, in.gravityBody.data());
+            const auto navigationBinding=weaponLinksV1_.find(e->info.id);
+            const bool strapdown=navigationBinding!=weaponLinksV1_.end()&&navigationBinding->second.strapdownNavigation;
+            if(strapdown) {
+                const auto pose=weaponNavigationPoseV1(*e);
+                if(pose.valid)e->finNavigationTimeS=pose.timeS;
+                const auto resolve=[&](const double* value,std::array<double,3>& body) {
+                    if(!pose.valid){body.fill(std::numeric_limits<double>::quiet_NaN());return;}
+                    for(std::size_t k=0;k<3;++k)body[k]=pose.bodyToEcef[k].x*value[0]+pose.bodyToEcef[k].y*value[1]+pose.bodyToEcef[k].z*value[2];
+                };
+                resolve(e->guidanceDemand,in.demandBody);
+                const auto vertical=ms::weapon::navigationGravityVerticalV2(pose.position);
+                const double estimatedGravity[3]={vertical.x,vertical.y,vertical.z};
+                resolve(estimatedGravity,in.gravityBody);
+            }
             in.massKg = model.energy().massKg;
             in.speedMs = s.airspeedTrueMs;
             in.alphaRad = s.alphaRad; in.betaRad = s.betaRad;
             in.actuatorLagS = 1 / r.lag.get();
             for (std::size_t k = 0; k < 3; ++k) {
                 in.ratesRadS[k] = s.angularRateBodyRadS[k];
+                if(strapdown) {
+                    const auto& navigation=*navigationBinding->second.strapdownNavigation;
+                    const auto imu=navigation.imuSample();const auto bias=navigation.gyroBiasBodyRadS();
+                    const double gyro[3]={imu.gyroRadS.x-bias.x,imu.gyroRadS.y-bias.y,imu.gyroRadS.z-bias.z};
+                    const auto pose=weaponNavigationPoseV1(*e);
+                    in.ratesRadS[k]=imu.valid&&pose.valid?gyro[k]-7.292115e-5*pose.bodyToEcef[k].z:std::numeric_limits<double>::quiet_NaN();
+                }
                 in.inertiaKgM2[k] = r.inertia[k].get() * 1.3558179483314;
                 in.limitsRad[k] = r.limits[k].get();
             }
@@ -2032,6 +2125,10 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
                 // JSBSim already reports aerodynamic moments about current CG.
                 measured.momentBodyNm[k]=r.aeroMoment[k].get()*1.3558179483314;
             }
+            // Configured directional kinematics need the native total
+            // non-gravity axial force, including thrust on non-TVC missiles.
+            // Transverse and moment residuals retain their aero/TVC roles.
+            if(totalAxialRequired)measured.forceBodyN[0]=totalAxialN;
             in.measured=measured;
             const auto& control=e->guidance->spec().control;
             bool vectorReady=!control.thrustVector && !r.vectorVersion.valid();
@@ -2057,7 +2154,8 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
                         in.pitch.forceControl+=fz;in.pitch.momentControl-=arm*fz;
                         in.yaw.forceControl+=fy;in.yaw.momentControl+=arm*fy;
                         for(std::size_t k=0;k<3;++k) {
-                            in.measured->forceBodyN[k]+=r.propulsionForce[k].get()*4.4482216152605;
+                            if(k!=0||!totalAxialRequired)
+                                in.measured->forceBodyN[k]+=r.propulsionForce[k].get()*4.4482216152605;
                             in.measured->momentBodyNm[k]+=r.propulsionMoment[k].get()*1.3558179483314;
                         }
                     }
@@ -2075,17 +2173,73 @@ void World::preStep(std::size_t slot, int subStep, sim::FlightModel& model, sim:
                  !std::all_of(r.upperStops.begin(),r.upperStops.end(),[](const auto& h){return h.valid();}))) stops.version=2;
             const double count=r.finCount.get();
             if (stops.actuatorVersion==1 && (!r.finCount.valid() || !std::isfinite(count) || count<1 ||
-                count>ipc::kWeaponControlMaxFins || count!=std::floor(count) || count!=static_cast<double>(r.finRates.size())))
+                count>ipc::kWeaponControlMaxFins || count!=std::floor(count) || count!=static_cast<double>(r.finRates.size()+r.passiveFinCountV1)))
                 stops.actuatorVersion=2;
             stops.channelRateRadS=r.channelRate.get();
             for (std::size_t k=0;k<3;++k) {
                 stops.lowerRad[k]=r.lowerStops[k].get(); stops.upperRad[k]=r.upperStops[k].get();
             }
             for (const auto& rate : r.finRates) stops.finRateRadS.push_back(rate.get());
-            const auto commands = !vectorReady ? ms::weapon::FinCommands{} : e->plantAdapter.configured
-                ? e->plantProviders.commands(e->plantAdapter,in,stops,nativePlantIdentity(*e))
-                : ms::weapon::finCommands(in,e->guidance->spec().control,stops);
+            ms::weapon::FinCommands commands;
+            const auto observeControl=[&](const ms::weapon::OperatingPointInputV1* point,bool dispatched) noexcept {
+                const auto& observer=ms::weapon::controlObserverV1;
+                if(observer.model!=&model||!observer.observe)return;
+                const unsigned code=e->plantAdapter.configured?e->plantAdapter.implementations[0]:0;
+                const char* mechanism=code==3?"fsim.control.operating_point_bounded.v1":
+                    code==2?"fsim.control.actuator_aware_cascade.v1":
+                    code==1?"fsim.control.load_feedback_cascade":
+                    e->plantAdapter.configured?"configured-unknown":"legacy-unconfigured-finCommands";
+                const auto& selected=e->plantAdapter.configured?e->plantAdapter.control:control;
+                observer.observe(observer.context,{model,e->info.id,e->info.generation,e->finControllerTimeS,
+                    options_.dt,code,mechanism,dispatched,in,selected,stops,point,commands});
+            };
+            bool controlDispatched=false;
+            if(vectorReady) {
+                if(!e->plantAdapter.configured) {
+                    commands=ms::weapon::finCommands(in,e->guidance->spec().control,stops);controlDispatched=true;
+                } else if(e->plantAdapter.implementations[0]!=3) {
+                    commands=e->plantProviders.commands(e->plantAdapter,in,stops,nativePlantIdentity(*e));
+                    controlDispatched=true;
+                }
+            }
+            if(!e->plantAdapter.configured||e->plantAdapter.implementations[0]!=3)observeControl(nullptr,controlDispatched);
+            if(e->plantAdapter.configured&&e->plantAdapter.implementations[0]==3) {
+                const auto identity=nativePlantIdentity(*e);
+                const double substeps=r.operatingSubsteps.get();
+                bool ready=vectorReady&&r.operatingVersion.valid()&&r.operatingVersion.get()==1&&
+                    r.operatingSubsteps.valid()&&std::isfinite(substeps)&&substeps>=1&&substeps<=1024&&substeps==std::floor(substeps)&&
+                    r.operatingFins.size()==r.finRates.size()&&!r.operatingFins.empty();
+                ms::weapon::OperatingPointInputV1 point;point.plant=in;point.stops=stops;point.dtS=options_.dt;
+                if(ready)point.actuatorSubsteps=static_cast<unsigned>(substeps);
+                const auto readFailure=[](const std::array<PropertyHandle,3>& handles,ms::weapon::OperatingFailureV1& failure) {
+                    for(const auto& handle:handles)if(!handle.valid()||(handle.get()!=0&&handle.get()!=1))return false;
+                    failure={handles[0].get()!=0,handles[1].get()!=0,handles[2].get()!=0};return true;
+                };
+                for(std::size_t axis=0;ready&&axis<3;++axis) {
+                    ready=readFailure(r.operatingFailure[axis],point.channelFailure[axis])&&r.operatingInput[axis].valid()&&r.operatingLag[axis].valid()&&r.operatingChannel[axis].valid();
+                    if(ready){point.channelInputRad[axis]=r.operatingInput[axis].get();point.channelLagRad[axis]=r.operatingLag[axis].get();point.channelActualRad[axis]=r.operatingChannel[axis].get();}
+                }
+                for(const auto& source:r.operatingFins) {
+                    if(!ready)break;
+                    ready=source.actual.valid()&&source.minimum.valid()&&source.maximum.valid()&&source.rate.valid()&&source.loads.size()==source.angles.size();
+                    if(!ready)break;
+                    ms::weapon::OperatingFinV1 fin;ready=readFailure(source.failure,fin.failure);
+                    fin.actualRad=source.actual.get();fin.minimumRad=source.minimum.get();fin.maximumRad=source.maximum.get();fin.rateRadS=source.rate.get();
+                    for(std::size_t axis=0;axis<3;++axis){ready=ready&&source.mixer[axis].valid();if(ready)fin.mixer[axis]=source.mixer[axis].get();}
+                    for(std::size_t knot=0;ready&&knot<source.angles.size();++knot) {
+                        ready=source.angles[knot].valid()&&std::all_of(source.loads[knot].begin(),source.loads[knot].end(),[](const auto& h){return h.valid();});
+                        if(!ready)break;
+                        fin.anglesRad.push_back(source.angles[knot].get());
+                        std::array<double,6> load{};for(std::size_t k=0;k<6;++k)load[k]=source.loads[knot][k].get()*(k<3?4.4482216152605:1.3558179483314);
+                        fin.momentsNm.push_back(ms::weapon::operatingPointBodyMomentV1(load,s.alphaRad,s.betaRad,{lever,cg[1],cg[2]}));
+                    }
+                    point.fins.push_back(std::move(fin));
+                }
+                if(ready)commands=e->plantProviders.commandsOperatingPointV1(e->plantAdapter,point,identity);
+                observeControl(&point,ready);
+            }
             e->finControllerAvailable=commands.available;
+            if(commands.available)e->finDemandBodyMs2=in.demandBody;
             e->inputs.aileron = commands.aileron;
             e->inputs.elevator = commands.elevator;
             e->inputs.rudder = commands.rudder;
@@ -2251,7 +2405,9 @@ bool World::resolveWeaponTarget(std::uint32_t launcher, std::uint32_t target, si
         return true;
     }
     const auto* d = designation(target);
-    if (!d || !d->valid || d->owner != launcher || !entry(launcher)) return false;
+    if (!d || d->owner != launcher || !entry(launcher)) return false;
+    if(d->fusedEntityV1)return resolveFusedWeaponTargetV1(launcher,target,out);
+    if(!d->valid)return false;
     // Resolve from current measured/delivered reports at this boundary. The
     // step-start designation cache can precede this tick's flight and sensing.
     if (d->source != comm::kNoSystem) {
@@ -2375,6 +2531,7 @@ void World::flyReleases() {
             std::unique_ptr<ms::weapon::FuzeAdapter> releaseFuze;
             std::unique_ptr<ms::damage::WarheadAdapter> releaseWarhead;
             std::unique_ptr<ms::components::SeekerProviderV1> releaseSeeker;
+            std::optional<ms::weapon::Observation> releaseSeekerEstimate;
             std::unique_ptr<ms::components::GuidanceProviderV1> releaseGuidanceProvider;
             ms::components::PlantProvidersV1 releasePlantProviders;
             std::string configurationError;
@@ -2435,6 +2592,7 @@ void World::flyReleases() {
                                     {targetEstimate.positionEcef[0],targetEstimate.positionEcef[1],targetEstimate.positionEcef[2]},
                                     {v[0],v[1],v[2]},false};
                             }
+                            releaseSeekerEstimate=initialEstimate;
                             ms::components::ProviderContextV1 context{*releasedCard,profile,*releaseGuidance,initialEstimate};
                             const bool needsSeeker=profile.find("seeker")->availability!=ms::components::AvailabilityV1::NotApplicable;
                             if(needsSeeker)releaseSeeker=payloadProviders_.seeker.create(*profile.find("seeker"),context,configurationError);
@@ -2542,8 +2700,33 @@ void World::flyReleases() {
                     w->launchSeekerCue = infrared ? onRailSeekerObservation(*e, *releasedCard,r.store) : 0;
                     if(infrared)if(auto* sensor=dynamic_cast<ms::components::SeekerExecutionV2*>(w->seekerProvider.get())) {
                         const auto cached=e->onRailSeekers.find(r.store);
-                        if(cached!=e->onRailSeekers.end()&&cached->second.result.tracking&&cached->second.result.track)
-                            sensor->seedTrack(*cached->second.result.track);
+                        if(cached!=e->onRailSeekers.end()) {
+                            const auto* descriptor=w->payloadProfile?w->payloadProfile->find("seeker"):nullptr;
+                            if(cached->second.card==releasedCard&&cached->second.provider&&descriptor&&
+                               descriptor->bindings.count("receiver_model")&&cached->second.provider->config().engineering.version==3) {
+                                // This is the same powered physical receiver, now
+                                // separated from its rail. Retain its gimbal,
+                                // exposure/processing queue, optical response,
+                                // tracker and RNG state. A noisy bearing estimate
+                                // is not the receiver's actual pointing state.
+                                bool navigationReady=true;
+                                if(releaseSeekerEstimate&&(guidance.inertialMidcourse||guidance.launcherUpdates)) {
+                                    auto* initialization=dynamic_cast<ms::components::SeekerLaunchNavigationV1*>(cached->second.provider.get());
+                                    navigationReady=initialization&&initialization->seedLaunchNavigationV1(*releaseSeekerEstimate);
+                                }
+                                if(navigationReady) {
+                                    w->seekerProvider=std::move(cached->second.provider);
+                                    // Pending measurements retain their actual
+                                    // capture epochs and attribution indices.
+                                    // Their separate referee join must follow
+                                    // the receiver across this ownership seam.
+                                    w->seekerAttributionsV3=std::move(cached->second.sceneAttributionsV3);
+                                }
+                                else if(cached->second.result.tracking&&cached->second.result.track)
+                                    sensor->seedTrack(*cached->second.result.track);
+                            } else if(cached->second.result.tracking&&cached->second.result.track)
+                                sensor->seedTrack(*cached->second.result.track);
+                        }
                         e->onRailSeekers.erase(r.store);
                     }
                     w->guidance=std::move(releaseGuidanceProvider);
@@ -2560,6 +2743,7 @@ void World::flyReleases() {
                     for (std::size_t k=0;k<3;++k) {
                         f.aeroForce[k]=wm.property(forceAxes[k]); f.aeroMoment[k]=wm.property(momentAxes[k]);
                     }
+                    f.totalAxialForce=wm.property("forces/fbx-total-lbs");
                     if(!wm.properties("fsim/thrust-vector-control").empty()) {
                         const std::string prefix="fsim/thrust-vector-control/";
                         f.vectorVersion=wm.property(prefix+"version");f.vectorLimit=wm.property(prefix+"limit_rad");
@@ -2579,9 +2763,17 @@ void World::flyReleases() {
                     f.channelRate=wm.property("fsim/missile-control/channel-rate-rad_s");
                     f.finCount=wm.property("fsim/missile-control/fin-count");
                     const double finCount=f.finCount.get();
+                    std::set<std::size_t> passiveFins;
+                    for(const auto& property:wm.properties("fsim/passive-rolleron-v1")) {
+                        const auto& key=property.first;
+                        if(key.size()>10&&key.compare(key.size()-10,10,"/fin-index")==0&&
+                           std::isfinite(property.second)&&property.second>=0&&property.second<finCount&&property.second==std::floor(property.second))
+                            passiveFins.insert(static_cast<std::size_t>(property.second));
+                    }
+                    f.passiveFinCountV1=passiveFins.size();
                     if (std::isfinite(finCount) && finCount>=1 && finCount<=ipc::kWeaponControlMaxFins && std::floor(finCount)==finCount)
                         for (std::size_t k=0;k<static_cast<std::size_t>(finCount);++k)
-                            f.finRates.push_back(wm.property("fsim/missile-control/fin-"+std::to_string(k)+"-rate-rad_s"));
+                            if(!passiveFins.count(k))f.finRates.push_back(wm.property("fsim/missile-control/fin-"+std::to_string(k)+"-rate-rad_s"));
                     const char* axes[3] = {"aileron", "elevator", "rudder"};
                     const char* inertia[3] = {"ixx", "iyy", "izz"};
                     for (std::size_t k=0; k<3; ++k) {
@@ -2594,9 +2786,39 @@ void World::flyReleases() {
                         "cl-p", "cz-elevator", "cy-rudder", "cm-elevator", "cn-rudder", "cl-aileron"};
                     for (std::size_t k=0; k<12; ++k)
                         f.derivatives[k] = wm.property(std::string("fsim/control/")+coefficients[k]);
+                    if(w->plantAdapter.implementations[0]==3) {
+                        const std::string prefix="fsim/control-operating-point-v1/";
+                        f.operatingVersion=wm.property(prefix+"version");f.operatingSubsteps=wm.property("fsim/integration-v1/substeps");
+                        const char* failures[]={"fail_stuck","fail_zero","fail_hardover"};
+                        for(std::size_t k=0;k<3;++k) {
+                            for(std::size_t state=0;state<3;++state)
+                                f.operatingFailure[k][state]=wm.property(std::string("fcs/")+axes[k]+"-actuator/malfunction/"+failures[state]);
+                            f.operatingInput[k]=wm.property(std::string("fcs/")+axes[k]+"-control");
+                            f.operatingLag[k]=wm.property(std::string("fcs/")+axes[k]+"-lag-state");
+                            f.operatingChannel[k]=wm.property(std::string("fcs/")+axes[k]+"-response-rad");
+                        }
+                        const char* loads[]={"CD","CY","CL","Cl","Cm","Cn"};
+                        for(std::size_t i=0;i<f.finRates.size();++i) {
+                            Entry::FinControlReads::OperatingFin fin;const auto name="fin-"+std::to_string(i);
+                            fin.actual=wm.property("fcs/"+name+"-delta-rad");fin.minimum=wm.property("fsim/missile-control/"+name+"-min-rad");
+                            fin.maximum=wm.property("fsim/missile-control/"+name+"-max-rad");fin.rate=f.finRates[i];
+                            for(std::size_t state=0;state<3;++state)fin.failure[state]=wm.property("fcs/"+name+"-actuator/malfunction/"+failures[state]);
+                            for(std::size_t k=0;k<3;++k)fin.mixer[k]=wm.property(prefix+name+"/mix-"+axes[k]);
+                            const auto countHandle=wm.property(prefix+name+"/knot-count");const double knots=countHandle.get();
+                            if(countHandle.valid()&&std::isfinite(knots)&&knots>=2&&knots<=65&&knots==std::floor(knots))
+                                for(std::size_t j=0;j<static_cast<std::size_t>(knots);++j) {
+                                    const auto knot=prefix+name+"/knot-"+std::to_string(j);
+                                    fin.angles.push_back(wm.property(knot+"-rad"));std::array<PropertyHandle,6> row;
+                                    for(std::size_t k=0;k<6;++k)row[k]=wm.property(knot+"/"+loads[k]);
+                                    fin.loads.push_back(std::move(row));
+                                }
+                            f.operatingFins.push_back(std::move(fin));
+                        }
+                    }
                     w->origin.seeker = guidance.seeker;
                     w->origin.phase = infrared ? ms::WeaponPhase::Seeking : ms::WeaponPhase::Midcourse;
                 }
+                if(releasedCard)bindWeaponLinkV1(*w,*e,*releasedCard,guided?*releaseGuidance:ms::weapon::Spec{});
                 recordEngagement("launch", *w, r.target);
                 // a tank leaves with the fuel left in it (its model's "fuel" point mass; its own CG moved to it)
                 const double fuel = entry(launcher)->ms.storeFuelKg(r.store);
@@ -2867,10 +3089,11 @@ void World::step(unsigned n) {
         // behaviours that follow another vehicle read it as the step began (StepView); a designated track, its estimate
         if (!designations_.empty()) refreshDesignations();
         sampleOnRailSeekers();
+        prepareWeaponLinksV1();
         prepareEngagements();
         const auto before = pool_->states();
         std::copy(before.begin(), before.end(), stepStates_.begin());
-        captureEngagementMotion_=std::any_of(entries_.begin(),entries_.end(),
+        captureEngagementMotion_=pendingDetonationEffects()||std::any_of(entries_.begin(),entries_.end(),
             [](const auto& e){return e && e->info.role==ms::Role::Weapon && !e->weaponEnded;});
         for (auto& e : entries_) if (e) {
             e->engagementCaptureEpoch={};
@@ -2929,7 +3152,9 @@ void World::step(unsigned n) {
                     if (e->host.afterStep(after[s], positions, simTime_)) levelChanged(*e); // (what waited started)
                     e->ms.step(simTime_);
                 }
+            advanceWeaponNavigationBoundaryV2();
             sense();
+            advanceWeaponNavigationV1();
             finishEngagements();
             // a weapon that struck the ground has ended (its fuze and warhead: MS-7)
             std::vector<std::uint32_t> impacts;
@@ -2977,6 +3202,7 @@ void World::step(unsigned n) {
         network_.step(simTime_, options_.dt * options_.frameSkip, this, rng_);
         if (dms_.active()) stepDms();
         fuseTracksV1();
+        finishWeaponLinksV1();
         sampleOnRailSeekers();
         recordFrame();
         if (publisher_) {
@@ -2987,7 +3213,7 @@ void World::step(unsigned n) {
                 fillStatus();
                 if (publisher_->publish(simTime_, pool_->states(), Span<const sim::ControlInputs>(poolInputs_), false,
                                         Span<const ipc::FlightStatus>(poolStatus_),collectWeaponControls()))
-                    publishMission();
+                    {publishMission();publishWeaponDiagnosticsV1();}
             }
         }
     }
@@ -3000,6 +3226,7 @@ void World::publishNow() {
     fillStatus();
     publisher_->publish(simTime_, pool_->states(), Span<const sim::ControlInputs>(poolInputs_), true, Span<const ipc::FlightStatus>(poolStatus_),collectWeaponControls());
     publishMission();
+    publishWeaponDiagnosticsV1();
 }
 
 void World::fillStatus() {
@@ -3247,7 +3474,9 @@ void World::endWeapon(Entry& e, ms::WeaponEnd end, const sim::VehicleState& stat
     if (e.weaponEnded) return;
     if (end==ms::WeaponEnd::Impact) recordEngagement("impact",e,0,"ground_impact");
     if (end==ms::WeaponEnd::Removed) recordEngagement("removal",e,0,"removed");
-    e.weaponEnded = true;
+    // A forced Range removal has no onboard shutdown transmitter event.
+    if(end!=ms::WeaponEnd::Removed)sampleWeaponLinkV1(e,true);
+    e.weaponEnded = true;e.pulseManagerV1.reset();e.proximityTurnsV1.clear();
     ms::WeaponRecord w = e.origin;
     w.id = e.info.id;
     w.launcher = e.info.launcher;

@@ -7,7 +7,7 @@
 // signal level (MS-6), its range-Doppler map too. Everything drawn
 // comes from the world's shared memory (ipc::MissionRecord): the payloads the
 // SDK created and commands, never a simulation of the viewer's own. Each
-// window collapses from its title bar; key p shows or hides them all.
+// populated window stays open; no presentation shortcut hides SDK reports.
 
 #include "contracts/world_stream/WorldLayout.h"
 #include "contracts/world_stream/FusionFrameV1.h"
@@ -45,7 +45,6 @@ private:
     bool fusionValid_=false;
     bool valid_ = false;     ///< a record read for the slot shown
     bool mirrored_ = false;  ///< a world is attached (else nothing to show)
-    mutable bool showHits_ = true; ///< the radar displays' raw detections (else their tracks alone)
     int slot_ = -1;
     std::string name_;
     double simTime_ = 0.0;

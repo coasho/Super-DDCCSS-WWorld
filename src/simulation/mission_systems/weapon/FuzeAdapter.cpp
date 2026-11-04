@@ -1,4 +1,5 @@
 #include "FuzeAdapter.h"
+#include "simulation/mission_systems/components/support/EquipmentSelectionV1.h"
 #include "simulation/mission_systems/components/registration/EffectFactoriesV1.h"
 
 #include <stdexcept>
@@ -35,13 +36,18 @@ void binding(const components::DescriptorV1& d, const char* role, const char* ex
 
 std::unique_ptr<FuzeAdapter> makeFuzeAdapter(
     const components::DescriptorV1& d, const Spec& spec, std::string& error) {
+    if(d.implementationId.rfind("equipment.",0)==0) {
+        components::DescriptorV1 normalized;
+        if(!components::equipmentSelectionV1(d,"fuze",nullptr,normalized,error))return {};
+        return makeFuzeAdapter(normalized,spec,error);
+    }
     error.clear();
     try {
         declaration(d);
         const bool legacy=d.implementationId=="native.fuze.legacy.v1" || d.implementationId=="native.fuze.swept_path.v1";
         if (!legacy && d.implementationId!="native.fuze.turning_cpa.v1")
             throw std::runtime_error("unknown fuze implementation '"+d.implementationId+"'");
-        const auto bindings={"sensor_reference","target_reference","contact_reference","contact","history","delay","terrain_contact"};
+        const auto bindings={"sensor_reference","target_reference","contact_reference","contact","history","delay","terrain_contact","target_detection_v1"};
         if (legacy) {
             if (!components::slotsV1(d,{"model_version","algorithm","arming_s","life_s","radius_m"},bindings,error))
                 return nullptr;
@@ -52,6 +58,13 @@ std::unique_ptr<FuzeAdapter> makeFuzeAdapter(
         binding(d,"contact","native.authored_point_contact.v1"); binding(d,"history","native.captured_piecewise_linear.v1");
         binding(d,"delay",legacy?"none":"native.captured_fixed_delay.v1");
         if(d.bindings.count("terrain_contact"))binding(d,"terrain_contact","native.structure_contact.v1");
+        // Optional current-profile scene ownership, independent of main seeker
+        // tracking. It changes neither the retained V0 sweep nor its timing or
+        // provider identity. Absent declarations keep historical dispatch.
+        if(d.bindings.count("target_detection_v1")) {
+            if(!legacy)throw std::runtime_error("target_detection_v1 is a V0 scene-policy extension; turning CPA retains its own field");
+            binding(d,"target_detection_v1","native.time_armed_geometric_scene.v1");
+        }
         const auto number=[&](const char* role,const char* unit) {
             double value=0;
             if (!components::parameterV1(d,role,unit,value,error)) throw std::runtime_error(error);

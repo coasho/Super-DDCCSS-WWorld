@@ -1,5 +1,11 @@
 #pragma once
 #include "fsim/WeaponControls.h"
+#include "simulation/mission_systems/weapon/WeaponLink.h"
+#include "simulation/mission_systems/weapon/NavigationV1.h"
+#include "simulation/mission_systems/weapon/NavigationStrapdownV2.h"
+#include "simulation/mission_systems/weapon/NavigationCaptureV2.h"
+#include "simulation/mission_systems/components/interfaces/SeekerNavigationPoseV1.h"
+#include "simulation/mission_systems/weapon/PulseManagerV1.h"
 
 // The simulation session behind fsim::World (design 9.2): vehicles by name
 // and type, lockstep stepping through the vehicle pool, control cascades and
@@ -45,6 +51,8 @@
 #include "foundation/io/TerrainTiles.h"
 #include "foundation/transport/Recording.h"
 #include "foundation/transport/WorldPublisher.h"
+#include "foundation/transport/WeaponDiagnosticsV1.h"
+#include "foundation/transport/WeaponThermalBandV1.h"
 #include "simulation/flight/GroundProvider.h"
 #include "simulation/flight/VehiclePool.h"
 
@@ -67,8 +75,17 @@
 namespace fsim::control {
 struct PerformanceProfile; // fsim/PerformanceProfile.h
 }
+namespace fsim::ms::damage { struct SceneLiquidInputsV1; struct SceneLiquidOnlyWorkV2; }
+namespace fsim::ms::components { struct ThermalReticleResultV1; }
 
 namespace fsim::session {
+
+class World;
+struct LiquidMaterialDiagnosticV1;
+struct LiquidMaterialDiagnosticStateV1;
+struct WorldDamageContinuationV1;
+struct LiquidMaterialDatasetV1;
+struct WeaponLinkAccessV1 { std::mutex mutex;World* world=nullptr; };
 
 struct VehicleSpec {
     std::string name;                   ///< unique in the world; empty = "<type>-<id>"
@@ -114,6 +131,9 @@ public:
     /// Native source extension. Freeze a catalogue copy before any vehicle is
     /// created; later replacement cannot alter existing releases or Worlds.
     bool setPayloadProvidersV1(const ms::components::ProviderRegistryV1&,std::string& error);
+    // Internal referee fixture only; not exposed by any SDK/Agent facade.
+    void enableLiquidMaterialDiagnosticV1(bool);
+    std::shared_ptr<const LiquidMaterialDiagnosticV1> liquidMaterialDiagnosticV1() const;
 
     // --- Vehicles ------------------------------------------------------------
     /// Create (load) a vehicle. Returns its id, or 0 on failure (logged).
@@ -493,6 +513,15 @@ public:
     std::vector<ms::AmtiTrack> amtiTracks(std::uint32_t id, std::uint16_t payload) const;
     std::vector<ms::FusedEntityV1> fusedTracksV1(std::uint32_t id) const;
     ms::FusionStatusV1 fusionStatusV1(std::uint32_t id) const;
+    std::shared_ptr<WeaponLinkAccessV1> weaponLinkAccessV1();
+    std::uint64_t weaponLinkInstanceV1() const noexcept {return weaponLinkInstance_;}
+    ms::WeaponLinkCapabilityV1 weaponLinkCapabilityV1(std::uint32_t owner,std::uint32_t controller,std::uint32_t weapon) const;
+    std::uint32_t designateFusedV1(std::uint32_t owner,std::uint64_t instance,std::uint64_t entity);
+    std::vector<ms::FusedDesignationV1> fusedDesignationsV1(std::uint32_t owner) const;
+    ms::WeaponAssessmentReceiptV1 assessWeaponV1(std::uint32_t owner,std::uint32_t controller,const ms::WeaponAssessmentRequestV1&);
+    bool cancelWeaponAssessmentV1(std::uint32_t owner,std::uint32_t controller,std::uint64_t instance,std::uint32_t weapon,std::uint64_t assessment);
+    ms::WeaponAssessmentStatusV1 weaponAssessmentStatusV1(std::uint32_t owner,std::uint32_t controller,std::uint32_t weapon,std::uint64_t assessment) const;
+    std::vector<ms::WeaponFeedbackV1> weaponFeedbackV1(std::uint32_t owner,std::uint32_t controller,std::uint32_t weapon,std::uint64_t assessment,std::uint64_t since) const;
     /// What a payload's passive sensor holds (MS-9a: a warning receiver's emitters).
     std::vector<ms::Contact> contacts(std::uint32_t id, std::uint16_t payload) const;
     ms::CommandResult cancelMission(std::uint32_t id, control::Caller caller, ms::ActivityId activity);
@@ -527,6 +556,13 @@ public:
     /// The weapons in flight (by id), then those that ended, newest first (the last 256).
     std::vector<ms::WeaponRecord> weapons() const;
     std::optional<ms::WeaponControlSnapshotV1> weaponControlsV1(std::uint32_t weapon) const;
+    /// Internal referee observation of the actual scalar receiver, not an image
+    /// or actor report. Borrowed until the next step/reset/destruction; no sample
+    /// or clock advance. Null when the actual receiver has no capture.
+    const ms::components::ThermalReticleResultV1* weaponReticleObservationV1(std::uint32_t weapon) const noexcept;
+    /// Internal referee diagnostic only: actual controller read epoch, then
+    /// the estimated navigation epoch consumed by that read. No SDK facade.
+    std::optional<std::pair<double,double>> weaponNavigationControlEpochsV2(std::uint32_t weapon) const;
     ms::Reason dispense(std::uint32_t vehicle, bool flare);
     ms::CountermeasureInventory countermeasures(std::uint32_t vehicle) const;
     std::vector<ms::DecoyState> decoys() const;
@@ -646,6 +682,8 @@ public:
     /// estimate as that step began - not the aircraft behind it - and nothing once the track is gone (it lapses).
     static constexpr std::uint32_t kDesignations = 0x80000000u;
     struct Designation {
+        std::uint64_t fusedEntityV1=0;
+        bool retiredV1=false;
         std::uint32_t id = 0;
         std::uint32_t owner = 0;   ///< the vehicle whose track it is
         std::uint16_t payload = 0; ///< its radar
@@ -692,10 +730,14 @@ public:
     void publishNow();
 
     // --- MS-7g's damage part (docs/mission-systems.md, G3 - G7) ------------------------------------------------
-    /// A warhead goes off: what its fragments and blast break on each aircraft within kDamageReachM - its fuel's
+    /// A warhead goes off: shared finite fields use actual captured material paths;
+    /// external assess adapters retain kDamageReachM dispatch. Consequences include fuel's
     /// leaks and fires, an engine seized, a control channel stuck, the crew, the skin - drawn from each vehicle's own
     /// damage stream; the engagement's events that made (also kept for takeEngagementEvents).
     std::vector<ipc::EngagementEvent> detonate(const Detonation& detonation);
+    /// Explicit internal diagnostic for causal captured-live-source execution.
+    /// The legacy public/native detonate overload remains synchronous.
+    std::vector<ipc::EngagementEvent> detonateCapturedV1(const Detonation& detonation);
     /// The engagement's events since last taken: the detonations' and, as the damaged aircraft fly on, their fires'
     /// rates and their sections' separations.
     std::vector<ipc::EngagementEvent> takeEngagementEvents();
@@ -739,10 +781,15 @@ private:
         struct Matter {
             sim::RigidMassPropertiesV1 rigid;
             double pressurePa=0, temperatureK=0, densityKgM3=0;
+            std::vector<std::optional<double>> tankFuelKg; ///< Actual native contents at this capture; null is unavailable.
         };
         std::vector<std::optional<Matter>> engagementMatter; ///< native mass/inertia/atmosphere at the same epochs
         // Worker-owned property bindings; native values are still sampled at each boundary.
         mutable std::array<sim::PropertyHandle, 3> matterAtmosphere;
+        mutable bool matterFuelBound=false;
+        mutable std::vector<std::pair<std::size_t,sim::PropertyHandle>> matterFuelReads;
+        std::shared_ptr<const LiquidMaterialDatasetV1> liquidMaterials;
+        ms::damage::V3 liquidOriginShiftBodyM;
         double engagementModelTimeS = 0; ///< model clock at the beginning of this World step
         unsigned controlDivider = 1;
         bool forceApplied = false;         ///< external force pushed last step (needs zeroing)
@@ -752,9 +799,11 @@ private:
         control::NavigationSettings navigation; ///< its recovery point and reserve
         ms::Host ms;                       ///< its Mission Systems (ADR-30)
         std::uint64_t missionSignature = ~0ull; ///< what its published Mission record shows (~0: not yet written)
+        std::unique_ptr<ms::weapon::PulseManagerV1> pulseManagerV1;
         bool weaponEnded = false;          ///< a weapon whose end is recorded (MS-2)
         /// Its damage (MS-7g), its own stream for its chances, what it reads to fly the damage on
         std::unique_ptr<ms::damage::VehicleDamage> damage;
+        std::optional<int> damageOwnedSection;
         Rng damageRng;
         struct DamageReads {
             std::array<PropertyHandle, 3> aero, total;
@@ -769,14 +818,19 @@ private:
         std::uint32_t launchSeekerCue = 0; ///< actual on-rail observation, never a designation ID
         std::unique_ptr<ms::components::GuidanceProviderV1> guidance;
         std::unique_ptr<ms::components::SeekerProviderV1> seekerProvider;
+        ms::components::SeekerResultV2 seekerResultV2;
+        double guidanceDecisionTimeS=std::numeric_limits<double>::quiet_NaN();
         struct OnRailSeekerV2 {
             const ms::StoreCard* card=nullptr;
             std::unique_ptr<ms::components::SeekerProviderV1> provider;
             ms::components::SeekerResultV2 result;
             std::vector<std::uint32_t> attributions;
+            std::map<double,std::vector<std::uint32_t>> sceneAttributionsV3;
             double timeS=std::numeric_limits<double>::quiet_NaN();
+            double startedTimeS=0;
         };
         mutable std::map<std::uint16_t,OnRailSeekerV2> onRailSeekers;
+        std::map<double,std::vector<std::uint32_t>> seekerAttributionsV3;
         std::shared_ptr<const ms::components::ProfileV1> payloadProfile;
         std::unique_ptr<ms::weapon::FuzeAdapter> fuzeAdapter;
         std::unique_ptr<ms::damage::WarheadAdapter> warheadAdapter;
@@ -788,6 +842,9 @@ private:
         bool fixedBurstRequired=false;
         ms::weapon::ContactFuzeState contactFuze; ///< one contact-initiation channel per actual release
         ms::weapon::FuzeTurnStateV1 fuzeTurn;
+        // Explicit time-armed proximity sensing has a separate captured history
+        // for each actual scene object; main-seeker association is not authority.
+        std::map<std::pair<std::uint32_t,std::uint64_t>,ms::weapon::FuzeTurnStateV1> proximityTurnsV1;
         ms::weapon::FuzeDelayStateV1 fuzeDelay;
         double fuzeAgeBoundaryS=0; ///< contiguous captured release-age boundary, independent of clock subtraction
         bool terrainContactEnabled=false; ///< explicit validated STRUCTURE-contact sensor; absent is legacy identity
@@ -800,11 +857,23 @@ private:
             std::array<PropertyHandle, 3> inertia, limits;
             std::array<PropertyHandle, 3> lowerStops, upperStops;
             std::vector<PropertyHandle> finRates;
+            std::size_t passiveFinCountV1=0;
             std::array<PropertyHandle, 12> derivatives;
             std::array<PropertyHandle, 3> aeroForce, aeroMoment;
+            PropertyHandle totalAxialForce; ///< configured V1 incidence kinematics: native non-gravity Fx
             PropertyHandle vectorVersion,vectorLimit,vectorRate,vectorPitchGain,vectorYawGain,vectorExitX;
             PropertyHandle vectorPitch,vectorYaw;
             std::array<PropertyHandle,3> propulsionForce,propulsionMoment;
+            struct OperatingFin {
+                PropertyHandle actual,minimum,maximum,rate;
+                std::array<PropertyHandle,3> mixer,failure;
+                std::vector<PropertyHandle> angles;
+                std::vector<std::array<PropertyHandle,6>> loads;
+            };
+            PropertyHandle operatingVersion,operatingSubsteps;
+            std::array<PropertyHandle,3> operatingInput,operatingLag,operatingChannel;
+            std::array<std::array<PropertyHandle,3>,3> operatingFailure;
+            std::vector<OperatingFin> operatingFins;
         } finControl;
         struct FinTelemetryReads {
             bool bound=false;
@@ -813,7 +882,11 @@ private:
         };
         mutable FinTelemetryReads finTelemetry;
         bool finControllerAvailable=false;
+        std::array<double,3> finDemandBodyMs2{};
+        mutable bool diagnosticPropertiesBoundV1=false;
+        mutable std::map<std::string,PropertyHandle> diagnosticPropertiesV1;
         double finControllerTimeS=std::numeric_limits<double>::quiet_NaN();
+        double finNavigationTimeS=std::numeric_limits<double>::quiet_NaN();
         std::unique_ptr<ms::countermeasure::Dispenser> dispenser;
         StoreFlightBinding storeFlight;
     };
@@ -905,6 +978,8 @@ private:
     std::unordered_map<std::string, std::shared_ptr<const ms::Fit>> fits_;
     /// Each aircraft type's damage data (MS-7g: hangar's <type>.damage.json beside its definition; none: it takes none)
     std::unordered_map<std::string, std::shared_ptr<const ms::damage::Airframe>> airframes_;
+    std::unordered_map<std::string,std::shared_ptr<const LiquidMaterialDatasetV1>> liquidMaterials_;
+    std::unordered_map<std::string,std::string> liquidMaterialErrors_;
     std::map<std::string, std::shared_ptr<const ms::StoreCard>> storeCards_; ///< the store library, read when first needed
     ms::components::BindingsV1 payloadBindings_;
     ms::components::ProviderRegistryV1 payloadProviders_=ms::components::builtInProvidersV1();
@@ -939,12 +1014,28 @@ private:
                      std::vector<ipc::EngagementEvent>* events);
     std::uint32_t launchPiece(Entry& from, int section, const Parting& part);
     void stepDamage();
+    bool pendingDetonationEffects() const noexcept;
+    void advanceDetonationEffects();
+    std::shared_ptr<WorldDamageContinuationV1> damageContinuation_;
     void prepareEngagements();
+    void applyWeaponPulseV1(Entry&,sim::FlightModel&,double nativeNowS);
+    void bindWeaponLinkV1(Entry&,const Entry&,const ms::StoreCard&,const ms::weapon::Spec&);
+    void prepareWeaponLinksV1();
+    bool resolveFusedWeaponTargetV1(std::uint32_t,std::uint32_t,sim::VehicleState&) const;
+    void sampleWeaponLinkV1(const Entry&,bool terminal=false);
+    void finishWeaponLinksV1();
+    void advanceWeaponNavigationV1();
+    void advanceWeaponNavigationBoundaryV2();
+    bool advanceWeaponNavigationReadV2(Entry&,const sim::VehicleState&,double,bool);
+    sim::NativeStepObserverV1 weaponNavigationObserverV2(Entry&,sim::FlightModel&,double);
+    std::optional<ms::FusedEntityV1> fusedWeaponInputV1(std::uint32_t owner,std::uint32_t target) const;
+    ms::weapon::WeaponLinkPathV1 weaponLinkPathV1(const Entry&,const Entry&,const ms::WeaponLinkProfileV1&) const;
     bool resolveWeaponTarget(std::uint32_t launcher, std::uint32_t target, sim::VehicleState& out) const;
     ms::Reason weaponLaunchEligibility(const Entry& launcher, std::uint16_t store, std::uint32_t target) const;
     std::uint32_t onRailSeekerObservation(const Entry& launcher, const ms::StoreCard& card, std::uint16_t store) const;
     const Entry::OnRailSeekerV2* sampleOnRailSeeker(const Entry&,const ms::StoreCard&,std::uint16_t) const;
     void sampleOnRailSeekers();
+    std::optional<ms::damage::AttachedGeometryView> seekerGeometryV1(const Entry&) const;
     std::optional<ms::components::ImageExtentV2> projectedSeekerExtent(const Entry&,
         const sim::VehicleState& observer) const;
     void finishEngagements();
@@ -959,6 +1050,13 @@ private:
         const std::optional<ms::damage::V3>& pointFromOrigin) const;
     static std::optional<Entry::Matter> captureMatter(const Entry& e, sim::FlightModel& model);
     std::optional<Entry::Matter> engagementMatterAt(const Entry& e, double offsetS) const;
+    bool appendLiquidMaterialV1(const Entry&,const sim::VehicleState&,const Entry::Matter&,
+        const ms::damage::AttachedGeometryView&,ms::damage::SceneLiquidInputsV1&,std::string&) const;
+    bool appendUnsectionedLiquidMaterialV2(const Entry&,const sim::VehicleState&,const Entry::Matter&,
+        ms::damage::SceneLiquidInputsV1&,std::string&) const;
+    void captureLiquidAssessmentV1(const Entry&,const ms::damage::Impact&,std::uint64_t source,
+        std::uint64_t sourceGeneration,const std::vector<ms::damage::SceneLiquidOnlyWorkV2>&,const ms::damage::FragmentFieldV1&);
+    std::shared_ptr<LiquidMaterialDiagnosticStateV1> liquidMaterialDiagnosticStateV1_;
     struct ContactTransfer {
         std::uint32_t victim=0;
         int section=-1;
@@ -969,10 +1067,16 @@ private:
                                                    const ms::weapon::ContactFuzeResult& contact) const;
     void contactReaction(Entry& weapon, const ContactTransfer& contact);
     void contactDamage(Entry& weapon, const ContactTransfer& contact);
-    std::vector<ipc::EngagementEvent> detonateAt(const Detonation& detonation, const ContactTransfer* contact);
+    std::vector<ipc::EngagementEvent> detonateAt(const Detonation& detonation, const ContactTransfer* contact,bool causal=false);
     std::vector<ipc::EngagementEvent> applyDamage(Entry& victim, const Detonation& cause,
         const ms::damage::Impact& impact, const sim::VehicleState& encounter, const double* cg,
-        double pressurePa, const std::vector<ms::damage::VehicleDamage::PointImpulse>& contact);
+        double pressurePa, const std::vector<ms::damage::VehicleDamage::PointImpulse>& contact,
+        bool materialOriginMoment=false,bool liquidAware=false);
+    std::vector<ipc::EngagementEvent> applyDamageWithSource(Entry& victim, const Detonation& cause,
+        const ms::damage::Impact& impact, const sim::VehicleState& encounter, const double* cg,
+        double pressurePa, const std::vector<ms::damage::VehicleDamage::PointImpulse>& contact,
+        std::optional<std::uint32_t> sourceStreamSlot,std::uint64_t sourceGeneration,
+        bool materialOriginMoment=false,bool liquidAware=false);
     void recordEngagement(const std::string& kind, const Entry& entity, std::uint32_t target = 0,
                           const std::string& reason = "", bool destroyed = false);
     std::vector<ms::EngagementEvent> combatEvents_;
@@ -1044,6 +1148,30 @@ private:
     Dms dms_;      ///< (ADR-31, AB-4) systems, nets, each system's DMS
     MaCore maCore_; ///< (AB-5) each platform's MA core
     MaServiceBindings maServices_; ///< explicit MA-service ownership, where the range configured it
+    struct WeaponBindingV1 {
+        std::uint32_t owner=0,controller=0,target=0;
+        std::uint64_t activity=0,generation=0;
+        double nextInputS=0,endedS=-1;
+        std::unique_ptr<ms::weapon::WeaponChannelV1> channel;
+        std::unique_ptr<ms::weapon::NavigationV1> navigation;
+        std::unique_ptr<ms::weapon::NavigationStrapdownV2> strapdownNavigation;
+        ms::weapon::NavigationCaptureV2 navigationCapturesV2;
+        sim::FlightModel* navigationNativeModelV2=nullptr;
+        double navigationNativeStartV2=0,navigationNativeDtV2=0;
+        bool navigationNativeGnssV2=true,navigationCaptureFailedV2=false;
+        ms::weapon::NavigationEstimateV1 navigationEstimate() const noexcept {
+            return strapdownNavigation?strapdownNavigation->estimate():(navigation?navigation->estimate():ms::weapon::NavigationEstimateV1{});
+        }
+        ms::weapon::V3 navigationVelocity;
+        double navigationTimeS=0;
+    };
+    ms::components::SeekerNavigationPoseV1 weaponNavigationPoseV1(const Entry&) const;
+    void resetWeaponNavigationV1(Entry&);
+    std::map<std::uint32_t,WeaponBindingV1> weaponLinksV1_;
+    std::map<std::uint32_t,ms::weapon::WeaponLinkResourceV1> weaponLinkResourcesV1_;
+    std::shared_ptr<WeaponLinkAccessV1> weaponLinkAccess_;
+    std::uint64_t weaponLinkInstance_=0;
+    std::uint64_t scriptedDetonationSequence_=0;
     Rng dmsRng_;   ///< its draws (loss, jitter): a stream of its own, so a world without nets flies as before
     struct C2Node {
         comm::C2NodeSpec spec;
@@ -1056,7 +1184,35 @@ private:
     void refreshDesignations();
     void stepDms();
     std::unique_ptr<ipc::WorldPublisher> publisher_;
+    void publishWeaponDiagnosticsV1();
+    void fillWeaponDiagnosticsV1(const Entry&,ipc::WeaponDiagnosticFrameV1&);
+    void fillWeaponSensorDiagnosticsV1(const Entry&,ipc::WeaponDiagnosticFrameV1&);
+    std::unique_ptr<ipc::WeaponDiagnosticsV1> weaponDiagnosticsV1_;
+    std::unique_ptr<ipc::WeaponThermalBandV1> weaponThermalBandV1_;
+    std::unique_ptr<ipc::WeaponDiagnosticsRecorderV1> weaponDiagnosticsRecorderV1_;
+    std::map<std::uint32_t,std::unique_ptr<ipc::WeaponDiagnosticFrameV1>> weaponDiagnosticHistoryV1_;
+    std::string weaponDiagnosticFailureV1_;
+    struct WeaponEventGenerationV1 {std::uint64_t source=0,target=0;};
+    std::map<std::uint64_t,WeaponEventGenerationV1> weaponEventGenerationsV1_;
+    void recordWeaponEventGenerationV1(const ms::EngagementEvent&,std::uint64_t,std::uint64_t);
+
+    struct WeaponEffectsDiagnosticCacheV1 {
+        std::uint64_t generation=0,revision=0,publishedRevision=0;
+        double retainedUntilS=0;
+        std::string name,store;
+        std::unique_ptr<ipc::WeaponDiagnosticEffectsV1> value;
+    };
+    std::map<std::pair<std::uint32_t,std::uint64_t>,WeaponEffectsDiagnosticCacheV1> weaponEffectsDiagnosticsV1_;
+    void pruneWeaponEffectsDiagnosticsV1();
+    void captureWeaponFragmentDiagnosticsV1(std::uint32_t,std::uint64_t,const ms::damage::FragmentFieldV1&,
+        double sampleTimeS,double burstTimeS,std::string_view name,std::string_view store,
+        double explosiveKg,std::uint32_t topology);
+    void captureWeaponImpactDiagnosticsV1(std::uint32_t,std::uint64_t,const Entry&,const ms::damage::Impact&);
+    void fillWeaponEffectsDiagnosticsV1(ipc::WeaponDiagnosticFrameV1&);
+
+
     ipc::RecordWriter recorder_;
+    bool weaponDiagnosticCaptureBindingReadyV1_=false;
     double lastRecordedTime_ = -1.0;
     /// Per slot, the stores as last recorded ('M' records written when they change; kept apart from Entry, whose
     /// layout the step's speed is measured with)

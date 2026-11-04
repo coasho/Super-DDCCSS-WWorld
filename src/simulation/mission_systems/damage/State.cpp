@@ -1,6 +1,7 @@
 #include "simulation/mission_systems/damage/State.h"
 
 #include <algorithm>
+#include <stdexcept>
 
 namespace fsim::ms::damage {
 
@@ -25,7 +26,77 @@ VehicleDamage::VehicleDamage(std::shared_ptr<const Airframe> airframe) : airfram
     }
 }
 
+VehicleDamage::VehicleDamage(std::shared_ptr<const Airframe> airframe,int ownedSection)
+    : VehicleDamage(std::move(airframe)) {
+    if(ownedSection<0 || static_cast<std::size_t>(ownedSection)>=sections_.size())
+        throw std::invalid_argument("detached damage requires a valid source section");
+    ownedSection_=ownedSection;
+    for(std::size_t i=0;i<sections_.size();++i)
+        if(i!=static_cast<std::size_t>(ownedSection)) {sections_[i].separated=true;sections_[i].lift=0;}
+}
+
+std::unique_ptr<VehicleDamage> VehicleDamage::detachedState(int section,V3 origin) const {
+    if(section<0||static_cast<std::size_t>(section)>=sections_.size()||!sections_[static_cast<std::size_t>(section)].separated||
+       !std::isfinite(origin.x)||!std::isfinite(origin.y)||!std::isfinite(origin.z))return {};
+    auto frame=std::make_shared<Airframe>(*airframe_);
+    frame->originDesign+=V3{-origin.x,origin.y,-origin.z};
+    for(auto& s:frame->sections) {
+        s.cg=s.cg-origin;s.root=s.root-origin;
+        if(s.normalCp)*s.normalCp=*s.normalCp-origin;
+        if(s.sideCp)*s.sideCp=*s.sideCp-origin;
+        for(auto& tank:s.tanks)tank.centre=tank.centre-origin;
+    }
+    for(auto& panel:frame->panels){panel.centre=panel.centre-origin;for(auto& corner:panel.corners)corner=corner-origin;}
+    for(auto& component:frame->components)component.centre=component.centre-origin;
+    if(airframe_->contactGeometry) {
+        std::vector<ContactMesh> meshes;
+        const auto copy=[&](const ContactMesh* mesh) {
+            if(!mesh)return;
+            auto translated=*mesh;
+            for(auto& vertex:translated.vertices)vertex=vertex-origin;
+            meshes.push_back(std::move(translated));
+        };
+        for(std::size_t i=0;i<airframe_->panels.size();++i)copy(airframe_->contactGeometry->panel(i));
+        for(std::size_t i=0;i<airframe_->components.size();++i)copy(airframe_->contactGeometry->component(i));
+        std::string error;if(!setContactGeometryV1(*frame,std::move(meshes),error))return {};
+    }
+    auto result=std::make_unique<VehicleDamage>(frame,section);
+    auto& inherited=result->sections_[static_cast<std::size_t>(section)];inherited=sections_[static_cast<std::size_t>(section)];inherited.separated=false;
+    double surface=0;
+    for(std::size_t i=0;i<airframe_->panels.size();++i)
+        if(airframe_->panels[i].section==section) {
+            result->torn_[i]=torn_[i];if(airframe_->panels[i].surface)surface+=.5*airframe_->panels[i].areaM2;
+        }
+    inherited.lift=surface>0?std::clamp(1-inherited.tornM2/surface,0.0,1.0):1;
+    for(const auto& component:airframe_->components)if(component.section==section) {
+        if(component.tank>=0)if(const auto tank=tanks_.find(component.tank);tank!=tanks_.end())result->tanks_.emplace(*tank);
+        if(component.kind=="crew")result->crewLost_=crewLost_;
+        if(component.engine>=0&&engineOut(component.engine))result->engines_out_.push_back(component.engine);
+        if(!component.channel.empty()&&std::find(lostChannels_.begin(),lostChannels_.end(),component.channel)!=lostChannels_.end())
+            result->lostChannels_.push_back(component.channel);
+    }
+    return result;
+}
+
+bool VehicleDamage::setDetachedFuelKg(int tank,double contents) {
+    if(ownedSection_<0||tank<0||tank>65535||!std::isfinite(contents)||contents<0)return false;
+    bool owned=false;
+    for(const auto& component:airframe_->components)if(component.section==ownedSection_&&component.tank==tank)owned=true;
+    for(const auto& authored:airframe_->sections[static_cast<std::size_t>(ownedSection_)].tanks)if(authored.index==tank)owned=true;
+    if(!owned)return false;
+    detachedFuelKg_[tank]=contents;return true;
+}
+std::optional<double> VehicleDamage::detachedFuelKg(int tank) const {
+    const auto found=detachedFuelKg_.find(tank);return found==detachedFuelKg_.end()?std::nullopt:std::optional<double>{found->second};
+}
+double VehicleDamage::removeDetachedFuelKg(int tank,double requested) {
+    const auto found=detachedFuelKg_.find(tank);
+    if(found==detachedFuelKg_.end()||!std::isfinite(requested)||requested<0)return 0;
+    const double removed=std::min(requested,found->second);found->second-=removed;return removed;
+}
+
 bool VehicleDamage::sectionAttached(int section) const noexcept {
+    if(ownedSection_>=0 && section!=ownedSection_)return false;
     return section < 0 || (static_cast<std::size_t>(section) < sections_.size() && !sections_[static_cast<std::size_t>(section)].separated);
 }
 
@@ -56,6 +127,26 @@ void VehicleDamage::weaken(int s, const V3& where, double removedM2) {
 
 std::vector<Change> VehicleDamage::apply(const Impact& impact, double airPressurePa, Rng& rng) {
     return apply(impact,airPressurePa,rng,{});
+}
+
+std::vector<Change> VehicleDamage::applyLiquidEnergyV1(const Impact& impact,double pressure,Rng& rng) {
+    std::vector<Change> changes;
+    if(!std::isfinite(pressure)||pressure<0)return changes;
+    const double thin=std::sqrt(std::clamp(pressure/101325.,0.,1.));
+    for(const auto& hit:impact.components) {
+        if(hit.hits!=0||!std::isfinite(hit.energyJ)||!(hit.energyJ>0)||hit.component<0||
+           static_cast<std::size_t>(hit.component)>=airframe_->components.size())continue;
+        const auto& c=airframe_->components[static_cast<std::size_t>(hit.component)];
+        if(c.kind!="fuel"||c.tank<0||!sectionAttached(c.section))continue;
+        auto& tank=tanks_[c.tank];if(tank.burning)continue;
+        if(tank.component<0)tank.component=hit.component;
+        if(rng.uniform() < -std::expm1(-hit.energyJ*thin/kIgnitionJ)) {
+            tank.burning=true;Change change;change.kind=Change::Kind::Fire;
+            change.component=hit.component;change.tank=c.tank;
+            change.spillKg=std::min(kSpillShare*c.fuelKg,kSpillMostKg);changes.push_back(change);
+        }
+    }
+    return changes;
 }
 
 std::vector<Change> VehicleDamage::apply(const Impact& impact, double airPressurePa, Rng& rng,
@@ -164,9 +255,10 @@ std::vector<Change> VehicleDamage::apply(const Impact& impact, double airPressur
         kick[static_cast<std::size_t>(load.section)] += cross(load.pointBody-section.root,load.momentumNs);
     }
     for (std::size_t s = 0; s < a.sections.size(); ++s) {
+        if(ownedSection_>=0&&s!=static_cast<std::size_t>(ownedSection_))continue;
         const auto& sec = a.sections[s];
         auto& st = sections_[s];
-        if (!sec.hasRoot || st.separated) continue;
+        if (!sec.hasRoot || st.separated || ownedSection_>=0) continue;
         const double omega = std::sqrt(a.nUltimate[1] * 9.80665 / (kTipDeflection * std::max(span_[s], 0.5)));
         st.kick = 0.0;
         for (std::size_t k = 0; k < sec.axes.size() && k < sec.strengthNm.size(); ++k)
@@ -215,24 +307,29 @@ void VehicleDamage::aeroLoss(const Flight& f, V3& force, V3& moment) const {
     const Airframe& a = *airframe_;
     double damagedM2 = 0.0;
     for (std::size_t s = 0; s < a.sections.size(); ++s) {
+        if(ownedSection_>=0&&s!=static_cast<std::size_t>(ownedSection_))continue;
         const auto& sec = a.sections[s];
         const auto& st = sections_[s];
         const double lost = st.separated ? 1.0 : 1.0 - st.lift;
         if (!st.separated) damagedM2 += st.tornM2 + st.holeM2;
         if (!(lost > 0.0)) continue;
         if (sec.normalCp) {
-            const V3 dF{0.0, 0.0, -lost * sec.normalShare * f.aeroForceN.z};
+            const V3 dF{0.0, 0.0, -lost * (ownedSection_>=0?1:sec.normalShare) * f.aeroForceN.z};
             force += dF;
             moment += cross(*sec.normalCp, dF);
         }
         if (sec.sideCp) {
-            const V3 dF{0.0, -lost * sec.sideShare * f.aeroForceN.y, 0.0};
+            const V3 dF{0.0, -lost * (ownedSection_>=0?1:sec.sideShare) * f.aeroForceN.y, 0.0};
             force += dF;
             moment += cross(*sec.sideCp, dF);
         }
     }
-    // (the torn and holed skin's drag, along the body's axis: an estimate's direction too)
-    force += V3{-kDamagedCd * f.dynamicPressurePa * damagedM2, 0.0, 0.0};
+    // Torn skin extracts energy from the actual relative flow. Body-x-only
+    // drag becomes propulsion when a detached or tumbling body flies backward.
+    // The forward-flight magnitude remains Cd*q*A; no ground velocity is used.
+    const double airspeed=std::hypot(f.airVelocityBodyMs.x,f.airVelocityBodyMs.y,f.airVelocityBodyMs.z);
+    if(std::isfinite(airspeed)&&airspeed>0)
+        force+=f.airVelocityBodyMs*(-kDamagedCd*f.dynamicPressurePa*damagedM2/airspeed);
 }
 
 std::vector<double> VehicleDamage::bending(int s, const Flight& f) const {
@@ -259,6 +356,7 @@ std::vector<double> VehicleDamage::bending(int s, const Flight& f) const {
 }
 
 bool VehicleDamage::separate(int s) {
+    if(ownedSection_>=0)return false; // Its former parent joint is already absent.
     if (s < 0 || s >= static_cast<int>(sections_.size())) return false;
     auto& st = sections_[static_cast<std::size_t>(s)];
     if (st.separated || !airframe_->sections[static_cast<std::size_t>(s)].hasRoot) return false;
@@ -273,7 +371,7 @@ std::vector<Change> VehicleDamage::loads(const Flight& f) {
     for (std::size_t s = 0; s < a.sections.size(); ++s) {
         auto& st = sections_[s];
         const auto& sec = a.sections[s];
-        if (st.separated || !sec.hasRoot) continue;
+        if (st.separated || !sec.hasRoot || ownedSection_>=0) continue;
         const auto M = bending(static_cast<int>(s), f);
         for (std::size_t k = 0; k < M.size() && k < sec.strengthNm.size(); ++k)
             if (std::abs(M[k]) > sec.strengthNm[k] * st.strength) {

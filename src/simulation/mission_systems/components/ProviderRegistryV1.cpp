@@ -13,6 +13,9 @@ bool ProviderRegistryV1::validationProfile(const ProfileV1& input,ProfileV1& out
         const auto found=next.components.find(kind);
         if(found==next.components.end()) {error=std::string("provider role missing: ")+kind;return false;}
         if(found->second.availability!=AvailabilityV1::Available)return true;
+        if(const auto* model=equipment::component(found->second.implementationId);model&&model->storeId!=input.storeId) {
+            error="named component is bound to a different equipment model";return false;
+        }
         DescriptorV1 d;if(!table.descriptor(found->second,d,error))return false;
         found->second=std::move(d);return true;
     };

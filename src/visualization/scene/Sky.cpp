@@ -64,6 +64,7 @@ vsg::ref_ptr<vsg::Node> createSunLight(int dayOfYear, double utcHours) {
     // the sun first: the haze (world/Scattering) takes its light from the first directional light
     auto sun = vsg::DirectionalLight::create();
     sun->name = "sun";
+    sun->shadowSettings = vsg::HardShadows::create(3);
     group->addChild(sun);
     auto sky = vsg::DirectionalLight::create();
     sky->name = "sky";

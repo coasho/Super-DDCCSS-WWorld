@@ -59,6 +59,56 @@ Body body(sim::FlightModel& m) {
 
 } // namespace
 
+TEST_CASE("Physical reset preserves authoritative store inventory and native loaded mass",
+          "[stores][mass][world][reset-store-mass]") {
+    for(const bool ground:{false,true}) {
+        INFO("on ground="<<ground);
+        session::World active(options("reset-stores-active")),fresh(options("reset-stores-fresh"));
+        session::VehicleSpec spec;spec.name="retained store";spec.type="jsbsim:f16c";
+        spec.initial.onGround=ground;spec.initial.altitudeMslM=ground?0:6000;
+        spec.initial.airspeedTrueMs=ground?0:220;spec.initial.enginesRunning=!ground;
+        spec.initial.headingDeg=90;
+        if(!ground){spec.initial.bodyRatesRadS[0]=.1;spec.initial.bodyRatesRadS[1]=-.05;spec.initial.bodyRatesRadS[2]=.02;}
+        const auto id=active.createVehicle(spec),reference=fresh.createVehicle(spec);REQUIRE(id);REQUIRE(reference);
+        const auto payload=[](session::World& world,std::uint32_t vehicle) {
+            for(const auto& p:world.missionSystems(vehicle)->payloads())if(p.family==ms::Family::StoreStation)return p.index;
+            FAIL("Native F16 store station is unavailable");return std::uint16_t{0};
+        };
+        REQUIRE(active.loadStore(id,payload(active,id),3,"mk82")==ms::Reason::None);
+        REQUIRE(fresh.loadStore(reference,payload(fresh,reference),3,"mk82")==ms::Reason::None);
+        // Reconcile the independent fresh model's just-written real station
+        // mass without advancing its IC or applying an external impulse.
+        REQUIRE(fresh.model(reference)->beginMassChange());REQUIRE(fresh.model(reference)->endMassChange(nullptr,nullptr));
+        active.step(3);
+        struct Inventory {std::uint16_t index,payload;int station;std::string store;ms::StoreStatus status;double mass;};
+        std::vector<Inventory> inventory;
+        for(const auto& row:active.stores(id))inventory.push_back({row.index,row.payload,row.station,row.store,row.status,row.massKg});
+        REQUIRE(active.resetVehicle(id));
+        const auto retained=active.stores(id);REQUIRE(retained.size()==inventory.size());
+        for(std::size_t i=0;i<inventory.size();++i) {
+            const auto& expected=inventory[i];const auto& actual=retained[i];
+            CHECK(actual.index==expected.index);CHECK(actual.payload==expected.payload);CHECK(actual.station==expected.station);
+            CHECK(std::string(actual.store)==expected.store);CHECK(actual.status==expected.status);CHECK(actual.massKg==expected.mass);
+        }
+        const auto compare=[&] {
+            std::map<std::string,double> expected;
+            for(const auto& p:fresh.model(reference)->properties("inertia"))if(p.first.rfind("pointmass-",0)==0)expected.emplace(p);
+            unsigned checked=0;
+            for(const auto& p:active.model(id)->properties("inertia"))if(p.first.rfind("pointmass-",0)==0) {
+                const auto found=expected.find(p.first);REQUIRE(found!=expected.end());CHECK(p.second==found->second);++checked;
+            }
+            REQUIRE(checked==expected.size());REQUIRE(checked>4);
+            const auto a=body(*active.model(id)),b=body(*fresh.model(reference));CHECK(std::abs(a.kg-b.kg)<1e-8);
+            double acg[3],bcg[3];REQUIRE(active.cgFromOriginBodyM(id,acg));REQUIRE(fresh.cgFromOriginBodyM(reference,bcg));
+            for(unsigned k=0;k<3;++k)CHECK(std::abs(acg[k]-bcg[k])<1e-10);
+            sim::VehicleState as,bs;active.model(id)->state(as);fresh.model(reference)->state(bs);
+            for(unsigned k=0;k<3;++k){CHECK(std::abs(as.positionEcef[k]-bs.positionEcef[k])<1e-7);CHECK(std::abs(as.velocityBodyMs[k]-bs.velocityBodyMs[k])<1e-8);}
+            CHECK(as.onGround==bs.onGround);CHECK_FALSE(as.diverged);CHECK_FALSE(as.crashed);
+        };
+        compare();active.step();fresh.step();compare();
+    }
+}
+
 TEST_CASE("a mass change: the airframe stays where it is, its CG and state move to what is left (v + w x d), a reaction on it",
           "[damage][stores][mass]") {
     session::World w(options("mass-change"));
@@ -504,4 +554,32 @@ TEST_CASE("a load is held to the aircraft's maximum take-off weight: what would 
     int carried = 0;
     for (const auto& s : w.stores(buff)) carried += std::string(s.store) == "mk82" ? 1 : 0;
     CHECK(carried == 20);
+}
+
+TEST_CASE("F16 sequential nose tail and wing separation leaves physical positive inertia", "[mass-partition][mass][damage][world]") {
+    session::World world(options("f16-mass-partition"));
+    const auto id=wing(world,"f16c",6000.,250.);
+    REQUIRE(world.model(id)!=nullptr);
+    REQUIRE(world.model(id)->beginMassChange());
+    REQUIRE(world.model(id)->endMassChange(nullptr,nullptr));
+    const auto positive=[](const double* j) {
+        for(unsigned k=0;k<9;++k)if(!std::isfinite(j[k]))return false;
+        const double determinant=j[0]*(j[4]*j[8]-j[5]*j[7])-j[1]*(j[3]*j[8]-j[5]*j[6])+j[2]*(j[3]*j[7]-j[4]*j[6]);
+        return j[0]>0&&j[4]>0&&j[8]>0&&j[0]*j[4]-j[1]*j[3]>0&&
+            j[0]*j[8]-j[2]*j[6]>0&&j[4]*j[8]-j[5]*j[7]>0&&determinant>0;
+    };
+    for(const auto* section:{"nose","tail","left wing","right wing"}) {
+        INFO(section);
+        REQUIRE(world.separateSection(id,section));
+        for(const auto entity:world.vehicleIds()) {
+            const auto* source=dynamic_cast<const sim::RigidMassSourceV1*>(world.model(entity));
+            REQUIRE(source!=nullptr);
+            sim::RigidMassPropertiesV1 properties;
+            REQUIRE(source->rigidMassPropertiesV1(properties));
+            INFO("entity="<<entity<<" mass="<<properties.massKg<<" Ixx="<<properties.inertiaBodyKgM2[0]
+                <<" Iyy="<<properties.inertiaBodyKgM2[4]<<" Izz="<<properties.inertiaBodyKgM2[8]);
+            CHECK(properties.massKg>0);
+            CHECK(positive(properties.inertiaBodyKgM2));
+        }
+    }
 }

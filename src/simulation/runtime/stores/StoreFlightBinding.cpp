@@ -71,6 +71,12 @@ void StoreFlightBinding::applyMasses(const ms::Host& host, sim::FlightModel& mod
     massRevision = host.massRevision();
 }
 
+void StoreFlightBinding::invalidateMasses() noexcept {
+    // Physical reset restores the plant's authored properties, while Host
+    // retains its current inventory. The same revision must be written again.
+    massRevision=~0ull;loadRevision=~0ull;storesStamp=~0u;
+}
+
 double StoreFlightBinding::weightRoomKg(double maximumKg, double weighedKg, double carriedKg, unsigned tick) {
     if (storesStamp != tick) storesKgAtStep = carriedKg, storesStamp = tick; // (the first load since that step)
     return maximumKg - (weighedKg - storesKgAtStep + carriedKg);

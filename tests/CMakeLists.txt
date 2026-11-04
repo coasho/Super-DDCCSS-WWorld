@@ -71,10 +71,131 @@ set_tests_properties(equipment_package_consumer PROPERTIES LABELS "ma-training;p
 # runtime DLLs they need are staged beside them by the `deploy` target.
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
 
+add_executable(fsim_weapon_operating_point_test simulation/test_weapon_operating_point.cpp)
+target_link_libraries(fsim_weapon_operating_point_test PRIVATE fsim::ms Catch2::Catch2WithMain)
+target_compile_definitions(fsim_weapon_operating_point_test PRIVATE FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores")
+fsim_set_warnings(fsim_weapon_operating_point_test)
+add_test(NAME weapon_operating_point COMMAND fsim_weapon_operating_point_test)
+set_tests_properties(weapon_operating_point PROPERTIES LABELS "payload-components;sim-m03;weapon-control" TIMEOUT 120)
+
 # Enumerate cases at test time rather than at build time: the executables are
 # linked before `deploy` has staged the DLLs beside them, so running them to
 # list their tests during the build would fail.
 set(FSIM_CATCH_DISCOVERY DISCOVERY_MODE PRE_TEST)
+
+
+add_executable(fsim_weapon_diagnostics_test contracts/test_weapon_diagnostics.cpp contracts/test_weapon_diagnostic_binding.cpp)
+target_link_libraries(fsim_weapon_diagnostics_test PRIVATE fsim::ipc Catch2::Catch2WithMain)
+fsim_set_warnings(fsim_weapon_diagnostics_test)
+add_test(NAME weapon_diagnostics COMMAND fsim_weapon_diagnostics_test)
+set_tests_properties(weapon_diagnostics PROPERTIES LABELS "sim-m03;contracts" TIMEOUT 120)
+add_executable(fsim_weapon_thermal_band_test contracts/test_weapon_thermal_band.cpp)
+target_link_libraries(fsim_weapon_thermal_band_test PRIVATE fsim::ipc Catch2::Catch2WithMain)
+fsim_set_warnings(fsim_weapon_thermal_band_test)
+add_test(NAME weapon_thermal_band COMMAND fsim_weapon_thermal_band_test)
+set_tests_properties(weapon_thermal_band PROPERTIES LABELS "sim-m03;contracts" TIMEOUT 120)
+if(FSIM_WITH_RENDER)
+    add_executable(fsim_weapon_diagnostics_ui_test visualization/test_weapon_diagnostics_ui.cpp)
+    target_link_libraries(fsim_weapon_diagnostics_ui_test PRIVATE fsim::ui Catch2::Catch2WithMain)
+    fsim_set_warnings(fsim_weapon_diagnostics_ui_test)
+    fsim_relax_third_party_warnings(fsim_weapon_diagnostics_ui_test)
+    add_test(NAME weapon_diagnostics_ui COMMAND fsim_weapon_diagnostics_ui_test)
+    set_tests_properties(weapon_diagnostics_ui PROPERTIES LABELS "sim-m03;viewer" TIMEOUT 120)
+endif()
+foreach(component IN ITEMS passive_rolleron variant_actuation_native)
+    add_executable(fsim_${component}_test simulation/test_${component}.cpp)
+    target_link_libraries(fsim_${component}_test PRIVATE fsim::sim fsim::jsbsim Catch2::Catch2WithMain)
+    target_compile_definitions(fsim_${component}_test PRIVATE
+        FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
+        FSIM_TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/simulation/data")
+    fsim_set_warnings(fsim_${component}_test)
+    add_test(NAME ${component} COMMAND fsim_${component}_test)
+    set_tests_properties(${component} PROPERTIES LABELS "sim-m03;native-engagement" TIMEOUT 180)
+endforeach()
+add_executable(fsim_weapon_effects_diagnostics_test simulation/test_weapon_effects_diagnostics.cpp)
+target_link_libraries(fsim_weapon_effects_diagnostics_test PRIVATE fsim::session Catch2::Catch2WithMain)
+target_compile_definitions(fsim_weapon_effects_diagnostics_test PRIVATE
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
+    FSIM_TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/simulation/data")
+fsim_set_warnings(fsim_weapon_effects_diagnostics_test)
+add_test(NAME weapon_effects_diagnostics COMMAND fsim_weapon_effects_diagnostics_test)
+set_tests_properties(weapon_effects_diagnostics PROPERTIES LABELS "sim-m03;scene-effects" TIMEOUT 180)
+add_executable(fsim_variant_plant_admission_test simulation/test_variant_plant_admission.cpp)
+target_link_libraries(fsim_variant_plant_admission_test PRIVATE fsim::ms Catch2::Catch2WithMain)
+target_compile_definitions(fsim_variant_plant_admission_test PRIVATE FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores")
+fsim_set_warnings(fsim_variant_plant_admission_test)
+add_test(NAME variant_plant_admission COMMAND fsim_variant_plant_admission_test)
+set_tests_properties(variant_plant_admission PROPERTIES LABELS "sim-m03;payload-components" TIMEOUT 120)
+add_executable(fsim_weapon_navigation_integration_test simulation/test_weapon_navigation_integration.cpp)
+target_link_libraries(fsim_weapon_navigation_integration_test PRIVATE fsim::session Catch2::Catch2WithMain)
+target_compile_definitions(fsim_weapon_navigation_integration_test PRIVATE
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
+    FSIM_TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/simulation/data")
+fsim_set_warnings(fsim_weapon_navigation_integration_test)
+add_test(NAME weapon_navigation_integration COMMAND fsim_weapon_navigation_integration_test)
+set_tests_properties(weapon_navigation_integration PROPERTIES LABELS "sim-m03;weapon-navigation;native-engagement" TIMEOUT 180)
+add_executable(fsim_weapon_navigation_policy_test simulation/test_weapon_navigation_policy.cpp)
+target_link_libraries(fsim_weapon_navigation_policy_test PRIVATE fsim::ms Catch2::Catch2WithMain)
+target_compile_definitions(fsim_weapon_navigation_policy_test PRIVATE FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores")
+fsim_set_warnings(fsim_weapon_navigation_policy_test)
+add_test(NAME weapon_navigation_policy COMMAND fsim_weapon_navigation_policy_test)
+set_tests_properties(weapon_navigation_policy PROPERTIES LABELS "sim-m03;payload-components" TIMEOUT 120)
+foreach(component IN ITEMS thermal_image radio_receiver radio_temporal navigation_strapdown)
+    add_executable(fsim_weapon_${component}_test simulation/test_weapon_${component}.cpp)
+    target_link_libraries(fsim_weapon_${component}_test PRIVATE fsim::ms Catch2::Catch2WithMain)
+    fsim_set_warnings(fsim_weapon_${component}_test)
+    add_test(NAME weapon_${component} COMMAND fsim_weapon_${component}_test)
+    set_tests_properties(weapon_${component} PROPERTIES LABELS "payload-components;sim-m03" TIMEOUT 180)
+endforeach()
+
+add_executable(fsim_weapon_sensor_engineering_test simulation/test_weapon_sensor_engineering.cpp)
+add_executable(fsim_thermal_reticle_receiver_test simulation/test_thermal_reticle_receiver.cpp
+    reference/frozen_thermal_image_receiver_v1.cpp)
+target_link_libraries(fsim_thermal_reticle_receiver_test PRIVATE fsim::ms Catch2::Catch2WithMain)
+target_compile_definitions(fsim_thermal_reticle_receiver_test PRIVATE FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores")
+fsim_set_warnings(fsim_thermal_reticle_receiver_test)
+add_test(NAME thermal_reticle_receiver COMMAND fsim_thermal_reticle_receiver_test)
+set_tests_properties(thermal_reticle_receiver PROPERTIES LABELS "sim-m03;weapon-sensor-engineering" TIMEOUT 180)
+target_link_libraries(fsim_weapon_sensor_engineering_test PRIVATE fsim::ms Catch2::Catch2WithMain)
+target_compile_definitions(fsim_weapon_sensor_engineering_test PRIVATE FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores")
+fsim_set_warnings(fsim_weapon_sensor_engineering_test)
+add_test(NAME weapon_sensor_engineering COMMAND fsim_weapon_sensor_engineering_test)
+set_tests_properties(weapon_sensor_engineering PROPERTIES LABELS "payload-components;sim-m03;weapon-sensor-engineering" TIMEOUT 120)
+
+add_executable(fsim_weapon_links_test simulation/test_weapon_links.cpp)
+target_link_libraries(fsim_weapon_links_test PRIVATE fsim::ms)
+fsim_set_warnings(fsim_weapon_links_test)
+add_test(NAME weapon_links COMMAND fsim_weapon_links_test)
+set_tests_properties(weapon_links PROPERTIES LABELS "payload-components;sim-m03;weapon-links" TIMEOUT 120)
+
+add_executable(fsim_weapon_navigation_test simulation/test_weapon_navigation.cpp)
+target_link_libraries(fsim_weapon_navigation_test PRIVATE fsim::ms Catch2::Catch2WithMain)
+fsim_set_warnings(fsim_weapon_navigation_test)
+add_test(NAME weapon_navigation COMMAND fsim_weapon_navigation_test)
+set_tests_properties(weapon_navigation PROPERTIES LABELS "payload-components;sim-m03;weapon-navigation" TIMEOUT 120)
+
+add_executable(fsim_weapon_pulse_energy_test simulation/test_weapon_pulse_energy.cpp)
+target_link_libraries(fsim_weapon_pulse_energy_test PRIVATE fsim::ms fsim::sim Catch2::Catch2WithMain)
+target_compile_definitions(fsim_weapon_pulse_energy_test PRIVATE
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
+    FSIM_TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/simulation/data")
+fsim_set_warnings(fsim_weapon_pulse_energy_test)
+add_test(NAME weapon_pulse_energy COMMAND fsim_weapon_pulse_energy_test)
+set_tests_properties(weapon_pulse_energy PROPERTIES LABELS "payload-components;sim-m03;weapon-pulse-energy" TIMEOUT 120)
+
+add_executable(fsim_weapon_links_cpp_test compatibility/test_weapon_links.cpp)
+target_link_libraries(fsim_weapon_links_cpp_test PRIVATE fsim::sdk)
+target_compile_definitions(fsim_weapon_links_cpp_test PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
+fsim_set_warnings(fsim_weapon_links_cpp_test)
+add_test(NAME weapon_links_cpp COMMAND fsim_weapon_links_cpp_test)
+set_tests_properties(weapon_links_cpp PROPERTIES LABELS "sdk;sim-m03;weapon-links;native-engagement" TIMEOUT 180 RUN_SERIAL TRUE)
+
+add_executable(fsim_weapon_links_c_test compatibility/test_weapon_links_c.c)
+target_link_libraries(fsim_weapon_links_c_test PRIVATE fsim::sdk)
+target_compile_definitions(fsim_weapon_links_c_test PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
+set_target_properties(fsim_weapon_links_c_test PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON)
+add_test(NAME weapon_links_c COMMAND fsim_weapon_links_c_test)
+set_tests_properties(weapon_links_c PROPERTIES LABELS "sdk;sim-m03;weapon-links;native-engagement" TIMEOUT 180 RUN_SERIAL TRUE)
 
 # Native component factories are exercised through typed execution interfaces.
 add_executable(fsim_weapon_seeker_models_test simulation/test_weapon_seeker_models.cpp)
@@ -84,12 +205,226 @@ fsim_set_warnings(fsim_weapon_seeker_models_test)
 add_test(NAME representative_weapon_models COMMAND fsim_weapon_seeker_models_test)
 set_tests_properties(representative_weapon_models PROPERTIES LABELS "payload-components;representative-weapons" TIMEOUT 30)
 add_executable(fsim_weapon_seeker_native_test simulation/test_weapon_seeker_native.cpp)
+set_target_properties(fsim_weapon_seeker_native_test PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/weapon-v2-fixture/bin")
 target_link_libraries(fsim_weapon_seeker_native_test PRIVATE fsim::session Catch2::Catch2WithMain)
 target_compile_definitions(fsim_weapon_seeker_native_test PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
 add_dependencies(fsim_weapon_seeker_native_test fsim_payload_cards)
+add_custom_target(fsim_weapon_v2_fixture
+    COMMAND ${CMAKE_COMMAND} "-DSOURCE_ROOT=${CMAKE_SOURCE_DIR}"
+        -P "${CMAKE_SOURCE_DIR}/tests/simulation/fixtures/verify_weapon_v2.cmake"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/weapon-v2-fixture/share/flightsim"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/assets/payloads" "${CMAKE_BINARY_DIR}/weapon-v2-fixture/share/flightsim/payloads"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/assets/stores" "${CMAKE_BINARY_DIR}/weapon-v2-fixture/share/flightsim/stores"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/tests/simulation/fixtures/weapon-v2/manifest.json" "${CMAKE_BINARY_DIR}/weapon-v2-fixture/share/flightsim/v2-fixture-manifest.json"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:libJSBSim> "${CMAKE_BINARY_DIR}/weapon-v2-fixture/bin/"
+    DEPENDS libJSBSim)
+foreach(_legacy_store aim-9m aim-9x aim-7m aim-120c)
+    add_custom_command(TARGET fsim_weapon_v2_fixture POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/tests/simulation/fixtures/weapon-v2/${_legacy_store}.json"
+            "${CMAKE_BINARY_DIR}/weapon-v2-fixture/share/flightsim/stores/${_legacy_store}.json")
+endforeach()
+add_dependencies(fsim_weapon_seeker_native_test fsim_weapon_v2_fixture)
 fsim_set_warnings(fsim_weapon_seeker_native_test)
 add_test(NAME representative_weapon_native COMMAND fsim_weapon_seeker_native_test)
 set_tests_properties(representative_weapon_native PROPERTIES LABELS "payload-components;representative-weapons;native-engagement" TIMEOUT 90 RUN_SERIAL TRUE)
+
+add_executable(fsim_weapon_proximity_native_test simulation/test_weapon_proximity_native.cpp)
+target_link_libraries(fsim_weapon_proximity_native_test PRIVATE fsim::session Catch2::Catch2WithMain)
+target_compile_definitions(fsim_weapon_proximity_native_test PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
+add_dependencies(fsim_weapon_proximity_native_test fsim_payload_cards)
+fsim_set_warnings(fsim_weapon_proximity_native_test)
+add_test(NAME weapon_proximity_native COMMAND fsim_weapon_proximity_native_test)
+set_tests_properties(weapon_proximity_native PROPERTIES LABELS "payload-components;native-engagement;sim-m03" TIMEOUT 120 RUN_SERIAL TRUE)
+
+add_executable(fsim_fluid_transit_test simulation/test_fluid_transit.cpp)
+target_link_libraries(fsim_fluid_transit_test PRIVATE fsim::ms Catch2::Catch2WithMain)
+fsim_set_warnings(fsim_fluid_transit_test)
+add_test(NAME fluid_transit_methods COMMAND fsim_fluid_transit_test)
+set_tests_properties(fluid_transit_methods PROPERTIES LABELS "payload-components;sim-m03" TIMEOUT 120)
+
+add_executable(fsim_liquid_scene_test simulation/test_liquid_scene.cpp simulation/test_liquid_state.cpp)
+target_link_libraries(fsim_liquid_scene_test PRIVATE fsim::ms Catch2::Catch2WithMain)
+fsim_set_warnings(fsim_liquid_scene_test)
+add_test(NAME liquid_scene_methods COMMAND fsim_liquid_scene_test)
+set_tests_properties(liquid_scene_methods PROPERTIES LABELS "payload-components;sim-m03" TIMEOUT 180)
+
+add_executable(fsim_liquid_materials_test simulation/test_liquid_materials.cpp)
+target_link_libraries(fsim_liquid_materials_test PRIVATE fsim::session Catch2::Catch2WithMain)
+fsim_set_warnings(fsim_liquid_materials_test)
+add_test(NAME liquid_material_binding COMMAND fsim_liquid_materials_test)
+set_tests_properties(liquid_material_binding PROPERTIES LABELS "payload-components;sim-m03" TIMEOUT 120)
+
+add_executable(fsim_liquid_native_test simulation/test_liquid_native.cpp)
+target_link_libraries(fsim_liquid_native_test PRIVATE fsim::session Catch2::Catch2WithMain)
+target_compile_definitions(fsim_liquid_native_test PRIVATE
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
+    FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores"
+    FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
+add_dependencies(fsim_liquid_native_test fsim_payload_cards)
+fsim_set_warnings(fsim_liquid_native_test)
+add_test(NAME liquid_native_binding COMMAND fsim_liquid_native_test)
+set_tests_properties(liquid_native_binding PROPERTIES LABELS "payload-components;native-engagement;sim-m03" TIMEOUT 300 RUN_SERIAL TRUE)
+
+add_executable(fsim_liquid_vessels_native_test simulation/test_liquid_vessels_native.cpp)
+target_link_libraries(fsim_liquid_vessels_native_test PRIVATE fsim::session Catch2::Catch2WithMain)
+target_compile_definitions(fsim_liquid_vessels_native_test PRIVATE
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
+    FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores"
+    FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
+add_dependencies(fsim_liquid_vessels_native_test fsim_payload_cards)
+fsim_set_warnings(fsim_liquid_vessels_native_test)
+add_test(NAME liquid_vessels_native COMMAND fsim_liquid_vessels_native_test)
+set_tests_properties(liquid_vessels_native PROPERTIES LABELS "payload-components;native-engagement;sim-m03" TIMEOUT 300 RUN_SERIAL TRUE)
+
+add_executable(fsim_liquid_population_native_test simulation/test_liquid_population_native.cpp)
+target_link_libraries(fsim_liquid_population_native_test PRIVATE fsim::session Catch2::Catch2WithMain)
+target_compile_definitions(fsim_liquid_population_native_test PRIVATE
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
+    FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores"
+    FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
+add_dependencies(fsim_liquid_population_native_test fsim_payload_cards)
+fsim_set_warnings(fsim_liquid_population_native_test)
+add_test(NAME liquid_population_methods COMMAND fsim_liquid_population_native_test "[liquid-only-methods]")
+set_tests_properties(liquid_population_methods PROPERTIES LABELS "payload-components;sim-m03" TIMEOUT 180)
+# This fixed acceptance denominator is independently reconciled with maintained
+# TOML/XML by the receipt collector; a missing registration cannot disappear.
+foreach(_liquid_design IN ITEMS a10c b52h c130j c172 c17a cf2 e3g e7a ea18g ec130h
+        f15c f16c f22a f35a fa18c gripen h6k iris j10a j20a kc135r kc46a mig29a
+        mirage2000 rafale rc135w rq4b skua su25 su27s su57 typhoon u2s uh1h uh60)
+    add_test(NAME "liquid_population_native.${_liquid_design}" COMMAND fsim_liquid_population_native_test
+        "All maintained native liquid recipients conserve actual contents transit and reset")
+    set_tests_properties("liquid_population_native.${_liquid_design}" PROPERTIES
+        LABELS "payload-components;native-engagement;sim-m03" TIMEOUT 1200 RUN_SERIAL TRUE
+        ENVIRONMENT "FSIM_LIQUID_NATIVE_DESIGN=${_liquid_design};FSIM_LIQUID_NATIVE_DIR=${CMAKE_BINARY_DIR}/validation/liquid_native_population")
+endforeach()
+
+add_executable(fsim_external_tank_population_test simulation/test_external_tank_population.cpp)
+target_link_libraries(fsim_external_tank_population_test PRIVATE fsim::session fsim::jsbsim Catch2::Catch2WithMain)
+target_compile_definitions(fsim_external_tank_population_test PRIVATE
+    FSIM_TEST_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
+add_dependencies(fsim_external_tank_population_test fsim_payload_cards)
+fsim_set_warnings(fsim_external_tank_population_test)
+add_test(NAME external_tank_population COMMAND fsim_external_tank_population_test)
+set_tests_properties(external_tank_population PROPERTIES
+    LABELS "payload-components;native-engagement;sim-m03" TIMEOUT 300 RUN_SERIAL TRUE
+    ENVIRONMENT "FSIM_EXTERNAL_TANK_POPULATION_DIR=${CMAKE_BINARY_DIR}/validation/external_tanks")
+
+add_executable(fsim_fragment_reach_native_test simulation/test_fragment_reach_native.cpp)
+target_link_libraries(fsim_fragment_reach_native_test PRIVATE fsim::session Catch2::Catch2WithMain)
+target_compile_definitions(fsim_fragment_reach_native_test PRIVATE
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
+    FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores"
+    FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
+add_dependencies(fsim_fragment_reach_native_test fsim_payload_cards)
+fsim_set_warnings(fsim_fragment_reach_native_test)
+add_test(NAME fragment_reach_native COMMAND fsim_fragment_reach_native_test)
+set_tests_properties(fragment_reach_native PROPERTIES LABELS "payload-components;native-engagement;sim-m03" TIMEOUT 300 RUN_SERIAL TRUE)
+
+foreach(_reference_kind IN ITEMS component_reference component_effect_reference)
+    add_executable("fsim_${_reference_kind}_native_test" "simulation/test_${_reference_kind}_native.cpp")
+    target_link_libraries("fsim_${_reference_kind}_native_test" PRIVATE fsim::session fsim::sim fsim::jsbsim Catch2::Catch2WithMain)
+    target_compile_definitions("fsim_${_reference_kind}_native_test" PRIVATE
+        FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
+        FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores"
+        FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
+    fsim_set_warnings("fsim_${_reference_kind}_native_test")
+    target_include_directories("fsim_${_reference_kind}_native_test" SYSTEM PRIVATE
+        "${CMAKE_SOURCE_DIR}/src/foundation/transport/third_party/picosha2")
+endforeach()
+# Self-contained current-epoch execution is registered after the configured
+# repository-check Python interpreter is selected in ArchitectureChecks.cmake.
+
+add_executable(fsim_aam_full_chain_native_test simulation/test_aam_full_chain_native.cpp)
+target_link_libraries(fsim_aam_full_chain_native_test PRIVATE fsim::session Catch2::Catch2WithMain)
+target_include_directories(fsim_aam_full_chain_native_test SYSTEM PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/foundation/transport/third_party/picosha2")
+target_compile_definitions(fsim_aam_full_chain_native_test PRIVATE
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
+    FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores")
+fsim_set_warnings(fsim_aam_full_chain_native_test)
+foreach(_aam_chain_card IN ITEMS aim-120c aim-120d aim-7m aim-9m aim-9x asraam iris-t magic-2 meteor
+        mica-em mica-ir pl-10 pl-12 pl-15 pl-8 r-27er r-27et r-27r r-27t r-37m r-60m r-73 r-77m super-530d)
+    add_test(NAME "aam_full_chain.${_aam_chain_card}" COMMAND fsim_aam_full_chain_native_test)
+    set_tests_properties("aam_full_chain.${_aam_chain_card}" PROPERTIES
+        LABELS "payload-components;native-engagement;sim-m03;aam-full-chain" TIMEOUT 1200 RUN_SERIAL TRUE
+        ENVIRONMENT "FSIM_AAM_CHAIN_CARD=${_aam_chain_card};FSIM_AAM_CHAIN_DIR=${CMAKE_BINARY_DIR}/validation/aam_full_chain")
+endforeach()
+
+add_executable(fsim_finite_rocket_feed_native_test simulation/test_finite_rocket_feed_native.cpp)
+target_link_libraries(fsim_finite_rocket_feed_native_test PRIVATE fsim::sim fsim::jsbsim Catch2::Catch2WithMain)
+target_compile_definitions(fsim_finite_rocket_feed_native_test PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
+fsim_set_warnings(fsim_finite_rocket_feed_native_test)
+add_custom_target(fsim_finite_rocket_feed_runtime
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:libJSBSim> "${CMAKE_BINARY_DIR}/tests/"
+    DEPENDS libJSBSim VERBATIM)
+add_dependencies(fsim_finite_rocket_feed_native_test fsim_finite_rocket_feed_runtime)
+add_test(NAME finite_rocket_feed_native COMMAND fsim_finite_rocket_feed_native_test)
+set_tests_properties(finite_rocket_feed_native PROPERTIES LABELS "sim-m03;propulsion;native-method" TIMEOUT 60 RUN_SERIAL TRUE)
+
+add_executable(fsim_weapon_effects_population_test simulation/test_weapon_effects_population.cpp)
+target_link_libraries(fsim_weapon_effects_population_test PRIVATE fsim::session Catch2::Catch2WithMain)
+target_compile_definitions(fsim_weapon_effects_population_test PRIVATE
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
+    FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores"
+    FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
+add_dependencies(fsim_weapon_effects_population_test fsim_payload_cards)
+fsim_set_warnings(fsim_weapon_effects_population_test)
+add_test(NAME weapon_effects_population COMMAND fsim_weapon_effects_population_test)
+set_tests_properties(weapon_effects_population PROPERTIES
+    LABELS "payload-components;native-engagement;sim-m03" TIMEOUT 300 RUN_SERIAL TRUE
+    ENVIRONMENT "FSIM_EFFECTS_POPULATION_DIR=${CMAKE_BINARY_DIR}/validation/weapon_effects_population")
+
+add_executable(fsim_weapon_sensor_native_test simulation/test_weapon_sensor_native.cpp)
+add_executable(fsim_equipment_model_names_test simulation/test_equipment_model_names.cpp)
+target_link_libraries(fsim_equipment_model_names_test PRIVATE fsim::ms fsim::contracts Catch2::Catch2WithMain)
+target_compile_definitions(fsim_equipment_model_names_test PRIVATE FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores")
+fsim_set_warnings(fsim_equipment_model_names_test)
+add_test(NAME equipment_model_names COMMAND fsim_equipment_model_names_test)
+set_tests_properties(equipment_model_names PROPERTIES LABELS "payload-components;sim-m03" TIMEOUT 120)
+target_link_libraries(fsim_weapon_sensor_native_test PRIVATE fsim::session Catch2::Catch2WithMain)
+target_compile_definitions(fsim_weapon_sensor_native_test PRIVATE
+    FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}"
+    FSIM_TEST_STORE_DIR="${CMAKE_SOURCE_DIR}/assets/stores")
+add_dependencies(fsim_weapon_sensor_native_test fsim_payload_cards)
+fsim_set_warnings(fsim_weapon_sensor_native_test)
+catch_discover_tests(fsim_weapon_sensor_native_test ${FSIM_CATCH_DISCOVERY}
+    TEST_SPEC "~[fleet]"
+    TEST_PREFIX "sensor_native." PROPERTIES
+    LABELS "payload-components;native-engagement;sim-m03" TIMEOUT 300 RUN_SERIAL TRUE
+    ENVIRONMENT "FSIM_SENSOR_NATIVE_DIR=${CMAKE_BINARY_DIR}/validation/weapon_sensor_native")
+
+# The same complete physical scenes, partitioned by actual authored model.
+# Separate output directories make these read-only native CPU cases independent;
+# no physics, scene duration, detector grid or assertion is reduced.
+file(GLOB _sensor_cards CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/assets/stores/*.json")
+set(_sensor_population 0)
+foreach(_sensor_card IN LISTS _sensor_cards)
+    file(READ "${_sensor_card}" _sensor_json)
+    string(JSON _sensor_class GET "${_sensor_json}" class)
+    if(_sensor_class STREQUAL "aam")
+        string(JSON _sensor_id GET "${_sensor_json}" id)
+        math(EXPR _sensor_population "${_sensor_population} + 1")
+        set(_sensor_cases
+            "Every configured AAM executes native sensing at frameSkip1"
+            "Every configured AAM executes native sensing at frameSkip2"
+            "Every configured AAM executes native sensing at frameSkip4"
+            "Every configured AAM receives an actual native countermeasure in its physical detector")
+        foreach(_sensor_case IN LISTS _sensor_cases)
+            set(_sensor_test "sensor_native.${_sensor_case}.${_sensor_id}")
+            add_test(NAME "${_sensor_test}" COMMAND fsim_weapon_sensor_native_test "${_sensor_case}")
+            set_tests_properties("${_sensor_test}" PROPERTIES
+                LABELS "payload-components;native-engagement;sim-m03;slot-read-only"
+                TIMEOUT 300 RUN_SERIAL FALSE
+                ENVIRONMENT "FSIM_SENSOR_NATIVE_CARD=${_sensor_id};FSIM_SENSOR_NATIVE_DIR=${CMAKE_BINARY_DIR}/validation/weapon_sensor_native/${_sensor_id}")
+        endforeach()
+    endif()
+endforeach()
+if(_sensor_population LESS 1)
+    message(FATAL_ERROR "No authored native AAM scenes discovered")
+endif()
 
 add_executable(fsim_payload_providers_test simulation/test_payload_providers.cpp)
 target_link_libraries(fsim_payload_providers_test PRIVATE fsim::ms Catch2::Catch2WithMain)
@@ -151,13 +486,23 @@ target_link_libraries(fsim_engagement_native_test PRIVATE fsim::session)
 add_dependencies(fsim_engagement_native_test fsim_payload_cards)
 target_compile_definitions(fsim_engagement_native_test PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
 add_test(NAME engagement_native COMMAND fsim_engagement_native_test)
+add_executable(fsim_engagement_native_v2_test simulation/test_engagement_native.cpp)
+set_target_properties(fsim_engagement_native_v2_test PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/weapon-v2-fixture/bin")
+target_link_libraries(fsim_engagement_native_v2_test PRIVATE fsim::session)
+target_compile_definitions(fsim_engagement_native_v2_test PRIVATE FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}")
+add_dependencies(fsim_engagement_native_v2_test fsim_payload_cards fsim_weapon_v2_fixture)
+add_test(NAME engagement_native_legacy_v2_batched_contact
+    COMMAND fsim_engagement_native_v2_test "batched native contact precedes arming")
+set_tests_properties(engagement_native_legacy_v2_batched_contact PROPERTIES
+    LABELS "payload-components;native-engagement;sim-m03" TIMEOUT 90 RUN_SERIAL TRUE)
 
 add_executable(fsim_missile_control_native_test simulation/test_missile_control_native.cpp)
 target_link_libraries(fsim_missile_control_native_test PRIVATE fsim::session)
 target_compile_definitions(fsim_missile_control_native_test PRIVATE
     FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}" FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
 add_test(NAME missile_control_native COMMAND fsim_missile_control_native_test)
-set_tests_properties(missile_control_native PROPERTIES LABELS "native-engagement" TIMEOUT 120)
+set_tests_properties(missile_control_native PROPERTIES LABELS "native-engagement" TIMEOUT 300 PROCESSORS 2)
 
 add_executable(fsim_weapon_employment_core_test simulation/test_weapon_employment_core.cpp)
 target_link_libraries(fsim_weapon_employment_core_test PRIVATE fsim::session)
@@ -167,8 +512,11 @@ add_test(NAME weapon_employment_core COMMAND fsim_weapon_employment_core_test)
 set_tests_properties(weapon_employment_core PROPERTIES LABELS "native-engagement" TIMEOUT 120)
 
 add_executable(fsim_contact_fuze_native_test simulation/test_contact_fuze_native.cpp)
+set_target_properties(fsim_contact_fuze_native_test PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/weapon-v2-fixture/bin")
 target_link_libraries(fsim_contact_fuze_native_test PRIVATE fsim::session)
 add_dependencies(fsim_contact_fuze_native_test fsim_payload_cards)
+add_dependencies(fsim_contact_fuze_native_test fsim_weapon_v2_fixture)
 target_compile_definitions(fsim_contact_fuze_native_test PRIVATE
     FSIM_TEST_JSBSIM_ROOT="${FSIM_JSBSIM_DATA_DIR}" FSIM_TEST_AIRCRAFT_DIR="${CMAKE_SOURCE_DIR}/aircraft")
 fsim_set_warnings(fsim_contact_fuze_native_test)
@@ -744,6 +1092,12 @@ endif()
 
 # Viewer-side terrain decoding (VSG data types; no Vulkan device needed).
 if(FSIM_WITH_RENDER)
+    add_executable(fsim_mandatory_presentation_test visualization/test_mandatory_presentation.cpp)
+    target_link_libraries(fsim_mandatory_presentation_test PRIVATE fsim::ui)
+    fsim_set_warnings(fsim_mandatory_presentation_test)
+    fsim_relax_third_party_warnings(fsim_mandatory_presentation_test)
+    add_test(NAME mandatory_presentation COMMAND fsim_mandatory_presentation_test)
+    set_tests_properties(mandatory_presentation PROPERTIES LABELS render TIMEOUT 30)
     add_executable(fsim_render_tests visualization/test_terrain_render.cpp visualization/test_vehicle_visuals.cpp visualization/test_cocip.cpp visualization/test_contrail_observed.cpp
                                      visualization/test_gpu_timer.cpp)
     target_link_libraries(fsim_render_tests PRIVATE fsim::world fsim::core fsim::ipc Catch2::Catch2WithMain)
@@ -828,6 +1182,29 @@ if(TARGET flightsim-flow-calibrate)
     set_tests_properties("NVIDIA Flow: an engagement's fires against the observed - CCPS's fireballs, the photographed detonations, API RP 521's jet flames - each within its tolerance"
         PROPERTIES LABELS render)
 endif()
+
+# A targeted M03 build must refresh the DLL beside the test executables;
+# Windows loads it before PATH, so a stale copy can silently test old physics.
+# The same dependency stages the authored cards used by native releases.
+add_custom_target(fsim_m03_native_runtime
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:libJSBSim> "${CMAKE_BINARY_DIR}/tests/"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:fsim> "${CMAKE_BINARY_DIR}/tests/"
+    DEPENDS libJSBSim fsim fsim_payload_cards
+    VERBATIM)
+foreach(_m03_target IN ITEMS
+    fsim_component_reference_native_test fsim_component_effect_reference_native_test
+    fsim_aam_full_chain_native_test
+    fsim_liquid_materials_test fsim_liquid_native_test fsim_liquid_vessels_native_test fsim_external_tank_population_test fsim_fragment_reach_native_test
+    fsim_passive_rolleron_test fsim_variant_actuation_native_test
+    fsim_weapon_navigation_integration_test fsim_weapon_pulse_energy_test
+    fsim_weapon_sensor_native_test fsim_weapon_proximity_native_test fsim_weapon_effects_diagnostics_test fsim_weapon_effects_population_test
+    fsim_weapon_links_test fsim_weapon_links_cpp_test fsim_weapon_links_c_test
+    fsim_weapon_operating_point_test fsim_variant_plant_admission_test
+    fsim_missile_control_native_test fsim_weapon_controls_c_test)
+    if(TARGET ${_m03_target})
+        add_dependencies(${_m03_target} fsim_m03_native_runtime)
+    endif()
+endforeach()
 
 include(${CMAKE_SOURCE_DIR}/cmake/SerialVerification.cmake)
 

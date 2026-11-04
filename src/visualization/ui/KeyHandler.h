@@ -15,9 +15,7 @@ namespace fsim::ui {
 ///   tab / s+tab  next / previous vehicle
 ///   c            cycle camera mode (chase, orbit, overview, free)     - / =   zoom out / in
 ///   r            reset view            mouse      left drag rotate, space + left drag pan (detached only), wheel zoom
-///   l            toggle vehicle list   m          toggle monitor
-///   n            toggle name labels    t          toggle trails
-///   [ / ]        time factor / 2, x 2  esc        quit
+///   esc          quit (presentation panels and effects cannot be hidden)
 class KeyHandler : public vsg::Inherit<vsg::Visitor, KeyHandler> {
 public:
     explicit KeyHandler(std::shared_ptr<ViewerControls> controls) : controls_(std::move(controls)) {}

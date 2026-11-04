@@ -46,6 +46,7 @@ add_custom_target(fsim_cloud_assets ALL
 # executable build, including Headless. Python and installation reuse this
 # staging script; source-tree fallback must not hide a missing executable copy.
 add_custom_target(fsim_payload_cards ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/tools/models/hangar/hangar/data/equipment_models.json ${FSIM_SHARE_DIR}/equipment_models.json
     COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${CMAKE_SOURCE_DIR}/assets/payloads ${FSIM_SHARE_DIR}/payloads
     COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${CMAKE_SOURCE_DIR}/assets/stores ${FSIM_SHARE_DIR}/stores
     COMMAND ${CMAKE_COMMAND} "-DSRC=${CMAKE_SOURCE_DIR}/aircraft" "-DDEST=${FSIM_SHARE_DIR}/aircraft"

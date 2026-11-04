@@ -2,7 +2,13 @@
 #include "simulation/runtime/world/World.h"
 #include "simulation/flight/FlightModel.h"
 #include "simulation/mission_systems/Model.h"
+#include "simulation/mission_systems/components/registration/BuiltInProvidersV1.h"
+#include "simulation/mission_systems/components/interfaces/MeasuredGuidanceV2.h"
+#include "simulation/mission_systems/components/interfaces/GuidanceStateResetV1.h"
 #include "foundation/io/AssetResolver.h"
+#include "foundation/transport/WeaponDiagnosticsV1.h"
+#include <functional>
+#include "contracts/equipment/EquipmentModels.h"
 
 #include <algorithm>
 #include <cmath>
@@ -12,6 +18,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -26,11 +33,13 @@ namespace {
 constexpr double kPi = 3.14159265358979323846, kDeg = kPi / 180.0;
 void require(bool value, const std::string& message) { if (!value) throw std::runtime_error(message); }
 bool visualRun() {const auto* value=std::getenv("FSIM_ENGAGEMENT_VISUAL");return value && std::string(value)=="1";}
+std::function<void(session::World&)> effectsObserver;
 void step(session::World& world,unsigned count=1) {
-    if (!visualRun()) {world.step(count);return;}
+    if (!visualRun()&&!effectsObserver) {world.step(count);return;}
     for (unsigned i=0;i<count;++i) {
         world.step();
-        std::this_thread::sleep_for(std::chrono::duration<double>(world.dt()*world.frameSkip()));
+        if(effectsObserver)effectsObserver(world);
+        if(visualRun())std::this_thread::sleep_for(std::chrono::duration<double>(world.dt()*world.frameSkip()));
     }
 }
 
@@ -38,7 +47,7 @@ session::WorldOptions options(const std::string& name, unsigned workers = 1) {
     session::WorldOptions o;
     o.name = name; o.workers = workers; o.pinWorkers = false; o.publish = false; o.seed = 17;
     o.jsbsimRoot = FSIM_TEST_JSBSIM_ROOT;
-    if (visualRun()) o.publish=true;
+    if (visualRun()||std::getenv("FSIM_ENGAGEMENT_TRACE")) o.publish=true;
     if(const char* prefix=std::getenv("FSIM_ENGAGEMENT_RECORD")) o.recordPath=std::string(prefix)+"-"+name+".fsrec";
     return o;
 }
@@ -77,6 +86,37 @@ void operate(session::World& w, std::uint32_t id, std::uint16_t index) {
 ms::WeaponRecord weapon(const session::World& w, std::uint32_t id) {
     for (const auto& record : w.weapons()) if (record.id == id) return record;
     throw std::runtime_error("weapon record missing");
+}
+
+struct InfraredFixtureContract {bool finiteExposure=false;double observationBudgetS=0;std::string implementation;};
+InfraredFixtureContract infraredFixtureContract(const session::World& world,std::uint32_t own) {
+    const ms::StoreCard* card=nullptr;
+    for(const auto& store:world.missionSystems(own)->stores())
+        if(store.store&&std::string(store.store)=="aim-9x")card=world.missionSystems(own)->storeCard(store.index);
+    require(card!=nullptr,"infrared fixture must retain its actual loaded card");
+    const auto directory=io::AssetResolver{}.find("stores");require(directory.has_value(),"actual store resource directory missing");
+    ms::components::ProfileV1 profile;std::string error;
+    require(ms::components::readProfileV1(*directory/"aim-9x.json",*card,profile,error),"infrared selected profile invalid: "+error);
+    const auto* seeker=profile.find("seeker");require(seeker!=nullptr,"infrared fixture selected seeker missing");
+    InfraredFixtureContract result;result.implementation=equipment::mechanism(seeker->implementationId);
+    require(result.implementation=="fsim.seeker.imaging_ir.v2"||result.implementation=="fsim.seeker.imaging_ir.v3",
+            "infrared fixture must identify its actual explicit V2 or V3 receiver");
+    result.finiteExposure=result.implementation=="fsim.seeker.imaging_ir.v3";
+    if(result.finiteExposure) {
+        const auto seconds=[&](const char* role) {
+            const auto value=seeker->parameters.find(role);
+            require(value!=seeker->parameters.end()&&value->second.unit=="s"&&std::isfinite(value->second.value)&&value->second.value>=0,
+                    std::string("infrared fixture receiver timing missing: ")+role);return value->second.value;
+        };
+        // Actual simulator inputs bound receiver samples/processing and four
+        // servo/filter time constants; this is observation orchestration, not
+        // a changed acquisition threshold or fitted hardware response.
+        result.observationBudgetS=8*seconds("sample_period_s")+2*seconds("processing_delay_s")+
+            4*seconds("gimbal_lag_s")+4*seconds("track_lag_s")+world.dt()*world.frameSkip();
+        require(std::isfinite(result.observationBudgetS)&&result.observationBudgetS>0,"infrared observation budget invalid");
+    }
+    std::cout << "SEEKER-CONTRACT: implementation=" << result.implementation << " observation_budget_s=" << result.observationBudgetS << '\n';
+    return result;
 }
 
 bool terminal(const ms::EngagementEvent& event) {
@@ -136,6 +176,110 @@ void replayableEvents(session::World& w, std::uint32_t missile) {
 
 struct Outcome { ms::WeaponRecord record; std::vector<ms::EngagementEvent> events; bool burned = false, coasted = false; };
 
+class MeasuredGuidanceTrace final:public ms::components::GuidanceProviderV1,
+    public ms::components::MeasuredGuidanceV2,public ms::components::GuidanceStateResetV1 {
+public:
+    MeasuredGuidanceTrace(std::unique_ptr<ms::components::GuidanceProviderV1> inner,std::shared_ptr<std::ofstream> trace)
+        :inner_(std::move(inner)),trace_(std::move(trace)){}
+    ms::weapon::Spec spec() const noexcept override{return inner_->spec();}
+    ms::weapon::Output update(const ms::weapon::Input& input) override{return inner_->update(input);}
+    void resetGuidanceStateV1() noexcept override {
+        if(auto* reset=dynamic_cast<ms::components::GuidanceStateResetV1*>(inner_.get()))reset->resetGuidanceStateV1();
+    }
+    ms::weapon::Output updateMeasured(const ms::components::SeekerFrameV2& frame,const ms::components::SeekerResultV2& result) override {
+        auto* measured=dynamic_cast<ms::components::MeasuredGuidanceV2*>(inner_.get());
+        const auto output=measured?measured->updateMeasured(frame,result):ms::weapon::Output{};
+        auto& trace=*trace_;trace<<frame.timeS<<','<<frame.ageS<<','<<result.tracking<<','<<ms::weaponPhaseName(output.phase);
+        const auto number=[&](std::optional<double> value){trace<<',';if(value)trace<<*value;};
+        number(result.track?std::optional<double>{result.track->sampleTimeS}:std::nullopt);
+        number(result.track?result.track->rangeM:std::nullopt);number(result.track?result.track->rangeRateMs:std::nullopt);
+        for(const auto vector:{frame.position,frame.velocity})trace<<','<<vector.x<<','<<vector.y<<','<<vector.z;
+        number(result.midcourseEstimate?std::optional<double>{result.midcourseEstimate->sampleTimeS}:std::nullopt);
+        if(result.midcourseEstimate)for(const auto vector:{result.midcourseEstimate->position,result.midcourseEstimate->velocity})
+            trace<<','<<vector.x<<','<<vector.y<<','<<vector.z;
+        else trace<<",,,,,,";
+        if(result.track)for(const auto vector:{result.track->direction,result.track->directionRate})trace<<','<<vector.x<<','<<vector.y<<','<<vector.z;
+        else trace<<",,,,,,";
+        trace<<','<<output.acceleration.x<<','<<output.acceleration.y<<','<<output.acceleration.z<<'\n';
+        return output;
+    }
+private:
+    std::unique_ptr<ms::components::GuidanceProviderV1> inner_;
+    std::shared_ptr<std::ofstream> trace_;
+};
+
+// Trace-only IPC reads. Publishing copies existing native state; it does not
+// create a Viewer, resample a source, advance time or alter a modeled command.
+class EffectsTrace {
+public:
+    EffectsTrace(const std::string& prefix,std::string name,std::uint32_t source,std::uint64_t generation)
+        :name_(std::move(name)),source_(source),generation_(generation),out_(prefix+"-effects.csv") {
+        require(out_.is_open(),"effects diagnostic cannot open output");out_<<std::setprecision(17);
+        out_<<"# sample,time,world_frame,generation,status,sample_epoch,burst_epoch,total_retained,displayed_retained,remaining_case_kg,total_component_records,displayed_components\n";
+        out_<<"# fragment,time,ordinal,sample_epoch,mass_kg,area_m2,flags,x,y,z,vx,vy,vz\n";
+        out_<<"# impact,time,victim,victim_generation,component,hits,energy_j,sample_epoch,flags\n";
+    }
+    void sample(session::World& world) {
+        world.publishNow();std::uint64_t pid=0,frame=0;std::uint32_t incarnation=0;
+        if(!ipc::weaponDiagnosticWorldIdentityV1(name_,pid,incarnation,frame)) {out_<<"unavailable,"<<world.simTime()<<",world_identity\n";return;}
+        if(!reader_.valid()&&!reader_.open(name_,pid,incarnation)) {out_<<"unavailable,"<<world.simTime()<<",sidecar\n";return;}
+        if(!reader_.requestSelection(source_,generation_,frame)) {out_<<"unavailable,"<<world.simTime()<<",selection\n";return;}
+        world.publishNow();if(!ipc::weaponDiagnosticWorldIdentityV1(name_,pid,incarnation,frame))return;
+        auto value=std::make_unique<ipc::WeaponDiagnosticFrameV1>();
+        if(!reader_.read(frame,*value)||value->entity!=source_||value->generation!=generation_) {out_<<"unavailable,"<<world.simTime()<<",read\n";return;}
+        const auto& effects=value->effects;
+        out_<<"sample,"<<world.simTime()<<','<<frame<<','<<value->generation<<','<<static_cast<unsigned>(effects.stamp.status)<<','
+            <<effects.stamp.sampleTimeS<<','<<effects.burstTimeS<<','<<effects.totalFragmentCount<<','<<effects.fragmentCount<<','
+            <<effects.caseMassKg<<','<<effects.totalDamageCount<<','<<effects.damageCount<<'\n';
+        for(std::uint32_t i=0;i<effects.fragmentCount;++i) {
+            const auto& p=effects.fragments[i];out_<<"fragment,"<<world.simTime()<<','<<p.id<<','<<p.sampleTimeS<<','<<p.massKg<<','<<p.areaM2<<','<<p.flags;
+            for(const auto v:p.positionEcefM)out_<<','<<v;for(const auto v:p.velocityEcefMs)out_<<','<<v;out_<<'\n';
+        }
+        for(std::uint32_t i=0;i<effects.damageCount;++i) {
+            const auto& d=effects.damage[i];out_<<"impact,"<<world.simTime()<<','<<d.victim<<','<<d.victimGeneration<<','<<d.component<<','
+                <<d.hitCount<<','<<d.penetratedEnergyJ<<','<<d.sampleTimeS<<','<<d.flags<<'\n';
+        }
+        out_.flush();
+    }
+private:
+    std::string name_;std::uint32_t source_;std::uint64_t generation_;std::ofstream out_;ipc::WeaponDiagnosticsV1 reader_;
+};
+
+void targetEffectsSummary(session::World& world,std::uint32_t target,std::uint32_t source) {
+    const auto* prefix=std::getenv("FSIM_ENGAGEMENT_TRACE");if(!prefix)return;
+    std::ofstream out(std::string(prefix)+"-target-effects.csv");require(out.is_open(),"target effects diagnostic cannot open output");
+    out<<std::setprecision(17)<<"state,"<<world.simTime()<<','<<target<<','<<source<<'\n';
+    const auto* damage=world.damage(target);out<<"damage_available,"<<(damage!=nullptr)<<'\n';
+    if(damage) {
+        const auto& geometry=damage->airframe();const auto attached=damage->attachedGeometry();
+        out<<"crew_lost,"<<damage->crewLost()<<'\n';
+        for(std::size_t i=0;i<damage->sections().size();++i) {
+            const auto& s=damage->sections()[i];out<<"section,"<<i<<','<<std::quoted(geometry.sections[i].name)<<','
+                <<s.strength<<','<<s.lift<<','<<s.separated<<','<<s.tornM2<<','<<s.holeM2<<','<<s.removed<<','<<s.kick<<'\n';
+        }
+        for(std::size_t i=0;i<geometry.panels.size();++i) {
+            const auto& p=geometry.panels[i];out<<"panel,"<<i<<','<<p.section<<','<<damage->panelTorn(static_cast<int>(i))<<','
+                <<p.middle().x<<','<<p.middle().y<<','<<p.middle().z<<','<<p.areaM2<<','<<p.thicknessM<<'\n';
+        }
+        for(std::size_t i=0;i<geometry.components.size();++i) {
+            const auto& c=geometry.components[i];const bool present=std::find(attached.componentIndices().begin(),attached.componentIndices().end(),i)!=attached.componentIndices().end();
+            out<<"component,"<<i<<','<<std::quoted(c.kind)<<','<<std::quoted(c.name)<<','<<c.section<<','<<present<<','<<c.engine<<','<<c.tank<<','
+                <<std::quoted(c.channel)<<','<<c.centre.x<<','<<c.centre.y<<','<<c.centre.z<<','<<c.half.x<<','<<c.half.y<<','<<c.half.z<<'\n';
+        }
+        for(const auto& [index,t]:damage->tanks())out<<"tank,"<<index<<','<<t.component<<','<<t.holeM2<<','<<t.burning<<'\n';
+        for(const auto& c:damage->lostChannels())out<<"lost_channel,"<<std::quoted(c)<<'\n';
+        if(const auto* state=world.vehicleState(target))for(int i=0;i<state->engineCount;++i) {
+            const auto seized=world.model(target)->property("propulsion/engine["+std::to_string(i)+"]/seized");
+            out<<"engine,"<<i<<','<<damage->engineOut(i)<<','<<seized.valid()<<','<<(seized.valid()?seized.get():std::numeric_limits<double>::quiet_NaN())<<'\n';
+        }
+    }
+    // Non-consuming native combat stream only. The observed victim state above
+    // carries actual engine/control/crew/section outcomes, not inferred health.
+    for(const auto& event:world.engagementEvents())if(event.entity==source||event.target==target)
+        out<<"event,"<<event.serial<<','<<event.timeS<<','<<std::quoted(event.kind)<<','<<std::quoted(event.reason)<<','<<event.entity<<','<<event.target<<','<<event.destroyed<<'\n';
+    out.flush();
+}
+
 void functionalDamageAndContinuedFlight(session::World& w,std::uint32_t target,std::uint32_t missile,
                                        double beforeMassKg,const sim::VehicleState& beforeEncounter) {
     const auto functional=[&]() {
@@ -149,6 +293,7 @@ void functionalDamageAndContinuedFlight(session::World& w,std::uint32_t target,s
     };
     const double damageDeadline=w.simTime()+5;
     while (!functional() && w.simTime()<damageDeadline) step(w);
+    targetEffectsSummary(w,target,missile); // Before the original unchanged predicate, including its failure.
     require(functional(),"fixed-scene functional acceptance requires native structural separation or engine/control/crew loss; a hit alone is insufficient");
     bool linked=false;
     for (const auto& event : w.engagementEvents())
@@ -204,6 +349,18 @@ void functionalDamageAndContinuedFlight(session::World& w,std::uint32_t target,s
 
 Outcome engagement(double rangeM, unsigned workers, bool requireHit, bool requireFunctional=false) {
     session::World w(options("native-engagement-" + std::to_string(workers) + "-" + std::to_string(rangeM), workers));
+    if(const char* prefix=std::getenv("FSIM_ENGAGEMENT_TRACE")) {
+        auto trace=std::make_shared<std::ofstream>(std::string(prefix)+"-measured-r"+std::to_string(static_cast<int>(rangeM))+"-w"+std::to_string(workers)+".csv");
+        require(trace->is_open(),"measured diagnostic trace cannot open output");
+        *trace<<std::setprecision(17)<<"time,age,tracking,phase,track_time,range,range_rate,nav_px,nav_py,nav_pz,nav_vx,nav_vy,nav_vz,estimate_time,estimate_px,estimate_py,estimate_pz,estimate_vx,estimate_vy,estimate_vz,los_x,los_y,los_z,los_rate_x,los_rate_y,los_rate_z,ax,ay,az\n";
+        auto registry=ms::components::builtInProvidersV1();const auto original=registry.guidance;std::string error;
+        require(registry.guidance.registerFactory("equipment.aim-120c-7.guidance","fsim.guidance.measured_pn.v2",
+            [original,trace](const auto& descriptor,const auto& context,auto& message)->std::unique_ptr<ms::components::GuidanceProviderV1> {
+                auto inner=original.create(descriptor,context,message);if(!inner)return {};
+                return std::make_unique<MeasuredGuidanceTrace>(std::move(inner),trace);
+            },true,error),"diagnostic guidance observer registration failed: "+error);
+        require(w.setPayloadProvidersV1(registry,error),"diagnostic guidance observer binding failed: "+error);
+    }
     const auto own = aircraft(w, "launcher", 0, 90);
     if (visualRun()) w.focusViewer(own);
     const auto stations = payload(w, own, ms::Family::StoreStation);
@@ -276,6 +433,15 @@ Outcome engagement(double rangeM, unsigned workers, bool requireHit, bool requir
     for (unsigned i = 0; i < 30 && w.weapons().empty(); ++i) step(w);
     require(w.weapons().size() == 1, "consent must release exactly one native weapon");
     const auto missile = w.weapons().front().id;
+    std::unique_ptr<EffectsTrace> effectsTrace;
+    struct ResetEffectsObserver {~ResetEffectsObserver(){effectsObserver={};}} resetEffectsObserver;
+    if(const auto* prefix=std::getenv("FSIM_ENGAGEMENT_TRACE")) {
+        const auto name="native-engagement-"+std::to_string(workers)+"-"+std::to_string(rangeM);
+        const auto file=std::string(prefix)+"-r"+std::to_string(static_cast<int>(rangeM))+"-w"+std::to_string(workers);
+        effectsTrace=std::make_unique<EffectsTrace>(file,name,missile,w.info(missile)->generation);
+        effectsObserver=[&](session::World& observed){if(&observed==&w)effectsTrace->sample(observed);};
+        effectsTrace->sample(w);
+    }
     if (visualRun()) w.focusViewer(missile);
     const auto motorThrust = w.model(missile)->property("propulsion/engine/vacuum-thrust_lbs");
     require(motorThrust.valid(), "native rocket thrust property missing");
@@ -307,10 +473,19 @@ Outcome engagement(double rangeM, unsigned workers, bool requireHit, bool requir
     double minRange = std::numeric_limits<double>::infinity(), maxSpeed = 0;
     double targetMassBeforeEncounter=w.model(target)->energy().massKg;
     sim::VehicleState targetBeforeEncounter=*w.vehicleState(target);
+    // Native event timestamps are World publication boundaries. A mechanical
+    // contact and later fragment/structural loss can share that timestamp while
+    // retaining their own causal event order. Sample independent native crew
+    // truth before/after every publication; never compare an older record with
+    // the final state after a later consequence.
+    std::map<double,std::pair<bool,bool>> crewAtPublication;
+    const auto crewLost=[&] {const auto* damage=w.damage(target);return damage&&damage->crewLost();};
     for (unsigned i = 0; i < 3600 && w.alive(missile); ++i) {
         const auto beforeWeapon=*w.vehicleState(missile),beforeTarget=*w.vehicleState(target);
+        const bool crewBefore=crewLost();
         if (requireFunctional) {targetMassBeforeEncounter=w.model(target)->energy().massKg;targetBeforeEncounter=beforeTarget;}
         step(w);
+        crewAtPublication.emplace(w.simTime(),std::pair<bool,bool>{crewBefore,crewLost()});
         const auto record = weapon(w, missile);
         out.burned = out.burned || record.burning;
         out.coasted = out.coasted || (out.burned && !record.burning && w.alive(missile));
@@ -377,6 +552,7 @@ Outcome engagement(double rangeM, unsigned workers, bool requireHit, bool requir
                             "head-on armed missile regression must detonate at its observed opponent");
     if (out.record.end == ms::WeaponEnd::Detonated) {
         bool damageEvent = false, burstEvent = false;
+        bool destroyedAlready=false;
         for (const auto& event : w.engagementEvents()) if (event.entity == missile && event.kind == "detonation") {
             burstEvent = true;
             require(event.target == target, "burst event must retain the seeker's observed target");
@@ -386,8 +562,20 @@ Outcome engagement(double rangeM, unsigned workers, bool requireHit, bool requir
         require(w.damage(target) != nullptr, "observed target detonation must run native damage assessment");
         for (const auto& event : w.engagementEvents()) if (event.entity == missile && event.kind == "damage" && event.target == target) {
             damageEvent = true;
-            require(w.damage(target) != nullptr && event.destroyed == w.damage(target)->crewLost(),
+            const auto publication=crewAtPublication.find(event.timeS);
+            require(publication!=crewAtPublication.end(),"damage record must have an independently sampled native publication");
+            const auto [before,after]=publication->second;
+            require(!before||after,"native crew loss cannot recover without an explicit fixture reset");
+            // Equal boundary states establish exact truth for every event in
+            // that interval. During a real false->true transition both ordered
+            // values are possible at the same timestamp; a true flag requires
+            // actual loss, and no later damage may regress to false.
+            const bool truthful=before==after?event.destroyed==after:(!event.destroyed||after);
+            require(w.damage(target) != nullptr && truthful && (!destroyedAlready||event.destroyed),
                     "damage event destruction must reflect native crew outcome");
+            if(before!=after)std::cout << "CREW-PUBLICATION: serial=" << event.serial << " time=" << event.timeS
+                << " before=" << before << " after=" << after << " recorded=" << event.destroyed << " reason=" << event.reason << '\n';
+            destroyedAlready=destroyedAlready||event.destroyed;
         }
         // Detonation alone does not imply damage. These fixed-scene hit
         // acceptance cases separately require actual native hit evidence.
@@ -535,14 +723,21 @@ void infraredReleaseKeepsOnRailContact() {
     };
     const auto intended=targetAt("on-axis-contact",5000,0);
     targetAt("closer-off-axis-contact",940,342);
-    require(w.seekerTarget(own,"aim-9x")==intended,"on-rail infrared observation must select on-axis contact");
+    const auto receiver=infraredFixtureContract(w,own);const double onRailStart=w.simTime();
+    auto observed=w.seekerTarget(own,"aim-9x");
+    while(observed==0&&w.simTime()-onRailStart<receiver.observationBudgetS) {step(w);observed=w.seekerTarget(own,"aim-9x");}
+    require(observed==intended,"on-rail infrared observation must select on-axis contact");
+    std::cout << "ONRAIL-OBSERVATION: elapsed_s=" << w.simTime()-onRailStart << " target=" << observed << '\n';
     ms::StrikeCommand strike; strike.payload=stations; strike.store="aim-9x"; strike.target=intended; strike.consent=true;
     require(w.submit(own,strike).accepted(),"observed infrared release rejected");
     for(unsigned i=0;i<150 && w.weapons().empty();++i) step(w);
     require(w.weapons().size()==1,"infrared strike must release one weapon");
     const auto missile=w.weapons().front().id;
     step(w);
-    const auto record=weapon(w,missile);
+    const double releasedStart=w.simTime();auto record=weapon(w,missile);
+    while(!record.tracking&&w.alive(missile)&&w.simTime()-releasedStart<receiver.observationBudgetS) {step(w);record=weapon(w,missile);}
+    std::cout << "ONRAIL-RELEASE: tracking=" << record.tracking << " holding=" << record.holding
+              << " intended=" << intended << " elapsed_s=" << w.simTime()-releasedStart << '\n';
     require(record.tracking && record.holding==intended,"released infrared seeker must acquire its on-rail contact rather than a nearer off-axis contact");
 }
 
@@ -663,6 +858,7 @@ void batchedNativeContactPrecedesArming() {
     const auto stations=payload(w,own,ms::Family::StoreStation);
     require(w.loadStore(own,stations,1,"aim-9x")==ms::Reason::None,"IR fixture load rejected");
     operate(w,own,stations);
+    const auto receiver=infraredFixtureContract(w,own);
     const auto target=aircraft(w,"contact-target",5000,90);
     ms::StrikeCommand strike; strike.payload=stations; strike.store="aim-9x";
     strike.target=target; strike.consent=true;
@@ -688,7 +884,10 @@ void batchedNativeContactPrecedesArming() {
     const auto weaponSlot=controls->slot;
     step(w);
     const auto record=weapon(w,missile);
-    require(record.holding==target,"contact fixture must acquire the crossing target before native stepping");
+    if(receiver.finiteExposure)
+        require(record.holding==0&&!record.tracking,
+                "fresh V3 reset cannot manufacture completed exposure before native step-two contact");
+    else require(record.holding==target,"contact fixture must acquire the crossing target before native stepping");
     require(!w.alive(missile) && record.end==ms::WeaponEnd::Impact,
             "Native contact before one-second arming must remain Impact despite a later batch encounter");
     require(std::isfinite(record.endSpeedMs) && record.endSpeedMs>0,

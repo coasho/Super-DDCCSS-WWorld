@@ -6,6 +6,8 @@
 #include "simulation/mission_systems/weapon/MaterialPoint.h"
 #include "mode_flights.h"
 #include "simulation/flight/JsbsimModel.h"
+#include "simulation/mission_systems/components/registration/BuiltInProvidersV1.h"
+#include "simulation/mission_systems/components/interfaces/WarheadAdapter.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -23,6 +25,482 @@
 
 using namespace fsim::ms;
 using namespace fsim::ms::damage;
+
+namespace {
+Target sceneTarget(V3 at={}) {
+    Target target; target.at=at; target.airDensity=0;
+    target.bodyToEcef={V3{1,0,0},V3{0,1,0},V3{0,0,1}};
+    return target;
+}
+Airframe sceneSolid(double x) {
+    Airframe frame;
+    Airframe::Component component; component.centre={x,0,0}; component.half={.1,.1,.1};
+    frame.components.push_back(component); return frame;
+}
+FragmentFieldV1 singleSceneProjectile() {
+    FragmentFieldV1 field; field.valid=true; field.caseKg=.01;
+    FragmentFieldV1::Projectile p;p.velocity={1000,0,0};p.massKg=.01;p.areaM2=1e-5;p.cd=1.3;
+    field.projectiles.push_back(p);
+    return field;
+}
+Airframe interiorSkinFrame(bool component) {
+    Airframe frame;frame.sections.resize(1);frame.sections[0].skinAreaM2=24;
+    frame.sections[0].skinKg=.02*2780*24; // Authored 20 mm aluminium skin.
+    Airframe::Panel skin;skin.section=0;skin.surface=false;skin.half={1,1,1};skin.areaM2=24;
+    frame.panels.push_back(skin);
+    if(component) {Airframe::Component item;item.kind="fuel";item.tank=0;item.half={.2,.2,.2};frame.components.push_back(item);}
+    return frame;
+}
+FragmentFieldV1 interiorRod(double x=0,bool rod=true) {
+    auto field=singleSceneProjectile();field.applyBlast=false;
+    auto& p=field.projectiles.front();p.at={x,-.05,0};p.velocity={100,0,0};p.segment=rod;
+    // Invert the declared THOR normal-impact loss law for the stopping area,
+    // then prescribe twice that area. This constructs an opaque SYNTHETIC
+    // crossing independently of its observed outcome; no card/material input
+    // or production limit is changed. Units: inches, grains, ft/s.
+    const double speedFps=100/.3048,massGrains=p.massKg/6.479891e-5,plateIn=.02/.0254;
+    const double stopAreaIn2=std::pow(speedFps/(std::pow(10.,7.047)*std::pow(massGrains,-1.072)*
+        std::pow(speedFps,-.139)),1/1.029)/plateIn;
+    p.areaM2=2*stopAreaIn2*.0254*.0254;
+    p.end={x,.05,0};p.endVelocity=p.velocity;return field;
+}
+Airframe authoredShell(bool partitioned,bool component=false,double componentX=.5,double meshHalfWidth=1) {
+    // Two longitudinal ownership volumes describe the SAME physical shell.
+    // Their shared axial caps close the contact volumes, not aluminium plates.
+    Airframe frame;frame.sections.resize(partitioned?2:1);
+    std::vector<ContactMesh> meshes;
+    for(std::size_t i=0;i<frame.sections.size();++i) {
+        auto& section=frame.sections[i];section.hasRoot=true;
+        section.skinAreaM2=partitioned?12:24;section.skinKg=.02*2780*section.skinAreaM2;
+        Airframe::Panel panel;panel.section=static_cast<int>(i);panel.surface=false;
+        panel.centre={partitioned?(i==0?-.5:.5):0,0,0};panel.half={partitioned?.5:1,1,1};
+        panel.areaM2=section.skinAreaM2;frame.panels.push_back(panel);
+        const double lo=panel.centre.x-panel.half.x,hi=panel.centre.x+panel.half.x,w=meshHalfWidth;
+        ContactMesh mesh;mesh.index=i;
+        mesh.vertices={{lo,-w,-w},{hi,-w,-w},{hi,w,-w},{lo,w,-w},
+                       {lo,-w,w},{hi,-w,w},{hi,w,w},{lo,w,w}};
+        mesh.triangles={{{0,4,7}},{{0,7,3}},{{1,2,6}},{{1,6,5}},
+                        {{0,1,5}},{{0,5,4}},{{3,7,6}},{{3,6,2}},
+                        {{0,3,2}},{{0,2,1}},{{4,5,6}},{{4,6,7}}};
+        mesh.triangleNeighbors.resize(mesh.triangles.size());
+        if(partitioned)for(std::size_t t=(i==0?2:0);t<(i==0?4:2);++t)
+            mesh.triangleNeighbors[t]=ContactMesh::Neighbor{ContactMesh::Kind::Panel,1-i};
+        meshes.push_back(std::move(mesh));
+    }
+    if(component) {Airframe::Component item;item.kind="fuel";item.tank=0;item.section=componentX<0?0:static_cast<int>(frame.sections.size()-1);
+        item.centre={componentX,0,0};item.half={.1,.1,.1};frame.components.push_back(item);}
+    std::string error;REQUIRE(setContactGeometryV1(frame,std::move(meshes),error));REQUIRE(error.empty());return frame;
+}
+}
+
+TEST_CASE("finite rod born inside closed skin reaches its interior component before any skin crossing", "[damage][scene-effects][rod-interior-skin]") {
+    const auto frame=interiorSkinFrame(true);const auto target=sceneTarget();
+    SceneEnvironmentV1 environment;environment.airDensity=0;environment.maxFlightTimeS=.05;
+    // The line is strictly inside both boxes at birth. Neither material point
+    // has crossed a skin. Point and finite-line sources must both transfer the
+    // independently known 50 J to the component at zero flight time.
+    for(const bool rod:{false,true}) {
+        INFO("finite line="<<rod);
+        const auto result=assessSceneV1(interiorRod(0,rod),{{1,AttachedGeometryView(frame),target}},environment);
+        REQUIRE(result.valid);REQUIRE(result.victims.size()==1);const auto& impact=result.victims[0].impact;
+        REQUIRE(impact.components.size()==1);CHECK(impact.components[0].hits==1);
+        CHECK(std::abs(impact.components[0].energyJ-50)<1e-12);
+        CHECK(impact.panels.empty());REQUIRE(result.firstStrikeAgeS);CHECK(*result.firstStrikeAgeS==0);
+        CHECK(std::abs(result.absorbedMassKg-.01)<1e-15);
+    }
+}
+
+TEST_CASE("finite rod initially inside closed skin first loads its actual exit face", "[damage][scene-effects][rod-interior-skin]") {
+    const auto frame=interiorSkinFrame(false);SceneEnvironmentV1 environment;environment.airDensity=0;environment.maxFlightTimeS=.05;
+    const auto field=interiorRod();REQUIRE(thorResidual(.02,field.projectiles[0].areaM2,.01,100,0)==0);
+    const auto result=assessSceneV1(field,{{1,AttachedGeometryView(frame),sceneTarget()}},environment);
+    REQUIRE(result.valid);REQUIRE(result.firstStrikeAgeS);
+    CHECK(std::abs(*result.firstStrikeAgeS-.01)<1e-12); // (1 m - 0 m) / 100 m/s.
+    REQUIRE(result.victims[0].impact.panels.size()==1);CHECK(result.victims[0].impact.panels[0].hits==1);
+    CHECK(result.victims[0].impact.components.empty());CHECK(std::abs(result.absorbedMassKg-.01)<1e-15);
+}
+
+TEST_CASE("finite rod outside closed skin retains the actual entry crossing", "[damage][scene-effects][rod-interior-skin]") {
+    const auto frame=interiorSkinFrame(false);SceneEnvironmentV1 environment;environment.airDensity=0;environment.maxFlightTimeS=.05;
+    const auto result=assessSceneV1(interiorRod(-2),{{1,AttachedGeometryView(frame),sceneTarget()}},environment);
+    REQUIRE(result.valid);REQUIRE(result.firstStrikeAgeS);
+    CHECK(std::abs(*result.firstStrikeAgeS-.01)<1e-12); // (-1 m - -2 m) / 100 m/s.
+    REQUIRE(result.victims[0].impact.panels.size()==1);CHECK(result.victims[0].impact.panels[0].hits==1);
+    CHECK(std::abs(result.absorbedMassKg-.01)<1e-15);
+}
+
+TEST_CASE("finite rod at a closed skin boundary pays for that crossing only once", "[damage][scene-effects][rod-interior-skin]") {
+    const auto frame=interiorSkinFrame(false);SceneEnvironmentV1 environment;environment.airDensity=0;environment.maxFlightTimeS=.001;
+    for(const double x:{-1.,1.}) {
+        INFO("entry boundary -1 / exit boundary +1: "<<x);
+        auto field=interiorRod(x);auto& p=field.projectiles[0];p.areaM2/=32;
+        const double residual=thorResidual(.02,p.areaM2,p.massKg,100,0);REQUIRE(residual>0);REQUIRE(residual<100);
+        const auto result=assessSceneV1(field,{{1,AttachedGeometryView(frame),sceneTarget()}},environment);
+        REQUIRE(result.valid);REQUIRE(result.firstStrikeAgeS);CHECK(*result.firstStrikeAgeS==0);
+        REQUIRE(result.victims[0].impact.panels.size()==1);CHECK(result.victims[0].impact.panels[0].hits==1);
+        REQUIRE(result.continuation.projectiles.size()==1);
+        CHECK(std::abs(result.continuation.projectiles[0].velocity.x-residual)<1e-12);
+        CHECK(std::abs(result.transferredMomentumEcef.x-p.massKg*(100-residual))<1e-12);
+    }
+}
+
+TEST_CASE("finite rod already straddling closed skin retains its actual initial overlap", "[damage][scene-effects][rod-interior-skin]") {
+    const auto frame=interiorSkinFrame(false);SceneEnvironmentV1 environment;environment.airDensity=0;environment.maxFlightTimeS=.002;
+    auto field=interiorRod();auto& p=field.projectiles[0];p.at={-2,0,0};p.end={0,0,0};p.velocity=p.endVelocity={0,100,0};
+    const auto result=assessSceneV1(field,{{1,AttachedGeometryView(frame),sceneTarget()}},environment);
+    REQUIRE(result.valid);REQUIRE(result.firstStrikeAgeS);CHECK(*result.firstStrikeAgeS==0);
+    REQUIRE(result.victims[0].impact.panels.size()==1);CHECK(result.victims[0].impact.panels[0].hits==1);
+    CHECK(std::abs(result.absorbedMassKg-.01)<1e-15);
+}
+
+TEST_CASE("transmitting finite rod crosses one entry and one exit without a third charge", "[damage][scene-effects][rod-interior-skin]") {
+    const auto frame=interiorSkinFrame(false);SceneEnvironmentV1 environment;environment.airDensity=0;environment.maxFlightTimeS=.05;
+    auto field=interiorRod(-2);auto& p=field.projectiles[0];p.areaM2/=32;
+    const double first=thorResidual(.02,p.areaM2,p.massKg,100,0),second=thorResidual(.02,p.areaM2,p.massKg,first,0);
+    REQUIRE(second>0);const auto result=assessSceneV1(field,{{1,AttachedGeometryView(frame),sceneTarget()}},environment);
+    REQUIRE(result.valid);REQUIRE(result.firstStrikeAgeS);CHECK(std::abs(*result.firstStrikeAgeS-.01)<1e-12);
+    REQUIRE(result.victims[0].impact.panels.size()==1);CHECK(result.victims[0].impact.panels[0].hits==2);
+    REQUIRE(result.continuation.projectiles.size()==1);CHECK(std::abs(result.continuation.projectiles[0].velocity.x-second)<1e-12);
+    CHECK(std::abs(result.transferredMomentumEcef.x-p.massKg*(100-second))<1e-12);
+}
+
+TEST_CASE("authored body ownership partitions do not shield interior components", "[damage][scene-effects][authored-skin]") {
+    SceneEnvironmentV1 environment;environment.airDensity=0;environment.maxFlightTimeS=.05;
+    for(const bool rod:{false,true})for(const double componentX:{-.5,.5})for(const bool partitioned:{false,true}) {
+        INFO("rod="<<rod<<" component x="<<componentX<<" partitioned="<<partitioned);
+        const auto frame=authoredShell(partitioned,true,componentX);const auto field=interiorRod(-.5,rod);
+        REQUIRE(thorResidual(.02,field.projectiles[0].areaM2,.01,100,0)==0);
+        const auto result=assessSceneV1(field,{{1,AttachedGeometryView(frame),sceneTarget()}},environment);
+        REQUIRE(result.valid);REQUIRE(result.victims.size()==1);const auto& impact=result.victims[0].impact;
+        CHECK(impact.panels.empty());REQUIRE(impact.components.size()==1);CHECK(impact.components[0].component==0);
+        CHECK(impact.components[0].hits==1);CHECK(std::abs(impact.components[0].energyJ-50)<1e-12);
+        REQUIRE(result.firstStrikeAgeS);CHECK(std::abs(*result.firstStrikeAgeS-(componentX<0?0:.009))<1e-12);
+        CHECK(std::abs(result.absorbedMassKg-.01)<1e-15);
+    }
+}
+
+TEST_CASE("an exposed ownership cut does not become a ballistic skin plate", "[damage][scene-effects][authored-skin]") {
+    auto frame=std::make_shared<Airframe>(authoredShell(true));VehicleDamage state(frame);REQUIRE(state.separate(1));
+    const auto geometry=state.attachedGeometry();REQUIRE(geometry.panelIndices()==std::vector<std::size_t>{0});
+    SceneEnvironmentV1 environment;environment.airDensity=0;environment.maxFlightTimeS=.02;
+    for(const bool rod:{false,true}) {
+        INFO("rod="<<rod);const auto field=interiorRod(-.5,rod);
+        const auto result=assessSceneV1(field,{{1,geometry,sceneTarget()}},environment);
+        REQUIRE(result.valid);CHECK(result.victims[0].impact.panels.empty());CHECK_FALSE(result.firstStrikeAgeS);
+        CHECK(result.absorbedMassKg==0);CHECK(std::abs(result.remainingMassKg-.01)<1e-15);
+        REQUIRE(result.continuation.projectiles.size()==1);CHECK(result.continuation.projectiles[0].velocity.x==100);
+    }
+}
+
+TEST_CASE("authored shell entry and exit each charge one physical skin crossing", "[damage][scene-effects][authored-skin]") {
+    SceneEnvironmentV1 environment;environment.airDensity=0;environment.maxFlightTimeS=.05;
+    for(const bool rod:{false,true})for(const bool partitioned:{false,true}) {
+        INFO("rod="<<rod<<" partitioned="<<partitioned);const auto frame=authoredShell(partitioned);
+        auto field=interiorRod(-2,rod);auto& p=field.projectiles[0];p.areaM2/=32;
+        // The point sits on the triangulation diagonal; the finite rod straddles
+        // it. A physical face remains one plate, even with two triangle hits.
+        p.at.y=rod?-.05:0;
+        const double first=thorResidual(.02,p.areaM2,p.massKg,100,0),second=thorResidual(.02,p.areaM2,p.massKg,first,0);
+        REQUIRE(second>0);const auto result=assessSceneV1(field,{{1,AttachedGeometryView(frame),sceneTarget()}},environment);
+        REQUIRE(result.valid);REQUIRE(result.firstStrikeAgeS);CHECK(std::abs(*result.firstStrikeAgeS-.01)<1e-12);
+        int hits=0;for(const auto& hit:result.victims[0].impact.panels) {hits+=hit.hits;CHECK(hit.panel>=0);CHECK(hit.panel<static_cast<int>(frame.panels.size()));}
+        CHECK(hits==2);REQUIRE(result.continuation.projectiles.size()==1);
+        CHECK(std::abs(result.continuation.projectiles[0].velocity.x-second)<1e-12);
+        CHECK(std::abs(result.transferredMomentumEcef.x-p.massKg*(100-second))<1e-12);
+    }
+}
+
+TEST_CASE("authored skin triangles locate a crossing inside its broader damage box", "[damage][scene-effects][authored-skin]") {
+    const auto frame=authoredShell(false,false,.5,.5);SceneEnvironmentV1 environment;environment.airDensity=0;environment.maxFlightTimeS=.05;
+    for(const bool rod:{false,true}) {
+        INFO("rod="<<rod);auto field=interiorRod(0,rod);auto& p=field.projectiles[0];
+        p.at={-.05,-2,0};p.end={.05,-2,0};p.velocity=p.endVelocity={0,100,0};
+        const auto result=assessSceneV1(field,{{1,AttachedGeometryView(frame),sceneTarget()}},environment);
+        REQUIRE(result.valid);REQUIRE(result.firstStrikeAgeS);CHECK(std::abs(*result.firstStrikeAgeS-.015)<1e-12);
+        REQUIRE(result.victims[0].impact.panels.size()==1);CHECK(result.victims[0].impact.panels[0].panel==0);
+        CHECK(result.victims[0].impact.panels[0].hits==1);CHECK(std::abs(result.absorbedMassKg-.01)<1e-15);
+    }
+}
+
+TEST_CASE("one authored panel retains every crossing through multiple shell regions", "[damage][scene-effects][authored-skin]") {
+    auto frame=authoredShell(false);ContactMesh mesh=*frame.contactGeometry->panel(0);
+    const auto original=mesh;
+    for(auto& vertex:mesh.vertices)vertex.x-=2;
+    for(auto vertex:original.vertices){vertex.x+=2;mesh.vertices.push_back(vertex);}
+    for(auto triangle:original.triangles){for(auto& vertex:triangle)vertex+=original.vertices.size();mesh.triangles.push_back(triangle);}
+    mesh.triangleNeighbors.resize(mesh.triangles.size());frame.panels[0].half.x=3;
+    std::string error;REQUIRE(setContactGeometryV1(frame,{mesh},error));REQUIRE(error.empty());
+    SceneEnvironmentV1 environment;environment.airDensity=0;environment.maxFlightTimeS=.1;
+    for(const bool rod:{false,true}) {
+        INFO("rod="<<rod);auto field=interiorRod(-4,rod);auto& p=field.projectiles[0];p.areaM2/=32768;
+        double residual=100;for(int i=0;i<4;++i)residual=thorResidual(.02,p.areaM2,p.massKg,residual,0);
+        REQUIRE(residual>0);const auto result=assessSceneV1(field,{{1,AttachedGeometryView(frame),sceneTarget()}},environment);
+        REQUIRE(result.valid);REQUIRE(result.victims[0].impact.panels.size()==1);
+        CHECK(result.victims[0].impact.panels[0].hits==4);REQUIRE(result.continuation.projectiles.size()==1);
+        CHECK(std::abs(result.continuation.projectiles[0].velocity.x-residual)<1e-12);
+    }
+}
+
+TEST_CASE("one scene projectile cannot be independently absorbed by two victims", "[damage][scene-effects]") {
+    const auto front=sceneSolid(1),back=sceneSolid(2); const auto target=sceneTarget();
+    const std::vector<SceneVictimV1> victims={{22,AttachedGeometryView(back),target},{11,AttachedGeometryView(front),target}};
+    SceneEnvironmentV1 environment; environment.airDensity=0;
+    const auto field=singleSceneProjectile();
+    const auto result=assessSceneV1(field,victims,environment);
+    REQUIRE(result.valid); REQUIRE(result.victims.size()==2);
+    CHECK(result.victims[0].identity==11); REQUIRE(result.victims[0].impact.components.size()==1);
+    CHECK(result.victims[1].identity==22); CHECK(result.victims[1].impact.components.empty());
+    CHECK(std::abs(result.victims[0].impact.components[0].energyJ-5000)<1e-9);
+    CHECK(std::abs(result.transferredMomentumEcef.x-10)<1e-12);
+    auto reverse=victims;std::reverse(reverse.begin(),reverse.end());
+    const auto repeated=assessSceneV1(field,reverse,environment);
+    REQUIRE(repeated.valid); CHECK(repeated.victims[0].impact.components[0].energyJ==result.victims[0].impact.components[0].energyJ);
+    CHECK(repeated.victims[1].impact.components.empty());
+}
+
+TEST_CASE("scene residual skin penetration transfers a single finite momentum budget", "[damage][scene-effects]") {
+    Airframe shield;shield.sections.resize(1);shield.sections[0].skinKg=.00278;shield.sections[0].skinAreaM2=1;
+    Airframe::Panel panel;panel.section=0;panel.surface=false;panel.centre={1,0,0};panel.half={.01,1,1};shield.panels.push_back(panel);
+    const auto solid=sceneSolid(2);const auto target=sceneTarget();SceneEnvironmentV1 environment;environment.airDensity=0;
+    const auto result=assessSceneV1(singleSceneProjectile(),{{1,AttachedGeometryView(shield),target},{2,AttachedGeometryView(solid),target}},environment);
+    REQUIRE(result.valid);REQUIRE(result.victims[1].impact.components.size()==1);
+    const double energy=result.victims[1].impact.components[0].energyJ;
+    CHECK(energy>0);CHECK(energy<5000);
+    CHECK(std::abs(result.transferredMomentumEcef.x-10)<1e-10);
+    CHECK(std::abs(result.remainingMassKg)<1e-12);
+    CHECK(result.airMomentumEcef.x==0);
+}
+
+TEST_CASE("scene fragment interception is Galilean invariant for translating targets", "[damage][scene-effects]") {
+    const auto solid=sceneSolid(2);auto target=sceneTarget();SceneEnvironmentV1 environment;environment.airDensity=0;
+    auto field=singleSceneProjectile();
+    const auto first=assessSceneV1(field,{{1,AttachedGeometryView(solid),target}},environment);
+    const V3 boost{250,-40,30};field.projectiles[0].velocity+=boost;target.velocity+=boost;environment.airVelocity+=boost;
+    const auto second=assessSceneV1(field,{{1,AttachedGeometryView(solid),target}},environment);
+    REQUIRE(first.valid);REQUIRE(second.valid);REQUIRE(second.victims[0].impact.components.size()==1);
+    CHECK(std::abs(first.victims[0].impact.components[0].energyJ-second.victims[0].impact.components[0].energyJ)<1e-9);
+    CHECK(length(first.transferredMomentumEcef-second.transferredMomentumEcef)<1e-12);
+}
+
+TEST_CASE("scene angular impulse is invariant under a common translational boost", "[damage][scene-effects][scene-moving-origin-moment]") {
+    const auto solid=sceneSolid(2);SceneEnvironmentV1 environment;environment.airDensity=0;
+    const auto stationary=assessSceneV1(singleSceneProjectile(),{{1,AttachedGeometryView(solid),sceneTarget()}},environment);
+    REQUIRE(stationary.valid);REQUIRE(stationary.victims[0].impact.components.size()==1);
+    CHECK(length(stationary.victims[0].impact.angularImpulseBody)<1e-12);
+    // The ray passes through the moving body's origin. Changing only the
+    // inertial reference velocity cannot manufacture a spin impulse.
+    for(const V3 boost: {V3{250,-40,30},V3{-100,75,-60}}) {
+        auto field=singleSceneProjectile();field.projectiles[0].velocity+=boost;
+        auto target=sceneTarget();target.velocity=boost;
+        const auto result=assessSceneV1(field,{{1,AttachedGeometryView(solid),target}},environment);
+        REQUIRE(result.valid);REQUIRE(result.victims[0].impact.components.size()==1);
+        CHECK(length(result.victims[0].impact.impulseBody-stationary.victims[0].impact.impulseBody)<1e-12);
+        CHECK(length(result.victims[0].impact.angularImpulseBody-stationary.victims[0].impact.angularImpulseBody)<1e-12);
+    }
+}
+
+TEST_CASE("captured translating scene moments use the material lever at contact independently of batch duration", "[damage][scene-effects][scene-moving-origin-moment]") {
+    auto solid=sceneSolid(2);solid.components[0].centre={2,.5,-.25};
+    const V3 origin{5,-3,2},offset{0,.5,-.25},impulse{10,0,0};
+    // The first box face is x=1.9 in structural coordinates. Its unknown
+    // contact-time x does not enter this cross product because J is axial.
+    const V3 expected=cross(offset,impulse);
+    for(const double duration: {.002,.01,.04})for(const V3 boost: {V3{},V3{250,-40,30},V3{-100,75,-60}}) {
+        CAPTURE(duration,boost.x,boost.y,boost.z);
+        auto field=singleSceneProjectile();field.projectiles[0].at=origin+offset;field.projectiles[0].velocity+=boost;
+        auto target=sceneTarget(origin);target.velocity=boost;
+        SceneVictimV1 victim{1,AttachedGeometryView(solid),target};
+        for(const double time: {0.,duration/2,duration}) {
+            auto sample=target;sample.at=origin+boost*time;victim.motion.push_back({time,sample});
+        }
+        SceneEnvironmentV1 environment;environment.airDensity=0;environment.maxFlightTimeS=duration;
+        const auto result=assessSceneV1(field,{victim},environment);
+        REQUIRE(result.valid);REQUIRE(result.victims[0].impact.components.size()==1);
+        REQUIRE(result.firstStrikeAgeS);CHECK(std::abs(*result.firstStrikeAgeS-.0019)<1e-12);
+        CHECK(length(result.victims[0].impact.impulseBody-impulse)<1e-11);
+        CHECK(length(result.victims[0].impact.angularImpulseBody-expected)<1e-11);
+    }
+}
+
+TEST_CASE("finite rod material between endpoints can strike a narrow component", "[damage][scene-effects][connected-rod]") {
+    auto field=singleSceneProjectile();auto& rod=field.projectiles[0];rod.segment=true;
+    rod.at={0,-1,0};rod.end={0,1,0};rod.velocity={1000,0,0};rod.endVelocity=rod.velocity;
+    const auto solid=sceneSolid(2);SceneEnvironmentV1 environment;environment.airDensity=0;
+    const auto result=assessSceneV1(field,{{1,AttachedGeometryView(solid),sceneTarget()}},environment);
+    REQUIRE(result.valid);REQUIRE(result.victims[0].impact.components.size()==1);
+    CHECK(result.victims[0].impact.components[0].hits==1);
+    CHECK(std::abs(result.transferredMomentumEcef.x-10)<1e-12);
+}
+
+TEST_CASE("detached damage state owns only its original section identities", "[damage][scene-effects][detached-effects]") {
+    auto frame=std::make_shared<Airframe>();frame->sections.resize(2);
+    for(auto& section:frame->sections)section.hasRoot=true;
+    for(int section:{-1,0,1}) {Airframe::Component component;component.section=section;frame->components.push_back(component);}
+    VehicleDamage parent(frame);REQUIRE(parent.separate(1));VehicleDamage detached(frame,1);
+    const auto parentView=parent.attachedGeometry(),detachedView=detached.attachedGeometry();
+    REQUIRE(parentView.componentIndices()==std::vector<std::size_t>{0,1});
+    REQUIRE(detachedView.componentIndices()==std::vector<std::size_t>{2});
+    CHECK(parent.airframe().components.size()==3);CHECK(detached.airframe().components.size()==3);
+}
+
+TEST_CASE("scene atmospheric momentum and retained projectile momentum close independently", "[damage][scene-effects]") {
+    const auto field=singleSceneProjectile();SceneEnvironmentV1 environment;
+    environment.airDensity=1.2;environment.maxFlightTimeS=.05;
+    const auto result=assessSceneV1(field,{},environment);REQUIRE(result.valid);
+    const double coefficient=1.2*1.3*1e-5/(2*.01);
+    const double expectedSpeed=1000/(1+coefficient*1000*.05);
+    CHECK(std::abs(result.remainingMomentumEcef.x-.01*expectedSpeed)<1e-10);
+    CHECK(std::abs(result.remainingMomentumEcef.x+result.airMomentumEcef.x-10)<1e-10);
+    CHECK(result.transferredMomentumEcef.x==0);CHECK(result.remainingMassKg==.01);CHECK(result.absorbedMassKg==0);
+}
+
+TEST_CASE("scene selection rejects duplicate identity and malformed populations atomically", "[damage][scene-effects]") {
+    const auto solid=sceneSolid(1);const auto target=sceneTarget();auto field=singleSceneProjectile();SceneEnvironmentV1 environment;
+    CHECK_FALSE(assessSceneV1(field,{{1,AttachedGeometryView(solid),target},{1,AttachedGeometryView(solid),target}},environment).valid);
+    field.projectiles[0].massKg*=2;
+    const auto result=assessSceneV1(field,{{1,AttachedGeometryView(solid),target}},environment);
+    CHECK_FALSE(result.valid);CHECK(result.victims.empty());
+}
+
+TEST_CASE("a resumed field cannot apply a future hit or resample surviving material", "[damage][scene-effects][causal-effects]") {
+    const auto solid=sceneSolid(1);const auto target=sceneTarget();SceneEnvironmentV1 environment;
+    environment.airDensity=0;environment.maxFlightTimeS=.0005;
+    const auto first=assessSceneV1(singleSceneProjectile(),{{1,AttachedGeometryView(solid),target}},environment);
+    REQUIRE(first.valid);CHECK(first.victims[0].impact.components.empty());CHECK(first.transferredMomentumEcef.x==0);
+    REQUIRE(first.continuation.valid);REQUIRE(first.continuation.projectiles.size()==1);
+    CHECK(std::abs(first.continuation.projectiles[0].at.x-.5)<1e-12);
+    const auto second=assessSceneV1(first.continuation,{{1,AttachedGeometryView(solid),target}},environment);
+    REQUIRE(second.valid);REQUIRE(second.victims[0].impact.components.size()==1);
+    CHECK(std::abs(second.victims[0].impact.components[0].energyJ-5000)<1e-9);
+    CHECK(second.continuation.projectiles.empty());CHECK(second.absorbedMassKg==.01);
+}
+
+TEST_CASE("scene execution refuses nonphysical finite-overflow and unavailable atmosphere", "[damage][scene-effects][effects-quality-boundary]") {
+    const auto solid=sceneSolid(1);SceneEnvironmentV1 environment;environment.airDensity=0;
+    auto field=singleSceneProjectile();auto target=sceneTarget();
+    field.burst.at.x=std::numeric_limits<double>::quiet_NaN();
+    CHECK_FALSE(assessSceneV1(field,{{1,AttachedGeometryView(solid),target}},environment).valid);
+    field=singleSceneProjectile();field.projectiles[0].velocity.x=std::numeric_limits<double>::max()/2;
+    CHECK_FALSE(assessSceneV1(field,{{1,AttachedGeometryView(solid),target}},environment).valid);
+    field=singleSceneProjectile();target.airPressurePa=std::numeric_limits<double>::quiet_NaN();
+    CHECK_FALSE(assessSceneV1(field,{{1,AttachedGeometryView(solid),target}},environment).valid);
+    target=sceneTarget();target.bodyToEcef[2].z=-1;
+    CHECK_FALSE(assessSceneV1(field,{{1,AttachedGeometryView(solid),target}},environment).valid);
+}
+
+TEST_CASE("fragment gravity advances real material and closes its external impulse ledger", "[damage][scene-effects][causal-effects]") {
+    auto field=singleSceneProjectile();SceneEnvironmentV1 environment;environment.airDensity=0;
+    environment.gravityEcef={0,0,-10};environment.maxFlightTimeS=.1;
+    const auto result=assessSceneV1(field,{},environment);REQUIRE(result.valid);REQUIRE(result.continuation.projectiles.size()==1);
+    const auto& particle=result.continuation.projectiles.front();
+    CHECK(std::abs(particle.at.x-100)<1e-10);CHECK(std::abs(particle.at.z+.05)<1e-10);
+    CHECK(std::abs(particle.velocity.z+1)<1e-10);CHECK(std::abs(result.gravityImpulseEcef.z+.01)<1e-12);
+    CHECK(length(result.airMomentumEcef)<1e-12);
+    CHECK(length(V3{10,0,0}+result.gravityImpulseEcef-result.remainingMomentumEcef)<1e-10);
+}
+
+TEST_CASE("fragment interception consumes captured moving origins without extrapolating unavailable history", "[damage][scene-effects][causal-effects]") {
+    const auto solid=sceneSolid(1);auto target=sceneTarget();SceneEnvironmentV1 environment;environment.airDensity=0;environment.maxFlightTimeS=.001;
+    SceneVictimV1 victim{1,AttachedGeometryView(solid),target};victim.motion.push_back({0,target});
+    target.at.y=2;victim.motion.push_back({.0005,target});victim.motion.push_back({.001,target});
+    const auto moving=assessSceneV1(singleSceneProjectile(),{victim},environment);REQUIRE(moving.valid);
+    CHECK(moving.victims[0].impact.components.empty());
+    victim.motion.pop_back();CHECK_FALSE(assessSceneV1(singleSceneProjectile(),{victim},environment).valid);
+}
+
+TEST_CASE("resuming at a crossed skin preserves its identity and residual impulse", "[damage][scene-effects][causal-effects]") {
+    Airframe shield;shield.sections.resize(1);shield.sections[0].skinKg=.00278;shield.sections[0].skinAreaM2=1;
+    Airframe::Panel panel;panel.section=0;panel.surface=false;panel.centre={1,0,0};panel.half={.1,1,1};shield.panels.push_back(panel);
+    const auto solid=sceneSolid(1.5);const auto target=sceneTarget();
+    const std::vector<SceneVictimV1> victims={{1,AttachedGeometryView(shield),target},{2,AttachedGeometryView(solid),target}};
+    SceneEnvironmentV1 environment;environment.airDensity=0;environment.maxFlightTimeS=.002;
+    const auto whole=assessSceneV1(singleSceneProjectile(),victims,environment);REQUIRE(whole.valid);
+    environment.maxFlightTimeS=.0009;const auto first=assessSceneV1(singleSceneProjectile(),victims,environment);REQUIRE(first.valid);
+    environment.maxFlightTimeS=.0011;const auto second=assessSceneV1(first.continuation,victims,environment);REQUIRE(second.valid);
+    REQUIRE(second.victims[1].impact.components.size()==1);REQUIRE(whole.victims[1].impact.components.size()==1);
+    CHECK(std::abs(second.victims[1].impact.components[0].energyJ-whole.victims[1].impact.components[0].energyJ)<1e-8);
+    CHECK(length(first.transferredMomentumEcef+second.transferredMomentumEcef-whole.transferredMomentumEcef)<1e-10);
+}
+
+TEST_CASE("absorbing a finite spinning rod transfers its intrinsic angular momentum", "[damage][scene-effects][connected-rod]") {
+    auto field=singleSceneProjectile();auto& rod=field.projectiles.front();
+    rod.segment=true;rod.at={0,-1,0};rod.end={0,1,0};rod.endVelocity={1000,0,2};
+    const auto solid=sceneSolid(1);SceneEnvironmentV1 environment;environment.airDensity=0;environment.maxFlightTimeS=.002;
+    const auto result=assessSceneV1(field,{{1,AttachedGeometryView(solid),sceneTarget()}},environment);
+    REQUIRE(result.valid);REQUIRE(result.victims[0].impact.components.size()==1);
+    const auto torque=result.victims[0].impact.angularImpulseBody;
+    CHECK(std::abs(torque.x-.01/3)<1e-10);CHECK(std::abs(torque.y)<1e-10);CHECK(std::abs(torque.z)<1e-10);
+    CHECK(result.victims[0].impact.components[0].energyJ>5000);
+}
+
+TEST_CASE("every future captured target sample retains complete physical validity", "[damage][scene-effects][effects-quality-boundary]") {
+    const auto solid=sceneSolid(1);const auto initial=sceneTarget();SceneEnvironmentV1 environment;
+    environment.airDensity=0;environment.maxFlightTimeS=.002;
+    for(unsigned invalid=0;invalid<6;++invalid) {
+        auto future=initial;
+        switch(invalid) {
+        case 0: future.bodyToEcef={V3{},V3{},V3{}};break;
+        case 1: future.bodyToEcef[2].z=-1;break;
+        case 2: future.angularVelocityEcef.x=std::numeric_limits<double>::quiet_NaN();break;
+        case 3: future.airPressurePa=std::numeric_limits<double>::quiet_NaN();break;
+        case 4: future.airTemperatureK=0;break;
+        case 5: future.airDensity=-1;break;
+        }
+        SceneVictimV1 victim{1,AttachedGeometryView(solid),initial};victim.motion={{0,initial},{.002,future}};
+        const auto result=assessSceneV1(singleSceneProjectile(),{victim},environment);
+        CHECK_FALSE(result.valid);CHECK(result.victims.empty());CHECK(result.continuation.projectiles.empty());
+    }
+}
+
+TEST_CASE("finite-line gravity drag and rotating-target interception converges against independent RK4", "[damage][scene-effects][causal-effects][effects-convergence]") {
+    constexpr double referenceTime=.01975,duration=.03,density=.5,cd=1.3,area=.01,mass=.01,omega=8;
+    const V3 air{0,3,0},gravity{0,0,-9.80665};const double drag=density*cd*area/(2*mass);
+    // Independent fixed-step coupled ODE oracle; no production trajectory or
+    // intersection helper supplies its expected contact geometry/time.
+    V3 position,velocity{100,0,0};constexpr unsigned count=19750;const double dt=referenceTime/count;
+    const auto acceleration=[&](V3 v){const auto relative=v-air;return gravity-relative*(drag*length(relative));};
+    for(unsigned i=0;i<count;++i) {
+        const auto a1=acceleration(velocity),v2=velocity+a1*(dt/2),a2=acceleration(v2);
+        const auto v3=velocity+a2*(dt/2),a3=acceleration(v3),v4=velocity+a3*dt,a4=acceleration(v4);
+        position+=(velocity+v2*2+v3*2+v4)*(dt/6);velocity+=(a1+a2*2+a3*2+a4)*(dt/6);
+    }
+    const double support=.1*std::cos(omega*referenceTime)+.15*std::sin(omega*referenceTime);
+    const double targetX=position.x+support;
+    Airframe frame;Airframe::Component box;box.half={.1,.15,.1};frame.components.push_back(box);
+    std::array<double,3> errors{};std::size_t index=0;
+    for(const double cadence:{.002,.001,.0005}) {
+        auto field=singleSceneProjectile();auto& rod=field.projectiles.front();rod.segment=true;
+        rod.at={0,-1,0};rod.end={0,1,0};rod.velocity=rod.endVelocity={100,0,0};rod.areaM2=area;
+        auto initial=sceneTarget({targetX,.1,0});initial.velocity={0,.3,0};initial.angularVelocityEcef={0,0,omega};
+        SceneVictimV1 victim{1,AttachedGeometryView(frame),initial};
+        for(double time=0;;time=std::min(duration,time+cadence)) {
+            auto target=initial;target.at.y+=.3*time;const double c=std::cos(omega*time),s=std::sin(omega*time);
+            target.bodyToEcef={V3{c,s,0},V3{-s,c,0},V3{0,0,1}};victim.motion.push_back({time,target});if(time==duration)break;
+        }
+        SceneEnvironmentV1 environment;environment.airDensity=density;environment.airVelocity=air;environment.gravityEcef=gravity;
+        environment.maxFlightTimeS=duration;environment.maxSubstepS=cadence;
+        const auto result=assessSceneV1(field,{victim},environment);REQUIRE(result.valid);REQUIRE(result.firstStrikeAgeS);
+        REQUIRE(result.victims[0].impact.components.size()==1);CHECK(result.absorbedMassKg==mass);
+        errors[index++]=std::abs(*result.firstStrikeAgeS-referenceTime);
+    }
+    CHECK(errors[1]<=errors[0]+1e-9);CHECK(errors[2]<=errors[1]+1e-9);
+    CHECK(errors[2]<errors[0]*.75);CHECK(errors[2]<2e-5);
+    std::printf("SIM_M03_EFFECTS_CONVERGENCE dt2ms_error_s=%.12g dt1ms_error_s=%.12g dt0.5ms_error_s=%.12g\n",errors[0],errors[1],errors[2]);
+}
+
+TEST_CASE("departing body inherits damaged fuel state and translates its original material origin", "[damage][scene-effects][detached-effects]") {
+    auto frame=std::make_shared<Airframe>();frame->sections.resize(2);for(auto& section:frame->sections)section.hasRoot=true;
+    Airframe::Component fuel;fuel.kind="fuel";fuel.section=1;fuel.tank=7;fuel.fuelKg=42;fuel.centre={6,2,1};frame->components.push_back(fuel);
+    VehicleDamage parent(frame);Impact impact;Impact::ComponentHits hit;hit.component=0;hit.hits=1;hit.energyJ=1e9;hit.areaM2=.01;hit.fastestMs=1500;
+    impact.components.push_back(hit);fsim::Rng rng(17);parent.apply(impact,101325,rng);REQUIRE(parent.tanks().at(7).burning);
+    REQUIRE(parent.separate(1));auto body=parent.detachedState(1,{5,0,0});REQUIRE(body);
+    CHECK(body->tanks().at(7).burning);CHECK(body->tanks().at(7).holeM2==parent.tanks().at(7).holeM2);
+    CHECK(body->airframe().components[0].centre.x==1);CHECK(parent.airframe().components[0].centre.x==6);
+    REQUIRE(body->setDetachedFuelKg(7,12));CHECK(body->removeDetachedFuelKg(7,3)==3);
+    REQUIRE(body->detachedFuelKg(7));CHECK(*body->detachedFuelKg(7)==9);CHECK_FALSE(parent.detachedFuelKg(7));
+    CHECK(body->removeDetachedFuelKg(7,100)==9);CHECK(*body->detachedFuelKg(7)==0);
+    CHECK_FALSE(parent.detachedState(0));
+}
 
 TEST_CASE("A fixed burst point keeps its location and velocity when the CG reference moves", "[damage][material-point]") {
     fsim::sim::VehicleState s{};
@@ -944,7 +1422,142 @@ fsim::session::Detonation burstBeside(const fsim::sim::VehicleState& s, V3 offse
     }
     return d;
 }
+
+struct NativeMomentProbe {
+    V3 cg,impulse;
+    unsigned sceneCalls=0,legacyCalls=0;
+};
+// These are explicit test providers, not altered production cards. The scene
+// provider exercises the physical kernel; the external provider below supplies
+// a known historical wrench to check that its old convention remains intact.
+class FixedReferenceMomentFixture : public WarheadAdapter {
+public:
+    FixedReferenceMomentFixture(Warhead model,std::shared_ptr<NativeMomentProbe> probe)
+        :model_(std::move(model)),probe_(std::move(probe)){model_.tntKg=0;}
+    std::string_view implementationId() const noexcept override{return "test.fixed_reference_moment";}
+    const Warhead& model() const noexcept override{return model_;}
+    Impact assess(const Burst&,const AttachedGeometryView&,const Target&,fsim::Rng&) const override {
+        ++probe_->legacyCalls;Impact impact;impact.missM=0;
+        impact.impulseBody=probe_->impulse;impact.angularImpulseBody=cross(probe_->cg,probe_->impulse);return impact;
+    }
+protected:
+    Warhead model_;
+    std::shared_ptr<NativeMomentProbe> probe_;
+};
+class MovingOriginMomentFixture final : public FixedReferenceMomentFixture,public WarheadSceneExecutionV2 {
+public:
+    using FixedReferenceMomentFixture::FixedReferenceMomentFixture;
+    static constexpr double massKg=1e-6,relativeSpeedMs=1000;
+    FragmentFieldV1 emitScene(const Burst& burst,fsim::Rng&) const override {
+        ++probe_->sceneCalls;FragmentFieldV1 field;field.valid=true;field.caseKg=massKg;field.burst=burst;
+        field.emittedCount=1;field.applyBlast=false;
+        FragmentFieldV1::Projectile p;p.at=burst.at;p.velocity=burst.velocity;p.massKg=massKg;
+        p.areaM2=1e-8;p.cd=1.3;p.sourceOrdinalV1=1;field.projectiles.push_back(p);return field;
+    }
+};
+void nativeMomentApplication(unsigned skip,bool turning,bool scene) {
+    using namespace fsim::ms::components;
+    CAPTURE(skip,turning,scene);
+    auto settings=fsim::modes::options("native-moving-origin-moment");settings.frameSkip=static_cast<int>(skip);
+    fsim::session::World world(settings);auto probe=std::make_shared<NativeMomentProbe>();
+    auto registry=builtInProvidersV1();const auto original=registry.warhead;std::string error;
+    REQUIRE(registry.warhead.registerFactory("equipment.aim-120c-7.warhead","native.warhead.finite_zoned_case.v2",
+        [original,probe,scene](const auto& descriptor,const auto& context,auto& message)->std::unique_ptr<WarheadAdapter>{
+            auto inner=original.create(descriptor,context,message);if(!inner)return {};
+            if(scene)return std::make_unique<MovingOriginMomentFixture>(inner->model(),probe);
+            return std::make_unique<FixedReferenceMomentFixture>(inner->model(),probe);
+        },true,error));
+    REQUIRE(world.setPayloadProvidersV1(registry,error));
+    fsim::session::VehicleSpec spec;spec.name="moment-victim";spec.type="jsbsim:f16c";
+    spec.initial.altitudeMslM=6000;spec.initial.headingDeg=90;spec.initial.airspeedTrueMs=220;
+    if(turning){spec.initial.bodyRatesRadS[0]=.02;spec.initial.bodyRatesRadS[1]=-.015;spec.initial.bodyRatesRadS[2]=.01;}
+    const auto id=world.createVehicle(spec);REQUIRE(id);
+    auto* native=dynamic_cast<fsim::sim::JsbsimModel*>(world.model(id));REQUIRE(native);
+    const auto captured=*world.vehicleState(id);double capturedCg[3];REQUIRE(native->cgFromOriginBodyM(capturedCg));
+    probe->cg={capturedCg[0],capturedCg[1],capturedCg[2]};
+    const auto frame=readAirframe(kAircraft/"f16c/f16c.damage.json",error);REQUIRE(frame);
+    const auto component=std::find_if(frame->components.begin(),frame->components.end(),[](const auto& item){
+        // This fixture needs a solid absorber at birth: a real liquid has a
+        // finite transit time and is covered by the independent fluid suite.
+        return item.kind=="crew";
+    });
+    REQUIRE(component!=frame->components.end());
+    const V3 arm=component->centre-probe->cg,ray=normalized(arm);
+    const auto rotate=[&](V3 v){const auto* r=captured.rotationBodyToEcef;
+        return V3{r[0]*v.x+r[1]*v.y+r[2]*v.z,r[3]*v.x+r[4]*v.y+r[5]*v.z,r[6]*v.x+r[7]*v.y+r[8]*v.z};};
+    const V3 capturedAt{captured.positionEcef[0],captured.positionEcef[1],captured.positionEcef[2]};
+    const V3 at=capturedAt+rotate(arm);
+    const V3 omega{captured.angularRateBodyRadS[0],captured.angularRateBodyRadS[1],captured.angularRateBodyRadS[2]};
+    if(turning)REQUIRE(length(omega)>0);
+    const V3 velocity=rotate(V3{captured.velocityBodyMs[0],captured.velocityBodyMs[1],captured.velocityBodyMs[2]}+
+        cross(omega,arm)+ray*MovingOriginMomentFixture::relativeSpeedMs);
+    probe->impulse=ray*(MovingOriginMomentFixture::massKg*MovingOriginMomentFixture::relativeSpeedMs);
+    fsim::session::Detonation burst;burst.store="aim-120c";burst.stepFraction=0;
+    const V3 axis=rotate(ray);
+    for(int i=0;i<3;++i){burst.positionEcef[i]=(&at.x)[i];burst.velocityEcef[i]=(&velocity.x)[i];burst.axisEcef[i]=(&axis.x)[i];}
+    world.step();
+    const auto before=native->rigid();double currentCg[3];REQUIRE(native->cgFromOriginBodyM(currentCg));
+    fsim::sim::RigidMassPropertiesV1 mass;REQUIRE(native->rigidMassPropertiesV1(mass));
+    double minimumInertia=std::numeric_limits<double>::infinity(),rotationChangeSquared=0;
+    for(unsigned row=0;row<3;++row) {
+        double lower=mass.inertiaBodyKgM2[3*row+row];
+        for(unsigned col=0;col<3;++col)if(col!=row)lower-=std::abs(mass.inertiaBodyKgM2[3*row+col]);
+        minimumInertia=std::min(minimumInertia,lower);
+    }
+    REQUIRE(minimumInertia>0);
+    for(unsigned i=0;i<9;++i){const double change=before.bodyToEcef[i]-captured.rotationBodyToEcef[i];rotationChangeSquared+=change*change;}
+    const double cgChange=length(V3{currentCg[0],currentCg[1],currentCg[2]}-probe->cg);
+    const double lever=length(arm)+length(probe->cg);
+    const double epsilon=std::numeric_limits<double>::epsilon();
+    const double positionRoundoff=128*epsilon*std::max({1.,length(capturedAt),length(at)});
+    // The source is strictly INSIDE the actual component at birth. Its first
+    // absorption has flight time zero: gravity/drag cannot contribute impulse.
+    // The independent r x J is zero about captured CG. Bound the current
+    // frozen-pose/CG approximation using observed rotation/CG change, the known
+    // impulse, and a Gershgorin lower bound on the actual full native inertia.
+    // The bound is fixed BEFORE reading any post-damage rates or test outcome.
+    constexpr double firstFlightS=0,gravityMs2=9.80665;
+    const double materialLeverBound=cgChange+lever*std::sqrt(rotationChangeSquared)+positionRoundoff+
+        .5*gravityMs2*firstFlightS*firstFlightS;
+    REQUIRE(materialLeverBound<.5*std::min({component->half.x,component->half.y,component->half.z}));
+    const double rateRoundoff=128*epsilon*(1+length(V3{before.ratesBody[0],before.ratesBody[1],before.ratesBody[2]}));
+    const double rateBound=length(probe->impulse)*materialLeverBound/minimumInertia+rateRoundoff;
+    const auto currentBody=[&](V3 v){const auto* r=before.bodyToEcef;
+        return V3{r[0]*v.x+r[3]*v.y+r[6]*v.z,r[1]*v.x+r[4]*v.y+r[7]*v.z,r[2]*v.x+r[5]*v.y+r[8]*v.z};};
+    const V3 currentAt{before.cgEcef[0],before.cgEcef[1],before.cgEcef[2]};
+    const V3 expectedLegacy=currentBody(cross(capturedAt-currentAt,rotate(probe->impulse)));
+    const double legacyMomentBound=length(probe->impulse)*(cgChange+positionRoundoff)+
+        128*epsilon*std::max(1.,length(expectedLegacy));
+    const auto events=world.detonate(burst);
+    REQUIRE(world.damage(id));
+    const auto actualComponent=std::find_if(world.damage(id)->airframe().components.begin(),world.damage(id)->airframe().components.end(),
+        [&](const auto& item){return item.name==component->name;});
+    REQUIRE(actualComponent!=world.damage(id)->airframe().components.end());
+    REQUIRE(length(actualComponent->centre-component->centre)<positionRoundoff);
+    const auto after=native->rigid();
+    REQUIRE(after.massKg==before.massKg);REQUIRE(world.vehicleIds().size()==1);
+    const V3 delta{after.ratesBody[0]-before.ratesBody[0],after.ratesBody[1]-before.ratesBody[1],after.ratesBody[2]-before.ratesBody[2]};
+    INFO("native spin increment="<<length(delta)<<" independent bound="<<rateBound);
+    if(scene) {
+        REQUIRE(probe->sceneCalls==1);CHECK(probe->legacyCalls==0);
+        REQUIRE(std::any_of(events.begin(),events.end(),[](const auto& event){
+            return event.kind==static_cast<std::uint8_t>(fsim::ipc::EngagementKind::Hit)&&event.index==1;
+        }));
+        CHECK(length(delta)<=rateBound);
+    } else {
+        REQUIRE(probe->legacyCalls==1);CHECK(probe->sceneCalls==0);
+        V3 measured;for(unsigned row=0;row<3;++row)for(unsigned col=0;col<3;++col)
+            (&measured.x)[row]+=mass.inertiaBodyKgM2[3*row+col]*(&delta.x)[col];
+        REQUIRE(length(expectedLegacy)>10*legacyMomentBound);
+        CHECK(length(measured-expectedLegacy)<=legacyMomentBound);
+    }
+}
 } // namespace
+
+TEST_CASE("native shared scene spin respects the moving origin while external fixed moments retain transport", "[damage][world][scene-effects][scene-native-moving-origin]") {
+    for(const unsigned skip:{1u,4u})for(const bool turning:{false,true})for(const bool scene:{true,false})
+        nativeMomentApplication(skip,turning,scene);
+}
 
 TEST_CASE("an AIM-120C beside a MiG-29A in the world: what it breaks, flown on, deterministic", "[damage][world]") {
     std::vector<std::vector<int>> kinds;
@@ -1369,6 +1982,80 @@ TEST_CASE("a section a burst breaks off is thrown away from the burst: up from o
     CHECK(std::abs(over.down / over.pieces) < 61.0);
 }
 
+TEST_CASE("a native departing body retains independent damage and receives a later burst", "[damage][world][scene-effects][detached-effects]") {
+    fsim::session::World world(fsim::modes::options("detached-effects"));
+    const auto parent=fsim::modes::wing(world,"f16c",6000,220);
+    world.step(fsim::modes::stepsFor(world,.5));REQUIRE(world.separateSection(parent,"left wing"));
+    std::uint32_t piece=0;
+    for(const auto id:world.vehicleIds())if(world.info(id)->role==fsim::ms::Role::Debris)piece=id;
+    REQUIRE(piece);REQUIRE(world.damage(piece));
+    const auto before=world.damage(piece)->attachedGeometry();REQUIRE_FALSE(before.panelIndices().empty());
+    const auto& material=world.damage(piece)->airframe();
+    const int sourceSection=material.section("left wing");
+    for(const auto index:before.panelIndices())CHECK(material.panels[index].section==sourceSection);
+    const auto burst=burstBeside(*world.vehicleState(piece),{0,0,0},{600,0,0});
+    const auto events=world.detonate(burst);
+    const auto slot=world.vehicleStreamSlot(piece);REQUIRE(slot);
+    CHECK(std::any_of(events.begin(),events.end(),[&](const auto& event) {
+        return event.slot==*slot&&event.kind==static_cast<std::uint8_t>(fsim::ipc::EngagementKind::Hit)&&event.index>0;
+    }));
+    world.step(4);REQUIRE(world.damage(piece));CHECK(std::isfinite(world.vehicleState(piece)->altitudeMslM));
+    REQUIRE(world.resetVehicle(piece));CHECK(world.damage(piece)==nullptr);
+    world.detonate(burstBeside(*world.vehicleState(piece),{0,0,0},{600,0,0}));
+    REQUIRE(world.damage(piece));
+    const auto restored=world.damage(piece)->attachedGeometry();REQUIRE_FALSE(restored.panelIndices().empty());
+    for(const auto index:restored.panelIndices())CHECK(world.damage(piece)->airframe().panels[index].section==sourceSection);
+}
+
+TEST_CASE("captured native burst waits for real flight and survives source identity removal", "[damage][world][scene-effects][causal-effects]") {
+    fsim::session::World world(fsim::modes::options("causal-burst"));
+    const auto victim=fsim::modes::wing(world,"f16c",6000,220);
+    fsim::ms::WeaponLaunch release;release.type="jsbsim:aim120c";release.offsetBodyM[1]=30;
+    const auto source=world.launchWeapon(victim,release);REQUIRE(source);world.step(2);
+    const auto sourceSlot=world.vehicleStreamSlot(source);REQUIRE(sourceSlot);
+    auto burst=burstBeside(*world.vehicleState(victim),{0,0,0},{600,0,0});burst.weapon=source;burst.stepFraction=1;
+    const auto immediate=world.detonateCapturedV1(burst);
+    CHECK(std::none_of(immediate.begin(),immediate.end(),[](const auto& event){return event.kind==static_cast<std::uint8_t>(fsim::ipc::EngagementKind::Hit);}));
+    REQUIRE(world.removeVehicle(source));
+    fsim::session::VehicleSpec replacement;replacement.name="unrelated replacement";replacement.type="jsbsim:aim120c";
+    replacement.initial=world.info(victim)->initial;replacement.initial.longitudeDeg+=.1;
+    const auto other=world.createVehicle(replacement);REQUIRE(other);CHECK(world.vehicleStreamSlot(other)==sourceSlot);
+    world.takeEngagementEvents();world.step();
+    const auto events=world.takeEngagementEvents();const auto victimSlot=world.vehicleStreamSlot(victim);REQUIRE(victimSlot);
+    const auto hit=std::find_if(events.begin(),events.end(),[&](const auto& event) {
+        return event.slot==*victimSlot&&event.kind==static_cast<std::uint8_t>(fsim::ipc::EngagementKind::Hit)&&event.index>0;
+    });
+    REQUIRE(hit!=events.end());
+    // The wire source is the original release's historical stream slot. Its
+    // removed Entry and a new occupant cannot erase or replace that cause.
+    CHECK(hit->target==*sourceSlot+1);
+    CHECK(hit->simTime==world.simTime());
+    CHECK(std::string(hit->name)==burst.store);
+    const auto outcomes=world.engagementEvents();
+    CHECK(std::any_of(outcomes.begin(),outcomes.end(),[&](const auto& event) {
+        return event.kind=="damage"&&event.entity==source&&event.launcher==victim&&event.target==victim&&event.timeS>0;
+    }));
+    CHECK(std::none_of(outcomes.begin(),outcomes.end(),[&](const auto& event){return event.kind=="damage"&&event.entity==other;}));
+    const auto timingStart=std::chrono::steady_clock::now();
+    const double before=world.simTime();world.step(fsim::modes::stepsFor(world,1.0));
+    const double wall=std::chrono::duration<double>(std::chrono::steady_clock::now()-timingStart).count();
+    std::printf("SIM_M03_EFFECTS_TIMING simulated_s=%.9f wall_s=%.9f realtime_fraction=%.9f\n",world.simTime()-before,wall,wall/(world.simTime()-before));
+}
+
+TEST_CASE("existing synchronous detonation retains captured fraction and weapon diagnostics", "[damage][world][scene-effects][causal-effects]") {
+    fsim::session::World world(fsim::modes::options("synchronous-captured-burst"));
+    const auto victim=fsim::modes::wing(world,"f16c",6000,220);
+    fsim::ms::WeaponLaunch release;release.type="jsbsim:aim120c";release.offsetBodyM[1]=30;
+    const auto source=world.launchWeapon(victim,release);REQUIRE(source);world.step(2);
+    auto burst=burstBeside(*world.vehicleState(victim),{0,0,0},{600,0,0});burst.weapon=source;burst.stepFraction=1;
+    const auto immediate=world.detonate(burst);
+    CHECK(std::any_of(immediate.begin(),immediate.end(),[](const auto& event) {
+        return event.kind==static_cast<std::uint8_t>(fsim::ipc::EngagementKind::Hit)&&event.index>0;
+    }));
+    world.takeEngagementEvents();world.step(2);const auto later=world.takeEngagementEvents();
+    CHECK(std::none_of(later.begin(),later.end(),[](const auto& event){return event.kind==static_cast<std::uint8_t>(fsim::ipc::EngagementKind::Hit);}));
+}
+
 TEST_CASE("a physical reset restores flight control after native crew loss", "[damage][world][reset]") {
     fsim::session::World fresh(fsim::modes::options("damage-reset-fresh"));
     fsim::session::World restored(fsim::modes::options("damage-reset-restored"));
@@ -1398,4 +2085,22 @@ TEST_CASE("a physical reset restores flight control after native crew loss", "[d
     CHECK(std::memcmp(actual.positionEcef,expected.positionEcef,sizeof actual.positionEcef)==0);
     CHECK(std::memcmp(actual.velocityBodyMs,expected.velocityBodyMs,sizeof actual.velocityBodyMs)==0);
     CHECK(std::memcmp(actual.angularRateBodyRadS,expected.angularRateBodyRadS,sizeof actual.angularRateBodyRadS)==0);
+}
+TEST_CASE("Added skin damage drag dissipates actual air-relative motion at all attitudes", "[damage][damage-passivity-red]") {
+    auto frame=std::make_shared<Airframe>();frame->sections.emplace_back();
+    Airframe::Panel panel;panel.section=0;panel.areaM2=2;panel.surface=false;frame->panels.push_back(panel);
+    VehicleDamage damage(frame);Impact hit;Impact::PanelHits holes;holes.panel=0;holes.holeAreaM2=.01;hit.panels.push_back(holes);
+    fsim::Rng random(17);damage.apply(hit,101325,random);REQUIRE(damage.sections()[0].holeM2>0);
+    const double magnitude=kDamagedCd*500*damage.sections()[0].holeM2;
+    for(int alpha=-180;alpha<=180;alpha+=5)for(int beta=-80;beta<=80;beta+=20) {
+        const double a=alpha*std::acos(-1.)/180,b=beta*std::acos(-1.)/180;
+        const V3 direction{std::cos(a)*std::cos(b),std::sin(b),std::sin(a)*std::cos(b)};
+        Flight flight;flight.dynamicPressurePa=500;flight.airVelocityBodyMs=direction*100;
+        V3 force,moment;damage.aeroLoss(flight,force,moment);INFO(alpha);INFO(beta);
+        CHECK(dot(force,flight.airVelocityBodyMs)<=1e-10);
+        CHECK(length(force+direction*magnitude)<1e-10);
+    }
+    Flight forward;forward.dynamicPressurePa=500;forward.airVelocityBodyMs={100,0,0};
+    V3 force,moment;damage.aeroLoss(forward,force,moment);
+    CHECK(near(force.x,-magnitude,1e-12));CHECK(force.y==0);CHECK(force.z==0);
 }

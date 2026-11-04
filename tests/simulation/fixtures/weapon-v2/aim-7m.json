@@ -1,0 +1,955 @@
+{
+  "id": "aim-7m",
+  "designation": "AIM-7M Sparrow",
+  "class": "aam",
+  "summary": "Medium-range semi-active-radar air-to-air missile",
+  "maker": "Raytheon",
+  "model": "jsbsim:aim7m",
+  "powerable": true,
+  "jettisonable": true,
+  "seeker": "semi_active_radar",
+  "guidance_capabilities": {
+    "version": 1,
+    "inertial_midcourse": false,
+    "launcher_updates": false,
+    "basis": "assumed",
+    "source": "/guidance",
+    "note": "Explicit engineering receive-fit declaration from this card's authored guidance. Enabled launcher updates execute through the native release-bound finite transport and accepted platform fusion; false does not assert hardware absence. A return transmitter is enabled only by a separately sourced exact variant/launcher profile. Numeric transport, navigation and feedback policies remain disclosed engineering assumptions, not calibrated equipment performance."
+  },
+  "guidance": "semi-active radar homing on continuous-wave or pulse-Doppler illumination",
+  "motor": "Hercules Mk 58 solid rocket",
+  "fuze": "proximity",
+  "warhead": "WDU-27/B blast-fragmentation in the WAU-17/B section",
+  "warhead_kind": "fragmentation",
+  "explosive": "PBXN-4",
+  "parameters": {
+    "mass_kg": {
+      "value": 225.0,
+      "unit": "kg",
+      "uncertainty": 5.0,
+      "basis": "published",
+      "source": "usaf-aim7",
+      "note": "'approximately 500 pounds (225 kilograms)'"
+    },
+    "length_m": {
+      "value": 3.64,
+      "unit": "m",
+      "uncertainty": 0.01,
+      "basis": "published",
+      "source": "usaf-aim7"
+    },
+    "diameter_m": {
+      "value": 0.203,
+      "unit": "m",
+      "uncertainty": 0.002,
+      "basis": "published",
+      "source": "usaf-aim7",
+      "note": "8 inches"
+    },
+    "span_m": {
+      "value": 1.0,
+      "unit": "m",
+      "uncertainty": 0.02,
+      "basis": "published",
+      "source": "usaf-aim7"
+    },
+    "warhead_kg": {
+      "value": 39.9,
+      "unit": "kg",
+      "uncertainty": 1.0,
+      "basis": "published",
+      "source": "wp-aim7",
+      "note": "AIM-7F/M: 88 lb"
+    },
+    "range_km": {
+      "value": 70.0,
+      "unit": "km",
+      "uncertainty": 15.0,
+      "basis": "published",
+      "source": "wp-aim7",
+      "note": "AIM-7F/M/P"
+    },
+    "speed_mach": {
+      "value": 4.0,
+      "unit": "Mach",
+      "uncertainty": 0.3,
+      "basis": "derived",
+      "source": "wp-aim7",
+      "note": "the AIM-7F's Mach 4: the AIM-7M has the F's Mk 58 motor (the USAF fact sheet)"
+    },
+    "power_up_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "power_down_s": {
+      "value": 1.0,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "no source gives a missile's power-up or power-down time: 1 s for every missile, an engineering assumption so a strike waits for its missiles as a real one does"
+    },
+    "explosive_kg": {
+      "value": 11.79,
+      "unit": "kg",
+      "uncertainty": 1.77,
+      "basis": "published",
+      "source": "wt-datamine",
+      "note": "a game reference: War Thunder's us_aim7m_sparrow (PBXN-4); no manufacturer or encyclopedia gives the charge"
+    },
+    "gurney_kms": {
+      "value": 2.3,
+      "unit": "km/s",
+      "uncertainty": 0.15,
+      "basis": "assumed",
+      "note": "PBXN-4 (DATB-based, insensitive) is not in Cooper's table: as Tritonal (2.32), the lowest listed - an estimate"
+    },
+    "drag_area_m2": {
+      "value": 0.010011218540032606,
+      "unit": "m2",
+      "source": "hangar-vlm",
+      "basis": "assumed",
+      "uncertainty": 0.010011218540032606,
+      "note": "Engineering estimate A_D = CD_simulated*S_geometry at neutral Mach .3. Inputs, dated model-specific searches and method limits are in hangar-vlm.simulation and the evidence catalog. Assumed one-sigma screening uncertainty is |A_D| in m2; its coverage probability is not established. Equipment drag error remains unknown; the table evidence basis is simulated."
+    },
+    "plant_actuator_lag_s": {
+      "value": 0.04,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_actuator_rate_rad_s": {
+      "value": 4.0,
+      "unit": "rad/s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_isp_s": {
+      "value": 255.0,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_coast_thrust_n": {
+      "value": 2.0,
+      "unit": "N",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_buildup_s": {
+      "value": 0.05,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_grain_density_kg_m3": {
+      "value": 1750.0,
+      "unit": "kg/m^3",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_grain_radius_fraction": {
+      "value": 0.9,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_grain_port_area_fraction": {
+      "value": 0.15,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_grain_aft_clearance_m": {
+      "value": 0.03,
+      "unit": "m",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_phase_count": {
+      "value": 2,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_exit_diameter_m": {
+      "value": 0.1056,
+      "unit": "m",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_throat_diameter_m": {
+      "value": 0.0475,
+      "unit": "m",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_cone_length_m": {
+      "value": 0.1161,
+      "unit": "m",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_exit_x_m": {
+      "value": 3.64,
+      "unit": "m",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_exit_y_m": {
+      "value": 0.0,
+      "unit": "m",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_exit_z_m": {
+      "value": 0.0,
+      "unit": "m",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_phase_0_duration_s": {
+      "value": 3,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_phase_0_thrust_kn": {
+      "value": 25,
+      "unit": "kN",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_phase_1_duration_s": {
+      "value": 9,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "plant_motor_phase_1_thrust_kn": {
+      "value": 3.5,
+      "unit": "kN",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "component_seeker_acquire_m": {
+      "value": 60000,
+      "unit": "m",
+      "uncertainty": 30000.0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_gimbal_deg": {
+      "value": 60,
+      "unit": "deg",
+      "uncertainty": 30.0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_launch_fov_deg": {
+      "value": 55,
+      "unit": "deg",
+      "uncertainty": 27.5,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_minimum_range_m": {
+      "value": 1,
+      "unit": "m",
+      "uncertainty": 0.5,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_aspect_speed_floor_m_s": {
+      "value": 1,
+      "unit": "m/s",
+      "uncertainty": 0.5,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_afterburner_threshold": {
+      "value": 0.5,
+      "unit": "1",
+      "uncertainty": 0.25,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_ir_aspect_min": {
+      "value": 0.45,
+      "unit": "1",
+      "uncertainty": 0.225,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_ir_aspect_span": {
+      "value": 0.55,
+      "unit": "1",
+      "uncertainty": 0.275,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_ir_afterburner_multiplier": {
+      "value": 1.35,
+      "unit": "1",
+      "uncertainty": 0.675,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_radar_rcs_floor_m2": {
+      "value": 0.001,
+      "unit": "m^2",
+      "uncertainty": 0.0005,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_radar_rcs_reference_m2": {
+      "value": 5,
+      "unit": "m^2",
+      "uncertainty": 2.5,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_radar_rcs_exponent": {
+      "value": 0.25,
+      "unit": "1",
+      "uncertainty": 0.125,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_radar_range_scale_min": {
+      "value": 0.4,
+      "unit": "1",
+      "uncertainty": 0.2,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_radar_range_scale_max": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0.5,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_radar_lookdown_cosine": {
+      "value": -0.03,
+      "unit": "1",
+      "uncertainty": 0.015,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_radar_notch_m_s": {
+      "value": 28,
+      "unit": "m/s",
+      "uncertainty": 14.0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_illumination_beam_multiplier": {
+      "value": 3,
+      "unit": "1",
+      "uncertainty": 1.5,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_aircraft_signal": {
+      "value": 1,
+      "unit": "1",
+      "uncertainty": 0.5,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_ir_decoy_peak": {
+      "value": 6,
+      "unit": "1",
+      "uncertainty": 3.0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_ir_decoy_decay_s": {
+      "value": 2,
+      "unit": "s",
+      "uncertainty": 1.0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_radar_decoy_peak": {
+      "value": 3,
+      "unit": "1",
+      "uncertainty": 1.5,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_radar_decoy_rise_s": {
+      "value": 0.3,
+      "unit": "s",
+      "uncertainty": 0.15,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_radar_decoy_decay_s": {
+      "value": 6,
+      "unit": "s",
+      "uncertainty": 3.0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_decoy_resistance": {
+      "value": 1.6,
+      "unit": "1",
+      "uncertainty": 0.8,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_association_cosine": {
+      "value": 0.999390827019096,
+      "unit": "1",
+      "uncertainty": 0.499695413509548,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_emitter_power_w": {
+      "value": 20,
+      "unit": "W",
+      "uncertainty": 10.0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_emitter_peak_gain_dbi": {
+      "value": 25,
+      "unit": "dBi",
+      "uncertainty": 12.5,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_emitter_sidelobe_dbi": {
+      "value": -15,
+      "unit": "dBi",
+      "uncertainty": 7.5,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_seeker_emitter_half_width_rad": {
+      "value": 0.35,
+      "unit": "rad",
+      "uncertainty": 0.175,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy. V3 execution retains the original value with an explicit50 percent screening interval (absolute1e-8 for zero), not hardware calibration."
+    },
+    "component_guidance_navigation_gain": {
+      "value": 3.5,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_guidance_cue_deg": {
+      "value": 10,
+      "unit": "deg",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_guidance_activation_ratio": {
+      "value": 1.15,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_guidance_loft_deg": {
+      "value": 20,
+      "unit": "deg",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_guidance_loft_acceleration_g": {
+      "value": 2,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_guidance_max_g": {
+      "value": 35,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_guidance_life_s": {
+      "value": 110,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_guidance_inertial_midcourse": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_guidance_launcher_updates": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_fuze_model_version": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_fuze_algorithm": {
+      "value": 0,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_fuze_arming_s": {
+      "value": 1,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_fuze_radius_m": {
+      "value": 13.316644678941502,
+      "unit": "m",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing simulator assumption unchanged. Uncertainty is unquantified; zero does not claim measurement accuracy."
+    },
+    "component_control_max_incidence_deg": {
+      "value": 15.0,
+      "unit": "deg",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "component_control_rate_time_min_s": {
+      "value": 0.12,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "component_control_rate_lag_multiplier": {
+      "value": 3.0,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "component_control_incidence_time_min_s": {
+      "value": 0.4,
+      "unit": "s",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "component_control_incidence_rate_multiplier": {
+      "value": 3.333333333333333,
+      "unit": "1",
+      "uncertainty": 0,
+      "basis": "assumed",
+      "note": "Transcribed existing consumed simulator input; uncertainty is not quantified, zero does not assert measurement accuracy."
+    },
+    "airframe_aerodynamics_version": {
+      "value": 1,
+      "unit": "1",
+      "source": "hangar-vlm",
+      "basis": "derived",
+      "uncertainty": 0,
+      "note": "Versioned shared-table runtime binding; zero uncertainty is not an accuracy claim."
+    }
+  },
+  "sources": {
+    "usaf-aim7": {
+      "evidence_kind": "government_publication",
+      "title": "AIM-7 Sparrow (fact sheet)",
+      "publisher": "U.S. Air Force",
+      "url": "https://www.af.mil/About-Us/Fact-Sheets/Display/Article/104575/aim-7-sparrow/",
+      "date": "2026-10-07"
+    },
+    "wp-aim7": {
+      "evidence_kind": "secondary_reference",
+      "title": "AIM-7 Sparrow",
+      "publisher": "Wikipedia (revision 1378339870)",
+      "url": "https://en.wikipedia.org/w/index.php?title=AIM-7_Sparrow&oldid=1378339870",
+      "date": "2026-10-04"
+    },
+    "wt-datamine": {
+      "evidence_kind": "game_reference",
+      "title": "War Thunder datamine: rocketguns weapon files (a game reference: the game's own values, not a manufacturer's)",
+      "publisher": "gszabi99/War-Thunder-Datamine (GitHub)",
+      "url": "https://github.com/gszabi99/War-Thunder-Datamine/tree/master/aces.vromfs.bin_u/gamedata/weapons/rocketguns",
+      "date": "2026-10-09"
+    },
+    "hangar-vlm": {
+      "title": "Shared Hangar aircraft VLM tables",
+      "url": "aero/vlm-carriage-6a67c0a89db3233fc68dd1a56738fe0159c5f1f3a1081341acdf79762d666096.json",
+      "evidence_kind": "game_reference",
+      "note": "Same base, rate and Mach data as the released JSBSim model; no equipment calibration claim.",
+      "simulation": {
+        "basis": "simulated",
+        "tool": "Hangar shared aircraft VLM",
+        "version": "0.1.0",
+        "design_sha256": "b8186c8ca8911ba64e3078c8765d44e6f4d37c06559ecccb97f7dd58885ad6b2",
+        "card_inputs": {
+          "length_m": 3.64,
+          "diameter_m": 0.203,
+          "span_m": 1.0,
+          "mass_kg": 225.0
+        },
+        "table_inputs_hash": "657c2e9c6bacc020",
+        "table_sha256": "6a67c0a89db3233fc68dd1a56738fe0159c5f1f3a1081341acdf79762d666096",
+        "input_geometry": "aircraft/aim7m/aim7m.toml",
+        "domain": {
+          "mach": [
+            0.0,
+            5.0
+          ],
+          "alpha_deg": [
+            -180.0,
+            180.0
+          ],
+          "beta_deg": [
+            -90.0,
+            90.0
+          ]
+        },
+        "method_sources": [
+          "Katz and Plotkin, Low-Speed Aerodynamics, vortex lattice",
+          "Shared aero/model.py, tables.py and mach.py; engineering extensions are not equipment measurements"
+        ],
+        "solver_sha256": "1fe905d01b307fc9398dda9ddd1b78ab2960d66c80ffd7346a2baf5e255f78bf",
+        "generic_validation": {
+          "schema": "fsim.generic-vlm-validation.v1",
+          "basis": "simulated",
+          "tool": "Hangar shared aircraft VLM",
+          "version": "0.1.0",
+          "source_url": "https://www.mas.bg.ac.rs/_media/istrazivanje/fme/vol48/4/5_d_damljanovic_et_al.pdf",
+          "source_locator": "Figure 1 p.762; Tables 2--10 pp.766--768",
+          "native_library": {
+            "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-release\\python\\fsim\\bin\\libfsim.dll",
+            "sha256": "10a8a36fc36b7ad7d23a6e4eede348ca18946bba913d66e93912fabec831d533"
+          },
+          "fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+          "metrics": {
+            "CZ": {
+              "count": 9,
+              "nrmse_percent": 13.89268657599672,
+              "max_absolute_error": 0.13199607890094234
+            },
+            "Cm": {
+              "count": 9,
+              "nrmse_percent": 82.05273561633099,
+              "max_absolute_error": 0.06616153821858019
+            }
+          },
+          "assessed_domain": {
+            "mach": [
+              0.77,
+              1.0,
+              1.17
+            ],
+            "alpha_deg": [
+              2.0,
+              6.0,
+              10.0
+            ],
+            "beta_deg": [
+              0.0
+            ]
+          },
+          "equipment_accuracy_claim": false,
+          "parameters_fitted": false,
+          "limitations": [
+            "Generic AGARD-B geometry, not any of the 88 authored equipment models.",
+            "The publication pools facilities/model sizes and includes M0.8/M1.2 runs with the M0.77/M1.17 groups; no common Reynolds condition is supplied.",
+            "Body-normal force is derived as CN=CLf*cos(alpha)+CDf*sin(alpha), cancelling axial base-pressure force; reported CZ=-CN.",
+            "The 4% biconvex wing uses the existing shared section; its tiny specified leading-edge radius is not separately resolved.",
+            "Density/Reynolds and sting/wall interference differences remain. Residuals are not an equipment confidence interval.",
+            "No beta, dynamic derivative, powered flow or extreme-angle qualification follows from these conditions."
+          ],
+          "source_pdf_sha256": "e2a1c05987115e665dd8a06a6250b7dbcbe0511df7b99227a293a77cadf5e0d5",
+          "observations_and_geometry": "docs/data/hangar-generic-validation.json"
+        },
+        "uncertainty": {
+          "basis": "simulated",
+          "tool": "Hangar shared aircraft VLM",
+          "version": "0.1.0",
+          "geometry_source": "aircraft/aim7m/aim7m.toml",
+          "geometry_sha256": "a29c8edf485245264a78830453abc88f901f8d23cc3bb308a2acacb91aa58ffe",
+          "analysis_inputs": {
+            "max_mach": 5.0,
+            "speed": 900.0
+          },
+          "method": "Coupled vortex-lattice/body/section/rate solution, common Mach extensions and common JSBSim tables; retained overrides are listed separately.",
+          "table_domain": "Actual Mach/alpha/beta bounds are read from the generated product in hangar-vlm.simulation; no narrowing of the authored envelope.",
+          "assumed_relative_half_width": 1.64105471232662,
+          "uncertainty_basis": "assumed engineering screening range, not measured equipment error or a probabilistic confidence interval",
+          "uncertainty_formula": "Inside the generic comparison conditions: max(1,2*generic_NRMSE/100); outside them no finite equipment-error bound is established.",
+          "boundaries": "Generic validation cannot identify equipment-specific separated flow, powered flow, Reynolds effects or extreme-angle errors; those remain unknown.",
+          "coverage_probability": null,
+          "uncertainty_components": {
+            "CZ_assumed_relative_half_width": 1.0,
+            "Cm_assumed_relative_half_width": 1.64105471232662
+          },
+          "uncertainty_application": "Assumed screening envelope only, not a measured model error or statistical bound. Applies to generic CZ/Cm comparison conditions; no finite equipment-error bound outside those conditions and no calibrated CD/CY/Cl/Cn uncertainty.",
+          "input_assumptions": "Author-declared geometry and shared section/body correlations. Surface sections, sweep, twist, controls, body stations, mass/CG, analysis speed and all retained overrides are readable in aircraft/aim7m/aim7m.toml. Product extrema are generation coverage, not a validated physical domain.",
+          "generic_validation_ref": "generic_validation and docs/data/hangar-generic-validation.json"
+        }
+      }
+    },
+    "jhuapl-homing-2010": {
+      "evidence_kind": "research_publication",
+      "title": "Basic Principles of Homing Guidance",
+      "publisher": "Johns Hopkins APL Technical Digest 29(1), pp.25-41",
+      "url": "https://www.jhuapl.edu/sites/default/files/2024-09/29-01-Palumbo_Principles_Rev2018.pdf",
+      "accessed": "2026-11-02",
+      "note": "Homing-loop methods only; no exact equipment constants taken from this source."
+    }
+  },
+  "component_models": {
+    "schema_version": 1,
+    "components": {
+      "seeker": {
+        "availability": "available",
+        "implementation_id": "fsim.seeker.semi_active_radar.v2",
+        "configuration_version": 1,
+        "parameter_refs": {
+          "acquire_m": "component_seeker_acquire_m",
+          "gimbal_deg": "component_seeker_gimbal_deg",
+          "launch_fov_deg": "component_seeker_launch_fov_deg",
+          "minimum_range_m": "component_seeker_minimum_range_m",
+          "aspect_speed_floor_m_s": "component_seeker_aspect_speed_floor_m_s",
+          "afterburner_threshold": "component_seeker_afterburner_threshold",
+          "ir_aspect_min": "component_seeker_ir_aspect_min",
+          "ir_aspect_span": "component_seeker_ir_aspect_span",
+          "ir_afterburner_multiplier": "component_seeker_ir_afterburner_multiplier",
+          "radar_rcs_floor_m2": "component_seeker_radar_rcs_floor_m2",
+          "radar_rcs_reference_m2": "component_seeker_radar_rcs_reference_m2",
+          "radar_rcs_exponent": "component_seeker_radar_rcs_exponent",
+          "radar_range_scale_min": "component_seeker_radar_range_scale_min",
+          "radar_range_scale_max": "component_seeker_radar_range_scale_max",
+          "radar_lookdown_cosine": "component_seeker_radar_lookdown_cosine",
+          "radar_notch_m_s": "component_seeker_radar_notch_m_s",
+          "illumination_beam_multiplier": "component_seeker_illumination_beam_multiplier",
+          "aircraft_signal": "component_seeker_aircraft_signal",
+          "ir_decoy_peak": "component_seeker_ir_decoy_peak",
+          "ir_decoy_decay_s": "component_seeker_ir_decoy_decay_s",
+          "radar_decoy_peak": "component_seeker_radar_decoy_peak",
+          "radar_decoy_rise_s": "component_seeker_radar_decoy_rise_s",
+          "radar_decoy_decay_s": "component_seeker_radar_decoy_decay_s",
+          "decoy_resistance": "component_seeker_decoy_resistance",
+          "association_cosine": "component_seeker_association_cosine",
+          "emitter_power_w": "component_seeker_emitter_power_w",
+          "emitter_peak_gain_dbi": "component_seeker_emitter_peak_gain_dbi",
+          "emitter_sidelobe_dbi": "component_seeker_emitter_sidelobe_dbi",
+          "emitter_half_width_rad": "component_seeker_emitter_half_width_rad"
+        },
+        "bindings": {
+          "mode": "semi_active_radar",
+          "variant": "AIM-7M",
+          "measurement_model": "ideal_geometric",
+          "image_model": "not_applicable",
+          "servo_model": "unavailable"
+        },
+        "basis": "assumed",
+        "note": "Explicit retained V2 native compatibility fixture; ideal detector observables and immediate reads. Current V3 acceptance runs separately.",
+        "validity": "Legacy V2 compatibility behavior; no hardware calibration or V3 engineering acceptance claim."
+      },
+      "guidance": {
+        "availability": "available",
+        "implementation_id": "fsim.guidance.measured_pn.v2",
+        "configuration_version": 1,
+        "parameter_refs": {
+          "navigation_gain": "component_guidance_navigation_gain",
+          "cue_deg": "component_guidance_cue_deg",
+          "activation_ratio": "component_guidance_activation_ratio",
+          "loft_deg": "component_guidance_loft_deg",
+          "loft_acceleration_g": "component_guidance_loft_acceleration_g",
+          "max_g": "component_guidance_max_g",
+          "life_s": "component_guidance_life_s",
+          "inertial_midcourse": "component_guidance_inertial_midcourse",
+          "launcher_updates": "component_guidance_launcher_updates"
+        },
+        "bindings": {
+          "measurement_family": "bearing"
+        },
+        "basis": "assumed",
+        "note": "Measured LOS history and own-speed PN with explicit illumination loss. No hidden Cartesian target velocity, range or time-to-intercept is supplied to this bearing-only receiver model.",
+        "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
+      },
+      "autopilot": {
+        "availability": "available",
+        "implementation_id": "fsim.control.load_feedback_cascade",
+        "configuration_version": 1,
+        "parameter_refs": {
+          "max_incidence_deg": "component_control_max_incidence_deg",
+          "rate_time_min_s": "component_control_rate_time_min_s",
+          "rate_lag_multiplier": "component_control_rate_lag_multiplier",
+          "incidence_time_min_s": "component_control_incidence_time_min_s",
+          "incidence_rate_multiplier": "component_control_incidence_rate_multiplier"
+        },
+        "bindings": {
+          "model": "jsbsim:aim7m",
+          "execution_mode": "configured"
+        },
+        "basis": "assumed",
+        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
+        "validity": "Reduced-order engineering model; hardware performance unvalidated."
+      },
+      "allocator": {
+        "availability": "available",
+        "implementation_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+        "configuration_version": 1,
+        "parameter_refs": {},
+        "bindings": {
+          "model": "jsbsim:aim7m",
+          "design": "aircraft/aim7m/aim7m.toml"
+        },
+        "basis": "assumed",
+        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
+        "validity": "Reduced-order engineering model; hardware performance unvalidated."
+      },
+      "actuator": {
+        "availability": "available",
+        "implementation_id": "fsim.actuator.jsbsim_lag_rate_stops",
+        "configuration_version": 1,
+        "parameter_refs": {
+          "lag_s": "plant_actuator_lag_s",
+          "rate_rad_s": "plant_actuator_rate_rad_s"
+        },
+        "bindings": {
+          "model": "jsbsim:aim7m"
+        },
+        "basis": "assumed",
+        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
+        "validity": "Reduced-order engineering model; hardware performance unvalidated."
+      },
+      "fuze": {
+        "availability": "available",
+        "implementation_id": "native.fuze.swept_path.v1",
+        "configuration_version": 1,
+        "parameter_refs": {
+          "model_version": "component_fuze_model_version",
+          "algorithm": "component_fuze_algorithm",
+          "arming_s": "component_fuze_arming_s",
+          "life_s": "component_guidance_life_s",
+          "radius_m": "component_fuze_radius_m"
+        },
+        "bindings": {
+          "sensor_reference": "captured_weapon_cg",
+          "target_reference": "captured_target_cg",
+          "contact_reference": "captured_authored_nose",
+          "contact": "native.authored_point_contact.v1",
+          "history": "native.captured_piecewise_linear.v1",
+          "delay": "none"
+        },
+        "basis": "assumed",
+        "note": "Existing simulator implementation; no equipment calibration.",
+        "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
+      },
+      "warhead": {
+        "availability": "available",
+        "implementation_id": "native.warhead.zoned_case.v1",
+        "configuration_version": 1,
+        "parameter_refs": {
+          "warhead_kg": "warhead_kg",
+          "explosive_kg": "explosive_kg",
+          "gurney_kms": "gurney_kms",
+          "diameter_m": "diameter_m"
+        },
+        "bindings": {
+          "burst_reference": "captured_weapon_cg",
+          "blast": "kingery_bulmash.swisdak_1994.free_air.v1",
+          "penetration": "thor.aluminium_2024_t3.v1",
+          "assessment": "native.fragment_blast.v1"
+        },
+        "basis": "assumed",
+        "note": "Existing simulator implementation; no equipment calibration.",
+        "validity": "Reduced-order game simulation; equipment performance and damage effectiveness unvalidated."
+      },
+      "propulsion": {
+        "availability": "available",
+        "implementation_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+        "configuration_version": 1,
+        "parameter_refs": {
+          "isp_s": "plant_motor_isp_s",
+          "coast_thrust_n": "plant_motor_coast_thrust_n",
+          "buildup_s": "plant_motor_buildup_s",
+          "grain_density_kg_m3": "plant_motor_grain_density_kg_m3",
+          "grain_radius_fraction": "plant_motor_grain_radius_fraction",
+          "grain_port_area_fraction": "plant_motor_grain_port_area_fraction",
+          "grain_aft_clearance_m": "plant_motor_grain_aft_clearance_m",
+          "phase_count": "plant_motor_phase_count",
+          "exit_diameter_m": "plant_motor_exit_diameter_m",
+          "throat_diameter_m": "plant_motor_throat_diameter_m",
+          "cone_length_m": "plant_motor_cone_length_m",
+          "exit_x_m": "plant_motor_exit_x_m",
+          "exit_y_m": "plant_motor_exit_y_m",
+          "exit_z_m": "plant_motor_exit_z_m",
+          "phase_0_duration_s": "plant_motor_phase_0_duration_s",
+          "phase_0_thrust_kn": "plant_motor_phase_0_thrust_kn",
+          "phase_1_duration_s": "plant_motor_phase_1_duration_s",
+          "phase_1_thrust_kn": "plant_motor_phase_1_thrust_kn"
+        },
+        "bindings": {
+          "model": "jsbsim:aim7m",
+          "design": "aircraft/aim7m/aim7m.toml",
+          "motor": "Engines/aim7m_motor.xml",
+          "nozzle": "Engines/aim7m_nozzle.xml",
+          "smoke": "aluminised"
+        },
+        "basis": "assumed",
+        "note": "Existing simulator implementation and unchanged authored inputs; no equipment calibration.",
+        "validity": "Reduced-order engineering model; hardware performance unvalidated."
+      },
+      "aerodynamics": {
+        "availability": "available",
+        "implementation_id": "fsim.aerodynamics.jsbsim_generated_store",
+        "configuration_version": 1,
+        "parameter_refs": {},
+        "bindings": {
+          "model": "jsbsim:aim7m",
+          "design": "aircraft/aim7m/aim7m.toml",
+          "source": "vlm"
+        },
+        "basis": "assumed",
+        "note": "Shared aircraft VLM model and tables; no independent store force model.",
+        "validity": "Source geometry and model correlations; equipment accuracy requires independent validation."
+      }
+    }
+  }
+}

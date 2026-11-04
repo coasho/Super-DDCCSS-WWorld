@@ -13,17 +13,34 @@ weapon::Output MeasuredPnGuidanceV2::updateMeasured(const SeekerFrameV2& f,const
     if(!r.valid||!finite(f.position)||!finite(f.velocity)||!finite(f.up)||
        !std::isfinite(f.ageS)||f.ageS<0||!std::isfinite(spec_.maxG)||spec_.maxG<=0||
        !std::isfinite(spec_.navigationGain)||spec_.navigationGain<=2)return out;
+    const bool finiteReceiver=spec_.seekerModel.engineering.version==3;
+    if(finiteReceiver) {
+        if(!std::isfinite(f.timeS)||f.timeS<0)return {};
+        if(r.tracking) {
+            if(!r.track)return {};
+            const auto& t=*r.track;
+            if(!t.localId||!std::isfinite(t.sampleTimeS)||t.sampleTimeS<0||t.sampleTimeS>f.timeS||
+               !finite(t.direction)||!(norm(t.direction)>0)||!finite(t.directionRate)||
+               (t.rangeM&&(!std::isfinite(*t.rangeM)||*t.rangeM<spec_.seekerModel.minimumRangeM))||
+               (t.rangeRateMs&&!std::isfinite(*t.rangeRateMs)))return {};
+        }
+    }
+    const bool terminal=terminalAcquiredV3_||(finiteReceiver&&r.tracking);
     out.active=r.active;out.tracking=r.tracking;
     out.supported=r.supported&&(spec_.seeker=="semi_active_radar"||spec_.launcherUpdates);
     out.holding=r.track?r.track->localId:0;
-    out.phase=r.tracking?WeaponPhase::Homing:out.holding?WeaponPhase::Lost:
+    out.phase=r.tracking?WeaponPhase::Homing:(terminal||out.holding)?WeaponPhase::Lost:
         r.midcourseEstimate?WeaponPhase::Midcourse:WeaponPhase::Seeking;
     if(r.timeToActiveS)out.timeToActiveS=*r.timeToActiveS;
     const auto speed=norm(f.velocity);if(!std::isfinite(speed))return {};
     const auto heading=unit(f.velocity);weapon::V3 steering{};
     if(r.tracking&&r.track) {
-        const auto& t=*r.track;
+        auto t=*r.track;
         if(!finite(t.direction)||!finite(t.directionRate))return {};
+        if(r.measurementTimeS) {
+            if(!std::isfinite(t.sampleTimeS)||t.sampleTimeS>f.timeS)return {};
+            t.direction=unit(add(t.direction,scale(t.directionRate,f.timeS-t.sampleTimeS)));
+        }
         // IR/SARH use own speed and measured LOS rate. ARH uses only its
         // admitted range-rate measurement, never hidden target velocity.
         double scaleSpeed=speed;
@@ -34,7 +51,10 @@ weapon::Output MeasuredPnGuidanceV2::updateMeasured(const SeekerFrameV2& f,const
         }
         if(t.rateAvailable)steering=scale(cross(cross(t.direction,t.directionRate),heading),spec_.navigationGain*scaleSpeed);
     } else if(r.midcourseEstimate&&spec_.inertialMidcourse) {
-        const auto relative=subtract(r.midcourseEstimate->position,f.position);
+        const auto& estimate=*r.midcourseEstimate;
+        if(!std::isfinite(estimate.sampleTimeS)||estimate.sampleTimeS<0||estimate.sampleTimeS>f.timeS)return {};
+        const auto predicted=add(estimate.position,scale(estimate.velocity,f.timeS-estimate.sampleTimeS));
+        const auto relative=subtract(predicted,f.position);
         const auto velocity=subtract(r.midcourseEstimate->velocity,f.velocity);
         const auto range=norm(relative);
         if(!finite(relative)||!finite(velocity)||!std::isfinite(range))return {};
@@ -56,6 +76,7 @@ weapon::Output MeasuredPnGuidanceV2::updateMeasured(const SeekerFrameV2& f,const
     const auto magnitude=norm(command),limit=spec_.maxG*9.80665;
     if(!finite(command)||!std::isfinite(magnitude)||!std::isfinite(limit))return {};
     out.acceleration=magnitude>limit&&magnitude>0?scale(command,limit/magnitude):command;
+    terminalAcquiredV3_=terminal;
     return out;
 }
 }

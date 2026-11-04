@@ -19,4 +19,12 @@ public:
                           const Target&, Rng&) const = 0;
 };
 
+/// Additive capability: the original adapter vtable and external providers are
+/// unchanged. A provider opts into one shared physical detonation population.
+class WarheadSceneExecutionV2 {
+public:
+    virtual ~WarheadSceneExecutionV2()=default;
+    virtual FragmentFieldV1 emitScene(const Burst&,Rng&) const=0;
+};
+
 } // namespace fsim::ms::damage

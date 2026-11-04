@@ -1,4 +1,5 @@
 #include "BuiltInProvidersV1.h"
+#include "EquipmentModels.h"
 
 namespace fsim::ms::components {
 
@@ -8,7 +9,7 @@ ProviderRegistryV1 builtInProvidersV1() {
     registerNativeAutopilotV1(registry);registerNativeAllocatorV1(registry);
     registerNativeActuatorV1(registry);registerNativePropulsionV1(registry);
     registerNativeAerodynamicsV1(registry);registerNativeFuzeV1(registry);
-    registerNativeWarheadV1(registry);return registry;
+    registerNativeWarheadV1(registry);registerEquipmentModels(registry);return registry;
 }
 
 } // namespace fsim::ms::components

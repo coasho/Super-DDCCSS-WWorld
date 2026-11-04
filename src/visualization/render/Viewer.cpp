@@ -54,9 +54,11 @@ bool Viewer::create(const ViewerSettings& settings) {
 
     auto traits = vsg::WindowTraits::create();
     traits->windowTitle = settings.title;
-    traits->width = settings.width;
-    traits->height = settings.height;
-    traits->fullscreen = settings.fullscreen;
+    unsigned screenWidth = 0, screenHeight = 0;
+    platform::screenSize(screenWidth, screenHeight);
+    traits->width = screenWidth ? screenWidth : settings.width;
+    traits->height = screenHeight ? screenHeight : settings.height;
+    traits->fullscreen = true;
     traits->debugLayer = settings.debugLayer;
     traits->samples = settings.samples;
     // Depth precision over the 2 m .. 200 km range of a full-Earth scene (design 12.3).
@@ -93,8 +95,8 @@ bool Viewer::create(const ViewerSettings& settings) {
             coarseShading_ = true;
         }
     }
-    LOG_INFO("render") << "Vulkan device: " << physical->getProperties().deviceName << ", " << settings.width << "x"
-                       << settings.height << (settings.debugLayer ? ", validation on" : "");
+    LOG_INFO("render") << "Vulkan device: " << physical->getProperties().deviceName << ", " << window_->extent2D().width << "x"
+                       << window_->extent2D().height << (settings.debugLayer ? ", validation on" : "");
     return true;
 }
 
@@ -280,6 +282,11 @@ bool Viewer::setScene(vsg::ref_ptr<vsg::Node> scene, vsg::ref_ptr<vsg::Ellipsoid
     commandGraph->addChild(renderGraph);
 
     auto view = vsg::View::create(camera_, root_);
+    view->viewDependentState->maxShadowDistance = 20000.0;
+    // Earth views use a millimetre near plane. Logarithmic splits retain
+    // aircraft-scale detail near the camera while keeping VSG's normal
+    // depth bias, which avoids self-shadow acne on thin wings.
+    view->viewDependentState->lambda = 1.0;
     if (settings_.headlight) view->addChild(vsg::createHeadlight());
     renderGraph->addChild(view);
     if (overScene) {

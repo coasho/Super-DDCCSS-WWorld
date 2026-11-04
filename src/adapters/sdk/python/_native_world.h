@@ -258,6 +258,7 @@ PyObject* world_amti_search(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_radar_status(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_amti_detections(PyObject* o, PyObject* const* args, Py_ssize_t n);
 PyObject* world_amti_tracks(PyObject* o, PyObject* const* args, Py_ssize_t n);
+PyObject* world_weapon_links_v1(PyObject* o,PyObject* const* args,Py_ssize_t n);
 PyObject* world_fused_tracks_v1(PyObject* o,PyObject* const* args,Py_ssize_t n);
 PyObject* world_fusion_status_v1(PyObject* o,PyObject* const* args,Py_ssize_t n);
 PyObject* world_contacts(PyObject* o, PyObject* const* args, Py_ssize_t n);

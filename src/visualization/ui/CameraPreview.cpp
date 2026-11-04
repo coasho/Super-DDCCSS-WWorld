@@ -1,4 +1,5 @@
 #include "visualization/ui/CameraPreview.h"
+#include "visualization/ui/MandatoryPanel.h"
 
 #include "foundation/core/Log.h"
 
@@ -32,9 +33,12 @@ void CameraPreview::rebuild() {
     auto sampler = vsg::Sampler::create();
     sampler->magFilter = VK_FILTER_LINEAR;
     sampler->minFilter = VK_FILTER_LINEAR;
-    for (const auto& info : mirror_.cameras()) {
+    const auto& published = mirror_.cameras();
+    for (std::size_t index = 0; index < published.size(); ++index) {
+        const auto& info = published[index];
         if (info.width == 0 || info.height == 0) continue;
         Camera c;
+        c.sourceIndex = static_cast<unsigned>(index);
         c.info = info;
         c.pixels = vsg::ubvec4Array2D::create(info.width, info.height, vsg::ubvec4(0, 0, 0, 255), vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM});
         c.pixels->properties.dataVariance = vsg::DYNAMIC_DATA; // refreshed every published frame
@@ -63,9 +67,8 @@ void CameraPreview::update() {
     const std::uint64_t frame = mirror_.frame();
     if (frame == lastFrame_) return;
     lastFrame_ = frame;
-    for (std::size_t i = 0; i < cameras_.size(); ++i) {
-        auto& c = cameras_[i];
-        if (!mirror_.read(static_cast<unsigned>(i), scratch_)) continue;
+    for (auto& c : cameras_) {
+        if (!mirror_.read(c.sourceIndex, scratch_)) continue;
         const std::size_t n = static_cast<std::size_t>(c.info.width) * c.info.height;
         if (scratch_.size() < n * 3) continue;
         auto* dst = c.pixels->data();
@@ -76,12 +79,11 @@ void CameraPreview::update() {
 }
 
 void CameraPreview::record(vsg::CommandBuffer&) const {
-    if (cameras_.empty() || !controls_->showCameras.load(std::memory_order_relaxed)) return;
+    if (cameras_.empty()) return;
     // Bottom-right corner, away from the monitor and the vehicle list.
     const ImVec2 display = ImGui::GetIO().DisplaySize;
     ImGui::SetNextWindowPos(ImVec2(display.x - 20.0f, display.y - 20.0f), ImGuiCond_FirstUseEver, ImVec2(1.0f, 1.0f));
-    bool open = true;
-    if (ImGui::Begin("cameras", &open, ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (beginMandatoryPanel("cameras", ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::TextDisabled("what the training application's cameras see (%zu)", cameras_.size());
         const float cell = 160.0f;
         const int perRow = std::max(1, static_cast<int>(std::min<std::size_t>(cameras_.size(), 4)));
@@ -97,7 +99,6 @@ void CameraPreview::record(vsg::CommandBuffer&) const {
         }
     }
     ImGui::End();
-    if (!open) controls_->showCameras.store(false, std::memory_order_relaxed);
 }
 
 } // namespace fsim::ui

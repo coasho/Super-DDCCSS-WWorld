@@ -29,6 +29,8 @@ public:
     double decoySignal(double,bool) const noexcept override;
     bool illuminated(const double[3],double,double,double,double) const noexcept override;
     void seedTrack(const SeekerTrackV2&) override;
+    /// V3 detector memory expiry, without resetting navigation or phase.
+    void forgetTrack() noexcept {track_.reset();cached_.track.reset();cached_.tracking=false;cached_.attributionIndex.reset();}
     void resetTracking() noexcept override;
 protected:
     enum class Admission { New, Repeated, Invalid };

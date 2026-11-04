@@ -4,6 +4,7 @@
 // a failed one leaving with its mass. The physics is ms/damage's; the chances are each vehicle's own damage stream.
 
 #include "simulation/runtime/world/World.h"
+#include "simulation/runtime/world/WorldLiquidMaterials.h"
 
 #include "simulation/mission_systems/damage/Debris.h"
 #include "simulation/mission_systems/damage/Impact.h"
@@ -14,12 +15,33 @@
 
 #include <algorithm>
 #include <cstring>
+#include <set>
 
 namespace fsim::session {
+
+struct WorldDamageContinuationV1 {
+    struct Pending {
+        Detonation source;
+        ms::WeaponRecord correlation;
+        // Historical source reference for the existing Hit.target wire field.
+        // The immutable correlation ID remains authoritative after slot reuse.
+        std::optional<std::uint32_t> sourceStreamSlot;
+        std::uint64_t sourceGeneration=0;
+        std::string diagnosticName;
+        double diagnosticExplosiveKg=0;
+        std::uint32_t diagnosticTopology=0;
+        ms::damage::FragmentFieldV1 field;
+        ms::damage::SceneEnvironmentV1 environment;
+        double sampleTimeS=0,creationBoundaryS=0,lifetimeS=1;
+        double lastPublicationS=std::numeric_limits<double>::quiet_NaN();
+    };
+    std::vector<Pending> pending;
+};
 
 namespace {
 
 constexpr std::uint64_t kDamageStream = 0x444D'4147ull; // "DMAG": a stream of its own, so no other draw moves
+constexpr std::uint64_t kFragmentStream = 0x4652'4147ull; // "FRAG": one source population per physical release.
 constexpr double kLbsToKg = 0.45359237, kLbfToN = 4.4482216152605, kPsfToPa = 47.880258888889;
 constexpr double kSlugFt3ToKgM3 = 515.378818;
 constexpr double kG = 9.80665;
@@ -51,6 +73,24 @@ void structural(const ms::damage::Airframe& a, const ms::damage::V3& body, doubl
     out[2] = a.originDesign.z - body.z;
 }
 
+void synchronizeDetachedFuel(sim::FlightModel& model,const ms::damage::VehicleDamage& damage) {
+    const auto& frame=damage.airframe();double total=0;ms::damage::V3 weighted;
+    std::set<int> used;
+    for(const auto& section:frame.sections)for(const auto& tank:section.tanks)
+        if(const auto contents=damage.detachedFuelKg(tank.index);contents&&used.insert(tank.index).second) {
+            total+=*contents;weighted+=tank.centre*(*contents);
+        }
+    model.beginMassChange();model.property("inertia/pointmass-weight-lbs").set(total/kLbsToKg);
+    if(total>0) {
+        double location[3];structural(frame,weighted*(1/total),location);
+        constexpr double inchesPerM=39.37007874015748;
+        const char* axes[]={"X","Y","Z"};
+        for(std::size_t axis=0;axis<3;++axis)
+            model.property(std::string("inertia/pointmass-location-")+axes[axis]+"-inches").set(location[axis]*inchesPerM);
+    }
+    model.endMassChange(nullptr,nullptr);
+}
+
 } // namespace
 
 std::optional<World::Entry::Matter> World::captureMatter(const Entry& e, sim::FlightModel& model) {
@@ -65,6 +105,57 @@ std::optional<World::Entry::Matter> World::captureMatter(const Entry& e, sim::Fl
     out.pressurePa=reads[0].get()*kPsfToPa; out.temperatureK=reads[1].get()/1.8; out.densityKgM3=reads[2].get()*kSlugFt3ToKgM3;
     if (!(out.pressurePa>0) || !(out.temperatureK>0) || !(out.densityKgM3>=0) ||
         !std::isfinite(out.pressurePa) || !std::isfinite(out.temperatureK) || !std::isfinite(out.densityKgM3)) return std::nullopt;
+    if(!e.matterFuelBound) {
+        std::map<std::size_t,sim::PropertyHandle> tanks;
+        for(const auto& property:model.properties("propulsion")) {
+            const auto& name=property.first;std::optional<std::size_t> index;
+            if(name=="tank/contents-lbs")index=0;
+            else if(name.compare(0,5,"tank[")==0) {
+                const auto end=name.find(']',5);
+                if(end!=std::string::npos&&end>5&&name.substr(end)=="]/contents-lbs") {
+                    std::size_t value=0;bool valid=true;
+                    for(std::size_t k=5;k<end;++k) {
+                        if(name[k]<'0'||name[k]>'9'){valid=false;break;}
+                        value=value*10+static_cast<std::size_t>(name[k]-'0');
+                        if(value>65535){valid=false;break;}
+                    }
+                    if(valid)index=value;
+                }
+            }
+            if(index)tanks.emplace(*index,model.property("propulsion/tank["+std::to_string(*index)+"]/contents-lbs"));
+        }
+        e.matterFuelReads.assign(tanks.begin(),tanks.end());e.matterFuelBound=true;
+    }
+    for(const auto& item:e.matterFuelReads) {
+        if(out.tankFuelKg.size()<=item.first)out.tankFuelKg.resize(item.first+1);
+        if(!item.second.valid())continue;
+        const double contents=item.second.get()*kLbsToKg;
+        if(std::isfinite(contents)&&contents>=0)out.tankFuelKg[item.first]=contents;
+    }
+    if(e.damage&&e.damageOwnedSection)for(const auto& tank:e.damage->airframe().sections[static_cast<std::size_t>(*e.damageOwnedSection)].tanks) {
+        if(tank.index<0||tank.index>65535)continue;
+        const auto index=static_cast<std::size_t>(tank.index);
+        if(out.tankFuelKg.size()<=index)out.tankFuelKg.resize(index+1);
+        // Detached fuel belongs to the real child damage state and native
+        // point mass, rather than a tank absent from its dry piece XML.
+        if(const auto contents=e.damage->detachedFuelKg(tank.index))out.tankFuelKg[index]=*contents;
+    }
+    else if(e.damageOwnedSection&&e.liquidMaterials) {
+        // The generated native piece's first point mass is its fuel. Physical
+        // reset restores that actual point mass to zero before lazy damage
+        // state construction. A measured zero aggregate uniquely establishes
+        // zero for each nonnegative owned tank; a positive unknown aggregate
+        // cannot be split provisionally among native tank identities.
+        std::optional<double> fuel;
+        for(const auto& property:model.properties("inertia"))
+            if(property.first=="pointmass-weight-lbs"||property.first=="pointmass-weight-lbs[0]")fuel=property.second;
+        if(fuel&&*fuel==0)for(const auto& tank:e.liquidMaterials->tanks)
+            if(tank.section==*e.damageOwnedSection) {
+                const auto index=static_cast<std::size_t>(tank.index);
+                if(out.tankFuelKg.size()<=index)out.tankFuelKg.resize(index+1);
+                out.tankFuelKg[index]=0;
+            }
+    }
     return out;
 }
 
@@ -87,6 +178,9 @@ std::optional<World::Entry::Matter> World::engagementMatterAt(const Entry& e, do
             for (int k=0;k<9;++k) out.rigid.inertiaBodyKgM2[k]=mix(a.rigid.inertiaBodyKgM2[k],b.rigid.inertiaBodyKgM2[k]);
             out.pressurePa=mix(a.pressurePa,b.pressurePa); out.temperatureK=mix(a.temperatureK,b.temperatureK);
             out.densityKgM3=mix(a.densityKgM3,b.densityKgM3);
+            out.tankFuelKg.assign(std::max(a.tankFuelKg.size(),b.tankFuelKg.size()),std::nullopt);
+            for(std::size_t tank=0;tank<std::min(a.tankFuelKg.size(),b.tankFuelKg.size());++tank)
+                if(a.tankFuelKg[tank]&&b.tankFuelKg[tank])out.tankFuelKg[tank]=mix(*a.tankFuelKg[tank],*b.tankFuelKg[tank]);
             return out;
         }
     }
@@ -193,20 +287,55 @@ void World::damageFlight(Entry& e, ms::damage::Flight& f) {
         (&f.rateDotRadS2.x)[k] = e.angularAcceleration[static_cast<std::size_t>(k)].get();
     }
     const sim::VehicleState& s = e.working;
+    f.airVelocityBodyMs={s.airspeedTrueMs*std::cos(s.alphaRad)*std::cos(s.betaRad),
+        s.airspeedTrueMs*std::sin(s.betaRad),s.airspeedTrueMs*std::sin(s.alphaRad)*std::cos(s.betaRad)};
     f.rateRadS = v3(s.angularRateBodyRadS);
     f.dynamicPressurePa = r.qbar.get() * kPsfToPa;
     f.tankKg.resize(r.tanks.size());
     for (std::size_t t = 0; t < r.tanks.size(); ++t) f.tankKg[t] = r.tanks[t].get() * kLbsToKg;
+    if(e.info.role==ms::Role::Debris&&e.damage)
+        for(const auto& section:e.damage->airframe().sections)for(const auto& tank:section.tanks)
+            if(const auto contents=e.damage->detachedFuelKg(tank.index)) {
+                const auto index=static_cast<std::size_t>(tank.index);
+                if(f.tankKg.size()<=index)f.tankKg.resize(index+1);
+                f.tankKg[index]=*contents;
+            }
 }
 
 std::vector<ipc::EngagementEvent> World::applyDamage(Entry& e, const Detonation& d,
     const ms::damage::Impact& impact, const sim::VehicleState& s, const double* cg,
-    double pressurePa, const std::vector<ms::damage::VehicleDamage::PointImpulse>& contact) {
-    std::vector<ipc::EngagementEvent> out;
+    double pressurePa, const std::vector<ms::damage::VehicleDamage::PointImpulse>& contact,
+    bool materialOriginMoment,bool liquidAware) {
     const Entry* weapon=entry(d.weapon);
+    return applyDamageWithSource(e,d,impact,s,cg,pressurePa,contact,
+        weapon?std::optional<std::uint32_t>{static_cast<std::uint32_t>(weapon->slot)}:std::nullopt,
+        weapon?weapon->info.generation:0,materialOriginMoment,liquidAware);
+}
+
+std::vector<ipc::EngagementEvent> World::applyDamageWithSource(Entry& e, const Detonation& d,
+    const ms::damage::Impact& impact, const sim::VehicleState& s, const double* cg,
+    double pressurePa, const std::vector<ms::damage::VehicleDamage::PointImpulse>& contact,
+    std::optional<std::uint32_t> sourceStreamSlot,std::uint64_t sourceGeneration,
+    bool materialOriginMoment,bool liquidAware) {
+    std::vector<ipc::EngagementEvent> out;
     auto& model=pool_->vehicle(e.slot);
     const auto af=airframes_.find(e.info.aircraft);
-    if (af==airframes_.end() || !af->second || !e.damage) return out;
+    if(af==airframes_.end()||!af->second||!e.damage) {
+        if(!e.liquidMaterials||e.liquidMaterials->tanks.empty()||
+           std::any_of(e.liquidMaterials->tanks.begin(),e.liquidMaterials->tanks.end(),[](const auto& tank){return tank.section!=-1;}))return out;
+        // Liquid-only work has no authored skin/components/failure/fire model.
+        // Apply the same scene-origin impulse convention to the real native body.
+        sim::VehicleState now;model.state(now);
+        const auto inCurrentBody=[&](ms::damage::V3 value) {
+            const double body[3]={value.x,value.y,value.z};double ecef[3],current[3];
+            ms::geom::toEcef(s,body,ecef);ms::geom::toBody(now,ecef,current);return v3(current);
+        };
+        const auto impulse=inCurrentBody(impact.impulseBody);
+        const auto angular=inCurrentBody(impact.angularImpulseBody-ms::damage::cross(v3(cg),impact.impulseBody));
+        const double linear[3]={impulse.x,impulse.y,impulse.z},torque[3]={angular.x,angular.y,angular.z};
+        model.applyImpulse(linear,torque);
+        return out;
+    }
     const auto* R=s.rotationBodyToEcef;
     // where the burst was from its origin (body axes), and what struck each section's own panels: the fragments'
     // momentum, and the blast's impulse on each face, away from the burst
@@ -222,6 +351,7 @@ std::vector<ipc::EngagementEvent> World::applyDamage(Entry& e, const Detonation&
     for (const auto& load : contact)
         if (load.section>=0 && static_cast<std::size_t>(load.section)<sectionImpulse.size())
             sectionImpulse[static_cast<std::size_t>(load.section)] += load.momentumNs;
+    captureWeaponImpactDiagnosticsV1(d.weapon,sourceGeneration,e,impact);
     const double hitKg = model.energy().massKg;
     // Assessment vectors are in the encounter-time body frame. Apply their
     // inertial direction in the model's current body frame after the batch.
@@ -238,18 +368,27 @@ std::vector<ipc::EngagementEvent> World::applyDamage(Entry& e, const Detonation&
         // the blast and the fragments push and turn it (about its CG: the impulse's moment about the origin less
         // the CG's offset's)
         const ms::damage::V3 J = currentImpulse;
-        // Transport encounter torque to the actual batch-application CG about
-        // the same fixed world points, preserving global angular momentum.
-        const auto worldImpulse=rotate(s,impact.impulseBody);
-        const auto worldTorque=rotate(s,impact.angularImpulseBody-ms::damage::cross(v3(cg),impact.impulseBody))+
-            ms::damage::cross(v3(s.positionEcef)-v3(currentState.positionEcef),worldImpulse);
+        auto worldTorque=rotate(s,impact.angularImpulseBody-ms::damage::cross(v3(cg),impact.impulseBody));
+        const auto displacement=v3(s.positionEcef)-v3(currentState.positionEcef);
+        if(materialOriginMoment) {
+            // Scene moments already follow each moving material origin. A
+            // fixed-world translation here would turn delayed orbital motion
+            // into spin. Explicit mechanical contact retains its own previous
+            // fixed-point transport even when combined with a scene burst.
+            for(const auto& load:contact)
+                worldTorque+=ms::damage::cross(displacement,rotate(s,load.momentumNs));
+        } else {
+            // Existing assess providers and direct collision callers retain
+            // their historical fixed-world encounter-point convention.
+            worldTorque+=ms::damage::cross(displacement,rotate(s,impact.impulseBody));
+        }
         const ms::damage::V3 L = unrotate(currentState,worldTorque);
         const double linear[3] = {J.x, J.y, J.z}, angular[3] = {L.x, L.y, L.z};
         model.applyImpulse(linear, angular);
     }
     if (impact.fragmentsStriking > 0) {
         auto hit = engagementEvent(e, ipc::EngagementKind::Hit, d.store);
-        hit.target = weapon ? static_cast<std::uint32_t>(weapon->slot) + 1 : 0u;
+        hit.target = sourceStreamSlot ? *sourceStreamSlot + 1u : 0u;
         hit.index = static_cast<std::uint32_t>(impact.fragmentsStriking);
         out.push_back(hit);
     }
@@ -257,7 +396,12 @@ std::vector<ipc::EngagementEvent> World::applyDamage(Entry& e, const Detonation&
     damageFlight(e, f);
     const auto& a = *af->second;
     sim::VehicleState afterImpulse; model.state(afterImpulse);
-    for (const auto& c : e.damage->apply(impact, pressurePa, e.damageRng, contact)) {
+    auto changes=e.damage->apply(impact,pressurePa,e.damageRng,contact);
+    if(liquidAware) {
+        auto later=e.damage->applyLiquidEnergyV1(impact,pressurePa,e.damageRng);
+        changes.insert(changes.end(),later.begin(),later.end());
+    }
+    for (const auto& c : changes) {
         using K = ms::damage::Change::Kind;
         const std::string component = c.component >= 0 ? a.components[static_cast<std::size_t>(c.component)].name : std::string();
         switch (c.kind) {
@@ -275,7 +419,8 @@ std::vector<ipc::EngagementEvent> World::applyDamage(Entry& e, const Detonation&
                     ev.velocityEcef[k]=(&point.velocity.x)[k];
                 }
             }
-            ev.amountKg = c.spillKg;
+            ev.amountKg = c.tank>=0&&static_cast<std::size_t>(c.tank)<f.tankKg.size()?
+                std::min(c.spillKg,f.tankKg[static_cast<std::size_t>(c.tank)]):c.spillKg;
             if (c.spillKg > 0.0 && c.component >= 0) {
                 // what it throws out at once goes the way the fragments went through it - from the burst, through
                 // the tank, out of its far side - on top of the aircraft's own motion: the fireball is laid along
@@ -289,9 +434,11 @@ std::vector<ipc::EngagementEvent> World::applyDamage(Entry& e, const Detonation&
             }
             if (c.tank >= 0 && static_cast<std::size_t>(c.tank) < f.tankKg.size()) {
                 // what it throws out at once leaves its tank; what leaks on burns on
-                auto& h = e.damageReads.tanks[static_cast<std::size_t>(c.tank)];
                 const double kg = std::max(f.tankKg[static_cast<std::size_t>(c.tank)] - c.spillKg, 0.0);
-                h.set(kg / kLbsToKg);
+                if(e.damage->detachedFuelKg(c.tank)) {
+                    e.damage->removeDetachedFuelKg(c.tank,c.spillKg);
+                    synchronizeDetachedFuel(model,*e.damage);
+                } else e.damageReads.tanks[static_cast<std::size_t>(c.tank)].set(kg/kLbsToKg);
                 ev.massKg = e.damage->leakKgS(c.tank, kg, s.loadFactor, f.dynamicPressurePa);
                 ev.rateKgS = std::min(ev.massKg, ms::damage::kBurnMostKgS); // (what burns of it; the rest its mist)
                 e.fireRates[c.tank] = ev.massKg;
@@ -347,7 +494,17 @@ std::vector<ipc::EngagementEvent> World::applyDamage(Entry& e, const Detonation&
 
 std::vector<ipc::EngagementEvent> World::detonate(const Detonation& d) { return detonateAt(d,nullptr); }
 
-std::vector<ipc::EngagementEvent> World::detonateAt(const Detonation& d, const ContactTransfer* contact) {
+std::vector<ipc::EngagementEvent> World::detonateCapturedV1(const Detonation& d) {
+    const auto* source=entry(d.weapon);
+    if(!source||source->info.role!=ms::Role::Weapon||!std::isfinite(d.stepFraction)||d.stepFraction<0||d.stepFraction>1||
+       !ms::weapon::validMotionPath(source->engagementPath)||
+       (source->warheadAdapter&&!dynamic_cast<const ms::damage::WarheadSceneExecutionV2*>(source->warheadAdapter.get()))) {
+        LOG_WARN("session") << "captured detonation requires a live scene-capable weapon and captured native fraction";return {};
+    }
+    return detonateAt(d,nullptr,true);
+}
+
+std::vector<ipc::EngagementEvent> World::detonateAt(const Detonation& d, const ContactTransfer* contact,bool causalRequested) {
     std::vector<ipc::EngagementEvent> out;
     if (storeCards_.empty()) {
         std::vector<std::string> errors;
@@ -390,7 +547,7 @@ std::vector<ipc::EngagementEvent> World::detonateAt(const Detonation& d, const C
     std::snprintf(burst.name, sizeof burst.name, "%s", d.store.c_str());
     const std::size_t burstAt = out.size();
     out.push_back(burst);
-    double nearest = kDamageReachM;
+    double nearest = std::numeric_limits<double>::infinity();
 
     ms::damage::Burst b;
     b.at = v3(d.positionEcef), b.velocity = v3(d.velocityEcef), b.axis = v3(d.axisEcef);
@@ -408,18 +565,36 @@ std::vector<ipc::EngagementEvent> World::detonateAt(const Detonation& d, const C
                 states[slot]=engagementStateAt(*e,f*options_.dt*options_.frameSkip);
         }
     }
-    // A burst may create debris. Freeze the victim set and its states before any slot can be appended.
+    struct DamageSnapshot {
+        Entry* entry=nullptr;
+        sim::VehicleState state;
+        std::array<double,3> cg{};
+        ms::damage::Target target;
+    };
+    const auto* sceneProvider=dynamic_cast<const ms::damage::WarheadSceneExecutionV2*>(adapter);
+    const bool sharedScene=!adapter||sceneProvider;
+    std::vector<DamageSnapshot> capturedVictims;
+    std::vector<ms::damage::SceneVictimV1> sceneVictims;
+    std::vector<ms::damage::SceneLiquidOnlyVictimV2> liquidOnlyVictims;
+    std::vector<ms::damage::SceneLiquidOnlyWorkV2> liquidOnlyWork;
+    ms::damage::SceneLiquidInputsV1 liquids;
+    // Freeze the entire eligible set before any impulse/structural consequence
+    // can create another body or remove geometry from the existing scene.
     for (std::size_t slot = 0; slot < states.size(); ++slot) {
         Entry* e = entries_[slot].get();
-        if (!e || e == weapon || e->info.role != ms::Role::Aircraft) continue;
+        if (!e || e == weapon || (e->info.role!=ms::Role::Aircraft&&e->info.role!=ms::Role::Debris)) continue;
         const auto af = airframes_.find(e->info.aircraft);
-        if (af == airframes_.end()) continue;
+        const bool unsectioned=af==airframes_.end()&&sharedScene&&e->liquidMaterials&&!e->liquidMaterials->tanks.empty();
+        if(af==airframes_.end()&&!unsectioned)continue;
         const sim::VehicleState& s = states[slot];
         const ms::damage::V3 at = v3(s.positionEcef);
         const double miss = ms::damage::length(b.at - at);
-        if (!(miss < kDamageReachM)) continue;
+        // Retained external assess adapters keep their original dispatch
+        // radius. A shared finite flight field uses actual material paths;
+        // distance from its birth position is not a physical broad phase.
+        if (!std::isfinite(miss)||(!sharedScene&&!(miss < kDamageReachM))) continue;
         auto& model = pool_->vehicle(slot);
-        if (!ensureDamage(*e)) continue;
+        if(!unsectioned&&!ensureDamage(*e))continue;
         ms::damage::Target t;
         const double* R = s.rotationBodyToEcef;
         for (std::size_t k = 0; k < 3; ++k) t.bodyToEcef[k] = {R[k], R[3 + k], R[6 + k]};
@@ -447,10 +622,120 @@ std::vector<ipc::EngagementEvent> World::detonateAt(const Detonation& d, const C
             ? engagementMatterAt(*e,std::clamp(d.stepFraction,0.0,1.0)*options_.dt*options_.frameSkip) : captureMatter(*e,model);
         if (!matter) { LOG_WARN("session") << "damage encounter atmosphere unavailable for " << e->info.name; continue; }
         t.airPressurePa=matter->pressurePa; t.airTemperatureK=matter->temperatureK; t.airDensity=matter->densityKgM3;
-        const auto attached=e->damage->attachedGeometry();
-        ms::damage::Impact impact = adapter ? adapter->assess(b,attached,t,e->damageRng)
-                                          : ms::damage::assess(*warhead, b, attached, t, e->damageRng);
+        t.angularVelocityEcef=rotate(s,v3(s.angularRateBodyRadS));
+        std::string materialError;
+        if(unsectioned) {
+            if(!appendUnsectionedLiquidMaterialV2(*e,s,*matter,liquids,materialError)) {
+                LOG_WARN("session") << "standalone liquid material refused for " << e->info.name << ": " << materialError;return out;
+            }
+            liquidOnlyVictims.push_back({e->info.id,e->info.generation,t,{}});
+        } else {
+            const auto attached=e->damage->attachedGeometry();
+            if(sharedScene&&!appendLiquidMaterialV1(*e,s,*matter,attached,liquids,materialError)) {
+                LOG_WARN("session") << "damage encounter liquid material refused for " << e->info.name << ": " << materialError;return out;
+            }
+            sceneVictims.push_back({e->info.id,attached,t,e->info.generation});
+        }
+        capturedVictims.push_back({e,s,{cg[0],cg[1],cg[2]},t});
         if (miss < nearest) nearest = miss, out[burstAt].target = static_cast<std::uint32_t>(slot) + 1;
+    }
+    if(causalRequested&&!sharedScene) {LOG_WARN("session") << "selected warhead provider has no causal scene capability";return {};}
+    const bool causal=causalRequested&&sharedScene&&weapon&&weapon->info.role==ms::Role::Weapon&&std::isfinite(d.stepFraction);
+    ms::damage::SceneAssessmentV1 assessment;
+    if(sharedScene&&(!capturedVictims.empty()||causal)) {
+        const auto ordinal=d.weapon?static_cast<std::uint64_t>(d.weapon):++scriptedDetonationSequence_;
+        auto fragmentRng=Rng::forVehicle(options_.seed,kFragmentStream,ordinal);
+        const auto field=sceneProvider?sceneProvider->emitScene(b,fragmentRng):ms::damage::emitFragmentFieldV1(*warhead,b,fragmentRng);
+        ms::damage::SceneEnvironmentV1 environment;
+        const auto closest=std::min_element(capturedVictims.begin(),capturedVictims.end(),[&](const auto& left,const auto& right) {
+            const double a=ms::damage::length(left.target.at-b.at),c=ms::damage::length(right.target.at-b.at);
+            return a<c||(a==c&&left.entry->info.id<right.entry->info.id);
+        });
+        // Scripted bursts have no native projectile atmosphere. Use the nearest
+        // captured recipient's local native air as the declared frozen field.
+        if(closest!=capturedVictims.end())environment.airDensity=closest->target.airDensity;
+        if(weapon) {
+            const auto matter=std::isfinite(d.stepFraction)?engagementMatterAt(*weapon,std::clamp(d.stepFraction,0.0,1.0)*options_.dt*options_.frameSkip):
+                captureMatter(*weapon,pool_->vehicle(weapon->slot));
+            if(matter)environment.airDensity=matter->densityKgM3;
+        }
+        const auto atmosphereSlot=weapon?weapon->slot:closest->entry->slot;
+        if(const auto* source=dynamic_cast<const sim::NativePositionSourceV1*>(&pool_->vehicle(atmosphereSlot))) {
+            sim::NativePositionV1 position;
+            if(source->nativePositionV1(d.positionEcef,position)) {
+                const double direction=units::degreesToRadians(environment_.windDirectionDeg);
+                const double north=-environment_.windSpeedMs*std::cos(direction),east=-environment_.windSpeedMs*std::sin(direction);
+                const double sl=std::sin(position.latitudeRad),cl=std::cos(position.latitudeRad),so=std::sin(position.longitudeRad),co=std::cos(position.longitudeRad);
+                environment.airVelocity={-north*sl*co-east*so,-north*sl*so+east*co,north*cl};
+                environment.gravityEcef={-kG*cl*co,-kG*cl*so,-kG*sl};
+            }
+        }
+        if(causal) {
+            if(!field.valid) {LOG_WARN("session") << "detonate: causal physical fragment source refused " << d.store;return out;}
+            if(!damageContinuation_)damageContinuation_=std::make_shared<WorldDamageContinuationV1>();
+            WorldDamageContinuationV1::Pending pending;
+            pending.source=d;pending.correlation=weapon->origin;
+            pending.sourceStreamSlot=static_cast<std::uint32_t>(weapon->slot);
+            pending.sourceGeneration=weapon->info.generation;
+            if(options_.publish)pending.diagnosticName=weapon->info.name;
+            pending.diagnosticExplosiveKg=warhead->explosiveKg;
+            pending.diagnosticTopology=static_cast<std::uint32_t>(warhead->fragmentSource);
+            pending.correlation.id=weapon->info.id;pending.correlation.launcher=weapon->info.launcher;
+            pending.correlation.store=d.store;pending.field=field;pending.environment=environment;
+            const double dt=options_.dt*options_.frameSkip;
+            pending.sampleTimeS=simTime_-dt*(1-std::clamp(d.stepFraction,0.0,1.0));
+            pending.creationBoundaryS=simTime_;pending.lifetimeS=environment.maxFlightTimeS;
+            captureWeaponFragmentDiagnosticsV1(d.weapon,pending.sourceGeneration,field,pending.sampleTimeS,
+                pending.sampleTimeS,pending.diagnosticName,d.store,pending.diagnosticExplosiveKg,pending.diagnosticTopology);
+            damageContinuation_->pending.push_back(std::move(pending));
+            for(const auto& event:out)engage(event); // The burst is published once; future hits are not.
+            if(contact)if(auto* live=entry(d.weapon))contactDamage(*live,*contact);
+            return out;
+        }
+        if(liquids.recipients.empty())assessment=ms::damage::assessSceneV1(field,sceneVictims,environment);
+        else {
+            auto combined=ms::damage::assessSceneLiquidsV2(field,sceneVictims,liquidOnlyVictims,environment,liquids);
+            assessment=std::move(combined.scene);liquidOnlyWork=std::move(combined.liquidOnlyWork);
+        }
+        if(!assessment.valid) {LOG_WARN("session") << "detonate: shared physical fragment assessment refused " << d.store;return out;}
+        // The synchronous diagnostic retains the actual emitted source at
+        // birth; its future assessed positions are not published as present.
+        if(weapon&&weapon->info.role==ms::Role::Weapon) {
+            const double epoch=std::isfinite(d.stepFraction)?simTime_-options_.dt*options_.frameSkip*(1-std::clamp(d.stepFraction,0.,1.)):simTime_;
+            captureWeaponFragmentDiagnosticsV1(d.weapon,weapon->info.generation,field,epoch,epoch,
+                weapon->info.name,d.store,warhead->explosiveKg,static_cast<std::uint32_t>(warhead->fragmentSource));
+        }
+    }
+    for(const auto& captured:capturedVictims) {
+        Entry* e=captured.entry;
+        if(!e){LOG_WARN("session") << "damage consequence has no captured recipient";continue;}
+        const auto& s=captured.state;const double* cg=captured.cg.data();const auto& t=captured.target;
+        const auto af=airframes_.find(e->info.aircraft);
+        if(af==airframes_.end()||!af->second) {
+            if(sharedScene) {
+                const auto row=std::find_if(assessment.victims.begin(),assessment.victims.end(),[&](const auto& value){return value.identity==e->info.id;});
+                if(row!=assessment.victims.end()) {
+                    captureLiquidAssessmentV1(*e,row->impact,d.weapon,weapon?weapon->info.generation:0,liquidOnlyWork,assessment.continuation);
+                    const auto changes=applyDamage(*e,d,row->impact,s,cg,t.airPressurePa,{},true,true);
+                    out.insert(out.end(),changes.begin(),changes.end());
+                }
+            }
+            continue;
+        }
+        // applyDamage may create a first piece type and rehash airframes_.
+        // Retain the actual shared frame, not an iterator across that call.
+        const auto frame=af->second;
+        ms::damage::Impact impact;
+        if(sharedScene) {
+            const auto row=std::find_if(assessment.victims.begin(),assessment.victims.end(),[&](const auto& value){return value.identity==e->info.id;});
+            if(row==assessment.victims.end())continue;
+            impact=row->impact;
+        } else {
+            // Existing external adapters retain their explicitly supplied assess
+            // behavior; absence of the additive capability never selects a
+            // different native physical model behind their vtable.
+            impact=adapter->assess(b,e->damage->attachedGeometry(),t,e->damageRng);
+        }
         std::vector<ms::damage::VehicleDamage::PointImpulse> contactLoads;
         if (contact && contact->victim==e->info.id) {
             const auto j=unrotate(s,contact->impulseEcef);
@@ -458,20 +743,121 @@ std::vector<ipc::EngagementEvent> World::detonateAt(const Detonation& d, const C
             impact.angularImpulseBody+=ms::damage::cross(contact->pointBody,j);
             contactLoads.push_back({contact->section,contact->pointBody,j});
         }
-        const auto changes=applyDamage(*e,d,impact,s,cg,t.airPressurePa,contactLoads);
+        const bool liquidAware=sharedScene&&std::any_of(liquids.recipients.begin(),liquids.recipients.end(),
+            [&](const auto& value){return value.identity==e->info.id;});
+        captureLiquidAssessmentV1(*e,impact,d.weapon,weapon?weapon->info.generation:0,liquidOnlyWork,assessment.continuation);
+        const auto changes=applyDamage(*e,d,impact,s,cg,t.airPressurePa,contactLoads,sharedScene,liquidAware);
         out.insert(out.end(),changes.begin(),changes.end());
-        LOG_INFO("session") << e->info.name << " hit by " << d.store << " at " << miss << " m: " << impact.fragmentsStriking << " of "
+        LOG_INFO("session") << e->info.name << " hit by " << d.store << " at " << impact.missM << " m: " << impact.fragmentsStriking << " of "
                             << impact.fragmentsThrown << " fragments struck";
-        for (std::size_t k = 0; k < af->second->sections.size(); ++k)
-            if (af->second->sections[k].hasRoot)
-                LOG_INFO("session") << "  its " << af->second->sections[k].name << ": strength left " << e->damage->sections()[k].strength
+        for (std::size_t k = 0; k < frame->sections.size(); ++k)
+            if (frame->sections[k].hasRoot)
+                LOG_INFO("session") << "  its " << frame->sections[k].name << ": strength left " << e->damage->sections()[k].strength
                                     << ", the blast's and the fragments' kick " << e->damage->sections()[k].kick << " of it";
     }
     for (const auto& ev : out) engage(ev);
     return out;
 }
 
+bool World::pendingDetonationEffects() const noexcept {
+    return damageContinuation_&&!damageContinuation_->pending.empty();
+}
+
+void World::advanceDetonationEffects() {
+    if(!pendingDetonationEffects())return;
+    const double nativeDuration=options_.dt*options_.frameSkip;
+    struct Snapshot {Entry* entry=nullptr;sim::VehicleState state;std::array<double,3> cg{};ms::damage::Target target;};
+    auto& pending=damageContinuation_->pending;
+    for(auto& effect:pending) {
+        if(effect.lastPublicationS==simTime_)continue;
+        const double offset=effect.creationBoundaryS==simTime_?
+            std::clamp(effect.source.stepFraction,0.0,1.0)*nativeDuration:0;
+        const double duration=std::min(nativeDuration-offset,effect.lifetimeS-effect.field.ageS);
+        effect.lastPublicationS=simTime_;
+        if(!(duration>0))continue;
+        const double endOffset=std::min(nativeDuration,offset+duration);
+        std::vector<Snapshot> snapshots;std::vector<ms::damage::SceneVictimV1> victims;
+        std::vector<ms::damage::SceneLiquidOnlyVictimV2> liquidOnlyVictims;
+        ms::damage::SceneLiquidInputsV1 liquids;
+        bool materialAdmitted=true;
+        // Borrowed Entry pointers exist only inside this serialized native
+        // operation. The retained field owns immutable IDs/generations instead.
+        for(auto& owned:entries_)if(auto* e=owned.get();e&&(e->info.role==ms::Role::Aircraft||e->info.role==ms::Role::Debris)) {
+            const bool structural=ensureDamage(*e);
+            const bool unsectioned=!structural&&e->liquidMaterials&&!e->liquidMaterials->tanks.empty();
+            if(e->info.id==effect.correlation.id||(!structural&&!unsectioned)||!ms::weapon::validMotionPath(e->engagementPath)||
+               e->engagementPath.front().offsetS>offset||e->engagementPath.back().offsetS<endOffset)continue;
+            const auto initial=engagementStateAt(*e,offset);
+            ms::damage::SceneLiquidOnlyVictimV2 victim{e->info.id,e->info.generation,{},{}};
+            std::array<double,3> firstCg{};bool admitted=true;
+            for(double local=0;;local=std::min(duration,local+effect.environment.maxSubstepS)) {
+                const double sampleOffset=local==duration?endOffset:offset+local;
+                const auto state=engagementStateAt(*e,sampleOffset);
+                const auto cg=engagementCgAt(*e,sampleOffset);const auto matter=engagementMatterAt(*e,sampleOffset);
+                if(!cg||!matter){admitted=false;break;}
+                const auto origin=ms::weapon::materialPoint(state,*cg,{});if(!origin.valid){admitted=false;break;}
+                ms::damage::Target target;target.at=origin.position;target.velocity=origin.velocity;
+                for(std::size_t axis=0;axis<3;++axis)
+                    target.bodyToEcef[axis]={state.rotationBodyToEcef[axis],state.rotationBodyToEcef[axis+3],state.rotationBodyToEcef[axis+6]};
+                target.airPressurePa=matter->pressurePa;target.airTemperatureK=matter->temperatureK;target.airDensity=matter->densityKgM3;
+                target.angularVelocityEcef=rotate(state,v3(state.angularRateBodyRadS));
+                if(local==0){victim.target=target;firstCg={cg->x,cg->y,cg->z};}
+                victim.motion.push_back({local,target});if(local==duration)break;
+            }
+            if(admitted) {
+                const auto matter=engagementMatterAt(*e,offset);
+                std::string materialError;
+                const bool material=bool(matter)&&(unsectioned?appendUnsectionedLiquidMaterialV2(*e,initial,*matter,liquids,materialError):
+                    appendLiquidMaterialV1(*e,initial,*matter,e->damage->attachedGeometry(),liquids,materialError));
+                if(!material) {
+                    LOG_WARN("session") << "causal fragment liquid material refused for " << e->info.name << ": " << materialError;
+                    materialAdmitted=false;break;
+                }
+                snapshots.push_back({e,initial,firstCg,victim.target});
+                if(unsectioned)liquidOnlyVictims.push_back(std::move(victim));
+                else victims.push_back({e->info.id,e->damage->attachedGeometry(),victim.target,e->info.generation,std::move(victim.motion)});
+            }
+        }
+        auto environment=effect.environment;environment.maxFlightTimeS=duration;
+        if(!materialAdmitted){effect.field.projectiles.clear();continue;}
+        ms::damage::SceneLiquidAssessmentV2 combined;
+        if(liquids.recipients.empty())combined.scene=ms::damage::assessSceneV1(effect.field,victims,environment);
+        else combined=ms::damage::assessSceneLiquidsV2(effect.field,victims,liquidOnlyVictims,environment,liquids);
+        const auto& result=combined.scene;
+        if(!result.valid) {
+            LOG_WARN("session") << "causal fragment continuation refused weapon=" << effect.correlation.id;
+            effect.field.projectiles.clear();continue;
+        }
+        for(const auto& snapshot:snapshots) {
+            const auto row=std::find_if(result.victims.begin(),result.victims.end(),[&](const auto& impact){return impact.identity==snapshot.entry->info.id;});
+            if(row==result.victims.end())continue;
+            captureLiquidAssessmentV1(*snapshot.entry,row->impact,effect.correlation.id,effect.sourceGeneration,combined.liquidOnlyWork,result.continuation);
+            Detonation cause=effect.source;cause.stepFraction=std::numeric_limits<double>::quiet_NaN();
+            const auto changes=applyDamageWithSource(*snapshot.entry,cause,row->impact,snapshot.state,snapshot.cg.data(),
+                snapshot.target.airPressurePa,{},effect.sourceStreamSlot,effect.sourceGeneration,true,
+                std::any_of(liquids.recipients.begin(),liquids.recipients.end(),[&](const auto& value){return value.identity==snapshot.entry->info.id;}));
+            for(const auto& event:changes)engage(event);
+            if(!changes.empty()) {
+                ms::EngagementEvent event;event.serial=nextCombatSerial_++;event.timeS=simTime_;
+                event.kind="damage";event.reason="warhead";event.entity=effect.correlation.id;
+                event.launcher=effect.correlation.launcher;event.target=snapshot.entry->info.id;event.destroyed=snapshot.entry->crewLost;
+                std::copy_n(effect.source.positionEcef,3,event.positionEcef);std::copy_n(effect.source.velocityEcef,3,event.velocityEcef);
+                recordWeaponEventGenerationV1(event,effect.sourceGeneration,snapshot.entry->info.generation);
+                combatEvents_.push_back(std::move(event));
+            }
+        }
+        effect.field=result.continuation;
+        const double capturedEpoch=simTime_-(nativeDuration-endOffset);
+        captureWeaponFragmentDiagnosticsV1(effect.correlation.id,effect.sourceGeneration,effect.field,capturedEpoch,
+            effect.sampleTimeS,effect.diagnosticName,effect.source.store,effect.diagnosticExplosiveKg,effect.diagnosticTopology);
+    }
+    pending.erase(std::remove_if(pending.begin(),pending.end(),[&](const auto& effect) {
+        return effect.field.projectiles.empty()||effect.field.ageS>=effect.lifetimeS;
+    }),pending.end());
+}
+
 void World::stepDamage() {
+    advanceDetonationEffects();
     const double dt = options_.dt * options_.frameSkip;
     // a ground strike's fire, burnt out
     for (auto& entry : entries_)
@@ -491,8 +877,12 @@ void World::stepDamage() {
         for (const auto& [tank, state] : e->damage->tanks()) {
             if (tank < 0 || static_cast<std::size_t>(tank) >= f.tankKg.size()) continue;
             const double kg = f.tankKg[static_cast<std::size_t>(tank)];
-            const double leak = e->damage->leakKgS(tank, kg, e->working.loadFactor, f.dynamicPressurePa);
-            if (leak > 0.0) e->damageReads.tanks[static_cast<std::size_t>(tank)].set(std::max(kg - leak * dt, 0.0) / kLbsToKg);
+            const double leak = std::min(e->damage->leakKgS(tank, kg, e->working.loadFactor, f.dynamicPressurePa),kg/dt);
+            if(leak>0) {
+                if(e->damage->detachedFuelKg(tank))e->damage->removeDetachedFuelKg(tank,leak*dt);
+                else if(static_cast<std::size_t>(tank)<e->damageReads.tanks.size())
+                    e->damageReads.tanks[static_cast<std::size_t>(tank)].set(std::max(kg-leak*dt,0.0)/kLbsToKg);
+            }
             if (!state.burning) continue;
             const auto last = e->fireRates.find(tank);
             const double before = last == e->fireRates.end() ? 0.0 : last->second;
@@ -513,6 +903,9 @@ void World::stepDamage() {
                 e->fireRates[tank] = leak;
             }
         }
+        if(e->info.role==ms::Role::Debris) {
+            synchronizeDetachedFuel(model,*e->damage);
+        }
         // each section's root against its strength left: one that fails leaves, with its mass and its tanks' fuel
         for (const auto& c : e->damage->loads(f)) separated(*e, c.section);
     }
@@ -521,9 +914,13 @@ void World::stepDamage() {
 bool World::ensureDamage(Entry& e) {
     if (e.damage) return true;
     const auto af = airframes_.find(e.info.aircraft);
-    if (af == airframes_.end() || e.info.role != ms::Role::Aircraft) return false;
+    if (af == airframes_.end() || (e.info.role!=ms::Role::Aircraft&&
+        !(e.info.role==ms::Role::Debris&&e.damageOwnedSection))) return false;
     auto& model = pool_->vehicle(e.slot);
-    e.damage = std::make_unique<ms::damage::VehicleDamage>(af->second);
+    e.damage=e.damageOwnedSection?std::make_unique<ms::damage::VehicleDamage>(af->second,*e.damageOwnedSection):
+        std::make_unique<ms::damage::VehicleDamage>(af->second);
+    if(e.damageOwnedSection)for(const auto& tank:af->second->sections[static_cast<std::size_t>(*e.damageOwnedSection)].tanks)
+        e.damage->setDetachedFuelKg(tank.index,0); // Native physical reset restores the empty piece model.
     e.damageRng = Rng::forVehicle(options_.seed, kDamageStream, e.info.id);
     auto& r = e.damageReads;
     const char* axes[3] = {"x", "y", "z"};
@@ -559,6 +956,9 @@ void World::separatedAt(Entry& e, int section, const sim::VehicleState* as, cons
     if (as) part.before=*as;
     else model.state(part.before);
     model.cgFromOriginBodyM(part.cgFromOrigin);
+    // Copy accumulated holes, fire and component state before clearing parent
+    // tank contents. The piece's empty native origin is this section's CG.
+    auto inherited=e.damage->detachedState(section,sec.cg);
     // what leaves with it: its structure, its tanks' fuel, its stations' stores - off the aircraft at once, so its CG,
     // its inertia and its state move to what is left (FlightModel::endMassChange)
     model.beginMassChange();
@@ -568,7 +968,8 @@ void World::separatedAt(Entry& e, int section, const sim::VehicleState* as, cons
     for (const auto& t : sec.tanks)
         if (t.index >= 0 && static_cast<std::size_t>(t.index) < e.damageReads.tanks.size()) {
             auto& contents = e.damageReads.tanks[static_cast<std::size_t>(t.index)];
-            part.fuelKg += contents.get() * kLbsToKg;
+            const double kg=contents.get()*kLbsToKg;part.fuelKg+=kg;
+            if(inherited)inherited->setDetachedFuelKg(t.index,kg);
             contents.set(0.0);
         }
     for (const int station : sec.stations) part.stations.emplace_back(station, e.ms.loseStation(station, simTime_));
@@ -578,6 +979,32 @@ void World::separatedAt(Entry& e, int section, const sim::VehicleState* as, cons
     // and stores move its CG away from the dry section centre; both bodies must
     // receive their equal/opposite impulses at that same final loaded point.
     const auto pieceId=launchPiece(e,section,part);
+    if(auto* piece=entry(pieceId);piece&&inherited) {
+        piece->damageOwnedSection=section;
+        piece->damage=std::move(inherited);piece->damageRng=Rng::forVehicle(options_.seed,kDamageStream,pieceId);
+        piece->liquidMaterials=e.liquidMaterials;
+        piece->liquidOriginShiftBodyM=e.liquidOriginShiftBodyM+sec.cg;
+        piece->crewLost=piece->damage->crewLost();
+        airframes_[piece->info.aircraft]=std::make_shared<ms::damage::Airframe>(piece->damage->airframe());
+        auto& pieceModel=pool_->vehicle(piece->slot);auto& reads=piece->damageReads;
+        const char* axes[]={"x","y","z"};
+        for(std::size_t i=0;i<3;++i) {
+            reads.aero[i]=pieceModel.property(std::string("forces/fb")+axes[i]+"-aero-lbs");
+            reads.total[i]=pieceModel.property(std::string("forces/fb")+axes[i]+"-total-lbs");
+        }
+        reads.weight=pieceModel.property("inertia/weight-lbs");reads.qbar=pieceModel.property("aero/qbar-psf");
+        synchronizeDetachedFuel(pieceModel,*piece->damage);
+        // The parent no longer owns this emitter. The child's next physical
+        // leak update publishes the inherited fire at its translated component.
+        for(const auto& [tank,state]:piece->damage->tanks())if(state.burning) {
+            const auto component=static_cast<std::size_t>(std::max(state.component,0));
+            if(component<a.components.size()) {
+                const auto stop=engagementEvent(e,ipc::EngagementKind::Fire,a.components[component].name);
+                if(events)events->push_back(stop);else engage(stop);
+            }
+            e.fireRates[tank]=0;
+        }
+    }
     if (const auto* piece=entry(pieceId)) {
         auto& pieceModel=pool_->vehicle(piece->slot);
         auto& restModel=pool_->vehicle(e.slot);

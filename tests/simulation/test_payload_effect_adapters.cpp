@@ -275,3 +275,44 @@ TEST_CASE("fuze adapter validation is explicit atomic and does not upgrade legac
         CHECK(original.armingS==1.125); CHECK(original.fuzeModelVersion==0); CHECK_FALSE(original.fuzeStationStructuralM);
     }
 }
+
+TEST_CASE("Optional V0 target-detection policy is strict and leaves absent-profile mathematics unchanged",
+          "[payload-effect-adapters][fuze-scene-policy]") {
+    const auto absent=fuzeDescriptor(false);
+    auto declared=absent;
+    declared.bindings.emplace("target_detection_v1","native.time_armed_geometric_scene.v1");
+    weapon::Spec original;original.navigationGain=4.25;
+    std::string error;
+    auto legacy=weapon::makeFuzeAdapter(absent,original,error);INFO(error);REQUIRE(legacy);
+    auto opted=weapon::makeFuzeAdapter(declared,original,error);INFO(error);REQUIRE(opted);
+    CHECK(absent.bindings.count("target_detection_v1")==0);
+    CHECK(legacy->implementationId()==opted->implementationId());
+    CHECK(legacy->spec().fuzeModelVersion==0);CHECK(opted->spec().fuzeModelVersion==0);
+    CHECK(legacy->spec().fuzeAlgorithm==opted->spec().fuzeAlgorithm);
+    CHECK(legacy->spec().armingS==opted->spec().armingS);
+    CHECK(legacy->spec().lifeS==opted->spec().lifeS);
+    CHECK(legacy->spec().fuzeM==opted->spec().fuzeM);
+    CHECK(legacy->spec().fuzeDelayS==opted->spec().fuzeDelayS);
+    CHECK_FALSE(legacy->spec().fuzeStationStructuralM);CHECK_FALSE(opted->spec().fuzeStationStructuralM);
+    CHECK(original.navigationGain==4.25);CHECK(original.fuzeM==12);
+    const std::vector<weapon::MotionSample> target{{0,{}},{1,{}}};
+    const std::vector<std::vector<weapon::MotionSample>> paths{
+        {{0,{3,1,0}},{1,{1,1,0}}}, // old clamped approach endpoint remains eligible
+        {{0,{-3,1,0}},{1,{3,1,0}}},
+        {{0,{-3,3,0}},{1,{3,3,0}}}};
+    for(const auto& path:paths) {
+        const auto actual=opted->evaluateProximity(path,target,1,1,1,false,7);
+        const auto expected=legacy->evaluateProximity(path,target,1,1,1,false,7);
+        sameFuze(actual,expected);
+        sameFuze(actual,weapon::sweptPathFuze(path,target,1,1,legacy->spec(),1,false));
+    }
+    CHECK_FALSE(opted->scheduleDelay(1.25,7));
+    for(const char* value:{"", "unknown", "native.main_seeker_scene.v1"}) {
+        auto invalid=declared;invalid.bindings.at("target_detection_v1")=value;
+        CHECK_FALSE(weapon::makeFuzeAdapter(invalid,original,error));CHECK_FALSE(error.empty());
+    }
+    auto unknownRole=absent;unknownRole.bindings.emplace("target_detection_v2","native.time_armed_geometric_scene.v1");
+    CHECK_FALSE(weapon::makeFuzeAdapter(unknownRole,original,error));
+    auto turning=fuzeDescriptor(true);turning.bindings.emplace("target_detection_v1","native.time_armed_geometric_scene.v1");
+    CHECK_FALSE(weapon::makeFuzeAdapter(turning,original,error));
+}

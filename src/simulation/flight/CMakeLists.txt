@@ -12,7 +12,9 @@ add_library(fsim_sim STATIC
     JsbsimLog.cpp
     JsbsimModel.h
     JsbsimModel.cpp
+    PassiveRolleronV1.cpp
     NativeStepObservationV1.h
+    NativeThermalSourceV1.h
     SimRunner.h
     SimRunner.cpp
     SnapshotBuffer.h

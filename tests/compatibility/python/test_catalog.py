@@ -1,13 +1,44 @@
 """The catalog through Python (docs/sdk/python.md, "The catalog"): what the platform carries, read without a world -
 and that it is what a World then flies."""
 import os
+import tempfile
 import unittest
+from unittest.mock import patch
 
 import fsim
 import fsim.catalog
 
 
 class CatalogTest(unittest.TestCase):
+    def test_equipment_models_match_the_installed_cards(self):
+        models = fsim.catalog.equipment_models()
+        self.assertEqual(len(models), 53)
+        self.assertEqual({m['store_id'] for m in models}, set(fsim.catalog.stores()))
+        selections = set()
+        for model in models:
+            card = fsim.catalog.store(model['store_id'])
+            self.assertEqual(card['model'], model['native_model'])
+            self.assertEqual(card['designation'], model['card_designation'])
+            self.assertEqual(fsim.catalog.equipment_model(model['model_id']), model)
+            for kind, component in model['components'].items():
+                selected = card['component_models']['components'][kind]
+                self.assertEqual(selected['availability'], component['availability'])
+                if component['availability'] == 'available':
+                    self.assertEqual(selected['implementation_id'], component['selector'])
+                    self.assertNotIn(component['selector'], selections)
+                    selections.add(component['selector'])
+        self.assertEqual(len(selections), 254)
+        self.assertEqual(fsim.catalog.equipment_model('aim-120c')['designation'], 'AIM-120C-7')
+        self.assertEqual(fsim.catalog.equipment_model('aim-9x')['model_id'], 'aim-9x-block-i')
+        models[0]['components'].clear()
+        self.assertTrue(fsim.catalog.equipment_models()[0]['components'])
+        with self.assertRaises(KeyError):
+            fsim.catalog.equipment_model('aim-120d-3')
+        with tempfile.TemporaryDirectory() as empty:
+            with patch.object(fsim.catalog, '_SHARE', empty):
+                with self.assertRaises(KeyError):
+                    fsim.catalog.equipment_models()
+
     def test_aircraft_fits_and_loadouts(self):
         names = fsim.catalog.aircraft()
         self.assertEqual(names, sorted(names))

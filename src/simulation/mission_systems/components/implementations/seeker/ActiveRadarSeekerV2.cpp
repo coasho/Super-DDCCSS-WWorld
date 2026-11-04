@@ -10,10 +10,7 @@ void ActiveRadarSeekerV2::resetTracking() noexcept {
     MeasuredSeekerV2::resetTracking();
     active_=false;initialEpoch_=true;estimate_.reset();
 }
-SeekerResultV2 ActiveRadarSeekerV2::sample(const SeekerFrameV2& f) {
-    const auto admission=admit(f);
-    if(admission==Admission::Repeated)return cached_;
-    if(admission==Admission::Invalid)return {};
+ActiveRadarSeekerV2::PhasePreviewV1 ActiveRadarSeekerV2::previewPhaseV1(const SeekerFrameV2& f) const {
     auto estimate=estimate_;
     if(estimate&&initialEpoch_)estimate->sampleTimeS=f.timeS-f.ageS;
     if(spec_.launcherUpdates&&f.supported&&f.launcherEstimate) {
@@ -32,6 +29,15 @@ SeekerResultV2 ActiveRadarSeekerV2::sample(const SeekerFrameV2& f) {
     const auto range=prediction?norm(subtract(prediction->position,f.position)):0;
     if(!std::isfinite(range))return {};
     const bool active=active_||!prediction||range<=activationRange;
+    return {true,active,range,activationRange,estimate,prediction};
+}
+SeekerResultV2 ActiveRadarSeekerV2::sample(const SeekerFrameV2& f) {
+    const auto admission=admit(f);
+    if(admission==Admission::Repeated)return cached_;
+    if(admission==Admission::Invalid)return {};
+    const auto phase=previewPhaseV1(f);if(!phase.valid)return {};
+    const auto& estimate=phase.estimate;const auto& prediction=phase.prediction;
+    const auto range=phase.rangeM,activationRange=phase.activationRangeM;const bool active=phase.active;
     auto candidates=active?eligible(f):std::vector<std::size_t>{};
     auto selected=nearest(f,candidates);
     if(prediction&&(!track_||!cached_.tracking)&&active) {
