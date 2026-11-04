@@ -11,6 +11,13 @@ radar package does not assert generic A-GRA wire-schema conformance or transfer
 other owners' frozen gateway contracts.
 <!-- SIM-M01 full quality end -->
 
+Aerodynamic evidence policy and the Hangar-to-runtime workflow are
+maintained in the [Hangar system guide](../../../hangar-system.md). This document
+retains its architectural, ownership and milestone contracts.
+
+The [current exact-model AAM gate](../../../hangar-system.md#exact-model-aam-aerodynamic-gate)
+supersedes the dated solver selections and acceptance assignments below.
+
 Date: 2026-10-17. Initial planning baseline: main `5c80892`; source and implementation coverage rechecked at main `6170ec6`. This allocation starts MS planning; it makes no new implementation, protocol-conformance or model-acceptance claim.
 
 ## 1. Scope and authority
@@ -38,7 +45,7 @@ Before a model package starts, its owner freezes the public inputs, open-source 
 | Existing package | Planned lead | Complete feature and acceptance focus |
 | --- | --- | --- |
 | SIM-M01: radar errors, processing and tracking/fusion | Claude | One radar family and one named processing gap at a time; sourced error/processing limits, native measurement and tracking behavior, legal reports, public usage and repeatable fixtures. Retain MS-4b/MS-5/MS-6 distinctions |
-| SIM-M02: MS-7c missile aerodynamics and propulsion | Codex | First representative missile model, geometry and motor provenance, SU2/VSPAERO cross-checks and RocketPy powered-flight comparison, generator integration and native flight evidence |
+| SIM-M02: MS-7c missile aerodynamics and propulsion | Codex | Per-model public exact-model measured/flight-test data and independent SDK retest, or explicit blocked aerodynamic gate; geometry and motor provenance, RocketPy software comparison, generator integration and native flight evidence |
 | SIM-M03: MS-7d seeker, autopilot, fuze and lethality fidelity | Codex | Calibrated seeker/control response and explicit fuze/lethality assumptions; consume accepted radar/IR inputs and preserve native outcome meanings |
 | SIM-M04: MS-8 flyout DLZ/WEZ | Codex | Flyout-derived envelopes with uncertainty and published-performance comparison; consume accepted missile models rather than treating advisory formulas as calibrated flyout |
 | SIM-M05: MS-9b ESM, COMINT and electronic attack | Claude | One warning/collection/EA/countermeasure interaction family per package, modeled signal paths and legal platform reports; calibrated assumptions and encounter evidence |
@@ -517,7 +524,7 @@ Source metadata now has an explicit `evidence_kind`: `government_publication`, `
 
 #### Independent catalogue denominator
 
-The authored roster is **35 aircraft**, independently derived from tracked `aircraft/<name>/<name>.toml` designs without a store card and checked against [Hangar's maintained roster](../../../hangar.md) and `tools/models/hangar/rebuild_all.py`. The 53 store designs are separate: 88 design TOMLs in total. The aircraft IDs are:
+The authored roster is **35 aircraft**, independently derived from tracked `aircraft/<name>/<name>.toml` designs without a store card and checked against [Hangar's maintained roster](../../../hangar-system.md) and `tools/models/hangar/rebuild_all.py`. The 53 store designs are separate: 88 design TOMLs in total. The aircraft IDs are:
 
 ```text
 a10c b52h c130j c172 c17a cf2 e3g e7a ea18g ec130h f15c f16c f22a
@@ -888,7 +895,7 @@ Claude continues the independent SIM-M02 investigation. The
 records exact implementation, generator, regression and shared-path ownership;
 one root owner executes the serial native build/test gates.
 
-The [mechanism and evidence](../../../sdk/missile-control-validation.md) replace
+The [mechanism and evidence](../../../sdk/weapon-controls.md) replace
 guidance's ideal aerodynamic cancellation/force/moment injection with a bounded
 surface-command autopilot and generator-owned finite individual-fin actuators.
 Geometric fin forces and their same-pressure-centre moments enter JSBSim's
@@ -1004,7 +1011,7 @@ attribution. IR/SARH do not receive launcher Cartesian estimates or hidden
 target velocities; semantic decoy labels are absent from tracking/guidance.
 The other 20 AAM cards retain legacy execution.
 
-The [delivery record](../../../sdk/representative-weapon-models.md) identifies
+The [delivery record](../../../sdk/weapon-fidelity-validation.md) identifies
 sources, actual regression failures/corrections, current builds/gates, installed
 feature consumers, native encounters and diagnostic recordings. All 53 numeric
 card parameter objects and 101 generated model/engine/nozzle files are preserved.

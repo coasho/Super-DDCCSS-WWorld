@@ -1,0 +1,13 @@
+# Component reference runtime provenance
+
+The native reference captures identify the executable and the native modules actually loaded in that process. This is implementation provenance, not equipment calibration or encounter acceptance.
+
+`tests/simulation/ComponentReferenceRuntimeV1.h` is a test-only observer. On the maintained Windows presets it uses `GetModuleHandleW` and `GetModuleFileNameW` for `libJSBSim.dll` and `libfsim.dll`, then hashes the observed files with the caller's existing streaming SHA-256 function. An unloaded module is omitted. The powered propulsion bench requires an observed JSBSim module. The helper does not load a library, change a numerical input, or implement a simulation component.
+
+The wrapper prepares the executable and existing app-directory DLL path/hash records before launching the native process. Each capture carries `input_epoch_sha256`, `executable`, and `runtime_modules`. After execution, the wrapper requires current prepared bytes, matching actual loaded-module bindings, the exact capture schema cohort, the actual successful Catch report, and the original current source epoch. The run receipt separates `staged_runtime` (expected files) from `runtime` (the executable plus the union of modules actually observed in the captures). A staged but unused DLL is never reported as executed code.
+
+Both independent reference checkers repeat this runtime reconciliation. The six-family checker requires both capture headers from the same invocation even when a caller compares only control families. This checks the powered header's provenance without admitting its numerical residuals. A stale capture cannot be reauthorized by refreshing only the prepared or actual runtime hashes. Relative records resolve against the explicit evidence root; excluded directories and foreign evidence roots are refused before hashing.
+
+The existing single-writer source/build window remains required. File hashes identify the retained on-disk products under that window; this is not a security attestation against a hostile process replacing loaded code. These observations preserve all production interfaces, numerical bench inputs, equations, tolerances, and equipment uncertainty statements.
+
+The repair controls and before snapshots are retained in `build/architecture-reviews/sim-m03-production-20261103/component-runtime-binding/`. They include the original two omission failures, the intermediate relative-root fixture failure, and the subsequent pure-control results. Synthetic metadata controls are never native measurements. Strict native compilation, fresh native captures, and independent numerical comparisons under the new source epoch remain separate required gates; historical reference captures do not satisfy them.

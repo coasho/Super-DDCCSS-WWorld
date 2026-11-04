@@ -1,0 +1,1173 @@
+# -*- coding: utf-8 -*-
+
+################################################################
+# The contents of this file are subject to the BSD 3Clause (New) License
+# you may not use this file except in
+# compliance with the License. You may obtain a copy of the License at
+# http://directory.fsf.org/wiki/License:BSD_3Clause
+
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+# License for the specific language governing rights and limitations
+# under the License.
+
+# The Original Code is part of the PyRadi toolkit.
+
+# The Initial Developer of the Original Code is CJ Willers,
+# Portions created by CJ Willers are Copyright (C) 2006-2012
+# All Rights Reserved.
+
+# Contributor(s): ______________________________________.
+################################################################
+"""
+This module provides functions for Planck law exitance calculations, as well as
+temperature derivative calculations.
+The functions provide spectral exitance in [W/(m^2.*)] or [q/(s.m^2.*)], given
+the temperature and a vector of one of wavelength, wavenumbers or frequency
+(six combinations each for exitance and temperature derivative). The total
+exitance can also be calculated by using the Stefan-Boltzmann equation, in
+[W/m^2] or [q/(s.m^2)].  'Exitance' is the CIE/ISO term for the older term 'emittance'.
+
+The Planck and temperature-derivative Planck functions take the spectral variable
+(wavelength, wavenumber or frequency) and/or temperature as either a scalar, a
+single element list, a multi-element list or a numpy array.
+
+Spectral values must be strictly scalar or shape (N,) or (N,1).
+Shape (1,N) will not work.
+
+Temperature values must be strictly scalar, list[M], shape (M,), (M,1), or (1,M).
+Shape (Q,M) will not work.
+
+If the spectral variable and temperature are both single numbers (scalars or lists
+with one element), the return value is a scalar.  If either the temperature or the
+spectral variable are single-valued, the return value is a rank-1 vector. If both
+the temperature and spectral variable are multi-valued, the return value is a
+rank-2 array, with the spectral variable along axis=0.
+
+This module uses the CODATA physical constants. For more details see
+http://physics.nist.gov/cuu/pdf/RevModPhysCODATA2010.pdf
+
+See the __main__ function for testing and examples of use.
+
+This package was partly developed to provide additional material in support of students
+and readers of the book Electro-Optical System Analysis and Design: A Radiometry
+Perspective,  Cornelius J. Willers, ISBN 9780819495693, SPIE Monograph Volume
+PM236, SPIE Press, 2013.  http://spie.org/x648.html?product_id=2021423&origin_id=x646
+"""
+
+
+__version__ = '0.1.0'
+__author__ = 'pyradi team'
+__all__ = [
+    'planck', 'dplanck', 'stefanboltzman',
+    'planckef', 'planckel', 'plancken',
+    'planckqf', 'planckql', 'planckqn',
+    'dplnckef', 'dplnckel', 'dplncken',
+    'dplnckqf', 'dplnckql', 'dplnckqn',
+    'planckInt',
+]
+
+import numpy as np
+import scipy.constants as const
+from functools import wraps
+
+# np.exp() has upper limit in IEEE double range; catch this in Planck calcs.
+explimit = 709.7
+
+
+import pyradi.ryutils as ryutils
+
+
+class PlanckConstants:
+    """Precalculate the Planck function constants using the values in
+    scipy.constants.  Presumably these constants are up to date and
+    will be kept up to date.
+
+    This module uses the CODATA physical constants. For more details see
+    http://physics.nist.gov/cuu/pdf/RevModPhysCODATA2010.pdf
+
+    Reference: https://docs.scipy.org/doc/scipy/reference/constants.html
+    """
+
+    def __init__(self):
+        """Precalculate the Planck function constants.
+
+        Reference: http://www.spectralcalc.com/blackbody/appendixC.html
+        """
+
+        import scipy.optimize
+
+        self.c1em = 2 * np.pi * const.h * const.c * const.c
+        self.c1el = self.c1em * (1.0e6)**(5 - 1)  # 5 for lambda power, -1 for density
+        self.c1en = self.c1em * (100)**3 * 100     # 3 for wavenumber, 1 for density
+        self.c1ef = 2 * np.pi * const.h / (const.c * const.c)
+
+        self.c1qm = 2 * np.pi * const.c
+        self.c1ql = self.c1qm * (1.0e6)**(4 - 1)  # 4 for lambda power, -1 for density
+        self.c1qn = self.c1qm * (100)**2 * 100     # 2 for wavenumber, 1 for density
+        self.c1nf = 2 * np.pi / (const.c * const.c)
+
+        self.c2m = const.h * const.c / const.k
+        self.c2l = self.c2m * 1.0e6  # 1 for wavelength density
+        self.c2n = self.c2m * 1.0e2  # 1 for cm-1 density
+        self.c2f = const.h / const.k
+
+        self.sigmae = const.sigma
+        self.zeta3  = 1.2020569031595942853
+        self.sigmaq = 4 * np.pi * self.zeta3 * const.k**3 \
+                      / (const.h**3 * const.c**2)
+
+        self.a2 = scipy.optimize.brentq(self.an, 1, 2, (2,))
+        self.a3 = scipy.optimize.brentq(self.an, 2, 3, (3,))
+        self.a4 = scipy.optimize.brentq(self.an, 3.5, 4, (4,))
+        self.a5 = scipy.optimize.brentq(self.an, 4.5, 5, (5,))
+
+        self.wel = 1e6 * const.h * const.c / (const.k * self.a5)
+        self.wql = 1e6 * const.h * const.c / (const.k * self.a4)
+        self.wen = self.a3 * const.k / (100 * const.h * const.c)
+        self.wqn = self.a2 * const.k / (100 * const.h * const.c)
+        self.wef = self.a3 * const.k / const.h
+        self.wqf = self.a2 * const.k / const.h
+
+    def an(self, x, n):
+        """Root equation for Wien's displacement law: n(1 - exp(-x)) - x = 0.
+
+        Args:
+            | x (float): dimensionless spectral coordinate.
+            | n (int): power in the Planck spectral factor (2, 3, 4, or 5).
+
+        Returns:
+            | float: value of n(1 - exp(-x)) - x; zero at the Wien displacement root.
+
+        Raises:
+            | No exception is raised.
+        """
+        return n * (1 - np.exp(-x)) - x
+
+    def printConstants(self):
+        """Print Planck function constants.
+
+        Args:
+            | None
+
+        Returns:
+            | Print to stdout
+
+        Raises:
+            | No exception is raised.
+        """
+        print(f'h = {const.h:.14e} Js')
+        print(f'c = {const.c:.14e} m/s')
+        print(f'k = {const.k:.14e} J/K')
+        print(f'q = {const.e:.14e} C')
+
+        print(' ')
+        print(f'pi = {const.pi:.14e}')
+        print(f'e = {np.exp(1):.14e}')
+        print(f'zeta(3) = {self.zeta3:.14e}')
+        print(f'a2 = {self.a2:.14e}, root of 2(1-exp(-x))-x')
+        print(f'a3 = {self.a3:.14e}, root of 3(1-exp(-x))-x')
+        print(f'a4 = {self.a4:.14e}, root of 4(1-exp(-x))-x')
+        print(f'a5 = {self.a5:.14e}, root of 5(1-exp(-x))-x')
+
+        print(' ')
+        print(f'sigmae = {self.sigmae:.14e} W/(m^2 K^4)')
+        print(f'sigmaq = {self.sigmaq:.14e} q/(s m^2 K^3)')
+        print(' ')
+        print(f'c1em = {self.c1em:.14e} with wavelenth in m')
+        print(f'c1qm = {self.c1qm:.14e} with wavelenth in m')
+        print(f'c2m = {self.c2m:.14e} with wavelenth in m')
+        print(' ')
+        print(rf'c1el = {self.c1el:.14e} with wavelenth in $\mu$m')
+        print(rf'c1ql = {self.c1ql:.14e} with wavelenth in $\mu$m')
+        print(rf'c2l = {self.c2l:.14e} with wavelenth in $\mu$m')
+        print(' ')
+        print(f'c1en = {self.c1en:.14e} with wavenumber in cm$^{{-1}}$')
+        print(f'c1qn = {self.c1qn:.14e} with wavenumber in cm$^{{-1}}$')
+        print(f'c2n = {self.c2n:.14e} with wavenumber in cm$^{{-1}}$')
+        print(' ')
+        print(f'c1ef = {self.c1ef:.14e} with frequency in Hz')
+        print(f'c1nf = {self.c1nf:.14e} with frequency in Hz')
+        print(f'c2f = {self.c2f:.14e} with frequency in Hz')
+        print(' ')
+        print(f'wel = {self.wel:.14e} um.K  Wien for radiant and wavelength')
+        print(f'wql = {self.wql:.14e} um.K  Wien for photon rate and wavelength')
+        print(f'wen = {self.wen:.14e} cm-1/K  Wien for radiant and wavenumber')
+        print(f'wqn = {self.wqn:.14e} cm-1/K  Wien for photon rate and wavenumber')
+        print(f'wef = {self.wef:.14e} Hz/K  Wien for radiant and frequency')
+        print(f'wqf = {self.wqf:.14e} Hz/K  Wien for photon rate and frequency')
+        print(' ')
+
+
+pconst = PlanckConstants()
+
+
+################################################################
+def fixDimensions(planckFun):
+    """Decorator that normalises spectral and temperature array dimensions
+    before and after the core Planck calculation.
+
+    The decorated Planck functions operate element-wise on flat arrays.
+    This decorator:
+
+    1. Validates that ``spectral`` is shape ``(N,)`` or ``(N,1)`` (not a row vector).
+    2. Validates that ``temperature`` is a vector ``(M,)``, ``(M,1)`` or ``(1,M)``.
+    3. Builds a flattened meshgrid of all (spectral, temperature) pairs.
+    4. Calls the wrapped function on the flat arrays.
+    5. Reshapes the result to the correct output shape.
+
+    Output shape rules:
+
+    - Both scalar → scalar (numpy 0-d).
+    - Array spectral (N), scalar temperature → shape ``(N,)``.
+    - Scalar spectral, array temperature (M) → shape ``(1, M)``.
+    - Array spectral (N), array temperature (M) → shape ``(N, M)``.
+
+    Args:
+        | planckFun (callable): Planck function that accepts flat (spec, temp) arrays.
+
+    Returns:
+        | callable: Wrapped function with automatic dimension handling.
+
+    Raises:
+        | No exception is raised; returns None on invalid input shape.
+    """
+    @wraps(planckFun)
+    def inner(spectral, temperature):
+
+        # confirm that only a vector is used for temperature
+        if isinstance(temperature, np.ndarray):
+            if len(temperature.flat) != max(temperature.shape):
+                print('ryplanck: temperature must be of shape (M,), (M,1) or (1,M)')
+                return None
+        # confirm that no row vector is used for spectral
+        if isinstance(spectral, np.ndarray):
+            if len(spectral.flat) != spectral.shape[0]:
+                print('ryplanck: spectral must be of shape (N,) or (N,1)')
+                return None
+
+        tempIn = np.array(temperature, copy=True, ndmin=1).astype(float)
+        specIn = np.array(spectral, copy=True, ndmin=1).astype(float)
+        tempIn = tempIn.reshape(-1, 1)
+        specIn = specIn.reshape(-1, 1)
+
+        # create flattened version of the input dataset
+        specgrid, tempgrid = np.meshgrid(specIn, tempIn)
+        spec = np.ravel(specgrid)
+        temp = np.ravel(tempgrid)
+
+        # guard against zero temperature (would cause division by zero)
+        temp = np.where(temp != 0.0, temp, 1e-300)
+
+        # core Planck calculation
+        planckA = planckFun(spec, temp)
+
+        # unflatten to the correct output shape, spectral along axis=0
+        if tempIn.shape[0] == 1 and specIn.shape[0] == 1:
+            rtnVal = planckA[0]
+        elif tempIn.shape[0] == 1 and specIn.shape[0] != 1:
+            rtnVal = planckA.reshape(specIn.shape[0],)
+        elif tempIn.shape[0] != 1 and specIn.shape[0] == 1:
+            rtnVal = planckA.reshape(specIn.shape[0], -1)
+        else:
+            rtnVal = planckA.reshape(tempIn.shape[0], -1).T
+
+        return rtnVal
+    return inner
+
+
+################################################################
+@fixDimensions
+def planckel(spectral, temperature):
+    """Planck function in wavelength for radiant exitance.
+
+    Args:
+        | spectral (scalar, np.array (N,) or (N,1)):  wavelength vector in  [um]
+        | temperature (scalar, list[M], np.array (M,), (M,1) or (1,M)):  Temperature in [K]
+
+    Returns:
+        | (scalar, np.array[N,M]):  spectral radiant exitance in W/(m^2.um)
+
+    Raises:
+        | No exception is raised, returns None on error.
+    """
+    # test value of exponent to prevent infinity; this happens for low
+    # temperatures and short wavelengths
+    exP  = pconst.c2l / (spectral * temperature)
+    exP2 = np.where(exP < explimit, exP, 1)
+    p    = (pconst.c1el / (np.exp(exP2) - 1)) / (spectral**5)
+    # if exponent >= explimit, force Planck to zero
+    planckA = np.where(exP < explimit, p, 0)
+
+    return planckA
+
+
+################################################################
+@fixDimensions
+def planckef(spectral, temperature):
+    """Planck function in frequency for radiant exitance.
+
+    Args:
+        | spectral (scalar, np.array (N,) or (N,1)):  frequency vector in  [Hz]
+        | temperature (scalar, list[M], np.array (M,), (M,1) or (1,M)):  Temperature in [K]
+
+    Returns:
+        | (scalar, np.array[N,M]): spectral radiant exitance in W/(m^2.Hz)
+
+    Raises:
+        | No exception is raised, returns None on error.
+    """
+    # test value of exponent to prevent infinity
+    exP  = pconst.c2f * spectral / temperature
+    exP2 = np.where(exP < explimit, exP, 1)
+    p    = pconst.c1ef * spectral**3 / (np.exp(exP2) - 1)
+    # if exponent >= explimit, force Planck to zero
+    planckA = np.where(exP < explimit, p, 0)
+
+    return planckA
+
+
+################################################################
+@fixDimensions
+def plancken(spectral, temperature):
+    """Planck function in wavenumber for radiant exitance.
+
+    Args:
+        | spectral (scalar, np.array (N,) or (N,1)):  wavenumber vector in   [cm^-1]
+        | temperature (scalar, list[M], np.array (M,), (M,1) or (1,M)):  Temperature in [K]
+
+    Returns:
+        | (scalar, np.array[N,M]):  spectral radiant exitance in  W/(m^2.cm^-1)
+
+    Raises:
+        | No exception is raised, returns None on error.
+    """
+    # test value of exponent to prevent infinity
+    exP  = pconst.c2n * (spectral / temperature)
+    exP2 = np.where(exP < explimit, exP, 1)
+    p    = (pconst.c1en / (np.exp(exP) - 1)) * spectral**3
+    # if exponent >= explimit, force Planck to zero
+    planckA = np.where(exP < explimit, p, 0)
+
+    return planckA
+
+
+################################################################
+@fixDimensions
+def planckqf(spectral, temperature):
+    """Planck function in frequency domain for photon rate exitance.
+
+    Args:
+        | spectral (scalar, np.array (N,) or (N,1)): frequency vector in  [Hz]
+        | temperature (scalar, list[M], np.array (M,), (M,1) or (1,M)):  Temperature in [K]
+
+    Returns:
+        | (scalar, np.array[N,M]):  spectral radiant exitance in q/(s.m^2.Hz)
+
+    Raises:
+        | No exception is raised, returns None on error.
+    """
+    # test value of exponent to prevent infinity
+    exP  = pconst.c2f * spectral / temperature
+    exP2 = np.where(exP < explimit, exP, 1)
+    p    = pconst.c1nf * spectral**2 / (np.exp(exP2) - 1)
+    # if exponent >= explimit, force Planck to zero
+    planckA = np.where(exP < explimit, p, 0)
+
+    return planckA
+
+
+################################################################
+@fixDimensions
+def planckql(spectral, temperature):
+    """Planck function in wavelength domain for photon rate exitance.
+
+    Args:
+        | spectral (scalar, np.array (N,) or (N,1)):  wavelength vector in  [um]
+        | temperature (scalar, list[M], np.array (M,), (M,1) or (1,M)):  Temperature in [K]
+
+    Returns:
+        | (scalar, np.array[N,M]):  spectral radiant exitance in  q/(s.m^2.um)
+
+    Raises:
+        | No exception is raised, returns None on error.
+    """
+    # test value of exponent to prevent infinity
+    exP  = pconst.c2l / (spectral * temperature)
+    exP2 = np.where(exP < explimit, exP, 1)
+    p    = (pconst.c1ql / (np.exp(exP2) - 1)) / (spectral**4)
+    # if exponent >= explimit, force Planck to zero
+    planckA = np.where(exP < explimit, p, 0)
+
+    return planckA
+
+
+################################################################
+@fixDimensions
+def planckqn(spectral, temperature):
+    """Planck function in wavenumber domain for photon rate exitance.
+
+    Args:
+        | spectral (scalar, np.array (N,) or (N,1)):  wavenumber vector in   [cm^-1]
+        | temperature (scalar, list[M], np.array (M,), (M,1) or (1,M)):  Temperature in [K]
+
+    Returns:
+        | (scalar, np.array[N,M]):  spectral radiant exitance in  q/(s.m^2.cm^-1)
+
+    Raises:
+        | No exception is raised, returns None on error.
+    """
+    # test value of exponent to prevent infinity
+    exP  = pconst.c2n * spectral / temperature
+    exP2 = np.where(exP < explimit, exP, 1)
+    p    = pconst.c1qn * spectral**2 / (np.exp(exP2) - 1)
+    # if exponent >= explimit, force Planck to zero
+    planckA = np.where(exP < explimit, p, 0)
+
+    return planckA
+
+
+################################################################
+@fixDimensions
+def dplnckef(spectral, temperature):
+    """Temperature derivative of Planck function in frequency domain
+    for radiant exitance.
+
+    Args:
+        | spectral (scalar, np.array (N,) or (N,1)): frequency vector in  [Hz]
+        | temperature (scalar, list[M], np.array (M,), (M,1) or (1,M)):  Temperature in [K]
+
+    Returns:
+        | (scalar, np.array[N,M]):  spectral radiant exitance/K in W/(K.m^2.Hz)
+
+    Raises:
+        | No exception is raised, returns None on error.
+    """
+    xx = pconst.c2f * spectral / temperature
+    f  = xx * np.exp(xx) / (temperature * (np.exp(xx) - 1))
+    y  = pconst.c1ef * spectral**3 / (np.exp(pconst.c2f * spectral / temperature) - 1)
+    dplanckA = f * y
+
+    return dplanckA
+
+
+################################################################
+@fixDimensions
+def dplnckel(spectral, temperature):
+    """Temperature derivative of Planck function in wavelength domain for
+    radiant exitance.
+
+    Args:
+        | spectral (scalar, np.array (N,) or (N,1)):  wavelength vector in  [um]
+        | temperature (scalar, list[M], np.array (M,), (M,1) or (1,M)):  Temperature in [K]
+
+    Returns:
+        | (scalar, np.array[N,M]):  spectral radiant exitance in W/(K.m^2.um)
+
+    Raises:
+        | No exception is raised, returns None on error.
+    """
+    # if xx > 350, then we get overflow
+    xx = pconst.c2l / (spectral * temperature)
+    # refactor (np.exp(xx)-1)**2 to prevent overflow problem
+    dplanckA = (pconst.c1el * xx * np.exp(xx) / (np.exp(xx) - 1)) \
+               / (temperature * spectral**5 * (np.exp(xx) - 1))
+
+    return dplanckA
+
+
+################################################################
+@fixDimensions
+def dplncken(spectral, temperature):
+    """Temperature derivative of Planck function in wavenumber domain for radiant exitance.
+
+    Args:
+        | spectral (scalar, np.array (N,) or (N,1)):  wavenumber vector in   [cm^-1]
+        | temperature (scalar, list[M], np.array (M,), (M,1) or (1,M)):  Temperature in [K]
+
+    Returns:
+        | (scalar, np.array[N,M]):  spectral radiant exitance in  W/(K.m^2.cm^-1)
+
+    Raises:
+        | No exception is raised, returns None on error.
+    """
+    xx = pconst.c2n * spectral / temperature
+    f  = xx * np.exp(xx) / (temperature * (np.exp(xx) - 1))
+    y  = pconst.c1en * spectral**3 / (np.exp(pconst.c2n * spectral / temperature) - 1)
+    dplanckA = f * y
+
+    return dplanckA
+
+
+################################################################
+@fixDimensions
+def dplnckqf(spectral, temperature):
+    """Temperature derivative of Planck function in frequency domain for photon rate.
+
+    Args:
+        | spectral (scalar, np.array (N,) or (N,1)): frequency vector in  [Hz]
+        | temperature (scalar, list[M], np.array (M,), (M,1) or (1,M)):  Temperature in [K]
+
+    Returns:
+        | (scalar, np.array[N,M]):  spectral radiant exitance in q/(K.s.m^2.Hz)
+
+    Raises:
+        | No exception is raised, returns None on error.
+    """
+    xx = pconst.c2f * spectral / temperature
+    f  = xx * np.exp(xx) / (temperature * (np.exp(xx) - 1))
+    y  = pconst.c1nf * spectral**2 / (np.exp(pconst.c2f * spectral / temperature) - 1)
+    dplanckA = f * y
+
+    return dplanckA
+
+
+################################################################
+@fixDimensions
+def dplnckql(spectral, temperature):
+    """Temperature derivative of Planck function in wavelength domain for photon rate exitance.
+
+    Args:
+        | spectral (scalar, np.array (N,) or (N,1)):  wavelength vector in  [um]
+        | temperature (scalar, list[M], np.array (M,), (M,1) or (1,M)):  Temperature in [K]
+
+    Returns:
+        | (scalar, np.array[N,M]):  spectral radiant exitance in  q/(K.s.m^2.um)
+
+    Raises:
+        | No exception is raised, returns None on error.
+    """
+    xx = pconst.c2l / (spectral * temperature)
+    f  = xx * np.exp(xx) / (temperature * (np.exp(xx) - 1))
+    y  = pconst.c1ql / (spectral**4 * (np.exp(pconst.c2l / (temperature * spectral)) - 1))
+    dplanckA = f * y
+
+    return dplanckA
+
+
+################################################################
+@fixDimensions
+def dplnckqn(spectral, temperature):
+    """Temperature derivative of Planck function in wavenumber domain for photon rate.
+
+    Args:
+        | spectral (scalar, np.array (N,) or (N,1)):  wavenumber vector in   [cm^-1]
+        | temperature (scalar, list[M], np.array (M,), (M,1) or (1,M)):  Temperature in [K]
+
+    Returns:
+        | (scalar, np.array[N,M]):  spectral radiant exitance in  q/(K.s.m^2.cm^-1)
+
+    Raises:
+        | No exception is raised, returns None on error.
+    """
+    xx = pconst.c2n * spectral / temperature
+    f  = xx * np.exp(xx) / (temperature * (np.exp(xx) - 1))
+    y  = pconst.c1qn * spectral**2 / (np.exp(pconst.c2n * spectral / temperature) - 1)
+    dplanckA = f * y
+
+    return dplanckA
+
+
+################################################################
+def stefanboltzman(temperature, type='e'):
+    """Stefan-Boltzman wideband integrated exitance.
+
+    Calculates the total Planck law exitance, integrated over all wavelengths,
+    from a surface at the stated temperature. Exitance can be given in radiant or
+    photon rate units, depending on user input in type.
+
+    Args:
+        | temperature (scalar, list[M], np.array (M,), (M,1) or (1,M)):  Temperature in [K]
+        | type (string):  'e' for radiant or 'q' for photon rate exitance.
+
+    Returns:
+        | (float): integrated radiant exitance in  [W/m^2] or [q/(s.m^2)].
+        | Returns a -1 if the type is not 'e' or 'q'
+
+    Raises:
+        | No exception is raised.
+    """
+    # confirm that only a vector is used for temperature
+    if isinstance(temperature, np.ndarray):
+        if len(temperature.flat) != max(temperature.shape):
+            print('ryplanck.stefanboltzman: temperature must be of shape (M,), (M,1) or (1,M)')
+            return -1
+
+    tempr = np.asarray(temperature).astype(float)
+    # use dictionary to switch between options; default returns -1
+    rtnval = {
+        'e': lambda temp: pconst.sigmae * np.power(temp, 4),
+        'q': lambda temp: pconst.sigmaq * np.power(temp, 3),
+    }.get(type, lambda temp: -1)(tempr)
+    return rtnval
+
+
+################################################################
+# Dictionaries to allow case-like dispatch in the generic planck functions below.
+plancktype  = {'el': planckel, 'ef': planckef, 'en': plancken,
+               'ql': planckql, 'qf': planckqf, 'qn': planckqn}
+dplancktype = {'el': dplnckel, 'ef': dplnckef, 'en': dplncken,
+               'ql': dplnckql, 'qf': dplnckqf, 'qn': dplnckqn}
+
+
+################################################################
+def planck(spectral, temperature, type='el'):
+    """Planck law spectral exitance.
+
+    Calculates the Planck law spectral exitance from a surface at the stated
+    temperature. Temperature can be a scalar, a list or an array. Exitance can
+    be given in radiant or photon rate units, depending on user input in type.
+
+    Args:
+        | spectral (scalar, np.array (N,) or (N,1)):  spectral vector.
+        | temperature (scalar, list[M], np.array (M,), (M,1) or (1,M)):  Temperature in [K]
+        | type (string):
+        |  'e' signifies Radiant values in [W/m^2].
+        |  'q' signifies photon rate values  [quanta/(s.m^2)].
+        |  'l' signifies wavelength spectral vector  [micrometer].
+        |  'n' signifies wavenumber spectral vector [cm-1].
+        |  'f' signifies frequency spectral vector [Hz].
+
+    Returns:
+        | (scalar, np.array[N,M]):  spectral radiant exitance (not radiance) in units selected.
+        | For type = 'el' units will be [W/(m^2.um)].
+        | For type = 'qf' units will be [q/(s.m^2.Hz)].
+        | Other return types are similarly defined as above.
+        | Returns None on error.
+
+    Raises:
+        | No exception is raised, returns None on error.
+    """
+    if type in list(plancktype.keys()):
+        exitance = plancktype[type](spectral, temperature)
+    else:
+        exitance = None
+
+    return exitance
+
+
+################################################################
+def dplanck(spectral, temperature, type='el'):
+    """Temperature derivative of Planck law exitance.
+
+    Calculates the temperature derivative for Planck law spectral exitance
+    from a surface at the stated temperature. dM/dT can be given in radiant or
+    photon rate units, depending on user input in type. Temperature can be a
+    scalar, a list or an array.
+
+    Args:
+        | spectral (scalar, np.array (N,) or (N,1)):  spectral vector in  [micrometer], [cm-1] or [Hz].
+        | temperature (scalar, list[M], np.array (M,), (M,1) or (1,M)):  Temperature in [K]
+        | type (string):
+        |  'e' signifies Radiant values in [W/(m^2.K)].
+        |  'q' signifies photon rate values  [quanta/(s.m^2.K)].
+        |  'l' signifies wavelength spectral vector  [micrometer].
+        |  'n' signifies wavenumber spectral vector [cm-1].
+        |  'f' signifies frequency spectral vector [Hz].
+
+    Returns:
+        | (scalar, np.array[N,M]):  spectral radiant exitance (not radiance) in units selected.
+        | For type = 'el' units will be [W/(m2.um.K)]
+        | For type = 'qf' units will be [q/(s.m2.Hz.K)]
+        | Other return types are similarly defined as above.
+        | Returns None on error.
+
+    Raises:
+        | No exception is raised, returns None on error.
+    """
+    if type in list(dplancktype.keys()):
+        exitance = dplancktype[type](spectral, temperature)
+    else:
+        exitance = -np.ones(spectral.shape)
+
+    return exitance
+
+
+################################################################
+def planck_integral(wavenum, temperature, radiant, niter=512):
+    """Integrated Planck law spectral exitance by summation from wavenum to infty.
+
+    http://www.spectralcalc.com/blackbody/inband_radiance.html
+    http://www.spectralcalc.com/blackbody/appendixA.html
+    Integral of spectral radiance from wavenum (cm-1) to infinity.
+    Follows Widger and Woodall, Bulletin of Am Met Soc, Vol. 57, No. 10, pp. 1217.
+
+    Args:
+        | wavenum (scalar):  spectral lower limit in [cm-1].
+        | temperature (scalar):  Temperature in [K]
+        | radiant (bool): output units required, W/m2 or q/(s.m2)
+
+    Returns:
+        | (scalar):  exitance (not radiance) in units selected.
+        | For radiant units will be [W/(m^2)].
+        | For not radiant units will be [q/(s.m^2)].
+
+    Raises:
+        | No exception is raised, returns None on error.
+    """
+    # compute powers of x, the dimensionless spectral coordinate
+    c1 = const.h * const.c / const.k
+    x  = c1 * 100.0 * wavenum / temperature
+    x2 = x * x
+    x3 = x * x2
+
+    # decide how many terms of the sum are needed
+    iter = int(2.0 + 20.0 / x)
+    iter = iter if iter < niter else niter
+
+    # add up terms of the sum
+    sum = 0.0
+    for n in range(1, iter):
+        dn = 1.0 / n
+        if radiant:
+            sum += np.exp(-n * x) * (x3 + (3.0 * x2 + 6.0 * (x + dn) * dn) * dn) * dn
+        else:
+            sum += np.exp(-n * x) * (x2 + 2.0 * (x + dn) * dn) * dn
+
+    if radiant:
+        # in units of W/m2
+        c2 = 2.0 * const.h * const.c * const.c
+        rtnval = c2 * (temperature / c1)**4.0 * sum
+    else:
+        # in units of photons/(s.m2)
+        kTohc  = const.k * temperature / (const.h * const.c)
+        rtnval = 2.0 * const.c * kTohc**3.0 * sum
+
+    return rtnval * np.pi
+
+
+################################################################
+def planckInt(spectralLo, spectralHi, temperature, type='el'):
+    """Integrated Planck law spectral exitance.
+
+    Calculates the integral of the Planck law spectral exitance from a surface
+    at the stated temperature over the specified spectral range.
+    Temperature can be a scalar, a list or an array.
+    Exitance can be returned in radiant or photon rate units,
+    depending on user input in type.
+
+    http://www.spectralcalc.com/blackbody/inband_radiance.html
+    http://www.spectralcalc.com/blackbody/appendixA.html
+
+    Args:
+        | spectralLo (scalar):  spectral lower limit.
+        | spectralHi (scalar):  spectral upper limit.
+        | temperature (scalar):  Temperature in [K]
+        | type (string):
+        |  'e' signifies Radiant values in [W/m^2].
+        |  'q' signifies photon rate values  [quanta/(s.m^2)].
+        |  'l' signifies wavelength spectral vector  [micrometer].
+        |  'n' signifies wavenumber spectral vector [cm-1].
+        |  'f' signifies frequency spectral vector [Hz].
+
+    Returns:
+        | (scalar):  spectral radiant exitance (not radiance) in units selected.
+        | For type = 'e*' units will be [W/(m^2)].
+        | For type = 'q*' units will be [q/(s.m^2)].
+        | Returns None on error.
+
+    Raises:
+        | No exception is raised, returns None on error.
+    """
+    if type not in list(plancktype.keys()) or temperature == 0.0:
+        exitance = None
+    else:
+        if type[1] == 'f':
+            sLo = ryutils.convertSpectralDomain(spectralLo, type='fn')
+            sHi = ryutils.convertSpectralDomain(spectralHi, type='fn')
+        elif type[1] == 'l':
+            sLo = ryutils.convertSpectralDomain(spectralLo, type='ln')
+            sHi = ryutils.convertSpectralDomain(spectralHi, type='ln')
+        else:
+            sLo = spectralLo
+            sHi = spectralHi
+
+        sLo = 1e100 if sLo > 1e100 else sLo
+        sHi = 1e100 if sHi > 1e100 else sHi
+
+        if sLo > sHi:
+            sLo, sHi = sHi, sLo
+
+        if sLo == 0.0:
+            mLo = stefanboltzman(temperature, type=type[0])
+        else:
+            mLo = planck_integral(sLo, temperature, type[0] == 'e')
+
+        if sHi == 0.0:
+            mHi = stefanboltzman(temperature, type=type[0])
+        else:
+            mHi = planck_integral(sHi, temperature, type[0] == 'e')
+
+        exitance = mLo - mHi
+
+    return exitance
+
+
+################################################################
+
+if __name__ == '__main__':
+    import os as _os
+    _clutter = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'clutter')
+    _os.makedirs(_clutter, exist_ok=True)
+
+    def _c(fname):
+        """Redirect an output filename into the clutter folder."""
+        return _os.path.join(_clutter, _os.path.basename(str(fname)))
+
+
+    import ryutils
+    doAll = True
+
+    rit = ryutils.intify_tuple
+
+    if doAll:
+        #--------------------------------------------------------------------------------------
+        # print all available constants
+        pconst.printConstants()
+
+    if doAll:
+        #--------------------------------------------------------------------------------------
+        # test different input types for temperature but with spectral array
+        wavelen = np.linspace(1.0, 2.0, 100)
+        #test for scalar temperature
+        m = planckel(wavelen, 300)
+        print(f'Array spectral {rit(wavelen.shape)} & scalar temperature input, output shape is {rit(m.shape)}')
+        #test for list of temperature values
+        temp =  [300]
+        m = planckel(wavelen,temp)
+        print(f'Array spectral {rit(wavelen.shape)} &  list with len()={len(temp)} temperature input, output shape is {rit(m.shape)}')
+        #test for list of temperature values
+        temp =  [300, 350, 500]
+        m = planckel(wavelen,temp)
+        print(f'Array spectral {rit(wavelen.shape)} & list with len()={len(temp)} temperature input, output shape is {rit(m.shape)}')
+        #test for array of temperature values
+        temp =  np.asarray([300, 350, 400, 450, 500])
+        m = planckel(wavelen,temp)
+        print(f'Array spectral {rit(wavelen.shape)} & array with shape={rit(temp.shape)} temperature input, output shape is {rit(m.shape)}')
+        #test for array of temperature values
+        temp =  np.asarray([300, 350, 400, 450, 500]).reshape(1,-1)
+        m = planckel(wavelen,temp.T)
+        print(f'Array spectral {rit(wavelen.shape)} & array with shape={rit(temp.shape)} temperature input, output shape is {rit(m.shape)}')
+
+        # test different input types for temperature but with spectral as scalar
+        #test for scalar temperature
+        m = planckel(wavelen[0], 300)
+        print(f'Scalar spectral & scalar temperature input, output shape is {rit(m.shape)}')
+        #test for list of temperature values
+        temp =  [300]
+        m = planckel(wavelen[0],temp)
+        print(f'Scalar spectral & list temperature with len()={len(temp)} input, output shape is {rit(m.shape)}')
+        #test for list of temperature values
+        temp =  [300, 350, 500]
+        m = planckel(wavelen[0],temp)
+        print(f'Scalar spectral & list temperature with len()={len(temp)} input, output shape is {rit(m.shape)}')
+        #test for list of temperature values
+        temp =  np.asarray([300, 350, 400, 450, 500])
+        m = planckel(wavelen[0],temp)
+        print(f'Scalar spectral & array temperature with shape={rit(temp.shape)}  input, output shape is {rit(m.shape)}')
+
+        print(' ')
+
+    if doAll:
+        #--------------------------------------------------------------------------------------
+        # test at fixed temperature
+        # for each function we calculate a spectral exitance and then get the peak and where peak occurs.'
+        # this is checked against a first principles equation calculation.
+
+        tmprtr=1000  # arbitrary choice of temperature
+        dTmprtr=0.01  # arbitrary choice of temperature
+
+        print(f'Temperature for calculations             {tmprtr:f} [K]')
+        print(f'dTemperature for dM/dTcalculations       {dTmprtr:f} [K]')
+
+        numIntPts=10000  #number of integration points
+
+        wl1=.05            # lower integration limit
+        wl2= 1000         # upper integration limit
+        wld=(wl2-wl1)/numIntPts  #integration increment
+        wl=np.arange(wl1, wl2+wld, wld)
+
+        print('\nplanckel WAVELENGTH DOMAIN, RADIANT EXITANCE')
+        M =planckel(wl,tmprtr)
+        peakM =  1.28665e-11*tmprtr**5
+        spectralPeakM = 2897.9/tmprtr
+        spectralPeak = wl[M.argmax()]
+        I=np.trapezoid(M, wl)
+        psum = planckInt(wl1, wl2, tmprtr, type='el')
+        sblf = stefanboltzman(tmprtr, 'e')
+        sbl=5.67033e-8*tmprtr**4
+        dMe = ( planckel(spectralPeak, tmprtr+dTmprtr)  - planckel(spectralPeak,tmprtr))/dTmprtr
+        dMf = dplnckel(spectralPeak,tmprtr)
+        print('                            function       equations    (% error)')
+        print(f'peak exitance             {max(M):e}   {peakM:e}   {100 * (max(M) - peakM) / peakM:+.4f}   [W/(m^2.um)]')
+        print(f'peak exitance at          {spectralPeak:e}   {spectralPeakM:e}   {100 * (spectralPeak - spectralPeakM) / spectralPeakM:+.4f}   [um]')
+        print(f'radiant exitance (int)    {I:e}   {sbl:e}   {100 * (I - sbl) / sbl:+.4f}   [W/m^2]')
+        print(f'radiant exitance (int)    {sblf:e}   {sbl:e}   {100 * (sblf - sbl) / sbl:+.4f}   [W/m^2]')
+        print(f'radiant exitance (int)    {psum:e}   {sbl:e}   {100 * (psum - sbl) / sbl:+.4f}   [W/m^2]')
+        print(f'radiant exitance dM/dT    {dMf:e}   {dMe:e}   {100 * (dMf - dMe) / dMe:+.4f}   [W/(m^2.um.K)]')
+
+
+        print('\nplanckql WAVELENGTH DOMAIN, PHOTON EXITANCE');
+        M =planckql(wl,tmprtr);
+        peakM =  2.1010732e11*tmprtr*tmprtr*tmprtr*tmprtr
+        spectralPeakM = 3669.7/tmprtr
+        spectralPeak = wl[M.argmax()]
+        I=np.trapezoid(M, wl)
+        psum = planckInt(wl1, wl2, tmprtr, type='ql')
+        sblf = stefanboltzman(tmprtr, 'q')
+        sbl=1.5204e+15*tmprtr*tmprtr*tmprtr
+        dMe = ( planckql(spectralPeak,tmprtr+dTmprtr)  - planckql(spectralPeak,tmprtr))/dTmprtr
+        dMf = dplnckql(spectralPeak,tmprtr)
+        print('                            function       equations    (% error)')
+        print(f'peak exitance             {max(M):e}   {peakM:e}   {100 * (max(M) - peakM) / peakM:+.4f}   [q/(s.m^2.um)]')
+        print(f'peak exitance at          {spectralPeak:e}   {spectralPeakM:e}   {100 * (spectralPeak - spectralPeakM) / spectralPeakM:+.4f}   [um]')
+        print(f'radiant exitance (int)    {I:e}   {sbl:e}   {100 * (I - sbl) / sbl:+.4f}   [q/(s.m^2)]')
+        print(f'radiant exitance (int)    {sblf:e}   {sbl:e}   {100 * (sblf - sbl) / sbl:+.4f}   [q/(s.m^2)]')
+        print(f'radiant exitance (int)    {psum:e}   {sbl:e}   {100 * (psum - sbl) / sbl:+.4f}   [W/m^2]')
+        print(f'radiant exitance dM/dT    {dMf:e}   {dMe:e}   {100 * (dMf - dMe) / dMe:+.4f}   [q/(s.m^2.um.K)]')
+
+
+        f1=const.c/ (wl2*1e-6)
+        f2=const.c/ (wl1*1e-6)
+        fd=(f2-f1)/numIntPts  # integration increment
+        f=np.arange(f1, f2+fd, fd)
+
+        print('\nplanckef FREQUENCY DOMAIN, RADIANT EXITANCE');
+        M =planckef(f,tmprtr);
+        peakM =  5.95664593e-19*tmprtr*tmprtr*tmprtr
+        spectralPeakM = 5.8788872e10*tmprtr
+        spectralPeak = f[M.argmax()]
+        I=np.trapezoid(M, f)
+        psum = planckInt(f1, f2, tmprtr, type='ef')
+        sblf = stefanboltzman(tmprtr, 'e')
+        sbl=5.67033e-8*tmprtr*tmprtr*tmprtr*tmprtr
+        dMe = ( planckef(spectralPeak,tmprtr+dTmprtr)  - planckef(spectralPeak,tmprtr))/dTmprtr
+        dMf = dplnckef(spectralPeak,tmprtr)
+        print('                            function       equations    (% error)')
+        print(f'peak exitance             {max(M):e}   {peakM:e}   {100 * (max(M) - peakM) / peakM:+.4f}   [W/(m^2.Hz)]')
+        print(f'peak exitance at          {spectralPeak:e}   {spectralPeakM:e}   {100 * (spectralPeak - spectralPeakM) / spectralPeakM:+.4f}   [Hz]')
+        print(f'radiant exitance (int)    {I:e}   {sbl:e}   {100 * (I - sbl) / sbl:+.4f}   [W/m^2]')
+        print(f'radiant exitance (int)    {sblf:e}   {sbl:e}   {100 * (sblf - sbl) / sbl:+.4f}   [W/m^2]')
+        print(f'radiant exitance (int)    {psum:e}   {sbl:e}   {100 * (psum - sbl) / sbl:+.4f}   [W/m^2]')
+        print(f'radiant exitance dM/dT    {dMf:e}   {dMe:e}   {100 * (dMf - dMe) / dMe:+.4f}   [W/(m^2.Hz.K)]')
+
+
+        print('\nplanckqf FREQUENCY DOMAIN, PHOTON EXITANCE');
+        M =planckqf(f,tmprtr);
+        peakM = 1.965658e4*tmprtr*tmprtr
+        spectralPeakM = 3.32055239e10*tmprtr
+        spectralPeak = f[M.argmax()]
+        I=np.trapezoid(M, f)
+        psum = planckInt(f1, f2, tmprtr, type='qf')
+        sblf = stefanboltzman(tmprtr, 'q')
+        sbl=1.5204e+15*tmprtr*tmprtr*tmprtr
+        dMe = ( planckqf(spectralPeak,tmprtr+dTmprtr)  - planckqf(spectralPeak,tmprtr))/dTmprtr
+        dMf = dplnckqf(spectralPeak,tmprtr)
+        print('                            function       equations    (% error)')
+        print(f'peak exitance             {max(M):e}   {peakM:e}   {100 * (max(M) - peakM) / peakM:+.4f}   [q/(s.m^2.Hz)]')
+        print(f'peak exitance at          {spectralPeak:e}   {spectralPeakM:e}   {100 * (spectralPeak - spectralPeakM) / spectralPeakM:+.4f}   [Hz]')
+        print(f'radiant exitance (int)    {I:e}   {sbl:e}   {100 * (I - sbl) / sbl:+.4f}   [q/(s.m^2)]')
+        print(f'radiant exitance (int)    {sblf:e}   {sbl:e}   {100 * (sblf - sbl) / sbl:+.4f}   [q/(s.m^2)]')
+        print(f'radiant exitance (int)    {psum:e}   {sbl:e}   {100 * (psum - sbl) / sbl:+.4f}   [W/m^2]')
+        print(f'radiant exitance dM/dT    {dMf:e}   {dMe:e}   {100 * (dMf - dMe) / dMe:+.4f}   [q/(s.m^2.Hz.K)]')
+
+
+        n1=1e4 / wl2
+        n2=1e4 / wl1
+        nd=(n2-n1)/numIntPts  # integration increment
+        n=np.arange(n1, n2+nd, nd)
+
+        print('\nplancken WAVENUMBER DOMAIN, RADIANT EXITANCE');
+        M =plancken(n,tmprtr);
+        peakM =  1.78575759e-8*tmprtr*tmprtr*tmprtr
+        spectralPeakM = 1.9609857086*tmprtr
+        spectralPeak = n[M.argmax()]
+        I=np.trapezoid(M, n)
+        psum = planckInt(n1, n2, tmprtr, type='en')
+        sblf = stefanboltzman(tmprtr, 'e')
+        sbl=5.67033e-8*tmprtr*tmprtr*tmprtr*tmprtr
+        dMe = ( plancken(spectralPeak,tmprtr+dTmprtr)  - plancken(spectralPeak,tmprtr))/dTmprtr
+        dMf = dplncken(spectralPeak,tmprtr)
+        print('                            function       equations    (% error)')
+        print(f'peak exitance             {max(M):e}   {peakM:e}   {100 * (max(M) - peakM) / peakM:+.4f}   [W/(m^2.cm-1)]')
+        print(f'peak exitance at          {spectralPeak:e}   {spectralPeakM:e}   {100 * (spectralPeak - spectralPeakM) / spectralPeakM:+.4f}   [cm-1]')
+        print(f'radiant exitance (int)    {I:e}   {sbl:e}   {100 * (I - sbl) / sbl:+.4f}   [W/m^2]')
+        print(f'radiant exitance (int)    {sblf:e}   {sbl:e}   {100 * (sblf - sbl) / sbl:+.4f}   [W/m^2]')
+        print(f'radiant exitance (int)    {psum:e}   {sbl:e}   {100 * (psum - sbl) / sbl:+.4f}   [W/m^2]')
+        print(f'radiant exitance dM/dT    {dMf:e}   {dMe:e}   {100 * (dMf - dMe) / dMe:+.4f}   [W/(m^2.cm-1.K)]')
+
+
+        print('\nplanckqn WAVENUMBER DOMAIN, PHOTON EXITANCE');
+        M =planckqn(n,tmprtr);
+        peakM = 5.892639e14*tmprtr*tmprtr
+        spectralPeakM = 1.1076170659*tmprtr
+        spectralPeak =  n[M.argmax()]
+        I=np.trapezoid(M, n)
+        psum = planckInt(n1, n2, tmprtr, type='qn')
+        sblf = stefanboltzman(tmprtr, 'q')
+        sbl=1.5204e+15*tmprtr*tmprtr*tmprtr
+        dMe = ( planckqn(spectralPeak,tmprtr+dTmprtr)  - planckqn(spectralPeak,tmprtr))/dTmprtr
+        dMf = dplnckqn(spectralPeak,tmprtr)
+        print('                            function       equations    (% error)')
+        print(f'peak exitance             {max(M):e}   {peakM:e}   {100 * (max(M) - peakM) / peakM:+.4f}   [q/(s.m^2.cm-1)]')
+        print(f'peak exitance at          {spectralPeak:e}   {spectralPeakM:e}   {100 * (spectralPeak - spectralPeakM) / spectralPeakM:+.4f}   [cm-1]')
+        print(f'radiant exitance (int)    {I:e}   {sbl:e}   {100 * (I - sbl) / sbl:+.4f}   [q/(s.m^2)]')
+        print(f'radiant exitance (int)    {sblf:e}   {sbl:e}   {100 * (sblf - sbl) / sbl:+.4f}   [q/(s.m^2)]')
+        print(f'radiant exitance (int)    {psum:e}   {sbl:e}   {100 * (psum - sbl) / sbl:+.4f}   [W/m^2]')
+        print(f'radiant exitance dM/dT    {dMf:e}   {dMe:e}   {100 * (dMf - dMe) / dMe:+.4f}   [q/(s.m^2.cm-1.K)]')
+        print(' ')
+
+        print('Test the functions by converting between different spectral domains.')
+        wavelenRef = np.asarray([0.1,  1,  10 ,  100]) # in units of um
+        wavenumRef = np.asarray([1.0e5,  1.0e4,  1.0e3,  1.0e2]) # in units of cm-1
+        frequenRef = np.asarray([  2.99792458e+15,   2.99792458e+14,   2.99792458e+13, 2.99792458e+12])
+        print('Input spectral vectors:')
+        print(f'{wavelenRef} micrometers')
+        print(f'{wavenumRef} wavenumber')
+        print(f'{frequenRef} frequency')
+
+        # now test conversion of spectral density quantities
+        #create planck spectral densities at the wavelength interval
+        exitancewRef = planck(wavelenRef, 1000,'el')
+        exitancefRef = planck(frequenRef, 1000,'ef')
+        exitancenRef = planck(wavenumRef, 1000,'en')
+        exitance = exitancewRef.copy()
+        #convert to frequency density
+        print('all following eight statements should print (close to) unity vectors:')
+        (freq, exitance) = ryutils.convertSpectralDensity(wavelenRef, exitance, 'lf')
+        print('exitance converted: wf against calculation')
+        print(exitancefRef/exitance)
+        #convert to wavenumber density
+        (waven, exitance) = ryutils.convertSpectralDensity(freq, exitance, 'fn')
+        print('exitance converted: wf->fn against calculation')
+        print(exitancenRef/exitance)
+        #convert to wavelength density
+        (wavel, exitance) = ryutils.convertSpectralDensity(waven, exitance, 'nl')
+        #now repeat in opposite sense
+        print('exitance converted: wf->fn->nw against original')
+        print(exitancewRef/exitance)
+        print('spectral variable converted: wf->fn->nw against original')
+        print(wavelenRef/wavel)
+        #convert to wavenumber density
+        exitance = exitancewRef.copy()
+        (waven, exitance) = ryutils.convertSpectralDensity(wavelenRef, exitance, 'ln')
+        print('exitance converted: wf against calculation')
+        print(exitancenRef/exitance)
+        #convert to frequency density
+        (freq, exitance) = ryutils.convertSpectralDensity(waven, exitance, 'nf')
+        print('exitance converted: wf->fn against calculation')
+        print(exitancefRef/exitance)
+        #convert to wavelength density
+        (wavel, exitance) = ryutils.convertSpectralDensity(freq, exitance, 'fl')
+        # if the spectral density conversions were correct, the following two should be unity vectors
+        print('exitance converted: wn->nf->fw against original')
+        print(exitancewRef/exitance)
+        print('spectral variable converted: wn->nf->fw against original')
+        print(wavelenRef/wavel)
+
+
+    #--------------------------------------------------------------------------------------
+    #now plot a number of graphs
+    if doAll:
+        import ryplot
+
+        #plot a single planck curve on linear scale for 300K source
+        wl=np.logspace(np.log10(0.2), np.log10(20), num=100).reshape(-1, 1)
+        Mel = planck(wl, 300, type='el').reshape(-1, 1) # [W/(m$^2$.$\mu$m)]
+
+        lp = ryplot.Plotter(1)
+        lp.semilogX(1,wl,Mel,"Planck law exitance for 300 K source",r"Wavelength [$\mu$m]",
+            r"Exitance [W/(m$^2$.$\mu$m)]")
+        lp.saveFig(_c('M300k.eps'))
+
+        #plot all the planck functions.
+        wl=np.logspace(np.log10(0.1), np.log10(100), num=100).reshape(-1, 1)
+        n=np.logspace(np.log10(1e4/100),np. log10(1e4/0.1), num=100).reshape(-1, 1)
+        f=np.logspace(np.log10(const.c/ (100*1e-6)),np. log10(const.c/ (0.1*1e-6)), num=100).reshape(-1, 1)
+        temperature=[280,300,450,650,1000,1800,3000,6000]
+
+        Mel = planck(wl, np.asarray(temperature).reshape(-1,1), type='el') # [W/(m$^2$.$\mu$m)]
+        Mql = planck(wl, np.asarray(temperature).reshape(-1,1), type='ql') # [q/(s.m$^2$.$\mu$m)]
+        Men = planck(n, np.asarray(temperature).reshape(-1,1), type='en')  # [W/(m$^2$.cm$^{-1}$)]
+        Mqn = planck(n, np.asarray(temperature).reshape(-1,1), type='qn')  # [q/(s.m$^2$.cm$^{-1}$)]
+        Mef = planck(f, np.asarray(temperature).reshape(-1,1), type='ef')  # [W/(m$^2$.Hz)]
+        Mqf = planck(f, np.asarray(temperature).reshape(-1,1), type='qf')  # [q/(s.m$^2$.Hz)]
+
+        legend = [f"{temperature[0]:.0f} K"]
+        for temp in temperature[1:] :
+            legend.append(f"{temp:.0f} K")
+
+        fplanck = ryplot.Plotter(1, 2, 3,"Planck's Law", figsize=(18, 12))
+        fplanck.logLog(1, wl, Mel, "Radiant, Wavelength Domain",r"Wavelength [$\mu$m]", \
+            r"Exitance [W/(m$^2$.$\mu$m)]",legendAlpha=0.5, label=legend, \
+                        pltaxis=[0.1, 100, 1e-2, 1e9])
+        fplanck.logLog(2, n, Men, "Radiant, Wavenumber Domain","Wavenumber [cm$^{-1}$]", \
+            "Exitance [W/(m$^2$.cm$^{-1}$)]",legendAlpha=0.5, label=legend, \
+                        pltaxis=[100, 100000, 1e-8, 1e+4])
+        fplanck.logLog(3, f, Mef, "Radiant, Frequency Domain","Frequency [Hz]", \
+            "Exitance [W/(m$^2$.Hz)]",legendAlpha=0.5, label=legend, \
+                        pltaxis=[3e12, 3e15, 1e-20, 1e-6])
+
+        fplanck.logLog(4, wl, Mql, "Photon Rate, Wavelength Domain",r"Wavelength [$\mu$m]", \
+            r"Exitance [q/(s.m$^2$.$\mu$m)]",legendAlpha=0.5, label=legend, \
+                        pltaxis=[0.1, 100, 1e-0, 1e27])
+        fplanck.logLog(5, n, Mqn, "Photon Rate, Wavenumber Domain","Wavenumber [cm$^{-1}$]", \
+            "Exitance [q/(s.m$^2$.cm$^{-1}$)]",legendAlpha=0.5, label=legend, \
+                        pltaxis=[100, 100000, 1e-8, 1e+23])
+        fplanck.logLog(6, f, Mqf, "Photon Rate, Frequency Domain","Frequency [Hz]", \
+            "Exitance [q/(s.m$^2$.Hz)]",legendAlpha=0.5, label=legend, \
+                        pltaxis=[3e12, 3e15, 1e-20, 1e+13])
+
+        #fplanck.GetPlot().show()
+        fplanck.saveFig(_c('planck.png'))
+
+        #now plot temperature derivatives
+        Mel = dplanck(wl, np.asarray(temperature).reshape(-1,1), type='el') # [W/(m$^2$.$\mu$m.K)]
+        Mql = dplanck(wl, np.asarray(temperature).reshape(-1,1), type='ql') # [q/(s.m$^2$.$\mu$m.K)]
+        Men = dplanck(n , np.asarray(temperature).reshape(-1,1), type='en') # [W/(m$^2$.cm$^{-1}$.K)]
+        Mqn = dplanck(n,  np.asarray(temperature).reshape(-1,1), type='qn') # [q/(s.m$^2$.cm$^{-1}$.K)]
+        Mef = dplanck(f,  np.asarray(temperature).reshape(-1,1), type='ef') # [W/(m$^2$.Hz.K)]
+        Mqf = dplanck(f,  np.asarray(temperature).reshape(-1,1), type='qf') # [q/(s.m$^2$.Hz.K)]
+
+        fdplanck = ryplot.Plotter(2, 2, 3,"Planck's Law Temperature Derivative", figsize=(18, 12))
+        fdplanck.logLog(1, wl, Mel, "Radiant, Wavelength Domain",r"Wavelength [$\mu$m]", \
+            r"dM/dT [W/(m$^2$.$\mu$m.K)]",legendAlpha=0.5, label=legend, \
+                        pltaxis=[0.1, 100, 1e-5, 1e5])
+        fdplanck.logLog(2, n, Men, "Radiant, Wavenumber Domain","Wavenumber [cm$^{-1}$]", \
+            "dM/dT [W/(m$^2$.cm$^{-1}$.K)]",legendAlpha=0.5, label=legend, \
+                        pltaxis=[100, 100000, 1e-10, 1e+1])
+        fdplanck.logLog(3, f, Mef, "Radiant, Frequency Domain","Frequency [Hz]", \
+            "dM/dT [W/(m$^2$.Hz.K)]",legendAlpha=0.5, label=legend, \
+                        pltaxis=[3e12, 3e15, 1e-20, 1e-10])
+
+        fdplanck.logLog(4, wl, Mql, "Photon Rate, Wavelength Domain",r"Wavelength [$\mu$m]", \
+            r"dM/dT [q/(s.m$^2$.$\mu$m.K)]",legendAlpha=0.5, label=legend, \
+                        pltaxis=[0.1, 100, 1e-0, 1e24])
+        fdplanck.logLog(5, n, Mqn, "Photon Rate, Wavenumber Domain","Wavenumber [cm$^{-1}$]", \
+            "dM/dT [q/(s.m$^2$.cm$^{-1}$.K)]",legendAlpha=0.5, label=legend, \
+                        pltaxis=[100, 100000, 1e-10, 1e+20])
+        fdplanck.logLog(6, f, Mqf, "Photon Rate, Frequency Domain","Frequency [Hz]", \
+            "dM/dT [q/(s.m$^2$.Hz.K)]",legendAlpha=0.5, label=legend, \
+                        pltaxis=[3e12, 3e15, 1e-20, 1e+9])
+
+        #fdplanck.GetPlot().show()
+        fdplanck.saveFig(_c('dplanck.png'))
+        print(' ')
+
+    #--------------------------------------------------------------------------------------
+    #a simple calculation to calculate the number of bits required to express colour ratio
+    if doAll:
+        print('Calculate the number of bits required to express the colour ratio')
+        print('between an MTV flare and a relatively cold aircraft fuselage.')
+        #calculate the radiance ratio of aircraft fuselage to MTV flare in 3-5 um band
+        wl=np.arange(3.5, 5, 0.001)
+        #MTV flare temperature is 2200 K. emissivity=0.15
+        flareEmis = 0.15
+        flareM = flareEmis * np.trapezoid(planckel(wl,2200).reshape(-1, 1),wl, axis=0)[0]
+        #aircraft fuselage temperature is 250 K. emissivity=1,
+        aircraftM =  np.trapezoid(planckel(wl,250).reshape(-1, 1),wl, axis=0)[0]
+        print(f'Mflare={flareM:.2f} W/m2 \nMaircraft={aircraftM:.1f} W/m2')
+        print(f'Colour ratio: ratio={flareM / aircraftM:.3e} minimum number of bits required={np.log2(flareM / aircraftM):.1f}')
+
+    #--------------------------------------------------------------------------------------
+    print('\nmodule planck done!')

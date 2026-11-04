@@ -1,11 +1,18 @@
 # ADR-30: Mission Systems — high-fidelity payloads behind A-GRA's Mission Systems interface
 
+Aerodynamic evidence policy and the Hangar-to-runtime workflow are
+maintained in the [Hangar system guide](../../../hangar-system.md). This document
+retains its architectural, ownership and milestone contracts.
+
+The [current exact-model AAM gate](../../../hangar-system.md#exact-model-aam-aerodynamic-gate)
+supersedes the dated solver selections and acceptance assignments below.
+
 This is the accepted design and dated implementation history, not the current capability checklist.
 [Status](../../../status.md) is the sole current capability and milestone table; [development](../../../development.md) documents
 the supported workflow and [resources](../../../resources.md) locates dependencies and references. Dated plans and progress
 below preserve their original goals and evidence. They do not establish present completion or supersede the
 [native engagement API](../../../sdk/engagement.md). Its game assumptions do not complete the high-fidelity
-SU2/VSPAERO/RocketPy stages or the original Mission Systems M1 acceptance criteria.
+equipment-specific physical validation or the original Mission Systems M1 acceptance criteria.
 
 | | |
 | --- | --- |
@@ -13,7 +20,7 @@ SU2/VSPAERO/RocketPy stages or the original Mission Systems M1 acceptance criter
 | Extends | ADR-28 ([vehicle-interface.md](vehicle-interface.md)) and ADR-29 ([flight-autonomy.md](flight-autonomy.md)): Mission Systems capabilities follow the same pattern in the SDK as the VI's flight capabilities (discovery, commands, command status, activities, grants), and ADR-29's transport items XPT-01 to XPT-08 come into scope (stage MS-12) |
 | Scope | Every payload family that A-GRA's Mission Systems (MS) interface defines - sensors (AMTI radar, ESM/RWR, passive optical, weather radar, SAR/SMTI where the aircraft carries them), weapons (stores, launch zones, release consent, fire, abort, jettison, flyout), electronic attack, communications and datalinks, track fusion, PNT, health and BIT - modelled at high fidelity, per aircraft from the public specifications of the payloads it actually carries, commanded through the SDK (C++, C ABI, Python) and, later, over OMS |
 | Reference | From public repositories, read for semantics, none in this repository: A-GRA ASK 6.0a (open-arsenal/a-gra: *MS L1 Interface Volume* v6.0a, *A-GRA_MessageDefinitions_v6_0_a.xsd*); OMS 2.5 (open-arsenal/oms: the OMS Standard, the Language-Agnostic CAL specification OMSC-SPC-013); UCI 2.6 (open-arsenal/uci) |
-| Related | [sdk/control.md](../../../sdk/control.md), [hangar.md](../../../hangar.md), [design document](../../design/platform-baseline.md) |
+| Related | [sdk/control.md](../../../sdk/control.md), [Hangar system](../../../hangar-system.md), [design document](../../design/platform-baseline.md) |
 
 ## 1. Context
 
@@ -94,8 +101,8 @@ The MS volume groups 67 interactions into ten packages. Its minimum message set 
 | Signal-level radar | **FERS**, C++ | GPL-2.0 | Signal level, multistatic: pulsed stable, CW, FMCW in alpha | The cross-check of the platform's own signal-level chain, run beside it (not linked) |
 | Weapon flyout | **JSBSim** | LGPL-2.1 | 6-DOF with tables, already in the platform | Missile and bomb flight |
 | Motors, rocket aerodynamics | **RocketPy** | MIT | 6-DOF rocket flight; motor models (solid, thrust curves); Barrowman aerodynamics | Motor models; cross-check of missile kinematics |
-| Missile aerodynamics | **SU2** (CFD) | LGPL-2.1 | High: Euler/RANS | Offline aero tables per missile, from its public external geometry |
-| Missile aerodynamics | **OpenVSP / VSPAERO** | NASA Open Source Agreement | Panel and vortex-lattice methods | Fast tables; cross-check of SU2 |
+| Missile aerodynamics, retired tool | **SU2** (CFD) | LGPL-2.1 | Simulated estimates only | Failed on project AIM-120C and abandoned; execution prohibited |
+| Missile aerodynamics, retired acceptance route | **OpenVSP / VSPAERO** | NASA Open Source Agreement | Simulated estimates only | Not an alternative exact-model acceptance path |
 | GNSS | **gps-sdr-sim** | MIT | Real ephemerides, signal generation | PNT: satellite geometry, DOP, outages |
 | OMS transport | **sleet** (LA-CAL server, the Air Force's starter kit), Rust | Apache-2.0 | Reference OWP server with UCI schema validation | Reference server and test peer (MS-12) |
 | OMS transport | **la-cal-harness**, Python | Apache-2.0 | LA-CAL compliance tests | Transport tests |
@@ -152,7 +159,7 @@ SDK (C++ / C ABI / Python)            OMS bus (MS-12)
 | --- | --- | --- | --- |
 | AMTI radar | Per look: the radar range equation with the card's power, aperture, frequency, losses and noise figure; antenna patterns; Swerling 0-4 fluctuation (Shnidman's detection equations); CFAR and straddle losses; propagation (P.528, gaseous P.676, rain P.838); multipath and terrain masking; main-lobe and side-lobe clutter for look-down (land and sea clutter models from the published literature); Doppler notch and blind speeds; scan patterns and dwell timing; modes (RWS, TWS, STT, ACM); range, angle and Doppler errors from SNR; ECCM against jamming | The platform's own chain (MS-6): each coherent interval's baseband samples (sum and monopulse difference channels; targets from their RCS tables and the radio path, receiver noise, the ground's clutter as scatterers), Doppler filtering, CFAR, the PRFs' M of N resolving range and Doppler, monopulse angles; cross-checked against FERS | Detection range against each radar's published range for a stated RCS; canonical cases against closed forms; detection level against signal level on the same scenarios |
 | RCS | GPU shooting and bouncing rays (physical optics plus multiple-bounce geometric optics), implemented from the published method on Vulkan, over each aircraft's mesh, into tables over aspect, frequency and polarisation | - | No mature open-source SBR exists (section 3.2). Validated against closed forms (sphere, flat plate, dihedral, trihedral, cylinder) and against published RCS figures for aircraft where they exist |
-| Air-to-air weapons | JSBSim 6-DOF; aero tables from SU2 and VSPAERO on the missile's public external geometry; motor from its public impulse, burn time and mass, through RocketPy's motor model; seekers (active and semi-active radar through the radar model; IR through the IR model); guidance (proportional navigation and its augmented forms, midcourse with datalink updates, loft); proximity fuze and warhead lethality; DLZ and WEZ by flying the model (Rmax, Rne, Rmin over aspect and altitude) | - | Range, time of flight and no-escape range against published figures; flyout against RocketPy's for the motor phase |
+| Air-to-air weapons | JSBSim 6-DOF; shared Hangar VLM aero tables labeled simulated, with the separate public exact-model measured/flight-test evidence gate; motor from its public impulse, burn time and mass, through RocketPy's motor model; seekers (active and semi-active radar through the radar model; IR through the IR model); guidance (proportional navigation and its augmented forms, midcourse with datalink updates, loft); proximity fuze and warhead lethality; DLZ and WEZ by flying the model (Rmax, Rne, Rmin over aspect and altitude) | - | Independent SDK comparison against public specific-model measured/flight-test data, or explicit blocked aerodynamic gate; RocketPy motor-phase agreement is software evidence |
 | ESM/RWR | One-way equation from every emitter in the world (they are the simulated radars), receiver sensitivity, band coverage, direction-finding accuracy, pulse parameters from the emitter's card | - | Detection ranges against published sensitivities |
 | Electronic attack | Noise and deception jamming: jamming-to-signal ratio, burn-through range, side-lobe effects on the victim radar's SNR | In the signal-level chain's samples where selected | Burn-through ranges against the closed form |
 | Passive optical (FLIR, IRST, targeting pods) | Target signature (skin from aerodynamic heating and sun, plume from the exhaust model's Planck emission), atmospheric transmission in the sensor's band, sensor NETD and detection criteria (Johnson), track | Imagery from the vision renderer in the sensor's band | Detection ranges against published figures; plume radiance against published measurements |
@@ -204,7 +211,7 @@ The stage table records the approved roadmap. Current delivery and remaining wor
 | MS-4 | AMTI radar, detection level: modes, scan, Swerling, clutter, errors; the fighters' and AEW radars' cards; published ranges reproduced | MS-2, MS-3 |
 | MS-5 | Trackers and fusion: Stone Soup's algorithms ported, cross-checked | MS-4 |
 | MS-6 | Signal-level radar option: the platform's own chain (amended 2026-10-07, below), cross-checked against FERS | MS-4 |
-| MS-7 | Stores and weapons: inventory per station, release, jettison, abort, consent; air-to-air missiles (aero tables from SU2 and VSPAERO, motors, seekers, guidance, fuzes, lethality) on JSBSim; the missiles' cards | MS-2, MS-4 |
+| MS-7 | Stores and weapons: inventory per station, release, jettison, abort, consent; air-to-air missiles (shared Hangar VLM simulated tables, separate exact-model evidence gate, motors, seekers, guidance, fuzes, lethality) on JSBSim; the missiles' cards | MS-2, MS-4 |
 | MS-8 | Launch zones: DLZ and WEZ from the flyout model; published ranges reproduced | MS-7 |
 | MS-9 | ESM/RWR and electronic attack | MS-2, MS-4 |
 | MS-10 | Passive optical: IR signatures, atmosphere, IRST and targeting pods; imagery through the vision renderer | MS-2 |
@@ -221,7 +228,7 @@ calibrate real-world missile performance. See [status](../../../status.md) for t
 
 The scripted showcase and plume-check fixtures in the entries below are retired. Their supplied missile poses,
 timed bursts and injected target outcomes describe the recorded revision, not the maintained scene generator.
-Current [Hangar showcase](../../../hangar.md#missiles) records SDK Worlds: JSBSim flight, observations, consent, guidance,
+Current [Hangar showcase](../../../hangar-system.md#3-model-contract-and-reproducibility) records SDK Worlds: JSBSim flight, observations, consent, guidance,
 seekers, fuzes and damage determine the outcome. Missing native support fails instead of substituting a scripted
 trajectory. Historical commands and measurements below are retained as evidence of the earlier visual work;
 they do not validate the replacement scenes.
@@ -494,7 +501,7 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   stations' point masses: its flight is unchanged to the bit, old XML against new, all 16
   ([sdk/mission-systems.md](../../../sdk/mission-systems.md#stores-and-weapon-employment-ms-7a)).
 - **MS-7e1, the missiles' models, and the first of MS-7e2 (2026-10-08).** All 24 missiles as hangar designs, written
-  by one rule from one table ([hangar.md](../../../hangar.md#missiles)): each card's length, diameter, span and mass held, its
+  by one rule from one table ([Hangar system](../../../hangar-system.md#3-model-contract-and-reproducibility)): each card's length, diameter, span and mass held, its
   shape assumed from photographs and said so; its control surfaces moving (`fsim:` nodes), its motor's nozzle cut in
   and named for the viewer (`rocket` in the manifest), its paint and markings bands. The viewer draws a motor's plume
   from its thrust (the exhaust's jet as a solid rocket's: [sdk/viewer.md](../../../sdk/viewer.md#effects)).
@@ -559,7 +566,7 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   air. Current native armed engagements also terminate through their fuze or expiry; this dated scripted-preview
   evidence does not verify the replacement scene or a viewer rebuilt against the engagement delivery.
 - **MS-7e1, the vulnerable components (2026-10-09).** Every fixed-wing design's engines, fuel, crew and flight
-  controls placed from its design by one rule ([hangar.md](../../../hangar.md#the-3d-model), `hangar/vulnerability.py`): a
+  controls placed from its design by one rule ([Hangar system](../../../hangar-system.md#9-generation-staging-native-flight-and-visual-acceptance), `hangar/vulnerability.py`): a
   turbofan by Raymer's statistical sizing from its thrust, bypass ratio and design Mach (within 40 % of five published
   engines; a shaft engine from its mass, an estimate), each tank its capacity of kerosene through its body's section or
   between its wing's spars (a long wing tank a chain of boxes), each crew payload's people seated, each control's
@@ -570,7 +577,7 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   way: a design without bays carried an unused `cover` material in its model (the bay covers' change, MS-3) - made only
   with a cover now; the models committed as they are (a re-mesh drops it, byte for byte otherwise).
 - **MS-7e1, the chaff and flare dispensers (2026-10-09).** Each type's dispensers placed from what is public
-  ([hangar.md](../../../hangar.md#the-3d-model), `hangar/dispensers.py`): 22 Commons photographs of the types releasing flares,
+  ([Hangar system](../../../hangar-system.md#9-generation-staging-native-flight-and-visual-acceptance), `hangar/dispensers.py`): 22 Commons photographs of the types releasing flares,
   then - the owner's call, against crude places - encyclopedias, the defence press, other games' documentation (War
   Thunder) and forums, each group's sources and their kind recorded. 19 types placed from sources, several with two
   groups (the A-10C's wingtips and gear pods, the Su-25's tail cone and nacelles, the Typhoon's flaperon fairings and
@@ -595,7 +602,7 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
     cylinder 0.9 of the missile wide holding it all, its fragments cubes as thick as its case (rods as long as it),
     thrown at Gurney's cylinder velocity (a rod at 1.4 km/s at most, Talos's) into War Thunder's seven zones (a rod
     warhead's into a 10-degree belt) - the AIM-120C's 2,023 fragments of 5.4 g at 1.83 km/s.
-  - **G2, the airframes:** hangar's `<type>.damage.json` for every fixed-wing design ([hangar.md](../../../hangar.md)).
+  - **G2, the airframes:** hangar's `<type>.damage.json` for every fixed-wing design ([Hangar system](../../../hangar-system.md)).
   - **G3, the impact** (`World::detonate`; ms/damage `assess`): each fragment's flight across the target in its
     attitude (thrown from the moving missile, met by the moving target, slowed by the air), through each skin it
     crosses by THOR's residual velocity (aluminium 2024-T3; TR-47's coefficients as Ball gives them - to check
@@ -740,23 +747,23 @@ receive channel and 8 meshes). The owner chose to build the chain here instead (
   The retired showcase recorded the scripted shot in cold air at 10,500 m.
 - **MS-7e1, the carriage and the stores on their stations (2026-10-08).** Each aircraft's stations' pylons, launcher
   rails and racks in its model (fsim:station:<n> nodes, a pylon up to the skin found by a ray against the airframe's
-  mesh; [hangar.md](../../../hangar.md#the-carriage-on-the-stations)), shown once a store has been there; the stations' places
+  mesh; [Hangar system](../../../hangar-system.md#3-model-contract-and-reproducibility)), shown once a store has been there; the stations' places
   in its manifest. The viewer draws each carried store with its own design's model on its station
   ([sdk/viewer.md](../../../sdk/viewer.md#stores-on-their-stations)), from the live world's mission records (each store's
   card then in them: ipc layout 7) or a recording's store records (format version 3); the retired showcase carried
   its missile as the carrier's store until it launched, a vehicle of its own from then.
 - **MS-7e1, the weapon bays and their doors (2026-10-08).** The F-22A's, F-35A's, J-20A's and Su-57's bays cut into
   their underside, their doors cut from the skin over them, hinged on their outer edges
-  ([hangar.md](../../../hangar.md#the-carriage-on-the-stations)); the store management opens a bay's doors before releasing
+  ([Hangar system](../../../hangar-system.md#3-model-contract-and-reproducibility)); the store management opens a bay's doors before releasing
   from it and shuts them after ([sdk/mission-systems.md](../../../sdk/mission-systems.md#stores-and-weapon-employment-ms-7a));
   the viewer turns them, the store in the bay behind them. The doors' timings are assumed.
 - **MS-7e1, the parts the airstream turns (2026-10-08).** The AIM-9M's rollerons, spun by the airstream and blurring
-  into discs, and the Magic 2's tail, free to roll on its bearing ring ([hangar.md](../../../hangar.md#missiles),
+  into discs, and the Magic 2's tail, free to roll on its bearing ring ([Hangar system](../../../hangar-system.md#3-model-contract-and-reproducibility),
   [sdk/viewer.md](../../../sdk/viewer.md#parts-the-airstream-turns)); their sizes and rates assumed. The R-77M's lattice
-  (grid) fins: frames round a diamond lattice, all-moving on their spindles ([hangar.md](../../../hangar.md#missiles)).
+  (grid) fins: frames round a diamond lattice, all-moving on their spindles ([Hangar system](../../../hangar-system.md#3-model-contract-and-reproducibility)).
 - **MS-7e1, the breakup sections (2026-10-09).** Every fixed-wing design's airframe split into its nose, centre,
   wings and tail - triangle by triangle, so whole it is as it was - each closed over its break, a node at its break
-  with what is mounted on it ([hangar.md](../../../hangar.md#the-3d-model)): the pieces MS-7g's structural kill and MS-7h's
+  with what is mounted on it ([Hangar system](../../../hangar-system.md#9-generation-staging-native-flight-and-visual-acceptance)): the pieces MS-7g's structural kill and MS-7h's
   breakup part. The rule is one estimate for every aircraft (no structural data).
 
 - **MS-4b done (2026-10-11): the radar's engagement modes**
@@ -813,10 +820,12 @@ estimate (basis `assumed`, its reasoning in its note) wherever it appears:
 - **MS-7b - the missiles' cards:** every fighter's air-to-air missiles by the same feature-based sourcing as the radars:
   dimensions, mass, fins, motor (impulse, burn time, propellant mass), seeker, guidance, fuze, warhead, published range;
   what no source gives, an engineering assumption said to be one. The fits' loadouts.
-- **MS-7c - flight models:** each missile's aero tables from its hangar design's geometry (MS-7e1) - SU2 (Euler, its
-  surface the design's own mesh) and VSPAERO (panels), each the other's and hangar's first tables' cross-check, both
-  built from source here (owner, 2026-10-07) - its motor through RocketPy's solid-motor model, both written into the
-  design's JSBSim model in place of the first ones, its flight against RocketPy's in the motor phase.
+- **MS-7c - flight models:** shared Hangar VLM tables from each design's geometry
+  (MS-7e1), labeled simulated engineering estimates. The exact-model aerodynamic
+  gate requires public specific-variant measured/flight-test data and independent
+  SDK retesting, or an explicit individual `blocked` data gap. SU2 execution and
+  VSPAERO alternative acceptance are retired. RocketPy motor-phase agreement
+  remains software comparison, separate from measured motor/aerodynamic accuracy.
 - **MS-7d - seekers, guidance, fuzes, lethality** (as the real ones behave):
   - An active radar seeker is a radar of its own through the platform's radar model (MS-4, MS-6): its frequency,
     power, aperture and processing on its card (estimates where unpublished, said so), so it acquires a target where
@@ -854,8 +863,8 @@ estimate (basis `assumed`, its reasoning in its note) wherever it appears:
       thrust and propellant from the card, the CG moving as it burns, a fin mixer and limits in its FCS - enough to
       launch and fly it unguided, its fly stage's tests passed. Generated powered models now exist, while native
       guidance uses ideal force/moment actuation rather than establishing this planned fin-control calibration.
-      MS-7c's remaining goal is to replace the tables and motor with SU2's,
-      VSPAERO's and RocketPy's, cross-checked against these;
+      MS-7c's current aerodynamic gate follows the public exact-model data rule
+      above; the former solver-replacement requirement is superseded;
     - the carriage in each fighter's design, as its fixed launchers already are: the pylons, launch rails and ejector
       launchers (LAU-127, LAU-7, LAU-106 and their counterparts) at the store-station card's places, drawn only; the
       weapon bays and their doors (F-22A, F-35A, J-20A, Su-57) as jointed parts on a channel of their own, as the gear
@@ -1018,7 +1027,7 @@ native game engagement are now delivered; high-fidelity work retains the criteri
 **The order to M1** (the owner, 2026-10-08, approved: the 3-D models first, then their visual effects; the models
 built as the aircraft are, one design for the picture and the aerodynamics): MS-7e1 (the missiles as hangar designs, their first
 flight models, the carriage, the stores on the stations), MS-7e2 (their effects: plumes, smoke trails, the control
-surfaces moving, the launch), MS-7c (SU2's, VSPAERO's and RocketPy's tables and motors on the same designs), MS-4b,
+surfaces moving, the launch), MS-7c (shared simulated tables, exact-model measured-data gate and motor comparison on the same designs), MS-4b,
 MS-7d (active and semi-active seekers, guidance, the midcourse uplink, fuzes; the original sequence deferred calibrated infrared work), MS-7g,
 MS-8 (launch zones), MS-9a, MS-7h (the engagement's effects), AB-7, then M1's demo as MS-7f's engagement. Each stage
 keeps the verification of section 7. The order before (2026-10-07) put the viewer's stages last: MS-7c, 4b, 7d, 7g,
@@ -1040,9 +1049,10 @@ milestone's goal or complete its calibrated infrared, IRST, ESM or OMS criteria.
   - Each dependency's compatibility with GPL-3.0 is checked:
     - MIT, BSD, Apache-2.0 and LGPL are compatible.
     - FERS is GPL-2.0, run as a separate program for MS-6's cross-check, not linked.
-    - SU2 (LGPL-2.1) and VSPAERO (NASA Open Source Agreement) are run as separate programs to make MS-7's aero
-      tables, not linked; RocketPy (MIT) runs in Python beside the build. Their outputs (the tables) are the
-      platform's data.
+    - Historical SU2 (LGPL-2.1) and VSPAERO (NASA Open Source Agreement) records
+      retain attribution only; they authorize neither execution nor alternative
+      acceptance. RocketPy (MIT) software comparisons remain separate from
+      measured equipment calibration.
 - **The rest:**
   - US Government works (NTIA, A-GRA, OMS, UCI) carry their notices.
   - Stone Soup's MIT notice goes with the ported trackers.

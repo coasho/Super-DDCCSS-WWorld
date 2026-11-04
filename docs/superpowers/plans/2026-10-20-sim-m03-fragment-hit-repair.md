@@ -33,7 +33,7 @@ and Claude's SIM-M02 inputs, solvers and build directories are excluded.
   proves a defect. Do not relabel contact/blast events as fragment hits.
 * `tests/integration/test_showcase_native.cpp`: additional diagnostic/provenance
   assertions only; existing scene and hit/functional criteria remain frozen.
-* This plan, `docs/sdk/representative-weapon-models.md`,
+* This plan, `docs/sdk/weapon-fidelity-validation.md`,
   `docs/sdk/fragment-hit-repair.md`, `docs/status.md` and
   `docs/architecture/modules/simulation/ms-work-allocation.md`: repair scope,
   root-cause evidence and dated validation/handoff.

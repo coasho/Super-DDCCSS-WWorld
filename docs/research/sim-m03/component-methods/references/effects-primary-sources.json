@@ -1,0 +1,104 @@
+{
+  "schema": "fsim.sim-m03.effects-primary-sources.v1",
+  "sources": [
+    {
+      "id": "planck",
+      "title": "NIST SP250-43, Radiance Temperature Calibrations (1998)",
+      "url": "https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication250-43.pdf",
+      "locator": "Section 2, equation (4), printed page 6 (PDF page16)",
+      "scope": "Vacuum spectral radiance law; integrated independently with the exact-SI constants, not the historical rounded constants.",
+      "retrieval": {
+        "path": "D:/ENV/cache/fsim-m03/component-method-effects/nist-sp250-43.pdf",
+        "sha256": "b6d3095696dad2dcb00ba63ea6d1d2a04d32c8428dd4d7111d3741b35bb419e3",
+        "bytes": 6177714,
+        "retrieved": "2026-11-03"
+      },
+      "use": "Equation-level reference only; no OEM parameter calibration."
+    },
+    {
+      "id": "si",
+      "title": "BIPM SI Brochure, ninth edition, v4.01",
+      "url": "https://www.bipm.org/documents/20126/41483022/SI-Brochure-9.pdf",
+      "locator": "Section2.2, defining constants h,c,k, English tables2 and4",
+      "scope": "Exact SI h=6.62607015e-34 J s, c=299792458 m/s, k=1.380649e-23 J/K; no fitted radiometric coefficient.",
+      "retrieval": {
+        "path": "D:/ENV/cache/fsim-m03/component-method-effects/bipm-si9-v401.pdf",
+        "sha256": "1122cf38e25b23d780a30607c68f7350b2b6d1f9970a89947aaa87a45ecbb20a",
+        "bytes": 3503078,
+        "retrieved": "2026-11-03"
+      },
+      "use": "Equation-level reference only; no OEM parameter calibration."
+    },
+    {
+      "id": "radar",
+      "title": "MIT Lincoln Laboratory, O'Donnell, Introduction to Radar Systems: The Radar Equation (2002)",
+      "url": "https://www.ll.mit.edu/media/6946",
+      "locator": "Slides5-10,13: power-density, effective area, kTB and track radar equation",
+      "scope": "Free-space received power and thermal noise. Energy integration and bistatic Rt/Rr separation are explicitly derived here, not OEM receiver data.",
+      "retrieval": {
+        "path": "D:/ENV/cache/fsim-m03/component-method-effects/mit-radar-equation.pdf",
+        "sha256": "8516e0f290c3a5863d84f450d5a3ebb4d159a3ab571f8df94efbdafb01cb639b",
+        "bytes": 437390,
+        "retrieved": "2026-11-03"
+      },
+      "use": "Equation-level reference only; no OEM parameter calibration."
+    },
+    {
+      "id": "cpa",
+      "title": "David Eberly, Geometric Tools, DistPointSegment.h, file version8.0.2025.05.10",
+      "url": "https://raw.githubusercontent.com/davideberly/GeometricTools/master/GTE/Mathematics/DistPointSegment.h",
+      "locator": "DCPQuery operator(), lines42-85; non-unit segment projection and clamping",
+      "scope": "Independent exact-rational relative-motion segment projection. Arming, actual-turn and lifetime eligibility are additional explicit native contracts, not claims made by this geometry reference.",
+      "retrieval": {
+        "path": "D:/ENV/cache/fsim-m03/component-method-effects/gte-DistPointSegment.h",
+        "sha256": "6f67da7019ccf1cf45a8c433b805a961705321eac9a1a67991df12ddf9f6cccf",
+        "bytes": 3402,
+        "retrieved": "2026-11-03"
+      },
+      "use": "Equation-level reference only; no OEM parameter calibration."
+    },
+    {
+      "id": "gurney",
+      "title": "R.W.Gurney, BRL Report405, The Initial Velocities of Fragments from Bombs, Shell, Grenades (1943)",
+      "url": "https://www.pdf-archive.com/2019/11/16/untitled-pdf-document/untitled-pdf-document.pdf",
+      "locator": "Original report, equations(2.1),(2.3),(2.4), pp4-5; public-release original reproduced by archive",
+      "scope": "Uniform cylindrical case and linear radial gas velocity; energy per explosive mass. Finite zones and connected rods are separately identified engineering source extensions, not measured validation from Gurney.",
+      "retrieval": {
+        "path": "D:/ENV/cache/fsim-m03/component-method-effects/gurney-brl405.pdf",
+        "sha256": "399544ea27c06a9cc4a9739aec7183f33ee0d58cbb24af38f56d84e06504ddde",
+        "bytes": 7648117,
+        "retrieved": "2026-11-03"
+      },
+      "use": "Equation-level reference only; no OEM parameter calibration."
+    },
+    {
+      "id": "magic2-primary-history",
+      "title": "COMAERO, Missiles tactiques, historical account hosted by French MoD IRSEM",
+      "url": "https://www.irsem.fr/storage/file_manager_files/2025/03/missiles-tactiques-comaero.pdf",
+      "locator": "Printed pp147-148, Magic2 frontal detector/TRT electromagnetic fuze and AIM9L active-laser fuze",
+      "scope": "Variant-specific historical function; no5km head-on kill guarantee or numeric simulator coefficient. Read via browser, not a downloaded numeric method artifact."
+    },
+    {
+      "id": "r60mk-primary-manual",
+      "title": "Polish Air Force, Lot2821/89, R-60MK technical description and operation,1990",
+      "url": "https://djvu.online/file/fUvs0bhsAlgza",
+      "locator": "Sections1.3,3.3-3.5",
+      "scope": "Distinct thermal, radar-proximity, contact and safe-arm functions for MK. Not exact M variant receiver/fuze or head-on envelope proof."
+    },
+    {
+      "id": "proximity-sharing-primary-patent",
+      "title": "US8033221B2, System and method for sensing proximity",
+      "url": "https://patents.google.com/patent/US8033221B2/en",
+      "locator": "Description of figures1-2, guidance return A/proximity emitter return B",
+      "scope": "One shared-optics embodiment with distinct functions; not all-AAM hardware equivalence."
+    },
+    {
+      "id": "proximity-rf-primary-patent",
+      "title": "US9709372B2, Semi-active RF target detection and proximity detonation based on angle-to-target",
+      "url": "https://patents.google.com/patent/US9709372B2/en",
+      "locator": "Description of figures1-6 and claims1,14,19",
+      "scope": "One RF target-detection embodiment; no per24 OEM fit assignment."
+    }
+  ],
+  "notes": "Primary equations were actually read. Reading a source alone is not a numerical execution or model calibration."
+}

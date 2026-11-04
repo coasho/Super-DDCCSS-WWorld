@@ -4,7 +4,8 @@
 #
 # For an aluminised motor (AIM-7M) and two reduced-smoke ones (AIM-120C, AIM-9M): the showcase's launch recorded
 # (fsim hangar showcase), the missile drawn side-on from 30 m after its actual SDK release, fullscreen and without the
-# interface, once with its effects and once without; its plume measured as the photographs were, and held to them:
+# interface included, with every effect active. As for photographs, the sky beside the plume is the background;
+# no reduced-effects reference frame is produced. The original photographic predicates remain:
 #   aluminised - saturated from the nozzle (within 0.1 L), to where the photographs' are (1.6 - 2.3 L, 0.2 L either
 #                way), as wide at 1 L (3.2 - 4.1 diameters, 0.5 either way), no dark gap behind the nozzle (gap >= 0.5);
 #   reduced    - bright near the nozzle (contrast >= 0.25 at 0.1 L), faded at 1 L to the photograph's light against its sky
@@ -30,14 +31,12 @@ VIEWER = root / "build" / "ucrt64-release" / "bin" / "flightsim-viewer.exe"
 MISSILES = [("aim7m", "aluminised", 0.203, 3.66), ("aim120c", "reduced", 0.178, 3.66), ("aim9m", "reduced", 0.127, 2.87)]
 
 
-def render(rec, out, at, effects, slot):
+def render(rec, out, at, slot):
     png = pathlib.Path(out)
     png.unlink(missing_ok=True)
-    args = [str(VIEWER), "--replay", str(rec), "--fullscreen", "--offline", "--no-gui", "--camera", "chase", "--follow", str(slot),
+    args = [str(VIEWER), "--replay", str(rec), "--fullscreen", "--offline", "--camera", "chase", "--follow", str(slot),
             "--chase-distance", "30", "--chase-azimuth", "270", "--chase-elevation", "0", "--sun-utc", "20",
             "--screenshot", str(out), "--screenshot-clock", "replay", "--screenshot-after", str(at)]
-    if not effects:
-        args.append("--no-effects")
     captured = subprocess.run(args, timeout=180, capture_output=True)
     if captured.returncode != 0:
         raise RuntimeError("viewer plume capture failed (%d): %s" % (captured.returncode, out))
@@ -54,7 +53,7 @@ def render(rec, out, at, effects, slot):
 
 def ends(background):
     """The missile's nose and nozzle along the screen's middle row (it flies right to left, centred): the grey body's
-    first and last pixels there, in the frame without effects."""
+    first and last pixels there, in the complete rendered scene."""
     a = np.asarray(Image.open(background).convert("RGB")).astype(int)
     y = a.shape[0] // 2
     row = a[y]
@@ -68,15 +67,6 @@ def ends(background):
     while hi < a.shape[1] - 1 and grey[hi + 1:hi + 5].any():
         hi += 1
     return (float(hi), float(y)), (float(lo), float(y))
-
-
-def same_view(lit, bare, nose):
-    """Whether two frames show the same view: the sky ahead of the missile's nose alike (mean difference of a patch)."""
-    a = np.asarray(Image.open(lit).convert("RGB")).astype(float)
-    b = np.asarray(Image.open(bare).convert("RGB")).astype(float)
-    x, y = int(nose[0]), int(nose[1])
-    patch = (slice(max(y - 60, 0), y + 60), slice(max(x - 260, 0), max(x - 20, 1)))
-    return float(np.abs(a[patch] - b[patch]).mean()) < 6.0
 
 
 def main(argv):
@@ -109,18 +99,10 @@ def main(argv):
         at, slot = weapon["launch_time_s"] + a.at, weapon["weapon_slot"]
         if a.at < 0.0 or at >= data["duration_s"] or (weapon["end_time_s"] is not None and at >= weapon["end_time_s"]):
             raise SystemExit("%s: requested plume frame is outside the native weapon's live interval" % name)
-        lit, bare = out / (name + ".png"), out / (name + "_bare.png")
-        render(rec, lit, at, True, slot)
+        lit = out / (name + ".png")
+        render(rec, lit, at, slot)
         nozzle, nose = ends(lit)  # (its flame is no body: white)
-        # the frame without effects the same view: the sky ahead of its nose as the lit frame's (the chase camera can
-        # settle otherwise in another run - then it is drawn again)
-        for _ in range(3):
-            render(rec, bare, at, False, slot)
-            if same_view(lit, bare, nose):
-                break
-        else:
-            raise SystemExit("%s: the frame without effects is not the same view" % name)
-        m = measure(str(lit), nozzle, nose, diameter, length, str(bare))
+        m = measure(str(lit), nozzle, nose, diameter, length)
         if smoke == "aluminised":
             fails = [why for why, bad in (
                 ("not saturated from the nozzle", m["sat_from"] is None or m["sat_from"] > 0.1),

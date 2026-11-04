@@ -1,5 +1,6 @@
-// Native engagement recordings. World owns flight, sensors, release, guidance, fuze and damage.
+// Native engagements. World owns flight, sensors, release, guidance, fuze and damage.
 // Usage: flightsim-showcase <scene.json> <out.fsrec> [--live]
+//        flightsim-showcase <scene.json> --interactive
 #include "foundation/core/Json.h"
 #include "foundation/io/AssetResolver.h"
 #include "foundation/transport/Recording.h"
@@ -200,7 +201,7 @@ void ensureStoreModel(const fsim::ms::StoreCard& card) {
     require(std::filesystem::is_regular_file(path), "native store flight model unavailable: " + card.model + " (" + path.string() + ")");
 }
 
-Json run(const Json& scene, const std::filesystem::path& output, const std::string& hash, bool live) {
+Json run(const Json& scene, const std::filesystem::path& output, const std::string& hash, bool live, bool interactive) {
     keys(scene, {"schema", "name", "duration_s", "rate_hz", "seed", "start", "carrier", "target", "missiles", "environment"}, "scene");
     require(scene.string("schema", "") == kSchema, "scene.schema must be native-engagement-v1; legacy scripted recordings are unsupported");
     const auto& start = scene.child("start");
@@ -231,7 +232,7 @@ Json run(const Json& scene, const std::filesystem::path& output, const std::stri
         require(station == std::floor(station), "station_number must be an integer");
         missile.station = static_cast<int>(station);
         require(stations.insert(missile.station).second, "each native station may carry one showcase missile");
-        missile.launchS = number(item, "launch_s", 12.0, 0.0, duration);
+        missile.launchS = number(item, "launch_s", 12.0, 0.0, interactive ? std::numeric_limits<double>::infinity() : duration);
         missiles.push_back(std::move(missile));
     }
     std::stable_sort(missiles.begin(), missiles.end(), [](const auto& a, const auto& b) { return a.launchS < b.launchS; });
@@ -260,11 +261,16 @@ Json run(const Json& scene, const std::filesystem::path& output, const std::stri
         options.publish = live; options.seed = static_cast<std::uint64_t>(seed);
         // Keep the SDK's default 120 Hz integration and 30 Hz World guidance/fuze steps.
         // Recording frequency only selects snapshots; it never retimes native flight or engagement logic.
-        options.recordPath = output;
+        if (!interactive) options.recordPath = output;
         options.recordIntervalSeconds = 1.0 / rate; options.terrainOffline = true;
         fsim::session::World world(options);
-        require(world.recording(), "cannot open native recording: " + output.string());
+        require(interactive || world.recording(), "cannot open native recording: " + output.string());
         require(!live || world.published(), "cannot publish the native live world: " + options.name);
+        if (interactive) {
+            require(!world.recording(), "interactive engagement must not record");
+            std::printf("interactive native engagement: recording=off; running until stopped\n");
+            std::fflush(stdout);
+        }
         NativeStepper steps(world, live);
         if (scene.has("environment")) {
             const auto& input = scene.child("environment"); auto environment = world.environment();
@@ -341,7 +347,7 @@ Json run(const Json& scene, const std::filesystem::path& output, const std::stri
         std::size_t next = 0;
         std::uint32_t viewerWeapon = 0;
         bool viewerTargetFocused = false;
-        while (world.simTime() < duration - 1e-9) {
+        while (interactive || world.simTime() < duration - 1e-9) {
             if (next < missiles.size()) {
                 auto& missile = missiles[next];
                 if (!missile.activity && world.simTime() >= missile.launchS - 1e-9) {
@@ -471,23 +477,34 @@ Json run(const Json& scene, const std::filesystem::path& output, const std::stri
 } // namespace
 
 int main(int argc, char** argv) {
+    constexpr const char* usage = "usage: flightsim-showcase <scene.json> <out.fsrec> [--live]\n"
+                                  "       flightsim-showcase <scene.json> --interactive\n";
     if (argc < 3) {
-        std::fprintf(stderr, "usage: flightsim-showcase <scene.json> <out.fsrec> [--live]\n");
+        std::fputs(usage, stderr);
+        return 2;
+    }
+    const bool interactive = std::string_view(argv[2]) == "--interactive";
+    if (interactive && argc != 3) {
+        std::fputs(usage, stderr);
         return 2;
     }
     try {
         // Invalidate previous output even when the CLI or new scene is invalid.
-        std::filesystem::remove(argv[2]);
-        std::filesystem::remove(std::string(argv[2]) + ".engagement.json");
-        if (argc != 3 && !(argc == 4 && std::string_view(argv[3]) == "--live")) {
-            std::fprintf(stderr, "usage: flightsim-showcase <scene.json> <out.fsrec> [--live]\n");
+        if (!interactive) {
+            std::filesystem::remove(argv[2]);
+            std::filesystem::remove(std::string(argv[2]) + ".engagement.json");
+        }
+        if (!interactive && argc != 3 && !(argc == 4 && std::string_view(argv[3]) == "--live")) {
+            std::fputs(usage, stderr);
             return 2;
         }
         std::ifstream input(argv[1], std::ios::binary);
         require(input.good(), std::string("cannot read scene: ") + argv[1]);
         std::ostringstream text; text << input.rdbuf();
         const auto raw = text.str();
-        const auto evidence = run(Json::parse(raw, argv[1]), argv[2], sceneHash(raw), argc == 4);
+        const auto evidence = run(Json::parse(raw, argv[1]), interactive ? std::filesystem::path{} : argv[2],
+                                  sceneHash(raw), interactive || argc == 4, interactive);
+        if (interactive) return 0;
         std::ofstream output(std::string(argv[2]) + ".engagement.json", std::ios::binary);
         require(output.good(), "cannot write native engagement evidence");
         output << evidence.dump() << '\n'; output.close();
@@ -495,8 +512,10 @@ int main(int argc, char** argv) {
         return 0;
     } catch (const std::exception& error) {
         std::error_code ignored;
-        std::filesystem::remove(argv[2], ignored);
-        std::filesystem::remove(std::string(argv[2]) + ".engagement.json", ignored);
+        if (!interactive) {
+            std::filesystem::remove(argv[2], ignored);
+            std::filesystem::remove(std::string(argv[2]) + ".engagement.json", ignored);
+        }
         std::fprintf(stderr, "flightsim-showcase: %s\n", error.what());
         return 1;
     }

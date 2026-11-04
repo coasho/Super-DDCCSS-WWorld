@@ -36,7 +36,7 @@ plant. Complete model acceptance retains the
 | `World::detonate` passes the complete shared Airframe to `damage::assess`; VehicleDamage records separation separately | HC-55 needs an active geometry view with stable panel/component identities and no mutation of shared instance/World resources |
 
 The first two rows describe `85e7d25`, before the user prioritised the
-[finite-control implementation](missile-control-validation.md). They are not
+[finite-control implementation](weapon-controls.md). They are not
 the current control path after that correction.
 
 ## 2. Primary-source reuse evaluation

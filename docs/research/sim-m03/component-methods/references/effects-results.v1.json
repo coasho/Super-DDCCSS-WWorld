@@ -1,0 +1,3892 @@
+{
+  "schema": "fsim.sim-m03.effects-reference-results.v1",
+  "passed": true,
+  "native": [
+    {
+      "path": "build/architecture-reviews/sim-m03-production-20261103/component-references/ucrt64-release/component-effects-native.json",
+      "sha256": "ff3a234d968cc27a88d7f3dd5b9d0685765c529b41407729681a9990b0090cbc"
+    },
+    {
+      "path": "build/architecture-reviews/sim-m03-production-20261103/component-references/ucrt64-release/effects-catch-junit.xml",
+      "sha256": "a0e1b56e49b7690f46e94b3db40e2ee7eba0fe72fc8b1bab4da11566a3dca77d"
+    },
+    {
+      "path": "build/architecture-reviews/sim-m03-production-20261103/component-references/ucrt64-release/effects-native-inputs.json",
+      "sha256": "8a2d711ca987adf431c9fe369bdcd806f8830587a9d27a7be2d2ecb0faef7ec1"
+    }
+  ],
+  "tolerances": {
+    "planck_relative": 1e-06,
+    "charge_relative": 1e-09,
+    "radar_relative": 2e-12,
+    "gurney_relative": 2e-12,
+    "geometry_relative": 2.842170943040401e-14,
+    "energy_relative": 1e-10
+  },
+  "comparisons": [
+    {
+      "model": "aim-120c",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 5.73606797749979,
+          "expected": 5.73606797749979,
+          "tolerance": 1.081514428664772e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 17.20820393249937,
+          "expected": 17.20820393249937,
+          "tolerance": 1.2445432859943164e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 5.736067977499786,
+          "expected": 5.73606797749979,
+          "tolerance": 1.081514428664772e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "aim-120c",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "radar_energy[0]",
+          "actual": 13.422226055501442,
+          "expected": 13.422226055501442,
+          "tolerance": 2.7844452111002884e-11
+        },
+        {
+          "name": "radar_energy[1]",
+          "actual": 213.6747311712826,
+          "expected": 213.6747311712826,
+          "tolerance": 4.2834946234256515e-10
+        }
+      ]
+    },
+    {
+      "model": "aim-120c",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1828.9053915284398,
+          "expected": 1828.9053915284398,
+          "tolerance": 3.6588107830568793e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1828.9053915284398,
+          "expected": 1828.9053915284398,
+          "tolerance": 3.6588107830568793e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 1688.0,
+          "expected": 1688.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 10.9055,
+          "expected": 10.9055,
+          "tolerance": 2.6260029165112064e-10
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 18238875.835892484,
+          "expected": 18238875.83589248,
+          "tolerance": 0.001824887583589248
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1828.9053915284394,
+          "expected": 1828.9053915284398,
+          "tolerance": 1.8299053915284398e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1828.9053915284403,
+          "expected": 1828.9053915284398,
+          "tolerance": 1.8299053915284398e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    },
+    {
+      "model": "aim-120d",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 5.73606797749979,
+          "expected": 5.73606797749979,
+          "tolerance": 1.081514428664772e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 17.20820393249937,
+          "expected": 17.20820393249937,
+          "tolerance": 1.2445432859943164e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 5.736067977499786,
+          "expected": 5.73606797749979,
+          "tolerance": 1.081514428664772e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "aim-120d",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "radar_energy[0]",
+          "actual": 13.422226055501442,
+          "expected": 13.422226055501442,
+          "tolerance": 2.7844452111002884e-11
+        },
+        {
+          "name": "radar_energy[1]",
+          "actual": 213.6747311712826,
+          "expected": 213.6747311712826,
+          "tolerance": 4.2834946234256515e-10
+        }
+      ]
+    },
+    {
+      "model": "aim-120d",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1828.9053915284398,
+          "expected": 1828.9053915284398,
+          "tolerance": 3.6588107830568793e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1828.9053915284398,
+          "expected": 1828.9053915284398,
+          "tolerance": 3.6588107830568793e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 2023.0,
+          "expected": 2023.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 10.9055,
+          "expected": 10.9055,
+          "tolerance": 3.145174111434935e-10
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 18238875.835892484,
+          "expected": 18238875.83589248,
+          "tolerance": 0.001824887583589248
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1828.9053915284394,
+          "expected": 1828.9053915284398,
+          "tolerance": 1.8299053915284398e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1828.9053915284403,
+          "expected": 1828.9053915284398,
+          "tolerance": 1.8299053915284398e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    },
+    {
+      "model": "aim-7m",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 6.658322339470751,
+          "expected": 6.658322339470751,
+          "tolerance": 1.0946204514132028e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 19.974967018412254,
+          "expected": 19.974967018412254,
+          "tolerance": 1.2838613542396083e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 6.658322339470757,
+          "expected": 6.658322339470751,
+          "tolerance": 1.0946204514132028e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "aim-7m",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "radar_energy[0]",
+          "actual": 22.807567908630798,
+          "expected": 22.807567908630805,
+          "tolerance": 4.661513581726161e-11
+        },
+        {
+          "name": "radar_energy[1]",
+          "actual": 278.5353879114846,
+          "expected": 278.5353879114846,
+          "tolerance": 5.580707758229692e-10
+        }
+      ]
+    },
+    {
+      "model": "aim-7m",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1446.972979068785,
+          "expected": 1446.9729790687848,
+          "tolerance": 2.8949459581375694e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1446.972979068785,
+          "expected": 1446.9729790687848,
+          "tolerance": 2.8949459581375694e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 1721.0,
+          "expected": 1721.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 23.8935,
+          "expected": 23.8935,
+          "tolerance": 5.853604853339457e-10
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 25013278.460647568,
+          "expected": 25013278.46064756,
+          "tolerance": 0.0025023278460647564
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1446.9729790687845,
+          "expected": 1446.9729790687848,
+          "tolerance": 1.4479729790687848e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1446.9729790687852,
+          "expected": 1446.9729790687848,
+          "tolerance": 1.4479729790687848e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    },
+    {
+      "model": "aim-9m",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 5.035415253278408,
+          "expected": 5.035415253278408,
+          "tolerance": 1.0715575545950514e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 15.106245759835225,
+          "expected": 15.106245759835225,
+          "tolerance": 1.2146726637851548e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 5.0354152532784155,
+          "expected": 5.035415253278408,
+          "tolerance": 1.0715575545950514e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "aim-9m",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "planck_band_radiance[0]",
+          "actual": 1.4927649913607874,
+          "expected": 1.4927649665293516,
+          "tolerance": 1.4927659665293517e-06
+        },
+        {
+          "name": "planck_band_radiance[1]",
+          "actual": 437.6864717749854,
+          "expected": 437.68647292401374,
+          "tolerance": 0.0004376864739240137
+        },
+        {
+          "name": "planck_band_radiance[2]",
+          "actual": 5205.3871809959,
+          "expected": 5205.3871830069675,
+          "tolerance": 0.005205387184006967
+        },
+        {
+          "name": "planck_band_radiance[3]",
+          "actual": 40746.51992990051,
+          "expected": 40746.51994861149,
+          "tolerance": 0.04074651994961148
+        },
+        {
+          "name": "uniform_detector_charge[4]",
+          "actual": 13312.930000575197,
+          "expected": 13312.9300005752,
+          "tolerance": 1.3312931000575199e-05
+        }
+      ]
+    },
+    {
+      "model": "aim-9m",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1964.4982144940889,
+          "expected": 1964.4982144940886,
+          "tolerance": 3.929996428988177e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1964.4982144940889,
+          "expected": 1964.4982144940886,
+          "tolerance": 3.929996428988177e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 3045.0,
+          "expected": 3045.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 4.972499999999999,
+          "expected": 4.972499999999999,
+          "tolerance": 2.1617028159223623e-10
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 9595068.354898337,
+          "expected": 9595068.354898335,
+          "tolerance": 0.0009605068354898336
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1964.4982144940884,
+          "expected": 1964.4982144940886,
+          "tolerance": 1.9654982144940884e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1964.4982144940893,
+          "expected": 1964.4982144940886,
+          "tolerance": 1.9654982144940884e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    },
+    {
+      "model": "aim-9x",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 5.029705854077836,
+          "expected": 5.029705854077836,
+          "tolerance": 1.071476419152501e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 15.089117562233508,
+          "expected": 15.089117562233508,
+          "tolerance": 1.2144292574575034e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 5.029705854077832,
+          "expected": 5.029705854077836,
+          "tolerance": 1.071476419152501e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "aim-9x",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "planck_band_radiance[0]",
+          "actual": 1.4927649913607874,
+          "expected": 1.4927649665293516,
+          "tolerance": 1.4927659665293517e-06
+        },
+        {
+          "name": "planck_band_radiance[1]",
+          "actual": 437.6864717749854,
+          "expected": 437.68647292401374,
+          "tolerance": 0.0004376864739240137
+        },
+        {
+          "name": "planck_band_radiance[2]",
+          "actual": 5205.3871809959,
+          "expected": 5205.3871830069675,
+          "tolerance": 0.005205387184006967
+        },
+        {
+          "name": "planck_band_radiance[3]",
+          "actual": 40746.51992990051,
+          "expected": 40746.51994861149,
+          "tolerance": 0.04074651994961148
+        },
+        {
+          "name": "uniform_detector_charge[4]",
+          "actual": 13312.930000575197,
+          "expected": 13312.9300005752,
+          "tolerance": 1.3312931000575199e-05
+        }
+      ]
+    },
+    {
+      "model": "aim-9x",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1973.198005394218,
+          "expected": 1973.1980053942182,
+          "tolerance": 3.947396010788436e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1973.198005394218,
+          "expected": 1973.1980053942182,
+          "tolerance": 3.947396010788436e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 3085.0,
+          "expected": 3085.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 4.912999999999999,
+          "expected": 4.912999999999999,
+          "tolerance": 2.1638831163070423e-10
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 9564408.220199909,
+          "expected": 9564408.22019991,
+          "tolerance": 0.0009574408220199912
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1973.1980053942175,
+          "expected": 1973.1980053942182,
+          "tolerance": 1.974198005394218e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1973.1980053942184,
+          "expected": 1973.1980053942182,
+          "tolerance": 1.974198005394218e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    },
+    {
+      "model": "asraam",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 5.08113883008419,
+          "expected": 5.08113883008419,
+          "tolerance": 1.0722073257020978e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 15.24341649025257,
+          "expected": 15.24341649025257,
+          "tolerance": 1.2166219771062937e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 5.0811388300841855,
+          "expected": 5.08113883008419,
+          "tolerance": 1.0722073257020978e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "asraam",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "planck_band_radiance[0]",
+          "actual": 1.4927649913607874,
+          "expected": 1.4927649665293516,
+          "tolerance": 1.4927659665293517e-06
+        },
+        {
+          "name": "planck_band_radiance[1]",
+          "actual": 437.6864717749854,
+          "expected": 437.68647292401374,
+          "tolerance": 0.0004376864739240137
+        },
+        {
+          "name": "planck_band_radiance[2]",
+          "actual": 5205.3871809959,
+          "expected": 5205.3871830069675,
+          "tolerance": 0.005205387184006967
+        },
+        {
+          "name": "planck_band_radiance[3]",
+          "actual": 40746.51992990051,
+          "expected": 40746.51994861149,
+          "tolerance": 0.04074651994961148
+        },
+        {
+          "name": "uniform_detector_charge[4]",
+          "actual": 22744.812925094568,
+          "expected": 22744.81292509457,
+          "tolerance": 2.2744813925094574e-05
+        }
+      ]
+    },
+    {
+      "model": "asraam",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1860.2190161637916,
+          "expected": 1860.2190161637916,
+          "tolerance": 3.721438032327583e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1860.2190161637916,
+          "expected": 1860.2190161637916,
+          "tolerance": 3.721438032327583e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 1340.0,
+          "expected": 1340.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 5.363500000000001,
+          "expected": 5.3635,
+          "tolerance": 1.0313469181508117e-10
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 9279967.357980162,
+          "expected": 9279967.357980162,
+          "tolerance": 0.0009289967357980162
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1860.2190161637911,
+          "expected": 1860.2190161637916,
+          "tolerance": 1.8612190161637916e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1860.219016163792,
+          "expected": 1860.2190161637916,
+          "tolerance": 1.8612190161637916e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    },
+    {
+      "model": "iris-t",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 5.1881943016134136,
+          "expected": 5.1881943016134136,
+          "tolerance": 1.073728675454467e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 15.56458290484024,
+          "expected": 15.56458290484024,
+          "tolerance": 1.2211860263634014e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 5.188194301613407,
+          "expected": 5.1881943016134136,
+          "tolerance": 1.073728675454467e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "iris-t",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "planck_band_radiance[0]",
+          "actual": 1.4927649913607874,
+          "expected": 1.4927649665293516,
+          "tolerance": 1.4927659665293517e-06
+        },
+        {
+          "name": "planck_band_radiance[1]",
+          "actual": 437.6864717749854,
+          "expected": 437.68647292401374,
+          "tolerance": 0.0004376864739240137
+        },
+        {
+          "name": "planck_band_radiance[2]",
+          "actual": 5205.3871809959,
+          "expected": 5205.3871830069675,
+          "tolerance": 0.005205387184006967
+        },
+        {
+          "name": "planck_band_radiance[3]",
+          "actual": 40746.51992990051,
+          "expected": 40746.51994861149,
+          "tolerance": 0.04074651994961148
+        },
+        {
+          "name": "uniform_detector_charge[4]",
+          "actual": 13312.930000575197,
+          "expected": 13312.9300005752,
+          "tolerance": 1.3312931000575199e-05
+        }
+      ]
+    },
+    {
+      "model": "iris-t",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1861.1053865656968,
+          "expected": 1861.1053865656968,
+          "tolerance": 3.7232107731313935e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1861.1053865656968,
+          "expected": 1861.1053865656968,
+          "tolerance": 3.7232107731313935e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 3419.0,
+          "expected": 3419.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 6.1114999999999995,
+          "expected": 6.1115,
+          "tolerance": 2.9793891434590117e-10
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 10584241.793951195,
+          "expected": 10584241.793951197,
+          "tolerance": 0.0010594241793951196
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1861.1053865656963,
+          "expected": 1861.1053865656968,
+          "tolerance": 1.8621053865656969e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1861.1053865656972,
+          "expected": 1861.1053865656968,
+          "tolerance": 1.8621053865656969e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    },
+    {
+      "model": "magic-2",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 5.281852968120546,
+          "expected": 5.281852968120546,
+          "tolerance": 1.0750596451570195e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 15.845558904361638,
+          "expected": 15.845558904361638,
+          "tolerance": 1.2251789354710587e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 5.281852968120546,
+          "expected": 5.281852968120546,
+          "tolerance": 1.0750596451570195e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "magic-2",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "planck_band_radiance[0]",
+          "actual": 1.4927649913607874,
+          "expected": 1.4927649665293516,
+          "tolerance": 1.4927659665293517e-06
+        },
+        {
+          "name": "planck_band_radiance[1]",
+          "actual": 437.6864717749854,
+          "expected": 437.68647292401374,
+          "tolerance": 0.0004376864739240137
+        },
+        {
+          "name": "planck_band_radiance[2]",
+          "actual": 5205.3871809959,
+          "expected": 5205.3871830069675,
+          "tolerance": 0.005205387184006967
+        },
+        {
+          "name": "planck_band_radiance[3]",
+          "actual": 40746.51992990051,
+          "expected": 40746.51994861149,
+          "tolerance": 0.04074651994961148
+        },
+        {
+          "name": "uniform_detector_charge[4]",
+          "actual": 20345.365680710405,
+          "expected": 20345.365680710405,
+          "tolerance": 2.0345366680710405e-05
+        }
+      ]
+    },
+    {
+      "model": "magic-2",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1993.6644909205954,
+          "expected": 1993.6644909205954,
+          "tolerance": 3.988328981841191e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1993.6644909205954,
+          "expected": 1993.6644909205954,
+          "tolerance": 3.988328981841191e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 4240.0,
+          "expected": 4240.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 5.694999999999999,
+          "expected": 5.694999999999999,
+          "tolerance": 3.441466666370397e-10
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 11317952.846463485,
+          "expected": 11317952.846463483,
+          "tolerance": 0.0011327952846463482
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1993.664490920595,
+          "expected": 1993.6644909205954,
+          "tolerance": 1.994664490920595e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1993.6644909205959,
+          "expected": 1993.6644909205954,
+          "tolerance": 1.994664490920595e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    },
+    {
+      "model": "meteor",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 5.232050807568877,
+          "expected": 5.232050807568877,
+          "tolerance": 1.0743519138889167e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 15.69615242270663,
+          "expected": 15.69615242270663,
+          "tolerance": 1.2230557416667499e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 5.232050807568882,
+          "expected": 5.232050807568877,
+          "tolerance": 1.0743519138889167e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "meteor",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "radar_energy[0]",
+          "actual": 13.482719692034015,
+          "expected": 13.48271969203402,
+          "tolerance": 2.796543938406804e-11
+        },
+        {
+          "name": "radar_energy[1]",
+          "actual": 214.15570317817205,
+          "expected": 214.15570317817205,
+          "tolerance": 4.2931140635634407e-10
+        }
+      ]
+    },
+    {
+      "model": "meteor",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1860.7143612023376,
+          "expected": 1860.7143612023376,
+          "tolerance": 3.722428722404675e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1860.7143612023376,
+          "expected": 1860.7143612023376,
+          "tolerance": 3.722428722404675e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 1306.0,
+          "expected": 1306.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 6.434500000000001,
+          "expected": 6.4345,
+          "tolerance": 1.2042030653244729e-10
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 11138949.33811203,
+          "expected": 11138949.338112028,
+          "tolerance": 0.0011148949338112028
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1860.7143612023372,
+          "expected": 1860.7143612023376,
+          "tolerance": 1.8617143612023376e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1860.714361202338,
+          "expected": 1860.7143612023376,
+          "tolerance": 1.8617143612023376e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    },
+    {
+      "model": "mica-em",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 5.232050807568877,
+          "expected": 5.232050807568877,
+          "tolerance": 1.0743519138889167e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 15.69615242270663,
+          "expected": 15.69615242270663,
+          "tolerance": 1.2230557416667499e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 5.232050807568882,
+          "expected": 5.232050807568877,
+          "tolerance": 1.0743519138889167e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "mica-em",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "radar_energy[0]",
+          "actual": 8.801975869356964,
+          "expected": 8.801975869356966,
+          "tolerance": 1.8603951738713932e-11
+        },
+        {
+          "name": "radar_energy[1]",
+          "actual": 173.0338132130829,
+          "expected": 173.0338132130829,
+          "tolerance": 3.470676264261658e-10
+        }
+      ]
+    },
+    {
+      "model": "mica-em",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1675.9352982999048,
+          "expected": 1675.9352982999048,
+          "tolerance": 3.3528705965998096e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1675.9352982999048,
+          "expected": 1675.9352982999048,
+          "tolerance": 3.3528705965998096e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 1160.0,
+          "expected": 1160.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 7.055000000000001,
+          "expected": 7.055000000000001,
+          "tolerance": 1.1729879281827017e-10
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 9907897.810218979,
+          "expected": 9907897.810218979,
+          "tolerance": 0.0009917897810218978
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1675.9352982999044,
+          "expected": 1675.9352982999048,
+          "tolerance": 1.676935298299905e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1675.935298299905,
+          "expected": 1675.9352982999048,
+          "tolerance": 1.676935298299905e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    },
+    {
+      "model": "mica-ir",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 5.232050807568877,
+          "expected": 5.232050807568877,
+          "tolerance": 1.0743519138889167e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 15.69615242270663,
+          "expected": 15.69615242270663,
+          "tolerance": 1.2230557416667499e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 5.232050807568882,
+          "expected": 5.232050807568877,
+          "tolerance": 1.0743519138889167e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "mica-ir",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "planck_band_radiance[0]",
+          "actual": 1.4927649913607874,
+          "expected": 1.4927649665293516,
+          "tolerance": 1.4927659665293517e-06
+        },
+        {
+          "name": "planck_band_radiance[1]",
+          "actual": 437.6864717749854,
+          "expected": 437.68647292401374,
+          "tolerance": 0.0004376864739240137
+        },
+        {
+          "name": "planck_band_radiance[2]",
+          "actual": 5205.3871809959,
+          "expected": 5205.3871830069675,
+          "tolerance": 0.005205387184006967
+        },
+        {
+          "name": "planck_band_radiance[3]",
+          "actual": 40746.51992990051,
+          "expected": 40746.51994861149,
+          "tolerance": 0.04074651994961148
+        },
+        {
+          "name": "planck_band_radiance[4]",
+          "actual": 30.80033913484877,
+          "expected": 30.80033914667829,
+          "tolerance": 3.080034014667829e-05
+        },
+        {
+          "name": "planck_band_radiance[5]",
+          "actual": 396.0599231613091,
+          "expected": 396.0599233182021,
+          "tolerance": 0.0003960599243182021
+        },
+        {
+          "name": "planck_band_radiance[6]",
+          "actual": 1282.263889870784,
+          "expected": 1282.263890770676,
+          "tolerance": 0.0012822638917706758
+        },
+        {
+          "name": "planck_band_radiance[7]",
+          "actual": 4034.2810354331814,
+          "expected": 4034.2810391444673,
+          "tolerance": 0.004034281040144467
+        },
+        {
+          "name": "uniform_detector_charge[8]",
+          "actual": 21130.324170359294,
+          "expected": 21130.324170359298,
+          "tolerance": 2.11303251703593e-05
+        }
+      ]
+    },
+    {
+      "model": "mica-ir",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1675.9352982999048,
+          "expected": 1675.9352982999048,
+          "tolerance": 3.3528705965998096e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1675.9352982999048,
+          "expected": 1675.9352982999048,
+          "tolerance": 3.3528705965998096e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 1160.0,
+          "expected": 1160.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 7.055000000000001,
+          "expected": 7.055000000000001,
+          "tolerance": 1.1729879281827017e-10
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 9907897.810218979,
+          "expected": 9907897.810218979,
+          "tolerance": 0.0009917897810218978
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1675.9352982999044,
+          "expected": 1675.9352982999048,
+          "tolerance": 1.676935298299905e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1675.935298299905,
+          "expected": 1675.9352982999048,
+          "tolerance": 1.676935298299905e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    },
+    {
+      "model": "pl-10",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 5.1583123951777,
+          "expected": 5.1583123951777,
+          "tolerance": 1.073304028023496e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 15.4749371855331,
+          "expected": 15.4749371855331,
+          "tolerance": 1.219912084070488e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 5.158312395177703,
+          "expected": 5.1583123951777,
+          "tolerance": 1.073304028023496e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "pl-10",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "planck_band_radiance[0]",
+          "actual": 1.4927649913607874,
+          "expected": 1.4927649665293516,
+          "tolerance": 1.4927659665293517e-06
+        },
+        {
+          "name": "planck_band_radiance[1]",
+          "actual": 437.6864717749854,
+          "expected": 437.68647292401374,
+          "tolerance": 0.0004376864739240137
+        },
+        {
+          "name": "planck_band_radiance[2]",
+          "actual": 5205.3871809959,
+          "expected": 5205.3871830069675,
+          "tolerance": 0.005205387184006967
+        },
+        {
+          "name": "planck_band_radiance[3]",
+          "actual": 40746.51992990051,
+          "expected": 40746.51994861149,
+          "tolerance": 0.04074651994961148
+        },
+        {
+          "name": "uniform_detector_charge[4]",
+          "actual": 21130.324170359294,
+          "expected": 21130.324170359298,
+          "tolerance": 2.11303251703593e-05
+        }
+      ]
+    },
+    {
+      "model": "pl-10",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1860.489210777056,
+          "expected": 1860.489210777056,
+          "tolerance": 3.721978421554112e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1860.489210777056,
+          "expected": 1860.489210777056,
+          "tolerance": 3.721978421554112e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 1647.0,
+          "expected": 1647.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 5.899,
+          "expected": 5.899,
+          "tolerance": 1.390677332463165e-10
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 10209458.595030898,
+          "expected": 10209458.595030898,
+          "tolerance": 0.0010219458595030898
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1860.4892107770556,
+          "expected": 1860.489210777056,
+          "tolerance": 1.861489210777056e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1860.4892107770563,
+          "expected": 1860.489210777056,
+          "tolerance": 1.861489210777056e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    },
+    {
+      "model": "pl-12",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 5.73606797749979,
+          "expected": 5.73606797749979,
+          "tolerance": 1.081514428664772e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 17.20820393249937,
+          "expected": 17.20820393249937,
+          "tolerance": 1.2445432859943164e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 5.736067977499786,
+          "expected": 5.73606797749979,
+          "tolerance": 1.081514428664772e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "pl-12",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "radar_energy[0]",
+          "actual": 22.807567908630798,
+          "expected": 22.807567908630805,
+          "tolerance": 4.661513581726161e-11
+        },
+        {
+          "name": "radar_energy[1]",
+          "actual": 278.5353879114846,
+          "expected": 278.5353879114846,
+          "tolerance": 5.580707758229692e-10
+        }
+      ]
+    },
+    {
+      "model": "pl-12",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 2124.43111142014,
+          "expected": 2124.43111142014,
+          "tolerance": 4.2498622228402806e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 2124.43111142014,
+          "expected": 2124.43111142014,
+          "tolerance": 4.2498622228402806e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 2821.0,
+          "expected": 2821.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 9.18,
+          "expected": 9.18,
+          "tolerance": 3.690153781715489e-10
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 20715622.641509436,
+          "expected": 20715622.641509432,
+          "tolerance": 0.0020725622641509433
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 2124.4311114201396,
+          "expected": 2124.43111142014,
+          "tolerance": 2.12543111142014e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 2124.4311114201405,
+          "expected": 2124.43111142014,
+          "tolerance": 2.12543111142014e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    },
+    {
+      "model": "pl-15",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 5.8717082451262845,
+          "expected": 5.8717082451262845,
+          "tolerance": 1.0834419928015433e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 17.615124735378853,
+          "expected": 17.615124735378853,
+          "tolerance": 1.25032597840463e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 5.871708245126285,
+          "expected": 5.8717082451262845,
+          "tolerance": 1.0834419928015433e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "pl-15",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "radar_energy[0]",
+          "actual": 22.807567908630798,
+          "expected": 22.807567908630805,
+          "tolerance": 4.661513581726161e-11
+        },
+        {
+          "name": "radar_energy[1]",
+          "actual": 278.5353879114846,
+          "expected": 278.5353879114846,
+          "tolerance": 5.580707758229692e-10
+        }
+      ]
+    },
+    {
+      "model": "pl-15",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1859.888757396266,
+          "expected": 1859.8887573962659,
+          "tolerance": 3.7207775147925318e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1859.888757396266,
+          "expected": 1859.8887573962659,
+          "tolerance": 3.7207775147925318e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 1647.0,
+          "expected": 1647.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 12.069999999999999,
+          "expected": 12.069999999999999,
+          "tolerance": 2.83501702031368e-10
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 20876188.655980274,
+          "expected": 20876188.65598027,
+          "tolerance": 0.0020886188655980273
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1859.8887573962656,
+          "expected": 1859.8887573962659,
+          "tolerance": 1.860888757396266e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1859.8887573962666,
+          "expected": 1859.8887573962659,
+          "tolerance": 1.860888757396266e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    },
+    {
+      "model": "pl-8",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 5.1583123951777,
+          "expected": 5.1583123951777,
+          "tolerance": 1.073304028023496e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 15.4749371855331,
+          "expected": 15.4749371855331,
+          "tolerance": 1.219912084070488e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 5.158312395177703,
+          "expected": 5.1583123951777,
+          "tolerance": 1.073304028023496e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "pl-8",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "planck_band_radiance[0]",
+          "actual": 1.4927649913607874,
+          "expected": 1.4927649665293516,
+          "tolerance": 1.4927659665293517e-06
+        },
+        {
+          "name": "planck_band_radiance[1]",
+          "actual": 437.6864717749854,
+          "expected": 437.68647292401374,
+          "tolerance": 0.0004376864739240137
+        },
+        {
+          "name": "planck_band_radiance[2]",
+          "actual": 5205.3871809959,
+          "expected": 5205.3871830069675,
+          "tolerance": 0.005205387184006967
+        },
+        {
+          "name": "planck_band_radiance[3]",
+          "actual": 40746.51992990051,
+          "expected": 40746.51994861149,
+          "tolerance": 0.04074651994961148
+        },
+        {
+          "name": "uniform_detector_charge[4]",
+          "actual": 21130.324170359294,
+          "expected": 21130.324170359298,
+          "tolerance": 2.11303251703593e-05
+        }
+      ]
+    },
+    {
+      "model": "pl-8",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1946.6570535691505,
+          "expected": 1946.6570535691505,
+          "tolerance": 3.8943141071383015e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1946.6570535691505,
+          "expected": 1946.6570535691505,
+          "tolerance": 3.8943141071383015e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 3046.0,
+          "expected": 3046.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 5.1,
+          "expected": 5.1,
+          "tolerance": 2.2175994365877702e-10
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 9663157.894736841,
+          "expected": 9663157.894736843,
+          "tolerance": 0.0009673157894736844
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1946.65705356915,
+          "expected": 1946.6570535691505,
+          "tolerance": 1.9476570535691505e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1946.657053569151,
+          "expected": 1946.6570535691505,
+          "tolerance": 1.9476570535691505e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    },
+    {
+      "model": "r-27er",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 6.622498999199199,
+          "expected": 6.622498999199199,
+          "tolerance": 1.0941113711291904e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 19.8674969975976,
+          "expected": 19.8674969975976,
+          "tolerance": 1.2823341133875715e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 6.622498999199195,
+          "expected": 6.622498999199199,
+          "tolerance": 1.0941113711291904e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "r-27er",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "radar_energy[0]",
+          "actual": 61.37404504955964,
+          "expected": 61.374045049559655,
+          "tolerance": 1.237480900991193e-10
+        },
+        {
+          "name": "radar_energy[1]",
+          "actual": 456.91273802139006,
+          "expected": 456.9127380213901,
+          "tolerance": 9.148254760427802e-10
+        }
+      ]
+    },
+    {
+      "model": "r-27er",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1759.7653802562395,
+          "expected": 1759.7653802562395,
+          "tolerance": 3.5205307605124786e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1400.0,
+          "expected": 1400.0,
+          "tolerance": 2.8009999999999997e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 61.0,
+          "expected": 61.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 20.4,
+          "expected": 20.4,
+          "tolerance": 1.868398760759737e-11
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 19956679.971095618,
+          "expected": 19956679.97109562,
+          "tolerance": 0.001996667997109562
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1399.9999999999998,
+          "expected": 1400.0,
+          "tolerance": 1.401e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1400.0000000000002,
+          "expected": 1400.0,
+          "tolerance": 1.401e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 61.0,
+          "expected": 61.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 1.3877787807814457e-17,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "connected_population",
+          "actual": 61.0,
+          "expected": 61.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "connected_endpoint_gap_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "ring_expansion_per_s",
+          "actual": 11965.811965811965,
+          "expected": 11965.811965811965,
+          "tolerance": 1.1966811965811964e-08
+        },
+        {
+          "name": "ring_breakup_s",
+          "actual": 0.001967083111994507,
+          "expected": 0.001967083111994507,
+          "tolerance": 1.0019670831119944e-12
+        },
+        {
+          "name": "minimum_material_length_m",
+          "actual": 0.2955823981949736,
+          "expected": 0.29558239819497606,
+          "tolerance": 3.9558239819497605e-12
+        },
+        {
+          "name": "maximum_material_length_m",
+          "actual": 0.29558239819497917,
+          "expected": 0.29558239819497606,
+          "tolerance": 3.9558239819497605e-12
+        },
+        {
+          "name": "closed_ring_momentum_ns",
+          "actual": 3.309146354201376e-12,
+          "expected": 0.0,
+          "tolerance": 4.951516530127264e-08
+        }
+      ]
+    },
+    {
+      "model": "r-27et",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 6.622498999199199,
+          "expected": 6.622498999199199,
+          "tolerance": 1.0941113711291904e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 19.8674969975976,
+          "expected": 19.8674969975976,
+          "tolerance": 1.2823341133875715e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 6.622498999199195,
+          "expected": 6.622498999199199,
+          "tolerance": 1.0941113711291904e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "r-27et",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "planck_band_radiance[0]",
+          "actual": 1.4927649913607874,
+          "expected": 1.4927649665293516,
+          "tolerance": 1.4927659665293517e-06
+        },
+        {
+          "name": "planck_band_radiance[1]",
+          "actual": 437.6864717749854,
+          "expected": 437.68647292401374,
+          "tolerance": 0.0004376864739240137
+        },
+        {
+          "name": "planck_band_radiance[2]",
+          "actual": 5205.3871809959,
+          "expected": 5205.3871830069675,
+          "tolerance": 0.005205387184006967
+        },
+        {
+          "name": "planck_band_radiance[3]",
+          "actual": 40746.51992990051,
+          "expected": 40746.51994861149,
+          "tolerance": 0.04074651994961148
+        },
+        {
+          "name": "uniform_detector_charge[4]",
+          "actual": 55797.26062173003,
+          "expected": 55797.26062173002,
+          "tolerance": 5.5797261621730025e-05
+        }
+      ]
+    },
+    {
+      "model": "r-27et",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1759.7653802562395,
+          "expected": 1759.7653802562395,
+          "tolerance": 3.5205307605124786e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1400.0,
+          "expected": 1400.0,
+          "tolerance": 2.8009999999999997e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 61.0,
+          "expected": 61.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 20.4,
+          "expected": 20.4,
+          "tolerance": 1.868398760759737e-11
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 19956679.971095618,
+          "expected": 19956679.97109562,
+          "tolerance": 0.001996667997109562
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1399.9999999999998,
+          "expected": 1400.0,
+          "tolerance": 1.401e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1400.0000000000002,
+          "expected": 1400.0,
+          "tolerance": 1.401e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 61.0,
+          "expected": 61.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 1.3877787807814457e-17,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "connected_population",
+          "actual": 61.0,
+          "expected": 61.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "connected_endpoint_gap_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "ring_expansion_per_s",
+          "actual": 11965.811965811965,
+          "expected": 11965.811965811965,
+          "tolerance": 1.1966811965811964e-08
+        },
+        {
+          "name": "ring_breakup_s",
+          "actual": 0.001967083111994507,
+          "expected": 0.001967083111994507,
+          "tolerance": 1.0019670831119944e-12
+        },
+        {
+          "name": "minimum_material_length_m",
+          "actual": 0.2955823981949736,
+          "expected": 0.29558239819497606,
+          "tolerance": 3.9558239819497605e-12
+        },
+        {
+          "name": "maximum_material_length_m",
+          "actual": 0.29558239819497917,
+          "expected": 0.29558239819497606,
+          "tolerance": 3.9558239819497605e-12
+        },
+        {
+          "name": "closed_ring_momentum_ns",
+          "actual": 3.309146354201376e-12,
+          "expected": 0.0,
+          "tolerance": 4.951516530127264e-08
+        }
+      ]
+    },
+    {
+      "model": "r-27r",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 6.622498999199199,
+          "expected": 6.622498999199199,
+          "tolerance": 1.0941113711291904e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 19.8674969975976,
+          "expected": 19.8674969975976,
+          "tolerance": 1.2823341133875715e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 6.622498999199195,
+          "expected": 6.622498999199199,
+          "tolerance": 1.0941113711291904e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "r-27r",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "radar_energy[0]",
+          "actual": 37.584104350000324,
+          "expected": 37.58410435000033,
+          "tolerance": 7.616820870000066e-11
+        },
+        {
+          "name": "radar_energy[1]",
+          "actual": 357.55511433848255,
+          "expected": 357.5551143384825,
+          "tolerance": 7.161102286769649e-10
+        }
+      ]
+    },
+    {
+      "model": "r-27r",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1759.7653802562395,
+          "expected": 1759.7653802562395,
+          "tolerance": 3.5205307605124786e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1400.0,
+          "expected": 1400.0,
+          "tolerance": 2.8009999999999997e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 61.0,
+          "expected": 61.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 20.4,
+          "expected": 20.4,
+          "tolerance": 1.868398760759737e-11
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 19956679.971095618,
+          "expected": 19956679.97109562,
+          "tolerance": 0.001996667997109562
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1399.9999999999998,
+          "expected": 1400.0,
+          "tolerance": 1.401e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1400.0000000000002,
+          "expected": 1400.0,
+          "tolerance": 1.401e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 61.0,
+          "expected": 61.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 1.3877787807814457e-17,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "connected_population",
+          "actual": 61.0,
+          "expected": 61.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "connected_endpoint_gap_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "ring_expansion_per_s",
+          "actual": 13526.570048309177,
+          "expected": 13526.570048309177,
+          "tolerance": 1.3527570048309177e-08
+        },
+        {
+          "name": "ring_breakup_s",
+          "actual": 0.002546567590050772,
+          "expected": 0.002546567590050772,
+          "tolerance": 1.0025465675900507e-12
+        },
+        {
+          "name": "minimum_material_length_m",
+          "actual": 0.37771966196559975,
+          "expected": 0.37771966196560264,
+          "tolerance": 4.777196619656026e-12
+        },
+        {
+          "name": "maximum_material_length_m",
+          "actual": 0.37771966196560675,
+          "expected": 0.37771966196560264,
+          "tolerance": 4.777196619656026e-12
+        },
+        {
+          "name": "closed_ring_momentum_ns",
+          "actual": 3.309146354201376e-12,
+          "expected": 0.0,
+          "tolerance": 4.951516530127264e-08
+        }
+      ]
+    },
+    {
+      "model": "r-27t",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 6.622498999199199,
+          "expected": 6.622498999199199,
+          "tolerance": 1.0941113711291904e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 19.8674969975976,
+          "expected": 19.8674969975976,
+          "tolerance": 1.2823341133875715e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 6.622498999199195,
+          "expected": 6.622498999199199,
+          "tolerance": 1.0941113711291904e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "r-27t",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "planck_band_radiance[0]",
+          "actual": 1.4927649913607874,
+          "expected": 1.4927649665293516,
+          "tolerance": 1.4927659665293517e-06
+        },
+        {
+          "name": "planck_band_radiance[1]",
+          "actual": 437.6864717749854,
+          "expected": 437.68647292401374,
+          "tolerance": 0.0004376864739240137
+        },
+        {
+          "name": "planck_band_radiance[2]",
+          "actual": 5205.3871809959,
+          "expected": 5205.3871830069675,
+          "tolerance": 0.005205387184006967
+        },
+        {
+          "name": "planck_band_radiance[3]",
+          "actual": 40746.51992990051,
+          "expected": 40746.51994861149,
+          "tolerance": 0.04074651994961148
+        },
+        {
+          "name": "uniform_detector_charge[4]",
+          "actual": 43663.83286375027,
+          "expected": 43663.83286375027,
+          "tolerance": 4.366383386375028e-05
+        }
+      ]
+    },
+    {
+      "model": "r-27t",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1759.7653802562395,
+          "expected": 1759.7653802562395,
+          "tolerance": 3.5205307605124786e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1400.0,
+          "expected": 1400.0,
+          "tolerance": 2.8009999999999997e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 61.0,
+          "expected": 61.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 20.4,
+          "expected": 20.4,
+          "tolerance": 1.868398760759737e-11
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 19956679.971095618,
+          "expected": 19956679.97109562,
+          "tolerance": 0.001996667997109562
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1399.9999999999998,
+          "expected": 1400.0,
+          "tolerance": 1.401e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1400.0000000000002,
+          "expected": 1400.0,
+          "tolerance": 1.401e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 61.0,
+          "expected": 61.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 1.3877787807814457e-17,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "connected_population",
+          "actual": 61.0,
+          "expected": 61.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "connected_endpoint_gap_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "ring_expansion_per_s",
+          "actual": 13526.570048309177,
+          "expected": 13526.570048309177,
+          "tolerance": 1.3527570048309177e-08
+        },
+        {
+          "name": "ring_breakup_s",
+          "actual": 0.002546567590050772,
+          "expected": 0.002546567590050772,
+          "tolerance": 1.0025465675900507e-12
+        },
+        {
+          "name": "minimum_material_length_m",
+          "actual": 0.37771966196559975,
+          "expected": 0.37771966196560264,
+          "tolerance": 4.777196619656026e-12
+        },
+        {
+          "name": "maximum_material_length_m",
+          "actual": 0.37771966196560675,
+          "expected": 0.37771966196560264,
+          "tolerance": 4.777196619656026e-12
+        },
+        {
+          "name": "closed_ring_momentum_ns",
+          "actual": 3.309146354201376e-12,
+          "expected": 0.0,
+          "tolerance": 4.951516530127264e-08
+        }
+      ]
+    },
+    {
+      "model": "r-37m",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 7.372983346207417,
+          "expected": 7.372983346207417,
+          "tolerance": 1.1047763951505575e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 22.118950038622252,
+          "expected": 22.118950038622252,
+          "tolerance": 1.3143291854516727e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 7.37298334620742,
+          "expected": 7.372983346207417,
+          "tolerance": 1.1047763951505575e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "r-37m",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "radar_energy[0]",
+          "actual": 280.0418005557144,
+          "expected": 280.04180055571453,
+          "tolerance": 5.61083601111429e-10
+        },
+        {
+          "name": "radar_energy[1]",
+          "actual": 976.0056290994368,
+          "expected": 976.0056290994369,
+          "tolerance": 1.9530112581988737e-09
+        }
+      ]
+    },
+    {
+      "model": "r-37m",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1860.2190161637918,
+          "expected": 1860.2190161637916,
+          "tolerance": 3.721438032327583e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1860.2190161637918,
+          "expected": 1860.2190161637916,
+          "tolerance": 3.721438032327583e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 670.0,
+          "expected": 670.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 32.181,
+          "expected": 32.181,
+          "tolerance": 3.0740407544524346e-10
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 55679804.14788098,
+          "expected": 55679804.147880964,
+          "tolerance": 0.0055689804147880965
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1860.2190161637916,
+          "expected": 1860.2190161637916,
+          "tolerance": 1.8612190161637916e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1860.2190161637923,
+          "expected": 1860.2190161637916,
+          "tolerance": 1.8612190161637916e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    },
+    {
+      "model": "r-60m",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 4.435414346693485,
+          "expected": 4.435414346693485,
+          "tolerance": 1.0630310288825838e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 13.306243040080457,
+          "expected": 13.306243040080457,
+          "tolerance": 1.1890930866477512e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 4.435414346693491,
+          "expected": 4.435414346693485,
+          "tolerance": 1.0630310288825838e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "r-60m",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "planck_band_radiance[0]",
+          "actual": 1.4927649913607874,
+          "expected": 1.4927649665293516,
+          "tolerance": 1.4927659665293517e-06
+        },
+        {
+          "name": "planck_band_radiance[1]",
+          "actual": 437.6864717749854,
+          "expected": 437.68647292401374,
+          "tolerance": 0.0004376864739240137
+        },
+        {
+          "name": "planck_band_radiance[2]",
+          "actual": 5205.3871809959,
+          "expected": 5205.3871830069675,
+          "tolerance": 0.005205387184006967
+        },
+        {
+          "name": "planck_band_radiance[3]",
+          "actual": 40746.51992990051,
+          "expected": 40746.51994861149,
+          "tolerance": 0.04074651994961148
+        },
+        {
+          "name": "uniform_detector_charge[4]",
+          "actual": 11885.807783327102,
+          "expected": 11885.807783327102,
+          "tolerance": 1.1885808783327102e-05
+        }
+      ]
+    },
+    {
+      "model": "r-60m",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 2129.99134666391,
+          "expected": 2129.99134666391,
+          "tolerance": 4.26098269332782e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1400.0,
+          "expected": 1400.0,
+          "tolerance": 2.8009999999999997e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 62.0,
+          "expected": 62.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 1.8275,
+          "expected": 1.8275,
+          "tolerance": 2.610160893505963e-12
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 1790949.9999999998,
+          "expected": 1790950.0,
+          "tolerance": 0.00018009500000000002
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1399.9999999999998,
+          "expected": 1400.0,
+          "tolerance": 1.401e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1400.0000000000002,
+          "expected": 1400.0,
+          "tolerance": 1.401e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 62.0,
+          "expected": 62.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    },
+    {
+      "model": "r-73",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 4.860147050873544,
+          "expected": 4.860147050873544,
+          "tolerance": 1.0690668436344815e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 14.580441152620633,
+          "expected": 14.580441152620633,
+          "tolerance": 1.2072005309034443e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 4.86014705087355,
+          "expected": 4.860147050873544,
+          "tolerance": 1.0690668436344815e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "r-73",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "planck_band_radiance[0]",
+          "actual": 1.4927649913607874,
+          "expected": 1.4927649665293516,
+          "tolerance": 1.4927659665293517e-06
+        },
+        {
+          "name": "planck_band_radiance[1]",
+          "actual": 437.6864717749854,
+          "expected": 437.68647292401374,
+          "tolerance": 0.0004376864739240137
+        },
+        {
+          "name": "planck_band_radiance[2]",
+          "actual": 5205.3871809959,
+          "expected": 5205.3871830069675,
+          "tolerance": 0.005205387184006967
+        },
+        {
+          "name": "planck_band_radiance[3]",
+          "actual": 40746.51992990051,
+          "expected": 40746.51994861149,
+          "tolerance": 0.04074651994961148
+        },
+        {
+          "name": "uniform_detector_charge[4]",
+          "actual": 22471.604449727813,
+          "expected": 22471.604449727813,
+          "tolerance": 2.2471605449727814e-05
+        }
+      ]
+    },
+    {
+      "model": "r-73",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 2397.321968278349,
+          "expected": 2397.321968278349,
+          "tolerance": 4.795643936556698e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1400.0,
+          "expected": 1400.0,
+          "tolerance": 2.8009999999999997e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 79.0,
+          "expected": 79.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 3.6125000000000003,
+          "expected": 3.6125,
+          "tolerance": 5.0556003000347115e-12
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 3540250.0,
+          "expected": 3540250.0,
+          "tolerance": 0.000355025
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1399.9999999999998,
+          "expected": 1400.0,
+          "tolerance": 1.401e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1400.0000000000002,
+          "expected": 1400.0,
+          "tolerance": 1.401e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 79.0,
+          "expected": 79.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    },
+    {
+      "model": "r-77m",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 5.8717082451262845,
+          "expected": 5.8717082451262845,
+          "tolerance": 1.0834419928015433e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 17.615124735378853,
+          "expected": 17.615124735378853,
+          "tolerance": 1.25032597840463e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 5.871708245126285,
+          "expected": 5.8717082451262845,
+          "tolerance": 1.0834419928015433e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "r-77m",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "radar_energy[0]",
+          "actual": 21.488944104019733,
+          "expected": 21.488944104019744,
+          "tolerance": 4.397788820803949e-11
+        },
+        {
+          "name": "radar_energy[1]",
+          "actual": 270.363730290217,
+          "expected": 270.363730290217,
+          "tolerance": 5.41727460580434e-10
+        }
+      ]
+    },
+    {
+      "model": "r-77m",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1887.611044467581,
+          "expected": 1887.6110444675812,
+          "tolerance": 3.776222088935163e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1400.0,
+          "expected": 1400.0,
+          "tolerance": 2.8009999999999997e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 71.0,
+          "expected": 71.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 10.85875,
+          "expected": 10.85875,
+          "tolerance": 1.1956160423347683e-11
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 10641575.0,
+          "expected": 10641575.0,
+          "tolerance": 0.0010651575
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1399.9999999999998,
+          "expected": 1400.0,
+          "tolerance": 1.401e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1400.0000000000002,
+          "expected": 1400.0,
+          "tolerance": 1.401e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 71.0,
+          "expected": 71.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    },
+    {
+      "model": "super-530d",
+      "component": "fuze",
+      "residuals": [
+        {
+          "name": "cpa_fraction[0]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[0]",
+          "actual": 6.238612787525831,
+          "expected": 6.238612787525831,
+          "tolerance": 1.088656019947931e-12
+        },
+        {
+          "name": "radius_decision[0]",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "cpa_fraction[1]",
+          "actual": 0.5,
+          "expected": 0.5,
+          "tolerance": 1.007105427357601e-12
+        },
+        {
+          "name": "cpa_miss[1]",
+          "actual": 18.715838362577493,
+          "expected": 18.715838362577493,
+          "tolerance": 1.2659680598437928e-12
+        },
+        {
+          "name": "radius_decision[1]",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "approach_endpoint_miss",
+          "actual": 6.238612787525824,
+          "expected": 6.238612787525831,
+          "tolerance": 1.088656019947931e-12
+        },
+        {
+          "name": "approach_endpoint_trigger",
+          "actual": 1.0,
+          "expected": 1.0,
+          "tolerance": 0.0
+        }
+      ]
+    },
+    {
+      "model": "super-530d",
+      "component": "seeker",
+      "residuals": [
+        {
+          "name": "radar_energy[0]",
+          "actual": 64.25607992222542,
+          "expected": 64.25607992222542,
+          "tolerance": 1.2951215984445084e-10
+        },
+        {
+          "name": "radar_energy[1]",
+          "actual": 467.51764356958597,
+          "expected": 467.51764356958597,
+          "tolerance": 9.36035287139172e-10
+        }
+      ]
+    },
+    {
+      "model": "super-530d",
+      "component": "warhead",
+      "residuals": [
+        {
+          "name": "gurney_cylinder_ms",
+          "actual": 1614.092471622689,
+          "expected": 1614.0924716226887,
+          "tolerance": 3.2291849432453773e-09
+        },
+        {
+          "name": "source_speed_ms",
+          "actual": 1614.092471622689,
+          "expected": 1614.0924716226887,
+          "tolerance": 3.2291849432453773e-09
+        },
+        {
+          "name": "emitted_count",
+          "actual": 494.0,
+          "expected": 494.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "emitted_mass_kg",
+          "actual": 18.615,
+          "expected": 18.615,
+          "tolerance": 1.3168031989860173e-10
+        },
+        {
+          "name": "emitted_energy_j",
+          "actual": 24248778.623428196,
+          "expected": 24248778.62342819,
+          "tolerance": 0.002425877862342819
+        },
+        {
+          "name": "minimum_launch_speed_ms",
+          "actual": 1614.0924716226887,
+          "expected": 1614.0924716226887,
+          "tolerance": 1.6150924716226888e-09
+        },
+        {
+          "name": "maximum_launch_speed_ms",
+          "actual": 1614.0924716226893,
+          "expected": 1614.0924716226887,
+          "tolerance": 1.6150924716226888e-09
+        },
+        {
+          "name": "rod_segment_count",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 0.0
+        },
+        {
+          "name": "outer_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "inner_radius_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        },
+        {
+          "name": "axial_envelope_violation_m",
+          "actual": 0.0,
+          "expected": 0.0,
+          "tolerance": 2.842170943040401e-14
+        }
+      ]
+    }
+  ]
+}

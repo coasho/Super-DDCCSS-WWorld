@@ -4,11 +4,13 @@ No independent fin force, CP, slender-body or offline-table model is selected
 here. The existing native actuator identities/limits/lag/mixers are preserved.
 """
 import hashlib
+import copy
 import json
 import math
 import re
 import xml.etree.ElementTree as ET
 import numpy as np
+from .equipment_models import normalize as equipment_mechanism
 
 CHANNELS = ("elevator", "rudder", "aileron")
 OUTPUTS = {"elevator": "elevator", "rudder": "rudder", "aileron": "left-aileron"}
@@ -126,12 +128,16 @@ def control_jacobian(tables, channel, mach, *, alpha=0., beta=0., direction=1):
 
 
 def describe(aircraft, tables, *, local=False):
+    from . import rolleron
+    tables=rolleron.without_authority(aircraft,tables)
     physical=tables.get('native_controls',[])
     if not physical:return None
     fins=[dict(id=p['id'],lo=p['lo'],hi=p['hi'],
                gains={ch:p['gains'].get(ch,0.) for ch in CHANNELS}) for p in physical]
     limits={ch:tuple(math.radians(v) for v in aircraft.channel_limits(ch))
             if ch in aircraft.channels() else (0.,0.) for ch in CHANNELS}
+    for ch in CHANNELS:
+        if not any(fin['gains'][ch] for fin in fins):limits[ch]=(0.,0.)
     from .airframe import _body
     grid=tables['mach']['mach'].tolist();h=1.e-4
     names={'cz-alpha':[], 'cy-beta':[], 'cm-alpha':[], 'cn-beta':[],
@@ -174,7 +180,10 @@ def describe(aircraft, tables, *, local=False):
 
 
 def install(xml, aircraft, tables, card):
-    local=(card or {}).get('component_models',{}).get('components',{}).get('autopilot',{}).get('implementation_id')=='fsim.control.actuator_aware_cascade.v1'
+    implementation=(card or {}).get('component_models',{}).get('components',{}).get('autopilot',{}).get('implementation_id')
+    if implementation:implementation=equipment_mechanism(card,'autopilot',implementation)
+    operating=implementation=='fsim.control.operating_point_bounded.v1'
+    local=operating or implementation=='fsim.control.actuator_aware_cascade.v1'
     control=describe(aircraft,tables,local=local)
     if control is None:return xml
     root=ET.fromstring(xml)
@@ -223,14 +232,36 @@ def install(xml, aircraft, tables, card):
         ET.SubElement(limits, "min").text = "%.17g" % low
         ET.SubElement(limits, "max").text = "%.17g" % high
         actuator = ET.SubElement(channels, "actuator", name="fcs/%s-actuator" % channel)
-        ET.SubElement(actuator, "input").text = "fcs/%s-control" % channel
-        ET.SubElement(actuator, "lag").text = "fsim/missile-control/lag-coefficient-s-1" if dynamics["version"] else "%.17g" % lag
+        if operating:
+            # Expose the native pre-rate lag state for the new predictor. Old
+            # selections retain the original actuator XML and initialization.
+            channels.remove(actuator)
+            filter_node=ET.SubElement(channels,'lag_filter',name='fcs/%s-operating-lag'%channel)
+            ET.SubElement(filter_node,'input').text='fcs/%s-control'%channel
+            ET.SubElement(filter_node,'c1').text='fsim/missile-control/lag-coefficient-s-1'
+            ET.SubElement(filter_node,'output').text='fcs/%s-lag-state'%channel
+            channels.append(actuator)
+            ET.SubElement(actuator,'input').text='fcs/%s-lag-state'%channel
+        else:
+            ET.SubElement(actuator, "input").text = "fcs/%s-control" % channel
+            ET.SubElement(actuator, "lag").text = "fsim/missile-control/lag-coefficient-s-1" if dynamics["version"] else "%.17g" % lag
         ET.SubElement(actuator, "rate_limit").text = "fsim/missile-control/channel-rate-rad_s" if dynamics["version"] else "%.17g" % rate
         stops = ET.SubElement(actuator, "clipto")
         ET.SubElement(stops, "min").text = "%.17g" % low
         ET.SubElement(stops, "max").text = "%.17g" % high
         ET.SubElement(actuator, "output").text = "fcs/%s-response-rad" % channel
+    from . import rolleron
+    physical=[dict(row,_alpha=tables['alpha']) for row in tables.get('native_controls',[])]
+    passive=rolleron.install(fcs,channels,aircraft,physical)
+    if passive:
+        for i,fin in enumerate(control['fins']):
+            ET.SubElement(fcs,'property',value=str(2 if i in passive else 1)).text='fsim/missile-control/fin-%d-actuation-kind-v1'%i
+        for i,mechanics in passive.items():
+            for suffix,value in (('min-rad',-mechanics['limit-rad']),('max-rad',mechanics['limit-rad']),('rate-rad_s',mechanics['rate-rad-s'])):
+                key='fsim/missile-control/fin-%d-%s'%(i,suffix)
+                next(node for node in fcs.findall('property') if node.text==key).set('value','%.17g'%value)
     for i, fin in enumerate(control["fins"]):
+        if i in passive:continue
         mixer = ET.SubElement(channels, "fcs_function", name="fcs/fin-%d-demand-rad" % i)
         expression = ET.SubElement(mixer, "function")
         expression.append(_op("sum", *(_op("product", _value(gain), _property("fcs/%s-response-rad" % ch))
@@ -284,5 +315,56 @@ def install(xml, aircraft, tables, card):
             ET.SubElement(table,'tableData').text='\n'+ ' '.join('%.17g'%v for v in control['mach'])+'\n'+ '\n'.join(
                 ' '.join('%.17g'%v for v in [angle]+row) for angle,row in zip(control['angles'],control['local_derivatives'][name]))+'\n'
         aero.insert(0,_function('fsim/control/'+name,table))
+    if operating:_operating_point(root,control,tables)
     ET.indent(root,space='    ')
     return ET.tostring(root,encoding='unicode')
+
+
+def _operating_point(root,control,tables):
+    """Expose unchanged native piecewise loads, never install another force."""
+    fcs=root.find('flight_control');aero=root.find('aerodynamics')
+    prefix='fsim/control-operating-point-v1/'
+    ET.SubElement(fcs,'property',value='1').text=prefix+'version'
+    ET.SubElement(fcs,'property',value=str(len(control['fins']))).text=prefix+'fin-count'
+    def property_value(name,value):
+        ET.SubElement(fcs,'property',value='%.17g'%value).text=prefix+name
+    def sliced(expression,fin,knot):
+        result=copy.deepcopy(expression)
+        for parent in result.iter():
+            for table in list(parent):
+                if table.tag!='table':continue
+                column=table.find("independentVar[@lookup='column']")
+                if column is None or column.text!='fcs/fin-%d-delta-rad'%fin:continue
+                rows=[list(map(float,line.split())) for line in table.findtext('tableData').splitlines() if line.strip()]
+                static=ET.Element('table');variable=copy.deepcopy(table.find("independentVar[@lookup='row']"));static.append(variable)
+                ET.SubElement(static,'tableData').text='\n'+'\n'.join('%.17g %.17g'%(row[0],row[knot+1]) for row in rows[1:])+'\n'
+                parent.remove(table);parent.append(static)
+        return result
+    def expression(name):
+        source=root.find(".//function[@name='%s']"%name)
+        if source is None:raise ValueError('Missing physical operating-point source '+name)
+        return next(child for child in source if child.tag!='description')
+    induced=expression('aero/function/CDi-low')
+    for i,fin in enumerate(control['fins']):
+        stem='fin-%d/'%i;piece=tables['native_controls'][i];knots=list(map(float,piece['deflection']))
+        property_value(stem+'knot-count',len(knots))
+        for ch in CHANNELS:property_value(stem+'mix-'+ch,fin['gains'].get(ch,0.))
+        for j,knot in enumerate(knots):
+            property_value(stem+'knot-%d-rad'%j,knot)
+            cdi_parts=[]
+            for child in induced:
+                if any(n.text=='fcs/fin-%d-delta-rad'%i for n in child.findall('.//independentVar')):
+                    cdi_parts.append(sliced(child,i,j))
+            cdi_name=prefix+stem+'knot-%d/CDi'%j
+            aero.append(_function(cdi_name,_op('sum',*cdi_parts)))
+            for key in ('CD','CY','CL','Cl','Cm','Cn'):
+                value=sliced(expression('aero/coefficient/%s_fin_%d'%(key,i)),i,j)
+                if key=='CD':
+                    corrections=[]
+                    for name in ('CD_induced_mach','CD_ground'):
+                        part=copy.deepcopy(expression('aero/coefficient/'+name))
+                        for node in part.findall('.//property'):
+                            if node.text=='aero/function/CDi-low':node.text=cdi_name
+                        corrections.append(part)
+                    value=_op('sum',value,*corrections)
+                aero.append(_function(prefix+stem+'knot-%d/'%j+key,value))

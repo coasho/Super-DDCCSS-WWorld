@@ -31,7 +31,7 @@ import numpy as np
 
 from . import __version__
 from .geometry import Aircraft
-from .files import open_write, replace
+from .files import open_write, atomic_write_stream, replace
 
 STAGES = ("geometry", "aero", "mass", "propulsion", "build", "model", "verify", "fly", "ground", "calibrate", "autopilot", "performance", "report")
 DEFAULT = ("geometry", "aero", "mass", "propulsion", "build", "model", "verify", "fly", "ground", "autopilot", "performance", "report")
@@ -132,7 +132,7 @@ def write_text(path, text):
         pass
     for attempt in range(5):
         try:
-            with open_write(path, "w", encoding="utf-8", newline="\n") as f:
+            with atomic_write_stream(path, "w", encoding="utf-8", newline="\n") as f:
                 f.write(text)
             return True
         except OSError:
@@ -209,7 +209,7 @@ class Design:
     # -- helpers --------------------------------------------------------------------------------
     def save(self, stage, data):
         data = dict(data, stage=stage, hangar=__version__, time=time.strftime("%Y-%m-%d %H:%M:%S"))
-        with open_write(os.path.join(self.out, stage + ".json"), "w", encoding="utf-8") as f:
+        with atomic_write_stream(os.path.join(self.out, stage + ".json"), "w", encoding="utf-8") as f:
             json.dump(_json(data), f, indent=1)
         return data
 
@@ -712,9 +712,9 @@ class Design:
             ename = "%s_engine%d" % (a.name, i)
             if e.type == "turbofan":
                 pname = "%s_nozzle%d" % (a.name, i)
-                with open_write(os.path.join(eng_dir, ename + ".xml"), "w", encoding="utf-8", newline="\n") as f:
+                with atomic_write_stream(os.path.join(eng_dir, ename + ".xml"), "w", encoding="utf-8", newline="\n") as f:
                     f.write(turbofan_xml(e))
-                with open_write(os.path.join(eng_dir, pname + ".xml"), "w", encoding="utf-8", newline="\n") as f:
+                with atomic_write_stream(os.path.join(eng_dir, pname + ".xml"), "w", encoding="utf-8", newline="\n") as f:
                     f.write(nozzle_xml(e.name))
                 files.append((ename, pname))
                 continue
@@ -723,18 +723,18 @@ class Design:
                 # the gas turbine, and its constant-speed propeller over advance ratio and blade angle
                 p = Propeller(e)
                 tab = p.pitch_tables()
-                with open_write(os.path.join(eng_dir, ename + ".xml"), "w", encoding="utf-8", newline="\n") as f:
+                with atomic_write_stream(os.path.join(eng_dir, ename + ".xml"), "w", encoding="utf-8", newline="\n") as f:
                     f.write(turboprop_xml(e))
-                with open_write(os.path.join(eng_dir, pname + ".xml"), "w", encoding="utf-8", newline="\n") as f:
+                with atomic_write_stream(os.path.join(eng_dir, pname + ".xml"), "w", encoding="utf-8", newline="\n") as f:
                     f.write(constant_speed_propeller_xml(p, tab, p.mach_tables(tab), blades_mass(e),
                                                          "%s propeller %d" % (a.name, i)))
                 files.append((ename, pname))
                 continue
-            with open_write(os.path.join(eng_dir, ename + ".xml"), "w", encoding="utf-8", newline="\n") as f:
+            with atomic_write_stream(os.path.join(eng_dir, ename + ".xml"), "w", encoding="utf-8", newline="\n") as f:
                 f.write(piston_xml(e) if e.type == "piston" else electric_xml(e))
             p = Propeller(e)
             mass_e = float(e.mass) if e.mass is not None else 30.0
-            with open_write(os.path.join(eng_dir, pname + ".xml"), "w", encoding="utf-8", newline="\n") as f:
+            with atomic_write_stream(os.path.join(eng_dir, pname + ".xml"), "w", encoding="utf-8", newline="\n") as f:
                 f.write(propeller_xml(p, p.tables(), 0.1 * mass_e, "%s propeller %d" % (a.name, i)))
             files.append((ename, pname))
         from . import fcs
@@ -753,7 +753,7 @@ class Design:
                            yaw_accel=(self.load("ground") or {}).get("yaw_accel_rad_s2"))
         text = keep_date(xml_path, jsbsim.aircraft_xml(a, tabs, mm, files, fbw=fbw, yaw_damper=yd, autopilot=autopilot, profile=profile,
                                                        stations=jsbsim.store_stations(self.dir)))
-        with open_write(xml_path, "w", encoding="utf-8", newline="\n") as f:
+        with atomic_write_stream(xml_path, "w", encoding="utf-8", newline="\n") as f:
             f.write(text)
         # the platform finds it where it is (io::AssetResolver: the source tree's
         # aircraft/ in a development build (before any staged copy), share/flightsim/aircraft
@@ -849,6 +849,11 @@ class Design:
             # and its damage data beside it (damage.py: the world's damage chain's - outside the key the same way)
             data = damage.write(self.aircraft, os.path.join(self.dir, self.aircraft.name + ".damage.json"), origin,
                                 model=self.aero_model() if any(s.kind == "wing" for s in self.aircraft.surfaces) else None)
+            # M03 physical liquid volume is independent of fitted hit probes and
+            # of the frozen flight/mass products; regenerate even on a GLB cache hit.
+            from . import liquid
+            liquid.write(self.aircraft, os.path.join(self.dir, self.aircraft.name + ".liquid-v1.json"),
+                         origin, glb=glb)
             # and its pieces' flight models, each section that can part (pieces.py)
             from . import pieces
             pieces.write(data, self.dir)

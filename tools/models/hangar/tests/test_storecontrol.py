@@ -26,6 +26,7 @@ class Expressions:
             if node.findtext("output"):
                 self.fcs[node.findtext("output")] = node
         self.actuators = {n.findtext("output"): n for n in model.findall(".//actuator")}
+        self.lag_filters = {n.findtext("output"): n for n in model.findall(".//lag_filter")}
         self.gains = {n.findtext("output"): n for n in model.findall(".//pure_gain")}
         self.properties = dict(properties)
 
@@ -45,6 +46,9 @@ class Expressions:
             actuator = self.actuators[name]
             value = self.property(actuator.findtext("input"))
             return max(float(actuator.findtext("clipto/min")), min(float(actuator.findtext("clipto/max")), value))
+        if name in self.lag_filters:
+            # Steady algebra only; native finite-state tests own lag dynamics.
+            return self.property(self.lag_filters[name].findtext('input'))
         if name in self.gains:
             node = self.gains[name]
             return float(node.findtext("gain")) * self.property(node.findtext("input"))
@@ -140,6 +144,52 @@ def native_actuator_value(model, text):
 
 
 class StoreControlTest(unittest.TestCase):
+    def test_operating_point_exports_unchanged_complete_fin_loads_and_native_lag_state(self):
+        from hangar import components
+        selected=card('r-77m')
+        self.assertEqual(selected['component_models']['components']['autopilot']['implementation_id'],components.OPERATING_POINT_AUTOPILOT)
+        # Exercise the normal full generator, not a hand-built control fragment.
+        files=storebodies.files(selected);name=selected['model'].removeprefix('jsbsim:')
+        model=ET.fromstring(files[name+'.xml'])
+        metadata={n.text:float(n.get('value')) for n in model.findall('./flight_control/property')}
+        prefix='fsim/control-operating-point-v1/'
+        self.assertEqual(metadata[prefix+'version'],1)
+        self.assertEqual(metadata['fsim/missile-control/version'],2)
+        self.assertEqual(metadata[prefix+'fin-count'],4)
+        for channel in ('aileron','elevator','rudder'):
+            actuator=model.find(".//actuator[@name='fcs/%s-actuator']"%channel)
+            lag=model.find(".//lag_filter[@name='fcs/%s-operating-lag']"%channel)
+            self.assertIsNotNone(lag)
+            self.assertEqual(lag.findtext('input'),'fcs/%s-control'%channel)
+            self.assertEqual(lag.findtext('c1'),'fsim/missile-control/lag-coefficient-s-1')
+            self.assertEqual(actuator.findtext('input'),lag.findtext('output'))
+            self.assertIsNone(actuator.find('lag'))
+            self.assertEqual(actuator.findtext('rate_limit'),'fsim/missile-control/channel-rate-rad_s')
+        # Independent evaluation of the full original emitted axis functions.
+        # Exported knot curves must reproduce the COMPLETE load difference,
+        # including the global induced-Mach and ground-drag corrections.
+        for alpha,beta,mach,height in ((0.,0.,.6,10000.),(-.021927802748855352,.03,2.5103153123791566,.1),
+                                      (.3,-.2,2.,10000.),(1.2,-.6,3.,.05)):
+            _,base=evaluate('r-77m',alpha=alpha,beta=beta,mach=mach)
+            props=base.properties.copy();props.update({'aero/bi2vel':0.,'aero/ci2vel':0.,'aero/alphadot-rad_sec':0.,
+                'aero/cl-squared':0.,'aero/h_b-mac-ft':height,
+                **{'velocities/'+k+'-aero-rad_sec':0. for k in 'pqr'}})
+            actual=(math.radians(20),-math.radians(20),-.25196806730633975,.26270059797998985)
+            zero=Expressions(model,props|{'fcs/fin-%d-delta-rad'%i:0. for i in range(4)})
+            displaced=Expressions(model,props|{'fcs/fin-%d-delta-rad'%i:v for i,v in enumerate(actual)})
+            for key,axis in zip(('CD','CY','CL','Cl','Cm','Cn'),('DRAG','SIDE','LIFT','ROLL','PITCH','YAW')):
+                def whole(e):return sum(e.eval(fn) for fn in model.findall("./aerodynamics/axis[@name='%s']/function"%axis))
+                def per_fin(i,angle):
+                    import numpy as np
+                    stem=prefix+'fin-%d/'%i
+                    count=int(metadata[stem+'knot-count'])
+                    knots=[metadata[stem+'knot-%d-rad'%j] for j in range(count)]
+                    values=[displaced.property(stem+'knot-%d/'%j+key) for j in range(count)]
+                    return float(np.interp(angle,knots,values))
+                increment=sum(per_fin(i,v)-per_fin(i,0.) for i,v in enumerate(actual))
+                with self.subTest(alpha=alpha,beta=beta,mach=mach,axis=axis):
+                    self.assertAlmostEqual(increment,whole(displaced)-whole(zero),delta=1e-8)
+
     def test_directional_jacobian_uses_signed_fin_interval_and_mach_drag(self):
         import numpy as np
         from hangar import storecontrol

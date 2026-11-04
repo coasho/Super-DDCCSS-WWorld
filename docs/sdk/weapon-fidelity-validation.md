@@ -61,6 +61,45 @@ motion, guidance, fuzes, collision and damage. Viewer only presents native
 snapshots. A legal release, detonation, fragment Hit, functional damage and
 mission outcome are distinct observations. Report each separately.
 
+### Explicit time-armed proximity scene
+
+The selected `fuze_model_version=1` ideal spherical CPA sensor evaluates actual
+captured aircraft, detached bodies and existing finite decoy trajectories
+independently of the main seeker's detection, tracking or referee attribution.
+This corrects an undeclared seeker-tracking prerequisite. Main RF transmit
+eclipse and missed observations remain physical absences; this proximity scene
+never supplies an observation, identity or steering input to guidance. The
+retained version-zero implicit fuze keeps its original behavior.
+
+The existing authored material sensor station, target-CG reference, radius,
+time arming, lifetime, contact/terrain cutoffs and fixed initiation delay remain
+unchanged. Each physical object and generation has separate captured CPA
+history. Disappearance, a changed generation, a capture gap or a pose reset
+invalidates that history; terminal release destruction frees it. Candidates
+compete by the earliest actual captured trigger, with stable entity identity
+breaking an exact time tie, before the one release-scoped delay is scheduled.
+An already scheduled initiation remains independent of subsequent seeker or
+candidate changes. The nearest eligible physical separation is referee
+diagnostic geometry, not an actor measurement or a guarantee of damage.
+
+This sensor is an explicit engineering idealization. It does not reconstruct
+hardware fuze antenna patterns, RCS/optical thresholds or countermeasure
+discrimination. Existing modeled decoy bodies participate in the ideal sphere;
+their eligibility is not a claim about any manufacturer's target-detection
+device. Actual equipment may electronically enable proximity circuitry from
+guidance before intercept, as described in the original Navy
+[missile architecture chapter, section 17.7.3.2](https://man.fas.org/dod-101/navy/docs/fun/part16.htm).
+The separately authored simulator policy here is time arming; no new hardware
+enable law is inferred. The Navy's original
+[fuze chapter, section 15.2](https://man.fas.org/dod-101/navy/docs/fun/part14.htm)
+separates safe/arm, local target detection and initiation responsibilities.
+
+The native regression injects an explicitly failed main detector while retaining
+production release, propulsion, flight, controls, fuze and damage. Its fixed
+inside/outside-sphere, prearming, inert-jettison and candidate-order cases
+verify this separation. They do not claim that a native miss outside the
+unchanged sphere becomes a hit, or replace the original encounter gates.
+
 The [Hangar guide](../hangar-system.md#sim-m02-aerodynamic-engineering-completeness-gate)
 is the single aerodynamic acceptance policy. SIM-M02 uses one generic
 engineering-completeness gate for every design: VLM is the baseline, bounded

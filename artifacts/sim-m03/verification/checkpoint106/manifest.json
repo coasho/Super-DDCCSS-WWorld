@@ -1,0 +1,88 @@
+{
+  "schema": "sim-m03-verification-archive-v1",
+  "archived_utc": "2026-11-03T04:18:51.840115+00:00",
+  "archive_checkout_head": "e7ea9abe9dd9a148a42b1f6174353115bc9c8f5f",
+  "working_tree": "modified; checkpoint source-input identities are not reconstructed by this archive",
+  "scope": "Existing raw build/test output only; no new execution or full-program acceptance",
+  "focused_results": [
+    {
+      "name": "weapon_diagnostics",
+      "result": "Passed"
+    },
+    {
+      "name": "variant_actuation_native",
+      "result": "Passed"
+    },
+    {
+      "name": "weapon_effects_diagnostics",
+      "result": "Passed"
+    },
+    {
+      "name": "variant_plant_admission",
+      "result": "Passed"
+    },
+    {
+      "name": "weapon_navigation_integration",
+      "result": "***Failed"
+    },
+    {
+      "name": "weapon_navigation_policy",
+      "result": "Passed"
+    },
+    {
+      "name": "weapon_thermal_image",
+      "result": "Passed"
+    },
+    {
+      "name": "weapon_radio_receiver",
+      "result": "Passed"
+    },
+    {
+      "name": "weapon_radio_temporal",
+      "result": "Passed"
+    },
+    {
+      "name": "weapon_navigation_strapdown",
+      "result": "Passed"
+    }
+  ],
+  "viewer_checks": {
+    "checkpoint": 104,
+    "ctest_entries_passed": 2,
+    "same_revision_as_checkpoint106_not_established": true
+  },
+  "not_established": [
+    "Current full-screen 1x visual acceptance",
+    "Complete model/component acceptance",
+    "Fresh installed-consumer acceptance",
+    "Current full regression",
+    "Hardware calibration",
+    "Committed or pushed milestone delivery"
+  ],
+  "files": [
+    {
+      "path": "artifacts/sim-m03/verification/checkpoint106/checkpoint106-full-build.log",
+      "original_path": "build/architecture-reviews/sim-m03-complete-20261102/checkpoint106-full-build.log",
+      "bytes": 1116,
+      "sha256": "796007fcb78ccb1402773e2f2aa8be9683ece13e1e3397272e341fcbe34d913c"
+    },
+    {
+      "path": "artifacts/sim-m03/verification/checkpoint106/checkpoint106-focused-tests.log",
+      "original_path": "build/architecture-reviews/sim-m03-complete-20261102/checkpoint106-focused-tests.log",
+      "bytes": 3755,
+      "sha256": "83adcce599c3a4be0d4a806e352cf17c92ab5ae3b25ba00c9f39fcf4263889a2"
+    },
+    {
+      "path": "artifacts/sim-m03/verification/checkpoint106/checkpoint104-viewer-build.log",
+      "original_path": "build/architecture-reviews/sim-m03-complete-20261102/checkpoint104-viewer-build.log",
+      "bytes": 3440,
+      "sha256": "4dfa073554a3f1748c3224baec0dd7789f1a6b19f49baece5517e2b8e7b504e4"
+    },
+    {
+      "path": "artifacts/sim-m03/verification/checkpoint106/checkpoint104-viewer-tests.log",
+      "original_path": "build/architecture-reviews/sim-m03-complete-20261102/checkpoint104-viewer-tests.log",
+      "bytes": 504,
+      "sha256": "e226a906be813f17c4c2d8c5e27c6671e6ccc04a31554daec579c8c9a537d398"
+    }
+  ]
+}

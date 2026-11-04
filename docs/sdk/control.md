@@ -974,7 +974,7 @@ for (const SupportInfo& row : v.supportTable()) { ... }   // every public featur
   that builds it; not supported is a physical exception, with the rules that
   exclude it (`ruleName`, `ruleDescription`) and the aircraft's evidence: its
   design's declarations and their public sources
-  ([hangar.md](../hangar.md#applicability-what-the-aircraft-physically-is)).
+  ([Hangar system](../hangar-system.md#3-model-contract-and-reproducibility)).
   No evidence, no exception: a stock aircraft declares nothing, so nothing is
   excluded on it, and what its model lacks is not implemented.
 - **Never offered, never advertised.** What an aircraft's rules exclude is not
@@ -1163,7 +1163,7 @@ and carried in its profile ([the aircraft's profile](#the-aircrafts-profile),
 - The trim law and the flight path's angle of attack are fed forward.
 - The attitude is flown over *pseudo-controls* (`pseudo_attitude`). The loop asks the acceleration level for a roll rate, a load factor and an acceleration along the path, with the same poles placed in rates rather than deflections. The acceleration level, designed from the same plant, makes them with the aircraft's surfaces or its law. A heading is the path's through the air, the nose's plus the sideslip, so a dutch roll does not reach the bank.
 
-The aircraft designed with hangar all carry a plant ([hangar.md](../hangar.md#the-autopilot)): 15 measured numbers,
+The aircraft designed with hangar all carry a plant ([Hangar system](../hangar-system.md#9-generation-staging-native-flight-and-visual-acceptance)): 15 measured numbers,
 from which the platform designs 64 settings, where they used to carry 51 derived gains. A stock JSBSim aircraft carries none and
 flies the shared defaults.
 

@@ -276,7 +276,9 @@ def design(name):
             if g["control"] == "lattice":
                 lines.append("lattice = { width = %s, cells = %d }" % (_f(g["width"]), g.get("cells", 3)))
             if g.get("rollerons"):
-                lines.append("rolleron = { radius = %s }" % _f(ROLLERON_RADIUS))
+                lines.append("rolleron = { radius = %s, version = 1, capture-area-m2 = 0.0008, wheel-inertia-kg-m2 = 0.00002, wheel-drive-coefficient = 0.2, free-spin-ratio = 0.6, wheel-drag-coefficient = 0.08, bearing-damping-nms = 0.00002, hinge-inertia-kg-m2 = 0.0001, hinge-stiffness-nm-rad = 0.04, hinge-damping-nms-rad = 0.02, hinge-aerodynamic-method = 1, rate-rad-s = 10.0 }" % _f(ROLLERON_RADIUS))
+                lines += ["# Passive physical patch; generic uncertain mechanics, not measured AIM-9M constants.",
+                          'controls = [{ name = "passive rolleron %s", channel = "aileron", span = [0.72, 1.0], chord_fraction = 0.5, limits = [-12, 12] }]' % side]
             if g.get("free_rolling"):
                 lines.append("free_rolling = { turns_per_m = %s }" % _f(FREE_ROLL_PER_M))
             if g["control"] in ("moving", "lattice"):
@@ -316,6 +318,7 @@ def design(name):
               "[mass]",
               "empty = %s                 # kg, the card, motor full" % _f(M),
               "empty_cg = [%s, 0.0, 0.0]  # assumed: half way along" % _f(0.5 * L),
+              'gyration_reference = "body-length-v1"',
               "gyration = [%s, 0.289, 0.289]  # radii of gyration over length - assumed (a slender rod's: L/sqrt(12))" % _f(0.35 * D / L),
               "",
               "[dimensions]                  # the card: the span tip to tip across opposite fins",

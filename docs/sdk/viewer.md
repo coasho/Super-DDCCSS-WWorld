@@ -5,8 +5,7 @@ by itself, shows it, and follows every change. Your training application
 contains no visualisation code and does not know whether a viewer is running.
 
 The [2026-10-12 native viewer validation record](viewer-validation.md) separates current fullscreen GPU
-evidence, renderer lifecycle regressions and remaining checks from the older measurements below. Native
-viewer acceptance runs use `--fullscreen`; Vision cameras and RCS are offscreen GPU tests.
+evidence, renderer lifecycle regressions and remaining checks from the older measurements below. All on-screen views are mandatory fullscreen at the primary display resolution, real time 1x, with complete scene effects; Vision cameras and RCS are offscreen GPU tests.
 
 ## What you do
 
@@ -51,15 +50,15 @@ the old one - its aircraft, their trails, the focus - is dropped.
 - Every live vehicle, as a 3D model over full-Earth satellite imagery (to level 19, ~0.3 m/px) and terrain (30 m data to level 15, smoothly refined below it so the imagery keeps sharpening at low altitude), with a label, a trail and a chase/orbit/overview camera (`tab` cycles vehicles; left drag rotates the view around its focus (middle drag too); space + left drag pans only when the camera is detached (camera mode "free", or before any vehicle exists): it moves the globe so the ground follows the cursor, including across the poles - locked to a vehicle, space + left drag does nothing, and a plain left drag rotates about it; the wheel zooms 12 % a notch, out to 50,000 km (the whole Earth) and in to 6 m from a followed vehicle (1.5 times a smaller one's radius, down to 5 cm) or 25 m from a detached focus on the ground - locked to a vehicle it changes nothing but the distance, and detached it zooms towards the ground under the pointer (osgEarth's zoomToMouse), except beyond some 1,600 km (a quarter of the Earth's radius), where it too changes only the distance; `--no-zoom-to-cursor`, or `"zoomToCursor": false` under `camera` in `viewer.json`, makes the wheel zoom straight in; space alone, released without a drag, pauses; the right button is not a camera control; the camera never enters the terrain).
 - Vehicle creation, reset (new "generation") and removal, as they happen.
 - Several training applications at once: the monitor lists every live world and switches between them (`--world <name>` picks one at start).
-- Per-type models: a vehicle of type `jsbsim:f16` is drawn with `models/f16.glb` (or `.gltf`) if such a file exists in an asset directory (`<exe>/../share/flightsim/models`, the source tree's `assets/models`, or a `--assets` path), else with the platform's default aircraft; `VehicleSpec::model` names a file explicitly. Files are loaded once, on first use, and shared by every vehicle of that type; a `<file>.manifest` (`forward`, `up`, `scale`) fixes axes and size. Aircraft made with [hangar](../hangar.md) carry their own model (`aircraft/<name>/<name>.glb`), found the same way - and so does every store (a missile, a bomb, a tank, a pod, cargo: each a design of its own, [hangar.md](../hangar.md#stores)).
+- Per-type models: a vehicle of type `jsbsim:f16` is drawn with `models/f16.glb` (or `.gltf`) if such a file exists in an asset directory (`<exe>/../share/flightsim/models`, the source tree's `assets/models`, or a `--assets` path), else with the platform's default aircraft; `VehicleSpec::model` names a file explicitly. Files are loaded once, on first use, and shared by every vehicle of that type; a `<file>.manifest` (`forward`, `up`, `scale`) fixes axes and size. Aircraft made with [hangar](../hangar-system.md) carry their own model (`aircraft/<name>/<name>.glb`), found the same way - and so does every store (a missile, a bomb, a tank, a pod, cargo: each a design of its own, [Hangar system](../hangar-system.md#3-model-contract-and-reproducibility)).
 - Moving control surfaces, for models that mark them (see below): ailerons, elevator, rudder and flaps follow each vehicle's deflections, from the trainer or the replay.
 - What the engines and the air do (see [Effects](#effects)): afterburner flames, glowing nozzles and hot exhaust; wing tip vortices; condensation on the airframe - over the wings and canards, in the leading-edge extensions' vortices - and the transonic vapour cone; contrails high up.
 - The world's clock (sun position and sky), wind, atmosphere and weather - its cloud drawn as volumetric clouds (see [Clouds](#clouds)).
 - The trainer's throughput (vehicle-steps/s), simulation time and the age of the last update.
 - Per vehicle: state summary and the active control level.
 - What each vehicle's Vehicle Interface says of it (see [Flight status](#flight-status)): the selected vehicle's weight, its airspeed against the least a command may ask and its stall at that weight, its speed floor and the bank its airspeed leaves it; and for every vehicle, in the list and on its label, that it is low on energy, deviating or upset.
-- The trainer's cameras (`fsim_vision`, [vision.md](vision.md)): a "cameras" window with every image the training application rendered last, live (`v` toggles it).
-- The followed vehicle's Mission Systems ([mission-systems.md](mission-systems.md#in-the-viewer)): its payloads and their states, and each radar's display (a B-scope, or a PPI for a rotodome) with its scan, detections and tracks - the one it follows marked, its acquisition and illumination named - as the SDK's instances have them (`p` toggles them; each window collapses).
+- The trainer's cameras (`fsim_vision`, [vision.md](vision.md)): a permanent "cameras" window with every image the training application rendered last, live whenever camera data is published.
+- The followed vehicle's Mission Systems ([mission-systems.md](mission-systems.md#in-the-viewer)): its payloads and their states, and each radar's display (a B-scope, or a PPI for a rotodome) with its scan, detections and tracks - the one it follows marked, its acquisition and illumination named - as the SDK's instances have them. These populated panels stay open and expanded.
 
 ## How it works (design 9.7)
 
@@ -92,7 +91,7 @@ vsync and uses ~3% of one core while mirroring 64 vehicles).
 | `publishIntervalSeconds` | the copy rate limit; raise it to reduce the copy further, lower it for smoother motion at real-time pace |
 | `capacity` | vehicle slots in the segment (256 by default); vehicles beyond it simulate but are not shown |
 | `VehicleSpec::model` | optional glTF path shown instead of the type's model (`models/<type>.glb`, a design's `aircraft/<type>/<type>.glb`, or the design registered to stand in for a stock aircraft in `aircraft/models.txt`) or the default aircraft |
-| `recordPath` | also write the run to a `.fsrec` file; `flightsim-viewer.exe --replay <file>` plays it back (space pauses, `.` steps one frame, `[` `]` change the time factor, the timeline slider seeks, `home` restarts, loops at the end). The recording carries the world's environment as it changes (its `E` records, format 4) - the replay's clouds, the air its contrails, smoke and vapour form in and the sun by its clock are the world's, as live; a recording made before has none and is drawn in the viewer's defaults (a typical day's humidity, no clouds but its own, no wind) |
+| `recordPath` | also write the run to a `.fsrec` file; `flightsim-viewer.exe --replay <file>` plays it back (space pauses, `.` steps one frame, the timeline slider seeks, `home` restarts, loops at the end). The recording carries the world's environment as it changes (its `E` records, format 4) - the replay's clouds, the air its contrails, smoke and vapour form in and the sun by its clock are the world's, as live; a recording made before has none and is drawn in the viewer's defaults (a typical day's humidity, no clouds but its own, no wind) |
 
 ## Moving control surfaces
 
@@ -152,9 +151,8 @@ code reads from `state()`, so what you see is what the simulation did:
   nozzle: its origin at the exit, its x axis along the jet. The viewer draws
   the exhaust there (see [Effects](#effects)), as big as the node's own
   geometry is across its x axis, and turned with the node, so a nozzle that
-  vectors takes its flame with it. With the effects off, the node's own mesh
-  is the flame, stretched along x with the engine's `afterburner` (0 out ..
-  1 full) and hidden when it is out.
+  vectors takes its flame with it. The exhaust renderer is mandatory; the
+  node's marker mesh is replaced by the rendered gas while the engine burns.
 - `fsim:oleo:<wheel>[:<gain>]` slides along its x axis by the unit's
   `wheelCompressionM` (times the gain): a strut's piston, so a parked
   aircraft stands on its wheels.
@@ -180,7 +178,7 @@ their segmentation images show the same deflections.
 ### Breakup sections
 
 A designed aircraft's model is split into the sections a structural kill breaks it into - `fsim:section:nose`,
-`centre`, `left-wing`, `right-wing`, `tail` (hangar's, [hangar.md](../hangar.md#the-3d-model)) - each node at its
+`centre`, `left-wing`, `right-wing`, `tail` (hangar's, [Hangar system](../hangar-system.md#9-generation-staging-native-flight-and-visual-acceptance)) - each node at its
 break, what is mounted on it (its control surfaces, gear, pylons, nozzles) below it. Whole, they are at rest; the
 damage chain's `Separated` events hide the failed sections, while debris entities draw those sections alone at
 their own simulated poses. This is implemented in `VehicleVisuals::hideSection` and the viewer's event handling.
@@ -209,7 +207,7 @@ opens them (`StoreInfo::bayDoors`, half a second before a release from the bay) 
 each store's card and its bay's doors in its mission record; a recording carries the stores as they change (its `M` records, version 3), so a
 replay draws them too.
 
-Everything an aircraft carries beside its people, its built-in equipment and its small items is a store ([hangar.md](../hangar.md#mass-accounting)), drawn the same way: the F-22A's, F-35A's, J-20A's and Su-57's bay missiles in their bays, the EA-18G's three ALQ-99 jamming pods on its stations 3, 6 and 9 (its airframe's model no longer has them: as it spawns it is drawn clean, and with its "jamming pods" loadout each pod hangs under its pylon and leaves with a jettison), a missile jettisoned as the body it is. A transport's cargo - a loaded pallet, an airdrop bundle - rides on its hold's pallet positions (its manifest's stations, inside its skin: drawn there, out of sight); released over the ramp it is a vehicle of its own, drawn as its box, its pallet and its straps (`aircraft/463lpallet/463lpallet.glb`, `aircraft/cdsa22/cdsa22.glb`), and listed among the vehicles. hangar cuts no bay and hangs no rack for a hold's stations: the hold is the fuselage as it is drawn.
+Everything an aircraft carries beside its people, its built-in equipment and its small items is a store ([Hangar system](../hangar-system.md#3-model-contract-and-reproducibility)), drawn the same way: the F-22A's, F-35A's, J-20A's and Su-57's bay missiles in their bays, the EA-18G's three ALQ-99 jamming pods on its stations 3, 6 and 9 (its airframe's model no longer has them: as it spawns it is drawn clean, and with its "jamming pods" loadout each pod hangs under its pylon and leaves with a jettison), a missile jettisoned as the body it is. A transport's cargo - a loaded pallet, an airdrop bundle - rides on its hold's pallet positions (its manifest's stations, inside its skin: drawn there, out of sight); released over the ramp it is a vehicle of its own, drawn as its box, its pallet and its straps (`aircraft/463lpallet/463lpallet.glb`, `aircraft/cdsa22/cdsa22.glb`), and listed among the vehicles. hangar cuts no bay and hangs no rack for a hold's stations: the hold is the fuselage as it is drawn.
 
 ### Where a picture is hung
 
@@ -231,7 +229,7 @@ A store's own model has its origin at its CG as it hangs on a station: a tank's,
 the Mk 82's CG, a missile's CG with its motor full. A missile's file says so (`fsim/model/origin-x-in`), since its
 empty CG is its structure's, burnt out: lit, its CG moves 0.2 to 0.5 m ahead as its motor burns, and its picture stays
 on its airframe. hangar's model stage holds every store's model to this - its nose and its tail from its origin, its
-length, its width or its fins' reach measured on the mesh's own vertices ([hangar.md](../hangar.md#stores)).
+length, its width or its fins' reach measured on the mesh's own vertices ([Hangar system](../hangar-system.md#3-model-contract-and-reproducibility)).
 
 ## Flight status
 
@@ -266,7 +264,15 @@ separate GPU validation effort.
 Native showcase recordings default to 30 Hz. The scene's capture rate accepts positive integer divisors of
 30 Hz; it selects snapshots while preserving the SDK's 120 Hz JSBSim integration and 30 Hz World guidance,
 fuze and damage steps. It does not retime simulation to match the viewer's display rate. See the
-[Hangar scene contract](../hangar.md#missiles) for the supported rates and generated evidence files.
+[Hangar scene contract](../hangar-system.md#3-model-contract-and-reproducibility) for the supported rates and generated evidence files.
+
+On Windows, double-click `Engagement.cmd` in the repository root to run the original 5 km head-on F-16C /
+AIM-120C scene in one fullscreen Viewer. It uses the existing `ucrt64-release` build, with no recording,
+screenshots, preflight or time limit. Close the Viewer or press Esc to stop its native World and exit the launcher.
+This requires the built native Viewer, showcase and configured Python; it does not build or download anything.
+The tracked `tools/validation/viewer_perf/engagement.json` preserves the original `showcase_native` physical
+inputs, including the target's 270-degree heading. Run one live strike at a time. The native entry point is
+`flightsim-showcase <scene.json> --interactive`; the existing timed recording CLI remains available for tests.
 
 For continuous live observation, start one fullscreen viewer waiting for the exact World, then run the native
 scene with `--live` in another terminal. For Hangar's default AIM-120C scene:
@@ -517,9 +523,22 @@ by the gas pass's budget of rays, below) and its look (sun and sky by day, its n
 AgX tone mapping, as for the exhaust). Dry air stays
 clear however hard the pull, and humid air fogs a tip in a firm turn.
 
-`e` switches them off and on, `--no-effects` starts with them off, and
-`"effects": false` in `viewer.json` makes that the default. Off, the flames
-are the models' own meshes, as before.
+All on-screen visualization uses the primary display fullscreen at real time 1x.
+Earth imagery and elevation, clouds, sunlight with aircraft shadow maps, exhaust,
+condensation, contrails, native detonations, fire and smoke are mandatory.
+Aircraft and carried stores cast three directional shadow cascades. Logarithmic
+cascade splits retain near-aircraft detail despite the full-Earth camera's tiny
+near plane. Planet/sky/cloud/volume nodes remain visible in the main view but
+are excluded from VSG 1.1.16's reserved shadow traversal bit: a light camera's
+independent paged terrain LOD caused false surface stripes. The implementation
+uses the upstream [shadow traversal and cascade contract](https://github.com/vsg-dev/VulkanSceneGraph/blob/v1.1.16/src/vsg/state/ViewDependentState.cpp).
+Disabling flags, speed controls and effect switches have been removed. A missing
+required fire renderer is a startup error. Native conditions still determine
+where an effect occurs: a miss does not create a target explosion, and dry air
+does not create condensation. The plume photographic diagnostic samples the
+background beside the plume in the complete scene, as it does for photographs;
+it no longer renders an effects-disabled comparison image. Its original
+photographic limits remain unchanged; old paired-image results are historical.
 
 The GPU does the work, from a few rows of numbers per vehicle and the clock (the simulation's, so a paused or
 replayed world shows the same). The gas round the aircraft - the vapour and the exhaust - is marched in one compute

@@ -1417,3 +1417,25 @@ names = [
 principal = "value"
 note = "V1 fusion record initializers"
 names = ["fsim_fused_entity_v1_init", "fsim_fusion_source_v1_init", "fsim_fusion_status_v1_init"]
+
+[[rule]]
+principal = "agent"
+note = "Explicit opt-in V1 own release/controller weapon link facade; feedback is onboard data retained only after native delivery; no default actor methods added"
+names = [
+    "fsim_weapon_link_instance_v1", "fsim_weapon_link_capability_get_v1",
+    "fsim_weapon_fused_designate_v1", "fsim_weapon_fused_designations_v1",
+    "fsim_weapon_assess_v1", "fsim_weapon_assessment_cancel_v1",
+    "fsim_weapon_assessment_status_get_v1", "fsim_weapon_feedback_get_v1",
+]
+globs = ["fsim::WeaponLinksV1::*", "fsim.weapon_link.WeaponLinksV1.*", "fsim.weapon_link.RemoteWeaponLinksV1.*"]
+
+[[rule]]
+principal = "range"
+note = "Explicit V1 weapon-link process host; only its separate proxy crosses, never the supplied Range World or Agent"
+globs = ["fsim.weapon_link_process.WeaponLinkProcessV1.*"]
+
+[[rule]]
+principal = "value"
+note = "The constant optional weapon-link proxy method list"
+names = ["fsim.weapon_link.weapon_link_calls_v1"]
+

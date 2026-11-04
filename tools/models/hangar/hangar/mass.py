@@ -163,6 +163,18 @@ def check_payload(p):
         raise ValueError("[[mass.payload]] %r: a fixed load hangs on no station - what a station carries is a store" % name)
 
 
+def _gear_mass_points(gear, clean=False):
+    """Source reference pose; the existing visual Leg owns the hinge transform."""
+    if not clean or not gear.retractable:
+        return np.array([point for _, point in gear.positions()])+np.array([0., 0., .5*gear.wheel_diameter])
+    from .shape.gear import Leg
+    points=[]
+    for name, contact in gear.positions():
+        leg=Leg(gear,name,contact,float(np.sign(contact[1])))
+        points.append(leg.hinge+leg.R @ (leg.axle-leg.hinge))
+    return np.asarray(points)
+
+
 class MassModel:
     def __init__(self, aircraft):
         self.aircraft = a = aircraft
@@ -201,7 +213,7 @@ class MassModel:
             area, cen = _tri_area_centroid(v, t)
             self._add(b.name, given.get(b.name, est.get(b.name, 0.0)), cen, area, "structure")
         for g in a.gear:
-            pts = np.array([p for _, p in g.positions()]) + np.array([0.0, 0.0, 0.5 * g.wheel_diameter])
+            pts = _gear_mass_points(g, clean=spec.get("inertia_reference") == "geometry-clean-v1")
             m = given.get(g.name, est.get(g.name, 0.0))
             self._add(g.name, m, pts, np.ones(len(pts)), "gear")
         for e in a.engines:
@@ -247,6 +259,159 @@ class MassModel:
             else:
                 pos = self._systems_position()
                 self._add("systems", self.systems, pos[None, :], np.ones(1), "systems")
+        if self.spec.get("gyration") is not None and aircraft.category not in ("store", "missile"):
+            # Freeze the existing declared tensor before changing its inferred
+            # spatial realization. Only diagonal moments use authored gyration;
+            # cross-products retain the pre-existing geometry-derived policy.
+            self._authored_empty = self.empty()
+            self._reconcile_authored_distribution()
+
+    def _reconcile_authored_distribution(self):
+        """One nonnegative fixed-geometry distribution for parent and sections.
+
+        Minimum relative entropy to the existing component quadratures, with
+        each component mass and the declared full first/second moments fixed.
+        Retractable gear uses the existing clean-reference Leg transformation;
+        it is not represented by its deployed ground-contact position.
+        """
+        from .shape.gear import Leg
+        target = self._authored_empty
+        mass = float(target["mass"])
+        origin = np.asarray(target["cg"], float)
+        reference_gear = []
+        for gear in self.aircraft.gear:
+            if not gear.retractable:
+                continue
+            points = []
+            for name, contact in gear.positions():
+                leg = Leg(gear, name, contact, float(np.sign(contact[1])))
+                points.append(leg.hinge + leg.R @ (leg.axle - leg.hinge))
+            for index, (name, amount, previous, weights, kind) in enumerate(self.items):
+                if kind == "gear" and name == gear.name:
+                    clean = np.asarray(points, float)
+                    if clean.shape != previous.shape or not np.all(np.isfinite(clean)):
+                        raise ValueError("Invalid clean gear mass support: " + name)
+                    reference_gear.append(dict(name=name, deployed_points=previous.tolist(), clean_points=clean.tolist(),
+                                               method="shape.gear.Leg authored hinge/swing/twist, fully stowed"))
+                    self.items[index] = (name, amount, clean, weights, kind)
+        # Systems are inferred distributed equipment, not hardware mounted on
+        # one artificial constant-z line. Its support is the actual fuselage
+        # interior, using the same asymmetric superellipse sections as geometry.
+        fuselages = [body for body in self.aircraft.bodies if body.kind == "fuselage"]
+        for index, (name, amount, point, weights, kind) in enumerate(self.items):
+            if kind != "systems" or not fuselages:
+                continue
+            body = fuselages[0]
+            xs = body.x[0] + body.length*np.linspace(.05, .9, 40)
+            width, top, bottom, centre_y, _ = body.section(xs)
+            centre_z, upper, lower = body.halves(xs)
+            samples, prior = [], []
+            quadrature, quadrature_weights = np.polynomial.legendre.leggauss(7)
+            for k, x in enumerate(xs):
+                for fraction_z, weight_z in zip(quadrature, quadrature_weights):
+                    exponent = upper[k] if fraction_z > 0 else lower[k]
+                    radius_y = .5*width[k]*(1-abs(fraction_z)**exponent)**(1/exponent)
+                    z = centre_z[k]+fraction_z*((top[k]-centre_z[k]) if fraction_z > 0 else (centre_z[k]-bottom[k]))
+                    half_height = (top[k]-centre_z[k]) if fraction_z >= 0 else (centre_z[k]-bottom[k])
+                    for fraction_y, weight_y in zip(quadrature, quadrature_weights):
+                        samples.append([x, centre_y[k]+fraction_y*radius_y, z])
+                        prior.append(radius_y*half_height*weight_z*weight_y)
+            prior = np.asarray(prior, float)
+            self.items[index] = (name, amount, np.asarray(samples), prior/prior.sum(), kind)
+        tensor = np.array([[target["ixx"], -target["ixy"], -target["ixz"]],
+                           [-target["ixy"], target["iyy"], -target["iyz"]],
+                           [-target["ixz"], -target["iyz"], target["izz"]]])
+        covariance = (.5 * np.trace(tensor) * np.eye(3) - tensor) / mass
+        if not np.all(np.isfinite(covariance)) or np.linalg.eigvalsh(covariance).min() < 0:
+            raise ValueError("Authored inertia has no physical nonnegative mass realization")
+        points = np.vstack([item[2] for item in self.items])
+        scale = np.maximum(np.max(np.abs(points-origin), axis=0), 1.)
+        normalized = covariance / np.outer(scale, scale)
+        desired = np.r_[np.zeros(3), np.diag(normalized), normalized[0, 1], normalized[0, 2], normalized[1, 2]]
+        groups = []
+        for name, amount, point, weight, kind in self.items:
+            q = (point-origin) / scale
+            features = np.column_stack((q, q[:, 0]**2, q[:, 1]**2, q[:, 2]**2,
+                                        q[:, 0]*q[:, 1], q[:, 0]*q[:, 2], q[:, 1]*q[:, 2]))
+            # Zero weights from the old clipped engineering density are not a
+            # prohibition on existing geometry support. Use a machine-precision
+            # positive entropy reference, without changing any physical target.
+            prior = np.maximum(np.asarray(weight, float), np.finfo(float).eps / len(weight))
+            prior /= prior.sum()
+            groups.append((amount/mass, features, np.log(prior), np.asarray(weight, float) if kind in ("engine", "gear", "item") else None))
+
+        def evaluate(parameters, hessian=True):
+            objective = -float(parameters @ desired)
+            residual = -desired.copy()
+            matrix = np.zeros((9, 9))
+            weights = []
+            for fraction, features, logarithms, fixed in groups:
+                if fixed is not None:
+                    probability = fixed
+                    mean = probability @ features
+                    objective += fraction * float(mean @ parameters)
+                else:
+                    logits = logarithms + features @ parameters
+                    maximum = float(np.max(logits))
+                    probability = np.exp(logits-maximum)
+                    normalization = float(probability.sum())
+                    probability /= normalization
+                    mean = probability @ features
+                    objective += fraction * (maximum + np.log(normalization))
+                    if hessian:
+                        centered = features-mean
+                        matrix += fraction * (centered.T @ (probability[:, None]*centered))
+                residual += fraction * mean
+                weights.append(probability)
+            return objective, residual, matrix, weights
+
+        parameters = np.zeros(9)
+        tolerance = 2e-12
+        accepted = None
+        for iteration in range(160):
+            objective, residual, hessian, fitted = evaluate(parameters)
+            if not np.isfinite(objective) or not np.all(np.isfinite(residual)):
+                break
+            if np.max(np.abs(residual)) <= tolerance:
+                accepted = fitted
+                break
+            eigenvalues, eigenvectors = np.linalg.eigh(hessian)
+            threshold = 128*np.finfo(float).eps * max(float(eigenvalues[-1]), 1.)
+            active = eigenvalues > threshold
+            coefficients = eigenvectors.T @ residual
+            if np.max(np.abs(coefficients[~active]), initial=0.) > tolerance:
+                break  # Inconsistent redundant moment constraint; never drop its target.
+            direction = eigenvectors[:, active] @ (coefficients[active]/eigenvalues[active])
+            slope = float(residual @ direction)
+            step = 1.
+            for _ in range(48):
+                candidate = parameters-step*direction
+                value, candidate_residual, _, _ = evaluate(candidate, False)
+                # Objective improvement can fall below one ULP before the
+                # unchanged physical moment predicate is satisfied.
+                roundoff = 8*np.finfo(float).eps*max(1., abs(objective))
+                progress = (value <= objective+roundoff and
+                            np.max(np.abs(candidate_residual)) < np.max(np.abs(residual)))
+                if np.isfinite(value) and (value <= objective-1e-4*step*slope or progress):
+                    parameters = candidate
+                    break
+                step *= .5
+            else:
+                break
+        if accepted is None:
+            raise ValueError("Authored mass moments infeasible or bounded quadrature reconciliation did not converge: " + self.aircraft.name)
+        original = self.items
+        self.items = [(name, amount, point, weight, kind)
+                      for (name, amount, point, _, kind), weight in zip(original, accepted)]
+        self.mass_partition = dict(version="fsim.mass-quadrature.v1", iterations=iteration,
+            maximum_dimensionless_moment_residual=float(np.max(np.abs(residual))),
+            objective="minimum relative entropy, each item mass and declared full moments constrained",
+            dimensionless_moment_tolerance=2e-12, normalization_scale_m=scale.tolist(),
+            mounted_weights="engine, gear and authored item quadrature weights fixed",
+            section_moment_screening_uncertainty_fraction=.25,
+            gear_reference=reference_gear, declared_empty={k:(v.tolist() if isinstance(v,np.ndarray) else v) for k,v in target.items()},
+            distribution_uncertainty="Inferred, nonunique engineering spatial distribution on declared geometry support; not measured section density",
+            support_extent_m={name:np.ptp(point,axis=0).tolist() for name,_,point,_,_ in self.items})
 
     def _add(self, name, mass, pts, weights, kind):
         if mass <= 0:
@@ -335,6 +500,8 @@ class MassModel:
     def empty(self):
         """Mass, CG and inertia (about the CG; the structural frame's
         moments and plain products of inertia) of the empty aircraft."""
+        if hasattr(self, "_authored_empty"):
+            return {**self._authored_empty, "cg": self._authored_empty["cg"].copy()}
         m = sum(mi for _, mi, _, _, _ in self.items)
         cg = sum(mi * (w[:, None] * p).sum(axis=0) for _, mi, p, w, _ in self.items) / m
         J = np.zeros((3, 3))
@@ -349,17 +516,26 @@ class MassModel:
         ixz = J[0, 2]
         g = self.spec.get("gyration")
         if g is not None:
-            # published (or class-typical) radii of gyration, Roskam's
-            # non-dimensional ones, over the build-up's: a fighter's weight
-            # statement rarely says where its equipment sits
+            reference = self.spec.get("gyration_reference", "roskam-v1")
+            values = np.asarray(g, float)
+            if values.shape != (3,) or not np.isfinite(values).all() or (values <= 0).any():
+                raise ValueError("Mass gyration must contain three finite positive radii")
             a = self.aircraft
-            b = a.span_overall
-            length = a.length_overall
-            k = izz
-            ixx = m * (float(g[0]) * b / 2.0) ** 2
-            iyy = m * (float(g[1]) * length / 2.0) ** 2
-            izz = m * (float(g[2]) * (b + length) / 4.0) ** 2
-            ixz *= izz / max(k, 1e-9)
+            if reference == "body-length-v1":
+                # Analytic store body convention, distinct from aircraft Roskam.
+                length = max(float(body.x[-1]) for body in a.bodies) - min(float(body.x[0]) for body in a.bodies)
+                ixx, iyy, izz = m * (values * length) ** 2
+                # The declared axis-aligned primitive has no cross products.
+                J[0, 1] = J[1, 2] = ixz = 0.0
+            elif reference == "roskam-v1":
+                b, length = a.span_overall, a.length_overall
+                k = izz
+                ixx = m * (values[0] * b / 2.0) ** 2
+                iyy = m * (values[1] * length / 2.0) ** 2
+                izz = m * (values[2] * (b + length) / 4.0) ** 2
+                ixz *= izz / max(k, 1e-9)
+            else:
+                raise ValueError("Unknown mass gyration reference: " + str(reference))
         return {"mass": m, "cg": cg, "ixx": ixx, "iyy": iyy, "izz": izz,
                 "ixy": J[0, 1], "ixz": ixz, "iyz": J[1, 2]}
 

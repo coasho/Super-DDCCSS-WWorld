@@ -6,7 +6,7 @@
 | Extends | ADR-20 (the multi-level control stack), which stays in force for the runtime |
 | Extended by | ADR-28 ([vehicle-interface.md](architecture/modules/simulation/vehicle-interface.md)): the A-GRA Vehicle Interface's flight modes as guidance that takes UPDATE through fixed-size setpoints (narrowing 8.2), and grants a vehicle may require of a policy (narrowing section 5's "no consent protocol"). ADR-29 ([flight-autonomy.md](architecture/modules/simulation/flight-autonomy.md)): every Flight Autonomy command of the Vehicle Interface on all 35 aircraft, with a store of route plans and flight tasks (narrowing section 5's "no plan engine"), ranked, queued and time-windowed commands, and discovery by support state and flight phase |
 | Scope | How consumers command aircraft; how an aircraft describes what it can do; how commands are arbitrated, tracked and ended; how knowledge about one aircraft reaches the control loops |
-| Related | [Design document](architecture/design/platform-baseline.md) §9.3 (control), §10.3 (stability rules), §12 (performance); [sdk/control.md](sdk/control.md); [hangar.md](hangar.md) |
+| Related | [Design document](architecture/design/platform-baseline.md) §9.3 (control), §10.3 (stability rules), §12 (performance); [sdk/control.md](sdk/control.md); [Hangar system](hangar-system.md) |
 
 ## 1. Context
 

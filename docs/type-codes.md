@@ -74,7 +74,7 @@ station carries is a store, whose type is its card's `class` (`assets/stores/*.j
 - **A pod is two things.** Its body on the station is a PD payload (mass, drag, model); the sensor or the jammer in it
   is the PO or EA payload its aircraft's card names.
 - **A missile's design** is `category = "missile"`, any other store's `category = "store"`
-  ([hangar.md](hangar.md#stores)): the code is the card's class, AA for every missile there is today.
+  ([Hangar system](hangar-system.md#3-model-contract-and-reproducibility)): the code is the card's class, AA for every missile there is today.
 
 ## Keeping it current
 

@@ -38,6 +38,49 @@ class NativeExpressions(Expressions):
         return super().eval(node)
 
 
+class FiniteInlet(unittest.TestCase):
+    def test_residence_rejects_nonrepresentable_derived_native_coefficients(self):
+        card=fixture();row=card['component_models']['components']['propulsion']
+        row['implementation_id']=ductedrocket.IMPLEMENTATION_V2
+        row['parameter_refs']['inlet_residence_s']='ducted_inlet_residence_s'
+        for value in (0.,-1.,float('nan'),float('inf'),1e308,5e-324):
+            card['parameters']['ducted_inlet_residence_s']=dict(value=value,unit='s',basis='assumed',uncertainty=.1,
+                note='Malformed synthetic input, never hardware data.')
+            with self.subTest(value=value),self.assertRaises(ValueError):ductedrocket.inputs(card)
+
+    def test_positive_axial_flux_and_matched_finite_inventory(self):
+        c=VALUES|{'inlet_residence_s':.1}
+        for velocity in ((600.,0.,0.),(0.,600.,0.),(-600.,0.,0.),(300.,400.,0.)):
+            state=ductedrocket.inlet_equilibrium_v2(c,density=.65,velocity=velocity,temperature=250.,mach=2.)
+            expected=.65*c['capture_area_m2']*max(velocity[0],0.)
+            self.assertEqual(state['air_kg_s'],expected)
+            self.assertAlmostEqual(state['air_mass_kg'],.1*expected)
+            self.assertAlmostEqual(state['enthalpy_j'],.1*expected*(c['air_cp_j_kg_k']*250.+.5*sum(v*v for v in velocity)))
+            for j in range(3):self.assertAlmostEqual(state['momentum_body_kg_m_s'][j],-.1*expected*velocity[j])
+
+    def test_native_v2_owns_inventory_mass_and_ram_reaction(self):
+        card=fixture();row=card['component_models']['components']['propulsion']
+        row['implementation_id']=ductedrocket.IMPLEMENTATION_V2
+        row['parameter_refs']['inlet_residence_s']='ducted_inlet_residence_s'
+        card['parameters']['ducted_inlet_residence_s']=dict(value=.1,unit='s',basis='assumed',uncertainty=.05,
+            note='Generic residence time fixture, not measured Meteor data.')
+        products=storebodies.files(card);root=ET.fromstring(products['meteor.xml'])
+        self.assertEqual(len(root.findall("mass_balance/pointmass[@name='Finite resident inlet air v2']")),1)
+        filters=root.findall(".//lag_filter")
+        owned=[n for n in filters if (n.get('name') or '').startswith('fsim/ducted-inlet-v2/')]
+        self.assertEqual(len(owned),5) # air, enthalpy, and three momentum fluxes
+        for node in owned:self.assertEqual(float(node.findtext('c1')),10.)
+        self.assertEqual(len(root.findall("external_reactions/force")),3)
+        for axis in 'xyz':
+            reaction=root.find("external_reactions/function[@name='fsim/ducted-inlet-v2/ram-reaction-"+axis+"-n']")
+            self.assertIsNotNone(reaction);self.assertEqual(reaction.get('type'),'pre')
+            force=root.find("external_reactions/force[@name='fsim/ducted-inlet-v2/ram-reaction-"+axis+"']")
+            self.assertEqual(force.findtext('function/product/property'),'fsim/ducted-inlet-v2/ram-reaction-'+axis+'-n')
+        engine=ET.fromstring(products['Engines/meteor_sustainer.xml'])
+        self.assertTrue(any(n.get('name','').endswith('/gross-thrust-n') for n in engine.findall('function')))
+        self.assertFalse(any(n.get('name','').startswith('fsim/ducted-rocket/ram-drag') for n in root.findall('.//aerodynamics/axis/function')))
+
+
 class DuctedRocket(unittest.TestCase):
     def test_negative_cycle_wind_loads_reconstruct_only_axial_body_force(self):
         model=ET.fromstring(storebodies.files(fixture())['meteor.xml'])

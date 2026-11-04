@@ -112,7 +112,7 @@ a store card's model, so `jsbsim:mk82` is the Mk 82 built from its design), then
 among JSBSim's stock aircraft, then among the
 aircraft designed with hangar: `aircraft/` in the source tree for a
 development build, `share/flightsim/aircraft` in a package. The fighters and
-support aircraft of [hangar.md](../hangar.md) are
+support aircraft of [Hangar system](../hangar-system.md) are
 `jsbsim:f16c`, `jsbsim:b52h` and so on.
 
 ## `fsim::Vehicle`

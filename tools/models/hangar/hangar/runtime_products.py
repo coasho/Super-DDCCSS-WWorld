@@ -11,7 +11,7 @@ from .files import atomic_write_text
 
 def stage_runtime_products(source,data):
     """Keep XML, cards and content-addressed carriage tables in one epoch."""
-    from . import storestages
+    from . import storestages, pieces
     root=Path(pipeline.repo_root()).resolve();source=Path(source).resolve();data=Path(data).resolve()
     if not data.is_relative_to(root) or not data.is_dir():
         raise ValueError('Publication requires the built project SDK data directory')
@@ -20,16 +20,38 @@ def stage_runtime_products(source,data):
     products=root/'aircraft'/relative;destination=data/'aircraft'/relative
     files=list(products.glob('*.xml'))
     files.extend(products.glob('*.damage.json'))
+    files.extend(products.glob('*.liquid-v1.json'))
+    # Store visual models live at the authored design, while their flight
+    # definitions retain the existing aircraft/stores/<design> namespace.
+    visual=source.parent
+    visual_destination=data/'aircraft'/source.stem
+    for suffix in ('.glb','.glb.manifest'):
+        path=visual/(source.stem+suffix)
+        if path.is_file():
+            target=visual_destination/path.name;target.parent.mkdir(parents=True,exist_ok=True)
+            if not target.is_file() or path.read_bytes()!=target.read_bytes():shutil.copyfile(path,target)
     if (products/'pieces').is_dir():
         for piece in (products/'pieces').iterdir():
             if piece.name.casefold()=='.codex' or piece.is_symlink() or not piece.is_dir():continue
             files.extend(p for p in piece.iterdir() if p.name.casefold()!='.codex' and not p.is_symlink() and p.is_file() and p.suffix=='.xml')
     for folder in ('Engines','Systems','aero'):
         if (products/folder).is_dir():
-            files.extend(p for p in (products/folder).iterdir() if p.is_file() and p.suffix in ('.xml','.json'))
+            files.extend(p for p in (products/folder).iterdir()
+                         if p.name.casefold() not in ('.codex','.git') and p.is_file() and p.suffix in ('.xml','.json'))
     for path in files:
         target=destination/path.relative_to(products);target.parent.mkdir(parents=True,exist_ok=True)
         if not target.is_file() or path.read_bytes()!=target.read_bytes():shutil.copyfile(path,target)
+    if not store and (products/(source.stem+'.damage.json')).is_file():
+        for section in pieces.PARTS:
+            name=pieces.piece_name(source.stem,section)
+            current=products/'pieces'/name/(name+'.xml')
+            retired=destination/'pieces'/name/(name+'.xml')
+            if not current.is_file():
+                if not retired.resolve().is_relative_to(data) or retired.is_symlink():
+                    raise ValueError('Retired generated piece leaves its owned SDK data namespace')
+                if retired.exists():
+                    if not retired.is_file():raise ValueError('Retired generated piece is not a regular XML file')
+                    retired.unlink()
     legacy=destination/'engineering-aero-v1.json'
     if legacy.is_file() and not (products/legacy.name).is_file():
         old=json.loads(legacy.read_text(encoding='utf-8'))

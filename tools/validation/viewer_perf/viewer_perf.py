@@ -378,7 +378,7 @@ def shots(args):
                 t, camera = frame["time_s"], frame["camera"]
                 png = "%s_%03d.png" % (stem, k)
                 command = [os.path.join(bin_dir, args.exe), "--replay", rec] + camera + [
-                    "--offline", "--no-gui", "--width", str(WIDTH), "--height", str(HEIGHT), "--fullscreen", *SUN, "--screenshot", png,
+                    "--offline", "--width", str(WIDTH), "--height", str(HEIGHT), "--fullscreen", *SUN, "--screenshot", png,
                     "--screenshot-clock", "replay", "--screenshot-after", "%.3f" % t] + args.viewer
                 if os.path.isfile(png):
                     os.remove(png)

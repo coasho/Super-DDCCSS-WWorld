@@ -47,6 +47,9 @@ try {
     $toolchain = if ($env:FSIM_UCRT64_ROOT) { $env:FSIM_UCRT64_ROOT } else { 'D:\ENV\DevLanguages\Cpp\msys2\ucrt64' }
     $env:PATH = (Join-Path $toolchain 'bin') + ';' + $env:PATH
     $env:TMP = $env:TEMP = $env:TORCH_EXTENSIONS_DIR = 'D:\ENV\tmp'
+    if (-not $env:MPLCONFIGDIR) { $env:MPLCONFIGDIR = 'D:\ENV\cache\fsim\matplotlib' }
+    if (-not $env:XDG_CACHE_HOME) { $env:XDG_CACHE_HOME = 'D:\ENV\cache\fsim' }
+    $env:PYTHONDONTWRITEBYTECODE = '1'
     Set-Location -LiteralPath $root
     if ($command -in @('configure', 'build', 'dist')) {
         New-Item -ItemType Directory -Path $env:TEMP -Force | Out-Null

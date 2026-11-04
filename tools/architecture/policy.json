@@ -19,7 +19,7 @@
     "control": {"target": "fsim_control", "aliases": ["fsim::control"], "domain": "simulation", "kind": "implementation", "directories": [], "destinations": ["src/simulation/flight_control"], "files": [], "headless": true, "allowed_dependencies": ["sim", "core"]},
     "effects": {"target": "fsim_effects", "aliases": ["fsim::effects"], "domain": "simulation", "kind": "implementation", "directories": [], "destinations": ["src/simulation/environment"], "files": [], "headless": true, "allowed_dependencies": ["sim", "core"]},
     "comm": {"target": "fsim_comm", "aliases": ["fsim::comm"], "domain": "simulation", "kind": "implementation", "directories": [], "destinations": ["src/simulation/communications/network"], "files": [], "headless": true, "allowed_dependencies": ["control", "core", "platform"]},
-    "ms": {"target": "fsim_ms", "aliases": ["fsim::ms"], "domain": "simulation", "kind": "implementation", "directories": [], "destinations": ["src/simulation/mission_systems"], "files": [], "headless": true, "allowed_dependencies": ["core"]},
+    "ms": {"target": "fsim_ms", "aliases": ["fsim::ms"], "domain": "simulation", "kind": "implementation", "directories": [], "destinations": ["src/simulation/mission_systems"], "files": [], "headless": true, "allowed_dependencies": ["core", "contracts"]},
     "modeled_dms": {"target": "fsim_modeled_dms", "aliases": ["fsim::modeled_dms"], "domain": "simulation", "kind": "implementation", "directories": [], "destinations": ["src/simulation/communications/dms"], "files": [], "headless": true, "allowed_dependencies": ["comm", "ms"]},
     "session": {"target": "fsim_session", "aliases": ["fsim::session"], "domain": "simulation", "kind": "implementation", "directories": [], "destinations": ["src/simulation/runtime"], "files": [], "headless": true, "allowed_dependencies": ["contracts", "modeled_dms", "ms", "control", "effects", "comm", "ipc", "sim", "io", "core"]},
     "simulation_api": {"target": "fsim_simulation_api", "aliases": ["fsim::simulation_api"], "domain": "simulation", "kind": "implementation", "directories": [], "destinations": ["src/simulation/api"], "files": [], "headless": true, "allowed_dependencies": ["session", "ipc", "core"]},
@@ -76,6 +76,8 @@
     "include/fsim/BuiltinEffects.h": {"domain": "simulation", "kind": "interface"},
     "include/fsim/Comm.h": {"domain": "simulation", "kind": "interface"},
     "include/fsim/MAReports.h": {"domain": "simulation", "kind": "value"},
+    "include/fsim/WeaponLink.h": {"domain": "simulation", "kind": "facade"},
+    "include/fsim/fsim_weapon_link.h": {"domain": "adapters", "kind": "c_abi"},
     "include/fsim/MAService.h": {"domain": "simulation", "kind": "facade"},
     "include/fsim/Agent.h": {"domain": "simulation", "kind": "facade"},
     "include/fsim/World.h": {"domain": "simulation", "kind": "facade"},
@@ -107,7 +109,8 @@
     "optional_modules": ["fsim.gym", "fsim.sb3", "fsim.vision"],
     "optional_packages": ["gymnasium", "stable_baselines3", "torch"],
     "dynamic_imports": [
-      {"module": "fsim._adapters.actor", "function": "serve", "reason": "Resolves the actor class named by the isolated process's configuration (fsim.isolation's actor process, ARCH-07 P056)"}
+      {"module": "fsim._adapters.actor", "function": "serve", "reason": "Resolves the actor class named by the isolated process's configuration (fsim.isolation's actor process, ARCH-07 P056)"},
+      {"module": "fsim.weapon_link_process", "function": "__init__", "reason": "Resolves the explicitly configured policy class for the optional M03 weapon-link proxy; no default actor callable list changes"}
     ],
     "exceptions": []
   },

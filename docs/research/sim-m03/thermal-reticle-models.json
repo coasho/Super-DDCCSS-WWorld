@@ -1,0 +1,442 @@
+{
+  "schema": "fsim.thermal-reticle-models.v1",
+  "state": "implementation_authored_native_verification_pending",
+  "shared_policy": "thermal_conscan_reticle.v1",
+  "shared_equivalence": "Identical declared scalar receiver algorithm; not OEM hardware equivalence or empirical calibration.",
+  "models": [
+    {
+      "model": "aim-9m",
+      "card_sha256": "46861754d471e85d8b1a2d3f8ce46cec18be35182d03d220a01e1701a5caee48",
+      "parameter_sha256": "f3c75cf37f8e92d6dc449e24401b68145d2c097227f36b538e0b4049916d7143",
+      "implementation_id": "equipment.aim-9m.seeker",
+      "receiver_model": "thermal_conscan_reticle.v1",
+      "prior_receiver_model": "thermal_quadrant.v1",
+      "original_parameters_sha256": "11ace01ba8d71bdb00a177c58ec31fa7b3eeec79113eb2a7f61fa6eaf760eea3",
+      "all_original_parameter_records_unchanged": true,
+      "reference_scope": {
+        "url": "https://www.af.mil/About-Us/Fact-Sheets/Display/Article/104557/aim-9-sidewinder/",
+        "locator": "Background, L/M paragraphs",
+        "fact": "AIM-9L conical scan and AIM-9M L heritage/background discrimination; exact M mask/electronics not disclosed."
+      },
+      "reticle_parameters": {
+        "receiver_reticle_periods": {
+          "value": 12,
+          "unit": "1",
+          "uncertainty": 1,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_samples_per_scan": {
+          "value": 128,
+          "unit": "1",
+          "uncertainty": 64,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_spatial_samples": {
+          "value": 4,
+          "unit": "1",
+          "uncertainty": 2,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_scan_radius_rad": {
+          "value": 0.024,
+          "unit": "rad",
+          "uncertainty": 0.012,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_stop_radius_rad": {
+          "value": 0.048,
+          "unit": "rad",
+          "uncertainty": 0.024,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_frequency_hz": {
+          "value": 132.62911924324612,
+          "unit": "Hz",
+          "uncertainty": 66.31455962162306,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        }
+      },
+      "theory_delta": "Actual photon-mask nutation and scalar waveform fitting replace the old four-charge Gaussian inversion. Exact OEM optical topology and calibration remain unverified.",
+      "native_verification": "pending",
+      "equipment_calibration": false
+    },
+    {
+      "model": "magic-2",
+      "card_sha256": "d5058819dfe6dd7fe3c484a97a1e642f6457509f971609a482f0952b77cfe1a6",
+      "parameter_sha256": "671de40104a5520d563953b9e9787b9fba847c1fc1e9f0a7b10a67003f5eb280",
+      "implementation_id": "equipment.magic-2.seeker",
+      "receiver_model": "thermal_conscan_reticle.v1",
+      "prior_receiver_model": "thermal_quadrant.v1",
+      "original_parameters_sha256": "e8dadfbb8e5d17cbd120d9238be2f1602157ef4af757ed1ba8ab78a5bedf3ab5",
+      "all_original_parameter_records_unchanged": true,
+      "reference_scope": {
+        "url": "https://www.irsem.fr/storage/file_manager_files/2025/03/missiles-tactiques-comaero.pdf",
+        "locator": "Printed147, Magic2",
+        "fact": "Historical multi-element IR description. A scalar reticle is an explicit approximation, not evidence of the actual detector arrangement."
+      },
+      "reticle_parameters": {
+        "receiver_reticle_periods": {
+          "value": 12,
+          "unit": "1",
+          "uncertainty": 1,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_samples_per_scan": {
+          "value": 128,
+          "unit": "1",
+          "uncertainty": 64,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_spatial_samples": {
+          "value": 4,
+          "unit": "1",
+          "uncertainty": 2,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_scan_radius_rad": {
+          "value": 0.024,
+          "unit": "rad",
+          "uncertainty": 0.012,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_stop_radius_rad": {
+          "value": 0.048,
+          "unit": "rad",
+          "uncertainty": 0.024,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_frequency_hz": {
+          "value": 132.62911924324612,
+          "unit": "Hz",
+          "uncertainty": 66.31455962162306,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        }
+      },
+      "theory_delta": "Actual photon-mask nutation and scalar waveform fitting replace the old four-charge Gaussian inversion. Exact OEM optical topology and calibration remain unverified.",
+      "native_verification": "pending",
+      "equipment_calibration": false
+    },
+    {
+      "model": "r-60m",
+      "card_sha256": "e796905e2fef9b3f2f0fe878a8c90155b2d5be21168facd7537c32cad5ef158d",
+      "parameter_sha256": "55bc717b3f4897a6978c26333f839c5383dc904e9f0831d2aefa616d2dc1e8e6",
+      "implementation_id": "equipment.r-60m.seeker",
+      "receiver_model": "thermal_conscan_reticle.v1",
+      "prior_receiver_model": "thermal_quadrant.v1",
+      "original_parameters_sha256": "f3364d7ab499c73d5cb1522abfc539e727c30c72dd7a107008a796f5edeab2bd",
+      "all_original_parameter_records_unchanged": true,
+      "reference_scope": {
+        "url": "https://djvu.online/file/fUvs0bhsAlgza",
+        "locator": "Polish R-60MK manual Lot2821/89,1990,1.3 and3.3",
+        "fact": "Related MK thermal head; exact M scan/reticle cannot be transferred silently."
+      },
+      "reticle_parameters": {
+        "receiver_reticle_periods": {
+          "value": 12,
+          "unit": "1",
+          "uncertainty": 1,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_samples_per_scan": {
+          "value": 128,
+          "unit": "1",
+          "uncertainty": 64,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_spatial_samples": {
+          "value": 4,
+          "unit": "1",
+          "uncertainty": 2,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_scan_radius_rad": {
+          "value": 0.024,
+          "unit": "rad",
+          "uncertainty": 0.012,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_stop_radius_rad": {
+          "value": 0.048,
+          "unit": "rad",
+          "uncertainty": 0.024,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_frequency_hz": {
+          "value": 132.62911924324612,
+          "unit": "Hz",
+          "uncertainty": 66.31455962162306,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        }
+      },
+      "theory_delta": "Actual photon-mask nutation and scalar waveform fitting replace the old four-charge Gaussian inversion. Exact OEM optical topology and calibration remain unverified.",
+      "native_verification": "pending",
+      "equipment_calibration": false
+    },
+    {
+      "model": "r-73",
+      "card_sha256": "c2f625af1e83d9476fd9d4864cba36e87d568262bc0d5725d7461e192f750aa2",
+      "parameter_sha256": "8f6c1703438b05d00d7b4122efdc17fd5012df7a03c28dc9ff583c87033aa493",
+      "implementation_id": "equipment.r-73.seeker",
+      "receiver_model": "thermal_conscan_reticle.v1",
+      "prior_receiver_model": "thermal_quadrant.v1",
+      "original_parameters_sha256": "4572557b6b5347dcde6e65e1083f23fba5068819796c34cfa0b075df5ca397fd",
+      "all_original_parameter_records_unchanged": true,
+      "reference_scope": {
+        "url": "https://audm.org.ua/en/news/artem-pochne-remontuvati-ta-modernizuvati-raketi-r-73/",
+        "locator": "2021-04-08, MK-80 manufacturer statement",
+        "fact": "Arsenal MK-80 IR seeker identity. Internal detector/mask and variant constants are not established."
+      },
+      "reticle_parameters": {
+        "receiver_reticle_periods": {
+          "value": 12,
+          "unit": "1",
+          "uncertainty": 1,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_samples_per_scan": {
+          "value": 128,
+          "unit": "1",
+          "uncertainty": 64,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_spatial_samples": {
+          "value": 4,
+          "unit": "1",
+          "uncertainty": 2,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_scan_radius_rad": {
+          "value": 0.024,
+          "unit": "rad",
+          "uncertainty": 0.012,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_stop_radius_rad": {
+          "value": 0.048,
+          "unit": "rad",
+          "uncertainty": 0.024,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_frequency_hz": {
+          "value": 132.62911924324612,
+          "unit": "Hz",
+          "uncertainty": 66.31455962162306,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        }
+      },
+      "theory_delta": "Actual photon-mask nutation and scalar waveform fitting replace the old four-charge Gaussian inversion. Exact OEM optical topology and calibration remain unverified.",
+      "native_verification": "pending",
+      "equipment_calibration": false
+    },
+    {
+      "model": "r-27t",
+      "card_sha256": "70850653dc5d524021f849d4bb362e3d3e9092a2956de9b8d2cb88b14b68bf43",
+      "parameter_sha256": "6cb22e02d1be11df613903b314b27bce7d8d6fa82dd2115379f70d513c90e42c",
+      "implementation_id": "equipment.r-27t.seeker",
+      "receiver_model": "thermal_conscan_reticle.v1",
+      "prior_receiver_model": "thermal_quadrant.v1",
+      "original_parameters_sha256": "b21885732074cfb23dee30cb2222a0f284040420d4095460feb0a635967dba8c",
+      "all_original_parameter_records_unchanged": true,
+      "reference_scope": {
+        "url": "https://roe.ru/pdfs/pdf_4714.pdf",
+        "locator": "R-27T1/R-27ET1 export family description",
+        "fact": "IR guidance for related export family; no exact base-T reticle or scan constant established."
+      },
+      "reticle_parameters": {
+        "receiver_reticle_periods": {
+          "value": 12,
+          "unit": "1",
+          "uncertainty": 1,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_samples_per_scan": {
+          "value": 128,
+          "unit": "1",
+          "uncertainty": 64,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_spatial_samples": {
+          "value": 4,
+          "unit": "1",
+          "uncertainty": 2,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_scan_radius_rad": {
+          "value": 0.024,
+          "unit": "rad",
+          "uncertainty": 0.012,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_stop_radius_rad": {
+          "value": 0.048,
+          "unit": "rad",
+          "uncertainty": 0.024,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_frequency_hz": {
+          "value": 132.62911924324612,
+          "unit": "Hz",
+          "uncertainty": 66.31455962162306,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        }
+      },
+      "theory_delta": "Actual photon-mask nutation and scalar waveform fitting replace the old four-charge Gaussian inversion. Exact OEM optical topology and calibration remain unverified.",
+      "native_verification": "pending",
+      "equipment_calibration": false
+    },
+    {
+      "model": "r-27et",
+      "card_sha256": "62e227923ea27e04eb5e03aeb2ec79d4d47b12dc9e31a71cbddc5267eff0da66",
+      "parameter_sha256": "480985c6d787570fbbe548220ab8c9015978bb7ea95ddad652b318f463dce5ba",
+      "implementation_id": "equipment.r-27et.seeker",
+      "receiver_model": "thermal_conscan_reticle.v1",
+      "prior_receiver_model": "thermal_quadrant.v1",
+      "original_parameters_sha256": "d70e519e00935a1cfab03aa671bd0170ea1e62bdc2551704739d759a25e07f57",
+      "all_original_parameter_records_unchanged": true,
+      "reference_scope": {
+        "url": "https://roe.ru/pdfs/pdf_4714.pdf",
+        "locator": "R-27T1/R-27ET1 export family description",
+        "fact": "IR guidance for related export family; no exact base-ET reticle or scan constant established."
+      },
+      "reticle_parameters": {
+        "receiver_reticle_periods": {
+          "value": 12,
+          "unit": "1",
+          "uncertainty": 1,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_samples_per_scan": {
+          "value": 128,
+          "unit": "1",
+          "uncertainty": 64,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_spatial_samples": {
+          "value": 4,
+          "unit": "1",
+          "uncertainty": 2,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_scan_radius_rad": {
+          "value": 0.024,
+          "unit": "rad",
+          "uncertainty": 0.012,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_stop_radius_rad": {
+          "value": 0.048,
+          "unit": "rad",
+          "uncertainty": 0.024,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_frequency_hz": {
+          "value": 132.62911924324612,
+          "unit": "Hz",
+          "uncertainty": 66.31455962162306,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        }
+      },
+      "theory_delta": "Actual photon-mask nutation and scalar waveform fitting replace the old four-charge Gaussian inversion. Exact OEM optical topology and calibration remain unverified.",
+      "native_verification": "pending",
+      "equipment_calibration": false
+    },
+    {
+      "model": "pl-8",
+      "card_sha256": "e1e759ff56ad8b80445ca0cd4db489fb66046f1d849489d3020a6906e0fba2f6",
+      "parameter_sha256": "8cb1a1f2438d5aaca9f07bda1e8e53004c50ae02701a215ec441ae1d20f5b463",
+      "implementation_id": "equipment.pl-8.seeker",
+      "receiver_model": "thermal_conscan_reticle.v1",
+      "prior_receiver_model": "thermal_quadrant.v1",
+      "original_parameters_sha256": "b070ac0a33e78a92cc75595734aaf2320be4a17fa9d27a272e6997f270acf2f4",
+      "all_original_parameter_records_unchanged": true,
+      "reference_scope": {
+        "url": "https://military.cctv.com/2025/03/23/ARTIhBJ4g3KjFFJg4PnYWwpg250323.shtml",
+        "locator": "Public designation report",
+        "fact": "Identity evidence only. Exact optical topology, scan and detector constants remain engineering inference."
+      },
+      "reticle_parameters": {
+        "receiver_reticle_periods": {
+          "value": 12,
+          "unit": "1",
+          "uncertainty": 1,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_samples_per_scan": {
+          "value": 128,
+          "unit": "1",
+          "uncertainty": 64,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_spatial_samples": {
+          "value": 4,
+          "unit": "1",
+          "uncertainty": 2,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_scan_radius_rad": {
+          "value": 0.024,
+          "unit": "rad",
+          "uncertainty": 0.012,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_stop_radius_rad": {
+          "value": 0.048,
+          "unit": "rad",
+          "uncertainty": 0.024,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        },
+        "receiver_reticle_frequency_hz": {
+          "value": 132.62911924324612,
+          "unit": "Hz",
+          "uncertainty": 66.31455962162306,
+          "basis": "assumed",
+          "note": "Declared scalar conical-scan engineering design, frozen before native outcomes. Derived from existing optical blur/field and detector response; not an OEM constant or SA-14 transfer. Screening sensitivity is not a measured confidence bound. See docs/research/sim-m03/thermal-reticle-method.md."
+        }
+      },
+      "theory_delta": "Actual photon-mask nutation and scalar waveform fitting replace the old four-charge Gaussian inversion. Exact OEM optical topology and calibration remain unverified.",
+      "native_verification": "pending",
+      "equipment_calibration": false
+    }
+  ]
+}

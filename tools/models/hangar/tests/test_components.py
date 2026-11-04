@@ -16,6 +16,49 @@ def card():
 
 
 class ComponentsTest(unittest.TestCase):
+    def test_current_commanded_pulse_models_run_normal_design_build_pipeline(self):
+        import json,math,tomllib
+        import xml.etree.ElementTree as ET
+        from pathlib import Path
+        from hangar import pipeline
+        root=Path(pipeline.repo_root())
+        for name,identifier in (('pl15','pl-15'),('r37m','r-37m')):
+            with self.subTest(model=name):
+                card_path=root/'assets/stores'/(identifier+'.json')
+                raw=json.loads(card_path.read_text(encoding='utf-8'))
+                path=root/'aircraft'/name/(name+'.toml')
+                original=path.read_bytes();design=tomllib.loads(original.decode('utf-8'))
+                # The real normal stage writes, publishes and stages products;
+                # no mocked tables, builder or publication path stands in for it.
+                _,result=pipeline.run(str(path),['build'],log=lambda _:None)
+                self.assertIn('build',result)
+                folder=root/'aircraft/stores'/name
+                model=ET.parse(folder/(name+'.xml')).getroot()
+                motor=ET.parse(folder/'Engines'/(name+'_motor.xml')).getroot()
+                self.assertEqual(motor.find('thrust_table').get('name'),'fsim/commanded-dual-pulse-v1')
+                props={p.text:float(p.get('value')) for p in model.findall('./flight_control/property')}
+                self.assertEqual(props['fsim/components/propulsion/implementation-code'],4)
+                self.assertEqual(props['fsim/motor-pulse/version'],1)
+                phases=design['motor']['phase']
+                d=raw['component_models']['components']['propulsion']
+                buildup=raw['parameters'][d['parameter_refs']['buildup_s']]['value']
+                coast=raw['parameters'][d['parameter_refs']['coast_thrust_n']]['value']
+                second=phases[0]['duration_s']+phases[1]['duration_s']+buildup*(1-2/math.pi)
+                self.assertAlmostEqual(props['fsim/motor-pulse/second-start-s'],second,places=12)
+                self.assertAlmostEqual(props['fsim/motor-pulse/second-end-s']-second,phases[2]['duration_s'],places=12)
+                rows=[tuple(map(float,line.split())) for line in motor.find('thrust_table/tableData').text.splitlines() if line.strip()]
+                impulse=sum((b[0]-a[0])*(a[1]+b[1])*.5 for a,b in zip(rows,rows[1:]))*4.4482216152605
+                impulse-=phases[0]['thrust_kn']*1000*buildup*(1-2/math.pi)
+                expected=sum(max(p['thrust_kn']*1000,coast)*p['duration_s'] for p in phases)
+                self.assertAlmostEqual(impulse,expected,delta=expected*1e-10)
+                after=json.loads(card_path.read_text(encoding='utf-8'))
+                for role in ('phase_0_duration_s','phase_1_duration_s','phase_2_duration_s',
+                             'phase_0_thrust_kn','phase_1_thrust_kn','phase_2_thrust_kn',
+                             'pulse_hold_limit_s','pulse_reserve_speed_m_s','pulse_terminal_lead_s'):
+                    ref=d['parameter_refs'][role]
+                    self.assertEqual(after['parameters'][ref],raw['parameters'][ref])
+                self.assertEqual(path.read_bytes(),original)
+
     def test_migration_preserves_declared_new_mechanisms(self):
         import json,tomllib
         from pathlib import Path
@@ -47,7 +90,20 @@ class ComponentsTest(unittest.TestCase):
                 rows["seeker"]["bindings"] = {"mode": legacy["seeker"]}
                 rows["guidance"]["implementation_id"] = "fsim.guidance.velocity_normal_pn.v1"
                 rows["guidance"]["bindings"] = {}
-                self.assertEqual(storemodels.files(selected), storemodels.files(legacy))
+                selected_files=storemodels.files(selected);legacy_files=storemodels.files(legacy)
+                self.assertEqual(set(selected_files),set(legacy_files))
+                import xml.etree.ElementTree as ET
+                for name in selected_files:
+                    if name.endswith('_motor.xml') or name.endswith('_nozzle.xml'):
+                        self.assertEqual(selected_files[name],legacy_files[name]);continue
+                    def physical(text):
+                        doc=ET.fromstring(text)
+                        for fcs in doc.findall('flight_control'):
+                            for prop in list(fcs):
+                                if prop.tag=='property' and (prop.text or '').startswith('fsim/components/seeker/'):
+                                    fcs.remove(prop)
+                        return ET.canonicalize(ET.tostring(doc,encoding='unicode'),strip_text=True)
+                    self.assertEqual(physical(selected_files[name]),physical(legacy_files[name]))
 
     def test_resolved_profile_is_immutable_and_consumes_nondefault_actuator(self):
         raw = card()
@@ -276,12 +332,19 @@ class ComponentsTest(unittest.TestCase):
                 if autopilot.get('bindings',{}).get('thrust_vector'):
                     del autopilot['bindings']['thrust_vector']
                     for role in ('tvc_limit_rad','tvc_rate_rad_s'):del autopilot['parameter_refs'][role]
-                if autopilot.get('implementation_id')==components.ACTUATOR_AWARE_AUTOPILOT:
+                if autopilot.get('implementation_id') in (components.ACTUATOR_AWARE_AUTOPILOT,components.OPERATING_POINT_AUTOPILOT):
                     autopilot['implementation_id']=components.AUTOPILOT
                 if rows['propulsion'].get('implementation_id')==components.DUCTED_PROPULSION:
                     from hangar import ductedrocket
                     rows['propulsion']['implementation_id']=components.PROPULSION
                     for role in ductedrocket.ROLES:del rows['propulsion']['parameter_refs'][role]
+                commanded=rows['propulsion'].get('implementation_id')==components.COMMANDED_PULSE
+                if commanded:
+                    # This equivalence case selects the retained timed model,
+                    # not the new commanded mode masquerading as legacy.
+                    rows['propulsion']['implementation_id']=components.PROPULSION
+                    for role in ('pulse_hold_limit_s','pulse_reserve_speed_m_s','pulse_terminal_lead_s'):
+                        del rows['propulsion']['parameter_refs'][role]
                 legacy = copy.deepcopy(selected)
                 legacy.pop("component_models")
                 card_bytes=path.read_bytes()
@@ -298,6 +361,11 @@ class ComponentsTest(unittest.TestCase):
                 self.assertIsNotNone(before, "existing store must have a native generated model")
                 self.assertIsNotNone(after, "explicit profile cannot lose a native generated model")
                 self.assertEqual(set(before), set(after), "component migration cannot replace the native asset inventory")
+                if commanded:
+                    model_name=selected['model'].removeprefix('jsbsim:')
+                    self.assertNotIn('fsim/motor-pulse/',after[model_name+'.xml'])
+                    self.assertEqual(ET.fromstring(after['Engines/'+model_name+'_motor.xml']).find('thrust_table').get('name'),
+                                     'fsim/ignition-time-thrust-v1')
                 for asset in before:
                     if asset.startswith("Engines/"):
                         self.assertEqual(before[asset], after[asset], asset)

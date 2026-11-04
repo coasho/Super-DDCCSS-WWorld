@@ -1,10 +1,10 @@
 # Native payload provider interfaces and concrete models
 
-The [four representative weapon models](representative-weapon-models.md) add
-four distinct sampled seeker implementations and measured PN guidance. AIM-9M,
-AIM-9X Block I, AIM-7M and AIM-120C-7 select those paths. The other 20 AAM cards
-retain the encounter model. There are now sixteen concrete component models;
-shared parameters and a named class still do not establish equipment calibration.
+The [weapon fidelity guide](weapon-fidelity-validation.md) records all24 AAM
+cards selecting four distinct sampled seeker families and measured PN guidance.
+Meteor adds a distinct ducted-rocket plant, and PL-10 selects finite-actuator
+state feedback with local incidence derivatives. Shared parameters and a named
+class do not establish equipment calibration. Legacy providers remain supported.
 
 Component role, abstract execution interface, concrete implementation and
 configured instance are distinct. A card chooses a role's implementation ID
@@ -19,10 +19,10 @@ neither a role name nor a renamed compatibility ID establishes such a change.
 | --- | --- | --- |
 | Seeker | [SeekerProviderV1](../../src/simulation/mission_systems/components/interfaces/SeekerProviderV1.h), additive [SeekerExecutionV2](../../src/simulation/mission_systems/components/interfaces/SeekerExecutionV2.h) | [EncounterSeekerV1](../../src/simulation/mission_systems/components/implementations/seeker/EncounterSeekerV1.h), [NonImagingIrSeekerV2](../../src/simulation/mission_systems/components/implementations/seeker/NonImagingIrSeekerV2.h), [ImagingIrSeekerV2](../../src/simulation/mission_systems/components/implementations/seeker/ImagingIrSeekerV2.h), [SemiActiveRadarSeekerV2](../../src/simulation/mission_systems/components/implementations/seeker/SemiActiveRadarSeekerV2.h), [ActiveRadarSeekerV2](../../src/simulation/mission_systems/components/implementations/seeker/ActiveRadarSeekerV2.h) |
 | Guidance | [GuidanceProviderV1](../../src/simulation/mission_systems/components/interfaces/GuidanceProviderV1.h), additive [MeasuredGuidanceV2](../../src/simulation/mission_systems/components/interfaces/MeasuredGuidanceV2.h) | [VelocityNormalPnGuidanceV1](../../src/simulation/mission_systems/components/implementations/guidance/VelocityNormalPnGuidanceV1.h), [MeasuredPnGuidanceV2](../../src/simulation/mission_systems/components/implementations/guidance/MeasuredPnGuidanceV2.h) |
-| Autopilot | [AutopilotProviderV1](../../src/simulation/mission_systems/components/interfaces/AutopilotProviderV1.h) | [LoadFeedbackCascadeAutopilotV1](../../src/simulation/mission_systems/components/implementations/autopilot/LoadFeedbackCascadeAutopilotV1.h) |
+| Autopilot | [AutopilotProviderV1](../../src/simulation/mission_systems/components/interfaces/AutopilotProviderV1.h) | [LoadFeedbackCascadeAutopilotV1](../../src/simulation/mission_systems/components/implementations/autopilot/LoadFeedbackCascadeAutopilotV1.h), [ActuatorAwareCascadeAutopilotV1](../../src/simulation/mission_systems/components/implementations/autopilot/ActuatorAwareCascadeAutopilotV1.h) |
 | Allocator | [AllocatorProviderV1](../../src/simulation/mission_systems/components/interfaces/AllocatorProviderV1.h) | [JsbsimAuthoredFinMixerV1](../../src/simulation/mission_systems/components/implementations/allocator/JsbsimAuthoredFinMixerV1.h) |
 | Actuator | [ActuatorProviderV1](../../src/simulation/mission_systems/components/interfaces/ActuatorProviderV1.h) | [JsbsimLagRateStopsActuatorV1](../../src/simulation/mission_systems/components/implementations/actuator/JsbsimLagRateStopsActuatorV1.h) |
-| Propulsion | [PropulsionProviderV1](../../src/simulation/mission_systems/components/interfaces/PropulsionProviderV1.h) | [JsbsimSolidRocketPropulsionV1](../../src/simulation/mission_systems/components/implementations/propulsion/JsbsimSolidRocketPropulsionV1.h) |
+| Propulsion | [PropulsionProviderV1](../../src/simulation/mission_systems/components/interfaces/PropulsionProviderV1.h) | [JsbsimSolidRocketPropulsionV1](../../src/simulation/mission_systems/components/implementations/propulsion/JsbsimSolidRocketPropulsionV1.h), [JsbsimDuctedRocketPropulsionV1](../../src/simulation/mission_systems/components/implementations/propulsion/JsbsimDuctedRocketPropulsionV1.h) |
 | Aerodynamics | [AerodynamicsProviderV1](../../src/simulation/mission_systems/components/interfaces/AerodynamicsProviderV1.h) | [JsbsimGeneratedStoreAerodynamicsV1](../../src/simulation/mission_systems/components/implementations/aerodynamics/JsbsimGeneratedStoreAerodynamicsV1.h) |
 | Fuze | [weapon::FuzeAdapter](../../src/simulation/mission_systems/components/interfaces/FuzeAdapter.h) | [SweptPathFuzeV1](../../src/simulation/mission_systems/components/implementations/fuze/SweptPathFuzeV1.h), [TurningCpaFuzeV1](../../src/simulation/mission_systems/components/implementations/fuze/TurningCpaFuzeV1.h) |
 | Warhead | [damage::WarheadAdapter](../../src/simulation/mission_systems/components/interfaces/WarheadAdapter.h) | [ZonedCaseWarheadV1](../../src/simulation/mission_systems/components/implementations/warhead/ZonedCaseWarheadV1.h), [SideCaseWarheadV1](../../src/simulation/mission_systems/components/implementations/warhead/SideCaseWarheadV1.h), [FiniteZonedCaseWarheadV2](../../src/simulation/mission_systems/components/implementations/warhead/FiniteZonedCaseWarheadV2.h) |

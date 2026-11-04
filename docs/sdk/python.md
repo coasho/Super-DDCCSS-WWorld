@@ -229,6 +229,7 @@ ILLUMINATION - and `warning` for those on the aircraft itself). See
 | `fsim.catalog.aircraft()` | every type with a payload fit, by name (a World's `"jsbsim:<name>"`) |
 | `fsim.catalog.fit(name)`, `loadouts(name)` | its fit - `payloads` (name, card, count) - and the loads it names for its stations: `Loadout(name, note, stores)`, `stores` (station, store id) each; `Vehicle.load_loadout(name)` loads one |
 | `fsim.catalog.store(id)`, `stores()`; `payload(id)`, `payloads()` | a store's or a payload's card as a dict (designation, class or family, parameters with their values, bases and sources), and every id |
+| `fsim.catalog.equipment_models()`, `equipment_model(id)` | static [equipment model definitions](equipment-model-names.md), actual equipment-specific component selections and their separate mechanism IDs; exact equipment identity or retained store-card alias |
 | `fsim.catalog.model(name)`, `manifest(name)` | the path of a type's drawn model (glTF binary; None where it has none) and its manifest - `Manifest(forward, up, scale, engines, rockets, stations, components, dispensers, surfaces)`, the places in body axes: where each station's store hangs, where the crew sit |
 
 It reads the package's own data (`fsim/share/flightsim`: what a World loads from), so it says what a World of the same

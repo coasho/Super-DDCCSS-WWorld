@@ -53,7 +53,7 @@ New files:
 * `tests/simulation/test_weapon_seeker_models.cpp` and
   `tests/simulation/test_weapon_seeker_native.cpp`: behavioral and native
   production/lifecycle regressions.
-* `docs/sdk/representative-weapon-models.md`: source admission, executed mechanisms,
+* `docs/sdk/weapon-fidelity-validation.md`: source admission, executed mechanisms,
   commands/results and remaining physical gates.
 
 Existing files:
@@ -109,7 +109,7 @@ calibrated equipment behavior and full SIM-M03 acceptance are separate results.
 
 ## Delivery notes
 
-The [SDK delivery record](../../sdk/representative-weapon-models.md) contains
+The [SDK delivery record](../../sdk/weapon-fidelity-validation.md) contains
 current evidence. The implemented generator regression establishes identical
 plant output for the new selections. No Hangar generator or generated XML edit
 was required: the existing metadata stamp covers plant roles and is unaffected

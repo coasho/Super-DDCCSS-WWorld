@@ -28,6 +28,25 @@ def _committed():
 
 
 class Data(unittest.TestCase):
+    def test_serialized_physical_moments_round_trip_at_full_precision(self):
+        from unittest.mock import patch
+        physical=dict(name='synthetic',mass_kg=1.23456789123456,
+            cg=[.123456789123456,-.234567891234567,.345678912345678],
+            inertia=[1.12345678912345,2.23456789123456,3.34567891234567,
+                     .12345678912345,.23456789123456,.34567891234567])
+        source=dict(origin_design_m=[8.12345678912345,0.,.12345678912345],
+            mass_partition=dict(version='synthetic',residual=1.23456789123456e-13),
+            sections=[physical],panels=[],components=[])
+        with tempfile.TemporaryDirectory() as directory:
+            path=os.path.join(directory,'synthetic.damage.json')
+            with patch('hangar.damage.damage_data',return_value=source):
+                result=damage.write(None,path,None)
+            with open(path,encoding='utf-8') as stream:actual=json.load(stream)
+            self.assertEqual(actual,result)
+            self.assertEqual(actual['sections'],[physical])
+            self.assertEqual(actual['origin_design_m'],source['origin_design_m'])
+            self.assertEqual(actual['mass_partition'],source['mass_partition'])
+
     def test_every_fixed_wing_design_has_one(self):
         names = {n for n, _ in _committed()}
         root = os.path.join(pipeline.repo_root(), "aircraft")

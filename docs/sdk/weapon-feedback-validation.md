@@ -1,5 +1,13 @@
 # Weapon feedback and actor visibility
 
+The dated 2026-10-20 sections below are the historical visibility-correction
+record. The 2026-11-02 native continuation implements the software mechanisms
+they identified as missing; see [modeled weapon links V1](weapon-links.md) and
+the [implementation window](../superpowers/plans/2026-11-02-sim-m03-weapon-links.md).
+The frozen unavailable-only generic v1 schema remains unchanged. Current full
+delivery acceptance is recorded by the parent complete-quality program, not
+inferred from the historical counts below.
+
 Date: 2026-10-20. Baseline: main
 `0d4f25a5df3fdd23696e696644cbd0ee32ab23af`.
 

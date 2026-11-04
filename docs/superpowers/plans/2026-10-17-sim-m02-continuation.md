@@ -1,5 +1,9 @@
 # SIM-M02 Continuation Implementation Plan
 
+> Historical implementation plan. Its external-solver workflow is retired.
+> Current methods, calibration, commands and evidence are maintained only in
+> the [Hangar guide](../../hangar-system.md) and [status](../../status.md).
+
 > **For agentic workers:** Use test-driven implementation with independent review. The root agent alone owns the serial native SDK build/test slot.
 
 **Goal:** Advance SIM-M02 from import/runtime prerequisites to executable independent flight and aerodynamic comparisons, preserving explicit physical evidence limits.
@@ -14,7 +18,7 @@
 
 - Main only; baseline `57bc4c78c58f52b952126371319db9879131ff8a`.
 - Preserve public layouts, signatures, native release authority and unselected generated outputs.
-- Never traverse excluded directories or other worktrees. All tools/temp data stay under D:/ENV.
+- Never traverse excluded directories or other worktrees. Current filesystem and tool-installation boundaries are governed by AGENTS.md; this dated plan does not override them.
 - Record actual nonzero checks and raw results. Missing evidence never counts as passed physics.
 
 ## Review Focus
@@ -50,13 +54,11 @@ Files: new `tools/validation/missile/{reference,crosscheck,test_reference}.py`.
 
 ### Task 4: Aerodynamic solver/reference evidence
 
-- [x] Acquire pinned supported binaries and archive/executable/license records.
-- [x] Run bounded upstream reference cases: SU2 matched its published hybrid regression; VSPAERO completed its packaged example without a new experimental residual claim.
-- [x] Execute authored-geometry SU2/VSPAERO static trials and coefficient/sign/reference checks. Actual runs failed physical/convergence gates and remain rejected.
-- [x] Diagnose singular nose and mesh asymmetry; integrate guarded point/conical/full-reflection meshes and source-matched VSP point noses. Independent review's folded-neighbour finding is fixed. Combined safeguards passed 44/44; actual CLI retains failed model acceptance.
-- [x] Require the full final nonlinear VSP history against matching polar conditions/loads; passing GMRES alone cannot pass a comparison.
-- [ ] Establish credible same-design geometry/mesh sensitivity and independent coefficient agreement. Ill-shaped CFD cells, failed symmetry/loads and sampled VSP loft differences remain open.
-- [ ] Admit only computed channels and supported operating conditions into generated tables.
+The completed reference-tool and failed authored-geometry controls, repairs and
+remaining physical-admission work are maintained in the
+[Hangar research guide](../../hangar-system.md#11-dated-research-cases-and-retained-failures).
+Only computed channels and independently qualified domains can enter generated
+tables. The release/motor/powered-flight results in Tasks 1--3 remain separate.
 
 ### Task 5: Integration and review
 

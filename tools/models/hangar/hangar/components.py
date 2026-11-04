@@ -3,12 +3,16 @@ import copy
 import math
 from pathlib import PurePosixPath
 import struct
+from .equipment_models import normalize as equipment_mechanism
 AUTOPILOT = "fsim.control.load_feedback_cascade"
 ACTUATOR_AWARE_AUTOPILOT = "fsim.control.actuator_aware_cascade.v1"
+OPERATING_POINT_AUTOPILOT = "fsim.control.operating_point_bounded.v1"
 ALLOCATOR = "fsim.allocator.jsbsim_authored_fin_mixer"
 ACTUATOR = "fsim.actuator.jsbsim_lag_rate_stops"
 PROPULSION = "fsim.propulsion.jsbsim_generated_solid_rocket"
+COMMANDED_PULSE = "fsim.propulsion.jsbsim_commanded_dual_pulse.v1"
 DUCTED_PROPULSION = "fsim.propulsion.jsbsim_ducted_rocket.v1"
+DUCTED_PROPULSION_V2 = "fsim.propulsion.jsbsim_ducted_rocket.v2"
 TURBOFAN_PROPULSION = "fsim.propulsion.jsbsim_turbofan.v1"
 AERODYNAMICS = "fsim.aerodynamics.jsbsim_generated_store"
 
@@ -36,6 +40,8 @@ def resolve(card, kind):
     if row.get("basis") not in ("published", "derived", "assumed") or any(
             not isinstance(row.get(key), str) or not row[key] for key in ("implementation_id", "note", "validity")):
         raise ValueError("components: available implementation needs provenance and validity")
+    row['selection_id'] = row['implementation_id']
+    row['implementation_id'] = equipment_mechanism(card, kind, row['implementation_id'])
     refs, bindings = row.get("parameter_refs", {}), row.get("bindings", {})
     if not isinstance(refs, dict) or not isinstance(bindings, dict) or any(
             not isinstance(k, str) or not k or not isinstance(v, str) or not v for m in (refs, bindings) for k, v in m.items()):
@@ -131,10 +137,10 @@ def control(card):
         thrustvector.inputs(card)
         roles.update(tvc_limit_rad='rad',tvc_rate_rad_s='rad/s');bindings.append('thrust_vector')
     implementation=row['implementation_id']
-    if implementation not in (AUTOPILOT,ACTUATOR_AWARE_AUTOPILOT):
+    if implementation not in (AUTOPILOT,ACTUATOR_AWARE_AUTOPILOT,OPERATING_POINT_AUTOPILOT):
         raise ValueError('components: unsupported autopilot')
     _available(row, implementation, roles, bindings, card)
-    if implementation==ACTUATOR_AWARE_AUTOPILOT and mode!='configured':
+    if implementation in (ACTUATOR_AWARE_AUTOPILOT,OPERATING_POINT_AUTOPILOT) and mode!='configured':
         raise ValueError('components: actuator-aware control requires configured native dynamics')
     if mode not in ("legacy", "configured") or (mode == "legacy" and "weapon_execution_version" in card.get("parameters", {})):
         raise ValueError("components: invalid or contradictory autopilot execution mode")
@@ -220,7 +226,9 @@ def migration(card, design):
     existing=card.get('component_models',{}).get('components',{})
     for kind in rows:
         if kind in existing:rows[kind]=copy.deepcopy(existing[kind])
-    if native_motor and native_motor.get('kind')=='ducted_rocket' and rows['propulsion'].get('implementation_id')!=DUCTED_PROPULSION:
+    propulsion_selection=rows['propulsion'].get('implementation_id')
+    propulsion_mechanism=equipment_mechanism(card,'propulsion',propulsion_selection) if propulsion_selection else None
+    if native_motor and native_motor.get('kind')=='ducted_rocket' and propulsion_mechanism not in (DUCTED_PROPULSION,DUCTED_PROPULSION_V2):
         descriptor('propulsion','',availability='unavailable',
             reason='An explicitly typed ducted rocket requires declared cycle and controller inputs.')
     if (design or {}).get('engine') or 'store_propulsion' in (design or {}):
@@ -228,7 +236,7 @@ def migration(card, design):
         if ((design or {}).get('motor') or not isinstance(config,dict) or type(config.get('version')) is not int or config['version']!=1 or
                 not isinstance(engines,list) or len(engines)!=1 or not isinstance(engines[0],dict) or engines[0].get('type')!='turbofan' or
                 rows['propulsion'].get('availability')!='available' or
-                rows['propulsion'].get('implementation_id')!=TURBOFAN_PROPULSION):
+                propulsion_mechanism!=TURBOFAN_PROPULSION):
             descriptor('propulsion','',availability='unavailable',
                 reason='Authored engine hardware requires a supported versioned source and its explicit propulsion component.')
     return {"id": card.get("id", ""), "parameters": additions, "components": rows}
@@ -242,7 +250,7 @@ def motor(card, design):
         from . import turbofanstore
         turbofanstore.inputs(card,design)
         return design,None
-    if native_motor.get('kind')=='ducted_rocket' and (row is None or row.get('implementation_id')!=DUCTED_PROPULSION):
+    if native_motor.get('kind')=='ducted_rocket' and (row is None or row.get('implementation_id') not in (DUCTED_PROPULSION,DUCTED_PROPULSION_V2)):
         raise ValueError('components: explicitly typed ducted rocket requires its declared cycle/controller profile')
     if row is None: return design, None
     if row.get('implementation_id')==TURBOFAN_PROPULSION:
@@ -259,20 +267,34 @@ def motor(card, design):
         "grain_port_area_fraction", "grain_aft_clearance_m", "phase_count", "exit_x_m", "exit_y_m", "exit_z_m",
         "exit_diameter_m", "throat_diameter_m", "cone_length_m"}
     roles.update("phase_%d_%s" % (i, suffix) for i in range(int(count)) for suffix in ("duration_s", "thrust_kn"))
-    ducted=row.get('implementation_id')==DUCTED_PROPULSION
+    ducted=row.get('implementation_id') in (DUCTED_PROPULSION,DUCTED_PROPULSION_V2)
+    commanded=row.get('implementation_id')==COMMANDED_PULSE
+    if commanded:roles.update(('pulse_hold_limit_s','pulse_reserve_speed_m_s','pulse_terminal_lead_s'))
     if ducted:
         from . import ductedrocket
         roles.update(ductedrocket.ROLES)
+        if row['implementation_id']==DUCTED_PROPULSION_V2:roles.update(ductedrocket.ROLES_V2_EXTRA)
         if count!=2:raise ValueError('components: ducted propulsion needs booster and fuel-ledger phases')
         ductedrocket.inputs(card)
-    _available(row, DUCTED_PROPULSION if ducted else PROPULSION, roles, ("model", "design", "motor", "nozzle", "smoke"), card)
+    _available(row, COMMANDED_PULSE if commanded else row['implementation_id'] if ducted else PROPULSION, roles, ("model", "design", "motor", "nozzle", "smoke"), card)
     name = card["model"][7:]
     if row["bindings"]["motor"] != "Engines/%s_motor.xml" % name or row["bindings"]["nozzle"] != "Engines/%s_nozzle.xml" % name:
         raise ValueError("components: motor/nozzle asset identity mismatch")
     units = {"isp_s": "s", "coast_thrust_n": "N", "buildup_s": "s", "grain_density_kg_m3": "kg/m^3",
         "grain_radius_fraction": "1", "grain_port_area_fraction": "1", "grain_aft_clearance_m": "m"}
     settings = {key: number(row, key, unit) for key, unit in units.items()}
-    if any(value <= 0 for key, value in settings.items() if key != "grain_aft_clearance_m") or settings["grain_aft_clearance_m"] < 0:
+    if commanded:
+        policy={role:number(row,role,unit) for role,unit in (('pulse_hold_limit_s','s'),
+            ('pulse_reserve_speed_m_s','m/s'),('pulse_terminal_lead_s','s'))}
+        if int(count)!=3 or any(not 0<value<=5000 for value in policy.values()) or any(
+                row['parameters'][role].get('uncertainty',0)<=0 for role in policy):
+            raise ValueError('components: commanded pulse needs complete finite uncertain policy')
+        if number(row,'phase_1_thrust_kn','kN')!=0 or number(row,'phase_0_thrust_kn','kN')<=0 or number(row,'phase_2_thrust_kn','kN')<=0:
+            raise ValueError('components: commanded dual pulse needs positive phases around zero authored coast')
+        if policy['pulse_terminal_lead_s']<number(row,'phase_2_duration_s','s'):
+            raise ValueError('components: commanded pulse terminal lead cannot be shorter than second burn')
+        settings['pulse_control_v1']=policy
+    if any(settings[key] <= 0 for key in units if key != "grain_aft_clearance_m") or settings["grain_aft_clearance_m"] < 0:
         raise ValueError("components: motor settings outside supported domain")
     if settings["grain_radius_fraction"] > 1 or settings["grain_port_area_fraction"] >= 1:
         raise ValueError("components: invalid cylindrical grain fractions")
@@ -372,14 +394,44 @@ def stamp(xml, card):
         code=1
         if kind=='autopilot' and row['implementation_id']==ACTUATOR_AWARE_AUTOPILOT:
             implementation=ACTUATOR_AWARE_AUTOPILOT;code=2
+        if kind=='autopilot' and row['implementation_id']==OPERATING_POINT_AUTOPILOT:
+            implementation=OPERATING_POINT_AUTOPILOT;code=3
+        if kind=='propulsion' and row['implementation_id']==DUCTED_PROPULSION_V2:
+            implementation=DUCTED_PROPULSION_V2;code=5
         if kind=='propulsion' and row['implementation_id']==DUCTED_PROPULSION:
             implementation=DUCTED_PROPULSION;code=2
         if kind=='propulsion' and row['implementation_id']==TURBOFAN_PROPULSION:
             implementation=TURBOFAN_PROPULSION;code=3
+        if kind=='propulsion' and row['implementation_id']==COMMANDED_PULSE:
+            implementation=COMMANDED_PULSE;code=4
         if row['implementation_id']!=implementation:
             raise ValueError('components: unsupported generated native implementation')
         for leaf,value in (('schema-version',1),('implementation-code',code),('profile-fingerprint',fingerprint(row))):
             ET.SubElement(fcs,'property',value=str(value)).text='fsim/components/'+kind+'/'+leaf
+    # Retained plant-only generator profiles predate seeker descriptors. Stamp
+    # an explicitly selected sensor without inventing a new mandatory role for
+    # those callers; complete runtime compositions still require all nine roles.
+    sensor=resolve(card,'seeker') if 'seeker' in card['component_models']['components'] else None
+    if sensor and sensor['availability']=='available' and sensor['implementation_id'].endswith('.v3'):
+        modes={'fsim.seeker.nonimaging_ir.v3':'infrared','fsim.seeker.imaging_ir.v3':'imaging_infrared',
+               'fsim.seeker.active_radar.v3':'active_radar','fsim.seeker.semi_active_radar.v3':'semi_active_radar'}
+        if sensor['implementation_id'] not in modes or sensor['bindings'].get('mode')!=modes[sensor['implementation_id']]:
+            raise ValueError('components: unsupported engineering seeker identity')
+        if sensor['bindings'].get('measurement_model')!='radiometric_engineering_v1' or sensor['bindings'].get('servo_model')!='stabilized_finite_v1':
+            raise ValueError('components: engineering seeker needs finite measurement and servo bindings')
+        roles={'sample_period_s':'s','processing_delay_s':'s','gimbal_rate_rad_s':'rad/s','gimbal_lag_s':'s',
+               'track_lag_s':'s','field_half_angle_rad':'rad','angle_noise_rad':'rad','angle_resolution_rad':'rad',
+               'range_noise_m':'m','range_rate_noise_m_s':'m/s','frequency_hz':'Hz','noise_figure_db':'dB',
+               'system_loss_db':'dB','bandwidth_hz':'Hz','detection_snr':'1','ir_intensity_w_sr':'W/sr',
+               'ir_extinction_m_1':'1/m','ir_noise_w_m2':'W/m^2','background_w_m2':'W/m^2','track_memory_s':'s',
+               'temperature_k':'K','ir_band_low_um':'um','ir_band_high_um':'um','ir_source_temperature_k':'K','search_rate_rad_s':'rad/s',
+               'lookdown_clutter_db':'dB'}
+        for role,unit in roles.items():
+            if number(sensor,role,unit)<=0 or sensor['parameters'][role].get('uncertainty',0)<=0:
+                raise ValueError('components: finite sensing needs positive value and nonzero screening uncertainty: '+role)
+        for leaf,value in (('schema-version',3),('implementation-code',list(modes).index(sensor['implementation_id'])+1),
+                           ('profile-fingerprint',fingerprint(sensor))):
+            ET.SubElement(fcs,'property',value=str(value)).text='fsim/components/seeker/'+leaf
     ET.indent(root,space='    ')
     return ET.tostring(root,encoding='unicode')
 

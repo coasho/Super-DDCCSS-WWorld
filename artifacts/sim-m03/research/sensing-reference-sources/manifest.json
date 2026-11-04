@@ -1,0 +1,114 @@
+[
+  {
+    "url": "https://api.github.com/repos/NelisW/pyradi/commits/master",
+    "path": "sensing-reference-sources/pyradi-commit.json",
+    "sha256": "fce2b06abd93b51a4a6b5ba34bd0da257e6ea6ea7c297168a421be4714b57dce",
+    "bytes": 17703
+  },
+  {
+    "url": "https://raw.githubusercontent.com/NelisW/pyradi/c7cfe9df96fdf0e6c258ee6fd624f62f19ebab06/pyradi/ryplanck.py",
+    "path": "sensing-reference-sources/pyradi-pyradi_ryplanck.py",
+    "sha256": "089508683c80ca44e23918e9d707fd6b55abd51f4fca967fd03c195e430fbd81",
+    "bytes": 51528
+  },
+  {
+    "url": "https://raw.githubusercontent.com/NelisW/pyradi/c7cfe9df96fdf0e6c258ee6fd624f62f19ebab06/LICENSE",
+    "path": "sensing-reference-sources/pyradi-LICENSE",
+    "sha256": "e9c1bba6ce9f9e2b9b49947c8f1d519a1529d5f8c3434f04ae12af650b94dd64",
+    "bytes": 1070
+  },
+  {
+    "url": "https://api.github.com/repos/dstl/Stone-Soup/commits/v1.9.1",
+    "path": "sensing-reference-sources/Stone-Soup-commit.json",
+    "sha256": "006d3d61754d72e727a42da36032c04b9416cfbd4fc7af1764cbc5fe77a6305d",
+    "bytes": 5852
+  },
+  {
+    "url": "https://raw.githubusercontent.com/dstl/Stone-Soup/a4336b920a799cfe0a77ecb05867c5deeb371c7a/stonesoup/sensor/radar/radar.py",
+    "path": "sensing-reference-sources/Stone-Soup-stonesoup_sensor_radar_radar.py",
+    "sha256": "8e926d708edcfae7cf5f9334b27dc7483875cebb8c464d38fe7b8def3d3689c6",
+    "bytes": 37256
+  },
+  {
+    "url": "https://raw.githubusercontent.com/dstl/Stone-Soup/a4336b920a799cfe0a77ecb05867c5deeb371c7a/stonesoup/models/clutter/clutter.py",
+    "path": "sensing-reference-sources/Stone-Soup-stonesoup_models_clutter_clutter.py",
+    "sha256": "b72125e955ce6c8d37c4a0b659336115144dfd80e4eaaf27e2c91bade37d4835",
+    "bytes": 5498
+  },
+  {
+    "url": "https://raw.githubusercontent.com/dstl/Stone-Soup/a4336b920a799cfe0a77ecb05867c5deeb371c7a/LICENSE",
+    "path": "sensing-reference-sources/Stone-Soup-LICENSE",
+    "sha256": "2462f3d8a857f601e266f048a4ff051366c1e05f098cf3a1524eaf922f879815",
+    "bytes": 1494
+  },
+  {
+    "url": "https://s3.amazonaws.com/mixr-platform/releases/dev_v26.10/mixr_v26.10.tgz",
+    "path": "sensing-reference-sources/mixr_v26.10.tgz",
+    "sha256": "192cc967c7850153fbfbb826f6caa9c72b13765f616374add9820b7d20c4bd82",
+    "bytes": 9307652
+  },
+  {
+    "archive_members": [
+      {
+        "archive_member": "mixr/src/models/signature/IIrSignature.cpp",
+        "path": "sensing-reference-sources/mixr-mixr_src_models_signature_IIrSignature.cpp",
+        "sha256": "4d9070c5071edc539080f2f8bbdb110e54b7994ee8108f425251c609587e10e5",
+        "bytes": 7488
+      },
+      {
+        "archive_member": "mixr/src/models/signature/IrSignature.cpp",
+        "path": "sensing-reference-sources/mixr-mixr_src_models_signature_IrSignature.cpp",
+        "sha256": "7784a94f17b51f3b68e0d0ef1ae67a79991637576d79dd0853b47a0686d1f1f6",
+        "bytes": 259
+      },
+      {
+        "archive_member": "mixr/src/models/system/IrSensor.cpp",
+        "path": "sensing-reference-sources/mixr-mixr_src_models_system_IrSensor.cpp",
+        "sha256": "a605f80c28470953f8875cc8ac9debb2c420cc7a568f1b54c201d090f0378552",
+        "bytes": 25953
+      },
+      {
+        "archive_member": "mixr/src/models/system/Radar.cpp",
+        "path": "sensing-reference-sources/mixr-mixr_src_models_system_Radar.cpp",
+        "sha256": "e1f5605c342378678dc5272995661399899f6da380c162d9e0ab9e61890a5c2c",
+        "bytes": 213
+      },
+      {
+        "archive_member": "mixr/src/models/system/IRadar.cpp",
+        "path": "sensing-reference-sources/mixr-mixr_src_models_system_IRadar.cpp",
+        "sha256": "a4403bc9392c1afb08b7992676f4195a3b5a24439339c43043247c184bbfbd22",
+        "bytes": 16911
+      },
+      {
+        "archive_member": "mixr/src/models/system/MergingIrSensor.cpp",
+        "path": "sensing-reference-sources/mixr-mixr_src_models_system_MergingIrSensor.cpp",
+        "sha256": "643d393d77c3d0328f918393779b569ae5c3a33eec71fda0019d44b19502b9e4",
+        "bytes": 11242
+      },
+      {
+        "archive_member": "mixr/src/models/player/ground/GroundStationRadar.cpp",
+        "path": "sensing-reference-sources/mixr-mixr_src_models_player_ground_GroundStationRadar.cpp",
+        "sha256": "2148acfeb7763d933fc5c5a5f88237c2f0b62113093e6be395374f33779267b4",
+        "bytes": 463
+      }
+    ]
+  },
+  {
+    "url": "https://www.jhuapl.edu/sites/default/files/2024-09/29-01-Palumbo_Principles_Rev2018.pdf",
+    "path": "sensing-reference-sources/Palumbo_Principles_Rev2018.pdf",
+    "sha256": "17b772339500f1679d4dd4f5fd87bc1b16beb51ee8ec2d3a26bf385a00f7fb7e",
+    "bytes": 2169198
+  },
+  {
+    "url": "https://www.mixr.dev/license.html",
+    "path": "sensing-reference-sources/mixr-license-page.html",
+    "sha256": "0200dc093dc133db9bcbbd1925f3d1e9effa9eee7dcb77af87a5deb568ce78bd",
+    "bytes": 11575
+  },
+  {
+    "archive_member": "mixr/doc/licenses/license-mixr.txt",
+    "path": "sensing-reference-sources/mixr-mixr_doc_licenses_license-mixr.txt",
+    "sha256": "dc87606c81d7e6a526fabaa6b744dcf3664701b9ac84ca82adfe8bce9db86117",
+    "bytes": 9472
+  }
+]

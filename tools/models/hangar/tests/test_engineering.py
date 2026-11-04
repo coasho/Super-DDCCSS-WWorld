@@ -127,6 +127,155 @@ class EngineeringGate(unittest.TestCase):
         body=t['body_base']
         np.testing.assert_allclose(body['CA']**2+body['CN']**2+body['CY']**2,.3**2+1.2**2+.2**2)
 
+    @staticmethod
+    def r77_actuator_gate(root):
+        product=engineering.ROOT/'aircraft/stores/r77m'
+        card=json.loads((engineering.ROOT/'assets/stores/r-77m.json').read_text(encoding='utf-8'))
+        _,checks,_=engineering.structure(ET.tostring(root,encoding='unicode'),product,card,'store',True)
+        return next(check['passed'] for check in checks if check['name']=='actuator-lag-rate-stops')
+
+    @staticmethod
+    def r77_native_xml():
+        return ET.parse(engineering.ROOT/'aircraft/stores/r77m/r77m.xml').getroot()
+
+    def test_actual_r77_native_serial_channel_lag_rate_and_stops_are_admitted(self):
+        root=self.r77_native_xml()
+        for axis in ('elevator','rudder','aileron'):
+            lag=root.find(".//lag_filter[@name='fcs/%s-operating-lag']"%axis)
+            actuator=root.find(".//actuator[@name='fcs/%s-actuator']"%axis)
+            self.assertIsNotNone(lag)
+            self.assertEqual(actuator.findtext('input'),lag.findtext('output'))
+            self.assertIsNone(actuator.find('lag'),'The finite channel lag executes upstream; physical fins do not need another pole')
+        self.assertTrue(self.r77_actuator_gate(root))
+
+    def test_serial_native_lag_requires_each_connected_positive_resolved_channel(self):
+        defects=('missing-filter','unrelated-output','unrelated-input','missing-pole','unknown-pole',
+                 'zero-pole','negative-pole','nan-pole','infinite-pole','tiny-pole',
+                 'unrelated-named-function','duplicate-pole-property','wrong-positive-pole')
+        for defect in defects:
+            with self.subTest(defect=defect):
+                root=self.r77_native_xml();channel=root.find('flight_control/channel')
+                lag=channel.find("lag_filter[@name='fcs/elevator-operating-lag']")
+                pole=root.find("flight_control/property[.='fsim/missile-control/lag-coefficient-s-1']")
+                if defect=='missing-filter':channel.remove(lag)
+                elif defect=='unrelated-output':lag.find('output').text='fcs/unrelated-lag-state'
+                elif defect=='unrelated-input':lag.find('input').text='fcs/rudder-control'
+                elif defect=='missing-pole':lag.remove(lag.find('c1'))
+                elif defect=='unknown-pole':lag.find('c1').text='fsim/missing-lag-pole'
+                elif defect=='unrelated-named-function':
+                    lag.find('c1').text='fsim/not-a-scalar-pole';ET.SubElement(root,'function',name='fsim/not-a-scalar-pole')
+                elif defect=='duplicate-pole-property':root.find('flight_control').append(copy.deepcopy(pole))
+                elif defect=='wrong-positive-pole':lag.find('c1').text='50'
+                else:pole.set('value',{'zero-pole':'0','negative-pole':'-1','nan-pole':'nan','infinite-pole':'inf','tiny-pole':'5e-324'}[defect])
+                self.assertFalse(self.r77_actuator_gate(root))
+
+    def test_serial_native_actuator_chain_rejects_broken_inputs_rates_stops_and_order(self):
+        defects=('actuator-input','actuator-output','missing-rate','zero-rate','negative-rate','nan-rate','infinite-rate',
+                 'unknown-rate','wrong-positive-rate','directional-rate','missing-min','missing-max','inverted-stops',
+                 'nan-stop','infinite-stop','different-stop','scale-input','scale-range','actuator-before-lag',
+                 'duplicate-filter','second-lag','missing-version','physical-fin-rate','physical-fin-stop')
+        for defect in defects:
+            with self.subTest(defect=defect):
+                root=self.r77_native_xml();channel=root.find('flight_control/channel')
+                actuator=channel.find("actuator[@name='fcs/elevator-actuator']")
+                lag=channel.find("lag_filter[@name='fcs/elevator-operating-lag']")
+                scale=channel.find("aerosurface_scale[@name='fcs/elevator-control']")
+                rate=root.find("flight_control/property[.='fsim/missile-control/channel-rate-rad_s']")
+                if defect=='actuator-input':actuator.find('input').text='fcs/elevator-control'
+                elif defect=='actuator-output':actuator.find('output').text='fcs/unrelated-response'
+                elif defect=='missing-rate':actuator.remove(actuator.find('rate_limit'))
+                elif defect in ('zero-rate','negative-rate','nan-rate','infinite-rate'):
+                    rate.set('value',{'zero-rate':'0','negative-rate':'-1','nan-rate':'nan','infinite-rate':'inf'}[defect])
+                elif defect=='unknown-rate':actuator.find('rate_limit').text='fsim/missing-rate'
+                elif defect=='wrong-positive-rate':actuator.find('rate_limit').text='8'
+                elif defect=='directional-rate':actuator.find('rate_limit').set('sense','incr')
+                elif defect in ('missing-min','missing-max'):actuator.find('clipto').remove(actuator.find('clipto/'+defect.removeprefix('missing-')))
+                elif defect=='inverted-stops':actuator.find('clipto/min').text='1'
+                elif defect=='nan-stop':actuator.find('clipto/min').text='nan'
+                elif defect=='infinite-stop':actuator.find('clipto/max').text='inf'
+                elif defect=='different-stop':actuator.find('clipto/max').text='.5'
+                elif defect=='scale-input':scale.find('input').text='fcs/rudder-cmd-norm'
+                elif defect=='scale-range':scale.find('range/max').text='.5'
+                elif defect=='actuator-before-lag':channel.remove(actuator);channel.insert(list(channel).index(lag),actuator)
+                elif defect=='duplicate-filter':channel.append(copy.deepcopy(lag))
+                elif defect=='second-lag':ET.SubElement(actuator,'lag').text='25'
+                elif defect=='missing-version':root.find('flight_control').remove(root.find("flight_control/property[.='fsim/control-operating-point-v1/version']"))
+                elif defect=='physical-fin-rate':channel.find("actuator[@name='fcs/fin-0-actuator']/rate_limit").text='0'
+                elif defect=='physical-fin-stop':channel.find("actuator[@name='fcs/fin-0-actuator']/clipto/max").text='nan'
+                self.assertFalse(self.r77_actuator_gate(root))
+
+    def test_version_one_serial_scale_accepts_only_implicit_or_explicit_default_normalization(self):
+        for centered in ('true','1'):
+            root=self.r77_native_xml()
+            for scale in root.findall('.//aerosurface_scale'):
+                domain=ET.SubElement(scale,'domain');ET.SubElement(domain,'min').text='-1';ET.SubElement(domain,'max').text='1'
+                ET.SubElement(scale,'gain').text='1';ET.SubElement(scale,'zero_centered').text=centered
+            with self.subTest(centered=centered):self.assertTrue(self.r77_actuator_gate(root))
+
+    def test_version_one_serial_scale_refuses_normalization_overrides_and_ambiguous_fields(self):
+        defects=('domain-wide','domain-missing-min','domain-nan','domain-inf','domain-property','domain-duplicate','domain-duplicate-min',
+                 'gain-two','gain-zero','gain-negative','gain-nan','gain-inf','gain-empty','gain-property','gain-duplicate',
+                 'centered-false','centered-zero','centered-garbage','centered-nan','centered-empty','centered-duplicate',
+                 'range-duplicate','range-duplicate-min')
+        for defect in defects:
+            with self.subTest(defect=defect):
+                root=self.r77_native_xml();scale=root.find(".//aerosurface_scale[@name='fcs/elevator-control']")
+                if defect.startswith('domain-'):
+                    domain=ET.SubElement(scale,'domain');ET.SubElement(domain,'min').text='-1';ET.SubElement(domain,'max').text='1'
+                    if defect=='domain-wide':domain.find('min').text='-2';domain.find('max').text='2'
+                    elif defect=='domain-missing-min':domain.remove(domain.find('min'))
+                    elif defect=='domain-nan':domain.find('min').text='nan'
+                    elif defect=='domain-inf':domain.find('max').text='inf'
+                    elif defect=='domain-property':domain.find('min').text='fsim/missile-control/elevator-min-rad'
+                    elif defect=='domain-duplicate':scale.append(copy.deepcopy(domain))
+                    elif defect=='domain-duplicate-min':domain.append(copy.deepcopy(domain.find('min')))
+                elif defect.startswith('gain-'):
+                    text={'gain-two':'2','gain-zero':'0','gain-negative':'-1','gain-nan':'nan','gain-inf':'inf',
+                          'gain-empty':'','gain-property':'fsim/unit-gain','gain-duplicate':'1'}[defect]
+                    node=ET.SubElement(scale,'gain');node.text=text
+                    if defect=='gain-property':ET.SubElement(root.find('flight_control'),'property',value='1').text='fsim/unit-gain'
+                    if defect=='gain-duplicate':scale.append(copy.deepcopy(node))
+                elif defect.startswith('centered-'):
+                    text={'centered-false':'false','centered-zero':'0','centered-garbage':'maybe','centered-nan':'nan',
+                          'centered-empty':'','centered-duplicate':'true'}[defect]
+                    node=ET.SubElement(scale,'zero_centered');node.text=text
+                    if defect=='centered-duplicate':scale.append(copy.deepcopy(node))
+                elif defect=='range-duplicate':scale.append(copy.deepcopy(scale.find('range')))
+                elif defect=='range-duplicate-min':scale.find('range').append(copy.deepcopy(scale.find('range/min')))
+                self.assertFalse(self.r77_actuator_gate(root))
+
+    def test_version_one_serial_components_and_mixer_match_the_predictor_shape(self):
+        defects=('bias','deadband','hysteresis','delay','lag-c2','duplicate-scale-input','duplicate-lag-input','duplicate-c1',
+                 'duplicate-actuator-input','duplicate-rate','duplicate-clip','duplicate-output','mixed-coefficient','mixed-axis',
+                 'mixed-extra-value','mixed-offset','mixed-nonlinear','mixed-metadata','duplicate-mixer-function','mixed-clip')
+        for defect in defects:
+            with self.subTest(defect=defect):
+                root=self.r77_native_xml();channel=root.find('flight_control/channel')
+                scale=channel.find("aerosurface_scale[@name='fcs/elevator-control']")
+                lag=channel.find("lag_filter[@name='fcs/elevator-operating-lag']")
+                actuator=channel.find("actuator[@name='fcs/elevator-actuator']")
+                mixer=channel.find("fcs_function[@name='fcs/fin-0-demand-rad']")
+                if defect in ('bias','deadband','hysteresis','delay'):
+                    tag={'bias':'bias','deadband':'deadband_width','hysteresis':'hysteresis_width','delay':'delay'}[defect]
+                    ET.SubElement(actuator,tag).text='.01'
+                elif defect=='lag-c2':ET.SubElement(lag,'c2').text='2'
+                elif defect=='duplicate-scale-input':scale.append(copy.deepcopy(scale.find('input')))
+                elif defect=='duplicate-lag-input':lag.append(copy.deepcopy(lag.find('input')))
+                elif defect=='duplicate-c1':lag.append(copy.deepcopy(lag.find('c1')))
+                elif defect=='duplicate-actuator-input':actuator.append(copy.deepcopy(actuator.find('input')))
+                elif defect=='duplicate-rate':actuator.append(copy.deepcopy(actuator.find('rate_limit')))
+                elif defect=='duplicate-clip':actuator.append(copy.deepcopy(actuator.find('clipto')))
+                elif defect=='duplicate-output':actuator.append(copy.deepcopy(actuator.find('output')))
+                elif defect=='mixed-coefficient':mixer.find('function/sum/product/value').text='2'
+                elif defect=='mixed-axis':mixer.find('function/sum/product/property').text='fcs/rudder-response-rad'
+                elif defect=='mixed-extra-value':ET.SubElement(mixer.find('function/sum/product'),'value').text='2'
+                elif defect=='mixed-offset':ET.SubElement(mixer.find('function/sum'),'value').text='.1'
+                elif defect=='mixed-nonlinear':mixer.find('function/sum').tag='product'
+                elif defect=='mixed-metadata':root.find("flight_control/property[.='fsim/control-operating-point-v1/fin-0/mix-elevator']").set('value','2')
+                elif defect=='duplicate-mixer-function':mixer.append(copy.deepcopy(mixer.find('function')))
+                elif defect=='mixed-clip':mixer.append(copy.deepcopy(mixer.find('clipto')))
+                self.assertFalse(self.r77_actuator_gate(root))
+
     def test_rotor_actuation_has_real_lag_rate_and_stops(self):
         fcs=ET.fromstring('<flight_control><channel><summer><input>fcs/elevator-cmd-norm</input></summer></channel></flight_control>')
         airframe._rotor_command_actuators(fcs)

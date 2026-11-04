@@ -15,7 +15,7 @@ import xml.etree.ElementTree as ET
 
 from . import pipeline
 from .pipeline import check, info
-from .files import open_write
+from .files import open_write, atomic_write_stream
 
 DEFAULT = ("geometry", "aero", "mass", "propulsion", "build", "model", "verify", "fly", "report")
 NOT_A_STORES = {"autopilot": "it has no control loops",
@@ -751,7 +751,7 @@ def main(argv):
         outcome = "Batch result: %s. Child exit codes: %s.\n\nCached stage values below are historical unless produced by this run.\n\n" % (
             "FAIL" if failed else "PASS", ", ".join("%s=%s" % (name, results.get(name, "missing")) for name in names))
         pipeline.write_text(path, outcome + record_text(rows, stages, forced, jobs))
-        with open_write(os.path.splitext(path)[0] + ".json", "w", encoding="utf-8", newline="\n") as f:
+        with atomic_write_stream(os.path.splitext(path)[0] + ".json", "w", encoding="utf-8", newline="\n") as f:
             json.dump({"stages": stages, "forced": forced, "jobs": jobs, "stores": rows,
                        "child_exit_codes": {name: results.get(name) for name in names}, "batch_passed": failed == 0}, f, indent=1)
             f.write("\n")

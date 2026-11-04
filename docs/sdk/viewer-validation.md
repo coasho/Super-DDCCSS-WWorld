@@ -16,6 +16,33 @@ have no fusion sidecar and display unavailable. See
 [current M01 record](sim-m01-completion.md) and its full quality receipt.
 <!-- SIM-M01 full quality end -->
 
+Current mandatory presentation repair, 2026-10-30 (`main` at `004e1f7`, with existing working-tree changes):
+removed the remaining vehicle-list, camera-preview, mission-panel and raw-detection hide controls.
+Every populated panel uses one nonclosable, noncollapsible entry point, which also restores old collapsed layouts.
+Missing cloud/atmosphere textures, cloud or sea shaders, and pipeline compilation errors now abort initialization;
+the Viewer also requires the ocean and global cloud maps. A reduced scene is never reported as a successful start.
+The panel behavior follows the [Dear ImGui window API](https://github.com/ocornut/imgui/blob/master/imgui.h).
+Evidence is under `build/architecture-reviews/viewer-mandatory-20261030`: `red-direct.log` reproduces six remaining
+hide shortcuts; `assets-red.log` reproduces two silent missing-cloud paths; `focused.junit.xml` passes the corrected
+19 checks in one executable; `render.junit.xml` records 77 passing renderer tests. CLI rejection is recorded in
+`.local/logs/cd8d901b4c504647bd3a92796a235c37-000.log` (two tests). The interrupted broader run in `release.log`
+has no completion credit; `release-cancelled.txt` records why it was stopped before repairing cloud initialization.
+The final program (`e73f91b0f853dd11e220553ecebc674368f0adcd26d4f50b142ef633b03986d9`) reran all24 complete
+live worlds and replaced all96 3840 x 2160 captures. Each 40 simulated seconds took 40.032-40.059 wall seconds.
+All24 logs confirm cloud and sea pipelines ready; native outcomes match the frozen inputs. Actual-recording fin
+retest: 8,358 snapshots and 40,104 fin angles, zero pose mismatches (`live-fins.junit.xml`, two tests including
+mandatory presentation). Resource rejection logs are `.local/logs/f1734a643495431395f2ab40744b00ec-000.log`
+(sea) and `.local/logs/0591834d7a474ce4a1ba22c8fac22d9c-000.log` (global clouds), each exit 1. Live inputs `L/V/P`
+were pressed in the ASRAAM window and the panels stayed open. The current shadow and burst captures are linked
+from the [per-model report](../../build/architecture-reviews/aam-chain-20261030/index.html); its
+`presentation-verification.json` records hashes and exact logs. Physical missile departures remain open.
+Additional repository integration run: 4/7 passed (`integration.junit.xml` and raw CTest `integration.log` in the
+mandatory-presentation evidence directory). `architecture_boundary` and `architecture_configured` reject the
+existing `tools/maintenance/clean_hangar_data.py` and `test_clean_hangar_data.py` directory category;
+`testing_scope_checker` reports the existing `tools/validation/missile/native/OpenVspIntersectionFixture.cmake`
+registration gap (113/114 internal checks passed). Those files and the original predicates were not changed
+for this presentation repair. This run does not establish clean whole-repository integration.
+
 Date: 2026-10-12. Checkout: `main`, starting commit `c2641e9cf51d2f84befa96d6a1d0b592029898d4`,
 with the viewer corrections described below. This record covers the native Vulkan/VSG viewer and offscreen
 Vision on this machine. The earlier [engagement delivery record](engagement-validation.md) remains headless

@@ -44,8 +44,18 @@ class Breakup(unittest.TestCase):
         v, t = _cube()
         top = [k for k, tri in enumerate(t) if all(v[i][2] == 1.0 for i in tri)]
         open_box = np.delete(t, top, axis=0)  # the box without its lid: one torn loop round its top
+        before_v, before_skin = v.copy(), open_box.copy()
         cv, ct, centre = breakup.caps(v, open_box)
-        self.assertEqual(len(ct), 4)  # a fan over the four edges
+        np.testing.assert_array_equal(v, before_v)
+        np.testing.assert_array_equal(open_box, before_skin)
+        # Any triangulation must cover the original unit-square top, with its
+        # outward winding and no displaced boundary or extra projected area.
+        self.assertTrue(np.all(cv[:, 2] == 1.0))
+        self.assertTrue(np.all((cv[:, :2] >= 0.0) & (cv[:, :2] <= 1.0)))
+        normal = np.cross(cv[ct[:, 1]]-cv[ct[:, 0]], cv[ct[:, 2]]-cv[ct[:, 0]])
+        self.assertTrue(np.all(normal[:, 2] > 0.0))
+        np.testing.assert_array_equal(normal[:, :2], np.zeros_like(normal[:, :2]))
+        self.assertAlmostEqual(.5*normal[:, 2].sum(), 1.0, places=12)
         np.testing.assert_allclose(centre, [0.5, 0.5, 1.0])
         # the cap closes it: every edge of box and cap shared by two triangles, wound opposite ways
         allv = np.concatenate([v, cv])
@@ -55,7 +65,7 @@ class Breakup(unittest.TestCase):
         for a, b, c in canon.reshape(-1)[allt]:
             for e in ((a, b), (b, c), (c, a)):
                 edges[e] = edges.get(e, 0) + 1
-        self.assertTrue(all(edges.get((b, a)) == 1 for (a, b) in edges))
+        self.assertTrue(all(n == 1 and edges.get((b, a)) == 1 for (a, b), n in edges.items()))
         # the whole box: no break, no cap - nor where its vertices are split along a seam (a painted mesh's)
         self.assertIsNone(breakup.caps(v, t)[2])
         split_v = np.concatenate([v, v])

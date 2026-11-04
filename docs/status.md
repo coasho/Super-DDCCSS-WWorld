@@ -1,5 +1,28 @@
 # Current capabilities and milestone status
 
+<!-- SIM-M03 diagnostic display continuation begin -->
+The 2026-11-02 diagnostic display continuation adds an optional live thermal
+channel selector while preserving WorldLayout v9, diagnostic V1 and fsrec v8.
+Publisher/incarnation/entity/generation/completed-frame checks reject stale,
+future and mismatched requests. Removed captures retain their original status
+and sample epoch while remaining inspectable. Replay cannot request or invent
+an unrecorded channel. The normal SDK and Viewer targets link successfully.
+
+Current focused Release execution passes three CTest entries: diagnostic
+transport (7 cases / 107 assertions), channel selection (2 / 50), and GPU-free
+UI drawing/lifecycle (7 / 112). Headless independently passes the same two
+transport entries; these repeated populations are not additional feature cases.
+Original failing regressions are retained. See the
+[display contract](sdk/weapon-diagnostics-v1.md#live-thermal-channel-display-selection)
+and `build/architecture-reviews/sim-m03-resume-20261102/thermal-band-*.log`.
+
+This focused evidence does not close SIM-M03. Current full regression,
+installed-consumer provenance, complete model/component acceptance, complete
+fullscreen presentation and reproducible package delivery are not established
+by these display tests. The current working tree is uncommitted; no new formal
+whole-program acceptance is claimed.
+<!-- SIM-M03 diagnostic display continuation end -->
+
 <!-- SIM-M01 continuation begin -->
 SIM-M01 is **complete**, with actual equipment accuracy calibration in the
 user-approved separate ledger (0/17 admitted). All 17 declared air-radar fits,
@@ -211,6 +234,14 @@ commands and receipts live under `build/hangar-calibration/closure/`; the
 [single Hangar guide](hangar-system.md) documents normal reproduction,
 assumptions and limits. No new clean-directory or visual Viewer acceptance is
 claimed for these changes.
+
+SIM-M03 persistent research and physical implementation entry:
+[research, source materials and native products](research/sim-m03/README.md).
+The active continuation implements actual focal-plane IR/IIR receivers, native
+RF aperture/CFAR processing, body-IMU strapdown navigation, variant actuation and
+[component runtime explanation](sdk/weapon-diagnostics-v1.md) in the Viewer.
+Development observations and original failures remain recorded until the new
+normal-entrypoint SDK/Viewer and full program acceptance are complete.
 
 SIM-M03 current mechanism baseline: finite native fin control and actual-fin
 C++/C99/Python diagnostics, optional live telemetry and v8 replay are implemented.

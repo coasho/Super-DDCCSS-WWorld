@@ -23,7 +23,7 @@ import time
 import tomllib
 
 from .. import __version__
-from ..files import open_write
+from ..files import open_write, atomic_write_stream
 
 KINDS = ("helicopter", "multirotor")
 STAGES = ("aero", "build", "model", "fly", "performance", "report")
@@ -58,7 +58,7 @@ class Rotorcraft:
     # -- results ---------------------------------------------------------------------------------
     def save(self, stage, data):
         data = dict(data, stage=stage, hangar=__version__, time=time.strftime("%Y-%m-%d %H:%M:%S"))
-        with open_write(os.path.join(self.out, stage + ".json"), "w", encoding="utf-8") as f:
+        with atomic_write_stream(os.path.join(self.out, stage + ".json"), "w", encoding="utf-8") as f:
             json.dump(data, f, indent=1, default=float)
         return data
 
@@ -170,7 +170,7 @@ class Rotorcraft:
                 axis, g(section[axis + "/power"]), g(section[axis + "/damping"]), g(section[axis + "/lag_s"])))
         path = os.path.join(self.dir, "hover.toml")
         text = keep_date(path, "\n".join(lines) + "\n", WRITTEN_DATE)
-        with open_write(path, "w", encoding="utf-8", newline="\n") as f:
+        with atomic_write_stream(path, "w", encoding="utf-8", newline="\n") as f:
             f.write(text)
 
     def profile_xml(self, indent="    "):
@@ -220,6 +220,11 @@ class Rotorcraft:
         from . import model
         path = os.path.join(self.dir, self.name + ".glb")
         report = model.write(self.spec, path, self.path)
+        from .. import liquid
+        from ..geometry.aircraft import Aircraft
+        liquid.write(Aircraft.shape(self.spec, self.path),
+                     os.path.join(self.dir, self.name + ".liquid-v1.json"),
+                     model.origin_of(self.spec), glb=path)
         return self.save("model", {"path": path, "report": report, "checks": model.checks(self.spec, report, path)})
 
     def fly(self):

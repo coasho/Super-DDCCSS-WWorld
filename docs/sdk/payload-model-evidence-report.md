@@ -1,5 +1,12 @@
 # Payload component configuration and evidence report
 
+The 2026-10-30 [fresh catalogue](../../build/architecture-reviews/aam-closure-20261030/catalogue/report.html)
+contains all53 cards and477 role declarations with zero unmapped available IDs.
+Current selections include four measured seeker classes, measured PN, two
+autopilot classes and two propulsion classes. The [repair evidence](weapon-fidelity-validation.md#all24-aam-repairs-and-remaining-gates-2026-10-30)
+records native execution and the open equipment gates separately. The table
+and counts dated2026-10-20 below remain historical configuration evidence.
+
 The 2026-10-21 [sourced finite-field implementation](fragment-hit-repair.md#sourced-finite-fragment-field-and-original-showcase-acceptance)
 closes the original showcase Hit gate. The source index now includes
 `FiniteZonedCaseWarheadV2`; the catalogue still separates model selection from
@@ -16,7 +23,7 @@ configured provider IDs, indexed concrete classes, resolved parameter
 provenance, sources, limitations and validity. It does not change SDK behavior,
 model parameters, cards, generated assets, scenes or acceptance assertions.
 
-## What the current catalogue actually distinguishes
+## Catalogue snapshot, 2026-10-20
 
 Fresh generation reads 53 cards and 477 role declarations. Available means
 declared/configured, not demonstrated execution or physical acceptance.
@@ -47,7 +54,7 @@ A class count is not a maturity score. Per-component `runtime_evidence` and
 keeps component assumptions distinct from published parameter sources.
 Provider interface/configuration version does not establish improved physical
 fidelity. For actual package evidence, consult the
-[representative-model delivery](representative-weapon-models.md),
+[representative-model delivery](weapon-fidelity-validation.md),
 [provider contract](payload-native-providers.md) and
 [physical-chain limitations](sim-m03-physical-chain-audit.md).
 

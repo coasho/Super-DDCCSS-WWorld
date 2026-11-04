@@ -30,7 +30,7 @@ import math
 import os
 
 from ..applicability import references_xml
-from ..files import open_write
+from ..files import open_write, atomic_write_stream
 
 RHO0 = 0.002377  # slug/ft3
 HP = 550.0       # ft lb/s
@@ -45,7 +45,7 @@ def _f(x):
 
 
 def _write(path, text):
-    with open_write(path, "w", encoding="utf-8", newline="\n") as f:
+    with atomic_write_stream(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
 
 

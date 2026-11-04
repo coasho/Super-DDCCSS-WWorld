@@ -1,3 +1,5 @@
+> Historical integration record (2026-10-21). This is a historical integration receipt; its solver campaigns are retired. Current unified VLM methods and measured fleet results belong in the [single Hangar guide](../../hangar-system.md) and [status](../../status.md); retain the independent reset, motor and RCS contract evidence below.
+
 # Numerical handoff integration and full regeneration
 
 Baseline: main `d5c820380d4bed50fb45ef3d5399175586a8f094`, clean.
@@ -52,12 +54,12 @@ it does not redefine electromagnetic accuracy or change runtime lookup rules.
 
 ## Numerical admission boundary
 
-The latest delivery is `completion-revision`. It reports panel closure and
-modified VSPAERO R2 convergence/containment as passing. Its SU2 coarse alpha-0
-wind drag remains negative. Candidate implementations and results belong in the
-project with explicit status, independently of acceptance as runtime model data.
-No failed result, threshold relaxation, hand-edited generated XML or fabricated
-equipment parameter is authorized by this integration.
+The retained `completion-revision` import, source hashes, negative-drag failure,
+panel/wake and schema controls are consolidated in the
+[Hangar provenance](../../hangar-system.md#consolidated-lessons)
+and [dated research cases](../../hangar-system.md#consolidated-lessons).
+Candidate software admission does not accept its coefficients as runtime model
+data. The non-CFD regeneration, reset, RCS and regression results remain here.
 
 ## Full-suite software follow-up
 

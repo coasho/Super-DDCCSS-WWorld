@@ -4,6 +4,54 @@
 
 The production path is `libfsim` → native World guidance decision → normalized channel commands → JSBSim channel response and physical-fin mixer → each finite actuator → aerodynamic forces/moments → rigid-body integration. The query reads the resulting native actuator properties. Viewer code draws these values and supplies no simulation forces.
 
+## Finite controller and aerodynamic model
+
+Guidance requests ECEF specific acceleration; the native autopilot transforms it
+into normalized axis commands at every integration step. JSBSim alone applies
+finite actuators, aerodynamic forces/moments, propulsion and rigid-body motion.
+There is no ideal guidance force, attitude overwrite or instantaneous turn.
+
+The signed pitch/yaw inverse transfers aerodynamic moments from AERORP to the
+current motor-dependent CG and uses current mass/inertia and dynamic pressure.
+It includes diagonal-inertia Euler coupling and actual nonlinear own-body load
+feedback. Gravity-compensating level lift does not demand an extra rotation;
+rotating-coordinate UVWdot is not substituted for an accelerometer. An absent
+roll effector does not disable valid pitch/yaw authority. Missing metadata,
+singular authority, invalid inputs or reversed flow produce neutral commands.
+Saturation can prevent the requested acceleration; it is reported, not hidden.
+
+Current shared response assumptions are channel lag 25/s (40 ms), physical-fin
+rate 4 rad/s, nominal rate/incidence response 0.12/0.4 s and requested incidence
+bounded at 15 degrees. Physical stops and signed mixing come from each authored
+control. Each fin has one post-mix rate limiter, not a second channel lag.
+Equivalent axis feedback uses the mixer's pseudoinverse; individual fin telemetry
+is necessary for jammed or differently saturated fins. These constants and
+geometry-derived control derivatives are simulated engineering estimates.
+
+PL-10 selects `ActuatorAwareCascadeAutopilotV1` separately from the retained
+original cascade. It includes the actual finite actuator as the third state
+in its signed angle/rate feedback solve. The three assigned real negative poles
+come from the existing incidence, rate and native actuator time constants.
+Incidence saturation also recomputes achievable path curvature. Local angle/Mach
+Jacobians come from the same generated nonlinear force/moment model; zero-angle
+slopes alone were inadequate after PL-10's supersonic stability transition.
+Native missile-control metadata version 2 admits these local derivatives.
+Missing actual surface feedback, uncontrollable solves or wrong metadata refuse
+neutral control. Original provider/version-1 metadata and unversioned callers
+retain their existing execution path. No response constants or fuze envelope
+were fitted to the encounters.
+
+For the four explicitly selected equivalent-vector models, the controller also
+uses signed nozzle effectiveness and same-frame native propulsion force/moment
+feedback. The finite JSBSim nozzle applies the existing thrust at its actual
+location about current CG. Vector angle/rate are engineering assumptions, not
+measured jet-vane or nozzle curves; fin telemetry still reports actual fins.
+
+The implementation/readiness history remains in
+`build/architecture-reviews/finite-missile-controls/` and
+[the nonlinear 30 km diagnosis](thirty-km-engagement-diagnosis.md). Dated test
+counts there are historical evidence, not the current fleet result.
+
 ## Version 1 values
 
 The new C++ value types are in `fsim/WeaponControls.h`, under `fsim::ms`. Existing public structures, classes' data layouts, plugin vtables and enum values are unchanged.

@@ -1,0 +1,793 @@
+{
+  "schema": "fsim.sim-m03.installed-consumers.v1",
+  "passed": true,
+  "build": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-headless",
+  "prefix": "D:\\ENV\\fsim-m03-preflight-1102d",
+  "commands": [
+    {
+      "label": "install-sdk",
+      "command": [
+        "D:\\ENV\\DevLanguages\\Cpp\\msys2\\ucrt64\\bin\\cmake.exe",
+        "--install",
+        "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-headless",
+        "--component",
+        "sdk",
+        "--prefix",
+        "D:\\ENV\\fsim-m03-preflight-1102d"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 17.66237070000352,
+      "log": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-installed-install-sdk.log",
+      "sha256": "a45da3dc7f53875ee7955c1af51b5f57717437e6b0f2ae75e9051d083409ae4a"
+    },
+    {
+      "label": "install-python",
+      "command": [
+        "D:\\ENV\\DevLanguages\\Cpp\\msys2\\ucrt64\\bin\\cmake.exe",
+        "--install",
+        "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-headless",
+        "--component",
+        "python",
+        "--prefix",
+        "D:\\ENV\\fsim-m03-preflight-1102d"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 20.01114310000412,
+      "log": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-installed-install-python.log",
+      "sha256": "e6c6cb5f25a5cae31fbd1e55cad5f155aaf948e9a652c010be4c7c5d369e6d8e"
+    },
+    {
+      "label": "install-tools",
+      "command": [
+        "D:\\ENV\\DevLanguages\\Cpp\\msys2\\ucrt64\\bin\\cmake.exe",
+        "--install",
+        "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-headless",
+        "--component",
+        "tools",
+        "--prefix",
+        "D:\\ENV\\fsim-m03-preflight-1102d"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 8.846122200004174,
+      "log": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-installed-install-tools.log",
+      "sha256": "9ac59875c81f9addbf846b91fde6b9e7fba5f1e08695a922638ca4c1b1a678aa"
+    },
+    {
+      "label": "install-examples",
+      "command": [
+        "D:\\ENV\\DevLanguages\\Cpp\\msys2\\ucrt64\\bin\\cmake.exe",
+        "--install",
+        "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-headless",
+        "--component",
+        "examples",
+        "--prefix",
+        "D:\\ENV\\fsim-m03-preflight-1102d"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 6.716855899998336,
+      "log": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-installed-install-examples.log",
+      "sha256": "e9effbdff068006be48c11f4b37bf12d0c99c1032a3d8605988e9defd48f6d70"
+    },
+    {
+      "label": "consumer-configure",
+      "command": [
+        "D:\\ENV\\DevLanguages\\Cpp\\msys2\\ucrt64\\bin\\cmake.exe",
+        "-S",
+        "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-installed-artifacts\\standalone-consumer-source",
+        "-B",
+        "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-installed-artifacts\\standalone-consumer-build",
+        "-G",
+        "Ninja",
+        "-DCMAKE_TOOLCHAIN_FILE=D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\cmake\\toolchains\\ucrt64.cmake",
+        "-DFSIM_UCRT64_ROOT=D:\\ENV\\DevLanguages\\Cpp\\msys2\\ucrt64",
+        "-DCMAKE_MAKE_PROGRAM=D:\\ENV\\DevLanguages\\Cpp\\msys2\\ucrt64\\bin\\ninja.exe",
+        "-Dfsim_DIR=D:\\ENV\\fsim-m03-preflight-1102d\\lib\\cmake\\fsim",
+        "-DCMAKE_PREFIX_PATH=D:\\ENV\\fsim-m03-preflight-1102d",
+        "-DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF",
+        "-DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF",
+        "-DCMAKE_BUILD_TYPE=Release"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 2.09764510000241,
+      "log": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-installed-consumer-configure.log",
+      "sha256": "4bc16a8a5b5a4deff285c375fa3caa89a243fa52a3eae4dbc9afba4d6a9e1fde"
+    },
+    {
+      "label": "consumer-build",
+      "command": [
+        "D:\\ENV\\DevLanguages\\Cpp\\msys2\\ucrt64\\bin\\cmake.exe",
+        "--build",
+        "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-installed-artifacts\\standalone-consumer-build",
+        "--parallel",
+        "1"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 3.707118599995738,
+      "log": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-installed-consumer-build.log",
+      "sha256": "6227bfbe03c6238bf8090c2efc4a2359017ae185b14dd603d1349b302f997082"
+    },
+    {
+      "label": "cpp",
+      "command": [
+        "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-installed-artifacts\\standalone-consumer-build\\sim_m03_cpp.exe",
+        "D:\\ENV\\fsim-m03-preflight-1102d",
+        "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-installed-artifacts\\installed-cpp-modules.json"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 5.991702400002396,
+      "log": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-installed-cpp.log",
+      "sha256": "2cb7c63919ff2866e2f5464902d8b0b78d53532b413c81b633293ab3fbddc5a0"
+    },
+    {
+      "label": "c99",
+      "command": [
+        "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-installed-artifacts\\standalone-consumer-build\\sim_m03_c.exe",
+        "D:\\ENV\\fsim-m03-preflight-1102d",
+        "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-installed-artifacts\\installed-c99-modules.json"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 1.0941911000045366,
+      "log": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-installed-c99.log",
+      "sha256": "617aa2185e4054eaab6d2338878dc4fced3645da2ae595295c381201e0f90913"
+    },
+    {
+      "label": "python",
+      "command": [
+        "D:/ENV/python/3.13/python.exe",
+        "-B",
+        "-c",
+        "import hashlib,json,pathlib,sys,unittest\nprefix=pathlib.Path(sys.argv[1]).resolve()\nsys.path.insert(0,sys.argv[2]);sys.path.insert(0,sys.argv[3])\nimport fsim\nfrom provenance import loaded_modules\nimport test_weapon_links\nsuite=unittest.defaultTestLoader.loadTestsFromModule(test_weapon_links)\nresult=unittest.TextTestRunner(verbosity=2).run(suite)\nfacade=pathlib.Path(fsim.__file__).resolve();native=pathlib.Path(fsim._native.__file__).resolve()\nif not facade.is_relative_to(prefix) or not native.is_relative_to(prefix):raise RuntimeError('Python product outside prefix')\nrecord=dict(python_package=str(facade),native_python=str(native),native_python_sha256=hashlib.sha256(native.read_bytes()).hexdigest(),modules=loaded_modules(prefix),tests=result.testsRun,failures=len(result.failures),errors=len(result.errors),skips=len(result.skipped))\npathlib.Path(sys.argv[4]).write_text(json.dumps(record,indent=2)+'\\n',encoding='utf-8')\nsys.exit(0 if result.wasSuccessful() and result.testsRun>0 and not result.skipped else 1)\n",
+        "D:\\ENV\\fsim-m03-preflight-1102d",
+        "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\tests\\compatibility\\python",
+        "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\tools\\validation\\radar",
+        "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-installed-artifacts\\installed-python-modules.json"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 4.516461400002299,
+      "log": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-installed-python.log",
+      "sha256": "d75bd693c0bd3363577f2386670ab8c404ef7fb594ebb7b0e5adbe86126ac36a"
+    }
+  ],
+  "render_enabled": false,
+  "elapsed_s": 70.72773049999523,
+  "provenance": [
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-headless\\bin\\libfsim.dll",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\bin\\libfsim.dll",
+      "sha256": "6d79a16cda2f9b32147fde5ce5adaa57fc4e2db04e2f87f78317b750ebc28925"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-headless\\bin\\libfsim.dll",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\bin\\libfsim.dll",
+      "sha256": "6d79a16cda2f9b32147fde5ce5adaa57fc4e2db04e2f87f78317b750ebc28925"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-headless\\bin\\libJSBSim.dll",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\bin\\libJSBSim.dll",
+      "sha256": "d6519f90e9e4b67fe2b1c43914cf81b247eaa333a20d12e0eaa0abbf4eafd021"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-headless\\python\\fsim\\_native.pyd",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\_native.pyd",
+      "sha256": "d568536cebd7c925d72235a131c75aac473a29c50747022becd7cffdb461f3dd"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\include\\fsim\\WeaponLink.h",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\include\\fsim\\WeaponLink.h",
+      "sha256": "8d271b319091bcbf4b64cf21f2fac6c2ed4f8cb436f9d85b2508c9dbbdc9e882"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\include\\fsim\\fsim_weapon_link.h",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\include\\fsim\\fsim_weapon_link.h",
+      "sha256": "c5556a88d2c6bb0a40e0e7f5238d2b313e68128c71842655c11fd5f7649032eb"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\include\\fsim\\Fusion.h",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\include\\fsim\\Fusion.h",
+      "sha256": "2d92fc88552bab78f5e3fd69c1bc90df1f299f04ab7a109d8c82c5439ebdf0d4"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\python\\fsim\\__init__.py",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\__init__.py",
+      "sha256": "1c7ac85c539b10fe96c7456e8d44427ef349c52c59b7ce46d45f7a4affabbbc4"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\python\\fsim\\weapon_link.py",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\weapon_link.py",
+      "sha256": "bbba95da8edd5e71cd57404a9834936f96077aa3a46d02f4af686e3c945553d2"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\python\\fsim\\world.py",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\world.py",
+      "sha256": "627a4d21d6928837b35b998316d06bcfa57cf8467ec2dabcd0396af6047a3f7d"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\python\\fsim\\agent.py",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\agent.py",
+      "sha256": "57708236ad7c3f788333c74e0d7a384b282c3e98d8545e08c9a3375f403c99c2"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\463l-pallet.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\463l-pallet.json",
+      "sha256": "5badfb12d59d0767cd39af318d7ac703d467e35626d9a9bcd6aceff7410c4a9e"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\463l-pallet.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\463l-pallet.json",
+      "sha256": "5badfb12d59d0767cd39af318d7ac703d467e35626d9a9bcd6aceff7410c4a9e"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\a10-tank-600gal.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\a10-tank-600gal.json",
+      "sha256": "e0dbda964e3766b6a46adcac550779c25e8a51c9ffee1ad07fbc0329a4899218"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\a10-tank-600gal.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\a10-tank-600gal.json",
+      "sha256": "e0dbda964e3766b6a46adcac550779c25e8a51c9ffee1ad07fbc0329a4899218"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\aim-120c.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\aim-120c.json",
+      "sha256": "307e60e13e4348cb17d40031b22de813641737a810524233d9815bee1370d78b"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\aim-120c.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\aim-120c.json",
+      "sha256": "307e60e13e4348cb17d40031b22de813641737a810524233d9815bee1370d78b"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\aim-120d.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\aim-120d.json",
+      "sha256": "c6cc6d95c39893f10d74bbfb8f7616f9b5f2b82e179c2303d4cd52e0216adfc4"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\aim-120d.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\aim-120d.json",
+      "sha256": "c6cc6d95c39893f10d74bbfb8f7616f9b5f2b82e179c2303d4cd52e0216adfc4"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\aim-7m.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\aim-7m.json",
+      "sha256": "6c538f0b9687af82dcb0dbe0285e7e3646a03b9b7c1407a84eebd699ac84fd26"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\aim-7m.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\aim-7m.json",
+      "sha256": "6c538f0b9687af82dcb0dbe0285e7e3646a03b9b7c1407a84eebd699ac84fd26"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\aim-9m.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\aim-9m.json",
+      "sha256": "d7e5bdd4632ddb287f84c3b3b7656a0e0b668dc4de9de46f0db5ce3538eb083d"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\aim-9m.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\aim-9m.json",
+      "sha256": "d7e5bdd4632ddb287f84c3b3b7656a0e0b668dc4de9de46f0db5ce3538eb083d"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\aim-9x.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\aim-9x.json",
+      "sha256": "b1643076f6e4b71e04c102a50b2b6c17383e15262c131b0031cef886e4459164"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\aim-9x.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\aim-9x.json",
+      "sha256": "b1643076f6e4b71e04c102a50b2b6c17383e15262c131b0031cef886e4459164"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\an-aaq-28.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\an-aaq-28.json",
+      "sha256": "86af1538211573900947aac1084daa03da774baef12189f9b970bfd4a7449ad3"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\an-aaq-28.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\an-aaq-28.json",
+      "sha256": "86af1538211573900947aac1084daa03da774baef12189f9b970bfd4a7449ad3"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\an-alq-131.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\an-alq-131.json",
+      "sha256": "4813fca244defc714875ece2a7b83a3ae22e6f033c1328d362f4e7c2f5955839"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\an-alq-131.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\an-alq-131.json",
+      "sha256": "4813fca244defc714875ece2a7b83a3ae22e6f033c1328d362f4e7c2f5955839"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\an-alq-184.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\an-alq-184.json",
+      "sha256": "c78932e8f0d7cf6a197d2df5b1ec34ba9e1fd71c04930a58f8a41992dbe1d9ae"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\an-alq-184.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\an-alq-184.json",
+      "sha256": "c78932e8f0d7cf6a197d2df5b1ec34ba9e1fd71c04930a58f8a41992dbe1d9ae"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\an-alq-99.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\an-alq-99.json",
+      "sha256": "4a2ed1faa4f7010bf65444827cb87ffac6c6eedf5121ea3dae9807bccbb855eb"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\an-alq-99.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\an-alq-99.json",
+      "sha256": "4a2ed1faa4f7010bf65444827cb87ffac6c6eedf5121ea3dae9807bccbb855eb"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\an-asq-228.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\an-asq-228.json",
+      "sha256": "8f7c1258ca651e8423ccb4258e1d109f90a38286bdb51db31748b431a65989f6"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\an-asq-228.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\an-asq-228.json",
+      "sha256": "8f7c1258ca651e8423ccb4258e1d109f90a38286bdb51db31748b431a65989f6"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\asraam.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\asraam.json",
+      "sha256": "496c0759abce17e1fd70eda898c5c7db57e7f9bd4d47b8faa3d52513db6b90a0"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\asraam.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\asraam.json",
+      "sha256": "496c0759abce17e1fd70eda898c5c7db57e7f9bd4d47b8faa3d52513db6b90a0"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\cds-a22.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\cds-a22.json",
+      "sha256": "6d98e7a773d0383cee53ff3be75c87adc79dcab4a65728a999be97110cda6f23"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\cds-a22.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\cds-a22.json",
+      "sha256": "6d98e7a773d0383cee53ff3be75c87adc79dcab4a65728a999be97110cda6f23"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\cj-10a.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\cj-10a.json",
+      "sha256": "15b0b33ad94b198b5491b1eb9cac7f294b902c2b47598473603a76c4ec604fcd"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\cj-10a.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\cj-10a.json",
+      "sha256": "15b0b33ad94b198b5491b1eb9cac7f294b902c2b47598473603a76c4ec604fcd"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\damocles.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\damocles.json",
+      "sha256": "287fd0593833742a61d6e94c174e1cb70434f7d79295bb50b30ba9a5fe3c8667"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\damocles.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\damocles.json",
+      "sha256": "287fd0593833742a61d6e94c174e1cb70434f7d79295bb50b30ba9a5fe3c8667"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\f22-tank-600gal.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\f22-tank-600gal.json",
+      "sha256": "02aeee33cba8e39f004fd6acd969dff1aadae12bce8e69d65eb356b83040293e"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\f22-tank-600gal.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\f22-tank-600gal.json",
+      "sha256": "02aeee33cba8e39f004fd6acd969dff1aadae12bce8e69d65eb356b83040293e"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\fpu-11.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\fpu-11.json",
+      "sha256": "55802f54abdf459b2b2a91526af6408b2e8fd89150eb4035565a86ecb42f272d"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\fpu-11.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\fpu-11.json",
+      "sha256": "55802f54abdf459b2b2a91526af6408b2e8fd89150eb4035565a86ecb42f272d"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\fpu-8.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\fpu-8.json",
+      "sha256": "00293a11192e1096a01baf3c6d0f787678efa40fc55390d27c723447cc875218"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\fpu-8.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\fpu-8.json",
+      "sha256": "00293a11192e1096a01baf3c6d0f787678efa40fc55390d27c723447cc875218"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\gripen-tank-1100l.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\gripen-tank-1100l.json",
+      "sha256": "bb46796fe8509f14b12bf48e544cc88fbcad83498fd16beee32aee2969d2d459"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\gripen-tank-1100l.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\gripen-tank-1100l.json",
+      "sha256": "bb46796fe8509f14b12bf48e544cc88fbcad83498fd16beee32aee2969d2d459"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\iris-t.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\iris-t.json",
+      "sha256": "bb146480eca5c3948235028861498d57bb18bafb7c6049d54aa3aaefa12f7ca8"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\iris-t.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\iris-t.json",
+      "sha256": "bb146480eca5c3948235028861498d57bb18bafb7c6049d54aa3aaefa12f7ca8"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\j10-tank-1600l.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\j10-tank-1600l.json",
+      "sha256": "8f6e34859b48d8fe1d46b9dc26f2d9dabdf2cf36cff2ff38c377542a02b6217d"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\j10-tank-1600l.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\j10-tank-1600l.json",
+      "sha256": "8f6e34859b48d8fe1d46b9dc26f2d9dabdf2cf36cff2ff38c377542a02b6217d"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\j10-tank-800l.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\j10-tank-800l.json",
+      "sha256": "e3d583f14b692a4424d3153a33ec60c674edeefc7771a7711628233cb97d637f"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\j10-tank-800l.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\j10-tank-800l.json",
+      "sha256": "e3d583f14b692a4424d3153a33ec60c674edeefc7771a7711628233cb97d637f"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\magic-2.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\magic-2.json",
+      "sha256": "ae277d1f414e7b4c39c35e8b66b9fefbaf16a5e637626fb72ca466cf4e818999"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\magic-2.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\magic-2.json",
+      "sha256": "ae277d1f414e7b4c39c35e8b66b9fefbaf16a5e637626fb72ca466cf4e818999"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\meteor.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\meteor.json",
+      "sha256": "f34b0125767914842253f6a7363890f3cf2ff06b6a4ac7004bb7611204ce4e06"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\meteor.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\meteor.json",
+      "sha256": "f34b0125767914842253f6a7363890f3cf2ff06b6a4ac7004bb7611204ce4e06"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\mica-em.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\mica-em.json",
+      "sha256": "3d7b6d7cc3083049de289a75b3915e1314c65123412fff7951178ca16532e456"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\mica-em.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\mica-em.json",
+      "sha256": "3d7b6d7cc3083049de289a75b3915e1314c65123412fff7951178ca16532e456"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\mica-ir.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\mica-ir.json",
+      "sha256": "1e4b22c739e0af84f46f4a29e7f06bb0d9142ecc21872119436c0174f0e76b67"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\mica-ir.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\mica-ir.json",
+      "sha256": "1e4b22c739e0af84f46f4a29e7f06bb0d9142ecc21872119436c0174f0e76b67"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\mk82.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\mk82.json",
+      "sha256": "fe96189d6b1e526f0218d714a03e939bf1e0c3582eafe6ddc00e2c5506f97ef9"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\mk82.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\mk82.json",
+      "sha256": "fe96189d6b1e526f0218d714a03e939bf1e0c3582eafe6ddc00e2c5506f97ef9"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\pl-10.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\pl-10.json",
+      "sha256": "ebc03a1f65c7a1c0a2f1c14b19c5bdf2fdd31e424408703ab5d4f53979a4a5dd"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\pl-10.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\pl-10.json",
+      "sha256": "ebc03a1f65c7a1c0a2f1c14b19c5bdf2fdd31e424408703ab5d4f53979a4a5dd"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\pl-12.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\pl-12.json",
+      "sha256": "e6c23ff42f007dcf704d63e2e7052a07a00ef94f910d4021390ae86be32ff378"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\pl-12.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\pl-12.json",
+      "sha256": "e6c23ff42f007dcf704d63e2e7052a07a00ef94f910d4021390ae86be32ff378"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\pl-15.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\pl-15.json",
+      "sha256": "95b0b83314ad1568fad4a1c62722222ce28e4e773b126067861f07a57910c4ff"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\pl-15.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\pl-15.json",
+      "sha256": "95b0b83314ad1568fad4a1c62722222ce28e4e773b126067861f07a57910c4ff"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\pl-8.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\pl-8.json",
+      "sha256": "e9a86c3811376fbe4b4728de9626d444acdb077f7f73262debccd052ec130405"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\pl-8.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\pl-8.json",
+      "sha256": "e9a86c3811376fbe4b4728de9626d444acdb077f7f73262debccd052ec130405"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\ptb-1150.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\ptb-1150.json",
+      "sha256": "025e0df235c325fbb9808526afec38882a89c84c5499e3a0040a98d0ce18109e"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\ptb-1150.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\ptb-1150.json",
+      "sha256": "025e0df235c325fbb9808526afec38882a89c84c5499e3a0040a98d0ce18109e"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\ptb-1500.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\ptb-1500.json",
+      "sha256": "067fb864398a30c5575fd72a7b9315e8bda4aca03dc66e3c46d487bb7243410f"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\ptb-1500.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\ptb-1500.json",
+      "sha256": "067fb864398a30c5575fd72a7b9315e8bda4aca03dc66e3c46d487bb7243410f"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\ptb-2000.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\ptb-2000.json",
+      "sha256": "f0a4491340bdb3688383626bbba01819e976e10a0d1a04aa155b6a6b738d3ac9"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\ptb-2000.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\ptb-2000.json",
+      "sha256": "f0a4491340bdb3688383626bbba01819e976e10a0d1a04aa155b6a6b738d3ac9"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\ptb-800.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\ptb-800.json",
+      "sha256": "d626888d93aaf8d103575605bad1c4ee259a7b53fce4a053a9d280aed2d7573f"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\ptb-800.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\ptb-800.json",
+      "sha256": "d626888d93aaf8d103575605bad1c4ee259a7b53fce4a053a9d280aed2d7573f"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\r-27er.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\r-27er.json",
+      "sha256": "74d5fd8195e1c7822ce9de80efe0642cff74933f919198ba68931ff7d2f53fa2"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\r-27er.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\r-27er.json",
+      "sha256": "74d5fd8195e1c7822ce9de80efe0642cff74933f919198ba68931ff7d2f53fa2"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\r-27et.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\r-27et.json",
+      "sha256": "62daa9a927ff5d864311aa38aa4dc44cd1b6449fc16f3e1bb00253581c67623a"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\r-27et.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\r-27et.json",
+      "sha256": "62daa9a927ff5d864311aa38aa4dc44cd1b6449fc16f3e1bb00253581c67623a"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\r-27r.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\r-27r.json",
+      "sha256": "121b80895da1f3961b2389d6134bf33908a4b6998e749abefab62e3882e7f851"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\r-27r.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\r-27r.json",
+      "sha256": "121b80895da1f3961b2389d6134bf33908a4b6998e749abefab62e3882e7f851"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\r-27t.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\r-27t.json",
+      "sha256": "0870bfb728842d0e0035521ba77aecf391d4d830d868453e126548a1fa20b6e4"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\r-27t.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\r-27t.json",
+      "sha256": "0870bfb728842d0e0035521ba77aecf391d4d830d868453e126548a1fa20b6e4"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\r-37m.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\r-37m.json",
+      "sha256": "2e226b8a3e13a59cd77563c00a0bd680e178682160bea15505a3740e2d1b1a03"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\r-37m.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\r-37m.json",
+      "sha256": "2e226b8a3e13a59cd77563c00a0bd680e178682160bea15505a3740e2d1b1a03"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\r-60m.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\r-60m.json",
+      "sha256": "22b18a41ce9b322e68009ac9a73791c48a4ad5121690625ec15c6c5fc38aeaf4"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\r-60m.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\r-60m.json",
+      "sha256": "22b18a41ce9b322e68009ac9a73791c48a4ad5121690625ec15c6c5fc38aeaf4"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\r-73.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\r-73.json",
+      "sha256": "33e7bf4e173b4b968fb1c0674227cd21942b47038bff830fa7d508c358e23c06"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\r-73.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\r-73.json",
+      "sha256": "33e7bf4e173b4b968fb1c0674227cd21942b47038bff830fa7d508c358e23c06"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\r-77m.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\r-77m.json",
+      "sha256": "01c25f4e58fcfe7196beb0c66089a2e01c16c4aa5f03b1d0f3372e9a1289040d"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\r-77m.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\r-77m.json",
+      "sha256": "01c25f4e58fcfe7196beb0c66089a2e01c16c4aa5f03b1d0f3372e9a1289040d"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\rpl-522.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\rpl-522.json",
+      "sha256": "69cbe47047b0687cdd7f8580635610edaef44ccfa1d578d01b5b1f94288b06a2"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\rpl-522.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\rpl-522.json",
+      "sha256": "69cbe47047b0687cdd7f8580635610edaef44ccfa1d578d01b5b1f94288b06a2"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\rpl-541.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\rpl-541.json",
+      "sha256": "843c600c792510887c1917045c5c47d3f4566f54efc82e58ff7a217d6287c0f2"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\rpl-541.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\rpl-541.json",
+      "sha256": "843c600c792510887c1917045c5c47d3f4566f54efc82e58ff7a217d6287c0f2"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\rpl-701.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\rpl-701.json",
+      "sha256": "e5d0e5f8b6a00a828d93065a2c71bf2196a40095296832ce36ccd7539c715e33"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\rpl-701.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\rpl-701.json",
+      "sha256": "e5d0e5f8b6a00a828d93065a2c71bf2196a40095296832ce36ccd7539c715e33"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\rpl-751.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\rpl-751.json",
+      "sha256": "aa3a70ac315fa75acccd95af8dd525e7f84ee0d9a2c8f081b9683e9651b61344"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\rpl-751.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\rpl-751.json",
+      "sha256": "aa3a70ac315fa75acccd95af8dd525e7f84ee0d9a2c8f081b9683e9651b61344"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\super-530d.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\super-530d.json",
+      "sha256": "f4d3ccbff6abda074374cc6d878bbfba4045889af30ecfb26ecf6814f39751b9"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\super-530d.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\super-530d.json",
+      "sha256": "f4d3ccbff6abda074374cc6d878bbfba4045889af30ecfb26ecf6814f39751b9"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\tank-300gal.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\tank-300gal.json",
+      "sha256": "3e0db787ea4ffa26a19831ae8ed09450f7f32552dbb4fc3c8986c09ed350cf5d"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\tank-300gal.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\tank-300gal.json",
+      "sha256": "3e0db787ea4ffa26a19831ae8ed09450f7f32552dbb4fc3c8986c09ed350cf5d"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\tank-370gal.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\tank-370gal.json",
+      "sha256": "098b9451756dd101c29ed9efd9832819bef68c8325108257a2d9344fbbcc981a"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\tank-370gal.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\tank-370gal.json",
+      "sha256": "098b9451756dd101c29ed9efd9832819bef68c8325108257a2d9344fbbcc981a"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\tank-610gal.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\tank-610gal.json",
+      "sha256": "d30b4ff0d1d5cc7b7024efa8517437552925da343a1686a5cba4cff96f1b02a2"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\tank-610gal.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\tank-610gal.json",
+      "sha256": "d30b4ff0d1d5cc7b7024efa8517437552925da343a1686a5cba4cff96f1b02a2"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\typhoon-tank-1000l.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\stores\\typhoon-tank-1000l.json",
+      "sha256": "853273e44b1bf93cb0150e55dcdeef3ec9a110a83c5e555d01821c56c4e336fc"
+    },
+    {
+      "source": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\assets\\stores\\typhoon-tank-1000l.json",
+      "installed": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\share\\flightsim\\stores\\typhoon-tank-1000l.json",
+      "sha256": "853273e44b1bf93cb0150e55dcdeef3ec9a110a83c5e555d01821c56c4e336fc"
+    }
+  ],
+  "installed_aircraft_search_roots": [
+    "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\aircraft",
+    "D:\\ENV\\fsim-m03-preflight-1102d\\share\\flightsim\\aircraft\\stores"
+  ],
+  "cpp_loaded_modules": {
+    "modules": [
+      {
+        "name": "libfsim.dll",
+        "path": "D:/ENV/fsim-m03-preflight-1102d/bin/libfsim.dll",
+        "sha256": "6d79a16cda2f9b32147fde5ce5adaa57fc4e2db04e2f87f78317b750ebc28925"
+      },
+      {
+        "name": "libJSBSim.dll",
+        "path": "D:/ENV/fsim-m03-preflight-1102d/bin/libJSBSim.dll",
+        "sha256": "d6519f90e9e4b67fe2b1c43914cf81b247eaa333a20d12e0eaa0abbf4eafd021"
+      }
+    ]
+  },
+  "c99_loaded_modules": {
+    "modules": [
+      {
+        "name": "libfsim.dll",
+        "path": "D:\\ENV\\fsim-m03-preflight-1102d\\bin\\libfsim.dll",
+        "sha256": "6d79a16cda2f9b32147fde5ce5adaa57fc4e2db04e2f87f78317b750ebc28925"
+      },
+      {
+        "name": "libJSBSim.dll",
+        "path": "D:\\ENV\\fsim-m03-preflight-1102d\\bin\\libJSBSim.dll",
+        "sha256": "d6519f90e9e4b67fe2b1c43914cf81b247eaa333a20d12e0eaa0abbf4eafd021"
+      }
+    ]
+  },
+  "python_loaded_modules": {
+    "python_package": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\__init__.py",
+    "native_python": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\_native.pyd",
+    "native_python_sha256": "d568536cebd7c925d72235a131c75aac473a29c50747022becd7cffdb461f3dd",
+    "modules": [
+      {
+        "name": "libfsim.dll",
+        "path": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\bin\\libfsim.dll",
+        "sha256": "6d79a16cda2f9b32147fde5ce5adaa57fc4e2db04e2f87f78317b750ebc28925"
+      },
+      {
+        "name": "libJSBSim.dll",
+        "path": "D:\\ENV\\fsim-m03-preflight-1102d\\fsim\\bin\\libJSBSim.dll",
+        "sha256": "d6519f90e9e4b67fe2b1c43914cf81b247eaa333a20d12e0eaa0abbf4eafd021"
+      }
+    ],
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0
+  }
+}

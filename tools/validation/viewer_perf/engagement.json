@@ -1,0 +1,32 @@
+{
+  "schema": "native-engagement-v1",
+  "name": "interactive AIM-120C engagement",
+  "seed": 17,
+  "start": {
+    "lat_deg": 36.25,
+    "lon_deg": -115.03,
+    "alt_m": 6000,
+    "heading_deg": 90
+  },
+  "carrier": {
+    "type": "jsbsim:f16c",
+    "name": "launcher",
+    "speed_ms": 250
+  },
+  "target": {
+    "type": "jsbsim:f16c",
+    "name": "opponent",
+    "speed_ms": 250,
+    "heading_deg": 270,
+    "range_m": 5000,
+    "altitude_offset_m": 0
+  },
+  "missiles": [
+    {
+      "card": "aim-120c",
+      "station_number": 1,
+      "name": "native missile",
+      "launch_s": 12
+    }
+  ]
+}

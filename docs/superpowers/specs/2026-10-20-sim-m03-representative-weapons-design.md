@@ -23,7 +23,7 @@ integration remain outside this assignment.
 The user subsequently approved inline implementation. The
 [implementation plan](../plans/2026-10-20-sim-m03-representative-weapons.md)
 records the current main baseline and exact file/symbol window. The
-[delivery record](../../sdk/representative-weapon-models.md) distinguishes
+[delivery record](../../sdk/weapon-fidelity-validation.md) distinguishes
 executed mechanisms from missing hardware and physical acceptance inputs.
 
 ## 2. Established source findings

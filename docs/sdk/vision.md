@@ -72,7 +72,7 @@ named `env<e>/<v>`); `cams.sensors()` is the underlying `Sensors` for
 When the world is published, `Sensors` also copies every camera's image into
 shared memory (`fsim.vision.<world>`, `Options::publish`, one memcpy per
 render) and `flightsim-viewer.exe` shows them live in its "cameras" window
-(`v` toggles it) - what the agents see, next to the world they fly in, without
+(always open while camera data is published) - what the agents see, next to the world they fly in, without
 the trainer knowing a viewer exists.
 
 ## From C

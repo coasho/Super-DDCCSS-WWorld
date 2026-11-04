@@ -200,6 +200,153 @@ def table_audit(t, a):
     return inventory, checks
 
 
+def _operating_point_actuator_audit(root):
+    """Validate the actual versioned serial FCS, without adding a second lag.
+
+    The controller reads these scalar states/bindings. A positive unrelated
+    filter, named function, or another healthy channel cannot satisfy them.
+    """
+    try:
+        fcs=root.find('flight_control')
+        if fcs is None:raise ValueError('Missing native FCS')
+        properties={}
+        for node in fcs.findall('property'):
+            properties.setdefault((node.text or '').strip(),[]).append(node)
+        def scalar(text):
+            text=(text or '').strip()
+            try:value=float(text)
+            except ValueError:
+                nodes=properties.get(text,[])
+                if len(nodes)!=1:raise ValueError('Missing/ambiguous scalar property '+text)
+                value=float(nodes[0].get('value','nan'))
+            if not math.isfinite(value):raise ValueError('Nonfinite native actuator scalar '+text)
+            return value
+        def property_value(name):
+            nodes=properties.get(name,[])
+            if len(nodes)!=1:raise ValueError('Missing/ambiguous scalar property '+name)
+            value=float(nodes[0].get('value','nan'))
+            if not math.isfinite(value):raise ValueError('Nonfinite native actuator property '+name)
+            return value
+        def positive(value,label):
+            if value<=0 or not math.isfinite(1/value):raise ValueError('Nonpositive/unrepresentable '+label)
+            return value
+        def leaf(node):
+            if node is None or len(node) or node.attrib or not (node.text or '').strip():
+                raise ValueError('Malformed native scalar/input leaf')
+            return node.text.strip()
+        def number(node):
+            value=float(leaf(node))
+            if not math.isfinite(value):raise ValueError('Nonfinite normalization/mixer literal')
+            return value
+        def shape(node,required,optional=(),attributes=()):
+            if node is None:raise ValueError('Missing version1 native component/child')
+            if set(node.attrib)-set(attributes) or (node.text or '').strip():
+                raise ValueError('Unsupported version1 native component shape '+node.tag)
+            tags=[child.tag for child in node]
+            if set(tags)-set(required)-set(optional) or any(tags.count(tag)!=1 for tag in required) or any(tags.count(tag)>1 for tag in optional):
+                raise ValueError('Unsupported/duplicate version1 child in '+node.tag)
+        def component(tag,name):
+            nodes=[node for node in fcs.iter() if node.get('name')==name]
+            if len(nodes)!=1 or nodes[0].tag!=tag:raise ValueError('Missing/ambiguous '+name)
+            return nodes[0]
+        def output(node,name,required=True):
+            explicit=node.find('output')
+            if (required or explicit is not None) and leaf(explicit)!=name:raise ValueError('Broken native output '+name)
+            writers=[n for n in fcs.iter() if n is not node and (n.get('name')==name or any((o.text or '').strip()==name for o in n.findall('output')))]
+            if writers:raise ValueError('Ambiguous native output '+name)
+        parents={child:parent for parent in fcs.iter() for child in parent}
+        order={node:index for index,node in enumerate(n for ch in fcs.findall('channel') for n in ch)}
+        def serial(*nodes):
+            parent=parents.get(nodes[0])
+            if any(parents.get(node) is not parent for node in nodes) or parent.tag!='channel' or set(parent.attrib)-{'name'}:
+                raise ValueError('Disconnected/conditional native actuator stages')
+            if any(order[a]>=order[b] for a,b in zip(nodes,nodes[1:])):raise ValueError('Reversed native actuator stage order')
+        def bounds(node,container,low,high,label,literal=False):
+            bound=node.find(container);shape(bound,('min','max'))
+            values=[number(bound.find(key)) if literal else scalar(leaf(bound.find(key))) for key in ('min','max')]
+            if values!=[low,high]:raise ValueError('Native stop/scale mismatch '+label)
+        def normalization(scale,low,high,label):
+            # FGGain.cpp admits other mappings. This version1 predictor is
+            # specifically zero-centred [-1,1], unit gain, with signed range.
+            shape(scale,('input','range'),('domain','gain','zero_centered','output','description'),('name',))
+            if scale.find('domain') is not None:bounds(scale,'domain',-1.,1.,label,True)
+            if scale.find('gain') is not None and number(scale.find('gain'))!=1:raise ValueError('Unsupported version1 scale gain '+label)
+            centered=scale.find('zero_centered')
+            if centered is not None and leaf(centered) not in ('true','1'):raise ValueError('Unsupported version1 zero-centred mapping '+label)
+            bounds(scale,'range',low,high,label,True)
+            output(scale,scale.get('name'),False)
+        def bounded(node,rate,low,high,label):
+            shape(node,('input','rate_limit','clipto','output'),('description',),('name',))
+            leaf(node.find('input'))
+            if scalar(leaf(node.find('rate_limit')))!=rate:raise ValueError('Missing/inconsistent symmetric native rate '+label)
+            bounds(node,'clipto',low,high,label)
+        def mixer_weights(mixer,metadata):
+            shape(mixer,('function','clipto'),('output','description'),('name',))
+            function=mixer.find('function')
+            if function.attrib or (function.text or '').strip() or len(function)!=1:raise ValueError('Unsupported mixer function wrapper')
+            expression=function[0];weights={axis:0. for axis in ('aileron','elevator','rudder')}
+            terms=[]
+            if expression.tag=='value':
+                if number(expression)!=0:raise ValueError('Unmodeled constant mixer offset')
+            elif expression.tag=='sum':
+                if expression.attrib or (expression.text or '').strip() or not 1<=len(expression)<=3 or any(n.tag!='product' for n in expression):
+                    raise ValueError('Unsupported native linear mixer sum')
+                terms=list(expression)
+            elif expression.tag=='product':terms=[expression]
+            else:raise ValueError('Unsupported nonlinear native mixer')
+            seen=set()
+            for term in terms:
+                shape(term,('value','property'))
+                source=leaf(term.find('property'))
+                axes=[axis for axis in weights if source=='fcs/'+axis+'-response-rad']
+                if len(axes)!=1 or axes[0] in seen:raise ValueError('Unknown/duplicate native mixer axis')
+                axis=axes[0];seen.add(axis);weights[axis]=number(term.find('value'))
+            for axis,value in weights.items():
+                if value!=property_value(metadata+'/mix-'+axis):raise ValueError('Native mixer coefficient/profile mismatch '+axis)
+            output(mixer,mixer.get('name'),False)
+        prefix='fsim/missile-control/'
+        if property_value('fsim/control-operating-point-v1/version')!=1:raise ValueError('Unsupported/missing composed actuator version')
+        if property_value(prefix+'actuator-version')!=1 or property_value(prefix+'normalization-version')!=1:
+            raise ValueError('Unsupported/missing finite actuator metadata')
+        pole=positive(property_value(prefix+'lag-coefficient-s-1'),'lag pole')
+        rate=positive(property_value(prefix+'channel-rate-rad_s'),'channel rate')
+        channel_stages=[]
+        for axis in ('aileron','elevator','rudder'):
+            stem='fcs/'+axis
+            scale=component('aerosurface_scale',stem+'-control')
+            lag=component('lag_filter',stem+'-operating-lag')
+            actuator=component('actuator',stem+'-actuator')
+            serial(scale,lag,actuator)
+            shape(lag,('input','c1','output'),('description',),('name',))
+            if leaf(scale.find('input'))!=stem+'-cmd-norm' or leaf(lag.find('input'))!=stem+'-control':
+                raise ValueError('Disconnected native scale/lag input '+axis)
+            if positive(scalar(leaf(lag.find('c1'))),'lag pole')!=pole:raise ValueError('Native lag/profile mismatch '+axis)
+            output(lag,stem+'-lag-state')
+            if leaf(actuator.find('input'))!=stem+'-lag-state':raise ValueError('Disconnected native lag/actuator input '+axis)
+            low,high=property_value(prefix+axis+'-min-rad'),property_value(prefix+axis+'-max-rad')
+            if low>0 or high<0 or low>high or low==high and (axis!='aileron' or low!=0):raise ValueError('Invalid signed channel stops '+axis)
+            normalization(scale,low,high,axis);bounded(actuator,rate,low,high,axis)
+            output(actuator,stem+'-response-rad');channel_stages.append(actuator)
+        count=property_value(prefix+'fin-count')
+        if count<1 or count>32 or count!=int(count) or property_value('fsim/control-operating-point-v1/fin-count')!=count:
+            raise ValueError('Invalid physical fin count')
+        for index in range(int(count)):
+            stem='fcs/fin-%d'%index;metadata=prefix+'fin-%d'%index
+            mixer=component('fcs_function',stem+'-demand-rad');actuator=component('actuator',stem+'-actuator')
+            serial(mixer,actuator)
+            if any(order[node]>=order[mixer] for node in channel_stages):raise ValueError('Physical mixer precedes native channel response')
+            mixer_weights(mixer,'fsim/control-operating-point-v1/fin-%d'%index)
+            if leaf(actuator.find('input'))!=stem+'-demand-rad':raise ValueError('Broken physical fin input')
+            low,high=property_value(metadata+'-min-rad'),property_value(metadata+'-max-rad')
+            if low>high:raise ValueError('Invalid physical fin stops')
+            bounds(mixer,'clipto',low,high,stem)
+            bounded(actuator,positive(property_value(metadata+'-rate-rad_s'),'fin rate'),low,high,stem)
+            output(actuator,stem+'-delta-rad')
+        return True,'All three serial channel lag/rate/stop paths and every post-mix finite fin consume their actual versioned native bindings'
+    except (ValueError,TypeError,KeyError,OverflowError) as error:
+        return False,'Invalid versioned composed actuator chain: '+str(error)
+
+
 def structure(xml, product, card, category, required_powered=False, extra_xml=(), design_spec=None):
     """Component applicability follows declared geometry/equipment, never names."""
     root = ET.fromstring(xml)
@@ -262,8 +409,15 @@ def structure(xml, product, card, category, required_powered=False, extra_xml=()
         checks.extend(actuator_checks)
         actuator_complete=bool(actuator_rows) and all(c['passed'] for c in actuator_checks)
     else:actuator_complete=not controlled or bool(bounded_actuators)
-    require('actuator-lag-rate-stops',actuator_complete,
-        'Per-physical-state native motor lag/command bounds and derived angular acceleration bound, or post-mix pitch servo lag/rate/stops. No extra guessed rotor command slew; uncontrolled inert designs are the identity limit.')
+    actuator_detail='Per-physical-state native motor lag/command bounds and derived angular acceleration bound, or post-mix pitch servo lag/rate/stops. No extra guessed rotor command slew; uncontrolled inert designs are the identity limit.'
+    selected=(card or {}).get('component_models',{}).get('components',{}).get('autopilot',{}).get('implementation_id')
+    if selected:
+        from .equipment_models import normalize as equipment_mechanism
+        selected=equipment_mechanism(card,'autopilot',selected)
+    operating=root.find("flight_control/property[.='fsim/control-operating-point-v1/version']")
+    if selected=='fsim.control.operating_point_bounded.v1' or operating is not None:
+        actuator_complete,actuator_detail=_operating_point_actuator_audit(root)
+    require('actuator-lag-rate-stops',actuator_complete,actuator_detail)
     components['actuator-lag-rate-stops']['applicability'] = 'required' if controlled else 'not_applicable'
     if card:
         definitions = card.get('component_models', {}).get('components', {})
@@ -331,10 +485,13 @@ def generation_inputs(record):
         if path in visited:return
         visited.add(path);bind(path)
         directory=path.parent
-        for name in ('calibration.toml','autopilot.toml','hover.toml','tail-damping.json','flight-calibration.json',
+        bind(path.with_suffix('.liquid-geometry-v1.json'))
+        for name in ('calibration.toml','paint.toml','autopilot.toml','hover.toml','tail-damping.json','flight-calibration.json',
                      'out/fly.json','out/performance.json','out/ground.json','payloads.json'):
             bind(directory/name)
         spec=tomllib.loads(path.read_text(encoding='utf-8'))
+        if spec.get('aircraft',{}).get('category') in ('missile','store'):
+            bind(ROOT/'assets/stores'/(spec['aircraft']['card']+'.json'))
         for surface in spec.get('surface',[]):
             for part in [surface,*surface.get('sections',[])]:
                 foil=part.get('airfoil')
@@ -356,9 +513,160 @@ def generation_inputs(record):
     return inputs,presence
 
 
+def mass_partition_audit(xml_path, damage_path=None, design_spec=None):
+    """Read actual serialized products; never call the fitting equations.
+
+    Products are transformed to body axes. Every retained subset is tested at
+    its own CG, including the covariance/triangle condition for a physical
+    nonnegative mass distribution, rather than just positive diagonals.
+    """
+    import itertools
+    balance=ET.parse(xml_path).getroot().find('mass_balance')
+    if balance is None:raise ValueError('Missing generated mass balance')
+    def scalar(name, factors, default=None):
+        element=balance.find(name)
+        if element is None:
+            if default is not None:return default
+            raise ValueError('Missing generated mass quantity '+name)
+        unit=element.get('unit','').upper()
+        if unit not in factors:raise ValueError('Unsupported generated mass unit '+unit)
+        value=float(element.text)*factors[unit]
+        if not math.isfinite(value):raise ValueError('Nonfinite generated mass quantity '+name)
+        return value
+    mass=scalar('emptywt',{'KG':1.,'LBS':.45359237,'':.45359237})
+    inertia_units={'KG*M2':1.,'SLUG*FT2':1.3558179483314004,'':1.3558179483314004}
+    a=[scalar(k,inertia_units,0. if k in ('ixy','ixz','iyz') else None)
+       for k in ('ixx','iyy','izz','ixy','ixz','iyz')]
+    negative=balance.get('negated_crossproduct_inertia','true')!='false'
+    sign=-1. if negative else 1.
+    tensor=np.array([[a[0],sign*a[3],-sign*a[4]],
+                     [sign*a[3],a[1],sign*a[5]],[-sign*a[4],sign*a[5],a[2]]])
+    location=balance.find("location[@name='CG']")
+    if location is None:raise ValueError('Missing generated empty CG')
+    distance={'M':1.,'IN':.0254,'FT':.3048,'':.0254}
+    if location.get('unit','').upper() not in distance:raise ValueError('Unsupported generated CG unit')
+    cg=np.array([float(location.find(k).text) for k in ('x','y','z')])*distance[location.get('unit','').upper()]
+    if mass<=0 or not np.isfinite(cg).all():raise ValueError('Invalid generated empty mass/CG')
+    roundoff=1024*np.finfo(float).eps*max(float(np.linalg.norm(tensor,ord=2)),1.)
+    if not math.isfinite(roundoff):raise ValueError('Nonfinite generated inertia roundoff budget')
+    def physical(value, tolerance=roundoff):
+        if not math.isfinite(tolerance) or tolerance<0 or not np.isfinite(value).all():return False
+        with np.errstate(over='ignore',invalid='ignore'):
+            covariance=.5*np.trace(value)*np.eye(3)-value
+        if not np.isfinite(covariance).all():return False
+        return bool(np.linalg.eigvalsh(value).min()>=-tolerance and
+                    np.linalg.eigvalsh(covariance).min()>=-tolerance)
+    if not physical(tensor):raise ValueError('Generated empty inertia is not a physical mass tensor')
+    result=dict(version='fsim.mass-partition.audit.v1',passed=True,xml_sha256=sha(Path(xml_path)),
+        mass_kg=mass,cg_structural_m=cg.tolist(),body_tensor_kgm2=tensor.tolist(),
+        primary_tensor_physical=True,section_count=0,complement_count=0)
+    spec=(design_spec or {}).get('mass',{})
+    result['source_policy']={k:spec[k] for k in ('gyration_reference','inertia_reference','retired_gyration',
+        'retired_inertia_tensor_kgm2','inertia_reference_reason','inertia_uncertainty_fraction') if k in spec}
+    if damage_path is None:return result
+    data=json.loads(Path(damage_path).read_text(encoding='utf-8'))
+    result['damage_sha256']=sha(Path(damage_path))
+    origin=np.asarray(data['origin_design_m'],float)
+    if not np.allclose(origin,cg,rtol=0,atol=64*np.finfo(float).eps*max(1.,float(np.max(np.abs(cg))))):
+        raise ValueError('Damage and native empty origins differ')
+    terms=[];amounts=[];firsts=[]
+    def pai(amount,r):return amount*(np.dot(r,r)*np.eye(3)-np.outer(r,r))
+    for section in data['sections']:
+        amount=float(section['mass_kg']);r=np.asarray(section['cg'],float);v=section['inertia']
+        own=np.array([[v[0],-v[3],-v[4]],[-v[3],v[1],-v[5]],[-v[4],-v[5],v[2]]])
+        if not math.isfinite(amount) or amount<0 or not np.isfinite(r).all() or not physical(own):
+            raise ValueError('Nonphysical serialized section '+section['name'])
+        if amount==0 and float(np.max(np.abs(own)))>roundoff:
+            raise ValueError('Zero-mass serialized section carries finite own inertia: '+section['name'])
+        amounts.append(amount);firsts.append(amount*r);terms.append(own+pai(amount,r))
+    # Exact dimensionless solver tolerance mapped to dimensional moments;
+    # plus floating-point summation roundoff. This is not a physical clamp.
+    method=data.get('mass_partition',{})
+    scale=np.asarray(method.get('normalization_scale_m',[1.,1.,1.]),float)
+    if scale.shape!=(3,) or not np.isfinite(scale).all() or (scale<1.).any():
+        raise ValueError('Invalid generated moment normalization scale')
+    epsilon=float(method.get('dimensionless_moment_tolerance',0.))
+    if epsilon not in (0.,2e-12):raise ValueError('Unknown generated moment tolerance')
+    tensor_budget=roundoff
+    mass_budget=1024*np.finfo(float).eps*mass
+    first_budget=mass_budget*max(float(np.max(np.abs(cg))),1.)
+    if epsilon:
+        # Bound metadata against independently serialized physical geometry.
+        # A global coordinate extent is conservative for each normalization
+        # axis, while preventing arbitrary finite metadata from inflating the
+        # unchanged dimensionless numerical tolerance.
+        geometry_bound=0.
+        geometry_points=0
+        def include_geometry(points):
+            nonlocal geometry_bound,geometry_points
+            value=np.asarray(points,float)
+            if value.ndim!=2 or value.shape[1]!=3 or not len(value) or not np.isfinite(value).all():
+                raise ValueError('Invalid serialized geometry for moment normalization')
+            geometry_bound=max(geometry_bound,float(np.max(np.abs(value))))
+            geometry_points+=len(value)
+        def include_box(record):
+            centre=np.asarray(record['centre'],float);half=np.asarray(record['half'],float)
+            if centre.shape!=(3,) or half.shape!=(3,) or not np.isfinite(centre).all() or not np.isfinite(half).all() or (half<0).any():
+                raise ValueError('Invalid serialized geometry box for moment normalization')
+            with np.errstate(over='ignore',invalid='ignore'):
+                include_geometry([centre-half,centre+half])
+        for panel in data.get('panels',[]):
+            if 'corners' in panel:include_geometry(panel['corners'])
+            elif 'centre' in panel and 'half' in panel:include_box(panel)
+        for mesh in data.get('contact_geometry',{}).get('meshes',[]):
+            include_geometry(mesh['vertices'])
+        for component in data.get('components',[]):
+            include_box(component)
+        if not geometry_points:raise ValueError('Missing serialized geometry proof for moment normalization')
+        geometry_bound=max(1.,geometry_bound)
+        if np.max(scale)>geometry_bound+64*np.finfo(float).eps*geometry_bound:
+            raise ValueError('Moment normalization scale exceeds serialized geometry bound')
+        result['normalization_geometry_bound_m']=geometry_bound
+        # Do not square a scale before applying a zero tolerance. Even finite
+        # metadata can overflow intermediate arithmetic and create NaN/Inf.
+        maximum_scale=float(np.max(scale))
+        tensor_budget+=(4*epsilon*mass*maximum_scale)*maximum_scale
+        first_budget+=epsilon*mass*maximum_scale
+    if not all(math.isfinite(value) for value in (mass_budget,first_budget,tensor_budget)):
+        raise ValueError('Nonfinite generated moment comparison budget')
+    with np.errstate(over='ignore',invalid='ignore'):
+        total_mass=sum(amounts)
+        total_first=sum(firsts,np.zeros(3))
+        total_tensor=sum(terms,np.zeros((3,3)))
+    if not math.isfinite(total_mass) or not np.isfinite(total_first).all() or not np.isfinite(total_tensor).all():
+        raise ValueError('Nonfinite serialized aggregate mass moments')
+    with np.errstate(over='ignore',invalid='ignore'):
+        mass_error=abs(total_mass-mass)
+        first_error=float(np.max(np.abs(total_first)))
+        tensor_error=float(np.max(np.abs(total_tensor-tensor)))
+    if not all(math.isfinite(value) for value in (mass_error,first_error,tensor_error)):
+        raise ValueError('Nonfinite serialized aggregate moment errors')
+    if mass_error>mass_budget or first_error>first_budget or tensor_error>tensor_budget:
+        raise ValueError('Serialized sections do not conserve native empty mass/first/full second moments: '+
+            str(dict(mass_error=mass_error,first_error=first_error,tensor_error=tensor_error,budget=tensor_budget)))
+    for size in range(len(terms)):
+        for removed in itertools.combinations(range(len(terms)),size):
+            remaining=mass-sum(amounts[i] for i in removed)
+            first=-sum((firsts[i] for i in removed),np.zeros(3))
+            own=tensor-sum((terms[i] for i in removed),np.zeros((3,3)))
+            if remaining<=mass_budget:
+                # A numerical vacuum cannot retain finite moments. Check the
+                # actual subtraction before skipping an empty complement.
+                if (remaining < -mass_budget or not np.isfinite(first).all() or not np.isfinite(own).all() or
+                    float(np.max(np.abs(first)))>first_budget or float(np.max(np.abs(own)))>tensor_budget):
+                    raise ValueError('Zero-mass retained section complement carries finite moments '+str(removed))
+                continue
+            own-=pai(remaining,first/remaining)
+            if not physical(own,tensor_budget):raise ValueError('Nonphysical retained section complement '+str(removed))
+            result['complement_count']+=1
+    result.update(section_count=len(terms),mass_error_kg=mass_error,first_moment_error_kgm=first_error,
+        tensor_error_kgm2=tensor_error,tensor_numeric_budget_kgm2=tensor_budget,method=method)
+    return result
+
+
 def generate(record, out, geometry_threads=1):
     if type(geometry_threads) is not int or not 1<=geometry_threads<=16:raise ValueError('Geometry threads must be an integer from 1 to 16')
-    from . import airframe, storestages, rotorcraft, damage, pieces
+    from . import airframe, storestages, rotorcraft, pieces
     start = time.monotonic()
     d = pipeline.Design(record['path'], log=lambda *x: None)
     t = d.tables(force=True)  # No stale cache can satisfy this campaign.
@@ -376,17 +684,33 @@ def generate(record, out, geometry_threads=1):
         card, product = None, Path(record['path']).parent
     runtime_xml_seconds=time.monotonic()-xml_start
     auxiliary_start=time.monotonic();detached=[]
+    from .resources import thread_reservation,cpu_lease
+    with thread_reservation(geometry_threads),cpu_lease(geometry_threads):
+        # Complete production owns the normal visual/material model as well
+        # as flight XML. A previous GLB or liquid sidecar cannot satisfy a
+        # forced current-source campaign. Normal model writers also own the
+        # damage, detached definitions and required occupancy generation.
+        if record['category']=='store':
+            model_result=storestages.model(d,force=True)
+        elif record['category']=='rotorcraft':
+            model_result=rotorcraft.Rotorcraft(record['path'],log=lambda *x:None).model()
+        else:
+            model_result=d.model(force=True)
     if record['category']=='fixed-wing' and any(s.kind=='wing' for s in d.aircraft.surfaces):
-        from .shape import meshkit
-        if meshkit.library() is None:
-            raise ValueError('Missing required native geometry backend for fitted damage generation')
-        cg=d.aircraft.spec['mass'].get('empty_cg')
-        origin=np.asarray(cg,float) if cg is not None else None
         damage_path=product/(product.name+'.damage.json')
-        from .resources import thread_reservation
-        with thread_reservation(geometry_threads):
-            damage_data=damage.write(d.aircraft,str(damage_path),origin,model=d.aero_model())
-            detached=[damage_path,*map(Path,pieces.write(damage_data,str(product)))]
+        if not damage_path.is_file():raise ValueError('Normal model omitted required damage product')
+        current_damage=json.loads(damage_path.read_text(encoding='utf-8'))
+        detached=[damage_path]
+        for section in pieces.PARTS:
+            piece_name=pieces.piece_name(d.aircraft.name,section)
+            piece_path=product/'pieces'/piece_name/(piece_name+'.xml')
+            expected_piece=pieces.piece_xml(current_damage,section)
+            if expected_piece is None:
+                if piece_path.exists():raise ValueError('Obsolete generated section XML survived the normal model writer')
+            else:
+                if not piece_path.is_file() or piece_path.read_text(encoding='utf-8')!=expected_piece:
+                    raise ValueError('Normal model did not publish the exact current section definition')
+                detached.append(piece_path)
     auxiliary_seconds=time.monotonic()-auxiliary_start
     # The runtime coefficients include existing explicit calibration, never a
     # new fit or a manual edit of generated XML.
@@ -397,10 +721,16 @@ def generate(record, out, geometry_threads=1):
     resolution=integration.settings(ET.parse(xml).getroot(),d.aircraft,tables)
     required_powered=bool(card.get('powerable')) if card else record['category']=='rotorcraft' or bool(d.aircraft.engines)
     components, structural, xml_inventory = structure(xml.read_text(encoding='utf-8'), product, card, record['category'],required_powered,[p for p in detached if p.suffix=='.xml'],design_spec=d.aircraft.spec)
+    structural.extend(dict(name='normal-model-'+check['name'],passed=check['status']!='fail')
+                      for check in model_result['checks'])
+    damage_product=next((p for p in detached if p.name.endswith('.damage.json')),None)
+    mass_partition=mass_partition_audit(xml,damage_product,d.aircraft.spec)
+    structural.append(dict(name='serialized-mass-partition',passed=mass_partition['passed']))
     inputs,input_presence = generation_inputs(record)
     if card:
         cp = ROOT / 'assets/stores' / (card['id'] + '.json')
-        inputs[str(cp.relative_to(ROOT))] = sha(cp)
+        if inputs.get(cp.relative_to(ROOT).as_posix())!=sha(cp):
+            raise ValueError('Current store card is absent from the generation input closure')
     source_files = sorted(Path(__file__).parent.glob('*.py'))
     for directory in ('aero','geometry','rotorcraft','shape'):
         source_files += sorted((Path(__file__).parent/directory).glob('*.py'))
@@ -411,6 +741,7 @@ def generate(record, out, geometry_threads=1):
     generator = {str(p.relative_to(ROOT)): sha(p) for p in source_files}
     geometry_backend=None
     if record['category']=='fixed-wing' and any(s.kind=='wing' for s in d.aircraft.surfaces):
+        from .shape import meshkit
         backend=Path(meshkit.library()._name).resolve()
         geometry_backend=dict(path=str(backend),sha256=sha(backend),
             method='Native signed-distance geometry fitting',basis='simulated',
@@ -424,7 +755,7 @@ def generate(record, out, geometry_threads=1):
             source=str(Path(record['path']).relative_to(ROOT)),derivation='damage.py:write and pieces.py:write; geometry-derived mass/CG/inertia, strip load shares and explicit tumbling-body estimates; no new measured data') for p in detached],
         input_sha256=inputs, input_presence=input_presence, generator_sha256=generator, geometry_backend=geometry_backend, table_inputs_hash=d.table_inputs_hash(), regenerated=True,
         reference=dict(S=a.S, b=a.b, c=a.c, arp=a.aero_point.tolist()), gear_drag=gear_drag(a), tables=tables,
-        components=components, integration=resolution, lifting_panels=int(t.get('_panels',0)), inventory=inventory+xml_inventory, checks=checks+structural,
+        components=components, mass_partition=mass_partition, integration=resolution, lifting_panels=int(t.get('_panels',0)), inventory=inventory+xml_inventory, checks=checks+structural,
         limitations=['Finite full-angle tables are engineering continuation, not measured high-angle fidelity.',
             'Control/rate/Mach effects use a separated additive build-up; no tensor cross-term or high-frequency unsteady flow claim.',
             'No CFD is run; all CFD tables count is zero. No new calibration or arbitrary per-design scale is introduced.',
@@ -441,15 +772,26 @@ def generate(record, out, geometry_threads=1):
         legacy.unlink()
     from .runtime_products import stage_built_project_sdks
     stage_built_project_sdks(record['path'])
-    products = [xml,*detached] + sorted((product/'Engines').glob('*.xml')) + sorted((product/'aero').glob('vlm-carriage-*.json'))
+    visual=Path(record['path']).parent;name=record['name']
+    model_products=[visual/(name+'.glb'),visual/(name+'.glb.manifest')]
+    if record['category']!='store':model_products.append(visual/(name+'.liquid-v1.json'))
+    if any(not p.is_file() for p in model_products):raise ValueError('Normal model omitted a required visual/material product')
+    from . import method_backends
+    backend_start=time.monotonic();backend_closure=method_backends.snapshot()
+    backend_seconds=time.monotonic()-backend_start
+    products = [xml,*detached,*model_products] + sorted((product/'Engines').glob('*.xml')) + sorted((product/'aero').glob('vlm-carriage-*.json'))
     receipt = dict(record, product_directory=str(product.relative_to(ROOT/'aircraft')), class_name=card.get('class') if card else None,
         input_sha256=inputs, input_presence=input_presence, generator_sha256=generator, geometry_backend=geometry_backend, table_inputs_hash=d.table_inputs_hash(),
         products={str(p.relative_to(ROOT/'aircraft')): sha(p) for p in products}, checks=checks+structural,
-        control_design=control_design, components=components, integration=resolution, lifting_panels=int(t.get('_panels',0)), table_count=len(inventory)+len(xml_inventory), generation_seconds=time.monotonic()-start,
+        control_design=control_design, components=components, mass_partition=mass_partition, integration=resolution,
+        normal_model=dict(regenerated=True,checks=model_result.get('checks',[]),
+            products=[str(p.relative_to(ROOT/'aircraft')) for p in model_products],method_backends=backend_closure),
+        lifting_panels=int(t.get('_panels',0)), table_count=len(inventory)+len(xml_inventory), generation_seconds=time.monotonic()-start,
         native_dll_sha256=sha(ROOT/'build/ucrt64-release/python/fsim/bin/libfsim.dll'),
         reference_bundle=dict(name=reference_path.name,sha256=sha(reference_path),scope='Test-only reference; not a native runtime asset'))
     receipt['generation_phase_worker_seconds']=dict(forced_aerodynamic_tables=table_seconds,runtime_xml=runtime_xml_seconds,
-        fresh_damage_and_detached_models=auxiliary_seconds,audit_hashing_publication=receipt['generation_seconds']-table_seconds-runtime_xml_seconds-auxiliary_seconds)
+        fresh_model_material_and_detached_products=auxiliary_seconds,method_backend_inventory=backend_seconds,
+        audit_hashing_publication=receipt['generation_seconds']-table_seconds-runtime_xml_seconds-auxiliary_seconds-backend_seconds)
     from .shape import meshkit
     receipt['geometry_query_cache']=dict(version='fsim.meshkit.exact-point-cache.v1',capacity_per_scene=65536,
         key='Exact native float64 input bytes; immutable scene lifetime',large_scan_bypass_points=4096,
@@ -509,6 +851,22 @@ def reusable_generation(folder,record):
     try:
         row=json.loads(receipt.read_text(encoding='utf-8'))
         if row['name']!=record['name'] or row['category']!=record['category']:return None
+        model=row.get('normal_model',{})
+        if not isinstance(model,dict) or model.get('regenerated') is not True:return None
+        if not isinstance(model.get('products'),list) or not model['products'] or any(not isinstance(name,str) for name in model['products']):return None
+        if not isinstance(model.get('checks'),list) or not model['checks'] or any(not isinstance(c,dict) or
+            not isinstance(c.get('name'),str) or not c['name'].strip() or c.get('status') not in ('pass','info','warn') for c in model['checks']):return None
+        if not isinstance(row.get('products'),dict) or any(not isinstance(name,str) for name in row['products']):return None
+        required_visual={record['name']+'/'+record['name']+suffix for suffix in
+            (('.glb','.glb.manifest') if record['category']=='store' else ('.glb','.glb.manifest','.liquid-v1.json'))}
+        declared_visual=[name.replace('\\','/') for name in model['products']]
+        current_products={name.replace('\\','/'):digest for name,digest in row['products'].items()}
+        if len({name.casefold() for name in current_products})!=len(row['products']):return None
+        if len(declared_visual)!=len(required_visual) or set(declared_visual)!=required_visual or not required_visual.issubset(current_products):return None
+        current_inputs,current_presence=generation_inputs(record)
+        if row.get('input_sha256')!=current_inputs or row.get('input_presence')!=current_presence:return None
+        from . import method_backends
+        if not method_backends.verify(model.get('method_backends')):return None
         if not row['checks'] or not all(c['passed'] for c in row['checks']):return None
         for relative,present in row['input_presence'].items():
             if (ROOT/relative).is_file()!=present:return None
@@ -543,6 +901,8 @@ def production(args):
     records=generation_order(records,profile)
     if not 1<=args.generation_workers<=16 or not 1<=args.geometry_threads<=16 or args.generation_workers*args.geometry_threads>16:
         raise ValueError('Production native CPU reservation must not exceed16')
+    from . import resources
+    cpu_pool=resources.CpuLeasePool(args.generation_workers,args.geometry_threads)
     out=Path(args.output).resolve();out.mkdir(parents=True,exist_ok=True)
     prefix=Path(args.prefix).resolve()
     if not prefix.is_relative_to(Path('D:/ENV')):raise ValueError('Install prefix must be under D:/ENV')
@@ -561,9 +921,13 @@ def production(args):
         HANGAR_MESHKIT_DIR=str(ROOT/'build/ucrt64-release/python'))
     env['PYTHONPATH']=os.pathsep.join(filter(None,[str(Path(__file__).parent.parent),env.get('PYTHONPATH','')]))
     phases=[];commands=[]
-    def invoke(argv,log):
+    def invoke(argv,log,cpus=None):
         tick=time.monotonic()
-        run_command(list(map(str,argv)),log,CAMPAIGN_TIMEOUT_SECONDS-(time.monotonic()-started),ROOT,env)
+        remaining=CAMPAIGN_TIMEOUT_SECONDS-(time.monotonic()-started)
+        if cpus is None:run_command(list(map(str,argv)),log,remaining,ROOT,env)
+        else:
+            code=resources.run_leased(list(map(str,argv)),log,remaining,cpus,cwd=ROOT,env=env)
+            if code:raise RuntimeError('Command failed ('+str(code)+'): '+str(log))
         commands.append(dict(argv=list(map(str,argv)),log=str(log),elapsed_seconds=time.monotonic()-tick))
     def one(record):
         tick=time.monotonic();folder=out/record['name'];folder.mkdir(exist_ok=True)
@@ -571,8 +935,9 @@ def production(args):
         try:
             resumed=reusable_generation(folder,record) if args.resume else None
             if resumed is None:
-                invoke([sys.executable,'-B','-m','hangar','engineering','generate','--design',record['name'],
-                    '--geometry-threads',args.geometry_threads,'--output',folder],folder/'generation.log')
+                with cpu_pool.lease() as cpus:
+                    invoke([sys.executable,'-B','-m','hangar','engineering','generate','--design',record['name'],
+                        '--geometry-threads',args.geometry_threads,'--output',folder],folder/'generation.log',cpus)
             row.update(json.loads((folder/'generation.json').read_text(encoding='utf-8')))
             row['reasons']=[c['name'] for c in row['checks'] if not c['passed']]
             row['status']=engineering_status(row['reasons'])
@@ -586,7 +951,8 @@ def production(args):
         dump(folder/'result.json',row)
         print('produced '+record['name']+' '+row['status']+' '+format(row['elapsed_seconds'],'.2f')+'s',flush=True)
         return row
-    with ThreadPoolExecutor(max_workers=args.generation_workers) as pool:rows=list(pool.map(one,records))
+    with resources.cpu_lease(len(cpu_pool.cpus),cpus=cpu_pool.cpus):
+        with ThreadPoolExecutor(max_workers=args.generation_workers) as pool:rows=list(pool.map(one,records))
     generation_seconds=time.monotonic()-started
     # All production writers join before the sole installer acquires the tree.
     if any(row['status']=='blocked' for row in rows):
@@ -624,6 +990,8 @@ def campaign(args):
     if not 1<=args.generation_workers<=16:raise ValueError('Generation workers must be between 1 and 16')
     if not 1<=args.geometry_threads<=16 or args.generation_workers*args.geometry_threads>16:
         raise ValueError('Generation workers times geometry threads must not exceed the 16-thread native CPU reservation')
+    from . import resources
+    cpu_pool=resources.CpuLeasePool(args.generation_workers,args.geometry_threads)
     records=roster();all_records=records
     order={'aam':0,'fixed-wing':1,'stores':2,'rotorcraft':3}
     scheduling=None;profile=None
@@ -662,9 +1030,13 @@ def campaign(args):
         batches=[dict(id=i+1+offset,designs=[r['name'] for r in group]) for i,group in enumerate(batches)],
         phases=['parallel-disjoint-force-generation-and-full-static-audit','join-all-writers','single-sdk-python-install','serial-native-and-installed-flight-plus-native-sampling','publication']))
     commands=[]
-    def invoke(command,log,owned,cwd=ROOT,environment=env):
+    def invoke(command,log,owned,cwd=ROOT,environment=env,cpus=None):
         owned.append(dict(argv=[str(x) for x in command],log=str(log),cwd=str(cwd)))
-        run_command([str(x) for x in command],log,CAMPAIGN_TIMEOUT_SECONDS-(time.monotonic()-started),cwd,environment)
+        remaining=CAMPAIGN_TIMEOUT_SECONDS-(time.monotonic()-started)
+        if cpus is None:run_command([str(x) for x in command],log,remaining,cwd,environment)
+        else:
+            code=resources.run_leased([str(x) for x in command],log,remaining,cpus,cwd=cwd,env=environment)
+            if code:raise RuntimeError('Command failed ('+str(code)+'): '+str(log))
     def generate_one(record):
         tick=time.monotonic();folder=out/record['name'];folder.mkdir(exist_ok=True)
         result=dict(record,batch=batch_ids[record['name']],status='blocked',reasons=[],commands=[],generation_start_offset_seconds=tick-started)
@@ -675,7 +1047,8 @@ def campaign(args):
                     original_generation_seconds=retained_generation['generation_seconds'],
                     scope='Previously completed current-source forced generation; every input/method/product/reference hash rechecked')
             else:
-                invoke([sys.executable,'-B','-m','hangar','engineering','generate','--design',record['name'],'--geometry-threads',str(args.geometry_threads),'--output',folder],folder/'generation.log',result['commands'])
+                with cpu_pool.lease() as cpus:
+                    invoke([sys.executable,'-B','-m','hangar','engineering','generate','--design',record['name'],'--geometry-threads',str(args.geometry_threads),'--output',folder],folder/'generation.log',result['commands'],cpus=cpus)
             result.update(json.loads((folder/'generation.json').read_text(encoding='utf-8')))
         except subprocess.TimeoutExpired:
             result['timeout']=True;result['reasons'].append('Operational campaign timeout during generation')
@@ -684,8 +1057,9 @@ def campaign(args):
         result['generation_wall_seconds']=time.monotonic()-tick
         print('generated '+record['name']+' '+format(result['generation_wall_seconds'],'.2f')+'s',flush=True)
         return result
-    with ThreadPoolExecutor(max_workers=args.generation_workers) as executor:
-        generated=list(executor.map(generate_one,records))
+    with resources.cpu_lease(len(cpu_pool.cpus),cpus=cpu_pool.cpus):
+        with ThreadPoolExecutor(max_workers=args.generation_workers) as executor:
+            generated=list(executor.map(generate_one,records))
     generation_phase=time.monotonic()-started
     build=ROOT/'build/ucrt64-release';cmake=Path('D:/ENV/DevLanguages/Cpp/msys2/ucrt64/bin/cmake.exe')
     install_tick=time.monotonic();install_error=None
@@ -749,6 +1123,11 @@ def campaign(args):
 
 
 def publish(out, results, declared):
+    closure={r['name']:r.get('mass_partition') for r in results}
+    dump(out/'mass-partition-closure.json',dict(schema='fsim.mass-partition.closure.v1',
+        declared_count=len(declared),design_count=len(closure),
+        complete=set(closure)=={r['name'] for r in declared} and all(v and v.get('passed') for v in closure.values()),
+        designs=closure))
     counts = {s: sum(r['status']==s for r in results) for s in ('engineering-complete','engineering-complete-uncalibrated','blocked')}
     dump(out/'matrix.json', dict(schema=VERSION, declared_count=len(declared), completed_count=len(results), counts=counts,
         reference_target_seconds=1200, sources=SOURCES, designs=results))
@@ -780,7 +1159,7 @@ def main(argv=None):
     parser.add_argument('--prefix', default='D:/ENV/sim-m02-engineering-20261030')
     parser.add_argument('--design')
     parser.add_argument('--scheduling-profile',help='Versioned observed wall costs; default preserves original ordering and all numerical behavior')
-    parser.add_argument('--geometry-threads',type=int,default=1,help='Explicit geometry phase reservation; generation workers times this value must not exceed16')
+    parser.add_argument('--geometry-threads',type=int,default=2,help='Verified geometry CPU lease (default2); explicit1 stays serial; workers times this value must not exceed16')
     parser.add_argument('--cohort',choices=['all','aam','fixed-wing','stores','rotorcraft'],default='all')
     parser.add_argument('--append',action='store_true',help='retain completed disjoint cohorts in the same full-roster matrix')
     parser.add_argument('--resume',action='store_true',help='Reuse only completed generation receipts whose full input/method/product/reference hashes remain current; all native execution is rerun')
@@ -790,9 +1169,16 @@ def main(argv=None):
     if args.mode=='generate':
         if os.environ.get('FSIM_ENGINEERING_DEADLINE_OWNER') != 'campaign':
             env=os.environ.copy();env['FSIM_ENGINEERING_DEADLINE_OWNER']='campaign'
+            from . import resources
+            folder=Path(args.output);folder.mkdir(parents=True,exist_ok=True)
+            log=folder/'standalone-generation.log'
             try:
-                return subprocess.run([sys.executable,'-B','-m','hangar','engineering',*(argv if argv is not None else sys.argv[1:])],
-                    env=env, timeout=DEADLINE_SECONDS).returncode
+                with resources.cpu_lease(args.geometry_threads) as cpus:
+                    print('Leased standalone generation log: '+str(log),flush=True)
+                    code=resources.run_leased([sys.executable,'-B','-m','hangar','engineering',*(argv if argv is not None else sys.argv[1:])],
+                        log,DEADLINE_SECONDS,cpus,env=env)
+                if log.is_file():print(log.read_text(encoding='utf-8'),end='',flush=True)
+                return code
             except subprocess.TimeoutExpired:
                 dump(Path(args.output)/'timeout.json', dict(status='blocked',deadline_seconds=DEADLINE_SECONDS,
                     reason='Standalone generation exceeded hard deadline'))

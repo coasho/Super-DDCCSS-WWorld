@@ -127,7 +127,7 @@ supplies the exact commands, internal counts, logs and scope limits.
   missing inputs.
 - Calibrated fin/actuator/autopilot response needs accepted SIM-M02 force/moment
   derivatives, mass/CG/inertia evolution and admitted control-response references.
-  The subsequent [finite-control mechanism](missile-control-validation.md)
+  The subsequent [finite-control mechanism](weapon-controls.md)
   removes the ideal force/moment path using explicit engineering estimates;
   its software checks do not establish those equipment properties.
 - Fuze and lethality assumptions, model-specific uncertainty, independent

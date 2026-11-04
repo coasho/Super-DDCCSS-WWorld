@@ -23,7 +23,7 @@ import math
 import os
 
 import numpy as np
-from .files import open_write
+from .files import open_write, atomic_write_stream
 
 LB, FT, IN = 0.45359237, 0.3048, 0.0254
 SLUGFT2 = 1.3558179483314  # kg m^2 per slug ft^2, matching the native SDK conversion
@@ -64,7 +64,12 @@ def _extent(data, s):
 
 
 def _normal_table(plate, aspect):
-    """C_N against alpha (deg, -180 .. 180)."""
+    """Body-normal C_N against alpha, opposing crossflow in both flow hemispheres.
+
+    JSBSim NORMAL is converted to negative body-z force. Unlike a wind-axis
+    lift coefficient, its sign follows sin(alpha) even when body-x flow reverses.
+    The symmetry assignments must also agree at the duplicated +/-90 knots.
+    """
     alphas = [0, 5, 10, 15, 20, 30, 45, 60, 75, 90]
     out = []
     slope = 2.0 * math.pi * aspect / (aspect + 2.0)  # per radian
@@ -79,7 +84,7 @@ def _normal_table(plate, aspect):
         out.append((a, cn))
     full = {}
     for a, cn in out:
-        for x, v in ((a, cn), (-a, -cn), (180 - a, -cn), (a - 180, cn)):
+        for x, v in ((a, cn), (-a, -cn), (180 - a, cn), (a - 180, -cn)):
             full[round(x, 6)] = v
     return sorted(full.items())
 
@@ -294,19 +299,34 @@ def write(data, aircraft_dir):
     written = []
     if data is None:
         return written
+    from pathlib import Path
+    design = data['aircraft']
+    if not isinstance(design, str) or not design or Path(design).name != design or design in ('.', '..') or ':' in design or '\\' in design:
+        raise ValueError('Invalid generated piece design identity')
+    owned_root = Path(aircraft_dir).resolve() / 'pieces'
+    if owned_root.resolve() != owned_root:
+        raise ValueError('Generated piece namespace is redirected')
     for section in PARTS:
         text = piece_xml(data, section)
-        if text is None:
-            continue
         name = piece_name(data["aircraft"], section)
         path = os.path.join(root, name, name + ".xml")
+        target = Path(path)
+        if not target.resolve().is_relative_to(owned_root) or target.is_symlink() or target.parent.is_symlink():
+            raise ValueError('Generated piece path leaves its owned namespace')
+        if text is None:
+            # Retire only this writer's exact XML; preserve neighboring files.
+            if target.exists():
+                if not target.is_file():
+                    raise ValueError('Generated piece XML is not a regular file')
+                target.unlink()
+            continue
         os.makedirs(os.path.dirname(path), exist_ok=True)
         if os.path.isfile(path):
             with open(path, encoding="utf-8") as f:
                 if f.read() == text:
                     written.append(path)
                     continue
-        with open_write(path, "w", encoding="utf-8", newline="\n") as f:
+        with atomic_write_stream(path, "w", encoding="utf-8", newline="\n") as f:
             f.write(text)
         written.append(path)
     return written

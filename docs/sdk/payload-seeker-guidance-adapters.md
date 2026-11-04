@@ -1,6 +1,6 @@
 # Payload seeker and guidance adapters
 
-The four [representative weapon profiles](representative-weapon-models.md) now
+All24 [AAM profiles](weapon-fidelity-validation.md) now
 select independent sampled seekers and measured guidance through additive private
 V2 execution interfaces. This page's encounter-seeker and Cartesian PN tables
 describe the retained V1 path. The new schemas keep the descriptor envelope and

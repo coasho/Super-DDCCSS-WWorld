@@ -1,7 +1,7 @@
 # SIM-M03 physical-chain audit, 2026-10-20
 
 Baseline: main `16da711bf59665a538919f2abb2dfda2ab11278f`, following the
-[finite-fin correction](missile-control-validation.md). This review follows the
+[finite-fin correction](weapon-controls.md). This review follows the
 production release, guidance, sensing, decoy, fuze, damage and separation paths.
 It distinguishes software defects from declared engineering estimates. Passing
 these regressions does not calibrate equipment or complete SIM-M03 acceptance.

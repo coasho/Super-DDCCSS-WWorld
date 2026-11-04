@@ -1,0 +1,3822 @@
+{
+  "schema_version": 1,
+  "scope": "Equipment-specific simulator model selections; backend/interface revisions are not equipment variants.",
+  "models": [
+    {
+      "store_id": "463l-pallet",
+      "model_id": "463l-pallet",
+      "designation": "463L pallet, loaded",
+      "card_designation": "463L pallet, loaded",
+      "native_model": "jsbsim:463lpallet",
+      "card_path": "assets/stores/463l-pallet.json",
+      "source_ids": [
+        "hangar-vlm",
+        "wp-463l"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.463l-pallet.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "463L pallet, loaded aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "a10-tank-600gal",
+      "model_id": "a10-tank-600gal",
+      "designation": "600 US gal external tank (A-10)",
+      "card_designation": "600 US gal external tank (A-10)",
+      "native_model": "jsbsim:a10tank600gal",
+      "card_path": "assets/stores/a10-tank-600gal.json",
+      "source_ids": [
+        "dvids-a10",
+        "hangar-vlm",
+        "wp-jetfuel",
+        "wt"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.a10-tank-600gal.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "600 US gal external tank (A-10) aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "aim-120c",
+      "model_id": "aim-120c-7",
+      "designation": "AIM-120C-7",
+      "card_designation": "AIM-120C-7 AMRAAM",
+      "native_model": "jsbsim:aim120c",
+      "card_path": "assets/stores/aim-120c.json",
+      "source_ids": [
+        "apl-homing-guidance",
+        "hangar-vlm",
+        "hughes-amraam-cutaway",
+        "jhuapl-homing-2010",
+        "mil-hdbk-1211",
+        "nasa-control-allocation",
+        "rtx-amraam-identity",
+        "sandia-gurney-1970",
+        "usaf-aim120",
+        "usmc-yellowbook-va49",
+        "usn-aim120",
+        "wp-aim120",
+        "wt-aam-seven-zones-ea96f3af"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.aim-120c-7.seeker",
+          "mechanism_id": "fsim.seeker.active_radar.v3",
+          "name": "AIM-120C-7 seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.aim-120c-7.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "AIM-120C-7 guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.aim-120c-7.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "AIM-120C-7 flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.aim-120c-7.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "AIM-120C-7 control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.aim-120c-7.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "AIM-120C-7 actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.aim-120c-7.fuze",
+          "mechanism_id": "native.fuze.turning_cpa.v1",
+          "name": "AIM-120C-7 fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.aim-120c-7.warhead",
+          "mechanism_id": "native.warhead.finite_zoned_case.v2",
+          "name": "AIM-120C-7 warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.aim-120c-7.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "AIM-120C-7 propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.aim-120c-7.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "AIM-120C-7 aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "aim-120d",
+      "model_id": "aim-120d",
+      "designation": "AIM-120D",
+      "card_designation": "AIM-120D AMRAAM",
+      "native_model": "jsbsim:aim120d",
+      "card_path": "assets/stores/aim-120d.json",
+      "source_ids": [
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "rtx-amraam-identity",
+        "usaf-aim120",
+        "usn-aim120",
+        "wp-aim120",
+        "wt-datamine"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.aim-120d.seeker",
+          "mechanism_id": "fsim.seeker.active_radar.v3",
+          "name": "AIM-120D seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.aim-120d.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "AIM-120D guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.aim-120d.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "AIM-120D flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.aim-120d.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "AIM-120D control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.aim-120d.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "AIM-120D actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.aim-120d.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "AIM-120D fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.aim-120d.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "AIM-120D warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.aim-120d.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "AIM-120D propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.aim-120d.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "AIM-120D aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "aim-7m",
+      "model_id": "aim-7m",
+      "designation": "AIM-7M",
+      "card_designation": "AIM-7M Sparrow",
+      "native_model": "jsbsim:aim7m",
+      "card_path": "assets/stores/aim-7m.json",
+      "source_ids": [
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "usaf-aim7",
+        "wp-aim7",
+        "wt-datamine"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.aim-7m.seeker",
+          "mechanism_id": "fsim.seeker.semi_active_radar.v3",
+          "name": "AIM-7M seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.aim-7m.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "AIM-7M guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.aim-7m.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "AIM-7M flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.aim-7m.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "AIM-7M control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.aim-7m.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "AIM-7M actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.aim-7m.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "AIM-7M fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.aim-7m.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "AIM-7M warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.aim-7m.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "AIM-7M propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.aim-7m.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "AIM-7M aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "aim-9m",
+      "model_id": "aim-9m",
+      "designation": "AIM-9M",
+      "card_designation": "AIM-9M Sidewinder",
+      "native_model": "jsbsim:aim9m",
+      "card_path": "assets/stores/aim-9m.json",
+      "source_ids": [
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "usaf-aim9",
+        "usn-aim9x",
+        "wp-aim9",
+        "wt-datamine"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.aim-9m.seeker",
+          "mechanism_id": "fsim.seeker.nonimaging_ir.v3",
+          "name": "AIM-9M seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.aim-9m.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "AIM-9M guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.aim-9m.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "AIM-9M flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.aim-9m.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "AIM-9M control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.aim-9m.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "AIM-9M actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.aim-9m.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "AIM-9M fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.aim-9m.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "AIM-9M warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.aim-9m.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "AIM-9M propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.aim-9m.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "AIM-9M aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "aim-9x",
+      "model_id": "aim-9x-block-i",
+      "designation": "AIM-9X Block I",
+      "card_designation": "AIM-9X Block I Sidewinder",
+      "native_model": "jsbsim:aim9x",
+      "card_path": "assets/stores/aim-9x.json",
+      "source_ids": [
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "native-vector-engineering",
+        "navair-aim9x-block1",
+        "usaf-aim9",
+        "usn-aim9x",
+        "wp-aim9",
+        "wt-datamine"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.aim-9x-block-i.seeker",
+          "mechanism_id": "fsim.seeker.imaging_ir.v3",
+          "name": "AIM-9X Block I seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.aim-9x-block-i.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "AIM-9X Block I guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.aim-9x-block-i.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "AIM-9X Block I flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.aim-9x-block-i.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "AIM-9X Block I control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.aim-9x-block-i.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "AIM-9X Block I actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.aim-9x-block-i.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "AIM-9X Block I fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.aim-9x-block-i.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "AIM-9X Block I warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.aim-9x-block-i.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "AIM-9X Block I propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.aim-9x-block-i.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "AIM-9X Block I aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "an-aaq-28",
+      "model_id": "an-aaq-28",
+      "designation": "AN/AAQ-28 LITENING",
+      "card_designation": "AN/AAQ-28 LITENING",
+      "native_model": "jsbsim:anaaq28",
+      "card_path": "assets/stores/an-aaq-28.json",
+      "source_ids": [
+        "hangar-vlm",
+        "saaf-litening",
+        "wp-litening"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.an-aaq-28.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "AN/AAQ-28 LITENING aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "an-alq-131",
+      "model_id": "an-alq-131",
+      "designation": "AN/ALQ-131(V)",
+      "card_designation": "AN/ALQ-131(V)",
+      "native_model": "jsbsim:analq131",
+      "card_path": "assets/stores/an-alq-131.json",
+      "source_ids": [
+        "fi-alq131",
+        "hangar-vlm"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.an-alq-131.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "AN/ALQ-131(V) aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "an-alq-184",
+      "model_id": "an-alq-184",
+      "designation": "AN/ALQ-184(V)",
+      "card_designation": "AN/ALQ-184(V)",
+      "native_model": "jsbsim:analq184",
+      "card_path": "assets/stores/an-alq-184.json",
+      "source_ids": [
+        "fi-alq184",
+        "hangar-vlm",
+        "rand-mr1216"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.an-alq-184.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "AN/ALQ-184(V) aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "an-alq-99",
+      "model_id": "an-alq-99",
+      "designation": "AN/ALQ-99",
+      "card_designation": "AN/ALQ-99",
+      "native_model": "jsbsim:analq99",
+      "card_path": "assets/stores/an-alq-99.json",
+      "source_ids": [
+        "hangar-vlm",
+        "wp-ea18g"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.an-alq-99.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "AN/ALQ-99 aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "an-asq-228",
+      "model_id": "an-asq-228",
+      "designation": "AN/ASQ-228 ATFLIR",
+      "card_designation": "AN/ASQ-228 ATFLIR",
+      "native_model": "jsbsim:anasq228",
+      "card_path": "assets/stores/an-asq-228.json",
+      "source_ids": [
+        "hangar-vlm",
+        "wp-aas38",
+        "wp-atflir"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.an-asq-228.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "AN/ASQ-228 ATFLIR aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "asraam",
+      "model_id": "asraam",
+      "designation": "AIM-132 ASRAAM",
+      "card_designation": "AIM-132 ASRAAM",
+      "native_model": "jsbsim:asraam",
+      "card_path": "assets/stores/asraam.json",
+      "source_ids": [
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "mbda-asraam-identity",
+        "wp-asraam"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.asraam.seeker",
+          "mechanism_id": "fsim.seeker.imaging_ir.v3",
+          "name": "AIM-132 ASRAAM seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.asraam.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "AIM-132 ASRAAM guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.asraam.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "AIM-132 ASRAAM flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.asraam.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "AIM-132 ASRAAM control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.asraam.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "AIM-132 ASRAAM actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.asraam.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "AIM-132 ASRAAM fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.asraam.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "AIM-132 ASRAAM warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.asraam.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "AIM-132 ASRAAM propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.asraam.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "AIM-132 ASRAAM aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "cds-a22",
+      "model_id": "cds-a22",
+      "designation": "CDS bundle (A-22)",
+      "card_designation": "CDS bundle (A-22)",
+      "native_model": "jsbsim:cdsa22",
+      "card_path": "assets/stores/cds-a22.json",
+      "source_ids": [
+        "asd-tr-61-326",
+        "hangar-vlm",
+        "wp-cds"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.cds-a22.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "CDS bundle (A-22) aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "cj-10a",
+      "model_id": "cj-10a",
+      "designation": "CJ-10A",
+      "card_designation": "CJ-10A",
+      "native_model": "jsbsim:cj10a",
+      "card_path": "assets/stores/cj-10a.json",
+      "source_ids": [
+        "csis-hn",
+        "hangar-vlm",
+        "project-contact-effects-v1",
+        "project-virtual-cruise-v1",
+        "wp-cj10",
+        "xinhua-cj10a-caution"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "The project configuration selects inertial waypoint navigation with no terminal seeker installed."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.cj-10a.guidance",
+          "mechanism_id": "fsim.guidance.inertial_waypoint.v1",
+          "name": "CJ-10A guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.cj-10a.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "CJ-10A flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.cj-10a.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "CJ-10A control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.cj-10a.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "CJ-10A actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.cj-10a.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "CJ-10A fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.cj-10a.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "CJ-10A warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.cj-10a.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_turbofan.v1",
+          "name": "CJ-10A propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.cj-10a.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "CJ-10A aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "damocles",
+      "model_id": "damocles",
+      "designation": "Damocles",
+      "card_designation": "Damocles",
+      "native_model": "jsbsim:damocles",
+      "card_path": "assets/stores/damocles.json",
+      "source_ids": [
+        "ac-damocles",
+        "hangar-vlm"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.damocles.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "Damocles aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "f22-tank-600gal",
+      "model_id": "f22-tank-600gal",
+      "designation": "600 US gal external tank (F-22)",
+      "card_designation": "600 US gal external tank (F-22)",
+      "native_model": "jsbsim:f22tank600gal",
+      "card_path": "assets/stores/f22-tank-600gal.json",
+      "source_ids": [
+        "fas-f22",
+        "hangar-vlm",
+        "wp-jetfuel"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.f22-tank-600gal.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "600 US gal external tank (F-22) aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "fpu-11",
+      "model_id": "fpu-11",
+      "designation": "FPU-11/A 480 US gal tank",
+      "card_designation": "FPU-11/A 480 US gal tank",
+      "native_model": "jsbsim:fpu11",
+      "card_path": "assets/stores/fpu-11.json",
+      "source_ids": [
+        "hangar-vlm",
+        "tapatalk-480",
+        "wp-ea18g",
+        "wp-jetfuel"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.fpu-11.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "FPU-11/A 480 US gal tank aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "fpu-8",
+      "model_id": "fpu-8",
+      "designation": "FPU-8/A 330 US gal tank",
+      "card_designation": "FPU-8/A 330 US gal tank",
+      "native_model": "jsbsim:fpu8",
+      "card_path": "assets/stores/fpu-8.json",
+      "source_ids": [
+        "hangar-vlm",
+        "soh-tanks",
+        "wp-hardpoint",
+        "wp-jetfuel"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.fpu-8.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "FPU-8/A 330 US gal tank aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "gripen-tank-1100l",
+      "model_id": "gripen-tank-1100l",
+      "designation": "1,100 L external tank (Gripen)",
+      "card_designation": "1,100 L external tank (Gripen)",
+      "native_model": "jsbsim:gripentank1100l",
+      "card_path": "assets/stores/gripen-tank-1100l.json",
+      "source_ids": [
+        "hangar-vlm",
+        "hushkit-gripen",
+        "wp-jetfuel"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.gripen-tank-1100l.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "1,100 L external tank (Gripen) aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "iris-t",
+      "model_id": "iris-t",
+      "designation": "IRIS-T",
+      "card_designation": "IRIS-T",
+      "native_model": "jsbsim:irist",
+      "card_path": "assets/stores/iris-t.json",
+      "source_ids": [
+        "diehl-irist-identity",
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "native-vector-engineering",
+        "saab-iris-t",
+        "wp-irist"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.iris-t.seeker",
+          "mechanism_id": "fsim.seeker.imaging_ir.v3",
+          "name": "IRIS-T seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.iris-t.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "IRIS-T guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.iris-t.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "IRIS-T flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.iris-t.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "IRIS-T control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.iris-t.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "IRIS-T actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.iris-t.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "IRIS-T fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.iris-t.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "IRIS-T warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.iris-t.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "IRIS-T propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.iris-t.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "IRIS-T aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "j10-tank-1600l",
+      "model_id": "j10-tank-1600l",
+      "designation": "1,600 L external tank (J-10)",
+      "card_designation": "1,600 L external tank (J-10)",
+      "native_model": "jsbsim:j10tank1600l",
+      "card_path": "assets/stores/j10-tank-1600l.json",
+      "source_ids": [
+        "aerospaceweb-j10",
+        "hangar-vlm",
+        "wp-jetfuel",
+        "wt"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.j10-tank-1600l.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "1,600 L external tank (J-10) aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "j10-tank-800l",
+      "model_id": "j10-tank-800l",
+      "designation": "800 L external tank (J-10)",
+      "card_designation": "800 L external tank (J-10)",
+      "native_model": "jsbsim:j10tank800l",
+      "card_path": "assets/stores/j10-tank-800l.json",
+      "source_ids": [
+        "aerospaceweb-j10",
+        "hangar-vlm",
+        "wp-jetfuel",
+        "wt"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.j10-tank-800l.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "800 L external tank (J-10) aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "magic-2",
+      "model_id": "magic-2",
+      "designation": "R.550 Magic 2",
+      "card_designation": "R.550 Magic 2",
+      "native_model": "jsbsim:magic2",
+      "card_path": "assets/stores/magic-2.json",
+      "source_ids": [
+        "fr-mod-magic-identity",
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "odin-magic2",
+        "wp-magic",
+        "wt-datamine"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.magic-2.seeker",
+          "mechanism_id": "fsim.seeker.nonimaging_ir.v3",
+          "name": "R.550 Magic 2 seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.magic-2.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "R.550 Magic 2 guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.magic-2.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "R.550 Magic 2 flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.magic-2.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "R.550 Magic 2 control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.magic-2.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "R.550 Magic 2 actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.magic-2.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "R.550 Magic 2 fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.magic-2.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "R.550 Magic 2 warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.magic-2.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "R.550 Magic 2 propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.magic-2.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "R.550 Magic 2 aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "meteor",
+      "model_id": "meteor",
+      "designation": "Meteor",
+      "card_designation": "Meteor",
+      "native_model": "jsbsim:meteor",
+      "card_path": "assets/stores/meteor.json",
+      "source_ids": [
+        "fr-meteor",
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "mbda-meteor-identity",
+        "nasa-ramjet-cycle-engineering",
+        "wp-meteor"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.meteor.seeker",
+          "mechanism_id": "fsim.seeker.active_radar.v3",
+          "name": "Meteor seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.meteor.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "Meteor guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.meteor.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "Meteor flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.meteor.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "Meteor control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.meteor.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "Meteor actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.meteor.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "Meteor fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.meteor.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "Meteor warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.meteor.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_ducted_rocket.v2",
+          "name": "Meteor propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.meteor.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "Meteor aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "mica-em",
+      "model_id": "mica-em",
+      "designation": "MICA EM",
+      "card_designation": "MICA EM",
+      "native_model": "jsbsim:micaem",
+      "card_path": "assets/stores/mica-em.json",
+      "source_ids": [
+        "fr-mica",
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "mbda-mica-identity",
+        "native-vector-engineering",
+        "wp-mica",
+        "wt-datamine"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.mica-em.seeker",
+          "mechanism_id": "fsim.seeker.active_radar.v3",
+          "name": "MICA EM seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.mica-em.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "MICA EM guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.mica-em.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "MICA EM flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.mica-em.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "MICA EM control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.mica-em.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "MICA EM actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.mica-em.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "MICA EM fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.mica-em.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "MICA EM warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.mica-em.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "MICA EM propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.mica-em.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "MICA EM aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "mica-ir",
+      "model_id": "mica-ir",
+      "designation": "MICA IR",
+      "card_designation": "MICA IR",
+      "native_model": "jsbsim:micair",
+      "card_path": "assets/stores/mica-ir.json",
+      "source_ids": [
+        "fr-mica",
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "mbda-mica-dual-waveband",
+        "mbda-mica-identity",
+        "native-vector-engineering",
+        "wp-mica",
+        "wt-datamine"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.mica-ir.seeker",
+          "mechanism_id": "fsim.seeker.imaging_ir.v3",
+          "name": "MICA IR seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.mica-ir.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "MICA IR guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.mica-ir.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "MICA IR flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.mica-ir.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "MICA IR control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.mica-ir.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "MICA IR actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.mica-ir.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "MICA IR fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.mica-ir.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "MICA IR warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.mica-ir.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "MICA IR propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.mica-ir.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "MICA IR aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "mk82",
+      "model_id": "mk82",
+      "designation": "Mk 82",
+      "card_designation": "Mk 82",
+      "native_model": "jsbsim:mk82",
+      "card_path": "assets/stores/mk82.json",
+      "source_ids": [
+        "hangar-vlm",
+        "lanl-la-ur-89-1936",
+        "project-contact-effects-v1",
+        "wp-mk82",
+        "wp-mk82-2026-09"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.mk82.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "Mk 82 fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.mk82.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "Mk 82 warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.mk82.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "Mk 82 aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "pl-10",
+      "model_id": "pl-10",
+      "designation": "PL-10",
+      "card_designation": "PL-10",
+      "native_model": "jsbsim:pl10",
+      "card_path": "assets/stores/pl-10.json",
+      "source_ids": [
+        "cctv-name-report",
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "native-vector-engineering",
+        "vector-capability",
+        "zh-pl10"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.pl-10.seeker",
+          "mechanism_id": "fsim.seeker.imaging_ir.v3",
+          "name": "PL-10 seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.pl-10.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "PL-10 guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.pl-10.autopilot",
+          "mechanism_id": "fsim.control.actuator_aware_cascade.v1",
+          "name": "PL-10 flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.pl-10.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "PL-10 control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.pl-10.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "PL-10 actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.pl-10.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "PL-10 fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.pl-10.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "PL-10 warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.pl-10.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "PL-10 propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.pl-10.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "PL-10 aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "pl-12",
+      "model_id": "pl-12",
+      "designation": "PL-12",
+      "card_designation": "PL-12",
+      "native_model": "jsbsim:pl12",
+      "card_path": "assets/stores/pl-12.json",
+      "source_ids": [
+        "cctv-name-report",
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "wp-pl12",
+        "wt-datamine",
+        "zh-pl12"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.pl-12.seeker",
+          "mechanism_id": "fsim.seeker.active_radar.v3",
+          "name": "PL-12 seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.pl-12.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "PL-12 guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.pl-12.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "PL-12 flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.pl-12.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "PL-12 control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.pl-12.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "PL-12 actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.pl-12.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "PL-12 fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.pl-12.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "PL-12 warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.pl-12.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "PL-12 propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.pl-12.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "PL-12 aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "pl-15",
+      "model_id": "pl-15",
+      "designation": "PL-15",
+      "card_designation": "PL-15",
+      "native_model": "jsbsim:pl15",
+      "card_path": "assets/stores/pl-15.json",
+      "source_ids": [
+        "cctv-pl15-name",
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "odin-pl15",
+        "wp-pl15",
+        "zh-pl15"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.pl-15.seeker",
+          "mechanism_id": "fsim.seeker.active_radar.v3",
+          "name": "PL-15 seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.pl-15.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "PL-15 guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.pl-15.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "PL-15 flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.pl-15.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "PL-15 control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.pl-15.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "PL-15 actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.pl-15.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "PL-15 fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.pl-15.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "PL-15 warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.pl-15.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_commanded_dual_pulse.v1",
+          "name": "PL-15 propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.pl-15.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "PL-15 aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "pl-8",
+      "model_id": "pl-8",
+      "designation": "PL-8",
+      "card_designation": "PL-8",
+      "native_model": "jsbsim:pl8",
+      "card_path": "assets/stores/pl-8.json",
+      "source_ids": [
+        "cctv-name-report",
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "wp-pl8",
+        "wt-datamine"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.pl-8.seeker",
+          "mechanism_id": "fsim.seeker.nonimaging_ir.v3",
+          "name": "PL-8 seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.pl-8.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "PL-8 guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.pl-8.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "PL-8 flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.pl-8.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "PL-8 control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.pl-8.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "PL-8 actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.pl-8.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "PL-8 fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.pl-8.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "PL-8 warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.pl-8.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "PL-8 propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.pl-8.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "PL-8 aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "ptb-1150",
+      "model_id": "ptb-1150",
+      "designation": "PTB-1150",
+      "card_designation": "PTB-1150",
+      "native_model": "jsbsim:ptb1150",
+      "card_path": "assets/stores/ptb-1150.json",
+      "source_ids": [
+        "ac-ptb1150",
+        "hangar-vlm",
+        "wp-jetfuel"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.ptb-1150.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "PTB-1150 aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "ptb-1500",
+      "model_id": "ptb-1500",
+      "designation": "PTB-1500",
+      "card_designation": "PTB-1500",
+      "native_model": "jsbsim:ptb1500",
+      "card_path": "assets/stores/ptb-1500.json",
+      "source_ids": [
+        "combatace-ptb",
+        "hangar-vlm",
+        "wp-jetfuel",
+        "wp-mig29",
+        "wt"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.ptb-1500.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "PTB-1500 aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "ptb-2000",
+      "model_id": "ptb-2000",
+      "designation": "PTB-2000",
+      "card_designation": "PTB-2000",
+      "native_model": "jsbsim:ptb2000",
+      "card_path": "assets/stores/ptb-2000.json",
+      "source_ids": [
+        "hangar-vlm",
+        "migflug-su57",
+        "wp-jetfuel",
+        "wp-su57"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.ptb-2000.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "PTB-2000 aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "ptb-800",
+      "model_id": "ptb-800",
+      "designation": "PTB-800",
+      "card_designation": "PTB-800",
+      "native_model": "jsbsim:ptb800",
+      "card_path": "assets/stores/ptb-800.json",
+      "source_ids": [
+        "ac-ptb800",
+        "hangar-vlm",
+        "wp-jetfuel",
+        "wt"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.ptb-800.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "PTB-800 aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "r-27er",
+      "model_id": "r-27er",
+      "designation": "R-27ER",
+      "card_designation": "R-27ER",
+      "native_model": "jsbsim:r27er",
+      "card_path": "assets/stores/r-27er.json",
+      "source_ids": [
+        "foi-identity",
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "ru-r27",
+        "wp-r27",
+        "wt-datamine"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.r-27er.seeker",
+          "mechanism_id": "fsim.seeker.semi_active_radar.v3",
+          "name": "R-27ER seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.r-27er.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "R-27ER guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.r-27er.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "R-27ER flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.r-27er.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "R-27ER control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.r-27er.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "R-27ER actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.r-27er.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "R-27ER fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.r-27er.warhead",
+          "mechanism_id": "native.warhead.connected_ring.v1",
+          "name": "R-27ER warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.r-27er.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "R-27ER propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.r-27er.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "R-27ER aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "r-27et",
+      "model_id": "r-27et",
+      "designation": "R-27ET",
+      "card_designation": "R-27ET",
+      "native_model": "jsbsim:r27et",
+      "card_path": "assets/stores/r-27et.json",
+      "source_ids": [
+        "foi-identity",
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "ru-r27",
+        "wp-r27",
+        "wt-datamine"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.r-27et.seeker",
+          "mechanism_id": "fsim.seeker.nonimaging_ir.v3",
+          "name": "R-27ET seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.r-27et.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "R-27ET guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.r-27et.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "R-27ET flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.r-27et.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "R-27ET control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.r-27et.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "R-27ET actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.r-27et.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "R-27ET fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.r-27et.warhead",
+          "mechanism_id": "native.warhead.connected_ring.v1",
+          "name": "R-27ET warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.r-27et.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "R-27ET propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.r-27et.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "R-27ET aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "r-27r",
+      "model_id": "r-27r",
+      "designation": "R-27R",
+      "card_designation": "R-27R",
+      "native_model": "jsbsim:r27r",
+      "card_path": "assets/stores/r-27r.json",
+      "source_ids": [
+        "foi-identity",
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "ru-r27",
+        "wp-r27",
+        "wt-datamine"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.r-27r.seeker",
+          "mechanism_id": "fsim.seeker.semi_active_radar.v3",
+          "name": "R-27R seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.r-27r.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "R-27R guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.r-27r.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "R-27R flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.r-27r.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "R-27R control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.r-27r.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "R-27R actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.r-27r.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "R-27R fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.r-27r.warhead",
+          "mechanism_id": "native.warhead.connected_ring.v1",
+          "name": "R-27R warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.r-27r.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "R-27R propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.r-27r.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "R-27R aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "r-27t",
+      "model_id": "r-27t",
+      "designation": "R-27T",
+      "card_designation": "R-27T",
+      "native_model": "jsbsim:r27t",
+      "card_path": "assets/stores/r-27t.json",
+      "source_ids": [
+        "foi-identity",
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "ru-r27",
+        "wp-r27",
+        "wt-datamine"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.r-27t.seeker",
+          "mechanism_id": "fsim.seeker.nonimaging_ir.v3",
+          "name": "R-27T seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.r-27t.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "R-27T guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.r-27t.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "R-27T flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.r-27t.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "R-27T control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.r-27t.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "R-27T actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.r-27t.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "R-27T fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.r-27t.warhead",
+          "mechanism_id": "native.warhead.connected_ring.v1",
+          "name": "R-27T warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.r-27t.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "R-27T propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.r-27t.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "R-27T aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "r-37m",
+      "model_id": "r-37m",
+      "designation": "R-37M",
+      "card_designation": "R-37M",
+      "native_model": "jsbsim:r37m",
+      "card_path": "assets/stores/r-37m.json",
+      "source_ids": [
+        "foi-identity",
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "wp-r37"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.r-37m.seeker",
+          "mechanism_id": "fsim.seeker.active_radar.v3",
+          "name": "R-37M seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.r-37m.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "R-37M guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.r-37m.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "R-37M flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.r-37m.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "R-37M control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.r-37m.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "R-37M actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.r-37m.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "R-37M fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.r-37m.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "R-37M warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.r-37m.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_commanded_dual_pulse.v1",
+          "name": "R-37M propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.r-37m.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "R-37M aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "r-60m",
+      "model_id": "r-60m",
+      "designation": "R-60M",
+      "card_designation": "R-60M",
+      "native_model": "jsbsim:r60m",
+      "card_path": "assets/stores/r-60m.json",
+      "source_ids": [
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "sk-mod-identity",
+        "wp-r60",
+        "wt-datamine"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.r-60m.seeker",
+          "mechanism_id": "fsim.seeker.nonimaging_ir.v3",
+          "name": "R-60M seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.r-60m.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "R-60M guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.r-60m.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "R-60M flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.r-60m.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "R-60M control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.r-60m.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "R-60M actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.r-60m.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "R-60M fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.r-60m.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "R-60M warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.r-60m.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "R-60M propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.r-60m.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "R-60M aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "r-73",
+      "model_id": "r-73",
+      "designation": "R-73",
+      "card_designation": "R-73",
+      "native_model": "jsbsim:r73",
+      "card_path": "assets/stores/r-73.json",
+      "source_ids": [
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "native-vector-engineering",
+        "roe-r73e",
+        "sk-mod-identity",
+        "vector-capability",
+        "wp-r73",
+        "wt-datamine"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.r-73.seeker",
+          "mechanism_id": "fsim.seeker.nonimaging_ir.v3",
+          "name": "R-73 seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.r-73.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "R-73 guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.r-73.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "R-73 flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.r-73.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "R-73 control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.r-73.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "R-73 actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.r-73.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "R-73 fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.r-73.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "R-73 warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.r-73.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "R-73 propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.r-73.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "R-73 aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "r-77m",
+      "model_id": "r-77m",
+      "designation": "R-77M",
+      "card_designation": "R-77M",
+      "native_model": "jsbsim:r77m",
+      "card_path": "assets/stores/r-77m.json",
+      "source_ids": [
+        "foi-identity",
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "wp-r77",
+        "wt-datamine"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.r-77m.seeker",
+          "mechanism_id": "fsim.seeker.active_radar.v3",
+          "name": "R-77M seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.r-77m.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "R-77M guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.r-77m.autopilot",
+          "mechanism_id": "fsim.control.operating_point_bounded.v1",
+          "name": "R-77M flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.r-77m.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "R-77M control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.r-77m.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "R-77M actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.r-77m.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "R-77M fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.r-77m.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "R-77M warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.r-77m.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "R-77M propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.r-77m.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "R-77M aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "rpl-522",
+      "model_id": "rpl-522",
+      "designation": "RPL-522",
+      "card_designation": "RPL-522",
+      "native_model": "jsbsim:rpl522",
+      "card_path": "assets/stores/rpl-522.json",
+      "source_ids": [
+        "am-rpl522",
+        "fas-m2000",
+        "hangar-vlm",
+        "wp-jetfuel",
+        "wt"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.rpl-522.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "RPL-522 aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "rpl-541",
+      "model_id": "rpl-541",
+      "designation": "RPL-541/542",
+      "card_designation": "RPL-541/542",
+      "native_model": "jsbsim:rpl541",
+      "card_path": "assets/stores/rpl-541.json",
+      "source_ids": [
+        "am-rpl541",
+        "hangar-vlm",
+        "wp-jetfuel"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.rpl-541.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "RPL-541/542 aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "rpl-701",
+      "model_id": "rpl-701",
+      "designation": "RPL-701",
+      "card_designation": "RPL-701",
+      "native_model": "jsbsim:rpl701",
+      "card_path": "assets/stores/rpl-701.json",
+      "source_ids": [
+        "hangar-vlm",
+        "omnirole-rafale",
+        "wp-jetfuel"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.rpl-701.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "RPL-701 aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "rpl-751",
+      "model_id": "rpl-751",
+      "designation": "RPL-751",
+      "card_designation": "RPL-751",
+      "native_model": "jsbsim:rpl751",
+      "card_path": "assets/stores/rpl-751.json",
+      "source_ids": [
+        "am-rpl751",
+        "hangar-vlm",
+        "wp-jetfuel",
+        "wt"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.rpl-751.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "RPL-751 aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "super-530d",
+      "model_id": "super-530d",
+      "designation": "Super 530D",
+      "card_designation": "Super 530D",
+      "native_model": "jsbsim:super530d",
+      "card_path": "assets/stores/super-530d.json",
+      "source_ids": [
+        "ecpad-530d-identity",
+        "hangar-vlm",
+        "jhuapl-homing-2010",
+        "wp-super530",
+        "wt-datamine"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "available",
+          "selector": "equipment.super-530d.seeker",
+          "mechanism_id": "fsim.seeker.semi_active_radar.v3",
+          "name": "Super 530D seeker",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "guidance": {
+          "availability": "available",
+          "selector": "equipment.super-530d.guidance",
+          "mechanism_id": "fsim.guidance.measured_pn.v2",
+          "name": "Super 530D guidance model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "autopilot": {
+          "availability": "available",
+          "selector": "equipment.super-530d.autopilot",
+          "mechanism_id": "fsim.control.load_feedback_cascade",
+          "name": "Super 530D flight-control model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "allocator": {
+          "availability": "available",
+          "selector": "equipment.super-530d.allocator",
+          "mechanism_id": "fsim.allocator.jsbsim_authored_fin_mixer",
+          "name": "Super 530D control-allocation model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "actuator": {
+          "availability": "available",
+          "selector": "equipment.super-530d.actuator",
+          "mechanism_id": "fsim.actuator.jsbsim_lag_rate_stops",
+          "name": "Super 530D actuator model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "fuze": {
+          "availability": "available",
+          "selector": "equipment.super-530d.fuze",
+          "mechanism_id": "native.fuze.swept_path.v1",
+          "name": "Super 530D fuze model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "warhead": {
+          "availability": "available",
+          "selector": "equipment.super-530d.warhead",
+          "mechanism_id": "native.warhead.zoned_case.v1",
+          "name": "Super 530D warhead model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "propulsion": {
+          "availability": "available",
+          "selector": "equipment.super-530d.propulsion",
+          "mechanism_id": "fsim.propulsion.jsbsim_generated_solid_rocket",
+          "name": "Super 530D propulsion model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.super-530d.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "Super 530D aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "tank-300gal",
+      "model_id": "tank-300gal",
+      "designation": "300 US gal centerline tank (F-16)",
+      "card_designation": "300 US gal centerline tank (F-16)",
+      "native_model": "jsbsim:tank300gal",
+      "card_path": "assets/stores/tank-300gal.json",
+      "source_ids": [
+        "f16net-300",
+        "hangar-vlm",
+        "soh-tanks",
+        "wp-f16",
+        "wp-jetfuel"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.tank-300gal.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "300 US gal centerline tank (F-16) aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "tank-370gal",
+      "model_id": "tank-370gal",
+      "designation": "370 US gal external tank (F-16)",
+      "card_designation": "370 US gal external tank (F-16)",
+      "native_model": "jsbsim:tank370gal",
+      "card_path": "assets/stores/tank-370gal.json",
+      "source_ids": [
+        "f16net-370",
+        "fas-f16",
+        "hangar-vlm",
+        "ksl-370",
+        "wp-jetfuel",
+        "wt"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.tank-370gal.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "370 US gal external tank (F-16) aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "tank-610gal",
+      "model_id": "tank-610gal",
+      "designation": "610 US gal external tank (F-15)",
+      "card_designation": "610 US gal external tank (F-15)",
+      "native_model": "jsbsim:tank610gal",
+      "card_path": "assets/stores/tank-610gal.json",
+      "source_ids": [
+        "hangar-vlm",
+        "jsbsim-f15",
+        "wp-jetfuel",
+        "wt"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.tank-610gal.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "610 US gal external tank (F-15) aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    },
+    {
+      "store_id": "typhoon-tank-1000l",
+      "model_id": "typhoon-tank-1000l",
+      "designation": "1,000 L supersonic tank (Typhoon)",
+      "card_designation": "1,000 L supersonic tank (Typhoon)",
+      "native_model": "jsbsim:typhoontank1000l",
+      "card_path": "assets/stores/typhoon-tank-1000l.json",
+      "source_ids": [
+        "hangar-vlm",
+        "wp-jetfuel",
+        "wp-typhoon"
+      ],
+      "components": {
+        "seeker": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "guidance": {
+          "availability": "not_applicable",
+          "reason": "This card declares no executing guided-store function."
+        },
+        "autopilot": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "allocator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "actuator": {
+          "availability": "not_applicable",
+          "reason": "No authored native control surfaces on this released store."
+        },
+        "fuze": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "warhead": {
+          "availability": "not_applicable",
+          "reason": "This non-weapon card has no armed effects."
+        },
+        "propulsion": {
+          "availability": "not_applicable",
+          "reason": "Released store has no executing motor phases."
+        },
+        "aerodynamics": {
+          "availability": "available",
+          "selector": "equipment.typhoon-tank-1000l.aerodynamics",
+          "mechanism_id": "fsim.aerodynamics.jsbsim_generated_store",
+          "name": "1,000 L supersonic tank (Typhoon) aerodynamic model",
+          "hardware_model_name": null,
+          "hardware_identity": "Specific component designation is not established by the admitted sources; this simulator model is scoped to the named equipment and function."
+        }
+      }
+    }
+  ]
+}

@@ -78,7 +78,7 @@ def run(args):
     for capture in captures:
         capture.unlink(missing_ok=True)
     viewer_log = output / "viewer.log"
-    command = [str(viewer), "--world", scene["name"], "--fullscreen", "--offline", "--no-gui",
+    command = [str(viewer), "--world", scene["name"], "--fullscreen", "--offline",
                "--camera", "chase", "--chase-distance", "20", "--chase-azimuth", "240",
                "--chase-elevation", "10", "--sun-utc", "20", "--strike-capture",
                str(preflight) + ".engagement.json", "--screenshot", str(prefix)]

@@ -1,0 +1,677 @@
+{
+  "schema": "fsim.generic-vlm-validation.v1",
+  "basis": "simulated",
+  "tool": "Hangar shared aircraft VLM",
+  "version": "0.1.0",
+  "source_url": "https://www.mas.bg.ac.rs/_media/istrazivanje/fme/vol48/4/5_d_damljanovic_et_al.pdf",
+  "source_locator": "Figure 1 p.762; Tables 2--10 pp.766--768",
+  "geometry": {
+    "aircraft": {
+      "name": "generic-agard-b",
+      "category": "research"
+    },
+    "analysis": {
+      "speed": 260.0,
+      "max_mach": 1.2
+    },
+    "body": [
+      {
+        "name": "standard body",
+        "kind": "fuselage",
+        "stations": [
+          {
+            "x": 0.0,
+            "w": 0.0,
+            "top": 0.0,
+            "bottom": -0.0
+          },
+          {
+            "x": 0.014475,
+            "w": 0.009633595558449075,
+            "top": 0.004816797779224538,
+            "bottom": -0.004816797779224538
+          },
+          {
+            "x": 0.02895,
+            "w": 0.019171556712962966,
+            "top": 0.009585778356481483,
+            "bottom": -0.009585778356481483
+          },
+          {
+            "x": 0.043425,
+            "w": 0.028525927734375,
+            "top": 0.0142629638671875,
+            "bottom": -0.0142629638671875
+          },
+          {
+            "x": 0.0579,
+            "w": 0.03761712962962963,
+            "top": 0.018808564814814816,
+            "bottom": -0.018808564814814816
+          },
+          {
+            "x": 0.072375,
+            "w": 0.046373960141782404,
+            "top": 0.023186980070891202,
+            "bottom": -0.023186980070891202
+          },
+          {
+            "x": 0.08685,
+            "w": 0.05473359375,
+            "top": 0.027366796875,
+            "bottom": -0.027366796875
+          },
+          {
+            "x": 0.101325,
+            "w": 0.06264158166956019,
+            "top": 0.03132079083478009,
+            "bottom": -0.03132079083478009
+          },
+          {
+            "x": 0.1158,
+            "w": 0.07005185185185185,
+            "top": 0.035025925925925926,
+            "bottom": -0.035025925925925926
+          },
+          {
+            "x": 0.130275,
+            "w": 0.076926708984375,
+            "top": 0.0384633544921875,
+            "bottom": -0.0384633544921875
+          },
+          {
+            "x": 0.14475,
+            "w": 0.08323683449074074,
+            "top": 0.04161841724537037,
+            "bottom": -0.04161841724537037
+          },
+          {
+            "x": 0.15922499999999998,
+            "w": 0.08896128653067129,
+            "top": 0.04448064326533564,
+            "bottom": -0.04448064326533564
+          },
+          {
+            "x": 0.1737,
+            "w": 0.0940875,
+            "top": 0.04704375,
+            "bottom": -0.04704375
+          },
+          {
+            "x": 0.18817499999999998,
+            "w": 0.09861128653067129,
+            "top": 0.049305643265335646,
+            "bottom": -0.049305643265335646
+          },
+          {
+            "x": 0.20265,
+            "w": 0.10253683449074075,
+            "top": 0.051268417245370373,
+            "bottom": -0.051268417245370373
+          },
+          {
+            "x": 0.21712499999999998,
+            "w": 0.105876708984375,
+            "top": 0.0529383544921875,
+            "bottom": -0.0529383544921875
+          },
+          {
+            "x": 0.2316,
+            "w": 0.10865185185185186,
+            "top": 0.05432592592592593,
+            "bottom": -0.05432592592592593
+          },
+          {
+            "x": 0.24607500000000002,
+            "w": 0.11089158166956017,
+            "top": 0.05544579083478009,
+            "bottom": -0.05544579083478009
+          },
+          {
+            "x": 0.26055,
+            "w": 0.11263359375,
+            "top": 0.056316796875,
+            "bottom": -0.056316796875
+          },
+          {
+            "x": 0.275025,
+            "w": 0.11392396014178241,
+            "top": 0.056961980070891205,
+            "bottom": -0.056961980070891205
+          },
+          {
+            "x": 0.2895,
+            "w": 0.11481712962962962,
+            "top": 0.05740856481481481,
+            "bottom": -0.05740856481481481
+          },
+          {
+            "x": 0.303975,
+            "w": 0.115375927734375,
+            "top": 0.0576879638671875,
+            "bottom": -0.0576879638671875
+          },
+          {
+            "x": 0.31844999999999996,
+            "w": 0.11567155671296298,
+            "top": 0.05783577835648149,
+            "bottom": -0.05783577835648149
+          },
+          {
+            "x": 0.33292499999999997,
+            "w": 0.11578359555844907,
+            "top": 0.057891797779224534,
+            "bottom": -0.057891797779224534
+          },
+          {
+            "x": 0.3474,
+            "w": 0.1158,
+            "top": 0.0579,
+            "bottom": -0.0579
+          },
+          {
+            "x": 0.9843,
+            "w": 0.1158,
+            "top": 0.0579,
+            "bottom": -0.0579
+          }
+        ]
+      }
+    ],
+    "surface": [
+      {
+        "name": "delta",
+        "kind": "wing",
+        "mirror": true,
+        "airfoil": "biconvex4",
+        "sections": [
+          {
+            "le": [
+              0.38738567765568266,
+              0.0,
+              0.0
+            ],
+            "chord": 0.40114296703295194
+          },
+          {
+            "le": [
+              0.7885286446886346,
+              0.2316,
+              0.0
+            ],
+            "chord": 1e-07
+          }
+        ]
+      }
+    ],
+    "reference": {
+      "area": 0.09290471116483166,
+      "span": 0.4632,
+      "chord": 0.26742864468863464,
+      "aero_point": [
+        0.6548143223443174,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "native_library": {
+    "path": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\ucrt64-release\\python\\fsim\\bin\\libfsim.dll",
+    "sha256": "10a8a36fc36b7ad7d23a6e4eede348ca18946bba913d66e93912fabec831d533"
+  },
+  "fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+  "observations": [
+    {
+      "metric": "CZ",
+      "value": -0.0974713825707303,
+      "conditions": {
+        "alpha_deg": 2.0,
+        "beta_deg": 0.0,
+        "mach": 0.77,
+        "altitude_m": 1000.0
+      },
+      "sdk_value": -0.10259398954407356,
+      "signed_error": -0.005122606973343255,
+      "actual": {
+        "alpha_deg": 2.000013885755325,
+        "measurement_fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+        "beta_deg": 2.91624876492211e-09,
+        "mach": 0.7699999886571606,
+        "altitude_m": 999.9999095919103,
+        "CL": 0.10194734634809292,
+        "qbar_pa": 37301.539034137946,
+        "density_kg_m3": 1.1116683488539103,
+        "temperature_c": 8.501022951032837
+      }
+    },
+    {
+      "metric": "Cm",
+      "value": 0.0177,
+      "conditions": {
+        "alpha_deg": 2.0,
+        "beta_deg": 0.0,
+        "mach": 0.77,
+        "altitude_m": 1000.0
+      },
+      "sdk_value": 0.02541047459648021,
+      "signed_error": 0.007710474596480211,
+      "actual": {
+        "alpha_deg": 2.000013885755292,
+        "measurement_fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+        "beta_deg": 2.916248763401418e-09,
+        "mach": 0.7699999894601953,
+        "altitude_m": 999.9999095919103,
+        "CL": 0.10194734637799364,
+        "qbar_pa": 37301.53911194166,
+        "density_kg_m3": 1.1116683488539103,
+        "temperature_c": 8.501022951032837
+      }
+    },
+    {
+      "metric": "CZ",
+      "value": -0.31050433515046105,
+      "conditions": {
+        "alpha_deg": 6.0,
+        "beta_deg": 0.0,
+        "mach": 0.77,
+        "altitude_m": 1000.0
+      },
+      "sdk_value": -0.32545664359911713,
+      "signed_error": -0.014952308448656082,
+      "actual": {
+        "alpha_deg": 5.999997088887227,
+        "measurement_fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+        "beta_deg": 8.73454378519252e-09,
+        "mach": 0.7699999799292452,
+        "altitude_m": 999.9997292147935,
+        "CL": 0.32220829384615235,
+        "qbar_pa": 37301.539004383965,
+        "density_kg_m3": 1.1116683685424231,
+        "temperature_c": 8.501024123115315
+      }
+    },
+    {
+      "metric": "Cm",
+      "value": 0.0545,
+      "conditions": {
+        "alpha_deg": 6.0,
+        "beta_deg": 0.0,
+        "mach": 0.77,
+        "altitude_m": 1000.0
+      },
+      "sdk_value": 0.07979787935910498,
+      "signed_error": 0.025297879359104984,
+      "actual": {
+        "alpha_deg": 5.999997088887118,
+        "measurement_fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+        "beta_deg": 8.73454377610531e-09,
+        "mach": 0.769999981531411,
+        "altitude_m": 999.9997292147935,
+        "CL": 0.32220829403470314,
+        "qbar_pa": 37301.53915961319,
+        "density_kg_m3": 1.1116683685424231,
+        "temperature_c": 8.501024123115315
+      }
+    },
+    {
+      "metric": "CZ",
+      "value": -0.538930900872296,
+      "conditions": {
+        "alpha_deg": 10.0,
+        "beta_deg": 0.0,
+        "mach": 0.77,
+        "altitude_m": 1000.0
+      },
+      "sdk_value": -0.5688778174421364,
+      "signed_error": -0.029946916569840387,
+      "actual": {
+        "alpha_deg": 9.999979031541054,
+        "measurement_fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+        "beta_deg": 1.4510270895565466e-08,
+        "mach": 0.7699999337400822,
+        "altitude_m": 999.9995501570911,
+        "CL": 0.5577196898145553,
+        "qbar_pa": 37301.535339149865,
+        "density_kg_m3": 1.111668388086919,
+        "temperature_c": 8.50102528662427
+      }
+    },
+    {
+      "metric": "Cm",
+      "value": 0.0912,
+      "conditions": {
+        "alpha_deg": 10.0,
+        "beta_deg": 0.0,
+        "mach": 0.77,
+        "altitude_m": 1000.0
+      },
+      "sdk_value": 0.13859094390329163,
+      "signed_error": 0.04739094390329163,
+      "actual": {
+        "alpha_deg": 9.999979031540896,
+        "measurement_fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+        "beta_deg": 1.451027088057976e-08,
+        "mach": 0.7699999353305286,
+        "altitude_m": 999.9995501570911,
+        "CL": 0.557719690138537,
+        "qbar_pa": 37301.53549324362,
+        "density_kg_m3": 1.111668388086919,
+        "temperature_c": 8.50102528662427
+      }
+    },
+    {
+      "metric": "CZ",
+      "value": -0.10877877713826287,
+      "conditions": {
+        "alpha_deg": 2.0,
+        "beta_deg": 0.0,
+        "mach": 1.0,
+        "altitude_m": 1000.0
+      },
+      "sdk_value": -0.11443399880986906,
+      "signed_error": -0.005655221671606189,
+      "actual": {
+        "alpha_deg": 2.0000054414570743,
+        "measurement_fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+        "beta_deg": 2.9162596336471285e-09,
+        "mach": 0.9999999791190413,
+        "altitude_m": 999.9998825859279,
+        "CL": 0.11379508438505442,
+        "qbar_pa": 62913.71006490237,
+        "density_kg_m3": 1.1116683518016666,
+        "temperature_c": 8.501023126516486
+      }
+    },
+    {
+      "metric": "Cm",
+      "value": 0.0107,
+      "conditions": {
+        "alpha_deg": 2.0,
+        "beta_deg": 0.0,
+        "mach": 1.0,
+        "altitude_m": 1000.0
+      },
+      "sdk_value": 0.021986829306900248,
+      "signed_error": 0.011286829306900248,
+      "actual": {
+        "alpha_deg": 2.0000054414571955,
+        "measurement_fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+        "beta_deg": 2.9162596392387383e-09,
+        "mach": 0.9999999752843176,
+        "altitude_m": 999.9998825859279,
+        "CL": 0.11379508421437667,
+        "qbar_pa": 62913.70958238898,
+        "density_kg_m3": 1.1116683518016666,
+        "temperature_c": 8.501023126516486
+      }
+    },
+    {
+      "metric": "CZ",
+      "value": -0.3426202140050697,
+      "conditions": {
+        "alpha_deg": 6.0,
+        "beta_deg": 0.0,
+        "mach": 1.0,
+        "altitude_m": 1000.0
+      },
+      "sdk_value": -0.3631145302698322,
+      "signed_error": -0.020494316264762502,
+      "actual": {
+        "alpha_deg": 5.999981163678783,
+        "measurement_fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+        "beta_deg": 8.734532693483074e-09,
+        "mach": 0.9999999384351853,
+        "altitude_m": 999.9996483308316,
+        "CL": 0.35965416045280424,
+        "qbar_pa": 62913.70673284729,
+        "density_kg_m3": 1.1116683773710643,
+        "temperature_c": 8.501024648695648
+      }
+    },
+    {
+      "metric": "Cm",
+      "value": 0.0316,
+      "conditions": {
+        "alpha_deg": 6.0,
+        "beta_deg": 0.0,
+        "mach": 1.0,
+        "altitude_m": 1000.0
+      },
+      "sdk_value": 0.0689774391143346,
+      "signed_error": 0.037377439114334596,
+      "actual": {
+        "alpha_deg": 5.999981163678608,
+        "measurement_fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+        "beta_deg": 8.734532681681521e-09,
+        "mach": 0.9999999411374283,
+        "altitude_m": 999.9996483308316,
+        "CL": 0.3596541608329372,
+        "qbar_pa": 62913.70707286356,
+        "density_kg_m3": 1.1116683773710643,
+        "temperature_c": 8.501024648695648
+      }
+    },
+    {
+      "metric": "CZ",
+      "value": -0.5921775745673232,
+      "conditions": {
+        "alpha_deg": 10.0,
+        "beta_deg": 0.0,
+        "mach": 1.0,
+        "altitude_m": 1000.0
+      },
+      "sdk_value": -0.6348624601737708,
+      "signed_error": -0.042684885606447565,
+      "actual": {
+        "alpha_deg": 9.999955129872609,
+        "measurement_fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+        "beta_deg": 1.451027209268411e-08,
+        "mach": 0.9999998322955734,
+        "altitude_m": 999.9994157880217,
+        "CL": 0.6225359318055284,
+        "qbar_pa": 62913.69515160094,
+        "density_kg_m3": 1.1116684027535648,
+        "temperature_c": 8.501026159748506
+      }
+    },
+    {
+      "metric": "Cm",
+      "value": 0.0537,
+      "conditions": {
+        "alpha_deg": 10.0,
+        "beta_deg": 0.0,
+        "mach": 1.0,
+        "altitude_m": 1000.0
+      },
+      "sdk_value": 0.11986153821858019,
+      "signed_error": 0.06616153821858019,
+      "actual": {
+        "alpha_deg": 9.99995512987234,
+        "measurement_fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+        "beta_deg": 1.4510272073222036e-08,
+        "mach": 0.9999998349780636,
+        "altitude_m": 999.9994157880217,
+        "CL": 0.6225359324587029,
+        "qbar_pa": 62913.695489131715,
+        "density_kg_m3": 1.1116684027535648,
+        "temperature_c": 8.501026159748506
+      }
+    },
+    {
+      "metric": "CZ",
+      "value": -0.10708013115586619,
+      "conditions": {
+        "alpha_deg": 2.0,
+        "beta_deg": 0.0,
+        "mach": 1.17,
+        "altitude_m": 1000.0
+      },
+      "sdk_value": -0.12222232013113166,
+      "signed_error": -0.015142188975265466,
+      "actual": {
+        "alpha_deg": 2.00000035416699,
+        "measurement_fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+        "beta_deg": 2.9162529036334916e-09,
+        "mach": 1.1699998913511984,
+        "altitude_m": 999.9998626255274,
+        "CL": 0.1204430442726293,
+        "qbar_pa": 86122.56551786908,
+        "density_kg_m3": 1.1116683539803818,
+        "temperature_c": 8.501023256218275
+      }
+    },
+    {
+      "metric": "Cm",
+      "value": 0.0079,
+      "conditions": {
+        "alpha_deg": 2.0,
+        "beta_deg": 0.0,
+        "mach": 1.17,
+        "altitude_m": 1000.0
+      },
+      "sdk_value": 0.018021022502215718,
+      "signed_error": 0.010121022502215717,
+      "actual": {
+        "alpha_deg": 2.0000003541671623,
+        "measurement_fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+        "beta_deg": 2.9162529111494908e-09,
+        "mach": 1.1699998853204627,
+        "altitude_m": 999.9998626255274,
+        "CL": 0.12044304403679468,
+        "qbar_pa": 86122.56463003576,
+        "density_kg_m3": 1.1116683539803818,
+        "temperature_c": 8.501023256218275
+      }
+    },
+    {
+      "metric": "CZ",
+      "value": -0.32560731182621583,
+      "conditions": {
+        "alpha_deg": 6.0,
+        "beta_deg": 0.0,
+        "mach": 1.17,
+        "altitude_m": 1000.0
+      },
+      "sdk_value": -0.38766956910442263,
+      "signed_error": -0.0620622572782068,
+      "actual": {
+        "alpha_deg": 5.999970320747254,
+        "measurement_fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+        "beta_deg": 8.734520984902933e-09,
+        "mach": 1.1699998222175503,
+        "altitude_m": 999.9995885472805,
+        "CL": 0.380665704885466,
+        "qbar_pa": 86122.55820237007,
+        "density_kg_m3": 1.1116683838965558,
+        "temperature_c": 8.501025037166528
+      }
+    },
+    {
+      "metric": "Cm",
+      "value": 0.0254,
+      "conditions": {
+        "alpha_deg": 6.0,
+        "beta_deg": 0.0,
+        "mach": 1.17,
+        "altitude_m": 1000.0
+      },
+      "sdk_value": 0.056443338159860974,
+      "signed_error": 0.031043338159860975,
+      "actual": {
+        "alpha_deg": 5.999970320747017,
+        "measurement_fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+        "beta_deg": 8.734520971095134e-09,
+        "mach": 1.1699998259166429,
+        "altitude_m": 999.9995885472805,
+        "CL": 0.3806657053426626,
+        "qbar_pa": 86122.55874694337,
+        "density_kg_m3": 1.1116683838965558,
+        "temperature_c": 8.501025037166528
+      }
+    },
+    {
+      "metric": "CZ",
+      "value": -0.5455666654978716,
+      "conditions": {
+        "alpha_deg": 10.0,
+        "beta_deg": 0.0,
+        "mach": 1.17,
+        "altitude_m": 1000.0
+      },
+      "sdk_value": -0.6775627443988139,
+      "signed_error": -0.13199607890094234,
+      "actual": {
+        "alpha_deg": 9.99993814369001,
+        "measurement_fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+        "beta_deg": 1.4510257154716841e-08,
+        "mach": 1.1699996586060706,
+        "altitude_m": 999.9993164719999,
+        "CL": 0.6589054761105397,
+        "qbar_pa": 86122.53695711067,
+        "density_kg_m3": 1.1116684135941017,
+        "temperature_c": 8.50102680509957
+      }
+    },
+    {
+      "metric": "Cm",
+      "value": 0.0474,
+      "conditions": {
+        "alpha_deg": 10.0,
+        "beta_deg": 0.0,
+        "mach": 1.17,
+        "altitude_m": 1000.0
+      },
+      "sdk_value": 0.09816587779571576,
+      "signed_error": 0.05076587779571576,
+      "actual": {
+        "alpha_deg": 9.999938143689638,
+        "measurement_fixture_xml_sha256": "9a3eaf645d787d1ce335fae0462930605a46106f0ae788fc0c0750748a7c7cbd",
+        "beta_deg": 1.4510257131946193e-08,
+        "mach": 1.1699996622781283,
+        "altitude_m": 999.9993164719999,
+        "CL": 0.6589054768961328,
+        "qbar_pa": 86122.53749770387,
+        "density_kg_m3": 1.1116684135941017,
+        "temperature_c": 8.50102680509957
+      }
+    }
+  ],
+  "metrics": {
+    "CZ": {
+      "count": 9,
+      "nrmse_percent": 13.89268657599672,
+      "max_absolute_error": 0.13199607890094234
+    },
+    "Cm": {
+      "count": 9,
+      "nrmse_percent": 82.05273561633099,
+      "max_absolute_error": 0.06616153821858019
+    }
+  },
+  "assessed_domain": {
+    "mach": [
+      0.77,
+      1.0,
+      1.17
+    ],
+    "alpha_deg": [
+      2.0,
+      6.0,
+      10.0
+    ],
+    "beta_deg": [
+      0.0
+    ]
+  },
+  "equipment_accuracy_claim": false,
+  "parameters_fitted": false,
+  "limitations": [
+    "Generic AGARD-B geometry, not any of the 88 authored equipment models.",
+    "The publication pools facilities/model sizes and includes M0.8/M1.2 runs with the M0.77/M1.17 groups; no common Reynolds condition is supplied.",
+    "Body-normal force is derived as CN=CLf*cos(alpha)+CDf*sin(alpha), cancelling axial base-pressure force; reported CZ=-CN.",
+    "The 4% biconvex wing uses the existing shared section; its tiny specified leading-edge radius is not separately resolved.",
+    "Density/Reynolds and sting/wall interference differences remain. Residuals are not an equipment confidence interval.",
+    "No beta, dynamic derivative, powered flow or extreme-angle qualification follows from these conditions."
+  ],
+  "source_pdf_sha256": "e2a1c05987115e665dd8a06a6250b7dbcbe0511df7b99227a293a77cadf5e0d5"
+}

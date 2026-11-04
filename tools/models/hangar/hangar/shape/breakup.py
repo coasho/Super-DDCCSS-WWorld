@@ -9,7 +9,7 @@ wings, the tail, the nose and the centre - by one rule for every fixed-wing desi
 - the centre: everything else - the fuselage between, its intakes, nacelles and pods, the strakes.
 
 The airframe's mesh is split triangle by triangle (by each one's centre), so the sections together are the airframe
-as it was, joined without a crack; each is closed over its break by a cap - a fan from each of its torn edges' loops -
+as it was, joined without a crack; each is closed over its break by triangulating its complete boundary contours -
 in the dark of a duct, the torn inside drawn as nothing more. Each section is a node (fsim:section:<name>) at its
 break (where a tumbling piece turns about), with what is mounted on it below it: its control surfaces, gear, pylons,
 nozzles. A design without a wing (a rotorcraft) has none."""
@@ -88,10 +88,16 @@ def classify(aircraft, points, mounted=False):
 
 
 def caps(positions, triangles):
-    """A section's caps over its torn edges: each loop of its boundary edges (those of one triangle only) fanned from
-    its centre, wound to close the section. (vertices, triangles, the loops' centre - the break - or None without
-    a boundary)."""
-    from collections import defaultdict
+    """Close every oriented boundary halfedge, including touching fans/rings.
+
+    Traverse through incident faces, not a global visited-vertex set: several
+    distinct boundary loops may legitimately touch at one welded vertex. Cap
+    triangulation preserves original endpoints. Nested projected contours
+    are triangulated together so a duct's inner ring remains a hole. These are
+    inferred breakup surfaces, not changes to the actual exterior skin.
+    """
+    from collections import Counter
+    import manifold3d as manifold
     # (on the welded mesh: a painted mesh's vertices are split along its texture's seams - edges there are no break)
     _, canon = np.unique(positions, axis=0, return_inverse=True)
     canon = canon.reshape(-1)
@@ -101,39 +107,157 @@ def caps(positions, triangles):
         first.setdefault(int(c), i)
     positions = positions[[first[k] for k in range(len(first))]]
     triangles = welded
-    edges = defaultdict(int)
+    edges = Counter()
+    following = {}
     for a, b, c in triangles:
         for u, v in ((a, b), (b, c), (c, a)):
             edges[(u, v)] += 1
+        following[(a, b)] = (b, c)
+        following[(b, c)] = (c, a)
+        following[(c, a)] = (a, b)
+    if any(n != 1 for n in edges.values()):
+        raise ValueError('Breakup cap input has a repeated oriented halfedge')
     boundary = [(u, v) for (u, v) in edges if (v, u) not in edges]
     if not boundary:
         return np.zeros((0, 3)), np.zeros((0, 3), int), None
-    nxt = {}
-    for u, v in boundary:
-        nxt.setdefault(u, []).append(v)
-    verts, tris, centres = [], [], []
+    boundary_set = set(boundary)
+
+    def successor(edge):
+        # Rotate through this vertex's actual incident face fan until its other
+        # boundary is reached; another fan sharing the vertex remains separate.
+        candidate = following[edge]
+        for _ in range(len(edges)):
+            reverse = (candidate[1], candidate[0])
+            if reverse not in edges:
+                return candidate
+            candidate = following[reverse]
+        raise ValueError('Breakup boundary fan has no boundary successor')
+
+    loops = []
     used = set()
-    for start in [u for u, _ in boundary]:
+    for start in boundary:
         if start in used:
             continue
-        loop, u = [], start
-        while u not in used and u in nxt:
-            used.add(u)
-            loop.append(u)
-            u = nxt[u][0]
-        if len(loop) < 3:
-            continue
-        pts = positions[loop]
-        c = pts.mean(axis=0)
-        base = len(verts)
-        verts.extend(pts.tolist())
-        verts.append(c.tolist())
-        k = len(loop)
-        for i in range(k):  # (the boundary runs u -> v in the section's own triangles: the cap runs v -> u)
-            tris.append((base + (i + 1) % k, base + i, base + k))
-        centres.append((c, k))
-    if not tris:
-        return np.zeros((0, 3)), np.zeros((0, 3), int), None
-    w = np.array([k for _, k in centres], float)
-    centre = (np.array([c for c, _ in centres]) * w[:, None]).sum(axis=0) / w.sum()
-    return np.array(verts), np.array(tris), centre
+        loop, edge = [], start
+        while edge not in used:
+            if edge not in boundary_set:
+                raise ValueError('Breakup cap traversal left its boundary')
+            used.add(edge); loop.append(edge[0]); edge = successor(edge)
+        if edge != start or len(loop) < 3:
+            raise ValueError('Breakup cap boundary does not form a complete cycle')
+        # Opposite winding closes the skin's directed boundary.
+        loops.append(positions[loop[::-1]])
+    if used != boundary_set:
+        raise ValueError('Breakup cap missed a boundary halfedge')
+
+    records = []
+    for points in loops:
+        area_normal = np.cross(points, np.roll(points, -1, axis=0)).sum(axis=0)
+        axis = int(np.argmax(np.abs(area_normal)))
+        axes = [(axis+1) % 3, (axis+2) % 3]
+        contour = points[:, axes]
+        area = .5*area_normal[axis]
+        if area == 0.:
+            raise ValueError('Breakup boundary has zero projected area')
+        region = manifold.CrossSection([contour], manifold.FillRule.NonZero)
+        records.append(dict(points=points, axis=axis, contour=contour, area=area, region=region,
+                            low=float(points[:, axis].min()), high=float(points[:, axis].max())))
+
+    # A projected containment may be a duct only when its cap-normal extents
+    # overlap and its winding opposes the enclosing contour. Parallel openings
+    # at distinct stations cannot be bridged just because their projections nest.
+    parents = [None]*len(records)
+    for i, inner in enumerate(records):
+        candidates = []
+        for j, outer in enumerate(records):
+            if (inner['axis'] != outer['axis'] or inner['area']*outer['area'] >= 0 or
+                    abs(inner['area']) >= abs(outer['area']) or
+                    max(inner['low'], outer['low']) > min(inner['high'], outer['high'])):
+                continue
+            if (inner['region']-outer['region']).is_empty():
+                candidates.append(j)
+        if candidates: parents[i] = min(candidates, key=lambda j: (abs(records[j]['area']), j))
+
+    groups = {}
+    for i in range(len(records)):
+        root = i
+        while parents[root] is not None: root = parents[root]
+        groups.setdefault(root, []).append(i)
+    vertices = []; faces = []; face_groups = []; group_axes = []
+    for root, members in groups.items():
+        sign = 1 if records[root]['area'] > 0 else -1
+        points = [records[i]['points'] if sign > 0 else records[i]['points'][::-1] for i in members]
+        axis = records[root]['axis']; axes = [(axis+1) % 3, (axis+2) % 3]
+        contours = [np.ascontiguousarray(p[:, axes]) for p in points]
+        triangles = np.asarray(manifold.triangulate(contours, allow_convex=False), dtype=np.int64)
+        if sign < 0: triangles = triangles[:, [0, 2, 1]]
+        base = len(vertices); vertices.extend(np.concatenate(points).tolist())
+        faces.extend((triangles+base).tolist())
+        face_groups.extend([len(group_axes)]*len(triangles)); group_axes.append(axes)
+    vertices = np.array(vertices); faces = np.array(faces, dtype=np.int64)
+
+    # A valid polygon diagonal can already be an actual skin edge, or another
+    # cap diagonal when distinct contour fans share two welded vertices. Reusing it would
+    # create four incident faces after coordinate welding. Preserve the mature
+    # triangulator's projected domain, but replace such an INTERNAL diagonal
+    # using two interior Steiner points and an edge flip. Their tangential
+    # positions lie in the middle half of the diagonal, making the flip's
+    # quadrilateral convex. No skin point/triangle or cap boundary is changed.
+    ids = {tuple(p): i for i, p in enumerate(positions)}
+    cap_faces = np.array([ids[tuple(p)] for p in vertices])[faces].tolist()
+    # A repeated contour point can produce an exactly zero-area bridge in the
+    # 2-D triangulator. Its coincident endpoints add a canceling edge pair, not
+    # a material surface; do not count that bridge as a third cap face.
+    cap_faces = [face if len(set(face)) == 3 else None for face in cap_faces]
+    cap_points = positions.tolist()
+    forbidden = {tuple(sorted(edge)) for edge in edges}
+    while True:
+        incidence = {}
+        for i, face in enumerate(cap_faces):
+            if face is None: continue
+            a, b, c = face
+            for u, v in ((a, b), (b, c), (c, a)):
+                key = tuple(sorted((u, v)))
+                incidence.setdefault(key, []).append((i, u, v))
+        replacement = None
+        for key, entries in incidence.items():
+            if key not in forbidden and len(entries) <= 2:
+                continue
+            for i, u, v in entries:
+                pair = next(((j, x, y) for j, x, y in entries
+                             if j != i and x == v and y == u and face_groups[j] == face_groups[i]), None)
+                if pair is not None:
+                    replacement = (i, pair[0], u, v); break
+            if replacement is not None: break
+        if replacement is None: break
+        i, j, u, v = replacement
+        a = next(k for k in cap_faces[i] if k not in (u, v))
+        b = next(k for k in cap_faces[j] if k not in (u, v))
+        pu, pv, pa, pb = np.asarray([cap_points[k] for k in (u, v, a, b)])
+        axes = group_axes[face_groups[i]]; d = (pv-pu)[axes]; mid = .5*(pu+pv)
+        denominator = max(abs(float(np.dot((pa-mid)[axes], d))), abs(float(np.dot((pb-mid)[axes], d))))
+        weight = min(1./3., float(np.dot(d, d))/(4*denominator)) if denominator else 1./3.
+        if weight <= 0: raise ValueError('Breakup diagonal has zero projected extent')
+        c1, c2 = len(cap_points), len(cap_points)+1
+        cap_points += [((1-weight)*mid+weight*pa).tolist(), ((1-weight)*mid+weight*pb).tolist()]
+        cap_faces[i] = cap_faces[j] = None
+        cap_faces += [[v, a, c1], [a, u, c1], [u, b, c2], [b, v, c2], [u, c2, c1], [v, c1, c2]]
+        face_groups += [face_groups[i]]*6
+    mapped = np.array([face for face in cap_faces if face is not None], dtype=np.int64)
+
+    # Verify the triangulator consumed every boundary edge once in reverse,
+    # with paired opposite interior edges; do not accept a visually filled hole.
+    cap_edges = Counter((u, v) for a, b, c in mapped for u, v in ((a, b), (b, c), (c, a)))
+    for u, v in boundary:
+        if cap_edges[(v, u)] != 1 or cap_edges[(u, v)] != 0:
+            raise ValueError('Breakup triangulation did not preserve a boundary edge')
+    for (u, v), n in cap_edges.items():
+        if (v, u) not in boundary_set and (n != 1 or cap_edges[(v, u)] != 1):
+            raise ValueError('Breakup triangulation has an unpaired interior edge')
+        if (u, v) in edges and (v, u) in edges:
+            raise ValueError('Breakup triangulation reuses an internal skin edge')
+    used_vertices = np.unique(mapped)
+    remap = np.full(len(cap_points), -1); remap[used_vertices] = np.arange(len(used_vertices))
+    vertices = np.asarray(cap_points)[used_vertices]; faces = remap[mapped]
+    centre = np.concatenate(loops).mean(axis=0)
+    return vertices, faces, centre

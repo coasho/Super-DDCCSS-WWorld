@@ -32,7 +32,7 @@ payload by its role on that aircraft (`radar`, `rwr`, `stations`) and points to 
 quotes the passage of its cited source that names it, under `evidence`. Every passage was checked against the
 cited revision. A payload that hangs on store stations and is part of the aircraft's model - drawn with it, in its
 aerodynamics, weighed as a fixed load of its design - names them under `stations`: they take no store, in a loadout
-or loaded one by one ([hangar.md](../hangar.md#mass-accounting)).
+or loaded one by one ([Hangar system](../hangar-system.md#3-model-contract-and-reproducibility)).
 
 Each payload gives the capabilities of its family:
 
@@ -122,7 +122,7 @@ There are no ground entities (ADR-30, D7).
 Strike and Store Management) uses the strike calls below. The store starts at its station, given as an offset from the launcher's
 CG in the launcher's body axes. It takes the launcher's attitude and its velocity over the earth, plus the ejection's
 push. The Mk 82 (`jsbsim:mk82`) is the store to release: its flight model and its model in the viewer are built from its
-design by hangar (`aircraft/mk82`, `python -m hangar mk82`: [hangar.md](../hangar.md#stores)) - the published length,
+design by hangar (`aircraft/mk82`, `python -m hangar mk82`: [Hangar system](../hangar-system.md#3-model-contract-and-reproducibility)) - the published length,
 diameter and mass, the fins estimated, its aerodynamics a component build-up. (Until 2026-10-10 the platform flew
 JSBSim's own `mk82` for it; a store's model now comes before a stock aircraft of its name.)
 
@@ -379,8 +379,8 @@ model's own check (`test_radar.cpp`).
 
 ### In the viewer
 
-The viewer shows the Mission Systems of the vehicle it follows (`tab` switches; `p`, or "payloads" in the monitor, shows
-or hides the windows; each window collapses from its title bar):
+The viewer shows the Mission Systems of the vehicle it follows (`tab` switches); populated windows remain open
+and expanded:
 - **mission systems:** each payload, its type and state (a warm-up's or BIT's progress), and the capabilities it
   gives; partial or unimplemented capabilities carry their stage, such as `(MS-7)` or `(MS-9)`.
   A stage marker does not mean the capability is absent: native store release and strike are partial, while
@@ -389,8 +389,8 @@ or hides the windows; each window collapses from its title bar):
   regard, range up, the volume searched shaded, the beam's position) or a PPI for a rotodome (heading up, the sweep).
   Detections fade over two frames, green closing and amber opening; hover one for its range, angles, rate and SNR.
   Its tracks are boxes with their numbers, a line along each one's course (its length the speed), fading when a
-  track has gone two frames without an update; hover one for its updates, range, angles, rates and uncertainty. The
-  "hits" box hides the detections, leaving the tracks. The track the radar follows (MS-4b) carries a diamond, and the
+  track has gone two frames without an update; hover one for its updates, range, angles, rates and uncertainty.
+  Detections and tracks are both drawn. The track the radar follows (MS-4b) carries a diamond, and the
   header its number, an acquisition's state and the illumination ([engagement modes](#engagement-modes-ms-4b)).
 
 The windows read the world's shared memory: each vehicle's record holds its payloads, its radars' newest 96
@@ -609,7 +609,7 @@ v.jettison(emergency=True)                # the rest, unarmed, at once
   its class (`aam`, `bomb`, `tank`, `pod`, `cargo`), its flight model once released, whether it is powered before
   release (and its `power_up_s`, `power_down_s`) and can be jettisoned, its mass and dimensions with their sources.
   Every card names a model (`model`): whatever a station carries can leave it as a JSBSim vehicle of its own, weighing
-  what its station weighed ([hangar.md](../hangar.md#mass-accounting)). `employable` (true unless the card says
+  what its station weighed ([Hangar system](../hangar-system.md#3-model-contract-and-reproducibility)). `employable` (true unless the card says
   otherwise) is whether it may be released as a weapon. A flyable air-to-air missile supports strike; a store with
   `StoreInfo::flyable` false is refused (`store_not_flyable`). Jettison always releases an inert body, without an
   armed motor or fuze, including when that store supports armed strike.
@@ -734,7 +734,7 @@ Su-27S carries none. A tank is loaded full. Its fuel is part of its mass (`Store
 left). As the engines burn, the aircraft draws it into its own tanks, from every tank alike, at up to 10 kg/s (an
 estimate): its own stay topped up, and it is lighter by the fuel burnt alone. A tank jettisoned flies on as a JSBSim
 vehicle of its own (`aircraft/stores/<card id without hyphens>/`, written by its design's build stage - `python -m hangar <name> build`,
-[hangar.md](../hangar.md#stores): a slender
+[Hangar system](../hangar-system.md#3-model-contract-and-reproducibility): a slender
 body's aerodynamics - estimates), with the fuel that was left in it. Unfinned, it tumbles: its body's unstable
 moment swings it broadside (143 deg from the air within 6 s of leaving an F-16; a finned Mk 82 stays within 6 deg), and
 broadside its drag is tens of kN (61 m below and 77 m behind the aircraft 3 s after). Its drawn model is
@@ -755,10 +755,10 @@ only as a search result's quote is `assumed` and says so; a boxy pod's diameter 
 area. Not carded, for want of public figures or of a station on our models: the LANTIRN and Sniper pods (the F-16's
 chin stations are not modelled), the HARM targeting pod, the J-10A's and the Su-25's pods, the Sorbtsiya. The
 EA-18G's ALQ-99 pods are stores like the rest (`an-alq-99`, class `pod`: its "jamming pods" loadout hangs one on each
-of stations 3, 6 and 9), no longer bodies of its airframe ([hangar.md](../hangar.md#mass-accounting)).
+of stations 3, 6 and 9), no longer bodies of its airframe ([Hangar system](../hangar-system.md#3-model-contract-and-reproducibility)).
 
 **Powered air-to-air engagement.** Store cards name the released JSBSim models (`aircraft/stores/<name>`:
-[Hangar mass accounting](../hangar.md#mass-accounting)). Flyable air-to-air stores support armed strike, native motor
+[Hangar mass accounting](../hangar-system.md#3-model-contract-and-reproducibility)). Flyable air-to-air stores support armed strike, native motor
 state, seekers, guidance and fuzes under the [engagement contract](engagement.md). Jettison creates an inert body.
 The earlier 2026-10-10 interruption is historical; it does not describe current support. Carriage mass, drag and
 sideslip figures remain card data. This implementation uses assumed game parameters and ideal fin actuation,

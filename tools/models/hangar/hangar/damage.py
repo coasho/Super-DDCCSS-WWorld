@@ -19,7 +19,8 @@ from its own geometry, mass statement and aerodynamics, the same method for ever
 - the skin the fragments and the blast meet: each surface's planform in panels (no wider than PANEL_SPAN along the
   span, front and back halves of the chord) as thick as its section, each body as boxes PANEL_LENGTH long round its
   sections - each on its section, its share of the section's skin by area, the skin's mass SKIN_SHARE of its
-  section's structure (an estimate: a fighter's skins and stringers some third of its structure);
+  section's typed structural geometry mass, excluding engines, systems and gear (an estimate: a fighter's skins
+  and stringers some third of its structure);
 - the vulnerable components (vulnerability.py), with what the world needs of each: an engine's JSBSim index, a tank's
   JSBSim index and the fuel its box holds, a control's channel.
 
@@ -30,7 +31,7 @@ import json
 import math
 
 import numpy as np
-from .files import open_write
+from .files import open_write, atomic_write_stream
 
 G0 = 9.80665
 PANEL_SPAN = 1.5      # m: the widest skin panel along a surface's span
@@ -158,6 +159,23 @@ def _masses(aircraft, mass_model, origin):
                   "inertia": [float(J[1, 1] + J[2, 2]), float(J[0, 0] + J[2, 2]), float(J[0, 0] + J[1, 1]),
                               float(J[0, 1]), float(J[0, 2]), float(J[1, 2])]}
     return out
+
+
+def _skin_masses(aircraft, mass_model):
+    """The declared skin share of structural material, not installed equipment.
+
+    Whole/section rigid mass still includes every item through _masses. This
+    separate constitutive input follows the existing structure quadrature and
+    geometry ownership; an engine's mass cannot become homogeneous skin armour.
+    """
+    from .shape import breakup
+    structure = {section: 0.0 for section in breakup.SECTIONS}
+    for _, mass, points, weights, kind in mass_model.items:
+        if kind != "structure":
+            continue
+        for weight, section in zip(weights, _sections_of(aircraft, points)):
+            structure[section] += float(mass * weight)
+    return {section: SKIN_SHARE * mass for section, mass in structure.items()}
 
 
 def _roots(aircraft, origin):
@@ -488,6 +506,7 @@ def damage_data(aircraft, model=None, mass_model=None, origin=None):
                                           "centre": centre.tolist()})
     shares = _shares(aircraft, model, origin)
     masses = _masses(aircraft, mass_model, origin)
+    skin_masses = _skin_masses(aircraft, mass_model)
     roots = _roots(aircraft, origin)
     for name in roots:  # (a section with nothing in it - a design with no nose ahead of its wing - has no break)
         if masses[name]["mass_kg"] <= 0.0 and abs(shares[name]["normal_share"]) < 1e-9:
@@ -507,7 +526,7 @@ def damage_data(aircraft, model=None, mass_model=None, origin=None):
     sections = []
     for s in breakup.SECTIONS:
         entry = {"name": s, **masses[s], "tanks": tanks.get(s, []), "stations": on[s], **shares[s], "root": roots[s],
-                 "skin_area_m2": skin[s], "skin_kg": SKIN_SHARE * masses[s]["mass_kg"]}
+                 "skin_area_m2": skin[s], "skin_kg": skin_masses[s]}
         if roots[s] is not None:
             # the bending it was built to carry, each way about each axis: the larger magnitude of the two pulls
             entry["strength_nm"] = [max(abs(a), abs(b)) for a, b in zip(up[s], down[s])]
@@ -529,7 +548,15 @@ def damage_data(aircraft, model=None, mass_model=None, origin=None):
         "n_ultimate": [1.5 * n_min, 1.5 * n_max],
         "basis": {"limits": limits_basis, "strength": "the design's ultimate load (1.5 x the flight control's n limits) at its design mass, flown "
                               "symmetrically; tails and nose by the same rule (estimate)",
-                  "skin_share": SKIN_SHARE, "shares": "hangar's strip model: dN/dalpha and dY/dbeta per section"},
+                  "skin_share": SKIN_SHARE,
+                  "skin_mass_source": "SKIN_SHARE of kind=structure spatial quadrature only; engines, systems, gear and items excluded; rigid mass moments unchanged",
+                  "shares": "hangar's strip model: dN/dalpha and dY/dbeta per section"},
+        "mass_partition": getattr(mass_model, "mass_partition", {"version": "fsim.mass-quadrature.geometry.v1",
+            "reference": mass_model.spec.get("inertia_reference", "legacy-geometry"),
+            "retired_gyration": mass_model.spec.get("retired_gyration"),
+            "retired_inertia_tensor_kgm2": mass_model.spec.get("retired_inertia_tensor_kgm2"),
+            "reason": mass_model.spec.get("inertia_reference_reason"),
+            "section_moment_screening_uncertainty_fraction": mass_model.spec.get("inertia_uncertainty_fraction", .25)}),
         "sections": sections,
         "panels": panels,
         "components": components,
@@ -554,7 +581,15 @@ def write(aircraft, path, origin, model=None):
         if isinstance(x, (list, tuple)):
             return [rounded(v) for v in x]
         return x
-    text = json.dumps(rounded(data), indent=1) + "\n"
+    serialized = rounded(data)
+    # Physical first/second moments retain binary64 round-trip precision. The
+    # same records feed native parent removal and detached model generation.
+    for key in ("origin_design_m", "mass_partition"):
+        serialized[key] = data[key]
+    for original, section in zip(data["sections"], serialized["sections"]):
+        for key in ("mass_kg", "cg", "inertia"):
+            section[key] = original[key]
+    text = json.dumps(serialized, indent=1, allow_nan=False) + "\n"
     # (what the file holds - rounded - is what is returned: the pieces' flight models are written from it, and are those
     # its file gives again; written from the unrounded figures, their last digits differed from the file's)
     data = json.loads(text)
@@ -562,6 +597,6 @@ def write(aircraft, path, origin, model=None):
         with open(path, encoding="utf-8") as f:
             if f.read() == text:
                 return data  # (as it was: the file left alone)
-    with open_write(path, "w", encoding="utf-8", newline="\n") as f:
+    with atomic_write_stream(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
     return data

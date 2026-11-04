@@ -16,7 +16,7 @@ change generated models, equipment values or public contracts.
 
 The governing scope is the [simulation plan](../architecture/modules/simulation/plan.md)
 and [work allocation](../architecture/modules/simulation/ms-work-allocation.md).
-Existing mechanism evidence remains in the [finite-control record](missile-control-validation.md),
+Existing mechanism evidence remains in the [finite-control record](weapon-controls.md),
 [physical-chain audit](sim-m03-physical-chain-audit.md),
 [seeker record](weapon-seeker-validation.md) and
 [feedback record](weapon-feedback-validation.md). Their dated software results

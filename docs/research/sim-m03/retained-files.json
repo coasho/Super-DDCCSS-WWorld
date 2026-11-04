@@ -1,0 +1,541 @@
+{
+  "schema": "fsim.sim-m03.retained-research.v1",
+  "passed": true,
+  "scope": "Historical research and recorded products; current implementation status is in README.md and the physical completion plan. Maintained baseline Markdown views identify their frozen epoch; exact original bytes are separately archived and bound.",
+  "files": [
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-map.md",
+      "retained": "docs/research/sim-m03/baseline/sensing-reference-map.md",
+      "sha256": "679310b472bbe6945c9d868e67c6385e929f9adfbfa3217cad8ffce4eaae9de3",
+      "bytes": 19080,
+      "original_sha256": "6b1557d9984623f7b027d4b5157583b0a8a30bbfbb3d40e2600cde52ee403deb",
+      "original_bytes": 18410,
+      "immutable_archive": {
+        "path": "artifacts/sim-m03/research/baseline-originals/sensing-reference-map.md",
+        "sha256": "6b1557d9984623f7b027d4b5157583b0a8a30bbfbb3d40e2600cde52ee403deb",
+        "bytes": 18410
+      },
+      "maintained_view_changes": {
+        "date": "2026-11-03",
+        "scope": "Explicit frozen 2026-11-02 notice and current implemented-method links; atlas repository-root relative links corrected. Historical results, numeric parameters and original hash values preserved.",
+        "current_runtime_or_calibration_acceptance": false
+      }
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-map.json",
+      "retained": "docs/research/sim-m03/baseline/sensing-reference-map.json",
+      "sha256": "985f1ec338a58c741bda79a4beda6c6143cc789337e6e703d08f8438a757f764",
+      "bytes": 642279
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\effects-reference-map.md",
+      "retained": "docs/research/sim-m03/baseline/effects-reference-map.md",
+      "sha256": "95ede85c864a813102c81b0ad233daff106c84d278f9fa0ecf9f5f983f301a04",
+      "bytes": 19755
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\effects-reference-map.json",
+      "retained": "docs/research/sim-m03/baseline/effects-reference-map.json",
+      "sha256": "6f92d4d38701ad7f663ae31e69a9ec3bf0c3112cf384242bb3361638c8f8321e",
+      "bytes": 46188
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\model-capability-atlas.md",
+      "retained": "docs/research/sim-m03/baseline/model-capability-atlas.md",
+      "sha256": "4f4a07db7cfcfa69c7e0b9ec176b2d2fec2bc5066f625aa2bce0fd44f0f634e6",
+      "bytes": 25955,
+      "original_sha256": "d543d9fab7790d666622a153ee8d199c5e4e42e45a06ef5c7391e017d7f4f7d0",
+      "original_bytes": 25201,
+      "immutable_archive": {
+        "path": "artifacts/sim-m03/research/baseline-originals/model-capability-atlas.md",
+        "sha256": "d543d9fab7790d666622a153ee8d199c5e4e42e45a06ef5c7391e017d7f4f7d0",
+        "bytes": 25201
+      },
+      "maintained_view_changes": {
+        "date": "2026-11-03",
+        "scope": "Explicit frozen 2026-11-02 notice and current implemented-method links; atlas repository-root relative links corrected. Historical results, numeric parameters and original hash values preserved.",
+        "current_runtime_or_calibration_acceptance": false
+      }
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\model-capability-atlas.json",
+      "retained": "docs/research/sim-m03/baseline/model-capability-atlas.json",
+      "sha256": "79cb111ddbe5d1376595d9ed13c4585de3aaa0e87e223837d3befd77c29461cf",
+      "bytes": 2175938
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\model-capability-atlas.csv",
+      "retained": "docs/research/sim-m03/baseline/model-capability-atlas.csv",
+      "sha256": "dd3ccde3f945695929340cd8b2975f2058f189cb250dd76dc0b3815ff4ec0152",
+      "bytes": 18608
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\model-capability-atlas.png",
+      "retained": "docs/research/sim-m03/baseline/model-capability-atlas.png",
+      "sha256": "fb914ffa40b75afa41cc31deabe3acc627a58cb6daf048fcbbe1842990400b06",
+      "bytes": 470555
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\model-capability-atlas.svg",
+      "retained": "docs/research/sim-m03/baseline/model-capability-atlas.svg",
+      "sha256": "104e61276db6176bd8c7a2ed38ebe1cd1b0cbe955cae94342375c9e5b687bc9e",
+      "bytes": 384325
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\manifest.json",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/manifest.json",
+      "sha256": "9c3fb8983783e48addec0133140ea27404e1274309dd3335bbda41349369702c",
+      "bytes": 5183
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\mixr-license-page.html",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/mixr-license-page.html",
+      "sha256": "0200dc093dc133db9bcbbd1925f3d1e9effa9eee7dcb77af87a5deb568ce78bd",
+      "bytes": 11575
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\mixr-mixr_doc_licenses_license-bison.txt",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/mixr-mixr_doc_licenses_license-bison.txt",
+      "sha256": "dd4f1e6c569bd447bb9f76c69ec0d7f933f5b6fb27a7f6c87142c14a3af6c1da",
+      "bytes": 139
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\mixr-mixr_doc_licenses_license-mixr.txt",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/mixr-mixr_doc_licenses_license-mixr.txt",
+      "sha256": "dc87606c81d7e6a526fabaa6b744dcf3664701b9ac84ca82adfe8bce9db86117",
+      "bytes": 9472
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\mixr-mixr_doc_licenses_license-osg.txt",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/mixr-mixr_doc_licenses_license-osg.txt",
+      "sha256": "a3bc597afe3145e3f89726558c8c969927e78555fb166b92e87323e5a7a9139d",
+      "bytes": 29839
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\mixr-mixr_src_models_player_ground_GroundStationRadar.cpp",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/mixr-mixr_src_models_player_ground_GroundStationRadar.cpp",
+      "sha256": "2148acfeb7763d933fc5c5a5f88237c2f0b62113093e6be395374f33779267b4",
+      "bytes": 463
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\mixr-mixr_src_models_signature_IIrSignature.cpp",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/mixr-mixr_src_models_signature_IIrSignature.cpp",
+      "sha256": "4d9070c5071edc539080f2f8bbdb110e54b7994ee8108f425251c609587e10e5",
+      "bytes": 7488
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\mixr-mixr_src_models_signature_IrSignature.cpp",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/mixr-mixr_src_models_signature_IrSignature.cpp",
+      "sha256": "7784a94f17b51f3b68e0d0ef1ae67a79991637576d79dd0853b47a0686d1f1f6",
+      "bytes": 259
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\mixr-mixr_src_models_system_IRadar.cpp",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/mixr-mixr_src_models_system_IRadar.cpp",
+      "sha256": "a4403bc9392c1afb08b7992676f4195a3b5a24439339c43043247c184bbfbd22",
+      "bytes": 16911
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\mixr-mixr_src_models_system_IrSensor.cpp",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/mixr-mixr_src_models_system_IrSensor.cpp",
+      "sha256": "a605f80c28470953f8875cc8ac9debb2c420cc7a568f1b54c201d090f0378552",
+      "bytes": 25953
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\mixr-mixr_src_models_system_MergingIrSensor.cpp",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/mixr-mixr_src_models_system_MergingIrSensor.cpp",
+      "sha256": "643d393d77c3d0328f918393779b569ae5c3a33eec71fda0019d44b19502b9e4",
+      "bytes": 11242
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\mixr-mixr_src_models_system_Radar.cpp",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/mixr-mixr_src_models_system_Radar.cpp",
+      "sha256": "e1f5605c342378678dc5272995661399899f6da380c162d9e0ab9e61890a5c2c",
+      "bytes": 213
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\mixr_v26.10.tgz",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/mixr_v26.10.tgz",
+      "sha256": "192cc967c7850153fbfbb826f6caa9c72b13765f616374add9820b7d20c4bd82",
+      "bytes": 9307652
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\Palumbo_Principles_Rev2018.pdf",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/Palumbo_Principles_Rev2018.pdf",
+      "sha256": "17b772339500f1679d4dd4f5fd87bc1b16beb51ee8ec2d3a26bf385a00f7fb7e",
+      "bytes": 2169198
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\pyradi-commit.json",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/pyradi-commit.json",
+      "sha256": "fce2b06abd93b51a4a6b5ba34bd0da257e6ea6ea7c297168a421be4714b57dce",
+      "bytes": 17703
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\pyradi-LICENSE",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/pyradi-LICENSE",
+      "sha256": "e9c1bba6ce9f9e2b9b49947c8f1d519a1529d5f8c3434f04ae12af650b94dd64",
+      "bytes": 1070
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\pyradi-pyradi_ryplanck.py",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/pyradi-pyradi_ryplanck.py",
+      "sha256": "089508683c80ca44e23918e9d707fd6b55abd51f4fca967fd03c195e430fbd81",
+      "bytes": 51528
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\Stone-Soup-commit.json",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/Stone-Soup-commit.json",
+      "sha256": "006d3d61754d72e727a42da36032c04b9416cfbd4fc7af1764cbc5fe77a6305d",
+      "bytes": 5852
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\Stone-Soup-LICENSE",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/Stone-Soup-LICENSE",
+      "sha256": "2462f3d8a857f601e266f048a4ff051366c1e05f098cf3a1524eaf922f879815",
+      "bytes": 1494
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\Stone-Soup-stonesoup_models_clutter_clutter.py",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/Stone-Soup-stonesoup_models_clutter_clutter.py",
+      "sha256": "b72125e955ce6c8d37c4a0b659336115144dfd80e4eaaf27e2c91bade37d4835",
+      "bytes": 5498
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\sensing-reference-sources\\Stone-Soup-stonesoup_sensor_radar_radar.py",
+      "retained": "artifacts/sim-m03/research/sensing-reference-sources/Stone-Soup-stonesoup_sensor_radar_radar.py",
+      "sha256": "8e926d708edcfae7cf5f9334b27dc7483875cebb8c464d38fe7b8def3d3689c6",
+      "bytes": 37256
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-coverage.json",
+      "retained": "artifacts/sim-m03/research/baseline-receipts/checkpoint61-coverage.json",
+      "sha256": "825a242f6f73b49f4cc255ad59d7afa8583a311c059312aeb9929070058451f4",
+      "bytes": 872691
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-fleet.json",
+      "retained": "artifacts/sim-m03/research/baseline-receipts/checkpoint61-fleet.json",
+      "sha256": "ad05c74eb0add6f6c7c72a62f0dd4f554efe8803bbdaa4b8f5cc164727ff848d",
+      "bytes": 105224
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\checkpoint61-installed.json",
+      "retained": "artifacts/sim-m03/research/baseline-receipts/checkpoint61-installed.json",
+      "sha256": "13b38d75a8ea22bea4347cc37c264e1ca3b4f150c3e888a2f8e83d978d37c094",
+      "bytes": 44066
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\aim-120c-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/aim-120c-1w-4skip-5000m.json",
+      "sha256": "003969c60d78b1649cd4e017c5ab007fefbe9c938c12b3e8b3694b41e0b79d11",
+      "bytes": 1090498
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\aim-120c-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/aim-120c-4w-4skip-5000m.json",
+      "sha256": "003969c60d78b1649cd4e017c5ab007fefbe9c938c12b3e8b3694b41e0b79d11",
+      "bytes": 1090498
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\aim-120d-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/aim-120d-1w-4skip-5000m.json",
+      "sha256": "50e827ce8b4cf60aeec600b7acf3ffecf8b1baecc868a495b25051fd1ba5acb0",
+      "bytes": 1074446
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\aim-120d-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/aim-120d-4w-4skip-5000m.json",
+      "sha256": "50e827ce8b4cf60aeec600b7acf3ffecf8b1baecc868a495b25051fd1ba5acb0",
+      "bytes": 1074446
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\aim-7m-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/aim-7m-1w-4skip-5000m.json",
+      "sha256": "c1a915f7320e8904b04899dbbd3df01d1482be132a10c35b4ae6a78931dcf98a",
+      "bytes": 1208044
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\aim-7m-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/aim-7m-4w-4skip-5000m.json",
+      "sha256": "c1a915f7320e8904b04899dbbd3df01d1482be132a10c35b4ae6a78931dcf98a",
+      "bytes": 1208044
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\aim-9m-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/aim-9m-1w-4skip-5000m.json",
+      "sha256": "21e24976d157b3398a7f0277e0ca04188199b5fedeb8d43f253584b86526a6de",
+      "bytes": 1095485
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\aim-9m-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/aim-9m-4w-4skip-5000m.json",
+      "sha256": "21e24976d157b3398a7f0277e0ca04188199b5fedeb8d43f253584b86526a6de",
+      "bytes": 1095485
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\aim-9x-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/aim-9x-1w-4skip-5000m.json",
+      "sha256": "01a514cc551095d2c91a0585c449f101fa10fc17994792d60e479c5d5059143b",
+      "bytes": 1072440
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\aim-9x-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/aim-9x-4w-4skip-5000m.json",
+      "sha256": "01a514cc551095d2c91a0585c449f101fa10fc17994792d60e479c5d5059143b",
+      "bytes": 1072440
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\asraam-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/asraam-1w-4skip-5000m.json",
+      "sha256": "09d3193a0276089e8927c22de90533ab5aa1a78f7d99d170e17a91bfafda53cc",
+      "bytes": 3410492
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\asraam-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/asraam-4w-4skip-5000m.json",
+      "sha256": "09d3193a0276089e8927c22de90533ab5aa1a78f7d99d170e17a91bfafda53cc",
+      "bytes": 3410492
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\iris-t-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/iris-t-1w-4skip-5000m.json",
+      "sha256": "0124554fe17c90d215d73155248fcdaa7247ed63c336c0fddb06d6c7f3c54f7e",
+      "bytes": 1080935
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\iris-t-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/iris-t-4w-4skip-5000m.json",
+      "sha256": "0124554fe17c90d215d73155248fcdaa7247ed63c336c0fddb06d6c7f3c54f7e",
+      "bytes": 1080935
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\magic-2-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/magic-2-1w-4skip-5000m.json",
+      "sha256": "29516a79dd46bf79013feced9eef58d8438e1a01a7717df75ef658eee7a7cd93",
+      "bytes": 3377013
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\magic-2-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/magic-2-4w-4skip-5000m.json",
+      "sha256": "29516a79dd46bf79013feced9eef58d8438e1a01a7717df75ef658eee7a7cd93",
+      "bytes": 3377013
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\meteor-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/meteor-1w-4skip-5000m.json",
+      "sha256": "7ff3f7d57380095c18b57aa97e32be4a5b2466a1b24fcaa0ff1805619fc4bd64",
+      "bytes": 1120576
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\meteor-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/meteor-4w-4skip-5000m.json",
+      "sha256": "7ff3f7d57380095c18b57aa97e32be4a5b2466a1b24fcaa0ff1805619fc4bd64",
+      "bytes": 1120576
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\mica-em-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/mica-em-1w-4skip-5000m.json",
+      "sha256": "9935776e386d09f8257ac2e165a3f2e8f4dc129ebac3500a51745c10def66486",
+      "bytes": 1139965
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\mica-em-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/mica-em-4w-4skip-5000m.json",
+      "sha256": "9935776e386d09f8257ac2e165a3f2e8f4dc129ebac3500a51745c10def66486",
+      "bytes": 1139965
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\mica-ir-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/mica-ir-1w-4skip-5000m.json",
+      "sha256": "9ba08543428cba5eb0710e45af0608a94917613a1ea076e807717162c3538acd",
+      "bytes": 3411446
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\mica-ir-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/mica-ir-4w-4skip-5000m.json",
+      "sha256": "9ba08543428cba5eb0710e45af0608a94917613a1ea076e807717162c3538acd",
+      "bytes": 3411446
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\pl-10-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/pl-10-1w-4skip-5000m.json",
+      "sha256": "17b73411518bb52217e7665e5f1b4c0e20693f82382298d766f40e591355cd40",
+      "bytes": 3392065
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\pl-10-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/pl-10-4w-4skip-5000m.json",
+      "sha256": "17b73411518bb52217e7665e5f1b4c0e20693f82382298d766f40e591355cd40",
+      "bytes": 3392065
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\pl-12-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/pl-12-1w-4skip-5000m.json",
+      "sha256": "827e61152d2357eb1429831c23e67c5da1f88368c22b5fb5b77f00e1326eead5",
+      "bytes": 1069447
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\pl-12-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/pl-12-4w-4skip-5000m.json",
+      "sha256": "827e61152d2357eb1429831c23e67c5da1f88368c22b5fb5b77f00e1326eead5",
+      "bytes": 1069447
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\pl-15-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/pl-15-1w-4skip-5000m.json",
+      "sha256": "d7a40dbf5f02acc89b84052a4bf17214a2cef6fa5b9adeab01f224bc29d84c31",
+      "bytes": 1369603
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\pl-15-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/pl-15-4w-4skip-5000m.json",
+      "sha256": "d7a40dbf5f02acc89b84052a4bf17214a2cef6fa5b9adeab01f224bc29d84c31",
+      "bytes": 1369603
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\pl-8-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/pl-8-1w-4skip-5000m.json",
+      "sha256": "b97fc692020bf406abaa2c4e5972d190a92a6b0471ed4868f2c1e55c96e9dcd4",
+      "bytes": 4692787
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\pl-8-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/pl-8-4w-4skip-5000m.json",
+      "sha256": "b97fc692020bf406abaa2c4e5972d190a92a6b0471ed4868f2c1e55c96e9dcd4",
+      "bytes": 4692787
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\r-27er-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/r-27er-1w-4skip-5000m.json",
+      "sha256": "742c7bdc30c936aae00ef06bbe8aa0b34bfa17a9eac53a67c33ddebcae1a957a",
+      "bytes": 1306080
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\r-27er-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/r-27er-4w-4skip-5000m.json",
+      "sha256": "742c7bdc30c936aae00ef06bbe8aa0b34bfa17a9eac53a67c33ddebcae1a957a",
+      "bytes": 1306080
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\r-27et-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/r-27et-1w-4skip-5000m.json",
+      "sha256": "5dcb89bc12b03304aed90e4dad2e540516f926b987d8015bff78a57023b24a3f",
+      "bytes": 4710054
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\r-27et-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/r-27et-4w-4skip-5000m.json",
+      "sha256": "5dcb89bc12b03304aed90e4dad2e540516f926b987d8015bff78a57023b24a3f",
+      "bytes": 4710054
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\r-27r-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/r-27r-1w-4skip-5000m.json",
+      "sha256": "a0b679c6fc9ffd9ad11640b3c17ef76e3c4d3eb32cc3e3c3038e5ac4d4919074",
+      "bytes": 1321109
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\r-27r-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/r-27r-4w-4skip-5000m.json",
+      "sha256": "a0b679c6fc9ffd9ad11640b3c17ef76e3c4d3eb32cc3e3c3038e5ac4d4919074",
+      "bytes": 1321109
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\r-27t-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/r-27t-1w-4skip-5000m.json",
+      "sha256": "af325a4bb4b0b40615335a316c325ac375592691d485840d093c1fb8bcc7edf7",
+      "bytes": 4693166
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\r-27t-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/r-27t-4w-4skip-5000m.json",
+      "sha256": "af325a4bb4b0b40615335a316c325ac375592691d485840d093c1fb8bcc7edf7",
+      "bytes": 4693166
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\r-37m-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/r-37m-1w-4skip-5000m.json",
+      "sha256": "303db8a9dd8b8f3f9d5c279b52deafae1d1cb8813ccf79f86f5ddd6a2fd59714",
+      "bytes": 1185496
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\r-37m-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/r-37m-4w-4skip-5000m.json",
+      "sha256": "303db8a9dd8b8f3f9d5c279b52deafae1d1cb8813ccf79f86f5ddd6a2fd59714",
+      "bytes": 1185496
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\r-60m-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/r-60m-1w-4skip-5000m.json",
+      "sha256": "da4ac86d210237baac65de6ae04457ad0c694c8d8e3983d06db8bedbef009b4b",
+      "bytes": 3388850
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\r-60m-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/r-60m-4w-4skip-5000m.json",
+      "sha256": "da4ac86d210237baac65de6ae04457ad0c694c8d8e3983d06db8bedbef009b4b",
+      "bytes": 3388850
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\r-73-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/r-73-1w-4skip-5000m.json",
+      "sha256": "e42d0d85a478b0b359ba7fc64eafb9357a0e8e543958d84a57e2f31f94836e4e",
+      "bytes": 4697615
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\r-73-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/r-73-4w-4skip-5000m.json",
+      "sha256": "e42d0d85a478b0b359ba7fc64eafb9357a0e8e543958d84a57e2f31f94836e4e",
+      "bytes": 4697615
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\r-77m-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/r-77m-1w-4skip-5000m.json",
+      "sha256": "4ea887d74ce8c5995c27183c205bf20632c67a96c9563b8d95332e9222afe2f2",
+      "bytes": 3351457
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\r-77m-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/r-77m-4w-4skip-5000m.json",
+      "sha256": "4ea887d74ce8c5995c27183c205bf20632c67a96c9563b8d95332e9222afe2f2",
+      "bytes": 3351457
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\super-530d-1w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/super-530d-1w-4skip-5000m.json",
+      "sha256": "12044f05b35c3eafce9a71ad57a292bb834f9eff3c8328f1beeabbab17bb0ff0",
+      "bytes": 1191950
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\super-530d-4w-4skip-5000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/super-530d-4w-4skip-5000m.json",
+      "sha256": "12044f05b35c3eafce9a71ad57a292bb834f9eff3c8328f1beeabbab17bb0ff0",
+      "bytes": 1191950
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\pl-15-1w-4skip-30000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/pl-15-1w-4skip-30000m.json",
+      "sha256": "71a224cc798a6fd5893d64ae75058dcbca442103da5222404bba514d2c0a33fd",
+      "bytes": 3599321
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\r-37m-1w-4skip-30000m.json",
+      "retained": "artifacts/sim-m03/research/flight-records/r-37m-1w-4skip-30000m.json",
+      "sha256": "58622287ea12a2720655847458bf14af4ae4ed9dede573de3232bdf6d67c0ca9",
+      "bytes": 3782196
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\pl-15-1w-4skip-30000m-launcher-loss.json",
+      "retained": "artifacts/sim-m03/research/flight-records/pl-15-1w-4skip-30000m-launcher-loss.json",
+      "sha256": "763b9eb2132bff31d55bd57cf2d39ca22ae2618845d8028fe26ee5deadecd827",
+      "bytes": 3019691
+    },
+    {
+      "original": "D:\\Projects\\Cpp\\Super-DDCCSS-WWorld\\build\\architecture-reviews\\sim-m03-complete-20261102\\installed-fleet-records\\r-37m-1w-4skip-30000m-launcher-loss.json",
+      "retained": "artifacts/sim-m03/research/flight-records/r-37m-1w-4skip-30000m-launcher-loss.json",
+      "sha256": "6e57ad8d6a87d086516d60a8db278ebc0d55d877b6431c92f123ee1bc7b54311",
+      "bytes": 3198513
+    }
+  ]
+}

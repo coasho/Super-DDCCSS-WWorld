@@ -239,6 +239,23 @@ def files(card):
         for axis, coordinate in zip('xyz', tip):
             metadata += '\n        <property value="%.17g">fsim/model/nose-%s-in</property>' % (_finite_conversion(coordinate * k, 'contact nose'), axis)
     xml = xml.replace('</flight_control>', metadata + '\n    </flight_control>', 1)
+    pulse=(motor_settings or {}).get('pulse_control_v1')
+    if pulse:
+        phases=design['motor']['phase'];buildup=motor_settings['buildup_s']
+        first=phases[0]['duration_s']+buildup*(1-2/math.pi)
+        second=first+phases[1]['duration_s']
+        values={'version':1,'first-end-s':first,'second-start-s':second,
+            'second-end-s':second+phases[2]['duration_s'],'hold-limit-s':pulse['pulse_hold_limit_s'],
+            'reserve-speed-m_s':pulse['pulse_reserve_speed_m_s'],'terminal-lead-s':pulse['pulse_terminal_lead_s'],
+            'second-command':0,'second-ignition-age-s':-1,'native-age-s':0,'virtual-age-s':0}
+        metadata=''.join('\n        <property value="%.17g">fsim/motor-pulse/%s</property>'%(value,key) for key,value in values.items())
+        xml=xml.replace('</flight_control>',metadata+'\n    </flight_control>',1)
+    if motor and motor_settings is not None and card.get('class')=='aam':
+        # Explicit current AAM motor profiles opt into supply-backed native
+        # force. Legacy/absent profiles keep their original native execution.
+        # Meteor's booster is engine0; its sustainer already owns V2 batches.
+        xml=xml.replace('</flight_control>',
+            '\n        <property value="1">fsim/rocket-feed-v1/engine[0]/version</property>\n    </flight_control>',1)
     out = {name + '.xml': xml}
     if motor:
         table_name = 'propulsion/thrust_prop_remain'
@@ -246,6 +263,7 @@ def files(card):
         if any((phase['thrust_kn'] == 0.0 for phase in design['motor']['phase'])):
             table_name = _IGNITION_TIME_THRUST
             table_text = '\n'.join(('            %.17g %.17g' % row for row in _ignition_time_thrust_rows(design['motor']['phase'], coast_n=(motor_settings or {}).get('coast_thrust_n', COAST_N), buildup_s=(motor_settings or {}).get('buildup_s', BUILDUP))))
+        if pulse:table_name='fsim/commanded-dual-pulse-v1'
         out['Engines/%s_motor.xml' % name] = '<?xml version="1.0"?>\n<!-- Written by hangar (storemodels.py) from the design of %s: its motor\'s phases there (assumed: none is published),\n     %.1f kg of propellant at %.0f s (assumed), burning %.1f s. Do not edit. -->\n<rocket_engine name="%s motor">\n    <isp> %.1f </isp>\n    <builduptime> %.2f </builduptime>\n    <thrust_table name="%s" type="internal">\n        <tableData>\n%s\n        </tableData>\n    </thrust_table>\n</rocket_engine>\n' % (name, motor['propellant_kg'], motor['isp'], motor['burn_s'], name, motor['isp'], (motor_settings or {}).get('buildup_s', BUILDUP), table_name, table_text)
         if motor_settings:
             for tag, value, precision in (('isp', motor['isp'], 1), ('builduptime', motor_settings['buildup_s'], 2)):

@@ -598,7 +598,7 @@ def install_gmsh_library(root, archive):
 
 def probe_python_packages(root):
     env = dict(os.environ, PYTHONPATH=str(inside(root, ".local/packages")), PYTHONNOUSERSITE="1")
-    code = "import numpy,scipy,matplotlib,PIL,json; print(json.dumps({'numpy':numpy.__version__,'scipy':scipy.__version__,'matplotlib':matplotlib.__version__,'Pillow':PIL.__version__}))"
+    code = "import numpy,scipy,matplotlib,PIL,manifold3d,json,importlib.metadata; print(json.dumps({'numpy':numpy.__version__,'scipy':scipy.__version__,'matplotlib':matplotlib.__version__,'Pillow':PIL.__version__,'manifold3d':importlib.metadata.version('manifold3d')}))"
     return json.loads(output(sys.executable, ["-B", "-c", code], env))
 
 
