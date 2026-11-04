@@ -219,6 +219,31 @@ TEST_CASE("Reticle rejects extended DC clutter and retains an actual compact sig
     REQUIRE(result.valid);CHECK_FALSE(result.saturated);CHECK(result.features.empty());
 }
 
+TEST_CASE("Reticle reports a coarse but finite bearing for a detected source near the stop", "[thermal-reticle][thermal-reticle-edge]") {
+    const auto c=reticlePolicy();
+    for(const double y:{.0,.01,.02,.03,.04,.045})for(const double width:{.001,.003,.006,.012}) {
+        INFO("y="<<y<<" width="<<width);
+        ThermalReticleReceiverV1 receiver;std::string error;REQUIRE(receiver.configure(c,error));
+        auto f=reticleScene(0,100);REQUIRE(f.patches.size()==1);
+        f.patches[0].direction=unitRay(1,y,0);
+        f.patches[0].widthRad=f.patches[0].heightRad=width;
+        const auto start=receiver.expose(f,{1,0,0},17);REQUIRE(start.valid);
+        f.timeS=.02;const auto result=receiver.expose(f,{1,0,0},17);
+        REQUIRE(result.valid);REQUIRE(result.complete);
+        // The detection gate may legitimately reject a sub-threshold source.
+        // A source that clears it must still supply a coarse measured bearing.
+        INFO("fitSnr="<<result.fitSnr<<" residual="<<result.fitResidual<<" features="<<result.features.size());
+        if(result.fitSnr>12) {
+            REQUIRE(result.features.size()==1);CHECK(result.bearingResolved);
+            // A coarse bearing must remain inside the optical stop; an
+            // extended edge source is not required to reproduce its centroid.
+            CHECK(std::abs(std::atan2(result.features[0].direction.y,result.features[0].direction.x))<=c.stopRadiusRad);
+            CHECK(std::isfinite(result.features[0].angularVarianceRad2));
+            CHECK(result.features[0].angularVarianceRad2>0);
+        }
+    }
+}
+
 TEST_CASE("Reticle out-of-field light and source order cannot manufacture a measurement", "[thermal-reticle]") {
     const auto c=reticlePolicy();std::string error;ThermalReticleReceiverV1 absent,outside;
     REQUIRE(absent.configure(c,error));REQUIRE(outside.configure(c,error));

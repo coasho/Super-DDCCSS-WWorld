@@ -7,6 +7,7 @@ namespace fsim::ms::components {
 struct ThermalReticleResultV1 {
     bool valid=false,complete=false,bearingResolved=false,saturated=false;
     double timeS=0,exposureStartTimeS=0,exposureEndTimeS=0,measurementTimeS=0;
+    weapon::V3 pointing{}; ///< Exact optical-axis input used for this capture.
     double fitSnr=0,fitResidual=0,varianceBoundElectrons2=0;
     double fullWellElectrons=0,readNoiseElectrons=0,darkElectrons=0,adcStepElectrons=0;
     std::vector<double> phases,incidentElectrons,expectedElectrons,measuredElectrons;

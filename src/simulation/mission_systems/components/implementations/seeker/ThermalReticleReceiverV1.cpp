@@ -158,7 +158,7 @@ ThermalReticleResultV1 ThermalReticleReceiverV1::expose(const ThermalSceneFrameV
         detectorCharge_=beforeCharge;expectedCharge_=beforeExpected;return ThermalReticleResultV1{};
     };
     if(!seeded_){rng_.seed(seed^0x52455449434c4531ull);seeded_=true;startedS_=lastDetectorSampleTimeS_=scene.timeS;}
-    ThermalReticleResultV1 result;result.valid=true;result.timeS=scene.timeS;
+    ThermalReticleResultV1 result;result.valid=true;result.timeS=scene.timeS;result.pointing=unit(pointing);
     const auto window=captureWindowV1(scene.timeS);
     if(!window){cached_=result;lastTimeS_=scene.timeS;return result;}
     const double start=(*window)[0],end=(*window)[2];
@@ -271,6 +271,28 @@ void ThermalReticleReceiverV1::fit(ThermalReticleResultV1& result,V pointing,V u
         }
     }
     result.fitSnr=std::sqrt(best/variance);result.fitResidual=std::max(0.,dataNorm-best)/variance;
+    const auto forward=unit(pointing);auto right=unit(cross(forward,unit(up)));
+    if(norm(right)<.5)right=unit(cross(forward,std::abs(forward.z)<.9?V{0,0,1}:V{0,1,0}));
+    const auto vertical=unit(cross(right,forward));
+    const auto emit=[&](double angularVariance) {
+        ThermalImageFeatureV1 feature;feature.direction=unit(add(forward,add(scale(right,std::tan(bestX)),scale(vertical,std::tan(bestY)))));
+        feature.signalToNoise=result.fitSnr;feature.angularVarianceRad2=angularVariance;
+        feature.signedContrastElectrons=bestAmplitude;
+        feature.extent.widthRad=bestWidth;feature.extent.heightRad=bestHeight;
+        feature.centroidColumn=(bestX/p.pixelPitchRad)+.5*p.width;
+        feature.centroidRow=(bestY/p.pixelPitchRad)+.5*p.height;
+        result.features.push_back(feature);result.bearingResolved=true;
+    };
+    const double coarseVariance=std::max({p.pixelPitchRad*p.pixelPitchRad/12,
+        (bestWidth*bestWidth+bestHeight*bestHeight)/12,step*step/12});
+    // A source that fills the detector support has no unique bearing. The
+    // coarse fallback is only for a compact source whose local fit is
+    // ill-conditioned, never for extended DC/horizon clutter.
+    const bool compactSource=bestWidth<.5*p.width*p.pixelPitchRad&&bestHeight<.5*p.height*p.pixelPitchRad;
+    // A compact source truncated by the optical stop can fit a wide support.
+    // Its best centre remains near the stop; keep the coarse measurement there
+    // rather than losing an already detected edge source.
+    const bool nearStop=std::hypot(bestX,bestY)>=.75*c.stopRadiusRad;
     // Bound the ENTIRE fixed final angle/support lattice, not merely the
     // number of data-adaptively selected refinement queries. This keeps the
     // nominal Gaussian trial screen honest without changing detectionSigma.
@@ -280,7 +302,16 @@ void ThermalReticleReceiverV1::fit(ThermalReticleResultV1& result,V pointing,V u
     const double degrees=static_cast<double>(count)-static_cast<double>(nuisance_.size())-5,tail=.5*p.detectionSigma*p.detectionSigma;
     // Laurent-Massart upper tail for a Gaussian residual, disclosed as a
     // high-count engineering screen, not a calibrated equipment ROC.
-    if(result.fitSnr<threshold||degrees<=0||result.fitResidual>degrees+2*std::sqrt(degrees*tail)+2*tail||bestNorm<=0)return;
+    if(result.fitSnr<threshold||degrees<=0||bestNorm<=0)return;
+    const double residualBound=degrees+2*std::sqrt(degrees*tail)+2*tail;
+    if(result.fitResidual>residualBound) {
+        // The source cleared the detection gate but the compact-template model
+        // does not explain an extended or truncated image. A detected source
+        // still supplies a coarse measured bearing; its uncertainty is the
+        // sampled support/quantization bound, not a precise local fit.
+        if((compactSource||nearStop)&&std::isfinite(coarseVariance)&&coarseVariance>0)emit(coarseVariance);
+        return;
+    }
     const double h=p.pixelPitchRad/1024;
     auto xp=spot(bestX+h,bestY,p.psfSigmaRad,bestWidth,bestHeight),xm=spot(bestX-h,bestY,p.psfSigmaRad,bestWidth,bestHeight);
     auto yp=spot(bestX,bestY+h,p.psfSigmaRad,bestWidth,bestHeight),ym=spot(bestX,bestY-h,p.psfSigmaRad,bestWidth,bestHeight);
@@ -308,16 +339,17 @@ void ThermalReticleReceiverV1::fit(ThermalReticleResultV1& result,V pointing,V u
     const double yy=inner(yp,yp)-std::pow(inner(yp,centre),2)/norm2;
     const double xy=inner(xp,yp)-inner(xp,centre)*inner(yp,centre)/norm2;
     const double determinant=xx*yy-xy*xy,trace=xx+yy;
-    if(!std::isfinite(determinant)||determinant<=128*std::numeric_limits<double>::epsilon()*trace*trace||xx<=0||yy<=0)return;
-    const double angularVariance=variance*(trace+std::hypot(xx-yy,2*xy))/(2*determinant*bestAmplitude*bestAmplitude)+step*step/12;
-    if(!std::isfinite(angularVariance)||angularVariance<=0)return;
-    const auto forward=unit(pointing);auto right=unit(cross(forward,unit(up)));
-    if(norm(right)<.5)right=unit(cross(forward,std::abs(forward.z)<.9?V{0,0,1}:V{0,1,0}));
-    const auto vertical=unit(cross(right,forward));
-    ThermalImageFeatureV1 feature;feature.direction=unit(add(forward,add(scale(right,std::tan(bestX)),scale(vertical,std::tan(bestY)))));
-    feature.signalToNoise=result.fitSnr;feature.angularVarianceRad2=angularVariance;
-    feature.signedContrastElectrons=bestAmplitude;
-    result.features.push_back(feature);result.bearingResolved=true;
+    if(std::isfinite(determinant)&&determinant>128*std::numeric_limits<double>::epsilon()*trace*trace&&xx>0&&yy>0) {
+        const double angularVariance=variance*(trace+std::hypot(xx-yy,2*xy))/(2*determinant*bestAmplitude*bestAmplitude)+step*step/12;
+        if(std::isfinite(angularVariance)&&angularVariance>0) {emit(angularVariance);return;}
+    }
+    // The source cleared the detection and residual gates, but its local
+    // angle/support Hessian is singular (edge truncation or unresolved extent).
+    // A detected source must still produce a coarse measured bearing; its
+    // uncertainty is the sampled template/support quantization, not a precise
+    // local fit. This preserves an honest measurement without inventing angle
+    // resolution the receiver did not achieve.
+    if((compactSource||nearStop)&&std::isfinite(coarseVariance)&&coarseVariance>0)emit(coarseVariance);
 }
 std::optional<std::vector<double>> ThermalReticleReceiverV1::unitGroundFieldV1(
     const ThermalImageConfigV1& p,V pointing,V up,double cutoff,
@@ -350,10 +382,12 @@ std::optional<std::vector<double>> ThermalReticleReceiverV1::unitGroundFieldV1(
     };
     const double pitch=p.pixelPitchRad,sigma=p.psfSigmaRad,margin=9*sigma,pixelArea=pitch*pitch;
     const double halfX=.5*p.width*pitch,halfY=.5*p.height*pitch;
-    const double left=region?std::max({-1.55,-halfX-margin,(*region)[0]}):std::max(-1.55,-halfX-margin);
-    const double rightEdge=region?std::min({1.55,halfX+margin,(*region)[1]}):std::min(1.55,halfX+margin);
-    const double bottom=region?std::max({-1.55,-halfY-margin,(*region)[2]}):std::max(-1.55,-halfY-margin);
-    const double top=region?std::min({1.55,halfY+margin,(*region)[3]}):std::min(1.55,halfY+margin);
+    const double fieldLeft=std::max(-1.55,-halfX-margin),fieldRight=std::min(1.55,halfX+margin);
+    const double fieldBottom=std::max(-1.55,-halfY-margin),fieldTop=std::min(1.55,halfY+margin);
+    const double left=region?std::max(fieldLeft,(*region)[0]):fieldLeft;
+    const double rightEdge=region?std::min(fieldRight,(*region)[1]):fieldRight;
+    const double bottom=region?std::max(fieldBottom,(*region)[2]):fieldBottom;
+    const double top=region?std::min(fieldTop,(*region)[3]):fieldTop;
     std::vector<double> answer(static_cast<std::size_t>(p.width)*p.height,0);
     if(!(rightEdge>left)||!(top>bottom)){if(accelerated)*accelerated=true;return answer;}
     const double a=dot(forward,nativeUp),b=dot(right,nativeUp),c=dot(vertical,nativeUp);
@@ -364,6 +398,18 @@ std::optional<std::vector<double>> ThermalReticleReceiverV1::unitGroundFieldV1(
     const double maxN=std::nextafter(std::abs(a)+std::nextafter(std::abs(b)*maxTx,std::numeric_limits<double>::infinity()),std::numeric_limits<double>::infinity());
     if(!(std::nextafter(c,-std::numeric_limits<double>::infinity())>
         std::nextafter(maxN*maxTy,std::numeric_limits<double>::infinity())))return original();
+    if(region) {
+        // A finite support whose edge lands on the horizon cone is a mixed
+        // endpoint quadrature. The accelerated interior-node rule cannot
+        // represent the disappearing cap, so retain the exact original
+        // renderer for this sensitive regional hypothesis.
+        const auto horizon=[&](double x){return std::atan((cutoff-a-b*std::tan(x))/c);};
+        const double h0=horizon(left),h1=horizon(rightEdge);
+        const double low=std::min(h0,h1),high=std::max(h0,h1);
+        const bool touchesField=(*region)[0]<=-halfX+1e-12||(*region)[1]>=halfX-1e-12||
+            (*region)[2]<=-halfY+1e-12||(*region)[3]>=halfY-1e-12;
+        if(touchesField&&(*region)[2]<=low+pitch&&(*region)[3]>=high-pitch)return original();
+    }
     // For an uncut pixel, Gaussian convolution equals E[g(U+sigma Z)],
     // U uniform in the detector interval and Z standard normal. The omitted
     // source beyond the existing9-sigma support is <=2Q(9)<2.3e-19.

@@ -488,8 +488,16 @@ TEST_CASE("Each maintained AAM executes one identifiable native release to actua
                         .set("saturated",reticle->saturated).set("fit_snr",controlNumber(reticle->fitSnr))
                         .set("fit_residual",controlNumber(reticle->fitResidual)).set("adc_step_electrons",controlNumber(reticle->adcStepElectrons))
                         .set("variance_bound_electrons2",controlNumber(reticle->varianceBoundElectrons2))
+                        .set("pointing_x",controlNumber(reticle->pointing.x)).set("pointing_y",controlNumber(reticle->pointing.y)).set("pointing_z",controlNumber(reticle->pointing.z))
+                        .set("feature_count",static_cast<double>(reticle->features.size()))
                         .set("phase_rad",controlArray(reticle->phases)).set("incident_electrons",controlArray(reticle->incidentElectrons))
                         .set("expected_electrons",controlArray(reticle->expectedElectrons)).set("measured_electrons",controlArray(reticle->measuredElectrons));
+                    if(!reticle->features.empty()) {
+                        const auto& feature=reticle->features.front();
+                        packet.set("feature_x",controlNumber(feature.direction.x)).set("feature_y",controlNumber(feature.direction.y)).set("feature_z",controlNumber(feature.direction.z))
+                            .set("feature_width_rad",controlNumber(feature.extent.widthRad)).set("feature_height_rad",controlNumber(feature.extent.heightRad))
+                            .set("feature_variance_rad2",controlNumber(feature.angularVarianceRad2));
+                    }
                 }
                 trace<<'"';for(const auto ch:packet.dump()){if(ch=='"')trace<<'"';trace<<ch;}trace<<'"';
                 lastReticlePacket=reticle->timeS;
