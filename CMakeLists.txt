@@ -62,6 +62,7 @@ include(Flow)
 set(FSIM_JSBSIM_DATA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/jsbsim)
 
 add_subdirectory(src)
+include(EquipmentModels)
 if(FSIM_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()

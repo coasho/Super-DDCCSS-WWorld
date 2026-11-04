@@ -72,6 +72,13 @@ Keep actor endpoint proxies separate from Range/referee handles. Strict actor pr
 
 ## Scheduling, files and verification
 
+All visual runs must use fullscreen at the primary display resolution and real
+time (1x). Keep the complete scene enabled: Earth imagery, terrain, clouds,
+sunlight, aircraft shadows, exhaust/condensation/contrails and native
+explosion/fire/smoke effects. Do not add windowed, accelerated or reduced-effects
+branches to visual acceptance tools. Verify actual presentation, not only option
+values. Preserve native outcomes: a miss must not be made into a hit or explosion.
+
 Record exact path/symbol allowlists and main HEAD before each feature. Shared World/MaCore/Agent/adapters/schema references/CMake/boundary files have one active feature owner per exclusive write window. Integrate reviewed patches at recorded handoffs; never edit shared paths concurrently. Record interfaces, changed symbols, fixtures, pending gates and commit/diff at each handoff.
 
 Use exclusive implementation windows. Stop and release the write/build slots after each handoff. Resume only when the user relays the next assignment and its dependencies are accepted. The user relays prompts and handoffs; do not contact external workers directly.
